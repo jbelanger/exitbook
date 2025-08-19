@@ -152,14 +152,9 @@ build/
 out/
 
 # Project specific - Exclude ALL personal financial data
-/apps/cli/data/*
-/data/
+data/
 *.csv
 *.db
 *.sqlite
 *.sqlite3
 commands.txt
-*files*.txt
-
-# Local Override Config Files
-/config/providers.local.json

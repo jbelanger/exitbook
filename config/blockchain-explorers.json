@@ -1,0 +1,337 @@
+{
+  "bitcoin": {
+    "explorers": [
+      {
+        "name": "mempool.space",
+        "enabled": true,
+        "priority": 1,
+        "mainnet": {
+          "baseUrl": "https://mempool.space/api"
+        },
+        "testnet": {
+          "baseUrl": "https://mempool.space/testnet/api"
+        },
+        "rateLimit": {
+          "requestsPerSecond": 1
+        },
+        "timeout": 10000,
+        "retries": 3
+      },
+      {
+        "name": "blockstream.info",
+        "enabled": true,
+        "priority": 2,
+        "mainnet": {
+          "baseUrl": "https://blockstream.info/api"
+        },
+        "testnet": {
+          "baseUrl": "https://blockstream.info/testnet/api"
+        },
+        "rateLimit": {
+          "requestsPerSecond": 1.0
+        },
+        "timeout": 10000,
+        "retries": 3
+      },
+      {
+        "name": "blockcypher",
+        "enabled": false,
+        "priority": 3,
+        "requiresApiKey": true,
+        "mainnet": {
+          "baseUrl": "https://api.blockcypher.com/v1/btc/main"
+        },
+        "testnet": {
+          "baseUrl": "https://api.blockcypher.com/v1/btc/test3"
+        },
+        "rateLimit": {
+          "requestsPerSecond": 3.0
+        },
+        "timeout": 15000,
+        "retries": 3
+      }
+    ]
+  },
+  "ethereum": {
+    "explorers": [
+      {
+        "name": "etherscan",
+        "enabled": true,
+        "priority": 1,
+        "requiresApiKey": true,
+        "mainnet": {
+          "baseUrl": "https://api.etherscan.io/api"
+        },
+        "testnet": {
+          "baseUrl": "https://api-goerli.etherscan.io/api"
+        },
+        "rateLimit": {
+          "requestsPerSecond": 0.2
+        },
+        "timeout": 15000,
+        "retries": 3
+      },
+      {
+        "name": "alchemy",
+        "enabled": false,
+        "priority": 2,
+        "requiresApiKey": true,
+        "mainnet": {
+          "baseUrl": "https://eth-mainnet.g.alchemy.com/v2"
+        },
+        "testnet": {
+          "baseUrl": "https://eth-goerli.g.alchemy.com/v2"
+        },
+        "rateLimit": {
+          "requestsPerSecond": 5.0
+        },
+        "timeout": 10000,
+        "retries": 3
+      },
+      {
+        "name": "moralis",
+        "enabled": false,
+        "priority": 3,
+        "requiresApiKey": true,
+        "mainnet": {
+          "baseUrl": "https://deep-index.moralis.io/api/v2"
+        },
+        "testnet": {
+          "baseUrl": "https://deep-index.moralis.io/api/v2"
+        },
+        "rateLimit": {
+          "requestsPerSecond": 5.0
+        },
+        "timeout": 10000,
+        "retries": 3
+      }
+    ]
+  },
+  "injective": {
+    "explorers": [
+      {
+        "name": "injective-explorer",
+        "enabled": true,
+        "priority": 1,
+        "mainnet": {
+          "baseUrl": "https://sentry.exchange.grpc-web.injective.network"
+        },
+        "testnet": {
+          "baseUrl": "https://testnet.exchange.grpc-web.injective.network"
+        },
+        "rateLimit": {
+          "requestsPerSecond": 2.0
+        },
+        "timeout": 15000,
+        "retries": 3
+      },
+      {
+        "name": "injective-lcd",
+        "enabled": true,
+        "priority": 2,
+        "mainnet": {
+          "baseUrl": "https://sentry.lcd.injective.network"
+        },
+        "testnet": {
+          "baseUrl": "https://testnet.lcd.injective.network"
+        },
+        "rateLimit": {
+          "requestsPerSecond": 3.0
+        },
+        "timeout": 10000,
+        "retries": 3
+      }
+    ]
+  },
+  "bittensor": {
+    "explorers": [
+      {
+        "name": "subscan",
+        "enabled": false,
+        "priority": 1,
+        "mainnet": {
+          "baseUrl": "https://finney.api.subscan.io"
+        },
+        "rateLimit": {
+          "requestsPerSecond": 0.5
+        },
+        "timeout": 20000,
+        "retries": 3
+      },
+      {
+        "name": "taostats",
+        "enabled": false,
+        "priority": 2,
+        "mainnet": {
+          "baseUrl": "https://taostats.io"
+        },
+        "rateLimit": {
+          "requestsPerSecond": 1.0
+        },
+        "timeout": 15000,
+        "retries": 3
+      }
+    ]
+  },
+  "polkadot": {
+    "explorers": [
+      {
+        "name": "subscan",
+        "enabled": true,
+        "priority": 1,
+        "mainnet": {
+          "baseUrl": "https://polkadot.api.subscan.io"
+        },
+        "rateLimit": {
+          "requestsPerSecond": 0.5
+        },
+        "timeout": 20000,
+        "retries": 3
+      },
+      {
+        "name": "polkadot-js",
+        "enabled": false,
+        "priority": 2,
+        "mainnet": {
+          "baseUrl": "https://polkadot.api.onfinality.io/public"
+        },
+        "rateLimit": {
+          "requestsPerSecond": 1.0
+        },
+        "timeout": 15000,
+        "retries": 3
+      }
+    ]
+  },
+  "kusama": {
+    "explorers": [
+      {
+        "name": "subscan",
+        "enabled": true,
+        "priority": 1,
+        "mainnet": {
+          "baseUrl": "https://kusama.api.subscan.io"
+        },
+        "rateLimit": {
+          "requestsPerSecond": 0.5
+        },
+        "timeout": 20000,
+        "retries": 3
+      },
+      {
+        "name": "kusama-rpc",
+        "enabled": false,
+        "priority": 2,
+        "mainnet": {
+          "baseUrl": "https://kusama.api.onfinality.io/public"
+        },
+        "rateLimit": {
+          "requestsPerSecond": 1.0
+        },
+        "timeout": 15000,
+        "retries": 3
+      }
+    ]
+  },
+  "avalanche": {
+    "explorers": [
+      {
+        "name": "snowtrace",
+        "enabled": true,
+        "priority": 1,
+        "requiresApiKey": true,
+        "mainnet": {
+          "baseUrl": "https://api.snowtrace.io/api"
+        },
+        "testnet": {
+          "baseUrl": "https://api-testnet.snowtrace.io/api"
+        },
+        "rateLimit": {
+          "requestsPerSecond": 0.2
+        },
+        "timeout": 15000,
+        "retries": 3
+      }
+    ]
+  },
+  "solana": {
+    "explorers": [
+      {
+        "name": "helius",
+        "enabled": true,
+        "priority": 1,
+        "requiresApiKey": true,
+        "type": "rpc",
+        "mainnet": {
+          "baseUrl": "https://mainnet.helius-rpc.com"
+        },
+        "testnet": {
+          "baseUrl": "https://rpc.helius.xyz"
+        },
+        "devnet": {
+          "baseUrl": "https://rpc.helius.xyz"
+        },
+        "rateLimit": {
+          "requestsPerSecond": 5
+        },
+        "timeout": 30000,
+        "retries": 3
+      },
+      {
+        "name": "constant-k",
+        "enabled": false,
+        "priority": 2,
+        "requiresApiKey": true,
+        "type": "rpc",
+        "mainnet": {
+          "baseUrl": "https://rpc.constant-k.com"
+        },
+        "rateLimit": {
+          "requestsPerSecond": 10.0
+        },
+        "timeout": 30000,
+        "retries": 3
+      },
+      {
+        "name": "solana-rpc",
+        "enabled": false,
+        "priority": 3,
+        "type": "rpc",
+        "mainnet": {
+          "baseUrl": "https://api.mainnet-beta.solana.com"
+        },
+        "testnet": {
+          "baseUrl": "https://api.testnet.solana.com"
+        },
+        "devnet": {
+          "baseUrl": "https://api.devnet.solana.com"
+        },
+        "rateLimit": {
+          "requestsPerSecond": 1.0
+        },
+        "timeout": 30000,
+        "retries": 3
+      },
+      {
+        "name": "solscan",
+        "enabled": false,
+        "priority": 4,
+        "type": "explorer",
+        "mainnet": {
+          "baseUrl": "https://api.solscan.io"
+        },
+        "testnet": {
+          "baseUrl": "https://api-testnet.solscan.io"
+        },
+        "devnet": {
+          "baseUrl": "https://api-devnet.solscan.io"
+        },
+        "rateLimit": {
+          "requestsPerSecond": 0.2
+        },
+        "timeout": 15000,
+        "retries": 3
+      }
+    ]
+  }
+}

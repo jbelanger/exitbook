@@ -1,0 +1,95 @@
+name: Test Suite
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run E2E tests daily at 2 AM UTC to catch API changes
+    - cron: '0 2 * * *'
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+    
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v2
+      with:
+        version: 10
+    
+    - name: Install dependencies
+      run: pnpm install
+    
+    - name: Run unit tests
+      run: pnpm test:unit
+    
+    - name: Generate coverage report
+      run: pnpm test:coverage
+    
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage/lcov.info
+
+  e2e-tests:
+    runs-on: ubuntu-latest
+    # Only run E2E tests if we have secrets (not on forks)
+    if: github.repository_owner == 'your-username' && (github.event_name == 'schedule' || github.event_name == 'push')
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Use Node.js 20.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+    
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v2
+      with:
+        version: 10
+    
+    - name: Install dependencies
+      run: pnpm install
+    
+    - name: Run E2E tests
+      env:
+        COINBASE_API_KEY: ${{ secrets.COINBASE_API_KEY }}
+        COINBASE_SECRET: ${{ secrets.COINBASE_SECRET }}
+        COINBASE_PASSPHRASE: ${{ secrets.COINBASE_PASSPHRASE }}
+      run: pnpm test:coinbase:e2e
+    
+    - name: Notify on API changes
+      if: failure() && github.event_name == 'schedule'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: '🚨 Coinbase API Change Detected',
+            body: `The scheduled E2E tests failed, which may indicate a breaking change in the Coinbase API.
+            
+            **Action Required:**
+            1. Check the test logs above for specific failures
+            2. Review Coinbase's API changelog
+            3. Update the adapter if necessary
+            4. Verify all transactions are still being processed correctly
+            
+            **Test Run:** ${{ github.run_id }}
+            **Triggered by:** Scheduled daily check`,
+            labels: ['bug', 'api-change', 'coinbase']
+          });
