@@ -139,33 +139,23 @@ export class BlockchainProviderManager {
           const provider = ProviderRegistry.createProvider(blockchain, explorerConfig.name, providerConfig);
           providers.push(provider);
 
-          logger.debug(`Successfully created provider ${explorerConfig.name} for ${blockchain}`, {
-            priority: explorerConfig.priority,
-            baseUrl: providerConfig.baseUrl,
-            requiresApiKey: metadata.requiresApiKey
-          });
+          logger.debug(`Successfully created provider ${explorerConfig.name} for ${blockchain} - Priority: ${explorerConfig.priority}, BaseUrl: ${providerConfig.baseUrl}, RequiresApiKey: ${metadata.requiresApiKey}`);
 
         } catch (error) {
-          logger.error(`Failed to create provider ${explorerConfig.name} for ${blockchain}`, {
-            error: error instanceof Error ? error.message : String(error)
-          });
+          logger.error(`Failed to create provider ${explorerConfig.name} for ${blockchain} - Error: ${error instanceof Error ? error.message : String(error)}`);
         }
       }
 
       // Register the providers with this manager
       if (providers.length > 0) {
         this.registerProviders(blockchain, providers);
-        logger.info(`Auto-registered ${providers.length} providers for ${blockchain} from configuration`, {
-          providers: providers.map(p => p.name)
-        });
+        logger.info(`Auto-registered ${providers.length} providers for ${blockchain} from configuration - Providers: ${providers.map(p => p.name).join(', ')}`);
       }
 
       return providers;
 
     } catch (error) {
-      logger.error(`Failed to auto-register providers for ${blockchain}`, {
-        error: error instanceof Error ? error.message : String(error)
-      });
+      logger.error(`Failed to auto-register providers for ${blockchain} - Error: ${error instanceof Error ? error.message : String(error)}`);
       return [];
     }
   }
@@ -225,11 +215,7 @@ export class BlockchainProviderManager {
       if (attemptNumber === 1) {
         logger.debug(`Using provider ${provider.name} for ${operation.type}`);
       } else {
-        logger.info(`Switching to provider ${provider.name} for ${operation.type}`, {
-          reason: attemptNumber === 2 ? 'primary_failed' : 'multiple_failures',
-          attemptNumber,
-          previousError: lastError?.message
-        });
+        logger.info(`Switching to provider ${provider.name} for ${operation.type} - Reason: ${attemptNumber === 2 ? 'primary_failed' : 'multiple_failures'}, AttemptNumber: ${attemptNumber}, PreviousError: ${lastError?.message}`);
       }
 
       // Skip providers with open circuit breakers (unless all are open)
@@ -325,8 +311,7 @@ export class BlockchainProviderManager {
 
     // Log provider selection details
     if (scoredProviders.length > 1) {
-      logger.debug(`Provider selection for ${operation.type}:`, {
-        providers: scoredProviders.map(item => ({
+      logger.debug(`Provider selection for ${operation.type} - Providers: ${JSON.stringify(scoredProviders.map(item => ({
           name: item.provider.name,
           score: item.score,
           isHealthy: item.health.isHealthy,
@@ -336,8 +321,7 @@ export class BlockchainProviderManager {
           rateLimitPerSec: item.provider.rateLimit.requestsPerSecond,
           rateLimitEvents: item.health.rateLimitEvents,
           rateLimitRate: Math.round(item.health.rateLimitRate * 100)
-        }))
-      });
+        })))}`);
     }
 
     return scoredProviders.map(item => item.provider);
@@ -434,11 +418,7 @@ export class BlockchainProviderManager {
     const rateLimitWeight = 1; // This request was rate limited
     health.rateLimitRate = health.rateLimitRate * 0.9 + rateLimitWeight * 0.1;
 
-    logger.debug(`Recorded rate limit event for ${providerName}`, {
-      totalEvents: health.rateLimitEvents,
-      rateLimitRate: Math.round(health.rateLimitRate * 100),
-      delayMs
-    });
+    logger.debug(`Recorded rate limit event for ${providerName} - TotalEvents: ${health.rateLimitEvents}, RateLimitRate: ${Math.round(health.rateLimitRate * 100)}%, DelayMs: ${delayMs}`);
   }
 
   /**

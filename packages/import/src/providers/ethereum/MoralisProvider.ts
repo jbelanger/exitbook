@@ -110,12 +110,7 @@ export class MoralisProvider implements IBlockchainProvider<MoralisConfig> {
       throw new Error('Moralis API key is required - set MORALIS_API_KEY environment variable');
     }
 
-    logger.info('Initialized MoralisProvider', {
-      network: this.network,
-      baseUrl: this.baseUrl,
-      timeout: config.timeout || 10000,
-      retries: config.retries || 3
-    });
+    logger.info(`Initialized MoralisProvider - Network: ${this.network}, BaseUrl: ${this.baseUrl}, Timeout: ${config.timeout || 10000}, Retries: ${config.retries || 3}`);
   }
 
   async isHealthy(): Promise<boolean> {
@@ -124,7 +119,7 @@ export class MoralisProvider implements IBlockchainProvider<MoralisConfig> {
       const response = await this.httpClient.get('/dateToBlock?chain=eth&date=2023-01-01T00:00:00.000Z');
       return response && response.block;
     } catch (error) {
-      logger.warn('Health check failed', { error: error instanceof Error ? error.message : String(error) });
+      logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
       return false;
     }
   }
@@ -162,7 +157,7 @@ export class MoralisProvider implements IBlockchainProvider<MoralisConfig> {
       return nativeTransactions;
 
     } catch (error) {
-      logger.error(`Failed to fetch native transactions for ${address}`, { error });
+      logger.error(`Failed to fetch native transactions for ${address} - Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -182,7 +177,7 @@ export class MoralisProvider implements IBlockchainProvider<MoralisConfig> {
 
       return balances;
     } catch (error) {
-      logger.error(`Failed to fetch balances for ${address}`, { error });
+      logger.error(`Failed to fetch balances for ${address} - Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }

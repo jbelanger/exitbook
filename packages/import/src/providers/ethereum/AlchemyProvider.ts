@@ -105,12 +105,7 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
       throw new Error('Alchemy API key is required - set ALCHEMY_API_KEY environment variable');
     }
 
-    logger.info('Initialized AlchemyProvider', {
-      network: this.network,
-      baseUrl: this.baseUrl.replace(this.apiKey, 'HIDDEN'),
-      timeout: config.timeout || 10000,
-      retries: config.retries || 3
-    });
+    logger.info(`Initialized AlchemyProvider - Network: ${this.network}, BaseUrl: ${this.baseUrl.replace(this.apiKey, 'HIDDEN')}, Timeout: ${config.timeout || 10000}, Retries: ${config.retries || 3}`);
   }
 
   async isHealthy(): Promise<boolean> {
@@ -124,7 +119,7 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
       });
       return response && response.result;
     } catch (error) {
-      logger.warn('Health check failed', { error: error instanceof Error ? error.message : String(error) });
+      logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
       return false;
     }
   }
@@ -165,7 +160,7 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
       return transactions;
 
     } catch (error) {
-      logger.error(`Failed to fetch regular transactions for ${address}`, { error });
+      logger.error(`Failed to fetch regular transactions for ${address} - Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -196,7 +191,7 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
 
       return balances;
     } catch (error) {
-      logger.error(`Failed to fetch balance for ${address}`, { error });
+      logger.error(`Failed to fetch balance for ${address} - Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -319,7 +314,7 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
 
       return balances;
     } catch (error) {
-      logger.warn(`Failed to fetch token balances for ${address}`, { error });
+      logger.warn(`Failed to fetch token balances for ${address} - Error: ${error instanceof Error ? error.message : String(error)}`);
       return [];
     }
   }
