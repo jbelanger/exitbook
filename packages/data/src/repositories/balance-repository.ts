@@ -1,4 +1,5 @@
-import type { BalanceSnapshot, BalanceVerificationRecord, StoredTransaction } from '@crypto/core';
+import type { StoredTransaction } from '@crypto/core';
+import type { BalanceSnapshot, BalanceVerificationRecord } from '@crypto/balance';
 import { Database } from '../storage/database.ts';
 
 export class BalanceRepository {

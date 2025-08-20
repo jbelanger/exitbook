@@ -1,4 +1,4 @@
-import type { BalanceSnapshot, BalanceVerificationRecord } from '@crypto/core';
+import type { BalanceSnapshot, BalanceVerificationRecord } from '@crypto/balance';
 import { getLogger } from '@crypto/shared-logger';
 import { BalanceRepository } from '../repositories/balance-repository.ts';
 import { BalanceCalculationService } from './balance-calculation-service.ts';

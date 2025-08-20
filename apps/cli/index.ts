@@ -1,8 +1,8 @@
 #!/usr/bin/env node
+import { BalanceVerifier, BlockchainBalanceService, ExchangeBalanceService } from '@crypto/balance';
 import { Database } from '@crypto/data';
 import { TransactionImporter } from '@crypto/import';
 import { getLogger } from '@crypto/shared-logger';
-import { BalanceVerifier } from '@crypto/shared-utils';
 import { Command } from 'commander';
 import path from 'path';
 import 'reflect-metadata';
@@ -91,21 +91,34 @@ async function main() {
         if (options.verify) {
           logger.info('Running balance verification');
           const verifier = new BalanceVerifier(database);
-          let adapters;
+          let balanceServices;
           if (options.blockchain) {
             const blockchainAdapters = await importer.createBlockchainAdapter({
               blockchain: options.blockchain,
               addresses: options.addresses
             });
-            // Convert blockchain adapters to exchange adapters for verification
-            adapters = blockchainAdapters.map((ba: any) => ba.adapter as any);
+            // Create blockchain balance services
+            balanceServices = await Promise.all(
+              blockchainAdapters.map(async (ba: any) => {
+                const service = new BlockchainBalanceService(ba.adapter, options.addresses);
+                await service.initialize();
+                return service;
+              })
+            );
           } else {
             const configuredExchanges = await importer.getConfiguredExchanges({
               exchangeFilter: options.exchange
             });
-            adapters = configuredExchanges.map((ex: any) => ex.adapter);
+            // Create exchange balance services
+            balanceServices = await Promise.all(
+              configuredExchanges.map(async (ex: any) => {
+                const service = new ExchangeBalanceService(ex.adapter);
+                await service.initialize();
+                return service;
+              })
+            );
           }
-          const verificationResults = await verifier.verifyAllExchanges(adapters);
+          const verificationResults = await verifier.verifyAllServices(balanceServices);
 
           displayVerificationResults(verificationResults);
         }
@@ -150,7 +163,7 @@ async function main() {
           process.exit(1);
         }
 
-        let adapters;
+        let balanceServices;
         if (options.blockchain) {
           const blockchainAdapters = await importer.createBlockchainAdapter({
             blockchain: options.blockchain,
@@ -162,8 +175,14 @@ async function main() {
             process.exit(1);
           }
 
-          // Convert blockchain adapters to exchange adapters for verification
-          adapters = blockchainAdapters.map((ba: any) => ba.adapter as any);
+          // Create blockchain balance services
+          balanceServices = await Promise.all(
+            blockchainAdapters.map(async (ba: any) => {
+              const service = new BlockchainBalanceService(ba.adapter, options.addresses);
+              await service.initialize();
+              return service;
+            })
+          );
         } else {
           const configuredExchanges = await importer.getConfiguredExchanges({
             configPath: options.config,
@@ -179,9 +198,16 @@ async function main() {
             process.exit(1);
           }
 
-          adapters = configuredExchanges.map((ex: any) => ex.adapter);
+          // Create exchange balance services
+          balanceServices = await Promise.all(
+            configuredExchanges.map(async (ex: any) => {
+              const service = new ExchangeBalanceService(ex.adapter);
+              await service.initialize();
+              return service;
+            })
+          );
         }
-        const results = await verifier.verifyAllExchanges(adapters);
+        const results = await verifier.verifyAllServices(balanceServices);
 
         displayVerificationResults(results);
 
@@ -192,12 +218,12 @@ async function main() {
           logger.info(`Verification report generated: ${reportPath}`);
         }
 
-        // Close all adapters
-        for (const { adapter } of adapters) {
+        // Close all services
+        for (const service of balanceServices) {
           try {
-            await adapter.close();
+            await service.close();
           } catch (closeError) {
-            logger.warn(`Failed to close adapter: ${closeError}`);
+            logger.warn(`Failed to close service: ${closeError}`);
           }
         }
 

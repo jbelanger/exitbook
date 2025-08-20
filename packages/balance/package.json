@@ -1,9 +1,9 @@
 {
-  "name": "@crypto/data",
+  "name": "@crypto/balance",
   "license": "AGPL-3.0",
   "version": "0.1.0",
   "private": true,
-  "description": "Data access layer for cryptocurrency platform",
+  "description": "Balance verification and management services",
   "type": "module",
   "main": "src/index.ts",
   "types": "src/index.ts",
@@ -17,8 +17,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "decimal.js": "^10.6.0",
-    "sqlite3": "^5.1.6"
+    "@crypto/core": "workspace:*",
+    "@crypto/data": "workspace:*",
+    "@crypto/shared-logger": "workspace:*",
+    "decimal.js": "^10.6.0"
   },
   "devDependencies": {
     "@jest/globals": "^30.0.5",
@@ -29,11 +31,5 @@
     "tsconfig": "workspace:*",
     "tsx": "^4.20.4",
     "typescript": "^5.9.2"
-  },
-  "peerDependencies": {
-    "@crypto/core": "workspace:*",
-    "@crypto/shared-logger": "workspace:*",
-    "@crypto/balance": "workspace:*",
-    "@crypto/shared-utils": "workspace:*"
   }
 }
