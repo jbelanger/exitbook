@@ -3,7 +3,10 @@ import { getLogger } from '@crypto/shared-logger';
 import { Decimal } from 'decimal.js';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as sqlite3 from 'sqlite3';
+import sqlite3Module from 'sqlite3';
+const sqlite3 = sqlite3Module;
+
+type SQLiteDatabase = InstanceType<typeof sqlite3Module.Database>;
 
 // Local utility functions to avoid cyclic dependency with shared-utils
 function moneyToDbString(money: { amount: Decimal | number; currency: string }): string {
@@ -25,7 +28,7 @@ function stringToDecimal(value: string | null | undefined): Decimal {
 }
 
 export class Database {
-  private db: sqlite3.Database;
+  private db: SQLiteDatabase;
   private dbPath: string;
   private logger = getLogger('Database');
 

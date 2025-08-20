@@ -4,7 +4,7 @@ import type { Balance, BitcoinWalletAddress, BlockchainInfo, BlockchainTransacti
 import { createMoney } from '@crypto/shared-utils';
 import { BlockchainProviderManager } from '../../providers/index.ts';
 import { BitcoinUtils } from '../../utils/bitcoin-utils.ts';
-import { BaseBlockchainAdapter } from './index.ts';
+import { BaseBlockchainAdapter } from './base-blockchain-adapter.ts';
 
 export class BitcoinAdapter extends BaseBlockchainAdapter {
   private walletAddresses: BitcoinWalletAddress[] = [];

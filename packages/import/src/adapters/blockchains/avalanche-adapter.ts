@@ -8,7 +8,7 @@ import type {
 
 import '../../providers/avalanche/SnowtraceProvider.ts';
 import { BlockchainProviderManager } from '../../providers/index.ts';
-import { BaseBlockchainAdapter } from './index.ts';
+import { BaseBlockchainAdapter } from './base-blockchain-adapter.ts';
 
 export class AvalancheAdapter extends BaseBlockchainAdapter {
   private providerManager: BlockchainProviderManager;
