@@ -35,10 +35,10 @@ export class Database {
 
     this.db = new sqlite3.Database(finalPath, (err) => {
       if (err) {
-        this.logger.error('Failed to connect to database', { error: err.message, path: finalPath });
+        this.logger.error(`Failed to connect to database: ${err.message} (path: ${finalPath})`);
         throw err;
       }
-      this.logger.info('Connected to SQLite database', { path: finalPath });
+      this.logger.info(`Connected to SQLite database: ${finalPath}`);
     });
 
     // Enable foreign keys and WAL mode for better performance
@@ -58,14 +58,14 @@ export class Database {
       // Close current connection
       this.db.close((err) => {
         if (err) {
-          this.logger.error('Error closing database for reinitialization', { error: err.message });
+          this.logger.error(`Error closing database for reinitialization: ${err.message}`);
           return reject(err);
         }
 
         // Recreate connection and reinitialize with clear flag
         this.db = new sqlite3.Database(this.dbPath, (dbErr) => {
           if (dbErr) {
-            this.logger.error('Failed to reconnect to database', { error: dbErr.message });
+            this.logger.error(`Failed to reconnect to database: ${dbErr.message}`);
             return reject(dbErr);
           }
 
@@ -208,7 +208,7 @@ export class Database {
       for (const query of tableQueries) {
         this.db.run(query, (err) => {
           if (err) {
-            this.logger.error('Failed to create table', { error: err.message, query });
+            this.logger.error(`Failed to create table: ${err.message} (query: ${query})`);
           }
         });
       }
@@ -217,7 +217,7 @@ export class Database {
       for (const query of indexQueries) {
         this.db.run(query, (err) => {
           if (err) {
-            this.logger.error('Failed to create index', { error: err.message, query });
+            this.logger.error(`Failed to create index: ${err.message} (query: ${query})`);
           }
         });
       }
@@ -543,7 +543,7 @@ export class Database {
     return new Promise((resolve) => {
       this.db.close((err) => {
         if (err) {
-          this.logger.error('Error closing database', { error: err.message });
+          this.logger.error(`Error closing database: ${err.message}`);
         } else {
           this.logger.info('Database connection closed');
         }

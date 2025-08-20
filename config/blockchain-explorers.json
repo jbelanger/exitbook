@@ -239,7 +239,7 @@
         "name": "snowtrace",
         "enabled": true,
         "priority": 1,
-        "requiresApiKey": true,
+        "requiresApiKey": false,
         "mainnet": {
           "baseUrl": "https://api.snowtrace.io/api"
         },

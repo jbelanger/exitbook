@@ -19,15 +19,13 @@ export class AvalancheAdapter extends BaseBlockchainAdapter {
     this.providerManager = new BlockchainProviderManager();
     this.providerManager.autoRegisterFromConfig('avalanche', 'mainnet');
 
-    this.logger.info('Initialized Avalanche adapter with registry-based provider manager', {
-      providersCount: this.providerManager.getProviders('avalanche').length
-    });
+    this.logger.info(`Initialized Avalanche adapter with registry-based provider manager - ProvidersCount: ${this.providerManager.getProviders('avalanche').length}`);
   }
 
 
   async getAddressTransactions(address: string, since?: number): Promise<BlockchainTransaction[]> {
     this.logger.info(`AvalancheAdapter: Fetching transactions for address: ${address.substring(0, 20)}...`);
-    this.logger.debug('AvalancheAdapter.getAddressTransactions called', { address, since });
+    this.logger.debug(`AvalancheAdapter.getAddressTransactions called - Address: ${address}, Since: ${since}`);
 
     try {
       // Fetch regular AVAX transactions
@@ -46,17 +44,11 @@ export class AvalancheAdapter extends BaseBlockchainAdapter {
           getCacheKey: (params: any) => `avax_token_tx_${params.address}_${params.since || 'all'}`
         }) as BlockchainTransaction[];
       } catch (error) {
-        this.logger.debug('Provider does not support separate token transactions or failed to fetch', {
-          error: error instanceof Error ? error.message : String(error)
-        });
+        this.logger.debug(`Provider does not support separate token transactions or failed to fetch: ${error instanceof Error ? error.message : String(error)}`);
         // Continue without separate token transactions - provider may already include them in getAddressTransactions
       }
 
-      this.logger.info(`AvalancheAdapter transaction breakdown for ${address.substring(0, 20)}...`, {
-        regular: regularTxs.length,
-        token: tokenTxs.length,
-        total: regularTxs.length + tokenTxs.length
-      });
+      this.logger.info(`AvalancheAdapter transaction breakdown for ${address.substring(0, 20)}... - Regular: ${regularTxs.length}, Token: ${tokenTxs.length}, Total: ${regularTxs.length + tokenTxs.length}`);
 
       // Combine all transactions (following the same pattern as Ethereum/Solana)
       const allTransactions = [...regularTxs, ...tokenTxs];
@@ -76,16 +68,13 @@ export class AvalancheAdapter extends BaseBlockchainAdapter {
       return uniqueTransactions;
 
     } catch (error) {
-      this.logger.error('Failed to fetch address transactions via provider manager', {
-        address,
-        error: error instanceof Error ? error.message : String(error)
-      });
+      this.logger.error(`Failed to fetch address transactions via provider manager - Address: ${address}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
 
   async getAddressBalance(address: string): Promise<Balance[]> {
-    this.logger.debug('AvalancheAdapter.getAddressBalance called', { address });
+    this.logger.debug(`AvalancheAdapter.getAddressBalance called - Address: ${address}`);
 
     try {
       // Use provider manager to fetch balance with failover
@@ -99,10 +88,7 @@ export class AvalancheAdapter extends BaseBlockchainAdapter {
       return balances;
 
     } catch (error) {
-      this.logger.error('Failed to fetch address balance via provider manager', {
-        address,
-        error: error instanceof Error ? error.message : String(error)
-      });
+      this.logger.error(`Failed to fetch address balance via provider manager - Address: ${address}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }

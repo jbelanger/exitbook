@@ -88,7 +88,7 @@ export class TransactionImporter {
           try {
             await adapter.close();
           } catch (closeError) {
-            this.logger.warn(`Failed to close adapter for ${exchangeInfo.id}`, { closeError });
+            this.logger.warn(`Failed to close adapter for ${exchangeInfo.id}: ${closeError}`);
           }
         }
       }
@@ -104,16 +104,12 @@ export class TransactionImporter {
         duration
       };
 
-      this.logger.info('Import completed for all exchanges', {
-        totalTransactions,
-        newTransactions: totalNewTransactions,
-        duration
-      });
+      this.logger.info(`Import completed for all exchanges - Total: ${totalTransactions}, New: ${totalNewTransactions}, Duration: ${duration}ms`);
 
       return summary;
     } catch (error) {
       const duration = Date.now() - startTime;
-      this.logger.error('Import failed', { error: error instanceof Error ? error.message : 'Unknown error', duration });
+      this.logger.error(`Import failed: ${error instanceof Error ? error.message : 'Unknown error'} (duration: ${duration}ms)`);
       throw error;
     }
   }
@@ -161,7 +157,7 @@ export class TransactionImporter {
           try {
             await adapter.close();
           } catch (closeError) {
-            this.logger.warn(`Failed to close adapter for ${blockchainInfo.id}`, { closeError });
+            this.logger.warn(`Failed to close adapter for ${blockchainInfo.id}: ${closeError}`);
           }
         }
       }
@@ -178,17 +174,12 @@ export class TransactionImporter {
         duration
       };
 
-      this.logger.info('Blockchain import completed', {
-        blockchain: options.blockchain,
-        totalTransactions,
-        newTransactions: totalNewTransactions,
-        duration
-      });
+      this.logger.info(`Blockchain import completed for ${options.blockchain} - Total: ${totalTransactions}, New: ${totalNewTransactions}, Duration: ${duration}ms`);
 
       return summary;
     } catch (error) {
       const duration = Date.now() - startTime;
-      this.logger.error('Blockchain import failed', { error: error instanceof Error ? error.message : 'Unknown error', duration });
+      this.logger.error(`Blockchain import failed: ${error instanceof Error ? error.message : 'Unknown error'} (duration: ${duration}ms)`);
       throw error;
     }
   }
@@ -232,9 +223,7 @@ export class TransactionImporter {
         try {
           await this.linkTransactionsToWallets(unique, blockchainId);
         } catch (linkError) {
-          this.logger.warn(`Failed to link transactions to wallet addresses for ${blockchainId}`, {
-            error: linkError instanceof Error ? linkError.message : String(linkError)
-          });
+          this.logger.warn(`Failed to link transactions to wallet addresses for ${blockchainId}: ${linkError instanceof Error ? linkError.message : String(linkError)}`);
         }
       }
 
@@ -249,17 +238,12 @@ export class TransactionImporter {
         duration
       };
 
-      this.logger.info(`Completed import from ${blockchainId}`, {
-        transactions: transactions.length,
-        newTransactions: saved,
-        duplicatesSkipped: duplicates.length,
-        duration
-      });
+      this.logger.info(`Completed import from ${blockchainId} - Transactions: ${transactions.length}, New: ${saved}, Duplicates: ${duplicates.length}, Duration: ${duration}ms`);
 
       return result;
     } catch (error) {
       const duration = Date.now() - startTime;
-      this.logger.error(`Import failed for ${blockchainId}`, { error, duration });
+      this.logger.error(`Import failed for ${blockchainId}: ${error} (duration: ${duration}ms)`);
 
       return {
         source: blockchainId,
@@ -277,7 +261,7 @@ export class TransactionImporter {
     const exchangeInfo = await adapter.getExchangeInfo();
     const exchangeId = exchangeInfo.id;
 
-    this.logger.info(`Starting import from ${exchangeId}`, { since });
+    this.logger.info(`Starting import from ${exchangeId} (since: ${since})`);
 
     try {
       // Test connection first
@@ -310,17 +294,12 @@ export class TransactionImporter {
         duration
       };
 
-      this.logger.info(`Completed import from ${exchangeId}`, {
-        transactions: transactions.length,
-        newTransactions: saved,
-        duplicatesSkipped: duplicates.length,
-        duration
-      });
+      this.logger.info(`Completed import from ${exchangeId} - Transactions: ${transactions.length}, New: ${saved}, Duplicates: ${duplicates.length}, Duration: ${duration}ms`);
 
       return result;
     } catch (error) {
       const duration = Date.now() - startTime;
-      this.logger.error(`Import failed for ${exchangeId}`, { error, duration });
+      this.logger.error(`Import failed for ${exchangeId}: ${error} (duration: ${duration}ms)`);
 
       return {
         source: exchangeId,
@@ -378,13 +357,9 @@ export class TransactionImporter {
         const adapter = await this.adapterFactory.createAdapter(finalConfig, undefined, this.database) as IExchangeAdapter;
         exchanges.push({ adapter, config: finalConfig });
 
-        this.logger.info(`Configured exchange: ${exchangeId}`, {
-          adapterType
-        });
+        this.logger.info(`Configured exchange: ${exchangeId} (type: ${adapterType})`);
       } catch (error) {
-        this.logger.error(`Failed to configure exchange ${exchangeId}`, {
-          error: error instanceof Error ? error.message : 'Unknown error'
-        });
+        this.logger.error(`Failed to configure exchange ${exchangeId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
 
@@ -400,17 +375,11 @@ export class TransactionImporter {
     try {
       const adapter = await this.blockchainAdapterFactory.createBlockchainAdapter(options.blockchain.toLowerCase());
 
-      this.logger.info(`Created blockchain adapter: ${options.blockchain}`, {
-        adapterType: 'blockchain',
-        addressCount: options.addresses.length,
-        network: options.network || 'mainnet'
-      });
+      this.logger.info(`Created blockchain adapter: ${options.blockchain} (addresses: ${options.addresses.length}, network: ${options.network || 'mainnet'})`);
 
       return [{ adapter }];
     } catch (error) {
-      this.logger.error(`Failed to create blockchain adapter for ${options.blockchain}`, {
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      this.logger.error(`Failed to create blockchain adapter for ${options.blockchain}: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw error;
     }
   }
@@ -570,9 +539,7 @@ export class TransactionImporter {
         );
 
       } catch (error) {
-        this.logger.warn(`Failed to link transaction ${transaction.id} to wallets`, {
-          error: error instanceof Error ? error.message : String(error)
-        });
+        this.logger.warn(`Failed to link transaction ${transaction.id} to wallets: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
   }
@@ -601,10 +568,7 @@ export class TransactionImporter {
   private async ensureWalletAddresses(addresses: string[], blockchain: string): Promise<void> {
     if (!addresses?.length) return;
 
-    this.logger.info(`Creating wallet records for CLI-provided addresses`, {
-      blockchain,
-      addressCount: addresses.length
-    });
+    this.logger.info(`Creating wallet records for CLI-provided addresses - Blockchain: ${blockchain}, Count: ${addresses.length}`);
 
     const createPromises = addresses.map(address =>
       this.walletService.createWalletAddressFromTransaction(address, blockchain, {
@@ -612,9 +576,7 @@ export class TransactionImporter {
         addressType: 'personal',
         notes: 'Added from CLI arguments'
       }).catch(error => {
-        this.logger.debug(`Address ${address} may already exist`, {
-          error: error instanceof Error ? error.message : String(error)
-        });
+        this.logger.debug(`Address ${address} may already exist: ${error instanceof Error ? error.message : String(error)}`);
       })
     );
 

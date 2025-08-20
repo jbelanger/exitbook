@@ -34,7 +34,7 @@ export class WalletService {
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Error creating wallet address ${address} for ${blockchain}`, { error: errorMessage });
+      this.logger.error(`Error creating wallet address ${address} for ${blockchain}: ${errorMessage}`);
       throw error;
     }
   }

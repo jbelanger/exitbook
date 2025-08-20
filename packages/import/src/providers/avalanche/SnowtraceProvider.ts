@@ -7,7 +7,6 @@ import { Decimal } from 'decimal.js';
 import { BaseRegistryProvider } from '../registry/base-registry-provider.ts';
 import { RegisterProvider } from '../registry/decorators.ts';
 
-
 @RegisterProvider({
   name: 'snowtrace',
   blockchain: 'avalanche',
