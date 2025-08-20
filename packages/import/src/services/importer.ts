@@ -10,7 +10,7 @@ import { Database, TransactionRepository, TransactionService, WalletRepository, 
 import { BlockchainAdapterFactory } from '../blockchains/shared/index.ts';
 import { ExchangeAdapterFactory } from '../exchanges/adapter-factory.ts';
 import { detectScamFromSymbol } from '../utils/scam-detection.ts';
-import { Deduplicator } from './index.ts';
+import { Deduplicator } from './deduplicator.ts';
 
 interface ExchangeImportOptions {
   exchangeFilter?: string;

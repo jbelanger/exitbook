@@ -141,35 +141,4 @@ export class TransactionTransformer {
 
     return false;
   }
-
-  /**
-   * Infer transaction status when not explicitly provided
-   * Useful for exchanges with incomplete status information
-   */
-  static inferStatus(ccxtTx: any, type: TransactionType): TransactionStatus {
-    // For trades without explicit status, infer from trade data
-    if (type === 'trade') {
-      // If it has actual trade data (price, cost, etc.), it's completed
-      if (ccxtTx.price && ccxtTx.cost && ccxtTx.amount) {
-        return 'closed';
-      }
-
-      // Check for exchange-specific trade completion indicators
-      const tradeType = ccxtTx.info?.trade_type || ccxtTx.info?.originalCCXT?.info?.trade_type;
-      if (tradeType === 'FILL') {
-        return 'closed'; // FILL means the trade was executed
-      }
-    }
-
-    // For deposits/withdrawals, check exchange status indicators
-    if (type === 'deposit' || type === 'withdrawal') {
-      const exchangeStatus = ccxtTx.info?.status?.toLowerCase();
-      if (exchangeStatus === 'completed' || exchangeStatus === 'complete') {
-        return 'closed';
-      }
-    }
-
-    // Fallback to standard mapping
-    return this.normalizeStatus(ccxtTx.status);
-  }
 }

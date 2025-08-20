@@ -4,10 +4,8 @@ import type { Logger } from '@crypto/shared-logger';
 import { getLogger } from '@crypto/shared-logger';
 
 import type { Exchange } from 'ccxt';
-import { ServiceErrorHandler } from '../utils/exchange-error-handler.ts';
 import { TransactionTransformer } from '../utils/transaction-transformer.ts';
-
-
+import { ServiceErrorHandler } from './exchange-error-handler.ts';
 
 /**
  * Base class for all CCXT-based exchange adapters
