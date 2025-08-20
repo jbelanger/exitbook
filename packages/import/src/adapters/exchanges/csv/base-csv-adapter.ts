@@ -59,7 +59,7 @@ export abstract class BaseCSVAdapter implements IExchangeAdapter {
 
     if (fileType === 'unknown') {
       const headers = await CsvParser.getHeaders(filePath);
-      this.logger.warn(`Unrecognized CSV headers in ${filePath}:`, { headers });
+      this.logger.warn(`Unrecognized CSV headers in ${filePath} - Headers: ${headers}`);
     }
 
     return fileType;
@@ -84,20 +84,14 @@ export abstract class BaseCSVAdapter implements IExchangeAdapter {
             return true;
           }
         } catch (dirError) {
-          this.logger.warn('CSV directory test failed for directory', {
-            error: dirError,
-            directory: csvDirectory
-          });
+          this.logger.warn(`CSV directory test failed for directory - Error: ${dirError}, Directory: ${csvDirectory}`);
           continue;
         }
       }
 
       return false;
     } catch (error) {
-      this.logger.error('CSV directories test failed', {
-        error,
-        directories: this.config.csvDirectories
-      });
+      this.logger.error(`CSV directories test failed - Error: ${error}, Directories: ${this.config.csvDirectories}`);
       return false;
     }
   }
@@ -111,9 +105,7 @@ export abstract class BaseCSVAdapter implements IExchangeAdapter {
       return this.cachedTransactions;
     }
 
-    this.logger.info('Starting to load CSV transactions', {
-      csvDirectories: this.config.csvDirectories
-    });
+    this.logger.info(`Starting to load CSV transactions - CsvDirectories: ${this.config.csvDirectories}`);
 
     const transactions: CryptoTransaction[] = [];
     const fileTypeHandlers = this.getFileTypeHandlers();
@@ -121,11 +113,11 @@ export abstract class BaseCSVAdapter implements IExchangeAdapter {
     try {
       // Process each directory in order
       for (const csvDirectory of this.config.csvDirectories) {
-        this.logger.info('Processing CSV directory', { csvDirectory });
+        this.logger.info(`Processing CSV directory - CsvDirectory: ${csvDirectory}`);
 
         try {
           const files = await fs.readdir(csvDirectory);
-          this.logger.debug('Found CSV files in directory', { csvDirectory, files });
+          this.logger.debug(`Found CSV files in directory - CsvDirectory: ${csvDirectory}, Files: ${files}`);
 
           // Process all CSV files with proper header validation
           const csvFiles = files.filter(f => f.endsWith('.csv'));
@@ -136,25 +128,18 @@ export abstract class BaseCSVAdapter implements IExchangeAdapter {
 
             const handler = fileTypeHandlers[fileType];
             if (handler) {
-              this.logger.info(`Processing ${fileType} CSV file`, { file, directory: csvDirectory });
+              this.logger.info(`Processing ${fileType} CSV file - File: ${file}, Directory: ${csvDirectory}`);
               const fileTransactions = await handler(filePath);
-              this.logger.info(`Parsed ${fileType} transactions`, {
-                file,
-                directory: csvDirectory,
-                count: fileTransactions.length
-              });
+              this.logger.info(`Parsed ${fileType} transactions - File: ${file}, Directory: ${csvDirectory}, Count: ${fileTransactions.length}`);
               transactions.push(...fileTransactions);
             } else if (fileType === 'unknown') {
-              this.logger.warn('Skipping unrecognized CSV file', { file, directory: csvDirectory });
+              this.logger.warn(`Skipping unrecognized CSV file - File: ${file}, Directory: ${csvDirectory}`);
             } else {
-              this.logger.warn(`No handler for file type: ${fileType}`, { file, directory: csvDirectory });
+              this.logger.warn(`No handler for file type: ${fileType} - File: ${file}, Directory: ${csvDirectory}`);
             }
           }
         } catch (dirError) {
-          this.logger.error('Failed to process CSV directory', {
-            error: dirError,
-            directory: csvDirectory
-          });
+          this.logger.error(`Failed to process CSV directory - Error: ${dirError}, Directory: ${csvDirectory}`);
           // Continue processing other directories
           continue;
         }
@@ -168,7 +153,7 @@ export abstract class BaseCSVAdapter implements IExchangeAdapter {
 
       return transactions;
     } catch (error) {
-      this.logger.error('Failed to load CSV transactions', { error });
+      this.logger.error(`Failed to load CSV transactions - Error: ${error}`);
       throw error;
     }
   }

@@ -62,10 +62,7 @@ export class BlockstreamProvider extends BaseRegistryProvider {
   constructor() {
     super('bitcoin', 'blockstream.info', 'mainnet');
 
-    this.logger.info('Initialized BlockstreamProvider from registry metadata', {
-      network: this.network,
-      baseUrl: this.baseUrl
-    });
+    this.logger.info(`Initialized BlockstreamProvider from registry metadata - Network: ${this.network}, BaseUrl: ${this.baseUrl}`);
   }
 
   async isHealthy(): Promise<boolean> {
@@ -73,7 +70,7 @@ export class BlockstreamProvider extends BaseRegistryProvider {
       const response = await this.httpClient.get<number>('/blocks/tip/height');
       return typeof response === 'number' && response > 0;
     } catch (error) {
-      this.logger.warn('Health check failed', { error: error instanceof Error ? error.message : String(error) });
+      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
       return false;
     }
   }
@@ -82,19 +79,16 @@ export class BlockstreamProvider extends BaseRegistryProvider {
     try {
       // Test with a simple endpoint that should always work
       const blockHeight = await this.httpClient.get<number>('/blocks/tip/height');
-      this.logger.info('Connection test successful', { currentBlockHeight: blockHeight });
+      this.logger.info(`Connection test successful - CurrentBlockHeight: ${blockHeight}`);
       return typeof blockHeight === 'number' && blockHeight > 0;
     } catch (error) {
-      this.logger.error('Connection test failed', { error: error instanceof Error ? error.message : String(error) });
+      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
       return false;
     }
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug('Executing operation', {
-      type: operation.type,
-      address: operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'
-    });
+    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'}`);
 
     try {
       switch (operation.type) {
@@ -112,12 +106,7 @@ export class BlockstreamProvider extends BaseRegistryProvider {
           throw new Error(`Unsupported operation: ${operation.type}`);
       }
     } catch (error) {
-      this.logger.error('Operation execution failed', {
-        type: operation.type,
-        params: operation.params,
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined
-      });
+      this.logger.error(`Operation execution failed - Type: ${operation.type}, Params: ${JSON.stringify(operation.params)}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`);
       throw error;
     }
   }
@@ -125,14 +114,14 @@ export class BlockstreamProvider extends BaseRegistryProvider {
   private async getAddressTransactions(params: { address: string; since?: number }): Promise<BlockchainTransaction[]> {
     const { address, since } = params;
 
-    this.logger.debug('Fetching address transactions', { address: this.maskAddress(address), since });
+    this.logger.debug(`Fetching address transactions - Address: ${this.maskAddress(address)}, Since: ${since}`);
 
     try {
       // Get address info first to check if there are transactions
       const addressInfo = await this.httpClient.get<BlockstreamAddressInfo>(`/address/${address}`);
 
       if (addressInfo.chain_stats.tx_count === 0 && addressInfo.mempool_stats.tx_count === 0) {
-        this.logger.debug('No transactions found for address', { address: this.maskAddress(address) });
+        this.logger.debug(`No transactions found for address - Address: ${this.maskAddress(address)}`);
         return [];
       }
 
@@ -155,21 +144,14 @@ export class BlockstreamProvider extends BaseRegistryProvider {
           break;
         }
 
-        this.logger.debug('Retrieved transaction batch', {
-          address: this.maskAddress(address),
-          batchSize: transactions.length,
-          batch: batchCount + 1
-        });
+        this.logger.debug(`Retrieved transaction batch - Address: ${this.maskAddress(address)}, BatchSize: ${transactions.length}, Batch: ${batchCount + 1}`);
 
         // Transform the transactions we already have
         const batchTransactions = transactions.map(tx => {
           try {
             return this.transformTransaction(tx, address);
           } catch (error) {
-            this.logger.warn('Failed to transform transaction', {
-              txid: tx.txid,
-              error: error instanceof Error ? error.message : String(error)
-            });
+            this.logger.warn(`Failed to transform transaction - Txid: ${tx.txid}, Error: ${error instanceof Error ? error.message : String(error)}`);
             return null;
           }
         });
@@ -189,29 +171,18 @@ export class BlockstreamProvider extends BaseRegistryProvider {
       let filteredTransactions = allTransactions;
       if (since) {
         filteredTransactions = allTransactions.filter(tx => tx.timestamp >= since);
-        this.logger.debug('Filtered transactions by timestamp', {
-          originalCount: allTransactions.length,
-          filteredCount: filteredTransactions.length,
-          since
-        });
+        this.logger.debug(`Filtered transactions by timestamp - OriginalCount: ${allTransactions.length}, FilteredCount: ${filteredTransactions.length}, Since: ${since}`);
       }
 
       // Sort by timestamp (newest first)
       filteredTransactions.sort((a, b) => b.timestamp - a.timestamp);
 
-      this.logger.info('Successfully retrieved address transactions', {
-        address: this.maskAddress(address),
-        totalTransactions: filteredTransactions.length,
-        batchesProcessed: batchCount
-      });
+      this.logger.info(`Successfully retrieved address transactions - Address: ${this.maskAddress(address)}, TotalTransactions: ${filteredTransactions.length}, BatchesProcessed: ${batchCount}`);
 
       return filteredTransactions;
 
     } catch (error) {
-      this.logger.error('Failed to get address transactions', {
-        address: this.maskAddress(address),
-        error: error instanceof Error ? error.message : String(error)
-      });
+      this.logger.error(`Failed to get address transactions - Address: ${this.maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -219,7 +190,7 @@ export class BlockstreamProvider extends BaseRegistryProvider {
   private async getAddressBalance(params: { address: string }): Promise<{ balance: string; token: string }> {
     const { address } = params;
 
-    this.logger.debug('Fetching address balance', { address: this.maskAddress(address) });
+    this.logger.debug(`Fetching address balance - Address: ${this.maskAddress(address)}`);
 
     try {
       const addressInfo = await this.httpClient.get<BlockstreamAddressInfo>(`/address/${address}`);
@@ -232,11 +203,7 @@ export class BlockstreamProvider extends BaseRegistryProvider {
       // Convert satoshis to BTC
       const balanceBTC = (totalBalanceSats / 100000000).toString();
 
-      this.logger.info('Successfully retrieved address balance', {
-        address: this.maskAddress(address),
-        balanceBTC,
-        balanceSats: totalBalanceSats
-      });
+      this.logger.info(`Successfully retrieved address balance - Address: ${this.maskAddress(address)}, BalanceBTC: ${balanceBTC}, BalanceSats: ${totalBalanceSats}`);
 
       return {
         balance: balanceBTC,
@@ -244,10 +211,7 @@ export class BlockstreamProvider extends BaseRegistryProvider {
       };
 
     } catch (error) {
-      this.logger.error('Failed to get address balance', {
-        address: this.maskAddress(address),
-        error: error instanceof Error ? error.message : String(error)
-      });
+      this.logger.error(`Failed to get address balance - Address: ${this.maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -258,7 +222,7 @@ export class BlockstreamProvider extends BaseRegistryProvider {
   private async getAddressInfo(params: { address: string }): Promise<AddressInfo> {
     const { address } = params;
 
-    this.logger.debug('Fetching lightweight address info', { address: this.maskAddress(address) });
+    this.logger.debug(`Fetching lightweight address info - Address: ${this.maskAddress(address)}`);
 
     try {
       const addressInfo = await this.httpClient.get<BlockstreamAddressInfo>(`/address/${address}`);
@@ -274,11 +238,7 @@ export class BlockstreamProvider extends BaseRegistryProvider {
       // Convert satoshis to BTC
       const balanceBTC = (totalBalanceSats / 100000000).toString();
 
-      this.logger.debug('Successfully retrieved lightweight address info', {
-        address: this.maskAddress(address),
-        txCount,
-        balanceBTC
-      });
+      this.logger.debug(`Successfully retrieved lightweight address info - Address: ${this.maskAddress(address)}, TxCount: ${txCount}, BalanceBTC: ${balanceBTC}`);
 
       return {
         txCount,
@@ -286,10 +246,7 @@ export class BlockstreamProvider extends BaseRegistryProvider {
       };
 
     } catch (error) {
-      this.logger.error('Failed to get address info', {
-        address: this.maskAddress(address),
-        error: error instanceof Error ? error.message : String(error)
-      });
+      this.logger.error(`Failed to get address info - Address: ${this.maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -300,14 +257,14 @@ export class BlockstreamProvider extends BaseRegistryProvider {
   private async getRawAddressTransactions(params: { address: string; since?: number }): Promise<BlockstreamTransaction[]> {
     const { address, since } = params;
 
-    this.logger.debug('Fetching raw address transactions', { address: this.maskAddress(address), since });
+    this.logger.debug(`Fetching raw address transactions - Address: ${this.maskAddress(address)}, Since: ${since}`);
 
     try {
       // Get address info first to check if there are transactions
       const addressInfo = await this.httpClient.get<BlockstreamAddressInfo>(`/address/${address}`);
 
       if (addressInfo.chain_stats.tx_count === 0 && addressInfo.mempool_stats.tx_count === 0) {
-        this.logger.debug('No raw transactions found for address', { address: this.maskAddress(address) });
+        this.logger.debug(`No raw transactions found for address - Address: ${this.maskAddress(address)}`);
         return [];
       }
 
@@ -330,11 +287,7 @@ export class BlockstreamProvider extends BaseRegistryProvider {
           break;
         }
 
-        this.logger.debug('Retrieved raw transaction batch', {
-          address: this.maskAddress(address),
-          batchSize: rawTransactions.length,
-          batch: batchCount + 1
-        });
+        this.logger.debug(`Retrieved raw transaction batch - Address: ${this.maskAddress(address)}, BatchSize: ${rawTransactions.length}, Batch: ${batchCount + 1}`);
 
         // We already have the raw transaction data - no need to fetch again
         const validRawTransactions = rawTransactions.filter((tx): tx is BlockstreamTransaction => tx !== null);
@@ -352,11 +305,7 @@ export class BlockstreamProvider extends BaseRegistryProvider {
         filteredRawTransactions = allRawTransactions.filter(tx =>
           (tx.status.block_time || Math.floor(Date.now() / 1000)) >= since
         );
-        this.logger.debug('Filtered raw transactions by timestamp', {
-          originalCount: allRawTransactions.length,
-          filteredCount: filteredRawTransactions.length,
-          since
-        });
+        this.logger.debug(`Filtered raw transactions by timestamp - OriginalCount: ${allRawTransactions.length}, FilteredCount: ${filteredRawTransactions.length}, Since: ${since}`);
       }
 
       // Sort by timestamp (newest first)
@@ -366,19 +315,12 @@ export class BlockstreamProvider extends BaseRegistryProvider {
         return bTime - aTime;
       });
 
-      this.logger.info('Successfully retrieved raw address transactions', {
-        address: this.maskAddress(address),
-        totalRawTransactions: filteredRawTransactions.length,
-        batchesProcessed: batchCount
-      });
+      this.logger.info(`Successfully retrieved raw address transactions - Address: ${this.maskAddress(address)}, TotalRawTransactions: ${filteredRawTransactions.length}, BatchesProcessed: ${batchCount}`);
 
       return filteredRawTransactions;
 
     } catch (error) {
-      this.logger.error('Failed to get raw address transactions', {
-        address: this.maskAddress(address),
-        error: error instanceof Error ? error.message : String(error)
-      });
+      this.logger.error(`Failed to get raw address transactions - Address: ${this.maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -556,11 +498,7 @@ export class BlockstreamProvider extends BaseRegistryProvider {
         confirmations: tx.status.confirmed ? 1 : 0
       };
     } catch (error) {
-      this.logger.error(`Failed to parse Blockstream wallet transaction ${tx.txid}`, {
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-        txData: JSON.stringify(tx, null, 2)
-      });
+      this.logger.error(`Failed to parse Blockstream wallet transaction ${tx.txid} - Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}, TxData: ${JSON.stringify(tx, null, 2)}`);
       throw error;
     }
   }
