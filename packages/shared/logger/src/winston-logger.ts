@@ -54,7 +54,7 @@ const dailyRotateFileTransport = new transports.DailyRotateFile({
 });
 
 // Monitor new listener additions
-dailyRotateFileTransport.on('newListener', (event, listener) => {
+dailyRotateFileTransport.on('newListener', (event) => {
    const currentCount = dailyRotateFileTransport.listenerCount(event);
    console.log(`New '${event}' listener added (total: ${currentCount + 1})`);
    console.log('Event added by:', new Error().stack);

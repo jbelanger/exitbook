@@ -1,14 +1,14 @@
 import type { CryptoTransaction, EnhancedTransaction, ExchangeConfig, IBlockchainAdapter, IExchangeAdapter, ImportResult, ImportSummary, TransactionNote } from '@crypto/core';
 import { TransactionNoteType } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
-import { detectScamFromSymbol } from '@crypto/shared-utils';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
-import { WalletService, Database } from '@crypto/data';
+import { Database, WalletService } from '@crypto/data';
 import { BlockchainAdapterFactory } from '../adapters/blockchains/index.ts';
 import { ExchangeAdapterFactory } from '../adapters/exchanges/adapter-factory.ts';
+import { detectScamFromSymbol } from '../utils/scam-detection.ts';
 import { Deduplicator } from './index.ts';
 
 

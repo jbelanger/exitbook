@@ -2,8 +2,9 @@
 import { CryptoTransaction, ExchangeBalance, ExchangeCapabilities, ExchangeConfig, ExchangeInfo, IExchangeAdapter, ServiceError, TransactionType } from '@crypto/core';
 import type { Logger } from '@crypto/shared-logger';
 import { getLogger } from '@crypto/shared-logger';
-import { ServiceErrorHandler } from '@crypto/shared-utils';
+
 import type { Exchange } from 'ccxt';
+import { ServiceErrorHandler } from '../../../utils/exchange-error-handler.ts';
 import { TransactionTransformer } from '../../../utils/transaction-transformer.ts';
 
 
