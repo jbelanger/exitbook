@@ -1,5 +1,6 @@
 import type { BalanceSnapshot, BalanceVerificationRecord } from '@crypto/balance';
-import type { CreateWalletAddressRequest, EnhancedTransaction, StoredTransaction, UpdateWalletAddressRequest, WalletAddress, WalletAddressQuery } from '@crypto/core';
+import type { EnhancedTransaction } from '@crypto/core';
+import type { CreateWalletAddressRequest, StoredTransaction, UpdateWalletAddressRequest, WalletAddress, WalletAddressQuery } from '../types/data-types.js';
 import { getLogger } from '@crypto/shared-logger';
 import { Decimal } from 'decimal.js';
 import * as fs from 'fs';

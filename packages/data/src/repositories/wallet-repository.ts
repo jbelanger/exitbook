@@ -1,4 +1,4 @@
-import type { CreateWalletAddressRequest, UpdateWalletAddressRequest, WalletAddress, WalletAddressQuery } from '@crypto/core';
+import type { CreateWalletAddressRequest, UpdateWalletAddressRequest, WalletAddress, WalletAddressQuery } from '../types/data-types.js';
 import { Database } from '../storage/database.ts';
 
 export class WalletRepository {

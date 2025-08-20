@@ -58,6 +58,7 @@
 import type { CryptoTransaction, ExchangeInfo, TransactionStatus } from '@crypto/core';
 import { createMoney, parseDecimal } from '@crypto/shared-utils';
 import { BaseCSVAdapter, type CSVConfig } from '../base-csv-adapter.ts';
+import { RegisterExchangeAdapter } from '../registry/decorators.ts';
 
 interface LedgerLiveCSVConfig extends CSVConfig { }
 
@@ -81,6 +82,32 @@ interface LedgerLiveOperationRow {
   'Countervalue at CSV Export': string;
 }
 
+@RegisterExchangeAdapter({
+  exchangeId: 'ledgerlive',
+  displayName: 'Ledger Live CSV Import',
+  adapterType: 'csv',
+  description: 'Import Ledger Live transaction data from exported CSV files (operations.csv)',
+  capabilities: {
+    supportedOperations: ['importTransactions', 'parseCSV'],
+    supportsPagination: false,
+    supportsBalanceVerification: false,
+    supportsHistoricalData: true,
+    requiresApiKey: false,
+    supportsCsv: true,
+    supportsCcxt: false,
+    supportsNative: false
+  },
+  configValidation: {
+    requiredCredentials: [],
+    optionalCredentials: [],
+    requiredOptions: ['csvDirectories'],
+    optionalOptions: []
+  },
+  defaultConfig: {
+    enableRateLimit: false,
+    timeout: 30000
+  }
+})
 export class LedgerLiveCSVAdapter extends BaseCSVAdapter {
   constructor(config: LedgerLiveCSVConfig) {
     super(config, 'LedgerLiveCSVAdapter');
@@ -532,6 +559,7 @@ import type { ExchangeConfig } from '../types.ts';
 import ccxt from 'ccxt';
 import { Decimal } from 'decimal.js';
 import { BaseCCXTAdapter } from '../base-ccxt-adapter.ts';
+import { RegisterExchangeAdapter } from '../registry/decorators.ts';
 
 /**
  * Specialized Coinbase adapter that uses fetchLedger for comprehensive transaction data
@@ -584,6 +612,33 @@ import { BaseCCXTAdapter } from '../base-ccxt-adapter.ts';
  * - Final combined trade results
  * - Transaction type extraction decisions
  */
+@RegisterExchangeAdapter({
+  exchangeId: 'coinbase',
+  displayName: 'Coinbase Advanced Trade (CCXT)',
+  adapterType: 'ccxt',
+  description: 'Coinbase Advanced Trade adapter using CCXT with specialized ledger processing for comprehensive transaction data',
+  capabilities: {
+    supportedOperations: ['fetchTrades', 'fetchLedger', 'fetchDeposits', 'fetchWithdrawals', 'fetchBalance'],
+    supportsPagination: true,
+    supportsBalanceVerification: true,
+    supportsHistoricalData: true,
+    requiresApiKey: true,
+    supportsCsv: false,
+    supportsCcxt: true,
+    supportsNative: false
+  },
+  configValidation: {
+    requiredCredentials: ['apiKey', 'secret', 'password'],
+    optionalCredentials: ['sandbox'],
+    requiredOptions: [],
+    optionalOptions: ['enableRateLimit', 'rateLimit', 'timeout']
+  },
+  defaultConfig: {
+    enableRateLimit: true,
+    timeout: 30000,
+    rateLimit: 1000
+  }
+})
 export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
   private accounts: any[] | null = null;
 
@@ -1588,6 +1643,7 @@ import type { CryptoTransaction, ExchangeInfo, TransactionStatus, TransactionTyp
 import { createMoney, parseDecimal } from '@crypto/shared-utils';
 import type { CSVConfig } from '../base-csv-adapter.ts';
 import { BaseCSVAdapter } from '../base-csv-adapter.ts';
+import { RegisterExchangeAdapter } from '../registry/decorators.ts';
 
 interface KuCoinCSVConfig extends CSVConfig { }
 
@@ -1647,6 +1703,32 @@ interface AccountHistoryRow {
   Type: string;
 }
 
+@RegisterExchangeAdapter({
+  exchangeId: 'kucoin',
+  displayName: 'KuCoin CSV Import',
+  adapterType: 'csv',
+  description: 'Import KuCoin transaction data from exported CSV files (trading, deposits, withdrawals, account history)',
+  capabilities: {
+    supportedOperations: ['importTransactions', 'parseCSV'],
+    supportsPagination: false,
+    supportsBalanceVerification: false,
+    supportsHistoricalData: true,
+    requiresApiKey: false,
+    supportsCsv: true,
+    supportsCcxt: false,
+    supportsNative: false
+  },
+  configValidation: {
+    requiredCredentials: [],
+    optionalCredentials: [],
+    requiredOptions: ['csvDirectories'],
+    optionalOptions: ['uid']
+  },
+  defaultConfig: {
+    enableRateLimit: false,
+    timeout: 30000
+  }
+})
 export class KuCoinCSVAdapter extends BaseCSVAdapter {
   constructor(config: KuCoinCSVConfig) {
     super(config, 'KuCoinCSVAdapter');
@@ -1886,7 +1968,291 @@ export class KuCoinCSVAdapter extends BaseCSVAdapter {
       }
     };
   }
-}===== ./src/exchanges/base-ccxt-adapter.ts =====
+}===== ./src/exchanges/registry/decorators.ts =====
+import type { IExchangeAdapter, IBlockchainAdapter } from '@crypto/core';
+import type { ExchangeConfig } from '../types.ts';
+import { ExchangeAdapterRegistry } from './exchange-adapter-registry.ts';
+import type { ExchangeAdapterFactory, ExchangeAdapterMetadata } from './types.ts';
+
+/**
+ * Decorator to register an exchange adapter class with the registry
+ */
+export function RegisterExchangeAdapter(metadata: ExchangeAdapterMetadata) {
+  return function <T extends new (...args: any[]) => IExchangeAdapter | IBlockchainAdapter>(
+    constructor: T
+  ): T {
+    // Create factory that instantiates the adapter class
+    const factory: ExchangeAdapterFactory = {
+      metadata,
+      create: async (config: ExchangeConfig, enableOnlineVerification?: boolean, database?: any) => {
+        // Different adapters have different constructor signatures
+        // We need to handle this gracefully
+        const args: any[] = [config];
+        
+        if (enableOnlineVerification !== undefined) {
+          args.push(enableOnlineVerification);
+        }
+        
+        if (database !== undefined) {
+          args.push(database);
+        }
+
+        return new constructor(...args);
+      }
+    };
+
+    // Register the factory
+    ExchangeAdapterRegistry.register(factory);
+
+    return constructor;
+  };
+}===== ./src/exchanges/registry/exchange-adapter-registry.ts =====
+import type { IExchangeAdapter, IBlockchainAdapter } from '@crypto/core';
+import type { ExchangeConfig } from '../types.ts';
+import type {
+  ExchangeAdapterFactory,
+  ExchangeAdapterInfo,
+  ExchangeAdapterMetadata
+} from './types.ts';
+
+/**
+ * Central registry for exchange adapters
+ */
+export class ExchangeAdapterRegistry {
+  private static adapters = new Map<string, ExchangeAdapterFactory>();
+
+  /**
+   * Register an exchange adapter with the registry
+   */
+  static register(factory: ExchangeAdapterFactory): void {
+    const key = `${factory.metadata.exchangeId}:${factory.metadata.adapterType}`;
+
+    if (this.adapters.has(key)) {
+      throw new Error(`Exchange adapter ${key} is already registered`);
+    }
+
+    this.adapters.set(key, factory);
+  }
+
+  /**
+   * Get all available adapters for an exchange
+   */
+  static getAvailable(exchangeId: string): ExchangeAdapterInfo[] {
+    return Array.from(this.adapters.entries())
+      .filter(([key]) => key.startsWith(`${exchangeId}:`))
+      .map(([_, factory]) => ({
+        exchangeId: factory.metadata.exchangeId,
+        displayName: factory.metadata.displayName,
+        adapterType: factory.metadata.adapterType,
+        description: factory.metadata.description || '',
+        capabilities: factory.metadata.capabilities,
+        defaultConfig: factory.metadata.defaultConfig,
+        configValidation: factory.metadata.configValidation
+      }));
+  }
+
+  /**
+   * Get all registered exchange adapters
+   */
+  static getAllAdapters(): ExchangeAdapterInfo[] {
+    const exchanges = new Set(
+      Array.from(this.adapters.keys()).map(key => key.split(':')[0])
+    );
+
+    return Array.from(exchanges)
+      .filter(exchange => exchange !== undefined)
+      .flatMap(exchange => this.getAvailable(exchange!));
+  }
+
+  /**
+   * Create an exchange adapter instance
+   */
+  static async createAdapter(
+    exchangeId: string,
+    adapterType: 'ccxt' | 'native' | 'csv',
+    config: ExchangeConfig,
+    enableOnlineVerification?: boolean,
+    database?: any
+  ): Promise<IExchangeAdapter | IBlockchainAdapter> {
+    const key = `${exchangeId}:${adapterType}`;
+    const factory = this.adapters.get(key);
+
+    if (!factory) {
+      const available = this.getAvailable(exchangeId).map(a => a.adapterType);
+      throw new Error(
+        `Exchange adapter ${adapterType} not found for exchange ${exchangeId}. ` +
+        `Available adapters: ${available.join(', ')}`
+      );
+    }
+
+    return factory.create(config, enableOnlineVerification, database);
+  }
+
+  /**
+   * Check if an adapter is registered
+   */
+  static isRegistered(exchangeId: string, adapterType: 'ccxt' | 'native' | 'csv'): boolean {
+    return this.adapters.has(`${exchangeId}:${adapterType}`);
+  }
+
+  /**
+   * Get adapter metadata
+   */
+  static getMetadata(exchangeId: string, adapterType: 'ccxt' | 'native' | 'csv'): ExchangeAdapterMetadata | null {
+    const key = `${exchangeId}:${adapterType}`;
+    const factory = this.adapters.get(key);
+    return factory?.metadata || null;
+  }
+
+  /**
+   * Validate exchange configuration against registered adapters
+   */
+  static validateConfig(config: ExchangeConfig): { valid: boolean; errors: string[] } {
+    const errors: string[] = [];
+
+    if (!config.id) {
+      errors.push('Exchange ID is required');
+      return { valid: false, errors };
+    }
+
+    if (!config.adapterType) {
+      errors.push('Adapter type is required');
+      return { valid: false, errors };
+    }
+
+    const availableAdapters = this.getAvailable(config.id);
+    const availableTypes = availableAdapters.map(a => a.adapterType);
+
+    if (!availableTypes.includes(config.adapterType)) {
+      errors.push(
+        `Unknown adapter type '${config.adapterType}' for exchange '${config.id}'. ` +
+        `Available: ${availableTypes.join(', ')}`
+      );
+    } else {
+      // Validate specific configuration requirements
+      const metadata = this.getMetadata(config.id, config.adapterType);
+      if (metadata?.configValidation) {
+        const { requiredCredentials, requiredOptions } = metadata.configValidation;
+
+        // Check required credentials
+        for (const cred of requiredCredentials || []) {
+          if (!config.credentials || !config.credentials[cred]) {
+            errors.push(`Required credential '${cred}' missing for ${config.id}:${config.adapterType}`);
+          }
+        }
+
+        // Check required options
+        for (const opt of requiredOptions || []) {
+          if (!config.options || !config.options[opt]) {
+            errors.push(`Required option '${opt}' missing for ${config.id}:${config.adapterType}`);
+          }
+        }
+      }
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors
+    };
+  }
+
+  /**
+   * Get supported adapter types for an exchange
+   */
+  static getSupportedTypes(exchangeId: string): string[] {
+    return this.getAvailable(exchangeId).map(adapter => adapter.adapterType);
+  }
+
+  /**
+   * List all registered exchanges
+   */
+  static getRegisteredExchanges(): string[] {
+    const exchanges = new Set(
+      Array.from(this.adapters.keys()).map(key => key.split(':')[0])
+    );
+    return Array.from(exchanges).filter(exchange => exchange !== undefined) as string[];
+  }
+}===== ./src/exchanges/registry/register-adapters.ts =====
+// Import all exchange adapters to trigger their registration
+// This must be imported before using the ExchangeAdapterRegistry
+
+// CSV Adapters
+import '../kraken/csv-adapter.ts';
+import '../kucoin/csv-adapter.ts';
+import '../ledgerlive/csv-adapter.ts';
+
+// CCXT Adapters
+import '../coinbase/ccxt-adapter.ts';
+
+// Note: Generic CCXTAdapter is handled dynamically in the factory
+// since it's not exchange-specific===== ./src/exchanges/registry/types.ts =====
+import type { IExchangeAdapter, IBlockchainAdapter } from '@crypto/core';
+import type { ExchangeConfig } from '../types.ts';
+
+/**
+ * Exchange adapter capabilities
+ */
+export interface ExchangeAdapterCapabilities {
+  supportedOperations: string[];
+  supportsPagination: boolean;
+  supportsBalanceVerification: boolean;
+  supportsHistoricalData: boolean;
+  requiresApiKey: boolean;
+  supportsCsv: boolean;
+  supportsCcxt: boolean;
+  supportsNative: boolean;
+}
+
+/**
+ * Exchange adapter metadata embedded in the adapter class
+ */
+export interface ExchangeAdapterMetadata {
+  exchangeId: string;
+  displayName: string;
+  adapterType: 'ccxt' | 'native' | 'csv';
+  description?: string;
+  capabilities: ExchangeAdapterCapabilities;
+  configValidation?: {
+    requiredCredentials: string[];
+    optionalCredentials: string[];
+    requiredOptions: string[];
+    optionalOptions: string[];
+  };
+  defaultConfig: {
+    enableRateLimit: boolean;
+    timeout: number;
+    rateLimit?: number;
+  };
+}
+
+/**
+ * Factory function to create exchange adapter instances
+ */
+export type ExchangeAdapterFactory = {
+  metadata: ExchangeAdapterMetadata;
+  create: (config: ExchangeConfig, enableOnlineVerification?: boolean, database?: any) => Promise<IExchangeAdapter | IBlockchainAdapter>;
+};
+
+/**
+ * Information about an available exchange adapter
+ */
+export interface ExchangeAdapterInfo {
+  exchangeId: string;
+  displayName: string;
+  adapterType: 'ccxt' | 'native' | 'csv';
+  description: string;
+  capabilities: ExchangeAdapterCapabilities;
+  defaultConfig: ExchangeAdapterMetadata['defaultConfig'];
+  configValidation?: ExchangeAdapterMetadata['configValidation'];
+}===== ./src/exchanges/registry/index.ts =====
+export { ExchangeAdapterRegistry } from './exchange-adapter-registry.ts';
+export { RegisterExchangeAdapter } from './decorators.ts';
+export type {
+  ExchangeAdapterMetadata,
+  ExchangeAdapterFactory,
+  ExchangeAdapterInfo,
+  ExchangeAdapterCapabilities
+} from './types.ts';===== ./src/exchanges/base-ccxt-adapter.ts =====
 // @ts-ignore - CCXT types compatibility
 import { CryptoTransaction, ExchangeBalance, ExchangeCapabilities, ExchangeInfo, IExchangeAdapter, ServiceError, TransactionType } from '@crypto/core';
 import type { ExchangeConfig } from './types.ts';
@@ -2149,11 +2515,25 @@ export abstract class BaseCCXTAdapter implements IExchangeAdapter {
   protected getExchangeCapabilities(): Partial<ExchangeCapabilities> {
     return {};
   }
-}===== ./src/exchanges/kraken/csv-adapter.ts =====
+}===== ./src/exchanges/index.ts =====
+// Exchange adapters and registry
+export { ExchangeAdapterFactory } from './adapter-factory.ts';
+export { ExchangeAdapterRegistry, RegisterExchangeAdapter } from './registry/index.ts';
+export type { ExchangeConfig, ExchangeCredentials, ExchangeOptions } from './types.ts';
+export type {
+  ExchangeAdapterMetadata,
+  ExchangeAdapterFactory as ExchangeAdapterFactoryType,
+  ExchangeAdapterInfo,
+  ExchangeAdapterCapabilities
+} from './registry/index.ts';
+
+// Trigger adapter registration
+import './registry/register-adapters.ts';===== ./src/exchanges/kraken/csv-adapter.ts =====
 import type { CryptoTransaction, ExchangeInfo, TransactionStatus } from '@crypto/core';
 import { createMoney, parseDecimal } from '@crypto/shared-utils';
 import type { CSVConfig } from '../base-csv-adapter.ts';
 import { BaseCSVAdapter } from '../base-csv-adapter.ts';
+import { RegisterExchangeAdapter } from '../registry/decorators.ts';
 
 interface KrakenCSVConfig extends CSVConfig { }
 
@@ -2176,6 +2556,32 @@ interface KrakenLedgerRow {
   balance: string;
 }
 
+@RegisterExchangeAdapter({
+  exchangeId: 'kraken',
+  displayName: 'Kraken CSV Import',
+  adapterType: 'csv',
+  description: 'Import Kraken transaction data from exported CSV files (ledgers.csv)',
+  capabilities: {
+    supportedOperations: ['importTransactions', 'parseCSV'],
+    supportsPagination: false,
+    supportsBalanceVerification: false,
+    supportsHistoricalData: true,
+    requiresApiKey: false,
+    supportsCsv: true,
+    supportsCcxt: false,
+    supportsNative: false
+  },
+  configValidation: {
+    requiredCredentials: [],
+    optionalCredentials: [],
+    requiredOptions: ['csvDirectories'],
+    optionalOptions: []
+  },
+  defaultConfig: {
+    enableRateLimit: false,
+    timeout: 30000
+  }
+})
 export class KrakenCSVAdapter extends BaseCSVAdapter {
   constructor(config: KrakenCSVConfig) {
     super(config, 'KrakenCSVAdapter');
@@ -2964,10 +3370,9 @@ import { Database } from '@crypto/data';
 import { getLogger } from '@crypto/shared-logger';
 import ccxt from 'ccxt';
 import { CCXTAdapter } from './ccxt-adapter.ts';
-import { CoinbaseCCXTAdapter } from './coinbase/ccxt-adapter.ts';
-import { KrakenCSVAdapter } from './kraken/csv-adapter.ts';
-import { KuCoinCSVAdapter } from './kucoin/csv-adapter.ts';
-import { LedgerLiveCSVAdapter } from './ledgerlive/csv-adapter.ts';
+import { ExchangeAdapterRegistry } from './registry/index.ts';
+// Import to trigger adapter registration
+import './registry/register-adapters.ts';
 
 
 
@@ -2983,23 +3388,30 @@ export class ExchangeAdapterFactory {
     this.logger.info(`Creating adapter for ${config.id} with type: ${config.adapterType}`);
 
     try {
-      if (config.id === 'kucoin' && config.adapterType === 'csv') {
-        return this.createKuCoinAdapter(config);
+      // Try registry-based adapter creation first
+      if (ExchangeAdapterRegistry.isRegistered(config.id, config.adapterType)) {
+        this.logger.debug(`Using registry-based adapter for ${config.id}:${config.adapterType}`);
+        return await ExchangeAdapterRegistry.createAdapter(
+          config.id,
+          config.adapterType,
+          config,
+          enableOnlineVerification,
+          database
+        );
       }
 
-      if (config.id === 'kraken' && config.adapterType === 'csv') {
-        return this.createKrakenCSVAdapter(config);
+      // For CCXT adapters that aren't specifically registered, use the generic CCXT adapter
+      if (config.adapterType === 'ccxt') {
+        this.logger.debug(`Using generic CCXT adapter for ${config.id}`);
+        return this.createCCXTAdapter(config, enableOnlineVerification);
       }
 
-      if (config.id === 'ledgerlive' && config.adapterType === 'csv') {
-        return this.createLedgerLiveCSVAdapter(config);
-      }
-
-      if (config.id === 'coinbase' && config.adapterType === 'ccxt') {
-        return new CoinbaseCCXTAdapter(config, enableOnlineVerification);
-      }
-
-      return this.createCCXTAdapter(config, enableOnlineVerification);
+      // If we get here, the adapter type is not supported
+      throw new ServiceError(
+        `Unsupported adapter configuration: ${config.id}:${config.adapterType}. Available adapters: ${ExchangeAdapterRegistry.getSupportedTypes(config.id).join(', ')}`,
+        config.id,
+        'createAdapter'
+      );
     } catch (error) {
       this.logger.error(`Failed to create adapter for ${config.id} - Error: ${error}`);
 
@@ -3016,41 +3428,6 @@ export class ExchangeAdapterFactory {
     }
   }
 
-  private createKuCoinAdapter(config: ExchangeConfig): IExchangeAdapter {
-    const csvDirectories = config.options?.csvDirectories;
-
-    if (!csvDirectories || csvDirectories.length === 0) {
-      throw new ServiceError('CSV directories required for CSV adapter (use csvDirectories array)', config.id, 'createKuCoinAdapter');
-    }
-    return new KuCoinCSVAdapter({
-      csvDirectories,
-      uid: config.options?.uid
-    });
-  }
-
-  private createKrakenCSVAdapter(config: ExchangeConfig): IExchangeAdapter {
-    const csvDirectories = config.options?.csvDirectories;
-
-    if (!csvDirectories || csvDirectories.length === 0) {
-      throw new ServiceError('CSV directories required for CSV adapter (use csvDirectories array)', config.id, 'createKrakenCSVAdapter');
-    }
-
-    return new KrakenCSVAdapter({
-      csvDirectories
-    });
-  }
-
-  private createLedgerLiveCSVAdapter(config: ExchangeConfig): IExchangeAdapter {
-    const csvDirectories = config.options?.csvDirectories;
-
-    if (!csvDirectories || csvDirectories.length === 0) {
-      throw new ServiceError('CSV directories required for CSV adapter (use csvDirectories array)', config.id, 'createLedgerLiveCSVAdapter');
-    }
-
-    return new LedgerLiveCSVAdapter({
-      csvDirectories
-    });
-  }
 
   private createCCXTAdapter(config: ExchangeConfig, enableOnlineVerification?: boolean): IExchangeAdapter {
     this.logger.info(`Creating CCXT adapter for ${config.id}`);
@@ -3650,6 +4027,107 @@ export enum TransactionNoteType {
   DUST_SWEEP = 'DUST_SWEEP',
   NETWORK_FEE_ONLY = 'NETWORK_FEE_ONLY',
   TEST_TRANSACTION = 'TEST_TRANSACTION'
+}===== ./src/scripts/test-exchange-registry.ts =====
+#!/usr/bin/env node
+
+import { ExchangeAdapterRegistry } from '../exchanges/registry/index.ts';
+import type { ExchangeConfig } from '../exchanges/types.ts';
+// Import to trigger registration
+import '../exchanges/registry/register-adapters.ts';
+
+async function testExchangeRegistry() {
+  console.log('🧪 Testing Exchange Adapter Registry\n');
+  
+  try {
+    // Test 1: List all registered adapters
+    console.log('1️⃣  Testing adapter listing...');
+    const allAdapters = ExchangeAdapterRegistry.getAllAdapters();
+    console.log(`   ✅ Found ${allAdapters.length} registered adapters`);
+    
+    // Test 2: Check specific registrations
+    console.log('\n2️⃣  Testing specific adapter registrations...');
+    const exchanges = ['coinbase', 'kraken', 'kucoin', 'ledgerlive'];
+    for (const exchange of exchanges) {
+      const available = ExchangeAdapterRegistry.getAvailable(exchange);
+      console.log(`   📊 ${exchange}: ${available.length} adapters`);
+    }
+    
+    // Test 3: Test configuration validation
+    console.log('\n3️⃣  Testing configuration validation...');
+    
+    // Valid config test
+    const validConfig: ExchangeConfig = {
+      id: 'kraken',
+      enabled: true,
+      adapterType: 'csv',
+      credentials: {
+        apiKey: '',
+        secret: ''
+      },
+      options: {
+        csvDirectories: ['/path/to/csv']
+      }
+    };
+    
+    const validation = ExchangeAdapterRegistry.validateConfig(validConfig);
+    console.log(`   ✅ Valid config validation: ${validation.valid ? 'PASSED' : 'FAILED'}`);
+    
+    // Invalid config test
+    const invalidConfig: ExchangeConfig = {
+      id: 'kraken',
+      enabled: true,
+      adapterType: 'csv',
+      credentials: {
+        apiKey: '',
+        secret: ''
+      },
+      options: {} // Missing required csvDirectories
+    };
+    
+    const invalidValidation = ExchangeAdapterRegistry.validateConfig(invalidConfig);
+    console.log(`   ✅ Invalid config validation: ${!invalidValidation.valid ? 'PASSED' : 'FAILED'}`);
+    if (!invalidValidation.valid) {
+      console.log(`      Error: ${invalidValidation.errors[0]}`);
+    }
+    
+    // Test 4: Test adapter creation
+    console.log('\n4️⃣  Testing adapter creation...');
+    
+    try {
+      const adapter = await ExchangeAdapterRegistry.createAdapter(
+        'kraken',
+        'csv',
+        validConfig
+      );
+      console.log(`   ✅ Adapter creation: PASSED (${adapter.constructor.name})`);
+    } catch (error) {
+      console.log(`   ❌ Adapter creation: FAILED - ${error instanceof Error ? error.message : error}`);
+    }
+    
+    // Test 5: Test unsupported adapter
+    console.log('\n5️⃣  Testing unsupported adapter handling...');
+    
+    try {
+      await ExchangeAdapterRegistry.createAdapter(
+        'nonexistent',
+        'csv',
+        { ...validConfig, id: 'nonexistent' }
+      );
+      console.log(`   ❌ Unsupported adapter test: FAILED (should have thrown error)`);
+    } catch (error) {
+      console.log(`   ✅ Unsupported adapter test: PASSED (correctly threw error)`);
+    }
+    
+    console.log('\n🎉 All tests completed successfully!');
+    
+  } catch (error) {
+    console.error(`❌ Test failed: ${error instanceof Error ? error.message : error}`);
+    process.exit(1);
+  }
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  testExchangeRegistry();
 }===== ./src/scripts/validate-config.ts =====
 #!/usr/bin/env tsx
 
@@ -3752,7 +4230,180 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 }
 
 export { validateConfiguration };
-===== ./src/scripts/generate-config.ts =====
+===== ./src/scripts/list-exchange-adapters.ts =====
+#!/usr/bin/env node
+
+import { ExchangeAdapterRegistry } from '../exchanges/registry/index.ts';
+// Import to trigger registration
+import '../exchanges/registry/register-adapters.ts';
+
+function formatCapabilities(capabilities: any): string {
+  const items = [
+    capabilities.requiresApiKey ? '🔑 API Key Required' : '🔓 No API Key',
+    capabilities.supportsCsv ? '📄 CSV' : '',
+    capabilities.supportsCcxt ? '🔄 CCXT' : '',
+    capabilities.supportsNative ? '⚡ Native' : '',
+    capabilities.supportsPagination ? '📚 Pagination' : '',
+    capabilities.supportsBalanceVerification ? '💰 Balance Check' : '',
+    capabilities.supportsHistoricalData ? '📈 Historical' : ''
+  ].filter(Boolean);
+  
+  return items.join(' • ');
+}
+
+function main() {
+  console.log('📊 Available Exchange Adapters\n');
+  
+  const allAdapters = ExchangeAdapterRegistry.getAllAdapters();
+  
+  if (allAdapters.length === 0) {
+    console.log('❌ No exchange adapters registered');
+    process.exit(1);
+  }
+  
+  // Group by exchange
+  const byExchange = allAdapters.reduce((acc, adapter) => {
+    if (!acc[adapter.exchangeId]) {
+      acc[adapter.exchangeId] = [];
+    }
+    acc[adapter.exchangeId].push(adapter);
+    return acc;
+  }, {} as Record<string, typeof allAdapters>);
+  
+  for (const [exchangeId, adapters] of Object.entries(byExchange)) {
+    console.log(`\n🏛️  ${exchangeId.toUpperCase()}`);
+    console.log('─'.repeat(50));
+    
+    for (const adapter of adapters) {
+      console.log(`\n📋 ${adapter.displayName}`);
+      console.log(`   Type: ${adapter.adapterType}`);
+      console.log(`   ${formatCapabilities(adapter.capabilities)}`);
+      
+      if (adapter.description) {
+        console.log(`   📝 ${adapter.description}`);
+      }
+      
+      if (adapter.configValidation) {
+        if (adapter.configValidation.requiredCredentials?.length > 0) {
+          console.log(`   🔑 Required credentials: ${adapter.configValidation.requiredCredentials.join(', ')}`);
+        }
+        if (adapter.configValidation.requiredOptions?.length > 0) {
+          console.log(`   ⚙️  Required options: ${adapter.configValidation.requiredOptions.join(', ')}`);
+        }
+      }
+    }
+  }
+  
+  console.log(`\n✅ Total: ${allAdapters.length} adapters across ${Object.keys(byExchange).length} exchanges`);
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main();
+}===== ./src/scripts/validate-exchange-config.ts =====
+#!/usr/bin/env node
+
+import { readFileSync } from 'fs';
+import { ExchangeAdapterRegistry } from '../exchanges/registry/index.ts';
+import type { ExchangeConfig } from '../exchanges/types.ts';
+// Import to trigger registration
+import '../exchanges/registry/register-adapters.ts';
+
+function validateExchangeConfig(configPath: string) {
+  try {
+    const configData = JSON.parse(readFileSync(configPath, 'utf-8'));
+    
+    console.log(`🔍 Validating exchange configuration: ${configPath}\n`);
+    
+    let totalConfigs = 0;
+    let validConfigs = 0;
+    const allErrors: string[] = [];
+    
+    for (const [exchangeId, exchangeConfig] of Object.entries(configData)) {
+      if (typeof exchangeConfig !== 'object' || !exchangeConfig) {
+        continue;
+      }
+      
+      const config = exchangeConfig as ExchangeConfig;
+      config.id = exchangeId; // Ensure ID is set
+      
+      totalConfigs++;
+      
+      console.log(`📊 ${exchangeId.toUpperCase()}`);
+      console.log('─'.repeat(30));
+      
+      const validation = ExchangeAdapterRegistry.validateConfig(config);
+      
+      if (validation.valid) {
+        console.log('✅ Valid configuration');
+        validConfigs++;
+        
+        // Show available capabilities
+        const metadata = ExchangeAdapterRegistry.getMetadata(config.id, config.adapterType!);
+        if (metadata) {
+          console.log(`   📋 Adapter: ${metadata.displayName}`);
+          console.log(`   🔧 Type: ${metadata.adapterType}`);
+          
+          const capabilities = Object.entries(metadata.capabilities)
+            .filter(([_, value]) => value === true)
+            .map(([key]) => key.replace(/^supports?/, '').replace(/^requires?/, ''))
+            .join(', ');
+          
+          if (capabilities) {
+            console.log(`   ⚡ Capabilities: ${capabilities}`);
+          }
+        }
+      } else {
+        console.log('❌ Invalid configuration');
+        for (const error of validation.errors) {
+          console.log(`   🚫 ${error}`);
+          allErrors.push(`${exchangeId}: ${error}`);
+        }
+        
+        // Show available adapters for this exchange
+        const available = ExchangeAdapterRegistry.getAvailable(exchangeId);
+        if (available.length > 0) {
+          console.log(`   💡 Available adapters: ${available.map(a => a.adapterType).join(', ')}`);
+        }
+      }
+      
+      console.log();
+    }
+    
+    console.log('📈 Summary');
+    console.log('─'.repeat(30));
+    console.log(`✅ Valid configurations: ${validConfigs}/${totalConfigs}`);
+    console.log(`❌ Invalid configurations: ${totalConfigs - validConfigs}/${totalConfigs}`);
+    
+    if (allErrors.length > 0) {
+      console.log(`\n🚫 All errors:`);
+      for (const error of allErrors) {
+        console.log(`   • ${error}`);
+      }
+      process.exit(1);
+    } else {
+      console.log('\n🎉 All configurations are valid!');
+    }
+    
+  } catch (error) {
+    console.error(`❌ Failed to validate config: ${error instanceof Error ? error.message : error}`);
+    process.exit(1);
+  }
+}
+
+function main() {
+  const configPath = process.argv[2];
+  
+  if (!configPath) {
+    console.error('Usage: node validate-exchange-config.js <config-file.json>');
+    process.exit(1);
+  }
+  
+  validateExchangeConfig(configPath);
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main();
+}===== ./src/scripts/generate-config.ts =====
 #!/usr/bin/env tsx
 
 /**
@@ -5878,1549 +6529,6 @@ export function lamportsToSol(lamports: number | string): Decimal {
  */
 export function solToLamports(sol: number | string): Decimal {
   return new Decimal(sol).mul(new Decimal(10).pow(9));
-}===== ./src/blockchains/solana/solana/SolscanProvider.ts =====
-import { Decimal } from 'decimal.js';
-
-import type { Balance, BlockchainTransaction, ProviderOperation } from '@crypto/core';
-import { isValidSolanaAddress, lamportsToSol } from '../utils.ts';
-import { createMoney } from '@crypto/shared-utils';
-import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
-import { RegisterProvider } from '../../shared/registry/decorators.ts';
-import type { SolscanTransaction } from '../types.ts';
-
-@RegisterProvider({
-  name: 'solscan',
-  blockchain: 'solana',
-  displayName: 'Solscan API',
-  type: 'rest',
-  requiresApiKey: false,
-  apiKeyEnvVar: 'SOLSCAN_API_KEY',
-  description: 'Solana blockchain explorer API with transaction and account data access',
-  capabilities: {
-    supportedOperations: ['getAddressTransactions', 'getAddressBalance'],
-    maxBatchSize: 1,
-    providesHistoricalData: true,
-    supportsPagination: true,
-    supportsRealTimeData: true,
-    supportsTokenData: true
-  },
-  networks: {
-    mainnet: {
-      baseUrl: 'https://public-api.solscan.io'
-    },
-    testnet: {
-      baseUrl: 'https://api.solscan.io'
-    },
-    devnet: {
-      baseUrl: 'https://api.solscan.io'
-    }
-  },
-  defaultConfig: {
-    timeout: 15000,
-    retries: 3,
-    rateLimit: {
-      requestsPerSecond: 0.2, // Conservative: 1 request per 5 seconds
-      burstLimit: 1
-    }
-  }
-})
-export class SolscanProvider extends BaseRegistryProvider {
-
-  constructor() {
-    super('solana', 'solscan', 'mainnet');
-
-    // Override HTTP client to add browser-like headers for Solscan
-    this.reinitializeHttpClient({
-      defaultHeaders: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'DNT': '1',
-        'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1',
-        ...(this.apiKey && this.apiKey !== 'YourApiKeyToken' && { 'Authorization': `Bearer ${this.apiKey}` })
-      }
-    });
-  }
-
-  async isHealthy(): Promise<boolean> {
-    try {
-      const response = await this.httpClient.get('/account/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
-      return response && response.success !== false;
-    } catch (error) {
-      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
-    }
-  }
-
-  async testConnection(): Promise<boolean> {
-    try {
-      const response = await this.httpClient.get('/account/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
-      this.logger.debug(`Connection test successful - HasResponse: ${!!response}`);
-      return response && response.success !== false;
-    } catch (error) {
-      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
-    }
-  }
-
-  async execute<T>(operation: ProviderOperation<T>, config?: any): Promise<T> {
-    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'}`);
-
-    try {
-      switch (operation.type) {
-        case 'getAddressTransactions':
-          return this.getAddressTransactions(operation.params as { address: string; since?: number }) as T;
-        case 'getAddressBalance':
-          return this.getAddressBalance(operation.params as { address: string }) as T;
-        default:
-          throw new Error(`Unsupported operation: ${operation.type}`);
-      }
-    } catch (error) {
-      this.logger.error(`Operation execution failed - Type: ${operation.type}, Params: ${JSON.stringify(operation.params)}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`);
-      throw error;
-    }
-  }
-
-  private async getAddressTransactions(params: { address: string; since?: number }): Promise<BlockchainTransaction[]> {
-    const { address, since } = params;
-
-    if (!isValidSolanaAddress(address)) {
-      throw new Error(`Invalid Solana address: ${address}`);
-    }
-
-    this.logger.debug(`Fetching address transactions - Address: ${this.maskAddress(address)}, Since: ${since}, Network: ${this.network}`);
-
-    try {
-      const response = await this.httpClient.get(`/account/transaction?address=${address}&limit=100&offset=0`);
-
-      this.logger.debug(`Solscan API response received - HasResponse: ${!!response}, Success: ${response?.success}, HasData: ${!!response?.data}, TransactionCount: ${response?.data?.length || 0}`);
-
-      if (!response || !response.success || !response.data) {
-        this.logger.debug(`No transactions found or API error - Address: ${this.maskAddress(address)}`);
-        return [];
-      }
-
-      const transactions: BlockchainTransaction[] = [];
-
-      for (const tx of response.data) {
-        try {
-          const blockchainTx = this.transformTransaction(tx, address);
-          if (blockchainTx && (!since || blockchainTx.timestamp >= since)) {
-            transactions.push(blockchainTx);
-          }
-        } catch (error) {
-          this.logger.warn(`Failed to transform transaction - TxHash: ${tx.txHash}, Error: ${error instanceof Error ? error.message : String(error)}`);
-        }
-      }
-
-      // Sort by timestamp (newest first)
-      transactions.sort((a, b) => b.timestamp - a.timestamp);
-
-      this.logger.debug(`Successfully retrieved address transactions - Address: ${this.maskAddress(address)}, TotalTransactions: ${transactions.length}, Network: ${this.network}`);
-
-      return transactions;
-
-    } catch (error) {
-      this.logger.error(`Failed to get address transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
-      throw error;
-    }
-  }
-
-  private async getAddressBalance(params: { address: string }): Promise<Balance> {
-    const { address } = params;
-
-    if (!isValidSolanaAddress(address)) {
-      throw new Error(`Invalid Solana address: ${address}`);
-    }
-
-    this.logger.debug(`Fetching address balance - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
-
-    try {
-      const response = await this.httpClient.get(`/account/${address}`);
-
-      if (!response || !response.success || !response.data) {
-        throw new Error('Failed to fetch balance from Solscan API');
-      }
-
-      const lamports = new Decimal(response.data.lamports || '0');
-      const solBalance = lamportsToSol(lamports.toNumber());
-
-      this.logger.debug(`Successfully retrieved address balance - Address: ${this.maskAddress(address)}, BalanceSOL: ${solBalance.toNumber()}, Network: ${this.network}`);
-
-      return {
-        currency: 'SOL',
-        balance: solBalance.toNumber(),
-        used: 0,
-        total: solBalance.toNumber()
-      };
-
-    } catch (error) {
-      this.logger.error(`Failed to get address balance - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
-      throw error;
-    }
-  }
-
-  private transformTransaction(tx: SolscanTransaction, userAddress: string): BlockchainTransaction | null {
-    try {
-      // Check if user is involved in the transaction
-      const isUserSigner = tx.signer.includes(userAddress);
-      const userAccount = tx.inputAccount?.find(acc => acc.account === userAddress);
-
-      if (!isUserSigner && !userAccount) {
-        this.logger.debug(`Transaction not relevant to user address - TxHash: ${tx.txHash}`);
-        return null;
-      }
-
-      // Calculate amount and determine direction
-      let amount = new Decimal(0);
-      let type: 'transfer_in' | 'transfer_out' = 'transfer_out';
-
-      if (userAccount) {
-        const balanceChange = userAccount.postBalance - userAccount.preBalance;
-        amount = lamportsToSol(Math.abs(balanceChange));
-        type = balanceChange > 0 ? 'transfer_in' : 'transfer_out';
-      } else {
-        // Fallback to lamport field if available
-        amount = lamportsToSol(Math.abs(tx.lamport || 0));
-        type = 'transfer_out';
-      }
-
-      // Calculate fee
-      const fee = lamportsToSol(tx.fee);
-
-      return {
-        hash: tx.txHash,
-        blockNumber: tx.slot,
-        blockHash: '',
-        timestamp: tx.blockTime * 1000,
-        from: tx.signer?.[0] || '',
-        to: '',
-        value: createMoney(amount.toNumber(), 'SOL'),
-        fee: createMoney(fee.toNumber(), 'SOL'),
-        gasUsed: undefined,
-        gasPrice: undefined,
-        status: tx.status === 'Success' ? 'success' : 'failed',
-        type,
-        tokenContract: undefined,
-        tokenSymbol: 'SOL',
-        nonce: undefined,
-        confirmations: 1
-      };
-    } catch (error) {
-      this.logger.warn(`Failed to transform transaction - TxHash: ${tx.txHash}, Error: ${error instanceof Error ? error.message : String(error)}`);
-      return null;
-    }
-  }
-
-  private maskAddress(address: string): string {
-    if (address.length <= 8) return address;
-    return `${address.slice(0, 4)}...${address.slice(-4)}`;
-  }
-}===== ./src/blockchains/solana/solana/SolanaRPCProvider.ts =====
-import { Decimal } from 'decimal.js';
-
-import type { Balance, BlockchainTransaction, ProviderOperation } from '@crypto/core';
-import { isValidSolanaAddress, lamportsToSol } from '../utils.ts';
-import { createMoney } from '@crypto/shared-utils';
-import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
-import { RegisterProvider } from '../../shared/registry/decorators.ts';
-import type { SolanaRPCTransaction } from '../types.ts';
-
-@RegisterProvider({
-  name: 'solana-rpc',
-  blockchain: 'solana',
-  displayName: 'Solana RPC',
-  type: 'rpc',
-  requiresApiKey: false,
-  description: 'Direct connection to Solana mainnet RPC endpoints with basic transaction data',
-  capabilities: {
-    supportedOperations: ['getAddressTransactions', 'getAddressBalance', 'getTokenTransactions', 'getTokenBalances'],
-    maxBatchSize: 1,
-    providesHistoricalData: true,
-    supportsPagination: true,
-    supportsRealTimeData: true,
-    supportsTokenData: true
-  },
-  networks: {
-    mainnet: {
-      baseUrl: 'https://api.mainnet-beta.solana.com'
-    },
-    testnet: {
-      baseUrl: 'https://api.testnet.solana.com'
-    },
-    devnet: {
-      baseUrl: 'https://api.devnet.solana.com'
-    }
-  },
-  defaultConfig: {
-    timeout: 30000,
-    retries: 3,
-    rateLimit: {
-      requestsPerSecond: 1, // Conservative for public RPC
-      burstLimit: 2
-    }
-  }
-})
-export class SolanaRPCProvider extends BaseRegistryProvider {
-
-  constructor() {
-    super('solana', 'solana-rpc', 'mainnet');
-  }
-
-
-  async isHealthy(): Promise<boolean> {
-    try {
-      const response = await this.httpClient.post('/', {
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'getHealth'
-      });
-      return response && response.result === 'ok';
-    } catch (error) {
-      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
-    }
-  }
-
-  async testConnection(): Promise<boolean> {
-    try {
-      const response = await this.httpClient.post('/', {
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'getHealth'
-      });
-      this.logger.debug(`Connection test successful - Health: ${response?.result}`);
-      return response && response.result === 'ok';
-    } catch (error) {
-      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
-    }
-  }
-
-  async execute<T>(operation: ProviderOperation<T>, config?: any): Promise<T> {
-    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'}`);
-
-    try {
-      switch (operation.type) {
-        case 'getAddressTransactions':
-          return this.getAddressTransactions(operation.params as { address: string; since?: number }) as T;
-        case 'getAddressBalance':
-          return this.getAddressBalance(operation.params as { address: string }) as T;
-        case 'getTokenTransactions':
-          return this.getTokenTransactions(operation.params as { address: string; contractAddress?: string; since?: number }) as T;
-        case 'getTokenBalances':
-          return this.getTokenBalances(operation.params as { address: string; contractAddresses?: string[] }) as T;
-        default:
-          throw new Error(`Unsupported operation: ${operation.type}`);
-      }
-    } catch (error) {
-      this.logger.error(`Operation execution failed - Type: ${operation.type}, Params: ${operation.params}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`);
-      throw error;
-    }
-  }
-
-  private async getAddressTransactions(params: { address: string; since?: number }): Promise<BlockchainTransaction[]> {
-    const { address, since } = params;
-
-    if (!isValidSolanaAddress(address)) {
-      throw new Error(`Invalid Solana address: ${address}`);
-    }
-
-    this.logger.debug(`Fetching address transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
-
-    try {
-      // Get signatures for address
-      const signaturesResponse = await this.httpClient.post('/', {
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'getSignaturesForAddress',
-        params: [
-          address,
-          {
-            limit: 100
-          }
-        ]
-      });
-
-      if (!signaturesResponse?.result) {
-        this.logger.debug(`No signatures found - Address: ${this.maskAddress(address)}`);
-        return [];
-      }
-
-      const transactions: BlockchainTransaction[] = [];
-      const signatures = signaturesResponse.result.slice(0, 50); // Limit for performance
-
-      this.logger.debug(`Retrieved signatures - Address: ${this.maskAddress(address)}, Count: ${signatures.length}`);
-
-      // Fetch transaction details
-      for (const sig of signatures) {
-        try {
-          const txResponse = await this.httpClient.post('/', {
-            jsonrpc: '2.0',
-            id: 1,
-            method: 'getTransaction',
-            params: [
-              sig.signature,
-              {
-                encoding: 'json',
-                maxSupportedTransactionVersion: 0
-              }
-            ]
-          });
-
-          if (txResponse?.result) {
-            const blockchainTx = this.transformTransaction(txResponse.result, address);
-            if (blockchainTx && (!since || blockchainTx.timestamp >= since)) {
-              transactions.push(blockchainTx);
-            }
-          }
-        } catch (error) {
-          this.logger.debug(`Failed to fetch transaction details - Signature: ${sig.signature}, Error: ${error instanceof Error ? error.message : String(error)}`);
-        }
-      }
-
-      // Sort by timestamp (newest first)
-      transactions.sort((a, b) => b.timestamp - a.timestamp);
-
-      this.logger.debug(`Successfully retrieved address transactions - Address: ${this.maskAddress(address)}, TotalTransactions: ${transactions.length}, Network: ${this.network}`);
-
-      return transactions;
-
-    } catch (error) {
-      this.logger.error(`Failed to get address transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
-      throw error;
-    }
-  }
-
-  private async getAddressBalance(params: { address: string }): Promise<Balance> {
-    const { address } = params;
-
-    if (!isValidSolanaAddress(address)) {
-      throw new Error(`Invalid Solana address: ${address}`);
-    }
-
-    this.logger.debug(`Fetching address balance - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
-
-    try {
-      const response = await this.httpClient.post('/', {
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'getBalance',
-        params: [address]
-      });
-
-      if (!response?.result || response.result.value === undefined) {
-        throw new Error('Failed to fetch balance from Solana RPC');
-      }
-
-      const lamports = new Decimal(response.result.value);
-      const solBalance = lamportsToSol(lamports.toNumber());
-
-      this.logger.debug(`Successfully retrieved address balance - Address: ${this.maskAddress(address)}, BalanceSOL: ${solBalance.toNumber()}, Network: ${this.network}`);
-
-      return {
-        currency: 'SOL',
-        balance: solBalance.toNumber(),
-        used: 0,
-        total: solBalance.toNumber()
-      };
-
-    } catch (error) {
-      this.logger.error(`Failed to get address balance - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
-      throw error;
-    }
-  }
-
-  private transformTransaction(tx: SolanaRPCTransaction, userAddress: string): BlockchainTransaction | null {
-    try {
-      const accountKeys = tx.transaction.message.accountKeys;
-      const userIndex = accountKeys.findIndex(key => key === userAddress);
-
-      if (userIndex === -1) {
-        this.logger.debug(`Transaction not relevant to user - Signature: ${tx.transaction.signatures?.[0]}`);
-        return null;
-      }
-
-      // Calculate balance change
-      const preBalance = tx.meta.preBalances[userIndex] || 0;
-      const postBalance = tx.meta.postBalances[userIndex] || 0;
-      const rawBalanceChange = postBalance - preBalance;
-
-      // For fee payer, add back the fee to get the actual transfer amount
-      const isFeePayerIndex = userIndex === 0;
-      const feeAdjustment = isFeePayerIndex ? tx.meta.fee : 0;
-      const balanceChange = rawBalanceChange + feeAdjustment;
-
-      const amount = lamportsToSol(Math.abs(balanceChange));
-      const type: 'transfer_in' | 'transfer_out' = balanceChange > 0 ? 'transfer_in' : 'transfer_out';
-      const fee = lamportsToSol(tx.meta.fee);
-
-      // Skip transactions with no meaningful amount (pure fee transactions)
-      if (amount.toNumber() <= fee.toNumber() && amount.toNumber() < 0.000001) {
-        this.logger.debug(`Skipping fee-only transaction - Hash: ${tx.transaction.signatures?.[0]}, Amount: ${amount.toNumber()}, Fee: ${fee.toNumber()}`);
-        return null;
-      }
-
-      return {
-        hash: tx.transaction.signatures?.[0] || '',
-        blockNumber: tx.slot,
-        blockHash: '',
-        timestamp: (tx.blockTime || 0) * 1000,
-        from: accountKeys?.[0] || '',
-        to: '',
-        value: createMoney(amount.toNumber(), 'SOL'),
-        fee: createMoney(fee.toNumber(), 'SOL'),
-        gasUsed: undefined,
-        gasPrice: undefined,
-        status: tx.meta.err ? 'failed' : 'success',
-        type,
-        tokenContract: undefined,
-        tokenSymbol: 'SOL',
-        nonce: undefined,
-        confirmations: 1
-      };
-    } catch (error) {
-      this.logger.warn(`Failed to transform transaction - Signature: ${tx.transaction.signatures?.[0]}, Error: ${error instanceof Error ? error.message : String(error)}`);
-      return null;
-    }
-  }
-
-  private async getTokenTransactions(params: { address: string; contractAddress?: string; since?: number }): Promise<BlockchainTransaction[]> {
-    const { address, contractAddress, since } = params;
-
-    if (!isValidSolanaAddress(address)) {
-      throw new Error(`Invalid Solana address: ${address}`);
-    }
-
-    this.logger.debug(`Fetching token transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
-
-    try {
-      // Get all signatures for this address (same as regular transactions)
-      const signaturesResponse = await this.httpClient.post('/', {
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'getSignaturesForAddress',
-        params: [
-          address,
-          {
-            limit: 1000  // Increase limit to find more historical token transactions
-          }
-        ]
-      });
-
-      if (!signaturesResponse?.result) {
-        this.logger.debug(`No signatures found for token transactions - Address: ${this.maskAddress(address)}`);
-        return [];
-      }
-
-      const signatures = signaturesResponse.result.slice(0, 100); // Process more signatures for token transactions
-      const tokenTransactions: BlockchainTransaction[] = [];
-
-      // Process signatures individually to find token transactions (avoid batch requests)
-      for (const sig of signatures) {
-        try {
-          const txResponse = await this.httpClient.post('/', {
-            jsonrpc: '2.0',
-            id: 1,
-            method: 'getTransaction',
-            params: [
-              sig.signature,
-              {
-                encoding: 'json',
-                maxSupportedTransactionVersion: 0
-              }
-            ]
-          });
-
-          if (txResponse?.result) {
-            const tokenTx = this.extractTokenTransaction(txResponse.result, address, contractAddress);
-            if (tokenTx && (!since || tokenTx.timestamp >= since)) {
-              tokenTransactions.push(tokenTx);
-            }
-          }
-        } catch (error) {
-          this.logger.debug(`Failed to fetch token transaction details - Signature: ${sig.signature}, Error: ${error instanceof Error ? error.message : String(error)}`);
-        }
-      }
-
-      tokenTransactions.sort((a, b) => b.timestamp - a.timestamp);
-
-      this.logger.debug(`Successfully retrieved token transactions - Address: ${this.maskAddress(address)}, TotalTransactions: ${tokenTransactions.length}, Network: ${this.network}`);
-
-      return tokenTransactions;
-
-    } catch (error) {
-      this.logger.error(`Failed to get token transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
-      throw error;
-    }
-  }
-
-  private async getTokenBalances(params: { address: string; contractAddresses?: string[] }): Promise<Balance[]> {
-    const { address, contractAddresses } = params;
-
-    if (!isValidSolanaAddress(address)) {
-      throw new Error(`Invalid Solana address: ${address}`);
-    }
-
-    this.logger.debug(`Fetching token balances - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
-
-    try {
-      // Get all token accounts owned by the address
-      const tokenAccountsResponse = await this.httpClient.post('/', {
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'getTokenAccountsByOwner',
-        params: [
-          address,
-          {
-            programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' // SPL Token Program ID
-          },
-          {
-            encoding: 'jsonParsed'
-          }
-        ]
-      });
-
-      if (!tokenAccountsResponse?.result?.value) {
-        this.logger.debug(`No token accounts found - Address: ${this.maskAddress(address)}`);
-        return [];
-      }
-
-      const tokenAccounts = tokenAccountsResponse.result.value;
-      const balances: Balance[] = [];
-
-      for (const account of tokenAccounts) {
-        const accountData = account.account.data.parsed;
-        if (!accountData || !accountData.info) continue;
-
-        const tokenInfo = accountData.info;
-        const mintAddress = tokenInfo.mint;
-        const tokenAmount = tokenInfo.tokenAmount;
-
-        // If specific contract addresses are provided, filter by them
-        if (contractAddresses && contractAddresses.length > 0) {
-          if (!contractAddresses.includes(mintAddress)) {
-            continue;
-          }
-        }
-
-        // Skip zero balances
-        if (!tokenAmount.uiAmount || tokenAmount.uiAmount === 0) {
-          continue;
-        }
-
-        balances.push({
-          currency: mintAddress.slice(0, 8), // Use truncated mint address as symbol for now
-          balance: tokenAmount.uiAmount,
-          used: 0,
-          total: tokenAmount.uiAmount,
-          contractAddress: mintAddress
-        });
-      }
-
-      this.logger.debug(`Successfully retrieved token balances - Address: ${this.maskAddress(address)}, TotalTokens: ${balances.length}, Network: ${this.network}`);
-
-      return balances;
-
-    } catch (error) {
-      this.logger.error(`Failed to get token balances - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
-      throw error;
-    }
-  }
-
-  private extractTokenTransaction(tx: SolanaRPCTransaction, userAddress: string, targetContract?: string): BlockchainTransaction | null {
-    try {
-      // Look for token balance changes in preTokenBalances and postTokenBalances
-      const preTokenBalances = tx.meta.preTokenBalances || [];
-      const postTokenBalances = tx.meta.postTokenBalances || [];
-
-      // Find changes for token accounts
-      for (const postBalance of postTokenBalances) {
-        const preBalance = preTokenBalances.find(pre =>
-          pre.accountIndex === postBalance.accountIndex &&
-          pre.mint === postBalance.mint
-        );
-
-        const preAmount = preBalance ? parseFloat(preBalance.uiTokenAmount.uiAmountString || '0') : 0;
-        const postAmount = parseFloat(postBalance.uiTokenAmount.uiAmountString || '0');
-        const change = postAmount - preAmount;
-
-        // Skip if no meaningful change
-        if (Math.abs(change) < 0.000001) {
-          continue;
-        }
-
-        // If a specific contract is specified, filter by it
-        if (targetContract && postBalance.mint !== targetContract) {
-          continue;
-        }
-
-        // Log any significant token transaction
-        this.logger.debug(`Found SPL token transaction - Signature: ${tx.transaction.signatures?.[0]}, Mint: ${postBalance.mint}, Change: ${Math.abs(change)}, Type: ${change > 0 ? 'transfer_in' : 'transfer_out'}`);
-
-        // Determine transfer direction
-        const type: 'transfer_in' | 'transfer_out' = change > 0 ? 'transfer_in' : 'transfer_out';
-
-        return {
-          hash: tx.transaction.signatures?.[0] || '',
-          blockNumber: tx.slot,
-          blockHash: '',
-          timestamp: (tx.blockTime || 0) * 1000,
-          from: type === 'transfer_out' ? userAddress : '',
-          to: type === 'transfer_in' ? userAddress : '',
-          value: createMoney(Math.abs(change), 'UNKNOWN'), // Will be updated with proper symbol later
-          fee: createMoney(lamportsToSol(tx.meta.fee).toNumber(), 'SOL'),
-          gasUsed: undefined,
-          gasPrice: undefined,
-          status: tx.meta.err ? 'failed' : 'success',
-          type: 'token_transfer',
-          tokenContract: postBalance.mint,
-          tokenSymbol: postBalance.uiTokenAmount.uiAmountString?.includes('.') ? 'UNKNOWN' : 'UNKNOWN',
-          nonce: undefined,
-          confirmations: 1
-        };
-      }
-
-      return null;
-    } catch (error) {
-      this.logger.debug(`Failed to extract token transaction - Signature: ${tx.transaction.signatures?.[0]}, Error: ${error instanceof Error ? error.message : String(error)}`);
-      return null;
-    }
-  }
-
-  private maskAddress(address: string): string {
-    if (address.length <= 8) return address;
-    return `${address.slice(0, 4)}...${address.slice(-4)}`;
-  }
-}===== ./src/blockchains/solana/solana/HeliusProvider.ts =====
-import { Decimal } from 'decimal.js';
-
-import type { Balance, BlockchainTransaction, ProviderOperation } from '@crypto/core';
-import { isValidSolanaAddress, lamportsToSol } from '../utils.ts';
-import { createMoney } from '@crypto/shared-utils';
-import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
-import { RegisterProvider } from '../../shared/registry/decorators.ts';
-
-
-interface HeliusTransaction {
-  signature: string;
-  slot: number;
-  blockTime?: number;
-  err: any;
-  meta: {
-    fee: number;
-    preBalances: number[];
-    postBalances: number[];
-    preTokenBalances?: any[];
-    postTokenBalances?: any[];
-    logMessages: string[];
-    err: any;
-  };
-  transaction: {
-    message: {
-      accountKeys: string[];
-      instructions: any[];
-      recentBlockhash: string;
-    };
-    signatures: string[];
-  };
-}
-
-@RegisterProvider({
-  name: 'helius',
-  blockchain: 'solana',
-  displayName: 'Helius RPC API',
-  type: 'rpc',
-  requiresApiKey: true,
-  apiKeyEnvVar: 'SOLANA_HELIUS_API_KEY',
-  description: 'High-performance Solana RPC API with comprehensive transaction data and token support',
-  capabilities: {
-    supportedOperations: ['getAddressTransactions', 'getAddressBalance', 'getTokenTransactions', 'getTokenBalances'],
-    maxBatchSize: 1,
-    providesHistoricalData: true,
-    supportsPagination: true,
-    supportsRealTimeData: true,
-    supportsTokenData: true
-  },
-  networks: {
-    mainnet: {
-      baseUrl: 'https://mainnet.helius-rpc.com'
-    },
-    testnet: {
-      baseUrl: 'https://rpc.helius.xyz'
-    },
-    devnet: {
-      baseUrl: 'https://rpc.helius.xyz'
-    }
-  },
-  defaultConfig: {
-    timeout: 30000,
-    retries: 3,
-    rateLimit: {
-      requestsPerSecond: 10, // Helius has generous rate limits
-      requestsPerMinute: 500,
-      requestsPerHour: 5000,
-      burstLimit: 20
-    }
-  }
-})
-export class HeliusProvider extends BaseRegistryProvider {
-  private tokenSymbolCache = new Map<string, string>();
-
-  constructor() {
-    super('solana', 'helius', 'mainnet');
-
-    // Helius needs API key in URL, so reinitialize HTTP client
-    if (this.apiKey && this.apiKey !== 'YourApiKeyToken') {
-      const heliusUrl = `${this.baseUrl}/?api-key=${this.apiKey}`;
-      this.reinitializeHttpClient({
-        baseUrl: heliusUrl,
-        defaultHeaders: {
-          'Content-Type': 'application/json'
-        }
-      });
-    }
-  }
-
-  async isHealthy(): Promise<boolean> {
-    try {
-      const response = await this.httpClient.post('/', {
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'getHealth'
-      });
-      return response && response.result === 'ok';
-    } catch (error) {
-      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
-    }
-  }
-
-  async testConnection(): Promise<boolean> {
-    try {
-      const response = await this.httpClient.post('/', {
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'getHealth'
-      });
-      this.logger.debug(`Connection test successful - Health: ${response?.result}`);
-      return response && response.result === 'ok';
-    } catch (error) {
-      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
-    }
-  }
-
-  async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'}`);
-
-    try {
-      switch (operation.type) {
-        case 'getAddressTransactions':
-          return this.getAddressTransactions(operation.params as { address: string; since?: number }) as T;
-        case 'getAddressBalance':
-          return this.getAddressBalance(operation.params as { address: string }) as T;
-        case 'getTokenTransactions':
-          return this.getTokenTransactions(operation.params as { address: string; contractAddress?: string; since?: number }) as T;
-        case 'getTokenBalances':
-          return this.getTokenBalances(operation.params as { address: string; contractAddresses?: string[] }) as T;
-        default:
-          throw new Error(`Unsupported operation: ${operation.type}`);
-      }
-    } catch (error) {
-      this.logger.error(`Operation execution failed - Type: ${operation.type}, Params: ${operation.params}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`);
-      throw error;
-    }
-  }
-
-  private async getAddressTransactions(params: { address: string; since?: number }): Promise<BlockchainTransaction[]> {
-    const { address, since } = params;
-
-    if (!isValidSolanaAddress(address)) {
-      throw new Error(`Invalid Solana address: ${address}`);
-    }
-
-    this.logger.debug(`Fetching address transactions with token account discovery - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
-
-    try {
-      // Step 1: Get direct transactions for the address
-      const directTransactions = await this.getDirectAddressTransactions(address, since);
-
-      // Step 2: Get token accounts owned by the address  
-      const tokenAccounts = await this.getTokenAccountsOwnedByAddress(address);
-
-      // Step 3: Fetch transactions for each token account
-      const tokenAccountTransactions = await this.fetchTokenAccountTransactions(tokenAccounts, since, address);
-
-      // Step 4: Combine and deduplicate all transactions
-      const allTransactions = this.deduplicateTransactions([...directTransactions, ...tokenAccountTransactions]);
-
-      // Sort by timestamp (newest first)
-      allTransactions.sort((a, b) => b.timestamp - a.timestamp);
-
-      this.logger.debug(`Successfully retrieved address transactions with token account discovery - Address: ${this.maskAddress(address)}, DirectTransactions: ${directTransactions.length}, TokenAccounts: ${tokenAccounts.length}, TokenAccountTransactions: ${tokenAccountTransactions.length}, TotalUniqueTransactions: ${allTransactions.length}, Network: ${this.network}`);
-
-      return allTransactions;
-
-    } catch (error) {
-      this.logger.error(`Failed to get address transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
-      throw error;
-    }
-  }
-
-  private async getDirectAddressTransactions(address: string, since?: number): Promise<BlockchainTransaction[]> {
-    // Get signatures for address (direct involvement)
-    const signaturesResponse = await this.httpClient.post('/', {
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'getSignaturesForAddress',
-      params: [
-        address,
-        {
-          limit: 100
-        }
-      ]
-    });
-
-    if (!signaturesResponse?.result) {
-      this.logger.debug(`No direct signatures found - Address: ${this.maskAddress(address)}`);
-      return [];
-    }
-
-    const transactions: BlockchainTransaction[] = [];
-    const signatures = signaturesResponse.result.slice(0, 50);
-
-    this.logger.debug(`Retrieved direct signatures - Address: ${this.maskAddress(address)}, Count: ${signatures.length}`);
-
-    // Fetch transaction details individually (free tier doesn't support batch requests)
-    for (const sig of signatures) {
-      try {
-        const txResponse = await this.httpClient.post('/', {
-          jsonrpc: '2.0',
-          id: 1,
-          method: 'getTransaction',
-          params: [
-            sig.signature,
-            {
-              encoding: 'json',
-              maxSupportedTransactionVersion: 0
-            }
-          ]
-        });
-
-        if (txResponse?.result) {
-          const blockchainTx = await this.transformTransaction(txResponse.result, address);
-          if (blockchainTx && (!since || blockchainTx.timestamp >= since)) {
-            transactions.push(blockchainTx);
-          }
-        }
-      } catch (error) {
-        this.logger.debug(`Failed to fetch direct transaction details - Signature: ${sig.signature}, Error: ${error instanceof Error ? error.message : String(error)}`);
-      }
-    }
-
-    return transactions;
-  }
-
-  private async getTokenAccountsOwnedByAddress(address: string): Promise<string[]> {
-    try {
-      // Get all token accounts owned by the address
-      const tokenAccountsResponse = await this.httpClient.post('/', {
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'getTokenAccountsByOwner',
-        params: [
-          address,
-          {
-            programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' // SPL Token Program ID
-          },
-          {
-            encoding: 'jsonParsed'
-          }
-        ]
-      });
-
-      if (!tokenAccountsResponse?.result?.value) {
-        this.logger.debug(`No token accounts found - Address: ${this.maskAddress(address)}`);
-        return [];
-      }
-
-      const tokenAccountAddresses = tokenAccountsResponse.result.value.map((account: any) => account.pubkey);
-
-      this.logger.debug(`Found token accounts owned by address - Address: ${this.maskAddress(address)}, TokenAccountCount: ${tokenAccountAddresses.length}`);
-
-      return tokenAccountAddresses;
-    } catch (error) {
-      this.logger.warn(`Failed to get token accounts - Address: ${this.maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
-      return [];
-    }
-  }
-
-  private async fetchTokenAccountTransactions(tokenAccountAddresses: string[], since?: number, ownerAddress?: string): Promise<BlockchainTransaction[]> {
-    const allTokenTransactions: BlockchainTransaction[] = [];
-
-    for (const tokenAccount of tokenAccountAddresses) {
-      try {
-        // Get signatures for this token account
-        const signaturesResponse = await this.httpClient.post('/', {
-          jsonrpc: '2.0',
-          id: 1,
-          method: 'getSignaturesForAddress',
-          params: [
-            tokenAccount,
-            {
-              limit: 50 // Limit per token account to avoid overwhelming
-            }
-          ]
-        });
-
-        if (!signaturesResponse?.result?.length) {
-          continue;
-        }
-
-        // Fetch transaction details for token account signatures
-        for (const sig of signaturesResponse.result.slice(0, 20)) {
-          try {
-            const txResponse = await this.httpClient.post('/', {
-              jsonrpc: '2.0',
-              id: 1,
-              method: 'getTransaction',
-              params: [
-                sig.signature,
-                {
-                  encoding: 'json',
-                  maxSupportedTransactionVersion: 0
-                }
-              ]
-            });
-
-            if (txResponse?.result) {
-              // Transform transaction but link it back to the owner address
-              // For token account transactions, we bypass the relevance check since we found it via token account
-              const blockchainTx = await this.transformTokenAccountTransaction(txResponse.result, ownerAddress || tokenAccount);
-              if (blockchainTx && (!since || blockchainTx.timestamp >= since)) {
-                allTokenTransactions.push(blockchainTx);
-              }
-            }
-          } catch (error) {
-            this.logger.debug(`Failed to fetch token account transaction - TokenAccount: ${this.maskAddress(tokenAccount)}, Signature: ${sig.signature}, Error: ${error instanceof Error ? error.message : String(error)}`);
-          }
-        }
-      } catch (error) {
-        this.logger.warn(`Failed to get signatures for token account - TokenAccount: ${this.maskAddress(tokenAccount)}, Error: ${error instanceof Error ? error.message : String(error)}`);
-      }
-    }
-
-    return allTokenTransactions;
-  }
-
-  private deduplicateTransactions(transactions: BlockchainTransaction[]): BlockchainTransaction[] {
-    const seen = new Set<string>();
-    const unique: BlockchainTransaction[] = [];
-
-    for (const tx of transactions) {
-      if (!seen.has(tx.hash)) {
-        seen.add(tx.hash);
-        unique.push(tx);
-      }
-    }
-
-    this.logger.debug(`Deduplicated transactions - Original: ${transactions.length}, Unique: ${unique.length}`);
-
-    return unique;
-  }
-
-  private async transformTokenAccountTransaction(tx: HeliusTransaction, userAddress: string): Promise<BlockchainTransaction | null> {
-    try {
-      // For token account transactions, we bypass the accountKeys relevance check
-      // since we already know this transaction affects the user's token accounts
-
-      // First check for token transfers - these are more important than SOL transfers
-      const tokenTransaction = await this.extractTokenTransaction(tx, userAddress);
-      if (tokenTransaction) {
-        return tokenTransaction;
-      }
-
-      // Fall back to SOL transfer handling (similar to transformTransaction but without relevance check)
-      const accountKeys = tx.transaction.message.accountKeys;
-      const userIndex = accountKeys.findIndex(key => key === userAddress);
-
-      if (userIndex !== -1) {
-        // User is directly involved, use normal processing
-        const preBalance = tx.meta.preBalances[userIndex] || 0;
-        const postBalance = tx.meta.postBalances[userIndex] || 0;
-        const rawBalanceChange = postBalance - preBalance;
-
-        // For fee payer, add back the fee to get the actual transfer amount
-        const isFeePayerIndex = userIndex === 0;
-        const feeAdjustment = isFeePayerIndex ? tx.meta.fee : 0;
-        const balanceChange = rawBalanceChange + feeAdjustment;
-
-        const amount = lamportsToSol(Math.abs(balanceChange));
-        const type: 'transfer_in' | 'transfer_out' = balanceChange > 0 ? 'transfer_in' : 'transfer_out';
-        const fee = lamportsToSol(tx.meta.fee);
-
-        // Skip transactions with no meaningful amount (pure fee transactions)
-        if (amount.toNumber() <= fee.toNumber() && amount.toNumber() < 0.000001) {
-          this.logger.debug(`Skipping fee-only token account transaction - Hash: ${tx.transaction.signatures?.[0]}, Amount: ${amount.toNumber()}, Fee: ${fee.toNumber()}`);
-          return null;
-        }
-
-        return {
-          hash: tx.transaction.signatures?.[0] || '',
-          blockNumber: tx.slot,
-          blockHash: '',
-          timestamp: tx.blockTime || 0,
-          from: accountKeys?.[0] || '',
-          to: '',
-          value: createMoney(amount.toNumber(), 'SOL'),
-          fee: createMoney(fee.toNumber(), 'SOL'),
-          gasUsed: undefined,
-          gasPrice: undefined,
-          status: tx.meta.err ? 'failed' : 'success',
-          type,
-          tokenContract: undefined,
-          tokenSymbol: 'SOL',
-          nonce: undefined,
-          confirmations: 1
-        };
-      }
-
-      // User not directly involved but we found this via token account - still check for token changes
-      this.logger.debug(`Token account transaction found via token account but user not in accountKeys - Signature: ${tx.transaction.signatures?.[0]}, UserAddress: ${this.maskAddress(userAddress)}`);
-
-      return null;
-    } catch (error) {
-      this.logger.warn(`Failed to transform token account transaction - Signature: ${tx.transaction.signatures?.[0]}, Error: ${error instanceof Error ? error.message : String(error)}`);
-      return null;
-    }
-  }
-
-  private async getAddressBalance(params: { address: string }): Promise<Balance> {
-    const { address } = params;
-
-    if (!isValidSolanaAddress(address)) {
-      throw new Error(`Invalid Solana address: ${address}`);
-    }
-
-    this.logger.debug(`Fetching address balance - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
-
-    try {
-      const response = await this.httpClient.post('/', {
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'getBalance',
-        params: [address]
-      });
-
-      if (!response?.result || response.result.value === undefined) {
-        throw new Error('Failed to fetch balance from Helius RPC');
-      }
-
-      const lamports = new Decimal(response.result.value);
-      const solBalance = lamportsToSol(lamports.toNumber());
-
-      this.logger.debug(`Successfully retrieved address balance - Address: ${this.maskAddress(address)}, BalanceSOL: ${solBalance.toNumber()}, Network: ${this.network}`);
-
-      return {
-        currency: 'SOL',
-        balance: solBalance.toNumber(),
-        used: 0,
-        total: solBalance.toNumber()
-      };
-
-    } catch (error) {
-      this.logger.error(`Failed to get address balance - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
-      throw error;
-    }
-  }
-
-  private async transformTransaction(tx: HeliusTransaction, userAddress: string): Promise<BlockchainTransaction | null> {
-    try {
-      const accountKeys = tx.transaction.message.accountKeys;
-      const userIndex = accountKeys.findIndex(key => key === userAddress);
-
-      if (userIndex === -1) {
-        this.logger.debug(`Transaction not relevant to user - Signature: ${tx.transaction.signatures?.[0]}`);
-        return null;
-      }
-
-      // First check for token transfers - these are more important than SOL transfers
-      const tokenTransaction = await this.extractTokenTransaction(tx, userAddress);
-      if (tokenTransaction) {
-        return tokenTransaction;
-      }
-
-      // Fall back to SOL transfer handling
-      const preBalance = tx.meta.preBalances[userIndex] || 0;
-      const postBalance = tx.meta.postBalances[userIndex] || 0;
-      const rawBalanceChange = postBalance - preBalance;
-
-      // For fee payer, add back the fee to get the actual transfer amount
-      const isFeePayerIndex = userIndex === 0;
-      const feeAdjustment = isFeePayerIndex ? tx.meta.fee : 0;
-      const balanceChange = rawBalanceChange + feeAdjustment;
-
-      const amount = lamportsToSol(Math.abs(balanceChange));
-      const type: 'transfer_in' | 'transfer_out' = balanceChange > 0 ? 'transfer_in' : 'transfer_out';
-      const fee = lamportsToSol(tx.meta.fee);
-
-      // Skip transactions with no meaningful amount (pure fee transactions)
-      if (amount.toNumber() <= fee.toNumber() && amount.toNumber() < 0.000001) {
-        this.logger.debug(`Skipping fee-only transaction - Hash: ${tx.transaction.signatures?.[0]}, Amount: ${amount.toNumber()}, Fee: ${fee.toNumber()}`);
-        return null;
-      }
-
-      return {
-        hash: tx.transaction.signatures?.[0] || '',
-        blockNumber: tx.slot,
-        blockHash: '',
-        timestamp: tx.blockTime || 0,
-        from: accountKeys?.[0] || '',
-        to: '',
-        value: createMoney(amount.toNumber(), 'SOL'),
-        fee: createMoney(fee.toNumber(), 'SOL'),
-        gasUsed: undefined,
-        gasPrice: undefined,
-        status: tx.meta.err ? 'failed' : 'success',
-        type,
-        tokenContract: undefined,
-        tokenSymbol: 'SOL',
-        nonce: undefined,
-        confirmations: 1
-      };
-    } catch (error) {
-      this.logger.warn(`Failed to transform transaction - Signature: ${tx.transaction.signatures?.[0]}, Error: ${error instanceof Error ? error.message : String(error)}`);
-      return null;
-    }
-  }
-
-  private async getTokenTransactions(params: { address: string; contractAddress?: string; since?: number }): Promise<BlockchainTransaction[]> {
-    const { address, contractAddress, since } = params;
-
-    if (!isValidSolanaAddress(address)) {
-      throw new Error(`Invalid Solana address: ${address}`);
-    }
-
-    this.logger.debug(`Fetching token transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
-
-    try {
-      // Get signatures for address (same as regular transactions)
-      const signaturesResponse = await this.httpClient.post('/', {
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'getSignaturesForAddress',
-        params: [
-          address,
-          {
-            limit: 1000  // Increase limit to find historical token transactions
-          }
-        ]
-      });
-
-      if (!signaturesResponse?.result) {
-        this.logger.debug(`No signatures found for token transactions - Address: ${this.maskAddress(address)}`);
-        return [];
-      }
-
-      const signatures = signaturesResponse.result.slice(0, 100); // Process more signatures for token transactions
-      const tokenTransactions: BlockchainTransaction[] = [];
-
-      // Process signatures individually to find token transactions (free tier doesn't support batch requests)
-      for (const sig of signatures) {
-        try {
-          const txResponse = await this.httpClient.post('/', {
-            jsonrpc: '2.0',
-            id: 1,
-            method: 'getTransaction',
-            params: [
-              sig.signature,
-              {
-                encoding: 'json',
-                maxSupportedTransactionVersion: 0
-              }
-            ]
-          });
-
-          if (txResponse?.result) {
-            const tokenTx = await this.extractTokenTransaction(txResponse.result, address, contractAddress);
-            if (tokenTx && (!since || tokenTx.timestamp >= since)) {
-              tokenTransactions.push(tokenTx);
-            }
-          }
-        } catch (error) {
-          this.logger.debug(`Failed to fetch token transaction details - Signature: ${sig.signature}, Error: ${error instanceof Error ? error.message : String(error)}`);
-        }
-      }
-
-      tokenTransactions.sort((a, b) => b.timestamp - a.timestamp);
-
-      this.logger.debug(`Successfully retrieved token transactions - Address: ${this.maskAddress(address)}, TotalTransactions: ${tokenTransactions.length}, Network: ${this.network}`);
-
-      return tokenTransactions;
-
-    } catch (error) {
-      this.logger.error(`Failed to get token transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
-      throw error;
-    }
-  }
-
-  private async getTokenBalances(params: { address: string; contractAddresses?: string[] }): Promise<Balance[]> {
-    const { address, contractAddresses } = params;
-
-    if (!isValidSolanaAddress(address)) {
-      throw new Error(`Invalid Solana address: ${address}`);
-    }
-
-    this.logger.debug(`Fetching token balances - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
-
-    try {
-      // Get all token accounts owned by the address
-      const tokenAccountsResponse = await this.httpClient.post('/', {
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'getTokenAccountsByOwner',
-        params: [
-          address,
-          {
-            programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' // SPL Token Program ID
-          },
-          {
-            encoding: 'jsonParsed'
-          }
-        ]
-      });
-
-      if (!tokenAccountsResponse?.result?.value) {
-        this.logger.debug(`No token accounts found - Address: ${this.maskAddress(address)}`);
-        return [];
-      }
-
-      const tokenAccounts = tokenAccountsResponse.result.value;
-      const balances: Balance[] = [];
-
-      for (const account of tokenAccounts) {
-        const accountData = account.account.data.parsed;
-        if (!accountData || !accountData.info) continue;
-
-        const tokenInfo = accountData.info;
-        const mintAddress = tokenInfo.mint;
-        const tokenAmount = tokenInfo.tokenAmount;
-
-        // If specific contract addresses are provided, filter by them
-        if (contractAddresses && contractAddresses.length > 0) {
-          if (!contractAddresses.includes(mintAddress)) {
-            continue;
-          }
-        }
-
-        // Skip zero balances
-        if (!tokenAmount.uiAmount || tokenAmount.uiAmount === 0) {
-          continue;
-        }
-
-        balances.push({
-          currency: mintAddress.slice(0, 8), // Use truncated mint address as symbol for now
-          balance: tokenAmount.uiAmount,
-          used: 0,
-          total: tokenAmount.uiAmount,
-          contractAddress: mintAddress
-        });
-      }
-
-      this.logger.debug(`Successfully retrieved token balances - Address: ${this.maskAddress(address)}, TotalTokens: ${balances.length}, Network: ${this.network}`);
-
-      return balances;
-
-    } catch (error) {
-      this.logger.error(`Failed to get token balances - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
-      throw error;
-    }
-  }
-
-  private async extractTokenTransaction(tx: HeliusTransaction, userAddress: string, targetContract?: string): Promise<BlockchainTransaction | null> {
-    try {
-      // Look for token balance changes in preTokenBalances and postTokenBalances
-      const preTokenBalances = tx.meta.preTokenBalances || [];
-      const postTokenBalances = tx.meta.postTokenBalances || [];
-
-      // Find changes for token accounts owned by the user
-      for (const postBalance of postTokenBalances) {
-        // Check if this token account is owned by the user
-        if (postBalance.owner !== userAddress) {
-          continue;
-        }
-
-        const preBalance = preTokenBalances.find(pre =>
-          pre.accountIndex === postBalance.accountIndex &&
-          pre.mint === postBalance.mint
-        );
-
-        const preAmount = preBalance ? parseFloat(preBalance.uiTokenAmount.uiAmountString || '0') : 0;
-        const postAmount = parseFloat(postBalance.uiTokenAmount.uiAmountString || '0');
-        const change = postAmount - preAmount;
-
-        // Skip if no meaningful change
-        if (Math.abs(change) < 0.000001) {
-          continue;
-        }
-
-        // If a specific contract is specified, filter by it
-        if (targetContract && postBalance.mint !== targetContract) {
-          continue;
-        }
-
-        // Log any significant token transaction
-        this.logger.debug(`Found SPL token transaction - Signature: ${tx.transaction.signatures?.[0]}, Mint: ${postBalance.mint}, Owner: ${postBalance.owner}, Change: ${Math.abs(change)}, Type: ${change > 0 ? 'transfer_in' : 'transfer_out'}`);
-
-        // Determine transfer direction
-        const type: 'transfer_in' | 'transfer_out' = change > 0 ? 'transfer_in' : 'transfer_out';
-
-        // Get proper token symbol using hybrid approach (cache + API)
-        const tokenSymbol = await this.getTokenSymbol(postBalance.mint);
-
-        return {
-          hash: tx.transaction.signatures?.[0] || '',
-          blockNumber: tx.slot,
-          blockHash: '',
-          timestamp: tx.blockTime || 0,
-          from: type === 'transfer_out' ? userAddress : '',
-          to: type === 'transfer_in' ? userAddress : '',
-          value: createMoney(Math.abs(change), tokenSymbol),
-          fee: createMoney(lamportsToSol(tx.meta.fee).toNumber(), 'SOL'),
-          gasUsed: undefined,
-          gasPrice: undefined,
-          status: tx.meta.err ? 'failed' : 'success',
-          type: 'token_transfer',
-          tokenContract: postBalance.mint,
-          tokenSymbol,
-          nonce: undefined,
-          confirmations: 1
-        };
-      }
-
-      return null;
-    } catch (error) {
-      this.logger.debug(`Failed to extract token transaction - Signature: ${tx.transaction.signatures?.[0]}, Error: ${error instanceof Error ? error.message : String(error)}`);
-      return null;
-    }
-  }
-
-  private maskAddress(address: string): string {
-    if (address.length <= 8) return address;
-    return `${address.slice(0, 4)}...${address.slice(-4)}`;
-  }
-
-  /**
-   * Static token registry for common Solana tokens
-   * This provides fast lookups for well-known tokens
-   */
-  private static readonly KNOWN_TOKENS = new Map<string, string>([
-    // Popular SPL Tokens
-    ['rndrizKT3MK1iimdxRdWabcF7Zg7AR5T4nud4EkHBof', 'RENDER'], // Render Network
-    ['hntyVP6YFm1Hg25TN9WGLqM12b8TQmcknKrdu1oxWux', 'HNT'], // Helium Network Token
-    ['4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R', 'RAY'], // Raydium
-    ['EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', 'USDC'], // USD Coin (official)
-    ['Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', 'USDT'], // Tether USD
-    ['mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So', 'mSOL'], // Marinade Staked SOL
-    ['7dHbWXmci3dT8UFYWYZweBLXgycu7Y3iL6trKn1Y7ARj', 'stSOL'], // Lido Staked SOL
-    ['J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn', 'jitoSOL'], // Jito Staked SOL
-    ['bSo13r4TkiE4KumL71LsHTPpL2euBYLFx6h9HP3piy1', 'bSOL'], // BlazeStake Staked SOL
-    ['DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263', 'BONK'], // Bonk
-    ['5oVNBeEEQvYi1cX3ir8Dx5n1P7pdxydbGF2X4TxVusJm', 'INF'], // Infinity Protocol
-    ['7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs', 'ETH'], // Wrapped Ethereum
-    ['9n4nbM75f5Ui33ZbPYXn59EwSgE8CGsHtAeTH5YFeJ9E', 'BTC'], // Wrapped Bitcoin
-    // ['BvkjtktEZyjix9rSKEiA3ftMU1UCS61XEERFxtMqN1zd', 'UNKNOWN'] // Remove to test API fallback for scam token
-  ]);
-
-  /**
-   * Get token symbol using hybrid approach: static registry first, then API fallback
-   */
-  private async getTokenSymbol(mintAddress: string): Promise<string> {
-    // Check cache first
-    if (this.tokenSymbolCache.has(mintAddress)) {
-      return this.tokenSymbolCache.get(mintAddress)!;
-    }
-
-    // Check static registry
-    const knownSymbol = HeliusProvider.KNOWN_TOKENS.get(mintAddress);
-    if (knownSymbol) {
-      this.tokenSymbolCache.set(mintAddress, knownSymbol);
-      this.logger.debug(`Found token symbol in static registry - Mint: ${this.maskAddress(mintAddress)}, Symbol: ${knownSymbol}`);
-      return knownSymbol;
-    }
-
-    // Fallback to Helius DAS API
-    try {
-      const symbol = await this.fetchTokenSymbolFromAPI(mintAddress);
-      this.tokenSymbolCache.set(mintAddress, symbol);
-      this.logger.debug(`Fetched token symbol from API - Mint: ${this.maskAddress(mintAddress)}`);
-      return symbol;
-    } catch (error) {
-      // Final fallback to truncated mint address
-      const fallbackSymbol = `${mintAddress.slice(0, 6)}...`;
-      this.tokenSymbolCache.set(mintAddress, fallbackSymbol);
-      this.logger.warn(`Failed to fetch token symbol, using fallback - Mint: ${this.maskAddress(mintAddress)}, Symbol: ${fallbackSymbol}, Error: ${error instanceof Error ? error.message : String(error)}`);
-      return fallbackSymbol;
-    }
-  }
-
-  /**
-   * Fetch token symbol from Helius DAS API
-   */
-  private async fetchTokenSymbolFromAPI(mintAddress: string): Promise<string> {
-    try {
-      const response = await this.httpClient.post('/', {
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'getAsset',
-        params: {
-          id: mintAddress,
-          displayOptions: {
-            showFungible: true
-          }
-        }
-      });
-
-      if (response?.result?.content?.metadata?.symbol) {
-        // Store metadata for potential scam detection
-        const metadata = response.result.content.metadata;
-        this.storeTokenMetadata(mintAddress, metadata);
-        return response.result.content.metadata.symbol;
-      }
-
-      if (response?.result?.content?.metadata?.name) {
-        // Use name if symbol not available
-        const metadata = response.result.content.metadata;
-        this.storeTokenMetadata(mintAddress, metadata);
-        return response.result.content.metadata.name;
-      }
-
-      throw new Error('No symbol or name found in metadata');
-    } catch (error) {
-      throw new Error(`API lookup failed: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-
-  /**
-   * Store token metadata for scam detection
-   */
-  private tokenMetadataCache = new Map<string, any>();
-
-  private storeTokenMetadata(mintAddress: string, metadata: any): void {
-    this.tokenMetadataCache.set(mintAddress, {
-      symbol: metadata.symbol || '',
-      name: metadata.name || '',
-      description: metadata.description,
-      image: metadata.image,
-      external_url: metadata.external_url,
-      attributes: metadata.attributes
-    });
-  }
-
 }===== ./src/blockchains/solana/types.ts =====
 import { Decimal } from 'decimal.js';
 

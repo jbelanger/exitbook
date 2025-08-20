@@ -1,4 +1,5 @@
-import type { EnhancedTransaction, StoredTransaction } from '@crypto/core';
+import type { EnhancedTransaction } from '@crypto/core';
+import type { StoredTransaction } from '../types/data-types.js';
 import { getLogger } from '@crypto/shared-logger';
 import { TransactionRepository } from '../repositories/transaction-repository.ts';
 import { WalletRepository } from '../repositories/wallet-repository.ts';

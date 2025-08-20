@@ -1,4 +1,4 @@
-import type { WalletAddress } from '@crypto/core';
+import type { WalletAddress } from '../types/data-types.js';
 import { getLogger } from '@crypto/shared-logger';
 import { WalletRepository } from '../repositories/wallet-repository.ts';
 

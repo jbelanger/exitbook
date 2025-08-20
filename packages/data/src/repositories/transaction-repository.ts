@@ -1,4 +1,5 @@
-import type { EnhancedTransaction, StoredTransaction } from '@crypto/core';
+import type { EnhancedTransaction } from '@crypto/core';
+import type { StoredTransaction } from '../types/data-types.js';
 import { Database } from '../storage/database.ts';
 
 export class TransactionRepository {

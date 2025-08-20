@@ -1,4 +1,4 @@
-import type { StoredTransaction } from '@crypto/core';
+import type { StoredTransaction } from '../types/data-types.js';
 import { stringToDecimal } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
 
