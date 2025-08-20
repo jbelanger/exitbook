@@ -24,7 +24,7 @@ export class TransactionRepository {
     return this.database.getTransactionCount(exchange);
   }
 
-  async linkToWallets(transactionId: string, fromAddress?: string, toAddress?: string): Promise<void> {
-    return this.database.linkTransactionToWallets(transactionId, fromAddress, toAddress);
+  async updateAddresses(transactionId: string, fromAddress?: string, toAddress?: string, walletId?: number): Promise<void> {
+    return this.database.updateTransactionAddresses(transactionId, fromAddress, toAddress, walletId);
   }
 }

@@ -1,4 +1,4 @@
-import type { BalanceSnapshot, BalanceVerificationRecord } from '@crypto/core';
+import type { BalanceSnapshot, BalanceVerificationRecord, StoredTransaction } from '@crypto/core';
 import { Database } from '../storage/database.ts';
 
 export class BalanceRepository {
@@ -20,7 +20,32 @@ export class BalanceRepository {
     return this.database.getLatestBalanceVerifications(exchange);
   }
 
-  async calculateBalances(exchange: string): Promise<Record<string, number>> {
-    return this.database.calculateBalances(exchange);
+  async getTransactionsForCalculation(exchange: string): Promise<StoredTransaction[]> {
+    return new Promise((resolve, reject) => {
+      const query = `
+        SELECT 
+          symbol,
+          type,
+          amount,
+          amount_currency,
+          side,
+          price,
+          price_currency,
+          fee_cost,
+          fee_currency,
+          raw_data
+        FROM transactions 
+        WHERE exchange = ?
+        ORDER BY timestamp ASC
+      `;
+
+      this.database['db'].all(query, [exchange], (err: any, rows: any[]) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(rows as StoredTransaction[]);
+        }
+      });
+    });
   }
 }

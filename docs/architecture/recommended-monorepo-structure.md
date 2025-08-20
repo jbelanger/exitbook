@@ -24,7 +24,8 @@ crypto-portfolio-platform/
 │   │   └── reports/           # Reporting & export functionality
 │   ├── data/
 │   │   ├── database/          # Database schemas & migrations
-│   │   ├── repositories/      # Data access layer
+│   │   ├── repositories/      # Pure data access layer (CRUD operations)
+│   │   ├── services/          # Domain services & business logic
 │   │   └── cache/             # Redis & caching logic
 │   ├── shared/
 │   │   ├── auth/              # Authentication & authorization
