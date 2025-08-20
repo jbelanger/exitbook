@@ -38,7 +38,7 @@ export class ExchangeAdapterFactory {
 
       return this.createCCXTAdapter(config, enableOnlineVerification);
     } catch (error) {
-      this.logger.error(`Failed to create adapter for ${config.id}`, { error });
+      this.logger.error(`Failed to create adapter for ${config.id} - Error: ${error}`);
 
       if (error instanceof ServiceError) {
         throw error;

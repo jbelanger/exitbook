@@ -72,10 +72,7 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
 
     super(exchange, config, enableOnlineVerification, 'CoinbaseCCXTAdapter');
 
-    this.logger.info('Initialized Coinbase Ledger adapter', {
-      rateLimit: this.exchange.rateLimit,
-      sandbox: config.credentials.sandbox
-    });
+    this.logger.info(`Initialized Coinbase Ledger adapter - RateLimit: ${this.exchange.rateLimit}, Sandbox: ${config.credentials.sandbox}`);
   }
 
 
@@ -88,7 +85,7 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
    */
   async fetchAllTransactions(since?: number): Promise<CryptoTransaction[]> {
     const startTime = Date.now();
-    this.logger.info('Starting ledger-based transaction fetch from Coinbase', { since });
+    this.logger.info(`Starting ledger-based transaction fetch from Coinbase - Since: ${since}`);
 
     try {
 
@@ -102,11 +99,7 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
       transactions.sort((a, b) => a.timestamp - b.timestamp);
 
       const duration = Date.now() - startTime;
-      this.logger.info(`Completed Coinbase ledger-based transaction fetch`, {
-        totalTransactions: transactions.length,
-        groupedTrades: transactions.filter(t => t.type === 'trade').length,
-        duration: `${duration}ms`
-      });
+      this.logger.info(`Completed Coinbase ledger-based transaction fetch - TotalTransactions: ${transactions.length}, GroupedTrades: ${transactions.filter(t => t.type === 'trade').length}, Duration: ${duration}ms`);
 
       return transactions;
     } catch (error) {
@@ -141,7 +134,7 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
       for (const account of this.accounts) {
         try {
           if (!account.id || !account.currency) {
-            this.logger.warn('Skipping account with missing id or currency', { account });
+            this.logger.warn(`Skipping account with missing id or currency - Account: ${JSON.stringify(account)}`);
             continue;
           }
 
@@ -149,11 +142,7 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
           allEntries.push(...entries);
           this.logger.debug(`Fetched ${entries.length} ledger entries for account ${account.id} (${account.currency})`);
         } catch (accountError) {
-          this.logger.warn(`Failed to fetch ledger for account ${account.id}`, {
-            accountId: account.id,
-            currency: account.currency,
-            error: accountError instanceof Error ? accountError.message : 'Unknown error'
-          });
+          this.logger.warn(`Failed to fetch ledger for account ${account.id} - AccountId: ${account.id}, Currency: ${account.currency}, Error: ${accountError instanceof Error ? accountError.message : 'Unknown error'}`);
         }
       }
 
@@ -189,12 +178,7 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
           params.starting_after = startingAfter;
         }
 
-        this.logger.debug(`Fetching ledger page for account: ${accountId} (${currency})`, {
-          accountId,
-          currency,
-          startingAfter,
-          pageSize
-        });
+        this.logger.debug(`Fetching ledger page for account: ${accountId} (${currency}) - AccountId: ${accountId}, Currency: ${currency}, StartingAfter: ${startingAfter}, PageSize: ${pageSize}`);
 
         // Pass currency as the first parameter since CCXT expects it
         const entries = await this.exchange.fetchLedger(undefined, since, pageSize, params);
@@ -232,12 +216,7 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
         }
 
       } catch (pageError) {
-        this.logger.error(`Error fetching ledger page for account`, {
-          accountId,
-          currency,
-          startingAfter,
-          error: pageError instanceof Error ? pageError.message : 'Unknown error'
-        });
+        this.logger.error(`Error fetching ledger page for account - AccountId: ${accountId}, Currency: ${currency}, StartingAfter: ${startingAfter}, Error: ${pageError instanceof Error ? pageError.message : 'Unknown error'}`);
         throw pageError;
       }
     }
@@ -249,13 +228,9 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
    * Process ledger entries to group orders and fills into complete trades
    */
   private async processLedgerEntries(ledgerTransactions: CryptoTransaction[]): Promise<CryptoTransaction[]> {
-    this.logger.info('Processing Coinbase ledger entries for grouping', {
-      totalEntries: ledgerTransactions.length
-    });
+    this.logger.info(`Processing Coinbase ledger entries for grouping - TotalEntries: ${ledgerTransactions.length}`);
 
-    this.logger.info('Processing all ledger transactions', {
-      totalCount: ledgerTransactions.length
-    });
+    this.logger.info(`Processing all ledger transactions - TotalCount: ${ledgerTransactions.length}`);
 
     // Restore the original grouping approach now that we understand the data structure
     const tradeGroups = new Map<string, CryptoTransaction[]>();
@@ -284,12 +259,7 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
 
     const result = [...groupedTrades, ...nonTradeTransactions];
 
-    this.logger.info('Completed ledger entry processing', {
-      totalTransactions: result.length,
-      tradeGroups: tradeGroups.size,
-      groupedTrades: groupedTrades.length,
-      nonTradeTransactions: nonTradeTransactions.length
-    });
+    this.logger.info(`Completed ledger entry processing - TotalTransactions: ${result.length}, TradeGroups: ${tradeGroups.size}, GroupedTrades: ${groupedTrades.length}, NonTradeTransactions: ${nonTradeTransactions.length}`);
 
     return result;
   }

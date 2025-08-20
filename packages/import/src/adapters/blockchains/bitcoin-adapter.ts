@@ -26,10 +26,7 @@ export class BitcoinAdapter extends BaseBlockchainAdapter {
     this.providerManager = new BlockchainProviderManager();
     this.providerManager.autoRegisterFromConfig('bitcoin', 'mainnet');
 
-    this.logger.info('Initialized Bitcoin adapter with registry-based provider manager', {
-      addressGap: this.addressGap,
-      providersCount: this.providerManager.getProviders('bitcoin').length
-    });
+    this.logger.info(`Initialized Bitcoin adapter with registry-based provider manager - AddressGap: ${this.addressGap}, ProvidersCount: ${this.providerManager.getProviders('bitcoin').length}`);
   }
 
 
@@ -99,14 +96,14 @@ export class BitcoinAdapter extends BaseBlockchainAdapter {
             const blockchainTx = this.parseWalletTransaction(rawTx, [userAddress]);
             transactions.push(blockchainTx);
           } catch (error) {
-            this.logger.warn(`Failed to parse transaction ${rawTx.txid}`, { error });
+            this.logger.warn(`Failed to parse transaction ${rawTx.txid} - Error: ${error}`);
           }
         }
 
         this.logger.info(`Found ${transactions.length} transactions for wallet ${userAddress.substring(0, 20)}...`);
         return transactions;
       } catch (error) {
-        this.logger.error(`Failed to fetch Bitcoin transactions for ${userAddress}`, { error });
+        this.logger.error(`Failed to fetch Bitcoin transactions for ${userAddress} - Error: ${error}`);
         throw error;
       }
     }
@@ -143,10 +140,7 @@ export class BitcoinAdapter extends BaseBlockchainAdapter {
 
         this.logger.debug(`Found ${rawTransactions.length} transactions for address ${address}`);
       } catch (error) {
-        this.logger.error(`Failed to fetch raw transactions for address ${address}`, {
-          error: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined
-        });
+        this.logger.error(`Failed to fetch raw transactions for address ${address} - Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`);
       }
     }
 
@@ -159,7 +153,7 @@ export class BitcoinAdapter extends BaseBlockchainAdapter {
         const blockchainTx = this.parseWalletTransaction(rawTx, derivedAddresses);
         blockchainTransactions.push(blockchainTx);
       } catch (error) {
-        this.logger.warn(`Failed to parse transaction ${txid}`, { error });
+        this.logger.warn(`Failed to parse transaction ${txid} - Error: ${error}`);
       }
     }
 
@@ -291,7 +285,7 @@ export class BitcoinAdapter extends BaseBlockchainAdapter {
       return balances;
 
     } catch (error) {
-      this.logger.error(`Failed to get Bitcoin balance for ${address}`, { error });
+      this.logger.error(`Failed to get Bitcoin balance for ${address} - Error: ${error}`);
       throw error;
     }
   }
@@ -316,14 +310,11 @@ export class BitcoinAdapter extends BaseBlockchainAdapter {
         health.isHealthy && health.circuitState !== 'OPEN'
       );
 
-      this.logger.info('Bitcoin provider connection test result', {
-        hasHealthyProvider,
-        totalProviders: healthStatus.size
-      });
+      this.logger.info(`Bitcoin provider connection test result - HasHealthyProvider: ${hasHealthyProvider}, TotalProviders: ${healthStatus.size}`);
 
       return hasHealthyProvider;
     } catch (error) {
-      this.logger.error('Bitcoin connection test failed', { error });
+      this.logger.error(`Bitcoin connection test failed - Error: ${error}`);
       return false;
     }
   }
@@ -336,7 +327,7 @@ export class BitcoinAdapter extends BaseBlockchainAdapter {
       this.providerManager.destroy();
       this.logger.info('Bitcoin adapter closed successfully');
     } catch (error) {
-      this.logger.warn('Error during Bitcoin adapter close', { error });
+      this.logger.warn(`Error during Bitcoin adapter close - Error: ${error}`);
     }
   }
 

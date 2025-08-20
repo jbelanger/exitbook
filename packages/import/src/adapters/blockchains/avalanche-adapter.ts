@@ -98,7 +98,7 @@ export class AvalancheAdapter extends BaseBlockchainAdapter {
     const ethAddressRegex = /^0x[a-fA-F0-9]{40}$/;
     const isValid = ethAddressRegex.test(address);
 
-    this.logger.debug('Address validation', { address, isValid });
+    this.logger.debug(`Address validation - Address: ${address}, IsValid: ${isValid}`);
     return isValid;
   }
 
@@ -122,9 +122,7 @@ export class AvalancheAdapter extends BaseBlockchainAdapter {
             return true;
           }
         } catch (error) {
-          this.logger.debug(`Provider ${provider.name} failed health check`, {
-            error: error instanceof Error ? error.message : String(error)
-          });
+          this.logger.debug(`Provider ${provider.name} failed health check - Error: ${error instanceof Error ? error.message : String(error)}`);
         }
       }
 
@@ -132,9 +130,7 @@ export class AvalancheAdapter extends BaseBlockchainAdapter {
       return false;
 
     } catch (error) {
-      this.logger.error('Connection test failed', {
-        error: error instanceof Error ? error.message : String(error)
-      });
+      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
       return false;
     }
   }
@@ -156,7 +152,7 @@ export class AvalancheAdapter extends BaseBlockchainAdapter {
   }
 
   async getTokenTransactions(address: string, tokenContract?: string): Promise<BlockchainTransaction[]> {
-    this.logger.debug('AvalancheAdapter.getTokenTransactions called', { address, tokenContract });
+    this.logger.debug(`AvalancheAdapter.getTokenTransactions called - Address: ${address}, TokenContract: ${tokenContract}`);
 
     try {
       const transactions = await this.providerManager.executeWithFailover('avalanche', {
@@ -169,17 +165,13 @@ export class AvalancheAdapter extends BaseBlockchainAdapter {
       return transactions;
 
     } catch (error) {
-      this.logger.error('Failed to fetch token transactions via provider manager', {
-        address,
-        tokenContract,
-        error: error instanceof Error ? error.message : String(error)
-      });
+      this.logger.error(`Failed to fetch token transactions via provider manager - Address: ${address}, TokenContract: ${tokenContract}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
 
   async getTokenBalances(address: string): Promise<Balance[]> {
-    this.logger.debug('AvalancheAdapter.getTokenBalances called', { address });
+    this.logger.debug(`AvalancheAdapter.getTokenBalances called - Address: ${address}`);
 
     try {
       const balances = await this.providerManager.executeWithFailover('avalanche', {
@@ -192,10 +184,7 @@ export class AvalancheAdapter extends BaseBlockchainAdapter {
       return balances;
 
     } catch (error) {
-      this.logger.error('Failed to fetch token balances via provider manager', {
-        address,
-        error: error instanceof Error ? error.message : String(error)
-      });
+      this.logger.error(`Failed to fetch token balances via provider manager - Address: ${address}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -208,7 +197,7 @@ export class AvalancheAdapter extends BaseBlockchainAdapter {
       this.providerManager.destroy();
       this.logger.info('Avalanche adapter closed successfully');
     } catch (error) {
-      this.logger.warn('Error during Avalanche adapter close', { error });
+      this.logger.warn(`Error during Avalanche adapter close - Error: ${error}`);
     }
   }
 }

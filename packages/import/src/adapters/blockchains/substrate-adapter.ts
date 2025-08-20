@@ -18,23 +18,13 @@ export class SubstrateAdapter extends BaseBlockchainAdapter {
     this.providerManager = new BlockchainProviderManager();
     this.providerManager.autoRegisterFromConfig('polkadot', 'mainnet');
 
-    this.logger.info('Initialized Substrate adapter with registry-based provider manager', {
-      chain: this.chainConfig.name,
-      displayName: this.chainConfig.displayName,
-      tokenSymbol: this.chainConfig.tokenSymbol,
-      ss58Format: this.chainConfig.ss58Format,
-      providersCount: this.providerManager.getProviders('polkadot').length
-    });
+    this.logger.info(`Initialized Substrate adapter with registry-based provider manager - Chain: ${this.chainConfig.name}, DisplayName: ${this.chainConfig.displayName}, TokenSymbol: ${this.chainConfig.tokenSymbol}, SS58Format: ${this.chainConfig.ss58Format}, ProvidersCount: ${this.providerManager.getProviders('polkadot').length}`);
   }
 
 
   async getAddressTransactions(address: string, since?: number): Promise<BlockchainTransaction[]> {
     this.logger.info(`SubstrateAdapter: Fetching transactions for address: ${address.substring(0, 20)}...`);
-    this.logger.debug('SubstrateAdapter.getAddressTransactions called', {
-      address,
-      since,
-      chain: this.chainConfig.name
-    });
+    this.logger.debug(`SubstrateAdapter.getAddressTransactions called - Address: ${address}, Since: ${since}, Chain: ${this.chainConfig.name}`);
 
     try {
       // Use provider manager to fetch transactions with failover
@@ -48,20 +38,13 @@ export class SubstrateAdapter extends BaseBlockchainAdapter {
       return transactions;
 
     } catch (error) {
-      this.logger.error('Failed to fetch address transactions via provider manager', {
-        address,
-        chain: this.chainConfig.name,
-        error: error instanceof Error ? error.message : String(error)
-      });
+      this.logger.error(`Failed to fetch address transactions via provider manager - Address: ${address}, Chain: ${this.chainConfig.name}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
 
   async getAddressBalance(address: string): Promise<Balance[]> {
-    this.logger.debug('SubstrateAdapter.getAddressBalance called', {
-      address,
-      chain: this.chainConfig.name
-    });
+    this.logger.debug(`SubstrateAdapter.getAddressBalance called - Address: ${address}, Chain: ${this.chainConfig.name}`);
 
     try {
       // Use provider manager to fetch balance with failover
@@ -75,11 +58,7 @@ export class SubstrateAdapter extends BaseBlockchainAdapter {
       return balances;
 
     } catch (error) {
-      this.logger.error('Failed to fetch address balance via provider manager', {
-        address,
-        chain: this.chainConfig.name,
-        error: error instanceof Error ? error.message : String(error)
-      });
+      this.logger.error(`Failed to fetch address balance via provider manager - Address: ${address}, Chain: ${this.chainConfig.name}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -89,19 +68,12 @@ export class SubstrateAdapter extends BaseBlockchainAdapter {
     const ss58Regex = /^[1-9A-HJ-NP-Za-km-z]{47,48}$/;
     const isValid = ss58Regex.test(address);
 
-    this.logger.debug('Address validation', {
-      address,
-      isValid,
-      chain: this.chainConfig.name,
-      ss58Format: this.chainConfig.ss58Format
-    });
+    this.logger.debug(`Address validation - Address: ${address}, IsValid: ${isValid}, Chain: ${this.chainConfig.name}, SS58Format: ${this.chainConfig.ss58Format}`);
     return isValid;
   }
 
   async testConnection(): Promise<boolean> {
-    this.logger.debug('SubstrateAdapter.testConnection called', {
-      chain: this.chainConfig.name
-    });
+    this.logger.debug(`SubstrateAdapter.testConnection called - Chain: ${this.chainConfig.name}`);
 
     try {
       // Test connection using provider manager
@@ -120,9 +92,7 @@ export class SubstrateAdapter extends BaseBlockchainAdapter {
             return true;
           }
         } catch (error) {
-          this.logger.debug(`Provider ${provider.name} failed health check`, {
-            error: error instanceof Error ? error.message : String(error)
-          });
+          this.logger.debug(`Provider ${provider.name} failed health check - Error: ${error instanceof Error ? error.message : String(error)}`);
         }
       }
 
@@ -130,10 +100,7 @@ export class SubstrateAdapter extends BaseBlockchainAdapter {
       return false;
 
     } catch (error) {
-      this.logger.error('Connection test failed', {
-        chain: this.chainConfig.name,
-        error: error instanceof Error ? error.message : String(error)
-      });
+      this.logger.error(`Connection test failed - Chain: ${this.chainConfig.name}, Error: ${error instanceof Error ? error.message : String(error)}`);
       return false;
     }
   }
@@ -157,11 +124,7 @@ export class SubstrateAdapter extends BaseBlockchainAdapter {
   // Substrate chains don't typically have separate token transactions like EVM chains
   // They use native token transfers within extrinsics
   async getTokenTransactions(address: string, tokenContract?: string): Promise<BlockchainTransaction[]> {
-    this.logger.debug('SubstrateAdapter.getTokenTransactions called', {
-      address,
-      tokenContract,
-      chain: this.chainConfig.name
-    });
+    this.logger.debug(`SubstrateAdapter.getTokenTransactions called - Address: ${address}, TokenContract: ${tokenContract}, Chain: ${this.chainConfig.name}`);
 
     // For now, return regular transactions as Substrate chains primarily use native tokens
     // In the future, this could be extended to support parachains with custom tokens
@@ -170,10 +133,7 @@ export class SubstrateAdapter extends BaseBlockchainAdapter {
   }
 
   async getTokenBalances(address: string): Promise<Balance[]> {
-    this.logger.debug('SubstrateAdapter.getTokenBalances called', {
-      address,
-      chain: this.chainConfig.name
-    });
+    this.logger.debug(`SubstrateAdapter.getTokenBalances called - Address: ${address}, Chain: ${this.chainConfig.name}`);
 
     // For now, return regular balance as Substrate chains primarily use native tokens
     this.logger.info('Token balances not implemented for Substrate chains - returning regular balance');
@@ -188,7 +148,7 @@ export class SubstrateAdapter extends BaseBlockchainAdapter {
       this.providerManager.destroy();
       this.logger.info(`${this.chainConfig.displayName} adapter closed successfully`);
     } catch (error) {
-      this.logger.warn(`Error during ${this.chainConfig.displayName} adapter close`, { error });
+      this.logger.warn(`Error during ${this.chainConfig.displayName} adapter close - Error: ${error}`);
     }
   }
 }
