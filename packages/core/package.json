@@ -8,14 +8,13 @@
   "main": "src/index.ts",
   "types": "src/index.ts",
   "scripts": {
-    "postinstall": "pnpm list --depth=0 || echo '⚠️  Warning: Missing peer dependencies. Please install them manually.'",
+    "build": "tsc",
+    "clean": "rm -rf node_modules dist",
+    "lint": "eslint \"src/**/*.ts*\"",
     "prettier": "prettier --check .",
     "prettier:fix": "prettier --write .",
-    "lint": "eslint \"src/**/*.ts*\"",
-    "typecheck": "tsc --noEmit",
     "test": "jest --detectOpenHandles --forceExit --passWithNoTests",
-    "tsc": "tsc --project tsconfig.json",
-    "clean": "rm -rf node_modules"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "decimal.js": "^10.6.0"
