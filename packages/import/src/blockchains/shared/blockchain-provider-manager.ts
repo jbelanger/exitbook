@@ -1,4 +1,4 @@
-import type { ProviderHealth } from '@crypto/core';
+import type { ProviderHealth } from './types.ts';
 import { getLogger } from '@crypto/shared-logger';
 
 import { loadExplorerConfig } from './explorer-config.ts';
