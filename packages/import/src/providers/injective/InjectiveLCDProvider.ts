@@ -44,10 +44,7 @@ export class InjectiveLCDProvider extends BaseRegistryProvider {
   constructor() {
     super('injective', 'injective-lcd', 'mainnet');
 
-    this.logger.info('Initialized InjectiveLCDProvider from registry metadata', {
-      network: this.network,
-      baseUrl: this.baseUrl
-    });
+    this.logger.info(`Initialized InjectiveLCDProvider from registry metadata - Network: ${this.network}, BaseUrl: ${this.baseUrl}`);
   }
 
   async isHealthy(): Promise<boolean> {
@@ -55,14 +52,11 @@ export class InjectiveLCDProvider extends BaseRegistryProvider {
       // Test with a simple node info call
       const data = await this.httpClient.get('/cosmos/base/tendermint/v1beta1/node_info');
 
-      this.logger.debug('Health check successful', {
-        network: data.default_node_info?.network,
-        version: data.application_version?.version
-      });
+      this.logger.debug(`Health check successful - Network: ${data.default_node_info?.network}, Version: ${data.application_version?.version}`);
 
       return true;
     } catch (error) {
-      this.logger.warn('Health check failed', { error: error instanceof Error ? error.message : String(error) });
+      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
       return false;
     }
   }
@@ -70,21 +64,16 @@ export class InjectiveLCDProvider extends BaseRegistryProvider {
   async testConnection(): Promise<boolean> {
     try {
       const result = await this.isHealthy();
-      this.logger.info('Connection test result', { healthy: result });
+      this.logger.info(`Connection test result - Healthy: ${result}`);
       return result;
     } catch (error) {
-      this.logger.error('Connection test failed', {
-        error: error instanceof Error ? error.message : String(error)
-      });
+      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
       return false;
     }
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug('Executing operation', {
-      type: operation.type,
-      address: operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'
-    });
+    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'}`);
 
     try {
       switch (operation.type) {
@@ -96,12 +85,7 @@ export class InjectiveLCDProvider extends BaseRegistryProvider {
           throw new Error(`Unsupported operation: ${operation.type}`);
       }
     } catch (error) {
-      this.logger.error('Operation execution failed', {
-        type: operation.type,
-        params: operation.params,
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined
-      });
+      this.logger.error(`Operation execution failed - Type: ${operation.type}, Params: ${operation.params}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`);
       throw error;
     }
   }
@@ -113,10 +97,7 @@ export class InjectiveLCDProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Injective address: ${address}`);
     }
 
-    this.logger.debug('Fetching address balance', {
-      address: this.maskAddress(address),
-      network: this.network
-    });
+    this.logger.debug(`Fetching address balance - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
 
     try {
       const endpoint = `/cosmos/bank/v1beta1/balances/${address}`;
@@ -133,20 +114,12 @@ export class InjectiveLCDProvider extends BaseRegistryProvider {
         };
       });
 
-      this.logger.info('Successfully retrieved address balance', {
-        address: this.maskAddress(address),
-        balanceCount: balances.length,
-        network: this.network
-      });
+      this.logger.info(`Successfully retrieved address balance - Address: ${this.maskAddress(address)}, BalanceCount: ${balances.length}, Network: ${this.network}`);
 
       return balances;
 
     } catch (error) {
-      this.logger.error('Failed to get address balance', {
-        address: this.maskAddress(address),
-        network: this.network,
-        error: error instanceof Error ? error.message : String(error)
-      });
+      this.logger.error(`Failed to get address balance - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -154,11 +127,7 @@ export class InjectiveLCDProvider extends BaseRegistryProvider {
   private async getTokenBalances(params: { address: string; contractAddresses?: string[] }): Promise<Balance[]> {
     const { address, contractAddresses } = params;
 
-    this.logger.debug('Fetching token balances', {
-      address: this.maskAddress(address),
-      contractAddresses,
-      network: this.network
-    });
+    this.logger.debug(`Fetching token balances - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
 
     // For Injective, all balances (including tokens) are returned by getAddressBalance
     // Token filtering by contract addresses is not directly supported in LCD API
@@ -167,16 +136,10 @@ export class InjectiveLCDProvider extends BaseRegistryProvider {
     if (contractAddresses && contractAddresses.length > 0) {
       // Filter balances by contract addresses if provided
       // Note: Injective uses denoms instead of contract addresses for most tokens
-      this.logger.warn('Contract address filtering not fully supported for Injective LCD API', {
-        contractAddresses
-      });
+      this.logger.warn(`Contract address filtering not fully supported for Injective LCD API`);
     }
 
-    this.logger.info('Successfully retrieved token balances', {
-      address: this.maskAddress(address),
-      balanceCount: allBalances.length,
-      network: this.network
-    });
+    this.logger.info(`Successfully retrieved token balances - Address: ${this.maskAddress(address)}, BalanceCount: ${allBalances.length}, Network: ${this.network}`);
 
     return allBalances;
   }

@@ -110,11 +110,7 @@ export class BlockCypherProvider extends BaseRegistryProvider {
   constructor() {
     super('bitcoin', 'blockcypher', 'mainnet');
 
-    this.logger.info('Initialized BlockCypherProvider from registry metadata', {
-      network: this.network,
-      baseUrl: this.baseUrl,
-      hasApiKey: this.apiKey !== 'YourApiKeyToken'
-    });
+    this.logger.info(`Initialized BlockCypherProvider from registry metadata - Network: ${this.network}, BaseUrl: ${this.baseUrl}, HasApiKey: ${this.apiKey !== 'YourApiKeyToken'}`);
   }
 
   async isHealthy(): Promise<boolean> {
@@ -122,7 +118,7 @@ export class BlockCypherProvider extends BaseRegistryProvider {
       const response = await this.httpClient.get('/');
       return response && typeof response === 'object' && 'name' in response;
     } catch (error) {
-      this.logger.warn('Health check failed', { error: error instanceof Error ? error.message : String(error) });
+      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
       return false;
     }
   }
@@ -131,19 +127,16 @@ export class BlockCypherProvider extends BaseRegistryProvider {
     try {
       // Test with a simple endpoint that should always work
       const chainInfo = await this.httpClient.get('/');
-      this.logger.info('Connection test successful', { chainInfo: chainInfo.name });
+      this.logger.info(`Connection test successful - ChainInfo: ${chainInfo.name}`);
       return chainInfo && typeof chainInfo === 'object' && 'name' in chainInfo;
     } catch (error) {
-      this.logger.error('Connection test failed', { error: error instanceof Error ? error.message : String(error) });
+      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
       return false;
     }
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug('Executing operation', {
-      type: operation.type,
-      address: operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'
-    });
+    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'}`);
 
     try {
       switch (operation.type) {
@@ -159,12 +152,7 @@ export class BlockCypherProvider extends BaseRegistryProvider {
           throw new Error(`Unsupported operation: ${operation.type}`);
       }
     } catch (error) {
-      this.logger.error('Operation execution failed', {
-        type: operation.type,
-        params: operation.params,
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined
-      });
+      this.logger.error(`Operation execution failed - Type: ${operation.type}, Params: ${operation.params}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`);
       throw error;
     }
   }
@@ -172,21 +160,18 @@ export class BlockCypherProvider extends BaseRegistryProvider {
   private async getAddressTransactions(params: { address: string; since?: number }): Promise<BlockchainTransaction[]> {
     const { address, since } = params;
 
-    this.logger.debug('Fetching address transactions', { address: this.maskAddress(address), since });
+    this.logger.debug(`Fetching address transactions - Address: ${this.maskAddress(address)}`);
 
     try {
       // Get address info with transaction references
       const addressInfo = await this.httpClient.get<BlockCypherAddress>(this.buildEndpoint(`/addrs/${address}?limit=50`));
 
       if (!addressInfo.txrefs || addressInfo.txrefs.length === 0) {
-        this.logger.debug('No transactions found for address', { address: this.maskAddress(address) });
+        this.logger.debug(`No transactions found for address - Address: ${this.maskAddress(address)}`);
         return [];
       }
 
-      this.logger.debug('Retrieved transaction references', {
-        address: this.maskAddress(address),
-        count: addressInfo.txrefs.length
-      });
+      this.logger.debug(`Retrieved transaction references - Address: ${this.maskAddress(address)}, Count: ${addressInfo.txrefs.length}`);
 
       // Extract unique transaction hashes
       const uniqueTxHashes = Array.from(new Set(addressInfo.txrefs.map((ref: any) => ref.tx_hash)));
@@ -205,10 +190,7 @@ export class BlockCypherProvider extends BaseRegistryProvider {
               const tx = await this.httpClient.get<BlockCypherTransaction>(this.buildEndpoint(`/txs/${txHash}`));
               return this.transformTransaction(tx, address);
             } catch (error) {
-              this.logger.warn('Failed to fetch transaction details', {
-                txHash,
-                error: error instanceof Error ? error.message : String(error)
-              });
+              this.logger.warn(`Failed to fetch transaction details - Error: ${error instanceof Error ? error.message : String(error)}`);
               return null;
             }
           })
@@ -226,28 +208,18 @@ export class BlockCypherProvider extends BaseRegistryProvider {
       let filteredTransactions = transactions;
       if (since) {
         filteredTransactions = transactions.filter(tx => tx.timestamp >= since);
-        this.logger.debug('Filtered transactions by timestamp', {
-          originalCount: transactions.length,
-          filteredCount: filteredTransactions.length,
-          since
-        });
+        this.logger.debug(`Filtered transactions by timestamp - OriginalCount: ${transactions.length}, FilteredCount: ${filteredTransactions.length}`);
       }
 
       // Sort by timestamp (newest first)
       filteredTransactions.sort((a, b) => b.timestamp - a.timestamp);
 
-      this.logger.info('Successfully retrieved address transactions', {
-        address: this.maskAddress(address),
-        totalTransactions: filteredTransactions.length
-      });
+      this.logger.info(`Successfully retrieved address transactions - Address: ${this.maskAddress(address)}, TotalTransactions: ${filteredTransactions.length}`);
 
       return filteredTransactions;
 
     } catch (error) {
-      this.logger.error('Failed to get address transactions', {
-        address: this.maskAddress(address),
-        error: error instanceof Error ? error.message : String(error)
-      });
+      this.logger.error(`Failed to get address transactions - Address: ${this.maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -255,7 +227,7 @@ export class BlockCypherProvider extends BaseRegistryProvider {
   private async getAddressBalance(params: { address: string }): Promise<{ balance: string; token: string }> {
     const { address } = params;
 
-    this.logger.debug('Fetching address balance', { address: this.maskAddress(address) });
+    this.logger.debug(`Fetching address balance - Address: ${this.maskAddress(address)}`);
 
     try {
       const addressInfo = await this.httpClient.get<BlockCypherAddress>(this.buildEndpoint(`/addrs/${address}/balance`));
@@ -266,12 +238,7 @@ export class BlockCypherProvider extends BaseRegistryProvider {
       // Convert satoshis to BTC
       const balanceBTC = (balanceSats / 100000000).toString();
 
-      this.logger.info('Successfully retrieved address balance', {
-        address: this.maskAddress(address),
-        balanceBTC,
-        balanceSats,
-        unconfirmedBalance: addressInfo.unconfirmed_balance
-      });
+      this.logger.info(`Successfully retrieved address balance - Address: ${this.maskAddress(address)}, UnconfirmedBalance: ${addressInfo.unconfirmed_balance}`);
 
       return {
         balance: balanceBTC,
@@ -279,10 +246,7 @@ export class BlockCypherProvider extends BaseRegistryProvider {
       };
 
     } catch (error) {
-      this.logger.error('Failed to get address balance', {
-        address: this.maskAddress(address),
-        error: error instanceof Error ? error.message : String(error)
-      });
+      this.logger.error(`Failed to get address balance - Address: ${this.maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -293,7 +257,7 @@ export class BlockCypherProvider extends BaseRegistryProvider {
   private async getAddressInfo(params: { address: string }): Promise<AddressInfo> {
     const { address } = params;
 
-    this.logger.debug('Fetching lightweight address info', { address: this.maskAddress(address) });
+    this.logger.debug(`Fetching lightweight address info - Address: ${this.maskAddress(address)}`);
 
     try {
       const addressInfo = await this.httpClient.get<BlockCypherAddress>(this.buildEndpoint(`/addrs/${address}/balance`));
@@ -304,11 +268,7 @@ export class BlockCypherProvider extends BaseRegistryProvider {
       // Get balance in BTC (BlockCypher returns in satoshis)
       const balanceBTC = (addressInfo.final_balance / 100000000).toString();
 
-      this.logger.debug('Successfully retrieved lightweight address info', {
-        address: this.maskAddress(address),
-        txCount,
-        balanceBTC
-      });
+      this.logger.debug(`Successfully retrieved lightweight address info - Address: ${this.maskAddress(address)}`);
 
       return {
         txCount,
@@ -316,10 +276,7 @@ export class BlockCypherProvider extends BaseRegistryProvider {
       };
 
     } catch (error) {
-      this.logger.error('Failed to get address info', {
-        address: this.maskAddress(address),
-        error: error instanceof Error ? error.message : String(error)
-      });
+      this.logger.error(`Failed to get address info - Address: ${this.maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -530,11 +487,7 @@ export class BlockCypherProvider extends BaseRegistryProvider {
         confirmations: tx.confirmations || 0
       };
     } catch (error) {
-      this.logger.error(`Failed to parse BlockCypher wallet transaction ${tx.hash}`, {
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-        txData: JSON.stringify(tx, null, 2)
-      });
+      this.logger.error(`Failed to parse BlockCypher wallet transaction ${tx.hash} - Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}, TxData: ${JSON.stringify(tx}`);
       throw error;
     }
   }

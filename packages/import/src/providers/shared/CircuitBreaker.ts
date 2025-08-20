@@ -25,11 +25,7 @@ export class CircuitBreaker {
     this.timeout = timeoutMs;
     this.logger = getLogger(`CircuitBreaker:${name}`);
 
-    this.logger.debug('Circuit breaker initialized', {
-      name,
-      maxFailures,
-      timeoutMs
-    });
+    this.logger.debug(`Circuit breaker initialized`);
   }
 
   /**
@@ -72,15 +68,10 @@ export class CircuitBreaker {
 
     const currentState = this.getState();
     if (this.lastState !== currentState) {
-      this.logger.info(`Circuit breaker state changed: ${this.lastState} → ${currentState}`, {
-        reason: 'success_recorded',
-        stats: this.getStats()
-      });
+      this.logger.info(`Circuit breaker state changed: ${this.lastState} → ${currentState} - Reason: ${'success_recorded'}, Stats: ${this.getStats()}`);
       this.lastState = currentState;
     } else if (wasOpen) {
-      this.logger.info('Circuit breaker recovered after success', {
-        stats: this.getStats()
-      });
+      this.logger.info(`Circuit breaker recovered after success - Stats: ${this.getStats()}`);
     }
   }
 
@@ -93,18 +84,10 @@ export class CircuitBreaker {
 
     const currentState = this.getState();
     if (this.lastState !== currentState) {
-      this.logger.warn(`Circuit breaker state changed: ${this.lastState} → ${currentState}`, {
-        reason: 'failure_recorded',
-        failureCount: this.failures,
-        maxFailures: this.maxFailures,
-        stats: this.getStats()
-      });
+      this.logger.warn(`Circuit breaker state changed: ${this.lastState} → ${currentState} - Reason: ${'failure_recorded'}, FailureCount: ${this.failures}, MaxFailures: ${this.maxFailures}, Stats: ${this.getStats()}`);
       this.lastState = currentState;
     } else if (currentState === 'open') {
-      this.logger.debug('Circuit breaker failure recorded while open', {
-        failureCount: this.failures,
-        maxFailures: this.maxFailures
-      });
+      this.logger.debug(`Circuit breaker failure recorded while open - FailureCount: ${this.failures}, MaxFailures: ${this.maxFailures}`);
     }
   }
 

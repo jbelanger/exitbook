@@ -51,12 +51,12 @@ export class EtherscanProvider extends BaseRegistryProvider {
     try {
       // Test with a simple API call to check chain status
       const response = await this.httpClient.get(`?module=proxy&action=eth_blockNumber&apikey=${this.apiKey}`);
-      this.logger.debug('Health check response', { response });
+      this.logger.debug(`Health check response`);
 
       // For proxy calls, success is indicated by having a result, not status='1'
       return response && response.result;
     } catch (error) {
-      this.logger.warn('Health check failed', { error: error instanceof Error ? error.message : String(error) });
+      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
       return false;
     }
   }
@@ -88,11 +88,7 @@ export class EtherscanProvider extends BaseRegistryProvider {
 
       const internalTxs = await this.fetchInternalTransactions(address, since);
 
-      this.logger.info(`Regular transaction breakdown for ${address}`, {
-        normal: normalTxs.length,
-        internal: internalTxs.length,
-        total: normalTxs.length + internalTxs.length
-      });
+      this.logger.info(`Regular transaction breakdown for ${address} - Normal: ${normalTxs.length}, Internal: ${internalTxs.length}, Total: ${normalTxs.length + internalTxs.length}`);
 
       const allTransactions = [...normalTxs, ...internalTxs];
 
@@ -108,7 +104,7 @@ export class EtherscanProvider extends BaseRegistryProvider {
       return relevantTransactions;
 
     } catch (error) {
-      this.logger.error(`Failed to fetch regular transactions for ${address}`, { error });
+      this.logger.error(`Failed to fetch regular transactions for ${address}`);
       throw error;
     }
   }
@@ -158,7 +154,7 @@ export class EtherscanProvider extends BaseRegistryProvider {
     const response = await this.httpClient.get(url);
 
     if (response.status !== '1') {
-      this.logger.debug(`Internal transactions response not OK:`, { status: response.status, message: response.message });
+      this.logger.debug(`Internal transactions response not OK: - Status: ${response.status}, Message: ${response.message}`);
       if (response.message === 'No transactions found' || response.message === 'NOTOK') {
         this.logger.debug(`No internal transactions found: ${response.message}`);
         return [];
@@ -182,7 +178,7 @@ export class EtherscanProvider extends BaseRegistryProvider {
     const response = await this.httpClient.get(url);
 
     if (response.status !== '1') {
-      this.logger.debug(`Token transfers response not OK:`, { status: response.status, message: response.message });
+      this.logger.debug(`Token transfers response not OK: - Status: ${response.status}, Message: ${response.message}`);
       if (response.message === 'No transactions found' || response.message === 'NOTOK') {
         this.logger.debug(`No token transfers found: ${response.message}`);
         return [];
