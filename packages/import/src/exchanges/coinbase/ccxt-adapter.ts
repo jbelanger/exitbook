@@ -1,5 +1,6 @@
 // @ts-ignore - CCXT types compatibility
-import { CryptoTransaction, ExchangeConfig, Money, TransactionType } from '@crypto/core';
+import { CryptoTransaction, Money, TransactionType } from '@crypto/core';
+import type { ExchangeConfig } from '../types.ts';
 import ccxt from 'ccxt';
 import { Decimal } from 'decimal.js';
 import { BaseCCXTAdapter } from '../base-ccxt-adapter.ts';

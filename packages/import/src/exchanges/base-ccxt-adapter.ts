@@ -1,5 +1,6 @@
 // @ts-ignore - CCXT types compatibility
-import { CryptoTransaction, ExchangeBalance, ExchangeCapabilities, ExchangeConfig, ExchangeInfo, IExchangeAdapter, ServiceError, TransactionType } from '@crypto/core';
+import { CryptoTransaction, ExchangeBalance, ExchangeCapabilities, ExchangeInfo, IExchangeAdapter, ServiceError, TransactionType } from '@crypto/core';
+import type { ExchangeConfig } from './types.ts';
 import type { Logger } from '@crypto/shared-logger';
 import { getLogger } from '@crypto/shared-logger';
 

@@ -1,4 +1,4 @@
-import type { ExchangeConfig } from '@crypto/core';
+import type { ExchangeConfig } from './types.ts';
 import type { Exchange } from 'ccxt';
 import { BaseCCXTAdapter } from './base-ccxt-adapter.ts';
 
