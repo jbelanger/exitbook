@@ -1,4 +1,3 @@
-
 export interface InjectiveApiResponse {
   data: InjectiveTransaction[];
   paging?: {

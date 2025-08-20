@@ -1,5 +1,6 @@
 
-import type { Balance, InjectiveBalanceResponse, ProviderOperation } from '@crypto/core';
+import type { Balance, ProviderOperation } from '@crypto/core';
+import type { InjectiveBalanceResponse } from './types.ts';
 import { parseDecimal } from '@crypto/shared-utils';
 import { BaseRegistryProvider } from '../registry/base-registry-provider.ts';
 import { RegisterProvider } from '../registry/decorators.ts';
