@@ -1,0 +1,33 @@
+{
+  "extends": "tsconfig/tsconfig.json",
+  "include": [
+    "**/*",
+    "../../packages/shared/utils/src/verification/balance-verifier.ts"
+  ],
+  "compilerOptions": {
+    "lib": [
+      "DOM",
+      "DOM.Iterable",
+      "ES2022"
+    ],
+    "types": [
+      "node",
+      "vite/client"
+    ],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "rootDirs": [
+      "."
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "~/*": [
+        "./app/*"
+      ]
+    },
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+    "strictNullChecks": true,
+    "experimentalDecorators": true,
+  }
+}
