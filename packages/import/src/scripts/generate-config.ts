@@ -7,13 +7,13 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { ProviderRegistry } from '../providers/registry/index.ts';
+import { ProviderRegistry } from '../blockchains/shared/registry/index.ts';
 
 // Import all providers to trigger registration
+import '../blockchains/bitcoin/providers/BlockCypherProvider.ts';
+import '../blockchains/bitcoin/providers/BlockstreamProvider.ts';
+import '../blockchains/bitcoin/providers/MempoolSpaceProvider.ts';
 import '../providers/avalanche/SnowtraceProvider.ts';
-import '../providers/bitcoin/BlockCypherProvider.ts';
-import '../providers/bitcoin/BlockstreamProvider.ts';
-import '../providers/bitcoin/MempoolSpaceProvider.ts';
 import '../providers/ethereum/AlchemyProvider.ts';
 import '../providers/ethereum/EtherscanProvider.ts';
 import '../providers/ethereum/MoralisProvider.ts';

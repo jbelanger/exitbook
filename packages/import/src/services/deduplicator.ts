@@ -2,7 +2,6 @@ import type { EnhancedTransaction } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
 import { moneyToNumber } from '@crypto/shared-utils';
 
-
 interface DeduplicationResult {
   unique: EnhancedTransaction[];
   duplicates: EnhancedTransaction[];
