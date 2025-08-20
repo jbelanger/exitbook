@@ -6,10 +6,9 @@ import { Database } from '@crypto/data';
 import { getLogger } from '@crypto/shared-logger';
 import ccxt from 'ccxt';
 import { CCXTAdapter } from './ccxt-adapter.ts';
-import { CoinbaseCCXTAdapter } from './coinbase/ccxt-adapter.ts';
-import { KrakenCSVAdapter } from './kraken/csv-adapter.ts';
-import { KuCoinCSVAdapter } from './kucoin/csv-adapter.ts';
-import { LedgerLiveCSVAdapter } from './ledgerlive/csv-adapter.ts';
+import { ExchangeAdapterRegistry } from './registry/index.ts';
+// Import to trigger adapter registration
+import './registry/register-adapters.ts';
 
 
 
@@ -25,23 +24,30 @@ export class ExchangeAdapterFactory {
     this.logger.info(`Creating adapter for ${config.id} with type: ${config.adapterType}`);
 
     try {
-      if (config.id === 'kucoin' && config.adapterType === 'csv') {
-        return this.createKuCoinAdapter(config);
+      // Try registry-based adapter creation first
+      if (ExchangeAdapterRegistry.isRegistered(config.id, config.adapterType)) {
+        this.logger.debug(`Using registry-based adapter for ${config.id}:${config.adapterType}`);
+        return await ExchangeAdapterRegistry.createAdapter(
+          config.id,
+          config.adapterType,
+          config,
+          enableOnlineVerification,
+          database
+        );
       }
 
-      if (config.id === 'kraken' && config.adapterType === 'csv') {
-        return this.createKrakenCSVAdapter(config);
+      // For CCXT adapters that aren't specifically registered, use the generic CCXT adapter
+      if (config.adapterType === 'ccxt') {
+        this.logger.debug(`Using generic CCXT adapter for ${config.id}`);
+        return this.createCCXTAdapter(config, enableOnlineVerification);
       }
 
-      if (config.id === 'ledgerlive' && config.adapterType === 'csv') {
-        return this.createLedgerLiveCSVAdapter(config);
-      }
-
-      if (config.id === 'coinbase' && config.adapterType === 'ccxt') {
-        return new CoinbaseCCXTAdapter(config, enableOnlineVerification);
-      }
-
-      return this.createCCXTAdapter(config, enableOnlineVerification);
+      // If we get here, the adapter type is not supported
+      throw new ServiceError(
+        `Unsupported adapter configuration: ${config.id}:${config.adapterType}. Available adapters: ${ExchangeAdapterRegistry.getSupportedTypes(config.id).join(', ')}`,
+        config.id,
+        'createAdapter'
+      );
     } catch (error) {
       this.logger.error(`Failed to create adapter for ${config.id} - Error: ${error}`);
 
@@ -58,41 +64,6 @@ export class ExchangeAdapterFactory {
     }
   }
 
-  private createKuCoinAdapter(config: ExchangeConfig): IExchangeAdapter {
-    const csvDirectories = config.options?.csvDirectories;
-
-    if (!csvDirectories || csvDirectories.length === 0) {
-      throw new ServiceError('CSV directories required for CSV adapter (use csvDirectories array)', config.id, 'createKuCoinAdapter');
-    }
-    return new KuCoinCSVAdapter({
-      csvDirectories,
-      uid: config.options?.uid
-    });
-  }
-
-  private createKrakenCSVAdapter(config: ExchangeConfig): IExchangeAdapter {
-    const csvDirectories = config.options?.csvDirectories;
-
-    if (!csvDirectories || csvDirectories.length === 0) {
-      throw new ServiceError('CSV directories required for CSV adapter (use csvDirectories array)', config.id, 'createKrakenCSVAdapter');
-    }
-
-    return new KrakenCSVAdapter({
-      csvDirectories
-    });
-  }
-
-  private createLedgerLiveCSVAdapter(config: ExchangeConfig): IExchangeAdapter {
-    const csvDirectories = config.options?.csvDirectories;
-
-    if (!csvDirectories || csvDirectories.length === 0) {
-      throw new ServiceError('CSV directories required for CSV adapter (use csvDirectories array)', config.id, 'createLedgerLiveCSVAdapter');
-    }
-
-    return new LedgerLiveCSVAdapter({
-      csvDirectories
-    });
-  }
 
   private createCCXTAdapter(config: ExchangeConfig, enableOnlineVerification?: boolean): IExchangeAdapter {
     this.logger.info(`Creating CCXT adapter for ${config.id}`);

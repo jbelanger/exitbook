@@ -4,6 +4,7 @@ import type { ExchangeConfig } from '../types.ts';
 import ccxt from 'ccxt';
 import { Decimal } from 'decimal.js';
 import { BaseCCXTAdapter } from '../base-ccxt-adapter.ts';
+import { RegisterExchangeAdapter } from '../registry/decorators.ts';
 
 /**
  * Specialized Coinbase adapter that uses fetchLedger for comprehensive transaction data
@@ -56,6 +57,33 @@ import { BaseCCXTAdapter } from '../base-ccxt-adapter.ts';
  * - Final combined trade results
  * - Transaction type extraction decisions
  */
+@RegisterExchangeAdapter({
+  exchangeId: 'coinbase',
+  displayName: 'Coinbase Advanced Trade (CCXT)',
+  adapterType: 'ccxt',
+  description: 'Coinbase Advanced Trade adapter using CCXT with specialized ledger processing for comprehensive transaction data',
+  capabilities: {
+    supportedOperations: ['fetchTrades', 'fetchLedger', 'fetchDeposits', 'fetchWithdrawals', 'fetchBalance'],
+    supportsPagination: true,
+    supportsBalanceVerification: true,
+    supportsHistoricalData: true,
+    requiresApiKey: true,
+    supportsCsv: false,
+    supportsCcxt: true,
+    supportsNative: false
+  },
+  configValidation: {
+    requiredCredentials: ['apiKey', 'secret', 'password'],
+    optionalCredentials: ['sandbox'],
+    requiredOptions: [],
+    optionalOptions: ['enableRateLimit', 'rateLimit', 'timeout']
+  },
+  defaultConfig: {
+    enableRateLimit: true,
+    timeout: 30000,
+    rateLimit: 1000
+  }
+})
 export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
   private accounts: any[] | null = null;
 
