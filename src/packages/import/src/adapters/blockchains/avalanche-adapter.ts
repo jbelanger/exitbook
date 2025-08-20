@@ -6,7 +6,7 @@ import type {
 } from '@crypto/core';
 
 
-import '../../providers/avalanche/SnowtraceProvider.js';
+import '../../providers/avalanche/SnowtraceProvider.ts';
 import { BlockchainProviderManager } from '../../providers/index.ts';
 import { BaseBlockchainAdapter } from './index.ts';
 

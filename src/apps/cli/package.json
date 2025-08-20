@@ -2,7 +2,16 @@
   "name": "crypto-portfolio-cli",
   "private": true,
   "type": "module",
-  "scripts": {},
+  "scripts": {
+    "build": "tsc",
+    "dev": "LOG_LEVEL=debug tsx src/cli/index.ts",
+    "start": "node dist/cli/index.js",
+    "import": "tsx src/cli/index.ts import",
+    "import:verify": "tsx src/cli/index.ts import --verify",
+    "verify": "tsx src/cli/index.ts verify",
+    "status": "tsx src/cli/index.ts status",
+    "setup": "mkdir -p data/logs && npm run build"
+  },
   "dependencies": {
     "@scure/base": "^1.2.6",
     "@scure/bip32": "^1.7.0",

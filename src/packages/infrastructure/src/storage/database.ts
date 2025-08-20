@@ -244,8 +244,8 @@ export class Database {
       if (!amountCurrency || !priceCurrency) {
         if (transaction.symbol && transaction.symbol.includes('/')) {
           const [base, quote] = transaction.symbol.split('/');
-          if (!amountCurrency) amountCurrency = base;
-          if (!priceCurrency) priceCurrency = quote;
+          if (!amountCurrency) amountCurrency = base || null;
+          if (!priceCurrency) priceCurrency = quote || null;
         } else if ((transaction as any).currency) {
           // For deposits/withdrawals with top-level currency field
           if (!amountCurrency) amountCurrency = (transaction as any).currency;
@@ -328,8 +328,8 @@ export class Database {
           if (!amountCurrency || !priceCurrency) {
             if (transaction.symbol && transaction.symbol.includes('/')) {
               const [base, quote] = transaction.symbol.split('/');
-              if (!amountCurrency) amountCurrency = base;
-              if (!priceCurrency) priceCurrency = quote;
+              if (!amountCurrency) amountCurrency = base || null;
+              if (!priceCurrency) priceCurrency = quote || null;
             } else if (transaction.info?.currency) {
               // For deposits/withdrawals, use the currency field
               if (!amountCurrency) amountCurrency = transaction.info.currency;

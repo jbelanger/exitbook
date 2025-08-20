@@ -2,7 +2,7 @@
 import { IBlockchainProvider, ProviderCapabilities, ProviderOperation, RateLimitConfig } from '@crypto/core';
 import { getLogger, Logger } from '@crypto/shared-logger';
 import { HttpClient } from '@crypto/shared-utils';
-import { ProviderRegistry, type ProviderMetadata } from './provider-registry.js';
+import { ProviderRegistry, type ProviderMetadata } from './provider-registry.ts';
 
 /**
  * Abstract base class for registry-based providers

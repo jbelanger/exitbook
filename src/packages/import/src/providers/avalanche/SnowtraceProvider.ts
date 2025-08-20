@@ -3,8 +3,8 @@
 import { AuthenticationError, Balance, BlockchainTransaction, isValidAvalancheAddress, ProviderOperation, ServiceError, SnowtraceApiResponse, SnowtraceInternalTransaction, SnowtraceTokenTransfer, SnowtraceTransaction } from '@crypto/core';
 import { createMoney, parseDecimal } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
-import { BaseRegistryProvider } from '../registry/base-registry-provider.js';
-import { RegisterProvider } from '../registry/decorators.js';
+import { BaseRegistryProvider } from '../registry/base-registry-provider.ts';
+import { RegisterProvider } from '../registry/decorators.ts';
 
 
 @RegisterProvider({
