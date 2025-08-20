@@ -12,11 +12,7 @@ export class ServiceErrorHandler {
    */
   static handle(error: any, operation: string, exchangeId: string, logger?: Logger): never {
     if (logger) {
-      logger.error(`Exchange operation failed: ${operation}`, {
-        exchange: exchangeId,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        type: error instanceof Error ? error.constructor.name : 'Unknown'
-      });
+      logger.error(`Exchange operation failed: ${operation} - Exchange: ${exchangeId}, Error: ${error instanceof Error ? error.message : 'Unknown error'}, Type: ${error instanceof Error ? error.constructor.name : 'Unknown'}`);
     }
 
     // Handle CCXT-specific errors
@@ -54,10 +50,7 @@ export class ServiceErrorHandler {
     if (this.isNotSupported(error)) {
       // For unsupported operations, we'll log it but create a specific error
       if (logger) {
-        logger.warn(`Operation not supported: ${operation}`, {
-          exchange: exchangeId,
-          error: error.message
-        });
+        logger.warn(`Operation not supported: ${operation} - Exchange: ${exchangeId}, Error: ${error.message}`);
       }
       throw new ServiceError(
         `Operation not supported: ${error.message}`,

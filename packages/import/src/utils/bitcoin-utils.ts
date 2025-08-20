@@ -58,22 +58,13 @@ export class BitcoinUtils {
 
       walletAddress.derivedAddresses = derivedAddresses;
 
-      logger.info(`Successfully derived ${derivedAddresses.length} addresses using ${bipStandard}`, {
-        xpub: walletAddress.address.substring(0, 20) + '...',
-        addressType,
-        bipStandard,
-        derivationPath: walletAddress.derivationPath,
-        totalAddresses: derivedAddresses.length
-      });
+      logger.info(`Successfully derived ${derivedAddresses.length} addresses using ${bipStandard} - Xpub: ${walletAddress.address.substring(0, 20) + '...'}, AddressType: ${addressType}, BipStandard: ${bipStandard}, DerivationPath: ${walletAddress.derivationPath}, TotalAddresses: ${derivedAddresses.length}`);
 
       // Perform BIP44-compliant intelligent gap scanning
       await this.performAddressGapScanning(walletAddress, providerManager);
 
     } catch (error) {
-      logger.error('Failed to initialize xpub wallet', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-        xpub: walletAddress.address.substring(0, 20) + '...'
-      });
+      logger.error(`Failed to initialize xpub wallet - Error: ${error instanceof Error ? error.message : 'Unknown error'}, Xpub: ${walletAddress.address.substring(0, 20) + '...'}`);
       throw error;
     }
   }
@@ -126,7 +117,7 @@ export class BitcoinUtils {
       } catch (error) {
         // If we can't check the address, treat it as unused
         consecutiveUnusedCount++;
-        logger.warn(`Could not check activity for address ${address}:`, { error });
+        logger.warn(`Could not check activity for address ${address} - Error: ${error}`);
       }
 
       // If we've found at least one used address and then hit the gap limit, we can stop.
@@ -366,7 +357,7 @@ export class BitcoinUtils {
 
       return derivedAddresses;
     } catch (error) {
-      logger.error('Failed to derive addresses from xpub', { error, xpub: xpub.substring(0, 20) + '...' });
+      logger.error(`Failed to derive addresses from xpub - Error: ${error}, Xpub: ${xpub.substring(0, 20) + '...'}`);
       throw error;
     }
   }
