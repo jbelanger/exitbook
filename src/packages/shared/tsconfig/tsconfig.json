@@ -1,0 +1,21 @@
+{
+    "compilerOptions": {
+        "target": "ES2022",
+        "module": "NodeNext",
+        "lib": [
+          "ES2022",
+          "dom"
+        ],
+        "allowSyntheticDefaultImports": true,
+        "jsx": "react-jsx",
+        "strict": true,
+        "noImplicitAny": false,
+        "allowJs": false,
+        "moduleResolution": "NodeNext",
+        "resolveJsonModule": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true
+    },
+    "exclude": ["node_modules", "tmp"]
+}
