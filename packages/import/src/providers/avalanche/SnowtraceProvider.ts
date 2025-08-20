@@ -47,7 +47,7 @@ export class SnowtraceProvider extends BaseRegistryProvider {
   constructor() {
     super('avalanche', 'snowtrace', 'mainnet');
 
-    this.logger.info(`Initialized SnowtraceProvider from registry metadata - Network: ${this.network}, BaseUrl: ${this.baseUrl}, HasApiKey: ${this.apiKey !== 'YourApiKeyToken'}`);
+    this.logger.debug(`Initialized SnowtraceProvider from registry metadata - Network: ${this.network}, BaseUrl: ${this.baseUrl}, HasApiKey: ${this.apiKey !== 'YourApiKeyToken'}`);
   }
 
   async isHealthy(): Promise<boolean> {
@@ -73,7 +73,9 @@ export class SnowtraceProvider extends BaseRegistryProvider {
   async testConnection(): Promise<boolean> {
     try {
       const result = await this.isHealthy();
-      this.logger.info(`Connection test result - Healthy: ${result}`);
+      if (!result) {
+        this.logger.warn(`Connection test failed - Provider unhealthy`);
+      }
       return result;
     } catch (error) {
       this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
@@ -125,7 +127,7 @@ export class SnowtraceProvider extends BaseRegistryProvider {
       // Sort by timestamp (newest first)
       allTransactions.sort((a, b) => b.timestamp - a.timestamp);
 
-      this.logger.info(`Successfully retrieved address transactions - Address: ${this.maskAddress(address)}, TotalTransactions: ${allTransactions.length}, Network: ${this.network}`);
+      this.logger.debug(`Retrieved ${allTransactions.length} transactions for ${this.maskAddress(address)}`);
 
       return allTransactions;
 
@@ -148,7 +150,7 @@ export class SnowtraceProvider extends BaseRegistryProvider {
       // Get AVAX balance
       const avaxBalance = await this.getAVAXBalance(address);
 
-      this.logger.info(`Successfully retrieved address balance - Address: ${this.maskAddress(address)}, BalanceAVAX: ${avaxBalance.balance}, Network: ${this.network}`);
+      this.logger.debug(`Retrieved balance for ${this.maskAddress(address)}: ${avaxBalance.balance} AVAX`);
 
       return avaxBalance;
     } catch (error) {

@@ -53,7 +53,7 @@ export class Database {
 
   async clearAndReinitialize(): Promise<void> {
     return new Promise((resolve, reject) => {
-      this.logger.info('Clearing and reinitializing database');
+      this.logger.debug('Clearing and reinitializing database');
 
       // Close current connection
       this.db.close((err) => {
@@ -78,7 +78,7 @@ export class Database {
 
           // Initialize tables with clear flag
           this.initializeTables(true);
-          this.logger.info('Database cleared and reinitialized');
+          this.logger.debug('Database cleared and reinitialized');
           resolve();
         });
       });
@@ -223,7 +223,7 @@ export class Database {
       }
     });
 
-    this.logger.info('Database tables initialized');
+    this.logger.debug('Database tables initialized');
   }
 
 

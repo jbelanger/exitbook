@@ -149,7 +149,7 @@ export class BlockchainProviderManager {
       // Register the providers with this manager
       if (providers.length > 0) {
         this.registerProviders(blockchain, providers);
-        logger.info(`Auto-registered ${providers.length} providers for ${blockchain} from configuration - Providers: ${providers.map(p => p.name).join(', ')}`);
+        logger.debug(`Auto-registered ${providers.length} providers for ${blockchain}: ${providers.map(p => p.name).join(', ')}`);
       }
 
       return providers;

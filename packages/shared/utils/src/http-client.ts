@@ -42,7 +42,7 @@ export class HttpClient {
     this.logger = getLogger(`HttpClient:${config.providerName}`);
     this.rateLimiter = RateLimiterFactory.getOrCreate(config.providerName, config.rateLimit);
 
-    this.logger.info(`HTTP client initialized - BaseUrl: ${config.baseUrl}, Timeout: ${this.config.timeout}ms, Retries: ${this.config.retries}, RateLimit: ${JSON.stringify(config.rateLimit)}`);
+    this.logger.debug(`HTTP client initialized - BaseUrl: ${config.baseUrl}, Timeout: ${this.config.timeout}ms, Retries: ${this.config.retries}, RateLimit: ${JSON.stringify(config.rateLimit)}`);
   }
 
   /**

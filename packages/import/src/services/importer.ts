@@ -204,10 +204,10 @@ export class TransactionImporter {
         const blockchainTxs = await adapter.getAddressTransactions(address, since);
         const cryptoTxs = blockchainTxs.map(tx => adapter.convertToCryptoTransaction(tx, address));
         rawTransactions.push(...cryptoTxs);
-        this.logger.info(`Found ${blockchainTxs.length} transactions for address ${address}`);
+        this.logger.debug(`Found ${blockchainTxs.length} transactions for ${address}`);
       }
 
-      this.logger.info(`Total ${rawTransactions.length} transactions fetched for all addresses`);
+      this.logger.debug(`Total ${rawTransactions.length} transactions fetched`);
 
       // Transform to enhanced transactions
       const transactions = rawTransactions.map(tx => this.enhanceTransaction(tx, blockchainId));
@@ -568,7 +568,7 @@ export class TransactionImporter {
   private async ensureWalletAddresses(addresses: string[], blockchain: string): Promise<void> {
     if (!addresses?.length) return;
 
-    this.logger.info(`Creating wallet records for CLI-provided addresses - Blockchain: ${blockchain}, Count: ${addresses.length}`);
+    this.logger.debug(`Creating wallet records for ${addresses.length} ${blockchain} addresses`);
 
     const createPromises = addresses.map(address =>
       this.walletService.createWalletAddressFromTransaction(address, blockchain, {
