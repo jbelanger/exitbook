@@ -1,7 +1,6 @@
 
-import { InjectiveBalanceResponse, ProviderOperation } from '@crypto/core';
+import { InjectiveBalanceResponse, ProviderOperation, Balance } from '@crypto/core';
 import { parseDecimal } from '@crypto/shared-utils';
-import { Balance } from 'ccxt';
 import { BaseRegistryProvider } from '../registry/base-registry-provider.js';
 import { RegisterProvider } from '../registry/decorators.js';
 

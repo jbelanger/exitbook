@@ -1,1 +1,1 @@
-export { SubstrateProvider } from './SubstrateProvider';
+export { SubstrateProvider } from './SubstrateProvider.ts';

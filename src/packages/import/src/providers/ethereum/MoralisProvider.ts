@@ -1,7 +1,6 @@
-import { BlockchainTransaction, IBlockchainProvider, ProviderCapabilities, ProviderOperation, RateLimitConfig, ServiceError } from '@crypto/core';
+import { BlockchainTransaction, IBlockchainProvider, ProviderCapabilities, ProviderOperation, RateLimitConfig, ServiceError, Balance } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
 import { HttpClient, createMoney } from '@crypto/shared-utils';
-import { Balance } from 'ccxt';
 import { Decimal } from 'decimal.js';
 
 
