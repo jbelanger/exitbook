@@ -5,7 +5,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
-import { Database, WalletService } from '@crypto/data';
+import { Database, WalletRepository, WalletService } from '@crypto/data';
 import { BlockchainAdapterFactory } from '../adapters/blockchains/index.ts';
 import { ExchangeAdapterFactory } from '../adapters/exchanges/adapter-factory.ts';
 import { detectScamFromSymbol } from '../utils/scam-detection.ts';
@@ -39,7 +39,8 @@ export class TransactionImporter {
     this.deduplicator = new Deduplicator();
     this.adapterFactory = new ExchangeAdapterFactory();
     this.blockchainAdapterFactory = new BlockchainAdapterFactory();
-    this.walletService = new WalletService(database);
+    const walletRepository = new WalletRepository(database);
+    this.walletService = new WalletService(walletRepository);
   }
 
   async importFromExchanges(options: ExchangeImportOptions = {}): Promise<ImportSummary> {

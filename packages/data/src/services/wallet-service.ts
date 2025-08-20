@@ -1,32 +1,24 @@
 import type { CreateWalletAddressRequest } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
-import { Database } from '../storage/database.ts';
+import { WalletRepository } from '../repositories/wallet-repository.ts';
 
-/**
- * Service to handle simple wallet address creation and management
- */
 export class WalletService {
   private logger = getLogger('WalletService');
-  private database: Database;
+  private walletRepository: WalletRepository;
 
-  constructor(database: Database) {
-    this.database = database;
+  constructor(walletRepository: WalletRepository) {
+    this.walletRepository = walletRepository;
   }
 
-  /**
-   * Create a simple wallet address record
-   */
   async createWalletAddressFromTransaction(address: string, blockchain: string, options?: {
     label?: string;
     addressType?: 'personal' | 'exchange' | 'contract' | 'unknown';
     notes?: string;
   }): Promise<void> {
     try {
-      // Check if wallet address already exists
-      const existingWallet = await this.database.findWalletAddressByAddress(address, blockchain);
+      const existingWallet = await this.walletRepository.findByAddress(address, blockchain);
 
       if (!existingWallet) {
-        // Create new wallet address record
         const walletRequest: CreateWalletAddressRequest = {
           address,
           blockchain,
@@ -35,7 +27,7 @@ export class WalletService {
           notes: options?.notes || 'Added from CLI arguments'
         };
 
-        await this.database.addWalletAddress(walletRequest);
+        await this.walletRepository.create(walletRequest);
         this.logger.info(`Created wallet address record for ${address} on ${blockchain}`);
       } else {
         this.logger.debug(`Wallet address ${address} already exists for ${blockchain}`);
@@ -43,7 +35,7 @@ export class WalletService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.logger.error(`Error creating wallet address ${address} for ${blockchain}`, { error: errorMessage });
-      throw error; // Re-throw to let caller handle it
+      throw error;
     }
   }
 }

@@ -1,1 +1,1 @@
-export { WalletService } from './wallet-service.ts';
+export { WalletRepository } from './wallet-repository.ts';
