@@ -4,10 +4,11 @@ import type {
   BlockchainInfo,
   BlockchainTransaction
 } from '@crypto/core';
-import { BaseBlockchainAdapter } from './base-blockchain-adapter';
-import { BlockchainProviderManager } from '../../providers/shared/BlockchainProviderManager';
+
 
 import '../../providers/avalanche/SnowtraceProvider.js';
+import { BlockchainProviderManager } from '../../providers/index.ts';
+import { BaseBlockchainAdapter } from './index.ts';
 
 export class AvalancheAdapter extends BaseBlockchainAdapter {
   private providerManager: BlockchainProviderManager;
@@ -89,7 +90,7 @@ export class AvalancheAdapter extends BaseBlockchainAdapter {
     try {
       // Use provider manager to fetch balance with failover
       const balances = await this.providerManager.executeWithFailover('avalanche', {
-        type: 'getAddressBalance', 
+        type: 'getAddressBalance',
         params: { address },
         getCacheKey: (params: any) => `avax_balance_${params.address}`
       }) as Balance[];
@@ -110,7 +111,7 @@ export class AvalancheAdapter extends BaseBlockchainAdapter {
     // Avalanche C-Chain uses Ethereum-style addresses but they are case-sensitive
     const ethAddressRegex = /^0x[a-fA-F0-9]{40}$/;
     const isValid = ethAddressRegex.test(address);
-    
+
     this.logger.debug('Address validation', { address, isValid });
     return isValid;
   }

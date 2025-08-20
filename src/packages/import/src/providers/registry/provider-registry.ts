@@ -1,4 +1,4 @@
-import type { IBlockchainProvider, ProviderCapabilities, RateLimitConfig } from '../../core/types';
+import { IBlockchainProvider, ProviderCapabilities, RateLimitConfig } from '@crypto/core';
 
 /**
  * Network configuration for a provider
@@ -66,11 +66,11 @@ export class ProviderRegistry {
    */
   static register<TConfig>(factory: ProviderFactory<TConfig>): void {
     const key = `${factory.metadata.blockchain}:${factory.metadata.name}`;
-    
+
     if (this.providers.has(key)) {
       throw new Error(`Provider ${key} is already registered`);
     }
-    
+
     this.providers.set(key, factory);
   }
 
@@ -83,7 +83,7 @@ export class ProviderRegistry {
       .map(([_, factory]) => {
         // Create a temporary instance to get capabilities
         const tempInstance = factory.create({});
-        
+
         return {
           name: factory.metadata.name,
           blockchain: factory.metadata.blockchain,
@@ -105,7 +105,7 @@ export class ProviderRegistry {
     const blockchains = new Set(
       Array.from(this.providers.keys()).map(key => key.split(':')[0])
     );
-    
+
     return Array.from(blockchains)
       .filter(blockchain => blockchain !== undefined)
       .flatMap(blockchain => this.getAvailable(blockchain!));
@@ -115,13 +115,13 @@ export class ProviderRegistry {
    * Create a provider instance
    */
   static createProvider<TConfig>(
-    blockchain: string, 
-    name: string, 
+    blockchain: string,
+    name: string,
     config: TConfig
   ): IBlockchainProvider<TConfig> {
     const key = `${blockchain}:${name}`;
     const factory = this.providers.get(key);
-    
+
     if (!factory) {
       const available = this.getAvailable(blockchain).map(p => p.name);
       throw new Error(
@@ -129,7 +129,7 @@ export class ProviderRegistry {
         `Available providers: ${available.join(', ')}`
       );
     }
-    
+
     return factory.create(config);
   }
 
@@ -154,22 +154,22 @@ export class ProviderRegistry {
    */
   static validateConfig(config: any): { valid: boolean; errors: string[] } {
     const errors: string[] = [];
-    
+
     for (const [blockchain, blockchainConfig] of Object.entries(config)) {
       if (!blockchainConfig || typeof blockchainConfig !== 'object') {
         continue;
       }
-      
+
       const { explorers = [] } = blockchainConfig as any;
       const availableProviders = this.getAvailable(blockchain);
       const availableNames = availableProviders.map(p => p.name);
-      
+
       for (const explorer of explorers) {
         if (!explorer.name) {
           errors.push(`Missing name for explorer in blockchain ${blockchain}`);
           continue;
         }
-        
+
         if (!availableNames.includes(explorer.name)) {
           errors.push(
             `Unknown provider '${explorer.name}' for blockchain '${blockchain}'. ` +
@@ -178,7 +178,7 @@ export class ProviderRegistry {
         }
       }
     }
-    
+
     return {
       valid: errors.length === 0,
       errors

@@ -1,11 +1,11 @@
+import { IBlockchainProvider, ProviderCapabilities, ProviderHealth, ProviderOperation } from '@crypto/core';
+import { getLogger } from '@crypto/shared-logger';
+import { loadExplorerConfig } from '@crypto/shared-utils';
+import { ProviderRegistry } from '../registry/provider-registry.ts';
+import { CircuitBreaker } from './CircuitBreaker.ts';
 
-import { IBlockchainProvider, ProviderCapabilities, ProviderHealth, ProviderOperation } from '../../core/types/contracts';
-import { Logger } from '../../infrastructure/logging';
-import { loadExplorerConfig } from '../../utils/explorer-config.js';
-import { ProviderRegistry } from '../registry/index.js';
-import { CircuitBreaker } from './CircuitBreaker';
 
-const logger = new Logger('BlockchainProviderManager');
+const logger = getLogger('BlockchainProviderManager');
 
 interface CacheEntry {
   result: any;

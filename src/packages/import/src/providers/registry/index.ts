@@ -1,3 +1,3 @@
-export * from './provider-registry.js';
-export * from './decorators.js';
-export * from './base-registry-provider.js';
+export * from './base-registry-provider.ts';
+export * from './decorators.ts';
+export * from './provider-registry.ts';

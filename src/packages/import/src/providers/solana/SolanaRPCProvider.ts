@@ -1,15 +1,8 @@
 import Decimal from 'decimal.js';
-import { 
-  type SolanaRPCTransaction,
-  isValidSolanaAddress, 
-  lamportsToSol 
-} from '../../core/types/solana';
-import { 
-  BlockchainTransaction, 
-  ProviderOperation, 
-  Balance 
-} from '../../core/types/index';
-import { createMoney } from '../../utils/decimal-utils';
+
+import { BlockchainTransaction, isValidSolanaAddress, lamportsToSol, ProviderOperation, SolanaRPCTransaction } from '@crypto/core';
+import { createMoney } from '@crypto/shared-utils';
+import { Balance } from 'ccxt';
 import { BaseRegistryProvider } from '../registry/base-registry-provider.js';
 import { RegisterProvider } from '../registry/decorators.js';
 
@@ -65,8 +58,8 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
       });
       return response && response.result === 'ok';
     } catch (error) {
-      this.logger.warn('Health check failed', { 
-        error: error instanceof Error ? error.message : String(error) 
+      this.logger.warn('Health check failed', {
+        error: error instanceof Error ? error.message : String(error)
       });
       return false;
     }
@@ -82,17 +75,17 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
       this.logger.info('Connection test successful', { health: response?.result });
       return response && response.result === 'ok';
     } catch (error) {
-      this.logger.error('Connection test failed', { 
-        error: error instanceof Error ? error.message : String(error) 
+      this.logger.error('Connection test failed', {
+        error: error instanceof Error ? error.message : String(error)
       });
       return false;
     }
   }
 
   async execute<T>(operation: ProviderOperation<T>, config?: any): Promise<T> {
-    this.logger.debug('Executing operation', { 
-      type: operation.type, 
-      address: operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A' 
+    this.logger.debug('Executing operation', {
+      type: operation.type,
+      address: operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'
     });
 
     try {
@@ -126,8 +119,8 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Solana address: ${address}`);
     }
 
-    this.logger.debug('Fetching address transactions', { 
-      address: this.maskAddress(address), 
+    this.logger.debug('Fetching address transactions', {
+      address: this.maskAddress(address),
       since,
       network: this.network
     });
@@ -182,8 +175,8 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
             }
           }
         } catch (error) {
-          this.logger.debug('Failed to fetch transaction details', { 
-            signature: sig.signature, 
+          this.logger.debug('Failed to fetch transaction details', {
+            signature: sig.signature,
             error: error instanceof Error ? error.message : String(error)
           });
         }
@@ -217,7 +210,7 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Solana address: ${address}`);
     }
 
-    this.logger.debug('Fetching address balance', { 
+    this.logger.debug('Fetching address balance', {
       address: this.maskAddress(address),
       network: this.network
     });
@@ -264,10 +257,10 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
     try {
       const accountKeys = tx.transaction.message.accountKeys;
       const userIndex = accountKeys.findIndex(key => key === userAddress);
-      
+
       if (userIndex === -1) {
-        this.logger.debug('Transaction not relevant to user', { 
-          signature: tx.transaction.signatures?.[0] 
+        this.logger.debug('Transaction not relevant to user', {
+          signature: tx.transaction.signatures?.[0]
         });
         return null;
       }
@@ -276,19 +269,19 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
       const preBalance = tx.meta.preBalances[userIndex] || 0;
       const postBalance = tx.meta.postBalances[userIndex] || 0;
       const rawBalanceChange = postBalance - preBalance;
-      
+
       // For fee payer, add back the fee to get the actual transfer amount
       const isFeePayerIndex = userIndex === 0;
       const feeAdjustment = isFeePayerIndex ? tx.meta.fee : 0;
       const balanceChange = rawBalanceChange + feeAdjustment;
-      
+
       const amount = lamportsToSol(Math.abs(balanceChange));
       const type: 'transfer_in' | 'transfer_out' = balanceChange > 0 ? 'transfer_in' : 'transfer_out';
       const fee = lamportsToSol(tx.meta.fee);
-      
+
       // Skip transactions with no meaningful amount (pure fee transactions)
       if (amount.toNumber() <= fee.toNumber() && amount.toNumber() < 0.000001) {
-        this.logger.debug('Skipping fee-only transaction', { 
+        this.logger.debug('Skipping fee-only transaction', {
           hash: tx.transaction.signatures?.[0],
           amount: amount.toNumber(),
           fee: fee.toNumber()
@@ -315,7 +308,7 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
         confirmations: 1
       };
     } catch (error) {
-      this.logger.warn('Failed to transform transaction', { 
+      this.logger.warn('Failed to transform transaction', {
         signature: tx.transaction.signatures?.[0],
         error: error instanceof Error ? error.message : String(error)
       });
@@ -501,10 +494,10 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
       // Look for token balance changes in preTokenBalances and postTokenBalances
       const preTokenBalances = tx.meta.preTokenBalances || [];
       const postTokenBalances = tx.meta.postTokenBalances || [];
-      
+
       // Find changes for token accounts
       for (const postBalance of postTokenBalances) {
-        const preBalance = preTokenBalances.find(pre => 
+        const preBalance = preTokenBalances.find(pre =>
           pre.accountIndex === postBalance.accountIndex &&
           pre.mint === postBalance.mint
         );
@@ -533,7 +526,7 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
 
         // Determine transfer direction
         const type: 'transfer_in' | 'transfer_out' = change > 0 ? 'transfer_in' : 'transfer_out';
-        
+
         return {
           hash: tx.transaction.signatures?.[0] || '',
           blockNumber: tx.slot,

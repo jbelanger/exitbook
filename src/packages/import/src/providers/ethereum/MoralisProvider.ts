@@ -1,20 +1,11 @@
-import Decimal from 'decimal.js';
-import {
-  AuthenticationError,
-  Balance,
-  BlockchainTransaction,
-  IBlockchainProvider,
-  ProviderCapabilities,
-  ProviderOperation,
-  RateLimitConfig,
-  RateLimitError,
-  ServiceError
-} from '../../core/types';
-import { Logger } from '../../infrastructure/logging';
-import { createMoney } from '../../utils/decimal-utils';
-import { HttpClient } from '../../utils/http-client';
+import { BlockchainTransaction, IBlockchainProvider, ProviderCapabilities, ProviderOperation, RateLimitConfig, ServiceError } from '@crypto/core';
+import { getLogger } from '@crypto/shared-logger';
+import { HttpClient, createMoney } from '@crypto/shared-utils';
+import { Balance } from 'ccxt';
+import { Decimal } from 'decimal.js';
 
-const logger = new Logger('MoralisProvider');
+
+const logger = getLogger('MoralisProvider');
 
 export interface MoralisConfig {
   apiKey?: string;
@@ -284,9 +275,9 @@ export class MoralisProvider implements IBlockchainProvider<MoralisConfig> {
         const balance = new Decimal(tokenBalance.balance);
         const decimals = tokenBalance.decimals || 18;
         const symbol = tokenBalance.symbol || 'UNKNOWN';
-        
+
         const adjustedBalance = balance.dividedBy(new Decimal(10).pow(decimals));
-        
+
         balances.push({
           currency: symbol,
           balance: adjustedBalance.toNumber(),
@@ -303,7 +294,7 @@ export class MoralisProvider implements IBlockchainProvider<MoralisConfig> {
   private convertNativeTransaction(tx: MoralisTransaction, userAddress: string): BlockchainTransaction {
     const isFromUser = tx.from_address.toLowerCase() === userAddress.toLowerCase();
     const isToUser = tx.to_address.toLowerCase() === userAddress.toLowerCase();
-    
+
     // Determine transaction type
     let type: 'transfer_in' | 'transfer_out';
     if (isFromUser && isToUser) {
@@ -337,7 +328,7 @@ export class MoralisProvider implements IBlockchainProvider<MoralisConfig> {
   private convertTokenTransfer(tx: MoralisTokenTransfer, userAddress: string): BlockchainTransaction {
     const isFromUser = tx.from_address.toLowerCase() === userAddress.toLowerCase();
     const isToUser = tx.to_address.toLowerCase() === userAddress.toLowerCase();
-    
+
     // Determine transaction type
     let type: 'token_transfer_in' | 'token_transfer_out';
     if (isFromUser && isToUser) {

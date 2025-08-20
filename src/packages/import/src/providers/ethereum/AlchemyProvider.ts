@@ -1,20 +1,11 @@
-import Decimal from 'decimal.js';
-import {
-  AuthenticationError,
-  Balance,
-  BlockchainTransaction,
-  IBlockchainProvider,
-  ProviderCapabilities,
-  ProviderOperation,
-  RateLimitConfig,
-  RateLimitError,
-  ServiceError
-} from '../../core/types';
-import { Logger } from '../../infrastructure/logging';
-import { createMoney } from '../../utils/decimal-utils';
-import { HttpClient } from '../../utils/http-client';
+import { BlockchainTransaction, IBlockchainProvider, ProviderCapabilities, ProviderOperation, RateLimitConfig, ServiceError } from '@crypto/core';
+import { getLogger } from '@crypto/shared-logger';
+import { HttpClient, createMoney } from '@crypto/shared-utils';
+import { Balance } from 'ccxt';
+import { Decimal } from 'decimal.js';
 
-const logger = new Logger('AlchemyProvider');
+
+const logger = getLogger('AlchemyProvider');
 
 export interface AlchemyConfig {
   apiKey?: string;
@@ -163,7 +154,7 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
       // Get only regular transactions (external + internal, no tokens)
       // Token transactions are handled separately via getTokenTransactions
       const transfers = await this.getAssetTransfers(address, since, ['external', 'internal']);
-      
+
       // Convert to standard blockchain transactions
       const transactions = transfers.map(transfer => this.convertAssetTransfer(transfer, address));
 
@@ -211,7 +202,7 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
   }
 
   private async getTokenTransactions(address: string, contractAddress?: string, since?: number): Promise<BlockchainTransaction[]> {
-    
+
     // Use asset transfers with token category filter
     const transfers = await this.getAssetTransfers(address, since, ['erc20', 'erc721', 'erc1155'], contractAddress);
     return transfers.map(transfer => this.convertAssetTransfer(transfer, address));
@@ -222,8 +213,8 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
   }
 
   private async getAssetTransfers(
-    address: string, 
-    since?: number, 
+    address: string,
+    since?: number,
     category: string[] = ['external', 'internal', 'erc20', 'erc721', 'erc1155'],
     contractAddress?: string
   ): Promise<AlchemyAssetTransfer[]> {
@@ -255,7 +246,7 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
       params: [params],
       id: 1
     });
-    
+
     // Get transfers to address
     const toParams = { ...params };
     delete toParams.fromAddress;
@@ -273,7 +264,7 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
     ];
 
     // Remove duplicates based on hash + category
-    const uniqueTransfers = allTransfers.filter((transfer, index, array) => 
+    const uniqueTransfers = allTransfers.filter((transfer, index, array) =>
       array.findIndex(t => t.hash === transfer.hash && t.category === transfer.category) === index
     );
 
@@ -297,9 +288,9 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
         params: [address, contractAddresses || 'DEFAULT_TOKENS'],
         id: 1
       });
-      
+
       const balances: Balance[] = [];
-      
+
       for (const tokenBalance of response.result?.tokenBalances || []) {
         if (tokenBalance.tokenBalance && tokenBalance.tokenBalance !== '0x0') {
           // Get token metadata
@@ -309,13 +300,13 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
             params: [tokenBalance.contractAddress],
             id: 1
           }).then(response => response.result).catch(() => null);
-          
+
           const balance = new Decimal(tokenBalance.tokenBalance);
           const decimals = metadata?.decimals || 18;
           const symbol = metadata?.symbol || 'UNKNOWN';
-          
+
           const adjustedBalance = balance.dividedBy(new Decimal(10).pow(decimals));
-          
+
           balances.push({
             currency: symbol,
             balance: adjustedBalance.toNumber(),
@@ -347,11 +338,11 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
   private convertAssetTransfer(transfer: AlchemyAssetTransfer, userAddress: string): BlockchainTransaction {
     const isFromUser = transfer.from.toLowerCase() === userAddress.toLowerCase();
     const isToUser = transfer.to.toLowerCase() === userAddress.toLowerCase();
-    
+
     // Determine transaction type
     let type: 'transfer_in' | 'transfer_out' | 'token_transfer_in' | 'token_transfer_out';
     const isToken = transfer.category === 'token';
-    
+
     if (isFromUser && isToUser) {
       type = isToken ? 'token_transfer_in' : 'transfer_in'; // Self-transfer, treat as incoming
     } else if (isFromUser) {
@@ -363,7 +354,7 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
     // Handle different asset types
     let currency = 'ETH';
     let amount = new Decimal(transfer.value || 0);
-    
+
     if (transfer.category === 'token') {
       currency = transfer.asset || 'UNKNOWN';
       if (transfer.rawContract?.decimal) {
@@ -375,8 +366,8 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
       currency = 'ETH';
     }
 
-    const timestamp = transfer.metadata?.blockTimestamp ? 
-      new Date(transfer.metadata.blockTimestamp).getTime() : 
+    const timestamp = transfer.metadata?.blockTimestamp ?
+      new Date(transfer.metadata.blockTimestamp).getTime() :
       Date.now();
 
     return {

@@ -1,21 +1,8 @@
-import Decimal from 'decimal.js';
-import {
-  SUBSTRATE_CHAINS,
-  type SubstrateChainConfig,
-  type SubstrateTransaction,
-  type SubstrateAccountInfo,
-  isValidSS58Address,
-  parseSubstrateTransactionType
-} from '../../core/types/substrate';
-import {
-  AuthenticationError,
-  Balance,
-  BlockchainTransaction,
-  ProviderOperation,
-  RateLimitError,
-  ServiceError
-} from '../../core/types';
-import { createMoney, parseDecimal } from '../../utils/decimal-utils';
+import { Decimal } from 'decimal.js';
+
+import { BlockchainTransaction, isValidSS58Address, ProviderOperation, SUBSTRATE_CHAINS, SubstrateAccountInfo, SubstrateChainConfig } from '@crypto/core';
+import { createMoney } from '@crypto/shared-utils';
+import { Balance } from 'ccxt';
 import { BaseRegistryProvider } from '../registry/base-registry-provider.js';
 import { RegisterProvider } from '../registry/decorators.js';
 
@@ -59,13 +46,13 @@ export class SubstrateProvider extends BaseRegistryProvider {
 
   constructor() {
     super('polkadot', 'subscan', 'mainnet'); // Subscan provider for Polkadot
-    
+
     // Initialize chain config for Polkadot by default
     const chainConfig = SUBSTRATE_CHAINS['polkadot'];
     if (!chainConfig) {
       throw new Error('Substrate chain configuration not found');
     }
-    
+
     this.chainConfig = chainConfig;
 
     this.logger.info('Initialized SubstrateProvider from registry metadata', {
@@ -85,26 +72,26 @@ export class SubstrateProvider extends BaseRegistryProvider {
     if (!chainConfig) {
       throw new Error(`Unsupported Substrate chain: ${chain}`);
     }
-    
+
     // Update the chain config
     (this as any).chainConfig = chainConfig;
-    
+
     // Update network and base URL based on chain
     const networkUrls: Record<string, string> = {
       polkadot: 'https://polkadot.api.subscan.io',
-      kusama: 'https://kusama.api.subscan.io', 
+      kusama: 'https://kusama.api.subscan.io',
       bittensor: 'https://api.taostats.io'
     };
-    
+
     const baseUrl = networkUrls[chain];
     if (baseUrl) {
       (this as any).network = chain;
       (this as any).baseUrl = baseUrl;
-      
+
       // Reinitialize HTTP client with new base URL
       (this as any).httpClient = this.initializeHttpClient(baseUrl);
     }
-    
+
     this.logger.info(`Switched to ${chain} chain`, {
       displayName: chainConfig.displayName,
       tokenSymbol: chainConfig.tokenSymbol,
@@ -151,9 +138,9 @@ export class SubstrateProvider extends BaseRegistryProvider {
 
       return false;
     } catch (error) {
-      this.logger.warn('Health check failed', { 
+      this.logger.warn('Health check failed', {
         chain: this.network,
-        error: error instanceof Error ? error.message : String(error) 
+        error: error instanceof Error ? error.message : String(error)
       });
       return false;
     }
@@ -164,9 +151,9 @@ export class SubstrateProvider extends BaseRegistryProvider {
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug('Executing operation', { 
-      type: operation.type, 
-      address: operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A' 
+    this.logger.debug('Executing operation', {
+      type: operation.type,
+      address: operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'
     });
 
     try {
@@ -315,14 +302,14 @@ export class SubstrateProvider extends BaseRegistryProvider {
       // Subscan API implementation
       try {
         this.logger.debug(`Calling Subscan API for ${this.network} transactions`, { address: this.maskAddress(address) });
-        
+
         const response = await this.httpClient.post('/api/v2/scan/transfers', {
           address: address,
           page: 0,
           row: 100
         });
 
-        this.logger.debug('Subscan API response received', { 
+        this.logger.debug('Subscan API response received', {
           hasResponse: !!response,
           code: response?.code,
           hasData: !!response?.data,
@@ -331,27 +318,27 @@ export class SubstrateProvider extends BaseRegistryProvider {
 
         if (response && response.code === 0 && response.data && response.data.transfers) {
           for (const transfer of response.data.transfers) {
-            this.logger.debug('Processing transfer', { 
-              from: transfer.from, 
-              to: transfer.to, 
+            this.logger.debug('Processing transfer', {
+              from: transfer.from,
+              to: transfer.to,
               userAddress: this.maskAddress(address),
-              amount: transfer.amount 
+              amount: transfer.amount
             });
-            
+
             const blockchainTx = this.convertSubscanTransaction(transfer, address);
-            this.logger.debug('Converted transaction result', { 
+            this.logger.debug('Converted transaction result', {
               hasTransaction: !!blockchainTx,
               since,
-              txTimestamp: blockchainTx?.timestamp 
+              txTimestamp: blockchainTx?.timestamp
             });
-            
+
             if (blockchainTx && (!since || blockchainTx.timestamp >= since)) {
               transactions.push(blockchainTx);
             }
           }
         }
       } catch (error) {
-        this.logger.warn('Subscan API transaction fetch failed', { 
+        this.logger.warn('Subscan API transaction fetch failed', {
           error: error instanceof Error ? error.message : String(error),
           blockchain: this.network
         });
@@ -458,7 +445,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
     try {
       const isFromUser = tx.from === userAddress;
       const isToUser = tx.to === userAddress;
-      
+
       if (!isFromUser && !isToUser) {
         return null; // Not relevant to this address
       }
@@ -491,7 +478,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
     try {
       const isFromUser = transfer.from === userAddress;
       const isToUser = transfer.to === userAddress;
-      
+
       this.logger.debug('Checking transaction relevance', {
         from: transfer.from,
         to: transfer.to,
@@ -499,7 +486,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
         isFromUser,
         isToUser
       });
-      
+
       if (!isFromUser && !isToUser) {
         this.logger.debug('Transaction not relevant to user address');
         return null; // Not relevant to this address

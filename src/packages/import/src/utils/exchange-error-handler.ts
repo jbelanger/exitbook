@@ -1,8 +1,7 @@
 // @ts-ignore - CCXT types compatibility
+import { AuthenticationError, RateLimitError, ServiceError } from '@crypto/core';
+import { Logger } from '@crypto/shared-logger';
 import ccxt from 'ccxt';
-import { AuthenticationError, ServiceError, RateLimitError } from '../core/types/index';
-import { Logger } from '../infrastructure/logging';
-
 
 /**
  * Centralized error handling for exchange operations

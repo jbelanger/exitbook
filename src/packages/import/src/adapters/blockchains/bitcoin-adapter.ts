@@ -1,21 +1,9 @@
 import * as bitcoin from 'bitcoinjs-lib';
-import type {
-  BitcoinWalletAddress
-} from '../../core/types/bitcoin.js';
-import type {
-  Balance,
-  BlockchainInfo,
-  BlockchainTransaction,
-  CryptoTransaction, TransactionType
-} from '../../core/types/index';
 
-import { BlockchainProviderManager } from '../../providers/index';
-import { BitcoinUtils } from '../../utils/bitcoin-utils';
-import { BaseBlockchainAdapter } from './base-blockchain-adapter';
-
-import '../../providers/bitcoin/MempoolSpaceProvider.js';
-import '../../providers/bitcoin/BlockstreamProvider.js';
-import '../../providers/bitcoin/BlockCypherProvider.js';
+import { Balance, BitcoinWalletAddress, BlockchainInfo, BlockchainTransaction, CryptoTransaction, TransactionType } from '@crypto/core';
+import { BlockchainProviderManager } from '../../providers/index.ts';
+import { BitcoinUtils } from '../../utils/bitcoin-utils.ts';
+import { BaseBlockchainAdapter } from './index.ts';
 
 export class BitcoinAdapter extends BaseBlockchainAdapter {
   private walletAddresses: BitcoinWalletAddress[] = [];
@@ -65,7 +53,7 @@ export class BitcoinAdapter extends BaseBlockchainAdapter {
     this.logger.info(`Fetching transactions for address: ${userAddress.substring(0, 20)}...`);
 
     let wallet: BitcoinWalletAddress;
-    
+
     // Check if we've already processed this address
     const existingWallet = this.walletAddresses.find(w => w.address === userAddress);
     if (existingWallet) {

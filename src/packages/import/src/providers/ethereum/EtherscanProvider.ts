@@ -1,16 +1,8 @@
-import Decimal from 'decimal.js';
-import {
-  Balance,
-  BlockchainTransaction,
-  ProviderOperation,
-  ServiceError
-} from '../../core/types';
-import {
-  type EtherscanInternalTransaction,
-  type EtherscanTokenTransfer,
-  type EtherscanTransaction
-} from '../../core/types/ethereum';
-import { createMoney } from '../../utils/decimal-utils';
+import { Decimal } from 'decimal.js';
+
+import { BlockchainTransaction, EtherscanInternalTransaction, EtherscanTokenTransfer, EtherscanTransaction, ProviderOperation, ServiceError } from '@crypto/core';
+import { createMoney } from '@crypto/shared-utils';
+import { Balance } from 'ccxt';
 import { BaseRegistryProvider } from '../registry/base-registry-provider.js';
 import { RegisterProvider } from '../registry/index.js';
 

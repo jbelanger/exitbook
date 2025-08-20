@@ -1,7 +1,8 @@
 // Circuit breaker implementation for provider resilience
 // Prevents hammering failed providers and enables automatic recovery
 
-import { Logger } from '../../infrastructure/logging';
+import { Logger, getLogger } from '@crypto/shared-logger';
+
 
 export class CircuitBreaker {
   private failures = 0;
@@ -21,8 +22,8 @@ export class CircuitBreaker {
     this.name = name;
     this.maxFailures = maxFailures;
     this.timeout = timeoutMs;
-    this.logger = new Logger(`CircuitBreaker:${name}`);
-    
+    this.logger = getLogger(`CircuitBreaker:${name}`);
+
     this.logger.debug('Circuit breaker initialized', {
       name,
       maxFailures,
@@ -67,7 +68,7 @@ export class CircuitBreaker {
     this.failures = 0;
     this.lastFailureTime = 0;
     this.lastSuccessTime = Date.now();
-    
+
     const currentState = this.getState();
     if (this.lastState !== currentState) {
       this.logger.info(`Circuit breaker state changed: ${this.lastState} → ${currentState}`, {
@@ -88,7 +89,7 @@ export class CircuitBreaker {
   recordFailure(): void {
     this.failures++;
     this.lastFailureTime = Date.now();
-    
+
     const currentState = this.getState();
     if (this.lastState !== currentState) {
       this.logger.warn(`Circuit breaker state changed: ${this.lastState} → ${currentState}`, {
@@ -111,10 +112,10 @@ export class CircuitBreaker {
    */
   getState(): 'closed' | 'open' | 'half-open' {
     if (this.failures < this.maxFailures) return 'closed';
-    
+
     const timeSinceLastFailure = Date.now() - this.lastFailureTime;
     if (timeSinceLastFailure >= this.timeout) return 'half-open';
-    
+
     return 'open';
   }
 

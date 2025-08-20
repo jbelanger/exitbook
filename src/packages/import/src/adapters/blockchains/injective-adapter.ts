@@ -1,14 +1,8 @@
-// Network configuration is now handled by the registry system
-import type {
-  Balance,
-  BlockchainInfo,
-  BlockchainTransaction
-} from '../../core/types/index';
-import { BaseBlockchainAdapter } from './base-blockchain-adapter';
-import { BlockchainProviderManager } from '../../providers/shared/BlockchainProviderManager';
+import { Balance, BlockchainInfo, BlockchainTransaction } from '@crypto/core';
 
-import '../../providers/injective/InjectiveLCDProvider.js';
-import '../../providers/injective/InjectiveExplorerProvider.js';
+import { BlockchainProviderManager } from '../../providers/index.ts';
+import { BaseBlockchainAdapter } from './base-blockchain-adapter.ts';
+
 
 export class InjectiveAdapter extends BaseBlockchainAdapter {
   private providerManager: BlockchainProviderManager;
