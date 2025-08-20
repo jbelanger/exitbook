@@ -28,5 +28,6 @@
     "noEmit": true,
     "strictNullChecks": true,
     "experimentalDecorators": true,
+    "allowImportingTsExtensions": true
   }
 }
