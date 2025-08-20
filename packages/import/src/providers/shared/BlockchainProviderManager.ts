@@ -1,6 +1,7 @@
 import type { IBlockchainProvider, ProviderCapabilities, ProviderHealth, ProviderOperation } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
-import { loadExplorerConfig } from '@crypto/shared-utils';
+
+import { loadExplorerConfig } from '../../utils/explorer-config.ts';
 import { ProviderRegistry } from '../registry/provider-registry.ts';
 import { CircuitBreaker } from './CircuitBreaker.ts';
 

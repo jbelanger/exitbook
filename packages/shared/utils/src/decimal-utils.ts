@@ -14,19 +14,30 @@ Decimal.set({
 });
 
 /**
- * Parse a string or number to a Decimal with proper error handling
+ * Try to parse a string or number to a Decimal
  */
-export function parseDecimal(value: string | number | undefined | null): Decimal {
+export function tryParseDecimal(value: string | number | undefined | null, out?: { value: Decimal }): boolean {
   if (value === undefined || value === null || value === '') {
-    return new Decimal(0);
+    if (out) out.value = new Decimal(0);
+    return true;
   }
 
   try {
-    return new Decimal(value);
-  } catch (error) {
-    console.warn(`Failed to parse decimal value: ${value}`, error);
-    return new Decimal(0);
+    const decimal = new Decimal(value);
+    if (out) out.value = decimal;
+    return true;
+  } catch {
+    return false;
   }
+}
+
+/**
+ * Parse a string or number to a Decimal with fallback to zero
+ */
+export function parseDecimal(value: string | number | undefined | null): Decimal {
+  const result = { value: new Decimal(0) };
+  tryParseDecimal(value, result);
+  return result.value;
 }
 
 /**

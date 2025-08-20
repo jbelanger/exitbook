@@ -4,8 +4,9 @@ import type {
   TransactionStatus,
   TransactionType
 } from '@crypto/core';
+import { createMoney } from '@crypto/shared-utils';
 import crypto from 'crypto';
-import { createMoney } from './decimal-utils.ts';
+
 
 /**
  * Utility for transforming CCXT transactions to our standard format

@@ -1,4 +1,3 @@
-// @ts-ignore - CCXT types may not be fully compatible
 import { Decimal } from 'decimal.js';
 
 // Money type for consistent amount and currency structure with high precision

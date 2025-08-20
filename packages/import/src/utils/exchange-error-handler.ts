@@ -1,4 +1,3 @@
-// @ts-ignore - CCXT types compatibility
 import { AuthenticationError, RateLimitError, ServiceError } from '@crypto/core';
 import type { Logger } from '@crypto/shared-logger';
 import ccxt from 'ccxt';
