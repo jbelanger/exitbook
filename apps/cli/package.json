@@ -4,13 +4,20 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
+    "clean": "rm -rf node_modules dist",
     "dev": "LOG_LEVEL=debug tsx ./index.ts",
-    "start": "node dist/cli/index.js",
-    "import": "tsx src/cli/index.ts import",
-    "import:verify": "tsx src/cli/index.ts import --verify",
-    "verify": "tsx src/cli/index.ts verify",
-    "status": "tsx src/cli/index.ts status",
-    "setup": "mkdir -p data/logs && npm run build"
+    "start": "node dist/index.js",
+    "import": "tsx ./index.ts import",
+    "import:verify": "tsx ./index.ts import --verify",
+    "verify": "tsx ./index.ts verify",
+    "status": "tsx ./index.ts status",
+    "export": "tsx ./index.ts export",
+    "test": "tsx ./index.ts test",
+    "setup": "mkdir -p data/logs && pnpm run build",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint \"*.ts\"",
+    "prettier": "prettier --check .",
+    "prettier:fix": "prettier --write ."
   },
   "dependencies": {
     "commander": "^14.0.0",
