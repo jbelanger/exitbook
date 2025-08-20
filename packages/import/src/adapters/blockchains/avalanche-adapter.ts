@@ -19,7 +19,7 @@ export class AvalancheAdapter extends BaseBlockchainAdapter {
     this.providerManager = new BlockchainProviderManager();
     this.providerManager.autoRegisterFromConfig('avalanche', 'mainnet');
 
-    this.logger.info(`Initialized Avalanche adapter with registry-based provider manager - ProvidersCount: ${this.providerManager.getProviders('avalanche').length}`);
+    this.logger.debug(`Initialized Avalanche adapter with ${this.providerManager.getProviders('avalanche').length} providers`);
   }
 
 
@@ -48,7 +48,7 @@ export class AvalancheAdapter extends BaseBlockchainAdapter {
         // Continue without separate token transactions - provider may already include them in getAddressTransactions
       }
 
-      this.logger.info(`AvalancheAdapter transaction breakdown for ${address.substring(0, 20)}... - Regular: ${regularTxs.length}, Token: ${tokenTxs.length}, Total: ${regularTxs.length + tokenTxs.length}`);
+      this.logger.debug(`Transaction breakdown: ${regularTxs.length} regular, ${tokenTxs.length} token`);
 
       // Combine all transactions (following the same pattern as Ethereum/Solana)
       const allTransactions = [...regularTxs, ...tokenTxs];
@@ -64,7 +64,7 @@ export class AvalancheAdapter extends BaseBlockchainAdapter {
         return acc;
       }, [] as BlockchainTransaction[]);
 
-      this.logger.info(`AvalancheAdapter: Found ${uniqueTransactions.length} unique transactions for address`);
+      this.logger.debug(`Found ${uniqueTransactions.length} unique transactions`);
       return uniqueTransactions;
 
     } catch (error) {
