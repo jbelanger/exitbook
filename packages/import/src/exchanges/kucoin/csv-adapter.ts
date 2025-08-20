@@ -2,6 +2,7 @@ import type { CryptoTransaction, ExchangeInfo, TransactionStatus, TransactionTyp
 import { createMoney, parseDecimal } from '@crypto/shared-utils';
 import type { CSVConfig } from '../base-csv-adapter.ts';
 import { BaseCSVAdapter } from '../base-csv-adapter.ts';
+import { RegisterExchangeAdapter } from '../registry/decorators.ts';
 
 interface KuCoinCSVConfig extends CSVConfig { }
 
@@ -61,6 +62,32 @@ interface AccountHistoryRow {
   Type: string;
 }
 
+@RegisterExchangeAdapter({
+  exchangeId: 'kucoin',
+  displayName: 'KuCoin CSV Import',
+  adapterType: 'csv',
+  description: 'Import KuCoin transaction data from exported CSV files (trading, deposits, withdrawals, account history)',
+  capabilities: {
+    supportedOperations: ['importTransactions', 'parseCSV'],
+    supportsPagination: false,
+    supportsBalanceVerification: false,
+    supportsHistoricalData: true,
+    requiresApiKey: false,
+    supportsCsv: true,
+    supportsCcxt: false,
+    supportsNative: false
+  },
+  configValidation: {
+    requiredCredentials: [],
+    optionalCredentials: [],
+    requiredOptions: ['csvDirectories'],
+    optionalOptions: ['uid']
+  },
+  defaultConfig: {
+    enableRateLimit: false,
+    timeout: 30000
+  }
+})
 export class KuCoinCSVAdapter extends BaseCSVAdapter {
   constructor(config: KuCoinCSVConfig) {
     super(config, 'KuCoinCSVAdapter');
