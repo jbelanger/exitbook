@@ -16,7 +16,7 @@ import type { InjectiveBalanceResponse } from '../types.ts';
   capabilities: {
     supportedOperations: ['getAddressBalance', 'getTokenBalances'],
     maxBatchSize: 1,
-    providesHistoricalData: false,
+    supportsHistoricalData: false,
     supportsPagination: false,
     supportsRealTimeData: true,
     supportsTokenData: true

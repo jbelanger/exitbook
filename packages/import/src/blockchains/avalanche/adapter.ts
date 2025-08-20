@@ -4,7 +4,7 @@ import type {
   BlockchainTransaction
 } from '@crypto/core';
 
-import '../../providers/avalanche/SnowtraceProvider.ts';
+import './providers/SnowtraceProvider.ts';
 
 import { BaseBlockchainAdapter } from '../shared/base-blockchain-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';

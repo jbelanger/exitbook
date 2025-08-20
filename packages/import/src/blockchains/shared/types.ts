@@ -1,4 +1,4 @@
-import type { RateLimitConfig } from '@crypto/core';
+import type { RateLimitConfig, DataSourceCapabilities } from '@crypto/core';
 
 export interface IBlockchainProvider<TConfig = any> {
   readonly name: string;
@@ -21,13 +21,21 @@ export interface ProviderOperation<T> {
   getCacheKey?: (params: Record<string, any>) => string; // For request-scoped caching
 }
 
-export interface ProviderCapabilities {
-  supportedOperations: ('getAddressTransactions' | 'getAddressBalance' | 'getTokenTransactions' | 'getTokenBalances' | 'getRawAddressTransactions' | 'getAddressInfo' | 'parseWalletTransaction')[];
-  maxBatchSize?: number; // For batch operations
-  providesHistoricalData: boolean;
-  supportsPagination: boolean;
-  maxLookbackDays?: number; // Historical data limit
+// Provider-specific operation types for capabilities
+export type ProviderOperationType = 
+  | 'getAddressTransactions' 
+  | 'getAddressBalance' 
+  | 'getTokenTransactions' 
+  | 'getTokenBalances' 
+  | 'getRawAddressTransactions' 
+  | 'getAddressInfo' 
+  | 'parseWalletTransaction';
+
+export interface ProviderCapabilities extends DataSourceCapabilities<ProviderOperationType> {
+  /** Whether the provider supports real-time data access */
   supportsRealTimeData: boolean;
+  
+  /** Whether the provider supports token-specific operations */
   supportsTokenData: boolean;
 }
 

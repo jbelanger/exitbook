@@ -19,7 +19,7 @@ import type { EtherscanInternalTransaction, EtherscanTokenTransfer, EtherscanTra
   capabilities: {
     supportedOperations: ['getAddressTransactions', 'getAddressBalance', 'getTokenTransactions', 'getTokenBalances'],
     maxBatchSize: 1, // Etherscan doesn't support batch operations
-    providesHistoricalData: true,
+    supportsHistoricalData: true,
     supportsPagination: true,
     maxLookbackDays: undefined, // No limit
     supportsRealTimeData: true,

@@ -34,7 +34,7 @@ class MockProvider implements IBlockchainProvider {
 
     this.capabilities = {
       supportedOperations: ['getAddressTransactions', 'getAddressBalance'],
-      providesHistoricalData: true,
+      supportsHistoricalData: true,
       supportsPagination: true,
       supportsRealTimeData: false,
       supportsTokenData: false
@@ -470,7 +470,7 @@ describe('ProviderRegistry', () => {
     expect(etherscan?.capabilities).toBeDefined();
     expect(etherscan?.capabilities.supportedOperations).toBeDefined();
     expect(etherscan?.capabilities.maxBatchSize).toBe(1);
-    expect(etherscan?.capabilities.providesHistoricalData).toBe(true);
+    expect(etherscan?.capabilities.supportsHistoricalData).toBe(true);
     expect(etherscan?.capabilities.supportsPagination).toBe(true);
   });
 

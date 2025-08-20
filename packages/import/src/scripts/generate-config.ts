@@ -72,7 +72,7 @@ function generateConfiguration(): void {
           capabilities: {
             supportedOperations: provider.capabilities.supportedOperations,
             maxBatchSize: provider.capabilities.maxBatchSize,
-            providesHistoricalData: provider.capabilities.providesHistoricalData,
+            supportsHistoricalData: provider.capabilities.supportsHistoricalData,
             supportsRealTimeData: provider.capabilities.supportsRealTimeData,
             supportsTokenData: provider.capabilities.supportsTokenData,
             supportsPagination: provider.capabilities.supportsPagination,

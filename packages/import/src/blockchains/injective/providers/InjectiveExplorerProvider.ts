@@ -16,7 +16,7 @@ import type { InjectiveApiResponse, InjectiveTransaction } from '../types.ts';
   capabilities: {
     supportedOperations: ['getAddressTransactions', 'getRawAddressTransactions'],
     maxBatchSize: 1,
-    providesHistoricalData: true,
+    supportsHistoricalData: true,
     supportsPagination: true,
     supportsRealTimeData: true,
     supportsTokenData: true

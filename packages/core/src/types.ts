@@ -130,12 +130,6 @@ export interface EnhancedTransaction extends CryptoTransaction {
   note?: TransactionNote;
 }
 
-
-// Balance verification types moved to @crypto/balance package
-
-// Database types moved to @crypto/data package
-
-
 // Transaction note interface  
 export interface TransactionNote {
   type: any; // TransactionNoteType from import package
@@ -325,4 +319,49 @@ export class AuthenticationError extends ServiceError {
     super(message, service, operation);
     this.name = 'AuthenticationError';
   }
+}
+
+// ===== UNIFIED DATA SOURCE CAPABILITIES =====
+
+/**
+ * Generic data source capabilities interface that provides a unified model
+ * for describing the capabilities of any data source (exchanges, blockchain providers, etc.).
+ * 
+ * @template TOperations - The specific operation types supported by this data source
+ * 
+ * @example
+ * // For blockchain providers
+ * type BlockchainOperations = 'getAddressTransactions' | 'getAddressBalance' | 'getTokenTransactions';
+ * interface ProviderCapabilities extends DataSourceCapabilities<BlockchainOperations> {
+ *   supportsTokenData: boolean;
+ * }
+ * 
+ * // For exchange adapters  
+ * type ExchangeOperations = 'fetchTrades' | 'fetchDeposits' | 'fetchWithdrawals';
+ * interface ExchangeCapabilities extends DataSourceCapabilities<ExchangeOperations> {
+ *   requiresApiKey: boolean;
+ * }
+ */
+export interface DataSourceCapabilities<TOperations extends string = string> {
+  /** Array of operation types that this data source supports */
+  supportedOperations: TOperations[];
+  
+  /** Whether the data source supports paginated requests for large datasets */
+  supportsPagination: boolean;
+  
+  /** Whether the data source provides access to historical data */
+  supportsHistoricalData: boolean;
+  
+  /** Maximum number of items that can be requested in a single batch operation */
+  maxBatchSize?: number;
+  
+  /** Maximum number of days of historical data available (null = unlimited) */
+  maxLookbackDays?: number;
+  
+  /** 
+   * Extension point for data source specific capabilities.
+   * Allows each data source type to add custom capability flags without
+   * polluting the base interface.
+   */
+  extensions?: Record<string, any>;
 }

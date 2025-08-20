@@ -1,17 +1,34 @@
-import type { IExchangeAdapter, IBlockchainAdapter } from '@crypto/core';
+import type { IExchangeAdapter, IBlockchainAdapter, DataSourceCapabilities } from '@crypto/core';
 import type { ExchangeConfig } from '../types.ts';
 
+// Exchange-specific operation types for capabilities
+export type ExchangeOperationType = 
+  | 'fetchTrades'
+  | 'fetchDeposits' 
+  | 'fetchWithdrawals'
+  | 'fetchClosedOrders'
+  | 'fetchLedger'
+  | 'fetchBalance'
+  | 'importTransactions'
+  | 'parseCSV';
+
 /**
- * Exchange adapter capabilities
+ * Exchange adapter capabilities extending the unified data source capabilities
  */
-export interface ExchangeAdapterCapabilities {
-  supportedOperations: string[];
-  supportsPagination: boolean;
+export interface ExchangeAdapterCapabilities extends DataSourceCapabilities<ExchangeOperationType> {
+  /** Whether the exchange adapter supports balance verification against live data */
   supportsBalanceVerification: boolean;
-  supportsHistoricalData: boolean;
+  
+  /** Whether the exchange requires API key authentication */
   requiresApiKey: boolean;
+  
+  /** Whether the exchange supports CSV file import */
   supportsCsv: boolean;
+  
+  /** Whether the exchange supports CCXT library integration */
   supportsCcxt: boolean;
+  
+  /** Whether the exchange supports native API integration */
   supportsNative: boolean;
 }
 
