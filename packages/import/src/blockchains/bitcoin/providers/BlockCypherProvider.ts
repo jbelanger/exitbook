@@ -1,10 +1,11 @@
 import { Decimal } from 'decimal.js';
 
-import type { BlockchainTransaction, ProviderOperation } from '@crypto/core';
+import type { BlockchainTransaction } from '@crypto/core';
 import { createMoney } from '@crypto/shared-utils';
 
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
 import { RegisterProvider } from '../../shared/registry/decorators.ts';
+import { ProviderOperation } from '../../shared/types.ts';
 import type { AddressInfo } from '../types.ts';
 
 

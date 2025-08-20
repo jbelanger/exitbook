@@ -1,8 +1,9 @@
 
-import type { IBlockchainProvider, ProviderCapabilities, ProviderOperation, RateLimitConfig } from '@crypto/core';
+import type { RateLimitConfig } from '@crypto/core';
 import type { Logger } from '@crypto/shared-logger';
 import { getLogger } from '@crypto/shared-logger';
 import { HttpClient } from '@crypto/shared-utils';
+import type { IBlockchainProvider, ProviderCapabilities, ProviderOperation } from '../types.ts';
 import { ProviderRegistry, type ProviderMetadata } from './provider-registry.ts';
 
 /**

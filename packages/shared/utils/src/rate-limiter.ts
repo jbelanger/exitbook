@@ -12,7 +12,7 @@ export class RateLimiter {
   private readonly config: RateLimitConfig;
 
   constructor(
-    private readonly providerName: string,
+    providerName: string,
     config: RateLimitConfig
   ) {
     this.config = config;
