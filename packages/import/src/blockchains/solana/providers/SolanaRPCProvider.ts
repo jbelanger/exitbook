@@ -20,7 +20,7 @@ import { isValidSolanaAddress, lamportsToSol } from '../utils.ts';
   capabilities: {
     supportedOperations: ['getAddressTransactions', 'getAddressBalance', 'getTokenTransactions', 'getTokenBalances'],
     maxBatchSize: 1,
-    providesHistoricalData: true,
+    supportsHistoricalData: true,
     supportsPagination: true,
     supportsRealTimeData: true,
     supportsTokenData: true

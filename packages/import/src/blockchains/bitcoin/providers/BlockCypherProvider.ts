@@ -83,7 +83,7 @@ interface BlockCypherAddress {
   capabilities: {
     supportedOperations: ['getAddressTransactions', 'getAddressBalance', 'getAddressInfo', 'parseWalletTransaction'],
     maxBatchSize: 50,
-    providesHistoricalData: true,
+    supportsHistoricalData: true,
     supportsPagination: true,
     supportsRealTimeData: true,
     supportsTokenData: false

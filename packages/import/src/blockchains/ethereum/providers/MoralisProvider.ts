@@ -64,7 +64,7 @@ export class MoralisProvider implements IBlockchainProvider<MoralisConfig> {
   readonly capabilities: ProviderCapabilities = {
     supportedOperations: ['getAddressTransactions', 'getAddressBalance', 'getTokenTransactions', 'getTokenBalances'],
     maxBatchSize: 1, // Moralis doesn't support batch operations in free tier
-    providesHistoricalData: true,
+    supportsHistoricalData: true,
     supportsPagination: true,
     maxLookbackDays: undefined, // No limit
     supportsRealTimeData: true,

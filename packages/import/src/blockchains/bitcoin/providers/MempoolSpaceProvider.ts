@@ -17,7 +17,7 @@ import type { AddressInfo, MempoolAddressInfo, MempoolTransaction } from '../typ
   capabilities: {
     supportedOperations: ['getAddressTransactions', 'getAddressBalance', 'getRawAddressTransactions', 'getAddressInfo', 'parseWalletTransaction'],
     maxBatchSize: 25,
-    providesHistoricalData: true,
+    supportsHistoricalData: true,
     supportsPagination: true,
     supportsRealTimeData: true,
     supportsTokenData: false

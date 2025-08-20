@@ -21,7 +21,7 @@ import { isValidSS58Address } from '../utils.ts';
   capabilities: {
     supportedOperations: ['getAddressTransactions', 'getAddressBalance'],
     maxBatchSize: 1,
-    providesHistoricalData: true,
+    supportsHistoricalData: true,
     supportsPagination: true,
     supportsRealTimeData: true,
     supportsTokenData: false // Substrate native tokens only for now

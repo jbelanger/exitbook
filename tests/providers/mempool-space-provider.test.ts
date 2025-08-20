@@ -44,7 +44,7 @@ describe('MempoolSpaceProvider', () => {
     it('should have correct capabilities', () => {
       const capabilities = provider.capabilities;
       expect(capabilities.maxBatchSize).toBe(25);
-      expect(capabilities.providesHistoricalData).toBe(true);
+      expect(capabilities.supportsHistoricalData).toBe(true);
       expect(capabilities.supportsPagination).toBe(true);
       expect(capabilities.supportsRealTimeData).toBe(true);
       expect(capabilities.supportsTokenData).toBe(false);

@@ -22,7 +22,7 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
   readonly capabilities: ProviderCapabilities = {
     supportedOperations: ['getAddressTransactions', 'getAddressBalance', 'getTokenTransactions', 'getTokenBalances'],
     maxBatchSize: 100, // Alchemy supports batch requests
-    providesHistoricalData: true,
+    supportsHistoricalData: true,
     supportsPagination: true,
     maxLookbackDays: undefined, // No limit
     supportsRealTimeData: true,

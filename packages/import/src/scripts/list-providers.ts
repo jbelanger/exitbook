@@ -40,7 +40,7 @@ function formatRateLimit(rateLimit: any): string {
 
 function formatCapabilities(capabilities: any): string {
   const features: string[] = [];
-  if (capabilities.providesHistoricalData) features.push('Historical');
+  if (capabilities.supportsHistoricalData) features.push('Historical');
   if (capabilities.supportsRealTimeData) features.push('Real-time');
   if (capabilities.supportsTokenData) features.push('Tokens');
   if (capabilities.supportsPagination) features.push('Pagination');
