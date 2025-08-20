@@ -1,6 +1,7 @@
-import { CryptoTransaction, ExchangeInfo, TransactionStatus } from '@crypto/core';
+import type { CryptoTransaction, ExchangeInfo, TransactionStatus } from '@crypto/core';
 import { createMoney, parseDecimal } from '@crypto/shared-utils';
-import { BaseCSVAdapter, CSVConfig } from './base-csv-adapter.ts';
+import type { CSVConfig } from './base-csv-adapter.ts';
+import { BaseCSVAdapter } from './base-csv-adapter.ts';
 
 
 interface KrakenCSVConfig extends CSVConfig { }

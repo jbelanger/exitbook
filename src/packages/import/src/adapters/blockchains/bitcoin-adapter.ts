@@ -1,6 +1,6 @@
 import * as bitcoin from 'bitcoinjs-lib';
 
-import { Balance, BitcoinWalletAddress, BlockchainInfo, BlockchainTransaction, CryptoTransaction, TransactionType } from '@crypto/core';
+import type { Balance, BitcoinWalletAddress, BlockchainInfo, BlockchainTransaction, CryptoTransaction, TransactionType } from '@crypto/core';
 import { createMoney } from '@crypto/shared-utils';
 import { BlockchainProviderManager } from '../../providers/index.ts';
 import { BitcoinUtils } from '../../utils/bitcoin-utils.ts';

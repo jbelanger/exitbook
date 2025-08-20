@@ -1,6 +1,7 @@
 import { Decimal } from 'decimal.js';
 
-import { Balance, BlockchainTransaction, EtherscanInternalTransaction, EtherscanTokenTransfer, EtherscanTransaction, ProviderOperation, ServiceError } from '@crypto/core';
+import type { Balance, BlockchainTransaction, EtherscanInternalTransaction, EtherscanTokenTransfer, EtherscanTransaction, ProviderOperation } from '@crypto/core';
+import { ServiceError } from '@crypto/core';
 import { createMoney } from '@crypto/shared-utils';
 import { BaseRegistryProvider } from '../registry/base-registry-provider.ts';
 import { RegisterProvider } from '../registry/index.ts';

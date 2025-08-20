@@ -1,6 +1,7 @@
 
 
-import { AuthenticationError, Balance, BlockchainTransaction, isValidAvalancheAddress, ProviderOperation, ServiceError, SnowtraceApiResponse, SnowtraceInternalTransaction, SnowtraceTokenTransfer, SnowtraceTransaction } from '@crypto/core';
+import type { Balance, BlockchainTransaction, ProviderOperation, SnowtraceApiResponse, SnowtraceInternalTransaction, SnowtraceTokenTransfer, SnowtraceTransaction } from '@crypto/core';
+import { AuthenticationError, isValidAvalancheAddress, ServiceError } from '@crypto/core';
 import { createMoney, parseDecimal } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
 import { BaseRegistryProvider } from '../registry/base-registry-provider.ts';

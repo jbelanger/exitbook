@@ -1,4 +1,4 @@
-import { IBlockchainProvider, ProviderCapabilities, ProviderHealth, ProviderOperation } from '@crypto/core';
+import type { IBlockchainProvider, ProviderCapabilities, ProviderHealth, ProviderOperation } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
 import { loadExplorerConfig } from '@crypto/shared-utils';
 import { ProviderRegistry } from '../registry/provider-registry.ts';

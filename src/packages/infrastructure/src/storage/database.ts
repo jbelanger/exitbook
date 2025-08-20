@@ -1,10 +1,10 @@
-import { BalanceSnapshot, BalanceVerificationRecord, CreateWalletAddressRequest, EnhancedTransaction, StoredTransaction, UpdateWalletAddressRequest, WalletAddress, WalletAddressQuery } from '@crypto/core';
+import type { BalanceSnapshot, BalanceVerificationRecord, CreateWalletAddressRequest, EnhancedTransaction, StoredTransaction, UpdateWalletAddressRequest, WalletAddress, WalletAddressQuery } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
 import { moneyToDbString, stringToDecimal } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
-import fs from 'fs';
-import path from 'path';
-import sqlite3 from 'sqlite3';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as sqlite3 from 'sqlite3';
 
 export class Database {
   private db: sqlite3.Database;

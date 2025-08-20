@@ -1,4 +1,4 @@
-import { RateLimitConfig } from '@crypto/core';
+import type { RateLimitConfig } from '@crypto/core';
 import { getLogger, type Logger } from '@crypto/shared-logger';
 
 /**

@@ -1,6 +1,7 @@
 
 
-import { BlockchainBalance, BlockchainInfo, BlockchainTransaction, isValidSolanaAddress } from '@crypto/core';
+import type { BlockchainBalance, BlockchainInfo, BlockchainTransaction } from '@crypto/core';
+import { isValidSolanaAddress } from '@crypto/core';
 import { BlockchainProviderManager } from '../../providers/shared/BlockchainProviderManager.ts';
 import { BaseBlockchainAdapter } from './base-blockchain-adapter.ts';
 

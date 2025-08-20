@@ -1,4 +1,4 @@
-import { EnhancedTransaction } from '@crypto/core';
+import type { EnhancedTransaction } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
 import { moneyToNumber } from '@crypto/shared-utils';
 
