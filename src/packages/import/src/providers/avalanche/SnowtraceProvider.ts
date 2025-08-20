@@ -1,19 +1,8 @@
-import Decimal from 'decimal.js';
-import {
-  type SnowtraceApiResponse,
-  type SnowtraceInternalTransaction,
-  type SnowtraceTokenTransfer,
-  type SnowtraceTransaction,
-  isValidAvalancheAddress
-} from '../../core/types/avalanche';
-import {
-  AuthenticationError,
-  Balance,
-  BlockchainTransaction,
-  ProviderOperation,
-  ServiceError
-} from '../../core/types';
-import { createMoney, parseDecimal } from '../../utils/decimal-utils';
+
+
+import { AuthenticationError, Balance, BlockchainTransaction, isValidAvalancheAddress, ProviderOperation, ServiceError, SnowtraceApiResponse, SnowtraceInternalTransaction, SnowtraceTokenTransfer, SnowtraceTransaction } from '@crypto/core';
+import { createMoney, parseDecimal } from '@crypto/shared-utils';
+import { Decimal } from 'decimal.js';
 import { BaseRegistryProvider } from '../registry/base-registry-provider.js';
 import { RegisterProvider } from '../registry/decorators.js';
 
@@ -57,7 +46,7 @@ export class SnowtraceProvider extends BaseRegistryProvider {
 
   constructor() {
     super('avalanche', 'snowtrace', 'mainnet');
-    
+
     this.logger.info('Initialized SnowtraceProvider from registry metadata', {
       network: this.network,
       baseUrl: this.baseUrl,
@@ -72,7 +61,7 @@ export class SnowtraceProvider extends BaseRegistryProvider {
         module: 'stats',
         action: 'ethsupply'
       });
-      
+
       if (this.apiKey && this.apiKey !== 'YourApiKeyToken') {
         params.append('apikey', this.apiKey);
       }
@@ -91,17 +80,17 @@ export class SnowtraceProvider extends BaseRegistryProvider {
       this.logger.info('Connection test result', { healthy: result });
       return result;
     } catch (error) {
-      this.logger.error('Connection test failed', { 
-        error: error instanceof Error ? error.message : String(error) 
+      this.logger.error('Connection test failed', {
+        error: error instanceof Error ? error.message : String(error)
       });
       return false;
     }
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug('Executing operation', { 
-      type: operation.type, 
-      address: operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A' 
+    this.logger.debug('Executing operation', {
+      type: operation.type,
+      address: operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'
     });
 
     try {
@@ -135,8 +124,8 @@ export class SnowtraceProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Avalanche address: ${address}`);
     }
 
-    this.logger.debug('Fetching address transactions', { 
-      address: this.maskAddress(address), 
+    this.logger.debug('Fetching address transactions', {
+      address: this.maskAddress(address),
       since,
       network: this.network
     });
@@ -144,7 +133,7 @@ export class SnowtraceProvider extends BaseRegistryProvider {
     try {
       // Get normal transactions
       const normalTransactions = await this.getNormalTransactions(address, since);
-      
+
       // Get internal transactions
       const internalTransactions = await this.getInternalTransactions(address, since);
 
@@ -179,7 +168,7 @@ export class SnowtraceProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Avalanche address: ${address}`);
     }
 
-    this.logger.debug('Fetching address balance', { 
+    this.logger.debug('Fetching address balance', {
       address: this.maskAddress(address),
       network: this.network
     });
@@ -236,7 +225,7 @@ export class SnowtraceProvider extends BaseRegistryProvider {
     }
 
     const response = await this.httpClient.get(`?${params.toString()}`) as SnowtraceApiResponse<SnowtraceTransaction>;
-    
+
     if (response.status !== '1') {
       if (response.message === 'NOTOK' && response.result && (response.result as any).includes('Invalid API Key')) {
         throw new AuthenticationError('Invalid Snowtrace API key', this.name, 'getNormalTransactions');
@@ -267,7 +256,7 @@ export class SnowtraceProvider extends BaseRegistryProvider {
 
     try {
       const response = await this.httpClient.get(`?${params.toString()}`) as SnowtraceApiResponse<SnowtraceInternalTransaction>;
-      
+
       if (response.status !== '1') {
         // Internal transactions might not be available for all addresses
         this.logger.debug('No internal transactions found', { address, message: response.message });
@@ -305,7 +294,7 @@ export class SnowtraceProvider extends BaseRegistryProvider {
 
     try {
       const response = await this.httpClient.get(`?${params.toString()}`) as SnowtraceApiResponse<SnowtraceTokenTransfer>;
-      
+
       if (response.status !== '1') {
         this.logger.debug('No token transfers found', { address, message: response.message });
         return [];
@@ -331,7 +320,7 @@ export class SnowtraceProvider extends BaseRegistryProvider {
     }
 
     const response = await this.httpClient.get(`?${params.toString()}`) as SnowtraceApiResponse<string>;
-    
+
     if (response.status !== '1') {
       throw new ServiceError(`Failed to fetch AVAX balance: ${response.message}`, this.name, 'getAVAXBalance');
     }
@@ -358,7 +347,7 @@ export class SnowtraceProvider extends BaseRegistryProvider {
   private convertNormalTransaction(tx: SnowtraceTransaction, userAddress: string): BlockchainTransaction {
     const isFromUser = tx.from.toLowerCase() === userAddress.toLowerCase();
     const isToUser = tx.to.toLowerCase() === userAddress.toLowerCase();
-    
+
     // Determine transaction type
     let type: 'transfer_in' | 'transfer_out';
     if (isFromUser && isToUser) {
@@ -399,7 +388,7 @@ export class SnowtraceProvider extends BaseRegistryProvider {
   private convertInternalTransaction(tx: SnowtraceInternalTransaction, userAddress: string): BlockchainTransaction {
     const isFromUser = tx.from.toLowerCase() === userAddress.toLowerCase();
     const isToUser = tx.to.toLowerCase() === userAddress.toLowerCase();
-    
+
     let type: 'internal_transfer_in' | 'internal_transfer_out';
     if (isFromUser && isToUser) {
       type = 'internal_transfer_in';
@@ -431,7 +420,7 @@ export class SnowtraceProvider extends BaseRegistryProvider {
   private convertTokenTransfer(tx: SnowtraceTokenTransfer, userAddress: string): BlockchainTransaction {
     const isFromUser = tx.from.toLowerCase() === userAddress.toLowerCase();
     const isToUser = tx.to.toLowerCase() === userAddress.toLowerCase();
-    
+
     let type: 'token_transfer_in' | 'token_transfer_out';
     if (isFromUser && isToUser) {
       type = 'token_transfer_in';

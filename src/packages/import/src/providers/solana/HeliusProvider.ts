@@ -1,14 +1,8 @@
-import Decimal from 'decimal.js';
-import {
-  Balance,
-  BlockchainTransaction,
-  ProviderOperation
-} from '../../core/types/index';
-import {
-  isValidSolanaAddress,
-  lamportsToSol
-} from '../../core/types/solana';
-import { createMoney } from '../../utils/decimal-utils';
+import { Decimal } from 'decimal.js';
+
+import { BlockchainTransaction, isValidSolanaAddress, lamportsToSol, ProviderOperation } from '@crypto/core';
+import { createMoney } from '@crypto/shared-utils';
+import { Balance } from 'ccxt';
 import { BaseRegistryProvider } from '../registry/base-registry-provider.js';
 import { RegisterProvider } from '../registry/decorators.js';
 

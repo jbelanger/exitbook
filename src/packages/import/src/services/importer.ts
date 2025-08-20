@@ -1,23 +1,15 @@
+import { CryptoTransaction, EnhancedTransaction, ExchangeConfig, IBlockchainAdapter, IExchangeAdapter, ImportResult, ImportSummary, TransactionNoteType } from '@crypto/core';
+import { getLogger } from '@crypto/shared-logger';
+import { WalletService, detectScamFromSymbol } from '@crypto/shared-utils';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
-import { BlockchainAdapterFactory } from '../../adapters/blockchains/blockchain-adapter-factory';
-import { ExchangeAdapterFactory } from '../../adapters/exchanges/adapter-factory';
-import type {
-  CryptoTransaction,
-  EnhancedTransaction,
-  ExchangeConfig,
-  IBlockchainAdapter,
-  IExchangeAdapter,
-  ImportResult,
-  ImportSummary
-} from '../../core/types/index';
-import { TransactionNoteType } from '../../core/types/index';
-import { Logger } from '../../infrastructure/logging';
-import { Database } from '../../infrastructure/storage/database';
-import { detectScamFromSymbol } from '../../utils/scam-detection';
-import { WalletService } from '../wallet/wallet-service';
-import { Deduplicator } from './deduplicator';
+
+import { Database } from '@crypto/infrastructure';
+import { BlockchainAdapterFactory } from '../adapters/blockchains/index.ts';
+import { ExchangeAdapterFactory } from '../adapters/exchanges/adapter-factory.ts';
+import { Deduplicator } from './index.ts';
+
 
 interface ExchangeImportOptions {
   exchangeFilter?: string;
@@ -34,7 +26,7 @@ interface BlockchainImportOptions {
 }
 
 export class TransactionImporter {
-  private logger = new Logger('TransactionImporter');
+  private logger = getLogger('TransactionImporter');
   private database: Database;
   private deduplicator: Deduplicator;
   private adapterFactory: ExchangeAdapterFactory;

@@ -1,11 +1,7 @@
-import type { 
-  IBlockchainProvider, 
-  ProviderCapabilities, 
-  RateLimitConfig,
-  ProviderOperation 
-} from '../../core/types/index.js';
-import { HttpClient } from '../../utils/http-client.js';
-import { Logger } from '../../infrastructure/logging';
+
+import { IBlockchainProvider, ProviderCapabilities, ProviderOperation, RateLimitConfig } from '@crypto/core';
+import { getLogger, Logger } from '@crypto/shared-logger';
+import { HttpClient } from '@crypto/shared-utils';
 import { ProviderRegistry, type ProviderMetadata } from './provider-registry.js';
 
 /**
@@ -28,12 +24,12 @@ export abstract class BaseRegistryProvider implements IBlockchainProvider {
     }
     this.metadata = metadata;
 
-    this.logger = new Logger(`${this.metadata.displayName.replace(/\s+/g, '')}`);
+    this.logger = getLogger(`${this.metadata.displayName.replace(/\s+/g, '')}`);
     this.network = network;
 
     // Get base URL for the specified network
     this.baseUrl = this.getNetworkBaseUrl(network);
-    
+
     // Get API key from environment if required
     this.apiKey = this.getApiKey();
 
@@ -86,7 +82,7 @@ export abstract class BaseRegistryProvider implements IBlockchainProvider {
   private getNetworkBaseUrl(network: string): string {
     const networks = this.metadata.networks as any;
     const networkConfig = networks[network];
-    
+
     if (!networkConfig?.baseUrl) {
       const availableNetworks = Object.keys(this.metadata.networks);
       throw new Error(
@@ -94,7 +90,7 @@ export abstract class BaseRegistryProvider implements IBlockchainProvider {
         `Available networks: ${availableNetworks.join(', ')}`
       );
     }
-    
+
     return networkConfig.baseUrl;
   }
 
@@ -105,7 +101,7 @@ export abstract class BaseRegistryProvider implements IBlockchainProvider {
 
     const envVar = this.metadata.apiKeyEnvVar || `${this.metadata.name.toUpperCase()}_API_KEY`;
     const apiKey = process.env[envVar];
-    
+
     if (!apiKey || apiKey === 'YourApiKeyToken') {
       this.logger.warn(
         `No API key found for ${this.metadata.displayName}. ` +
@@ -113,7 +109,7 @@ export abstract class BaseRegistryProvider implements IBlockchainProvider {
       );
       return 'YourApiKeyToken';
     }
-    
+
     return apiKey;
   }
 

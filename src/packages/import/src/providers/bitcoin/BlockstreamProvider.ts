@@ -1,9 +1,10 @@
-import Decimal from 'decimal.js';
-import { AddressInfo, BlockstreamTransaction } from '../../core/types/bitcoin';
-import { BlockchainTransaction, ProviderOperation } from '../../core/types/index';
-import { createMoney } from '../../utils/decimal-utils';
+import { Decimal } from 'decimal.js';
+
+import { AddressInfo, BlockchainTransaction, BlockstreamTransaction, ProviderOperation } from '@crypto/core';
+import { createMoney } from '@crypto/shared-utils';
 import { BaseRegistryProvider } from '../registry/base-registry-provider.js';
 import { RegisterProvider } from '../registry/decorators.js';
+
 
 
 interface BlockstreamAddressInfo {

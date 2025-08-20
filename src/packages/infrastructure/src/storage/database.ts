@@ -6,7 +6,6 @@ import fs from 'fs';
 import path from 'path';
 import sqlite3 from 'sqlite3';
 
-
 export class Database {
   private db: sqlite3.Database;
   private dbPath: string;

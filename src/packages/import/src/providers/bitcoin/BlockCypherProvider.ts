@@ -1,7 +1,8 @@
-import Decimal from 'decimal.js';
-import { AuthenticationError, BlockchainTransaction, ProviderOperation, RateLimitError, ServiceError } from '../../core/types';
-import { AddressInfo } from '../../core/types/bitcoin';
-import { createMoney } from '../../utils/decimal-utils';
+import { Decimal } from 'decimal.js';
+
+import { AddressInfo, BlockchainTransaction, ProviderOperation } from '@crypto/core';
+import { createMoney } from '@crypto/shared-utils';
+
 import { BaseRegistryProvider } from '../registry/base-registry-provider.js';
 import { RegisterProvider } from '../registry/decorators.js';
 
@@ -108,7 +109,7 @@ export class BlockCypherProvider extends BaseRegistryProvider {
 
   constructor() {
     super('bitcoin', 'blockcypher', 'mainnet');
-    
+
     this.logger.info('Initialized BlockCypherProvider from registry metadata', {
       network: this.network,
       baseUrl: this.baseUrl,
@@ -139,9 +140,9 @@ export class BlockCypherProvider extends BaseRegistryProvider {
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug('Executing operation', { 
-      type: operation.type, 
-      address: operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A' 
+    this.logger.debug('Executing operation', {
+      type: operation.type,
+      address: operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'
     });
 
     try {

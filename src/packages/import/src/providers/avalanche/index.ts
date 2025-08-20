@@ -1,1 +1,1 @@
-export { SnowtraceProvider } from './SnowtraceProvider';
+export { SnowtraceProvider } from './SnowtraceProvider.ts';

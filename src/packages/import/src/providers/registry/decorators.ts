@@ -1,5 +1,6 @@
-import { ProviderRegistry, type ProviderMetadata, type ProviderFactory } from './provider-registry.js';
-import type { IBlockchainProvider } from '../../core/types';
+import { IBlockchainProvider } from '@crypto/core';
+import { ProviderRegistry, type ProviderFactory, type ProviderMetadata } from './provider-registry.js';
+
 
 /**
  * Decorator to register a provider class with the registry
@@ -13,10 +14,10 @@ export function RegisterProvider(metadata: ProviderMetadata) {
       metadata,
       create: (config: TConfig) => new constructor(config)
     };
-    
+
     // Register the factory
     ProviderRegistry.register(factory);
-    
+
     return constructor;
   };
 }

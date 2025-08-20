@@ -1,4 +1,4 @@
 // Solana Provider Implementations
-export { SolscanProvider } from './SolscanProvider';
-export { SolanaRPCProvider } from './SolanaRPCProvider';
-export { HeliusProvider } from './HeliusProvider';
+export { HeliusProvider } from './HeliusProvider.ts';
+export { SolanaRPCProvider } from './SolanaRPCProvider.ts';
+export { SolscanProvider } from './SolscanProvider.ts';

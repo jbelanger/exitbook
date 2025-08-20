@@ -1,12 +1,6 @@
-import {
-  BlockchainTransaction,
-  ProviderOperation
-} from '../../core/types/index';
-import type {
-  InjectiveApiResponse,
-  InjectiveTransaction
-} from '../../core/types/injective';
-import { createMoney, parseDecimal } from '../../utils/decimal-utils';
+
+import { BlockchainTransaction, InjectiveApiResponse, InjectiveTransaction, ProviderOperation } from '@crypto/core';
+import { createMoney, parseDecimal } from '@crypto/shared-utils';
 import { BaseRegistryProvider } from '../registry/base-registry-provider.js';
 import { RegisterProvider } from '../registry/decorators.js';
 
@@ -50,7 +44,7 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
 
   constructor() {
     super('injective', 'injective-explorer', 'mainnet');
-    
+
     this.logger.info('Initialized InjectiveExplorerProvider from registry metadata', {
       network: this.network,
       baseUrl: this.baseUrl
@@ -77,17 +71,17 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
       this.logger.info('Connection test result', { healthy: result });
       return result;
     } catch (error) {
-      this.logger.error('Connection test failed', { 
-        error: error instanceof Error ? error.message : String(error) 
+      this.logger.error('Connection test failed', {
+        error: error instanceof Error ? error.message : String(error)
       });
       return false;
     }
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug('Executing operation', { 
-      type: operation.type, 
-      address: operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A' 
+    this.logger.debug('Executing operation', {
+      type: operation.type,
+      address: operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'
     });
 
     try {
@@ -117,8 +111,8 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Injective address: ${address}`);
     }
 
-    this.logger.debug('Fetching address transactions', { 
-      address: this.maskAddress(address), 
+    this.logger.debug('Fetching address transactions', {
+      address: this.maskAddress(address),
       since,
       network: this.network
     });
@@ -128,7 +122,7 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
       const data = await this.httpClient.get(endpoint) as InjectiveApiResponse;
 
       if (!data.data || !Array.isArray(data.data)) {
-        this.logger.debug('No transactions found in API response', { 
+        this.logger.debug('No transactions found in API response', {
           address: this.maskAddress(address),
           hasData: !!data.data
         });
@@ -185,8 +179,8 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Injective address: ${address}`);
     }
 
-    this.logger.debug('Fetching raw address transactions', { 
-      address: this.maskAddress(address), 
+    this.logger.debug('Fetching raw address transactions', {
+      address: this.maskAddress(address),
       since,
       network: this.network
     });

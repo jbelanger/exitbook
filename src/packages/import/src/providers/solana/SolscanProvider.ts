@@ -1,15 +1,8 @@
-import Decimal from 'decimal.js';
-import { 
-  type SolscanTransaction, 
-  isValidSolanaAddress, 
-  lamportsToSol 
-} from '../../core/types/solana';
-import { 
-  BlockchainTransaction, 
-  ProviderOperation, 
-  Balance 
-} from '../../core/types/index';
-import { createMoney } from '../../utils/decimal-utils';
+import { Decimal } from 'decimal.js';
+
+import { BlockchainTransaction, isValidSolanaAddress, lamportsToSol, ProviderOperation, SolscanTransaction } from '@crypto/core';
+import { createMoney } from '@crypto/shared-utils';
+import { Balance } from 'ccxt';
 import { BaseRegistryProvider } from '../registry/base-registry-provider.js';
 import { RegisterProvider } from '../registry/decorators.js';
 
@@ -54,7 +47,7 @@ export class SolscanProvider extends BaseRegistryProvider {
 
   constructor() {
     super('solana', 'solscan', 'mainnet');
-    
+
     // Override HTTP client to add browser-like headers for Solscan
     this.reinitializeHttpClient({
       defaultHeaders: {
@@ -76,8 +69,8 @@ export class SolscanProvider extends BaseRegistryProvider {
       const response = await this.httpClient.get('/account/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
       return response && response.success !== false;
     } catch (error) {
-      this.logger.warn('Health check failed', { 
-        error: error instanceof Error ? error.message : String(error) 
+      this.logger.warn('Health check failed', {
+        error: error instanceof Error ? error.message : String(error)
       });
       return false;
     }
@@ -89,17 +82,17 @@ export class SolscanProvider extends BaseRegistryProvider {
       this.logger.info('Connection test successful', { hasResponse: !!response });
       return response && response.success !== false;
     } catch (error) {
-      this.logger.error('Connection test failed', { 
-        error: error instanceof Error ? error.message : String(error) 
+      this.logger.error('Connection test failed', {
+        error: error instanceof Error ? error.message : String(error)
       });
       return false;
     }
   }
 
   async execute<T>(operation: ProviderOperation<T>, config?: any): Promise<T> {
-    this.logger.debug('Executing operation', { 
-      type: operation.type, 
-      address: operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A' 
+    this.logger.debug('Executing operation', {
+      type: operation.type,
+      address: operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'
     });
 
     try {
@@ -129,8 +122,8 @@ export class SolscanProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Solana address: ${address}`);
     }
 
-    this.logger.debug('Fetching address transactions', { 
-      address: this.maskAddress(address), 
+    this.logger.debug('Fetching address transactions', {
+      address: this.maskAddress(address),
       since,
       network: this.network
     });
@@ -138,7 +131,7 @@ export class SolscanProvider extends BaseRegistryProvider {
     try {
       const response = await this.httpClient.get(`/account/transaction?address=${address}&limit=100&offset=0`);
 
-      this.logger.debug('Solscan API response received', { 
+      this.logger.debug('Solscan API response received', {
         hasResponse: !!response,
         success: response?.success,
         hasData: !!response?.data,
@@ -194,7 +187,7 @@ export class SolscanProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Solana address: ${address}`);
     }
 
-    this.logger.debug('Fetching address balance', { 
+    this.logger.debug('Fetching address balance', {
       address: this.maskAddress(address),
       network: this.network
     });
@@ -237,7 +230,7 @@ export class SolscanProvider extends BaseRegistryProvider {
       // Check if user is involved in the transaction
       const isUserSigner = tx.signer.includes(userAddress);
       const userAccount = tx.inputAccount?.find(acc => acc.account === userAddress);
-      
+
       if (!isUserSigner && !userAccount) {
         this.logger.debug('Transaction not relevant to user address', { txHash: tx.txHash });
         return null;
@@ -279,9 +272,9 @@ export class SolscanProvider extends BaseRegistryProvider {
         confirmations: 1
       };
     } catch (error) {
-      this.logger.warn('Failed to transform transaction', { 
-        txHash: tx.txHash, 
-        error: error instanceof Error ? error.message : String(error) 
+      this.logger.warn('Failed to transform transaction', {
+        txHash: tx.txHash,
+        error: error instanceof Error ? error.message : String(error)
       });
       return null;
     }

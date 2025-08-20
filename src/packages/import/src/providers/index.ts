@@ -1,8 +1,9 @@
 // Universal blockchain provider system exports
-export * from './shared';
-export * from './bitcoin';
-export * from './ethereum';
-export * from './injective';
-export * from './avalanche';
-export * from './substrate';
-export * from './solana';
+export * from './avalanche/index.ts';
+export * from './bitcoin/index.ts';
+export * from './ethereum/index.ts';
+export * from './injective/index.ts';
+export * from './shared/index.ts';
+export * from './solana/index.ts';
+export * from './substrate/index.ts';
+

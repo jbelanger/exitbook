@@ -1,4 +1,4 @@
 // Transaction import services
-export { Deduplicator } from './deduplicator';
-export { TransactionImporter } from './importer';
+export { Deduplicator } from './deduplicator.ts';
+export { TransactionImporter } from './importer.ts';
 

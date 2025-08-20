@@ -1,6 +1,6 @@
-import type { EnhancedTransaction } from '../../core/types/index';
-import { Logger } from '../../infrastructure/logging';
-import { moneyToNumber } from '../../utils/decimal-utils';
+import { EnhancedTransaction } from '@crypto/core';
+import { getLogger } from '@crypto/shared-logger';
+import { moneyToNumber } from '@crypto/shared-utils';
 
 
 interface DeduplicationResult {
@@ -9,7 +9,7 @@ interface DeduplicationResult {
 }
 
 export class Deduplicator {
-  private logger = new Logger('Deduplicator');
+  private logger = getLogger('Deduplicator');
 
   async process(transactions: EnhancedTransaction[], exchangeId: string): Promise<DeduplicationResult> {
     this.logger.info(`Starting deduplication for ${transactions.length} transactions from ${exchangeId}`);
@@ -23,7 +23,7 @@ export class Deduplicator {
 
       if (seenHashes.has(hash)) {
         duplicates.push(transaction);
-        this.logger.logDuplicateTransaction(transaction.id || hash, exchangeId);
+        this.logDuplicateTransaction(transaction.id || hash, exchangeId);
       } else {
         seenHashes.add(hash);
         unique.push(transaction);
@@ -56,7 +56,7 @@ export class Deduplicator {
         // Found a potential duplicate
         if (this.areTransactionsSimilar(existingTransaction, transaction)) {
           duplicates.push(transaction);
-          this.logger.logDuplicateTransaction(transaction.id || transaction.hash, exchangeId);
+          this.logDuplicateTransaction(transaction.id || transaction.hash, exchangeId);
         } else {
           // Similar key but different transaction, keep both
           unique.push(transaction);
@@ -179,5 +179,14 @@ export class Deduplicator {
       duplicateRate: total > 0 ? (result.duplicates.length / total) * 100 : 0,
       efficiency: total > 0 ? (result.unique.length / total) * 100 : 0
     };
+  }
+
+  logDuplicateTransaction(transactionId: string, exchange: string) {
+    this.logger.debug(`Duplicate transaction skipped`, {
+      transactionId,
+      exchange,
+      operation: 'duplicate_detection',
+      timestamp: Date.now()
+    });
   }
 } 

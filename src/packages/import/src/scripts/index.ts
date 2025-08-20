@@ -1,5 +1,6 @@
 // Script exports
-export { default as generateConfig } from './generate-config.js';
-export { default as listProviders } from './list-providers.js';
-export { default as validateConfig } from './validate-config.js';
-export { default as validateProviders } from './validate-providers.js';
+export { generateConfiguration } from './generate-config.ts';
+export { listProviders } from './list-providers.ts';
+export { validateConfiguration } from './validate-config.ts';
+export { validateProviders } from './validate-providers.ts';
+

@@ -1,4 +1,5 @@
-import { TransactionNote, TransactionNoteType } from '../core/types/index';
+import { TransactionNote, TransactionNoteType } from '@crypto/core';
+
 
 /**
  * Token metadata from DAS API for scam detection
@@ -66,7 +67,7 @@ export function detectScamToken(
   // If we found scam indicators, create a note
   if (scamIndicators.length > 0) {
     const noteType = severity === 'error' ? TransactionNoteType.SCAM_TOKEN : TransactionNoteType.SUSPICIOUS_AIRDROP;
-    
+
     return {
       type: noteType,
       message: `⚠️ ${severity === 'error' ? 'Scam token detected' : 'Suspicious token'}: ${scamIndicators.join(', ')}`,
@@ -158,7 +159,7 @@ function isSuspiciousUrl(url: string): boolean {
   try {
     const parsedUrl = new URL(url);
     const hostname = parsedUrl.hostname.toLowerCase();
-    
+
     // Check for suspicious domain patterns
     const suspiciousPatterns = [
       /jupiter.*claim/i,
@@ -232,6 +233,6 @@ function isKnownLegitimateToken(symbol: string): boolean {
     'RAY', 'SRM', 'ORCA', 'MNGO', 'STEP',
     'RENDER', 'HNT', 'BONK', 'JTO', 'PYTH'
   ];
-  
+
   return legitimateTokens.includes(symbol.toUpperCase());
 }

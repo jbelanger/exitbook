@@ -1,17 +1,7 @@
-import {
-  SUBSTRATE_CHAINS,
-  type SubstrateChainConfig
-} from '../../core/types/substrate';
-import type {
-  Balance,
-  BlockchainInfo,
-  BlockchainTransaction
-} from '../../core/types/index';
-import { BaseBlockchainAdapter } from './base-blockchain-adapter';
-import { BlockchainProviderManager } from '../../providers/index';
+import { Balance, BlockchainInfo, BlockchainTransaction, SUBSTRATE_CHAINS, SubstrateChainConfig } from '@crypto/core';
+import { BlockchainProviderManager } from '../../providers/index.ts';
+import { BaseBlockchainAdapter } from './base-blockchain-adapter.ts';
 
-// Import Substrate providers for auto-registration
-import '../../providers/substrate/SubstrateProvider.js';
 
 export class SubstrateAdapter extends BaseBlockchainAdapter {
   private chainConfig: SubstrateChainConfig;
@@ -39,10 +29,10 @@ export class SubstrateAdapter extends BaseBlockchainAdapter {
 
   async getAddressTransactions(address: string, since?: number): Promise<BlockchainTransaction[]> {
     this.logger.info(`SubstrateAdapter: Fetching transactions for address: ${address.substring(0, 20)}...`);
-    this.logger.debug('SubstrateAdapter.getAddressTransactions called', { 
-      address, 
-      since, 
-      chain: this.chainConfig.name 
+    this.logger.debug('SubstrateAdapter.getAddressTransactions called', {
+      address,
+      since,
+      chain: this.chainConfig.name
     });
 
     try {
@@ -67,15 +57,15 @@ export class SubstrateAdapter extends BaseBlockchainAdapter {
   }
 
   async getAddressBalance(address: string): Promise<Balance[]> {
-    this.logger.debug('SubstrateAdapter.getAddressBalance called', { 
-      address, 
-      chain: this.chainConfig.name 
+    this.logger.debug('SubstrateAdapter.getAddressBalance called', {
+      address,
+      chain: this.chainConfig.name
     });
 
     try {
       // Use provider manager to fetch balance with failover
       const balances = await this.providerManager.executeWithFailover('polkadot', {
-        type: 'getAddressBalance', 
+        type: 'getAddressBalance',
         params: { address },
         getCacheKey: (params: any) => `${this.chainConfig.name}_balance_${params.address}`
       }) as Balance[];
@@ -97,19 +87,19 @@ export class SubstrateAdapter extends BaseBlockchainAdapter {
     // Basic SS58 address validation - could be enhanced with proper SS58 library
     const ss58Regex = /^[1-9A-HJ-NP-Za-km-z]{47,48}$/;
     const isValid = ss58Regex.test(address);
-    
-    this.logger.debug('Address validation', { 
-      address, 
-      isValid, 
+
+    this.logger.debug('Address validation', {
+      address,
+      isValid,
       chain: this.chainConfig.name,
-      ss58Format: this.chainConfig.ss58Format 
+      ss58Format: this.chainConfig.ss58Format
     });
     return isValid;
   }
 
   async testConnection(): Promise<boolean> {
-    this.logger.debug('SubstrateAdapter.testConnection called', { 
-      chain: this.chainConfig.name 
+    this.logger.debug('SubstrateAdapter.testConnection called', {
+      chain: this.chainConfig.name
     });
 
     try {
@@ -166,10 +156,10 @@ export class SubstrateAdapter extends BaseBlockchainAdapter {
   // Substrate chains don't typically have separate token transactions like EVM chains
   // They use native token transfers within extrinsics
   async getTokenTransactions(address: string, tokenContract?: string): Promise<BlockchainTransaction[]> {
-    this.logger.debug('SubstrateAdapter.getTokenTransactions called', { 
-      address, 
+    this.logger.debug('SubstrateAdapter.getTokenTransactions called', {
+      address,
       tokenContract,
-      chain: this.chainConfig.name 
+      chain: this.chainConfig.name
     });
 
     // For now, return regular transactions as Substrate chains primarily use native tokens
@@ -179,9 +169,9 @@ export class SubstrateAdapter extends BaseBlockchainAdapter {
   }
 
   async getTokenBalances(address: string): Promise<Balance[]> {
-    this.logger.debug('SubstrateAdapter.getTokenBalances called', { 
+    this.logger.debug('SubstrateAdapter.getTokenBalances called', {
       address,
-      chain: this.chainConfig.name 
+      chain: this.chainConfig.name
     });
 
     // For now, return regular balance as Substrate chains primarily use native tokens

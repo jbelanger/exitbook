@@ -1,11 +1,7 @@
-import {
-  Balance,
-  ProviderOperation
-} from '../../core/types/index';
-import type {
-  InjectiveBalanceResponse
-} from '../../core/types/injective';
-import { parseDecimal } from '../../utils/decimal-utils';
+
+import { InjectiveBalanceResponse, ProviderOperation } from '@crypto/core';
+import { parseDecimal } from '@crypto/shared-utils';
+import { Balance } from 'ccxt';
 import { BaseRegistryProvider } from '../registry/base-registry-provider.js';
 import { RegisterProvider } from '../registry/decorators.js';
 
@@ -48,7 +44,7 @@ export class InjectiveLCDProvider extends BaseRegistryProvider {
 
   constructor() {
     super('injective', 'injective-lcd', 'mainnet');
-    
+
     this.logger.info('Initialized InjectiveLCDProvider from registry metadata', {
       network: this.network,
       baseUrl: this.baseUrl
@@ -78,17 +74,17 @@ export class InjectiveLCDProvider extends BaseRegistryProvider {
       this.logger.info('Connection test result', { healthy: result });
       return result;
     } catch (error) {
-      this.logger.error('Connection test failed', { 
-        error: error instanceof Error ? error.message : String(error) 
+      this.logger.error('Connection test failed', {
+        error: error instanceof Error ? error.message : String(error)
       });
       return false;
     }
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug('Executing operation', { 
-      type: operation.type, 
-      address: operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A' 
+    this.logger.debug('Executing operation', {
+      type: operation.type,
+      address: operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'
     });
 
     try {
@@ -118,7 +114,7 @@ export class InjectiveLCDProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Injective address: ${address}`);
     }
 
-    this.logger.debug('Fetching address balance', { 
+    this.logger.debug('Fetching address balance', {
       address: this.maskAddress(address),
       network: this.network
     });
@@ -159,7 +155,7 @@ export class InjectiveLCDProvider extends BaseRegistryProvider {
   private async getTokenBalances(params: { address: string; contractAddresses?: string[] }): Promise<Balance[]> {
     const { address, contractAddresses } = params;
 
-    this.logger.debug('Fetching token balances', { 
+    this.logger.debug('Fetching token balances', {
       address: this.maskAddress(address),
       contractAddresses,
       network: this.network

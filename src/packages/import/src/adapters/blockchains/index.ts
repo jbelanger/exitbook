@@ -1,9 +1,9 @@
 // Blockchain Adapters - Direct blockchain data access
-export { BaseBlockchainAdapter } from './base-blockchain-adapter';
-export { BitcoinAdapter } from './bitcoin-adapter';
-export { EthereumAdapter } from './ethereum-adapter';
-export { InjectiveAdapter } from './injective-adapter';
-export { AvalancheAdapter } from './avalanche-adapter';
-export { SubstrateAdapter } from './substrate-adapter';
-export { SolanaAdapter } from './solana-adapter';
-export { BlockchainAdapterFactory } from './blockchain-adapter-factory';
+export { AvalancheAdapter } from './avalanche-adapter.ts';
+export { BaseBlockchainAdapter } from './base-blockchain-adapter.ts';
+export { BitcoinAdapter } from './bitcoin-adapter.ts';
+export { BlockchainAdapterFactory } from './blockchain-adapter-factory.ts';
+export { EthereumAdapter } from './ethereum-adapter.ts';
+export { InjectiveAdapter } from './injective-adapter.ts';
+export { SolanaAdapter } from './solana-adapter.ts';
+export { SubstrateAdapter } from './substrate-adapter.ts';

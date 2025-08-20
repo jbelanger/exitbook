@@ -1,3 +1,3 @@
 // Shared Provider Infrastructure
-export { BlockchainProviderManager } from './BlockchainProviderManager';
-export { CircuitBreaker } from './CircuitBreaker';
+export { BlockchainProviderManager } from './BlockchainProviderManager.ts';
+export { CircuitBreaker } from './CircuitBreaker.ts';

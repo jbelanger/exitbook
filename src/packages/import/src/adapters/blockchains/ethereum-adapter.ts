@@ -1,13 +1,9 @@
-// Network configuration is now handled by the registry system
-import type {
-  Balance,
-  BlockchainInfo,
-  BlockchainTransaction
-} from '../../core/types/index';
-import { BlockchainProviderManager } from '../../providers/shared/BlockchainProviderManager';
-import { BaseBlockchainAdapter } from './base-blockchain-adapter';
 
-import '../../providers/ethereum/EtherscanProvider.js';
+
+import { Balance, BlockchainInfo, BlockchainTransaction } from '@crypto/core';
+
+import { BlockchainProviderManager } from '../../providers/index.ts';
+import { BaseBlockchainAdapter } from './base-blockchain-adapter.ts';
 
 export class EthereumAdapter extends BaseBlockchainAdapter {
   private providerManager: BlockchainProviderManager;
