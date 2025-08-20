@@ -36,9 +36,7 @@ export abstract class BaseCCXTAdapter implements IExchangeAdapter {
       this.logger.info(`Connection test successful for ${this.config.id}`);
       return true;
     } catch (error) {
-      this.logger.error(`Connection test failed for ${this.config.id}`, {
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      this.logger.error(`Connection test failed for ${this.config.id} - Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
       return false;
     }
   }
@@ -89,17 +87,12 @@ export abstract class BaseCCXTAdapter implements IExchangeAdapter {
           allTransactions.push(...result.value);
           this.logger.info(`Fetched ${result.value.length} ${labels[index]} from ${this.config.id}`);
         } else {
-          this.logger.warn(`Failed to fetch ${labels[index]} from ${this.config.id}`, {
-            error: result.reason
-          });
+          this.logger.warn(`Failed to fetch ${labels[index]} from ${this.config.id} - Error: ${result.reason}`);
         }
       });
 
       const duration = Date.now() - startTime;
-      this.logger.info(`Completed fetchAllTransactions for ${this.config.id}`, {
-        count: allTransactions.length,
-        duration
-      });
+      this.logger.info(`Completed fetchAllTransactions for ${this.config.id} - Count: ${allTransactions.length}, Duration: ${duration}ms`);
 
       return allTransactions;
     } catch (error) {

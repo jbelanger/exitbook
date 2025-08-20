@@ -13,9 +13,7 @@ export class InjectiveAdapter extends BaseBlockchainAdapter {
     this.providerManager = new BlockchainProviderManager();
     this.providerManager.autoRegisterFromConfig('injective', 'mainnet');
 
-    this.logger.info('Initialized Injective adapter with registry-based provider manager', {
-      providersCount: this.providerManager.getProviders('injective').length
-    });
+    this.logger.info(`Initialized Injective adapter with registry-based provider manager - ProvidersCount: ${this.providerManager.getProviders('injective').length}`);
   }
 
 
@@ -33,14 +31,11 @@ export class InjectiveAdapter extends BaseBlockchainAdapter {
         health.isHealthy && health.circuitState !== 'OPEN'
       );
 
-      this.logger.info('Injective provider connection test result', {
-        hasHealthyProvider,
-        totalProviders: healthStatus.size
-      });
+      this.logger.info(`Injective provider connection test result - HasHealthyProvider: ${hasHealthyProvider}, TotalProviders: ${healthStatus.size}`);
 
       return hasHealthyProvider;
     } catch (error) {
-      this.logger.error('Injective connection test failed', { error });
+      this.logger.error(`Injective connection test failed - Error: ${error}`);
       return false;
     }
   }
@@ -87,17 +82,11 @@ export class InjectiveAdapter extends BaseBlockchainAdapter {
           getCacheKey: (params: any) => `inj_token_tx_${params.address}_${params.since || 'all'}`
         }) as BlockchainTransaction[];
       } catch (error) {
-        this.logger.debug('Provider does not support separate token transactions or failed to fetch', {
-          error: error instanceof Error ? error.message : String(error)
-        });
+        this.logger.debug(`Provider does not support separate token transactions or failed to fetch - Error: ${error instanceof Error ? error.message : String(error)}`);
         // Continue without separate token transactions - provider may already include them in getAddressTransactions
       }
 
-      this.logger.info(`InjectiveAdapter transaction breakdown for ${address.substring(0, 20)}...`, {
-        regular: regularTxs.length,
-        token: tokenTxs.length,
-        total: regularTxs.length + tokenTxs.length
-      });
+      this.logger.info(`InjectiveAdapter transaction breakdown for ${address.substring(0, 20)}... - Regular: ${regularTxs.length}, Token: ${tokenTxs.length}, Total: ${regularTxs.length + tokenTxs.length}`);
 
       // Combine all transactions (following the same pattern as other adapters)
       const allTransactions = [...regularTxs, ...tokenTxs];
@@ -117,7 +106,7 @@ export class InjectiveAdapter extends BaseBlockchainAdapter {
       return uniqueTransactions;
 
     } catch (error) {
-      this.logger.error(`Failed to fetch transactions for ${address}`, { error });
+      this.logger.error(`Failed to fetch transactions for ${address} - Error: ${error}`);
       throw error;
     }
   }
@@ -140,7 +129,7 @@ export class InjectiveAdapter extends BaseBlockchainAdapter {
       return balances;
 
     } catch (error) {
-      this.logger.error(`Failed to fetch balance for ${address}`, { error });
+      this.logger.error(`Failed to fetch balance for ${address} - Error: ${error}`);
       throw error;
     }
   }
@@ -175,7 +164,7 @@ export class InjectiveAdapter extends BaseBlockchainAdapter {
       this.providerManager.destroy();
       this.logger.info('Injective adapter closed successfully');
     } catch (error) {
-      this.logger.warn('Error during Injective adapter close', { error });
+      this.logger.warn(`Error during Injective adapter close - Error: ${error}`);
     }
   }
 }

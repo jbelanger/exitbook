@@ -14,14 +14,12 @@ export class EthereumAdapter extends BaseBlockchainAdapter {
     this.providerManager = new BlockchainProviderManager();
     this.providerManager.autoRegisterFromConfig('ethereum', 'mainnet');
 
-    this.logger.info('Initialized Ethereum adapter with registry-based provider manager', {
-      providersCount: this.providerManager.getProviders('ethereum').length
-    });
+    this.logger.info(`Initialized Ethereum adapter with registry-based provider manager - ProvidersCount: ${this.providerManager.getProviders('ethereum').length}`);
   }
 
   async getAddressTransactions(address: string, since?: number): Promise<BlockchainTransaction[]> {
     this.logger.info(`EthereumAdapter: Fetching transactions for address: ${address.substring(0, 20)}...`);
-    this.logger.debug('EthereumAdapter.getAddressTransactions called', { address, since });
+    this.logger.debug(`EthereumAdapter.getAddressTransactions called - Address: ${address}, Since: ${since}`);
 
     try {
       // Fetch regular ETH transactions
@@ -40,17 +38,11 @@ export class EthereumAdapter extends BaseBlockchainAdapter {
           getCacheKey: (params: any) => `eth_token_tx_${params.address}_${params.since || 'all'}`
         }) as BlockchainTransaction[];
       } catch (error) {
-        this.logger.debug('Provider does not support separate token transactions or failed to fetch', {
-          error: error instanceof Error ? error.message : String(error)
-        });
+        this.logger.debug(`Provider does not support separate token transactions or failed to fetch - Error: ${error instanceof Error ? error.message : String(error)}`);
         // Continue without separate token transactions - provider may already include them in getAddressTransactions
       }
 
-      this.logger.info(`EthereumAdapter transaction breakdown for ${address.substring(0, 20)}...`, {
-        regular: regularTxs.length,
-        token: tokenTxs.length,
-        total: regularTxs.length + tokenTxs.length
-      });
+      this.logger.info(`EthereumAdapter transaction breakdown for ${address.substring(0, 20)}... - Regular: ${regularTxs.length}, Token: ${tokenTxs.length}, Total: ${regularTxs.length + tokenTxs.length}`);
 
       // Combine all transactions (following the same pattern as Solana)
       const allTransactions = [...regularTxs, ...tokenTxs];
@@ -70,7 +62,7 @@ export class EthereumAdapter extends BaseBlockchainAdapter {
       return uniqueTransactions;
 
     } catch (error) {
-      this.logger.error(`Failed to fetch transactions for ${address}`, { error });
+      this.logger.error(`Failed to fetch transactions for ${address} - Error: ${error}`);
       throw error;
     }
   }
@@ -89,7 +81,7 @@ export class EthereumAdapter extends BaseBlockchainAdapter {
       return balances;
 
     } catch (error) {
-      this.logger.error(`Failed to fetch balance for ${address}`, { error });
+      this.logger.error(`Failed to fetch balance for ${address} - Error: ${error}`);
       throw error;
     }
   }
@@ -115,7 +107,7 @@ export class EthereumAdapter extends BaseBlockchainAdapter {
       this.logger.debug(`Connection test result: ${result}`);
       return result;
     } catch (error) {
-      this.logger.error('Connection test failed', { error });
+      this.logger.error(`Connection test failed - Error: ${error}`);
       return false;
     }
   }
@@ -144,7 +136,7 @@ export class EthereumAdapter extends BaseBlockchainAdapter {
       this.providerManager.destroy();
       this.logger.info('Ethereum adapter closed successfully');
     } catch (error) {
-      this.logger.warn('Error during Ethereum adapter close', { error });
+      this.logger.warn(`Error during Ethereum adapter close - Error: ${error}`);
     }
   }
 }
