@@ -1,0 +1,11 @@
+packages:
+  - apps/*
+  - packages/*
+  - packages/shared/*
+ignoredBuiltDependencies:
+  - ccxt
+  - esbuild
+  - sqlite3
+  - unrs-resolver
+onlyBuiltDependencies:
+  - sqlite3
