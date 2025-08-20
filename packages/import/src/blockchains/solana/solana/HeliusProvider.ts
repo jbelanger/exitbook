@@ -1,7 +1,7 @@
 import { Decimal } from 'decimal.js';
 
 import type { Balance, BlockchainTransaction, ProviderOperation } from '@crypto/core';
-import { isValidSolanaAddress, lamportsToSol } from '@crypto/core';
+import { isValidSolanaAddress, lamportsToSol } from '../utils.ts';
 import { createMoney } from '@crypto/shared-utils';
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
 import { RegisterProvider } from '../../shared/registry/decorators.ts';

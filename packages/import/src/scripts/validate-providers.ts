@@ -10,15 +10,16 @@ import { ProviderRegistry } from '../blockchains/shared/registry/index.ts';
 import '../blockchains/bitcoin/providers/BlockCypherProvider.ts';
 import '../blockchains/bitcoin/providers/BlockstreamProvider.ts';
 import '../blockchains/bitcoin/providers/MempoolSpaceProvider.ts';
-import '../providers/avalanche/SnowtraceProvider.ts';
-import '../providers/ethereum/AlchemyProvider.ts';
-import '../providers/ethereum/EtherscanProvider.ts';
-import '../providers/ethereum/MoralisProvider.ts';
-import '../providers/injective/InjectiveExplorerProvider.ts';
-import '../providers/injective/InjectiveLCDProvider.ts';
-import '../providers/solana/HeliusProvider.ts';
-import '../providers/solana/SolanaRPCProvider.ts';
-import '../providers/solana/SolscanProvider.ts';
+import '../blockchains/avalanche/providers/SnowtraceProvider.ts';
+import '../blockchains/ethereum/providers/AlchemyProvider.ts';
+import '../blockchains/ethereum/providers/EtherscanProvider.ts';
+import '../blockchains/ethereum/providers/MoralisProvider.ts';
+import '../blockchains/injective/providers/InjectiveExplorerProvider.ts';
+import '../blockchains/injective/providers/InjectiveLCDProvider.ts';
+import '../blockchains/solana/providers/HeliusProvider.ts';
+import '../blockchains/solana/providers/SolanaRPCProvider.ts';
+import '../blockchains/solana/providers/SolscanProvider.ts';
+import '../blockchains/polkadot/providers/SubstrateProvider.ts';
 
 interface ValidationResult {
   provider: string;

@@ -4,7 +4,6 @@
 import type { Logger } from '@crypto/shared-logger';
 import { getLogger } from '@crypto/shared-logger';
 
-
 export class CircuitBreaker {
   private failures = 0;
   private lastFailureTime = 0;

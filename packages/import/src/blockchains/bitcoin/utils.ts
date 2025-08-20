@@ -3,8 +3,8 @@ import * as bitcoin from 'bitcoinjs-lib';
 
 import { getLogger } from '@crypto/shared-logger';
 
-import type { AddressInfo, AddressType, BipStandard, BitcoinWalletAddress, SmartDetectionResult, XpubType } from '../blockchains/index.ts';
-import { BlockchainProviderManager } from '../blockchains/shared/blockchain-provider-manager.ts';
+import type { AddressInfo, AddressType, BipStandard, BitcoinWalletAddress, SmartDetectionResult, XpubType } from './types.ts';
+import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
 
 const logger = getLogger('BitcoinUtils');
 
@@ -262,6 +262,8 @@ export class BitcoinUtils {
       case 'bip44': return "m/44'/0'/0'";
       case 'bip49': return "m/49'/0'/0'";
       case 'bip84': return "m/84'/0'/0'";
+      default:
+        throw new Error(`Unsupported BIP standard: ${bipStandard}`);
     }
   }
 
@@ -286,6 +288,8 @@ export class BitcoinUtils {
           const payment = bitcoin.payments.p2wpkh({ pubkey, network });
           return payment.address!;
         };
+      default:
+        throw new Error(`Unsupported address type: ${type}`);
     }
   }
 

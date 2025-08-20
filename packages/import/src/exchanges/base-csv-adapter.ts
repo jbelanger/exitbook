@@ -3,8 +3,8 @@ import type { Logger } from '@crypto/shared-logger';
 import { getLogger } from '@crypto/shared-logger';
 import fs from 'fs/promises';
 import path from 'path';
-import { CsvFilters } from '../utils/csv-filters.ts';
-import { CsvParser } from '../utils/csv-parser.ts';
+import { CsvFilters } from './csv-filters.ts';
+import { CsvParser } from './csv-parser.ts';
 
 export interface CSVConfig {
   csvDirectories: string[];
