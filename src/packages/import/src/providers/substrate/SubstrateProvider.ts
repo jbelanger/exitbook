@@ -1,6 +1,7 @@
 import { Decimal } from 'decimal.js';
 
-import { Balance, BlockchainTransaction, isValidSS58Address, ProviderOperation, SUBSTRATE_CHAINS, SubstrateAccountInfo, SubstrateChainConfig } from '@crypto/core';
+import type { Balance, BlockchainTransaction, ProviderOperation, SubstrateAccountInfo, SubstrateChainConfig } from '@crypto/core';
+import { isValidSS58Address, SUBSTRATE_CHAINS } from '@crypto/core';
 import { createMoney } from '@crypto/shared-utils';
 import { BaseRegistryProvider } from '../registry/base-registry-provider.ts';
 import { RegisterProvider } from '../registry/decorators.ts';

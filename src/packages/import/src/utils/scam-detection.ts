@@ -1,4 +1,5 @@
-import { TransactionNote, TransactionNoteType } from '@crypto/core';
+import type { TransactionNote } from '@crypto/core';
+import { TransactionNoteType } from '@crypto/core';
 
 
 /**

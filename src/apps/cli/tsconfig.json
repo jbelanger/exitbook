@@ -4,14 +4,14 @@
     "**/*"
   ],
   "compilerOptions": {
+    "jsx": "react-jsx",
     "lib": [
       "DOM",
       "DOM.Iterable",
       "ES2022"
     ],
     "types": [
-      "node",
-      "vite/client"
+      "node"
     ],
     "module": "ESNext",
     "moduleResolution": "Bundler",
@@ -21,7 +21,7 @@
     "baseUrl": ".",
     "paths": {
       "~/*": [
-        "./app/*"
+        "./*"
       ]
     },
     "verbatimModuleSyntax": true,

@@ -1,4 +1,4 @@
-import { Balance, BlockchainInfo, BlockchainTransaction } from '@crypto/core';
+import type { Balance, BlockchainInfo, BlockchainTransaction } from '@crypto/core';
 
 import { BlockchainProviderManager } from '../../providers/index.ts';
 import { BaseBlockchainAdapter } from './base-blockchain-adapter.ts';

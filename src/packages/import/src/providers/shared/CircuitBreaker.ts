@@ -1,7 +1,8 @@
 // Circuit breaker implementation for provider resilience
 // Prevents hammering failed providers and enables automatic recovery
 
-import { Logger, getLogger } from '@crypto/shared-logger';
+import type { Logger } from '@crypto/shared-logger';
+import { getLogger } from '@crypto/shared-logger';
 
 
 export class CircuitBreaker {

@@ -1,4 +1,4 @@
-import { IBlockchainAdapter } from '@crypto/core';
+import type { IBlockchainAdapter } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
 import { AvalancheAdapter } from './avalanche-adapter.ts';
 import { BitcoinAdapter } from './bitcoin-adapter.ts';

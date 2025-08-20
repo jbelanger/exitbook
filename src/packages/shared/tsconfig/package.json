@@ -3,5 +3,8 @@
   "license": "AGPL-3.0",
   "version": "0.1.0",
   "description": "Shared TypeScript configuration for crypto platform",
-  "private": true
+  "private": true,
+  "files": [
+    "tsconfig.json"
+  ]
 }

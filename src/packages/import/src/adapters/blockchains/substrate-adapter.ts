@@ -1,4 +1,5 @@
-import { Balance, BlockchainInfo, BlockchainTransaction, SUBSTRATE_CHAINS, SubstrateChainConfig } from '@crypto/core';
+import type { Balance, BlockchainInfo, BlockchainTransaction, SubstrateChainConfig } from '@crypto/core';
+import { SUBSTRATE_CHAINS } from '@crypto/core';
 import { BlockchainProviderManager } from '../../providers/index.ts';
 import { BaseBlockchainAdapter } from './base-blockchain-adapter.ts';
 

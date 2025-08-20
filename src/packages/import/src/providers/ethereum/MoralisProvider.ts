@@ -1,4 +1,5 @@
-import { BlockchainTransaction, IBlockchainProvider, ProviderCapabilities, ProviderOperation, RateLimitConfig, ServiceError, Balance } from '@crypto/core';
+import type { BlockchainTransaction, IBlockchainProvider, ProviderCapabilities, ProviderOperation, RateLimitConfig, Balance } from '@crypto/core';
+import { ServiceError } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
 import { HttpClient, createMoney } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';

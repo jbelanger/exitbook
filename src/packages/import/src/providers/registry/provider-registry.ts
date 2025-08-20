@@ -1,4 +1,4 @@
-import { IBlockchainProvider, ProviderCapabilities, RateLimitConfig } from '@crypto/core';
+import type { IBlockchainProvider, ProviderCapabilities, RateLimitConfig } from '@crypto/core';
 
 /**
  * Network configuration for a provider

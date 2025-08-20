@@ -1,4 +1,5 @@
-import { CryptoTransaction, EnhancedTransaction, ExchangeConfig, IBlockchainAdapter, IExchangeAdapter, ImportResult, ImportSummary, TransactionNote, TransactionNoteType } from '@crypto/core';
+import type { CryptoTransaction, EnhancedTransaction, ExchangeConfig, IBlockchainAdapter, IExchangeAdapter, ImportResult, ImportSummary, TransactionNote } from '@crypto/core';
+import { TransactionNoteType } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
 import { WalletService, detectScamFromSymbol } from '@crypto/shared-utils';
 import crypto from 'crypto';

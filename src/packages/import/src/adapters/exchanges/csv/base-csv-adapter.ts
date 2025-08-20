@@ -1,5 +1,6 @@
-import { CryptoTransaction, ExchangeInfo, IExchangeAdapter, TransactionType } from '@crypto/core';
-import { getLogger, Logger } from '@crypto/shared-logger';
+import type { CryptoTransaction, ExchangeInfo, IExchangeAdapter, TransactionType } from '@crypto/core';
+import type { Logger } from '@crypto/shared-logger';
+import { getLogger } from '@crypto/shared-logger';
 import fs from 'fs/promises';
 import path from 'path';
 import { CsvFilters } from '../../../utils/csv-filters.ts';

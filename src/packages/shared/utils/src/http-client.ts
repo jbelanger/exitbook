@@ -1,4 +1,5 @@
-import { RateLimitConfig, RateLimitError, ServiceError } from '@crypto/core';
+import type { RateLimitConfig } from '@crypto/core';
+import { RateLimitError, ServiceError } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
 import { RateLimiterFactory } from './rate-limiter.ts';
 
