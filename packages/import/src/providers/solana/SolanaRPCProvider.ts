@@ -70,7 +70,7 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
         id: 1,
         method: 'getHealth'
       });
-      this.logger.info(`Connection test successful - Health: ${response?.result}`);
+      this.logger.debug(`Connection test successful - Health: ${response?.result}`);
       return response && response.result === 'ok';
     } catch (error) {
       this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
@@ -163,7 +163,7 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
       // Sort by timestamp (newest first)
       transactions.sort((a, b) => b.timestamp - a.timestamp);
 
-      this.logger.info(`Successfully retrieved address transactions - Address: ${this.maskAddress(address)}, TotalTransactions: ${transactions.length}, Network: ${this.network}`);
+      this.logger.debug(`Successfully retrieved address transactions - Address: ${this.maskAddress(address)}, TotalTransactions: ${transactions.length}, Network: ${this.network}`);
 
       return transactions;
 
@@ -197,7 +197,7 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
       const lamports = new Decimal(response.result.value);
       const solBalance = lamportsToSol(lamports.toNumber());
 
-      this.logger.info(`Successfully retrieved address balance - Address: ${this.maskAddress(address)}, BalanceSOL: ${solBalance.toNumber()}, Network: ${this.network}`);
+      this.logger.debug(`Successfully retrieved address balance - Address: ${this.maskAddress(address)}, BalanceSOL: ${solBalance.toNumber()}, Network: ${this.network}`);
 
       return {
         currency: 'SOL',
@@ -326,7 +326,7 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
 
       tokenTransactions.sort((a, b) => b.timestamp - a.timestamp);
 
-      this.logger.info(`Successfully retrieved token transactions - Address: ${this.maskAddress(address)}, TotalTransactions: ${tokenTransactions.length}, Network: ${this.network}`);
+      this.logger.debug(`Successfully retrieved token transactions - Address: ${this.maskAddress(address)}, TotalTransactions: ${tokenTransactions.length}, Network: ${this.network}`);
 
       return tokenTransactions;
 
@@ -399,7 +399,7 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
         });
       }
 
-      this.logger.info(`Successfully retrieved token balances - Address: ${this.maskAddress(address)}, TotalTokens: ${balances.length}, Network: ${this.network}`);
+      this.logger.debug(`Successfully retrieved token balances - Address: ${this.maskAddress(address)}, TotalTokens: ${balances.length}, Network: ${this.network}`);
 
       return balances;
 

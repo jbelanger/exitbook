@@ -88,7 +88,7 @@ export class EtherscanProvider extends BaseRegistryProvider {
 
       const internalTxs = await this.fetchInternalTransactions(address, since);
 
-      this.logger.info(`Regular transaction breakdown for ${address} - Normal: ${normalTxs.length}, Internal: ${internalTxs.length}, Total: ${normalTxs.length + internalTxs.length}`);
+      this.logger.debug(`Regular transaction breakdown for ${address} - Normal: ${normalTxs.length}, Internal: ${internalTxs.length}, Total: ${normalTxs.length + internalTxs.length}`);
 
       const allTransactions = [...normalTxs, ...internalTxs];
 
@@ -100,7 +100,7 @@ export class EtherscanProvider extends BaseRegistryProvider {
         this.isTransactionRelevant(tx, address)
       );
 
-      this.logger.info(`Found ${relevantTransactions.length} relevant regular transactions for ${address}`);
+      this.logger.debug(`Found ${relevantTransactions.length} relevant regular transactions for ${address}`);
       return relevantTransactions;
 
     } catch (error) {

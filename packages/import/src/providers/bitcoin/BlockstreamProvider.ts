@@ -62,7 +62,7 @@ export class BlockstreamProvider extends BaseRegistryProvider {
   constructor() {
     super('bitcoin', 'blockstream.info', 'mainnet');
 
-    this.logger.info(`Initialized BlockstreamProvider from registry metadata - Network: ${this.network}, BaseUrl: ${this.baseUrl}`);
+    this.logger.debug(`Initialized BlockstreamProvider from registry metadata - Network: ${this.network}, BaseUrl: ${this.baseUrl}`);
   }
 
   async isHealthy(): Promise<boolean> {
@@ -79,7 +79,7 @@ export class BlockstreamProvider extends BaseRegistryProvider {
     try {
       // Test with a simple endpoint that should always work
       const blockHeight = await this.httpClient.get<number>('/blocks/tip/height');
-      this.logger.info(`Connection test successful - CurrentBlockHeight: ${blockHeight}`);
+      this.logger.debug(`Connection test successful - CurrentBlockHeight: ${blockHeight}`);
       return typeof blockHeight === 'number' && blockHeight > 0;
     } catch (error) {
       this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
@@ -177,7 +177,7 @@ export class BlockstreamProvider extends BaseRegistryProvider {
       // Sort by timestamp (newest first)
       filteredTransactions.sort((a, b) => b.timestamp - a.timestamp);
 
-      this.logger.info(`Successfully retrieved address transactions - Address: ${this.maskAddress(address)}, TotalTransactions: ${filteredTransactions.length}, BatchesProcessed: ${batchCount}`);
+      this.logger.debug(`Successfully retrieved address transactions - Address: ${this.maskAddress(address)}, TotalTransactions: ${filteredTransactions.length}, BatchesProcessed: ${batchCount}`);
 
       return filteredTransactions;
 
@@ -203,7 +203,7 @@ export class BlockstreamProvider extends BaseRegistryProvider {
       // Convert satoshis to BTC
       const balanceBTC = (totalBalanceSats / 100000000).toString();
 
-      this.logger.info(`Successfully retrieved address balance - Address: ${this.maskAddress(address)}, BalanceBTC: ${balanceBTC}, BalanceSats: ${totalBalanceSats}`);
+      this.logger.debug(`Successfully retrieved address balance - Address: ${this.maskAddress(address)}, BalanceBTC: ${balanceBTC}, BalanceSats: ${totalBalanceSats}`);
 
       return {
         balance: balanceBTC,
@@ -315,7 +315,7 @@ export class BlockstreamProvider extends BaseRegistryProvider {
         return bTime - aTime;
       });
 
-      this.logger.info(`Successfully retrieved raw address transactions - Address: ${this.maskAddress(address)}, TotalRawTransactions: ${filteredRawTransactions.length}, BatchesProcessed: ${batchCount}`);
+      this.logger.debug(`Successfully retrieved raw address transactions - Address: ${this.maskAddress(address)}, TotalRawTransactions: ${filteredRawTransactions.length}, BatchesProcessed: ${batchCount}`);
 
       return filteredRawTransactions;
 

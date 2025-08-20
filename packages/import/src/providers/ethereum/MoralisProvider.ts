@@ -1,4 +1,4 @@
-import type { BlockchainTransaction, IBlockchainProvider, ProviderCapabilities, ProviderOperation, RateLimitConfig, Balance } from '@crypto/core';
+import type { Balance, BlockchainTransaction, IBlockchainProvider, ProviderCapabilities, ProviderOperation, RateLimitConfig } from '@crypto/core';
 import { ServiceError } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
 import { HttpClient, createMoney } from '@crypto/shared-utils';
@@ -110,7 +110,7 @@ export class MoralisProvider implements IBlockchainProvider<MoralisConfig> {
       throw new Error('Moralis API key is required - set MORALIS_API_KEY environment variable');
     }
 
-    logger.info(`Initialized MoralisProvider - Network: ${this.network}, BaseUrl: ${this.baseUrl}, Timeout: ${config.timeout || 10000}, Retries: ${config.retries || 3}`);
+    logger.debug(`Initialized MoralisProvider - Network: ${this.network}, BaseUrl: ${this.baseUrl}, Timeout: ${config.timeout || 10000}, Retries: ${config.retries || 3}`);
   }
 
   async isHealthy(): Promise<boolean> {
@@ -153,7 +153,7 @@ export class MoralisProvider implements IBlockchainProvider<MoralisConfig> {
       // Sort by timestamp
       nativeTransactions.sort((a, b) => a.timestamp - b.timestamp);
 
-      logger.info(`Found ${nativeTransactions.length} native transactions for ${address}`);
+      logger.debug(`Found ${nativeTransactions.length} native transactions for ${address}`);
       return nativeTransactions;
 
     } catch (error) {

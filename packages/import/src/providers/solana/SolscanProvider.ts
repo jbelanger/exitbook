@@ -77,7 +77,7 @@ export class SolscanProvider extends BaseRegistryProvider {
   async testConnection(): Promise<boolean> {
     try {
       const response = await this.httpClient.get('/account/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
-      this.logger.info(`Connection test successful - HasResponse: ${!!response}`);
+      this.logger.debug(`Connection test successful - HasResponse: ${!!response}`);
       return response && response.success !== false;
     } catch (error) {
       this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
@@ -138,7 +138,7 @@ export class SolscanProvider extends BaseRegistryProvider {
       // Sort by timestamp (newest first)
       transactions.sort((a, b) => b.timestamp - a.timestamp);
 
-      this.logger.info(`Successfully retrieved address transactions - Address: ${this.maskAddress(address)}, TotalTransactions: ${transactions.length}, Network: ${this.network}`);
+      this.logger.debug(`Successfully retrieved address transactions - Address: ${this.maskAddress(address)}, TotalTransactions: ${transactions.length}, Network: ${this.network}`);
 
       return transactions;
 
@@ -167,7 +167,7 @@ export class SolscanProvider extends BaseRegistryProvider {
       const lamports = new Decimal(response.data.lamports || '0');
       const solBalance = lamportsToSol(lamports.toNumber());
 
-      this.logger.info(`Successfully retrieved address balance - Address: ${this.maskAddress(address)}, BalanceSOL: ${solBalance.toNumber()}, Network: ${this.network}`);
+      this.logger.debug(`Successfully retrieved address balance - Address: ${this.maskAddress(address)}, BalanceSOL: ${solBalance.toNumber()}, Network: ${this.network}`);
 
       return {
         currency: 'SOL',

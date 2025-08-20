@@ -55,7 +55,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
 
     this.chainConfig = chainConfig;
 
-    this.logger.info(`Initialized SubstrateProvider from registry metadata - Network: ${this.network}, BaseUrl: ${this.baseUrl}, DisplayName: ${chainConfig.displayName}, TokenSymbol: ${chainConfig.tokenSymbol}, Ss58Format: ${chainConfig.ss58Format}`);
+    this.logger.debug(`Initialized SubstrateProvider from registry metadata - Network: ${this.network}, BaseUrl: ${this.baseUrl}, DisplayName: ${chainConfig.displayName}, TokenSymbol: ${chainConfig.tokenSymbol}, Ss58Format: ${chainConfig.ss58Format}`);
   }
 
   /**
@@ -86,7 +86,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
       (this as any).httpClient = this.initializeHttpClient(baseUrl);
     }
 
-    this.logger.info(`Switched to ${chain} chain - DisplayName: ${chainConfig.displayName}, TokenSymbol: ${chainConfig.tokenSymbol}, BaseUrl: ${this.baseUrl}`);
+    this.logger.debug(`Switched to ${chain} chain - DisplayName: ${chainConfig.displayName}, TokenSymbol: ${chainConfig.tokenSymbol}, BaseUrl: ${this.baseUrl}`);
   }
 
   /**
@@ -304,7 +304,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
       }
     }
 
-    this.logger.info(`Found ${transactions.length} transactions via explorer API for ${this.network}`);
+    this.logger.debug(`Found ${transactions.length} transactions via explorer API for ${this.network}`);
     return transactions;
   }
 

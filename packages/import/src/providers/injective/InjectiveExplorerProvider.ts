@@ -45,7 +45,7 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
   constructor() {
     super('injective', 'injective-explorer', 'mainnet');
 
-    this.logger.info(`Initialized InjectiveExplorerProvider from registry metadata - Network: ${this.network}, BaseUrl: ${this.baseUrl}`);
+    this.logger.debug(`Initialized InjectiveExplorerProvider from registry metadata - Network: ${this.network}, BaseUrl: ${this.baseUrl}`);
   }
 
   async isHealthy(): Promise<boolean> {
@@ -65,7 +65,7 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
   async testConnection(): Promise<boolean> {
     try {
       const result = await this.isHealthy();
-      this.logger.info(`Connection test result - Healthy: ${result}`);
+      this.logger.debug(`Connection test result - Healthy: ${result}`);
       return result;
     } catch (error) {
       this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
@@ -131,7 +131,7 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
         }
       }
 
-      this.logger.info(`Successfully retrieved address transactions - Address: ${this.maskAddress(address)}, TotalTransactions: ${transactions.length}, Network: ${this.network}`);
+      this.logger.debug(`Successfully retrieved address transactions - Address: ${this.maskAddress(address)}, TotalTransactions: ${transactions.length}, Network: ${this.network}`);
 
       return transactions;
 
@@ -168,7 +168,7 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
         });
       }
 
-      this.logger.info(`Successfully retrieved raw address transactions - Address: ${this.maskAddress(address)}, TotalTransactions: ${transactions.length}, Network: ${this.network}`);
+      this.logger.debug(`Successfully retrieved raw address transactions - Address: ${this.maskAddress(address)}, TotalTransactions: ${transactions.length}, Network: ${this.network}`);
 
       return transactions;
     } catch (error) {

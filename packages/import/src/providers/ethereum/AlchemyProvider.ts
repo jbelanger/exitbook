@@ -1,4 +1,4 @@
-import type { BlockchainTransaction, IBlockchainProvider, ProviderCapabilities, ProviderOperation, RateLimitConfig, Balance } from '@crypto/core';
+import type { Balance, BlockchainTransaction, IBlockchainProvider, ProviderCapabilities, ProviderOperation, RateLimitConfig } from '@crypto/core';
 import { ServiceError } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
 import { HttpClient, createMoney } from '@crypto/shared-utils';
@@ -105,7 +105,7 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
       throw new Error('Alchemy API key is required - set ALCHEMY_API_KEY environment variable');
     }
 
-    logger.info(`Initialized AlchemyProvider - Network: ${this.network}, BaseUrl: ${this.baseUrl.replace(this.apiKey, 'HIDDEN')}, Timeout: ${config.timeout || 10000}, Retries: ${config.retries || 3}`);
+    logger.debug(`Initialized AlchemyProvider - Network: ${this.network}, BaseUrl: ${this.baseUrl.replace(this.apiKey, 'HIDDEN')}, Timeout: ${config.timeout || 10000}, Retries: ${config.retries || 3}`);
   }
 
   async isHealthy(): Promise<boolean> {
@@ -156,7 +156,7 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
       // Sort by timestamp
       transactions.sort((a, b) => a.timestamp - b.timestamp);
 
-      logger.info(`Found ${transactions.length} regular transactions for ${address}`);
+      logger.debug(`Found ${transactions.length} regular transactions for ${address}`);
       return transactions;
 
     } catch (error) {
