@@ -228,8 +228,8 @@ export class Database {
       const rawDataJson = JSON.stringify(transaction);
 
       // Extract currencies from Money type or fallback to legacy extraction
-      let amountCurrency = null;
-      let priceCurrency = null;
+      let amountCurrency: string | null = null;
+      let priceCurrency: string | null = null;
 
       // Primary: Extract from Money type structure
       if (transaction.amount && typeof transaction.amount === 'object' && transaction.amount.currency) {
@@ -312,8 +312,8 @@ export class Database {
           const rawDataJson = JSON.stringify(transaction);
 
           // Extract currencies from Money type or fallback to legacy extraction
-          let amountCurrency = null;
-          let priceCurrency = null;
+          let amountCurrency: string | null = null;
+          let priceCurrency: string | null = null;
 
           // Primary: Extract from Money type structure
           if (transaction.amount && typeof transaction.amount === 'object' && transaction.amount.currency) {
@@ -411,7 +411,7 @@ export class Database {
 
       if (exchange || since) {
         query += ' WHERE';
-        const conditions = [];
+        const conditions: string[] = [];
 
         if (exchange) {
           conditions.push(' exchange = ?');

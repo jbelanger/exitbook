@@ -1,4 +1,4 @@
 // Exchange Adapters - CSV and CCXT implementations
-export * from './csv';
-export * from './ccxt';
-export { ExchangeAdapterFactory } from './adapter-factory';
+export { ExchangeAdapterFactory } from './adapter-factory.ts';
+export * from './ccxt/index.ts';
+export * from './csv/index.ts';

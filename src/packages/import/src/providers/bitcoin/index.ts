@@ -1,4 +1,4 @@
 // Bitcoin Provider Implementations
-export { BlockCypherProvider } from './BlockCypherProvider';
-export { BlockstreamProvider } from './BlockstreamProvider';
-export { MempoolSpaceProvider } from './MempoolSpaceProvider';
+export { BlockCypherProvider } from './BlockCypherProvider.ts';
+export { BlockstreamProvider } from './BlockstreamProvider.ts';
+export { MempoolSpaceProvider } from './MempoolSpaceProvider.ts';

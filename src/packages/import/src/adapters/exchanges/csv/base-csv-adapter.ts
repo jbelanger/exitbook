@@ -1,15 +1,10 @@
+import { CryptoTransaction, ExchangeInfo, IExchangeAdapter, TransactionType } from '@crypto/core';
+import { getLogger, Logger } from '@crypto/shared-logger';
 import fs from 'fs/promises';
 import path from 'path';
-import {
-  CryptoTransaction,
-  ExchangeInfo,
-  IExchangeAdapter,
-  TransactionType
-} from '../../../core/types/index';
+import { CsvFilters } from '../../../utils/csv-filters.ts';
+import { CsvParser } from '../../../utils/csv-parser.ts';
 
-import { Logger } from '../../../infrastructure/logging';
-import { CsvFilters } from '../../../utils/csv-filters';
-import { CsvParser } from '../../../utils/csv-parser';
 
 export interface CSVConfig {
   csvDirectories: string[];
@@ -32,7 +27,7 @@ export abstract class BaseCSVAdapter implements IExchangeAdapter {
 
   constructor(config: CSVConfig, loggerName: string) {
     this.config = config;
-    this.logger = new Logger(loggerName);
+    this.logger = getLogger(loggerName);
   }
 
   // Abstract methods that must be implemented by subclasses

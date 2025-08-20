@@ -1,8 +1,7 @@
 {
   "extends": "tsconfig/tsconfig.json",
   "include": [
-    "**/*",
-    "../../packages/shared/utils/src/verification/balance-verifier.ts"
+    "**/*"
   ],
   "compilerOptions": {
     "lib": [

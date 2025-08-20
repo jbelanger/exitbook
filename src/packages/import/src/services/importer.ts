@@ -1,4 +1,4 @@
-import { CryptoTransaction, EnhancedTransaction, ExchangeConfig, IBlockchainAdapter, IExchangeAdapter, ImportResult, ImportSummary, TransactionNoteType } from '@crypto/core';
+import { CryptoTransaction, EnhancedTransaction, ExchangeConfig, IBlockchainAdapter, IExchangeAdapter, ImportResult, ImportSummary, TransactionNote, TransactionNoteType } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
 import { WalletService, detectScamFromSymbol } from '@crypto/shared-utils';
 import crypto from 'crypto';
@@ -415,7 +415,7 @@ export class TransactionImporter {
     const hash = this.createTransactionHash(transaction, exchangeId);
 
     // Detect scam tokens for blockchain transactions - ONLY flag obvious scam patterns
-    let note = undefined;
+    let note: TransactionNote | undefined = undefined;
     const isBlockchainTransaction = exchangeId.includes('mainnet') || ['ethereum', 'bitcoin', 'solana'].includes(exchangeId);
     if (isBlockchainTransaction && transaction.symbol && transaction.type === 'deposit') {
       // Only check for direct scam patterns in token symbol (no airdrop detection)
