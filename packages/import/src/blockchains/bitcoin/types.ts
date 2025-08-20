@@ -1,4 +1,30 @@
 // Bitcoin provider-specific API response types
+export type XpubType = 'xpub' | 'ypub' | 'zpub' | 'address';
+export type BipStandard = 'bip44' | 'bip49' | 'bip84';
+export type AddressType = 'legacy' | 'segwit' | 'bech32';
+
+export interface BitcoinWalletAddress {
+  address: string;           // Original user-provided address (xpub or regular)
+  type: XpubType;           // Type of address
+  derivedAddresses?: string[]; // Internal derived addresses (if xpub)
+  bipStandard?: BipStandard;   // Detected BIP standard
+  addressType?: AddressType;   // Detected address type
+  derivationPath?: string;     // Derivation path used
+  addressGap?: number;         // Address gap used for derivation
+}
+
+export interface SmartDetectionResult {
+  hdNode: any; // HDKey from @scure/bip32
+  addressFunction: (pubkey: Buffer) => string;
+  bipStandard: BipStandard;
+  addressType: AddressType;
+}
+
+// Lightweight address info for efficient gap scanning
+export interface AddressInfo {
+  txCount: number;
+  balance: string; // in BTC
+}
 
 // mempool.space API response types for Bitcoin mainnet
 export interface MempoolTransaction {

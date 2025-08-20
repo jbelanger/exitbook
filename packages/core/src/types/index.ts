@@ -22,8 +22,3 @@ export type {
   RateLimitConfig
 } from './contracts.ts';
 
-// Blockchain-specific types
-export * from '../../../import/src/blockchains/solana/utils.ts';
-export * from './bitcoin.ts';
-export * from './substrate.ts';
-

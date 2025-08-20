@@ -1,8 +1,9 @@
-import type { Balance, BlockchainInfo, BlockchainTransaction, SubstrateChainConfig } from '@crypto/core';
-import { SUBSTRATE_CHAINS } from '@crypto/core';
 
+
+import type { Balance, BlockchainInfo, BlockchainTransaction } from '@crypto/core';
 import { BaseBlockchainAdapter } from '../shared/base-blockchain-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
+import { SUBSTRATE_CHAINS, type SubstrateChainConfig } from './types.ts';
 
 export class SubstrateAdapter extends BaseBlockchainAdapter {
   private chainConfig: SubstrateChainConfig;

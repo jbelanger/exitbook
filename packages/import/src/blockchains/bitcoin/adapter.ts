@@ -1,11 +1,12 @@
 import * as bitcoin from 'bitcoinjs-lib';
 
-import type { Balance, BitcoinWalletAddress, BlockchainInfo, BlockchainTransaction, CryptoTransaction, TransactionType } from '@crypto/core';
+import type { Balance, BlockchainInfo, BlockchainTransaction, CryptoTransaction, TransactionType } from '@crypto/core';
 import { createMoney } from '@crypto/shared-utils';
 
 import { BitcoinUtils } from '../../utils/bitcoin-utils.ts';
 import { BaseBlockchainAdapter } from '../shared/base-blockchain-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
+import type { BitcoinWalletAddress } from './types.ts';
 
 export class BitcoinAdapter extends BaseBlockchainAdapter {
   private walletAddresses: BitcoinWalletAddress[] = [];

@@ -1,10 +1,11 @@
 
 
 import type { BlockchainBalance, BlockchainInfo, BlockchainTransaction } from '@crypto/core';
-import { isValidSolanaAddress } from '@crypto/core';
+
 
 import { BaseBlockchainAdapter } from '../shared/base-blockchain-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
+import { isValidSolanaAddress } from './utils.ts';
 
 export class SolanaAdapter extends BaseBlockchainAdapter {
   private providerManager: BlockchainProviderManager;

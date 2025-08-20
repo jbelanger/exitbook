@@ -1,10 +1,10 @@
 import { Decimal } from 'decimal.js';
 
-import type { AddressInfo, BlockchainTransaction, ProviderOperation } from '@crypto/core';
+import type { BlockchainTransaction, ProviderOperation } from '@crypto/core';
 import { createMoney } from '@crypto/shared-utils';
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
 import { RegisterProvider } from '../../shared/registry/decorators.ts';
-import type { BlockstreamTransaction } from '../types.ts';
+import type { AddressInfo, BlockstreamTransaction } from '../types.ts';
 
 interface BlockstreamAddressInfo {
   address: string;
