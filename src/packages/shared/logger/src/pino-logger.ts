@@ -17,9 +17,14 @@ function formatLabel(label: string, size: number) {
    return str.length <= size ? str : `…${str.slice(-size + 1)}`;
 }
 
-// Our Logger type extending Pino's base logger type
+// Our Logger type extending Pino's base logger type with custom method signatures
 export interface Logger extends pino.Logger<'audit'> {
    audit: pino.LogFn;
+   info(msg: string, data?: object): void;
+   error(msg: string, data?: object): void;
+   warn(msg: string, data?: object): void;
+   debug(msg: string, data?: object): void;
+   trace(msg: string, data?: object): void;
 }
 
 // Cache for loggers
@@ -139,10 +144,51 @@ export const getLogger = (category: string): Logger => {
    }
 
    // Create a child logger with category context
-   const categoryLogger = rootLogger.child({
+   const baseCategoryLogger = rootLogger.child({
       category,
       categoryLabel: formatLabel(category, 25),
-   }) as Logger;
+   });
+
+   // Create a wrapper logger with our custom interface
+   const categoryLogger: Logger = {
+      ...baseCategoryLogger,
+      info: (msg: string, data?: object) => {
+         if (data) {
+            baseCategoryLogger.info(data, msg);
+         } else {
+            baseCategoryLogger.info(msg);
+         }
+      },
+      error: (msg: string, data?: object) => {
+         if (data) {
+            baseCategoryLogger.error(data, msg);
+         } else {
+            baseCategoryLogger.error(msg);
+         }
+      },
+      warn: (msg: string, data?: object) => {
+         if (data) {
+            baseCategoryLogger.warn(data, msg);
+         } else {
+            baseCategoryLogger.warn(msg);
+         }
+      },
+      debug: (msg: string, data?: object) => {
+         if (data) {
+            baseCategoryLogger.debug(data, msg);
+         } else {
+            baseCategoryLogger.debug(msg);
+         }
+      },
+      trace: (msg: string, data?: object) => {
+         if (data) {
+            baseCategoryLogger.trace(data, msg);
+         } else {
+            baseCategoryLogger.trace(msg);
+         }
+      },
+      audit: baseCategoryLogger.audit,
+   } as Logger;
 
    // Cache the logger
    loggerCache.set(category, categoryLogger);

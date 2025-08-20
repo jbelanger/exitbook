@@ -21,14 +21,14 @@ export const loggerEnvSchema = z.object({
       .default('info'),
    LOGGER_AUDIT_LOG_ENABLED: z
       .string()
-      .transform((val: string) => val === 'true')
-      .default('true'),
+      .default('true')
+      .transform((val: string) => val === 'true'),
    LOGGER_AUDIT_LOG_DIRNAME: z.string().trim().min(1, { message: 'Invalid audit log directory name' }).default('logs'),
    LOGGER_AUDIT_LOG_FILENAME: z.string().trim().min(1, { message: 'Invalid audit log file name' }).default('audit'),
    LOGGER_AUDIT_LOG_RETENTION_DAYS: z
       .string()
-      .transform((val: string) => parseInt(val, 10))
-      .default('30'),
+      .default('30')
+      .transform((val: string) => parseInt(val, 10)),
    LOGGER_SERVICE_NAME: z.string().default('frontend-service'),
 });
 
