@@ -1,8 +1,9 @@
 import { HDKey } from '@scure/bip32';
 import * as bitcoin from 'bitcoinjs-lib';
 
-import type { AddressInfo, AddressType, BipStandard, BitcoinWalletAddress, SmartDetectionResult, XpubType } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
+
+import type { AddressInfo, AddressType, BipStandard, BitcoinWalletAddress, SmartDetectionResult, XpubType } from '../blockchains/index.ts';
 import { BlockchainProviderManager } from '../blockchains/shared/blockchain-provider-manager.ts';
 
 const logger = getLogger('BitcoinUtils');
