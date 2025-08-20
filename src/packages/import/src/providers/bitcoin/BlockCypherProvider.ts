@@ -3,8 +3,8 @@ import { Decimal } from 'decimal.js';
 import { AddressInfo, BlockchainTransaction, ProviderOperation } from '@crypto/core';
 import { createMoney } from '@crypto/shared-utils';
 
-import { BaseRegistryProvider } from '../registry/base-registry-provider.js';
-import { RegisterProvider } from '../registry/decorators.js';
+import { BaseRegistryProvider } from '../registry/base-registry-provider.ts';
+import { RegisterProvider } from '../registry/decorators.ts';
 
 
 interface BlockCypherTransaction {
