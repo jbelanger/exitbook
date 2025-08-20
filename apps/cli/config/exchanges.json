@@ -1,0 +1,32 @@
+{
+  "exchanges": {
+    "kraken": {
+      "enabled": false,
+      "adapterType": "ccxt",
+      "credentials": {
+        "apiKey": "env:KRAKEN_API_KEY",
+        "secret": "env:KRAKEN_SECRET"
+      },
+      "options": {}
+    },
+    "kucoin": {
+      "enabled": false,
+      "adapterType": "native",
+      "credentials": {
+        "apiKey": "env:KUCOIN_API_KEY",
+        "secret": "env:KUCOIN_SECRET",
+        "password": "env:KUCOIN_PASSPHRASE"
+      },
+      "options": {}
+    },
+    "coinbase": {
+      "enabled": false,
+      "adapterType": "ccxt",
+      "credentials": {
+        "apiKey": "env:COINBASE_API_KEY",
+        "secret": "env:COINBASE_SECRET"
+      },
+      "options": {}
+    }
+  }
+}
