@@ -3,8 +3,7 @@ import * as bitcoin from 'bitcoinjs-lib';
 
 import type { AddressInfo, AddressType, BipStandard, BitcoinWalletAddress, SmartDetectionResult, XpubType } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
-import { BlockchainProviderManager } from '../providers/shared/BlockchainProviderManager.ts';
-
+import { BlockchainProviderManager } from '../blockchains/shared/blockchain-provider-manager.ts';
 
 const logger = getLogger('BitcoinUtils');
 

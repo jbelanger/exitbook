@@ -23,7 +23,7 @@ export type {
 } from './contracts.ts';
 
 // Blockchain-specific types
+export * from '../../../import/src/blockchains/solana/utils.ts';
 export * from './bitcoin.ts';
-export * from './solana.ts';
 export * from './substrate.ts';
 

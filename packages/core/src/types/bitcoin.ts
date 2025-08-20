@@ -139,4 +139,3 @@ export interface AddressInfo {
   txCount: number;
   balance: string; // in BTC
 }
-

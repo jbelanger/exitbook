@@ -13,8 +13,14 @@ crypto-portfolio-platform/
 │   │   ├── types/             # Shared TypeScript types
 │   │   └── config/            # Configuration schemas
 │   ├── import/
-│   │   ├── providers/         # Your existing provider registry
-│   │   ├── adapters/          # Exchange & blockchain adapters
+│   │   ├── blockchains/       # Blockchain-specific implementations
+│   │   │   ├── bitcoin/       # Bitcoin adapter, providers & utilities
+│   │   │   ├── ethereum/      # Ethereum adapter, providers & utilities
+│   │   │   ├── avalanche/     # Avalanche adapter, providers & utilities
+│   │   │   ├── solana/        # Solana adapter, providers & utilities
+│   │   │   └── injective/     # Injective adapter, providers & utilities
+│   │   ├── exchanges/         # Exchange adapters (CCXT, CSV, native)
+│   │   ├── shared/            # Provider registry & shared utilities
 │   │   ├── pipeline/          # Transaction processing pipeline
 │   │   └── services/          # Import orchestration services
 │   ├── portfolio/
@@ -50,8 +56,34 @@ crypto-portfolio-platform/
 ## Key Domain Separation Strategy
 
 ### 1. **Import Domain** (`packages/import/`)
-Your existing sophisticated importer becomes a self-contained domain:
+Your existing sophisticated importer becomes a self-contained domain with blockchain-centric organization:
 
+#### **Blockchain-Centric Structure**
+Each blockchain is organized as a self-contained feature module:
+
+```
+packages/import/blockchains/bitcoin/
+├── adapter.ts              # Bitcoin blockchain adapter
+├── providers/
+│   ├── mempool-space-provider.ts
+│   ├── blockstream-provider.ts
+│   ├── blockcypher-provider.ts
+│   └── types.ts           # Bitcoin API response types
+├── utils.ts               # Bitcoin-specific utilities
+└── index.ts               # Public exports
+
+packages/import/blockchains/ethereum/
+├── adapter.ts              # Ethereum blockchain adapter  
+├── providers/
+│   ├── etherscan-provider.ts
+│   ├── alchemy-provider.ts
+│   ├── moralis-provider.ts
+│   └── types.ts           # Ethereum API response types
+├── utils.ts               # Ethereum-specific utilities
+└── index.ts               # Public exports
+```
+
+#### **Import Services**
 ```typescript
 // packages/import/services/transaction-importer.ts
 export class TransactionImporter {
@@ -60,11 +92,18 @@ export class TransactionImporter {
   async verifyImportedData(importId: string): Promise<VerificationResult>
 }
 
-// packages/import/providers/registry.ts
+// packages/import/shared/provider-registry.ts
 export class ProviderRegistry {
-  // Your existing provider registry logic
+  // Your existing provider registry logic with circuit breakers
+  // and multi-provider resilience
 }
 ```
+
+#### **Benefits of Blockchain-Centric Organization**
+- **Feature Cohesion**: All Bitcoin-related code (adapter, providers, utils, types) lives together
+- **Developer Experience**: Easy to find and modify blockchain-specific functionality
+- **Clear Boundaries**: Each blockchain is a self-contained module with defined interfaces
+- **Scalability**: Adding new blockchains follows a consistent, predictable pattern
 
 ### 2. **Portfolio Domain** (`packages/portfolio/`)
 New portfolio functionality with clear boundaries:
@@ -108,8 +147,18 @@ export interface Transaction {
 
 // packages/core/domain/money.ts
 export class Money {
-  // Your existing Money implementation
+  // Your existing Money implementation with Decimal.js precision
 }
+
+// Example blockchain module usage
+// packages/import/blockchains/bitcoin/index.ts
+export { BitcoinAdapter } from './adapter.ts';
+export { MempoolSpaceProvider, BlockstreamProvider } from './providers/index.ts';
+export { BitcoinUtils } from './utils.ts';
+export * from './providers/types.ts';
+
+// Clean import pattern
+import { BitcoinAdapter, MempoolSpaceProvider } from '@crypto/import/blockchains/bitcoin';
 ```
 
 ## Application Layer Structure
@@ -161,6 +210,19 @@ export class ImportCommand {
     const importer = new TransactionImporter();
     return importer.importFromExchanges(/* config */);
   }
+
+  @Command('import:blockchain')
+  async importBlockchain(
+    @Option('blockchain') blockchain: string,
+    @Option('addresses') addresses: string[]
+  ) {
+    const importer = new TransactionImporter();
+    return importer.importFromBlockchain({
+      blockchain,
+      addresses,
+      // Uses blockchain-specific adapter automatically
+    });
+  }
 }
 
 // apps/cli/src/commands/portfolio.ts
@@ -211,10 +273,29 @@ apps/api     → packages/import, packages/portfolio, packages/data
 apps/web     → packages/ui, packages/core/types
 apps/cli     → packages/import, packages/portfolio, packages/core
 
-packages/import    → packages/core, packages/data, packages/shared
+packages/import              → packages/core, packages/data, packages/shared
+  └── blockchains/bitcoin    → packages/core, packages/shared
+  └── blockchains/ethereum   → packages/core, packages/shared
+  └── exchanges              → packages/core, packages/shared
+  └── shared                 → packages/core
+
 packages/portfolio → packages/core, packages/data, packages/shared
 packages/data      → packages/core
 packages/shared    → packages/core
+```
+
+### **Internal Import Structure**
+Each blockchain module is self-contained with clean exports:
+
+```typescript
+// ✅ Good - Import from blockchain module
+import { BitcoinAdapter, BitcoinUtils } from '@crypto/import/blockchains/bitcoin';
+
+// ✅ Good - Import shared registry
+import { ProviderRegistry } from '@crypto/import/shared';
+
+// ❌ Avoid - Deep imports into internal structure
+import { MempoolSpaceProvider } from '@crypto/import/blockchains/bitcoin/providers/mempool-space-provider';
 ```
 
 ### **Package.json Workspace Structure**
@@ -314,9 +395,19 @@ pnpm --filter web deploy
 
 ## Benefits of This Structure
 
+### **Domain-Level Benefits**
 1. **Clear Domain Boundaries** - Import and portfolio logic completely separated
 2. **Reusable Packages** - CLI and API can share the same business logic
 3. **Independent Scaling** - Each domain can evolve independently
 4. **Testing Isolation** - Domain-specific testing strategies
 5. **Team Organization** - Different teams can own different packages
 6. **Deployment Flexibility** - Can deploy domains separately if needed
+
+### **Blockchain-Centric Benefits**
+7. **Feature Cohesion** - All blockchain-related code grouped together (adapter + providers + utilities)
+8. **Developer Productivity** - Easy to find and modify blockchain-specific functionality
+9. **Consistent Patterns** - Each blockchain follows the same organizational structure
+10. **Type Safety** - Provider-specific API types are co-located with their implementations
+11. **Reduced Context Switching** - Working on Bitcoin features doesn't require jumping between distant folders
+12. **Self-Documenting** - Clear directory structure makes the codebase architecture obvious
+13. **Plugin-like Architecture** - Easy to add/remove blockchain support by adding/removing directories

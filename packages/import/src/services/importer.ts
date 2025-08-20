@@ -6,11 +6,11 @@ import fs from 'fs';
 import path from 'path';
 
 import { Database, TransactionRepository, TransactionService, WalletRepository, WalletService } from '@crypto/data';
-import { BlockchainAdapterFactory } from '../adapters/blockchains/index.ts';
-import { ExchangeAdapterFactory } from '../adapters/exchanges/adapter-factory.ts';
+
+import { BlockchainAdapterFactory } from '../blockchains/shared/index.ts';
+import { ExchangeAdapterFactory } from '../exchanges/adapter-factory.ts';
 import { detectScamFromSymbol } from '../utils/scam-detection.ts';
 import { Deduplicator } from './index.ts';
-
 
 interface ExchangeImportOptions {
   exchangeFilter?: string;
