@@ -20,10 +20,7 @@ export class RateLimiter {
     this.tokens = config.burstLimit || 1;
     this.lastRefill = Date.now();
 
-    this.logger.debug('Rate limiter initialized', {
-      requestsPerSecond: config.requestsPerSecond,
-      burstLimit: config.burstLimit
-    });
+    this.logger.debug(`Rate limiter initialized - RequestsPerSecond: ${config.requestsPerSecond}, BurstLimit: ${config.burstLimit}`);
   }
 
   /**
@@ -42,10 +39,7 @@ export class RateLimiter {
     const timeUntilNextToken = (1 / (this.config.requestsPerSecond || 1)) * 1000;
     const waitTime = Math.ceil(timeUntilNextToken);
 
-    this.logger.debug('Rate limit reached, waiting', {
-      waitTimeMs: waitTime,
-      tokensAvailable: this.tokens
-    });
+    this.logger.debug(`Rate limit reached, waiting - WaitTimeMs: ${waitTime}, TokensAvailable: ${this.tokens}`);
 
     await this.delay(waitTime);
 

@@ -102,7 +102,7 @@ export class LedgerLiveCSVAdapter extends BaseCSVAdapter {
     for (const row of rows) {
       // Skip empty or invalid rows
       if (!row['Operation Date'] || !row['Currency Ticker'] || !row['Operation Amount']) {
-        this.logger.warn('Skipping invalid row with missing required fields', { row });
+        this.logger.warn(`Skipping invalid row with missing required fields - Row: ${JSON.stringify(row)}`);
         continue;
       }
 
@@ -121,10 +121,7 @@ export class LedgerLiveCSVAdapter extends BaseCSVAdapter {
 
     // Skip transactions that don't map to standard types (like FEES, STAKE, etc.)
     if (!operationType) {
-      this.logger.debug('Skipping non-standard operation type', {
-        type: row['Operation Type'],
-        hash: row['Operation Hash']
-      });
+      this.logger.debug(`Skipping non-standard operation type - Type: ${row['Operation Type']}, Hash: ${row['Operation Hash']}`);
       return null;
     }
 

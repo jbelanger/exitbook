@@ -320,10 +320,7 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
           trades.push(combinedTrade);
         }
       } catch (error) {
-        this.logger.warn(`Failed to create trade from group ${groupId}`, {
-          error: error instanceof Error ? error.message : 'Unknown error',
-          entriesCount: entries.length
-        });
+        this.logger.warn(`Failed to create trade from group ${groupId} - Error: ${error instanceof Error ? error.message : 'Unknown error'}, EntriesCount: ${entries.length}`);
 
         // Fallback: convert each entry individually
         for (const entry of entries) {
@@ -657,14 +654,7 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
         return 'trade';
       default:
         // Log error for unparseable transaction types - these should not exist
-        this.logger.error('Unable to determine transaction type from Coinbase ledger entry', {
-          type: type,
-          nestedType: nestedInfo?.type,
-          deepNestedType: deepNestedInfo?.type,
-          direction: info.direction,
-          transactionId: info.id,
-          rawInfo: JSON.stringify(info, null, 2)
-        });
+        this.logger.error(`Unable to determine transaction type from Coinbase ledger entry - Type: ${type}, NestedType: ${nestedInfo?.type}, DeepNestedType: ${deepNestedInfo?.type}, Direction: ${info.direction}, TransactionId: ${info.id}, RawInfo: ${JSON.stringify(info, null, 2)}`);
 
         // Throw error instead of falling back to 'ledger' type
         throw new Error(`Cannot determine transaction type for Coinbase entry: ${type} (ID: ${info.id || 'unknown'})`)
@@ -827,9 +817,7 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
           const deposits = await this.exchange.fetchDeposits(undefined, since, undefined, params) as any[];
           allDeposits.push(...deposits);
         } catch (accountError) {
-          this.logger.warn(`Failed to fetch deposits for account ${account.id}`, {
-            error: accountError instanceof Error ? accountError.message : 'Unknown error'
-          });
+          this.logger.warn(`Failed to fetch deposits for account ${account.id} - Error: ${accountError instanceof Error ? accountError.message : 'Unknown error'}`);
         }
       }
 
@@ -864,9 +852,7 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
           const withdrawals = await this.exchange.fetchWithdrawals(undefined, since, undefined, params) as any[];
           allWithdrawals.push(...withdrawals);
         } catch (accountError) {
-          this.logger.warn(`Failed to fetch withdrawals for account ${account.id}`, {
-            error: accountError instanceof Error ? accountError.message : 'Unknown error'
-          });
+          this.logger.warn(`Failed to fetch withdrawals for account ${account.id} - Error: ${accountError instanceof Error ? accountError.message : 'Unknown error'}`);
         }
       }
 
@@ -915,9 +901,7 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
             this.logger.warn('fetchAccounts returned accounts but none were valid, trying balance fallback');
           }
         } catch (fetchAccountsError) {
-          this.logger.warn('fetchAccounts failed, trying balance fallback', {
-            error: fetchAccountsError instanceof Error ? fetchAccountsError.message : 'Unknown error'
-          });
+          this.logger.warn(`fetchAccounts failed, trying balance fallback - Error: ${fetchAccountsError instanceof Error ? fetchAccountsError.message : 'Unknown error'}`);
         }
       } else {
         this.logger.info('fetchAccounts not supported, using balance fallback');
@@ -954,9 +938,7 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
       }
 
     } catch (error) {
-      this.logger.error('Failed to load Coinbase accounts', {
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      this.logger.error(`Failed to load Coinbase accounts - Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
       this.accounts = [];
       throw error;
     }

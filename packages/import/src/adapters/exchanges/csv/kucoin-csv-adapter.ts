@@ -82,7 +82,7 @@ export class KuCoinCSVAdapter extends BaseCSVAdapter {
       'deposit': (filePath) => this.parseDepositHistory(filePath),
       'withdrawal': (filePath) => this.parseWithdrawalHistory(filePath),
       'convert': (filePath) => {
-        this.logger.warn('Skipping convert orders CSV file - using account history instead', { file: filePath });
+        this.logger.warn(`Skipping convert orders CSV file - using account history instead - File: ${filePath}`);
         return Promise.resolve([]);
       },
       'account_history': (filePath) => this.parseAccountHistory(filePath)
@@ -176,10 +176,10 @@ export class KuCoinCSVAdapter extends BaseCSVAdapter {
           const convertTx = this.convertAccountHistoryConvertToTransaction(deposit, withdrawal, timestamp);
           convertTransactions.push(convertTx);
         } else {
-          this.logger.warn('Convert Market group missing deposit/withdrawal pair', { timestamp, group });
+          this.logger.warn(`Convert Market group missing deposit/withdrawal pair - Timestamp: ${timestamp}, Group: ${JSON.stringify(group)}`);
         }
       } else {
-        this.logger.warn('Convert Market group has unexpected number of entries', { timestamp, count: group.length, group });
+        this.logger.warn(`Convert Market group has unexpected number of entries - Timestamp: ${timestamp}, Count: ${group.length}, Group: ${JSON.stringify(group)}`);
       }
     }
 
