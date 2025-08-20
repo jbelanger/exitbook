@@ -96,9 +96,7 @@ export class HeliusProvider extends BaseRegistryProvider {
       });
       return response && response.result === 'ok';
     } catch (error) {
-      this.logger.warn('Health check failed', {
-        error: error instanceof Error ? error.message : String(error)
-      });
+      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
       return false;
     }
   }
@@ -110,21 +108,16 @@ export class HeliusProvider extends BaseRegistryProvider {
         id: 1,
         method: 'getHealth'
       });
-      this.logger.info('Connection test successful', { health: response?.result });
+      this.logger.info(`Connection test successful - Health: ${response?.result}`);
       return response && response.result === 'ok';
     } catch (error) {
-      this.logger.error('Connection test failed', {
-        error: error instanceof Error ? error.message : String(error)
-      });
+      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
       return false;
     }
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug('Executing operation', {
-      type: operation.type,
-      address: operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'
-    });
+    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'}`);
 
     try {
       switch (operation.type) {
@@ -140,12 +133,7 @@ export class HeliusProvider extends BaseRegistryProvider {
           throw new Error(`Unsupported operation: ${operation.type}`);
       }
     } catch (error) {
-      this.logger.error('Operation execution failed', {
-        type: operation.type,
-        params: operation.params,
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined
-      });
+      this.logger.error(`Operation execution failed - Type: ${operation.type}, Params: ${operation.params}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`);
       throw error;
     }
   }
@@ -157,11 +145,7 @@ export class HeliusProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Solana address: ${address}`);
     }
 
-    this.logger.debug('Fetching address transactions with token account discovery', {
-      address: this.maskAddress(address),
-      since,
-      network: this.network
-    });
+    this.logger.debug(`Fetching address transactions with token account discovery - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
 
     try {
       // Step 1: Get direct transactions for the address
@@ -179,23 +163,12 @@ export class HeliusProvider extends BaseRegistryProvider {
       // Sort by timestamp (newest first)
       allTransactions.sort((a, b) => b.timestamp - a.timestamp);
 
-      this.logger.info('Successfully retrieved address transactions with token account discovery', {
-        address: this.maskAddress(address),
-        directTransactions: directTransactions.length,
-        tokenAccounts: tokenAccounts.length,
-        tokenAccountTransactions: tokenAccountTransactions.length,
-        totalUniqueTransactions: allTransactions.length,
-        network: this.network
-      });
+      this.logger.info(`Successfully retrieved address transactions with token account discovery - Address: ${this.maskAddress(address)}, DirectTransactions: ${directTransactions.length}, TokenAccounts: ${tokenAccounts.length}, TokenAccountTransactions: ${tokenAccountTransactions.length}, TotalUniqueTransactions: ${allTransactions.length}, Network: ${this.network}`);
 
       return allTransactions;
 
     } catch (error) {
-      this.logger.error('Failed to get address transactions', {
-        address: this.maskAddress(address),
-        network: this.network,
-        error: error instanceof Error ? error.message : String(error)
-      });
+      this.logger.error(`Failed to get address transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -215,17 +188,14 @@ export class HeliusProvider extends BaseRegistryProvider {
     });
 
     if (!signaturesResponse?.result) {
-      this.logger.debug('No direct signatures found', { address: this.maskAddress(address) });
+      this.logger.debug(`No direct signatures found - Address: ${this.maskAddress(address)}`);
       return [];
     }
 
     const transactions: BlockchainTransaction[] = [];
     const signatures = signaturesResponse.result.slice(0, 50);
 
-    this.logger.debug('Retrieved direct signatures', {
-      address: this.maskAddress(address),
-      count: signatures.length
-    });
+    this.logger.debug(`Retrieved direct signatures - Address: ${this.maskAddress(address)}, Count: ${signatures.length}`);
 
     // Fetch transaction details individually (free tier doesn't support batch requests)
     for (const sig of signatures) {
@@ -250,10 +220,7 @@ export class HeliusProvider extends BaseRegistryProvider {
           }
         }
       } catch (error) {
-        this.logger.debug('Failed to fetch direct transaction details', {
-          signature: sig.signature,
-          error: error instanceof Error ? error.message : String(error)
-        });
+        this.logger.debug(`Failed to fetch direct transaction details - Signature: ${sig.signature}, Error: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
 
@@ -279,23 +246,17 @@ export class HeliusProvider extends BaseRegistryProvider {
       });
 
       if (!tokenAccountsResponse?.result?.value) {
-        this.logger.debug('No token accounts found', { address: this.maskAddress(address) });
+        this.logger.debug(`No token accounts found - Address: ${this.maskAddress(address)}`);
         return [];
       }
 
       const tokenAccountAddresses = tokenAccountsResponse.result.value.map((account: any) => account.pubkey);
 
-      this.logger.debug('Found token accounts owned by address', {
-        address: this.maskAddress(address),
-        tokenAccountCount: tokenAccountAddresses.length
-      });
+      this.logger.debug(`Found token accounts owned by address - Address: ${this.maskAddress(address)}, TokenAccountCount: ${tokenAccountAddresses.length}`);
 
       return tokenAccountAddresses;
     } catch (error) {
-      this.logger.warn('Failed to get token accounts', {
-        address: this.maskAddress(address),
-        error: error instanceof Error ? error.message : String(error)
-      });
+      this.logger.warn(`Failed to get token accounts - Address: ${this.maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
       return [];
     }
   }
@@ -347,18 +308,11 @@ export class HeliusProvider extends BaseRegistryProvider {
               }
             }
           } catch (error) {
-            this.logger.debug('Failed to fetch token account transaction', {
-              tokenAccount: this.maskAddress(tokenAccount),
-              signature: sig.signature,
-              error: error instanceof Error ? error.message : String(error)
-            });
+            this.logger.debug(`Failed to fetch token account transaction - TokenAccount: ${this.maskAddress(tokenAccount)}, Signature: ${sig.signature}, Error: ${error instanceof Error ? error.message : String(error)}`);
           }
         }
       } catch (error) {
-        this.logger.warn('Failed to get signatures for token account', {
-          tokenAccount: this.maskAddress(tokenAccount),
-          error: error instanceof Error ? error.message : String(error)
-        });
+        this.logger.warn(`Failed to get signatures for token account - TokenAccount: ${this.maskAddress(tokenAccount)}, Error: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
 
@@ -376,10 +330,7 @@ export class HeliusProvider extends BaseRegistryProvider {
       }
     }
 
-    this.logger.debug('Deduplicated transactions', {
-      original: transactions.length,
-      unique: unique.length
-    });
+    this.logger.debug(`Deduplicated transactions - Original: ${transactions.length}, Unique: ${unique.length}`);
 
     return unique;
   }
@@ -416,11 +367,7 @@ export class HeliusProvider extends BaseRegistryProvider {
 
         // Skip transactions with no meaningful amount (pure fee transactions)
         if (amount.toNumber() <= fee.toNumber() && amount.toNumber() < 0.000001) {
-          this.logger.debug('Skipping fee-only token account transaction', {
-            hash: tx.transaction.signatures?.[0],
-            amount: amount.toNumber(),
-            fee: fee.toNumber()
-          });
+          this.logger.debug(`Skipping fee-only token account transaction - Hash: ${tx.transaction.signatures?.[0]}, Amount: ${amount.toNumber()}, Fee: ${fee.toNumber()}`);
           return null;
         }
 
@@ -445,17 +392,11 @@ export class HeliusProvider extends BaseRegistryProvider {
       }
 
       // User not directly involved but we found this via token account - still check for token changes
-      this.logger.debug('Token account transaction found via token account but user not in accountKeys', {
-        signature: tx.transaction.signatures?.[0],
-        userAddress: this.maskAddress(userAddress)
-      });
+      this.logger.debug(`Token account transaction found via token account but user not in accountKeys - Signature: ${tx.transaction.signatures?.[0]}, UserAddress: ${this.maskAddress(userAddress)}`);
 
       return null;
     } catch (error) {
-      this.logger.warn('Failed to transform token account transaction', {
-        signature: tx.transaction.signatures?.[0],
-        error: error instanceof Error ? error.message : String(error)
-      });
+      this.logger.warn(`Failed to transform token account transaction - Signature: ${tx.transaction.signatures?.[0]}, Error: ${error instanceof Error ? error.message : String(error)}`);
       return null;
     }
   }
@@ -467,10 +408,7 @@ export class HeliusProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Solana address: ${address}`);
     }
 
-    this.logger.debug('Fetching address balance', {
-      address: this.maskAddress(address),
-      network: this.network
-    });
+    this.logger.debug(`Fetching address balance - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
 
     try {
       const response = await this.httpClient.post('/', {
@@ -487,11 +425,7 @@ export class HeliusProvider extends BaseRegistryProvider {
       const lamports = new Decimal(response.result.value);
       const solBalance = lamportsToSol(lamports.toNumber());
 
-      this.logger.info('Successfully retrieved address balance', {
-        address: this.maskAddress(address),
-        balanceSOL: solBalance.toNumber(),
-        network: this.network
-      });
+      this.logger.info(`Successfully retrieved address balance - Address: ${this.maskAddress(address)}, BalanceSOL: ${solBalance.toNumber()}, Network: ${this.network}`);
 
       return {
         currency: 'SOL',
@@ -501,11 +435,7 @@ export class HeliusProvider extends BaseRegistryProvider {
       };
 
     } catch (error) {
-      this.logger.error('Failed to get address balance', {
-        address: this.maskAddress(address),
-        network: this.network,
-        error: error instanceof Error ? error.message : String(error)
-      });
+      this.logger.error(`Failed to get address balance - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -516,9 +446,7 @@ export class HeliusProvider extends BaseRegistryProvider {
       const userIndex = accountKeys.findIndex(key => key === userAddress);
 
       if (userIndex === -1) {
-        this.logger.debug('Transaction not relevant to user', {
-          signature: tx.transaction.signatures?.[0]
-        });
+        this.logger.debug(`Transaction not relevant to user - Signature: ${tx.transaction.signatures?.[0]}`);
         return null;
       }
 
@@ -544,11 +472,7 @@ export class HeliusProvider extends BaseRegistryProvider {
 
       // Skip transactions with no meaningful amount (pure fee transactions)
       if (amount.toNumber() <= fee.toNumber() && amount.toNumber() < 0.000001) {
-        this.logger.debug('Skipping fee-only transaction', {
-          hash: tx.transaction.signatures?.[0],
-          amount: amount.toNumber(),
-          fee: fee.toNumber()
-        });
+        this.logger.debug(`Skipping fee-only transaction - Hash: ${tx.transaction.signatures?.[0]}, Amount: ${amount.toNumber()}, Fee: ${fee.toNumber()}`);
         return null;
       }
 
@@ -571,10 +495,7 @@ export class HeliusProvider extends BaseRegistryProvider {
         confirmations: 1
       };
     } catch (error) {
-      this.logger.warn('Failed to transform transaction', {
-        signature: tx.transaction.signatures?.[0],
-        error: error instanceof Error ? error.message : String(error)
-      });
+      this.logger.warn(`Failed to transform transaction - Signature: ${tx.transaction.signatures?.[0]}, Error: ${error instanceof Error ? error.message : String(error)}`);
       return null;
     }
   }
@@ -586,12 +507,7 @@ export class HeliusProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Solana address: ${address}`);
     }
 
-    this.logger.debug('Fetching token transactions', {
-      address: this.maskAddress(address),
-      contractAddress,
-      since,
-      network: this.network
-    });
+    this.logger.debug(`Fetching token transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
 
     try {
       // Get signatures for address (same as regular transactions)
@@ -608,7 +524,7 @@ export class HeliusProvider extends BaseRegistryProvider {
       });
 
       if (!signaturesResponse?.result) {
-        this.logger.debug('No signatures found for token transactions', { address: this.maskAddress(address) });
+        this.logger.debug(`No signatures found for token transactions - Address: ${this.maskAddress(address)}`);
         return [];
       }
 
@@ -638,31 +554,18 @@ export class HeliusProvider extends BaseRegistryProvider {
             }
           }
         } catch (error) {
-          this.logger.debug('Failed to fetch token transaction details', {
-            signature: sig.signature,
-            error: error instanceof Error ? error.message : String(error)
-          });
+          this.logger.debug(`Failed to fetch token transaction details - Signature: ${sig.signature}, Error: ${error instanceof Error ? error.message : String(error)}`);
         }
       }
 
       tokenTransactions.sort((a, b) => b.timestamp - a.timestamp);
 
-      this.logger.info('Successfully retrieved token transactions', {
-        address: this.maskAddress(address),
-        totalTransactions: tokenTransactions.length,
-        contractAddress,
-        network: this.network
-      });
+      this.logger.info(`Successfully retrieved token transactions - Address: ${this.maskAddress(address)}, TotalTransactions: ${tokenTransactions.length}, Network: ${this.network}`);
 
       return tokenTransactions;
 
     } catch (error) {
-      this.logger.error('Failed to get token transactions', {
-        address: this.maskAddress(address),
-        contractAddress,
-        network: this.network,
-        error: error instanceof Error ? error.message : String(error)
-      });
+      this.logger.error(`Failed to get token transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -674,11 +577,7 @@ export class HeliusProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Solana address: ${address}`);
     }
 
-    this.logger.debug('Fetching token balances', {
-      address: this.maskAddress(address),
-      contractAddresses,
-      network: this.network
-    });
+    this.logger.debug(`Fetching token balances - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
 
     try {
       // Get all token accounts owned by the address
@@ -698,7 +597,7 @@ export class HeliusProvider extends BaseRegistryProvider {
       });
 
       if (!tokenAccountsResponse?.result?.value) {
-        this.logger.debug('No token accounts found', { address: this.maskAddress(address) });
+        this.logger.debug(`No token accounts found - Address: ${this.maskAddress(address)}`);
         return [];
       }
 
@@ -734,20 +633,12 @@ export class HeliusProvider extends BaseRegistryProvider {
         });
       }
 
-      this.logger.info('Successfully retrieved token balances', {
-        address: this.maskAddress(address),
-        totalTokens: balances.length,
-        network: this.network
-      });
+      this.logger.info(`Successfully retrieved token balances - Address: ${this.maskAddress(address)}, TotalTokens: ${balances.length}, Network: ${this.network}`);
 
       return balances;
 
     } catch (error) {
-      this.logger.error('Failed to get token balances', {
-        address: this.maskAddress(address),
-        network: this.network,
-        error: error instanceof Error ? error.message : String(error)
-      });
+      this.logger.error(`Failed to get token balances - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -785,13 +676,7 @@ export class HeliusProvider extends BaseRegistryProvider {
         }
 
         // Log any significant token transaction
-        this.logger.debug('Found SPL token transaction', {
-          signature: tx.transaction.signatures?.[0],
-          mint: postBalance.mint,
-          owner: postBalance.owner,
-          change: Math.abs(change),
-          type: change > 0 ? 'transfer_in' : 'transfer_out'
-        });
+        this.logger.debug(`Found SPL token transaction - Signature: ${tx.transaction.signatures?.[0]}, Mint: ${postBalance.mint}, Owner: ${postBalance.owner}, Change: ${Math.abs(change)}, Type: ${change > 0 ? 'transfer_in' : 'transfer_out'}`);
 
         // Determine transfer direction
         const type: 'transfer_in' | 'transfer_out' = change > 0 ? 'transfer_in' : 'transfer_out';
@@ -821,10 +706,7 @@ export class HeliusProvider extends BaseRegistryProvider {
 
       return null;
     } catch (error) {
-      this.logger.debug('Failed to extract token transaction', {
-        signature: tx.transaction.signatures?.[0],
-        error: error instanceof Error ? error.message : String(error)
-      });
+      this.logger.debug(`Failed to extract token transaction - Signature: ${tx.transaction.signatures?.[0]}, Error: ${error instanceof Error ? error.message : String(error)}`);
       return null;
     }
   }
@@ -869,10 +751,7 @@ export class HeliusProvider extends BaseRegistryProvider {
     const knownSymbol = HeliusProvider.KNOWN_TOKENS.get(mintAddress);
     if (knownSymbol) {
       this.tokenSymbolCache.set(mintAddress, knownSymbol);
-      this.logger.debug('Found token symbol in static registry', {
-        mint: this.maskAddress(mintAddress),
-        symbol: knownSymbol
-      });
+      this.logger.debug(`Found token symbol in static registry - Mint: ${this.maskAddress(mintAddress)}, Symbol: ${knownSymbol}`);
       return knownSymbol;
     }
 
@@ -880,20 +759,13 @@ export class HeliusProvider extends BaseRegistryProvider {
     try {
       const symbol = await this.fetchTokenSymbolFromAPI(mintAddress);
       this.tokenSymbolCache.set(mintAddress, symbol);
-      this.logger.debug('Fetched token symbol from API', {
-        mint: this.maskAddress(mintAddress),
-        symbol
-      });
+      this.logger.debug(`Fetched token symbol from API - Mint: ${this.maskAddress(mintAddress)}`);
       return symbol;
     } catch (error) {
       // Final fallback to truncated mint address
       const fallbackSymbol = `${mintAddress.slice(0, 6)}...`;
       this.tokenSymbolCache.set(mintAddress, fallbackSymbol);
-      this.logger.warn('Failed to fetch token symbol, using fallback', {
-        mint: this.maskAddress(mintAddress),
-        symbol: fallbackSymbol,
-        error: error instanceof Error ? error.message : String(error)
-      });
+      this.logger.warn(`Failed to fetch token symbol, using fallback - Mint: ${this.maskAddress(mintAddress)}, Symbol: ${fallbackSymbol}, Error: ${error instanceof Error ? error.message : String(error)}`);
       return fallbackSymbol;
     }
   }

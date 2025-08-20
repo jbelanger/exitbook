@@ -43,14 +43,7 @@ export abstract class BaseRegistryProvider implements IBlockchainProvider {
       providerName: this.metadata.name
     });
 
-    this.logger.info(`Initialized ${this.metadata.displayName} from registry metadata`, {
-      network: this.network,
-      baseUrl: this.baseUrl,
-      hasApiKey: this.apiKey !== 'YourApiKeyToken',
-      timeout: this.metadata.defaultConfig.timeout,
-      retries: this.metadata.defaultConfig.retries,
-      rateLimit: this.metadata.defaultConfig.rateLimit
-    });
+    this.logger.info(`Initialized ${this.metadata.displayName} from registry metadata - Network: ${this.network}, BaseUrl: ${this.baseUrl}, HasApiKey: ${this.apiKey !== 'YourApiKeyToken'}, Timeout: ${this.metadata.defaultConfig.timeout}, Retries: ${this.metadata.defaultConfig.retries}, RateLimit: ${this.metadata.defaultConfig.rateLimit}`);
   }
 
   // Provider interface properties from metadata

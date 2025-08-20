@@ -69,9 +69,7 @@ export class SolscanProvider extends BaseRegistryProvider {
       const response = await this.httpClient.get('/account/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
       return response && response.success !== false;
     } catch (error) {
-      this.logger.warn('Health check failed', {
-        error: error instanceof Error ? error.message : String(error)
-      });
+      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
       return false;
     }
   }
@@ -79,21 +77,16 @@ export class SolscanProvider extends BaseRegistryProvider {
   async testConnection(): Promise<boolean> {
     try {
       const response = await this.httpClient.get('/account/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
-      this.logger.info('Connection test successful', { hasResponse: !!response });
+      this.logger.info(`Connection test successful - HasResponse: ${!!response}`);
       return response && response.success !== false;
     } catch (error) {
-      this.logger.error('Connection test failed', {
-        error: error instanceof Error ? error.message : String(error)
-      });
+      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
       return false;
     }
   }
 
   async execute<T>(operation: ProviderOperation<T>, config?: any): Promise<T> {
-    this.logger.debug('Executing operation', {
-      type: operation.type,
-      address: operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'
-    });
+    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'}`);
 
     try {
       switch (operation.type) {
@@ -105,12 +98,7 @@ export class SolscanProvider extends BaseRegistryProvider {
           throw new Error(`Unsupported operation: ${operation.type}`);
       }
     } catch (error) {
-      this.logger.error('Operation execution failed', {
-        type: operation.type,
-        params: operation.params,
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined
-      });
+      this.logger.error(`Operation execution failed - Type: ${operation.type}, Params: ${JSON.stringify(operation.params)}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`);
       throw error;
     }
   }
@@ -122,24 +110,15 @@ export class SolscanProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Solana address: ${address}`);
     }
 
-    this.logger.debug('Fetching address transactions', {
-      address: this.maskAddress(address),
-      since,
-      network: this.network
-    });
+    this.logger.debug(`Fetching address transactions - Address: ${this.maskAddress(address)}, Since: ${since}, Network: ${this.network}`);
 
     try {
       const response = await this.httpClient.get(`/account/transaction?address=${address}&limit=100&offset=0`);
 
-      this.logger.debug('Solscan API response received', {
-        hasResponse: !!response,
-        success: response?.success,
-        hasData: !!response?.data,
-        transactionCount: response?.data?.length || 0
-      });
+      this.logger.debug(`Solscan API response received - HasResponse: ${!!response}, Success: ${response?.success}, HasData: ${!!response?.data}, TransactionCount: ${response?.data?.length || 0}`);
 
       if (!response || !response.success || !response.data) {
-        this.logger.debug('No transactions found or API error', { address: this.maskAddress(address) });
+        this.logger.debug(`No transactions found or API error - Address: ${this.maskAddress(address)}`);
         return [];
       }
 
@@ -152,30 +131,19 @@ export class SolscanProvider extends BaseRegistryProvider {
             transactions.push(blockchainTx);
           }
         } catch (error) {
-          this.logger.warn('Failed to transform transaction', {
-            txHash: tx.txHash,
-            error: error instanceof Error ? error.message : String(error)
-          });
+          this.logger.warn(`Failed to transform transaction - TxHash: ${tx.txHash}, Error: ${error instanceof Error ? error.message : String(error)}`);
         }
       }
 
       // Sort by timestamp (newest first)
       transactions.sort((a, b) => b.timestamp - a.timestamp);
 
-      this.logger.info('Successfully retrieved address transactions', {
-        address: this.maskAddress(address),
-        totalTransactions: transactions.length,
-        network: this.network
-      });
+      this.logger.info(`Successfully retrieved address transactions - Address: ${this.maskAddress(address)}, TotalTransactions: ${transactions.length}, Network: ${this.network}`);
 
       return transactions;
 
     } catch (error) {
-      this.logger.error('Failed to get address transactions', {
-        address: this.maskAddress(address),
-        network: this.network,
-        error: error instanceof Error ? error.message : String(error)
-      });
+      this.logger.error(`Failed to get address transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -187,10 +155,7 @@ export class SolscanProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Solana address: ${address}`);
     }
 
-    this.logger.debug('Fetching address balance', {
-      address: this.maskAddress(address),
-      network: this.network
-    });
+    this.logger.debug(`Fetching address balance - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
 
     try {
       const response = await this.httpClient.get(`/account/${address}`);
@@ -202,11 +167,7 @@ export class SolscanProvider extends BaseRegistryProvider {
       const lamports = new Decimal(response.data.lamports || '0');
       const solBalance = lamportsToSol(lamports.toNumber());
 
-      this.logger.info('Successfully retrieved address balance', {
-        address: this.maskAddress(address),
-        balanceSOL: solBalance.toNumber(),
-        network: this.network
-      });
+      this.logger.info(`Successfully retrieved address balance - Address: ${this.maskAddress(address)}, BalanceSOL: ${solBalance.toNumber()}, Network: ${this.network}`);
 
       return {
         currency: 'SOL',
@@ -216,11 +177,7 @@ export class SolscanProvider extends BaseRegistryProvider {
       };
 
     } catch (error) {
-      this.logger.error('Failed to get address balance', {
-        address: this.maskAddress(address),
-        network: this.network,
-        error: error instanceof Error ? error.message : String(error)
-      });
+      this.logger.error(`Failed to get address balance - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -232,7 +189,7 @@ export class SolscanProvider extends BaseRegistryProvider {
       const userAccount = tx.inputAccount?.find(acc => acc.account === userAddress);
 
       if (!isUserSigner && !userAccount) {
-        this.logger.debug('Transaction not relevant to user address', { txHash: tx.txHash });
+        this.logger.debug(`Transaction not relevant to user address - TxHash: ${tx.txHash}`);
         return null;
       }
 
@@ -272,10 +229,7 @@ export class SolscanProvider extends BaseRegistryProvider {
         confirmations: 1
       };
     } catch (error) {
-      this.logger.warn('Failed to transform transaction', {
-        txHash: tx.txHash,
-        error: error instanceof Error ? error.message : String(error)
-      });
+      this.logger.warn(`Failed to transform transaction - TxHash: ${tx.txHash}, Error: ${error instanceof Error ? error.message : String(error)}`);
       return null;
     }
   }

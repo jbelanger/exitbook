@@ -55,13 +55,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
 
     this.chainConfig = chainConfig;
 
-    this.logger.info('Initialized SubstrateProvider from registry metadata', {
-      network: this.network,
-      baseUrl: this.baseUrl,
-      displayName: chainConfig.displayName,
-      tokenSymbol: chainConfig.tokenSymbol,
-      ss58Format: chainConfig.ss58Format
-    });
+    this.logger.info(`Initialized SubstrateProvider from registry metadata - Network: ${this.network}, BaseUrl: ${this.baseUrl}, DisplayName: ${chainConfig.displayName}, TokenSymbol: ${chainConfig.tokenSymbol}, Ss58Format: ${chainConfig.ss58Format}`);
   }
 
   /**
@@ -92,11 +86,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
       (this as any).httpClient = this.initializeHttpClient(baseUrl);
     }
 
-    this.logger.info(`Switched to ${chain} chain`, {
-      displayName: chainConfig.displayName,
-      tokenSymbol: chainConfig.tokenSymbol,
-      baseUrl: this.baseUrl
-    });
+    this.logger.info(`Switched to ${chain} chain - DisplayName: ${chainConfig.displayName}, TokenSymbol: ${chainConfig.tokenSymbol}, BaseUrl: ${this.baseUrl}`);
   }
 
   /**
@@ -138,10 +128,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
 
       return false;
     } catch (error) {
-      this.logger.warn('Health check failed', {
-        chain: this.network,
-        error: error instanceof Error ? error.message : String(error)
-      });
+      this.logger.warn(`Health check failed - Chain: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
       return false;
     }
   }
@@ -151,10 +138,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug('Executing operation', {
-      type: operation.type,
-      address: operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'
-    });
+    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'}`);
 
     try {
       switch (operation.type) {
@@ -166,12 +150,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
           throw new Error(`Unsupported operation: ${operation.type}`);
       }
     } catch (error) {
-      this.logger.error('Operation execution failed', {
-        type: operation.type,
-        params: operation.params,
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined
-      });
+      this.logger.error(`Operation execution failed - Type: ${operation.type}, Params: ${JSON.stringify(operation.params)}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`);
       throw error;
     }
   }
@@ -193,7 +172,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
             return transactions;
           }
         } catch (error) {
-          this.logger.warn('Explorer API failed, trying RPC fallback', { error });
+          this.logger.warn(`Explorer API failed, trying RPC fallback - Error: ${error}`);
         }
       }
 
@@ -206,7 +185,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
       return [];
 
     } catch (error) {
-      this.logger.error(`Failed to fetch transactions for ${this.network} address`, { address: this.maskAddress(address), error });
+      this.logger.error(`Failed to fetch transactions for ${this.network} address - Address: ${this.maskAddress(address)}, Error: ${error}`);
       throw error;
     }
   }
@@ -228,7 +207,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
             return [balance];
           }
         } catch (error) {
-          this.logger.warn('RPC balance query failed, trying explorer API', { error });
+          this.logger.warn(`RPC balance query failed, trying explorer API - Error: ${error}`);
         }
       }
 
@@ -244,7 +223,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
       return [];
 
     } catch (error) {
-      this.logger.error(`Failed to fetch balance for ${this.network} address`, { address: this.maskAddress(address), error });
+      this.logger.error(`Failed to fetch balance for ${this.network} address - Address: ${this.maskAddress(address)}, Error: ${error}`);
       throw error;
     }
   }
@@ -255,10 +234,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
       const response = await this.httpClient.post('/api/scan/metadata', {});
       return response && response.code === 0;
     } catch (error) {
-      this.logger.debug('Explorer API health check failed', {
-        chain: this.network,
-        error: error instanceof Error ? error.message : String(error)
-      });
+      this.logger.debug(`Explorer API health check failed - Chain: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
       return false;
     }
   }
@@ -296,12 +272,12 @@ export class SubstrateProvider extends BaseRegistryProvider {
           }
         }
       } catch (error) {
-        this.logger.debug('Taostats API transaction fetch failed', { error });
+        this.logger.debug(`Taostats API transaction fetch failed - Error: ${error}`);
       }
     } else if (this.network === 'polkadot' || this.network === 'kusama') {
       // Subscan API implementation
       try {
-        this.logger.debug(`Calling Subscan API for ${this.network} transactions`, { address: this.maskAddress(address) });
+        this.logger.debug(`Calling Subscan API for ${this.network} transactions - Address: ${this.maskAddress(address)}`);
 
         const response = await this.httpClient.post('/api/v2/scan/transfers', {
           address: address,
@@ -309,28 +285,14 @@ export class SubstrateProvider extends BaseRegistryProvider {
           row: 100
         });
 
-        this.logger.debug('Subscan API response received', {
-          hasResponse: !!response,
-          code: response?.code,
-          hasData: !!response?.data,
-          transferCount: response?.data?.transfers?.length || 0
-        });
+        this.logger.debug(`Subscan API response received - HasResponse: ${!!response}, Code: ${response?.code}, HasData: ${!!response?.data}, TransferCount: ${response?.data?.transfers?.length || 0}`);
 
         if (response && response.code === 0 && response.data && response.data.transfers) {
           for (const transfer of response.data.transfers) {
-            this.logger.debug('Processing transfer', {
-              from: transfer.from,
-              to: transfer.to,
-              userAddress: this.maskAddress(address),
-              amount: transfer.amount
-            });
+            this.logger.debug(`Processing transfer - From: ${transfer.from}, To: ${transfer.to}, UserAddress: ${this.maskAddress(address)}, Amount: ${transfer.amount}`);
 
             const blockchainTx = this.convertSubscanTransaction(transfer, address);
-            this.logger.debug('Converted transaction result', {
-              hasTransaction: !!blockchainTx,
-              since,
-              txTimestamp: blockchainTx?.timestamp
-            });
+            this.logger.debug(`Converted transaction result - HasTransaction: ${!!blockchainTx}, Since: ${since}, TxTimestamp: ${blockchainTx?.timestamp}`);
 
             if (blockchainTx && (!since || blockchainTx.timestamp >= since)) {
               transactions.push(blockchainTx);
@@ -338,10 +300,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
           }
         }
       } catch (error) {
-        this.logger.warn('Subscan API transaction fetch failed', {
-          error: error instanceof Error ? error.message : String(error),
-          blockchain: this.network
-        });
+        this.logger.warn(`Subscan API transaction fetch failed - Error: ${error instanceof Error ? error.message : String(error)}, Blockchain: ${this.network}`);
       }
     }
 
@@ -390,7 +349,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
 
       return null;
     } catch (error) {
-      this.logger.debug('RPC balance query failed', { address: this.maskAddress(address), error });
+      this.logger.debug(`RPC balance query failed - Address: ${this.maskAddress(address)}, Error: ${error}`);
       return null;
     }
   }
@@ -436,7 +395,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
 
       return null;
     } catch (error) {
-      this.logger.debug('Explorer balance query failed', { address: this.maskAddress(address), error });
+      this.logger.debug(`Explorer balance query failed - Address: ${this.maskAddress(address)}, Error: ${error}`);
       return null;
     }
   }
@@ -469,7 +428,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
         confirmations: tx.confirmations || 1
       };
     } catch (error) {
-      this.logger.warn('Failed to convert Taostats transaction', { tx, error });
+      this.logger.warn(`Failed to convert Taostats transaction - Tx: ${JSON.stringify(tx)}, Error: ${error}`);
       return null;
     }
   }
@@ -479,13 +438,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
       const isFromUser = transfer.from === userAddress;
       const isToUser = transfer.to === userAddress;
 
-      this.logger.debug('Checking transaction relevance', {
-        from: transfer.from,
-        to: transfer.to,
-        userAddress: this.maskAddress(userAddress),
-        isFromUser,
-        isToUser
-      });
+      this.logger.debug(`Checking transaction relevance - From: ${transfer.from}, To: ${transfer.to}, UserAddress: ${this.maskAddress(userAddress)}, IsFromUser: ${isFromUser}, IsToUser: ${isToUser}`);
 
       if (!isFromUser && !isToUser) {
         this.logger.debug('Transaction not relevant to user address');
@@ -515,7 +468,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
         confirmations: 1
       };
     } catch (error) {
-      this.logger.warn('Failed to convert Subscan transaction', { transfer, error });
+      this.logger.warn(`Failed to convert Subscan transaction - Transfer: ${JSON.stringify(transfer)}, Error: ${error}`);
       return null;
     }
   }

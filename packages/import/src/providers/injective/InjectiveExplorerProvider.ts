@@ -45,10 +45,7 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
   constructor() {
     super('injective', 'injective-explorer', 'mainnet');
 
-    this.logger.info('Initialized InjectiveExplorerProvider from registry metadata', {
-      network: this.network,
-      baseUrl: this.baseUrl
-    });
+    this.logger.info(`Initialized InjectiveExplorerProvider from registry metadata - Network: ${this.network}, BaseUrl: ${this.baseUrl}`);
   }
 
   async isHealthy(): Promise<boolean> {
@@ -60,7 +57,7 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
       const response = await this.httpClient.get(endpoint);
       return response && typeof response === 'object';
     } catch (error) {
-      this.logger.warn('Health check failed', { error: error instanceof Error ? error.message : String(error) });
+      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
       return false;
     }
   }
@@ -68,21 +65,16 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
   async testConnection(): Promise<boolean> {
     try {
       const result = await this.isHealthy();
-      this.logger.info('Connection test result', { healthy: result });
+      this.logger.info(`Connection test result - Healthy: ${result}`);
       return result;
     } catch (error) {
-      this.logger.error('Connection test failed', {
-        error: error instanceof Error ? error.message : String(error)
-      });
+      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
       return false;
     }
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug('Executing operation', {
-      type: operation.type,
-      address: operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'
-    });
+    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'}`);
 
     try {
       switch (operation.type) {
@@ -94,12 +86,7 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
           throw new Error(`Unsupported operation: ${operation.type}`);
       }
     } catch (error) {
-      this.logger.error('Operation execution failed', {
-        type: operation.type,
-        params: operation.params,
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined
-      });
+      this.logger.error(`Operation execution failed - Type: ${operation.type}, Params: ${operation.params}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`);
       throw error;
     }
   }
@@ -111,21 +98,14 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Injective address: ${address}`);
     }
 
-    this.logger.debug('Fetching address transactions', {
-      address: this.maskAddress(address),
-      since,
-      network: this.network
-    });
+    this.logger.debug(`Fetching address transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
 
     try {
       const endpoint = `/api/explorer/v1/accountTxs/${address}`;
       const data = await this.httpClient.get(endpoint) as InjectiveApiResponse;
 
       if (!data.data || !Array.isArray(data.data)) {
-        this.logger.debug('No transactions found in API response', {
-          address: this.maskAddress(address),
-          hasData: !!data.data
-        });
+        this.logger.debug(`No transactions found in API response - Address: ${this.maskAddress(address)}, HasData: ${!!data.data}`);
         return [];
       }
 
@@ -147,27 +127,16 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
 
           transactions.push(blockchainTx);
         } catch (error) {
-          this.logger.warn('Failed to parse transaction', {
-            txHash: tx.hash || tx.id,
-            error: error instanceof Error ? error.message : error
-          });
+          this.logger.warn(`Failed to parse transaction - TxHash: ${tx.hash || tx.id}, Error: ${error instanceof Error ? error.message : error}`);
         }
       }
 
-      this.logger.info('Successfully retrieved address transactions', {
-        address: this.maskAddress(address),
-        totalTransactions: transactions.length,
-        network: this.network
-      });
+      this.logger.info(`Successfully retrieved address transactions - Address: ${this.maskAddress(address)}, TotalTransactions: ${transactions.length}, Network: ${this.network}`);
 
       return transactions;
 
     } catch (error) {
-      this.logger.error('Failed to get address transactions', {
-        address: this.maskAddress(address),
-        network: this.network,
-        error: error instanceof Error ? error.message : String(error)
-      });
+      this.logger.error(`Failed to get address transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -179,11 +148,7 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Injective address: ${address}`);
     }
 
-    this.logger.debug('Fetching raw address transactions', {
-      address: this.maskAddress(address),
-      since,
-      network: this.network
-    });
+    this.logger.debug(`Fetching raw address transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
 
     try {
       const endpoint = `/api/explorer/v1/accountTxs/${address}`;
@@ -203,19 +168,11 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
         });
       }
 
-      this.logger.info('Successfully retrieved raw address transactions', {
-        address: this.maskAddress(address),
-        totalTransactions: transactions.length,
-        network: this.network
-      });
+      this.logger.info(`Successfully retrieved raw address transactions - Address: ${this.maskAddress(address)}, TotalTransactions: ${transactions.length}, Network: ${this.network}`);
 
       return transactions;
     } catch (error) {
-      this.logger.error('Failed to get raw address transactions', {
-        address: this.maskAddress(address),
-        network: this.network,
-        error: error instanceof Error ? error.message : String(error)
-      });
+      this.logger.error(`Failed to get raw address transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -332,13 +289,7 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
 
     // Only return transactions that are relevant to our wallet
     if (!isRelevantTransaction) {
-      this.logger.debug('Skipping irrelevant transaction', {
-        hash: tx.hash,
-        from: this.maskAddress(from),
-        to: this.maskAddress(to),
-        relevantAddress: this.maskAddress(relevantAddress),
-        value: value.amount.toNumber()
-      });
+      this.logger.debug(`Skipping irrelevant transaction - Hash: ${tx.hash}, From: ${this.maskAddress(from)}, To: ${this.maskAddress(to)}, RelevantAddress: ${this.maskAddress(relevantAddress)}, Value: ${value.amount.toNumber()}`);
       return null;
     }
 

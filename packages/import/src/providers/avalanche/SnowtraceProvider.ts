@@ -47,11 +47,7 @@ export class SnowtraceProvider extends BaseRegistryProvider {
   constructor() {
     super('avalanche', 'snowtrace', 'mainnet');
 
-    this.logger.info('Initialized SnowtraceProvider from registry metadata', {
-      network: this.network,
-      baseUrl: this.baseUrl,
-      hasApiKey: this.apiKey !== 'YourApiKeyToken'
-    });
+    this.logger.info(`Initialized SnowtraceProvider from registry metadata - Network: ${this.network}, BaseUrl: ${this.baseUrl}, HasApiKey: ${this.apiKey !== 'YourApiKeyToken'}`);
   }
 
   async isHealthy(): Promise<boolean> {
@@ -69,7 +65,7 @@ export class SnowtraceProvider extends BaseRegistryProvider {
       const response = await this.httpClient.get(`?${params.toString()}`);
       return response && response.status === '1';
     } catch (error) {
-      this.logger.warn('Health check failed', { error: error instanceof Error ? error.message : String(error) });
+      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
       return false;
     }
   }
@@ -77,21 +73,16 @@ export class SnowtraceProvider extends BaseRegistryProvider {
   async testConnection(): Promise<boolean> {
     try {
       const result = await this.isHealthy();
-      this.logger.info('Connection test result', { healthy: result });
+      this.logger.info(`Connection test result - Healthy: ${result}`);
       return result;
     } catch (error) {
-      this.logger.error('Connection test failed', {
-        error: error instanceof Error ? error.message : String(error)
-      });
+      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
       return false;
     }
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug('Executing operation', {
-      type: operation.type,
-      address: operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'
-    });
+    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'}`);
 
     try {
       switch (operation.type) {
@@ -107,12 +98,7 @@ export class SnowtraceProvider extends BaseRegistryProvider {
           throw new Error(`Unsupported operation: ${operation.type}`);
       }
     } catch (error) {
-      this.logger.error('Operation execution failed', {
-        type: operation.type,
-        params: operation.params,
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined
-      });
+      this.logger.error(`Operation execution failed - Type: ${operation.type}, Params: ${operation.params}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`);
       throw error;
     }
   }
@@ -124,11 +110,7 @@ export class SnowtraceProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Avalanche address: ${address}`);
     }
 
-    this.logger.debug('Fetching address transactions', {
-      address: this.maskAddress(address),
-      since,
-      network: this.network
-    });
+    this.logger.debug(`Fetching address transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
 
     try {
       // Get normal transactions
@@ -143,20 +125,12 @@ export class SnowtraceProvider extends BaseRegistryProvider {
       // Sort by timestamp (newest first)
       allTransactions.sort((a, b) => b.timestamp - a.timestamp);
 
-      this.logger.info('Successfully retrieved address transactions', {
-        address: this.maskAddress(address),
-        totalTransactions: allTransactions.length,
-        network: this.network
-      });
+      this.logger.info(`Successfully retrieved address transactions - Address: ${this.maskAddress(address)}, TotalTransactions: ${allTransactions.length}, Network: ${this.network}`);
 
       return allTransactions;
 
     } catch (error) {
-      this.logger.error('Failed to get address transactions', {
-        address: this.maskAddress(address),
-        network: this.network,
-        error: error instanceof Error ? error.message : String(error)
-      });
+      this.logger.error(`Failed to get address transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -168,28 +142,17 @@ export class SnowtraceProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Avalanche address: ${address}`);
     }
 
-    this.logger.debug('Fetching address balance', {
-      address: this.maskAddress(address),
-      network: this.network
-    });
+    this.logger.debug(`Fetching address balance - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
 
     try {
       // Get AVAX balance
       const avaxBalance = await this.getAVAXBalance(address);
 
-      this.logger.info('Successfully retrieved address balance', {
-        address: this.maskAddress(address),
-        balanceAVAX: avaxBalance.balance,
-        network: this.network
-      });
+      this.logger.info(`Successfully retrieved address balance - Address: ${this.maskAddress(address)}, BalanceAVAX: ${avaxBalance.balance}, Network: ${this.network}`);
 
       return avaxBalance;
     } catch (error) {
-      this.logger.error('Failed to get address balance', {
-        address: this.maskAddress(address),
-        network: this.network,
-        error: error instanceof Error ? error.message : String(error)
-      });
+      this.logger.error(`Failed to get address balance - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -259,13 +222,13 @@ export class SnowtraceProvider extends BaseRegistryProvider {
 
       if (response.status !== '1') {
         // Internal transactions might not be available for all addresses
-        this.logger.debug('No internal transactions found', { address, message: response.message });
+        this.logger.debug(`No internal transactions found - Message: ${response.message}`);
         return [];
       }
 
       return response.result.map(tx => this.convertInternalTransaction(tx, address));
     } catch (error) {
-      this.logger.warn('Failed to fetch internal transactions', { address, error });
+      this.logger.warn(`Failed to fetch internal transactions`);
       return [];
     }
   }
@@ -296,13 +259,13 @@ export class SnowtraceProvider extends BaseRegistryProvider {
       const response = await this.httpClient.get(`?${params.toString()}`) as SnowtraceApiResponse<SnowtraceTokenTransfer>;
 
       if (response.status !== '1') {
-        this.logger.debug('No token transfers found', { address, message: response.message });
+        this.logger.debug(`No token transfers found - Message: ${response.message}`);
         return [];
       }
 
       return response.result.map(tx => this.convertTokenTransfer(tx, address));
     } catch (error) {
-      this.logger.warn('Failed to fetch token transfers', { address, error });
+      this.logger.warn(`Failed to fetch token transfers`);
       return [];
     }
   }
