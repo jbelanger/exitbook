@@ -1,4 +1,5 @@
-import type { IBlockchainProvider, ProviderCapabilities, RateLimitConfig } from '@crypto/core';
+import type { RateLimitConfig } from '@crypto/core';
+import type { IBlockchainProvider, ProviderCapabilities } from '../types.ts';
 
 /**
  * Network configuration for a provider

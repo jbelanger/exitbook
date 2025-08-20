@@ -1,10 +1,11 @@
 import { Decimal } from 'decimal.js';
 
-import type { Balance, BlockchainTransaction, ProviderOperation } from '@crypto/core';
+import type { Balance, BlockchainTransaction } from '@crypto/core';
 
 import { createMoney } from '@crypto/shared-utils';
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
 import { RegisterProvider } from '../../shared/registry/decorators.ts';
+import { ProviderOperation } from '../../shared/types.ts';
 import type { SolscanTransaction } from '../types.ts';
 import { isValidSolanaAddress, lamportsToSol } from '../utils.ts';
 
@@ -87,7 +88,7 @@ export class SolscanProvider extends BaseRegistryProvider {
     }
   }
 
-  async execute<T>(operation: ProviderOperation<T>, config?: any): Promise<T> {
+  async execute<T>(operation: ProviderOperation<T>): Promise<T> {
     this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'}`);
 
     try {

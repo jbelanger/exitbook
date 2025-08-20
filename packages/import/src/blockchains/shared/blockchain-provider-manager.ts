@@ -1,10 +1,11 @@
-import type { IBlockchainProvider, ProviderCapabilities, ProviderHealth, ProviderOperation } from '@crypto/core';
+import type { ProviderHealth } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
 
 import { loadExplorerConfig } from './explorer-config.ts';
 
 import { CircuitBreaker } from '../../utils/circuit-breaker.ts';
 import { ProviderRegistry } from './registry/provider-registry.ts';
+import type { IBlockchainProvider, ProviderCapabilities, ProviderOperation } from './types.ts';
 
 
 const logger = getLogger('BlockchainProviderManager');
@@ -12,12 +13,6 @@ const logger = getLogger('BlockchainProviderManager');
 interface CacheEntry {
   result: any;
   expiry: number;
-}
-
-interface ProviderScore {
-  provider: IBlockchainProvider;
-  score: number;
-  health: ProviderHealth;
 }
 
 export class BlockchainProviderManager {
@@ -470,7 +465,7 @@ export class BlockchainProviderManager {
    * Perform periodic health checks on all providers
    */
   private async performHealthChecks(): Promise<void> {
-    for (const [blockchain, providers] of this.providers.entries()) {
+    for (const [, providers] of this.providers.entries()) {
       for (const provider of providers) {
         try {
           const startTime = Date.now();

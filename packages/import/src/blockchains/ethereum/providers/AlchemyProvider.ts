@@ -1,8 +1,9 @@
-import type { Balance, BlockchainTransaction, IBlockchainProvider, ProviderCapabilities, ProviderOperation, RateLimitConfig } from '@crypto/core';
+import type { Balance, BlockchainTransaction, RateLimitConfig } from '@crypto/core';
 import { ServiceError } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
 import { HttpClient, createMoney } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
+import { IBlockchainProvider, ProviderCapabilities, ProviderOperation } from '../../shared/types.ts';
 
 const logger = getLogger('AlchemyProvider');
 
@@ -14,55 +15,6 @@ export interface AlchemyConfig {
   retries?: number;
 }
 
-// Alchemy API response types
-interface AlchemyTransaction {
-  hash: string;
-  blockNumber: string;
-  blockHash: string;
-  transactionIndex: string;
-  from: string;
-  to: string;
-  value: string;
-  gas: string;
-  gasPrice: string;
-  input: string;
-  nonce: string;
-  timestamp?: string;
-}
-
-interface AlchemyTokenTransfer {
-  hash: string;
-  blockNum: string;
-  from: string;
-  to: string;
-  value: number;
-  asset: string;
-  category: 'token' | 'erc20' | 'erc721' | 'erc1155';
-  rawContract: {
-    address: string;
-    decimal: string;
-  };
-  metadata: {
-    blockTimestamp: string;
-  };
-}
-
-interface AlchemyAssetTransfer {
-  hash: string;
-  blockNum: string;
-  from: string;
-  to: string;
-  value: number;
-  asset: string;
-  category: 'external' | 'internal' | 'token';
-  rawContract?: {
-    address: string;
-    decimal: string;
-  };
-  metadata: {
-    blockTimestamp: string;
-  };
-}
 
 export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
   readonly name = 'alchemy';
@@ -127,7 +79,7 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
     return this.isHealthy();
   }
 
-  async execute<T>(operation: ProviderOperation<T>, config?: AlchemyConfig): Promise<T> {
+  async execute<T>(operation: ProviderOperation<T>): Promise<T> {
     switch (operation.type) {
       case 'getAddressTransactions':
         return this.getAddressTransactions(operation.params.address, operation.params.since) as Promise<T>;
@@ -211,7 +163,7 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
     since?: number,
     category: string[] = ['external', 'internal', 'erc20', 'erc721', 'erc1155'],
     contractAddress?: string
-  ): Promise<AlchemyAssetTransfer[]> {
+  ): Promise<any[]> {
     const params: any = {
       fromAddress: address,
       toAddress: address,
@@ -319,7 +271,7 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
   }
 
 
-  private async timestampToBlockNumber(timestamp: number): Promise<number | null> {
+  private async timestampToBlockNumber(_timestamp: number): Promise<number | null> {
     try {
       // This is an approximation - Alchemy doesn't have a direct timestamp to block API
       // We could implement binary search here, but for now return null to get all history
@@ -329,7 +281,7 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
     }
   }
 
-  private convertAssetTransfer(transfer: AlchemyAssetTransfer, userAddress: string): BlockchainTransaction {
+  private convertAssetTransfer(transfer: any, userAddress: string): BlockchainTransaction {
     const isFromUser = transfer.from.toLowerCase() === userAddress.toLowerCase();
     const isToUser = transfer.to.toLowerCase() === userAddress.toLowerCase();
 

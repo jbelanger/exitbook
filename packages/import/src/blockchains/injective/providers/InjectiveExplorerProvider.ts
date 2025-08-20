@@ -1,8 +1,9 @@
 
-import type { BlockchainTransaction, ProviderOperation } from '@crypto/core';
+import type { BlockchainTransaction } from '@crypto/core';
 import { createMoney, parseDecimal } from '@crypto/shared-utils';
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
 import { RegisterProvider } from '../../shared/registry/decorators.ts';
+import { ProviderOperation } from '../../shared/types.ts';
 import type { InjectiveApiResponse, InjectiveTransaction } from '../types.ts';
 
 @RegisterProvider({

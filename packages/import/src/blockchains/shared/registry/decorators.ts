@@ -1,4 +1,5 @@
-import type { IBlockchainProvider } from '@crypto/core';
+
+import type { IBlockchainProvider } from '../types.ts';
 import { ProviderRegistry, type ProviderFactory, type ProviderMetadata } from './provider-registry.ts';
 
 

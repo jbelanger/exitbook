@@ -1,6 +1,6 @@
 import { Decimal } from 'decimal.js';
 
-import type { Balance, BlockchainTransaction, ProviderOperation } from '@crypto/core';
+import type { Balance, BlockchainTransaction } from '@crypto/core';
 import { createMoney } from '@crypto/shared-utils';
 
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
@@ -8,6 +8,7 @@ import { RegisterProvider } from '../../shared/registry/decorators.ts';
 import type { SubstrateAccountInfo, SubstrateChainConfig } from '../types.ts';
 import { SUBSTRATE_CHAINS } from '../types.ts';
 
+import { ProviderOperation } from '../../shared/types.ts';
 import { isValidSS58Address } from '../utils.ts';
 
 @RegisterProvider({
@@ -312,7 +313,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
     return transactions;
   }
 
-  private async getTransactionsFromRPC(address: string, since?: number): Promise<BlockchainTransaction[]> {
+  private async getTransactionsFromRPC(_address: string, _since?: number): Promise<BlockchainTransaction[]> {
     // RPC-based transaction fetching is more complex and would require
     // iterating through blocks and filtering extrinsics
     // For now, return empty array as fallback

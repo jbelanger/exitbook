@@ -1,10 +1,11 @@
 import { Decimal } from 'decimal.js';
 
-import type { Balance, BlockchainTransaction, ProviderOperation } from '@crypto/core';
+import type { Balance, BlockchainTransaction } from '@crypto/core';
 import { ServiceError } from '@crypto/core';
 import { createMoney } from '@crypto/shared-utils';
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
 import { RegisterProvider } from '../../shared/registry/index.ts';
+import type { ProviderOperation } from '../../shared/types.ts';
 import type { EtherscanInternalTransaction, EtherscanTokenTransfer, EtherscanTransaction } from '../types.ts';
 
 @RegisterProvider({
@@ -126,7 +127,7 @@ export class EtherscanProvider extends BaseRegistryProvider {
     return this.fetchTokenTransfers(address, since, contractAddress);
   }
 
-  private async getTokenBalances(params: { address: string; contractAddresses?: string[] }): Promise<Balance[]> {
+  private async getTokenBalances(_params: { address: string; contractAddresses?: string[] }): Promise<Balance[]> {
     // This would require specific token contract addresses
     // For now, return empty array as this is typically used with specific tokens
     return [];
@@ -289,15 +290,7 @@ export class EtherscanProvider extends BaseRegistryProvider {
     const isFromUser = tx.from.toLowerCase() === userAddress.toLowerCase();
     const isToUser = tx.to.toLowerCase() === userAddress.toLowerCase();
 
-    // Determine transaction type
-    let type: 'transfer_in' | 'transfer_out' | 'internal_transfer_in' | 'internal_transfer_out';
-    if (isFromUser && isToUser) {
-      type = 'internal_transfer_in'; // Self-transfer, treat as internal
-    } else if (isFromUser) {
-      type = 'transfer_out';
-    } else {
-      type = 'transfer_in';
-    }
+    // Note: Transaction direction is determined by from/to addresses but not used in this method
 
     // Convert value using token decimals
     const decimals = parseInt(tx.tokenDecimal);

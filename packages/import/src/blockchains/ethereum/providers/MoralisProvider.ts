@@ -1,8 +1,9 @@
-import type { Balance, BlockchainTransaction, IBlockchainProvider, ProviderCapabilities, ProviderOperation, RateLimitConfig } from '@crypto/core';
+import type { Balance, BlockchainTransaction, RateLimitConfig } from '@crypto/core';
 import { ServiceError } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
 import { HttpClient, createMoney } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
+import { IBlockchainProvider, ProviderCapabilities, ProviderOperation } from '../../shared/types.ts';
 
 
 const logger = getLogger('MoralisProvider');
@@ -52,15 +53,6 @@ interface MoralisTokenTransfer {
   contract_type: string;
 }
 
-interface MoralisTokenBalance {
-  token_address: string;
-  name: string;
-  symbol: string;
-  logo: string | null;
-  thumbnail: string | null;
-  decimals: number;
-  balance: string;
-}
 
 interface MoralisNativeBalance {
   balance: string;
@@ -128,7 +120,7 @@ export class MoralisProvider implements IBlockchainProvider<MoralisConfig> {
     return this.isHealthy();
   }
 
-  async execute<T>(operation: ProviderOperation<T>, config?: MoralisConfig): Promise<T> {
+  async execute<T>(operation: ProviderOperation<T>): Promise<T> {
     switch (operation.type) {
       case 'getAddressTransactions':
         return this.getAddressTransactions(operation.params.address, operation.params.since) as Promise<T>;

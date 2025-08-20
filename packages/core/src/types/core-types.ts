@@ -37,13 +37,6 @@ export interface CryptoTransaction {
   info?: any; // Raw response data from source (exchange API response or blockchain transaction data)
 }
 
-export interface ExchangeBalance {
-  currency: string;
-  balance: number; // Available/free amount
-  used: number;
-  total: number;
-}
-
 export type TransactionType =
   | 'trade'
   | 'deposit'
@@ -60,7 +53,13 @@ export type TransactionStatus =
   | 'canceled'
   | 'failed'
   | 'ok';
-
+  
+export interface ExchangeBalance {
+  currency: string;
+  balance: number; // Available/free amount
+  used: number;
+  total: number;
+}
 
 export interface ExchangeInfo {
   id: string;
