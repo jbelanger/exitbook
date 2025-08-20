@@ -19,8 +19,8 @@ const env = {
       .parse(process.env.LOG_LEVEL),
    auditLogEnabled: z //
       .string()
-      .transform((val: string) => val === 'true')
       .default('true')
+      .transform((val: string) => val === 'true')
       .parse(process.env.AUDIT_LOG_ENABLED),
    auditLogDirname: z //
       .string()
