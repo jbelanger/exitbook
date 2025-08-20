@@ -1,5 +1,7 @@
-import type { CryptoTransaction, EnhancedTransaction, ExchangeConfig, IBlockchainAdapter, IExchangeAdapter, ImportResult, ImportSummary, TransactionNote } from '@crypto/core';
-import { TransactionNoteType } from '@crypto/core';
+import type { CryptoTransaction, EnhancedTransaction, IBlockchainAdapter, IExchangeAdapter, TransactionNote } from '@crypto/core';
+import type { ExchangeConfig } from '../exchanges/types.ts';
+import type { ImportResult, ImportSummary } from '../types.ts';
+import { TransactionNoteType } from '../types.ts';
 import { getLogger } from '@crypto/shared-logger';
 import crypto from 'crypto';
 import fs from 'fs';

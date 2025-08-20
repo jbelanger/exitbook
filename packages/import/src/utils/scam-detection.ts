@@ -1,5 +1,5 @@
 import type { TransactionNote } from '@crypto/core';
-import { TransactionNoteType } from '@crypto/core';
+import { TransactionNoteType } from '../types.ts';
 
 
 /**

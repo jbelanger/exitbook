@@ -61,22 +61,6 @@ export type TransactionStatus =
   | 'failed'
   | 'ok';
 
-export interface ExchangeCredentials {
-  apiKey: string;
-  secret: string;
-  password?: string; // Used by some exchanges for passphrase
-  sandbox?: boolean;
-  [key: string]: any; // Allow for exchange-specific credentials
-}
-
-export interface ExchangeOptions {
-  rateLimit?: number;
-  enableRateLimit?: boolean;
-  timeout?: number;
-  csvDirectory?: string; // For CSV adapter
-  uid?: string; // For CSV adapter - optional UID to filter by
-  [key: string]: any;
-}
 
 export interface ExchangeInfo {
   id: string;
@@ -147,14 +131,6 @@ export interface EnhancedTransaction extends CryptoTransaction {
   note?: TransactionNote;
 }
 
-// Exchange configuration for traditional exchange adapters
-export interface ExchangeConfig {
-  id: string;
-  enabled: boolean;
-  adapterType?: 'ccxt' | 'native' | 'csv';
-  credentials: ExchangeCredentials;
-  options?: ExchangeOptions;
-}
 
 // Balance verification types
 export interface BalanceComparison {
@@ -234,69 +210,9 @@ export interface BalanceVerificationRecord {
   created_at?: number; // Made optional for compatibility
 }
 
-// Import results (shared by exchange and blockchain adapters)
-export interface ImportResult {
-  source: string; // Exchange or blockchain identifier
-  transactions: number;
-  newTransactions: number;
-  duplicatesSkipped: number;
-  errors: string[];
-  duration: number;
-}
-
-export interface ImportSummary {
-  totalTransactions: number;
-  newTransactions: number;
-  duplicatesSkipped: number;
-  sourceResults: ImportResult[]; // Results from all sources (exchanges + blockchains)
-  errors: string[];
-  duration: number;
-}
-
-// Logger types
-export interface LogContext {
-  component?: string;
-  exchange?: string;
-  currency?: string;
-  transactionId?: string;
-  operation?: string;
-  [key: string]: any;
-}
-
-// Transaction Note Types - Enum for standardized transaction annotations
-export enum TransactionNoteType {
-  // Security & Scam Detection
-  SCAM_TOKEN = 'SCAM_TOKEN',
-  SUSPICIOUS_AIRDROP = 'SUSPICIOUS_AIRDROP',
-
-  // Transaction Quality
-  DUST_TRANSACTION = 'DUST_TRANSACTION',
-  FAILED_TRANSACTION = 'FAILED_TRANSACTION',
-  HIGH_FEE = 'HIGH_FEE',
-
-  // Transfer Types
-  INTERNAL_TRANSFER = 'INTERNAL_TRANSFER',
-  STAKING_REWARD = 'STAKING_REWARD',
-  UNSTAKING = 'UNSTAKING',
-
-  // Exchange Operations
-  PARTIAL_FILL = 'PARTIAL_FILL',
-  MARGIN_LIQUIDATION = 'MARGIN_LIQUIDATION',
-
-  // Airdrops & Rewards
-  LEGITIMATE_AIRDROP = 'LEGITIMATE_AIRDROP',
-  MINING_REWARD = 'MINING_REWARD',
-  VALIDATOR_REWARD = 'VALIDATOR_REWARD',
-
-  // Special Cases
-  DUST_SWEEP = 'DUST_SWEEP',
-  NETWORK_FEE_ONLY = 'NETWORK_FEE_ONLY',
-  TEST_TRANSACTION = 'TEST_TRANSACTION'
-}
-
-// Transaction note interface
+// Transaction note interface  
 export interface TransactionNote {
-  type: TransactionNoteType;
+  type: any; // TransactionNoteType from import package
   message: string;
   severity?: 'info' | 'warning' | 'error';
   metadata?: Record<string, any>;
@@ -309,23 +225,6 @@ export interface CLIOptions {
   since?: string;
   verbose?: boolean;
   config?: string;
-}
-
-// Configuration types
-export interface AppConfig {
-  exchanges: Record<string, ExchangeConfig>;
-  database: {
-    path: string;
-  };
-  logging: {
-    level: string;
-    directory: string;
-  };
-  verification: {
-    tolerance: number;
-    warnThreshold: number;
-    errorThreshold: number;
-  };
 }
 
 // Wallet address tracking types

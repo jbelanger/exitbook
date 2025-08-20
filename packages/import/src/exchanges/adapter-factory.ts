@@ -1,6 +1,7 @@
 // Factory for creating different types of exchange adapters
 // @ts-ignore - CCXT types compatibility
-import { ExchangeConfig, IBlockchainAdapter, IExchangeAdapter, ServiceError } from '@crypto/core';
+import { IBlockchainAdapter, IExchangeAdapter, ServiceError } from '@crypto/core';
+import type { ExchangeConfig } from './types.ts';
 import { Database } from '@crypto/data';
 import { getLogger } from '@crypto/shared-logger';
 import ccxt from 'ccxt';
