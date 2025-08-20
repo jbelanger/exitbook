@@ -48,7 +48,7 @@ export class TransactionImporter {
 
   async importFromExchanges(options: ExchangeImportOptions = {}): Promise<ImportSummary> {
     const startTime = Date.now();
-    this.logger.info('Starting transaction import from exchanges', options);
+    this.logger.info('Starting transaction import from exchanges');
 
     try {
       const configuredExchanges = await this.getConfiguredExchanges(options);
@@ -116,7 +116,7 @@ export class TransactionImporter {
 
   async importFromBlockchain(options: BlockchainImportOptions): Promise<ImportSummary> {
     const startTime = Date.now();
-    this.logger.info('Starting transaction import from blockchain', options);
+    this.logger.info('Starting transaction import from blockchain');
 
     try {
       // Create wallet records for CLI-provided addresses
