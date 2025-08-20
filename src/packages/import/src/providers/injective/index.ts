@@ -1,2 +1,2 @@
-export { InjectiveExplorerProvider } from './InjectiveExplorerProvider';
-export { InjectiveLCDProvider } from './InjectiveLCDProvider';
+export { InjectiveExplorerProvider } from './InjectiveExplorerProvider.ts';
+export { InjectiveLCDProvider } from './InjectiveLCDProvider.ts';

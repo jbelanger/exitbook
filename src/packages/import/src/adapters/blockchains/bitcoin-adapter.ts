@@ -1,6 +1,7 @@
 import * as bitcoin from 'bitcoinjs-lib';
 
 import { Balance, BitcoinWalletAddress, BlockchainInfo, BlockchainTransaction, CryptoTransaction, TransactionType } from '@crypto/core';
+import { createMoney } from '@crypto/shared-utils';
 import { BlockchainProviderManager } from '../../providers/index.ts';
 import { BitcoinUtils } from '../../utils/bitcoin-utils.ts';
 import { BaseBlockchainAdapter } from './index.ts';
@@ -254,8 +255,8 @@ export class BitcoinAdapter extends BaseBlockchainAdapter {
       timestamp,
       from: fromAddress,
       to: toAddress,
-      value: { amount: (totalValue / 100000000).toString(), currency: 'BTC' },
-      fee: { amount: (fee / 100000000).toString(), currency: 'BTC' },
+      value: createMoney(totalValue / 100000000, 'BTC'),
+      fee: createMoney(fee / 100000000, 'BTC'),
       gasUsed: undefined,
       gasPrice: undefined,
       status: tx.status.confirmed ? 'success' : 'pending',
