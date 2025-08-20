@@ -23,10 +23,7 @@ export type {
 } from './contracts.ts';
 
 // Blockchain-specific types
-export * from './avalanche.ts';
 export * from './bitcoin.ts';
-export * from './ethereum.ts';
-export * from './injective.ts';
 export * from './solana.ts';
 export * from './substrate.ts';
 

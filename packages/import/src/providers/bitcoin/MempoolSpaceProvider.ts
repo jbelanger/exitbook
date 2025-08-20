@@ -1,6 +1,7 @@
 import { Decimal } from 'decimal.js';
 
-import type { AddressInfo, BlockchainTransaction, MempoolAddressInfo, MempoolTransaction, ProviderOperation } from '@crypto/core';
+import type { AddressInfo, BlockchainTransaction, ProviderOperation } from '@crypto/core';
+import type { MempoolAddressInfo, MempoolTransaction } from './types.ts';
 import { createMoney } from '@crypto/shared-utils';
 import { BaseRegistryProvider } from '../registry/base-registry-provider.ts';
 import { RegisterProvider } from '../registry/decorators.ts';

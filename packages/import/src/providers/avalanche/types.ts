@@ -108,38 +108,6 @@ export interface AvalancheNetwork {
   apiKey?: string;
 }
 
-export const AVALANCHE_NETWORKS: { [key: string]: AvalancheNetwork } = {
-  mainnet: {
-    name: 'Avalanche C-Chain',
-    chainId: 43114,
-    nativeCurrency: {
-      name: 'Avalanche',
-      symbol: 'AVAX',
-      decimals: 18
-    },
-    rpcUrls: [
-      'https://api.avax.network/ext/bc/C/rpc',
-      'https://rpc.ankr.com/avalanche'
-    ],
-    blockExplorerUrls: ['https://snowtrace.io'],
-    apiUrl: 'https://api.snowtrace.io/api'
-  },
-  testnet: {
-    name: 'Avalanche Fuji Testnet',
-    chainId: 43113,
-    nativeCurrency: {
-      name: 'Avalanche',
-      symbol: 'AVAX',
-      decimals: 18
-    },
-    rpcUrls: [
-      'https://api.avax-test.network/ext/bc/C/rpc'
-    ],
-    blockExplorerUrls: ['https://testnet.snowtrace.io'],
-    apiUrl: 'https://api-testnet.snowtrace.io/api'
-  }
-};
-
 // Avalanche address validation
 export function isValidAvalancheAddress(address: string): boolean {
   // Avalanche C-Chain uses Ethereum-style addresses but they are case-sensitive
