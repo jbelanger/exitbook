@@ -1,11 +1,11 @@
 import type { CryptoTransaction, EnhancedTransaction, IBlockchainAdapter, IExchangeAdapter, TransactionNote } from '@crypto/core';
-import type { ExchangeConfig } from '../exchanges/types.ts';
-import type { ImportResult, ImportSummary } from '../types.ts';
-import { TransactionNoteType } from '../types.ts';
 import { getLogger } from '@crypto/shared-logger';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
+import type { ExchangeConfig } from '../exchanges/types.ts';
+import type { ImportResult, ImportSummary } from '../types.ts';
+import { TransactionNoteType } from '../types.ts';
 
 import { Database, TransactionRepository, TransactionService, WalletRepository, WalletService } from '@crypto/data';
 
@@ -163,7 +163,6 @@ export class TransactionImporter {
           }
         }
       }
-
 
       const duration = Date.now() - startTime;
 
