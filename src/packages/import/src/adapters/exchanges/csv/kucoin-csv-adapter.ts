@@ -1,11 +1,6 @@
-import {
-  CryptoTransaction,
-  ExchangeInfo,
-  TransactionStatus,
-  TransactionType
-} from '../../../core/types/index';
-import { createMoney, parseDecimal } from '../../../utils/decimal-utils';
-import { BaseCSVAdapter, CSVConfig } from './base-csv-adapter';
+import { CryptoTransaction, ExchangeInfo, TransactionStatus, TransactionType } from '@crypto/core';
+import { createMoney, parseDecimal } from '@crypto/shared-utils';
+import { BaseCSVAdapter, CSVConfig } from './base-csv-adapter.ts';
 
 interface KuCoinCSVConfig extends CSVConfig { }
 

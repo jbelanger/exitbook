@@ -1,23 +1,16 @@
 // Factory for creating different types of exchange adapters
 // @ts-ignore - CCXT types compatibility
+import { ExchangeConfig, IBlockchainAdapter, IExchangeAdapter, ServiceError } from '@crypto/core';
+import { Database } from '@crypto/infrastructure';
+import { getLogger } from '@crypto/shared-logger';
 import ccxt from 'ccxt';
-import type {
-  ExchangeConfig,
-  IBlockchainAdapter,
-  IExchangeAdapter
-} from '../../core/types/index';
-import { ServiceError } from '../../core/types/index';
-import type { Database } from '../../infrastructure/storage/database';
+import { CoinbaseCCXTAdapter } from './ccxt/coinbase-ccxt-adapter.ts';
+import { CCXTAdapter } from './ccxt/index.ts';
+import { KrakenCSVAdapter, KuCoinCSVAdapter, LedgerLiveCSVAdapter } from './csv/index.ts';
 
-import { Logger } from '../../infrastructure/logging';
-import { CCXTAdapter } from './ccxt/ccxt-adapter';
-import { CoinbaseCCXTAdapter } from './ccxt/coinbase-ccxt-adapter';
-import { KrakenCSVAdapter } from './csv/kraken-csv-adapter';
-import { KuCoinCSVAdapter } from './csv/kucoin-csv-adapter';
-import { LedgerLiveCSVAdapter } from './csv/ledgerlive-csv-adapter';
 
 export class ExchangeAdapterFactory {
-  private logger = new Logger('ExchangeAdapterFactory');
+  private logger = getLogger('ExchangeAdapterFactory');
 
   async createAdapter(config: ExchangeConfig, enableOnlineVerification?: boolean, database?: Database): Promise<IExchangeAdapter | IBlockchainAdapter> {
     if (!config.adapterType) {

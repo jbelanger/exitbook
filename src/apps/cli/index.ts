@@ -526,7 +526,7 @@ async function convertToJSON(transactions: any[]): Promise<string> {
   // Use normalized database columns and add calculated cost field
   const processedTransactions = transactions.map(tx => {
     // Calculate cost from amount * price if available
-    let cost = null;
+    let cost: number | null = null;
     if (tx.amount && tx.price) {
       try {
         const amountNum = parseFloat(tx.amount);

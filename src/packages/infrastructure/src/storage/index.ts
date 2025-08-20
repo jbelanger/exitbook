@@ -1,2 +1,2 @@
 // Database and storage infrastructure
-export { Database } from './database';
+export { Database } from './database.ts';
