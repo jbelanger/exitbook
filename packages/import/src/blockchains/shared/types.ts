@@ -30,3 +30,15 @@ export interface ProviderCapabilities {
   supportsRealTimeData: boolean;
   supportsTokenData: boolean;
 }
+
+export interface ProviderHealth {
+  isHealthy: boolean;
+  lastChecked: number;
+  consecutiveFailures: number;
+  averageResponseTime: number;
+  errorRate: number;
+  lastError?: string;
+  rateLimitEvents: number;           // Total rate limit events encountered
+  rateLimitRate: number;             // Percentage of requests that were rate limited (0-1)
+  lastRateLimitTime?: number;        // Timestamp of last rate limit event
+}

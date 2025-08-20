@@ -301,6 +301,13 @@ export class ServiceError extends Error {
   }
 }
 
+export interface RateLimitConfig {
+  requestsPerSecond: number;
+  requestsPerMinute?: number;
+  requestsPerHour?: number;
+  burstLimit?: number;
+}
+
 export class RateLimitError extends ServiceError {
   constructor(
     message: string,
