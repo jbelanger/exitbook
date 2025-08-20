@@ -27,7 +27,8 @@
     "@crypto/data": "workspace:*",
     "@crypto/import": "workspace:*",
     "@crypto/shared-logger": "workspace:*",
-    "@crypto/shared-utils": "workspace:*"
+    "@crypto/shared-utils": "workspace:*",
+    "@crypto/balance": "workspace:*"
   },
   "devDependencies": {
     "@jest/globals": "^30.0.5",

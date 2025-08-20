@@ -10,6 +10,9 @@ importers:
 
   apps/cli:
     dependencies:
+      '@crypto/balance':
+        specifier: workspace:*
+        version: link:../../packages/balance
       '@crypto/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -60,6 +63,46 @@ importers:
         specifier: ^5.9.2
         version: 5.9.2
 
+  packages/balance:
+    dependencies:
+      '@crypto/core':
+        specifier: workspace:*
+        version: link:../core
+      '@crypto/data':
+        specifier: workspace:*
+        version: link:../data
+      '@crypto/shared-logger':
+        specifier: workspace:*
+        version: link:../shared/logger
+      decimal.js:
+        specifier: ^10.6.0
+        version: 10.6.0
+    devDependencies:
+      '@jest/globals':
+        specifier: ^30.0.5
+        version: 30.0.5
+      '@types/jest':
+        specifier: ^30.0.0
+        version: 30.0.0
+      '@types/node':
+        specifier: ^24.3.0
+        version: 24.3.0
+      jest:
+        specifier: ^30.0.5
+        version: 30.0.5(@types/node@24.3.0)
+      ts-jest:
+        specifier: ^29.4.1
+        version: 29.4.1(@babel/core@7.28.3)(@jest/transform@30.0.5)(@jest/types@30.0.5)(babel-jest@30.0.5(@babel/core@7.28.3))(jest-util@30.0.5)(jest@30.0.5(@types/node@24.3.0))(typescript@5.9.2)
+      tsconfig:
+        specifier: workspace:*
+        version: link:../shared/tsconfig
+      tsx:
+        specifier: ^4.20.4
+        version: 4.20.4
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.2
+
   packages/core:
     dependencies:
       decimal.js:
@@ -93,6 +136,9 @@ importers:
 
   packages/data:
     dependencies:
+      '@crypto/balance':
+        specifier: workspace:*
+        version: link:../balance
       '@crypto/core':
         specifier: workspace:*
         version: link:../core
@@ -169,40 +215,6 @@ importers:
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
-    devDependencies:
-      '@jest/globals':
-        specifier: ^30.0.5
-        version: 30.0.5
-      '@types/jest':
-        specifier: ^30.0.0
-        version: 30.0.0
-      '@types/node':
-        specifier: ^24.3.0
-        version: 24.3.0
-      jest:
-        specifier: ^30.0.5
-        version: 30.0.5(@types/node@24.3.0)
-      ts-jest:
-        specifier: ^29.4.1
-        version: 29.4.1(@babel/core@7.28.3)(@jest/transform@30.0.5)(@jest/types@30.0.5)(babel-jest@30.0.5(@babel/core@7.28.3))(jest-util@30.0.5)(jest@30.0.5(@types/node@24.3.0))(typescript@5.9.2)
-      tsconfig:
-        specifier: workspace:*
-        version: link:../shared/tsconfig
-      tsx:
-        specifier: ^4.20.4
-        version: 4.20.4
-      typescript:
-        specifier: ^5.9.2
-        version: 5.9.2
-
-  packages/infrastructure:
-    dependencies:
-      '@crypto/core':
-        specifier: workspace:*
-        version: link:../core
-      '@crypto/shared-logger':
-        specifier: workspace:*
-        version: link:../shared/logger
     devDependencies:
       '@jest/globals':
         specifier: ^30.0.5

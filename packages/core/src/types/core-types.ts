@@ -132,31 +132,7 @@ export interface EnhancedTransaction extends CryptoTransaction {
 }
 
 
-// Balance verification types
-export interface BalanceComparison {
-  currency: string;
-  liveBalance: number;
-  calculatedBalance: number;
-  difference: number;
-  status: 'match' | 'mismatch' | 'warning';
-  percentageDiff: number;
-  tolerance: number;
-}
-
-export interface BalanceVerificationResult {
-  exchange: string;
-  timestamp: number;
-  status: 'success' | 'error' | 'warning';
-  comparisons: BalanceComparison[];
-  error?: string;
-  note?: string;
-  summary: {
-    totalCurrencies: number;
-    matches: number;
-    mismatches: number;
-    warnings: number;
-  };
-}
+// Balance verification types moved to @crypto/balance package
 
 // Database types
 export interface StoredTransaction {
@@ -198,17 +174,6 @@ export interface BalanceSnapshot {
   created_at: number;
 }
 
-export interface BalanceVerificationRecord {
-  id?: number;
-  exchange: string;
-  currency: string;
-  expected_balance: number;
-  actual_balance: number;
-  difference: number;
-  status: string;
-  timestamp: number;
-  created_at?: number; // Made optional for compatibility
-}
 
 // Transaction note interface  
 export interface TransactionNote {

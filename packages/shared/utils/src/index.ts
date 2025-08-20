@@ -1,5 +1,5 @@
 // Shared services exports
-export * from './verification/index.ts';
+// Verification services moved to @crypto/balance package
 
 // Utility exports
 export * from './decimal-utils.ts';
