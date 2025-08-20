@@ -5,7 +5,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
-import { Database, WalletRepository, WalletService } from '@crypto/data';
+import { Database, TransactionRepository, WalletRepository, WalletService } from '@crypto/data';
 import { BlockchainAdapterFactory } from '../adapters/blockchains/index.ts';
 import { ExchangeAdapterFactory } from '../adapters/exchanges/adapter-factory.ts';
 import { detectScamFromSymbol } from '../utils/scam-detection.ts';
@@ -29,6 +29,7 @@ interface BlockchainImportOptions {
 export class TransactionImporter {
   private logger = getLogger('TransactionImporter');
   private database: Database;
+  private transactionRepository: TransactionRepository;
   private deduplicator: Deduplicator;
   private adapterFactory: ExchangeAdapterFactory;
   private blockchainAdapterFactory: BlockchainAdapterFactory;
@@ -36,6 +37,7 @@ export class TransactionImporter {
 
   constructor(database: Database) {
     this.database = database;
+    this.transactionRepository = new TransactionRepository(database);
     this.deduplicator = new Deduplicator();
     this.adapterFactory = new ExchangeAdapterFactory();
     this.blockchainAdapterFactory = new BlockchainAdapterFactory();
@@ -222,7 +224,7 @@ export class TransactionImporter {
       const { unique, duplicates } = await this.deduplicator.process(transactions, blockchainId);
 
       // Save new transactions to database
-      const saved = await this.database.saveTransactions(unique);
+      const saved = await this.transactionRepository.saveMany(unique);
 
       // Link transactions to wallet addresses after successful import
       if (saved > 0) {
@@ -293,7 +295,7 @@ export class TransactionImporter {
       const { unique, duplicates } = await this.deduplicator.process(transactions, exchangeId);
 
       // Save new transactions to database
-      const saved = await this.database.saveTransactions(unique);
+      const saved = await this.transactionRepository.saveMany(unique);
 
 
       const duration = Date.now() - startTime;

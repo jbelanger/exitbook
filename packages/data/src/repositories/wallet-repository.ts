@@ -1,9 +1,7 @@
 import type { CreateWalletAddressRequest, UpdateWalletAddressRequest, WalletAddress, WalletAddressQuery } from '@crypto/core';
-import { getLogger } from '@crypto/shared-logger';
 import { Database } from '../storage/database.ts';
 
 export class WalletRepository {
-  private logger = getLogger('WalletRepository');
   private database: Database;
 
   constructor(database: Database) {
