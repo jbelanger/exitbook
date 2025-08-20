@@ -16,16 +16,6 @@ function moneyToDbString(money: { amount: Decimal | number; currency: string }):
   return money.amount.toString();
 }
 
-function stringToDecimal(value: string | null | undefined): Decimal {
-  if (!value || value === 'null' || value === 'undefined') {
-    return new Decimal(0);
-  }
-  try {
-    return new Decimal(value);
-  } catch (error) {
-    return new Decimal(0);
-  }
-}
 
 export class Database {
   private db: SQLiteDatabase;
@@ -400,25 +390,11 @@ export class Database {
 
         stmt.finalize();
 
-        this.db.run('COMMIT', async (err) => {
+        this.db.run('COMMIT', (err) => {
           if (err) {
             reject(err);
           } else {
-            // Link transaction addresses for all saved transactions
-            try {
-              for (const transaction of transactions) {
-                const fromAddress = transaction.info?.from || null;
-                const toAddress = transaction.info?.to || null;
-
-                if (fromAddress || toAddress) {
-                  await this.linkTransactionToWallets(transaction.id, fromAddress, toAddress);
-                }
-              }
-              resolve(saved);
-            } catch (linkError) {
-              this.logger.warn('Failed to link some transaction addresses', { error: linkError });
-              resolve(saved); // Still resolve since transactions were saved
-            }
+            resolve(saved);
           }
         });
       });
@@ -562,113 +538,6 @@ export class Database {
     });
   }
 
-  // Calculate balances from transactions using high-precision decimal arithmetic
-  async calculateBalances(exchange: string): Promise<Record<string, number>> {
-    return new Promise((resolve, reject) => {
-      const query = `
-        SELECT 
-          symbol,
-          type,
-          amount,
-          amount_currency,
-          side,
-          price,
-          price_currency,
-          fee_cost,
-          fee_currency,
-          raw_data
-        FROM transactions 
-        WHERE exchange = ?
-        ORDER BY timestamp ASC
-      `;
-
-      this.db.all(query, [exchange], (err, rows: any[]) => {
-        if (err) {
-          reject(err);
-        } else {
-          const balances: Record<string, Decimal> = {};
-
-          for (const row of rows) {
-            // Use direct columns for standardized parsing with Decimal precision
-            const type = row.type;
-            const amount = stringToDecimal(row.amount);
-            const amountCurrency = row.amount_currency;
-            const side = row.side;
-            const price = stringToDecimal(row.price);
-            const priceCurrency = row.price_currency;
-            const feeCost = stringToDecimal(row.fee_cost);
-            const feeCurrency = row.fee_currency;
-
-            // Initialize currency balances with Decimal zero
-            if (amountCurrency && !balances[amountCurrency]) balances[amountCurrency] = new Decimal(0);
-            if (priceCurrency && !balances[priceCurrency]) balances[priceCurrency] = new Decimal(0);
-
-            // Calculate balance changes based on transaction type
-            switch (type) {
-              case 'deposit':
-                if (amountCurrency && balances[amountCurrency]) {
-                  balances[amountCurrency] = balances[amountCurrency].plus(amount);
-                }
-                break;
-
-              case 'withdrawal':
-                if (amountCurrency && balances[amountCurrency]) {
-                  balances[amountCurrency] = balances[amountCurrency].minus(amount);
-                }
-                break;
-
-              case 'fee':
-                // Fee transactions reduce the balance of the fee currency
-                if (amountCurrency && balances[amountCurrency]) {
-                  balances[amountCurrency] = balances[amountCurrency].minus(amount);
-                }
-                break;
-
-              case 'trade':
-              case 'limit':
-              case 'market':
-                if (side === 'buy') {
-                  // Buying: increase base currency, decrease quote currency
-                  if (amountCurrency && balances[amountCurrency]) {
-                    balances[amountCurrency] = balances[amountCurrency].plus(amount);
-                  }
-                  if (priceCurrency && !price.isZero()) {
-                    if (!balances[priceCurrency]) balances[priceCurrency] = new Decimal(0);
-                    balances[priceCurrency] = balances[priceCurrency].minus(price);
-                  }
-                } else if (side === 'sell') {
-                  // Selling: decrease base currency, increase quote currency  
-                  if (amountCurrency && balances[amountCurrency]) {
-                    balances[amountCurrency] = balances[amountCurrency].minus(amount);
-                  }
-                  if (priceCurrency && !price.isZero()) {
-                    if (!balances[priceCurrency]) balances[priceCurrency] = new Decimal(0);
-                    balances[priceCurrency] = balances[priceCurrency].plus(price);
-                  }
-                }
-                break;
-            }
-
-            // Handle fees using direct columns with Decimal precision
-            if (!feeCost.isZero() && feeCurrency) {
-              if (!balances[feeCurrency]) balances[feeCurrency] = new Decimal(0);
-              balances[feeCurrency] = balances[feeCurrency].minus(feeCost); // Fees reduce balance
-            }
-          }
-
-          // Remove currencies with zero or very small balances for cleaner output
-          const cleanedBalances: Record<string, number> = {};
-          for (const [currency, balance] of Object.entries(balances)) {
-            if (balance.abs().greaterThan(0.00000001)) { // Only include meaningful balances
-              cleanedBalances[currency] = balance.toNumber();
-            }
-          }
-
-          resolve(cleanedBalances);
-        }
-      });
-    });
-  }
 
   async close(): Promise<void> {
     return new Promise((resolve) => {
@@ -975,60 +844,25 @@ export class Database {
     });
   }
 
-  async linkTransactionToWallets(transactionId: string, fromAddress?: string, toAddress?: string): Promise<void> {
-    return new Promise(async (resolve, reject) => {
-      try {
-        let walletId: number | null = null;
+  async updateTransactionAddresses(transactionId: string, fromAddress?: string, toAddress?: string, walletId?: number): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const query = `
+        UPDATE transactions 
+        SET from_address = ?, to_address = ?, wallet_id = ?
+        WHERE id = ?
+      `;
 
-        // Find wallet ID for either address if it matches a user wallet
-        // Priority: check fromAddress first, then toAddress
-        if (fromAddress) {
-          const possibleBlockchains = ['injective', 'ethereum', 'bitcoin'];
-          for (const blockchain of possibleBlockchains) {
-            // Normalize address for case-insensitive matching (especially important for Ethereum)
-            const normalizedAddress = blockchain === 'ethereum' ? fromAddress.toLowerCase() : fromAddress;
-            const wallet = await this.findWalletAddressByAddressNormalized(normalizedAddress, blockchain);
-            if (wallet) {
-              walletId = wallet.id;
-              break;
-            }
+      this.db.run(
+        query,
+        [fromAddress, toAddress, walletId, transactionId],
+        (err) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve();
           }
         }
-
-        // If no wallet found for fromAddress, try toAddress
-        if (!walletId && toAddress) {
-          const possibleBlockchains = ['injective', 'ethereum', 'bitcoin'];
-          for (const blockchain of possibleBlockchains) {
-            // Normalize address for case-insensitive matching (especially important for Ethereum)
-            const normalizedAddress = blockchain === 'ethereum' ? toAddress.toLowerCase() : toAddress;
-            const wallet = await this.findWalletAddressByAddressNormalized(normalizedAddress, blockchain);
-            if (wallet) {
-              walletId = wallet.id;
-              break;
-            }
-          }
-        }
-
-        const query = `
-          UPDATE transactions 
-          SET from_address = ?, to_address = ?, wallet_id = ?
-          WHERE id = ?
-        `;
-
-        this.db.run(
-          query,
-          [fromAddress, toAddress, walletId, transactionId],
-          (err) => {
-            if (err) {
-              reject(err);
-            } else {
-              resolve();
-            }
-          }
-        );
-      } catch (error) {
-        reject(error);
-      }
+      );
     });
   }
 }

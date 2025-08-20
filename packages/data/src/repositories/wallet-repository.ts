@@ -36,7 +36,4 @@ export class WalletRepository {
     return this.database.deleteWalletAddress(id);
   }
 
-  async linkTransactionToWallets(transactionId: string, fromAddress?: string, toAddress?: string): Promise<void> {
-    return this.database.linkTransactionToWallets(transactionId, fromAddress, toAddress);
-  }
 }

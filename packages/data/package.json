@@ -32,6 +32,7 @@
   },
   "peerDependencies": {
     "@crypto/core": "workspace:*",
-    "@crypto/shared-logger": "workspace:*"
+    "@crypto/shared-logger": "workspace:*",
+    "@crypto/shared-utils": "workspace:*"
   }
 }

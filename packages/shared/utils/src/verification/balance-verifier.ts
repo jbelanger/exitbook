@@ -1,17 +1,18 @@
 import type { BalanceComparison, BalanceVerificationRecord, BalanceVerificationResult, IExchangeAdapter } from '@crypto/core';
 import type { Database } from '@crypto/data';
-import { BalanceRepository } from '@crypto/data';
+import { BalanceRepository, BalanceService } from '@crypto/data';
 import { getLogger } from '@crypto/shared-logger';
 
 
 export class BalanceVerifier {
   private logger = getLogger('BalanceVerifier');
   private database: Database;
-  private balanceRepository: BalanceRepository;
+  private balanceService: BalanceService;
 
   constructor(database: Database) {
     this.database = database;
-    this.balanceRepository = new BalanceRepository(database);
+    const balanceRepository = new BalanceRepository(database);
+    this.balanceService = new BalanceService(balanceRepository);
   }
 
   async verifyAllExchanges(exchanges: IExchangeAdapter[]): Promise<BalanceVerificationResult[]> {
@@ -60,7 +61,7 @@ export class BalanceVerifier {
         this.logger.info(`Skipping balance verification for ${exchangeId} - adapter does not support live balance fetching`);
 
         // For CSV adapters, we can still show calculated balances as informational
-        const calculatedBalances = await this.balanceRepository.calculateBalances(exchangeId);
+        const calculatedBalances = await this.balanceService.calculateBalances(exchangeId);
         const comparisons = this.createCalculatedOnlyComparisons(calculatedBalances);
 
         const result: BalanceVerificationResult = {
@@ -88,7 +89,7 @@ export class BalanceVerifier {
       const liveBalance = await exchange.fetchBalance();
 
       // Calculate balances from our stored transactions
-      const calculatedBalances = await this.balanceRepository.calculateBalances(exchangeId);
+      const calculatedBalances = await this.balanceService.calculateBalances(exchangeId);
 
       // Compare balances - convert array to object format
       const liveBalanceObj = this.convertBalanceArrayToObject(liveBalance);
@@ -208,7 +209,7 @@ export class BalanceVerifier {
         created_at: Date.now()
       };
 
-      await this.balanceRepository.saveVerification(record);
+      await this.balanceService.saveVerification(record);
     }
   }
 
@@ -249,7 +250,7 @@ export class BalanceVerifier {
   }
 
   async getVerificationHistory(exchangeId?: string): Promise<BalanceVerificationRecord[]> {
-    return await this.balanceRepository.getLatestVerifications(exchangeId);
+    return await this.balanceService.getLatestVerifications(exchangeId);
   }
 
   // Generate a verification report

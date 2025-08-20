@@ -5,7 +5,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
-import { Database, TransactionRepository, WalletRepository, WalletService } from '@crypto/data';
+import { Database, TransactionRepository, TransactionService, WalletRepository, WalletService } from '@crypto/data';
 import { BlockchainAdapterFactory } from '../adapters/blockchains/index.ts';
 import { ExchangeAdapterFactory } from '../adapters/exchanges/adapter-factory.ts';
 import { detectScamFromSymbol } from '../utils/scam-detection.ts';
@@ -29,7 +29,7 @@ interface BlockchainImportOptions {
 export class TransactionImporter {
   private logger = getLogger('TransactionImporter');
   private database: Database;
-  private transactionRepository: TransactionRepository;
+  private transactionService: TransactionService;
   private deduplicator: Deduplicator;
   private adapterFactory: ExchangeAdapterFactory;
   private blockchainAdapterFactory: BlockchainAdapterFactory;
@@ -37,11 +37,12 @@ export class TransactionImporter {
 
   constructor(database: Database) {
     this.database = database;
-    this.transactionRepository = new TransactionRepository(database);
+    const transactionRepository = new TransactionRepository(database);
+    const walletRepository = new WalletRepository(database);
+    this.transactionService = new TransactionService(transactionRepository, walletRepository);
     this.deduplicator = new Deduplicator();
     this.adapterFactory = new ExchangeAdapterFactory();
     this.blockchainAdapterFactory = new BlockchainAdapterFactory();
-    const walletRepository = new WalletRepository(database);
     this.walletService = new WalletService(walletRepository);
   }
 
@@ -224,7 +225,7 @@ export class TransactionImporter {
       const { unique, duplicates } = await this.deduplicator.process(transactions, blockchainId);
 
       // Save new transactions to database
-      const saved = await this.transactionRepository.saveMany(unique);
+      const saved = await this.transactionService.saveMany(unique);
 
       // Link transactions to wallet addresses after successful import
       if (saved > 0) {
@@ -295,7 +296,7 @@ export class TransactionImporter {
       const { unique, duplicates } = await this.deduplicator.process(transactions, exchangeId);
 
       // Save new transactions to database
-      const saved = await this.transactionRepository.saveMany(unique);
+      const saved = await this.transactionService.saveMany(unique);
 
 
       const duration = Date.now() - startTime;
@@ -561,8 +562,8 @@ export class TransactionImporter {
           continue; // Skip transactions without addresses
         }
 
-        // Link transaction to wallet addresses (database method handles wallet lookup and internal transfer detection)
-        await this.database.linkTransactionToWallets(
+        // Link transaction to wallet addresses
+        await this.transactionService.linkTransactionToWallets(
           transaction.id,
           fromAddress || undefined,
           toAddress || undefined
