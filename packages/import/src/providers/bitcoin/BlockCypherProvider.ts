@@ -487,7 +487,7 @@ export class BlockCypherProvider extends BaseRegistryProvider {
         confirmations: tx.confirmations || 0
       };
     } catch (error) {
-      this.logger.error(`Failed to parse BlockCypher wallet transaction ${tx.hash} - Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}, TxData: ${JSON.stringify(tx}`);
+      this.logger.error(`Failed to parse BlockCypher wallet transaction ${tx.hash} - Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}, TxData: ${JSON.stringify(tx)}`);
       throw error;
     }
   }

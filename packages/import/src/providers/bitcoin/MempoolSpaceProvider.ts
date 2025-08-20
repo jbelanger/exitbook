@@ -323,7 +323,7 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
         confirmations: tx.status.confirmed ? 1 : 0
       };
     } catch (error) {
-      this.logger.error(`Failed to parse wallet transaction ${tx.txid} - Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}, TxData: ${JSON.stringify(tx}`);
+      this.logger.error(`Failed to parse wallet transaction ${tx.txid} - Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}, TxData: ${JSON.stringify(tx)}`);
       throw error;
     }
   }
