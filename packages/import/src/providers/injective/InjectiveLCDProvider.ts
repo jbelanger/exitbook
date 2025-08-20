@@ -44,7 +44,7 @@ export class InjectiveLCDProvider extends BaseRegistryProvider {
   constructor() {
     super('injective', 'injective-lcd', 'mainnet');
 
-    this.logger.info(`Initialized InjectiveLCDProvider from registry metadata - Network: ${this.network}, BaseUrl: ${this.baseUrl}`);
+    this.logger.debug(`Initialized InjectiveLCDProvider from registry metadata - Network: ${this.network}, BaseUrl: ${this.baseUrl}`);
   }
 
   async isHealthy(): Promise<boolean> {
@@ -64,7 +64,7 @@ export class InjectiveLCDProvider extends BaseRegistryProvider {
   async testConnection(): Promise<boolean> {
     try {
       const result = await this.isHealthy();
-      this.logger.info(`Connection test result - Healthy: ${result}`);
+      this.logger.debug(`Connection test result - Healthy: ${result}`);
       return result;
     } catch (error) {
       this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
@@ -114,7 +114,7 @@ export class InjectiveLCDProvider extends BaseRegistryProvider {
         };
       });
 
-      this.logger.info(`Successfully retrieved address balance - Address: ${this.maskAddress(address)}, BalanceCount: ${balances.length}, Network: ${this.network}`);
+      this.logger.debug(`Successfully retrieved address balance - Address: ${this.maskAddress(address)}, BalanceCount: ${balances.length}, Network: ${this.network}`);
 
       return balances;
 
@@ -139,7 +139,7 @@ export class InjectiveLCDProvider extends BaseRegistryProvider {
       this.logger.warn(`Contract address filtering not fully supported for Injective LCD API`);
     }
 
-    this.logger.info(`Successfully retrieved token balances - Address: ${this.maskAddress(address)}, BalanceCount: ${allBalances.length}, Network: ${this.network}`);
+    this.logger.debug(`Successfully retrieved token balances - Address: ${this.maskAddress(address)}, BalanceCount: ${allBalances.length}, Network: ${this.network}`);
 
     return allBalances;
   }

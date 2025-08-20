@@ -110,7 +110,7 @@ export class BlockCypherProvider extends BaseRegistryProvider {
   constructor() {
     super('bitcoin', 'blockcypher', 'mainnet');
 
-    this.logger.info(`Initialized BlockCypherProvider from registry metadata - Network: ${this.network}, BaseUrl: ${this.baseUrl}, HasApiKey: ${this.apiKey !== 'YourApiKeyToken'}`);
+    this.logger.debug(`Initialized BlockCypherProvider from registry metadata - Network: ${this.network}, BaseUrl: ${this.baseUrl}, HasApiKey: ${this.apiKey !== 'YourApiKeyToken'}`);
   }
 
   async isHealthy(): Promise<boolean> {
@@ -127,7 +127,7 @@ export class BlockCypherProvider extends BaseRegistryProvider {
     try {
       // Test with a simple endpoint that should always work
       const chainInfo = await this.httpClient.get('/');
-      this.logger.info(`Connection test successful - ChainInfo: ${chainInfo.name}`);
+      this.logger.debug(`Connection test successful - ChainInfo: ${chainInfo.name}`);
       return chainInfo && typeof chainInfo === 'object' && 'name' in chainInfo;
     } catch (error) {
       this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
@@ -214,7 +214,7 @@ export class BlockCypherProvider extends BaseRegistryProvider {
       // Sort by timestamp (newest first)
       filteredTransactions.sort((a, b) => b.timestamp - a.timestamp);
 
-      this.logger.info(`Successfully retrieved address transactions - Address: ${this.maskAddress(address)}, TotalTransactions: ${filteredTransactions.length}`);
+      this.logger.debug(`Successfully retrieved address transactions - Address: ${this.maskAddress(address)}, TotalTransactions: ${filteredTransactions.length}`);
 
       return filteredTransactions;
 
@@ -238,7 +238,7 @@ export class BlockCypherProvider extends BaseRegistryProvider {
       // Convert satoshis to BTC
       const balanceBTC = (balanceSats / 100000000).toString();
 
-      this.logger.info(`Successfully retrieved address balance - Address: ${this.maskAddress(address)}, UnconfirmedBalance: ${addressInfo.unconfirmed_balance}`);
+      this.logger.debug(`Successfully retrieved address balance - Address: ${this.maskAddress(address)}, UnconfirmedBalance: ${addressInfo.unconfirmed_balance}`);
 
       return {
         balance: balanceBTC,
