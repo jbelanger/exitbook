@@ -152,7 +152,7 @@ build/
 out/
 
 # Project specific - Exclude ALL personal financial data
-data/
+/data/
 *.csv
 *.db
 *.sqlite
