@@ -25,9 +25,7 @@ export class BalanceVerifier {
         results.push(result);
       } catch (error) {
         const exchangeInfo = await exchange.getExchangeInfo().catch(() => ({ id: 'unknown' }));
-        this.logger.error(`Balance verification failed for ${exchangeInfo.id}`, {
-          error: error instanceof Error ? error.message : 'Unknown error'
-        });
+        this.logger.error(`Balance verification failed for ${exchangeInfo.id}: ${error instanceof Error ? error.message : 'Unknown error'}`);
 
         results.push({
           exchange: exchangeInfo.id,
@@ -78,9 +76,7 @@ export class BalanceVerifier {
           note: 'CSV adapter - showing calculated balances only (no live verification possible)'
         };
 
-        this.logger.info(`Balance calculation completed for ${exchangeId} (CSV mode)`, {
-          totalCurrencies: result.summary.totalCurrencies
-        });
+        this.logger.info(`Balance calculation completed for ${exchangeId} (CSV mode) - TotalCurrencies: ${result.summary.totalCurrencies}`);
 
         return result;
       }
@@ -115,18 +111,11 @@ export class BalanceVerifier {
         summary
       };
 
-      this.logger.info(`Balance verification completed for ${exchangeId}`, {
-        status,
-        totalCurrencies: summary.totalCurrencies,
-        matches: summary.matches,
-        mismatches: summary.mismatches
-      });
+      this.logger.info(`Balance verification completed for ${exchangeId} - Status: ${status}, TotalCurrencies: ${summary.totalCurrencies}, Matches: ${summary.matches}, Mismatches: ${summary.mismatches}`);
 
       return result;
     } catch (error) {
-      this.logger.error(`Balance verification failed for ${exchangeId}`, {
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      this.logger.error(`Balance verification failed for ${exchangeId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw error;
     }
   }
@@ -331,26 +320,10 @@ export class BalanceVerifier {
     const level = result.status === 'mismatch' ? 'warn' : 'info';
     const message = `Balance verification ${result.status} for ${exchange} ${currency}`;
 
-    this.logger[level](message, {
-      exchange,
-      currency,
-      operation: 'balance_verification',
-      liveBalance: result.liveBalance,
-      calculatedBalance: result.calculatedBalance,
-      difference: result.difference,
-      percentageDiff: result.percentageDiff,
-      status: result.status,
-      timestamp: Date.now()
-    });
+    this.logger[level](`${message} - Exchange: ${exchange}, Currency: ${currency}, Operation: balance_verification, LiveBalance: ${result.liveBalance}, CalculatedBalance: ${result.calculatedBalance}, Difference: ${result.difference}, PercentageDiff: ${result.percentageDiff}%, Status: ${result.status}`);
   }
 
   logBalanceDiscrepancy(exchange: string, currency: string, discrepancy: any) {
-    this.logger.error(`Significant balance discrepancy detected`, {
-      exchange,
-      currency,
-      operation: 'balance_verification_error',
-      ...discrepancy,
-      timestamp: Date.now()
-    });
+    this.logger.error(`Significant balance discrepancy detected - Exchange: ${exchange}, Currency: ${currency}, Operation: balance_verification_error, LiveBalance: ${discrepancy.liveBalance}, CalculatedBalance: ${discrepancy.calculatedBalance}, Difference: ${discrepancy.difference}, PercentageDiff: ${discrepancy.percentageDiff}%`);
   }
 } 

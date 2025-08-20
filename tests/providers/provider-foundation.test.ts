@@ -4,9 +4,9 @@
  */
 
 import { IBlockchainProvider, ProviderCapabilities, ProviderOperation, RateLimitConfig } from '../../src/core/types';
+import { ProviderInfo, ProviderRegistry } from '../../src/providers/registry/index';
 import { BlockchainProviderManager } from '../../src/providers/shared/BlockchainProviderManager';
 import { CircuitBreaker } from '../../src/providers/shared/CircuitBreaker';
-import { ProviderRegistry, ProviderInfo } from '../../src/providers/registry/index';
 
 // Import providers to trigger registration
 import '../../src/providers/ethereum/EtherscanProvider';

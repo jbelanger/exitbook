@@ -1,8 +1,5 @@
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 interface ExplorerConfig {
   name: string;
@@ -32,20 +29,23 @@ interface BlockchainExplorersConfig {
  * Load blockchain explorer configuration from JSON
  */
 export function loadExplorerConfig(): BlockchainExplorersConfig {
-  const configPath = path.join(__dirname, '../../config/blockchain-explorers.json');
+  // Get config path from environment variable or use default
+  const configPath = process.env.BLOCKCHAIN_EXPLORERS_CONFIG 
+    ? path.resolve(process.cwd(), process.env.BLOCKCHAIN_EXPLORERS_CONFIG)
+    : path.join(process.cwd(), 'config/blockchain-explorers.json');
   
   try {
     const configData = fs.readFileSync(configPath, 'utf-8');
     return JSON.parse(configData);
   } catch (error) {
-    throw new Error(`Failed to load blockchain explorer configuration: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(`Failed to load blockchain explorer configuration from ${configPath}: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
 /**
  * Get enabled explorers for a blockchain and network
  */
-export function getEnabledExplorers(blockchain: string, network: string = 'mainnet'): ExplorerConfig[] {
+export function getEnabledExplorers(blockchain: string): ExplorerConfig[] {
   const config = loadExplorerConfig();
   const blockchainConfig = config[blockchain];
   
@@ -61,7 +61,7 @@ export function getEnabledExplorers(blockchain: string, network: string = 'mainn
 /**
  * Get explorer configuration for a specific explorer
  */
-export function getExplorerConfig(blockchain: string, explorerName: string, network: string = 'mainnet'): ExplorerConfig | null {
+export function getExplorerConfig(blockchain: string, explorerName: string): ExplorerConfig | null {
   const config = loadExplorerConfig();
   const blockchainConfig = config[blockchain];
   

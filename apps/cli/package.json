@@ -5,7 +5,7 @@
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf node_modules dist",
-    "dev": "LOG_LEVEL=debug tsx ./index.ts",
+    "dev": "tsx --env-file-if-exists=.env ./index.ts",
     "start": "node dist/index.js",
     "import": "tsx ./index.ts import",
     "import:verify": "tsx ./index.ts import --verify",

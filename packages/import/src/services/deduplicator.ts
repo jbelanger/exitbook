@@ -30,12 +30,7 @@ export class Deduplicator {
       }
     }
 
-    this.logger.info(`Deduplication completed for ${exchangeId}`, {
-      total: transactions.length,
-      unique: unique.length,
-      duplicates: duplicates.length,
-      duplicatePercentage: ((duplicates.length / transactions.length) * 100).toFixed(2)
-    });
+    this.logger.info(`Deduplication completed for ${exchangeId} - Total: ${transactions.length}, Unique: ${unique.length}, Duplicates: ${duplicates.length} (${((duplicates.length / transactions.length) * 100).toFixed(2)}%)`);
 
     return { unique, duplicates };
   }
@@ -69,12 +64,7 @@ export class Deduplicator {
       }
     }
 
-    this.logger.info(`Advanced deduplication completed for ${exchangeId}`, {
-      total: transactions.length,
-      unique: unique.length,
-      duplicates: duplicates.length,
-      duplicatePercentage: ((duplicates.length / transactions.length) * 100).toFixed(2)
-    });
+    this.logger.info(`Advanced deduplication completed for ${exchangeId} - Total: ${transactions.length}, Unique: ${unique.length}, Duplicates: ${duplicates.length} (${((duplicates.length / transactions.length) * 100).toFixed(2)}%)`);
 
     return { unique, duplicates };
   }
@@ -157,12 +147,7 @@ export class Deduplicator {
     }
 
     if (Object.values(anomalies).some(arr => arr.length > 0)) {
-      this.logger.warn('Data quality issues detected', {
-        missingIds: anomalies.missingIds.length,
-        invalidTimestamps: anomalies.invalidTimestamps.length,
-        zeroAmounts: anomalies.zeroAmounts.length,
-        missingSymbols: anomalies.missingSymbols.length
-      });
+      this.logger.warn(`Data quality issues detected - Missing IDs: ${anomalies.missingIds.length}, Invalid timestamps: ${anomalies.invalidTimestamps.length}, Zero amounts: ${anomalies.zeroAmounts.length}, Missing symbols: ${anomalies.missingSymbols.length}`);
     }
 
     return anomalies;
@@ -182,11 +167,6 @@ export class Deduplicator {
   }
 
   logDuplicateTransaction(transactionId: string, exchange: string) {
-    this.logger.debug(`Duplicate transaction skipped`, {
-      transactionId,
-      exchange,
-      operation: 'duplicate_detection',
-      timestamp: Date.now()
-    });
+    this.logger.debug(`Duplicate transaction skipped - ID: ${transactionId}, Exchange: ${exchange}, Operation: duplicate_detection, Timestamp: ${Date.now()}`);
   }
 } 

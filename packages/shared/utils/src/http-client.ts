@@ -42,12 +42,7 @@ export class HttpClient {
     this.logger = getLogger(`HttpClient:${config.providerName}`);
     this.rateLimiter = RateLimiterFactory.getOrCreate(config.providerName, config.rateLimit);
 
-    this.logger.info('HTTP client initialized', {
-      baseUrl: config.baseUrl,
-      timeout: this.config.timeout,
-      retries: this.config.retries,
-      rateLimit: config.rateLimit
-    });
+    this.logger.info(`HTTP client initialized - BaseUrl: ${config.baseUrl}, Timeout: ${this.config.timeout}ms, Retries: ${this.config.retries}, RateLimit: ${JSON.stringify(config.rateLimit)}`);
   }
 
   /**
@@ -64,12 +59,7 @@ export class HttpClient {
 
     for (let attempt = 1; attempt <= this.config.retries!; attempt++) {
       try {
-        this.logger.debug('Making HTTP request', {
-          url: this.sanitizeUrl(url),
-          method,
-          attempt,
-          maxRetries: this.config.retries
-        });
+        this.logger.debug(`Making HTTP request - URL: ${this.sanitizeUrl(url)}, Method: ${method}, Attempt: ${attempt}/${this.config.retries}`);
 
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
@@ -105,11 +95,7 @@ export class HttpClient {
             const retryAfter = response.headers.get('Retry-After');
             const delay = retryAfter ? parseInt(retryAfter) * 1000 : 2000;
 
-            this.logger.warn('Rate limit exceeded by server, waiting before retry', {
-              delay,
-              attempt,
-              maxRetries: this.config.retries
-            });
+            this.logger.warn(`Rate limit exceeded by server, waiting before retry - Delay: ${delay}ms, Attempt: ${attempt}/${this.config.retries}`);
 
             if (attempt < this.config.retries!) {
               await this.delay(delay);
@@ -158,16 +144,11 @@ export class HttpClient {
           lastError = new Error(`Request timeout after ${timeout}ms`);
         }
 
-        this.logger.warn('Request failed', {
-          url: this.sanitizeUrl(url),
-          attempt,
-          maxRetries: this.config.retries,
-          error: lastError.message
-        });
+        this.logger.warn(`Request failed - URL: ${this.sanitizeUrl(url)}, Attempt: ${attempt}/${this.config.retries}, Error: ${lastError.message}`);
 
         if (attempt < this.config.retries!) {
           const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000); // Exponential backoff
-          this.logger.debug('Retrying after delay', { delay, nextAttempt: attempt + 1 });
+          this.logger.debug(`Retrying after delay - Delay: ${delay}ms, NextAttempt: ${attempt + 1}`);
           await this.delay(delay);
         }
       }

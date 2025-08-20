@@ -1,18 +1,16 @@
 #!/usr/bin/env node
+import { Database } from '@crypto/data';
+import { TransactionImporter } from '@crypto/import';
+import { getLogger } from '@crypto/shared-logger';
+import { BalanceVerifier } from '@crypto/shared-utils';
 import { Command } from 'commander';
-import { config } from 'dotenv';
 import path from 'path';
 import 'reflect-metadata';
-import { fileURLToPath } from 'url';
-import { getLogger } from '@crypto/shared-logger';
-import { Database } from '@crypto/data';
-import { BalanceVerifier } from '@crypto/shared-utils';
-import { TransactionImporter } from '@crypto/import';
 
 // Load environment variables
-config();
+//config();
 
-const __filename = fileURLToPath(import.meta.url);
+//const __filename = fileURLToPath(import.meta.url);
 
 const logger = getLogger('CLI');
 const program = new Command();
@@ -36,12 +34,12 @@ async function main() {
     .option('--clear-db', 'Clear and reinitialize database before import')
     .action(async (options) => {
       try {
-        logger.info('Starting transaction import', options);
+        logger.info('Starting transaction import');
 
         const database = new Database();
         if (options.clearDb) {
           await database.clearAndReinitialize();
-          console.log('🗑️  Database cleared and reinitialized');
+          logger.info('Database cleared and reinitialized');
         }
         const importer = new TransactionImporter(database);
 
@@ -81,20 +79,17 @@ async function main() {
         }
 
         // Display results
-        console.log('\n🎉 Import completed!');
-        console.log(`Total transactions: ${result.totalTransactions}`);
-        console.log(`New transactions: ${result.newTransactions}`);
-        console.log(`Duplicates skipped: ${result.duplicatesSkipped}`);
-        console.log(`Duration: ${(result.duration / 1000).toFixed(1)}s`);
-
+        logger.info(`Import completed - Total: ${result.totalTransactions}, New: ${result.newTransactions}, Duplicates: ${result.duplicatesSkipped}, Duration: ${(result.duration / 1000).toFixed(1)}s`);
         if (result.errors.length > 0) {
-          console.log('\n⚠️  Errors encountered:');
-          result.errors.forEach((error: string) => console.log(`  - ${error}`));
+          logger.warn(`Errors encountered during import: ${result.errors.length} errors`);
+          result.errors.forEach((error: any, index: number) => {
+            logger.warn(`Error ${index + 1}: ${error}`);
+          });
         }
 
         // Run verification if requested
         if (options.verify) {
-          console.log('\n🔍 Running balance verification...');
+          logger.info('Running balance verification');
           const verifier = new BalanceVerifier(database);
           let adapters;
           if (options.blockchain) {
@@ -117,7 +112,7 @@ async function main() {
 
         await database.close();
       } catch (error) {
-        logger.error('Import failed', { error: error instanceof Error ? error.message : 'Unknown error' });
+        logger.error(`Import failed: ${error}`);
         process.exit(1);
       }
     });
@@ -134,12 +129,12 @@ async function main() {
     .option('--clear-db', 'Clear and reinitialize database before verify')
     .action(async (options) => {
       try {
-        logger.info('Starting balance verification', options);
+        logger.info('Starting balance verification');
 
         const database = new Database();
         if (options.clearDb) {
           await database.clearAndReinitialize();
-          console.log('🗑️  Database cleared and reinitialized');
+          logger.info('Database cleared and reinitialized');
         }
         const verifier = new BalanceVerifier(database);
         const importer = new TransactionImporter(database);
@@ -194,7 +189,7 @@ async function main() {
           const report = await verifier.generateReport(results);
           const reportPath = path.join(process.cwd(), 'data', 'verification-report.md');
           await import('fs').then(fs => fs.promises.writeFile(reportPath, report));
-          console.log(`\n📊 Detailed report saved to: ${reportPath}`);
+          logger.info(`Verification report generated: ${reportPath}`);
         }
 
         // Close all adapters
@@ -202,13 +197,13 @@ async function main() {
           try {
             await adapter.close();
           } catch (closeError) {
-            logger.warn(`Failed to close adapter`, { closeError });
+            logger.warn(`Failed to close adapter: ${closeError}`);
           }
         }
 
         await database.close();
       } catch (error) {
-        logger.error('Verification failed', { error: error instanceof Error ? error.message : 'Unknown error' });
+        logger.error(`Verification failed: ${error}`);
         process.exit(1);
       }
     });
@@ -224,28 +219,28 @@ async function main() {
         const database = new Database();
         if (options.clearDb) {
           await database.clearAndReinitialize();
-          console.log('🗑️  Database cleared and reinitialized');
+          logger.info('Database cleared and reinitialized');
         }
         const stats = await database.getStats();
 
-        console.log('\n📊 System Status');
-        console.log('================');
-        console.log(`Total transactions: ${stats.totalTransactions}`);
-        console.log(`Total exchanges: ${stats.totalExchanges}`);
-        console.log(`Total verifications: ${stats.totalVerifications}`);
-        console.log(`Total snapshots: ${stats.totalSnapshots}`);
+        logger.info('\nSystem Status');
+        logger.info('================');
+        logger.info(`Total transactions: ${stats.totalTransactions}`);
+        logger.info(`Total exchanges: ${stats.totalExchanges}`);
+        logger.info(`Total verifications: ${stats.totalVerifications}`);
+        logger.info(`Total snapshots: ${stats.totalSnapshots}`);
 
         if (stats.transactionsByExchange.length > 0) {
-          console.log('\n📈 Transactions by Exchange:');
+          logger.info('\n📈 Transactions by Exchange:');
           for (const { exchange, count } of stats.transactionsByExchange) {
-            console.log(`  ${exchange}: ${count}`);
+            logger.info(`  ${exchange}: ${count}`);
           }
         }
 
         // Show recent verification results
         const latestVerifications = await database.getLatestBalanceVerifications();
         if (latestVerifications.length > 0) {
-          console.log('\n🔍 Latest Balance Verifications:');
+          logger.info('\n🔍 Latest Balance Verifications:');
           const groupedByExchange = latestVerifications.reduce((acc, v) => {
             if (!acc[v.exchange]) acc[v.exchange] = [];
             acc[v.exchange]!.push(v);
@@ -256,13 +251,13 @@ async function main() {
             const matches = verifications.filter(v => v.status === 'match').length;
             const total = verifications.length;
             const status = matches === total ? '✅' : '⚠️';
-            console.log(`  ${status} ${exchange}: ${matches}/${total} balances match`);
+            logger.info(`  ${status} ${exchange}: ${matches}/${total} balances match`);
           }
         }
 
         await database.close();
       } catch (error) {
-        logger.error('Status check failed', { error: error instanceof Error ? error.message : 'Unknown error' });
+        logger.error(`Status check failed: ${error}`);
         process.exit(1);
       }
     });
@@ -278,12 +273,12 @@ async function main() {
     .option('--clear-db', 'Clear and reinitialize database before export')
     .action(async (options) => {
       try {
-        logger.info('Starting export', options);
+        logger.info('Starting export');
 
         const database = new Database();
         if (options.clearDb) {
           await database.clearAndReinitialize();
-          console.log('🗑️  Database cleared and reinitialized');
+          logger.info('Database cleared and reinitialized');
         }
 
         let since: number | undefined;
@@ -307,11 +302,11 @@ async function main() {
           await import('fs').then(fs => fs.promises.writeFile(outputPath, json));
         }
 
-        console.log(`\n💾 Exported ${transactions.length} transactions to: ${outputPath}`);
+        logger.info(`\n💾 Exported ${transactions.length} transactions to: ${outputPath}`);
 
         await database.close();
       } catch (error) {
-        logger.error('Export failed', { error: error instanceof Error ? error.message : 'Unknown error' });
+        logger.error(`Export failed: ${error}`);
         process.exit(1);
       }
     });
@@ -332,7 +327,7 @@ async function main() {
         const database = new Database();
         if (options.clearDb) {
           await database.clearAndReinitialize();
-          console.log('🗑️  Database cleared and reinitialized');
+          logger.info('Database cleared and reinitialized');
         }
         const importer = new TransactionImporter(database);
         // Validate blockchain + addresses combination
@@ -361,8 +356,9 @@ async function main() {
           adapters = configuredExchanges;
         }
 
-        console.log('\n🔗 Testing Connections');
-        console.log('=================================');
+        logger.info(`Testing connections for ${adapters.length} adapters`);
+        logger.info('\nTesting Connections');
+        logger.info('=================================');
 
         for (const { adapter } of adapters) {
           let connectionInfo;
@@ -379,20 +375,22 @@ async function main() {
           process.stdout.write(`Testing ${connectionInfo.id}... `);
 
           const isConnected = await adapter.testConnection();
-          console.log(isConnected ? '✅ Connected' : '❌ Failed');
+          logger.info(`Connection test result for ${connectionInfo.id}: ${isConnected ? 'Connected' : 'Failed'}`);
+          logger.info(isConnected ? 'Connected' : 'Failed');
 
           if (isConnected && connectionInfo.capabilities) {
             const capabilities = connectionInfo.capabilities;
             const capabilityList = Object.entries(capabilities).filter(([_, v]) => v).map(([k]) => k).join(', ');
             if (capabilityList) {
-              console.log(`  Capabilities: ${capabilityList}`);
+              logger.debug(`Adapter capabilities for ${connectionInfo.id}: ${capabilityList}`);
+              logger.info(`  Capabilities: ${capabilityList}`);
             }
           }
         }
 
         await database.close();
       } catch (error) {
-        logger.error('Connection test failed', { error: error instanceof Error ? error.message : 'Unknown error' });
+        logger.error(`Connection test failed: ${error}`);
         process.exit(1);
       }
     });
@@ -401,21 +399,22 @@ async function main() {
 }
 
 function displayVerificationResults(results: any[]): void {
-  console.log('\n🔍 Balance Verification Results');
-  console.log('================================');
+  const logger = getLogger('CLI');
+  logger.info('\nBalance Verification Results');
+  logger.info('================================');
 
   for (const result of results) {
     const statusIcon = result.status === 'success' ? '✅' : result.status === 'warning' ? '⚠️' : '❌';
-    console.log(`\n${statusIcon} ${result.exchange} - ${result.status.toUpperCase()}`);
+    logger.info(`\n${result.exchange} - ${result.status.toUpperCase()}`);
 
     if (result.error) {
-      console.log(`  Error: ${result.error}`);
+      logger.error(`  Error: ${result.error}`);
       continue;
     }
 
     // Special handling for CSV adapters (indicated by note about CSV adapter)
     if (result.note && result.note.includes('CSV adapter')) {
-      console.log(`  📊 Calculated Balances Summary (${result.summary.totalCurrencies} currencies)`);
+      logger.info(`  Calculated Balances Summary (${result.summary.totalCurrencies} currencies)`);
 
       // Show all non-zero calculated balances for CSV adapters
       const significantBalances = result.comparisons
@@ -423,39 +422,39 @@ function displayVerificationResults(results: any[]): void {
         .sort((a: any, b: any) => Math.abs(b.calculatedBalance) - Math.abs(a.calculatedBalance));
 
       if (significantBalances.length > 0) {
-        console.log('  Current balances:');
+        logger.info('  Current balances:');
         for (const balance of significantBalances.slice(0, 25)) { // Show top 25
           const formattedBalance = balance.calculatedBalance.toFixed(8).replace(/\.?0+$/, '');
-          console.log(`    ${balance.currency}: ${formattedBalance}`);
+          logger.info(`    ${balance.currency}: ${formattedBalance}`);
         }
 
         if (significantBalances.length > 25) {
-          console.log(`    ... and ${significantBalances.length - 25} more currencies`);
+          logger.info(`    ... and ${significantBalances.length - 25} more currencies`);
         }
 
         // Show zero balances count if any
         const zeroBalances = result.comparisons.length - significantBalances.length;
         if (zeroBalances > 0) {
-          console.log(`  Zero balances: ${zeroBalances} currencies`);
+          logger.info(`  Zero balances: ${zeroBalances} currencies`);
         }
       } else {
-        console.log('  No significant balances found');
+        logger.info('  No significant balances found');
       }
 
-      console.log(`  Note: ${result.note}`);
+      logger.info(`  Note: ${result.note}`);
     } else {
       // Standard live balance verification display
-      console.log(`  Currencies: ${result.summary.totalCurrencies}`);
-      console.log(`  Matches: ${result.summary.matches}`);
-      console.log(`  Warnings: ${result.summary.warnings}`);
-      console.log(`  Mismatches: ${result.summary.mismatches}`);
+      logger.info(`  Currencies: ${result.summary.totalCurrencies}`);
+      logger.info(`  Matches: ${result.summary.matches}`);
+      logger.info(`  Warnings: ${result.summary.warnings}`);
+      logger.info(`  Mismatches: ${result.summary.mismatches}`);
 
       // Show top issues
       const issues = result.comparisons.filter((c: any) => c.status !== 'match').slice(0, 3);
       if (issues.length > 0) {
-        console.log('  Top issues:');
+        logger.info('  Top issues:');
         for (const issue of issues) {
-          console.log(`    ${issue.currency}: ${issue.difference.toFixed(8)} (${issue.percentageDiff.toFixed(2)}%)`);
+          logger.info(`    ${issue.currency}: ${issue.difference.toFixed(8)} (${issue.percentageDiff.toFixed(2)}%)`);
         }
       }
     }
@@ -566,17 +565,18 @@ async function convertToJSON(transactions: any[]): Promise<string> {
 
 // Handle unhandled rejections
 process.on('unhandledRejection', (reason, promise) => {
-  logger.error('Unhandled Rejection', { reason, promise });
+  logger.error(`Unhandled Rejection: ${reason}`);
   process.exit(1);
 });
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (error) => {
-  logger.error('Uncaught Exception', { error: error.message, stack: error.stack });
+  logger.error(`Uncaught Exception: ${error.message}`);
+  logger.error(`Stack: ${error.stack}`);
   process.exit(1);
 });
 
 main().catch((error) => {
-  logger.error('CLI failed', { error: error.message });
+  logger.error(`CLI failed: ${error}`);
   process.exit(1);
 }); 
