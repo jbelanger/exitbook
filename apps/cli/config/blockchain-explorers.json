@@ -2,53 +2,125 @@
   "bitcoin": {
     "explorers": [
       {
-        "name": "mempool.space",
+        "name": "blockcypher",
+        "displayName": "BlockCypher API",
         "enabled": true,
         "priority": 1,
-        "mainnet": {
-          "baseUrl": "https://mempool.space/api"
+        "type": "rest",
+        "requiresApiKey": true,
+        "apiKeyEnvVar": "BLOCKCYPHER_API_KEY",
+        "description": "Bitcoin blockchain API with high-performance transaction data and balance queries (requires API key for full functionality)",
+        "capabilities": {
+          "supportedOperations": [
+            "getAddressTransactions",
+            "getAddressBalance",
+            "getAddressInfo",
+            "parseWalletTransaction"
+          ],
+          "maxBatchSize": 50,
+          "supportsHistoricalData": true,
+          "supportsRealTimeData": true,
+          "supportsTokenData": false,
+          "supportsPagination": true
         },
-        "testnet": {
-          "baseUrl": "https://mempool.space/testnet/api"
+        "networks": {
+          "mainnet": {
+            "baseUrl": "https://api.blockcypher.com/v1/btc/main"
+          },
+          "testnet": {
+            "baseUrl": "https://api.blockcypher.com/v1/btc/test3"
+          }
         },
-        "rateLimit": {
-          "requestsPerSecond": 1
-        },
-        "timeout": 10000,
-        "retries": 3
+        "defaultConfig": {
+          "timeout": 15000,
+          "retries": 3,
+          "rateLimit": {
+            "requestsPerSecond": 3,
+            "requestsPerMinute": 180,
+            "requestsPerHour": 10800,
+            "burstLimit": 5
+          }
+        }
       },
       {
         "name": "blockstream.info",
-        "enabled": true,
+        "displayName": "Blockstream.info API",
+        "enabled": false,
         "priority": 2,
-        "mainnet": {
-          "baseUrl": "https://blockstream.info/api"
+        "type": "rest",
+        "description": "Bitcoin blockchain explorer API with comprehensive transaction data and pagination support (no API key required)",
+        "capabilities": {
+          "supportedOperations": [
+            "getAddressTransactions",
+            "getAddressBalance",
+            "getRawAddressTransactions",
+            "getAddressInfo",
+            "parseWalletTransaction"
+          ],
+          "maxBatchSize": 25,
+          "supportsHistoricalData": true,
+          "supportsRealTimeData": true,
+          "supportsTokenData": false,
+          "supportsPagination": true
         },
-        "testnet": {
-          "baseUrl": "https://blockstream.info/testnet/api"
+        "networks": {
+          "mainnet": {
+            "baseUrl": "https://blockstream.info/api"
+          },
+          "testnet": {
+            "baseUrl": "https://blockstream.info/testnet/api"
+          }
         },
-        "rateLimit": {
-          "requestsPerSecond": 1.0
-        },
-        "timeout": 10000,
-        "retries": 3
+        "defaultConfig": {
+          "timeout": 10000,
+          "retries": 3,
+          "rateLimit": {
+            "requestsPerSecond": 1,
+            "requestsPerMinute": 60,
+            "requestsPerHour": 3600,
+            "burstLimit": 5
+          }
+        }
       },
       {
-        "name": "blockcypher",
+        "name": "mempool.space",
+        "displayName": "Mempool.space API",
         "enabled": false,
         "priority": 3,
-        "requiresApiKey": true,
-        "mainnet": {
-          "baseUrl": "https://api.blockcypher.com/v1/btc/main"
+        "type": "rest",
+        "description": "Bitcoin blockchain explorer API with comprehensive transaction and balance data (no API key required)",
+        "capabilities": {
+          "supportedOperations": [
+            "getAddressTransactions",
+            "getAddressBalance",
+            "getRawAddressTransactions",
+            "getAddressInfo",
+            "parseWalletTransaction"
+          ],
+          "maxBatchSize": 25,
+          "supportsHistoricalData": true,
+          "supportsRealTimeData": true,
+          "supportsTokenData": false,
+          "supportsPagination": true
         },
-        "testnet": {
-          "baseUrl": "https://api.blockcypher.com/v1/btc/test3"
+        "networks": {
+          "mainnet": {
+            "baseUrl": "https://mempool.space/api"
+          },
+          "testnet": {
+            "baseUrl": "https://mempool.space/testnet/api"
+          }
         },
-        "rateLimit": {
-          "requestsPerSecond": 3.0
-        },
-        "timeout": 15000,
-        "retries": 3
+        "defaultConfig": {
+          "timeout": 10000,
+          "retries": 3,
+          "rateLimit": {
+            "requestsPerSecond": 0.25,
+            "requestsPerMinute": 15,
+            "requestsPerHour": 600,
+            "burstLimit": 1
+          }
+        }
       }
     ]
   },
@@ -56,201 +128,44 @@
     "explorers": [
       {
         "name": "etherscan",
+        "displayName": "Etherscan API",
         "enabled": true,
         "priority": 1,
+        "type": "rest",
         "requiresApiKey": true,
-        "mainnet": {
-          "baseUrl": "https://api.etherscan.io/api"
+        "apiKeyEnvVar": "ETHERSCAN_API_KEY",
+        "description": "Official Ethereum blockchain explorer API with comprehensive transaction data",
+        "capabilities": {
+          "supportedOperations": [
+            "getAddressTransactions",
+            "getAddressBalance",
+            "getTokenTransactions",
+            "getTokenBalances"
+          ],
+          "maxBatchSize": 1,
+          "supportsHistoricalData": true,
+          "supportsRealTimeData": true,
+          "supportsTokenData": true,
+          "supportsPagination": true
         },
-        "testnet": {
-          "baseUrl": "https://api-goerli.etherscan.io/api"
+        "networks": {
+          "mainnet": {
+            "baseUrl": "https://api.etherscan.io/api"
+          },
+          "testnet": {
+            "baseUrl": "https://api-goerli.etherscan.io/api"
+          }
         },
-        "rateLimit": {
-          "requestsPerSecond": 0.2
-        },
-        "timeout": 15000,
-        "retries": 3
-      },
-      {
-        "name": "alchemy",
-        "enabled": false,
-        "priority": 2,
-        "requiresApiKey": true,
-        "mainnet": {
-          "baseUrl": "https://eth-mainnet.g.alchemy.com/v2"
-        },
-        "testnet": {
-          "baseUrl": "https://eth-goerli.g.alchemy.com/v2"
-        },
-        "rateLimit": {
-          "requestsPerSecond": 5.0
-        },
-        "timeout": 10000,
-        "retries": 3
-      },
-      {
-        "name": "moralis",
-        "enabled": false,
-        "priority": 3,
-        "requiresApiKey": true,
-        "mainnet": {
-          "baseUrl": "https://deep-index.moralis.io/api/v2"
-        },
-        "testnet": {
-          "baseUrl": "https://deep-index.moralis.io/api/v2"
-        },
-        "rateLimit": {
-          "requestsPerSecond": 5.0
-        },
-        "timeout": 10000,
-        "retries": 3
-      }
-    ]
-  },
-  "injective": {
-    "explorers": [
-      {
-        "name": "injective-explorer",
-        "enabled": true,
-        "priority": 1,
-        "mainnet": {
-          "baseUrl": "https://sentry.exchange.grpc-web.injective.network"
-        },
-        "testnet": {
-          "baseUrl": "https://testnet.exchange.grpc-web.injective.network"
-        },
-        "rateLimit": {
-          "requestsPerSecond": 2.0
-        },
-        "timeout": 15000,
-        "retries": 3
-      },
-      {
-        "name": "injective-lcd",
-        "enabled": true,
-        "priority": 2,
-        "mainnet": {
-          "baseUrl": "https://sentry.lcd.injective.network"
-        },
-        "testnet": {
-          "baseUrl": "https://testnet.lcd.injective.network"
-        },
-        "rateLimit": {
-          "requestsPerSecond": 3.0
-        },
-        "timeout": 10000,
-        "retries": 3
-      }
-    ]
-  },
-  "bittensor": {
-    "explorers": [
-      {
-        "name": "subscan",
-        "enabled": false,
-        "priority": 1,
-        "mainnet": {
-          "baseUrl": "https://finney.api.subscan.io"
-        },
-        "rateLimit": {
-          "requestsPerSecond": 0.5
-        },
-        "timeout": 20000,
-        "retries": 3
-      },
-      {
-        "name": "taostats",
-        "enabled": false,
-        "priority": 2,
-        "mainnet": {
-          "baseUrl": "https://taostats.io"
-        },
-        "rateLimit": {
-          "requestsPerSecond": 1.0
-        },
-        "timeout": 15000,
-        "retries": 3
-      }
-    ]
-  },
-  "polkadot": {
-    "explorers": [
-      {
-        "name": "subscan",
-        "enabled": true,
-        "priority": 1,
-        "mainnet": {
-          "baseUrl": "https://polkadot.api.subscan.io"
-        },
-        "rateLimit": {
-          "requestsPerSecond": 0.5
-        },
-        "timeout": 20000,
-        "retries": 3
-      },
-      {
-        "name": "polkadot-js",
-        "enabled": false,
-        "priority": 2,
-        "mainnet": {
-          "baseUrl": "https://polkadot.api.onfinality.io/public"
-        },
-        "rateLimit": {
-          "requestsPerSecond": 1.0
-        },
-        "timeout": 15000,
-        "retries": 3
-      }
-    ]
-  },
-  "kusama": {
-    "explorers": [
-      {
-        "name": "subscan",
-        "enabled": true,
-        "priority": 1,
-        "mainnet": {
-          "baseUrl": "https://kusama.api.subscan.io"
-        },
-        "rateLimit": {
-          "requestsPerSecond": 0.5
-        },
-        "timeout": 20000,
-        "retries": 3
-      },
-      {
-        "name": "kusama-rpc",
-        "enabled": false,
-        "priority": 2,
-        "mainnet": {
-          "baseUrl": "https://kusama.api.onfinality.io/public"
-        },
-        "rateLimit": {
-          "requestsPerSecond": 1.0
-        },
-        "timeout": 15000,
-        "retries": 3
-      }
-    ]
-  },
-  "avalanche": {
-    "explorers": [
-      {
-        "name": "snowtrace",
-        "enabled": true,
-        "priority": 1,
-        "requiresApiKey": false,
-        "mainnet": {
-          "baseUrl": "https://api.snowtrace.io/api"
-        },
-        "testnet": {
-          "baseUrl": "https://api-testnet.snowtrace.io/api"
-        },
-        "rateLimit": {
-          "requestsPerSecond": 0.2
-        },
-        "timeout": 15000,
-        "retries": 3
+        "defaultConfig": {
+          "timeout": 15000,
+          "retries": 3,
+          "rateLimit": {
+            "requestsPerSecond": 0.2,
+            "requestsPerMinute": 30,
+            "requestsPerHour": 100,
+            "burstLimit": 1
+          }
+        }
       }
     ]
   },
@@ -258,79 +173,287 @@
     "explorers": [
       {
         "name": "helius",
+        "displayName": "Helius RPC API",
         "enabled": true,
         "priority": 1,
-        "requiresApiKey": true,
         "type": "rpc",
-        "mainnet": {
-          "baseUrl": "https://mainnet.helius-rpc.com"
-        },
-        "testnet": {
-          "baseUrl": "https://rpc.helius.xyz"
-        },
-        "devnet": {
-          "baseUrl": "https://rpc.helius.xyz"
-        },
-        "rateLimit": {
-          "requestsPerSecond": 5
-        },
-        "timeout": 30000,
-        "retries": 3
-      },
-      {
-        "name": "constant-k",
-        "enabled": false,
-        "priority": 2,
         "requiresApiKey": true,
-        "type": "rpc",
-        "mainnet": {
-          "baseUrl": "https://rpc.constant-k.com"
+        "apiKeyEnvVar": "SOLANA_HELIUS_API_KEY",
+        "description": "High-performance Solana RPC API with comprehensive transaction data and token support",
+        "capabilities": {
+          "supportedOperations": [
+            "getAddressTransactions",
+            "getAddressBalance",
+            "getTokenTransactions",
+            "getTokenBalances"
+          ],
+          "maxBatchSize": 1,
+          "supportsHistoricalData": true,
+          "supportsRealTimeData": true,
+          "supportsTokenData": true,
+          "supportsPagination": true
         },
-        "rateLimit": {
-          "requestsPerSecond": 10.0
+        "networks": {
+          "mainnet": {
+            "baseUrl": "https://mainnet.helius-rpc.com"
+          },
+          "testnet": {
+            "baseUrl": "https://rpc.helius.xyz"
+          },
+          "devnet": {
+            "baseUrl": "https://rpc.helius.xyz"
+          }
         },
-        "timeout": 30000,
-        "retries": 3
+        "defaultConfig": {
+          "timeout": 30000,
+          "retries": 3,
+          "rateLimit": {
+            "requestsPerSecond": 10,
+            "requestsPerMinute": 500,
+            "requestsPerHour": 5000,
+            "burstLimit": 20
+          }
+        }
       },
       {
         "name": "solana-rpc",
+        "displayName": "Solana RPC",
         "enabled": false,
-        "priority": 3,
+        "priority": 2,
         "type": "rpc",
-        "mainnet": {
-          "baseUrl": "https://api.mainnet-beta.solana.com"
+        "description": "Direct connection to Solana mainnet RPC endpoints with basic transaction data",
+        "capabilities": {
+          "supportedOperations": [
+            "getAddressTransactions",
+            "getAddressBalance",
+            "getTokenTransactions",
+            "getTokenBalances"
+          ],
+          "maxBatchSize": 1,
+          "supportsHistoricalData": true,
+          "supportsRealTimeData": true,
+          "supportsTokenData": true,
+          "supportsPagination": true
         },
-        "testnet": {
-          "baseUrl": "https://api.testnet.solana.com"
+        "networks": {
+          "mainnet": {
+            "baseUrl": "https://api.mainnet-beta.solana.com"
+          },
+          "testnet": {
+            "baseUrl": "https://api.testnet.solana.com"
+          },
+          "devnet": {
+            "baseUrl": "https://api.devnet.solana.com"
+          }
         },
-        "devnet": {
-          "baseUrl": "https://api.devnet.solana.com"
-        },
-        "rateLimit": {
-          "requestsPerSecond": 1.0
-        },
-        "timeout": 30000,
-        "retries": 3
+        "defaultConfig": {
+          "timeout": 30000,
+          "retries": 3,
+          "rateLimit": {
+            "requestsPerSecond": 1,
+            "burstLimit": 2
+          }
+        }
       },
       {
         "name": "solscan",
+        "displayName": "Solscan API",
         "enabled": false,
-        "priority": 4,
-        "type": "explorer",
-        "mainnet": {
-          "baseUrl": "https://api.solscan.io"
+        "priority": 3,
+        "type": "rest",
+        "description": "Solana blockchain explorer API with transaction and account data access",
+        "capabilities": {
+          "supportedOperations": [
+            "getAddressTransactions",
+            "getAddressBalance"
+          ],
+          "maxBatchSize": 1,
+          "supportsHistoricalData": true,
+          "supportsRealTimeData": true,
+          "supportsTokenData": true,
+          "supportsPagination": true
         },
-        "testnet": {
-          "baseUrl": "https://api-testnet.solscan.io"
+        "networks": {
+          "mainnet": {
+            "baseUrl": "https://public-api.solscan.io"
+          },
+          "testnet": {
+            "baseUrl": "https://api.solscan.io"
+          },
+          "devnet": {
+            "baseUrl": "https://api.solscan.io"
+          }
         },
-        "devnet": {
-          "baseUrl": "https://api-devnet.solscan.io"
+        "defaultConfig": {
+          "timeout": 15000,
+          "retries": 3,
+          "rateLimit": {
+            "requestsPerSecond": 0.2,
+            "burstLimit": 1
+          }
+        }
+      }
+    ]
+  },
+  "avalanche": {
+    "explorers": [
+      {
+        "name": "snowtrace",
+        "displayName": "Snowtrace API",
+        "enabled": true,
+        "priority": 1,
+        "type": "rest",
+        "description": "Avalanche blockchain explorer API with comprehensive transaction and balance data",
+        "capabilities": {
+          "supportedOperations": [
+            "getAddressTransactions",
+            "getAddressBalance",
+            "getTokenTransactions",
+            "getTokenBalances"
+          ],
+          "maxBatchSize": 1,
+          "supportsHistoricalData": true,
+          "supportsRealTimeData": true,
+          "supportsTokenData": true,
+          "supportsPagination": true
         },
-        "rateLimit": {
-          "requestsPerSecond": 0.2
+        "networks": {
+          "mainnet": {
+            "baseUrl": "https://api.snowtrace.io/api"
+          },
+          "testnet": {
+            "baseUrl": "https://api-testnet.snowtrace.io/api"
+          }
         },
-        "timeout": 15000,
-        "retries": 3
+        "defaultConfig": {
+          "timeout": 10000,
+          "retries": 3,
+          "rateLimit": {
+            "requestsPerSecond": 1,
+            "requestsPerMinute": 30,
+            "requestsPerHour": 100,
+            "burstLimit": 3
+          }
+        }
+      }
+    ]
+  },
+  "injective": {
+    "explorers": [
+      {
+        "name": "injective-explorer",
+        "displayName": "Injective Explorer API",
+        "enabled": true,
+        "priority": 1,
+        "type": "rest",
+        "description": "Direct connection to Injective Protocol blockchain explorer with comprehensive transaction data",
+        "capabilities": {
+          "supportedOperations": [
+            "getAddressTransactions",
+            "getRawAddressTransactions"
+          ],
+          "maxBatchSize": 1,
+          "supportsHistoricalData": true,
+          "supportsRealTimeData": true,
+          "supportsTokenData": true,
+          "supportsPagination": true
+        },
+        "networks": {
+          "mainnet": {
+            "baseUrl": "https://sentry.exchange.grpc-web.injective.network"
+          },
+          "testnet": {
+            "baseUrl": "https://k8s.testnet.tm.injective.network"
+          }
+        },
+        "defaultConfig": {
+          "timeout": 15000,
+          "retries": 3,
+          "rateLimit": {
+            "requestsPerSecond": 2,
+            "requestsPerMinute": 60,
+            "requestsPerHour": 500,
+            "burstLimit": 5
+          }
+        }
+      },
+      {
+        "name": "injective-lcd",
+        "displayName": "Injective LCD API",
+        "enabled": false,
+        "priority": 2,
+        "type": "rest",
+        "description": "Injective Protocol LCD (Light Client Daemon) API for balance queries and token data",
+        "capabilities": {
+          "supportedOperations": [
+            "getAddressBalance",
+            "getTokenBalances"
+          ],
+          "maxBatchSize": 1,
+          "supportsHistoricalData": false,
+          "supportsRealTimeData": true,
+          "supportsTokenData": true,
+          "supportsPagination": false
+        },
+        "networks": {
+          "mainnet": {
+            "baseUrl": "https://sentry.lcd.injective.network"
+          },
+          "testnet": {
+            "baseUrl": "https://k8s.testnet.lcd.injective.network"
+          }
+        },
+        "defaultConfig": {
+          "timeout": 10000,
+          "retries": 3,
+          "rateLimit": {
+            "requestsPerSecond": 3,
+            "requestsPerMinute": 100,
+            "requestsPerHour": 1000,
+            "burstLimit": 10
+          }
+        }
+      }
+    ]
+  },
+  "polkadot": {
+    "explorers": [
+      {
+        "name": "subscan",
+        "displayName": "Substrate Networks Provider",
+        "enabled": true,
+        "priority": 1,
+        "type": "rest",
+        "description": "Multi-chain Substrate provider supporting Polkadot, Kusama, and Bittensor networks with explorer APIs and RPC fallback",
+        "capabilities": {
+          "supportedOperations": [
+            "getAddressTransactions",
+            "getAddressBalance"
+          ],
+          "maxBatchSize": 1,
+          "supportsHistoricalData": true,
+          "supportsRealTimeData": true,
+          "supportsTokenData": false,
+          "supportsPagination": true
+        },
+        "networks": {
+          "mainnet": {
+            "baseUrl": "https://polkadot.api.subscan.io"
+          },
+          "testnet": {
+            "baseUrl": "https://westend.api.subscan.io"
+          }
+        },
+        "defaultConfig": {
+          "timeout": 10000,
+          "retries": 3,
+          "rateLimit": {
+            "requestsPerSecond": 1,
+            "requestsPerMinute": 30,
+            "requestsPerHour": 500,
+            "burstLimit": 3
+          }
+        }
       }
     ]
   }

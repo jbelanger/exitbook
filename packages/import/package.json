@@ -15,10 +15,14 @@
     "prettier:fix": "prettier --write .",
     "test": "jest --detectOpenHandles --forceExit --passWithNoTests",
     "typecheck": "tsc --noEmit",
-    "providers:list": "tsx src/scripts/list-providers.ts",
-    "providers:validate": "tsx src/scripts/validate-providers.ts",
-    "config:generate": "tsx src/scripts/generate-config.ts",
-    "config:validate": "tsx src/scripts/validate-config.ts"
+    "blockchain-providers:list": "tsx src/scripts/list-providers.ts",
+    "blockchain-providers:validate": "tsx src/scripts/validate-providers.ts",
+    "blockchain-config:generate": "tsx src/scripts/generate-config.ts",
+    "blockchain-config:validate": "tsx src/scripts/validate-config.ts",
+    "exchanges:list": "tsx src/scripts/list-exchange-adapters.ts",
+    "exchanges:generate": "tsx src/scripts/generate-exchange-config.ts",
+    "exchanges:validate": "tsx src/scripts/validate-exchange-registry.ts",
+    "exchanges:validate-config": "tsx src/scripts/validate-exchange-config.ts"
   },
   "dependencies": {
     "@scure/base": "^1.2.6",

@@ -1,58 +1,155 @@
 {
-  "exchanges": {
-    "kraken": {
-      "enabled": true,
-      "adapterType": "csv",
-      "credentials": {
-        "apiKey": "env:KRAKEN_API_KEY",
-        "secret": "env:KRAKEN_SECRET"
-      },
-      "options": {
-        "csvDirectories": [
-          "data/samples/Kraken"
+  "kraken": {
+    "id": "kraken",
+    "name": "Kraken CSV Import",
+    "enabled": true,
+    "adapterType": "csv",
+    "description": "Import Kraken transaction data from exported CSV files (ledgers.csv)",
+    "credentials": {},
+    "options": {
+      "enableRateLimit": false,
+      "timeout": 30000,
+      "csvDirectories": "TODO: Configure csvDirectories"
+    },
+    "availableAdapters": [
+      {
+        "type": "csv",
+        "displayName": "Kraken CSV Import",
+        "capabilities": {
+          "supportedOperations": [
+            "importTransactions",
+            "parseCSV"
+          ],
+          "supportsPagination": false,
+          "supportsBalanceVerification": false,
+          "supportsHistoricalData": true,
+          "requiresApiKey": false,
+          "supportsCsv": true,
+          "supportsCcxt": false,
+          "supportsNative": false
+        },
+        "requiredCredentials": [],
+        "requiredOptions": [
+          "csvDirectories"
         ]
       }
+    ]
+  },
+  "kucoin": {
+    "id": "kucoin",
+    "name": "KuCoin CSV Import",
+    "enabled": true,
+    "adapterType": "csv",
+    "description": "Import KuCoin transaction data from exported CSV files (trading, deposits, withdrawals, account history)",
+    "credentials": {},
+    "options": {
+      "enableRateLimit": false,
+      "timeout": 30000,
+      "csvDirectories": "TODO: Configure csvDirectories"
     },
-    "kucoin": {
-      "enabled": true,
-      "adapterType": "csv",
-      "credentials": {
-        "apiKey": "env:KUCOIN_API_KEY",
-        "secret": "env:KUCOIN_SECRET",
-        "passphrase": "env:KUCOIN_PASSPHRASE"
-      },
-      "options": {
-        "rateLimit": 100,
-        "enableRateLimit": true,
-        "csvDirectories": [
-          "data/samples/Kucoin/BillingHistory20230327-20240328",
-          "data/samples/Kucoin/BillingHistory20240327-20250328",
-          "data/samples/Kucoin/BillingHistory20240720-20250721"
+    "availableAdapters": [
+      {
+        "type": "csv",
+        "displayName": "KuCoin CSV Import",
+        "capabilities": {
+          "supportedOperations": [
+            "importTransactions",
+            "parseCSV"
+          ],
+          "supportsPagination": false,
+          "supportsBalanceVerification": false,
+          "supportsHistoricalData": true,
+          "requiresApiKey": false,
+          "supportsCsv": true,
+          "supportsCcxt": false,
+          "supportsNative": false
+        },
+        "requiredCredentials": [],
+        "requiredOptions": [
+          "csvDirectories"
+        ]
+      }
+    ]
+  },
+  "ledgerlive": {
+    "id": "ledgerlive",
+    "name": "Ledger Live CSV Import",
+    "enabled": true,
+    "adapterType": "csv",
+    "description": "Import Ledger Live transaction data from exported CSV files (operations.csv)",
+    "credentials": {},
+    "options": {
+      "enableRateLimit": false,
+      "timeout": 30000,
+      "csvDirectories": "TODO: Configure csvDirectories"
+    },
+    "availableAdapters": [
+      {
+        "type": "csv",
+        "displayName": "Ledger Live CSV Import",
+        "capabilities": {
+          "supportedOperations": [
+            "importTransactions",
+            "parseCSV"
+          ],
+          "supportsPagination": false,
+          "supportsBalanceVerification": false,
+          "supportsHistoricalData": true,
+          "requiresApiKey": false,
+          "supportsCsv": true,
+          "supportsCcxt": false,
+          "supportsNative": false
+        },
+        "requiredCredentials": [],
+        "requiredOptions": [
+          "csvDirectories"
+        ]
+      }
+    ]
+  },
+  "coinbase": {
+    "id": "coinbase",
+    "name": "Coinbase Advanced Trade (CCXT)",
+    "enabled": true,
+    "adapterType": "ccxt",
+    "description": "Coinbase Advanced Trade adapter using CCXT with specialized ledger processing for comprehensive transaction data",
+    "credentials": {
+      "apiKey": "process.env.COINBASE_APIKEY",
+      "secret": "process.env.COINBASE_SECRET",
+      "password": "process.env.COINBASE_PASSWORD"
+    },
+    "options": {
+      "enableRateLimit": true,
+      "timeout": 30000,
+      "rateLimit": 1000
+    },
+    "availableAdapters": [
+      {
+        "type": "ccxt",
+        "displayName": "Coinbase Advanced Trade (CCXT)",
+        "capabilities": {
+          "supportedOperations": [
+            "fetchTrades",
+            "fetchLedger",
+            "fetchDeposits",
+            "fetchWithdrawals",
+            "fetchBalance"
+          ],
+          "supportsPagination": true,
+          "supportsBalanceVerification": true,
+          "supportsHistoricalData": true,
+          "requiresApiKey": true,
+          "supportsCsv": false,
+          "supportsCcxt": true,
+          "supportsNative": false
+        },
+        "requiredCredentials": [
+          "apiKey",
+          "secret",
+          "password"
         ],
-        "uid": "199920053"
+        "requiredOptions": []
       }
-    },
-    "ledgerlive": {
-      "enabled": false,
-      "adapterType": "csv",
-      "credentials": {},
-      "options": {
-        "csvDirectories": [
-          "data/samples/LedgerLive"
-        ]
-      }
-    },
-    "coinbase": {
-      "enabled": true,
-      "adapterType": "ccxt",
-      "credentials": {
-        "apiKey": "env:COINBASE_API_KEY",
-        "secret": "env:COINBASE_SECRET"
-      },
-      "options": {
-        "rateLimit": 100,
-        "enableRateLimit": true
-      }
-    }
+    ]
   }
 }

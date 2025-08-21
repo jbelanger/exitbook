@@ -48,16 +48,28 @@ pnpm run verify
 ### Provider and Configuration Management
 ```bash
 # List all registered blockchain providers
-pnpm run providers:list
+pnpm run blockchain-providers:list
 
 # Validate provider registrations
-pnpm run providers:validate
+pnpm run blockchain-providers:validate
 
-# Generate config template from providers
-pnpm run config:generate
+# Generate blockchain config template from providers
+pnpm run blockchain-config:generate
 
-# Validate configuration files
-pnpm run config:validate
+# Validate blockchain configuration files
+pnpm run blockchain-config:validate
+
+# List all registered exchange adapters
+pnpm run exchanges:list
+
+# Generate exchange config template from adapters
+pnpm run exchanges:generate
+
+# Validate exchange adapter registrations
+pnpm run exchanges:validate
+
+# Validate exchange configuration files
+pnpm run exchanges:validate-config
 ```
 
 ## Architecture Overview
