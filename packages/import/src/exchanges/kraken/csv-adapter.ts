@@ -3,8 +3,6 @@ import { createMoney, parseDecimal } from '@crypto/shared-utils';
 import type { CSVConfig } from '../base-csv-adapter.ts';
 import { BaseCSVAdapter } from '../base-csv-adapter.ts';
 import { CsvFilters } from '../csv-filters.ts';
-import { RegisterExchangeAdapter } from '../registry/decorators.ts';
-
 interface KrakenCSVConfig extends CSVConfig { }
 
 // Expected CSV headers for validation
@@ -26,32 +24,6 @@ interface KrakenLedgerRow {
   balance: string;
 }
 
-@RegisterExchangeAdapter({
-  exchangeId: 'kraken',
-  displayName: 'Kraken CSV Import',
-  adapterType: 'csv',
-  description: 'Import Kraken transaction data from exported CSV files (ledgers.csv)',
-  capabilities: {
-    supportedOperations: ['importTransactions', 'parseCSV'],
-    supportsPagination: false,
-    supportsBalanceVerification: false,
-    supportsHistoricalData: true,
-    requiresApiKey: false,
-    supportsCsv: true,
-    supportsCcxt: false,
-    supportsNative: false
-  },
-  configValidation: {
-    requiredCredentials: [],
-    optionalCredentials: [],
-    requiredOptions: ['csvDirectories'],
-    optionalOptions: []
-  },
-  defaultConfig: {
-    enableRateLimit: false,
-    timeout: 30000
-  }
-})
 export class KrakenCSVAdapter extends BaseCSVAdapter {
   constructor(config: KrakenCSVConfig) {
     super(config, 'KrakenCSVAdapter');

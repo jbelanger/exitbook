@@ -1,8 +1,6 @@
 import type { CryptoTransaction, ExchangeInfo, TransactionStatus } from '@crypto/core';
 import { createMoney, parseDecimal } from '@crypto/shared-utils';
 import { BaseCSVAdapter, type CSVConfig } from '../base-csv-adapter.ts';
-import { RegisterExchangeAdapter } from '../registry/decorators.ts';
-
 interface LedgerLiveCSVConfig extends CSVConfig { }
 
 // Expected CSV headers for validation
@@ -25,32 +23,6 @@ interface LedgerLiveOperationRow {
   'Countervalue at CSV Export': string;
 }
 
-@RegisterExchangeAdapter({
-  exchangeId: 'ledgerlive',
-  displayName: 'Ledger Live CSV Import',
-  adapterType: 'csv',
-  description: 'Import Ledger Live transaction data from exported CSV files (operations.csv)',
-  capabilities: {
-    supportedOperations: ['importTransactions', 'parseCSV'],
-    supportsPagination: false,
-    supportsBalanceVerification: false,
-    supportsHistoricalData: true,
-    requiresApiKey: false,
-    supportsCsv: true,
-    supportsCcxt: false,
-    supportsNative: false
-  },
-  configValidation: {
-    requiredCredentials: [],
-    optionalCredentials: [],
-    requiredOptions: ['csvDirectories'],
-    optionalOptions: []
-  },
-  defaultConfig: {
-    enableRateLimit: false,
-    timeout: 30000
-  }
-})
 export class LedgerLiveCSVAdapter extends BaseCSVAdapter {
   constructor(config: LedgerLiveCSVConfig) {
     super(config, 'LedgerLiveCSVAdapter');

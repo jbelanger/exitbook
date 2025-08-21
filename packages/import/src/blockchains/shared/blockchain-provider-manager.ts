@@ -514,7 +514,7 @@ export class BlockchainProviderManager {
       if (health && circuitBreaker) {
         result.set(provider.name, {
           ...health,
-          circuitState: circuitBreaker.getState()
+          circuitState: circuitBreaker.getCurrentState()
         });
       }
     }
