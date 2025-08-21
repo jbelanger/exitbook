@@ -16,10 +16,14 @@
     "prettier:fix": "prettier --write .",
     "test": "jest --detectOpenHandles --forceExit --passWithNoTests",
     "typecheck": "tsc --noEmit",
-    "providers:list": "tsx src/scripts/list-providers.ts",
-    "providers:validate": "tsx src/scripts/validate-providers.ts",
-    "config:generate": "tsx src/scripts/generate-config.ts",
-    "config:validate": "tsx src/scripts/validate-config.ts"
+    "blockchain-providers:list": "tsx src/scripts/list-providers.ts",
+    "blockchain-providers:validate": "tsx src/scripts/validate-providers.ts",
+    "blockchain-config:generate": "tsx src/scripts/generate-config.ts",
+    "blockchain-config:validate": "tsx src/scripts/validate-config.ts",
+    "exchanges:list": "tsx src/scripts/list-exchange-adapters.ts",
+    "exchanges:generate": "tsx src/scripts/generate-exchange-config.ts",
+    "exchanges:validate": "tsx src/scripts/validate-exchange-registry.ts",
+    "exchanges:validate-config": "tsx src/scripts/validate-exchange-config.ts"
   },
   "dependencies": {
     "@scure/base": "^1.2.6",
@@ -4352,7 +4356,186 @@ function main() {
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   main();
-}===== ./src/scripts/validate-exchange-config.ts =====
+}===== ./src/scripts/generate-exchange-config.ts =====
+#!/usr/bin/env tsx
+
+/**
+ * Generate exchange configuration template from registered adapters
+ */
+
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { ExchangeAdapterRegistry } from '../exchanges/registry/index.ts';
+
+// Import all exchange adapters to trigger registration
+import '../exchanges/registry/register-adapters.ts';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+function generateExchangeConfiguration(): void {
+  console.log('🔧 Generating Exchange Configuration Template\n');
+
+  const allAdapters = ExchangeAdapterRegistry.getAllAdapters();
+
+  if (allAdapters.length === 0) {
+    console.log('❌ No exchange adapters found. Ensure adapter files are imported.');
+    process.exit(1);
+  }
+
+  // Group adapters by exchange
+  const adaptersByExchange = new Map<string, typeof allAdapters>();
+
+  for (const adapter of allAdapters) {
+    if (!adaptersByExchange.has(adapter.exchangeId)) {
+      adaptersByExchange.set(adapter.exchangeId, []);
+    }
+    adaptersByExchange.get(adapter.exchangeId)!.push(adapter);
+  }
+
+  // Generate configuration object
+  const config: any = {};
+
+  for (const [exchangeId, adapters] of adaptersByExchange.entries()) {
+    // Sort adapters by priority (ccxt, native, universal)
+    const sortedAdapters = adapters.sort((a, b) => {
+      const priority = { ccxt: 1, native: 2, universal: 3 };
+      return (priority[a.adapterType as keyof typeof priority] || 99) - 
+             (priority[b.adapterType as keyof typeof priority] || 99);
+    });
+
+    // Use the first adapter as the default
+    const defaultAdapter = sortedAdapters[0];
+
+    const exchangeConfig: any = {
+      id: exchangeId,
+      name: defaultAdapter.displayName,
+      enabled: true,
+      adapterType: defaultAdapter.adapterType,
+      
+      ...(defaultAdapter.description && {
+        description: defaultAdapter.description
+      }),
+
+      // Credentials section (common for all adapter types)
+      credentials: {},
+
+      // Options section
+      options: {
+        ...(defaultAdapter.defaultConfig && {
+          ...defaultAdapter.defaultConfig
+        })
+      },
+
+      // Available adapters info
+      availableAdapters: sortedAdapters.map(adapter => ({
+        type: adapter.adapterType,
+        displayName: adapter.displayName,
+        capabilities: adapter.capabilities,
+        ...(adapter.configValidation?.requiredCredentials && {
+          requiredCredentials: adapter.configValidation.requiredCredentials
+        }),
+        ...(adapter.configValidation?.requiredOptions && {
+          requiredOptions: adapter.configValidation.requiredOptions
+        })
+      }))
+    };
+
+    // Add required credentials template
+    if (defaultAdapter.configValidation?.requiredCredentials) {
+      for (const credential of defaultAdapter.configValidation.requiredCredentials) {
+        exchangeConfig.credentials[credential] = `process.env.${exchangeId.toUpperCase()}_${credential.toUpperCase()}`;
+      }
+    }
+
+    // Add required options template
+    if (defaultAdapter.configValidation?.requiredOptions) {
+      for (const option of defaultAdapter.configValidation.requiredOptions) {
+        if (!exchangeConfig.options[option]) {
+          exchangeConfig.options[option] = `TODO: Configure ${option}`;
+        }
+      }
+    }
+
+    config[exchangeId] = exchangeConfig;
+  }
+
+  // Write configuration file
+  const configPath = path.join(__dirname, '../../config/exchanges-template.json');
+  const configJson = JSON.stringify(config, null, 2);
+
+  try {
+    // Ensure config directory exists
+    const configDir = path.dirname(configPath);
+    if (!fs.existsSync(configDir)) {
+      fs.mkdirSync(configDir, { recursive: true });
+    }
+
+    fs.writeFileSync(configPath, configJson);
+
+    console.log('✅ Exchange configuration template generated successfully!');
+    console.log(`📄 File: ${configPath}`);
+    console.log(`📊 Generated ${Object.keys(config).length} exchanges with ${allAdapters.length} total adapters\n`);
+
+    // Show summary
+    console.log('📋 Generated Configuration:');
+    console.log('─'.repeat(50));
+
+    for (const [exchangeId, exchangeConfig] of Object.entries(config)) {
+      const { adapterType, availableAdapters } = exchangeConfig as any;
+      
+      console.log(`${exchangeId.toUpperCase()}:`);
+      console.log(`  Default adapter: ${adapterType}`);
+      console.log(`  Available adapters: ${availableAdapters.map((a: any) => a.type).join(', ')}`);
+      
+      const credentials = Object.keys((exchangeConfig as any).credentials || {});
+      if (credentials.length > 0) {
+        console.log(`  Required credentials: ${credentials.join(', ')}`);
+      }
+      console.log('');
+    }
+
+    console.log('💡 Next steps:');
+    console.log('  1. Review the generated template');
+    console.log('  2. Copy to exchanges.json if needed');
+    console.log('  3. Configure required environment variables:');
+
+    // Show required environment variables
+    const allCredentials = new Set<string>();
+    Object.entries(config).forEach(([exchangeId, exchangeConfig]) => {
+      const credentials = Object.keys((exchangeConfig as any).credentials || {});
+      credentials.forEach(cred => {
+        allCredentials.add(`${exchangeId.toUpperCase()}_${cred.toUpperCase()}`);
+      });
+    });
+
+    if (allCredentials.size > 0) {
+      allCredentials.forEach(envVar => {
+        console.log(`     export ${envVar}="your_api_key_here"`);
+      });
+    }
+
+    console.log('  4. Update adapter types and options as needed');
+    console.log('  5. Run `pnpm run validate:exchange-config` to verify');
+
+  } catch (error) {
+    console.error('❌ Failed to write configuration file:');
+    console.error(error instanceof Error ? error.message : error);
+    process.exit(1);
+  }
+}
+
+// Run if called directly
+if (import.meta.url === `file://${process.argv[1]}`) {
+  try {
+    generateExchangeConfiguration();
+  } catch (error) {
+    console.error('❌ Failed to generate exchange configuration:', error instanceof Error ? error.message : error);
+    process.exit(1);
+  }
+}
+
+export { generateExchangeConfiguration };===== ./src/scripts/validate-exchange-config.ts =====
 #!/usr/bin/env node
 
 import { readFileSync } from 'fs';
@@ -4967,7 +5150,231 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 }
 
 export { validateProviders };
-===== ./src/index.ts =====
+===== ./src/scripts/validate-exchange-registry.ts =====
+#!/usr/bin/env node
+
+/**
+ * Validate exchange adapter registry and check for common issues
+ */
+
+import { ExchangeAdapterRegistry } from '../exchanges/registry/index.ts';
+// Import to trigger registration
+import '../exchanges/registry/register-adapters.ts';
+
+interface ValidationResult {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+}
+
+function validateExchangeRegistry(): ValidationResult {
+  const result: ValidationResult = {
+    valid: true,
+    errors: [],
+    warnings: []
+  };
+
+  console.log('🔍 Validating Exchange Adapter Registry\n');
+
+  try {
+    const allAdapters = ExchangeAdapterRegistry.getAllAdapters();
+
+    if (allAdapters.length === 0) {
+      result.valid = false;
+      result.errors.push('No exchange adapters registered');
+      return result;
+    }
+
+    console.log(`📊 Found ${allAdapters.length} registered adapters\n`);
+
+    // Group by exchange for validation
+    const byExchange = allAdapters.reduce((acc, adapter) => {
+      if (!acc[adapter.exchangeId]) {
+        acc[adapter.exchangeId] = [];
+      }
+      acc[adapter.exchangeId].push(adapter);
+      return acc;
+    }, {} as Record<string, typeof allAdapters>);
+
+    // Validate each exchange
+    for (const [exchangeId, adapters] of Object.entries(byExchange)) {
+      console.log(`🏛️  Validating ${exchangeId.toUpperCase()}`);
+      console.log('─'.repeat(40));
+
+      // Check for required adapter types
+      const adapterTypes = new Set(adapters.map(a => a.adapterType));
+      
+      if (!adapterTypes.has('ccxt') && !adapterTypes.has('native')) {
+        result.warnings.push(`${exchangeId}: No CCXT or native adapter found - only universal adapter available`);
+      }
+
+      // Validate each adapter
+      for (const adapter of adapters) {
+        console.log(`\n📋 ${adapter.displayName} (${adapter.adapterType})`);
+
+        // Validate metadata completeness
+        if (!adapter.exchangeId || adapter.exchangeId.trim() === '') {
+          result.errors.push(`${exchangeId}/${adapter.adapterType}: Missing or empty exchangeId`);
+          result.valid = false;
+        }
+
+        if (!adapter.displayName || adapter.displayName.trim() === '') {
+          result.errors.push(`${exchangeId}/${adapter.adapterType}: Missing or empty displayName`);
+          result.valid = false;
+        }
+
+        if (!adapter.adapterType || !['ccxt', 'native', 'universal'].includes(adapter.adapterType)) {
+          result.errors.push(`${exchangeId}/${adapter.adapterType}: Invalid adapter type`);
+          result.valid = false;
+        }
+
+        // Validate capabilities
+        if (!adapter.capabilities) {
+          result.errors.push(`${exchangeId}/${adapter.adapterType}: Missing capabilities`);
+          result.valid = false;
+        } else {
+          const requiredCapabilities = [
+            'requiresApiKey',
+            'supportsCsv',
+            'supportsCcxt',
+            'supportsNative',
+            'supportsPagination',
+            'supportsBalanceVerification',
+            'supportsHistoricalData'
+          ];
+
+          for (const capability of requiredCapabilities) {
+            if (!(capability in adapter.capabilities)) {
+              result.warnings.push(`${exchangeId}/${adapter.adapterType}: Missing capability: ${capability}`);
+            }
+          }
+
+          // Logical validation
+          if (adapter.adapterType === 'ccxt' && !adapter.capabilities.supportsCcxt) {
+            result.errors.push(`${exchangeId}/${adapter.adapterType}: CCXT adapter must support CCXT`);
+            result.valid = false;
+          }
+
+          if (adapter.adapterType === 'native' && !adapter.capabilities.supportsNative) {
+            result.errors.push(`${exchangeId}/${adapter.adapterType}: Native adapter must support native API`);
+            result.valid = false;
+          }
+        }
+
+        // Validate configuration requirements
+        if (adapter.configValidation) {
+          if (adapter.configValidation.requiredCredentials) {
+            for (const credential of adapter.configValidation.requiredCredentials) {
+              if (!credential || credential.trim() === '') {
+                result.errors.push(`${exchangeId}/${adapter.adapterType}: Empty required credential`);
+                result.valid = false;
+              }
+            }
+          }
+
+          if (adapter.configValidation.requiredOptions) {
+            for (const option of adapter.configValidation.requiredOptions) {
+              if (!option || option.trim() === '') {
+                result.errors.push(`${exchangeId}/${adapter.adapterType}: Empty required option`);
+                result.valid = false;
+              }
+            }
+          }
+        }
+
+        // Check for description
+        if (!adapter.description || adapter.description.trim() === '') {
+          result.warnings.push(`${exchangeId}/${adapter.adapterType}: Missing description`);
+        }
+
+        console.log('   ✅ Metadata structure valid');
+
+        // Show capabilities summary
+        const enabledCapabilities = Object.entries(adapter.capabilities)
+          .filter(([_, value]) => value === true)
+          .map(([key]) => key.replace(/^supports?/, '').replace(/^requires?/, ''))
+          .join(', ');
+
+        if (enabledCapabilities) {
+          console.log(`   ⚡ Capabilities: ${enabledCapabilities}`);
+        }
+
+        if (adapter.configValidation?.requiredCredentials?.length) {
+          console.log(`   🔑 Required credentials: ${adapter.configValidation.requiredCredentials.join(', ')}`);
+        }
+      }
+
+      console.log();
+    }
+
+    // Check for duplicate exchanges with same adapter type
+    const duplicateCheck = new Map<string, string[]>();
+    for (const adapter of allAdapters) {
+      const key = `${adapter.exchangeId}:${adapter.adapterType}`;
+      if (!duplicateCheck.has(key)) {
+        duplicateCheck.set(key, []);
+      }
+      duplicateCheck.get(key)!.push(adapter.displayName);
+    }
+
+    for (const [key, names] of duplicateCheck.entries()) {
+      if (names.length > 1) {
+        result.errors.push(`Duplicate adapter registration: ${key} (${names.join(', ')})`);
+        result.valid = false;
+      }
+    }
+
+  } catch (error) {
+    result.valid = false;
+    result.errors.push(`Registry validation failed: ${error instanceof Error ? error.message : error}`);
+  }
+
+  return result;
+}
+
+function main() {
+  const result = validateExchangeRegistry();
+
+  console.log('\n📈 Validation Summary');
+  console.log('─'.repeat(50));
+
+  if (result.errors.length > 0) {
+    console.log(`❌ Errors: ${result.errors.length}`);
+    for (const error of result.errors) {
+      console.log(`   🚫 ${error}`);
+    }
+  }
+
+  if (result.warnings.length > 0) {
+    console.log(`⚠️  Warnings: ${result.warnings.length}`);
+    for (const warning of result.warnings) {
+      console.log(`   ⚠️  ${warning}`);
+    }
+  }
+
+  if (result.valid && result.warnings.length === 0) {
+    console.log('🎉 Registry validation passed with no issues!');
+  } else if (result.valid) {
+    console.log('✅ Registry validation passed with warnings');
+  } else {
+    console.log('❌ Registry validation failed');
+    process.exit(1);
+  }
+
+  console.log('\n💡 Next steps:');
+  if (result.errors.length > 0) {
+    console.log('  1. Fix the validation errors above');
+    console.log('  2. Re-run validation');
+  } else {
+    console.log('  1. Review any warnings and consider addressing them');
+    console.log('  2. Run exchange configuration validation');
+    console.log('  3. Test adapter functionality with actual exchanges');
+  }
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main();
+}===== ./src/index.ts =====
 // Main public API - Transaction importer service
 export { TransactionImporter } from './services/importer.ts';
 

@@ -1,6 +1,6 @@
 
 import type { BlockchainTransaction } from '@crypto/core';
-import { createMoney, parseDecimal } from '@crypto/shared-utils';
+import { createMoney, maskAddress, parseDecimal } from '@crypto/shared-utils';
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
 import { RegisterProvider } from '../../shared/registry/decorators.ts';
 import { ProviderOperation } from '../../shared/types.ts';
@@ -75,7 +75,7 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'}`);
+    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? maskAddress(operation.params.address) : 'N/A'}`);
 
     try {
       switch (operation.type) {
@@ -99,14 +99,14 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Injective address: ${address}`);
     }
 
-    this.logger.debug(`Fetching address transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
+    this.logger.debug(`Fetching address transactions - Address: ${maskAddress(address)}, Network: ${this.network}`);
 
     try {
       const endpoint = `/api/explorer/v1/accountTxs/${address}`;
       const data = await this.httpClient.get(endpoint) as InjectiveApiResponse;
 
       if (!data.data || !Array.isArray(data.data)) {
-        this.logger.debug(`No transactions found in API response - Address: ${this.maskAddress(address)}, HasData: ${!!data.data}`);
+        this.logger.debug(`No transactions found in API response - Address: ${maskAddress(address)}, HasData: ${!!data.data}`);
         return [];
       }
 
@@ -132,12 +132,12 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
         }
       }
 
-      this.logger.debug(`Successfully retrieved address transactions - Address: ${this.maskAddress(address)}, TotalTransactions: ${transactions.length}, Network: ${this.network}`);
+      this.logger.debug(`Successfully retrieved address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${transactions.length}, Network: ${this.network}`);
 
       return transactions;
 
     } catch (error) {
-      this.logger.error(`Failed to get address transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`Failed to get address transactions - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -149,7 +149,7 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Injective address: ${address}`);
     }
 
-    this.logger.debug(`Fetching raw address transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
+    this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}, Network: ${this.network}`);
 
     try {
       const endpoint = `/api/explorer/v1/accountTxs/${address}`;
@@ -169,11 +169,11 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
         });
       }
 
-      this.logger.debug(`Successfully retrieved raw address transactions - Address: ${this.maskAddress(address)}, TotalTransactions: ${transactions.length}, Network: ${this.network}`);
+      this.logger.debug(`Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${transactions.length}, Network: ${this.network}`);
 
       return transactions;
     } catch (error) {
-      this.logger.error(`Failed to get raw address transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`Failed to get raw address transactions - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -290,7 +290,7 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
 
     // Only return transactions that are relevant to our wallet
     if (!isRelevantTransaction) {
-      this.logger.debug(`Skipping irrelevant transaction - Hash: ${tx.hash}, From: ${this.maskAddress(from)}, To: ${this.maskAddress(to)}, RelevantAddress: ${this.maskAddress(relevantAddress)}, Value: ${value.amount.toNumber()}`);
+      this.logger.debug(`Skipping irrelevant transaction - Hash: ${tx.hash}, From: ${maskAddress(from)}, To: ${maskAddress(to)}, RelevantAddress: ${maskAddress(relevantAddress)}, Value: ${value.amount.toNumber()}`);
       return null;
     }
 
@@ -333,8 +333,4 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
     return denom.toUpperCase();
   }
 
-  private maskAddress(address: string): string {
-    if (!address || address.length <= 8) return address;
-    return `${address.slice(0, 4)}...${address.slice(-4)}`;
-  }
 }

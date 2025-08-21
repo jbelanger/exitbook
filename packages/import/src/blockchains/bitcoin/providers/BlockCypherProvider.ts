@@ -1,7 +1,7 @@
 import { Decimal } from 'decimal.js';
 
 import type { BlockchainTransaction } from '@crypto/core';
-import { createMoney } from '@crypto/shared-utils';
+import { createMoney, maskAddress } from '@crypto/shared-utils';
 
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
 import { RegisterProvider } from '../../shared/registry/decorators.ts';
@@ -138,7 +138,7 @@ export class BlockCypherProvider extends BaseRegistryProvider {
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'}`);
+    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? maskAddress(operation.params.address) : 'N/A'}`);
 
     try {
       switch (operation.type) {
@@ -162,18 +162,18 @@ export class BlockCypherProvider extends BaseRegistryProvider {
   private async getAddressTransactions(params: { address: string; since?: number }): Promise<BlockchainTransaction[]> {
     const { address, since } = params;
 
-    this.logger.debug(`Fetching address transactions - Address: ${this.maskAddress(address)}`);
+    this.logger.debug(`Fetching address transactions - Address: ${maskAddress(address)}`);
 
     try {
       // Get address info with transaction references
       const addressInfo = await this.httpClient.get<BlockCypherAddress>(this.buildEndpoint(`/addrs/${address}?limit=50`));
 
       if (!addressInfo.txrefs || addressInfo.txrefs.length === 0) {
-        this.logger.debug(`No transactions found for address - Address: ${this.maskAddress(address)}`);
+        this.logger.debug(`No transactions found for address - Address: ${maskAddress(address)}`);
         return [];
       }
 
-      this.logger.debug(`Retrieved transaction references - Address: ${this.maskAddress(address)}, Count: ${addressInfo.txrefs.length}`);
+      this.logger.debug(`Retrieved transaction references - Address: ${maskAddress(address)}, Count: ${addressInfo.txrefs.length}`);
 
       // Extract unique transaction hashes
       const uniqueTxHashes = Array.from(new Set(addressInfo.txrefs.map((ref: any) => ref.tx_hash)));
@@ -216,12 +216,12 @@ export class BlockCypherProvider extends BaseRegistryProvider {
       // Sort by timestamp (newest first)
       filteredTransactions.sort((a, b) => b.timestamp - a.timestamp);
 
-      this.logger.debug(`Successfully retrieved address transactions - Address: ${this.maskAddress(address)}, TotalTransactions: ${filteredTransactions.length}`);
+      this.logger.debug(`Successfully retrieved address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${filteredTransactions.length}`);
 
       return filteredTransactions;
 
     } catch (error) {
-      this.logger.error(`Failed to get address transactions - Address: ${this.maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`Failed to get address transactions - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -229,7 +229,7 @@ export class BlockCypherProvider extends BaseRegistryProvider {
   private async getAddressBalance(params: { address: string }): Promise<{ balance: string; token: string }> {
     const { address } = params;
 
-    this.logger.debug(`Fetching address balance - Address: ${this.maskAddress(address)}`);
+    this.logger.debug(`Fetching address balance - Address: ${maskAddress(address)}`);
 
     try {
       const addressInfo = await this.httpClient.get<BlockCypherAddress>(this.buildEndpoint(`/addrs/${address}/balance`));
@@ -240,7 +240,7 @@ export class BlockCypherProvider extends BaseRegistryProvider {
       // Convert satoshis to BTC
       const balanceBTC = (balanceSats / 100000000).toString();
 
-      this.logger.debug(`Successfully retrieved address balance - Address: ${this.maskAddress(address)}, UnconfirmedBalance: ${addressInfo.unconfirmed_balance}`);
+      this.logger.debug(`Successfully retrieved address balance - Address: ${maskAddress(address)}, UnconfirmedBalance: ${addressInfo.unconfirmed_balance}`);
 
       return {
         balance: balanceBTC,
@@ -248,7 +248,7 @@ export class BlockCypherProvider extends BaseRegistryProvider {
       };
 
     } catch (error) {
-      this.logger.error(`Failed to get address balance - Address: ${this.maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`Failed to get address balance - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -259,7 +259,7 @@ export class BlockCypherProvider extends BaseRegistryProvider {
   private async getAddressInfo(params: { address: string }): Promise<AddressInfo> {
     const { address } = params;
 
-    this.logger.debug(`Fetching lightweight address info - Address: ${this.maskAddress(address)}`);
+    this.logger.debug(`Fetching lightweight address info - Address: ${maskAddress(address)}`);
 
     try {
       const addressInfo = await this.httpClient.get<BlockCypherAddress>(this.buildEndpoint(`/addrs/${address}/balance`));
@@ -270,7 +270,7 @@ export class BlockCypherProvider extends BaseRegistryProvider {
       // Get balance in BTC (BlockCypher returns in satoshis)
       const balanceBTC = (addressInfo.final_balance / 100000000).toString();
 
-      this.logger.debug(`Successfully retrieved lightweight address info - Address: ${this.maskAddress(address)}`);
+      this.logger.debug(`Successfully retrieved lightweight address info - Address: ${maskAddress(address)}`);
 
       return {
         txCount,
@@ -278,7 +278,7 @@ export class BlockCypherProvider extends BaseRegistryProvider {
       };
 
     } catch (error) {
-      this.logger.error(`Failed to get address info - Address: ${this.maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`Failed to get address info - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -495,8 +495,4 @@ export class BlockCypherProvider extends BaseRegistryProvider {
   }
 
 
-  private maskAddress(address: string): string {
-    if (!address || address.length <= 8) return address;
-    return `${address.slice(0, 4)}...${address.slice(-4)}`;
-  }
 }

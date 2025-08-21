@@ -2,7 +2,7 @@ import { Decimal } from 'decimal.js';
 
 import type { Balance, BlockchainTransaction } from '@crypto/core';
 
-import { createMoney } from '@crypto/shared-utils';
+import { createMoney, maskAddress } from '@crypto/shared-utils';
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
 import { RegisterProvider } from '../../shared/registry/decorators.ts';
 import { ProviderOperation } from '../../shared/types.ts';
@@ -82,7 +82,7 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'}`);
+    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? maskAddress(operation.params.address) : 'N/A'}`);
 
     try {
       switch (operation.type) {
@@ -110,7 +110,7 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Solana address: ${address}`);
     }
 
-    this.logger.debug(`Fetching address transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
+    this.logger.debug(`Fetching address transactions - Address: ${maskAddress(address)}, Network: ${this.network}`);
 
     try {
       // Get signatures for address
@@ -127,14 +127,14 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
       });
 
       if (!signaturesResponse?.result) {
-        this.logger.debug(`No signatures found - Address: ${this.maskAddress(address)}`);
+        this.logger.debug(`No signatures found - Address: ${maskAddress(address)}`);
         return [];
       }
 
       const transactions: BlockchainTransaction[] = [];
       const signatures = signaturesResponse.result.slice(0, 50); // Limit for performance
 
-      this.logger.debug(`Retrieved signatures - Address: ${this.maskAddress(address)}, Count: ${signatures.length}`);
+      this.logger.debug(`Retrieved signatures - Address: ${maskAddress(address)}, Count: ${signatures.length}`);
 
       // Fetch transaction details
       for (const sig of signatures) {
@@ -166,12 +166,12 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
       // Sort by timestamp (newest first)
       transactions.sort((a, b) => b.timestamp - a.timestamp);
 
-      this.logger.debug(`Successfully retrieved address transactions - Address: ${this.maskAddress(address)}, TotalTransactions: ${transactions.length}, Network: ${this.network}`);
+      this.logger.debug(`Successfully retrieved address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${transactions.length}, Network: ${this.network}`);
 
       return transactions;
 
     } catch (error) {
-      this.logger.error(`Failed to get address transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`Failed to get address transactions - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -183,7 +183,7 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Solana address: ${address}`);
     }
 
-    this.logger.debug(`Fetching address balance - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
+    this.logger.debug(`Fetching address balance - Address: ${maskAddress(address)}, Network: ${this.network}`);
 
     try {
       const response = await this.httpClient.post('/', {
@@ -200,7 +200,7 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
       const lamports = new Decimal(response.result.value);
       const solBalance = lamportsToSol(lamports.toNumber());
 
-      this.logger.debug(`Successfully retrieved address balance - Address: ${this.maskAddress(address)}, BalanceSOL: ${solBalance.toNumber()}, Network: ${this.network}`);
+      this.logger.debug(`Successfully retrieved address balance - Address: ${maskAddress(address)}, BalanceSOL: ${solBalance.toNumber()}, Network: ${this.network}`);
 
       return {
         currency: 'SOL',
@@ -210,7 +210,7 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
       };
 
     } catch (error) {
-      this.logger.error(`Failed to get address balance - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`Failed to get address balance - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -276,7 +276,7 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Solana address: ${address}`);
     }
 
-    this.logger.debug(`Fetching token transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
+    this.logger.debug(`Fetching token transactions - Address: ${maskAddress(address)}, Network: ${this.network}`);
 
     try {
       // Get all signatures for this address (same as regular transactions)
@@ -293,7 +293,7 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
       });
 
       if (!signaturesResponse?.result) {
-        this.logger.debug(`No signatures found for token transactions - Address: ${this.maskAddress(address)}`);
+        this.logger.debug(`No signatures found for token transactions - Address: ${maskAddress(address)}`);
         return [];
       }
 
@@ -329,12 +329,12 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
 
       tokenTransactions.sort((a, b) => b.timestamp - a.timestamp);
 
-      this.logger.debug(`Successfully retrieved token transactions - Address: ${this.maskAddress(address)}, TotalTransactions: ${tokenTransactions.length}, Network: ${this.network}`);
+      this.logger.debug(`Successfully retrieved token transactions - Address: ${maskAddress(address)}, TotalTransactions: ${tokenTransactions.length}, Network: ${this.network}`);
 
       return tokenTransactions;
 
     } catch (error) {
-      this.logger.error(`Failed to get token transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`Failed to get token transactions - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -346,7 +346,7 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Solana address: ${address}`);
     }
 
-    this.logger.debug(`Fetching token balances - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
+    this.logger.debug(`Fetching token balances - Address: ${maskAddress(address)}, Network: ${this.network}`);
 
     try {
       // Get all token accounts owned by the address
@@ -366,7 +366,7 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
       });
 
       if (!tokenAccountsResponse?.result?.value) {
-        this.logger.debug(`No token accounts found - Address: ${this.maskAddress(address)}`);
+        this.logger.debug(`No token accounts found - Address: ${maskAddress(address)}`);
         return [];
       }
 
@@ -402,12 +402,12 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
         });
       }
 
-      this.logger.debug(`Successfully retrieved token balances - Address: ${this.maskAddress(address)}, TotalTokens: ${balances.length}, Network: ${this.network}`);
+      this.logger.debug(`Successfully retrieved token balances - Address: ${maskAddress(address)}, TotalTokens: ${balances.length}, Network: ${this.network}`);
 
       return balances;
 
     } catch (error) {
-      this.logger.error(`Failed to get token balances - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`Failed to get token balances - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -472,8 +472,4 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
     }
   }
 
-  private maskAddress(address: string): string {
-    if (address.length <= 8) return address;
-    return `${address.slice(0, 4)}...${address.slice(-4)}`;
-  }
 }
