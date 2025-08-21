@@ -8,19 +8,7 @@ import { loadExplorerConfig } from '../blockchains/shared/explorer-config.ts';
 import { ProviderRegistry } from '../blockchains/shared/registry/index.ts';
 
 // Import all providers to trigger registration
-import '../blockchains/bitcoin/providers/BlockCypherProvider.ts';
-import '../blockchains/bitcoin/providers/BlockstreamProvider.ts';
-import '../blockchains/bitcoin/providers/MempoolSpaceProvider.ts';
-import '../blockchains/avalanche/providers/SnowtraceProvider.ts';
-import '../blockchains/ethereum/providers/AlchemyProvider.ts';
-import '../blockchains/ethereum/providers/EtherscanProvider.ts';
-import '../blockchains/ethereum/providers/MoralisProvider.ts';
-import '../blockchains/injective/providers/InjectiveExplorerProvider.ts';
-import '../blockchains/injective/providers/InjectiveLCDProvider.ts';
-import '../blockchains/solana/providers/HeliusProvider.ts';
-import '../blockchains/solana/providers/SolanaRPCProvider.ts';
-import '../blockchains/solana/providers/SolscanProvider.ts';
-import '../blockchains/polkadot/providers/SubstrateProvider.ts';
+import '../blockchains/registry/register-providers.ts';
 
 function validateConfiguration(): void {
   console.log('🔍 Validating Blockchain Configuration\n');
