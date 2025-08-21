@@ -12,6 +12,16 @@ import { ExchangeAdapterFactory } from '../exchanges/adapter-factory.ts';
 import { detectScamFromSymbol } from '../utils/scam-detection.ts';
 import { Deduplicator } from './deduplicator.ts';
 
+// Universal adapter imports
+import { UniversalAdapterFactory } from '../adapters/universal/adapter-factory.js';
+import type { 
+  IUniversalAdapter, 
+  FetchParams, 
+  Transaction as UniversalTransaction,
+  ExchangeAdapterConfig,
+  BlockchainAdapterConfig
+} from '../adapters/universal/index.js';
+
 interface BlockchainImportOptions {
   blockchain: string;
   addresses: string[];
@@ -177,6 +187,147 @@ export class TransactionImporter {
         duration
       };
     }
+  }
+
+  /**
+   * Universal adapter import method - unified interface for all adapter types
+   */
+  async importFromAdapter(adapter: IUniversalAdapter, params: FetchParams): Promise<ImportResult> {
+    const startTime = Date.now();
+    const info = await adapter.getInfo();
+    this.logger.info(`Starting import from ${info.name} (${info.type})`);
+
+    try {
+      // Test connection first
+      const isConnected = await adapter.testConnection();
+      if (!isConnected) {
+        throw new Error(`Failed to connect to ${info.name}`);
+      }
+
+      // Fetch transactions using unified interface
+      const transactions = await adapter.fetchTransactions(params);
+      
+      // Convert universal transactions to CryptoTransaction format for existing pipeline
+      const cryptoTransactions = transactions.map((tx: UniversalTransaction) => this.convertUniversalToCryptoTransaction(tx));
+      
+      // Save transactions using existing logic
+      const { saved, duplicates } = await this.processAndSaveTransactions(cryptoTransactions, info.id);
+
+      const duration = Date.now() - startTime;
+
+      const result: ImportResult = {
+        source: info.id,
+        transactions: transactions.length,
+        newTransactions: saved,
+        duplicatesSkipped: duplicates.length,
+        errors: [],
+        duration
+      };
+
+      this.logger.info(`Completed import from ${info.name} - Transactions: ${transactions.length}, New: ${saved}, Duplicates: ${duplicates.length}, Duration: ${duration}ms`);
+
+      return result;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      this.logger.error(`Import failed for ${info.name}: ${error} (duration: ${duration}ms)`);
+      
+      return {
+        source: info.id,
+        transactions: 0,
+        newTransactions: 0,
+        duplicatesSkipped: 0,
+        errors: [error instanceof Error ? error.message : 'Unknown error'],
+        duration
+      };
+    } finally {
+      await adapter.close();
+    }
+  }
+
+  /**
+   * Import from exchange using universal interface
+   */
+  async importFromExchangeUniversal(
+    exchangeId: string, 
+    adapterType: 'ccxt' | 'csv',
+    options: {
+      credentials?: {
+        apiKey: string;
+        secret: string;
+        password?: string;
+      };
+      csvDirectories?: string[];
+      since?: number;
+      symbols?: string[];
+    }
+  ): Promise<ImportResult> {
+    const config: ExchangeAdapterConfig = {
+      type: 'exchange',
+      id: exchangeId,
+      subType: adapterType,
+      credentials: options.credentials,
+      csvDirectories: options.csvDirectories
+    };
+    
+    const adapter = await UniversalAdapterFactory.create(config);
+    return this.importFromAdapter(adapter, {
+      since: options.since || Date.now() - 30 * 24 * 60 * 60 * 1000, // 30 days default
+      symbols: options.symbols
+    });
+  }
+
+  /**
+   * Import from blockchain using universal interface
+   */
+  async importFromBlockchainUniversal(
+    blockchain: string, 
+    addresses: string[],
+    options: {
+      since?: number;
+      network?: string;
+      includeTokens?: boolean;
+      symbols?: string[];
+    } = {}
+  ): Promise<ImportResult> {
+    const config: BlockchainAdapterConfig = {
+      type: 'blockchain',
+      id: blockchain,
+      subType: 'rest',
+      network: options.network || 'mainnet'
+    };
+    
+    const adapter = await UniversalAdapterFactory.create(config, this.explorerConfig);
+    return this.importFromAdapter(adapter, {
+      addresses,
+      since: options.since || Date.now() - 30 * 24 * 60 * 60 * 1000, // 30 days default
+      includeTokens: options.includeTokens,
+      symbols: options.symbols
+    });
+  }
+
+  /**
+   * Convert universal transaction format to CryptoTransaction for existing pipeline
+   */
+  private convertUniversalToCryptoTransaction(universalTx: UniversalTransaction): CryptoTransaction {
+    return {
+      id: universalTx.id,
+      timestamp: universalTx.timestamp,
+      datetime: universalTx.datetime,
+      type: universalTx.type,
+      status: universalTx.status,
+      amount: universalTx.amount,
+      fee: universalTx.fee,
+      price: universalTx.price,
+      symbol: universalTx.symbol,
+      side: universalTx.metadata?.side,
+      info: {
+        from: universalTx.from,
+        to: universalTx.to,
+        source: universalTx.source,
+        network: universalTx.network,
+        ...universalTx.metadata
+      }
+    };
   }
 
   async createBlockchainAdapters(options: BlockchainImportOptions): Promise<Array<{ adapter: IBlockchainAdapter }>> {
