@@ -1,6 +1,7 @@
-import { Logger, getLogger } from '@crypto/shared/logger';
-import type { IUniversalAdapter, AdapterInfo, FetchParams, Transaction, Balance } from './types';
-import type { AdapterConfig } from './config';
+import type { Logger } from '@crypto/shared-logger';
+import { getLogger } from '@crypto/shared-logger';
+import type { IUniversalAdapter, AdapterInfo, FetchParams, Transaction, Balance } from './types.js';
+import type { AdapterConfig } from './config.js';
 
 export abstract class BaseAdapter implements IUniversalAdapter {
   protected logger: Logger;
