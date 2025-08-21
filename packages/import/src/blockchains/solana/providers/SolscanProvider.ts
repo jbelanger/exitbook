@@ -2,7 +2,7 @@ import { Decimal } from 'decimal.js';
 
 import type { Balance, BlockchainTransaction } from '@crypto/core';
 
-import { createMoney } from '@crypto/shared-utils';
+import { createMoney, maskAddress } from '@crypto/shared-utils';
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
 import { RegisterProvider } from '../../shared/registry/decorators.ts';
 import { ProviderOperation } from '../../shared/types.ts';
@@ -89,7 +89,7 @@ export class SolscanProvider extends BaseRegistryProvider {
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'}`);
+    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? maskAddress(operation.params.address) : 'N/A'}`);
 
     try {
       switch (operation.type) {
@@ -113,7 +113,7 @@ export class SolscanProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Solana address: ${address}`);
     }
 
-    this.logger.debug(`Fetching address transactions - Address: ${this.maskAddress(address)}, Since: ${since}, Network: ${this.network}`);
+    this.logger.debug(`Fetching address transactions - Address: ${maskAddress(address)}, Since: ${since}, Network: ${this.network}`);
 
     try {
       const response = await this.httpClient.get(`/account/transaction?address=${address}&limit=100&offset=0`);
@@ -121,7 +121,7 @@ export class SolscanProvider extends BaseRegistryProvider {
       this.logger.debug(`Solscan API response received - HasResponse: ${!!response}, Success: ${response?.success}, HasData: ${!!response?.data}, TransactionCount: ${response?.data?.length || 0}`);
 
       if (!response || !response.success || !response.data) {
-        this.logger.debug(`No transactions found or API error - Address: ${this.maskAddress(address)}`);
+        this.logger.debug(`No transactions found or API error - Address: ${maskAddress(address)}`);
         return [];
       }
 
@@ -141,12 +141,12 @@ export class SolscanProvider extends BaseRegistryProvider {
       // Sort by timestamp (newest first)
       transactions.sort((a, b) => b.timestamp - a.timestamp);
 
-      this.logger.debug(`Successfully retrieved address transactions - Address: ${this.maskAddress(address)}, TotalTransactions: ${transactions.length}, Network: ${this.network}`);
+      this.logger.debug(`Successfully retrieved address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${transactions.length}, Network: ${this.network}`);
 
       return transactions;
 
     } catch (error) {
-      this.logger.error(`Failed to get address transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`Failed to get address transactions - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -158,7 +158,7 @@ export class SolscanProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Solana address: ${address}`);
     }
 
-    this.logger.debug(`Fetching address balance - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
+    this.logger.debug(`Fetching address balance - Address: ${maskAddress(address)}, Network: ${this.network}`);
 
     try {
       const response = await this.httpClient.get(`/account/${address}`);
@@ -170,7 +170,7 @@ export class SolscanProvider extends BaseRegistryProvider {
       const lamports = new Decimal(response.data.lamports || '0');
       const solBalance = lamportsToSol(lamports.toNumber());
 
-      this.logger.debug(`Successfully retrieved address balance - Address: ${this.maskAddress(address)}, BalanceSOL: ${solBalance.toNumber()}, Network: ${this.network}`);
+      this.logger.debug(`Successfully retrieved address balance - Address: ${maskAddress(address)}, BalanceSOL: ${solBalance.toNumber()}, Network: ${this.network}`);
 
       return {
         currency: 'SOL',
@@ -180,7 +180,7 @@ export class SolscanProvider extends BaseRegistryProvider {
       };
 
     } catch (error) {
-      this.logger.error(`Failed to get address balance - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`Failed to get address balance - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -237,8 +237,4 @@ export class SolscanProvider extends BaseRegistryProvider {
     }
   }
 
-  private maskAddress(address: string): string {
-    if (address.length <= 8) return address;
-    return `${address.slice(0, 4)}...${address.slice(-4)}`;
-  }
 }

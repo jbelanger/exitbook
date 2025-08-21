@@ -102,6 +102,53 @@ This is a cryptocurrency transaction import tool with multi-provider resilience 
 3. **Adapter Pattern**: Common interfaces for different data sources (exchanges vs blockchains)
 4. **Factory Pattern**: Creates adapters and providers based on configuration
 
+### Monorepo Structure
+
+```
+crypto-tx-import/
+├── apps/
+│   └── cli/                    # CLI tool (current main app)
+├── packages/
+│   ├── core/                   # Domain entities & shared types
+│   ├── import/                 # Transaction import domain
+│   │   ├── blockchains/        # Blockchain-specific implementations
+│   │   │   ├── bitcoin/        # Bitcoin adapter, providers & utilities
+│   │   │   ├── ethereum/       # Ethereum adapter, providers & utilities
+│   │   │   ├── avalanche/      # Avalanche adapter, providers & utilities
+│   │   │   ├── solana/         # Solana adapter, providers & utilities
+│   │   │   └── injective/      # Injective adapter, providers & utilities
+│   │   ├── exchanges/          # Exchange adapters (CCXT, CSV, native)
+│   │   ├── shared/             # Provider registry & shared utilities
+│   │   └── services/           # Import orchestration services
+│   ├── data/                   # Database, repositories & storage
+│   ├── balance/                # Balance verification services
+│   └── shared/                 # Cross-cutting concerns
+│       ├── logger/             # Structured logging
+│       ├── utils/              # Common utilities
+│       └── tsconfig/           # TypeScript configurations
+```
+
+### Blockchain-Centric Organization
+
+Each blockchain is organized as a self-contained feature module:
+
+```
+packages/import/blockchains/bitcoin/
+├── adapter.ts              # Bitcoin blockchain adapter
+├── providers/
+│   ├── mempool-space-provider.ts
+│   ├── blockstream-provider.ts
+│   └── blockcypher-provider.ts
+├── utils.ts               # Bitcoin-specific utilities
+└── types.ts              # Bitcoin API response types
+```
+
+Benefits:
+- **Feature Cohesion**: All blockchain-related code grouped together
+- **Developer Experience**: Easy to find and modify blockchain-specific functionality
+- **Clear Boundaries**: Each blockchain is a self-contained module
+- **Scalability**: Adding new blockchains follows a consistent pattern
+
 ### Directory Structure
 
 - `src/adapters/` - Exchange and blockchain adapters
@@ -120,6 +167,13 @@ When adding new blockchain providers:
 2. Implement `IBlockchainProvider` interface
 3. Import provider in corresponding adapter to trigger registration
 4. Update configuration files and add tests
+
+### Exchange Adapter Development
+When adding new exchange adapters:
+1. Use `@RegisterExchangeAdapter` decorator with metadata
+2. Implement `IExchangeAdapter` interface
+3. Register in `packages/import/src/exchanges/registry/register-adapters.ts`
+4. Add configuration validation and tests
 
 ### Configuration Management
 - Exchange configs in `config/exchanges.json` with adapter types (ccxt/native/universal)
@@ -142,7 +196,71 @@ When adding new blockchain providers:
 Uses `pnpm` as the package manager (specified in package.json). All npm commands should use `pnpm` instead.
 
 ## Node Version
-Requires Node.js >= 18.0.0 (see package.json engines field).
+Requires Node.js >= 23.0.0 (see package.json engines field).
 
 ## Database
 Uses SQLite3 for local transaction storage. Database initialization happens automatically on first run.
+
+## Transaction Flow
+
+The system processes transactions through a unified pipeline:
+
+1. **Data Sources**: Exchange APIs (CCXT/native) or Blockchain APIs (multiple providers)
+2. **Adapters**: Convert source-specific data to `CryptoTransaction` format
+3. **Enhancement**: Add metadata, calculate fees, detect duplicates
+4. **Storage**: Persist to SQLite with deduplication
+5. **Verification**: Optional balance verification against live data
+
+### Key Types
+
+```typescript
+// Universal transaction format across all sources
+interface CryptoTransaction {
+  id: string;
+  type: TransactionType;
+  timestamp: number;
+  amount: Money;           // Uses Decimal.js for precision
+  symbol?: string;
+  side?: 'buy' | 'sell';
+  price?: Money;
+  fee?: Money;
+  status?: TransactionStatus;
+  info?: any;             // Raw source data
+}
+
+// High-precision money type
+interface Money {
+  amount: Decimal;
+  currency: string;
+}
+```
+
+## Provider Registry System
+
+The registry system eliminates configuration drift by:
+- Storing provider metadata with code via decorators
+- Auto-discovering available providers at runtime
+- Validating configurations against registered providers
+- Enabling type-safe provider instantiation
+
+Example provider registration:
+```typescript
+@RegisterProvider({
+  blockchain: 'bitcoin',
+  name: 'mempool-space',
+  displayName: 'Mempool.space',
+  type: 'api',
+  requiresApiKey: false,
+  networks: {
+    mainnet: { baseUrl: 'https://mempool.space/api' }
+  },
+  capabilities: {
+    supportedOperations: ['getAddressTransactions', 'getAddressBalance'],
+    maxBatchSize: 1,
+    supportsHistoricalData: true
+  }
+})
+export class MempoolSpaceProvider implements IBlockchainProvider {
+  // Implementation
+}
+```

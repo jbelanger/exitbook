@@ -1,6 +1,6 @@
 import type { Balance, BlockchainTransaction } from '@crypto/core';
 import { AuthenticationError, ServiceError } from '@crypto/core';
-import { createMoney, parseDecimal } from '@crypto/shared-utils';
+import { createMoney, maskAddress, parseDecimal } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
 import { RegisterProvider } from '../../shared/registry/decorators.ts';
@@ -85,7 +85,7 @@ export class SnowtraceProvider extends BaseRegistryProvider {
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'}`);
+    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? maskAddress(operation.params.address) : 'N/A'}`);
 
     try {
       switch (operation.type) {
@@ -113,7 +113,7 @@ export class SnowtraceProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Avalanche address: ${address}`);
     }
 
-    this.logger.debug(`Fetching address transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
+    this.logger.debug(`Fetching address transactions - Address: ${maskAddress(address)}, Network: ${this.network}`);
 
     try {
       // Get normal transactions
@@ -128,12 +128,12 @@ export class SnowtraceProvider extends BaseRegistryProvider {
       // Sort by timestamp (newest first)
       allTransactions.sort((a, b) => b.timestamp - a.timestamp);
 
-      this.logger.debug(`Retrieved ${allTransactions.length} transactions for ${this.maskAddress(address)}`);
+      this.logger.debug(`Retrieved ${allTransactions.length} transactions for ${maskAddress(address)}`);
 
       return allTransactions;
 
     } catch (error) {
-      this.logger.error(`Failed to get address transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`Failed to get address transactions - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -145,17 +145,17 @@ export class SnowtraceProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Avalanche address: ${address}`);
     }
 
-    this.logger.debug(`Fetching address balance - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
+    this.logger.debug(`Fetching address balance - Address: ${maskAddress(address)}, Network: ${this.network}`);
 
     try {
       // Get AVAX balance
       const avaxBalance = await this.getAVAXBalance(address);
 
-      this.logger.debug(`Retrieved balance for ${this.maskAddress(address)}: ${avaxBalance.balance} AVAX`);
+      this.logger.debug(`Retrieved balance for ${maskAddress(address)}: ${avaxBalance.balance} AVAX`);
 
       return avaxBalance;
     } catch (error) {
-      this.logger.error(`Failed to get address balance - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`Failed to get address balance - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -420,8 +420,4 @@ export class SnowtraceProvider extends BaseRegistryProvider {
     };
   }
 
-  private maskAddress(address: string): string {
-    if (address.length <= 8) return address;
-    return `${address.slice(0, 4)}...${address.slice(-4)}`;
-  }
 }

@@ -1,7 +1,7 @@
 import { Decimal } from 'decimal.js';
 
 import type { Balance, BlockchainTransaction } from '@crypto/core';
-import { createMoney } from '@crypto/shared-utils';
+import { createMoney, maskAddress } from '@crypto/shared-utils';
 
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
 import { RegisterProvider } from '../../shared/registry/decorators.ts';
@@ -143,7 +143,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'}`);
+    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? maskAddress(operation.params.address) : 'N/A'}`);
 
     try {
       switch (operation.type) {
@@ -167,7 +167,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
     }
 
     try {
-      this.logger.debug(`Fetching transactions for ${this.network} address: ${this.maskAddress(address)}`);
+      this.logger.debug(`Fetching transactions for ${this.network} address: ${maskAddress(address)}`);
 
       // Try explorer API first
       if (this.httpClient) {
@@ -190,7 +190,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
       return [];
 
     } catch (error) {
-      this.logger.error(`Failed to fetch transactions for ${this.network} address - Address: ${this.maskAddress(address)}, Error: ${error}`);
+      this.logger.error(`Failed to fetch transactions for ${this.network} address - Address: ${maskAddress(address)}, Error: ${error}`);
       throw error;
     }
   }
@@ -202,7 +202,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
     }
 
     try {
-      this.logger.debug(`Fetching balance for ${this.network} address: ${this.maskAddress(address)}`);
+      this.logger.debug(`Fetching balance for ${this.network} address: ${maskAddress(address)}`);
 
       // Try RPC first for most accurate balance
       if (this.rpcClient) {
@@ -228,7 +228,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
       return [];
 
     } catch (error) {
-      this.logger.error(`Failed to fetch balance for ${this.network} address - Address: ${this.maskAddress(address)}, Error: ${error}`);
+      this.logger.error(`Failed to fetch balance for ${this.network} address - Address: ${maskAddress(address)}, Error: ${error}`);
       throw error;
     }
   }
@@ -282,7 +282,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
     } else if (this.network === 'polkadot' || this.network === 'kusama') {
       // Subscan API implementation
       try {
-        this.logger.debug(`Calling Subscan API for ${this.network} transactions - Address: ${this.maskAddress(address)}`);
+        this.logger.debug(`Calling Subscan API for ${this.network} transactions - Address: ${maskAddress(address)}`);
 
         const response = await this.httpClient.post('/api/v2/scan/transfers', {
           address: address,
@@ -294,7 +294,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
 
         if (response && response.code === 0 && response.data && response.data.transfers) {
           for (const transfer of response.data.transfers) {
-            this.logger.debug(`Processing transfer - From: ${transfer.from}, To: ${transfer.to}, UserAddress: ${this.maskAddress(address)}, Amount: ${transfer.amount}`);
+            this.logger.debug(`Processing transfer - From: ${transfer.from}, To: ${transfer.to}, UserAddress: ${maskAddress(address)}, Amount: ${transfer.amount}`);
 
             const blockchainTx = this.convertSubscanTransaction(transfer, address);
             this.logger.debug(`Converted transaction result - HasTransaction: ${!!blockchainTx}, Since: ${since}, TxTimestamp: ${blockchainTx?.timestamp}`);
@@ -354,7 +354,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
 
       return null;
     } catch (error) {
-      this.logger.debug(`RPC balance query failed - Address: ${this.maskAddress(address)}, Error: ${error}`);
+      this.logger.debug(`RPC balance query failed - Address: ${maskAddress(address)}, Error: ${error}`);
       return null;
     }
   }
@@ -400,7 +400,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
 
       return null;
     } catch (error) {
-      this.logger.debug(`Explorer balance query failed - Address: ${this.maskAddress(address)}, Error: ${error}`);
+      this.logger.debug(`Explorer balance query failed - Address: ${maskAddress(address)}, Error: ${error}`);
       return null;
     }
   }
@@ -443,7 +443,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
       const isFromUser = transfer.from === userAddress;
       const isToUser = transfer.to === userAddress;
 
-      this.logger.debug(`Checking transaction relevance - From: ${transfer.from}, To: ${transfer.to}, UserAddress: ${this.maskAddress(userAddress)}, IsFromUser: ${isFromUser}, IsToUser: ${isToUser}`);
+      this.logger.debug(`Checking transaction relevance - From: ${transfer.from}, To: ${transfer.to}, UserAddress: ${maskAddress(userAddress)}, IsFromUser: ${isFromUser}, IsToUser: ${isToUser}`);
 
       if (!isFromUser && !isToUser) {
         this.logger.debug('Transaction not relevant to user address');
@@ -478,8 +478,4 @@ export class SubstrateProvider extends BaseRegistryProvider {
     }
   }
 
-  private maskAddress(address: string): string {
-    if (!address || address.length <= 8) return address;
-    return `${address.slice(0, 4)}...${address.slice(-4)}`;
-  }
 }

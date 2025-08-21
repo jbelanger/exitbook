@@ -2,6 +2,7 @@ import type { CryptoTransaction, ExchangeInfo, TransactionStatus } from '@crypto
 import { createMoney, parseDecimal } from '@crypto/shared-utils';
 import type { CSVConfig } from '../base-csv-adapter.ts';
 import { BaseCSVAdapter } from '../base-csv-adapter.ts';
+import { CsvFilters } from '../csv-filters.ts';
 import { RegisterExchangeAdapter } from '../registry/decorators.ts';
 
 interface KrakenCSVConfig extends CSVConfig { }
@@ -117,7 +118,7 @@ export class KrakenCSVAdapter extends BaseCSVAdapter {
     const validWithdrawals: KrakenLedgerRow[] = [];
 
     // Group withdrawals by refid to detect failed transaction pairs
-    const withdrawalsByRefId = this.groupByField(withdrawalRows, 'refid');
+    const withdrawalsByRefId = CsvFilters.groupByField(withdrawalRows, 'refid');
 
     for (const [refId, group] of withdrawalsByRefId) {
       if (group.length === 2) {
@@ -225,7 +226,7 @@ export class KrakenCSVAdapter extends BaseCSVAdapter {
 
     // Process spend/receive pairs by grouping by refid
     const spendReceiveRows = [...spendRows, ...receiveRows];
-    const tradeGroups = this.groupByField(spendReceiveRows, 'refid');
+    const tradeGroups = CsvFilters.groupByField(spendReceiveRows, 'refid');
     const processedRefIds = new Set<string>();
 
     for (const [refId, group] of tradeGroups) {
@@ -521,18 +522,6 @@ export class KrakenCSVAdapter extends BaseCSVAdapter {
     }
 
     this.logger.info(`CSV processing summary: ${allRows.length} total records, ${expectedProcessed} processed, ${unprocessedRows.length} unprocessed, ${failedTransactionRefIds.size} failed transaction pairs filtered`);
-  }
-
-  private groupByField<T, K extends keyof T>(rows: T[], field: K): Map<T[K], T[]> {
-    const groups = new Map<T[K], T[]>();
-    for (const row of rows) {
-      const key = row[field];
-      if (!groups.has(key)) {
-        groups.set(key, []);
-      }
-      groups.get(key)!.push(row);
-    }
-    return groups;
   }
 
   private convertSingleTradeToTransaction(trade: KrakenLedgerRow): CryptoTransaction {
