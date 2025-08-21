@@ -9,75 +9,93 @@ import crypto from 'crypto';
 
 
 /**
- * Utility for transforming CCXT transactions to our standard format
- * Eliminates code duplication across CCXT adapters
+ * Transforms CCXT transactions to our standard CryptoTransaction format
+ * Provides consistent data normalization across all exchange adapters
  */
 export class TransactionTransformer {
   /**
-   * Transform a CCXT transaction to our standard format
+   * Converts CCXT transaction data to standardized CryptoTransaction format
    */
-  static fromCCXT(ccxtTx: any, type: TransactionType, exchangeId: string): CryptoTransaction {
-    const { base, quote } = this.extractCurrency(ccxtTx);
-    const id = ccxtTx.id || ccxtTx.txid || this.createTransactionHash(ccxtTx, exchangeId);
-    const timestamp = ccxtTx.timestamp || Date.now();
-    const amount = Math.abs(ccxtTx.amount || 0);
+  static fromCCXT(ccxtTransaction: any, type: TransactionType, exchangeId: string): CryptoTransaction {
+    const { baseCurrency, quoteCurrency } = this.extractCurrencies(ccxtTransaction);
+    const transactionId = this.extractTransactionId(ccxtTransaction, exchangeId);
+    const timestamp = ccxtTransaction.timestamp || Date.now();
+    const amount = Math.abs(ccxtTransaction.amount || 0);
 
-    // Transform amount structure
-    const amountMoney: Money = createMoney(amount, base);
-
-    // Transform price structure
-    let priceMoney: Money | undefined;
-    if (ccxtTx.price) {
-      priceMoney = createMoney(ccxtTx.price, quote);
-    } else if (type === 'trade' && ccxtTx.cost && ccxtTx.amount && ccxtTx.amount !== 0) {
-      // Calculate actual price from cost and amount for trades
-      const actualPrice = Math.abs(ccxtTx.cost) / Math.abs(ccxtTx.amount);
-      priceMoney = createMoney(actualPrice, quote);
-    }
-
-    // Transform fee structure
-    let fee: Money | undefined;
-    if (ccxtTx.fee && ccxtTx.fee.cost) {
-      fee = createMoney(ccxtTx.fee.cost, ccxtTx.fee.currency || 'unknown');
-    }
+    const amountMoney = createMoney(amount, baseCurrency);
+    const priceMoney = this.extractPrice(ccxtTransaction, type, quoteCurrency);
+    const fee = this.extractFee(ccxtTransaction);
 
     return {
-      id,
+      id: transactionId,
       type,
       timestamp,
-      datetime: ccxtTx.datetime,
-      symbol: ccxtTx.symbol,
+      datetime: ccxtTransaction.datetime,
+      symbol: ccxtTransaction.symbol,
       amount: amountMoney,
-      side: ccxtTx.side,
+      side: ccxtTransaction.side,
       price: priceMoney,
       fee,
-      status: this.normalizeStatus(ccxtTx.status),
-      info: ccxtTx,
+      status: this.normalizeStatus(ccxtTransaction.status),
+      info: ccxtTransaction,
     };
   }
 
   /**
-   * Extract base and quote currencies from a CCXT transaction
+   * Extracts base and quote currencies from transaction data
    */
-  static extractCurrency(transaction: any): { base: string; quote: string } {
-    let base = 'unknown';
-    let quote = 'unknown';
+  static extractCurrencies(transaction: any): { baseCurrency: string; quoteCurrency: string } {
+    let baseCurrency = 'unknown';
+    let quoteCurrency = 'unknown';
 
     if (transaction.symbol && transaction.symbol.includes('/')) {
-      [base, quote] = transaction.symbol.split('/');
+      [baseCurrency, quoteCurrency] = transaction.symbol.split('/');
     } else if (transaction.currency) {
-      base = transaction.currency;
-      quote = transaction.currency;
+      baseCurrency = transaction.currency;
+      quoteCurrency = transaction.currency;
     } else if (transaction.info?.currency) {
-      base = transaction.info.currency;
-      quote = transaction.info.currency;
+      baseCurrency = transaction.info.currency;
+      quoteCurrency = transaction.info.currency;
     }
 
-    return { base, quote };
+    return { baseCurrency, quoteCurrency };
   }
 
   /**
-   * Normalize various status formats to our standard status
+   * Extracts transaction ID with fallback to generated hash
+   */
+  private static extractTransactionId(transaction: any, exchangeId: string): string {
+    return transaction.id || transaction.txid || this.createTransactionHash(transaction, exchangeId);
+  }
+
+  /**
+   * Extracts and normalizes price information
+   */
+  private static extractPrice(transaction: any, type: TransactionType, quoteCurrency: string): Money | undefined {
+    if (transaction.price) {
+      return createMoney(transaction.price, quoteCurrency);
+    }
+    
+    if (type === 'trade' && transaction.cost && transaction.amount && transaction.amount !== 0) {
+      const calculatedPrice = Math.abs(transaction.cost) / Math.abs(transaction.amount);
+      return createMoney(calculatedPrice, quoteCurrency);
+    }
+    
+    return undefined;
+  }
+
+  /**
+   * Extracts fee information from transaction
+   */
+  private static extractFee(transaction: any): Money | undefined {
+    if (transaction.fee?.cost) {
+      return createMoney(transaction.fee.cost, transaction.fee.currency || 'unknown');
+    }
+    return undefined;
+  }
+
+  /**
+   * Normalizes various exchange status formats to standard TransactionStatus
    */
   static normalizeStatus(status: any): TransactionStatus {
     if (!status) return 'pending';
@@ -102,7 +120,7 @@ export class TransactionTransformer {
   }
 
   /**
-   * Create a deterministic hash for transaction deduplication
+   * Generates unique transaction identifier from transaction data
    */
   static createTransactionHash(transaction: any, exchangeId: string): string {
     const hashData = JSON.stringify({
@@ -119,9 +137,9 @@ export class TransactionTransformer {
   }
 
   /**
-   * Check if a transaction should be filtered out (cancelled, etc.)
+   * Determines if transaction should be excluded from import
    */
-  static shouldFilter(transaction: any): boolean {
+  static shouldFilterOut(transaction: any): boolean {
     // Check CCXT status
     if (transaction.status === 'canceled' || transaction.status === 'cancelled') {
       return true;
