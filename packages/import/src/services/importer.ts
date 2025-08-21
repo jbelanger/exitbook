@@ -1,11 +1,10 @@
 import type { CryptoTransaction, EnhancedTransaction, IBlockchainAdapter, IExchangeAdapter, TransactionNote } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
 import crypto from 'crypto';
-import fs from 'fs';
-import path from 'path';
-import type { ExchangeConfig } from '../exchanges/types.ts';
+import type { ExchangeConfig, ExchangeCredentials } from '../exchanges/types.ts';
 import type { ImportResult, ImportSummary } from '../types.ts';
 import { TransactionNoteType } from '../types.ts';
+import { resolveEnvironmentVariables, type ExchangeConfiguration, type BlockchainExplorersConfig } from '@crypto/shared-utils';
 
 import { Database, TransactionRepository, TransactionService, WalletRepository, WalletService } from '@crypto/data';
 
@@ -37,7 +36,11 @@ export class TransactionImporter {
   private blockchainAdapterFactory: BlockchainAdapterFactory;
   private walletService: WalletService;
 
-  constructor(database: Database) {
+  constructor(
+    database: Database,
+    private readonly exchangeConfig: ExchangeConfiguration,
+    private readonly explorerConfig: BlockchainExplorersConfig
+  ) {
     this.database = database;
     const transactionRepository = new TransactionRepository(database);
     const walletRepository = new WalletRepository(database);
@@ -314,7 +317,7 @@ export class TransactionImporter {
   }
 
   async getConfiguredExchanges(options: ExchangeImportOptions = {}): Promise<Array<{ adapter: IExchangeAdapter; config: ExchangeConfig }>> {
-    const config = await this.loadConfiguration(options.configPath);
+    const config = this.exchangeConfig;
     const exchanges: Array<{ adapter: IExchangeAdapter; config: ExchangeConfig }> = [];
 
     for (const [exchangeId, exchangeConfig] of Object.entries(config.exchanges)) {
@@ -340,8 +343,8 @@ export class TransactionImporter {
 
         // Resolve environment variables in credentials (skip for CSV adapters)
         const resolvedCredentials = (adapterType === 'csv')
-          ? {}
-          : this.resolveEnvironmentVariables(typedConfig.credentials);
+          ? typedConfig.credentials
+          : resolveEnvironmentVariables(typedConfig.credentials);
 
         // Require adapterType in config
         if (!adapterType) {
@@ -352,7 +355,7 @@ export class TransactionImporter {
           ...typedConfig,
           id: exchangeId,
           adapterType,
-          credentials: resolvedCredentials
+          credentials: resolvedCredentials as ExchangeCredentials
         };
 
         const adapter = await this.adapterFactory.createAdapter(finalConfig, undefined, this.database) as IExchangeAdapter;
@@ -374,7 +377,10 @@ export class TransactionImporter {
   async createBlockchainAdapter(options: BlockchainImportOptions): Promise<Array<{ adapter: IBlockchainAdapter }>> {
 
     try {
-      const adapter = await this.blockchainAdapterFactory.createBlockchainAdapter(options.blockchain.toLowerCase());
+      const adapter = await this.blockchainAdapterFactory.createBlockchainAdapter(
+        options.blockchain.toLowerCase(),
+        this.explorerConfig
+      );
 
       this.logger.info(`Created blockchain adapter: ${options.blockchain} (addresses: ${options.addresses.length}, network: ${options.network || 'mainnet'})`);
 
@@ -439,83 +445,6 @@ export class TransactionImporter {
     return crypto.createHash('sha256').update(hashData).digest('hex').slice(0, 16);
   }
 
-  private resolveEnvironmentVariables(credentials: any): any {
-    const resolved = { ...credentials };
-
-    for (const [key, value] of Object.entries(resolved)) {
-      if (typeof value === 'string' && value.startsWith('env:')) {
-        const envVarName = value.substring(4); // Remove 'env:' prefix
-        const envValue = process.env[envVarName];
-
-        if (!envValue) {
-          this.logger.warn(`Environment variable ${envVarName} not found for credential ${key}`);
-          throw new Error(`Missing environment variable: ${envVarName}`);
-        }
-
-        resolved[key] = envValue;
-        this.logger.debug(`Resolved ${key} from environment variable ${envVarName}`);
-      }
-    }
-
-    return resolved;
-  }
-
-  private async loadConfiguration(configPath?: string): Promise<any> {
-    const defaultPath = path.join(process.cwd(), 'config', 'exchanges.json');
-    const finalPath = configPath || defaultPath;
-
-    try {
-      const configContent = await fs.promises.readFile(finalPath, 'utf8');
-      return JSON.parse(configContent);
-    } catch (error) {
-      if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
-        // Create default configuration with new adapter types
-        const defaultConfig = {
-          exchanges: {
-            kraken: {
-              enabled: false,
-              adapterType: 'ccxt',
-              credentials: {
-                apiKey: "env:KRAKEN_API_KEY",
-                secret: "env:KRAKEN_SECRET"
-              },
-              options: {}
-            },
-            kucoin: {
-              enabled: false,
-              adapterType: 'native', // Use native adapter for KuCoin by default
-              credentials: {
-                apiKey: "env:KUCOIN_API_KEY",
-                secret: "env:KUCOIN_SECRET",
-                password: "env:KUCOIN_PASSPHRASE"
-              },
-              options: {}
-            },
-            coinbase: {
-              enabled: false,
-              adapterType: 'ccxt',
-              credentials: {
-                apiKey: "env:COINBASE_API_KEY",
-                secret: "env:COINBASE_SECRET"
-              },
-              options: {}
-            }
-          }
-        };
-
-        // Ensure config directory exists
-        await fs.promises.mkdir(path.dirname(finalPath), { recursive: true });
-
-        // Write default config
-        await fs.promises.writeFile(finalPath, JSON.stringify(defaultConfig, null, 2));
-
-        this.logger.info(`Created default configuration at ${finalPath}`);
-        return defaultConfig;
-      }
-
-      throw new Error(`Failed to load configuration from ${finalPath}: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
 
   /**
    * Link transactions to wallet addresses by matching from/to addresses

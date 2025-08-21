@@ -5,15 +5,16 @@ import type { BlockchainBalance, BlockchainInfo, BlockchainTransaction } from '@
 
 import { BaseBlockchainAdapter } from '../shared/base-blockchain-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
+import type { BlockchainExplorersConfig } from '../shared/explorer-config.ts';
 import { isValidSolanaAddress } from './utils.ts';
 
 export class SolanaAdapter extends BaseBlockchainAdapter {
   private providerManager: BlockchainProviderManager;
 
-  constructor() {
+  constructor(explorerConfig: BlockchainExplorersConfig) {
     super('solana', 'SolanaAdapter');
 
-    this.providerManager = new BlockchainProviderManager();
+    this.providerManager = new BlockchainProviderManager(explorerConfig);
     this.providerManager.autoRegisterFromConfig('solana', 'mainnet');
 
     this.logger.info(`Initialized Solana adapter with registry-based provider manager - ProvidersCount: ${this.providerManager.getProviders('solana').length}`);

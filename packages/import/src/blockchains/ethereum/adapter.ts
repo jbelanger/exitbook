@@ -4,14 +4,15 @@ import type { Balance, BlockchainInfo, BlockchainTransaction } from '@crypto/cor
 
 import { BaseBlockchainAdapter } from '../shared/base-blockchain-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
+import type { BlockchainExplorersConfig } from '../shared/explorer-config.ts';
 
 export class EthereumAdapter extends BaseBlockchainAdapter {
   private providerManager: BlockchainProviderManager;
 
-  constructor() {
+  constructor(explorerConfig: BlockchainExplorersConfig) {
     super('ethereum', 'EthereumAdapter');
 
-    this.providerManager = new BlockchainProviderManager();
+    this.providerManager = new BlockchainProviderManager(explorerConfig);
     this.providerManager.autoRegisterFromConfig('ethereum', 'mainnet');
 
     this.logger.info(`Initialized Ethereum adapter with registry-based provider manager - ProvidersCount: ${this.providerManager.getProviders('ethereum').length}`);

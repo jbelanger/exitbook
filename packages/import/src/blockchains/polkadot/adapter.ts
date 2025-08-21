@@ -3,20 +3,21 @@
 import type { Balance, BlockchainInfo, BlockchainTransaction } from '@crypto/core';
 import { BaseBlockchainAdapter } from '../shared/base-blockchain-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
+import type { BlockchainExplorersConfig } from '../shared/explorer-config.ts';
 import { SUBSTRATE_CHAINS, type SubstrateChainConfig } from './types.ts';
 
 export class SubstrateAdapter extends BaseBlockchainAdapter {
   private chainConfig: SubstrateChainConfig;
   private providerManager: BlockchainProviderManager;
 
-  constructor() {
+  constructor(explorerConfig: BlockchainExplorersConfig) {
     super('polkadot', 'SubstrateAdapter');
 
     // Always use Polkadot mainnet as default
     this.chainConfig = SUBSTRATE_CHAINS.polkadot!;
 
     // Create and initialize provider manager with registry
-    this.providerManager = new BlockchainProviderManager();
+    this.providerManager = new BlockchainProviderManager(explorerConfig);
     this.providerManager.autoRegisterFromConfig('polkadot', 'mainnet');
 
     this.logger.info(`Initialized Substrate adapter with registry-based provider manager - Chain: ${this.chainConfig.name}, DisplayName: ${this.chainConfig.displayName}, TokenSymbol: ${this.chainConfig.tokenSymbol}, SS58Format: ${this.chainConfig.ss58Format}, ProvidersCount: ${this.providerManager.getProviders('polkadot').length}`);
