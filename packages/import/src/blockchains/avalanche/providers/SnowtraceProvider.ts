@@ -4,7 +4,7 @@ import { createMoney, parseDecimal } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
 import { RegisterProvider } from '../../shared/registry/decorators.ts';
-import { ProviderOperation } from '../../shared/types.ts';
+import type { ProviderOperation } from '../../shared/types.ts';
 import type { SnowtraceApiResponse, SnowtraceInternalTransaction, SnowtraceTokenTransfer, SnowtraceTransaction } from '../types.ts';
 import { isValidAvalancheAddress } from '../types.ts';
 
