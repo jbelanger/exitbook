@@ -1,10 +1,9 @@
 import type { CryptoTransaction, EnhancedTransaction, IBlockchainAdapter, IExchangeAdapter, TransactionNote } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
+import { type BlockchainExplorersConfig } from '@crypto/shared-utils';
 import crypto from 'crypto';
-import type { ExchangeConfig, ExchangeCredentials } from '../exchanges/types.ts';
 import type { ImportResult, ImportSummary } from '../types.ts';
 import { TransactionNoteType } from '../types.ts';
-import { resolveEnvironmentVariables, type ExchangeConfiguration, type BlockchainExplorersConfig } from '@crypto/shared-utils';
 
 import { Database, TransactionRepository, TransactionService, WalletRepository, WalletService } from '@crypto/data';
 
@@ -12,13 +11,6 @@ import { BlockchainAdapterFactory } from '../blockchains/shared/index.ts';
 import { ExchangeAdapterFactory } from '../exchanges/adapter-factory.ts';
 import { detectScamFromSymbol } from '../utils/scam-detection.ts';
 import { Deduplicator } from './deduplicator.ts';
-
-interface ExchangeImportOptions {
-  exchangeFilter?: string;
-  since?: number;
-  configPath?: string;
-  forceAdapterType?: 'ccxt' | 'native' | 'csv';
-}
 
 interface BlockchainImportOptions {
   blockchain: string;
@@ -29,7 +21,7 @@ interface BlockchainImportOptions {
 
 export class TransactionImporter {
   private logger = getLogger('TransactionImporter');
-  private database: Database;
+  
   private transactionService: TransactionService;
   private deduplicator: Deduplicator;
   private adapterFactory: ExchangeAdapterFactory;
@@ -37,8 +29,7 @@ export class TransactionImporter {
   private walletService: WalletService;
 
   constructor(
-    database: Database,
-    private readonly exchangeConfig: ExchangeConfiguration,
+    private readonly database: Database,
     private readonly explorerConfig: BlockchainExplorersConfig
   ) {
     this.database = database;
@@ -49,23 +40,6 @@ export class TransactionImporter {
     this.adapterFactory = new ExchangeAdapterFactory();
     this.blockchainAdapterFactory = new BlockchainAdapterFactory();
     this.walletService = new WalletService(walletRepository);
-  }
-
-  async importFromExchanges(options: ExchangeImportOptions = {}): Promise<ImportSummary> {
-    const startTime = Date.now();
-    this.logger.info('Starting transaction import from exchanges');
-
-    try {
-      const configuredExchanges = await this.getConfiguredExchanges(options);
-      const summary = await this.processExchangeImports(configuredExchanges, options.since, startTime);
-      
-      this.logger.info(`Import completed for all exchanges - Total: ${summary.totalTransactions}, New: ${summary.newTransactions}, Duration: ${summary.duration}ms`);
-      return summary;
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      this.logger.error(`Import failed: ${error instanceof Error ? error.message : 'Unknown error'} (duration: ${duration}ms)`);
-      throw error;
-    }
   }
 
   async importFromBlockchain(options: BlockchainImportOptions): Promise<ImportSummary> {
@@ -131,6 +105,31 @@ export class TransactionImporter {
     }
   }
 
+  async importFromExchangeWithCredentials(options: {
+    exchangeId: string;
+    adapterType: 'ccxt' | 'csv';
+    credentials?: {
+      apiKey: string;
+      secret: string;
+      password?: string;
+      sandbox?: boolean;
+    };
+    csvDirectories?: string[];
+    since?: number;
+  }): Promise<ImportResult> {
+    const adapter = await this.adapterFactory.createAdapterWithCredentials(
+      options.exchangeId,
+      options.adapterType,
+      {
+        credentials: options.credentials,
+        csvDirectories: options.csvDirectories,
+        enableOnlineVerification: false
+      }
+    );
+
+    return this.importFromExchange(adapter, options.since);
+  }
+
   async importFromExchange(adapter: IExchangeAdapter, since?: number): Promise<ImportResult> {
     const startTime = Date.now();
     const exchangeInfo = await adapter.getExchangeInfo();
@@ -180,64 +179,6 @@ export class TransactionImporter {
     }
   }
 
-  async getConfiguredExchanges(options: ExchangeImportOptions = {}): Promise<Array<{ adapter: IExchangeAdapter; config: ExchangeConfig }>> {
-    const config = this.exchangeConfig;
-    const exchanges: Array<{ adapter: IExchangeAdapter; config: ExchangeConfig }> = [];
-
-    for (const [exchangeId, exchangeConfig] of Object.entries(config.exchanges)) {
-      const typedConfig = exchangeConfig as ExchangeConfig & { enabled: boolean };
-      if (!typedConfig.enabled) {
-        this.logger.debug(`Skipping disabled exchange: ${exchangeId}`);
-        continue;
-      }
-
-      // Filter by exchange if specified
-      if (options.exchangeFilter && exchangeId !== options.exchangeFilter) {
-        continue;
-      }
-
-      try {
-        // Determine adapter type first
-        let adapterType: 'ccxt' | 'native' | 'csv' | undefined = typedConfig.adapterType as 'ccxt' | 'native' | 'csv';
-
-        // Override with options if specified
-        if (options.forceAdapterType) {
-          adapterType = options.forceAdapterType;
-        }
-
-        // Resolve environment variables in credentials (skip for CSV adapters)
-        const resolvedCredentials = (adapterType === 'csv')
-          ? typedConfig.credentials
-          : resolveEnvironmentVariables(typedConfig.credentials);
-
-        // Require adapterType in config
-        if (!adapterType) {
-          throw new Error(`adapterType is required in configuration for exchange: ${exchangeId}`);
-        }
-
-        const finalConfig: ExchangeConfig = {
-          ...typedConfig,
-          id: exchangeId,
-          adapterType,
-          credentials: resolvedCredentials as ExchangeCredentials
-        };
-
-        const adapter = await this.adapterFactory.createAdapter(finalConfig, undefined, this.database) as IExchangeAdapter;
-        exchanges.push({ adapter, config: finalConfig });
-
-        this.logger.info(`Configured exchange: ${exchangeId} (type: ${adapterType})`);
-      } catch (error) {
-        this.logger.error(`Failed to configure exchange ${exchangeId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
-    }
-
-    if (exchanges.length === 0) {
-      throw new Error('No exchanges configured or all exchanges failed to initialize');
-    }
-
-    return exchanges;
-  }
-
   async createBlockchainAdapters(options: BlockchainImportOptions): Promise<Array<{ adapter: IBlockchainAdapter }>> {
     try {
       const adapter = await this.blockchainAdapterFactory.createBlockchainAdapter(
@@ -252,57 +193,6 @@ export class TransactionImporter {
       this.logger.error(`Failed to create blockchain adapter for ${options.blockchain}: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw error;
     }
-  }
-
-  private async processExchangeImports(configuredExchanges: Array<{ adapter: IExchangeAdapter; config: ExchangeConfig }>, since: number | undefined, startTime: number): Promise<ImportSummary> {
-    const sourceResults: ImportResult[] = [];
-    let totalTransactions = 0;
-    let totalNewTransactions = 0;
-    let totalDuplicatesSkipped = 0;
-    const allErrors: string[] = [];
-
-    for (const { adapter } of configuredExchanges) {
-      const exchangeInfo = await adapter.getExchangeInfo();
-      this.logger.info(`Starting import from ${exchangeInfo.id}`);
-
-      try {
-        const result = await this.importFromExchange(adapter, since);
-        sourceResults.push(result);
-        totalTransactions += result.transactions;
-        totalNewTransactions += result.newTransactions;
-        totalDuplicatesSkipped += result.duplicatesSkipped;
-        allErrors.push(...result.errors);
-      } catch (error) {
-        const errorMessage = `Failed to import from ${exchangeInfo.id}: ${error instanceof Error ? error.message : 'Unknown error'}`;
-        this.logger.error(errorMessage);
-        allErrors.push(errorMessage);
-
-        sourceResults.push({
-          source: exchangeInfo.id,
-          transactions: 0,
-          newTransactions: 0,
-          duplicatesSkipped: 0,
-          errors: [errorMessage],
-          duration: 0
-        });
-      } finally {
-        try {
-          await adapter.close();
-        } catch (closeError) {
-          this.logger.warn(`Failed to close adapter for ${exchangeInfo.id}: ${closeError}`);
-        }
-      }
-    }
-
-    const duration = Date.now() - startTime;
-    return {
-      totalTransactions,
-      newTransactions: totalNewTransactions,
-      duplicatesSkipped: totalDuplicatesSkipped,
-      sourceResults,
-      errors: allErrors,
-      duration
-    };
   }
 
   private async processBlockchainImports(adapters: Array<{ adapter: IBlockchainAdapter }>, options: BlockchainImportOptions, startTime: number): Promise<ImportSummary> {

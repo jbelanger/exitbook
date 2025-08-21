@@ -4,8 +4,6 @@ import type { ExchangeConfig } from '../types.ts';
 import ccxt from 'ccxt';
 import { Decimal } from 'decimal.js';
 import { BaseCCXTAdapter } from '../base-ccxt-adapter.ts';
-import { RegisterExchangeAdapter } from '../registry/decorators.ts';
-
 /**
  * Specialized Coinbase adapter that uses fetchLedger for comprehensive transaction data
  * 
@@ -57,37 +55,44 @@ import { RegisterExchangeAdapter } from '../registry/decorators.ts';
  * - Final combined trade results
  * - Transaction type extraction decisions
  */
-@RegisterExchangeAdapter({
-  exchangeId: 'coinbase',
-  displayName: 'Coinbase Advanced Trade (CCXT)',
-  adapterType: 'ccxt',
-  description: 'Coinbase Advanced Trade adapter using CCXT with specialized ledger processing for comprehensive transaction data',
-  capabilities: {
-    supportedOperations: ['fetchTrades', 'fetchLedger', 'fetchDeposits', 'fetchWithdrawals', 'fetchBalance'],
-    supportsPagination: true,
-    supportsBalanceVerification: true,
-    supportsHistoricalData: true,
-    requiresApiKey: true,
-    supportsCsv: false,
-    supportsCcxt: true,
-    supportsNative: false
-  },
-  configValidation: {
-    requiredCredentials: ['apiKey', 'secret', 'password'],
-    optionalCredentials: ['sandbox'],
-    requiredOptions: [],
-    optionalOptions: ['enableRateLimit', 'rateLimit', 'timeout']
-  },
-  defaultConfig: {
-    enableRateLimit: true,
-    timeout: 30000,
-    rateLimit: 1000
-  }
-})
 export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
   private accounts: any[] | null = null;
 
-  constructor(config: ExchangeConfig, enableOnlineVerification: boolean = false) {
+  constructor(
+    configOrCredentials: ExchangeConfig | { apiKey: string; secret: string; password: string; sandbox?: boolean },
+    enableOnlineVerificationOrOptions?: boolean | { enableOnlineVerification?: boolean }
+  ) {
+    let config: ExchangeConfig;
+    let enableOnlineVerification: boolean = false;
+
+    // Handle both old and new constructor signatures
+    if ('id' in configOrCredentials) {
+      // Old signature: ExchangeConfig
+      config = configOrCredentials;
+      enableOnlineVerification = enableOnlineVerificationOrOptions as boolean || false;
+    } else {
+      // New signature: credentials object
+      const credentials = configOrCredentials;
+      const options = enableOnlineVerificationOrOptions as { enableOnlineVerification?: boolean } || {};
+      enableOnlineVerification = options.enableOnlineVerification || false;
+      
+      // Create config from credentials
+      config = {
+        id: 'coinbase',
+        enabled: true,
+        adapterType: 'ccxt',
+        credentials: {
+          apiKey: credentials.apiKey,
+          secret: credentials.secret,
+          password: credentials.password,
+          sandbox: credentials.sandbox
+        },
+        options: {
+          enableRateLimit: true,
+          rateLimit: 1000
+        }
+      };
+    }
     // Create Coinbase Advanced Trade exchange
     const exchange = new (ccxt as any).coinbaseadvanced({
       apiKey: config.credentials.apiKey,

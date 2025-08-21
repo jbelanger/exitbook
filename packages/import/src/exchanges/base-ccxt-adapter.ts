@@ -227,7 +227,7 @@ export abstract class BaseCCXTAdapter implements IExchangeAdapter {
    */
   protected transformTransactions(transactions: any[], type: TransactionType): CryptoTransaction[] {
     return transactions
-      .filter(tx => !TransactionTransformer.shouldFilter(tx))
+      .filter(tx => !TransactionTransformer.shouldFilterOut(tx))
       .map(tx => this.transformTransaction(tx, type));
   }
 
