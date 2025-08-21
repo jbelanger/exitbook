@@ -8,14 +8,15 @@ import './providers/SnowtraceProvider.ts';
 
 import { BaseBlockchainAdapter } from '../shared/base-blockchain-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
+import type { BlockchainExplorersConfig } from '../shared/explorer-config.ts';
 
 export class AvalancheAdapter extends BaseBlockchainAdapter {
   private providerManager: BlockchainProviderManager;
 
-  constructor() {
+  constructor(explorerConfig: BlockchainExplorersConfig) {
     super('avalanche', 'AvalancheAdapter');
 
-    this.providerManager = new BlockchainProviderManager();
+    this.providerManager = new BlockchainProviderManager(explorerConfig);
     this.providerManager.autoRegisterFromConfig('avalanche', 'mainnet');
 
     this.logger.debug(`Initialized Avalanche adapter with ${this.providerManager.getProviders('avalanche').length} providers`);

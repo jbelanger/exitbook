@@ -1,7 +1,7 @@
 import type { ProviderHealth } from './types.ts';
 import { getLogger } from '@crypto/shared-logger';
 
-import { loadExplorerConfig } from './explorer-config.ts';
+import type { BlockchainExplorersConfig } from './explorer-config.ts';
 
 import { CircuitBreaker } from '../../utils/circuit-breaker.ts';
 import { ProviderRegistry } from './registry/provider-registry.ts';
@@ -26,7 +26,7 @@ export class BlockchainProviderManager {
   private healthCheckTimer?: NodeJS.Timeout;
   private cacheCleanupTimer?: NodeJS.Timeout;
 
-  constructor() {
+  constructor(private readonly explorerConfig: BlockchainExplorersConfig) {
     // Start periodic health checks
     this.healthCheckTimer = setInterval(() => this.performHealthChecks(), this.healthCheckInterval);
 
@@ -90,7 +90,7 @@ export class BlockchainProviderManager {
    */
   autoRegisterFromConfig(blockchain: string, network: string = 'mainnet'): IBlockchainProvider[] {
     try {
-      const config = loadExplorerConfig();
+      const config = this.explorerConfig;
       const blockchainConfig = config[blockchain];
 
       if (!blockchainConfig) {

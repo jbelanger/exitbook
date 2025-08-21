@@ -2,6 +2,7 @@
 import { BalanceVerifier, BlockchainBalanceService, ExchangeBalanceService } from '@crypto/balance';
 import { Database } from '@crypto/data';
 import { TransactionImporter } from '@crypto/import';
+import { loadExplorerConfig, loadExchangeConfig, initializeDatabase } from '@crypto/shared-utils';
 import { getLogger } from '@crypto/shared-logger';
 import { Command } from 'commander';
 import path from 'path';
@@ -36,12 +37,15 @@ async function main() {
       try {
         logger.info('Starting transaction import');
 
-        const database = new Database();
-        if (options.clearDb) {
-          await database.clearAndReinitialize();
-          logger.info('Database cleared and reinitialized');
-        }
-        const importer = new TransactionImporter(database);
+        // Load configurations using shared config utils
+        const explorerConfig = loadExplorerConfig();
+        const exchangeConfig = await loadExchangeConfig(options.config);
+        
+        // Initialize database
+        const database = await initializeDatabase(options.clearDb);
+        
+        // Create importer with dependencies
+        const importer = new TransactionImporter(database, exchangeConfig, explorerConfig);
 
         let since: number | undefined;
         if (options.since) {
@@ -144,13 +148,15 @@ async function main() {
       try {
         logger.info('Starting balance verification');
 
-        const database = new Database();
-        if (options.clearDb) {
-          await database.clearAndReinitialize();
-          logger.info('Database cleared and reinitialized');
-        }
+        // Load configurations using shared config utils
+        const explorerConfig = loadExplorerConfig();
+        const exchangeConfig = await loadExchangeConfig(options.config);
+        
+        // Initialize database
+        const database = await initializeDatabase(options.clearDb);
+        
         const verifier = new BalanceVerifier(database);
-        const importer = new TransactionImporter(database);
+        const importer = new TransactionImporter(database, exchangeConfig, explorerConfig);
 
         // Validate blockchain + addresses combination
         if (options.blockchain && !options.addresses) {
@@ -350,12 +356,14 @@ async function main() {
       try {
         logger.info('Testing exchange connections');
 
-        const database = new Database();
-        if (options.clearDb) {
-          await database.clearAndReinitialize();
-          logger.info('Database cleared and reinitialized');
-        }
-        const importer = new TransactionImporter(database);
+        // Load configurations using shared config utils
+        const explorerConfig = loadExplorerConfig();
+        const exchangeConfig = await loadExchangeConfig(options.config);
+        
+        // Initialize database
+        const database = await initializeDatabase(options.clearDb);
+        
+        const importer = new TransactionImporter(database, exchangeConfig, explorerConfig);
         // Validate blockchain + addresses combination
         if (options.blockchain && !options.addresses) {
           logger.error('--addresses is required when using --blockchain');

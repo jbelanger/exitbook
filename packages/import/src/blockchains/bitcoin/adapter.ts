@@ -5,6 +5,7 @@ import { createMoney } from '@crypto/shared-utils';
 
 import { BaseBlockchainAdapter } from '../shared/base-blockchain-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
+import type { BlockchainExplorersConfig } from '../shared/explorer-config.ts';
 import type { BitcoinWalletAddress } from './types.ts';
 import { BitcoinUtils } from './utils.ts';
 
@@ -15,7 +16,10 @@ export class BitcoinAdapter extends BaseBlockchainAdapter {
   private providerManager: BlockchainProviderManager;
   private addressGap: number;
 
-  constructor(options?: { addressGap?: number }) {
+  constructor(
+    explorerConfig: BlockchainExplorersConfig,
+    options?: { addressGap?: number }
+  ) {
     super('bitcoin', 'BitcoinAdapter');
 
     // Always use mainnet
@@ -25,7 +29,7 @@ export class BitcoinAdapter extends BaseBlockchainAdapter {
     this.addressGap = options?.addressGap || 20;
 
     // Create and initialize provider manager with registry
-    this.providerManager = new BlockchainProviderManager();
+    this.providerManager = new BlockchainProviderManager(explorerConfig);
     this.providerManager.autoRegisterFromConfig('bitcoin', 'mainnet');
 
     this.logger.info(`Initialized Bitcoin adapter with registry-based provider manager - AddressGap: ${this.addressGap}, ProvidersCount: ${this.providerManager.getProviders('bitcoin').length}`);

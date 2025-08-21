@@ -19,7 +19,7 @@ interface ExplorerConfig {
   retries: number;
 }
 
-interface BlockchainExplorersConfig {
+export interface BlockchainExplorersConfig {
   [blockchain: string]: {
     explorers: ExplorerConfig[];
   };

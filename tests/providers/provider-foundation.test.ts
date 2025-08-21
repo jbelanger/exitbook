@@ -8,6 +8,16 @@ import { ProviderInfo, ProviderRegistry } from '../../src/providers/registry/ind
 import { BlockchainProviderManager } from '../../src/providers/shared/BlockchainProviderManager';
 import { CircuitBreaker } from '../../src/providers/shared/CircuitBreaker';
 
+// Mock explorer config for tests
+const mockExplorerConfig = {
+  ethereum: {
+    explorers: []
+  },
+  bitcoin: {
+    explorers: []
+  }
+};
+
 // Import providers to trigger registration
 import '../../src/providers/ethereum/EtherscanProvider';
 
@@ -183,7 +193,7 @@ describe('BlockchainProviderManager', () => {
   let fallbackProvider: MockProvider;
 
   beforeEach(() => {
-    manager = new BlockchainProviderManager();
+    manager = new BlockchainProviderManager(mockExplorerConfig);
     primaryProvider = new MockProvider('primary', 'ethereum');
     fallbackProvider = new MockProvider('fallback', 'ethereum');
 
@@ -494,7 +504,7 @@ describe('ProviderRegistry', () => {
 
 describe('Provider System Integration', () => {
   test('should handle complete provider lifecycle', async () => {
-    const manager = new BlockchainProviderManager();
+    const manager = new BlockchainProviderManager(mockExplorerConfig);
     const provider = new MockProvider('test', 'bitcoin');
 
     try {
@@ -521,7 +531,7 @@ describe('Provider System Integration', () => {
   });
 
   test('should auto-register providers from configuration', () => {
-    const manager = new BlockchainProviderManager();
+    const manager = new BlockchainProviderManager(mockExplorerConfig);
     
     try {
       // For this test, we'll manually create a provider since the config loading

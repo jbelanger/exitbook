@@ -2,14 +2,15 @@ import type { Balance, BlockchainInfo, BlockchainTransaction } from '@crypto/cor
 
 import { BaseBlockchainAdapter } from '../shared/base-blockchain-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
+import type { BlockchainExplorersConfig } from '../shared/explorer-config.ts';
 
 export class InjectiveAdapter extends BaseBlockchainAdapter {
   private providerManager: BlockchainProviderManager;
 
-  constructor() {
+  constructor(explorerConfig: BlockchainExplorersConfig) {
     super('injective', 'InjectiveAdapter');
 
-    this.providerManager = new BlockchainProviderManager();
+    this.providerManager = new BlockchainProviderManager(explorerConfig);
     this.providerManager.autoRegisterFromConfig('injective', 'mainnet');
 
     this.logger.info(`Initialized Injective adapter with registry-based provider manager - ProvidersCount: ${this.providerManager.getProviders('injective').length}`);
