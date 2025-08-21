@@ -107,7 +107,7 @@ export class BlockchainBridgeAdapter extends BaseAdapter {
         to: tx.to,
         symbol: tx.tokenSymbol || cryptoTx.symbol,
         source: this.config.id,
-        network: this.config.network || 'mainnet',
+        network: (this.config as BlockchainAdapterConfig).network || 'mainnet',
         metadata: {
           blockNumber: tx.blockNumber,
           blockHash: tx.blockHash,
