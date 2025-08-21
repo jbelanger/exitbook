@@ -1,6 +1,4 @@
-// @ts-ignore - CCXT types compatibility
-import { CryptoTransaction, Money, TransactionType } from '@crypto/core';
-import type { ExchangeConfig } from '../types.ts';
+import type { CryptoTransaction, Money, TransactionType } from '@crypto/core';
 import ccxt from 'ccxt';
 import { Decimal } from 'decimal.js';
 import { BaseCCXTAdapter } from '../base-ccxt-adapter.ts';
@@ -59,25 +57,18 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
   private accounts: any[] | null = null;
 
   constructor(
-    configOrCredentials: ExchangeConfig | { apiKey: string; secret: string; password: string; sandbox?: boolean },
+    configOrCredentials: { apiKey: string; secret: string; password: string; sandbox?: boolean },
     enableOnlineVerificationOrOptions?: boolean | { enableOnlineVerification?: boolean }
   ) {
-    let config: ExchangeConfig;
+    
     let enableOnlineVerification: boolean = false;
 
-    // Handle both old and new constructor signatures
-    if ('id' in configOrCredentials) {
-      // Old signature: ExchangeConfig
-      config = configOrCredentials;
-      enableOnlineVerification = enableOnlineVerificationOrOptions as boolean || false;
-    } else {
-      // New signature: credentials object
       const credentials = configOrCredentials;
       const options = enableOnlineVerificationOrOptions as { enableOnlineVerification?: boolean } || {};
       enableOnlineVerification = options.enableOnlineVerification || false;
       
       // Create config from credentials
-      config = {
+      const config = {
         id: 'coinbase',
         enabled: true,
         adapterType: 'ccxt',
@@ -92,18 +83,17 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
           rateLimit: 1000
         }
       };
-    }
+    
     // Create Coinbase Advanced Trade exchange
     const exchange = new (ccxt as any).coinbaseadvanced({
       apiKey: config.credentials.apiKey,
       secret: config.credentials.secret,
-      password: config.credentials.password, // Coinbase uses password for passphrase
-      enableRateLimit: config.options?.enableRateLimit ?? true,
+      password: config.credentials.password, // Coinbase uses password for passphrase      
       sandbox: config.credentials.sandbox ?? false,
       ...config.options
     });
 
-    super(exchange, config, enableOnlineVerification, 'CoinbaseCCXTAdapter');
+    super(exchange, config.id, enableOnlineVerification, 'CoinbaseCCXTAdapter');
 
     this.logger.info(`Initialized Coinbase Ledger adapter - RateLimit: ${this.exchange.rateLimit}, Sandbox: ${config.credentials.sandbox}`);
   }

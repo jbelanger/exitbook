@@ -1,10 +1,9 @@
-import type { ExchangeConfig } from './types.ts';
 import type { Exchange } from 'ccxt';
 import { BaseCCXTAdapter } from './base-ccxt-adapter.ts';
 
 export class CCXTAdapter extends BaseCCXTAdapter {
-  constructor(exchange: Exchange, config: ExchangeConfig, enableOnlineVerification: boolean = false) {
-    super(exchange, config, enableOnlineVerification, 'CCXTAdapter');
+  constructor(exchange: Exchange, exchangeId: string, enableOnlineVerification: boolean = false) {
+    super(exchange, exchangeId, enableOnlineVerification, 'CCXTAdapter');
   }
 
   protected createExchange(): Exchange {
