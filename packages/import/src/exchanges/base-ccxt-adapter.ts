@@ -1,6 +1,5 @@
 // @ts-ignore - CCXT types compatibility
 import { CryptoTransaction, ExchangeBalance, ExchangeCapabilities, ExchangeInfo, IExchangeAdapter, ServiceError, TransactionType } from '@crypto/core';
-import type { ExchangeConfig } from './types.ts';
 import type { Logger } from '@crypto/shared-logger';
 import { getLogger } from '@crypto/shared-logger';
 
@@ -15,28 +14,28 @@ import { ServiceErrorHandler } from './exchange-error-handler.ts';
 export abstract class BaseCCXTAdapter implements IExchangeAdapter {
   protected exchange: Exchange;
   protected logger: Logger;
-  protected config: ExchangeConfig;
+  protected exchangeId: string;
   protected enableOnlineVerification: boolean;
 
-  constructor(exchange: Exchange, config: ExchangeConfig, enableOnlineVerification: boolean = false, loggerSuffix?: string) {
+  constructor(exchange: Exchange, exchangeId: string, enableOnlineVerification: boolean = false, loggerSuffix?: string) {
     this.exchange = exchange;
-    this.config = config;
+    this.exchangeId = exchangeId;
     this.enableOnlineVerification = enableOnlineVerification;
-    this.logger = getLogger(`${loggerSuffix || 'CCXTAdapter'}:${config.id}`);
+    this.logger = getLogger(`${loggerSuffix || 'CCXTAdapter'}:${exchangeId}`);
 
     // Enable rate limiting and other common settings
     this.exchange.enableRateLimit = true;
-    this.exchange.rateLimit = config.options?.rateLimit || 1000;
+    this.exchange.rateLimit = 1000;
   }
 
   async testConnection(): Promise<boolean> {
     try {
       await this.exchange.loadMarkets();
       await this.exchange.fetchBalance();
-      this.logger.info(`Connection test successful for ${this.config.id}`);
+      this.logger.info(`Connection test successful for ${this.exchangeId}`);
       return true;
     } catch (error) {
-      this.logger.error(`Connection test failed for ${this.config.id} - Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      this.logger.error(`Connection test failed for ${this.exchangeId} - Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
       return false;
     }
   }
@@ -54,8 +53,8 @@ export abstract class BaseCCXTAdapter implements IExchangeAdapter {
     };
 
     return {
-      id: this.config.id,
-      name: this.exchange.name || this.config.id,
+      id: this.exchangeId,
+      name: this.exchange.name || this.exchangeId,
       version: this.exchange.version,
       capabilities,
       rateLimit: this.exchange.rateLimit,
@@ -64,7 +63,7 @@ export abstract class BaseCCXTAdapter implements IExchangeAdapter {
 
   async fetchAllTransactions(since?: number): Promise<CryptoTransaction[]> {
     const startTime = Date.now();
-    this.logger.info(`Starting fetchAllTransactions for ${this.config.id}`);
+    this.logger.info(`Starting fetchAllTransactions for ${this.exchangeId}`);
 
     try {
       const allTransactions: CryptoTransaction[] = [];
@@ -85,20 +84,20 @@ export abstract class BaseCCXTAdapter implements IExchangeAdapter {
       results.forEach((result, index) => {
         if (result.status === 'fulfilled') {
           allTransactions.push(...result.value);
-          this.logger.info(`Fetched ${result.value.length} ${labels[index]} from ${this.config.id}`);
+          this.logger.info(`Fetched ${result.value.length} ${labels[index]} from ${this.exchangeId}`);
         } else {
-          this.logger.warn(`Failed to fetch ${labels[index]} from ${this.config.id} - Error: ${result.reason}`);
+          this.logger.warn(`Failed to fetch ${labels[index]} from ${this.exchangeId} - Error: ${result.reason}`);
         }
       });
 
       const duration = Date.now() - startTime;
-      this.logger.info(`Completed fetchAllTransactions for ${this.config.id} - Count: ${allTransactions.length}, Duration: ${duration}ms`);
+      this.logger.info(`Completed fetchAllTransactions for ${this.exchangeId} - Count: ${allTransactions.length}, Duration: ${duration}ms`);
 
       return allTransactions;
     } catch (error) {
       throw new ServiceError(
-        `Failed to fetch transactions from ${this.config.id}`,
-        this.config.id,
+        `Failed to fetch transactions from ${this.exchangeId}`,
+        this.exchangeId,
         'fetchAllTransactions',
         error as Error
       );
@@ -108,7 +107,7 @@ export abstract class BaseCCXTAdapter implements IExchangeAdapter {
   async fetchTrades(since?: number): Promise<CryptoTransaction[]> {
     try {
       if (!this.exchange.has['fetchMyTrades']) {
-        this.logger.debug(`Exchange ${this.config.id} does not support fetchMyTrades`);
+        this.logger.debug(`Exchange ${this.exchangeId} does not support fetchMyTrades`);
         return [];
       }
 
@@ -123,7 +122,7 @@ export abstract class BaseCCXTAdapter implements IExchangeAdapter {
   async fetchDeposits(since?: number): Promise<CryptoTransaction[]> {
     try {
       if (!this.exchange.has['fetchDeposits']) {
-        this.logger.debug(`Exchange ${this.config.id} does not support fetchDeposits`);
+        this.logger.debug(`Exchange ${this.exchangeId} does not support fetchDeposits`);
         return [];
       }
 
@@ -138,7 +137,7 @@ export abstract class BaseCCXTAdapter implements IExchangeAdapter {
   async fetchWithdrawals(since?: number): Promise<CryptoTransaction[]> {
     try {
       if (!this.exchange.has['fetchWithdrawals']) {
-        this.logger.debug(`Exchange ${this.config.id} does not support fetchWithdrawals`);
+        this.logger.debug(`Exchange ${this.exchangeId} does not support fetchWithdrawals`);
         return [];
       }
 
@@ -153,7 +152,7 @@ export abstract class BaseCCXTAdapter implements IExchangeAdapter {
   async fetchClosedOrders(since?: number): Promise<CryptoTransaction[]> {
     try {
       if (!this.exchange.has['fetchClosedOrders']) {
-        this.logger.debug(`Exchange ${this.config.id} does not support fetchClosedOrders`);
+        this.logger.debug(`Exchange ${this.exchangeId} does not support fetchClosedOrders`);
         return [];
       }
 
@@ -168,7 +167,7 @@ export abstract class BaseCCXTAdapter implements IExchangeAdapter {
   async fetchLedger(since?: number): Promise<CryptoTransaction[]> {
     try {
       if (!this.exchange.has['fetchLedger']) {
-        this.logger.debug(`Exchange ${this.config.id} does not support fetchLedger`);
+        this.logger.debug(`Exchange ${this.exchangeId} does not support fetchLedger`);
         return [];
       }
 
@@ -182,7 +181,7 @@ export abstract class BaseCCXTAdapter implements IExchangeAdapter {
 
   async fetchBalance(): Promise<ExchangeBalance[]> {
     if (!this.enableOnlineVerification) {
-      throw new Error(`Balance fetching not supported for ${this.config.id} CCXT adapter - enable online verification to fetch live balances`);
+      throw new Error(`Balance fetching not supported for ${this.exchangeId} CCXT adapter - enable online verification to fetch live balances`);
     }
 
     try {
@@ -218,7 +217,7 @@ export abstract class BaseCCXTAdapter implements IExchangeAdapter {
     if (this.exchange && this.exchange.close) {
       await this.exchange.close();
     }
-    this.logger.info(`Closed connection to ${this.config.id}`);
+    this.logger.info(`Closed connection to ${this.exchangeId}`);
   }
 
   /**
@@ -236,7 +235,7 @@ export abstract class BaseCCXTAdapter implements IExchangeAdapter {
    * Can be overridden by subclasses for exchange-specific transformation
    */
   protected transformTransaction(transaction: any, type: TransactionType): CryptoTransaction {
-    return TransactionTransformer.fromCCXT(transaction, type, this.config.id);
+    return TransactionTransformer.fromCCXT(transaction, type, this.exchangeId);
   }
 
   /**
@@ -244,7 +243,7 @@ export abstract class BaseCCXTAdapter implements IExchangeAdapter {
    * Can be overridden by subclasses for exchange-specific error handling
    */
   protected handleError(error: any, operation: string): void {
-    ServiceErrorHandler.handle(error, operation, this.config.id, this.logger);
+    ServiceErrorHandler.handle(error, operation, this.exchangeId, this.logger);
   }
 
   /**
