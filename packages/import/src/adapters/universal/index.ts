@@ -17,3 +17,7 @@ export type {
 
 // Base adapter class
 export { BaseAdapter } from './base-adapter';
+
+// Bridge adapters for migration
+export { ExchangeBridgeAdapter } from './exchange-bridge-adapter.js';
+export { BlockchainBridgeAdapter } from './blockchain-bridge-adapter.js';
