@@ -10,62 +10,22 @@ interface DeduplicationResult {
 export class Deduplicator {
   private logger = getLogger('Deduplicator');
 
-  async process(transactions: EnhancedTransaction[], exchangeId: string): Promise<DeduplicationResult> {
-    this.logger.info(`Starting deduplication for ${transactions.length} transactions from ${exchangeId}`);
+  async process(transactions: EnhancedTransaction[], sourceId: string): Promise<DeduplicationResult> {
+    this.logger.info(`Starting deduplication for ${transactions.length} transactions from ${sourceId}`);
 
-    const unique: EnhancedTransaction[] = [];
-    const duplicates: EnhancedTransaction[] = [];
-    const seenHashes = new Set<string>();
-
-    for (const transaction of transactions) {
-      const hash = transaction.hash;
-
-      if (seenHashes.has(hash)) {
-        duplicates.push(transaction);
-        this.logDuplicateTransaction(transaction.id || hash, exchangeId);
-      } else {
-        seenHashes.add(hash);
-        unique.push(transaction);
-      }
-    }
-
-    this.logger.info(`Deduplication completed for ${exchangeId} - Total: ${transactions.length}, Unique: ${unique.length}, Duplicates: ${duplicates.length} (${((duplicates.length / transactions.length) * 100).toFixed(2)}%)`);
-
-    return { unique, duplicates };
+    const result = this.deduplicateByHash(transactions, sourceId);
+    this.logDeduplicationStats(result, sourceId);
+    
+    return result;
   }
 
-  // Advanced deduplication that can handle slight variations in transaction data
-  async processAdvanced(transactions: EnhancedTransaction[], exchangeId: string): Promise<DeduplicationResult> {
-    this.logger.info(`Starting advanced deduplication for ${transactions.length} transactions from ${exchangeId}`);
+  async processAdvanced(transactions: EnhancedTransaction[], sourceId: string): Promise<DeduplicationResult> {
+    this.logger.info(`Starting advanced deduplication for ${transactions.length} transactions from ${sourceId}`);
 
-    const unique: EnhancedTransaction[] = [];
-    const duplicates: EnhancedTransaction[] = [];
-    const transactionIndex = new Map<string, EnhancedTransaction>();
-
-    for (const transaction of transactions) {
-      const primaryKey = this.createPrimaryKey(transaction);
-      const existingTransaction = transactionIndex.get(primaryKey);
-
-      if (existingTransaction) {
-        // Found a potential duplicate
-        if (this.areTransactionsSimilar(existingTransaction, transaction)) {
-          duplicates.push(transaction);
-          this.logDuplicateTransaction(transaction.id || transaction.hash, exchangeId);
-        } else {
-          // Similar key but different transaction, keep both
-          unique.push(transaction);
-          // Update the index with a modified key to avoid future conflicts
-          transactionIndex.set(primaryKey + '_' + unique.length, transaction);
-        }
-      } else {
-        transactionIndex.set(primaryKey, transaction);
-        unique.push(transaction);
-      }
-    }
-
-    this.logger.info(`Advanced deduplication completed for ${exchangeId} - Total: ${transactions.length}, Unique: ${unique.length}, Duplicates: ${duplicates.length} (${((duplicates.length / transactions.length) * 100).toFixed(2)}%)`);
-
-    return { unique, duplicates };
+    const result = this.deduplicateBySimilarity(transactions, sourceId);
+    this.logDeduplicationStats(result, sourceId, 'advanced');
+    
+    return result;
   }
 
   private createPrimaryKey(transaction: EnhancedTransaction): string {
@@ -165,7 +125,60 @@ export class Deduplicator {
     };
   }
 
-  logDuplicateTransaction(transactionId: string, exchange: string) {
-    this.logger.debug(`Duplicate transaction skipped - ID: ${transactionId}, Exchange: ${exchange}, Operation: duplicate_detection, Timestamp: ${Date.now()}`);
+  private deduplicateByHash(transactions: EnhancedTransaction[], sourceId: string): DeduplicationResult {
+    const unique: EnhancedTransaction[] = [];
+    const duplicates: EnhancedTransaction[] = [];
+    const seenHashes = new Set<string>();
+
+    for (const transaction of transactions) {
+      const hash = transaction.hash;
+
+      if (seenHashes.has(hash)) {
+        duplicates.push(transaction);
+        this.logDuplicateTransaction(transaction.id || hash, sourceId);
+      } else {
+        seenHashes.add(hash);
+        unique.push(transaction);
+      }
+    }
+
+    return { unique, duplicates };
+  }
+
+  private deduplicateBySimilarity(transactions: EnhancedTransaction[], sourceId: string): DeduplicationResult {
+    const unique: EnhancedTransaction[] = [];
+    const duplicates: EnhancedTransaction[] = [];
+    const transactionIndex = new Map<string, EnhancedTransaction>();
+
+    for (const transaction of transactions) {
+      const primaryKey = this.createPrimaryKey(transaction);
+      const existingTransaction = transactionIndex.get(primaryKey);
+
+      if (existingTransaction) {
+        if (this.areTransactionsSimilar(existingTransaction, transaction)) {
+          duplicates.push(transaction);
+          this.logDuplicateTransaction(transaction.id || transaction.hash, sourceId);
+        } else {
+          unique.push(transaction);
+          transactionIndex.set(primaryKey + '_' + unique.length, transaction);
+        }
+      } else {
+        transactionIndex.set(primaryKey, transaction);
+        unique.push(transaction);
+      }
+    }
+
+    return { unique, duplicates };
+  }
+
+  private logDeduplicationStats(result: DeduplicationResult, sourceId: string, mode: string = 'standard'): void {
+    const total = result.unique.length + result.duplicates.length;
+    const duplicatePercentage = total > 0 ? ((result.duplicates.length / total) * 100).toFixed(2) : '0.00';
+    
+    this.logger.info(`${mode.charAt(0).toUpperCase() + mode.slice(1)} deduplication completed for ${sourceId} - Total: ${total}, Unique: ${result.unique.length}, Duplicates: ${result.duplicates.length} (${duplicatePercentage}%)`);
+  }
+
+  private logDuplicateTransaction(transactionId: string, sourceId: string): void {
+    this.logger.debug(`Duplicate transaction skipped - ID: ${transactionId}, Source: ${sourceId}, Timestamp: ${Date.now()}`);
   }
 } 

@@ -57,60 +57,9 @@ export class TransactionImporter {
 
     try {
       const configuredExchanges = await this.getConfiguredExchanges(options);
-      const sourceResults: ImportResult[] = [];
-      let totalTransactions = 0;
-      let totalNewTransactions = 0;
-      let totalDuplicatesSkipped = 0;
-      const allErrors: string[] = [];
-
-      for (const { adapter, config } of configuredExchanges) {
-        const exchangeInfo = await adapter.getExchangeInfo();
-
-        this.logger.info(`Starting import from ${exchangeInfo.id}`);
-
-        try {
-          const result = await this.importFromExchange(adapter, config, options.since);
-          sourceResults.push(result);
-          totalTransactions += result.transactions;
-          totalNewTransactions += result.newTransactions;
-          totalDuplicatesSkipped += result.duplicatesSkipped;
-          allErrors.push(...result.errors);
-        } catch (error) {
-          const errorMessage = `Failed to import from ${exchangeInfo.id}: ${error instanceof Error ? error.message : 'Unknown error'}`;
-          this.logger.error(errorMessage);
-          allErrors.push(errorMessage);
-
-          sourceResults.push({
-            source: exchangeInfo.id,
-            transactions: 0,
-            newTransactions: 0,
-            duplicatesSkipped: 0,
-            errors: [errorMessage],
-            duration: 0
-          });
-        } finally {
-          // Always close the adapter
-          try {
-            await adapter.close();
-          } catch (closeError) {
-            this.logger.warn(`Failed to close adapter for ${exchangeInfo.id}: ${closeError}`);
-          }
-        }
-      }
-
-      const duration = Date.now() - startTime;
-
-      const summary: ImportSummary = {
-        totalTransactions,
-        newTransactions: totalNewTransactions,
-        duplicatesSkipped: totalDuplicatesSkipped,
-        sourceResults,
-        errors: allErrors,
-        duration
-      };
-
-      this.logger.info(`Import completed for all exchanges - Total: ${totalTransactions}, New: ${totalNewTransactions}, Duration: ${duration}ms`);
-
+      const summary = await this.processExchangeImports(configuredExchanges, options.since, startTime);
+      
+      this.logger.info(`Import completed for all exchanges - Total: ${summary.totalTransactions}, New: ${summary.newTransactions}, Duration: ${summary.duration}ms`);
       return summary;
     } catch (error) {
       const duration = Date.now() - startTime;
@@ -124,62 +73,11 @@ export class TransactionImporter {
     this.logger.info('Starting transaction import from blockchain');
 
     try {
-      // Create wallet records for CLI-provided addresses
       await this.ensureWalletAddresses(options.addresses, options.blockchain);
-
-      const adapters = await this.createBlockchainAdapter(options);
-      const sourceResults: ImportResult[] = [];
-      let totalTransactions = 0;
-      let totalNewTransactions = 0;
-      let totalDuplicatesSkipped = 0;
-      const allErrors: string[] = [];
-
-      for (const { adapter } of adapters) {
-        const blockchainInfo = await adapter.getBlockchainInfo();
-        this.logger.info(`Starting import from ${blockchainInfo.id}`);
-
-        try {
-          const result = await this.importFromBlockchainAdapter(adapter, options.addresses, options.since);
-          sourceResults.push(result);
-          totalTransactions += result.transactions;
-          totalNewTransactions += result.newTransactions;
-          totalDuplicatesSkipped += result.duplicatesSkipped;
-          allErrors.push(...result.errors);
-        } catch (error) {
-          const errorMessage = `Failed to import from ${blockchainInfo.id}: ${error instanceof Error ? error.message : 'Unknown error'}`;
-          this.logger.error(errorMessage);
-          allErrors.push(errorMessage);
-
-          sourceResults.push({
-            source: blockchainInfo.id,
-            transactions: 0,
-            newTransactions: 0,
-            duplicatesSkipped: 0,
-            errors: [errorMessage],
-            duration: 0
-          });
-        } finally {
-          try {
-            await adapter.close();
-          } catch (closeError) {
-            this.logger.warn(`Failed to close adapter for ${blockchainInfo.id}: ${closeError}`);
-          }
-        }
-      }
-
-      const duration = Date.now() - startTime;
-
-      const summary: ImportSummary = {
-        totalTransactions,
-        newTransactions: totalNewTransactions,
-        duplicatesSkipped: totalDuplicatesSkipped,
-        sourceResults,
-        errors: allErrors,
-        duration
-      };
-
-      this.logger.info(`Blockchain import completed for ${options.blockchain} - Total: ${totalTransactions}, New: ${totalNewTransactions}, Duration: ${duration}ms`);
-
+      const adapters = await this.createBlockchainAdapters(options);
+      const summary = await this.processBlockchainImports(adapters, options, startTime);
+      
+      this.logger.info(`Blockchain import completed for ${options.blockchain} - Total: ${summary.totalTransactions}, New: ${summary.newTransactions}, Duration: ${summary.duration}ms`);
       return summary;
     } catch (error) {
       const duration = Date.now() - startTime;
@@ -200,36 +98,9 @@ export class TransactionImporter {
         throw new Error(`Failed to connect to ${blockchainId}`);
       }
 
-      // Fetch transactions for each CLI-provided address
-      const rawTransactions: CryptoTransaction[] = [];
+      const rawTransactions = await this.fetchTransactionsForAddresses(adapter, addresses, since);
 
-      for (const address of addresses) {
-        this.logger.debug(`Fetching transactions for address: ${address}`);
-        const blockchainTxs = await adapter.getAddressTransactions(address, since);
-        const cryptoTxs = blockchainTxs.map(tx => adapter.convertToCryptoTransaction(tx, address));
-        rawTransactions.push(...cryptoTxs);
-        this.logger.debug(`Found ${blockchainTxs.length} transactions for ${address}`);
-      }
-
-      this.logger.debug(`Total ${rawTransactions.length} transactions fetched`);
-
-      // Transform to enhanced transactions
-      const transactions = rawTransactions.map(tx => this.enhanceTransaction(tx, blockchainId));
-
-      // Deduplicate transactions
-      const { unique, duplicates } = await this.deduplicator.process(transactions, blockchainId);
-
-      // Save new transactions to database
-      const saved = await this.transactionService.saveMany(unique);
-
-      // Link transactions to wallet addresses after successful import
-      if (saved > 0) {
-        try {
-          await this.linkTransactionsToWallets(unique, blockchainId);
-        } catch (linkError) {
-          this.logger.warn(`Failed to link transactions to wallet addresses for ${blockchainId}: ${linkError instanceof Error ? linkError.message : String(linkError)}`);
-        }
-      }
+      const { transactions, saved, duplicates } = await this.processAndSaveTransactions(rawTransactions, blockchainId);
 
       const duration = Date.now() - startTime;
 
@@ -260,7 +131,7 @@ export class TransactionImporter {
     }
   }
 
-  async importFromExchange(adapter: IExchangeAdapter, exchangeConfig: ExchangeConfig, since?: number): Promise<ImportResult> {
+  async importFromExchange(adapter: IExchangeAdapter, since?: number): Promise<ImportResult> {
     const startTime = Date.now();
     const exchangeInfo = await adapter.getExchangeInfo();
     const exchangeId = exchangeInfo.id;
@@ -277,14 +148,7 @@ export class TransactionImporter {
       // Fetch all transactions using the adapter
       const rawTransactions = await adapter.fetchAllTransactions(since);
 
-      // Transform to enhanced transactions
-      const transactions = rawTransactions.map(tx => this.enhanceTransaction(tx, exchangeId));
-
-      // Deduplicate transactions
-      const { unique, duplicates } = await this.deduplicator.process(transactions, exchangeId);
-
-      // Save new transactions to database
-      const saved = await this.transactionService.saveMany(unique);
+      const { transactions, saved, duplicates } = await this.processAndSaveTransactions(rawTransactions, exchangeId);
 
 
       const duration = Date.now() - startTime;
@@ -374,8 +238,7 @@ export class TransactionImporter {
     return exchanges;
   }
 
-  async createBlockchainAdapter(options: BlockchainImportOptions): Promise<Array<{ adapter: IBlockchainAdapter }>> {
-
+  async createBlockchainAdapters(options: BlockchainImportOptions): Promise<Array<{ adapter: IBlockchainAdapter }>> {
     try {
       const adapter = await this.blockchainAdapterFactory.createBlockchainAdapter(
         options.blockchain.toLowerCase(),
@@ -389,6 +252,139 @@ export class TransactionImporter {
       this.logger.error(`Failed to create blockchain adapter for ${options.blockchain}: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw error;
     }
+  }
+
+  private async processExchangeImports(configuredExchanges: Array<{ adapter: IExchangeAdapter; config: ExchangeConfig }>, since: number | undefined, startTime: number): Promise<ImportSummary> {
+    const sourceResults: ImportResult[] = [];
+    let totalTransactions = 0;
+    let totalNewTransactions = 0;
+    let totalDuplicatesSkipped = 0;
+    const allErrors: string[] = [];
+
+    for (const { adapter } of configuredExchanges) {
+      const exchangeInfo = await adapter.getExchangeInfo();
+      this.logger.info(`Starting import from ${exchangeInfo.id}`);
+
+      try {
+        const result = await this.importFromExchange(adapter, since);
+        sourceResults.push(result);
+        totalTransactions += result.transactions;
+        totalNewTransactions += result.newTransactions;
+        totalDuplicatesSkipped += result.duplicatesSkipped;
+        allErrors.push(...result.errors);
+      } catch (error) {
+        const errorMessage = `Failed to import from ${exchangeInfo.id}: ${error instanceof Error ? error.message : 'Unknown error'}`;
+        this.logger.error(errorMessage);
+        allErrors.push(errorMessage);
+
+        sourceResults.push({
+          source: exchangeInfo.id,
+          transactions: 0,
+          newTransactions: 0,
+          duplicatesSkipped: 0,
+          errors: [errorMessage],
+          duration: 0
+        });
+      } finally {
+        try {
+          await adapter.close();
+        } catch (closeError) {
+          this.logger.warn(`Failed to close adapter for ${exchangeInfo.id}: ${closeError}`);
+        }
+      }
+    }
+
+    const duration = Date.now() - startTime;
+    return {
+      totalTransactions,
+      newTransactions: totalNewTransactions,
+      duplicatesSkipped: totalDuplicatesSkipped,
+      sourceResults,
+      errors: allErrors,
+      duration
+    };
+  }
+
+  private async processBlockchainImports(adapters: Array<{ adapter: IBlockchainAdapter }>, options: BlockchainImportOptions, startTime: number): Promise<ImportSummary> {
+    const sourceResults: ImportResult[] = [];
+    let totalTransactions = 0;
+    let totalNewTransactions = 0;
+    let totalDuplicatesSkipped = 0;
+    const allErrors: string[] = [];
+
+    for (const { adapter } of adapters) {
+      const blockchainInfo = await adapter.getBlockchainInfo();
+      this.logger.info(`Starting import from ${blockchainInfo.id}`);
+
+      try {
+        const result = await this.importFromBlockchainAdapter(adapter, options.addresses, options.since);
+        sourceResults.push(result);
+        totalTransactions += result.transactions;
+        totalNewTransactions += result.newTransactions;
+        totalDuplicatesSkipped += result.duplicatesSkipped;
+        allErrors.push(...result.errors);
+      } catch (error) {
+        const errorMessage = `Failed to import from ${blockchainInfo.id}: ${error instanceof Error ? error.message : 'Unknown error'}`;
+        this.logger.error(errorMessage);
+        allErrors.push(errorMessage);
+
+        sourceResults.push({
+          source: blockchainInfo.id,
+          transactions: 0,
+          newTransactions: 0,
+          duplicatesSkipped: 0,
+          errors: [errorMessage],
+          duration: 0
+        });
+      } finally {
+        try {
+          await adapter.close();
+        } catch (closeError) {
+          this.logger.warn(`Failed to close adapter for ${blockchainInfo.id}: ${closeError}`);
+        }
+      }
+    }
+
+    const duration = Date.now() - startTime;
+    return {
+      totalTransactions,
+      newTransactions: totalNewTransactions,
+      duplicatesSkipped: totalDuplicatesSkipped,
+      sourceResults,
+      errors: allErrors,
+      duration
+    };
+  }
+
+  private async fetchTransactionsForAddresses(adapter: IBlockchainAdapter, addresses: string[], since?: number): Promise<CryptoTransaction[]> {
+    const rawTransactions: CryptoTransaction[] = [];
+
+    for (const address of addresses) {
+      this.logger.debug(`Fetching transactions for address: ${address}`);
+      const blockchainTxs = await adapter.getAddressTransactions(address, since);
+      const cryptoTxs = blockchainTxs.map(tx => adapter.convertToCryptoTransaction(tx, address));
+      rawTransactions.push(...cryptoTxs);
+      this.logger.debug(`Found ${blockchainTxs.length} transactions for ${address}`);
+    }
+
+    this.logger.debug(`Total ${rawTransactions.length} transactions fetched`);
+    return rawTransactions;
+  }
+
+  private async processAndSaveTransactions(rawTransactions: CryptoTransaction[], sourceId: string): Promise<{ transactions: EnhancedTransaction[]; saved: number; duplicates: EnhancedTransaction[] }> {
+    const transactions = rawTransactions.map(tx => this.enhanceTransaction(tx, sourceId));
+    const { unique, duplicates } = await this.deduplicator.process(transactions, sourceId);
+    const saved = await this.transactionService.saveMany(unique);
+
+    if (saved > 0 && sourceId !== 'exchange') {
+      try {
+        await this.linkTransactionsToWallets(unique, sourceId);
+      } catch (linkError) {
+        this.logger.warn(`Failed to link transactions to wallet addresses for ${sourceId}: ${linkError instanceof Error ? linkError.message : String(linkError)}`);
+      }
+    }
+
+    return { transactions, saved, duplicates };
   }
 
   private enhanceTransaction(transaction: any, exchangeId: string): EnhancedTransaction {

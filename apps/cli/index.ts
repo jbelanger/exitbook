@@ -97,7 +97,7 @@ async function main() {
           const verifier = new BalanceVerifier(database);
           let balanceServices;
           if (options.blockchain) {
-            const blockchainAdapters = await importer.createBlockchainAdapter({
+            const blockchainAdapters = await importer.createBlockchainAdapters({
               blockchain: options.blockchain,
               addresses: options.addresses
             });
@@ -171,7 +171,7 @@ async function main() {
 
         let balanceServices;
         if (options.blockchain) {
-          const blockchainAdapters = await importer.createBlockchainAdapter({
+          const blockchainAdapters = await importer.createBlockchainAdapters({
             blockchain: options.blockchain,
             addresses: options.addresses
           });
@@ -377,7 +377,7 @@ async function main() {
 
         let adapters;
         if (options.blockchain) {
-          const blockchainAdapters = await importer.createBlockchainAdapter({
+          const blockchainAdapters = await importer.createBlockchainAdapters({
             blockchain: options.blockchain,
             addresses: options.addresses
           });

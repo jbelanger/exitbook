@@ -15,70 +15,71 @@ interface TokenMetadata {
 }
 
 /**
- * Detect if a token is likely a scam based on metadata patterns
+ * Analyzes token metadata to identify potential scam tokens
+ * Returns a transaction note if suspicious patterns are detected
  */
 export function detectScamToken(
   mintAddress: string,
-  metadata: TokenMetadata,
+  tokenMetadata: TokenMetadata,
   transactionContext?: {
     amount: number;
     isAirdrop: boolean;
   }
 ): TransactionNote | null {
-  const scamIndicators: string[] = [];
-  let severity: 'warning' | 'error' = 'warning';
+  const suspiciousIndicators: string[] = [];
+  let riskLevel: 'warning' | 'error' = 'warning';
 
-  // Check for emoji/gift indicators in name
-  if (metadata.name && hasGiftEmojis(metadata.name)) {
-    scamIndicators.push('Gift/drop emojis in token name');
-    severity = 'error';
+  // Analyze token name for gift/reward emojis
+  if (tokenMetadata.name && containsGiftEmojis(tokenMetadata.name)) {
+    suspiciousIndicators.push('Gift/drop emojis in token name');
+    riskLevel = 'error';
   }
 
-  // Check for impersonation patterns
-  const impersonationCheck = detectImpersonation(metadata.symbol, metadata.name);
-  if (impersonationCheck.isImpersonation) {
-    scamIndicators.push(`Impersonating ${impersonationCheck.targetProject}`);
-    severity = 'error';
+  // Check for project impersonation attempts
+  const impersonationResult = detectProjectImpersonation(tokenMetadata.symbol, tokenMetadata.name);
+  if (impersonationResult.isImpersonation) {
+    suspiciousIndicators.push(`Impersonating ${impersonationResult.targetProject}`);
+    riskLevel = 'error';
   }
 
-  // Check for suspicious external URLs
-  if (metadata.external_url && isSuspiciousUrl(metadata.external_url)) {
-    scamIndicators.push('Suspicious external URL');
-    severity = 'error';
+  // Validate external URLs for suspicious patterns
+  if (tokenMetadata.external_url && isSuspiciousUrl(tokenMetadata.external_url)) {
+    suspiciousIndicators.push('Suspicious external URL');
+    riskLevel = 'error';
   }
 
-  // Check for year/date drop patterns
-  if (metadata.name && hasYearDropPattern(metadata.name)) {
-    scamIndicators.push('Suspicious year/drop pattern in name');
-    severity = 'warning';
+  // Check for time-sensitive drop language
+  if (tokenMetadata.name && hasTimeBasedDropPattern(tokenMetadata.name)) {
+    suspiciousIndicators.push('Suspicious year/drop pattern in name');
+    riskLevel = 'warning';
   }
 
-  // Check for URLs or website patterns in token names
-  if (metadata.name && hasUrlPattern(metadata.name)) {
-    scamIndicators.push('Contains suspicious URL/website pattern');
-    severity = 'error';
+  // Detect embedded URLs in token names
+  if (tokenMetadata.name && containsUrlPattern(tokenMetadata.name)) {
+    suspiciousIndicators.push('Contains suspicious URL/website pattern');
+    riskLevel = 'error';
   }
 
-  // Check transaction context for airdrop patterns
+  // Evaluate airdrop context
   if (transactionContext?.isAirdrop && transactionContext.amount > 0) {
-    scamIndicators.push('Unsolicited airdrop');
-    severity = 'warning';
+    suspiciousIndicators.push('Unsolicited airdrop');
+    riskLevel = 'warning';
   }
 
-  // If we found scam indicators, create a note
-  if (scamIndicators.length > 0) {
-    const noteType = severity === 'error' ? TransactionNoteType.SCAM_TOKEN : TransactionNoteType.SUSPICIOUS_AIRDROP;
+  // Generate warning note if suspicious patterns found
+  if (suspiciousIndicators.length > 0) {
+    const noteType = riskLevel === 'error' ? TransactionNoteType.SCAM_TOKEN : TransactionNoteType.SUSPICIOUS_AIRDROP;
 
     return {
       type: noteType,
-      message: `⚠️ ${severity === 'error' ? 'Scam token detected' : 'Suspicious token'}: ${scamIndicators.join(', ')}`,
-      severity,
+      message: `⚠️ ${riskLevel === 'error' ? 'Scam token detected' : 'Suspicious token'}: ${suspiciousIndicators.join(', ')}`,
+      severity: riskLevel,
       metadata: {
         mintAddress,
-        tokenSymbol: metadata.symbol,
-        tokenName: metadata.name,
-        indicators: scamIndicators,
-        externalUrl: metadata.external_url
+        tokenSymbol: tokenMetadata.symbol,
+        tokenName: tokenMetadata.name,
+        indicators: suspiciousIndicators,
+        externalUrl: tokenMetadata.external_url
       }
     };
   }
@@ -87,17 +88,17 @@ export function detectScamToken(
 }
 
 /**
- * Check if token name contains gift/drop emojis commonly used in scams
+ * Checks if token name contains gift/reward emojis commonly used in scam tokens
  */
-function hasGiftEmojis(name: string): boolean {
+function containsGiftEmojis(name: string): boolean {
   const giftEmojis = /[🎁🎉🎊💰💎⭐✨🔥🚀]/;
   return giftEmojis.test(name);
 }
 
 /**
- * Detect if token is impersonating known projects
+ * Identifies potential impersonation of legitimate projects
  */
-function detectImpersonation(symbol: string, name: string): { isImpersonation: boolean; targetProject?: string } {
+function detectProjectImpersonation(symbol: string, name: string): { isImpersonation: boolean; targetProject?: string } {
   const knownProjects = [
     { symbols: ['jup'], names: ['jupiter'], project: 'Jupiter Exchange' },
     { symbols: ['sol'], names: ['solana'], project: 'Solana' },
@@ -114,14 +115,14 @@ function detectImpersonation(symbol: string, name: string): { isImpersonation: b
     // Check if symbol matches but name suggests it's fake
     if (project.symbols.includes(lowerSymbol)) {
       // If name contains suspicious patterns, it's likely impersonation
-      if (hasYearDropPattern(name) || hasGiftEmojis(name)) {
+      if (hasTimeBasedDropPattern(name) || containsGiftEmojis(name)) {
         return { isImpersonation: true, targetProject: project.project };
       }
     }
 
     // Check if name contains project name but has suspicious additions
     const hasProjectName = project.names.some(projName => lowerName.includes(projName));
-    if (hasProjectName && (hasYearDropPattern(name) || hasGiftEmojis(name))) {
+    if (hasProjectName && (hasTimeBasedDropPattern(name) || containsGiftEmojis(name))) {
       return { isImpersonation: true, targetProject: project.project };
     }
   }
@@ -130,25 +131,25 @@ function detectImpersonation(symbol: string, name: string): { isImpersonation: b
 }
 
 /**
- * Check for suspicious year/drop patterns in token names
+ * Detects time-sensitive language commonly used in scam tokens
  */
-function hasYearDropPattern(name: string): boolean {
+function hasTimeBasedDropPattern(name: string): boolean {
   const yearDropPatterns = /\b(202[3-9]|drop|airdrop|claim|bonus|reward|visit|free|prize|win)\b/i;
   return yearDropPatterns.test(name);
 }
 
 /**
- * Check if token name contains URL or website patterns (common in scam tokens)
+ * Identifies URL or website patterns embedded in token names
  */
-function hasUrlPattern(name: string): boolean {
+function containsUrlPattern(name: string): boolean {
   const urlPatterns = /\b(www\.|\.com|\.net|\.org|\.io|\.app|\.xyz|token-|claim-|visit |go to )/i;
   return urlPatterns.test(name);
 }
 
 /**
- * Check for very obvious scam phrases (conservative - only extremely obvious ones)
+ * Detects explicit scam language patterns (conservative approach)
  */
-function hasObviousScamPhrases(name: string): boolean {
+function containsExplicitScamPhrases(name: string): boolean {
   const obviousScamPatterns = /\b(visit.*to.*claim|go.*to.*claim|click.*to.*claim|free.*airdrop.*claim|claim.*your.*reward)\b/i;
   return obviousScamPatterns.test(name);
 }
@@ -202,17 +203,17 @@ export function isUnsolicitedAirdrop(
  */
 export function detectScamFromSymbol(tokenSymbol: string): { isScam: boolean; reason: string } {
   // Check for URL patterns in token symbol (very obvious scam pattern)
-  if (hasUrlPattern(tokenSymbol)) {
+  if (containsUrlPattern(tokenSymbol)) {
     return { isScam: true, reason: 'Contains suspicious URL/website pattern' };
   }
 
   // Check for very obvious scam phrases (not individual words like "claim" but full suspicious phrases)
-  if (hasObviousScamPhrases(tokenSymbol)) {
+  if (containsExplicitScamPhrases(tokenSymbol)) {
     return { isScam: true, reason: 'Contains obvious scam phrases' };
   }
 
   // Check for gift emojis (legitimate tokens don't typically have these)
-  if (hasGiftEmojis(tokenSymbol)) {
+  if (containsGiftEmojis(tokenSymbol)) {
     return { isScam: true, reason: 'Contains gift/reward emojis' };
   }
 
