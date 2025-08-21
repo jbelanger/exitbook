@@ -2602,6 +2602,7 @@ import type { CryptoTransaction, ExchangeInfo, TransactionStatus } from '@crypto
 import { createMoney, parseDecimal } from '@crypto/shared-utils';
 import type { CSVConfig } from '../base-csv-adapter.ts';
 import { BaseCSVAdapter } from '../base-csv-adapter.ts';
+import { CsvFilters } from '../csv-filters.ts';
 import { RegisterExchangeAdapter } from '../registry/decorators.ts';
 
 interface KrakenCSVConfig extends CSVConfig { }
@@ -2717,7 +2718,7 @@ export class KrakenCSVAdapter extends BaseCSVAdapter {
     const validWithdrawals: KrakenLedgerRow[] = [];
 
     // Group withdrawals by refid to detect failed transaction pairs
-    const withdrawalsByRefId = this.groupByField(withdrawalRows, 'refid');
+    const withdrawalsByRefId = CsvFilters.groupByField(withdrawalRows, 'refid');
 
     for (const [refId, group] of withdrawalsByRefId) {
       if (group.length === 2) {
@@ -2825,7 +2826,7 @@ export class KrakenCSVAdapter extends BaseCSVAdapter {
 
     // Process spend/receive pairs by grouping by refid
     const spendReceiveRows = [...spendRows, ...receiveRows];
-    const tradeGroups = this.groupByField(spendReceiveRows, 'refid');
+    const tradeGroups = CsvFilters.groupByField(spendReceiveRows, 'refid');
     const processedRefIds = new Set<string>();
 
     for (const [refId, group] of tradeGroups) {
@@ -3121,18 +3122,6 @@ export class KrakenCSVAdapter extends BaseCSVAdapter {
     }
 
     this.logger.info(`CSV processing summary: ${allRows.length} total records, ${expectedProcessed} processed, ${unprocessedRows.length} unprocessed, ${failedTransactionRefIds.size} failed transaction pairs filtered`);
-  }
-
-  private groupByField<T, K extends keyof T>(rows: T[], field: K): Map<T[K], T[]> {
-    const groups = new Map<T[K], T[]>();
-    for (const row of rows) {
-      const key = row[field];
-      if (!groups.has(key)) {
-        groups.set(key, []);
-      }
-      groups.get(key)!.push(row);
-    }
-    return groups;
   }
 
   private convertSingleTradeToTransaction(trade: KrakenLedgerRow): CryptoTransaction {
@@ -3447,69 +3436,81 @@ import './registry/register-adapters.ts';
 
 
 export class ExchangeAdapterFactory {
-  private logger = getLogger('ExchangeAdapterFactory');
+  private readonly logger = getLogger('ExchangeAdapterFactory');
 
-  async createAdapter(config: ExchangeConfig, enableOnlineVerification?: boolean, database?: Database): Promise<IExchangeAdapter | IBlockchainAdapter> {
-    if (!config.adapterType) {
-      throw new ServiceError('adapterType is required in exchange configuration', config.id, 'createAdapter');
-    }
-
-    this.logger.info(`Creating adapter for ${config.id} with type: ${config.adapterType}`);
+  async createAdapter(
+    exchangeConfig: ExchangeConfig, 
+    enableOnlineVerification?: boolean, 
+    database?: Database
+  ): Promise<IExchangeAdapter | IBlockchainAdapter> {
+    this.validateConfiguration(exchangeConfig);
+    
+    this.logger.info(`Creating adapter for ${exchangeConfig.id} with type: ${exchangeConfig.adapterType}`);
 
     try {
-      // Try registry-based adapter creation first
-      if (ExchangeAdapterRegistry.isRegistered(config.id, config.adapterType)) {
-        this.logger.debug(`Using registry-based adapter for ${config.id}:${config.adapterType}`);
-        return await ExchangeAdapterRegistry.createAdapter(
-          config.id,
-          config.adapterType,
-          config,
-          enableOnlineVerification,
-          database
-        );
-      }
-
-      // For CCXT adapters that aren't specifically registered, use the generic CCXT adapter
-      if (config.adapterType === 'ccxt') {
-        this.logger.debug(`Using generic CCXT adapter for ${config.id}`);
-        return this.createCCXTAdapter(config, enableOnlineVerification);
-      }
-
-      // If we get here, the adapter type is not supported
-      throw new ServiceError(
-        `Unsupported adapter configuration: ${config.id}:${config.adapterType}. Available adapters: ${ExchangeAdapterRegistry.getSupportedTypes(config.id).join(', ')}`,
-        config.id,
-        'createAdapter'
-      );
+      return await this.createAdapterByType(exchangeConfig, enableOnlineVerification, database);
     } catch (error) {
-      this.logger.error(`Failed to create adapter for ${config.id} - Error: ${error}`);
-
-      if (error instanceof ServiceError) {
-        throw error;
-      }
-
-      throw new ServiceError(
-        `Failed to create adapter: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        config.id,
-        'createAdapter',
-        error instanceof Error ? error : undefined
-      );
+      return this.handleAdapterCreationError(error, exchangeConfig);
     }
   }
 
 
-  private createCCXTAdapter(config: ExchangeConfig, enableOnlineVerification?: boolean): IExchangeAdapter {
-    this.logger.info(`Creating CCXT adapter for ${config.id}`);
+  private validateConfiguration(config: ExchangeConfig): void {
+    if (!config.adapterType) {
+      throw new ServiceError('adapterType is required in exchange configuration', config.id, 'createAdapter');
+    }
+  }
 
-    const ccxtId = config.id;
-
-    if (!ccxt[ccxtId as keyof typeof ccxt]) {
-      throw new ServiceError(`CCXT exchange ${ccxtId} not found`, config.id, 'createCCXTAdapter');
+  private async createAdapterByType(
+    config: ExchangeConfig, 
+    enableOnlineVerification?: boolean, 
+    database?: Database
+  ): Promise<IExchangeAdapter | IBlockchainAdapter> {
+    // Try registry-based adapter creation first
+    if (ExchangeAdapterRegistry.isRegistered(config.id, config.adapterType!)) {
+      this.logger.debug(`Using registry-based adapter for ${config.id}:${config.adapterType}`);
+      return await ExchangeAdapterRegistry.createAdapter(
+        config.id,
+        config.adapterType!,
+        config,
+        enableOnlineVerification,
+        database
+      );
     }
 
-    // Create CCXT exchange instance
-    const ExchangeClass = ccxt[ccxtId as keyof typeof ccxt] as any;
-    const ccxtOptions: any = {
+    // For CCXT adapters that aren't specifically registered, use the generic CCXT adapter
+    if (config.adapterType === 'ccxt') {
+      this.logger.debug(`Using generic CCXT adapter for ${config.id}`);
+      return this.createCCXTAdapter(config, enableOnlineVerification);
+    }
+
+    throw new ServiceError(
+      `Unsupported adapter configuration: ${config.id}:${config.adapterType}. Available adapters: ${ExchangeAdapterRegistry.getSupportedTypes(config.id).join(', ')}`,
+      config.id,
+      'createAdapter'
+    );
+  }
+
+  private createCCXTAdapter(config: ExchangeConfig, enableOnlineVerification?: boolean): IExchangeAdapter {
+    this.logger.info(`Creating CCXT adapter for ${config.id}`);
+    
+    this.validateCCXTExchange(config.id);
+    
+    const ExchangeClass = ccxt[config.id as keyof typeof ccxt] as any;
+    const ccxtOptions = this.buildCCXTOptions(config);
+    
+    const exchangeInstance = new ExchangeClass(ccxtOptions);
+    return new CCXTAdapter(exchangeInstance, config, enableOnlineVerification);
+  }
+
+  private validateCCXTExchange(exchangeId: string): void {
+    if (!ccxt[exchangeId as keyof typeof ccxt]) {
+      throw new ServiceError(`CCXT exchange ${exchangeId} not found`, exchangeId, 'createCCXTAdapter');
+    }
+  }
+
+  private buildCCXTOptions(config: ExchangeConfig): any {
+    const baseOptions = {
       apiKey: config.credentials.apiKey,
       secret: config.credentials.secret,
       enableRateLimit: config.options?.enableRateLimit ?? true,
@@ -3517,23 +3518,40 @@ export class ExchangeAdapterFactory {
       ...config.options,
     };
 
-    // Handle passphrase/password mapping for different exchanges
+    return this.addExchangeSpecificCredentials(baseOptions, config);
+  }
+
+  private addExchangeSpecificCredentials(options: any, config: ExchangeConfig): any {
+    // KuCoin uses 'password' field for passphrase in CCXT
     if (config.id === 'kucoin') {
-      // KuCoin uses 'password' field for passphrase in CCXT, but our config stores it as 'passphrase'
       if (config.credentials.passphrase) {
-        ccxtOptions.password = config.credentials.passphrase;
+        options.password = config.credentials.passphrase;
       } else if (config.credentials.password) {
-        ccxtOptions.password = config.credentials.password;
+        options.password = config.credentials.password;
       }
     } else {
       // Most other exchanges use 'passphrase'
       if (config.credentials.passphrase) {
-        ccxtOptions.passphrase = config.credentials.passphrase;
+        options.passphrase = config.credentials.passphrase;
       }
     }
 
-    const exchange = new ExchangeClass(ccxtOptions);
-    return new CCXTAdapter(exchange, config, enableOnlineVerification);
+    return options;
+  }
+
+  private handleAdapterCreationError(error: unknown, config: ExchangeConfig): never {
+    this.logger.error(`Failed to create adapter for ${config.id} - Error: ${error}`);
+
+    if (error instanceof ServiceError) {
+      throw error;
+    }
+
+    throw new ServiceError(
+      `Failed to create adapter: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      config.id,
+      'createAdapter',
+      error instanceof Error ? error : undefined
+    );
   }
 } ===== ./src/utils/circuit-breaker.ts =====
 // Circuit breaker implementation for provider resilience
@@ -3543,126 +3561,128 @@ import type { Logger } from '@crypto/shared-logger';
 import { getLogger } from '@crypto/shared-logger';
 
 export class CircuitBreaker {
-  private failures = 0;
-  private lastFailureTime = 0;
-  private lastSuccessTime = 0;
+  private failureCount = 0;
+  private lastFailureTimestamp = 0;
+  private lastSuccessTimestamp = 0;
   private readonly maxFailures: number;
-  private readonly timeout: number; // Recovery timeout in milliseconds
-  private readonly name: string;
+  private readonly recoveryTimeoutMs: number;
+  private readonly providerName: string;
   private readonly logger: Logger;
-  private lastState: 'closed' | 'open' | 'half-open' = 'closed';
+  private previousState: 'closed' | 'open' | 'half-open' = 'closed';
 
   constructor(
-    name: string,
+    providerName: string,
     maxFailures: number = 3,
-    timeoutMs: number = 5 * 60 * 1000 // Default 5 minutes in milliseconds
+    recoveryTimeoutMs: number = 5 * 60 * 1000 // Default 5 minutes
   ) {
-    this.name = name;
+    this.providerName = providerName;
     this.maxFailures = maxFailures;
-    this.timeout = timeoutMs;
-    this.logger = getLogger(`CircuitBreaker:${name}`);
+    this.recoveryTimeoutMs = recoveryTimeoutMs;
+    this.logger = getLogger(`CircuitBreaker:${providerName}`);
 
-    this.logger.debug(`Circuit breaker initialized`);
+    this.logger.debug(`Circuit breaker initialized for ${providerName}`);
   }
 
   /**
-   * Check if the circuit breaker is open (blocking requests)
+   * Determines if circuit breaker is open (blocking all requests)
    */
   isOpen(): boolean {
-    if (this.failures >= this.maxFailures) {
-      const timeSinceLastFailure = Date.now() - this.lastFailureTime;
-      return timeSinceLastFailure < this.timeout;
+    if (this.failureCount >= this.maxFailures) {
+      const timeSinceLastFailure = Date.now() - this.lastFailureTimestamp;
+      return timeSinceLastFailure < this.recoveryTimeoutMs;
     }
     return false;
   }
 
   /**
-   * Check if the circuit breaker is half-open (allowing test requests)
+   * Determines if circuit breaker is half-open (allowing test requests)
    */
   isHalfOpen(): boolean {
-    if (this.failures >= this.maxFailures) {
-      const timeSinceLastFailure = Date.now() - this.lastFailureTime;
-      return timeSinceLastFailure >= this.timeout;
+    if (this.failureCount >= this.maxFailures) {
+      const timeSinceLastFailure = Date.now() - this.lastFailureTimestamp;
+      return timeSinceLastFailure >= this.recoveryTimeoutMs;
     }
     return false;
   }
 
   /**
-   * Check if the circuit breaker is closed (normal operation)
+   * Determines if circuit breaker is closed (normal operation)
    */
   isClosed(): boolean {
-    return this.failures < this.maxFailures;
+    return this.failureCount < this.maxFailures;
   }
 
   /**
-   * Record a successful operation
+   * Records successful operation and resets failure state
    */
   recordSuccess(): void {
     const wasOpen = this.isOpen();
-    this.failures = 0;
-    this.lastFailureTime = 0;
-    this.lastSuccessTime = Date.now();
+    this.failureCount = 0;
+    this.lastFailureTimestamp = 0;
+    this.lastSuccessTimestamp = Date.now();
 
-    const currentState = this.getState();
-    if (this.lastState !== currentState) {
-      this.logger.info(`Circuit breaker state changed: ${this.lastState} → ${currentState} - Reason: ${'success_recorded'}, Stats: ${this.getStats()}`);
-      this.lastState = currentState;
+    const currentState = this.getCurrentState();
+    if (this.previousState !== currentState) {
+      this.logger.info(`Circuit breaker state changed: ${this.previousState} → ${currentState} - Reason: success_recorded, Stats: ${JSON.stringify(this.getStatistics())}`);
+      this.previousState = currentState;
     } else if (wasOpen) {
-      this.logger.info(`Circuit breaker recovered after success - Stats: ${this.getStats()}`);
+      this.logger.info(`Circuit breaker recovered after success - Stats: ${JSON.stringify(this.getStatistics())}`);
     }
   }
 
   /**
-   * Record a failed operation
+   * Records failed operation and updates failure state
    */
   recordFailure(): void {
-    this.failures++;
-    this.lastFailureTime = Date.now();
+    this.failureCount++;
+    this.lastFailureTimestamp = Date.now();
 
-    const currentState = this.getState();
-    if (this.lastState !== currentState) {
-      this.logger.warn(`Circuit breaker state changed: ${this.lastState} → ${currentState} - Reason: ${'failure_recorded'}, FailureCount: ${this.failures}, MaxFailures: ${this.maxFailures}, Stats: ${this.getStats()}`);
-      this.lastState = currentState;
+    const currentState = this.getCurrentState();
+    if (this.previousState !== currentState) {
+      this.logger.warn(`Circuit breaker state changed: ${this.previousState} → ${currentState} - Reason: failure_recorded, FailureCount: ${this.failureCount}, MaxFailures: ${this.maxFailures}, Stats: ${JSON.stringify(this.getStatistics())}`);
+      this.previousState = currentState;
     } else if (currentState === 'open') {
-      this.logger.debug(`Circuit breaker failure recorded while open - FailureCount: ${this.failures}, MaxFailures: ${this.maxFailures}`);
+      this.logger.debug(`Circuit breaker failure recorded while open - FailureCount: ${this.failureCount}, MaxFailures: ${this.maxFailures}`);
     }
   }
 
   /**
-   * Get current circuit breaker state
+   * Returns current circuit breaker state
    */
-  getState(): 'closed' | 'open' | 'half-open' {
-    if (this.failures < this.maxFailures) return 'closed';
+  getCurrentState(): 'closed' | 'open' | 'half-open' {
+    if (this.failureCount < this.maxFailures) return 'closed';
 
-    const timeSinceLastFailure = Date.now() - this.lastFailureTime;
-    if (timeSinceLastFailure >= this.timeout) return 'half-open';
+    const timeSinceLastFailure = Date.now() - this.lastFailureTimestamp;
+    if (timeSinceLastFailure >= this.recoveryTimeoutMs) return 'half-open';
 
     return 'open';
   }
 
   /**
-   * Get circuit breaker statistics
+   * Returns comprehensive circuit breaker statistics
    */
-  getStats() {
+  getStatistics() {
     return {
-      name: this.name,
-      state: this.getState(),
-      failures: this.failures,
+      providerName: this.providerName,
+      state: this.getCurrentState(),
+      failureCount: this.failureCount,
       maxFailures: this.maxFailures,
-      lastFailureTime: this.lastFailureTime,
-      lastSuccessTime: this.lastSuccessTime,
-      timeSinceLastFailure: this.lastFailureTime ? Date.now() - this.lastFailureTime : 0,
-      timeUntilRecovery: this.isOpen() ? this.timeout - (Date.now() - this.lastFailureTime) : 0
+      lastFailureTimestamp: this.lastFailureTimestamp,
+      lastSuccessTimestamp: this.lastSuccessTimestamp,
+      timeSinceLastFailureMs: this.lastFailureTimestamp ? Date.now() - this.lastFailureTimestamp : 0,
+      timeUntilRecoveryMs: this.isOpen() ? this.recoveryTimeoutMs - (Date.now() - this.lastFailureTimestamp) : 0
     };
   }
 
   /**
-   * Reset the circuit breaker to closed state
+   * Resets circuit breaker to closed state (clears all failure history)
    */
   reset(): void {
-    this.failures = 0;
-    this.lastFailureTime = 0;
-    this.lastSuccessTime = 0;
+    this.failureCount = 0;
+    this.lastFailureTimestamp = 0;
+    this.lastSuccessTimestamp = 0;
+    this.previousState = 'closed';
+    this.logger.info(`Circuit breaker manually reset for ${this.providerName}`);
   }
 }===== ./src/utils/scam-detection.ts =====
 import type { TransactionNote } from '@crypto/core';
@@ -3682,70 +3702,71 @@ interface TokenMetadata {
 }
 
 /**
- * Detect if a token is likely a scam based on metadata patterns
+ * Analyzes token metadata to identify potential scam tokens
+ * Returns a transaction note if suspicious patterns are detected
  */
 export function detectScamToken(
   mintAddress: string,
-  metadata: TokenMetadata,
+  tokenMetadata: TokenMetadata,
   transactionContext?: {
     amount: number;
     isAirdrop: boolean;
   }
 ): TransactionNote | null {
-  const scamIndicators: string[] = [];
-  let severity: 'warning' | 'error' = 'warning';
+  const suspiciousIndicators: string[] = [];
+  let riskLevel: 'warning' | 'error' = 'warning';
 
-  // Check for emoji/gift indicators in name
-  if (metadata.name && hasGiftEmojis(metadata.name)) {
-    scamIndicators.push('Gift/drop emojis in token name');
-    severity = 'error';
+  // Analyze token name for gift/reward emojis
+  if (tokenMetadata.name && containsGiftEmojis(tokenMetadata.name)) {
+    suspiciousIndicators.push('Gift/drop emojis in token name');
+    riskLevel = 'error';
   }
 
-  // Check for impersonation patterns
-  const impersonationCheck = detectImpersonation(metadata.symbol, metadata.name);
-  if (impersonationCheck.isImpersonation) {
-    scamIndicators.push(`Impersonating ${impersonationCheck.targetProject}`);
-    severity = 'error';
+  // Check for project impersonation attempts
+  const impersonationResult = detectProjectImpersonation(tokenMetadata.symbol, tokenMetadata.name);
+  if (impersonationResult.isImpersonation) {
+    suspiciousIndicators.push(`Impersonating ${impersonationResult.targetProject}`);
+    riskLevel = 'error';
   }
 
-  // Check for suspicious external URLs
-  if (metadata.external_url && isSuspiciousUrl(metadata.external_url)) {
-    scamIndicators.push('Suspicious external URL');
-    severity = 'error';
+  // Validate external URLs for suspicious patterns
+  if (tokenMetadata.external_url && isSuspiciousUrl(tokenMetadata.external_url)) {
+    suspiciousIndicators.push('Suspicious external URL');
+    riskLevel = 'error';
   }
 
-  // Check for year/date drop patterns
-  if (metadata.name && hasYearDropPattern(metadata.name)) {
-    scamIndicators.push('Suspicious year/drop pattern in name');
-    severity = 'warning';
+  // Check for time-sensitive drop language
+  if (tokenMetadata.name && hasTimeBasedDropPattern(tokenMetadata.name)) {
+    suspiciousIndicators.push('Suspicious year/drop pattern in name');
+    riskLevel = 'warning';
   }
 
-  // Check for URLs or website patterns in token names
-  if (metadata.name && hasUrlPattern(metadata.name)) {
-    scamIndicators.push('Contains suspicious URL/website pattern');
-    severity = 'error';
+  // Detect embedded URLs in token names
+  if (tokenMetadata.name && containsUrlPattern(tokenMetadata.name)) {
+    suspiciousIndicators.push('Contains suspicious URL/website pattern');
+    riskLevel = 'error';
   }
 
-  // Check transaction context for airdrop patterns
+  // Evaluate airdrop context
   if (transactionContext?.isAirdrop && transactionContext.amount > 0) {
-    scamIndicators.push('Unsolicited airdrop');
-    severity = 'warning';
+    suspiciousIndicators.push('Unsolicited airdrop');
+    riskLevel = 'warning';
   }
 
-  // If we found scam indicators, create a note
-  if (scamIndicators.length > 0) {
-    const noteType = severity === 'error' ? TransactionNoteType.SCAM_TOKEN : TransactionNoteType.SUSPICIOUS_AIRDROP;
+  // Generate warning note if suspicious patterns found
+  if (suspiciousIndicators.length > 0) {
+    const noteType = riskLevel === 'error' ? TransactionNoteType.SCAM_TOKEN : TransactionNoteType.SUSPICIOUS_AIRDROP;
 
     return {
       type: noteType,
-      message: `⚠️ ${severity === 'error' ? 'Scam token detected' : 'Suspicious token'}: ${scamIndicators.join(', ')}`,
-      severity,
+      message: `⚠️ ${riskLevel === 'error' ? 'Scam token detected' : 'Suspicious token'}: ${suspiciousIndicators.join(', ')}`,
+      severity: riskLevel,
       metadata: {
         mintAddress,
-        tokenSymbol: metadata.symbol,
-        tokenName: metadata.name,
-        indicators: scamIndicators,
-        externalUrl: metadata.external_url
+        tokenSymbol: tokenMetadata.symbol,
+        tokenName: tokenMetadata.name,
+        indicators: suspiciousIndicators,
+        externalUrl: tokenMetadata.external_url
       }
     };
   }
@@ -3754,17 +3775,17 @@ export function detectScamToken(
 }
 
 /**
- * Check if token name contains gift/drop emojis commonly used in scams
+ * Checks if token name contains gift/reward emojis commonly used in scam tokens
  */
-function hasGiftEmojis(name: string): boolean {
+function containsGiftEmojis(name: string): boolean {
   const giftEmojis = /[🎁🎉🎊💰💎⭐✨🔥🚀]/;
   return giftEmojis.test(name);
 }
 
 /**
- * Detect if token is impersonating known projects
+ * Identifies potential impersonation of legitimate projects
  */
-function detectImpersonation(symbol: string, name: string): { isImpersonation: boolean; targetProject?: string } {
+function detectProjectImpersonation(symbol: string, name: string): { isImpersonation: boolean; targetProject?: string } {
   const knownProjects = [
     { symbols: ['jup'], names: ['jupiter'], project: 'Jupiter Exchange' },
     { symbols: ['sol'], names: ['solana'], project: 'Solana' },
@@ -3781,14 +3802,14 @@ function detectImpersonation(symbol: string, name: string): { isImpersonation: b
     // Check if symbol matches but name suggests it's fake
     if (project.symbols.includes(lowerSymbol)) {
       // If name contains suspicious patterns, it's likely impersonation
-      if (hasYearDropPattern(name) || hasGiftEmojis(name)) {
+      if (hasTimeBasedDropPattern(name) || containsGiftEmojis(name)) {
         return { isImpersonation: true, targetProject: project.project };
       }
     }
 
     // Check if name contains project name but has suspicious additions
     const hasProjectName = project.names.some(projName => lowerName.includes(projName));
-    if (hasProjectName && (hasYearDropPattern(name) || hasGiftEmojis(name))) {
+    if (hasProjectName && (hasTimeBasedDropPattern(name) || containsGiftEmojis(name))) {
       return { isImpersonation: true, targetProject: project.project };
     }
   }
@@ -3797,25 +3818,25 @@ function detectImpersonation(symbol: string, name: string): { isImpersonation: b
 }
 
 /**
- * Check for suspicious year/drop patterns in token names
+ * Detects time-sensitive language commonly used in scam tokens
  */
-function hasYearDropPattern(name: string): boolean {
+function hasTimeBasedDropPattern(name: string): boolean {
   const yearDropPatterns = /\b(202[3-9]|drop|airdrop|claim|bonus|reward|visit|free|prize|win)\b/i;
   return yearDropPatterns.test(name);
 }
 
 /**
- * Check if token name contains URL or website patterns (common in scam tokens)
+ * Identifies URL or website patterns embedded in token names
  */
-function hasUrlPattern(name: string): boolean {
+function containsUrlPattern(name: string): boolean {
   const urlPatterns = /\b(www\.|\.com|\.net|\.org|\.io|\.app|\.xyz|token-|claim-|visit |go to )/i;
   return urlPatterns.test(name);
 }
 
 /**
- * Check for very obvious scam phrases (conservative - only extremely obvious ones)
+ * Detects explicit scam language patterns (conservative approach)
  */
-function hasObviousScamPhrases(name: string): boolean {
+function containsExplicitScamPhrases(name: string): boolean {
   const obviousScamPatterns = /\b(visit.*to.*claim|go.*to.*claim|click.*to.*claim|free.*airdrop.*claim|claim.*your.*reward)\b/i;
   return obviousScamPatterns.test(name);
 }
@@ -3869,17 +3890,17 @@ export function isUnsolicitedAirdrop(
  */
 export function detectScamFromSymbol(tokenSymbol: string): { isScam: boolean; reason: string } {
   // Check for URL patterns in token symbol (very obvious scam pattern)
-  if (hasUrlPattern(tokenSymbol)) {
+  if (containsUrlPattern(tokenSymbol)) {
     return { isScam: true, reason: 'Contains suspicious URL/website pattern' };
   }
 
   // Check for very obvious scam phrases (not individual words like "claim" but full suspicious phrases)
-  if (hasObviousScamPhrases(tokenSymbol)) {
+  if (containsExplicitScamPhrases(tokenSymbol)) {
     return { isScam: true, reason: 'Contains obvious scam phrases' };
   }
 
   // Check for gift emojis (legitimate tokens don't typically have these)
-  if (hasGiftEmojis(tokenSymbol)) {
+  if (containsGiftEmojis(tokenSymbol)) {
     return { isScam: true, reason: 'Contains gift/reward emojis' };
   }
 
@@ -3915,75 +3936,93 @@ import crypto from 'crypto';
 
 
 /**
- * Utility for transforming CCXT transactions to our standard format
- * Eliminates code duplication across CCXT adapters
+ * Transforms CCXT transactions to our standard CryptoTransaction format
+ * Provides consistent data normalization across all exchange adapters
  */
 export class TransactionTransformer {
   /**
-   * Transform a CCXT transaction to our standard format
+   * Converts CCXT transaction data to standardized CryptoTransaction format
    */
-  static fromCCXT(ccxtTx: any, type: TransactionType, exchangeId: string): CryptoTransaction {
-    const { base, quote } = this.extractCurrency(ccxtTx);
-    const id = ccxtTx.id || ccxtTx.txid || this.createTransactionHash(ccxtTx, exchangeId);
-    const timestamp = ccxtTx.timestamp || Date.now();
-    const amount = Math.abs(ccxtTx.amount || 0);
+  static fromCCXT(ccxtTransaction: any, type: TransactionType, exchangeId: string): CryptoTransaction {
+    const { baseCurrency, quoteCurrency } = this.extractCurrencies(ccxtTransaction);
+    const transactionId = this.extractTransactionId(ccxtTransaction, exchangeId);
+    const timestamp = ccxtTransaction.timestamp || Date.now();
+    const amount = Math.abs(ccxtTransaction.amount || 0);
 
-    // Transform amount structure
-    const amountMoney: Money = createMoney(amount, base);
-
-    // Transform price structure
-    let priceMoney: Money | undefined;
-    if (ccxtTx.price) {
-      priceMoney = createMoney(ccxtTx.price, quote);
-    } else if (type === 'trade' && ccxtTx.cost && ccxtTx.amount && ccxtTx.amount !== 0) {
-      // Calculate actual price from cost and amount for trades
-      const actualPrice = Math.abs(ccxtTx.cost) / Math.abs(ccxtTx.amount);
-      priceMoney = createMoney(actualPrice, quote);
-    }
-
-    // Transform fee structure
-    let fee: Money | undefined;
-    if (ccxtTx.fee && ccxtTx.fee.cost) {
-      fee = createMoney(ccxtTx.fee.cost, ccxtTx.fee.currency || 'unknown');
-    }
+    const amountMoney = createMoney(amount, baseCurrency);
+    const priceMoney = this.extractPrice(ccxtTransaction, type, quoteCurrency);
+    const fee = this.extractFee(ccxtTransaction);
 
     return {
-      id,
+      id: transactionId,
       type,
       timestamp,
-      datetime: ccxtTx.datetime,
-      symbol: ccxtTx.symbol,
+      datetime: ccxtTransaction.datetime,
+      symbol: ccxtTransaction.symbol,
       amount: amountMoney,
-      side: ccxtTx.side,
+      side: ccxtTransaction.side,
       price: priceMoney,
       fee,
-      status: this.normalizeStatus(ccxtTx.status),
-      info: ccxtTx,
+      status: this.normalizeStatus(ccxtTransaction.status),
+      info: ccxtTransaction,
     };
   }
 
   /**
-   * Extract base and quote currencies from a CCXT transaction
+   * Extracts base and quote currencies from transaction data
    */
-  static extractCurrency(transaction: any): { base: string; quote: string } {
-    let base = 'unknown';
-    let quote = 'unknown';
+  static extractCurrencies(transaction: any): { baseCurrency: string; quoteCurrency: string } {
+    let baseCurrency = 'unknown';
+    let quoteCurrency = 'unknown';
 
     if (transaction.symbol && transaction.symbol.includes('/')) {
-      [base, quote] = transaction.symbol.split('/');
+      [baseCurrency, quoteCurrency] = transaction.symbol.split('/');
     } else if (transaction.currency) {
-      base = transaction.currency;
-      quote = transaction.currency;
+      baseCurrency = transaction.currency;
+      quoteCurrency = transaction.currency;
     } else if (transaction.info?.currency) {
-      base = transaction.info.currency;
-      quote = transaction.info.currency;
+      baseCurrency = transaction.info.currency;
+      quoteCurrency = transaction.info.currency;
     }
 
-    return { base, quote };
+    return { baseCurrency, quoteCurrency };
   }
 
   /**
-   * Normalize various status formats to our standard status
+   * Extracts transaction ID with fallback to generated hash
+   */
+  private static extractTransactionId(transaction: any, exchangeId: string): string {
+    return transaction.id || transaction.txid || this.createTransactionHash(transaction, exchangeId);
+  }
+
+  /**
+   * Extracts and normalizes price information
+   */
+  private static extractPrice(transaction: any, type: TransactionType, quoteCurrency: string): Money | undefined {
+    if (transaction.price) {
+      return createMoney(transaction.price, quoteCurrency);
+    }
+    
+    if (type === 'trade' && transaction.cost && transaction.amount && transaction.amount !== 0) {
+      const calculatedPrice = Math.abs(transaction.cost) / Math.abs(transaction.amount);
+      return createMoney(calculatedPrice, quoteCurrency);
+    }
+    
+    return undefined;
+  }
+
+  /**
+   * Extracts fee information from transaction
+   */
+  private static extractFee(transaction: any): Money | undefined {
+    if (transaction.fee?.cost) {
+      return createMoney(transaction.fee.cost, transaction.fee.currency || 'unknown');
+    }
+    return undefined;
+  }
+
+  /**
+   * Normalizes various exchange status formats to standard TransactionStatus
    */
   static normalizeStatus(status: any): TransactionStatus {
     if (!status) return 'pending';
@@ -4008,7 +4047,7 @@ export class TransactionTransformer {
   }
 
   /**
-   * Create a deterministic hash for transaction deduplication
+   * Generates unique transaction identifier from transaction data
    */
   static createTransactionHash(transaction: any, exchangeId: string): string {
     const hashData = JSON.stringify({
@@ -4025,9 +4064,9 @@ export class TransactionTransformer {
   }
 
   /**
-   * Check if a transaction should be filtered out (cancelled, etc.)
+   * Determines if transaction should be excluded from import
    */
-  static shouldFilter(transaction: any): boolean {
+  static shouldFilterOut(transaction: any): boolean {
     // Check CCXT status
     if (transaction.status === 'canceled' || transaction.status === 'cancelled') {
       return true;
@@ -5386,7 +5425,7 @@ import { Decimal } from 'decimal.js';
 
 import type { Balance, BlockchainTransaction } from '@crypto/core';
 
-import { createMoney } from '@crypto/shared-utils';
+import { createMoney, maskAddress } from '@crypto/shared-utils';
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
 import { RegisterProvider } from '../../shared/registry/decorators.ts';
 import { ProviderOperation } from '../../shared/types.ts';
@@ -5473,7 +5512,7 @@ export class SolscanProvider extends BaseRegistryProvider {
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'}`);
+    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? maskAddress(operation.params.address) : 'N/A'}`);
 
     try {
       switch (operation.type) {
@@ -5497,7 +5536,7 @@ export class SolscanProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Solana address: ${address}`);
     }
 
-    this.logger.debug(`Fetching address transactions - Address: ${this.maskAddress(address)}, Since: ${since}, Network: ${this.network}`);
+    this.logger.debug(`Fetching address transactions - Address: ${maskAddress(address)}, Since: ${since}, Network: ${this.network}`);
 
     try {
       const response = await this.httpClient.get(`/account/transaction?address=${address}&limit=100&offset=0`);
@@ -5505,7 +5544,7 @@ export class SolscanProvider extends BaseRegistryProvider {
       this.logger.debug(`Solscan API response received - HasResponse: ${!!response}, Success: ${response?.success}, HasData: ${!!response?.data}, TransactionCount: ${response?.data?.length || 0}`);
 
       if (!response || !response.success || !response.data) {
-        this.logger.debug(`No transactions found or API error - Address: ${this.maskAddress(address)}`);
+        this.logger.debug(`No transactions found or API error - Address: ${maskAddress(address)}`);
         return [];
       }
 
@@ -5525,12 +5564,12 @@ export class SolscanProvider extends BaseRegistryProvider {
       // Sort by timestamp (newest first)
       transactions.sort((a, b) => b.timestamp - a.timestamp);
 
-      this.logger.debug(`Successfully retrieved address transactions - Address: ${this.maskAddress(address)}, TotalTransactions: ${transactions.length}, Network: ${this.network}`);
+      this.logger.debug(`Successfully retrieved address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${transactions.length}, Network: ${this.network}`);
 
       return transactions;
 
     } catch (error) {
-      this.logger.error(`Failed to get address transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`Failed to get address transactions - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -5542,7 +5581,7 @@ export class SolscanProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Solana address: ${address}`);
     }
 
-    this.logger.debug(`Fetching address balance - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
+    this.logger.debug(`Fetching address balance - Address: ${maskAddress(address)}, Network: ${this.network}`);
 
     try {
       const response = await this.httpClient.get(`/account/${address}`);
@@ -5554,7 +5593,7 @@ export class SolscanProvider extends BaseRegistryProvider {
       const lamports = new Decimal(response.data.lamports || '0');
       const solBalance = lamportsToSol(lamports.toNumber());
 
-      this.logger.debug(`Successfully retrieved address balance - Address: ${this.maskAddress(address)}, BalanceSOL: ${solBalance.toNumber()}, Network: ${this.network}`);
+      this.logger.debug(`Successfully retrieved address balance - Address: ${maskAddress(address)}, BalanceSOL: ${solBalance.toNumber()}, Network: ${this.network}`);
 
       return {
         currency: 'SOL',
@@ -5564,7 +5603,7 @@ export class SolscanProvider extends BaseRegistryProvider {
       };
 
     } catch (error) {
-      this.logger.error(`Failed to get address balance - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`Failed to get address balance - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -5621,16 +5660,12 @@ export class SolscanProvider extends BaseRegistryProvider {
     }
   }
 
-  private maskAddress(address: string): string {
-    if (address.length <= 8) return address;
-    return `${address.slice(0, 4)}...${address.slice(-4)}`;
-  }
 }===== ./src/blockchains/solana/providers/SolanaRPCProvider.ts =====
 import { Decimal } from 'decimal.js';
 
 import type { Balance, BlockchainTransaction } from '@crypto/core';
 
-import { createMoney } from '@crypto/shared-utils';
+import { createMoney, maskAddress } from '@crypto/shared-utils';
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
 import { RegisterProvider } from '../../shared/registry/decorators.ts';
 import { ProviderOperation } from '../../shared/types.ts';
@@ -5710,7 +5745,7 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'}`);
+    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? maskAddress(operation.params.address) : 'N/A'}`);
 
     try {
       switch (operation.type) {
@@ -5738,7 +5773,7 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Solana address: ${address}`);
     }
 
-    this.logger.debug(`Fetching address transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
+    this.logger.debug(`Fetching address transactions - Address: ${maskAddress(address)}, Network: ${this.network}`);
 
     try {
       // Get signatures for address
@@ -5755,14 +5790,14 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
       });
 
       if (!signaturesResponse?.result) {
-        this.logger.debug(`No signatures found - Address: ${this.maskAddress(address)}`);
+        this.logger.debug(`No signatures found - Address: ${maskAddress(address)}`);
         return [];
       }
 
       const transactions: BlockchainTransaction[] = [];
       const signatures = signaturesResponse.result.slice(0, 50); // Limit for performance
 
-      this.logger.debug(`Retrieved signatures - Address: ${this.maskAddress(address)}, Count: ${signatures.length}`);
+      this.logger.debug(`Retrieved signatures - Address: ${maskAddress(address)}, Count: ${signatures.length}`);
 
       // Fetch transaction details
       for (const sig of signatures) {
@@ -5794,12 +5829,12 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
       // Sort by timestamp (newest first)
       transactions.sort((a, b) => b.timestamp - a.timestamp);
 
-      this.logger.debug(`Successfully retrieved address transactions - Address: ${this.maskAddress(address)}, TotalTransactions: ${transactions.length}, Network: ${this.network}`);
+      this.logger.debug(`Successfully retrieved address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${transactions.length}, Network: ${this.network}`);
 
       return transactions;
 
     } catch (error) {
-      this.logger.error(`Failed to get address transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`Failed to get address transactions - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -5811,7 +5846,7 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Solana address: ${address}`);
     }
 
-    this.logger.debug(`Fetching address balance - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
+    this.logger.debug(`Fetching address balance - Address: ${maskAddress(address)}, Network: ${this.network}`);
 
     try {
       const response = await this.httpClient.post('/', {
@@ -5828,7 +5863,7 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
       const lamports = new Decimal(response.result.value);
       const solBalance = lamportsToSol(lamports.toNumber());
 
-      this.logger.debug(`Successfully retrieved address balance - Address: ${this.maskAddress(address)}, BalanceSOL: ${solBalance.toNumber()}, Network: ${this.network}`);
+      this.logger.debug(`Successfully retrieved address balance - Address: ${maskAddress(address)}, BalanceSOL: ${solBalance.toNumber()}, Network: ${this.network}`);
 
       return {
         currency: 'SOL',
@@ -5838,7 +5873,7 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
       };
 
     } catch (error) {
-      this.logger.error(`Failed to get address balance - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`Failed to get address balance - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -5904,7 +5939,7 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Solana address: ${address}`);
     }
 
-    this.logger.debug(`Fetching token transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
+    this.logger.debug(`Fetching token transactions - Address: ${maskAddress(address)}, Network: ${this.network}`);
 
     try {
       // Get all signatures for this address (same as regular transactions)
@@ -5921,7 +5956,7 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
       });
 
       if (!signaturesResponse?.result) {
-        this.logger.debug(`No signatures found for token transactions - Address: ${this.maskAddress(address)}`);
+        this.logger.debug(`No signatures found for token transactions - Address: ${maskAddress(address)}`);
         return [];
       }
 
@@ -5957,12 +5992,12 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
 
       tokenTransactions.sort((a, b) => b.timestamp - a.timestamp);
 
-      this.logger.debug(`Successfully retrieved token transactions - Address: ${this.maskAddress(address)}, TotalTransactions: ${tokenTransactions.length}, Network: ${this.network}`);
+      this.logger.debug(`Successfully retrieved token transactions - Address: ${maskAddress(address)}, TotalTransactions: ${tokenTransactions.length}, Network: ${this.network}`);
 
       return tokenTransactions;
 
     } catch (error) {
-      this.logger.error(`Failed to get token transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`Failed to get token transactions - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -5974,7 +6009,7 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Solana address: ${address}`);
     }
 
-    this.logger.debug(`Fetching token balances - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
+    this.logger.debug(`Fetching token balances - Address: ${maskAddress(address)}, Network: ${this.network}`);
 
     try {
       // Get all token accounts owned by the address
@@ -5994,7 +6029,7 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
       });
 
       if (!tokenAccountsResponse?.result?.value) {
-        this.logger.debug(`No token accounts found - Address: ${this.maskAddress(address)}`);
+        this.logger.debug(`No token accounts found - Address: ${maskAddress(address)}`);
         return [];
       }
 
@@ -6030,12 +6065,12 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
         });
       }
 
-      this.logger.debug(`Successfully retrieved token balances - Address: ${this.maskAddress(address)}, TotalTokens: ${balances.length}, Network: ${this.network}`);
+      this.logger.debug(`Successfully retrieved token balances - Address: ${maskAddress(address)}, TotalTokens: ${balances.length}, Network: ${this.network}`);
 
       return balances;
 
     } catch (error) {
-      this.logger.error(`Failed to get token balances - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`Failed to get token balances - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -6100,16 +6135,12 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
     }
   }
 
-  private maskAddress(address: string): string {
-    if (address.length <= 8) return address;
-    return `${address.slice(0, 4)}...${address.slice(-4)}`;
-  }
 }===== ./src/blockchains/solana/providers/HeliusProvider.ts =====
 import { Decimal } from 'decimal.js';
 
 import type { Balance, BlockchainTransaction } from '@crypto/core';
 
-import { createMoney } from '@crypto/shared-utils';
+import { createMoney, maskAddress } from '@crypto/shared-utils';
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
 import { RegisterProvider } from '../../shared/registry/decorators.ts';
 import { ProviderOperation } from '../../shared/types.ts';
@@ -6226,7 +6257,7 @@ export class HeliusProvider extends BaseRegistryProvider {
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'}`);
+    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? maskAddress(operation.params.address) : 'N/A'}`);
 
     try {
       switch (operation.type) {
@@ -6254,7 +6285,7 @@ export class HeliusProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Solana address: ${address}`);
     }
 
-    this.logger.debug(`Fetching address transactions with token account discovery - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
+    this.logger.debug(`Fetching address transactions with token account discovery - Address: ${maskAddress(address)}, Network: ${this.network}`);
 
     try {
       // Step 1: Get direct transactions for the address
@@ -6272,12 +6303,12 @@ export class HeliusProvider extends BaseRegistryProvider {
       // Sort by timestamp (newest first)
       allTransactions.sort((a, b) => b.timestamp - a.timestamp);
 
-      this.logger.debug(`Successfully retrieved address transactions with token account discovery - Address: ${this.maskAddress(address)}, DirectTransactions: ${directTransactions.length}, TokenAccounts: ${tokenAccounts.length}, TokenAccountTransactions: ${tokenAccountTransactions.length}, TotalUniqueTransactions: ${allTransactions.length}, Network: ${this.network}`);
+      this.logger.debug(`Successfully retrieved address transactions with token account discovery - Address: ${maskAddress(address)}, DirectTransactions: ${directTransactions.length}, TokenAccounts: ${tokenAccounts.length}, TokenAccountTransactions: ${tokenAccountTransactions.length}, TotalUniqueTransactions: ${allTransactions.length}, Network: ${this.network}`);
 
       return allTransactions;
 
     } catch (error) {
-      this.logger.error(`Failed to get address transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`Failed to get address transactions - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -6297,14 +6328,14 @@ export class HeliusProvider extends BaseRegistryProvider {
     });
 
     if (!signaturesResponse?.result) {
-      this.logger.debug(`No direct signatures found - Address: ${this.maskAddress(address)}`);
+      this.logger.debug(`No direct signatures found - Address: ${maskAddress(address)}`);
       return [];
     }
 
     const transactions: BlockchainTransaction[] = [];
     const signatures = signaturesResponse.result.slice(0, 50);
 
-    this.logger.debug(`Retrieved direct signatures - Address: ${this.maskAddress(address)}, Count: ${signatures.length}`);
+    this.logger.debug(`Retrieved direct signatures - Address: ${maskAddress(address)}, Count: ${signatures.length}`);
 
     // Fetch transaction details individually (free tier doesn't support batch requests)
     for (const sig of signatures) {
@@ -6355,17 +6386,17 @@ export class HeliusProvider extends BaseRegistryProvider {
       });
 
       if (!tokenAccountsResponse?.result?.value) {
-        this.logger.debug(`No token accounts found - Address: ${this.maskAddress(address)}`);
+        this.logger.debug(`No token accounts found - Address: ${maskAddress(address)}`);
         return [];
       }
 
       const tokenAccountAddresses = tokenAccountsResponse.result.value.map((account: any) => account.pubkey);
 
-      this.logger.debug(`Found token accounts owned by address - Address: ${this.maskAddress(address)}, TokenAccountCount: ${tokenAccountAddresses.length}`);
+      this.logger.debug(`Found token accounts owned by address - Address: ${maskAddress(address)}, TokenAccountCount: ${tokenAccountAddresses.length}`);
 
       return tokenAccountAddresses;
     } catch (error) {
-      this.logger.warn(`Failed to get token accounts - Address: ${this.maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.warn(`Failed to get token accounts - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
       return [];
     }
   }
@@ -6417,11 +6448,11 @@ export class HeliusProvider extends BaseRegistryProvider {
               }
             }
           } catch (error) {
-            this.logger.debug(`Failed to fetch token account transaction - TokenAccount: ${this.maskAddress(tokenAccount)}, Signature: ${sig.signature}, Error: ${error instanceof Error ? error.message : String(error)}`);
+            this.logger.debug(`Failed to fetch token account transaction - TokenAccount: ${maskAddress(tokenAccount)}, Signature: ${sig.signature}, Error: ${error instanceof Error ? error.message : String(error)}`);
           }
         }
       } catch (error) {
-        this.logger.warn(`Failed to get signatures for token account - TokenAccount: ${this.maskAddress(tokenAccount)}, Error: ${error instanceof Error ? error.message : String(error)}`);
+        this.logger.warn(`Failed to get signatures for token account - TokenAccount: ${maskAddress(tokenAccount)}, Error: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
 
@@ -6501,7 +6532,7 @@ export class HeliusProvider extends BaseRegistryProvider {
       }
 
       // User not directly involved but we found this via token account - still check for token changes
-      this.logger.debug(`Token account transaction found via token account but user not in accountKeys - Signature: ${tx.transaction.signatures?.[0]}, UserAddress: ${this.maskAddress(userAddress)}`);
+      this.logger.debug(`Token account transaction found via token account but user not in accountKeys - Signature: ${tx.transaction.signatures?.[0]}, UserAddress: ${maskAddress(userAddress)}`);
 
       return null;
     } catch (error) {
@@ -6517,7 +6548,7 @@ export class HeliusProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Solana address: ${address}`);
     }
 
-    this.logger.debug(`Fetching address balance - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
+    this.logger.debug(`Fetching address balance - Address: ${maskAddress(address)}, Network: ${this.network}`);
 
     try {
       const response = await this.httpClient.post('/', {
@@ -6534,7 +6565,7 @@ export class HeliusProvider extends BaseRegistryProvider {
       const lamports = new Decimal(response.result.value);
       const solBalance = lamportsToSol(lamports.toNumber());
 
-      this.logger.debug(`Successfully retrieved address balance - Address: ${this.maskAddress(address)}, BalanceSOL: ${solBalance.toNumber()}, Network: ${this.network}`);
+      this.logger.debug(`Successfully retrieved address balance - Address: ${maskAddress(address)}, BalanceSOL: ${solBalance.toNumber()}, Network: ${this.network}`);
 
       return {
         currency: 'SOL',
@@ -6544,7 +6575,7 @@ export class HeliusProvider extends BaseRegistryProvider {
       };
 
     } catch (error) {
-      this.logger.error(`Failed to get address balance - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`Failed to get address balance - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -6616,7 +6647,7 @@ export class HeliusProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Solana address: ${address}`);
     }
 
-    this.logger.debug(`Fetching token transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
+    this.logger.debug(`Fetching token transactions - Address: ${maskAddress(address)}, Network: ${this.network}`);
 
     try {
       // Get signatures for address (same as regular transactions)
@@ -6633,7 +6664,7 @@ export class HeliusProvider extends BaseRegistryProvider {
       });
 
       if (!signaturesResponse?.result) {
-        this.logger.debug(`No signatures found for token transactions - Address: ${this.maskAddress(address)}`);
+        this.logger.debug(`No signatures found for token transactions - Address: ${maskAddress(address)}`);
         return [];
       }
 
@@ -6669,12 +6700,12 @@ export class HeliusProvider extends BaseRegistryProvider {
 
       tokenTransactions.sort((a, b) => b.timestamp - a.timestamp);
 
-      this.logger.debug(`Successfully retrieved token transactions - Address: ${this.maskAddress(address)}, TotalTransactions: ${tokenTransactions.length}, Network: ${this.network}`);
+      this.logger.debug(`Successfully retrieved token transactions - Address: ${maskAddress(address)}, TotalTransactions: ${tokenTransactions.length}, Network: ${this.network}`);
 
       return tokenTransactions;
 
     } catch (error) {
-      this.logger.error(`Failed to get token transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`Failed to get token transactions - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -6686,7 +6717,7 @@ export class HeliusProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Solana address: ${address}`);
     }
 
-    this.logger.debug(`Fetching token balances - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
+    this.logger.debug(`Fetching token balances - Address: ${maskAddress(address)}, Network: ${this.network}`);
 
     try {
       // Get all token accounts owned by the address
@@ -6706,7 +6737,7 @@ export class HeliusProvider extends BaseRegistryProvider {
       });
 
       if (!tokenAccountsResponse?.result?.value) {
-        this.logger.debug(`No token accounts found - Address: ${this.maskAddress(address)}`);
+        this.logger.debug(`No token accounts found - Address: ${maskAddress(address)}`);
         return [];
       }
 
@@ -6742,12 +6773,12 @@ export class HeliusProvider extends BaseRegistryProvider {
         });
       }
 
-      this.logger.debug(`Successfully retrieved token balances - Address: ${this.maskAddress(address)}, TotalTokens: ${balances.length}, Network: ${this.network}`);
+      this.logger.debug(`Successfully retrieved token balances - Address: ${maskAddress(address)}, TotalTokens: ${balances.length}, Network: ${this.network}`);
 
       return balances;
 
     } catch (error) {
-      this.logger.error(`Failed to get token balances - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`Failed to get token balances - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -6820,10 +6851,6 @@ export class HeliusProvider extends BaseRegistryProvider {
     }
   }
 
-  private maskAddress(address: string): string {
-    if (address.length <= 8) return address;
-    return `${address.slice(0, 4)}...${address.slice(-4)}`;
-  }
 
   /**
    * Static token registry for common Solana tokens
@@ -6860,7 +6887,7 @@ export class HeliusProvider extends BaseRegistryProvider {
     const knownSymbol = HeliusProvider.KNOWN_TOKENS.get(mintAddress);
     if (knownSymbol) {
       this.tokenSymbolCache.set(mintAddress, knownSymbol);
-      this.logger.debug(`Found token symbol in static registry - Mint: ${this.maskAddress(mintAddress)}, Symbol: ${knownSymbol}`);
+      this.logger.debug(`Found token symbol in static registry - Mint: ${maskAddress(mintAddress)}, Symbol: ${knownSymbol}`);
       return knownSymbol;
     }
 
@@ -6868,13 +6895,13 @@ export class HeliusProvider extends BaseRegistryProvider {
     try {
       const symbol = await this.fetchTokenSymbolFromAPI(mintAddress);
       this.tokenSymbolCache.set(mintAddress, symbol);
-      this.logger.debug(`Fetched token symbol from API - Mint: ${this.maskAddress(mintAddress)}`);
+      this.logger.debug(`Fetched token symbol from API - Mint: ${maskAddress(mintAddress)}`);
       return symbol;
     } catch (error) {
       // Final fallback to truncated mint address
       const fallbackSymbol = `${mintAddress.slice(0, 6)}...`;
       this.tokenSymbolCache.set(mintAddress, fallbackSymbol);
-      this.logger.warn(`Failed to fetch token symbol, using fallback - Mint: ${this.maskAddress(mintAddress)}, Symbol: ${fallbackSymbol}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.warn(`Failed to fetch token symbol, using fallback - Mint: ${maskAddress(mintAddress)}, Symbol: ${fallbackSymbol}, Error: ${error instanceof Error ? error.message : String(error)}`);
       return fallbackSymbol;
     }
   }
@@ -8526,7 +8553,7 @@ export function getExplorerConfig(blockchain: string, explorerName: string): Exp
 import { Decimal } from 'decimal.js';
 
 import type { BlockchainTransaction } from '@crypto/core';
-import { createMoney } from '@crypto/shared-utils';
+import { createMoney, maskAddress } from '@crypto/shared-utils';
 
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
 import { RegisterProvider } from '../../shared/registry/decorators.ts';
@@ -8663,7 +8690,7 @@ export class BlockCypherProvider extends BaseRegistryProvider {
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'}`);
+    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? maskAddress(operation.params.address) : 'N/A'}`);
 
     try {
       switch (operation.type) {
@@ -8687,18 +8714,18 @@ export class BlockCypherProvider extends BaseRegistryProvider {
   private async getAddressTransactions(params: { address: string; since?: number }): Promise<BlockchainTransaction[]> {
     const { address, since } = params;
 
-    this.logger.debug(`Fetching address transactions - Address: ${this.maskAddress(address)}`);
+    this.logger.debug(`Fetching address transactions - Address: ${maskAddress(address)}`);
 
     try {
       // Get address info with transaction references
       const addressInfo = await this.httpClient.get<BlockCypherAddress>(this.buildEndpoint(`/addrs/${address}?limit=50`));
 
       if (!addressInfo.txrefs || addressInfo.txrefs.length === 0) {
-        this.logger.debug(`No transactions found for address - Address: ${this.maskAddress(address)}`);
+        this.logger.debug(`No transactions found for address - Address: ${maskAddress(address)}`);
         return [];
       }
 
-      this.logger.debug(`Retrieved transaction references - Address: ${this.maskAddress(address)}, Count: ${addressInfo.txrefs.length}`);
+      this.logger.debug(`Retrieved transaction references - Address: ${maskAddress(address)}, Count: ${addressInfo.txrefs.length}`);
 
       // Extract unique transaction hashes
       const uniqueTxHashes = Array.from(new Set(addressInfo.txrefs.map((ref: any) => ref.tx_hash)));
@@ -8741,12 +8768,12 @@ export class BlockCypherProvider extends BaseRegistryProvider {
       // Sort by timestamp (newest first)
       filteredTransactions.sort((a, b) => b.timestamp - a.timestamp);
 
-      this.logger.debug(`Successfully retrieved address transactions - Address: ${this.maskAddress(address)}, TotalTransactions: ${filteredTransactions.length}`);
+      this.logger.debug(`Successfully retrieved address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${filteredTransactions.length}`);
 
       return filteredTransactions;
 
     } catch (error) {
-      this.logger.error(`Failed to get address transactions - Address: ${this.maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`Failed to get address transactions - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -8754,7 +8781,7 @@ export class BlockCypherProvider extends BaseRegistryProvider {
   private async getAddressBalance(params: { address: string }): Promise<{ balance: string; token: string }> {
     const { address } = params;
 
-    this.logger.debug(`Fetching address balance - Address: ${this.maskAddress(address)}`);
+    this.logger.debug(`Fetching address balance - Address: ${maskAddress(address)}`);
 
     try {
       const addressInfo = await this.httpClient.get<BlockCypherAddress>(this.buildEndpoint(`/addrs/${address}/balance`));
@@ -8765,7 +8792,7 @@ export class BlockCypherProvider extends BaseRegistryProvider {
       // Convert satoshis to BTC
       const balanceBTC = (balanceSats / 100000000).toString();
 
-      this.logger.debug(`Successfully retrieved address balance - Address: ${this.maskAddress(address)}, UnconfirmedBalance: ${addressInfo.unconfirmed_balance}`);
+      this.logger.debug(`Successfully retrieved address balance - Address: ${maskAddress(address)}, UnconfirmedBalance: ${addressInfo.unconfirmed_balance}`);
 
       return {
         balance: balanceBTC,
@@ -8773,7 +8800,7 @@ export class BlockCypherProvider extends BaseRegistryProvider {
       };
 
     } catch (error) {
-      this.logger.error(`Failed to get address balance - Address: ${this.maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`Failed to get address balance - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -8784,7 +8811,7 @@ export class BlockCypherProvider extends BaseRegistryProvider {
   private async getAddressInfo(params: { address: string }): Promise<AddressInfo> {
     const { address } = params;
 
-    this.logger.debug(`Fetching lightweight address info - Address: ${this.maskAddress(address)}`);
+    this.logger.debug(`Fetching lightweight address info - Address: ${maskAddress(address)}`);
 
     try {
       const addressInfo = await this.httpClient.get<BlockCypherAddress>(this.buildEndpoint(`/addrs/${address}/balance`));
@@ -8795,7 +8822,7 @@ export class BlockCypherProvider extends BaseRegistryProvider {
       // Get balance in BTC (BlockCypher returns in satoshis)
       const balanceBTC = (addressInfo.final_balance / 100000000).toString();
 
-      this.logger.debug(`Successfully retrieved lightweight address info - Address: ${this.maskAddress(address)}`);
+      this.logger.debug(`Successfully retrieved lightweight address info - Address: ${maskAddress(address)}`);
 
       return {
         txCount,
@@ -8803,7 +8830,7 @@ export class BlockCypherProvider extends BaseRegistryProvider {
       };
 
     } catch (error) {
-      this.logger.error(`Failed to get address info - Address: ${this.maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`Failed to get address info - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -9020,15 +9047,11 @@ export class BlockCypherProvider extends BaseRegistryProvider {
   }
 
 
-  private maskAddress(address: string): string {
-    if (!address || address.length <= 8) return address;
-    return `${address.slice(0, 4)}...${address.slice(-4)}`;
-  }
 }===== ./src/blockchains/bitcoin/providers/BlockstreamProvider.ts =====
 import { Decimal } from 'decimal.js';
 
 import type { BlockchainTransaction } from '@crypto/core';
-import { createMoney } from '@crypto/shared-utils';
+import { createMoney, maskAddress } from '@crypto/shared-utils';
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
 import { RegisterProvider } from '../../shared/registry/decorators.ts';
 import { ProviderOperation } from '../../shared/types.ts';
@@ -9117,7 +9140,7 @@ export class BlockstreamProvider extends BaseRegistryProvider {
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'}`);
+    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? maskAddress(operation.params.address) : 'N/A'}`);
 
     try {
       switch (operation.type) {
@@ -9143,14 +9166,14 @@ export class BlockstreamProvider extends BaseRegistryProvider {
   private async getAddressTransactions(params: { address: string; since?: number }): Promise<BlockchainTransaction[]> {
     const { address, since } = params;
 
-    this.logger.debug(`Fetching address transactions - Address: ${this.maskAddress(address)}, Since: ${since}`);
+    this.logger.debug(`Fetching address transactions - Address: ${maskAddress(address)}, Since: ${since}`);
 
     try {
       // Get address info first to check if there are transactions
       const addressInfo = await this.httpClient.get<BlockstreamAddressInfo>(`/address/${address}`);
 
       if (addressInfo.chain_stats.tx_count === 0 && addressInfo.mempool_stats.tx_count === 0) {
-        this.logger.debug(`No transactions found for address - Address: ${this.maskAddress(address)}`);
+        this.logger.debug(`No transactions found for address - Address: ${maskAddress(address)}`);
         return [];
       }
 
@@ -9173,7 +9196,7 @@ export class BlockstreamProvider extends BaseRegistryProvider {
           break;
         }
 
-        this.logger.debug(`Retrieved transaction batch - Address: ${this.maskAddress(address)}, BatchSize: ${transactions.length}, Batch: ${batchCount + 1}`);
+        this.logger.debug(`Retrieved transaction batch - Address: ${maskAddress(address)}, BatchSize: ${transactions.length}, Batch: ${batchCount + 1}`);
 
         // Transform the transactions we already have
         const batchTransactions = transactions.map(tx => {
@@ -9206,12 +9229,12 @@ export class BlockstreamProvider extends BaseRegistryProvider {
       // Sort by timestamp (newest first)
       filteredTransactions.sort((a, b) => b.timestamp - a.timestamp);
 
-      this.logger.debug(`Successfully retrieved address transactions - Address: ${this.maskAddress(address)}, TotalTransactions: ${filteredTransactions.length}, BatchesProcessed: ${batchCount}`);
+      this.logger.debug(`Successfully retrieved address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${filteredTransactions.length}, BatchesProcessed: ${batchCount}`);
 
       return filteredTransactions;
 
     } catch (error) {
-      this.logger.error(`Failed to get address transactions - Address: ${this.maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`Failed to get address transactions - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -9219,7 +9242,7 @@ export class BlockstreamProvider extends BaseRegistryProvider {
   private async getAddressBalance(params: { address: string }): Promise<{ balance: string; token: string }> {
     const { address } = params;
 
-    this.logger.debug(`Fetching address balance - Address: ${this.maskAddress(address)}`);
+    this.logger.debug(`Fetching address balance - Address: ${maskAddress(address)}`);
 
     try {
       const addressInfo = await this.httpClient.get<BlockstreamAddressInfo>(`/address/${address}`);
@@ -9232,7 +9255,7 @@ export class BlockstreamProvider extends BaseRegistryProvider {
       // Convert satoshis to BTC
       const balanceBTC = (totalBalanceSats / 100000000).toString();
 
-      this.logger.debug(`Successfully retrieved address balance - Address: ${this.maskAddress(address)}, BalanceBTC: ${balanceBTC}, BalanceSats: ${totalBalanceSats}`);
+      this.logger.debug(`Successfully retrieved address balance - Address: ${maskAddress(address)}, BalanceBTC: ${balanceBTC}, BalanceSats: ${totalBalanceSats}`);
 
       return {
         balance: balanceBTC,
@@ -9240,7 +9263,7 @@ export class BlockstreamProvider extends BaseRegistryProvider {
       };
 
     } catch (error) {
-      this.logger.error(`Failed to get address balance - Address: ${this.maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`Failed to get address balance - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -9251,7 +9274,7 @@ export class BlockstreamProvider extends BaseRegistryProvider {
   private async getAddressInfo(params: { address: string }): Promise<AddressInfo> {
     const { address } = params;
 
-    this.logger.debug(`Fetching lightweight address info - Address: ${this.maskAddress(address)}`);
+    this.logger.debug(`Fetching lightweight address info - Address: ${maskAddress(address)}`);
 
     try {
       const addressInfo = await this.httpClient.get<BlockstreamAddressInfo>(`/address/${address}`);
@@ -9267,7 +9290,7 @@ export class BlockstreamProvider extends BaseRegistryProvider {
       // Convert satoshis to BTC
       const balanceBTC = (totalBalanceSats / 100000000).toString();
 
-      this.logger.debug(`Successfully retrieved lightweight address info - Address: ${this.maskAddress(address)}, TxCount: ${txCount}, BalanceBTC: ${balanceBTC}`);
+      this.logger.debug(`Successfully retrieved lightweight address info - Address: ${maskAddress(address)}, TxCount: ${txCount}, BalanceBTC: ${balanceBTC}`);
 
       return {
         txCount,
@@ -9275,7 +9298,7 @@ export class BlockstreamProvider extends BaseRegistryProvider {
       };
 
     } catch (error) {
-      this.logger.error(`Failed to get address info - Address: ${this.maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`Failed to get address info - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -9286,14 +9309,14 @@ export class BlockstreamProvider extends BaseRegistryProvider {
   private async getRawAddressTransactions(params: { address: string; since?: number }): Promise<BlockstreamTransaction[]> {
     const { address, since } = params;
 
-    this.logger.debug(`Fetching raw address transactions - Address: ${this.maskAddress(address)}, Since: ${since}`);
+    this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}, Since: ${since}`);
 
     try {
       // Get address info first to check if there are transactions
       const addressInfo = await this.httpClient.get<BlockstreamAddressInfo>(`/address/${address}`);
 
       if (addressInfo.chain_stats.tx_count === 0 && addressInfo.mempool_stats.tx_count === 0) {
-        this.logger.debug(`No raw transactions found for address - Address: ${this.maskAddress(address)}`);
+        this.logger.debug(`No raw transactions found for address - Address: ${maskAddress(address)}`);
         return [];
       }
 
@@ -9316,7 +9339,7 @@ export class BlockstreamProvider extends BaseRegistryProvider {
           break;
         }
 
-        this.logger.debug(`Retrieved raw transaction batch - Address: ${this.maskAddress(address)}, BatchSize: ${rawTransactions.length}, Batch: ${batchCount + 1}`);
+        this.logger.debug(`Retrieved raw transaction batch - Address: ${maskAddress(address)}, BatchSize: ${rawTransactions.length}, Batch: ${batchCount + 1}`);
 
         // We already have the raw transaction data - no need to fetch again
         const validRawTransactions = rawTransactions.filter((tx): tx is BlockstreamTransaction => tx !== null);
@@ -9344,12 +9367,12 @@ export class BlockstreamProvider extends BaseRegistryProvider {
         return bTime - aTime;
       });
 
-      this.logger.debug(`Successfully retrieved raw address transactions - Address: ${this.maskAddress(address)}, TotalRawTransactions: ${filteredRawTransactions.length}, BatchesProcessed: ${batchCount}`);
+      this.logger.debug(`Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, TotalRawTransactions: ${filteredRawTransactions.length}, BatchesProcessed: ${batchCount}`);
 
       return filteredRawTransactions;
 
     } catch (error) {
-      this.logger.error(`Failed to get raw address transactions - Address: ${this.maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -9533,15 +9556,11 @@ export class BlockstreamProvider extends BaseRegistryProvider {
   }
 
 
-  private maskAddress(address: string): string {
-    if (!address || address.length <= 8) return address;
-    return `${address.slice(0, 4)}...${address.slice(-4)}`;
-  }
 }===== ./src/blockchains/bitcoin/providers/MempoolSpaceProvider.ts =====
 import { Decimal } from 'decimal.js';
 
 import type { BlockchainTransaction } from '@crypto/core';
-import { createMoney } from '@crypto/shared-utils';
+import { createMoney, maskAddress } from '@crypto/shared-utils';
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
 import { RegisterProvider } from '../../shared/registry/decorators.ts';
 import { ProviderOperation } from '../../shared/types.ts';
@@ -9612,7 +9631,7 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'}`);
+    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? maskAddress(operation.params.address) : 'N/A'}`);
 
     try {
       switch (operation.type) {
@@ -9638,7 +9657,7 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
   private async getAddressTransactions(params: { address: string; since?: number }): Promise<BlockchainTransaction[]> {
     const { address, since } = params;
 
-    this.logger.debug(`Fetching address transactions - Address: ${this.maskAddress(address)}`);
+    this.logger.debug(`Fetching address transactions - Address: ${maskAddress(address)}`);
 
     try {
       // Get transaction list directly - mempool.space returns full transaction objects, not just IDs
@@ -9646,11 +9665,11 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
       const rawTransactions = await this.httpClient.get<MempoolTransaction[]>(`/address/${address}/txs`);
 
       if (!Array.isArray(rawTransactions) || rawTransactions.length === 0) {
-        this.logger.debug(`No transactions found - Address: ${this.maskAddress(address)}`);
+        this.logger.debug(`No transactions found - Address: ${maskAddress(address)}`);
         return [];
       }
 
-      this.logger.debug(`Retrieved transactions - Address: ${this.maskAddress(address)}, Count: ${rawTransactions.length}`);
+      this.logger.debug(`Retrieved transactions - Address: ${maskAddress(address)}, Count: ${rawTransactions.length}`);
 
       // Transform the transactions directly since we already have the full data
       const transactions: BlockchainTransaction[] = [];
@@ -9674,12 +9693,12 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
       // Sort by timestamp (newest first)
       filteredTransactions.sort((a, b) => b.timestamp - a.timestamp);
 
-      this.logger.debug(`Successfully retrieved address transactions - Address: ${this.maskAddress(address)}, TotalTransactions: ${filteredTransactions.length}`);
+      this.logger.debug(`Successfully retrieved address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${filteredTransactions.length}`);
 
       return filteredTransactions;
 
     } catch (error) {
-      this.logger.error(`Failed to get address transactions - Address: ${this.maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`Failed to get address transactions - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -9690,7 +9709,7 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
   private async getRawAddressTransactions(params: { address: string; since?: number }): Promise<MempoolTransaction[]> {
     const { address, since } = params;
 
-    this.logger.debug(`Fetching raw address transactions - Address: ${this.maskAddress(address)}`);
+    this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
 
     try {
       // Get raw transaction list directly - mempool.space returns full transaction objects
@@ -9698,11 +9717,11 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
       const rawTransactions = await this.httpClient.get<MempoolTransaction[]>(`/address/${address}/txs`);
 
       if (!Array.isArray(rawTransactions) || rawTransactions.length === 0) {
-        this.logger.debug(`No raw transactions found - Address: ${this.maskAddress(address)}`);
+        this.logger.debug(`No raw transactions found - Address: ${maskAddress(address)}`);
         return [];
       }
 
-      this.logger.debug(`Retrieved raw transactions - Address: ${this.maskAddress(address)}, Count: ${rawTransactions.length}`);
+      this.logger.debug(`Retrieved raw transactions - Address: ${maskAddress(address)}, Count: ${rawTransactions.length}`);
 
       // Filter by timestamp if 'since' is provided
       let filteredTransactions = rawTransactions;
@@ -9724,12 +9743,12 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
         return timestampB - timestampA;
       });
 
-      this.logger.debug(`Successfully retrieved raw address transactions - Address: ${this.maskAddress(address)}, TotalTransactions: ${filteredTransactions.length}`);
+      this.logger.debug(`Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${filteredTransactions.length}`);
 
       return filteredTransactions;
 
     } catch (error) {
-      this.logger.error(`Failed to get raw address transactions - Address: ${this.maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -9737,7 +9756,7 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
   private async getAddressBalance(params: { address: string }): Promise<{ balance: string; token: string }> {
     const { address } = params;
 
-    this.logger.debug(`Fetching address balance - Address: ${this.maskAddress(address)}`);
+    this.logger.debug(`Fetching address balance - Address: ${maskAddress(address)}`);
 
     try {
       const addressInfo = await this.httpClient.get<MempoolAddressInfo>(`/address/${address}`);
@@ -9750,7 +9769,7 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
       // Convert satoshis to BTC
       const balanceBTC = (totalBalanceSats / 100000000).toString();
 
-      this.logger.debug(`Successfully retrieved address balance - Address: ${this.maskAddress(address)}, BalanceSats: ${totalBalanceSats}`);
+      this.logger.debug(`Successfully retrieved address balance - Address: ${maskAddress(address)}, BalanceSats: ${totalBalanceSats}`);
 
       return {
         balance: balanceBTC,
@@ -9758,7 +9777,7 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
       };
 
     } catch (error) {
-      this.logger.error(`Failed to get address balance - Address: ${this.maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`Failed to get address balance - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -9875,7 +9894,7 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
   private async getAddressInfo(params: { address: string }): Promise<AddressInfo> {
     const { address } = params;
 
-    this.logger.debug(`Fetching address info - Address: ${this.maskAddress(address)}`);
+    this.logger.debug(`Fetching address info - Address: ${maskAddress(address)}`);
 
     try {
       const addressInfo = await this.httpClient.get<MempoolAddressInfo>(`/address/${address}`);
@@ -9891,7 +9910,7 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
       // Convert satoshis to BTC
       const balanceBTC = (totalBalanceSats / 100000000).toString();
 
-      this.logger.debug(`Successfully retrieved address info - Address: ${this.maskAddress(address)}`);
+      this.logger.debug(`Successfully retrieved address info - Address: ${maskAddress(address)}`);
 
       return {
         txCount,
@@ -9899,7 +9918,7 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
       };
 
     } catch (error) {
-      this.logger.error(`Failed to get address info - Address: ${this.maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`Failed to get address info - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -9978,10 +9997,6 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
 
 
 
-  private maskAddress(address: string): string {
-    if (!address || address.length <= 8) return address;
-    return `${address.slice(0, 4)}...${address.slice(-4)}`;
-  }
 }===== ./src/blockchains/bitcoin/utils.ts =====
 import { HDKey } from '@scure/bip32';
 import * as bitcoin from 'bitcoinjs-lib';
@@ -10890,7 +10905,7 @@ export class BitcoinAdapter extends BaseBlockchainAdapter {
 }===== ./src/blockchains/avalanche/providers/SnowtraceProvider.ts =====
 import type { Balance, BlockchainTransaction } from '@crypto/core';
 import { AuthenticationError, ServiceError } from '@crypto/core';
-import { createMoney, parseDecimal } from '@crypto/shared-utils';
+import { createMoney, maskAddress, parseDecimal } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
 import { RegisterProvider } from '../../shared/registry/decorators.ts';
@@ -10975,7 +10990,7 @@ export class SnowtraceProvider extends BaseRegistryProvider {
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'}`);
+    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? maskAddress(operation.params.address) : 'N/A'}`);
 
     try {
       switch (operation.type) {
@@ -11003,7 +11018,7 @@ export class SnowtraceProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Avalanche address: ${address}`);
     }
 
-    this.logger.debug(`Fetching address transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
+    this.logger.debug(`Fetching address transactions - Address: ${maskAddress(address)}, Network: ${this.network}`);
 
     try {
       // Get normal transactions
@@ -11018,12 +11033,12 @@ export class SnowtraceProvider extends BaseRegistryProvider {
       // Sort by timestamp (newest first)
       allTransactions.sort((a, b) => b.timestamp - a.timestamp);
 
-      this.logger.debug(`Retrieved ${allTransactions.length} transactions for ${this.maskAddress(address)}`);
+      this.logger.debug(`Retrieved ${allTransactions.length} transactions for ${maskAddress(address)}`);
 
       return allTransactions;
 
     } catch (error) {
-      this.logger.error(`Failed to get address transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`Failed to get address transactions - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -11035,17 +11050,17 @@ export class SnowtraceProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Avalanche address: ${address}`);
     }
 
-    this.logger.debug(`Fetching address balance - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
+    this.logger.debug(`Fetching address balance - Address: ${maskAddress(address)}, Network: ${this.network}`);
 
     try {
       // Get AVAX balance
       const avaxBalance = await this.getAVAXBalance(address);
 
-      this.logger.debug(`Retrieved balance for ${this.maskAddress(address)}: ${avaxBalance.balance} AVAX`);
+      this.logger.debug(`Retrieved balance for ${maskAddress(address)}: ${avaxBalance.balance} AVAX`);
 
       return avaxBalance;
     } catch (error) {
-      this.logger.error(`Failed to get address balance - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`Failed to get address balance - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -11310,10 +11325,6 @@ export class SnowtraceProvider extends BaseRegistryProvider {
     };
   }
 
-  private maskAddress(address: string): string {
-    if (address.length <= 8) return address;
-    return `${address.slice(0, 4)}...${address.slice(-4)}`;
-  }
 }===== ./src/blockchains/avalanche/types.ts =====
 // Avalanche C-Chain specific types and interfaces
 
@@ -11672,7 +11683,7 @@ import '../injective/providers/InjectiveLCDProvider.ts';
 import '../polkadot/providers/SubstrateProvider.ts';===== ./src/blockchains/injective/providers/InjectiveExplorerProvider.ts =====
 
 import type { BlockchainTransaction } from '@crypto/core';
-import { createMoney, parseDecimal } from '@crypto/shared-utils';
+import { createMoney, maskAddress, parseDecimal } from '@crypto/shared-utils';
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
 import { RegisterProvider } from '../../shared/registry/decorators.ts';
 import { ProviderOperation } from '../../shared/types.ts';
@@ -11747,7 +11758,7 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'}`);
+    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? maskAddress(operation.params.address) : 'N/A'}`);
 
     try {
       switch (operation.type) {
@@ -11771,14 +11782,14 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Injective address: ${address}`);
     }
 
-    this.logger.debug(`Fetching address transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
+    this.logger.debug(`Fetching address transactions - Address: ${maskAddress(address)}, Network: ${this.network}`);
 
     try {
       const endpoint = `/api/explorer/v1/accountTxs/${address}`;
       const data = await this.httpClient.get(endpoint) as InjectiveApiResponse;
 
       if (!data.data || !Array.isArray(data.data)) {
-        this.logger.debug(`No transactions found in API response - Address: ${this.maskAddress(address)}, HasData: ${!!data.data}`);
+        this.logger.debug(`No transactions found in API response - Address: ${maskAddress(address)}, HasData: ${!!data.data}`);
         return [];
       }
 
@@ -11804,12 +11815,12 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
         }
       }
 
-      this.logger.debug(`Successfully retrieved address transactions - Address: ${this.maskAddress(address)}, TotalTransactions: ${transactions.length}, Network: ${this.network}`);
+      this.logger.debug(`Successfully retrieved address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${transactions.length}, Network: ${this.network}`);
 
       return transactions;
 
     } catch (error) {
-      this.logger.error(`Failed to get address transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`Failed to get address transactions - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -11821,7 +11832,7 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Injective address: ${address}`);
     }
 
-    this.logger.debug(`Fetching raw address transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
+    this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}, Network: ${this.network}`);
 
     try {
       const endpoint = `/api/explorer/v1/accountTxs/${address}`;
@@ -11841,11 +11852,11 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
         });
       }
 
-      this.logger.debug(`Successfully retrieved raw address transactions - Address: ${this.maskAddress(address)}, TotalTransactions: ${transactions.length}, Network: ${this.network}`);
+      this.logger.debug(`Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${transactions.length}, Network: ${this.network}`);
 
       return transactions;
     } catch (error) {
-      this.logger.error(`Failed to get raw address transactions - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`Failed to get raw address transactions - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -11962,7 +11973,7 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
 
     // Only return transactions that are relevant to our wallet
     if (!isRelevantTransaction) {
-      this.logger.debug(`Skipping irrelevant transaction - Hash: ${tx.hash}, From: ${this.maskAddress(from)}, To: ${this.maskAddress(to)}, RelevantAddress: ${this.maskAddress(relevantAddress)}, Value: ${value.amount.toNumber()}`);
+      this.logger.debug(`Skipping irrelevant transaction - Hash: ${tx.hash}, From: ${maskAddress(from)}, To: ${maskAddress(to)}, RelevantAddress: ${maskAddress(relevantAddress)}, Value: ${value.amount.toNumber()}`);
       return null;
     }
 
@@ -12005,14 +12016,10 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
     return denom.toUpperCase();
   }
 
-  private maskAddress(address: string): string {
-    if (!address || address.length <= 8) return address;
-    return `${address.slice(0, 4)}...${address.slice(-4)}`;
-  }
 }===== ./src/blockchains/injective/providers/InjectiveLCDProvider.ts =====
 
 import type { Balance } from '@crypto/core';
-import { parseDecimal } from '@crypto/shared-utils';
+import { maskAddress, parseDecimal } from '@crypto/shared-utils';
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
 import { RegisterProvider } from '../../shared/registry/decorators.ts';
 import { ProviderOperation } from '../../shared/types.ts';
@@ -12086,7 +12093,7 @@ export class InjectiveLCDProvider extends BaseRegistryProvider {
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'}`);
+    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? maskAddress(operation.params.address) : 'N/A'}`);
 
     try {
       switch (operation.type) {
@@ -12110,7 +12117,7 @@ export class InjectiveLCDProvider extends BaseRegistryProvider {
       throw new Error(`Invalid Injective address: ${address}`);
     }
 
-    this.logger.debug(`Fetching address balance - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
+    this.logger.debug(`Fetching address balance - Address: ${maskAddress(address)}, Network: ${this.network}`);
 
     try {
       const endpoint = `/cosmos/bank/v1beta1/balances/${address}`;
@@ -12127,12 +12134,12 @@ export class InjectiveLCDProvider extends BaseRegistryProvider {
         };
       });
 
-      this.logger.debug(`Successfully retrieved address balance - Address: ${this.maskAddress(address)}, BalanceCount: ${balances.length}, Network: ${this.network}`);
+      this.logger.debug(`Successfully retrieved address balance - Address: ${maskAddress(address)}, BalanceCount: ${balances.length}, Network: ${this.network}`);
 
       return balances;
 
     } catch (error) {
-      this.logger.error(`Failed to get address balance - Address: ${this.maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`Failed to get address balance - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -12140,7 +12147,7 @@ export class InjectiveLCDProvider extends BaseRegistryProvider {
   private async getTokenBalances(params: { address: string; contractAddresses?: string[] }): Promise<Balance[]> {
     const { address, contractAddresses } = params;
 
-    this.logger.debug(`Fetching token balances - Address: ${this.maskAddress(address)}, Network: ${this.network}`);
+    this.logger.debug(`Fetching token balances - Address: ${maskAddress(address)}, Network: ${this.network}`);
 
     // For Injective, all balances (including tokens) are returned by getAddressBalance
     // Token filtering by contract addresses is not directly supported in LCD API
@@ -12152,7 +12159,7 @@ export class InjectiveLCDProvider extends BaseRegistryProvider {
       this.logger.warn(`Contract address filtering not fully supported for Injective LCD API`);
     }
 
-    this.logger.debug(`Successfully retrieved token balances - Address: ${this.maskAddress(address)}, BalanceCount: ${allBalances.length}, Network: ${this.network}`);
+    this.logger.debug(`Successfully retrieved token balances - Address: ${maskAddress(address)}, BalanceCount: ${allBalances.length}, Network: ${this.network}`);
 
     return allBalances;
   }
@@ -12178,10 +12185,6 @@ export class InjectiveLCDProvider extends BaseRegistryProvider {
     return denom.toUpperCase();
   }
 
-  private maskAddress(address: string): string {
-    if (!address || address.length <= 8) return address;
-    return `${address.slice(0, 4)}...${address.slice(-4)}`;
-  }
 }===== ./src/blockchains/injective/types.ts =====
 export interface InjectiveApiResponse {
   data: InjectiveTransaction[];
@@ -12426,7 +12429,7 @@ export class InjectiveAdapter extends BaseBlockchainAdapter {
 import { Decimal } from 'decimal.js';
 
 import type { Balance, BlockchainTransaction } from '@crypto/core';
-import { createMoney } from '@crypto/shared-utils';
+import { createMoney, maskAddress } from '@crypto/shared-utils';
 
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
 import { RegisterProvider } from '../../shared/registry/decorators.ts';
@@ -12568,7 +12571,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? this.maskAddress(operation.params.address) : 'N/A'}`);
+    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? maskAddress(operation.params.address) : 'N/A'}`);
 
     try {
       switch (operation.type) {
@@ -12592,7 +12595,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
     }
 
     try {
-      this.logger.debug(`Fetching transactions for ${this.network} address: ${this.maskAddress(address)}`);
+      this.logger.debug(`Fetching transactions for ${this.network} address: ${maskAddress(address)}`);
 
       // Try explorer API first
       if (this.httpClient) {
@@ -12615,7 +12618,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
       return [];
 
     } catch (error) {
-      this.logger.error(`Failed to fetch transactions for ${this.network} address - Address: ${this.maskAddress(address)}, Error: ${error}`);
+      this.logger.error(`Failed to fetch transactions for ${this.network} address - Address: ${maskAddress(address)}, Error: ${error}`);
       throw error;
     }
   }
@@ -12627,7 +12630,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
     }
 
     try {
-      this.logger.debug(`Fetching balance for ${this.network} address: ${this.maskAddress(address)}`);
+      this.logger.debug(`Fetching balance for ${this.network} address: ${maskAddress(address)}`);
 
       // Try RPC first for most accurate balance
       if (this.rpcClient) {
@@ -12653,7 +12656,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
       return [];
 
     } catch (error) {
-      this.logger.error(`Failed to fetch balance for ${this.network} address - Address: ${this.maskAddress(address)}, Error: ${error}`);
+      this.logger.error(`Failed to fetch balance for ${this.network} address - Address: ${maskAddress(address)}, Error: ${error}`);
       throw error;
     }
   }
@@ -12707,7 +12710,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
     } else if (this.network === 'polkadot' || this.network === 'kusama') {
       // Subscan API implementation
       try {
-        this.logger.debug(`Calling Subscan API for ${this.network} transactions - Address: ${this.maskAddress(address)}`);
+        this.logger.debug(`Calling Subscan API for ${this.network} transactions - Address: ${maskAddress(address)}`);
 
         const response = await this.httpClient.post('/api/v2/scan/transfers', {
           address: address,
@@ -12719,7 +12722,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
 
         if (response && response.code === 0 && response.data && response.data.transfers) {
           for (const transfer of response.data.transfers) {
-            this.logger.debug(`Processing transfer - From: ${transfer.from}, To: ${transfer.to}, UserAddress: ${this.maskAddress(address)}, Amount: ${transfer.amount}`);
+            this.logger.debug(`Processing transfer - From: ${transfer.from}, To: ${transfer.to}, UserAddress: ${maskAddress(address)}, Amount: ${transfer.amount}`);
 
             const blockchainTx = this.convertSubscanTransaction(transfer, address);
             this.logger.debug(`Converted transaction result - HasTransaction: ${!!blockchainTx}, Since: ${since}, TxTimestamp: ${blockchainTx?.timestamp}`);
@@ -12779,7 +12782,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
 
       return null;
     } catch (error) {
-      this.logger.debug(`RPC balance query failed - Address: ${this.maskAddress(address)}, Error: ${error}`);
+      this.logger.debug(`RPC balance query failed - Address: ${maskAddress(address)}, Error: ${error}`);
       return null;
     }
   }
@@ -12825,7 +12828,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
 
       return null;
     } catch (error) {
-      this.logger.debug(`Explorer balance query failed - Address: ${this.maskAddress(address)}, Error: ${error}`);
+      this.logger.debug(`Explorer balance query failed - Address: ${maskAddress(address)}, Error: ${error}`);
       return null;
     }
   }
@@ -12868,7 +12871,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
       const isFromUser = transfer.from === userAddress;
       const isToUser = transfer.to === userAddress;
 
-      this.logger.debug(`Checking transaction relevance - From: ${transfer.from}, To: ${transfer.to}, UserAddress: ${this.maskAddress(userAddress)}, IsFromUser: ${isFromUser}, IsToUser: ${isToUser}`);
+      this.logger.debug(`Checking transaction relevance - From: ${transfer.from}, To: ${transfer.to}, UserAddress: ${maskAddress(userAddress)}, IsFromUser: ${isFromUser}, IsToUser: ${isToUser}`);
 
       if (!isFromUser && !isToUser) {
         this.logger.debug('Transaction not relevant to user address');
@@ -12903,10 +12906,6 @@ export class SubstrateProvider extends BaseRegistryProvider {
     }
   }
 
-  private maskAddress(address: string): string {
-    if (!address || address.length <= 8) return address;
-    return `${address.slice(0, 4)}...${address.slice(-4)}`;
-  }
 }===== ./src/blockchains/polkadot/utils.ts =====
 // Address validation for SS58 format
 export function isValidSS58Address(address: string, ss58Format?: number): boolean {
@@ -14533,62 +14532,22 @@ interface DeduplicationResult {
 export class Deduplicator {
   private logger = getLogger('Deduplicator');
 
-  async process(transactions: EnhancedTransaction[], exchangeId: string): Promise<DeduplicationResult> {
-    this.logger.info(`Starting deduplication for ${transactions.length} transactions from ${exchangeId}`);
+  async process(transactions: EnhancedTransaction[], sourceId: string): Promise<DeduplicationResult> {
+    this.logger.info(`Starting deduplication for ${transactions.length} transactions from ${sourceId}`);
 
-    const unique: EnhancedTransaction[] = [];
-    const duplicates: EnhancedTransaction[] = [];
-    const seenHashes = new Set<string>();
-
-    for (const transaction of transactions) {
-      const hash = transaction.hash;
-
-      if (seenHashes.has(hash)) {
-        duplicates.push(transaction);
-        this.logDuplicateTransaction(transaction.id || hash, exchangeId);
-      } else {
-        seenHashes.add(hash);
-        unique.push(transaction);
-      }
-    }
-
-    this.logger.info(`Deduplication completed for ${exchangeId} - Total: ${transactions.length}, Unique: ${unique.length}, Duplicates: ${duplicates.length} (${((duplicates.length / transactions.length) * 100).toFixed(2)}%)`);
-
-    return { unique, duplicates };
+    const result = this.deduplicateByHash(transactions, sourceId);
+    this.logDeduplicationStats(result, sourceId);
+    
+    return result;
   }
 
-  // Advanced deduplication that can handle slight variations in transaction data
-  async processAdvanced(transactions: EnhancedTransaction[], exchangeId: string): Promise<DeduplicationResult> {
-    this.logger.info(`Starting advanced deduplication for ${transactions.length} transactions from ${exchangeId}`);
+  async processAdvanced(transactions: EnhancedTransaction[], sourceId: string): Promise<DeduplicationResult> {
+    this.logger.info(`Starting advanced deduplication for ${transactions.length} transactions from ${sourceId}`);
 
-    const unique: EnhancedTransaction[] = [];
-    const duplicates: EnhancedTransaction[] = [];
-    const transactionIndex = new Map<string, EnhancedTransaction>();
-
-    for (const transaction of transactions) {
-      const primaryKey = this.createPrimaryKey(transaction);
-      const existingTransaction = transactionIndex.get(primaryKey);
-
-      if (existingTransaction) {
-        // Found a potential duplicate
-        if (this.areTransactionsSimilar(existingTransaction, transaction)) {
-          duplicates.push(transaction);
-          this.logDuplicateTransaction(transaction.id || transaction.hash, exchangeId);
-        } else {
-          // Similar key but different transaction, keep both
-          unique.push(transaction);
-          // Update the index with a modified key to avoid future conflicts
-          transactionIndex.set(primaryKey + '_' + unique.length, transaction);
-        }
-      } else {
-        transactionIndex.set(primaryKey, transaction);
-        unique.push(transaction);
-      }
-    }
-
-    this.logger.info(`Advanced deduplication completed for ${exchangeId} - Total: ${transactions.length}, Unique: ${unique.length}, Duplicates: ${duplicates.length} (${((duplicates.length / transactions.length) * 100).toFixed(2)}%)`);
-
-    return { unique, duplicates };
+    const result = this.deduplicateBySimilarity(transactions, sourceId);
+    this.logDeduplicationStats(result, sourceId, 'advanced');
+    
+    return result;
   }
 
   private createPrimaryKey(transaction: EnhancedTransaction): string {
@@ -14688,8 +14647,61 @@ export class Deduplicator {
     };
   }
 
-  logDuplicateTransaction(transactionId: string, exchange: string) {
-    this.logger.debug(`Duplicate transaction skipped - ID: ${transactionId}, Exchange: ${exchange}, Operation: duplicate_detection, Timestamp: ${Date.now()}`);
+  private deduplicateByHash(transactions: EnhancedTransaction[], sourceId: string): DeduplicationResult {
+    const unique: EnhancedTransaction[] = [];
+    const duplicates: EnhancedTransaction[] = [];
+    const seenHashes = new Set<string>();
+
+    for (const transaction of transactions) {
+      const hash = transaction.hash;
+
+      if (seenHashes.has(hash)) {
+        duplicates.push(transaction);
+        this.logDuplicateTransaction(transaction.id || hash, sourceId);
+      } else {
+        seenHashes.add(hash);
+        unique.push(transaction);
+      }
+    }
+
+    return { unique, duplicates };
+  }
+
+  private deduplicateBySimilarity(transactions: EnhancedTransaction[], sourceId: string): DeduplicationResult {
+    const unique: EnhancedTransaction[] = [];
+    const duplicates: EnhancedTransaction[] = [];
+    const transactionIndex = new Map<string, EnhancedTransaction>();
+
+    for (const transaction of transactions) {
+      const primaryKey = this.createPrimaryKey(transaction);
+      const existingTransaction = transactionIndex.get(primaryKey);
+
+      if (existingTransaction) {
+        if (this.areTransactionsSimilar(existingTransaction, transaction)) {
+          duplicates.push(transaction);
+          this.logDuplicateTransaction(transaction.id || transaction.hash, sourceId);
+        } else {
+          unique.push(transaction);
+          transactionIndex.set(primaryKey + '_' + unique.length, transaction);
+        }
+      } else {
+        transactionIndex.set(primaryKey, transaction);
+        unique.push(transaction);
+      }
+    }
+
+    return { unique, duplicates };
+  }
+
+  private logDeduplicationStats(result: DeduplicationResult, sourceId: string, mode: string = 'standard'): void {
+    const total = result.unique.length + result.duplicates.length;
+    const duplicatePercentage = total > 0 ? ((result.duplicates.length / total) * 100).toFixed(2) : '0.00';
+    
+    this.logger.info(`${mode.charAt(0).toUpperCase() + mode.slice(1)} deduplication completed for ${sourceId} - Total: ${total}, Unique: ${result.unique.length}, Duplicates: ${result.duplicates.length} (${duplicatePercentage}%)`);
+  }
+
+  private logDuplicateTransaction(transactionId: string, sourceId: string): void {
+    this.logger.debug(`Duplicate transaction skipped - ID: ${transactionId}, Source: ${sourceId}, Timestamp: ${Date.now()}`);
   }
 } ===== ./src/services/importer.ts =====
 import type { CryptoTransaction, EnhancedTransaction, IBlockchainAdapter, IExchangeAdapter, TransactionNote } from '@crypto/core';
@@ -14751,60 +14763,9 @@ export class TransactionImporter {
 
     try {
       const configuredExchanges = await this.getConfiguredExchanges(options);
-      const sourceResults: ImportResult[] = [];
-      let totalTransactions = 0;
-      let totalNewTransactions = 0;
-      let totalDuplicatesSkipped = 0;
-      const allErrors: string[] = [];
-
-      for (const { adapter, config } of configuredExchanges) {
-        const exchangeInfo = await adapter.getExchangeInfo();
-
-        this.logger.info(`Starting import from ${exchangeInfo.id}`);
-
-        try {
-          const result = await this.importFromExchange(adapter, config, options.since);
-          sourceResults.push(result);
-          totalTransactions += result.transactions;
-          totalNewTransactions += result.newTransactions;
-          totalDuplicatesSkipped += result.duplicatesSkipped;
-          allErrors.push(...result.errors);
-        } catch (error) {
-          const errorMessage = `Failed to import from ${exchangeInfo.id}: ${error instanceof Error ? error.message : 'Unknown error'}`;
-          this.logger.error(errorMessage);
-          allErrors.push(errorMessage);
-
-          sourceResults.push({
-            source: exchangeInfo.id,
-            transactions: 0,
-            newTransactions: 0,
-            duplicatesSkipped: 0,
-            errors: [errorMessage],
-            duration: 0
-          });
-        } finally {
-          // Always close the adapter
-          try {
-            await adapter.close();
-          } catch (closeError) {
-            this.logger.warn(`Failed to close adapter for ${exchangeInfo.id}: ${closeError}`);
-          }
-        }
-      }
-
-      const duration = Date.now() - startTime;
-
-      const summary: ImportSummary = {
-        totalTransactions,
-        newTransactions: totalNewTransactions,
-        duplicatesSkipped: totalDuplicatesSkipped,
-        sourceResults,
-        errors: allErrors,
-        duration
-      };
-
-      this.logger.info(`Import completed for all exchanges - Total: ${totalTransactions}, New: ${totalNewTransactions}, Duration: ${duration}ms`);
-
+      const summary = await this.processExchangeImports(configuredExchanges, options.since, startTime);
+      
+      this.logger.info(`Import completed for all exchanges - Total: ${summary.totalTransactions}, New: ${summary.newTransactions}, Duration: ${summary.duration}ms`);
       return summary;
     } catch (error) {
       const duration = Date.now() - startTime;
@@ -14818,62 +14779,11 @@ export class TransactionImporter {
     this.logger.info('Starting transaction import from blockchain');
 
     try {
-      // Create wallet records for CLI-provided addresses
       await this.ensureWalletAddresses(options.addresses, options.blockchain);
-
-      const adapters = await this.createBlockchainAdapter(options);
-      const sourceResults: ImportResult[] = [];
-      let totalTransactions = 0;
-      let totalNewTransactions = 0;
-      let totalDuplicatesSkipped = 0;
-      const allErrors: string[] = [];
-
-      for (const { adapter } of adapters) {
-        const blockchainInfo = await adapter.getBlockchainInfo();
-        this.logger.info(`Starting import from ${blockchainInfo.id}`);
-
-        try {
-          const result = await this.importFromBlockchainAdapter(adapter, options.addresses, options.since);
-          sourceResults.push(result);
-          totalTransactions += result.transactions;
-          totalNewTransactions += result.newTransactions;
-          totalDuplicatesSkipped += result.duplicatesSkipped;
-          allErrors.push(...result.errors);
-        } catch (error) {
-          const errorMessage = `Failed to import from ${blockchainInfo.id}: ${error instanceof Error ? error.message : 'Unknown error'}`;
-          this.logger.error(errorMessage);
-          allErrors.push(errorMessage);
-
-          sourceResults.push({
-            source: blockchainInfo.id,
-            transactions: 0,
-            newTransactions: 0,
-            duplicatesSkipped: 0,
-            errors: [errorMessage],
-            duration: 0
-          });
-        } finally {
-          try {
-            await adapter.close();
-          } catch (closeError) {
-            this.logger.warn(`Failed to close adapter for ${blockchainInfo.id}: ${closeError}`);
-          }
-        }
-      }
-
-      const duration = Date.now() - startTime;
-
-      const summary: ImportSummary = {
-        totalTransactions,
-        newTransactions: totalNewTransactions,
-        duplicatesSkipped: totalDuplicatesSkipped,
-        sourceResults,
-        errors: allErrors,
-        duration
-      };
-
-      this.logger.info(`Blockchain import completed for ${options.blockchain} - Total: ${totalTransactions}, New: ${totalNewTransactions}, Duration: ${duration}ms`);
-
+      const adapters = await this.createBlockchainAdapters(options);
+      const summary = await this.processBlockchainImports(adapters, options, startTime);
+      
+      this.logger.info(`Blockchain import completed for ${options.blockchain} - Total: ${summary.totalTransactions}, New: ${summary.newTransactions}, Duration: ${summary.duration}ms`);
       return summary;
     } catch (error) {
       const duration = Date.now() - startTime;
@@ -14894,36 +14804,9 @@ export class TransactionImporter {
         throw new Error(`Failed to connect to ${blockchainId}`);
       }
 
-      // Fetch transactions for each CLI-provided address
-      const rawTransactions: CryptoTransaction[] = [];
+      const rawTransactions = await this.fetchTransactionsForAddresses(adapter, addresses, since);
 
-      for (const address of addresses) {
-        this.logger.debug(`Fetching transactions for address: ${address}`);
-        const blockchainTxs = await adapter.getAddressTransactions(address, since);
-        const cryptoTxs = blockchainTxs.map(tx => adapter.convertToCryptoTransaction(tx, address));
-        rawTransactions.push(...cryptoTxs);
-        this.logger.debug(`Found ${blockchainTxs.length} transactions for ${address}`);
-      }
-
-      this.logger.debug(`Total ${rawTransactions.length} transactions fetched`);
-
-      // Transform to enhanced transactions
-      const transactions = rawTransactions.map(tx => this.enhanceTransaction(tx, blockchainId));
-
-      // Deduplicate transactions
-      const { unique, duplicates } = await this.deduplicator.process(transactions, blockchainId);
-
-      // Save new transactions to database
-      const saved = await this.transactionService.saveMany(unique);
-
-      // Link transactions to wallet addresses after successful import
-      if (saved > 0) {
-        try {
-          await this.linkTransactionsToWallets(unique, blockchainId);
-        } catch (linkError) {
-          this.logger.warn(`Failed to link transactions to wallet addresses for ${blockchainId}: ${linkError instanceof Error ? linkError.message : String(linkError)}`);
-        }
-      }
+      const { transactions, saved, duplicates } = await this.processAndSaveTransactions(rawTransactions, blockchainId);
 
       const duration = Date.now() - startTime;
 
@@ -14954,7 +14837,7 @@ export class TransactionImporter {
     }
   }
 
-  async importFromExchange(adapter: IExchangeAdapter, exchangeConfig: ExchangeConfig, since?: number): Promise<ImportResult> {
+  async importFromExchange(adapter: IExchangeAdapter, since?: number): Promise<ImportResult> {
     const startTime = Date.now();
     const exchangeInfo = await adapter.getExchangeInfo();
     const exchangeId = exchangeInfo.id;
@@ -14971,14 +14854,7 @@ export class TransactionImporter {
       // Fetch all transactions using the adapter
       const rawTransactions = await adapter.fetchAllTransactions(since);
 
-      // Transform to enhanced transactions
-      const transactions = rawTransactions.map(tx => this.enhanceTransaction(tx, exchangeId));
-
-      // Deduplicate transactions
-      const { unique, duplicates } = await this.deduplicator.process(transactions, exchangeId);
-
-      // Save new transactions to database
-      const saved = await this.transactionService.saveMany(unique);
+      const { transactions, saved, duplicates } = await this.processAndSaveTransactions(rawTransactions, exchangeId);
 
 
       const duration = Date.now() - startTime;
@@ -15068,8 +14944,7 @@ export class TransactionImporter {
     return exchanges;
   }
 
-  async createBlockchainAdapter(options: BlockchainImportOptions): Promise<Array<{ adapter: IBlockchainAdapter }>> {
-
+  async createBlockchainAdapters(options: BlockchainImportOptions): Promise<Array<{ adapter: IBlockchainAdapter }>> {
     try {
       const adapter = await this.blockchainAdapterFactory.createBlockchainAdapter(
         options.blockchain.toLowerCase(),
@@ -15083,6 +14958,139 @@ export class TransactionImporter {
       this.logger.error(`Failed to create blockchain adapter for ${options.blockchain}: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw error;
     }
+  }
+
+  private async processExchangeImports(configuredExchanges: Array<{ adapter: IExchangeAdapter; config: ExchangeConfig }>, since: number | undefined, startTime: number): Promise<ImportSummary> {
+    const sourceResults: ImportResult[] = [];
+    let totalTransactions = 0;
+    let totalNewTransactions = 0;
+    let totalDuplicatesSkipped = 0;
+    const allErrors: string[] = [];
+
+    for (const { adapter } of configuredExchanges) {
+      const exchangeInfo = await adapter.getExchangeInfo();
+      this.logger.info(`Starting import from ${exchangeInfo.id}`);
+
+      try {
+        const result = await this.importFromExchange(adapter, since);
+        sourceResults.push(result);
+        totalTransactions += result.transactions;
+        totalNewTransactions += result.newTransactions;
+        totalDuplicatesSkipped += result.duplicatesSkipped;
+        allErrors.push(...result.errors);
+      } catch (error) {
+        const errorMessage = `Failed to import from ${exchangeInfo.id}: ${error instanceof Error ? error.message : 'Unknown error'}`;
+        this.logger.error(errorMessage);
+        allErrors.push(errorMessage);
+
+        sourceResults.push({
+          source: exchangeInfo.id,
+          transactions: 0,
+          newTransactions: 0,
+          duplicatesSkipped: 0,
+          errors: [errorMessage],
+          duration: 0
+        });
+      } finally {
+        try {
+          await adapter.close();
+        } catch (closeError) {
+          this.logger.warn(`Failed to close adapter for ${exchangeInfo.id}: ${closeError}`);
+        }
+      }
+    }
+
+    const duration = Date.now() - startTime;
+    return {
+      totalTransactions,
+      newTransactions: totalNewTransactions,
+      duplicatesSkipped: totalDuplicatesSkipped,
+      sourceResults,
+      errors: allErrors,
+      duration
+    };
+  }
+
+  private async processBlockchainImports(adapters: Array<{ adapter: IBlockchainAdapter }>, options: BlockchainImportOptions, startTime: number): Promise<ImportSummary> {
+    const sourceResults: ImportResult[] = [];
+    let totalTransactions = 0;
+    let totalNewTransactions = 0;
+    let totalDuplicatesSkipped = 0;
+    const allErrors: string[] = [];
+
+    for (const { adapter } of adapters) {
+      const blockchainInfo = await adapter.getBlockchainInfo();
+      this.logger.info(`Starting import from ${blockchainInfo.id}`);
+
+      try {
+        const result = await this.importFromBlockchainAdapter(adapter, options.addresses, options.since);
+        sourceResults.push(result);
+        totalTransactions += result.transactions;
+        totalNewTransactions += result.newTransactions;
+        totalDuplicatesSkipped += result.duplicatesSkipped;
+        allErrors.push(...result.errors);
+      } catch (error) {
+        const errorMessage = `Failed to import from ${blockchainInfo.id}: ${error instanceof Error ? error.message : 'Unknown error'}`;
+        this.logger.error(errorMessage);
+        allErrors.push(errorMessage);
+
+        sourceResults.push({
+          source: blockchainInfo.id,
+          transactions: 0,
+          newTransactions: 0,
+          duplicatesSkipped: 0,
+          errors: [errorMessage],
+          duration: 0
+        });
+      } finally {
+        try {
+          await adapter.close();
+        } catch (closeError) {
+          this.logger.warn(`Failed to close adapter for ${blockchainInfo.id}: ${closeError}`);
+        }
+      }
+    }
+
+    const duration = Date.now() - startTime;
+    return {
+      totalTransactions,
+      newTransactions: totalNewTransactions,
+      duplicatesSkipped: totalDuplicatesSkipped,
+      sourceResults,
+      errors: allErrors,
+      duration
+    };
+  }
+
+  private async fetchTransactionsForAddresses(adapter: IBlockchainAdapter, addresses: string[], since?: number): Promise<CryptoTransaction[]> {
+    const rawTransactions: CryptoTransaction[] = [];
+
+    for (const address of addresses) {
+      this.logger.debug(`Fetching transactions for address: ${address}`);
+      const blockchainTxs = await adapter.getAddressTransactions(address, since);
+      const cryptoTxs = blockchainTxs.map(tx => adapter.convertToCryptoTransaction(tx, address));
+      rawTransactions.push(...cryptoTxs);
+      this.logger.debug(`Found ${blockchainTxs.length} transactions for ${address}`);
+    }
+
+    this.logger.debug(`Total ${rawTransactions.length} transactions fetched`);
+    return rawTransactions;
+  }
+
+  private async processAndSaveTransactions(rawTransactions: CryptoTransaction[], sourceId: string): Promise<{ transactions: EnhancedTransaction[]; saved: number; duplicates: EnhancedTransaction[] }> {
+    const transactions = rawTransactions.map(tx => this.enhanceTransaction(tx, sourceId));
+    const { unique, duplicates } = await this.deduplicator.process(transactions, sourceId);
+    const saved = await this.transactionService.saveMany(unique);
+
+    if (saved > 0 && sourceId !== 'exchange') {
+      try {
+        await this.linkTransactionsToWallets(unique, sourceId);
+      } catch (linkError) {
+        this.logger.warn(`Failed to link transactions to wallet addresses for ${sourceId}: ${linkError instanceof Error ? linkError.message : String(linkError)}`);
+      }
+    }
+
+    return { transactions, saved, duplicates };
   }
 
   private enhanceTransaction(transaction: any, exchangeId: string): EnhancedTransaction {
