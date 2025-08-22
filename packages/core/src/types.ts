@@ -122,7 +122,6 @@ export interface BlockchainCapabilities {
   supportsBalanceQueries: boolean;
   supportsHistoricalData: boolean;
   supportsPagination: boolean;
-  maxLookbackDays?: number;
 }
 
 export interface TokenConfig {
@@ -174,21 +173,21 @@ export interface BlockchainTransaction {
   /** Transaction fee paid */
   fee: Money;
   /** Gas units consumed (Ethereum/EVM chains) */
-  gasUsed?: number;
+  gasUsed?: number | undefined;
   /** Gas price per unit (Ethereum/EVM chains) */
-  gasPrice?: number;
+  gasPrice?: number | undefined;
   /** Blockchain-native transaction status */
   status: 'success' | 'failed' | 'pending';
   /** Detailed blockchain-specific transaction type for accurate classification */
   type: 'transfer' | 'contract_execution' | 'token_transfer' | 'transfer_in' | 'transfer_out' | 'internal_transfer_in' | 'internal_transfer_out' | 'token_transfer_in' | 'token_transfer_out';
   /** Token contract address (for token transactions) */
-  tokenContract?: string;
+  tokenContract?: string | undefined;
   /** Token symbol (for token transactions) */
-  tokenSymbol?: string;
+  tokenSymbol?: string | undefined;
   /** Transaction nonce (ordering/replay protection) */
-  nonce?: number;
+  nonce?: number | undefined;
   /** Number of block confirmations */
-  confirmations?: number;
+  confirmations?: number | undefined;
 }
 
 // ===== API AND UTILITY TYPES =====
@@ -283,9 +282,6 @@ export interface DataSourceCapabilities<TOperations extends string = string> {
   /** Maximum number of items that can be requested in a single batch operation */
   maxBatchSize?: number;
   
-  /** Maximum number of days of historical data available (null = unlimited) */
-  maxLookbackDays?: number;
-  
   /** 
    * Extension point for data source specific capabilities.
    * Allows each data source type to add custom capability flags without
@@ -361,9 +357,9 @@ export interface UniversalTransaction {
   
   // Amounts
   amount: Money;
-  fee?: Money;
-  price?: Money;
-  side?: 'buy' | 'sell'; // Trade side for balance calculations
+  fee?: Money | undefined;
+  price?: Money | undefined;
+  side?: 'buy' | 'sell' | undefined; // Trade side for balance calculations
   
   // Parties (works for both)
   from?: string;  // Sender address OR exchange account
@@ -381,7 +377,7 @@ export interface UniversalBalance {
   total: number;
   free: number;
   used: number;
-  contractAddress?: string;
+  contractAddress?: string | undefined;
 }
 
 // Universal adapter configuration

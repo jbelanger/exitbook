@@ -63,10 +63,7 @@ function generateConfiguration(): void {
             supportsHistoricalData: provider.capabilities.supportsHistoricalData,
             supportsRealTimeData: provider.capabilities.supportsRealTimeData,
             supportsTokenData: provider.capabilities.supportsTokenData,
-            supportsPagination: provider.capabilities.supportsPagination,
-            ...(provider.capabilities.maxLookbackDays && {
-              maxLookbackDays: provider.capabilities.maxLookbackDays
-            })
+            supportsPagination: provider.capabilities.supportsPagination            
           },
           networks: {
             ...metadata?.networks.mainnet && {
