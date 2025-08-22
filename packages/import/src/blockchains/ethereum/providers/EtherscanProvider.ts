@@ -20,8 +20,7 @@ import type { EtherscanInternalTransaction, EtherscanTokenTransfer, EtherscanTra
     supportedOperations: ['getAddressTransactions', 'getAddressBalance', 'getTokenTransactions', 'getTokenBalances'],
     maxBatchSize: 1, // Etherscan doesn't support batch operations
     supportsHistoricalData: true,
-    supportsPagination: true,
-    maxLookbackDays: undefined, // No limit
+  supportsPagination: true,
     supportsRealTimeData: true,
     supportsTokenData: true
   },
@@ -72,7 +71,7 @@ export class EtherscanProvider extends BaseRegistryProvider {
       case 'getTokenTransactions':
         return this.getTokenTransactions(operation.params as { address: string; contractAddress?: string; since?: number }) as Promise<T>;
       case 'getTokenBalances':
-        return this.getTokenBalances(operation.params as { address: string; contractAddresses?: string[] }) as Promise<T>;
+        return this.getTokenBalances() as Promise<T>;
       default:
         throw new ServiceError(`Unsupported operation: ${operation.type}`, 'EtherscanProvider', operation.type);
     }
@@ -127,7 +126,7 @@ export class EtherscanProvider extends BaseRegistryProvider {
     return this.fetchTokenTransfers(address, since, contractAddress);
   }
 
-  private async getTokenBalances(_params: { address: string; contractAddresses?: string[] }): Promise<Balance[]> {
+  private async getTokenBalances(): Promise<Balance[]> {
     // This would require specific token contract addresses
     // For now, return empty array as this is typically used with specific tokens
     return [];
@@ -188,7 +187,7 @@ export class EtherscanProvider extends BaseRegistryProvider {
       throw new ServiceError(`Etherscan API error: ${response.message}`, 'EtherscanProvider', 'fetchTokenTransfers');
     }
 
-    return response.result.map((tx: EtherscanTokenTransfer) => this.convertTokenTransfer(tx, address));
+    return response.result.map((tx: EtherscanTokenTransfer) => this.convertTokenTransfer(tx));
   }
 
   private async getEthBalance(address: string): Promise<Balance> {
@@ -286,9 +285,7 @@ export class EtherscanProvider extends BaseRegistryProvider {
     };
   }
 
-  private convertTokenTransfer(tx: EtherscanTokenTransfer, userAddress: string): BlockchainTransaction {
-    const isFromUser = tx.from.toLowerCase() === userAddress.toLowerCase();
-    const isToUser = tx.to.toLowerCase() === userAddress.toLowerCase();
+  private convertTokenTransfer(tx: EtherscanTokenTransfer): BlockchainTransaction {
 
     // Note: Transaction direction is determined by from/to addresses but not used in this method
 

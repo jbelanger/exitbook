@@ -60,9 +60,9 @@ export interface Transaction {
   
   // Amounts
   amount: Money;
-  fee?: Money;
-  price?: Money;
-  side?: 'buy' | 'sell';
+  fee?: Money | undefined;
+  price?: Money | undefined;
+  side?: 'buy' | 'sell' | undefined;
   
   // Parties (works for both)
   from?: string;  // Sender address OR exchange account
@@ -80,5 +80,5 @@ export interface Balance {
   total: number;
   free: number;
   used: number;
-  contractAddress?: string;
+  contractAddress?: string | undefined;
 }

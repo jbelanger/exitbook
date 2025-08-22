@@ -24,7 +24,6 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
     maxBatchSize: 100, // Alchemy supports batch requests
     supportsHistoricalData: true,
     supportsPagination: true,
-    maxLookbackDays: undefined, // No limit
     supportsRealTimeData: true,
     supportsTokenData: true
   };
@@ -177,14 +176,6 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
       params.contractAddresses = [contractAddress];
     }
 
-    if (since) {
-      // Convert timestamp to block number (approximate)
-      const blockNumber = await this.timestampToBlockNumber(since);
-      if (blockNumber) {
-        params.fromBlock = `0x${blockNumber.toString(16)}`;
-      }
-    }
-
     // Get transfers from address
     const fromResponse = await this.httpClient.post('', {
       jsonrpc: '2.0',
@@ -267,17 +258,6 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
     } catch (error) {
       logger.warn(`Failed to fetch token balances for ${address} - Error: ${error instanceof Error ? error.message : String(error)}`);
       return [];
-    }
-  }
-
-
-  private async timestampToBlockNumber(_timestamp: number): Promise<number | null> {
-    try {
-      // This is an approximation - Alchemy doesn't have a direct timestamp to block API
-      // We could implement binary search here, but for now return null to get all history
-      return null;
-    } catch (error) {
-      return null;
     }
   }
 
