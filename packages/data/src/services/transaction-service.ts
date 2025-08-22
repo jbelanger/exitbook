@@ -39,11 +39,12 @@ export class TransactionService {
     
     if (saved > 0) {
       for (const transaction of enhancedTxs) {
-        const fromAddress = transaction.info?.from || null;
-        const toAddress = transaction.info?.to || null;
+        const info = transaction.info as Record<string, unknown> | undefined;
+        const fromAddress = typeof info?.from === 'string' ? info!.from as string : null;
+        const toAddress = typeof info?.to === 'string' ? info!.to as string : null;
         
         if (fromAddress || toAddress) {
-          await this.linkTransactionToWallets(transaction.id, fromAddress, toAddress);
+          await this.linkTransactionToWallets(transaction.id, fromAddress ?? undefined, toAddress ?? undefined);
         }
       }
     }
@@ -56,11 +57,12 @@ export class TransactionService {
     
     if (saved > 0) {
       for (const transaction of transactions) {
-        const fromAddress = transaction.info?.from || null;
-        const toAddress = transaction.info?.to || null;
-        
+        const info = transaction.info as Record<string, unknown> | undefined;
+        const fromAddress = typeof info?.from === 'string' ? info!.from as string : null;
+        const toAddress = typeof info?.to === 'string' ? info!.to as string : null;
+
         if (fromAddress || toAddress) {
-          await this.linkTransactionToWallets(transaction.id, fromAddress, toAddress);
+          await this.linkTransactionToWallets(transaction.id, fromAddress ?? undefined, toAddress ?? undefined);
         }
       }
     }
@@ -107,8 +109,8 @@ export class TransactionService {
       amount: universalTx.amount,
       fee: universalTx.fee,
       price: universalTx.price,
-      symbol: universalTx.symbol,
-      side: universalTx.side,
+  symbol: universalTx.symbol ?? '',
+  side: universalTx.side ?? 'buy',
       source: universalTx.source,
       hash,
       importedAt: Date.now(),

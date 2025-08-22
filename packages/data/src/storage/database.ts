@@ -1,11 +1,11 @@
 import type { BalanceSnapshot, BalanceVerificationRecord } from '@crypto/balance';
 import type { EnhancedTransaction } from '@crypto/core';
-import type { CreateWalletAddressRequest, StoredTransaction, UpdateWalletAddressRequest, WalletAddress, WalletAddressQuery } from '../types/data-types.js';
 import { getLogger } from '@crypto/shared-logger';
 import { Decimal } from 'decimal.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import sqlite3Module from 'sqlite3';
+import type { CreateWalletAddressRequest, StoredTransaction, UpdateWalletAddressRequest, WalletAddress, WalletAddressQuery } from '../types/data-types.js';
 const sqlite3 = sqlite3Module;
 
 type SQLiteDatabase = InstanceType<typeof sqlite3Module.Database>;
@@ -240,7 +240,7 @@ export class Database {
 
       const rawDataJson = JSON.stringify(transaction);
 
-      // Extract currencies from Money type or fallback to legacy extraction
+      // Extract currencies from Money type
       let amountCurrency: string | null = null;
       let priceCurrency: string | null = null;
 
@@ -251,27 +251,6 @@ export class Database {
 
       if (transaction.price && typeof transaction.price === 'object' && transaction.price.currency) {
         priceCurrency = transaction.price.currency;
-      }
-
-      // Fallback: Legacy extraction for backward compatibility
-      if (!amountCurrency || !priceCurrency) {
-        if (transaction.symbol && transaction.symbol.includes('/')) {
-          const [base, quote] = transaction.symbol.split('/');
-          if (!amountCurrency) amountCurrency = base || null;
-          if (!priceCurrency) priceCurrency = quote || null;
-        } else if ((transaction as any).currency) {
-          // For deposits/withdrawals with top-level currency field
-          if (!amountCurrency) amountCurrency = (transaction as any).currency;
-        } else if (transaction.info?.currency) {
-          // For deposits/withdrawals and account history, use the currency field
-          if (!amountCurrency) amountCurrency = transaction.info.currency;
-        } else if (transaction.info?.originalRow?.Currency) {
-          // For CSV account history transactions
-          if (!amountCurrency) amountCurrency = transaction.info.originalRow.Currency;
-        } else if (transaction.info?.originalRow?.Coin) {
-          // For CSV deposit/withdrawal transactions
-          if (!amountCurrency) amountCurrency = transaction.info.originalRow.Coin;
-        }
       }
 
       stmt.run([
@@ -317,8 +296,8 @@ export class Database {
 
         const stmt = this.db.prepare(`
           INSERT OR IGNORE INTO transactions 
-          (id, exchange, type, timestamp, datetime, symbol, amount, amount_currency, side, price, price_currency, fee_cost, fee_currency, status, from_address, to_address, wallet_id, raw_data, hash, verified, note_type, note_message, note_severity, note_metadata)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          (id, exchange, type, timestamp, datetime, symbol, amount, amount_currency, side, price, price_currency, fee_cost, fee_currency, status, wallet_id, raw_data, hash, verified, note_type, note_message, note_severity, note_metadata)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         for (const transaction of transactions) {
@@ -336,22 +315,6 @@ export class Database {
           if (transaction.price && typeof transaction.price === 'object' && transaction.price.currency) {
             priceCurrency = transaction.price.currency;
           }
-
-          // Fallback: Legacy extraction for backward compatibility
-          if (!amountCurrency || !priceCurrency) {
-            if (transaction.symbol && transaction.symbol.includes('/')) {
-              const [base, quote] = transaction.symbol.split('/');
-              if (!amountCurrency) amountCurrency = base || null;
-              if (!priceCurrency) priceCurrency = quote || null;
-            } else if (transaction.info?.currency) {
-              // For deposits/withdrawals, use the currency field
-              if (!amountCurrency) amountCurrency = transaction.info.currency;
-            }
-          }
-
-          // Extract address information from transaction info
-          const fromAddress = transaction.info?.from || null;
-          const toAddress = transaction.info?.to || null;
 
           // wallet_id will be updated later by the linkTransactionAddresses method
           const walletId = null;
@@ -371,8 +334,6 @@ export class Database {
             typeof transaction.fee === 'object' ? moneyToDbString(transaction.fee) : null,
             typeof transaction.fee === 'object' ? transaction.fee.currency : null,
             transaction.status || null,
-            fromAddress,
-            toAddress,
             walletId,
             rawDataJson,
             transaction.hash,
@@ -638,10 +599,10 @@ export class Database {
               id: this.lastID,
               address: request.address,
               blockchain: request.blockchain,
-              label: request.label,
+              label: request.label ?? '',
               addressType: addressType as 'personal' | 'exchange' | 'contract' | 'unknown',
               isActive: true,
-              notes: request.notes,
+              notes: request.notes ?? '',
               createdAt: now,
               updatedAt: now
             });

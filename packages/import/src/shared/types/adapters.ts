@@ -62,6 +62,7 @@ export interface Transaction {
   amount: Money;
   fee?: Money;
   price?: Money;
+  side?: 'buy' | 'sell';
   
   // Parties (works for both)
   from?: string;  // Sender address OR exchange account
@@ -71,7 +72,7 @@ export interface Transaction {
   // Metadata
   source: string; // e.g., 'coinbase', 'bitcoin'
   network?: string; // e.g., 'mainnet'
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 export interface Balance {
