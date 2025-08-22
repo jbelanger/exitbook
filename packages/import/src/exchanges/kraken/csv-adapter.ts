@@ -1,9 +1,10 @@
-import type { CryptoTransaction, TransactionStatus } from '@crypto/core';
+import type { TransactionStatus, UniversalAdapterInfo, UniversalExchangeAdapterConfig, UniversalFetchParams, UniversalTransaction, UniversalBalance } from '@crypto/core';
 import { createMoney, parseDecimal } from '@crypto/shared-utils';
-import type { AdapterInfo, Transaction } from '../../shared/types/adapters.ts';
-import type { ExchangeAdapterConfig } from '../../shared/types/config.ts';
-import { BaseCSVAdapter } from '../base-csv-adapter.ts';
+import { BaseAdapter } from '../../shared/adapters/base-adapter.ts';
 import { CsvFilters } from '../csv-filters.ts';
+import { CsvParser } from '../csv-parser.ts';
+import fs from 'fs/promises';
+import path from 'path';
 
 // Expected CSV headers for validation
 const EXPECTED_HEADERS = {
@@ -24,12 +25,19 @@ interface KrakenLedgerRow {
   balance: string;
 }
 
-export class KrakenCSVAdapter extends BaseCSVAdapter {
-  constructor(config: ExchangeAdapterConfig) {
+
+export class KrakenCSVAdapter extends BaseAdapter {
+  private cachedTransactions: KrakenLedgerRow[] | null = null;
+
+  constructor(config: UniversalExchangeAdapterConfig) {
     super(config);
   }
 
-  async getInfo(): Promise<AdapterInfo> {
+  async close(): Promise<void> {
+    this.cachedTransactions = null;
+  }
+
+  async getInfo(): Promise<UniversalAdapterInfo> {
     return {
       id: 'kraken',
       name: 'Kraken CSV',
@@ -45,36 +53,147 @@ export class KrakenCSVAdapter extends BaseCSVAdapter {
     };
   }
 
-  protected convertToUniversalTransaction(cryptoTx: CryptoTransaction): Transaction {
-    return {
-      id: cryptoTx.id,
-      timestamp: cryptoTx.timestamp,
-      datetime: cryptoTx.datetime || new Date(cryptoTx.timestamp).toISOString(),
-      type: cryptoTx.type,
-      status: cryptoTx.status || 'closed',
-      amount: cryptoTx.amount,
-      fee: cryptoTx.fee,
-      price: cryptoTx.price,
-      from: cryptoTx.info?.from,
-      to: cryptoTx.info?.to,
-      symbol: cryptoTx.symbol,
-      source: 'kraken',
-      network: 'exchange',
-      metadata: cryptoTx.info || {}
-    };
+  async testConnection(): Promise<boolean> {
+    try {
+      const config = this.config as UniversalExchangeAdapterConfig;
+      for (const csvDirectory of config.csvDirectories || []) {
+        try {
+          const stats = await fs.stat(csvDirectory);
+          if (!stats.isDirectory()) {
+            continue;
+          }
+
+          const files = await fs.readdir(csvDirectory);
+          const csvFiles = files.filter(f => f.endsWith('.csv'));
+
+          if (csvFiles.length > 0) {
+            return true;
+          }
+        } catch (dirError) {
+          this.logger.warn(`CSV directory test failed for directory - Error: ${dirError}, Directory: ${csvDirectory}`);
+          continue;
+        }
+      }
+
+      return false;
+    } catch (error) {
+      this.logger.error(`CSV directories test failed - Error: ${error}`);
+      return false;
+    }
   }
 
-  protected getExpectedHeaders(): Record<string, string> {
-    return {
+  protected async fetchRawTransactions(params: UniversalFetchParams): Promise<KrakenLedgerRow[]> {
+    return this.loadAllTransactions();
+  }
+
+  protected async transformTransactions(rawTxs: KrakenLedgerRow[], params: UniversalFetchParams): Promise<UniversalTransaction[]> {
+    const transactions = this.processLedgerRows(rawTxs);
+    
+    return transactions
+      .filter(tx => !params.since || tx.timestamp >= params.since)
+      .filter(tx => !params.until || tx.timestamp <= params.until);
+  }
+
+  protected async fetchRawBalances(_params: UniversalFetchParams): Promise<any> {
+    throw new Error('Balance fetching not supported for CSV adapter - CSV files do not contain current balance data');
+  }
+
+  protected async transformBalances(_raw: any, _params: UniversalFetchParams): Promise<UniversalBalance[]> {
+    throw new Error('Balance fetching not supported for CSV adapter');
+  }
+
+  /**
+   * Load all transactions from CSV directories
+   */
+  private async loadAllTransactions(): Promise<KrakenLedgerRow[]> {
+    if (this.cachedTransactions) {
+      this.logger.debug('Returning cached transactions');
+      return this.cachedTransactions;
+    }
+
+    const config = this.config as UniversalExchangeAdapterConfig;
+    this.logger.info(`Starting to load CSV transactions - CsvDirectories: ${config.csvDirectories}`);
+
+    const transactions: KrakenLedgerRow[] = [];
+
+    try {
+      // Process each directory in order
+      for (const csvDirectory of config.csvDirectories || []) {
+        this.logger.info(`Processing CSV directory - CsvDirectory: ${csvDirectory}`);
+
+        try {
+          const files = await fs.readdir(csvDirectory);
+          this.logger.debug(`Found CSV files in directory - CsvDirectory: ${csvDirectory}, Files: ${files}`);
+
+          // Process all CSV files with proper header validation
+          const csvFiles = files.filter(f => f.endsWith('.csv'));
+
+          for (const file of csvFiles) {
+            const filePath = path.join(csvDirectory, file);
+            const fileType = await this.validateCSVHeaders(filePath);
+
+            if (fileType === 'ledgers') {
+              this.logger.info(`Processing ${fileType} CSV file - File: ${file}, Directory: ${csvDirectory}`);
+              const fileTransactions = await this.parseCsvFile<KrakenLedgerRow>(filePath);
+              this.logger.info(`Parsed ${fileType} transactions - File: ${file}, Directory: ${csvDirectory}, Count: ${fileTransactions.length}`);
+              transactions.push(...fileTransactions);
+            } else if (fileType === 'unknown') {
+              this.logger.warn(`Skipping unrecognized CSV file - File: ${file}, Directory: ${csvDirectory}`);
+            } else {
+              this.logger.warn(`No handler for file type: ${fileType} - File: ${file}, Directory: ${csvDirectory}`);
+            }
+          }
+        } catch (dirError) {
+          this.logger.error(`Failed to process CSV directory - Error: ${dirError}, Directory: ${csvDirectory}`);
+          // Continue processing other directories
+          continue;
+        }
+      }
+
+      // Sort by timestamp
+      transactions.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+
+      this.cachedTransactions = transactions;
+      this.logger.info(`Loaded ${transactions.length} transactions from ${config.csvDirectories?.length || 0} CSV directories`);
+
+      return transactions;
+    } catch (error) {
+      this.logger.error(`Failed to load CSV transactions - Error: ${error}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Parse a CSV file using the common parsing logic
+   */
+  private async parseCsvFile<T>(filePath: string): Promise<T[]> {
+    return CsvParser.parseFile<T>(filePath);
+  }
+
+  /**
+   * Validate CSV headers and determine file type
+   */
+  private async validateCSVHeaders(filePath: string): Promise<string> {
+    const expectedHeaders = {
       [EXPECTED_HEADERS.LEDGERS_CSV]: 'ledgers'
     };
+    const fileType = await CsvParser.validateHeaders(filePath, expectedHeaders);
+
+    if (fileType === 'unknown') {
+      const headers = await CsvParser.getHeaders(filePath);
+      this.logger.warn(`Unrecognized CSV headers in ${filePath} - Headers: ${headers}`);
+    }
+
+    return fileType;
   }
 
-  protected getFileTypeHandlers(): Record<string, (filePath: string) => Promise<CryptoTransaction[]>> {
-    return {
-      'ledgers': (filePath) => this.parseLedgers(filePath)
-    };
+  /**
+   * Process the loaded ledger rows into universal transactions
+   */
+  private processLedgerRows(rows: KrakenLedgerRow[]): UniversalTransaction[] {
+    return this.parseLedgers(rows);
   }
+
 
   private mapStatus(): TransactionStatus {
     // Kraken ledger entries don't have explicit status, assume completed
@@ -191,9 +310,8 @@ export class KrakenCSVAdapter extends BaseCSVAdapter {
     return true;
   }
 
-  private async parseLedgers(filePath: string): Promise<CryptoTransaction[]> {
-    const rows = await this.parseCsvFile<KrakenLedgerRow>(filePath);
-    const transactions: CryptoTransaction[] = [];
+  private parseLedgers(rows: KrakenLedgerRow[]): UniversalTransaction[] {
+    const transactions: UniversalTransaction[] = [];
 
     // Separate transactions by type
     const tradeRows = rows.filter(row => row.type === 'trade');
@@ -242,8 +360,8 @@ export class KrakenCSVAdapter extends BaseCSVAdapter {
 
             // Create deposit transaction for the received amount
             const depositTransaction = this.convertDepositToTransaction(receive);
-            depositTransaction.info = {
-              ...depositTransaction.info,
+            depositTransaction.metadata = {
+              ...depositTransaction.metadata,
               dustsweeping: true,
               relatedRefId: refId
             };
@@ -252,8 +370,8 @@ export class KrakenCSVAdapter extends BaseCSVAdapter {
             // Create withdrawal transactions for each spend
             for (const spend of spends) {
               const withdrawalTransaction = this.convertWithdrawalToTransaction(spend);
-              withdrawalTransaction.info = {
-                ...withdrawalTransaction.info,
+              withdrawalTransaction.metadata = {
+                ...withdrawalTransaction.metadata,
                 dustsweeping: true,
                 relatedRefId: refId
               };
@@ -305,10 +423,10 @@ export class KrakenCSVAdapter extends BaseCSVAdapter {
   }
 
   private processTokenMigrations(transferRows: KrakenLedgerRow[]): {
-    transactions: CryptoTransaction[];
+    transactions: UniversalTransaction[];
     processedRefIds: string[];
   } {
-    const transactions: CryptoTransaction[] = [];
+    const transactions: UniversalTransaction[] = [];
     const processedRefIds: string[] = [];
 
     // Group transfers by date and amount to detect token migrations
@@ -385,49 +503,50 @@ export class KrakenCSVAdapter extends BaseCSVAdapter {
     return groups;
   }
 
-  private convertTokenMigrationToTransaction(negative: KrakenLedgerRow, positive: KrakenLedgerRow): CryptoTransaction {
+  private convertTokenMigrationToTransaction(negative: KrakenLedgerRow, positive: KrakenLedgerRow): UniversalTransaction {
     const timestamp = new Date(negative.time).getTime();
     const sentAmount = parseDecimal(negative.amount).abs().toNumber();
     const receivedAmount = parseDecimal(positive.amount).toNumber();
 
     return {
       id: `${negative.txid}_${positive.txid}`,
-      type: 'trade',
+      type: 'trade' as const,
       timestamp,
       datetime: negative.time,
-      symbol: `${positive.asset}/${negative.asset}`,
-      side: 'buy',
+      status: this.mapStatus(),
       amount: createMoney(receivedAmount, positive.asset),
       price: createMoney(sentAmount, negative.asset),
       fee: createMoney(0, positive.asset), // Token migrations typically have no fees
-      status: this.mapStatus(),
-      info: {
+      symbol: `${positive.asset}/${negative.asset}`,
+      source: 'kraken',
+      network: 'exchange',
+      metadata: {
         tokenMigration: true,
         fromAsset: negative.asset,
         toAsset: positive.asset,
         fromTransaction: negative,
         toTransaction: positive,
-        originalRows: { negative, positive }
+        originalRows: { negative, positive },
+        side: 'buy'
       }
     };
   }
 
-  private convertTransferToTransaction(transfer: KrakenLedgerRow): CryptoTransaction {
+  private convertTransferToTransaction(transfer: KrakenLedgerRow): UniversalTransaction {
     const timestamp = new Date(transfer.time).getTime();
     const isIncoming = parseDecimal(transfer.amount).isPositive();
 
     return {
       id: transfer.txid,
-      type: isIncoming ? 'deposit' : 'withdrawal',
+      type: isIncoming ? ('deposit' as const) : ('withdrawal' as const),
       timestamp,
       datetime: transfer.time,
-      symbol: undefined,
-      side: undefined,
-      amount: createMoney(parseDecimal(transfer.amount).abs().toNumber(), transfer.asset),
-      price: undefined,
-      fee: createMoney(parseDecimal(transfer.fee || '0').toNumber(), transfer.asset),
       status: this.mapStatus(),
-      info: {
+      amount: createMoney(parseDecimal(transfer.amount).abs().toNumber(), transfer.asset),
+      fee: createMoney(parseDecimal(transfer.fee || '0').toNumber(), transfer.asset),
+      source: 'kraken',
+      network: 'exchange',
+      metadata: {
         originalRow: transfer,
         transferType: transfer.subtype,
         wallet: transfer.wallet,
@@ -513,29 +632,30 @@ export class KrakenCSVAdapter extends BaseCSVAdapter {
     this.logger.info(`CSV processing summary: ${allRows.length} total records, ${expectedProcessed} processed, ${unprocessedRows.length} unprocessed, ${failedTransactionRefIds.size} failed transaction pairs filtered`);
   }
 
-  private convertSingleTradeToTransaction(trade: KrakenLedgerRow): CryptoTransaction {
+  private convertSingleTradeToTransaction(trade: KrakenLedgerRow): UniversalTransaction {
     const timestamp = new Date(trade.time).getTime();
     const amount = parseDecimal(trade.amount).abs().toNumber();
     const fee = parseDecimal(trade.fee || '0').toNumber();
 
     return {
       id: trade.txid,
-      type: 'trade',
+      type: 'trade' as const,
       timestamp,
       datetime: trade.time,
-      symbol: trade.asset, // Single trade records may not have clear symbol
-      side: parseDecimal(trade.amount).isPositive() ? 'buy' : 'sell',
-      amount: createMoney(amount, trade.asset),
-      price: undefined, // Single trade records may not have clear price
-      fee: createMoney(fee, trade.asset),
       status: this.mapStatus(),
-      info: {
-        originalRow: trade
+      amount: createMoney(amount, trade.asset),
+      fee: createMoney(fee, trade.asset),
+      symbol: trade.asset, // Single trade records may not have clear symbol
+      source: 'kraken',
+      network: 'exchange',
+      metadata: {
+        originalRow: trade,
+        side: parseDecimal(trade.amount).isPositive() ? 'buy' : 'sell'
       }
     };
   }
 
-  private convertTradeToTransaction(spend: KrakenLedgerRow, receive: KrakenLedgerRow): CryptoTransaction {
+  private convertTradeToTransaction(spend: KrakenLedgerRow, receive: KrakenLedgerRow): UniversalTransaction {
     const timestamp = new Date(spend.time).getTime();
     const spendAmount = parseDecimal(spend.amount).abs().toNumber();
     let receiveAmount = parseDecimal(receive.amount).toNumber();
@@ -560,41 +680,42 @@ export class KrakenCSVAdapter extends BaseCSVAdapter {
 
     return {
       id: spend.txid,
-      type: 'trade',
+      type: 'trade' as const,
       timestamp,
       datetime: spend.time,
-      symbol: `${receive.asset}/${spend.asset}`,
-      side: 'buy',
+      status: this.mapStatus(),
       amount: createMoney(receiveAmount, receive.asset),
       price: createMoney(spendAmount, spend.asset),
       fee: createMoney(totalFee, feeAsset),
-      status: this.mapStatus(),
-      info: {
+      symbol: `${receive.asset}/${spend.asset}`,
+      source: 'kraken',
+      network: 'exchange',
+      metadata: {
         spend,
         receive,
         originalRows: { spend, receive },
+        side: 'buy',
         feeAdjustment: receiveFee > 0 ? 'receive_adjusted' : 'spend_fee'
       }
     };
   }
 
-  private convertDepositToTransaction(row: KrakenLedgerRow): CryptoTransaction {
+  private convertDepositToTransaction(row: KrakenLedgerRow): UniversalTransaction {
     const timestamp = new Date(row.time).getTime();
     const amount = parseDecimal(row.amount).toNumber();
     const fee = parseDecimal(row.fee || '0').toNumber();
 
     return {
       id: row.txid,
-      type: 'deposit',
+      type: 'deposit' as const,
       timestamp,
       datetime: row.time,
-      symbol: undefined,
-      side: undefined,
-      amount: createMoney(amount, row.asset), // Net amount after fee
-      price: undefined,
-      fee: createMoney(fee, row.asset),
       status: this.mapStatus(),
-      info: {
+      amount: createMoney(amount, row.asset), // Net amount after fee
+      fee: createMoney(fee, row.asset),
+      source: 'kraken',
+      network: 'exchange',
+      metadata: {
         originalRow: row,
         txHash: undefined, // Kraken ledgers don't include tx hash
         wallet: row.wallet
@@ -602,23 +723,22 @@ export class KrakenCSVAdapter extends BaseCSVAdapter {
     };
   }
 
-  private convertWithdrawalToTransaction(row: KrakenLedgerRow): CryptoTransaction {
+  private convertWithdrawalToTransaction(row: KrakenLedgerRow): UniversalTransaction {
     const timestamp = new Date(row.time).getTime();
     const amount = parseDecimal(row.amount).abs().toNumber();
     const fee = parseDecimal(row.fee || '0').toNumber();
 
     return {
       id: row.txid,
-      type: 'withdrawal',
+      type: 'withdrawal' as const,
       timestamp,
       datetime: row.time,
-      symbol: undefined,
-      side: undefined,
-      amount: createMoney(amount, row.asset), // Net amount after fee
-      price: undefined,
-      fee: createMoney(fee, row.asset),
       status: this.mapStatus(),
-      info: {
+      amount: createMoney(amount, row.asset), // Net amount after fee
+      fee: createMoney(fee, row.asset),
+      source: 'kraken',
+      network: 'exchange',
+      metadata: {
         originalRow: row,
         txHash: undefined, // Kraken ledgers don't include tx hash
         wallet: row.wallet
