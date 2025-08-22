@@ -5,6 +5,7 @@ import { createMoney, maskAddress } from '@crypto/shared-utils';
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
 import { RegisterProvider } from '../../shared/registry/decorators.ts';
 import { ProviderOperation } from '../../shared/types.ts';
+import type { ParseWalletTransactionParams } from '../../shared/types.ts';
 import type { AddressInfo, MempoolAddressInfo, MempoolTransaction } from '../types.ts';
 
 @RegisterProvider({
@@ -85,7 +86,7 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
         case 'getAddressInfo':
           return this.getAddressInfo(operation.params as { address: string }) as T;
         case 'parseWalletTransaction':
-          return this.parseWalletTransaction(operation.params as { tx: any; walletAddresses: string[] }) as T;
+          return this.parseWalletTransaction(operation.params as ParseWalletTransactionParams) as T;
         default:
           throw new Error(`Unsupported operation: ${operation.type}`);
       }
@@ -226,7 +227,7 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
   /**
    * Parse a mempool transaction considering multiple wallet addresses (for xpub scenarios)
    */
-  private parseWalletTransaction(params: { tx: any; walletAddresses: string[] }): BlockchainTransaction {
+  private parseWalletTransaction(params: ParseWalletTransactionParams): BlockchainTransaction {
     const { tx, walletAddresses } = params;
 
     try {

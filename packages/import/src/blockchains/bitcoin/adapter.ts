@@ -10,10 +10,12 @@ import type {
   UniversalFetchParams,
   UniversalTransaction
 } from '@crypto/core';
+import type { MempoolTransaction, BlockstreamTransaction } from './types.js';
 import { createMoney } from '@crypto/shared-utils';
 
 import { BaseAdapter } from '../../shared/adapters/base-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
+import type { AddressTransactionParams, AddressInfoParams } from '../shared/types.ts';
 import type { BlockchainExplorersConfig } from '../shared/explorer-config.ts';
 import type { BitcoinWalletAddress } from './types.ts';
 import { BitcoinUtils } from './utils.ts';
@@ -121,8 +123,8 @@ export class BitcoinAdapter extends BaseAdapter {
           const rawTransactions = await this.providerManager.executeWithFailover('bitcoin', {
             type: 'getRawAddressTransactions',
             params: { address: userAddress, since: params.since },
-            getCacheKey: (cacheParams: any) => `bitcoin:raw-txs:${cacheParams.address}:${cacheParams.since || 'all'}`
-          }) as any[];
+            getCacheKey: (cacheParams) => `bitcoin:raw-txs:${(cacheParams as AddressTransactionParams).address}:${(cacheParams as AddressTransactionParams).since || 'all'}`
+          }) as (MempoolTransaction | BlockstreamTransaction)[];
 
           // Parse raw transactions with wallet context (single address, local parsing)
           for (const rawTx of rawTransactions) {
@@ -246,7 +248,7 @@ export class BitcoinAdapter extends BaseAdapter {
    */
   private async fetchUniqueTransactionsForWalletWithProviders(derivedAddresses: string[], since?: number): Promise<BlockchainTransaction[]> {
     // Collect all unique transaction hashes and their associated raw transactions
-    const uniqueRawTransactions = new Map<string, any>();
+    const uniqueRawTransactions = new Map<string, MempoolTransaction | BlockstreamTransaction>();
 
     for (const address of derivedAddresses) {
       // Check cache first to see if this address has any transactions
@@ -262,8 +264,8 @@ export class BitcoinAdapter extends BaseAdapter {
         const rawTransactions = await this.providerManager.executeWithFailover('bitcoin', {
           type: 'getRawAddressTransactions',
           params: { address, since },
-          getCacheKey: (params: any) => `bitcoin:raw-txs:${params.address}:${params.since || 'all'}`
-        }) as any[];
+          getCacheKey: (params) => `bitcoin:raw-txs:${(params as AddressTransactionParams).address}:${(params as AddressTransactionParams).since || 'all'}`
+        }) as (MempoolTransaction | BlockstreamTransaction)[];
 
         // Add raw transactions to the unique set
         for (const rawTx of rawTransactions) {
@@ -298,7 +300,7 @@ export class BitcoinAdapter extends BaseAdapter {
   /**
    * Parse a raw Bitcoin transaction with wallet context (local parsing, no API calls)
    */
-  private parseWalletTransaction(tx: any, walletAddresses: string[]): BlockchainTransaction {
+  private parseWalletTransaction(tx: MempoolTransaction | BlockstreamTransaction, walletAddresses: string[]): BlockchainTransaction {
     const timestamp = tx.status.confirmed && tx.status.block_time
       ? tx.status.block_time * 1000
       : Date.now();

@@ -9,6 +9,8 @@ import type {
   UniversalTransaction
 } from '@crypto/core';
 
+import type { AddressTransactionParams, AddressBalanceParams } from '../shared/types.ts';
+
 import { BaseAdapter } from '../../shared/adapters/base-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
 import type { BlockchainExplorersConfig } from '../shared/explorer-config.ts';
@@ -66,7 +68,7 @@ export class SubstrateAdapter extends BaseAdapter {
         const transactions = await this.providerManager.executeWithFailover('polkadot', {
           type: 'getAddressTransactions',
           params: { address, since: params.since },
-          getCacheKey: (cacheParams: any) => `${this.chainConfig.name}_tx_${cacheParams.address}_${cacheParams.since || 'all'}`
+          getCacheKey: (cacheParams) => `${this.chainConfig.name}_tx_${(cacheParams as AddressTransactionParams).address}_${(cacheParams as AddressTransactionParams).since || 'all'}`
         }) as BlockchainTransaction[];
 
         allTransactions.push(...transactions);
@@ -99,7 +101,7 @@ export class SubstrateAdapter extends BaseAdapter {
         const balances = await this.providerManager.executeWithFailover('polkadot', {
           type: 'getAddressBalance',
           params: { address },
-          getCacheKey: (cacheParams: any) => `${this.chainConfig.name}_balance_${cacheParams.address}`
+          getCacheKey: (cacheParams) => `${this.chainConfig.name}_balance_${(cacheParams as AddressBalanceParams).address}`
         }) as Balance[];
 
         allBalances.push(...balances);
