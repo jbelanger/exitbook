@@ -6,8 +6,6 @@ export interface Money {
   currency: string;
 }
 
-// Exchange-agnostic types and interfaces (new architecture)
-
 /**
  * Universal transaction format that serves as the common abstraction layer across all transaction sources.
  * This interface provides a standardized representation for transactions from exchanges (CCXT, native, CSV)
@@ -54,52 +52,6 @@ export type TransactionStatus =
   | 'failed'
   | 'ok';
   
-export interface ExchangeBalance {
-  currency: string;
-  balance: number; // Available/free amount
-  used: number;
-  total: number;
-}
-
-export interface ExchangeInfo {
-  id: string;
-  name: string;
-  version?: string;
-  capabilities: ExchangeCapabilities;
-  rateLimit?: number;
-}
-
-export interface ExchangeCapabilities {
-  fetchMyTrades: boolean;
-  fetchDeposits: boolean;
-  fetchWithdrawals: boolean;
-  fetchLedger: boolean;
-  fetchClosedOrders: boolean;
-  fetchBalance: boolean;
-  fetchOrderBook: boolean;
-  fetchTicker: boolean;
-}
-
-// Abstract interface for exchange operations
-export interface IExchangeAdapter {
-  // Connection and info
-  testConnection(): Promise<boolean>;
-  getExchangeInfo(): Promise<ExchangeInfo>;
-
-  // Transaction fetching
-  fetchAllTransactions(since?: number): Promise<CryptoTransaction[]>;
-  fetchTrades(since?: number): Promise<CryptoTransaction[]>;
-  fetchDeposits(since?: number): Promise<CryptoTransaction[]>;
-  fetchWithdrawals(since?: number): Promise<CryptoTransaction[]>;
-  fetchClosedOrders(since?: number): Promise<CryptoTransaction[]>;
-  fetchLedger(since?: number): Promise<CryptoTransaction[]>;
-
-  // Balance operations
-  fetchBalance(): Promise<ExchangeBalance[]>;
-
-  // Cleanup
-  close(): Promise<void>;
-}
 
 
 /**
@@ -149,36 +101,7 @@ export interface CLIOptions {
 
 // Wallet address tracking types moved to @crypto/data package
 
-// ===== BLOCKCHAIN ADAPTER INTERFACE =====
-// Specialized interface for blockchain adapters
-export interface IBlockchainAdapter {
-  // Core required methods
-  testConnection(): Promise<boolean>;
-  getBlockchainInfo(): Promise<BlockchainInfo>;
-  getAddressTransactions(address: string, since?: number): Promise<BlockchainTransaction[]>;
-  getAddressBalance(address: string): Promise<BlockchainBalance[]>;
-  validateAddress(address: string): boolean;
-  /**
-   * Converts a raw blockchain transaction to the standardized CryptoTransaction format.
-   * This method transforms blockchain-specific data into the universal transaction format,
-   * determining transaction direction (deposit/withdrawal) based on the user's address.
-   * 
-   * @param blockchainTx - Raw blockchain transaction with full blockchain context
-   * @param userAddress - User's wallet address to determine transaction direction
-   * @returns Standardized CryptoTransaction for further processing
-   * 
-   * @example
-   * const ethTx = await provider.getTransaction(hash); // BlockchainTransaction
-   * const cryptoTx = adapter.convertToCryptoTransaction(ethTx, '0x123...'); // CryptoTransaction
-   * // cryptoTx.type will be 'deposit' if ethTx.to === userAddress, 'withdrawal' if ethTx.from === userAddress
-   */
-  convertToCryptoTransaction(blockchainTx: BlockchainTransaction, userAddress: string): CryptoTransaction;
-  close(): Promise<void>;
-
-  // Optional token methods (only implement if blockchain supports tokens)
-  getTokenTransactions?(address: string, tokenContract?: string): Promise<BlockchainTransaction[]>;
-  getTokenBalances?(address: string): Promise<BlockchainBalance[]>;
-}
+// Legacy IBlockchainAdapter interface removed - now using IUniversalAdapter
 
 // ===== BLOCKCHAIN-SPECIFIC TYPES =====
 export interface BlockchainInfo {

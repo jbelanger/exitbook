@@ -14,7 +14,6 @@ import type {
 import { BaseAdapter } from '../../adapters/universal/base-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
 import type { BlockchainExplorersConfig } from '../shared/explorer-config.ts';
-import { isValidSolanaAddress } from './utils.ts';
 
 export class SolanaAdapter extends BaseAdapter {
   private providerManager: BlockchainProviderManager;
@@ -216,104 +215,4 @@ export class SolanaAdapter extends BaseAdapter {
     }
   }
 
-  // Legacy methods for compatibility (can be removed once migration is complete)
-  validateAddress(address: string): boolean {
-    return isValidSolanaAddress(address);
-  }
-
-  async getAddressTransactions(address: string, since?: number): Promise<BlockchainTransaction[]> {
-    return this.fetchRawTransactions({ addresses: [address], since });
-  }
-
-  async getAddressBalance(address: string): Promise<BlockchainBalance[]> {
-    return this.fetchRawBalances({ addresses: [address] });
-  }
-
-  // Required IBlockchainAdapter methods for backward compatibility
-  async getBlockchainInfo(): Promise<any> {
-    return {
-      id: 'solana',
-      name: 'Solana',
-      network: 'mainnet',
-      capabilities: {
-        supportsAddressTransactions: true,
-        supportsTokenTransactions: true,
-        supportsBalanceQueries: true,
-        supportsHistoricalData: true,
-        supportsPagination: true,
-        maxLookbackDays: undefined
-      }
-    };
-  }
-
-  convertToCryptoTransaction(blockchainTx: BlockchainTransaction, userAddress: string): any {
-    // Determine transaction type based on user address
-    let type: TransactionType = 'transfer';
-    const normalizedUserAddress = userAddress.toLowerCase();
-    const isIncoming = blockchainTx.to.toLowerCase() === normalizedUserAddress;
-    const isOutgoing = blockchainTx.from.toLowerCase() === normalizedUserAddress;
-
-    if (isIncoming && !isOutgoing) {
-      type = 'deposit';
-    } else if (isOutgoing && !isIncoming) {
-      type = 'withdrawal';
-    }
-
-    return {
-      id: blockchainTx.hash,
-      type,
-      timestamp: blockchainTx.timestamp,
-      datetime: new Date(blockchainTx.timestamp).toISOString(),
-      symbol: blockchainTx.tokenSymbol || blockchainTx.value.currency,
-      side: undefined,
-      amount: blockchainTx.value,
-      price: undefined,
-      fee: blockchainTx.fee,
-      status: blockchainTx.status === 'success' ? 'closed' :
-        blockchainTx.status === 'pending' ? 'open' : 'canceled',
-      info: {
-        blockNumber: blockchainTx.blockNumber,
-        blockHash: blockchainTx.blockHash,
-        from: blockchainTx.from,
-        to: blockchainTx.to,
-        confirmations: blockchainTx.confirmations,
-        tokenContract: blockchainTx.tokenContract,
-        transactionType: blockchainTx.type,
-        originalTransaction: blockchainTx
-      }
-    };
-  }
-
-  // SPL token support methods (optional)
-  async getTokenTransactions(address: string, tokenContract?: string): Promise<BlockchainTransaction[]> {
-    try {
-      const transactions = await this.providerManager.executeWithFailover('solana', {
-        type: 'getTokenTransactions',
-        params: { address, contractAddress: tokenContract },
-        getCacheKey: (params: any) => `solana_token_tx_${params.address}_${params.contractAddress || 'all'}`
-      }) as BlockchainTransaction[];
-
-      this.logger.info(`SolanaAdapter: Found ${transactions.length} token transactions for address ${address.substring(0, 20)}...`);
-      return transactions;
-    } catch (error) {
-      this.logger.error(`Failed to fetch token transactions for ${address} - Error: ${error}`);
-      throw error;
-    }
-  }
-
-  async getTokenBalances(address: string): Promise<BlockchainBalance[]> {
-    try {
-      const balances = await this.providerManager.executeWithFailover('solana', {
-        type: 'getTokenBalances',
-        params: { address },
-        getCacheKey: (params: any) => `solana_token_balance_${params.address}`
-      }) as BlockchainBalance[];
-
-      this.logger.info(`SolanaAdapter: Found ${balances.length} token balances for address ${address.substring(0, 20)}...`);
-      return balances;
-    } catch (error) {
-      this.logger.error(`Failed to fetch token balances for ${address} - Error: ${error}`);
-      throw error;
-    }
-  }
 }
