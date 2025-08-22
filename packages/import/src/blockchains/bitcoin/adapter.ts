@@ -423,23 +423,4 @@ export class BitcoinAdapter extends BaseAdapter {
     }
   }
 
-  // Legacy methods for compatibility (can be removed once migration is complete)
-  validateAddress(address: string): boolean {
-    const legacyPattern = /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/;
-    const segwitPattern = /^3[a-km-zA-HJ-NP-Z1-9]{25,34}$/;
-    const bech32Pattern = /^bc1[a-z0-9]{39,59}$/;
-    const xpubPattern = /^[xyz]pub[1-9A-HJ-NP-Za-km-z]{100,108}$/;
-
-    return legacyPattern.test(address) || segwitPattern.test(address) ||
-      bech32Pattern.test(address) || xpubPattern.test(address);
-  }
-
-  async getAddressTransactions(userAddress: string, since?: number): Promise<BlockchainTransaction[]> {
-    return this.fetchRawTransactions({ addresses: [userAddress], since });
-  }
-
-  async getAddressBalance(address: string): Promise<Balance[]> {
-    return this.fetchRawBalances({ addresses: [address] });
-  }
-
 }
