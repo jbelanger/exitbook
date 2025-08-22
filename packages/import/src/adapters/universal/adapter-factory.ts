@@ -1,15 +1,13 @@
-import { ExchangeAdapterFactory } from '../../exchanges/adapter-factory.js';
-import { BlockchainAdapterFactory } from '../../blockchains/shared/blockchain-adapter-factory.js';
-import { ExchangeBridgeAdapter } from './exchange-bridge-adapter.js';
-import { BlockchainBridgeAdapter } from './blockchain-bridge-adapter.js';
-import type { 
-  IUniversalAdapter, 
+import type {
+  IUniversalAdapter,
   UniversalAdapterConfig,
-  UniversalExchangeAdapterConfig, 
-  UniversalBlockchainAdapterConfig 
+  UniversalBlockchainAdapterConfig,
+  UniversalExchangeAdapterConfig
 } from '@crypto/core';
-import type { BlockchainExplorersConfig } from '../../blockchains/shared/explorer-config.js';
 import { getLogger } from '@crypto/shared-logger';
+import { BlockchainAdapterFactory } from '../../blockchains/shared/blockchain-adapter-factory.js';
+import type { BlockchainExplorersConfig } from '../../blockchains/shared/explorer-config.js';
+import { ExchangeAdapterFactory } from '../../exchanges/adapter-factory.js';
 
 /**
  * Universal adapter factory that creates adapters implementing the IUniversalAdapter interface.
@@ -73,10 +71,10 @@ export class UniversalAdapterFactory {
   }
 
   /**
-   * Create a blockchain adapter wrapped in a bridge adapter
+   * Create a blockchain adapter (now directly implements IUniversalAdapter)
    */
   private static async createBlockchainAdapter(
-    config: UniversalBlockchainAdapterConfig, 
+    config: UniversalBlockchainAdapterConfig,
     explorerConfig?: BlockchainExplorersConfig
   ): Promise<IUniversalAdapter> {
     if (!explorerConfig) {
@@ -85,12 +83,10 @@ export class UniversalAdapterFactory {
 
     this.logger.debug(`Creating blockchain adapter for ${config.id} with network: ${config.network}`);
     
-    // Create the old blockchain adapter using the existing factory
-    const oldFactory = new BlockchainAdapterFactory();
-    const oldAdapter = await oldFactory.createBlockchainAdapter(config.id, explorerConfig);
-    
-    // For now, still wrap blockchain adapters in bridge adapters since they haven't been refactored yet
-    return new BlockchainBridgeAdapter(oldAdapter, config);
+    // Create the blockchain adapter using the existing factory
+    // Since the blockchain adapters now implement IUniversalAdapter directly, we can return them as-is
+    const factory = new BlockchainAdapterFactory();
+    return await factory.createBlockchainAdapter(config.id, explorerConfig);
   }
 
   /**
