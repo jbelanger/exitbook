@@ -11,6 +11,8 @@ import type {
   UniversalTransaction
 } from '@crypto/core';
 
+import type { AddressTransactionParams, TokenTransactionParams, AddressBalanceParams } from '../shared/types.ts';
+
 import { BaseAdapter } from '../../shared/adapters/base-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
 import type { BlockchainExplorersConfig } from '../shared/explorer-config.ts';
@@ -62,7 +64,7 @@ export class SolanaAdapter extends BaseAdapter {
         const regularTxs = await this.providerManager.executeWithFailover('solana', {
           type: 'getAddressTransactions',
           params: { address, since: params.since },
-          getCacheKey: (cacheParams: any) => `solana_tx_${cacheParams.address}_${cacheParams.since || 'all'}`
+          getCacheKey: (cacheParams) => `solana_tx_${(cacheParams as AddressTransactionParams).address}_${(cacheParams as AddressTransactionParams).since || 'all'}`
         }) as BlockchainTransaction[];
 
         // Try to fetch SPL token transactions (if provider supports it)
@@ -71,7 +73,7 @@ export class SolanaAdapter extends BaseAdapter {
           tokenTxs = await this.providerManager.executeWithFailover('solana', {
             type: 'getTokenTransactions',
             params: { address, since: params.since },
-            getCacheKey: (cacheParams: any) => `solana_token_tx_${cacheParams.address}_${cacheParams.since || 'all'}`
+            getCacheKey: (cacheParams) => `solana_token_tx_${(cacheParams as TokenTransactionParams).address}_${(cacheParams as TokenTransactionParams).since || 'all'}`
           }) as BlockchainTransaction[];
         } catch (error) {
           this.logger.debug(`Provider does not support token transactions or failed to fetch - Error: ${error instanceof Error ? error.message : String(error)}`);
@@ -115,7 +117,7 @@ export class SolanaAdapter extends BaseAdapter {
         const balances = await this.providerManager.executeWithFailover('solana', {
           type: 'getAddressBalance',
           params: { address },
-          getCacheKey: (cacheParams: any) => `solana_balance_${cacheParams.address}`
+          getCacheKey: (cacheParams) => `solana_balance_${(cacheParams as AddressBalanceParams).address}`
         }) as BlockchainBalance[];
 
         allBalances.push(...balances);

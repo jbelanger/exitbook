@@ -18,6 +18,7 @@ export default [
     },
     rules: {
       'unicorn/no-useless-undefined': 'error',
+      '@typescript-eslint/no-unused-vars': 'off',
     },
   },
 ];

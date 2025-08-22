@@ -48,7 +48,7 @@ export class CsvParser {
       }
 
       return 'unknown';
-    } catch (error) {
+    } catch {
       return 'unknown';
     }
   }
@@ -64,7 +64,7 @@ export class CsvParser {
       const cleanContent = content.replace(/^\uFEFF/, '');
       const lines = cleanContent.split('\n');
       return lines[0]?.trim() ?? '';
-    } catch (error) {
+    } catch {
       return '';
     }
   }

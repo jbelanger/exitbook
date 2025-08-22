@@ -92,7 +92,7 @@ export function detectScamToken(
  * Checks if token name contains gift/reward emojis commonly used in scam tokens
  */
 function containsGiftEmojis(name: string): boolean {
-  const giftEmojis = /[🎁🎉🎊💰💎⭐✨🔥🚀]/;
+  const giftEmojis = /[🎁🎉🎊💰💎⭐✨🔥🚀]/u;
   return giftEmojis.test(name);
 }
 

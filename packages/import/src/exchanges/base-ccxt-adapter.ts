@@ -6,7 +6,19 @@ import type {
 import type { Exchange } from 'ccxt';
 import { BaseAdapter } from '../shared/adapters/base-adapter.ts';
 import { TransactionTransformer } from '../shared/utils/transaction-transformer.ts';
+import type { CCXTTransaction } from '../shared/utils/transaction-transformer.ts';
 import { ServiceErrorHandler } from './exchange-error-handler.ts';
+
+// CCXT Balance structure
+interface CCXTBalanceInfo {
+  free?: number;
+  used?: number;
+  total?: number;
+}
+
+interface CCXTBalances {
+  [currency: string]: CCXTBalanceInfo | unknown; // unknown for 'info' and other metadata fields
+}
 
 /**
  * Base class for all CCXT-based exchange adapters in the universal adapter system
@@ -168,7 +180,7 @@ export abstract class BaseCCXTAdapter extends BaseAdapter {
     }
   }
 
-  protected async transformBalances(rawBalances: any, params: UniversalFetchParams): Promise<UniversalBalance[]> {
+  protected async transformBalances(rawBalances: CCXTBalances, params: UniversalFetchParams): Promise<UniversalBalance[]> {
     const balances: UniversalBalance[] = [];
 
     for (const [currency, balanceInfo] of Object.entries(rawBalances)) {
@@ -176,7 +188,7 @@ export abstract class BaseCCXTAdapter extends BaseAdapter {
         continue; // Skip CCXT metadata fields
       }
 
-      const info = balanceInfo as any;
+      const info = balanceInfo as CCXTBalanceInfo;
       if (info && typeof info === 'object' && info.total !== undefined) {
         balances.push({
           currency,
@@ -278,7 +290,7 @@ export abstract class BaseCCXTAdapter extends BaseAdapter {
    * Transform array of CCXT transactions to our standard format
    * Can be overridden by subclasses for exchange-specific transformation
    */
-  protected transformCCXTTransactions(transactions: any[], type: TransactionType): CryptoTransaction[] {
+  protected transformCCXTTransactions(transactions: CCXTTransaction[], type: TransactionType): CryptoTransaction[] {
     return transactions
       .filter(tx => !TransactionTransformer.shouldFilterOut(tx))
       .map(tx => this.transformCCXTTransaction(tx, type));
@@ -288,7 +300,7 @@ export abstract class BaseCCXTAdapter extends BaseAdapter {
    * Transform a single CCXT transaction to our standard format
    * Can be overridden by subclasses for exchange-specific transformation
    */
-  protected transformCCXTTransaction(transaction: any, type: TransactionType): CryptoTransaction {
+  protected transformCCXTTransaction(transaction: CCXTTransaction, type: TransactionType): CryptoTransaction {
     return TransactionTransformer.fromCCXT(transaction, type, this.exchangeId);
   }
 
@@ -296,7 +308,7 @@ export abstract class BaseCCXTAdapter extends BaseAdapter {
    * Handle errors using centralized error handler
    * Can be overridden by subclasses for exchange-specific error handling
    */
-  protected handleError(error: any, operation: string): void {
+  protected handleError(error: unknown, operation: string): void {
     ServiceErrorHandler.handle(error, operation, this.exchangeId, this.logger);
   }
 
