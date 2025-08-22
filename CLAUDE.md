@@ -175,6 +175,43 @@ When adding new exchange adapters:
 3. Register in `packages/import/src/exchanges/registry/register-adapters.ts`
 4. Add configuration validation and tests
 
+### Data Validation with Zod Schemas
+The system includes comprehensive data validation using Zod schemas to ensure data integrity:
+
+**Validation Pipeline:**
+- All `UniversalTransaction` and `UniversalBalance` data is automatically validated in `BaseAdapter`
+- Invalid data is filtered out and logged with detailed error messages
+- Processing continues with valid data only (log + filter strategy)
+
+**Validation Schemas:**
+- Located in `packages/core/src/validation/universal-schemas.ts`
+- `UniversalTransactionSchema`: Validates transaction structure, types, and constraints
+- `UniversalBalanceSchema`: Validates balance data with mathematical constraints (total >= free + used)
+- `MoneySchema`: Validates monetary amounts using Decimal.js for precision
+
+**For Adapter Developers:**
+- Validation occurs automatically in `BaseAdapter.fetchTransactions()` and `BaseAdapter.fetchBalances()`
+- No additional code required - validation is built into the base class
+- Invalid transactions/balances are logged with detailed error information:
+  ```
+  ERROR: 3 invalid transactions from KucoinAdapter. Invalid: 3, Valid: 97, Total: 100. 
+  Errors: id: Transaction ID must not be empty; timestamp: Expected number, received string
+  ```
+- Performance impact is minimal (< 5ms per transaction for typical batches)
+
+**Schema Validation Rules:**
+- Transaction IDs must be non-empty strings
+- Timestamps must be positive integers (Unix milliseconds)
+- Transaction types must match enum values ('trade', 'deposit', 'withdrawal', etc.)
+- Money amounts must use Decimal.js instances for precision
+- Balance totals must be >= free + used amounts
+- All required fields must be present and valid
+
+**Testing Validation:**
+- Unit tests are provided in `packages/core/src/__tests__/universal-schemas.test.ts`
+- Tests cover valid data, invalid data, edge cases, and performance scenarios
+- BaseAdapter integration tests in `packages/import/src/shared/adapters/__tests__/base-adapter.test.ts`
+
 ### Configuration Management
 - Exchange configs in `config/exchanges.json` with adapter types (ccxt/native/universal)
 - Blockchain explorer configs in `config/blockchain-explorers.json` with provider priorities
