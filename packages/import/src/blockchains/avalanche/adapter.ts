@@ -11,7 +11,7 @@ import type {
 
 import './providers/SnowtraceProvider.ts';
 
-import { BaseAdapter } from '../../adapters/universal/base-adapter.ts';
+import { BaseAdapter } from '../../shared/adapters/base-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
 import type { BlockchainExplorersConfig } from '../shared/explorer-config.ts';
 

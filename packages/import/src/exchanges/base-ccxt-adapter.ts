@@ -1,15 +1,12 @@
-import type { CryptoTransaction, TransactionType } from '@crypto/core';
-import type { Exchange } from 'ccxt';
-import { BaseAdapter } from './base-adapter.js';
-import type { 
-  UniversalAdapterInfo, 
-  UniversalFetchParams, 
-  UniversalTransaction, 
-  UniversalBalance,
-  UniversalExchangeAdapterConfig 
+import type {
+  CryptoTransaction, TransactionType, UniversalAdapterInfo, UniversalBalance,
+  UniversalExchangeAdapterConfig, UniversalFetchParams,
+  UniversalTransaction
 } from '@crypto/core';
-import { TransactionTransformer } from '../../utils/transaction-transformer.js';
-import { ServiceErrorHandler } from '../../exchanges/exchange-error-handler.js';
+import type { Exchange } from 'ccxt';
+import { BaseAdapter } from '../shared/adapters/base-adapter.ts';
+import { TransactionTransformer } from '../shared/utils/transaction-transformer.ts';
+import { ServiceErrorHandler } from './exchange-error-handler.ts';
 
 /**
  * Base class for all CCXT-based exchange adapters in the universal adapter system

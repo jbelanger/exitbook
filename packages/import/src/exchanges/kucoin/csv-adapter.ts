@@ -1,8 +1,8 @@
 import type { CryptoTransaction, TransactionStatus, TransactionType } from '@crypto/core';
 import { createMoney, parseDecimal } from '@crypto/shared-utils';
-import { BaseCSVAdapter } from '../../adapters/universal/base-csv-adapter.js';
-import type { ExchangeAdapterConfig } from '../../adapters/universal/config.js';
-import type { AdapterInfo, Transaction } from '../../adapters/universal/types.js';
+import type { AdapterInfo, Transaction } from '../../shared/types/adapters.ts';
+import type { ExchangeAdapterConfig } from '../../shared/types/config.ts';
+import { BaseCSVAdapter } from '../base-csv-adapter.ts';
 
 // Expected CSV headers for validation
 const EXPECTED_HEADERS = {
