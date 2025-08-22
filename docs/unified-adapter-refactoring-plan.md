@@ -563,10 +563,40 @@ With the system now running on the universal interface, we can refactor each ada
 6. **Implement Balance Methods**: Implement or throw "Not Supported"
 7. **Remove Old Code**: Delete overridden methods from old base classes
 
-### Adapters to Refactor
-- **CSV**: `KrakenCSVAdapter`, `KuCoinCSVAdapter`, `LedgerLiveCSVAdapter`
-- **CCXT**: `CoinbaseCCXTAdapter`, `CCXTAdapter`
-- **Blockchain**: `SolanaAdapter`, `BitcoinAdapter`, `EthereumAdapter`, etc.
+### Progress Status
+
+#### ✅ COMPLETED
+
+**CSV Adapters** - Created `BaseCSVAdapter` extending universal `BaseAdapter` with shared CSV functionality:
+- ✅ `KrakenCSVAdapter` - Refactored to extend universal `BaseCSVAdapter`
+- ✅ `KuCoinCSVAdapter` - Refactored to extend universal `BaseCSVAdapter`  
+- ✅ `LedgerLiveCSVAdapter` - Refactored to extend universal `BaseCSVAdapter`
+
+**Infrastructure**:
+- ✅ Created `packages/import/src/adapters/universal/base-csv-adapter.ts` - Shared base class for CSV adapters
+- ✅ All CSV adapters now implement `IUniversalAdapter` interface
+- ✅ CSV adapters use `ExchangeAdapterConfig` from universal config system
+- ✅ Implemented `getInfo()`, `testConnection()`, and universal transaction transformation
+
+#### 🔄 IN PROGRESS
+
+**CCXT Adapters**:
+- 🔄 `CoinbaseCCXTAdapter` - Needs refactoring to extend universal `BaseAdapter`
+- 🔄 `CCXTAdapter` - Needs refactoring to extend universal `BaseAdapter`
+
+#### ⏳ REMAINING
+
+**Blockchain Adapters**:
+- ⏳ `SolanaAdapter` - Needs refactoring to extend universal `BaseAdapter`
+- ⏳ `BitcoinAdapter` - Needs refactoring to extend universal `BaseAdapter`
+- ⏳ `EthereumAdapter` - Needs refactoring to extend universal `BaseAdapter`
+- ⏳ `AvalancheAdapter` - Needs refactoring to extend universal `BaseAdapter`
+- ⏳ `InjectiveAdapter` - Needs refactoring to extend universal `BaseAdapter`
+- ⏳ `PolkadotAdapter` - Needs refactoring to extend universal `BaseAdapter`
+
+**Integration**:
+- ⏳ Update `UniversalAdapterFactory` to instantiate refactored adapters directly (instead of using bridge adapters)
+- ⏳ Test all refactored adapters work correctly with universal interface
 
 ---
 
