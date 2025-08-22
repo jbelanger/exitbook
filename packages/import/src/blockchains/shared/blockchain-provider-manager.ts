@@ -5,7 +5,7 @@ import type { BlockchainExplorersConfig } from './explorer-config.ts';
 
 import { CircuitBreaker } from '../../shared/utils/circuit-breaker.ts';
 import { ProviderRegistry } from './registry/provider-registry.ts';
-import type { IBlockchainProvider, ProviderCapabilities, ProviderOperation } from './types.ts';
+import type { IBlockchainProvider, ProviderCapabilities, ProviderOperation, ProviderOperationType } from './types.ts';
 
 
 const logger = getLogger('BlockchainProviderManager');
@@ -120,8 +120,8 @@ export class BlockchainProviderManager {
           }
 
           // Build provider config by merging defaults with overrides
-          const networkEndpoints = explorerConfig; // Explorer config has dynamic network properties
-          const metadataNetworks = metadata.networks; // Metadata networks has dynamic properties
+          const networkEndpoints = explorerConfig as unknown as Record<string, { baseUrl: string }>; // Explorer config has dynamic network properties
+          const metadataNetworks = metadata.networks as Record<string, { baseUrl: string; websocketUrl?: string }>; // Metadata networks has dynamic properties
 
           const providerConfig = {
             ...metadata.defaultConfig,
@@ -168,7 +168,7 @@ export class BlockchainProviderManager {
       const cacheKey = operation.getCacheKey(operation.params);
       const cached = this.requestCache.get(cacheKey);
       if (cached && cached.expiry > Date.now()) {
-        return cached.result;
+        return cached.result as T;
       }
     }
 
@@ -253,7 +253,14 @@ export class BlockchainProviderManager {
         const responseTime = Date.now() - startTime;
 
         // Log error without sensitive params details
-        const logData = {
+        const logData: {
+          error: string;
+          provider: string;
+          operation: string;
+          attemptNumber: number;
+          willRetry: boolean;
+          params?: unknown;
+        } = {
           error: error instanceof Error ? error.message : String(error),
           provider: provider.name,
           operation: operation.type,
@@ -261,7 +268,7 @@ export class BlockchainProviderManager {
           willRetry: attemptNumber < providers.length
         };
         // Only log params for non-sensitive operations
-        if (!operation.params?.address) {
+        if (!(operation.params as { address?: string })?.address) {
           logData.params = operation.params;
         }
 
@@ -330,7 +337,7 @@ export class BlockchainProviderManager {
     capabilities: ProviderCapabilities,
     operationType: string
   ): boolean {
-    return capabilities.supportedOperations.includes(operationType);
+    return capabilities.supportedOperations.includes(operationType as ProviderOperationType);
   }
 
   /**

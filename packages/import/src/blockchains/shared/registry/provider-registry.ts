@@ -36,9 +36,9 @@ export interface ProviderMetadata {
 /**
  * Factory function to create provider instances
  */
-export type ProviderFactory<TConfig = Record<string, unknown>> = {
+export type ProviderFactory = {
   metadata: ProviderMetadata;
-  create: (config: TConfig) => IBlockchainProvider<TConfig>;
+  create: (config: unknown) => IBlockchainProvider;
 };
 
 /**
@@ -65,7 +65,7 @@ export class ProviderRegistry {
   /**
    * Register a provider with the registry
    */
-  static register<TConfig>(factory: ProviderFactory<TConfig>): void {
+  static register(factory: ProviderFactory): void {
     const key = `${factory.metadata.blockchain}:${factory.metadata.name}`;
 
     if (this.providers.has(key)) {
@@ -115,11 +115,11 @@ export class ProviderRegistry {
   /**
    * Create a provider instance
    */
-  static createProvider<TConfig>(
+  static createProvider(
     blockchain: string,
     name: string,
-    config: TConfig
-  ): IBlockchainProvider<TConfig> {
+    config: unknown
+  ): IBlockchainProvider {
     const key = `${blockchain}:${name}`;
     const factory = this.providers.get(key);
 
@@ -166,14 +166,15 @@ export class ProviderRegistry {
       const availableNames = availableProviders.map(p => p.name);
 
       for (const explorer of explorers) {
-        if (!explorer.name) {
+        const explorerObj = explorer as { name?: string };
+        if (!explorerObj.name) {
           errors.push(`Missing name for explorer in blockchain ${blockchain}`);
           continue;
         }
 
-        if (!availableNames.includes(explorer.name)) {
+        if (!availableNames.includes(explorerObj.name)) {
           errors.push(
-            `Unknown provider '${explorer.name}' for blockchain '${blockchain}'. ` +
+            `Unknown provider '${explorerObj.name}' for blockchain '${blockchain}'. ` +
             `Available: ${availableNames.join(', ')}`
           );
         }

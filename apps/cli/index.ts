@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-import { BalanceVerifier, BlockchainBalanceService, ExchangeBalanceService } from '@crypto/balance';
-import { Database } from '@crypto/data';
-import { TransactionImporter, UniversalAdapterFactory } from '@crypto/import';
+import { BalanceVerifier, BlockchainBalanceService, ExchangeBalanceService, type BalanceVerificationResult } from '@crypto/balance';
+import type { IUniversalAdapter, UniversalAdapterInfo } from '@crypto/core';
+import { Database, type StoredTransaction } from '@crypto/data';
+import { TransactionImporter, UniversalAdapterFactory, type ImportResult, type ImportSummary } from '@crypto/import';
 import { getLogger } from '@crypto/shared-logger';
 import { initializeDatabase, loadExplorerConfig } from '@crypto/shared-utils';
 import { Command } from 'commander';
@@ -91,26 +92,28 @@ async function main() {
           }
         }
 
-        let result: any;
+        let result: ImportSummary | ImportResult;
         if (options.blockchain) {
           result = await importer.importFromBlockchain({
             blockchain: options.blockchain,
             addresses: options.addresses,
-            since
+            ...(since !== undefined && { since })
           });
         } else if (options.exchange) {
           // Create adapter directly with provided credentials
           result = await importer.importFromExchangeWithCredentials({
             exchangeId: options.exchange,
             adapterType: options.adapterType,
-            credentials: options.adapterType === 'ccxt' ? {
-              apiKey: options.apiKey,
-              secret: options.secret,
-              password: options.password,
-              sandbox: options.sandbox
-            } : undefined,
+            ...(options.adapterType === 'ccxt' && {
+              credentials: {
+                apiKey: options.apiKey,
+                secret: options.secret,
+                password: options.password,
+                sandbox: options.sandbox
+              }
+            }),
             csvDirectories: options.csvDirectories,
-            since
+            ...(since !== undefined && { since })
           });
         } else {
           logger.error('Either --exchange or --blockchain must be specified');
@@ -118,10 +121,11 @@ async function main() {
         }
 
         // Display results
-        logger.info(`Import completed - Total: ${result.totalTransactions}, New: ${result.newTransactions}, Duplicates: ${result.duplicatesSkipped}, Duration: ${(result.duration / 1000).toFixed(1)}s`);
+        const totalTxns = 'totalTransactions' in result ? result.totalTransactions : result.transactions;
+        logger.info(`Import completed - Total: ${totalTxns}, New: ${result.newTransactions}, Duplicates: ${result.duplicatesSkipped}, Duration: ${(result.duration / 1000).toFixed(1)}s`);
         if (result.errors.length > 0) {
           logger.warn(`Errors encountered during import: ${result.errors.length} errors`);
-          result.errors.forEach((error: any, index: number) => {
+          result.errors.forEach((error: string, index: number) => {
             logger.warn(`Error ${index + 1}: ${error}`);
           });
         }
@@ -130,7 +134,7 @@ async function main() {
         if (options.verify) {
           logger.info('Running balance verification');
           const verifier = new BalanceVerifier(database);
-          let balanceServices;
+          let balanceServices: (BlockchainBalanceService | ExchangeBalanceService)[];
           if (options.blockchain) {
             const blockchainAdapters = await importer.createBlockchainAdapters({
               blockchain: options.blockchain,
@@ -138,7 +142,7 @@ async function main() {
             });
             // Create blockchain balance services
             balanceServices = await Promise.all(
-              blockchainAdapters.map(async (ba: any) => {
+              blockchainAdapters.map(async (ba: { adapter: IUniversalAdapter }) => {
                 const service = new BlockchainBalanceService(ba.adapter, options.addresses);
                 await service.initialize();
                 return service;
@@ -225,7 +229,7 @@ async function main() {
           }
         }
 
-        let balanceServices: any[];
+        let balanceServices: (BlockchainBalanceService | ExchangeBalanceService)[];
         if (options.blockchain) {
           const blockchainAdapters = await importer.createBlockchainAdapters({
             blockchain: options.blockchain,
@@ -239,7 +243,7 @@ async function main() {
 
           // Create blockchain balance services
           balanceServices = await Promise.all(
-            blockchainAdapters.map(async (ba: any) => {
+            blockchainAdapters.map(async (ba: { adapter: IUniversalAdapter }) => {
               const service = new BlockchainBalanceService(ba.adapter, options.addresses);
               await service.initialize();
               return service;
@@ -453,13 +457,13 @@ async function main() {
           }
         }
 
-        let adapters: any[];
+        let adapters: { adapter: IUniversalAdapter }[];
         if (options.blockchain) {
           const blockchainAdapters = await importer.createBlockchainAdapters({
             blockchain: options.blockchain,
             addresses: options.addresses
           });
-          adapters = blockchainAdapters.map((ba: any) => ({ adapter: ba.adapter as any }));
+          adapters = blockchainAdapters.map((ba: { adapter: IUniversalAdapter }) => ({ adapter: ba.adapter }));
         } else if (options.exchange) {
           // Create exchange adapter with provided credentials using UniversalAdapterFactory
           const adapter = await UniversalAdapterFactory.create({
@@ -484,13 +488,24 @@ async function main() {
         logger.info('=================================');
 
         for (const { adapter } of adapters) {
-          let connectionInfo: any;
+          let connectionInfo: UniversalAdapterInfo;
 
           try {
-            connectionInfo = await adapter.getExchangeInfo();
-          } catch {
-            // Try blockchain info if exchange info fails
-            connectionInfo = await (adapter as any).getBlockchainInfo();
+            connectionInfo = await adapter.getInfo();
+          } catch (error) {
+            // Fallback to a basic info structure if getInfo fails
+            connectionInfo = { 
+              id: 'unknown-adapter', 
+              name: 'Unknown Adapter',
+              type: 'exchange' as const,
+              capabilities: { 
+                supportedOperations: [],
+                maxBatchSize: 1,
+                supportsHistoricalData: false,
+                supportsPagination: false,
+                requiresApiKey: false
+              }
+            };
           }
 
           process.stdout.write(`Testing ${connectionInfo.id}... `);
@@ -519,7 +534,7 @@ async function main() {
   await program.parseAsync();
 }
 
-function displayVerificationResults(results: any[]): void {
+function displayVerificationResults(results: BalanceVerificationResult[]): void {
   const logger = getLogger('CLI');
   logger.info('\nBalance Verification Results');
   logger.info('================================');
@@ -538,8 +553,8 @@ function displayVerificationResults(results: any[]): void {
 
       // Show all non-zero calculated balances for CSV adapters
       const significantBalances = result.comparisons
-        .filter((c: any) => Math.abs(c.calculatedBalance) > 0.00000001)
-        .sort((a: any, b: any) => Math.abs(b.calculatedBalance) - Math.abs(a.calculatedBalance));
+        .filter((c) => Math.abs(c.calculatedBalance) > 0.00000001)
+        .sort((a, b) => Math.abs(b.calculatedBalance) - Math.abs(a.calculatedBalance));
 
       if (significantBalances.length > 0) {
         logger.info('  Current balances:');
@@ -571,8 +586,8 @@ function displayVerificationResults(results: any[]): void {
 
       // Show calculated balances for significant currencies
       const significantBalances = result.comparisons
-        .filter((c: any) => Math.abs(c.calculatedBalance) > 0.00000001 || Math.abs(c.liveBalance) > 0.00000001)
-        .sort((a: any, b: any) => Math.abs(b.calculatedBalance) - Math.abs(a.calculatedBalance))
+        .filter((c) => Math.abs(c.calculatedBalance) > 0.00000001 || Math.abs(c.liveBalance) > 0.00000001)
+        .sort((a, b) => Math.abs(b.calculatedBalance) - Math.abs(a.calculatedBalance))
         .slice(0, 10); // Show top 10
 
       if (significantBalances.length > 0) {
@@ -587,7 +602,7 @@ function displayVerificationResults(results: any[]): void {
       }
 
       // Show top issues
-      const issues = result.comparisons.filter((c: any) => c.status !== 'match').slice(0, 3);
+      const issues = result.comparisons.filter((c) => c.status !== 'match').slice(0, 3);
       if (issues.length > 0) {
         logger.info('  Top issues:');
         for (const issue of issues) {
@@ -598,7 +613,7 @@ function displayVerificationResults(results: any[]): void {
   }
 }
 
-async function convertToCSV(transactions: any[]): Promise<string> {
+async function convertToCSV(transactions: StoredTransaction[]): Promise<string> {
   if (transactions.length === 0) return '';
 
   const headers = [
@@ -614,8 +629,8 @@ async function convertToCSV(transactions: any[]): Promise<string> {
     let cost = '';
     if (tx.amount && tx.price) {
       try {
-        const amountNum = parseFloat(tx.amount);
-        const priceNum = parseFloat(tx.price);
+        const amountNum = parseFloat(String(tx.amount));
+        const priceNum = parseFloat(String(tx.price));
         if (!isNaN(amountNum) && !isNaN(priceNum)) {
           cost = (amountNum * priceNum).toString();
         }
@@ -656,7 +671,7 @@ async function convertToCSV(transactions: any[]): Promise<string> {
   return csvLines.join('\n');
 }
 
-async function convertToJSON(transactions: any[]): Promise<string> {
+async function convertToJSON(transactions: StoredTransaction[]): Promise<string> {
   if (transactions.length === 0) return '[]';
 
   // Use normalized database columns and add calculated cost field
@@ -665,8 +680,8 @@ async function convertToJSON(transactions: any[]): Promise<string> {
     let cost: number | null = null;
     if (tx.amount && tx.price) {
       try {
-        const amountNum = parseFloat(tx.amount);
-        const priceNum = parseFloat(tx.price);
+        const amountNum = parseFloat(String(tx.amount));
+        const priceNum = parseFloat(String(tx.price));
         if (!isNaN(amountNum) && !isNaN(priceNum)) {
           cost = amountNum * priceNum;
         }

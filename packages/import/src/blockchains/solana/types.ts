@@ -96,9 +96,10 @@ export function parseSolanaTransactionType(
   const balanceChange = postBalance - preBalance;
 
   // Check for system program transfers (most common)
-  const hasSystemTransfer = instructions.some(ix =>
-    ix.program === 'system' || ix.programId === '11111111111111111111111111111112'
-  );
+  const hasSystemTransfer = instructions.some(ix => {
+    const instruction = ix as { program?: string; programId?: string };
+    return instruction.program === 'system' || instruction.programId === '11111111111111111111111111111112';
+  });
 
   if (hasSystemTransfer) {
     // Positive balance change = receiving SOL
@@ -107,18 +108,20 @@ export function parseSolanaTransactionType(
   }
 
   // Check for token program instructions
-  const hasTokenProgram = instructions.some(ix =>
-    ix.program === 'spl-token' || ix.programId === 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'
-  );
+  const hasTokenProgram = instructions.some(ix => {
+    const instruction = ix as { program?: string; programId?: string };
+    return instruction.program === 'spl-token' || instruction.programId === 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
+  });
 
   if (hasTokenProgram) {
     return 'swap'; // Most token operations are swaps/trades
   }
 
   // Check for staking programs
-  const hasStakeProgram = instructions.some(ix =>
-    ix.program === 'stake' || ix.programId === 'Stake11111111111111111111111111111111111111'
-  );
+  const hasStakeProgram = instructions.some(ix => {
+    const instruction = ix as { program?: string; programId?: string };
+    return instruction.program === 'stake' || instruction.programId === 'Stake11111111111111111111111111111111111111';
+  });
 
   if (hasStakeProgram) {
     return balanceChange < 0 ? 'stake' : 'unstake';
