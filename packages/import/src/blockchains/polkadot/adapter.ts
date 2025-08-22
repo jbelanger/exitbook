@@ -38,7 +38,7 @@ export class SubstrateAdapter extends BaseAdapter {
       type: 'blockchain',
       subType: 'rest',
       capabilities: {
-        supportedOperations: ['fetchTransactions', 'fetchBalances', 'getAddressTransactions', 'getAddressBalance'],
+        supportedOperations: ['fetchTransactions', 'fetchBalances'],
         maxBatchSize: 1,
         supportsHistoricalData: true,
         supportsPagination: true,
