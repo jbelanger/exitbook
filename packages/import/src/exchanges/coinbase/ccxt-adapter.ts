@@ -101,37 +101,40 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
 
   /**
    * Override to fetch only the raw ledger entries from the API.
-   * The complex processing logic is moved to transformTransactions.
+   * This should return the raw CCXT response, not a transformed one.
    */
   protected async fetchRawTransactions(params: any): Promise<any[]> {
     this.logger.info(`Starting raw ledger fetch from Coinbase - Since: ${params.since}`);
-    // This method should return the raw data from fetchLedger, NOT the processed transactions.
-    // The base transformTransactions will then pass this raw data to our overridden transform method below.
-    return this.fetchLedger(params.since);
+    
+    // This is the only place we should be calling the exchange API.
+    // We can reuse the pagination logic from the old fetchLedger method.
+    const rawLedgerEntries = await this.fetchAllLedgerEntriesWithPagination(params.since);
+    return rawLedgerEntries;
   }
 
   /**
    * Override to handle Coinbase's unique ledger entry grouping and transformation.
-   * This is where the core logic of `processLedgerEntries` now lives.
+   * This is where all transformation logic now lives.
    */
-  protected async transformTransactions(rawTxs: any[], params: any): Promise<any[]> {
-    this.logger.info(`Transforming ${rawTxs.length} raw Coinbase ledger entries.`);
+  protected async transformTransactions(rawLedgerEntries: any[], params: any): Promise<any[]> {
+    this.logger.info(`Transforming ${rawLedgerEntries.length} raw Coinbase ledger entries.`);
 
-    // 1. Convert raw CCXT entries to the intermediate CryptoTransaction format.
-    const ledgerTransactions = this.transformCCXTTransactions(rawTxs, 'ledger');
+    // 1. First, transform raw CCXT entries to the intermediate CryptoTransaction format.
+    //    This makes them compatible with the existing processing logic.
+    const ledgerCryptoTxs = this.transformCCXTTransactions(rawLedgerEntries, 'ledger');
 
-    // 2. Run the complex grouping and processing logic.
-    const processedCryptoTxs = await this.processLedgerEntries(ledgerTransactions);
+    // 2. Run the complex grouping and processing logic on the intermediate format.
+    const processedCryptoTxs = await this.processLedgerEntries(ledgerCryptoTxs);
 
-    // 3. Convert the final CryptoTransactions to the UniversalTransaction format.
-    //    We can call the base class's implementation for the final step.
+    // 3. Finally, convert the fully processed CryptoTransactions to the UniversalTransaction format.
     return super.transformTransactions(processedCryptoTxs, params);
+    // The base transformTransactions method already handles this final mapping.
   }
 
-  /**
-   * Enhanced fetchLedger with pagination support for Coinbase
-   */
-  async fetchLedger(since?: number): Promise<CryptoTransaction[]> {
+  // Helper to contain the fetching logic
+  private async fetchAllLedgerEntriesWithPagination(since?: number): Promise<any[]> {
+    // Move the logic from the old `fetchLedger` method here.
+    // This method should return the raw, unprocessed entries from `this.exchange.fetchLedger()`.
     try {
       if (!this.exchange.has['fetchLedger']) {
         this.logger.warn('Coinbase does not support fetchLedger - falling back to standard methods');
@@ -168,13 +171,14 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
 
       this.logger.info(`Fetched ${allEntries.length} total ledger entries from Coinbase`);
 
-      // Transform raw ledger entries before post-processing
-      return this.transformCCXTTransactions(allEntries, 'ledger');
+      // Return raw entries without any transformation
+      return allEntries;
     } catch (error) {
-      this.handleError(error, 'fetchLedger');
+      this.handleError(error, 'fetchAllLedgerEntriesWithPagination');
       throw error;
     }
   }
+
 
   /**
    * Fetch ledger entries with pagination for a specific account
@@ -813,75 +817,7 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
   }
 
 
-  /**
-   * Override deposits with account-specific logic (inherited from CoinbaseCCXTAdapter)
-   */
-  async fetchDeposits(since?: number): Promise<CryptoTransaction[]> {
-    try {
-      if (!this.exchange.has['fetchDeposits']) {
-        this.logger.debug('Coinbase does not support fetchDeposits');
-        return [];
-      }
 
-      await this.loadAccounts();
-      const allDeposits: any[] = [];
-
-      if (!this.accounts || this.accounts.length === 0) {
-        this.logger.warn('No accounts available for fetching deposits');
-        return [];
-      }
-
-      for (const account of this.accounts) {
-        try {
-          const params = { account_id: account.id };
-          const deposits = await this.exchange.fetchDeposits(undefined, since, undefined, params) as any[];
-          allDeposits.push(...deposits);
-        } catch (accountError) {
-          this.logger.warn(`Failed to fetch deposits for account ${account.id} - Error: ${accountError instanceof Error ? accountError.message : 'Unknown error'}`);
-        }
-      }
-
-      return this.transformCCXTTransactions(allDeposits, 'deposit');
-    } catch (error) {
-      this.handleError(error, 'fetchDeposits');
-      throw error;
-    }
-  }
-
-  /**
-   * Override withdrawals with account-specific logic (inherited from CoinbaseCCXTAdapter)
-   */
-  async fetchWithdrawals(since?: number): Promise<CryptoTransaction[]> {
-    try {
-      if (!this.exchange.has['fetchWithdrawals']) {
-        this.logger.debug('Coinbase does not support fetchWithdrawals');
-        return [];
-      }
-
-      await this.loadAccounts();
-      const allWithdrawals: any[] = [];
-
-      if (!this.accounts || this.accounts.length === 0) {
-        this.logger.warn('No accounts available for fetching withdrawals');
-        return [];
-      }
-
-      for (const account of this.accounts) {
-        try {
-          const params = { account_id: account.id };
-          const withdrawals = await this.exchange.fetchWithdrawals(undefined, since, undefined, params) as any[];
-          allWithdrawals.push(...withdrawals);
-        } catch (accountError) {
-          this.logger.warn(`Failed to fetch withdrawals for account ${account.id} - Error: ${accountError instanceof Error ? accountError.message : 'Unknown error'}`);
-        }
-      }
-
-      return this.transformCCXTTransactions(allWithdrawals, 'withdrawal');
-    } catch (error) {
-      this.handleError(error, 'fetchWithdrawals');
-      throw error;
-    }
-  }
 
   /**
    * Load Coinbase accounts (inherited from CoinbaseCCXTAdapter)

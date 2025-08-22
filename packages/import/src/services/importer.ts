@@ -61,50 +61,6 @@ export class TransactionImporter {
     }
   }
 
-  async importFromBlockchainAdapter(adapter: IUniversalAdapter, addresses: string[], since?: number): Promise<ImportResult> {
-    const startTime = Date.now();
-    const adapterInfo = await adapter.getInfo();
-    const blockchainId = adapterInfo.id;
-
-    try {
-      // Test connection first
-      const isConnected = await adapter.testConnection();
-      if (!isConnected) {
-        throw new Error(`Failed to connect to ${blockchainId}`);
-      }
-
-      // Use universal interface directly
-      const transactions = await adapter.fetchTransactions({ addresses, since });
-      const { saved, duplicates } = await this.processAndSaveUniversalTransactions(transactions, blockchainId);
-
-      const duration = Date.now() - startTime;
-
-      const result: ImportResult = {
-        source: blockchainId,
-        transactions: transactions.length,
-        newTransactions: saved,
-        duplicatesSkipped: duplicates.length,
-        errors: [],
-        duration
-      };
-
-      this.logger.info(`Completed import from ${blockchainId} - Transactions: ${transactions.length}, New: ${saved}, Duplicates: ${duplicates.length}, Duration: ${duration}ms`);
-
-      return result;
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      this.logger.error(`Import failed for ${blockchainId}: ${error} (duration: ${duration}ms)`);
-
-      return {
-        source: blockchainId,
-        transactions: 0,
-        newTransactions: 0,
-        duplicatesSkipped: 0,
-        errors: [error instanceof Error ? error.message : 'Unknown error'],
-        duration
-      };
-    }
-  }
 
   async importFromExchangeWithCredentials(options: {
     exchangeId: string;
@@ -130,54 +86,6 @@ export class TransactionImporter {
     );
   }
 
-  async importFromExchange(adapter: IUniversalAdapter, since?: number): Promise<ImportResult> {
-    const startTime = Date.now();
-    const adapterInfo = await adapter.getInfo();
-    const exchangeId = adapterInfo.id;
-
-    this.logger.info(`Starting import from ${exchangeId} (since: ${since})`);
-
-    try {
-      // Test connection first
-      const isConnected = await adapter.testConnection();
-      if (!isConnected) {
-        throw new Error(`Failed to connect to ${exchangeId}`);
-      }
-
-      // Fetch all transactions using the adapter
-      const universalTransactions = await adapter.fetchTransactions({ since });
-      
-      // Process and save universal transactions directly
-      const { saved, duplicates } = await this.processAndSaveUniversalTransactions(universalTransactions, exchangeId);
-
-      const duration = Date.now() - startTime;
-
-      const result: ImportResult = {
-        source: exchangeId,
-        transactions: universalTransactions.length,
-        newTransactions: saved,
-        duplicatesSkipped: duplicates.length,
-        errors: [],
-        duration
-      };
-
-      this.logger.info(`Completed import from ${exchangeId} - Transactions: ${universalTransactions.length}, New: ${saved}, Duplicates: ${duplicates.length}, Duration: ${duration}ms`);
-
-      return result;
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      this.logger.error(`Import failed for ${exchangeId}: ${error} (duration: ${duration}ms)`);
-
-      return {
-        source: exchangeId,
-        transactions: 0,
-        newTransactions: 0,
-        duplicatesSkipped: 0,
-        errors: [error instanceof Error ? error.message : 'Unknown error'],
-        duration
-      };
-    }
-  }
 
   /**
    * Universal adapter import method - unified interface for all adapter types
@@ -423,7 +331,7 @@ export class TransactionImporter {
       this.logger.info(`Starting import from ${adapterInfo.id}`);
 
       try {
-        const result = await this.importFromBlockchainAdapter(adapter, options.addresses, options.since);
+        const result = await this.importFromAdapter(adapter, { addresses: options.addresses, since: options.since });
         sourceResults.push(result);
         totalTransactions += result.transactions;
         totalNewTransactions += result.newTransactions;
