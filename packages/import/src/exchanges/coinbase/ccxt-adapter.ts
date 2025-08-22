@@ -1,8 +1,7 @@
-import type { CryptoTransaction, Money, TransactionType } from '@crypto/core';
+import type { CryptoTransaction, Money, TransactionType, UniversalExchangeAdapterConfig } from '@crypto/core';
 import ccxt from 'ccxt';
 import { Decimal } from 'decimal.js';
 import { BaseCCXTAdapter } from '../../adapters/universal/base-ccxt-adapter.js';
-import type { UniversalExchangeAdapterConfig } from '@crypto/core';
 /**
  * Specialized Coinbase adapter that uses fetchLedger for comprehensive transaction data
  * 
@@ -101,31 +100,32 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
   }
 
   /**
-   * Override to focus on ledger-based transaction fetching with post-processing
+   * Override to fetch only the raw ledger entries from the API.
+   * The complex processing logic is moved to transformTransactions.
    */
-  protected async fetchRawTransactions(params: any): Promise<CryptoTransaction[]> {
-    const startTime = Date.now();
-    this.logger.info(`Starting ledger-based transaction fetch from Coinbase - Since: ${params.since}`);
+  protected async fetchRawTransactions(params: any): Promise<any[]> {
+    this.logger.info(`Starting raw ledger fetch from Coinbase - Since: ${params.since}`);
+    // This method should return the raw data from fetchLedger, NOT the processed transactions.
+    // The base transformTransactions will then pass this raw data to our overridden transform method below.
+    return this.fetchLedger(params.since);
+  }
 
-    try {
+  /**
+   * Override to handle Coinbase's unique ledger entry grouping and transformation.
+   * This is where the core logic of `processLedgerEntries` now lives.
+   */
+  protected async transformTransactions(rawTxs: any[], params: any): Promise<any[]> {
+    this.logger.info(`Transforming ${rawTxs.length} raw Coinbase ledger entries.`);
 
-      // Primary data source: fetchLedger for comprehensive transaction data
-      const ledgerTransactions = await this.fetchLedger(params.since);
+    // 1. Convert raw CCXT entries to the intermediate CryptoTransaction format.
+    const ledgerTransactions = this.transformCCXTTransactions(rawTxs, 'ledger');
 
-      // Process ledger entries and group orders with fills
-      const transactions = await this.processLedgerEntries(ledgerTransactions);
+    // 2. Run the complex grouping and processing logic.
+    const processedCryptoTxs = await this.processLedgerEntries(ledgerTransactions);
 
-      // Sort by timestamp
-      transactions.sort((a, b) => a.timestamp - b.timestamp);
-
-      const duration = Date.now() - startTime;
-      this.logger.info(`Completed Coinbase ledger-based transaction fetch - TotalTransactions: ${transactions.length}, GroupedTrades: ${transactions.filter(t => t.type === 'trade').length}, Duration: ${duration}ms`);
-
-      return transactions;
-    } catch (error) {
-      this.handleError(error, 'fetchRawTransactions');
-      throw error;
-    }
+    // 3. Convert the final CryptoTransactions to the UniversalTransaction format.
+    //    We can call the base class's implementation for the final step.
+    return super.transformTransactions(processedCryptoTxs, params);
   }
 
   /**
