@@ -32,7 +32,7 @@ export class InjectiveAdapter extends BaseAdapter {
       type: 'blockchain',
       subType: 'rest',
       capabilities: {
-        supportedOperations: ['fetchTransactions', 'fetchBalances', 'getAddressTransactions', 'getAddressBalance', 'getTokenTransactions'],
+        supportedOperations: ['fetchTransactions', 'fetchBalances'],
         maxBatchSize: 1,
         supportsHistoricalData: true,
         supportsPagination: true,

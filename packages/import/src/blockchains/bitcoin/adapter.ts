@@ -52,7 +52,7 @@ export class BitcoinAdapter extends BaseAdapter {
       type: 'blockchain',
       subType: 'rest',
       capabilities: {
-        supportedOperations: ['fetchTransactions', 'fetchBalances', 'getAddressTransactions', 'getAddressBalance'],
+        supportedOperations: ['fetchTransactions', 'fetchBalances'],
         maxBatchSize: 1,
         supportsHistoricalData: true,
         supportsPagination: false,

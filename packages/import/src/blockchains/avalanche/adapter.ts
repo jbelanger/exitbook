@@ -34,7 +34,7 @@ export class AvalancheAdapter extends BaseAdapter {
       type: 'blockchain',
       subType: 'rest',
       capabilities: {
-        supportedOperations: ['fetchTransactions', 'fetchBalances', 'getAddressTransactions', 'getAddressBalance', 'getTokenTransactions'],
+        supportedOperations: ['fetchTransactions', 'fetchBalances'],
         maxBatchSize: 1,
         supportsHistoricalData: true,
         supportsPagination: true,
@@ -239,12 +239,5 @@ export class AvalancheAdapter extends BaseAdapter {
     return isValid;
   }
 
-  async getAddressTransactions(address: string, since?: number): Promise<BlockchainTransaction[]> {
-    return this.fetchRawTransactions({ addresses: [address], since });
-  }
-
-  async getAddressBalance(address: string): Promise<Balance[]> {
-    return this.fetchRawBalances({ addresses: [address] });
-  }
 
 }
