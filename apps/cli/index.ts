@@ -79,7 +79,7 @@ async function main() {
               logger.error('--api-key and --secret are required for CCXT adapters');
               process.exit(1);
             }
-            if (options.exchange === 'coinbase' && !options.password) {
+            if (options.exchange === 'coinbase' && !options.secret) {
               logger.error('--password is required for Coinbase');
               process.exit(1);
             }
@@ -568,6 +568,23 @@ function displayVerificationResults(results: any[]): void {
       logger.info(`  Matches: ${result.summary.matches}`);
       logger.info(`  Warnings: ${result.summary.warnings}`);
       logger.info(`  Mismatches: ${result.summary.mismatches}`);
+
+      // Show calculated balances for significant currencies
+      const significantBalances = result.comparisons
+        .filter((c: any) => Math.abs(c.calculatedBalance) > 0.00000001 || Math.abs(c.liveBalance) > 0.00000001)
+        .sort((a: any, b: any) => Math.abs(b.calculatedBalance) - Math.abs(a.calculatedBalance))
+        .slice(0, 10); // Show top 10
+
+      if (significantBalances.length > 0) {
+        logger.info('  Calculated vs Live Balances:');
+        for (const balance of significantBalances) {
+          const calc = balance.calculatedBalance.toFixed(8).replace(/\.?0+$/, '');
+          const live = balance.liveBalance.toFixed(8).replace(/\.?0+$/, '');
+          const status = balance.status === 'match' ? '✓' : 
+                        balance.status === 'warning' ? '⚠' : '✗';
+          logger.info(`    ${balance.currency}: ${calc} (calc) | ${live} (live) ${status}`);
+        }
+      }
 
       // Show top issues
       const issues = result.comparisons.filter((c: any) => c.status !== 'match').slice(0, 3);
