@@ -1,10 +1,10 @@
-import type { TransactionStatus, UniversalAdapterInfo, UniversalExchangeAdapterConfig, UniversalFetchParams, UniversalTransaction, UniversalBalance } from '@crypto/core';
+import type { Balance, TransactionStatus, UniversalAdapterInfo, UniversalBalance, UniversalExchangeAdapterConfig, UniversalFetchParams, UniversalTransaction } from '@crypto/core';
 import { createMoney, parseDecimal } from '@crypto/shared-utils';
+import fs from 'fs/promises';
+import path from 'path';
 import { BaseAdapter } from '../../shared/adapters/base-adapter.ts';
 import { CsvFilters } from '../csv-filters.ts';
 import { CsvParser } from '../csv-parser.ts';
-import fs from 'fs/promises';
-import path from 'path';
 
 // Expected CSV headers for validation
 const EXPECTED_HEADERS = {
@@ -82,7 +82,7 @@ export class KrakenCSVAdapter extends BaseAdapter {
     }
   }
 
-  protected async fetchRawTransactions(params: UniversalFetchParams): Promise<KrakenLedgerRow[]> {
+  protected async fetchRawTransactions(): Promise<KrakenLedgerRow[]> {
     return this.loadAllTransactions();
   }
 
@@ -94,11 +94,11 @@ export class KrakenCSVAdapter extends BaseAdapter {
       .filter(tx => !params.until || tx.timestamp <= params.until);
   }
 
-  protected async fetchRawBalances(_params: UniversalFetchParams): Promise<any> {
+  protected async fetchRawBalances(): Promise<Balance> {
     throw new Error('Balance fetching not supported for CSV adapter - CSV files do not contain current balance data');
   }
 
-  protected async transformBalances(_raw: any, _params: UniversalFetchParams): Promise<UniversalBalance[]> {
+  protected async transformBalances(): Promise<UniversalBalance[]> {
     throw new Error('Balance fetching not supported for CSV adapter');
   }
 
@@ -658,7 +658,7 @@ export class KrakenCSVAdapter extends BaseAdapter {
   private convertTradeToTransaction(spend: KrakenLedgerRow, receive: KrakenLedgerRow): UniversalTransaction {
     const timestamp = new Date(spend.time).getTime();
     const spendAmount = parseDecimal(spend.amount).abs().toNumber();
-    let receiveAmount = parseDecimal(receive.amount).toNumber();
+    const receiveAmount = parseDecimal(receive.amount).toNumber();
 
     // Check fees from both spend and receive transactions
     const spendFee = parseDecimal(spend.fee || '0').toNumber();

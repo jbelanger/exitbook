@@ -1,8 +1,8 @@
-import type { CryptoTransaction } from '@crypto/core';
+import type { CryptoTransaction, UniversalAdapterConfig, UniversalBalance, UniversalFetchParams, UniversalTransaction } from '@crypto/core';
 import fs from 'fs/promises';
 import path from 'path';
 import { BaseAdapter } from '../shared/adapters/base-adapter.ts';
-import type { Balance, FetchParams, Transaction } from '../shared/types/adapters.ts';
+
 import type { ExchangeAdapterConfig } from '../shared/types/config.ts';
 import { CsvParser } from './csv-parser.ts';
 
@@ -13,7 +13,7 @@ import { CsvParser } from './csv-parser.ts';
 export abstract class BaseCSVAdapter extends BaseAdapter {
   protected cachedTransactions: CryptoTransaction[] | null = null;
 
-  constructor(config: ExchangeAdapterConfig) {
+  constructor(config: UniversalAdapterConfig) {
     super(config);
   }
 
@@ -50,26 +50,26 @@ export abstract class BaseCSVAdapter extends BaseAdapter {
     }
   }
 
-  protected async fetchRawTransactions(_params: FetchParams): Promise<CryptoTransaction[]> {
+  protected async fetchRawTransactions(): Promise<CryptoTransaction[]> {
     return this.loadAllTransactions();
   }
 
-  protected async transformTransactions(rawTxs: CryptoTransaction[], params: FetchParams): Promise<Transaction[]> {
+  protected async transformTransactions(rawTxs: CryptoTransaction[], params: UniversalFetchParams): Promise<UniversalTransaction[]> {
     return rawTxs
       .filter(tx => !params.since || tx.timestamp >= params.since)
       .filter(tx => !params.until || tx.timestamp <= params.until)
       .map(tx => this.convertToUniversalTransaction(tx));
   }
 
-  protected async fetchRawBalances(_params: FetchParams): Promise<any> {
+  protected async fetchRawBalances(): Promise<UniversalBalance> {
     throw new Error('Balance fetching not supported for CSV adapter - CSV files do not contain current balance data');
   }
 
-  protected async transformBalances(_raw: any, _params: FetchParams): Promise<Balance[]> {
+  protected async transformBalances(): Promise<UniversalBalance[]> {
     throw new Error('Balance fetching not supported for CSV adapter');
   }
 
-  protected abstract convertToUniversalTransaction(cryptoTx: CryptoTransaction): Transaction;
+  protected abstract convertToUniversalTransaction(cryptoTx: CryptoTransaction): UniversalTransaction;
 
   /**
    * Parse a CSV file using the common parsing logic
@@ -81,8 +81,7 @@ export abstract class BaseCSVAdapter extends BaseAdapter {
   /**
    * Filter rows by UID if configured
    */
-  protected filterByUid<T extends { UID: string }>(rows: T[]): T[] {
-    const config = this.config as ExchangeAdapterConfig;
+  protected filterByUid<T extends { UID: string }>(rows: T[]): T[] {    
     // If there's a UID filter configured, we could add it here
     // For now, return all rows as UID filtering isn't in the universal config
     return rows;

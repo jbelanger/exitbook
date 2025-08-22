@@ -9,9 +9,9 @@ export interface ExchangeAdapterConfig extends BaseAdapterConfig {
   credentials?: { 
     apiKey: string; 
     secret: string; 
-    password?: string; 
-  };
-  csvDirectories?: string[];
+    password?: string | undefined; 
+  } | undefined;
+  csvDirectories?: string[] | undefined;
 }
 
 export interface BlockchainAdapterConfig extends BaseAdapterConfig {

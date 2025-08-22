@@ -5,7 +5,9 @@ import { Decimal } from 'decimal.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import sqlite3Module from 'sqlite3';
-import type { CreateWalletAddressRequest, StoredTransaction, UpdateWalletAddressRequest, WalletAddress, WalletAddressQuery } from '../types/data-types.js';
+import { CreateWalletAddressRequest, StoredTransaction, UpdateWalletAddressRequest, WalletAddress, WalletAddressQuery } from '../types/data-types.ts';
+import type { DatabaseStats, SQLParam, StatRow, TransactionCountRow } from '../types/database-types.js';
+
 const sqlite3 = sqlite3Module;
 
 type SQLiteDatabase = InstanceType<typeof sqlite3Module.Database>;
@@ -367,7 +369,7 @@ export class Database {
   async getTransactions(exchange?: string, since?: number): Promise<StoredTransaction[]> {
     return new Promise((resolve, reject) => {
       let query = 'SELECT * FROM transactions';
-      const params: any[] = [];
+      const params: SQLParam[] = [];
 
       if (exchange || since) {
         query += ' WHERE';
@@ -388,11 +390,11 @@ export class Database {
 
       query += ' ORDER BY timestamp DESC';
 
-      this.db.all(query, params, (err, rows: any[]) => {
+      this.db.all(query, params, (err, rows: StoredTransaction[]) => {
         if (err) {
           reject(err);
         } else {
-          resolve(rows as StoredTransaction[]);
+          resolve(rows);
         }
       });
     });
@@ -401,14 +403,14 @@ export class Database {
   async getTransactionCount(exchange?: string): Promise<number> {
     return new Promise((resolve, reject) => {
       let query = 'SELECT COUNT(*) as count FROM transactions';
-      const params: any[] = [];
+      const params: SQLParam[] = [];
 
       if (exchange) {
         query += ' WHERE exchange = ?';
         params.push(exchange);
       }
 
-      this.db.get(query, params, (err, row: any) => {
+      this.db.get(query, params, (err, row: TransactionCountRow) => {
         if (err) {
           reject(err);
         } else {
@@ -482,7 +484,7 @@ export class Database {
           AND bv2.currency = balance_verifications.currency
         )
       `;
-      const params: any[] = [];
+      const params: SQLParam[] = [];
 
       if (exchange) {
         query += ' AND exchange = ?';
@@ -491,11 +493,11 @@ export class Database {
 
       query += ' ORDER BY exchange, currency';
 
-      this.db.all(query, params, (err, rows: any[]) => {
+      this.db.all(query, params, (err, rows: BalanceVerificationRecord[]) => {
         if (err) {
           reject(err);
         } else {
-          resolve(rows as BalanceVerificationRecord[]);
+          resolve(rows);
         }
       });
     });
@@ -529,7 +531,7 @@ export class Database {
     });
   }
 
-  async getStats(): Promise<any> {
+  async getStats(): Promise<DatabaseStats> {
     return new Promise((resolve, reject) => {
       const queries = [
         'SELECT COUNT(*) as total_transactions FROM transactions',
@@ -539,32 +541,38 @@ export class Database {
         'SELECT COUNT(*) as total_snapshots FROM balance_snapshots'
       ];
 
-      const results: any = {};
+      const results: DatabaseStats = {
+        totalTransactions: 0,
+        totalExchanges: 0,
+        transactionsByExchange: [],
+        totalVerifications: 0,
+        totalSnapshots: 0
+      };
 
       this.db.serialize(() => {
-        this.db.get(queries[0]!, (err, row: any) => {
+        this.db.get(queries[0]!, (err, row: StatRow) => {
           if (err) return reject(err);
-          results.totalTransactions = row.total_transactions;
+          results.totalTransactions = row.total_transactions || 0;
         });
 
-        this.db.get(queries[1]!, (err, row: any) => {
+        this.db.get(queries[1]!, (err, row: StatRow) => {
           if (err) return reject(err);
-          results.totalExchanges = row.total_exchanges;
+          results.totalExchanges = row.total_exchanges || 0;
         });
 
-        this.db.all(queries[2]!, (err, rows: any[]) => {
+        this.db.all(queries[2]!, (err, rows: Array<{ exchange: string; count: number }>) => {
           if (err) return reject(err);
           results.transactionsByExchange = rows;
         });
 
-        this.db.get(queries[3]!, (err, row: any) => {
+        this.db.get(queries[3]!, (err, row: StatRow) => {
           if (err) return reject(err);
-          results.totalVerifications = row.total_verifications;
+          results.totalVerifications = row.total_verifications || 0;
         });
 
-        this.db.get(queries[4]!, (err, row: any) => {
+        this.db.get(queries[4]!, (err, row: StatRow) => {
           if (err) return reject(err);
-          results.totalSnapshots = row.total_snapshots;
+          results.totalSnapshots = row.total_snapshots || 0;
           resolve(results);
         });
       });
@@ -616,7 +624,7 @@ export class Database {
     return new Promise((resolve, reject) => {
       const now = Math.floor(Date.now() / 1000);
       const setParts: string[] = [];
-      const params: any[] = [];
+      const params: SQLParam[] = [];
 
       if (updates.label !== undefined) {
         setParts.push('label = ?');
@@ -660,7 +668,7 @@ export class Database {
     return new Promise((resolve, reject) => {
       const query = 'SELECT * FROM wallet_addresses WHERE id = ?';
 
-      this.db.get(query, [id], (err, row: any) => {
+      this.db.get<WalletAddress>(query, [id], (err, row: WalletAddress | undefined) => {
         if (err) {
           reject(err);
         } else if (!row) {
@@ -671,11 +679,11 @@ export class Database {
             address: row.address,
             blockchain: row.blockchain,
             label: row.label,
-            addressType: row.address_type,
-            isActive: Boolean(row.is_active),
+            addressType: row.addressType,
+            isActive: Boolean(row.isActive),
             notes: row.notes,
-            createdAt: row.created_at,
-            updatedAt: row.updated_at
+            createdAt: row.createdAt,
+            updatedAt: row.updatedAt
           });
         }
       });
@@ -686,7 +694,7 @@ export class Database {
     return new Promise((resolve, reject) => {
       let sql = 'SELECT * FROM wallet_addresses';
       const conditions: string[] = [];
-      const params: any[] = [];
+      const params: SQLParam[] = [];
 
       if (query) {
         if (query.blockchain) {
@@ -714,7 +722,7 @@ export class Database {
 
       sql += ' ORDER BY created_at DESC';
 
-      this.db.all(sql, params, (err, rows: any[]) => {
+      this.db.all(sql, params, (err, rows: WalletAddress[]) => {
         if (err) {
           reject(err);
         } else {
@@ -723,11 +731,11 @@ export class Database {
             address: row.address,
             blockchain: row.blockchain,
             label: row.label,
-            addressType: row.address_type,
-            isActive: Boolean(row.is_active),
+            addressType: row.addressType,
+            isActive: Boolean(row.isActive),
             notes: row.notes,
-            createdAt: row.created_at,
-            updatedAt: row.updated_at
+            createdAt: row.createdAt,
+            updatedAt: row.updatedAt
           }));
           resolve(addresses);
         }
@@ -739,7 +747,7 @@ export class Database {
     return new Promise((resolve, reject) => {
       const query = 'SELECT * FROM wallet_addresses WHERE address = ? AND blockchain = ?';
 
-      this.db.get(query, [address, blockchain], (err, row: any) => {
+      this.db.get(query, [address, blockchain], (err, row: WalletAddress) => {
         if (err) {
           reject(err);
         } else if (!row) {
@@ -750,11 +758,11 @@ export class Database {
             address: row.address,
             blockchain: row.blockchain,
             label: row.label,
-            addressType: row.address_type,
-            isActive: Boolean(row.is_active),
+            addressType: row.addressType,
+            isActive: Boolean(row.isActive),
             notes: row.notes,
-            createdAt: row.created_at,
-            updatedAt: row.updated_at
+            createdAt: row.createdAt,
+            updatedAt: row.updatedAt
           });
         }
       });
@@ -771,7 +779,7 @@ export class Database {
         query = 'SELECT * FROM wallet_addresses WHERE address = ? AND blockchain = ?';
       }
 
-      this.db.get(query, [normalizedAddress, blockchain], (err, row: any) => {
+      this.db.get(query, [normalizedAddress, blockchain], (err, row: WalletAddress) => {
         if (err) {
           reject(err);
         } else if (!row) {
@@ -782,11 +790,11 @@ export class Database {
             address: row.address,
             blockchain: row.blockchain,
             label: row.label,
-            addressType: row.address_type,
-            isActive: Boolean(row.is_active),
+            addressType: row.addressType,
+            isActive: Boolean(row.isActive),
             notes: row.notes,
-            createdAt: row.created_at,
-            updatedAt: row.updated_at
+            createdAt: row.createdAt,
+            updatedAt: row.updatedAt
           });
         }
       });

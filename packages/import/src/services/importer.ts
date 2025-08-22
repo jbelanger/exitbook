@@ -1,10 +1,9 @@
-import type { IUniversalAdapter, UniversalTransaction } from '@crypto/core';
+import type { IUniversalAdapter, TransactionNote, UniversalAdapterConfig, UniversalFetchParams, UniversalTransaction } from '@crypto/core';
 import { Database, TransactionRepository, TransactionService, WalletRepository, WalletService } from '@crypto/data';
 import { getLogger } from '@crypto/shared-logger';
 import { type BlockchainExplorersConfig } from '@crypto/shared-utils';
 import { UniversalAdapterFactory } from '../shared/adapters/adapter-factory.ts';
-import type { FetchParams } from '../shared/types/adapters.ts';
-import type { BlockchainAdapterConfig, ExchangeAdapterConfig } from '../shared/types/config.ts';
+import type { BlockchainAdapterConfig } from '../shared/types/config.ts';
 import type { ImportResult, ImportSummary } from '../shared/types/types.ts';
 import { detectScamFromSymbol } from '../shared/utils/scam-detection.ts';
 import { Deduplicator } from './deduplicator.ts';
@@ -82,7 +81,7 @@ export class TransactionImporter {
   /**
    * Universal adapter import method - unified interface for all adapter types
    */
-  async importFromAdapter(adapter: IUniversalAdapter, params: FetchParams): Promise<ImportResult> {
+  async importFromAdapter(adapter: IUniversalAdapter, params: UniversalFetchParams): Promise<ImportResult> {
     const startTime = Date.now();
     const info = await adapter.getInfo();
     this.logger.info(`Starting import from ${info.name} (${info.type})`);
@@ -141,14 +140,14 @@ export class TransactionImporter {
       credentials?: {
         apiKey: string;
         secret: string;
-        password?: string;
-      };
-      csvDirectories?: string[];
-      since?: number;
-      symbols?: string[];
+        password?: string | undefined;
+      } | undefined;
+      csvDirectories?: string[] | undefined;
+      since?: number | undefined;
+      symbols?: string[] | undefined;
     }
   ): Promise<ImportResult> {
-    const config: ExchangeAdapterConfig = {
+    const config: UniversalAdapterConfig = {
       type: 'exchange',
       id: exchangeId,
       subType: adapterType,
@@ -219,7 +218,7 @@ export class TransactionImporter {
    */
   private enhanceUniversalTransaction(transaction: UniversalTransaction, sourceId: string): UniversalTransaction {
     // Detect scam tokens for blockchain transactions
-    let scamNote: any = undefined;
+    let scamNote: TransactionNote | undefined = undefined;
     const isBlockchainTransaction = sourceId.includes('mainnet') || ['ethereum', 'bitcoin', 'solana'].includes(sourceId);
     if (isBlockchainTransaction && transaction.symbol && transaction.type === 'deposit') {
       const scamCheck = detectScamFromSymbol(transaction.symbol);
