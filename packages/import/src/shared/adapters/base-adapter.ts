@@ -8,6 +8,10 @@ import type {
   UniversalBalance,
   UniversalAdapterConfig 
 } from '@crypto/core';
+import { 
+  validateUniversalTransactions, 
+  validateUniversalBalances 
+} from '@crypto/core';
 
 export abstract class BaseAdapter implements IUniversalAdapter {
   protected logger: Logger;
@@ -24,14 +28,49 @@ export abstract class BaseAdapter implements IUniversalAdapter {
     await this.validateParams(params);
     const rawData = await this.fetchRawTransactions(params);
     const transactions = await this.transformTransactions(rawData, params);
-    const filtered = this.applyFilters(transactions, params);
+    
+    // NEW: Validate every transaction using Zod schemas
+    const { valid, invalid } = validateUniversalTransactions(transactions);
+    
+    // Log validation errors but continue processing with valid transactions
+    if (invalid.length > 0) {
+      this.logger.error(
+        `${invalid.length} invalid transactions from ${this.constructor.name}. ` +
+        `Adapter: ${this.constructor.name}, Invalid: ${invalid.length}, Valid: ${valid.length}, Total: ${transactions.length}. ` +
+        `Errors: ${invalid.map(({ errors }) => 
+          errors.issues.map(issue => `${issue.path.join('.')}: ${issue.message}`).join('; ')
+        ).join(' | ')}`
+      );
+    }
+    
+    this.logger.debug(`Validation completed: ${valid.length} valid, ${invalid.length} invalid transactions`);
+    
+    const filtered = this.applyFilters(valid, params);
     return this.sortTransactions(filtered);
   }
   
   async fetchBalances(params: UniversalFetchParams): Promise<UniversalBalance[]> {
     await this.validateParams(params);
     const rawBalances = await this.fetchRawBalances(params);
-    return this.transformBalances(rawBalances, params);
+    const balances = await this.transformBalances(rawBalances, params);
+    
+    // NEW: Validate every balance using Zod schemas
+    const { valid, invalid } = validateUniversalBalances(balances);
+    
+    // Log validation errors but continue processing with valid balances
+    if (invalid.length > 0) {
+      this.logger.error(
+        `${invalid.length} invalid balances from ${this.constructor.name}. ` +
+        `Adapter: ${this.constructor.name}, Invalid: ${invalid.length}, Valid: ${valid.length}, Total: ${balances.length}. ` +
+        `Errors: ${invalid.map(({ errors }) => 
+          errors.issues.map(issue => `${issue.path.join('.')}: ${issue.message}`).join('; ')
+        ).join(' | ')}`
+      );
+    }
+    
+    this.logger.debug(`Balance validation completed: ${valid.length} valid, ${invalid.length} invalid balances`);
+    
+    return valid;
   }
   
   // Abstract hooks for subclasses
