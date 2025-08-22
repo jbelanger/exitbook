@@ -208,12 +208,7 @@ export class BalanceVerifier {
 
       // Log significant discrepancies as errors
       if (comparison.status === 'mismatch' && comparison.percentageDiff > 5) {
-        this.logBalanceDiscrepancy(exchangeId, comparison.currency, {
-          liveBalance: comparison.liveBalance,
-          calculatedBalance: comparison.calculatedBalance,
-          difference: comparison.difference,
-          percentageDiff: comparison.percentageDiff
-        });
+        this.logBalanceDiscrepancy(exchangeId, comparison.currency, comparison);
       }
     }
   }
@@ -304,14 +299,14 @@ export class BalanceVerifier {
     return ageHours >= maxAgeHours;
   }
 
-  logBalanceVerification(exchange: string, currency: string, result: any) {
+  private logBalanceVerification(exchange: string, currency: string, result: BalanceComparison) {
     const level = result.status === 'mismatch' ? 'warn' : 'info';
     const message = `Balance verification ${result.status} for ${exchange} ${currency}`;
 
     this.logger[level](`${message} - Exchange: ${exchange}, Currency: ${currency}, Operation: balance_verification, LiveBalance: ${result.liveBalance}, CalculatedBalance: ${result.calculatedBalance}, Difference: ${result.difference}, PercentageDiff: ${result.percentageDiff}%, Status: ${result.status}`);
   }
 
-  logBalanceDiscrepancy(exchange: string, currency: string, discrepancy: any) {
+  private logBalanceDiscrepancy(exchange: string, currency: string, discrepancy: BalanceComparison) {
     this.logger.error(`Significant balance discrepancy detected - Exchange: ${exchange}, Currency: ${currency}, Operation: balance_verification_error, LiveBalance: ${discrepancy.liveBalance}, CalculatedBalance: ${discrepancy.calculatedBalance}, Difference: ${discrepancy.difference}, PercentageDiff: ${discrepancy.percentageDiff}%`);
   }
 } 

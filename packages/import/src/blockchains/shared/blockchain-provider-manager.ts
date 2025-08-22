@@ -23,8 +23,8 @@ export class BlockchainProviderManager {
   private rateLimiters = new Map<string, { lastRequest: number; tokens: number }>(); // Simple token bucket
   private readonly cacheTimeout = 30000; // 30 seconds
   private readonly healthCheckInterval = 60000; // 1 minute
-  private healthCheckTimer?: NodeJS.Timeout;
-  private cacheCleanupTimer?: NodeJS.Timeout;
+  private healthCheckTimer?: NodeJS.Timeout | undefined;
+  private cacheCleanupTimer?: NodeJS.Timeout | undefined;
 
   constructor(private readonly explorerConfig: BlockchainExplorersConfig) {
     // Start periodic health checks
@@ -120,8 +120,8 @@ export class BlockchainProviderManager {
           }
 
           // Build provider config by merging defaults with overrides
-          const networkEndpoints = explorerConfig as any; // Explorer config has dynamic network properties
-          const metadataNetworks = metadata.networks as any; // Metadata networks has dynamic properties
+          const networkEndpoints = explorerConfig; // Explorer config has dynamic network properties
+          const metadataNetworks = metadata.networks; // Metadata networks has dynamic properties
 
           const providerConfig = {
             ...metadata.defaultConfig,
@@ -253,7 +253,7 @@ export class BlockchainProviderManager {
         const responseTime = Date.now() - startTime;
 
         // Log error without sensitive params details
-        const logData: any = {
+        const logData = {
           error: error instanceof Error ? error.message : String(error),
           provider: provider.name,
           operation: operation.type,
@@ -330,7 +330,7 @@ export class BlockchainProviderManager {
     capabilities: ProviderCapabilities,
     operationType: string
   ): boolean {
-    return capabilities.supportedOperations.includes(operationType as any);
+    return capabilities.supportedOperations.includes(operationType);
   }
 
   /**

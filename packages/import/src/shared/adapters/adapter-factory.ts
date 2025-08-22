@@ -45,7 +45,7 @@ export class UniversalAdapterFactory {
       return this.createBlockchainAdapter(config as UniversalBlockchainAdapterConfig, explorerConfig);
     }
     
-    throw new Error(`Unsupported adapter type: ${(config as any).type}`);
+    throw new Error(`Unsupported adapter type: ${(config as UniversalAdapterConfig).type}`);
   }
 
   /**
@@ -118,7 +118,7 @@ export class UniversalAdapterFactory {
         return new CoinbaseCCXTAdapter({
           apiKey: config.credentials.apiKey,
           secret: config.credentials.secret,
-          password: config.credentials.password || '',
+          passphrase: config.credentials.password || '',
           sandbox: false
         }, { enableOnlineVerification: true });
       default:
@@ -168,9 +168,9 @@ export class UniversalAdapterFactory {
       credentials?: {
         apiKey: string;
         secret: string;
-        password?: string;
-      };
-      csvDirectories?: string[];
+        password?: string | undefined;
+      } | undefined;
+      csvDirectories?: string[] | undefined;
     }
   ): UniversalExchangeAdapterConfig {
     return {

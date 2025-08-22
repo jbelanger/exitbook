@@ -1,6 +1,6 @@
-import type { StoredTransaction } from '../types/data-types.js';
 import type { BalanceSnapshot, BalanceVerificationRecord } from '@crypto/balance';
 import { Database } from '../storage/database.ts';
+import type { StoredTransaction } from '../types/data-types.js';
 
 export class BalanceRepository {
   private database: Database;
@@ -40,7 +40,7 @@ export class BalanceRepository {
         ORDER BY timestamp ASC
       `;
 
-      this.database['db'].all(query, [exchange], (err: any, rows: any[]) => {
+      this.database['db'].all(query, [exchange], (err: Error | null, rows: StoredTransaction[]) => {
         if (err) {
           reject(err);
         } else {

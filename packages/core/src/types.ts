@@ -136,7 +136,7 @@ export interface BlockchainBalance {
   balance: number; // Available/free amount
   used: number;    // Used/frozen amount  
   total: number;   // Total balance (balance + used)
-  contractAddress?: string;
+  contractAddress?: string | undefined;
 }
 
 // Legacy alias for compatibility
@@ -333,18 +333,18 @@ export interface UniversalAdapterCapabilities {
 
 export interface UniversalFetchParams {
   // Universal params
-  addresses?: string[];        // For blockchains OR exchange accounts
-  symbols?: string[];          // Filter by asset symbols
-  since?: number;              // Time filter
-  until?: number;              // Time filter
-  
+  addresses?: string[] | undefined;        // For blockchains OR exchange accounts
+  symbols?: string[] | undefined;          // Filter by asset symbols
+  since?: number | undefined;              // Time filter
+  until?: number | undefined;              // Time filter
+
   // Optional type-specific params
-  includeTokens?: boolean;     // For blockchains
-  transactionTypes?: TransactionType[];
-  
+  includeTokens?: boolean | undefined;     // For blockchains
+  transactionTypes?: TransactionType[] | undefined;
+
   // Pagination
-  limit?: number;
-  offset?: number;
+  limit?: number | undefined;
+  offset?: number | undefined;
 }
 
 export interface UniversalTransaction {
@@ -362,13 +362,13 @@ export interface UniversalTransaction {
   side?: 'buy' | 'sell' | undefined; // Trade side for balance calculations
   
   // Parties (works for both)
-  from?: string;  // Sender address OR exchange account
-  to?: string;    // Receiver address OR exchange account
-  symbol?: string; // Add symbol for trades
-  
+  from?: string | undefined;  // Sender address OR exchange account
+  to?: string | undefined;    // Receiver address OR exchange account
+  symbol?: string | undefined; // Add symbol for trades
+
   // Metadata
   source: string; // e.g., 'coinbase', 'bitcoin'
-  network?: string; // e.g., 'mainnet'
+  network?: string | undefined; // e.g., 'mainnet'
   metadata: Record<string, unknown>;
 }
 
@@ -392,9 +392,9 @@ export interface UniversalExchangeAdapterConfig extends BaseUniversalAdapterConf
   credentials?: { 
     apiKey: string; 
     secret: string; 
-    password?: string; 
-  };
-  csvDirectories?: string[];
+    password?: string | undefined; 
+  } | undefined;
+  csvDirectories?: string[] | undefined;
 }
 
 export interface UniversalBlockchainAdapterConfig extends BaseUniversalAdapterConfig {
