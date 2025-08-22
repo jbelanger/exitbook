@@ -35,14 +35,14 @@ function generateConfiguration(): void {
   }
 
   // Generate configuration object
-  const config: any = {};
+  const config: Record<string, { explorers: Array<{ name: string; enabled: boolean; priority?: number; networks?: Record<string, unknown> }> }> = {};
 
   for (const [blockchain, providers] of providersByBlockchain.entries()) {
     config[blockchain] = {
       explorers: providers.map((provider, index) => {
         const metadata = ProviderRegistry.getMetadata(blockchain, provider.name);
 
-        const explorerConfig: any = {
+        const explorerConfig: { name: string; enabled: boolean; priority?: number; networks?: Record<string, unknown> } = {
           name: provider.name,
           displayName: provider.displayName,
           enabled: index === 0, // Enable first provider by default
@@ -127,8 +127,8 @@ function generateConfiguration(): void {
     console.log('─'.repeat(50));
 
     for (const [blockchain, blockchainConfig] of Object.entries(config)) {
-      const { explorers } = blockchainConfig as any;
-      const enabled = explorers.filter((e: any) => e.enabled);
+      const { explorers } = blockchainConfig;
+      const enabled = explorers.filter(e => e.enabled);
 
       console.log(`${blockchain.toUpperCase()}:`);
       console.log(`  Providers: ${explorers.length} (${enabled.length} enabled)`);

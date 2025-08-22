@@ -24,7 +24,7 @@ export interface SolscanTransaction {
     program: string;
     programId: string;
     type: string;
-    params?: any;
+    params?: Record<string, unknown>;
   }>;
 }
 
@@ -63,16 +63,16 @@ export interface SolanaRPCTransaction {
     signatures: string[];
   };
   meta: {
-    err: any;
+    err: unknown;
     fee: number;
-    innerInstructions: any[];
+    innerInstructions: unknown[];
     logMessages: string[];
     postBalances: number[];
-    postTokenBalances: any[];
+    postTokenBalances: unknown[];
     preBalances: number[];
-    preTokenBalances: any[];
-    rewards: any[];
-    status: { Ok: null } | { Err: any };
+    preTokenBalances: unknown[];
+    rewards: unknown[];
+    status: { Ok: null } | { Err: unknown };
   };
   blockTime: number;
 }
@@ -81,7 +81,7 @@ export interface SolanaRPCTransaction {
  * Parse Solana transaction type from instructions
  */
 export function parseSolanaTransactionType(
-  instructions: any[],
+  instructions: unknown[],
   userAddress: string,
   preBalances: number[],
   postBalances: number[],
@@ -144,6 +144,6 @@ export interface ProcessedSolanaTransaction {
   instructions: Array<{
     program: string;
     type: string;
-    data?: any;
+    data?: unknown;
   }>;
 }

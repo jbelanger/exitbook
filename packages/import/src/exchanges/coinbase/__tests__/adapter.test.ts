@@ -53,7 +53,7 @@ describe('CoinbaseAdapter', () => {
       getAccounts: vi.fn(),
       getAllAccountLedgerEntries: vi.fn(),
       getRateLimitStatus: vi.fn()
-    } as any;
+    } as unknown as CoinbaseAPIClient;
 
     (CoinbaseAPIClient as vi.MockedClass<typeof CoinbaseAPIClient>).mockImplementation(() => mockApiClient);
 

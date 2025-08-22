@@ -83,21 +83,21 @@ export interface SubstrateTransaction {
   success: boolean;
   module: string;
   call: string;
-  args?: any;
+  args?: unknown;
   events?: SubstrateEvent[];
 }
 
 export interface SubstrateEvent {
   method: string;
   section: string;
-  data: any[];
+  data: unknown[];
 }
 
 export interface SubstrateExtrinsic {
   hash: string;
   method: string;
   section: string;
-  args: any;
+  args: unknown;
   signer: string;
   nonce: number;
   signature: string;
@@ -145,7 +145,7 @@ export interface SubstrateRPCMethods {
   }>;
   
   // Chain methods
-  'chain_getBlock': (blockHash?: string) => Promise<any>;
+  'chain_getBlock': (blockHash?: string) => Promise<SubstrateBlock>;
   'chain_getBlockHash': (blockNumber?: number) => Promise<string>;
   'chain_getFinalizedHead': () => Promise<string>;
   
@@ -202,4 +202,15 @@ export function parseSubstrateTransactionType(module: string, method: string): S
     default:
       return 'custom';
   }
+}
+
+// Taostats transaction interface for Bittensor
+export interface TaostatsTransaction {
+  from: string;
+  to: string;
+  hash: string;
+  block: number;
+  timestamp: number;
+  amount: string;
+  fee?: string;
 }

@@ -147,7 +147,7 @@ export interface CoinbaseAPIError {
   /** Error message */
   message: string;
   /** Additional error details */
-  details?: any;
+  details?: unknown;
 }
 
 /**

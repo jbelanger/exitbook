@@ -12,7 +12,7 @@ import { ProviderRegistry, type ProviderMetadata } from './provider-registry.ts'
  */
 export abstract class BaseRegistryProvider implements IBlockchainProvider {
   protected readonly metadata: ProviderMetadata;
-  protected readonly httpClient: HttpClient;
+  protected httpClient: HttpClient;
   protected readonly logger: Logger;
   protected readonly apiKey: string;
   protected readonly baseUrl: string;
@@ -75,7 +75,7 @@ export abstract class BaseRegistryProvider implements IBlockchainProvider {
 
   // Helper methods
   private getNetworkBaseUrl(network: string): string {
-    const networks = this.metadata.networks as any;
+    const networks = this.metadata.networks as Record<string, { baseUrl: string; websocketUrl?: string }>;
     const networkConfig = networks[network];
 
     if (!networkConfig?.baseUrl) {
@@ -140,6 +140,6 @@ export abstract class BaseRegistryProvider implements IBlockchainProvider {
       ...(config.defaultHeaders && { defaultHeaders: config.defaultHeaders })
     };
 
-    (this as any).httpClient = new HttpClient(clientConfig);
+    this.httpClient = new HttpClient(clientConfig);
   }
 }

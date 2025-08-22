@@ -10,7 +10,7 @@ export class ServiceErrorHandler {
   /**
    * Handle errors and convert to appropriate exception types
    */
-  static handle(error: any, operation: string, exchangeId: string, logger?: Logger): never {
+  static handle(error: unknown, operation: string, exchangeId: string, logger?: Logger): never {
     if (logger) {
       logger.error(`Exchange operation failed: ${operation} - Exchange: ${exchangeId}, Error: ${error instanceof Error ? error.message : 'Unknown error'}, Type: ${error instanceof Error ? error.constructor.name : 'Unknown'}`);
     }
@@ -79,7 +79,7 @@ export class ServiceErrorHandler {
   /**
    * Check if error is a rate limit error
    */
-  static isRateLimit(error: any): boolean {
+  static isRateLimit(error: unknown): boolean {
     return error instanceof ccxt.RateLimitExceeded ||
       error.name === 'RateLimitExceeded' ||
       (error.message && error.message.toLowerCase().includes('rate limit'));
@@ -88,7 +88,7 @@ export class ServiceErrorHandler {
   /**
    * Check if error is an authentication error
    */
-  static isAuthError(error: any): boolean {
+  static isAuthError(error: unknown): boolean {
     return error instanceof ccxt.AuthenticationError ||
       error.name === 'AuthenticationError' ||
       (error.message && (
@@ -102,7 +102,7 @@ export class ServiceErrorHandler {
   /**
    * Check if error is a network error
    */
-  static isNetworkError(error: any): boolean {
+  static isNetworkError(error: unknown): boolean {
     return error instanceof ccxt.NetworkError ||
       error.name === 'NetworkError' ||
       (error.message && (
@@ -115,7 +115,7 @@ export class ServiceErrorHandler {
   /**
    * Check if error indicates operation is not supported
    */
-  static isNotSupported(error: any): boolean {
+  static isNotSupported(error: unknown): boolean {
     return error instanceof ccxt.NotSupported ||
       error.name === 'NotSupported' ||
       (error.message && (
@@ -127,7 +127,7 @@ export class ServiceErrorHandler {
   /**
    * Extract retry after value from rate limit error
    */
-  static extractRetryAfter(error: any): number {
+  static extractRetryAfter(error: unknown): number {
     // Try to get retry after from CCXT error
     if (error.retryAfter && typeof error.retryAfter === 'number') {
       return error.retryAfter;
@@ -153,7 +153,7 @@ export class ServiceErrorHandler {
   /**
    * Log error details for debugging
    */
-  static logErrorDetails(error: any, operation: string, exchangeId: string, logger: Logger): void {
+  static logErrorDetails(error: unknown, operation: string, exchangeId: string, logger: Logger): void {
     const details = {
       operation,
       exchange: exchangeId,
@@ -172,7 +172,7 @@ export class ServiceErrorHandler {
   /**
    * Check if error is recoverable (should retry)
    */
-  static isRecoverable(error: any): boolean {
+  static isRecoverable(error: unknown): boolean {
     return this.isRateLimit(error) ||
       this.isNetworkError(error) ||
       (error.message && (
