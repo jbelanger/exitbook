@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 import { Decimal } from 'decimal.js';
-import type { IExchangeAdapter, IBlockchainAdapter, CryptoTransaction, BlockchainTransaction, ExchangeBalance, BlockchainBalance } from '@crypto/core';
+import type { IExchangeAdapter, IBlockchainAdapter, CryptoTransaction, BlockchainTransaction, UniversalBalance, BlockchainBalance } from '@crypto/core';
 import { ExchangeBridgeAdapter, BlockchainBridgeAdapter } from '../../packages/import/src/adapters/universal/index.js';
 import type { ExchangeAdapterConfig, BlockchainAdapterConfig } from '../../packages/import/src/adapters/universal/index.js';
 
@@ -54,10 +54,10 @@ describe('Bridge Adapters', () => {
         fetchBalance: jest.fn().mockResolvedValue([
           {
             currency: 'BTC',
-            balance: 1.5,
+            free: 1.5,
             used: 0,
             total: 1.5
-          } as ExchangeBalance
+          } as UniversalBalance
         ]),
         close: jest.fn().mockResolvedValue(undefined)
       };
