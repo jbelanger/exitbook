@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
 import * as crypto from 'crypto';
-import { CoinbaseAPIClient } from '../coinbase-api-client';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { CoinbaseAPIClient } from '../coinbase-api-client.ts';
 import type { CoinbaseCredentials, RawCoinbaseAccount, RawCoinbaseLedgerEntry } from '../types';
 
 // Mock the HttpClient

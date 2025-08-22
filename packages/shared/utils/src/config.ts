@@ -35,7 +35,7 @@ export interface ExchangeConfiguration {
       enabled: boolean;
       adapterType: 'ccxt' | 'native' | 'csv';
       credentials: Record<string, string>;
-      options: Record<string, any>;
+      options: Record<string, unknown>;
     };
   };
 }
@@ -155,7 +155,7 @@ export class ConfigUtils {
   /**
    * Resolve environment variables in configuration
    */
-  static resolveEnvironmentVariables(credentials: any): any {
+  static resolveEnvironmentVariables(credentials: Record<string, unknown>): Record<string, unknown> {
     const resolved = { ...credentials };
     const logger = getLogger('ConfigUtils');
 

@@ -1,3 +1,5 @@
+import type { HDKey } from '@scure/bip32';
+
 // Bitcoin provider-specific API response types
 export type XpubType = 'xpub' | 'ypub' | 'zpub' | 'address';
 export type BipStandard = 'bip44' | 'bip49' | 'bip84';
@@ -14,7 +16,7 @@ export interface BitcoinWalletAddress {
 }
 
 export interface SmartDetectionResult {
-  hdNode: any; // HDKey from @scure/bip32
+  hdNode: HDKey;
   addressFunction: (pubkey: Buffer) => string;
   bipStandard: BipStandard;
   addressType: AddressType;

@@ -74,10 +74,10 @@ export abstract class BaseAdapter implements IUniversalAdapter {
   }
   
   // Abstract hooks for subclasses
-  protected abstract fetchRawTransactions(params: UniversalFetchParams): Promise<any>;
-  protected abstract fetchRawBalances(params: UniversalFetchParams): Promise<any>;
-  protected abstract transformTransactions(raw: any, params: UniversalFetchParams): Promise<UniversalTransaction[]>;
-  protected abstract transformBalances(raw: any, params: UniversalFetchParams): Promise<UniversalBalance[]>;
+  protected abstract fetchRawTransactions(params: UniversalFetchParams): Promise<unknown>;
+  protected abstract fetchRawBalances(params: UniversalFetchParams): Promise<unknown>;
+  protected abstract transformTransactions(raw: unknown, params: UniversalFetchParams): Promise<UniversalTransaction[]>;
+  protected abstract transformBalances(raw: unknown, params: UniversalFetchParams): Promise<UniversalBalance[]>;
   
   // Common utilities
   protected async validateParams(params: UniversalFetchParams): Promise<void> {

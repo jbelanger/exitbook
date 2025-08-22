@@ -12,6 +12,7 @@ import type {
 import { BaseAdapter } from '../../shared/adapters/base-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
 import type { BlockchainExplorersConfig } from '../shared/explorer-config.ts';
+import type { AddressTransactionParams, TokenTransactionParams, AddressBalanceParams } from '../shared/types.ts';
 
 export class InjectiveAdapter extends BaseAdapter {
   private providerManager: BlockchainProviderManager;
@@ -65,7 +66,7 @@ export class InjectiveAdapter extends BaseAdapter {
         const regularTxs = await this.providerManager.executeWithFailover('injective', {
           type: 'getAddressTransactions',
           params: { address, since: params.since },
-          getCacheKey: (cacheParams: any) => `inj_tx_${cacheParams.address}_${cacheParams.since || 'all'}`
+          getCacheKey: (cacheParams) => `inj_tx_${(cacheParams as AddressTransactionParams).address}_${(cacheParams as AddressTransactionParams).since || 'all'}`
         }) as BlockchainTransaction[];
 
         // Try to fetch token transactions (if provider supports it)
@@ -75,7 +76,7 @@ export class InjectiveAdapter extends BaseAdapter {
           tokenTxs = await this.providerManager.executeWithFailover('injective', {
             type: 'getTokenTransactions',
             params: { address, since: params.since },
-            getCacheKey: (cacheParams: any) => `inj_token_tx_${cacheParams.address}_${cacheParams.since || 'all'}`
+            getCacheKey: (cacheParams) => `inj_token_tx_${(cacheParams as TokenTransactionParams).address}_${(cacheParams as TokenTransactionParams).since || 'all'}`
           }) as BlockchainTransaction[];
         } catch (error) {
           this.logger.debug(`Provider does not support separate token transactions or failed to fetch - Error: ${error instanceof Error ? error.message : String(error)}`);
@@ -124,7 +125,7 @@ export class InjectiveAdapter extends BaseAdapter {
         const balances = await this.providerManager.executeWithFailover('injective', {
           type: 'getAddressBalance',
           params: { address },
-          getCacheKey: (cacheParams: any) => `inj_balance_${cacheParams.address}`
+          getCacheKey: (cacheParams) => `inj_balance_${(cacheParams as AddressBalanceParams).address}`
         }) as Balance[];
 
         allBalances.push(...balances);

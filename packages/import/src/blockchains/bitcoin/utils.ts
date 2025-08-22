@@ -5,6 +5,7 @@ import { getLogger } from '@crypto/shared-logger';
 
 import type { AddressInfo, AddressType, BipStandard, BitcoinWalletAddress, SmartDetectionResult, XpubType } from './types.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
+import type { AddressInfoParams } from '../shared/types.ts';
 
 const logger = getLogger('BitcoinUtils');
 
@@ -94,7 +95,7 @@ export class BitcoinUtils {
         const addressInfo = await providerManager.executeWithFailover('bitcoin', {
           type: 'getAddressInfo',
           params: { address },
-          getCacheKey: (params: any) => `bitcoin:address-info:${params.address}`
+          getCacheKey: (params) => `bitcoin:address-info:${(params as AddressInfoParams).address}`
         }) as AddressInfo;
 
         const hasActivity = addressInfo.txCount > 0;

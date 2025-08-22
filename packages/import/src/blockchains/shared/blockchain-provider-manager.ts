@@ -11,7 +11,7 @@ import type { IBlockchainProvider, ProviderCapabilities, ProviderOperation } fro
 const logger = getLogger('BlockchainProviderManager');
 
 interface CacheEntry {
-  result: any;
+  result: unknown;
   expiry: number;
 }
 

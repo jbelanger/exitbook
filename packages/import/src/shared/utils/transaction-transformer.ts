@@ -7,6 +7,26 @@ import type {
 import { createMoney } from '@crypto/shared-utils';
 import crypto from 'crypto';
 
+// CCXT Transaction interface based on commonly used properties
+export interface CCXTTransaction {
+  id?: string;
+  txid?: string;
+  timestamp?: number;
+  datetime?: string;
+  symbol?: string;
+  amount?: number;
+  side?: string;
+  price?: number;
+  cost?: number;
+  status?: string;
+  currency?: string;
+  fee?: {
+    cost?: number;
+    currency?: string;
+  };
+  info?: Record<string, unknown>;
+  type?: string;
+}
 
 /**
  * Transforms CCXT transactions to our standard CryptoTransaction format
@@ -16,7 +36,7 @@ export class TransactionTransformer {
   /**
    * Converts CCXT transaction data to standardized CryptoTransaction format
    */
-  static fromCCXT(ccxtTransaction: any, type: TransactionType, exchangeId: string): CryptoTransaction {
+  static fromCCXT(ccxtTransaction: CCXTTransaction, type: TransactionType, exchangeId: string): CryptoTransaction {
     const { baseCurrency, quoteCurrency } = this.extractCurrencies(ccxtTransaction);
     const transactionId = this.extractTransactionId(ccxtTransaction, exchangeId);
     const timestamp = ccxtTransaction.timestamp || Date.now();
@@ -44,7 +64,7 @@ export class TransactionTransformer {
   /**
    * Extracts base and quote currencies from transaction data
    */
-  static extractCurrencies(transaction: any): { baseCurrency: string; quoteCurrency: string } {
+  static extractCurrencies(transaction: CCXTTransaction): { baseCurrency: string; quoteCurrency: string } {
     let baseCurrency = 'unknown';
     let quoteCurrency = 'unknown';
 
@@ -64,14 +84,14 @@ export class TransactionTransformer {
   /**
    * Extracts transaction ID with fallback to generated hash
    */
-  private static extractTransactionId(transaction: any, exchangeId: string): string {
+  private static extractTransactionId(transaction: CCXTTransaction, exchangeId: string): string {
     return transaction.id || transaction.txid || this.createTransactionHash(transaction, exchangeId);
   }
 
   /**
    * Extracts and normalizes price information
    */
-  private static extractPrice(transaction: any, type: TransactionType, quoteCurrency: string): Money | undefined {
+  private static extractPrice(transaction: CCXTTransaction, type: TransactionType, quoteCurrency: string): Money | undefined {
     if (transaction.price) {
       return createMoney(transaction.price, quoteCurrency);
     }
@@ -87,7 +107,7 @@ export class TransactionTransformer {
   /**
    * Extracts fee information from transaction
    */
-  private static extractFee(transaction: any): Money | undefined {
+  private static extractFee(transaction: CCXTTransaction): Money | undefined {
     if (transaction.fee?.cost) {
       return createMoney(transaction.fee.cost, transaction.fee.currency || 'unknown');
     }
@@ -97,8 +117,8 @@ export class TransactionTransformer {
   /**
    * Normalizes various exchange status formats to standard TransactionStatus
    */
-  static normalizeStatus(status: any): TransactionStatus {
-    if (!status) return 'pending';
+  static normalizeStatus(status: unknown): TransactionStatus {
+    if (!status || typeof status !== 'string') return 'pending';
 
     const statusMap: Record<string, TransactionStatus> = {
       'open': 'open',
@@ -122,7 +142,7 @@ export class TransactionTransformer {
   /**
    * Generates unique transaction identifier from transaction data
    */
-  static createTransactionHash(transaction: any, exchangeId: string): string {
+  static createTransactionHash(transaction: CCXTTransaction, exchangeId: string): string {
     const hashData = JSON.stringify({
       id: transaction.id,
       timestamp: transaction.timestamp,
@@ -139,7 +159,7 @@ export class TransactionTransformer {
   /**
    * Determines if transaction should be excluded from import
    */
-  static shouldFilterOut(transaction: any): boolean {
+  static shouldFilterOut(transaction: CCXTTransaction): boolean {
     // Check CCXT status
     if (transaction.status === 'canceled' || transaction.status === 'cancelled') {
       return true;
