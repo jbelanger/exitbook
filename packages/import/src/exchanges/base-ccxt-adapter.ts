@@ -62,35 +62,66 @@ export abstract class BaseCCXTAdapter extends BaseAdapter {
 
   protected async fetchRawTransactions(params: UniversalFetchParams): Promise<CryptoTransaction[]> {
     const startTime = Date.now();
-    this.logger.info(`Starting fetchRawTransactions for ${this.exchangeId}`);
+    const requestedTypes = params.transactionTypes || ['trade', 'deposit', 'withdrawal', 'order', 'ledger'];
+    this.logger.info(`Starting fetchRawTransactions for ${this.exchangeId} with types: ${requestedTypes.join(', ')}`);
 
     try {
       const allTransactions: CryptoTransaction[] = [];
+      const fetchPromises: Array<{ promise: Promise<CryptoTransaction[]>; label: string }> = [];
 
-      // Fetch different transaction types
-      const fetchPromises = [
-        this.fetchTrades(params.since),
-        this.fetchDeposits(params.since),
-        this.fetchWithdrawals(params.since),
-        this.fetchClosedOrders(params.since),
-        this.fetchLedger(params.since)
-      ];
+      // Only call methods for requested transaction types
+      if (requestedTypes.includes('trade')) {
+        fetchPromises.push({
+          promise: this.fetchTrades(params.since),
+          label: 'trades'
+        });
+      }
 
-      const results = await Promise.allSettled(fetchPromises);
-      const labels = ['trades', 'deposits', 'withdrawals', 'closed_orders', 'ledger'];
+      if (requestedTypes.includes('deposit')) {
+        fetchPromises.push({
+          promise: this.fetchDeposits(params.since),
+          label: 'deposits'
+        });
+      }
+
+      if (requestedTypes.includes('withdrawal')) {
+        fetchPromises.push({
+          promise: this.fetchWithdrawals(params.since),
+          label: 'withdrawals'
+        });
+      }
+
+      if (requestedTypes.includes('order')) {
+        fetchPromises.push({
+          promise: this.fetchClosedOrders(params.since),
+          label: 'closed_orders'
+        });
+      }
+
+      if (requestedTypes.includes('ledger')) {
+        fetchPromises.push({
+          promise: this.fetchLedger(params.since),
+          label: 'ledger'
+        });
+      }
+
+      // Execute only the needed API calls
+      const results = await Promise.allSettled(fetchPromises.map(fp => fp.promise));
 
       // Process all results
       results.forEach((result, index) => {
+        const label = fetchPromises[index].label;
         if (result.status === 'fulfilled') {
           allTransactions.push(...result.value);
-          this.logger.info(`Fetched ${result.value.length} ${labels[index]} from ${this.exchangeId}`);
+          this.logger.info(`Fetched ${result.value.length} ${label} from ${this.exchangeId}`);
         } else {
-          this.logger.warn(`Failed to fetch ${labels[index]} from ${this.exchangeId} - Error: ${result.reason}`);
+          this.logger.warn(`Failed to fetch ${label} from ${this.exchangeId} - Error: ${result.reason}`);
         }
       });
 
       const duration = Date.now() - startTime;
-      this.logger.info(`Completed fetchRawTransactions for ${this.exchangeId} - Count: ${allTransactions.length}, Duration: ${duration}ms`);
+      const skipCount = 5 - fetchPromises.length; // Total possible calls - actual calls
+      this.logger.info(`Completed fetchRawTransactions for ${this.exchangeId} - Count: ${allTransactions.length}, Duration: ${duration}ms, Skipped ${skipCount} API calls`);
 
       return allTransactions;
     } catch (error) {
