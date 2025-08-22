@@ -108,6 +108,9 @@ importers:
       decimal.js:
         specifier: ^10.6.0
         version: 10.6.0
+      zod:
+        specifier: ^4.0.17
+        version: 4.0.17
     devDependencies:
       '@jest/globals':
         specifier: ^30.0.5
