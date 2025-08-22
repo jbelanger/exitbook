@@ -48,7 +48,7 @@ function createRootLogger(): Logger {
    type TransportTarget = {
       level: string;
       target: string;
-      options: Record<string, any>;
+      options: Record<string, unknown>;
    };
 
    // Build transport targets array

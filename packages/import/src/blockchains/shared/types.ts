@@ -1,4 +1,4 @@
-import type { RateLimitConfig, DataSourceCapabilities } from '@crypto/core';
+import type { DataSourceCapabilities, RateLimitConfig } from '@crypto/core';
 
 export interface IBlockchainProvider<TConfig = any> {
   readonly name: string;
@@ -45,8 +45,8 @@ export interface ProviderHealth {
   consecutiveFailures: number;
   averageResponseTime: number;
   errorRate: number;
-  lastError?: string;
+  lastError?: string | undefined;
   rateLimitEvents: number;           // Total rate limit events encountered
   rateLimitRate: number;             // Percentage of requests that were rate limited (0-1)
-  lastRateLimitTime?: number;        // Timestamp of last rate limit event
+  lastRateLimitTime?: number | undefined;     // Timestamp of last rate limit event
 }

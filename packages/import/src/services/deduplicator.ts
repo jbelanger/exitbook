@@ -1,7 +1,8 @@
-import { createHash } from 'crypto';
+import { UniversalTransaction } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
 import { moneyToNumber } from '@crypto/shared-utils';
-import type { Transaction as UniversalTransaction } from '../shared/types/adapters.ts';
+import { createHash } from 'crypto';
+
 
 interface DeduplicationResult {
   unique: UniversalTransaction[];

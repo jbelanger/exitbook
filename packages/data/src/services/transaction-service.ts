@@ -1,12 +1,10 @@
-import type { EnhancedTransaction } from '@crypto/core';
+import type { EnhancedTransaction, UniversalTransaction } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
 import { createHash } from 'crypto';
 import { TransactionRepository } from '../repositories/transaction-repository.ts';
 import { WalletRepository } from '../repositories/wallet-repository.ts';
 import type { StoredTransaction } from '../types/data-types.js';
 import { TransactionLinkingService } from './transaction-linking-service.ts';
-// Add import for UniversalTransaction
-import type { Transaction as UniversalTransaction } from '../../../import/src/shared/types/adapters.ts';
 
 export class TransactionService {
   private logger = getLogger('TransactionService');
