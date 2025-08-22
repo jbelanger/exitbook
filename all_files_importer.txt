@@ -548,11 +548,10 @@ export class CsvFilters {
     return groups;
   }
 }===== ./src/exchanges/coinbase/ccxt-adapter.ts =====
-import type { CryptoTransaction, Money, TransactionType } from '@crypto/core';
+import type { CryptoTransaction, Money, TransactionType, UniversalExchangeAdapterConfig } from '@crypto/core';
 import ccxt from 'ccxt';
 import { Decimal } from 'decimal.js';
 import { BaseCCXTAdapter } from '../../adapters/universal/base-ccxt-adapter.js';
-import type { UniversalExchangeAdapterConfig } from '@crypto/core';
 /**
  * Specialized Coinbase adapter that uses fetchLedger for comprehensive transaction data
  * 
@@ -651,31 +650,32 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
   }
 
   /**
-   * Override to focus on ledger-based transaction fetching with post-processing
+   * Override to fetch only the raw ledger entries from the API.
+   * The complex processing logic is moved to transformTransactions.
    */
-  protected async fetchRawTransactions(params: any): Promise<CryptoTransaction[]> {
-    const startTime = Date.now();
-    this.logger.info(`Starting ledger-based transaction fetch from Coinbase - Since: ${params.since}`);
+  protected async fetchRawTransactions(params: any): Promise<any[]> {
+    this.logger.info(`Starting raw ledger fetch from Coinbase - Since: ${params.since}`);
+    // This method should return the raw data from fetchLedger, NOT the processed transactions.
+    // The base transformTransactions will then pass this raw data to our overridden transform method below.
+    return this.fetchLedger(params.since);
+  }
 
-    try {
+  /**
+   * Override to handle Coinbase's unique ledger entry grouping and transformation.
+   * This is where the core logic of `processLedgerEntries` now lives.
+   */
+  protected async transformTransactions(rawTxs: any[], params: any): Promise<any[]> {
+    this.logger.info(`Transforming ${rawTxs.length} raw Coinbase ledger entries.`);
 
-      // Primary data source: fetchLedger for comprehensive transaction data
-      const ledgerTransactions = await this.fetchLedger(params.since);
+    // 1. Convert raw CCXT entries to the intermediate CryptoTransaction format.
+    const ledgerTransactions = this.transformCCXTTransactions(rawTxs, 'ledger');
 
-      // Process ledger entries and group orders with fills
-      const transactions = await this.processLedgerEntries(ledgerTransactions);
+    // 2. Run the complex grouping and processing logic.
+    const processedCryptoTxs = await this.processLedgerEntries(ledgerTransactions);
 
-      // Sort by timestamp
-      transactions.sort((a, b) => a.timestamp - b.timestamp);
-
-      const duration = Date.now() - startTime;
-      this.logger.info(`Completed Coinbase ledger-based transaction fetch - TotalTransactions: ${transactions.length}, GroupedTrades: ${transactions.filter(t => t.type === 'trade').length}, Duration: ${duration}ms`);
-
-      return transactions;
-    } catch (error) {
-      this.handleError(error, 'fetchRawTransactions');
-      throw error;
-    }
+    // 3. Convert the final CryptoTransactions to the UniversalTransaction format.
+    //    We can call the base class's implementation for the final step.
+    return super.transformTransactions(processedCryptoTxs, params);
   }
 
   /**
@@ -4978,18 +4978,16 @@ export interface BlockchainAdapterConfig extends BaseAdapterConfig {
 }
 
 export type AdapterConfig = ExchangeAdapterConfig | BlockchainAdapterConfig;===== ./src/adapters/universal/adapter-factory.ts =====
-import { ExchangeAdapterFactory } from '../../exchanges/adapter-factory.js';
-import { BlockchainAdapterFactory } from '../../blockchains/shared/blockchain-adapter-factory.js';
-import { ExchangeBridgeAdapter } from './exchange-bridge-adapter.js';
-import { BlockchainBridgeAdapter } from './blockchain-bridge-adapter.js';
-import type { 
-  IUniversalAdapter, 
+import type {
+  IUniversalAdapter,
   UniversalAdapterConfig,
-  UniversalExchangeAdapterConfig, 
-  UniversalBlockchainAdapterConfig 
+  UniversalBlockchainAdapterConfig,
+  UniversalExchangeAdapterConfig
 } from '@crypto/core';
-import type { BlockchainExplorersConfig } from '../../blockchains/shared/explorer-config.js';
 import { getLogger } from '@crypto/shared-logger';
+import { BlockchainAdapterFactory } from '../../blockchains/shared/blockchain-adapter-factory.js';
+import type { BlockchainExplorersConfig } from '../../blockchains/shared/explorer-config.js';
+import { ExchangeAdapterFactory } from '../../exchanges/adapter-factory.js';
 
 /**
  * Universal adapter factory that creates adapters implementing the IUniversalAdapter interface.
@@ -5053,10 +5051,10 @@ export class UniversalAdapterFactory {
   }
 
   /**
-   * Create a blockchain adapter wrapped in a bridge adapter
+   * Create a blockchain adapter (now directly implements IUniversalAdapter)
    */
   private static async createBlockchainAdapter(
-    config: UniversalBlockchainAdapterConfig, 
+    config: UniversalBlockchainAdapterConfig,
     explorerConfig?: BlockchainExplorersConfig
   ): Promise<IUniversalAdapter> {
     if (!explorerConfig) {
@@ -5065,12 +5063,10 @@ export class UniversalAdapterFactory {
 
     this.logger.debug(`Creating blockchain adapter for ${config.id} with network: ${config.network}`);
     
-    // Create the old blockchain adapter using the existing factory
-    const oldFactory = new BlockchainAdapterFactory();
-    const oldAdapter = await oldFactory.createBlockchainAdapter(config.id, explorerConfig);
-    
-    // For now, still wrap blockchain adapters in bridge adapters since they haven't been refactored yet
-    return new BlockchainBridgeAdapter(oldAdapter, config);
+    // Create the blockchain adapter using the existing factory
+    // Since the blockchain adapters now implement IUniversalAdapter directly, we can return them as-is
+    const factory = new BlockchainAdapterFactory();
+    return await factory.createBlockchainAdapter(config.id, explorerConfig);
   }
 
   /**
@@ -7649,19 +7645,27 @@ export interface ProcessedSolanaTransaction {
 }===== ./src/blockchains/solana/adapter.ts =====
 
 
-import type { BlockchainBalance, BlockchainInfo, BlockchainTransaction } from '@crypto/core';
+import type {
+  BlockchainBalance,
+  BlockchainTransaction,
+  TransactionType,
+  UniversalAdapterInfo,
+  UniversalBalance,
+  UniversalBlockchainAdapterConfig,
+  UniversalFetchParams,
+  UniversalTransaction
+} from '@crypto/core';
 
-
-import { BaseBlockchainAdapter } from '../shared/base-blockchain-adapter.ts';
+import { BaseAdapter } from '../../adapters/universal/base-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
 import type { BlockchainExplorersConfig } from '../shared/explorer-config.ts';
 import { isValidSolanaAddress } from './utils.ts';
 
-export class SolanaAdapter extends BaseBlockchainAdapter {
+export class SolanaAdapter extends BaseAdapter {
   private providerManager: BlockchainProviderManager;
 
-  constructor(explorerConfig: BlockchainExplorersConfig) {
-    super('solana', 'SolanaAdapter');
+  constructor(config: UniversalBlockchainAdapterConfig, explorerConfig: BlockchainExplorersConfig) {
+    super(config);
 
     this.providerManager = new BlockchainProviderManager(explorerConfig);
     this.providerManager.autoRegisterFromConfig('solana', 'mainnet');
@@ -7669,78 +7673,160 @@ export class SolanaAdapter extends BaseBlockchainAdapter {
     this.logger.info(`Initialized Solana adapter with registry-based provider manager - ProvidersCount: ${this.providerManager.getProviders('solana').length}`);
   }
 
-  async getAddressTransactions(address: string, since?: number): Promise<BlockchainTransaction[]> {
-    this.logger.info(`SolanaAdapter: Fetching transactions for address: ${address.substring(0, 20)}...`);
-    this.logger.debug(`SolanaAdapter.getAddressTransactions called - Address: ${address}, Since: ${since}`);
+  async getInfo(): Promise<UniversalAdapterInfo> {
+    return {
+      id: 'solana',
+      name: 'Solana',
+      type: 'blockchain',
+      subType: 'rest',
+      capabilities: {
+        supportedOperations: ['fetchTransactions', 'fetchBalances', 'getAddressTransactions', 'getAddressBalance', 'getTokenTransactions'],
+        maxBatchSize: 1,
+        supportsHistoricalData: true,
+        supportsPagination: true,
+        requiresApiKey: false,
+        rateLimit: {
+          requestsPerSecond: 5,
+          burstLimit: 20
+        }
+      }
+    };
+  }
 
-    try {
-      // Fetch regular SOL transactions
-      const regularTxs = await this.providerManager.executeWithFailover('solana', {
-        type: 'getAddressTransactions',
-        params: { address, since },
-        getCacheKey: (params: any) => `solana_tx_${params.address}_${params.since || 'all'}`
-      }) as BlockchainTransaction[];
+  protected async fetchRawTransactions(params: UniversalFetchParams): Promise<BlockchainTransaction[]> {
+    if (!params.addresses?.length) {
+      throw new Error('Addresses required for Solana adapter');
+    }
 
-      // Try to fetch SPL token transactions (if provider supports it)
-      let tokenTxs: BlockchainTransaction[] = [];
+    const allTransactions: BlockchainTransaction[] = [];
+    
+    for (const address of params.addresses) {
+      this.logger.info(`SolanaAdapter: Fetching transactions for address: ${address.substring(0, 20)}...`);
+      
       try {
-        tokenTxs = await this.providerManager.executeWithFailover('solana', {
-          type: 'getTokenTransactions',
-          params: { address, since },
-          getCacheKey: (params: any) => `solana_token_tx_${params.address}_${params.since || 'all'}`
+        // Fetch regular SOL transactions
+        const regularTxs = await this.providerManager.executeWithFailover('solana', {
+          type: 'getAddressTransactions',
+          params: { address, since: params.since },
+          getCacheKey: (cacheParams: any) => `solana_tx_${cacheParams.address}_${cacheParams.since || 'all'}`
         }) as BlockchainTransaction[];
+
+        // Try to fetch SPL token transactions (if provider supports it)
+        let tokenTxs: BlockchainTransaction[] = [];
+        try {
+          tokenTxs = await this.providerManager.executeWithFailover('solana', {
+            type: 'getTokenTransactions',
+            params: { address, since: params.since },
+            getCacheKey: (cacheParams: any) => `solana_token_tx_${cacheParams.address}_${cacheParams.since || 'all'}`
+          }) as BlockchainTransaction[];
+        } catch (error) {
+          this.logger.debug(`Provider does not support token transactions or failed to fetch - Error: ${error instanceof Error ? error.message : String(error)}`);
+          // Continue without token transactions if provider doesn't support them
+        }
+
+        allTransactions.push(...regularTxs, ...tokenTxs);
+        
+        this.logger.info(`SolanaAdapter transaction breakdown for ${address.substring(0, 20)}... - Regular: ${regularTxs.length}, Token: ${tokenTxs.length}`);
       } catch (error) {
-        this.logger.debug(`Provider does not support token transactions or failed to fetch - Error: ${error instanceof Error ? error.message : String(error)}`);
-        // Continue without token transactions if provider doesn't support them
+        this.logger.error(`Failed to fetch transactions for ${address} - Error: ${error}`);
+        throw error;
+      }
+    }
+
+    // Remove duplicates and sort by timestamp
+    const uniqueTransactions = allTransactions.reduce((acc, tx) => {
+      if (!acc.find(existing => existing.hash === tx.hash)) {
+        acc.push(tx);
+      }
+      return acc;
+    }, [] as BlockchainTransaction[]);
+
+    uniqueTransactions.sort((a, b) => b.timestamp - a.timestamp);
+    
+    this.logger.info(`SolanaAdapter: Found ${uniqueTransactions.length} unique transactions total`);
+    return uniqueTransactions;
+  }
+
+  protected async fetchRawBalances(params: UniversalFetchParams): Promise<BlockchainBalance[]> {
+    if (!params.addresses?.length) {
+      throw new Error('Addresses required for Solana balance fetching');
+    }
+
+    const allBalances: BlockchainBalance[] = [];
+    
+    for (const address of params.addresses) {
+      this.logger.info(`Getting balance for address: ${address.substring(0, 20)}...`);
+      
+      try {
+        const balances = await this.providerManager.executeWithFailover('solana', {
+          type: 'getAddressBalance',
+          params: { address },
+          getCacheKey: (cacheParams: any) => `solana_balance_${cacheParams.address}`
+        }) as BlockchainBalance[];
+
+        allBalances.push(...balances);
+      } catch (error) {
+        this.logger.error(`Failed to fetch balance for ${address} - Error: ${error}`);
+        throw error;
+      }
+    }
+
+    return allBalances;
+  }
+
+  protected async transformTransactions(rawTxs: BlockchainTransaction[], params: UniversalFetchParams): Promise<UniversalTransaction[]> {
+    const userAddresses = params.addresses || [];
+    
+    return rawTxs.map(tx => {
+      // Determine transaction type based on user addresses
+      let type: TransactionType = 'transfer';
+      
+      if (userAddresses.length > 0) {
+        const userAddress = userAddresses[0].toLowerCase();
+        const isIncoming = tx.to.toLowerCase() === userAddress;
+        const isOutgoing = tx.from.toLowerCase() === userAddress;
+        
+        if (isIncoming && !isOutgoing) {
+          type = 'deposit';
+        } else if (isOutgoing && !isIncoming) {
+          type = 'withdrawal';
+        }
       }
 
-      this.logger.info(`SolanaAdapter transaction breakdown for ${address.substring(0, 20)}... - Regular: ${regularTxs.length}, Token: ${tokenTxs.length}, Total: ${regularTxs.length + tokenTxs.length}`);
-
-      // Combine all transactions (following Ethereum pattern)
-      const allTransactions = [...regularTxs, ...tokenTxs];
-
-      // Sort by timestamp (newest first)
-      allTransactions.sort((a, b) => b.timestamp - a.timestamp);
-
-      // Remove any duplicate transactions (by hash)
-      const uniqueTransactions = allTransactions.reduce((acc, tx) => {
-        if (!acc.find(existing => existing.hash === tx.hash)) {
-          acc.push(tx);
+      return {
+        id: tx.hash,
+        timestamp: tx.timestamp,
+        datetime: new Date(tx.timestamp).toISOString(),
+        type,
+        status: tx.status === 'success' ? 'closed' :
+               tx.status === 'pending' ? 'open' : 'canceled',
+        amount: tx.value,
+        fee: tx.fee,
+        from: tx.from,
+        to: tx.to,
+        symbol: tx.tokenSymbol || tx.value.currency,
+        source: 'solana',
+        network: 'mainnet',
+        metadata: {
+          blockNumber: tx.blockNumber,
+          blockHash: tx.blockHash,
+          confirmations: tx.confirmations,
+          tokenContract: tx.tokenContract,
+          transactionType: tx.type,
+          originalTransaction: tx
         }
-        return acc;
-      }, [] as BlockchainTransaction[]);
-
-      this.logger.info(`SolanaAdapter: Found ${uniqueTransactions.length} unique transactions for address ${address.substring(0, 20)}...`);
-      return uniqueTransactions;
-
-    } catch (error) {
-      this.logger.error(`Failed to fetch transactions for ${address} - Error: ${error}`);
-      throw error;
-    }
+      };
+    });
   }
 
-  async getAddressBalance(address: string): Promise<BlockchainBalance[]> {
-    this.logger.info(`Getting balance for address: ${address.substring(0, 20)}...`);
-
-    try {
-      // Use provider manager to fetch balance with failover
-      const balances = await this.providerManager.executeWithFailover('solana', {
-        type: 'getAddressBalance',
-        params: { address },
-        getCacheKey: (params: any) => `solana_balance_${params.address}`
-      }) as BlockchainBalance[];
-
-      return balances;
-
-    } catch (error) {
-      this.logger.error(`Failed to fetch balance for ${address} - Error: ${error}`);
-      throw error;
-    }
-  }
-
-  validateAddress(address: string): boolean {
-    // Solana addresses are Base58 encoded, 32 bytes (44 characters)
-    return isValidSolanaAddress(address);
+  protected async transformBalances(rawBalances: BlockchainBalance[], params: UniversalFetchParams): Promise<UniversalBalance[]> {
+    return rawBalances.map(balance => ({
+      currency: balance.currency,
+      total: balance.total,
+      free: balance.balance,
+      used: balance.used,
+      contractAddress: balance.contractAddress
+    }));
   }
 
   async testConnection(): Promise<boolean> {
@@ -7763,14 +7849,40 @@ export class SolanaAdapter extends BaseBlockchainAdapter {
     }
   }
 
-  async getBlockchainInfo(): Promise<BlockchainInfo> {
+  /**
+   * Close adapter and cleanup resources
+   */
+  async close(): Promise<void> {
+    try {
+      this.providerManager.destroy();
+      this.logger.info('Solana adapter closed successfully');
+    } catch (error) {
+      this.logger.warn(`Error during Solana adapter close - Error: ${error}`);
+    }
+  }
+
+  // Legacy methods for compatibility (can be removed once migration is complete)
+  validateAddress(address: string): boolean {
+    return isValidSolanaAddress(address);
+  }
+
+  async getAddressTransactions(address: string, since?: number): Promise<BlockchainTransaction[]> {
+    return this.fetchRawTransactions({ addresses: [address], since });
+  }
+
+  async getAddressBalance(address: string): Promise<BlockchainBalance[]> {
+    return this.fetchRawBalances({ addresses: [address] });
+  }
+
+  // Required IBlockchainAdapter methods for backward compatibility
+  async getBlockchainInfo(): Promise<any> {
     return {
       id: 'solana',
       name: 'Solana',
       network: 'mainnet',
       capabilities: {
         supportsAddressTransactions: true,
-        supportsTokenTransactions: true, // Solana supports SPL tokens
+        supportsTokenTransactions: true,
         supportsBalanceQueries: true,
         supportsHistoricalData: true,
         supportsPagination: true,
@@ -7779,12 +7891,47 @@ export class SolanaAdapter extends BaseBlockchainAdapter {
     };
   }
 
-  // Solana supports SPL token transactions
-  async getTokenTransactions(address: string, tokenContract?: string): Promise<BlockchainTransaction[]> {
-    this.logger.debug(`SolanaAdapter.getTokenTransactions called - Address: ${address}, TokenContract: ${tokenContract}`);
+  convertToCryptoTransaction(blockchainTx: BlockchainTransaction, userAddress: string): any {
+    // Determine transaction type based on user address
+    let type: TransactionType = 'transfer';
+    const normalizedUserAddress = userAddress.toLowerCase();
+    const isIncoming = blockchainTx.to.toLowerCase() === normalizedUserAddress;
+    const isOutgoing = blockchainTx.from.toLowerCase() === normalizedUserAddress;
 
+    if (isIncoming && !isOutgoing) {
+      type = 'deposit';
+    } else if (isOutgoing && !isIncoming) {
+      type = 'withdrawal';
+    }
+
+    return {
+      id: blockchainTx.hash,
+      type,
+      timestamp: blockchainTx.timestamp,
+      datetime: new Date(blockchainTx.timestamp).toISOString(),
+      symbol: blockchainTx.tokenSymbol || blockchainTx.value.currency,
+      side: undefined,
+      amount: blockchainTx.value,
+      price: undefined,
+      fee: blockchainTx.fee,
+      status: blockchainTx.status === 'success' ? 'closed' :
+        blockchainTx.status === 'pending' ? 'open' : 'canceled',
+      info: {
+        blockNumber: blockchainTx.blockNumber,
+        blockHash: blockchainTx.blockHash,
+        from: blockchainTx.from,
+        to: blockchainTx.to,
+        confirmations: blockchainTx.confirmations,
+        tokenContract: blockchainTx.tokenContract,
+        transactionType: blockchainTx.type,
+        originalTransaction: blockchainTx
+      }
+    };
+  }
+
+  // SPL token support methods (optional)
+  async getTokenTransactions(address: string, tokenContract?: string): Promise<BlockchainTransaction[]> {
     try {
-      // Use provider manager to fetch token transactions with failover
       const transactions = await this.providerManager.executeWithFailover('solana', {
         type: 'getTokenTransactions',
         params: { address, contractAddress: tokenContract },
@@ -7793,7 +7940,6 @@ export class SolanaAdapter extends BaseBlockchainAdapter {
 
       this.logger.info(`SolanaAdapter: Found ${transactions.length} token transactions for address ${address.substring(0, 20)}...`);
       return transactions;
-
     } catch (error) {
       this.logger.error(`Failed to fetch token transactions for ${address} - Error: ${error}`);
       throw error;
@@ -7801,10 +7947,7 @@ export class SolanaAdapter extends BaseBlockchainAdapter {
   }
 
   async getTokenBalances(address: string): Promise<BlockchainBalance[]> {
-    this.logger.debug(`SolanaAdapter.getTokenBalances called - Address: ${address}`);
-
     try {
-      // Use provider manager to fetch token balances with failover
       const balances = await this.providerManager.executeWithFailover('solana', {
         type: 'getTokenBalances',
         params: { address },
@@ -7813,22 +7956,9 @@ export class SolanaAdapter extends BaseBlockchainAdapter {
 
       this.logger.info(`SolanaAdapter: Found ${balances.length} token balances for address ${address.substring(0, 20)}...`);
       return balances;
-
     } catch (error) {
       this.logger.error(`Failed to fetch token balances for ${address} - Error: ${error}`);
       throw error;
-    }
-  }
-
-  /**
-   * Close adapter and cleanup resources (required by IBlockchainAdapter)
-   */
-  async close(): Promise<void> {
-    try {
-      this.providerManager.destroy();
-      this.logger.info('Solana adapter closed successfully');
-    } catch (error) {
-      this.logger.warn(`Error during Solana adapter close - Error: ${error}`);
     }
   }
 }===== ./src/blockchains/shared/types.ts =====
@@ -8940,7 +9070,7 @@ export abstract class BaseBlockchainAdapter implements IBlockchainAdapter {
     this.logger.debug('Base blockchain adapter closed');
   }
 }===== ./src/blockchains/shared/blockchain-adapter-factory.ts =====
-import type { IBlockchainAdapter } from '@crypto/core';
+import type { IUniversalAdapter } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
 import { AvalancheAdapter } from '../avalanche/adapter.ts';
 import { BitcoinAdapter } from '../bitcoin/adapter.ts';
@@ -8962,29 +9092,65 @@ export class BlockchainAdapterFactory {
   async createBlockchainAdapter(
     blockchain: string,
     explorerConfig: BlockchainExplorersConfig
-  ): Promise<IBlockchainAdapter> {
+  ): Promise<IUniversalAdapter> {
     this.logger.info(`Creating blockchain adapter for ${blockchain}`);
 
     switch (blockchain.toLowerCase()) {
       case 'bitcoin':
-        return new BitcoinAdapter(explorerConfig);
+        const bitcoinConfig = {
+          type: 'blockchain' as const,
+          id: 'bitcoin',
+          subType: 'rest' as const,
+          network: 'mainnet'
+        };
+        return new BitcoinAdapter(bitcoinConfig, explorerConfig);
 
       case 'ethereum':
-        return new EthereumAdapter(explorerConfig);
+        const ethereumConfig = {
+          type: 'blockchain' as const,
+          id: 'ethereum',
+          subType: 'rest' as const,
+          network: 'mainnet'
+        };
+        return new EthereumAdapter(ethereumConfig, explorerConfig);
 
       case 'injective':
-        return new InjectiveAdapter(explorerConfig);
+        const injectiveConfig = {
+          type: 'blockchain' as const,
+          id: 'injective',
+          subType: 'rest' as const,
+          network: 'mainnet'
+        };
+        return new InjectiveAdapter(injectiveConfig, explorerConfig);
 
       case 'avalanche':
-        return new AvalancheAdapter(explorerConfig);
+        const avalancheConfig = {
+          type: 'blockchain' as const,
+          id: 'avalanche',
+          subType: 'rest' as const,
+          network: 'mainnet'
+        };
+        return new AvalancheAdapter(avalancheConfig, explorerConfig);
 
       case 'bittensor':
       case 'polkadot':
       case 'kusama':
-        return new SubstrateAdapter(explorerConfig);
+        const substrateConfig = {
+          type: 'blockchain' as const,
+          id: blockchain.toLowerCase(),
+          subType: 'rest' as const,
+          network: 'mainnet'
+        };
+        return new SubstrateAdapter(substrateConfig, explorerConfig);
 
       case 'solana':
-        return new SolanaAdapter(explorerConfig);
+        const solanaConfig = {
+          type: 'blockchain' as const,
+          id: 'solana',
+          subType: 'rest' as const,
+          network: 'mainnet'
+        };
+        return new SolanaAdapter(solanaConfig, explorerConfig);
 
       default:
         throw new Error(`Unsupported blockchain: ${blockchain}`);
@@ -11024,16 +11190,26 @@ export interface BlockstreamTransaction {
 }===== ./src/blockchains/bitcoin/adapter.ts =====
 import * as bitcoin from 'bitcoinjs-lib';
 
-import type { Balance, BlockchainInfo, BlockchainTransaction, CryptoTransaction, TransactionType } from '@crypto/core';
+import type {
+  Balance,
+  BlockchainTransaction,
+  CryptoTransaction,
+  TransactionType,
+  UniversalAdapterInfo,
+  UniversalBalance,
+  UniversalBlockchainAdapterConfig,
+  UniversalFetchParams,
+  UniversalTransaction
+} from '@crypto/core';
 import { createMoney } from '@crypto/shared-utils';
 
-import { BaseBlockchainAdapter } from '../shared/base-blockchain-adapter.ts';
+import { BaseAdapter } from '../../adapters/universal/base-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
 import type { BlockchainExplorersConfig } from '../shared/explorer-config.ts';
 import type { BitcoinWalletAddress } from './types.ts';
 import { BitcoinUtils } from './utils.ts';
 
-export class BitcoinAdapter extends BaseBlockchainAdapter {
+export class BitcoinAdapter extends BaseAdapter {
   private walletAddresses: BitcoinWalletAddress[] = [];
   protected network: bitcoin.Network;
   private addressInfoCache = new Map<string, { balance: string; txCount: number }>(); // Simplified cache
@@ -11041,10 +11217,11 @@ export class BitcoinAdapter extends BaseBlockchainAdapter {
   private addressGap: number;
 
   constructor(
+    config: UniversalBlockchainAdapterConfig,
     explorerConfig: BlockchainExplorersConfig,
     options?: { addressGap?: number }
   ) {
-    super('bitcoin', 'BitcoinAdapter');
+    super(config);
 
     // Always use mainnet
     this.network = bitcoin.networks.bitcoin;
@@ -11059,6 +11236,26 @@ export class BitcoinAdapter extends BaseBlockchainAdapter {
     this.logger.info(`Initialized Bitcoin adapter with registry-based provider manager - AddressGap: ${this.addressGap}, ProvidersCount: ${this.providerManager.getProviders('bitcoin').length}`);
   }
 
+  async getInfo(): Promise<UniversalAdapterInfo> {
+    return {
+      id: 'bitcoin',
+      name: 'Bitcoin',
+      type: 'blockchain',
+      subType: 'rest',
+      capabilities: {
+        supportedOperations: ['fetchTransactions', 'fetchBalances', 'getAddressTransactions', 'getAddressBalance'],
+        maxBatchSize: 1,
+        supportsHistoricalData: true,
+        supportsPagination: false,
+        requiresApiKey: false,
+        rateLimit: {
+          requestsPerSecond: 2,
+          burstLimit: 10
+        }
+      }
+    };
+  }
+
   /**
    * Initialize an xpub wallet using BitcoinUtils
    */
@@ -11071,70 +11268,168 @@ export class BitcoinAdapter extends BaseBlockchainAdapter {
     );
   }
 
-
-  /**
-   * Get transactions for a user-provided address (handles xpub derivation transparently)
-   */
-  async getAddressTransactions(userAddress: string, since?: number): Promise<BlockchainTransaction[]> {
-    this.logger.info(`Fetching transactions for address: ${userAddress.substring(0, 20)}...`);
-
-    let wallet: BitcoinWalletAddress;
-
-    // Check if we've already processed this address
-    const existingWallet = this.walletAddresses.find(w => w.address === userAddress);
-    if (existingWallet) {
-      wallet = existingWallet;
-    } else {
-      // Initialize this specific address (handles both xpub and regular addresses)
-      wallet = {
-        address: userAddress,
-        type: BitcoinUtils.getAddressType(userAddress)
-      };
-
-      if (BitcoinUtils.isXpub(userAddress)) {
-        this.logger.info(`Processing xpub: ${userAddress.substring(0, 20)}...`);
-        await this.initializeXpubWallet(wallet);
-      } else {
-        this.logger.info(`Processing regular address: ${userAddress}`);
-      }
-
-      this.walletAddresses.push(wallet);
+  protected async fetchRawTransactions(params: UniversalFetchParams): Promise<BlockchainTransaction[]> {
+    if (!params.addresses?.length) {
+      throw new Error('Addresses required for Bitcoin adapter');
     }
 
-    if (wallet.derivedAddresses) {
-      // Xpub wallet - fetch from all derived addresses and deduplicate
-      this.logger.info(`Fetching from ${wallet.derivedAddresses.length} derived addresses`);
+    const allTransactions: BlockchainTransaction[] = [];
+    
+    for (const userAddress of params.addresses) {
+      this.logger.info(`Fetching transactions for address: ${userAddress.substring(0, 20)}...`);
 
-      const allTransactions = await this.fetchUniqueTransactionsForWalletWithProviders(wallet.derivedAddresses, since);
-      this.logger.info(`Found ${allTransactions.length} unique transactions for wallet ${userAddress.substring(0, 20)}...`);
-      return allTransactions;
-    } else {
-      // Regular address - use provider manager with raw transactions for wallet-aware parsing
-      try {
-        const rawTransactions = await this.providerManager.executeWithFailover('bitcoin', {
-          type: 'getRawAddressTransactions',
-          params: { address: userAddress, since },
-          getCacheKey: (params: any) => `bitcoin:raw-txs:${params.address}:${params.since || 'all'}`
-        }) as any[];
+      let wallet: BitcoinWalletAddress;
 
-        // Parse raw transactions with wallet context (single address, local parsing)
-        const transactions: BlockchainTransaction[] = [];
-        for (const rawTx of rawTransactions) {
-          try {
-            const blockchainTx = this.parseWalletTransaction(rawTx, [userAddress]);
-            transactions.push(blockchainTx);
-          } catch (error) {
-            this.logger.warn(`Failed to parse transaction ${rawTx.txid} - Error: ${error}`);
-          }
+      // Check if we've already processed this address
+      const existingWallet = this.walletAddresses.find(w => w.address === userAddress);
+      if (existingWallet) {
+        wallet = existingWallet;
+      } else {
+        // Initialize this specific address (handles both xpub and regular addresses)
+        wallet = {
+          address: userAddress,
+          type: BitcoinUtils.getAddressType(userAddress)
+        };
+
+        if (BitcoinUtils.isXpub(userAddress)) {
+          this.logger.info(`Processing xpub: ${userAddress.substring(0, 20)}...`);
+          await this.initializeXpubWallet(wallet);
+        } else {
+          this.logger.info(`Processing regular address: ${userAddress}`);
         }
 
-        this.logger.info(`Found ${transactions.length} transactions for wallet ${userAddress.substring(0, 20)}...`);
-        return transactions;
+        this.walletAddresses.push(wallet);
+      }
+
+      if (wallet.derivedAddresses) {
+        // Xpub wallet - fetch from all derived addresses and deduplicate
+        this.logger.info(`Fetching from ${wallet.derivedAddresses.length} derived addresses`);
+        const walletTransactions = await this.fetchUniqueTransactionsForWalletWithProviders(wallet.derivedAddresses, params.since);
+        allTransactions.push(...walletTransactions);
+      } else {
+        // Regular address - use provider manager with raw transactions for wallet-aware parsing
+        try {
+          const rawTransactions = await this.providerManager.executeWithFailover('bitcoin', {
+            type: 'getRawAddressTransactions',
+            params: { address: userAddress, since: params.since },
+            getCacheKey: (cacheParams: any) => `bitcoin:raw-txs:${cacheParams.address}:${cacheParams.since || 'all'}`
+          }) as any[];
+
+          // Parse raw transactions with wallet context (single address, local parsing)
+          for (const rawTx of rawTransactions) {
+            try {
+              const blockchainTx = this.parseWalletTransaction(rawTx, [userAddress]);
+              allTransactions.push(blockchainTx);
+            } catch (error) {
+              this.logger.warn(`Failed to parse transaction ${rawTx.txid} - Error: ${error}`);
+            }
+          }
+        } catch (error) {
+          this.logger.error(`Failed to fetch Bitcoin transactions for ${userAddress} - Error: ${error}`);
+          throw error;
+        }
+      }
+    }
+
+    // Remove duplicates and sort by timestamp
+    const uniqueTransactions = allTransactions.reduce((acc, tx) => {
+      if (!acc.find(existing => existing.hash === tx.hash)) {
+        acc.push(tx);
+      }
+      return acc;
+    }, [] as BlockchainTransaction[]);
+
+    uniqueTransactions.sort((a, b) => b.timestamp - a.timestamp);
+    
+    this.logger.info(`BitcoinAdapter: Found ${uniqueTransactions.length} unique transactions total`);
+    return uniqueTransactions;
+  }
+
+  protected async fetchRawBalances(params: UniversalFetchParams): Promise<Balance[]> {
+    if (!params.addresses?.length) {
+      throw new Error('Addresses required for Bitcoin balance fetching');
+    }
+
+    const allBalances: Balance[] = [];
+    
+    for (const address of params.addresses) {
+      try {
+        const result = await this.providerManager.executeWithFailover('bitcoin', {
+          type: 'getAddressBalance',
+          params: { address }
+        }) as { balance: string; token: string };
+
+        const balanceValue = parseFloat(result.balance);
+        if (balanceValue > 0) {
+          allBalances.push({
+            currency: 'BTC',
+            balance: balanceValue,
+            used: 0,
+            total: balanceValue,
+            contractAddress: undefined
+          });
+        }
       } catch (error) {
-        this.logger.error(`Failed to fetch Bitcoin transactions for ${userAddress} - Error: ${error}`);
+        this.logger.error(`Failed to get Bitcoin balance for ${address} - Error: ${error}`);
         throw error;
       }
     }
+
+    return allBalances;
+  }
+
+  protected async transformTransactions(rawTxs: BlockchainTransaction[], params: UniversalFetchParams): Promise<UniversalTransaction[]> {
+    const userAddresses = params.addresses || [];
+    
+    return rawTxs.map(tx => {
+      // Determine transaction type based on user addresses
+      let type: TransactionType = 'transfer';
+      
+      if (userAddresses.length > 0) {
+        const userAddress = userAddresses[0].toLowerCase();
+        const isIncoming = tx.to.toLowerCase() === userAddress;
+        const isOutgoing = tx.from.toLowerCase() === userAddress;
+        
+        if (isIncoming && !isOutgoing) {
+          type = 'deposit';
+        } else if (isOutgoing && !isIncoming) {
+          type = 'withdrawal';
+        }
+      }
+
+      return {
+        id: tx.hash,
+        timestamp: tx.timestamp,
+        datetime: new Date(tx.timestamp).toISOString(),
+        type,
+        status: tx.status === 'success' ? 'closed' : 
+               tx.status === 'pending' ? 'open' : 'canceled',
+        amount: tx.value,
+        fee: tx.fee,
+        from: tx.from,
+        to: tx.to,
+        symbol: tx.tokenSymbol || tx.value.currency,
+        source: 'bitcoin',
+        network: 'mainnet',
+        metadata: {
+          blockNumber: tx.blockNumber,
+          blockHash: tx.blockHash,
+          confirmations: tx.confirmations,
+          transactionType: tx.type,
+          originalTransaction: tx
+        }
+      };
+    });
+  }
+
+  protected async transformBalances(rawBalances: Balance[], params: UniversalFetchParams): Promise<UniversalBalance[]> {
+    return rawBalances.map(balance => ({
+      currency: balance.currency,
+      total: balance.total,
+      free: balance.balance,
+      used: balance.used,
+      contractAddress: balance.contractAddress
+    }));
   }
 
   /**
@@ -11290,46 +11585,6 @@ export class BitcoinAdapter extends BaseBlockchainAdapter {
     };
   }
 
-  async getAddressBalance(address: string): Promise<Balance[]> {
-    try {
-      const result = await this.providerManager.executeWithFailover('bitcoin', {
-        type: 'getAddressBalance',
-        params: { address }
-      }) as { balance: string; token: string };
-
-      const balanceValue = parseFloat(result.balance);
-      const balances: Balance[] = [];
-
-      if (balanceValue > 0) {
-        balances.push({
-          currency: 'BTC',
-          balance: balanceValue,
-          used: 0,
-          total: balanceValue,
-          contractAddress: undefined
-        });
-      }
-
-      return balances;
-
-    } catch (error) {
-      this.logger.error(`Failed to get Bitcoin balance for ${address} - Error: ${error}`);
-      throw error;
-    }
-  }
-
-  validateAddress(address: string): boolean {
-    const legacyPattern = /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/;
-    const segwitPattern = /^3[a-km-zA-HJ-NP-Z1-9]{25,34}$/;
-    const bech32Pattern = /^bc1[a-z0-9]{39,59}$/;
-    const xpubPattern = /^[xyz]pub[1-9A-HJ-NP-Za-km-z]{100,108}$/;
-
-    return legacyPattern.test(address) || segwitPattern.test(address) ||
-      bech32Pattern.test(address) || xpubPattern.test(address);
-  }
-
-  // Bitcoin doesn't support tokens, so optional token methods are not implemented
-
   async testConnection(): Promise<boolean> {
     try {
       // Test connection through provider manager
@@ -11348,7 +11603,7 @@ export class BitcoinAdapter extends BaseBlockchainAdapter {
   }
 
   /**
-   * Close adapter and cleanup resources (required by IBlockchainAdapter)
+   * Close adapter and cleanup resources
    */
   async close(): Promise<void> {
     try {
@@ -11359,8 +11614,27 @@ export class BitcoinAdapter extends BaseBlockchainAdapter {
     }
   }
 
+  // Legacy methods for compatibility (can be removed once migration is complete)
+  validateAddress(address: string): boolean {
+    const legacyPattern = /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/;
+    const segwitPattern = /^3[a-km-zA-HJ-NP-Z1-9]{25,34}$/;
+    const bech32Pattern = /^bc1[a-z0-9]{39,59}$/;
+    const xpubPattern = /^[xyz]pub[1-9A-HJ-NP-Za-km-z]{100,108}$/;
 
-  async getBlockchainInfo(): Promise<BlockchainInfo> {
+    return legacyPattern.test(address) || segwitPattern.test(address) ||
+      bech32Pattern.test(address) || xpubPattern.test(address);
+  }
+
+  async getAddressTransactions(userAddress: string, since?: number): Promise<BlockchainTransaction[]> {
+    return this.fetchRawTransactions({ addresses: [userAddress], since });
+  }
+
+  async getAddressBalance(address: string): Promise<Balance[]> {
+    return this.fetchRawBalances({ addresses: [address] });
+  }
+
+  // Required IBlockchainAdapter methods for backward compatibility
+  async getBlockchainInfo(): Promise<any> {
     return {
       id: 'bitcoin',
       name: 'Bitcoin Blockchain',
@@ -11376,9 +11650,6 @@ export class BitcoinAdapter extends BaseBlockchainAdapter {
     };
   }
 
-  /**
-   * Override convertToCryptoTransaction to handle xpub derived addresses properly
-   */
   convertToCryptoTransaction(blockchainTx: BlockchainTransaction): CryptoTransaction {
     // Use the Bitcoin adapter's own transaction type classification
     let type: TransactionType;
@@ -11415,7 +11686,6 @@ export class BitcoinAdapter extends BaseBlockchainAdapter {
       }
     };
   }
-
 }===== ./src/blockchains/avalanche/providers/SnowtraceProvider.ts =====
 import type { Balance, BlockchainTransaction } from '@crypto/core';
 import { AuthenticationError, ServiceError } from '@crypto/core';
@@ -11967,21 +12237,26 @@ export function toChecksumAddress(address: string): string {
 }===== ./src/blockchains/avalanche/adapter.ts =====
 import type {
   Balance,
-  BlockchainInfo,
-  BlockchainTransaction
+  BlockchainTransaction,
+  TransactionType,
+  UniversalAdapterInfo,
+  UniversalBalance,
+  UniversalBlockchainAdapterConfig,
+  UniversalFetchParams,
+  UniversalTransaction
 } from '@crypto/core';
 
 import './providers/SnowtraceProvider.ts';
 
-import { BaseBlockchainAdapter } from '../shared/base-blockchain-adapter.ts';
+import { BaseAdapter } from '../../adapters/universal/base-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
 import type { BlockchainExplorersConfig } from '../shared/explorer-config.ts';
 
-export class AvalancheAdapter extends BaseBlockchainAdapter {
+export class AvalancheAdapter extends BaseAdapter {
   private providerManager: BlockchainProviderManager;
 
-  constructor(explorerConfig: BlockchainExplorersConfig) {
-    super('avalanche', 'AvalancheAdapter');
+  constructor(config: UniversalBlockchainAdapterConfig, explorerConfig: BlockchainExplorersConfig) {
+    super(config);
 
     this.providerManager = new BlockchainProviderManager(explorerConfig);
     this.providerManager.autoRegisterFromConfig('avalanche', 'mainnet');
@@ -11989,84 +12264,161 @@ export class AvalancheAdapter extends BaseBlockchainAdapter {
     this.logger.debug(`Initialized Avalanche adapter with ${this.providerManager.getProviders('avalanche').length} providers`);
   }
 
+  async getInfo(): Promise<UniversalAdapterInfo> {
+    return {
+      id: 'avalanche',
+      name: 'Avalanche C-Chain',
+      type: 'blockchain',
+      subType: 'rest',
+      capabilities: {
+        supportedOperations: ['fetchTransactions', 'fetchBalances', 'getAddressTransactions', 'getAddressBalance', 'getTokenTransactions'],
+        maxBatchSize: 1,
+        supportsHistoricalData: true,
+        supportsPagination: true,
+        requiresApiKey: false,
+        rateLimit: {
+          requestsPerSecond: 5,
+          burstLimit: 20
+        }
+      }
+    };
+  }
 
-  async getAddressTransactions(address: string, since?: number): Promise<BlockchainTransaction[]> {
-    this.logger.info(`AvalancheAdapter: Fetching transactions for address: ${address.substring(0, 20)}...`);
-    this.logger.debug(`AvalancheAdapter.getAddressTransactions called - Address: ${address}, Since: ${since}`);
+  protected async fetchRawTransactions(params: UniversalFetchParams): Promise<BlockchainTransaction[]> {
+    if (!params.addresses?.length) {
+      throw new Error('Addresses required for Avalanche adapter');
+    }
 
-    try {
-      // Fetch regular AVAX transactions
-      const regularTxs = await this.providerManager.executeWithFailover('avalanche', {
-        type: 'getAddressTransactions',
-        params: { address, since },
-        getCacheKey: (params: any) => `avax_tx_${params.address}_${params.since || 'all'}`
-      }) as BlockchainTransaction[];
-
-      // Try to fetch ERC-20 token transactions (if provider supports it)
-      let tokenTxs: BlockchainTransaction[] = [];
+    const allTransactions: BlockchainTransaction[] = [];
+    
+    for (const address of params.addresses) {
+      this.logger.info(`AvalancheAdapter: Fetching transactions for address: ${address.substring(0, 20)}...`);
+      
       try {
-        tokenTxs = await this.providerManager.executeWithFailover('avalanche', {
-          type: 'getTokenTransactions',
-          params: { address, since },
-          getCacheKey: (params: any) => `avax_token_tx_${params.address}_${params.since || 'all'}`
+        // Fetch regular AVAX transactions
+        const regularTxs = await this.providerManager.executeWithFailover('avalanche', {
+          type: 'getAddressTransactions',
+          params: { address, since: params.since },
+          getCacheKey: (cacheParams: any) => `avax_tx_${cacheParams.address}_${cacheParams.since || 'all'}`
         }) as BlockchainTransaction[];
+
+        // Try to fetch ERC-20 token transactions (if provider supports it)
+        let tokenTxs: BlockchainTransaction[] = [];
+        try {
+          tokenTxs = await this.providerManager.executeWithFailover('avalanche', {
+            type: 'getTokenTransactions',
+            params: { address, since: params.since },
+            getCacheKey: (cacheParams: any) => `avax_token_tx_${cacheParams.address}_${cacheParams.since || 'all'}`
+          }) as BlockchainTransaction[];
+        } catch (error) {
+          this.logger.debug(`Provider does not support separate token transactions or failed to fetch: ${error instanceof Error ? error.message : String(error)}`);
+          // Continue without separate token transactions - provider may already include them in getAddressTransactions
+        }
+
+        allTransactions.push(...regularTxs, ...tokenTxs);
+        
+        this.logger.debug(`Transaction breakdown: ${regularTxs.length} regular, ${tokenTxs.length} token`);
       } catch (error) {
-        this.logger.debug(`Provider does not support separate token transactions or failed to fetch: ${error instanceof Error ? error.message : String(error)}`);
-        // Continue without separate token transactions - provider may already include them in getAddressTransactions
+        this.logger.error(`Failed to fetch address transactions via provider manager - Address: ${address}, Error: ${error instanceof Error ? error.message : String(error)}`);
+        throw error;
+      }
+    }
+
+    // Remove duplicates and sort by timestamp
+    const uniqueTransactions = allTransactions.reduce((acc, tx) => {
+      if (!acc.find(existing => existing.hash === tx.hash)) {
+        acc.push(tx);
+      }
+      return acc;
+    }, [] as BlockchainTransaction[]);
+
+    uniqueTransactions.sort((a, b) => b.timestamp - a.timestamp);
+    
+    this.logger.debug(`AvalancheAdapter: Found ${uniqueTransactions.length} unique transactions total`);
+    return uniqueTransactions;
+  }
+
+  protected async fetchRawBalances(params: UniversalFetchParams): Promise<Balance[]> {
+    if (!params.addresses?.length) {
+      throw new Error('Addresses required for Avalanche balance fetching');
+    }
+
+    const allBalances: Balance[] = [];
+    
+    for (const address of params.addresses) {
+      this.logger.debug(`AvalancheAdapter.getAddressBalance called - Address: ${address}`);
+      
+      try {
+        const balances = await this.providerManager.executeWithFailover('avalanche', {
+          type: 'getAddressBalance',
+          params: { address },
+          getCacheKey: (cacheParams: any) => `avax_balance_${cacheParams.address}`
+        }) as Balance[];
+
+        allBalances.push(...balances);
+        this.logger.info(`AvalancheAdapter: Found ${balances.length} balances for address`);
+      } catch (error) {
+        this.logger.error(`Failed to fetch address balance via provider manager - Address: ${address}, Error: ${error instanceof Error ? error.message : String(error)}`);
+        throw error;
+      }
+    }
+
+    return allBalances;
+  }
+
+  protected async transformTransactions(rawTxs: BlockchainTransaction[], params: UniversalFetchParams): Promise<UniversalTransaction[]> {
+    const userAddresses = params.addresses || [];
+    
+    return rawTxs.map(tx => {
+      // Determine transaction type based on user addresses
+      let type: TransactionType = 'transfer';
+      
+      if (userAddresses.length > 0) {
+        const userAddress = userAddresses[0].toLowerCase();
+        const isIncoming = tx.to.toLowerCase() === userAddress;
+        const isOutgoing = tx.from.toLowerCase() === userAddress;
+        
+        if (isIncoming && !isOutgoing) {
+          type = 'deposit';
+        } else if (isOutgoing && !isIncoming) {
+          type = 'withdrawal';
+        }
       }
 
-      this.logger.debug(`Transaction breakdown: ${regularTxs.length} regular, ${tokenTxs.length} token`);
-
-      // Combine all transactions (following the same pattern as Ethereum/Solana)
-      const allTransactions = [...regularTxs, ...tokenTxs];
-
-      // Sort by timestamp (newest first)
-      allTransactions.sort((a, b) => b.timestamp - a.timestamp);
-
-      // Remove any duplicate transactions (by hash) - some providers may include tokens in regular transactions
-      const uniqueTransactions = allTransactions.reduce((acc, tx) => {
-        if (!acc.find(existing => existing.hash === tx.hash)) {
-          acc.push(tx);
+      return {
+        id: tx.hash,
+        timestamp: tx.timestamp,
+        datetime: new Date(tx.timestamp).toISOString(),
+        type,
+        status: tx.status === 'success' ? 'closed' : 
+               tx.status === 'pending' ? 'open' : 'canceled',
+        amount: tx.value,
+        fee: tx.fee,
+        from: tx.from,
+        to: tx.to,
+        symbol: tx.tokenSymbol || tx.value.currency,
+        source: 'avalanche',
+        network: 'mainnet',
+        metadata: {
+          blockNumber: tx.blockNumber,
+          blockHash: tx.blockHash,
+          confirmations: tx.confirmations,
+          tokenContract: tx.tokenContract,
+          transactionType: tx.type,
+          originalTransaction: tx
         }
-        return acc;
-      }, [] as BlockchainTransaction[]);
-
-      this.logger.debug(`Found ${uniqueTransactions.length} unique transactions`);
-      return uniqueTransactions;
-
-    } catch (error) {
-      this.logger.error(`Failed to fetch address transactions via provider manager - Address: ${address}, Error: ${error instanceof Error ? error.message : String(error)}`);
-      throw error;
-    }
+      };
+    });
   }
 
-  async getAddressBalance(address: string): Promise<Balance[]> {
-    this.logger.debug(`AvalancheAdapter.getAddressBalance called - Address: ${address}`);
-
-    try {
-      // Use provider manager to fetch balance with failover
-      const balances = await this.providerManager.executeWithFailover('avalanche', {
-        type: 'getAddressBalance',
-        params: { address },
-        getCacheKey: (params: any) => `avax_balance_${params.address}`
-      }) as Balance[];
-
-      this.logger.info(`AvalancheAdapter: Found ${balances.length} balances for address`);
-      return balances;
-
-    } catch (error) {
-      this.logger.error(`Failed to fetch address balance via provider manager - Address: ${address}, Error: ${error instanceof Error ? error.message : String(error)}`);
-      throw error;
-    }
-  }
-
-  validateAddress(address: string): boolean {
-    // Avalanche C-Chain uses Ethereum-style addresses but they are case-sensitive
-    const ethAddressRegex = /^0x[a-fA-F0-9]{40}$/;
-    const isValid = ethAddressRegex.test(address);
-
-    this.logger.debug(`Address validation - Address: ${address}, IsValid: ${isValid}`);
-    return isValid;
+  protected async transformBalances(rawBalances: Balance[], params: UniversalFetchParams): Promise<UniversalBalance[]> {
+    return rawBalances.map(balance => ({
+      currency: balance.currency,
+      total: balance.total,
+      free: balance.balance,
+      used: balance.used,
+      contractAddress: balance.contractAddress
+    }));
   }
 
   async testConnection(): Promise<boolean> {
@@ -12102,20 +12454,34 @@ export class AvalancheAdapter extends BaseBlockchainAdapter {
     }
   }
 
-  async getBlockchainInfo(): Promise<BlockchainInfo> {
-    return {
-      id: 'avalanche',
-      name: 'Avalanche C-Chain',
-      network: 'mainnet',
-      capabilities: {
-        supportsAddressTransactions: true,
-        supportsTokenTransactions: true,
-        supportsBalanceQueries: true,
-        supportsHistoricalData: true,
-        supportsPagination: true,
-        maxLookbackDays: undefined
-      }
-    };
+  /**
+   * Close adapter and cleanup resources
+   */
+  async close(): Promise<void> {
+    try {
+      this.providerManager.destroy();
+      this.logger.info('Avalanche adapter closed successfully');
+    } catch (error) {
+      this.logger.warn(`Error during Avalanche adapter close - Error: ${error}`);
+    }
+  }
+
+  // Legacy methods for compatibility (can be removed once migration is complete)
+  validateAddress(address: string): boolean {
+    // Avalanche C-Chain uses Ethereum-style addresses but they are case-sensitive
+    const ethAddressRegex = /^0x[a-fA-F0-9]{40}$/;
+    const isValid = ethAddressRegex.test(address);
+
+    this.logger.debug(`Address validation - Address: ${address}, IsValid: ${isValid}`);
+    return isValid;
+  }
+
+  async getAddressTransactions(address: string, since?: number): Promise<BlockchainTransaction[]> {
+    return this.fetchRawTransactions({ addresses: [address], since });
+  }
+
+  async getAddressBalance(address: string): Promise<Balance[]> {
+    return this.fetchRawBalances({ addresses: [address] });
   }
 
   async getTokenTransactions(address: string, tokenContract?: string): Promise<BlockchainTransaction[]> {
@@ -12156,16 +12522,59 @@ export class AvalancheAdapter extends BaseBlockchainAdapter {
     }
   }
 
-  /**
-   * Close adapter and cleanup resources (required by IBlockchainAdapter)
-   */
-  async close(): Promise<void> {
-    try {
-      this.providerManager.destroy();
-      this.logger.info('Avalanche adapter closed successfully');
-    } catch (error) {
-      this.logger.warn(`Error during Avalanche adapter close - Error: ${error}`);
+  // Required IBlockchainAdapter methods for backward compatibility
+  async getBlockchainInfo(): Promise<any> {
+    return {
+      id: 'avalanche',
+      name: 'Avalanche C-Chain',
+      network: 'mainnet',
+      capabilities: {
+        supportsAddressTransactions: true,
+        supportsTokenTransactions: true,
+        supportsBalanceQueries: true,
+        supportsHistoricalData: true,
+        supportsPagination: true,
+        maxLookbackDays: undefined
+      }
+    };
+  }
+
+  convertToCryptoTransaction(blockchainTx: BlockchainTransaction, userAddress: string): any {
+    // Determine transaction type based on user address
+    let type: TransactionType = 'transfer';
+    const normalizedUserAddress = userAddress.toLowerCase();
+    const isIncoming = blockchainTx.to.toLowerCase() === normalizedUserAddress;
+    const isOutgoing = blockchainTx.from.toLowerCase() === normalizedUserAddress;
+
+    if (isIncoming && !isOutgoing) {
+      type = 'deposit';
+    } else if (isOutgoing && !isIncoming) {
+      type = 'withdrawal';
     }
+
+    return {
+      id: blockchainTx.hash,
+      type,
+      timestamp: blockchainTx.timestamp,
+      datetime: new Date(blockchainTx.timestamp).toISOString(),
+      symbol: blockchainTx.tokenSymbol || blockchainTx.value.currency,
+      side: undefined,
+      amount: blockchainTx.value,
+      price: undefined,
+      fee: blockchainTx.fee,
+      status: blockchainTx.status === 'success' ? 'closed' :
+        blockchainTx.status === 'pending' ? 'open' : 'canceled',
+      info: {
+        blockNumber: blockchainTx.blockNumber,
+        blockHash: blockchainTx.blockHash,
+        from: blockchainTx.from,
+        to: blockchainTx.to,
+        confirmations: blockchainTx.confirmations,
+        tokenContract: blockchainTx.tokenContract,
+        transactionType: blockchainTx.type,
+        originalTransaction: blockchainTx
+      }
+    };
   }
 }===== ./src/blockchains/registry/register-providers.ts =====
 // Import all blockchain providers to trigger their registration
@@ -12771,17 +13180,26 @@ export interface InjectiveBalanceResponse {
     total: string;
   };
 }===== ./src/blockchains/injective/adapter.ts =====
-import type { Balance, BlockchainInfo, BlockchainTransaction } from '@crypto/core';
+import type {
+  Balance,
+  BlockchainTransaction,
+  TransactionType,
+  UniversalAdapterInfo,
+  UniversalBalance,
+  UniversalBlockchainAdapterConfig,
+  UniversalFetchParams,
+  UniversalTransaction
+} from '@crypto/core';
 
-import { BaseBlockchainAdapter } from '../shared/base-blockchain-adapter.ts';
+import { BaseAdapter } from '../../adapters/universal/base-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
 import type { BlockchainExplorersConfig } from '../shared/explorer-config.ts';
 
-export class InjectiveAdapter extends BaseBlockchainAdapter {
+export class InjectiveAdapter extends BaseAdapter {
   private providerManager: BlockchainProviderManager;
 
-  constructor(explorerConfig: BlockchainExplorersConfig) {
-    super('injective', 'InjectiveAdapter');
+  constructor(config: UniversalBlockchainAdapterConfig, explorerConfig: BlockchainExplorersConfig) {
+    super(config);
 
     this.providerManager = new BlockchainProviderManager(explorerConfig);
     this.providerManager.autoRegisterFromConfig('injective', 'mainnet');
@@ -12789,10 +13207,169 @@ export class InjectiveAdapter extends BaseBlockchainAdapter {
     this.logger.info(`Initialized Injective adapter with registry-based provider manager - ProvidersCount: ${this.providerManager.getProviders('injective').length}`);
   }
 
-  validateAddress(address: string): boolean {
-    // Injective addresses start with 'inj' and are bech32 encoded
-    const injectiveAddressRegex = /^inj1[a-z0-9]{38}$/;
-    return injectiveAddressRegex.test(address);
+  async getInfo(): Promise<UniversalAdapterInfo> {
+    return {
+      id: 'injective',
+      name: 'Injective Protocol',
+      type: 'blockchain',
+      subType: 'rest',
+      capabilities: {
+        supportedOperations: ['fetchTransactions', 'fetchBalances', 'getAddressTransactions', 'getAddressBalance', 'getTokenTransactions'],
+        maxBatchSize: 1,
+        supportsHistoricalData: true,
+        supportsPagination: true,
+        requiresApiKey: false,
+        rateLimit: {
+          requestsPerSecond: 3,
+          burstLimit: 15
+        }
+      }
+    };
+  }
+
+  protected async fetchRawTransactions(params: UniversalFetchParams): Promise<BlockchainTransaction[]> {
+    if (!params.addresses?.length) {
+      throw new Error('Addresses required for Injective adapter');
+    }
+
+    const allTransactions: BlockchainTransaction[] = [];
+    
+    for (const address of params.addresses) {
+      if (!this.validateAddress(address)) {
+        throw new Error(`Invalid Injective address: ${address}`);
+      }
+
+      this.logger.info(`InjectiveAdapter: Fetching transactions for address: ${address.substring(0, 20)}...`);
+      
+      try {
+        // Fetch regular INJ transactions
+        const regularTxs = await this.providerManager.executeWithFailover('injective', {
+          type: 'getAddressTransactions',
+          params: { address, since: params.since },
+          getCacheKey: (cacheParams: any) => `inj_tx_${cacheParams.address}_${cacheParams.since || 'all'}`
+        }) as BlockchainTransaction[];
+
+        // Try to fetch token transactions (if provider supports it)
+        // Note: In Injective, tokens are represented as different denoms, not separate contracts
+        let tokenTxs: BlockchainTransaction[] = [];
+        try {
+          tokenTxs = await this.providerManager.executeWithFailover('injective', {
+            type: 'getTokenTransactions',
+            params: { address, since: params.since },
+            getCacheKey: (cacheParams: any) => `inj_token_tx_${cacheParams.address}_${cacheParams.since || 'all'}`
+          }) as BlockchainTransaction[];
+        } catch (error) {
+          this.logger.debug(`Provider does not support separate token transactions or failed to fetch - Error: ${error instanceof Error ? error.message : String(error)}`);
+          // Continue without separate token transactions - provider may already include them in getAddressTransactions
+        }
+
+        allTransactions.push(...regularTxs, ...tokenTxs);
+        
+        this.logger.info(`InjectiveAdapter transaction breakdown for ${address.substring(0, 20)}... - Regular: ${regularTxs.length}, Token: ${tokenTxs.length}`);
+      } catch (error) {
+        this.logger.error(`Failed to fetch transactions for ${address} - Error: ${error}`);
+        throw error;
+      }
+    }
+
+    // Remove duplicates and sort by timestamp
+    const uniqueTransactions = allTransactions.reduce((acc, tx) => {
+      if (!acc.find(existing => existing.hash === tx.hash)) {
+        acc.push(tx);
+      }
+      return acc;
+    }, [] as BlockchainTransaction[]);
+
+    uniqueTransactions.sort((a, b) => b.timestamp - a.timestamp);
+    
+    this.logger.info(`InjectiveAdapter: Found ${uniqueTransactions.length} unique transactions total`);
+    return uniqueTransactions;
+  }
+
+  protected async fetchRawBalances(params: UniversalFetchParams): Promise<Balance[]> {
+    if (!params.addresses?.length) {
+      throw new Error('Addresses required for Injective balance fetching');
+    }
+
+    const allBalances: Balance[] = [];
+    
+    for (const address of params.addresses) {
+      if (!this.validateAddress(address)) {
+        throw new Error(`Invalid Injective address: ${address}`);
+      }
+
+      this.logger.info(`Getting balance for address: ${address.substring(0, 20)}...`);
+      
+      try {
+        const balances = await this.providerManager.executeWithFailover('injective', {
+          type: 'getAddressBalance',
+          params: { address },
+          getCacheKey: (cacheParams: any) => `inj_balance_${cacheParams.address}`
+        }) as Balance[];
+
+        allBalances.push(...balances);
+      } catch (error) {
+        this.logger.error(`Failed to fetch balance for ${address} - Error: ${error}`);
+        throw error;
+      }
+    }
+
+    return allBalances;
+  }
+
+  protected async transformTransactions(rawTxs: BlockchainTransaction[], params: UniversalFetchParams): Promise<UniversalTransaction[]> {
+    const userAddresses = params.addresses || [];
+    
+    return rawTxs.map(tx => {
+      // Determine transaction type based on user addresses
+      let type: TransactionType = 'transfer';
+      
+      if (userAddresses.length > 0) {
+        const userAddress = userAddresses[0].toLowerCase();
+        const isIncoming = tx.to.toLowerCase() === userAddress;
+        const isOutgoing = tx.from.toLowerCase() === userAddress;
+        
+        if (isIncoming && !isOutgoing) {
+          type = 'deposit';
+        } else if (isOutgoing && !isIncoming) {
+          type = 'withdrawal';
+        }
+      }
+
+      return {
+        id: tx.hash,
+        timestamp: tx.timestamp,
+        datetime: new Date(tx.timestamp).toISOString(),
+        type,
+        status: tx.status === 'success' ? 'closed' : 
+               tx.status === 'pending' ? 'open' : 'canceled',
+        amount: tx.value,
+        fee: tx.fee,
+        from: tx.from,
+        to: tx.to,
+        symbol: tx.tokenSymbol || tx.value.currency,
+        source: 'injective',
+        network: 'mainnet',
+        metadata: {
+          blockNumber: tx.blockNumber,
+          blockHash: tx.blockHash,
+          confirmations: tx.confirmations,
+          tokenContract: tx.tokenContract,
+          transactionType: tx.type,
+          originalTransaction: tx
+        }
+      };
+    });
+  }
+
+  protected async transformBalances(rawBalances: Balance[], params: UniversalFetchParams): Promise<UniversalBalance[]> {
+    return rawBalances.map(balance => ({
+      currency: balance.currency,
+      total: balance.total,
+      free: balance.balance,
+      used: balance.used,
+      contractAddress: balance.contractAddress
+    }));
   }
 
   async testConnection(): Promise<boolean> {
@@ -12812,98 +13389,31 @@ export class InjectiveAdapter extends BaseBlockchainAdapter {
     }
   }
 
+  /**
+   * Close adapter and cleanup resources
+   */
+  async close(): Promise<void> {
+    try {
+      this.providerManager.destroy();
+      this.logger.info('Injective adapter closed successfully');
+    } catch (error) {
+      this.logger.warn(`Error during Injective adapter close - Error: ${error}`);
+    }
+  }
 
-  async getBlockchainInfo(): Promise<BlockchainInfo> {
-    return {
-      id: 'injective',
-      name: 'Injective Protocol Blockchain',
-      network: 'mainnet',
-      capabilities: {
-        supportsAddressTransactions: true,
-        supportsTokenTransactions: true,
-        supportsBalanceQueries: true,
-        supportsHistoricalData: true,
-        supportsPagination: true,
-        maxLookbackDays: undefined
-      }
-    };
+  // Legacy methods for compatibility (can be removed once migration is complete)
+  validateAddress(address: string): boolean {
+    // Injective addresses start with 'inj' and are bech32 encoded
+    const injectiveAddressRegex = /^inj1[a-z0-9]{38}$/;
+    return injectiveAddressRegex.test(address);
   }
 
   async getAddressTransactions(address: string, since?: number): Promise<BlockchainTransaction[]> {
-    if (!this.validateAddress(address)) {
-      throw new Error(`Invalid Injective address: ${address}`);
-    }
-
-    this.logger.info(`InjectiveAdapter: Fetching transactions for address: ${address.substring(0, 20)}...`);
-
-    try {
-      // Fetch regular INJ transactions
-      const regularTxs = await this.providerManager.executeWithFailover('injective', {
-        type: 'getAddressTransactions',
-        params: { address, since },
-        getCacheKey: (params: any) => `inj_tx_${params.address}_${params.since || 'all'}`
-      }) as BlockchainTransaction[];
-
-      // Try to fetch token transactions (if provider supports it)
-      // Note: In Injective, tokens are represented as different denoms, not separate contracts
-      let tokenTxs: BlockchainTransaction[] = [];
-      try {
-        tokenTxs = await this.providerManager.executeWithFailover('injective', {
-          type: 'getTokenTransactions',
-          params: { address, since },
-          getCacheKey: (params: any) => `inj_token_tx_${params.address}_${params.since || 'all'}`
-        }) as BlockchainTransaction[];
-      } catch (error) {
-        this.logger.debug(`Provider does not support separate token transactions or failed to fetch - Error: ${error instanceof Error ? error.message : String(error)}`);
-        // Continue without separate token transactions - provider may already include them in getAddressTransactions
-      }
-
-      this.logger.info(`InjectiveAdapter transaction breakdown for ${address.substring(0, 20)}... - Regular: ${regularTxs.length}, Token: ${tokenTxs.length}, Total: ${regularTxs.length + tokenTxs.length}`);
-
-      // Combine all transactions (following the same pattern as other adapters)
-      const allTransactions = [...regularTxs, ...tokenTxs];
-
-      // Sort by timestamp (newest first)
-      allTransactions.sort((a, b) => b.timestamp - a.timestamp);
-
-      // Remove any duplicate transactions (by hash)
-      const uniqueTransactions = allTransactions.reduce((acc, tx) => {
-        if (!acc.find((existing: any) => existing.hash === tx.hash)) {
-          acc.push(tx);
-        }
-        return acc;
-      }, [] as BlockchainTransaction[]);
-
-      this.logger.info(`InjectiveAdapter: Found ${uniqueTransactions.length} unique transactions for address ${address.substring(0, 20)}...`);
-      return uniqueTransactions;
-
-    } catch (error) {
-      this.logger.error(`Failed to fetch transactions for ${address} - Error: ${error}`);
-      throw error;
-    }
+    return this.fetchRawTransactions({ addresses: [address], since });
   }
 
   async getAddressBalance(address: string): Promise<Balance[]> {
-    if (!this.validateAddress(address)) {
-      throw new Error(`Invalid Injective address: ${address}`);
-    }
-
-    this.logger.info(`Getting balance for address: ${address.substring(0, 20)}...`);
-
-    try {
-      // Use provider manager to fetch balance with failover
-      const balances = await this.providerManager.executeWithFailover('injective', {
-        type: 'getAddressBalance',
-        params: { address },
-        getCacheKey: (params: any) => `inj_balance_${params.address}`
-      }) as Balance[];
-
-      return balances;
-
-    } catch (error) {
-      this.logger.error(`Failed to fetch balance for ${address} - Error: ${error}`);
-      throw error;
-    }
+    return this.fetchRawBalances({ addresses: [address] });
   }
 
   async getTokenTransactions(address: string, tokenContract?: string): Promise<BlockchainTransaction[]> {
@@ -12926,18 +13436,59 @@ export class InjectiveAdapter extends BaseBlockchainAdapter {
     return this.getAddressBalance(address);
   }
 
+  // Required IBlockchainAdapter methods for backward compatibility
+  async getBlockchainInfo(): Promise<any> {
+    return {
+      id: 'injective',
+      name: 'Injective Protocol Blockchain',
+      network: 'mainnet',
+      capabilities: {
+        supportsAddressTransactions: true,
+        supportsTokenTransactions: true,
+        supportsBalanceQueries: true,
+        supportsHistoricalData: true,
+        supportsPagination: true,
+        maxLookbackDays: undefined
+      }
+    };
+  }
 
+  convertToCryptoTransaction(blockchainTx: BlockchainTransaction, userAddress: string): any {
+    // Determine transaction type based on user address
+    let type: TransactionType = 'transfer';
+    const normalizedUserAddress = userAddress.toLowerCase();
+    const isIncoming = blockchainTx.to.toLowerCase() === normalizedUserAddress;
+    const isOutgoing = blockchainTx.from.toLowerCase() === normalizedUserAddress;
 
-  /**
-   * Close adapter and cleanup resources (required by IBlockchainAdapter)
-   */
-  async close(): Promise<void> {
-    try {
-      this.providerManager.destroy();
-      this.logger.info('Injective adapter closed successfully');
-    } catch (error) {
-      this.logger.warn(`Error during Injective adapter close - Error: ${error}`);
+    if (isIncoming && !isOutgoing) {
+      type = 'deposit';
+    } else if (isOutgoing && !isIncoming) {
+      type = 'withdrawal';
     }
+
+    return {
+      id: blockchainTx.hash,
+      type,
+      timestamp: blockchainTx.timestamp,
+      datetime: new Date(blockchainTx.timestamp).toISOString(),
+      symbol: blockchainTx.tokenSymbol || blockchainTx.value.currency,
+      side: undefined,
+      amount: blockchainTx.value,
+      price: undefined,
+      fee: blockchainTx.fee,
+      status: blockchainTx.status === 'success' ? 'closed' :
+        blockchainTx.status === 'pending' ? 'open' : 'canceled',
+      info: {
+        blockNumber: blockchainTx.blockNumber,
+        blockHash: blockchainTx.blockHash,
+        from: blockchainTx.from,
+        to: blockchainTx.to,
+        confirmations: blockchainTx.confirmations,
+        tokenContract: blockchainTx.tokenContract,
+        transactionType: blockchainTx.type,
+        originalTransaction: blockchainTx
+      }
+    };
   }
 }===== ./src/blockchains/polkadot/providers/SubstrateProvider.ts =====
 import { Decimal } from 'decimal.js';
@@ -13640,22 +14191,30 @@ export function parseSubstrateTransactionType(module: string, method: string): S
       return 'custom';
   }
 }===== ./src/blockchains/polkadot/adapter.ts =====
+import type {
+  Balance,
+  BlockchainTransaction,
+  TransactionType,
+  UniversalAdapterInfo,
+  UniversalBalance,
+  UniversalBlockchainAdapterConfig,
+  UniversalFetchParams,
+  UniversalTransaction
+} from '@crypto/core';
 
-
-import type { Balance, BlockchainInfo, BlockchainTransaction } from '@crypto/core';
-import { BaseBlockchainAdapter } from '../shared/base-blockchain-adapter.ts';
+import { BaseAdapter } from '../../adapters/universal/base-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
 import type { BlockchainExplorersConfig } from '../shared/explorer-config.ts';
 import { SUBSTRATE_CHAINS, type SubstrateChainConfig } from './types.ts';
 
-export class SubstrateAdapter extends BaseBlockchainAdapter {
+export class SubstrateAdapter extends BaseAdapter {
   private chainConfig: SubstrateChainConfig;
   private providerManager: BlockchainProviderManager;
 
-  constructor(explorerConfig: BlockchainExplorersConfig) {
-    super('polkadot', 'SubstrateAdapter');
+  constructor(config: UniversalBlockchainAdapterConfig, explorerConfig: BlockchainExplorersConfig) {
+    super(config);
 
-    // Always use Polkadot mainnet as default
+    // Always use Polkadot mainnet as default, but can be extended for other chains
     this.chainConfig = SUBSTRATE_CHAINS.polkadot!;
 
     // Create and initialize provider manager with registry
@@ -13665,55 +14224,141 @@ export class SubstrateAdapter extends BaseBlockchainAdapter {
     this.logger.info(`Initialized Substrate adapter with registry-based provider manager - Chain: ${this.chainConfig.name}, DisplayName: ${this.chainConfig.displayName}, TokenSymbol: ${this.chainConfig.tokenSymbol}, SS58Format: ${this.chainConfig.ss58Format}, ProvidersCount: ${this.providerManager.getProviders('polkadot').length}`);
   }
 
-
-  async getAddressTransactions(address: string, since?: number): Promise<BlockchainTransaction[]> {
-    this.logger.info(`SubstrateAdapter: Fetching transactions for address: ${address.substring(0, 20)}...`);
-    this.logger.debug(`SubstrateAdapter.getAddressTransactions called - Address: ${address}, Since: ${since}, Chain: ${this.chainConfig.name}`);
-
-    try {
-      // Use provider manager to fetch transactions with failover
-      const transactions = await this.providerManager.executeWithFailover('polkadot', {
-        type: 'getAddressTransactions',
-        params: { address, since },
-        getCacheKey: (params: any) => `${this.chainConfig.name}_tx_${params.address}_${params.since || 'all'}`
-      }) as BlockchainTransaction[];
-
-      this.logger.info(`SubstrateAdapter: Found ${transactions.length} transactions for ${this.chainConfig.name} address`);
-      return transactions;
-
-    } catch (error) {
-      this.logger.error(`Failed to fetch address transactions via provider manager - Address: ${address}, Chain: ${this.chainConfig.name}, Error: ${error instanceof Error ? error.message : String(error)}`);
-      throw error;
-    }
+  async getInfo(): Promise<UniversalAdapterInfo> {
+    return {
+      id: this.chainConfig.name,
+      name: this.chainConfig.displayName,
+      type: 'blockchain',
+      subType: 'rest',
+      capabilities: {
+        supportedOperations: ['fetchTransactions', 'fetchBalances', 'getAddressTransactions', 'getAddressBalance'],
+        maxBatchSize: 1,
+        supportsHistoricalData: true,
+        supportsPagination: true,
+        requiresApiKey: false,
+        rateLimit: {
+          requestsPerSecond: 3,
+          burstLimit: 10
+        }
+      }
+    };
   }
 
-  async getAddressBalance(address: string): Promise<Balance[]> {
-    this.logger.debug(`SubstrateAdapter.getAddressBalance called - Address: ${address}, Chain: ${this.chainConfig.name}`);
-
-    try {
-      // Use provider manager to fetch balance with failover
-      const balances = await this.providerManager.executeWithFailover('polkadot', {
-        type: 'getAddressBalance',
-        params: { address },
-        getCacheKey: (params: any) => `${this.chainConfig.name}_balance_${params.address}`
-      }) as Balance[];
-
-      this.logger.info(`SubstrateAdapter: Found ${balances.length} balances for ${this.chainConfig.name} address`);
-      return balances;
-
-    } catch (error) {
-      this.logger.error(`Failed to fetch address balance via provider manager - Address: ${address}, Chain: ${this.chainConfig.name}, Error: ${error instanceof Error ? error.message : String(error)}`);
-      throw error;
+  protected async fetchRawTransactions(params: UniversalFetchParams): Promise<BlockchainTransaction[]> {
+    if (!params.addresses?.length) {
+      throw new Error('Addresses required for Substrate adapter');
     }
+
+    const allTransactions: BlockchainTransaction[] = [];
+    
+    for (const address of params.addresses) {
+      this.logger.info(`SubstrateAdapter: Fetching transactions for address: ${address.substring(0, 20)}...`);
+      this.logger.debug(`SubstrateAdapter.getAddressTransactions called - Address: ${address}, Since: ${params.since}, Chain: ${this.chainConfig.name}`);
+      
+      try {
+        const transactions = await this.providerManager.executeWithFailover('polkadot', {
+          type: 'getAddressTransactions',
+          params: { address, since: params.since },
+          getCacheKey: (cacheParams: any) => `${this.chainConfig.name}_tx_${cacheParams.address}_${cacheParams.since || 'all'}`
+        }) as BlockchainTransaction[];
+
+        allTransactions.push(...transactions);
+        
+        this.logger.info(`SubstrateAdapter: Found ${transactions.length} transactions for ${this.chainConfig.name} address`);
+      } catch (error) {
+        this.logger.error(`Failed to fetch address transactions via provider manager - Address: ${address}, Chain: ${this.chainConfig.name}, Error: ${error instanceof Error ? error.message : String(error)}`);
+        throw error;
+      }
+    }
+
+    // Sort by timestamp (newest first)
+    allTransactions.sort((a, b) => b.timestamp - a.timestamp);
+    
+    this.logger.info(`SubstrateAdapter: Found ${allTransactions.length} total transactions`);
+    return allTransactions;
   }
 
-  validateAddress(address: string): boolean {
-    // Basic SS58 address validation - could be enhanced with proper SS58 library
-    const ss58Regex = /^[1-9A-HJ-NP-Za-km-z]{47,48}$/;
-    const isValid = ss58Regex.test(address);
+  protected async fetchRawBalances(params: UniversalFetchParams): Promise<Balance[]> {
+    if (!params.addresses?.length) {
+      throw new Error('Addresses required for Substrate balance fetching');
+    }
 
-    this.logger.debug(`Address validation - Address: ${address}, IsValid: ${isValid}, Chain: ${this.chainConfig.name}, SS58Format: ${this.chainConfig.ss58Format}`);
-    return isValid;
+    const allBalances: Balance[] = [];
+    
+    for (const address of params.addresses) {
+      this.logger.debug(`SubstrateAdapter.getAddressBalance called - Address: ${address}, Chain: ${this.chainConfig.name}`);
+      
+      try {
+        const balances = await this.providerManager.executeWithFailover('polkadot', {
+          type: 'getAddressBalance',
+          params: { address },
+          getCacheKey: (cacheParams: any) => `${this.chainConfig.name}_balance_${cacheParams.address}`
+        }) as Balance[];
+
+        allBalances.push(...balances);
+        this.logger.info(`SubstrateAdapter: Found ${balances.length} balances for ${this.chainConfig.name} address`);
+      } catch (error) {
+        this.logger.error(`Failed to fetch address balance via provider manager - Address: ${address}, Chain: ${this.chainConfig.name}, Error: ${error instanceof Error ? error.message : String(error)}`);
+        throw error;
+      }
+    }
+
+    return allBalances;
+  }
+
+  protected async transformTransactions(rawTxs: BlockchainTransaction[], params: UniversalFetchParams): Promise<UniversalTransaction[]> {
+    const userAddresses = params.addresses || [];
+    
+    return rawTxs.map(tx => {
+      // Determine transaction type based on user addresses
+      let type: TransactionType = 'transfer';
+      
+      if (userAddresses.length > 0) {
+        const userAddress = userAddresses[0].toLowerCase();
+        const isIncoming = tx.to.toLowerCase() === userAddress;
+        const isOutgoing = tx.from.toLowerCase() === userAddress;
+        
+        if (isIncoming && !isOutgoing) {
+          type = 'deposit';
+        } else if (isOutgoing && !isIncoming) {
+          type = 'withdrawal';
+        }
+      }
+
+      return {
+        id: tx.hash,
+        timestamp: tx.timestamp,
+        datetime: new Date(tx.timestamp).toISOString(),
+        type,
+        status: tx.status === 'success' ? 'closed' : 
+               tx.status === 'pending' ? 'open' : 'canceled',
+        amount: tx.value,
+        fee: tx.fee,
+        from: tx.from,
+        to: tx.to,
+        symbol: tx.tokenSymbol || tx.value.currency,
+        source: this.chainConfig.name,
+        network: this.chainConfig.name,
+        metadata: {
+          blockNumber: tx.blockNumber,
+          blockHash: tx.blockHash,
+          confirmations: tx.confirmations,
+          tokenContract: tx.tokenContract,
+          transactionType: tx.type,
+          originalTransaction: tx
+        }
+      };
+    });
+  }
+
+  protected async transformBalances(rawBalances: Balance[], params: UniversalFetchParams): Promise<UniversalBalance[]> {
+    return rawBalances.map(balance => ({
+      currency: balance.currency,
+      total: balance.total,
+      free: balance.balance,
+      used: balance.used,
+      contractAddress: balance.contractAddress
+    }));
   }
 
   async testConnection(): Promise<boolean> {
@@ -13749,20 +14394,34 @@ export class SubstrateAdapter extends BaseBlockchainAdapter {
     }
   }
 
-  async getBlockchainInfo(): Promise<BlockchainInfo> {
-    return {
-      id: this.chainConfig.name,
-      name: this.chainConfig.displayName,
-      network: this.chainConfig.name,
-      capabilities: {
-        supportsAddressTransactions: true,
-        supportsTokenTransactions: false, // Substrate native tokens only for now
-        supportsBalanceQueries: true,
-        supportsHistoricalData: true,
-        supportsPagination: true,
-        maxLookbackDays: undefined
-      }
-    };
+  /**
+   * Close adapter and cleanup resources
+   */
+  async close(): Promise<void> {
+    try {
+      this.providerManager.destroy();
+      this.logger.info(`${this.chainConfig.displayName} adapter closed successfully`);
+    } catch (error) {
+      this.logger.warn(`Error during ${this.chainConfig.displayName} adapter close - Error: ${error}`);
+    }
+  }
+
+  // Legacy methods for compatibility (can be removed once migration is complete)
+  validateAddress(address: string): boolean {
+    // Basic SS58 address validation - could be enhanced with proper SS58 library
+    const ss58Regex = /^[1-9A-HJ-NP-Za-km-z]{47,48}$/;
+    const isValid = ss58Regex.test(address);
+
+    this.logger.debug(`Address validation - Address: ${address}, IsValid: ${isValid}, Chain: ${this.chainConfig.name}, SS58Format: ${this.chainConfig.ss58Format}`);
+    return isValid;
+  }
+
+  async getAddressTransactions(address: string, since?: number): Promise<BlockchainTransaction[]> {
+    return this.fetchRawTransactions({ addresses: [address], since });
+  }
+
+  async getAddressBalance(address: string): Promise<Balance[]> {
+    return this.fetchRawBalances({ addresses: [address] });
   }
 
   // Substrate chains don't typically have separate token transactions like EVM chains
@@ -13784,16 +14443,59 @@ export class SubstrateAdapter extends BaseBlockchainAdapter {
     return this.getAddressBalance(address);
   }
 
-  /**
-   * Close adapter and cleanup resources (required by IBlockchainAdapter)
-   */
-  async close(): Promise<void> {
-    try {
-      this.providerManager.destroy();
-      this.logger.info(`${this.chainConfig.displayName} adapter closed successfully`);
-    } catch (error) {
-      this.logger.warn(`Error during ${this.chainConfig.displayName} adapter close - Error: ${error}`);
+  // Required IBlockchainAdapter methods for backward compatibility
+  async getBlockchainInfo(): Promise<any> {
+    return {
+      id: this.chainConfig.name,
+      name: this.chainConfig.displayName,
+      network: this.chainConfig.name,
+      capabilities: {
+        supportsAddressTransactions: true,
+        supportsTokenTransactions: false, // Substrate native tokens only for now
+        supportsBalanceQueries: true,
+        supportsHistoricalData: true,
+        supportsPagination: true,
+        maxLookbackDays: undefined
+      }
+    };
+  }
+
+  convertToCryptoTransaction(blockchainTx: BlockchainTransaction, userAddress: string): any {
+    // Determine transaction type based on user address
+    let type: TransactionType = 'transfer';
+    const normalizedUserAddress = userAddress.toLowerCase();
+    const isIncoming = blockchainTx.to.toLowerCase() === normalizedUserAddress;
+    const isOutgoing = blockchainTx.from.toLowerCase() === normalizedUserAddress;
+
+    if (isIncoming && !isOutgoing) {
+      type = 'deposit';
+    } else if (isOutgoing && !isIncoming) {
+      type = 'withdrawal';
     }
+
+    return {
+      id: blockchainTx.hash,
+      type,
+      timestamp: blockchainTx.timestamp,
+      datetime: new Date(blockchainTx.timestamp).toISOString(),
+      symbol: blockchainTx.tokenSymbol || blockchainTx.value.currency,
+      side: undefined,
+      amount: blockchainTx.value,
+      price: undefined,
+      fee: blockchainTx.fee,
+      status: blockchainTx.status === 'success' ? 'closed' :
+        blockchainTx.status === 'pending' ? 'open' : 'canceled',
+      info: {
+        blockNumber: blockchainTx.blockNumber,
+        blockHash: blockchainTx.blockHash,
+        from: blockchainTx.from,
+        to: blockchainTx.to,
+        confirmations: blockchainTx.confirmations,
+        tokenContract: blockchainTx.tokenContract,
+        transactionType: blockchainTx.type,
+        originalTransaction: blockchainTx
+      }
+    };
   }
 }===== ./src/blockchains/ethereum/providers/EtherscanProvider.ts =====
 import { Decimal } from 'decimal.js';
@@ -14893,17 +15595,26 @@ export interface EtherscanTokenBalance {
 }===== ./src/blockchains/ethereum/adapter.ts =====
 
 
-import type { Balance, BlockchainInfo, BlockchainTransaction } from '@crypto/core';
+import type {
+  Balance,
+  BlockchainTransaction,
+  TransactionType,
+  UniversalAdapterInfo,
+  UniversalBalance,
+  UniversalBlockchainAdapterConfig,
+  UniversalFetchParams,
+  UniversalTransaction
+} from '@crypto/core';
 
-import { BaseBlockchainAdapter } from '../shared/base-blockchain-adapter.ts';
+import { BaseAdapter } from '../../adapters/universal/base-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
 import type { BlockchainExplorersConfig } from '../shared/explorer-config.ts';
 
-export class EthereumAdapter extends BaseBlockchainAdapter {
+export class EthereumAdapter extends BaseAdapter {
   private providerManager: BlockchainProviderManager;
 
-  constructor(explorerConfig: BlockchainExplorersConfig) {
-    super('ethereum', 'EthereumAdapter');
+  constructor(config: UniversalBlockchainAdapterConfig, explorerConfig: BlockchainExplorersConfig) {
+    super(config);
 
     this.providerManager = new BlockchainProviderManager(explorerConfig);
     this.providerManager.autoRegisterFromConfig('ethereum', 'mainnet');
@@ -14911,79 +15622,160 @@ export class EthereumAdapter extends BaseBlockchainAdapter {
     this.logger.info(`Initialized Ethereum adapter with registry-based provider manager - ProvidersCount: ${this.providerManager.getProviders('ethereum').length}`);
   }
 
-  async getAddressTransactions(address: string, since?: number): Promise<BlockchainTransaction[]> {
-    this.logger.info(`EthereumAdapter: Fetching transactions for address: ${address.substring(0, 20)}...`);
-    this.logger.debug(`EthereumAdapter.getAddressTransactions called - Address: ${address}, Since: ${since}`);
+  async getInfo(): Promise<UniversalAdapterInfo> {
+    return {
+      id: 'ethereum',
+      name: 'Ethereum',
+      type: 'blockchain',
+      subType: 'rest',
+      capabilities: {
+        supportedOperations: ['fetchTransactions', 'fetchBalances', 'getAddressTransactions', 'getAddressBalance', 'getTokenTransactions'],
+        maxBatchSize: 1,
+        supportsHistoricalData: true,
+        supportsPagination: true,
+        requiresApiKey: false,
+        rateLimit: {
+          requestsPerSecond: 5,
+          burstLimit: 20
+        }
+      }
+    };
+  }
 
-    try {
-      // Fetch regular ETH transactions
-      const regularTxs = await this.providerManager.executeWithFailover('ethereum', {
-        type: 'getAddressTransactions',
-        params: { address, since },
-        getCacheKey: (params: any) => `eth_tx_${params.address}_${params.since || 'all'}`
-      }) as BlockchainTransaction[];
+  protected async fetchRawTransactions(params: UniversalFetchParams): Promise<BlockchainTransaction[]> {
+    if (!params.addresses?.length) {
+      throw new Error('Addresses required for Ethereum adapter');
+    }
 
-      // Try to fetch ERC-20 token transactions (if provider supports it)
-      let tokenTxs: BlockchainTransaction[] = [];
+    const allTransactions: BlockchainTransaction[] = [];
+    
+    for (const address of params.addresses) {
+      this.logger.info(`EthereumAdapter: Fetching transactions for address: ${address.substring(0, 20)}...`);
+      
       try {
-        tokenTxs = await this.providerManager.executeWithFailover('ethereum', {
-          type: 'getTokenTransactions',
-          params: { address, since },
-          getCacheKey: (params: any) => `eth_token_tx_${params.address}_${params.since || 'all'}`
+        // Fetch regular ETH transactions
+        const regularTxs = await this.providerManager.executeWithFailover('ethereum', {
+          type: 'getAddressTransactions',
+          params: { address, since: params.since },
+          getCacheKey: (cacheParams: any) => `eth_tx_${cacheParams.address}_${cacheParams.since || 'all'}`
         }) as BlockchainTransaction[];
+
+        // Try to fetch ERC-20 token transactions (if provider supports it)
+        let tokenTxs: BlockchainTransaction[] = [];
+        try {
+          tokenTxs = await this.providerManager.executeWithFailover('ethereum', {
+            type: 'getTokenTransactions',
+            params: { address, since: params.since },
+            getCacheKey: (cacheParams: any) => `eth_token_tx_${cacheParams.address}_${cacheParams.since || 'all'}`
+          }) as BlockchainTransaction[];
+        } catch (error) {
+          this.logger.debug(`Provider does not support separate token transactions or failed to fetch - Error: ${error instanceof Error ? error.message : String(error)}`);
+          // Continue without separate token transactions - provider may already include them in getAddressTransactions
+        }
+
+        allTransactions.push(...regularTxs, ...tokenTxs);
+        
+        this.logger.info(`EthereumAdapter transaction breakdown for ${address.substring(0, 20)}... - Regular: ${regularTxs.length}, Token: ${tokenTxs.length}`);
       } catch (error) {
-        this.logger.debug(`Provider does not support separate token transactions or failed to fetch - Error: ${error instanceof Error ? error.message : String(error)}`);
-        // Continue without separate token transactions - provider may already include them in getAddressTransactions
+        this.logger.error(`Failed to fetch transactions for ${address} - Error: ${error}`);
+        throw error;
+      }
+    }
+
+    // Remove duplicates and sort by timestamp
+    const uniqueTransactions = allTransactions.reduce((acc, tx) => {
+      if (!acc.find(existing => existing.hash === tx.hash)) {
+        acc.push(tx);
+      }
+      return acc;
+    }, [] as BlockchainTransaction[]);
+
+    uniqueTransactions.sort((a, b) => b.timestamp - a.timestamp);
+    
+    this.logger.info(`EthereumAdapter: Found ${uniqueTransactions.length} unique transactions total`);
+    return uniqueTransactions;
+  }
+
+  protected async fetchRawBalances(params: UniversalFetchParams): Promise<Balance[]> {
+    if (!params.addresses?.length) {
+      throw new Error('Addresses required for Ethereum balance fetching');
+    }
+
+    const allBalances: Balance[] = [];
+    
+    for (const address of params.addresses) {
+      this.logger.info(`Getting balance for address: ${address.substring(0, 20)}...`);
+      
+      try {
+        const balances = await this.providerManager.executeWithFailover('ethereum', {
+          type: 'getAddressBalance',
+          params: { address },
+          getCacheKey: (cacheParams: any) => `eth_balance_${cacheParams.address}`
+        }) as Balance[];
+
+        allBalances.push(...balances);
+      } catch (error) {
+        this.logger.error(`Failed to fetch balance for ${address} - Error: ${error}`);
+        throw error;
+      }
+    }
+
+    return allBalances;
+  }
+
+  protected async transformTransactions(rawTxs: BlockchainTransaction[], params: UniversalFetchParams): Promise<UniversalTransaction[]> {
+    const userAddresses = params.addresses || [];
+    
+    return rawTxs.map(tx => {
+      // Determine transaction type based on user addresses
+      let type: TransactionType = 'transfer';
+      
+      if (userAddresses.length > 0) {
+        const userAddress = userAddresses[0].toLowerCase();
+        const isIncoming = tx.to.toLowerCase() === userAddress;
+        const isOutgoing = tx.from.toLowerCase() === userAddress;
+        
+        if (isIncoming && !isOutgoing) {
+          type = 'deposit';
+        } else if (isOutgoing && !isIncoming) {
+          type = 'withdrawal';
+        }
       }
 
-      this.logger.info(`EthereumAdapter transaction breakdown for ${address.substring(0, 20)}... - Regular: ${regularTxs.length}, Token: ${tokenTxs.length}, Total: ${regularTxs.length + tokenTxs.length}`);
-
-      // Combine all transactions (following the same pattern as Solana)
-      const allTransactions = [...regularTxs, ...tokenTxs];
-
-      // Sort by timestamp (newest first)
-      allTransactions.sort((a, b) => b.timestamp - a.timestamp);
-
-      // Remove any duplicate transactions (by hash) - some providers may include tokens in regular transactions
-      const uniqueTransactions = allTransactions.reduce((acc, tx) => {
-        if (!acc.find((existing: any) => existing.hash === tx.hash)) {
-          acc.push(tx);
+      return {
+        id: tx.hash,
+        timestamp: tx.timestamp,
+        datetime: new Date(tx.timestamp).toISOString(),
+        type,
+        status: tx.status === 'success' ? 'closed' :
+               tx.status === 'pending' ? 'open' : 'canceled',
+        amount: tx.value,
+        fee: tx.fee,
+        from: tx.from,
+        to: tx.to,
+        symbol: tx.tokenSymbol || tx.value.currency,
+        source: 'ethereum',
+        network: 'mainnet',
+        metadata: {
+          blockNumber: tx.blockNumber,
+          blockHash: tx.blockHash,
+          confirmations: tx.confirmations,
+          tokenContract: tx.tokenContract,
+          transactionType: tx.type,
+          originalTransaction: tx
         }
-        return acc;
-      }, [] as BlockchainTransaction[]);
-
-      this.logger.info(`EthereumAdapter: Found ${uniqueTransactions.length} unique transactions for address ${address.substring(0, 20)}...`);
-      return uniqueTransactions;
-
-    } catch (error) {
-      this.logger.error(`Failed to fetch transactions for ${address} - Error: ${error}`);
-      throw error;
-    }
+      };
+    });
   }
 
-  async getAddressBalance(address: string): Promise<Balance[]> {
-    this.logger.info(`Getting balance for address: ${address.substring(0, 20)}...`);
-
-    try {
-      // Use provider manager to fetch balance with failover
-      const balances = await this.providerManager.executeWithFailover('ethereum', {
-        type: 'getAddressBalance',
-        params: { address },
-        getCacheKey: (params: any) => `eth_balance_${params.address}`
-      }) as Balance[];
-
-      return balances;
-
-    } catch (error) {
-      this.logger.error(`Failed to fetch balance for ${address} - Error: ${error}`);
-      throw error;
-    }
-  }
-
-  validateAddress(address: string): boolean {
-    // Ethereum address pattern: 0x followed by 40 hex characters
-    const ethereumPattern = /^0x[a-fA-F0-9]{40}$/;
-    return ethereumPattern.test(address);
+  protected async transformBalances(rawBalances: Balance[], params: UniversalFetchParams): Promise<UniversalBalance[]> {
+    return rawBalances.map(balance => ({
+      currency: balance.currency,
+      total: balance.total,
+      free: balance.balance,
+      used: balance.used,
+      contractAddress: balance.contractAddress
+    }));
   }
 
   async testConnection(): Promise<boolean> {
@@ -15006,7 +15798,35 @@ export class EthereumAdapter extends BaseBlockchainAdapter {
     }
   }
 
-  async getBlockchainInfo(): Promise<BlockchainInfo> {
+  /**
+   * Close adapter and cleanup resources
+   */
+  async close(): Promise<void> {
+    try {
+      this.providerManager.destroy();
+      this.logger.info('Ethereum adapter closed successfully');
+    } catch (error) {
+      this.logger.warn(`Error during Ethereum adapter close - Error: ${error}`);
+    }
+  }
+
+  // Legacy methods for compatibility (can be removed once migration is complete)
+  validateAddress(address: string): boolean {
+    // Ethereum address pattern: 0x followed by 40 hex characters
+    const ethereumPattern = /^0x[a-fA-F0-9]{40}$/;
+    return ethereumPattern.test(address);
+  }
+
+  async getAddressTransactions(address: string, since?: number): Promise<BlockchainTransaction[]> {
+    return this.fetchRawTransactions({ addresses: [address], since });
+  }
+
+  async getAddressBalance(address: string): Promise<Balance[]> {
+    return this.fetchRawBalances({ addresses: [address] });
+  }
+
+  // Required IBlockchainAdapter methods for backward compatibility
+  async getBlockchainInfo(): Promise<any> {
     return {
       id: 'ethereum',
       name: 'Ethereum',
@@ -15022,16 +15842,42 @@ export class EthereumAdapter extends BaseBlockchainAdapter {
     };
   }
 
-  /**
-   * Close adapter and cleanup resources (required by IBlockchainAdapter)
-   */
-  async close(): Promise<void> {
-    try {
-      this.providerManager.destroy();
-      this.logger.info('Ethereum adapter closed successfully');
-    } catch (error) {
-      this.logger.warn(`Error during Ethereum adapter close - Error: ${error}`);
+  convertToCryptoTransaction(blockchainTx: BlockchainTransaction, userAddress: string): any {
+    // Determine transaction type based on user address
+    let type: TransactionType = 'transfer';
+    const normalizedUserAddress = userAddress.toLowerCase();
+    const isIncoming = blockchainTx.to.toLowerCase() === normalizedUserAddress;
+    const isOutgoing = blockchainTx.from.toLowerCase() === normalizedUserAddress;
+
+    if (isIncoming && !isOutgoing) {
+      type = 'deposit';
+    } else if (isOutgoing && !isIncoming) {
+      type = 'withdrawal';
     }
+
+    return {
+      id: blockchainTx.hash,
+      type,
+      timestamp: blockchainTx.timestamp,
+      datetime: new Date(blockchainTx.timestamp).toISOString(),
+      symbol: blockchainTx.tokenSymbol || blockchainTx.value.currency,
+      side: undefined,
+      amount: blockchainTx.value,
+      price: undefined,
+      fee: blockchainTx.fee,
+      status: blockchainTx.status === 'success' ? 'closed' :
+        blockchainTx.status === 'pending' ? 'open' : 'canceled',
+      info: {
+        blockNumber: blockchainTx.blockNumber,
+        blockHash: blockchainTx.blockHash,
+        from: blockchainTx.from,
+        to: blockchainTx.to,
+        confirmations: blockchainTx.confirmations,
+        tokenContract: blockchainTx.tokenContract,
+        transactionType: blockchainTx.type,
+        originalTransaction: blockchainTx
+      }
+    };
   }
 }===== ./src/services/deduplicator.ts =====
 import type { EnhancedTransaction } from '@crypto/core';
@@ -15218,7 +16064,7 @@ export class Deduplicator {
     this.logger.debug(`Duplicate transaction skipped - ID: ${transactionId}, Source: ${sourceId}, Timestamp: ${Date.now()}`);
   }
 } ===== ./src/services/importer.ts =====
-import type { CryptoTransaction, EnhancedTransaction, IBlockchainAdapter, IExchangeAdapter, TransactionNote } from '@crypto/core';
+import type { CryptoTransaction, EnhancedTransaction, IBlockchainAdapter, TransactionNote } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
 import { type BlockchainExplorersConfig } from '@crypto/shared-utils';
 import crypto from 'crypto';
@@ -15234,12 +16080,12 @@ import { Deduplicator } from './deduplicator.ts';
 
 // Universal adapter imports
 import { UniversalAdapterFactory } from '../adapters/universal/adapter-factory.js';
-import type { 
-  IUniversalAdapter, 
-  FetchParams, 
-  Transaction as UniversalTransaction,
+import type {
+  BlockchainAdapterConfig,
   ExchangeAdapterConfig,
-  BlockchainAdapterConfig
+  FetchParams,
+  IUniversalAdapter,
+  Transaction as UniversalTransaction
 } from '../adapters/universal/index.js';
 
 interface BlockchainImportOptions {
@@ -15290,10 +16136,10 @@ export class TransactionImporter {
     }
   }
 
-  async importFromBlockchainAdapter(adapter: IBlockchainAdapter, addresses: string[], since?: number): Promise<ImportResult> {
+  async importFromBlockchainAdapter(adapter: IUniversalAdapter, addresses: string[], since?: number): Promise<ImportResult> {
     const startTime = Date.now();
-    const blockchainInfo = await adapter.getBlockchainInfo();
-    const blockchainId = blockchainInfo.id;
+    const adapterInfo = await adapter.getInfo();
+    const blockchainId = adapterInfo.id;
 
     try {
       // Test connection first
@@ -15302,7 +16148,7 @@ export class TransactionImporter {
         throw new Error(`Failed to connect to ${blockchainId}`);
       }
 
-      const rawTransactions = await this.fetchTransactionsForAddresses(adapter, addresses, since);
+      const rawTransactions = await this.fetchTransactionsForAddresses(adapter as any, addresses, since);
 
       const { transactions, saved, duplicates } = await this.processAndSaveTransactions(rawTransactions, blockchainId);
 
@@ -15553,7 +16399,7 @@ export class TransactionImporter {
     };
   }
 
-  async createBlockchainAdapters(options: BlockchainImportOptions): Promise<Array<{ adapter: IBlockchainAdapter }>> {
+  async createBlockchainAdapters(options: BlockchainImportOptions): Promise<Array<{ adapter: IUniversalAdapter }>> {
     try {
       const adapter = await this.blockchainAdapterFactory.createBlockchainAdapter(
         options.blockchain.toLowerCase(),
@@ -15569,7 +16415,7 @@ export class TransactionImporter {
     }
   }
 
-  private async processBlockchainImports(adapters: Array<{ adapter: IBlockchainAdapter }>, options: BlockchainImportOptions, startTime: number): Promise<ImportSummary> {
+  private async processBlockchainImports(adapters: Array<{ adapter: IUniversalAdapter }>, options: BlockchainImportOptions, startTime: number): Promise<ImportSummary> {
     const sourceResults: ImportResult[] = [];
     let totalTransactions = 0;
     let totalNewTransactions = 0;
@@ -15577,23 +16423,23 @@ export class TransactionImporter {
     const allErrors: string[] = [];
 
     for (const { adapter } of adapters) {
-      const blockchainInfo = await adapter.getBlockchainInfo();
-      this.logger.info(`Starting import from ${blockchainInfo.id}`);
+      const adapterInfo = await adapter.getInfo();
+      this.logger.info(`Starting import from ${adapterInfo.id}`);
 
       try {
-        const result = await this.importFromBlockchainAdapter(adapter, options.addresses, options.since);
+        const result = await this.importFromBlockchainAdapter(adapter as any, options.addresses, options.since);
         sourceResults.push(result);
         totalTransactions += result.transactions;
         totalNewTransactions += result.newTransactions;
         totalDuplicatesSkipped += result.duplicatesSkipped;
         allErrors.push(...result.errors);
       } catch (error) {
-        const errorMessage = `Failed to import from ${blockchainInfo.id}: ${error instanceof Error ? error.message : 'Unknown error'}`;
+        const errorMessage = `Failed to import from ${adapterInfo.id}: ${error instanceof Error ? error.message : 'Unknown error'}`;
         this.logger.error(errorMessage);
         allErrors.push(errorMessage);
 
         sourceResults.push({
-          source: blockchainInfo.id,
+          source: adapterInfo.id,
           transactions: 0,
           newTransactions: 0,
           duplicatesSkipped: 0,
@@ -15604,7 +16450,7 @@ export class TransactionImporter {
         try {
           await adapter.close();
         } catch (closeError) {
-          this.logger.warn(`Failed to close adapter for ${blockchainInfo.id}: ${closeError}`);
+          this.logger.warn(`Failed to close adapter for ${adapterInfo.id}: ${closeError}`);
         }
       }
     }

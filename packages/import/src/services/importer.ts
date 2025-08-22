@@ -1,4 +1,4 @@
-import type { CryptoTransaction, EnhancedTransaction, IBlockchainAdapter, IExchangeAdapter, TransactionNote } from '@crypto/core';
+import type { CryptoTransaction, EnhancedTransaction, IBlockchainAdapter, TransactionNote } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
 import { type BlockchainExplorersConfig } from '@crypto/shared-utils';
 import crypto from 'crypto';
@@ -14,12 +14,12 @@ import { Deduplicator } from './deduplicator.ts';
 
 // Universal adapter imports
 import { UniversalAdapterFactory } from '../adapters/universal/adapter-factory.js';
-import type { 
-  IUniversalAdapter, 
-  FetchParams, 
-  Transaction as UniversalTransaction,
+import type {
+  BlockchainAdapterConfig,
   ExchangeAdapterConfig,
-  BlockchainAdapterConfig
+  FetchParams,
+  IUniversalAdapter,
+  Transaction as UniversalTransaction
 } from '../adapters/universal/index.js';
 
 interface BlockchainImportOptions {
@@ -70,10 +70,10 @@ export class TransactionImporter {
     }
   }
 
-  async importFromBlockchainAdapter(adapter: IBlockchainAdapter, addresses: string[], since?: number): Promise<ImportResult> {
+  async importFromBlockchainAdapter(adapter: IUniversalAdapter, addresses: string[], since?: number): Promise<ImportResult> {
     const startTime = Date.now();
-    const blockchainInfo = await adapter.getBlockchainInfo();
-    const blockchainId = blockchainInfo.id;
+    const adapterInfo = await adapter.getInfo();
+    const blockchainId = adapterInfo.id;
 
     try {
       // Test connection first
@@ -82,7 +82,7 @@ export class TransactionImporter {
         throw new Error(`Failed to connect to ${blockchainId}`);
       }
 
-      const rawTransactions = await this.fetchTransactionsForAddresses(adapter, addresses, since);
+      const rawTransactions = await this.fetchTransactionsForAddresses(adapter as any, addresses, since);
 
       const { transactions, saved, duplicates } = await this.processAndSaveTransactions(rawTransactions, blockchainId);
 
@@ -333,7 +333,7 @@ export class TransactionImporter {
     };
   }
 
-  async createBlockchainAdapters(options: BlockchainImportOptions): Promise<Array<{ adapter: IBlockchainAdapter }>> {
+  async createBlockchainAdapters(options: BlockchainImportOptions): Promise<Array<{ adapter: IUniversalAdapter }>> {
     try {
       const adapter = await this.blockchainAdapterFactory.createBlockchainAdapter(
         options.blockchain.toLowerCase(),
@@ -349,7 +349,7 @@ export class TransactionImporter {
     }
   }
 
-  private async processBlockchainImports(adapters: Array<{ adapter: IBlockchainAdapter }>, options: BlockchainImportOptions, startTime: number): Promise<ImportSummary> {
+  private async processBlockchainImports(adapters: Array<{ adapter: IUniversalAdapter }>, options: BlockchainImportOptions, startTime: number): Promise<ImportSummary> {
     const sourceResults: ImportResult[] = [];
     let totalTransactions = 0;
     let totalNewTransactions = 0;
@@ -357,23 +357,23 @@ export class TransactionImporter {
     const allErrors: string[] = [];
 
     for (const { adapter } of adapters) {
-      const blockchainInfo = await adapter.getBlockchainInfo();
-      this.logger.info(`Starting import from ${blockchainInfo.id}`);
+      const adapterInfo = await adapter.getInfo();
+      this.logger.info(`Starting import from ${adapterInfo.id}`);
 
       try {
-        const result = await this.importFromBlockchainAdapter(adapter, options.addresses, options.since);
+        const result = await this.importFromBlockchainAdapter(adapter as any, options.addresses, options.since);
         sourceResults.push(result);
         totalTransactions += result.transactions;
         totalNewTransactions += result.newTransactions;
         totalDuplicatesSkipped += result.duplicatesSkipped;
         allErrors.push(...result.errors);
       } catch (error) {
-        const errorMessage = `Failed to import from ${blockchainInfo.id}: ${error instanceof Error ? error.message : 'Unknown error'}`;
+        const errorMessage = `Failed to import from ${adapterInfo.id}: ${error instanceof Error ? error.message : 'Unknown error'}`;
         this.logger.error(errorMessage);
         allErrors.push(errorMessage);
 
         sourceResults.push({
-          source: blockchainInfo.id,
+          source: adapterInfo.id,
           transactions: 0,
           newTransactions: 0,
           duplicatesSkipped: 0,
@@ -384,7 +384,7 @@ export class TransactionImporter {
         try {
           await adapter.close();
         } catch (closeError) {
-          this.logger.warn(`Failed to close adapter for ${blockchainInfo.id}: ${closeError}`);
+          this.logger.warn(`Failed to close adapter for ${adapterInfo.id}: ${closeError}`);
         }
       }
     }

@@ -1,4 +1,4 @@
-import type { IBlockchainAdapter } from '@crypto/core';
+import type { IUniversalAdapter } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
 import { AvalancheAdapter } from '../avalanche/adapter.ts';
 import { BitcoinAdapter } from '../bitcoin/adapter.ts';
@@ -20,29 +20,65 @@ export class BlockchainAdapterFactory {
   async createBlockchainAdapter(
     blockchain: string,
     explorerConfig: BlockchainExplorersConfig
-  ): Promise<IBlockchainAdapter> {
+  ): Promise<IUniversalAdapter> {
     this.logger.info(`Creating blockchain adapter for ${blockchain}`);
 
     switch (blockchain.toLowerCase()) {
       case 'bitcoin':
-        return new BitcoinAdapter(explorerConfig);
+        const bitcoinConfig = {
+          type: 'blockchain' as const,
+          id: 'bitcoin',
+          subType: 'rest' as const,
+          network: 'mainnet'
+        };
+        return new BitcoinAdapter(bitcoinConfig, explorerConfig);
 
       case 'ethereum':
-        return new EthereumAdapter(explorerConfig);
+        const ethereumConfig = {
+          type: 'blockchain' as const,
+          id: 'ethereum',
+          subType: 'rest' as const,
+          network: 'mainnet'
+        };
+        return new EthereumAdapter(ethereumConfig, explorerConfig);
 
       case 'injective':
-        return new InjectiveAdapter(explorerConfig);
+        const injectiveConfig = {
+          type: 'blockchain' as const,
+          id: 'injective',
+          subType: 'rest' as const,
+          network: 'mainnet'
+        };
+        return new InjectiveAdapter(injectiveConfig, explorerConfig);
 
       case 'avalanche':
-        return new AvalancheAdapter(explorerConfig);
+        const avalancheConfig = {
+          type: 'blockchain' as const,
+          id: 'avalanche',
+          subType: 'rest' as const,
+          network: 'mainnet'
+        };
+        return new AvalancheAdapter(avalancheConfig, explorerConfig);
 
       case 'bittensor':
       case 'polkadot':
       case 'kusama':
-        return new SubstrateAdapter(explorerConfig);
+        const substrateConfig = {
+          type: 'blockchain' as const,
+          id: blockchain.toLowerCase(),
+          subType: 'rest' as const,
+          network: 'mainnet'
+        };
+        return new SubstrateAdapter(substrateConfig, explorerConfig);
 
       case 'solana':
-        return new SolanaAdapter(explorerConfig);
+        const solanaConfig = {
+          type: 'blockchain' as const,
+          id: 'solana',
+          subType: 'rest' as const,
+          network: 'mainnet'
+        };
+        return new SolanaAdapter(solanaConfig, explorerConfig);
 
       default:
         throw new Error(`Unsupported blockchain: ${blockchain}`);
