@@ -86,7 +86,7 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
       password: credentials.password, // Coinbase uses password for passphrase      
       sandbox: credentials.sandbox ?? false,
       enableRateLimit: true,
-      rateLimit: 1000
+      rateLimit: 100
     });
 
     super(exchange, adapterConfig, enableOnlineVerification);

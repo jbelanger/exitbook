@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import type { EnhancedTransaction } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
 import { TransactionRepository } from '../repositories/transaction-repository.ts';
@@ -85,7 +86,7 @@ export class TransactionService {
    */
   private convertUniversalToEnhanced(universalTx: UniversalTransaction): EnhancedTransaction {
     // Create a unique hash for deduplication
-    const hash = require('crypto').createHash('sha256')
+    const hash = createHash('sha256')
       .update(JSON.stringify({
         id: universalTx.id,
         timestamp: universalTx.timestamp,
@@ -107,7 +108,7 @@ export class TransactionService {
       fee: universalTx.fee,
       price: universalTx.price,
       symbol: universalTx.symbol,
-      side: universalTx.metadata?.side,
+      side: universalTx.side,
       source: universalTx.source,
       hash,
       importedAt: Date.now(),

@@ -142,6 +142,7 @@ export abstract class BaseCCXTAdapter extends BaseAdapter {
       amount: tx.amount,
       fee: tx.fee,
       price: tx.price,
+      side: tx.side, // Include the side field directly
       from: tx.info?.from,
       to: tx.info?.to,
       symbol: tx.symbol,

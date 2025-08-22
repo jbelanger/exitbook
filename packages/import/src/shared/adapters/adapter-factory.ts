@@ -120,7 +120,7 @@ export class UniversalAdapterFactory {
           secret: config.credentials.secret,
           password: config.credentials.password || '',
           sandbox: false
-        });
+        }, { enableOnlineVerification: true });
       default:
         throw new Error(`Unsupported CCXT exchange: ${config.id}`);
     }
