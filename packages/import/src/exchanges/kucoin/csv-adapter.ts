@@ -1,8 +1,8 @@
-import type { CryptoTransaction, ExchangeInfo, TransactionStatus, TransactionType } from '@crypto/core';
+import type { CryptoTransaction, TransactionStatus, TransactionType } from '@crypto/core';
 import { createMoney, parseDecimal } from '@crypto/shared-utils';
-import type { CSVConfig } from '../base-csv-adapter.ts';
-import { BaseCSVAdapter } from '../base-csv-adapter.ts';
-interface KuCoinCSVConfig extends CSVConfig { }
+import { BaseCSVAdapter } from '../../adapters/universal/base-csv-adapter.js';
+import type { ExchangeAdapterConfig } from '../../adapters/universal/config.js';
+import type { AdapterInfo, Transaction } from '../../adapters/universal/types.js';
 
 // Expected CSV headers for validation
 const EXPECTED_HEADERS = {
@@ -61,8 +61,43 @@ interface AccountHistoryRow {
 }
 
 export class KuCoinCSVAdapter extends BaseCSVAdapter {
-  constructor(config: KuCoinCSVConfig) {
-    super(config, 'KuCoinCSVAdapter');
+  constructor(config: ExchangeAdapterConfig) {
+    super(config);
+  }
+
+  async getInfo(): Promise<AdapterInfo> {
+    return {
+      id: 'kucoin',
+      name: 'KuCoin CSV',
+      type: 'exchange',
+      subType: 'csv',
+      capabilities: {
+        supportedOperations: ['fetchTransactions'],
+        maxBatchSize: 1000,
+        supportsHistoricalData: true,
+        supportsPagination: false,
+        requiresApiKey: false
+      }
+    };
+  }
+
+  protected convertToUniversalTransaction(cryptoTx: CryptoTransaction): Transaction {
+    return {
+      id: cryptoTx.id,
+      timestamp: cryptoTx.timestamp,
+      datetime: cryptoTx.datetime || new Date(cryptoTx.timestamp).toISOString(),
+      type: cryptoTx.type,
+      status: cryptoTx.status || 'closed',
+      amount: cryptoTx.amount,
+      fee: cryptoTx.fee,
+      price: cryptoTx.price,
+      from: cryptoTx.info?.from,
+      to: cryptoTx.info?.to,
+      symbol: cryptoTx.symbol,
+      source: 'kucoin',
+      network: 'exchange',
+      metadata: cryptoTx.info || {}
+    };
   }
 
   protected getExpectedHeaders(): Record<string, string> {
@@ -110,25 +145,6 @@ export class KuCoinCSVAdapter extends BaseCSVAdapter {
       }
     }
   }
-
-  async getExchangeInfo(): Promise<ExchangeInfo> {
-    return {
-      id: 'kucoin',
-      name: 'KuCoin CSV',
-      version: '1.0.0',
-      capabilities: {
-        fetchMyTrades: true,
-        fetchDeposits: true,
-        fetchWithdrawals: true,
-        fetchLedger: false, // Ledger entries removed to prevent double-counting
-        fetchClosedOrders: true,
-        fetchBalance: false, // CSV doesn't provide current balances
-        fetchOrderBook: false,
-        fetchTicker: false
-      }
-    };
-  }
-
 
   private async parseSpotOrders(filePath: string): Promise<CryptoTransaction[]> {
     const rows = await this.parseCsvFile<SpotOrderRow>(filePath);
@@ -258,7 +274,6 @@ export class KuCoinCSVAdapter extends BaseCSVAdapter {
       }
     };
   }
-
 
   private convertAccountHistoryConvertToTransaction(deposit: AccountHistoryRow, withdrawal: AccountHistoryRow, timestamp: string): CryptoTransaction {
     const timestampMs = new Date(timestamp).getTime();
