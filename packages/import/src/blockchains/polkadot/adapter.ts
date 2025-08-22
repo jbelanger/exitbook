@@ -9,7 +9,7 @@ import type {
   UniversalTransaction
 } from '@crypto/core';
 
-import { BaseAdapter } from '../../adapters/universal/base-adapter.ts';
+import { BaseAdapter } from '../../shared/adapters/base-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
 import type { BlockchainExplorersConfig } from '../shared/explorer-config.ts';
 import { SUBSTRATE_CHAINS, type SubstrateChainConfig } from './types.ts';

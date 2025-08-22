@@ -1,6 +1,6 @@
 import { getLogger } from '@crypto/shared-logger';
 import { moneyToNumber } from '@crypto/shared-utils';
-import type { Transaction as UniversalTransaction } from '../adapters/universal/types.js';
+import type { Transaction as UniversalTransaction } from '../shared/types/adapters.ts';
 
 interface DeduplicationResult {
   unique: UniversalTransaction[];

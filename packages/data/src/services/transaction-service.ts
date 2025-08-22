@@ -5,7 +5,7 @@ import { WalletRepository } from '../repositories/wallet-repository.ts';
 import type { StoredTransaction } from '../types/data-types.js';
 import { TransactionLinkingService } from './transaction-linking-service.ts';
 // Add import for UniversalTransaction
-import type { Transaction as UniversalTransaction } from '../../../import/src/adapters/universal/types.js';
+import type { Transaction as UniversalTransaction } from '../../../import/src/shared/types/adapters.ts';
 
 export class TransactionService {
   private logger = getLogger('TransactionService');

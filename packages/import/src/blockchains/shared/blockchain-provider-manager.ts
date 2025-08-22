@@ -1,9 +1,9 @@
-import type { ProviderHealth } from './types.ts';
 import { getLogger } from '@crypto/shared-logger';
+import type { ProviderHealth } from './types.ts';
 
 import type { BlockchainExplorersConfig } from './explorer-config.ts';
 
-import { CircuitBreaker } from '../../utils/circuit-breaker.ts';
+import { CircuitBreaker } from '../../shared/utils/circuit-breaker.ts';
 import { ProviderRegistry } from './registry/provider-registry.ts';
 import type { IBlockchainProvider, ProviderCapabilities, ProviderOperation } from './types.ts';
 
