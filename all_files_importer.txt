@@ -518,22 +518,6 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
     }
   }
 
-  /**
-   * Enhanced fetchLedger with pagination support for Coinbase
-   * @deprecated This method is kept for backward compatibility. Use the universal adapter interface instead.
-   */
-  async fetchLedger(since?: number): Promise<CryptoTransaction[]> {
-    try {
-      // Use the new refactored method to get raw entries
-      const rawEntries = await this.fetchAllLedgerEntriesWithPagination(since);
-      
-      // Transform raw ledger entries before post-processing (maintains old behavior)
-      return this.transformCCXTTransactions(rawEntries, 'ledger');
-    } catch (error) {
-      this.handleError(error, 'fetchLedger');
-      throw error;
-    }
-  }
 
   /**
    * Fetch ledger entries with pagination for a specific account
@@ -1172,75 +1156,7 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
   }
 
 
-  /**
-   * Override deposits with account-specific logic (inherited from CoinbaseCCXTAdapter)
-   */
-  async fetchDeposits(since?: number): Promise<CryptoTransaction[]> {
-    try {
-      if (!this.exchange.has['fetchDeposits']) {
-        this.logger.debug('Coinbase does not support fetchDeposits');
-        return [];
-      }
 
-      await this.loadAccounts();
-      const allDeposits: any[] = [];
-
-      if (!this.accounts || this.accounts.length === 0) {
-        this.logger.warn('No accounts available for fetching deposits');
-        return [];
-      }
-
-      for (const account of this.accounts) {
-        try {
-          const params = { account_id: account.id };
-          const deposits = await this.exchange.fetchDeposits(undefined, since, undefined, params) as any[];
-          allDeposits.push(...deposits);
-        } catch (accountError) {
-          this.logger.warn(`Failed to fetch deposits for account ${account.id} - Error: ${accountError instanceof Error ? accountError.message : 'Unknown error'}`);
-        }
-      }
-
-      return this.transformCCXTTransactions(allDeposits, 'deposit');
-    } catch (error) {
-      this.handleError(error, 'fetchDeposits');
-      throw error;
-    }
-  }
-
-  /**
-   * Override withdrawals with account-specific logic (inherited from CoinbaseCCXTAdapter)
-   */
-  async fetchWithdrawals(since?: number): Promise<CryptoTransaction[]> {
-    try {
-      if (!this.exchange.has['fetchWithdrawals']) {
-        this.logger.debug('Coinbase does not support fetchWithdrawals');
-        return [];
-      }
-
-      await this.loadAccounts();
-      const allWithdrawals: any[] = [];
-
-      if (!this.accounts || this.accounts.length === 0) {
-        this.logger.warn('No accounts available for fetching withdrawals');
-        return [];
-      }
-
-      for (const account of this.accounts) {
-        try {
-          const params = { account_id: account.id };
-          const withdrawals = await this.exchange.fetchWithdrawals(undefined, since, undefined, params) as any[];
-          allWithdrawals.push(...withdrawals);
-        } catch (accountError) {
-          this.logger.warn(`Failed to fetch withdrawals for account ${account.id} - Error: ${accountError instanceof Error ? accountError.message : 'Unknown error'}`);
-        }
-      }
-
-      return this.transformCCXTTransactions(allWithdrawals, 'withdrawal');
-    } catch (error) {
-      this.handleError(error, 'fetchWithdrawals');
-      throw error;
-    }
-  }
 
   /**
    * Load Coinbase accounts (inherited from CoinbaseCCXTAdapter)
@@ -6561,7 +6477,7 @@ export class SolanaAdapter extends BaseAdapter {
       type: 'blockchain',
       subType: 'rest',
       capabilities: {
-        supportedOperations: ['fetchTransactions', 'fetchBalances', 'getAddressTransactions', 'getAddressBalance', 'getTokenTransactions'],
+        supportedOperations: ['fetchTransactions', 'fetchBalances'],
         maxBatchSize: 1,
         supportsHistoricalData: true,
         supportsPagination: true,
@@ -9835,7 +9751,7 @@ export class BitcoinAdapter extends BaseAdapter {
       type: 'blockchain',
       subType: 'rest',
       capabilities: {
-        supportedOperations: ['fetchTransactions', 'fetchBalances', 'getAddressTransactions', 'getAddressBalance'],
+        supportedOperations: ['fetchTransactions', 'fetchBalances'],
         maxBatchSize: 1,
         supportsHistoricalData: true,
         supportsPagination: false,
@@ -10791,7 +10707,7 @@ export class AvalancheAdapter extends BaseAdapter {
       type: 'blockchain',
       subType: 'rest',
       capabilities: {
-        supportedOperations: ['fetchTransactions', 'fetchBalances', 'getAddressTransactions', 'getAddressBalance', 'getTokenTransactions'],
+        supportedOperations: ['fetchTransactions', 'fetchBalances'],
         maxBatchSize: 1,
         supportsHistoricalData: true,
         supportsPagination: true,
@@ -10996,13 +10912,6 @@ export class AvalancheAdapter extends BaseAdapter {
     return isValid;
   }
 
-  async getAddressTransactions(address: string, since?: number): Promise<BlockchainTransaction[]> {
-    return this.fetchRawTransactions({ addresses: [address], since });
-  }
-
-  async getAddressBalance(address: string): Promise<Balance[]> {
-    return this.fetchRawBalances({ addresses: [address] });
-  }
 
 }===== ./src/blockchains/registry/register-providers.ts =====
 // Import all blockchain providers to trigger their registration
@@ -11642,7 +11551,7 @@ export class InjectiveAdapter extends BaseAdapter {
       type: 'blockchain',
       subType: 'rest',
       capabilities: {
-        supportedOperations: ['fetchTransactions', 'fetchBalances', 'getAddressTransactions', 'getAddressBalance', 'getTokenTransactions'],
+        supportedOperations: ['fetchTransactions', 'fetchBalances'],
         maxBatchSize: 1,
         supportsHistoricalData: true,
         supportsPagination: true,
@@ -12572,7 +12481,7 @@ export class SubstrateAdapter extends BaseAdapter {
       type: 'blockchain',
       subType: 'rest',
       capabilities: {
-        supportedOperations: ['fetchTransactions', 'fetchBalances', 'getAddressTransactions', 'getAddressBalance'],
+        supportedOperations: ['fetchTransactions', 'fetchBalances'],
         maxBatchSize: 1,
         supportsHistoricalData: true,
         supportsPagination: true,
@@ -13879,7 +13788,7 @@ export class EthereumAdapter extends BaseAdapter {
       type: 'blockchain',
       subType: 'rest',
       capabilities: {
-        supportedOperations: ['fetchTransactions', 'fetchBalances', 'getAddressTransactions', 'getAddressBalance', 'getTokenTransactions'],
+        supportedOperations: ['fetchTransactions', 'fetchBalances'],
         maxBatchSize: 1,
         supportsHistoricalData: true,
         supportsPagination: true,
@@ -14322,50 +14231,6 @@ export class TransactionImporter {
     }
   }
 
-  async importFromBlockchainAdapter(adapter: IUniversalAdapter, addresses: string[], since?: number): Promise<ImportResult> {
-    const startTime = Date.now();
-    const adapterInfo = await adapter.getInfo();
-    const blockchainId = adapterInfo.id;
-
-    try {
-      // Test connection first
-      const isConnected = await adapter.testConnection();
-      if (!isConnected) {
-        throw new Error(`Failed to connect to ${blockchainId}`);
-      }
-
-      // Use universal interface directly
-      const transactions = await adapter.fetchTransactions({ addresses, since });
-      const { saved, duplicates } = await this.processAndSaveUniversalTransactions(transactions, blockchainId);
-
-      const duration = Date.now() - startTime;
-
-      const result: ImportResult = {
-        source: blockchainId,
-        transactions: transactions.length,
-        newTransactions: saved,
-        duplicatesSkipped: duplicates.length,
-        errors: [],
-        duration
-      };
-
-      this.logger.info(`Completed import from ${blockchainId} - Transactions: ${transactions.length}, New: ${saved}, Duplicates: ${duplicates.length}, Duration: ${duration}ms`);
-
-      return result;
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      this.logger.error(`Import failed for ${blockchainId}: ${error} (duration: ${duration}ms)`);
-
-      return {
-        source: blockchainId,
-        transactions: 0,
-        newTransactions: 0,
-        duplicatesSkipped: 0,
-        errors: [error instanceof Error ? error.message : 'Unknown error'],
-        duration
-      };
-    }
-  }
 
   async importFromExchangeWithCredentials(options: {
     exchangeId: string;
@@ -14391,54 +14256,6 @@ export class TransactionImporter {
     );
   }
 
-  async importFromExchange(adapter: IUniversalAdapter, since?: number): Promise<ImportResult> {
-    const startTime = Date.now();
-    const adapterInfo = await adapter.getInfo();
-    const exchangeId = adapterInfo.id;
-
-    this.logger.info(`Starting import from ${exchangeId} (since: ${since})`);
-
-    try {
-      // Test connection first
-      const isConnected = await adapter.testConnection();
-      if (!isConnected) {
-        throw new Error(`Failed to connect to ${exchangeId}`);
-      }
-
-      // Fetch all transactions using the adapter
-      const universalTransactions = await adapter.fetchTransactions({ since });
-      
-      // Process and save universal transactions directly
-      const { saved, duplicates } = await this.processAndSaveUniversalTransactions(universalTransactions, exchangeId);
-
-      const duration = Date.now() - startTime;
-
-      const result: ImportResult = {
-        source: exchangeId,
-        transactions: universalTransactions.length,
-        newTransactions: saved,
-        duplicatesSkipped: duplicates.length,
-        errors: [],
-        duration
-      };
-
-      this.logger.info(`Completed import from ${exchangeId} - Transactions: ${universalTransactions.length}, New: ${saved}, Duplicates: ${duplicates.length}, Duration: ${duration}ms`);
-
-      return result;
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      this.logger.error(`Import failed for ${exchangeId}: ${error} (duration: ${duration}ms)`);
-
-      return {
-        source: exchangeId,
-        transactions: 0,
-        newTransactions: 0,
-        duplicatesSkipped: 0,
-        errors: [error instanceof Error ? error.message : 'Unknown error'],
-        duration
-      };
-    }
-  }
 
   /**
    * Universal adapter import method - unified interface for all adapter types
@@ -14684,7 +14501,7 @@ export class TransactionImporter {
       this.logger.info(`Starting import from ${adapterInfo.id}`);
 
       try {
-        const result = await this.importFromBlockchainAdapter(adapter, options.addresses, options.since);
+        const result = await this.importFromAdapter(adapter, { addresses: options.addresses, since: options.since });
         sourceResults.push(result);
         totalTransactions += result.transactions;
         totalNewTransactions += result.newTransactions;
