@@ -1,19 +1,19 @@
-import type { IExchangeAdapter } from '@crypto/core';
+import type { IUniversalAdapter } from '@crypto/core';
 import type { IBalanceService, ServiceCapabilities } from './balance-service.js';
 
 export class ExchangeBalanceService implements IBalanceService {
   private _cachedId?: string;
   private _cachedCapabilities?: ServiceCapabilities;
 
-  constructor(private adapter: IExchangeAdapter) {}
+  constructor(private adapter: IUniversalAdapter) {}
 
   async initialize(): Promise<void> {
-    const info = await this.adapter.getExchangeInfo();
+    const info = await this.adapter.getInfo();
     this._cachedId = info.id;
     this._cachedCapabilities = {
-      fetchBalance: info.capabilities.fetchBalance,
+      fetchBalance: info.capabilities.supportedOperations.includes('fetchBalances'),
       name: info.name,
-      version: info.version
+      version: '1.0.0' // Universal adapters don't have version in the same way
     };
   }
 
@@ -22,7 +22,7 @@ export class ExchangeBalanceService implements IBalanceService {
   }
 
   async getBalances(): Promise<Record<string, number>> {
-    const balances = await this.adapter.fetchBalance();
+    const balances = await this.adapter.fetchBalances({});
     const balanceObj: Record<string, number> = {};
 
     for (const balance of balances) {

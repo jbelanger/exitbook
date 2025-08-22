@@ -1,31 +1,54 @@
-// @ts-ignore - CCXT types compatibility
-import { CryptoTransaction, ExchangeBalance, ExchangeCapabilities, ExchangeInfo, IExchangeAdapter, ServiceError, TransactionType } from '@crypto/core';
-import type { Logger } from '@crypto/shared-logger';
-import { getLogger } from '@crypto/shared-logger';
-
+import type { CryptoTransaction, TransactionType } from '@crypto/core';
 import type { Exchange } from 'ccxt';
-import { TransactionTransformer } from '../utils/transaction-transformer.js';
-import { ServiceErrorHandler } from './exchange-error-handler.js';
+import { BaseAdapter } from './base-adapter.js';
+import type { 
+  UniversalAdapterInfo, 
+  UniversalFetchParams, 
+  UniversalTransaction, 
+  UniversalBalance,
+  UniversalExchangeAdapterConfig 
+} from '@crypto/core';
+import { TransactionTransformer } from '../../utils/transaction-transformer.js';
+import { ServiceErrorHandler } from '../../exchanges/exchange-error-handler.js';
 
 /**
- * Base class for all CCXT-based exchange adapters
- * Provides common functionality and eliminates code duplication
+ * Base class for all CCXT-based exchange adapters in the universal adapter system
+ * Extends the universal BaseAdapter and provides CCXT-specific functionality
  */
-export abstract class BaseCCXTAdapter implements IExchangeAdapter {
+export abstract class BaseCCXTAdapter extends BaseAdapter {
   protected exchange: Exchange;
-  protected logger: Logger;
   protected exchangeId: string;
   protected enableOnlineVerification: boolean;
 
-  constructor(exchange: Exchange, exchangeId: string, enableOnlineVerification: boolean = false, loggerSuffix?: string) {
+  constructor(exchange: Exchange, config: UniversalExchangeAdapterConfig, enableOnlineVerification: boolean = false) {
+    super(config);
     this.exchange = exchange;
-    this.exchangeId = exchangeId;
+    this.exchangeId = config.id;
     this.enableOnlineVerification = enableOnlineVerification;
-    this.logger = getLogger(`${loggerSuffix || 'CCXTAdapter'}:${exchangeId}`);
 
     // Enable rate limiting and other common settings
     this.exchange.enableRateLimit = true;
     this.exchange.rateLimit = 1000;
+  }
+
+  async getInfo(): Promise<UniversalAdapterInfo> {
+    return {
+      id: this.exchangeId,
+      name: this.exchange.name || this.exchangeId,
+      type: 'exchange',
+      subType: 'ccxt',
+      capabilities: {
+        supportedOperations: ['fetchTransactions', 'fetchBalances'],
+        maxBatchSize: 100,
+        supportsHistoricalData: true,
+        supportsPagination: true,
+        requiresApiKey: true,
+        rateLimit: {
+          requestsPerSecond: this.exchange.rateLimit ? 1000 / this.exchange.rateLimit : 10,
+          burstLimit: 50
+        }
+      }
+    };
   }
 
   async testConnection(): Promise<boolean> {
@@ -40,41 +63,20 @@ export abstract class BaseCCXTAdapter implements IExchangeAdapter {
     }
   }
 
-  async getExchangeInfo(): Promise<ExchangeInfo> {
-    const capabilities: ExchangeCapabilities = {
-      fetchMyTrades: Boolean(this.exchange.has['fetchMyTrades']),
-      fetchDeposits: Boolean(this.exchange.has['fetchDeposits']),
-      fetchWithdrawals: Boolean(this.exchange.has['fetchWithdrawals']),
-      fetchLedger: Boolean(this.exchange.has['fetchLedger']),
-      fetchClosedOrders: Boolean(this.exchange.has['fetchClosedOrders']),
-      fetchBalance: this.enableOnlineVerification && Boolean(this.exchange.has['fetchBalance']),
-      fetchOrderBook: Boolean(this.exchange.has['fetchOrderBook']),
-      fetchTicker: Boolean(this.exchange.has['fetchTicker']),
-    };
-
-    return {
-      id: this.exchangeId,
-      name: this.exchange.name || this.exchangeId,
-      version: this.exchange.version,
-      capabilities,
-      rateLimit: this.exchange.rateLimit,
-    };
-  }
-
-  async fetchAllTransactions(since?: number): Promise<CryptoTransaction[]> {
+  protected async fetchRawTransactions(params: UniversalFetchParams): Promise<CryptoTransaction[]> {
     const startTime = Date.now();
-    this.logger.info(`Starting fetchAllTransactions for ${this.exchangeId}`);
+    this.logger.info(`Starting fetchRawTransactions for ${this.exchangeId}`);
 
     try {
       const allTransactions: CryptoTransaction[] = [];
 
       // Fetch different transaction types
       const fetchPromises = [
-        this.fetchTrades(since),
-        this.fetchDeposits(since),
-        this.fetchWithdrawals(since),
-        this.fetchClosedOrders(since),
-        this.fetchLedger(since)
+        this.fetchTrades(params.since),
+        this.fetchDeposits(params.since),
+        this.fetchWithdrawals(params.since),
+        this.fetchClosedOrders(params.since),
+        this.fetchLedger(params.since)
       ];
 
       const results = await Promise.allSettled(fetchPromises);
@@ -91,18 +93,75 @@ export abstract class BaseCCXTAdapter implements IExchangeAdapter {
       });
 
       const duration = Date.now() - startTime;
-      this.logger.info(`Completed fetchAllTransactions for ${this.exchangeId} - Count: ${allTransactions.length}, Duration: ${duration}ms`);
+      this.logger.info(`Completed fetchRawTransactions for ${this.exchangeId} - Count: ${allTransactions.length}, Duration: ${duration}ms`);
 
       return allTransactions;
     } catch (error) {
-      throw new ServiceError(
-        `Failed to fetch transactions from ${this.exchangeId}`,
-        this.exchangeId,
-        'fetchAllTransactions',
-        error as Error
-      );
+      const message = `Failed to fetch transactions from ${this.exchangeId}`;
+      this.logger.error(`${message} - Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(message);
     }
   }
+
+  protected async transformTransactions(rawTxs: CryptoTransaction[], params: UniversalFetchParams): Promise<UniversalTransaction[]> {
+    // Transform CryptoTransaction to universal Transaction format
+    return rawTxs.map(tx => ({
+      id: tx.id,
+      timestamp: tx.timestamp,
+      datetime: tx.datetime || new Date(tx.timestamp).toISOString(),
+      type: tx.type,
+      status: tx.status || 'closed',
+      amount: tx.amount,
+      fee: tx.fee,
+      price: tx.price,
+      from: tx.info?.from,
+      to: tx.info?.to,
+      symbol: tx.symbol,
+      source: this.exchangeId,
+      network: 'exchange',
+      metadata: {
+        ...tx.info,
+        originalTransactionType: tx.type
+      }
+    }));
+  }
+
+  protected async fetchRawBalances(params: UniversalFetchParams): Promise<any> {
+    if (!this.enableOnlineVerification) {
+      throw new Error(`Balance fetching not supported for ${this.exchangeId} CCXT adapter - enable online verification to fetch live balances`);
+    }
+
+    try {
+      return await this.exchange.fetchBalance();
+    } catch (error) {
+      this.handleError(error, 'fetchBalance');
+      throw error;
+    }
+  }
+
+  protected async transformBalances(rawBalances: any, params: UniversalFetchParams): Promise<UniversalBalance[]> {
+    const balances: UniversalBalance[] = [];
+
+    for (const [currency, balanceInfo] of Object.entries(rawBalances)) {
+      if (currency === 'info' || currency === 'free' || currency === 'used' || currency === 'total') {
+        continue; // Skip CCXT metadata fields
+      }
+
+      const info = balanceInfo as any;
+      if (info && typeof info === 'object' && info.total !== undefined) {
+        balances.push({
+          currency,
+          total: info.total || 0,
+          free: info.free || 0,
+          used: info.used || 0,
+        });
+      }
+    }
+
+    return balances;
+  }
+
+  // CCXT-specific transaction fetching methods
 
   async fetchTrades(since?: number): Promise<CryptoTransaction[]> {
     try {
@@ -112,7 +171,7 @@ export abstract class BaseCCXTAdapter implements IExchangeAdapter {
       }
 
       const trades = await this.exchange.fetchMyTrades(undefined, since);
-      return this.transformTransactions(trades, 'trade');
+      return this.transformCCXTTransactions(trades, 'trade');
     } catch (error) {
       this.handleError(error, 'fetchTrades');
       throw error;
@@ -127,7 +186,7 @@ export abstract class BaseCCXTAdapter implements IExchangeAdapter {
       }
 
       const deposits = await this.exchange.fetchDeposits(undefined, since);
-      return this.transformTransactions(deposits, 'deposit');
+      return this.transformCCXTTransactions(deposits, 'deposit');
     } catch (error) {
       this.handleError(error, 'fetchDeposits');
       throw error;
@@ -142,7 +201,7 @@ export abstract class BaseCCXTAdapter implements IExchangeAdapter {
       }
 
       const withdrawals = await this.exchange.fetchWithdrawals(undefined, since);
-      return this.transformTransactions(withdrawals, 'withdrawal');
+      return this.transformCCXTTransactions(withdrawals, 'withdrawal');
     } catch (error) {
       this.handleError(error, 'fetchWithdrawals');
       throw error;
@@ -157,7 +216,7 @@ export abstract class BaseCCXTAdapter implements IExchangeAdapter {
       }
 
       const orders = await this.exchange.fetchClosedOrders(undefined, since);
-      return this.transformTransactions(orders, 'order');
+      return this.transformCCXTTransactions(orders, 'order');
     } catch (error) {
       this.handleError(error, 'fetchClosedOrders');
       throw error;
@@ -172,43 +231,9 @@ export abstract class BaseCCXTAdapter implements IExchangeAdapter {
       }
 
       const ledgerEntries = await this.exchange.fetchLedger(undefined, since);
-      return this.transformTransactions(ledgerEntries, 'ledger');
+      return this.transformCCXTTransactions(ledgerEntries, 'ledger');
     } catch (error) {
       this.handleError(error, 'fetchLedger');
-      throw error;
-    }
-  }
-
-  async fetchBalance(): Promise<ExchangeBalance[]> {
-    if (!this.enableOnlineVerification) {
-      throw new Error(`Balance fetching not supported for ${this.exchangeId} CCXT adapter - enable online verification to fetch live balances`);
-    }
-
-    try {
-      const balance = await this.exchange.fetchBalance();
-
-      // Transform CCXT balance format to our standard format
-      const balances: ExchangeBalance[] = [];
-
-      for (const [currency, balanceInfo] of Object.entries(balance)) {
-        if (currency === 'info' || currency === 'free' || currency === 'used' || currency === 'total') {
-          continue; // Skip CCXT metadata fields
-        }
-
-        const info = balanceInfo as any;
-        if (info && typeof info === 'object' && info.total !== undefined) {
-          balances.push({
-            currency,
-            balance: info.free || 0,
-            used: info.used || 0,
-            total: info.total || 0,
-          });
-        }
-      }
-
-      return balances;
-    } catch (error) {
-      this.handleError(error, 'fetchBalance');
       throw error;
     }
   }
@@ -224,17 +249,17 @@ export abstract class BaseCCXTAdapter implements IExchangeAdapter {
    * Transform array of CCXT transactions to our standard format
    * Can be overridden by subclasses for exchange-specific transformation
    */
-  protected transformTransactions(transactions: any[], type: TransactionType): CryptoTransaction[] {
+  protected transformCCXTTransactions(transactions: any[], type: TransactionType): CryptoTransaction[] {
     return transactions
       .filter(tx => !TransactionTransformer.shouldFilterOut(tx))
-      .map(tx => this.transformTransaction(tx, type));
+      .map(tx => this.transformCCXTTransaction(tx, type));
   }
 
   /**
    * Transform a single CCXT transaction to our standard format
    * Can be overridden by subclasses for exchange-specific transformation
    */
-  protected transformTransaction(transaction: any, type: TransactionType): CryptoTransaction {
+  protected transformCCXTTransaction(transaction: any, type: TransactionType): CryptoTransaction {
     return TransactionTransformer.fromCCXT(transaction, type, this.exchangeId);
   }
 
@@ -251,12 +276,4 @@ export abstract class BaseCCXTAdapter implements IExchangeAdapter {
    * This allows each subclass to configure their specific exchange instance
    */
   protected abstract createExchange(): Exchange;
-
-  /**
-   * Get exchange-specific capabilities - can be overridden
-   * Allows subclasses to modify capabilities based on exchange limitations
-   */
-  protected getExchangeCapabilities(): Partial<ExchangeCapabilities> {
-    return {};
-  }
 }

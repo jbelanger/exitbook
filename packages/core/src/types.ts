@@ -365,3 +365,117 @@ export interface DataSourceCapabilities<TOperations extends string = string> {
    */
   extensions?: Record<string, any>;
 }
+
+// Universal Adapter System - Single unified interface for all data sources
+
+/**
+ * Universal adapter interface that provides a consistent interface for all data sources
+ * (exchanges, blockchains, etc.). This replaces the separate IExchangeAdapter and 
+ * IBlockchainAdapter interfaces with a single unified interface.
+ */
+export interface IUniversalAdapter {
+  getInfo(): Promise<UniversalAdapterInfo>;
+  testConnection(): Promise<boolean>;
+  close(): Promise<void>;
+  fetchTransactions(params: UniversalFetchParams): Promise<UniversalTransaction[]>;
+  fetchBalances(params: UniversalFetchParams): Promise<UniversalBalance[]>;
+}
+
+export interface UniversalAdapterInfo {
+  id: string;
+  name: string;
+  type: 'exchange' | 'blockchain';
+  subType?: 'ccxt' | 'csv' | 'rpc' | 'rest';
+  capabilities: UniversalAdapterCapabilities;
+}
+
+export interface UniversalAdapterCapabilities {
+  supportedOperations: Array<
+    | 'fetchTransactions' 
+    | 'fetchBalances' 
+    | 'getAddressTransactions'
+    | 'getAddressBalance'
+    | 'getTokenTransactions'
+  >;
+  maxBatchSize: number;
+  supportsHistoricalData: boolean;
+  supportsPagination: boolean;
+  requiresApiKey: boolean;
+  rateLimit?: {
+    requestsPerSecond: number;
+    burstLimit: number;
+  };
+}
+
+export interface UniversalFetchParams {
+  // Universal params
+  addresses?: string[];        // For blockchains OR exchange accounts
+  symbols?: string[];          // Filter by asset symbols
+  since?: number;              // Time filter
+  until?: number;              // Time filter
+  
+  // Optional type-specific params
+  includeTokens?: boolean;     // For blockchains
+  transactionTypes?: TransactionType[];
+  
+  // Pagination
+  limit?: number;
+  offset?: number;
+}
+
+export interface UniversalTransaction {
+  // Universal fields
+  id: string;
+  timestamp: number;
+  datetime: string;
+  type: TransactionType;
+  status: TransactionStatus;
+  
+  // Amounts
+  amount: Money;
+  fee?: Money;
+  price?: Money;
+  
+  // Parties (works for both)
+  from?: string;  // Sender address OR exchange account
+  to?: string;    // Receiver address OR exchange account
+  symbol?: string; // Add symbol for trades
+  
+  // Metadata
+  source: string; // e.g., 'coinbase', 'bitcoin'
+  network?: string; // e.g., 'mainnet'
+  metadata: Record<string, any>;
+}
+
+export interface UniversalBalance {
+  currency: string;
+  total: number;
+  free: number;
+  used: number;
+  contractAddress?: string;
+}
+
+// Universal adapter configuration
+interface BaseUniversalAdapterConfig {
+  type: 'exchange' | 'blockchain';
+  id: string;
+}
+
+export interface UniversalExchangeAdapterConfig extends BaseUniversalAdapterConfig {
+  type: 'exchange';
+  subType: 'ccxt' | 'csv';
+  credentials?: { 
+    apiKey: string; 
+    secret: string; 
+    password?: string; 
+  };
+  csvDirectories?: string[];
+}
+
+export interface UniversalBlockchainAdapterConfig extends BaseUniversalAdapterConfig {
+  type: 'blockchain';
+  subType: 'rest' | 'rpc';
+  network: string;
+}
+
+export type UniversalAdapterConfig = UniversalExchangeAdapterConfig | UniversalBlockchainAdapterConfig;

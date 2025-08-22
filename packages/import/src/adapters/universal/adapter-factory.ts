@@ -2,8 +2,12 @@ import { ExchangeAdapterFactory } from '../../exchanges/adapter-factory.js';
 import { BlockchainAdapterFactory } from '../../blockchains/shared/blockchain-adapter-factory.js';
 import { ExchangeBridgeAdapter } from './exchange-bridge-adapter.js';
 import { BlockchainBridgeAdapter } from './blockchain-bridge-adapter.js';
-import type { IUniversalAdapter } from './types.js';
-import type { AdapterConfig, ExchangeAdapterConfig, BlockchainAdapterConfig } from './config.js';
+import type { 
+  IUniversalAdapter, 
+  UniversalAdapterConfig,
+  UniversalExchangeAdapterConfig, 
+  UniversalBlockchainAdapterConfig 
+} from '@crypto/core';
 import type { BlockchainExplorersConfig } from '../../blockchains/shared/explorer-config.js';
 import { getLogger } from '@crypto/shared-logger';
 
@@ -20,15 +24,15 @@ export class UniversalAdapterFactory {
   /**
    * Create a single universal adapter based on configuration
    */
-  static async create(config: AdapterConfig, explorerConfig?: BlockchainExplorersConfig): Promise<IUniversalAdapter> {
+  static async create(config: UniversalAdapterConfig, explorerConfig?: BlockchainExplorersConfig): Promise<IUniversalAdapter> {
     this.logger.info(`Creating universal adapter for ${config.id} (type: ${config.type})`);
 
     if (config.type === 'exchange') {
-      return this.createExchangeAdapter(config as ExchangeAdapterConfig);
+      return this.createExchangeAdapter(config as UniversalExchangeAdapterConfig);
     }
     
     if (config.type === 'blockchain') {
-      return this.createBlockchainAdapter(config as BlockchainAdapterConfig, explorerConfig);
+      return this.createBlockchainAdapter(config as UniversalBlockchainAdapterConfig, explorerConfig);
     }
     
     throw new Error(`Unsupported adapter type: ${(config as any).type}`);
@@ -38,7 +42,7 @@ export class UniversalAdapterFactory {
    * Create multiple universal adapters from an array of configurations
    */
   static async createMany(
-    configs: AdapterConfig[], 
+    configs: UniversalAdapterConfig[], 
     explorerConfig?: BlockchainExplorersConfig
   ): Promise<IUniversalAdapter[]> {
     this.logger.info(`Creating ${configs.length} universal adapters`);
@@ -51,12 +55,13 @@ export class UniversalAdapterFactory {
   /**
    * Create an exchange adapter wrapped in a bridge adapter
    */
-  private static async createExchangeAdapter(config: ExchangeAdapterConfig): Promise<IUniversalAdapter> {
+  private static async createExchangeAdapter(config: UniversalExchangeAdapterConfig): Promise<IUniversalAdapter> {
     this.logger.debug(`Creating exchange adapter for ${config.id} with subType: ${config.subType}`);
     
-    // Create the old exchange adapter using the existing factory
-    const oldFactory = new ExchangeAdapterFactory();
-    const oldAdapter = await oldFactory.createAdapterWithCredentials(
+    // Create the exchange adapter using the existing factory
+    // Since the exchange adapters now implement IUniversalAdapter directly, we can return them as-is
+    const factory = new ExchangeAdapterFactory();
+    return await factory.createAdapterWithCredentials(
       config.id,
       config.subType,
       {
@@ -65,16 +70,13 @@ export class UniversalAdapterFactory {
         enableOnlineVerification: false // Default to false for now
       }
     );
-    
-    // Wrap it in a bridge adapter to provide the universal interface
-    return new ExchangeBridgeAdapter(oldAdapter, config);
   }
 
   /**
    * Create a blockchain adapter wrapped in a bridge adapter
    */
   private static async createBlockchainAdapter(
-    config: BlockchainAdapterConfig, 
+    config: UniversalBlockchainAdapterConfig, 
     explorerConfig?: BlockchainExplorersConfig
   ): Promise<IUniversalAdapter> {
     if (!explorerConfig) {
@@ -87,7 +89,7 @@ export class UniversalAdapterFactory {
     const oldFactory = new BlockchainAdapterFactory();
     const oldAdapter = await oldFactory.createBlockchainAdapter(config.id, explorerConfig);
     
-    // Wrap it in a bridge adapter to provide the universal interface
+    // For now, still wrap blockchain adapters in bridge adapters since they haven't been refactored yet
     return new BlockchainBridgeAdapter(oldAdapter, config);
   }
 
@@ -105,7 +107,7 @@ export class UniversalAdapterFactory {
       };
       csvDirectories?: string[];
     }
-  ): ExchangeAdapterConfig {
+  ): UniversalExchangeAdapterConfig {
     return {
       type: 'exchange',
       id: exchangeId,
@@ -122,7 +124,7 @@ export class UniversalAdapterFactory {
     blockchain: string,
     network: string = 'mainnet',
     subType: 'rest' | 'rpc' = 'rest'
-  ): BlockchainAdapterConfig {
+  ): UniversalBlockchainAdapterConfig {
     return {
       type: 'blockchain',
       id: blockchain,
