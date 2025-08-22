@@ -1,7 +1,26 @@
-import type { CryptoTransaction, Money, TransactionType, UniversalExchangeAdapterConfig } from '@crypto/core';
-import ccxt from 'ccxt';
+import type { CryptoTransaction, Money, TransactionType, UniversalExchangeAdapterConfig, UniversalFetchParams, UniversalTransaction } from '@crypto/core';
+import * as ccxt from 'ccxt'; // Import all as ccxt to get access to types like ccxt.Account
 import { Decimal } from 'decimal.js';
 import { BaseCCXTAdapter } from '../base-ccxt-adapter.ts';
+import { CoinbaseCredentials } from './types.ts'; // Import from types.ts
+
+// Options for configuring the Coinbase adapter
+interface CoinbaseAdapterOptions {
+  enableOnlineVerification?: boolean;
+}
+
+// CoinbaseAccount extends ccxt.Account and customizes some types for internal use (Decimal for balance)
+interface CoinbaseAccount {
+  id: string;
+  currency: string;
+  balance: Decimal | number;
+  type: string;
+  code: string;  // Required by ccxt.Account
+  info: ccxt.Balance;     // Required by ccxt.Account
+  free?: number;
+  used?: number;
+  total?: number;
+}
 /**
  * Specialized Coinbase adapter that uses fetchLedger for comprehensive transaction data
  * 
@@ -54,18 +73,20 @@ import { BaseCCXTAdapter } from '../base-ccxt-adapter.ts';
  * - Transaction type extraction decisions
  */
 export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
-  private accounts: any[] | null = null;
+  private accounts: CoinbaseAccount[] | null = null;
 
   constructor(
-    configOrCredentials: { apiKey: string; secret: string; password: string; sandbox?: boolean },
-    enableOnlineVerificationOrOptions?: boolean | { enableOnlineVerification?: boolean }
+    configOrCredentials: CoinbaseCredentials,
+    enableOnlineVerificationOrOptions?: CoinbaseAdapterOptions | boolean
   ) {
     
     let enableOnlineVerification: boolean = false;
 
     const credentials = configOrCredentials;
-    const options = enableOnlineVerificationOrOptions as { enableOnlineVerification?: boolean } || {};
-    enableOnlineVerification = options.enableOnlineVerification || false;
+    const options = (enableOnlineVerificationOrOptions as CoinbaseAdapterOptions) || {};
+    enableOnlineVerification = typeof enableOnlineVerificationOrOptions === 'boolean'
+      ? enableOnlineVerificationOrOptions
+      : options.enableOnlineVerification || false;
     
     // Create universal adapter config
     const adapterConfig: UniversalExchangeAdapterConfig = {
@@ -75,15 +96,16 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
       credentials: {
         apiKey: credentials.apiKey,
         secret: credentials.secret,
-        password: credentials.password
+        password: credentials.passphrase
       }
     };
     
     // Create Coinbase Advanced Trade exchange
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const exchange = new (ccxt as any).coinbaseadvanced({
       apiKey: credentials.apiKey,
       secret: credentials.secret,
-      password: credentials.password, // Coinbase uses password for passphrase      
+      password: credentials.passphrase, // Coinbase uses password field for passphrase
       sandbox: credentials.sandbox ?? false,
       enableRateLimit: true,
       rateLimit: 100
@@ -103,33 +125,29 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
    * Override to fetch only the raw ledger entries from the API.
    * This should return the raw CCXT response, not a transformed one.
    */
-  protected async fetchRawTransactions(params: any): Promise<any[]> {
-    const requestedTypes = params.transactionTypes || ['trade', 'deposit', 'withdrawal', 'order', 'ledger'];
-    this.logger.info(`Starting raw ledger fetch from Coinbase for types: ${requestedTypes.join(', ')} - Since: ${params.since}`);
-    
+  protected async fetchRawTransactions(params: UniversalFetchParams): Promise<CryptoTransaction[]> {
     // This is the only place we should be calling the exchange API.
     // We can reuse the pagination logic from the old fetchLedger method.
     const rawLedgerEntries = await this.fetchAllLedgerEntriesWithPagination(params.since);
-    return rawLedgerEntries;
+    
+    // Transform raw CCXT entries to CryptoTransaction[] before returning to satisfy the base class's return type
+    return this.transformCCXTTransactions(rawLedgerEntries, 'ledger');
   }
 
   /**
    * Override to handle Coinbase's unique ledger entry grouping and transformation.
    * This is where all transformation logic now lives.
    */
-  protected async transformTransactions(rawLedgerEntries: any[], params: any): Promise<any[]> {
+  protected async transformTransactions(rawCryptoTxs: CryptoTransaction[], params: UniversalFetchParams): Promise<UniversalTransaction[]> {
     const requestedTypes = params.transactionTypes || ['trade', 'deposit', 'withdrawal', 'order', 'ledger'];
-    this.logger.info(`Transforming ${rawLedgerEntries.length} raw Coinbase ledger entries for types: ${requestedTypes.join(', ')}`);
+    this.logger.info(`Transforming ${rawCryptoTxs.length} raw Coinbase ledger entries for types: ${requestedTypes.join(', ')}`);
 
-    // 1. First, transform raw CCXT entries to the intermediate CryptoTransaction format.
-    //    This makes them compatible with the existing processing logic.
-    const ledgerCryptoTxs = this.transformCCXTTransactions(rawLedgerEntries, 'ledger');
+    // We no longer transform from raw CCXT entries here, as fetchRawTransactions already does the conversion.
+    // Now we directly process the CryptoTransaction array.
+    const processedCryptoTxs: CryptoTransaction[] = await this.processLedgerEntries(rawCryptoTxs);
 
-    // 2. Run the complex grouping and processing logic on the intermediate format.
-    const processedCryptoTxs = await this.processLedgerEntries(ledgerCryptoTxs);
-
-    // 3. Filter transactions by requested types before final transformation
-    const filteredTxs = processedCryptoTxs.filter(tx => {
+    // Filter transactions by requested types before final transformation
+    const filteredTxs = processedCryptoTxs.filter((tx: CryptoTransaction) => {
       if (!tx.type) return false;
       return requestedTypes.includes(tx.type);
     });
@@ -139,13 +157,13 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
       this.logger.info(`Filtered out ${filteredCount} transactions not matching requested types`);
     }
 
-    // 4. Finally, convert the filtered CryptoTransactions to the UniversalTransaction format.
+    // Finally, convert the filtered CryptoTransactions to the UniversalTransaction format.
     return super.transformTransactions(filteredTxs, params);
     // The base transformTransactions method already handles this final mapping.
   }
 
   // Helper to contain the fetching logic
-  private async fetchAllLedgerEntriesWithPagination(since?: number): Promise<any[]> {
+  private async fetchAllLedgerEntriesWithPagination(since?: number): Promise<ccxt.LedgerEntry[]> {
     // Move the logic from the old `fetchLedger` method here.
     // This method should return the raw, unprocessed entries from `this.exchange.fetchLedger()`.
     try {
@@ -157,7 +175,7 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
       // Load accounts to get available currencies and account IDs
       await this.loadAccounts();
 
-      const allEntries: any[] = [];
+      const allEntries: ccxt.LedgerEntry[] = []; // This will contain raw CCXT ledger entries
 
       if (!this.accounts || this.accounts.length === 0) {
         this.logger.warn('No accounts available for ledger fetching');
@@ -193,18 +211,20 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
   }
 
 
+
   /**
    * Fetch ledger entries with pagination for a specific account
    */
-  private async fetchLedgerWithAccountId(accountId: string, currency: string, since?: number): Promise<any[]> {
-    const allEntries: any[] = [];
+  private async fetchLedgerWithAccountId(accountId: string, currency: string, since?: number): Promise<ccxt.LedgerEntry[]> {
+    const allEntries: ccxt.LedgerEntry[] = []; // This will contain raw CCXT ledger entries
     let hasMore = true;
     let startingAfter: string | undefined;
     const pageSize = 100; // CCXT default for Coinbase
 
     while (hasMore) {
       try {
-        const params: any = {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const params: Record<string, any> = {
           limit: pageSize,
           paginate: false, // We handle pagination manually for better control
           account_id: accountId // Pass account_id to satisfy Coinbase requirement
@@ -234,11 +254,14 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
           // Use the last entry's ID as the starting point for the next page
           const lastEntry = entries[entries.length - 1];
           if (lastEntry) {
-            startingAfter = lastEntry.id || lastEntry.info?.id;
-
+            // Coinbase ledger entries have 'info' which contains the raw API response.
+            // The cursor for pagination might be in lastEntry.info.cursor or lastEntry.info.id.
+            // For ccxt.LedgerEntry, id is usually the primary identifier.
+            startingAfter = lastEntry.id;
+            
             if (!startingAfter) {
               // If we can't get pagination cursor, stop to avoid infinite loop
-              this.logger.warn('No pagination cursor available, stopping pagination');
+              this.logger.warn('No pagination cursor available from last entry, stopping pagination');
               hasMore = false;
             }
           } else {
@@ -523,7 +546,7 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
         fee: totalFee.greaterThan(0) && feeCurrency ? {
           amount: totalFee,
           currency: feeCurrency
-        } : undefined,
+        } : undefined, // Explicitly set to undefined if no fee
         status: 'closed',
         info: {
           groupId,
@@ -559,9 +582,9 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
     const enhancedTransaction: CryptoTransaction = {
       ...transaction,
       type: properType,
-      symbol,
+      symbol: symbol || 'unknown', // Ensure symbol is always a string
       side: side as 'buy' | 'sell',
-      price,
+      price: price || undefined, // Ensure price is explicitly undefined if not present
       info: {
         ...info,
         convertedBy: 'CoinbaseCCXTAdapter',
@@ -590,7 +613,7 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
   /**
    * Extract the proper transaction type from Coinbase ledger entry
    */
-  private extractTransactionType(info: any): TransactionType {
+  private extractTransactionType(info: { type?: string; direction?: string; info?: { type?: string; info?: { type?: string } } }): TransactionType {
     const type = info.type?.toLowerCase() || '';
 
     // First check the deeply nested info structure for more specific types
@@ -691,10 +714,10 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
         return 'trade';
       default:
         // Log error for unparseable transaction types - these should not exist
-        this.logger.error(`Unable to determine transaction type from Coinbase ledger entry - Type: ${type}, NestedType: ${nestedInfo?.type}, DeepNestedType: ${deepNestedInfo?.type}, Direction: ${info.direction}, TransactionId: ${info.id}, RawInfo: ${JSON.stringify(info, null, 2)}`);
+        this.logger.error(`Unable to determine transaction type from Coinbase ledger entry - Type: ${type}, NestedType: ${(nestedInfo as { type?: string })?.type}, DeepNestedType: ${(deepNestedInfo as { type?: string })?.type}, Direction: ${(info as { direction?: string }).direction}, TransactionId: ${(info as { id?: string }).id}, RawInfo: ${JSON.stringify(info, null, 2)}`);
 
         // Throw error instead of falling back to 'ledger' type
-        throw new Error(`Cannot determine transaction type for Coinbase entry: ${type} (ID: ${info.id || 'unknown'})`)
+        throw new Error(`Cannot determine transaction type for Coinbase entry: ${type} (ID: ${(info as { id?: string }).id || 'unknown'})`)
     }
   }
 
@@ -709,30 +732,30 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
    * 
    * The double-nested structure (info.info) is due to CCXT wrapping Coinbase's response.
    */
-  private extractSymbolFromInfo(info: any): string | undefined {
+  private extractSymbolFromInfo(info: unknown): string | undefined {
     // Check the deeply nested structure first for advanced_trade_fill (most reliable)
-    const nestedInfo = info?.info;
-    if (nestedInfo?.advanced_trade_fill?.product_id) {
-      return nestedInfo.advanced_trade_fill.product_id;
+    const nestedInfo = (info as { info?: unknown }).info;
+    if ((nestedInfo as { advanced_trade_fill?: { product_id?: string } })?.advanced_trade_fill?.product_id) {
+      return (nestedInfo as { advanced_trade_fill: { product_id: string } }).advanced_trade_fill.product_id;
     }
 
     // Check for buy/sell nested structures
-    if (nestedInfo?.buy?.product_id) {
-      return nestedInfo.buy.product_id;
+    if ((nestedInfo as { buy?: { product_id?: string } })?.buy?.product_id) {
+      return (nestedInfo as { buy: { product_id: string } }).buy.product_id;
     }
 
-    if (nestedInfo?.sell?.product_id) {
-      return nestedInfo.sell.product_id;
+    if ((nestedInfo as { sell?: { product_id?: string } })?.sell?.product_id) {
+      return (nestedInfo as { sell: { product_id: string } }).sell.product_id;
     }
 
     // Check for trade nested structure
-    if (nestedInfo?.trade?.product_id) {
-      return nestedInfo.trade.product_id;
+    if ((nestedInfo as { trade?: { product_id?: string } })?.trade?.product_id) {
+      return (nestedInfo as { trade: { product_id: string } }).trade.product_id;
     }
 
-    return info?.symbol ||
-      info?.product_id ||
-      info?.currency_pair ||
+    return (info as { symbol?: string }).symbol ||
+      (info as { product_id?: string }).product_id ||
+      (info as { currency_pair?: string }).currency_pair ||
       undefined;
   }
 
@@ -740,26 +763,26 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
   /**
    * Extract trade side from transaction info
    */
-  private extractSideFromInfo(info: any): string {
+  private extractSideFromInfo(info: unknown): string {
     // First check explicit side fields
-    if (info?.order_side) return info.order_side;
-    if (info?.side) return info.side;
-    if (info?.trade_side) return info.trade_side;
+    if ((info as { order_side?: string }).order_side) return (info as { order_side: string }).order_side;
+    if ((info as { side?: string }).side) return (info as { side: string }).side;
+    if ((info as { trade_side?: string }).trade_side) return (info as { trade_side: string }).trade_side;
 
     // For Coinbase Advanced Trade, infer from direction and nested info
-    const nestedInfo = info?.info;
+    const nestedInfo = (info as { info?: unknown }).info;
     if (nestedInfo) {
-      if (nestedInfo.buy) return 'buy';
-      if (nestedInfo.sell) return 'sell';
+      if ((nestedInfo as { buy?: unknown }).buy) return 'buy';
+      if ((nestedInfo as { sell?: unknown }).sell) return 'sell';
     }
 
     // Infer from direction for non-trade transactions
-    if (info?.direction === 'in') return 'buy'; // Receiving currency
-    if (info?.direction === 'out') return 'sell'; // Sending currency
+    if ((info as { direction?: string }).direction === 'in') return 'buy'; // Receiving currency
+    if ((info as { direction?: string }).direction === 'out') return 'sell'; // Sending currency
 
     // Try to infer from amount sign (if available)
-    if (info?.amount && typeof info.amount === 'number') {
-      return info.amount > 0 ? 'buy' : 'sell';
+    if ((info as { amount?: number }).amount && typeof (info as { amount: number }).amount === 'number') {
+      return (info as { amount: number }).amount > 0 ? 'buy' : 'sell';
     }
 
     return 'unknown';
@@ -774,31 +797,31 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
    * 3. For buy/sell transactions, extract from nested buy.total or sell.total
    * 4. These totals include fees, which we subtract later in combineMultipleLedgerEntries
    */
-  private extractPriceFromInfo(info: any, fallbackPrice?: Money, transactionType?: string): Money | undefined {
+  private extractPriceFromInfo(info: unknown, fallbackPrice?: Money, transactionType?: string): Money | undefined {
     // CRITICAL: Don't extract price for deposits and withdrawals - they're transfers, not trades
     if (transactionType === 'deposit' || transactionType === 'withdrawal') {
       return undefined;
     }
 
     // For Coinbase buy/sell transactions, extract total cost from nested structure
-    const nestedInfo = info?.info;
-    if (nestedInfo?.buy) {
-      const buyInfo = nestedInfo.buy;
+    const nestedInfo = (info as { info?: unknown }).info;
+    if ((nestedInfo as { buy?: unknown })?.buy) {
+      const buyInfo = (nestedInfo as { buy: { total?: { amount?: string | number; currency?: string } } }).buy;
       if (buyInfo.total?.amount && buyInfo.total?.currency) {
         // Return the total cost (what was spent)
         return {
-          amount: new Decimal(Math.abs(parseFloat(buyInfo.total.amount))),
+          amount: new Decimal(Math.abs(parseFloat(buyInfo.total.amount as string))),
           currency: buyInfo.total.currency
         };
       }
     }
 
-    if (nestedInfo?.sell) {
-      const sellInfo = nestedInfo.sell;
+    if ((nestedInfo as { sell?: unknown })?.sell) {
+      const sellInfo = (nestedInfo as { sell: { total?: { amount?: string | number; currency?: string } } }).sell;
       if (sellInfo.total?.amount && sellInfo.total?.currency) {
         // Return the total proceeds (what was received)
         return {
-          amount: new Decimal(Math.abs(parseFloat(sellInfo.total.amount))),
+          amount: new Decimal(Math.abs(parseFloat(sellInfo.total.amount as string))),
           currency: sellInfo.total.currency
         };
       }
@@ -806,17 +829,17 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
 
     // For trade transaction types, check for total or amount fields
     if (transactionType === 'trade' || transactionType === 'limit' || transactionType === 'market') {
-      if (info?.total && typeof info.total === 'number') {
+      if ((info as { total?: number }).total && typeof (info as { total: number }).total === 'number') {
         return {
-          amount: new Decimal(Math.abs(info.total)),
-          currency: info?.currency || 'USD'
+          amount: new Decimal(Math.abs((info as { total: number }).total)),
+          currency: (info as { currency?: string }).currency || 'USD'
         };
       }
 
-      if (info?.amount && typeof info.amount === 'number') {
+      if ((info as { amount?: number }).amount && typeof (info as { amount: number }).amount === 'number') {
         return {
-          amount: new Decimal(Math.abs(info.amount)),
-          currency: info?.currency || 'USD'
+          amount: new Decimal(Math.abs((info as { amount: number }).amount)),
+          currency: (info as { currency?: string }).currency || 'USD'
         };
       }
     }
@@ -849,18 +872,16 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
           const accounts = await this.exchange.fetchAccounts();
 
 
-          this.accounts = accounts.filter((account: any) => {
-            // Coinbase Advanced Trade account structure uses 'code' for currency
-            const hasId = account.id;
-            const hasCurrency = account.code; // Use 'code' field for currency
-
-
-            return hasId && hasCurrency; // Include all account types, not just 'wallet'
-          }).map((account: any) => ({
+          this.accounts = accounts.filter(
+            (account: ccxt.Account): account is ccxt.Account & { id: string; code: string; type?: string } =>
+              !!account.id && !!account.code
+          ).map((account) => ({
             id: account.id,
             currency: account.code, // Use 'code' field for currency
             balance: 0, // We don't need balance for ledger fetching
-            type: account.type || 'wallet'
+            type: account.type || 'wallet',
+            code: account.code,
+            info: account.info || {}
           }));
 
           if ((this.accounts ?? []).length > 0) {
@@ -887,7 +908,7 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
         if (currency === 'info' || currency === 'free' || currency === 'used' || currency === 'total') {
           continue;
         }
-        const info = balanceInfo as any;
+        const info = balanceInfo as ccxt.Balance;
 
 
         if (info && typeof info === 'object') { // Include zero-balance accounts for historical transactions
@@ -895,7 +916,9 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
             id: `${currency.toLowerCase()}-account`,
             currency: currency,
             balance: info.total || 0,
-            type: 'spot'
+            type: 'spot',
+            code: currency,
+            info: info
           });
         }
       }

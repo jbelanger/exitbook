@@ -1,9 +1,9 @@
 import type {
   UniversalAdapterInfo,
+  UniversalBalance,
   UniversalExchangeAdapterConfig,
   UniversalFetchParams,
-  UniversalTransaction,
-  UniversalBalance
+  UniversalTransaction
 } from '@crypto/core';
 import { Decimal } from 'decimal.js';
 import { BaseAdapter } from '../../shared/adapters/base-adapter.ts';
@@ -50,7 +50,7 @@ export class CoinbaseAdapter extends BaseAdapter {
       id: 'coinbase',
       name: 'Coinbase Advanced Trade',
       type: 'exchange',
-      subType: 'native',
+      subType: 'rest',
       capabilities: {
         supportedOperations: ['fetchTransactions', 'fetchBalances'],
         maxBatchSize: 100,
@@ -95,8 +95,8 @@ export class CoinbaseAdapter extends BaseAdapter {
         
         const ledgerParams = {
           limit: 100,
-          start_date: params.since ? new Date(params.since).toISOString() : undefined,
-          end_date: params.until ? new Date(params.until).toISOString() : undefined
+          start_date: params.since ? new Date(params.since).toISOString() : "",
+          end_date: params.until ? new Date(params.until).toISOString() : ""
         };
         
         const entries = await this.apiClient.getAllAccountLedgerEntries(account.uuid, ledgerParams);
@@ -113,7 +113,7 @@ export class CoinbaseAdapter extends BaseAdapter {
     return allEntries;
   }
 
-  protected async fetchRawBalances(params: UniversalFetchParams): Promise<RawCoinbaseAccount[]> {
+  protected async fetchRawBalances(): Promise<RawCoinbaseAccount[]> {
     this.logger.info('Fetching account balances from Coinbase');
     
     await this.loadAccounts();
@@ -176,8 +176,7 @@ export class CoinbaseAdapter extends BaseAdapter {
   }
 
   protected async transformBalances(
-    rawAccounts: RawCoinbaseAccount[], 
-    params: UniversalFetchParams
+    rawAccounts: RawCoinbaseAccount[]
   ): Promise<UniversalBalance[]> {
     this.logger.info(`Transforming ${rawAccounts.length} raw Coinbase accounts to universal balances`);
 
@@ -329,7 +328,7 @@ export class CoinbaseAdapter extends BaseAdapter {
       fee: totalFee.greaterThan(0) && feeCurrency ? {
         amount: totalFee,
         currency: feeCurrency
-      } : undefined,
+      } : { amount: new Decimal(0), currency: quoteCurrency },
       source: 'coinbase',
       metadata: {
         orderId,
@@ -378,13 +377,13 @@ export class CoinbaseAdapter extends BaseAdapter {
       timestamp,
       datetime: new Date(timestamp).toISOString(),
       status: 'closed',
-      symbol: entry.details.product_id,
+      symbol: entry.details.product_id || 'unknown',
       amount: { amount, currency: entry.amount.currency },
       side: entry.direction === 'CREDIT' ? 'buy' : 'sell',
       fee: entry.details.fee ? {
         amount: new Decimal(entry.details.fee.value),
         currency: entry.details.fee.currency
-      } : undefined,
+      } : { amount: new Decimal(0), currency: entry.amount.currency },
       source: 'coinbase',
       metadata: {
         ledgerEntryId: entry.id,

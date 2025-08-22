@@ -15,7 +15,7 @@ export interface HttpClientConfig {
 export interface HttpRequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
   headers?: Record<string, string>;
-  body?: string | object;
+  body?: BodyInit | object | null;
   timeout?: number;
 }
 
@@ -48,7 +48,7 @@ export class HttpClient {
   /**
    * Make an HTTP request with rate limiting, retries, and error handling
    */
-  async request<T = any>(endpoint: string, options: HttpRequestOptions = {}): Promise<T> {
+  async request<T = unknown>(endpoint: string, options: HttpRequestOptions = {}): Promise<T> {
     const url = this.buildUrl(endpoint);
     const method = options.method || 'GET';
     const timeout = options.timeout || this.config.timeout!;
@@ -82,7 +82,7 @@ export class HttpClient {
         const response = await fetch(url, {
           method,
           headers,
-          body,
+          body: body ?? null,
           signal: controller.signal
         });
 
@@ -160,15 +160,15 @@ export class HttpClient {
   /**
    * Convenience method for GET requests
    */
-  async get<T = any>(endpoint: string, options: Omit<HttpRequestOptions, 'method'> = {}): Promise<T> {
+  async get<T = unknown>(endpoint: string, options: Omit<HttpRequestOptions, 'method'> = {}): Promise<T> {
     return this.request<T>(endpoint, { ...options, method: 'GET' });
   }
 
   /**
    * Convenience method for POST requests
    */
-  async post<T = any>(endpoint: string, body?: any, options: Omit<HttpRequestOptions, 'method' | 'body'> = {}): Promise<T> {
-    return this.request<T>(endpoint, { ...options, method: 'POST', body });
+  async post<T = unknown>(endpoint: string, body?: unknown, options: Omit<HttpRequestOptions, 'method' | 'body'> = {}): Promise<T> {
+  return this.request<T>(endpoint, { ...options, method: 'POST', body: body as BodyInit | object | null });
   }
 
   /**

@@ -1,9 +1,9 @@
-import type { TransactionStatus, UniversalAdapterInfo, UniversalExchangeAdapterConfig, UniversalFetchParams, UniversalTransaction, UniversalBalance } from '@crypto/core';
+import type { TransactionStatus, UniversalAdapterInfo, UniversalBalance, UniversalExchangeAdapterConfig, UniversalFetchParams, UniversalTransaction } from '@crypto/core';
 import { createMoney, parseDecimal } from '@crypto/shared-utils';
-import { BaseAdapter } from '../../shared/adapters/base-adapter.ts';
-import { CsvParser } from '../csv-parser.ts';
 import fs from 'fs/promises';
 import path from 'path';
+import { BaseAdapter } from '../../shared/adapters/base-adapter.ts';
+import { CsvParser } from '../csv-parser.ts';
 
 // Expected CSV headers for validation
 const EXPECTED_HEADERS = {
@@ -81,7 +81,8 @@ export class LedgerLiveCSVAdapter extends BaseAdapter {
     }
   }
 
-  protected async fetchRawTransactions(_params: UniversalFetchParams): Promise<LedgerLiveOperationRow[]> {
+  protected async fetchRawTransactions(params: UniversalFetchParams): Promise<LedgerLiveOperationRow[]> {
+    this.logger.debug(`Fetching raw transactions with params - Params: ${JSON.stringify(params)}`);
     return this.loadAllTransactions();
   }
 
@@ -93,11 +94,13 @@ export class LedgerLiveCSVAdapter extends BaseAdapter {
       .filter(tx => !params.until || tx.timestamp <= params.until);
   }
 
-  protected async fetchRawBalances(_params: UniversalFetchParams): Promise<any> {
+  protected async fetchRawBalances(params: UniversalFetchParams): Promise<unknown> {
+    this.logger.debug(`Fetching raw balances with params - Params: ${JSON.stringify(params)}`);
     throw new Error('Balance fetching not supported for CSV adapter - CSV files do not contain current balance data');
   }
 
-  protected async transformBalances(_raw: any, _params: UniversalFetchParams): Promise<UniversalBalance[]> {
+  protected async transformBalances(raw: unknown, params: UniversalFetchParams): Promise<UniversalBalance[]> {
+    this.logger.debug(`Transforming raw balances with params - Raw: ${JSON.stringify(raw)}, Params: ${JSON.stringify(params)}`);
     throw new Error('Balance fetching not supported for CSV adapter');
   }
 
@@ -272,7 +275,7 @@ export class LedgerLiveCSVAdapter extends BaseAdapter {
       status,
       amount: createMoney(netAmount.toNumber(), currency),
       fee: createMoney(fee.toNumber(), currency),
-      symbol: undefined, // LedgerLive operations are single-currency
+      symbol: undefined,
       price: undefined,
       source: 'ledgerlive',
       network: 'exchange',

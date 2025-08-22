@@ -1,14 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { Decimal } from 'decimal.js';
+import type { ZodIssue } from 'zod';
 import {
   UniversalTransactionSchema,
   UniversalBalanceSchema,
   MoneySchema,
   validateUniversalTransaction,
-  validateUniversalBalance,
   validateUniversalTransactions,
   validateUniversalBalances,
-} from '../validation/universal-schemas';
+} from '../validation/universal-schemas.js';
 
 describe('Universal Schemas Validation', () => {
   describe('MoneySchema', () => {
@@ -113,8 +113,8 @@ describe('Universal Schemas Validation', () => {
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error.issues.length).toBeGreaterThan(0);
-        expect(result.error.issues.some(issue => issue.path.includes('timestamp'))).toBe(true);
-        expect(result.error.issues.some(issue => issue.path.includes('type'))).toBe(true);
+  expect(result.error.issues.some((issue: ZodIssue) => issue.path.includes('timestamp'))).toBe(true);
+  expect(result.error.issues.some((issue: ZodIssue) => issue.path.includes('type'))).toBe(true);
       }
     });
 
@@ -171,13 +171,8 @@ describe('Universal Schemas Validation', () => {
     });
 
     it('should provide default empty object for metadata', () => {
-      const transactionWithoutMetadata = {
-        ...validTransaction,
-        metadata: undefined,
-      };
-      
-      // Remove metadata field entirely
-      const { metadata, ...transactionWithoutMetadataField } = transactionWithoutMetadata;
+  const transactionWithoutMetadataField = { ...validTransaction };
+  delete (transactionWithoutMetadataField as unknown as Record<string, unknown>).metadata;
 
       const result = UniversalTransactionSchema.safeParse(transactionWithoutMetadataField);
       expect(result.success).toBe(true);

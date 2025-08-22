@@ -29,10 +29,10 @@ export interface CryptoTransaction {
   symbol?: string;
   amount: Money;
   side?: 'buy' | 'sell';
-  price?: Money;
-  fee?: Money;
+  price?: Money | undefined;
+  fee?: Money | undefined;
   status?: TransactionStatus;
-  info?: any; // Raw response data from source (exchange API response or blockchain transaction data)
+  info?: unknown; // Raw response data from source (exchange API response or blockchain transaction data)
 }
 
 export type TransactionType =
@@ -77,18 +77,23 @@ export interface EnhancedTransaction extends CryptoTransaction {
   /** Whether transaction has been verified against live exchange/blockchain data */
   verified?: boolean;
   /** Original raw data from source for debugging and compatibility */
-  originalData?: any;
+  originalData?: unknown;
   /** Optional annotation for scam detection, warnings, or classification */
   note?: TransactionNote;
 }
 
 // Transaction note interface  
 export interface TransactionNote {
-  type: any; // TransactionNoteType from import package
+  type: TransactionNoteType;
   message: string;
   severity?: 'info' | 'warning' | 'error';
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
+
+// Lightweight alias for transaction note types coming from other packages.
+// Kept as a string for minimal coupling; can be replaced with a concrete union
+// or imported type from the import package if that package becomes a dependency.
+export type TransactionNoteType = string;
 
 // CLI types
 export interface CLIOptions {
@@ -286,7 +291,7 @@ export interface DataSourceCapabilities<TOperations extends string = string> {
    * Allows each data source type to add custom capability flags without
    * polluting the base interface.
    */
-  extensions?: Record<string, any>;
+  extensions?: Record<string, unknown>;
 }
 
 // Universal Adapter System - Single unified interface for all data sources
@@ -368,7 +373,7 @@ export interface UniversalTransaction {
   // Metadata
   source: string; // e.g., 'coinbase', 'bitcoin'
   network?: string; // e.g., 'mainnet'
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 export interface UniversalBalance {
