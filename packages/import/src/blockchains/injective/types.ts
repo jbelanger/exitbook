@@ -19,11 +19,11 @@ export interface InjectiveTransaction {
   gas_fee: InjectiveGasFee;
   tx_type: string;
   messages: InjectiveMessage[];
-  signatures: any[];
+  signatures: unknown[];
   memo?: string;
   timeout_height: number;
-  extension_options: any[];
-  non_critical_extension_options: any[];
+  extension_options: unknown[];
+  non_critical_extension_options: unknown[];
 }
 
 export interface InjectiveMessage {
@@ -40,7 +40,7 @@ export interface InjectiveMessageValue {
   source_port?: string;
   source_channel?: string;
   token?: InjectiveAmount;
-  timeout_height?: any;
+  timeout_height?: unknown;
   timeout_timestamp?: string;
   memo?: string;
 }

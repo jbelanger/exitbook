@@ -15,6 +15,40 @@ export interface AlchemyConfig {
   retries?: number;
 }
 
+interface AlchemyAssetTransferParams {
+  fromAddress?: string;
+  toAddress?: string;
+  category: string[];
+  withMetadata: boolean;
+  excludeZeroValue: boolean;
+  maxCount: string;
+  order?: string;
+  contractAddresses?: string[];
+}
+
+interface AlchemyTokenBalanceParams {
+  address: string;
+  tokenType: string;
+  contractAddresses?: string[];
+}
+
+interface AlchemyAssetTransfer {
+  from: string;
+  to: string;
+  value: string;
+  blockNum: string;
+  hash: string;
+  category: string;
+  asset?: string;
+  rawContract?: {
+    address?: string;
+    decimal?: string;
+  };
+  metadata?: {
+    blockTimestamp?: string;
+  };
+}
+
 
 export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
   readonly name = 'alchemy';
@@ -162,8 +196,8 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
     since?: number,
     category: string[] = ['external', 'internal', 'erc20', 'erc721', 'erc1155'],
     contractAddress?: string
-  ): Promise<any[]> {
-    const params: any = {
+  ): Promise<AlchemyAssetTransfer[]> {
+    const params: AlchemyAssetTransferParams = {
       fromAddress: address,
       toAddress: address,
       category,
@@ -210,7 +244,7 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
 
   private async getTokenBalancesForAddress(address: string, contractAddresses?: string[]): Promise<Balance[]> {
     try {
-      const params: any = {
+      const params: AlchemyTokenBalanceParams = {
         address,
         tokenType: 'erc20'
       };
@@ -261,7 +295,7 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
     }
   }
 
-  private convertAssetTransfer(transfer: any, userAddress: string): BlockchainTransaction {
+  private convertAssetTransfer(transfer: AlchemyAssetTransfer, userAddress: string): BlockchainTransaction {
     const isFromUser = transfer.from.toLowerCase() === userAddress.toLowerCase();
     const isToUser = transfer.to.toLowerCase() === userAddress.toLowerCase();
 

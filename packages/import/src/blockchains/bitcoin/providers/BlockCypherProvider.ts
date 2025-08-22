@@ -149,7 +149,7 @@ export class BlockCypherProvider extends BaseRegistryProvider {
         case 'getAddressInfo':
           return this.getAddressInfo(operation.params as { address: string }) as T;
         case 'parseWalletTransaction':
-          return this.parseWalletTransaction(operation.params as { tx: any; walletAddresses: string[] }) as T;
+          return this.parseWalletTransaction(operation.params as { tx: BlockCypherTransaction; walletAddresses: string[] }) as T;
         default:
           throw new Error(`Unsupported operation: ${operation.type}`);
       }
@@ -176,7 +176,7 @@ export class BlockCypherProvider extends BaseRegistryProvider {
       this.logger.debug(`Retrieved transaction references - Address: ${maskAddress(address)}, Count: ${addressInfo.txrefs.length}`);
 
       // Extract unique transaction hashes
-      const uniqueTxHashes = Array.from(new Set(addressInfo.txrefs.map((ref: any) => ref.tx_hash)));
+      const uniqueTxHashes = Array.from(new Set(addressInfo.txrefs.map(ref => ref.tx_hash)));
 
       // Fetch detailed transaction data
       const transactions: BlockchainTransaction[] = [];
@@ -373,7 +373,7 @@ export class BlockCypherProvider extends BaseRegistryProvider {
   /**
    * Parse a BlockCypher transaction considering multiple wallet addresses (for xpub scenarios)
    */
-  private parseWalletTransaction(params: { tx: any; walletAddresses: string[] }): BlockchainTransaction {
+  private parseWalletTransaction(params: { tx: BlockCypherTransaction; walletAddresses: string[] }): BlockchainTransaction {
     const { tx, walletAddresses } = params;
 
     try {

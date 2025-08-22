@@ -4,12 +4,14 @@
  * List all registered providers across all blockchains
  */
 
+import type { RateLimitConfig } from '@crypto/core';
 import { ProviderRegistry } from '../blockchains/shared/registry/index.ts';
+import type { ProviderCapabilities } from '../blockchains/shared/types.ts';
 
 // Import all providers to trigger registration
 import '../blockchains/registry/register-providers.ts';
 
-function formatRateLimit(rateLimit: any): string {
+function formatRateLimit(rateLimit: RateLimitConfig): string {
   const parts: string[] = [];
   if (rateLimit.requestsPerSecond) {
     parts.push(`${rateLimit.requestsPerSecond}/sec`);
@@ -26,7 +28,7 @@ function formatRateLimit(rateLimit: any): string {
   return parts.join(', ');
 }
 
-function formatCapabilities(capabilities: any): string {
+function formatCapabilities(capabilities: ProviderCapabilities): string {
   const features: string[] = [];
   if (capabilities.supportsHistoricalData) features.push('Historical');
   if (capabilities.supportsRealTimeData) features.push('Real-time');

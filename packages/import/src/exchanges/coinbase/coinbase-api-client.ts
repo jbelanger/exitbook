@@ -169,8 +169,8 @@ export class CoinbaseAPIClient {
   private async authenticatedRequest<T>(
     path: string,
     method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET',
-    params?: Record<string, any>,
-    body?: any
+    params?: Record<string, unknown>,
+    body?: unknown
   ): Promise<T> {
     // Build the full path with query parameters for GET requests
     const queryString = method === 'GET' && params 
@@ -232,7 +232,7 @@ export class CoinbaseAPIClient {
   /**
    * Filter out undefined/null parameters to avoid invalid query strings
    */
-  private filterValidParams(params: Record<string, any>): Record<string, string> {
+  private filterValidParams(params: Record<string, unknown>): Record<string, string> {
     const filtered: Record<string, string> = {};
     
     for (const [key, value] of Object.entries(params)) {

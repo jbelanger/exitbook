@@ -4,7 +4,7 @@ import { createMoney, maskAddress, parseDecimal } from '@crypto/shared-utils';
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
 import { RegisterProvider } from '../../shared/registry/decorators.ts';
 import { ProviderOperation } from '../../shared/types.ts';
-import type { InjectiveApiResponse, InjectiveTransaction } from '../types.ts';
+import type { InjectiveApiResponse, InjectiveMessageValue, InjectiveTransaction } from '../types.ts';
 
 @RegisterProvider({
   name: 'injective-explorer',
@@ -269,7 +269,7 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
       // Handle Peggy bridge deposit messages (when funds come from Ethereum)
       else if (message.type === '/injective.peggy.v1.MsgDepositClaim') {
         // This is typically an inbound deposit from Ethereum bridge
-        const messageValue = message.value as any; // Type assertion for bridge-specific properties
+        const messageValue = message.value as InjectiveMessageValue & { ethereum_receiver?: string; injective_receiver?: string };
         if (messageValue.ethereum_receiver === relevantAddress ||
           messageValue.injective_receiver === relevantAddress) {
           isRelevantTransaction = true;

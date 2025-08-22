@@ -289,9 +289,9 @@ export class BlockchainProviderManager {
   /**
    * Get providers ordered by preference for the given operation
    */
-  private getProvidersInOrder(
+  private getProvidersInOrder<T>(
     blockchain: string,
-    operation: ProviderOperation<any>
+    operation: ProviderOperation<T>
   ): IBlockchainProvider[] {
     const candidates = this.providers.get(blockchain) || [];
 

@@ -36,7 +36,7 @@ export interface ProviderMetadata {
 /**
  * Factory function to create provider instances
  */
-export type ProviderFactory<TConfig = any> = {
+export type ProviderFactory<TConfig = Record<string, unknown>> = {
   metadata: ProviderMetadata;
   create: (config: TConfig) => IBlockchainProvider<TConfig>;
 };
@@ -153,7 +153,7 @@ export class ProviderRegistry {
   /**
    * Validate provider configuration against registered providers
    */
-  static validateConfig(config: any): { valid: boolean; errors: string[] } {
+  static validateConfig(config: Record<string, unknown>): { valid: boolean; errors: string[] } {
     const errors: string[] = [];
 
     for (const [blockchain, blockchainConfig] of Object.entries(config)) {
@@ -161,7 +161,7 @@ export class ProviderRegistry {
         continue;
       }
 
-      const { explorers = [] } = blockchainConfig as any;
+      const { explorers = [] } = blockchainConfig as { explorers?: unknown[] };
       const availableProviders = this.getAvailable(blockchain);
       const availableNames = availableProviders.map(p => p.name);
 

@@ -1,11 +1,11 @@
 import { Decimal } from 'decimal.js';
 
 import type { Balance, BlockchainTransaction } from '@crypto/core';
-import { createMoney, maskAddress } from '@crypto/shared-utils';
+import { createMoney, maskAddress, HttpClient } from '@crypto/shared-utils';
 
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
 import { RegisterProvider } from '../../shared/registry/decorators.ts';
-import type { SubstrateAccountInfo, SubstrateChainConfig } from '../types.ts';
+import type { SubstrateAccountInfo, SubstrateChainConfig, SubscanTransfer, TaostatsTransaction } from '../types.ts';
 import { SUBSTRATE_CHAINS } from '../types.ts';
 
 import { ProviderOperation } from '../../shared/types.ts';
@@ -47,7 +47,7 @@ import { isValidSS58Address } from '../utils.ts';
 })
 export class SubstrateProvider extends BaseRegistryProvider {
   private readonly chainConfig: SubstrateChainConfig;
-  private readonly rpcClient?: any; // TODO: Implement proper RPC client if needed
+  private readonly rpcClient?: unknown; // TODO: Implement proper RPC client if needed
 
   constructor() {
     super('polkadot', 'subscan', 'mainnet'); // Subscan provider for Polkadot
@@ -73,6 +73,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
     }
 
     // Update the chain config
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (this as any).chainConfig = chainConfig;
 
     // Update network and base URL based on chain
@@ -84,10 +85,13 @@ export class SubstrateProvider extends BaseRegistryProvider {
 
     const baseUrl = networkUrls[chain];
     if (baseUrl) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (this as any).network = chain;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (this as any).baseUrl = baseUrl;
 
       // Reinitialize HTTP client with new base URL
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (this as any).httpClient = this.initializeHttpClient(baseUrl);
     }
 
@@ -97,8 +101,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
   /**
    * Initialize HTTP client with custom base URL
    */
-  private initializeHttpClient(baseUrl: string): any {
-    const { HttpClient } = require('../../utils/http-client');
+  private initializeHttpClient(baseUrl: string): HttpClient {
     return new HttpClient({
       baseUrl,
       timeout: 10000,
@@ -405,7 +408,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
     }
   }
 
-  private convertTaostatsTransaction(tx: any, userAddress: string): BlockchainTransaction | null {
+  private convertTaostatsTransaction(tx: TaostatsTransaction, userAddress: string): BlockchainTransaction | null {
     try {
       const isFromUser = tx.from === userAddress;
       const isToUser = tx.to === userAddress;
@@ -438,7 +441,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
     }
   }
 
-  private convertSubscanTransaction(transfer: any, userAddress: string): BlockchainTransaction | null {
+  private convertSubscanTransaction(transfer: SubscanTransfer, userAddress: string): BlockchainTransaction | null {
     try {
       const isFromUser = transfer.from === userAddress;
       const isToUser = transfer.to === userAddress;

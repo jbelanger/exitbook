@@ -13,20 +13,20 @@ interface HeliusTransaction {
   signature: string;
   slot: number;
   blockTime?: number;
-  err: any;
+  err: unknown;
   meta: {
     fee: number;
     preBalances: number[];
     postBalances: number[];
-    preTokenBalances?: any[];
-    postTokenBalances?: any[];
+    preTokenBalances?: unknown[];
+    postTokenBalances?: unknown[];
     logMessages: string[];
-    err: any;
+    err: unknown;
   };
   transaction: {
     message: {
       accountKeys: string[];
-      instructions: any[];
+      instructions: unknown[];
       recentBlockhash: string;
     };
     signatures: string[];
@@ -252,7 +252,7 @@ export class HeliusProvider extends BaseRegistryProvider {
         return [];
       }
 
-      const tokenAccountAddresses = tokenAccountsResponse.result.value.map((account: any) => account.pubkey);
+      const tokenAccountAddresses = tokenAccountsResponse.result.value.map((account: { pubkey: string }) => account.pubkey);
 
       this.logger.debug(`Found token accounts owned by address - Address: ${maskAddress(address)}, TokenAccountCount: ${tokenAccountAddresses.length}`);
 
@@ -808,9 +808,9 @@ export class HeliusProvider extends BaseRegistryProvider {
   /**
    * Store token metadata for scam detection
    */
-  private tokenMetadataCache = new Map<string, any>();
+  private tokenMetadataCache = new Map<string, Record<string, unknown>>();
 
-  private storeTokenMetadata(mintAddress: string, metadata: any): void {
+  private storeTokenMetadata(mintAddress: string, metadata: Record<string, unknown>): void {
     this.tokenMetadataCache.set(mintAddress, {
       symbol: metadata.symbol || '',
       name: metadata.name || '',

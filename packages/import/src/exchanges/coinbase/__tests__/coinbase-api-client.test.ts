@@ -23,11 +23,11 @@ vi.mock('@crypto/shared-logger', () => ({
 }));
 
 describe('CoinbaseAPIClient', () => {
-  let mockHttpClient: any;
+  let mockHttpClient: { request: ReturnType<typeof vi.fn> };
   let client: CoinbaseAPIClient;
   let credentials: CoinbaseCredentials;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     credentials = {
       apiKey: 'test-api-key',
       secret: 'test-secret',
@@ -36,7 +36,7 @@ describe('CoinbaseAPIClient', () => {
     };
 
     // Get the mock HttpClient constructor
-    const { HttpClient } = require('@crypto/shared-utils');
+    const { HttpClient } = (await import('@crypto/shared-utils'));
     client = new CoinbaseAPIClient(credentials);
     
     // Get the mocked instance
@@ -48,30 +48,30 @@ describe('CoinbaseAPIClient', () => {
   });
 
   describe('constructor', () => {
-    it('should initialize with sandbox URL when sandbox is true', () => {
+    it('should initialize with sandbox URL when sandbox is true', async () => {
       const sandboxCredentials = { ...credentials, sandbox: true };
       const sandboxClient = new CoinbaseAPIClient(sandboxCredentials);
       
       expect(sandboxClient).toBeDefined();
       // Check that HttpClient was called with sandbox URL
-      const { HttpClient } = require('@crypto/shared-utils');
+      const { HttpClient } = (await import('@crypto/shared-utils'));
       const lastCall = HttpClient.mock.calls[HttpClient.mock.calls.length - 1][0];
       expect(lastCall.baseUrl).toBe('https://api.sandbox.coinbase.com');
     });
 
-    it('should initialize with production URL when sandbox is false', () => {
+    it('should initialize with production URL when sandbox is false', async () => {
       const prodCredentials = { ...credentials, sandbox: false };
       const prodClient = new CoinbaseAPIClient(prodCredentials);
       
       expect(prodClient).toBeDefined();
       // Check that HttpClient was called with production URL
-      const { HttpClient } = require('@crypto/shared-utils');
+      const { HttpClient } = (await import('@crypto/shared-utils'));
       const lastCall = HttpClient.mock.calls[HttpClient.mock.calls.length - 1][0];
       expect(lastCall.baseUrl).toBe('https://api.coinbase.com');
     });
 
-    it('should configure appropriate rate limits', () => {
-      const { HttpClient } = require('@crypto/shared-utils');
+    it('should configure appropriate rate limits', async () => {
+      const { HttpClient } = (await import('@crypto/shared-utils'));
       const httpClientConfig = HttpClient.mock.calls[0][0];
       
       expect(httpClientConfig.rateLimit).toEqual({
@@ -168,7 +168,7 @@ describe('CoinbaseAPIClient', () => {
       await client.getAccounts({ 
         limit: 50, 
         cursor: undefined,
-        // @ts-ignore - testing runtime behavior
+        // @ts-expect-error - testing runtime behavior
         invalidParam: null 
       });
 
@@ -414,8 +414,8 @@ describe('CoinbaseAPIClient', () => {
       await expect(client.getAccounts()).rejects.toThrow('HTTP 403: Forbidden');
 
       // Verify enhanced logging occurred (logger is mocked, so we check it was called)
-      const { getLogger } = require('@crypto/shared-logger');
-      const mockLogger = getLogger();
+      const { getLogger } = (await import('@crypto/shared-logger'));
+      const mockLogger = getLogger('coinbase-api');
       expect(mockLogger.error).toHaveBeenCalledWith(
         expect.stringContaining('Authentication failed')
       );

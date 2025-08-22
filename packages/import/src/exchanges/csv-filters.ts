@@ -28,7 +28,7 @@ export class CsvFilters {
    */
   static filterByFields<T>(
     rows: T[],
-    filters: Partial<Record<keyof T, any>>
+    filters: Partial<Record<keyof T, unknown>>
   ): T[] {
     return rows.filter(row => {
       return Object.entries(filters).every(([field, value]) => {

@@ -80,7 +80,7 @@ export class Deduplicator {
   }
 
   // Get statistics about the deduplication process
-  getDeduplicationStats(result: DeduplicationResult): any {
+  getDeduplicationStats(result: DeduplicationResult): { total: number; unique: number; duplicates: number; duplicateRate: number } {
     const total = result.unique.length + result.duplicates.length;
 
     return {
