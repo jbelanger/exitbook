@@ -1,7 +1,7 @@
 import type { CryptoTransaction, Money, TransactionType, UniversalExchangeAdapterConfig } from '@crypto/core';
 import ccxt from 'ccxt';
 import { Decimal } from 'decimal.js';
-import { BaseCCXTAdapter } from '../../adapters/universal/base-ccxt-adapter.js';
+import { BaseCCXTAdapter } from '../base-ccxt-adapter.ts';
 /**
  * Specialized Coinbase adapter that uses fetchLedger for comprehensive transaction data
  * 

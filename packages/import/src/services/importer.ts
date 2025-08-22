@@ -1,21 +1,13 @@
+import type { IUniversalAdapter, UniversalTransaction } from '@crypto/core';
+import { Database, TransactionRepository, TransactionService, WalletRepository, WalletService } from '@crypto/data';
 import { getLogger } from '@crypto/shared-logger';
 import { type BlockchainExplorersConfig } from '@crypto/shared-utils';
-import type { ImportResult, ImportSummary } from '../types.ts';
-
-import { Database, TransactionRepository, TransactionService, WalletRepository, WalletService } from '@crypto/data';
-
-import { detectScamFromSymbol } from '../utils/scam-detection.ts';
+import { UniversalAdapterFactory } from '../shared/adapters/adapter-factory.ts';
+import type { FetchParams } from '../shared/types/adapters.ts';
+import type { BlockchainAdapterConfig, ExchangeAdapterConfig } from '../shared/types/config.ts';
+import type { ImportResult, ImportSummary } from '../shared/types/types.ts';
+import { detectScamFromSymbol } from '../shared/utils/scam-detection.ts';
 import { Deduplicator } from './deduplicator.ts';
-
-// Universal adapter imports
-import { UniversalAdapterFactory } from '../adapters/universal/adapter-factory.js';
-import type {
-  BlockchainAdapterConfig,
-  ExchangeAdapterConfig,
-  FetchParams,
-  IUniversalAdapter,
-  Transaction as UniversalTransaction
-} from '../adapters/universal/index.js';
 
 interface BlockchainImportOptions {
   blockchain: string;

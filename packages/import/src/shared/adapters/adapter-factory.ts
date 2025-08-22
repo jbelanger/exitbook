@@ -5,21 +5,21 @@ import type {
   UniversalExchangeAdapterConfig
 } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
-import type { BlockchainExplorersConfig } from '../../blockchains/shared/explorer-config.js';
+import type { BlockchainExplorersConfig } from '../../blockchains/shared/explorer-config.ts';
 
 // Import specific adapters directly
-import { AvalancheAdapter } from '../../blockchains/avalanche/adapter.js';
-import { BitcoinAdapter } from '../../blockchains/bitcoin/adapter.js';
-import { EthereumAdapter } from '../../blockchains/ethereum/adapter.js';
-import { InjectiveAdapter } from '../../blockchains/injective/adapter.js';
-import { SubstrateAdapter } from '../../blockchains/polkadot/adapter.js';
-import { SolanaAdapter } from '../../blockchains/solana/adapter.js';
+import { AvalancheAdapter } from '../../blockchains/avalanche/adapter.ts';
+import { BitcoinAdapter } from '../../blockchains/bitcoin/adapter.ts';
+import { EthereumAdapter } from '../../blockchains/ethereum/adapter.ts';
+import { InjectiveAdapter } from '../../blockchains/injective/adapter.ts';
+import { SubstrateAdapter } from '../../blockchains/polkadot/adapter.ts';
+import { SolanaAdapter } from '../../blockchains/solana/adapter.ts';
 
 // Import exchange adapters directly
-import { CoinbaseCCXTAdapter } from '../../exchanges/coinbase/ccxt-adapter.js';
-import { KrakenCSVAdapter } from '../../exchanges/kraken/csv-adapter.js';
-import { KuCoinCSVAdapter } from '../../exchanges/kucoin/csv-adapter.js';
-import { LedgerLiveCSVAdapter } from '../../exchanges/ledgerlive/csv-adapter.js';
+import { CoinbaseCCXTAdapter } from '../../exchanges/coinbase/ccxt-adapter.ts';
+import { KrakenCSVAdapter } from '../../exchanges/kraken/csv-adapter.ts';
+import { KuCoinCSVAdapter } from '../../exchanges/kucoin/csv-adapter.ts';
+import { LedgerLiveCSVAdapter } from '../../exchanges/ledgerlive/csv-adapter.ts';
 
 /**
  * Universal adapter factory that creates adapters implementing the IUniversalAdapter interface.

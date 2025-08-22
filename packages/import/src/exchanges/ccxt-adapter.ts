@@ -1,6 +1,6 @@
-import type { Exchange } from 'ccxt';
-import { BaseCCXTAdapter } from '../adapters/universal/base-ccxt-adapter.js';
 import type { UniversalExchangeAdapterConfig } from '@crypto/core';
+import type { Exchange } from 'ccxt';
+import { BaseCCXTAdapter } from './base-ccxt-adapter.ts';
 
 export class CCXTAdapter extends BaseCCXTAdapter {
   constructor(exchange: Exchange, exchangeId: string, enableOnlineVerification: boolean = false) {

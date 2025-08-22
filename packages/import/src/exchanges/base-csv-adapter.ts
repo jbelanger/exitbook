@@ -1,11 +1,10 @@
 import type { CryptoTransaction } from '@crypto/core';
-import { BaseAdapter } from './base-adapter.js';
-import type { AdapterInfo, FetchParams, Transaction, Balance } from './types.js';
-import type { ExchangeAdapterConfig } from './config.js';
-import { CsvParser } from '../../exchanges/csv-parser.ts';
-import { CsvFilters } from '../../exchanges/csv-filters.ts';
 import fs from 'fs/promises';
 import path from 'path';
+import { BaseAdapter } from '../shared/adapters/base-adapter.ts';
+import type { Balance, FetchParams, Transaction } from '../shared/types/adapters.ts';
+import type { ExchangeAdapterConfig } from '../shared/types/config.ts';
+import { CsvParser } from './csv-parser.ts';
 
 /**
  * Base class for CSV-based universal adapters
