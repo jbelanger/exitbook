@@ -1,12 +1,12 @@
-import type { IExchangeAdapter } from '@crypto/core';
+import type { IUniversalAdapter, UniversalExchangeAdapterConfig } from '@crypto/core';
 import { ServiceError } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
 import ccxt from 'ccxt';
-import { CCXTAdapter } from './ccxt-adapter.ts';
-import { CoinbaseCCXTAdapter } from './coinbase/ccxt-adapter.ts';
-import { KrakenCSVAdapter } from './kraken/csv-adapter.ts';
-import { KuCoinCSVAdapter } from './kucoin/csv-adapter.ts';
-import { LedgerLiveCSVAdapter } from './ledgerlive/csv-adapter.ts';
+import { CCXTAdapter } from './ccxt-adapter.js';
+import { CoinbaseCCXTAdapter } from './coinbase/ccxt-adapter.js';
+import { KrakenCSVAdapter } from './kraken/csv-adapter.js';
+import { KuCoinCSVAdapter } from './kucoin/csv-adapter.js';
+import { LedgerLiveCSVAdapter } from './ledgerlive/csv-adapter.js';
 
 export class ExchangeAdapterFactory {
   private logger = getLogger('ExchangeAdapterFactory');
@@ -27,7 +27,7 @@ export class ExchangeAdapterFactory {
       csvDirectories?: string[];
       enableOnlineVerification?: boolean;
     }
-  ): Promise<IExchangeAdapter> {
+  ): Promise<IUniversalAdapter> {
     this.logger.info(`Creating adapter for ${exchangeId} with type: ${adapterType}`);
 
     if (adapterType === 'csv') {
@@ -37,11 +37,26 @@ export class ExchangeAdapterFactory {
 
       switch (exchangeId.toLowerCase()) {
         case 'kraken':
-          return new KrakenCSVAdapter({ csvDirectories: options.csvDirectories });
+          return new KrakenCSVAdapter({
+            type: 'exchange',
+            id: 'kraken',
+            subType: 'csv',
+            csvDirectories: options.csvDirectories
+          } as UniversalExchangeAdapterConfig);
         case 'kucoin':
-          return new KuCoinCSVAdapter({ csvDirectories: options.csvDirectories });
+          return new KuCoinCSVAdapter({
+            type: 'exchange',
+            id: 'kucoin',
+            subType: 'csv',
+            csvDirectories: options.csvDirectories
+          } as UniversalExchangeAdapterConfig);
         case 'ledgerlive':
-          return new LedgerLiveCSVAdapter({ csvDirectories: options.csvDirectories });
+          return new LedgerLiveCSVAdapter({
+            type: 'exchange',
+            id: 'ledgerlive',
+            subType: 'csv',
+            csvDirectories: options.csvDirectories
+          } as UniversalExchangeAdapterConfig);
         default:
           throw new ServiceError(`Unsupported CSV exchange: ${exchangeId}`, exchangeId, 'createAdapterWithCredentials');
       }
@@ -68,7 +83,7 @@ export class ExchangeAdapterFactory {
     exchangeId: string,
     credentials: { apiKey: string; secret: string; password?: string; sandbox?: boolean },
     enableOnlineVerification?: boolean
-  ): IExchangeAdapter {
+  ): IUniversalAdapter {
     this.logger.info(`Creating generic CCXT adapter for ${exchangeId}`);
 
     if (!ccxt[exchangeId as keyof typeof ccxt]) {

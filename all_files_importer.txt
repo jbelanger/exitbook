@@ -241,8 +241,8 @@ import type { Logger } from '@crypto/shared-logger';
 import { getLogger } from '@crypto/shared-logger';
 import fs from 'fs/promises';
 import path from 'path';
-import { CsvFilters } from './csv-filters.ts';
-import { CsvParser } from './csv-parser.ts';
+import { CsvFilters } from './csv-filters.js';
+import { CsvParser } from './csv-parser.js';
 
 export interface CSVConfig {
   csvDirectories: string[];
@@ -551,7 +551,8 @@ export class CsvFilters {
 import type { CryptoTransaction, Money, TransactionType } from '@crypto/core';
 import ccxt from 'ccxt';
 import { Decimal } from 'decimal.js';
-import { BaseCCXTAdapter } from '../base-ccxt-adapter.ts';
+import { BaseCCXTAdapter } from '../../adapters/universal/base-ccxt-adapter.js';
+import type { UniversalExchangeAdapterConfig } from '@crypto/core';
 /**
  * Specialized Coinbase adapter that uses fetchLedger for comprehensive transaction data
  * 
@@ -613,39 +614,35 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
     
     let enableOnlineVerification: boolean = false;
 
-      const credentials = configOrCredentials;
-      const options = enableOnlineVerificationOrOptions as { enableOnlineVerification?: boolean } || {};
-      enableOnlineVerification = options.enableOnlineVerification || false;
-      
-      // Create config from credentials
-      const config = {
-        id: 'coinbase',
-        enabled: true,
-        adapterType: 'ccxt',
-        credentials: {
-          apiKey: credentials.apiKey,
-          secret: credentials.secret,
-          password: credentials.password,
-          sandbox: credentials.sandbox
-        },
-        options: {
-          enableRateLimit: true,
-          rateLimit: 1000
-        }
-      };
+    const credentials = configOrCredentials;
+    const options = enableOnlineVerificationOrOptions as { enableOnlineVerification?: boolean } || {};
+    enableOnlineVerification = options.enableOnlineVerification || false;
+    
+    // Create universal adapter config
+    const adapterConfig: UniversalExchangeAdapterConfig = {
+      type: 'exchange',
+      id: 'coinbase',
+      subType: 'ccxt',
+      credentials: {
+        apiKey: credentials.apiKey,
+        secret: credentials.secret,
+        password: credentials.password
+      }
+    };
     
     // Create Coinbase Advanced Trade exchange
     const exchange = new (ccxt as any).coinbaseadvanced({
-      apiKey: config.credentials.apiKey,
-      secret: config.credentials.secret,
-      password: config.credentials.password, // Coinbase uses password for passphrase      
-      sandbox: config.credentials.sandbox ?? false,
-      ...config.options
+      apiKey: credentials.apiKey,
+      secret: credentials.secret,
+      password: credentials.password, // Coinbase uses password for passphrase      
+      sandbox: credentials.sandbox ?? false,
+      enableRateLimit: true,
+      rateLimit: 1000
     });
 
-    super(exchange, config.id, enableOnlineVerification, 'CoinbaseCCXTAdapter');
+    super(exchange, adapterConfig, enableOnlineVerification);
 
-    this.logger.info(`Initialized Coinbase Ledger adapter - RateLimit: ${this.exchange.rateLimit}, Sandbox: ${config.credentials.sandbox}`);
+    this.logger.info(`Initialized Coinbase Ledger adapter - RateLimit: ${this.exchange.rateLimit}, Sandbox: ${credentials.sandbox}`);
   }
 
 
@@ -656,14 +653,14 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
   /**
    * Override to focus on ledger-based transaction fetching with post-processing
    */
-  async fetchAllTransactions(since?: number): Promise<CryptoTransaction[]> {
+  protected async fetchRawTransactions(params: any): Promise<CryptoTransaction[]> {
     const startTime = Date.now();
-    this.logger.info(`Starting ledger-based transaction fetch from Coinbase - Since: ${since}`);
+    this.logger.info(`Starting ledger-based transaction fetch from Coinbase - Since: ${params.since}`);
 
     try {
 
       // Primary data source: fetchLedger for comprehensive transaction data
-      const ledgerTransactions = await this.fetchLedger(since);
+      const ledgerTransactions = await this.fetchLedger(params.since);
 
       // Process ledger entries and group orders with fills
       const transactions = await this.processLedgerEntries(ledgerTransactions);
@@ -676,7 +673,7 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
 
       return transactions;
     } catch (error) {
-      this.handleError(error, 'fetchAllTransactions');
+      this.handleError(error, 'fetchRawTransactions');
       throw error;
     }
   }
@@ -722,7 +719,7 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
       this.logger.info(`Fetched ${allEntries.length} total ledger entries from Coinbase`);
 
       // Transform raw ledger entries before post-processing
-      return this.transformTransactions(allEntries, 'ledger');
+      return this.transformCCXTTransactions(allEntries, 'ledger');
     } catch (error) {
       this.handleError(error, 'fetchLedger');
       throw error;
@@ -1394,7 +1391,7 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
         }
       }
 
-      return this.transformTransactions(allDeposits, 'deposit');
+      return this.transformCCXTTransactions(allDeposits, 'deposit');
     } catch (error) {
       this.handleError(error, 'fetchDeposits');
       throw error;
@@ -1429,7 +1426,7 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
         }
       }
 
-      return this.transformTransactions(allWithdrawals, 'withdrawal');
+      return this.transformCCXTTransactions(allWithdrawals, 'withdrawal');
     } catch (error) {
       this.handleError(error, 'fetchWithdrawals');
       throw error;
@@ -1638,11 +1635,18 @@ export interface ExchangeBalance {
   total: number;
 }===== ./src/exchanges/ccxt-adapter.ts =====
 import type { Exchange } from 'ccxt';
-import { BaseCCXTAdapter } from './base-ccxt-adapter.ts';
+import { BaseCCXTAdapter } from '../adapters/universal/base-ccxt-adapter.js';
+import type { UniversalExchangeAdapterConfig } from '@crypto/core';
 
 export class CCXTAdapter extends BaseCCXTAdapter {
   constructor(exchange: Exchange, exchangeId: string, enableOnlineVerification: boolean = false) {
-    super(exchange, exchangeId, enableOnlineVerification, 'CCXTAdapter');
+    const config: UniversalExchangeAdapterConfig = {
+      type: 'exchange',
+      id: exchangeId,
+      subType: 'ccxt'
+    };
+    
+    super(exchange, config, enableOnlineVerification);
   }
 
   protected createExchange(): Exchange {
@@ -1653,8 +1657,8 @@ export class CCXTAdapter extends BaseCCXTAdapter {
 import type { CryptoTransaction, TransactionStatus, TransactionType } from '@crypto/core';
 import { createMoney, parseDecimal } from '@crypto/shared-utils';
 import { BaseCSVAdapter } from '../../adapters/universal/base-csv-adapter.js';
-import type { AdapterInfo, Transaction } from '../../adapters/universal/types.js';
 import type { ExchangeAdapterConfig } from '../../adapters/universal/config.js';
+import type { AdapterInfo, Transaction } from '../../adapters/universal/types.js';
 
 // Expected CSV headers for validation
 const EXPECTED_HEADERS = {
@@ -1798,25 +1802,6 @@ export class KuCoinCSVAdapter extends BaseCSVAdapter {
     }
   }
 
-  async getExchangeInfo(): Promise<ExchangeInfo> {
-    return {
-      id: 'kucoin',
-      name: 'KuCoin CSV',
-      version: '1.0.0',
-      capabilities: {
-        fetchMyTrades: true,
-        fetchDeposits: true,
-        fetchWithdrawals: true,
-        fetchLedger: false, // Ledger entries removed to prevent double-counting
-        fetchClosedOrders: true,
-        fetchBalance: false, // CSV doesn't provide current balances
-        fetchOrderBook: false,
-        fetchTicker: false
-      }
-    };
-  }
-
-
   private async parseSpotOrders(filePath: string): Promise<CryptoTransaction[]> {
     const rows = await this.parseCsvFile<SpotOrderRow>(filePath);
     return this.filterByUid(rows).map(row => this.convertSpotOrderToTransaction(row));
@@ -1946,7 +1931,6 @@ export class KuCoinCSVAdapter extends BaseCSVAdapter {
     };
   }
 
-
   private convertAccountHistoryConvertToTransaction(deposit: AccountHistoryRow, withdrawal: AccountHistoryRow, timestamp: string): CryptoTransaction {
     const timestampMs = new Date(timestamp).getTime();
 
@@ -1993,8 +1977,8 @@ import type { Logger } from '@crypto/shared-logger';
 import { getLogger } from '@crypto/shared-logger';
 
 import type { Exchange } from 'ccxt';
-import { TransactionTransformer } from '../utils/transaction-transformer.ts';
-import { ServiceErrorHandler } from './exchange-error-handler.ts';
+import { TransactionTransformer } from '../utils/transaction-transformer.js';
+import { ServiceErrorHandler } from './exchange-error-handler.js';
 
 /**
  * Base class for all CCXT-based exchange adapters
@@ -2257,7 +2241,7 @@ import { createMoney, parseDecimal } from '@crypto/shared-utils';
 import { BaseCSVAdapter } from '../../adapters/universal/base-csv-adapter.js';
 import type { AdapterInfo, Transaction } from '../../adapters/universal/types.js';
 import type { ExchangeAdapterConfig } from '../../adapters/universal/config.js';
-import { CsvFilters } from '../csv-filters.ts';
+import { CsvFilters } from '../csv-filters.js';
 // Remove the old config interface as we'll use the universal one
 
 // Expected CSV headers for validation
@@ -3064,15 +3048,15 @@ export class ServiceErrorHandler {
       ));
   }
 }===== ./src/exchanges/adapter-factory.ts =====
-import type { IExchangeAdapter } from '@crypto/core';
+import type { IUniversalAdapter, UniversalExchangeAdapterConfig } from '@crypto/core';
 import { ServiceError } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
 import ccxt from 'ccxt';
-import { CCXTAdapter } from './ccxt-adapter.ts';
-import { CoinbaseCCXTAdapter } from './coinbase/ccxt-adapter.ts';
-import { KrakenCSVAdapter } from './kraken/csv-adapter.ts';
-import { KuCoinCSVAdapter } from './kucoin/csv-adapter.ts';
-import { LedgerLiveCSVAdapter } from './ledgerlive/csv-adapter.ts';
+import { CCXTAdapter } from './ccxt-adapter.js';
+import { CoinbaseCCXTAdapter } from './coinbase/ccxt-adapter.js';
+import { KrakenCSVAdapter } from './kraken/csv-adapter.js';
+import { KuCoinCSVAdapter } from './kucoin/csv-adapter.js';
+import { LedgerLiveCSVAdapter } from './ledgerlive/csv-adapter.js';
 
 export class ExchangeAdapterFactory {
   private logger = getLogger('ExchangeAdapterFactory');
@@ -3093,7 +3077,7 @@ export class ExchangeAdapterFactory {
       csvDirectories?: string[];
       enableOnlineVerification?: boolean;
     }
-  ): Promise<IExchangeAdapter> {
+  ): Promise<IUniversalAdapter> {
     this.logger.info(`Creating adapter for ${exchangeId} with type: ${adapterType}`);
 
     if (adapterType === 'csv') {
@@ -3103,11 +3087,26 @@ export class ExchangeAdapterFactory {
 
       switch (exchangeId.toLowerCase()) {
         case 'kraken':
-          return new KrakenCSVAdapter({ csvDirectories: options.csvDirectories });
+          return new KrakenCSVAdapter({
+            type: 'exchange',
+            id: 'kraken',
+            subType: 'csv',
+            csvDirectories: options.csvDirectories
+          } as UniversalExchangeAdapterConfig);
         case 'kucoin':
-          return new KuCoinCSVAdapter({ csvDirectories: options.csvDirectories });
+          return new KuCoinCSVAdapter({
+            type: 'exchange',
+            id: 'kucoin',
+            subType: 'csv',
+            csvDirectories: options.csvDirectories
+          } as UniversalExchangeAdapterConfig);
         case 'ledgerlive':
-          return new LedgerLiveCSVAdapter({ csvDirectories: options.csvDirectories });
+          return new LedgerLiveCSVAdapter({
+            type: 'exchange',
+            id: 'ledgerlive',
+            subType: 'csv',
+            csvDirectories: options.csvDirectories
+          } as UniversalExchangeAdapterConfig);
         default:
           throw new ServiceError(`Unsupported CSV exchange: ${exchangeId}`, exchangeId, 'createAdapterWithCredentials');
       }
@@ -3134,7 +3133,7 @@ export class ExchangeAdapterFactory {
     exchangeId: string,
     credentials: { apiKey: string; secret: string; password?: string; sandbox?: boolean },
     enableOnlineVerification?: boolean
-  ): IExchangeAdapter {
+  ): IUniversalAdapter {
     this.logger.info(`Creating generic CCXT adapter for ${exchangeId}`);
 
     if (!ccxt[exchangeId as keyof typeof ccxt]) {
@@ -3753,21 +3752,27 @@ export enum TransactionNoteType {
 }===== ./src/adapters/universal/base-adapter.ts =====
 import type { Logger } from '@crypto/shared-logger';
 import { getLogger } from '@crypto/shared-logger';
-import type { IUniversalAdapter, AdapterInfo, FetchParams, Transaction, Balance } from './types.js';
-import type { AdapterConfig } from './config.js';
+import type { 
+  IUniversalAdapter, 
+  UniversalAdapterInfo, 
+  UniversalFetchParams, 
+  UniversalTransaction, 
+  UniversalBalance,
+  UniversalAdapterConfig 
+} from '@crypto/core';
 
 export abstract class BaseAdapter implements IUniversalAdapter {
   protected logger: Logger;
   
-  constructor(protected readonly config: AdapterConfig) {
+  constructor(protected readonly config: UniversalAdapterConfig) {
     this.logger = getLogger(this.constructor.name);
   }
   
-  abstract getInfo(): Promise<AdapterInfo>;
+  abstract getInfo(): Promise<UniversalAdapterInfo>;
   abstract testConnection(): Promise<boolean>;
   
   // Template method pattern
-  async fetchTransactions(params: FetchParams): Promise<Transaction[]> {
+  async fetchTransactions(params: UniversalFetchParams): Promise<UniversalTransaction[]> {
     await this.validateParams(params);
     const rawData = await this.fetchRawTransactions(params);
     const transactions = await this.transformTransactions(rawData, params);
@@ -3775,20 +3780,20 @@ export abstract class BaseAdapter implements IUniversalAdapter {
     return this.sortTransactions(filtered);
   }
   
-  async fetchBalances(params: FetchParams): Promise<Balance[]> {
+  async fetchBalances(params: UniversalFetchParams): Promise<UniversalBalance[]> {
     await this.validateParams(params);
     const rawBalances = await this.fetchRawBalances(params);
     return this.transformBalances(rawBalances, params);
   }
   
   // Abstract hooks for subclasses
-  protected abstract fetchRawTransactions(params: FetchParams): Promise<any>;
-  protected abstract fetchRawBalances(params: FetchParams): Promise<any>;
-  protected abstract transformTransactions(raw: any, params: FetchParams): Promise<Transaction[]>;
-  protected abstract transformBalances(raw: any, params: FetchParams): Promise<Balance[]>;
+  protected abstract fetchRawTransactions(params: UniversalFetchParams): Promise<any>;
+  protected abstract fetchRawBalances(params: UniversalFetchParams): Promise<any>;
+  protected abstract transformTransactions(raw: any, params: UniversalFetchParams): Promise<UniversalTransaction[]>;
+  protected abstract transformBalances(raw: any, params: UniversalFetchParams): Promise<UniversalBalance[]>;
   
   // Common utilities
-  protected async validateParams(params: FetchParams): Promise<void> {
+  protected async validateParams(params: UniversalFetchParams): Promise<void> {
     // Common validation logic
     if (params.since && params.until && params.since > params.until) {
       throw new Error('since cannot be greater than until');
@@ -3801,7 +3806,7 @@ export abstract class BaseAdapter implements IUniversalAdapter {
     }
   }
   
-  protected applyFilters(transactions: Transaction[], params: FetchParams): Transaction[] {
+  protected applyFilters(transactions: UniversalTransaction[], params: UniversalFetchParams): UniversalTransaction[] {
     let filtered = transactions;
     
     if (params.symbols?.length) {
@@ -3820,7 +3825,7 @@ export abstract class BaseAdapter implements IUniversalAdapter {
     return filtered;
   }
   
-  protected sortTransactions(transactions: Transaction[]): Transaction[] {
+  protected sortTransactions(transactions: UniversalTransaction[]): UniversalTransaction[] {
     return transactions.sort((a, b) => b.timestamp - a.timestamp);
   }
   
@@ -4414,6 +4419,285 @@ export interface Balance {
   free: number;
   used: number;
   contractAddress?: string;
+}===== ./src/adapters/universal/base-ccxt-adapter.ts =====
+import type { CryptoTransaction, TransactionType } from '@crypto/core';
+import type { Exchange } from 'ccxt';
+import { BaseAdapter } from './base-adapter.js';
+import type { 
+  UniversalAdapterInfo, 
+  UniversalFetchParams, 
+  UniversalTransaction, 
+  UniversalBalance,
+  UniversalExchangeAdapterConfig 
+} from '@crypto/core';
+import { TransactionTransformer } from '../../utils/transaction-transformer.js';
+import { ServiceErrorHandler } from '../../exchanges/exchange-error-handler.js';
+
+/**
+ * Base class for all CCXT-based exchange adapters in the universal adapter system
+ * Extends the universal BaseAdapter and provides CCXT-specific functionality
+ */
+export abstract class BaseCCXTAdapter extends BaseAdapter {
+  protected exchange: Exchange;
+  protected exchangeId: string;
+  protected enableOnlineVerification: boolean;
+
+  constructor(exchange: Exchange, config: UniversalExchangeAdapterConfig, enableOnlineVerification: boolean = false) {
+    super(config);
+    this.exchange = exchange;
+    this.exchangeId = config.id;
+    this.enableOnlineVerification = enableOnlineVerification;
+
+    // Enable rate limiting and other common settings
+    this.exchange.enableRateLimit = true;
+    this.exchange.rateLimit = 1000;
+  }
+
+  async getInfo(): Promise<UniversalAdapterInfo> {
+    return {
+      id: this.exchangeId,
+      name: this.exchange.name || this.exchangeId,
+      type: 'exchange',
+      subType: 'ccxt',
+      capabilities: {
+        supportedOperations: ['fetchTransactions', 'fetchBalances'],
+        maxBatchSize: 100,
+        supportsHistoricalData: true,
+        supportsPagination: true,
+        requiresApiKey: true,
+        rateLimit: {
+          requestsPerSecond: this.exchange.rateLimit ? 1000 / this.exchange.rateLimit : 10,
+          burstLimit: 50
+        }
+      }
+    };
+  }
+
+  async testConnection(): Promise<boolean> {
+    try {
+      await this.exchange.loadMarkets();
+      await this.exchange.fetchBalance();
+      this.logger.info(`Connection test successful for ${this.exchangeId}`);
+      return true;
+    } catch (error) {
+      this.logger.error(`Connection test failed for ${this.exchangeId} - Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return false;
+    }
+  }
+
+  protected async fetchRawTransactions(params: UniversalFetchParams): Promise<CryptoTransaction[]> {
+    const startTime = Date.now();
+    this.logger.info(`Starting fetchRawTransactions for ${this.exchangeId}`);
+
+    try {
+      const allTransactions: CryptoTransaction[] = [];
+
+      // Fetch different transaction types
+      const fetchPromises = [
+        this.fetchTrades(params.since),
+        this.fetchDeposits(params.since),
+        this.fetchWithdrawals(params.since),
+        this.fetchClosedOrders(params.since),
+        this.fetchLedger(params.since)
+      ];
+
+      const results = await Promise.allSettled(fetchPromises);
+      const labels = ['trades', 'deposits', 'withdrawals', 'closed_orders', 'ledger'];
+
+      // Process all results
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          allTransactions.push(...result.value);
+          this.logger.info(`Fetched ${result.value.length} ${labels[index]} from ${this.exchangeId}`);
+        } else {
+          this.logger.warn(`Failed to fetch ${labels[index]} from ${this.exchangeId} - Error: ${result.reason}`);
+        }
+      });
+
+      const duration = Date.now() - startTime;
+      this.logger.info(`Completed fetchRawTransactions for ${this.exchangeId} - Count: ${allTransactions.length}, Duration: ${duration}ms`);
+
+      return allTransactions;
+    } catch (error) {
+      const message = `Failed to fetch transactions from ${this.exchangeId}`;
+      this.logger.error(`${message} - Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(message);
+    }
+  }
+
+  protected async transformTransactions(rawTxs: CryptoTransaction[], params: UniversalFetchParams): Promise<UniversalTransaction[]> {
+    // Transform CryptoTransaction to universal Transaction format
+    return rawTxs.map(tx => ({
+      id: tx.id,
+      timestamp: tx.timestamp,
+      datetime: tx.datetime || new Date(tx.timestamp).toISOString(),
+      type: tx.type,
+      status: tx.status || 'closed',
+      amount: tx.amount,
+      fee: tx.fee,
+      price: tx.price,
+      from: tx.info?.from,
+      to: tx.info?.to,
+      symbol: tx.symbol,
+      source: this.exchangeId,
+      network: 'exchange',
+      metadata: {
+        ...tx.info,
+        originalTransactionType: tx.type
+      }
+    }));
+  }
+
+  protected async fetchRawBalances(params: UniversalFetchParams): Promise<any> {
+    if (!this.enableOnlineVerification) {
+      throw new Error(`Balance fetching not supported for ${this.exchangeId} CCXT adapter - enable online verification to fetch live balances`);
+    }
+
+    try {
+      return await this.exchange.fetchBalance();
+    } catch (error) {
+      this.handleError(error, 'fetchBalance');
+      throw error;
+    }
+  }
+
+  protected async transformBalances(rawBalances: any, params: UniversalFetchParams): Promise<UniversalBalance[]> {
+    const balances: UniversalBalance[] = [];
+
+    for (const [currency, balanceInfo] of Object.entries(rawBalances)) {
+      if (currency === 'info' || currency === 'free' || currency === 'used' || currency === 'total') {
+        continue; // Skip CCXT metadata fields
+      }
+
+      const info = balanceInfo as any;
+      if (info && typeof info === 'object' && info.total !== undefined) {
+        balances.push({
+          currency,
+          total: info.total || 0,
+          free: info.free || 0,
+          used: info.used || 0,
+        });
+      }
+    }
+
+    return balances;
+  }
+
+  // CCXT-specific transaction fetching methods
+
+  async fetchTrades(since?: number): Promise<CryptoTransaction[]> {
+    try {
+      if (!this.exchange.has['fetchMyTrades']) {
+        this.logger.debug(`Exchange ${this.exchangeId} does not support fetchMyTrades`);
+        return [];
+      }
+
+      const trades = await this.exchange.fetchMyTrades(undefined, since);
+      return this.transformCCXTTransactions(trades, 'trade');
+    } catch (error) {
+      this.handleError(error, 'fetchTrades');
+      throw error;
+    }
+  }
+
+  async fetchDeposits(since?: number): Promise<CryptoTransaction[]> {
+    try {
+      if (!this.exchange.has['fetchDeposits']) {
+        this.logger.debug(`Exchange ${this.exchangeId} does not support fetchDeposits`);
+        return [];
+      }
+
+      const deposits = await this.exchange.fetchDeposits(undefined, since);
+      return this.transformCCXTTransactions(deposits, 'deposit');
+    } catch (error) {
+      this.handleError(error, 'fetchDeposits');
+      throw error;
+    }
+  }
+
+  async fetchWithdrawals(since?: number): Promise<CryptoTransaction[]> {
+    try {
+      if (!this.exchange.has['fetchWithdrawals']) {
+        this.logger.debug(`Exchange ${this.exchangeId} does not support fetchWithdrawals`);
+        return [];
+      }
+
+      const withdrawals = await this.exchange.fetchWithdrawals(undefined, since);
+      return this.transformCCXTTransactions(withdrawals, 'withdrawal');
+    } catch (error) {
+      this.handleError(error, 'fetchWithdrawals');
+      throw error;
+    }
+  }
+
+  async fetchClosedOrders(since?: number): Promise<CryptoTransaction[]> {
+    try {
+      if (!this.exchange.has['fetchClosedOrders']) {
+        this.logger.debug(`Exchange ${this.exchangeId} does not support fetchClosedOrders`);
+        return [];
+      }
+
+      const orders = await this.exchange.fetchClosedOrders(undefined, since);
+      return this.transformCCXTTransactions(orders, 'order');
+    } catch (error) {
+      this.handleError(error, 'fetchClosedOrders');
+      throw error;
+    }
+  }
+
+  async fetchLedger(since?: number): Promise<CryptoTransaction[]> {
+    try {
+      if (!this.exchange.has['fetchLedger']) {
+        this.logger.debug(`Exchange ${this.exchangeId} does not support fetchLedger`);
+        return [];
+      }
+
+      const ledgerEntries = await this.exchange.fetchLedger(undefined, since);
+      return this.transformCCXTTransactions(ledgerEntries, 'ledger');
+    } catch (error) {
+      this.handleError(error, 'fetchLedger');
+      throw error;
+    }
+  }
+
+  async close(): Promise<void> {
+    if (this.exchange && this.exchange.close) {
+      await this.exchange.close();
+    }
+    this.logger.info(`Closed connection to ${this.exchangeId}`);
+  }
+
+  /**
+   * Transform array of CCXT transactions to our standard format
+   * Can be overridden by subclasses for exchange-specific transformation
+   */
+  protected transformCCXTTransactions(transactions: any[], type: TransactionType): CryptoTransaction[] {
+    return transactions
+      .filter(tx => !TransactionTransformer.shouldFilterOut(tx))
+      .map(tx => this.transformCCXTTransaction(tx, type));
+  }
+
+  /**
+   * Transform a single CCXT transaction to our standard format
+   * Can be overridden by subclasses for exchange-specific transformation
+   */
+  protected transformCCXTTransaction(transaction: any, type: TransactionType): CryptoTransaction {
+    return TransactionTransformer.fromCCXT(transaction, type, this.exchangeId);
+  }
+
+  /**
+   * Handle errors using centralized error handler
+   * Can be overridden by subclasses for exchange-specific error handling
+   */
+  protected handleError(error: any, operation: string): void {
+    ServiceErrorHandler.handle(error, operation, this.exchangeId, this.logger);
+  }
+
+  /**
+   * Create exchange instance - to be implemented by subclasses
+   * This allows each subclass to configure their specific exchange instance
+   */
+  protected abstract createExchange(): Exchange;
 }===== ./src/adapters/universal/index.ts =====
 // Core interfaces and types
 export type { 
@@ -4698,8 +4982,12 @@ import { ExchangeAdapterFactory } from '../../exchanges/adapter-factory.js';
 import { BlockchainAdapterFactory } from '../../blockchains/shared/blockchain-adapter-factory.js';
 import { ExchangeBridgeAdapter } from './exchange-bridge-adapter.js';
 import { BlockchainBridgeAdapter } from './blockchain-bridge-adapter.js';
-import type { IUniversalAdapter } from './types.js';
-import type { AdapterConfig, ExchangeAdapterConfig, BlockchainAdapterConfig } from './config.js';
+import type { 
+  IUniversalAdapter, 
+  UniversalAdapterConfig,
+  UniversalExchangeAdapterConfig, 
+  UniversalBlockchainAdapterConfig 
+} from '@crypto/core';
 import type { BlockchainExplorersConfig } from '../../blockchains/shared/explorer-config.js';
 import { getLogger } from '@crypto/shared-logger';
 
@@ -4716,15 +5004,15 @@ export class UniversalAdapterFactory {
   /**
    * Create a single universal adapter based on configuration
    */
-  static async create(config: AdapterConfig, explorerConfig?: BlockchainExplorersConfig): Promise<IUniversalAdapter> {
+  static async create(config: UniversalAdapterConfig, explorerConfig?: BlockchainExplorersConfig): Promise<IUniversalAdapter> {
     this.logger.info(`Creating universal adapter for ${config.id} (type: ${config.type})`);
 
     if (config.type === 'exchange') {
-      return this.createExchangeAdapter(config as ExchangeAdapterConfig);
+      return this.createExchangeAdapter(config as UniversalExchangeAdapterConfig);
     }
     
     if (config.type === 'blockchain') {
-      return this.createBlockchainAdapter(config as BlockchainAdapterConfig, explorerConfig);
+      return this.createBlockchainAdapter(config as UniversalBlockchainAdapterConfig, explorerConfig);
     }
     
     throw new Error(`Unsupported adapter type: ${(config as any).type}`);
@@ -4734,7 +5022,7 @@ export class UniversalAdapterFactory {
    * Create multiple universal adapters from an array of configurations
    */
   static async createMany(
-    configs: AdapterConfig[], 
+    configs: UniversalAdapterConfig[], 
     explorerConfig?: BlockchainExplorersConfig
   ): Promise<IUniversalAdapter[]> {
     this.logger.info(`Creating ${configs.length} universal adapters`);
@@ -4747,12 +5035,13 @@ export class UniversalAdapterFactory {
   /**
    * Create an exchange adapter wrapped in a bridge adapter
    */
-  private static async createExchangeAdapter(config: ExchangeAdapterConfig): Promise<IUniversalAdapter> {
+  private static async createExchangeAdapter(config: UniversalExchangeAdapterConfig): Promise<IUniversalAdapter> {
     this.logger.debug(`Creating exchange adapter for ${config.id} with subType: ${config.subType}`);
     
-    // Create the old exchange adapter using the existing factory
-    const oldFactory = new ExchangeAdapterFactory();
-    const oldAdapter = await oldFactory.createAdapterWithCredentials(
+    // Create the exchange adapter using the existing factory
+    // Since the exchange adapters now implement IUniversalAdapter directly, we can return them as-is
+    const factory = new ExchangeAdapterFactory();
+    return await factory.createAdapterWithCredentials(
       config.id,
       config.subType,
       {
@@ -4761,16 +5050,13 @@ export class UniversalAdapterFactory {
         enableOnlineVerification: false // Default to false for now
       }
     );
-    
-    // Wrap it in a bridge adapter to provide the universal interface
-    return new ExchangeBridgeAdapter(oldAdapter, config);
   }
 
   /**
    * Create a blockchain adapter wrapped in a bridge adapter
    */
   private static async createBlockchainAdapter(
-    config: BlockchainAdapterConfig, 
+    config: UniversalBlockchainAdapterConfig, 
     explorerConfig?: BlockchainExplorersConfig
   ): Promise<IUniversalAdapter> {
     if (!explorerConfig) {
@@ -4783,7 +5069,7 @@ export class UniversalAdapterFactory {
     const oldFactory = new BlockchainAdapterFactory();
     const oldAdapter = await oldFactory.createBlockchainAdapter(config.id, explorerConfig);
     
-    // Wrap it in a bridge adapter to provide the universal interface
+    // For now, still wrap blockchain adapters in bridge adapters since they haven't been refactored yet
     return new BlockchainBridgeAdapter(oldAdapter, config);
   }
 
@@ -4801,7 +5087,7 @@ export class UniversalAdapterFactory {
       };
       csvDirectories?: string[];
     }
-  ): ExchangeAdapterConfig {
+  ): UniversalExchangeAdapterConfig {
     return {
       type: 'exchange',
       id: exchangeId,
@@ -4818,7 +5104,7 @@ export class UniversalAdapterFactory {
     blockchain: string,
     network: string = 'mainnet',
     subType: 'rest' | 'rpc' = 'rest'
-  ): BlockchainAdapterConfig {
+  ): UniversalBlockchainAdapterConfig {
     return {
       type: 'blockchain',
       id: blockchain,
@@ -15074,10 +15360,10 @@ export class TransactionImporter {
     return this.importFromExchange(adapter, options.since);
   }
 
-  async importFromExchange(adapter: IExchangeAdapter, since?: number): Promise<ImportResult> {
+  async importFromExchange(adapter: IUniversalAdapter, since?: number): Promise<ImportResult> {
     const startTime = Date.now();
-    const exchangeInfo = await adapter.getExchangeInfo();
-    const exchangeId = exchangeInfo.id;
+    const adapterInfo = await adapter.getInfo();
+    const exchangeId = adapterInfo.id;
 
     this.logger.info(`Starting import from ${exchangeId} (since: ${since})`);
 
@@ -15089,7 +15375,10 @@ export class TransactionImporter {
       }
 
       // Fetch all transactions using the adapter
-      const rawTransactions = await adapter.fetchAllTransactions(since);
+      const universalTransactions = await adapter.fetchTransactions({ since });
+      
+      // Convert universal transactions back to CryptoTransaction format for compatibility
+      const rawTransactions = universalTransactions.map(tx => this.convertUniversalToCryptoTransaction(tx));
 
       const { transactions, saved, duplicates } = await this.processAndSaveTransactions(rawTransactions, exchangeId);
 

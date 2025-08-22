@@ -1,7 +1,8 @@
 import type { CryptoTransaction, Money, TransactionType } from '@crypto/core';
 import ccxt from 'ccxt';
 import { Decimal } from 'decimal.js';
-import { BaseCCXTAdapter } from '../base-ccxt-adapter.ts';
+import { BaseCCXTAdapter } from '../../adapters/universal/base-ccxt-adapter.js';
+import type { UniversalExchangeAdapterConfig } from '@crypto/core';
 /**
  * Specialized Coinbase adapter that uses fetchLedger for comprehensive transaction data
  * 
@@ -63,39 +64,35 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
     
     let enableOnlineVerification: boolean = false;
 
-      const credentials = configOrCredentials;
-      const options = enableOnlineVerificationOrOptions as { enableOnlineVerification?: boolean } || {};
-      enableOnlineVerification = options.enableOnlineVerification || false;
-      
-      // Create config from credentials
-      const config = {
-        id: 'coinbase',
-        enabled: true,
-        adapterType: 'ccxt',
-        credentials: {
-          apiKey: credentials.apiKey,
-          secret: credentials.secret,
-          password: credentials.password,
-          sandbox: credentials.sandbox
-        },
-        options: {
-          enableRateLimit: true,
-          rateLimit: 1000
-        }
-      };
+    const credentials = configOrCredentials;
+    const options = enableOnlineVerificationOrOptions as { enableOnlineVerification?: boolean } || {};
+    enableOnlineVerification = options.enableOnlineVerification || false;
+    
+    // Create universal adapter config
+    const adapterConfig: UniversalExchangeAdapterConfig = {
+      type: 'exchange',
+      id: 'coinbase',
+      subType: 'ccxt',
+      credentials: {
+        apiKey: credentials.apiKey,
+        secret: credentials.secret,
+        password: credentials.password
+      }
+    };
     
     // Create Coinbase Advanced Trade exchange
     const exchange = new (ccxt as any).coinbaseadvanced({
-      apiKey: config.credentials.apiKey,
-      secret: config.credentials.secret,
-      password: config.credentials.password, // Coinbase uses password for passphrase      
-      sandbox: config.credentials.sandbox ?? false,
-      ...config.options
+      apiKey: credentials.apiKey,
+      secret: credentials.secret,
+      password: credentials.password, // Coinbase uses password for passphrase      
+      sandbox: credentials.sandbox ?? false,
+      enableRateLimit: true,
+      rateLimit: 1000
     });
 
-    super(exchange, config.id, enableOnlineVerification, 'CoinbaseCCXTAdapter');
+    super(exchange, adapterConfig, enableOnlineVerification);
 
-    this.logger.info(`Initialized Coinbase Ledger adapter - RateLimit: ${this.exchange.rateLimit}, Sandbox: ${config.credentials.sandbox}`);
+    this.logger.info(`Initialized Coinbase Ledger adapter - RateLimit: ${this.exchange.rateLimit}, Sandbox: ${credentials.sandbox}`);
   }
 
 
@@ -106,14 +103,14 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
   /**
    * Override to focus on ledger-based transaction fetching with post-processing
    */
-  async fetchAllTransactions(since?: number): Promise<CryptoTransaction[]> {
+  protected async fetchRawTransactions(params: any): Promise<CryptoTransaction[]> {
     const startTime = Date.now();
-    this.logger.info(`Starting ledger-based transaction fetch from Coinbase - Since: ${since}`);
+    this.logger.info(`Starting ledger-based transaction fetch from Coinbase - Since: ${params.since}`);
 
     try {
 
       // Primary data source: fetchLedger for comprehensive transaction data
-      const ledgerTransactions = await this.fetchLedger(since);
+      const ledgerTransactions = await this.fetchLedger(params.since);
 
       // Process ledger entries and group orders with fills
       const transactions = await this.processLedgerEntries(ledgerTransactions);
@@ -126,7 +123,7 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
 
       return transactions;
     } catch (error) {
-      this.handleError(error, 'fetchAllTransactions');
+      this.handleError(error, 'fetchRawTransactions');
       throw error;
     }
   }
@@ -172,7 +169,7 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
       this.logger.info(`Fetched ${allEntries.length} total ledger entries from Coinbase`);
 
       // Transform raw ledger entries before post-processing
-      return this.transformTransactions(allEntries, 'ledger');
+      return this.transformCCXTTransactions(allEntries, 'ledger');
     } catch (error) {
       this.handleError(error, 'fetchLedger');
       throw error;
@@ -844,7 +841,7 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
         }
       }
 
-      return this.transformTransactions(allDeposits, 'deposit');
+      return this.transformCCXTTransactions(allDeposits, 'deposit');
     } catch (error) {
       this.handleError(error, 'fetchDeposits');
       throw error;
@@ -879,7 +876,7 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
         }
       }
 
-      return this.transformTransactions(allWithdrawals, 'withdrawal');
+      return this.transformCCXTTransactions(allWithdrawals, 'withdrawal');
     } catch (error) {
       this.handleError(error, 'fetchWithdrawals');
       throw error;
