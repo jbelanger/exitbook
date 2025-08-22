@@ -387,7 +387,7 @@ interface BaseUniversalAdapterConfig {
 
 export interface UniversalExchangeAdapterConfig extends BaseUniversalAdapterConfig {
   type: 'exchange';
-  subType: 'ccxt' | 'csv';
+  subType: 'ccxt' | 'csv' | 'native';
   credentials?: { 
     apiKey: string; 
     secret: string; 
