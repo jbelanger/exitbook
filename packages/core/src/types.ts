@@ -358,6 +358,7 @@ export interface UniversalTransaction {
   amount: Money;
   fee?: Money;
   price?: Money;
+  side?: 'buy' | 'sell'; // Trade side for balance calculations
   
   // Parties (works for both)
   from?: string;  // Sender address OR exchange account

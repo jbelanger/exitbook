@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import { getLogger } from '@crypto/shared-logger';
 import { moneyToNumber } from '@crypto/shared-utils';
 import type { Transaction as UniversalTransaction } from '../shared/types/adapters.ts';
@@ -182,7 +183,7 @@ export class Deduplicator {
       source: transaction.source
     });
 
-    return require('crypto').createHash('sha256').update(hashData).digest('hex').slice(0, 16);
+    return createHash('sha256').update(hashData).digest('hex').slice(0, 16);
   }
 
   private logDeduplicationStats(result: DeduplicationResult, sourceId: string, mode: string = 'standard'): void {
