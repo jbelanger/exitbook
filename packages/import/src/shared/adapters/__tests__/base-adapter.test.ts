@@ -25,8 +25,8 @@ vi.mock('@crypto/shared-logger', () => ({
 
 // Test implementation of BaseAdapter
 class TestAdapter extends BaseAdapter {
-  private mockRawTransactions: any[] = [];
-  private mockRawBalances: any[] = [];
+  private mockRawTransactions: unknown[] = [];
+  private mockRawBalances: unknown[] = [];
   private mockTransactions: UniversalTransaction[] = [];
   private mockBalances: UniversalBalance[] = [];
 
@@ -53,11 +53,11 @@ class TestAdapter extends BaseAdapter {
     return true;
   }
 
-  protected async fetchRawTransactions(): Promise<any> {
+  protected async fetchRawTransactions(): Promise<unknown> {
     return this.mockRawTransactions;
   }
 
-  protected async fetchRawBalances(): Promise<any> {
+  protected async fetchRawBalances(): Promise<unknown> {
     return this.mockRawBalances;
   }
 
@@ -114,7 +114,7 @@ describe('BaseAdapter Validation Integration', () => {
       timestamp: 'invalid_timestamp', // Should be number
       type: 'invalid_type', // Invalid enum value
       source: '', // Empty string
-    } as any;
+    } as UniversalTransaction;
 
     it('should process all valid transactions successfully', async () => {
       adapter.setMockTransactions([validTransaction]);
@@ -216,7 +216,7 @@ describe('BaseAdapter Validation Integration', () => {
       total: -1, // Negative total
       free: 0.8,
       used: 0.2,
-    } as any;
+    } as UniversalBalance;
 
     it('should process all valid balances successfully', async () => {
       adapter.setMockBalances([validBalance]);
@@ -335,7 +335,7 @@ describe('BaseAdapter Validation Integration', () => {
         };
       });
 
-      adapter.setMockTransactions(mixedBatch as any);
+      adapter.setMockTransactions(mixedBatch as UniversalTransaction[]);
 
       const result = await adapter.fetchTransactions({});
 

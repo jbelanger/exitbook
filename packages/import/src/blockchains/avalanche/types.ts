@@ -67,6 +67,12 @@ export interface SnowtraceApiResponse<T> {
   result: T[];
 }
 
+export interface SnowtraceBalanceResponse {
+  status: string;
+  message: string;
+  result: string;
+}
+
 export interface SnowtraceBalance {
   account: string;
   balance: string;

@@ -103,7 +103,7 @@ export class BlockstreamProvider extends BaseRegistryProvider {
         case 'getAddressInfo':
           return this.getAddressInfo(operation.params as { address: string }) as T;
         case 'parseWalletTransaction':
-          return this.parseWalletTransaction(operation.params as { tx: any; walletAddresses: string[] }) as T;
+          return this.parseWalletTransaction(operation.params as { tx: BlockstreamTransaction; walletAddresses: string[] }) as T;
         default:
           throw new Error(`Unsupported operation: ${operation.type}`);
       }
@@ -402,7 +402,7 @@ export class BlockstreamProvider extends BaseRegistryProvider {
   /**
    * Parse a Blockstream transaction considering multiple wallet addresses (for xpub scenarios)
    */
-  private parseWalletTransaction(params: { tx: any; walletAddresses: string[] }): BlockchainTransaction {
+  private parseWalletTransaction(params: { tx: BlockstreamTransaction; walletAddresses: string[] }): BlockchainTransaction {
     const { tx, walletAddresses } = params;
 
     try {

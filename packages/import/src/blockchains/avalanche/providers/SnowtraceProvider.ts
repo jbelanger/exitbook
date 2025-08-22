@@ -5,7 +5,7 @@ import { Decimal } from 'decimal.js';
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
 import { RegisterProvider } from '../../shared/registry/decorators.ts';
 import type { ProviderOperation } from '../../shared/types.ts';
-import type { SnowtraceApiResponse, SnowtraceInternalTransaction, SnowtraceTokenTransfer, SnowtraceTransaction } from '../types.ts';
+import type { SnowtraceApiResponse, SnowtraceBalanceResponse, SnowtraceInternalTransaction, SnowtraceTokenTransfer, SnowtraceTransaction } from '../types.ts';
 import { isValidAvalancheAddress } from '../types.ts';
 
 @RegisterProvider({
@@ -193,7 +193,7 @@ export class SnowtraceProvider extends BaseRegistryProvider {
     const response = await this.httpClient.get(`?${params.toString()}`) as SnowtraceApiResponse<SnowtraceTransaction>;
 
     if (response.status !== '1') {
-      if (response.message === 'NOTOK' && response.result && (response.result as any).includes('Invalid API Key')) {
+      if (response.message === 'NOTOK' && response.message.includes('Invalid API Key')) {
         throw new AuthenticationError('Invalid Snowtrace API key', this.name, 'getNormalTransactions');
       }
       throw new ServiceError(`Snowtrace API error: ${response.message}`, this.name, 'getNormalTransactions');
@@ -285,14 +285,14 @@ export class SnowtraceProvider extends BaseRegistryProvider {
       params.append('apikey', this.apiKey);
     }
 
-    const response = await this.httpClient.get(`?${params.toString()}`) as SnowtraceApiResponse<string>;
+    const response = await this.httpClient.get(`?${params.toString()}`) as SnowtraceBalanceResponse;
 
     if (response.status !== '1') {
       throw new ServiceError(`Failed to fetch AVAX balance: ${response.message}`, this.name, 'getAVAXBalance');
     }
 
     // Convert from wei to AVAX
-    const balanceWei = new Decimal(response.result as any);
+    const balanceWei = new Decimal(response.result);
     const balanceAvax = balanceWei.dividedBy(new Decimal(10).pow(18));
 
     return {

@@ -167,7 +167,7 @@ export abstract class BaseCCXTAdapter extends BaseAdapter {
     }));
   }
 
-  protected async fetchRawBalances(params: UniversalFetchParams): Promise<any> {
+  protected async fetchRawBalances(params: UniversalFetchParams): Promise<CCXTBalances> {
     if (!this.enableOnlineVerification) {
       throw new Error(`Balance fetching not supported for ${this.exchangeId} CCXT adapter - enable online verification to fetch live balances`);
     }

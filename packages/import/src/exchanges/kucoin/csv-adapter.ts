@@ -158,11 +158,11 @@ export class KuCoinCSVAdapter extends BaseAdapter {
       .filter(tx => !params.until || tx.timestamp <= params.until);
   }
 
-  protected async fetchRawBalances(_params: UniversalFetchParams): Promise<any> {
+  protected async fetchRawBalances(_params: UniversalFetchParams): Promise<unknown> {
     throw new Error('Balance fetching not supported for CSV adapter - CSV files do not contain current balance data');
   }
 
-  protected async transformBalances(_raw: any, _params: UniversalFetchParams): Promise<UniversalBalance[]> {
+  protected async transformBalances(_raw: unknown, _params: UniversalFetchParams): Promise<UniversalBalance[]> {
     throw new Error('Balance fetching not supported for CSV adapter');
   }
 

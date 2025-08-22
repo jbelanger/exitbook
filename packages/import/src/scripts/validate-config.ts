@@ -30,8 +30,8 @@ function validateConfiguration(): void {
       for (const [blockchain, blockchainConfig] of Object.entries(config)) {
         if (!blockchainConfig || typeof blockchainConfig !== 'object') continue;
 
-        const { explorers = [] } = blockchainConfig as any;
-        const enabled = explorers.filter((e: any) => e.enabled);
+        const { explorers = [] } = blockchainConfig as { explorers: Array<{ name: string; enabled: boolean; priority: number }> };
+        const enabled = explorers.filter(e => e.enabled);
 
         console.log(`${blockchain.toUpperCase()}:`);
         console.log(`  Total providers: ${explorers.length}`);
@@ -41,8 +41,8 @@ function validateConfiguration(): void {
         if (enabled.length > 0) {
           console.log('  Enabled providers:');
           enabled
-            .sort((a: any, b: any) => a.priority - b.priority)
-            .forEach((provider: any) => {
+            .sort((a, b) => a.priority - b.priority)
+            .forEach(provider => {
               const metadata = ProviderRegistry.getMetadata(blockchain, provider.name);
               const apiKeyInfo = metadata?.requiresApiKey ?
                 (metadata.apiKeyEnvVar ? ` (${metadata.apiKeyEnvVar})` : ' (API key required)') : '';
