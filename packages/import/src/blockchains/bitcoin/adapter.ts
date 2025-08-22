@@ -3,7 +3,6 @@ import * as bitcoin from 'bitcoinjs-lib';
 import type {
   Balance,
   BlockchainTransaction,
-  CryptoTransaction,
   TransactionType,
   UniversalAdapterInfo,
   UniversalBalance,
@@ -443,57 +442,4 @@ export class BitcoinAdapter extends BaseAdapter {
     return this.fetchRawBalances({ addresses: [address] });
   }
 
-  // Required IBlockchainAdapter methods for backward compatibility
-  async getBlockchainInfo(): Promise<any> {
-    return {
-      id: 'bitcoin',
-      name: 'Bitcoin Blockchain',
-      network: 'mainnet',
-      capabilities: {
-        supportsAddressTransactions: true,
-        supportsTokenTransactions: false,
-        supportsBalanceQueries: true,
-        supportsHistoricalData: true,
-        supportsPagination: true,
-        maxLookbackDays: undefined
-      }
-    };
-  }
-
-  convertToCryptoTransaction(blockchainTx: BlockchainTransaction): CryptoTransaction {
-    // Use the Bitcoin adapter's own transaction type classification
-    let type: TransactionType;
-
-    if (blockchainTx.type === 'transfer_in' || blockchainTx.type === 'internal_transfer_in') {
-      type = 'deposit';
-    } else if (blockchainTx.type === 'transfer_out' || blockchainTx.type === 'internal_transfer_out') {
-      type = 'withdrawal';
-    } else {
-      // Fallback - shouldn't happen with proper Bitcoin transaction classification
-      type = 'withdrawal';
-    }
-
-    return {
-      id: blockchainTx.hash,
-      type,
-      timestamp: blockchainTx.timestamp,
-      datetime: new Date(blockchainTx.timestamp).toISOString(),
-      symbol: blockchainTx.tokenSymbol || undefined,
-      side: undefined,
-      amount: blockchainTx.value,
-      price: undefined,
-      fee: blockchainTx.fee,
-      status: blockchainTx.status === 'success' ? 'closed' :
-        blockchainTx.status === 'pending' ? 'open' : 'canceled',
-      info: {
-        blockNumber: blockchainTx.blockNumber,
-        blockHash: blockchainTx.blockHash,
-        from: blockchainTx.from,
-        to: blockchainTx.to,
-        confirmations: blockchainTx.confirmations,
-        transactionType: blockchainTx.type,
-        originalTransaction: blockchainTx
-      }
-    };
-  }
 }

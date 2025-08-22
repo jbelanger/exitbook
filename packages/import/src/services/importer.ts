@@ -1,14 +1,9 @@
-import type { CryptoTransaction, EnhancedTransaction, IBlockchainAdapter, TransactionNote } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
 import { type BlockchainExplorersConfig } from '@crypto/shared-utils';
-import crypto from 'crypto';
 import type { ImportResult, ImportSummary } from '../types.ts';
-import { TransactionNoteType } from '../types.ts';
 
 import { Database, TransactionRepository, TransactionService, WalletRepository, WalletService } from '@crypto/data';
 
-import { BlockchainAdapterFactory } from '../blockchains/shared/index.ts';
-import { ExchangeAdapterFactory } from '../exchanges/adapter-factory.ts';
 import { detectScamFromSymbol } from '../utils/scam-detection.ts';
 import { Deduplicator } from './deduplicator.ts';
 
@@ -34,8 +29,6 @@ export class TransactionImporter {
   
   private transactionService: TransactionService;
   private deduplicator: Deduplicator;
-  private adapterFactory: ExchangeAdapterFactory;
-  private blockchainAdapterFactory: BlockchainAdapterFactory;
   private walletService: WalletService;
 
   constructor(
@@ -47,8 +40,6 @@ export class TransactionImporter {
     const walletRepository = new WalletRepository(database);
     this.transactionService = new TransactionService(transactionRepository, walletRepository);
     this.deduplicator = new Deduplicator();
-    this.adapterFactory = new ExchangeAdapterFactory();
-    this.blockchainAdapterFactory = new BlockchainAdapterFactory();
     this.walletService = new WalletService(walletRepository);
   }
 
@@ -82,9 +73,9 @@ export class TransactionImporter {
         throw new Error(`Failed to connect to ${blockchainId}`);
       }
 
-      const rawTransactions = await this.fetchTransactionsForAddresses(adapter as any, addresses, since);
-
-      const { transactions, saved, duplicates } = await this.processAndSaveTransactions(rawTransactions, blockchainId);
+      // Use universal interface directly
+      const transactions = await adapter.fetchTransactions({ addresses, since });
+      const { saved, duplicates } = await this.processAndSaveUniversalTransactions(transactions, blockchainId);
 
       const duration = Date.now() - startTime;
 
@@ -127,17 +118,16 @@ export class TransactionImporter {
     csvDirectories?: string[];
     since?: number;
   }): Promise<ImportResult> {
-    const adapter = await this.adapterFactory.createAdapterWithCredentials(
+    // Use the new universal approach
+    return this.importFromExchangeUniversal(
       options.exchangeId,
       options.adapterType,
       {
         credentials: options.credentials,
         csvDirectories: options.csvDirectories,
-        enableOnlineVerification: false
+        since: options.since
       }
     );
-
-    return this.importFromExchange(adapter, options.since);
   }
 
   async importFromExchange(adapter: IUniversalAdapter, since?: number): Promise<ImportResult> {
@@ -157,24 +147,21 @@ export class TransactionImporter {
       // Fetch all transactions using the adapter
       const universalTransactions = await adapter.fetchTransactions({ since });
       
-      // Convert universal transactions back to CryptoTransaction format for compatibility
-      const rawTransactions = universalTransactions.map(tx => this.convertUniversalToCryptoTransaction(tx));
-
-      const { transactions, saved, duplicates } = await this.processAndSaveTransactions(rawTransactions, exchangeId);
-
+      // Process and save universal transactions directly
+      const { saved, duplicates } = await this.processAndSaveUniversalTransactions(universalTransactions, exchangeId);
 
       const duration = Date.now() - startTime;
 
       const result: ImportResult = {
         source: exchangeId,
-        transactions: transactions.length,
+        transactions: universalTransactions.length,
         newTransactions: saved,
         duplicatesSkipped: duplicates.length,
         errors: [],
         duration
       };
 
-      this.logger.info(`Completed import from ${exchangeId} - Transactions: ${transactions.length}, New: ${saved}, Duplicates: ${duplicates.length}, Duration: ${duration}ms`);
+      this.logger.info(`Completed import from ${exchangeId} - Transactions: ${universalTransactions.length}, New: ${saved}, Duplicates: ${duplicates.length}, Duration: ${duration}ms`);
 
       return result;
     } catch (error) {
@@ -210,11 +197,8 @@ export class TransactionImporter {
       // Fetch transactions using unified interface
       const transactions = await adapter.fetchTransactions(params);
       
-      // Convert universal transactions to CryptoTransaction format for existing pipeline
-      const cryptoTransactions = transactions.map((tx: UniversalTransaction) => this.convertUniversalToCryptoTransaction(tx));
-      
-      // Save transactions using existing logic
-      const { saved, duplicates } = await this.processAndSaveTransactions(cryptoTransactions, info.id);
+      // Save transactions using universal pipeline
+      const { saved, duplicates } = await this.processAndSaveUniversalTransactions(transactions, info.id);
 
       const duration = Date.now() - startTime;
 
@@ -309,38 +293,116 @@ export class TransactionImporter {
   }
 
   /**
-   * Convert universal transaction format to CryptoTransaction for existing pipeline
+   * Process and save universal transactions directly without conversion
    */
-  private convertUniversalToCryptoTransaction(universalTx: UniversalTransaction): CryptoTransaction {
-    return {
-      id: universalTx.id,
-      timestamp: universalTx.timestamp,
-      datetime: universalTx.datetime,
-      type: universalTx.type,
-      status: universalTx.status,
-      amount: universalTx.amount,
-      fee: universalTx.fee,
-      price: universalTx.price,
-      symbol: universalTx.symbol,
-      side: universalTx.metadata?.side,
-      info: {
-        from: universalTx.from,
-        to: universalTx.to,
-        source: universalTx.source,
-        network: universalTx.network,
-        ...universalTx.metadata
+  private async processAndSaveUniversalTransactions(
+    transactions: UniversalTransaction[], 
+    sourceId: string
+  ): Promise<{ saved: number; duplicates: UniversalTransaction[] }> {
+    const enhancedTransactions = transactions.map(tx => this.enhanceUniversalTransaction(tx, sourceId));
+    const { unique, duplicates } = await this.deduplicator.process(enhancedTransactions, sourceId);
+    const saved = await this.transactionService.saveManyUniversal(unique);
+
+    if (saved > 0 && sourceId !== 'exchange') {
+      try {
+        await this.linkUniversalTransactionsToWallets(unique, sourceId);
+      } catch (linkError) {
+        this.logger.warn(`Failed to link transactions to wallet addresses for ${sourceId}: ${linkError instanceof Error ? linkError.message : String(linkError)}`);
       }
+    }
+
+    return { saved, duplicates };
+  }
+
+  /**
+   * Enhance universal transaction with additional metadata
+   */
+  private enhanceUniversalTransaction(transaction: UniversalTransaction, sourceId: string): UniversalTransaction {
+    // Detect scam tokens for blockchain transactions
+    let scamNote: any = undefined;
+    const isBlockchainTransaction = sourceId.includes('mainnet') || ['ethereum', 'bitcoin', 'solana'].includes(sourceId);
+    if (isBlockchainTransaction && transaction.symbol && transaction.type === 'deposit') {
+      const scamCheck = detectScamFromSymbol(transaction.symbol);
+      if (scamCheck.isScam) {
+        scamNote = {
+          type: 'SCAM_TOKEN',
+          message: `🚨 Scam token detected: ${scamCheck.reason} - Do not interact`,
+          severity: 'error',
+          metadata: {
+            tokenSymbol: transaction.symbol,
+            amount: transaction.amount?.amount,
+            blockchain: sourceId,
+            scamReason: scamCheck.reason,
+            isKnownScamPattern: true
+          }
+        };
+      }
+    }
+
+    return {
+      ...transaction,
+      source: sourceId,
+      metadata: {
+        ...transaction.metadata,
+        importedAt: Date.now(),
+        verified: false,
+        note: scamNote
+      }
+    };
+  }
+
+  /**
+   * Link universal transactions to wallet addresses
+   */
+  private async linkUniversalTransactionsToWallets(transactions: UniversalTransaction[], blockchain: string): Promise<void> {
+    this.logger.info(`Linking ${transactions.length} universal transactions to wallet addresses for ${blockchain}`);
+
+    for (const transaction of transactions) {
+      try {
+        const { from: fromAddress, to: toAddress } = this.extractUniversalTransactionAddresses(transaction);
+
+        if (!fromAddress && !toAddress) {
+          continue;
+        }
+
+        // Find or create wallet for the addresses
+        if (fromAddress) {
+          await this.ensureWalletAddress(fromAddress, blockchain);
+        }
+        if (toAddress) {
+          await this.ensureWalletAddress(toAddress, blockchain);
+        }
+
+        // Link transaction to wallets is handled in TransactionService.saveManyUniversal
+      } catch (error) {
+        this.logger.warn(`Failed to link transaction ${transaction.id} to wallets: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+  }
+
+  /**
+   * Extract addresses from universal transaction
+   */
+  private extractUniversalTransactionAddresses(transaction: UniversalTransaction): { from: string | null; to: string | null } {
+    return {
+      from: transaction.from || null,
+      to: transaction.to || null
     };
   }
 
   async createBlockchainAdapters(options: BlockchainImportOptions): Promise<Array<{ adapter: IUniversalAdapter }>> {
     try {
-      const adapter = await this.blockchainAdapterFactory.createBlockchainAdapter(
-        options.blockchain.toLowerCase(),
-        this.explorerConfig
-      );
+      // Use the new universal approach
+      const config: BlockchainAdapterConfig = {
+        type: 'blockchain',
+        id: options.blockchain.toLowerCase(),
+        subType: 'rest',
+        network: options.network || 'mainnet'
+      };
+      
+      const adapter = await UniversalAdapterFactory.create(config, this.explorerConfig);
 
-      this.logger.info(`Created blockchain adapter: ${options.blockchain} (addresses: ${options.addresses.length}, network: ${options.network || 'mainnet'})`);
+      this.logger.info(`Created universal blockchain adapter: ${options.blockchain} (addresses: ${options.addresses.length}, network: ${options.network || 'mainnet'})`);
 
       return [{ adapter }];
     } catch (error) {
@@ -361,7 +423,7 @@ export class TransactionImporter {
       this.logger.info(`Starting import from ${adapterInfo.id}`);
 
       try {
-        const result = await this.importFromBlockchainAdapter(adapter as any, options.addresses, options.since);
+        const result = await this.importFromBlockchainAdapter(adapter, options.addresses, options.since);
         sourceResults.push(result);
         totalTransactions += result.transactions;
         totalNewTransactions += result.newTransactions;
@@ -400,136 +462,22 @@ export class TransactionImporter {
     };
   }
 
-  private async fetchTransactionsForAddresses(adapter: IBlockchainAdapter, addresses: string[], since?: number): Promise<CryptoTransaction[]> {
-    const rawTransactions: CryptoTransaction[] = [];
-
-    for (const address of addresses) {
-      this.logger.debug(`Fetching transactions for address: ${address}`);
-      const blockchainTxs = await adapter.getAddressTransactions(address, since);
-      const cryptoTxs = blockchainTxs.map(tx => adapter.convertToCryptoTransaction(tx, address));
-      rawTransactions.push(...cryptoTxs);
-      this.logger.debug(`Found ${blockchainTxs.length} transactions for ${address}`);
-    }
-
-    this.logger.debug(`Total ${rawTransactions.length} transactions fetched`);
-    return rawTransactions;
-  }
-
-  private async processAndSaveTransactions(rawTransactions: CryptoTransaction[], sourceId: string): Promise<{ transactions: EnhancedTransaction[]; saved: number; duplicates: EnhancedTransaction[] }> {
-    const transactions = rawTransactions.map(tx => this.enhanceTransaction(tx, sourceId));
-    const { unique, duplicates } = await this.deduplicator.process(transactions, sourceId);
-    const saved = await this.transactionService.saveMany(unique);
-
-    if (saved > 0 && sourceId !== 'exchange') {
-      try {
-        await this.linkTransactionsToWallets(unique, sourceId);
-      } catch (linkError) {
-        this.logger.warn(`Failed to link transactions to wallet addresses for ${sourceId}: ${linkError instanceof Error ? linkError.message : String(linkError)}`);
-      }
-    }
-
-    return { transactions, saved, duplicates };
-  }
-
-  private enhanceTransaction(transaction: any, exchangeId: string): EnhancedTransaction {
-    // Create a unique hash for deduplication
-    const hash = this.createTransactionHash(transaction, exchangeId);
-
-    // Detect scam tokens for blockchain transactions - ONLY flag obvious scam patterns
-    let note: TransactionNote | undefined = undefined;
-    const isBlockchainTransaction = exchangeId.includes('mainnet') || ['ethereum', 'bitcoin', 'solana'].includes(exchangeId);
-    if (isBlockchainTransaction && transaction.symbol && transaction.type === 'deposit') {
-      // Only check for direct scam patterns in token symbol (no airdrop detection)
-      const scamCheck = detectScamFromSymbol(transaction.symbol);
-
-      if (scamCheck.isScam) {
-        note = {
-          type: TransactionNoteType.SCAM_TOKEN,
-          message: `🚨 Scam token detected: ${scamCheck.reason} - Do not interact`,
-          severity: 'error' as const,
-          metadata: {
-            tokenSymbol: transaction.symbol,
-            amount: transaction.amount?.amount,
-            blockchain: exchangeId,
-            scamReason: scamCheck.reason,
-            isKnownScamPattern: true
-          }
-        };
-      }
-    }
-
-    return {
-      ...transaction,
-      source: exchangeId,
-      hash,
-      importedAt: Date.now(),
-      verified: false,
-      originalData: transaction.info || transaction,
-      note
-    };
-  }
-
-
-  private createTransactionHash(transaction: any, exchangeId: string): string {
-    // Create a hash from key transaction properties for deduplication
-    const hashData = JSON.stringify({
-      id: transaction.id,
-      timestamp: transaction.timestamp,
-      symbol: transaction.symbol,
-      amount: transaction.amount,
-      side: transaction.side,
-      type: transaction.type,
-      exchange: exchangeId
-    });
-
-    return crypto.createHash('sha256').update(hashData).digest('hex').slice(0, 16);
-  }
-
 
   /**
-   * Link transactions to wallet addresses by matching from/to addresses
+   * Ensure wallet address exists (helper method)
    */
-  private async linkTransactionsToWallets(transactions: EnhancedTransaction[], blockchain: string): Promise<void> {
-    this.logger.info(`Linking ${transactions.length} transactions to wallet addresses for ${blockchain}`);
-
-    for (const transaction of transactions) {
-      try {
-        // Extract from and to addresses from the transaction
-        const { from: fromAddress, to: toAddress } = this.extractTransactionAddresses(transaction);
-
-        if (!fromAddress && !toAddress) {
-          continue; // Skip transactions without addresses
-        }
-
-        // Link transaction to wallet addresses
-        await this.transactionService.linkTransactionToWallets(
-          transaction.id,
-          fromAddress || undefined,
-          toAddress || undefined
-        );
-
-      } catch (error) {
-        this.logger.warn(`Failed to link transaction ${transaction.id} to wallets: ${error instanceof Error ? error.message : String(error)}`);
-      }
+  private async ensureWalletAddress(address: string, blockchain: string): Promise<void> {
+    try {
+      // Use the wallet service to create wallet address
+      await this.walletService.createWalletAddressFromTransaction(address, blockchain, {
+        label: `${blockchain} wallet (auto-created)`,
+        addressType: 'personal',
+        notes: `Auto-created during transaction import for ${blockchain}`
+      });
+    } catch (error) {
+      // Ignore errors if wallet already exists
+      this.logger.debug(`Wallet for address ${address} may already exist: ${error}`);
     }
-  }
-
-  /**
-   * Extract transaction addresses from various data sources
-   */
-  private extractTransactionAddresses(transaction: EnhancedTransaction): { from: string | null; to: string | null } {
-    const sources = [transaction.originalData, transaction.info];
-
-    let from: string | null = null;
-    let to: string | null = null;
-
-    for (const source of sources) {
-      if (source?.from && !from) from = source.from;
-      if (source?.to && !to) to = source.to;
-      if (from && to) break;
-    }
-
-    return { from, to };
   }
 
   /**
@@ -552,5 +500,4 @@ export class TransactionImporter {
 
     await Promise.allSettled(createPromises);
   }
-
 }
