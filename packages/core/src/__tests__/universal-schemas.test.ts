@@ -1,4 +1,4 @@
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect } from 'vitest';
 import { Decimal } from 'decimal.js';
 import {
   UniversalTransactionSchema,
@@ -8,7 +8,7 @@ import {
   validateUniversalBalance,
   validateUniversalTransactions,
   validateUniversalBalances,
-} from '../validation/universal-schemas.ts';
+} from '../validation/universal-schemas';
 
 describe('Universal Schemas Validation', () => {
   describe('MoneySchema', () => {
@@ -177,9 +177,9 @@ describe('Universal Schemas Validation', () => {
       };
       
       // Remove metadata field entirely
-      delete (transactionWithoutMetadata as Record<string, any>).metadata;
+      const { metadata, ...transactionWithoutMetadataField } = transactionWithoutMetadata;
 
-      const result = UniversalTransactionSchema.safeParse(transactionWithoutMetadata);
+      const result = UniversalTransactionSchema.safeParse(transactionWithoutMetadataField);
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data.metadata).toEqual({});

@@ -13,7 +13,7 @@
     "lint": "eslint \"src/**/*.ts*\"",
     "prettier": "prettier --check .",
     "prettier:fix": "prettier --write .",
-    "test": "jest --detectOpenHandles --forceExit --passWithNoTests",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -21,11 +21,7 @@
     "zod": "^4.0.17"
   },
   "devDependencies": {
-    "@jest/globals": "^30.0.5",
-    "@types/jest": "^30.0.0",
     "@types/node": "^24.3.0",
-    "jest": "^30.0.5",
-    "ts-jest": "^29.4.1",
     "tsconfig": "workspace:*",
     "tsx": "^4.20.4",
     "typescript": "^5.9.2"

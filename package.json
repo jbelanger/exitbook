@@ -2,6 +2,7 @@
   "name": "crypto-tx-import",
   "version": "1.0.0",
   "description": "Crypto transaction import and verification tool using CCXT - Monorepo",
+  "type": "module",
   "private": true,
   "scripts": {
     "build": "pnpm -F crypto-portfolio-cli build",
@@ -12,11 +13,12 @@
     "verify": "pnpm -F crypto-portfolio-cli verify",
     "status": "pnpm -F crypto-portfolio-cli status",
     "export": "pnpm -F crypto-portfolio-cli export",
-    "test": "pnpm -F crypto-portfolio-cli test",
-    "test:unit": "pnpm -r test",
+    "test": "vitest run",
+    "test:unit": "vitest run",
     "test:e2e": "pnpm -F crypto-portfolio-cli test --exchange",
-    "test:watch": "pnpm -r run test --watch",
-    "test:coverage": "pnpm -r run test --coverage",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui",
     "test:coinbase": "pnpm -F crypto-portfolio-cli test --exchange coinbase",
     "test:coinbase:e2e": "pnpm -F crypto-portfolio-cli test --exchange coinbase",
     "typecheck": "pnpm -r run typecheck",
@@ -46,5 +48,15 @@
     "node": ">=23.0.0",
     "pnpm": ">=10.6.2"
   },
-  "packageManager": "pnpm@10.6.2"
+  "packageManager": "pnpm@10.6.2",
+  "devDependencies": {
+    "@eslint/js": "^9.34.0",
+    "@typescript-eslint/eslint-plugin": "^8.40.0",
+    "@typescript-eslint/parser": "^8.40.0",
+    "@vitest/ui": "^3.2.4",
+    "eslint-plugin-unicorn": "^60.0.0",
+    "globals": "^16.3.0",
+    "typescript-eslint": "^8.40.0",
+    "vitest": "^3.2.4"
+  }
 }

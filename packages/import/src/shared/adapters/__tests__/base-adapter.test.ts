@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Decimal } from 'decimal.js';
 import type { 
   UniversalAdapterInfo, 
@@ -13,13 +13,13 @@ import { BaseAdapter } from '../base-adapter.ts';
 
 // Mock logger
 const mockLogger = {
-  error: jest.fn(),
-  warn: jest.fn(),
-  info: jest.fn(),
-  debug: jest.fn(),
+  error: vi.fn(),
+  warn: vi.fn(),
+  info: vi.fn(),
+  debug: vi.fn(),
 };
 
-jest.mock('@crypto/shared-logger', () => ({
+vi.mock('@crypto/shared-logger', () => ({
   getLogger: () => mockLogger,
 }));
 
@@ -103,7 +103,7 @@ describe('BaseAdapter Validation Integration', () => {
 
   beforeEach(() => {
     adapter = new TestAdapter(mockConfig);
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('fetchTransactions with validation', () => {
