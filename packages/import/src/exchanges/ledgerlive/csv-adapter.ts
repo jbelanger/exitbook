@@ -1,7 +1,8 @@
-import type { CryptoTransaction, ExchangeInfo, TransactionStatus } from '@crypto/core';
+import type { CryptoTransaction, TransactionStatus } from '@crypto/core';
 import { createMoney, parseDecimal } from '@crypto/shared-utils';
-import { BaseCSVAdapter, type CSVConfig } from '../base-csv-adapter.ts';
-interface LedgerLiveCSVConfig extends CSVConfig { }
+import { BaseCSVAdapter } from '../../adapters/universal/base-csv-adapter.js';
+import type { AdapterInfo, Transaction } from '../../adapters/universal/types.js';
+import type { ExchangeAdapterConfig } from '../../adapters/universal/config.js';
 
 // Expected CSV headers for validation
 const EXPECTED_HEADERS = {
@@ -24,8 +25,43 @@ interface LedgerLiveOperationRow {
 }
 
 export class LedgerLiveCSVAdapter extends BaseCSVAdapter {
-  constructor(config: LedgerLiveCSVConfig) {
-    super(config, 'LedgerLiveCSVAdapter');
+  constructor(config: ExchangeAdapterConfig) {
+    super(config);
+  }
+
+  async getInfo(): Promise<AdapterInfo> {
+    return {
+      id: 'ledgerlive',
+      name: 'Ledger Live CSV',
+      type: 'exchange',
+      subType: 'csv',
+      capabilities: {
+        supportedOperations: ['fetchTransactions'],
+        maxBatchSize: 1000,
+        supportsHistoricalData: true,
+        supportsPagination: false,
+        requiresApiKey: false
+      }
+    };
+  }
+
+  protected convertToUniversalTransaction(cryptoTx: CryptoTransaction): Transaction {
+    return {
+      id: cryptoTx.id,
+      timestamp: cryptoTx.timestamp,
+      datetime: cryptoTx.datetime || new Date(cryptoTx.timestamp).toISOString(),
+      type: cryptoTx.type,
+      status: cryptoTx.status || 'closed',
+      amount: cryptoTx.amount,
+      fee: cryptoTx.fee,
+      price: cryptoTx.price,
+      from: cryptoTx.info?.from,
+      to: cryptoTx.info?.to,
+      symbol: cryptoTx.symbol,
+      source: 'ledgerlive',
+      network: 'exchange',
+      metadata: cryptoTx.info || {}
+    };
   }
 
   protected getExpectedHeaders(): Record<string, string> {
@@ -72,23 +108,6 @@ export class LedgerLiveCSVAdapter extends BaseCSVAdapter {
     }
   }
 
-  public async getExchangeInfo(): Promise<ExchangeInfo> {
-    return {
-      id: 'ledgerlive',
-      name: 'Ledger Live CSV',
-      version: '1.0.0',
-      capabilities: {
-        fetchMyTrades: false, // LedgerLive doesn't have traditional trades
-        fetchDeposits: true,
-        fetchWithdrawals: true,
-        fetchLedger: true,
-        fetchClosedOrders: false,
-        fetchBalance: false, // CSV doesn't provide current balances
-        fetchOrderBook: false,
-        fetchTicker: false
-      }
-    };
-  }
 
   private async parseOperations(filePath: string): Promise<CryptoTransaction[]> {
     const rows = await this.parseCsvFile<LedgerLiveOperationRow>(filePath);
