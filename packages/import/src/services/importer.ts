@@ -140,10 +140,10 @@ export class TransactionImporter {
     return this.importFromExchange(adapter, options.since);
   }
 
-  async importFromExchange(adapter: IExchangeAdapter, since?: number): Promise<ImportResult> {
+  async importFromExchange(adapter: IUniversalAdapter, since?: number): Promise<ImportResult> {
     const startTime = Date.now();
-    const exchangeInfo = await adapter.getExchangeInfo();
-    const exchangeId = exchangeInfo.id;
+    const adapterInfo = await adapter.getInfo();
+    const exchangeId = adapterInfo.id;
 
     this.logger.info(`Starting import from ${exchangeId} (since: ${since})`);
 
@@ -155,7 +155,10 @@ export class TransactionImporter {
       }
 
       // Fetch all transactions using the adapter
-      const rawTransactions = await adapter.fetchAllTransactions(since);
+      const universalTransactions = await adapter.fetchTransactions({ since });
+      
+      // Convert universal transactions back to CryptoTransaction format for compatibility
+      const rawTransactions = universalTransactions.map(tx => this.convertUniversalToCryptoTransaction(tx));
 
       const { transactions, saved, duplicates } = await this.processAndSaveTransactions(rawTransactions, exchangeId);
 

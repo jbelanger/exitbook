@@ -3,7 +3,7 @@ import { createMoney, parseDecimal } from '@crypto/shared-utils';
 import { BaseCSVAdapter } from '../../adapters/universal/base-csv-adapter.js';
 import type { AdapterInfo, Transaction } from '../../adapters/universal/types.js';
 import type { ExchangeAdapterConfig } from '../../adapters/universal/config.js';
-import { CsvFilters } from '../csv-filters.ts';
+import { CsvFilters } from '../csv-filters.js';
 // Remove the old config interface as we'll use the universal one
 
 // Expected CSV headers for validation
