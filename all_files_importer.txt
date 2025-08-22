@@ -440,37 +440,40 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
 
   /**
    * Override to fetch only the raw ledger entries from the API.
-   * The complex processing logic is moved to transformTransactions.
+   * This should return the raw CCXT response, not a transformed one.
    */
   protected async fetchRawTransactions(params: any): Promise<any[]> {
     this.logger.info(`Starting raw ledger fetch from Coinbase - Since: ${params.since}`);
-    // This method should return the raw data from fetchLedger, NOT the processed transactions.
-    // The base transformTransactions will then pass this raw data to our overridden transform method below.
-    return this.fetchLedger(params.since);
+    
+    // This is the only place we should be calling the exchange API.
+    // We can reuse the pagination logic from the old fetchLedger method.
+    const rawLedgerEntries = await this.fetchAllLedgerEntriesWithPagination(params.since);
+    return rawLedgerEntries;
   }
 
   /**
    * Override to handle Coinbase's unique ledger entry grouping and transformation.
-   * This is where the core logic of `processLedgerEntries` now lives.
+   * This is where all transformation logic now lives.
    */
-  protected async transformTransactions(rawTxs: any[], params: any): Promise<any[]> {
-    this.logger.info(`Transforming ${rawTxs.length} raw Coinbase ledger entries.`);
+  protected async transformTransactions(rawLedgerEntries: any[], params: any): Promise<any[]> {
+    this.logger.info(`Transforming ${rawLedgerEntries.length} raw Coinbase ledger entries.`);
 
-    // 1. Convert raw CCXT entries to the intermediate CryptoTransaction format.
-    const ledgerTransactions = this.transformCCXTTransactions(rawTxs, 'ledger');
+    // 1. First, transform raw CCXT entries to the intermediate CryptoTransaction format.
+    //    This makes them compatible with the existing processing logic.
+    const ledgerCryptoTxs = this.transformCCXTTransactions(rawLedgerEntries, 'ledger');
 
-    // 2. Run the complex grouping and processing logic.
-    const processedCryptoTxs = await this.processLedgerEntries(ledgerTransactions);
+    // 2. Run the complex grouping and processing logic on the intermediate format.
+    const processedCryptoTxs = await this.processLedgerEntries(ledgerCryptoTxs);
 
-    // 3. Convert the final CryptoTransactions to the UniversalTransaction format.
-    //    We can call the base class's implementation for the final step.
+    // 3. Finally, convert the fully processed CryptoTransactions to the UniversalTransaction format.
     return super.transformTransactions(processedCryptoTxs, params);
+    // The base transformTransactions method already handles this final mapping.
   }
 
-  /**
-   * Enhanced fetchLedger with pagination support for Coinbase
-   */
-  async fetchLedger(since?: number): Promise<CryptoTransaction[]> {
+  // Helper to contain the fetching logic
+  private async fetchAllLedgerEntriesWithPagination(since?: number): Promise<any[]> {
+    // Move the logic from the old `fetchLedger` method here.
+    // This method should return the raw, unprocessed entries from `this.exchange.fetchLedger()`.
     try {
       if (!this.exchange.has['fetchLedger']) {
         this.logger.warn('Coinbase does not support fetchLedger - falling back to standard methods');
@@ -507,8 +510,25 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
 
       this.logger.info(`Fetched ${allEntries.length} total ledger entries from Coinbase`);
 
-      // Transform raw ledger entries before post-processing
-      return this.transformCCXTTransactions(allEntries, 'ledger');
+      // Return raw entries without any transformation
+      return allEntries;
+    } catch (error) {
+      this.handleError(error, 'fetchAllLedgerEntriesWithPagination');
+      throw error;
+    }
+  }
+
+  /**
+   * Enhanced fetchLedger with pagination support for Coinbase
+   * @deprecated This method is kept for backward compatibility. Use the universal adapter interface instead.
+   */
+  async fetchLedger(since?: number): Promise<CryptoTransaction[]> {
+    try {
+      // Use the new refactored method to get raw entries
+      const rawEntries = await this.fetchAllLedgerEntriesWithPagination(since);
+      
+      // Transform raw ledger entries before post-processing (maintains old behavior)
+      return this.transformCCXTTransactions(rawEntries, 'ledger');
     } catch (error) {
       this.handleError(error, 'fetchLedger');
       throw error;
@@ -4783,7 +4803,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
 export { validateProviders };
 ===== ./src/index.ts =====
-export { ExchangeAdapterFactory } from './exchanges/index.ts';
+export { UniversalAdapterFactory } from './adapters/universal/adapter-factory.js';
 
 // Main public API - Transaction importer service
 export { TransactionImporter } from './services/importer.ts';
@@ -10184,25 +10204,6 @@ export class BitcoinAdapter extends BaseAdapter {
     } catch (error) {
       this.logger.warn(`Error during Bitcoin adapter close - Error: ${error}`);
     }
-  }
-
-  // Legacy methods for compatibility (can be removed once migration is complete)
-  validateAddress(address: string): boolean {
-    const legacyPattern = /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/;
-    const segwitPattern = /^3[a-km-zA-HJ-NP-Z1-9]{25,34}$/;
-    const bech32Pattern = /^bc1[a-z0-9]{39,59}$/;
-    const xpubPattern = /^[xyz]pub[1-9A-HJ-NP-Za-km-z]{100,108}$/;
-
-    return legacyPattern.test(address) || segwitPattern.test(address) ||
-      bech32Pattern.test(address) || xpubPattern.test(address);
-  }
-
-  async getAddressTransactions(userAddress: string, since?: number): Promise<BlockchainTransaction[]> {
-    return this.fetchRawTransactions({ addresses: [userAddress], since });
-  }
-
-  async getAddressBalance(address: string): Promise<Balance[]> {
-    return this.fetchRawBalances({ addresses: [address] });
   }
 
 }===== ./src/blockchains/avalanche/providers/SnowtraceProvider.ts =====

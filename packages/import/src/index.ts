@@ -1,4 +1,4 @@
-export { ExchangeAdapterFactory } from './exchanges/index.ts';
+export { UniversalAdapterFactory } from './adapters/universal/adapter-factory.js';
 
 // Main public API - Transaction importer service
 export { TransactionImporter } from './services/importer.ts';

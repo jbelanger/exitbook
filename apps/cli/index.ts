@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 import { BalanceVerifier, BlockchainBalanceService, ExchangeBalanceService } from '@crypto/balance';
 import { Database } from '@crypto/data';
-import { TransactionImporter, ExchangeAdapterFactory } from '@crypto/import';
-import { loadExplorerConfig, initializeDatabase } from '@crypto/shared-utils';
+import { TransactionImporter, UniversalAdapterFactory } from '@crypto/import';
 import { getLogger } from '@crypto/shared-logger';
+import { initializeDatabase, loadExplorerConfig } from '@crypto/shared-utils';
 import { Command } from 'commander';
 import path from 'path';
 import 'reflect-metadata';
@@ -246,22 +246,18 @@ async function main() {
             })
           );
         } else if (options.exchange) {
-          // Create exchange adapter with provided credentials
-          const adapterFactory = new ExchangeAdapterFactory();
-          const adapter = await adapterFactory.createAdapterWithCredentials(
-            options.exchange,
-            options.adapterType,
-            {
-              credentials: options.adapterType === 'ccxt' ? {
-                apiKey: options.apiKey,
-                secret: options.secret,
-                password: options.password,
-                sandbox: options.sandbox
-              } : undefined,
-              csvDirectories: options.csvDirectories,
-              enableOnlineVerification: true
-            }
-          );
+          // Create exchange adapter with provided credentials using UniversalAdapterFactory
+          const adapter = await UniversalAdapterFactory.create({
+            type: 'exchange',
+            id: options.exchange,
+            subType: options.adapterType as 'ccxt' | 'csv',
+            credentials: options.adapterType === 'ccxt' ? {
+              apiKey: options.apiKey,
+              secret: options.secret,
+              password: options.password
+            } : undefined,
+            csvDirectories: options.csvDirectories
+          });
 
           // Create exchange balance service
           const exchangeService = new ExchangeBalanceService(adapter);
@@ -465,22 +461,18 @@ async function main() {
           });
           adapters = blockchainAdapters.map((ba: any) => ({ adapter: ba.adapter as any }));
         } else if (options.exchange) {
-          // Create exchange adapter with provided credentials
-          const adapterFactory = new ExchangeAdapterFactory();
-          const adapter = await adapterFactory.createAdapterWithCredentials(
-            options.exchange,
-            options.adapterType,
-            {
-              credentials: options.adapterType === 'ccxt' ? {
-                apiKey: options.apiKey,
-                secret: options.secret,
-                password: options.password,
-                sandbox: options.sandbox
-              } : undefined,
-              csvDirectories: options.csvDirectories,
-              enableOnlineVerification: false
-            }
-          );
+          // Create exchange adapter with provided credentials using UniversalAdapterFactory
+          const adapter = await UniversalAdapterFactory.create({
+            type: 'exchange',
+            id: options.exchange,
+            subType: options.adapterType as 'ccxt' | 'csv',
+            credentials: options.adapterType === 'ccxt' ? {
+              apiKey: options.apiKey,
+              secret: options.secret,
+              password: options.password
+            } : undefined,
+            csvDirectories: options.csvDirectories
+          });
           adapters = [{ adapter }];
         } else {
           logger.error('Either --exchange or --blockchain must be specified');
