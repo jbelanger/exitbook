@@ -104,7 +104,8 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
    * This should return the raw CCXT response, not a transformed one.
    */
   protected async fetchRawTransactions(params: any): Promise<any[]> {
-    this.logger.info(`Starting raw ledger fetch from Coinbase - Since: ${params.since}`);
+    const requestedTypes = params.transactionTypes || ['trade', 'deposit', 'withdrawal', 'order', 'ledger'];
+    this.logger.info(`Starting raw ledger fetch from Coinbase for types: ${requestedTypes.join(', ')} - Since: ${params.since}`);
     
     // This is the only place we should be calling the exchange API.
     // We can reuse the pagination logic from the old fetchLedger method.
@@ -117,7 +118,8 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
    * This is where all transformation logic now lives.
    */
   protected async transformTransactions(rawLedgerEntries: any[], params: any): Promise<any[]> {
-    this.logger.info(`Transforming ${rawLedgerEntries.length} raw Coinbase ledger entries.`);
+    const requestedTypes = params.transactionTypes || ['trade', 'deposit', 'withdrawal', 'order', 'ledger'];
+    this.logger.info(`Transforming ${rawLedgerEntries.length} raw Coinbase ledger entries for types: ${requestedTypes.join(', ')}`);
 
     // 1. First, transform raw CCXT entries to the intermediate CryptoTransaction format.
     //    This makes them compatible with the existing processing logic.
@@ -126,8 +128,19 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
     // 2. Run the complex grouping and processing logic on the intermediate format.
     const processedCryptoTxs = await this.processLedgerEntries(ledgerCryptoTxs);
 
-    // 3. Finally, convert the fully processed CryptoTransactions to the UniversalTransaction format.
-    return super.transformTransactions(processedCryptoTxs, params);
+    // 3. Filter transactions by requested types before final transformation
+    const filteredTxs = processedCryptoTxs.filter(tx => {
+      if (!tx.type) return false;
+      return requestedTypes.includes(tx.type);
+    });
+
+    const filteredCount = processedCryptoTxs.length - filteredTxs.length;
+    if (filteredCount > 0) {
+      this.logger.info(`Filtered out ${filteredCount} transactions not matching requested types`);
+    }
+
+    // 4. Finally, convert the filtered CryptoTransactions to the UniversalTransaction format.
+    return super.transformTransactions(filteredTxs, params);
     // The base transformTransactions method already handles this final mapping.
   }
 
