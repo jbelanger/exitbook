@@ -1,26 +1,15 @@
 // Core interfaces and types
-export type { 
-  IUniversalAdapter,
-  AdapterInfo,
-  AdapterCapabilities,
-  FetchParams,
-  Transaction,
-  Balance
+export type {
+  AdapterCapabilities, AdapterInfo, Balance, FetchParams, IUniversalAdapter, Transaction
 } from './types.js';
 
 // Configuration types
-export type { 
-  AdapterConfig,
-  ExchangeAdapterConfig,
-  BlockchainAdapterConfig
+export type {
+  AdapterConfig, BlockchainAdapterConfig, ExchangeAdapterConfig
 } from './config.js';
 
 // Base adapter class
 export { BaseAdapter } from './base-adapter.js';
-
-// Bridge adapters for migration
-export { ExchangeBridgeAdapter } from './exchange-bridge-adapter.js';
-export { BlockchainBridgeAdapter } from './blockchain-bridge-adapter.js';
 
 // Universal adapter factory
 export { UniversalAdapterFactory } from './adapter-factory.js';

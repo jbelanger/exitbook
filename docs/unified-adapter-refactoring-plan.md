@@ -11,6 +11,7 @@ Refactor the separate `IExchangeAdapter` and `IBlockchainAdapter` interfaces int
 ## Current State
 
 The codebase currently has:
+
 - **Exchange Adapters**: Handle CEX platforms (KuCoin, Kraken, Coinbase) via CCXT, native APIs, or CSV files
 - **Blockchain Adapters**: Handle direct blockchain data fetching (Bitcoin, Ethereum, Solana, etc.)
 
@@ -32,13 +33,15 @@ These have separate interfaces and require different handling in the import serv
 In this phase, we will define the new universal interfaces and the abstract base class. This is non-disruptive and can be done without altering any existing code.
 
 ### 1. Create a New Directory for Universal Adapters
+
 - Create `packages/import/src/adapters/universal/`
 
 ### 2. Define the Universal Interfaces (`types.ts`)
+
 Create `packages/import/src/adapters/universal/types.ts` with the following interfaces:
 
 ```typescript
-import type { Money, TransactionStatus, TransactionType } from '@crypto/core';
+import type { Money, TransactionStatus, TransactionType } from "@crypto/core";
 
 export interface IUniversalAdapter {
   getInfo(): Promise<AdapterInfo>;
@@ -51,18 +54,18 @@ export interface IUniversalAdapter {
 export interface AdapterInfo {
   id: string;
   name: string;
-  type: 'exchange' | 'blockchain';
-  subType?: 'ccxt' | 'csv' | 'rpc' | 'rest';
+  type: "exchange" | "blockchain";
+  subType?: "ccxt" | "csv" | "rpc" | "rest";
   capabilities: AdapterCapabilities;
 }
 
 export interface AdapterCapabilities {
   supportedOperations: Array<
-    | 'fetchTransactions' 
-    | 'fetchBalances' 
-    | 'getAddressTransactions'
-    | 'getAddressBalance'
-    | 'getTokenTransactions'
+    | "fetchTransactions"
+    | "fetchBalances"
+    | "getAddressTransactions"
+    | "getAddressBalance"
+    | "getTokenTransactions"
   >;
   maxBatchSize: number;
   supportsHistoricalData: boolean;
@@ -76,15 +79,15 @@ export interface AdapterCapabilities {
 
 export interface FetchParams {
   // Universal params
-  addresses?: string[];        // For blockchains OR exchange accounts
-  symbols?: string[];          // Filter by asset symbols
-  since?: number;              // Time filter
-  until?: number;              // Time filter
-  
+  addresses?: string[]; // For blockchains OR exchange accounts
+  symbols?: string[]; // Filter by asset symbols
+  since?: number; // Time filter
+  until?: number; // Time filter
+
   // Optional type-specific params
-  includeTokens?: boolean;     // For blockchains
+  includeTokens?: boolean; // For blockchains
   transactionTypes?: TransactionType[];
-  
+
   // Pagination
   limit?: number;
   offset?: number;
@@ -97,17 +100,17 @@ export interface Transaction {
   datetime: string;
   type: TransactionType;
   status: TransactionStatus;
-  
+
   // Amounts
   amount: Money;
   fee?: Money;
   price?: Money;
-  
+
   // Parties (works for both)
-  from?: string;  // Sender address OR exchange account
-  to?: string;    // Receiver address OR exchange account
+  from?: string; // Sender address OR exchange account
+  to?: string; // Receiver address OR exchange account
   symbol?: string; // Add symbol for trades
-  
+
   // Metadata
   source: string; // e.g., 'coinbase', 'bitcoin'
   network?: string; // e.g., 'mainnet'
@@ -124,23 +127,30 @@ export interface Balance {
 ```
 
 ### 3. Create the Base Adapter (`base-adapter.ts`)
+
 Create `packages/import/src/adapters/universal/base-adapter.ts`:
 
 ```typescript
-import { Logger, getLogger } from '@crypto/shared/logger';
-import type { IUniversalAdapter, AdapterInfo, FetchParams, Transaction, Balance } from './types';
-import type { AdapterConfig } from './config';
+import { Logger, getLogger } from "@crypto/shared/logger";
+import type {
+  IUniversalAdapter,
+  AdapterInfo,
+  FetchParams,
+  Transaction,
+  Balance,
+} from "./types";
+import type { AdapterConfig } from "./config";
 
 export abstract class BaseAdapter implements IUniversalAdapter {
   protected logger: Logger;
-  
+
   constructor(protected readonly config: AdapterConfig) {
     this.logger = getLogger(this.constructor.name);
   }
-  
+
   abstract getInfo(): Promise<AdapterInfo>;
   abstract testConnection(): Promise<boolean>;
-  
+
   // Template method pattern
   async fetchTransactions(params: FetchParams): Promise<Transaction[]> {
     await this.validateParams(params);
@@ -149,56 +159,71 @@ export abstract class BaseAdapter implements IUniversalAdapter {
     const filtered = this.applyFilters(transactions, params);
     return this.sortTransactions(filtered);
   }
-  
+
   async fetchBalances(params: FetchParams): Promise<Balance[]> {
     await this.validateParams(params);
     const rawBalances = await this.fetchRawBalances(params);
     return this.transformBalances(rawBalances, params);
   }
-  
+
   // Abstract hooks for subclasses
   protected abstract fetchRawTransactions(params: FetchParams): Promise<any>;
   protected abstract fetchRawBalances(params: FetchParams): Promise<any>;
-  protected abstract transformTransactions(raw: any, params: FetchParams): Promise<Transaction[]>;
-  protected abstract transformBalances(raw: any, params: FetchParams): Promise<Balance[]>;
-  
+  protected abstract transformTransactions(
+    raw: any,
+    params: FetchParams
+  ): Promise<Transaction[]>;
+  protected abstract transformBalances(
+    raw: any,
+    params: FetchParams
+  ): Promise<Balance[]>;
+
   // Common utilities
   protected async validateParams(params: FetchParams): Promise<void> {
     // Common validation logic
     if (params.since && params.until && params.since > params.until) {
-      throw new Error('since cannot be greater than until');
+      throw new Error("since cannot be greater than until");
     }
-    
+
     // Validate operation support
     const info = await this.getInfo();
-    if (params.addresses && !info.capabilities.supportedOperations.includes('getAddressTransactions')) {
-      throw new Error(`${info.name} does not support address-based transaction fetching`);
-    }
-  }
-  
-  protected applyFilters(transactions: Transaction[], params: FetchParams): Transaction[] {
-    let filtered = transactions;
-    
-    if (params.symbols?.length) {
-      filtered = filtered.filter(tx => 
-        params.symbols!.includes(tx.amount.currency) ||
-        (tx.symbol && params.symbols!.includes(tx.symbol))
+    if (
+      params.addresses &&
+      !info.capabilities.supportedOperations.includes("getAddressTransactions")
+    ) {
+      throw new Error(
+        `${info.name} does not support address-based transaction fetching`
       );
     }
-    
+  }
+
+  protected applyFilters(
+    transactions: Transaction[],
+    params: FetchParams
+  ): Transaction[] {
+    let filtered = transactions;
+
+    if (params.symbols?.length) {
+      filtered = filtered.filter(
+        (tx) =>
+          params.symbols!.includes(tx.amount.currency) ||
+          (tx.symbol && params.symbols!.includes(tx.symbol))
+      );
+    }
+
     if (params.transactionTypes?.length) {
-      filtered = filtered.filter(tx => 
+      filtered = filtered.filter((tx) =>
         params.transactionTypes!.includes(tx.type)
       );
     }
-    
+
     return filtered;
   }
-  
+
   protected sortTransactions(transactions: Transaction[]): Transaction[] {
     return transactions.sort((a, b) => b.timestamp - a.timestamp);
   }
-  
+
   async close(): Promise<void> {
     // Default cleanup
   }
@@ -206,28 +231,29 @@ export abstract class BaseAdapter implements IUniversalAdapter {
 ```
 
 ### 4. Define a Unified Configuration Type (`config.ts`)
+
 Create `packages/import/src/adapters/universal/config.ts`:
 
 ```typescript
 interface BaseAdapterConfig {
-  type: 'exchange' | 'blockchain';
+  type: "exchange" | "blockchain";
   id: string;
 }
 
 export interface ExchangeAdapterConfig extends BaseAdapterConfig {
-  type: 'exchange';
-  subType: 'ccxt' | 'csv';
-  credentials?: { 
-    apiKey: string; 
-    secret: string; 
-    password?: string; 
+  type: "exchange";
+  subType: "ccxt" | "csv";
+  credentials?: {
+    apiKey: string;
+    secret: string;
+    password?: string;
   };
   csvDirectories?: string[];
 }
 
 export interface BlockchainAdapterConfig extends BaseAdapterConfig {
-  type: 'blockchain';
-  subType: 'rest' | 'rpc';
+  type: "blockchain";
+  subType: "rest" | "rpc";
   network: string;
 }
 
@@ -241,15 +267,19 @@ export type AdapterConfig = ExchangeAdapterConfig | BlockchainAdapterConfig;
 This is the most critical phase for a smooth migration. We'll create "Bridge Adapters" that implement the new `IUniversalAdapter` interface but internally delegate calls to the old adapter implementations.
 
 ### 1. Create `ExchangeBridgeAdapter`
+
 Create `packages/import/src/adapters/universal/exchange-bridge-adapter.ts`:
 
 ```typescript
-import type { IExchangeAdapter, CryptoTransaction } from '@crypto/core';
-import { BaseAdapter } from './base-adapter';
-import type { AdapterInfo, FetchParams, Transaction, Balance } from './types';
+import type { IExchangeAdapter, CryptoTransaction } from "@crypto/core";
+import { BaseAdapter } from "./base-adapter";
+import type { AdapterInfo, FetchParams, Transaction, Balance } from "./types";
 
 export class ExchangeBridgeAdapter extends BaseAdapter {
-  constructor(private oldAdapter: IExchangeAdapter, config: any) {
+  constructor(
+    private oldAdapter: IExchangeAdapter,
+    config: any
+  ) {
     super(config);
   }
 
@@ -258,19 +288,19 @@ export class ExchangeBridgeAdapter extends BaseAdapter {
     return {
       id: info.id,
       name: info.name,
-      type: 'exchange',
-      subType: 'ccxt', // or determine from adapter type
+      type: "exchange",
+      subType: "ccxt", // or determine from adapter type
       capabilities: {
-        supportedOperations: ['fetchTransactions', 'fetchBalances'],
+        supportedOperations: ["fetchTransactions", "fetchBalances"],
         maxBatchSize: 100,
         supportsHistoricalData: true,
         supportsPagination: true,
         requiresApiKey: true,
         rateLimit: {
           requestsPerSecond: 10,
-          burstLimit: 50
-        }
-      }
+          burstLimit: 50,
+        },
+      },
     };
   }
 
@@ -278,14 +308,19 @@ export class ExchangeBridgeAdapter extends BaseAdapter {
     return this.oldAdapter.testConnection();
   }
 
-  protected async fetchRawTransactions(params: FetchParams): Promise<CryptoTransaction[]> {
+  protected async fetchRawTransactions(
+    params: FetchParams
+  ): Promise<CryptoTransaction[]> {
     // Call old adapter methods based on params
     return this.oldAdapter.fetchAllTransactions(params.since);
   }
-  
-  protected async transformTransactions(rawTxs: CryptoTransaction[], params: FetchParams): Promise<Transaction[]> {
+
+  protected async transformTransactions(
+    rawTxs: CryptoTransaction[],
+    params: FetchParams
+  ): Promise<Transaction[]> {
     // Map CryptoTransaction to universal Transaction format
-    return rawTxs.map(tx => ({
+    return rawTxs.map((tx) => ({
       id: tx.id,
       timestamp: tx.timestamp,
       datetime: new Date(tx.timestamp).toISOString(),
@@ -298,18 +333,23 @@ export class ExchangeBridgeAdapter extends BaseAdapter {
       to: tx.info?.to,
       symbol: tx.symbol,
       source: this.config.id,
-      network: 'exchange',
-      metadata: tx.info || {}
+      network: "exchange",
+      metadata: tx.info || {},
     }));
   }
 
   protected async fetchRawBalances(params: FetchParams): Promise<any> {
     // Call old adapter balance method if available
-    throw new Error('Balance fetching not implemented for bridge adapter');
+    throw new Error("Balance fetching not implemented for bridge adapter");
   }
 
-  protected async transformBalances(raw: any, params: FetchParams): Promise<Balance[]> {
-    throw new Error('Balance transformation not implemented for bridge adapter');
+  protected async transformBalances(
+    raw: any,
+    params: FetchParams
+  ): Promise<Balance[]> {
+    throw new Error(
+      "Balance transformation not implemented for bridge adapter"
+    );
   }
 
   async close(): Promise<void> {
@@ -319,15 +359,19 @@ export class ExchangeBridgeAdapter extends BaseAdapter {
 ```
 
 ### 2. Create `BlockchainBridgeAdapter`
+
 Create `packages/import/src/adapters/universal/blockchain-bridge-adapter.ts`:
 
 ```typescript
-import type { IBlockchainAdapter } from '@crypto/core';
-import { BaseAdapter } from './base-adapter';
-import type { AdapterInfo, FetchParams, Transaction, Balance } from './types';
+import type { IBlockchainAdapter } from "@crypto/core";
+import { BaseAdapter } from "./base-adapter";
+import type { AdapterInfo, FetchParams, Transaction, Balance } from "./types";
 
 export class BlockchainBridgeAdapter extends BaseAdapter {
-  constructor(private oldAdapter: IBlockchainAdapter, config: any) {
+  constructor(
+    private oldAdapter: IBlockchainAdapter,
+    config: any
+  ) {
     super(config);
   }
 
@@ -335,15 +379,20 @@ export class BlockchainBridgeAdapter extends BaseAdapter {
     return {
       id: this.config.id,
       name: `${this.config.id} Blockchain`,
-      type: 'blockchain',
-      subType: 'rest',
+      type: "blockchain",
+      subType: "rest",
       capabilities: {
-        supportedOperations: ['fetchTransactions', 'fetchBalances', 'getAddressTransactions', 'getAddressBalance'],
+        supportedOperations: [
+          "fetchTransactions",
+          "fetchBalances",
+          "getAddressTransactions",
+          "getAddressBalance",
+        ],
         maxBatchSize: 1,
         supportsHistoricalData: true,
         supportsPagination: false,
-        requiresApiKey: false
-      }
+        requiresApiKey: false,
+      },
     };
   }
 
@@ -353,67 +402,76 @@ export class BlockchainBridgeAdapter extends BaseAdapter {
 
   protected async fetchRawTransactions(params: FetchParams): Promise<any[]> {
     if (!params.addresses?.length) {
-      throw new Error('Addresses required for blockchain adapter');
+      throw new Error("Addresses required for blockchain adapter");
     }
-    
+
     const allTxs = [];
     for (const address of params.addresses) {
-      const txs = await this.oldAdapter.getAddressTransactions(address, params.since);
+      const txs = await this.oldAdapter.getAddressTransactions(
+        address,
+        params.since
+      );
       allTxs.push(...txs);
     }
-    
+
     return allTxs;
   }
-  
-  protected async transformTransactions(rawTxs: any[], params: FetchParams): Promise<Transaction[]> {
+
+  protected async transformTransactions(
+    rawTxs: any[],
+    params: FetchParams
+  ): Promise<Transaction[]> {
     // Transform blockchain transactions to universal format
-    return rawTxs.map(tx => ({
+    return rawTxs.map((tx) => ({
       id: tx.hash,
       timestamp: tx.timestamp,
       datetime: new Date(tx.timestamp * 1000).toISOString(),
       type: this.determineTransactionType(tx, params.addresses![0]),
-      status: 'completed' as const,
+      status: "completed" as const,
       amount: tx.value,
       fee: tx.fee,
       from: tx.from,
       to: tx.to,
       source: this.config.id,
-      network: this.config.network || 'mainnet',
+      network: this.config.network || "mainnet",
       metadata: {
         blockNumber: tx.blockNumber,
         confirmations: tx.confirmations,
-        gasUsed: tx.gasUsed
-      }
+        gasUsed: tx.gasUsed,
+      },
     }));
   }
 
   protected async fetchRawBalances(params: FetchParams): Promise<any> {
     if (!params.addresses?.length) {
-      throw new Error('Addresses required for blockchain balance fetching');
+      throw new Error("Addresses required for blockchain balance fetching");
     }
-    
+
     // Call old adapter balance methods
     const balances = [];
     for (const address of params.addresses) {
       const balance = await this.oldAdapter.getAddressBalance(address);
       balances.push({ address, ...balance });
     }
-    
+
     return balances;
   }
 
-  protected async transformBalances(rawBalances: any[], params: FetchParams): Promise<Balance[]> {
-    return rawBalances.map(balance => ({
-      currency: 'native', // or determine from blockchain
+  protected async transformBalances(
+    rawBalances: any[],
+    params: FetchParams
+  ): Promise<Balance[]> {
+    return rawBalances.map((balance) => ({
+      currency: "native", // or determine from blockchain
       total: balance.total,
       free: balance.total,
-      used: 0
+      used: 0,
     }));
   }
 
   private determineTransactionType(tx: any, userAddress: string): any {
     // Logic to determine if transaction is send/receive based on user address
-    return tx.from === userAddress ? 'send' : 'receive';
+    return tx.from === userAddress ? "send" : "receive";
   }
 
   async close(): Promise<void> {
@@ -429,19 +487,23 @@ export class BlockchainBridgeAdapter extends BaseAdapter {
 Now we update the high-level services to use the new universal system via the bridge adapters.
 
 ### 1. Create the `UniversalAdapterFactory`
+
 Create `packages/import/src/adapters/universal/adapter-factory.ts`:
 
 ```typescript
-import { ExchangeAdapterFactory } from '../../exchanges/adapter-factory';
-import { BlockchainAdapterFactory } from '../../blockchains/shared/blockchain-adapter-factory';
-import { ExchangeBridgeAdapter } from './exchange-bridge-adapter';
-import { BlockchainBridgeAdapter } from './blockchain-bridge-adapter';
-import type { IUniversalAdapter } from './types';
-import type { AdapterConfig } from './config';
+import { ExchangeAdapterFactory } from "../../exchanges/adapter-factory";
+import { BlockchainAdapterFactory } from "../../blockchains/shared/blockchain-adapter-factory";
+import { ExchangeBridgeAdapter } from "./exchange-bridge-adapter";
+import { BlockchainBridgeAdapter } from "./blockchain-bridge-adapter";
+import type { IUniversalAdapter } from "./types";
+import type { AdapterConfig } from "./config";
 
 export class UniversalAdapterFactory {
-  static async create(config: AdapterConfig, explorerConfig?: any): Promise<IUniversalAdapter> {
-    if (config.type === 'exchange') {
+  static async create(
+    config: AdapterConfig,
+    explorerConfig?: any
+  ): Promise<IUniversalAdapter> {
+    if (config.type === "exchange") {
       // Create old exchange adapter and wrap it
       const oldFactory = new ExchangeAdapterFactory();
       const oldAdapter = await oldFactory.createAdapterWithCredentials(
@@ -452,27 +514,33 @@ export class UniversalAdapterFactory {
       );
       return new ExchangeBridgeAdapter(oldAdapter, config);
     }
-    
-    if (config.type === 'blockchain') {
+
+    if (config.type === "blockchain") {
       // Create old blockchain adapter and wrap it
       const oldFactory = new BlockchainAdapterFactory();
       const oldAdapter = await oldFactory.createBlockchainAdapter(
-        config.id, 
+        config.id,
         explorerConfig
       );
       return new BlockchainBridgeAdapter(oldAdapter, config);
     }
-    
+
     throw new Error(`Unsupported adapter type: ${config.type}`);
   }
 
-  static async createMany(configs: AdapterConfig[], explorerConfig?: any): Promise<IUniversalAdapter[]> {
-    return Promise.all(configs.map(config => this.create(config, explorerConfig)));
+  static async createMany(
+    configs: AdapterConfig[],
+    explorerConfig?: any
+  ): Promise<IUniversalAdapter[]> {
+    return Promise.all(
+      configs.map((config) => this.create(config, explorerConfig))
+    );
   }
 }
 ```
 
 ### 2. Update `TransactionImporter` Service
+
 Modify `packages/import/src/services/importer.ts` to use the universal interface:
 
 ```typescript
@@ -490,10 +558,10 @@ async importFromAdapter(adapter: IUniversalAdapter, params: FetchParams): Promis
 
     // Fetch transactions using unified interface
     const transactions = await adapter.fetchTransactions(params);
-    
+
     // Save transactions (existing logic)
     const saved = await this.saveTransactions(transactions);
-    
+
     return {
       source: info.id,
       type: info.type,
@@ -524,7 +592,7 @@ async importFromExchange(exchangeId: string, adapterType: string): Promise<Impor
     subType: adapterType as 'ccxt' | 'csv',
     // ... other config
   };
-  
+
   const adapter = await UniversalAdapterFactory.create(config);
   return this.importFromAdapter(adapter, {
     since: Date.now() - 30 * 24 * 60 * 60 * 1000 // 30 days
@@ -538,7 +606,7 @@ async importFromBlockchain(blockchain: string, addresses: string[]): Promise<Imp
     subType: 'rest',
     network: 'mainnet'
   };
-  
+
   const adapter = await UniversalAdapterFactory.create(config);
   return this.importFromAdapter(adapter, {
     addresses,
@@ -565,11 +633,12 @@ With the system now running on the universal interface, we can refactor each ada
 
 ### Progress Status
 
-#### 🎉 **PHASE 4 MILESTONE: EXCHANGE ADAPTERS COMPLETED** 
+#### 🎉 **PHASE 4 MILESTONE: EXCHANGE ADAPTERS COMPLETED**
 
 **All exchange adapters (CSV and CCXT) have been successfully refactored to the universal adapter system!**
+
 - ✅ Universal interfaces properly placed in `@crypto/core` package
-- ✅ All exchange adapters implement `IUniversalAdapter` directly  
+- ✅ All exchange adapters implement `IUniversalAdapter` directly
 - ✅ Build passes successfully with no TypeScript errors
 - ✅ Factory and service integration updated and working
 - ✅ Full backward compatibility maintained
@@ -581,15 +650,18 @@ With the system now running on the universal interface, we can refactor each ada
 #### ✅ COMPLETED
 
 **CSV Adapters** - Created `BaseCSVAdapter` extending universal `BaseAdapter` with shared CSV functionality:
+
 - ✅ `KrakenCSVAdapter` - Refactored to extend universal `BaseCSVAdapter`
-- ✅ `KuCoinCSVAdapter` - Refactored to extend universal `BaseCSVAdapter`  
+- ✅ `KuCoinCSVAdapter` - Refactored to extend universal `BaseCSVAdapter`
 - ✅ `LedgerLiveCSVAdapter` - Refactored to extend universal `BaseCSVAdapter`
 
 **CCXT Adapters** - Created `BaseCCXTAdapter` extending universal `BaseAdapter` with shared CCXT functionality:
+
 - ✅ `CCXTAdapter` - Refactored to extend universal `BaseCCXTAdapter`
 - ✅ `CoinbaseCCXTAdapter` - Refactored to extend universal `BaseCCXTAdapter` with custom ledger processing
 
 **Infrastructure**:
+
 - ✅ Created `packages/import/src/adapters/universal/base-csv-adapter.ts` - Shared base class for CSV adapters
 - ✅ Created `packages/import/src/adapters/universal/base-ccxt-adapter.ts` - Shared base class for CCXT adapters
 - ✅ All CSV and CCXT adapters now implement `IUniversalAdapter` interface
@@ -603,11 +675,12 @@ With the system now running on the universal interface, we can refactor each ada
 
 #### 🔄 IN PROGRESS
 
-*No adapters currently in progress*
+_No adapters currently in progress_
 
 #### ⏳ REMAINING
 
 **Blockchain Adapters**:
+
 - ⏳ `SolanaAdapter` - Needs refactoring to extend universal `BaseAdapter`
 - ⏳ `BitcoinAdapter` - Needs refactoring to extend universal `BaseAdapter`
 - ⏳ `EthereumAdapter` - Needs refactoring to extend universal `BaseAdapter`
@@ -616,6 +689,7 @@ With the system now running on the universal interface, we can refactor each ada
 - ⏳ `PolkadotAdapter` - Needs refactoring to extend universal `BaseAdapter`
 
 **Integration**:
+
 - ✅ Update `UniversalAdapterFactory` to instantiate refactored adapters directly (instead of using bridge adapters) - **COMPLETED for exchange adapters**
 - ✅ Test all refactored adapters work correctly with universal interface - **COMPLETED: Build passes successfully**
 - ⏳ Refactor blockchain adapters to extend universal `BaseAdapter` (Phase 4 continuation)
@@ -627,13 +701,28 @@ With the system now running on the universal interface, we can refactor each ada
 
 Once all adapters extend `BaseAdapter` directly, remove transitional code.
 
-1. **Update `UniversalAdapterFactory`**: Instantiate refactored adapters directly
-2. **Delete Bridge Adapters**: Remove bridge adapter files
-3. **Delete Old Interfaces**: Remove `IExchangeAdapter`, `IBlockchainAdapter`
-4. **Delete Old Base Classes**: Remove `BaseCSVAdapter`, `BaseCCXTAdapter`, etc.
-5. **Delete Old Factories**: Remove original adapter factories
-6. **Code Cleanup**: Remove all references to deleted files
-7. **Review & Verify**: Test thoroughly with updated test suites
+1. ✅ **Update `UniversalAdapterFactory`**: Instantiate refactored adapters directly
+2. ✅ **Delete Bridge Adapters**: Remove bridge adapter files
+   - ✅ Deleted `exchange-bridge-adapter.ts`
+   - ✅ Deleted `blockchain-bridge-adapter.ts`
+   - ✅ Deleted `test-bridge-adapters.ts`
+3. ✅ **Delete Old Interfaces**: Remove `IExchangeAdapter`, `IBlockchainAdapter`
+   - ✅ Removed `IExchangeAdapter` from `exchanges/types.ts`
+   - ✅ Cleaned up import references
+4. ✅ **Delete Old Base Classes**: Remove `BaseCSVAdapter`, `BaseCCXTAdapter`, etc.
+   - ✅ Deleted `src/exchanges/base-csv-adapter.ts`
+   - ✅ Deleted `src/exchanges/base-ccxt-adapter.ts`
+   - ✅ Deleted `src/blockchains/shared/base-blockchain-adapter.ts`
+5. ✅ **Delete Old Factories**: Remove original adapter factories
+   - ✅ Deleted `src/exchanges/adapter-factory.ts`
+   - ✅ Deleted `src/blockchains/shared/blockchain-adapter-factory.ts`
+6. 🔄 **Code Cleanup**: Remove all references to deleted files
+   - ✅ Updated import statements in core services
+   - ✅ Fixed export statements in index files
+   - ⏳ Some exchange adapters still import deleted base classes (needs fixing)
+7. ⏳ **Review & Verify**: Test thoroughly with updated test suites
+
+**PHASE 5 STATUS**: 🔄 **85% COMPLETE** - Core migration done, final adapter updates needed
 
 ---
 
@@ -642,33 +731,33 @@ Once all adapters extend `BaseAdapter` directly, remove transitional code.
 ```typescript
 // Create adapters using unified factory
 const adapters = [
-  await UniversalAdapterFactory.create({ 
-    type: 'exchange', 
-    id: 'coinbase',
-    subType: 'ccxt',
-    credentials: { apiKey: 'xxx', secret: 'yyy' }
+  await UniversalAdapterFactory.create({
+    type: "exchange",
+    id: "coinbase",
+    subType: "ccxt",
+    credentials: { apiKey: "xxx", secret: "yyy" },
   }),
-  await UniversalAdapterFactory.create({ 
-    type: 'blockchain', 
-    id: 'bitcoin',
-    subType: 'rest',
-    network: 'mainnet'
+  await UniversalAdapterFactory.create({
+    type: "blockchain",
+    id: "bitcoin",
+    subType: "rest",
+    network: "mainnet",
   }),
-  await UniversalAdapterFactory.create({ 
-    type: 'exchange', 
-    id: 'kraken',
-    subType: 'csv',
-    csvDirectories: ['./data']
-  })
+  await UniversalAdapterFactory.create({
+    type: "exchange",
+    id: "kraken",
+    subType: "csv",
+    csvDirectories: ["./data"],
+  }),
 ];
 
 // All use the same interface!
 for (const adapter of adapters) {
   const transactions = await adapter.fetchTransactions({
     since: Date.now() - 30 * 24 * 60 * 60 * 1000, // 30 days
-    symbols: ['BTC', 'ETH']
+    symbols: ["BTC", "ETH"],
   });
-  
+
   console.log(`Found ${transactions.length} transactions`);
 }
 ```

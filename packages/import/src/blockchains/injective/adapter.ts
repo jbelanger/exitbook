@@ -53,7 +53,8 @@ export class InjectiveAdapter extends BaseAdapter {
     const allTransactions: BlockchainTransaction[] = [];
     
     for (const address of params.addresses) {
-      if (!this.validateAddress(address)) {
+      // Basic Injective address validation - starts with 'inj' and is bech32 encoded
+      if (!/^inj1[a-z0-9]{38}$/.test(address)) {
         throw new Error(`Invalid Injective address: ${address}`);
       }
 
@@ -112,7 +113,8 @@ export class InjectiveAdapter extends BaseAdapter {
     const allBalances: Balance[] = [];
     
     for (const address of params.addresses) {
-      if (!this.validateAddress(address)) {
+      // Basic Injective address validation - starts with 'inj' and is bech32 encoded
+      if (!/^inj1[a-z0-9]{38}$/.test(address)) {
         throw new Error(`Invalid Injective address: ${address}`);
       }
 
@@ -219,93 +221,4 @@ export class InjectiveAdapter extends BaseAdapter {
     }
   }
 
-  // Legacy methods for compatibility (can be removed once migration is complete)
-  validateAddress(address: string): boolean {
-    // Injective addresses start with 'inj' and are bech32 encoded
-    const injectiveAddressRegex = /^inj1[a-z0-9]{38}$/;
-    return injectiveAddressRegex.test(address);
-  }
-
-  async getAddressTransactions(address: string, since?: number): Promise<BlockchainTransaction[]> {
-    return this.fetchRawTransactions({ addresses: [address], since });
-  }
-
-  async getAddressBalance(address: string): Promise<Balance[]> {
-    return this.fetchRawBalances({ addresses: [address] });
-  }
-
-  async getTokenTransactions(address: string, tokenContract?: string): Promise<BlockchainTransaction[]> {
-    // For Injective, tokens are represented as different denoms, not contracts
-    // This method can be used to filter transactions by specific token denom
-    const allTransactions = await this.getAddressTransactions(address);
-
-    if (tokenContract) {
-      return allTransactions.filter(tx =>
-        tx.tokenContract === tokenContract ||
-        tx.tokenSymbol === tokenContract
-      );
-    }
-
-    return allTransactions;
-  }
-
-  async getTokenBalances(address: string): Promise<Balance[]> {
-    // For Injective, all balances are returned by getAddressBalance
-    return this.getAddressBalance(address);
-  }
-
-  // Required IBlockchainAdapter methods for backward compatibility
-  async getBlockchainInfo(): Promise<any> {
-    return {
-      id: 'injective',
-      name: 'Injective Protocol Blockchain',
-      network: 'mainnet',
-      capabilities: {
-        supportsAddressTransactions: true,
-        supportsTokenTransactions: true,
-        supportsBalanceQueries: true,
-        supportsHistoricalData: true,
-        supportsPagination: true,
-        maxLookbackDays: undefined
-      }
-    };
-  }
-
-  convertToCryptoTransaction(blockchainTx: BlockchainTransaction, userAddress: string): any {
-    // Determine transaction type based on user address
-    let type: TransactionType = 'transfer';
-    const normalizedUserAddress = userAddress.toLowerCase();
-    const isIncoming = blockchainTx.to.toLowerCase() === normalizedUserAddress;
-    const isOutgoing = blockchainTx.from.toLowerCase() === normalizedUserAddress;
-
-    if (isIncoming && !isOutgoing) {
-      type = 'deposit';
-    } else if (isOutgoing && !isIncoming) {
-      type = 'withdrawal';
-    }
-
-    return {
-      id: blockchainTx.hash,
-      type,
-      timestamp: blockchainTx.timestamp,
-      datetime: new Date(blockchainTx.timestamp).toISOString(),
-      symbol: blockchainTx.tokenSymbol || blockchainTx.value.currency,
-      side: undefined,
-      amount: blockchainTx.value,
-      price: undefined,
-      fee: blockchainTx.fee,
-      status: blockchainTx.status === 'success' ? 'closed' :
-        blockchainTx.status === 'pending' ? 'open' : 'canceled',
-      info: {
-        blockNumber: blockchainTx.blockNumber,
-        blockHash: blockchainTx.blockHash,
-        from: blockchainTx.from,
-        to: blockchainTx.to,
-        confirmations: blockchainTx.confirmations,
-        tokenContract: blockchainTx.tokenContract,
-        transactionType: blockchainTx.type,
-        originalTransaction: blockchainTx
-      }
-    };
-  }
 }

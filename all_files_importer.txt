@@ -235,217 +235,6 @@ export class LedgerLiveCSVAdapter extends BaseCSVAdapter {
       }
     };
   }
-}===== ./src/exchanges/base-csv-adapter.ts =====
-import type { CryptoTransaction, ExchangeInfo, IExchangeAdapter, TransactionType } from '@crypto/core';
-import type { Logger } from '@crypto/shared-logger';
-import { getLogger } from '@crypto/shared-logger';
-import fs from 'fs/promises';
-import path from 'path';
-import { CsvFilters } from './csv-filters.js';
-import { CsvParser } from './csv-parser.js';
-
-export interface CSVConfig {
-  csvDirectories: string[];
-  uid?: string;
-}
-
-export interface FileTypeHandler {
-  type: string;
-  parser: (filePath: string) => Promise<CryptoTransaction[]>;
-}
-
-/**
- * Base class for CSV-based exchange adapters
- * Provides common functionality for parsing CSV files and managing transactions
- */
-export abstract class BaseCSVAdapter implements IExchangeAdapter {
-  protected logger: Logger;
-  protected config: CSVConfig;
-  private cachedTransactions: CryptoTransaction[] | null = null;
-
-  constructor(config: CSVConfig, loggerName: string) {
-    this.config = config;
-    this.logger = getLogger(loggerName);
-  }
-
-  // Abstract methods that must be implemented by subclasses
-  protected abstract getExpectedHeaders(): Record<string, string>;
-  protected abstract getFileTypeHandlers(): Record<string, (filePath: string) => Promise<CryptoTransaction[]>>;
-  public abstract getExchangeInfo(): Promise<ExchangeInfo>;
-
-  /**
-   * Parse a CSV file using the common parsing logic
-   */
-  protected async parseCsvFile<T>(filePath: string): Promise<T[]> {
-    return CsvParser.parseFile<T>(filePath);
-  }
-
-  /**
-   * Filter rows by UID if configured
-   */
-  protected filterByUid<T extends { UID: string }>(rows: T[]): T[] {
-    return CsvFilters.filterByUid(rows, this.config.uid);
-  }
-
-  /**
-   * Validate CSV headers and determine file type
-   */
-  private async validateCSVHeaders(filePath: string): Promise<string> {
-    const expectedHeaders = this.getExpectedHeaders();
-    const fileType = await CsvParser.validateHeaders(filePath, expectedHeaders);
-
-    if (fileType === 'unknown') {
-      const headers = await CsvParser.getHeaders(filePath);
-      this.logger.warn(`Unrecognized CSV headers in ${filePath} - Headers: ${headers}`);
-    }
-
-    return fileType;
-  }
-
-  /**
-   * Test if the CSV directories contain expected files
-   */
-  async testConnection(): Promise<boolean> {
-    try {
-      for (const csvDirectory of this.config.csvDirectories) {
-        try {
-          const stats = await fs.stat(csvDirectory);
-          if (!stats.isDirectory()) {
-            continue;
-          }
-
-          const files = await fs.readdir(csvDirectory);
-          const csvFiles = files.filter(f => f.endsWith('.csv'));
-
-          if (csvFiles.length > 0) {
-            return true;
-          }
-        } catch (dirError) {
-          this.logger.warn(`CSV directory test failed for directory - Error: ${dirError}, Directory: ${csvDirectory}`);
-          continue;
-        }
-      }
-
-      return false;
-    } catch (error) {
-      this.logger.error(`CSV directories test failed - Error: ${error}, Directories: ${this.config.csvDirectories}`);
-      return false;
-    }
-  }
-
-  /**
-   * Load all transactions from CSV directories
-   */
-  protected async loadAllTransactions(): Promise<CryptoTransaction[]> {
-    if (this.cachedTransactions) {
-      this.logger.debug('Returning cached transactions');
-      return this.cachedTransactions;
-    }
-
-    this.logger.info(`Starting to load CSV transactions - CsvDirectories: ${this.config.csvDirectories}`);
-
-    const transactions: CryptoTransaction[] = [];
-    const fileTypeHandlers = this.getFileTypeHandlers();
-
-    try {
-      // Process each directory in order
-      for (const csvDirectory of this.config.csvDirectories) {
-        this.logger.info(`Processing CSV directory - CsvDirectory: ${csvDirectory}`);
-
-        try {
-          const files = await fs.readdir(csvDirectory);
-          this.logger.debug(`Found CSV files in directory - CsvDirectory: ${csvDirectory}, Files: ${files}`);
-
-          // Process all CSV files with proper header validation
-          const csvFiles = files.filter(f => f.endsWith('.csv'));
-
-          for (const file of csvFiles) {
-            const filePath = path.join(csvDirectory, file);
-            const fileType = await this.validateCSVHeaders(filePath);
-
-            const handler = fileTypeHandlers[fileType];
-            if (handler) {
-              this.logger.info(`Processing ${fileType} CSV file - File: ${file}, Directory: ${csvDirectory}`);
-              const fileTransactions = await handler(filePath);
-              this.logger.info(`Parsed ${fileType} transactions - File: ${file}, Directory: ${csvDirectory}, Count: ${fileTransactions.length}`);
-              transactions.push(...fileTransactions);
-            } else if (fileType === 'unknown') {
-              this.logger.warn(`Skipping unrecognized CSV file - File: ${file}, Directory: ${csvDirectory}`);
-            } else {
-              this.logger.warn(`No handler for file type: ${fileType} - File: ${file}, Directory: ${csvDirectory}`);
-            }
-          }
-        } catch (dirError) {
-          this.logger.error(`Failed to process CSV directory - Error: ${dirError}, Directory: ${csvDirectory}`);
-          // Continue processing other directories
-          continue;
-        }
-      }
-
-      // Sort by timestamp
-      transactions.sort((a, b) => a.timestamp - b.timestamp);
-
-      this.cachedTransactions = transactions;
-      this.logger.info(`Loaded ${transactions.length} transactions from ${this.config.csvDirectories.length} CSV directories`);
-
-      return transactions;
-    } catch (error) {
-      this.logger.error(`Failed to load CSV transactions - Error: ${error}`);
-      throw error;
-    }
-  }
-
-  /**
-   * Generic method to fetch transactions by type with optional time filtering
-   */
-  private async fetchTransactionsByType(type?: TransactionType, since?: number): Promise<CryptoTransaction[]> {
-    const transactions = await this.loadAllTransactions();
-
-    let filtered = type ? transactions.filter(tx => tx.type === type) : transactions;
-
-    if (since) {
-      filtered = filtered.filter(tx => tx.timestamp >= since);
-    }
-
-    return filtered;
-  }
-
-  // Standard IExchangeAdapter implementations
-  async fetchAllTransactions(since?: number): Promise<CryptoTransaction[]> {
-    return this.fetchTransactionsByType(undefined, since);
-  }
-
-  async fetchTrades(since?: number): Promise<CryptoTransaction[]> {
-    return this.fetchTransactionsByType('trade', since);
-  }
-
-  async fetchDeposits(since?: number): Promise<CryptoTransaction[]> {
-    return this.fetchTransactionsByType('deposit', since);
-  }
-
-  async fetchWithdrawals(since?: number): Promise<CryptoTransaction[]> {
-    return this.fetchTransactionsByType('withdrawal', since);
-  }
-
-  async fetchClosedOrders(since?: number): Promise<CryptoTransaction[]> {
-    // For CSV, closed orders are essentially the same as trades
-    return this.fetchTrades(since);
-  }
-
-  async fetchLedger(_since?: number): Promise<CryptoTransaction[]> {
-    // Most CSV adapters don't support ledger to prevent double-counting
-    return [];
-  }
-
-  async fetchBalance(): Promise<never> {
-    // CSV files don't contain current balance information
-    throw new Error('Balance fetching not supported for CSV adapter - CSV files do not contain current balance data');
-  }
-
-  async close(): Promise<void> {
-    // Clear cached data
-    this.cachedTransactions = null;
-  }
 }===== ./src/exchanges/csv-filters.ts =====
 /**
  * Generic filtering utilities for CSV data
@@ -1585,49 +1374,8 @@ export class CsvParser {
     }
   }
 }===== ./src/exchanges/types.ts =====
-import type { CryptoTransaction } from '@crypto/core';
 
-// Exchange adapter types and interfaces
-export interface ExchangeInfo {
-  id: string;
-  name: string;
-  version?: string;
-  capabilities: ExchangeCapabilities;
-  rateLimit?: number;
-}
-
-export interface ExchangeCapabilities {
-  fetchMyTrades: boolean;
-  fetchDeposits: boolean;
-  fetchWithdrawals: boolean;
-  fetchLedger: boolean;
-  fetchClosedOrders: boolean;
-  fetchBalance: boolean;
-  fetchOrderBook: boolean;
-  fetchTicker: boolean;
-}
-
-// Abstract interface for exchange operations
-export interface IExchangeAdapter {
-  // Connection and info
-  testConnection(): Promise<boolean>;
-  getExchangeInfo(): Promise<ExchangeInfo>;
-
-  // Transaction fetching
-  fetchAllTransactions(since?: number): Promise<CryptoTransaction[]>;
-  fetchTrades(since?: number): Promise<CryptoTransaction[]>;
-  fetchDeposits(since?: number): Promise<CryptoTransaction[]>;
-  fetchWithdrawals(since?: number): Promise<CryptoTransaction[]>;
-  fetchClosedOrders(since?: number): Promise<CryptoTransaction[]>;
-  fetchLedger(since?: number): Promise<CryptoTransaction[]>;
-
-  // Balance operations
-  fetchBalance(): Promise<ExchangeBalance[]>;
-
-  // Cleanup
-  close(): Promise<void>;
-}
-
+// ExchangeBalance is still used in some places but should be migrated to UniversalBalance
 export interface ExchangeBalance {
   currency: string;
   balance: number; // Available/free amount
@@ -1970,272 +1718,7 @@ export class KuCoinCSVAdapter extends BaseCSVAdapter {
       }
     };
   }
-}===== ./src/exchanges/base-ccxt-adapter.ts =====
-// @ts-ignore - CCXT types compatibility
-import { CryptoTransaction, ExchangeBalance, ExchangeCapabilities, ExchangeInfo, IExchangeAdapter, ServiceError, TransactionType } from '@crypto/core';
-import type { Logger } from '@crypto/shared-logger';
-import { getLogger } from '@crypto/shared-logger';
-
-import type { Exchange } from 'ccxt';
-import { TransactionTransformer } from '../utils/transaction-transformer.js';
-import { ServiceErrorHandler } from './exchange-error-handler.js';
-
-/**
- * Base class for all CCXT-based exchange adapters
- * Provides common functionality and eliminates code duplication
- */
-export abstract class BaseCCXTAdapter implements IExchangeAdapter {
-  protected exchange: Exchange;
-  protected logger: Logger;
-  protected exchangeId: string;
-  protected enableOnlineVerification: boolean;
-
-  constructor(exchange: Exchange, exchangeId: string, enableOnlineVerification: boolean = false, loggerSuffix?: string) {
-    this.exchange = exchange;
-    this.exchangeId = exchangeId;
-    this.enableOnlineVerification = enableOnlineVerification;
-    this.logger = getLogger(`${loggerSuffix || 'CCXTAdapter'}:${exchangeId}`);
-
-    // Enable rate limiting and other common settings
-    this.exchange.enableRateLimit = true;
-    this.exchange.rateLimit = 1000;
-  }
-
-  async testConnection(): Promise<boolean> {
-    try {
-      await this.exchange.loadMarkets();
-      await this.exchange.fetchBalance();
-      this.logger.info(`Connection test successful for ${this.exchangeId}`);
-      return true;
-    } catch (error) {
-      this.logger.error(`Connection test failed for ${this.exchangeId} - Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      return false;
-    }
-  }
-
-  async getExchangeInfo(): Promise<ExchangeInfo> {
-    const capabilities: ExchangeCapabilities = {
-      fetchMyTrades: Boolean(this.exchange.has['fetchMyTrades']),
-      fetchDeposits: Boolean(this.exchange.has['fetchDeposits']),
-      fetchWithdrawals: Boolean(this.exchange.has['fetchWithdrawals']),
-      fetchLedger: Boolean(this.exchange.has['fetchLedger']),
-      fetchClosedOrders: Boolean(this.exchange.has['fetchClosedOrders']),
-      fetchBalance: this.enableOnlineVerification && Boolean(this.exchange.has['fetchBalance']),
-      fetchOrderBook: Boolean(this.exchange.has['fetchOrderBook']),
-      fetchTicker: Boolean(this.exchange.has['fetchTicker']),
-    };
-
-    return {
-      id: this.exchangeId,
-      name: this.exchange.name || this.exchangeId,
-      version: this.exchange.version,
-      capabilities,
-      rateLimit: this.exchange.rateLimit,
-    };
-  }
-
-  async fetchAllTransactions(since?: number): Promise<CryptoTransaction[]> {
-    const startTime = Date.now();
-    this.logger.info(`Starting fetchAllTransactions for ${this.exchangeId}`);
-
-    try {
-      const allTransactions: CryptoTransaction[] = [];
-
-      // Fetch different transaction types
-      const fetchPromises = [
-        this.fetchTrades(since),
-        this.fetchDeposits(since),
-        this.fetchWithdrawals(since),
-        this.fetchClosedOrders(since),
-        this.fetchLedger(since)
-      ];
-
-      const results = await Promise.allSettled(fetchPromises);
-      const labels = ['trades', 'deposits', 'withdrawals', 'closed_orders', 'ledger'];
-
-      // Process all results
-      results.forEach((result, index) => {
-        if (result.status === 'fulfilled') {
-          allTransactions.push(...result.value);
-          this.logger.info(`Fetched ${result.value.length} ${labels[index]} from ${this.exchangeId}`);
-        } else {
-          this.logger.warn(`Failed to fetch ${labels[index]} from ${this.exchangeId} - Error: ${result.reason}`);
-        }
-      });
-
-      const duration = Date.now() - startTime;
-      this.logger.info(`Completed fetchAllTransactions for ${this.exchangeId} - Count: ${allTransactions.length}, Duration: ${duration}ms`);
-
-      return allTransactions;
-    } catch (error) {
-      throw new ServiceError(
-        `Failed to fetch transactions from ${this.exchangeId}`,
-        this.exchangeId,
-        'fetchAllTransactions',
-        error as Error
-      );
-    }
-  }
-
-  async fetchTrades(since?: number): Promise<CryptoTransaction[]> {
-    try {
-      if (!this.exchange.has['fetchMyTrades']) {
-        this.logger.debug(`Exchange ${this.exchangeId} does not support fetchMyTrades`);
-        return [];
-      }
-
-      const trades = await this.exchange.fetchMyTrades(undefined, since);
-      return this.transformTransactions(trades, 'trade');
-    } catch (error) {
-      this.handleError(error, 'fetchTrades');
-      throw error;
-    }
-  }
-
-  async fetchDeposits(since?: number): Promise<CryptoTransaction[]> {
-    try {
-      if (!this.exchange.has['fetchDeposits']) {
-        this.logger.debug(`Exchange ${this.exchangeId} does not support fetchDeposits`);
-        return [];
-      }
-
-      const deposits = await this.exchange.fetchDeposits(undefined, since);
-      return this.transformTransactions(deposits, 'deposit');
-    } catch (error) {
-      this.handleError(error, 'fetchDeposits');
-      throw error;
-    }
-  }
-
-  async fetchWithdrawals(since?: number): Promise<CryptoTransaction[]> {
-    try {
-      if (!this.exchange.has['fetchWithdrawals']) {
-        this.logger.debug(`Exchange ${this.exchangeId} does not support fetchWithdrawals`);
-        return [];
-      }
-
-      const withdrawals = await this.exchange.fetchWithdrawals(undefined, since);
-      return this.transformTransactions(withdrawals, 'withdrawal');
-    } catch (error) {
-      this.handleError(error, 'fetchWithdrawals');
-      throw error;
-    }
-  }
-
-  async fetchClosedOrders(since?: number): Promise<CryptoTransaction[]> {
-    try {
-      if (!this.exchange.has['fetchClosedOrders']) {
-        this.logger.debug(`Exchange ${this.exchangeId} does not support fetchClosedOrders`);
-        return [];
-      }
-
-      const orders = await this.exchange.fetchClosedOrders(undefined, since);
-      return this.transformTransactions(orders, 'order');
-    } catch (error) {
-      this.handleError(error, 'fetchClosedOrders');
-      throw error;
-    }
-  }
-
-  async fetchLedger(since?: number): Promise<CryptoTransaction[]> {
-    try {
-      if (!this.exchange.has['fetchLedger']) {
-        this.logger.debug(`Exchange ${this.exchangeId} does not support fetchLedger`);
-        return [];
-      }
-
-      const ledgerEntries = await this.exchange.fetchLedger(undefined, since);
-      return this.transformTransactions(ledgerEntries, 'ledger');
-    } catch (error) {
-      this.handleError(error, 'fetchLedger');
-      throw error;
-    }
-  }
-
-  async fetchBalance(): Promise<ExchangeBalance[]> {
-    if (!this.enableOnlineVerification) {
-      throw new Error(`Balance fetching not supported for ${this.exchangeId} CCXT adapter - enable online verification to fetch live balances`);
-    }
-
-    try {
-      const balance = await this.exchange.fetchBalance();
-
-      // Transform CCXT balance format to our standard format
-      const balances: ExchangeBalance[] = [];
-
-      for (const [currency, balanceInfo] of Object.entries(balance)) {
-        if (currency === 'info' || currency === 'free' || currency === 'used' || currency === 'total') {
-          continue; // Skip CCXT metadata fields
-        }
-
-        const info = balanceInfo as any;
-        if (info && typeof info === 'object' && info.total !== undefined) {
-          balances.push({
-            currency,
-            balance: info.free || 0,
-            used: info.used || 0,
-            total: info.total || 0,
-          });
-        }
-      }
-
-      return balances;
-    } catch (error) {
-      this.handleError(error, 'fetchBalance');
-      throw error;
-    }
-  }
-
-  async close(): Promise<void> {
-    if (this.exchange && this.exchange.close) {
-      await this.exchange.close();
-    }
-    this.logger.info(`Closed connection to ${this.exchangeId}`);
-  }
-
-  /**
-   * Transform array of CCXT transactions to our standard format
-   * Can be overridden by subclasses for exchange-specific transformation
-   */
-  protected transformTransactions(transactions: any[], type: TransactionType): CryptoTransaction[] {
-    return transactions
-      .filter(tx => !TransactionTransformer.shouldFilterOut(tx))
-      .map(tx => this.transformTransaction(tx, type));
-  }
-
-  /**
-   * Transform a single CCXT transaction to our standard format
-   * Can be overridden by subclasses for exchange-specific transformation
-   */
-  protected transformTransaction(transaction: any, type: TransactionType): CryptoTransaction {
-    return TransactionTransformer.fromCCXT(transaction, type, this.exchangeId);
-  }
-
-  /**
-   * Handle errors using centralized error handler
-   * Can be overridden by subclasses for exchange-specific error handling
-   */
-  protected handleError(error: any, operation: string): void {
-    ServiceErrorHandler.handle(error, operation, this.exchangeId, this.logger);
-  }
-
-  /**
-   * Create exchange instance - to be implemented by subclasses
-   * This allows each subclass to configure their specific exchange instance
-   */
-  protected abstract createExchange(): Exchange;
-
-  /**
-   * Get exchange-specific capabilities - can be overridden
-   * Allows subclasses to modify capabilities based on exchange limitations
-   */
-  protected getExchangeCapabilities(): Partial<ExchangeCapabilities> {
-    return {};
-  }
-}===== ./src/exchanges/index.ts =====
-// Exchange adapters and factory
-export { ExchangeAdapterFactory } from './adapter-factory.ts';
-===== ./src/exchanges/kraken/csv-adapter.ts =====
+}===== ./src/exchanges/kraken/csv-adapter.ts =====
 import type { CryptoTransaction, TransactionStatus } from '@crypto/core';
 import { createMoney, parseDecimal } from '@crypto/shared-utils';
 import { BaseCSVAdapter } from '../../adapters/universal/base-csv-adapter.js';
@@ -3047,127 +2530,7 @@ export class ServiceErrorHandler {
         error.message.toLowerCase().includes('try again')
       ));
   }
-}===== ./src/exchanges/adapter-factory.ts =====
-import type { IUniversalAdapter, UniversalExchangeAdapterConfig } from '@crypto/core';
-import { ServiceError } from '@crypto/core';
-import { getLogger } from '@crypto/shared-logger';
-import ccxt from 'ccxt';
-import { CCXTAdapter } from './ccxt-adapter.js';
-import { CoinbaseCCXTAdapter } from './coinbase/ccxt-adapter.js';
-import { KrakenCSVAdapter } from './kraken/csv-adapter.js';
-import { KuCoinCSVAdapter } from './kucoin/csv-adapter.js';
-import { LedgerLiveCSVAdapter } from './ledgerlive/csv-adapter.js';
-
-export class ExchangeAdapterFactory {
-  private logger = getLogger('ExchangeAdapterFactory');
-
-  /**
-   * Create adapter with direct credentials (new simplified approach)
-   */
-  async createAdapterWithCredentials(
-    exchangeId: string,
-    adapterType: 'ccxt' | 'csv',
-    options: {
-      credentials?: {
-        apiKey: string;
-        secret: string;
-        password?: string;
-        sandbox?: boolean;
-      };
-      csvDirectories?: string[];
-      enableOnlineVerification?: boolean;
-    }
-  ): Promise<IUniversalAdapter> {
-    this.logger.info(`Creating adapter for ${exchangeId} with type: ${adapterType}`);
-
-    if (adapterType === 'csv') {
-      if (!options.csvDirectories || options.csvDirectories.length === 0) {
-        throw new ServiceError('CSV directories required for CSV adapter', exchangeId, 'createAdapterWithCredentials');
-      }
-
-      switch (exchangeId.toLowerCase()) {
-        case 'kraken':
-          return new KrakenCSVAdapter({
-            type: 'exchange',
-            id: 'kraken',
-            subType: 'csv',
-            csvDirectories: options.csvDirectories
-          } as UniversalExchangeAdapterConfig);
-        case 'kucoin':
-          return new KuCoinCSVAdapter({
-            type: 'exchange',
-            id: 'kucoin',
-            subType: 'csv',
-            csvDirectories: options.csvDirectories
-          } as UniversalExchangeAdapterConfig);
-        case 'ledgerlive':
-          return new LedgerLiveCSVAdapter({
-            type: 'exchange',
-            id: 'ledgerlive',
-            subType: 'csv',
-            csvDirectories: options.csvDirectories
-          } as UniversalExchangeAdapterConfig);
-        default:
-          throw new ServiceError(`Unsupported CSV exchange: ${exchangeId}`, exchangeId, 'createAdapterWithCredentials');
-      }
-    } else if (adapterType === 'ccxt') {
-      if (!options.credentials) {
-        throw new ServiceError('Credentials required for CCXT adapter', exchangeId, 'createAdapterWithCredentials');
-      }
-
-      switch (exchangeId.toLowerCase()) {
-        case 'coinbase':
-          if (!options.credentials.password) {
-            throw new ServiceError('Password is required for Coinbase', exchangeId, 'createAdapterWithCredentials');
-          }
-          return new CoinbaseCCXTAdapter(options.credentials as { apiKey: string; secret: string; password: string; sandbox?: boolean }, { enableOnlineVerification: options.enableOnlineVerification });
-        default:
-          return this.createGenericCCXTAdapter(exchangeId, options.credentials, options.enableOnlineVerification);
-      }
-    }
-
-    throw new ServiceError(`Unsupported adapter type: ${adapterType}`, exchangeId, 'createAdapterWithCredentials');
-  }
-
-  private createGenericCCXTAdapter(
-    exchangeId: string,
-    credentials: { apiKey: string; secret: string; password?: string; sandbox?: boolean },
-    enableOnlineVerification?: boolean
-  ): IUniversalAdapter {
-    this.logger.info(`Creating generic CCXT adapter for ${exchangeId}`);
-
-    if (!ccxt[exchangeId as keyof typeof ccxt]) {
-      throw new ServiceError(`CCXT exchange ${exchangeId} not found`, exchangeId, 'createGenericCCXTAdapter');
-    }
-
-    // Create CCXT exchange instance
-    const ExchangeClass = ccxt[exchangeId as keyof typeof ccxt] as any;
-    const ccxtOptions: any = {
-      apiKey: credentials.apiKey,
-      secret: credentials.secret,
-      enableRateLimit: true,
-      rateLimit: 1000,
-      sandbox: credentials.sandbox || false,
-    };
-
-    // Handle passphrase/password mapping for different exchanges
-    if (exchangeId === 'kucoin') {
-      // KuCoin uses 'password' field for passphrase in CCXT
-      if (credentials.password) {
-        ccxtOptions.password = credentials.password;
-      }
-    } else {
-      // Most other exchanges use 'passphrase'
-      if (credentials.password) {
-        ccxtOptions.passphrase = credentials.password;
-      }
-    }
-
-    const exchange = new ExchangeClass(ccxtOptions);
-    
-    return new CCXTAdapter(exchange, exchangeId, enableOnlineVerification);
-  }
-} ===== ./src/utils/circuit-breaker.ts =====
+}===== ./src/utils/circuit-breaker.ts =====
 // Circuit breaker implementation for provider resilience
 // Prevents hammering failed providers and enables automatic recovery
 
@@ -4006,336 +3369,6 @@ export abstract class BaseCSVAdapter extends BaseAdapter {
     // Clear cached data
     this.cachedTransactions = null;
   }
-}===== ./src/adapters/universal/exchange-bridge-adapter.ts =====
-import type { IExchangeAdapter, CryptoTransaction, ExchangeBalance } from '@crypto/core';
-import { BaseAdapter } from './base-adapter.js';
-import type { AdapterInfo, FetchParams, Transaction, Balance } from './types.js';
-import type { ExchangeAdapterConfig } from './config.js';
-
-/**
- * Bridge adapter that wraps existing IExchangeAdapter implementations 
- * to provide the new IUniversalAdapter interface.
- * 
- * This enables a gradual migration by allowing the new unified interface
- * to work with existing exchange adapter implementations without modification.
- */
-export class ExchangeBridgeAdapter extends BaseAdapter {
-  constructor(
-    private readonly oldAdapter: IExchangeAdapter,
-    config: ExchangeAdapterConfig
-  ) {
-    super(config);
-  }
-
-  async getInfo(): Promise<AdapterInfo> {
-    const exchangeInfo = await this.oldAdapter.getExchangeInfo();
-    
-    return {
-      id: exchangeInfo.id,
-      name: exchangeInfo.name,
-      type: 'exchange',
-      subType: this.config.subType,
-      capabilities: {
-        supportedOperations: [
-          'fetchTransactions',
-          'fetchBalances'
-        ],
-        maxBatchSize: 100,
-        supportsHistoricalData: true,
-        supportsPagination: true,
-        requiresApiKey: this.config.subType === 'ccxt',
-        rateLimit: exchangeInfo.rateLimit ? {
-          requestsPerSecond: Math.floor(1000 / exchangeInfo.rateLimit),
-          burstLimit: 50
-        } : undefined
-      }
-    };
-  }
-
-  async testConnection(): Promise<boolean> {
-    return this.oldAdapter.testConnection();
-  }
-
-  protected async fetchRawTransactions(params: FetchParams): Promise<CryptoTransaction[]> {
-    // Use the old adapter's fetchAllTransactions method
-    return this.oldAdapter.fetchAllTransactions(params.since);
-  }
-  
-  protected async transformTransactions(rawTxs: CryptoTransaction[], params: FetchParams): Promise<Transaction[]> {
-    // Transform CryptoTransaction to universal Transaction format
-    return rawTxs.map(tx => ({
-      id: tx.id,
-      timestamp: tx.timestamp,
-      datetime: tx.datetime || new Date(tx.timestamp).toISOString(),
-      type: tx.type,
-      status: this.mapTransactionStatus(tx.status),
-      amount: tx.amount,
-      fee: tx.fee,
-      price: tx.price,
-      from: tx.info?.from,
-      to: tx.info?.to,
-      symbol: tx.symbol,
-      source: this.config.id,
-      network: 'exchange',
-      metadata: {
-        side: tx.side,
-        originalInfo: tx.info || {},
-        exchangeSpecific: {
-          status: tx.status,
-          type: tx.type
-        }
-      }
-    }));
-  }
-
-  protected async fetchRawBalances(params: FetchParams): Promise<ExchangeBalance[]> {
-    return this.oldAdapter.fetchBalance();
-  }
-
-  protected async transformBalances(rawBalances: ExchangeBalance[], params: FetchParams): Promise<Balance[]> {
-    return rawBalances.map(balance => ({
-      currency: balance.currency,
-      total: balance.total,
-      free: balance.balance,
-      used: balance.used,
-      // No contract address for exchange balances
-    }));
-  }
-
-  private mapTransactionStatus(status?: string): 'pending' | 'open' | 'closed' | 'canceled' | 'failed' | 'ok' {
-    switch (status) {
-      case 'pending':
-        return 'pending';
-      case 'open':
-        return 'open';
-      case 'closed':
-        return 'closed';
-      case 'ok':
-        return 'ok';
-      case 'failed':
-        return 'failed';
-      case 'canceled':
-        return 'canceled';
-      default:
-        return 'ok'; // Default to ok for unknown statuses
-    }
-  }
-
-  async close(): Promise<void> {
-    return this.oldAdapter.close();
-  }
-}===== ./src/adapters/universal/blockchain-bridge-adapter.ts =====
-import type { IBlockchainAdapter, BlockchainTransaction, BlockchainBalance } from '@crypto/core';
-import { BaseAdapter } from './base-adapter.js';
-import type { AdapterInfo, FetchParams, Transaction, Balance } from './types.js';
-import type { BlockchainAdapterConfig } from './config.js';
-
-/**
- * Bridge adapter that wraps existing IBlockchainAdapter implementations 
- * to provide the new IUniversalAdapter interface.
- * 
- * This enables a gradual migration by allowing the new unified interface
- * to work with existing blockchain adapter implementations without modification.
- */
-export class BlockchainBridgeAdapter extends BaseAdapter {
-  constructor(
-    private readonly oldAdapter: IBlockchainAdapter,
-    config: BlockchainAdapterConfig
-  ) {
-    super(config);
-  }
-
-  async getInfo(): Promise<AdapterInfo> {
-    const blockchainInfo = await this.oldAdapter.getBlockchainInfo();
-    
-    return {
-      id: blockchainInfo.id,
-      name: blockchainInfo.name,
-      type: 'blockchain',
-      subType: this.config.subType,
-      capabilities: {
-        supportedOperations: [
-          'fetchTransactions',
-          'fetchBalances',
-          'getAddressTransactions',
-          'getAddressBalance',
-          ...(blockchainInfo.capabilities.supportsTokenTransactions ? ['getTokenTransactions'] as const : []),
-        ],
-        maxBatchSize: 1,
-        supportsHistoricalData: blockchainInfo.capabilities.supportsHistoricalData,
-        supportsPagination: blockchainInfo.capabilities.supportsPagination,
-        requiresApiKey: false,
-        rateLimit: {
-          requestsPerSecond: 5, // Conservative default for blockchain APIs
-          burstLimit: 10
-        }
-      }
-    };
-  }
-
-  async testConnection(): Promise<boolean> {
-    return this.oldAdapter.testConnection();
-  }
-
-  protected async fetchRawTransactions(params: FetchParams): Promise<BlockchainTransaction[]> {
-    if (!params.addresses?.length) {
-      throw new Error('Addresses required for blockchain adapter');
-    }
-    
-    const allTxs: BlockchainTransaction[] = [];
-    
-    // Fetch transactions for each address
-    for (const address of params.addresses) {
-      try {
-        const txs = await this.oldAdapter.getAddressTransactions(address, params.since);
-        allTxs.push(...txs);
-      } catch (error) {
-        this.logger.warn(`Failed to fetch transactions for address ${address}: ${error}`);
-        // Continue with other addresses rather than failing completely
-      }
-    }
-    
-    // Fetch token transactions if supported and requested
-    if (params.includeTokens && this.oldAdapter.getTokenTransactions) {
-      for (const address of params.addresses) {
-        try {
-          const tokenTxs = await this.oldAdapter.getTokenTransactions(address);
-          allTxs.push(...tokenTxs);
-        } catch (error) {
-          this.logger.warn(`Failed to fetch token transactions for address ${address}: ${error}`);
-        }
-      }
-    }
-    
-    return allTxs;
-  }
-  
-  protected async transformTransactions(rawTxs: BlockchainTransaction[], params: FetchParams): Promise<Transaction[]> {
-    if (!params.addresses?.length) {
-      throw new Error('Addresses required for blockchain transaction transformation');
-    }
-    
-    const userAddresses = new Set(params.addresses.map(addr => addr.toLowerCase()));
-    
-    return rawTxs.map(tx => {
-      // Convert blockchain transaction to universal format
-      const cryptoTx = this.oldAdapter.convertToCryptoTransaction(tx, params.addresses![0]);
-      
-      return {
-        id: tx.hash,
-        timestamp: tx.timestamp * 1000, // Convert to milliseconds if needed
-        datetime: new Date(tx.timestamp * 1000).toISOString(),
-        type: cryptoTx.type,
-        status: this.mapBlockchainStatus(tx.status),
-        amount: tx.value,
-        fee: tx.fee,
-        price: cryptoTx.price,
-        from: tx.from,
-        to: tx.to,
-        symbol: tx.tokenSymbol || cryptoTx.symbol,
-        source: this.config.id,
-        network: (this.config as BlockchainAdapterConfig).network || 'mainnet',
-        metadata: {
-          blockNumber: tx.blockNumber,
-          blockHash: tx.blockHash,
-          confirmations: tx.confirmations,
-          gasUsed: tx.gasUsed,
-          gasPrice: tx.gasPrice,
-          nonce: tx.nonce,
-          tokenContract: tx.tokenContract,
-          blockchainType: tx.type,
-          direction: this.determineDirection(tx, userAddresses),
-          originalTransaction: tx
-        }
-      };
-    });
-  }
-
-  protected async fetchRawBalances(params: FetchParams): Promise<BlockchainBalance[]> {
-    if (!params.addresses?.length) {
-      throw new Error('Addresses required for blockchain balance fetching');
-    }
-    
-    const allBalances: BlockchainBalance[] = [];
-    
-    for (const address of params.addresses) {
-      try {
-        const balances = await this.oldAdapter.getAddressBalance(address);
-        
-        // Add address metadata to each balance
-        const enrichedBalances = balances.map(balance => ({
-          ...balance,
-          address
-        }));
-        
-        allBalances.push(...enrichedBalances);
-        
-        // Fetch token balances if supported and requested
-        if (params.includeTokens && this.oldAdapter.getTokenBalances) {
-          try {
-            const tokenBalances = await this.oldAdapter.getTokenBalances(address);
-            const enrichedTokenBalances = tokenBalances.map(balance => ({
-              ...balance,
-              address
-            }));
-            allBalances.push(...enrichedTokenBalances);
-          } catch (error) {
-            this.logger.warn(`Failed to fetch token balances for address ${address}: ${error}`);
-          }
-        }
-      } catch (error) {
-        this.logger.warn(`Failed to fetch balances for address ${address}: ${error}`);
-      }
-    }
-    
-    return allBalances;
-  }
-
-  protected async transformBalances(rawBalances: (BlockchainBalance & { address?: string })[], params: FetchParams): Promise<Balance[]> {
-    return rawBalances.map(balance => ({
-      currency: balance.currency,
-      total: balance.total,
-      free: balance.balance,
-      used: balance.used,
-      contractAddress: balance.contractAddress
-    }));
-  }
-
-  private mapBlockchainStatus(status: 'success' | 'failed' | 'pending'): 'pending' | 'open' | 'closed' | 'canceled' | 'failed' | 'ok' {
-    switch (status) {
-      case 'success':
-        return 'ok';
-      case 'failed':
-        return 'failed';
-      case 'pending':
-        return 'pending';
-      default:
-        return 'ok';
-    }
-  }
-
-  private determineDirection(tx: BlockchainTransaction, userAddresses: Set<string>): 'in' | 'out' | 'self' {
-    const fromLower = tx.from.toLowerCase();
-    const toLower = tx.to.toLowerCase();
-    
-    const isFromUser = userAddresses.has(fromLower);
-    const isToUser = userAddresses.has(toLower);
-    
-    if (isFromUser && isToUser) {
-      return 'self';
-    } else if (isFromUser) {
-      return 'out';
-    } else if (isToUser) {
-      return 'in';
-    } else {
-      // This shouldn't happen for transactions fetched by address
-      return 'out';
-    }
-  }
-
-  async close(): Promise<void> {
-    return this.oldAdapter.close();
-  }
 }===== ./src/adapters/universal/types.ts =====
 import type { Money, TransactionStatus, TransactionType } from '@crypto/core';
 
@@ -4700,261 +3733,21 @@ export abstract class BaseCCXTAdapter extends BaseAdapter {
   protected abstract createExchange(): Exchange;
 }===== ./src/adapters/universal/index.ts =====
 // Core interfaces and types
-export type { 
-  IUniversalAdapter,
-  AdapterInfo,
-  AdapterCapabilities,
-  FetchParams,
-  Transaction,
-  Balance
+export type {
+  AdapterCapabilities, AdapterInfo, Balance, FetchParams, IUniversalAdapter, Transaction
 } from './types.js';
 
 // Configuration types
-export type { 
-  AdapterConfig,
-  ExchangeAdapterConfig,
-  BlockchainAdapterConfig
+export type {
+  AdapterConfig, BlockchainAdapterConfig, ExchangeAdapterConfig
 } from './config.js';
 
 // Base adapter class
 export { BaseAdapter } from './base-adapter.js';
 
-// Bridge adapters for migration
-export { ExchangeBridgeAdapter } from './exchange-bridge-adapter.js';
-export { BlockchainBridgeAdapter } from './blockchain-bridge-adapter.js';
-
 // Universal adapter factory
-export { UniversalAdapterFactory } from './adapter-factory.js';===== ./src/adapters/universal/test-bridge-adapters.ts =====
-import { Decimal } from 'decimal.js';
-import type { IExchangeAdapter, IBlockchainAdapter, CryptoTransaction, BlockchainTransaction, ExchangeBalance, BlockchainBalance } from '@crypto/core';
-import { ExchangeBridgeAdapter } from './exchange-bridge-adapter.js';
-import { BlockchainBridgeAdapter } from './blockchain-bridge-adapter.js';
-import type { ExchangeAdapterConfig, BlockchainAdapterConfig } from './config.js';
-
-/**
- * Simple verification test for bridge adapters
- * This tests that the bridge adapters can wrap mock adapters and provide the universal interface
- */
-async function testBridgeAdapters() {
-  console.log('Testing Bridge Adapters...\n');
-
-  // Test ExchangeBridgeAdapter
-  console.log('1. Testing ExchangeBridgeAdapter');
-  
-  // Create a mock exchange adapter
-  const mockExchangeAdapter: IExchangeAdapter = {
-    testConnection: async () => true,
-    getExchangeInfo: async () => ({
-      id: 'test-exchange',
-      name: 'Test Exchange',
-      capabilities: {
-        fetchMyTrades: true,
-        fetchDeposits: true,
-        fetchWithdrawals: true,
-        fetchLedger: false,
-        fetchClosedOrders: false,
-        fetchBalance: true,
-        fetchOrderBook: false,
-        fetchTicker: false
-      },
-      rateLimit: 1000
-    }),
-    fetchAllTransactions: async () => [{
-      id: 'test-tx-1',
-      type: 'trade',
-      timestamp: 1640995200000,
-      amount: { amount: new Decimal('1.5'), currency: 'BTC' },
-      symbol: 'BTC/USD',
-      side: 'buy',
-      price: { amount: new Decimal('50000'), currency: 'USD' },
-      fee: { amount: new Decimal('75'), currency: 'USD' },
-      status: 'ok'
-    } as CryptoTransaction],
-    fetchTrades: async () => [],
-    fetchDeposits: async () => [],
-    fetchWithdrawals: async () => [],
-    fetchClosedOrders: async () => [],
-    fetchLedger: async () => [],
-    fetchBalance: async () => [{
-      currency: 'BTC',
-      balance: 1.5,
-      used: 0,
-      total: 1.5
-    } as ExchangeBalance],
-    close: async () => undefined
-  };
-
-  const exchangeConfig: ExchangeAdapterConfig = {
-    type: 'exchange',
-    id: 'test-exchange',
-    subType: 'ccxt'
-  };
-
-  const exchangeBridge = new ExchangeBridgeAdapter(mockExchangeAdapter, exchangeConfig);
-
-  // Test adapter info
-  const exchangeInfo = await exchangeBridge.getInfo();
-  console.log('   ✓ Exchange adapter info:', {
-    type: exchangeInfo.type,
-    id: exchangeInfo.id,
-    subType: exchangeInfo.subType,
-    operationsCount: exchangeInfo.capabilities.supportedOperations.length
-  });
-
-  // Test connection
-  const exchangeConnected = await exchangeBridge.testConnection();
-  console.log('   ✓ Exchange connection test:', exchangeConnected);
-
-  // Test transaction fetching
-  const exchangeTransactions = await exchangeBridge.fetchTransactions({
-    since: 1640995200000
-  });
-  console.log('   ✓ Exchange transactions fetched:', {
-    count: exchangeTransactions.length,
-    firstTx: exchangeTransactions[0] ? {
-      id: exchangeTransactions[0].id,
-      type: exchangeTransactions[0].type,
-      source: exchangeTransactions[0].source,
-      network: exchangeTransactions[0].network
-    } : null
-  });
-
-  // Test balance fetching
-  const exchangeBalances = await exchangeBridge.fetchBalances({});
-  console.log('   ✓ Exchange balances fetched:', {
-    count: exchangeBalances.length,
-    firstBalance: exchangeBalances[0] ? {
-      currency: exchangeBalances[0].currency,
-      total: exchangeBalances[0].total
-    } : null
-  });
-
-  // Test cleanup
-  await exchangeBridge.close();
-  console.log('   ✓ Exchange adapter closed successfully\n');
-
-  // Test BlockchainBridgeAdapter
-  console.log('2. Testing BlockchainBridgeAdapter');
-
-  // Create a mock blockchain adapter
-  const mockBlockchainAdapter: IBlockchainAdapter = {
-    testConnection: async () => true,
-    getBlockchainInfo: async () => ({
-      id: 'bitcoin',
-      name: 'Bitcoin',
-      network: 'mainnet',
-      capabilities: {
-        supportsAddressTransactions: true,
-        supportsTokenTransactions: false,
-        supportsBalanceQueries: true,
-        supportsHistoricalData: true,
-        supportsPagination: false
-      }
-    }),
-    getAddressTransactions: async () => [{
-      hash: '0x123456789abcdef',
-      blockNumber: 12345,
-      blockHash: '0xblock123',
-      timestamp: 1640995200,
-      from: '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa',
-      to: '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2',
-      value: { amount: new Decimal('0.5'), currency: 'BTC' },
-      fee: { amount: new Decimal('0.001'), currency: 'BTC' },
-      gasUsed: 21000,
-      gasPrice: 20,
-      status: 'success',
-      type: 'transfer',
-      nonce: 1,
-      confirmations: 6
-    } as BlockchainTransaction],
-    getAddressBalance: async () => [{
-      currency: 'BTC',
-      balance: 0.5,
-      used: 0,
-      total: 0.5
-    } as BlockchainBalance],
-    validateAddress: () => true,
-    convertToCryptoTransaction: (tx, userAddress) => ({
-      id: tx.hash,
-      type: 'withdrawal',
-      timestamp: tx.timestamp * 1000,
-      amount: tx.value,
-      fee: tx.fee,
-      info: tx
-    } as CryptoTransaction),
-    close: async () => undefined
-  };
-
-  const blockchainConfig: BlockchainAdapterConfig = {
-    type: 'blockchain',
-    id: 'bitcoin',
-    subType: 'rest',
-    network: 'mainnet'
-  };
-
-  const blockchainBridge = new BlockchainBridgeAdapter(mockBlockchainAdapter, blockchainConfig);
-
-  // Test adapter info
-  const blockchainInfo = await blockchainBridge.getInfo();
-  console.log('   ✓ Blockchain adapter info:', {
-    type: blockchainInfo.type,
-    id: blockchainInfo.id,
-    subType: blockchainInfo.subType,
-    operationsCount: blockchainInfo.capabilities.supportedOperations.length
-  });
-
-  // Test connection
-  const blockchainConnected = await blockchainBridge.testConnection();
-  console.log('   ✓ Blockchain connection test:', blockchainConnected);
-
-  // Test transaction fetching
-  const blockchainTransactions = await blockchainBridge.fetchTransactions({
-    addresses: ['1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa'],
-    since: 1640995200000
-  });
-  console.log('   ✓ Blockchain transactions fetched:', {
-    count: blockchainTransactions.length,
-    firstTx: blockchainTransactions[0] ? {
-      id: blockchainTransactions[0].id,
-      source: blockchainTransactions[0].source,
-      network: blockchainTransactions[0].network,
-      blockNumber: blockchainTransactions[0].metadata.blockNumber
-    } : null
-  });
-
-  // Test balance fetching
-  const blockchainBalances = await blockchainBridge.fetchBalances({
-    addresses: ['1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa']
-  });
-  console.log('   ✓ Blockchain balances fetched:', {
-    count: blockchainBalances.length,
-    firstBalance: blockchainBalances[0] ? {
-      currency: blockchainBalances[0].currency,
-      total: blockchainBalances[0].total
-    } : null
-  });
-
-  // Test error handling for missing addresses
-  try {
-    await blockchainBridge.fetchTransactions({});
-    console.log('   ✗ Should have thrown error for missing addresses');
-  } catch (error) {
-    console.log('   ✓ Correctly throws error for missing addresses:', (error as Error).message);
-  }
-
-  // Test cleanup
-  await blockchainBridge.close();
-  console.log('   ✓ Blockchain adapter closed successfully\n');
-
-  console.log('All bridge adapter tests passed! ✅');
-}
-
-// Run the test if this file is executed directly
-if (import.meta.url.endsWith(process.argv[1])) {
-  testBridgeAdapters().catch(console.error);
-}
-
-export { testBridgeAdapters };===== ./src/adapters/universal/config.ts =====
+export { UniversalAdapterFactory } from './adapter-factory.js';
+===== ./src/adapters/universal/config.ts =====
 interface BaseAdapterConfig {
   type: 'exchange' | 'blockchain';
   id: string;
@@ -4985,9 +3778,21 @@ import type {
   UniversalExchangeAdapterConfig
 } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
-import { BlockchainAdapterFactory } from '../../blockchains/shared/blockchain-adapter-factory.js';
 import type { BlockchainExplorersConfig } from '../../blockchains/shared/explorer-config.js';
-import { ExchangeAdapterFactory } from '../../exchanges/adapter-factory.js';
+
+// Import specific adapters directly
+import { AvalancheAdapter } from '../../blockchains/avalanche/adapter.js';
+import { BitcoinAdapter } from '../../blockchains/bitcoin/adapter.js';
+import { EthereumAdapter } from '../../blockchains/ethereum/adapter.js';
+import { InjectiveAdapter } from '../../blockchains/injective/adapter.js';
+import { SubstrateAdapter } from '../../blockchains/polkadot/adapter.js';
+import { SolanaAdapter } from '../../blockchains/solana/adapter.js';
+
+// Import exchange adapters directly
+import { CoinbaseCCXTAdapter } from '../../exchanges/coinbase/ccxt-adapter.js';
+import { KrakenCSVAdapter } from '../../exchanges/kraken/csv-adapter.js';
+import { KuCoinCSVAdapter } from '../../exchanges/kucoin/csv-adapter.js';
+import { LedgerLiveCSVAdapter } from '../../exchanges/ledgerlive/csv-adapter.js';
 
 /**
  * Universal adapter factory that creates adapters implementing the IUniversalAdapter interface.
@@ -5031,27 +3836,71 @@ export class UniversalAdapterFactory {
   }
 
   /**
-   * Create an exchange adapter wrapped in a bridge adapter
+   * Create an exchange adapter directly (no more bridge adapters)
    */
   private static async createExchangeAdapter(config: UniversalExchangeAdapterConfig): Promise<IUniversalAdapter> {
     this.logger.debug(`Creating exchange adapter for ${config.id} with subType: ${config.subType}`);
     
-    // Create the exchange adapter using the existing factory
-    // Since the exchange adapters now implement IUniversalAdapter directly, we can return them as-is
-    const factory = new ExchangeAdapterFactory();
-    return await factory.createAdapterWithCredentials(
-      config.id,
-      config.subType,
-      {
-        credentials: config.credentials,
-        csvDirectories: config.csvDirectories,
-        enableOnlineVerification: false // Default to false for now
-      }
-    );
+    if (config.subType === 'csv') {
+      return this.createCSVExchangeAdapter(config);
+    } else if (config.subType === 'ccxt') {
+      return this.createCCXTExchangeAdapter(config);
+    }
+    
+    throw new Error(`Unsupported exchange adapter subType: ${config.subType} for ${config.id}`);
   }
 
   /**
-   * Create a blockchain adapter (now directly implements IUniversalAdapter)
+   * Create CSV exchange adapter directly
+   */
+  private static async createCSVExchangeAdapter(config: UniversalExchangeAdapterConfig): Promise<IUniversalAdapter> {
+    if (!config.csvDirectories?.length) {
+      throw new Error('CSV directories required for CSV exchange adapters');
+    }
+
+    // Create adapter config for CSV adapters
+    const adapterConfig = {
+      type: 'exchange' as const,
+      id: config.id,
+      subType: 'csv' as const,
+      csvDirectories: config.csvDirectories
+    };
+
+    switch (config.id.toLowerCase()) {
+      case 'kraken':
+        return new KrakenCSVAdapter(adapterConfig);
+      case 'kucoin':
+        return new KuCoinCSVAdapter(adapterConfig);
+      case 'ledgerlive':
+        return new LedgerLiveCSVAdapter(adapterConfig);
+      default:
+        throw new Error(`Unsupported CSV exchange: ${config.id}`);
+    }
+  }
+
+  /**
+   * Create CCXT exchange adapter directly
+   */
+  private static async createCCXTExchangeAdapter(config: UniversalExchangeAdapterConfig): Promise<IUniversalAdapter> {
+    if (!config.credentials) {
+      throw new Error('Credentials required for CCXT exchange adapters');
+    }
+
+    switch (config.id.toLowerCase()) {
+      case 'coinbase':
+        return new CoinbaseCCXTAdapter({
+          apiKey: config.credentials.apiKey,
+          secret: config.credentials.secret,
+          password: config.credentials.password || '',
+          sandbox: false
+        });
+      default:
+        throw new Error(`Unsupported CCXT exchange: ${config.id}`);
+    }
+  }
+
+  /**
+   * Create a blockchain adapter directly (no more bridge adapters)
    */
   private static async createBlockchainAdapter(
     config: UniversalBlockchainAdapterConfig,
@@ -5063,10 +3912,23 @@ export class UniversalAdapterFactory {
 
     this.logger.debug(`Creating blockchain adapter for ${config.id} with network: ${config.network}`);
     
-    // Create the blockchain adapter using the existing factory
-    // Since the blockchain adapters now implement IUniversalAdapter directly, we can return them as-is
-    const factory = new BlockchainAdapterFactory();
-    return await factory.createBlockchainAdapter(config.id, explorerConfig);
+    // Create the specific blockchain adapter directly
+    switch (config.id.toLowerCase()) {
+      case 'bitcoin':
+        return new BitcoinAdapter(config, explorerConfig);
+      case 'ethereum':
+        return new EthereumAdapter(config, explorerConfig);
+      case 'solana':
+        return new SolanaAdapter(config, explorerConfig);
+      case 'avalanche':
+        return new AvalancheAdapter(config, explorerConfig);
+      case 'injective':
+        return new InjectiveAdapter(config, explorerConfig);
+      case 'polkadot':
+        return new SubstrateAdapter(config, explorerConfig);
+      default:
+        throw new Error(`Unsupported blockchain: ${config.id}`);
+    }
   }
 
   /**
@@ -7659,7 +6521,6 @@ import type {
 import { BaseAdapter } from '../../adapters/universal/base-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
 import type { BlockchainExplorersConfig } from '../shared/explorer-config.ts';
-import { isValidSolanaAddress } from './utils.ts';
 
 export class SolanaAdapter extends BaseAdapter {
   private providerManager: BlockchainProviderManager;
@@ -7861,106 +6722,6 @@ export class SolanaAdapter extends BaseAdapter {
     }
   }
 
-  // Legacy methods for compatibility (can be removed once migration is complete)
-  validateAddress(address: string): boolean {
-    return isValidSolanaAddress(address);
-  }
-
-  async getAddressTransactions(address: string, since?: number): Promise<BlockchainTransaction[]> {
-    return this.fetchRawTransactions({ addresses: [address], since });
-  }
-
-  async getAddressBalance(address: string): Promise<BlockchainBalance[]> {
-    return this.fetchRawBalances({ addresses: [address] });
-  }
-
-  // Required IBlockchainAdapter methods for backward compatibility
-  async getBlockchainInfo(): Promise<any> {
-    return {
-      id: 'solana',
-      name: 'Solana',
-      network: 'mainnet',
-      capabilities: {
-        supportsAddressTransactions: true,
-        supportsTokenTransactions: true,
-        supportsBalanceQueries: true,
-        supportsHistoricalData: true,
-        supportsPagination: true,
-        maxLookbackDays: undefined
-      }
-    };
-  }
-
-  convertToCryptoTransaction(blockchainTx: BlockchainTransaction, userAddress: string): any {
-    // Determine transaction type based on user address
-    let type: TransactionType = 'transfer';
-    const normalizedUserAddress = userAddress.toLowerCase();
-    const isIncoming = blockchainTx.to.toLowerCase() === normalizedUserAddress;
-    const isOutgoing = blockchainTx.from.toLowerCase() === normalizedUserAddress;
-
-    if (isIncoming && !isOutgoing) {
-      type = 'deposit';
-    } else if (isOutgoing && !isIncoming) {
-      type = 'withdrawal';
-    }
-
-    return {
-      id: blockchainTx.hash,
-      type,
-      timestamp: blockchainTx.timestamp,
-      datetime: new Date(blockchainTx.timestamp).toISOString(),
-      symbol: blockchainTx.tokenSymbol || blockchainTx.value.currency,
-      side: undefined,
-      amount: blockchainTx.value,
-      price: undefined,
-      fee: blockchainTx.fee,
-      status: blockchainTx.status === 'success' ? 'closed' :
-        blockchainTx.status === 'pending' ? 'open' : 'canceled',
-      info: {
-        blockNumber: blockchainTx.blockNumber,
-        blockHash: blockchainTx.blockHash,
-        from: blockchainTx.from,
-        to: blockchainTx.to,
-        confirmations: blockchainTx.confirmations,
-        tokenContract: blockchainTx.tokenContract,
-        transactionType: blockchainTx.type,
-        originalTransaction: blockchainTx
-      }
-    };
-  }
-
-  // SPL token support methods (optional)
-  async getTokenTransactions(address: string, tokenContract?: string): Promise<BlockchainTransaction[]> {
-    try {
-      const transactions = await this.providerManager.executeWithFailover('solana', {
-        type: 'getTokenTransactions',
-        params: { address, contractAddress: tokenContract },
-        getCacheKey: (params: any) => `solana_token_tx_${params.address}_${params.contractAddress || 'all'}`
-      }) as BlockchainTransaction[];
-
-      this.logger.info(`SolanaAdapter: Found ${transactions.length} token transactions for address ${address.substring(0, 20)}...`);
-      return transactions;
-    } catch (error) {
-      this.logger.error(`Failed to fetch token transactions for ${address} - Error: ${error}`);
-      throw error;
-    }
-  }
-
-  async getTokenBalances(address: string): Promise<BlockchainBalance[]> {
-    try {
-      const balances = await this.providerManager.executeWithFailover('solana', {
-        type: 'getTokenBalances',
-        params: { address },
-        getCacheKey: (params: any) => `solana_token_balance_${params.address}`
-      }) as BlockchainBalance[];
-
-      this.logger.info(`SolanaAdapter: Found ${balances.length} token balances for address ${address.substring(0, 20)}...`);
-      return balances;
-    } catch (error) {
-      this.logger.error(`Failed to fetch token balances for ${address} - Error: ${error}`);
-      throw error;
-    }
-  }
 }===== ./src/blockchains/shared/types.ts =====
 import type { RateLimitConfig, DataSourceCapabilities } from '@crypto/core';
 
@@ -8965,198 +7726,10 @@ export class BlockchainProviderManager {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 }===== ./src/blockchains/shared/index.ts =====
-export * from './base-blockchain-adapter.ts';
-export * from './blockchain-adapter-factory.ts';
 export * from './blockchain-provider-manager.ts';
 export * from './registry/index.ts';
 
-===== ./src/blockchains/shared/base-blockchain-adapter.ts =====
-import type {
-  BlockchainBalance,
-  BlockchainInfo,
-  BlockchainTransaction,
-  CryptoTransaction,
-  IBlockchainAdapter,
-  RateLimitConfig,
-  TransactionType
-} from '@crypto/core';
-import { Database } from '@crypto/data';
-
-import { getLogger, type Logger } from '@crypto/shared-logger';
-
-
-
-export abstract class BaseBlockchainAdapter implements IBlockchainAdapter {
-  protected logger: Logger;
-  protected blockchain: string;
-  protected network: any; // Each blockchain has different network types
-  protected rateLimitConfig: RateLimitConfig;
-  protected lastRequestTime: number = 0;
-  protected requestCount: { [key: string]: number } = {};
-  protected database?: Database;
-
-  constructor(blockchain: string, loggerName: string) {
-    this.blockchain = blockchain;
-    this.network = 'mainnet'; // Default to mainnet string, adapters can override
-    this.logger = getLogger(loggerName);
-    this.rateLimitConfig = {
-      requestsPerSecond: 5,
-      requestsPerMinute: 100,
-      requestsPerHour: 1000
-    };
-  }
-
-  // Abstract methods that must be implemented by specific blockchain adapters
-  abstract getAddressTransactions(address: string, since?: number): Promise<BlockchainTransaction[]>;
-  abstract getAddressBalance(address: string): Promise<BlockchainBalance[]>;
-  abstract validateAddress(address: string): boolean;
-  abstract testConnection(): Promise<boolean>;
-  abstract getBlockchainInfo(): Promise<BlockchainInfo>;
-
-  // Optional token methods - subclasses can override if they support tokens
-  getTokenTransactions?(address: string, tokenContract?: string): Promise<BlockchainTransaction[]>;
-  getTokenBalances?(address: string): Promise<BlockchainBalance[]>;
-
-  /**
-   * Convert blockchain transaction to standard crypto transaction format
-   * Now accepts userAddress to determine transaction direction
-   */
-  convertToCryptoTransaction(blockchainTx: BlockchainTransaction, userAddress: string): CryptoTransaction {
-    // Determine transaction type based on user's address
-    let type: TransactionType;
-    const normalizedUserAddress = userAddress.toLowerCase();
-    const isIncoming = blockchainTx.to.toLowerCase() === normalizedUserAddress;
-    const isOutgoing = blockchainTx.from.toLowerCase() === normalizedUserAddress;
-
-    if (isIncoming && !isOutgoing) {
-      type = 'deposit';
-    } else if (isOutgoing && !isIncoming) {
-      type = 'withdrawal';
-    } else {
-      // This shouldn't happen with proper filtering, but default to transfer
-      type = 'transfer';
-    }
-
-    return {
-      id: blockchainTx.hash,
-      type,
-      timestamp: blockchainTx.timestamp,
-      datetime: new Date(blockchainTx.timestamp).toISOString(),
-      symbol: blockchainTx.tokenSymbol || blockchainTx.value.currency,
-      side: undefined,
-      amount: blockchainTx.value,
-      price: undefined,
-      fee: blockchainTx.fee,
-      status: blockchainTx.status === 'success' ? 'closed' :
-        blockchainTx.status === 'pending' ? 'open' : 'canceled',
-      info: {
-        blockNumber: blockchainTx.blockNumber,
-        blockHash: blockchainTx.blockHash,
-        from: blockchainTx.from,
-        to: blockchainTx.to,
-        gasUsed: blockchainTx.gasUsed,
-        gasPrice: blockchainTx.gasPrice,
-        nonce: blockchainTx.nonce,
-        confirmations: blockchainTx.confirmations,
-        tokenContract: blockchainTx.tokenContract,
-        transactionType: blockchainTx.type,
-        originalTransaction: blockchainTx
-      }
-    };
-  }
-
-  async close(): Promise<void> {
-    // Base implementation - adapters can override for cleanup
-    this.logger.debug('Base blockchain adapter closed');
-  }
-}===== ./src/blockchains/shared/blockchain-adapter-factory.ts =====
-import type { IUniversalAdapter } from '@crypto/core';
-import { getLogger } from '@crypto/shared-logger';
-import { AvalancheAdapter } from '../avalanche/adapter.ts';
-import { BitcoinAdapter } from '../bitcoin/adapter.ts';
-import { EthereumAdapter } from '../ethereum/adapter.ts';
-import { InjectiveAdapter } from '../injective/adapter.ts';
-import { SubstrateAdapter } from '../polkadot/adapter.ts';
-import { SolanaAdapter } from '../solana/adapter.ts';
-import type { BlockchainExplorersConfig } from './explorer-config.ts';
-
-/**
- * Specialized factory for creating blockchain adapters
- */
-export class BlockchainAdapterFactory {
-  private logger = getLogger('BlockchainAdapterFactory');
-
-  /**
-   * Create a blockchain adapter based on configuration
-   */
-  async createBlockchainAdapter(
-    blockchain: string,
-    explorerConfig: BlockchainExplorersConfig
-  ): Promise<IUniversalAdapter> {
-    this.logger.info(`Creating blockchain adapter for ${blockchain}`);
-
-    switch (blockchain.toLowerCase()) {
-      case 'bitcoin':
-        const bitcoinConfig = {
-          type: 'blockchain' as const,
-          id: 'bitcoin',
-          subType: 'rest' as const,
-          network: 'mainnet'
-        };
-        return new BitcoinAdapter(bitcoinConfig, explorerConfig);
-
-      case 'ethereum':
-        const ethereumConfig = {
-          type: 'blockchain' as const,
-          id: 'ethereum',
-          subType: 'rest' as const,
-          network: 'mainnet'
-        };
-        return new EthereumAdapter(ethereumConfig, explorerConfig);
-
-      case 'injective':
-        const injectiveConfig = {
-          type: 'blockchain' as const,
-          id: 'injective',
-          subType: 'rest' as const,
-          network: 'mainnet'
-        };
-        return new InjectiveAdapter(injectiveConfig, explorerConfig);
-
-      case 'avalanche':
-        const avalancheConfig = {
-          type: 'blockchain' as const,
-          id: 'avalanche',
-          subType: 'rest' as const,
-          network: 'mainnet'
-        };
-        return new AvalancheAdapter(avalancheConfig, explorerConfig);
-
-      case 'bittensor':
-      case 'polkadot':
-      case 'kusama':
-        const substrateConfig = {
-          type: 'blockchain' as const,
-          id: blockchain.toLowerCase(),
-          subType: 'rest' as const,
-          network: 'mainnet'
-        };
-        return new SubstrateAdapter(substrateConfig, explorerConfig);
-
-      case 'solana':
-        const solanaConfig = {
-          type: 'blockchain' as const,
-          id: 'solana',
-          subType: 'rest' as const,
-          network: 'mainnet'
-        };
-        return new SolanaAdapter(solanaConfig, explorerConfig);
-
-      default:
-        throw new Error(`Unsupported blockchain: ${blockchain}`);
-    }
-  }
-}===== ./src/blockchains/shared/explorer-config.ts =====
+===== ./src/blockchains/shared/explorer-config.ts =====
 import fs from 'fs';
 import path from 'path';
 
@@ -11193,7 +9766,6 @@ import * as bitcoin from 'bitcoinjs-lib';
 import type {
   Balance,
   BlockchainTransaction,
-  CryptoTransaction,
   TransactionType,
   UniversalAdapterInfo,
   UniversalBalance,
@@ -11633,59 +10205,6 @@ export class BitcoinAdapter extends BaseAdapter {
     return this.fetchRawBalances({ addresses: [address] });
   }
 
-  // Required IBlockchainAdapter methods for backward compatibility
-  async getBlockchainInfo(): Promise<any> {
-    return {
-      id: 'bitcoin',
-      name: 'Bitcoin Blockchain',
-      network: 'mainnet',
-      capabilities: {
-        supportsAddressTransactions: true,
-        supportsTokenTransactions: false,
-        supportsBalanceQueries: true,
-        supportsHistoricalData: true,
-        supportsPagination: true,
-        maxLookbackDays: undefined
-      }
-    };
-  }
-
-  convertToCryptoTransaction(blockchainTx: BlockchainTransaction): CryptoTransaction {
-    // Use the Bitcoin adapter's own transaction type classification
-    let type: TransactionType;
-
-    if (blockchainTx.type === 'transfer_in' || blockchainTx.type === 'internal_transfer_in') {
-      type = 'deposit';
-    } else if (blockchainTx.type === 'transfer_out' || blockchainTx.type === 'internal_transfer_out') {
-      type = 'withdrawal';
-    } else {
-      // Fallback - shouldn't happen with proper Bitcoin transaction classification
-      type = 'withdrawal';
-    }
-
-    return {
-      id: blockchainTx.hash,
-      type,
-      timestamp: blockchainTx.timestamp,
-      datetime: new Date(blockchainTx.timestamp).toISOString(),
-      symbol: blockchainTx.tokenSymbol || undefined,
-      side: undefined,
-      amount: blockchainTx.value,
-      price: undefined,
-      fee: blockchainTx.fee,
-      status: blockchainTx.status === 'success' ? 'closed' :
-        blockchainTx.status === 'pending' ? 'open' : 'canceled',
-      info: {
-        blockNumber: blockchainTx.blockNumber,
-        blockHash: blockchainTx.blockHash,
-        from: blockchainTx.from,
-        to: blockchainTx.to,
-        confirmations: blockchainTx.confirmations,
-        transactionType: blockchainTx.type,
-        originalTransaction: blockchainTx
-      }
-    };
-  }
 }===== ./src/blockchains/avalanche/providers/SnowtraceProvider.ts =====
 import type { Balance, BlockchainTransaction } from '@crypto/core';
 import { AuthenticationError, ServiceError } from '@crypto/core';
@@ -12484,98 +11003,6 @@ export class AvalancheAdapter extends BaseAdapter {
     return this.fetchRawBalances({ addresses: [address] });
   }
 
-  async getTokenTransactions(address: string, tokenContract?: string): Promise<BlockchainTransaction[]> {
-    this.logger.debug(`AvalancheAdapter.getTokenTransactions called - Address: ${address}, TokenContract: ${tokenContract}`);
-
-    try {
-      const transactions = await this.providerManager.executeWithFailover('avalanche', {
-        type: 'getTokenTransactions',
-        params: { address, contractAddress: tokenContract },
-        getCacheKey: (params: any) => `avax_token_tx_${params.address}_${params.contractAddress || 'all'}`
-      }) as BlockchainTransaction[];
-
-      this.logger.info(`AvalancheAdapter: Found ${transactions.length} token transactions for address`);
-      return transactions;
-
-    } catch (error) {
-      this.logger.error(`Failed to fetch token transactions via provider manager - Address: ${address}, TokenContract: ${tokenContract}, Error: ${error instanceof Error ? error.message : String(error)}`);
-      throw error;
-    }
-  }
-
-  async getTokenBalances(address: string): Promise<Balance[]> {
-    this.logger.debug(`AvalancheAdapter.getTokenBalances called - Address: ${address}`);
-
-    try {
-      const balances = await this.providerManager.executeWithFailover('avalanche', {
-        type: 'getTokenBalances',
-        params: { address },
-        getCacheKey: (params: any) => `avax_token_balance_${params.address}`
-      }) as Balance[];
-
-      this.logger.info(`AvalancheAdapter: Found ${balances.length} token balances for address`);
-      return balances;
-
-    } catch (error) {
-      this.logger.error(`Failed to fetch token balances via provider manager - Address: ${address}, Error: ${error instanceof Error ? error.message : String(error)}`);
-      throw error;
-    }
-  }
-
-  // Required IBlockchainAdapter methods for backward compatibility
-  async getBlockchainInfo(): Promise<any> {
-    return {
-      id: 'avalanche',
-      name: 'Avalanche C-Chain',
-      network: 'mainnet',
-      capabilities: {
-        supportsAddressTransactions: true,
-        supportsTokenTransactions: true,
-        supportsBalanceQueries: true,
-        supportsHistoricalData: true,
-        supportsPagination: true,
-        maxLookbackDays: undefined
-      }
-    };
-  }
-
-  convertToCryptoTransaction(blockchainTx: BlockchainTransaction, userAddress: string): any {
-    // Determine transaction type based on user address
-    let type: TransactionType = 'transfer';
-    const normalizedUserAddress = userAddress.toLowerCase();
-    const isIncoming = blockchainTx.to.toLowerCase() === normalizedUserAddress;
-    const isOutgoing = blockchainTx.from.toLowerCase() === normalizedUserAddress;
-
-    if (isIncoming && !isOutgoing) {
-      type = 'deposit';
-    } else if (isOutgoing && !isIncoming) {
-      type = 'withdrawal';
-    }
-
-    return {
-      id: blockchainTx.hash,
-      type,
-      timestamp: blockchainTx.timestamp,
-      datetime: new Date(blockchainTx.timestamp).toISOString(),
-      symbol: blockchainTx.tokenSymbol || blockchainTx.value.currency,
-      side: undefined,
-      amount: blockchainTx.value,
-      price: undefined,
-      fee: blockchainTx.fee,
-      status: blockchainTx.status === 'success' ? 'closed' :
-        blockchainTx.status === 'pending' ? 'open' : 'canceled',
-      info: {
-        blockNumber: blockchainTx.blockNumber,
-        blockHash: blockchainTx.blockHash,
-        from: blockchainTx.from,
-        to: blockchainTx.to,
-        confirmations: blockchainTx.confirmations,
-        tokenContract: blockchainTx.tokenContract,
-        transactionType: blockchainTx.type,
-        originalTransaction: blockchainTx
-      }
-    };
-  }
 }===== ./src/blockchains/registry/register-providers.ts =====
 // Import all blockchain providers to trigger their registration
 // This must be imported before using the ProviderRegistry
@@ -13235,7 +11662,8 @@ export class InjectiveAdapter extends BaseAdapter {
     const allTransactions: BlockchainTransaction[] = [];
     
     for (const address of params.addresses) {
-      if (!this.validateAddress(address)) {
+      // Basic Injective address validation - starts with 'inj' and is bech32 encoded
+      if (!/^inj1[a-z0-9]{38}$/.test(address)) {
         throw new Error(`Invalid Injective address: ${address}`);
       }
 
@@ -13294,7 +11722,8 @@ export class InjectiveAdapter extends BaseAdapter {
     const allBalances: Balance[] = [];
     
     for (const address of params.addresses) {
-      if (!this.validateAddress(address)) {
+      // Basic Injective address validation - starts with 'inj' and is bech32 encoded
+      if (!/^inj1[a-z0-9]{38}$/.test(address)) {
         throw new Error(`Invalid Injective address: ${address}`);
       }
 
@@ -13401,95 +11830,6 @@ export class InjectiveAdapter extends BaseAdapter {
     }
   }
 
-  // Legacy methods for compatibility (can be removed once migration is complete)
-  validateAddress(address: string): boolean {
-    // Injective addresses start with 'inj' and are bech32 encoded
-    const injectiveAddressRegex = /^inj1[a-z0-9]{38}$/;
-    return injectiveAddressRegex.test(address);
-  }
-
-  async getAddressTransactions(address: string, since?: number): Promise<BlockchainTransaction[]> {
-    return this.fetchRawTransactions({ addresses: [address], since });
-  }
-
-  async getAddressBalance(address: string): Promise<Balance[]> {
-    return this.fetchRawBalances({ addresses: [address] });
-  }
-
-  async getTokenTransactions(address: string, tokenContract?: string): Promise<BlockchainTransaction[]> {
-    // For Injective, tokens are represented as different denoms, not contracts
-    // This method can be used to filter transactions by specific token denom
-    const allTransactions = await this.getAddressTransactions(address);
-
-    if (tokenContract) {
-      return allTransactions.filter(tx =>
-        tx.tokenContract === tokenContract ||
-        tx.tokenSymbol === tokenContract
-      );
-    }
-
-    return allTransactions;
-  }
-
-  async getTokenBalances(address: string): Promise<Balance[]> {
-    // For Injective, all balances are returned by getAddressBalance
-    return this.getAddressBalance(address);
-  }
-
-  // Required IBlockchainAdapter methods for backward compatibility
-  async getBlockchainInfo(): Promise<any> {
-    return {
-      id: 'injective',
-      name: 'Injective Protocol Blockchain',
-      network: 'mainnet',
-      capabilities: {
-        supportsAddressTransactions: true,
-        supportsTokenTransactions: true,
-        supportsBalanceQueries: true,
-        supportsHistoricalData: true,
-        supportsPagination: true,
-        maxLookbackDays: undefined
-      }
-    };
-  }
-
-  convertToCryptoTransaction(blockchainTx: BlockchainTransaction, userAddress: string): any {
-    // Determine transaction type based on user address
-    let type: TransactionType = 'transfer';
-    const normalizedUserAddress = userAddress.toLowerCase();
-    const isIncoming = blockchainTx.to.toLowerCase() === normalizedUserAddress;
-    const isOutgoing = blockchainTx.from.toLowerCase() === normalizedUserAddress;
-
-    if (isIncoming && !isOutgoing) {
-      type = 'deposit';
-    } else if (isOutgoing && !isIncoming) {
-      type = 'withdrawal';
-    }
-
-    return {
-      id: blockchainTx.hash,
-      type,
-      timestamp: blockchainTx.timestamp,
-      datetime: new Date(blockchainTx.timestamp).toISOString(),
-      symbol: blockchainTx.tokenSymbol || blockchainTx.value.currency,
-      side: undefined,
-      amount: blockchainTx.value,
-      price: undefined,
-      fee: blockchainTx.fee,
-      status: blockchainTx.status === 'success' ? 'closed' :
-        blockchainTx.status === 'pending' ? 'open' : 'canceled',
-      info: {
-        blockNumber: blockchainTx.blockNumber,
-        blockHash: blockchainTx.blockHash,
-        from: blockchainTx.from,
-        to: blockchainTx.to,
-        confirmations: blockchainTx.confirmations,
-        tokenContract: blockchainTx.tokenContract,
-        transactionType: blockchainTx.type,
-        originalTransaction: blockchainTx
-      }
-    };
-  }
 }===== ./src/blockchains/polkadot/providers/SubstrateProvider.ts =====
 import { Decimal } from 'decimal.js';
 
@@ -14406,97 +12746,6 @@ export class SubstrateAdapter extends BaseAdapter {
     }
   }
 
-  // Legacy methods for compatibility (can be removed once migration is complete)
-  validateAddress(address: string): boolean {
-    // Basic SS58 address validation - could be enhanced with proper SS58 library
-    const ss58Regex = /^[1-9A-HJ-NP-Za-km-z]{47,48}$/;
-    const isValid = ss58Regex.test(address);
-
-    this.logger.debug(`Address validation - Address: ${address}, IsValid: ${isValid}, Chain: ${this.chainConfig.name}, SS58Format: ${this.chainConfig.ss58Format}`);
-    return isValid;
-  }
-
-  async getAddressTransactions(address: string, since?: number): Promise<BlockchainTransaction[]> {
-    return this.fetchRawTransactions({ addresses: [address], since });
-  }
-
-  async getAddressBalance(address: string): Promise<Balance[]> {
-    return this.fetchRawBalances({ addresses: [address] });
-  }
-
-  // Substrate chains don't typically have separate token transactions like EVM chains
-  // They use native token transfers within extrinsics
-  async getTokenTransactions(address: string, tokenContract?: string): Promise<BlockchainTransaction[]> {
-    this.logger.debug(`SubstrateAdapter.getTokenTransactions called - Address: ${address}, TokenContract: ${tokenContract}, Chain: ${this.chainConfig.name}`);
-
-    // For now, return regular transactions as Substrate chains primarily use native tokens
-    // In the future, this could be extended to support parachains with custom tokens
-    this.logger.info('Token transactions not implemented for Substrate chains - returning regular transactions');
-    return this.getAddressTransactions(address);
-  }
-
-  async getTokenBalances(address: string): Promise<Balance[]> {
-    this.logger.debug(`SubstrateAdapter.getTokenBalances called - Address: ${address}, Chain: ${this.chainConfig.name}`);
-
-    // For now, return regular balance as Substrate chains primarily use native tokens
-    this.logger.info('Token balances not implemented for Substrate chains - returning regular balance');
-    return this.getAddressBalance(address);
-  }
-
-  // Required IBlockchainAdapter methods for backward compatibility
-  async getBlockchainInfo(): Promise<any> {
-    return {
-      id: this.chainConfig.name,
-      name: this.chainConfig.displayName,
-      network: this.chainConfig.name,
-      capabilities: {
-        supportsAddressTransactions: true,
-        supportsTokenTransactions: false, // Substrate native tokens only for now
-        supportsBalanceQueries: true,
-        supportsHistoricalData: true,
-        supportsPagination: true,
-        maxLookbackDays: undefined
-      }
-    };
-  }
-
-  convertToCryptoTransaction(blockchainTx: BlockchainTransaction, userAddress: string): any {
-    // Determine transaction type based on user address
-    let type: TransactionType = 'transfer';
-    const normalizedUserAddress = userAddress.toLowerCase();
-    const isIncoming = blockchainTx.to.toLowerCase() === normalizedUserAddress;
-    const isOutgoing = blockchainTx.from.toLowerCase() === normalizedUserAddress;
-
-    if (isIncoming && !isOutgoing) {
-      type = 'deposit';
-    } else if (isOutgoing && !isIncoming) {
-      type = 'withdrawal';
-    }
-
-    return {
-      id: blockchainTx.hash,
-      type,
-      timestamp: blockchainTx.timestamp,
-      datetime: new Date(blockchainTx.timestamp).toISOString(),
-      symbol: blockchainTx.tokenSymbol || blockchainTx.value.currency,
-      side: undefined,
-      amount: blockchainTx.value,
-      price: undefined,
-      fee: blockchainTx.fee,
-      status: blockchainTx.status === 'success' ? 'closed' :
-        blockchainTx.status === 'pending' ? 'open' : 'canceled',
-      info: {
-        blockNumber: blockchainTx.blockNumber,
-        blockHash: blockchainTx.blockHash,
-        from: blockchainTx.from,
-        to: blockchainTx.to,
-        confirmations: blockchainTx.confirmations,
-        tokenContract: blockchainTx.tokenContract,
-        transactionType: blockchainTx.type,
-        originalTransaction: blockchainTx
-      }
-    };
-  }
 }===== ./src/blockchains/ethereum/providers/EtherscanProvider.ts =====
 import { Decimal } from 'decimal.js';
 
@@ -15810,89 +14059,20 @@ export class EthereumAdapter extends BaseAdapter {
     }
   }
 
-  // Legacy methods for compatibility (can be removed once migration is complete)
-  validateAddress(address: string): boolean {
-    // Ethereum address pattern: 0x followed by 40 hex characters
-    const ethereumPattern = /^0x[a-fA-F0-9]{40}$/;
-    return ethereumPattern.test(address);
-  }
-
-  async getAddressTransactions(address: string, since?: number): Promise<BlockchainTransaction[]> {
-    return this.fetchRawTransactions({ addresses: [address], since });
-  }
-
-  async getAddressBalance(address: string): Promise<Balance[]> {
-    return this.fetchRawBalances({ addresses: [address] });
-  }
-
-  // Required IBlockchainAdapter methods for backward compatibility
-  async getBlockchainInfo(): Promise<any> {
-    return {
-      id: 'ethereum',
-      name: 'Ethereum',
-      network: 'mainnet',
-      capabilities: {
-        supportsAddressTransactions: true,
-        supportsTokenTransactions: true,
-        supportsBalanceQueries: true,
-        supportsHistoricalData: true,
-        supportsPagination: true,
-        maxLookbackDays: undefined
-      }
-    };
-  }
-
-  convertToCryptoTransaction(blockchainTx: BlockchainTransaction, userAddress: string): any {
-    // Determine transaction type based on user address
-    let type: TransactionType = 'transfer';
-    const normalizedUserAddress = userAddress.toLowerCase();
-    const isIncoming = blockchainTx.to.toLowerCase() === normalizedUserAddress;
-    const isOutgoing = blockchainTx.from.toLowerCase() === normalizedUserAddress;
-
-    if (isIncoming && !isOutgoing) {
-      type = 'deposit';
-    } else if (isOutgoing && !isIncoming) {
-      type = 'withdrawal';
-    }
-
-    return {
-      id: blockchainTx.hash,
-      type,
-      timestamp: blockchainTx.timestamp,
-      datetime: new Date(blockchainTx.timestamp).toISOString(),
-      symbol: blockchainTx.tokenSymbol || blockchainTx.value.currency,
-      side: undefined,
-      amount: blockchainTx.value,
-      price: undefined,
-      fee: blockchainTx.fee,
-      status: blockchainTx.status === 'success' ? 'closed' :
-        blockchainTx.status === 'pending' ? 'open' : 'canceled',
-      info: {
-        blockNumber: blockchainTx.blockNumber,
-        blockHash: blockchainTx.blockHash,
-        from: blockchainTx.from,
-        to: blockchainTx.to,
-        confirmations: blockchainTx.confirmations,
-        tokenContract: blockchainTx.tokenContract,
-        transactionType: blockchainTx.type,
-        originalTransaction: blockchainTx
-      }
-    };
-  }
 }===== ./src/services/deduplicator.ts =====
-import type { EnhancedTransaction } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
 import { moneyToNumber } from '@crypto/shared-utils';
+import type { Transaction as UniversalTransaction } from '../adapters/universal/types.js';
 
 interface DeduplicationResult {
-  unique: EnhancedTransaction[];
-  duplicates: EnhancedTransaction[];
+  unique: UniversalTransaction[];
+  duplicates: UniversalTransaction[];
 }
 
 export class Deduplicator {
   private logger = getLogger('Deduplicator');
 
-  async process(transactions: EnhancedTransaction[], sourceId: string): Promise<DeduplicationResult> {
+  async process(transactions: UniversalTransaction[], sourceId: string): Promise<DeduplicationResult> {
     this.logger.info(`Starting deduplication for ${transactions.length} transactions from ${sourceId}`);
 
     const result = this.deduplicateByHash(transactions, sourceId);
@@ -15901,7 +14081,7 @@ export class Deduplicator {
     return result;
   }
 
-  async processAdvanced(transactions: EnhancedTransaction[], sourceId: string): Promise<DeduplicationResult> {
+  async processAdvanced(transactions: UniversalTransaction[], sourceId: string): Promise<DeduplicationResult> {
     this.logger.info(`Starting advanced deduplication for ${transactions.length} transactions from ${sourceId}`);
 
     const result = this.deduplicateBySimilarity(transactions, sourceId);
@@ -15910,63 +14090,28 @@ export class Deduplicator {
     return result;
   }
 
-  private createPrimaryKey(transaction: EnhancedTransaction): string {
-    // Create a key based on core transaction properties
-    // This is more flexible than just using the hash
-    const keyParts = [
-      transaction.source,
-      transaction.type,
-      Math.floor((transaction.timestamp || 0) / 1000), // Round to seconds to handle minor timestamp differences
-      transaction.symbol || '',
-      this.normalizeAmount(typeof transaction.amount === 'object' ? moneyToNumber(transaction.amount) : (transaction.amount || 0)),
-      transaction.side || ''
-    ];
-
-    return keyParts.join('|');
-  }
-
-  private areTransactionsSimilar(tx1: EnhancedTransaction, tx2: EnhancedTransaction): boolean {
-    // Define similarity criteria
-    const timestampDiff = Math.abs((tx1.timestamp || 0) - (tx2.timestamp || 0));
-    const timestampTolerance = 5000; // 5 seconds
-
-    const amount1 = typeof tx1.amount === 'object' ? moneyToNumber(tx1.amount) : (tx1.amount || 0);
-    const amount2 = typeof tx2.amount === 'object' ? moneyToNumber(tx2.amount) : (tx2.amount || 0);
-    const amountDiff = Math.abs(amount1 - amount2);
-    const amountTolerance = 0.00000001; // Satoshi-level tolerance
-
-    return (
-      tx1.source === tx2.source &&
-      tx1.type === tx2.type &&
-      tx1.symbol === tx2.symbol &&
-      tx1.side === tx2.side &&
-      timestampDiff <= timestampTolerance &&
-      amountDiff <= amountTolerance
-    );
-  }
-
   private normalizeAmount(amount: number): string {
     // Normalize amount to handle floating point precision issues
     return amount.toFixed(8);
   }
 
   // Method to detect potential data quality issues
-  detectAnomalies(transactions: EnhancedTransaction[]): {
-    missingIds: EnhancedTransaction[];
-    invalidTimestamps: EnhancedTransaction[];
-    zeroAmounts: EnhancedTransaction[];
-    missingSymbols: EnhancedTransaction[];
+  detectAnomalies(transactions: UniversalTransaction[]): {
+    missingIds: UniversalTransaction[];
+    invalidTimestamps: UniversalTransaction[];
+    zeroAmounts: UniversalTransaction[];
+    missingSymbols: UniversalTransaction[];
   } {
     const anomalies = {
-      missingIds: [] as EnhancedTransaction[],
-      invalidTimestamps: [] as EnhancedTransaction[],
-      zeroAmounts: [] as EnhancedTransaction[],
-      missingSymbols: [] as EnhancedTransaction[]
+      missingIds: [] as UniversalTransaction[],
+      invalidTimestamps: [] as UniversalTransaction[],
+      zeroAmounts: [] as UniversalTransaction[],
+      missingSymbols: [] as UniversalTransaction[]
     };
 
     for (const tx of transactions) {
       // Check for missing IDs
-      if (!tx.id && !tx.hash) {
+      if (!tx.id) {
         anomalies.missingIds.push(tx);
       }
 
@@ -15976,7 +14121,7 @@ export class Deduplicator {
       }
 
       // Check for zero amounts in trades (might be valid for some transaction types)
-      const amount = typeof tx.amount === 'object' ? moneyToNumber(tx.amount) : tx.amount;
+      const amount = moneyToNumber(tx.amount);
       if (tx.type === 'trade' && (!amount || amount === 0)) {
         anomalies.zeroAmounts.push(tx);
       }
@@ -16007,17 +14152,17 @@ export class Deduplicator {
     };
   }
 
-  private deduplicateByHash(transactions: EnhancedTransaction[], sourceId: string): DeduplicationResult {
-    const unique: EnhancedTransaction[] = [];
-    const duplicates: EnhancedTransaction[] = [];
+  private deduplicateByHash(transactions: UniversalTransaction[], sourceId: string): DeduplicationResult {
+    const unique: UniversalTransaction[] = [];
+    const duplicates: UniversalTransaction[] = [];
     const seenHashes = new Set<string>();
 
     for (const transaction of transactions) {
-      const hash = transaction.hash;
+      const hash = this.createTransactionHash(transaction);
 
       if (seenHashes.has(hash)) {
         duplicates.push(transaction);
-        this.logDuplicateTransaction(transaction.id || hash, sourceId);
+        this.logDuplicateTransaction(transaction.id, sourceId);
       } else {
         seenHashes.add(hash);
         unique.push(transaction);
@@ -16027,10 +14172,10 @@ export class Deduplicator {
     return { unique, duplicates };
   }
 
-  private deduplicateBySimilarity(transactions: EnhancedTransaction[], sourceId: string): DeduplicationResult {
-    const unique: EnhancedTransaction[] = [];
-    const duplicates: EnhancedTransaction[] = [];
-    const transactionIndex = new Map<string, EnhancedTransaction>();
+  private deduplicateBySimilarity(transactions: UniversalTransaction[], sourceId: string): DeduplicationResult {
+    const unique: UniversalTransaction[] = [];
+    const duplicates: UniversalTransaction[] = [];
+    const transactionIndex = new Map<string, UniversalTransaction>();
 
     for (const transaction of transactions) {
       const primaryKey = this.createPrimaryKey(transaction);
@@ -16039,7 +14184,7 @@ export class Deduplicator {
       if (existingTransaction) {
         if (this.areTransactionsSimilar(existingTransaction, transaction)) {
           duplicates.push(transaction);
-          this.logDuplicateTransaction(transaction.id || transaction.hash, sourceId);
+          this.logDuplicateTransaction(transaction.id, sourceId);
         } else {
           unique.push(transaction);
           transactionIndex.set(primaryKey + '_' + unique.length, transaction);
@@ -16053,6 +14198,55 @@ export class Deduplicator {
     return { unique, duplicates };
   }
 
+  private createPrimaryKey(transaction: UniversalTransaction): string {
+    // Create a key based on core transaction properties
+    const keyParts = [
+      transaction.source,
+      transaction.type,
+      Math.floor(transaction.timestamp / 1000), // Round to seconds to handle minor timestamp differences
+      transaction.symbol || '',
+      this.normalizeAmount(moneyToNumber(transaction.amount)),
+      transaction.metadata?.side || ''
+    ];
+
+    return keyParts.join('|');
+  }
+
+  private areTransactionsSimilar(tx1: UniversalTransaction, tx2: UniversalTransaction): boolean {
+    // Define similarity criteria
+    const timestampDiff = Math.abs(tx1.timestamp - tx2.timestamp);
+    const timestampTolerance = 5000; // 5 seconds
+
+    const amount1 = moneyToNumber(tx1.amount);
+    const amount2 = moneyToNumber(tx2.amount);
+    const amountDiff = Math.abs(amount1 - amount2);
+    const amountTolerance = 0.00000001; // Satoshi-level tolerance
+
+    return (
+      tx1.source === tx2.source &&
+      tx1.type === tx2.type &&
+      tx1.symbol === tx2.symbol &&
+      (tx1.metadata?.side || '') === (tx2.metadata?.side || '') &&
+      timestampDiff <= timestampTolerance &&
+      amountDiff <= amountTolerance
+    );
+  }
+
+  private createTransactionHash(transaction: UniversalTransaction): string {
+    // Create a hash from key transaction properties for deduplication
+    const hashData = JSON.stringify({
+      id: transaction.id,
+      timestamp: transaction.timestamp,
+      symbol: transaction.symbol,
+      amount: transaction.amount,
+      side: transaction.metadata?.side,
+      type: transaction.type,
+      source: transaction.source
+    });
+
+    return require('crypto').createHash('sha256').update(hashData).digest('hex').slice(0, 16);
+  }
+
   private logDeduplicationStats(result: DeduplicationResult, sourceId: string, mode: string = 'standard'): void {
     const total = result.unique.length + result.duplicates.length;
     const duplicatePercentage = total > 0 ? ((result.duplicates.length / total) * 100).toFixed(2) : '0.00';
@@ -16063,18 +14257,13 @@ export class Deduplicator {
   private logDuplicateTransaction(transactionId: string, sourceId: string): void {
     this.logger.debug(`Duplicate transaction skipped - ID: ${transactionId}, Source: ${sourceId}, Timestamp: ${Date.now()}`);
   }
-} ===== ./src/services/importer.ts =====
-import type { CryptoTransaction, EnhancedTransaction, IBlockchainAdapter, TransactionNote } from '@crypto/core';
+}===== ./src/services/importer.ts =====
 import { getLogger } from '@crypto/shared-logger';
 import { type BlockchainExplorersConfig } from '@crypto/shared-utils';
-import crypto from 'crypto';
 import type { ImportResult, ImportSummary } from '../types.ts';
-import { TransactionNoteType } from '../types.ts';
 
 import { Database, TransactionRepository, TransactionService, WalletRepository, WalletService } from '@crypto/data';
 
-import { BlockchainAdapterFactory } from '../blockchains/shared/index.ts';
-import { ExchangeAdapterFactory } from '../exchanges/adapter-factory.ts';
 import { detectScamFromSymbol } from '../utils/scam-detection.ts';
 import { Deduplicator } from './deduplicator.ts';
 
@@ -16100,8 +14289,6 @@ export class TransactionImporter {
   
   private transactionService: TransactionService;
   private deduplicator: Deduplicator;
-  private adapterFactory: ExchangeAdapterFactory;
-  private blockchainAdapterFactory: BlockchainAdapterFactory;
   private walletService: WalletService;
 
   constructor(
@@ -16113,8 +14300,6 @@ export class TransactionImporter {
     const walletRepository = new WalletRepository(database);
     this.transactionService = new TransactionService(transactionRepository, walletRepository);
     this.deduplicator = new Deduplicator();
-    this.adapterFactory = new ExchangeAdapterFactory();
-    this.blockchainAdapterFactory = new BlockchainAdapterFactory();
     this.walletService = new WalletService(walletRepository);
   }
 
@@ -16148,9 +14333,9 @@ export class TransactionImporter {
         throw new Error(`Failed to connect to ${blockchainId}`);
       }
 
-      const rawTransactions = await this.fetchTransactionsForAddresses(adapter as any, addresses, since);
-
-      const { transactions, saved, duplicates } = await this.processAndSaveTransactions(rawTransactions, blockchainId);
+      // Use universal interface directly
+      const transactions = await adapter.fetchTransactions({ addresses, since });
+      const { saved, duplicates } = await this.processAndSaveUniversalTransactions(transactions, blockchainId);
 
       const duration = Date.now() - startTime;
 
@@ -16193,17 +14378,16 @@ export class TransactionImporter {
     csvDirectories?: string[];
     since?: number;
   }): Promise<ImportResult> {
-    const adapter = await this.adapterFactory.createAdapterWithCredentials(
+    // Use the new universal approach
+    return this.importFromExchangeUniversal(
       options.exchangeId,
       options.adapterType,
       {
         credentials: options.credentials,
         csvDirectories: options.csvDirectories,
-        enableOnlineVerification: false
+        since: options.since
       }
     );
-
-    return this.importFromExchange(adapter, options.since);
   }
 
   async importFromExchange(adapter: IUniversalAdapter, since?: number): Promise<ImportResult> {
@@ -16223,24 +14407,21 @@ export class TransactionImporter {
       // Fetch all transactions using the adapter
       const universalTransactions = await adapter.fetchTransactions({ since });
       
-      // Convert universal transactions back to CryptoTransaction format for compatibility
-      const rawTransactions = universalTransactions.map(tx => this.convertUniversalToCryptoTransaction(tx));
-
-      const { transactions, saved, duplicates } = await this.processAndSaveTransactions(rawTransactions, exchangeId);
-
+      // Process and save universal transactions directly
+      const { saved, duplicates } = await this.processAndSaveUniversalTransactions(universalTransactions, exchangeId);
 
       const duration = Date.now() - startTime;
 
       const result: ImportResult = {
         source: exchangeId,
-        transactions: transactions.length,
+        transactions: universalTransactions.length,
         newTransactions: saved,
         duplicatesSkipped: duplicates.length,
         errors: [],
         duration
       };
 
-      this.logger.info(`Completed import from ${exchangeId} - Transactions: ${transactions.length}, New: ${saved}, Duplicates: ${duplicates.length}, Duration: ${duration}ms`);
+      this.logger.info(`Completed import from ${exchangeId} - Transactions: ${universalTransactions.length}, New: ${saved}, Duplicates: ${duplicates.length}, Duration: ${duration}ms`);
 
       return result;
     } catch (error) {
@@ -16276,11 +14457,8 @@ export class TransactionImporter {
       // Fetch transactions using unified interface
       const transactions = await adapter.fetchTransactions(params);
       
-      // Convert universal transactions to CryptoTransaction format for existing pipeline
-      const cryptoTransactions = transactions.map((tx: UniversalTransaction) => this.convertUniversalToCryptoTransaction(tx));
-      
-      // Save transactions using existing logic
-      const { saved, duplicates } = await this.processAndSaveTransactions(cryptoTransactions, info.id);
+      // Save transactions using universal pipeline
+      const { saved, duplicates } = await this.processAndSaveUniversalTransactions(transactions, info.id);
 
       const duration = Date.now() - startTime;
 
@@ -16375,38 +14553,116 @@ export class TransactionImporter {
   }
 
   /**
-   * Convert universal transaction format to CryptoTransaction for existing pipeline
+   * Process and save universal transactions directly without conversion
    */
-  private convertUniversalToCryptoTransaction(universalTx: UniversalTransaction): CryptoTransaction {
-    return {
-      id: universalTx.id,
-      timestamp: universalTx.timestamp,
-      datetime: universalTx.datetime,
-      type: universalTx.type,
-      status: universalTx.status,
-      amount: universalTx.amount,
-      fee: universalTx.fee,
-      price: universalTx.price,
-      symbol: universalTx.symbol,
-      side: universalTx.metadata?.side,
-      info: {
-        from: universalTx.from,
-        to: universalTx.to,
-        source: universalTx.source,
-        network: universalTx.network,
-        ...universalTx.metadata
+  private async processAndSaveUniversalTransactions(
+    transactions: UniversalTransaction[], 
+    sourceId: string
+  ): Promise<{ saved: number; duplicates: UniversalTransaction[] }> {
+    const enhancedTransactions = transactions.map(tx => this.enhanceUniversalTransaction(tx, sourceId));
+    const { unique, duplicates } = await this.deduplicator.process(enhancedTransactions, sourceId);
+    const saved = await this.transactionService.saveManyUniversal(unique);
+
+    if (saved > 0 && sourceId !== 'exchange') {
+      try {
+        await this.linkUniversalTransactionsToWallets(unique, sourceId);
+      } catch (linkError) {
+        this.logger.warn(`Failed to link transactions to wallet addresses for ${sourceId}: ${linkError instanceof Error ? linkError.message : String(linkError)}`);
       }
+    }
+
+    return { saved, duplicates };
+  }
+
+  /**
+   * Enhance universal transaction with additional metadata
+   */
+  private enhanceUniversalTransaction(transaction: UniversalTransaction, sourceId: string): UniversalTransaction {
+    // Detect scam tokens for blockchain transactions
+    let scamNote: any = undefined;
+    const isBlockchainTransaction = sourceId.includes('mainnet') || ['ethereum', 'bitcoin', 'solana'].includes(sourceId);
+    if (isBlockchainTransaction && transaction.symbol && transaction.type === 'deposit') {
+      const scamCheck = detectScamFromSymbol(transaction.symbol);
+      if (scamCheck.isScam) {
+        scamNote = {
+          type: 'SCAM_TOKEN',
+          message: `🚨 Scam token detected: ${scamCheck.reason} - Do not interact`,
+          severity: 'error',
+          metadata: {
+            tokenSymbol: transaction.symbol,
+            amount: transaction.amount?.amount,
+            blockchain: sourceId,
+            scamReason: scamCheck.reason,
+            isKnownScamPattern: true
+          }
+        };
+      }
+    }
+
+    return {
+      ...transaction,
+      source: sourceId,
+      metadata: {
+        ...transaction.metadata,
+        importedAt: Date.now(),
+        verified: false,
+        note: scamNote
+      }
+    };
+  }
+
+  /**
+   * Link universal transactions to wallet addresses
+   */
+  private async linkUniversalTransactionsToWallets(transactions: UniversalTransaction[], blockchain: string): Promise<void> {
+    this.logger.info(`Linking ${transactions.length} universal transactions to wallet addresses for ${blockchain}`);
+
+    for (const transaction of transactions) {
+      try {
+        const { from: fromAddress, to: toAddress } = this.extractUniversalTransactionAddresses(transaction);
+
+        if (!fromAddress && !toAddress) {
+          continue;
+        }
+
+        // Find or create wallet for the addresses
+        if (fromAddress) {
+          await this.ensureWalletAddress(fromAddress, blockchain);
+        }
+        if (toAddress) {
+          await this.ensureWalletAddress(toAddress, blockchain);
+        }
+
+        // Link transaction to wallets is handled in TransactionService.saveManyUniversal
+      } catch (error) {
+        this.logger.warn(`Failed to link transaction ${transaction.id} to wallets: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+  }
+
+  /**
+   * Extract addresses from universal transaction
+   */
+  private extractUniversalTransactionAddresses(transaction: UniversalTransaction): { from: string | null; to: string | null } {
+    return {
+      from: transaction.from || null,
+      to: transaction.to || null
     };
   }
 
   async createBlockchainAdapters(options: BlockchainImportOptions): Promise<Array<{ adapter: IUniversalAdapter }>> {
     try {
-      const adapter = await this.blockchainAdapterFactory.createBlockchainAdapter(
-        options.blockchain.toLowerCase(),
-        this.explorerConfig
-      );
+      // Use the new universal approach
+      const config: BlockchainAdapterConfig = {
+        type: 'blockchain',
+        id: options.blockchain.toLowerCase(),
+        subType: 'rest',
+        network: options.network || 'mainnet'
+      };
+      
+      const adapter = await UniversalAdapterFactory.create(config, this.explorerConfig);
 
-      this.logger.info(`Created blockchain adapter: ${options.blockchain} (addresses: ${options.addresses.length}, network: ${options.network || 'mainnet'})`);
+      this.logger.info(`Created universal blockchain adapter: ${options.blockchain} (addresses: ${options.addresses.length}, network: ${options.network || 'mainnet'})`);
 
       return [{ adapter }];
     } catch (error) {
@@ -16427,7 +14683,7 @@ export class TransactionImporter {
       this.logger.info(`Starting import from ${adapterInfo.id}`);
 
       try {
-        const result = await this.importFromBlockchainAdapter(adapter as any, options.addresses, options.since);
+        const result = await this.importFromBlockchainAdapter(adapter, options.addresses, options.since);
         sourceResults.push(result);
         totalTransactions += result.transactions;
         totalNewTransactions += result.newTransactions;
@@ -16466,136 +14722,22 @@ export class TransactionImporter {
     };
   }
 
-  private async fetchTransactionsForAddresses(adapter: IBlockchainAdapter, addresses: string[], since?: number): Promise<CryptoTransaction[]> {
-    const rawTransactions: CryptoTransaction[] = [];
-
-    for (const address of addresses) {
-      this.logger.debug(`Fetching transactions for address: ${address}`);
-      const blockchainTxs = await adapter.getAddressTransactions(address, since);
-      const cryptoTxs = blockchainTxs.map(tx => adapter.convertToCryptoTransaction(tx, address));
-      rawTransactions.push(...cryptoTxs);
-      this.logger.debug(`Found ${blockchainTxs.length} transactions for ${address}`);
-    }
-
-    this.logger.debug(`Total ${rawTransactions.length} transactions fetched`);
-    return rawTransactions;
-  }
-
-  private async processAndSaveTransactions(rawTransactions: CryptoTransaction[], sourceId: string): Promise<{ transactions: EnhancedTransaction[]; saved: number; duplicates: EnhancedTransaction[] }> {
-    const transactions = rawTransactions.map(tx => this.enhanceTransaction(tx, sourceId));
-    const { unique, duplicates } = await this.deduplicator.process(transactions, sourceId);
-    const saved = await this.transactionService.saveMany(unique);
-
-    if (saved > 0 && sourceId !== 'exchange') {
-      try {
-        await this.linkTransactionsToWallets(unique, sourceId);
-      } catch (linkError) {
-        this.logger.warn(`Failed to link transactions to wallet addresses for ${sourceId}: ${linkError instanceof Error ? linkError.message : String(linkError)}`);
-      }
-    }
-
-    return { transactions, saved, duplicates };
-  }
-
-  private enhanceTransaction(transaction: any, exchangeId: string): EnhancedTransaction {
-    // Create a unique hash for deduplication
-    const hash = this.createTransactionHash(transaction, exchangeId);
-
-    // Detect scam tokens for blockchain transactions - ONLY flag obvious scam patterns
-    let note: TransactionNote | undefined = undefined;
-    const isBlockchainTransaction = exchangeId.includes('mainnet') || ['ethereum', 'bitcoin', 'solana'].includes(exchangeId);
-    if (isBlockchainTransaction && transaction.symbol && transaction.type === 'deposit') {
-      // Only check for direct scam patterns in token symbol (no airdrop detection)
-      const scamCheck = detectScamFromSymbol(transaction.symbol);
-
-      if (scamCheck.isScam) {
-        note = {
-          type: TransactionNoteType.SCAM_TOKEN,
-          message: `🚨 Scam token detected: ${scamCheck.reason} - Do not interact`,
-          severity: 'error' as const,
-          metadata: {
-            tokenSymbol: transaction.symbol,
-            amount: transaction.amount?.amount,
-            blockchain: exchangeId,
-            scamReason: scamCheck.reason,
-            isKnownScamPattern: true
-          }
-        };
-      }
-    }
-
-    return {
-      ...transaction,
-      source: exchangeId,
-      hash,
-      importedAt: Date.now(),
-      verified: false,
-      originalData: transaction.info || transaction,
-      note
-    };
-  }
-
-
-  private createTransactionHash(transaction: any, exchangeId: string): string {
-    // Create a hash from key transaction properties for deduplication
-    const hashData = JSON.stringify({
-      id: transaction.id,
-      timestamp: transaction.timestamp,
-      symbol: transaction.symbol,
-      amount: transaction.amount,
-      side: transaction.side,
-      type: transaction.type,
-      exchange: exchangeId
-    });
-
-    return crypto.createHash('sha256').update(hashData).digest('hex').slice(0, 16);
-  }
-
 
   /**
-   * Link transactions to wallet addresses by matching from/to addresses
+   * Ensure wallet address exists (helper method)
    */
-  private async linkTransactionsToWallets(transactions: EnhancedTransaction[], blockchain: string): Promise<void> {
-    this.logger.info(`Linking ${transactions.length} transactions to wallet addresses for ${blockchain}`);
-
-    for (const transaction of transactions) {
-      try {
-        // Extract from and to addresses from the transaction
-        const { from: fromAddress, to: toAddress } = this.extractTransactionAddresses(transaction);
-
-        if (!fromAddress && !toAddress) {
-          continue; // Skip transactions without addresses
-        }
-
-        // Link transaction to wallet addresses
-        await this.transactionService.linkTransactionToWallets(
-          transaction.id,
-          fromAddress || undefined,
-          toAddress || undefined
-        );
-
-      } catch (error) {
-        this.logger.warn(`Failed to link transaction ${transaction.id} to wallets: ${error instanceof Error ? error.message : String(error)}`);
-      }
+  private async ensureWalletAddress(address: string, blockchain: string): Promise<void> {
+    try {
+      // Use the wallet service to create wallet address
+      await this.walletService.createWalletAddressFromTransaction(address, blockchain, {
+        label: `${blockchain} wallet (auto-created)`,
+        addressType: 'personal',
+        notes: `Auto-created during transaction import for ${blockchain}`
+      });
+    } catch (error) {
+      // Ignore errors if wallet already exists
+      this.logger.debug(`Wallet for address ${address} may already exist: ${error}`);
     }
-  }
-
-  /**
-   * Extract transaction addresses from various data sources
-   */
-  private extractTransactionAddresses(transaction: EnhancedTransaction): { from: string | null; to: string | null } {
-    const sources = [transaction.originalData, transaction.info];
-
-    let from: string | null = null;
-    let to: string | null = null;
-
-    for (const source of sources) {
-      if (source?.from && !from) from = source.from;
-      if (source?.to && !to) to = source.to;
-      if (from && to) break;
-    }
-
-    return { from, to };
   }
 
   /**
@@ -16618,5 +14760,4 @@ export class TransactionImporter {
 
     await Promise.allSettled(createPromises);
   }
-
 }
