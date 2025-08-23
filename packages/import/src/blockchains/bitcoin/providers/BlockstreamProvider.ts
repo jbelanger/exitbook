@@ -6,25 +6,8 @@ import { BaseRegistryProvider } from "../../shared/registry/base-registry-provid
 import { RegisterProvider } from "../../shared/registry/decorators.ts";
 import type { ProviderOperation } from "../../shared/types.ts";
 import { hasAddressParam } from "../../shared/types.ts";
-import type { AddressInfo, BlockstreamTransaction } from "../types.ts";
+import type { AddressInfo, BlockstreamAddressInfo, BlockstreamTransaction } from "../types.ts";
 
-interface BlockstreamAddressInfo {
-  address: string;
-  chain_stats: {
-    funded_txo_count: number;
-    funded_txo_sum: number;
-    spent_txo_count: number;
-    spent_txo_sum: number;
-    tx_count: number;
-  };
-  mempool_stats: {
-    funded_txo_count: number;
-    funded_txo_sum: number;
-    spent_txo_count: number;
-    spent_txo_sum: number;
-    tx_count: number;
-  };
-}
 
 @RegisterProvider({
   name: "blockstream.info",

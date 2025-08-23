@@ -219,3 +219,53 @@ export interface SolanaTokenAccount {
 export interface SolanaTokenAccountsResponse {
   value: SolanaTokenAccount[];
 }
+
+// Helius provider-specific types
+export interface HeliusTransaction {
+  signature: string;
+  slot: number;
+  blockTime?: number;
+  err: unknown;
+  meta: {
+    fee: number;
+    preBalances: number[];
+    postBalances: number[];
+    preTokenBalances?: SolanaTokenBalance[];
+    postTokenBalances?: SolanaTokenBalance[];
+    logMessages: string[];
+    err: unknown;
+  };
+  transaction: {
+    message: {
+      accountKeys: string[];
+      instructions: unknown[];
+      recentBlockhash: string;
+    };
+    signatures: string[];
+  };
+}
+
+export interface HeliusAssetResponse {
+  content: {
+    metadata: {
+      symbol?: string;
+      name?: string;
+      description?: string;
+    };
+  };
+}
+
+export interface HeliusSignatureResponse {
+  signature: string;
+  slot: number;
+  err: unknown;
+  memo: string;
+  blockTime?: number;
+}
+
+// Solscan provider-specific types
+export interface SolscanResponse<T = any> {
+  success: boolean;
+  data?: T;
+  message?: string;
+}

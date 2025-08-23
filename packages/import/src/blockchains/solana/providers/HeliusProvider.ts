@@ -7,62 +7,15 @@ import { BaseRegistryProvider } from "../../shared/registry/base-registry-provid
 import { RegisterProvider } from "../../shared/registry/decorators.ts";
 import { ProviderOperation, JsonRpcResponse } from "../../shared/types.ts";
 import { isValidSolanaAddress, lamportsToSol } from "../utils.ts";
-import type { SolanaSignature, SolanaAccountBalance, SolanaTokenAccountsResponse } from "../types.ts";
+import type { 
+  HeliusAssetResponse,
+  HeliusSignatureResponse,
+  HeliusTransaction,
+  SolanaAccountBalance,
+  SolanaSignature,
+  SolanaTokenAccountsResponse,
+} from "../types.ts";
 
-interface HeliusTransaction {
-  signature: string;
-  slot: number;
-  blockTime?: number;
-  err: unknown;
-  meta: {
-    fee: number;
-    preBalances: number[];
-    postBalances: number[];
-    preTokenBalances?: TokenBalance[];
-    postTokenBalances?: TokenBalance[];
-    logMessages: string[];
-    err: unknown;
-  };
-  transaction: {
-    message: {
-      accountKeys: string[];
-      instructions: unknown[];
-      recentBlockhash: string;
-    };
-    signatures: string[];
-  };
-}
-
-interface TokenBalance {
-  accountIndex: number;
-  mint: string;
-  owner: string;
-  programId?: string;
-  uiTokenAmount: {
-    amount: string;
-    decimals: number;
-    uiAmount: number;
-    uiAmountString: string;
-  };
-}
-
-interface HeliusAssetResponse {
-  content: {
-    metadata: {
-      symbol?: string;
-      name?: string;
-      description?: string;
-    };
-  };
-}
-
-interface SignatureResponse {
-  signature: string;
-  slot: number;
-  err: unknown;
-  memo: string;
-  blockTime?: number;
-}
 
 @RegisterProvider({
   name: "helius",
@@ -376,7 +329,7 @@ export class HeliusProvider extends BaseRegistryProvider {
     for (const tokenAccount of tokenAccountAddresses) {
       try {
         // Get signatures for this token account
-        const signaturesResponse = await this.httpClient.post<JsonRpcResponse<SignatureResponse[]>>("/", {
+        const signaturesResponse = await this.httpClient.post<JsonRpcResponse<HeliusSignatureResponse[]>>("/", {
           jsonrpc: "2.0",
           id: 1,
           method: "getSignaturesForAddress",
@@ -673,7 +626,7 @@ export class HeliusProvider extends BaseRegistryProvider {
 
     try {
       // Get signatures for address (same as regular transactions)
-      const signaturesResponse = await this.httpClient.post<JsonRpcResponse<SignatureResponse[]>>("/", {
+      const signaturesResponse = await this.httpClient.post<JsonRpcResponse<HeliusSignatureResponse[]>>("/", {
         jsonrpc: "2.0",
         id: 1,
         method: "getSignaturesForAddress",
