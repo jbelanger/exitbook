@@ -5,6 +5,7 @@ import { Decimal } from 'decimal.js';
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
 import { RegisterProvider } from '../../shared/registry/decorators.ts';
 import type { ProviderOperation } from '../../shared/types.ts';
+import { hasAddressParam } from '../../shared/types.ts';
 import type { SnowtraceApiResponse, SnowtraceBalanceResponse, SnowtraceInternalTransaction, SnowtraceTokenTransfer, SnowtraceTransaction } from '../types.ts';
 import { isValidAvalancheAddress } from '../types.ts';
 
@@ -85,7 +86,7 @@ export class SnowtraceProvider extends BaseRegistryProvider {
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${'address' in operation.params && typeof operation.params.address === 'string' ? maskAddress(operation.params.address) : 'N/A'}`);
+    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${hasAddressParam(operation) ? maskAddress(operation.params.address) : 'N/A'}`);
 
     try {
       switch (operation.type) {
