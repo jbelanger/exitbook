@@ -1,7 +1,7 @@
 import { Decimal } from "decimal.js";
 
 import type { BlockchainTransaction } from "@crypto/core";
-import { createMoney, maskAddress } from "@crypto/shared-utils";
+import { createMoney, maskAddress, hasStringProperty, isErrorWithMessage } from "@crypto/shared-utils";
 
 import { BaseRegistryProvider } from "../../shared/registry/base-registry-provider.ts";
 import { RegisterProvider } from "../../shared/registry/decorators.ts";
@@ -63,10 +63,10 @@ export class BlockCypherProvider extends BaseRegistryProvider {
   async isHealthy(): Promise<boolean> {
     try {
       const response = await this.httpClient.get<{name?: string}>("/");
-      return response && typeof response === "object" && "name" in response;
+      return hasStringProperty(response, 'name');
     } catch (error) {
       this.logger.warn(
-        `Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`,
+        `Health check failed - Error: ${isErrorWithMessage(error) ? error.message : String(error)}`,
       );
       return false;
     }
@@ -79,10 +79,10 @@ export class BlockCypherProvider extends BaseRegistryProvider {
       this.logger.debug(
         `Connection test successful - ChainInfo: ${chainInfo?.name || "Unknown"}`,
       );
-      return chainInfo && typeof chainInfo === "object" && "name" in chainInfo;
+      return hasStringProperty(chainInfo, 'name');
     } catch (error) {
       this.logger.error(
-        `Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`,
+        `Connection test failed - Error: ${isErrorWithMessage(error) ? error.message : String(error)}`,
       );
       return false;
     }
