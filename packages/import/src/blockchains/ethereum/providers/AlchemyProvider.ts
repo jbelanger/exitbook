@@ -13,6 +13,15 @@ import {
   ProviderOperation,
 } from "../../shared/types.ts";
 import { hasAddressParam, JsonRpcResponse } from "../../shared/types.ts";
+import type {
+  AlchemyAssetTransfer,
+  AlchemyAssetTransferParams,
+  AlchemyAssetTransfersResponse,
+  AlchemyTokenBalance,
+  AlchemyTokenBalanceParams,
+  AlchemyTokenBalancesResponse,
+  AlchemyTokenMetadata,
+} from "../types.ts";
 
 const logger = getLogger("AlchemyProvider");
 
@@ -24,62 +33,6 @@ export interface AlchemyConfig {
   retries?: number;
 }
 
-interface AlchemyAssetTransferParams {
-  fromAddress?: string;
-  toAddress?: string;
-  category: string[];
-  withMetadata: boolean;
-  excludeZeroValue: boolean;
-  maxCount: string;
-  order?: string;
-  contractAddresses?: string[];
-}
-
-interface AlchemyTokenBalanceParams {
-  address: string;
-  tokenType: string;
-  contractAddresses?: string[];
-}
-
-interface AlchemyAssetTransfer {
-  from: string;
-  to: string;
-  value: string;
-  blockNum: string;
-  hash: string;
-  category: string;
-  asset?: string;
-  rawContract?: {
-    address?: string;
-    decimal?: string;
-  };
-  metadata?: {
-    blockTimestamp?: string;
-  };
-}
-
-interface AlchemyAssetTransfersResponse {
-  transfers: AlchemyAssetTransfer[];
-  pageKey?: string;
-}
-
-interface AlchemyTokenBalance {
-  contractAddress: string;
-  tokenBalance: string;
-  error?: string;
-}
-
-interface AlchemyTokenBalancesResponse {
-  address: string;
-  tokenBalances: AlchemyTokenBalance[];
-}
-
-interface AlchemyTokenMetadata {
-  decimals: number;
-  logo?: string;
-  name?: string;
-  symbol?: string;
-}
 
 export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
   readonly name = "alchemy";

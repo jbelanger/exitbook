@@ -142,3 +142,85 @@ export interface BlockstreamTransaction {
     block_time?: number;
   };
 }
+
+export interface BlockstreamAddressInfo {
+  address: string;
+  chain_stats: {
+    funded_txo_count: number;
+    funded_txo_sum: number;
+    spent_txo_count: number;
+    spent_txo_sum: number;
+    tx_count: number;
+  };
+  mempool_stats: {
+    funded_txo_count: number;
+    funded_txo_sum: number;
+    spent_txo_count: number;
+    spent_txo_sum: number;
+    tx_count: number;
+  };
+}
+
+// BlockCypher API response types
+export interface BlockCypherTransaction {
+  hash: string;
+  block_height: number;
+  block_hash: string;
+  block_index: number;
+  received: string; // ISO 8601 date
+  confirmed: string; // ISO 8601 date
+  confirmations: number;
+  double_spend: boolean;
+  inputs: Array<{
+    prev_hash: string;
+    output_index: number;
+    output_value: number;
+    sequence: number;
+    addresses: string[];
+    script_type: string;
+    age: number;
+  }>;
+  outputs: Array<{
+    value: number;
+    script: string;
+    addresses: string[];
+    script_type: string;
+  }>;
+  fees: number;
+  size: number;
+  vsize: number;
+  preference: string;
+  relayed_by: string;
+  confidence: number;
+  ver: number;
+  lock_time: number;
+  gas_limit?: number;
+  gas_used?: number;
+  gas_price?: number;
+}
+
+export interface BlockCypherAddress {
+  address: string;
+  total_received: number;
+  total_sent: number;
+  balance: number;
+  unconfirmed_balance: number;
+  final_balance: number;
+  n_tx: number;
+  unconfirmed_n_tx: number;
+  final_n_tx: number;
+  txrefs?: Array<{
+    tx_hash: string;
+    block_height: number;
+    tx_input_n: number;
+    tx_output_n: number;
+    value: number;
+    ref_balance: number;
+    spent: boolean;
+    confirmations: number;
+    confirmed: string;
+    double_spend: boolean;
+  }>;
+  hasMore?: boolean;
+  error?: string;
+}

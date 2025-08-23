@@ -8,15 +8,10 @@ import { RegisterProvider } from "../../shared/registry/index.ts";
 import type { ProviderOperation } from "../../shared/types.ts";
 import type {
   EtherscanInternalTransaction,
+  EtherscanResponse,
   EtherscanTokenTransfer,
   EtherscanTransaction,
 } from "../types.ts";
-
-interface EtherscanResponse<T = unknown> {
-  status: string;
-  message: string;
-  result: T;
-}
 
 @RegisterProvider({
   name: "etherscan",

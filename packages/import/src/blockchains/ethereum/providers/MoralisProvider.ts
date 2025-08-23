@@ -17,6 +17,15 @@ import {
   isTokenTransactionOperation,
   isTokenBalanceOperation,
 } from "../../shared/types.ts";
+import type {
+  MoralisDateToBlockResponse,
+  MoralisNativeBalance,
+  MoralisTokenBalance,
+  MoralisTokenTransfer,
+  MoralisTokenTransferResponse,
+  MoralisTransaction,
+  MoralisTransactionResponse,
+} from "../types.ts";
 
 const logger = getLogger("MoralisProvider");
 
@@ -28,67 +37,6 @@ export interface MoralisConfig {
   retries?: number;
 }
 
-// Moralis API response types
-interface MoralisTransaction {
-  hash: string;
-  nonce: string;
-  transaction_index: string;
-  from_address: string;
-  to_address: string;
-  value: string;
-  gas: string;
-  gas_price: string;
-  input: string;
-  receipt_cumulative_gas_used: string;
-  receipt_gas_used: string;
-  receipt_contract_address: string | null;
-  receipt_root: string;
-  receipt_status: string;
-  block_timestamp: string;
-  block_number: string;
-  block_hash: string;
-}
-
-interface MoralisTokenTransfer {
-  transaction_hash: string;
-  address: string;
-  block_timestamp: string;
-  block_number: string;
-  block_hash: string;
-  to_address: string;
-  from_address: string;
-  value: string;
-  token_name: string;
-  token_symbol: string;
-  token_logo: string;
-  token_decimals: string;
-  contract_type: string;
-}
-
-interface MoralisNativeBalance {
-  balance: string;
-}
-
-interface MoralisDateToBlockResponse {
-  block: number;
-}
-
-interface MoralisTransactionResponse {
-  result: MoralisTransaction[];
-}
-
-interface MoralisTokenTransferResponse {
-  result: MoralisTokenTransfer[];
-}
-
-interface MoralisTokenBalance {
-  token_address: string;
-  name: string;
-  symbol: string;
-  logo?: string;
-  decimals: number;
-  balance: string;
-}
 
 export class MoralisProvider implements IBlockchainProvider<MoralisConfig> {
   readonly name = "moralis";
