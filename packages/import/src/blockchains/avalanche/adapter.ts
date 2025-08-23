@@ -77,9 +77,10 @@ export class AvalancheAdapter extends BaseAdapter {
           "avalanche",
           {
             type: "getAddressTransactions",
-            params: { address, since: params.since },
+            address: address,
+            since: params.since,
             getCacheKey: (cacheParams) =>
-              `avax_tx_${(cacheParams as AddressTransactionParams).address}_${(cacheParams as AddressTransactionParams).since || "all"}`,
+              `avax_tx_${cacheParams.type === 'getAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getAddressTransactions' ? cacheParams.since || "all" : 'unknown'}`,
           },
         )) as BlockchainTransaction[];
 
@@ -90,9 +91,10 @@ export class AvalancheAdapter extends BaseAdapter {
             "avalanche",
             {
               type: "getTokenTransactions",
-              params: { address, since: params.since },
+              address: address,
+              since: params.since,
               getCacheKey: (cacheParams) =>
-                `avax_token_tx_${(cacheParams as TokenTransactionParams).address}_${(cacheParams as TokenTransactionParams).since || "all"}`,
+                `avax_token_tx_${cacheParams.type === 'getTokenTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getTokenTransactions' ? cacheParams.since || "all" : 'unknown'}`,
             },
           )) as BlockchainTransaction[];
         } catch (error) {
@@ -150,9 +152,9 @@ export class AvalancheAdapter extends BaseAdapter {
           "avalanche",
           {
             type: "getAddressBalance",
-            params: { address },
+            address: address,
             getCacheKey: (cacheParams) =>
-              `avax_balance_${(cacheParams as AddressBalanceParams).address}`,
+              `avax_balance_${cacheParams.type === 'getAddressBalance' ? cacheParams.address : 'unknown'}`,
           },
         )) as Balance[];
 

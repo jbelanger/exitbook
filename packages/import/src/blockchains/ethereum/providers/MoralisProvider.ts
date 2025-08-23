@@ -11,11 +11,6 @@ import {
   IBlockchainProvider,
   ProviderCapabilities,
   ProviderOperation,
-  hasAddressParam,
-  isAddressTransactionOperation,
-  isAddressBalanceOperation,
-  isTokenTransactionOperation,
-  isTokenBalanceOperation,
 } from "../../shared/types.ts";
 import type {
   MoralisDateToBlockResponse,
@@ -114,35 +109,23 @@ export class MoralisProvider implements IBlockchainProvider<MoralisConfig> {
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
     switch (operation.type) {
       case "getAddressTransactions":
-        if (isAddressTransactionOperation(operation)) {
-          return this.getAddressTransactions(
-            operation.params.address,
-            operation.params.since,
-          ) as Promise<T>;
-        }
-        break;
+        return this.getAddressTransactions(
+          operation.address,
+          operation.since,
+        ) as Promise<T>;
       case "getAddressBalance":
-        if (isAddressBalanceOperation(operation)) {
-          return this.getAddressBalance(operation.params.address) as Promise<T>;
-        }
-        break;
+        return this.getAddressBalance(operation.address) as Promise<T>;
       case "getTokenTransactions":
-        if (isTokenTransactionOperation(operation)) {
-          return this.getTokenTransactions(
-            operation.params.address,
-            operation.params.contractAddress,
-            operation.params.since,
-          ) as Promise<T>;
-        }
-        break;
+        return this.getTokenTransactions(
+          operation.address,
+          operation.contractAddress,
+          operation.since,
+        ) as Promise<T>;
       case "getTokenBalances":
-        if (isTokenBalanceOperation(operation)) {
-          return this.getTokenBalances(
-            operation.params.address,
-            operation.params.contractAddresses,
-          ) as Promise<T>;
-        }
-        break;
+        return this.getTokenBalances(
+          operation.address,
+          operation.contractAddresses,
+        ) as Promise<T>;
       default:
         throw new ServiceError(
           `Unsupported operation: ${operation.type}`,
@@ -150,11 +133,6 @@ export class MoralisProvider implements IBlockchainProvider<MoralisConfig> {
           operation.type,
         );
     }
-    throw new ServiceError(
-      `Invalid parameters for operation: ${operation.type}`,
-      this.name,
-      operation.type,
-    );
   }
 
   private async getAddressTransactions(
