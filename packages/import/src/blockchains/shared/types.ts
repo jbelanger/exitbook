@@ -75,7 +75,7 @@ export function isParseWalletTransactionOperation(operation: ProviderOperation<u
 }
 
 // Common JSON-RPC response interface for blockchain providers
-export interface JsonRpcResponse<T = any> {
+export interface JsonRpcResponse<T = unknown> {
   result: T;
   error?: { code: number; message: string };
   id?: number | string;
