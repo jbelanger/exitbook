@@ -6,14 +6,13 @@ import { createMoney, maskAddress } from "@crypto/shared-utils";
 import { BaseRegistryProvider } from "../../shared/registry/base-registry-provider.ts";
 import { RegisterProvider } from "../../shared/registry/decorators.ts";
 import type { ProviderOperation } from "../../shared/types.ts";
-import { 
+import {
   hasAddressParam,
   isAddressTransactionOperation,
-  isAddressBalanceOperation
+  isAddressBalanceOperation,
 } from "../../shared/types.ts";
 import type { SolscanResponse, SolscanTransaction } from "../types.ts";
 import { isValidSolanaAddress, lamportsToSol } from "../utils.ts";
-
 
 @RegisterProvider({
   name: "solscan",
@@ -118,7 +117,9 @@ export class SolscanProvider extends BaseRegistryProvider {
           if (isAddressTransactionOperation(operation)) {
             return this.getAddressTransactions(operation.params) as T;
           }
-          throw new Error(`Invalid params for getAddressTransactions operation`);
+          throw new Error(
+            `Invalid params for getAddressTransactions operation`,
+          );
         case "getAddressBalance":
           if (isAddressBalanceOperation(operation)) {
             return this.getAddressBalance(operation.params) as T;
@@ -150,9 +151,9 @@ export class SolscanProvider extends BaseRegistryProvider {
     );
 
     try {
-      const response = await this.httpClient.get<SolscanResponse<SolscanTransaction[]>>(
-        `/account/transaction?address=${address}&limit=100&offset=0`,
-      );
+      const response = await this.httpClient.get<
+        SolscanResponse<SolscanTransaction[]>
+      >(`/account/transaction?address=${address}&limit=100&offset=0`);
 
       this.logger.debug(
         `Solscan API response received - HasResponse: ${!!response}, Success: ${response?.success}, HasData: ${!!response?.data}, TransactionCount: ${response?.data?.length || 0}`,
@@ -210,7 +211,9 @@ export class SolscanProvider extends BaseRegistryProvider {
     );
 
     try {
-      const response = await this.httpClient.get<SolscanResponse<{ lamports: string }>>(`/account/${address}`);
+      const response = await this.httpClient.get<
+        SolscanResponse<{ lamports: string }>
+      >(`/account/${address}`);
 
       if (!response || !response.success || !response.data) {
         throw new Error("Failed to fetch balance from Solscan API");

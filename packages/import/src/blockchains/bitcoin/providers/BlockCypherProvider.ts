@@ -1,20 +1,28 @@
 import { Decimal } from "decimal.js";
 
 import type { BlockchainTransaction } from "@crypto/core";
-import { createMoney, maskAddress, hasStringProperty, isErrorWithMessage } from "@crypto/shared-utils";
+import {
+  createMoney,
+  maskAddress,
+  hasStringProperty,
+  isErrorWithMessage,
+} from "@crypto/shared-utils";
 
 import { BaseRegistryProvider } from "../../shared/registry/base-registry-provider.ts";
 import { RegisterProvider } from "../../shared/registry/decorators.ts";
 import type { ProviderOperation } from "../../shared/types.ts";
-import { 
+import {
   hasAddressParam,
   isAddressTransactionOperation,
   isAddressBalanceOperation,
   isAddressInfoOperation,
-  isParseWalletTransactionOperation
+  isParseWalletTransactionOperation,
 } from "../../shared/types.ts";
-import type { AddressInfo, BlockCypherAddress, BlockCypherTransaction } from "../types.ts";
-
+import type {
+  AddressInfo,
+  BlockCypherAddress,
+  BlockCypherTransaction,
+} from "../types.ts";
 
 @RegisterProvider({
   name: "blockcypher",
@@ -68,8 +76,8 @@ export class BlockCypherProvider extends BaseRegistryProvider {
 
   async isHealthy(): Promise<boolean> {
     try {
-      const response = await this.httpClient.get<{name?: string}>("/");
-      return hasStringProperty(response, 'name');
+      const response = await this.httpClient.get<{ name?: string }>("/");
+      return hasStringProperty(response, "name");
     } catch (error) {
       this.logger.warn(
         `Health check failed - Error: ${isErrorWithMessage(error) ? error.message : String(error)}`,
@@ -81,11 +89,11 @@ export class BlockCypherProvider extends BaseRegistryProvider {
   async testConnection(): Promise<boolean> {
     try {
       // Test with a simple endpoint that should always work
-      const chainInfo = await this.httpClient.get<{name?: string}>("/");
+      const chainInfo = await this.httpClient.get<{ name?: string }>("/");
       this.logger.debug(
         `Connection test successful - ChainInfo: ${chainInfo?.name || "Unknown"}`,
       );
-      return hasStringProperty(chainInfo, 'name');
+      return hasStringProperty(chainInfo, "name");
     } catch (error) {
       this.logger.error(
         `Connection test failed - Error: ${isErrorWithMessage(error) ? error.message : String(error)}`,
@@ -105,7 +113,9 @@ export class BlockCypherProvider extends BaseRegistryProvider {
           if (isAddressTransactionOperation(operation)) {
             return this.getAddressTransactions(operation.params) as T;
           }
-          throw new Error(`Invalid params for getAddressTransactions operation`);
+          throw new Error(
+            `Invalid params for getAddressTransactions operation`,
+          );
         case "getAddressBalance":
           if (isAddressBalanceOperation(operation)) {
             return this.getAddressBalance(operation.params) as T;
@@ -120,10 +130,12 @@ export class BlockCypherProvider extends BaseRegistryProvider {
           if (isParseWalletTransactionOperation(operation)) {
             return this.parseWalletTransaction({
               tx: operation.params.tx as BlockCypherTransaction,
-              walletAddresses: operation.params.walletAddresses
+              walletAddresses: operation.params.walletAddresses,
             }) as T;
           }
-          throw new Error(`Invalid params for parseWalletTransaction operation`);
+          throw new Error(
+            `Invalid params for parseWalletTransaction operation`,
+          );
         default:
           throw new Error(`Unsupported operation: ${operation.type}`);
       }

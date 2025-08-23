@@ -19,7 +19,6 @@ const EXPECTED_HEADERS = {
     "Operation Date,Status,Currency Ticker,Operation Type,Operation Amount,Operation Fees,Operation Hash,Account Name,Account xpub,Countervalue Ticker,Countervalue at Operation Date,Countervalue at CSV Export",
 };
 
-
 export class LedgerLiveCSVAdapter extends BaseAdapter {
   private cachedTransactions: CsvLedgerLiveOperationRow[] | null = null;
 

@@ -93,7 +93,6 @@ export interface SolanaRPCTransaction {
   blockTime: number;
 }
 
-
 /**
  * Solana transaction processing result
  */

@@ -59,6 +59,48 @@ export function createMoney(
 }
 
 /**
+ * Check if a Decimal value can be safely converted to number without precision loss
+ */
+export function canSafelyConvertToNumber(decimal: Decimal): boolean {
+  // Check if value exceeds JavaScript's safe integer range
+  if (decimal.abs().greaterThan(Number.MAX_SAFE_INTEGER)) {
+    return false;
+  }
+
+  // Check if conversion would lose precision by comparing string representations
+  const asNumber = decimal.toNumber();
+  const backToDecimal = new Decimal(asNumber);
+  return decimal.equals(backToDecimal);
+}
+
+/**
+ * Safely convert Decimal to number with precision validation
+ */
+export function safeDecimalToNumber(
+  decimal: Decimal,
+  options?: {
+    allowPrecisionLoss?: boolean;
+    warningCallback?: (message: string) => void;
+  },
+): number {
+  const { allowPrecisionLoss = false, warningCallback } = options || {};
+
+  if (!canSafelyConvertToNumber(decimal)) {
+    const message = `Precision loss detected converting Decimal to number: ${decimal.toString()} -> ${decimal.toNumber()}`;
+
+    if (warningCallback) {
+      warningCallback(message);
+    }
+
+    if (!allowPrecisionLoss) {
+      throw new Error(message);
+    }
+  }
+
+  return decimal.toNumber();
+}
+
+/**
  * Convert Money to a number for legacy compatibility (use with caution)
  */
 export function moneyToNumber(money: Money | number | undefined): number {
@@ -71,6 +113,27 @@ export function moneyToNumber(money: Money | number | undefined): number {
   }
 
   return money.amount.toNumber();
+}
+
+/**
+ * Safely convert Money to number with precision validation
+ */
+export function safeMoneyToNumber(
+  money: Money | number | undefined,
+  options?: {
+    allowPrecisionLoss?: boolean;
+    warningCallback?: (message: string) => void;
+  },
+): number {
+  if (typeof money === "number") {
+    return money;
+  }
+
+  if (!money) {
+    return 0;
+  }
+
+  return safeDecimalToNumber(money.amount, options);
 }
 
 /**
@@ -172,5 +235,73 @@ export function dbStringToMoney(
   return {
     amount: stringToDecimal(amount),
     currency,
+  };
+}
+
+/**
+ * Convert PrecisionBlockchainBalance to legacy BlockchainBalance (with precision loss warning)
+ */
+export function precisionBalanceToLegacy(
+  balance: import("@crypto/core").PrecisionBlockchainBalance,
+  options?: {
+    allowPrecisionLoss?: boolean;
+    warningCallback?: (message: string) => void;
+  },
+): import("@crypto/core").BlockchainBalance {
+  return {
+    currency: balance.currency,
+    balance: safeDecimalToNumber(balance.balance, options),
+    used: safeDecimalToNumber(balance.used, options),
+    total: safeDecimalToNumber(balance.total, options),
+    contractAddress: balance.contractAddress,
+  };
+}
+
+/**
+ * Convert legacy BlockchainBalance to PrecisionBlockchainBalance
+ */
+export function legacyBalanceToPrecision(
+  balance: import("@crypto/core").BlockchainBalance,
+): import("@crypto/core").PrecisionBlockchainBalance {
+  return {
+    currency: balance.currency,
+    balance: new Decimal(balance.balance),
+    used: new Decimal(balance.used),
+    total: new Decimal(balance.total),
+    contractAddress: balance.contractAddress,
+  };
+}
+
+/**
+ * Convert PrecisionUniversalBalance to legacy UniversalBalance (with precision loss warning)
+ */
+export function precisionUniversalBalanceToLegacy(
+  balance: import("@crypto/core").PrecisionUniversalBalance,
+  options?: {
+    allowPrecisionLoss?: boolean;
+    warningCallback?: (message: string) => void;
+  },
+): import("@crypto/core").UniversalBalance {
+  return {
+    currency: balance.currency,
+    total: safeDecimalToNumber(balance.total, options),
+    free: safeDecimalToNumber(balance.free, options),
+    used: safeDecimalToNumber(balance.used, options),
+    contractAddress: balance.contractAddress,
+  };
+}
+
+/**
+ * Convert legacy UniversalBalance to PrecisionUniversalBalance
+ */
+export function legacyUniversalBalanceToPrecision(
+  balance: import("@crypto/core").UniversalBalance,
+): import("@crypto/core").PrecisionUniversalBalance {
+  return {
+    currency: balance.currency,
+    total: new Decimal(balance.total),
+    free: new Decimal(balance.free),
+    used: new Decimal(balance.used),
+    contractAddress: balance.contractAddress,
   };
 }

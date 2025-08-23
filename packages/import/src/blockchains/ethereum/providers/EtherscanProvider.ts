@@ -10,7 +10,7 @@ import {
   isAddressTransactionOperation,
   isAddressBalanceOperation,
   isTokenTransactionOperation,
-  isTokenBalanceOperation
+  isTokenBalanceOperation,
 } from "../../shared/types.ts";
 import type {
   EtherscanInternalTransaction,
@@ -204,7 +204,8 @@ export class EtherscanProvider extends BaseRegistryProvider {
     const startblock = since ? Math.floor(since / 1000) : 0;
     const url = `?module=account&action=txlist&address=${address}&startblock=${startblock}&endblock=99999999&page=1&offset=10000&sort=asc&apikey=${this.apiKey}`;
 
-    const response = await this.httpClient.get<EtherscanResponse<EtherscanTransaction[]>>(url);
+    const response =
+      await this.httpClient.get<EtherscanResponse<EtherscanTransaction[]>>(url);
 
     if (response.status !== "1") {
       if (response.message === "No transactions found") {
@@ -229,7 +230,10 @@ export class EtherscanProvider extends BaseRegistryProvider {
     const startblock = since ? Math.floor(since / 1000) : 0;
     const url = `?module=account&action=txlistinternal&address=${address}&startblock=${startblock}&endblock=99999999&page=1&offset=10000&sort=asc&apikey=${this.apiKey}`;
 
-    const response = await this.httpClient.get<EtherscanResponse<EtherscanInternalTransaction[]>>(url);
+    const response =
+      await this.httpClient.get<
+        EtherscanResponse<EtherscanInternalTransaction[]>
+      >(url);
 
     if (response.status !== "1") {
       this.logger.debug(
@@ -270,7 +274,10 @@ export class EtherscanProvider extends BaseRegistryProvider {
     const startblock = since ? Math.floor(since / 1000) : 0;
     url += `&startblock=${startblock}&endblock=99999999&page=1&offset=10000&sort=asc&apikey=${this.apiKey}`;
 
-    const response = await this.httpClient.get<EtherscanResponse<EtherscanTokenTransfer[]>>(url);
+    const response =
+      await this.httpClient.get<EtherscanResponse<EtherscanTokenTransfer[]>>(
+        url,
+      );
 
     if (response.status !== "1") {
       this.logger.debug(

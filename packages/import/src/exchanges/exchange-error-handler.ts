@@ -228,13 +228,17 @@ export class ServiceErrorHandler {
     const details = {
       operation,
       exchange: exchangeId,
-      errorType: isErrorWithMessage(error) ? error.constructor.name : typeof error,
+      errorType: isErrorWithMessage(error)
+        ? error.constructor.name
+        : typeof error,
       message: errorProps.message,
       stack: isErrorWithMessage(error) ? error.stack : undefined,
       // Include CCXT-specific details if available
       ...(errorProps.code !== undefined ? { code: errorProps.code } : {}),
       ...(errorProps.status !== undefined ? { status: errorProps.status } : {}),
-      ...(errorProps.retryAfter !== undefined ? { retryAfter: errorProps.retryAfter } : {}),
+      ...(errorProps.retryAfter !== undefined
+        ? { retryAfter: errorProps.retryAfter }
+        : {}),
     };
 
     logger.error(details, "Detailed error information");
