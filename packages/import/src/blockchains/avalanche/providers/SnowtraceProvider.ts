@@ -12,7 +12,7 @@ import type {
   SnowtraceTokenTransfer,
   SnowtraceTransaction,
 } from "../types.ts";
-import { isValidAvalancheAddress } from "../types.ts";
+import { isValidAvalancheAddress } from "../utils.ts";
 
 @RegisterProvider({
   name: "snowtrace",
