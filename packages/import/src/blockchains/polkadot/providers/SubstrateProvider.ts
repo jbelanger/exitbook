@@ -18,7 +18,12 @@ import type {
 } from "../types.ts";
 import { SUBSTRATE_CHAINS } from "../types.ts";
 
-import { ProviderOperation } from "../../shared/types.ts";
+import { 
+  ProviderOperation,
+  isAddressTransactionOperation,
+  isAddressBalanceOperation,
+  hasAddressParam
+} from "../../shared/types.ts";
 import { isValidSS58Address } from "../utils.ts";
 
 @RegisterProvider({
@@ -155,21 +160,22 @@ export class SubstrateProvider extends BaseRegistryProvider {
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    const params = operation.params as { address: string; since?: number };
     this.logger.debug(
-      `Executing operation - Type: ${operation.type}, Address: ${params?.address ? maskAddress(params.address) : "N/A"}`,
+      `Executing operation - Type: ${operation.type}, Address: ${hasAddressParam(operation) ? maskAddress(operation.params.address) : "N/A"}`,
     );
 
     try {
       switch (operation.type) {
         case "getAddressTransactions":
-          return this.getAddressTransactions(
-            operation.params as { address: string; since?: number },
-          ) as T;
+          if (isAddressTransactionOperation(operation)) {
+            return this.getAddressTransactions(operation.params) as T;
+          }
+          throw new Error(`Invalid params for getAddressTransactions operation`);
         case "getAddressBalance":
-          return this.getAddressBalance(
-            operation.params as { address: string },
-          ) as T;
+          if (isAddressBalanceOperation(operation)) {
+            return this.getAddressBalance(operation.params) as T;
+          }
+          throw new Error(`Invalid params for getAddressBalance operation`);
         default:
           throw new Error(`Unsupported operation: ${operation.type}`);
       }
