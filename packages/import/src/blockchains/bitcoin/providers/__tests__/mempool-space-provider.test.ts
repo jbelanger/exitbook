@@ -397,12 +397,12 @@ describe("MempoolSpaceProvider", () => {
 
   describe("Rate Limiting", () => {
     it("should handle 429 responses with retry", async () => {
-      // First call returns 429
-      mockFetch.mockResolvedValueOnce({
+      // First call returns 429  
+      const mockResponse: Partial<Response> = {
         ok: false,
         status: 429,
         statusText: "Too Many Requests",
-        headers: new Map([["Retry-After", "2"]]),
+        headers: new Headers([["Retry-After", "2"]]),
         text: async () => "Rate limited",
         // Add missing Response properties
         redirected: false,
@@ -415,7 +415,8 @@ describe("MempoolSpaceProvider", () => {
         blob: vi.fn(),
         formData: vi.fn(),
         json: vi.fn(),
-      }) satisfies Partial<Response> as Response;
+      };
+      mockFetch.mockResolvedValueOnce(mockResponse as Response);
 
       // Second call succeeds
       mockFetch.mockResolvedValueOnce({
