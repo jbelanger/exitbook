@@ -124,7 +124,7 @@ export class BlockCypherProvider extends BaseRegistryProvider {
 
   async isHealthy(): Promise<boolean> {
     try {
-      const response = await this.httpClient.get("/");
+      const response = await this.httpClient.get<{name?: string}>("/");
       return response && typeof response === "object" && "name" in response;
     } catch (error) {
       this.logger.warn(
@@ -137,9 +137,9 @@ export class BlockCypherProvider extends BaseRegistryProvider {
   async testConnection(): Promise<boolean> {
     try {
       // Test with a simple endpoint that should always work
-      const chainInfo = await this.httpClient.get("/");
+      const chainInfo = await this.httpClient.get<{name?: string}>("/");
       this.logger.debug(
-        `Connection test successful - ChainInfo: ${chainInfo.name}`,
+        `Connection test successful - ChainInfo: ${chainInfo?.name || "Unknown"}`,
       );
       return chainInfo && typeof chainInfo === "object" && "name" in chainInfo;
     } catch (error) {

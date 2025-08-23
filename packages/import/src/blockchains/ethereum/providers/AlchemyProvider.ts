@@ -12,6 +12,7 @@ import {
   ProviderCapabilities,
   ProviderOperation,
 } from "../../shared/types.ts";
+import { hasAddressParam, JsonRpcResponse } from "../../shared/types.ts";
 
 const logger = getLogger("AlchemyProvider");
 
@@ -113,13 +114,13 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
   async isHealthy(): Promise<boolean> {
     try {
       // Test with a simple JSON-RPC call
-      const response = await this.httpClient.post("", {
+      const response = await this.httpClient.post<JsonRpcResponse<string>>("", {
         jsonrpc: "2.0",
         method: "eth_blockNumber",
         params: [],
         id: 1,
       });
-      return response && response.result;
+      return response && response.result !== undefined;
     } catch (error) {
       logger.warn(
         `Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`,
@@ -135,23 +136,35 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
     switch (operation.type) {
       case "getAddressTransactions":
-        return this.getAddressTransactions(
-          operation.params.address,
-          operation.params.since,
-        ) as Promise<T>;
+        {
+          const params = operation.params as { address: string; since?: number };
+          return this.getAddressTransactions(
+            params.address,
+            params.since,
+          ) as Promise<T>;
+        }
       case "getAddressBalance":
-        return this.getAddressBalance(operation.params.address) as Promise<T>;
+        {
+          const params = operation.params as { address: string };
+          return this.getAddressBalance(params.address) as Promise<T>;
+        }
       case "getTokenTransactions":
-        return this.getTokenTransactions(
-          operation.params.address,
-          operation.params.contractAddress,
-          operation.params.since,
-        ) as Promise<T>;
+        {
+          const params = operation.params as { address: string; contractAddress?: string; since?: number };
+          return this.getTokenTransactions(
+            params.address,
+            params.contractAddress,
+            params.since,
+          ) as Promise<T>;
+        }
       case "getTokenBalances":
-        return this.getTokenBalances(
-          operation.params.address,
-          operation.params.contractAddresses,
-        ) as Promise<T>;
+        {
+          const params = operation.params as { address: string; contractAddresses?: string[] };
+          return this.getTokenBalances(
+            params.address,
+            params.contractAddresses,
+          ) as Promise<T>;
+        }
       default:
         throw new ServiceError(
           `Unsupported operation: ${operation.type}`,
@@ -196,7 +209,7 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
   private async getAddressBalance(address: string): Promise<Balance[]> {
     try {
       // Get ETH balance
-      const ethBalanceResponse = await this.httpClient.post("", {
+      const ethBalanceResponse = await this.httpClient.post<JsonRpcResponse<string>>("", {
         jsonrpc: "2.0",
         method: "eth_getBalance",
         params: [address, "latest"],

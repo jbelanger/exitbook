@@ -5,9 +5,16 @@ import type { Balance, BlockchainTransaction } from "@crypto/core";
 import { createMoney, maskAddress } from "@crypto/shared-utils";
 import { BaseRegistryProvider } from "../../shared/registry/base-registry-provider.ts";
 import { RegisterProvider } from "../../shared/registry/decorators.ts";
-import { ProviderOperation } from "../../shared/types.ts";
+import type { ProviderOperation } from "../../shared/types.ts";
+import { hasAddressParam } from "../../shared/types.ts";
 import type { SolscanTransaction } from "../types.ts";
 import { isValidSolanaAddress, lamportsToSol } from "../utils.ts";
+
+interface SolscanResponse<T = any> {
+  success: boolean;
+  data?: T;
+  message?: string;
+}
 
 @RegisterProvider({
   name: "solscan",
@@ -72,7 +79,7 @@ export class SolscanProvider extends BaseRegistryProvider {
 
   async isHealthy(): Promise<boolean> {
     try {
-      const response = await this.httpClient.get(
+      const response = await this.httpClient.get<SolscanResponse>(
         "/account/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
       );
       return response && response.success !== false;
@@ -86,7 +93,7 @@ export class SolscanProvider extends BaseRegistryProvider {
 
   async testConnection(): Promise<boolean> {
     try {
-      const response = await this.httpClient.get(
+      const response = await this.httpClient.get<SolscanResponse>(
         "/account/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
       );
       this.logger.debug(
@@ -103,7 +110,7 @@ export class SolscanProvider extends BaseRegistryProvider {
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
     this.logger.debug(
-      `Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? maskAddress(operation.params.address) : "N/A"}`,
+      `Executing operation - Type: ${operation.type}, Address: ${hasAddressParam(operation) ? maskAddress(operation.params.address) : "N/A"}`,
     );
 
     try {
@@ -142,7 +149,7 @@ export class SolscanProvider extends BaseRegistryProvider {
     );
 
     try {
-      const response = await this.httpClient.get(
+      const response = await this.httpClient.get<SolscanResponse<SolscanTransaction[]>>(
         `/account/transaction?address=${address}&limit=100&offset=0`,
       );
 
@@ -202,7 +209,7 @@ export class SolscanProvider extends BaseRegistryProvider {
     );
 
     try {
-      const response = await this.httpClient.get(`/account/${address}`);
+      const response = await this.httpClient.get<SolscanResponse<{ lamports: string }>>(`/account/${address}`);
 
       if (!response || !response.success || !response.data) {
         throw new Error("Failed to fetch balance from Solscan API");
