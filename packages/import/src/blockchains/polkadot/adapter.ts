@@ -9,10 +9,7 @@ import type {
   UniversalTransaction,
 } from "@crypto/core";
 
-import type {
-  AddressTransactionParams,
-  AddressBalanceParams,
-} from "../shared/types.ts";
+// Parameter types removed - using discriminated union
 
 import { BaseAdapter } from "../../shared/adapters/base-adapter.ts";
 import { BlockchainProviderManager } from "../shared/blockchain-provider-manager.ts";

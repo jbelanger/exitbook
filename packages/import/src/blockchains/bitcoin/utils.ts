@@ -12,7 +12,7 @@ import type {
   XpubType,
 } from "./types.ts";
 import { BlockchainProviderManager } from "../shared/blockchain-provider-manager.ts";
-import type { AddressInfoParams } from "../shared/types.ts";
+// Parameter types removed - using discriminated union
 
 const logger = getLogger("BitcoinUtils");
 

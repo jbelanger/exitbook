@@ -92,7 +92,7 @@ export class BlockstreamProvider extends BaseRegistryProvider {
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
     this.logger.debug(
-      `Executing operation - Type: ${operation.type}, Address: ${operation.type !== "parseWalletTransaction" && operation.type !== "testConnection" ? maskAddress(operation.address) : "N/A"}`,
+      `Executing operation - Type: ${operation.type}, Address: ${"address" in operation ? maskAddress(operation.address as string) : "N/A"}`,
     );
 
     try {

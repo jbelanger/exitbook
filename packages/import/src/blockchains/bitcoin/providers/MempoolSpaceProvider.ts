@@ -5,14 +5,7 @@ import { createMoney, maskAddress } from "@crypto/shared-utils";
 import { BaseRegistryProvider } from "../../shared/registry/base-registry-provider.ts";
 import { RegisterProvider } from "../../shared/registry/decorators.ts";
 import type { ProviderOperation } from "../../shared/types.ts";
-import {
-  hasAddressParam,
-  isAddressTransactionOperation,
-  isAddressBalanceOperation,
-  isAddressInfoOperation,
-  isParseWalletTransactionOperation,
-  ParseWalletTransactionParams,
-} from "../../shared/types.ts";
+// Type guards no longer needed with discriminated union
 import type {
   AddressInfo,
   MempoolAddressInfo,
@@ -100,42 +93,40 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
     this.logger.debug(
-      `Executing operation - Type: ${operation.type}, Address: ${hasAddressParam(operation) ? maskAddress(operation.params.address) : "N/A"}`,
+      `Executing operation - Type: ${operation.type}, Address: ${"address" in operation ? maskAddress(operation.address as string) : "N/A"}`,
     );
 
     try {
       switch (operation.type) {
         case "getAddressTransactions":
+          return this.getAddressTransactions({
+            address: operation.address,
+            since: operation.since,
+          }) as T;
         case "getRawAddressTransactions":
-          if (isAddressTransactionOperation(operation)) {
-            return operation.type === "getAddressTransactions"
-              ? (this.getAddressTransactions(operation.params) as T)
-              : (this.getRawAddressTransactions(operation.params) as T);
-          }
-          throw new Error(`Invalid params for ${operation.type} operation`);
+          return this.getRawAddressTransactions({
+            address: operation.address,
+            since: operation.since,
+          }) as T;
         case "getAddressBalance":
-          if (isAddressBalanceOperation(operation)) {
-            return this.getAddressBalance(operation.params) as T;
-          }
-          throw new Error(`Invalid params for getAddressBalance operation`);
+          return this.getAddressBalance({
+            address: operation.address,
+          }) as T;
         case "getAddressInfo":
-          if (isAddressInfoOperation(operation)) {
-            return this.getAddressInfo(operation.params) as T;
-          }
-          throw new Error(`Invalid params for getAddressInfo operation`);
+          return this.getAddressInfo({
+            address: operation.address,
+          }) as T;
         case "parseWalletTransaction":
-          if (isParseWalletTransactionOperation(operation)) {
-            return this.parseWalletTransaction(operation.params) as T;
-          }
-          throw new Error(
-            `Invalid params for parseWalletTransaction operation`,
-          );
+          return this.parseWalletTransaction({
+            tx: operation.tx,
+            walletAddresses: operation.walletAddresses,
+          }) as T;
         default:
           throw new Error(`Unsupported operation: ${operation.type}`);
       }
     } catch (error) {
       this.logger.error(
-        `Operation execution failed - Type: ${operation.type}, Params: ${operation.params}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`,
+        `Operation execution failed - Type: ${operation.type}, Params: ${JSON.stringify(operation)}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`,
       );
       throw error;
     }
@@ -143,7 +134,7 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
 
   private async getAddressTransactions(params: {
     address: string;
-    since?: number;
+    since?: number | undefined;
   }): Promise<BlockchainTransaction[]> {
     const { address, since } = params;
 
@@ -215,7 +206,7 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
    */
   private async getRawAddressTransactions(params: {
     address: string;
-    since?: number;
+    since?: number | undefined;
   }): Promise<MempoolTransaction[]> {
     const { address, since } = params;
 
@@ -324,9 +315,10 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
   /**
    * Parse a mempool transaction considering multiple wallet addresses (for xpub scenarios)
    */
-  private parseWalletTransaction(
-    params: ParseWalletTransactionParams,
-  ): BlockchainTransaction {
+  private parseWalletTransaction(params: {
+    tx: unknown;
+    walletAddresses: string[];
+  }): BlockchainTransaction {
     const { tx, walletAddresses } = params;
 
     // Type assertion to MempoolTransaction for consistent access patterns

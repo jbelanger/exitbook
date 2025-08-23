@@ -4,9 +4,6 @@ import { BaseRegistryProvider } from "../../shared/registry/base-registry-provid
 import { RegisterProvider } from "../../shared/registry/decorators.ts";
 import {
   ProviderOperation,
-  isAddressBalanceOperation,
-  isTokenBalanceOperation,
-  hasAddressParam,
 } from "../../shared/types.ts";
 import type { InjectiveBalanceResponse } from "../types.ts";
 
@@ -90,27 +87,26 @@ export class InjectiveLCDProvider extends BaseRegistryProvider {
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
     this.logger.debug(
-      `Executing operation - Type: ${operation.type}, Address: ${hasAddressParam(operation) ? maskAddress(operation.params.address) : "N/A"}`,
+      `Executing operation - Type: ${operation.type}, Address: ${"address" in operation ? maskAddress(operation.address as string) : "N/A"}`,
     );
 
     try {
       switch (operation.type) {
         case "getAddressBalance":
-          if (isAddressBalanceOperation(operation)) {
-            return this.getAddressBalance(operation.params) as T;
-          }
-          throw new Error(`Invalid params for getAddressBalance operation`);
+          return this.getAddressBalance({
+            address: operation.address,
+          }) as T;
         case "getTokenBalances":
-          if (isTokenBalanceOperation(operation)) {
-            return this.getTokenBalances(operation.params) as T;
-          }
-          throw new Error(`Invalid params for getTokenBalances operation`);
+          return this.getTokenBalances({
+            address: operation.address,
+            contractAddresses: operation.contractAddresses,
+          }) as T;
         default:
           throw new Error(`Unsupported operation: ${operation.type}`);
       }
     } catch (error) {
       this.logger.error(
-        `Operation execution failed - Type: ${operation.type}, Params: ${operation.params}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`,
+        `Operation execution failed - Type: ${operation.type}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`,
       );
       throw error;
     }
@@ -163,7 +159,7 @@ export class InjectiveLCDProvider extends BaseRegistryProvider {
 
   private async getTokenBalances(params: {
     address: string;
-    contractAddresses?: string[];
+    contractAddresses?: string[] | undefined;
   }): Promise<Balance[]> {
     const { address, contractAddresses } = params;
 
