@@ -9,14 +9,14 @@ export interface StoredTransaction {
   timestamp: number;
   datetime?: string;
   symbol?: string;
-  amount: number;
+  amount: string;
   amount_currency?: string;
   side?: string;
-  price?: number;
+  price?: string;
   price_currency?: string;
-  cost?: number;
+  cost?: string;
   cost_currency?: string;
-  fee_cost?: number;
+  fee_cost?: string;
   fee_currency?: string;
   status?: string;
   from_address?: string;
