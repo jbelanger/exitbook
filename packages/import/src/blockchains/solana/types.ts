@@ -203,7 +203,7 @@ export interface HeliusSignatureResponse {
 }
 
 // Solscan provider-specific types
-export interface SolscanResponse<T = any> {
+export interface SolscanResponse<T = unknown> {
   success: boolean;
   data?: T;
   message?: string;
