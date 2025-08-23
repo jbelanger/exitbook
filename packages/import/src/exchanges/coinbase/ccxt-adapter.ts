@@ -10,25 +10,8 @@ import * as ccxt from "ccxt"; // Import all as ccxt to get access to types like 
 import { Decimal } from "decimal.js";
 import { BaseCCXTAdapter } from "../base-ccxt-adapter.ts";
 import type { CCXTTransaction } from "../../shared/utils/transaction-transformer.ts";
-import type { CoinbaseCredentials } from "./types.ts"; // Import from types.ts
+import type { CcxtCoinbaseAccount, CcxtCoinbaseAdapterOptions, CoinbaseCredentials } from "./types.ts";
 
-// Options for configuring the Coinbase adapter
-interface CoinbaseAdapterOptions {
-  enableOnlineVerification?: boolean;
-}
-
-// CoinbaseAccount extends ccxt.Account and customizes some types for internal use (Decimal for balance)
-interface CoinbaseAccount {
-  id: string;
-  currency: string;
-  balance: Decimal | number;
-  type: string;
-  code: string; // Required by ccxt.Account
-  info: ccxt.Balance; // Required by ccxt.Account
-  free?: number;
-  used?: number;
-  total?: number;
-}
 /**
  * Specialized Coinbase adapter that uses fetchLedger for comprehensive transaction data
  *
@@ -81,17 +64,17 @@ interface CoinbaseAccount {
  * - Transaction type extraction decisions
  */
 export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
-  private accounts: CoinbaseAccount[] | null = null;
+  private accounts: CcxtCoinbaseAccount[] | null = null;
 
   constructor(
     configOrCredentials: CoinbaseCredentials,
-    enableOnlineVerificationOrOptions?: CoinbaseAdapterOptions | boolean,
+    enableOnlineVerificationOrOptions?: CcxtCoinbaseAdapterOptions | boolean,
   ) {
     let enableOnlineVerification: boolean = false;
 
     const credentials = configOrCredentials;
     const options =
-      (enableOnlineVerificationOrOptions as CoinbaseAdapterOptions) || {};
+      (enableOnlineVerificationOrOptions as CcxtCoinbaseAdapterOptions) || {};
     enableOnlineVerification =
       typeof enableOnlineVerificationOrOptions === "boolean"
         ? enableOnlineVerificationOrOptions

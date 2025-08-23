@@ -199,3 +199,21 @@ export interface CoinbaseAccountsParams extends Record<string, unknown> {
   /** Pagination cursor from previous response */
   cursor?: string;
 }
+
+// CCXT-specific types for Coinbase adapter
+export interface CcxtCoinbaseAdapterOptions {
+  enableOnlineVerification?: boolean;
+}
+
+// CoinbaseAccount extends ccxt.Account and customizes some types for internal use (Decimal for balance)
+export interface CcxtCoinbaseAccount {
+  id: string;
+  currency: string;
+  balance: import("decimal.js").Decimal | number;
+  type: string;
+  code: string; // Required by ccxt.Account
+  info: import("ccxt").Balance; // Required by ccxt.Account
+  free?: number;
+  used?: number;
+  total?: number;
+}
