@@ -1,7 +1,8 @@
-import { describe, it, expect } from "vitest";
 import { Decimal } from "decimal.js";
+import { describe, expect, it } from "vitest";
+import { StoredTransaction } from '../../types/data-types.ts';
 import { BalanceCalculationService } from "../balance-calculation-service.js";
-import type { StoredTransaction } from "../types/data-types.js";
+
 
 describe("BalanceCalculationService Precision", () => {
   const service = new BalanceCalculationService();
@@ -15,21 +16,31 @@ describe("BalanceCalculationService Precision", () => {
     priceCurrency?: string,
     feeCost?: string,
     feeCurrency?: string,
-  ): StoredTransaction => ({
-    id: "test-id",
-    type,
-    timestamp: Date.now(),
-    amount,
-    amount_currency: amountCurrency,
-    side,
-    price: price || "0",
-    price_currency: priceCurrency,
-    fee_cost: feeCost || "0",
-    fee_currency: feeCurrency,
-    source: "test",
-    metadata: "{}",
-    created_at: new Date().toISOString(),
-  });
+  ): StoredTransaction => {
+    const transaction: StoredTransaction = {
+      id: "test-id",
+      exchange: "test-exchange",
+      type,
+      timestamp: Date.now(),
+      amount,
+      raw_data: JSON.stringify({
+        amount,
+        price,
+        fee_cost: feeCost,
+      }),
+      created_at: Date.now(),
+      hash: "test-hash",
+    };
+    
+    if (amountCurrency) transaction.amount_currency = amountCurrency;
+    if (side) transaction.side = side;
+    if (price) transaction.price = price;
+    if (priceCurrency) transaction.price_currency = priceCurrency;
+    if (feeCost) transaction.fee_cost = feeCost;
+    if (feeCurrency) transaction.fee_currency = feeCurrency;
+    
+    return transaction;
+  };
 
   describe("calculateExchangeBalancesWithPrecision", () => {
     it("should preserve high precision for deposit transactions", async () => {
