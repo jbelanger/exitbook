@@ -1,23 +1,26 @@
-import type { Money } from '@crypto/core';
-import { Decimal } from 'decimal.js';
+import type { Money } from "@crypto/core";
+import { Decimal } from "decimal.js";
 
 // Configure Decimal.js for cryptocurrency precision
 // Most cryptocurrencies use up to 18 decimal places, so we set precision high
 Decimal.set({
-  precision: 28,  // High precision for crypto calculations
-  rounding: Decimal.ROUND_HALF_UP,  // Standard rounding
-  toExpNeg: -7,   // Use exponential notation for numbers smaller than 1e-7
-  toExpPos: 21,   // Use exponential notation for numbers larger than 1e+21
-  maxE: 9e15,     // Maximum exponent
-  minE: -9e15,    // Minimum exponent
-  modulo: Decimal.ROUND_HALF_UP
+  precision: 28, // High precision for crypto calculations
+  rounding: Decimal.ROUND_HALF_UP, // Standard rounding
+  toExpNeg: -7, // Use exponential notation for numbers smaller than 1e-7
+  toExpPos: 21, // Use exponential notation for numbers larger than 1e+21
+  maxE: 9e15, // Maximum exponent
+  minE: -9e15, // Minimum exponent
+  modulo: Decimal.ROUND_HALF_UP,
 });
 
 /**
  * Try to parse a string or number to a Decimal
  */
-export function tryParseDecimal(value: string | number | undefined | null, out?: { value: Decimal }): boolean {
-  if (value === undefined || value === null || value === '') {
+export function tryParseDecimal(
+  value: string | number | undefined | null,
+  out?: { value: Decimal },
+): boolean {
+  if (value === undefined || value === null || value === "") {
     if (out) out.value = new Decimal(0);
     return true;
   }
@@ -34,7 +37,9 @@ export function tryParseDecimal(value: string | number | undefined | null, out?:
 /**
  * Parse a string or number to a Decimal with fallback to zero
  */
-export function parseDecimal(value: string | number | undefined | null): Decimal {
+export function parseDecimal(
+  value: string | number | undefined | null,
+): Decimal {
   const result = { value: new Decimal(0) };
   tryParseDecimal(value, result);
   return result.value;
@@ -43,10 +48,13 @@ export function parseDecimal(value: string | number | undefined | null): Decimal
 /**
  * Create a Money object with proper decimal parsing
  */
-export function createMoney(amount: string | number | undefined | null, currency: string): Money {
+export function createMoney(
+  amount: string | number | undefined | null,
+  currency: string,
+): Money {
   return {
     amount: parseDecimal(amount),
-    currency: currency || 'unknown'
+    currency: currency || "unknown",
   };
 }
 
@@ -54,7 +62,7 @@ export function createMoney(amount: string | number | undefined | null, currency
  * Convert Money to a number for legacy compatibility (use with caution)
  */
 export function moneyToNumber(money: Money | number | undefined): number {
-  if (typeof money === 'number') {
+  if (typeof money === "number") {
     return money;
   }
 
@@ -68,8 +76,11 @@ export function moneyToNumber(money: Money | number | undefined): number {
 /**
  * Convert Decimal to string with appropriate precision for display
  */
-export function formatDecimal(decimal: Decimal, maxDecimalPlaces: number = 8): string {
-  return decimal.toFixed(maxDecimalPlaces).replace(/\.?0+$/, '');
+export function formatDecimal(
+  decimal: Decimal,
+  maxDecimalPlaces: number = 8,
+): string {
+  return decimal.toFixed(maxDecimalPlaces).replace(/\.?0+$/, "");
 }
 
 /**
@@ -77,12 +88,14 @@ export function formatDecimal(decimal: Decimal, maxDecimalPlaces: number = 8): s
  */
 export function addMoney(a: Money, b: Money): Money {
   if (a.currency !== b.currency) {
-    throw new Error(`Cannot add different currencies: ${a.currency} and ${b.currency}`);
+    throw new Error(
+      `Cannot add different currencies: ${a.currency} and ${b.currency}`,
+    );
   }
 
   return {
     amount: a.amount.plus(b.amount),
-    currency: a.currency
+    currency: a.currency,
   };
 }
 
@@ -91,19 +104,24 @@ export function addMoney(a: Money, b: Money): Money {
  */
 export function subtractMoney(a: Money, b: Money): Money {
   if (a.currency !== b.currency) {
-    throw new Error(`Cannot subtract different currencies: ${a.currency} and ${b.currency}`);
+    throw new Error(
+      `Cannot subtract different currencies: ${a.currency} and ${b.currency}`,
+    );
   }
 
   return {
     amount: a.amount.minus(b.amount),
-    currency: a.currency
+    currency: a.currency,
   };
 }
 
 /**
  * Compare Money objects for equality
  */
-export function moneyEquals(a: Money | undefined, b: Money | undefined): boolean {
+export function moneyEquals(
+  a: Money | undefined,
+  b: Money | undefined,
+): boolean {
   if (!a && !b) return true;
   if (!a || !b) return false;
 
@@ -120,7 +138,9 @@ export function isZeroMoney(money: Money | undefined): boolean {
 /**
  * Convert Decimal to string for database storage (preserves full precision)
  */
-export function decimalToString(decimal: Decimal | undefined | null): string | null {
+export function decimalToString(
+  decimal: Decimal | undefined | null,
+): string | null {
   if (!decimal) return null;
   return decimal.toString();
 }
@@ -144,10 +164,13 @@ export function moneyToDbString(money: Money | undefined): string | null {
 /**
  * Convert database string back to Money object
  */
-export function dbStringToMoney(amount: string | null, currency: string | null): Money | undefined {
+export function dbStringToMoney(
+  amount: string | null,
+  currency: string | null,
+): Money | undefined {
   if (!amount || !currency) return undefined;
   return {
     amount: stringToDecimal(amount),
-    currency
+    currency,
   };
 }

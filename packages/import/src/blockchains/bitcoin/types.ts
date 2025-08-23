@@ -1,18 +1,18 @@
-import type { HDKey } from '@scure/bip32';
+import type { HDKey } from "@scure/bip32";
 
 // Bitcoin provider-specific API response types
-export type XpubType = 'xpub' | 'ypub' | 'zpub' | 'address';
-export type BipStandard = 'bip44' | 'bip49' | 'bip84';
-export type AddressType = 'legacy' | 'segwit' | 'bech32';
+export type XpubType = "xpub" | "ypub" | "zpub" | "address";
+export type BipStandard = "bip44" | "bip49" | "bip84";
+export type AddressType = "legacy" | "segwit" | "bech32";
 
 export interface BitcoinWalletAddress {
-  address: string;           // Original user-provided address (xpub or regular)
-  type: XpubType;           // Type of address
+  address: string; // Original user-provided address (xpub or regular)
+  type: XpubType; // Type of address
   derivedAddresses?: string[]; // Internal derived addresses (if xpub)
-  bipStandard?: BipStandard;   // Detected BIP standard
-  addressType?: AddressType;   // Detected address type
-  derivationPath?: string;     // Derivation path used
-  addressGap?: number;         // Address gap used for derivation
+  bipStandard?: BipStandard; // Detected BIP standard
+  addressType?: AddressType; // Detected address type
+  derivationPath?: string; // Derivation path used
+  addressGap?: number; // Address gap used for derivation
 }
 
 export interface SmartDetectionResult {

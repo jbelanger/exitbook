@@ -1,5 +1,10 @@
-import type { CreateWalletAddressRequest, UpdateWalletAddressRequest, WalletAddress, WalletAddressQuery } from '../types/data-types.js';
-import { Database } from '../storage/database.ts';
+import type {
+  CreateWalletAddressRequest,
+  UpdateWalletAddressRequest,
+  WalletAddress,
+  WalletAddressQuery,
+} from "../types/data-types.js";
+import { Database } from "../storage/database.ts";
 
 export class WalletRepository {
   private database: Database;
@@ -12,7 +17,10 @@ export class WalletRepository {
     return this.database.addWalletAddress(request);
   }
 
-  async update(id: number, updates: UpdateWalletAddressRequest): Promise<WalletAddress | null> {
+  async update(
+    id: number,
+    updates: UpdateWalletAddressRequest,
+  ): Promise<WalletAddress | null> {
     return this.database.updateWalletAddress(id, updates);
   }
 
@@ -20,12 +28,21 @@ export class WalletRepository {
     return this.database.getWalletAddress(id);
   }
 
-  async findByAddress(address: string, blockchain: string): Promise<WalletAddress | null> {
+  async findByAddress(
+    address: string,
+    blockchain: string,
+  ): Promise<WalletAddress | null> {
     return this.database.findWalletAddressByAddress(address, blockchain);
   }
 
-  async findByAddressNormalized(normalizedAddress: string, blockchain: string): Promise<WalletAddress | null> {
-    return this.database.findWalletAddressByAddressNormalized(normalizedAddress, blockchain);
+  async findByAddressNormalized(
+    normalizedAddress: string,
+    blockchain: string,
+  ): Promise<WalletAddress | null> {
+    return this.database.findWalletAddressByAddressNormalized(
+      normalizedAddress,
+      blockchain,
+    );
   }
 
   async findAll(query?: WalletAddressQuery): Promise<WalletAddress[]> {
@@ -35,5 +52,4 @@ export class WalletRepository {
   async delete(id: number): Promise<boolean> {
     return this.database.deleteWalletAddress(id);
   }
-
 }
