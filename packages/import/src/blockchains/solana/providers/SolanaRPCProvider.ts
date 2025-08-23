@@ -5,7 +5,8 @@ import type { Balance, BlockchainTransaction } from "@crypto/core";
 import { createMoney, maskAddress } from "@crypto/shared-utils";
 import { BaseRegistryProvider } from "../../shared/registry/base-registry-provider.ts";
 import { RegisterProvider } from "../../shared/registry/decorators.ts";
-import { ProviderOperation } from "../../shared/types.ts";
+import type { ProviderOperation } from "../../shared/types.ts";
+import { hasAddressParam, JsonRpcResponse } from "../../shared/types.ts";
 import type { SolanaRPCTransaction } from "../types.ts";
 import { isValidSolanaAddress, lamportsToSol } from "../utils.ts";
 

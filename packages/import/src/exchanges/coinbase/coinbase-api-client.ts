@@ -156,7 +156,7 @@ export class CoinbaseAPIClient {
       const response = await this.getAccountLedger(accountId, {
         ...params,
         ...(cursor && { cursor }),
-        limit: params.limit ?? 100, // Default to maximum page size
+        limit: (params.limit as number | undefined) ?? 100, // Default to maximum page size
       });
 
       if (response.ledger && response.ledger.length > 0) {

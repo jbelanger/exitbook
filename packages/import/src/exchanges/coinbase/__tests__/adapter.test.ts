@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, vi, type MockedFunction, type MockedClass } from "vitest";
 import { Decimal } from "decimal.js";
 import { CoinbaseAdapter } from "../adapter.js";
 import { CoinbaseAPIClient } from "../coinbase-api-client.js";
@@ -59,7 +59,7 @@ describe("CoinbaseAdapter", () => {
     } as unknown as CoinbaseAPIClient;
 
     (
-      CoinbaseAPIClient as vi.MockedClass<typeof CoinbaseAPIClient>
+      CoinbaseAPIClient as MockedClass<typeof CoinbaseAPIClient>
     ).mockImplementation(() => mockApiClient);
 
     adapter = new CoinbaseAdapter(config, credentials);

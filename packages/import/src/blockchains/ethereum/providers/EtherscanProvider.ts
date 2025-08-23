@@ -6,11 +6,18 @@ import { createMoney } from "@crypto/shared-utils";
 import { BaseRegistryProvider } from "../../shared/registry/base-registry-provider.ts";
 import { RegisterProvider } from "../../shared/registry/index.ts";
 import type { ProviderOperation } from "../../shared/types.ts";
+import { hasAddressParam } from "../../shared/types.ts";
 import type {
   EtherscanInternalTransaction,
   EtherscanTokenTransfer,
   EtherscanTransaction,
 } from "../types.ts";
+
+interface EtherscanResponse<T = any> {
+  status: string;
+  message: string;
+  result: T;
+}
 
 @RegisterProvider({
   name: "etherscan",
@@ -61,13 +68,13 @@ export class EtherscanProvider extends BaseRegistryProvider {
   async isHealthy(): Promise<boolean> {
     try {
       // Test with a simple API call to check chain status
-      const response = await this.httpClient.get(
+      const response = await this.httpClient.get<EtherscanResponse<string>>(
         `?module=proxy&action=eth_blockNumber&apikey=${this.apiKey}`,
       );
       this.logger.debug(`Health check response`);
 
       // For proxy calls, success is indicated by having a result, not status='1'
-      return response && response.result;
+      return response && response.result !== undefined;
     } catch (error) {
       this.logger.warn(
         `Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`,
