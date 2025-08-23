@@ -2,7 +2,12 @@ import type { Balance } from "@crypto/core";
 import { maskAddress, parseDecimal } from "@crypto/shared-utils";
 import { BaseRegistryProvider } from "../../shared/registry/base-registry-provider.ts";
 import { RegisterProvider } from "../../shared/registry/decorators.ts";
-import { ProviderOperation } from "../../shared/types.ts";
+import { 
+  ProviderOperation,
+  isAddressBalanceOperation,
+  isTokenBalanceOperation,
+  hasAddressParam
+} from "../../shared/types.ts";
 import type { InjectiveBalanceResponse } from "../types.ts";
 
 @RegisterProvider({
@@ -84,24 +89,22 @@ export class InjectiveLCDProvider extends BaseRegistryProvider {
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    const params = operation.params as { address: string; since?: number };
     this.logger.debug(
-      `Executing operation - Type: ${operation.type}, Address: ${params?.address ? maskAddress(params.address) : "N/A"}`,
+      `Executing operation - Type: ${operation.type}, Address: ${hasAddressParam(operation) ? maskAddress(operation.params.address) : "N/A"}`,
     );
 
     try {
       switch (operation.type) {
         case "getAddressBalance":
-          return this.getAddressBalance(
-            operation.params as { address: string },
-          ) as T;
+          if (isAddressBalanceOperation(operation)) {
+            return this.getAddressBalance(operation.params) as T;
+          }
+          throw new Error(`Invalid params for getAddressBalance operation`);
         case "getTokenBalances":
-          return this.getTokenBalances(
-            operation.params as {
-              address: string;
-              contractAddresses?: string[];
-            },
-          ) as T;
+          if (isTokenBalanceOperation(operation)) {
+            return this.getTokenBalances(operation.params) as T;
+          }
+          throw new Error(`Invalid params for getTokenBalances operation`);
         default:
           throw new Error(`Unsupported operation: ${operation.type}`);
       }
