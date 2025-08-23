@@ -175,7 +175,6 @@ describe("CoinbaseAPIClient", () => {
 
       await client.getAccounts({
         limit: 50,
-        // @ts-expect-error - testing runtime behavior
         invalidParam: null,
       } as any);
 

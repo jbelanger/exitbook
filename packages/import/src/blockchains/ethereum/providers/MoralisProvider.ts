@@ -11,6 +11,7 @@ import {
   IBlockchainProvider,
   ProviderCapabilities,
   ProviderOperation,
+  hasAddressParam,
 } from "../../shared/types.ts";
 
 const logger = getLogger("MoralisProvider");
