@@ -1,6 +1,6 @@
 /**
  * Type definitions for Ledger Live CSV data formats
- * 
+ *
  * These types define the structure of CSV exports from Ledger Live
  * operation data.
  */

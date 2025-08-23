@@ -6,13 +6,13 @@ import { createMoney, maskAddress } from "@crypto/shared-utils";
 import { BaseRegistryProvider } from "../../shared/registry/base-registry-provider.ts";
 import { RegisterProvider } from "../../shared/registry/decorators.ts";
 import type { ProviderOperation } from "../../shared/types.ts";
-import { 
+import {
   JsonRpcResponse,
   isAddressTransactionOperation,
   isAddressBalanceOperation,
   isTokenTransactionOperation,
   isTokenBalanceOperation,
-  hasAddressParam
+  hasAddressParam,
 } from "../../shared/types.ts";
 import type { SolanaRPCTransaction, SolanaSignature } from "../types.ts";
 import { isValidSolanaAddress, lamportsToSol } from "../utils.ts";
@@ -65,11 +65,14 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
 
   async isHealthy(): Promise<boolean> {
     try {
-      const response = await this.httpClient.post<JsonRpcResponse<string>>("/", {
-        jsonrpc: "2.0",
-        id: 1,
-        method: "getHealth",
-      });
+      const response = await this.httpClient.post<JsonRpcResponse<string>>(
+        "/",
+        {
+          jsonrpc: "2.0",
+          id: 1,
+          method: "getHealth",
+        },
+      );
       return response && response.result === "ok";
     } catch (error) {
       this.logger.warn(
@@ -81,11 +84,14 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
 
   async testConnection(): Promise<boolean> {
     try {
-      const response = await this.httpClient.post<JsonRpcResponse<string>>("/", {
-        jsonrpc: "2.0",
-        id: 1,
-        method: "getHealth",
-      });
+      const response = await this.httpClient.post<JsonRpcResponse<string>>(
+        "/",
+        {
+          jsonrpc: "2.0",
+          id: 1,
+          method: "getHealth",
+        },
+      );
       this.logger.debug(
         `Connection test successful - Health: ${response?.result}`,
       );
@@ -109,7 +115,9 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
           if (isAddressTransactionOperation(operation)) {
             return this.getAddressTransactions(operation.params) as T;
           }
-          throw new Error(`Invalid params for getAddressTransactions operation`);
+          throw new Error(
+            `Invalid params for getAddressTransactions operation`,
+          );
         case "getAddressBalance":
           if (isAddressBalanceOperation(operation)) {
             return this.getAddressBalance(operation.params) as T;
@@ -153,7 +161,9 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
     try {
       // Get signatures for address
       const signaturesResponse = await this.httpClient.post<
-        JsonRpcResponse<Array<{ signature: string; slot: number; blockTime?: number }>>
+        JsonRpcResponse<
+          Array<{ signature: string; slot: number; blockTime?: number }>
+        >
       >("/", {
         jsonrpc: "2.0",
         id: 1,
@@ -183,7 +193,9 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
       // Fetch transaction details
       for (const sig of signatures) {
         try {
-          const txResponse = await this.httpClient.post<JsonRpcResponse<SolanaRPCTransaction>>("/", {
+          const txResponse = await this.httpClient.post<
+            JsonRpcResponse<SolanaRPCTransaction>
+          >("/", {
             jsonrpc: "2.0",
             id: 1,
             method: "getTransaction",
@@ -242,7 +254,9 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
     );
 
     try {
-      const response = await this.httpClient.post<JsonRpcResponse<{value: number}>>("/", {
+      const response = await this.httpClient.post<
+        JsonRpcResponse<{ value: number }>
+      >("/", {
         jsonrpc: "2.0",
         id: 1,
         method: "getBalance",
@@ -355,7 +369,9 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
 
     try {
       // Get all signatures for this address (same as regular transactions)
-      const signaturesResponse = await this.httpClient.post<JsonRpcResponse<SolanaSignature[]>>("/", {
+      const signaturesResponse = await this.httpClient.post<
+        JsonRpcResponse<SolanaSignature[]>
+      >("/", {
         jsonrpc: "2.0",
         id: 1,
         method: "getSignaturesForAddress",
@@ -380,7 +396,9 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
       // Process signatures individually to find token transactions (avoid batch requests)
       for (const sig of signatures) {
         try {
-          const txResponse = await this.httpClient.post<JsonRpcResponse<SolanaRPCTransaction>>("/", {
+          const txResponse = await this.httpClient.post<
+            JsonRpcResponse<SolanaRPCTransaction>
+          >("/", {
             jsonrpc: "2.0",
             id: 1,
             method: "getTransaction",
@@ -441,26 +459,28 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
 
     try {
       // Get all token accounts owned by the address
-      const tokenAccountsResponse = await this.httpClient.post<JsonRpcResponse<{
-        value: Array<{
-          account: {
-            data: {
-              parsed: {
-                info: {
-                  mint: string;
-                  owner: string;
-                  tokenAmount: {
-                    amount: string;
-                    decimals: number;
-                    uiAmount: number;
-                    uiAmountString: string;
+      const tokenAccountsResponse = await this.httpClient.post<
+        JsonRpcResponse<{
+          value: Array<{
+            account: {
+              data: {
+                parsed: {
+                  info: {
+                    mint: string;
+                    owner: string;
+                    tokenAmount: {
+                      amount: string;
+                      decimals: number;
+                      uiAmount: number;
+                      uiAmountString: string;
+                    };
                   };
                 };
               };
             };
-          };
-        }>;
-      }>>("/", {
+          }>;
+        }>
+      >("/", {
         jsonrpc: "2.0",
         id: 1,
         method: "getTokenAccountsByOwner",

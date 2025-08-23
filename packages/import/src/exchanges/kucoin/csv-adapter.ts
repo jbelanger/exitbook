@@ -32,7 +32,6 @@ const EXPECTED_HEADERS = {
     "UID,Account Type,Currency,Side,Amount,Fee,Time(UTC),Remark,Type",
 };
 
-
 export class KuCoinCSVAdapter extends BaseAdapter {
   private cachedTransactions: CsvKuCoinRawData | null = null;
 

@@ -120,7 +120,8 @@ describe("BaseAdapter Validation Integration", () => {
       type: "invalid_type", // Invalid enum value
       source: "", // Empty string
     };
-    const invalidTransaction = invalidTransactionData as unknown as UniversalTransaction;
+    const invalidTransaction =
+      invalidTransactionData as unknown as UniversalTransaction;
 
     it("should process all valid transactions successfully", async () => {
       adapter.setMockTransactions([validTransaction]);

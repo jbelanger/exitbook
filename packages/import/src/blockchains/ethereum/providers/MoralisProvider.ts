@@ -37,7 +37,6 @@ export interface MoralisConfig {
   retries?: number;
 }
 
-
 export class MoralisProvider implements IBlockchainProvider<MoralisConfig> {
   readonly name = "moralis";
   readonly blockchain = "ethereum";
@@ -99,7 +98,7 @@ export class MoralisProvider implements IBlockchainProvider<MoralisConfig> {
       const response = await this.httpClient.get<MoralisDateToBlockResponse>(
         "/dateToBlock?chain=eth&date=2023-01-01T00:00:00.000Z",
       );
-      return response && typeof response.block === 'number';
+      return response && typeof response.block === "number";
     } catch (error) {
       logger.warn(
         `Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`,
@@ -237,7 +236,8 @@ export class MoralisProvider implements IBlockchainProvider<MoralisConfig> {
     }
 
     const endpoint = `/${address}?${params.toString()}`;
-    const response = await this.httpClient.get<MoralisTransactionResponse>(endpoint);
+    const response =
+      await this.httpClient.get<MoralisTransactionResponse>(endpoint);
 
     return (response.result || []).map((tx: MoralisTransaction) =>
       this.convertNativeTransaction(tx, address),
@@ -264,7 +264,8 @@ export class MoralisProvider implements IBlockchainProvider<MoralisConfig> {
     }
 
     const endpoint = `/${address}/erc20?${params.toString()}`;
-    const response = await this.httpClient.get<MoralisTokenTransferResponse>(endpoint);
+    const response =
+      await this.httpClient.get<MoralisTokenTransferResponse>(endpoint);
 
     return (response.result || []).map((tx: MoralisTokenTransfer) =>
       this.convertTokenTransfer(tx, address),

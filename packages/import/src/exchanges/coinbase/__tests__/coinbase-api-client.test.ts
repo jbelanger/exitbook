@@ -31,18 +31,18 @@ const mocks = vi.hoisted(() => {
     MockHttpClient,
     MockRateLimiterFactory,
     MockLogger,
-    
+
     injectIntoInstance(instance: object): void {
-      Object.defineProperty(instance, 'httpClient', {
+      Object.defineProperty(instance, "httpClient", {
         value: mockHttpClient,
         writable: true,
-        configurable: true
+        configurable: true,
       });
     },
 
     resetAll(): void {
       vi.clearAllMocks();
-    }
+    },
   };
 });
 
@@ -76,9 +76,9 @@ describe("CoinbaseAPIClient", () => {
 
     // Clear all mocks before creating new client
     mocks.resetAll();
-    
+
     client = new CoinbaseAPIClient(credentials);
-    
+
     // Inject mock HttpClient into the instance
     mocks.injectIntoInstance(client);
   });
@@ -93,7 +93,7 @@ describe("CoinbaseAPIClient", () => {
       const sandboxClient = new CoinbaseAPIClient(sandboxCredentials);
 
       expect(sandboxClient).toBeDefined();
-      
+
       // Check that HttpClient was called with sandbox URL
       const constructorCalls = mocks.MockHttpClient.mock.calls;
       const lastCall = constructorCalls[constructorCalls.length - 1];
@@ -105,7 +105,7 @@ describe("CoinbaseAPIClient", () => {
       const prodClient = new CoinbaseAPIClient(prodCredentials);
 
       expect(prodClient).toBeDefined();
-      
+
       // Check that HttpClient was called with production URL
       const constructorCalls = mocks.MockHttpClient.mock.calls;
       const lastCall = constructorCalls[constructorCalls.length - 1];
@@ -115,7 +115,7 @@ describe("CoinbaseAPIClient", () => {
     it("should configure appropriate rate limits", () => {
       // The HttpClient should have been called at least once
       expect(mocks.MockHttpClient).toHaveBeenCalled();
-      
+
       const httpClientConfig = mocks.MockHttpClient.mock.calls[0][0];
       expect(httpClientConfig.rateLimit).toEqual({
         requestsPerSecond: 10,
@@ -215,7 +215,7 @@ describe("CoinbaseAPIClient", () => {
         limit: 50,
         invalidParam: null,
       } as Parameters<typeof client.getAccounts>[0] & { invalidParam: null };
-      
+
       await client.getAccounts(testParams);
 
       expect(mocks.mockHttpClient.request).toHaveBeenCalledWith(
@@ -239,15 +239,14 @@ describe("CoinbaseAPIClient", () => {
       expect(headers["CB-ACCESS-TIMESTAMP"]).toBe("1640995260");
 
       // Signature should be different with different timestamp
-      const message =
-        "1640995260" + "GET" + "/api/v3/brokerage/accounts?" + "";
+      const message = "1640995260" + "GET" + "/api/v3/brokerage/accounts?" + "";
       const expectedSignature = crypto
         .createHmac("sha256", credentials.secret)
         .update(message)
         .digest("hex");
 
       expect(headers["CB-ACCESS-SIGN"]).toBe(expectedSignature);
-      
+
       dateSpy.mockRestore();
     });
   });
@@ -275,7 +274,9 @@ describe("CoinbaseAPIClient", () => {
         },
       ];
 
-      mocks.mockHttpClient.request.mockResolvedValue({ accounts: mockAccounts });
+      mocks.mockHttpClient.request.mockResolvedValue({
+        accounts: mockAccounts,
+      });
 
       const result = await client.getAccounts();
 
@@ -473,7 +474,7 @@ describe("CoinbaseAPIClient", () => {
       mocks.mockHttpClient.request.mockRejectedValue(error);
 
       await expect(client.getAccounts()).rejects.toThrow("HTTP 403: Forbidden");
-      
+
       // The authentication error logging is tested implicitly by the error being thrown
       // Since we're mocking the logger, we can't easily test the log content,
       // but the important thing is that the error is properly re-thrown

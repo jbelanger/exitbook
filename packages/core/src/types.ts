@@ -137,6 +137,18 @@ export interface BlockchainBalance {
   contractAddress?: string | undefined;
 }
 
+/**
+ * High-precision blockchain balance using Decimal for accurate financial calculations
+ * Recommended for new code to avoid precision loss in cryptocurrency amounts
+ */
+export interface PrecisionBlockchainBalance {
+  currency: string;
+  balance: Decimal; // Available/free amount with full precision
+  used: Decimal; // Used/frozen amount with full precision
+  total: Decimal; // Total balance (balance + used) with full precision
+  contractAddress?: string | undefined;
+}
+
 // Legacy alias for compatibility
 export type Balance = BlockchainBalance;
 
@@ -386,6 +398,18 @@ export interface UniversalBalance {
   total: number;
   free: number;
   used: number;
+  contractAddress?: string | undefined;
+}
+
+/**
+ * High-precision universal balance using Decimal for accurate financial calculations
+ * Recommended for new code to avoid precision loss in cryptocurrency amounts
+ */
+export interface PrecisionUniversalBalance {
+  currency: string;
+  total: Decimal;
+  free: Decimal;
+  used: Decimal;
   contractAddress?: string | undefined;
 }
 

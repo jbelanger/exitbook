@@ -64,7 +64,9 @@ describe("CoinbaseAdapter", () => {
     };
 
     // Mock the CoinbaseAPIClient constructor
-    const MockedCoinbaseAPIClient = CoinbaseAPIClient as unknown as ReturnType<typeof vi.fn>;
+    const MockedCoinbaseAPIClient = CoinbaseAPIClient as unknown as ReturnType<
+      typeof vi.fn
+    >;
     MockedCoinbaseAPIClient.mockImplementation(() => mockApiClient);
 
     adapter = new CoinbaseAdapter(config, credentials);

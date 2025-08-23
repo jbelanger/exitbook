@@ -12,7 +12,9 @@ export const logLevelsSchema = {
 
 // Define environment schema
 export const loggerEnvSchema = z.object({
-  NODE_ENV: z.enum(["production", "development", "test"]).default("development"),
+  NODE_ENV: z
+    .enum(["production", "development", "test"])
+    .default("development"),
   LOGGER_LOG_LEVEL: z
     .string()
     .refine((val: string) => Object.keys(logLevelsSchema).includes(val), {

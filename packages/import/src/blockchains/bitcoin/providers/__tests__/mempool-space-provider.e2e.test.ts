@@ -52,7 +52,6 @@ describe("MempoolSpaceProvider Integration", () => {
     }, 30000);
   });
 
-
   describe("Address Transactions", () => {
     const testAddress = "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2"; // Known address with transactions
 
@@ -76,7 +75,7 @@ describe("MempoolSpaceProvider Integration", () => {
 
     it("should return empty array for unused address", async () => {
       const unusedAddress = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"; // Genesis block address, unlikely to have new txs
-      
+
       const transactions = await provider.execute<BlockchainTransaction[]>({
         type: "getAddressTransactions",
         params: { address: unusedAddress },
@@ -102,10 +101,12 @@ describe("MempoolSpaceProvider Integration", () => {
     const testAddress = "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2";
 
     it("should fetch address balance successfully", async () => {
-      const result = await provider.execute<{ balance: string; token: string }>({
-        type: "getAddressBalance",
-        params: { address: testAddress },
-      });
+      const result = await provider.execute<{ balance: string; token: string }>(
+        {
+          type: "getAddressBalance",
+          params: { address: testAddress },
+        },
+      );
 
       expect(result).toHaveProperty("balance");
       expect(result).toHaveProperty("token", "BTC");
@@ -115,11 +116,13 @@ describe("MempoolSpaceProvider Integration", () => {
 
     it("should handle empty address balance", async () => {
       const emptyAddress = "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4"; // Empty bech32 address
-      
-      const result = await provider.execute<{ balance: string; token: string }>({
-        type: "getAddressBalance",
-        params: { address: emptyAddress },
-      });
+
+      const result = await provider.execute<{ balance: string; token: string }>(
+        {
+          type: "getAddressBalance",
+          params: { address: emptyAddress },
+        },
+      );
 
       expect(result).toEqual({
         balance: "0",
@@ -140,7 +143,7 @@ describe("MempoolSpaceProvider Integration", () => {
 
     it("should handle invalid address format gracefully", async () => {
       const invalidAddress = "invalid-address-format";
-      
+
       await expect(
         provider.execute({
           type: "getAddressBalance",
@@ -190,7 +193,7 @@ describe("MempoolSpaceProvider Integration", () => {
       // First get a real transaction to test with
       const testAddress = "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2";
       const rawTransactions = await provider.execute<MempoolTransaction[]>({
-        type: "getRawAddressTransactions", 
+        type: "getRawAddressTransactions",
         params: { address: testAddress },
       });
 
@@ -208,7 +211,12 @@ describe("MempoolSpaceProvider Integration", () => {
         expect(parsedTx).toHaveProperty("timestamp");
         expect(parsedTx).toHaveProperty("value");
         expect(parsedTx.value).toHaveProperty("currency", "BTC");
-        expect(["transfer_in", "transfer_out", "internal_transfer_in", "internal_transfer_out"]).toContain(parsedTx.type);
+        expect([
+          "transfer_in",
+          "transfer_out",
+          "internal_transfer_in",
+          "internal_transfer_out",
+        ]).toContain(parsedTx.type);
       }
     }, 30000);
   });
