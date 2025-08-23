@@ -1,35 +1,46 @@
-import { Decimal } from 'decimal.js';
+import { Decimal } from "decimal.js";
 
-import type { BlockchainTransaction } from '@crypto/core';
-import { createMoney, maskAddress } from '@crypto/shared-utils';
-import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
-import { RegisterProvider } from '../../shared/registry/decorators.ts';
-import { ProviderOperation, hasAddressParam, isParseWalletTransactionOperation } from '../../shared/types.ts';
-import type { ParseWalletTransactionParams } from '../../shared/types.ts';
-import type { AddressInfo, MempoolAddressInfo, MempoolTransaction } from '../types.ts';
+import type { BlockchainTransaction } from "@crypto/core";
+import { createMoney, maskAddress } from "@crypto/shared-utils";
+import { BaseRegistryProvider } from "../../shared/registry/base-registry-provider.ts";
+import { RegisterProvider } from "../../shared/registry/decorators.ts";
+import { ProviderOperation } from "../../shared/types.ts";
+import type { ParseWalletTransactionParams } from "../../shared/types.ts";
+import type {
+  AddressInfo,
+  MempoolAddressInfo,
+  MempoolTransaction,
+} from "../types.ts";
 
 @RegisterProvider({
-  name: 'mempool.space',
-  blockchain: 'bitcoin',
-  displayName: 'Mempool.space API',
-  type: 'rest',
+  name: "mempool.space",
+  blockchain: "bitcoin",
+  displayName: "Mempool.space API",
+  type: "rest",
   requiresApiKey: false,
-  description: 'Bitcoin blockchain explorer API with comprehensive transaction and balance data (no API key required)',
+  description:
+    "Bitcoin blockchain explorer API with comprehensive transaction and balance data (no API key required)",
   capabilities: {
-    supportedOperations: ['getAddressTransactions', 'getAddressBalance', 'getRawAddressTransactions', 'getAddressInfo', 'parseWalletTransaction'],
+    supportedOperations: [
+      "getAddressTransactions",
+      "getAddressBalance",
+      "getRawAddressTransactions",
+      "getAddressInfo",
+      "parseWalletTransaction",
+    ],
     maxBatchSize: 25,
     supportsHistoricalData: true,
     supportsPagination: true,
     supportsRealTimeData: true,
-    supportsTokenData: false
+    supportsTokenData: false,
   },
   networks: {
     mainnet: {
-      baseUrl: 'https://mempool.space/api'
+      baseUrl: "https://mempool.space/api",
     },
     testnet: {
-      baseUrl: 'https://mempool.space/testnet/api'
-    }
+      baseUrl: "https://mempool.space/testnet/api",
+    },
   },
   defaultConfig: {
     timeout: 10000,
@@ -38,24 +49,27 @@ import type { AddressInfo, MempoolAddressInfo, MempoolTransaction } from '../typ
       requestsPerSecond: 0.25, // Conservative: 1 request per 4 seconds
       requestsPerMinute: 15,
       requestsPerHour: 600,
-      burstLimit: 1
-    }
-  }
+      burstLimit: 1,
+    },
+  },
 })
 export class MempoolSpaceProvider extends BaseRegistryProvider {
-
   constructor() {
-    super('bitcoin', 'mempool.space', 'mainnet');
+    super("bitcoin", "mempool.space", "mainnet");
 
-    this.logger.debug(`Initialized MempoolSpaceProvider from registry metadata - Network: ${this.network}, BaseUrl: ${this.baseUrl}`);
+    this.logger.debug(
+      `Initialized MempoolSpaceProvider from registry metadata - Network: ${this.network}, BaseUrl: ${this.baseUrl}`,
+    );
   }
 
   async isHealthy(): Promise<boolean> {
     try {
-      const response = await this.httpClient.get<number>('/blocks/tip/height');
-      return typeof response === 'number' && response > 0;
+      const response = await this.httpClient.get<number>("/blocks/tip/height");
+      return typeof response === "number" && response > 0;
     } catch (error) {
-      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.warn(
+        `Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`,
+      );
       return false;
     }
   }
@@ -63,55 +77,85 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
   async testConnection(): Promise<boolean> {
     try {
       // Test with a simple endpoint that should always work
-      const blockHeight = await this.httpClient.get<number>('/blocks/tip/height');
-      this.logger.debug(`Connection test successful - CurrentBlockHeight: ${blockHeight}`);
-      return typeof blockHeight === 'number' && blockHeight > 0;
+      const blockHeight =
+        await this.httpClient.get<number>("/blocks/tip/height");
+      this.logger.debug(
+        `Connection test successful - CurrentBlockHeight: ${blockHeight}`,
+      );
+      return typeof blockHeight === "number" && blockHeight > 0;
     } catch (error) {
-      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(
+        `Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`,
+      );
       return false;
     }
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${hasAddressParam(operation) ? maskAddress(operation.params.address) : 'N/A'}`);
+    this.logger.debug(
+      `Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? maskAddress(operation.params.address) : "N/A"}`,
+    );
 
     try {
       switch (operation.type) {
-        case 'getAddressTransactions':
-          return this.getAddressTransactions(operation.params as { address: string; since?: number }) as T;
-        case 'getRawAddressTransactions':
-          return this.getRawAddressTransactions(operation.params as { address: string; since?: number }) as T;
-        case 'getAddressBalance':
-          return this.getAddressBalance(operation.params as { address: string }) as T;
-        case 'getAddressInfo':
-          return this.getAddressInfo(operation.params as { address: string }) as T;
-        case 'parseWalletTransaction':
-          return this.parseWalletTransaction(operation.params as ParseWalletTransactionParams) as T;
+        case "getAddressTransactions":
+          return this.getAddressTransactions(
+            operation.params as { address: string; since?: number },
+          ) as T;
+        case "getRawAddressTransactions":
+          return this.getRawAddressTransactions(
+            operation.params as { address: string; since?: number },
+          ) as T;
+        case "getAddressBalance":
+          return this.getAddressBalance(
+            operation.params as { address: string },
+          ) as T;
+        case "getAddressInfo":
+          return this.getAddressInfo(
+            operation.params as { address: string },
+          ) as T;
+        case "parseWalletTransaction":
+          return this.parseWalletTransaction(
+            operation.params as ParseWalletTransactionParams,
+          ) as T;
         default:
           throw new Error(`Unsupported operation: ${operation.type}`);
       }
     } catch (error) {
-      this.logger.error(`Operation execution failed - Type: ${operation.type}, Params: ${operation.params}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`);
+      this.logger.error(
+        `Operation execution failed - Type: ${operation.type}, Params: ${operation.params}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`,
+      );
       throw error;
     }
   }
 
-  private async getAddressTransactions(params: { address: string; since?: number }): Promise<BlockchainTransaction[]> {
+  private async getAddressTransactions(params: {
+    address: string;
+    since?: number;
+  }): Promise<BlockchainTransaction[]> {
     const { address, since } = params;
 
-    this.logger.debug(`Fetching address transactions - Address: ${maskAddress(address)}`);
+    this.logger.debug(
+      `Fetching address transactions - Address: ${maskAddress(address)}`,
+    );
 
     try {
       // Get transaction list directly - mempool.space returns full transaction objects, not just IDs
       // No need to check address info first as empty addresses will just return empty array
-      const rawTransactions = await this.httpClient.get<MempoolTransaction[]>(`/address/${address}/txs`);
+      const rawTransactions = await this.httpClient.get<MempoolTransaction[]>(
+        `/address/${address}/txs`,
+      );
 
       if (!Array.isArray(rawTransactions) || rawTransactions.length === 0) {
-        this.logger.debug(`No transactions found - Address: ${maskAddress(address)}`);
+        this.logger.debug(
+          `No transactions found - Address: ${maskAddress(address)}`,
+        );
         return [];
       }
 
-      this.logger.debug(`Retrieved transactions - Address: ${maskAddress(address)}, Count: ${rawTransactions.length}`);
+      this.logger.debug(
+        `Retrieved transactions - Address: ${maskAddress(address)}, Count: ${rawTransactions.length}`,
+      );
 
       // Transform the transactions directly since we already have the full data
       const transactions: BlockchainTransaction[] = [];
@@ -121,26 +165,35 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
           const blockchainTx = this.transformTransaction(tx, address);
           transactions.push(blockchainTx);
         } catch (error) {
-          this.logger.warn(`Failed to transform transaction - Txid: ${tx.txid}, Error: ${error instanceof Error ? error.message : String(error)}`);
+          this.logger.warn(
+            `Failed to transform transaction - Txid: ${tx.txid}, Error: ${error instanceof Error ? error.message : String(error)}`,
+          );
         }
       }
 
       // Filter by timestamp if 'since' is provided
       let filteredTransactions = transactions;
       if (since) {
-        filteredTransactions = transactions.filter(tx => tx.timestamp >= since);
-        this.logger.debug(`Filtered transactions by timestamp - OriginalCount: ${transactions.length}, FilteredCount: ${filteredTransactions.length}`);
+        filteredTransactions = transactions.filter(
+          (tx) => tx.timestamp >= since,
+        );
+        this.logger.debug(
+          `Filtered transactions by timestamp - OriginalCount: ${transactions.length}, FilteredCount: ${filteredTransactions.length}`,
+        );
       }
 
       // Sort by timestamp (newest first)
       filteredTransactions.sort((a, b) => b.timestamp - a.timestamp);
 
-      this.logger.debug(`Successfully retrieved address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${filteredTransactions.length}`);
+      this.logger.debug(
+        `Successfully retrieved address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${filteredTransactions.length}`,
+      );
 
       return filteredTransactions;
-
     } catch (error) {
-      this.logger.error(`Failed to get address transactions - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(
+        `Failed to get address transactions - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`,
+      );
       throw error;
     }
   }
@@ -148,78 +201,110 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
   /**
    * Get raw transaction data without transformation for wallet-aware parsing
    */
-  private async getRawAddressTransactions(params: { address: string; since?: number }): Promise<MempoolTransaction[]> {
+  private async getRawAddressTransactions(params: {
+    address: string;
+    since?: number;
+  }): Promise<MempoolTransaction[]> {
     const { address, since } = params;
 
-    this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
+    this.logger.debug(
+      `Fetching raw address transactions - Address: ${maskAddress(address)}`,
+    );
 
     try {
       // Get raw transaction list directly - mempool.space returns full transaction objects
       // No need to check address info first as empty addresses will just return empty array
-      const rawTransactions = await this.httpClient.get<MempoolTransaction[]>(`/address/${address}/txs`);
+      const rawTransactions = await this.httpClient.get<MempoolTransaction[]>(
+        `/address/${address}/txs`,
+      );
 
       if (!Array.isArray(rawTransactions) || rawTransactions.length === 0) {
-        this.logger.debug(`No raw transactions found - Address: ${maskAddress(address)}`);
+        this.logger.debug(
+          `No raw transactions found - Address: ${maskAddress(address)}`,
+        );
         return [];
       }
 
-      this.logger.debug(`Retrieved raw transactions - Address: ${maskAddress(address)}, Count: ${rawTransactions.length}`);
+      this.logger.debug(
+        `Retrieved raw transactions - Address: ${maskAddress(address)}, Count: ${rawTransactions.length}`,
+      );
 
       // Filter by timestamp if 'since' is provided
       let filteredTransactions = rawTransactions;
       if (since) {
-        filteredTransactions = rawTransactions.filter(tx => {
-          const timestamp = tx.status.confirmed && tx.status.block_time
-            ? tx.status.block_time * 1000
-            : Date.now();
+        filteredTransactions = rawTransactions.filter((tx) => {
+          const timestamp =
+            tx.status.confirmed && tx.status.block_time
+              ? tx.status.block_time * 1000
+              : Date.now();
           return timestamp >= since;
         });
 
-        this.logger.debug(`Filtered raw transactions by timestamp - OriginalCount: ${rawTransactions.length}, FilteredCount: ${filteredTransactions.length}`);
+        this.logger.debug(
+          `Filtered raw transactions by timestamp - OriginalCount: ${rawTransactions.length}, FilteredCount: ${filteredTransactions.length}`,
+        );
       }
 
       // Sort by timestamp (newest first)
       filteredTransactions.sort((a, b) => {
-        const timestampA = a.status.confirmed && a.status.block_time ? a.status.block_time : 0;
-        const timestampB = b.status.confirmed && b.status.block_time ? b.status.block_time : 0;
+        const timestampA =
+          a.status.confirmed && a.status.block_time ? a.status.block_time : 0;
+        const timestampB =
+          b.status.confirmed && b.status.block_time ? b.status.block_time : 0;
         return timestampB - timestampA;
       });
 
-      this.logger.debug(`Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${filteredTransactions.length}`);
+      this.logger.debug(
+        `Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${filteredTransactions.length}`,
+      );
 
       return filteredTransactions;
-
     } catch (error) {
-      this.logger.error(`Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(
+        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`,
+      );
       throw error;
     }
   }
 
-  private async getAddressBalance(params: { address: string }): Promise<{ balance: string; token: string }> {
+  private async getAddressBalance(params: {
+    address: string;
+  }): Promise<{ balance: string; token: string }> {
     const { address } = params;
 
-    this.logger.debug(`Fetching address balance - Address: ${maskAddress(address)}`);
+    this.logger.debug(
+      `Fetching address balance - Address: ${maskAddress(address)}`,
+    );
 
     try {
-      const addressInfo = await this.httpClient.get<MempoolAddressInfo>(`/address/${address}`);
+      const addressInfo = await this.httpClient.get<MempoolAddressInfo>(
+        `/address/${address}`,
+      );
 
       // Calculate current balance: funded amount - spent amount
-      const chainBalance = addressInfo.chain_stats.funded_txo_sum - addressInfo.chain_stats.spent_txo_sum;
-      const mempoolBalance = addressInfo.mempool_stats.funded_txo_sum - addressInfo.mempool_stats.spent_txo_sum;
+      const chainBalance =
+        addressInfo.chain_stats.funded_txo_sum -
+        addressInfo.chain_stats.spent_txo_sum;
+      const mempoolBalance =
+        addressInfo.mempool_stats.funded_txo_sum -
+        addressInfo.mempool_stats.spent_txo_sum;
       const totalBalanceSats = chainBalance + mempoolBalance;
 
       // Convert satoshis to BTC
       const balanceBTC = (totalBalanceSats / 100000000).toString();
 
-      this.logger.debug(`Successfully retrieved address balance - Address: ${maskAddress(address)}, BalanceSats: ${totalBalanceSats}`);
+      this.logger.debug(
+        `Successfully retrieved address balance - Address: ${maskAddress(address)}, BalanceSats: ${totalBalanceSats}`,
+      );
 
       return {
         balance: balanceBTC,
-        token: 'BTC'
+        token: "BTC",
       };
-
     } catch (error) {
-      this.logger.error(`Failed to get address balance - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(
+        `Failed to get address balance - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`,
+      );
       throw error;
     }
   }
@@ -227,20 +312,19 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
   /**
    * Parse a mempool transaction considering multiple wallet addresses (for xpub scenarios)
    */
-  private parseWalletTransaction(params: ParseWalletTransactionParams): BlockchainTransaction {
+  private parseWalletTransaction(
+    params: ParseWalletTransactionParams,
+  ): BlockchainTransaction {
     const { tx, walletAddresses } = params;
 
-    if (!isParseWalletTransactionOperation({ type: 'parseWalletTransaction', params })) {
-      throw new Error('Invalid operation type for parseWalletTransaction');
-    }
-
-    // Type assertion now that we've verified the operation type
+    // Type assertion to MempoolTransaction for consistent access patterns
     const mempoolTx = tx as MempoolTransaction;
 
     try {
-      const timestamp = mempoolTx.status.confirmed && mempoolTx.status.block_time
-        ? mempoolTx.status.block_time * 1000
-        : Date.now();
+      const timestamp =
+        mempoolTx.status.confirmed && mempoolTx.status.block_time
+          ? mempoolTx.status.block_time * 1000
+          : Date.now();
 
       // Calculate transaction value considering all wallet addresses
       let totalValueChange = 0;
@@ -250,7 +334,10 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
 
       // Check inputs - money going out of our wallet
       for (const input of mempoolTx.vin) {
-        if (input.prevout?.scriptpubkey_address && relevantAddresses.has(input.prevout.scriptpubkey_address)) {
+        if (
+          input.prevout?.scriptpubkey_address &&
+          relevantAddresses.has(input.prevout.scriptpubkey_address)
+        ) {
           isOutgoing = true;
           if (input.prevout?.value) {
             totalValueChange -= input.prevout.value;
@@ -260,37 +347,50 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
 
       // Check outputs - money coming into our wallet
       for (const output of mempoolTx.vout) {
-        if (output.scriptpubkey_address && relevantAddresses.has(output.scriptpubkey_address)) {
+        if (
+          output.scriptpubkey_address &&
+          relevantAddresses.has(output.scriptpubkey_address)
+        ) {
           isIncoming = true;
           totalValueChange += output.value;
         }
       }
 
       // Determine transaction type
-      let type: 'transfer_in' | 'transfer_out' | 'internal_transfer_in' | 'internal_transfer_out';
+      let type:
+        | "transfer_in"
+        | "transfer_out"
+        | "internal_transfer_in"
+        | "internal_transfer_out";
 
       if (isIncoming && !isOutgoing) {
-        type = 'transfer_in';
+        type = "transfer_in";
       } else if (isOutgoing && !isIncoming) {
-        type = 'transfer_out';
+        type = "transfer_out";
       } else if (isIncoming && isOutgoing) {
         // Internal transfer within our wallet - treat based on net change
-        type = totalValueChange >= 0 ? 'internal_transfer_in' : 'internal_transfer_out';
+        type =
+          totalValueChange >= 0
+            ? "internal_transfer_in"
+            : "internal_transfer_out";
       } else {
         // Neither incoming nor outgoing (shouldn't happen with proper filtering)
-        type = 'transfer_out';
+        type = "transfer_out";
       }
 
       const totalValue = Math.abs(totalValueChange);
       const fee = isOutgoing ? mempoolTx.fee : 0;
 
       // Determine from/to addresses (first relevant address found)
-      let fromAddress = '';
-      let toAddress = '';
+      let fromAddress = "";
+      let toAddress = "";
 
       // For from address, look for wallet addresses in inputs
       for (const input of mempoolTx.vin) {
-        if (input.prevout?.scriptpubkey_address && relevantAddresses.has(input.prevout.scriptpubkey_address)) {
+        if (
+          input.prevout?.scriptpubkey_address &&
+          relevantAddresses.has(input.prevout.scriptpubkey_address)
+        ) {
           fromAddress = input.prevout.scriptpubkey_address;
           break;
         }
@@ -298,41 +398,54 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
 
       // For to address, look for wallet addresses in outputs
       for (const output of mempoolTx.vout) {
-        if (output.scriptpubkey_address && relevantAddresses.has(output.scriptpubkey_address)) {
+        if (
+          output.scriptpubkey_address &&
+          relevantAddresses.has(output.scriptpubkey_address)
+        ) {
           toAddress = output.scriptpubkey_address;
           break;
         }
       }
 
       // Fallback to first addresses if no wallet addresses found
-      if (!fromAddress && mempoolTx.vin.length > 0 && mempoolTx.vin[0]?.prevout?.scriptpubkey_address) {
+      if (
+        !fromAddress &&
+        mempoolTx.vin.length > 0 &&
+        mempoolTx.vin[0]?.prevout?.scriptpubkey_address
+      ) {
         fromAddress = mempoolTx.vin[0].prevout.scriptpubkey_address;
       }
 
-      if (!toAddress && mempoolTx.vout.length > 0 && mempoolTx.vout[0]?.scriptpubkey_address) {
+      if (
+        !toAddress &&
+        mempoolTx.vout.length > 0 &&
+        mempoolTx.vout[0]?.scriptpubkey_address
+      ) {
         toAddress = mempoolTx.vout[0].scriptpubkey_address;
       }
 
       return {
         hash: mempoolTx.txid,
         blockNumber: mempoolTx.status.block_height || 0,
-        blockHash: mempoolTx.status.block_hash || '',
+        blockHash: mempoolTx.status.block_hash || "",
         timestamp,
         from: fromAddress,
         to: toAddress,
-        value: createMoney(totalValue / 100000000, 'BTC'),
-        fee: createMoney(fee / 100000000, 'BTC'),
+        value: createMoney(totalValue / 100000000, "BTC"),
+        fee: createMoney(fee / 100000000, "BTC"),
         gasUsed: undefined,
         gasPrice: undefined,
-        status: mempoolTx.status.confirmed ? 'success' : 'pending',
+        status: mempoolTx.status.confirmed ? "success" : "pending",
         type,
         tokenContract: undefined,
-        tokenSymbol: 'BTC',
+        tokenSymbol: "BTC",
         nonce: undefined,
-        confirmations: mempoolTx.status.confirmed ? 1 : 0
+        confirmations: mempoolTx.status.confirmed ? 1 : 0,
       };
     } catch (error) {
-      this.logger.error(`Failed to parse wallet transaction ${mempoolTx.txid} - Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}, TxData: ${JSON.stringify(mempoolTx)}`);
+      this.logger.error(
+        `Failed to parse wallet transaction ${mempoolTx.txid} - Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}, TxData: ${JSON.stringify(mempoolTx)}`,
+      );
       throw error;
     }
   }
@@ -340,43 +453,59 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
   /**
    * Get lightweight address info for efficient gap scanning
    */
-  private async getAddressInfo(params: { address: string }): Promise<AddressInfo> {
+  private async getAddressInfo(params: {
+    address: string;
+  }): Promise<AddressInfo> {
     const { address } = params;
 
-    this.logger.debug(`Fetching address info - Address: ${maskAddress(address)}`);
+    this.logger.debug(
+      `Fetching address info - Address: ${maskAddress(address)}`,
+    );
 
     try {
-      const addressInfo = await this.httpClient.get<MempoolAddressInfo>(`/address/${address}`);
+      const addressInfo = await this.httpClient.get<MempoolAddressInfo>(
+        `/address/${address}`,
+      );
 
       // Calculate transaction count
-      const txCount = addressInfo.chain_stats.tx_count + addressInfo.mempool_stats.tx_count;
+      const txCount =
+        addressInfo.chain_stats.tx_count + addressInfo.mempool_stats.tx_count;
 
       // Calculate current balance: funded amount - spent amount
-      const chainBalance = addressInfo.chain_stats.funded_txo_sum - addressInfo.chain_stats.spent_txo_sum;
-      const mempoolBalance = addressInfo.mempool_stats.funded_txo_sum - addressInfo.mempool_stats.spent_txo_sum;
+      const chainBalance =
+        addressInfo.chain_stats.funded_txo_sum -
+        addressInfo.chain_stats.spent_txo_sum;
+      const mempoolBalance =
+        addressInfo.mempool_stats.funded_txo_sum -
+        addressInfo.mempool_stats.spent_txo_sum;
       const totalBalanceSats = chainBalance + mempoolBalance;
 
       // Convert satoshis to BTC
       const balanceBTC = (totalBalanceSats / 100000000).toString();
 
-      this.logger.debug(`Successfully retrieved address info - Address: ${maskAddress(address)}`);
+      this.logger.debug(
+        `Successfully retrieved address info - Address: ${maskAddress(address)}`,
+      );
 
       return {
         txCount,
-        balance: balanceBTC
+        balance: balanceBTC,
       };
-
     } catch (error) {
-      this.logger.error(`Failed to get address info - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(
+        `Failed to get address info - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`,
+      );
       throw error;
     }
   }
 
-
-  private transformTransaction(tx: MempoolTransaction, userAddress?: string): BlockchainTransaction {
+  private transformTransaction(
+    tx: MempoolTransaction,
+    userAddress?: string,
+  ): BlockchainTransaction {
     // Calculate transaction value and determine type
     let valueAmount = new Decimal(0);
-    let type: BlockchainTransaction['type'] = 'transfer_in';
+    let type: BlockchainTransaction["type"] = "transfer_in";
 
     if (userAddress) {
       let inputValue = 0;
@@ -399,20 +528,20 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
       // Determine transaction type and value
       if (inputValue > 0 && outputValue === 0) {
         // Pure withdrawal: user sent money
-        type = 'transfer_out';
+        type = "transfer_out";
         valueAmount = new Decimal(inputValue).div(100000000);
       } else if (inputValue === 0 && outputValue > 0) {
         // Pure deposit: user received money
-        type = 'transfer_in';
+        type = "transfer_in";
         valueAmount = new Decimal(outputValue).div(100000000);
       } else if (inputValue > 0 && outputValue > 0) {
         // Mixed transaction: calculate net effect
         const netValue = outputValue - inputValue;
         if (netValue > 0) {
-          type = 'transfer_in';
+          type = "transfer_in";
           valueAmount = new Decimal(netValue).div(100000000);
         } else {
-          type = 'transfer_out';
+          type = "transfer_out";
           valueAmount = new Decimal(Math.abs(netValue)).div(100000000);
         }
       }
@@ -424,26 +553,23 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
 
     // Extract addresses
     const fromAddresses = tx.vin
-      .map(input => input.prevout?.scriptpubkey_address)
+      .map((input) => input.prevout?.scriptpubkey_address)
       .filter((addr): addr is string => addr !== undefined);
     const toAddresses = tx.vout
-      .map(output => output.scriptpubkey_address)
+      .map((output) => output.scriptpubkey_address)
       .filter((addr): addr is string => addr !== undefined);
 
     return {
       hash: tx.txid,
       blockNumber: tx.status.block_height || 0,
-      blockHash: tx.status.block_hash || '',
+      blockHash: tx.status.block_hash || "",
       timestamp: tx.status.block_time || Math.floor(Date.now() / 1000),
-      from: fromAddresses[0] || '',
-      to: toAddresses[0] || '',
-      value: { amount: valueAmount, currency: 'BTC' },
-      fee: { amount: new Decimal(tx.fee).div(100000000), currency: 'BTC' },
-      status: tx.status.confirmed ? 'success' : 'pending',
-      type
+      from: fromAddresses[0] || "",
+      to: toAddresses[0] || "",
+      value: { amount: valueAmount, currency: "BTC" },
+      fee: { amount: new Decimal(tx.fee).div(100000000), currency: "BTC" },
+      status: tx.status.confirmed ? "success" : "pending",
+      type,
     };
   }
-
-
-
 }

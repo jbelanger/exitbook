@@ -1,1 +1,4 @@
-export type { IBalanceService, ServiceCapabilities } from '../types/balance-types.js';
+export type {
+  IBalanceService,
+  ServiceCapabilities,
+} from "../types/balance-types.js";

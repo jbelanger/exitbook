@@ -1,10 +1,16 @@
-
-import type { RateLimitConfig } from '@crypto/core';
-import type { Logger } from '@crypto/shared-logger';
-import { getLogger } from '@crypto/shared-logger';
-import { HttpClient } from '@crypto/shared-utils';
-import type { IBlockchainProvider, ProviderCapabilities, ProviderOperation } from '../types.ts';
-import { ProviderRegistry, type ProviderMetadata } from './provider-registry.ts';
+import type { RateLimitConfig } from "@crypto/core";
+import type { Logger } from "@crypto/shared-logger";
+import { getLogger } from "@crypto/shared-logger";
+import { HttpClient } from "@crypto/shared-utils";
+import type {
+  IBlockchainProvider,
+  ProviderCapabilities,
+  ProviderOperation,
+} from "../types.ts";
+import {
+  ProviderRegistry,
+  type ProviderMetadata,
+} from "./provider-registry.ts";
 
 /**
  * Abstract base class for registry-based providers
@@ -18,15 +24,21 @@ export abstract class BaseRegistryProvider implements IBlockchainProvider {
   protected readonly baseUrl: string;
   protected readonly network: string;
 
-  constructor(blockchain: string, providerName: string, network: string = 'mainnet') {
+  constructor(
+    blockchain: string,
+    providerName: string,
+    network: string = "mainnet",
+  ) {
     // Get metadata from registry
     const metadata = ProviderRegistry.getMetadata(blockchain, providerName);
     if (!metadata) {
-      throw new Error(`Provider '${providerName}' not found in registry for blockchain '${blockchain}'`);
+      throw new Error(
+        `Provider '${providerName}' not found in registry for blockchain '${blockchain}'`,
+      );
     }
     this.metadata = metadata;
 
-    this.logger = getLogger(`${this.metadata.displayName.replace(/\s+/g, '')}`);
+    this.logger = getLogger(`${this.metadata.displayName.replace(/\s+/g, "")}`);
     this.network = network;
 
     // Get base URL for the specified network
@@ -41,10 +53,12 @@ export abstract class BaseRegistryProvider implements IBlockchainProvider {
       timeout: this.metadata.defaultConfig.timeout,
       retries: this.metadata.defaultConfig.retries,
       rateLimit: this.metadata.defaultConfig.rateLimit,
-      providerName: this.metadata.name
+      providerName: this.metadata.name,
     });
 
-    this.logger.debug(`Initialized ${this.metadata.displayName} - Network: ${this.network}, BaseUrl: ${this.baseUrl}, HasApiKey: ${this.apiKey !== 'YourApiKeyToken'}`);
+    this.logger.debug(
+      `Initialized ${this.metadata.displayName} - Network: ${this.network}, BaseUrl: ${this.baseUrl}, HasApiKey: ${this.apiKey !== "YourApiKeyToken"}`,
+    );
   }
 
   // Provider interface properties from metadata
@@ -75,14 +89,17 @@ export abstract class BaseRegistryProvider implements IBlockchainProvider {
 
   // Helper methods
   private getNetworkBaseUrl(network: string): string {
-    const networks = this.metadata.networks as Record<string, { baseUrl: string; websocketUrl?: string }>;
+    const networks = this.metadata.networks as Record<
+      string,
+      { baseUrl: string; websocketUrl?: string }
+    >;
     const networkConfig = networks[network];
 
     if (!networkConfig?.baseUrl) {
       const availableNetworks = Object.keys(this.metadata.networks);
       throw new Error(
         `Network '${network}' not supported by ${this.metadata.displayName}. ` +
-        `Available networks: ${availableNetworks.join(', ')}`
+          `Available networks: ${availableNetworks.join(", ")}`,
       );
     }
 
@@ -91,18 +108,20 @@ export abstract class BaseRegistryProvider implements IBlockchainProvider {
 
   private getApiKey(): string {
     if (!this.metadata.requiresApiKey) {
-      return '';
+      return "";
     }
 
-    const envVar = this.metadata.apiKeyEnvVar || `${this.metadata.name.toUpperCase()}_API_KEY`;
+    const envVar =
+      this.metadata.apiKeyEnvVar ||
+      `${this.metadata.name.toUpperCase()}_API_KEY`;
     const apiKey = process.env[envVar];
 
-    if (!apiKey || apiKey === 'YourApiKeyToken') {
+    if (!apiKey || apiKey === "YourApiKeyToken") {
       this.logger.warn(
         `No API key found for ${this.metadata.displayName}. ` +
-        `Set environment variable: ${envVar}`
+          `Set environment variable: ${envVar}`,
       );
-      return 'YourApiKeyToken';
+      return "YourApiKeyToken";
     }
 
     return apiKey;
@@ -110,11 +129,13 @@ export abstract class BaseRegistryProvider implements IBlockchainProvider {
 
   // Common validation helper
   protected validateApiKey(): void {
-    if (this.metadata.requiresApiKey && this.apiKey === 'YourApiKeyToken') {
-      const envVar = this.metadata.apiKeyEnvVar || `${this.metadata.name.toUpperCase()}_API_KEY`;
+    if (this.metadata.requiresApiKey && this.apiKey === "YourApiKeyToken") {
+      const envVar =
+        this.metadata.apiKeyEnvVar ||
+        `${this.metadata.name.toUpperCase()}_API_KEY`;
       throw new Error(
         `Valid API key required for ${this.metadata.displayName}. ` +
-        `Set environment variable: ${envVar}`
+          `Set environment variable: ${envVar}`,
       );
     }
   }
@@ -137,7 +158,7 @@ export abstract class BaseRegistryProvider implements IBlockchainProvider {
       retries: config.retries || this.metadata.defaultConfig.retries,
       rateLimit: config.rateLimit || this.metadata.defaultConfig.rateLimit,
       providerName: config.providerName || this.metadata.name,
-      ...(config.defaultHeaders && { defaultHeaders: config.defaultHeaders })
+      ...(config.defaultHeaders && { defaultHeaders: config.defaultHeaders }),
     };
 
     this.httpClient = new HttpClient(clientConfig);
