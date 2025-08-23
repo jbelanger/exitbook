@@ -1,10 +1,11 @@
-import type { StoredTransaction } from '../types/data-types.js';
-import { stringToDecimal } from '@crypto/shared-utils';
-import { Decimal } from 'decimal.js';
+import type { StoredTransaction } from "../types/data-types.js";
+import { stringToDecimal } from "@crypto/shared-utils";
+import { Decimal } from "decimal.js";
 
 export class BalanceCalculationService {
-
-  async calculateExchangeBalances(transactions: StoredTransaction[]): Promise<Record<string, number>> {
+  async calculateExchangeBalances(
+    transactions: StoredTransaction[],
+  ): Promise<Record<string, number>> {
     const balances: Record<string, Decimal> = {};
 
     for (const transaction of transactions) {
@@ -14,7 +15,10 @@ export class BalanceCalculationService {
     return this.cleanupDustBalances(balances);
   }
 
-  private processTransactionForBalance(transaction: StoredTransaction, balances: Record<string, Decimal>): void {
+  private processTransactionForBalance(
+    transaction: StoredTransaction,
+    balances: Record<string, Decimal>,
+  ): void {
     const type = transaction.type;
     const amount = stringToDecimal(String(transaction.amount));
     const amountCurrency = transaction.amount_currency;
@@ -24,45 +28,49 @@ export class BalanceCalculationService {
     const feeCost = stringToDecimal(String(transaction.fee_cost));
     const feeCurrency = transaction.fee_currency;
 
-    if (amountCurrency && !balances[amountCurrency]) balances[amountCurrency] = new Decimal(0);
-    if (priceCurrency && !balances[priceCurrency]) balances[priceCurrency] = new Decimal(0);
+    if (amountCurrency && !balances[amountCurrency])
+      balances[amountCurrency] = new Decimal(0);
+    if (priceCurrency && !balances[priceCurrency])
+      balances[priceCurrency] = new Decimal(0);
 
     switch (type) {
-      case 'deposit':
+      case "deposit":
         if (amountCurrency && balances[amountCurrency]) {
           balances[amountCurrency] = balances[amountCurrency].plus(amount);
         }
         break;
 
-      case 'withdrawal':
+      case "withdrawal":
         if (amountCurrency && balances[amountCurrency]) {
           balances[amountCurrency] = balances[amountCurrency].minus(amount);
         }
         break;
 
-      case 'fee':
+      case "fee":
         if (amountCurrency && balances[amountCurrency]) {
           balances[amountCurrency] = balances[amountCurrency].minus(amount);
         }
         break;
 
-      case 'trade':
-      case 'limit':
-      case 'market':
-        if (side === 'buy') {
+      case "trade":
+      case "limit":
+      case "market":
+        if (side === "buy") {
           if (amountCurrency && balances[amountCurrency]) {
             balances[amountCurrency] = balances[amountCurrency].plus(amount);
           }
           if (priceCurrency && !price.isZero()) {
-            if (!balances[priceCurrency]) balances[priceCurrency] = new Decimal(0);
+            if (!balances[priceCurrency])
+              balances[priceCurrency] = new Decimal(0);
             balances[priceCurrency] = balances[priceCurrency].minus(price);
           }
-        } else if (side === 'sell') {
+        } else if (side === "sell") {
           if (amountCurrency && balances[amountCurrency]) {
             balances[amountCurrency] = balances[amountCurrency].minus(amount);
           }
           if (priceCurrency && !price.isZero()) {
-            if (!balances[priceCurrency]) balances[priceCurrency] = new Decimal(0);
+            if (!balances[priceCurrency])
+              balances[priceCurrency] = new Decimal(0);
             balances[priceCurrency] = balances[priceCurrency].plus(price);
           }
         }
@@ -75,7 +83,9 @@ export class BalanceCalculationService {
     }
   }
 
-  private cleanupDustBalances(balances: Record<string, Decimal>): Record<string, number> {
+  private cleanupDustBalances(
+    balances: Record<string, Decimal>,
+  ): Record<string, number> {
     const cleanedBalances: Record<string, number> = {};
     for (const [currency, balance] of Object.entries(balances)) {
       if (balance.abs().greaterThan(0.00000001)) {
