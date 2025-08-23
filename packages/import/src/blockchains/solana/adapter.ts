@@ -9,11 +9,7 @@ import type {
   UniversalTransaction,
 } from "@crypto/core";
 
-import type {
-  AddressTransactionParams,
-  TokenTransactionParams,
-  AddressBalanceParams,
-} from "../shared/types.ts";
+// Parameter types removed - using discriminated union
 
 import { BaseAdapter } from "../../shared/adapters/base-adapter.ts";
 import { BlockchainProviderManager } from "../shared/blockchain-provider-manager.ts";
@@ -76,9 +72,10 @@ export class SolanaAdapter extends BaseAdapter {
           "solana",
           {
             type: "getAddressTransactions",
-            params: { address, since: params.since },
+            address: address,
+            since: params.since,
             getCacheKey: (cacheParams) =>
-              `solana_tx_${(cacheParams as AddressTransactionParams).address}_${(cacheParams as AddressTransactionParams).since || "all"}`,
+              `solana_tx_${cacheParams.type === 'getAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getAddressTransactions' ? cacheParams.since || "all" : 'unknown'}`,
           },
         )) as BlockchainTransaction[];
 
@@ -87,9 +84,10 @@ export class SolanaAdapter extends BaseAdapter {
         try {
           tokenTxs = (await this.providerManager.executeWithFailover("solana", {
             type: "getTokenTransactions",
-            params: { address, since: params.since },
+            address: address,
+            since: params.since,
             getCacheKey: (cacheParams) =>
-              `solana_token_tx_${(cacheParams as TokenTransactionParams).address}_${(cacheParams as TokenTransactionParams).since || "all"}`,
+              `solana_token_tx_${cacheParams.type === 'getTokenTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getTokenTransactions' ? cacheParams.since || "all" : 'unknown'}`,
           })) as BlockchainTransaction[];
         } catch (error) {
           this.logger.debug(
@@ -146,9 +144,9 @@ export class SolanaAdapter extends BaseAdapter {
           "solana",
           {
             type: "getAddressBalance",
-            params: { address },
+            address: address,
             getCacheKey: (cacheParams) =>
-              `solana_balance_${(cacheParams as AddressBalanceParams).address}`,
+              `solana_balance_${cacheParams.type === 'getAddressBalance' ? cacheParams.address : 'unknown'}`,
           },
         )) as BlockchainBalance[];
 

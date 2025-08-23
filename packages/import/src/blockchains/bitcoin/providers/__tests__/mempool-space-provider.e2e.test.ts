@@ -58,7 +58,7 @@ describe("MempoolSpaceProvider Integration", () => {
     it("should fetch address transactions successfully", async () => {
       const transactions = await provider.execute<BlockchainTransaction[]>({
         type: "getAddressTransactions",
-        params: { address: testAddress },
+        address: testAddress,
       });
 
       expect(Array.isArray(transactions)).toBe(true);
@@ -78,7 +78,7 @@ describe("MempoolSpaceProvider Integration", () => {
 
       const transactions = await provider.execute<BlockchainTransaction[]>({
         type: "getAddressTransactions",
-        params: { address: unusedAddress },
+        address: unusedAddress,
       });
 
       expect(Array.isArray(transactions)).toBe(true);
@@ -89,7 +89,8 @@ describe("MempoolSpaceProvider Integration", () => {
 
       const transactions = await provider.execute<BlockchainTransaction[]>({
         type: "getAddressTransactions",
-        params: { address: testAddress, since: futureTimestamp },
+        address: testAddress,
+        since: futureTimestamp,
       });
 
       expect(Array.isArray(transactions)).toBe(true);
@@ -101,12 +102,10 @@ describe("MempoolSpaceProvider Integration", () => {
     const testAddress = "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2";
 
     it("should fetch address balance successfully", async () => {
-      const result = await provider.execute<{ balance: string; token: string }>(
-        {
-          type: "getAddressBalance",
-          params: { address: testAddress },
-        },
-      );
+      const result = await provider.execute<{ balance: string; token: string }>({
+        type: "getAddressBalance",
+        address: testAddress,
+      });
 
       expect(result).toHaveProperty("balance");
       expect(result).toHaveProperty("token", "BTC");
@@ -117,12 +116,10 @@ describe("MempoolSpaceProvider Integration", () => {
     it("should handle empty address balance", async () => {
       const emptyAddress = "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4"; // Empty bech32 address
 
-      const result = await provider.execute<{ balance: string; token: string }>(
-        {
-          type: "getAddressBalance",
-          params: { address: emptyAddress },
-        },
-      );
+      const result = await provider.execute<{ balance: string; token: string }>({
+        type: "getAddressBalance",
+        address: emptyAddress,
+      });
 
       expect(result).toEqual({
         balance: "0",
@@ -136,7 +133,7 @@ describe("MempoolSpaceProvider Integration", () => {
       await expect(
         provider.execute({
           type: "unsupportedOperation" as "getAddressTransactions",
-          params: {},
+          address: "dummy-address",
         }),
       ).rejects.toThrow("Unsupported operation: unsupportedOperation");
     });
@@ -147,7 +144,7 @@ describe("MempoolSpaceProvider Integration", () => {
       await expect(
         provider.execute({
           type: "getAddressBalance",
-          params: { address: invalidAddress },
+          address: invalidAddress,
         }),
       ).rejects.toThrow();
     }, 30000);
@@ -159,7 +156,7 @@ describe("MempoolSpaceProvider Integration", () => {
     it("should fetch address info successfully", async () => {
       const result = await provider.execute<AddressInfo>({
         type: "getAddressInfo",
-        params: { address: testAddress },
+        address: testAddress,
       });
 
       expect(result).toHaveProperty("txCount");
@@ -175,7 +172,7 @@ describe("MempoolSpaceProvider Integration", () => {
     it("should fetch raw address transactions successfully", async () => {
       const transactions = await provider.execute<MempoolTransaction[]>({
         type: "getRawAddressTransactions",
-        params: { address: testAddress },
+        address: testAddress,
       });
 
       expect(Array.isArray(transactions)).toBe(true);
@@ -194,17 +191,15 @@ describe("MempoolSpaceProvider Integration", () => {
       const testAddress = "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2";
       const rawTransactions = await provider.execute<MempoolTransaction[]>({
         type: "getRawAddressTransactions",
-        params: { address: testAddress },
+        address: testAddress,
       });
 
       if (rawTransactions.length > 0) {
         const walletAddresses = [testAddress];
         const parsedTx = await provider.execute<BlockchainTransaction>({
           type: "parseWalletTransaction",
-          params: {
-            tx: rawTransactions[0],
-            walletAddresses,
-          },
+          tx: rawTransactions[0],
+          walletAddresses,
         });
 
         expect(parsedTx).toHaveProperty("hash");

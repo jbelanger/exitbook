@@ -15,10 +15,7 @@ import { createMoney } from "@crypto/shared-utils";
 
 import { BaseAdapter } from "../../shared/adapters/base-adapter.ts";
 import { BlockchainProviderManager } from "../shared/blockchain-provider-manager.ts";
-import type {
-  AddressTransactionParams,
-  AddressInfoParams,
-} from "../shared/types.ts";
+// Parameter types removed - using discriminated union
 import type { BlockchainExplorersConfig } from "../shared/explorer-config.ts";
 import type { BitcoinWalletAddress } from "./types.ts";
 import { BitcoinUtils } from "./utils.ts";
@@ -147,9 +144,10 @@ export class BitcoinAdapter extends BaseAdapter {
           const rawTransactions =
             (await this.providerManager.executeWithFailover("bitcoin", {
               type: "getRawAddressTransactions",
-              params: { address: userAddress, since: params.since },
+              address: userAddress,
+              since: params.since,
               getCacheKey: (cacheParams) =>
-                `bitcoin:raw-txs:${(cacheParams as AddressTransactionParams).address}:${(cacheParams as AddressTransactionParams).since || "all"}`,
+                `bitcoin:raw-txs:${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.address : 'unknown'}:${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.since || "all" : 'unknown'}`,
             })) as (MempoolTransaction | BlockstreamTransaction)[];
 
           // Parse raw transactions with wallet context (single address, local parsing)
@@ -205,7 +203,7 @@ export class BitcoinAdapter extends BaseAdapter {
           "bitcoin",
           {
             type: "getAddressBalance",
-            params: { address },
+            address: address,
           },
         )) as { balance: string; token: string };
 
@@ -324,9 +322,10 @@ export class BitcoinAdapter extends BaseAdapter {
           "bitcoin",
           {
             type: "getRawAddressTransactions",
-            params: { address, since },
+            address: address,
+            since: since,
             getCacheKey: (params) =>
-              `bitcoin:raw-txs:${(params as AddressTransactionParams).address}:${(params as AddressTransactionParams).since || "all"}`,
+              `bitcoin:raw-txs:${params.type === 'getRawAddressTransactions' ? params.address : 'unknown'}:${params.type === 'getRawAddressTransactions' ? params.since || "all" : 'unknown'}`,
           },
         )) as (MempoolTransaction | BlockstreamTransaction)[];
 

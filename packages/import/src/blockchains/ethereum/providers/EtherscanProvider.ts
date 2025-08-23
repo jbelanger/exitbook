@@ -6,12 +6,6 @@ import { createMoney } from "@crypto/shared-utils";
 import { BaseRegistryProvider } from "../../shared/registry/base-registry-provider.ts";
 import { RegisterProvider } from "../../shared/registry/index.ts";
 import type { ProviderOperation } from "../../shared/types.ts";
-import {
-  isAddressTransactionOperation,
-  isAddressBalanceOperation,
-  isTokenTransactionOperation,
-  isTokenBalanceOperation,
-} from "../../shared/types.ts";
 import type {
   EtherscanInternalTransaction,
   EtherscanResponse,
@@ -86,41 +80,25 @@ export class EtherscanProvider extends BaseRegistryProvider {
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
     switch (operation.type) {
       case "getAddressTransactions":
-        if (isAddressTransactionOperation(operation)) {
-          return this.getAddressTransactions(operation.params) as Promise<T>;
-        }
-        throw new ServiceError(
-          `Invalid params for getAddressTransactions operation`,
-          "EtherscanProvider",
-          operation.type,
-        );
+        return this.getAddressTransactions({
+          address: operation.address,
+          ...(operation.since !== undefined && { since: operation.since }),
+        }) as Promise<T>;
       case "getAddressBalance":
-        if (isAddressBalanceOperation(operation)) {
-          return this.getAddressBalance(operation.params) as Promise<T>;
-        }
-        throw new ServiceError(
-          `Invalid params for getAddressBalance operation`,
-          "EtherscanProvider",
-          operation.type,
-        );
+        return this.getAddressBalance({
+          address: operation.address,
+        }) as Promise<T>;
       case "getTokenTransactions":
-        if (isTokenTransactionOperation(operation)) {
-          return this.getTokenTransactions(operation.params) as Promise<T>;
-        }
-        throw new ServiceError(
-          `Invalid params for getTokenTransactions operation`,
-          "EtherscanProvider",
-          operation.type,
-        );
+        return this.getTokenTransactions({
+          address: operation.address,
+          contractAddress: operation.contractAddress,
+          since: operation.since,
+        }) as Promise<T>;
       case "getTokenBalances":
-        if (isTokenBalanceOperation(operation)) {
-          return this.getTokenBalances() as Promise<T>;
-        }
-        throw new ServiceError(
-          `Invalid params for getTokenBalances operation`,
-          "EtherscanProvider",
-          operation.type,
-        );
+        return this.getTokenBalances({
+          address: operation.address,
+          contractAddresses: operation.contractAddresses,
+        }) as Promise<T>;
       default:
         throw new ServiceError(
           `Unsupported operation: ${operation.type}`,
@@ -184,14 +162,17 @@ export class EtherscanProvider extends BaseRegistryProvider {
 
   private async getTokenTransactions(params: {
     address: string;
-    contractAddress?: string;
-    since?: number;
+    contractAddress?: string | undefined;
+    since?: number | undefined;
   }): Promise<BlockchainTransaction[]> {
     const { address, contractAddress, since } = params;
     return this.fetchTokenTransfers(address, since, contractAddress);
   }
 
-  private async getTokenBalances(): Promise<Balance[]> {
+  private async getTokenBalances(params: {
+    address: string;
+    contractAddresses?: string[] | undefined;
+  }): Promise<Balance[]> {
     // This would require specific token contract addresses
     // For now, return empty array as this is typically used with specific tokens
     return [];

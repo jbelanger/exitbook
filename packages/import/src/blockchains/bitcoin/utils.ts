@@ -12,7 +12,7 @@ import type {
   XpubType,
 } from "./types.ts";
 import { BlockchainProviderManager } from "../shared/blockchain-provider-manager.ts";
-import type { AddressInfoParams } from "../shared/types.ts";
+// Parameter types removed - using discriminated union
 
 const logger = getLogger("BitcoinUtils");
 
@@ -109,9 +109,9 @@ export class BitcoinUtils {
           "bitcoin",
           {
             type: "getAddressInfo",
-            params: { address },
+            address,
             getCacheKey: (params) =>
-              `bitcoin:address-info:${(params as AddressInfoParams).address}`,
+              `bitcoin:address-info:${params.type === 'getAddressInfo' ? params.address : 'unknown'}`,
           },
         )) as AddressInfo;
 
@@ -233,7 +233,7 @@ export class BitcoinUtils {
             "bitcoin",
             {
               type: "getAddressInfo",
-              params: { address: firstLegacyAddress },
+              address: firstLegacyAddress,
             },
           )) as AddressInfo;
           const hasActivity = addressInfo.txCount > 0;
@@ -274,7 +274,7 @@ export class BitcoinUtils {
             "bitcoin",
             {
               type: "getAddressInfo",
-              params: { address: firstSegwitAddress },
+              address: firstSegwitAddress,
             },
           )) as AddressInfo;
           const hasActivity = addressInfo.txCount > 0;

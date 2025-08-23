@@ -161,11 +161,6 @@ export interface AlchemyAssetTransferParams {
   contractAddresses?: string[];
 }
 
-export interface AlchemyTokenBalanceParams {
-  address: string;
-  tokenType: string;
-  contractAddresses?: string[];
-}
 
 export interface AlchemyAssetTransfer {
   from: string;
