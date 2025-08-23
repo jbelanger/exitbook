@@ -6,14 +6,13 @@ import { createMoney } from "@crypto/shared-utils";
 import { BaseRegistryProvider } from "../../shared/registry/base-registry-provider.ts";
 import { RegisterProvider } from "../../shared/registry/index.ts";
 import type { ProviderOperation } from "../../shared/types.ts";
-import { hasAddressParam } from "../../shared/types.ts";
 import type {
   EtherscanInternalTransaction,
   EtherscanTokenTransfer,
   EtherscanTransaction,
 } from "../types.ts";
 
-interface EtherscanResponse<T = any> {
+interface EtherscanResponse<T = unknown> {
   status: string;
   message: string;
   result: T;
@@ -186,7 +185,7 @@ export class EtherscanProvider extends BaseRegistryProvider {
     const startblock = since ? Math.floor(since / 1000) : 0;
     const url = `?module=account&action=txlist&address=${address}&startblock=${startblock}&endblock=99999999&page=1&offset=10000&sort=asc&apikey=${this.apiKey}`;
 
-    const response = await this.httpClient.get(url);
+    const response = await this.httpClient.get<EtherscanResponse<EtherscanTransaction[]>>(url);
 
     if (response.status !== "1") {
       if (response.message === "No transactions found") {
@@ -211,7 +210,7 @@ export class EtherscanProvider extends BaseRegistryProvider {
     const startblock = since ? Math.floor(since / 1000) : 0;
     const url = `?module=account&action=txlistinternal&address=${address}&startblock=${startblock}&endblock=99999999&page=1&offset=10000&sort=asc&apikey=${this.apiKey}`;
 
-    const response = await this.httpClient.get(url);
+    const response = await this.httpClient.get<EtherscanResponse<EtherscanInternalTransaction[]>>(url);
 
     if (response.status !== "1") {
       this.logger.debug(
@@ -252,7 +251,7 @@ export class EtherscanProvider extends BaseRegistryProvider {
     const startblock = since ? Math.floor(since / 1000) : 0;
     url += `&startblock=${startblock}&endblock=99999999&page=1&offset=10000&sort=asc&apikey=${this.apiKey}`;
 
-    const response = await this.httpClient.get(url);
+    const response = await this.httpClient.get<EtherscanResponse<EtherscanTokenTransfer[]>>(url);
 
     if (response.status !== "1") {
       this.logger.debug(
@@ -279,7 +278,7 @@ export class EtherscanProvider extends BaseRegistryProvider {
 
   private async getEthBalance(address: string): Promise<Balance> {
     const url = `?module=account&action=balance&address=${address}&tag=latest&apikey=${this.apiKey}`;
-    const response = await this.httpClient.get(url);
+    const response = await this.httpClient.get<EtherscanResponse<string>>(url);
 
     if (response.status !== "1") {
       throw new ServiceError(

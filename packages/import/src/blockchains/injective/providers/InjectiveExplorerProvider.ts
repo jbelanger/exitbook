@@ -64,8 +64,8 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
       const testAddress = "inj1qq6hgelyft8z5fnm6vyyn3ge3w2nway4ykdf6a"; // Injective Foundation address
       const endpoint = `/api/explorer/v1/accountTxs/${testAddress}`;
 
-      const response = await this.httpClient.get(endpoint);
-      return response && typeof response === "object";
+      const response = await this.httpClient.get<unknown>(endpoint);
+      return Boolean(response && typeof response === "object");
     } catch (error) {
       this.logger.warn(
         `Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`,
@@ -88,8 +88,9 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
+    const params = operation.params as { address: string; since?: number };
     this.logger.debug(
-      `Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? maskAddress(operation.params.address) : "N/A"}`,
+      `Executing operation - Type: ${operation.type}, Address: ${params?.address ? maskAddress(params.address) : "N/A"}`,
     );
 
     try {
@@ -271,7 +272,7 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
         from = message.value.from_address || "";
         to = message.value.to_address || "";
 
-        if (message.value.amount && message.value.amount.length > 0) {
+        if (message.value.amount && Array.isArray(message.value.amount) && message.value.amount.length > 0) {
           const transferAmount = message.value.amount[0];
           if (transferAmount) {
             value = createMoney(
@@ -342,8 +343,9 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
 
           // Extract amount from the deposit claim if available
           if (messageValue.amount && messageValue.token_contract) {
+            const amountValue = typeof messageValue.amount === 'string' ? messageValue.amount : messageValue.amount[0]?.amount || '0';
             value = createMoney(
-              parseDecimal(messageValue.amount)
+              parseDecimal(amountValue)
                 .div(Math.pow(10, 18))
                 .toNumber(),
               "INJ", // or determine from token_contract
