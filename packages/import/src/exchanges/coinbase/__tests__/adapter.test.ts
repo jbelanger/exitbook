@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { Decimal } from "decimal.js";
-import { CoinbaseAdapter } from "../adapter";
-import { CoinbaseAPIClient } from "../coinbase-api-client";
+import { CoinbaseAdapter } from "../adapter.js";
+import { CoinbaseAPIClient } from "../coinbase-api-client.js";
 import type {
   CoinbaseCredentials,
   RawCoinbaseAccount,
   RawCoinbaseLedgerEntry,
-} from "../types";
+} from "../types.js";
 import type {
   UniversalExchangeAdapterConfig,
   UniversalFetchParams,

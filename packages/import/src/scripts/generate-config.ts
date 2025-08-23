@@ -60,6 +60,8 @@ function generateConfiguration(): void {
           enabled: boolean;
           priority?: number;
           networks?: Record<string, unknown>;
+          capabilities?: Record<string, unknown>;
+          [key: string]: unknown;
         } = {
           name: provider.name,
           displayName: provider.displayName,

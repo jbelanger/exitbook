@@ -179,7 +179,7 @@ export interface CoinbaseCredentials {
 /**
  * Request parameters for ledger endpoint
  */
-export interface CoinbaseLedgerParams {
+export interface CoinbaseLedgerParams extends Record<string, unknown> {
   /** Maximum number of entries to return (1-100) */
   limit?: number;
   /** Pagination cursor from previous response */
@@ -193,7 +193,7 @@ export interface CoinbaseLedgerParams {
 /**
  * Request parameters for accounts endpoint
  */
-export interface CoinbaseAccountsParams {
+export interface CoinbaseAccountsParams extends Record<string, unknown> {
   /** Maximum number of accounts to return */
   limit?: number;
   /** Pagination cursor from previous response */
