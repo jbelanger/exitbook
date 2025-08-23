@@ -1,4 +1,4 @@
-import type { DataSourceCapabilities, RateLimitConfig } from '@crypto/core';
+import type { DataSourceCapabilities, RateLimitConfig } from "@crypto/core";
 
 // Provider operation parameter types
 export interface AddressTransactionParams {
@@ -31,10 +31,10 @@ export interface ParseWalletTransactionParams {
 }
 
 // Union type for all possible operation parameters
-export type ProviderOperationParams = 
-  | AddressTransactionParams 
-  | AddressBalanceParams 
-  | TokenTransactionParams 
+export type ProviderOperationParams =
+  | AddressTransactionParams
+  | AddressBalanceParams
+  | TokenTransactionParams
   | AddressInfoParams
   | ParseWalletTransactionParams
   | Record<string, unknown>; // fallback for custom operations
@@ -54,26 +54,36 @@ export interface IBlockchainProvider<TConfig = Record<string, unknown>> {
 }
 
 export interface ProviderOperation<T> {
-  type: 'getAddressTransactions' | 'getAddressBalance' | 'getTokenTransactions' | 'getTokenBalances' | 'getRawAddressTransactions' | 'getAddressInfo' | 'parseWalletTransaction' | 'testConnection' | 'custom';
+  type:
+    | "getAddressTransactions"
+    | "getAddressBalance"
+    | "getTokenTransactions"
+    | "getTokenBalances"
+    | "getRawAddressTransactions"
+    | "getAddressInfo"
+    | "parseWalletTransaction"
+    | "testConnection"
+    | "custom";
   params: ProviderOperationParams;
   transform?: (response: unknown) => T;
   getCacheKey?: (params: ProviderOperationParams) => string; // For request-scoped caching
 }
 
 // Provider-specific operation types for capabilities
-export type ProviderOperationType = 
-  | 'getAddressTransactions' 
-  | 'getAddressBalance' 
-  | 'getTokenTransactions' 
-  | 'getTokenBalances' 
-  | 'getRawAddressTransactions' 
-  | 'getAddressInfo' 
-  | 'parseWalletTransaction';
+export type ProviderOperationType =
+  | "getAddressTransactions"
+  | "getAddressBalance"
+  | "getTokenTransactions"
+  | "getTokenBalances"
+  | "getRawAddressTransactions"
+  | "getAddressInfo"
+  | "parseWalletTransaction";
 
-export interface ProviderCapabilities extends DataSourceCapabilities<ProviderOperationType> {
+export interface ProviderCapabilities
+  extends DataSourceCapabilities<ProviderOperationType> {
   /** Whether the provider supports real-time data access */
   supportsRealTimeData: boolean;
-  
+
   /** Whether the provider supports token-specific operations */
   supportsTokenData: boolean;
 }
@@ -85,7 +95,7 @@ export interface ProviderHealth {
   averageResponseTime: number;
   errorRate: number;
   lastError?: string | undefined;
-  rateLimitEvents: number;           // Total rate limit events encountered
-  rateLimitRate: number;             // Percentage of requests that were rate limited (0-1)
-  lastRateLimitTime?: number | undefined;     // Timestamp of last rate limit event
+  rateLimitEvents: number; // Total rate limit events encountered
+  rateLimitRate: number; // Percentage of requests that were rate limited (0-1)
+  lastRateLimitTime?: number | undefined; // Timestamp of last rate limit event
 }

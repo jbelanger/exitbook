@@ -4,7 +4,7 @@ export interface BalanceComparison {
   liveBalance: number;
   calculatedBalance: number;
   difference: number;
-  status: 'match' | 'mismatch' | 'warning';
+  status: "match" | "mismatch" | "warning";
   percentageDiff: number;
   tolerance: number;
 }
@@ -12,7 +12,7 @@ export interface BalanceComparison {
 export interface BalanceVerificationResult {
   exchange: string;
   timestamp: number;
-  status: 'success' | 'error' | 'warning';
+  status: "success" | "error" | "warning";
   comparisons: BalanceComparison[];
   error?: string;
   note?: string;

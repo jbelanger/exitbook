@@ -385,10 +385,7 @@
         "type": "rest",
         "description": "Injective Protocol LCD (Light Client Daemon) API for balance queries and token data",
         "capabilities": {
-          "supportedOperations": [
-            "getAddressBalance",
-            "getTokenBalances"
-          ],
+          "supportedOperations": ["getAddressBalance", "getTokenBalances"],
           "maxBatchSize": 1,
           "supportsHistoricalData": false,
           "supportsRealTimeData": true,

@@ -1,4 +1,4 @@
-import type { EnhancedTransaction } from '@crypto/core';
+import type { EnhancedTransaction } from "@crypto/core";
 
 // Database schema types for data persistence
 
@@ -28,10 +28,9 @@ export interface StoredTransaction {
   verified?: boolean;
   note_type?: string;
   note_message?: string;
-  note_severity?: 'info' | 'warning' | 'error';
+  note_severity?: "info" | "warning" | "error";
   note_metadata?: string; // JSON stringified metadata
 }
-
 
 // Wallet address tracking types
 export interface WalletAddress {
@@ -39,7 +38,7 @@ export interface WalletAddress {
   address: string;
   blockchain: string;
   label?: string | undefined;
-  addressType: 'personal' | 'exchange' | 'contract' | 'unknown';
+  addressType: "personal" | "exchange" | "contract" | "unknown";
   isActive: boolean;
   notes?: string | undefined;
   createdAt: number;
@@ -50,20 +49,20 @@ export interface CreateWalletAddressRequest {
   address: string;
   blockchain: string;
   label?: string;
-  addressType?: 'personal' | 'exchange' | 'contract' | 'unknown';
+  addressType?: "personal" | "exchange" | "contract" | "unknown";
   notes?: string;
 }
 
 export interface UpdateWalletAddressRequest {
   label?: string | undefined;
-  addressType?: 'personal' | 'exchange' | 'contract' | 'unknown';
+  addressType?: "personal" | "exchange" | "contract" | "unknown";
   isActive?: boolean | undefined;
   notes?: string | undefined;
 }
 
 export interface WalletAddressQuery {
   blockchain?: string;
-  addressType?: 'personal' | 'exchange' | 'contract' | 'unknown';
+  addressType?: "personal" | "exchange" | "contract" | "unknown";
   isActive?: boolean | undefined;
   search?: string | undefined; // Search in address, label, or notes
 }

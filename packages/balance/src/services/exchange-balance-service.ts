@@ -1,5 +1,8 @@
-import type { IUniversalAdapter } from '@crypto/core';
-import type { IBalanceService, ServiceCapabilities } from './balance-service.js';
+import type { IUniversalAdapter } from "@crypto/core";
+import type {
+  IBalanceService,
+  ServiceCapabilities,
+} from "./balance-service.js";
 
 export class ExchangeBalanceService implements IBalanceService {
   private _cachedId?: string;
@@ -11,14 +14,15 @@ export class ExchangeBalanceService implements IBalanceService {
     const info = await this.adapter.getInfo();
     this._cachedId = info.id;
     this._cachedCapabilities = {
-      fetchBalance: info.capabilities.supportedOperations.includes('fetchBalances'),
+      fetchBalance:
+        info.capabilities.supportedOperations.includes("fetchBalances"),
       name: info.name,
-      version: '1.0.0' // Universal adapters don't have version in the same way
+      version: "1.0.0", // Universal adapters don't have version in the same way
     };
   }
 
   getServiceId(): string {
-    return this._cachedId || 'unknown';
+    return this._cachedId || "unknown";
   }
 
   async getBalances(): Promise<Record<string, number>> {
@@ -39,10 +43,12 @@ export class ExchangeBalanceService implements IBalanceService {
   }
 
   getCapabilities(): ServiceCapabilities {
-    return this._cachedCapabilities || {
-      fetchBalance: true,
-      name: 'Unknown Exchange'
-    };
+    return (
+      this._cachedCapabilities || {
+        fetchBalance: true,
+        name: "Unknown Exchange",
+      }
+    );
   }
 
   async testConnection(): Promise<boolean> {
