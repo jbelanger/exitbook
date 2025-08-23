@@ -5,8 +5,13 @@ import { createMoney, maskAddress } from "@crypto/shared-utils";
 import { BaseRegistryProvider } from "../../shared/registry/base-registry-provider.ts";
 import { RegisterProvider } from "../../shared/registry/decorators.ts";
 import type { ProviderOperation } from "../../shared/types.ts";
-import { hasAddressParam } from "../../shared/types.ts";
-import type { ParseWalletTransactionParams } from "../../shared/types.ts";
+import { 
+  hasAddressParam,
+  isAddressTransactionOperation,
+  isAddressBalanceOperation,
+  isAddressInfoOperation,
+  isParseWalletTransactionOperation
+} from "../../shared/types.ts";
 import type {
   AddressInfo,
   MempoolAddressInfo,
@@ -100,25 +105,28 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
     try {
       switch (operation.type) {
         case "getAddressTransactions":
-          return this.getAddressTransactions(
-            operation.params as { address: string; since?: number },
-          ) as T;
         case "getRawAddressTransactions":
-          return this.getRawAddressTransactions(
-            operation.params as { address: string; since?: number },
-          ) as T;
+          if (isAddressTransactionOperation(operation)) {
+            return operation.type === "getAddressTransactions" 
+              ? this.getAddressTransactions(operation.params) as T
+              : this.getRawAddressTransactions(operation.params) as T;
+          }
+          throw new Error(`Invalid params for ${operation.type} operation`);
         case "getAddressBalance":
-          return this.getAddressBalance(
-            operation.params as { address: string },
-          ) as T;
+          if (isAddressBalanceOperation(operation)) {
+            return this.getAddressBalance(operation.params) as T;
+          }
+          throw new Error(`Invalid params for getAddressBalance operation`);
         case "getAddressInfo":
-          return this.getAddressInfo(
-            operation.params as { address: string },
-          ) as T;
+          if (isAddressInfoOperation(operation)) {
+            return this.getAddressInfo(operation.params) as T;
+          }
+          throw new Error(`Invalid params for getAddressInfo operation`);
         case "parseWalletTransaction":
-          return this.parseWalletTransaction(
-            operation.params as ParseWalletTransactionParams,
-          ) as T;
+          if (isParseWalletTransactionOperation(operation)) {
+            return this.parseWalletTransaction(operation.params) as T;
+          }
+          throw new Error(`Invalid params for parseWalletTransaction operation`);
         default:
           throw new Error(`Unsupported operation: ${operation.type}`);
       }
