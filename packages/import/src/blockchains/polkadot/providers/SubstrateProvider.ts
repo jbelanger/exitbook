@@ -6,7 +6,6 @@ import { createMoney, maskAddress, HttpClient } from "@crypto/shared-utils";
 import type { JsonRpcResponse } from "../../shared/types.ts";
 
 import { BaseRegistryProvider } from "../../shared/registry/base-registry-provider.ts";
-import { HttpClient } from "@crypto/shared-utils";
 import { RegisterProvider } from "../../shared/registry/decorators.ts";
 import type {
   SubstrateAccountInfo,
