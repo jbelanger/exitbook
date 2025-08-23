@@ -82,7 +82,7 @@ describe("CoinbaseAdapter", () => {
         id: "coinbase",
         name: "Coinbase Advanced Trade",
         type: "exchange",
-        subType: "native",
+        subType: "rest",
         capabilities: {
           supportedOperations: ["fetchTransactions", "fetchBalances"],
           maxBatchSize: 100,
@@ -179,10 +179,10 @@ describe("CoinbaseAdapter", () => {
         timestamp: new Date("2022-01-01T00:00:00Z").getTime(),
         datetime: "2022-01-01T00:00:00.000Z",
         status: "closed",
-        symbol: undefined,
+        symbol: "unknown",
         amount: { amount: new Decimal("100.00"), currency: "USD" },
         side: "buy",
-        fee: undefined,
+        fee: { amount: new Decimal(0), currency: "USD" },
         source: "coinbase",
         metadata: {
           ledgerEntryId: "deposit-123",
@@ -220,10 +220,10 @@ describe("CoinbaseAdapter", () => {
         timestamp: new Date("2022-01-01T12:00:00Z").getTime(),
         datetime: "2022-01-01T12:00:00.000Z",
         status: "closed",
-        symbol: undefined,
+        symbol: "unknown",
         amount: { amount: new Decimal("50.00"), currency: "USD" },
         side: "sell",
-        fee: undefined,
+        fee: { amount: new Decimal(0), currency: "USD" },
         source: "coinbase",
         metadata: {
           ledgerEntryId: "withdrawal-456",
@@ -360,7 +360,7 @@ describe("CoinbaseAdapter", () => {
         amount: { amount: new Decimal("0.005"), currency: "BTC" },
         side: "sell",
         price: { amount: new Decimal("250.00"), currency: "USD" },
-        fee: undefined,
+        fee: { amount: new Decimal(0), currency: "USD" },
         source: "coinbase",
         metadata: {
           orderId: "order-789",
