@@ -1,12 +1,13 @@
-import { MempoolSpaceProvider } from '../../src/providers/MempoolSpaceProvider';
-import { BlockchainTransaction } from '../../src/types/blockchain';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { MempoolSpaceProvider } from '../MempoolSpaceProvider.ts';
+import type { BlockchainTransaction } from '../../types.ts';
 
 // Mock fetch globally
-global.fetch = jest.fn();
+global.fetch = vi.fn();
 
 describe('MempoolSpaceProvider', () => {
   let provider: MempoolSpaceProvider;
-  const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>;
+  const mockFetch = global.fetch as ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     provider = new MempoolSpaceProvider();
@@ -14,7 +15,7 @@ describe('MempoolSpaceProvider', () => {
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('Provider Configuration', () => {
@@ -343,7 +344,7 @@ describe('MempoolSpaceProvider', () => {
   describe('Error Handling', () => {
     it('should throw error for unsupported operations', async () => {
       await expect(provider.execute({
-        type: 'unsupportedOperation' as any,
+        type: 'unsupportedOperation' as 'getAddressTransactions',
         params: {}
       })).rejects.toThrow('Unsupported operation: unsupportedOperation');
     });
@@ -382,8 +383,19 @@ describe('MempoolSpaceProvider', () => {
         status: 429,
         statusText: 'Too Many Requests',
         headers: new Map([['Retry-After', '2']]),
-        text: async () => 'Rate limited'
-      } as Response);
+        text: async () => 'Rate limited',
+        // Add missing Response properties
+        redirected: false,
+        type: 'basic',
+        url: 'https://mempool.space/api/address/test',
+        clone: vi.fn(),
+        body: null,
+        bodyUsed: false,
+        arrayBuffer: vi.fn(),
+        blob: vi.fn(),
+        formData: vi.fn(),
+        json: vi.fn()
+      } as unknown as Response);
 
       // Second call succeeds
       mockFetch.mockResolvedValueOnce({
