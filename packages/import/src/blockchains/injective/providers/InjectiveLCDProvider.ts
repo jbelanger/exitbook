@@ -52,9 +52,10 @@ export class InjectiveLCDProvider extends BaseRegistryProvider {
   async isHealthy(): Promise<boolean> {
     try {
       // Test with a simple node info call
-      const data = await this.httpClient.get(
-        "/cosmos/base/tendermint/v1beta1/node_info",
-      );
+      const data = await this.httpClient.get<{
+        default_node_info?: { network?: string };
+        application_version?: { version?: string };
+      }>("/cosmos/base/tendermint/v1beta1/node_info");
 
       this.logger.debug(
         `Health check successful - Network: ${data.default_node_info?.network}, Version: ${data.application_version?.version}`,
@@ -83,8 +84,9 @@ export class InjectiveLCDProvider extends BaseRegistryProvider {
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
+    const params = operation.params as { address: string; since?: number };
     this.logger.debug(
-      `Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? maskAddress(operation.params.address) : "N/A"}`,
+      `Executing operation - Type: ${operation.type}, Address: ${params?.address ? maskAddress(params.address) : "N/A"}`,
     );
 
     try {

@@ -34,7 +34,7 @@ export interface InjectiveMessage {
 export interface InjectiveMessageValue {
   from_address?: string;
   to_address?: string;
-  amount?: InjectiveAmount[];
+  amount?: InjectiveAmount[] | string;
   sender?: string;
   receiver?: string;
   source_port?: string;
@@ -43,6 +43,9 @@ export interface InjectiveMessageValue {
   timeout_height?: unknown;
   timeout_timestamp?: string;
   memo?: string;
+  token_contract?: string;
+  ethereum_receiver?: string;
+  injective_receiver?: string;
 }
 
 export interface InjectiveAmount {

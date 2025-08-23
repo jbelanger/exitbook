@@ -6,7 +6,7 @@ import { createMoney, maskAddress } from "@crypto/shared-utils";
 import { BaseRegistryProvider } from "../../shared/registry/base-registry-provider.ts";
 import { RegisterProvider } from "../../shared/registry/decorators.ts";
 import type { ProviderOperation } from "../../shared/types.ts";
-import { hasAddressParam, JsonRpcResponse } from "../../shared/types.ts";
+import { JsonRpcResponse } from "../../shared/types.ts";
 import type { SolanaRPCTransaction } from "../types.ts";
 import { isValidSolanaAddress, lamportsToSol } from "../utils.ts";
 
@@ -58,7 +58,7 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
 
   async isHealthy(): Promise<boolean> {
     try {
-      const response = await this.httpClient.post("/", {
+      const response = await this.httpClient.post<JsonRpcResponse<string>>("/", {
         jsonrpc: "2.0",
         id: 1,
         method: "getHealth",
@@ -74,7 +74,7 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
 
   async testConnection(): Promise<boolean> {
     try {
-      const response = await this.httpClient.post("/", {
+      const response = await this.httpClient.post<JsonRpcResponse<string>>("/", {
         jsonrpc: "2.0",
         id: 1,
         method: "getHealth",
@@ -92,8 +92,9 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
+    const params = operation.params as { address: string; since?: number };
     this.logger.debug(
-      `Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? maskAddress(operation.params.address) : "N/A"}`,
+      `Executing operation - Type: ${operation.type}, Address: ${params?.address ? maskAddress(params.address) : "N/A"}`,
     );
 
     try {
@@ -148,7 +149,9 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
 
     try {
       // Get signatures for address
-      const signaturesResponse = await this.httpClient.post("/", {
+      const signaturesResponse = await this.httpClient.post<
+        JsonRpcResponse<Array<{ signature: string; slot: number; blockTime?: number }>>
+      >("/", {
         jsonrpc: "2.0",
         id: 1,
         method: "getSignaturesForAddress",
@@ -177,7 +180,7 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
       // Fetch transaction details
       for (const sig of signatures) {
         try {
-          const txResponse = await this.httpClient.post("/", {
+          const txResponse = await this.httpClient.post<JsonRpcResponse<SolanaRPCTransaction>>("/", {
             jsonrpc: "2.0",
             id: 1,
             method: "getTransaction",
@@ -236,7 +239,7 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
     );
 
     try {
-      const response = await this.httpClient.post("/", {
+      const response = await this.httpClient.post<JsonRpcResponse<{value: number}>>("/", {
         jsonrpc: "2.0",
         id: 1,
         method: "getBalance",
@@ -374,7 +377,7 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
       // Process signatures individually to find token transactions (avoid batch requests)
       for (const sig of signatures) {
         try {
-          const txResponse = await this.httpClient.post("/", {
+          const txResponse = await this.httpClient.post<JsonRpcResponse<SolanaRPCTransaction>>("/", {
             jsonrpc: "2.0",
             id: 1,
             method: "getTransaction",
@@ -435,7 +438,26 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
 
     try {
       // Get all token accounts owned by the address
-      const tokenAccountsResponse = await this.httpClient.post("/", {
+      const tokenAccountsResponse = await this.httpClient.post<JsonRpcResponse<{
+        value: Array<{
+          account: {
+            data: {
+              parsed: {
+                info: {
+                  mint: string;
+                  owner: string;
+                  tokenAmount: {
+                    amount: string;
+                    decimals: number;
+                    uiAmount: number;
+                    uiAmountString: string;
+                  };
+                };
+              };
+            };
+          };
+        }>;
+      }>>("/", {
         jsonrpc: "2.0",
         id: 1,
         method: "getTokenAccountsByOwner",

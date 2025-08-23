@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi, type MockedFunction, type MockedClass } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { Decimal } from "decimal.js";
 import { CoinbaseAdapter } from "../adapter.js";
 import { CoinbaseAPIClient } from "../coinbase-api-client.js";
@@ -26,7 +26,12 @@ vi.mock("@crypto/shared-logger", () => ({
 }));
 
 describe("CoinbaseAdapter", () => {
-  let mockApiClient: vi.Mocked<CoinbaseAPIClient>;
+  let mockApiClient: {
+    testConnection: ReturnType<typeof vi.fn>;
+    getAccounts: ReturnType<typeof vi.fn>;
+    getAllAccountLedgerEntries: ReturnType<typeof vi.fn>;
+    getRateLimitStatus: ReturnType<typeof vi.fn>;
+  };
   let adapter: CoinbaseAdapter;
   let config: UniversalExchangeAdapterConfig;
   let credentials: CoinbaseCredentials;
@@ -56,11 +61,9 @@ describe("CoinbaseAdapter", () => {
       getAccounts: vi.fn(),
       getAllAccountLedgerEntries: vi.fn(),
       getRateLimitStatus: vi.fn(),
-    } as unknown as CoinbaseAPIClient;
+    };
 
-    (
-      CoinbaseAPIClient as MockedClass<typeof CoinbaseAPIClient>
-    ).mockImplementation(() => mockApiClient);
+    (CoinbaseAPIClient as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => mockApiClient);
 
     adapter = new CoinbaseAdapter(config, credentials);
   });

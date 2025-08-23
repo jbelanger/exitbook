@@ -3,6 +3,8 @@ import { Decimal } from "decimal.js";
 import type { Balance, BlockchainTransaction } from "@crypto/core";
 import { createMoney, maskAddress, HttpClient } from "@crypto/shared-utils";
 
+import type { JsonRpcResponse } from "../../shared/types.ts";
+
 import { BaseRegistryProvider } from "../../shared/registry/base-registry-provider.ts";
 import { RegisterProvider } from "../../shared/registry/decorators.ts";
 import type {
@@ -158,8 +160,9 @@ export class SubstrateProvider extends BaseRegistryProvider {
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
+    const params = operation.params as { address: string; since?: number };
     this.logger.debug(
-      `Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? maskAddress(operation.params.address) : "N/A"}`,
+      `Executing operation - Type: ${operation.type}, Address: ${params?.address ? maskAddress(params.address) : "N/A"}`,
     );
 
     try {
@@ -281,7 +284,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
   private async testExplorerApi(): Promise<boolean> {
     try {
       // Use Subscan's metadata endpoint for health check - it's available on all Subscan APIs
-      const response = await this.httpClient.post("/api/scan/metadata", {});
+      const response = await this.httpClient.post<{code?: number}>("/api/scan/metadata", {});
       return response && response.code === 0;
     } catch (error) {
       this.logger.debug(
@@ -295,7 +298,11 @@ export class SubstrateProvider extends BaseRegistryProvider {
     if (!this.rpcClient) return false;
 
     try {
-      const response = await this.rpcClient.post("", {
+      const response = await this.rpcClient.post<JsonRpcResponse<{
+        ss58Format?: number;
+        tokenDecimals?: number[];
+        tokenSymbol?: string[];
+      }>>("", {
         id: 1,
         jsonrpc: "2.0",
         method: "system_properties",
@@ -317,9 +324,9 @@ export class SubstrateProvider extends BaseRegistryProvider {
     if (this.network === "bittensor") {
       // Taostats API implementation
       try {
-        const response = await this.httpClient.get(
-          `/api/account/${address}/transactions`,
-        );
+        const response = await this.httpClient.get<{
+          data?: TaostatsTransaction[];
+        }>(`/api/account/${address}/transactions`);
         if (response && response.data) {
           for (const tx of response.data) {
             const blockchainTx = this.convertTaostatsTransaction(tx, address);
