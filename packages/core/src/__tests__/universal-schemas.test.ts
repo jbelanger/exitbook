@@ -184,9 +184,9 @@ describe("Universal Schemas Validation", () => {
 
     it("should provide default empty object for metadata", () => {
       const transactionWithoutMetadataField = { ...validTransaction };
-      delete (
-        transactionWithoutMetadataField as unknown as Record<string, unknown>
-      ).metadata;
+      // Remove metadata field to test default behavior
+      const transactionRecord = transactionWithoutMetadataField as Record<string, unknown>;
+      delete transactionRecord.metadata;
 
       const result = UniversalTransactionSchema.safeParse(
         transactionWithoutMetadataField,

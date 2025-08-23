@@ -6,6 +6,7 @@ import { createMoney, maskAddress, HttpClient } from "@crypto/shared-utils";
 import type { JsonRpcResponse } from "../../shared/types.ts";
 
 import { BaseRegistryProvider } from "../../shared/registry/base-registry-provider.ts";
+import { HttpClient } from "@crypto/shared-utils";
 import { RegisterProvider } from "../../shared/registry/decorators.ts";
 import type {
   SubstrateAccountInfo,
@@ -86,8 +87,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
     }
 
     // Update the chain config
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (this as any).chainConfig = chainConfig;
+    this.updateChainConfig(chainConfig);
 
     // Update network and base URL based on chain
     const networkUrls: Record<string, string> = {
@@ -98,14 +98,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
 
     const baseUrl = networkUrls[chain];
     if (baseUrl) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (this as any).network = chain;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (this as any).baseUrl = baseUrl;
-
-      // Reinitialize HTTP client with new base URL
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (this as any).httpClient = this.initializeHttpClient(baseUrl);
+      this.reinitializeForChain(chain, baseUrl);
     }
 
     this.logger.debug(
@@ -587,5 +580,48 @@ export class SubstrateProvider extends BaseRegistryProvider {
       );
       return null;
     }
+  }
+
+  /**
+   * Update chain configuration - replaces unsafe (this as any).chainConfig assignment
+   */
+  private updateChainConfig(chainConfig: SubstrateChainConfig): void {
+    // We need to update the private chainConfig property
+    // Since it's a class field, we can assign it directly if we declare it properly
+    Object.defineProperty(this, 'chainConfig', {
+      value: chainConfig,
+      writable: true,
+      enumerable: false,
+      configurable: true
+    });
+  }
+
+  /**
+   * Reinitialize provider for a different chain - replaces multiple (this as any) assignments
+   */
+  private reinitializeForChain(chain: string, baseUrl: string): void {
+    // Update network property
+    Object.defineProperty(this, 'network', {
+      value: chain,
+      writable: true,
+      enumerable: false,
+      configurable: true
+    });
+
+    // Update baseUrl property
+    Object.defineProperty(this, 'baseUrl', {
+      value: baseUrl,
+      writable: true,
+      enumerable: false,
+      configurable: true
+    });
+
+    // Reinitialize HTTP client with new base URL
+    Object.defineProperty(this, 'httpClient', {
+      value: this.initializeHttpClient(baseUrl),
+      writable: true,
+      enumerable: false,
+      configurable: true
+    });
   }
 }

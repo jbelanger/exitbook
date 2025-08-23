@@ -107,13 +107,20 @@ describe("BaseAdapter Validation Integration", () => {
   });
 
   describe("fetchTransactions with validation", () => {
-    const invalidTransaction = {
+    // Create intentionally invalid transaction for testing validation
+    interface InvalidTransactionTest {
+      id: string;
+      timestamp: string; // Should be number
+      type: string; // Invalid enum value
+      source: string; // Empty string
+    }
+    const invalidTransactionData: InvalidTransactionTest = {
       id: "tx_invalid",
-      // Missing required fields
       timestamp: "invalid_timestamp", // Should be number
       type: "invalid_type", // Invalid enum value
       source: "", // Empty string
-    } as unknown as UniversalTransaction;
+    };
+    const invalidTransaction = invalidTransactionData as unknown as UniversalTransaction;
 
     it("should process all valid transactions successfully", async () => {
       adapter.setMockTransactions([validTransaction]);

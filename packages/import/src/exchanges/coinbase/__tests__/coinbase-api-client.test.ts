@@ -173,10 +173,13 @@ describe("CoinbaseAPIClient", () => {
       const mockResponse = { accounts: [] };
       mockHttpClient.request.mockResolvedValue(mockResponse);
 
-      await client.getAccounts({
+      // Test with invalid params to ensure they're filtered out
+      const testParams = {
         limit: 50,
         invalidParam: null,
-      } as any);
+      } as Parameters<typeof client.getAccounts>[0] & { invalidParam: null };
+      
+      await client.getAccounts(testParams);
 
       expect(mockHttpClient.request).toHaveBeenCalledWith(
         "/api/v3/brokerage/accounts?limit=50",
