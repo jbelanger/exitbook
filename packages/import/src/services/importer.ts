@@ -79,7 +79,7 @@ export class TransactionImporter {
 
   async importFromExchangeWithCredentials(options: {
     exchangeId: string;
-    adapterType: "ccxt" | "csv";
+    adapterType: "ccxt" | "csv" | "native";
     credentials?: {
       apiKey: string;
       secret: string;
@@ -166,7 +166,7 @@ export class TransactionImporter {
    */
   async importFromExchangeUniversal(
     exchangeId: string,
-    adapterType: "ccxt" | "csv",
+    adapterType: "ccxt" | "csv" | "native",
     options: {
       credentials?:
         | {
@@ -190,7 +190,7 @@ export class TransactionImporter {
 
     const adapter = await UniversalAdapterFactory.create(config);
     return this.importFromAdapter(adapter, {
-      since: options.since || Date.now() - 30 * 24 * 60 * 60 * 1000, // 30 days default
+      since: options.since, // No default - let adapter decide
       symbols: options.symbols,
     });
   }

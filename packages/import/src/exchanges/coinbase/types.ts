@@ -1,52 +1,162 @@
 /**
- * Type definitions for Coinbase Advanced Trade API
+ * Type definitions for Coinbase Track API
  *
- * Based on: https://docs.cloud.coinbase.com/advanced-trade-api/docs/welcome
- * API Version: 2015-07-22
+ * Based on: https://docs.cdp.coinbase.com/coinbase-app/track-apis/
+ * API Version: v2
  *
- * IMPORTANT: These are for the Advanced Trade API, not the deprecated Pro API.
- * Base URL: https://api.coinbase.com/api/v3/brokerage/
+ * IMPORTANT: These are for the Track API, not the Advanced Trade API.
+ * Base URL: https://api.coinbase.com/v2/
  *
- * These types define the raw response structures from Coinbase's API before
+ * These types define the raw response structures from Coinbase's Track API before
  * any transformation to UniversalTransaction format.
  */
 
 /**
- * Raw Coinbase account information from /api/v3/brokerage/accounts
+ * Raw Coinbase account information from /v2/accounts
  */
 export interface RawCoinbaseAccount {
   /** Unique account identifier */
-  uuid: string;
+  id: string;
   /** Human-readable account name */
   name: string;
-  /** Account currency (e.g., 'BTC', 'USD', 'CAD') */
-  currency: string;
-  /** Available balance for trading */
-  available_balance: {
-    value: string;
-    currency: string;
-  };
-  /** Total balance including holds */
-  hold?: {
-    value: string;
-    currency: string;
-  };
-  /** Whether this is the default account for this currency */
-  default: boolean;
-  /** Whether the account is active */
-  active: boolean;
-  /** Account type (e.g., 'wallet', 'trading') */
+  /** Whether this is the primary account */
+  primary: boolean;
+  /** Account type (e.g., 'wallet', 'vault') */
   type: string;
+  /** Account currency information */
+  currency: {
+    code: string;
+    name: string;
+    color: string;
+    sort_index: number;
+    exponent: number;
+    type: string;
+    address_regex?: string | undefined;
+    asset_id?: string | undefined;
+  };
+  /** Current account balance */
+  balance: {
+    amount: string;
+    currency: string;
+  };
   /** Account creation date */
-  created_at?: string;
+  created_at: string;
   /** Account last update date */
-  updated_at?: string;
-  /** Account ready status */
-  ready?: boolean;
+  updated_at: string;
+  /** Resource type */
+  resource: string;
+  /** Resource path */
+  resource_path: string;
+  /** Whether deposits are allowed */
+  allow_deposits?: boolean | undefined;
+  /** Whether withdrawals are allowed */
+  allow_withdrawals?: boolean | undefined;
+}
+
+/**
+ * Raw transaction entry from /v2/accounts/:account_id/transactions
+ * This is the primary transaction data source for Coinbase Track API
+ */
+export interface RawCoinbaseTransaction {
+  /** Unique transaction identifier */
+  id: string;
+  /** Transaction type (e.g., 'send', 'request', 'transfer', 'buy', 'sell', 'trade', 'deposit', 'withdrawal') */
+  type: string;
+  /** Transaction status (e.g., 'pending', 'completed', 'canceled', 'failed') */
+  status: string;
+  /** Transaction amount */
+  amount: {
+    amount: string;
+    currency: string;
+  };
+  /** Amount in user's native currency */
+  native_amount: {
+    amount: string;
+    currency: string;
+  };
+  /** Transaction description */
+  description: string;
+  /** ISO 8601 timestamp when the transaction was created */
+  created_at: string;
+  /** ISO 8601 timestamp when the transaction was last updated */
+  updated_at: string;
+  /** Resource type */
+  resource: string;
+  /** Resource path */
+  resource_path: string;
+  /** Instant exchange information (for buy/sell transactions) */
+  instant_exchange?: {
+    id: string;
+    resource: string;
+    resource_path: string;
+  } | undefined;
+  /** Buy information (for buy transactions) */
+  buy?: {
+    id: string;
+    resource: string;
+    resource_path: string;
+  } | undefined;
+  /** Sell information (for sell transactions) */
+  sell?: {
+    id: string;
+    resource: string;
+    resource_path: string;
+  } | undefined;
+  /** Trade information (for trade transactions) */
+  trade?: {
+    id: string;
+    resource: string;
+    resource_path: string;
+  } | undefined;
+  /** Network information (for crypto transactions) */
+  network?: {
+    status: string;
+    status_description?: string | undefined;
+    hash?: string | undefined;
+    transaction_fee?: {
+      amount: string;
+      currency: string;
+    } | undefined;
+    transaction_amount?: {
+      amount: string;
+      currency: string;
+    } | undefined;
+    confirmations?: number | undefined;
+  } | undefined;
+  /** Recipient information (for send transactions) */
+  to?: {
+    resource: string;
+    address?: string | undefined;
+    currency?: string | undefined;
+    address_info?: {
+      address: string;
+    } | undefined;
+  } | undefined;
+  /** Sender information */
+  from?: {
+    resource: string;
+    address?: string | undefined;
+    currency?: string | undefined;
+    address_info?: {
+      address: string;
+    } | undefined;
+  } | undefined;
+  /** Additional transaction details */
+  details?: {
+    title?: string | undefined;
+    subtitle?: string | undefined;
+    header?: string | undefined;
+    health?: string | undefined;
+  } | undefined;
+  /** Hide from overview */
+  hide?: boolean | undefined;
+  /** Whether this transaction can be canceled */
+  idem?: string | undefined;
 }
 
 /**
  * Raw ledger entry from /api/v3/brokerage/accounts/{account_id}/ledger
+ * (DEPRECATED - this endpoint doesn't exist in Advanced Trade API)
  *
  * Each ledger entry represents a single balance change in an account.
  * For trades, multiple entries are created (e.g., one for each currency involved).
@@ -85,35 +195,54 @@ export interface RawCoinbaseLedgerEntry {
  */
 export interface RawCoinbaseLedgerDetails {
   /** Order ID for trade-related entries */
-  order_id?: string;
+  order_id?: string | undefined;
   /** Trade/fill ID for executed orders */
-  trade_id?: string;
+  trade_id?: string | undefined;
   /** Product/trading pair ID (e.g., 'BTC-USD') */
-  product_id?: string;
+  product_id?: string | undefined;
   /** Side of the order ('BUY' or 'SELL') */
-  order_side?: "BUY" | "SELL";
+  order_side?: "BUY" | "SELL" | undefined;
   /** Fee associated with this entry */
   fee?: {
     value: string;
     currency: string;
-  };
+  } | undefined;
   /** Transfer ID for internal transfers */
-  transfer_id?: string;
+  transfer_id?: string | undefined;
   /** Deposit/withdrawal method details */
   payment_method?: {
     id: string;
     type: string;
-  };
+  } | undefined;
   /** Cryptocurrency network for deposits/withdrawals */
-  network?: string;
+  network?: string | undefined;
   /** Blockchain transaction hash */
-  hash?: string;
+  hash?: string | undefined;
   /** External address for crypto transfers */
-  address?: string;
+  address?: string | undefined;
 }
 
 /**
- * Paginated response from ledger API
+ * Paginated response from transactions API
+ */
+export interface RawCoinbaseTransactionsResponse {
+  /** Array of transaction entries */
+  data: RawCoinbaseTransaction[];
+  /** Pagination information */
+  pagination?: {
+    ending_before?: string | undefined;
+    starting_after?: string | undefined;
+    previous_ending_before?: string | undefined;
+    next_starting_after?: string | undefined;
+    limit?: number | undefined;
+    order?: string | undefined;
+    previous_uri?: string | undefined;
+    next_uri?: string | undefined;
+  } | undefined;
+}
+
+/**
+ * Paginated response from ledger API (DEPRECATED - endpoint doesn't exist)
  */
 export interface RawCoinbaseLedgerResponse {
   /** Array of ledger entries */
@@ -125,17 +254,22 @@ export interface RawCoinbaseLedgerResponse {
 }
 
 /**
- * Response from /api/v3/brokerage/accounts endpoint
+ * Response from /v2/accounts endpoint
  */
 export interface RawCoinbaseAccountsResponse {
   /** Array of user accounts */
-  accounts: RawCoinbaseAccount[];
-  /** Whether there are more accounts (pagination) */
-  has_next?: boolean;
-  /** Pagination cursor if has_next is true */
-  cursor?: string;
-  /** Total number of accounts */
-  size?: number;
+  data: RawCoinbaseAccount[];
+  /** Pagination information */
+  pagination?: {
+    ending_before?: string | undefined;
+    starting_after?: string | undefined;
+    previous_ending_before?: string | undefined;
+    next_starting_after?: string | undefined;
+    limit?: number | undefined;
+    order?: string | undefined;
+    previous_uri?: string | undefined;
+    next_uri?: string | undefined;
+  } | undefined;
 }
 
 /**
@@ -170,24 +304,40 @@ export interface CoinbaseCredentials {
   apiKey: string;
   /** API secret for signing requests */
   secret: string;
-  /** Passphrase associated with API key */
-  passphrase: string;
+  /** Passphrase associated with API key (not required for CDP keys) */
+  passphrase?: string | undefined;
   /** Whether to use sandbox environment */
-  sandbox?: boolean;
+  sandbox?: boolean | undefined;
 }
 
 /**
- * Request parameters for ledger endpoint
+ * Request parameters for transactions endpoint
+ */
+export interface CoinbaseTransactionsParams extends Record<string, unknown> {
+  /** Filter by transaction type */
+  type?: string | undefined;
+  /** Maximum number of transactions to return (default 25, max 100) */
+  limit?: number | undefined;
+  /** Pagination - return transactions after this transaction ID */
+  starting_after?: string | undefined;
+  /** Pagination - return transactions before this transaction ID */
+  ending_before?: string | undefined;
+  /** Sort order (desc or asc, default desc) */
+  order?: 'desc' | 'asc' | undefined;
+}
+
+/**
+ * Request parameters for ledger endpoint (deprecated - use fills instead)
  */
 export interface CoinbaseLedgerParams extends Record<string, unknown> {
   /** Maximum number of entries to return (1-100) */
-  limit?: number;
+  limit?: number | undefined;
   /** Pagination cursor from previous response */
-  cursor?: string;
+  cursor?: string | undefined;
   /** Start date filter (ISO 8601) */
-  start_date?: string;
+  start_date?: string | undefined;
   /** End date filter (ISO 8601) */
-  end_date?: string;
+  end_date?: string | undefined;
 }
 
 /**
@@ -202,7 +352,7 @@ export interface CoinbaseAccountsParams extends Record<string, unknown> {
 
 // CCXT-specific types for Coinbase adapter
 export interface CcxtCoinbaseAdapterOptions {
-  enableOnlineVerification?: boolean;
+  enableOnlineVerification?: boolean | undefined;
 }
 
 // CoinbaseAccount extends ccxt.Account and customizes some types for internal use (Decimal for balance)
@@ -213,7 +363,7 @@ export interface CcxtCoinbaseAccount {
   type: string;
   code: string; // Required by ccxt.Account
   info: import("ccxt").Balance; // Required by ccxt.Account
-  free?: number;
-  used?: number;
-  total?: number;
+  free?: number | undefined;
+  used?: number | undefined;
+  total?: number | undefined;
 }

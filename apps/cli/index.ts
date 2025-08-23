@@ -64,7 +64,7 @@ async function main() {
       "--addresses <addresses...>",
       "Wallet addresses/xpubs for blockchain import (space-separated)",
     )
-    .option("--since <date>", "Import transactions since date (YYYY-MM-DD)")
+    .option("--since <date>", "Import transactions since date (YYYY-MM-DD, timestamp, or 0 for all history)")
     .option("--verify", "Run balance verification after import")
     .option("--config <path>", "Path to configuration file")
     .option("--clear-db", "Clear and reinitialize database before import")
@@ -83,10 +83,25 @@ async function main() {
 
         let since: number | undefined;
         if (options.since) {
-          since = new Date(options.since).getTime();
-          if (isNaN(since)) {
-            logger.error("Invalid date format. Use YYYY-MM-DD");
-            process.exit(1);
+          // Support multiple since formats:
+          // 1. Numeric timestamp: "0", "1609459200000"
+          // 2. Date string: "2003-01-01", "2021-01-01"
+          const sinceStr = options.since.toString();
+          
+          if (/^\d+$/.test(sinceStr)) {
+            // Pure numeric value - treat as timestamp
+            since = parseInt(sinceStr, 10);
+            if (since === 0) {
+              // Special case: 0 means get all history (don't set since parameter)
+              since = undefined;
+            }
+          } else {
+            // Date string format
+            since = new Date(sinceStr).getTime();
+            if (isNaN(since)) {
+              logger.error("Invalid date format. Use YYYY-MM-DD, timestamp, or 0 for all history");
+              process.exit(1);
+            }
           }
         }
 
@@ -110,8 +125,8 @@ async function main() {
               );
               process.exit(1);
             }
-            if (options.exchange === "coinbase" && !options.password) {
-              logger.error("--password is required for Coinbase");
+            if (options.exchange === "coinbase" && options.adapterType === "ccxt" && !options.password) {
+              logger.error("--password is required for Coinbase CCXT adapter");
               process.exit(1);
             }
           } else if (options.adapterType === "csv") {
@@ -286,8 +301,8 @@ async function main() {
               );
               process.exit(1);
             }
-            if (options.exchange === "coinbase" && !options.password) {
-              logger.error("--password is required for Coinbase");
+            if (options.exchange === "coinbase" && options.adapterType === "ccxt" && !options.password) {
+              logger.error("--password is required for Coinbase CCXT adapter");
               process.exit(1);
             }
           } else if (options.adapterType === "csv") {
@@ -459,7 +474,7 @@ async function main() {
     .description("Export transactions to CSV or JSON")
     .option("--format <type>", "Export format (csv|json)", "csv")
     .option("--exchange <name>", "Export from specific exchange only")
-    .option("--since <date>", "Export transactions since date (YYYY-MM-DD)")
+    .option("--since <date>", "Export transactions since date (YYYY-MM-DD, timestamp, or 0 for all history)")
     .option("--output <file>", "Output file path")
     .option("--clear-db", "Clear and reinitialize database before export")
     .action(async (options) => {
@@ -575,8 +590,8 @@ async function main() {
               );
               process.exit(1);
             }
-            if (options.exchange === "coinbase" && !options.password) {
-              logger.error("--password is required for Coinbase");
+            if (options.exchange === "coinbase" && options.adapterType === "ccxt" && !options.password) {
+              logger.error("--password is required for Coinbase CCXT adapter");
               process.exit(1);
             }
           } else if (options.adapterType === "csv") {

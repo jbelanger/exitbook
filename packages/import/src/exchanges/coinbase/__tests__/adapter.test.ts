@@ -1,11 +1,11 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { Decimal } from "decimal.js";
 import { CoinbaseAdapter } from "../adapter.js";
 import { CoinbaseAPIClient } from "../coinbase-api-client.js";
 import type {
   CoinbaseCredentials,
   RawCoinbaseAccount,
-  RawCoinbaseLedgerEntry,
+  RawCoinbaseTransaction,
 } from "../types.js";
 import type {
   UniversalExchangeAdapterConfig,
@@ -29,7 +29,7 @@ describe("CoinbaseAdapter", () => {
   let mockApiClient: {
     testConnection: ReturnType<typeof vi.fn>;
     getAccounts: ReturnType<typeof vi.fn>;
-    getAllAccountLedgerEntries: ReturnType<typeof vi.fn>;
+    getAccountTransactions: ReturnType<typeof vi.fn>;
     getRateLimitStatus: ReturnType<typeof vi.fn>;
   };
   let adapter: CoinbaseAdapter;
@@ -59,7 +59,7 @@ describe("CoinbaseAdapter", () => {
     mockApiClient = {
       testConnection: vi.fn(),
       getAccounts: vi.fn(),
-      getAllAccountLedgerEntries: vi.fn(),
+      getAccountTransactions: vi.fn(),
       getRateLimitStatus: vi.fn(),
     };
 
@@ -82,7 +82,7 @@ describe("CoinbaseAdapter", () => {
 
       expect(info).toEqual({
         id: "coinbase",
-        name: "Coinbase Advanced Trade",
+        name: "Coinbase Track API",
         type: "exchange",
         subType: "native",
         capabilities: {
@@ -92,8 +92,8 @@ describe("CoinbaseAdapter", () => {
           supportsPagination: true,
           requiresApiKey: true,
           rateLimit: {
-            requestsPerSecond: 10,
-            burstLimit: 15,
+            requestsPerSecond: 3,
+            burstLimit: 5,
           },
         },
       });
@@ -132,22 +132,42 @@ describe("CoinbaseAdapter", () => {
   describe("fetchTransactions", () => {
     const mockAccounts: RawCoinbaseAccount[] = [
       {
-        uuid: "account-1",
+        id: "account-1",
         name: "BTC Wallet",
-        currency: "BTC",
-        available_balance: { value: "1.0", currency: "BTC" },
-        default: true,
-        active: true,
+        primary: true,
         type: "wallet",
+        currency: {
+          code: "BTC",
+          name: "Bitcoin",
+          color: "#f7931a",
+          sort_index: 0,
+          exponent: 8,
+          type: "crypto"
+        },
+        balance: { amount: "1.0", currency: "BTC" },
+        created_at: "2022-01-01T00:00:00Z",
+        updated_at: "2022-01-01T00:00:00Z",
+        resource: "account",
+        resource_path: "/v2/accounts/account-1"
       },
       {
-        uuid: "account-2",
+        id: "account-2",
         name: "USD Wallet",
-        currency: "USD",
-        available_balance: { value: "1000.0", currency: "USD" },
-        default: false,
-        active: true,
+        primary: false,
         type: "fiat",
+        currency: {
+          code: "USD",
+          name: "US Dollar",
+          color: "#85bb65",
+          sort_index: 100,
+          exponent: 2,
+          type: "fiat"
+        },
+        balance: { amount: "1000.0", currency: "USD" },
+        created_at: "2022-01-01T00:00:00Z",
+        updated_at: "2022-01-01T00:00:00Z",
+        resource: "account",
+        resource_path: "/v2/accounts/account-2"
       },
     ];
 
@@ -156,248 +176,225 @@ describe("CoinbaseAdapter", () => {
     });
 
     it("should fetch and transform simple deposit transaction", async () => {
-      const depositEntry: RawCoinbaseLedgerEntry = {
+      const depositTransaction: RawCoinbaseTransaction = {
         id: "deposit-123",
+        type: "deposit",
+        status: "completed",
+        amount: { amount: "100.00", currency: "USD" },
+        native_amount: { amount: "100.00", currency: "USD" },
+        description: "Bank deposit",
         created_at: "2022-01-01T00:00:00Z",
-        amount: { value: "100.00", currency: "USD" },
-        type: "DEPOSIT",
-        direction: "CREDIT",
-        details: {
-          payment_method: { id: "pm-1", type: "bank_account" },
-        },
+        updated_at: "2022-01-01T00:00:00Z",
+        resource: "transaction",
+        resource_path: "/v2/accounts/account-1/transactions/deposit-123",
       };
 
-      mockApiClient.getAllAccountLedgerEntries
-        .mockResolvedValueOnce([depositEntry]) // First account
-        .mockResolvedValueOnce([]); // Second account (empty)
+      mockApiClient.getAccountTransactions
+        .mockResolvedValueOnce({ data: [depositTransaction], pagination: {} }) // First account
+        .mockResolvedValueOnce({ data: [], pagination: {} }); // Second account (empty)
 
       const params: UniversalFetchParams = { transactionTypes: ["deposit"] };
       const transactions = await adapter.fetchTransactions(params);
 
       expect(transactions).toHaveLength(1);
       expect(transactions[0]).toEqual({
-        id: "coinbase-deposit-123",
+        id: "coinbase-track-deposit-123",
         type: "deposit",
         timestamp: new Date("2022-01-01T00:00:00Z").getTime(),
         datetime: "2022-01-01T00:00:00.000Z",
         status: "closed",
-        symbol: "unknown",
+        symbol: "USD",
         amount: { amount: new Decimal("100.00"), currency: "USD" },
         side: "buy",
         fee: { amount: new Decimal(0), currency: "USD" },
         source: "coinbase",
         metadata: {
-          ledgerEntryId: "deposit-123",
-          ledgerType: "DEPOSIT",
-          direction: "CREDIT",
-          details: { payment_method: { id: "pm-1", type: "bank_account" } },
-          adapterType: "native",
+          trackTransaction: depositTransaction,
+          transactionType: "deposit",
+          status: "completed",
+          nativeAmount: { amount: "100.00", currency: "USD" },
+          adapterType: "track-api",
         },
       });
     });
 
     it("should fetch and transform simple withdrawal transaction", async () => {
-      const withdrawalEntry: RawCoinbaseLedgerEntry = {
+      const withdrawalTransaction: RawCoinbaseTransaction = {
         id: "withdrawal-456",
+        type: "send",
+        status: "completed",
+        amount: { amount: "-50.00", currency: "USD" },
+        native_amount: { amount: "-50.00", currency: "USD" },
+        description: "Bank withdrawal",
         created_at: "2022-01-01T12:00:00Z",
-        amount: { value: "-50.00", currency: "USD" },
-        type: "WITHDRAWAL",
-        direction: "DEBIT",
-        details: {
-          payment_method: { id: "pm-2", type: "bank_account" },
-        },
+        updated_at: "2022-01-01T12:00:00Z",
+        resource: "transaction",
+        resource_path: "/v2/accounts/account-2/transactions/withdrawal-456",
       };
 
-      mockApiClient.getAllAccountLedgerEntries
-        .mockResolvedValueOnce([withdrawalEntry]) // First account
-        .mockResolvedValueOnce([]); // Second account (empty)
+      mockApiClient.getAccountTransactions
+        .mockResolvedValueOnce({ data: [withdrawalTransaction], pagination: {} }) // First account
+        .mockResolvedValueOnce({ data: [], pagination: {} }); // Second account (empty)
 
       const params: UniversalFetchParams = { transactionTypes: ["withdrawal"] };
       const transactions = await adapter.fetchTransactions(params);
 
       expect(transactions).toHaveLength(1);
       expect(transactions[0]).toEqual({
-        id: "coinbase-withdrawal-456",
+        id: "coinbase-track-withdrawal-456",
         type: "withdrawal",
         timestamp: new Date("2022-01-01T12:00:00Z").getTime(),
         datetime: "2022-01-01T12:00:00.000Z",
         status: "closed",
-        symbol: "unknown",
+        symbol: "USD",
         amount: { amount: new Decimal("50.00"), currency: "USD" },
         side: "sell",
         fee: { amount: new Decimal(0), currency: "USD" },
         source: "coinbase",
         metadata: {
-          ledgerEntryId: "withdrawal-456",
-          ledgerType: "WITHDRAWAL",
-          direction: "DEBIT",
-          details: { payment_method: { id: "pm-2", type: "bank_account" } },
-          adapterType: "native",
+          trackTransaction: withdrawalTransaction,
+          transactionType: "send",
+          status: "completed",
+          nativeAmount: { amount: "-50.00", currency: "USD" },
+          adapterType: "track-api",
         },
       });
     });
 
-    it("should group and transform trade transactions correctly", async () => {
-      // Simulate a BTC buy order with multiple ledger entries
-      const tradeEntries: RawCoinbaseLedgerEntry[] = [
-        // BTC received (credit)
-        {
-          id: "trade-1-btc",
-          created_at: "2022-01-01T10:00:00Z",
-          amount: { value: "0.01", currency: "BTC" },
-          type: "TRADE_FILL",
-          direction: "CREDIT",
-          details: {
-            order_id: "order-123",
-            trade_id: "trade-456",
-            product_id: "BTC-USD",
-            order_side: "BUY",
+    it("should transform buy trade transaction correctly", async () => {
+      const buyTransaction: RawCoinbaseTransaction = {
+        id: "buy-123",
+        type: "buy",
+        status: "completed",
+        amount: { amount: "0.01", currency: "BTC" },
+        native_amount: { amount: "500.00", currency: "USD" },
+        description: "Bought 0.01000000 BTC for $500.00",
+        created_at: "2022-01-01T10:00:00Z",
+        updated_at: "2022-01-01T10:00:00Z",
+        resource: "transaction",
+        resource_path: "/v2/accounts/account-1/transactions/buy-123",
+        buy: {
+          id: "order-123",
+          resource: "buy",
+          resource_path: "/v2/accounts/account-1/buys/order-123",
+        },
+        network: {
+          status: "confirmed",
+          transaction_fee: {
+            amount: "2.50",
+            currency: "USD",
           },
         },
-        // USD spent (debit)
-        {
-          id: "trade-1-usd",
-          created_at: "2022-01-01T10:00:00Z",
-          amount: { value: "-500.00", currency: "USD" },
-          type: "TRADE_FILL",
-          direction: "DEBIT",
-          details: {
-            order_id: "order-123",
-            trade_id: "trade-456",
-            product_id: "BTC-USD",
-            order_side: "BUY",
-          },
-        },
-        // Fee (debit)
-        {
-          id: "trade-1-fee",
-          created_at: "2022-01-01T10:00:00Z",
-          amount: { value: "-2.50", currency: "USD" },
-          type: "FEE",
-          direction: "DEBIT",
-          details: {
-            order_id: "order-123",
-            fee: { value: "2.50", currency: "USD" },
-          },
-        },
-      ];
+      };
 
-      mockApiClient.getAllAccountLedgerEntries
-        .mockResolvedValueOnce(tradeEntries) // First account
-        .mockResolvedValueOnce([]); // Second account (empty)
+      mockApiClient.getAccountTransactions
+        .mockResolvedValueOnce({ data: [buyTransaction], pagination: {} }) // First account
+        .mockResolvedValueOnce({ data: [], pagination: {} }); // Second account (empty)
 
       const params: UniversalFetchParams = { transactionTypes: ["trade"] };
       const transactions = await adapter.fetchTransactions(params);
 
       expect(transactions).toHaveLength(1);
       expect(transactions[0]).toEqual({
-        id: "coinbase-trade-order-123",
+        id: "coinbase-track-buy-123",
         type: "trade",
         timestamp: new Date("2022-01-01T10:00:00Z").getTime(),
         datetime: "2022-01-01T10:00:00.000Z",
         status: "closed",
-        symbol: "BTC-USD",
+        symbol: "BTC",
         amount: { amount: new Decimal("0.01"), currency: "BTC" },
         side: "buy",
-        price: { amount: new Decimal("500.00"), currency: "USD" },
         fee: { amount: new Decimal("2.50"), currency: "USD" },
         source: "coinbase",
         metadata: {
-          orderId: "order-123",
-          entries: [
-            { id: "trade-1-btc", type: "TRADE_FILL", direction: "CREDIT" },
-            { id: "trade-1-usd", type: "TRADE_FILL", direction: "DEBIT" },
-            { id: "trade-1-fee", type: "FEE", direction: "DEBIT" },
-          ],
-          adapterType: "native",
+          trackTransaction: buyTransaction,
+          transactionType: "buy",
+          status: "completed",
+          nativeAmount: { amount: "500.00", currency: "USD" },
+          adapterType: "track-api",
         },
       });
     });
 
     it("should handle sell trades correctly", async () => {
-      const sellTradeEntries: RawCoinbaseLedgerEntry[] = [
-        // BTC sold (debit)
-        {
-          id: "sell-1-btc",
-          created_at: "2022-01-02T15:30:00Z",
-          amount: { value: "-0.005", currency: "BTC" },
-          type: "TRADE_FILL",
-          direction: "DEBIT",
-          details: {
-            order_id: "order-789",
-            product_id: "BTC-USD",
-            order_side: "SELL",
-          },
+      const sellTransaction: RawCoinbaseTransaction = {
+        id: "sell-789",
+        type: "sell",
+        status: "completed",
+        amount: { amount: "-0.005", currency: "BTC" },
+        native_amount: { amount: "250.00", currency: "USD" },
+        description: "Sold 0.00500000 BTC for $250.00",
+        created_at: "2022-01-02T15:30:00Z",
+        updated_at: "2022-01-02T15:30:00Z",
+        resource: "transaction",
+        resource_path: "/v2/accounts/account-1/transactions/sell-789",
+        sell: {
+          id: "order-789",
+          resource: "sell",
+          resource_path: "/v2/accounts/account-1/sells/order-789",
         },
-        // USD received (credit)
-        {
-          id: "sell-1-usd",
-          created_at: "2022-01-02T15:30:00Z",
-          amount: { value: "250.00", currency: "USD" },
-          type: "TRADE_FILL",
-          direction: "CREDIT",
-          details: {
-            order_id: "order-789",
-            product_id: "BTC-USD",
-            order_side: "SELL",
-          },
-        },
-      ];
+      };
 
-      mockApiClient.getAllAccountLedgerEntries
-        .mockResolvedValueOnce(sellTradeEntries) // First account
-        .mockResolvedValueOnce([]); // Second account (empty)
+      mockApiClient.getAccountTransactions
+        .mockResolvedValueOnce({ data: [sellTransaction], pagination: {} }) // First account
+        .mockResolvedValueOnce({ data: [], pagination: {} }); // Second account (empty)
 
       const params: UniversalFetchParams = { transactionTypes: ["trade"] };
       const transactions = await adapter.fetchTransactions(params);
 
       expect(transactions).toHaveLength(1);
       expect(transactions[0]).toEqual({
-        id: "coinbase-trade-order-789",
+        id: "coinbase-track-sell-789",
         type: "trade",
         timestamp: new Date("2022-01-02T15:30:00Z").getTime(),
         datetime: "2022-01-02T15:30:00.000Z",
         status: "closed",
-        symbol: "BTC-USD",
+        symbol: "BTC",
         amount: { amount: new Decimal("0.005"), currency: "BTC" },
         side: "sell",
-        price: { amount: new Decimal("250.00"), currency: "USD" },
-        fee: { amount: new Decimal(0), currency: "USD" },
+        fee: { amount: new Decimal(0), currency: "BTC" },
         source: "coinbase",
         metadata: {
-          orderId: "order-789",
-          entries: [
-            { id: "sell-1-btc", type: "TRADE_FILL", direction: "DEBIT" },
-            { id: "sell-1-usd", type: "TRADE_FILL", direction: "CREDIT" },
-          ],
-          adapterType: "native",
+          trackTransaction: sellTransaction,
+          transactionType: "sell",
+          status: "completed",
+          nativeAmount: { amount: "250.00", currency: "USD" },
+          adapterType: "track-api",
         },
       });
     });
 
     it("should filter transactions by requested types", async () => {
-      const mixedEntries: RawCoinbaseLedgerEntry[] = [
+      const mixedTransactions: RawCoinbaseTransaction[] = [
         {
           id: "deposit-1",
+          type: "deposit",
+          status: "completed",
+          amount: { amount: "100.00", currency: "USD" },
+          native_amount: { amount: "100.00", currency: "USD" },
+          description: "Bank deposit",
           created_at: "2022-01-01T00:00:00Z",
-          amount: { value: "100.00", currency: "USD" },
-          type: "DEPOSIT",
-          direction: "CREDIT",
-          details: {},
+          updated_at: "2022-01-01T00:00:00Z",
+          resource: "transaction",
+          resource_path: "/v2/accounts/account-1/transactions/deposit-1",
         },
         {
           id: "withdrawal-1",
+          type: "send",
+          status: "completed",
+          amount: { amount: "-50.00", currency: "USD" },
+          native_amount: { amount: "-50.00", currency: "USD" },
+          description: "Bank withdrawal",
           created_at: "2022-01-01T01:00:00Z",
-          amount: { value: "-50.00", currency: "USD" },
-          type: "WITHDRAWAL",
-          direction: "DEBIT",
-          details: {},
+          updated_at: "2022-01-01T01:00:00Z",
+          resource: "transaction",
+          resource_path: "/v2/accounts/account-1/transactions/withdrawal-1",
         },
       ];
 
-      mockApiClient.getAllAccountLedgerEntries
-        .mockResolvedValueOnce(mixedEntries) // First account
-        .mockResolvedValueOnce([]); // Second account (empty)
+      mockApiClient.getAccountTransactions
+        .mockResolvedValueOnce({ data: mixedTransactions, pagination: {} }) // First account
+        .mockResolvedValueOnce({ data: [], pagination: {} }); // Second account (empty)
 
       // Request only deposits
       const params: UniversalFetchParams = { transactionTypes: ["deposit"] };
@@ -418,24 +415,31 @@ describe("CoinbaseAdapter", () => {
     });
 
     it("should continue processing other accounts when one fails", async () => {
-      mockApiClient.getAllAccountLedgerEntries
+      mockApiClient.getAccountTransactions
         .mockRejectedValueOnce(new Error("Account 1 failed"))
-        .mockResolvedValueOnce([
-          {
-            id: "entry-1",
-            created_at: "2022-01-01T00:00:00Z",
-            amount: { value: "100.00", currency: "USD" },
-            type: "DEPOSIT",
-            direction: "CREDIT",
-            details: {},
-          },
-        ]);
+        .mockResolvedValueOnce({
+          data: [
+            {
+              id: "entry-1",
+              type: "deposit",
+              status: "completed",
+              amount: { amount: "100.00", currency: "USD" },
+              native_amount: { amount: "100.00", currency: "USD" },
+              description: "Bank deposit",
+              created_at: "2022-01-01T00:00:00Z",
+              updated_at: "2022-01-01T00:00:00Z",
+              resource: "transaction",
+              resource_path: "/v2/accounts/account-2/transactions/entry-1",
+            },
+          ],
+          pagination: {},
+        });
 
       const params: UniversalFetchParams = { transactionTypes: ["deposit"] };
       const transactions = await adapter.fetchTransactions(params);
 
       expect(transactions).toHaveLength(1);
-      expect(mockApiClient.getAllAccountLedgerEntries).toHaveBeenCalledTimes(2);
+      expect(mockApiClient.getAccountTransactions).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -443,23 +447,42 @@ describe("CoinbaseAdapter", () => {
     it("should transform account balances correctly", async () => {
       const mockAccounts: RawCoinbaseAccount[] = [
         {
-          uuid: "account-1",
+          id: "account-1",
           name: "BTC Wallet",
-          currency: "BTC",
-          available_balance: { value: "1.5", currency: "BTC" },
-          hold: { value: "0.1", currency: "BTC" },
-          default: true,
-          active: true,
+          primary: true,
           type: "wallet",
+          currency: {
+            code: "BTC",
+            name: "Bitcoin",
+            color: "#f7931a",
+            sort_index: 0,
+            exponent: 8,
+            type: "crypto"
+          },
+          balance: { amount: "1.5", currency: "BTC" },
+          created_at: "2022-01-01T00:00:00Z",
+          updated_at: "2022-01-01T00:00:00Z",
+          resource: "account",
+          resource_path: "/v2/accounts/account-1"
         },
         {
-          uuid: "account-2",
+          id: "account-2",
           name: "USD Wallet",
-          currency: "USD",
-          available_balance: { value: "1000.00", currency: "USD" },
-          default: false,
-          active: true,
+          primary: false,
           type: "fiat",
+          currency: {
+            code: "USD",
+            name: "US Dollar",
+            color: "#85bb65",
+            sort_index: 100,
+            exponent: 2,
+            type: "fiat"
+          },
+          balance: { amount: "1000.00", currency: "USD" },
+          created_at: "2022-01-01T00:00:00Z",
+          updated_at: "2022-01-01T00:00:00Z",
+          resource: "account",
+          resource_path: "/v2/accounts/account-2"
         },
       ];
 
@@ -472,8 +495,8 @@ describe("CoinbaseAdapter", () => {
       expect(balances[0]).toEqual({
         currency: "BTC",
         free: 1.5,
-        used: 0.1,
-        total: 1.6,
+        used: 0,
+        total: 1.5,
       });
 
       expect(balances[1]).toEqual({
@@ -487,22 +510,42 @@ describe("CoinbaseAdapter", () => {
     it("should exclude zero-balance accounts", async () => {
       const mockAccounts: RawCoinbaseAccount[] = [
         {
-          uuid: "account-1",
+          id: "account-1",
           name: "BTC Wallet",
-          currency: "BTC",
-          available_balance: { value: "0", currency: "BTC" },
-          default: true,
-          active: true,
+          primary: true,
           type: "wallet",
+          currency: {
+            code: "BTC",
+            name: "Bitcoin",
+            color: "#f7931a",
+            sort_index: 0,
+            exponent: 8,
+            type: "crypto"
+          },
+          balance: { amount: "0", currency: "BTC" },
+          created_at: "2022-01-01T00:00:00Z",
+          updated_at: "2022-01-01T00:00:00Z",
+          resource: "account",
+          resource_path: "/v2/accounts/account-1"
         },
         {
-          uuid: "account-2",
+          id: "account-2",
           name: "USD Wallet",
-          currency: "USD",
-          available_balance: { value: "100.00", currency: "USD" },
-          default: false,
-          active: true,
+          primary: false,
           type: "fiat",
+          currency: {
+            code: "USD",
+            name: "US Dollar",
+            color: "#85bb65",
+            sort_index: 100,
+            exponent: 2,
+            type: "fiat"
+          },
+          balance: { amount: "100.00", currency: "USD" },
+          created_at: "2022-01-01T00:00:00Z",
+          updated_at: "2022-01-01T00:00:00Z",
+          resource: "account",
+          resource_path: "/v2/accounts/account-2"
         },
       ];
 

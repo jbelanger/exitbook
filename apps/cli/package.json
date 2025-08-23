@@ -20,6 +20,7 @@
     "prettier:fix": "prettier --write ."
   },
   "dependencies": {
+    "@coinbase/cdp-sdk": "^1.36.0",
     "@crypto/balance": "workspace:*",
     "@crypto/core": "workspace:*",
     "@crypto/data": "workspace:*",
@@ -28,6 +29,7 @@
     "@crypto/shared-utils": "workspace:*",
     "commander": "^14.0.0",
     "dotenv": "^17.2.1",
+    "jose": "^6.0.13",
     "reflect-metadata": "^0.2.2"
   },
   "devDependencies": {
