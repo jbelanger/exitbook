@@ -241,3 +241,22 @@ export interface SubscanTransfer {
   module: string;
   call: string;
 }
+
+export interface SubscanTransfersResponse {
+  code: number;
+  data?: {
+    transfers: SubscanTransfer[];
+  };
+}
+
+export interface TaostatsBalanceResponse {
+  balance: string;
+}
+
+export interface SubscanAccountResponse {
+  code: number;
+  data?: {
+    balance?: string;
+    reserved?: string;
+  };
+}

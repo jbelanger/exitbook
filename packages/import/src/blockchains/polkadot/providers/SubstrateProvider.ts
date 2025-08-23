@@ -10,7 +10,10 @@ import { RegisterProvider } from "../../shared/registry/decorators.ts";
 import type {
   SubstrateAccountInfo,
   SubstrateChainConfig,
+  SubscanAccountResponse,
   SubscanTransfer,
+  SubscanTransfersResponse,
+  TaostatsBalanceResponse,
   TaostatsTransaction,
 } from "../types.ts";
 import { SUBSTRATE_CHAINS } from "../types.ts";
@@ -55,7 +58,7 @@ import { isValidSS58Address } from "../utils.ts";
 })
 export class SubstrateProvider extends BaseRegistryProvider {
   private readonly chainConfig: SubstrateChainConfig;
-  private readonly rpcClient?: unknown; // TODO: Implement proper RPC client if needed
+  private readonly rpcClient?: HttpClient; // RPC client for JSON-RPC calls
 
   constructor() {
     super("polkadot", "subscan", "mainnet"); // Subscan provider for Polkadot
@@ -309,7 +312,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
         params: [],
       });
 
-      return response && response.result;
+      return response?.result !== undefined;
     } catch (error) {
       return false;
     }
@@ -347,21 +350,19 @@ export class SubstrateProvider extends BaseRegistryProvider {
           `Calling Subscan API for ${this.network} transactions - Address: ${maskAddress(address)}`,
         );
 
-        const response = await this.httpClient.post("/api/v2/scan/transfers", {
+        const response = await this.httpClient.post<SubscanTransfersResponse>("/api/v2/scan/transfers", {
           address: address,
           page: 0,
           row: 100,
         });
 
         this.logger.debug(
-          `Subscan API response received - HasResponse: ${!!response}, Code: ${response?.code}, HasData: ${!!response?.data}, TransferCount: ${response?.data?.transfers?.length || 0}`,
+          `Subscan API response received - HasResponse: ${!!response}, Code: ${response.code}, HasData: ${!!response.data}, TransferCount: ${response.data?.transfers?.length || 0}`,
         );
 
         if (
-          response &&
           response.code === 0 &&
-          response.data &&
-          response.data.transfers
+          response.data?.transfers
         ) {
           for (const transfer of response.data.transfers) {
             this.logger.debug(
@@ -409,15 +410,15 @@ export class SubstrateProvider extends BaseRegistryProvider {
     if (!this.rpcClient) return null;
 
     try {
-      const response = await this.rpcClient.post("", {
+      const response = await this.rpcClient.post<JsonRpcResponse<SubstrateAccountInfo>>("", {
         id: 1,
         jsonrpc: "2.0",
         method: "system_account",
         params: [address],
       });
 
-      if (response && response.result) {
-        const accountInfo = response.result as SubstrateAccountInfo;
+      if (response?.result) {
+        const accountInfo = response.result;
         const freeBalance = new Decimal(accountInfo.data.free);
         const reservedBalance = new Decimal(accountInfo.data.reserved);
         const totalBalance = freeBalance.plus(reservedBalance);
@@ -451,10 +452,10 @@ export class SubstrateProvider extends BaseRegistryProvider {
     try {
       if (this.network === "bittensor") {
         // Taostats balance endpoint
-        const response = await this.httpClient.get(
+        const response = await this.httpClient.get<TaostatsBalanceResponse>(
           `/api/account/${address}/balance`,
         );
-        if (response && response.balance !== undefined) {
+        if (response.balance !== undefined) {
           const balance = new Decimal(response.balance);
           return {
             currency: "TAO",
@@ -465,11 +466,11 @@ export class SubstrateProvider extends BaseRegistryProvider {
         }
       } else {
         // Subscan balance endpoint
-        const response = await this.httpClient.post("/api/scan/account", {
+        const response = await this.httpClient.post<SubscanAccountResponse>("/api/scan/account", {
           key: address,
         });
 
-        if (response && response.code === 0 && response.data) {
+        if (response.code === 0 && response.data) {
           const freeBalance = new Decimal(response.data.balance || "0");
           const reservedBalance = new Decimal(response.data.reserved || "0");
           const totalBalance = freeBalance.plus(reservedBalance);
