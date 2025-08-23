@@ -9,6 +9,7 @@ import type {
 } from "@crypto/core";
 import type { Exchange } from "ccxt";
 import { BaseAdapter } from "../shared/adapters/base-adapter.ts";
+import { isObject, hasProperty } from "@crypto/shared-utils";
 import type { CcxtBalanceInfo, CcxtBalances } from "./ccxt-types.ts";
 import { TransactionTransformer } from "../shared/utils/transaction-transformer.ts";
 import type { CCXTTransaction } from "../shared/utils/transaction-transformer.ts";
@@ -203,7 +204,7 @@ export abstract class BaseCCXTAdapter extends BaseAdapter {
       source: this.exchangeId,
       network: "exchange",
       metadata: {
-        ...(tx.info && typeof tx.info === "object" ? tx.info : {}),
+        ...(isObject(tx.info) ? tx.info : {}),
         originalTransactionType: tx.type,
       },
     }));
@@ -243,12 +244,16 @@ export abstract class BaseCCXTAdapter extends BaseAdapter {
       }
 
       const info = balanceInfo as CcxtBalanceInfo;
-      if (info && typeof info === "object" && info.total !== undefined) {
+      if (isObject(info) && hasProperty(info, 'total')) {
+        const total = typeof info.total === 'number' ? info.total : 0;
+        const free = typeof info.free === 'number' ? info.free : 0;
+        const used = typeof info.used === 'number' ? info.used : 0;
+        
         balances.push({
           currency,
-          total: info.total || 0,
-          free: info.free || 0,
-          used: info.used || 0,
+          total,
+          free,
+          used,
         });
       }
     }

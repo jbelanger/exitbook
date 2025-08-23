@@ -4,6 +4,7 @@ import {
   ServiceError,
 } from "@crypto/core";
 import type { Logger } from "@crypto/shared-logger";
+import { isErrorWithMessage, getErrorProperties } from "@crypto/shared-utils";
 import ccxt from "ccxt";
 
 /**
@@ -186,17 +187,13 @@ export class ServiceErrorHandler {
    */
   static extractRetryAfter(error: unknown): number {
     // Try to get retry after from CCXT error
-    if (
-      error &&
-      typeof error === "object" &&
-      "retryAfter" in error &&
-      typeof error.retryAfter === "number"
-    ) {
-      return error.retryAfter;
+    const errorProps = getErrorProperties(error);
+    if (errorProps.retryAfter && typeof errorProps.retryAfter === "number") {
+      return errorProps.retryAfter;
     }
 
     // Try to extract from error message
-    if (error instanceof Error && error.message) {
+    if (isErrorWithMessage(error)) {
       const retryMatch = error.message.match(/retry.{0,10}(\d+)/i);
       if (retryMatch) {
         return parseInt(retryMatch[1]) * 1000; // Convert to milliseconds
@@ -227,22 +224,17 @@ export class ServiceErrorHandler {
     exchangeId: string,
     logger: Logger,
   ): void {
+    const errorProps = getErrorProperties(error);
     const details = {
       operation,
       exchange: exchangeId,
-      errorType: error instanceof Error ? error.constructor.name : typeof error,
-      message: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
+      errorType: isErrorWithMessage(error) ? error.constructor.name : typeof error,
+      message: errorProps.message,
+      stack: isErrorWithMessage(error) ? error.stack : undefined,
       // Include CCXT-specific details if available
-      ...(error && typeof error === "object" && "code" in error
-        ? { code: (error as any).code }
-        : {}),
-      ...(error && typeof error === "object" && "status" in error
-        ? { status: (error as any).status }
-        : {}),
-      ...(error && typeof error === "object" && "retryAfter" in error
-        ? { retryAfter: (error as any).retryAfter }
-        : {}),
+      ...(errorProps.code !== undefined ? { code: errorProps.code } : {}),
+      ...(errorProps.status !== undefined ? { status: errorProps.status } : {}),
+      ...(errorProps.retryAfter !== undefined ? { retryAfter: errorProps.retryAfter } : {}),
     };
 
     logger.error(details, "Detailed error information");
