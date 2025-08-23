@@ -1,12 +1,12 @@
 /**
  * Type definitions for Coinbase Advanced Trade API
- * 
+ *
  * Based on: https://docs.cloud.coinbase.com/advanced-trade-api/docs/welcome
  * API Version: 2015-07-22
- * 
+ *
  * IMPORTANT: These are for the Advanced Trade API, not the deprecated Pro API.
  * Base URL: https://api.coinbase.com/api/v3/brokerage/
- * 
+ *
  * These types define the raw response structures from Coinbase's API before
  * any transformation to UniversalTransaction format.
  */
@@ -47,7 +47,7 @@ export interface RawCoinbaseAccount {
 
 /**
  * Raw ledger entry from /api/v3/brokerage/accounts/{account_id}/ledger
- * 
+ *
  * Each ledger entry represents a single balance change in an account.
  * For trades, multiple entries are created (e.g., one for each currency involved).
  */
@@ -66,16 +66,16 @@ export interface RawCoinbaseLedgerEntry {
     value: string;
     currency: string;
   };
-  /** 
-   * Type of ledger entry 
+  /**
+   * Type of ledger entry
    * Common values: 'TRADE_FILL', 'DEPOSIT', 'WITHDRAWAL', 'TRANSFER', 'FEE'
    */
   type: string;
-  /** 
+  /**
    * Direction of money flow from account perspective
    * 'DEBIT' = money going out, 'CREDIT' = money coming in
    */
-  direction: 'DEBIT' | 'CREDIT';
+  direction: "DEBIT" | "CREDIT";
   /** Additional details specific to the transaction type */
   details: RawCoinbaseLedgerDetails;
 }
@@ -91,7 +91,7 @@ export interface RawCoinbaseLedgerDetails {
   /** Product/trading pair ID (e.g., 'BTC-USD') */
   product_id?: string;
   /** Side of the order ('BUY' or 'SELL') */
-  order_side?: 'BUY' | 'SELL';
+  order_side?: "BUY" | "SELL";
   /** Fee associated with this entry */
   fee?: {
     value: string;

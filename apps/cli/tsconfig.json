@@ -1,28 +1,16 @@
 {
   "extends": "tsconfig/tsconfig.json",
-  "include": [
-    "**/*"
-  ],
+  "include": ["**/*"],
   "compilerOptions": {
     "jsx": "react-jsx",
-    "lib": [
-      "DOM",
-      "DOM.Iterable",
-      "ES2022"
-    ],
-    "types": [
-      "node"
-    ],
+    "lib": ["DOM", "DOM.Iterable", "ES2022"],
+    "types": ["node"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "rootDirs": [
-      "."
-    ],
+    "rootDirs": ["."],
     "baseUrl": ".",
     "paths": {
-      "~/*": [
-        "./*"
-      ]
+      "~/*": ["./*"]
     },
     "verbatimModuleSyntax": true,
     "noEmit": true,
