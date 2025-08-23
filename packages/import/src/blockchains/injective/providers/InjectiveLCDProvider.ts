@@ -3,7 +3,7 @@ import type { Balance } from '@crypto/core';
 import { maskAddress, parseDecimal } from '@crypto/shared-utils';
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
 import { RegisterProvider } from '../../shared/registry/decorators.ts';
-import { ProviderOperation } from '../../shared/types.ts';
+import { ProviderOperation, hasAddressParam } from '../../shared/types.ts';
 import type { InjectiveBalanceResponse } from '../types.ts';
 
 @RegisterProvider({
@@ -74,7 +74,7 @@ export class InjectiveLCDProvider extends BaseRegistryProvider {
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? maskAddress(operation.params.address) : 'N/A'}`);
+    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${hasAddressParam(operation) ? maskAddress(operation.params.address) : 'N/A'}`);
 
     try {
       switch (operation.type) {

@@ -4,7 +4,7 @@ import type { BlockchainTransaction } from '@crypto/core';
 import { createMoney, maskAddress } from '@crypto/shared-utils';
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
 import { RegisterProvider } from '../../shared/registry/decorators.ts';
-import { ProviderOperation } from '../../shared/types.ts';
+import { ProviderOperation, hasAddressParam, isParseWalletTransactionOperation } from '../../shared/types.ts';
 import type { ParseWalletTransactionParams } from '../../shared/types.ts';
 import type { AddressInfo, MempoolAddressInfo, MempoolTransaction } from '../types.ts';
 
@@ -73,7 +73,7 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? maskAddress(operation.params.address) : 'N/A'}`);
+    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${hasAddressParam(operation) ? maskAddress(operation.params.address) : 'N/A'}`);
 
     try {
       switch (operation.type) {
@@ -230,9 +230,16 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
   private parseWalletTransaction(params: ParseWalletTransactionParams): BlockchainTransaction {
     const { tx, walletAddresses } = params;
 
+    if (!isParseWalletTransactionOperation({ type: 'parseWalletTransaction', params })) {
+      throw new Error('Invalid operation type for parseWalletTransaction');
+    }
+
+    // Type assertion now that we've verified the operation type
+    const mempoolTx = tx as MempoolTransaction;
+
     try {
-      const timestamp = tx.status.confirmed && tx.status.block_time
-        ? tx.status.block_time * 1000
+      const timestamp = mempoolTx.status.confirmed && mempoolTx.status.block_time
+        ? mempoolTx.status.block_time * 1000
         : Date.now();
 
       // Calculate transaction value considering all wallet addresses
@@ -242,7 +249,7 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
       const relevantAddresses = new Set(walletAddresses);
 
       // Check inputs - money going out of our wallet
-      for (const input of tx.vin) {
+      for (const input of mempoolTx.vin) {
         if (input.prevout?.scriptpubkey_address && relevantAddresses.has(input.prevout.scriptpubkey_address)) {
           isOutgoing = true;
           if (input.prevout?.value) {
@@ -252,7 +259,7 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
       }
 
       // Check outputs - money coming into our wallet
-      for (const output of tx.vout) {
+      for (const output of mempoolTx.vout) {
         if (output.scriptpubkey_address && relevantAddresses.has(output.scriptpubkey_address)) {
           isIncoming = true;
           totalValueChange += output.value;
@@ -275,14 +282,14 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
       }
 
       const totalValue = Math.abs(totalValueChange);
-      const fee = isOutgoing ? tx.fee : 0;
+      const fee = isOutgoing ? mempoolTx.fee : 0;
 
       // Determine from/to addresses (first relevant address found)
       let fromAddress = '';
       let toAddress = '';
 
       // For from address, look for wallet addresses in inputs
-      for (const input of tx.vin) {
+      for (const input of mempoolTx.vin) {
         if (input.prevout?.scriptpubkey_address && relevantAddresses.has(input.prevout.scriptpubkey_address)) {
           fromAddress = input.prevout.scriptpubkey_address;
           break;
@@ -290,7 +297,7 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
       }
 
       // For to address, look for wallet addresses in outputs
-      for (const output of tx.vout) {
+      for (const output of mempoolTx.vout) {
         if (output.scriptpubkey_address && relevantAddresses.has(output.scriptpubkey_address)) {
           toAddress = output.scriptpubkey_address;
           break;
@@ -298,18 +305,18 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
       }
 
       // Fallback to first addresses if no wallet addresses found
-      if (!fromAddress && tx.vin.length > 0 && tx.vin[0]?.prevout?.scriptpubkey_address) {
-        fromAddress = tx.vin[0].prevout.scriptpubkey_address;
+      if (!fromAddress && mempoolTx.vin.length > 0 && mempoolTx.vin[0]?.prevout?.scriptpubkey_address) {
+        fromAddress = mempoolTx.vin[0].prevout.scriptpubkey_address;
       }
 
-      if (!toAddress && tx.vout.length > 0 && tx.vout[0]?.scriptpubkey_address) {
-        toAddress = tx.vout[0].scriptpubkey_address;
+      if (!toAddress && mempoolTx.vout.length > 0 && mempoolTx.vout[0]?.scriptpubkey_address) {
+        toAddress = mempoolTx.vout[0].scriptpubkey_address;
       }
 
       return {
-        hash: tx.txid,
-        blockNumber: tx.status.block_height || 0,
-        blockHash: tx.status.block_hash || '',
+        hash: mempoolTx.txid,
+        blockNumber: mempoolTx.status.block_height || 0,
+        blockHash: mempoolTx.status.block_hash || '',
         timestamp,
         from: fromAddress,
         to: toAddress,
@@ -317,15 +324,15 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
         fee: createMoney(fee / 100000000, 'BTC'),
         gasUsed: undefined,
         gasPrice: undefined,
-        status: tx.status.confirmed ? 'success' : 'pending',
+        status: mempoolTx.status.confirmed ? 'success' : 'pending',
         type,
         tokenContract: undefined,
         tokenSymbol: 'BTC',
         nonce: undefined,
-        confirmations: tx.status.confirmed ? 1 : 0
+        confirmations: mempoolTx.status.confirmed ? 1 : 0
       };
     } catch (error) {
-      this.logger.error(`Failed to parse wallet transaction ${tx.txid} - Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}, TxData: ${JSON.stringify(tx)}`);
+      this.logger.error(`Failed to parse wallet transaction ${mempoolTx.txid} - Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}, TxData: ${JSON.stringify(mempoolTx)}`);
       throw error;
     }
   }
