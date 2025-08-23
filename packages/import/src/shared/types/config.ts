@@ -1,22 +1,24 @@
 interface BaseAdapterConfig {
-  type: 'exchange' | 'blockchain';
+  type: "exchange" | "blockchain";
   id: string;
 }
 
 export interface ExchangeAdapterConfig extends BaseAdapterConfig {
-  type: 'exchange';
-  subType: 'ccxt' | 'csv';
-  credentials?: { 
-    apiKey: string; 
-    secret: string; 
-    password?: string | undefined; 
-  } | undefined;
+  type: "exchange";
+  subType: "ccxt" | "csv";
+  credentials?:
+    | {
+        apiKey: string;
+        secret: string;
+        password?: string | undefined;
+      }
+    | undefined;
   csvDirectories?: string[] | undefined;
 }
 
 export interface BlockchainAdapterConfig extends BaseAdapterConfig {
-  type: 'blockchain';
-  subType: 'rest' | 'rpc';
+  type: "blockchain";
+  subType: "rest" | "rpc";
   network: string;
 }
 

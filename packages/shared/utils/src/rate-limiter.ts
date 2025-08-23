@@ -1,5 +1,5 @@
-import type { RateLimitConfig } from '@crypto/core';
-import { getLogger, type Logger } from '@crypto/shared-logger';
+import type { RateLimitConfig } from "@crypto/core";
+import { getLogger, type Logger } from "@crypto/shared-logger";
 
 /**
  * Token bucket rate limiter implementation
@@ -11,16 +11,15 @@ export class RateLimiter {
   private lastRefill: number;
   private readonly config: RateLimitConfig;
 
-  constructor(
-    providerName: string,
-    config: RateLimitConfig
-  ) {
+  constructor(providerName: string, config: RateLimitConfig) {
     this.config = config;
     this.logger = getLogger(`RateLimiter:${providerName}`);
     this.tokens = config.burstLimit || 1;
     this.lastRefill = Date.now();
 
-    this.logger.debug(`Rate limiter initialized - RequestsPerSecond: ${config.requestsPerSecond}, BurstLimit: ${config.burstLimit}`);
+    this.logger.debug(
+      `Rate limiter initialized - RequestsPerSecond: ${config.requestsPerSecond}, BurstLimit: ${config.burstLimit}`,
+    );
   }
 
   /**
@@ -36,10 +35,13 @@ export class RateLimiter {
     }
 
     // Calculate wait time for next token
-    const timeUntilNextToken = (1 / (this.config.requestsPerSecond || 1)) * 1000;
+    const timeUntilNextToken =
+      (1 / (this.config.requestsPerSecond || 1)) * 1000;
     const waitTime = Math.ceil(timeUntilNextToken);
 
-    this.logger.debug(`Rate limit reached, waiting - WaitTimeMs: ${waitTime}, TokensAvailable: ${this.tokens}`);
+    this.logger.debug(
+      `Rate limit reached, waiting - WaitTimeMs: ${waitTime}, TokensAvailable: ${this.tokens}`,
+    );
 
     await this.delay(waitTime);
 
@@ -58,12 +60,16 @@ export class RateLimiter {
   /**
    * Get current rate limit status
    */
-  getStatus(): { tokens: number; maxTokens: number; requestsPerSecond: number } {
+  getStatus(): {
+    tokens: number;
+    maxTokens: number;
+    requestsPerSecond: number;
+  } {
     this.refillTokens();
     return {
       tokens: this.tokens,
       maxTokens: this.config.burstLimit || 1,
-      requestsPerSecond: this.config.requestsPerSecond || 1
+      requestsPerSecond: this.config.requestsPerSecond || 1,
     };
   }
 
@@ -73,13 +79,16 @@ export class RateLimiter {
 
     if (timePassed > 0) {
       const tokensToAdd = timePassed * (this.config.requestsPerSecond || 1);
-      this.tokens = Math.min(this.config.burstLimit || 1, this.tokens + tokensToAdd);
+      this.tokens = Math.min(
+        this.config.burstLimit || 1,
+        this.tokens + tokensToAdd,
+      );
       this.lastRefill = now;
     }
   }
 
   private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
 
@@ -89,7 +98,10 @@ export class RateLimiter {
 export class RateLimiterFactory {
   private static limiters = new Map<string, RateLimiter>();
 
-  static getOrCreate(providerName: string, config: RateLimitConfig): RateLimiter {
+  static getOrCreate(
+    providerName: string,
+    config: RateLimitConfig,
+  ): RateLimiter {
     if (!this.limiters.has(providerName)) {
       this.limiters.set(providerName, new RateLimiter(providerName, config));
     }

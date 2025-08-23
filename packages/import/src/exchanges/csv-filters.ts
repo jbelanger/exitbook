@@ -12,12 +12,12 @@ export class CsvFilters {
   static filterByField<T, K extends keyof T>(
     rows: T[],
     field: K,
-    value?: T[K]
+    value?: T[K],
   ): T[] {
     if (value === undefined || value === null) {
       return rows;
     }
-    return rows.filter(row => row[field] === value);
+    return rows.filter((row) => row[field] === value);
   }
 
   /**
@@ -28,9 +28,9 @@ export class CsvFilters {
    */
   static filterByFields<T>(
     rows: T[],
-    filters: Partial<Record<keyof T, unknown>>
+    filters: Partial<Record<keyof T, unknown>>,
   ): T[] {
-    return rows.filter(row => {
+    return rows.filter((row) => {
       return Object.entries(filters).every(([field, value]) => {
         if (value === undefined || value === null) {
           return true;
@@ -46,11 +46,8 @@ export class CsvFilters {
    * @param uid UID to filter by (if undefined, no filtering is applied)
    * @returns Filtered array
    */
-  static filterByUid<T extends { UID: string }>(
-    rows: T[],
-    uid?: string
-  ): T[] {
-    return this.filterByField(rows, 'UID', uid);
+  static filterByUid<T extends { UID: string }>(rows: T[], uid?: string): T[] {
+    return this.filterByField(rows, "UID", uid);
   }
 
   /**
@@ -63,9 +60,9 @@ export class CsvFilters {
   static filterByTimestamp<T extends { timestamp: number }>(
     rows: T[],
     since?: number,
-    until?: number
+    until?: number,
   ): T[] {
-    return rows.filter(row => {
+    return rows.filter((row) => {
       if (since !== undefined && row.timestamp < since) {
         return false;
       }
@@ -84,10 +81,10 @@ export class CsvFilters {
    */
   static groupByField<T, K extends keyof T>(
     rows: T[],
-    field: K
+    field: K,
   ): Map<T[K], T[]> {
     const groups = new Map<T[K], T[]>();
-    
+
     for (const row of rows) {
       const key = row[field];
       if (!groups.has(key)) {
@@ -95,7 +92,7 @@ export class CsvFilters {
       }
       groups.get(key)!.push(row);
     }
-    
+
     return groups;
   }
 }
