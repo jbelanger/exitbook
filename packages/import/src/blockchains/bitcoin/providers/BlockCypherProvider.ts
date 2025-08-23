@@ -6,7 +6,13 @@ import { createMoney, maskAddress, hasStringProperty, isErrorWithMessage } from 
 import { BaseRegistryProvider } from "../../shared/registry/base-registry-provider.ts";
 import { RegisterProvider } from "../../shared/registry/decorators.ts";
 import type { ProviderOperation } from "../../shared/types.ts";
-import { hasAddressParam } from "../../shared/types.ts";
+import { 
+  hasAddressParam,
+  isAddressTransactionOperation,
+  isAddressBalanceOperation,
+  isAddressInfoOperation,
+  isParseWalletTransactionOperation
+} from "../../shared/types.ts";
 import type { AddressInfo, BlockCypherAddress, BlockCypherTransaction } from "../types.ts";
 
 
@@ -96,24 +102,25 @@ export class BlockCypherProvider extends BaseRegistryProvider {
     try {
       switch (operation.type) {
         case "getAddressTransactions":
-          return this.getAddressTransactions(
-            operation.params as { address: string; since?: number },
-          ) as T;
+          if (isAddressTransactionOperation(operation)) {
+            return this.getAddressTransactions(operation.params) as T;
+          }
+          throw new Error(`Invalid params for getAddressTransactions operation`);
         case "getAddressBalance":
-          return this.getAddressBalance(
-            operation.params as { address: string },
-          ) as T;
+          if (isAddressBalanceOperation(operation)) {
+            return this.getAddressBalance(operation.params) as T;
+          }
+          throw new Error(`Invalid params for getAddressBalance operation`);
         case "getAddressInfo":
-          return this.getAddressInfo(
-            operation.params as { address: string },
-          ) as T;
+          if (isAddressInfoOperation(operation)) {
+            return this.getAddressInfo(operation.params) as T;
+          }
+          throw new Error(`Invalid params for getAddressInfo operation`);
         case "parseWalletTransaction":
-          return this.parseWalletTransaction(
-            operation.params as {
-              tx: BlockCypherTransaction;
-              walletAddresses: string[];
-            },
-          ) as T;
+          if (isParseWalletTransactionOperation(operation)) {
+            return this.parseWalletTransaction(operation.params) as T;
+          }
+          throw new Error(`Invalid params for parseWalletTransaction operation`);
         default:
           throw new Error(`Unsupported operation: ${operation.type}`);
       }
