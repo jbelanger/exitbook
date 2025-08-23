@@ -16,6 +16,7 @@ import { SubstrateAdapter } from "../../blockchains/polkadot/adapter.ts";
 import { SolanaAdapter } from "../../blockchains/solana/adapter.ts";
 
 // Import exchange adapters directly
+import { CoinbaseAdapter } from "../../exchanges/coinbase/adapter.ts";
 import { CoinbaseCCXTAdapter } from "../../exchanges/coinbase/ccxt-adapter.ts";
 import { KrakenCSVAdapter } from "../../exchanges/kraken/csv-adapter.ts";
 import { KuCoinCSVAdapter } from "../../exchanges/kucoin/csv-adapter.ts";
@@ -88,6 +89,8 @@ export class UniversalAdapterFactory {
       return this.createCSVExchangeAdapter(config);
     } else if (config.subType === "ccxt") {
       return this.createCCXTExchangeAdapter(config);
+    } else if (config.subType === "native") {
+      return this.createNativeExchangeAdapter(config);
     }
 
     throw new Error(
@@ -152,6 +155,29 @@ export class UniversalAdapterFactory {
   }
 
   /**
+   * Create native exchange adapter directly
+   */
+  private static async createNativeExchangeAdapter(
+    config: UniversalExchangeAdapterConfig,
+  ): Promise<IUniversalAdapter> {
+    if (!config.credentials) {
+      throw new Error("Credentials required for native exchange adapters");
+    }
+
+    switch (config.id.toLowerCase()) {
+      case "coinbase":
+        return new CoinbaseAdapter(config, {
+          apiKey: config.credentials.apiKey,
+          secret: config.credentials.secret,
+          passphrase: config.credentials.password || "",
+          sandbox: false,
+        });
+      default:
+        throw new Error(`Unsupported native exchange: ${config.id}`);
+    }
+  }
+
+  /**
    * Create a blockchain adapter directly (no more bridge adapters)
    */
   private static async createBlockchainAdapter(
@@ -192,7 +218,7 @@ export class UniversalAdapterFactory {
    */
   static createExchangeConfig(
     exchangeId: string,
-    subType: "ccxt" | "csv",
+    subType: "ccxt" | "csv" | "native",
     options: {
       credentials?:
         | {

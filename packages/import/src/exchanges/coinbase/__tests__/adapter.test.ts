@@ -84,7 +84,7 @@ describe("CoinbaseAdapter", () => {
         id: "coinbase",
         name: "Coinbase Advanced Trade",
         type: "exchange",
-        subType: "rest",
+        subType: "native",
         capabilities: {
           supportedOperations: ["fetchTransactions", "fetchBalances"],
           maxBatchSize: 100,
