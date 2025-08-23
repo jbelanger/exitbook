@@ -2,10 +2,10 @@ import type {
   CryptoTransaction,
   Money,
   TransactionStatus,
-  TransactionType
-} from '@crypto/core';
-import { createMoney } from '@crypto/shared-utils';
-import crypto from 'crypto';
+  TransactionType,
+} from "@crypto/core";
+import { createMoney } from "@crypto/shared-utils";
+import crypto from "crypto";
 
 // CCXT Transaction interface based on commonly used properties
 export interface CCXTTransaction {
@@ -36,9 +36,17 @@ export class TransactionTransformer {
   /**
    * Converts CCXT transaction data to standardized CryptoTransaction format
    */
-  static fromCCXT(ccxtTransaction: CCXTTransaction, type: TransactionType, exchangeId: string): CryptoTransaction {
-    const { baseCurrency, quoteCurrency } = this.extractCurrencies(ccxtTransaction);
-    const transactionId = this.extractTransactionId(ccxtTransaction, exchangeId);
+  static fromCCXT(
+    ccxtTransaction: CCXTTransaction,
+    type: TransactionType,
+    exchangeId: string,
+  ): CryptoTransaction {
+    const { baseCurrency, quoteCurrency } =
+      this.extractCurrencies(ccxtTransaction);
+    const transactionId = this.extractTransactionId(
+      ccxtTransaction,
+      exchangeId,
+    );
     const timestamp = ccxtTransaction.timestamp || Date.now();
     const amount = Math.abs(ccxtTransaction.amount || 0);
 
@@ -51,7 +59,7 @@ export class TransactionTransformer {
       type,
       timestamp,
       datetime: ccxtTransaction.datetime || new Date(timestamp).toISOString(),
-      symbol: ccxtTransaction.symbol || 'UNKNOWN',
+      symbol: ccxtTransaction.symbol || "UNKNOWN",
       amount: amountMoney,
       price: priceMoney,
       fee,
@@ -60,7 +68,7 @@ export class TransactionTransformer {
     };
 
     // Only add side property if it has a valid value
-    if (ccxtTransaction.side === 'buy' || ccxtTransaction.side === 'sell') {
+    if (ccxtTransaction.side === "buy" || ccxtTransaction.side === "sell") {
       result.side = ccxtTransaction.side;
     }
 
@@ -70,16 +78,24 @@ export class TransactionTransformer {
   /**
    * Extracts base and quote currencies from transaction data
    */
-  static extractCurrencies(transaction: CCXTTransaction): { baseCurrency: string; quoteCurrency: string } {
-    let baseCurrency = 'unknown';
-    let quoteCurrency = 'unknown';
+  static extractCurrencies(transaction: CCXTTransaction): {
+    baseCurrency: string;
+    quoteCurrency: string;
+  } {
+    let baseCurrency = "unknown";
+    let quoteCurrency = "unknown";
 
-    if (transaction.symbol && transaction.symbol.includes('/')) {
-      [baseCurrency, quoteCurrency] = transaction.symbol.split('/');
+    if (transaction.symbol && transaction.symbol.includes("/")) {
+      [baseCurrency, quoteCurrency] = transaction.symbol.split("/");
     } else if (transaction.currency) {
       baseCurrency = transaction.currency;
       quoteCurrency = transaction.currency;
-    } else if (transaction.info && typeof transaction.info === 'object' && 'currency' in transaction.info && typeof transaction.info.currency === 'string') {
+    } else if (
+      transaction.info &&
+      typeof transaction.info === "object" &&
+      "currency" in transaction.info &&
+      typeof transaction.info.currency === "string"
+    ) {
       baseCurrency = transaction.info.currency;
       quoteCurrency = transaction.info.currency;
     }
@@ -90,23 +106,40 @@ export class TransactionTransformer {
   /**
    * Extracts transaction ID with fallback to generated hash
    */
-  private static extractTransactionId(transaction: CCXTTransaction, exchangeId: string): string {
-    return transaction.id || transaction.txid || this.createTransactionHash(transaction, exchangeId);
+  private static extractTransactionId(
+    transaction: CCXTTransaction,
+    exchangeId: string,
+  ): string {
+    return (
+      transaction.id ||
+      transaction.txid ||
+      this.createTransactionHash(transaction, exchangeId)
+    );
   }
 
   /**
    * Extracts and normalizes price information
    */
-  private static extractPrice(transaction: CCXTTransaction, type: TransactionType, quoteCurrency: string): Money | undefined {
+  private static extractPrice(
+    transaction: CCXTTransaction,
+    type: TransactionType,
+    quoteCurrency: string,
+  ): Money | undefined {
     if (transaction.price) {
       return createMoney(transaction.price, quoteCurrency);
     }
-    
-    if (type === 'trade' && transaction.cost && transaction.amount && transaction.amount !== 0) {
-      const calculatedPrice = Math.abs(transaction.cost) / Math.abs(transaction.amount);
+
+    if (
+      type === "trade" &&
+      transaction.cost &&
+      transaction.amount &&
+      transaction.amount !== 0
+    ) {
+      const calculatedPrice =
+        Math.abs(transaction.cost) / Math.abs(transaction.amount);
       return createMoney(calculatedPrice, quoteCurrency);
     }
-    
+
     return undefined;
   }
 
@@ -115,7 +148,10 @@ export class TransactionTransformer {
    */
   private static extractFee(transaction: CCXTTransaction): Money | undefined {
     if (transaction.fee?.cost) {
-      return createMoney(transaction.fee.cost, transaction.fee.currency || 'unknown');
+      return createMoney(
+        transaction.fee.cost,
+        transaction.fee.currency || "unknown",
+      );
     }
     return undefined;
   }
@@ -124,31 +160,34 @@ export class TransactionTransformer {
    * Normalizes various exchange status formats to standard TransactionStatus
    */
   static normalizeStatus(status: unknown): TransactionStatus {
-    if (!status || typeof status !== 'string') return 'pending';
+    if (!status || typeof status !== "string") return "pending";
 
     const statusMap: Record<string, TransactionStatus> = {
-      'open': 'open',
-      'closed': 'closed',
-      'filled': 'closed',
-      'completed': 'closed',
-      'complete': 'closed',
-      'canceled': 'canceled',
-      'cancelled': 'canceled',
-      'pending': 'pending',
-      'rejected': 'failed',
-      'expired': 'failed',
-      'failed': 'failed',
-      'ok': 'ok',
+      open: "open",
+      closed: "closed",
+      filled: "closed",
+      completed: "closed",
+      complete: "closed",
+      canceled: "canceled",
+      cancelled: "canceled",
+      pending: "pending",
+      rejected: "failed",
+      expired: "failed",
+      failed: "failed",
+      ok: "ok",
     };
 
     const normalizedStatus = statusMap[status.toLowerCase()];
-    return normalizedStatus || 'pending';
+    return normalizedStatus || "pending";
   }
 
   /**
    * Generates unique transaction identifier from transaction data
    */
-  static createTransactionHash(transaction: CCXTTransaction, exchangeId: string): string {
+  static createTransactionHash(
+    transaction: CCXTTransaction,
+    exchangeId: string,
+  ): string {
     const hashData = JSON.stringify({
       id: transaction.id,
       timestamp: transaction.timestamp,
@@ -156,10 +195,14 @@ export class TransactionTransformer {
       amount: transaction.amount,
       side: transaction.side,
       type: transaction.type,
-      exchange: exchangeId
+      exchange: exchangeId,
     });
 
-    return crypto.createHash('sha256').update(hashData).digest('hex').slice(0, 16);
+    return crypto
+      .createHash("sha256")
+      .update(hashData)
+      .digest("hex")
+      .slice(0, 16);
   }
 
   /**
@@ -167,24 +210,37 @@ export class TransactionTransformer {
    */
   static shouldFilterOut(transaction: CCXTTransaction): boolean {
     // Check CCXT status
-    if (transaction.status === 'canceled' || transaction.status === 'cancelled') {
+    if (
+      transaction.status === "canceled" ||
+      transaction.status === "cancelled"
+    ) {
       return true;
     }
 
     // Check exchange-specific status indicators
-    const exchangeStatus = transaction.info && typeof transaction.info === 'object' && 'status' in transaction.info && typeof transaction.info.status === 'string' ? transaction.info.status.toLowerCase() : undefined;
-    if (exchangeStatus === 'canceled' || exchangeStatus === 'cancelled') {
+    const exchangeStatus =
+      transaction.info &&
+      typeof transaction.info === "object" &&
+      "status" in transaction.info &&
+      typeof transaction.info.status === "string"
+        ? transaction.info.status.toLowerCase()
+        : undefined;
+    if (exchangeStatus === "canceled" || exchangeStatus === "cancelled") {
       return true;
     }
 
     // Check for cancel_reason in exchange data
-    if (transaction.info && 
-        typeof transaction.info === 'object' && 
-        'cancel_reason' in transaction.info &&
-        transaction.info.cancel_reason &&
-        typeof transaction.info.cancel_reason === 'object' &&
-        (('id' in transaction.info.cancel_reason && transaction.info.cancel_reason.id) || 
-         ('message' in transaction.info.cancel_reason && transaction.info.cancel_reason.message))) {
+    if (
+      transaction.info &&
+      typeof transaction.info === "object" &&
+      "cancel_reason" in transaction.info &&
+      transaction.info.cancel_reason &&
+      typeof transaction.info.cancel_reason === "object" &&
+      (("id" in transaction.info.cancel_reason &&
+        transaction.info.cancel_reason.id) ||
+        ("message" in transaction.info.cancel_reason &&
+          transaction.info.cancel_reason.message))
+    ) {
       return true;
     }
 
