@@ -2,14 +2,19 @@ import * as crypto from 'crypto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CoinbaseAPIClient } from '../coinbase-api-client.ts';
-import type { CoinbaseCredentials, RawCoinbaseAccount, RawCoinbaseLedgerEntry } from '../types';
+import { CoinbaseCredentials, RawCoinbaseAccount, RawCoinbaseLedgerEntry } from '../types.ts';
+
+// Create a mock HttpClient constructor
+const mockHttpClient = {
+  request: vi.fn(),
+  getRateLimitStatus: vi.fn(() => ({ remainingRequests: 10, resetTime: Date.now() + 60000 }))
+};
+
+const MockHttpClient = vi.fn().mockImplementation(() => mockHttpClient);
 
 // Mock the HttpClient
 vi.mock('@crypto/shared-utils', () => ({
-  HttpClient: vi.fn().mockImplementation(() => ({
-    request: vi.fn(),
-    getRateLimitStatus: vi.fn(() => ({ remainingRequests: 10, resetTime: Date.now() + 60000 }))
-  }))
+  HttpClient: MockHttpClient
 }));
 
 // Mock the logger
@@ -23,11 +28,10 @@ vi.mock('@crypto/shared-logger', () => ({
 }));
 
 describe('CoinbaseAPIClient', () => {
-  let mockHttpClient: { request: ReturnType<typeof vi.fn> };
   let client: CoinbaseAPIClient;
   let credentials: CoinbaseCredentials;
 
-  beforeEach(async () => {
+  beforeEach(() => {
     credentials = {
       apiKey: 'test-api-key',
       secret: 'test-secret',
@@ -35,44 +39,35 @@ describe('CoinbaseAPIClient', () => {
       sandbox: true
     };
 
-    // Get the mock HttpClient constructor
-    const { HttpClient } = (await import('@crypto/shared-utils'));
     client = new CoinbaseAPIClient(credentials);
     
-    // Get the mocked instance
-    mockHttpClient = HttpClient.mock.instances[0];
-  });
-
-  afterEach(() => {
+    // Clear all mocks before each test
     vi.clearAllMocks();
   });
 
   describe('constructor', () => {
-    it('should initialize with sandbox URL when sandbox is true', async () => {
+    it('should initialize with sandbox URL when sandbox is true', () => {
       const sandboxCredentials = { ...credentials, sandbox: true };
       const sandboxClient = new CoinbaseAPIClient(sandboxCredentials);
       
       expect(sandboxClient).toBeDefined();
       // Check that HttpClient was called with sandbox URL
-      const { HttpClient } = (await import('@crypto/shared-utils'));
-      const lastCall = HttpClient.mock.calls[HttpClient.mock.calls.length - 1][0];
+      const lastCall = MockHttpClient.mock.calls[MockHttpClient.mock.calls.length - 1][0];
       expect(lastCall.baseUrl).toBe('https://api.sandbox.coinbase.com');
     });
 
-    it('should initialize with production URL when sandbox is false', async () => {
+    it('should initialize with production URL when sandbox is false', () => {
       const prodCredentials = { ...credentials, sandbox: false };
       const prodClient = new CoinbaseAPIClient(prodCredentials);
       
       expect(prodClient).toBeDefined();
       // Check that HttpClient was called with production URL
-      const { HttpClient } = (await import('@crypto/shared-utils'));
-      const lastCall = HttpClient.mock.calls[HttpClient.mock.calls.length - 1][0];
+      const lastCall = MockHttpClient.mock.calls[MockHttpClient.mock.calls.length - 1][0];
       expect(lastCall.baseUrl).toBe('https://api.coinbase.com');
     });
 
-    it('should configure appropriate rate limits', async () => {
-      const { HttpClient } = (await import('@crypto/shared-utils'));
-      const httpClientConfig = HttpClient.mock.calls[0][0];
+    it('should configure appropriate rate limits', () => {
+      const httpClientConfig = MockHttpClient.mock.calls[0][0];
       
       expect(httpClientConfig.rateLimit).toEqual({
         requestsPerSecond: 10,

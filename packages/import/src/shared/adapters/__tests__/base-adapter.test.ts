@@ -114,7 +114,7 @@ describe('BaseAdapter Validation Integration', () => {
       timestamp: 'invalid_timestamp', // Should be number
       type: 'invalid_type', // Invalid enum value
       source: '', // Empty string
-    } as UniversalTransaction;
+    } as unknown as UniversalTransaction;
 
     it('should process all valid transactions successfully', async () => {
       adapter.setMockTransactions([validTransaction]);

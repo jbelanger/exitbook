@@ -3,10 +3,8 @@
  * Tests core interfaces, circuit breaker, and provider manager functionality
  */
 
-import { IBlockchainProvider, ProviderCapabilities, ProviderOperation, RateLimitConfig } from '../../src/core/types';
-import { ProviderInfo, ProviderRegistry } from '../../src/providers/registry/index';
-import { BlockchainProviderManager } from '../../src/providers/shared/BlockchainProviderManager';
-import { CircuitBreaker } from '../../src/providers/shared/CircuitBreaker';
+import { beforeEach, afterEach, describe, test, expect, vi } from 'vitest';
+
 
 // Mock explorer config for tests
 const mockExplorerConfig = {
@@ -18,8 +16,19 @@ const mockExplorerConfig = {
   }
 };
 
+import { RateLimitConfig } from '@crypto/core';
+import { CircuitBreaker } from '../../../shared/utils/circuit-breaker.ts';
 // Import providers to trigger registration
-import '../../src/providers/ethereum/EtherscanProvider';
+import '../../ethereum/providers/EtherscanProvider';
+import { BlockchainProviderManager } from '../blockchain-provider-manager.ts';
+import { ProviderInfo, ProviderRegistry } from '../registry/provider-registry.ts';
+import { 
+  IBlockchainProvider, 
+  ProviderCapabilities, 
+  ProviderOperation, 
+  AddressTransactionParams,
+  AddressBalanceParams 
+} from '../types.ts';
 
 // Mock provider for testing
 class MockProvider implements IBlockchainProvider {
@@ -74,8 +83,10 @@ class MockProvider implements IBlockchainProvider {
 
     // Mock response based on operation type
     switch (operation.type) {
-      case 'getAddressTransactions':
-        return { transactions: [], address: operation.params.address } as T;
+      case 'getAddressTransactions': {
+        const addressParams = operation.params as AddressTransactionParams;
+        return { transactions: [], address: addressParams.address } as T;
+      }
       case 'getAddressBalance':
         return { balance: 100, currency: 'ETH' } as T;
       default:
@@ -90,18 +101,18 @@ class MockProvider implements IBlockchainProvider {
 
 describe('CircuitBreaker', () => {
   beforeEach(() => {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
   });
 
   afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   test('should start in closed state', () => {
     const breaker = new CircuitBreaker('test-provider');
     expect(breaker.isClosed()).toBe(true);
     expect(breaker.isOpen()).toBe(false);
-    expect(breaker.getState()).toBe('closed');
+    expect(breaker.getCurrentState()).toBe('closed');
   });
 
   test('should open after max failures', () => {
@@ -112,7 +123,7 @@ describe('CircuitBreaker', () => {
 
     breaker.recordFailure();
     expect(breaker.isOpen()).toBe(true);
-    expect(breaker.getState()).toBe('open');
+    expect(breaker.getCurrentState()).toBe('open');
   });
 
   test('should reset on success', () => {
@@ -132,15 +143,15 @@ describe('CircuitBreaker', () => {
     // Trip the breaker
     breaker.recordFailure();
     breaker.recordFailure();
-    expect(breaker.getState()).toBe('open');
+    expect(breaker.getCurrentState()).toBe('open');
 
     // Advance time to just before timeout
-    jest.advanceTimersByTime(59000);
-    expect(breaker.getState()).toBe('open');
+    vi.advanceTimersByTime(59000);
+    expect(breaker.getCurrentState()).toBe('open');
 
     // Advance past timeout
-    jest.advanceTimersByTime(2000);
-    expect(breaker.getState()).toBe('half-open');
+    vi.advanceTimersByTime(2000);
+    expect(breaker.getCurrentState()).toBe('half-open');
   });
 
   test('should return to open state on failure in half-open', () => {
@@ -149,15 +160,15 @@ describe('CircuitBreaker', () => {
     // Trip the breaker
     breaker.recordFailure();
     breaker.recordFailure();
-    expect(breaker.getState()).toBe('open');
+    expect(breaker.getCurrentState()).toBe('open');
 
     // Wait for half-open
-    jest.advanceTimersByTime(61000);
-    expect(breaker.getState()).toBe('half-open');
+    vi.advanceTimersByTime(61000);
+    expect(breaker.getCurrentState()).toBe('half-open');
 
     // Fail again - should go back to open
     breaker.recordFailure();
-    expect(breaker.getState()).toBe('open');
+    expect(breaker.getCurrentState()).toBe('open');
   });
 
   test('should return to closed state on success in half-open', () => {
@@ -166,24 +177,24 @@ describe('CircuitBreaker', () => {
     // Trip the breaker
     breaker.recordFailure();
     breaker.recordFailure();
-    expect(breaker.getState()).toBe('open');
+    expect(breaker.getCurrentState()).toBe('open');
 
     // Wait for half-open
-    jest.advanceTimersByTime(61000);
-    expect(breaker.getState()).toBe('half-open');
+    vi.advanceTimersByTime(61000);
+    expect(breaker.getCurrentState()).toBe('half-open');
 
     // Succeed - should go back to closed
     breaker.recordSuccess();
-    expect(breaker.getState()).toBe('closed');
+    expect(breaker.getCurrentState()).toBe('closed');
   });
 
   test('should provide statistics', () => {
     const breaker = new CircuitBreaker('test-provider');
-    const stats = breaker.getStats();
+    const stats = breaker.getStatistics();
 
-    expect(stats.name).toBe('test-provider');
+    expect(stats.providerName).toBe('test-provider');
     expect(stats.state).toBe('closed');
-    expect(stats.failures).toBe(0);
+    expect(stats.failureCount).toBe(0);
   });
 });
 
@@ -212,7 +223,7 @@ describe('BlockchainProviderManager', () => {
   });
 
   test('should execute operations with primary provider', async () => {
-    const operation: ProviderOperation<any> = {
+    const operation: ProviderOperation<{ balance: number; currency: string }> = {
       type: 'getAddressBalance',
       params: { address: '0x123' }
     };
@@ -226,7 +237,7 @@ describe('BlockchainProviderManager', () => {
     // Make primary provider fail
     primaryProvider.setFailureMode(true);
 
-    const operation: ProviderOperation<any> = {
+    const operation: ProviderOperation<{ balance: number; currency: string }> = {
       type: 'getAddressBalance',
       params: { address: '0x123' }
     };
@@ -239,7 +250,7 @@ describe('BlockchainProviderManager', () => {
     primaryProvider.setFailureMode(true);
     fallbackProvider.setFailureMode(true);
 
-    const operation: ProviderOperation<any> = {
+    const operation: ProviderOperation<{ balance: number; currency: string }> = {
       type: 'getAddressBalance',
       params: { address: '0x123' }
     };
@@ -250,10 +261,13 @@ describe('BlockchainProviderManager', () => {
   });
 
   test('should cache results when cache key provided', async () => {
-    const operation: ProviderOperation<any> = {
+    const operation: ProviderOperation<{ balance: number; currency: string }> = {
       type: 'getAddressBalance',
       params: { address: '0x123' },
-      getCacheKey: (params) => `balance-${params.address}`
+      getCacheKey: (params) => {
+        const addressParams = params as AddressBalanceParams;
+        return `balance-${addressParams.address}`;
+      }
     };
 
     // First call
@@ -279,7 +293,7 @@ describe('BlockchainProviderManager', () => {
   });
 
   test('should handle unsupported operations', async () => {
-    const operation: ProviderOperation<any> = {
+    const operation: ProviderOperation<{ success: boolean }> = {
       type: 'custom', // Not supported by mock providers
       params: {}
     };
@@ -290,40 +304,45 @@ describe('BlockchainProviderManager', () => {
   });
 
   test('should respect circuit breaker state and skip dead providers', async () => {
-    jest.useFakeTimers();
+    const executeSpyPrimary = vi.spyOn(primaryProvider, 'execute');
+    const executeSpyFallback = vi.spyOn(fallbackProvider, 'execute');
 
-    const executeSpyPrimary = jest.spyOn(primaryProvider, 'execute');
-    const executeSpyFallback = jest.spyOn(fallbackProvider, 'execute');
+    try {
+      const operation: ProviderOperation<{ balance: number; currency: string }> = {
+        type: 'getAddressBalance',
+        params: { address: '0x123' }
+      };
 
-    const operation: ProviderOperation<any> = {
-      type: 'getAddressBalance',
-      params: { address: '0x123' }
-    };
+      // Trip the primary provider's circuit breaker
+      primaryProvider.setFailureMode(true);
 
-    // Trip the primary provider's circuit breaker
-    primaryProvider.setFailureMode(true);
+      // Make enough calls to trip the breaker
+      try { await manager.executeWithFailover('ethereum', operation); } catch {
+        // Expected failure
+      }
+      try { await manager.executeWithFailover('ethereum', operation); } catch {
+        // Expected failure
+      }
+      try { await manager.executeWithFailover('ethereum', operation); } catch {
+        // Expected failure
+      }
 
-    // Make enough calls to trip the breaker
-    try { await manager.executeWithFailover('ethereum', operation); } catch { }
-    try { await manager.executeWithFailover('ethereum', operation); } catch { }
-    try { await manager.executeWithFailover('ethereum', operation); } catch { }
+      // Reset spies and make primary healthy again
+      executeSpyPrimary.mockClear();
+      executeSpyFallback.mockClear();
+      primaryProvider.setFailureMode(false);
 
-    // Reset spies and make primary healthy again
-    executeSpyPrimary.mockClear();
-    executeSpyFallback.mockClear();
-    primaryProvider.setFailureMode(false);
+      // Next call should skip primary (circuit breaker open) and go to fallback
+      const result = await manager.executeWithFailover('ethereum', operation);
 
-    // Next call should skip primary (circuit breaker open) and go to fallback
-    const result = await manager.executeWithFailover('ethereum', operation);
-
-    expect(result.balance).toBe(100);
-    expect(executeSpyPrimary).not.toHaveBeenCalled(); // Primary skipped due to circuit breaker
-    expect(executeSpyFallback).toHaveBeenCalledTimes(1); // Fallback used
-
-    jest.useRealTimers();
-    executeSpyPrimary.mockRestore();
-    executeSpyFallback.mockRestore();
-  });
+      expect(result.balance).toBe(100);
+      expect(executeSpyPrimary).not.toHaveBeenCalled(); // Primary skipped due to circuit breaker
+      expect(executeSpyFallback).toHaveBeenCalledTimes(1); // Fallback used
+    } finally {
+      executeSpyPrimary.mockRestore();
+      executeSpyFallback.mockRestore();
+    }
+  }, 5000);
 
   test('should route operations based on provider capabilities', async () => {
     // Create providers with different capabilities
@@ -337,11 +356,11 @@ describe('BlockchainProviderManager', () => {
 
     manager.registerProviders('ethereum', [basicProvider, tokenProvider]);
 
-    const tokenExecuteSpy = jest.spyOn(tokenProvider, 'execute');
-    const basicExecuteSpy = jest.spyOn(basicProvider, 'execute');
+    const tokenExecuteSpy = vi.spyOn(tokenProvider, 'execute');
+    const basicExecuteSpy = vi.spyOn(basicProvider, 'execute');
 
     // Execute token operation - should only use token provider
-    const tokenOperation: ProviderOperation<any> = {
+    const tokenOperation: ProviderOperation<{ success: boolean }> = {
       type: 'getTokenTransactions',
       params: { address: '0x123', contractAddress: '0xabc' }
     };
@@ -356,12 +375,15 @@ describe('BlockchainProviderManager', () => {
   });
 
   test('should handle cache expiration correctly', async () => {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
 
-    const operation: ProviderOperation<any> = {
+    const operation: ProviderOperation<{ balance: number; currency: string }> = {
       type: 'getAddressBalance',
       params: { address: '0x123' },
-      getCacheKey: (params) => `balance-${params.address}`
+      getCacheKey: (params) => {
+        const addressParams = params as AddressBalanceParams;
+        return `balance-${addressParams.address}`;
+      }
     };
 
     // First call - should cache result
@@ -369,7 +391,7 @@ describe('BlockchainProviderManager', () => {
     expect(result1.balance).toBe(100);
 
     // Advance time past cache expiry (30 seconds + buffer)
-    jest.advanceTimersByTime(35000);
+    vi.advanceTimersByTime(35000);
 
     // Make primary provider fail
     primaryProvider.setFailureMode(true);
@@ -378,7 +400,7 @@ describe('BlockchainProviderManager', () => {
     const result2 = await manager.executeWithFailover('ethereum', operation);
     expect(result2.balance).toBe(100); // Should get result from fallback, not stale cache
 
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 });
 
@@ -511,7 +533,7 @@ describe('Provider System Integration', () => {
       manager.registerProviders('bitcoin', [provider]);
 
       // Test successful operation
-      const operation: ProviderOperation<any> = {
+      const operation: ProviderOperation<{ transactions: unknown[]; address: string }> = {
         type: 'getAddressTransactions',
         params: { address: 'bc1xyz' }
       };
