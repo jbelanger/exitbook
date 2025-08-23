@@ -9,20 +9,12 @@ import type {
 } from "@crypto/core";
 import type { Exchange } from "ccxt";
 import { BaseAdapter } from "../shared/adapters/base-adapter.ts";
+import type { CcxtBalanceInfo, CcxtBalances } from "./ccxt-types.ts";
 import { TransactionTransformer } from "../shared/utils/transaction-transformer.ts";
 import type { CCXTTransaction } from "../shared/utils/transaction-transformer.ts";
 import { ServiceErrorHandler } from "./exchange-error-handler.ts";
 
 // CCXT Balance structure
-interface CCXTBalanceInfo {
-  free?: number;
-  used?: number;
-  total?: number;
-}
-
-interface CCXTBalances {
-  [currency: string]: CCXTBalanceInfo | unknown; // unknown for 'info' and other metadata fields
-}
 
 /**
  * Base class for all CCXT-based exchange adapters in the universal adapter system
@@ -219,7 +211,7 @@ export abstract class BaseCCXTAdapter extends BaseAdapter {
 
   protected async fetchRawBalances(
     params: UniversalFetchParams,
-  ): Promise<CCXTBalances> {
+  ): Promise<CcxtBalances> {
     if (!this.enableOnlineVerification) {
       throw new Error(
         `Balance fetching not supported for ${this.exchangeId} CCXT adapter - enable online verification to fetch live balances`,
@@ -235,7 +227,7 @@ export abstract class BaseCCXTAdapter extends BaseAdapter {
   }
 
   protected async transformBalances(
-    rawBalances: CCXTBalances,
+    rawBalances: CcxtBalances,
     params: UniversalFetchParams,
   ): Promise<UniversalBalance[]> {
     const balances: UniversalBalance[] = [];
@@ -250,7 +242,7 @@ export abstract class BaseCCXTAdapter extends BaseAdapter {
         continue; // Skip CCXT metadata fields
       }
 
-      const info = balanceInfo as CCXTBalanceInfo;
+      const info = balanceInfo as CcxtBalanceInfo;
       if (info && typeof info === "object" && info.total !== undefined) {
         balances.push({
           currency,

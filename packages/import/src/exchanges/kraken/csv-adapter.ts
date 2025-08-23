@@ -13,6 +13,7 @@ import path from "path";
 import { BaseAdapter } from "../../shared/adapters/base-adapter.ts";
 import { CsvFilters } from "../csv-filters.ts";
 import { CsvParser } from "../csv-parser.ts";
+import type { CsvKrakenLedgerRow } from "./types.ts";
 
 // Expected CSV headers for validation
 const EXPECTED_HEADERS = {
@@ -20,22 +21,9 @@ const EXPECTED_HEADERS = {
     '"txid","refid","time","type","subtype","aclass","asset","wallet","amount","fee","balance"',
 };
 
-interface KrakenLedgerRow {
-  txid: string;
-  refid: string;
-  time: string;
-  type: string;
-  subtype: string;
-  aclass: string;
-  asset: string;
-  wallet: string;
-  amount: string;
-  fee: string;
-  balance: string;
-}
 
 export class KrakenCSVAdapter extends BaseAdapter {
-  private cachedTransactions: KrakenLedgerRow[] | null = null;
+  private cachedTransactions: CsvKrakenLedgerRow[] | null = null;
 
   constructor(config: UniversalExchangeAdapterConfig) {
     super(config);
@@ -92,12 +80,12 @@ export class KrakenCSVAdapter extends BaseAdapter {
     }
   }
 
-  protected async fetchRawTransactions(): Promise<KrakenLedgerRow[]> {
+  protected async fetchRawTransactions(): Promise<CsvKrakenLedgerRow[]> {
     return this.loadAllTransactions();
   }
 
   protected async transformTransactions(
-    rawTxs: KrakenLedgerRow[],
+    rawTxs: CsvKrakenLedgerRow[],
     params: UniversalFetchParams,
   ): Promise<UniversalTransaction[]> {
     const transactions = this.processLedgerRows(rawTxs);
@@ -120,7 +108,7 @@ export class KrakenCSVAdapter extends BaseAdapter {
   /**
    * Load all transactions from CSV directories
    */
-  private async loadAllTransactions(): Promise<KrakenLedgerRow[]> {
+  private async loadAllTransactions(): Promise<CsvKrakenLedgerRow[]> {
     if (this.cachedTransactions) {
       this.logger.debug("Returning cached transactions");
       return this.cachedTransactions;
@@ -131,7 +119,7 @@ export class KrakenCSVAdapter extends BaseAdapter {
       `Starting to load CSV transactions - CsvDirectories: ${config.csvDirectories}`,
     );
 
-    const transactions: KrakenLedgerRow[] = [];
+    const transactions: CsvKrakenLedgerRow[] = [];
 
     try {
       // Process each directory in order
@@ -158,7 +146,7 @@ export class KrakenCSVAdapter extends BaseAdapter {
                 `Processing ${fileType} CSV file - File: ${file}, Directory: ${csvDirectory}`,
               );
               const fileTransactions =
-                await this.parseCsvFile<KrakenLedgerRow>(filePath);
+                await this.parseCsvFile<CsvKrakenLedgerRow>(filePath);
               this.logger.info(
                 `Parsed ${fileType} transactions - File: ${file}, Directory: ${csvDirectory}, Count: ${fileTransactions.length}`,
               );
@@ -228,7 +216,7 @@ export class KrakenCSVAdapter extends BaseAdapter {
   /**
    * Process the loaded ledger rows into universal transactions
    */
-  private processLedgerRows(rows: KrakenLedgerRow[]): UniversalTransaction[] {
+  private processLedgerRows(rows: CsvKrakenLedgerRow[]): UniversalTransaction[] {
     return this.parseLedgers(rows);
   }
 
@@ -255,12 +243,12 @@ export class KrakenCSVAdapter extends BaseAdapter {
    * @param withdrawalRows All withdrawal rows from the CSV
    * @returns Object containing valid withdrawals and failed transaction refids
    */
-  private filterFailedTransactions(withdrawalRows: KrakenLedgerRow[]): {
-    validWithdrawals: KrakenLedgerRow[];
+  private filterFailedTransactions(withdrawalRows: CsvKrakenLedgerRow[]): {
+    validWithdrawals: CsvKrakenLedgerRow[];
     failedTransactionRefIds: Set<string>;
   } {
     const failedTransactionRefIds = new Set<string>();
-    const validWithdrawals: KrakenLedgerRow[] = [];
+    const validWithdrawals: CsvKrakenLedgerRow[] = [];
 
     // Group withdrawals by refid to detect failed transaction pairs
     const withdrawalsByRefId = CsvFilters.groupByField(withdrawalRows, "refid");
@@ -315,8 +303,8 @@ export class KrakenCSVAdapter extends BaseAdapter {
    * @returns true if this appears to be a failed transaction pair
    */
   private isFailedTransactionPair(
-    negative: KrakenLedgerRow,
-    positive: KrakenLedgerRow,
+    negative: CsvKrakenLedgerRow,
+    positive: CsvKrakenLedgerRow,
   ): boolean {
     // Must be same asset
     if (negative.asset !== positive.asset) {
@@ -361,7 +349,7 @@ export class KrakenCSVAdapter extends BaseAdapter {
     return true;
   }
 
-  private parseLedgers(rows: KrakenLedgerRow[]): UniversalTransaction[] {
+  private parseLedgers(rows: CsvKrakenLedgerRow[]): UniversalTransaction[] {
     const transactions: UniversalTransaction[] = [];
 
     // Separate transactions by type
@@ -492,7 +480,7 @@ export class KrakenCSVAdapter extends BaseAdapter {
     return transactions;
   }
 
-  private processTokenMigrations(transferRows: KrakenLedgerRow[]): {
+  private processTokenMigrations(transferRows: CsvKrakenLedgerRow[]): {
     transactions: UniversalTransaction[];
     processedRefIds: string[];
   } {
@@ -547,9 +535,9 @@ export class KrakenCSVAdapter extends BaseAdapter {
   }
 
   private groupTransfersByDateAndAmount(
-    transferRows: KrakenLedgerRow[],
-  ): KrakenLedgerRow[][] {
-    const groups: KrakenLedgerRow[][] = [];
+    transferRows: CsvKrakenLedgerRow[],
+  ): CsvKrakenLedgerRow[][] {
+    const groups: CsvKrakenLedgerRow[][] = [];
     const processed = new Set<string>();
 
     for (const transfer of transferRows) {
@@ -583,8 +571,8 @@ export class KrakenCSVAdapter extends BaseAdapter {
   }
 
   private convertTokenMigrationToTransaction(
-    negative: KrakenLedgerRow,
-    positive: KrakenLedgerRow,
+    negative: CsvKrakenLedgerRow,
+    positive: CsvKrakenLedgerRow,
   ): UniversalTransaction {
     const timestamp = new Date(negative.time).getTime();
     const sentAmount = parseDecimal(negative.amount).abs().toNumber();
@@ -615,7 +603,7 @@ export class KrakenCSVAdapter extends BaseAdapter {
   }
 
   private convertTransferToTransaction(
-    transfer: KrakenLedgerRow,
+    transfer: CsvKrakenLedgerRow,
   ): UniversalTransaction {
     const timestamp = new Date(transfer.time).getTime();
     const isIncoming = parseDecimal(transfer.amount).isPositive();
@@ -646,14 +634,14 @@ export class KrakenCSVAdapter extends BaseAdapter {
   }
 
   private validateAllRecordsProcessed(
-    allRows: KrakenLedgerRow[],
+    allRows: CsvKrakenLedgerRow[],
     processed: {
-      tradeRows: KrakenLedgerRow[];
-      depositRows: KrakenLedgerRow[];
-      validWithdrawals: KrakenLedgerRow[];
-      transferRows: KrakenLedgerRow[];
-      spendRows: KrakenLedgerRow[];
-      receiveRows: KrakenLedgerRow[];
+      tradeRows: CsvKrakenLedgerRow[];
+      depositRows: CsvKrakenLedgerRow[];
+      validWithdrawals: CsvKrakenLedgerRow[];
+      transferRows: CsvKrakenLedgerRow[];
+      spendRows: CsvKrakenLedgerRow[];
+      receiveRows: CsvKrakenLedgerRow[];
       processedRefIds: Set<string>;
       failedTransactionRefIds: Set<string>;
     },
@@ -754,7 +742,7 @@ export class KrakenCSVAdapter extends BaseAdapter {
   }
 
   private convertSingleTradeToTransaction(
-    trade: KrakenLedgerRow,
+    trade: CsvKrakenLedgerRow,
   ): UniversalTransaction {
     const timestamp = new Date(trade.time).getTime();
     const amount = parseDecimal(trade.amount).abs().toNumber();
@@ -779,8 +767,8 @@ export class KrakenCSVAdapter extends BaseAdapter {
   }
 
   private convertTradeToTransaction(
-    spend: KrakenLedgerRow,
-    receive: KrakenLedgerRow,
+    spend: CsvKrakenLedgerRow,
+    receive: CsvKrakenLedgerRow,
   ): UniversalTransaction {
     const timestamp = new Date(spend.time).getTime();
     const spendAmount = parseDecimal(spend.amount).abs().toNumber();
@@ -827,7 +815,7 @@ export class KrakenCSVAdapter extends BaseAdapter {
   }
 
   private convertDepositToTransaction(
-    row: KrakenLedgerRow,
+    row: CsvKrakenLedgerRow,
   ): UniversalTransaction {
     const timestamp = new Date(row.time).getTime();
     const amount = parseDecimal(row.amount).toNumber();
@@ -852,7 +840,7 @@ export class KrakenCSVAdapter extends BaseAdapter {
   }
 
   private convertWithdrawalToTransaction(
-    row: KrakenLedgerRow,
+    row: CsvKrakenLedgerRow,
   ): UniversalTransaction {
     const timestamp = new Date(row.time).getTime();
     const amount = parseDecimal(row.amount).abs().toNumber();
