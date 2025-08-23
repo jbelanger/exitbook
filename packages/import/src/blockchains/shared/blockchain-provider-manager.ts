@@ -11,6 +11,7 @@ import type {
   ProviderOperation,
   ProviderOperationType,
 } from "./types.ts";
+import { hasAddressParam } from "./types.ts";
 
 const logger = getLogger("BlockchainProviderManager");
 
@@ -326,7 +327,7 @@ export class BlockchainProviderManager {
           willRetry: attemptNumber < providers.length,
         };
         // Only log params for non-sensitive operations
-        if (!(operation.params as { address?: string })?.address) {
+        if (!hasAddressParam(operation)) {
           logData.params = operation.params;
         }
 

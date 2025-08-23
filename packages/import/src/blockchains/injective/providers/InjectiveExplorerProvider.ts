@@ -2,7 +2,11 @@ import type { BlockchainTransaction } from "@crypto/core";
 import { createMoney, maskAddress, parseDecimal } from "@crypto/shared-utils";
 import { BaseRegistryProvider } from "../../shared/registry/base-registry-provider.ts";
 import { RegisterProvider } from "../../shared/registry/decorators.ts";
-import { ProviderOperation } from "../../shared/types.ts";
+import { 
+  ProviderOperation,
+  isAddressTransactionOperation,
+  hasAddressParam
+} from "../../shared/types.ts";
 import type {
   InjectiveApiResponse,
   InjectiveMessageValue,
@@ -88,21 +92,20 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    const params = operation.params as { address: string; since?: number };
     this.logger.debug(
-      `Executing operation - Type: ${operation.type}, Address: ${params?.address ? maskAddress(params.address) : "N/A"}`,
+      `Executing operation - Type: ${operation.type}, Address: ${hasAddressParam(operation) ? maskAddress(operation.params.address) : "N/A"}`,
     );
 
     try {
       switch (operation.type) {
         case "getAddressTransactions":
-          return this.getAddressTransactions(
-            operation.params as { address: string; since?: number },
-          ) as T;
         case "getRawAddressTransactions":
-          return this.getRawAddressTransactions(
-            operation.params as { address: string; since?: number },
-          ) as T;
+          if (isAddressTransactionOperation(operation)) {
+            return operation.type === "getAddressTransactions" 
+              ? this.getAddressTransactions(operation.params) as T
+              : this.getRawAddressTransactions(operation.params) as T;
+          }
+          throw new Error(`Invalid params for ${operation.type} operation`);
         default:
           throw new Error(`Unsupported operation: ${operation.type}`);
       }
