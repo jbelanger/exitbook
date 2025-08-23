@@ -179,7 +179,6 @@ export type SubstrateTransactionType =
   | "session_set_keys"
   | "custom";
 
-
 // Taostats transaction interface for Bittensor
 export interface TaostatsTransaction {
   from: string;

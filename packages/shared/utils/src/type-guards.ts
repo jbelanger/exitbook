@@ -6,8 +6,10 @@
 /**
  * Type guard for checking if a value is an Error instance with a message
  */
-export function isErrorWithMessage(error: unknown): error is Error & { message: string } {
-  return error instanceof Error && typeof error.message === 'string';
+export function isErrorWithMessage(
+  error: unknown,
+): error is Error & { message: string } {
+  return error instanceof Error && typeof error.message === "string";
 }
 
 /**
@@ -15,14 +17,14 @@ export function isErrorWithMessage(error: unknown): error is Error & { message: 
  */
 export function isErrorWithProperties<T extends Record<string, unknown>>(
   error: unknown,
-  properties?: (keyof T)[]
+  properties?: (keyof T)[],
 ): error is Error & T {
   if (!isErrorWithMessage(error)) return false;
-  
+
   if (!properties || properties.length === 0) return true;
-  
-  return properties.every(prop => 
-    prop in error && error[prop as keyof typeof error] !== undefined
+
+  return properties.every(
+    (prop) => prop in error && error[prop as keyof typeof error] !== undefined,
   );
 }
 
@@ -30,7 +32,7 @@ export function isErrorWithProperties<T extends Record<string, unknown>>(
  * Type guard for checking if a value is an object (not null, not array)
  */
 export function isObject(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
+  return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
 /**
@@ -38,7 +40,7 @@ export function isObject(value: unknown): value is Record<string, unknown> {
  */
 export function hasProperty<T extends string>(
   obj: unknown,
-  prop: T
+  prop: T,
 ): obj is Record<T, unknown> {
   return isObject(obj) && prop in obj;
 }
@@ -48,9 +50,9 @@ export function hasProperty<T extends string>(
  */
 export function hasProperties<T extends string>(
   obj: unknown,
-  props: readonly T[]
+  props: readonly T[],
 ): obj is Record<T, unknown> {
-  return isObject(obj) && props.every(prop => prop in obj);
+  return isObject(obj) && props.every((prop) => prop in obj);
 }
 
 /**
@@ -59,7 +61,7 @@ export function hasProperties<T extends string>(
 export function hasPropertyOfType<T extends string, V>(
   obj: unknown,
   prop: T,
-  typeCheck: (value: unknown) => value is V
+  typeCheck: (value: unknown) => value is V,
 ): obj is Record<T, V> {
   return hasProperty(obj, prop) && typeCheck(obj[prop]);
 }
@@ -69,9 +71,13 @@ export function hasPropertyOfType<T extends string, V>(
  */
 export function hasStringProperty<T extends string>(
   obj: unknown,
-  prop: T
+  prop: T,
 ): obj is Record<T, string> {
-  return hasPropertyOfType(obj, prop, (value): value is string => typeof value === 'string');
+  return hasPropertyOfType(
+    obj,
+    prop,
+    (value): value is string => typeof value === "string",
+  );
 }
 
 /**
@@ -79,9 +85,13 @@ export function hasStringProperty<T extends string>(
  */
 export function hasNumberProperty<T extends string>(
   obj: unknown,
-  prop: T
+  prop: T,
 ): obj is Record<T, number> {
-  return hasPropertyOfType(obj, prop, (value): value is number => typeof value === 'number');
+  return hasPropertyOfType(
+    obj,
+    prop,
+    (value): value is number => typeof value === "number",
+  );
 }
 
 /**
@@ -89,7 +99,7 @@ export function hasNumberProperty<T extends string>(
  */
 export function hasOptionalProperty<T extends string>(
   obj: unknown,
-  _prop: T
+  _prop: T,
 ): obj is Record<T, unknown> & Record<string, unknown> {
   return isObject(obj);
 }
@@ -100,7 +110,7 @@ export function hasOptionalProperty<T extends string>(
 export function getProperty<T>(
   obj: unknown,
   prop: string,
-  typeCheck: (value: unknown) => value is T
+  typeCheck: (value: unknown) => value is T,
 ): T | undefined {
   if (!hasProperty(obj, prop)) return undefined;
   const value = obj[prop];
@@ -110,15 +120,29 @@ export function getProperty<T>(
 /**
  * Safe string property accessor
  */
-export function getStringProperty(obj: unknown, prop: string): string | undefined {
-  return getProperty(obj, prop, (value): value is string => typeof value === 'string');
+export function getStringProperty(
+  obj: unknown,
+  prop: string,
+): string | undefined {
+  return getProperty(
+    obj,
+    prop,
+    (value): value is string => typeof value === "string",
+  );
 }
 
 /**
  * Safe number property accessor
  */
-export function getNumberProperty(obj: unknown, prop: string): number | undefined {
-  return getProperty(obj, prop, (value): value is number => typeof value === 'number');
+export function getNumberProperty(
+  obj: unknown,
+  prop: string,
+): number | undefined {
+  return getProperty(
+    obj,
+    prop,
+    (value): value is number => typeof value === "number",
+  );
 }
 
 /**
@@ -128,15 +152,15 @@ export function getNumberProperty(obj: unknown, prop: string): number | undefine
 export function getNestedProperty<T>(
   obj: unknown,
   path: string[],
-  typeCheck: (value: unknown) => value is T
+  typeCheck: (value: unknown) => value is T,
 ): T | undefined {
   let current = obj;
-  
+
   for (const segment of path) {
     if (!hasProperty(current, segment)) return undefined;
     current = current[segment];
   }
-  
+
   return typeCheck(current) ? current : undefined;
 }
 
@@ -153,13 +177,15 @@ export function isCcxtInfo(info: unknown): info is Record<string, unknown> & {
  * Safe CCXT double-nested info accessor
  * Handles the common pattern: transaction.info.info.property
  */
-export function getCcxtNestedInfo(obj: unknown): Record<string, unknown> | undefined {
+export function getCcxtNestedInfo(
+  obj: unknown,
+): Record<string, unknown> | undefined {
   if (!isObject(obj)) return undefined;
-  if (!hasProperty(obj, 'info')) return undefined;
+  if (!hasProperty(obj, "info")) return undefined;
   if (!isObject(obj.info)) return undefined;
-  if (!hasProperty(obj.info, 'info')) return undefined;
+  if (!hasProperty(obj.info, "info")) return undefined;
   if (!isObject(obj.info.info)) return undefined;
-  
+
   return obj.info.info;
 }
 
@@ -168,11 +194,16 @@ export function getCcxtNestedInfo(obj: unknown): Record<string, unknown> | undef
  */
 export function isApiResponse<T>(
   response: unknown,
-  dataProperty: string = 'result'
-): response is { status: string; [key: string]: unknown } & Record<typeof dataProperty, T> {
-  return hasProperty(response, 'status') && 
-         hasStringProperty(response, 'status') &&
-         hasProperty(response, dataProperty);
+  dataProperty: string = "result",
+): response is { status: string; [key: string]: unknown } & Record<
+  typeof dataProperty,
+  T
+> {
+  return (
+    hasProperty(response, "status") &&
+    hasStringProperty(response, "status") &&
+    hasProperty(response, dataProperty)
+  );
 }
 
 /**
@@ -200,27 +231,27 @@ export function getErrorProperties(error: unknown): {
   }
 
   const result: ReturnType<typeof getErrorProperties> = {
-    message: error.message
+    message: error.message,
   };
 
   // Safely extract additional properties if they exist
-  if (hasProperty(error, 'code')) {
+  if (hasProperty(error, "code")) {
     const code = error.code;
-    if (typeof code === 'string' || typeof code === 'number') {
+    if (typeof code === "string" || typeof code === "number") {
       result.code = code;
     }
   }
 
-  if (hasProperty(error, 'status')) {
+  if (hasProperty(error, "status")) {
     const status = error.status;
-    if (typeof status === 'string' || typeof status === 'number') {
+    if (typeof status === "string" || typeof status === "number") {
       result.status = status;
     }
   }
 
-  if (hasProperty(error, 'retryAfter')) {
+  if (hasProperty(error, "retryAfter")) {
     const retryAfter = error.retryAfter;
-    if (typeof retryAfter === 'number') {
+    if (typeof retryAfter === "number") {
       result.retryAfter = retryAfter;
     }
   }
@@ -239,19 +270,19 @@ export function isDefined<T>(value: T | null | undefined): value is T {
  * Type guard for checking if a value is a non-empty string
  */
 export function isNonEmptyString(value: unknown): value is string {
-  return typeof value === 'string' && value.length > 0;
+  return typeof value === "string" && value.length > 0;
 }
 
 /**
  * Type guard for checking if a value is a positive number
  */
 export function isPositiveNumber(value: unknown): value is number {
-  return typeof value === 'number' && value > 0 && !isNaN(value);
+  return typeof value === "number" && value > 0 && !isNaN(value);
 }
 
 /**
  * Type guard for checking if a value is a valid timestamp (positive integer)
  */
 export function isValidTimestamp(value: unknown): value is number {
-  return typeof value === 'number' && Number.isInteger(value) && value > 0;
+  return typeof value === "number" && Number.isInteger(value) && value > 0;
 }

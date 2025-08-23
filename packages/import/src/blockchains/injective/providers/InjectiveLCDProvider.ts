@@ -2,11 +2,11 @@ import type { Balance } from "@crypto/core";
 import { maskAddress, parseDecimal } from "@crypto/shared-utils";
 import { BaseRegistryProvider } from "../../shared/registry/base-registry-provider.ts";
 import { RegisterProvider } from "../../shared/registry/decorators.ts";
-import { 
+import {
   ProviderOperation,
   isAddressBalanceOperation,
   isTokenBalanceOperation,
-  hasAddressParam
+  hasAddressParam,
 } from "../../shared/types.ts";
 import type { InjectiveBalanceResponse } from "../types.ts";
 

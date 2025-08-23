@@ -23,7 +23,17 @@ export function encodeAddress(
 export function parseSubstrateTransactionType(
   module: string,
   method: string,
-): "transfer" | "transfer_keep_alive" | "force_transfer" | "staking_bond" | "staking_unbond" | "staking_withdraw_unbonded" | "staking_nominate" | "staking_chill" | "utility_batch" | "custom" {
+):
+  | "transfer"
+  | "transfer_keep_alive"
+  | "force_transfer"
+  | "staking_bond"
+  | "staking_unbond"
+  | "staking_withdraw_unbonded"
+  | "staking_nominate"
+  | "staking_chill"
+  | "utility_batch"
+  | "custom" {
   const key = `${module}_${method}`.toLowerCase();
 
   switch (key) {

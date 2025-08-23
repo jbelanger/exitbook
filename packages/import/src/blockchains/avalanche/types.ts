@@ -113,4 +113,3 @@ export interface AvalancheNetwork {
   apiUrl: string;
   apiKey?: string;
 }
-

@@ -2,10 +2,10 @@ import type { BlockchainTransaction } from "@crypto/core";
 import { createMoney, maskAddress, parseDecimal } from "@crypto/shared-utils";
 import { BaseRegistryProvider } from "../../shared/registry/base-registry-provider.ts";
 import { RegisterProvider } from "../../shared/registry/decorators.ts";
-import { 
+import {
   ProviderOperation,
   isAddressTransactionOperation,
-  hasAddressParam
+  hasAddressParam,
 } from "../../shared/types.ts";
 import type {
   InjectiveApiResponse,
@@ -101,9 +101,9 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
         case "getAddressTransactions":
         case "getRawAddressTransactions":
           if (isAddressTransactionOperation(operation)) {
-            return operation.type === "getAddressTransactions" 
-              ? this.getAddressTransactions(operation.params) as T
-              : this.getRawAddressTransactions(operation.params) as T;
+            return operation.type === "getAddressTransactions"
+              ? (this.getAddressTransactions(operation.params) as T)
+              : (this.getRawAddressTransactions(operation.params) as T);
           }
           throw new Error(`Invalid params for ${operation.type} operation`);
         default:
@@ -275,7 +275,11 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
         from = message.value.from_address || "";
         to = message.value.to_address || "";
 
-        if (message.value.amount && Array.isArray(message.value.amount) && message.value.amount.length > 0) {
+        if (
+          message.value.amount &&
+          Array.isArray(message.value.amount) &&
+          message.value.amount.length > 0
+        ) {
           const transferAmount = message.value.amount[0];
           if (transferAmount) {
             value = createMoney(
@@ -346,11 +350,12 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
 
           // Extract amount from the deposit claim if available
           if (messageValue.amount && messageValue.token_contract) {
-            const amountValue = typeof messageValue.amount === 'string' ? messageValue.amount : messageValue.amount[0]?.amount || '0';
+            const amountValue =
+              typeof messageValue.amount === "string"
+                ? messageValue.amount
+                : messageValue.amount[0]?.amount || "0";
             value = createMoney(
-              parseDecimal(amountValue)
-                .div(Math.pow(10, 18))
-                .toNumber(),
+              parseDecimal(amountValue).div(Math.pow(10, 18)).toNumber(),
               "INJ", // or determine from token_contract
             );
             tokenSymbol = "INJ";

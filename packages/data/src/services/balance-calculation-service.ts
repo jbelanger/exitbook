@@ -1,5 +1,5 @@
 import type { StoredTransaction } from "../types/data-types.js";
-import { stringToDecimal } from "@crypto/shared-utils";
+import { stringToDecimal, safeDecimalToNumber } from "@crypto/shared-utils";
 import { Decimal } from "decimal.js";
 
 export class BalanceCalculationService {
@@ -13,6 +13,22 @@ export class BalanceCalculationService {
     }
 
     return this.cleanupDustBalances(balances);
+  }
+
+  /**
+   * Calculate exchange balances with full precision (recommended)
+   * Returns Decimal values to prevent precision loss in cryptocurrency amounts
+   */
+  async calculateExchangeBalancesWithPrecision(
+    transactions: StoredTransaction[],
+  ): Promise<Record<string, Decimal>> {
+    const balances: Record<string, Decimal> = {};
+
+    for (const transaction of transactions) {
+      this.processTransactionForBalance(transaction, balances);
+    }
+
+    return this.cleanupDustBalancesWithPrecision(balances);
   }
 
   private processTransactionForBalance(
@@ -89,7 +105,30 @@ export class BalanceCalculationService {
     const cleanedBalances: Record<string, number> = {};
     for (const [currency, balance] of Object.entries(balances)) {
       if (balance.abs().greaterThan(0.00000001)) {
-        cleanedBalances[currency] = balance.toNumber();
+        // Use safe conversion with warning for precision loss
+        cleanedBalances[currency] = safeDecimalToNumber(balance, {
+          allowPrecisionLoss: true,
+          warningCallback: (message) => {
+            console.warn(
+              `[BalanceCalculationService] ${message} for currency: ${currency}`,
+            );
+          },
+        });
+      }
+    }
+    return cleanedBalances;
+  }
+
+  /**
+   * Clean up dust balances while preserving precision (recommended)
+   */
+  private cleanupDustBalancesWithPrecision(
+    balances: Record<string, Decimal>,
+  ): Record<string, Decimal> {
+    const cleanedBalances: Record<string, Decimal> = {};
+    for (const [currency, balance] of Object.entries(balances)) {
+      if (balance.abs().greaterThan(0.00000001)) {
+        cleanedBalances[currency] = balance;
       }
     }
     return cleanedBalances;

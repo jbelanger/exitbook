@@ -1,6 +1,6 @@
 /**
  * Shared CCXT type definitions used across multiple exchange adapters
- * 
+ *
  * These types define common structures used by CCXT-based adapters
  * for balance information and other shared data.
  */
