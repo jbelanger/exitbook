@@ -175,3 +175,47 @@ export interface ProcessedSolanaTransaction {
     data?: unknown;
   }>;
 }
+
+// Solana RPC API response types for Helius provider
+export interface SolanaSignature {
+  signature: string;
+  slot: number;
+  err?: unknown;
+  memo?: string;
+  blockTime?: number;
+}
+
+export interface SolanaAccountBalance {
+  value: number;
+}
+
+export interface SolanaTokenAccount {
+  pubkey: string;
+  account: {
+    data: {
+      parsed: {
+        info: {
+          mint: string;
+          owner: string;
+          tokenAmount: {
+            amount: string;
+            decimals: number;
+            uiAmount?: number;
+            uiAmountString: string;
+          };
+        };
+        type: string;
+      };
+      program: string;
+      space: number;
+    };
+    executable: boolean;
+    lamports: number;
+    owner: string;
+    rentEpoch: number;
+  };
+}
+
+export interface SolanaTokenAccountsResponse {
+  value: SolanaTokenAccount[];
+}

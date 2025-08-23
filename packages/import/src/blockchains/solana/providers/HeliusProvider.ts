@@ -5,8 +5,9 @@ import type { Balance, BlockchainTransaction } from "@crypto/core";
 import { createMoney, maskAddress } from "@crypto/shared-utils";
 import { BaseRegistryProvider } from "../../shared/registry/base-registry-provider.ts";
 import { RegisterProvider } from "../../shared/registry/decorators.ts";
-import { ProviderOperation } from "../../shared/types.ts";
+import { ProviderOperation, JsonRpcResponse } from "../../shared/types.ts";
 import { isValidSolanaAddress, lamportsToSol } from "../utils.ts";
+import type { SolanaSignature, SolanaAccountBalance, SolanaTokenAccountsResponse } from "../types.ts";
 
 interface HeliusTransaction {
   signature: string;
@@ -17,8 +18,8 @@ interface HeliusTransaction {
     fee: number;
     preBalances: number[];
     postBalances: number[];
-    preTokenBalances?: unknown[];
-    postTokenBalances?: unknown[];
+    preTokenBalances?: TokenBalance[];
+    postTokenBalances?: TokenBalance[];
     logMessages: string[];
     err: unknown;
   };
@@ -30,6 +31,37 @@ interface HeliusTransaction {
     };
     signatures: string[];
   };
+}
+
+interface TokenBalance {
+  accountIndex: number;
+  mint: string;
+  owner: string;
+  programId?: string;
+  uiTokenAmount: {
+    amount: string;
+    decimals: number;
+    uiAmount: number;
+    uiAmountString: string;
+  };
+}
+
+interface HeliusAssetResponse {
+  content: {
+    metadata: {
+      symbol?: string;
+      name?: string;
+      description?: string;
+    };
+  };
+}
+
+interface SignatureResponse {
+  signature: string;
+  slot: number;
+  err: unknown;
+  memo: string;
+  blockTime?: number;
 }
 
 @RegisterProvider({
@@ -96,12 +128,12 @@ export class HeliusProvider extends BaseRegistryProvider {
 
   async isHealthy(): Promise<boolean> {
     try {
-      const response = await this.httpClient.post("/", {
+      const response = await this.httpClient.post<JsonRpcResponse<string>>("/", {
         jsonrpc: "2.0",
         id: 1,
         method: "getHealth",
       });
-      return response && response.result === "ok";
+      return response?.result === "ok";
     } catch (error) {
       this.logger.warn(
         `Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`,
@@ -112,7 +144,7 @@ export class HeliusProvider extends BaseRegistryProvider {
 
   async testConnection(): Promise<boolean> {
     try {
-      const response = await this.httpClient.post("/", {
+      const response = await this.httpClient.post<JsonRpcResponse<string>>("/", {
         jsonrpc: "2.0",
         id: 1,
         method: "getHealth",
@@ -120,7 +152,7 @@ export class HeliusProvider extends BaseRegistryProvider {
       this.logger.debug(
         `Connection test successful - Health: ${response?.result}`,
       );
-      return response && response.result === "ok";
+      return response?.result === "ok";
     } catch (error) {
       this.logger.error(
         `Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`,
@@ -229,7 +261,7 @@ export class HeliusProvider extends BaseRegistryProvider {
     since?: number,
   ): Promise<BlockchainTransaction[]> {
     // Get signatures for address (direct involvement)
-    const signaturesResponse = await this.httpClient.post("/", {
+    const signaturesResponse = await this.httpClient.post<JsonRpcResponse<SolanaSignature[]>>("/", {
       jsonrpc: "2.0",
       id: 1,
       method: "getSignaturesForAddress",
@@ -258,7 +290,7 @@ export class HeliusProvider extends BaseRegistryProvider {
     // Fetch transaction details individually (free tier doesn't support batch requests)
     for (const sig of signatures) {
       try {
-        const txResponse = await this.httpClient.post("/", {
+        const txResponse = await this.httpClient.post<JsonRpcResponse<HeliusTransaction>>("/", {
           jsonrpc: "2.0",
           id: 1,
           method: "getTransaction",
@@ -295,7 +327,7 @@ export class HeliusProvider extends BaseRegistryProvider {
   ): Promise<string[]> {
     try {
       // Get all token accounts owned by the address
-      const tokenAccountsResponse = await this.httpClient.post("/", {
+      const tokenAccountsResponse = await this.httpClient.post<JsonRpcResponse<SolanaTokenAccountsResponse>>("/", {
         jsonrpc: "2.0",
         id: 1,
         method: "getTokenAccountsByOwner",
@@ -344,7 +376,7 @@ export class HeliusProvider extends BaseRegistryProvider {
     for (const tokenAccount of tokenAccountAddresses) {
       try {
         // Get signatures for this token account
-        const signaturesResponse = await this.httpClient.post("/", {
+        const signaturesResponse = await this.httpClient.post<JsonRpcResponse<SignatureResponse[]>>("/", {
           jsonrpc: "2.0",
           id: 1,
           method: "getSignaturesForAddress",
@@ -363,7 +395,7 @@ export class HeliusProvider extends BaseRegistryProvider {
         // Fetch transaction details for token account signatures
         for (const sig of signaturesResponse.result.slice(0, 20)) {
           try {
-            const txResponse = await this.httpClient.post("/", {
+            const txResponse = await this.httpClient.post<JsonRpcResponse<HeliusTransaction>>("/", {
               jsonrpc: "2.0",
               id: 1,
               method: "getTransaction",
@@ -519,7 +551,7 @@ export class HeliusProvider extends BaseRegistryProvider {
     );
 
     try {
-      const response = await this.httpClient.post("/", {
+      const response = await this.httpClient.post<JsonRpcResponse<SolanaAccountBalance>>("/", {
         jsonrpc: "2.0",
         id: 1,
         method: "getBalance",
@@ -641,7 +673,7 @@ export class HeliusProvider extends BaseRegistryProvider {
 
     try {
       // Get signatures for address (same as regular transactions)
-      const signaturesResponse = await this.httpClient.post("/", {
+      const signaturesResponse = await this.httpClient.post<JsonRpcResponse<SignatureResponse[]>>("/", {
         jsonrpc: "2.0",
         id: 1,
         method: "getSignaturesForAddress",
@@ -666,7 +698,7 @@ export class HeliusProvider extends BaseRegistryProvider {
       // Process signatures individually to find token transactions (free tier doesn't support batch requests)
       for (const sig of signatures) {
         try {
-          const txResponse = await this.httpClient.post("/", {
+          const txResponse = await this.httpClient.post<JsonRpcResponse<HeliusTransaction>>("/", {
             jsonrpc: "2.0",
             id: 1,
             method: "getTransaction",
@@ -727,7 +759,7 @@ export class HeliusProvider extends BaseRegistryProvider {
 
     try {
       // Get all token accounts owned by the address
-      const tokenAccountsResponse = await this.httpClient.post("/", {
+      const tokenAccountsResponse = await this.httpClient.post<JsonRpcResponse<SolanaTokenAccountsResponse>>("/", {
         jsonrpc: "2.0",
         id: 1,
         method: "getTokenAccountsByOwner",
@@ -941,7 +973,7 @@ export class HeliusProvider extends BaseRegistryProvider {
    */
   private async fetchTokenSymbolFromAPI(mintAddress: string): Promise<string> {
     try {
-      const response = await this.httpClient.post("/", {
+      const response = await this.httpClient.post<JsonRpcResponse<HeliusAssetResponse>>("/", {
         jsonrpc: "2.0",
         id: 1,
         method: "getAsset",
