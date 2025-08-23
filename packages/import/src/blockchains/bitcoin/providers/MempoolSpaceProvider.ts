@@ -317,10 +317,13 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
   ): BlockchainTransaction {
     const { tx, walletAddresses } = params;
 
+    // Type assertion to MempoolTransaction for consistent access patterns
+    const mempoolTx = tx as MempoolTransaction;
+
     try {
       const timestamp =
-        tx.status.confirmed && tx.status.block_time
-          ? tx.status.block_time * 1000
+        mempoolTx.status.confirmed && mempoolTx.status.block_time
+          ? mempoolTx.status.block_time * 1000
           : Date.now();
 
       // Calculate transaction value considering all wallet addresses
@@ -330,7 +333,7 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
       const relevantAddresses = new Set(walletAddresses);
 
       // Check inputs - money going out of our wallet
-      for (const input of tx.vin) {
+      for (const input of mempoolTx.vin) {
         if (
           input.prevout?.scriptpubkey_address &&
           relevantAddresses.has(input.prevout.scriptpubkey_address)
@@ -343,7 +346,7 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
       }
 
       // Check outputs - money coming into our wallet
-      for (const output of tx.vout) {
+      for (const output of mempoolTx.vout) {
         if (
           output.scriptpubkey_address &&
           relevantAddresses.has(output.scriptpubkey_address)
@@ -376,14 +379,14 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
       }
 
       const totalValue = Math.abs(totalValueChange);
-      const fee = isOutgoing ? tx.fee : 0;
+      const fee = isOutgoing ? mempoolTx.fee : 0;
 
       // Determine from/to addresses (first relevant address found)
       let fromAddress = "";
       let toAddress = "";
 
       // For from address, look for wallet addresses in inputs
-      for (const input of tx.vin) {
+      for (const input of mempoolTx.vin) {
         if (
           input.prevout?.scriptpubkey_address &&
           relevantAddresses.has(input.prevout.scriptpubkey_address)
@@ -394,7 +397,7 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
       }
 
       // For to address, look for wallet addresses in outputs
-      for (const output of tx.vout) {
+      for (const output of mempoolTx.vout) {
         if (
           output.scriptpubkey_address &&
           relevantAddresses.has(output.scriptpubkey_address)
@@ -407,24 +410,24 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
       // Fallback to first addresses if no wallet addresses found
       if (
         !fromAddress &&
-        tx.vin.length > 0 &&
-        tx.vin[0]?.prevout?.scriptpubkey_address
+        mempoolTx.vin.length > 0 &&
+        mempoolTx.vin[0]?.prevout?.scriptpubkey_address
       ) {
-        fromAddress = tx.vin[0].prevout.scriptpubkey_address;
+        fromAddress = mempoolTx.vin[0].prevout.scriptpubkey_address;
       }
 
       if (
         !toAddress &&
-        tx.vout.length > 0 &&
-        tx.vout[0]?.scriptpubkey_address
+        mempoolTx.vout.length > 0 &&
+        mempoolTx.vout[0]?.scriptpubkey_address
       ) {
-        toAddress = tx.vout[0].scriptpubkey_address;
+        toAddress = mempoolTx.vout[0].scriptpubkey_address;
       }
 
       return {
-        hash: tx.txid,
-        blockNumber: tx.status.block_height || 0,
-        blockHash: tx.status.block_hash || "",
+        hash: mempoolTx.txid,
+        blockNumber: mempoolTx.status.block_height || 0,
+        blockHash: mempoolTx.status.block_hash || "",
         timestamp,
         from: fromAddress,
         to: toAddress,
@@ -432,16 +435,16 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
         fee: createMoney(fee / 100000000, "BTC"),
         gasUsed: undefined,
         gasPrice: undefined,
-        status: tx.status.confirmed ? "success" : "pending",
+        status: mempoolTx.status.confirmed ? "success" : "pending",
         type,
         tokenContract: undefined,
         tokenSymbol: "BTC",
         nonce: undefined,
-        confirmations: tx.status.confirmed ? 1 : 0,
+        confirmations: mempoolTx.status.confirmed ? 1 : 0,
       };
     } catch (error) {
       this.logger.error(
-        `Failed to parse wallet transaction ${tx.txid} - Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}, TxData: ${JSON.stringify(tx)}`,
+        `Failed to parse wallet transaction ${mempoolTx.txid} - Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}, TxData: ${JSON.stringify(mempoolTx)}`,
       );
       throw error;
     }
