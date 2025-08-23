@@ -175,10 +175,9 @@ describe("CoinbaseAPIClient", () => {
 
       await client.getAccounts({
         limit: 50,
-        cursor: undefined,
         // @ts-expect-error - testing runtime behavior
         invalidParam: null,
-      });
+      } as any);
 
       expect(mockHttpClient.request).toHaveBeenCalledWith(
         "/api/v3/brokerage/accounts?limit=50",
