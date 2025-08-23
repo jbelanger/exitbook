@@ -7,14 +7,9 @@ import { BaseRegistryProvider } from "../../shared/registry/base-registry-provid
 import { RegisterProvider } from "../../shared/registry/decorators.ts";
 import type { ProviderOperation } from "../../shared/types.ts";
 import { hasAddressParam } from "../../shared/types.ts";
-import type { SolscanTransaction } from "../types.ts";
+import type { SolscanResponse, SolscanTransaction } from "../types.ts";
 import { isValidSolanaAddress, lamportsToSol } from "../utils.ts";
 
-interface SolscanResponse<T = any> {
-  success: boolean;
-  data?: T;
-  message?: string;
-}
 
 @RegisterProvider({
   name: "solscan",
