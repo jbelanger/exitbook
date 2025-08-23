@@ -23,7 +23,7 @@ export class ServiceErrorHandler {
       }
 
       throw new RateLimitError(
-        `Rate limit exceeded: ${error.message}`,
+        `Rate limit exceeded: ${error instanceof Error ? error.message : 'Unknown error'}`,
         exchangeId,
         operation,
         retryAfter
@@ -32,7 +32,7 @@ export class ServiceErrorHandler {
 
     if (this.isAuthError(error)) {
       throw new AuthenticationError(
-        `Authentication failed: ${error.message}`,
+        `Authentication failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         exchangeId,
         operation
       );
@@ -40,23 +40,23 @@ export class ServiceErrorHandler {
 
     if (this.isNetworkError(error)) {
       throw new ServiceError(
-        `Network error: ${error.message}`,
+        `Network error: ${error instanceof Error ? error.message : 'Unknown error'}`,
         exchangeId,
         operation,
-        error
+        error instanceof Error ? error : undefined
       );
     }
 
     if (this.isNotSupported(error)) {
       // For unsupported operations, we'll log it but create a specific error
       if (logger) {
-        logger.warn(`Operation not supported: ${operation} - Exchange: ${exchangeId}, Error: ${error.message}`);
+        logger.warn(`Operation not supported: ${operation} - Exchange: ${exchangeId}, Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
       throw new ServiceError(
-        `Operation not supported: ${error.message}`,
+        `Operation not supported: ${error instanceof Error ? error.message : 'Unknown error'}`,
         exchangeId,
         operation,
-        error
+        error instanceof Error ? error : undefined
       );
     }
 
@@ -81,47 +81,80 @@ export class ServiceErrorHandler {
    */
   static isRateLimit(error: unknown): boolean {
     return error instanceof ccxt.RateLimitExceeded ||
-      error.name === 'RateLimitExceeded' ||
-      (error.message && error.message.toLowerCase().includes('rate limit'));
+      (error instanceof Error && error.name === 'RateLimitExceeded') ||
+      (error instanceof Error && !!error.message && error.message.toLowerCase().includes('rate limit'));
   }
 
   /**
    * Check if error is an authentication error
    */
   static isAuthError(error: unknown): boolean {
-    return error instanceof ccxt.AuthenticationError ||
-      error.name === 'AuthenticationError' ||
-      (error.message && (
-        error.message.toLowerCase().includes('authentication') ||
-        error.message.toLowerCase().includes('unauthorized') ||
-        error.message.toLowerCase().includes('invalid api') ||
-        error.message.toLowerCase().includes('api key')
-      ));
+    if (error instanceof ccxt.AuthenticationError) {
+      return true;
+    }
+    
+    if (error instanceof Error) {
+      if (error.name === 'AuthenticationError') {
+        return true;
+      }
+      
+      if (error.message) {
+        const msg = error.message.toLowerCase();
+        return msg.includes('authentication') ||
+               msg.includes('unauthorized') ||
+               msg.includes('invalid api') ||
+               msg.includes('api key');
+      }
+    }
+    
+    return false;
   }
 
   /**
    * Check if error is a network error
    */
   static isNetworkError(error: unknown): boolean {
-    return error instanceof ccxt.NetworkError ||
-      error.name === 'NetworkError' ||
-      (error.message && (
-        error.message.toLowerCase().includes('network') ||
-        error.message.toLowerCase().includes('timeout') ||
-        error.message.toLowerCase().includes('connection')
-      ));
+    if (error instanceof ccxt.NetworkError) {
+      return true;
+    }
+    
+    if (error instanceof Error) {
+      if (error.name === 'NetworkError') {
+        return true;
+      }
+      
+      if (error.message) {
+        const msg = error.message.toLowerCase();
+        return msg.includes('network') ||
+               msg.includes('timeout') ||
+               msg.includes('connection');
+      }
+    }
+    
+    return false;
   }
 
   /**
    * Check if error indicates operation is not supported
    */
   static isNotSupported(error: unknown): boolean {
-    return error instanceof ccxt.NotSupported ||
-      error.name === 'NotSupported' ||
-      (error.message && (
-        error.message.toLowerCase().includes('not supported') ||
-        error.message.toLowerCase().includes('not implemented')
-      ));
+    if (error instanceof ccxt.NotSupported) {
+      return true;
+    }
+    
+    if (error instanceof Error) {
+      if (error.name === 'NotSupported') {
+        return true;
+      }
+      
+      if (error.message) {
+        const msg = error.message.toLowerCase();
+        return msg.includes('not supported') ||
+               msg.includes('not implemented');
+      }
+    }
+    
+    return false;
   }
 
   /**
@@ -129,14 +162,16 @@ export class ServiceErrorHandler {
    */
   static extractRetryAfter(error: unknown): number {
     // Try to get retry after from CCXT error
-    if (error.retryAfter && typeof error.retryAfter === 'number') {
+    if (error && typeof error === 'object' && 'retryAfter' in error && typeof error.retryAfter === 'number') {
       return error.retryAfter;
     }
 
     // Try to extract from error message
-    const retryMatch = error.message?.match(/retry.{0,10}(\d+)/i);
-    if (retryMatch) {
-      return parseInt(retryMatch[1]) * 1000; // Convert to milliseconds
+    if (error instanceof Error && error.message) {
+      const retryMatch = error.message.match(/retry.{0,10}(\d+)/i);
+      if (retryMatch) {
+        return parseInt(retryMatch[1]) * 1000; // Convert to milliseconds
+      }
     }
 
     // Default fallback
@@ -157,16 +192,16 @@ export class ServiceErrorHandler {
     const details = {
       operation,
       exchange: exchangeId,
-      errorType: error.constructor.name,
-      message: error.message,
-      stack: error.stack,
+      errorType: error instanceof Error ? error.constructor.name : typeof error,
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
       // Include CCXT-specific details if available
-      ...(error.code && { code: error.code }),
-      ...(error.status && { status: error.status }),
-      ...(error.retryAfter && { retryAfter: error.retryAfter })
+      ...(error && typeof error === 'object' && 'code' in error ? { code: (error as any).code } : {}),
+      ...(error && typeof error === 'object' && 'status' in error ? { status: (error as any).status } : {}),
+      ...(error && typeof error === 'object' && 'retryAfter' in error ? { retryAfter: (error as any).retryAfter } : {})
     };
 
-    logger.error('Detailed error information', details);
+    logger.error(details, 'Detailed error information');
   }
 
   /**
@@ -175,7 +210,7 @@ export class ServiceErrorHandler {
   static isRecoverable(error: unknown): boolean {
     return this.isRateLimit(error) ||
       this.isNetworkError(error) ||
-      (error.message && (
+      (error instanceof Error && !!error.message && (
         error.message.toLowerCase().includes('temporary') ||
         error.message.toLowerCase().includes('try again')
       ));

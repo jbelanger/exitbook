@@ -2,7 +2,8 @@ import type { CryptoTransaction, Money, TransactionType, UniversalExchangeAdapte
 import * as ccxt from 'ccxt'; // Import all as ccxt to get access to types like ccxt.Account
 import { Decimal } from 'decimal.js';
 import { BaseCCXTAdapter } from '../base-ccxt-adapter.ts';
-import { CoinbaseCredentials } from './types.ts'; // Import from types.ts
+import type { CCXTTransaction } from '../../shared/utils/transaction-transformer.ts';
+import type { CoinbaseCredentials } from './types.ts'; // Import from types.ts
 
 // Options for configuring the Coinbase adapter
 interface CoinbaseAdapterOptions {
@@ -131,7 +132,7 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
     const rawLedgerEntries = await this.fetchAllLedgerEntriesWithPagination(params.since);
     
     // Transform raw CCXT entries to CryptoTransaction[] before returning to satisfy the base class's return type
-    return this.transformCCXTTransactions(rawLedgerEntries, 'ledger');
+    return this.transformCCXTTransactions(rawLedgerEntries as CCXTTransaction[], 'ledger');
   }
 
   /**
@@ -328,8 +329,10 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
    * Extract the trade group ID from a Coinbase ledger entry
    */
   private extractTradeGroupId(transaction: CryptoTransaction): string | null {
-    const info = transaction.info?.info; // Double nested structure
-    if (!info) return null;
+    const info = transaction.info && typeof transaction.info === 'object' && transaction.info !== null 
+      ? (transaction.info as any).info // Double nested structure
+      : null;
+    if (!info || typeof info !== 'object' || info === null) return null;
 
     // Extract group IDs from different transaction types
     if (info.buy?.id) {
@@ -404,8 +407,14 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
     const timestamp = Math.min(...entries.map(e => e.timestamp));
 
     // Determine the trade symbol and sides from the entries
-    const inEntries = entries.filter(e => e.info?.direction === 'in');
-    const outEntries = entries.filter(e => e.info?.direction === 'out');
+    const inEntries = entries.filter(e => 
+      e.info && typeof e.info === 'object' && e.info !== null &&
+      'direction' in e.info && e.info.direction === 'in'
+    );
+    const outEntries = entries.filter(e => 
+      e.info && typeof e.info === 'object' && e.info !== null &&
+      'direction' in e.info && e.info.direction === 'out'
+    );
 
     // If we have both in and out entries, this is a proper trade
     if (inEntries.length > 0 && outEntries.length > 0) {
@@ -414,15 +423,21 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
 
       // If symbol is still unknown, try to construct it from currencies
       if (!symbol || symbol === 'unknown') {
-        const baseCurrency = inEntries[0]?.info?.currency;
-        const quoteCurrency = outEntries[0]?.info?.currency;
+        const firstInEntry = inEntries[0];
+        const firstOutEntry = outEntries[0];
+        const baseCurrency = firstInEntry?.info && typeof firstInEntry.info === 'object' && firstInEntry.info !== null &&
+          'currency' in firstInEntry.info ? (firstInEntry.info as any).currency : undefined;
+        const quoteCurrency = firstOutEntry?.info && typeof firstOutEntry.info === 'object' && firstOutEntry.info !== null &&
+          'currency' in firstOutEntry.info ? (firstOutEntry.info as any).currency : undefined;
         if (baseCurrency && quoteCurrency) {
           symbol = `${baseCurrency}-${quoteCurrency}`;
         }
       }
 
       // Extract side from advanced_trade_fill data
-      const advancedTradeInfo = baseEntry?.info?.info?.advanced_trade_fill;
+      const baseEntryInfo = baseEntry?.info && typeof baseEntry.info === 'object' && baseEntry.info !== null 
+        ? baseEntry.info as any : null;
+      const advancedTradeInfo = baseEntryInfo?.info?.advanced_trade_fill;
       const side = advancedTradeInfo?.order_side || this.extractSideFromInfo(baseEntry?.info);
 
       // COINBASE DIRECTION SEMANTICS (this is the confusing part):
@@ -440,8 +455,12 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
 
       if (side === 'buy') {
         // Buy: receiving base currency (in), spending quote currency (out)
-        baseCurrency = inEntries[0]?.info?.currency || 'unknown';
-        quoteCurrency = outEntries[0]?.info?.currency || 'unknown';
+        const firstInEntry = inEntries[0];
+        const firstOutEntry = outEntries[0];
+        baseCurrency = (firstInEntry?.info && typeof firstInEntry.info === 'object' && firstInEntry.info !== null &&
+          'currency' in firstInEntry.info ? (firstInEntry.info as any).currency : null) || 'unknown';
+        quoteCurrency = (firstOutEntry?.info && typeof firstOutEntry.info === 'object' && firstOutEntry.info !== null &&
+          'currency' in firstOutEntry.info ? (firstOutEntry.info as any).currency : null) || 'unknown';
 
         totalBaseAmount = inEntries.reduce((sum, entry) => {
           const amount = entry.amount && typeof entry.amount === 'object' ? entry.amount.amount : new Decimal(0);
@@ -454,8 +473,12 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
         }, new Decimal(0));
       } else {
         // Sell: sending base currency (out), receiving quote currency (in)
-        baseCurrency = outEntries[0]?.info?.currency || 'unknown';
-        quoteCurrency = inEntries[0]?.info?.currency || 'unknown';
+        const firstOutEntry = outEntries[0];
+        const firstInEntry = inEntries[0];
+        baseCurrency = (firstOutEntry?.info && typeof firstOutEntry.info === 'object' && firstOutEntry.info !== null &&
+          'currency' in firstOutEntry.info ? (firstOutEntry.info as any).currency : null) || 'unknown';
+        quoteCurrency = (firstInEntry?.info && typeof firstInEntry.info === 'object' && firstInEntry.info !== null &&
+          'currency' in firstInEntry.info ? (firstInEntry.info as any).currency : null) || 'unknown';
 
         totalBaseAmount = outEntries.reduce((sum, entry) => {
           const amount = entry.amount && typeof entry.amount === 'object' ? entry.amount.amount : new Decimal(0);
@@ -484,7 +507,8 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
         }
 
         // Check nested fee structures in buy/sell info
-        const nestedInfo = entry.info?.info;
+        const nestedInfo = entry.info && typeof entry.info === 'object' && entry.info !== null 
+          ? (entry.info as any).info : null;
         if (nestedInfo?.buy?.fee?.amount) {
           const orderId = nestedInfo.buy?.id || 'unknown';
           const feeKey = `buy_${orderId}_${nestedInfo.buy.fee.amount}_${nestedInfo.buy.fee.currency}`;
@@ -512,7 +536,8 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
       // If no direct fee currency, check nested structures
       if (!feeCurrency) {
         for (const entry of entries) {
-          const nestedInfo = entry.info?.info;
+          const nestedInfo = entry.info && typeof entry.info === 'object' && entry.info !== null 
+            ? (entry.info as any).info : null;
           if (nestedInfo?.buy?.fee?.currency) {
             feeCurrency = nestedInfo.buy.fee.currency;
             break;
@@ -588,7 +613,8 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
       info: {
         ...info,
         convertedBy: 'CoinbaseCCXTAdapter',
-        originalType: info.type
+        originalType: info && typeof info === 'object' && info !== null &&
+          'type' in info ? (info as any).type : undefined
       }
     };
 
@@ -600,9 +626,10 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
    */
   private isTradeRelatedTransaction(transaction: CryptoTransaction): boolean {
     const info = transaction.info;
-    if (!info) return false;
+    if (!info || typeof info !== 'object' || info === null) return false;
 
-    const type = info.type?.toLowerCase() || '';
+    const type = ('type' in info && typeof (info as any).type === 'string' 
+      ? (info as any).type : '').toLowerCase();
 
     // Coinbase ledger entries that represent trades
     return type === 'trade' ||
