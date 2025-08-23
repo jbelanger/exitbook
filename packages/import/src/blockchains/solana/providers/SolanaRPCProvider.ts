@@ -91,13 +91,9 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-<<<<<<< HEAD
-    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${hasAddressParam(operation) ? maskAddress(operation.params.address) : 'N/A'}`);
-=======
     this.logger.debug(
       `Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? maskAddress(operation.params.address) : "N/A"}`,
     );
->>>>>>> main
 
     try {
       switch (operation.type) {
