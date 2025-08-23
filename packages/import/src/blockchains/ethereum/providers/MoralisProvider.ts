@@ -12,6 +12,10 @@ import {
   ProviderCapabilities,
   ProviderOperation,
   hasAddressParam,
+  isAddressTransactionOperation,
+  isAddressBalanceOperation,
+  isTokenTransactionOperation,
+  isTokenBalanceOperation,
 } from "../../shared/types.ts";
 
 const logger = getLogger("MoralisProvider");
@@ -62,6 +66,27 @@ interface MoralisTokenTransfer {
 }
 
 interface MoralisNativeBalance {
+  balance: string;
+}
+
+interface MoralisDateToBlockResponse {
+  block: number;
+}
+
+interface MoralisTransactionResponse {
+  result: MoralisTransaction[];
+}
+
+interface MoralisTokenTransferResponse {
+  result: MoralisTokenTransfer[];
+}
+
+interface MoralisTokenBalance {
+  token_address: string;
+  name: string;
+  symbol: string;
+  logo?: string;
+  decimals: number;
   balance: string;
 }
 
@@ -123,10 +148,10 @@ export class MoralisProvider implements IBlockchainProvider<MoralisConfig> {
   async isHealthy(): Promise<boolean> {
     try {
       // Test with a simple API call to get server time or stats
-      const response = await this.httpClient.get(
+      const response = await this.httpClient.get<MoralisDateToBlockResponse>(
         "/dateToBlock?chain=eth&date=2023-01-01T00:00:00.000Z",
       );
-      return response && response.block;
+      return response && typeof response.block === 'number';
     } catch (error) {
       logger.warn(
         `Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`,
@@ -142,23 +167,35 @@ export class MoralisProvider implements IBlockchainProvider<MoralisConfig> {
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
     switch (operation.type) {
       case "getAddressTransactions":
-        return this.getAddressTransactions(
-          operation.params.address,
-          operation.params.since,
-        ) as Promise<T>;
+        if (isAddressTransactionOperation(operation)) {
+          return this.getAddressTransactions(
+            operation.params.address,
+            operation.params.since,
+          ) as Promise<T>;
+        }
+        break;
       case "getAddressBalance":
-        return this.getAddressBalance(operation.params.address) as Promise<T>;
+        if (isAddressBalanceOperation(operation)) {
+          return this.getAddressBalance(operation.params.address) as Promise<T>;
+        }
+        break;
       case "getTokenTransactions":
-        return this.getTokenTransactions(
-          operation.params.address,
-          operation.params.contractAddress,
-          operation.params.since,
-        ) as Promise<T>;
+        if (isTokenTransactionOperation(operation)) {
+          return this.getTokenTransactions(
+            operation.params.address,
+            operation.params.contractAddress,
+            operation.params.since,
+          ) as Promise<T>;
+        }
+        break;
       case "getTokenBalances":
-        return this.getTokenBalances(
-          operation.params.address,
-          operation.params.contractAddresses,
-        ) as Promise<T>;
+        if (isTokenBalanceOperation(operation)) {
+          return this.getTokenBalances(
+            operation.params.address,
+            operation.params.contractAddresses,
+          ) as Promise<T>;
+        }
+        break;
       default:
         throw new ServiceError(
           `Unsupported operation: ${operation.type}`,
@@ -166,6 +203,11 @@ export class MoralisProvider implements IBlockchainProvider<MoralisConfig> {
           operation.type,
         );
     }
+    throw new ServiceError(
+      `Invalid parameters for operation: ${operation.type}`,
+      this.name,
+      operation.type,
+    );
   }
 
   private async getAddressTransactions(
@@ -247,7 +289,7 @@ export class MoralisProvider implements IBlockchainProvider<MoralisConfig> {
     }
 
     const endpoint = `/${address}?${params.toString()}`;
-    const response = await this.httpClient.get(endpoint);
+    const response = await this.httpClient.get<MoralisTransactionResponse>(endpoint);
 
     return (response.result || []).map((tx: MoralisTransaction) =>
       this.convertNativeTransaction(tx, address),
@@ -274,7 +316,7 @@ export class MoralisProvider implements IBlockchainProvider<MoralisConfig> {
     }
 
     const endpoint = `/${address}/erc20?${params.toString()}`;
-    const response = await this.httpClient.get(endpoint);
+    const response = await this.httpClient.get<MoralisTokenTransferResponse>(endpoint);
 
     return (response.result || []).map((tx: MoralisTokenTransfer) =>
       this.convertTokenTransfer(tx, address),
@@ -316,7 +358,7 @@ export class MoralisProvider implements IBlockchainProvider<MoralisConfig> {
     }
 
     const endpoint = `/${address}/erc20?${params.toString()}`;
-    const response = await this.httpClient.get(endpoint);
+    const response = await this.httpClient.get<MoralisTokenBalance[]>(endpoint);
 
     const balances: Balance[] = [];
 

@@ -217,7 +217,27 @@ export interface TaostatsTransaction {
   to: string;
   hash: string;
   block: number;
+  block_number: number;
+  block_hash: string;
   timestamp: number;
   amount: string;
   fee?: string;
+  success: boolean;
+  confirmations: number;
+}
+
+// Subscan API response types
+export interface SubscanTransfer {
+  hash: string;
+  block_timestamp: number;
+  block_num: number;
+  block_hash: string;
+  extrinsic_index: string;
+  success: boolean;
+  from: string;
+  to: string;
+  amount: string;
+  fee: string;
+  module: string;
+  call: string;
 }

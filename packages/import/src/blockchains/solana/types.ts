@@ -41,6 +41,22 @@ export interface SolscanBalance {
 }
 
 /**
+ * Solana token balance information
+ */
+export interface SolanaTokenBalance {
+  accountIndex: number;
+  mint: string;
+  owner?: string;
+  programId?: string;
+  uiTokenAmount: {
+    amount: string;
+    decimals: number;
+    uiAmount?: number;
+    uiAmountString: string;
+  };
+}
+
+/**
  * Solana RPC transaction response
  */
 export interface SolanaRPCTransaction {
@@ -68,9 +84,9 @@ export interface SolanaRPCTransaction {
     innerInstructions: unknown[];
     logMessages: string[];
     postBalances: number[];
-    postTokenBalances: unknown[];
+    postTokenBalances: SolanaTokenBalance[];
     preBalances: number[];
-    preTokenBalances: unknown[];
+    preTokenBalances: SolanaTokenBalance[];
     rewards: unknown[];
     status: { Ok: null } | { Err: unknown };
   };

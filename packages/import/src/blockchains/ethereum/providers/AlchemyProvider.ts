@@ -58,6 +58,29 @@ interface AlchemyAssetTransfer {
   };
 }
 
+interface AlchemyAssetTransfersResponse {
+  transfers: AlchemyAssetTransfer[];
+  pageKey?: string;
+}
+
+interface AlchemyTokenBalance {
+  contractAddress: string;
+  tokenBalance: string;
+  error?: string;
+}
+
+interface AlchemyTokenBalancesResponse {
+  address: string;
+  tokenBalances: AlchemyTokenBalance[];
+}
+
+interface AlchemyTokenMetadata {
+  decimals: number;
+  logo?: string;
+  name?: string;
+  symbol?: string;
+}
+
 export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
   readonly name = "alchemy";
   readonly blockchain = "ethereum";
@@ -284,7 +307,7 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
     }
 
     // Get transfers from address
-    const fromResponse = await this.httpClient.post("", {
+    const fromResponse = await this.httpClient.post<JsonRpcResponse<AlchemyAssetTransfersResponse>>("", {
       jsonrpc: "2.0",
       method: "alchemy_getAssetTransfers",
       params: [params],
@@ -295,7 +318,7 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
     const toParams = { ...params };
     delete toParams.fromAddress;
     toParams.toAddress = address;
-    const toResponse = await this.httpClient.post("", {
+    const toResponse = await this.httpClient.post<JsonRpcResponse<AlchemyAssetTransfersResponse>>("", {
       jsonrpc: "2.0",
       method: "alchemy_getAssetTransfers",
       params: [toParams],
@@ -332,7 +355,7 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
         params.contractAddresses = contractAddresses;
       }
 
-      const response = await this.httpClient.post("", {
+      const response = await this.httpClient.post<JsonRpcResponse<AlchemyTokenBalancesResponse>>("", {
         jsonrpc: "2.0",
         method: "alchemy_getTokenBalances",
         params: [address, contractAddresses || "DEFAULT_TOKENS"],
@@ -345,7 +368,7 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
         if (tokenBalance.tokenBalance && tokenBalance.tokenBalance !== "0x0") {
           // Get token metadata
           const metadata = await this.httpClient
-            .post("", {
+            .post<JsonRpcResponse<AlchemyTokenMetadata>>("", {
               jsonrpc: "2.0",
               method: "alchemy_getTokenMetadata",
               params: [tokenBalance.contractAddress],

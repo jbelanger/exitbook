@@ -130,8 +130,9 @@ export class HeliusProvider extends BaseRegistryProvider {
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
+    const params = operation.params as { address: string; since?: number };
     this.logger.debug(
-      `Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? maskAddress(operation.params.address) : "N/A"}`,
+      `Executing operation - Type: ${operation.type}, Address: ${params?.address ? maskAddress(params.address) : "N/A"}`,
     );
 
     try {
