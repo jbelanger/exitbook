@@ -52,7 +52,7 @@ export class CoinbaseAdapter extends BaseAdapter {
       id: "coinbase",
       name: "Coinbase Advanced Trade",
       type: "exchange",
-      subType: "rest",
+      subType: "native",
       capabilities: {
         supportedOperations: ["fetchTransactions", "fetchBalances"],
         maxBatchSize: 100,

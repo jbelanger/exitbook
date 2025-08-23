@@ -42,7 +42,7 @@ async function main() {
     .option("--exchange <name>", "Import from specific exchange only")
     .option(
       "--adapter-type <type>",
-      "Exchange adapter type (ccxt, csv)",
+      "Exchange adapter type (ccxt, csv, native)",
       "ccxt",
     )
     .option("--api-key <key>", "Exchange API key (for CCXT adapters)")
@@ -103,14 +103,14 @@ async function main() {
 
         // Validate exchange parameters
         if (options.exchange) {
-          if (options.adapterType === "ccxt") {
+          if (options.adapterType === "ccxt" || options.adapterType === "native") {
             if (!options.apiKey || !options.secret) {
               logger.error(
-                "--api-key and --secret are required for CCXT adapters",
+                "--api-key and --secret are required for CCXT and native adapters",
               );
               process.exit(1);
             }
-            if (options.exchange === "coinbase" && !options.secret) {
+            if (options.exchange === "coinbase" && !options.password) {
               logger.error("--password is required for Coinbase");
               process.exit(1);
             }
@@ -137,7 +137,7 @@ async function main() {
           result = await importer.importFromExchangeWithCredentials({
             exchangeId: options.exchange,
             adapterType: options.adapterType,
-            ...(options.adapterType === "ccxt" && {
+            ...((options.adapterType === "ccxt" || options.adapterType === "native") && {
               credentials: {
                 apiKey: options.apiKey,
                 secret: options.secret,
@@ -228,7 +228,7 @@ async function main() {
     .option("--exchange <name>", "Verify specific exchange only")
     .option(
       "--adapter-type <type>",
-      "Exchange adapter type (ccxt, csv)",
+      "Exchange adapter type (ccxt, csv, native)",
       "ccxt",
     )
     .option("--api-key <key>", "Exchange API key (for CCXT adapters)")
@@ -279,10 +279,10 @@ async function main() {
 
         // Validate exchange parameters
         if (options.exchange) {
-          if (options.adapterType === "ccxt") {
+          if (options.adapterType === "ccxt" || options.adapterType === "native") {
             if (!options.apiKey || !options.secret) {
               logger.error(
-                "--api-key and --secret are required for CCXT adapters",
+                "--api-key and --secret are required for CCXT and native adapters",
               );
               process.exit(1);
             }
@@ -336,9 +336,9 @@ async function main() {
           const adapter = await UniversalAdapterFactory.create({
             type: "exchange",
             id: options.exchange,
-            subType: options.adapterType as "ccxt" | "csv",
+            subType: options.adapterType as "ccxt" | "csv" | "native",
             credentials:
-              options.adapterType === "ccxt"
+              (options.adapterType === "ccxt" || options.adapterType === "native")
                 ? {
                     apiKey: options.apiKey,
                     secret: options.secret,
@@ -520,7 +520,7 @@ async function main() {
     .option("--exchange <name>", "Test specific exchange only")
     .option(
       "--adapter-type <type>",
-      "Exchange adapter type (ccxt, csv)",
+      "Exchange adapter type (ccxt, csv, native)",
       "ccxt",
     )
     .option("--api-key <key>", "Exchange API key (for CCXT adapters)")
@@ -568,10 +568,10 @@ async function main() {
 
         // Validate exchange parameters
         if (options.exchange) {
-          if (options.adapterType === "ccxt") {
+          if (options.adapterType === "ccxt" || options.adapterType === "native") {
             if (!options.apiKey || !options.secret) {
               logger.error(
-                "--api-key and --secret are required for CCXT adapters",
+                "--api-key and --secret are required for CCXT and native adapters",
               );
               process.exit(1);
             }
@@ -604,9 +604,9 @@ async function main() {
           const adapter = await UniversalAdapterFactory.create({
             type: "exchange",
             id: options.exchange,
-            subType: options.adapterType as "ccxt" | "csv",
+            subType: options.adapterType as "ccxt" | "csv" | "native",
             credentials:
-              options.adapterType === "ccxt"
+              (options.adapterType === "ccxt" || options.adapterType === "native")
                 ? {
                     apiKey: options.apiKey,
                     secret: options.secret,

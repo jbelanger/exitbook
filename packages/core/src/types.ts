@@ -330,7 +330,7 @@ export interface UniversalAdapterInfo {
   id: string;
   name: string;
   type: "exchange" | "blockchain";
-  subType?: "ccxt" | "csv" | "rpc" | "rest";
+  subType?: "ccxt" | "csv" | "native" | "rpc" | "rest";
   capabilities: UniversalAdapterCapabilities;
 }
 
