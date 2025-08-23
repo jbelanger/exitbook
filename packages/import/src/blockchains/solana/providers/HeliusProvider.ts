@@ -5,7 +5,15 @@ import type { Balance, BlockchainTransaction } from "@crypto/core";
 import { createMoney, maskAddress } from "@crypto/shared-utils";
 import { BaseRegistryProvider } from "../../shared/registry/base-registry-provider.ts";
 import { RegisterProvider } from "../../shared/registry/decorators.ts";
-import { ProviderOperation, JsonRpcResponse } from "../../shared/types.ts";
+import { 
+  ProviderOperation, 
+  JsonRpcResponse,
+  isAddressTransactionOperation,
+  isAddressBalanceOperation,
+  isTokenTransactionOperation,
+  isTokenBalanceOperation,
+  hasAddressParam
+} from "../../shared/types.ts";
 import { isValidSolanaAddress, lamportsToSol } from "../utils.ts";
 import type { 
   HeliusAssetResponse,
@@ -115,36 +123,32 @@ export class HeliusProvider extends BaseRegistryProvider {
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    const params = operation.params as { address: string; since?: number };
     this.logger.debug(
-      `Executing operation - Type: ${operation.type}, Address: ${params?.address ? maskAddress(params.address) : "N/A"}`,
+      `Executing operation - Type: ${operation.type}, Address: ${hasAddressParam(operation) ? maskAddress(operation.params.address) : "N/A"}`,
     );
 
     try {
       switch (operation.type) {
         case "getAddressTransactions":
-          return this.getAddressTransactions(
-            operation.params as { address: string; since?: number },
-          ) as T;
+          if (isAddressTransactionOperation(operation)) {
+            return this.getAddressTransactions(operation.params) as T;
+          }
+          throw new Error(`Invalid params for getAddressTransactions operation`);
         case "getAddressBalance":
-          return this.getAddressBalance(
-            operation.params as { address: string },
-          ) as T;
+          if (isAddressBalanceOperation(operation)) {
+            return this.getAddressBalance(operation.params) as T;
+          }
+          throw new Error(`Invalid params for getAddressBalance operation`);
         case "getTokenTransactions":
-          return this.getTokenTransactions(
-            operation.params as {
-              address: string;
-              contractAddress?: string;
-              since?: number;
-            },
-          ) as T;
+          if (isTokenTransactionOperation(operation)) {
+            return this.getTokenTransactions(operation.params) as T;
+          }
+          throw new Error(`Invalid params for getTokenTransactions operation`);
         case "getTokenBalances":
-          return this.getTokenBalances(
-            operation.params as {
-              address: string;
-              contractAddresses?: string[];
-            },
-          ) as T;
+          if (isTokenBalanceOperation(operation)) {
+            return this.getTokenBalances(operation.params) as T;
+          }
+          throw new Error(`Invalid params for getTokenBalances operation`);
         default:
           throw new Error(`Unsupported operation: ${operation.type}`);
       }
