@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MempoolSpaceProvider } from "../MempoolSpaceProvider.ts";
-import type { BlockchainTransaction } from "../../types.ts";
+import type { BlockchainTransaction } from "@crypto/core";
 
 // Mock fetch globally
 global.fetch = vi.fn();
@@ -31,11 +31,7 @@ describe("MempoolSpaceProvider", () => {
     });
 
     it("should initialize with custom configuration", () => {
-      const customProvider = new MempoolSpaceProvider({
-        baseUrl: "https://custom.mempool.space/api",
-        timeout: 5000,
-        retries: 5,
-      });
+      const customProvider = new MempoolSpaceProvider();
 
       expect(customProvider.name).toBe("mempool.space");
       expect(customProvider.blockchain).toBe("bitcoin");
@@ -200,7 +196,7 @@ describe("MempoolSpaceProvider", () => {
         json: async () => ({ ...mockTransaction, txid: mockTransactionIds[1] }),
       } as Response);
 
-      const transactions = await provider.execute({
+      const transactions = await provider.execute<BlockchainTransaction[]>({
         type: "getAddressTransactions",
         params: { address: testAddress },
       });
@@ -224,7 +220,7 @@ describe("MempoolSpaceProvider", () => {
         }),
       } as Response);
 
-      const transactions = await provider.execute({
+      const transactions = await provider.execute<BlockchainTransaction[]>({
         type: "getAddressTransactions",
         params: { address: testAddress },
       });
@@ -255,7 +251,7 @@ describe("MempoolSpaceProvider", () => {
         json: async () => mockTransaction,
       } as Response);
 
-      const transactions = await provider.execute({
+      const transactions = await provider.execute<BlockchainTransaction[]>({
         type: "getAddressTransactions",
         params: { address: testAddress, since: futureTimestamp },
       });
@@ -288,7 +284,7 @@ describe("MempoolSpaceProvider", () => {
       } as Response);
 
       // Should not throw error due to retry mechanism
-      const transactions = await provider.execute({
+      const transactions = await provider.execute<BlockchainTransaction[]>({
         type: "getAddressTransactions",
         params: { address: testAddress },
       });
@@ -311,7 +307,7 @@ describe("MempoolSpaceProvider", () => {
         json: async () => mockAddressInfo,
       } as Response);
 
-      const result = await provider.execute({
+      const result = await provider.execute<{ balance: string; token: string }>({
         type: "getAddressBalance",
         params: { address: testAddress },
       });
@@ -336,7 +332,7 @@ describe("MempoolSpaceProvider", () => {
         json: async () => zeroBalanceInfo,
       } as Response);
 
-      const result = await provider.execute({
+      const result = await provider.execute<{ balance: string; token: string }>({
         type: "getAddressBalance",
         params: { address: testAddress },
       });
@@ -431,7 +427,7 @@ describe("MempoolSpaceProvider", () => {
         }),
       } as Response);
 
-      const result = await provider.execute({
+      const result = await provider.execute<{ balance: string; token: string }>({
         type: "getAddressBalance",
         params: { address: "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2" },
       });
@@ -490,7 +486,7 @@ describe("MempoolSpaceProvider", () => {
         json: async () => depositTransaction,
       } as Response);
 
-      const transactions = await provider.execute({
+      const transactions = await provider.execute<BlockchainTransaction[]>({
         type: "getAddressTransactions",
         params: { address: testAddress },
       });
@@ -542,7 +538,7 @@ describe("MempoolSpaceProvider", () => {
         json: async () => withdrawalTransaction,
       } as Response);
 
-      const transactions = await provider.execute({
+      const transactions = await provider.execute<BlockchainTransaction[]>({
         type: "getAddressTransactions",
         params: { address: testAddress },
       });
