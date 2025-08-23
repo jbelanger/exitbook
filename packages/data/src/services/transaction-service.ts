@@ -1,19 +1,24 @@
-import type { EnhancedTransaction, UniversalTransaction } from '@crypto/core';
-import { getLogger } from '@crypto/shared-logger';
-import { createHash } from 'crypto';
-import { TransactionRepository } from '../repositories/transaction-repository.ts';
-import { WalletRepository } from '../repositories/wallet-repository.ts';
-import type { StoredTransaction } from '../types/data-types.js';
-import { TransactionLinkingService } from './transaction-linking-service.ts';
+import type { EnhancedTransaction, UniversalTransaction } from "@crypto/core";
+import { getLogger } from "@crypto/shared-logger";
+import { createHash } from "crypto";
+import { TransactionRepository } from "../repositories/transaction-repository.ts";
+import { WalletRepository } from "../repositories/wallet-repository.ts";
+import type { StoredTransaction } from "../types/data-types.js";
+import { TransactionLinkingService } from "./transaction-linking-service.ts";
 
 export class TransactionService {
-  private logger = getLogger('TransactionService');
+  private logger = getLogger("TransactionService");
   private transactionRepository: TransactionRepository;
   private transactionLinkingService: TransactionLinkingService;
 
-  constructor(transactionRepository: TransactionRepository, walletRepository: WalletRepository) {
+  constructor(
+    transactionRepository: TransactionRepository,
+    walletRepository: WalletRepository,
+  ) {
     this.transactionRepository = transactionRepository;
-    this.transactionLinkingService = new TransactionLinkingService(walletRepository);
+    this.transactionLinkingService = new TransactionLinkingService(
+      walletRepository,
+    );
   }
 
   async save(transaction: EnhancedTransaction): Promise<void> {
@@ -31,44 +36,63 @@ export class TransactionService {
   /**
    * Save many UniversalTransactions directly
    */
-  async saveManyUniversal(transactions: UniversalTransaction[]): Promise<number> {
-    const enhancedTxs = transactions.map(tx => this.convertUniversalToEnhanced(tx));
+  async saveManyUniversal(
+    transactions: UniversalTransaction[],
+  ): Promise<number> {
+    const enhancedTxs = transactions.map((tx) =>
+      this.convertUniversalToEnhanced(tx),
+    );
     const saved = await this.transactionRepository.saveMany(enhancedTxs);
-    
+
     if (saved > 0) {
       for (const transaction of enhancedTxs) {
         const info = transaction.info as Record<string, unknown> | undefined;
-        const fromAddress = typeof info?.from === 'string' ? info!.from as string : null;
-        const toAddress = typeof info?.to === 'string' ? info!.to as string : null;
-        
+        const fromAddress =
+          typeof info?.from === "string" ? (info!.from as string) : null;
+        const toAddress =
+          typeof info?.to === "string" ? (info!.to as string) : null;
+
         if (fromAddress || toAddress) {
-          await this.linkTransactionToWallets(transaction.id, fromAddress ?? undefined, toAddress ?? undefined);
+          await this.linkTransactionToWallets(
+            transaction.id,
+            fromAddress ?? undefined,
+            toAddress ?? undefined,
+          );
         }
       }
     }
-    
+
     return saved;
   }
 
   async saveMany(transactions: EnhancedTransaction[]): Promise<number> {
     const saved = await this.transactionRepository.saveMany(transactions);
-    
+
     if (saved > 0) {
       for (const transaction of transactions) {
         const info = transaction.info as Record<string, unknown> | undefined;
-        const fromAddress = typeof info?.from === 'string' ? info!.from as string : null;
-        const toAddress = typeof info?.to === 'string' ? info!.to as string : null;
+        const fromAddress =
+          typeof info?.from === "string" ? (info!.from as string) : null;
+        const toAddress =
+          typeof info?.to === "string" ? (info!.to as string) : null;
 
         if (fromAddress || toAddress) {
-          await this.linkTransactionToWallets(transaction.id, fromAddress ?? undefined, toAddress ?? undefined);
+          await this.linkTransactionToWallets(
+            transaction.id,
+            fromAddress ?? undefined,
+            toAddress ?? undefined,
+          );
         }
       }
     }
-    
+
     return saved;
   }
 
-  async findAll(exchange?: string, since?: number): Promise<StoredTransaction[]> {
+  async findAll(
+    exchange?: string,
+    since?: number,
+  ): Promise<StoredTransaction[]> {
     return this.transactionRepository.findAll(exchange, since);
   }
 
@@ -76,26 +100,43 @@ export class TransactionService {
     return this.transactionRepository.count(exchange);
   }
 
-  async linkTransactionToWallets(transactionId: string, fromAddress?: string, toAddress?: string): Promise<void> {
-    const walletId = await this.transactionLinkingService.findWalletIdForTransaction(fromAddress, toAddress);
-    return this.transactionRepository.updateAddresses(transactionId, fromAddress, toAddress, walletId || undefined);
+  async linkTransactionToWallets(
+    transactionId: string,
+    fromAddress?: string,
+    toAddress?: string,
+  ): Promise<void> {
+    const walletId =
+      await this.transactionLinkingService.findWalletIdForTransaction(
+        fromAddress,
+        toAddress,
+      );
+    return this.transactionRepository.updateAddresses(
+      transactionId,
+      fromAddress,
+      toAddress,
+      walletId || undefined,
+    );
   }
 
   /**
    * Convert UniversalTransaction to EnhancedTransaction format
    */
-  private convertUniversalToEnhanced(universalTx: UniversalTransaction): EnhancedTransaction {
+  private convertUniversalToEnhanced(
+    universalTx: UniversalTransaction,
+  ): EnhancedTransaction {
     // Create a unique hash for deduplication
-    const hash = createHash('sha256')
-      .update(JSON.stringify({
-        id: universalTx.id,
-        timestamp: universalTx.timestamp,
-        symbol: universalTx.symbol,
-        amount: universalTx.amount,
-        type: universalTx.type,
-        source: universalTx.source
-      }))
-      .digest('hex')
+    const hash = createHash("sha256")
+      .update(
+        JSON.stringify({
+          id: universalTx.id,
+          timestamp: universalTx.timestamp,
+          symbol: universalTx.symbol,
+          amount: universalTx.amount,
+          type: universalTx.type,
+          source: universalTx.source,
+        }),
+      )
+      .digest("hex")
       .slice(0, 16);
 
     return {
@@ -107,8 +148,8 @@ export class TransactionService {
       amount: universalTx.amount,
       fee: universalTx.fee,
       price: universalTx.price,
-  symbol: universalTx.symbol ?? '',
-  side: universalTx.side ?? 'buy',
+      symbol: universalTx.symbol ?? "",
+      side: universalTx.side ?? "buy",
       source: universalTx.source,
       hash,
       importedAt: Date.now(),
@@ -118,9 +159,9 @@ export class TransactionService {
         to: universalTx.to,
         source: universalTx.source,
         network: universalTx.network,
-        ...universalTx.metadata
+        ...universalTx.metadata,
       },
-      originalData: universalTx
+      originalData: universalTx,
     };
   }
 }

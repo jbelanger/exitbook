@@ -1,16 +1,19 @@
-import type { WalletAddress } from '../types/data-types.js';
-import { getLogger } from '@crypto/shared-logger';
-import { WalletRepository } from '../repositories/wallet-repository.ts';
+import type { WalletAddress } from "../types/data-types.js";
+import { getLogger } from "@crypto/shared-logger";
+import { WalletRepository } from "../repositories/wallet-repository.ts";
 
 export class TransactionLinkingService {
-  private logger = getLogger('TransactionLinkingService');
+  private logger = getLogger("TransactionLinkingService");
   private walletRepository: WalletRepository;
 
   constructor(walletRepository: WalletRepository) {
     this.walletRepository = walletRepository;
   }
 
-  async findWalletIdForTransaction(fromAddress?: string, toAddress?: string): Promise<number | null> {
+  async findWalletIdForTransaction(
+    fromAddress?: string,
+    toAddress?: string,
+  ): Promise<number | null> {
     let walletId: number | null = null;
 
     if (fromAddress) {
@@ -30,21 +33,26 @@ export class TransactionLinkingService {
     return walletId;
   }
 
-  private async findWalletForAddress(address: string): Promise<WalletAddress | null> {
-    const possibleBlockchains = ['injective', 'ethereum', 'bitcoin'];
-    
+  private async findWalletForAddress(
+    address: string,
+  ): Promise<WalletAddress | null> {
+    const possibleBlockchains = ["injective", "ethereum", "bitcoin"];
+
     for (const blockchain of possibleBlockchains) {
       const normalizedAddress = this.normalizeAddress(address, blockchain);
-      const wallet = await this.walletRepository.findByAddressNormalized(normalizedAddress, blockchain);
+      const wallet = await this.walletRepository.findByAddressNormalized(
+        normalizedAddress,
+        blockchain,
+      );
       if (wallet) {
         return wallet;
       }
     }
-    
+
     return null;
   }
 
   private normalizeAddress(address: string, blockchain: string): string {
-    return blockchain === 'ethereum' ? address.toLowerCase() : address;
+    return blockchain === "ethereum" ? address.toLowerCase() : address;
   }
 }
