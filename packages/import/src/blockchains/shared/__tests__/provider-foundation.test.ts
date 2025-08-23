@@ -27,7 +27,8 @@ import {
   ProviderCapabilities, 
   ProviderOperation, 
   AddressTransactionParams,
-  AddressBalanceParams 
+  AddressBalanceParams,
+  isAddressTransactionOperation
 } from '../types.ts';
 
 // Mock provider for testing
@@ -84,8 +85,10 @@ class MockProvider implements IBlockchainProvider {
     // Mock response based on operation type
     switch (operation.type) {
       case 'getAddressTransactions': {
-        const addressParams = operation.params as AddressTransactionParams;
-        return { transactions: [], address: addressParams.address } as T;
+        if (isAddressTransactionOperation(operation)) {
+          return { transactions: [], address: operation.params.address } as T;
+        }
+        return { transactions: [] } as T;
       }
       case 'getAddressBalance':
         return { balance: 100, currency: 'ETH' } as T;
@@ -265,8 +268,10 @@ describe('BlockchainProviderManager', () => {
       type: 'getAddressBalance',
       params: { address: '0x123' },
       getCacheKey: (params) => {
-        const addressParams = params as AddressBalanceParams;
-        return `balance-${addressParams.address}`;
+        if ('address' in params && typeof params.address === 'string') {
+          return `balance-${params.address}`;
+        }
+        return 'unknown-balance';
       }
     };
 
@@ -381,8 +386,10 @@ describe('BlockchainProviderManager', () => {
       type: 'getAddressBalance',
       params: { address: '0x123' },
       getCacheKey: (params) => {
-        const addressParams = params as AddressBalanceParams;
-        return `balance-${addressParams.address}`;
+        if ('address' in params && typeof params.address === 'string') {
+          return `balance-${params.address}`;
+        }
+        return 'unknown-balance';
       }
     };
 
