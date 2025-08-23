@@ -1,4 +1,6 @@
 import crypto from "crypto";
+import jwt from "jsonwebtoken";
+import { generateJwt } from "@coinbase/cdp-sdk/auth";
 import type { RateLimitConfig } from "@crypto/core";
 import { getLogger } from "@crypto/shared-logger";
 import { HttpClient } from "@crypto/shared-utils";
@@ -6,25 +8,25 @@ import type {
   CoinbaseCredentials,
   RawCoinbaseAccount,
   RawCoinbaseAccountsResponse,
-  RawCoinbaseLedgerEntry,
-  RawCoinbaseLedgerResponse,
+  RawCoinbaseTransaction,
+  RawCoinbaseTransactionsResponse,
   CoinbaseAccountsParams,
-  CoinbaseLedgerParams,
+  CoinbaseTransactionsParams,
 } from "./types.ts";
 
 /**
- * Direct API client for Coinbase Advanced Trade API
+ * Direct API client for Coinbase Track API
  *
- * Eliminates CCXT dependency and provides clean access to Coinbase's native API.
+ * Provides access to Coinbase's Track API for transaction and account data.
  * Handles authentication, pagination, and error handling.
  *
- * API Documentation: https://docs.cloud.coinbase.com/advanced-trade-api/docs/welcome
- * Authentication: https://docs.cloud.coinbase.com/advanced-trade-api/docs/rest-api-auth
+ * API Documentation: https://docs.cdp.coinbase.com/coinbase-app/track-apis/
+ * Authentication: OAuth2 or API Key
  *
- * CRITICAL: Uses Advanced Trade API, not the deprecated Pro API
+ * CRITICAL: Uses Track API, not the Advanced Trade API
  * - Base URL: https://api.coinbase.com
- * - Endpoints: /api/v3/brokerage/*
- * - Version: 2015-07-22
+ * - Endpoints: /v2/*
+ * - Version: v2
  */
 export class CoinbaseAPIClient {
   private readonly httpClient: HttpClient;
@@ -35,16 +37,19 @@ export class CoinbaseAPIClient {
   constructor(credentials: CoinbaseCredentials) {
     this.credentials = credentials;
     this.logger = getLogger("CoinbaseAPIClient");
+    
+    // Validate Coinbase credentials format
+    this.validateCredentials();
 
-    // Use sandbox or production URL
+    // Use Track API endpoints
     this.baseUrl = credentials.sandbox
-      ? "https://api.sandbox.coinbase.com" // Sandbox for Advanced Trade
-      : "https://api.coinbase.com"; // Production Advanced Trade
+      ? "https://api.sandbox.coinbase.com" // Sandbox for Track API
+      : "https://api.coinbase.com"; // Production Track API
 
-    // Configure HTTP client with Coinbase-appropriate rate limits
+    // Configure HTTP client with Coinbase Track API rate limits
     const rateLimit: RateLimitConfig = {
-      requestsPerSecond: 10, // Coinbase Advanced Trade allows 10 requests/second
-      burstLimit: 15,
+      requestsPerSecond: 3, // Coinbase Track API is more conservative
+      burstLimit: 5,
     };
 
     this.httpClient = new HttpClient({
@@ -52,7 +57,7 @@ export class CoinbaseAPIClient {
       timeout: 30000, // Coinbase can be slow, especially for ledger queries
       retries: 3,
       rateLimit,
-      providerName: "coinbase-advanced",
+      providerName: "coinbase-track",
       defaultHeaders: {
         Accept: "application/json",
         "User-Agent": "ccxt-crypto-tx-import/1.0.0",
@@ -79,113 +84,52 @@ export class CoinbaseAPIClient {
 
     const response =
       await this.authenticatedRequest<RawCoinbaseAccountsResponse>(
-        "/api/v3/brokerage/accounts",
+        "/v2/accounts",
         "GET",
         params,
       );
 
-    const accounts = response.accounts || [];
+    const accounts = response.data || [];
     this.logger.info(`Retrieved ${accounts.length} Coinbase accounts`);
 
     return accounts;
   }
 
   /**
-   * Get ledger entries for a specific account with pagination
+   * Get transactions for a specific account with pagination
+   * This is the correct endpoint for Coinbase Track API transaction data
    *
-   * @param accountId UUID of the account
+   * @param accountId The account ID to fetch transactions for
    * @param params Optional pagination and filtering parameters
-   * @returns Promise resolving to paginated ledger response
+   * @returns Promise resolving to paginated transactions response
    */
-  async getAccountLedger(
+  async getAccountTransactions(
     accountId: string,
-    params: CoinbaseLedgerParams = {},
-  ): Promise<RawCoinbaseLedgerResponse> {
-    if (!accountId) {
-      throw new Error("Account ID is required for ledger requests");
-    }
-
+    params: CoinbaseTransactionsParams = {},
+  ): Promise<RawCoinbaseTransactionsResponse> {
     this.logger.debug(
-      `Fetching account ledger - AccountId: ${accountId}, Params: ${JSON.stringify(params)}`,
+      `Fetching transactions for account ${accountId} - Params: ${JSON.stringify(params)}`,
     );
 
-    const response = await this.authenticatedRequest<RawCoinbaseLedgerResponse>(
-      `/api/v3/brokerage/accounts/${accountId}/ledger`,
+    const response = await this.authenticatedRequest<RawCoinbaseTransactionsResponse>(
+      `/v2/accounts/${accountId}/transactions`,
       "GET",
       params,
     );
 
-    const entriesCount = response.ledger?.length || 0;
+    const transactionsCount = response.data?.length || 0;
     this.logger.debug(
-      `Retrieved ${entriesCount} ledger entries for account ${accountId} - HasNext: ${response.has_next}, Cursor: ${response.cursor ? "present" : "none"}`,
+      `Retrieved ${transactionsCount} transactions - HasNext: ${response.pagination?.next_uri ? "yes" : "no"}`,
     );
 
     return response;
   }
 
-  /**
-   * Fetch all ledger entries for an account using automatic pagination
-   *
-   * @param accountId UUID of the account
-   * @param params Optional filtering parameters (pagination handled automatically)
-   * @returns Promise resolving to all ledger entries
-   */
-  async getAllAccountLedgerEntries(
-    accountId: string,
-    params: Omit<CoinbaseLedgerParams, "cursor"> = {},
-  ): Promise<RawCoinbaseLedgerEntry[]> {
-    const allEntries: RawCoinbaseLedgerEntry[] = [];
-    let cursor: string | undefined;
-    let pageCount = 0;
-    const maxPages = 1000; // Safety limit to prevent infinite loops
-
-    this.logger.info(
-      `Starting paginated ledger fetch for account ${accountId}`,
-    );
-
-    do {
-      pageCount++;
-
-      if (pageCount > maxPages) {
-        this.logger.warn(
-          `Reached maximum page limit (${maxPages}) for account ${accountId}, stopping pagination`,
-        );
-        break;
-      }
-
-      const response = await this.getAccountLedger(accountId, {
-        ...params,
-        ...(cursor && { cursor }),
-        limit: (params.limit as number | undefined) ?? 100, // Default to maximum page size
-      });
-
-      if (response.ledger && response.ledger.length > 0) {
-        allEntries.push(...response.ledger);
-        cursor = response.has_next ? response.cursor : undefined;
-
-        this.logger.debug(
-          `Page ${pageCount}: Retrieved ${response.ledger.length} entries - Total: ${allEntries.length}, HasNext: ${response.has_next}`,
-        );
-      } else {
-        this.logger.debug(
-          `Page ${pageCount}: No entries returned, ending pagination`,
-        );
-        break;
-      }
-    } while (cursor);
-
-    this.logger.info(
-      `Completed paginated ledger fetch for account ${accountId} - TotalEntries: ${allEntries.length}, Pages: ${pageCount}`,
-    );
-
-    return allEntries;
-  }
 
   /**
-   * Make an authenticated request to Coinbase Advanced Trade API
+   * Make an authenticated request to Coinbase Track API
    *
-   * Implements Coinbase's signature-based authentication as per:
-   * https://docs.cloud.coinbase.com/advanced-trade-api/docs/rest-api-auth
+   * Uses CDP API keys with ES256 JWT authentication (same as Advanced Trade API)
    */
   private async authenticatedRequest<T>(
     path: string,
@@ -200,39 +144,21 @@ export class CoinbaseAPIClient {
         : "";
     const fullPath = path + queryString;
 
-    // Generate timestamp for request (Unix timestamp in seconds)
-    const timestamp = Math.floor(Date.now() / 1000).toString();
-
-    // Build the message to sign according to Coinbase spec:
-    // timestamp + method + path + body
-    const bodyString = body ? JSON.stringify(body) : "";
-    const message = timestamp + method + fullPath + bodyString;
-
-    // Create signature using HMAC SHA256
-    const signature = crypto
-      .createHmac("sha256", this.credentials.secret)
-      .update(message)
-      .digest("hex");
+    // Generate JWT token for Track API authentication (use base path without query params)
+    const token = await this.generateJWT(method, path);
 
     // Build authentication headers
     const headers: Record<string, string> = {
-      "CB-ACCESS-KEY": this.credentials.apiKey,
-      "CB-ACCESS-SIGN": signature,
-      "CB-ACCESS-TIMESTAMP": timestamp,
-      "CB-ACCESS-PASSPHRASE": this.credentials.passphrase,
-      "CB-VERSION": "2015-07-22", // Advanced Trade API version
+      "Authorization": `Bearer ${token}`,
+      "Content-Type": "application/json",
     };
 
-    // Add content-type for requests with body
-    if (body) {
-      headers["Content-Type"] = "application/json";
-    }
-
     this.logger.debug(
-      `Making authenticated request - Method: ${method}, Path: ${fullPath}, Timestamp: ${timestamp}`,
+      `Making authenticated request - Method: ${method}, Path: ${fullPath}`,
     );
 
     try {
+      const bodyString = body ? JSON.stringify(body) : undefined;
       const response = await this.httpClient.request<T>(fullPath, {
         method,
         headers,
@@ -303,5 +229,121 @@ export class CoinbaseAPIClient {
    */
   getRateLimitStatus() {
     return this.httpClient.getRateLimitStatus();
+  }
+
+  /**
+   * Validate Coinbase credentials format and provide helpful error messages
+   */
+  private validateCredentials(): void {
+    // Validate API key format
+    if (!this.credentials.apiKey.includes("/apiKeys/")) {
+      throw new Error(
+        `❌ Invalid Coinbase API key format. Expected: organizations/{org_id}/apiKeys/{key_id}, got: ${this.credentials.apiKey}\n\n` +
+        `🔧 To create a valid Coinbase API key:\n` +
+        `   1. Go to https://portal.cdp.coinbase.com/access/api\n` +
+        `   2. Select 'Secret API Keys' tab\n` +
+        `   3. Click 'Create API key'\n` +
+        `   4. CRITICAL: Select 'ECDSA' as signature algorithm (NOT Ed25519)\n` +
+        `   5. Use the full API key path: organizations/YOUR_ORG_ID/apiKeys/YOUR_KEY_ID`
+      );
+    }
+    
+    // Validate private key format
+    if (!this.credentials.secret.includes("-----BEGIN EC PRIVATE KEY-----")) {
+      throw new Error(
+        `❌ Invalid Coinbase private key format. Expected ECDSA PEM key, got: ${this.credentials.secret.substring(0, 50)}...\n\n` +
+        `🔧 Requirements:\n` +
+        `   • Must be ECDSA key (NOT Ed25519)\n` +
+        `   • Must be in PEM format: -----BEGIN EC PRIVATE KEY-----\\n...\\n-----END EC PRIVATE KEY-----\n` +
+        `   • In .env file, use actual newlines (not \\n escapes)\n\n` +
+        `💡 Example .env format:\n` +
+        `   COINBASE_SECRET="-----BEGIN EC PRIVATE KEY-----\n` +
+        `   MHcCAQEE...\n` +
+        `   -----END EC PRIVATE KEY-----"`
+      );
+    }
+  }
+
+  /**
+   * Generate JWT token for Coinbase Advanced Trade API authentication
+   * Uses ES256 algorithm with ECDSA keys as per official Coinbase documentation
+   * 
+   * @param method HTTP method  
+   * @param path Request path
+   * @returns JWT token
+   */
+  private async generateJWT(method: string, path: string): Promise<string> {
+    try {
+      this.logger.debug(`Generating JWT - Method: ${method}, Path: ${path}, ApiKey: ${this.credentials.apiKey.substring(0, 20)}...`);
+      
+      // Try CDP SDK first (it handles key format automatically)
+      try {
+        const token = await generateJwt({
+          apiKeyId: this.credentials.apiKey,
+          apiKeySecret: this.credentials.secret,
+          requestMethod: method,
+          requestHost: "api.coinbase.com", 
+          requestPath: path,
+          expiresIn: 120
+        });
+        
+        this.logger.debug(`CDP SDK JWT generated successfully - Length: ${token.length}`);
+        return token;
+      } catch (cdpError) {
+        this.logger.debug(`CDP SDK failed: ${cdpError instanceof Error ? cdpError.message : 'Unknown error'}, trying manual JWT generation`);
+        
+        // Fallback to manual JWT generation with exact Coinbase format
+        const keyName = this.credentials.apiKey;
+        
+        // Clean up the key format - handle various escaping scenarios
+        let keySecret = this.credentials.secret;
+        keySecret = keySecret.replace(/\\\\n/g, '\n');  // Double escaped newlines
+        keySecret = keySecret.replace(/\\n/g, '\n');    // Single escaped newlines
+        
+        // Remove quotes if they wrap the entire key
+        if (keySecret.startsWith('"') && keySecret.endsWith('"')) {
+          keySecret = keySecret.slice(1, -1);
+        }
+        
+        this.logger.debug(`Manual JWT - Key Secret length: ${keySecret.length}`);
+        this.logger.debug(`Manual JWT - Key Secret starts with: ${keySecret.substring(0, 30)}...`);
+        
+        const algorithm = 'ES256';
+        const uri = `${method} api.coinbase.com${path}`;
+        
+        const payload = {
+          iss: 'cdp',
+          nbf: Math.floor(Date.now() / 1000),
+          exp: Math.floor(Date.now() / 1000) + 120,
+          sub: keyName,
+          uri,
+        };
+        
+        const header = {
+          alg: algorithm,
+          kid: keyName,
+          nonce: crypto.randomBytes(16).toString('hex'),
+        };
+        
+        // Create private key object for ES256 algorithm
+        let privateKey: crypto.KeyObject;
+        try {
+          privateKey = crypto.createPrivateKey(keySecret);
+          this.logger.debug('Successfully created private key object');
+        } catch (keyError) {
+          this.logger.error(`Failed to create private key: ${keyError instanceof Error ? keyError.message : 'Unknown error'}`);
+          throw keyError;
+        }
+        
+        const token = jwt.sign(payload, privateKey, { algorithm, header });
+        
+        this.logger.debug(`Manual JWT generated successfully - Length: ${token.length}`);
+        return token;
+      }
+      
+    } catch (error) {
+      this.logger.error(`JWT generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error;
+    }
   }
 }

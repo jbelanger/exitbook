@@ -119,7 +119,7 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
     ).coinbaseadvanced({
       apiKey: credentials.apiKey,
       secret: credentials.secret,
-      password: credentials.passphrase, // Coinbase uses password field for passphrase
+      password: credentials.passphrase ?? "", // Coinbase uses password field for passphrase
       sandbox: credentials.sandbox ?? false,
       enableRateLimit: true,
       rateLimit: 100,

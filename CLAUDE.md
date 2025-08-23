@@ -5,6 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Development Commands
 
 ### Building and Testing
+
 ```bash
 # Build TypeScript to dist/
 pnpm run build
@@ -24,6 +25,7 @@ pnpm run test:coinbase:e2e
 ```
 
 ### Running the Application
+
 ```bash
 # Development with hot reload and debug logging
 pnpm run dev
@@ -46,6 +48,7 @@ pnpm run verify
 ```
 
 ### Provider and Configuration Management
+
 ```bash
 # List all registered blockchain providers
 pnpm run blockchain-providers:list
@@ -68,15 +71,18 @@ This is a cryptocurrency transaction import tool with multi-provider resilience 
 ### Core Components
 
 **Adapters Layer**: Two main types
+
 - **Exchange Adapters**: Import from CEX platforms (KuCoin, Kraken, Coinbase) via CCXT, native APIs, or CSV files
 - **Blockchain Adapters**: Direct blockchain data fetching (Bitcoin, Ethereum, Solana, Injective, Avalanche, Substrate chains)
 
 **Provider Registry System**: Type-safe, self-documenting blockchain provider management
+
 - Metadata lives with provider code via `@RegisterProvider` decorators
 - JSON config only contains user preferences (enabled/disabled, priorities, overrides)
 - Auto-discovery of available providers with runtime validation
 
 **Multi-Provider Resilience**: Production-grade reliability features
+
 - Circuit breakers to prevent cascading failures
 - Automatic failover between providers (e.g., mempool.space → blockstream.info)
 - Rate limiting and request caching
@@ -133,6 +139,7 @@ packages/import/blockchains/bitcoin/
 ```
 
 Benefits:
+
 - **Feature Cohesion**: All blockchain-related code grouped together
 - **Developer Experience**: Easy to find and modify blockchain-specific functionality
 - **Clear Boundaries**: Each blockchain is a self-contained module
@@ -151,44 +158,53 @@ Benefits:
 ## Important Implementation Notes
 
 ### Provider Development
+
 When adding new blockchain providers:
+
 1. Use `@RegisterProvider` decorator with complete metadata
 2. Implement `IBlockchainProvider` interface
 3. Import provider in corresponding adapter to trigger registration
 4. Update configuration files and add tests
 
 ### Exchange Adapter Development
+
 When adding new exchange adapters:
+
 1. Use `@RegisterExchangeAdapter` decorator with metadata
 2. Implement `IExchangeAdapter` interface
 3. Register in `packages/import/src/exchanges/registry/register-adapters.ts`
 4. Add configuration validation and tests
 
 ### Data Validation with Zod Schemas
+
 The system includes comprehensive data validation using Zod schemas to ensure data integrity:
 
 **Validation Pipeline:**
+
 - All `UniversalTransaction` and `UniversalBalance` data is automatically validated in `BaseAdapter`
 - Invalid data is filtered out and logged with detailed error messages
 - Processing continues with valid data only (log + filter strategy)
 
 **Validation Schemas:**
+
 - Located in `packages/core/src/validation/universal-schemas.ts`
 - `UniversalTransactionSchema`: Validates transaction structure, types, and constraints
 - `UniversalBalanceSchema`: Validates balance data with mathematical constraints (total >= free + used)
 - `MoneySchema`: Validates monetary amounts using Decimal.js for precision
 
 **For Adapter Developers:**
+
 - Validation occurs automatically in `BaseAdapter.fetchTransactions()` and `BaseAdapter.fetchBalances()`
 - No additional code required - validation is built into the base class
 - Invalid transactions/balances are logged with detailed error information:
   ```
-  ERROR: 3 invalid transactions from KucoinAdapter. Invalid: 3, Valid: 97, Total: 100. 
+  ERROR: 3 invalid transactions from KucoinAdapter. Invalid: 3, Valid: 97, Total: 100.
   Errors: id: Transaction ID must not be empty; timestamp: Expected number, received string
   ```
 - Performance impact is minimal (< 5ms per transaction for typical batches)
 
 **Schema Validation Rules:**
+
 - Transaction IDs must be non-empty strings
 - Timestamps must be positive integers (Unix milliseconds)
 - Transaction types must match enum values ('trade', 'deposit', 'withdrawal', etc.)
@@ -197,34 +213,41 @@ The system includes comprehensive data validation using Zod schemas to ensure da
 - All required fields must be present and valid
 
 **Testing Validation:**
+
 - Unit tests are provided in `packages/core/src/__tests__/universal-schemas.test.ts`
 - Tests cover valid data, invalid data, edge cases, and performance scenarios
 - BaseAdapter integration tests in `packages/import/src/shared/adapters/__tests__/base-adapter.test.ts`
 
 ### Configuration Management
+
 - Exchange configs in `config/exchanges.json` with adapter types (ccxt/native/universal)
 - Blockchain explorer configs in `config/blockchain-explorers.json` with provider priorities
 - Environment variables for API keys (never commit secrets)
 
 ### Testing Strategy
+
 - Unit tests for individual components
 - E2E tests for full import workflows
 - Provider connection tests for API validation
 - Separate E2E test flags for external API calls
 
 ### Error Handling
+
 - Circuit breaker protection for provider failures
 - Automatic failover with exponential backoff
 - Comprehensive logging with structured output
 - Transaction deduplication to prevent duplicate imports
 
 ## Package Manager
+
 Uses `pnpm` as the package manager (specified in package.json). All npm commands should use `pnpm` instead.
 
 ## Node Version
+
 Requires Node.js >= 23.0.0 (see package.json engines field).
 
 ## Database
+
 Uses SQLite3 for local transaction storage. Database initialization happens automatically on first run.
 
 ## Transaction Flow
@@ -245,13 +268,13 @@ interface CryptoTransaction {
   id: string;
   type: TransactionType;
   timestamp: number;
-  amount: Money;           // Uses Decimal.js for precision
+  amount: Money; // Uses Decimal.js for precision
   symbol?: string;
-  side?: 'buy' | 'sell';
+  side?: "buy" | "sell";
   price?: Money;
   fee?: Money;
   status?: TransactionStatus;
-  info?: any;             // Raw source data
+  info?: any; // Raw source data
 }
 
 // High-precision money type
@@ -264,29 +287,33 @@ interface Money {
 ## Provider Registry System
 
 The registry system eliminates configuration drift by:
+
 - Storing provider metadata with code via decorators
 - Auto-discovering available providers at runtime
 - Validating configurations against registered providers
 - Enabling type-safe provider instantiation
 
 Example provider registration:
+
 ```typescript
 @RegisterProvider({
-  blockchain: 'bitcoin',
-  name: 'mempool-space',
-  displayName: 'Mempool.space',
-  type: 'api',
+  blockchain: "bitcoin",
+  name: "mempool-space",
+  displayName: "Mempool.space",
+  type: "api",
   requiresApiKey: false,
   networks: {
-    mainnet: { baseUrl: 'https://mempool.space/api' }
+    mainnet: { baseUrl: "https://mempool.space/api" },
   },
   capabilities: {
-    supportedOperations: ['getAddressTransactions', 'getAddressBalance'],
+    supportedOperations: ["getAddressTransactions", "getAddressBalance"],
     maxBatchSize: 1,
-    supportsHistoricalData: true
-  }
+    supportsHistoricalData: true,
+  },
 })
 export class MempoolSpaceProvider implements IBlockchainProvider {
   // Implementation
 }
 ```
+
+- exactOptionalPropertyTypes need to have optional properties with | undefined

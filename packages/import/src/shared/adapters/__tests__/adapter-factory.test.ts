@@ -10,8 +10,8 @@ describe("UniversalAdapterFactory", () => {
         id: "coinbase",
         subType: "native",
         credentials: {
-          apiKey: "test-key",
-          secret: "test-secret",
+          apiKey: "organizations/test-org/apiKeys/test-key",
+          secret: "-----BEGIN EC PRIVATE KEY-----\nMHcCAQEEIHTestTestKey\n-----END EC PRIVATE KEY-----",
           password: "test-passphrase",
         },
       };
@@ -23,7 +23,7 @@ describe("UniversalAdapterFactory", () => {
       const info = await adapter.getInfo();
       expect(info).toEqual({
         id: "coinbase",
-        name: "Coinbase Advanced Trade",
+        name: "Coinbase Track API",
         type: "exchange",
         subType: "native",
         capabilities: {
@@ -33,8 +33,8 @@ describe("UniversalAdapterFactory", () => {
           supportsPagination: true,
           requiresApiKey: true,
           rateLimit: {
-            requestsPerSecond: 10,
-            burstLimit: 15,
+            requestsPerSecond: 3,
+            burstLimit: 5,
           },
         },
       });
@@ -78,8 +78,8 @@ describe("UniversalAdapterFactory", () => {
         "native",
         {
           credentials: {
-            apiKey: "test-key",
-            secret: "test-secret",
+            apiKey: "organizations/test-org/apiKeys/test-key",
+            secret: "-----BEGIN EC PRIVATE KEY-----\nMHcCAQEEIHTestTestKey\n-----END EC PRIVATE KEY-----",
             password: "test-passphrase",
           },
         }
@@ -90,8 +90,8 @@ describe("UniversalAdapterFactory", () => {
         id: "coinbase",
         subType: "native",
         credentials: {
-          apiKey: "test-key",
-          secret: "test-secret",
+          apiKey: "organizations/test-org/apiKeys/test-key",
+          secret: "-----BEGIN EC PRIVATE KEY-----\nMHcCAQEEIHTestTestKey\n-----END EC PRIVATE KEY-----",
           password: "test-passphrase",
         },
         csvDirectories: undefined,
