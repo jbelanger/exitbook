@@ -11,6 +11,7 @@ import fs from "fs/promises";
 import path from "path";
 import { BaseAdapter } from "../../shared/adapters/base-adapter.ts";
 import { CsvParser } from "../csv-parser.ts";
+import type { CsvLedgerLiveOperationRow } from "./types.ts";
 
 // Expected CSV headers for validation
 const EXPECTED_HEADERS = {
@@ -18,23 +19,9 @@ const EXPECTED_HEADERS = {
     "Operation Date,Status,Currency Ticker,Operation Type,Operation Amount,Operation Fees,Operation Hash,Account Name,Account xpub,Countervalue Ticker,Countervalue at Operation Date,Countervalue at CSV Export",
 };
 
-interface LedgerLiveOperationRow {
-  "Operation Date": string;
-  Status: string;
-  "Currency Ticker": string;
-  "Operation Type": string;
-  "Operation Amount": string;
-  "Operation Fees": string;
-  "Operation Hash": string;
-  "Account Name": string;
-  "Account xpub": string;
-  "Countervalue Ticker": string;
-  "Countervalue at Operation Date": string;
-  "Countervalue at CSV Export": string;
-}
 
 export class LedgerLiveCSVAdapter extends BaseAdapter {
-  private cachedTransactions: LedgerLiveOperationRow[] | null = null;
+  private cachedTransactions: CsvLedgerLiveOperationRow[] | null = null;
 
   constructor(config: UniversalExchangeAdapterConfig) {
     super(config);
@@ -93,7 +80,7 @@ export class LedgerLiveCSVAdapter extends BaseAdapter {
 
   protected async fetchRawTransactions(
     params: UniversalFetchParams,
-  ): Promise<LedgerLiveOperationRow[]> {
+  ): Promise<CsvLedgerLiveOperationRow[]> {
     this.logger.debug(
       `Fetching raw transactions with params - Params: ${JSON.stringify(params)}`,
     );
@@ -101,7 +88,7 @@ export class LedgerLiveCSVAdapter extends BaseAdapter {
   }
 
   protected async transformTransactions(
-    rawTxs: LedgerLiveOperationRow[],
+    rawTxs: CsvLedgerLiveOperationRow[],
     params: UniversalFetchParams,
   ): Promise<UniversalTransaction[]> {
     const transactions = this.processOperationRows(rawTxs);
@@ -135,7 +122,7 @@ export class LedgerLiveCSVAdapter extends BaseAdapter {
   /**
    * Load all transactions from CSV directories
    */
-  private async loadAllTransactions(): Promise<LedgerLiveOperationRow[]> {
+  private async loadAllTransactions(): Promise<CsvLedgerLiveOperationRow[]> {
     if (this.cachedTransactions) {
       this.logger.debug("Returning cached transactions");
       return this.cachedTransactions;
@@ -146,7 +133,7 @@ export class LedgerLiveCSVAdapter extends BaseAdapter {
       `Starting to load CSV transactions - CsvDirectories: ${config.csvDirectories}`,
     );
 
-    const transactions: LedgerLiveOperationRow[] = [];
+    const transactions: CsvLedgerLiveOperationRow[] = [];
 
     try {
       // Process each directory in order
@@ -173,7 +160,7 @@ export class LedgerLiveCSVAdapter extends BaseAdapter {
                 `Processing ${fileType} CSV file - File: ${file}, Directory: ${csvDirectory}`,
               );
               const fileTransactions =
-                await this.parseCsvFile<LedgerLiveOperationRow>(filePath);
+                await this.parseCsvFile<CsvLedgerLiveOperationRow>(filePath);
               this.logger.info(
                 `Parsed ${fileType} transactions - File: ${file}, Directory: ${csvDirectory}, Count: ${fileTransactions.length}`,
               );
@@ -246,7 +233,7 @@ export class LedgerLiveCSVAdapter extends BaseAdapter {
    * Process the loaded operation rows into universal transactions
    */
   private processOperationRows(
-    rows: LedgerLiveOperationRow[],
+    rows: CsvLedgerLiveOperationRow[],
   ): UniversalTransaction[] {
     const transactions: UniversalTransaction[] = [];
 
@@ -312,7 +299,7 @@ export class LedgerLiveCSVAdapter extends BaseAdapter {
   }
 
   private convertOperationToUniversalTransaction(
-    row: LedgerLiveOperationRow,
+    row: CsvLedgerLiveOperationRow,
   ): UniversalTransaction | null {
     const operationType = this.mapOperationType(row["Operation Type"]);
 

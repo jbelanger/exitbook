@@ -11,6 +11,12 @@ import { BaseAdapter } from "../../shared/adapters/base-adapter.ts";
 import { CsvParser } from "../csv-parser.ts";
 import fs from "fs/promises";
 import path from "path";
+import type {
+  CsvAccountHistoryRow,
+  CsvDepositWithdrawalRow,
+  CsvKuCoinRawData,
+  CsvSpotOrderRow,
+} from "./types.ts";
 
 // Expected CSV headers for validation
 const EXPECTED_HEADERS = {
@@ -26,64 +32,9 @@ const EXPECTED_HEADERS = {
     "UID,Account Type,Currency,Side,Amount,Fee,Time(UTC),Remark,Type",
 };
 
-interface SpotOrderRow {
-  UID: string;
-  "Account Type": string;
-  "Order ID": string;
-  "Order Time(UTC)": string;
-  Symbol: string;
-  Side: string;
-  "Order Type": string;
-  "Order Price": string;
-  "Order Amount": string;
-  "Avg. Filled Price": string;
-  "Filled Amount": string;
-  "Filled Volume": string;
-  "Filled Volume (USDT)": string;
-  "Filled Time(UTC)": string;
-  Fee: string;
-  "Fee Currency": string;
-  Tax?: string;
-  Status: string;
-}
-
-interface DepositWithdrawalRow {
-  UID: string;
-  "Account Type": string;
-  "Time(UTC)": string;
-  Coin: string;
-  Amount: string;
-  Fee: string;
-  Hash: string;
-  "Deposit Address"?: string;
-  "Withdrawal Address/Account"?: string;
-  "Transfer Network": string;
-  Status: string;
-  Remarks: string;
-}
-
-interface AccountHistoryRow {
-  UID: string;
-  "Account Type": string;
-  Currency: string;
-  Side: string;
-  Amount: string;
-  Fee: string;
-  "Time(UTC)": string;
-  Remark: string;
-  Type: string;
-}
-
-// Structured raw data type for better flow
-interface KuCoinRawData {
-  spotOrders: SpotOrderRow[];
-  deposits: DepositWithdrawalRow[];
-  withdrawals: DepositWithdrawalRow[];
-  accountHistory: AccountHistoryRow[];
-}
 
 export class KuCoinCSVAdapter extends BaseAdapter {
-  private cachedTransactions: KuCoinRawData | null = null;
+  private cachedTransactions: CsvKuCoinRawData | null = null;
 
   constructor(config: UniversalExchangeAdapterConfig) {
     super(config);
@@ -142,12 +93,12 @@ export class KuCoinCSVAdapter extends BaseAdapter {
 
   protected async fetchRawTransactions(
     _params: UniversalFetchParams,
-  ): Promise<KuCoinRawData> {
+  ): Promise<CsvKuCoinRawData> {
     return this.loadAllSeparatedTransactions();
   }
 
   protected async transformTransactions(
-    rawData: KuCoinRawData,
+    rawData: CsvKuCoinRawData,
     params: UniversalFetchParams,
   ): Promise<UniversalTransaction[]> {
     const transactions: UniversalTransaction[] = [];
@@ -197,7 +148,7 @@ export class KuCoinCSVAdapter extends BaseAdapter {
   /**
    * Load all transactions from CSV directories, separated by type
    */
-  private async loadAllSeparatedTransactions(): Promise<KuCoinRawData> {
+  private async loadAllSeparatedTransactions(): Promise<CsvKuCoinRawData> {
     if (this.cachedTransactions) {
       this.logger.debug("Returning cached transactions");
       return this.cachedTransactions;
@@ -208,7 +159,7 @@ export class KuCoinCSVAdapter extends BaseAdapter {
       `Starting to load CSV transactions - CsvDirectories: ${config.csvDirectories}`,
     );
 
-    const rawData: KuCoinRawData = {
+    const rawData: CsvKuCoinRawData = {
       spotOrders: [],
       deposits: [],
       withdrawals: [],
@@ -384,29 +335,29 @@ export class KuCoinCSVAdapter extends BaseAdapter {
     return fileType;
   }
 
-  private async parseSpotOrders(filePath: string): Promise<SpotOrderRow[]> {
-    const rows = await this.parseCsvFile<SpotOrderRow>(filePath);
+  private async parseSpotOrders(filePath: string): Promise<CsvSpotOrderRow[]> {
+    const rows = await this.parseCsvFile<CsvSpotOrderRow>(filePath);
     return this.filterByUid(rows);
   }
 
   private async parseDepositHistory(
     filePath: string,
-  ): Promise<DepositWithdrawalRow[]> {
-    const rows = await this.parseCsvFile<DepositWithdrawalRow>(filePath);
+  ): Promise<CsvDepositWithdrawalRow[]> {
+    const rows = await this.parseCsvFile<CsvDepositWithdrawalRow>(filePath);
     return this.filterByUid(rows);
   }
 
   private async parseWithdrawalHistory(
     filePath: string,
-  ): Promise<DepositWithdrawalRow[]> {
-    const rows = await this.parseCsvFile<DepositWithdrawalRow>(filePath);
+  ): Promise<CsvDepositWithdrawalRow[]> {
+    const rows = await this.parseCsvFile<CsvDepositWithdrawalRow>(filePath);
     return this.filterByUid(rows);
   }
 
   private async parseAccountHistory(
     filePath: string,
-  ): Promise<AccountHistoryRow[]> {
-    const rows = await this.parseCsvFile<AccountHistoryRow>(filePath);
+  ): Promise<CsvAccountHistoryRow[]> {
+    const rows = await this.parseCsvFile<CsvAccountHistoryRow>(filePath);
     return this.filterByUid(rows);
   }
 
@@ -447,7 +398,7 @@ export class KuCoinCSVAdapter extends BaseAdapter {
   }
 
   private convertSpotOrderToTransaction(
-    row: SpotOrderRow,
+    row: CsvSpotOrderRow,
   ): UniversalTransaction {
     const timestamp = new Date(row["Filled Time(UTC)"]).getTime();
     const [baseCurrency, quoteCurrency] = row.Symbol.split("-");
@@ -478,7 +429,7 @@ export class KuCoinCSVAdapter extends BaseAdapter {
   }
 
   private convertDepositToTransaction(
-    row: DepositWithdrawalRow,
+    row: CsvDepositWithdrawalRow,
   ): UniversalTransaction {
     const timestamp = new Date(row["Time(UTC)"]).getTime();
 
@@ -504,7 +455,7 @@ export class KuCoinCSVAdapter extends BaseAdapter {
   }
 
   private convertWithdrawalToTransaction(
-    row: DepositWithdrawalRow,
+    row: CsvDepositWithdrawalRow,
   ): UniversalTransaction {
     const timestamp = new Date(row["Time(UTC)"]).getTime();
 
@@ -532,7 +483,7 @@ export class KuCoinCSVAdapter extends BaseAdapter {
 
   // Process account history to extract convert market transactions
   private processAccountHistory(
-    filteredRows: AccountHistoryRow[],
+    filteredRows: CsvAccountHistoryRow[],
   ): UniversalTransaction[] {
     const convertTransactions: UniversalTransaction[] = [];
     const convertMarketRows = filteredRows.filter(
@@ -540,7 +491,7 @@ export class KuCoinCSVAdapter extends BaseAdapter {
     );
 
     // Group convert market entries by timestamp
-    const convertGroups = new Map<string, AccountHistoryRow[]>();
+    const convertGroups = new Map<string, CsvAccountHistoryRow[]>();
 
     for (const row of convertMarketRows) {
       const timestamp = row["Time(UTC)"];
@@ -580,8 +531,8 @@ export class KuCoinCSVAdapter extends BaseAdapter {
   }
 
   private convertAccountHistoryConvertToTransaction(
-    deposit: AccountHistoryRow,
-    withdrawal: AccountHistoryRow,
+    deposit: CsvAccountHistoryRow,
+    withdrawal: CsvAccountHistoryRow,
     timestamp: string,
   ): UniversalTransaction {
     const timestampMs = new Date(timestamp).getTime();
