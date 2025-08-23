@@ -1,6 +1,6 @@
 import type { DataSourceCapabilities, RateLimitConfig } from '@crypto/core';
 
-// Provider operation parameter types
+// Parameter interfaces for each operation type
 export interface AddressTransactionParams {
   address: string;
   since?: number;
@@ -21,6 +21,11 @@ export interface TokenTransactionParams {
   limit?: number;
 }
 
+export interface TokenBalanceParams {
+  address: string;
+  contractAddresses?: string[];
+}
+
 export interface AddressInfoParams {
   address: string;
 }
@@ -30,14 +35,44 @@ export interface ParseWalletTransactionParams {
   walletAddresses: string[];
 }
 
-// Union type for all possible operation parameters
+// Union type for all possible operation parameters  
 export type ProviderOperationParams = 
   | AddressTransactionParams 
   | AddressBalanceParams 
   | TokenTransactionParams 
+  | TokenBalanceParams
   | AddressInfoParams
   | ParseWalletTransactionParams
   | Record<string, unknown>; // fallback for custom operations
+
+// Type guard functions for type narrowing (replaces complex type guards)
+export function hasAddressParam(operation: ProviderOperation<unknown>): operation is ProviderOperation<unknown> & { params: { address: string } } {
+  return operation.type !== 'parseWalletTransaction' && operation.type !== 'testConnection';
+}
+
+export function isAddressTransactionOperation(operation: ProviderOperation<unknown>): operation is ProviderOperation<unknown> & { params: AddressTransactionParams } {
+  return operation.type === 'getAddressTransactions' || operation.type === 'getRawAddressTransactions';
+}
+
+export function isAddressBalanceOperation(operation: ProviderOperation<unknown>): operation is ProviderOperation<unknown> & { params: AddressBalanceParams } {
+  return operation.type === 'getAddressBalance';
+}
+
+export function isTokenTransactionOperation(operation: ProviderOperation<unknown>): operation is ProviderOperation<unknown> & { params: TokenTransactionParams } {
+  return operation.type === 'getTokenTransactions';
+}
+
+export function isTokenBalanceOperation(operation: ProviderOperation<unknown>): operation is ProviderOperation<unknown> & { params: TokenBalanceParams } {
+  return operation.type === 'getTokenBalances';
+}
+
+export function isAddressInfoOperation(operation: ProviderOperation<unknown>): operation is ProviderOperation<unknown> & { params: AddressInfoParams } {
+  return operation.type === 'getAddressInfo';
+}
+
+export function isParseWalletTransactionOperation(operation: ProviderOperation<unknown>): operation is ProviderOperation<unknown> & { params: ParseWalletTransactionParams } {
+  return operation.type === 'parseWalletTransaction';
+}
 
 export interface IBlockchainProvider<TConfig = Record<string, unknown>> {
   readonly name: string;
