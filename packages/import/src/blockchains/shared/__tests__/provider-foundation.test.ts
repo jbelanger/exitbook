@@ -28,9 +28,6 @@ import {
   IBlockchainProvider,
   ProviderCapabilities,
   ProviderOperation,
-  AddressTransactionParams,
-  AddressBalanceParams,
-  isAddressTransactionOperation,
 } from "../types.ts";
 
 // Mock provider for testing
@@ -86,12 +83,8 @@ class MockProvider implements IBlockchainProvider {
 
     // Mock response based on operation type
     switch (operation.type) {
-      case "getAddressTransactions": {
-        if (isAddressTransactionOperation(operation)) {
-          return { transactions: [], address: operation.params.address } as T;
-        }
-        throw new Error("Invalid params for getAddressTransactions");
-      }
+      case "getAddressTransactions":
+        return { transactions: [], address: operation.address } as T;
       case "getAddressBalance":
         return { balance: 100, currency: "ETH" } as T;
       default:
@@ -231,7 +224,7 @@ describe("BlockchainProviderManager", () => {
     const operation: ProviderOperation<{ balance: number; currency: string }> =
       {
         type: "getAddressBalance",
-        params: { address: "0x123" },
+        address: "0x123",
       };
 
     const result = await manager.executeWithFailover("ethereum", operation);
@@ -246,7 +239,7 @@ describe("BlockchainProviderManager", () => {
     const operation: ProviderOperation<{ balance: number; currency: string }> =
       {
         type: "getAddressBalance",
-        params: { address: "0x123" },
+        address: "0x123",
       };
 
     const result = await manager.executeWithFailover("ethereum", operation);
@@ -260,7 +253,7 @@ describe("BlockchainProviderManager", () => {
     const operation: ProviderOperation<{ balance: number; currency: string }> =
       {
         type: "getAddressBalance",
-        params: { address: "0x123" },
+        address: "0x123",
       };
 
     await expect(
@@ -272,10 +265,9 @@ describe("BlockchainProviderManager", () => {
     const operation: ProviderOperation<{ balance: number; currency: string }> =
       {
         type: "getAddressBalance",
-        params: { address: "0x123" },
+        address: "0x123",
         getCacheKey: (params) => {
-          const addressParams = params as AddressBalanceParams;
-          return `balance-${addressParams.address}`;
+          return `balance-${params.type === 'getAddressBalance' ? params.address : 'unknown'}`;
         },
       };
 
@@ -304,7 +296,6 @@ describe("BlockchainProviderManager", () => {
   test("should handle unsupported operations", async () => {
     const operation: ProviderOperation<{ success: boolean }> = {
       type: "custom", // Not supported by mock providers
-      params: {},
     };
 
     await expect(
@@ -322,7 +313,7 @@ describe("BlockchainProviderManager", () => {
         currency: string;
       }> = {
         type: "getAddressBalance",
-        params: { address: "0x123" },
+        address: "0x123",
       };
 
       // Trip the primary provider's circuit breaker
@@ -386,7 +377,8 @@ describe("BlockchainProviderManager", () => {
     // Execute token operation - should only use token provider
     const tokenOperation: ProviderOperation<{ success: boolean }> = {
       type: "getTokenTransactions",
-      params: { address: "0x123", contractAddress: "0xabc" },
+      address: "0x123",
+      contractAddress: "0xabc",
     };
 
     await manager.executeWithFailover("ethereum", tokenOperation);
@@ -404,10 +396,9 @@ describe("BlockchainProviderManager", () => {
     const operation: ProviderOperation<{ balance: number; currency: string }> =
       {
         type: "getAddressBalance",
-        params: { address: "0x123" },
+        address: "0x123",
         getCacheKey: (params) => {
-          const addressParams = params as AddressBalanceParams;
-          return `balance-${addressParams.address}`;
+          return `balance-${params.type === 'getAddressBalance' ? params.address : 'unknown'}`;
         },
       };
 
@@ -577,7 +568,7 @@ describe("Provider System Integration", () => {
         address: string;
       }> = {
         type: "getAddressTransactions",
-        params: { address: "bc1xyz" },
+        address: "bc1xyz",
       };
 
       const result = await manager.executeWithFailover("bitcoin", operation);

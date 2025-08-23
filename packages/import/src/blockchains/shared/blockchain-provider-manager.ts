@@ -11,7 +11,7 @@ import type {
   ProviderOperation,
   ProviderOperationType,
 } from "./types.ts";
-import { hasAddressParam } from "./types.ts";
+// Type guards no longer needed with discriminated union
 
 const logger = getLogger("BlockchainProviderManager");
 
@@ -327,7 +327,7 @@ export class BlockchainProviderManager {
           willRetry: attemptNumber < providers.length,
         };
         // Only log params for non-sensitive operations
-        if (!hasAddressParam(operation)) {
+        if (operation.type === "testConnection" || operation.type === "custom") {
           logData.params = { type: operation.type };
         }
 

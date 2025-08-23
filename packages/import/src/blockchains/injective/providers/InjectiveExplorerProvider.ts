@@ -4,8 +4,6 @@ import { BaseRegistryProvider } from "../../shared/registry/base-registry-provid
 import { RegisterProvider } from "../../shared/registry/decorators.ts";
 import {
   ProviderOperation,
-  isAddressTransactionOperation,
-  hasAddressParam,
 } from "../../shared/types.ts";
 import type {
   InjectiveApiResponse,
@@ -93,25 +91,27 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
     this.logger.debug(
-      `Executing operation - Type: ${operation.type}, Address: ${hasAddressParam(operation) ? maskAddress(operation.params.address) : "N/A"}`,
+      `Executing operation - Type: ${operation.type}, Address: ${"address" in operation ? maskAddress(operation.address as string) : "N/A"}`,
     );
 
     try {
       switch (operation.type) {
         case "getAddressTransactions":
+          return this.getAddressTransactions({
+            address: operation.address,
+            ...(operation.since !== undefined && { since: operation.since }),
+          }) as T;
         case "getRawAddressTransactions":
-          if (isAddressTransactionOperation(operation)) {
-            return operation.type === "getAddressTransactions"
-              ? (this.getAddressTransactions(operation.params) as T)
-              : (this.getRawAddressTransactions(operation.params) as T);
-          }
-          throw new Error(`Invalid params for ${operation.type} operation`);
+          return this.getRawAddressTransactions({
+            address: operation.address,
+            ...(operation.since !== undefined && { since: operation.since }),
+          }) as T;
         default:
           throw new Error(`Unsupported operation: ${operation.type}`);
       }
     } catch (error) {
       this.logger.error(
-        `Operation execution failed - Type: ${operation.type}, Params: ${operation.params}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`,
+        `Operation execution failed - Type: ${operation.type}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`,
       );
       throw error;
     }
@@ -119,7 +119,7 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
 
   private async getAddressTransactions(params: {
     address: string;
-    since?: number;
+    since?: number | undefined;
   }): Promise<BlockchainTransaction[]> {
     const { address, since } = params;
 
