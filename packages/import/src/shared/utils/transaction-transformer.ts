@@ -46,19 +46,25 @@ export class TransactionTransformer {
     const priceMoney = this.extractPrice(ccxtTransaction, type, quoteCurrency);
     const fee = this.extractFee(ccxtTransaction);
 
-    return {
+    const result: CryptoTransaction = {
       id: transactionId,
       type,
       timestamp,
-      datetime: ccxtTransaction.datetime,
-      symbol: ccxtTransaction.symbol,
+      datetime: ccxtTransaction.datetime || new Date(timestamp).toISOString(),
+      symbol: ccxtTransaction.symbol || 'UNKNOWN',
       amount: amountMoney,
-      side: ccxtTransaction.side,
       price: priceMoney,
       fee,
       status: this.normalizeStatus(ccxtTransaction.status),
       info: ccxtTransaction,
     };
+
+    // Only add side property if it has a valid value
+    if (ccxtTransaction.side === 'buy' || ccxtTransaction.side === 'sell') {
+      result.side = ccxtTransaction.side;
+    }
+
+    return result;
   }
 
   /**
@@ -73,7 +79,7 @@ export class TransactionTransformer {
     } else if (transaction.currency) {
       baseCurrency = transaction.currency;
       quoteCurrency = transaction.currency;
-    } else if (transaction.info?.currency) {
+    } else if (transaction.info && typeof transaction.info === 'object' && 'currency' in transaction.info && typeof transaction.info.currency === 'string') {
       baseCurrency = transaction.info.currency;
       quoteCurrency = transaction.info.currency;
     }
@@ -166,14 +172,19 @@ export class TransactionTransformer {
     }
 
     // Check exchange-specific status indicators
-    const exchangeStatus = transaction.info?.status?.toLowerCase();
+    const exchangeStatus = transaction.info && typeof transaction.info === 'object' && 'status' in transaction.info && typeof transaction.info.status === 'string' ? transaction.info.status.toLowerCase() : undefined;
     if (exchangeStatus === 'canceled' || exchangeStatus === 'cancelled') {
       return true;
     }
 
     // Check for cancel_reason in exchange data
-    if (transaction.info?.cancel_reason &&
-      (transaction.info?.cancel_reason?.id || transaction.info?.cancel_reason?.message)) {
+    if (transaction.info && 
+        typeof transaction.info === 'object' && 
+        'cancel_reason' in transaction.info &&
+        transaction.info.cancel_reason &&
+        typeof transaction.info.cancel_reason === 'object' &&
+        (('id' in transaction.info.cancel_reason && transaction.info.cancel_reason.id) || 
+         ('message' in transaction.info.cancel_reason && transaction.info.cancel_reason.message))) {
       return true;
     }
 
