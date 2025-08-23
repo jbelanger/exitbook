@@ -7,7 +7,7 @@ import { BaseRegistryProvider } from "../../shared/registry/base-registry-provid
 import { RegisterProvider } from "../../shared/registry/decorators.ts";
 import type { ProviderOperation } from "../../shared/types.ts";
 import { JsonRpcResponse } from "../../shared/types.ts";
-import type { SolanaRPCTransaction } from "../types.ts";
+import type { SolanaRPCTransaction, SolanaSignature } from "../types.ts";
 import { isValidSolanaAddress, lamportsToSol } from "../utils.ts";
 
 @RegisterProvider({
@@ -352,7 +352,7 @@ export class SolanaRPCProvider extends BaseRegistryProvider {
 
     try {
       // Get all signatures for this address (same as regular transactions)
-      const signaturesResponse = await this.httpClient.post("/", {
+      const signaturesResponse = await this.httpClient.post<JsonRpcResponse<SolanaSignature[]>>("/", {
         jsonrpc: "2.0",
         id: 1,
         method: "getSignaturesForAddress",
