@@ -13,12 +13,7 @@ import {
   ProviderOperation,
 } from "../../shared/types.ts";
 import {
-  hasAddressParam,
   JsonRpcResponse,
-  isAddressTransactionOperation,
-  isAddressBalanceOperation,
-  isTokenTransactionOperation,
-  isTokenBalanceOperation,
 } from "../../shared/types.ts";
 import type {
   AlchemyAssetTransfer,
@@ -118,51 +113,23 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
     switch (operation.type) {
       case "getAddressTransactions":
-        if (isAddressTransactionOperation(operation)) {
-          return this.getAddressTransactions(
-            operation.params.address,
-            operation.params.since,
-          ) as Promise<T>;
-        }
-        throw new ServiceError(
-          `Invalid params for getAddressTransactions operation`,
-          this.name,
-          operation.type,
-        );
+        return this.getAddressTransactions(
+          operation.address,
+          operation.since,
+        ) as Promise<T>;
       case "getAddressBalance":
-        if (isAddressBalanceOperation(operation)) {
-          return this.getAddressBalance(operation.params.address) as Promise<T>;
-        }
-        throw new ServiceError(
-          `Invalid params for getAddressBalance operation`,
-          this.name,
-          operation.type,
-        );
+        return this.getAddressBalance(operation.address) as Promise<T>;
       case "getTokenTransactions":
-        if (isTokenTransactionOperation(operation)) {
-          return this.getTokenTransactions(
-            operation.params.address,
-            operation.params.contractAddress,
-            operation.params.since,
-          ) as Promise<T>;
-        }
-        throw new ServiceError(
-          `Invalid params for getTokenTransactions operation`,
-          this.name,
-          operation.type,
-        );
+        return this.getTokenTransactions(
+          operation.address,
+          operation.contractAddress,
+          operation.since,
+        ) as Promise<T>;
       case "getTokenBalances":
-        if (isTokenBalanceOperation(operation)) {
-          return this.getTokenBalances(
-            operation.params.address,
-            operation.params.contractAddresses,
-          ) as Promise<T>;
-        }
-        throw new ServiceError(
-          `Invalid params for getTokenBalances operation`,
-          this.name,
-          operation.type,
-        );
+        return this.getTokenBalances(
+          operation.address,
+          operation.contractAddresses,
+        ) as Promise<T>;
       default:
         throw new ServiceError(
           `Unsupported operation: ${operation.type}`,

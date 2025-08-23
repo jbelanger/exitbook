@@ -1,39 +1,6 @@
 import type { DataSourceCapabilities, RateLimitConfig } from "@crypto/core";
 
-// Parameter interfaces for each operation type
-export interface AddressTransactionParams {
-  address: string;
-  since?: number;
-  until?: number;
-  limit?: number;
-}
-
-export interface AddressBalanceParams {
-  address: string;
-  contractAddresses?: string[];
-}
-
-export interface TokenTransactionParams {
-  address: string;
-  contractAddress?: string;
-  since?: number;
-  until?: number;
-  limit?: number;
-}
-
-export interface TokenBalanceParams {
-  address: string;
-  contractAddresses?: string[];
-}
-
-export interface AddressInfoParams {
-  address: string;
-}
-
-export interface ParseWalletTransactionParams {
-  tx: unknown;
-  walletAddresses: string[];
-}
+// Parameter interfaces removed - discriminated union provides type safety
 
 // Discriminated union type for all possible operation parameters
 export type ProviderOperationParams =
@@ -47,83 +14,7 @@ export type ProviderOperationParams =
   | { type: 'testConnection' }
   | { type: 'custom'; [key: string]: unknown };
 
-// Type guard functions for type narrowing (now simplified with discriminated union)
-export function hasAddressParam(
-  operation: ProviderOperation<unknown>,
-): operation is ProviderOperation<unknown> & { address: string } {
-  return (
-    operation.type !== "parseWalletTransaction" &&
-    operation.type !== "testConnection" &&
-    operation.type !== "custom"
-  );
-}
-
-export function isAddressTransactionOperation(
-  operation: ProviderOperation<unknown>,
-): operation is ProviderOperation<unknown> & {
-  type: 'getAddressTransactions' | 'getRawAddressTransactions';
-  address: string;
-  since?: number;
-  until?: number;
-  limit?: number;
-} {
-  return (
-    operation.type === "getAddressTransactions" ||
-    operation.type === "getRawAddressTransactions"
-  );
-}
-
-export function isAddressBalanceOperation(
-  operation: ProviderOperation<unknown>,
-): operation is ProviderOperation<unknown> & {
-  type: 'getAddressBalance';
-  address: string;
-  contractAddresses?: string[];
-} {
-  return operation.type === "getAddressBalance";
-}
-
-export function isTokenTransactionOperation(
-  operation: ProviderOperation<unknown>,
-): operation is ProviderOperation<unknown> & {
-  type: 'getTokenTransactions';
-  address: string;
-  contractAddress?: string;
-  since?: number;
-  until?: number;
-  limit?: number;
-} {
-  return operation.type === "getTokenTransactions";
-}
-
-export function isTokenBalanceOperation(
-  operation: ProviderOperation<unknown>,
-): operation is ProviderOperation<unknown> & {
-  type: 'getTokenBalances';
-  address: string;
-  contractAddresses?: string[];
-} {
-  return operation.type === "getTokenBalances";
-}
-
-export function isAddressInfoOperation(
-  operation: ProviderOperation<unknown>,
-): operation is ProviderOperation<unknown> & {
-  type: 'getAddressInfo';
-  address: string;
-} {
-  return operation.type === "getAddressInfo";
-}
-
-export function isParseWalletTransactionOperation(
-  operation: ProviderOperation<unknown>,
-): operation is ProviderOperation<unknown> & {
-  type: 'parseWalletTransaction';
-  tx: unknown;
-  walletAddresses: string[];
-} {
-  return operation.type === "parseWalletTransaction";
-}
+// Type guard functions removed - discriminated union provides automatic type narrowing
 
 // Common JSON-RPC response interface for blockchain providers
 export interface JsonRpcResponse<T = unknown> {

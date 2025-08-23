@@ -15,10 +15,7 @@ import { createMoney } from "@crypto/shared-utils";
 
 import { BaseAdapter } from "../../shared/adapters/base-adapter.ts";
 import { BlockchainProviderManager } from "../shared/blockchain-provider-manager.ts";
-import type {
-  AddressTransactionParams,
-  AddressInfoParams,
-} from "../shared/types.ts";
+// Parameter types removed - using discriminated union
 import type { BlockchainExplorersConfig } from "../shared/explorer-config.ts";
 import type { BitcoinWalletAddress } from "./types.ts";
 import { BitcoinUtils } from "./utils.ts";
