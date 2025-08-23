@@ -11,7 +11,7 @@ import type {
   ProviderOperation,
   ProviderOperationType,
 } from "./types.ts";
-import { hasAddressParam } from "./types.ts";
+// Type guards no longer needed with discriminated union
 
 const logger = getLogger("BlockchainProviderManager");
 
@@ -213,7 +213,7 @@ export class BlockchainProviderManager {
   ): Promise<T> {
     // Check cache first
     if (operation.getCacheKey) {
-      const cacheKey = operation.getCacheKey(operation.params);
+      const cacheKey = operation.getCacheKey(operation);
       const cached = this.requestCache.get(cacheKey);
       if (cached && cached.expiry > Date.now()) {
         return cached.result as T;
@@ -225,7 +225,7 @@ export class BlockchainProviderManager {
 
     // Cache result if cacheable
     if (operation.getCacheKey) {
-      const cacheKey = operation.getCacheKey(operation.params);
+      const cacheKey = operation.getCacheKey(operation);
       this.requestCache.set(cacheKey, {
         result,
         expiry: Date.now() + this.cacheTimeout,
@@ -327,8 +327,8 @@ export class BlockchainProviderManager {
           willRetry: attemptNumber < providers.length,
         };
         // Only log params for non-sensitive operations
-        if (!hasAddressParam(operation)) {
-          logData.params = operation.params;
+        if (operation.type === "testConnection" || operation.type === "custom") {
+          logData.params = { type: operation.type };
         }
 
         if (attemptNumber < providers.length) {

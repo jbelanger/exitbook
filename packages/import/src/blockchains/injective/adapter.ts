@@ -12,11 +12,7 @@ import type {
 import { BaseAdapter } from "../../shared/adapters/base-adapter.ts";
 import { BlockchainProviderManager } from "../shared/blockchain-provider-manager.ts";
 import type { BlockchainExplorersConfig } from "../shared/explorer-config.ts";
-import type {
-  AddressTransactionParams,
-  TokenTransactionParams,
-  AddressBalanceParams,
-} from "../shared/types.ts";
+// Parameter types removed - using discriminated union
 
 export class InjectiveAdapter extends BaseAdapter {
   private providerManager: BlockchainProviderManager;
@@ -80,9 +76,10 @@ export class InjectiveAdapter extends BaseAdapter {
           "injective",
           {
             type: "getAddressTransactions",
-            params: { address, since: params.since },
+            address: address,
+            since: params.since,
             getCacheKey: (cacheParams) =>
-              `inj_tx_${(cacheParams as AddressTransactionParams).address}_${(cacheParams as AddressTransactionParams).since || "all"}`,
+              `inj_tx_${cacheParams.type === 'getAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getAddressTransactions' ? cacheParams.since || "all" : 'unknown'}`,
           },
         )) as BlockchainTransaction[];
 
@@ -94,9 +91,10 @@ export class InjectiveAdapter extends BaseAdapter {
             "injective",
             {
               type: "getTokenTransactions",
-              params: { address, since: params.since },
+              address: address,
+              since: params.since,
               getCacheKey: (cacheParams) =>
-                `inj_token_tx_${(cacheParams as TokenTransactionParams).address}_${(cacheParams as TokenTransactionParams).since || "all"}`,
+                `inj_token_tx_${cacheParams.type === 'getTokenTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getTokenTransactions' ? cacheParams.since || "all" : 'unknown'}`,
             },
           )) as BlockchainTransaction[];
         } catch (error) {
@@ -159,9 +157,9 @@ export class InjectiveAdapter extends BaseAdapter {
           "injective",
           {
             type: "getAddressBalance",
-            params: { address },
+            address: address,
             getCacheKey: (cacheParams) =>
-              `inj_balance_${(cacheParams as AddressBalanceParams).address}`,
+              `inj_balance_${cacheParams.type === 'getAddressBalance' ? cacheParams.address : 'unknown'}`,
           },
         )) as Balance[];
 

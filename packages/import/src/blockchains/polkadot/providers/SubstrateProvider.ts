@@ -20,9 +20,6 @@ import { SUBSTRATE_CHAINS } from "../types.ts";
 
 import {
   ProviderOperation,
-  isAddressTransactionOperation,
-  isAddressBalanceOperation,
-  hasAddressParam,
 } from "../../shared/types.ts";
 import { isValidSS58Address } from "../utils.ts";
 
@@ -161,29 +158,26 @@ export class SubstrateProvider extends BaseRegistryProvider {
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
     this.logger.debug(
-      `Executing operation - Type: ${operation.type}, Address: ${hasAddressParam(operation) ? maskAddress(operation.params.address) : "N/A"}`,
+      `Executing operation - Type: ${operation.type}, Address: ${"address" in operation ? maskAddress(operation.address as string) : "N/A"}`,
     );
 
     try {
       switch (operation.type) {
         case "getAddressTransactions":
-          if (isAddressTransactionOperation(operation)) {
-            return this.getAddressTransactions(operation.params) as T;
-          }
-          throw new Error(
-            `Invalid params for getAddressTransactions operation`,
-          );
+          return this.getAddressTransactions({
+            address: operation.address,
+            since: operation.since,
+          }) as T;
         case "getAddressBalance":
-          if (isAddressBalanceOperation(operation)) {
-            return this.getAddressBalance(operation.params) as T;
-          }
-          throw new Error(`Invalid params for getAddressBalance operation`);
+          return this.getAddressBalance({
+            address: operation.address,
+          }) as T;
         default:
           throw new Error(`Unsupported operation: ${operation.type}`);
       }
     } catch (error) {
       this.logger.error(
-        `Operation execution failed - Type: ${operation.type}, Params: ${JSON.stringify(operation.params)}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`,
+        `Operation execution failed - Type: ${operation.type}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`,
       );
       throw error;
     }
@@ -191,7 +185,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
 
   private async getAddressTransactions(params: {
     address: string;
-    since?: number;
+    since?: number | undefined;
   }): Promise<BlockchainTransaction[]> {
     const { address, since } = params;
     if (!isValidSS58Address(address)) {

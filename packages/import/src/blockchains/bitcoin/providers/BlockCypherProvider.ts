@@ -11,13 +11,6 @@ import {
 import { BaseRegistryProvider } from "../../shared/registry/base-registry-provider.ts";
 import { RegisterProvider } from "../../shared/registry/decorators.ts";
 import type { ProviderOperation } from "../../shared/types.ts";
-import {
-  hasAddressParam,
-  isAddressTransactionOperation,
-  isAddressBalanceOperation,
-  isAddressInfoOperation,
-  isParseWalletTransactionOperation,
-} from "../../shared/types.ts";
 import type {
   AddressInfo,
   BlockCypherAddress,
@@ -104,44 +97,35 @@ export class BlockCypherProvider extends BaseRegistryProvider {
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
     this.logger.debug(
-      `Executing operation - Type: ${operation.type}, Address: ${hasAddressParam(operation) ? maskAddress(operation.params.address) : "N/A"}`,
+      `Executing operation - Type: ${operation.type}, Address: ${"address" in operation ? maskAddress(operation.address as string) : "N/A"}`,
     );
 
     try {
       switch (operation.type) {
         case "getAddressTransactions":
-          if (isAddressTransactionOperation(operation)) {
-            return this.getAddressTransactions(operation.params) as T;
-          }
-          throw new Error(
-            `Invalid params for getAddressTransactions operation`,
-          );
+          return this.getAddressTransactions({
+            address: operation.address,
+            since: operation.since,
+          }) as T;
         case "getAddressBalance":
-          if (isAddressBalanceOperation(operation)) {
-            return this.getAddressBalance(operation.params) as T;
-          }
-          throw new Error(`Invalid params for getAddressBalance operation`);
+          return this.getAddressBalance({
+            address: operation.address,
+          }) as T;
         case "getAddressInfo":
-          if (isAddressInfoOperation(operation)) {
-            return this.getAddressInfo(operation.params) as T;
-          }
-          throw new Error(`Invalid params for getAddressInfo operation`);
+          return this.getAddressInfo({
+            address: operation.address,
+          }) as T;
         case "parseWalletTransaction":
-          if (isParseWalletTransactionOperation(operation)) {
-            return this.parseWalletTransaction({
-              tx: operation.params.tx as BlockCypherTransaction,
-              walletAddresses: operation.params.walletAddresses,
-            }) as T;
-          }
-          throw new Error(
-            `Invalid params for parseWalletTransaction operation`,
-          );
+          return this.parseWalletTransaction({
+            tx: operation.tx as BlockCypherTransaction,
+            walletAddresses: operation.walletAddresses,
+          }) as T;
         default:
           throw new Error(`Unsupported operation: ${operation.type}`);
       }
     } catch (error) {
       this.logger.error(
-        `Operation execution failed - Type: ${operation.type}, Params: ${operation.params}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`,
+        `Operation execution failed - Type: ${operation.type}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`,
       );
       throw error;
     }
@@ -149,7 +133,7 @@ export class BlockCypherProvider extends BaseRegistryProvider {
 
   private async getAddressTransactions(params: {
     address: string;
-    since?: number;
+    since?: number | undefined;
   }): Promise<BlockchainTransaction[]> {
     const { address, since } = params;
 
