@@ -30,6 +30,7 @@ import {
   ProviderOperation,
   AddressTransactionParams,
   AddressBalanceParams,
+  isAddressTransactionOperation,
 } from "../types.ts";
 
 // Mock provider for testing
@@ -86,8 +87,10 @@ class MockProvider implements IBlockchainProvider {
     // Mock response based on operation type
     switch (operation.type) {
       case "getAddressTransactions": {
-        const addressParams = operation.params as AddressTransactionParams;
-        return { transactions: [], address: addressParams.address } as T;
+        if (isAddressTransactionOperation(operation)) {
+          return { transactions: [], address: operation.params.address } as T;
+        }
+        throw new Error("Invalid params for getAddressTransactions");
       }
       case "getAddressBalance":
         return { balance: 100, currency: "ETH" } as T;
