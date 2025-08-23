@@ -5,13 +5,13 @@ import { createMoney, maskAddress } from "@crypto/shared-utils";
 import { BaseRegistryProvider } from "../../shared/registry/base-registry-provider.ts";
 import { RegisterProvider } from "../../shared/registry/decorators.ts";
 import type { ProviderOperation } from "../../shared/types.ts";
-import { 
+import {
   hasAddressParam,
   isAddressTransactionOperation,
   isAddressBalanceOperation,
   isAddressInfoOperation,
   isParseWalletTransactionOperation,
-  ParseWalletTransactionParams
+  ParseWalletTransactionParams,
 } from "../../shared/types.ts";
 import type {
   AddressInfo,
@@ -108,9 +108,9 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
         case "getAddressTransactions":
         case "getRawAddressTransactions":
           if (isAddressTransactionOperation(operation)) {
-            return operation.type === "getAddressTransactions" 
-              ? this.getAddressTransactions(operation.params) as T
-              : this.getRawAddressTransactions(operation.params) as T;
+            return operation.type === "getAddressTransactions"
+              ? (this.getAddressTransactions(operation.params) as T)
+              : (this.getRawAddressTransactions(operation.params) as T);
           }
           throw new Error(`Invalid params for ${operation.type} operation`);
         case "getAddressBalance":
@@ -127,7 +127,9 @@ export class MempoolSpaceProvider extends BaseRegistryProvider {
           if (isParseWalletTransactionOperation(operation)) {
             return this.parseWalletTransaction(operation.params) as T;
           }
-          throw new Error(`Invalid params for parseWalletTransaction operation`);
+          throw new Error(
+            `Invalid params for parseWalletTransaction operation`,
+          );
         default:
           throw new Error(`Unsupported operation: ${operation.type}`);
       }

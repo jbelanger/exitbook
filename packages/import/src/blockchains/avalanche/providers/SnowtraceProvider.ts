@@ -10,7 +10,7 @@ import {
   isAddressBalanceOperation,
   isTokenTransactionOperation,
   isTokenBalanceOperation,
-  hasAddressParam
+  hasAddressParam,
 } from "../../shared/types.ts";
 import type {
   SnowtraceApiResponse,
@@ -121,7 +121,9 @@ export class SnowtraceProvider extends BaseRegistryProvider {
           if (isAddressTransactionOperation(operation)) {
             return this.getAddressTransactions(operation.params) as T;
           }
-          throw new Error(`Invalid params for getAddressTransactions operation`);
+          throw new Error(
+            `Invalid params for getAddressTransactions operation`,
+          );
         case "getAddressBalance":
           if (isAddressBalanceOperation(operation)) {
             return this.getAddressBalance(operation.params) as T;

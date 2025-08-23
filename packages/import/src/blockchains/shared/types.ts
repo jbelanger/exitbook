@@ -46,32 +46,58 @@ export type ProviderOperationParams =
   | Record<string, unknown>; // fallback for custom operations
 
 // Type guard functions for type narrowing (replaces complex type guards)
-export function hasAddressParam(operation: ProviderOperation<unknown>): operation is ProviderOperation<unknown> & { params: { address: string } } {
-  return operation.type !== 'parseWalletTransaction' && operation.type !== 'testConnection';
+export function hasAddressParam(
+  operation: ProviderOperation<unknown>,
+): operation is ProviderOperation<unknown> & { params: { address: string } } {
+  return (
+    operation.type !== "parseWalletTransaction" &&
+    operation.type !== "testConnection"
+  );
 }
 
-export function isAddressTransactionOperation(operation: ProviderOperation<unknown>): operation is ProviderOperation<unknown> & { params: AddressTransactionParams } {
-  return operation.type === 'getAddressTransactions' || operation.type === 'getRawAddressTransactions';
+export function isAddressTransactionOperation(
+  operation: ProviderOperation<unknown>,
+): operation is ProviderOperation<unknown> & {
+  params: AddressTransactionParams;
+} {
+  return (
+    operation.type === "getAddressTransactions" ||
+    operation.type === "getRawAddressTransactions"
+  );
 }
 
-export function isAddressBalanceOperation(operation: ProviderOperation<unknown>): operation is ProviderOperation<unknown> & { params: AddressBalanceParams } {
-  return operation.type === 'getAddressBalance';
+export function isAddressBalanceOperation(
+  operation: ProviderOperation<unknown>,
+): operation is ProviderOperation<unknown> & { params: AddressBalanceParams } {
+  return operation.type === "getAddressBalance";
 }
 
-export function isTokenTransactionOperation(operation: ProviderOperation<unknown>): operation is ProviderOperation<unknown> & { params: TokenTransactionParams } {
-  return operation.type === 'getTokenTransactions';
+export function isTokenTransactionOperation(
+  operation: ProviderOperation<unknown>,
+): operation is ProviderOperation<unknown> & {
+  params: TokenTransactionParams;
+} {
+  return operation.type === "getTokenTransactions";
 }
 
-export function isTokenBalanceOperation(operation: ProviderOperation<unknown>): operation is ProviderOperation<unknown> & { params: TokenBalanceParams } {
-  return operation.type === 'getTokenBalances';
+export function isTokenBalanceOperation(
+  operation: ProviderOperation<unknown>,
+): operation is ProviderOperation<unknown> & { params: TokenBalanceParams } {
+  return operation.type === "getTokenBalances";
 }
 
-export function isAddressInfoOperation(operation: ProviderOperation<unknown>): operation is ProviderOperation<unknown> & { params: AddressInfoParams } {
-  return operation.type === 'getAddressInfo';
+export function isAddressInfoOperation(
+  operation: ProviderOperation<unknown>,
+): operation is ProviderOperation<unknown> & { params: AddressInfoParams } {
+  return operation.type === "getAddressInfo";
 }
 
-export function isParseWalletTransactionOperation(operation: ProviderOperation<unknown>): operation is ProviderOperation<unknown> & { params: ParseWalletTransactionParams } {
-  return operation.type === 'parseWalletTransaction';
+export function isParseWalletTransactionOperation(
+  operation: ProviderOperation<unknown>,
+): operation is ProviderOperation<unknown> & {
+  params: ParseWalletTransactionParams;
+} {
+  return operation.type === "parseWalletTransaction";
 }
 
 // Common JSON-RPC response interface for blockchain providers
