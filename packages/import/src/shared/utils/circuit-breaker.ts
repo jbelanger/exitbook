@@ -1,8 +1,8 @@
 // Circuit breaker implementation for provider resilience
 // Prevents hammering failed providers and enables automatic recovery
 
-import type { Logger } from '@crypto/shared-logger';
-import { getLogger } from '@crypto/shared-logger';
+import type { Logger } from "@crypto/shared-logger";
+import { getLogger } from "@crypto/shared-logger";
 
 export class CircuitBreaker {
   private failureCount = 0;
@@ -12,12 +12,12 @@ export class CircuitBreaker {
   private readonly recoveryTimeoutMs: number;
   private readonly providerName: string;
   private readonly logger: Logger;
-  private previousState: 'closed' | 'open' | 'half-open' = 'closed';
+  private previousState: "closed" | "open" | "half-open" = "closed";
 
   constructor(
     providerName: string,
     maxFailures: number = 3,
-    recoveryTimeoutMs: number = 5 * 60 * 1000 // Default 5 minutes
+    recoveryTimeoutMs: number = 5 * 60 * 1000, // Default 5 minutes
   ) {
     this.providerName = providerName;
     this.maxFailures = maxFailures;
@@ -67,10 +67,14 @@ export class CircuitBreaker {
 
     const currentState = this.getCurrentState();
     if (this.previousState !== currentState) {
-      this.logger.info(`Circuit breaker state changed: ${this.previousState} → ${currentState} - Reason: success_recorded, Stats: ${JSON.stringify(this.getStatistics())}`);
+      this.logger.info(
+        `Circuit breaker state changed: ${this.previousState} → ${currentState} - Reason: success_recorded, Stats: ${JSON.stringify(this.getStatistics())}`,
+      );
       this.previousState = currentState;
     } else if (wasOpen) {
-      this.logger.info(`Circuit breaker recovered after success - Stats: ${JSON.stringify(this.getStatistics())}`);
+      this.logger.info(
+        `Circuit breaker recovered after success - Stats: ${JSON.stringify(this.getStatistics())}`,
+      );
     }
   }
 
@@ -83,23 +87,27 @@ export class CircuitBreaker {
 
     const currentState = this.getCurrentState();
     if (this.previousState !== currentState) {
-      this.logger.warn(`Circuit breaker state changed: ${this.previousState} → ${currentState} - Reason: failure_recorded, FailureCount: ${this.failureCount}, MaxFailures: ${this.maxFailures}, Stats: ${JSON.stringify(this.getStatistics())}`);
+      this.logger.warn(
+        `Circuit breaker state changed: ${this.previousState} → ${currentState} - Reason: failure_recorded, FailureCount: ${this.failureCount}, MaxFailures: ${this.maxFailures}, Stats: ${JSON.stringify(this.getStatistics())}`,
+      );
       this.previousState = currentState;
-    } else if (currentState === 'open') {
-      this.logger.debug(`Circuit breaker failure recorded while open - FailureCount: ${this.failureCount}, MaxFailures: ${this.maxFailures}`);
+    } else if (currentState === "open") {
+      this.logger.debug(
+        `Circuit breaker failure recorded while open - FailureCount: ${this.failureCount}, MaxFailures: ${this.maxFailures}`,
+      );
     }
   }
 
   /**
    * Returns current circuit breaker state
    */
-  getCurrentState(): 'closed' | 'open' | 'half-open' {
-    if (this.failureCount < this.maxFailures) return 'closed';
+  getCurrentState(): "closed" | "open" | "half-open" {
+    if (this.failureCount < this.maxFailures) return "closed";
 
     const timeSinceLastFailure = Date.now() - this.lastFailureTimestamp;
-    if (timeSinceLastFailure >= this.recoveryTimeoutMs) return 'half-open';
+    if (timeSinceLastFailure >= this.recoveryTimeoutMs) return "half-open";
 
-    return 'open';
+    return "open";
   }
 
   /**
@@ -113,8 +121,12 @@ export class CircuitBreaker {
       maxFailures: this.maxFailures,
       lastFailureTimestamp: this.lastFailureTimestamp,
       lastSuccessTimestamp: this.lastSuccessTimestamp,
-      timeSinceLastFailureMs: this.lastFailureTimestamp ? Date.now() - this.lastFailureTimestamp : 0,
-      timeUntilRecoveryMs: this.isOpen() ? this.recoveryTimeoutMs - (Date.now() - this.lastFailureTimestamp) : 0
+      timeSinceLastFailureMs: this.lastFailureTimestamp
+        ? Date.now() - this.lastFailureTimestamp
+        : 0,
+      timeUntilRecoveryMs: this.isOpen()
+        ? this.recoveryTimeoutMs - (Date.now() - this.lastFailureTimestamp)
+        : 0,
     };
   }
 
@@ -125,7 +137,7 @@ export class CircuitBreaker {
     this.failureCount = 0;
     this.lastFailureTimestamp = 0;
     this.lastSuccessTimestamp = 0;
-    this.previousState = 'closed';
+    this.previousState = "closed";
     this.logger.info(`Circuit breaker manually reset for ${this.providerName}`);
   }
 }

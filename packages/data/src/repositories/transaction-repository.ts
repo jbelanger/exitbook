@@ -1,6 +1,6 @@
-import type { EnhancedTransaction } from '@crypto/core';
-import type { StoredTransaction } from '../types/data-types.js';
-import { Database } from '../storage/database.ts';
+import type { EnhancedTransaction } from "@crypto/core";
+import type { StoredTransaction } from "../types/data-types.js";
+import { Database } from "../storage/database.ts";
 
 export class TransactionRepository {
   private database: Database;
@@ -17,7 +17,10 @@ export class TransactionRepository {
     return this.database.saveTransactions(transactions);
   }
 
-  async findAll(exchange?: string, since?: number): Promise<StoredTransaction[]> {
+  async findAll(
+    exchange?: string,
+    since?: number,
+  ): Promise<StoredTransaction[]> {
     return this.database.getTransactions(exchange, since);
   }
 
@@ -25,7 +28,17 @@ export class TransactionRepository {
     return this.database.getTransactionCount(exchange);
   }
 
-  async updateAddresses(transactionId: string, fromAddress?: string, toAddress?: string, walletId?: number): Promise<void> {
-    return this.database.updateTransactionAddresses(transactionId, fromAddress, toAddress, walletId);
+  async updateAddresses(
+    transactionId: string,
+    fromAddress?: string,
+    toAddress?: string,
+    walletId?: number,
+  ): Promise<void> {
+    return this.database.updateTransactionAddresses(
+      transactionId,
+      fromAddress,
+      toAddress,
+      walletId,
+    );
   }
 }
