@@ -83,9 +83,10 @@ export class SubstrateAdapter extends BaseAdapter {
           "polkadot",
           {
             type: "getAddressTransactions",
-            params: { address, since: params.since },
+            address: address,
+            since: params.since,
             getCacheKey: (cacheParams) =>
-              `${this.chainConfig.name}_tx_${(cacheParams as AddressTransactionParams).address}_${(cacheParams as AddressTransactionParams).since || "all"}`,
+              `${this.chainConfig.name}_tx_${cacheParams.type === 'getAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getAddressTransactions' ? cacheParams.since || "all" : 'unknown'}`,
           },
         )) as BlockchainTransaction[];
 
@@ -130,9 +131,9 @@ export class SubstrateAdapter extends BaseAdapter {
           "polkadot",
           {
             type: "getAddressBalance",
-            params: { address },
+            address: address,
             getCacheKey: (cacheParams) =>
-              `${this.chainConfig.name}_balance_${(cacheParams as AddressBalanceParams).address}`,
+              `${this.chainConfig.name}_balance_${cacheParams.type === 'getAddressBalance' ? cacheParams.address : 'unknown'}`,
           },
         )) as Balance[];
 

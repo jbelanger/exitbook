@@ -213,7 +213,7 @@ export class BlockchainProviderManager {
   ): Promise<T> {
     // Check cache first
     if (operation.getCacheKey) {
-      const cacheKey = operation.getCacheKey(operation.params);
+      const cacheKey = operation.getCacheKey(operation);
       const cached = this.requestCache.get(cacheKey);
       if (cached && cached.expiry > Date.now()) {
         return cached.result as T;
@@ -225,7 +225,7 @@ export class BlockchainProviderManager {
 
     // Cache result if cacheable
     if (operation.getCacheKey) {
-      const cacheKey = operation.getCacheKey(operation.params);
+      const cacheKey = operation.getCacheKey(operation);
       this.requestCache.set(cacheKey, {
         result,
         expiry: Date.now() + this.cacheTimeout,
@@ -328,7 +328,7 @@ export class BlockchainProviderManager {
         };
         // Only log params for non-sensitive operations
         if (!hasAddressParam(operation)) {
-          logData.params = operation.params;
+          logData.params = { type: operation.type };
         }
 
         if (attemptNumber < providers.length) {

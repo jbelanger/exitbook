@@ -75,9 +75,10 @@ export class EthereumAdapter extends BaseAdapter {
           "ethereum",
           {
             type: "getAddressTransactions",
-            params: { address, since: params.since },
+            address: address,
+            since: params.since,
             getCacheKey: (cacheParams) =>
-              `eth_tx_${(cacheParams as AddressTransactionParams).address}_${(cacheParams as AddressTransactionParams).since || "all"}`,
+              `eth_tx_${cacheParams.type === 'getAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getAddressTransactions' ? cacheParams.since || "all" : 'unknown'}`,
           },
         )) as BlockchainTransaction[];
 
@@ -88,9 +89,10 @@ export class EthereumAdapter extends BaseAdapter {
             "ethereum",
             {
               type: "getTokenTransactions",
-              params: { address, since: params.since },
+              address: address,
+              since: params.since,
               getCacheKey: (cacheParams) =>
-                `eth_token_tx_${(cacheParams as TokenTransactionParams).address}_${(cacheParams as TokenTransactionParams).since || "all"}`,
+                `eth_token_tx_${cacheParams.type === 'getTokenTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getTokenTransactions' ? cacheParams.since || "all" : 'unknown'}`,
             },
           )) as BlockchainTransaction[];
         } catch (error) {
@@ -148,9 +150,9 @@ export class EthereumAdapter extends BaseAdapter {
           "ethereum",
           {
             type: "getAddressBalance",
-            params: { address },
+            address: address,
             getCacheKey: (cacheParams) =>
-              `eth_balance_${(cacheParams as AddressBalanceParams).address}`,
+              `eth_balance_${cacheParams.type === 'getAddressBalance' ? cacheParams.address : 'unknown'}`,
           },
         )) as Balance[];
 
