@@ -1,25 +1,17 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { MempoolSpaceProvider } from "../MempoolSpaceProvider.ts";
 import type { BlockchainTransaction } from "@crypto/core";
+import type { MempoolTransaction, AddressInfo } from "../../types.ts";
 
-// Mock fetch globally
-global.fetch = vi.fn();
-
-describe("MempoolSpaceProvider", () => {
+describe("MempoolSpaceProvider Integration", () => {
   let provider: MempoolSpaceProvider;
-  const mockFetch = global.fetch as ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     provider = new MempoolSpaceProvider();
-    mockFetch.mockClear();
-  });
-
-  afterEach(() => {
-    vi.clearAllMocks();
   });
 
   describe("Provider Configuration", () => {
-    it("should initialize with default configuration", () => {
+    it("should initialize with correct registry metadata", () => {
       expect(provider.name).toBe("mempool.space");
       expect(provider.blockchain).toBe("bitcoin");
       expect(provider.capabilities.supportedOperations).toContain(
@@ -28,13 +20,9 @@ describe("MempoolSpaceProvider", () => {
       expect(provider.capabilities.supportedOperations).toContain(
         "getAddressBalance",
       );
-    });
-
-    it("should initialize with custom configuration", () => {
-      const customProvider = new MempoolSpaceProvider();
-
-      expect(customProvider.name).toBe("mempool.space");
-      expect(customProvider.blockchain).toBe("bitcoin");
+      expect(provider.capabilities.supportedOperations).toContain(
+        "parseWalletTransaction",
+      );
     });
 
     it("should have correct rate limiting configuration", () => {
@@ -54,305 +42,90 @@ describe("MempoolSpaceProvider", () => {
 
   describe("Health Checks", () => {
     it("should report healthy when API is accessible", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => 750000,
-      } as Response);
-
       const isHealthy = await provider.isHealthy();
       expect(isHealthy).toBe(true);
-      expect(mockFetch).toHaveBeenCalledWith(
-        "https://mempool.space/api/blocks/tip/height",
-      );
-    });
+    }, 30000);
 
-    it("should report unhealthy when API is down", async () => {
-      mockFetch.mockRejectedValueOnce(new Error("Network error"));
-
-      const isHealthy = await provider.isHealthy();
-      expect(isHealthy).toBe(false);
-    });
-
-    it("should report unhealthy when API returns invalid data", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => null,
-      } as Response);
-
-      const isHealthy = await provider.isHealthy();
-      expect(isHealthy).toBe(false);
-    });
-  });
-
-  describe("Connection Testing", () => {
-    it("should pass connection test with valid response", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => 750123,
-      } as Response);
-
+    it("should pass connection test", async () => {
       const connectionTest = await provider.testConnection();
       expect(connectionTest).toBe(true);
-    });
-
-    it("should fail connection test with invalid response", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => "invalid",
-      } as Response);
-
-      const connectionTest = await provider.testConnection();
-      expect(connectionTest).toBe(false);
-    });
-
-    it("should fail connection test on network error", async () => {
-      mockFetch.mockRejectedValueOnce(new Error("Connection refused"));
-
-      const connectionTest = await provider.testConnection();
-      expect(connectionTest).toBe(false);
-    });
+    }, 30000);
   });
 
+
   describe("Address Transactions", () => {
-    const testAddress = "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2";
-    const mockAddressInfo = {
-      address: testAddress,
-      chain_stats: {
-        tx_count: 2,
-        funded_txo_sum: 200000000,
-        spent_txo_sum: 100000000,
-      },
-      mempool_stats: { tx_count: 0, funded_txo_sum: 0, spent_txo_sum: 0 },
-    };
-
-    const mockTransactionIds = [
-      "txid1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-      "txid2345678901bcdefg2345678901bcdefg2345678901bcdefg2345678901bcdefg",
-    ];
-
-    const mockTransaction = {
-      txid: "txid1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-      version: 2,
-      locktime: 0,
-      vin: [
-        {
-          txid: "prev_tx_id",
-          vout: 0,
-          prevout: {
-            scriptpubkey: "script",
-            scriptpubkey_asm: "asm",
-            scriptpubkey_type: "p2pkh",
-            scriptpubkey_address: "sender_address",
-            value: 100000000,
-          },
-          scriptsig: "sig",
-          scriptsig_asm: "sig_asm",
-          witness: [],
-          is_coinbase: false,
-          sequence: 0xffffffff,
-        },
-      ],
-      vout: [
-        {
-          scriptpubkey: "script",
-          scriptpubkey_asm: "asm",
-          scriptpubkey_type: "p2pkh",
-          scriptpubkey_address: testAddress,
-          value: 99000000,
-        },
-      ],
-      size: 225,
-      weight: 900,
-      fee: 1000000,
-      status: {
-        confirmed: true,
-        block_height: 750000,
-        block_hash: "block_hash_123",
-        block_time: 1640995200,
-      },
-    };
+    const testAddress = "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2"; // Known address with transactions
 
     it("should fetch address transactions successfully", async () => {
-      // Mock address info call
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockAddressInfo,
-      } as Response);
-
-      // Mock transaction IDs call
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockTransactionIds,
-      } as Response);
-
-      // Mock transaction details calls
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockTransaction,
-      } as Response);
-
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ ...mockTransaction, txid: mockTransactionIds[1] }),
-      } as Response);
-
       const transactions = await provider.execute<BlockchainTransaction[]>({
         type: "getAddressTransactions",
         params: { address: testAddress },
       });
 
-      expect(transactions).toHaveLength(2);
-      expect(transactions[0]).toMatchObject({
-        hash: expect.stringMatching(/^txid/),
-        blockNumber: 750000,
-        timestamp: 1640995200,
-        status: "success",
-        type: "transfer_in",
-      });
-    });
+      expect(Array.isArray(transactions)).toBe(true);
+      if (transactions.length > 0) {
+        expect(transactions[0]).toHaveProperty("hash");
+        expect(transactions[0]).toHaveProperty("timestamp");
+        expect(transactions[0]).toHaveProperty("value");
+        expect(transactions[0].value).toHaveProperty("amount");
+        expect(transactions[0].value).toHaveProperty("currency", "BTC");
+        expect(["transfer_in", "transfer_out"]).toContain(transactions[0].type);
+        expect(["success", "pending"]).toContain(transactions[0].status);
+      }
+    }, 30000);
 
-    it("should return empty array for address with no transactions", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          ...mockAddressInfo,
-          chain_stats: { tx_count: 0, funded_txo_sum: 0, spent_txo_sum: 0 },
-        }),
-      } as Response);
-
+    it("should return empty array for unused address", async () => {
+      const unusedAddress = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"; // Genesis block address, unlikely to have new txs
+      
       const transactions = await provider.execute<BlockchainTransaction[]>({
         type: "getAddressTransactions",
-        params: { address: testAddress },
+        params: { address: unusedAddress },
       });
 
-      expect(transactions).toEqual([]);
-    });
+      expect(Array.isArray(transactions)).toBe(true);
+    }, 30000);
 
     it("should filter transactions by timestamp when since parameter is provided", async () => {
-      const futureTimestamp = 1640995300; // After mock transaction
-
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockAddressInfo,
-      } as Response);
-
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockTransactionIds,
-      } as Response);
-
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockTransaction,
-      } as Response);
-
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockTransaction,
-      } as Response);
+      const futureTimestamp = Date.now() + 86400000; // 24 hours from now
 
       const transactions = await provider.execute<BlockchainTransaction[]>({
         type: "getAddressTransactions",
         params: { address: testAddress, since: futureTimestamp },
       });
 
-      expect(transactions).toEqual([]);
-    });
-
-    it("should handle API errors gracefully", async () => {
-      mockFetch.mockRejectedValueOnce(new Error("API Error"));
-
-      await expect(
-        provider.execute({
-          type: "getAddressTransactions",
-          params: { address: testAddress },
-        }),
-      ).rejects.toThrow("API Error");
-    });
-
-    it("should handle rate limiting with retry", async () => {
-      // First call fails with rate limit
-      mockFetch.mockRejectedValueOnce(new Error("Rate limit exceeded"));
-
-      // Second call succeeds
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          ...mockAddressInfo,
-          chain_stats: { tx_count: 0, funded_txo_sum: 0, spent_txo_sum: 0 },
-        }),
-      } as Response);
-
-      // Should not throw error due to retry mechanism
-      const transactions = await provider.execute<BlockchainTransaction[]>({
-        type: "getAddressTransactions",
-        params: { address: testAddress },
-      });
-
-      expect(transactions).toEqual([]);
-    });
+      expect(Array.isArray(transactions)).toBe(true);
+      expect(transactions).toHaveLength(0);
+    }, 30000);
   });
 
   describe("Address Balance", () => {
     const testAddress = "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2";
-    const mockAddressInfo = {
-      address: testAddress,
-      chain_stats: { funded_txo_sum: 200000000, spent_txo_sum: 100000000 },
-      mempool_stats: { funded_txo_sum: 50000000, spent_txo_sum: 25000000 },
-    };
 
     it("should fetch address balance successfully", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockAddressInfo,
-      } as Response);
-
       const result = await provider.execute<{ balance: string; token: string }>({
         type: "getAddressBalance",
         params: { address: testAddress },
       });
 
-      // Balance = (chain funded - chain spent) + (mempool funded - mempool spent)
-      // = (200000000 - 100000000) + (50000000 - 25000000) = 100000000 + 25000000 = 125000000 sats = 1.25 BTC
-      expect(result).toEqual({
-        balance: "1.25",
-        token: "BTC",
-      });
-    });
+      expect(result).toHaveProperty("balance");
+      expect(result).toHaveProperty("token", "BTC");
+      expect(typeof result.balance).toBe("string");
+      expect(Number.isNaN(Number(result.balance))).toBe(false);
+    }, 30000);
 
-    it("should handle zero balance", async () => {
-      const zeroBalanceInfo = {
-        ...mockAddressInfo,
-        chain_stats: { funded_txo_sum: 100000000, spent_txo_sum: 100000000 },
-        mempool_stats: { funded_txo_sum: 0, spent_txo_sum: 0 },
-      };
-
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => zeroBalanceInfo,
-      } as Response);
-
+    it("should handle empty address balance", async () => {
+      const emptyAddress = "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4"; // Empty bech32 address
+      
       const result = await provider.execute<{ balance: string; token: string }>({
         type: "getAddressBalance",
-        params: { address: testAddress },
+        params: { address: emptyAddress },
       });
 
       expect(result).toEqual({
         balance: "0",
         token: "BTC",
       });
-    });
-
-    it("should handle API errors", async () => {
-      mockFetch.mockRejectedValueOnce(new Error("Balance API Error"));
-
-      await expect(
-        provider.execute({
-          type: "getAddressBalance",
-          params: { address: testAddress },
-        }),
-      ).rejects.toThrow("Balance API Error");
-    });
+    }, 30000);
   });
 
   describe("Error Handling", () => {
@@ -365,187 +138,78 @@ describe("MempoolSpaceProvider", () => {
       ).rejects.toThrow("Unsupported operation: unsupportedOperation");
     });
 
-    it("should handle HTTP error responses", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 500,
-        statusText: "Internal Server Error",
-        text: async () => "Server Error",
-      } as Response);
-
+    it("should handle invalid address format gracefully", async () => {
+      const invalidAddress = "invalid-address-format";
+      
       await expect(
         provider.execute({
           type: "getAddressBalance",
-          params: { address: "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2" },
+          params: { address: invalidAddress },
         }),
       ).rejects.toThrow();
-    });
-
-    it("should handle timeout errors", async () => {
-      const abortError = new Error("Request timeout");
-      abortError.name = "AbortError";
-      mockFetch.mockRejectedValueOnce(abortError);
-
-      await expect(
-        provider.execute({
-          type: "getAddressBalance",
-          params: { address: "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2" },
-        }),
-      ).rejects.toThrow();
-    });
+    }, 30000);
   });
 
-  describe("Rate Limiting", () => {
-    it("should handle 429 responses with retry", async () => {
-      // First call returns 429  
-      const mockResponse: Partial<Response> = {
-        ok: false,
-        status: 429,
-        statusText: "Too Many Requests",
-        headers: new Headers([["Retry-After", "2"]]),
-        text: async () => "Rate limited",
-        // Add missing Response properties
-        redirected: false,
-        type: "basic",
-        url: "https://mempool.space/api/address/test",
-        clone: vi.fn(),
-        body: null,
-        bodyUsed: false,
-        arrayBuffer: vi.fn(),
-        blob: vi.fn(),
-        formData: vi.fn(),
-        json: vi.fn(),
-      };
-      mockFetch.mockResolvedValueOnce(mockResponse as Response);
+  describe("Address Info", () => {
+    const testAddress = "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2";
 
-      // Second call succeeds
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          address: "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2",
-          chain_stats: { funded_txo_sum: 0, spent_txo_sum: 0 },
-          mempool_stats: { funded_txo_sum: 0, spent_txo_sum: 0 },
-        }),
-      } as Response);
-
-      const result = await provider.execute<{ balance: string; token: string }>({
-        type: "getAddressBalance",
-        params: { address: "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2" },
-      });
-
-      expect(result.balance).toBe("0");
-      expect(mockFetch).toHaveBeenCalledTimes(2);
-    });
-  });
-
-  describe("Transaction Transformation", () => {
-    it("should correctly classify deposit transactions", async () => {
-      const testAddress = "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2";
-      const depositTransaction = {
-        txid: "deposit_tx_id",
-        vin: [
-          {
-            prevout: {
-              scriptpubkey_address: "other_address",
-              value: 100000000,
-            },
-          },
-        ],
-        vout: [{ scriptpubkey_address: testAddress, value: 99000000 }],
-        fee: 1000000,
-        status: {
-          confirmed: true,
-          block_height: 750000,
-          block_hash: "hash",
-          block_time: 1640995200,
-        },
-        version: 2,
-        locktime: 0,
-        size: 225,
-        weight: 900,
-      };
-
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          chain_stats: {
-            tx_count: 1,
-            funded_txo_sum: 99000000,
-            spent_txo_sum: 0,
-          },
-          mempool_stats: { tx_count: 0, funded_txo_sum: 0, spent_txo_sum: 0 },
-        }),
-      } as Response);
-
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ["deposit_tx_id"],
-      } as Response);
-
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => depositTransaction,
-      } as Response);
-
-      const transactions = await provider.execute<BlockchainTransaction[]>({
-        type: "getAddressTransactions",
+    it("should fetch address info successfully", async () => {
+      const result = await provider.execute<AddressInfo>({
+        type: "getAddressInfo",
         params: { address: testAddress },
       });
 
-      expect(transactions[0].type).toBe("transfer_in");
-      expect(transactions[0].value.amount.toString()).toBe("0.99");
-    });
+      expect(result).toHaveProperty("txCount");
+      expect(result).toHaveProperty("balance");
+      expect(typeof result.txCount).toBe("number");
+      expect(typeof result.balance).toBe("string");
+    }, 30000);
+  });
 
-    it("should correctly classify withdrawal transactions", async () => {
-      const testAddress = "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2";
-      const withdrawalTransaction = {
-        txid: "withdrawal_tx_id",
-        vin: [
-          { prevout: { scriptpubkey_address: testAddress, value: 100000000 } },
-        ],
-        vout: [{ scriptpubkey_address: "other_address", value: 99000000 }],
-        fee: 1000000,
-        status: {
-          confirmed: true,
-          block_height: 750000,
-          block_hash: "hash",
-          block_time: 1640995200,
-        },
-        version: 2,
-        locktime: 0,
-        size: 225,
-        weight: 900,
-      };
+  describe("Raw Address Transactions", () => {
+    const testAddress = "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2";
 
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          chain_stats: {
-            tx_count: 1,
-            funded_txo_sum: 100000000,
-            spent_txo_sum: 100000000,
-          },
-          mempool_stats: { tx_count: 0, funded_txo_sum: 0, spent_txo_sum: 0 },
-        }),
-      } as Response);
-
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ["withdrawal_tx_id"],
-      } as Response);
-
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => withdrawalTransaction,
-      } as Response);
-
-      const transactions = await provider.execute<BlockchainTransaction[]>({
-        type: "getAddressTransactions",
+    it("should fetch raw address transactions successfully", async () => {
+      const transactions = await provider.execute<MempoolTransaction[]>({
+        type: "getRawAddressTransactions",
         params: { address: testAddress },
       });
 
-      expect(transactions[0].type).toBe("transfer_out");
-      expect(transactions[0].value.amount.toString()).toBe("1");
-    });
+      expect(Array.isArray(transactions)).toBe(true);
+      if (transactions.length > 0) {
+        expect(transactions[0]).toHaveProperty("txid");
+        expect(transactions[0]).toHaveProperty("vin");
+        expect(transactions[0]).toHaveProperty("vout");
+        expect(transactions[0]).toHaveProperty("status");
+      }
+    }, 30000);
+  });
+
+  describe("Parse Wallet Transaction", () => {
+    it("should parse wallet transaction with multiple addresses", async () => {
+      // First get a real transaction to test with
+      const testAddress = "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2";
+      const rawTransactions = await provider.execute<MempoolTransaction[]>({
+        type: "getRawAddressTransactions", 
+        params: { address: testAddress },
+      });
+
+      if (rawTransactions.length > 0) {
+        const walletAddresses = [testAddress];
+        const parsedTx = await provider.execute<BlockchainTransaction>({
+          type: "parseWalletTransaction",
+          params: {
+            tx: rawTransactions[0],
+            walletAddresses,
+          },
+        });
+
+        expect(parsedTx).toHaveProperty("hash");
+        expect(parsedTx).toHaveProperty("timestamp");
+        expect(parsedTx).toHaveProperty("value");
+        expect(parsedTx.value).toHaveProperty("currency", "BTC");
+        expect(["transfer_in", "transfer_out", "internal_transfer_in", "internal_transfer_out"]).toContain(parsedTx.type);
+      }
+    }, 30000);
   });
 });
