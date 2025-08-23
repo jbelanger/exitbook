@@ -6,7 +6,11 @@ import { createMoney, maskAddress } from "@crypto/shared-utils";
 import { BaseRegistryProvider } from "../../shared/registry/base-registry-provider.ts";
 import { RegisterProvider } from "../../shared/registry/decorators.ts";
 import type { ProviderOperation } from "../../shared/types.ts";
-import { hasAddressParam } from "../../shared/types.ts";
+import { 
+  hasAddressParam,
+  isAddressTransactionOperation,
+  isAddressBalanceOperation
+} from "../../shared/types.ts";
 import type { SolscanResponse, SolscanTransaction } from "../types.ts";
 import { isValidSolanaAddress, lamportsToSol } from "../utils.ts";
 
@@ -111,13 +115,15 @@ export class SolscanProvider extends BaseRegistryProvider {
     try {
       switch (operation.type) {
         case "getAddressTransactions":
-          return this.getAddressTransactions(
-            operation.params as { address: string; since?: number },
-          ) as T;
+          if (isAddressTransactionOperation(operation)) {
+            return this.getAddressTransactions(operation.params) as T;
+          }
+          throw new Error(`Invalid params for getAddressTransactions operation`);
         case "getAddressBalance":
-          return this.getAddressBalance(
-            operation.params as { address: string },
-          ) as T;
+          if (isAddressBalanceOperation(operation)) {
+            return this.getAddressBalance(operation.params) as T;
+          }
+          throw new Error(`Invalid params for getAddressBalance operation`);
         default:
           throw new Error(`Unsupported operation: ${operation.type}`);
       }
