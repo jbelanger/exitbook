@@ -9,18 +9,14 @@ import { HttpClient, createMoney } from "@crypto/shared-utils";
 import { Decimal } from "decimal.js";
 import {
   IBlockchainProvider,
+  JsonRpcResponse,
   ProviderCapabilities,
   ProviderOperation,
-} from "../../shared/types.ts";
-import {
-  JsonRpcResponse,
 } from "../../shared/types.ts";
 import type {
   AlchemyAssetTransfer,
   AlchemyAssetTransferParams,
   AlchemyAssetTransfersResponse,
-  AlchemyTokenBalance,
-  AlchemyTokenBalanceParams,
   AlchemyTokenBalancesResponse,
   AlchemyTokenMetadata,
 } from "../types.ts";
@@ -294,14 +290,6 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
     contractAddresses?: string[],
   ): Promise<Balance[]> {
     try {
-      const params: AlchemyTokenBalanceParams = {
-        address,
-        tokenType: "erc20",
-      };
-
-      if (contractAddresses) {
-        params.contractAddresses = contractAddresses;
-      }
 
       const response = await this.httpClient.post<
         JsonRpcResponse<AlchemyTokenBalancesResponse>
