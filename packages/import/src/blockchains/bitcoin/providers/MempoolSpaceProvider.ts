@@ -10,7 +10,8 @@ import {
   isAddressTransactionOperation,
   isAddressBalanceOperation,
   isAddressInfoOperation,
-  isParseWalletTransactionOperation
+  isParseWalletTransactionOperation,
+  ParseWalletTransactionParams
 } from "../../shared/types.ts";
 import type {
   AddressInfo,
