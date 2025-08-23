@@ -63,7 +63,9 @@ describe("CoinbaseAdapter", () => {
       getRateLimitStatus: vi.fn(),
     };
 
-    (CoinbaseAPIClient as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => mockApiClient);
+    // Mock the CoinbaseAPIClient constructor
+    const MockedCoinbaseAPIClient = CoinbaseAPIClient as unknown as ReturnType<typeof vi.fn>;
+    MockedCoinbaseAPIClient.mockImplementation(() => mockApiClient);
 
     adapter = new CoinbaseAdapter(config, credentials);
   });

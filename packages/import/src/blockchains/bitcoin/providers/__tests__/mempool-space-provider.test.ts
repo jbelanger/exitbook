@@ -415,7 +415,7 @@ describe("MempoolSpaceProvider", () => {
         blob: vi.fn(),
         formData: vi.fn(),
         json: vi.fn(),
-      } as unknown as Response);
+      }) satisfies Partial<Response> as Response;
 
       // Second call succeeds
       mockFetch.mockResolvedValueOnce({
