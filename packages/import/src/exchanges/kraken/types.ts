@@ -1,6 +1,6 @@
 /**
  * Type definitions for Kraken CSV data formats
- * 
+ *
  * These types define the structure of CSV exports from Kraken exchange
  * ledger data.
  */

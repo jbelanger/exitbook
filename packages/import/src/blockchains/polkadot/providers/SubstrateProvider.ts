@@ -18,11 +18,11 @@ import type {
 } from "../types.ts";
 import { SUBSTRATE_CHAINS } from "../types.ts";
 
-import { 
+import {
   ProviderOperation,
   isAddressTransactionOperation,
   isAddressBalanceOperation,
-  hasAddressParam
+  hasAddressParam,
 } from "../../shared/types.ts";
 import { isValidSS58Address } from "../utils.ts";
 
@@ -170,7 +170,9 @@ export class SubstrateProvider extends BaseRegistryProvider {
           if (isAddressTransactionOperation(operation)) {
             return this.getAddressTransactions(operation.params) as T;
           }
-          throw new Error(`Invalid params for getAddressTransactions operation`);
+          throw new Error(
+            `Invalid params for getAddressTransactions operation`,
+          );
         case "getAddressBalance":
           if (isAddressBalanceOperation(operation)) {
             return this.getAddressBalance(operation.params) as T;
@@ -285,7 +287,10 @@ export class SubstrateProvider extends BaseRegistryProvider {
   private async testExplorerApi(): Promise<boolean> {
     try {
       // Use Subscan's metadata endpoint for health check - it's available on all Subscan APIs
-      const response = await this.httpClient.post<{code?: number}>("/api/scan/metadata", {});
+      const response = await this.httpClient.post<{ code?: number }>(
+        "/api/scan/metadata",
+        {},
+      );
       return response && response.code === 0;
     } catch (error) {
       this.logger.debug(
@@ -299,11 +304,13 @@ export class SubstrateProvider extends BaseRegistryProvider {
     if (!this.rpcClient) return false;
 
     try {
-      const response = await this.rpcClient.post<JsonRpcResponse<{
-        ss58Format?: number;
-        tokenDecimals?: number[];
-        tokenSymbol?: string[];
-      }>>("", {
+      const response = await this.rpcClient.post<
+        JsonRpcResponse<{
+          ss58Format?: number;
+          tokenDecimals?: number[];
+          tokenSymbol?: string[];
+        }>
+      >("", {
         id: 1,
         jsonrpc: "2.0",
         method: "system_properties",
@@ -348,20 +355,20 @@ export class SubstrateProvider extends BaseRegistryProvider {
           `Calling Subscan API for ${this.network} transactions - Address: ${maskAddress(address)}`,
         );
 
-        const response = await this.httpClient.post<SubscanTransfersResponse>("/api/v2/scan/transfers", {
-          address: address,
-          page: 0,
-          row: 100,
-        });
+        const response = await this.httpClient.post<SubscanTransfersResponse>(
+          "/api/v2/scan/transfers",
+          {
+            address: address,
+            page: 0,
+            row: 100,
+          },
+        );
 
         this.logger.debug(
           `Subscan API response received - HasResponse: ${!!response}, Code: ${response.code}, HasData: ${!!response.data}, TransferCount: ${response.data?.transfers?.length || 0}`,
         );
 
-        if (
-          response.code === 0 &&
-          response.data?.transfers
-        ) {
+        if (response.code === 0 && response.data?.transfers) {
           for (const transfer of response.data.transfers) {
             this.logger.debug(
               `Processing transfer - From: ${transfer.from}, To: ${transfer.to}, UserAddress: ${maskAddress(address)}, Amount: ${transfer.amount}`,
@@ -408,7 +415,9 @@ export class SubstrateProvider extends BaseRegistryProvider {
     if (!this.rpcClient) return null;
 
     try {
-      const response = await this.rpcClient.post<JsonRpcResponse<SubstrateAccountInfo>>("", {
+      const response = await this.rpcClient.post<
+        JsonRpcResponse<SubstrateAccountInfo>
+      >("", {
         id: 1,
         jsonrpc: "2.0",
         method: "system_account",
@@ -464,9 +473,12 @@ export class SubstrateProvider extends BaseRegistryProvider {
         }
       } else {
         // Subscan balance endpoint
-        const response = await this.httpClient.post<SubscanAccountResponse>("/api/scan/account", {
-          key: address,
-        });
+        const response = await this.httpClient.post<SubscanAccountResponse>(
+          "/api/scan/account",
+          {
+            key: address,
+          },
+        );
 
         if (response.code === 0 && response.data) {
           const freeBalance = new Decimal(response.data.balance || "0");
@@ -593,11 +605,11 @@ export class SubstrateProvider extends BaseRegistryProvider {
   private updateChainConfig(chainConfig: SubstrateChainConfig): void {
     // We need to update the private chainConfig property
     // Since it's a class field, we can assign it directly if we declare it properly
-    Object.defineProperty(this, 'chainConfig', {
+    Object.defineProperty(this, "chainConfig", {
       value: chainConfig,
       writable: true,
       enumerable: false,
-      configurable: true
+      configurable: true,
     });
   }
 
@@ -606,27 +618,27 @@ export class SubstrateProvider extends BaseRegistryProvider {
    */
   private reinitializeForChain(chain: string, baseUrl: string): void {
     // Update network property
-    Object.defineProperty(this, 'network', {
+    Object.defineProperty(this, "network", {
       value: chain,
       writable: true,
       enumerable: false,
-      configurable: true
+      configurable: true,
     });
 
     // Update baseUrl property
-    Object.defineProperty(this, 'baseUrl', {
+    Object.defineProperty(this, "baseUrl", {
       value: baseUrl,
       writable: true,
       enumerable: false,
-      configurable: true
+      configurable: true,
     });
 
     // Reinitialize HTTP client with new base URL
-    Object.defineProperty(this, 'httpClient', {
+    Object.defineProperty(this, "httpClient", {
       value: this.initializeHttpClient(baseUrl),
       writable: true,
       enumerable: false,
-      configurable: true
+      configurable: true,
     });
   }
 }

@@ -21,7 +21,6 @@ const EXPECTED_HEADERS = {
     '"txid","refid","time","type","subtype","aclass","asset","wallet","amount","fee","balance"',
 };
 
-
 export class KrakenCSVAdapter extends BaseAdapter {
   private cachedTransactions: CsvKrakenLedgerRow[] | null = null;
 
@@ -216,7 +215,9 @@ export class KrakenCSVAdapter extends BaseAdapter {
   /**
    * Process the loaded ledger rows into universal transactions
    */
-  private processLedgerRows(rows: CsvKrakenLedgerRow[]): UniversalTransaction[] {
+  private processLedgerRows(
+    rows: CsvKrakenLedgerRow[],
+  ): UniversalTransaction[] {
     return this.parseLedgers(rows);
   }
 
