@@ -5,7 +5,7 @@ import { Decimal } from 'decimal.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import sqlite3Module from 'sqlite3';
-import { CreateWalletAddressRequest, StoredTransaction, UpdateWalletAddressRequest, WalletAddress, WalletAddressQuery } from '../types/data-types.ts';
+import type { CreateWalletAddressRequest, StoredTransaction, UpdateWalletAddressRequest, WalletAddress, WalletAddressQuery } from '../types/data-types.ts';
 import type { DatabaseStats, SQLParam, StatRow, TransactionCountRow } from '../types/database-types.js';
 
 const sqlite3 = sqlite3Module;

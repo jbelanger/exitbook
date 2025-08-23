@@ -64,7 +64,7 @@ export class SnowtraceProvider extends BaseRegistryProvider {
       }
 
       const response = await this.httpClient.get(`?${params.toString()}`);
-      return response && response.status === '1';
+      return !!(response && (response as SnowtraceApiResponse<unknown>).status === '1');
     } catch (error) {
       this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
       return false;
@@ -85,7 +85,7 @@ export class SnowtraceProvider extends BaseRegistryProvider {
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${operation.params?.address ? maskAddress(operation.params.address) : 'N/A'}`);
+    this.logger.debug(`Executing operation - Type: ${operation.type}, Address: ${'address' in operation.params && typeof operation.params.address === 'string' ? maskAddress(operation.params.address) : 'N/A'}`);
 
     try {
       switch (operation.type) {

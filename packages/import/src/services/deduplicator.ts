@@ -1,4 +1,4 @@
-import { UniversalTransaction } from '@crypto/core';
+import type { UniversalTransaction } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
 import { moneyToNumber } from '@crypto/shared-utils';
 import { createHash } from 'crypto';
@@ -87,8 +87,7 @@ export class Deduplicator {
       total,
       unique: result.unique.length,
       duplicates: result.duplicates.length,
-      duplicateRate: total > 0 ? (result.duplicates.length / total) * 100 : 0,
-      efficiency: total > 0 ? (result.unique.length / total) * 100 : 0
+      duplicateRate: total > 0 ? (result.duplicates.length / total) * 100 : 0
     };
   }
 

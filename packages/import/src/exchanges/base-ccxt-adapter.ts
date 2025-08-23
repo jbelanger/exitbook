@@ -155,13 +155,13 @@ export abstract class BaseCCXTAdapter extends BaseAdapter {
       fee: tx.fee,
       price: tx.price,
       side: tx.side, // Include the side field directly
-      from: tx.info?.from,
-      to: tx.info?.to,
+      from: tx.info && typeof tx.info === 'object' && 'from' in tx.info && typeof tx.info.from === 'string' ? tx.info.from : undefined,
+      to: tx.info && typeof tx.info === 'object' && 'to' in tx.info && typeof tx.info.to === 'string' ? tx.info.to : undefined,
       symbol: tx.symbol,
       source: this.exchangeId,
       network: 'exchange',
       metadata: {
-        ...tx.info,
+        ...(tx.info && typeof tx.info === 'object' ? tx.info : {}),
         originalTransactionType: tx.type
       }
     }));
@@ -212,7 +212,7 @@ export abstract class BaseCCXTAdapter extends BaseAdapter {
       }
 
       const trades = await this.exchange.fetchMyTrades(undefined, since);
-      return this.transformCCXTTransactions(trades, 'trade');
+      return this.transformCCXTTransactions(trades as CCXTTransaction[], 'trade');
     } catch (error) {
       this.handleError(error, 'fetchTrades');
       throw error;
@@ -227,7 +227,7 @@ export abstract class BaseCCXTAdapter extends BaseAdapter {
       }
 
       const deposits = await this.exchange.fetchDeposits(undefined, since);
-      return this.transformCCXTTransactions(deposits, 'deposit');
+      return this.transformCCXTTransactions(deposits as CCXTTransaction[], 'deposit');
     } catch (error) {
       this.handleError(error, 'fetchDeposits');
       throw error;
@@ -242,7 +242,7 @@ export abstract class BaseCCXTAdapter extends BaseAdapter {
       }
 
       const withdrawals = await this.exchange.fetchWithdrawals(undefined, since);
-      return this.transformCCXTTransactions(withdrawals, 'withdrawal');
+      return this.transformCCXTTransactions(withdrawals as CCXTTransaction[], 'withdrawal');
     } catch (error) {
       this.handleError(error, 'fetchWithdrawals');
       throw error;
@@ -257,7 +257,7 @@ export abstract class BaseCCXTAdapter extends BaseAdapter {
       }
 
       const orders = await this.exchange.fetchClosedOrders(undefined, since);
-      return this.transformCCXTTransactions(orders, 'order');
+      return this.transformCCXTTransactions(orders as CCXTTransaction[], 'order');
     } catch (error) {
       this.handleError(error, 'fetchClosedOrders');
       throw error;
@@ -272,7 +272,7 @@ export abstract class BaseCCXTAdapter extends BaseAdapter {
       }
 
       const ledgerEntries = await this.exchange.fetchLedger(undefined, since);
-      return this.transformCCXTTransactions(ledgerEntries, 'ledger');
+      return this.transformCCXTTransactions(ledgerEntries as CCXTTransaction[], 'ledger');
     } catch (error) {
       this.handleError(error, 'fetchLedger');
       throw error;
