@@ -121,7 +121,10 @@ export class BlockstreamProvider extends BaseRegistryProvider {
           throw new Error(`Invalid params for getAddressInfo operation`);
         case "parseWalletTransaction":
           if (isParseWalletTransactionOperation(operation)) {
-            return this.parseWalletTransaction(operation.params) as T;
+            return this.parseWalletTransaction({
+              tx: operation.params.tx as BlockstreamTransaction,
+              walletAddresses: operation.params.walletAddresses
+            }) as T;
           }
           throw new Error(`Invalid params for parseWalletTransaction operation`);
         default:
