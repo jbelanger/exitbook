@@ -12,13 +12,13 @@ import {
   ProviderCapabilities,
   ProviderOperation,
 } from "../../shared/types.ts";
-import { 
-  hasAddressParam, 
+import {
+  hasAddressParam,
   JsonRpcResponse,
   isAddressTransactionOperation,
   isAddressBalanceOperation,
   isTokenTransactionOperation,
-  isTokenBalanceOperation
+  isTokenBalanceOperation,
 } from "../../shared/types.ts";
 import type {
   AlchemyAssetTransfer,
@@ -39,7 +39,6 @@ export interface AlchemyConfig {
   timeout?: number;
   retries?: number;
 }
-
 
 export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
   readonly name = "alchemy";
@@ -208,7 +207,9 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
   private async getAddressBalance(address: string): Promise<Balance[]> {
     try {
       // Get ETH balance
-      const ethBalanceResponse = await this.httpClient.post<JsonRpcResponse<string>>("", {
+      const ethBalanceResponse = await this.httpClient.post<
+        JsonRpcResponse<string>
+      >("", {
         jsonrpc: "2.0",
         method: "eth_getBalance",
         params: [address, "latest"],
@@ -283,7 +284,9 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
     }
 
     // Get transfers from address
-    const fromResponse = await this.httpClient.post<JsonRpcResponse<AlchemyAssetTransfersResponse>>("", {
+    const fromResponse = await this.httpClient.post<
+      JsonRpcResponse<AlchemyAssetTransfersResponse>
+    >("", {
       jsonrpc: "2.0",
       method: "alchemy_getAssetTransfers",
       params: [params],
@@ -294,7 +297,9 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
     const toParams = { ...params };
     delete toParams.fromAddress;
     toParams.toAddress = address;
-    const toResponse = await this.httpClient.post<JsonRpcResponse<AlchemyAssetTransfersResponse>>("", {
+    const toResponse = await this.httpClient.post<
+      JsonRpcResponse<AlchemyAssetTransfersResponse>
+    >("", {
       jsonrpc: "2.0",
       method: "alchemy_getAssetTransfers",
       params: [toParams],
@@ -331,7 +336,9 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
         params.contractAddresses = contractAddresses;
       }
 
-      const response = await this.httpClient.post<JsonRpcResponse<AlchemyTokenBalancesResponse>>("", {
+      const response = await this.httpClient.post<
+        JsonRpcResponse<AlchemyTokenBalancesResponse>
+      >("", {
         jsonrpc: "2.0",
         method: "alchemy_getTokenBalances",
         params: [address, contractAddresses || "DEFAULT_TOKENS"],

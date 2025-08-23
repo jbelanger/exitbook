@@ -5,15 +5,18 @@ import { createMoney, maskAddress } from "@crypto/shared-utils";
 import { BaseRegistryProvider } from "../../shared/registry/base-registry-provider.ts";
 import { RegisterProvider } from "../../shared/registry/decorators.ts";
 import type { ProviderOperation } from "../../shared/types.ts";
-import { 
+import {
   hasAddressParam,
   isAddressTransactionOperation,
   isAddressBalanceOperation,
   isAddressInfoOperation,
-  isParseWalletTransactionOperation
+  isParseWalletTransactionOperation,
 } from "../../shared/types.ts";
-import type { AddressInfo, BlockstreamAddressInfo, BlockstreamTransaction } from "../types.ts";
-
+import type {
+  AddressInfo,
+  BlockstreamAddressInfo,
+  BlockstreamTransaction,
+} from "../types.ts";
 
 @RegisterProvider({
   name: "blockstream.info",
@@ -104,9 +107,9 @@ export class BlockstreamProvider extends BaseRegistryProvider {
         case "getAddressTransactions":
         case "getRawAddressTransactions":
           if (isAddressTransactionOperation(operation)) {
-            return operation.type === "getAddressTransactions" 
-              ? this.getAddressTransactions(operation.params) as T
-              : this.getRawAddressTransactions(operation.params) as T;
+            return operation.type === "getAddressTransactions"
+              ? (this.getAddressTransactions(operation.params) as T)
+              : (this.getRawAddressTransactions(operation.params) as T);
           }
           throw new Error(`Invalid params for ${operation.type} operation`);
         case "getAddressBalance":
@@ -123,10 +126,12 @@ export class BlockstreamProvider extends BaseRegistryProvider {
           if (isParseWalletTransactionOperation(operation)) {
             return this.parseWalletTransaction({
               tx: operation.params.tx as BlockstreamTransaction,
-              walletAddresses: operation.params.walletAddresses
+              walletAddresses: operation.params.walletAddresses,
             }) as T;
           }
-          throw new Error(`Invalid params for parseWalletTransaction operation`);
+          throw new Error(
+            `Invalid params for parseWalletTransaction operation`,
+          );
         default:
           throw new Error(`Unsupported operation: ${operation.type}`);
       }

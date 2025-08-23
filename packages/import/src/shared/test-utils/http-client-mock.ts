@@ -2,19 +2,19 @@ import { vi } from "vitest";
 
 /**
  * Reusable HttpClient mock for testing
- * 
+ *
  * Usage:
  * ```typescript
  * import { createHttpClientMock } from "../../shared/test-utils/http-client-mock";
- * 
+ *
  * const mocks = createHttpClientMock();
- * 
+ *
  * // In vi.mock:
  * vi.mock("@crypto/shared-utils", () => ({
  *   HttpClient: mocks.MockHttpClient,
  *   RateLimiterFactory: mocks.MockRateLimiterFactory,
  * }));
- * 
+ *
  * // In beforeEach:
  * mocks.injectIntoInstance(client);
  * ```
@@ -48,15 +48,15 @@ export function createHttpClientMock() {
     MockHttpClient,
     MockRateLimiterFactory,
     MockLogger,
-    
+
     /**
      * Inject the mock HttpClient into a class instance that has a private httpClient property
      */
     injectIntoInstance(instance: object): void {
-      Object.defineProperty(instance, 'httpClient', {
+      Object.defineProperty(instance, "httpClient", {
         value: mockHttpClient,
         writable: true,
-        configurable: true
+        configurable: true,
       });
     },
 
@@ -80,17 +80,17 @@ export function createHttpClientMock() {
           getLogger: MockLogger,
         },
       };
-    }
+    },
   };
 }
 
 /**
  * Convenience function to create hoisted mocks for vi.mock
- * 
+ *
  * Usage:
  * ```typescript
  * const mocks = vi.hoisted(() => createHttpClientMock());
- * 
+ *
  * vi.mock("@crypto/shared-utils", () => mocks.getModuleMocks()["@crypto/shared-utils"]);
  * vi.mock("@crypto/shared-logger", () => mocks.getModuleMocks()["@crypto/shared-logger"]);
  * ```

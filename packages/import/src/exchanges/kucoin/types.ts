@@ -1,6 +1,6 @@
 /**
  * Type definitions for KuCoin CSV data formats
- * 
+ *
  * These types define the structure of CSV exports from KuCoin exchange
  * including spot orders, deposits/withdrawals, and account history.
  */

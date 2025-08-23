@@ -244,11 +244,11 @@ export abstract class BaseCCXTAdapter extends BaseAdapter {
       }
 
       const info = balanceInfo as CcxtBalanceInfo;
-      if (isObject(info) && hasProperty(info, 'total')) {
-        const total = typeof info.total === 'number' ? info.total : 0;
-        const free = typeof info.free === 'number' ? info.free : 0;
-        const used = typeof info.used === 'number' ? info.used : 0;
-        
+      if (isObject(info) && hasProperty(info, "total")) {
+        const total = typeof info.total === "number" ? info.total : 0;
+        const free = typeof info.free === "number" ? info.free : 0;
+        const used = typeof info.used === "number" ? info.used : 0;
+
         balances.push({
           currency,
           total,

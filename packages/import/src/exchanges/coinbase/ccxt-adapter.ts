@@ -9,10 +9,18 @@ import type {
 import * as ccxt from "ccxt"; // Import all as ccxt to get access to types like ccxt.Account
 import type { Exchange } from "ccxt";
 import { Decimal } from "decimal.js";
-import { getCcxtNestedInfo, getStringProperty, hasProperty } from "@crypto/shared-utils";
+import {
+  getCcxtNestedInfo,
+  getStringProperty,
+  hasProperty,
+} from "@crypto/shared-utils";
 import { BaseCCXTAdapter } from "../base-ccxt-adapter.ts";
 import type { CCXTTransaction } from "../../shared/utils/transaction-transformer.ts";
-import type { CcxtCoinbaseAccount, CcxtCoinbaseAdapterOptions, CoinbaseCredentials } from "./types.ts";
+import type {
+  CcxtCoinbaseAccount,
+  CcxtCoinbaseAdapterOptions,
+  CoinbaseCredentials,
+} from "./types.ts";
 
 /**
  * Specialized Coinbase adapter that uses fetchLedger for comprehensive transaction data
@@ -104,7 +112,11 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
       enableRateLimit?: boolean;
       rateLimit?: number;
     }
-    const exchange = new (ccxt as { coinbaseadvanced: new (config: CoinbaseAdvancedConfig) => Exchange }).coinbaseadvanced({
+    const exchange = new (
+      ccxt as {
+        coinbaseadvanced: new (config: CoinbaseAdvancedConfig) => Exchange;
+      }
+    ).coinbaseadvanced({
       apiKey: credentials.apiKey,
       secret: credentials.secret,
       password: credentials.passphrase, // Coinbase uses password field for passphrase
@@ -402,33 +414,33 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
     if (!nestedInfo) return null;
 
     // Extract group IDs from different transaction types
-    if (hasProperty(nestedInfo, 'buy')) {
+    if (hasProperty(nestedInfo, "buy")) {
       const buyInfo = nestedInfo.buy;
-      const buyId = getStringProperty(buyInfo, 'id');
+      const buyId = getStringProperty(buyInfo, "id");
       if (buyId) return buyId;
     }
-    
-    if (hasProperty(nestedInfo, 'trade')) {
+
+    if (hasProperty(nestedInfo, "trade")) {
       const tradeInfo = nestedInfo.trade;
-      const tradeId = getStringProperty(tradeInfo, 'id');
+      const tradeId = getStringProperty(tradeInfo, "id");
       if (tradeId) return tradeId;
     }
-    
-    if (hasProperty(nestedInfo, 'sell')) {
+
+    if (hasProperty(nestedInfo, "sell")) {
       const sellInfo = nestedInfo.sell;
-      const sellId = getStringProperty(sellInfo, 'id');
+      const sellId = getStringProperty(sellInfo, "id");
       if (sellId) return sellId;
     }
 
     // For advanced trade fills, check the nested structure
-    if (hasProperty(nestedInfo, 'advanced_trade_fill')) {
+    if (hasProperty(nestedInfo, "advanced_trade_fill")) {
       const advancedTradeFill = nestedInfo.advanced_trade_fill;
-      const orderId = getStringProperty(advancedTradeFill, 'order_id');
+      const orderId = getStringProperty(advancedTradeFill, "order_id");
       if (orderId) return orderId;
     }
 
     // For other possible locations
-    return getStringProperty(nestedInfo, 'order_id') || null;
+    return getStringProperty(nestedInfo, "order_id") || null;
   }
 
   /**
@@ -515,8 +527,11 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
       if (!symbol || symbol === "unknown") {
         const firstInEntry = inEntries[0];
         const firstOutEntry = outEntries[0];
-        const baseCurrency = getStringProperty(firstInEntry?.info, 'currency');
-        const quoteCurrency = getStringProperty(firstOutEntry?.info, 'currency');
+        const baseCurrency = getStringProperty(firstInEntry?.info, "currency");
+        const quoteCurrency = getStringProperty(
+          firstOutEntry?.info,
+          "currency",
+        );
         if (baseCurrency && quoteCurrency) {
           symbol = `${baseCurrency}-${quoteCurrency}`;
         }
@@ -524,10 +539,13 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
 
       // Extract side from advanced_trade_fill data
       const nestedBaseInfo = getCcxtNestedInfo(baseEntry?.info);
-      const advancedTradeInfo = nestedBaseInfo && hasProperty(nestedBaseInfo, 'advanced_trade_fill') 
-        ? nestedBaseInfo.advanced_trade_fill
-        : null;
-      const side = (advancedTradeInfo && getStringProperty(advancedTradeInfo, 'order_side')) ||
+      const advancedTradeInfo =
+        nestedBaseInfo && hasProperty(nestedBaseInfo, "advanced_trade_fill")
+          ? nestedBaseInfo.advanced_trade_fill
+          : null;
+      const side =
+        (advancedTradeInfo &&
+          getStringProperty(advancedTradeInfo, "order_side")) ||
         this.extractSideFromInfo(baseEntry?.info);
 
       // COINBASE DIRECTION SEMANTICS (this is the confusing part):
@@ -547,8 +565,10 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
         // Buy: receiving base currency (in), spending quote currency (out)
         const firstInEntry = inEntries[0];
         const firstOutEntry = outEntries[0];
-        baseCurrency = getStringProperty(firstInEntry?.info, 'currency') || "unknown";
-        quoteCurrency = getStringProperty(firstOutEntry?.info, 'currency') || "unknown";
+        baseCurrency =
+          getStringProperty(firstInEntry?.info, "currency") || "unknown";
+        quoteCurrency =
+          getStringProperty(firstOutEntry?.info, "currency") || "unknown";
 
         totalBaseAmount = inEntries.reduce((sum, entry) => {
           const amount =
@@ -569,8 +589,10 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
         // Sell: sending base currency (out), receiving quote currency (in)
         const firstOutEntry = outEntries[0];
         const firstInEntry = inEntries[0];
-        baseCurrency = getStringProperty(firstOutEntry?.info, 'currency') || "unknown";
-        quoteCurrency = getStringProperty(firstInEntry?.info, 'currency') || "unknown";
+        baseCurrency =
+          getStringProperty(firstOutEntry?.info, "currency") || "unknown";
+        quoteCurrency =
+          getStringProperty(firstInEntry?.info, "currency") || "unknown";
 
         totalBaseAmount = outEntries.reduce((sum, entry) => {
           const amount =
@@ -608,13 +630,15 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
         const nestedInfo = getCcxtNestedInfo(entry.info);
         if (nestedInfo) {
           // Check buy fee
-          const buyInfo = hasProperty(nestedInfo, 'buy') ? nestedInfo.buy : null;
-          if (buyInfo && hasProperty(buyInfo, 'fee')) {
+          const buyInfo = hasProperty(nestedInfo, "buy")
+            ? nestedInfo.buy
+            : null;
+          if (buyInfo && hasProperty(buyInfo, "fee")) {
             const buyFee = buyInfo.fee;
-            const feeAmount = getStringProperty(buyFee, 'amount');
+            const feeAmount = getStringProperty(buyFee, "amount");
             if (feeAmount) {
-              const orderId = getStringProperty(buyInfo, 'id') || "unknown";
-              const feeCurrency = getStringProperty(buyFee, 'currency');
+              const orderId = getStringProperty(buyInfo, "id") || "unknown";
+              const feeCurrency = getStringProperty(buyFee, "currency");
               const feeKey = `buy_${orderId}_${feeAmount}_${feeCurrency}`;
               if (!seenFees.has(feeKey)) {
                 seenFees.add(feeKey);
@@ -622,15 +646,17 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
               }
             }
           }
-          
+
           // Check sell fee
-          const sellInfo = hasProperty(nestedInfo, 'sell') ? nestedInfo.sell : null;
-          if (sellInfo && hasProperty(sellInfo, 'fee')) {
+          const sellInfo = hasProperty(nestedInfo, "sell")
+            ? nestedInfo.sell
+            : null;
+          if (sellInfo && hasProperty(sellInfo, "fee")) {
             const sellFee = sellInfo.fee;
-            const feeAmount = getStringProperty(sellFee, 'amount');
+            const feeAmount = getStringProperty(sellFee, "amount");
             if (feeAmount) {
-              const orderId = getStringProperty(sellInfo, 'id') || "unknown";
-              const feeCurrency = getStringProperty(sellFee, 'currency');
+              const orderId = getStringProperty(sellInfo, "id") || "unknown";
+              const feeCurrency = getStringProperty(sellFee, "currency");
               const feeKey = `sell_${orderId}_${feeAmount}_${feeCurrency}`;
               if (!seenFees.has(feeKey)) {
                 seenFees.add(feeKey);
@@ -653,17 +679,23 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
         for (const entry of entries) {
           const nestedInfo = getCcxtNestedInfo(entry.info);
           if (nestedInfo) {
-            const buyFee = hasProperty(nestedInfo, 'buy') && hasProperty(nestedInfo.buy, 'fee')
-              ? nestedInfo.buy.fee : null;
-            if (buyFee && hasProperty(buyFee, 'currency')) {
-              feeCurrency = getStringProperty(buyFee, 'currency');
+            const buyFee =
+              hasProperty(nestedInfo, "buy") &&
+              hasProperty(nestedInfo.buy, "fee")
+                ? nestedInfo.buy.fee
+                : null;
+            if (buyFee && hasProperty(buyFee, "currency")) {
+              feeCurrency = getStringProperty(buyFee, "currency");
               break;
             }
-            
-            const sellFee = hasProperty(nestedInfo, 'sell') && hasProperty(nestedInfo.sell, 'fee')
-              ? nestedInfo.sell.fee : null;
-            if (sellFee && hasProperty(sellFee, 'currency')) {
-              feeCurrency = getStringProperty(sellFee, 'currency');
+
+            const sellFee =
+              hasProperty(nestedInfo, "sell") &&
+              hasProperty(nestedInfo.sell, "fee")
+                ? nestedInfo.sell.fee
+                : null;
+            if (sellFee && hasProperty(sellFee, "currency")) {
+              feeCurrency = getStringProperty(sellFee, "currency");
               break;
             }
           }
@@ -742,7 +774,7 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
       info: {
         ...info,
         convertedBy: "CoinbaseCCXTAdapter",
-        originalType: getStringProperty(info, 'type'),
+        originalType: getStringProperty(info, "type"),
       },
     };
 
@@ -756,7 +788,7 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
     const info = transaction.info;
     if (!info || typeof info !== "object" || info === null) return false;
 
-    const type = (getStringProperty(info, 'type') || "").toLowerCase();
+    const type = (getStringProperty(info, "type") || "").toLowerCase();
 
     // Coinbase ledger entries that represent trades
     return (
