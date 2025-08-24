@@ -6,7 +6,7 @@ import {
   type BalanceVerificationResult,
 } from "@crypto/balance";
 import type { IUniversalAdapter, UniversalAdapterInfo } from "@crypto/core";
-import { Database, type StoredTransaction } from "@crypto/data";
+import { Database, BalanceRepository, BalanceService, type StoredTransaction } from "@crypto/data";
 import {
   TransactionImporter,
   UniversalAdapterFactory,
@@ -188,7 +188,9 @@ async function main() {
         // Run verification if requested
         if (options.verify) {
           logger.info("Running balance verification");
-          const verifier = new BalanceVerifier(database);
+          const balanceRepository = new BalanceRepository(database);
+          const balanceService = new BalanceService(balanceRepository);
+          const verifier = new BalanceVerifier(balanceService);
           let balanceServices: (
             | BlockchainBalanceService
             | ExchangeBalanceService
@@ -278,7 +280,9 @@ async function main() {
         // Initialize database
         const database = await initializeDatabase(options.clearDb);
 
-        const verifier = new BalanceVerifier(database);
+        const balanceRepository = new BalanceRepository(database);
+        const balanceService = new BalanceService(balanceRepository);
+        const verifier = new BalanceVerifier(balanceService);
         const importer = new TransactionImporter(database, explorerConfig);
 
         // Validate blockchain + addresses combination

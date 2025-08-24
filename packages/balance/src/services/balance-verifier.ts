@@ -1,4 +1,3 @@
-import type { Database } from "@crypto/data";
 import { BalanceRepository, BalanceService } from "@crypto/data";
 import { getLogger } from "@crypto/shared-logger";
 import type {
@@ -10,13 +9,10 @@ import type { IBalanceService } from "./balance-service.js";
 
 export class BalanceVerifier {
   private logger = getLogger("BalanceVerifier");
-  private database: Database;
   private balanceService: BalanceService;
 
-  constructor(database: Database) {
-    this.database = database;
-    const balanceRepository = new BalanceRepository(database);
-    this.balanceService = new BalanceService(balanceRepository);
+  constructor(balanceService: BalanceService) {
+    this.balanceService = balanceService;
   }
 
   async verifyAllServices(
@@ -335,7 +331,7 @@ export class BalanceVerifier {
     maxAgeHours: number = 24,
   ): Promise<boolean> {
     const latestVerifications =
-      await this.database.getLatestBalanceVerifications(exchangeId);
+      await this.balanceService.getLatestVerifications(exchangeId);
 
     if (latestVerifications.length === 0) {
       return true; // Never verified
