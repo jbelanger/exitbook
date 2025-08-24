@@ -4,7 +4,9 @@ import { type ProviderFactory, type ProviderMetadata, ProviderRegistry } from '.
 /**
  * Decorator to register a provider class with the registry
  */
-export function RegisterProvider(metadata: ProviderMetadata) {
+export function RegisterProvider(
+  metadata: ProviderMetadata
+): <T extends new (...args: unknown[]) => IBlockchainProvider>(constructor: T) => T {
   return function <T extends new (...args: unknown[]) => IBlockchainProvider>(constructor: T): T {
     // Create factory that instantiates the provider class
     const factory: ProviderFactory = {

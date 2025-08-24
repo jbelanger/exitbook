@@ -1,5 +1,30 @@
 import { vi } from 'vitest';
 
+interface HttpClientMock {
+  getModuleMocks(): {
+    '@crypto/shared-logger': {
+      getLogger: ReturnType<typeof vi.fn>;
+    };
+    '@crypto/shared-utils': {
+      HttpClient: ReturnType<typeof vi.fn>;
+      RateLimiterFactory: {
+        getOrCreate: ReturnType<typeof vi.fn>;
+      };
+    };
+  };
+  injectIntoInstance(instance: object): void;
+  mockHttpClient: {
+    getRateLimitStatus: ReturnType<typeof vi.fn>;
+    request: ReturnType<typeof vi.fn>;
+  };
+  MockHttpClient: ReturnType<typeof vi.fn>;
+  MockLogger: ReturnType<typeof vi.fn>;
+  MockRateLimiterFactory: {
+    getOrCreate: ReturnType<typeof vi.fn>;
+  };
+  resetAll(): void;
+}
+
 /**
  * Reusable HttpClient mock for testing
  *
@@ -19,7 +44,7 @@ import { vi } from 'vitest';
  * mocks.injectIntoInstance(client);
  * ```
  */
-export function createHttpClientMock() {
+export function createHttpClientMock(): HttpClientMock {
   const mockHttpClient = {
     getRateLimitStatus: vi.fn(() => ({
       remainingRequests: 10,
@@ -95,6 +120,6 @@ export function createHttpClientMock() {
  * vi.mock("@crypto/shared-logger", () => mocks.getModuleMocks()["@crypto/shared-logger"]);
  * ```
  */
-export function createHoistedHttpClientMock() {
+export function createHoistedHttpClientMock(): HttpClientMock {
   return createHttpClientMock();
 }

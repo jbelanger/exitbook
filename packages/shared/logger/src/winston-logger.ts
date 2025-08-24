@@ -74,7 +74,7 @@ dailyRotateFileTransport.on('newListener', event => {
  * is longer than the specified size, it is truncated and prefixed by a
  * horizontal ellipsis (…).
  */
-function formatLabel(label: string, size: number) {
+function formatLabel(label: string, size: number): string {
   const str = label.padStart(size);
   return str.length <= size ? str : `…${str.slice(-size + 1)}`;
 }
