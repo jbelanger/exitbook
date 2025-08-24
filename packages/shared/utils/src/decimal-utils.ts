@@ -18,7 +18,7 @@ Decimal.set({
  */
 export function tryParseDecimal(
   value: string | number | undefined | null,
-  out?: { value: Decimal },
+  out?: { value: Decimal }
 ): boolean {
   if (value === undefined || value === null || value === "") {
     if (out) out.value = new Decimal(0);
@@ -38,7 +38,7 @@ export function tryParseDecimal(
  * Parse a string or number to a Decimal with fallback to zero
  */
 export function parseDecimal(
-  value: string | number | undefined | null,
+  value: string | number | undefined | null
 ): Decimal {
   const result = { value: new Decimal(0) };
   tryParseDecimal(value, result);
@@ -50,7 +50,7 @@ export function parseDecimal(
  */
 export function createMoney(
   amount: string | number | undefined | null,
-  currency: string,
+  currency: string
 ): Money {
   return {
     amount: parseDecimal(amount),
@@ -81,7 +81,7 @@ export function safeDecimalToNumber(
   options?: {
     allowPrecisionLoss?: boolean;
     warningCallback?: (message: string) => void;
-  },
+  }
 ): number {
   const { allowPrecisionLoss = false, warningCallback } = options || {};
 
@@ -123,7 +123,7 @@ export function safeMoneyToNumber(
   options?: {
     allowPrecisionLoss?: boolean;
     warningCallback?: (message: string) => void;
-  },
+  }
 ): number {
   if (typeof money === "number") {
     return money;
@@ -141,7 +141,7 @@ export function safeMoneyToNumber(
  */
 export function formatDecimal(
   decimal: Decimal,
-  maxDecimalPlaces: number = 8,
+  maxDecimalPlaces: number = 8
 ): string {
   return decimal.toFixed(maxDecimalPlaces).replace(/\.?0+$/, "");
 }
@@ -152,7 +152,7 @@ export function formatDecimal(
 export function addMoney(a: Money, b: Money): Money {
   if (a.currency !== b.currency) {
     throw new Error(
-      `Cannot add different currencies: ${a.currency} and ${b.currency}`,
+      `Cannot add different currencies: ${a.currency} and ${b.currency}`
     );
   }
 
@@ -168,7 +168,7 @@ export function addMoney(a: Money, b: Money): Money {
 export function subtractMoney(a: Money, b: Money): Money {
   if (a.currency !== b.currency) {
     throw new Error(
-      `Cannot subtract different currencies: ${a.currency} and ${b.currency}`,
+      `Cannot subtract different currencies: ${a.currency} and ${b.currency}`
     );
   }
 
@@ -183,7 +183,7 @@ export function subtractMoney(a: Money, b: Money): Money {
  */
 export function moneyEquals(
   a: Money | undefined,
-  b: Money | undefined,
+  b: Money | undefined
 ): boolean {
   if (!a && !b) return true;
   if (!a || !b) return false;
@@ -202,7 +202,7 @@ export function isZeroMoney(money: Money | undefined): boolean {
  * Convert Decimal to string for database storage (preserves full precision)
  */
 export function decimalToString(
-  decimal: Decimal | undefined | null,
+  decimal: Decimal | undefined | null
 ): string | null {
   if (!decimal) return null;
   return decimal.toString();
@@ -229,79 +229,11 @@ export function moneyToDbString(money: Money | undefined): string | null {
  */
 export function dbStringToMoney(
   amount: string | null,
-  currency: string | null,
+  currency: string | null
 ): Money | undefined {
   if (!amount || !currency) return undefined;
   return {
     amount: stringToDecimal(amount),
     currency,
-  };
-}
-
-/**
- * Convert PrecisionBlockchainBalance to legacy BlockchainBalance (with precision loss warning)
- */
-export function precisionBalanceToLegacy(
-  balance: import("@crypto/core").PrecisionBlockchainBalance,
-  options?: {
-    allowPrecisionLoss?: boolean;
-    warningCallback?: (message: string) => void;
-  },
-): import("@crypto/core").BlockchainBalance {
-  return {
-    currency: balance.currency,
-    balance: safeDecimalToNumber(balance.balance, options),
-    used: safeDecimalToNumber(balance.used, options),
-    total: safeDecimalToNumber(balance.total, options),
-    contractAddress: balance.contractAddress,
-  };
-}
-
-/**
- * Convert legacy BlockchainBalance to PrecisionBlockchainBalance
- */
-export function legacyBalanceToPrecision(
-  balance: import("@crypto/core").BlockchainBalance,
-): import("@crypto/core").PrecisionBlockchainBalance {
-  return {
-    currency: balance.currency,
-    balance: new Decimal(balance.balance),
-    used: new Decimal(balance.used),
-    total: new Decimal(balance.total),
-    contractAddress: balance.contractAddress,
-  };
-}
-
-/**
- * Convert PrecisionUniversalBalance to legacy UniversalBalance (with precision loss warning)
- */
-export function precisionUniversalBalanceToLegacy(
-  balance: import("@crypto/core").PrecisionUniversalBalance,
-  options?: {
-    allowPrecisionLoss?: boolean;
-    warningCallback?: (message: string) => void;
-  },
-): import("@crypto/core").UniversalBalance {
-  return {
-    currency: balance.currency,
-    total: safeDecimalToNumber(balance.total, options),
-    free: safeDecimalToNumber(balance.free, options),
-    used: safeDecimalToNumber(balance.used, options),
-    contractAddress: balance.contractAddress,
-  };
-}
-
-/**
- * Convert legacy UniversalBalance to PrecisionUniversalBalance
- */
-export function legacyUniversalBalanceToPrecision(
-  balance: import("@crypto/core").UniversalBalance,
-): import("@crypto/core").PrecisionUniversalBalance {
-  return {
-    currency: balance.currency,
-    total: new Decimal(balance.total),
-    free: new Decimal(balance.free),
-    used: new Decimal(balance.used),
-    contractAddress: balance.contractAddress,
   };
 }

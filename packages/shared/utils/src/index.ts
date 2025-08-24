@@ -1,5 +1,4 @@
 // Shared services exports
-// Verification services moved to @crypto/balance package
 
 // Utility exports
 export * from "./address-utils.ts";

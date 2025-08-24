@@ -102,10 +102,6 @@ export interface CLIOptions {
   config?: string;
 }
 
-// Wallet address tracking types moved to @crypto/data package
-
-// Legacy IBlockchainAdapter interface removed - now using IUniversalAdapter
-
 // ===== BLOCKCHAIN-SPECIFIC TYPES =====
 export interface BlockchainInfo {
   id: string;
@@ -234,7 +230,7 @@ export class ServiceError extends Error {
     message: string,
     public service: string, // exchange name or blockchain name
     public operation: string,
-    public originalError?: Error,
+    public originalError?: Error
   ) {
     super(message);
     this.name = "ServiceError";
@@ -253,7 +249,7 @@ export class RateLimitError extends ServiceError {
     message: string,
     service: string,
     operation: string,
-    public retryAfter?: number,
+    public retryAfter?: number
   ) {
     super(message, service, operation);
     this.name = "RateLimitError";
@@ -321,7 +317,7 @@ export interface IUniversalAdapter {
   testConnection(): Promise<boolean>;
   close(): Promise<void>;
   fetchTransactions(
-    params: UniversalFetchParams,
+    params: UniversalFetchParams
   ): Promise<UniversalTransaction[]>;
   fetchBalances(params: UniversalFetchParams): Promise<UniversalBalance[]>;
 }

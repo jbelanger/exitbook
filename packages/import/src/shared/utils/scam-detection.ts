@@ -23,7 +23,7 @@ export function detectScamToken(
   transactionContext?: {
     amount: number;
     isAirdrop: boolean;
-  },
+  }
 ): TransactionNote | null {
   const suspiciousIndicators: string[] = [];
   let riskLevel: "warning" | "error" = "warning";
@@ -37,11 +37,11 @@ export function detectScamToken(
   // Check for project impersonation attempts
   const impersonationResult = detectProjectImpersonation(
     tokenMetadata.symbol,
-    tokenMetadata.name,
+    tokenMetadata.name
   );
   if (impersonationResult.isImpersonation) {
     suspiciousIndicators.push(
-      `Impersonating ${impersonationResult.targetProject}`,
+      `Impersonating ${impersonationResult.targetProject}`
     );
     riskLevel = "error";
   }
@@ -110,7 +110,7 @@ function containsGiftEmojis(name: string): boolean {
  */
 function detectProjectImpersonation(
   symbol: string,
-  name: string,
+  name: string
 ): { isImpersonation: boolean; targetProject?: string } {
   const knownProjects = [
     { symbols: ["jup"], names: ["jupiter"], project: "Jupiter Exchange" },
@@ -134,8 +134,8 @@ function detectProjectImpersonation(
     }
 
     // Check if name contains project name but has suspicious additions
-    const hasProjectName = project.names.some((projName) =>
-      lowerName.includes(projName),
+    const hasProjectName = project.names.some(projName =>
+      lowerName.includes(projName)
     );
     if (
       hasProjectName &&
@@ -193,29 +193,11 @@ function isSuspiciousUrl(url: string): boolean {
       /.*bonus.*\.xyz/i,
     ];
 
-    return suspiciousPatterns.some((pattern) => pattern.test(hostname));
+    return suspiciousPatterns.some(pattern => pattern.test(hostname));
   } catch {
     // Invalid URL is suspicious
     return true;
   }
-}
-
-/**
- * Check if a transaction appears to be an unsolicited airdrop
- */
-export function isUnsolicitedAirdrop(
-  transactionType: string,
-  amount: number,
-  tokenSymbol: string,
-  userInitiated: boolean = false,
-): boolean {
-  // If user didn't initiate the transaction and received tokens, it's likely an airdrop
-  return (
-    !userInitiated &&
-    transactionType === "deposit" &&
-    amount > 0 &&
-    !isKnownLegitimateToken(tokenSymbol)
-  );
 }
 
 /**
