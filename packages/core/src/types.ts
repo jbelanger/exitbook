@@ -28,7 +28,7 @@ export interface CryptoTransaction {
   datetime?: string;
   symbol?: string;
   amount: Money;
-  side?: "buy" | "sell";
+  side?: "buy" | "sell" | undefined;
   price?: Money | undefined;
   fee?: Money | undefined;
   status?: TransactionStatus;

@@ -350,6 +350,8 @@ export interface CoinbaseTransactionsParams extends Record<string, unknown> {
   ending_before?: string | undefined;
   /** Sort order (desc or asc, default desc) */
   order?: 'desc' | 'asc' | undefined;
+  /** Expand parameter to include additional transaction types */
+  expand?: string | undefined;
 }
 
 /**

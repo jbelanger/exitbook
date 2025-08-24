@@ -31,6 +31,7 @@ export interface DatabaseStats {
   }>;
   totalVerifications: number;
   totalSnapshots: number;
+  totalRawTransactions: number;
 }
 
 export interface TransactionCountRow {
@@ -42,4 +43,5 @@ export interface StatRow {
   total_exchanges?: number;
   total_verifications?: number;
   total_snapshots?: number;
+  total_raw_transactions?: number;
 }

@@ -118,6 +118,7 @@ export class Database {
     if (clearExisting) {
       tableQueries.push(
         `DROP TABLE IF EXISTS transactions`,
+        `DROP TABLE IF EXISTS raw_transactions`,
         `DROP TABLE IF EXISTS balance_snapshots`,
         `DROP TABLE IF EXISTS balance_verifications`,
         `DROP TABLE IF EXISTS wallet_addresses`,
@@ -125,6 +126,18 @@ export class Database {
     }
 
     tableQueries.push(
+      // Raw transactions table - stores unprocessed transaction data from adapters
+      `CREATE TABLE ${clearExisting ? "" : "IF NOT EXISTS "}raw_transactions (
+        id TEXT PRIMARY KEY,
+        adapter_id TEXT NOT NULL,
+        adapter_type TEXT NOT NULL,
+        source_transaction_id TEXT NOT NULL,
+        raw_data JSON NOT NULL,
+        created_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
+        import_session_id TEXT,
+        UNIQUE(adapter_id, source_transaction_id)
+      )`,
+
       // Transactions table - stores transactions from all adapters with standardized structure
       // Using TEXT for decimal values to preserve precision
       `CREATE TABLE ${clearExisting ? "" : "IF NOT EXISTS "}transactions (
@@ -226,6 +239,13 @@ export class Database {
 
       `CREATE INDEX IF NOT EXISTS idx_wallet_addresses_active 
        ON wallet_addresses(is_active) WHERE is_active = 1`,
+
+      // Raw transactions indexes
+      `CREATE INDEX IF NOT EXISTS idx_raw_transactions_adapter 
+       ON raw_transactions(adapter_id, created_at)`,
+
+      `CREATE INDEX IF NOT EXISTS idx_raw_transactions_session 
+       ON raw_transactions(import_session_id) WHERE import_session_id IS NOT NULL`,
     ];
 
     // Run table and index creation synchronously
@@ -254,6 +274,152 @@ export class Database {
     });
 
     this.logger.debug("Database tables initialized");
+  }
+
+  // Raw transaction operations
+  async saveRawTransaction(
+    adapterId: string,
+    adapterType: string,
+    sourceTransactionId: string,
+    rawData: unknown,
+    importSessionId?: string
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const stmt = this.db.prepare(`
+        INSERT OR REPLACE INTO raw_transactions 
+        (id, adapter_id, adapter_type, source_transaction_id, raw_data, import_session_id)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `);
+
+      const id = `${adapterId}-raw-${sourceTransactionId}`;
+      const rawDataJson = JSON.stringify(rawData);
+
+      stmt.run(
+        [
+          id,
+          adapterId,
+          adapterType,
+          sourceTransactionId,
+          rawDataJson,
+          importSessionId || null,
+        ],
+        function (err) {
+          if (err) {
+            reject(err);
+          } else {
+            resolve();
+          }
+        },
+      );
+
+      stmt.finalize();
+    });
+  }
+
+  async saveRawTransactions(
+    adapterId: string,
+    adapterType: string,
+    rawTransactions: Array<{ id: string; data: unknown }>,
+    importSessionId?: string
+  ): Promise<number> {
+    return new Promise((resolve, reject) => {
+      let saved = 0;
+
+      this.db.serialize(() => {
+        this.db.run("BEGIN TRANSACTION");
+
+        const stmt = this.db.prepare(`
+          INSERT OR IGNORE INTO raw_transactions 
+          (id, adapter_id, adapter_type, source_transaction_id, raw_data, import_session_id)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `);
+
+        for (const rawTx of rawTransactions) {
+          const id = `${adapterId}-raw-${rawTx.id}`;
+          const rawDataJson = JSON.stringify(rawTx.data);
+
+          stmt.run(
+            [
+              id,
+              adapterId,
+              adapterType,
+              rawTx.id,
+              rawDataJson,
+              importSessionId || null,
+            ],
+            function (err) {
+              if (err && !err.message.includes("UNIQUE constraint failed")) {
+                stmt.finalize();
+                return reject(err);
+              }
+              if (this.changes > 0) saved++;
+            },
+          );
+        }
+
+        stmt.finalize();
+
+        this.db.run("COMMIT", (err) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(saved);
+          }
+        });
+      });
+    });
+  }
+
+  async getRawTransactions(
+    adapterId?: string,
+    importSessionId?: string
+  ): Promise<Array<{
+    id: string;
+    adapterId: string;
+    adapterType: string;
+    sourceTransactionId: string;
+    rawData: unknown;
+    createdAt: number;
+    importSessionId?: string;
+  }>> {
+    return new Promise((resolve, reject) => {
+      let query = "SELECT * FROM raw_transactions";
+      const params: SQLParam[] = [];
+      const conditions: string[] = [];
+
+      if (adapterId) {
+        conditions.push("adapter_id = ?");
+        params.push(adapterId);
+      }
+
+      if (importSessionId) {
+        conditions.push("import_session_id = ?");
+        params.push(importSessionId);
+      }
+
+      if (conditions.length > 0) {
+        query += " WHERE " + conditions.join(" AND ");
+      }
+
+      query += " ORDER BY created_at DESC";
+
+      this.db.all(query, params, (err, rows: any[]) => {
+        if (err) {
+          reject(err);
+        } else {
+          const results = rows.map(row => ({
+            id: row.id,
+            adapterId: row.adapter_id,
+            adapterType: row.adapter_type,
+            sourceTransactionId: row.source_transaction_id,
+            rawData: JSON.parse(row.raw_data),
+            createdAt: row.created_at,
+            importSessionId: row.import_session_id,
+          }));
+          resolve(results);
+        }
+      });
+    });
   }
 
   // Transaction operations
@@ -286,6 +452,11 @@ export class Database {
         transaction.price.currency
       ) {
         priceCurrency = transaction.price.currency;
+      }
+
+      // DEBUG: Log side value before storage
+      if (transaction.type === "withdrawal" || transaction.type === "deposit") {
+        this.logger.debug(`STORAGE DEBUG: ${transaction.type} transaction ${transaction.id} has side: ${transaction.side} (typeof: ${typeof transaction.side})`);
       }
 
       stmt.run(
@@ -624,6 +795,7 @@ export class Database {
         "SELECT exchange, COUNT(*) as count FROM transactions GROUP BY exchange",
         "SELECT COUNT(*) as total_verifications FROM balance_verifications",
         "SELECT COUNT(*) as total_snapshots FROM balance_snapshots",
+        "SELECT COUNT(*) as total_raw_transactions FROM raw_transactions",
       ];
 
       const results: DatabaseStats = {
@@ -632,6 +804,7 @@ export class Database {
         transactionsByExchange: [],
         totalVerifications: 0,
         totalSnapshots: 0,
+        totalRawTransactions: 0,
       };
 
       this.db.serialize(() => {
@@ -661,6 +834,11 @@ export class Database {
         this.db.get(queries[4]!, (err, row: StatRow) => {
           if (err) return reject(err);
           results.totalSnapshots = row.total_snapshots || 0;
+        });
+
+        this.db.get(queries[5]!, (err, row: StatRow) => {
+          if (err) return reject(err);
+          results.totalRawTransactions = row.total_raw_transactions || 0;
           resolve(results);
         });
       });

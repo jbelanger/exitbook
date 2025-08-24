@@ -10,9 +10,9 @@ import { BaseAdapter } from "../../shared/adapters/base-adapter.ts";
 import { CoinbaseAPIClient } from "./coinbase-api-client.ts";
 import type {
   CoinbaseCredentials,
+  CoinbaseTransactionsParams,
   RawCoinbaseAccount,
   RawCoinbaseTransaction,
-  CoinbaseTransactionsParams,
 } from "./types.ts";
 
 /**
@@ -229,9 +229,11 @@ export class CoinbaseAdapter extends BaseAdapter {
         
         if (group.length === 1) {
           // Single transaction, process normally
+          this.logger.debug(`PROCESSING_SINGLE - TX: ${group[0].id}, Type: ${group[0].type}`);
           transaction = this.createTransactionFromTrackAPI(group[0]);
         } else {
           // Multiple transactions representing the same trade, combine them
+          this.logger.debug(`PROCESSING_COMBINED - Group size: ${group.length}, TXs: ${group.map(tx => tx.id).join(', ')}`);
           transaction = this.combineTradeTransactions(group);
         }
         
@@ -327,9 +329,15 @@ export class CoinbaseAdapter extends BaseAdapter {
       const timestamp = new Date(tx.created_at).getTime();
       const amount = new Decimal(tx.amount.amount).abs();
       
+      // DEBUG: Log raw transaction data to compare with CSV
+      this.logger.debug(`RAW TX: ${tx.id}, Type: ${tx.type}, Amount: ${tx.amount.amount} ${tx.amount.currency}, Status: ${tx.status}`);
+      if (tx.buy) this.logger.debug(`  BUY: total=${tx.buy.total?.amount} ${tx.buy.total?.currency}, subtotal=${tx.buy.subtotal?.amount}`);
+      if (tx.sell) this.logger.debug(`  SELL: total=${tx.sell.total?.amount} ${tx.sell.total?.currency}, subtotal=${tx.sell.subtotal?.amount}`);
+      if (tx.native_amount) this.logger.debug(`  NATIVE: ${tx.native_amount.amount} ${tx.native_amount.currency}`);
+      
       // Map Coinbase transaction types to universal transaction types
       let type: "trade" | "deposit" | "withdrawal" | "transfer" | "fee" | "order" | "ledger";
-      let side: "buy" | "sell" = "buy"; // Default side
+      let side: "buy" | "sell" | undefined = undefined; // No default side
       
       switch (tx.type) {
         case "buy":
@@ -343,31 +351,48 @@ export class CoinbaseAdapter extends BaseAdapter {
         case "trade":
         case "advanced_trade_fill":
           type = "trade";
-          // Determine side from amount sign or other indicators
-          side = new Decimal(tx.amount.amount).isNegative() ? "sell" : "buy";
+          // Determine side from buy/sell objects, not amount sign (amount sign indicates money flow, not trade semantics)
+          if (tx.buy) {
+            side = "buy";
+            this.logger.debug(`TRADE_SIDE - TX: ${tx.id}, Has buy object -> BUY side`);
+          } else if (tx.sell) {
+            side = "sell"; 
+            this.logger.debug(`TRADE_SIDE - TX: ${tx.id}, Has sell object -> SELL side`);
+          } else {
+            // Fallback to amount sign for advanced_trade_fill without buy/sell objects
+            side = new Decimal(tx.amount.amount).isNegative() ? "sell" : "buy";
+            this.logger.debug(`TRADE_SIDE - TX: ${tx.id}, No buy/sell objects, using amount sign -> ${side}`);
+          }
           break;
         case "send":
-          type = "withdrawal";
-          side = "sell";
+          // "send" transactions can be either deposits OR withdrawals
+          // Check amount sign: positive = deposit (external receive), negative = withdrawal  
+          if (new Decimal(tx.amount.amount).isPositive()) {
+            type = "deposit";
+            this.logger.debug(`SEND_CLASSIFICATION - TX: ${tx.id}, Amount: ${tx.amount.amount} ${tx.amount.currency} -> DEPOSIT (positive amount)`);
+          } else {
+            type = "withdrawal";
+            this.logger.debug(`SEND_CLASSIFICATION - TX: ${tx.id}, Amount: ${tx.amount.amount} ${tx.amount.currency} -> WITHDRAWAL (negative amount)`);
+          }
           break;
         case "deposit":
         case "receive":
         case "fiat_deposit":
           type = "deposit";
-          side = "buy";
+          // Don't set side for deposits - side is only relevant for trades
           break;
         case "fiat_withdrawal":
           type = "withdrawal";
-          side = "sell";
+          // Don't set side for withdrawals - side is only relevant for trades
           break;
         case "transfer":
           type = "transfer";
-          side = "buy"; // Neutral for transfers
+          // Don't set side for transfers
           break;
         case "fee":
         case "subscription":
           type = "fee";
-          side = "sell";
+          // Don't set side for fees
           break;
         case "retail_simple_dust":
           type = "trade"; // Dust collection is a conversion/trading operation
@@ -378,7 +403,7 @@ export class CoinbaseAdapter extends BaseAdapter {
             `Unknown transaction type: ${tx.type}, treating as transfer`,
           );
           type = "transfer";
-          side = "buy";
+          // Don't set side for transfers - side is only relevant for trades
       }
 
       // Extract fee information if available
@@ -395,20 +420,19 @@ export class CoinbaseAdapter extends BaseAdapter {
       
       
       // For buy/sell trades, we need to determine which asset we're actually receiving
-      const { targetAmount, targetCurrency } = this.extractTradeAmount(tx, type, side);
+      const { targetAmount, targetCurrency } = this.extractTradeAmount(tx, type, side || undefined);
       
       // Extract price information for trades
       const price = this.extractPriceFromTransaction(tx, type);
       
-      return {
+      const baseTransaction = {
         id: `coinbase-track-${tx.id}`,
         type,
         timestamp,
         datetime: new Date(timestamp).toISOString(),
-        status: tx.status === "completed" ? "closed" : "pending",
+        status: (tx.status === "completed" ? "closed" : "pending") as "closed" | "pending",
         symbol: symbol || tx.amount.currency, // Fallback to original logic
         amount: { amount: targetAmount, currency: targetCurrency },
-        side,
         price,
         fee: fee ? fee : { amount: new Decimal(0), currency: tx.amount.currency },
         source: "coinbase",
@@ -420,6 +444,21 @@ export class CoinbaseAdapter extends BaseAdapter {
           adapterType: "track-api",
         },
       };
+
+      // DEBUG: Log final transaction structure
+      this.logger.debug(`FINAL_TX - TX: ${tx.id}, Type: ${type}, Side: ${side}, Amount: ${baseTransaction.amount.amount} ${baseTransaction.amount.currency}, Price: ${baseTransaction.price?.amount} ${baseTransaction.price?.currency}`);
+
+      // Only include side for trade transactions
+      if (type === "trade" && side) {
+        const tradeTransaction = { ...baseTransaction, side };
+        this.logger.debug(`Creating trade transaction with side: ${side} for type: ${type}, tx: ${tx.id}`);
+        return tradeTransaction;
+      }
+      
+      // Explicitly set side to undefined for non-trade transactions to satisfy exactOptionalPropertyTypes
+      const nonTradeTransaction = { ...baseTransaction, side: undefined };
+      this.logger.debug(`Creating non-trade transaction with explicit undefined side for type: ${type}, tx: ${tx.id}`);
+      return nonTradeTransaction;
     } catch (error) {
       this.logger.error(
         `Error creating transaction from Track API transaction ${tx.id}: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -436,10 +475,12 @@ export class CoinbaseAdapter extends BaseAdapter {
    * - One for the asset coming in (positive amount)
    * 
    * These can be grouped by their shared buy.id, sell.id, or trade.id
+   * For advanced_trade_fill without IDs, group by timestamp + similar amounts
    */
   private groupTradeTransactions(rawTransactions: RawCoinbaseTransaction[]): RawCoinbaseTransaction[][] {
     const tradeGroups = new Map<string, RawCoinbaseTransaction[]>();
     const ungroupedTransactions: RawCoinbaseTransaction[] = [];
+    const advancedTradeFills: RawCoinbaseTransaction[] = [];
 
     for (const tx of rawTransactions) {
       // Try to find a grouping ID for trade-related transactions
@@ -450,11 +491,18 @@ export class CoinbaseAdapter extends BaseAdapter {
           tradeGroups.set(groupId, []);
         }
         tradeGroups.get(groupId)!.push(tx);
+      } else if (tx.type === "advanced_trade_fill") {
+        // Special handling for advanced_trade_fill without group IDs
+        advancedTradeFills.push(tx);
       } else {
         // Non-trade or ungroupable transaction
         ungroupedTransactions.push(tx);
       }
     }
+    
+    // Group advanced_trade_fill transactions by timestamp proximity (within 1 second)
+    // and currency pair relationships
+    this.groupAdvancedTradeFills(advancedTradeFills, tradeGroups);
 
     // Convert grouped trades and add ungrouped transactions
     const result: RawCoinbaseTransaction[][] = [];
@@ -477,24 +525,122 @@ export class CoinbaseAdapter extends BaseAdapter {
   }
 
   /**
+   * Group advanced_trade_fill transactions that don't have explicit group IDs
+   * by looking for pairs with opposite amounts and matching timestamps
+   */
+  private groupAdvancedTradeFills(
+    advancedTradeFills: RawCoinbaseTransaction[],
+    tradeGroups: Map<string, RawCoinbaseTransaction[]>
+  ): void {
+    // Sort by timestamp to process chronologically
+    const sortedFills = advancedTradeFills.sort((a, b) => 
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+
+    const processed = new Set<string>();
+    
+    for (let i = 0; i < sortedFills.length; i++) {
+      const tx1 = sortedFills[i];
+      if (processed.has(tx1.id)) continue;
+      
+      const tx1Timestamp = new Date(tx1.created_at).getTime();
+      const tx1Amount = new Decimal(tx1.amount.amount);
+      
+      // Look for a matching transaction within 5 seconds
+      for (let j = i + 1; j < sortedFills.length; j++) {
+        const tx2 = sortedFills[j];
+        if (processed.has(tx2.id)) continue;
+        
+        const tx2Timestamp = new Date(tx2.created_at).getTime();
+        const timeDiff = Math.abs(tx2Timestamp - tx1Timestamp);
+        
+        // Stop looking if we're too far ahead in time
+        if (timeDiff > 5000) break; // 5 seconds
+        
+        // Check if these could be opposite sides of the same trade
+        if (this.areMatchingTradePair(tx1, tx2)) {
+          const groupId = `advanced_trade_${Math.min(tx1Timestamp, tx2Timestamp)}_${tx1.id.slice(0, 8)}`;
+          tradeGroups.set(groupId, [tx1, tx2]);
+          processed.add(tx1.id);
+          processed.add(tx2.id);
+          
+          this.logger.debug(`GROUPED_ADVANCED_FILLS: ${tx1.id} + ${tx2.id} → ${groupId}`);
+          break;
+        }
+      }
+      
+      // If no match found, add as individual transaction
+      if (!processed.has(tx1.id)) {
+        processed.add(tx1.id);
+        // Add as single-item group for consistent processing
+        const groupId = `advanced_trade_single_${tx1Timestamp}_${tx1.id.slice(0, 8)}`;
+        tradeGroups.set(groupId, [tx1]);
+        this.logger.debug(`UNGROUPED_ADVANCED_FILL: ${tx1.id} → ${groupId}`);
+      }
+    }
+  }
+
+  /**
+   * Check if two advanced_trade_fill transactions are matching sides of the same trade
+   */
+  private areMatchingTradePair(tx1: RawCoinbaseTransaction, tx2: RawCoinbaseTransaction): boolean {
+    const amount1 = new Decimal(tx1.amount.amount);
+    const amount2 = new Decimal(tx2.amount.amount);
+    
+    // One should be positive, one negative (opposite sides)
+    if (amount1.isPositive() === amount2.isPositive()) {
+      return false;
+    }
+    
+    // Different currencies (base/quote pair)
+    if (tx1.amount.currency === tx2.amount.currency) {
+      return false;
+    }
+    
+    // Check if native_amounts roughly match (within 5% for fees/spreads)
+    if (tx1.native_amount && tx2.native_amount) {
+      const native1 = new Decimal(tx1.native_amount.amount).abs();
+      const native2 = new Decimal(tx2.native_amount.amount).abs();
+      const diff = native1.minus(native2).abs();
+      const avgNative = native1.plus(native2).dividedBy(2);
+      
+      if (avgNative.greaterThan(0)) {
+        const percentDiff = diff.dividedBy(avgNative);
+        if (percentDiff.lessThanOrEqualTo(0.05)) { // Within 5%
+          return true;
+        }
+      }
+    }
+    
+    return false;
+  }
+
+  /**
    * Extract the trade group ID from a Track API transaction
    */
   private extractTradeGroupIdFromTrackAPI(tx: RawCoinbaseTransaction): string | null {
+    // DEBUG: Log grouping attempts
+    this.logger.debug(`GROUP_ID - TX: ${tx.id}, Type: ${tx.type}, Buy.id: ${tx.buy?.id}, Sell.id: ${tx.sell?.id}, Trade.id: ${tx.trade?.id}`);
+    
     // For buy transactions, use buy.id as group identifier
     if (tx.buy?.id) {
+      this.logger.debug(`  GROUPED_BY_BUY: ${tx.buy.id}`);
       return tx.buy.id;
     }
     
     // For sell transactions, use sell.id as group identifier  
     if (tx.sell?.id) {
+      this.logger.debug(`  GROUPED_BY_SELL: ${tx.sell.id}`);
       return tx.sell.id;
     }
     
     // For trade transactions, use trade.id as group identifier
     if (tx.trade?.id) {
+      this.logger.debug(`  GROUPED_BY_TRADE: ${tx.trade.id}`);
       return tx.trade.id;
     }
     
+    this.logger.debug(`  NO_GROUP_ID - Transaction will be processed individually`);
     return null;
   }
 
@@ -512,25 +658,45 @@ export class CoinbaseAdapter extends BaseAdapter {
     if (transactions.length === 0) return null;
     
     this.logger.debug(
-      `Combining ${transactions.length} Track API transactions into single trade`
+      `COMBINE_TRADES - Combining ${transactions.length} Track API transactions into single trade`
     );
+    
+    // DEBUG: Log each transaction being combined
+    for (const tx of transactions) {
+      this.logger.debug(`  COMBINE_TX: ${tx.id}, Type: ${tx.type}, Amount: ${tx.amount.amount} ${tx.amount.currency}`);
+    }
 
     // Use the first transaction as the base, but we'll calculate the correct amounts
     const baseTransaction = transactions[0];
     const timestamp = Math.min(...transactions.map(tx => new Date(tx.created_at).getTime()));
     
-    // Find the transaction with the crypto asset (positive amount, not negative fiat)
-    const cryptoTransaction = transactions.find(tx => 
-      tx.amount.currency !== 'CAD' && tx.amount.currency !== 'USD' && tx.amount.currency !== 'EUR'
-    ) || transactions.find(tx => 
-      !new Decimal(tx.amount.amount).isNegative()
-    ) || baseTransaction;
+    // Find the crypto and fiat assets based on currency hierarchy
+    // Traditional fiat currencies (CAD, USD, EUR) are always fiat
+    // For stablecoins like USDC, they're crypto when paired with traditional fiat
+    const traditionalFiatCurrencies = ['CAD', 'USD', 'EUR'];
+    const allFiatCurrencies = [...traditionalFiatCurrencies, 'USDC'];
     
-    // Find the transaction with the fiat currency (usually negative for buys)
-    const fiatTransaction = transactions.find(tx => 
-      (tx.amount.currency === 'CAD' || tx.amount.currency === 'USD' || tx.amount.currency === 'EUR') &&
-      new Decimal(tx.amount.amount).isNegative()
+    // First try to find a traditional fiat currency
+    const traditionalFiatTransaction = transactions.find(tx => 
+      traditionalFiatCurrencies.includes(tx.amount.currency)
     );
+    
+    // If we have a traditional fiat, everything else is crypto (including USDC)
+    let cryptoTransaction: RawCoinbaseTransaction;
+    let fiatTransaction: RawCoinbaseTransaction;
+    
+    if (traditionalFiatTransaction) {
+      fiatTransaction = traditionalFiatTransaction;
+      cryptoTransaction = transactions.find(tx => tx !== traditionalFiatTransaction) || baseTransaction;
+    } else {
+      // No traditional fiat - use the existing logic for crypto vs stablecoin trades
+      cryptoTransaction = transactions.find(tx => 
+        !allFiatCurrencies.includes(tx.amount.currency)
+      ) || baseTransaction;
+      fiatTransaction = transactions.find(tx => 
+        allFiatCurrencies.includes(tx.amount.currency)
+      ) || transactions.find(tx => tx !== cryptoTransaction) || baseTransaction;
+    }
 
     // Extract the correct symbol from the crypto and fiat currencies
     const baseCurrency = cryptoTransaction.amount.currency;
@@ -563,9 +729,27 @@ export class CoinbaseAdapter extends BaseAdapter {
       };
     }
 
-    // Determine side from the crypto transaction type or amount sign
-    const side = baseTransaction.type === "sell" || 
-                 new Decimal(cryptoTransaction.amount.amount).isNegative() ? "sell" : "buy";
+    // Determine side based on crypto currency perspective in the trade pair
+    // For CRYPTO-FIAT pairs: positive crypto amount = buy crypto, negative crypto amount = sell crypto
+    let side: "buy" | "sell";
+    
+    if (baseTransaction.type === "sell") {
+      side = "sell";
+      this.logger.debug(`COMBINE_SIDE - BaseTransaction type 'sell' -> SELL side`);
+    } else if (baseTransaction.type === "buy") {
+      side = "buy"; 
+      this.logger.debug(`COMBINE_SIDE - BaseTransaction type 'buy' -> BUY side`);
+    } else {
+      // For combined transactions, determine side from crypto amount perspective
+      const cryptoAmount = new Decimal(cryptoTransaction.amount.amount);
+      if (cryptoAmount.isNegative()) {
+        side = "sell"; // Selling crypto (crypto goes out)
+        this.logger.debug(`COMBINE_SIDE - Crypto amount ${cryptoAmount} negative -> SELL side`);
+      } else {
+        side = "buy"; // Buying crypto (crypto comes in)
+        this.logger.debug(`COMBINE_SIDE - Crypto amount ${cryptoAmount} positive -> BUY side`);
+      }
+    }
 
     // Extract fee (avoid double counting from multiple transactions)
     let fee: { amount: Decimal; currency: string } | undefined;
@@ -581,7 +765,7 @@ export class CoinbaseAdapter extends BaseAdapter {
       };
     }
 
-    return {
+    const result: UniversalTransaction = {
       id: `coinbase-track-${baseTransaction.id}`,
       type: "trade",
       timestamp,
@@ -589,7 +773,7 @@ export class CoinbaseAdapter extends BaseAdapter {
       status: baseTransaction.status === "completed" ? "closed" : "pending",
       symbol,
       amount: { amount, currency: baseCurrency },
-      side,
+      side: side as "buy" | "sell",
       price,
       fee: fee || { amount: new Decimal(0), currency: baseCurrency },
       source: "coinbase",
@@ -599,6 +783,11 @@ export class CoinbaseAdapter extends BaseAdapter {
         adapterType: "track-api-combined",
       },
     };
+    
+    // DEBUG: Log the final combined transaction
+    this.logger.debug(`COMBINED_RESULT - ID: ${result.id}, Type: ${result.type}, Side: ${result.side}, Amount: ${result.amount.amount} ${result.amount.currency}, Price: ${result.price?.amount} ${result.price?.currency}, Symbol: ${result.symbol}`);
+    
+    return result;
   }
 
   /**
@@ -651,25 +840,32 @@ export class CoinbaseAdapter extends BaseAdapter {
    * The key insight is that tx.amount always represents the base asset, while 
    * tx.buy/tx.sell contains the quote currency information.
    */
-  private extractTradeAmount(tx: RawCoinbaseTransaction, type: string, _side: "buy" | "sell"): {
+  private extractTradeAmount(tx: RawCoinbaseTransaction, type: string, _side: "buy" | "sell" | undefined): {
     targetAmount: Decimal;
     targetCurrency: string;
   } {
+    // DEBUG: Log amount extraction
+    this.logger.debug(`EXTRACT_AMOUNT - TX: ${tx.id}, Type: ${type}, Raw Amount: ${tx.amount.amount} ${tx.amount.currency}`);
+    
     // For buy/sell transactions, the tx.amount is always the base currency (the asset being traded)
     // This is different from the quote currency (the currency used to pay/receive)
     if (tx.type === "buy" || tx.type === "sell" || type === "trade") {
-      return {
+      const result = {
         targetAmount: new Decimal(tx.amount.amount).abs(),
         targetCurrency: tx.amount.currency // This is the base currency (HNT, BTC, etc.)
       };
+      this.logger.debug(`  TRADE_AMOUNT - Extracted: ${result.targetAmount} ${result.targetCurrency}`);
+      return result;
     }
     
     // For non-trade transactions (deposits, withdrawals, transfers), use the transaction amount directly
     // This ensures symbol and amount.currency are the same for non-trading operations, which is correct
-    return {
+    const result = {
       targetAmount: new Decimal(tx.amount.amount).abs(),
       targetCurrency: tx.amount.currency
     };
+    this.logger.debug(`  NON_TRADE_AMOUNT - Extracted: ${result.targetAmount} ${result.targetCurrency}`);
+    return result;
   }
 
   /**
@@ -683,51 +879,66 @@ export class CoinbaseAdapter extends BaseAdapter {
     tx: RawCoinbaseTransaction, 
     type: string
   ): { amount: Decimal; currency: string } | undefined {
+    // DEBUG: Log price extraction
+    this.logger.debug(`EXTRACT_PRICE - TX: ${tx.id}, Type: ${type}`);
+    
     // Only extract price for trade transactions
     if (type !== "trade") {
+      this.logger.debug(`  NO_PRICE - Non-trade transaction`);
       return undefined;
     }
 
     // For buy transactions, use the total cost from buy object
     if (tx.type === "buy" && tx.buy) {
       if (tx.buy.total) {
-        return {
+        const result = {
           amount: new Decimal(tx.buy.total.amount),
           currency: tx.buy.total.currency
         };
+        this.logger.debug(`  BUY_PRICE - From buy.total: ${result.amount} ${result.currency}`);
+        return result;
       }
       if (tx.buy.subtotal) {
-        return {
+        const result = {
           amount: new Decimal(tx.buy.subtotal.amount),
           currency: tx.buy.subtotal.currency
         };
+        this.logger.debug(`  BUY_PRICE - From buy.subtotal: ${result.amount} ${result.currency}`);
+        return result;
       }
     }
 
     // For sell transactions, use the total proceeds from sell object
     if (tx.type === "sell" && tx.sell) {
       if (tx.sell.total) {
-        return {
+        const result = {
           amount: new Decimal(tx.sell.total.amount),
           currency: tx.sell.total.currency
         };
+        this.logger.debug(`  SELL_PRICE - From sell.total: ${result.amount} ${result.currency}`);
+        return result;
       }
       if (tx.sell.subtotal) {
-        return {
+        const result = {
           amount: new Decimal(tx.sell.subtotal.amount),
           currency: tx.sell.subtotal.currency
         };
+        this.logger.debug(`  SELL_PRICE - From sell.subtotal: ${result.amount} ${result.currency}`);
+        return result;
       }
     }
 
     // For advanced_trade_fill, try to use native_amount as price
     if (tx.type === "advanced_trade_fill" && tx.native_amount) {
-      return {
+      const result = {
         amount: new Decimal(tx.native_amount.amount).abs(),
         currency: tx.native_amount.currency
       };
+      this.logger.debug(`  ADVANCED_TRADE_PRICE - From native_amount: ${result.amount} ${result.currency}`);
+      return result;
     }
 
+    this.logger.debug(`  NO_PRICE - Could not extract price`);
     return undefined;
   }
 
