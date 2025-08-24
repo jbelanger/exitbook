@@ -95,12 +95,38 @@ export interface RawCoinbaseTransaction {
     id: string;
     resource: string;
     resource_path: string;
+    fee?: {
+      amount: string;
+      currency: string;
+    } | undefined;
+    payment_method_name?: string | undefined;
+    subtotal?: {
+      amount: string;
+      currency: string;
+    } | undefined;
+    total?: {
+      amount: string;
+      currency: string;
+    } | undefined;
   } | undefined;
   /** Sell information (for sell transactions) */
   sell?: {
     id: string;
     resource: string;
     resource_path: string;
+    fee?: {
+      amount: string;
+      currency: string;
+    } | undefined;
+    payment_method_name?: string | undefined;
+    subtotal?: {
+      amount: string;
+      currency: string;
+    } | undefined;
+    total?: {
+      amount: string;
+      currency: string;
+    } | undefined;
   } | undefined;
   /** Trade information (for trade transactions) */
   trade?: {
@@ -348,6 +374,10 @@ export interface CoinbaseAccountsParams extends Record<string, unknown> {
   limit?: number;
   /** Pagination cursor from previous response */
   cursor?: string;
+  /** Include accounts with zero balances (experimental) */
+  include_zero_balance?: boolean;
+  /** Include all account states (experimental) */
+  include_all?: boolean;
 }
 
 // CCXT-specific types for Coinbase adapter
