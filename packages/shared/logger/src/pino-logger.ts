@@ -12,7 +12,7 @@ const env = validateLoggerEnv(process.env);
  * is longer than the specified size, it is truncated and prefixed by a
  * horizontal ellipsis (…).
  */
-function formatLabel(label: string, size: number) {
+function formatLabel(label: string, size: number): string {
   const str = label.padStart(size);
   return str.length <= size ? str : `…${str.slice(-size + 1)}`;
 }
@@ -31,7 +31,7 @@ let rootLogger: Logger | null = null;
 /**
  * Ensures that the log directory exists; if not, it creates it.
  */
-function ensureLogDirExists(dirPath: string) {
+function ensureLogDirExists(dirPath: string): void {
   if (!fs.existsSync(dirPath)) {
     fs.mkdirSync(dirPath, { recursive: true });
   }
