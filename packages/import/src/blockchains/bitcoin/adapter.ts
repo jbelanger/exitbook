@@ -13,7 +13,6 @@ import * as bitcoin from 'bitcoinjs-lib';
 
 import { BaseAdapter } from '../../shared/adapters/base-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
-// Parameter types removed - using discriminated union
 import type { BlockchainExplorersConfig } from '../shared/explorer-config.ts';
 import type { BlockstreamTransaction, MempoolTransaction } from './types.js';
 import type { BitcoinWalletAddress } from './types.ts';

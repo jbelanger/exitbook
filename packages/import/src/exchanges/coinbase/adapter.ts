@@ -488,8 +488,6 @@ export class CoinbaseAdapter extends BaseAdapter {
       }
     }
 
-    // For non-trading transactions (deposits, withdrawals, transfers),
-    // return the single currency involved
     return tx.amount.currency;
   }
 

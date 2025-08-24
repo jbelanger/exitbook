@@ -11,14 +11,31 @@ import { z } from 'zod';
 // see https://github.com/winstonjs/winston?tab=readme-ov-file#using-custom-logging-levels
 const logLevels = {
   audit: 0,
-  error: 1,
-  warn: 2,
-  info: 3,
   debug: 4,
+  error: 1,
+  info: 3,
   trace: 5,
+  warn: 2,
 } as const;
 
 const env = {
+  auditLogDirname: z //
+    .string()
+    .trim()
+    .min(1, { message: 'Invalid audit log directory name' })
+    .default('logs')
+    .parse(process.env.AUDIT_LOG_DIRNAME),
+  auditLogEnabled: z //
+    .string()
+    .default('true')
+    .transform((val: string) => val === 'true')
+    .parse(process.env.AUDIT_LOG_ENABLED),
+  auditLogFilename: z //
+    .string()
+    .trim()
+    .min(1, { message: 'Invalid audit log file name' })
+    .default('audit')
+    .parse(process.env.AUDIT_LOG_FILENAME),
   logLevel: z //
     .string()
     .refine((val: string) => Object.keys(logLevels).includes(val), {
@@ -26,23 +43,6 @@ const env = {
     })
     .default('info')
     .parse(process.env.LOG_LEVEL),
-  auditLogEnabled: z //
-    .string()
-    .default('true')
-    .transform((val: string) => val === 'true')
-    .parse(process.env.AUDIT_LOG_ENABLED),
-  auditLogDirname: z //
-    .string()
-    .trim()
-    .min(1, { message: 'Invalid audit log directory name' })
-    .default('logs')
-    .parse(process.env.AUDIT_LOG_DIRNAME),
-  auditLogFilename: z //
-    .string()
-    .trim()
-    .min(1, { message: 'Invalid audit log file name' })
-    .default('audit')
-    .parse(process.env.AUDIT_LOG_FILENAME),
 } as const;
 
 /**
@@ -56,9 +56,9 @@ const consoleTransport = new transports.Console();
 const dailyRotateFileTransport = new transports.DailyRotateFile({
   //level: 'audit',
   dirname: env.auditLogDirname,
-  filename: env.auditLogFilename,
   //format: format.printf((info) => `${info.message}`),
   extension: `_${os.hostname()}.log`,
+  filename: env.auditLogFilename,
   utc: true,
 });
 
@@ -94,8 +94,6 @@ export const getLogger = (category: string): Logger => {
   }
 
   const logger = winston.loggers.add(category, {
-    level: env.logLevel,
-    levels: logLevels,
     format: format.combine(
       format.label({ label: category }),
       format.timestamp(),
@@ -113,13 +111,13 @@ export const getLogger = (category: string): Logger => {
         return formattedInfo;
       })
     ),
+    level: env.logLevel,
+    levels: logLevels,
     transports: [consoleTransport],
   });
 
-  //
   // Audit logs are persisted to disk to ensure that we
   // can retain a history record of important system events
-  //
   if (env.auditLogEnabled) {
     logger.add(dailyRotateFileTransport);
   }

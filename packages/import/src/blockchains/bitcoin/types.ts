@@ -1,6 +1,5 @@
 import type { HDKey } from '@scure/bip32';
 
-// Bitcoin provider-specific API response types
 export type XpubType = 'xpub' | 'ypub' | 'zpub' | 'address';
 export type BipStandard = 'bip44' | 'bip49' | 'bip84';
 export type AddressType = 'legacy' | 'segwit' | 'bech32';
@@ -28,7 +27,6 @@ export interface AddressInfo {
   txCount: number;
 }
 
-// mempool.space API response types for Bitcoin mainnet
 export interface MempoolTransaction {
   fee: number;
   locktime: number;
@@ -104,7 +102,6 @@ export interface MempoolAddressTransaction {
   weight: number;
 }
 
-// blockstream.info API response types for Bitcoin mainnet
 export interface BlockstreamTransaction {
   fee: number;
   locktime: number;

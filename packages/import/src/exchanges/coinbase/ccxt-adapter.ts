@@ -173,10 +173,8 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
       // COINBASE DIRECTION SEMANTICS (this is the confusing part):
       // - direction: "in" = money coming INTO your account
       // - direction: "out" = money going OUT OF your account
-      //
       // For BUY trades: You spend quote currency (out) to receive base currency (in)
       // For SELL trades: You send base currency (out) to receive quote currency (in)
-      //
       // This is counter-intuitive because "direction" is about account flow, not trade semantics!
       let baseCurrency: string;
       let quoteCurrency: string;
@@ -432,7 +430,6 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
         }
       ).buy;
       if (buyInfo.total?.amount && buyInfo.total?.currency) {
-        // Return the total cost (what was spent)
         return {
           amount: new Decimal(Math.abs(parseFloat(buyInfo.total.amount as string))),
           currency: buyInfo.total.currency,
@@ -447,7 +444,6 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
         }
       ).sell;
       if (sellInfo.total?.amount && sellInfo.total?.currency) {
-        // Return the total proceeds (what was received)
         return {
           amount: new Decimal(Math.abs(parseFloat(sellInfo.total.amount as string))),
           currency: sellInfo.total.currency,
@@ -746,7 +742,6 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
 
       this.logger.info(`Fetched ${allEntries.length} total ledger entries from Coinbase`);
 
-      // Return raw entries without any transformation
       return allEntries;
     } catch (error) {
       this.handleError(error, 'fetchAllLedgerEntriesWithPagination');

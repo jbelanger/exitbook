@@ -14,8 +14,6 @@ import { BlockchainProviderManager } from '../shared/blockchain-provider-manager
 import type { BlockchainExplorersConfig } from '../shared/explorer-config.ts';
 import './providers/SnowtraceProvider.ts';
 
-// Parameter types removed - using discriminated union
-
 export class AvalancheAdapter extends BaseAdapter {
   private providerManager: BlockchainProviderManager;
 
