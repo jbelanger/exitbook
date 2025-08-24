@@ -152,6 +152,7 @@ build/
 out/
 
 # Project specific - Exclude ALL personal financial data
+/apps/cli/data/*
 /data/
 *.csv
 *.db
