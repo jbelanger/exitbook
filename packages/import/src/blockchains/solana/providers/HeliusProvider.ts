@@ -16,44 +16,71 @@ import type {
 import { isValidSolanaAddress, lamportsToSol } from '../utils.ts';
 
 @RegisterProvider({
-  name: 'helius',
-  blockchain: 'solana',
-  displayName: 'Helius RPC API',
-  type: 'rpc',
-  requiresApiKey: true,
   apiKeyEnvVar: 'SOLANA_HELIUS_API_KEY',
-  description: 'High-performance Solana RPC API with comprehensive transaction data and token support',
+  blockchain: 'solana',
   capabilities: {
-    supportedOperations: ['getAddressTransactions', 'getAddressBalance', 'getTokenTransactions', 'getTokenBalances'],
     maxBatchSize: 1,
+    supportedOperations: ['getAddressTransactions', 'getAddressBalance', 'getTokenTransactions', 'getTokenBalances'],
     supportsHistoricalData: true,
     supportsPagination: true,
     supportsRealTimeData: true,
     supportsTokenData: true,
   },
+  defaultConfig: {
+    rateLimit: {
+      burstLimit: 20,
+      requestsPerHour: 5000,
+      requestsPerMinute: 500,
+      requestsPerSecond: 10, // Helius has generous rate limits
+    },
+    retries: 3,
+    timeout: 30000,
+  },
+  description: 'High-performance Solana RPC API with comprehensive transaction data and token support',
+  displayName: 'Helius RPC API',
+  name: 'helius',
   networks: {
+    devnet: {
+      baseUrl: 'https://rpc.helius.xyz',
+    },
     mainnet: {
       baseUrl: 'https://mainnet.helius-rpc.com',
     },
     testnet: {
       baseUrl: 'https://rpc.helius.xyz',
     },
-    devnet: {
-      baseUrl: 'https://rpc.helius.xyz',
-    },
   },
-  defaultConfig: {
-    timeout: 30000,
-    retries: 3,
-    rateLimit: {
-      requestsPerSecond: 10, // Helius has generous rate limits
-      requestsPerMinute: 500,
-      requestsPerHour: 5000,
-      burstLimit: 20,
-    },
-  },
+  requiresApiKey: true,
+  type: 'rpc',
 })
 export class HeliusProvider extends BaseRegistryProvider {
+  /**
+   * Static token registry for common Solana tokens
+   * This provides fast lookups for well-known tokens
+   */
+  private static readonly KNOWN_TOKENS = new Map<string, string>([
+    // Popular SPL Tokens
+    ['rndrizKT3MK1iimdxRdWabcF7Zg7AR5T4nud4EkHBof', 'RENDER'], // Render Network
+    ['hntyVP6YFm1Hg25TN9WGLqM12b8TQmcknKrdu1oxWux', 'HNT'], // Helium Network Token
+    ['4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R', 'RAY'], // Raydium
+    ['EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', 'USDC'], // USD Coin (official)
+    ['Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', 'USDT'], // Tether USD
+    ['mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So', 'mSOL'], // Marinade Staked SOL
+    ['7dHbWXmci3dT8UFYWYZweBLXgycu7Y3iL6trKn1Y7ARj', 'stSOL'], // Lido Staked SOL
+    ['J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn', 'jitoSOL'], // Jito Staked SOL
+    ['bSo13r4TkiE4KumL71LsHTPpL2euBYLFx6h9HP3piy1', 'bSOL'], // BlazeStake Staked SOL
+    ['DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263', 'BONK'], // Bonk
+    ['5oVNBeEEQvYi1cX3ir8Dx5n1P7pdxydbGF2X4TxVusJm', 'INF'], // Infinity Protocol
+    ['7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs', 'ETH'], // Wrapped Ethereum
+    ['9n4nbM75f5Ui33ZbPYXn59EwSgE8CGsHtAeTH5YFeJ9E', 'BTC'], // Wrapped Bitcoin
+    // ['BvkjtktEZyjix9rSKEiA3ftMU1UCS61XEERFxtMqN1zd', 'UNKNOWN'] // Remove to test API fallback for scam token
+  ]);
+
+  /**
+   * Store token metadata for scam detection
+   */
+  private tokenMetadataCache = new Map<string, Record<string, unknown>>();
+
   private tokenSymbolCache = new Map<string, string>();
 
   constructor() {
@@ -71,68 +98,240 @@ export class HeliusProvider extends BaseRegistryProvider {
     }
   }
 
-  async isHealthy(): Promise<boolean> {
-    try {
-      const response = await this.httpClient.post<JsonRpcResponse<string>>('/', {
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'getHealth',
-      });
-      return response?.result === 'ok';
-    } catch (error) {
-      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
-    }
-  }
+  private deduplicateTransactions(transactions: BlockchainTransaction[]): BlockchainTransaction[] {
+    const seen = new Set<string>();
+    const unique: BlockchainTransaction[] = [];
 
-  async testConnection(): Promise<boolean> {
-    try {
-      const response = await this.httpClient.post<JsonRpcResponse<string>>('/', {
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'getHealth',
-      });
-      this.logger.debug(`Connection test successful - Health: ${response?.result}`);
-      return response?.result === 'ok';
-    } catch (error) {
-      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
-    }
-  }
-
-  async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug(
-      `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
-    );
-
-    try {
-      switch (operation.type) {
-        case 'getAddressTransactions':
-          return this.getAddressTransactions({
-            address: operation.address,
-            since: operation.since,
-          }) as T;
-        case 'getAddressBalance':
-          return this.getAddressBalance({
-            address: operation.address,
-          }) as T;
-        case 'getTokenTransactions':
-          return this.getTokenTransactions({
-            address: operation.address,
-            contractAddress: operation.contractAddress,
-            since: operation.since,
-          }) as T;
-        case 'getTokenBalances':
-          return this.getTokenBalances({
-            address: operation.address,
-            contractAddresses: operation.contractAddresses,
-          }) as T;
-        default:
-          throw new Error(`Unsupported operation: ${operation.type}`);
+    for (const tx of transactions) {
+      if (!seen.has(tx.hash)) {
+        seen.add(tx.hash);
+        unique.push(tx);
       }
+    }
+
+    this.logger.debug(`Deduplicated transactions - Original: ${transactions.length}, Unique: ${unique.length}`);
+
+    return unique;
+  }
+
+  private async extractTokenTransaction(
+    tx: HeliusTransaction,
+    userAddress: string,
+    targetContract?: string
+  ): Promise<BlockchainTransaction | null> {
+    try {
+      // Look for token balance changes in preTokenBalances and postTokenBalances
+      const preTokenBalances = tx.meta.preTokenBalances || [];
+      const postTokenBalances = tx.meta.postTokenBalances || [];
+
+      // Find changes for token accounts owned by the user
+      for (const postBalance of postTokenBalances) {
+        // Check if this token account is owned by the user
+        if (postBalance.owner !== userAddress) {
+          continue;
+        }
+
+        const preBalance = preTokenBalances.find(
+          pre => pre.accountIndex === postBalance.accountIndex && pre.mint === postBalance.mint
+        );
+
+        const preAmount = preBalance ? parseFloat(preBalance.uiTokenAmount.uiAmountString || '0') : 0;
+        const postAmount = parseFloat(postBalance.uiTokenAmount.uiAmountString || '0');
+        const change = postAmount - preAmount;
+
+        // Skip if no meaningful change
+        if (Math.abs(change) < 0.000001) {
+          continue;
+        }
+
+        // If a specific contract is specified, filter by it
+        if (targetContract && postBalance.mint !== targetContract) {
+          continue;
+        }
+
+        // Log any significant token transaction
+        this.logger.debug(
+          `Found SPL token transaction - Signature: ${tx.transaction.signatures?.[0]}, Mint: ${postBalance.mint}, Owner: ${postBalance.owner}, Change: ${Math.abs(change)}, Type: ${change > 0 ? 'transfer_in' : 'transfer_out'}`
+        );
+
+        // Determine transfer direction
+        const type: 'transfer_in' | 'transfer_out' = change > 0 ? 'transfer_in' : 'transfer_out';
+
+        // Get proper token symbol using hybrid approach (cache + API)
+        const tokenSymbol = await this.getTokenSymbol(postBalance.mint);
+
+        return {
+          blockHash: '',
+          blockNumber: tx.slot,
+          confirmations: 1,
+          fee: createMoney(lamportsToSol(tx.meta.fee).toNumber(), 'SOL'),
+          from: type === 'transfer_out' ? userAddress : '',
+          gasPrice: undefined,
+          gasUsed: undefined,
+          hash: tx.transaction.signatures?.[0] || '',
+          nonce: undefined,
+          status: tx.meta.err ? 'failed' : 'success',
+          timestamp: tx.blockTime || 0,
+          to: type === 'transfer_in' ? userAddress : '',
+          tokenContract: postBalance.mint,
+          tokenSymbol,
+          type: 'token_transfer',
+          value: createMoney(Math.abs(change), tokenSymbol),
+        };
+      }
+
+      return null;
+    } catch (error) {
+      this.logger.debug(
+        `Failed to extract token transaction - Signature: ${tx.transaction.signatures?.[0]}, Error: ${error instanceof Error ? error.message : String(error)}`
+      );
+      return null;
+    }
+  }
+
+  private async fetchTokenAccountTransactions(
+    tokenAccountAddresses: string[],
+    since?: number,
+    ownerAddress?: string
+  ): Promise<BlockchainTransaction[]> {
+    const allTokenTransactions: BlockchainTransaction[] = [];
+
+    for (const tokenAccount of tokenAccountAddresses) {
+      try {
+        // Get signatures for this token account
+        const signaturesResponse = await this.httpClient.post<JsonRpcResponse<HeliusSignatureResponse[]>>('/', {
+          id: 1,
+          jsonrpc: '2.0',
+          method: 'getSignaturesForAddress',
+          params: [
+            tokenAccount,
+            {
+              limit: 50, // Limit per token account to avoid overwhelming
+            },
+          ],
+        });
+
+        if (!signaturesResponse?.result?.length) {
+          continue;
+        }
+
+        // Fetch transaction details for token account signatures
+        for (const sig of signaturesResponse.result.slice(0, 20)) {
+          try {
+            const txResponse = await this.httpClient.post<JsonRpcResponse<HeliusTransaction>>('/', {
+              id: 1,
+              jsonrpc: '2.0',
+              method: 'getTransaction',
+              params: [
+                sig.signature,
+                {
+                  encoding: 'json',
+                  maxSupportedTransactionVersion: 0,
+                },
+              ],
+            });
+
+            if (txResponse?.result) {
+              // Transform transaction but link it back to the owner address
+              // For token account transactions, we bypass the relevance check since we found it via token account
+              const blockchainTx = await this.transformTokenAccountTransaction(
+                txResponse.result,
+                ownerAddress || tokenAccount
+              );
+              if (blockchainTx && (!since || blockchainTx.timestamp >= since)) {
+                allTokenTransactions.push(blockchainTx);
+              }
+            }
+          } catch (error) {
+            this.logger.debug(
+              `Failed to fetch token account transaction - TokenAccount: ${maskAddress(tokenAccount)}, Signature: ${sig.signature}, Error: ${error instanceof Error ? error.message : String(error)}`
+            );
+          }
+        }
+      } catch (error) {
+        this.logger.warn(
+          `Failed to get signatures for token account - TokenAccount: ${maskAddress(tokenAccount)}, Error: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+    }
+
+    return allTokenTransactions;
+  }
+
+  /**
+   * Fetch token symbol from Helius DAS API
+   */
+  private async fetchTokenSymbolFromAPI(mintAddress: string): Promise<string> {
+    try {
+      const response = await this.httpClient.post<JsonRpcResponse<HeliusAssetResponse>>('/', {
+        id: 1,
+        jsonrpc: '2.0',
+        method: 'getAsset',
+        params: {
+          displayOptions: {
+            showFungible: true,
+          },
+          id: mintAddress,
+        },
+      });
+
+      if (response?.result?.content?.metadata?.symbol) {
+        // Store metadata for potential scam detection
+        const metadata = response.result.content.metadata;
+        this.storeTokenMetadata(mintAddress, metadata);
+        return response.result.content.metadata.symbol;
+      }
+
+      if (response?.result?.content?.metadata?.name) {
+        // Use name if symbol not available
+        const metadata = response.result.content.metadata;
+        this.storeTokenMetadata(mintAddress, metadata);
+        return response.result.content.metadata.name;
+      }
+
+      throw new Error('No symbol or name found in metadata');
+    } catch (error) {
+      throw new Error(`API lookup failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  private async getAddressBalance(params: { address: string }): Promise<Balance> {
+    const { address } = params;
+
+    if (!isValidSolanaAddress(address)) {
+      throw new Error(`Invalid Solana address: ${address}`);
+    }
+
+    this.logger.debug(`Fetching address balance - Address: ${maskAddress(address)}, Network: ${this.network}`);
+
+    try {
+      const response = await this.httpClient.post<JsonRpcResponse<SolanaAccountBalance>>('/', {
+        id: 1,
+        jsonrpc: '2.0',
+        method: 'getBalance',
+        params: [address],
+      });
+
+      if (!response?.result || response.result.value === undefined) {
+        throw new Error('Failed to fetch balance from Helius RPC');
+      }
+
+      const lamports = new Decimal(response.result.value);
+      const solBalance = lamportsToSol(lamports.toNumber());
+
+      this.logger.debug(
+        `Successfully retrieved address balance - Address: ${maskAddress(address)}, BalanceSOL: ${solBalance.toNumber()}, Network: ${this.network}`
+      );
+
+      return {
+        balance: solBalance.toNumber(),
+        currency: 'SOL',
+        total: solBalance.toNumber(),
+        used: 0,
+      };
     } catch (error) {
       this.logger.error(
-        `Operation execution failed - Type: ${operation.type}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`
+        `Failed to get address balance - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`
       );
       throw error;
     }
@@ -184,8 +383,8 @@ export class HeliusProvider extends BaseRegistryProvider {
   private async getDirectAddressTransactions(address: string, since?: number): Promise<BlockchainTransaction[]> {
     // Get signatures for address (direct involvement)
     const signaturesResponse = await this.httpClient.post<JsonRpcResponse<SolanaSignature[]>>('/', {
-      jsonrpc: '2.0',
       id: 1,
+      jsonrpc: '2.0',
       method: 'getSignaturesForAddress',
       params: [
         address,
@@ -209,8 +408,8 @@ export class HeliusProvider extends BaseRegistryProvider {
     for (const sig of signatures) {
       try {
         const txResponse = await this.httpClient.post<JsonRpcResponse<HeliusTransaction>>('/', {
-          jsonrpc: '2.0',
           id: 1,
+          jsonrpc: '2.0',
           method: 'getTransaction',
           params: [
             sig.signature,
@@ -241,8 +440,8 @@ export class HeliusProvider extends BaseRegistryProvider {
     try {
       // Get all token accounts owned by the address
       const tokenAccountsResponse = await this.httpClient.post<JsonRpcResponse<SolanaTokenAccountsResponse>>('/', {
-        jsonrpc: '2.0',
         id: 1,
+        jsonrpc: '2.0',
         method: 'getTokenAccountsByOwner',
         params: [
           address,
@@ -277,89 +476,209 @@ export class HeliusProvider extends BaseRegistryProvider {
     }
   }
 
-  private async fetchTokenAccountTransactions(
-    tokenAccountAddresses: string[],
-    since?: number,
-    ownerAddress?: string
-  ): Promise<BlockchainTransaction[]> {
-    const allTokenTransactions: BlockchainTransaction[] = [];
+  private async getTokenBalances(params: {
+    address: string;
+    contractAddresses?: string[] | undefined;
+  }): Promise<Balance[]> {
+    const { address, contractAddresses } = params;
 
-    for (const tokenAccount of tokenAccountAddresses) {
-      try {
-        // Get signatures for this token account
-        const signaturesResponse = await this.httpClient.post<JsonRpcResponse<HeliusSignatureResponse[]>>('/', {
-          jsonrpc: '2.0',
-          id: 1,
-          method: 'getSignaturesForAddress',
-          params: [
-            tokenAccount,
-            {
-              limit: 50, // Limit per token account to avoid overwhelming
-            },
-          ],
-        });
+    if (!isValidSolanaAddress(address)) {
+      throw new Error(`Invalid Solana address: ${address}`);
+    }
 
-        if (!signaturesResponse?.result?.length) {
+    this.logger.debug(`Fetching token balances - Address: ${maskAddress(address)}, Network: ${this.network}`);
+
+    try {
+      // Get all token accounts owned by the address
+      const tokenAccountsResponse = await this.httpClient.post<JsonRpcResponse<SolanaTokenAccountsResponse>>('/', {
+        id: 1,
+        jsonrpc: '2.0',
+        method: 'getTokenAccountsByOwner',
+        params: [
+          address,
+          {
+            programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', // SPL Token Program ID
+          },
+          {
+            encoding: 'jsonParsed',
+          },
+        ],
+      });
+
+      if (!tokenAccountsResponse?.result?.value) {
+        this.logger.debug(`No token accounts found - Address: ${maskAddress(address)}`);
+        return [];
+      }
+
+      const tokenAccounts = tokenAccountsResponse.result.value;
+      const balances: Balance[] = [];
+
+      for (const account of tokenAccounts) {
+        const accountData = account.account.data.parsed;
+        if (!accountData || !accountData.info) continue;
+
+        const tokenInfo = accountData.info;
+        const mintAddress = tokenInfo.mint;
+        const tokenAmount = tokenInfo.tokenAmount;
+
+        // If specific contract addresses are provided, filter by them
+        if (contractAddresses && contractAddresses.length > 0) {
+          if (!contractAddresses.includes(mintAddress)) {
+            continue;
+          }
+        }
+
+        // Skip zero balances
+        if (!tokenAmount.uiAmount || tokenAmount.uiAmount === 0) {
           continue;
         }
 
-        // Fetch transaction details for token account signatures
-        for (const sig of signaturesResponse.result.slice(0, 20)) {
-          try {
-            const txResponse = await this.httpClient.post<JsonRpcResponse<HeliusTransaction>>('/', {
-              jsonrpc: '2.0',
-              id: 1,
-              method: 'getTransaction',
-              params: [
-                sig.signature,
-                {
-                  encoding: 'json',
-                  maxSupportedTransactionVersion: 0,
-                },
-              ],
-            });
-
-            if (txResponse?.result) {
-              // Transform transaction but link it back to the owner address
-              // For token account transactions, we bypass the relevance check since we found it via token account
-              const blockchainTx = await this.transformTokenAccountTransaction(
-                txResponse.result,
-                ownerAddress || tokenAccount
-              );
-              if (blockchainTx && (!since || blockchainTx.timestamp >= since)) {
-                allTokenTransactions.push(blockchainTx);
-              }
-            }
-          } catch (error) {
-            this.logger.debug(
-              `Failed to fetch token account transaction - TokenAccount: ${maskAddress(tokenAccount)}, Signature: ${sig.signature}, Error: ${error instanceof Error ? error.message : String(error)}`
-            );
-          }
-        }
-      } catch (error) {
-        this.logger.warn(
-          `Failed to get signatures for token account - TokenAccount: ${maskAddress(tokenAccount)}, Error: ${error instanceof Error ? error.message : String(error)}`
-        );
+        balances.push({
+          balance: tokenAmount.uiAmount,
+          contractAddress: mintAddress,
+          currency: mintAddress.slice(0, 8), // Use truncated mint address as symbol for now
+          total: tokenAmount.uiAmount,
+          used: 0,
+        });
       }
-    }
 
-    return allTokenTransactions;
+      this.logger.debug(
+        `Successfully retrieved token balances - Address: ${maskAddress(address)}, TotalTokens: ${balances.length}, Network: ${this.network}`
+      );
+
+      return balances;
+    } catch (error) {
+      this.logger.error(
+        `Failed to get token balances - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`
+      );
+      throw error;
+    }
   }
 
-  private deduplicateTransactions(transactions: BlockchainTransaction[]): BlockchainTransaction[] {
-    const seen = new Set<string>();
-    const unique: BlockchainTransaction[] = [];
-
-    for (const tx of transactions) {
-      if (!seen.has(tx.hash)) {
-        seen.add(tx.hash);
-        unique.push(tx);
-      }
+  /**
+   * Get token symbol using hybrid approach: static registry first, then API fallback
+   */
+  private async getTokenSymbol(mintAddress: string): Promise<string> {
+    // Check cache first
+    if (this.tokenSymbolCache.has(mintAddress)) {
+      return this.tokenSymbolCache.get(mintAddress)!;
     }
 
-    this.logger.debug(`Deduplicated transactions - Original: ${transactions.length}, Unique: ${unique.length}`);
+    // Check static registry
+    const knownSymbol = HeliusProvider.KNOWN_TOKENS.get(mintAddress);
+    if (knownSymbol) {
+      this.tokenSymbolCache.set(mintAddress, knownSymbol);
+      this.logger.debug(
+        `Found token symbol in static registry - Mint: ${maskAddress(mintAddress)}, Symbol: ${knownSymbol}`
+      );
+      return knownSymbol;
+    }
 
-    return unique;
+    // Fallback to Helius DAS API
+    try {
+      const symbol = await this.fetchTokenSymbolFromAPI(mintAddress);
+      this.tokenSymbolCache.set(mintAddress, symbol);
+      this.logger.debug(`Fetched token symbol from API - Mint: ${maskAddress(mintAddress)}`);
+      return symbol;
+    } catch (error) {
+      // Final fallback to truncated mint address
+      const fallbackSymbol = `${mintAddress.slice(0, 6)}...`;
+      this.tokenSymbolCache.set(mintAddress, fallbackSymbol);
+      this.logger.warn(
+        `Failed to fetch token symbol, using fallback - Mint: ${maskAddress(mintAddress)}, Symbol: ${fallbackSymbol}, Error: ${error instanceof Error ? error.message : String(error)}`
+      );
+      return fallbackSymbol;
+    }
+  }
+
+  private async getTokenTransactions(params: {
+    address: string;
+    contractAddress?: string | undefined;
+    since?: number | undefined;
+  }): Promise<BlockchainTransaction[]> {
+    const { address, contractAddress, since } = params;
+
+    if (!isValidSolanaAddress(address)) {
+      throw new Error(`Invalid Solana address: ${address}`);
+    }
+
+    this.logger.debug(`Fetching token transactions - Address: ${maskAddress(address)}, Network: ${this.network}`);
+
+    try {
+      // Get signatures for address (same as regular transactions)
+      const signaturesResponse = await this.httpClient.post<JsonRpcResponse<HeliusSignatureResponse[]>>('/', {
+        id: 1,
+        jsonrpc: '2.0',
+        method: 'getSignaturesForAddress',
+        params: [
+          address,
+          {
+            limit: 1000, // Increase limit to find historical token transactions
+          },
+        ],
+      });
+
+      if (!signaturesResponse?.result) {
+        this.logger.debug(`No signatures found for token transactions - Address: ${maskAddress(address)}`);
+        return [];
+      }
+
+      const signatures = signaturesResponse.result.slice(0, 100); // Process more signatures for token transactions
+      const tokenTransactions: BlockchainTransaction[] = [];
+
+      // Process signatures individually to find token transactions (free tier doesn't support batch requests)
+      for (const sig of signatures) {
+        try {
+          const txResponse = await this.httpClient.post<JsonRpcResponse<HeliusTransaction>>('/', {
+            id: 1,
+            jsonrpc: '2.0',
+            method: 'getTransaction',
+            params: [
+              sig.signature,
+              {
+                encoding: 'json',
+                maxSupportedTransactionVersion: 0,
+              },
+            ],
+          });
+
+          if (txResponse?.result) {
+            const tokenTx = await this.extractTokenTransaction(txResponse.result, address, contractAddress);
+            if (tokenTx && (!since || tokenTx.timestamp >= since)) {
+              tokenTransactions.push(tokenTx);
+            }
+          }
+        } catch (error) {
+          this.logger.debug(
+            `Failed to fetch token transaction details - Signature: ${sig.signature}, Error: ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
+      }
+
+      tokenTransactions.sort((a, b) => b.timestamp - a.timestamp);
+
+      this.logger.debug(
+        `Successfully retrieved token transactions - Address: ${maskAddress(address)}, TotalTransactions: ${tokenTransactions.length}, Network: ${this.network}`
+      );
+
+      return tokenTransactions;
+    } catch (error) {
+      this.logger.error(
+        `Failed to get token transactions - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`
+      );
+      throw error;
+    }
+  }
+
+  private storeTokenMetadata(mintAddress: string, metadata: Record<string, unknown>): void {
+    this.tokenMetadataCache.set(mintAddress, {
+      attributes: metadata.attributes,
+      description: metadata.description,
+      external_url: metadata.external_url,
+      image: metadata.image,
+      name: metadata.name || '',
+      symbol: metadata.symbol || '',
+    });
   }
 
   private async transformTokenAccountTransaction(
@@ -404,22 +723,22 @@ export class HeliusProvider extends BaseRegistryProvider {
         }
 
         return {
-          hash: tx.transaction.signatures?.[0] || '',
-          blockNumber: tx.slot,
           blockHash: '',
-          timestamp: tx.blockTime || 0,
-          from: accountKeys?.[0] || '',
-          to: '',
-          value: createMoney(amount.toNumber(), 'SOL'),
+          blockNumber: tx.slot,
+          confirmations: 1,
           fee: createMoney(fee.toNumber(), 'SOL'),
-          gasUsed: undefined,
+          from: accountKeys?.[0] || '',
           gasPrice: undefined,
+          gasUsed: undefined,
+          hash: tx.transaction.signatures?.[0] || '',
+          nonce: undefined,
           status: tx.meta.err ? 'failed' : 'success',
-          type,
+          timestamp: tx.blockTime || 0,
+          to: '',
           tokenContract: undefined,
           tokenSymbol: 'SOL',
-          nonce: undefined,
-          confirmations: 1,
+          type,
+          value: createMoney(amount.toNumber(), 'SOL'),
         };
       }
 
@@ -434,48 +753,6 @@ export class HeliusProvider extends BaseRegistryProvider {
         `Failed to transform token account transaction - Signature: ${tx.transaction.signatures?.[0]}, Error: ${error instanceof Error ? error.message : String(error)}`
       );
       return null;
-    }
-  }
-
-  private async getAddressBalance(params: { address: string }): Promise<Balance> {
-    const { address } = params;
-
-    if (!isValidSolanaAddress(address)) {
-      throw new Error(`Invalid Solana address: ${address}`);
-    }
-
-    this.logger.debug(`Fetching address balance - Address: ${maskAddress(address)}, Network: ${this.network}`);
-
-    try {
-      const response = await this.httpClient.post<JsonRpcResponse<SolanaAccountBalance>>('/', {
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'getBalance',
-        params: [address],
-      });
-
-      if (!response?.result || response.result.value === undefined) {
-        throw new Error('Failed to fetch balance from Helius RPC');
-      }
-
-      const lamports = new Decimal(response.result.value);
-      const solBalance = lamportsToSol(lamports.toNumber());
-
-      this.logger.debug(
-        `Successfully retrieved address balance - Address: ${maskAddress(address)}, BalanceSOL: ${solBalance.toNumber()}, Network: ${this.network}`
-      );
-
-      return {
-        currency: 'SOL',
-        balance: solBalance.toNumber(),
-        used: 0,
-        total: solBalance.toNumber(),
-      };
-    } catch (error) {
-      this.logger.error(
-        `Failed to get address balance - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`
-      );
-      throw error;
     }
   }
 
@@ -521,22 +798,22 @@ export class HeliusProvider extends BaseRegistryProvider {
       }
 
       return {
-        hash: tx.transaction.signatures?.[0] || '',
-        blockNumber: tx.slot,
         blockHash: '',
-        timestamp: tx.blockTime || 0,
-        from: accountKeys?.[0] || '',
-        to: '',
-        value: createMoney(amount.toNumber(), 'SOL'),
+        blockNumber: tx.slot,
+        confirmations: 1,
         fee: createMoney(fee.toNumber(), 'SOL'),
-        gasUsed: undefined,
+        from: accountKeys?.[0] || '',
         gasPrice: undefined,
+        gasUsed: undefined,
+        hash: tx.transaction.signatures?.[0] || '',
+        nonce: undefined,
         status: tx.meta.err ? 'failed' : 'success',
-        type,
+        timestamp: tx.blockTime || 0,
+        to: '',
         tokenContract: undefined,
         tokenSymbol: 'SOL',
-        nonce: undefined,
-        confirmations: 1,
+        type,
+        value: createMoney(amount.toNumber(), 'SOL'),
       };
     } catch (error) {
       this.logger.warn(
@@ -546,347 +823,70 @@ export class HeliusProvider extends BaseRegistryProvider {
     }
   }
 
-  private async getTokenTransactions(params: {
-    address: string;
-    contractAddress?: string | undefined;
-    since?: number | undefined;
-  }): Promise<BlockchainTransaction[]> {
-    const { address, contractAddress, since } = params;
-
-    if (!isValidSolanaAddress(address)) {
-      throw new Error(`Invalid Solana address: ${address}`);
-    }
-
-    this.logger.debug(`Fetching token transactions - Address: ${maskAddress(address)}, Network: ${this.network}`);
+  async execute<T>(operation: ProviderOperation<T>): Promise<T> {
+    this.logger.debug(
+      `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
+    );
 
     try {
-      // Get signatures for address (same as regular transactions)
-      const signaturesResponse = await this.httpClient.post<JsonRpcResponse<HeliusSignatureResponse[]>>('/', {
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'getSignaturesForAddress',
-        params: [
-          address,
-          {
-            limit: 1000, // Increase limit to find historical token transactions
-          },
-        ],
-      });
-
-      if (!signaturesResponse?.result) {
-        this.logger.debug(`No signatures found for token transactions - Address: ${maskAddress(address)}`);
-        return [];
+      switch (operation.type) {
+        case 'getAddressTransactions':
+          return this.getAddressTransactions({
+            address: operation.address,
+            since: operation.since,
+          }) as T;
+        case 'getAddressBalance':
+          return this.getAddressBalance({
+            address: operation.address,
+          }) as T;
+        case 'getTokenTransactions':
+          return this.getTokenTransactions({
+            address: operation.address,
+            contractAddress: operation.contractAddress,
+            since: operation.since,
+          }) as T;
+        case 'getTokenBalances':
+          return this.getTokenBalances({
+            address: operation.address,
+            contractAddresses: operation.contractAddresses,
+          }) as T;
+        default:
+          throw new Error(`Unsupported operation: ${operation.type}`);
       }
-
-      const signatures = signaturesResponse.result.slice(0, 100); // Process more signatures for token transactions
-      const tokenTransactions: BlockchainTransaction[] = [];
-
-      // Process signatures individually to find token transactions (free tier doesn't support batch requests)
-      for (const sig of signatures) {
-        try {
-          const txResponse = await this.httpClient.post<JsonRpcResponse<HeliusTransaction>>('/', {
-            jsonrpc: '2.0',
-            id: 1,
-            method: 'getTransaction',
-            params: [
-              sig.signature,
-              {
-                encoding: 'json',
-                maxSupportedTransactionVersion: 0,
-              },
-            ],
-          });
-
-          if (txResponse?.result) {
-            const tokenTx = await this.extractTokenTransaction(txResponse.result, address, contractAddress);
-            if (tokenTx && (!since || tokenTx.timestamp >= since)) {
-              tokenTransactions.push(tokenTx);
-            }
-          }
-        } catch (error) {
-          this.logger.debug(
-            `Failed to fetch token transaction details - Signature: ${sig.signature}, Error: ${error instanceof Error ? error.message : String(error)}`
-          );
-        }
-      }
-
-      tokenTransactions.sort((a, b) => b.timestamp - a.timestamp);
-
-      this.logger.debug(
-        `Successfully retrieved token transactions - Address: ${maskAddress(address)}, TotalTransactions: ${tokenTransactions.length}, Network: ${this.network}`
-      );
-
-      return tokenTransactions;
     } catch (error) {
       this.logger.error(
-        `Failed to get token transactions - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`
+        `Operation execution failed - Type: ${operation.type}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`
       );
       throw error;
     }
   }
 
-  private async getTokenBalances(params: {
-    address: string;
-    contractAddresses?: string[] | undefined;
-  }): Promise<Balance[]> {
-    const { address, contractAddresses } = params;
-
-    if (!isValidSolanaAddress(address)) {
-      throw new Error(`Invalid Solana address: ${address}`);
-    }
-
-    this.logger.debug(`Fetching token balances - Address: ${maskAddress(address)}, Network: ${this.network}`);
-
+  async isHealthy(): Promise<boolean> {
     try {
-      // Get all token accounts owned by the address
-      const tokenAccountsResponse = await this.httpClient.post<JsonRpcResponse<SolanaTokenAccountsResponse>>('/', {
-        jsonrpc: '2.0',
+      const response = await this.httpClient.post<JsonRpcResponse<string>>('/', {
         id: 1,
-        method: 'getTokenAccountsByOwner',
-        params: [
-          address,
-          {
-            programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', // SPL Token Program ID
-          },
-          {
-            encoding: 'jsonParsed',
-          },
-        ],
-      });
-
-      if (!tokenAccountsResponse?.result?.value) {
-        this.logger.debug(`No token accounts found - Address: ${maskAddress(address)}`);
-        return [];
-      }
-
-      const tokenAccounts = tokenAccountsResponse.result.value;
-      const balances: Balance[] = [];
-
-      for (const account of tokenAccounts) {
-        const accountData = account.account.data.parsed;
-        if (!accountData || !accountData.info) continue;
-
-        const tokenInfo = accountData.info;
-        const mintAddress = tokenInfo.mint;
-        const tokenAmount = tokenInfo.tokenAmount;
-
-        // If specific contract addresses are provided, filter by them
-        if (contractAddresses && contractAddresses.length > 0) {
-          if (!contractAddresses.includes(mintAddress)) {
-            continue;
-          }
-        }
-
-        // Skip zero balances
-        if (!tokenAmount.uiAmount || tokenAmount.uiAmount === 0) {
-          continue;
-        }
-
-        balances.push({
-          currency: mintAddress.slice(0, 8), // Use truncated mint address as symbol for now
-          balance: tokenAmount.uiAmount,
-          used: 0,
-          total: tokenAmount.uiAmount,
-          contractAddress: mintAddress,
-        });
-      }
-
-      this.logger.debug(
-        `Successfully retrieved token balances - Address: ${maskAddress(address)}, TotalTokens: ${balances.length}, Network: ${this.network}`
-      );
-
-      return balances;
-    } catch (error) {
-      this.logger.error(
-        `Failed to get token balances - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`
-      );
-      throw error;
-    }
-  }
-
-  private async extractTokenTransaction(
-    tx: HeliusTransaction,
-    userAddress: string,
-    targetContract?: string
-  ): Promise<BlockchainTransaction | null> {
-    try {
-      // Look for token balance changes in preTokenBalances and postTokenBalances
-      const preTokenBalances = tx.meta.preTokenBalances || [];
-      const postTokenBalances = tx.meta.postTokenBalances || [];
-
-      // Find changes for token accounts owned by the user
-      for (const postBalance of postTokenBalances) {
-        // Check if this token account is owned by the user
-        if (postBalance.owner !== userAddress) {
-          continue;
-        }
-
-        const preBalance = preTokenBalances.find(
-          pre => pre.accountIndex === postBalance.accountIndex && pre.mint === postBalance.mint
-        );
-
-        const preAmount = preBalance ? parseFloat(preBalance.uiTokenAmount.uiAmountString || '0') : 0;
-        const postAmount = parseFloat(postBalance.uiTokenAmount.uiAmountString || '0');
-        const change = postAmount - preAmount;
-
-        // Skip if no meaningful change
-        if (Math.abs(change) < 0.000001) {
-          continue;
-        }
-
-        // If a specific contract is specified, filter by it
-        if (targetContract && postBalance.mint !== targetContract) {
-          continue;
-        }
-
-        // Log any significant token transaction
-        this.logger.debug(
-          `Found SPL token transaction - Signature: ${tx.transaction.signatures?.[0]}, Mint: ${postBalance.mint}, Owner: ${postBalance.owner}, Change: ${Math.abs(change)}, Type: ${change > 0 ? 'transfer_in' : 'transfer_out'}`
-        );
-
-        // Determine transfer direction
-        const type: 'transfer_in' | 'transfer_out' = change > 0 ? 'transfer_in' : 'transfer_out';
-
-        // Get proper token symbol using hybrid approach (cache + API)
-        const tokenSymbol = await this.getTokenSymbol(postBalance.mint);
-
-        return {
-          hash: tx.transaction.signatures?.[0] || '',
-          blockNumber: tx.slot,
-          blockHash: '',
-          timestamp: tx.blockTime || 0,
-          from: type === 'transfer_out' ? userAddress : '',
-          to: type === 'transfer_in' ? userAddress : '',
-          value: createMoney(Math.abs(change), tokenSymbol),
-          fee: createMoney(lamportsToSol(tx.meta.fee).toNumber(), 'SOL'),
-          gasUsed: undefined,
-          gasPrice: undefined,
-          status: tx.meta.err ? 'failed' : 'success',
-          type: 'token_transfer',
-          tokenContract: postBalance.mint,
-          tokenSymbol,
-          nonce: undefined,
-          confirmations: 1,
-        };
-      }
-
-      return null;
-    } catch (error) {
-      this.logger.debug(
-        `Failed to extract token transaction - Signature: ${tx.transaction.signatures?.[0]}, Error: ${error instanceof Error ? error.message : String(error)}`
-      );
-      return null;
-    }
-  }
-
-  /**
-   * Static token registry for common Solana tokens
-   * This provides fast lookups for well-known tokens
-   */
-  private static readonly KNOWN_TOKENS = new Map<string, string>([
-    // Popular SPL Tokens
-    ['rndrizKT3MK1iimdxRdWabcF7Zg7AR5T4nud4EkHBof', 'RENDER'], // Render Network
-    ['hntyVP6YFm1Hg25TN9WGLqM12b8TQmcknKrdu1oxWux', 'HNT'], // Helium Network Token
-    ['4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R', 'RAY'], // Raydium
-    ['EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', 'USDC'], // USD Coin (official)
-    ['Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', 'USDT'], // Tether USD
-    ['mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So', 'mSOL'], // Marinade Staked SOL
-    ['7dHbWXmci3dT8UFYWYZweBLXgycu7Y3iL6trKn1Y7ARj', 'stSOL'], // Lido Staked SOL
-    ['J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn', 'jitoSOL'], // Jito Staked SOL
-    ['bSo13r4TkiE4KumL71LsHTPpL2euBYLFx6h9HP3piy1', 'bSOL'], // BlazeStake Staked SOL
-    ['DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263', 'BONK'], // Bonk
-    ['5oVNBeEEQvYi1cX3ir8Dx5n1P7pdxydbGF2X4TxVusJm', 'INF'], // Infinity Protocol
-    ['7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs', 'ETH'], // Wrapped Ethereum
-    ['9n4nbM75f5Ui33ZbPYXn59EwSgE8CGsHtAeTH5YFeJ9E', 'BTC'], // Wrapped Bitcoin
-    // ['BvkjtktEZyjix9rSKEiA3ftMU1UCS61XEERFxtMqN1zd', 'UNKNOWN'] // Remove to test API fallback for scam token
-  ]);
-
-  /**
-   * Get token symbol using hybrid approach: static registry first, then API fallback
-   */
-  private async getTokenSymbol(mintAddress: string): Promise<string> {
-    // Check cache first
-    if (this.tokenSymbolCache.has(mintAddress)) {
-      return this.tokenSymbolCache.get(mintAddress)!;
-    }
-
-    // Check static registry
-    const knownSymbol = HeliusProvider.KNOWN_TOKENS.get(mintAddress);
-    if (knownSymbol) {
-      this.tokenSymbolCache.set(mintAddress, knownSymbol);
-      this.logger.debug(
-        `Found token symbol in static registry - Mint: ${maskAddress(mintAddress)}, Symbol: ${knownSymbol}`
-      );
-      return knownSymbol;
-    }
-
-    // Fallback to Helius DAS API
-    try {
-      const symbol = await this.fetchTokenSymbolFromAPI(mintAddress);
-      this.tokenSymbolCache.set(mintAddress, symbol);
-      this.logger.debug(`Fetched token symbol from API - Mint: ${maskAddress(mintAddress)}`);
-      return symbol;
-    } catch (error) {
-      // Final fallback to truncated mint address
-      const fallbackSymbol = `${mintAddress.slice(0, 6)}...`;
-      this.tokenSymbolCache.set(mintAddress, fallbackSymbol);
-      this.logger.warn(
-        `Failed to fetch token symbol, using fallback - Mint: ${maskAddress(mintAddress)}, Symbol: ${fallbackSymbol}, Error: ${error instanceof Error ? error.message : String(error)}`
-      );
-      return fallbackSymbol;
-    }
-  }
-
-  /**
-   * Fetch token symbol from Helius DAS API
-   */
-  private async fetchTokenSymbolFromAPI(mintAddress: string): Promise<string> {
-    try {
-      const response = await this.httpClient.post<JsonRpcResponse<HeliusAssetResponse>>('/', {
         jsonrpc: '2.0',
-        id: 1,
-        method: 'getAsset',
-        params: {
-          id: mintAddress,
-          displayOptions: {
-            showFungible: true,
-          },
-        },
+        method: 'getHealth',
       });
-
-      if (response?.result?.content?.metadata?.symbol) {
-        // Store metadata for potential scam detection
-        const metadata = response.result.content.metadata;
-        this.storeTokenMetadata(mintAddress, metadata);
-        return response.result.content.metadata.symbol;
-      }
-
-      if (response?.result?.content?.metadata?.name) {
-        // Use name if symbol not available
-        const metadata = response.result.content.metadata;
-        this.storeTokenMetadata(mintAddress, metadata);
-        return response.result.content.metadata.name;
-      }
-
-      throw new Error('No symbol or name found in metadata');
+      return response?.result === 'ok';
     } catch (error) {
-      throw new Error(`API lookup failed: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
+      return false;
     }
   }
 
-  /**
-   * Store token metadata for scam detection
-   */
-  private tokenMetadataCache = new Map<string, Record<string, unknown>>();
-
-  private storeTokenMetadata(mintAddress: string, metadata: Record<string, unknown>): void {
-    this.tokenMetadataCache.set(mintAddress, {
-      symbol: metadata.symbol || '',
-      name: metadata.name || '',
-      description: metadata.description,
-      image: metadata.image,
-      external_url: metadata.external_url,
-      attributes: metadata.attributes,
-    });
+  async testConnection(): Promise<boolean> {
+    try {
+      const response = await this.httpClient.post<JsonRpcResponse<string>>('/', {
+        id: 1,
+        jsonrpc: '2.0',
+        method: 'getHealth',
+      });
+      this.logger.debug(`Connection test successful - Health: ${response?.result}`);
+      return response?.result === 'ok';
+    } catch (error) {
+      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
+      return false;
+    }
   }
 }

@@ -37,10 +37,10 @@ function generateConfiguration(): void {
     string,
     {
       explorers: Array<{
-        name: string;
         enabled: boolean;
-        priority?: number;
+        name: string;
         networks?: Record<string, unknown>;
+        priority?: number;
       }>;
     }
   > = {};
@@ -51,16 +51,16 @@ function generateConfiguration(): void {
         const metadata = ProviderRegistry.getMetadata(blockchain, provider.name);
 
         const explorerConfig: {
-          name: string;
-          enabled: boolean;
-          priority?: number;
-          networks?: Record<string, unknown>;
-          capabilities?: Record<string, unknown>;
           [key: string]: unknown;
+          capabilities?: Record<string, unknown>;
+          enabled: boolean;
+          name: string;
+          networks?: Record<string, unknown>;
+          priority?: number;
         } = {
-          name: provider.name,
           displayName: provider.displayName,
           enabled: index === 0, // Enable first provider by default
+          name: provider.name,
           priority: index + 1,
           type: provider.type,
           ...(metadata?.requiresApiKey && {
@@ -73,12 +73,28 @@ function generateConfiguration(): void {
             description: metadata.description,
           }),
           capabilities: {
-            supportedOperations: provider.capabilities.supportedOperations,
             maxBatchSize: provider.capabilities.maxBatchSize,
+            supportedOperations: provider.capabilities.supportedOperations,
             supportsHistoricalData: provider.capabilities.supportsHistoricalData,
+            supportsPagination: provider.capabilities.supportsPagination,
             supportsRealTimeData: provider.capabilities.supportsRealTimeData,
             supportsTokenData: provider.capabilities.supportsTokenData,
-            supportsPagination: provider.capabilities.supportsPagination,
+          },
+          defaultConfig: {
+            rateLimit: {
+              requestsPerSecond: metadata?.defaultConfig.rateLimit.requestsPerSecond,
+              ...(metadata?.defaultConfig.rateLimit.requestsPerMinute && {
+                requestsPerMinute: metadata.defaultConfig.rateLimit.requestsPerMinute,
+              }),
+              ...(metadata?.defaultConfig.rateLimit.requestsPerHour && {
+                requestsPerHour: metadata.defaultConfig.rateLimit.requestsPerHour,
+              }),
+              ...(metadata?.defaultConfig.rateLimit.burstLimit && {
+                burstLimit: metadata.defaultConfig.rateLimit.burstLimit,
+              }),
+            },
+            retries: metadata?.defaultConfig.retries,
+            timeout: metadata?.defaultConfig.timeout,
           },
           networks: {
             ...(metadata?.networks.mainnet && {
@@ -96,22 +112,6 @@ function generateConfiguration(): void {
                 baseUrl: metadata.networks.devnet.baseUrl,
               },
             }),
-          },
-          defaultConfig: {
-            timeout: metadata?.defaultConfig.timeout,
-            retries: metadata?.defaultConfig.retries,
-            rateLimit: {
-              requestsPerSecond: metadata?.defaultConfig.rateLimit.requestsPerSecond,
-              ...(metadata?.defaultConfig.rateLimit.requestsPerMinute && {
-                requestsPerMinute: metadata.defaultConfig.rateLimit.requestsPerMinute,
-              }),
-              ...(metadata?.defaultConfig.rateLimit.requestsPerHour && {
-                requestsPerHour: metadata.defaultConfig.rateLimit.requestsPerHour,
-              }),
-              ...(metadata?.defaultConfig.rateLimit.burstLimit && {
-                burstLimit: metadata.defaultConfig.rateLimit.burstLimit,
-              }),
-            },
           },
         };
 

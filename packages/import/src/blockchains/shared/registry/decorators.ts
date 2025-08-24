@@ -8,8 +8,8 @@ export function RegisterProvider(metadata: ProviderMetadata) {
   return function <T extends new (...args: unknown[]) => IBlockchainProvider>(constructor: T): T {
     // Create factory that instantiates the provider class
     const factory: ProviderFactory = {
-      metadata,
       create: (config: unknown) => new constructor(config),
+      metadata,
     };
 
     // Register the factory

@@ -1,29 +1,29 @@
 export interface InjectiveApiResponse {
   data: InjectiveTransaction[];
   paging?: {
-    total: number;
     from?: number;
     to?: number;
+    total: number;
   };
 }
 
 export interface InjectiveTransaction {
-  id: string;
   block_number: number;
   block_timestamp: string;
-  hash: string;
   code: number;
-  info: string;
-  gas_wanted: number;
-  gas_used: number;
-  gas_fee: InjectiveGasFee;
-  tx_type: string;
-  messages: InjectiveMessage[];
-  signatures: unknown[];
-  memo?: string;
-  timeout_height: number;
   extension_options: unknown[];
+  gas_fee: InjectiveGasFee;
+  gas_used: number;
+  gas_wanted: number;
+  hash: string;
+  id: string;
+  info: string;
+  memo?: string;
+  messages: InjectiveMessage[];
   non_critical_extension_options: unknown[];
+  signatures: unknown[];
+  timeout_height: number;
+  tx_type: string;
 }
 
 export interface InjectiveMessage {
@@ -32,37 +32,37 @@ export interface InjectiveMessage {
 }
 
 export interface InjectiveMessageValue {
-  from_address?: string;
-  to_address?: string;
   amount?: InjectiveAmount[] | string;
-  sender?: string;
+  ethereum_receiver?: string;
+  from_address?: string;
+  injective_receiver?: string;
+  memo?: string;
   receiver?: string;
-  source_port?: string;
+  sender?: string;
   source_channel?: string;
-  token?: InjectiveAmount;
+  source_port?: string;
   timeout_height?: unknown;
   timeout_timestamp?: string;
-  memo?: string;
+  to_address?: string;
+  token?: InjectiveAmount;
   token_contract?: string;
-  ethereum_receiver?: string;
-  injective_receiver?: string;
 }
 
 export interface InjectiveAmount {
-  denom: string;
   amount: string;
+  denom: string;
 }
 
 export interface InjectiveGasFee {
   amount: InjectiveAmount[];
   gas_limit: number;
-  payer: string;
   granter: string;
+  payer: string;
 }
 
 export interface InjectiveBalance {
-  denom: string;
   amount: string;
+  denom: string;
 }
 
 export interface InjectiveBalanceResponse {

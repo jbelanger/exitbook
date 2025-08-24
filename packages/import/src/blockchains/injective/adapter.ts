@@ -29,24 +29,49 @@ export class InjectiveAdapter extends BaseAdapter {
     );
   }
 
-  async getInfo(): Promise<UniversalAdapterInfo> {
-    return {
-      id: 'injective',
-      name: 'Injective Protocol',
-      type: 'blockchain',
-      subType: 'rest',
-      capabilities: {
-        supportedOperations: ['fetchTransactions', 'fetchBalances'],
-        maxBatchSize: 1,
-        supportsHistoricalData: true,
-        supportsPagination: true,
-        requiresApiKey: false,
-        rateLimit: {
-          requestsPerSecond: 3,
-          burstLimit: 15,
-        },
-      },
-    };
+  /**
+   * Close adapter and cleanup resources
+   */
+  async close(): Promise<void> {
+    try {
+      this.providerManager.destroy();
+      this.logger.info('Injective adapter closed successfully');
+    } catch (error) {
+      this.logger.warn(`Error during Injective adapter close - Error: ${error}`);
+    }
+  }
+
+  protected async fetchRawBalances(params: UniversalFetchParams): Promise<Balance[]> {
+    if (!params.addresses?.length) {
+      throw new Error('Addresses required for Injective balance fetching');
+    }
+
+    const allBalances: Balance[] = [];
+
+    for (const address of params.addresses) {
+      // Basic Injective address validation - starts with 'inj' and is bech32 encoded
+      if (!/^inj1[a-z0-9]{38}$/.test(address)) {
+        throw new Error(`Invalid Injective address: ${address}`);
+      }
+
+      this.logger.info(`Getting balance for address: ${address.substring(0, 20)}...`);
+
+      try {
+        const balances = (await this.providerManager.executeWithFailover('injective', {
+          address: address,
+          getCacheKey: cacheParams =>
+            `inj_balance_${cacheParams.type === 'getAddressBalance' ? cacheParams.address : 'unknown'}`,
+          type: 'getAddressBalance',
+        })) as Balance[];
+
+        allBalances.push(...balances);
+      } catch (error) {
+        this.logger.error(`Failed to fetch balance for ${address} - Error: ${error}`);
+        throw error;
+      }
+    }
+
+    return allBalances;
   }
 
   protected async fetchRawTransactions(params: UniversalFetchParams): Promise<BlockchainTransaction[]> {
@@ -67,11 +92,11 @@ export class InjectiveAdapter extends BaseAdapter {
       try {
         // Fetch regular INJ transactions
         const regularTxs = (await this.providerManager.executeWithFailover('injective', {
-          type: 'getAddressTransactions',
           address: address,
-          since: params.since,
           getCacheKey: cacheParams =>
             `inj_tx_${cacheParams.type === 'getAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getAddressTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
+          since: params.since,
+          type: 'getAddressTransactions',
         })) as BlockchainTransaction[];
 
         // Try to fetch token transactions (if provider supports it)
@@ -79,11 +104,11 @@ export class InjectiveAdapter extends BaseAdapter {
         let tokenTxs: BlockchainTransaction[] = [];
         try {
           tokenTxs = (await this.providerManager.executeWithFailover('injective', {
-            type: 'getTokenTransactions',
             address: address,
-            since: params.since,
             getCacheKey: cacheParams =>
               `inj_token_tx_${cacheParams.type === 'getTokenTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getTokenTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
+            since: params.since,
+            type: 'getTokenTransactions',
           })) as BlockchainTransaction[];
         } catch (error) {
           this.logger.debug(
@@ -117,37 +142,53 @@ export class InjectiveAdapter extends BaseAdapter {
     return uniqueTransactions;
   }
 
-  protected async fetchRawBalances(params: UniversalFetchParams): Promise<Balance[]> {
-    if (!params.addresses?.length) {
-      throw new Error('Addresses required for Injective balance fetching');
+  async getInfo(): Promise<UniversalAdapterInfo> {
+    return {
+      capabilities: {
+        maxBatchSize: 1,
+        rateLimit: {
+          burstLimit: 15,
+          requestsPerSecond: 3,
+        },
+        requiresApiKey: false,
+        supportedOperations: ['fetchTransactions', 'fetchBalances'],
+        supportsHistoricalData: true,
+        supportsPagination: true,
+      },
+      id: 'injective',
+      name: 'Injective Protocol',
+      subType: 'rest',
+      type: 'blockchain',
+    };
+  }
+
+  async testConnection(): Promise<boolean> {
+    try {
+      // Test connection through provider manager
+      const healthStatus = this.providerManager.getProviderHealth('injective');
+      const hasHealthyProvider = Array.from(healthStatus.values()).some(
+        health => health.isHealthy && health.circuitState !== 'OPEN'
+      );
+
+      this.logger.info(
+        `Injective provider connection test result - HasHealthyProvider: ${hasHealthyProvider}, TotalProviders: ${healthStatus.size}`
+      );
+
+      return hasHealthyProvider;
+    } catch (error) {
+      this.logger.error(`Injective connection test failed - Error: ${error}`);
+      return false;
     }
+  }
 
-    const allBalances: Balance[] = [];
-
-    for (const address of params.addresses) {
-      // Basic Injective address validation - starts with 'inj' and is bech32 encoded
-      if (!/^inj1[a-z0-9]{38}$/.test(address)) {
-        throw new Error(`Invalid Injective address: ${address}`);
-      }
-
-      this.logger.info(`Getting balance for address: ${address.substring(0, 20)}...`);
-
-      try {
-        const balances = (await this.providerManager.executeWithFailover('injective', {
-          type: 'getAddressBalance',
-          address: address,
-          getCacheKey: cacheParams =>
-            `inj_balance_${cacheParams.type === 'getAddressBalance' ? cacheParams.address : 'unknown'}`,
-        })) as Balance[];
-
-        allBalances.push(...balances);
-      } catch (error) {
-        this.logger.error(`Failed to fetch balance for ${address} - Error: ${error}`);
-        throw error;
-      }
-    }
-
-    return allBalances;
+  protected async transformBalances(rawBalances: Balance[], params: UniversalFetchParams): Promise<UniversalBalance[]> {
+    return rawBalances.map(balance => ({
+      contractAddress: balance.contractAddress,
+      currency: balance.currency,
+      free: balance.balance,
+      total: balance.total,
+      used: balance.used,
+    }));
   }
 
   protected async transformTransactions(
@@ -173,68 +214,27 @@ export class InjectiveAdapter extends BaseAdapter {
       }
 
       return {
-        id: tx.hash,
-        timestamp: tx.timestamp,
-        datetime: new Date(tx.timestamp).toISOString(),
-        type,
-        status: tx.status === 'success' ? 'closed' : tx.status === 'pending' ? 'open' : 'canceled',
         amount: tx.value,
+        datetime: new Date(tx.timestamp).toISOString(),
         fee: tx.fee,
         from: tx.from,
-        to: tx.to,
-        symbol: tx.tokenSymbol || tx.value.currency,
-        source: 'injective',
-        network: 'mainnet',
+        id: tx.hash,
         metadata: {
-          blockNumber: tx.blockNumber,
           blockHash: tx.blockHash,
+          blockNumber: tx.blockNumber,
           confirmations: tx.confirmations,
+          originalTransaction: tx,
           tokenContract: tx.tokenContract,
           transactionType: tx.type,
-          originalTransaction: tx,
         },
+        network: 'mainnet',
+        source: 'injective',
+        status: tx.status === 'success' ? 'closed' : tx.status === 'pending' ? 'open' : 'canceled',
+        symbol: tx.tokenSymbol || tx.value.currency,
+        timestamp: tx.timestamp,
+        to: tx.to,
+        type,
       };
     });
-  }
-
-  protected async transformBalances(rawBalances: Balance[], params: UniversalFetchParams): Promise<UniversalBalance[]> {
-    return rawBalances.map(balance => ({
-      currency: balance.currency,
-      total: balance.total,
-      free: balance.balance,
-      used: balance.used,
-      contractAddress: balance.contractAddress,
-    }));
-  }
-
-  async testConnection(): Promise<boolean> {
-    try {
-      // Test connection through provider manager
-      const healthStatus = this.providerManager.getProviderHealth('injective');
-      const hasHealthyProvider = Array.from(healthStatus.values()).some(
-        health => health.isHealthy && health.circuitState !== 'OPEN'
-      );
-
-      this.logger.info(
-        `Injective provider connection test result - HasHealthyProvider: ${hasHealthyProvider}, TotalProviders: ${healthStatus.size}`
-      );
-
-      return hasHealthyProvider;
-    } catch (error) {
-      this.logger.error(`Injective connection test failed - Error: ${error}`);
-      return false;
-    }
-  }
-
-  /**
-   * Close adapter and cleanup resources
-   */
-  async close(): Promise<void> {
-    try {
-      this.providerManager.destroy();
-      this.logger.info('Injective adapter closed successfully');
-    } catch (error) {
-      this.logger.warn(`Error during Injective adapter close - Error: ${error}`);
-    }
   }
 }

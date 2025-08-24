@@ -4,28 +4,28 @@ import { Decimal } from 'decimal.js';
  * Solana transaction from Solscan API
  */
 export interface SolscanTransaction {
-  txHash: string;
   blockTime: number;
-  slot: number;
   fee: number;
-  status: 'Success' | 'Fail';
-  lamport: number;
-  signer: string[];
-  logMessage: string[];
   inputAccount: Array<{
     account: string;
+    postBalance: number;
+    preBalance: number;
     signer: boolean;
     writable: boolean;
-    preBalance: number;
-    postBalance: number;
   }>;
-  recentBlockhash: string;
+  lamport: number;
+  logMessage: string[];
   parsedInstruction: Array<{
+    params?: Record<string, unknown>;
     program: string;
     programId: string;
     type: string;
-    params?: Record<string, unknown>;
   }>;
+  recentBlockhash: string;
+  signer: string[];
+  slot: number;
+  status: 'Success' | 'Fail';
+  txHash: string;
 }
 
 /**
@@ -33,11 +33,11 @@ export interface SolscanTransaction {
  */
 export interface SolscanBalance {
   account: string;
+  executable: boolean;
   lamports: number;
   ownerProgram: string;
-  type: string;
   rentEpoch: number;
-  executable: boolean;
+  type: string;
 }
 
 /**
@@ -60,6 +60,19 @@ export interface SolanaTokenBalance {
  * Solana RPC transaction response
  */
 export interface SolanaRPCTransaction {
+  blockTime: number;
+  meta: {
+    err: unknown;
+    fee: number;
+    innerInstructions: unknown[];
+    logMessages: string[];
+    postBalances: number[];
+    postTokenBalances: SolanaTokenBalance[];
+    preBalances: number[];
+    preTokenBalances: SolanaTokenBalance[];
+    rewards: unknown[];
+    status: { Ok: null } | { Err: unknown };
+  };
   slot: number;
   transaction: {
     message: {
@@ -78,49 +91,36 @@ export interface SolanaRPCTransaction {
     };
     signatures: string[];
   };
-  meta: {
-    err: unknown;
-    fee: number;
-    innerInstructions: unknown[];
-    logMessages: string[];
-    postBalances: number[];
-    postTokenBalances: SolanaTokenBalance[];
-    preBalances: number[];
-    preTokenBalances: SolanaTokenBalance[];
-    rewards: unknown[];
-    status: { Ok: null } | { Err: unknown };
-  };
-  blockTime: number;
 }
 
 /**
  * Solana transaction processing result
  */
 export interface ProcessedSolanaTransaction {
-  hash: string;
-  slot: number;
+  amount: Decimal;
   blockTime: number;
   fee: number;
-  status: 'success' | 'failed';
-  type: 'transfer_in' | 'transfer_out' | 'swap' | 'stake' | 'unstake' | 'other';
-  amount: Decimal;
   from?: string;
-  to?: string;
-  program: string;
+  hash: string;
   instructions: Array<{
+    data?: unknown;
     program: string;
     type: string;
-    data?: unknown;
   }>;
+  program: string;
+  slot: number;
+  status: 'success' | 'failed';
+  to?: string;
+  type: 'transfer_in' | 'transfer_out' | 'swap' | 'stake' | 'unstake' | 'other';
 }
 
 // Solana RPC API response types for Helius provider
 export interface SolanaSignature {
-  signature: string;
-  slot: number;
+  blockTime?: number;
   err?: unknown;
   memo?: string;
-  blockTime?: number;
+  signature: string;
+  slot: number;
 }
 
 export interface SolanaAccountBalance {
@@ -128,7 +128,6 @@ export interface SolanaAccountBalance {
 }
 
 export interface SolanaTokenAccount {
-  pubkey: string;
   account: {
     data: {
       parsed: {
@@ -152,6 +151,7 @@ export interface SolanaTokenAccount {
     owner: string;
     rentEpoch: number;
   };
+  pubkey: string;
 }
 
 export interface SolanaTokenAccountsResponse {
@@ -160,19 +160,19 @@ export interface SolanaTokenAccountsResponse {
 
 // Helius provider-specific types
 export interface HeliusTransaction {
-  signature: string;
-  slot: number;
   blockTime?: number;
   err: unknown;
   meta: {
-    fee: number;
-    preBalances: number[];
-    postBalances: number[];
-    preTokenBalances?: SolanaTokenBalance[];
-    postTokenBalances?: SolanaTokenBalance[];
-    logMessages: string[];
     err: unknown;
+    fee: number;
+    logMessages: string[];
+    postBalances: number[];
+    postTokenBalances?: SolanaTokenBalance[];
+    preBalances: number[];
+    preTokenBalances?: SolanaTokenBalance[];
   };
+  signature: string;
+  slot: number;
   transaction: {
     message: {
       accountKeys: string[];
@@ -186,24 +186,24 @@ export interface HeliusTransaction {
 export interface HeliusAssetResponse {
   content: {
     metadata: {
-      symbol?: string;
-      name?: string;
       description?: string;
+      name?: string;
+      symbol?: string;
     };
   };
 }
 
 export interface HeliusSignatureResponse {
-  signature: string;
-  slot: number;
+  blockTime?: number;
   err: unknown;
   memo: string;
-  blockTime?: number;
+  signature: string;
+  slot: number;
 }
 
 // Solscan provider-specific types
 export interface SolscanResponse<T = unknown> {
-  success: boolean;
   data?: T;
   message?: string;
+  success: boolean;
 }

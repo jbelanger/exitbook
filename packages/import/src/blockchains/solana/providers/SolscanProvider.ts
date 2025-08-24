@@ -9,40 +9,40 @@ import type { SolscanResponse, SolscanTransaction } from '../types.ts';
 import { isValidSolanaAddress, lamportsToSol } from '../utils.ts';
 
 @RegisterProvider({
-  name: 'solscan',
-  blockchain: 'solana',
-  displayName: 'Solscan API',
-  type: 'rest',
-  requiresApiKey: false,
   apiKeyEnvVar: 'SOLSCAN_API_KEY',
-  description: 'Solana blockchain explorer API with transaction and account data access',
+  blockchain: 'solana',
   capabilities: {
-    supportedOperations: ['getAddressTransactions', 'getAddressBalance'],
     maxBatchSize: 1,
+    supportedOperations: ['getAddressTransactions', 'getAddressBalance'],
     supportsHistoricalData: true,
     supportsPagination: true,
     supportsRealTimeData: true,
     supportsTokenData: true,
   },
+  defaultConfig: {
+    rateLimit: {
+      burstLimit: 1,
+      requestsPerSecond: 0.2, // Conservative: 1 request per 5 seconds
+    },
+    retries: 3,
+    timeout: 15000,
+  },
+  description: 'Solana blockchain explorer API with transaction and account data access',
+  displayName: 'Solscan API',
+  name: 'solscan',
   networks: {
+    devnet: {
+      baseUrl: 'https://api.solscan.io',
+    },
     mainnet: {
       baseUrl: 'https://public-api.solscan.io',
     },
     testnet: {
       baseUrl: 'https://api.solscan.io',
     },
-    devnet: {
-      baseUrl: 'https://api.solscan.io',
-    },
   },
-  defaultConfig: {
-    timeout: 15000,
-    retries: 3,
-    rateLimit: {
-      requestsPerSecond: 0.2, // Conservative: 1 request per 5 seconds
-      burstLimit: 1,
-    },
-  },
+  requiresApiKey: false,
+  type: 'rest',
 })
 export class SolscanProvider extends BaseRegistryProvider {
   constructor() {
@@ -52,14 +52,14 @@ export class SolscanProvider extends BaseRegistryProvider {
     this.reinitializeHttpClient({
       defaultHeaders: {
         Accept: 'application/json',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Accept-Language': 'en-US,en;q=0.9',
+        Connection: 'keep-alive',
         'Content-Type': 'application/json',
+        DNT: '1',
+        'Upgrade-Insecure-Requests': '1',
         'User-Agent':
           'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Accept-Encoding': 'gzip, deflate, br',
-        DNT: '1',
-        Connection: 'keep-alive',
-        'Upgrade-Insecure-Requests': '1',
         ...(this.apiKey &&
           this.apiKey !== 'YourApiKeyToken' && {
             Authorization: `Bearer ${this.apiKey}`,
@@ -68,53 +68,38 @@ export class SolscanProvider extends BaseRegistryProvider {
     });
   }
 
-  async isHealthy(): Promise<boolean> {
-    try {
-      const response = await this.httpClient.get<SolscanResponse>(
-        '/account/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
-      );
-      return response && response.success !== false;
-    } catch (error) {
-      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
+  private async getAddressBalance(params: { address: string }): Promise<Balance> {
+    const { address } = params;
+
+    if (!isValidSolanaAddress(address)) {
+      throw new Error(`Invalid Solana address: ${address}`);
     }
-  }
 
-  async testConnection(): Promise<boolean> {
-    try {
-      const response = await this.httpClient.get<SolscanResponse>(
-        '/account/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
-      );
-      this.logger.debug(`Connection test successful - HasResponse: ${!!response}`);
-      return response && response.success !== false;
-    } catch (error) {
-      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
-    }
-  }
-
-  async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug(
-      `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
-    );
+    this.logger.debug(`Fetching address balance - Address: ${maskAddress(address)}, Network: ${this.network}`);
 
     try {
-      switch (operation.type) {
-        case 'getAddressTransactions':
-          return this.getAddressTransactions({
-            address: operation.address,
-            since: operation.since,
-          }) as T;
-        case 'getAddressBalance':
-          return this.getAddressBalance({
-            address: operation.address,
-          }) as T;
-        default:
-          throw new Error(`Unsupported operation: ${operation.type}`);
+      const response = await this.httpClient.get<SolscanResponse<{ lamports: string }>>(`/account/${address}`);
+
+      if (!response || !response.success || !response.data) {
+        throw new Error('Failed to fetch balance from Solscan API');
       }
+
+      const lamports = new Decimal(response.data.lamports || '0');
+      const solBalance = lamportsToSol(lamports.toNumber());
+
+      this.logger.debug(
+        `Successfully retrieved address balance - Address: ${maskAddress(address)}, BalanceSOL: ${solBalance.toNumber()}, Network: ${this.network}`
+      );
+
+      return {
+        balance: solBalance.toNumber(),
+        currency: 'SOL',
+        total: solBalance.toNumber(),
+        used: 0,
+      };
     } catch (error) {
       this.logger.error(
-        `Operation execution failed - Type: ${operation.type}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`
+        `Failed to get address balance - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`
       );
       throw error;
     }
@@ -179,43 +164,6 @@ export class SolscanProvider extends BaseRegistryProvider {
     }
   }
 
-  private async getAddressBalance(params: { address: string }): Promise<Balance> {
-    const { address } = params;
-
-    if (!isValidSolanaAddress(address)) {
-      throw new Error(`Invalid Solana address: ${address}`);
-    }
-
-    this.logger.debug(`Fetching address balance - Address: ${maskAddress(address)}, Network: ${this.network}`);
-
-    try {
-      const response = await this.httpClient.get<SolscanResponse<{ lamports: string }>>(`/account/${address}`);
-
-      if (!response || !response.success || !response.data) {
-        throw new Error('Failed to fetch balance from Solscan API');
-      }
-
-      const lamports = new Decimal(response.data.lamports || '0');
-      const solBalance = lamportsToSol(lamports.toNumber());
-
-      this.logger.debug(
-        `Successfully retrieved address balance - Address: ${maskAddress(address)}, BalanceSOL: ${solBalance.toNumber()}, Network: ${this.network}`
-      );
-
-      return {
-        currency: 'SOL',
-        balance: solBalance.toNumber(),
-        used: 0,
-        total: solBalance.toNumber(),
-      };
-    } catch (error) {
-      this.logger.error(
-        `Failed to get address balance - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`
-      );
-      throw error;
-    }
-  }
-
   private transformTransaction(tx: SolscanTransaction, userAddress: string): BlockchainTransaction | null {
     try {
       // Check if user is involved in the transaction
@@ -245,28 +193,80 @@ export class SolscanProvider extends BaseRegistryProvider {
       const fee = lamportsToSol(tx.fee);
 
       return {
-        hash: tx.txHash,
-        blockNumber: tx.slot,
         blockHash: '',
-        timestamp: tx.blockTime * 1000,
-        from: tx.signer?.[0] || '',
-        to: '',
-        value: createMoney(amount.toNumber(), 'SOL'),
+        blockNumber: tx.slot,
+        confirmations: 1,
         fee: createMoney(fee.toNumber(), 'SOL'),
-        gasUsed: undefined,
+        from: tx.signer?.[0] || '',
         gasPrice: undefined,
+        gasUsed: undefined,
+        hash: tx.txHash,
+        nonce: undefined,
         status: tx.status === 'Success' ? 'success' : 'failed',
-        type,
+        timestamp: tx.blockTime * 1000,
+        to: '',
         tokenContract: undefined,
         tokenSymbol: 'SOL',
-        nonce: undefined,
-        confirmations: 1,
+        type,
+        value: createMoney(amount.toNumber(), 'SOL'),
       };
     } catch (error) {
       this.logger.warn(
         `Failed to transform transaction - TxHash: ${tx.txHash}, Error: ${error instanceof Error ? error.message : String(error)}`
       );
       return null;
+    }
+  }
+
+  async execute<T>(operation: ProviderOperation<T>): Promise<T> {
+    this.logger.debug(
+      `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
+    );
+
+    try {
+      switch (operation.type) {
+        case 'getAddressTransactions':
+          return this.getAddressTransactions({
+            address: operation.address,
+            since: operation.since,
+          }) as T;
+        case 'getAddressBalance':
+          return this.getAddressBalance({
+            address: operation.address,
+          }) as T;
+        default:
+          throw new Error(`Unsupported operation: ${operation.type}`);
+      }
+    } catch (error) {
+      this.logger.error(
+        `Operation execution failed - Type: ${operation.type}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`
+      );
+      throw error;
+    }
+  }
+
+  async isHealthy(): Promise<boolean> {
+    try {
+      const response = await this.httpClient.get<SolscanResponse>(
+        '/account/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
+      );
+      return response && response.success !== false;
+    } catch (error) {
+      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
+      return false;
+    }
+  }
+
+  async testConnection(): Promise<boolean> {
+    try {
+      const response = await this.httpClient.get<SolscanResponse>(
+        '/account/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
+      );
+      this.logger.debug(`Connection test successful - HasResponse: ${!!response}`);
+      return response && response.success !== false;
+    } catch (error) {
+      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
+      return false;
     }
   }
 }

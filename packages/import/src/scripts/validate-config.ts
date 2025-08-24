@@ -29,8 +29,8 @@ function validateConfiguration(): void {
 
         const { explorers = [] } = blockchainConfig as {
           explorers: Array<{
-            name: string;
             enabled: boolean;
+            name: string;
             priority: number;
           }>;
         };

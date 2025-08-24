@@ -14,23 +14,23 @@ import { IBlockchainProvider, ProviderCapabilities, ProviderOperation } from '..
 
 // Mock explorer config for tests
 const mockExplorerConfig = {
-  ethereum: {
+  bitcoin: {
     explorers: [],
   },
-  bitcoin: {
+  ethereum: {
     explorers: [],
   },
 };
 
 // Mock provider for testing
 class MockProvider implements IBlockchainProvider {
-  public readonly name: string;
+  private responseDelay: number = 0;
+  private shouldFail: boolean = false;
   public readonly blockchain: string;
   public readonly capabilities: ProviderCapabilities;
-  public readonly rateLimit: RateLimitConfig;
 
-  private shouldFail: boolean = false;
-  private responseDelay: number = 0;
+  public readonly name: string;
+  public readonly rateLimit: RateLimitConfig;
 
   constructor(name: string, blockchain: string, shouldFail: boolean = false, responseDelay: number = 0) {
     this.name = name;
@@ -51,14 +51,6 @@ class MockProvider implements IBlockchainProvider {
     };
   }
 
-  async isHealthy(): Promise<boolean> {
-    return !this.shouldFail;
-  }
-
-  async testConnection(): Promise<boolean> {
-    return !this.shouldFail;
-  }
-
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
     if (this.responseDelay > 0) {
       await new Promise(resolve => setTimeout(resolve, this.responseDelay));
@@ -71,7 +63,7 @@ class MockProvider implements IBlockchainProvider {
     // Mock response based on operation type
     switch (operation.type) {
       case 'getAddressTransactions':
-        return { transactions: [], address: operation.address } as T;
+        return { address: operation.address, transactions: [] } as T;
       case 'getAddressBalance':
         return { balance: 100, currency: 'ETH' } as T;
       default:
@@ -79,8 +71,16 @@ class MockProvider implements IBlockchainProvider {
     }
   }
 
+  async isHealthy(): Promise<boolean> {
+    return !this.shouldFail;
+  }
+
   setFailureMode(shouldFail: boolean): void {
     this.shouldFail = shouldFail;
+  }
+
+  async testConnection(): Promise<boolean> {
+    return !this.shouldFail;
   }
 }
 
@@ -209,8 +209,8 @@ describe('BlockchainProviderManager', () => {
 
   test('should execute operations with primary provider', async () => {
     const operation: ProviderOperation<{ balance: number; currency: string }> = {
-      type: 'getAddressBalance',
       address: '0x123',
+      type: 'getAddressBalance',
     };
 
     const result = await manager.executeWithFailover('ethereum', operation);
@@ -223,8 +223,8 @@ describe('BlockchainProviderManager', () => {
     primaryProvider.setFailureMode(true);
 
     const operation: ProviderOperation<{ balance: number; currency: string }> = {
-      type: 'getAddressBalance',
       address: '0x123',
+      type: 'getAddressBalance',
     };
 
     const result = await manager.executeWithFailover('ethereum', operation);
@@ -236,8 +236,8 @@ describe('BlockchainProviderManager', () => {
     fallbackProvider.setFailureMode(true);
 
     const operation: ProviderOperation<{ balance: number; currency: string }> = {
-      type: 'getAddressBalance',
       address: '0x123',
+      type: 'getAddressBalance',
     };
 
     await expect(manager.executeWithFailover('ethereum', operation)).rejects.toThrow('All providers failed');
@@ -245,11 +245,11 @@ describe('BlockchainProviderManager', () => {
 
   test('should cache results when cache key provided', async () => {
     const operation: ProviderOperation<{ balance: number; currency: string }> = {
-      type: 'getAddressBalance',
       address: '0x123',
       getCacheKey: params => {
         return `balance-${params.type === 'getAddressBalance' ? params.address : 'unknown'}`;
       },
+      type: 'getAddressBalance',
     };
 
     // First call
@@ -291,8 +291,8 @@ describe('BlockchainProviderManager', () => {
         balance: number;
         currency: string;
       }> = {
-        type: 'getAddressBalance',
         address: '0x123',
+        type: 'getAddressBalance',
       };
 
       // Trip the primary provider's circuit breaker
@@ -349,9 +349,9 @@ describe('BlockchainProviderManager', () => {
 
     // Execute token operation - should only use token provider
     const tokenOperation: ProviderOperation<{ success: boolean }> = {
-      type: 'getTokenTransactions',
       address: '0x123',
       contractAddress: '0xabc',
+      type: 'getTokenTransactions',
     };
 
     await manager.executeWithFailover('ethereum', tokenOperation);
@@ -367,11 +367,11 @@ describe('BlockchainProviderManager', () => {
     vi.useFakeTimers();
 
     const operation: ProviderOperation<{ balance: number; currency: string }> = {
-      type: 'getAddressBalance',
       address: '0x123',
       getCacheKey: params => {
         return `balance-${params.type === 'getAddressBalance' ? params.address : 'unknown'}`;
       },
+      type: 'getAddressBalance',
     };
 
     // First call - should cache result
@@ -449,13 +449,13 @@ describe('ProviderRegistry', () => {
   test('should validate configuration correctly', () => {
     const validConfig = {
       ethereum: {
-        explorers: [{ name: 'etherscan', enabled: true, priority: 1 }],
+        explorers: [{ enabled: true, name: 'etherscan', priority: 1 }],
       },
     };
 
     const invalidConfig = {
       ethereum: {
-        explorers: [{ name: 'invalid-provider', enabled: true, priority: 1 }],
+        explorers: [{ enabled: true, name: 'invalid-provider', priority: 1 }],
       },
     };
 
@@ -518,11 +518,11 @@ describe('Provider System Integration', () => {
 
       // Test successful operation
       const operation: ProviderOperation<{
-        transactions: unknown[];
         address: string;
+        transactions: unknown[];
       }> = {
-        type: 'getAddressTransactions',
         address: 'bc1xyz',
+        type: 'getAddressTransactions',
       };
 
       const result = await manager.executeWithFailover('bitcoin', operation);

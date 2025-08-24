@@ -1,70 +1,70 @@
 // Ethereum and EVM blockchain adapter types
 
 export interface EtherscanTransaction {
-  blockNumber: string;
-  timeStamp: string;
-  hash: string;
-  nonce: string;
   blockHash: string;
-  transactionIndex: string;
+  blockNumber: string;
+  confirmations: string;
+  cumulativeGasUsed: string;
   from: string;
-  to: string;
-  value: string;
+  functionName?: string;
   gas: string;
   gasPrice: string;
   gasUsed: string;
-  cumulativeGasUsed: string;
+  hash: string;
   input: string;
-  confirmations: string;
   isError?: string;
-  txreceipt_status?: string;
-  functionName?: string;
   methodId?: string;
+  nonce: string;
+  timeStamp: string;
+  to: string;
+  transactionIndex: string;
+  txreceipt_status?: string;
+  value: string;
 }
 
 export interface EtherscanInternalTransaction {
   blockNumber: string;
-  timeStamp: string;
-  hash: string;
-  from: string;
-  to: string;
-  value: string;
   contractAddress: string;
-  input: string;
-  type: string;
+  errCode: string;
+  from: string;
   gas: string;
   gasUsed: string;
-  traceId: string;
+  hash: string;
+  input: string;
   isError: string;
-  errCode: string;
+  timeStamp: string;
+  to: string;
+  traceId: string;
+  type: string;
+  value: string;
 }
 
 export interface EtherscanTokenTransfer {
-  blockNumber: string;
-  timeStamp: string;
-  hash: string;
-  nonce: string;
   blockHash: string;
-  from: string;
+  blockNumber: string;
+  confirmations: string;
   contractAddress: string;
-  to: string;
-  value: string;
-  tokenName: string;
-  tokenSymbol: string;
-  tokenDecimal: string;
-  transactionIndex: string;
+  cumulativeGasUsed: string;
+  from: string;
   gas: string;
   gasPrice: string;
   gasUsed: string;
-  cumulativeGasUsed: string;
+  hash: string;
   input: string;
-  confirmations: string;
+  nonce: string;
+  timeStamp: string;
+  to: string;
+  tokenDecimal: string;
+  tokenName: string;
+  tokenSymbol: string;
+  transactionIndex: string;
+  value: string;
 }
 
 export interface EtherscanApiResponse<T> {
-  status: string;
   message: string;
   result: T[];
+  status: string;
 }
 
 export interface EtherscanBalance {
@@ -74,54 +74,54 @@ export interface EtherscanBalance {
 
 export interface EtherscanTokenBalance {
   TokenAddress: string;
-  TokenName: string;
-  TokenSymbol: string;
-  TokenQuantity: string;
   TokenDivisor: string;
+  TokenName: string;
+  TokenQuantity: string;
+  TokenSymbol: string;
 }
 
 // Generic Etherscan API response wrapper
 export interface EtherscanResponse<T = unknown> {
-  status: string;
   message: string;
   result: T;
+  status: string;
 }
 
 // Moralis API response types
 export interface MoralisTransaction {
-  hash: string;
-  nonce: string;
-  transaction_index: string;
+  block_hash: string;
+  block_number: string;
+  block_timestamp: string;
   from_address: string;
-  to_address: string;
-  value: string;
   gas: string;
   gas_price: string;
+  hash: string;
   input: string;
+  nonce: string;
+  receipt_contract_address: string | null;
   receipt_cumulative_gas_used: string;
   receipt_gas_used: string;
-  receipt_contract_address: string | null;
   receipt_root: string;
   receipt_status: string;
-  block_timestamp: string;
-  block_number: string;
-  block_hash: string;
+  to_address: string;
+  transaction_index: string;
+  value: string;
 }
 
 export interface MoralisTokenTransfer {
-  transaction_hash: string;
   address: string;
-  block_timestamp: string;
-  block_number: string;
   block_hash: string;
-  to_address: string;
+  block_number: string;
+  block_timestamp: string;
+  contract_type: string;
   from_address: string;
-  value: string;
+  to_address: string;
+  token_decimals: string;
+  token_logo: string;
   token_name: string;
   token_symbol: string;
-  token_logo: string;
-  token_decimals: string;
-  contract_type: string;
+  transaction_hash: string;
+  value: string;
 }
 
 export interface MoralisNativeBalance {
@@ -141,52 +141,52 @@ export interface MoralisTokenTransferResponse {
 }
 
 export interface MoralisTokenBalance {
-  token_address: string;
+  balance: string;
+  decimals: number;
+  logo?: string;
   name: string;
   symbol: string;
-  logo?: string;
-  decimals: number;
-  balance: string;
+  token_address: string;
 }
 
 // Alchemy API response types
 export interface AlchemyAssetTransferParams {
-  fromAddress?: string;
-  toAddress?: string;
   category: string[];
-  withMetadata: boolean;
+  contractAddresses?: string[];
   excludeZeroValue: boolean;
+  fromAddress?: string;
   maxCount: string;
   order?: string;
-  contractAddresses?: string[];
+  toAddress?: string;
+  withMetadata: boolean;
 }
 
 export interface AlchemyAssetTransfer {
-  from: string;
-  to: string;
-  value: string;
-  blockNum: string;
-  hash: string;
-  category: string;
   asset?: string;
+  blockNum: string;
+  category: string;
+  from: string;
+  hash: string;
+  metadata?: {
+    blockTimestamp?: string;
+  };
   rawContract?: {
     address?: string;
     decimal?: string;
   };
-  metadata?: {
-    blockTimestamp?: string;
-  };
+  to: string;
+  value: string;
 }
 
 export interface AlchemyAssetTransfersResponse {
-  transfers: AlchemyAssetTransfer[];
   pageKey?: string;
+  transfers: AlchemyAssetTransfer[];
 }
 
 export interface AlchemyTokenBalance {
   contractAddress: string;
-  tokenBalance: string;
   error?: string;
+  tokenBalance: string;
 }
 
 export interface AlchemyTokenBalancesResponse {

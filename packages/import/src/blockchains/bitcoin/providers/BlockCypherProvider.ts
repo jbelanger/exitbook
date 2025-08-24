@@ -8,22 +8,30 @@ import type { ProviderOperation } from '../../shared/types.ts';
 import type { AddressInfo, BlockCypherAddress, BlockCypherTransaction } from '../types.ts';
 
 @RegisterProvider({
-  name: 'blockcypher',
-  blockchain: 'bitcoin',
-  displayName: 'BlockCypher API',
-  type: 'rest',
-  requiresApiKey: true,
   apiKeyEnvVar: 'BLOCKCYPHER_API_KEY',
-  description:
-    'Bitcoin blockchain API with high-performance transaction data and balance queries (requires API key for full functionality)',
+  blockchain: 'bitcoin',
   capabilities: {
-    supportedOperations: ['getAddressTransactions', 'getAddressBalance', 'getAddressInfo', 'parseWalletTransaction'],
     maxBatchSize: 50,
+    supportedOperations: ['getAddressTransactions', 'getAddressBalance', 'getAddressInfo', 'parseWalletTransaction'],
     supportsHistoricalData: true,
     supportsPagination: true,
     supportsRealTimeData: true,
     supportsTokenData: false,
   },
+  defaultConfig: {
+    rateLimit: {
+      burstLimit: 5,
+      requestsPerHour: 10800,
+      requestsPerMinute: 180,
+      requestsPerSecond: 3.0, // API key dependent - 3 req/sec for free tier
+    },
+    retries: 3,
+    timeout: 15000, // Longer timeout for BlockCypher
+  },
+  description:
+    'Bitcoin blockchain API with high-performance transaction data and balance queries (requires API key for full functionality)',
+  displayName: 'BlockCypher API',
+  name: 'blockcypher',
   networks: {
     mainnet: {
       baseUrl: 'https://api.blockcypher.com/v1/btc/main',
@@ -32,16 +40,8 @@ import type { AddressInfo, BlockCypherAddress, BlockCypherTransaction } from '..
       baseUrl: 'https://api.blockcypher.com/v1/btc/test3',
     },
   },
-  defaultConfig: {
-    timeout: 15000, // Longer timeout for BlockCypher
-    retries: 3,
-    rateLimit: {
-      requestsPerSecond: 3.0, // API key dependent - 3 req/sec for free tier
-      requestsPerMinute: 180,
-      requestsPerHour: 10800,
-      burstLimit: 5,
-    },
-  },
+  requiresApiKey: true,
+  type: 'rest',
 })
 export class BlockCypherProvider extends BaseRegistryProvider {
   constructor() {
@@ -52,59 +52,74 @@ export class BlockCypherProvider extends BaseRegistryProvider {
     );
   }
 
-  async isHealthy(): Promise<boolean> {
-    try {
-      const response = await this.httpClient.get<{ name?: string }>('/');
-      return hasStringProperty(response, 'name');
-    } catch (error) {
-      this.logger.warn(`Health check failed - Error: ${isErrorWithMessage(error) ? error.message : String(error)}`);
-      return false;
+  private buildEndpoint(endpoint: string): string {
+    if (this.apiKey) {
+      const separator = endpoint.includes('?') ? '&' : '?';
+      return `${endpoint}${separator}token=${this.apiKey}`;
     }
+    return endpoint;
   }
 
-  async testConnection(): Promise<boolean> {
-    try {
-      // Test with a simple endpoint that should always work
-      const chainInfo = await this.httpClient.get<{ name?: string }>('/');
-      this.logger.debug(`Connection test successful - ChainInfo: ${chainInfo?.name || 'Unknown'}`);
-      return hasStringProperty(chainInfo, 'name');
-    } catch (error) {
-      this.logger.error(`Connection test failed - Error: ${isErrorWithMessage(error) ? error.message : String(error)}`);
-      return false;
-    }
-  }
+  private async getAddressBalance(params: { address: string }): Promise<{ balance: string; token: string }> {
+    const { address } = params;
 
-  async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug(
-      `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
-    );
+    this.logger.debug(`Fetching address balance - Address: ${maskAddress(address)}`);
 
     try {
-      switch (operation.type) {
-        case 'getAddressTransactions':
-          return this.getAddressTransactions({
-            address: operation.address,
-            since: operation.since,
-          }) as T;
-        case 'getAddressBalance':
-          return this.getAddressBalance({
-            address: operation.address,
-          }) as T;
-        case 'getAddressInfo':
-          return this.getAddressInfo({
-            address: operation.address,
-          }) as T;
-        case 'parseWalletTransaction':
-          return this.parseWalletTransaction({
-            tx: operation.tx as BlockCypherTransaction,
-            walletAddresses: operation.walletAddresses,
-          }) as T;
-        default:
-          throw new Error(`Unsupported operation: ${operation.type}`);
-      }
+      const addressInfo = await this.httpClient.get<BlockCypherAddress>(
+        this.buildEndpoint(`/addrs/${address}/balance`)
+      );
+
+      // BlockCypher returns balance in satoshis
+      const balanceSats = addressInfo.final_balance;
+
+      // Convert satoshis to BTC
+      const balanceBTC = (balanceSats / 100000000).toString();
+
+      this.logger.debug(
+        `Successfully retrieved address balance - Address: ${maskAddress(address)}, UnconfirmedBalance: ${addressInfo.unconfirmed_balance}`
+      );
+
+      return {
+        balance: balanceBTC,
+        token: 'BTC',
+      };
     } catch (error) {
       this.logger.error(
-        `Operation execution failed - Type: ${operation.type}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`
+        `Failed to get address balance - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Get lightweight address info for efficient gap scanning
+   */
+  private async getAddressInfo(params: { address: string }): Promise<AddressInfo> {
+    const { address } = params;
+
+    this.logger.debug(`Fetching lightweight address info - Address: ${maskAddress(address)}`);
+
+    try {
+      const addressInfo = await this.httpClient.get<BlockCypherAddress>(
+        this.buildEndpoint(`/addrs/${address}/balance`)
+      );
+
+      // Get transaction count (final_n_tx includes confirmed transactions)
+      const txCount = addressInfo.final_n_tx;
+
+      // Get balance in BTC (BlockCypher returns in satoshis)
+      const balanceBTC = (addressInfo.final_balance / 100000000).toString();
+
+      this.logger.debug(`Successfully retrieved lightweight address info - Address: ${maskAddress(address)}`);
+
+      return {
+        balance: balanceBTC,
+        txCount,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Failed to get address info - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`
       );
       throw error;
     }
@@ -189,156 +204,6 @@ export class BlockCypherProvider extends BaseRegistryProvider {
       );
       throw error;
     }
-  }
-
-  private async getAddressBalance(params: { address: string }): Promise<{ balance: string; token: string }> {
-    const { address } = params;
-
-    this.logger.debug(`Fetching address balance - Address: ${maskAddress(address)}`);
-
-    try {
-      const addressInfo = await this.httpClient.get<BlockCypherAddress>(
-        this.buildEndpoint(`/addrs/${address}/balance`)
-      );
-
-      // BlockCypher returns balance in satoshis
-      const balanceSats = addressInfo.final_balance;
-
-      // Convert satoshis to BTC
-      const balanceBTC = (balanceSats / 100000000).toString();
-
-      this.logger.debug(
-        `Successfully retrieved address balance - Address: ${maskAddress(address)}, UnconfirmedBalance: ${addressInfo.unconfirmed_balance}`
-      );
-
-      return {
-        balance: balanceBTC,
-        token: 'BTC',
-      };
-    } catch (error) {
-      this.logger.error(
-        `Failed to get address balance - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`
-      );
-      throw error;
-    }
-  }
-
-  /**
-   * Get lightweight address info for efficient gap scanning
-   */
-  private async getAddressInfo(params: { address: string }): Promise<AddressInfo> {
-    const { address } = params;
-
-    this.logger.debug(`Fetching lightweight address info - Address: ${maskAddress(address)}`);
-
-    try {
-      const addressInfo = await this.httpClient.get<BlockCypherAddress>(
-        this.buildEndpoint(`/addrs/${address}/balance`)
-      );
-
-      // Get transaction count (final_n_tx includes confirmed transactions)
-      const txCount = addressInfo.final_n_tx;
-
-      // Get balance in BTC (BlockCypher returns in satoshis)
-      const balanceBTC = (addressInfo.final_balance / 100000000).toString();
-
-      this.logger.debug(`Successfully retrieved lightweight address info - Address: ${maskAddress(address)}`);
-
-      return {
-        txCount,
-        balance: balanceBTC,
-      };
-    } catch (error) {
-      this.logger.error(
-        `Failed to get address info - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`
-      );
-      throw error;
-    }
-  }
-
-  private transformTransaction(tx: BlockCypherTransaction, userAddress?: string): BlockchainTransaction {
-    // Calculate transaction value and determine type
-    let valueAmount = new Decimal(0);
-    let type: BlockchainTransaction['type'] = 'transfer_in';
-
-    if (userAddress) {
-      let inputValue = 0;
-      let outputValue = 0;
-
-      // Check inputs for user address
-      for (const input of tx.inputs) {
-        if (input.addresses.includes(userAddress)) {
-          inputValue += input.output_value;
-        }
-      }
-
-      // Check outputs for user address
-      for (const output of tx.outputs) {
-        if (output.addresses.includes(userAddress)) {
-          outputValue += output.value;
-        }
-      }
-
-      // Determine transaction type and value
-      if (inputValue > 0 && outputValue === 0) {
-        // Pure withdrawal: user sent money
-        type = 'transfer_out';
-        valueAmount = new Decimal(inputValue).div(100000000);
-      } else if (inputValue === 0 && outputValue > 0) {
-        // Pure deposit: user received money
-        type = 'transfer_in';
-        valueAmount = new Decimal(outputValue).div(100000000);
-      } else if (inputValue > 0 && outputValue > 0) {
-        // Mixed transaction: calculate net effect
-        const netValue = outputValue - inputValue;
-        if (netValue > 0) {
-          type = 'transfer_in';
-          valueAmount = new Decimal(netValue).div(100000000);
-        } else {
-          type = 'transfer_out';
-          valueAmount = new Decimal(Math.abs(netValue)).div(100000000);
-        }
-      }
-    } else {
-      // Without user address context, just sum all outputs
-      const totalValue = tx.outputs.reduce((sum, output) => sum + output.value, 0);
-      valueAmount = new Decimal(totalValue).div(100000000);
-    }
-
-    // Extract addresses
-    const fromAddresses = tx.inputs
-      .flatMap(input => input.addresses)
-      .filter((addr, index, array) => array.indexOf(addr) === index); // Remove duplicates
-    const toAddresses = tx.outputs
-      .flatMap(output => output.addresses)
-      .filter((addr, index, array) => array.indexOf(addr) === index); // Remove duplicates
-
-    // Convert ISO date to timestamp
-    const timestamp = tx.confirmed
-      ? Math.floor(new Date(tx.confirmed).getTime() / 1000)
-      : Math.floor(Date.now() / 1000);
-
-    return {
-      hash: tx.hash,
-      blockNumber: tx.block_height || 0,
-      blockHash: tx.block_hash || '',
-      timestamp,
-      from: fromAddresses[0] || '',
-      to: toAddresses[0] || '',
-      value: { amount: valueAmount, currency: 'BTC' },
-      fee: { amount: new Decimal(tx.fees).div(100000000), currency: 'BTC' },
-      status: tx.confirmations > 0 ? 'success' : 'pending',
-      type,
-      confirmations: tx.confirmations,
-    };
-  }
-
-  private buildEndpoint(endpoint: string): string {
-    if (this.apiKey) {
-      const separator = endpoint.includes('?') ? '&' : '?';
-      return `${endpoint}${separator}token=${this.apiKey}`;
-    }
-    return endpoint;
   }
 
   /**
@@ -445,28 +310,163 @@ export class BlockCypherProvider extends BaseRegistryProvider {
       }
 
       return {
-        hash: tx.hash,
-        blockNumber: tx.block_height || 0,
         blockHash: tx.block_hash || '',
-        timestamp,
-        from: fromAddress,
-        to: toAddress,
-        value: createMoney(totalValue / 100000000, 'BTC'),
+        blockNumber: tx.block_height || 0,
+        confirmations: tx.confirmations || 0,
         fee: createMoney(fee / 100000000, 'BTC'),
-        gasUsed: undefined,
+        from: fromAddress,
         gasPrice: undefined,
+        gasUsed: undefined,
+        hash: tx.hash,
+        nonce: undefined,
         status: tx.confirmations > 0 ? 'success' : 'pending',
-        type,
+        timestamp,
+        to: toAddress,
         tokenContract: undefined,
         tokenSymbol: 'BTC',
-        nonce: undefined,
-        confirmations: tx.confirmations || 0,
+        type,
+        value: createMoney(totalValue / 100000000, 'BTC'),
       };
     } catch (error) {
       this.logger.error(
         `Failed to parse BlockCypher wallet transaction ${tx.hash} - Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}, TxData: ${JSON.stringify(tx)}`
       );
       throw error;
+    }
+  }
+
+  private transformTransaction(tx: BlockCypherTransaction, userAddress?: string): BlockchainTransaction {
+    // Calculate transaction value and determine type
+    let valueAmount = new Decimal(0);
+    let type: BlockchainTransaction['type'] = 'transfer_in';
+
+    if (userAddress) {
+      let inputValue = 0;
+      let outputValue = 0;
+
+      // Check inputs for user address
+      for (const input of tx.inputs) {
+        if (input.addresses.includes(userAddress)) {
+          inputValue += input.output_value;
+        }
+      }
+
+      // Check outputs for user address
+      for (const output of tx.outputs) {
+        if (output.addresses.includes(userAddress)) {
+          outputValue += output.value;
+        }
+      }
+
+      // Determine transaction type and value
+      if (inputValue > 0 && outputValue === 0) {
+        // Pure withdrawal: user sent money
+        type = 'transfer_out';
+        valueAmount = new Decimal(inputValue).div(100000000);
+      } else if (inputValue === 0 && outputValue > 0) {
+        // Pure deposit: user received money
+        type = 'transfer_in';
+        valueAmount = new Decimal(outputValue).div(100000000);
+      } else if (inputValue > 0 && outputValue > 0) {
+        // Mixed transaction: calculate net effect
+        const netValue = outputValue - inputValue;
+        if (netValue > 0) {
+          type = 'transfer_in';
+          valueAmount = new Decimal(netValue).div(100000000);
+        } else {
+          type = 'transfer_out';
+          valueAmount = new Decimal(Math.abs(netValue)).div(100000000);
+        }
+      }
+    } else {
+      // Without user address context, just sum all outputs
+      const totalValue = tx.outputs.reduce((sum, output) => sum + output.value, 0);
+      valueAmount = new Decimal(totalValue).div(100000000);
+    }
+
+    // Extract addresses
+    const fromAddresses = tx.inputs
+      .flatMap(input => input.addresses)
+      .filter((addr, index, array) => array.indexOf(addr) === index); // Remove duplicates
+    const toAddresses = tx.outputs
+      .flatMap(output => output.addresses)
+      .filter((addr, index, array) => array.indexOf(addr) === index); // Remove duplicates
+
+    // Convert ISO date to timestamp
+    const timestamp = tx.confirmed
+      ? Math.floor(new Date(tx.confirmed).getTime() / 1000)
+      : Math.floor(Date.now() / 1000);
+
+    return {
+      blockHash: tx.block_hash || '',
+      blockNumber: tx.block_height || 0,
+      confirmations: tx.confirmations,
+      fee: { amount: new Decimal(tx.fees).div(100000000), currency: 'BTC' },
+      from: fromAddresses[0] || '',
+      hash: tx.hash,
+      status: tx.confirmations > 0 ? 'success' : 'pending',
+      timestamp,
+      to: toAddresses[0] || '',
+      type,
+      value: { amount: valueAmount, currency: 'BTC' },
+    };
+  }
+
+  async execute<T>(operation: ProviderOperation<T>): Promise<T> {
+    this.logger.debug(
+      `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
+    );
+
+    try {
+      switch (operation.type) {
+        case 'getAddressTransactions':
+          return this.getAddressTransactions({
+            address: operation.address,
+            since: operation.since,
+          }) as T;
+        case 'getAddressBalance':
+          return this.getAddressBalance({
+            address: operation.address,
+          }) as T;
+        case 'getAddressInfo':
+          return this.getAddressInfo({
+            address: operation.address,
+          }) as T;
+        case 'parseWalletTransaction':
+          return this.parseWalletTransaction({
+            tx: operation.tx as BlockCypherTransaction,
+            walletAddresses: operation.walletAddresses,
+          }) as T;
+        default:
+          throw new Error(`Unsupported operation: ${operation.type}`);
+      }
+    } catch (error) {
+      this.logger.error(
+        `Operation execution failed - Type: ${operation.type}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`
+      );
+      throw error;
+    }
+  }
+
+  async isHealthy(): Promise<boolean> {
+    try {
+      const response = await this.httpClient.get<{ name?: string }>('/');
+      return hasStringProperty(response, 'name');
+    } catch (error) {
+      this.logger.warn(`Health check failed - Error: ${isErrorWithMessage(error) ? error.message : String(error)}`);
+      return false;
+    }
+  }
+
+  async testConnection(): Promise<boolean> {
+    try {
+      // Test with a simple endpoint that should always work
+      const chainInfo = await this.httpClient.get<{ name?: string }>('/');
+      this.logger.debug(`Connection test successful - ChainInfo: ${chainInfo?.name || 'Unknown'}`);
+      return hasStringProperty(chainInfo, 'name');
+    } catch (error) {
+      this.logger.error(`Connection test failed - Error: ${isErrorWithMessage(error) ? error.message : String(error)}`);
+      return false;
     }
   }
 }

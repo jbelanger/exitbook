@@ -9,6 +9,35 @@ import ccxt from 'ccxt';
  */
 export class ServiceErrorHandler {
   /**
+   * Extract retry after value from rate limit error
+   */
+  static extractRetryAfter(error: unknown): number {
+    // Try to get retry after from CCXT error
+    const errorProps = getErrorProperties(error);
+    if (errorProps.retryAfter && typeof errorProps.retryAfter === 'number') {
+      return errorProps.retryAfter;
+    }
+
+    // Try to extract from error message
+    if (isErrorWithMessage(error)) {
+      const retryMatch = error.message.match(/retry.{0,10}(\d+)/i);
+      if (retryMatch) {
+        return parseInt(retryMatch[1]) * 1000; // Convert to milliseconds
+      }
+    }
+
+    // Default fallback
+    return 2000; // 2 seconds
+  }
+
+  /**
+   * Create a standardized error message
+   */
+  static formatErrorMessage(operation: string, exchangeId: string, originalMessage: string): string {
+    return `Failed to ${operation} from ${exchangeId}: ${originalMessage}`;
+  }
+
+  /**
    * Handle errors and convert to appropriate exception types
    */
   static handle(error: unknown, operation: string, exchangeId: string, logger?: Logger): never {
@@ -76,17 +105,6 @@ export class ServiceErrorHandler {
       exchangeId,
       operation,
       error instanceof Error ? error : undefined
-    );
-  }
-
-  /**
-   * Check if error is a rate limit error
-   */
-  static isRateLimit(error: unknown): boolean {
-    return (
-      error instanceof ccxt.RateLimitExceeded ||
-      (error instanceof Error && error.name === 'RateLimitExceeded') ||
-      (error instanceof Error && !!error.message && error.message.toLowerCase().includes('rate limit'))
     );
   }
 
@@ -162,52 +180,14 @@ export class ServiceErrorHandler {
   }
 
   /**
-   * Extract retry after value from rate limit error
+   * Check if error is a rate limit error
    */
-  static extractRetryAfter(error: unknown): number {
-    // Try to get retry after from CCXT error
-    const errorProps = getErrorProperties(error);
-    if (errorProps.retryAfter && typeof errorProps.retryAfter === 'number') {
-      return errorProps.retryAfter;
-    }
-
-    // Try to extract from error message
-    if (isErrorWithMessage(error)) {
-      const retryMatch = error.message.match(/retry.{0,10}(\d+)/i);
-      if (retryMatch) {
-        return parseInt(retryMatch[1]) * 1000; // Convert to milliseconds
-      }
-    }
-
-    // Default fallback
-    return 2000; // 2 seconds
-  }
-
-  /**
-   * Create a standardized error message
-   */
-  static formatErrorMessage(operation: string, exchangeId: string, originalMessage: string): string {
-    return `Failed to ${operation} from ${exchangeId}: ${originalMessage}`;
-  }
-
-  /**
-   * Log error details for debugging
-   */
-  static logErrorDetails(error: unknown, operation: string, exchangeId: string, logger: Logger): void {
-    const errorProps = getErrorProperties(error);
-    const details = {
-      operation,
-      exchange: exchangeId,
-      errorType: isErrorWithMessage(error) ? error.constructor.name : typeof error,
-      message: errorProps.message,
-      stack: isErrorWithMessage(error) ? error.stack : undefined,
-      // Include CCXT-specific details if available
-      ...(errorProps.code !== undefined ? { code: errorProps.code } : {}),
-      ...(errorProps.status !== undefined ? { status: errorProps.status } : {}),
-      ...(errorProps.retryAfter !== undefined ? { retryAfter: errorProps.retryAfter } : {}),
-    };
-
-    logger.error(details, 'Detailed error information');
+  static isRateLimit(error: unknown): boolean {
+    return (
+      error instanceof ccxt.RateLimitExceeded ||
+      (error instanceof Error && error.name === 'RateLimitExceeded') ||
+      (error instanceof Error && !!error.message && error.message.toLowerCase().includes('rate limit'))
+    );
   }
 
   /**
@@ -221,5 +201,25 @@ export class ServiceErrorHandler {
         !!error.message &&
         (error.message.toLowerCase().includes('temporary') || error.message.toLowerCase().includes('try again')))
     );
+  }
+
+  /**
+   * Log error details for debugging
+   */
+  static logErrorDetails(error: unknown, operation: string, exchangeId: string, logger: Logger): void {
+    const errorProps = getErrorProperties(error);
+    const details = {
+      errorType: isErrorWithMessage(error) ? error.constructor.name : typeof error,
+      exchange: exchangeId,
+      message: errorProps.message,
+      operation,
+      stack: isErrorWithMessage(error) ? error.stack : undefined,
+      // Include CCXT-specific details if available
+      ...(errorProps.code !== undefined ? { code: errorProps.code } : {}),
+      ...(errorProps.status !== undefined ? { status: errorProps.status } : {}),
+      ...(errorProps.retryAfter !== undefined ? { retryAfter: errorProps.retryAfter } : {}),
+    };
+
+    logger.error(details, 'Detailed error information');
   }
 }

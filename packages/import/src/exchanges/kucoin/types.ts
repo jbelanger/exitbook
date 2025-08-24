@@ -6,57 +6,57 @@
  */
 
 export interface CsvSpotOrderRow {
-  UID: string;
   'Account Type': string;
-  'Order ID': string;
-  'Order Time(UTC)': string;
-  Symbol: string;
-  Side: string;
-  'Order Type': string;
-  'Order Price': string;
-  'Order Amount': string;
   'Avg. Filled Price': string;
-  'Filled Amount': string;
-  'Filled Volume': string;
-  'Filled Volume (USDT)': string;
-  'Filled Time(UTC)': string;
   Fee: string;
   'Fee Currency': string;
-  Tax?: string;
+  'Filled Amount': string;
+  'Filled Time(UTC)': string;
+  'Filled Volume': string;
+  'Filled Volume (USDT)': string;
+  'Order Amount': string;
+  'Order ID': string;
+  'Order Price': string;
+  'Order Time(UTC)': string;
+  'Order Type': string;
+  Side: string;
   Status: string;
+  Symbol: string;
+  Tax?: string;
+  UID: string;
 }
 
 export interface CsvDepositWithdrawalRow {
-  UID: string;
   'Account Type': string;
-  'Time(UTC)': string;
-  Coin: string;
   Amount: string;
+  Coin: string;
+  'Deposit Address'?: string;
   Fee: string;
   Hash: string;
-  'Deposit Address'?: string;
-  'Withdrawal Address/Account'?: string;
-  'Transfer Network': string;
-  Status: string;
   Remarks: string;
+  Status: string;
+  'Time(UTC)': string;
+  'Transfer Network': string;
+  UID: string;
+  'Withdrawal Address/Account'?: string;
 }
 
 export interface CsvAccountHistoryRow {
-  UID: string;
   'Account Type': string;
-  Currency: string;
-  Side: string;
   Amount: string;
+  Currency: string;
   Fee: string;
-  'Time(UTC)': string;
   Remark: string;
+  Side: string;
+  'Time(UTC)': string;
   Type: string;
+  UID: string;
 }
 
 // Structured raw data type for better flow
 export interface CsvKuCoinRawData {
-  spotOrders: CsvSpotOrderRow[];
-  deposits: CsvDepositWithdrawalRow[];
-  withdrawals: CsvDepositWithdrawalRow[];
   accountHistory: CsvAccountHistoryRow[];
+  deposits: CsvDepositWithdrawalRow[];
+  spotOrders: CsvSpotOrderRow[];
+  withdrawals: CsvDepositWithdrawalRow[];
 }

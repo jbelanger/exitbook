@@ -12,19 +12,19 @@ vi.mock('../coinbase-api-client');
 // Mock the logger
 vi.mock('@crypto/shared-logger', () => ({
   getLogger: vi.fn(() => ({
-    info: vi.fn(),
     debug: vi.fn(),
-    warn: vi.fn(),
     error: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
   })),
 }));
 
 describe('CoinbaseAdapter', () => {
   let mockApiClient: {
-    testConnection: ReturnType<typeof vi.fn>;
     getAccounts: ReturnType<typeof vi.fn>;
     getAccountTransactions: ReturnType<typeof vi.fn>;
     getRateLimitStatus: ReturnType<typeof vi.fn>;
+    testConnection: ReturnType<typeof vi.fn>;
   };
   let adapter: CoinbaseAdapter;
   let config: UniversalExchangeAdapterConfig;
@@ -32,29 +32,29 @@ describe('CoinbaseAdapter', () => {
 
   beforeEach(() => {
     config = {
-      type: 'exchange',
-      id: 'coinbase',
-      subType: 'native',
       credentials: {
         apiKey: 'test-key',
-        secret: 'test-secret',
         password: 'test-passphrase',
+        secret: 'test-secret',
       },
+      id: 'coinbase',
+      subType: 'native',
+      type: 'exchange',
     };
 
     credentials = {
       apiKey: 'test-key',
-      secret: 'test-secret',
       passphrase: 'test-passphrase',
       sandbox: true,
+      secret: 'test-secret',
     };
 
     // Create mock API client
     mockApiClient = {
-      testConnection: vi.fn(),
       getAccounts: vi.fn(),
       getAccountTransactions: vi.fn(),
       getRateLimitStatus: vi.fn(),
+      testConnection: vi.fn(),
     };
 
     // Mock the CoinbaseAPIClient constructor
@@ -73,21 +73,21 @@ describe('CoinbaseAdapter', () => {
       const info = await adapter.getInfo();
 
       expect(info).toEqual({
-        id: 'coinbase',
-        name: 'Coinbase Track API',
-        type: 'exchange',
-        subType: 'native',
         capabilities: {
-          supportedOperations: ['fetchTransactions', 'fetchBalances'],
           maxBatchSize: 100,
+          rateLimit: {
+            burstLimit: 5,
+            requestsPerSecond: 3,
+          },
+          requiresApiKey: true,
+          supportedOperations: ['fetchTransactions', 'fetchBalances'],
           supportsHistoricalData: true,
           supportsPagination: true,
-          requiresApiKey: true,
-          rateLimit: {
-            requestsPerSecond: 3,
-            burstLimit: 5,
-          },
         },
+        id: 'coinbase',
+        name: 'Coinbase Track API',
+        subType: 'native',
+        type: 'exchange',
       });
     });
   });
@@ -122,42 +122,42 @@ describe('CoinbaseAdapter', () => {
   describe('fetchTransactions', () => {
     const mockAccounts: RawCoinbaseAccount[] = [
       {
+        balance: { amount: '1.0', currency: 'BTC' },
+        created_at: '2022-01-01T00:00:00Z',
+        currency: {
+          code: 'BTC',
+          color: '#f7931a',
+          exponent: 8,
+          name: 'Bitcoin',
+          sort_index: 0,
+          type: 'crypto',
+        },
         id: 'account-1',
         name: 'BTC Wallet',
         primary: true,
-        type: 'wallet',
-        currency: {
-          code: 'BTC',
-          name: 'Bitcoin',
-          color: '#f7931a',
-          sort_index: 0,
-          exponent: 8,
-          type: 'crypto',
-        },
-        balance: { amount: '1.0', currency: 'BTC' },
-        created_at: '2022-01-01T00:00:00Z',
-        updated_at: '2022-01-01T00:00:00Z',
         resource: 'account',
         resource_path: '/v2/accounts/account-1',
+        type: 'wallet',
+        updated_at: '2022-01-01T00:00:00Z',
       },
       {
+        balance: { amount: '1000.0', currency: 'USD' },
+        created_at: '2022-01-01T00:00:00Z',
+        currency: {
+          code: 'USD',
+          color: '#85bb65',
+          exponent: 2,
+          name: 'US Dollar',
+          sort_index: 100,
+          type: 'fiat',
+        },
         id: 'account-2',
         name: 'USD Wallet',
         primary: false,
-        type: 'fiat',
-        currency: {
-          code: 'USD',
-          name: 'US Dollar',
-          color: '#85bb65',
-          sort_index: 100,
-          exponent: 2,
-          type: 'fiat',
-        },
-        balance: { amount: '1000.0', currency: 'USD' },
-        created_at: '2022-01-01T00:00:00Z',
-        updated_at: '2022-01-01T00:00:00Z',
         resource: 'account',
         resource_path: '/v2/accounts/account-2',
+        type: 'fiat',
+        updated_at: '2022-01-01T00:00:00Z',
       },
     ];
 
@@ -167,16 +167,16 @@ describe('CoinbaseAdapter', () => {
 
     it('should fetch and transform simple deposit transaction', async () => {
       const depositTransaction: RawCoinbaseTransaction = {
-        id: 'deposit-123',
-        type: 'deposit',
-        status: 'completed',
         amount: { amount: '100.00', currency: 'USD' },
-        native_amount: { amount: '100.00', currency: 'USD' },
-        description: 'Bank deposit',
         created_at: '2022-01-01T00:00:00Z',
-        updated_at: '2022-01-01T00:00:00Z',
+        description: 'Bank deposit',
+        id: 'deposit-123',
+        native_amount: { amount: '100.00', currency: 'USD' },
         resource: 'transaction',
         resource_path: '/v2/accounts/account-1/transactions/deposit-123',
+        status: 'completed',
+        type: 'deposit',
+        updated_at: '2022-01-01T00:00:00Z',
       };
 
       mockApiClient.getAccountTransactions
@@ -188,38 +188,38 @@ describe('CoinbaseAdapter', () => {
 
       expect(transactions).toHaveLength(1);
       expect(transactions[0]).toEqual({
-        id: 'coinbase-track-deposit-123',
-        type: 'deposit',
-        timestamp: new Date('2022-01-01T00:00:00Z').getTime(),
-        datetime: '2022-01-01T00:00:00.000Z',
-        status: 'closed',
-        symbol: 'USD',
         amount: { amount: new Decimal('100.00'), currency: 'USD' },
-        side: 'buy',
+        datetime: '2022-01-01T00:00:00.000Z',
         fee: { amount: new Decimal(0), currency: 'USD' },
-        source: 'coinbase',
+        id: 'coinbase-track-deposit-123',
         metadata: {
+          adapterType: 'track-api',
+          nativeAmount: { amount: '100.00', currency: 'USD' },
+          status: 'completed',
           trackTransaction: depositTransaction,
           transactionType: 'deposit',
-          status: 'completed',
-          nativeAmount: { amount: '100.00', currency: 'USD' },
-          adapterType: 'track-api',
         },
+        side: 'buy',
+        source: 'coinbase',
+        status: 'closed',
+        symbol: 'USD',
+        timestamp: new Date('2022-01-01T00:00:00Z').getTime(),
+        type: 'deposit',
       });
     });
 
     it('should fetch and transform simple withdrawal transaction', async () => {
       const withdrawalTransaction: RawCoinbaseTransaction = {
-        id: 'withdrawal-456',
-        type: 'send',
-        status: 'completed',
         amount: { amount: '-50.00', currency: 'USD' },
-        native_amount: { amount: '-50.00', currency: 'USD' },
-        description: 'Bank withdrawal',
         created_at: '2022-01-01T12:00:00Z',
-        updated_at: '2022-01-01T12:00:00Z',
+        description: 'Bank withdrawal',
+        id: 'withdrawal-456',
+        native_amount: { amount: '-50.00', currency: 'USD' },
         resource: 'transaction',
         resource_path: '/v2/accounts/account-2/transactions/withdrawal-456',
+        status: 'completed',
+        type: 'send',
+        updated_at: '2022-01-01T12:00:00Z',
       };
 
       mockApiClient.getAccountTransactions
@@ -231,43 +231,38 @@ describe('CoinbaseAdapter', () => {
 
       expect(transactions).toHaveLength(1);
       expect(transactions[0]).toEqual({
-        id: 'coinbase-track-withdrawal-456',
-        type: 'withdrawal',
-        timestamp: new Date('2022-01-01T12:00:00Z').getTime(),
-        datetime: '2022-01-01T12:00:00.000Z',
-        status: 'closed',
-        symbol: 'USD',
         amount: { amount: new Decimal('50.00'), currency: 'USD' },
-        side: 'sell',
+        datetime: '2022-01-01T12:00:00.000Z',
         fee: { amount: new Decimal(0), currency: 'USD' },
-        source: 'coinbase',
+        id: 'coinbase-track-withdrawal-456',
         metadata: {
+          adapterType: 'track-api',
+          nativeAmount: { amount: '-50.00', currency: 'USD' },
+          status: 'completed',
           trackTransaction: withdrawalTransaction,
           transactionType: 'send',
-          status: 'completed',
-          nativeAmount: { amount: '-50.00', currency: 'USD' },
-          adapterType: 'track-api',
         },
+        side: 'sell',
+        source: 'coinbase',
+        status: 'closed',
+        symbol: 'USD',
+        timestamp: new Date('2022-01-01T12:00:00Z').getTime(),
+        type: 'withdrawal',
       });
     });
 
     it('should transform buy trade transaction correctly', async () => {
       const buyTransaction: RawCoinbaseTransaction = {
-        id: 'buy-123',
-        type: 'buy',
-        status: 'completed',
         amount: { amount: '0.01', currency: 'BTC' },
-        native_amount: { amount: '500.00', currency: 'USD' },
-        description: 'Bought 0.01000000 BTC for $500.00',
-        created_at: '2022-01-01T10:00:00Z',
-        updated_at: '2022-01-01T10:00:00Z',
-        resource: 'transaction',
-        resource_path: '/v2/accounts/account-1/transactions/buy-123',
         buy: {
           id: 'order-123',
           resource: 'buy',
           resource_path: '/v2/accounts/account-1/buys/order-123',
         },
+        created_at: '2022-01-01T10:00:00Z',
+        description: 'Bought 0.01000000 BTC for $500.00',
+        id: 'buy-123',
+        native_amount: { amount: '500.00', currency: 'USD' },
         network: {
           status: 'confirmed',
           transaction_fee: {
@@ -275,6 +270,11 @@ describe('CoinbaseAdapter', () => {
             currency: 'USD',
           },
         },
+        resource: 'transaction',
+        resource_path: '/v2/accounts/account-1/transactions/buy-123',
+        status: 'completed',
+        type: 'buy',
+        updated_at: '2022-01-01T10:00:00Z',
       };
 
       mockApiClient.getAccountTransactions
@@ -286,36 +286,33 @@ describe('CoinbaseAdapter', () => {
 
       expect(transactions).toHaveLength(1);
       expect(transactions[0]).toEqual({
-        id: 'coinbase-track-buy-123',
-        type: 'trade',
-        timestamp: new Date('2022-01-01T10:00:00Z').getTime(),
-        datetime: '2022-01-01T10:00:00.000Z',
-        status: 'closed',
-        symbol: 'BTC',
         amount: { amount: new Decimal('0.01'), currency: 'BTC' },
-        side: 'buy',
+        datetime: '2022-01-01T10:00:00.000Z',
         fee: { amount: new Decimal('2.50'), currency: 'USD' },
-        source: 'coinbase',
+        id: 'coinbase-track-buy-123',
         metadata: {
+          adapterType: 'track-api',
+          nativeAmount: { amount: '500.00', currency: 'USD' },
+          status: 'completed',
           trackTransaction: buyTransaction,
           transactionType: 'buy',
-          status: 'completed',
-          nativeAmount: { amount: '500.00', currency: 'USD' },
-          adapterType: 'track-api',
         },
+        side: 'buy',
+        source: 'coinbase',
+        status: 'closed',
+        symbol: 'BTC',
+        timestamp: new Date('2022-01-01T10:00:00Z').getTime(),
+        type: 'trade',
       });
     });
 
     it('should handle sell trades correctly', async () => {
       const sellTransaction: RawCoinbaseTransaction = {
-        id: 'sell-789',
-        type: 'sell',
-        status: 'completed',
         amount: { amount: '-0.005', currency: 'BTC' },
-        native_amount: { amount: '250.00', currency: 'USD' },
-        description: 'Sold 0.00500000 BTC for $250.00',
         created_at: '2022-01-02T15:30:00Z',
-        updated_at: '2022-01-02T15:30:00Z',
+        description: 'Sold 0.00500000 BTC for $250.00',
+        id: 'sell-789',
+        native_amount: { amount: '250.00', currency: 'USD' },
         resource: 'transaction',
         resource_path: '/v2/accounts/account-1/transactions/sell-789',
         sell: {
@@ -323,6 +320,9 @@ describe('CoinbaseAdapter', () => {
           resource: 'sell',
           resource_path: '/v2/accounts/account-1/sells/order-789',
         },
+        status: 'completed',
+        type: 'sell',
+        updated_at: '2022-01-02T15:30:00Z',
       };
 
       mockApiClient.getAccountTransactions
@@ -334,51 +334,51 @@ describe('CoinbaseAdapter', () => {
 
       expect(transactions).toHaveLength(1);
       expect(transactions[0]).toEqual({
-        id: 'coinbase-track-sell-789',
-        type: 'trade',
-        timestamp: new Date('2022-01-02T15:30:00Z').getTime(),
-        datetime: '2022-01-02T15:30:00.000Z',
-        status: 'closed',
-        symbol: 'BTC',
         amount: { amount: new Decimal('0.005'), currency: 'BTC' },
-        side: 'sell',
+        datetime: '2022-01-02T15:30:00.000Z',
         fee: { amount: new Decimal(0), currency: 'BTC' },
-        source: 'coinbase',
+        id: 'coinbase-track-sell-789',
         metadata: {
+          adapterType: 'track-api',
+          nativeAmount: { amount: '250.00', currency: 'USD' },
+          status: 'completed',
           trackTransaction: sellTransaction,
           transactionType: 'sell',
-          status: 'completed',
-          nativeAmount: { amount: '250.00', currency: 'USD' },
-          adapterType: 'track-api',
         },
+        side: 'sell',
+        source: 'coinbase',
+        status: 'closed',
+        symbol: 'BTC',
+        timestamp: new Date('2022-01-02T15:30:00Z').getTime(),
+        type: 'trade',
       });
     });
 
     it('should filter transactions by requested types', async () => {
       const mixedTransactions: RawCoinbaseTransaction[] = [
         {
-          id: 'deposit-1',
-          type: 'deposit',
-          status: 'completed',
           amount: { amount: '100.00', currency: 'USD' },
-          native_amount: { amount: '100.00', currency: 'USD' },
-          description: 'Bank deposit',
           created_at: '2022-01-01T00:00:00Z',
-          updated_at: '2022-01-01T00:00:00Z',
+          description: 'Bank deposit',
+          id: 'deposit-1',
+          native_amount: { amount: '100.00', currency: 'USD' },
           resource: 'transaction',
           resource_path: '/v2/accounts/account-1/transactions/deposit-1',
+          status: 'completed',
+          type: 'deposit',
+          updated_at: '2022-01-01T00:00:00Z',
         },
         {
-          id: 'withdrawal-1',
-          type: 'send',
-          status: 'completed',
           amount: { amount: '-50.00', currency: 'USD' },
-          native_amount: { amount: '-50.00', currency: 'USD' },
-          description: 'Bank withdrawal',
           created_at: '2022-01-01T01:00:00Z',
-          updated_at: '2022-01-01T01:00:00Z',
+          description: 'Bank withdrawal',
+          id: 'withdrawal-1',
+          native_amount: { amount: '-50.00', currency: 'USD' },
           resource: 'transaction',
           resource_path: '/v2/accounts/account-1/transactions/withdrawal-1',
+          status: 'completed',
+          type: 'send',
+          updated_at: '2022-01-01T01:00:00Z',
         },
       ];
 
@@ -406,16 +406,16 @@ describe('CoinbaseAdapter', () => {
       mockApiClient.getAccountTransactions.mockRejectedValueOnce(new Error('Account 1 failed')).mockResolvedValueOnce({
         data: [
           {
-            id: 'entry-1',
-            type: 'deposit',
-            status: 'completed',
             amount: { amount: '100.00', currency: 'USD' },
-            native_amount: { amount: '100.00', currency: 'USD' },
-            description: 'Bank deposit',
             created_at: '2022-01-01T00:00:00Z',
-            updated_at: '2022-01-01T00:00:00Z',
+            description: 'Bank deposit',
+            id: 'entry-1',
+            native_amount: { amount: '100.00', currency: 'USD' },
             resource: 'transaction',
             resource_path: '/v2/accounts/account-2/transactions/entry-1',
+            status: 'completed',
+            type: 'deposit',
+            updated_at: '2022-01-01T00:00:00Z',
           },
         ],
         pagination: {},
@@ -433,42 +433,42 @@ describe('CoinbaseAdapter', () => {
     it('should transform account balances correctly', async () => {
       const mockAccounts: RawCoinbaseAccount[] = [
         {
+          balance: { amount: '1.5', currency: 'BTC' },
+          created_at: '2022-01-01T00:00:00Z',
+          currency: {
+            code: 'BTC',
+            color: '#f7931a',
+            exponent: 8,
+            name: 'Bitcoin',
+            sort_index: 0,
+            type: 'crypto',
+          },
           id: 'account-1',
           name: 'BTC Wallet',
           primary: true,
-          type: 'wallet',
-          currency: {
-            code: 'BTC',
-            name: 'Bitcoin',
-            color: '#f7931a',
-            sort_index: 0,
-            exponent: 8,
-            type: 'crypto',
-          },
-          balance: { amount: '1.5', currency: 'BTC' },
-          created_at: '2022-01-01T00:00:00Z',
-          updated_at: '2022-01-01T00:00:00Z',
           resource: 'account',
           resource_path: '/v2/accounts/account-1',
+          type: 'wallet',
+          updated_at: '2022-01-01T00:00:00Z',
         },
         {
+          balance: { amount: '1000.00', currency: 'USD' },
+          created_at: '2022-01-01T00:00:00Z',
+          currency: {
+            code: 'USD',
+            color: '#85bb65',
+            exponent: 2,
+            name: 'US Dollar',
+            sort_index: 100,
+            type: 'fiat',
+          },
           id: 'account-2',
           name: 'USD Wallet',
           primary: false,
-          type: 'fiat',
-          currency: {
-            code: 'USD',
-            name: 'US Dollar',
-            color: '#85bb65',
-            sort_index: 100,
-            exponent: 2,
-            type: 'fiat',
-          },
-          balance: { amount: '1000.00', currency: 'USD' },
-          created_at: '2022-01-01T00:00:00Z',
-          updated_at: '2022-01-01T00:00:00Z',
           resource: 'account',
           resource_path: '/v2/accounts/account-2',
+          type: 'fiat',
+          updated_at: '2022-01-01T00:00:00Z',
         },
       ];
 
@@ -481,57 +481,57 @@ describe('CoinbaseAdapter', () => {
       expect(balances[0]).toEqual({
         currency: 'BTC',
         free: 1.5,
-        used: 0,
         total: 1.5,
+        used: 0,
       });
 
       expect(balances[1]).toEqual({
         currency: 'USD',
         free: 1000.0,
-        used: 0,
         total: 1000.0,
+        used: 0,
       });
     });
 
     it('should exclude zero-balance accounts', async () => {
       const mockAccounts: RawCoinbaseAccount[] = [
         {
+          balance: { amount: '0', currency: 'BTC' },
+          created_at: '2022-01-01T00:00:00Z',
+          currency: {
+            code: 'BTC',
+            color: '#f7931a',
+            exponent: 8,
+            name: 'Bitcoin',
+            sort_index: 0,
+            type: 'crypto',
+          },
           id: 'account-1',
           name: 'BTC Wallet',
           primary: true,
-          type: 'wallet',
-          currency: {
-            code: 'BTC',
-            name: 'Bitcoin',
-            color: '#f7931a',
-            sort_index: 0,
-            exponent: 8,
-            type: 'crypto',
-          },
-          balance: { amount: '0', currency: 'BTC' },
-          created_at: '2022-01-01T00:00:00Z',
-          updated_at: '2022-01-01T00:00:00Z',
           resource: 'account',
           resource_path: '/v2/accounts/account-1',
+          type: 'wallet',
+          updated_at: '2022-01-01T00:00:00Z',
         },
         {
+          balance: { amount: '100.00', currency: 'USD' },
+          created_at: '2022-01-01T00:00:00Z',
+          currency: {
+            code: 'USD',
+            color: '#85bb65',
+            exponent: 2,
+            name: 'US Dollar',
+            sort_index: 100,
+            type: 'fiat',
+          },
           id: 'account-2',
           name: 'USD Wallet',
           primary: false,
-          type: 'fiat',
-          currency: {
-            code: 'USD',
-            name: 'US Dollar',
-            color: '#85bb65',
-            sort_index: 100,
-            exponent: 2,
-            type: 'fiat',
-          },
-          balance: { amount: '100.00', currency: 'USD' },
-          created_at: '2022-01-01T00:00:00Z',
-          updated_at: '2022-01-01T00:00:00Z',
           resource: 'account',
           resource_path: '/v2/accounts/account-2',
+          type: 'fiat',
+          updated_at: '2022-01-01T00:00:00Z',
         },
       ];
 

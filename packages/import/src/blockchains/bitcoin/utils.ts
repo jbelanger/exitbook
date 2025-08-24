@@ -21,6 +21,111 @@ const logger = getLogger('BitcoinUtils');
  */
 export class BitcoinUtils {
   /**
+   * Derive addresses from xpub for wallet service
+   */
+  static async deriveAddressesFromXpub(
+    xpub: string,
+    gap: number = 20
+  ): Promise<
+    Array<{
+      address: string;
+      derivationPath: string;
+      type: string;
+    }>
+  > {
+    const derivedAddresses: Array<{
+      address: string;
+      derivationPath: string;
+      type: string;
+    }> = [];
+
+    const xpubType = BitcoinUtils.getAddressType(xpub);
+    if (xpubType === 'address') {
+      throw new Error('Invalid xpub format');
+    }
+
+    try {
+      const node = HDKey.fromExtendedKey(xpub);
+      const network = bitcoin.networks.bitcoin; // Default to mainnet
+      const addressType = xpubType === 'xpub' ? 'legacy' : xpubType === 'ypub' ? 'segwit' : 'bech32';
+
+      const addressGenerator = BitcoinUtils.getAddressGenerator(addressType, network);
+
+      // Derive addresses for receiving chain (0) and change chain (1)
+      for (const chain of [0, 1]) {
+        for (let index = 0; index < gap; index++) {
+          const childNode = node.deriveChild(chain).deriveChild(index);
+          const publicKeyBuffer = Buffer.from(childNode.publicKey!);
+          const address = addressGenerator(publicKeyBuffer);
+
+          derivedAddresses.push({
+            address,
+            derivationPath: `m/${chain}/${index}`,
+            type: addressType,
+          });
+        }
+      }
+
+      return derivedAddresses;
+    } catch (error) {
+      logger.error(`Failed to derive addresses from xpub - Error: ${error}, Xpub: ${xpub.substring(0, 20) + '...'}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Get address generator function for address type
+   */
+  static getAddressGenerator(type: AddressType, network: bitcoin.Network): (pubkey: Buffer) => string {
+    switch (type) {
+      case 'legacy':
+        return (pubkey: Buffer) => {
+          const payment = bitcoin.payments.p2pkh({ network, pubkey });
+          return payment.address!;
+        };
+      case 'segwit':
+        return (pubkey: Buffer) => {
+          const p2wpkh = bitcoin.payments.p2wpkh({ network, pubkey });
+          const payment = bitcoin.payments.p2sh({ network, redeem: p2wpkh });
+          return payment.address!;
+        };
+      case 'bech32':
+        return (pubkey: Buffer) => {
+          const payment = bitcoin.payments.p2wpkh({ network, pubkey });
+          return payment.address!;
+        };
+      default:
+        throw new Error(`Unsupported address type: ${type}`);
+    }
+  }
+
+  /**
+   * Get xpub type from address string
+   */
+  static getAddressType(address: string): XpubType {
+    if (address.startsWith('xpub')) return 'xpub';
+    if (address.startsWith('ypub')) return 'ypub';
+    if (address.startsWith('zpub')) return 'zpub';
+    return 'address';
+  }
+
+  /**
+   * Get default derivation path for BIP standard
+   */
+  static getDefaultDerivationPath(bipStandard: BipStandard): string {
+    switch (bipStandard) {
+      case 'bip44':
+        return "m/44'/0'/0'";
+      case 'bip49':
+        return "m/49'/0'/0'";
+      case 'bip84':
+        return "m/84'/0'/0'";
+      default:
+        throw new Error(`Unsupported BIP standard: ${bipStandard}`);
+    }
+  }
+
+  /**
    * Initialize an xpub wallet with smart detection and derivation
    */
   static async initializeXpubWallet(
@@ -31,7 +136,7 @@ export class BitcoinUtils {
   ): Promise<void> {
     try {
       // Smart detection to determine the correct account type
-      const { hdNode, addressFunction, bipStandard, addressType } = await this.smartDetectAccountType(
+      const { addressFunction, addressType, bipStandard, hdNode } = await this.smartDetectAccountType(
         walletAddress.address,
         network,
         providerManager
@@ -81,6 +186,20 @@ export class BitcoinUtils {
   }
 
   /**
+   * Check if address is an extended public key
+   */
+  static isExtendedPublicKey(address: string): boolean {
+    return BitcoinUtils.isXpub(address);
+  }
+
+  /**
+   * Check if address is an xpub
+   */
+  static isXpub(address: string): boolean {
+    return address.startsWith('xpub') || address.startsWith('ypub') || address.startsWith('zpub');
+  }
+
+  /**
    * Perform BIP44-compliant intelligent gap scanning to optimize derived address set
    */
   static async performAddressGapScanning(
@@ -103,10 +222,10 @@ export class BitcoinUtils {
       // Fetch lightweight address info using provider manager
       try {
         const addressInfo = (await providerManager.executeWithFailover('bitcoin', {
-          type: 'getAddressInfo',
           address,
           getCacheKey: params =>
             `bitcoin:address-info:${params.type === 'getAddressInfo' ? params.address : 'unknown'}`,
+          type: 'getAddressInfo',
         })) as AddressInfo;
 
         const hasActivity = addressInfo.txCount > 0;
@@ -170,20 +289,20 @@ export class BitcoinUtils {
     if (xpub.startsWith('zpub')) {
       logger.info('Detected zpub. Using BIP84 (Native SegWit).');
       return {
-        hdNode: HDKey.fromExtendedKey(xpub),
         addressFunction: this.getAddressGenerator('bech32', network),
-        bipStandard: 'bip84',
         addressType: 'bech32',
+        bipStandard: 'bip84',
+        hdNode: HDKey.fromExtendedKey(xpub),
       };
     }
 
     if (xpub.startsWith('ypub')) {
       logger.info('Detected ypub. Using BIP49 (Nested SegWit).');
       return {
-        hdNode: HDKey.fromExtendedKey(xpub),
         addressFunction: this.getAddressGenerator('segwit', network),
-        bipStandard: 'bip49',
         addressType: 'segwit',
+        bipStandard: 'bip49',
+        hdNode: HDKey.fromExtendedKey(xpub),
       };
     }
 
@@ -203,17 +322,17 @@ export class BitcoinUtils {
 
         try {
           const addressInfo = (await providerManager.executeWithFailover('bitcoin', {
-            type: 'getAddressInfo',
             address: firstLegacyAddress,
+            type: 'getAddressInfo',
           })) as AddressInfo;
           const hasActivity = addressInfo.txCount > 0;
           if (hasActivity) {
             logger.info('Found activity on Legacy path (BIP44). Proceeding.');
             return {
-              hdNode: legacyHdNode,
               addressFunction: legacyAddressGen,
-              bipStandard: 'bip44',
               addressType: 'legacy',
+              bipStandard: 'bip44',
+              hdNode: legacyHdNode,
             };
           }
         } catch (error) {
@@ -235,17 +354,17 @@ export class BitcoinUtils {
 
         try {
           const addressInfo = (await providerManager.executeWithFailover('bitcoin', {
-            type: 'getAddressInfo',
             address: firstSegwitAddress,
+            type: 'getAddressInfo',
           })) as AddressInfo;
           const hasActivity = addressInfo.txCount > 0;
           if (hasActivity) {
             logger.info('Found activity on Native SegWit path (BIP84). Proceeding.');
             return {
-              hdNode: segwitHdNode,
               addressFunction: segwitAddressGen,
-              bipStandard: 'bip84',
               addressType: 'bech32',
+              bipStandard: 'bip84',
+              hdNode: segwitHdNode,
             };
           }
         } catch (error) {
@@ -256,132 +375,13 @@ export class BitcoinUtils {
       // Fallback to Legacy
       logger.info('No activity found on any path. Defaulting to BIP44 (Legacy).');
       return {
-        hdNode: legacyHdNode,
         addressFunction: legacyAddressGen,
-        bipStandard: 'bip44',
         addressType: 'legacy',
+        bipStandard: 'bip44',
+        hdNode: legacyHdNode,
       };
     }
 
     throw new Error('Unsupported extended public key format.');
-  }
-
-  /**
-   * Get default derivation path for BIP standard
-   */
-  static getDefaultDerivationPath(bipStandard: BipStandard): string {
-    switch (bipStandard) {
-      case 'bip44':
-        return "m/44'/0'/0'";
-      case 'bip49':
-        return "m/49'/0'/0'";
-      case 'bip84':
-        return "m/84'/0'/0'";
-      default:
-        throw new Error(`Unsupported BIP standard: ${bipStandard}`);
-    }
-  }
-
-  /**
-   * Get address generator function for address type
-   */
-  static getAddressGenerator(type: AddressType, network: bitcoin.Network): (pubkey: Buffer) => string {
-    switch (type) {
-      case 'legacy':
-        return (pubkey: Buffer) => {
-          const payment = bitcoin.payments.p2pkh({ pubkey, network });
-          return payment.address!;
-        };
-      case 'segwit':
-        return (pubkey: Buffer) => {
-          const p2wpkh = bitcoin.payments.p2wpkh({ pubkey, network });
-          const payment = bitcoin.payments.p2sh({ redeem: p2wpkh, network });
-          return payment.address!;
-        };
-      case 'bech32':
-        return (pubkey: Buffer) => {
-          const payment = bitcoin.payments.p2wpkh({ pubkey, network });
-          return payment.address!;
-        };
-      default:
-        throw new Error(`Unsupported address type: ${type}`);
-    }
-  }
-
-  /**
-   * Get xpub type from address string
-   */
-  static getAddressType(address: string): XpubType {
-    if (address.startsWith('xpub')) return 'xpub';
-    if (address.startsWith('ypub')) return 'ypub';
-    if (address.startsWith('zpub')) return 'zpub';
-    return 'address';
-  }
-
-  /**
-   * Check if address is an xpub
-   */
-  static isXpub(address: string): boolean {
-    return address.startsWith('xpub') || address.startsWith('ypub') || address.startsWith('zpub');
-  }
-
-  /**
-   * Check if address is an extended public key
-   */
-  static isExtendedPublicKey(address: string): boolean {
-    return BitcoinUtils.isXpub(address);
-  }
-
-  /**
-   * Derive addresses from xpub for wallet service
-   */
-  static async deriveAddressesFromXpub(
-    xpub: string,
-    gap: number = 20
-  ): Promise<
-    Array<{
-      address: string;
-      type: string;
-      derivationPath: string;
-    }>
-  > {
-    const derivedAddresses: Array<{
-      address: string;
-      type: string;
-      derivationPath: string;
-    }> = [];
-
-    const xpubType = BitcoinUtils.getAddressType(xpub);
-    if (xpubType === 'address') {
-      throw new Error('Invalid xpub format');
-    }
-
-    try {
-      const node = HDKey.fromExtendedKey(xpub);
-      const network = bitcoin.networks.bitcoin; // Default to mainnet
-      const addressType = xpubType === 'xpub' ? 'legacy' : xpubType === 'ypub' ? 'segwit' : 'bech32';
-
-      const addressGenerator = BitcoinUtils.getAddressGenerator(addressType, network);
-
-      // Derive addresses for receiving chain (0) and change chain (1)
-      for (const chain of [0, 1]) {
-        for (let index = 0; index < gap; index++) {
-          const childNode = node.deriveChild(chain).deriveChild(index);
-          const publicKeyBuffer = Buffer.from(childNode.publicKey!);
-          const address = addressGenerator(publicKeyBuffer);
-
-          derivedAddresses.push({
-            address,
-            type: addressType,
-            derivationPath: `m/${chain}/${index}`,
-          });
-        }
-      }
-
-      return derivedAddresses;
-    } catch (error) {
-      logger.error(`Failed to derive addresses from xpub - Error: ${error}, Xpub: ${xpub.substring(0, 20) + '...'}`);
-      throw error;
-    }
   }
 }

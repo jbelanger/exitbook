@@ -7,71 +7,71 @@ export type AddressType = 'legacy' | 'segwit' | 'bech32';
 
 export interface BitcoinWalletAddress {
   address: string; // Original user-provided address (xpub or regular)
-  type: XpubType; // Type of address
-  derivedAddresses?: string[]; // Internal derived addresses (if xpub)
-  bipStandard?: BipStandard; // Detected BIP standard
-  addressType?: AddressType; // Detected address type
-  derivationPath?: string; // Derivation path used
   addressGap?: number; // Address gap used for derivation
+  addressType?: AddressType; // Detected address type
+  bipStandard?: BipStandard; // Detected BIP standard
+  derivationPath?: string; // Derivation path used
+  derivedAddresses?: string[]; // Internal derived addresses (if xpub)
+  type: XpubType; // Type of address
 }
 
 export interface SmartDetectionResult {
-  hdNode: HDKey;
   addressFunction: (pubkey: Buffer) => string;
-  bipStandard: BipStandard;
   addressType: AddressType;
+  bipStandard: BipStandard;
+  hdNode: HDKey;
 }
 
 // Lightweight address info for efficient gap scanning
 export interface AddressInfo {
-  txCount: number;
   balance: string; // in BTC
+  txCount: number;
 }
 
 // mempool.space API response types for Bitcoin mainnet
 export interface MempoolTransaction {
+  fee: number;
+  locktime: number;
+  size: number;
+  status: MempoolTransactionStatus;
   txid: string;
   version: number;
-  locktime: number;
   vin: MempoolInput[];
   vout: MempoolOutput[];
-  size: number;
   weight: number;
-  fee: number;
-  status: MempoolTransactionStatus;
 }
 
 export interface MempoolInput {
-  txid: string;
-  vout: number;
   prevout?: MempoolPrevout;
   scriptsig: string;
   scriptsig_asm: string;
-  witness?: string[];
   sequence: number;
+  txid: string;
+  vout: number;
+  witness?: string[];
 }
 
 export interface MempoolPrevout {
   scriptpubkey: string;
+  scriptpubkey_address?: string;
   scriptpubkey_asm: string;
   scriptpubkey_type: string;
-  scriptpubkey_address?: string;
   value: number;
 }
 
 export interface MempoolOutput {
   scriptpubkey: string;
+  scriptpubkey_address?: string;
   scriptpubkey_asm: string;
   scriptpubkey_type: string;
-  scriptpubkey_address?: string;
   value: number;
 }
 
 export interface MempoolTransactionStatus {
-  confirmed: boolean;
-  block_height?: number;
   block_hash?: string;
+  block_height?: number;
   block_time?: number;
+  confirmed: boolean;
 }
 
 export interface MempoolAddressInfo {
@@ -93,54 +93,54 @@ export interface MempoolAddressInfo {
 }
 
 export interface MempoolAddressTransaction {
+  fee: number;
+  locktime: number;
+  size: number;
+  status: MempoolTransactionStatus;
   txid: string;
   version: number;
-  locktime: number;
   vin: MempoolInput[];
   vout: MempoolOutput[];
-  size: number;
   weight: number;
-  fee: number;
-  status: MempoolTransactionStatus;
 }
 
 // blockstream.info API response types for Bitcoin mainnet
 export interface BlockstreamTransaction {
+  fee: number;
+  locktime: number;
+  size: number;
+  status: {
+    block_hash?: string;
+    block_height?: number;
+    block_time?: number;
+    confirmed: boolean;
+  };
   txid: string;
   version: number;
-  locktime: number;
   vin: Array<{
-    txid: string;
-    vout: number;
+    is_coinbase: boolean;
     prevout: {
       scriptpubkey: string;
+      scriptpubkey_address?: string;
       scriptpubkey_asm: string;
       scriptpubkey_type: string;
-      scriptpubkey_address?: string;
       value: number;
     };
     scriptsig: string;
     scriptsig_asm: string;
-    witness: string[];
-    is_coinbase: boolean;
     sequence: number;
+    txid: string;
+    vout: number;
+    witness: string[];
   }>;
   vout: Array<{
     scriptpubkey: string;
+    scriptpubkey_address?: string;
     scriptpubkey_asm: string;
     scriptpubkey_type: string;
-    scriptpubkey_address?: string;
     value: number;
   }>;
-  size: number;
   weight: number;
-  fee: number;
-  status: {
-    confirmed: boolean;
-    block_height?: number;
-    block_hash?: string;
-    block_time?: number;
-  };
 }
 
 export interface BlockstreamAddressInfo {
@@ -163,64 +163,64 @@ export interface BlockstreamAddressInfo {
 
 // BlockCypher API response types
 export interface BlockCypherTransaction {
-  hash: string;
-  block_height: number;
   block_hash: string;
+  block_height: number;
   block_index: number;
-  received: string; // ISO 8601 date
-  confirmed: string; // ISO 8601 date
+  confidence: number;
   confirmations: number;
+  confirmed: string; // ISO 8601 date
   double_spend: boolean;
+  fees: number;
+  gas_limit?: number;
+  gas_price?: number;
+  gas_used?: number;
+  hash: string;
   inputs: Array<{
-    prev_hash: string;
+    addresses: string[];
+    age: number;
     output_index: number;
     output_value: number;
+    prev_hash: string;
+    script_type: string;
     sequence: number;
-    addresses: string[];
-    script_type: string;
-    age: number;
   }>;
-  outputs: Array<{
-    value: number;
-    script: string;
-    addresses: string[];
-    script_type: string;
-  }>;
-  fees: number;
-  size: number;
-  vsize: number;
-  preference: string;
-  relayed_by: string;
-  confidence: number;
-  ver: number;
   lock_time: number;
-  gas_limit?: number;
-  gas_used?: number;
-  gas_price?: number;
+  outputs: Array<{
+    addresses: string[];
+    script: string;
+    script_type: string;
+    value: number;
+  }>;
+  preference: string;
+  received: string; // ISO 8601 date
+  relayed_by: string;
+  size: number;
+  ver: number;
+  vsize: number;
 }
 
 export interface BlockCypherAddress {
   address: string;
+  balance: number;
+  error?: string;
+  final_balance: number;
+  final_n_tx: number;
+  hasMore?: boolean;
+  n_tx: number;
   total_received: number;
   total_sent: number;
-  balance: number;
-  unconfirmed_balance: number;
-  final_balance: number;
-  n_tx: number;
-  unconfirmed_n_tx: number;
-  final_n_tx: number;
   txrefs?: Array<{
-    tx_hash: string;
     block_height: number;
-    tx_input_n: number;
-    tx_output_n: number;
-    value: number;
-    ref_balance: number;
-    spent: boolean;
     confirmations: number;
     confirmed: string;
     double_spend: boolean;
+    ref_balance: number;
+    spent: boolean;
+    tx_hash: string;
+    tx_input_n: number;
+    tx_output_n: number;
+    value: number;
   }>;
-  hasMore?: boolean;
-  error?: string;
+  unconfirmed_balance: number;
+  unconfirmed_n_tx: number;
 }

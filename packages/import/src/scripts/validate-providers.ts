@@ -7,19 +7,19 @@ import '../blockchains/registry/register-providers.ts';
 import { ProviderRegistry } from '../blockchains/shared/registry/index.ts';
 
 interface ValidationResult {
-  provider: string;
   blockchain: string;
-  valid: boolean;
   errors: string[];
+  provider: string;
+  valid: boolean;
   warnings: string[];
 }
 
 function validateProvider(blockchain: string, providerName: string): ValidationResult {
   const result: ValidationResult = {
-    provider: providerName,
     blockchain,
-    valid: true,
     errors: [],
+    provider: providerName,
+    valid: true,
     warnings: [],
   };
 

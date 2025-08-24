@@ -11,11 +11,11 @@ import { type ProviderMetadata, ProviderRegistry } from './provider-registry.ts'
  * Handles all common provider functionality using registry metadata
  */
 export abstract class BaseRegistryProvider implements IBlockchainProvider {
-  protected readonly metadata: ProviderMetadata;
-  protected httpClient: HttpClient;
-  protected readonly logger: Logger;
   protected readonly apiKey: string;
   protected readonly baseUrl: string;
+  protected httpClient: HttpClient;
+  protected readonly logger: Logger;
+  protected readonly metadata: ProviderMetadata;
   protected readonly network: string;
 
   constructor(blockchain: string, providerName: string, network: string = 'mainnet') {
@@ -38,57 +38,15 @@ export abstract class BaseRegistryProvider implements IBlockchainProvider {
     // Initialize HTTP client with registry metadata
     this.httpClient = new HttpClient({
       baseUrl: this.baseUrl,
-      timeout: this.metadata.defaultConfig.timeout,
-      retries: this.metadata.defaultConfig.retries,
-      rateLimit: this.metadata.defaultConfig.rateLimit,
       providerName: this.metadata.name,
+      rateLimit: this.metadata.defaultConfig.rateLimit,
+      retries: this.metadata.defaultConfig.retries,
+      timeout: this.metadata.defaultConfig.timeout,
     });
 
     this.logger.debug(
       `Initialized ${this.metadata.displayName} - Network: ${this.network}, BaseUrl: ${this.baseUrl}, HasApiKey: ${this.apiKey !== 'YourApiKeyToken'}`
     );
-  }
-
-  // Provider interface properties from metadata
-  get name(): string {
-    return this.metadata.name;
-  }
-
-  get blockchain(): string {
-    return this.metadata.blockchain;
-  }
-
-  get capabilities(): ProviderCapabilities {
-    return this.metadata.capabilities;
-  }
-
-  get rateLimit(): RateLimitConfig {
-    return this.metadata.defaultConfig.rateLimit;
-  }
-
-  // Common provider methods
-  async testConnection(): Promise<boolean> {
-    return this.isHealthy();
-  }
-
-  // Abstract methods that must be implemented by concrete providers
-  abstract isHealthy(): Promise<boolean>;
-  abstract execute<T>(operation: ProviderOperation<T>): Promise<T>;
-
-  // Helper methods
-  private getNetworkBaseUrl(network: string): string {
-    const networks = this.metadata.networks as Record<string, { baseUrl: string; websocketUrl?: string }>;
-    const networkConfig = networks[network];
-
-    if (!networkConfig?.baseUrl) {
-      const availableNetworks = Object.keys(this.metadata.networks);
-      throw new Error(
-        `Network '${network}' not supported by ${this.metadata.displayName}. ` +
-          `Available networks: ${availableNetworks.join(', ')}`
-      );
-    }
-
-    return networkConfig.baseUrl;
   }
 
   private getApiKey(): string {
@@ -107,14 +65,41 @@ export abstract class BaseRegistryProvider implements IBlockchainProvider {
     return apiKey;
   }
 
-  // Common validation helper
-  protected validateApiKey(): void {
-    if (this.metadata.requiresApiKey && this.apiKey === 'YourApiKeyToken') {
-      const envVar = this.metadata.apiKeyEnvVar || `${this.metadata.name.toUpperCase()}_API_KEY`;
+  // Helper methods
+  private getNetworkBaseUrl(network: string): string {
+    const networks = this.metadata.networks as Record<string, { baseUrl: string; websocketUrl?: string }>;
+    const networkConfig = networks[network];
+
+    if (!networkConfig?.baseUrl) {
+      const availableNetworks = Object.keys(this.metadata.networks);
       throw new Error(
-        `Valid API key required for ${this.metadata.displayName}. ` + `Set environment variable: ${envVar}`
+        `Network '${network}' not supported by ${this.metadata.displayName}. ` +
+          `Available networks: ${availableNetworks.join(', ')}`
       );
     }
+
+    return networkConfig.baseUrl;
+  }
+
+  get blockchain(): string {
+    return this.metadata.blockchain;
+  }
+
+  get capabilities(): ProviderCapabilities {
+    return this.metadata.capabilities;
+  }
+
+  abstract execute<T>(operation: ProviderOperation<T>): Promise<T>;
+
+  // Abstract methods that must be implemented by concrete providers
+  abstract isHealthy(): Promise<boolean>;
+  // Provider interface properties from metadata
+  get name(): string {
+    return this.metadata.name;
+  }
+
+  get rateLimit(): RateLimitConfig {
+    return this.metadata.defaultConfig.rateLimit;
   }
 
   /**
@@ -123,21 +108,36 @@ export abstract class BaseRegistryProvider implements IBlockchainProvider {
    */
   protected reinitializeHttpClient(config: {
     baseUrl?: string;
-    timeout?: number;
-    retries?: number;
-    rateLimit?: RateLimitConfig;
-    providerName?: string;
     defaultHeaders?: Record<string, string>;
+    providerName?: string;
+    rateLimit?: RateLimitConfig;
+    retries?: number;
+    timeout?: number;
   }): void {
     const clientConfig = {
       baseUrl: config.baseUrl || this.baseUrl,
-      timeout: config.timeout || this.metadata.defaultConfig.timeout,
-      retries: config.retries || this.metadata.defaultConfig.retries,
-      rateLimit: config.rateLimit || this.metadata.defaultConfig.rateLimit,
       providerName: config.providerName || this.metadata.name,
+      rateLimit: config.rateLimit || this.metadata.defaultConfig.rateLimit,
+      retries: config.retries || this.metadata.defaultConfig.retries,
+      timeout: config.timeout || this.metadata.defaultConfig.timeout,
       ...(config.defaultHeaders && { defaultHeaders: config.defaultHeaders }),
     };
 
     this.httpClient = new HttpClient(clientConfig);
+  }
+
+  // Common provider methods
+  async testConnection(): Promise<boolean> {
+    return this.isHealthy();
+  }
+
+  // Common validation helper
+  protected validateApiKey(): void {
+    if (this.metadata.requiresApiKey && this.apiKey === 'YourApiKeyToken') {
+      const envVar = this.metadata.apiKeyEnvVar || `${this.metadata.name.toUpperCase()}_API_KEY`;
+      throw new Error(
+        `Valid API key required for ${this.metadata.displayName}. ` + `Set environment variable: ${envVar}`
+      );
+    }
   }
 }

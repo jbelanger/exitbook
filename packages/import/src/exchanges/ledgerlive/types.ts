@@ -6,16 +6,16 @@
  */
 
 export interface CsvLedgerLiveOperationRow {
-  'Operation Date': string;
-  Status: string;
-  'Currency Ticker': string;
-  'Operation Type': string;
-  'Operation Amount': string;
-  'Operation Fees': string;
-  'Operation Hash': string;
   'Account Name': string;
   'Account xpub': string;
-  'Countervalue Ticker': string;
-  'Countervalue at Operation Date': string;
   'Countervalue at CSV Export': string;
+  'Countervalue at Operation Date': string;
+  'Countervalue Ticker': string;
+  'Currency Ticker': string;
+  'Operation Amount': string;
+  'Operation Date': string;
+  'Operation Fees': string;
+  'Operation Hash': string;
+  'Operation Type': string;
+  Status: string;
 }

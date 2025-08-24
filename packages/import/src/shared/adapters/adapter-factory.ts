@@ -52,108 +52,6 @@ export class UniversalAdapterFactory {
   }
 
   /**
-   * Create multiple universal adapters from an array of configurations
-   */
-  static async createMany(
-    configs: UniversalAdapterConfig[],
-    explorerConfig?: BlockchainExplorersConfig
-  ): Promise<IUniversalAdapter[]> {
-    this.logger.info(`Creating ${configs.length} universal adapters`);
-
-    return Promise.all(configs.map(config => this.create(config, explorerConfig)));
-  }
-
-  /**
-   * Create an exchange adapter directly (no more bridge adapters)
-   */
-  private static async createExchangeAdapter(config: UniversalExchangeAdapterConfig): Promise<IUniversalAdapter> {
-    this.logger.debug(`Creating exchange adapter for ${config.id} with subType: ${config.subType}`);
-
-    if (config.subType === 'csv') {
-      return this.createCSVExchangeAdapter(config);
-    } else if (config.subType === 'ccxt') {
-      return this.createCCXTExchangeAdapter(config);
-    } else if (config.subType === 'native') {
-      return this.createNativeExchangeAdapter(config);
-    }
-
-    throw new Error(`Unsupported exchange adapter subType: ${config.subType} for ${config.id}`);
-  }
-
-  /**
-   * Create CSV exchange adapter directly
-   */
-  private static async createCSVExchangeAdapter(config: UniversalExchangeAdapterConfig): Promise<IUniversalAdapter> {
-    if (!config.csvDirectories?.length) {
-      throw new Error('CSV directories required for CSV exchange adapters');
-    }
-
-    // Create adapter config for CSV adapters
-    const adapterConfig = {
-      type: 'exchange' as const,
-      id: config.id,
-      subType: 'csv' as const,
-      csvDirectories: config.csvDirectories,
-    };
-
-    switch (config.id.toLowerCase()) {
-      case 'kraken':
-        return new KrakenCSVAdapter(adapterConfig);
-      case 'kucoin':
-        return new KuCoinCSVAdapter(adapterConfig);
-      case 'ledgerlive':
-        return new LedgerLiveCSVAdapter(adapterConfig);
-      default:
-        throw new Error(`Unsupported CSV exchange: ${config.id}`);
-    }
-  }
-
-  /**
-   * Create CCXT exchange adapter directly
-   */
-  private static async createCCXTExchangeAdapter(config: UniversalExchangeAdapterConfig): Promise<IUniversalAdapter> {
-    if (!config.credentials) {
-      throw new Error('Credentials required for CCXT exchange adapters');
-    }
-
-    switch (config.id.toLowerCase()) {
-      case 'coinbase':
-        return new CoinbaseCCXTAdapter(
-          {
-            apiKey: config.credentials.apiKey,
-            secret: config.credentials.secret,
-            passphrase: config.credentials.password || '',
-            sandbox: false,
-          },
-          { enableOnlineVerification: true }
-        );
-      default:
-        throw new Error(`Unsupported CCXT exchange: ${config.id}`);
-    }
-  }
-
-  /**
-   * Create native exchange adapter directly
-   */
-  private static async createNativeExchangeAdapter(config: UniversalExchangeAdapterConfig): Promise<IUniversalAdapter> {
-    if (!config.credentials) {
-      throw new Error('Credentials required for native exchange adapters');
-    }
-
-    switch (config.id.toLowerCase()) {
-      case 'coinbase':
-        return new CoinbaseAdapter(config, {
-          apiKey: config.credentials.apiKey,
-          secret: config.credentials.secret,
-          passphrase: config.credentials.password || '',
-          sandbox: false,
-        });
-      default:
-        throw new Error(`Unsupported native exchange: ${config.id}`);
-    }
-  }
-
-  /**
    * Create a blockchain adapter directly (no more bridge adapters)
    */
   private static async createBlockchainAdapter(
@@ -186,6 +84,91 @@ export class UniversalAdapterFactory {
   }
 
   /**
+   * Helper method to create blockchain adapter configuration
+   */
+  static createBlockchainConfig(
+    blockchain: string,
+    network: string = 'mainnet',
+    subType: 'rest' | 'rpc' = 'rest'
+  ): UniversalBlockchainAdapterConfig {
+    return {
+      id: blockchain,
+      network,
+      subType,
+      type: 'blockchain',
+    };
+  }
+
+  /**
+   * Create CCXT exchange adapter directly
+   */
+  private static async createCCXTExchangeAdapter(config: UniversalExchangeAdapterConfig): Promise<IUniversalAdapter> {
+    if (!config.credentials) {
+      throw new Error('Credentials required for CCXT exchange adapters');
+    }
+
+    switch (config.id.toLowerCase()) {
+      case 'coinbase':
+        return new CoinbaseCCXTAdapter(
+          {
+            apiKey: config.credentials.apiKey,
+            passphrase: config.credentials.password || '',
+            sandbox: false,
+            secret: config.credentials.secret,
+          },
+          { enableOnlineVerification: true }
+        );
+      default:
+        throw new Error(`Unsupported CCXT exchange: ${config.id}`);
+    }
+  }
+
+  /**
+   * Create CSV exchange adapter directly
+   */
+  private static async createCSVExchangeAdapter(config: UniversalExchangeAdapterConfig): Promise<IUniversalAdapter> {
+    if (!config.csvDirectories?.length) {
+      throw new Error('CSV directories required for CSV exchange adapters');
+    }
+
+    // Create adapter config for CSV adapters
+    const adapterConfig = {
+      csvDirectories: config.csvDirectories,
+      id: config.id,
+      subType: 'csv' as const,
+      type: 'exchange' as const,
+    };
+
+    switch (config.id.toLowerCase()) {
+      case 'kraken':
+        return new KrakenCSVAdapter(adapterConfig);
+      case 'kucoin':
+        return new KuCoinCSVAdapter(adapterConfig);
+      case 'ledgerlive':
+        return new LedgerLiveCSVAdapter(adapterConfig);
+      default:
+        throw new Error(`Unsupported CSV exchange: ${config.id}`);
+    }
+  }
+
+  /**
+   * Create an exchange adapter directly (no more bridge adapters)
+   */
+  private static async createExchangeAdapter(config: UniversalExchangeAdapterConfig): Promise<IUniversalAdapter> {
+    this.logger.debug(`Creating exchange adapter for ${config.id} with subType: ${config.subType}`);
+
+    if (config.subType === 'csv') {
+      return this.createCSVExchangeAdapter(config);
+    } else if (config.subType === 'ccxt') {
+      return this.createCCXTExchangeAdapter(config);
+    } else if (config.subType === 'native') {
+      return this.createNativeExchangeAdapter(config);
+    }
+
+    throw new Error(`Unsupported exchange adapter subType: ${config.subType} for ${config.id}`);
+  }
+
+  /**
    * Helper method to create exchange adapter configuration
    */
   static createExchangeConfig(
@@ -195,35 +178,52 @@ export class UniversalAdapterFactory {
       credentials?:
         | {
             apiKey: string;
-            secret: string;
             password?: string | undefined;
+            secret: string;
           }
         | undefined;
       csvDirectories?: string[] | undefined;
     }
   ): UniversalExchangeAdapterConfig {
     return {
-      type: 'exchange',
-      id: exchangeId,
-      subType,
       credentials: options.credentials,
       csvDirectories: options.csvDirectories,
+      id: exchangeId,
+      subType,
+      type: 'exchange',
     };
   }
 
   /**
-   * Helper method to create blockchain adapter configuration
+   * Create multiple universal adapters from an array of configurations
    */
-  static createBlockchainConfig(
-    blockchain: string,
-    network: string = 'mainnet',
-    subType: 'rest' | 'rpc' = 'rest'
-  ): UniversalBlockchainAdapterConfig {
-    return {
-      type: 'blockchain',
-      id: blockchain,
-      subType,
-      network,
-    };
+  static async createMany(
+    configs: UniversalAdapterConfig[],
+    explorerConfig?: BlockchainExplorersConfig
+  ): Promise<IUniversalAdapter[]> {
+    this.logger.info(`Creating ${configs.length} universal adapters`);
+
+    return Promise.all(configs.map(config => this.create(config, explorerConfig)));
+  }
+
+  /**
+   * Create native exchange adapter directly
+   */
+  private static async createNativeExchangeAdapter(config: UniversalExchangeAdapterConfig): Promise<IUniversalAdapter> {
+    if (!config.credentials) {
+      throw new Error('Credentials required for native exchange adapters');
+    }
+
+    switch (config.id.toLowerCase()) {
+      case 'coinbase':
+        return new CoinbaseAdapter(config, {
+          apiKey: config.credentials.apiKey,
+          passphrase: config.credentials.password || '',
+          sandbox: false,
+          secret: config.credentials.secret,
+        });
+      default:
+        throw new Error(`Unsupported native exchange: ${config.id}`);
+    }
   }
 }

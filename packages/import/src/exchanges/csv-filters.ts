@@ -34,16 +34,6 @@ export class CsvFilters {
   }
 
   /**
-   * Filter rows by UID (common pattern for exchange CSVs)
-   * @param rows Array of objects with UID field
-   * @param uid UID to filter by (if undefined, no filtering is applied)
-   * @returns Filtered array
-   */
-  static filterByUid<T extends { UID: string }>(rows: T[], uid?: string): T[] {
-    return this.filterByField(rows, 'UID', uid);
-  }
-
-  /**
    * Filter rows by timestamp range
    * @param rows Array of objects with timestamp field
    * @param since Minimum timestamp (if undefined, no lower bound)
@@ -60,6 +50,16 @@ export class CsvFilters {
       }
       return true;
     });
+  }
+
+  /**
+   * Filter rows by UID (common pattern for exchange CSVs)
+   * @param rows Array of objects with UID field
+   * @param uid UID to filter by (if undefined, no filtering is applied)
+   * @returns Filtered array
+   */
+  static filterByUid<T extends { UID: string }>(rows: T[], uid?: string): T[] {
+    return this.filterByField(rows, 'UID', uid);
   }
 
   /**

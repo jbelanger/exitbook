@@ -29,24 +29,44 @@ export class EthereumAdapter extends BaseAdapter {
     );
   }
 
-  async getInfo(): Promise<UniversalAdapterInfo> {
-    return {
-      id: 'ethereum',
-      name: 'Ethereum',
-      type: 'blockchain',
-      subType: 'rest',
-      capabilities: {
-        supportedOperations: ['fetchTransactions', 'fetchBalances'],
-        maxBatchSize: 1,
-        supportsHistoricalData: true,
-        supportsPagination: true,
-        requiresApiKey: false,
-        rateLimit: {
-          requestsPerSecond: 5,
-          burstLimit: 20,
-        },
-      },
-    };
+  /**
+   * Close adapter and cleanup resources
+   */
+  async close(): Promise<void> {
+    try {
+      this.providerManager.destroy();
+      this.logger.info('Ethereum adapter closed successfully');
+    } catch (error) {
+      this.logger.warn(`Error during Ethereum adapter close - Error: ${error}`);
+    }
+  }
+
+  protected async fetchRawBalances(params: UniversalFetchParams): Promise<Balance[]> {
+    if (!params.addresses?.length) {
+      throw new Error('Addresses required for Ethereum balance fetching');
+    }
+
+    const allBalances: Balance[] = [];
+
+    for (const address of params.addresses) {
+      this.logger.info(`Getting balance for address: ${address.substring(0, 20)}...`);
+
+      try {
+        const balances = (await this.providerManager.executeWithFailover('ethereum', {
+          address: address,
+          getCacheKey: cacheParams =>
+            `eth_balance_${cacheParams.type === 'getAddressBalance' ? cacheParams.address : 'unknown'}`,
+          type: 'getAddressBalance',
+        })) as Balance[];
+
+        allBalances.push(...balances);
+      } catch (error) {
+        this.logger.error(`Failed to fetch balance for ${address} - Error: ${error}`);
+        throw error;
+      }
+    }
+
+    return allBalances;
   }
 
   protected async fetchRawTransactions(params: UniversalFetchParams): Promise<BlockchainTransaction[]> {
@@ -62,22 +82,22 @@ export class EthereumAdapter extends BaseAdapter {
       try {
         // Fetch regular ETH transactions
         const regularTxs = (await this.providerManager.executeWithFailover('ethereum', {
-          type: 'getAddressTransactions',
           address: address,
-          since: params.since,
           getCacheKey: cacheParams =>
             `eth_tx_${cacheParams.type === 'getAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getAddressTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
+          since: params.since,
+          type: 'getAddressTransactions',
         })) as BlockchainTransaction[];
 
         // Try to fetch ERC-20 token transactions (if provider supports it)
         let tokenTxs: BlockchainTransaction[] = [];
         try {
           tokenTxs = (await this.providerManager.executeWithFailover('ethereum', {
-            type: 'getTokenTransactions',
             address: address,
-            since: params.since,
             getCacheKey: cacheParams =>
               `eth_token_tx_${cacheParams.type === 'getTokenTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getTokenTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
+            since: params.since,
+            type: 'getTokenTransactions',
           })) as BlockchainTransaction[];
         } catch (error) {
           this.logger.debug(
@@ -111,32 +131,54 @@ export class EthereumAdapter extends BaseAdapter {
     return uniqueTransactions;
   }
 
-  protected async fetchRawBalances(params: UniversalFetchParams): Promise<Balance[]> {
-    if (!params.addresses?.length) {
-      throw new Error('Addresses required for Ethereum balance fetching');
-    }
+  async getInfo(): Promise<UniversalAdapterInfo> {
+    return {
+      capabilities: {
+        maxBatchSize: 1,
+        rateLimit: {
+          burstLimit: 20,
+          requestsPerSecond: 5,
+        },
+        requiresApiKey: false,
+        supportedOperations: ['fetchTransactions', 'fetchBalances'],
+        supportsHistoricalData: true,
+        supportsPagination: true,
+      },
+      id: 'ethereum',
+      name: 'Ethereum',
+      subType: 'rest',
+      type: 'blockchain',
+    };
+  }
 
-    const allBalances: Balance[] = [];
-
-    for (const address of params.addresses) {
-      this.logger.info(`Getting balance for address: ${address.substring(0, 20)}...`);
-
-      try {
-        const balances = (await this.providerManager.executeWithFailover('ethereum', {
-          type: 'getAddressBalance',
-          address: address,
-          getCacheKey: cacheParams =>
-            `eth_balance_${cacheParams.type === 'getAddressBalance' ? cacheParams.address : 'unknown'}`,
-        })) as Balance[];
-
-        allBalances.push(...balances);
-      } catch (error) {
-        this.logger.error(`Failed to fetch balance for ${address} - Error: ${error}`);
-        throw error;
+  async testConnection(): Promise<boolean> {
+    this.logger.debug('EthereumAdapter.testConnection called');
+    try {
+      const providers = this.providerManager.getProviders('ethereum');
+      this.logger.debug(`Found ${providers.length} providers`);
+      if (providers.length === 0) {
+        this.logger.warn('No providers available for connection test');
+        return false;
       }
-    }
 
-    return allBalances;
+      // Test the first provider
+      const result = (await providers[0]?.testConnection()) || false;
+      this.logger.debug(`Connection test result: ${result}`);
+      return result;
+    } catch (error) {
+      this.logger.error(`Connection test failed - Error: ${error}`);
+      return false;
+    }
+  }
+
+  protected async transformBalances(rawBalances: Balance[], params: UniversalFetchParams): Promise<UniversalBalance[]> {
+    return rawBalances.map(balance => ({
+      contractAddress: balance.contractAddress,
+      currency: balance.currency,
+      free: balance.balance,
+      total: balance.total,
+      used: balance.used,
+    }));
   }
 
   protected async transformTransactions(
@@ -162,69 +204,27 @@ export class EthereumAdapter extends BaseAdapter {
       }
 
       return {
-        id: tx.hash,
-        timestamp: tx.timestamp,
-        datetime: new Date(tx.timestamp).toISOString(),
-        type,
-        status: tx.status === 'success' ? 'closed' : tx.status === 'pending' ? 'open' : 'canceled',
         amount: tx.value,
+        datetime: new Date(tx.timestamp).toISOString(),
         fee: tx.fee,
         from: tx.from,
-        to: tx.to,
-        symbol: tx.tokenSymbol || tx.value.currency,
-        source: 'ethereum',
-        network: 'mainnet',
+        id: tx.hash,
         metadata: {
-          blockNumber: tx.blockNumber,
           blockHash: tx.blockHash,
+          blockNumber: tx.blockNumber,
           confirmations: tx.confirmations,
+          originalTransaction: tx,
           tokenContract: tx.tokenContract,
           transactionType: tx.type,
-          originalTransaction: tx,
         },
+        network: 'mainnet',
+        source: 'ethereum',
+        status: tx.status === 'success' ? 'closed' : tx.status === 'pending' ? 'open' : 'canceled',
+        symbol: tx.tokenSymbol || tx.value.currency,
+        timestamp: tx.timestamp,
+        to: tx.to,
+        type,
       };
     });
-  }
-
-  protected async transformBalances(rawBalances: Balance[], params: UniversalFetchParams): Promise<UniversalBalance[]> {
-    return rawBalances.map(balance => ({
-      currency: balance.currency,
-      total: balance.total,
-      free: balance.balance,
-      used: balance.used,
-      contractAddress: balance.contractAddress,
-    }));
-  }
-
-  async testConnection(): Promise<boolean> {
-    this.logger.debug('EthereumAdapter.testConnection called');
-    try {
-      const providers = this.providerManager.getProviders('ethereum');
-      this.logger.debug(`Found ${providers.length} providers`);
-      if (providers.length === 0) {
-        this.logger.warn('No providers available for connection test');
-        return false;
-      }
-
-      // Test the first provider
-      const result = (await providers[0]?.testConnection()) || false;
-      this.logger.debug(`Connection test result: ${result}`);
-      return result;
-    } catch (error) {
-      this.logger.error(`Connection test failed - Error: ${error}`);
-      return false;
-    }
-  }
-
-  /**
-   * Close adapter and cleanup resources
-   */
-  async close(): Promise<void> {
-    try {
-      this.providerManager.destroy();
-      this.logger.info('Ethereum adapter closed successfully');
-    } catch (error) {
-      this.logger.warn(`Error during Ethereum adapter close - Error: ${error}`);
-    }
   }
 }

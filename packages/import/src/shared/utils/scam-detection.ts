@@ -6,12 +6,12 @@ import { TransactionNoteType } from '../types/types.ts';
  * Token metadata from DAS API for scam detection
  */
 interface TokenMetadata {
-  symbol: string;
-  name: string;
-  description?: string;
-  image?: string;
-  external_url?: string;
   attributes?: Array<{ trait_type: string; value: string }>;
+  description?: string;
+  external_url?: string;
+  image?: string;
+  name: string;
+  symbol: string;
 }
 
 /**
@@ -71,16 +71,16 @@ export function detectScamToken(
     const noteType = riskLevel === 'error' ? TransactionNoteType.SCAM_TOKEN : TransactionNoteType.SUSPICIOUS_AIRDROP;
 
     return {
-      type: noteType,
       message: `⚠️ ${riskLevel === 'error' ? 'Scam token detected' : 'Suspicious token'}: ${suspiciousIndicators.join(', ')}`,
-      severity: riskLevel,
       metadata: {
-        mintAddress,
-        tokenSymbol: tokenMetadata.symbol,
-        tokenName: tokenMetadata.name,
-        indicators: suspiciousIndicators,
         externalUrl: tokenMetadata.external_url,
+        indicators: suspiciousIndicators,
+        mintAddress,
+        tokenName: tokenMetadata.name,
+        tokenSymbol: tokenMetadata.symbol,
       },
+      severity: riskLevel,
+      type: noteType,
     };
   }
 
@@ -103,12 +103,12 @@ function detectProjectImpersonation(
   name: string
 ): { isImpersonation: boolean; targetProject?: string } {
   const knownProjects = [
-    { symbols: ['jup'], names: ['jupiter'], project: 'Jupiter Exchange' },
-    { symbols: ['sol'], names: ['solana'], project: 'Solana' },
-    { symbols: ['ray'], names: ['raydium'], project: 'Raydium' },
-    { symbols: ['srm'], names: ['serum'], project: 'Serum' },
-    { symbols: ['orca'], names: ['orca'], project: 'Orca' },
-    { symbols: ['mngo'], names: ['mango'], project: 'Mango Markets' },
+    { names: ['jupiter'], project: 'Jupiter Exchange', symbols: ['jup'] },
+    { names: ['solana'], project: 'Solana', symbols: ['sol'] },
+    { names: ['raydium'], project: 'Raydium', symbols: ['ray'] },
+    { names: ['serum'], project: 'Serum', symbols: ['srm'] },
+    { names: ['orca'], project: 'Orca', symbols: ['orca'] },
+    { names: ['mango'], project: 'Mango Markets', symbols: ['mngo'] },
   ];
 
   const lowerSymbol = symbol.toLowerCase();

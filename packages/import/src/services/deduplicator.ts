@@ -4,29 +4,121 @@ import { moneyToNumber } from '@crypto/shared-utils';
 import { createHash } from 'crypto';
 
 interface DeduplicationResult {
-  unique: UniversalTransaction[];
   duplicates: UniversalTransaction[];
+  unique: UniversalTransaction[];
 }
 
 export class Deduplicator {
   private logger = getLogger('Deduplicator');
 
-  async process(transactions: UniversalTransaction[], sourceId: string): Promise<DeduplicationResult> {
-    this.logger.info(`Starting deduplication for ${transactions.length} transactions from ${sourceId}`);
+  private areTransactionsSimilar(tx1: UniversalTransaction, tx2: UniversalTransaction): boolean {
+    // Define similarity criteria
+    const timestampDiff = Math.abs(tx1.timestamp - tx2.timestamp);
+    const timestampTolerance = 5000; // 5 seconds
 
-    const result = this.deduplicateByHash(transactions, sourceId);
-    this.logDeduplicationStats(result, sourceId);
+    const amount1 = moneyToNumber(tx1.amount);
+    const amount2 = moneyToNumber(tx2.amount);
+    const amountDiff = Math.abs(amount1 - amount2);
+    const amountTolerance = 0.00000001; // Satoshi-level tolerance
 
-    return result;
+    return (
+      tx1.source === tx2.source &&
+      tx1.type === tx2.type &&
+      tx1.symbol === tx2.symbol &&
+      (tx1.metadata?.side || '') === (tx2.metadata?.side || '') &&
+      timestampDiff <= timestampTolerance &&
+      amountDiff <= amountTolerance
+    );
   }
 
-  async processAdvanced(transactions: UniversalTransaction[], sourceId: string): Promise<DeduplicationResult> {
-    this.logger.info(`Starting advanced deduplication for ${transactions.length} transactions from ${sourceId}`);
+  private createPrimaryKey(transaction: UniversalTransaction): string {
+    // Create a key based on core transaction properties
+    const keyParts = [
+      transaction.source,
+      transaction.type,
+      Math.floor(transaction.timestamp / 1000), // Round to seconds to handle minor timestamp differences
+      transaction.symbol || '',
+      this.normalizeAmount(moneyToNumber(transaction.amount)),
+      transaction.metadata?.side || '',
+    ];
 
-    const result = this.deduplicateBySimilarity(transactions, sourceId);
-    this.logDeduplicationStats(result, sourceId, 'advanced');
+    return keyParts.join('|');
+  }
 
-    return result;
+  private createTransactionHash(transaction: UniversalTransaction): string {
+    // Create a hash from key transaction properties for deduplication
+    const hashData = JSON.stringify({
+      amount: transaction.amount,
+      id: transaction.id,
+      side: transaction.metadata?.side,
+      source: transaction.source,
+      symbol: transaction.symbol,
+      timestamp: transaction.timestamp,
+      type: transaction.type,
+    });
+
+    return createHash('sha256').update(hashData).digest('hex').slice(0, 16);
+  }
+
+  private deduplicateByHash(transactions: UniversalTransaction[], sourceId: string): DeduplicationResult {
+    const unique: UniversalTransaction[] = [];
+    const duplicates: UniversalTransaction[] = [];
+    const seenHashes = new Set<string>();
+
+    for (const transaction of transactions) {
+      const hash = this.createTransactionHash(transaction);
+
+      if (seenHashes.has(hash)) {
+        duplicates.push(transaction);
+        this.logDuplicateTransaction(transaction.id, sourceId);
+      } else {
+        seenHashes.add(hash);
+        unique.push(transaction);
+      }
+    }
+
+    return { duplicates, unique };
+  }
+
+  private deduplicateBySimilarity(transactions: UniversalTransaction[], sourceId: string): DeduplicationResult {
+    const unique: UniversalTransaction[] = [];
+    const duplicates: UniversalTransaction[] = [];
+    const transactionIndex = new Map<string, UniversalTransaction>();
+
+    for (const transaction of transactions) {
+      const primaryKey = this.createPrimaryKey(transaction);
+      const existingTransaction = transactionIndex.get(primaryKey);
+
+      if (existingTransaction) {
+        if (this.areTransactionsSimilar(existingTransaction, transaction)) {
+          duplicates.push(transaction);
+          this.logDuplicateTransaction(transaction.id, sourceId);
+        } else {
+          unique.push(transaction);
+          transactionIndex.set(primaryKey + '_' + unique.length, transaction);
+        }
+      } else {
+        transactionIndex.set(primaryKey, transaction);
+        unique.push(transaction);
+      }
+    }
+
+    return { duplicates, unique };
+  }
+
+  private logDeduplicationStats(result: DeduplicationResult, sourceId: string, mode: string = 'standard'): void {
+    const total = result.unique.length + result.duplicates.length;
+    const duplicatePercentage = total > 0 ? ((result.duplicates.length / total) * 100).toFixed(2) : '0.00';
+
+    this.logger.info(
+      `${mode.charAt(0).toUpperCase() + mode.slice(1)} deduplication completed for ${sourceId} - Total: ${total}, Unique: ${result.unique.length}, Duplicates: ${result.duplicates.length} (${duplicatePercentage}%)`
+    );
+  }
+
+  private logDuplicateTransaction(transactionId: string, sourceId: string): void {
+    this.logger.debug(
+      `Duplicate transaction skipped - ID: ${transactionId}, Source: ${sourceId}, Timestamp: ${Date.now()}`
+    );
   }
 
   private normalizeAmount(amount: number): string {
@@ -36,16 +128,16 @@ export class Deduplicator {
 
   // Method to detect potential data quality issues
   detectAnomalies(transactions: UniversalTransaction[]): {
-    missingIds: UniversalTransaction[];
     invalidTimestamps: UniversalTransaction[];
-    zeroAmounts: UniversalTransaction[];
+    missingIds: UniversalTransaction[];
     missingSymbols: UniversalTransaction[];
+    zeroAmounts: UniversalTransaction[];
   } {
     const anomalies = {
-      missingIds: [] as UniversalTransaction[],
       invalidTimestamps: [] as UniversalTransaction[],
-      zeroAmounts: [] as UniversalTransaction[],
+      missingIds: [] as UniversalTransaction[],
       missingSymbols: [] as UniversalTransaction[],
+      zeroAmounts: [] as UniversalTransaction[],
     };
 
     for (const tx of transactions) {
@@ -83,128 +175,36 @@ export class Deduplicator {
 
   // Get statistics about the deduplication process
   getDeduplicationStats(result: DeduplicationResult): {
+    duplicateRate: number;
+    duplicates: number;
     total: number;
     unique: number;
-    duplicates: number;
-    duplicateRate: number;
   } {
     const total = result.unique.length + result.duplicates.length;
 
     return {
+      duplicateRate: total > 0 ? (result.duplicates.length / total) * 100 : 0,
+      duplicates: result.duplicates.length,
       total,
       unique: result.unique.length,
-      duplicates: result.duplicates.length,
-      duplicateRate: total > 0 ? (result.duplicates.length / total) * 100 : 0,
     };
   }
 
-  private deduplicateByHash(transactions: UniversalTransaction[], sourceId: string): DeduplicationResult {
-    const unique: UniversalTransaction[] = [];
-    const duplicates: UniversalTransaction[] = [];
-    const seenHashes = new Set<string>();
+  async process(transactions: UniversalTransaction[], sourceId: string): Promise<DeduplicationResult> {
+    this.logger.info(`Starting deduplication for ${transactions.length} transactions from ${sourceId}`);
 
-    for (const transaction of transactions) {
-      const hash = this.createTransactionHash(transaction);
+    const result = this.deduplicateByHash(transactions, sourceId);
+    this.logDeduplicationStats(result, sourceId);
 
-      if (seenHashes.has(hash)) {
-        duplicates.push(transaction);
-        this.logDuplicateTransaction(transaction.id, sourceId);
-      } else {
-        seenHashes.add(hash);
-        unique.push(transaction);
-      }
-    }
-
-    return { unique, duplicates };
+    return result;
   }
 
-  private deduplicateBySimilarity(transactions: UniversalTransaction[], sourceId: string): DeduplicationResult {
-    const unique: UniversalTransaction[] = [];
-    const duplicates: UniversalTransaction[] = [];
-    const transactionIndex = new Map<string, UniversalTransaction>();
+  async processAdvanced(transactions: UniversalTransaction[], sourceId: string): Promise<DeduplicationResult> {
+    this.logger.info(`Starting advanced deduplication for ${transactions.length} transactions from ${sourceId}`);
 
-    for (const transaction of transactions) {
-      const primaryKey = this.createPrimaryKey(transaction);
-      const existingTransaction = transactionIndex.get(primaryKey);
+    const result = this.deduplicateBySimilarity(transactions, sourceId);
+    this.logDeduplicationStats(result, sourceId, 'advanced');
 
-      if (existingTransaction) {
-        if (this.areTransactionsSimilar(existingTransaction, transaction)) {
-          duplicates.push(transaction);
-          this.logDuplicateTransaction(transaction.id, sourceId);
-        } else {
-          unique.push(transaction);
-          transactionIndex.set(primaryKey + '_' + unique.length, transaction);
-        }
-      } else {
-        transactionIndex.set(primaryKey, transaction);
-        unique.push(transaction);
-      }
-    }
-
-    return { unique, duplicates };
-  }
-
-  private createPrimaryKey(transaction: UniversalTransaction): string {
-    // Create a key based on core transaction properties
-    const keyParts = [
-      transaction.source,
-      transaction.type,
-      Math.floor(transaction.timestamp / 1000), // Round to seconds to handle minor timestamp differences
-      transaction.symbol || '',
-      this.normalizeAmount(moneyToNumber(transaction.amount)),
-      transaction.metadata?.side || '',
-    ];
-
-    return keyParts.join('|');
-  }
-
-  private areTransactionsSimilar(tx1: UniversalTransaction, tx2: UniversalTransaction): boolean {
-    // Define similarity criteria
-    const timestampDiff = Math.abs(tx1.timestamp - tx2.timestamp);
-    const timestampTolerance = 5000; // 5 seconds
-
-    const amount1 = moneyToNumber(tx1.amount);
-    const amount2 = moneyToNumber(tx2.amount);
-    const amountDiff = Math.abs(amount1 - amount2);
-    const amountTolerance = 0.00000001; // Satoshi-level tolerance
-
-    return (
-      tx1.source === tx2.source &&
-      tx1.type === tx2.type &&
-      tx1.symbol === tx2.symbol &&
-      (tx1.metadata?.side || '') === (tx2.metadata?.side || '') &&
-      timestampDiff <= timestampTolerance &&
-      amountDiff <= amountTolerance
-    );
-  }
-
-  private createTransactionHash(transaction: UniversalTransaction): string {
-    // Create a hash from key transaction properties for deduplication
-    const hashData = JSON.stringify({
-      id: transaction.id,
-      timestamp: transaction.timestamp,
-      symbol: transaction.symbol,
-      amount: transaction.amount,
-      side: transaction.metadata?.side,
-      type: transaction.type,
-      source: transaction.source,
-    });
-
-    return createHash('sha256').update(hashData).digest('hex').slice(0, 16);
-  }
-
-  private logDeduplicationStats(result: DeduplicationResult, sourceId: string, mode: string = 'standard'): void {
-    const total = result.unique.length + result.duplicates.length;
-    const duplicatePercentage = total > 0 ? ((result.duplicates.length / total) * 100).toFixed(2) : '0.00';
-
-    this.logger.info(
-      `${mode.charAt(0).toUpperCase() + mode.slice(1)} deduplication completed for ${sourceId} - Total: ${total}, Unique: ${result.unique.length}, Duplicates: ${result.duplicates.length} (${duplicatePercentage}%)`
-    );
-  }
-
-  private logDuplicateTransaction(transactionId: string, sourceId: string): void {
-    this.logger.debug(
-      `Duplicate transaction skipped - ID: ${transactionId}, Source: ${sourceId}, Timestamp: ${Date.now()}`
-    );
+    return result;
   }
 }
