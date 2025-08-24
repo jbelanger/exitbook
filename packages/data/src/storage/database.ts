@@ -454,11 +454,6 @@ export class Database {
         priceCurrency = transaction.price.currency;
       }
 
-      // DEBUG: Log side value before storage
-      if (transaction.type === "withdrawal" || transaction.type === "deposit") {
-        this.logger.debug(`STORAGE DEBUG: ${transaction.type} transaction ${transaction.id} has side: ${transaction.side} (typeof: ${typeof transaction.side})`);
-      }
-
       stmt.run(
         [
           transaction.id,
