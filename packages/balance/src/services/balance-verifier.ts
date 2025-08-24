@@ -1,5 +1,6 @@
 import { BalanceRepository, BalanceService } from "@crypto/data";
 import { getLogger } from "@crypto/shared-logger";
+import { Decimal } from "decimal.js";
 import type {
   BalanceComparison,
   BalanceVerificationRecord,
@@ -143,7 +144,7 @@ export class BalanceVerifier {
 
   private compareBalances(
     liveBalances: Record<string, number>,
-    calculatedBalances: Record<string, number>,
+    calculatedBalances: Record<string, Decimal>,
     tolerance: number = 0.00000001,
   ): BalanceComparison[] {
     const comparisons: BalanceComparison[] = [];
@@ -154,7 +155,7 @@ export class BalanceVerifier {
 
     for (const currency of Array.from(allCurrencies)) {
       const liveBalance = liveBalances[currency] || 0;
-      const calculatedBalance = calculatedBalances[currency] || 0;
+      const calculatedBalance = calculatedBalances[currency]?.toNumber() || 0;
       const difference = Math.abs(liveBalance - calculatedBalance);
       const percentageDiff =
         liveBalance !== 0 ? (difference / Math.abs(liveBalance)) * 100 : 0;
@@ -245,18 +246,19 @@ export class BalanceVerifier {
   }
 
   private createCalculatedOnlyComparisons(
-    calculatedBalances: Record<string, number>,
+    calculatedBalances: Record<string, Decimal>,
   ): BalanceComparison[] {
     const comparisons: BalanceComparison[] = [];
 
     for (const [currency, balance] of Object.entries(calculatedBalances)) {
+      const balanceNumber = balance.toNumber();
       // For CSV adapters, we show calculated balance as both live and calculated
       // since we can't fetch live balances
       comparisons.push({
         currency,
         liveBalance: 0, // No live balance available
-        calculatedBalance: balance,
-        difference: balance, // Difference is the calculated balance itself
+        calculatedBalance: balanceNumber,
+        difference: balanceNumber, // Difference is the calculated balance itself
         status: "warning", // Always warning since we can't verify
         percentageDiff: 0,
         tolerance: 0,
