@@ -139,35 +139,35 @@ describe("BalanceCalculationService Precision", () => {
     });
   });
 
-  describe("Legacy vs Precision comparison", () => {
-    it("should show precision difference between legacy and new methods", async () => {
+  describe("Precision validation", () => {
+    it("should preserve high-precision values without loss", async () => {
       const highPrecisionAmount = "1.123456789012345678901234567890";
       const transactions = [
         createMockTransaction("deposit", highPrecisionAmount, "BTC"),
       ];
 
-      const legacyBalances =
-        await service.calculateExchangeBalances(transactions);
-      const precisionBalances =
-        await service.calculateExchangeBalancesWithPrecision(transactions);
+      // Suppress console warnings during test to reduce noise
+      const originalWarn = console.warn;
+      const warnings: string[] = [];
+      console.warn = (message: string) => warnings.push(message);
 
-      // Legacy method loses precision due to toNumber() conversion
-      const legacyBtc = legacyBalances["BTC"];
-      const precisionBtc = precisionBalances["BTC"];
+      try {
+        const precisionBalances =
+          await service.calculateExchangeBalancesWithPrecision(transactions);
 
-      expect(typeof legacyBtc).toBe("number");
-      expect(precisionBtc).toBeInstanceOf(Decimal);
+        const precisionBtc = precisionBalances["BTC"];
 
-      // Check if precision was lost in legacy method
-      const precisionAsNumber = precisionBtc.toNumber();
-      const backToDecimal = new Decimal(precisionAsNumber);
+        expect(precisionBtc).toBeInstanceOf(Decimal);
 
-      // If precision was lost, the decimal representations should differ
-      if (!precisionBtc.equals(backToDecimal)) {
-        // Precision loss occurred - this is what we're trying to prevent
-        console.warn(
-          `Precision loss detected: ${precisionBtc.toString()} -> ${precisionAsNumber}`,
-        );
+        // Check if precision would be lost when converting to number
+        const precisionAsNumber = precisionBtc.toNumber();
+        const backToDecimal = new Decimal(precisionAsNumber);
+
+        // Verify precision loss would occur if converted to number (expected behavior)
+        expect(precisionBtc.equals(backToDecimal)).toBe(false);
+      } finally {
+        // Restore original console.warn
+        console.warn = originalWarn;
       }
     });
 
@@ -177,18 +177,23 @@ describe("BalanceCalculationService Precision", () => {
         createMockTransaction("deposit", largeAmount, "DOGE"), // Large amount in Dogecoin
       ];
 
-      const precisionBalances =
-        await service.calculateExchangeBalancesWithPrecision(transactions);
+      // Suppress console warnings during test to reduce noise
+      const originalWarn = console.warn;
+      console.warn = () => {}; // Silence warnings
 
-      expect(precisionBalances["DOGE"]).toBeInstanceOf(Decimal);
-      expect(precisionBalances["DOGE"].toString()).toBe(largeAmount);
+      try {
+        const precisionBalances =
+          await service.calculateExchangeBalancesWithPrecision(transactions);
 
-      // Legacy method would likely lose precision or have issues here
-      const legacyBalances =
-        await service.calculateExchangeBalances(transactions);
+        expect(precisionBalances["DOGE"]).toBeInstanceOf(Decimal);
+        expect(precisionBalances["DOGE"].toString()).toBe(largeAmount);
 
-      // The legacy method should still work but may have precision warnings
-      expect(typeof legacyBalances["DOGE"]).toBe("number");
+        // Verify precision would be preserved with Decimal implementation
+        expect(precisionBalances["DOGE"].greaterThan(Number.MAX_SAFE_INTEGER)).toBe(true);
+      } finally {
+        // Restore original console.warn
+        console.warn = originalWarn;
+      }
     });
   });
 });

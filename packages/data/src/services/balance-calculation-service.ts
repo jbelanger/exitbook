@@ -1,19 +1,8 @@
 import type { StoredTransaction } from "../types/data-types.js";
-import { stringToDecimal, safeDecimalToNumber } from "@crypto/shared-utils";
+import { stringToDecimal } from "@crypto/shared-utils";
 import { Decimal } from "decimal.js";
 
 export class BalanceCalculationService {
-  async calculateExchangeBalances(
-    transactions: StoredTransaction[],
-  ): Promise<Record<string, number>> {
-    const balances: Record<string, Decimal> = {};
-
-    for (const transaction of transactions) {
-      this.processTransactionForBalance(transaction, balances);
-    }
-
-    return this.cleanupDustBalances(balances);
-  }
 
   /**
    * Calculate exchange balances with full precision (recommended)
@@ -99,25 +88,6 @@ export class BalanceCalculationService {
     }
   }
 
-  private cleanupDustBalances(
-    balances: Record<string, Decimal>,
-  ): Record<string, number> {
-    const cleanedBalances: Record<string, number> = {};
-    for (const [currency, balance] of Object.entries(balances)) {
-      if (balance.abs().greaterThan(0.00000001)) {
-        // Use safe conversion with warning for precision loss
-        cleanedBalances[currency] = safeDecimalToNumber(balance, {
-          allowPrecisionLoss: true,
-          warningCallback: (message) => {
-            console.warn(
-              `[BalanceCalculationService] ${message} for currency: ${currency}`,
-            );
-          },
-        });
-      }
-    }
-    return cleanedBalances;
-  }
 
   /**
    * Clean up dust balances while preserving precision (recommended)
