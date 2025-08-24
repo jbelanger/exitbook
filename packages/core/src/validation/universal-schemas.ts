@@ -52,7 +52,7 @@ export const UniversalTransactionSchema = z
     // Optional fields
     fee: MoneySchema.optional(),
     price: MoneySchema.optional(),
-    side: z.enum(["buy", "sell"]).optional(), // Trade side for balance calculations
+    side: z.enum(["buy", "sell"]).optional().or(z.undefined()), // Trade side for balance calculations
     from: z.string().optional(),
     to: z.string().optional(),
     symbol: z.string().optional(),
