@@ -16,13 +16,13 @@ import type { CsvAccountHistoryRow, CsvDepositWithdrawalRow, CsvKuCoinRawData, C
 
 // Expected CSV headers for validation
 const EXPECTED_HEADERS = {
+  ACCOUNT_HISTORY_CSV: 'UID,Account Type,Currency,Side,Amount,Fee,Time(UTC),Remark,Type',
+  CONVERT_CSV: 'UID,Account Type,Payment Account,Sell,Buy,Price,Tax,Time of Update(UTC),Status', // Legacy - not used, we get converts from account history
+  DEPOSIT_CSV: 'UID,Account Type,Time(UTC),Coin,Amount,Fee,Hash,Deposit Address,Transfer Network,Status,Remarks',
   TRADING_CSV:
     'UID,Account Type,Order ID,Order Time(UTC),Symbol,Side,Order Type,Order Price,Order Amount,Avg. Filled Price,Filled Amount,Filled Volume,Filled Volume (USDT),Filled Time(UTC),Fee,Fee Currency,Tax,Status',
-  DEPOSIT_CSV: 'UID,Account Type,Time(UTC),Coin,Amount,Fee,Hash,Deposit Address,Transfer Network,Status,Remarks',
   WITHDRAWAL_CSV:
     'UID,Account Type,Time(UTC),Coin,Amount,Fee,Hash,Withdrawal Address/Account,Transfer Network,Status,Remarks',
-  CONVERT_CSV: 'UID,Account Type,Payment Account,Sell,Buy,Price,Tax,Time of Update(UTC),Status', // Legacy - not used, we get converts from account history
-  ACCOUNT_HISTORY_CSV: 'UID,Account Type,Currency,Side,Amount,Fee,Time(UTC),Remark,Type',
 };
 
 export class KuCoinCSVAdapter extends BaseAdapter {
@@ -32,96 +32,135 @@ export class KuCoinCSVAdapter extends BaseAdapter {
     super(config);
   }
 
-  async close(): Promise<void> {
-    this.cachedTransactions = null;
-  }
+  private convertAccountHistoryConvertToTransaction(
+    deposit: CsvAccountHistoryRow,
+    withdrawal: CsvAccountHistoryRow,
+    timestamp: string
+  ): UniversalTransaction {
+    const timestampMs = new Date(timestamp).getTime();
 
-  async getInfo(): Promise<UniversalAdapterInfo> {
+    const sellCurrency = withdrawal.Currency;
+    const sellAmount = withdrawal.Amount;
+    const buyCurrency = deposit.Currency;
+    const buyAmount = deposit.Amount;
+
+    // Create a synthetic symbol for the conversion
+    const symbol = `${sellCurrency}/${buyCurrency}`;
+
+    // Calculate total fees (both deposit and withdrawal fees)
+    const withdrawalFee = withdrawal.Fee ? parseDecimal(withdrawal.Fee).toNumber() : 0;
+    const depositFee = deposit.Fee ? parseDecimal(deposit.Fee).toNumber() : 0;
+
     return {
-      id: 'kucoin',
-      name: 'KuCoin CSV',
-      type: 'exchange',
-      subType: 'csv',
-      capabilities: {
-        supportedOperations: ['fetchTransactions'],
-        maxBatchSize: 1000,
-        supportsHistoricalData: true,
-        supportsPagination: false,
-        requiresApiKey: false,
+      amount: createMoney(sellAmount, sellCurrency),
+      datetime: timestamp,
+      fee:
+        withdrawalFee + depositFee > 0 ? createMoney((withdrawalFee + depositFee).toString(), sellCurrency) : undefined,
+      id: `${withdrawal.UID}-${timestampMs}-convert-market-${sellCurrency}-${buyCurrency}`,
+      metadata: {
+        buyAmount: parseDecimal(buyAmount).toNumber(),
+        buyCurrency,
+        depositFee,
+        depositRow: deposit,
+        sellAmount: parseDecimal(sellAmount).toNumber(),
+        sellCurrency,
+        side: 'sell',
+        type: 'convert_market',
+        withdrawalFee,
+        withdrawalRow: withdrawal,
       },
+      network: 'exchange',
+      price: createMoney(buyAmount, buyCurrency),
+      source: 'kucoin',
+      status: 'closed', // Account history entries are completed transactions
+      symbol,
+      timestamp: timestampMs,
+      type: 'trade',
     };
   }
 
-  async testConnection(): Promise<boolean> {
-    try {
-      const config = this.config as UniversalExchangeAdapterConfig;
-      for (const csvDirectory of config.csvDirectories || []) {
-        try {
-          const stats = await fs.stat(csvDirectory);
-          if (!stats.isDirectory()) {
-            continue;
-          }
+  private convertDepositToTransaction(row: CsvDepositWithdrawalRow): UniversalTransaction {
+    const timestamp = new Date(row['Time(UTC)']).getTime();
 
-          const files = await fs.readdir(csvDirectory);
-          const csvFiles = files.filter(f => f.endsWith('.csv'));
-
-          if (csvFiles.length > 0) {
-            return true;
-          }
-        } catch (dirError) {
-          this.logger.warn(`CSV directory test failed for directory - Error: ${dirError}, Directory: ${csvDirectory}`);
-          continue;
-        }
-      }
-
-      return false;
-    } catch (error) {
-      this.logger.error(`CSV directories test failed - Error: ${error}`);
-      return false;
-    }
+    return {
+      amount: createMoney(row.Amount, row.Coin),
+      datetime: row['Time(UTC)'],
+      fee: row.Fee ? createMoney(row.Fee, row.Coin) : undefined,
+      id: row.Hash || `${row.UID}-${timestamp}-${row.Coin}-deposit-${row.Amount}`,
+      metadata: {
+        address: row['Deposit Address'],
+        hash: row.Hash,
+        originalRow: row,
+        remarks: row.Remarks,
+        transferNetwork: row['Transfer Network'],
+      },
+      network: 'exchange',
+      source: 'kucoin',
+      status: this.mapStatus(row.Status, 'deposit_withdrawal'),
+      timestamp,
+      type: 'deposit',
+    };
   }
 
-  protected async fetchRawTransactions(_params: UniversalFetchParams): Promise<CsvKuCoinRawData> {
-    return this.loadAllSeparatedTransactions();
+  private convertSpotOrderToTransaction(row: CsvSpotOrderRow): UniversalTransaction {
+    const timestamp = new Date(row['Filled Time(UTC)']).getTime();
+    const [baseCurrency, quoteCurrency] = row.Symbol.split('-');
+
+    return {
+      amount: createMoney(row['Filled Amount'], baseCurrency || 'unknown'),
+      datetime: row['Filled Time(UTC)'],
+      fee: createMoney(row.Fee, row['Fee Currency']),
+      id: row['Order ID'],
+      metadata: {
+        filledVolume: parseDecimal(row['Filled Volume']).toNumber(),
+        filledVolumeUSDT: parseDecimal(row['Filled Volume (USDT)']).toNumber(),
+        orderAmount: parseDecimal(row['Order Amount']).toNumber(),
+        orderPrice: parseDecimal(row['Order Price']).toNumber(),
+        orderTime: row['Order Time(UTC)'],
+        orderType: row['Order Type'],
+        originalRow: row,
+        side: row.Side.toLowerCase() as 'buy' | 'sell',
+      },
+      network: 'exchange',
+      price: createMoney(row['Filled Volume'], quoteCurrency || 'unknown'),
+      source: 'kucoin',
+      status: this.mapStatus(row.Status, 'spot'),
+      symbol: `${baseCurrency}/${quoteCurrency}`,
+      timestamp,
+      type: 'trade',
+    };
   }
 
-  protected async transformTransactions(
-    rawData: CsvKuCoinRawData,
-    params: UniversalFetchParams
-  ): Promise<UniversalTransaction[]> {
-    const transactions: UniversalTransaction[] = [];
+  private convertWithdrawalToTransaction(row: CsvDepositWithdrawalRow): UniversalTransaction {
+    const timestamp = new Date(row['Time(UTC)']).getTime();
 
-    // Process each type directly without separation logic
-    for (const row of rawData.spotOrders) {
-      const transaction = this.convertSpotOrderToTransaction(row);
-      transactions.push(transaction);
-    }
-
-    for (const row of rawData.deposits) {
-      const transaction = this.convertDepositToTransaction(row);
-      transactions.push(transaction);
-    }
-
-    for (const row of rawData.withdrawals) {
-      const transaction = this.convertWithdrawalToTransaction(row);
-      transactions.push(transaction);
-    }
-
-    // Process account history (convert market transactions)
-    const convertTransactions = this.processAccountHistory(rawData.accountHistory);
-    transactions.push(...convertTransactions);
-
-    return transactions
-      .filter(tx => !params.since || tx.timestamp >= params.since)
-      .filter(tx => !params.until || tx.timestamp <= params.until);
+    return {
+      amount: createMoney(row.Amount, row.Coin),
+      datetime: row['Time(UTC)'],
+      fee: row.Fee ? createMoney(row.Fee, row.Coin) : undefined,
+      id: row.Hash || `${row.UID}-${timestamp}-${row.Coin}-withdrawal-${row.Amount}`,
+      metadata: {
+        address: row['Withdrawal Address/Account'],
+        hash: row.Hash,
+        originalRow: row,
+        remarks: row.Remarks,
+        transferNetwork: row['Transfer Network'],
+      },
+      network: 'exchange',
+      source: 'kucoin',
+      status: this.mapStatus(row.Status, 'deposit_withdrawal'),
+      timestamp,
+      type: 'withdrawal',
+    };
   }
 
-  protected async fetchRawBalances(_params: UniversalFetchParams): Promise<unknown> {
-    throw new Error('Balance fetching not supported for CSV adapter - CSV files do not contain current balance data');
-  }
-
-  protected async transformBalances(_raw: unknown, _params: UniversalFetchParams): Promise<UniversalBalance[]> {
-    throw new Error('Balance fetching not supported for CSV adapter');
+  /**
+   * Filter rows by UID if configured
+   */
+  private filterByUid<T extends { UID: string }>(rows: T[]): T[] {
+    // If there's a UID filter configured, we could add it here
+    // For now, return all rows as UID filtering isn't in the universal config
+    return rows;
   }
 
   /**
@@ -137,10 +176,10 @@ export class KuCoinCSVAdapter extends BaseAdapter {
     this.logger.info(`Starting to load CSV transactions - CsvDirectories: ${config.csvDirectories}`);
 
     const rawData: CsvKuCoinRawData = {
-      spotOrders: [],
-      deposits: [],
-      withdrawals: [],
       accountHistory: [],
+      deposits: [],
+      spotOrders: [],
+      withdrawals: [],
     };
 
     try {
@@ -241,63 +280,6 @@ export class KuCoinCSVAdapter extends BaseAdapter {
     }
   }
 
-  /**
-   * Parse a CSV file using the common parsing logic
-   */
-  private async parseCsvFile<T>(filePath: string): Promise<T[]> {
-    return CsvParser.parseFile<T>(filePath);
-  }
-
-  /**
-   * Filter rows by UID if configured
-   */
-  private filterByUid<T extends { UID: string }>(rows: T[]): T[] {
-    // If there's a UID filter configured, we could add it here
-    // For now, return all rows as UID filtering isn't in the universal config
-    return rows;
-  }
-
-  /**
-   * Validate CSV headers and determine file type
-   */
-  private async validateCSVHeaders(filePath: string): Promise<string> {
-    const expectedHeaders = {
-      [EXPECTED_HEADERS.TRADING_CSV]: 'trading',
-      [EXPECTED_HEADERS.DEPOSIT_CSV]: 'deposit',
-      [EXPECTED_HEADERS.WITHDRAWAL_CSV]: 'withdrawal',
-      [EXPECTED_HEADERS.CONVERT_CSV]: 'convert',
-      [EXPECTED_HEADERS.ACCOUNT_HISTORY_CSV]: 'account_history',
-    };
-    const fileType = await CsvParser.validateHeaders(filePath, expectedHeaders);
-
-    if (fileType === 'unknown') {
-      const headers = await CsvParser.getHeaders(filePath);
-      this.logger.warn(`Unrecognized CSV headers in ${filePath} - Headers: ${headers}`);
-    }
-
-    return fileType;
-  }
-
-  private async parseSpotOrders(filePath: string): Promise<CsvSpotOrderRow[]> {
-    const rows = await this.parseCsvFile<CsvSpotOrderRow>(filePath);
-    return this.filterByUid(rows);
-  }
-
-  private async parseDepositHistory(filePath: string): Promise<CsvDepositWithdrawalRow[]> {
-    const rows = await this.parseCsvFile<CsvDepositWithdrawalRow>(filePath);
-    return this.filterByUid(rows);
-  }
-
-  private async parseWithdrawalHistory(filePath: string): Promise<CsvDepositWithdrawalRow[]> {
-    const rows = await this.parseCsvFile<CsvDepositWithdrawalRow>(filePath);
-    return this.filterByUid(rows);
-  }
-
-  private async parseAccountHistory(filePath: string): Promise<CsvAccountHistoryRow[]> {
-    const rows = await this.parseCsvFile<CsvAccountHistoryRow>(filePath);
-    return this.filterByUid(rows);
-  }
-
   private mapStatus(status: string, type: 'spot' | 'deposit_withdrawal'): TransactionStatus {
     if (!status) return 'pending';
 
@@ -331,79 +313,31 @@ export class KuCoinCSVAdapter extends BaseAdapter {
     }
   }
 
-  private convertSpotOrderToTransaction(row: CsvSpotOrderRow): UniversalTransaction {
-    const timestamp = new Date(row['Filled Time(UTC)']).getTime();
-    const [baseCurrency, quoteCurrency] = row.Symbol.split('-');
-
-    return {
-      id: row['Order ID'],
-      type: 'trade',
-      timestamp,
-      datetime: row['Filled Time(UTC)'],
-      status: this.mapStatus(row.Status, 'spot'),
-      amount: createMoney(row['Filled Amount'], baseCurrency || 'unknown'),
-      price: createMoney(row['Filled Volume'], quoteCurrency || 'unknown'),
-      fee: createMoney(row.Fee, row['Fee Currency']),
-      symbol: `${baseCurrency}/${quoteCurrency}`,
-      source: 'kucoin',
-      network: 'exchange',
-      metadata: {
-        originalRow: row,
-        side: row.Side.toLowerCase() as 'buy' | 'sell',
-        orderType: row['Order Type'],
-        filledVolume: parseDecimal(row['Filled Volume']).toNumber(),
-        filledVolumeUSDT: parseDecimal(row['Filled Volume (USDT)']).toNumber(),
-        orderTime: row['Order Time(UTC)'],
-        orderPrice: parseDecimal(row['Order Price']).toNumber(),
-        orderAmount: parseDecimal(row['Order Amount']).toNumber(),
-      },
-    };
+  private async parseAccountHistory(filePath: string): Promise<CsvAccountHistoryRow[]> {
+    const rows = await this.parseCsvFile<CsvAccountHistoryRow>(filePath);
+    return this.filterByUid(rows);
   }
 
-  private convertDepositToTransaction(row: CsvDepositWithdrawalRow): UniversalTransaction {
-    const timestamp = new Date(row['Time(UTC)']).getTime();
-
-    return {
-      id: row.Hash || `${row.UID}-${timestamp}-${row.Coin}-deposit-${row.Amount}`,
-      type: 'deposit',
-      timestamp,
-      datetime: row['Time(UTC)'],
-      status: this.mapStatus(row.Status, 'deposit_withdrawal'),
-      amount: createMoney(row.Amount, row.Coin),
-      fee: row.Fee ? createMoney(row.Fee, row.Coin) : undefined,
-      source: 'kucoin',
-      network: 'exchange',
-      metadata: {
-        originalRow: row,
-        hash: row.Hash,
-        transferNetwork: row['Transfer Network'],
-        address: row['Deposit Address'],
-        remarks: row.Remarks,
-      },
-    };
+  /**
+   * Parse a CSV file using the common parsing logic
+   */
+  private async parseCsvFile<T>(filePath: string): Promise<T[]> {
+    return CsvParser.parseFile<T>(filePath);
   }
 
-  private convertWithdrawalToTransaction(row: CsvDepositWithdrawalRow): UniversalTransaction {
-    const timestamp = new Date(row['Time(UTC)']).getTime();
+  private async parseDepositHistory(filePath: string): Promise<CsvDepositWithdrawalRow[]> {
+    const rows = await this.parseCsvFile<CsvDepositWithdrawalRow>(filePath);
+    return this.filterByUid(rows);
+  }
 
-    return {
-      id: row.Hash || `${row.UID}-${timestamp}-${row.Coin}-withdrawal-${row.Amount}`,
-      type: 'withdrawal',
-      timestamp,
-      datetime: row['Time(UTC)'],
-      status: this.mapStatus(row.Status, 'deposit_withdrawal'),
-      amount: createMoney(row.Amount, row.Coin),
-      fee: row.Fee ? createMoney(row.Fee, row.Coin) : undefined,
-      source: 'kucoin',
-      network: 'exchange',
-      metadata: {
-        originalRow: row,
-        hash: row.Hash,
-        transferNetwork: row['Transfer Network'],
-        address: row['Withdrawal Address/Account'],
-        remarks: row.Remarks,
-      },
-    };
+  private async parseSpotOrders(filePath: string): Promise<CsvSpotOrderRow[]> {
+    const rows = await this.parseCsvFile<CsvSpotOrderRow>(filePath);
+    return this.filterByUid(rows);
+  }
+
+  private async parseWithdrawalHistory(filePath: string): Promise<CsvDepositWithdrawalRow[]> {
+    const rows = await this.parseCsvFile<CsvDepositWithdrawalRow>(filePath);
+    return this.filterByUid(rows);
   }
 
   // Process account history to extract convert market transactions
@@ -447,50 +381,116 @@ export class KuCoinCSVAdapter extends BaseAdapter {
     return convertTransactions;
   }
 
-  private convertAccountHistoryConvertToTransaction(
-    deposit: CsvAccountHistoryRow,
-    withdrawal: CsvAccountHistoryRow,
-    timestamp: string
-  ): UniversalTransaction {
-    const timestampMs = new Date(timestamp).getTime();
-
-    const sellCurrency = withdrawal.Currency;
-    const sellAmount = withdrawal.Amount;
-    const buyCurrency = deposit.Currency;
-    const buyAmount = deposit.Amount;
-
-    // Create a synthetic symbol for the conversion
-    const symbol = `${sellCurrency}/${buyCurrency}`;
-
-    // Calculate total fees (both deposit and withdrawal fees)
-    const withdrawalFee = withdrawal.Fee ? parseDecimal(withdrawal.Fee).toNumber() : 0;
-    const depositFee = deposit.Fee ? parseDecimal(deposit.Fee).toNumber() : 0;
-
-    return {
-      id: `${withdrawal.UID}-${timestampMs}-convert-market-${sellCurrency}-${buyCurrency}`,
-      type: 'trade',
-      timestamp: timestampMs,
-      datetime: timestamp,
-      status: 'closed', // Account history entries are completed transactions
-      amount: createMoney(sellAmount, sellCurrency),
-      price: createMoney(buyAmount, buyCurrency),
-      fee:
-        withdrawalFee + depositFee > 0 ? createMoney((withdrawalFee + depositFee).toString(), sellCurrency) : undefined,
-      symbol,
-      source: 'kucoin',
-      network: 'exchange',
-      metadata: {
-        type: 'convert_market',
-        side: 'sell',
-        sellAmount: parseDecimal(sellAmount).toNumber(),
-        sellCurrency,
-        buyAmount: parseDecimal(buyAmount).toNumber(),
-        buyCurrency,
-        withdrawalRow: withdrawal,
-        depositRow: deposit,
-        withdrawalFee,
-        depositFee,
-      },
+  /**
+   * Validate CSV headers and determine file type
+   */
+  private async validateCSVHeaders(filePath: string): Promise<string> {
+    const expectedHeaders = {
+      [EXPECTED_HEADERS.ACCOUNT_HISTORY_CSV]: 'account_history',
+      [EXPECTED_HEADERS.CONVERT_CSV]: 'convert',
+      [EXPECTED_HEADERS.DEPOSIT_CSV]: 'deposit',
+      [EXPECTED_HEADERS.TRADING_CSV]: 'trading',
+      [EXPECTED_HEADERS.WITHDRAWAL_CSV]: 'withdrawal',
     };
+    const fileType = await CsvParser.validateHeaders(filePath, expectedHeaders);
+
+    if (fileType === 'unknown') {
+      const headers = await CsvParser.getHeaders(filePath);
+      this.logger.warn(`Unrecognized CSV headers in ${filePath} - Headers: ${headers}`);
+    }
+
+    return fileType;
+  }
+
+  async close(): Promise<void> {
+    this.cachedTransactions = null;
+  }
+
+  protected async fetchRawBalances(_params: UniversalFetchParams): Promise<unknown> {
+    throw new Error('Balance fetching not supported for CSV adapter - CSV files do not contain current balance data');
+  }
+
+  protected async fetchRawTransactions(_params: UniversalFetchParams): Promise<CsvKuCoinRawData> {
+    return this.loadAllSeparatedTransactions();
+  }
+
+  async getInfo(): Promise<UniversalAdapterInfo> {
+    return {
+      capabilities: {
+        maxBatchSize: 1000,
+        requiresApiKey: false,
+        supportedOperations: ['fetchTransactions'],
+        supportsHistoricalData: true,
+        supportsPagination: false,
+      },
+      id: 'kucoin',
+      name: 'KuCoin CSV',
+      subType: 'csv',
+      type: 'exchange',
+    };
+  }
+
+  async testConnection(): Promise<boolean> {
+    try {
+      const config = this.config as UniversalExchangeAdapterConfig;
+      for (const csvDirectory of config.csvDirectories || []) {
+        try {
+          const stats = await fs.stat(csvDirectory);
+          if (!stats.isDirectory()) {
+            continue;
+          }
+
+          const files = await fs.readdir(csvDirectory);
+          const csvFiles = files.filter(f => f.endsWith('.csv'));
+
+          if (csvFiles.length > 0) {
+            return true;
+          }
+        } catch (dirError) {
+          this.logger.warn(`CSV directory test failed for directory - Error: ${dirError}, Directory: ${csvDirectory}`);
+          continue;
+        }
+      }
+
+      return false;
+    } catch (error) {
+      this.logger.error(`CSV directories test failed - Error: ${error}`);
+      return false;
+    }
+  }
+
+  protected async transformBalances(_raw: unknown, _params: UniversalFetchParams): Promise<UniversalBalance[]> {
+    throw new Error('Balance fetching not supported for CSV adapter');
+  }
+
+  protected async transformTransactions(
+    rawData: CsvKuCoinRawData,
+    params: UniversalFetchParams
+  ): Promise<UniversalTransaction[]> {
+    const transactions: UniversalTransaction[] = [];
+
+    // Process each type directly without separation logic
+    for (const row of rawData.spotOrders) {
+      const transaction = this.convertSpotOrderToTransaction(row);
+      transactions.push(transaction);
+    }
+
+    for (const row of rawData.deposits) {
+      const transaction = this.convertDepositToTransaction(row);
+      transactions.push(transaction);
+    }
+
+    for (const row of rawData.withdrawals) {
+      const transaction = this.convertWithdrawalToTransaction(row);
+      transactions.push(transaction);
+    }
+
+    // Process account history (convert market transactions)
+    const convertTransactions = this.processAccountHistory(rawData.accountHistory);
+    transactions.push(...convertTransactions);
+
+    return transactions
+      .filter(tx => !params.since || tx.timestamp >= params.since)
+      .filter(tx => !params.until || tx.timestamp <= params.until);
   }
 }

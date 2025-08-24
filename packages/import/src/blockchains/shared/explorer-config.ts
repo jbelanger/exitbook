@@ -2,21 +2,21 @@ import fs from 'fs';
 import path from 'path';
 
 interface ExplorerConfig {
-  name: string;
   enabled: boolean;
-  priority: number;
-  requiresApiKey?: boolean;
   mainnet: {
     baseUrl: string;
   };
-  testnet: {
-    baseUrl: string;
-  };
+  name: string;
+  priority: number;
   rateLimit: {
     requestsPerSecond: number;
   };
-  timeout: number;
+  requiresApiKey?: boolean;
   retries: number;
+  testnet: {
+    baseUrl: string;
+  };
+  timeout: number;
 }
 
 export interface BlockchainExplorersConfig {

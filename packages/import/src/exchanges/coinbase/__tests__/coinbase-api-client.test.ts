@@ -8,11 +8,11 @@ const mocks = vi.hoisted(() => {
   const mockGenerateJwt = vi.fn().mockResolvedValue('mocked-jwt-token');
 
   const mockHttpClient = {
-    request: vi.fn(),
     getRateLimitStatus: vi.fn(() => ({
       remainingRequests: 10,
       resetTime: Date.now() + 60000,
     })),
+    request: vi.fn(),
   };
 
   const MockHttpClient = vi.fn().mockImplementation(() => mockHttpClient);
@@ -24,26 +24,26 @@ const mocks = vi.hoisted(() => {
   };
 
   const MockLogger = vi.fn(() => ({
-    info: vi.fn(),
     debug: vi.fn(),
-    warn: vi.fn(),
     error: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
   }));
 
   return {
+    injectIntoInstance(instance: object): void {
+      Object.defineProperty(instance, 'httpClient', {
+        configurable: true,
+        value: mockHttpClient,
+        writable: true,
+      });
+    },
     mockGenerateJwt,
     mockHttpClient,
     MockHttpClient,
-    MockRateLimiterFactory,
     MockLogger,
 
-    injectIntoInstance(instance: object): void {
-      Object.defineProperty(instance, 'httpClient', {
-        value: mockHttpClient,
-        writable: true,
-        configurable: true,
-      });
-    },
+    MockRateLimiterFactory,
 
     resetAll(): void {
       vi.clearAllMocks();
@@ -73,9 +73,9 @@ describe('CoinbaseAPIClient', () => {
   beforeEach(() => {
     credentials = {
       apiKey: 'organizations/test-org-id/apiKeys/test-key-id',
-      secret: '-----BEGIN EC PRIVATE KEY-----\nMHcCAQEEIHTestTestKey\n-----END EC PRIVATE KEY-----',
       passphrase: 'test-passphrase',
       sandbox: true,
+      secret: '-----BEGIN EC PRIVATE KEY-----\nMHcCAQEEIHTestTestKey\n-----END EC PRIVATE KEY-----',
     };
 
     // Clear all mocks before creating new client
@@ -122,8 +122,8 @@ describe('CoinbaseAPIClient', () => {
 
       const httpClientConfig = mocks.MockHttpClient.mock.calls[0][0];
       expect(httpClientConfig.rateLimit).toEqual({
-        requestsPerSecond: 3,
         burstLimit: 5,
+        requestsPerSecond: 3,
       });
       expect(httpClientConfig.timeout).toBe(30000);
       expect(httpClientConfig.providerName).toBe('coinbase-track');
@@ -145,11 +145,11 @@ describe('CoinbaseAPIClient', () => {
       expect(mocks.mockHttpClient.request).toHaveBeenCalledWith(
         '/v2/accounts?',
         expect.objectContaining({
-          method: 'GET',
           headers: expect.objectContaining({
             Authorization: 'Bearer mocked-jwt-token',
             'Content-Type': 'application/json',
           }),
+          method: 'GET',
         })
       );
 
@@ -165,16 +165,16 @@ describe('CoinbaseAPIClient', () => {
       const mockResponse = { accounts: [] };
       mocks.mockHttpClient.request.mockResolvedValue(mockResponse);
 
-      await client.getAccounts({ limit: 50, cursor: 'test-cursor' });
+      await client.getAccounts({ cursor: 'test-cursor', limit: 50 });
 
       expect(mocks.mockHttpClient.request).toHaveBeenCalledWith(
         '/v2/accounts?limit=50&cursor=test-cursor',
         expect.objectContaining({
-          method: 'GET',
           headers: expect.objectContaining({
             Authorization: 'Bearer mocked-jwt-token',
             'Content-Type': 'application/json',
           }),
+          method: 'GET',
         })
       );
 
@@ -192,8 +192,8 @@ describe('CoinbaseAPIClient', () => {
 
       // Test with invalid params to ensure they're filtered out
       const testParams = {
-        limit: 50,
         invalidParam: null,
+        limit: 50,
       } as Parameters<typeof client.getAccounts>[0] & { invalidParam: null };
 
       await client.getAccounts(testParams);
@@ -228,42 +228,42 @@ describe('CoinbaseAPIClient', () => {
     it('should return accounts from API response', async () => {
       const mockAccounts: RawCoinbaseAccount[] = [
         {
+          balance: { amount: '1.5', currency: 'BTC' },
+          created_at: '2022-01-01T00:00:00Z',
+          currency: {
+            code: 'BTC',
+            color: '#f7931a',
+            exponent: 8,
+            name: 'Bitcoin',
+            sort_index: 0,
+            type: 'crypto',
+          },
           id: 'account-1',
           name: 'BTC Wallet',
           primary: true,
-          type: 'wallet',
-          currency: {
-            code: 'BTC',
-            name: 'Bitcoin',
-            color: '#f7931a',
-            sort_index: 0,
-            exponent: 8,
-            type: 'crypto',
-          },
-          balance: { amount: '1.5', currency: 'BTC' },
-          created_at: '2022-01-01T00:00:00Z',
-          updated_at: '2022-01-01T00:00:00Z',
           resource: 'account',
           resource_path: '/v2/accounts/account-1',
+          type: 'wallet',
+          updated_at: '2022-01-01T00:00:00Z',
         },
         {
+          balance: { amount: '1000.00', currency: 'USD' },
+          created_at: '2022-01-01T00:00:00Z',
+          currency: {
+            code: 'USD',
+            color: '#85bb65',
+            exponent: 2,
+            name: 'US Dollar',
+            sort_index: 100,
+            type: 'fiat',
+          },
           id: 'account-2',
           name: 'USD Wallet',
           primary: false,
-          type: 'fiat',
-          currency: {
-            code: 'USD',
-            name: 'US Dollar',
-            color: '#85bb65',
-            sort_index: 100,
-            exponent: 2,
-            type: 'fiat',
-          },
-          balance: { amount: '1000.00', currency: 'USD' },
-          created_at: '2022-01-01T00:00:00Z',
-          updated_at: '2022-01-01T00:00:00Z',
           resource: 'account',
           resource_path: '/v2/accounts/account-2',
+          type: 'fiat',
+          updated_at: '2022-01-01T00:00:00Z',
         },
       ];
 
@@ -300,16 +300,16 @@ describe('CoinbaseAPIClient', () => {
     it('should return transactions for account', async () => {
       const mockTransactions: RawCoinbaseTransaction[] = [
         {
-          id: 'transaction-1',
-          type: 'buy',
-          status: 'completed',
           amount: { amount: '0.1', currency: 'BTC' },
-          native_amount: { amount: '5000.00', currency: 'USD' },
-          description: 'Bought 0.1 BTC',
           created_at: '2022-01-01T00:00:00Z',
-          updated_at: '2022-01-01T00:00:00Z',
+          description: 'Bought 0.1 BTC',
+          id: 'transaction-1',
+          native_amount: { amount: '5000.00', currency: 'USD' },
           resource: 'transaction',
           resource_path: '/v2/accounts/test-account/transactions/transaction-1',
+          status: 'completed',
+          type: 'buy',
+          updated_at: '2022-01-01T00:00:00Z',
         },
       ];
 

@@ -7,20 +7,28 @@ import { ProviderOperation } from '../../shared/types.ts';
 import type { InjectiveApiResponse, InjectiveMessageValue, InjectiveTransaction } from '../types.ts';
 
 @RegisterProvider({
-  name: 'injective-explorer',
   blockchain: 'injective',
-  displayName: 'Injective Explorer API',
-  type: 'rest',
-  requiresApiKey: false,
-  description: 'Direct connection to Injective Protocol blockchain explorer with comprehensive transaction data',
   capabilities: {
-    supportedOperations: ['getAddressTransactions', 'getRawAddressTransactions'],
     maxBatchSize: 1,
+    supportedOperations: ['getAddressTransactions', 'getRawAddressTransactions'],
     supportsHistoricalData: true,
     supportsPagination: true,
     supportsRealTimeData: true,
     supportsTokenData: true,
   },
+  defaultConfig: {
+    rateLimit: {
+      burstLimit: 5,
+      requestsPerHour: 500,
+      requestsPerMinute: 60,
+      requestsPerSecond: 2,
+    },
+    retries: 3,
+    timeout: 15000,
+  },
+  description: 'Direct connection to Injective Protocol blockchain explorer with comprehensive transaction data',
+  displayName: 'Injective Explorer API',
+  name: 'injective-explorer',
   networks: {
     mainnet: {
       baseUrl: 'https://sentry.exchange.grpc-web.injective.network',
@@ -29,16 +37,8 @@ import type { InjectiveApiResponse, InjectiveMessageValue, InjectiveTransaction 
       baseUrl: 'https://k8s.testnet.tm.injective.network',
     },
   },
-  defaultConfig: {
-    timeout: 15000,
-    retries: 3,
-    rateLimit: {
-      requestsPerSecond: 2,
-      requestsPerMinute: 60,
-      requestsPerHour: 500,
-      burstLimit: 5,
-    },
-  },
+  requiresApiKey: false,
+  type: 'rest',
 })
 export class InjectiveExplorerProvider extends BaseRegistryProvider {
   private readonly INJECTIVE_DENOM = 'inj';
@@ -51,57 +51,19 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
     );
   }
 
-  async isHealthy(): Promise<boolean> {
-    try {
-      // Test with a known address to check if the API is responsive
-      const testAddress = 'inj1qq6hgelyft8z5fnm6vyyn3ge3w2nway4ykdf6a'; // Injective Foundation address
-      const endpoint = `/api/explorer/v1/accountTxs/${testAddress}`;
-
-      const response = await this.httpClient.get<unknown>(endpoint);
-      return Boolean(response && typeof response === 'object');
-    } catch (error) {
-      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
+  private formatDenom(denom: string | undefined): string {
+    // Handle undefined/null denom
+    if (!denom) {
+      return 'INJ'; // Default to INJ for undefined denoms
     }
-  }
 
-  async testConnection(): Promise<boolean> {
-    try {
-      const result = await this.isHealthy();
-      this.logger.debug(`Connection test result - Healthy: ${result}`);
-      return result;
-    } catch (error) {
-      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
+    // Convert denom to readable token symbol
+    if (denom === 'inj' || denom === 'uinj') {
+      return 'INJ';
     }
-  }
 
-  async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug(
-      `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
-    );
-
-    try {
-      switch (operation.type) {
-        case 'getAddressTransactions':
-          return this.getAddressTransactions({
-            address: operation.address,
-            ...(operation.since !== undefined && { since: operation.since }),
-          }) as T;
-        case 'getRawAddressTransactions':
-          return this.getRawAddressTransactions({
-            address: operation.address,
-            ...(operation.since !== undefined && { since: operation.since }),
-          }) as T;
-        default:
-          throw new Error(`Unsupported operation: ${operation.type}`);
-      }
-    } catch (error) {
-      this.logger.error(
-        `Operation execution failed - Type: ${operation.type}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`
-      );
-      throw error;
-    }
+    // Handle other token denoms as needed
+    return denom.toUpperCase();
   }
 
   private async getAddressTransactions(params: {
@@ -205,12 +167,6 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
       );
       throw error;
     }
-  }
-
-  private validateAddress(address: string): boolean {
-    // Injective addresses start with 'inj' and are bech32 encoded
-    const injectiveAddressRegex = /^inj1[a-z0-9]{38}$/;
-    return injectiveAddressRegex.test(address);
   }
 
   private parseInjectiveTransaction(tx: InjectiveTransaction, relevantAddress: string): BlockchainTransaction | null {
@@ -330,15 +286,11 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
     }
 
     return {
-      hash: tx.hash,
-      blockNumber: tx.block_number,
       blockHash: '', // Not provided in the API response
-      timestamp,
-      from,
-      to,
-      value,
+      blockNumber: tx.block_number,
+      confirmations: 1, // Simplified - would need current block height to calculate
       fee,
-      gasUsed: tx.gas_used,
+      from,
       gasPrice:
         tx.gas_fee && Array.isArray(tx.gas_fee.amount) && tx.gas_fee.amount.length > 0
           ? (() => {
@@ -351,25 +303,73 @@ export class InjectiveExplorerProvider extends BaseRegistryProvider {
               return 0;
             })()
           : 0,
+      gasUsed: tx.gas_used,
+      hash: tx.hash,
       status: tx.code === 0 ? 'success' : 'failed',
-      type: transactionType,
+      timestamp,
+      to,
       tokenSymbol,
-      confirmations: 1, // Simplified - would need current block height to calculate
+      type: transactionType,
+      value,
     };
   }
 
-  private formatDenom(denom: string | undefined): string {
-    // Handle undefined/null denom
-    if (!denom) {
-      return 'INJ'; // Default to INJ for undefined denoms
-    }
+  private validateAddress(address: string): boolean {
+    // Injective addresses start with 'inj' and are bech32 encoded
+    const injectiveAddressRegex = /^inj1[a-z0-9]{38}$/;
+    return injectiveAddressRegex.test(address);
+  }
 
-    // Convert denom to readable token symbol
-    if (denom === 'inj' || denom === 'uinj') {
-      return 'INJ';
-    }
+  async execute<T>(operation: ProviderOperation<T>): Promise<T> {
+    this.logger.debug(
+      `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
+    );
 
-    // Handle other token denoms as needed
-    return denom.toUpperCase();
+    try {
+      switch (operation.type) {
+        case 'getAddressTransactions':
+          return this.getAddressTransactions({
+            address: operation.address,
+            ...(operation.since !== undefined && { since: operation.since }),
+          }) as T;
+        case 'getRawAddressTransactions':
+          return this.getRawAddressTransactions({
+            address: operation.address,
+            ...(operation.since !== undefined && { since: operation.since }),
+          }) as T;
+        default:
+          throw new Error(`Unsupported operation: ${operation.type}`);
+      }
+    } catch (error) {
+      this.logger.error(
+        `Operation execution failed - Type: ${operation.type}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`
+      );
+      throw error;
+    }
+  }
+
+  async isHealthy(): Promise<boolean> {
+    try {
+      // Test with a known address to check if the API is responsive
+      const testAddress = 'inj1qq6hgelyft8z5fnm6vyyn3ge3w2nway4ykdf6a'; // Injective Foundation address
+      const endpoint = `/api/explorer/v1/accountTxs/${testAddress}`;
+
+      const response = await this.httpClient.get<unknown>(endpoint);
+      return Boolean(response && typeof response === 'object');
+    } catch (error) {
+      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
+      return false;
+    }
+  }
+
+  async testConnection(): Promise<boolean> {
+    try {
+      const result = await this.isHealthy();
+      this.logger.debug(`Connection test result - Healthy: ${result}`);
+      return result;
+    } catch (error) {
+      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
+      return false;
+    }
   }
 }

@@ -6,6 +6,22 @@ import fs from 'fs/promises';
  */
 export class CsvParser {
   /**
+   * Get the first line (header) of a CSV file for debugging
+   * @param filePath Path to the CSV file
+   * @returns The header line or empty string
+   */
+  static async getHeaders(filePath: string): Promise<string> {
+    try {
+      const content = await fs.readFile(filePath, 'utf-8');
+      const cleanContent = content.replace(/^\uFEFF/, '');
+      const lines = cleanContent.split('\n');
+      return lines[0]?.trim() ?? '';
+    } catch {
+      return '';
+    }
+  }
+
+  /**
    * Parse a CSV file into typed objects
    * @param filePath Path to the CSV file
    * @returns Array of parsed rows as objects
@@ -47,22 +63,6 @@ export class CsvParser {
       return 'unknown';
     } catch {
       return 'unknown';
-    }
-  }
-
-  /**
-   * Get the first line (header) of a CSV file for debugging
-   * @param filePath Path to the CSV file
-   * @returns The header line or empty string
-   */
-  static async getHeaders(filePath: string): Promise<string> {
-    try {
-      const content = await fs.readFile(filePath, 'utf-8');
-      const cleanContent = content.replace(/^\uFEFF/, '');
-      const lines = cleanContent.split('\n');
-      return lines[0]?.trim() ?? '';
-    } catch {
-      return '';
     }
   }
 }

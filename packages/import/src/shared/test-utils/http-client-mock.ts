@@ -21,11 +21,11 @@ import { vi } from 'vitest';
  */
 export function createHttpClientMock() {
   const mockHttpClient = {
-    request: vi.fn(),
     getRateLimitStatus: vi.fn(() => ({
       remainingRequests: 10,
       resetTime: Date.now() + 60000,
     })),
+    request: vi.fn(),
   };
 
   const MockHttpClient = vi.fn().mockImplementation(() => mockHttpClient);
@@ -37,49 +37,49 @@ export function createHttpClientMock() {
   };
 
   const MockLogger = vi.fn(() => ({
-    info: vi.fn(),
     debug: vi.fn(),
-    warn: vi.fn(),
     error: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
   }));
 
   return {
-    mockHttpClient,
-    MockHttpClient,
-    MockRateLimiterFactory,
-    MockLogger,
-
+    /**
+     * Get the complete mock setup for vi.mock calls
+     */
+    getModuleMocks() {
+      return {
+        '@crypto/shared-logger': {
+          getLogger: MockLogger,
+        },
+        '@crypto/shared-utils': {
+          HttpClient: MockHttpClient,
+          RateLimiterFactory: MockRateLimiterFactory,
+        },
+      };
+    },
     /**
      * Inject the mock HttpClient into a class instance that has a private httpClient property
      */
     injectIntoInstance(instance: object): void {
       Object.defineProperty(instance, 'httpClient', {
+        configurable: true,
         value: mockHttpClient,
         writable: true,
-        configurable: true,
       });
     },
+    mockHttpClient,
+    MockHttpClient,
+
+    MockLogger,
+
+    MockRateLimiterFactory,
 
     /**
      * Reset all mocks to their initial state
      */
     resetAll(): void {
       vi.clearAllMocks();
-    },
-
-    /**
-     * Get the complete mock setup for vi.mock calls
-     */
-    getModuleMocks() {
-      return {
-        '@crypto/shared-utils': {
-          HttpClient: MockHttpClient,
-          RateLimiterFactory: MockRateLimiterFactory,
-        },
-        '@crypto/shared-logger': {
-          getLogger: MockLogger,
-        },
-      };
     },
   };
 }

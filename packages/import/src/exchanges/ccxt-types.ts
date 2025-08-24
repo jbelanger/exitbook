@@ -7,8 +7,8 @@
 
 export interface CcxtBalanceInfo {
   free?: number;
-  used?: number;
   total?: number;
+  used?: number;
 }
 
 export interface CcxtBalances {

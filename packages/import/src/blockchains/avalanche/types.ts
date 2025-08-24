@@ -1,76 +1,76 @@
 // Avalanche C-Chain specific types and interfaces
 
 export interface SnowtraceTransaction {
-  blockNumber: string;
-  timeStamp: string;
-  hash: string;
-  nonce: string;
   blockHash: string;
-  transactionIndex: string;
+  blockNumber: string;
+  confirmations: string;
+  cumulativeGasUsed: string;
   from: string;
-  to: string;
-  value: string;
+  functionName?: string;
   gas: string;
   gasPrice: string;
   gasUsed: string;
-  cumulativeGasUsed: string;
+  hash: string;
   input: string;
-  confirmations: string;
   isError?: string;
-  txreceipt_status?: string;
-  functionName?: string;
   methodId?: string;
+  nonce: string;
+  timeStamp: string;
+  to: string;
+  transactionIndex: string;
+  txreceipt_status?: string;
+  value: string;
 }
 
 export interface SnowtraceInternalTransaction {
   blockNumber: string;
-  timeStamp: string;
-  hash: string;
-  from: string;
-  to: string;
-  value: string;
   contractAddress: string;
-  input: string;
-  type: string;
+  errCode: string;
+  from: string;
   gas: string;
   gasUsed: string;
-  traceId: string;
+  hash: string;
+  input: string;
   isError: string;
-  errCode: string;
+  timeStamp: string;
+  to: string;
+  traceId: string;
+  type: string;
+  value: string;
 }
 
 export interface SnowtraceTokenTransfer {
-  blockNumber: string;
-  timeStamp: string;
-  hash: string;
-  nonce: string;
   blockHash: string;
-  from: string;
+  blockNumber: string;
+  confirmations: string;
   contractAddress: string;
-  to: string;
-  value: string;
-  tokenName: string;
-  tokenSymbol: string;
-  tokenDecimal: string;
-  transactionIndex: string;
+  cumulativeGasUsed: string;
+  from: string;
   gas: string;
   gasPrice: string;
   gasUsed: string;
-  cumulativeGasUsed: string;
+  hash: string;
   input: string;
-  confirmations: string;
+  nonce: string;
+  timeStamp: string;
+  to: string;
+  tokenDecimal: string;
+  tokenName: string;
+  tokenSymbol: string;
+  transactionIndex: string;
+  value: string;
 }
 
 export interface SnowtraceApiResponse<T> {
-  status: string;
   message: string;
   result: T[];
+  status: string;
 }
 
 export interface SnowtraceBalanceResponse {
-  status: string;
   message: string;
   result: string;
+  status: string;
 }
 
 export interface SnowtraceBalance {
@@ -80,36 +80,36 @@ export interface SnowtraceBalance {
 
 export interface SnowtraceTokenBalance {
   TokenAddress: string;
-  TokenName: string;
-  TokenSymbol: string;
-  TokenQuantity: string;
   TokenDivisor: string;
+  TokenName: string;
+  TokenQuantity: string;
+  TokenSymbol: string;
 }
 
 // Avalanche-specific atomic transaction types
 export interface AtomicTransaction {
-  id: string;
-  timestamp: string;
-  type: 'import' | 'export';
-  sourceChain: 'P' | 'X' | 'C';
-  destinationChain: 'P' | 'X' | 'C';
   amount: string;
   asset: string;
+  destinationChain: 'P' | 'X' | 'C';
   fee: string;
+  id: string;
+  sourceChain: 'P' | 'X' | 'C';
   status: 'accepted' | 'processing' | 'rejected';
+  timestamp: string;
+  type: 'import' | 'export';
 }
 
 // Network configuration for Avalanche C-Chain
 export interface AvalancheNetwork {
-  name: string;
+  apiKey?: string;
+  apiUrl: string;
+  blockExplorerUrls: string[];
   chainId: number;
+  name: string;
   nativeCurrency: {
+    decimals: number;
     name: string;
     symbol: string;
-    decimals: number;
   };
   rpcUrls: string[];
-  blockExplorerUrls: string[];
-  apiUrl: string;
-  apiKey?: string;
 }

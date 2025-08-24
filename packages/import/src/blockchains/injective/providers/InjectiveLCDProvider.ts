@@ -7,20 +7,28 @@ import { ProviderOperation } from '../../shared/types.ts';
 import type { InjectiveBalanceResponse } from '../types.ts';
 
 @RegisterProvider({
-  name: 'injective-lcd',
   blockchain: 'injective',
-  displayName: 'Injective LCD API',
-  type: 'rest',
-  requiresApiKey: false,
-  description: 'Injective Protocol LCD (Light Client Daemon) API for balance queries and token data',
   capabilities: {
-    supportedOperations: ['getAddressBalance', 'getTokenBalances'],
     maxBatchSize: 1,
+    supportedOperations: ['getAddressBalance', 'getTokenBalances'],
     supportsHistoricalData: false,
     supportsPagination: false,
     supportsRealTimeData: true,
     supportsTokenData: true,
   },
+  defaultConfig: {
+    rateLimit: {
+      burstLimit: 10,
+      requestsPerHour: 1000,
+      requestsPerMinute: 100,
+      requestsPerSecond: 3,
+    },
+    retries: 3,
+    timeout: 10000,
+  },
+  description: 'Injective Protocol LCD (Light Client Daemon) API for balance queries and token data',
+  displayName: 'Injective LCD API',
+  name: 'injective-lcd',
   networks: {
     mainnet: {
       baseUrl: 'https://sentry.lcd.injective.network',
@@ -29,16 +37,8 @@ import type { InjectiveBalanceResponse } from '../types.ts';
       baseUrl: 'https://k8s.testnet.lcd.injective.network',
     },
   },
-  defaultConfig: {
-    timeout: 10000,
-    retries: 3,
-    rateLimit: {
-      requestsPerSecond: 3,
-      requestsPerMinute: 100,
-      requestsPerHour: 1000,
-      burstLimit: 10,
-    },
-  },
+  requiresApiKey: false,
+  type: 'rest',
 })
 export class InjectiveLCDProvider extends BaseRegistryProvider {
   constructor() {
@@ -49,61 +49,19 @@ export class InjectiveLCDProvider extends BaseRegistryProvider {
     );
   }
 
-  async isHealthy(): Promise<boolean> {
-    try {
-      // Test with a simple node info call
-      const data = await this.httpClient.get<{
-        default_node_info?: { network?: string };
-        application_version?: { version?: string };
-      }>('/cosmos/base/tendermint/v1beta1/node_info');
-
-      this.logger.debug(
-        `Health check successful - Network: ${data.default_node_info?.network}, Version: ${data.application_version?.version}`
-      );
-
-      return true;
-    } catch (error) {
-      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
+  private formatDenom(denom: string | undefined): string {
+    // Handle undefined/null denom
+    if (!denom) {
+      return 'INJ'; // Default to INJ for undefined denoms
     }
-  }
 
-  async testConnection(): Promise<boolean> {
-    try {
-      const result = await this.isHealthy();
-      this.logger.debug(`Connection test result - Healthy: ${result}`);
-      return result;
-    } catch (error) {
-      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
+    // Convert denom to readable token symbol
+    if (denom === 'inj' || denom === 'uinj') {
+      return 'INJ';
     }
-  }
 
-  async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug(
-      `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
-    );
-
-    try {
-      switch (operation.type) {
-        case 'getAddressBalance':
-          return this.getAddressBalance({
-            address: operation.address,
-          }) as T;
-        case 'getTokenBalances':
-          return this.getTokenBalances({
-            address: operation.address,
-            contractAddresses: operation.contractAddresses,
-          }) as T;
-        default:
-          throw new Error(`Unsupported operation: ${operation.type}`);
-      }
-    } catch (error) {
-      this.logger.error(
-        `Operation execution failed - Type: ${operation.type}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`
-      );
-      throw error;
-    }
+    // Handle other token denoms as needed
+    return denom.toUpperCase();
   }
 
   private async getAddressBalance(params: { address: string }): Promise<Balance[]> {
@@ -122,11 +80,11 @@ export class InjectiveLCDProvider extends BaseRegistryProvider {
       const balances: Balance[] = data.balances.map(balance => {
         const amount = parseDecimal(balance.amount).div(Math.pow(10, 18)).toNumber();
         return {
-          currency: this.formatDenom(balance.denom),
           balance: amount,
-          used: 0,
-          total: amount,
           contractAddress: undefined,
+          currency: this.formatDenom(balance.denom),
+          total: amount,
+          used: 0,
         };
       });
 
@@ -174,18 +132,60 @@ export class InjectiveLCDProvider extends BaseRegistryProvider {
     return injectiveAddressRegex.test(address);
   }
 
-  private formatDenom(denom: string | undefined): string {
-    // Handle undefined/null denom
-    if (!denom) {
-      return 'INJ'; // Default to INJ for undefined denoms
-    }
+  async execute<T>(operation: ProviderOperation<T>): Promise<T> {
+    this.logger.debug(
+      `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
+    );
 
-    // Convert denom to readable token symbol
-    if (denom === 'inj' || denom === 'uinj') {
-      return 'INJ';
+    try {
+      switch (operation.type) {
+        case 'getAddressBalance':
+          return this.getAddressBalance({
+            address: operation.address,
+          }) as T;
+        case 'getTokenBalances':
+          return this.getTokenBalances({
+            address: operation.address,
+            contractAddresses: operation.contractAddresses,
+          }) as T;
+        default:
+          throw new Error(`Unsupported operation: ${operation.type}`);
+      }
+    } catch (error) {
+      this.logger.error(
+        `Operation execution failed - Type: ${operation.type}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`
+      );
+      throw error;
     }
+  }
 
-    // Handle other token denoms as needed
-    return denom.toUpperCase();
+  async isHealthy(): Promise<boolean> {
+    try {
+      // Test with a simple node info call
+      const data = await this.httpClient.get<{
+        application_version?: { version?: string };
+        default_node_info?: { network?: string };
+      }>('/cosmos/base/tendermint/v1beta1/node_info');
+
+      this.logger.debug(
+        `Health check successful - Network: ${data.default_node_info?.network}, Version: ${data.application_version?.version}`
+      );
+
+      return true;
+    } catch (error) {
+      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
+      return false;
+    }
+  }
+
+  async testConnection(): Promise<boolean> {
+    try {
+      const result = await this.isHealthy();
+      this.logger.debug(`Connection test result - Healthy: ${result}`);
+      return result;
+    } catch (error) {
+      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
+      return false;
+    }
   }
 }

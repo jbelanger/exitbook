@@ -85,25 +85,25 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
 
     // Create universal adapter config
     const adapterConfig: UniversalExchangeAdapterConfig = {
-      type: 'exchange',
-      id: 'coinbase',
-      subType: 'ccxt',
       credentials: {
         apiKey: credentials.apiKey,
-        secret: credentials.secret,
         password: credentials.passphrase,
+        secret: credentials.secret,
       },
+      id: 'coinbase',
+      subType: 'ccxt',
+      type: 'exchange',
     };
 
     // Create Coinbase Advanced Trade exchange
     // CCXT type definitions don't include coinbaseadvanced, but it exists at runtime
     interface CoinbaseAdvancedConfig {
       apiKey: string;
-      secret: string;
-      password: string;
-      sandbox?: boolean;
       enableRateLimit?: boolean;
+      password: string;
       rateLimit?: number;
+      sandbox?: boolean;
+      secret: string;
     }
     const exchange = new (
       ccxt as {
@@ -111,11 +111,11 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
       }
     ).coinbaseadvanced({
       apiKey: credentials.apiKey,
-      secret: credentials.secret,
-      password: credentials.passphrase ?? '', // Coinbase uses password field for passphrase
-      sandbox: credentials.sandbox ?? false,
       enableRateLimit: true,
+      password: credentials.passphrase ?? '', // Coinbase uses password field for passphrase
       rateLimit: 100,
+      sandbox: credentials.sandbox ?? false,
+      secret: credentials.secret,
     });
 
     super(exchange, adapterConfig, enableOnlineVerification);
@@ -123,309 +123,6 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
     this.logger.info(
       `Initialized Coinbase Ledger adapter - RateLimit: ${this.exchange.rateLimit}, Sandbox: ${credentials.sandbox}`
     );
-  }
-
-  protected createExchange() {
-    return this.exchange; // Already created in constructor
-  }
-
-  /**
-   * Override to fetch only the raw ledger entries from the API.
-   * This should return the raw CCXT response, not a transformed one.
-   */
-  protected async fetchRawTransactions(params: UniversalFetchParams): Promise<CryptoTransaction[]> {
-    // This is the only place we should be calling the exchange API.
-    // We can reuse the pagination logic from the old fetchLedger method.
-    const rawLedgerEntries = await this.fetchAllLedgerEntriesWithPagination(params.since);
-
-    // Transform raw CCXT entries to CryptoTransaction[] before returning to satisfy the base class's return type
-    return this.transformCCXTTransactions(rawLedgerEntries as CCXTTransaction[], 'ledger');
-  }
-
-  /**
-   * Override to handle Coinbase's unique ledger entry grouping and transformation.
-   * This is where all transformation logic now lives.
-   */
-  protected async transformTransactions(
-    rawCryptoTxs: CryptoTransaction[],
-    params: UniversalFetchParams
-  ): Promise<UniversalTransaction[]> {
-    const requestedTypes = params.transactionTypes || ['trade', 'deposit', 'withdrawal', 'order', 'ledger'];
-    this.logger.info(
-      `Transforming ${rawCryptoTxs.length} raw Coinbase ledger entries for types: ${requestedTypes.join(', ')}`
-    );
-
-    // We no longer transform from raw CCXT entries here, as fetchRawTransactions already does the conversion.
-    // Now we directly process the CryptoTransaction array.
-    const processedCryptoTxs: CryptoTransaction[] = await this.processLedgerEntries(rawCryptoTxs);
-
-    // Filter transactions by requested types before final transformation
-    const filteredTxs = processedCryptoTxs.filter((tx: CryptoTransaction) => {
-      if (!tx.type) return false;
-      return requestedTypes.includes(tx.type);
-    });
-
-    const filteredCount = processedCryptoTxs.length - filteredTxs.length;
-    if (filteredCount > 0) {
-      this.logger.info(`Filtered out ${filteredCount} transactions not matching requested types`);
-    }
-
-    // Finally, convert the filtered CryptoTransactions to the UniversalTransaction format.
-    return super.transformTransactions(filteredTxs, params);
-    // The base transformTransactions method already handles this final mapping.
-  }
-
-  // Helper to contain the fetching logic
-  private async fetchAllLedgerEntriesWithPagination(since?: number): Promise<ccxt.LedgerEntry[]> {
-    // Move the logic from the old `fetchLedger` method here.
-    // This method should return the raw, unprocessed entries from `this.exchange.fetchLedger()`.
-    try {
-      if (!this.exchange.has['fetchLedger']) {
-        this.logger.warn('Coinbase does not support fetchLedger - falling back to standard methods');
-        return [];
-      }
-
-      // Load accounts to get available currencies and account IDs
-      await this.loadAccounts();
-
-      const allEntries: ccxt.LedgerEntry[] = []; // This will contain raw CCXT ledger entries
-
-      if (!this.accounts || this.accounts.length === 0) {
-        this.logger.warn('No accounts available for ledger fetching');
-        return [];
-      }
-
-      // Use account IDs directly instead of currencies since Coinbase Advanced Trade prefers account_id
-      this.logger.info(`Fetching ledger entries for ${this.accounts.length} accounts`);
-
-      for (const account of this.accounts) {
-        try {
-          if (!account.id || !account.currency) {
-            this.logger.warn(`Skipping account with missing id or currency - Account: ${JSON.stringify(account)}`);
-            continue;
-          }
-
-          const entries = await this.fetchLedgerWithAccountId(account.id, account.currency, since);
-          allEntries.push(...entries);
-          this.logger.debug(`Fetched ${entries.length} ledger entries for account ${account.id} (${account.currency})`);
-        } catch (accountError) {
-          this.logger.warn(
-            `Failed to fetch ledger for account ${account.id} - AccountId: ${account.id}, Currency: ${account.currency}, Error: ${accountError instanceof Error ? accountError.message : 'Unknown error'}`
-          );
-        }
-      }
-
-      this.logger.info(`Fetched ${allEntries.length} total ledger entries from Coinbase`);
-
-      // Return raw entries without any transformation
-      return allEntries;
-    } catch (error) {
-      this.handleError(error, 'fetchAllLedgerEntriesWithPagination');
-      throw error;
-    }
-  }
-
-  /**
-   * Fetch ledger entries with pagination for a specific account
-   */
-  private async fetchLedgerWithAccountId(
-    accountId: string,
-    currency: string,
-    since?: number
-  ): Promise<ccxt.LedgerEntry[]> {
-    const allEntries: ccxt.LedgerEntry[] = []; // This will contain raw CCXT ledger entries
-    let hasMore = true;
-    let startingAfter: string | undefined;
-    const pageSize = 100; // CCXT default for Coinbase
-
-    while (hasMore) {
-      try {
-        interface PaginationParams {
-          limit: number;
-          paginate: boolean;
-          account_id: string;
-          starting_after?: string;
-        }
-        const params: PaginationParams = {
-          limit: pageSize,
-          paginate: false, // We handle pagination manually for better control
-          account_id: accountId, // Pass account_id to satisfy Coinbase requirement
-        };
-
-        // Add pagination cursor if available
-        if (startingAfter) {
-          params.starting_after = startingAfter;
-        }
-
-        this.logger.debug(
-          `Fetching ledger page for account: ${accountId} (${currency}) - AccountId: ${accountId}, Currency: ${currency}, StartingAfter: ${startingAfter}, PageSize: ${pageSize}`
-        );
-
-        // Pass currency as the first parameter since CCXT expects it
-        const entries = await this.exchange.fetchLedger(undefined, since, pageSize, params);
-
-        if (entries.length === 0) {
-          hasMore = false;
-          break;
-        }
-
-        allEntries.push(...entries);
-
-        // Check if there are more pages
-        if (entries.length < pageSize) {
-          hasMore = false;
-        } else {
-          // Use the last entry's ID as the starting point for the next page
-          const lastEntry = entries[entries.length - 1];
-          if (lastEntry) {
-            // Coinbase ledger entries have 'info' which contains the raw API response.
-            // The cursor for pagination might be in lastEntry.info.cursor or lastEntry.info.id.
-            // For ccxt.LedgerEntry, id is usually the primary identifier.
-            startingAfter = lastEntry.id;
-
-            if (!startingAfter) {
-              // If we can't get pagination cursor, stop to avoid infinite loop
-              this.logger.warn('No pagination cursor available from last entry, stopping pagination');
-              hasMore = false;
-            }
-          } else {
-            hasMore = false;
-          }
-        }
-
-        // Prevent infinite loops
-        if (allEntries.length > 50000) {
-          // Reasonable safety limit
-          this.logger.warn('Reached pagination safety limit, stopping fetch');
-          break;
-        }
-      } catch (pageError) {
-        this.logger.error(
-          `Error fetching ledger page for account - AccountId: ${accountId}, Currency: ${currency}, StartingAfter: ${startingAfter}, Error: ${pageError instanceof Error ? pageError.message : 'Unknown error'}`
-        );
-        throw pageError;
-      }
-    }
-
-    return allEntries;
-  }
-
-  /**
-   * Process ledger entries to group orders and fills into complete trades
-   */
-  private async processLedgerEntries(ledgerTransactions: CryptoTransaction[]): Promise<CryptoTransaction[]> {
-    this.logger.info(`Processing Coinbase ledger entries for grouping - TotalEntries: ${ledgerTransactions.length}`);
-
-    this.logger.info(`Processing all ledger transactions - TotalCount: ${ledgerTransactions.length}`);
-
-    // Restore the original grouping approach now that we understand the data structure
-    const tradeGroups = new Map<string, CryptoTransaction[]>();
-    const nonTradeTransactions: CryptoTransaction[] = [];
-
-    // Group trade entries by their reference IDs
-    for (const transaction of ledgerTransactions) {
-      if (this.isTradeRelatedTransaction(transaction)) {
-        const groupId = this.extractTradeGroupId(transaction);
-        if (groupId) {
-          if (!tradeGroups.has(groupId)) {
-            tradeGroups.set(groupId, []);
-          }
-          tradeGroups.get(groupId)!.push(transaction);
-        } else {
-          // Trade entry without group ID, treat as individual transaction
-          nonTradeTransactions.push(this.convertLedgerEntryToTrade(transaction));
-        }
-      } else {
-        nonTradeTransactions.push(this.convertLedgerEntryToTrade(transaction));
-      }
-    }
-
-    // Convert grouped trade entries into single trade transactions
-    const groupedTrades = this.createTradeFromGroups(tradeGroups);
-
-    const result = [...groupedTrades, ...nonTradeTransactions];
-
-    this.logger.info(
-      `Completed ledger entry processing - TotalTransactions: ${result.length}, TradeGroups: ${tradeGroups.size}, GroupedTrades: ${groupedTrades.length}, NonTradeTransactions: ${nonTradeTransactions.length}`
-    );
-
-    return result;
-  }
-
-  /**
-   * Extract the trade group ID from a Coinbase ledger entry
-   */
-  private extractTradeGroupId(transaction: CryptoTransaction): string | null {
-    const nestedInfo = getCcxtNestedInfo(transaction.info);
-    if (!nestedInfo) return null;
-
-    // Extract group IDs from different transaction types
-    if (hasProperty(nestedInfo, 'buy')) {
-      const buyInfo = nestedInfo.buy;
-      const buyId = getStringProperty(buyInfo, 'id');
-      if (buyId) return buyId;
-    }
-
-    if (hasProperty(nestedInfo, 'trade')) {
-      const tradeInfo = nestedInfo.trade;
-      const tradeId = getStringProperty(tradeInfo, 'id');
-      if (tradeId) return tradeId;
-    }
-
-    if (hasProperty(nestedInfo, 'sell')) {
-      const sellInfo = nestedInfo.sell;
-      const sellId = getStringProperty(sellInfo, 'id');
-      if (sellId) return sellId;
-    }
-
-    // For advanced trade fills, check the nested structure
-    if (hasProperty(nestedInfo, 'advanced_trade_fill')) {
-      const advancedTradeFill = nestedInfo.advanced_trade_fill;
-      const orderId = getStringProperty(advancedTradeFill, 'order_id');
-      if (orderId) return orderId;
-    }
-
-    // For other possible locations
-    return getStringProperty(nestedInfo, 'order_id') || null;
-  }
-
-  /**
-   * Create single trade transactions from grouped ledger entries
-   */
-  private createTradeFromGroups(tradeGroups: Map<string, CryptoTransaction[]>): CryptoTransaction[] {
-    const trades: CryptoTransaction[] = [];
-
-    for (const [groupId, entries] of tradeGroups.entries()) {
-      if (entries.length === 0) continue;
-
-      try {
-        // For single entry, convert directly
-        if (entries.length === 1) {
-          const entry = entries[0];
-          if (entry) {
-            trades.push(this.convertLedgerEntryToTrade(entry));
-          }
-          continue;
-        }
-
-        // For multiple entries, combine them into a single trade
-        const combinedTrade = this.combineMultipleLedgerEntries(groupId, entries);
-        if (combinedTrade) {
-          trades.push(combinedTrade);
-        }
-      } catch (error) {
-        this.logger.warn(
-          `Failed to create trade from group ${groupId} - Error: ${error instanceof Error ? error.message : 'Unknown error'}, EntriesCount: ${entries.length}`
-        );
-
-        // Fallback: convert each entry individually
-        for (const entry of entries) {
-          trades.push(this.convertLedgerEntryToTrade(entry));
-        }
-      }
-    }
-
-    return trades;
   }
 
   /**
@@ -610,14 +307,8 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
       }
 
       const combinedTrade: CryptoTransaction = {
-        id: `${groupId}-combined`,
-        type: 'trade',
-        timestamp,
-        datetime: new Date(timestamp).toISOString(),
-        symbol: symbol || 'unknown',
         amount: { amount: totalBaseAmount, currency: baseCurrency },
-        side: side as 'buy' | 'sell',
-        price: { amount: priceAmount, currency: quoteCurrency },
+        datetime: new Date(timestamp).toISOString(),
         fee:
           totalFee.greaterThan(0) && feeCurrency
             ? {
@@ -625,12 +316,18 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
                 currency: feeCurrency,
               }
             : undefined, // Explicitly set to undefined if no fee
-        status: 'closed',
+        id: `${groupId}-combined`,
         info: {
-          groupId,
-          entries: entries.map(e => e.info),
           combinedBy: 'CoinbaseCCXTAdapter',
+          entries: entries.map(e => e.info),
+          groupId,
         },
+        price: { amount: priceAmount, currency: quoteCurrency },
+        side: side as 'buy' | 'sell',
+        status: 'closed',
+        symbol: symbol || 'unknown',
+        timestamp,
+        type: 'trade',
       };
 
       return combinedTrade;
@@ -658,40 +355,243 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
     // Create a proper transaction from the ledger entry
     const enhancedTransaction: CryptoTransaction = {
       ...transaction,
-      type: properType,
-      symbol: symbol || 'unknown', // Ensure symbol is always a string
-      side: side as 'buy' | 'sell',
-      price: price || undefined, // Ensure price is explicitly undefined if not present
       info: {
         ...info,
         convertedBy: 'CoinbaseCCXTAdapter',
         originalType: getStringProperty(info, 'type'),
       },
+      price: price || undefined, // Ensure price is explicitly undefined if not present
+      side: side as 'buy' | 'sell',
+      symbol: symbol || 'unknown', // Ensure symbol is always a string
+      type: properType,
     };
 
     return enhancedTransaction;
   }
 
   /**
-   * Determine if transaction is trade-related
+   * Create single trade transactions from grouped ledger entries
    */
-  private isTradeRelatedTransaction(transaction: CryptoTransaction): boolean {
-    const info = transaction.info;
-    if (!info || typeof info !== 'object' || info === null) return false;
+  private createTradeFromGroups(tradeGroups: Map<string, CryptoTransaction[]>): CryptoTransaction[] {
+    const trades: CryptoTransaction[] = [];
 
-    const type = (getStringProperty(info, 'type') || '').toLowerCase();
+    for (const [groupId, entries] of tradeGroups.entries()) {
+      if (entries.length === 0) continue;
 
-    // Coinbase ledger entries that represent trades
-    return type === 'trade' || type === 'advanced_trade_fill' || type === 'match';
+      try {
+        // For single entry, convert directly
+        if (entries.length === 1) {
+          const entry = entries[0];
+          if (entry) {
+            trades.push(this.convertLedgerEntryToTrade(entry));
+          }
+          continue;
+        }
+
+        // For multiple entries, combine them into a single trade
+        const combinedTrade = this.combineMultipleLedgerEntries(groupId, entries);
+        if (combinedTrade) {
+          trades.push(combinedTrade);
+        }
+      } catch (error) {
+        this.logger.warn(
+          `Failed to create trade from group ${groupId} - Error: ${error instanceof Error ? error.message : 'Unknown error'}, EntriesCount: ${entries.length}`
+        );
+
+        // Fallback: convert each entry individually
+        for (const entry of entries) {
+          trades.push(this.convertLedgerEntryToTrade(entry));
+        }
+      }
+    }
+
+    return trades;
+  }
+
+  /**
+   * Extract price information from Coinbase ledger entry
+   *
+   * COINBASE PRICE EXTRACTION RULES:
+   * 1. Only trade transactions should have prices (deposits/withdrawals are transfers, not exchanges)
+   * 2. Price represents the total cost/proceeds, not per-unit price
+   * 3. For buy/sell transactions, extract from nested buy.total or sell.total
+   * 4. These totals include fees, which we subtract later in combineMultipleLedgerEntries
+   */
+  private extractPriceFromInfo(info: unknown, fallbackPrice?: Money, transactionType?: string): Money | undefined {
+    // CRITICAL: Don't extract price for deposits and withdrawals - they're transfers, not trades
+    if (transactionType === 'deposit' || transactionType === 'withdrawal') {
+      return undefined;
+    }
+
+    // For Coinbase buy/sell transactions, extract total cost from nested structure
+    const nestedInfo = (info as { info?: unknown }).info;
+    if ((nestedInfo as { buy?: unknown })?.buy) {
+      const buyInfo = (
+        nestedInfo as {
+          buy: { total?: { amount?: string | number; currency?: string } };
+        }
+      ).buy;
+      if (buyInfo.total?.amount && buyInfo.total?.currency) {
+        // Return the total cost (what was spent)
+        return {
+          amount: new Decimal(Math.abs(parseFloat(buyInfo.total.amount as string))),
+          currency: buyInfo.total.currency,
+        };
+      }
+    }
+
+    if ((nestedInfo as { sell?: unknown })?.sell) {
+      const sellInfo = (
+        nestedInfo as {
+          sell: { total?: { amount?: string | number; currency?: string } };
+        }
+      ).sell;
+      if (sellInfo.total?.amount && sellInfo.total?.currency) {
+        // Return the total proceeds (what was received)
+        return {
+          amount: new Decimal(Math.abs(parseFloat(sellInfo.total.amount as string))),
+          currency: sellInfo.total.currency,
+        };
+      }
+    }
+
+    // For trade transaction types, check for total or amount fields
+    if (transactionType === 'trade' || transactionType === 'limit' || transactionType === 'market') {
+      if ((info as { total?: number }).total && typeof (info as { total: number }).total === 'number') {
+        return {
+          amount: new Decimal(Math.abs((info as { total: number }).total)),
+          currency: (info as { currency?: string }).currency || 'USD',
+        };
+      }
+
+      if ((info as { amount?: number }).amount && typeof (info as { amount: number }).amount === 'number') {
+        return {
+          amount: new Decimal(Math.abs((info as { amount: number }).amount)),
+          currency: (info as { currency?: string }).currency || 'USD',
+        };
+      }
+    }
+
+    // Use fallback price from CCXT if available for trade transactions only
+    if ((transactionType === 'trade' || transactionType === 'limit' || transactionType === 'market') && fallbackPrice) {
+      return fallbackPrice;
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Extract trade side from transaction info
+   */
+  private extractSideFromInfo(info: unknown): string {
+    // First check explicit side fields
+    if ((info as { order_side?: string }).order_side) return (info as { order_side: string }).order_side;
+    if ((info as { side?: string }).side) return (info as { side: string }).side;
+    if ((info as { trade_side?: string }).trade_side) return (info as { trade_side: string }).trade_side;
+
+    // For Coinbase Advanced Trade, infer from direction and nested info
+    const nestedInfo = (info as { info?: unknown }).info;
+    if (nestedInfo) {
+      if ((nestedInfo as { buy?: unknown }).buy) return 'buy';
+      if ((nestedInfo as { sell?: unknown }).sell) return 'sell';
+    }
+
+    // Infer from direction for non-trade transactions
+    if ((info as { direction?: string }).direction === 'in') return 'buy'; // Receiving currency
+    if ((info as { direction?: string }).direction === 'out') return 'sell'; // Sending currency
+
+    // Try to infer from amount sign (if available)
+    if ((info as { amount?: number }).amount && typeof (info as { amount: number }).amount === 'number') {
+      return (info as { amount: number }).amount > 0 ? 'buy' : 'sell';
+    }
+
+    return 'unknown';
+  }
+
+  /**
+   * Extract symbol from transaction info
+   *
+   * COINBASE SYMBOL EXTRACTION COMPLEXITY:
+   * Symbols are buried deep in nested structures and can be in multiple locations:
+   * 1. info.info.advanced_trade_fill.product_id (most reliable for trades)
+   * 2. info.info.buy.product_id or info.info.sell.product_id
+   * 3. Fallback to top-level fields (often missing)
+   *
+   * The double-nested structure (info.info) is due to CCXT wrapping Coinbase's response.
+   */
+  private extractSymbolFromInfo(info: unknown): string | undefined {
+    // Check the deeply nested structure first for advanced_trade_fill (most reliable)
+    const nestedInfo = (info as { info?: unknown }).info;
+    if ((nestedInfo as { advanced_trade_fill?: { product_id?: string } })?.advanced_trade_fill?.product_id) {
+      return (nestedInfo as { advanced_trade_fill: { product_id: string } }).advanced_trade_fill.product_id;
+    }
+
+    // Check for buy/sell nested structures
+    if ((nestedInfo as { buy?: { product_id?: string } })?.buy?.product_id) {
+      return (nestedInfo as { buy: { product_id: string } }).buy.product_id;
+    }
+
+    if ((nestedInfo as { sell?: { product_id?: string } })?.sell?.product_id) {
+      return (nestedInfo as { sell: { product_id: string } }).sell.product_id;
+    }
+
+    // Check for trade nested structure
+    if ((nestedInfo as { trade?: { product_id?: string } })?.trade?.product_id) {
+      return (nestedInfo as { trade: { product_id: string } }).trade.product_id;
+    }
+
+    return (
+      (info as { symbol?: string }).symbol ||
+      (info as { product_id?: string }).product_id ||
+      (info as { currency_pair?: string }).currency_pair ||
+      undefined
+    );
+  }
+
+  /**
+   * Extract the trade group ID from a Coinbase ledger entry
+   */
+  private extractTradeGroupId(transaction: CryptoTransaction): string | null {
+    const nestedInfo = getCcxtNestedInfo(transaction.info);
+    if (!nestedInfo) return null;
+
+    // Extract group IDs from different transaction types
+    if (hasProperty(nestedInfo, 'buy')) {
+      const buyInfo = nestedInfo.buy;
+      const buyId = getStringProperty(buyInfo, 'id');
+      if (buyId) return buyId;
+    }
+
+    if (hasProperty(nestedInfo, 'trade')) {
+      const tradeInfo = nestedInfo.trade;
+      const tradeId = getStringProperty(tradeInfo, 'id');
+      if (tradeId) return tradeId;
+    }
+
+    if (hasProperty(nestedInfo, 'sell')) {
+      const sellInfo = nestedInfo.sell;
+      const sellId = getStringProperty(sellInfo, 'id');
+      if (sellId) return sellId;
+    }
+
+    // For advanced trade fills, check the nested structure
+    if (hasProperty(nestedInfo, 'advanced_trade_fill')) {
+      const advancedTradeFill = nestedInfo.advanced_trade_fill;
+      const orderId = getStringProperty(advancedTradeFill, 'order_id');
+      if (orderId) return orderId;
+    }
+
+    // For other possible locations
+    return getStringProperty(nestedInfo, 'order_id') || null;
   }
 
   /**
    * Extract the proper transaction type from Coinbase ledger entry
    */
   private extractTransactionType(info: {
-    type?: string;
     direction?: string;
-    info?: { type?: string; info?: { type?: string } };
+    info?: { info?: { type?: string }; type?: string };
+    type?: string;
   }): TransactionType {
     const type = info.type?.toLowerCase() || '';
 
@@ -804,144 +704,152 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
     }
   }
 
-  /**
-   * Extract symbol from transaction info
-   *
-   * COINBASE SYMBOL EXTRACTION COMPLEXITY:
-   * Symbols are buried deep in nested structures and can be in multiple locations:
-   * 1. info.info.advanced_trade_fill.product_id (most reliable for trades)
-   * 2. info.info.buy.product_id or info.info.sell.product_id
-   * 3. Fallback to top-level fields (often missing)
-   *
-   * The double-nested structure (info.info) is due to CCXT wrapping Coinbase's response.
-   */
-  private extractSymbolFromInfo(info: unknown): string | undefined {
-    // Check the deeply nested structure first for advanced_trade_fill (most reliable)
-    const nestedInfo = (info as { info?: unknown }).info;
-    if ((nestedInfo as { advanced_trade_fill?: { product_id?: string } })?.advanced_trade_fill?.product_id) {
-      return (nestedInfo as { advanced_trade_fill: { product_id: string } }).advanced_trade_fill.product_id;
-    }
+  // Helper to contain the fetching logic
+  private async fetchAllLedgerEntriesWithPagination(since?: number): Promise<ccxt.LedgerEntry[]> {
+    // Move the logic from the old `fetchLedger` method here.
+    // This method should return the raw, unprocessed entries from `this.exchange.fetchLedger()`.
+    try {
+      if (!this.exchange.has['fetchLedger']) {
+        this.logger.warn('Coinbase does not support fetchLedger - falling back to standard methods');
+        return [];
+      }
 
-    // Check for buy/sell nested structures
-    if ((nestedInfo as { buy?: { product_id?: string } })?.buy?.product_id) {
-      return (nestedInfo as { buy: { product_id: string } }).buy.product_id;
-    }
+      // Load accounts to get available currencies and account IDs
+      await this.loadAccounts();
 
-    if ((nestedInfo as { sell?: { product_id?: string } })?.sell?.product_id) {
-      return (nestedInfo as { sell: { product_id: string } }).sell.product_id;
-    }
+      const allEntries: ccxt.LedgerEntry[] = []; // This will contain raw CCXT ledger entries
 
-    // Check for trade nested structure
-    if ((nestedInfo as { trade?: { product_id?: string } })?.trade?.product_id) {
-      return (nestedInfo as { trade: { product_id: string } }).trade.product_id;
-    }
+      if (!this.accounts || this.accounts.length === 0) {
+        this.logger.warn('No accounts available for ledger fetching');
+        return [];
+      }
 
-    return (
-      (info as { symbol?: string }).symbol ||
-      (info as { product_id?: string }).product_id ||
-      (info as { currency_pair?: string }).currency_pair ||
-      undefined
-    );
+      // Use account IDs directly instead of currencies since Coinbase Advanced Trade prefers account_id
+      this.logger.info(`Fetching ledger entries for ${this.accounts.length} accounts`);
+
+      for (const account of this.accounts) {
+        try {
+          if (!account.id || !account.currency) {
+            this.logger.warn(`Skipping account with missing id or currency - Account: ${JSON.stringify(account)}`);
+            continue;
+          }
+
+          const entries = await this.fetchLedgerWithAccountId(account.id, account.currency, since);
+          allEntries.push(...entries);
+          this.logger.debug(`Fetched ${entries.length} ledger entries for account ${account.id} (${account.currency})`);
+        } catch (accountError) {
+          this.logger.warn(
+            `Failed to fetch ledger for account ${account.id} - AccountId: ${account.id}, Currency: ${account.currency}, Error: ${accountError instanceof Error ? accountError.message : 'Unknown error'}`
+          );
+        }
+      }
+
+      this.logger.info(`Fetched ${allEntries.length} total ledger entries from Coinbase`);
+
+      // Return raw entries without any transformation
+      return allEntries;
+    } catch (error) {
+      this.handleError(error, 'fetchAllLedgerEntriesWithPagination');
+      throw error;
+    }
   }
 
   /**
-   * Extract trade side from transaction info
+   * Fetch ledger entries with pagination for a specific account
    */
-  private extractSideFromInfo(info: unknown): string {
-    // First check explicit side fields
-    if ((info as { order_side?: string }).order_side) return (info as { order_side: string }).order_side;
-    if ((info as { side?: string }).side) return (info as { side: string }).side;
-    if ((info as { trade_side?: string }).trade_side) return (info as { trade_side: string }).trade_side;
+  private async fetchLedgerWithAccountId(
+    accountId: string,
+    currency: string,
+    since?: number
+  ): Promise<ccxt.LedgerEntry[]> {
+    const allEntries: ccxt.LedgerEntry[] = []; // This will contain raw CCXT ledger entries
+    let hasMore = true;
+    let startingAfter: string | undefined;
+    const pageSize = 100; // CCXT default for Coinbase
 
-    // For Coinbase Advanced Trade, infer from direction and nested info
-    const nestedInfo = (info as { info?: unknown }).info;
-    if (nestedInfo) {
-      if ((nestedInfo as { buy?: unknown }).buy) return 'buy';
-      if ((nestedInfo as { sell?: unknown }).sell) return 'sell';
+    while (hasMore) {
+      try {
+        interface PaginationParams {
+          account_id: string;
+          limit: number;
+          paginate: boolean;
+          starting_after?: string;
+        }
+        const params: PaginationParams = {
+          account_id: accountId, // Pass account_id to satisfy Coinbase requirement
+          limit: pageSize,
+          paginate: false, // We handle pagination manually for better control
+        };
+
+        // Add pagination cursor if available
+        if (startingAfter) {
+          params.starting_after = startingAfter;
+        }
+
+        this.logger.debug(
+          `Fetching ledger page for account: ${accountId} (${currency}) - AccountId: ${accountId}, Currency: ${currency}, StartingAfter: ${startingAfter}, PageSize: ${pageSize}`
+        );
+
+        // Pass currency as the first parameter since CCXT expects it
+        const entries = await this.exchange.fetchLedger(undefined, since, pageSize, params);
+
+        if (entries.length === 0) {
+          hasMore = false;
+          break;
+        }
+
+        allEntries.push(...entries);
+
+        // Check if there are more pages
+        if (entries.length < pageSize) {
+          hasMore = false;
+        } else {
+          // Use the last entry's ID as the starting point for the next page
+          const lastEntry = entries[entries.length - 1];
+          if (lastEntry) {
+            // Coinbase ledger entries have 'info' which contains the raw API response.
+            // The cursor for pagination might be in lastEntry.info.cursor or lastEntry.info.id.
+            // For ccxt.LedgerEntry, id is usually the primary identifier.
+            startingAfter = lastEntry.id;
+
+            if (!startingAfter) {
+              // If we can't get pagination cursor, stop to avoid infinite loop
+              this.logger.warn('No pagination cursor available from last entry, stopping pagination');
+              hasMore = false;
+            }
+          } else {
+            hasMore = false;
+          }
+        }
+
+        // Prevent infinite loops
+        if (allEntries.length > 50000) {
+          // Reasonable safety limit
+          this.logger.warn('Reached pagination safety limit, stopping fetch');
+          break;
+        }
+      } catch (pageError) {
+        this.logger.error(
+          `Error fetching ledger page for account - AccountId: ${accountId}, Currency: ${currency}, StartingAfter: ${startingAfter}, Error: ${pageError instanceof Error ? pageError.message : 'Unknown error'}`
+        );
+        throw pageError;
+      }
     }
 
-    // Infer from direction for non-trade transactions
-    if ((info as { direction?: string }).direction === 'in') return 'buy'; // Receiving currency
-    if ((info as { direction?: string }).direction === 'out') return 'sell'; // Sending currency
-
-    // Try to infer from amount sign (if available)
-    if ((info as { amount?: number }).amount && typeof (info as { amount: number }).amount === 'number') {
-      return (info as { amount: number }).amount > 0 ? 'buy' : 'sell';
-    }
-
-    return 'unknown';
+    return allEntries;
   }
 
   /**
-   * Extract price information from Coinbase ledger entry
-   *
-   * COINBASE PRICE EXTRACTION RULES:
-   * 1. Only trade transactions should have prices (deposits/withdrawals are transfers, not exchanges)
-   * 2. Price represents the total cost/proceeds, not per-unit price
-   * 3. For buy/sell transactions, extract from nested buy.total or sell.total
-   * 4. These totals include fees, which we subtract later in combineMultipleLedgerEntries
+   * Determine if transaction is trade-related
    */
-  private extractPriceFromInfo(info: unknown, fallbackPrice?: Money, transactionType?: string): Money | undefined {
-    // CRITICAL: Don't extract price for deposits and withdrawals - they're transfers, not trades
-    if (transactionType === 'deposit' || transactionType === 'withdrawal') {
-      return undefined;
-    }
+  private isTradeRelatedTransaction(transaction: CryptoTransaction): boolean {
+    const info = transaction.info;
+    if (!info || typeof info !== 'object' || info === null) return false;
 
-    // For Coinbase buy/sell transactions, extract total cost from nested structure
-    const nestedInfo = (info as { info?: unknown }).info;
-    if ((nestedInfo as { buy?: unknown })?.buy) {
-      const buyInfo = (
-        nestedInfo as {
-          buy: { total?: { amount?: string | number; currency?: string } };
-        }
-      ).buy;
-      if (buyInfo.total?.amount && buyInfo.total?.currency) {
-        // Return the total cost (what was spent)
-        return {
-          amount: new Decimal(Math.abs(parseFloat(buyInfo.total.amount as string))),
-          currency: buyInfo.total.currency,
-        };
-      }
-    }
+    const type = (getStringProperty(info, 'type') || '').toLowerCase();
 
-    if ((nestedInfo as { sell?: unknown })?.sell) {
-      const sellInfo = (
-        nestedInfo as {
-          sell: { total?: { amount?: string | number; currency?: string } };
-        }
-      ).sell;
-      if (sellInfo.total?.amount && sellInfo.total?.currency) {
-        // Return the total proceeds (what was received)
-        return {
-          amount: new Decimal(Math.abs(parseFloat(sellInfo.total.amount as string))),
-          currency: sellInfo.total.currency,
-        };
-      }
-    }
-
-    // For trade transaction types, check for total or amount fields
-    if (transactionType === 'trade' || transactionType === 'limit' || transactionType === 'market') {
-      if ((info as { total?: number }).total && typeof (info as { total: number }).total === 'number') {
-        return {
-          amount: new Decimal(Math.abs((info as { total: number }).total)),
-          currency: (info as { currency?: string }).currency || 'USD',
-        };
-      }
-
-      if ((info as { amount?: number }).amount && typeof (info as { amount: number }).amount === 'number') {
-        return {
-          amount: new Decimal(Math.abs((info as { amount: number }).amount)),
-          currency: (info as { currency?: string }).currency || 'USD',
-        };
-      }
-    }
-
-    // Use fallback price from CCXT if available for trade transactions only
-    if ((transactionType === 'trade' || transactionType === 'limit' || transactionType === 'market') && fallbackPrice) {
-      return fallbackPrice;
-    }
-
-    return undefined;
+    // Coinbase ledger entries that represent trades
+    return type === 'trade' || type === 'advanced_trade_fill' || type === 'match';
   }
 
   /**
@@ -965,18 +873,18 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
               (
                 account: ccxt.Account
               ): account is ccxt.Account & {
-                id: string;
                 code: string;
+                id: string;
                 type?: string;
               } => !!account.id && !!account.code
             )
             .map(account => ({
-              id: account.id,
-              currency: account.code, // Use 'code' field for currency
               balance: 0, // We don't need balance for ledger fetching
-              type: account.type || 'wallet',
               code: account.code,
+              currency: account.code, // Use 'code' field for currency
+              id: account.id,
               info: account.info || {},
+              type: account.type || 'wallet',
             }));
 
           if ((this.accounts ?? []).length > 0) {
@@ -1009,12 +917,12 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
         if (info && typeof info === 'object') {
           // Include zero-balance accounts for historical transactions
           this.accounts.push({
-            id: `${currency.toLowerCase()}-account`,
-            currency: currency,
             balance: info.total || 0,
-            type: 'spot',
             code: currency,
+            currency: currency,
+            id: `${currency.toLowerCase()}-account`,
             info: info,
+            type: 'spot',
           });
         }
       }
@@ -1031,5 +939,97 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
       this.accounts = [];
       throw error;
     }
+  }
+
+  /**
+   * Process ledger entries to group orders and fills into complete trades
+   */
+  private async processLedgerEntries(ledgerTransactions: CryptoTransaction[]): Promise<CryptoTransaction[]> {
+    this.logger.info(`Processing Coinbase ledger entries for grouping - TotalEntries: ${ledgerTransactions.length}`);
+
+    this.logger.info(`Processing all ledger transactions - TotalCount: ${ledgerTransactions.length}`);
+
+    // Restore the original grouping approach now that we understand the data structure
+    const tradeGroups = new Map<string, CryptoTransaction[]>();
+    const nonTradeTransactions: CryptoTransaction[] = [];
+
+    // Group trade entries by their reference IDs
+    for (const transaction of ledgerTransactions) {
+      if (this.isTradeRelatedTransaction(transaction)) {
+        const groupId = this.extractTradeGroupId(transaction);
+        if (groupId) {
+          if (!tradeGroups.has(groupId)) {
+            tradeGroups.set(groupId, []);
+          }
+          tradeGroups.get(groupId)!.push(transaction);
+        } else {
+          // Trade entry without group ID, treat as individual transaction
+          nonTradeTransactions.push(this.convertLedgerEntryToTrade(transaction));
+        }
+      } else {
+        nonTradeTransactions.push(this.convertLedgerEntryToTrade(transaction));
+      }
+    }
+
+    // Convert grouped trade entries into single trade transactions
+    const groupedTrades = this.createTradeFromGroups(tradeGroups);
+
+    const result = [...groupedTrades, ...nonTradeTransactions];
+
+    this.logger.info(
+      `Completed ledger entry processing - TotalTransactions: ${result.length}, TradeGroups: ${tradeGroups.size}, GroupedTrades: ${groupedTrades.length}, NonTradeTransactions: ${nonTradeTransactions.length}`
+    );
+
+    return result;
+  }
+
+  protected createExchange() {
+    return this.exchange; // Already created in constructor
+  }
+
+  /**
+   * Override to fetch only the raw ledger entries from the API.
+   * This should return the raw CCXT response, not a transformed one.
+   */
+  protected async fetchRawTransactions(params: UniversalFetchParams): Promise<CryptoTransaction[]> {
+    // This is the only place we should be calling the exchange API.
+    // We can reuse the pagination logic from the old fetchLedger method.
+    const rawLedgerEntries = await this.fetchAllLedgerEntriesWithPagination(params.since);
+
+    // Transform raw CCXT entries to CryptoTransaction[] before returning to satisfy the base class's return type
+    return this.transformCCXTTransactions(rawLedgerEntries as CCXTTransaction[], 'ledger');
+  }
+
+  /**
+   * Override to handle Coinbase's unique ledger entry grouping and transformation.
+   * This is where all transformation logic now lives.
+   */
+  protected async transformTransactions(
+    rawCryptoTxs: CryptoTransaction[],
+    params: UniversalFetchParams
+  ): Promise<UniversalTransaction[]> {
+    const requestedTypes = params.transactionTypes || ['trade', 'deposit', 'withdrawal', 'order', 'ledger'];
+    this.logger.info(
+      `Transforming ${rawCryptoTxs.length} raw Coinbase ledger entries for types: ${requestedTypes.join(', ')}`
+    );
+
+    // We no longer transform from raw CCXT entries here, as fetchRawTransactions already does the conversion.
+    // Now we directly process the CryptoTransaction array.
+    const processedCryptoTxs: CryptoTransaction[] = await this.processLedgerEntries(rawCryptoTxs);
+
+    // Filter transactions by requested types before final transformation
+    const filteredTxs = processedCryptoTxs.filter((tx: CryptoTransaction) => {
+      if (!tx.type) return false;
+      return requestedTypes.includes(tx.type);
+    });
+
+    const filteredCount = processedCryptoTxs.length - filteredTxs.length;
+    if (filteredCount > 0) {
+      this.logger.info(`Filtered out ${filteredCount} transactions not matching requested types`);
+    }
+
+    // Finally, convert the filtered CryptoTransactions to the UniversalTransaction format.
+    return super.transformTransactions(filteredTxs, params);
+    // The base transformTransactions method already handles this final mapping.
   }
 }

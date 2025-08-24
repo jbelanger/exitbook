@@ -20,11 +20,11 @@ import type { BitcoinWalletAddress } from './types.ts';
 import { BitcoinUtils } from './utils.ts';
 
 export class BitcoinAdapter extends BaseAdapter {
-  private walletAddresses: BitcoinWalletAddress[] = [];
-  protected network: bitcoin.Network;
+  private addressGap: number;
   private addressInfoCache = new Map<string, { balance: string; txCount: number }>(); // Simplified cache
   private providerManager: BlockchainProviderManager;
-  private addressGap: number;
+  private walletAddresses: BitcoinWalletAddress[] = [];
+  protected network: bitcoin.Network;
 
   constructor(
     config: UniversalBlockchainAdapterConfig,
@@ -46,204 +46,6 @@ export class BitcoinAdapter extends BaseAdapter {
     this.logger.info(
       `Initialized Bitcoin adapter with registry-based provider manager - AddressGap: ${this.addressGap}, ProvidersCount: ${this.providerManager.getProviders('bitcoin').length}`
     );
-  }
-
-  async getInfo(): Promise<UniversalAdapterInfo> {
-    return {
-      id: 'bitcoin',
-      name: 'Bitcoin',
-      type: 'blockchain',
-      subType: 'rest',
-      capabilities: {
-        supportedOperations: ['fetchTransactions', 'fetchBalances'],
-        maxBatchSize: 1,
-        supportsHistoricalData: true,
-        supportsPagination: false,
-        requiresApiKey: false,
-        rateLimit: {
-          requestsPerSecond: 2,
-          burstLimit: 10,
-        },
-      },
-    };
-  }
-
-  /**
-   * Initialize an xpub wallet using BitcoinUtils
-   */
-  private async initializeXpubWallet(walletAddress: BitcoinWalletAddress): Promise<void> {
-    await BitcoinUtils.initializeXpubWallet(walletAddress, this.network, this.providerManager, this.addressGap);
-  }
-
-  protected async fetchRawTransactions(params: UniversalFetchParams): Promise<BlockchainTransaction[]> {
-    if (!params.addresses?.length) {
-      throw new Error('Addresses required for Bitcoin adapter');
-    }
-
-    const allTransactions: BlockchainTransaction[] = [];
-
-    for (const userAddress of params.addresses) {
-      this.logger.info(`Fetching transactions for address: ${userAddress.substring(0, 20)}...`);
-
-      let wallet: BitcoinWalletAddress;
-
-      // Check if we've already processed this address
-      const existingWallet = this.walletAddresses.find(w => w.address === userAddress);
-      if (existingWallet) {
-        wallet = existingWallet;
-      } else {
-        // Initialize this specific address (handles both xpub and regular addresses)
-        wallet = {
-          address: userAddress,
-          type: BitcoinUtils.getAddressType(userAddress),
-        };
-
-        if (BitcoinUtils.isXpub(userAddress)) {
-          this.logger.info(`Processing xpub: ${userAddress.substring(0, 20)}...`);
-          await this.initializeXpubWallet(wallet);
-        } else {
-          this.logger.info(`Processing regular address: ${userAddress}`);
-        }
-
-        this.walletAddresses.push(wallet);
-      }
-
-      if (wallet.derivedAddresses) {
-        // Xpub wallet - fetch from all derived addresses and deduplicate
-        this.logger.info(`Fetching from ${wallet.derivedAddresses.length} derived addresses`);
-        const walletTransactions = await this.fetchUniqueTransactionsForWalletWithProviders(
-          wallet.derivedAddresses,
-          params.since
-        );
-        allTransactions.push(...walletTransactions);
-      } else {
-        // Regular address - use provider manager with raw transactions for wallet-aware parsing
-        try {
-          const rawTransactions = (await this.providerManager.executeWithFailover('bitcoin', {
-            type: 'getRawAddressTransactions',
-            address: userAddress,
-            since: params.since,
-            getCacheKey: cacheParams =>
-              `bitcoin:raw-txs:${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.address : 'unknown'}:${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
-          })) as (MempoolTransaction | BlockstreamTransaction)[];
-
-          // Parse raw transactions with wallet context (single address, local parsing)
-          for (const rawTx of rawTransactions) {
-            try {
-              const blockchainTx = this.parseWalletTransaction(rawTx, [userAddress]);
-              allTransactions.push(blockchainTx);
-            } catch (error) {
-              this.logger.warn(`Failed to parse transaction ${rawTx.txid} - Error: ${error}`);
-            }
-          }
-        } catch (error) {
-          this.logger.error(`Failed to fetch Bitcoin transactions for ${userAddress} - Error: ${error}`);
-          throw error;
-        }
-      }
-    }
-
-    // Remove duplicates and sort by timestamp
-    const uniqueTransactions = allTransactions.reduce((acc, tx) => {
-      if (!acc.find(existing => existing.hash === tx.hash)) {
-        acc.push(tx);
-      }
-      return acc;
-    }, [] as BlockchainTransaction[]);
-
-    uniqueTransactions.sort((a, b) => b.timestamp - a.timestamp);
-
-    this.logger.info(`BitcoinAdapter: Found ${uniqueTransactions.length} unique transactions total`);
-    return uniqueTransactions;
-  }
-
-  protected async fetchRawBalances(params: UniversalFetchParams): Promise<Balance[]> {
-    if (!params.addresses?.length) {
-      throw new Error('Addresses required for Bitcoin balance fetching');
-    }
-
-    const allBalances: Balance[] = [];
-
-    for (const address of params.addresses) {
-      try {
-        const result = (await this.providerManager.executeWithFailover('bitcoin', {
-          type: 'getAddressBalance',
-          address: address,
-        })) as { balance: string; token: string };
-
-        const balanceValue = parseFloat(result.balance);
-        if (balanceValue > 0) {
-          allBalances.push({
-            currency: 'BTC',
-            balance: balanceValue,
-            used: 0,
-            total: balanceValue,
-            contractAddress: undefined,
-          });
-        }
-      } catch (error) {
-        this.logger.error(`Failed to get Bitcoin balance for ${address} - Error: ${error}`);
-        throw error;
-      }
-    }
-
-    return allBalances;
-  }
-
-  protected async transformTransactions(
-    rawTxs: BlockchainTransaction[],
-    params: UniversalFetchParams
-  ): Promise<UniversalTransaction[]> {
-    const userAddresses = params.addresses || [];
-
-    return rawTxs.map(tx => {
-      // Determine transaction type based on user addresses
-      let type: TransactionType = 'transfer';
-
-      if (userAddresses.length > 0) {
-        const userAddress = userAddresses[0].toLowerCase();
-        const isIncoming = tx.to.toLowerCase() === userAddress;
-        const isOutgoing = tx.from.toLowerCase() === userAddress;
-
-        if (isIncoming && !isOutgoing) {
-          type = 'deposit';
-        } else if (isOutgoing && !isIncoming) {
-          type = 'withdrawal';
-        }
-      }
-
-      return {
-        id: tx.hash,
-        timestamp: tx.timestamp,
-        datetime: new Date(tx.timestamp).toISOString(),
-        type,
-        status: tx.status === 'success' ? 'closed' : tx.status === 'pending' ? 'open' : 'canceled',
-        amount: tx.value,
-        fee: tx.fee,
-        from: tx.from,
-        to: tx.to,
-        symbol: tx.tokenSymbol || tx.value.currency,
-        source: 'bitcoin',
-        network: 'mainnet',
-        metadata: {
-          blockNumber: tx.blockNumber,
-          blockHash: tx.blockHash,
-          confirmations: tx.confirmations,
-          transactionType: tx.type,
-          originalTransaction: tx,
-        },
-      };
-    });
-  }
-
-  protected async transformBalances(rawBalances: Balance[], params: UniversalFetchParams): Promise<UniversalBalance[]> {
-    return rawBalances.map(balance => ({
-      currency: balance.currency,
-      total: balance.total,
-      free: balance.balance,
-      used: balance.used,
-      contractAddress: balance.contractAddress,
-    }));
   }
 
   /**
@@ -268,11 +70,11 @@ export class BitcoinAdapter extends BaseAdapter {
 
       try {
         const rawTransactions = (await this.providerManager.executeWithFailover('bitcoin', {
-          type: 'getRawAddressTransactions',
           address: address,
-          since: since,
           getCacheKey: params =>
             `bitcoin:raw-txs:${params.type === 'getRawAddressTransactions' ? params.address : 'unknown'}:${params.type === 'getRawAddressTransactions' ? params.since || 'all' : 'unknown'}`,
+          since: since,
+          type: 'getRawAddressTransactions',
         })) as (MempoolTransaction | BlockstreamTransaction)[];
 
         // Add raw transactions to the unique set
@@ -305,6 +107,13 @@ export class BitcoinAdapter extends BaseAdapter {
     blockchainTransactions.sort((a, b) => b.timestamp - a.timestamp);
 
     return blockchainTransactions;
+  }
+
+  /**
+   * Initialize an xpub wallet using BitcoinUtils
+   */
+  private async initializeXpubWallet(walletAddress: BitcoinWalletAddress): Promise<void> {
+    await BitcoinUtils.initializeXpubWallet(walletAddress, this.network, this.providerManager, this.addressGap);
   }
 
   /**
@@ -388,22 +197,169 @@ export class BitcoinAdapter extends BaseAdapter {
     }
 
     return {
-      hash: tx.txid,
-      blockNumber: tx.status.block_height || 0,
       blockHash: tx.status.block_hash || '',
-      timestamp,
-      from: fromAddress,
-      to: toAddress,
-      value: createMoney(totalValue / 100000000, 'BTC'),
+      blockNumber: tx.status.block_height || 0,
+      confirmations: tx.status.confirmed ? 1 : 0,
       fee: createMoney(fee / 100000000, 'BTC'),
-      gasUsed: undefined,
+      from: fromAddress,
       gasPrice: undefined,
+      gasUsed: undefined,
+      hash: tx.txid,
+      nonce: undefined,
       status: tx.status.confirmed ? 'success' : 'pending',
-      type,
+      timestamp,
+      to: toAddress,
       tokenContract: undefined,
       tokenSymbol: 'BTC',
-      nonce: undefined,
-      confirmations: tx.status.confirmed ? 1 : 0,
+      type,
+      value: createMoney(totalValue / 100000000, 'BTC'),
+    };
+  }
+
+  /**
+   * Close adapter and cleanup resources
+   */
+  async close(): Promise<void> {
+    try {
+      this.providerManager.destroy();
+      this.logger.info('Bitcoin adapter closed successfully');
+    } catch (error) {
+      this.logger.warn(`Error during Bitcoin adapter close - Error: ${error}`);
+    }
+  }
+
+  protected async fetchRawBalances(params: UniversalFetchParams): Promise<Balance[]> {
+    if (!params.addresses?.length) {
+      throw new Error('Addresses required for Bitcoin balance fetching');
+    }
+
+    const allBalances: Balance[] = [];
+
+    for (const address of params.addresses) {
+      try {
+        const result = (await this.providerManager.executeWithFailover('bitcoin', {
+          address: address,
+          type: 'getAddressBalance',
+        })) as { balance: string; token: string };
+
+        const balanceValue = parseFloat(result.balance);
+        if (balanceValue > 0) {
+          allBalances.push({
+            balance: balanceValue,
+            contractAddress: undefined,
+            currency: 'BTC',
+            total: balanceValue,
+            used: 0,
+          });
+        }
+      } catch (error) {
+        this.logger.error(`Failed to get Bitcoin balance for ${address} - Error: ${error}`);
+        throw error;
+      }
+    }
+
+    return allBalances;
+  }
+
+  protected async fetchRawTransactions(params: UniversalFetchParams): Promise<BlockchainTransaction[]> {
+    if (!params.addresses?.length) {
+      throw new Error('Addresses required for Bitcoin adapter');
+    }
+
+    const allTransactions: BlockchainTransaction[] = [];
+
+    for (const userAddress of params.addresses) {
+      this.logger.info(`Fetching transactions for address: ${userAddress.substring(0, 20)}...`);
+
+      let wallet: BitcoinWalletAddress;
+
+      // Check if we've already processed this address
+      const existingWallet = this.walletAddresses.find(w => w.address === userAddress);
+      if (existingWallet) {
+        wallet = existingWallet;
+      } else {
+        // Initialize this specific address (handles both xpub and regular addresses)
+        wallet = {
+          address: userAddress,
+          type: BitcoinUtils.getAddressType(userAddress),
+        };
+
+        if (BitcoinUtils.isXpub(userAddress)) {
+          this.logger.info(`Processing xpub: ${userAddress.substring(0, 20)}...`);
+          await this.initializeXpubWallet(wallet);
+        } else {
+          this.logger.info(`Processing regular address: ${userAddress}`);
+        }
+
+        this.walletAddresses.push(wallet);
+      }
+
+      if (wallet.derivedAddresses) {
+        // Xpub wallet - fetch from all derived addresses and deduplicate
+        this.logger.info(`Fetching from ${wallet.derivedAddresses.length} derived addresses`);
+        const walletTransactions = await this.fetchUniqueTransactionsForWalletWithProviders(
+          wallet.derivedAddresses,
+          params.since
+        );
+        allTransactions.push(...walletTransactions);
+      } else {
+        // Regular address - use provider manager with raw transactions for wallet-aware parsing
+        try {
+          const rawTransactions = (await this.providerManager.executeWithFailover('bitcoin', {
+            address: userAddress,
+            getCacheKey: cacheParams =>
+              `bitcoin:raw-txs:${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.address : 'unknown'}:${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
+            since: params.since,
+            type: 'getRawAddressTransactions',
+          })) as (MempoolTransaction | BlockstreamTransaction)[];
+
+          // Parse raw transactions with wallet context (single address, local parsing)
+          for (const rawTx of rawTransactions) {
+            try {
+              const blockchainTx = this.parseWalletTransaction(rawTx, [userAddress]);
+              allTransactions.push(blockchainTx);
+            } catch (error) {
+              this.logger.warn(`Failed to parse transaction ${rawTx.txid} - Error: ${error}`);
+            }
+          }
+        } catch (error) {
+          this.logger.error(`Failed to fetch Bitcoin transactions for ${userAddress} - Error: ${error}`);
+          throw error;
+        }
+      }
+    }
+
+    // Remove duplicates and sort by timestamp
+    const uniqueTransactions = allTransactions.reduce((acc, tx) => {
+      if (!acc.find(existing => existing.hash === tx.hash)) {
+        acc.push(tx);
+      }
+      return acc;
+    }, [] as BlockchainTransaction[]);
+
+    uniqueTransactions.sort((a, b) => b.timestamp - a.timestamp);
+
+    this.logger.info(`BitcoinAdapter: Found ${uniqueTransactions.length} unique transactions total`);
+    return uniqueTransactions;
+  }
+
+  async getInfo(): Promise<UniversalAdapterInfo> {
+    return {
+      capabilities: {
+        maxBatchSize: 1,
+        rateLimit: {
+          burstLimit: 10,
+          requestsPerSecond: 2,
+        },
+        requiresApiKey: false,
+        supportedOperations: ['fetchTransactions', 'fetchBalances'],
+        supportsHistoricalData: true,
+        supportsPagination: false,
+      },
+      id: 'bitcoin',
+      name: 'Bitcoin',
+      subType: 'rest',
+      type: 'blockchain',
     };
   }
 
@@ -426,15 +382,59 @@ export class BitcoinAdapter extends BaseAdapter {
     }
   }
 
-  /**
-   * Close adapter and cleanup resources
-   */
-  async close(): Promise<void> {
-    try {
-      this.providerManager.destroy();
-      this.logger.info('Bitcoin adapter closed successfully');
-    } catch (error) {
-      this.logger.warn(`Error during Bitcoin adapter close - Error: ${error}`);
-    }
+  protected async transformBalances(rawBalances: Balance[], params: UniversalFetchParams): Promise<UniversalBalance[]> {
+    return rawBalances.map(balance => ({
+      contractAddress: balance.contractAddress,
+      currency: balance.currency,
+      free: balance.balance,
+      total: balance.total,
+      used: balance.used,
+    }));
+  }
+
+  protected async transformTransactions(
+    rawTxs: BlockchainTransaction[],
+    params: UniversalFetchParams
+  ): Promise<UniversalTransaction[]> {
+    const userAddresses = params.addresses || [];
+
+    return rawTxs.map(tx => {
+      // Determine transaction type based on user addresses
+      let type: TransactionType = 'transfer';
+
+      if (userAddresses.length > 0) {
+        const userAddress = userAddresses[0].toLowerCase();
+        const isIncoming = tx.to.toLowerCase() === userAddress;
+        const isOutgoing = tx.from.toLowerCase() === userAddress;
+
+        if (isIncoming && !isOutgoing) {
+          type = 'deposit';
+        } else if (isOutgoing && !isIncoming) {
+          type = 'withdrawal';
+        }
+      }
+
+      return {
+        amount: tx.value,
+        datetime: new Date(tx.timestamp).toISOString(),
+        fee: tx.fee,
+        from: tx.from,
+        id: tx.hash,
+        metadata: {
+          blockHash: tx.blockHash,
+          blockNumber: tx.blockNumber,
+          confirmations: tx.confirmations,
+          originalTransaction: tx,
+          transactionType: tx.type,
+        },
+        network: 'mainnet',
+        source: 'bitcoin',
+        status: tx.status === 'success' ? 'closed' : tx.status === 'pending' ? 'open' : 'canceled',
+        symbol: tx.tokenSymbol || tx.value.currency,
+        timestamp: tx.timestamp,
+        to: tx.to,
+        type,
+      };
+    });
   }
 }

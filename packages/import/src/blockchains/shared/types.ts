@@ -5,61 +5,61 @@ import type { DataSourceCapabilities, RateLimitConfig } from '@crypto/core';
 // Discriminated union type for all possible operation parameters
 export type ProviderOperationParams =
   | {
+      address: string;
+      limit?: number | undefined;
+      since?: number | undefined;
       type: 'getAddressTransactions';
-      address: string;
-      since?: number | undefined;
       until?: number | undefined;
-      limit?: number | undefined;
     }
   | {
+      address: string;
+      limit?: number | undefined;
+      since?: number | undefined;
       type: 'getRawAddressTransactions';
-      address: string;
-      since?: number | undefined;
       until?: number | undefined;
-      limit?: number | undefined;
     }
-  | { type: 'getAddressBalance'; address: string; contractAddresses?: string[] | undefined }
+  | { address: string; contractAddresses?: string[] | undefined; type: 'getAddressBalance' }
   | {
-      type: 'getTokenTransactions';
       address: string;
       contractAddress?: string | undefined;
-      since?: number | undefined;
-      until?: number | undefined;
       limit?: number | undefined;
+      since?: number | undefined;
+      type: 'getTokenTransactions';
+      until?: number | undefined;
     }
-  | { type: 'getTokenBalances'; address: string; contractAddresses?: string[] | undefined }
-  | { type: 'getAddressInfo'; address: string }
-  | { type: 'parseWalletTransaction'; tx: unknown; walletAddresses: string[] }
+  | { address: string; contractAddresses?: string[] | undefined; type: 'getTokenBalances' }
+  | { address: string; type: 'getAddressInfo' }
+  | { tx: unknown; type: 'parseWalletTransaction'; walletAddresses: string[] }
   | { type: 'testConnection' }
-  | { type: 'custom'; [key: string]: unknown };
+  | { [key: string]: unknown; type: 'custom' };
 
 // Type guard functions removed - discriminated union provides automatic type narrowing
 
 // Common JSON-RPC response interface for blockchain providers
 export interface JsonRpcResponse<T = unknown> {
-  result: T;
   error?: { code: number; message: string };
   id?: number | string;
   jsonrpc?: string;
+  result: T;
 }
 
 export interface IBlockchainProvider<TConfig = Record<string, unknown>> {
-  readonly name: string;
   readonly blockchain: string;
   readonly capabilities: ProviderCapabilities;
-  readonly rateLimit: RateLimitConfig;
-
-  // Health and connectivity
-  isHealthy(): Promise<boolean>;
-  testConnection(): Promise<boolean>;
-
   // Universal execution method - all operations go through this
   execute<T>(operation: ProviderOperation<T>, config: TConfig): Promise<T>;
+  // Health and connectivity
+  isHealthy(): Promise<boolean>;
+
+  readonly name: string;
+  readonly rateLimit: RateLimitConfig;
+
+  testConnection(): Promise<boolean>;
 }
 
 export type ProviderOperation<T> = {
-  transform?: (response: unknown) => T;
   getCacheKey?: (params: ProviderOperationParams) => string;
+  transform?: (response: unknown) => T;
 } & ProviderOperationParams;
 
 // Provider-specific operation types for capabilities
@@ -81,13 +81,13 @@ export interface ProviderCapabilities extends DataSourceCapabilities<ProviderOpe
 }
 
 export interface ProviderHealth {
+  averageResponseTime: number;
+  consecutiveFailures: number;
+  errorRate: number;
   isHealthy: boolean;
   lastChecked: number;
-  consecutiveFailures: number;
-  averageResponseTime: number;
-  errorRate: number;
   lastError?: string | undefined;
+  lastRateLimitTime?: number | undefined; // Timestamp of last rate limit event
   rateLimitEvents: number; // Total rate limit events encountered
   rateLimitRate: number; // Percentage of requests that were rate limited (0-1)
-  lastRateLimitTime?: number | undefined; // Timestamp of last rate limit event
 }

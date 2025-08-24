@@ -6,15 +6,15 @@
  */
 
 export interface CsvKrakenLedgerRow {
-  txid: string;
-  refid: string;
-  time: string;
-  type: string;
-  subtype: string;
   aclass: string;
-  asset: string;
-  wallet: string;
   amount: string;
-  fee: string;
+  asset: string;
   balance: string;
+  fee: string;
+  refid: string;
+  subtype: string;
+  time: string;
+  txid: string;
+  type: string;
+  wallet: string;
 }

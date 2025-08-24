@@ -30,24 +30,47 @@ export class AvalancheAdapter extends BaseAdapter {
     );
   }
 
-  async getInfo(): Promise<UniversalAdapterInfo> {
-    return {
-      id: 'avalanche',
-      name: 'Avalanche C-Chain',
-      type: 'blockchain',
-      subType: 'rest',
-      capabilities: {
-        supportedOperations: ['fetchTransactions', 'fetchBalances'],
-        maxBatchSize: 1,
-        supportsHistoricalData: true,
-        supportsPagination: true,
-        requiresApiKey: false,
-        rateLimit: {
-          requestsPerSecond: 5,
-          burstLimit: 20,
-        },
-      },
-    };
+  /**
+   * Close adapter and cleanup resources
+   */
+  async close(): Promise<void> {
+    try {
+      this.providerManager.destroy();
+      this.logger.info('Avalanche adapter closed successfully');
+    } catch (error) {
+      this.logger.warn(`Error during Avalanche adapter close - Error: ${error}`);
+    }
+  }
+
+  protected async fetchRawBalances(params: UniversalFetchParams): Promise<Balance[]> {
+    if (!params.addresses?.length) {
+      throw new Error('Addresses required for Avalanche balance fetching');
+    }
+
+    const allBalances: Balance[] = [];
+
+    for (const address of params.addresses) {
+      this.logger.debug(`AvalancheAdapter.getAddressBalance called - Address: ${address}`);
+
+      try {
+        const balances = (await this.providerManager.executeWithFailover('avalanche', {
+          address: address,
+          getCacheKey: cacheParams =>
+            `avax_balance_${cacheParams.type === 'getAddressBalance' ? cacheParams.address : 'unknown'}`,
+          type: 'getAddressBalance',
+        })) as Balance[];
+
+        allBalances.push(...balances);
+        this.logger.info(`AvalancheAdapter: Found ${balances.length} balances for address`);
+      } catch (error) {
+        this.logger.error(
+          `Failed to fetch address balance via provider manager - Address: ${address}, Error: ${error instanceof Error ? error.message : String(error)}`
+        );
+        throw error;
+      }
+    }
+
+    return allBalances;
   }
 
   protected async fetchRawTransactions(params: UniversalFetchParams): Promise<BlockchainTransaction[]> {
@@ -63,22 +86,22 @@ export class AvalancheAdapter extends BaseAdapter {
       try {
         // Fetch regular AVAX transactions
         const regularTxs = (await this.providerManager.executeWithFailover('avalanche', {
-          type: 'getAddressTransactions',
           address: address,
-          since: params.since,
           getCacheKey: cacheParams =>
             `avax_tx_${cacheParams.type === 'getAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getAddressTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
+          since: params.since,
+          type: 'getAddressTransactions',
         })) as BlockchainTransaction[];
 
         // Try to fetch ERC-20 token transactions (if provider supports it)
         let tokenTxs: BlockchainTransaction[] = [];
         try {
           tokenTxs = (await this.providerManager.executeWithFailover('avalanche', {
-            type: 'getTokenTransactions',
             address: address,
-            since: params.since,
             getCacheKey: cacheParams =>
               `avax_token_tx_${cacheParams.type === 'getTokenTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getTokenTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
+            since: params.since,
+            type: 'getTokenTransactions',
           })) as BlockchainTransaction[];
         } catch (error) {
           this.logger.debug(
@@ -112,92 +135,24 @@ export class AvalancheAdapter extends BaseAdapter {
     return uniqueTransactions;
   }
 
-  protected async fetchRawBalances(params: UniversalFetchParams): Promise<Balance[]> {
-    if (!params.addresses?.length) {
-      throw new Error('Addresses required for Avalanche balance fetching');
-    }
-
-    const allBalances: Balance[] = [];
-
-    for (const address of params.addresses) {
-      this.logger.debug(`AvalancheAdapter.getAddressBalance called - Address: ${address}`);
-
-      try {
-        const balances = (await this.providerManager.executeWithFailover('avalanche', {
-          type: 'getAddressBalance',
-          address: address,
-          getCacheKey: cacheParams =>
-            `avax_balance_${cacheParams.type === 'getAddressBalance' ? cacheParams.address : 'unknown'}`,
-        })) as Balance[];
-
-        allBalances.push(...balances);
-        this.logger.info(`AvalancheAdapter: Found ${balances.length} balances for address`);
-      } catch (error) {
-        this.logger.error(
-          `Failed to fetch address balance via provider manager - Address: ${address}, Error: ${error instanceof Error ? error.message : String(error)}`
-        );
-        throw error;
-      }
-    }
-
-    return allBalances;
-  }
-
-  protected async transformTransactions(
-    rawTxs: BlockchainTransaction[],
-    params: UniversalFetchParams
-  ): Promise<UniversalTransaction[]> {
-    const userAddresses = params.addresses || [];
-
-    return rawTxs.map(tx => {
-      // Determine transaction type based on user addresses
-      let type: TransactionType = 'transfer';
-
-      if (userAddresses.length > 0) {
-        const userAddress = userAddresses[0].toLowerCase();
-        const isIncoming = tx.to.toLowerCase() === userAddress;
-        const isOutgoing = tx.from.toLowerCase() === userAddress;
-
-        if (isIncoming && !isOutgoing) {
-          type = 'deposit';
-        } else if (isOutgoing && !isIncoming) {
-          type = 'withdrawal';
-        }
-      }
-
-      return {
-        id: tx.hash,
-        timestamp: tx.timestamp,
-        datetime: new Date(tx.timestamp).toISOString(),
-        type,
-        status: tx.status === 'success' ? 'closed' : tx.status === 'pending' ? 'open' : 'canceled',
-        amount: tx.value,
-        fee: tx.fee,
-        from: tx.from,
-        to: tx.to,
-        symbol: tx.tokenSymbol || tx.value.currency,
-        source: 'avalanche',
-        network: 'mainnet',
-        metadata: {
-          blockNumber: tx.blockNumber,
-          blockHash: tx.blockHash,
-          confirmations: tx.confirmations,
-          tokenContract: tx.tokenContract,
-          transactionType: tx.type,
-          originalTransaction: tx,
+  async getInfo(): Promise<UniversalAdapterInfo> {
+    return {
+      capabilities: {
+        maxBatchSize: 1,
+        rateLimit: {
+          burstLimit: 20,
+          requestsPerSecond: 5,
         },
-      };
-    });
-  }
-
-  protected async transformBalances(rawBalances: Balance[], params: UniversalFetchParams): Promise<UniversalBalance[]> {
-    return rawBalances.map(balance => ({
-      currency: balance.currency,
-      total: balance.total,
-      free: balance.balance,
-      used: balance.used,
-      contractAddress: balance.contractAddress,
-    }));
+        requiresApiKey: false,
+        supportedOperations: ['fetchTransactions', 'fetchBalances'],
+        supportsHistoricalData: true,
+        supportsPagination: true,
+      },
+      id: 'avalanche',
+      name: 'Avalanche C-Chain',
+      subType: 'rest',
+      type: 'blockchain',
+    };
   }
 
   async testConnection(): Promise<boolean> {
@@ -234,16 +189,61 @@ export class AvalancheAdapter extends BaseAdapter {
     }
   }
 
-  /**
-   * Close adapter and cleanup resources
-   */
-  async close(): Promise<void> {
-    try {
-      this.providerManager.destroy();
-      this.logger.info('Avalanche adapter closed successfully');
-    } catch (error) {
-      this.logger.warn(`Error during Avalanche adapter close - Error: ${error}`);
-    }
+  protected async transformBalances(rawBalances: Balance[], params: UniversalFetchParams): Promise<UniversalBalance[]> {
+    return rawBalances.map(balance => ({
+      contractAddress: balance.contractAddress,
+      currency: balance.currency,
+      free: balance.balance,
+      total: balance.total,
+      used: balance.used,
+    }));
+  }
+
+  protected async transformTransactions(
+    rawTxs: BlockchainTransaction[],
+    params: UniversalFetchParams
+  ): Promise<UniversalTransaction[]> {
+    const userAddresses = params.addresses || [];
+
+    return rawTxs.map(tx => {
+      // Determine transaction type based on user addresses
+      let type: TransactionType = 'transfer';
+
+      if (userAddresses.length > 0) {
+        const userAddress = userAddresses[0].toLowerCase();
+        const isIncoming = tx.to.toLowerCase() === userAddress;
+        const isOutgoing = tx.from.toLowerCase() === userAddress;
+
+        if (isIncoming && !isOutgoing) {
+          type = 'deposit';
+        } else if (isOutgoing && !isIncoming) {
+          type = 'withdrawal';
+        }
+      }
+
+      return {
+        amount: tx.value,
+        datetime: new Date(tx.timestamp).toISOString(),
+        fee: tx.fee,
+        from: tx.from,
+        id: tx.hash,
+        metadata: {
+          blockHash: tx.blockHash,
+          blockNumber: tx.blockNumber,
+          confirmations: tx.confirmations,
+          originalTransaction: tx,
+          tokenContract: tx.tokenContract,
+          transactionType: tx.type,
+        },
+        network: 'mainnet',
+        source: 'avalanche',
+        status: tx.status === 'success' ? 'closed' : tx.status === 'pending' ? 'open' : 'canceled',
+        symbol: tx.tokenSymbol || tx.value.currency,
+        timestamp: tx.timestamp,
+        to: tx.to,
+        type,
+      };
+    });
   }
 
   // Legacy methods for compatibility (can be removed once migration is complete)

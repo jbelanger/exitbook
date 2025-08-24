@@ -7,14 +7,14 @@ describe('UniversalAdapterFactory', () => {
   describe('Native Exchange Adapters', () => {
     it('should create native Coinbase adapter', async () => {
       const config: UniversalExchangeAdapterConfig = {
-        type: 'exchange',
-        id: 'coinbase',
-        subType: 'native',
         credentials: {
           apiKey: 'organizations/test-org/apiKeys/test-key',
-          secret: '-----BEGIN EC PRIVATE KEY-----\nMHcCAQEEIHTestTestKey\n-----END EC PRIVATE KEY-----',
           password: 'test-passphrase',
+          secret: '-----BEGIN EC PRIVATE KEY-----\nMHcCAQEEIHTestTestKey\n-----END EC PRIVATE KEY-----',
         },
+        id: 'coinbase',
+        subType: 'native',
+        type: 'exchange',
       };
 
       const adapter = await UniversalAdapterFactory.create(config);
@@ -23,21 +23,21 @@ describe('UniversalAdapterFactory', () => {
 
       const info = await adapter.getInfo();
       expect(info).toEqual({
-        id: 'coinbase',
-        name: 'Coinbase Track API',
-        type: 'exchange',
-        subType: 'native',
         capabilities: {
-          supportedOperations: ['fetchTransactions', 'fetchBalances'],
           maxBatchSize: 100,
+          rateLimit: {
+            burstLimit: 5,
+            requestsPerSecond: 3,
+          },
+          requiresApiKey: true,
+          supportedOperations: ['fetchTransactions', 'fetchBalances'],
           supportsHistoricalData: true,
           supportsPagination: true,
-          requiresApiKey: true,
-          rateLimit: {
-            requestsPerSecond: 3,
-            burstLimit: 5,
-          },
         },
+        id: 'coinbase',
+        name: 'Coinbase Track API',
+        subType: 'native',
+        type: 'exchange',
       });
 
       await adapter.close();
@@ -45,13 +45,13 @@ describe('UniversalAdapterFactory', () => {
 
     it('should throw error for unsupported native exchange', async () => {
       const config: UniversalExchangeAdapterConfig = {
-        type: 'exchange',
-        id: 'unsupported',
-        subType: 'native',
         credentials: {
           apiKey: 'test-key',
           secret: 'test-secret',
         },
+        id: 'unsupported',
+        subType: 'native',
+        type: 'exchange',
       };
 
       await expect(UniversalAdapterFactory.create(config)).rejects.toThrow('Unsupported native exchange: unsupported');
@@ -59,9 +59,9 @@ describe('UniversalAdapterFactory', () => {
 
     it('should throw error for native adapter without credentials', async () => {
       const config: UniversalExchangeAdapterConfig = {
-        type: 'exchange',
         id: 'coinbase',
         subType: 'native',
+        type: 'exchange',
       };
 
       await expect(UniversalAdapterFactory.create(config)).rejects.toThrow(
@@ -75,21 +75,21 @@ describe('UniversalAdapterFactory', () => {
       const config = UniversalAdapterFactory.createExchangeConfig('coinbase', 'native', {
         credentials: {
           apiKey: 'organizations/test-org/apiKeys/test-key',
-          secret: '-----BEGIN EC PRIVATE KEY-----\nMHcCAQEEIHTestTestKey\n-----END EC PRIVATE KEY-----',
           password: 'test-passphrase',
+          secret: '-----BEGIN EC PRIVATE KEY-----\nMHcCAQEEIHTestTestKey\n-----END EC PRIVATE KEY-----',
         },
       });
 
       expect(config).toEqual({
-        type: 'exchange',
-        id: 'coinbase',
-        subType: 'native',
         credentials: {
           apiKey: 'organizations/test-org/apiKeys/test-key',
-          secret: '-----BEGIN EC PRIVATE KEY-----\nMHcCAQEEIHTestTestKey\n-----END EC PRIVATE KEY-----',
           password: 'test-passphrase',
+          secret: '-----BEGIN EC PRIVATE KEY-----\nMHcCAQEEIHTestTestKey\n-----END EC PRIVATE KEY-----',
         },
         csvDirectories: undefined,
+        id: 'coinbase',
+        subType: 'native',
+        type: 'exchange',
       });
     });
   });

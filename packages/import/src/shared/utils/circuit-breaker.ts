@@ -7,11 +7,11 @@ export class CircuitBreaker {
   private failureCount = 0;
   private lastFailureTimestamp = 0;
   private lastSuccessTimestamp = 0;
-  private readonly maxFailures: number;
-  private readonly recoveryTimeoutMs: number;
-  private readonly providerName: string;
   private readonly logger: Logger;
+  private readonly maxFailures: number;
   private previousState: 'closed' | 'open' | 'half-open' = 'closed';
+  private readonly providerName: string;
+  private readonly recoveryTimeoutMs: number;
 
   constructor(
     providerName: string,
@@ -27,14 +27,38 @@ export class CircuitBreaker {
   }
 
   /**
-   * Determines if circuit breaker is open (blocking all requests)
+   * Returns current circuit breaker state
    */
-  isOpen(): boolean {
-    if (this.failureCount >= this.maxFailures) {
-      const timeSinceLastFailure = Date.now() - this.lastFailureTimestamp;
-      return timeSinceLastFailure < this.recoveryTimeoutMs;
-    }
-    return false;
+  getCurrentState(): 'closed' | 'open' | 'half-open' {
+    if (this.failureCount < this.maxFailures) return 'closed';
+
+    const timeSinceLastFailure = Date.now() - this.lastFailureTimestamp;
+    if (timeSinceLastFailure >= this.recoveryTimeoutMs) return 'half-open';
+
+    return 'open';
+  }
+
+  /**
+   * Returns comprehensive circuit breaker statistics
+   */
+  getStatistics() {
+    return {
+      failureCount: this.failureCount,
+      lastFailureTimestamp: this.lastFailureTimestamp,
+      lastSuccessTimestamp: this.lastSuccessTimestamp,
+      maxFailures: this.maxFailures,
+      providerName: this.providerName,
+      state: this.getCurrentState(),
+      timeSinceLastFailureMs: this.lastFailureTimestamp ? Date.now() - this.lastFailureTimestamp : 0,
+      timeUntilRecoveryMs: this.isOpen() ? this.recoveryTimeoutMs - (Date.now() - this.lastFailureTimestamp) : 0,
+    };
+  }
+
+  /**
+   * Determines if circuit breaker is closed (normal operation)
+   */
+  isClosed(): boolean {
+    return this.failureCount < this.maxFailures;
   }
 
   /**
@@ -49,30 +73,14 @@ export class CircuitBreaker {
   }
 
   /**
-   * Determines if circuit breaker is closed (normal operation)
+   * Determines if circuit breaker is open (blocking all requests)
    */
-  isClosed(): boolean {
-    return this.failureCount < this.maxFailures;
-  }
-
-  /**
-   * Records successful operation and resets failure state
-   */
-  recordSuccess(): void {
-    const wasOpen = this.isOpen();
-    this.failureCount = 0;
-    this.lastFailureTimestamp = 0;
-    this.lastSuccessTimestamp = Date.now();
-
-    const currentState = this.getCurrentState();
-    if (this.previousState !== currentState) {
-      this.logger.info(
-        `Circuit breaker state changed: ${this.previousState} → ${currentState} - Reason: success_recorded, Stats: ${JSON.stringify(this.getStatistics())}`
-      );
-      this.previousState = currentState;
-    } else if (wasOpen) {
-      this.logger.info(`Circuit breaker recovered after success - Stats: ${JSON.stringify(this.getStatistics())}`);
+  isOpen(): boolean {
+    if (this.failureCount >= this.maxFailures) {
+      const timeSinceLastFailure = Date.now() - this.lastFailureTimestamp;
+      return timeSinceLastFailure < this.recoveryTimeoutMs;
     }
+    return false;
   }
 
   /**
@@ -96,31 +104,23 @@ export class CircuitBreaker {
   }
 
   /**
-   * Returns current circuit breaker state
+   * Records successful operation and resets failure state
    */
-  getCurrentState(): 'closed' | 'open' | 'half-open' {
-    if (this.failureCount < this.maxFailures) return 'closed';
+  recordSuccess(): void {
+    const wasOpen = this.isOpen();
+    this.failureCount = 0;
+    this.lastFailureTimestamp = 0;
+    this.lastSuccessTimestamp = Date.now();
 
-    const timeSinceLastFailure = Date.now() - this.lastFailureTimestamp;
-    if (timeSinceLastFailure >= this.recoveryTimeoutMs) return 'half-open';
-
-    return 'open';
-  }
-
-  /**
-   * Returns comprehensive circuit breaker statistics
-   */
-  getStatistics() {
-    return {
-      providerName: this.providerName,
-      state: this.getCurrentState(),
-      failureCount: this.failureCount,
-      maxFailures: this.maxFailures,
-      lastFailureTimestamp: this.lastFailureTimestamp,
-      lastSuccessTimestamp: this.lastSuccessTimestamp,
-      timeSinceLastFailureMs: this.lastFailureTimestamp ? Date.now() - this.lastFailureTimestamp : 0,
-      timeUntilRecoveryMs: this.isOpen() ? this.recoveryTimeoutMs - (Date.now() - this.lastFailureTimestamp) : 0,
-    };
+    const currentState = this.getCurrentState();
+    if (this.previousState !== currentState) {
+      this.logger.info(
+        `Circuit breaker state changed: ${this.previousState} → ${currentState} - Reason: success_recorded, Stats: ${JSON.stringify(this.getStatistics())}`
+      );
+      this.previousState = currentState;
+    } else if (wasOpen) {
+      this.logger.info(`Circuit breaker recovered after success - Stats: ${JSON.stringify(this.getStatistics())}`);
+    }
   }
 
   /**

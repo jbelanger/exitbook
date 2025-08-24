@@ -8,14 +8,9 @@ import type { ProviderOperation } from '../../shared/types.ts';
 import type { AddressInfo, BlockstreamAddressInfo, BlockstreamTransaction } from '../types.ts';
 
 @RegisterProvider({
-  name: 'blockstream.info',
   blockchain: 'bitcoin',
-  displayName: 'Blockstream.info API',
-  type: 'rest',
-  requiresApiKey: false,
-  description:
-    'Bitcoin blockchain explorer API with comprehensive transaction data and pagination support (no API key required)',
   capabilities: {
+    maxBatchSize: 25,
     supportedOperations: [
       'getAddressTransactions',
       'getAddressBalance',
@@ -23,12 +18,25 @@ import type { AddressInfo, BlockstreamAddressInfo, BlockstreamTransaction } from
       'getAddressInfo',
       'parseWalletTransaction',
     ],
-    maxBatchSize: 25,
     supportsHistoricalData: true,
     supportsPagination: true,
     supportsRealTimeData: true,
     supportsTokenData: false,
   },
+  defaultConfig: {
+    rateLimit: {
+      burstLimit: 5,
+      requestsPerHour: 3600,
+      requestsPerMinute: 60,
+      requestsPerSecond: 1.0, // More generous than mempool.space
+    },
+    retries: 3,
+    timeout: 10000,
+  },
+  description:
+    'Bitcoin blockchain explorer API with comprehensive transaction data and pagination support (no API key required)',
+  displayName: 'Blockstream.info API',
+  name: 'blockstream.info',
   networks: {
     mainnet: {
       baseUrl: 'https://blockstream.info/api',
@@ -37,16 +45,8 @@ import type { AddressInfo, BlockstreamAddressInfo, BlockstreamTransaction } from
       baseUrl: 'https://blockstream.info/testnet/api',
     },
   },
-  defaultConfig: {
-    timeout: 10000,
-    retries: 3,
-    rateLimit: {
-      requestsPerSecond: 1.0, // More generous than mempool.space
-      requestsPerMinute: 60,
-      requestsPerHour: 3600,
-      burstLimit: 5,
-    },
-  },
+  requiresApiKey: false,
+  type: 'rest',
 })
 export class BlockstreamProvider extends BaseRegistryProvider {
   constructor() {
@@ -57,64 +57,71 @@ export class BlockstreamProvider extends BaseRegistryProvider {
     );
   }
 
-  async isHealthy(): Promise<boolean> {
-    try {
-      const response = await this.httpClient.get<number>('/blocks/tip/height');
-      return typeof response === 'number' && response > 0;
-    } catch (error) {
-      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
-    }
-  }
+  private async getAddressBalance(params: { address: string }): Promise<{ balance: string; token: string }> {
+    const { address } = params;
 
-  async testConnection(): Promise<boolean> {
-    try {
-      // Test with a simple endpoint that should always work
-      const blockHeight = await this.httpClient.get<number>('/blocks/tip/height');
-      this.logger.debug(`Connection test successful - CurrentBlockHeight: ${blockHeight}`);
-      return typeof blockHeight === 'number' && blockHeight > 0;
-    } catch (error) {
-      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
-    }
-  }
-
-  async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug(
-      `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
-    );
+    this.logger.debug(`Fetching address balance - Address: ${maskAddress(address)}`);
 
     try {
-      switch (operation.type) {
-        case 'getAddressTransactions':
-          return this.getAddressTransactions({
-            address: operation.address,
-            since: operation.since,
-          }) as T;
-        case 'getRawAddressTransactions':
-          return this.getRawAddressTransactions({
-            address: operation.address,
-            since: operation.since,
-          }) as T;
-        case 'getAddressBalance':
-          return this.getAddressBalance({
-            address: operation.address,
-          }) as T;
-        case 'getAddressInfo':
-          return this.getAddressInfo({
-            address: operation.address,
-          }) as T;
-        case 'parseWalletTransaction':
-          return this.parseWalletTransaction({
-            tx: operation.tx as BlockstreamTransaction,
-            walletAddresses: operation.walletAddresses,
-          }) as T;
-        default:
-          throw new Error(`Unsupported operation: ${operation.type}`);
-      }
+      const addressInfo = await this.httpClient.get<BlockstreamAddressInfo>(`/address/${address}`);
+
+      // Calculate current balance: funded amount - spent amount
+      const chainBalance = addressInfo.chain_stats.funded_txo_sum - addressInfo.chain_stats.spent_txo_sum;
+      const mempoolBalance = addressInfo.mempool_stats.funded_txo_sum - addressInfo.mempool_stats.spent_txo_sum;
+      const totalBalanceSats = chainBalance + mempoolBalance;
+
+      // Convert satoshis to BTC
+      const balanceBTC = (totalBalanceSats / 100000000).toString();
+
+      this.logger.debug(
+        `Successfully retrieved address balance - Address: ${maskAddress(address)}, BalanceBTC: ${balanceBTC}, BalanceSats: ${totalBalanceSats}`
+      );
+
+      return {
+        balance: balanceBTC,
+        token: 'BTC',
+      };
     } catch (error) {
       this.logger.error(
-        `Operation execution failed - Type: ${operation.type}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`
+        `Failed to get address balance - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Get lightweight address info for efficient gap scanning
+   */
+  private async getAddressInfo(params: { address: string }): Promise<AddressInfo> {
+    const { address } = params;
+
+    this.logger.debug(`Fetching lightweight address info - Address: ${maskAddress(address)}`);
+
+    try {
+      const addressInfo = await this.httpClient.get<BlockstreamAddressInfo>(`/address/${address}`);
+
+      // Calculate transaction count
+      const txCount = addressInfo.chain_stats.tx_count + addressInfo.mempool_stats.tx_count;
+
+      // Calculate current balance: funded amount - spent amount
+      const chainBalance = addressInfo.chain_stats.funded_txo_sum - addressInfo.chain_stats.spent_txo_sum;
+      const mempoolBalance = addressInfo.mempool_stats.funded_txo_sum - addressInfo.mempool_stats.spent_txo_sum;
+      const totalBalanceSats = chainBalance + mempoolBalance;
+
+      // Convert satoshis to BTC
+      const balanceBTC = (totalBalanceSats / 100000000).toString();
+
+      this.logger.debug(
+        `Successfully retrieved lightweight address info - Address: ${maskAddress(address)}, TxCount: ${txCount}, BalanceBTC: ${balanceBTC}`
+      );
+
+      return {
+        balance: balanceBTC,
+        txCount,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Failed to get address info - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`
       );
       throw error;
     }
@@ -206,76 +213,6 @@ export class BlockstreamProvider extends BaseRegistryProvider {
     }
   }
 
-  private async getAddressBalance(params: { address: string }): Promise<{ balance: string; token: string }> {
-    const { address } = params;
-
-    this.logger.debug(`Fetching address balance - Address: ${maskAddress(address)}`);
-
-    try {
-      const addressInfo = await this.httpClient.get<BlockstreamAddressInfo>(`/address/${address}`);
-
-      // Calculate current balance: funded amount - spent amount
-      const chainBalance = addressInfo.chain_stats.funded_txo_sum - addressInfo.chain_stats.spent_txo_sum;
-      const mempoolBalance = addressInfo.mempool_stats.funded_txo_sum - addressInfo.mempool_stats.spent_txo_sum;
-      const totalBalanceSats = chainBalance + mempoolBalance;
-
-      // Convert satoshis to BTC
-      const balanceBTC = (totalBalanceSats / 100000000).toString();
-
-      this.logger.debug(
-        `Successfully retrieved address balance - Address: ${maskAddress(address)}, BalanceBTC: ${balanceBTC}, BalanceSats: ${totalBalanceSats}`
-      );
-
-      return {
-        balance: balanceBTC,
-        token: 'BTC',
-      };
-    } catch (error) {
-      this.logger.error(
-        `Failed to get address balance - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`
-      );
-      throw error;
-    }
-  }
-
-  /**
-   * Get lightweight address info for efficient gap scanning
-   */
-  private async getAddressInfo(params: { address: string }): Promise<AddressInfo> {
-    const { address } = params;
-
-    this.logger.debug(`Fetching lightweight address info - Address: ${maskAddress(address)}`);
-
-    try {
-      const addressInfo = await this.httpClient.get<BlockstreamAddressInfo>(`/address/${address}`);
-
-      // Calculate transaction count
-      const txCount = addressInfo.chain_stats.tx_count + addressInfo.mempool_stats.tx_count;
-
-      // Calculate current balance: funded amount - spent amount
-      const chainBalance = addressInfo.chain_stats.funded_txo_sum - addressInfo.chain_stats.spent_txo_sum;
-      const mempoolBalance = addressInfo.mempool_stats.funded_txo_sum - addressInfo.mempool_stats.spent_txo_sum;
-      const totalBalanceSats = chainBalance + mempoolBalance;
-
-      // Convert satoshis to BTC
-      const balanceBTC = (totalBalanceSats / 100000000).toString();
-
-      this.logger.debug(
-        `Successfully retrieved lightweight address info - Address: ${maskAddress(address)}, TxCount: ${txCount}, BalanceBTC: ${balanceBTC}`
-      );
-
-      return {
-        txCount,
-        balance: balanceBTC,
-      };
-    } catch (error) {
-      this.logger.error(
-        `Failed to get address info - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`
-      );
-      throw error;
-    }
-  }
-
   /**
    * Get raw transaction data without transformation for wallet-aware parsing
    */
@@ -356,77 +293,6 @@ export class BlockstreamProvider extends BaseRegistryProvider {
       );
       throw error;
     }
-  }
-
-  private transformTransaction(tx: BlockstreamTransaction, userAddress?: string): BlockchainTransaction {
-    // Calculate transaction value and determine type
-    let valueAmount = new Decimal(0);
-    let type: BlockchainTransaction['type'] = 'transfer_in';
-
-    if (userAddress) {
-      let inputValue = 0;
-      let outputValue = 0;
-
-      // Check inputs for user address
-      for (const input of tx.vin) {
-        if (input.prevout.scriptpubkey_address === userAddress) {
-          inputValue += input.prevout.value;
-        }
-      }
-
-      // Check outputs for user address
-      for (const output of tx.vout) {
-        if (output.scriptpubkey_address === userAddress) {
-          outputValue += output.value;
-        }
-      }
-
-      // Determine transaction type and value
-      if (inputValue > 0 && outputValue === 0) {
-        // Pure withdrawal: user sent money
-        type = 'transfer_out';
-        valueAmount = new Decimal(inputValue).div(100000000);
-      } else if (inputValue === 0 && outputValue > 0) {
-        // Pure deposit: user received money
-        type = 'transfer_in';
-        valueAmount = new Decimal(outputValue).div(100000000);
-      } else if (inputValue > 0 && outputValue > 0) {
-        // Mixed transaction: calculate net effect
-        const netValue = outputValue - inputValue;
-        if (netValue > 0) {
-          type = 'transfer_in';
-          valueAmount = new Decimal(netValue).div(100000000);
-        } else {
-          type = 'transfer_out';
-          valueAmount = new Decimal(Math.abs(netValue)).div(100000000);
-        }
-      }
-    } else {
-      // Without user address context, just sum all outputs
-      const totalValue = tx.vout.reduce((sum, output) => sum + output.value, 0);
-      valueAmount = new Decimal(totalValue).div(100000000);
-    }
-
-    // Extract addresses
-    const fromAddresses = tx.vin
-      .map(input => input.prevout.scriptpubkey_address)
-      .filter((addr): addr is string => addr !== undefined);
-    const toAddresses = tx.vout
-      .map(output => output.scriptpubkey_address)
-      .filter((addr): addr is string => addr !== undefined);
-
-    return {
-      hash: tx.txid,
-      blockNumber: tx.status.block_height || 0,
-      blockHash: tx.status.block_hash || '',
-      timestamp: tx.status.block_time || Math.floor(Date.now() / 1000),
-      from: fromAddresses[0] || '',
-      to: toAddresses[0] || '',
-      value: { amount: valueAmount, currency: 'BTC' },
-      fee: { amount: new Decimal(tx.fee).div(100000000), currency: 'BTC' },
-      status: tx.status.confirmed ? 'success' : 'pending',
-      type,
-    };
   }
 
   /**
@@ -513,28 +379,162 @@ export class BlockstreamProvider extends BaseRegistryProvider {
       }
 
       return {
-        hash: tx.txid,
-        blockNumber: tx.status.block_height || 0,
         blockHash: tx.status.block_hash || '',
-        timestamp,
-        from: fromAddress,
-        to: toAddress,
-        value: createMoney(totalValue / 100000000, 'BTC'),
+        blockNumber: tx.status.block_height || 0,
+        confirmations: tx.status.confirmed ? 1 : 0,
         fee: createMoney(fee / 100000000, 'BTC'),
-        gasUsed: undefined,
+        from: fromAddress,
         gasPrice: undefined,
+        gasUsed: undefined,
+        hash: tx.txid,
+        nonce: undefined,
         status: tx.status.confirmed ? 'success' : 'pending',
-        type,
+        timestamp,
+        to: toAddress,
         tokenContract: undefined,
         tokenSymbol: 'BTC',
-        nonce: undefined,
-        confirmations: tx.status.confirmed ? 1 : 0,
+        type,
+        value: createMoney(totalValue / 100000000, 'BTC'),
       };
     } catch (error) {
       this.logger.error(
         `Failed to parse Blockstream wallet transaction ${tx.txid} - Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}, TxData: ${JSON.stringify(tx, null, 2)}`
       );
       throw error;
+    }
+  }
+
+  private transformTransaction(tx: BlockstreamTransaction, userAddress?: string): BlockchainTransaction {
+    // Calculate transaction value and determine type
+    let valueAmount = new Decimal(0);
+    let type: BlockchainTransaction['type'] = 'transfer_in';
+
+    if (userAddress) {
+      let inputValue = 0;
+      let outputValue = 0;
+
+      // Check inputs for user address
+      for (const input of tx.vin) {
+        if (input.prevout.scriptpubkey_address === userAddress) {
+          inputValue += input.prevout.value;
+        }
+      }
+
+      // Check outputs for user address
+      for (const output of tx.vout) {
+        if (output.scriptpubkey_address === userAddress) {
+          outputValue += output.value;
+        }
+      }
+
+      // Determine transaction type and value
+      if (inputValue > 0 && outputValue === 0) {
+        // Pure withdrawal: user sent money
+        type = 'transfer_out';
+        valueAmount = new Decimal(inputValue).div(100000000);
+      } else if (inputValue === 0 && outputValue > 0) {
+        // Pure deposit: user received money
+        type = 'transfer_in';
+        valueAmount = new Decimal(outputValue).div(100000000);
+      } else if (inputValue > 0 && outputValue > 0) {
+        // Mixed transaction: calculate net effect
+        const netValue = outputValue - inputValue;
+        if (netValue > 0) {
+          type = 'transfer_in';
+          valueAmount = new Decimal(netValue).div(100000000);
+        } else {
+          type = 'transfer_out';
+          valueAmount = new Decimal(Math.abs(netValue)).div(100000000);
+        }
+      }
+    } else {
+      // Without user address context, just sum all outputs
+      const totalValue = tx.vout.reduce((sum, output) => sum + output.value, 0);
+      valueAmount = new Decimal(totalValue).div(100000000);
+    }
+
+    // Extract addresses
+    const fromAddresses = tx.vin
+      .map(input => input.prevout.scriptpubkey_address)
+      .filter((addr): addr is string => addr !== undefined);
+    const toAddresses = tx.vout
+      .map(output => output.scriptpubkey_address)
+      .filter((addr): addr is string => addr !== undefined);
+
+    return {
+      blockHash: tx.status.block_hash || '',
+      blockNumber: tx.status.block_height || 0,
+      fee: { amount: new Decimal(tx.fee).div(100000000), currency: 'BTC' },
+      from: fromAddresses[0] || '',
+      hash: tx.txid,
+      status: tx.status.confirmed ? 'success' : 'pending',
+      timestamp: tx.status.block_time || Math.floor(Date.now() / 1000),
+      to: toAddresses[0] || '',
+      type,
+      value: { amount: valueAmount, currency: 'BTC' },
+    };
+  }
+
+  async execute<T>(operation: ProviderOperation<T>): Promise<T> {
+    this.logger.debug(
+      `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
+    );
+
+    try {
+      switch (operation.type) {
+        case 'getAddressTransactions':
+          return this.getAddressTransactions({
+            address: operation.address,
+            since: operation.since,
+          }) as T;
+        case 'getRawAddressTransactions':
+          return this.getRawAddressTransactions({
+            address: operation.address,
+            since: operation.since,
+          }) as T;
+        case 'getAddressBalance':
+          return this.getAddressBalance({
+            address: operation.address,
+          }) as T;
+        case 'getAddressInfo':
+          return this.getAddressInfo({
+            address: operation.address,
+          }) as T;
+        case 'parseWalletTransaction':
+          return this.parseWalletTransaction({
+            tx: operation.tx as BlockstreamTransaction,
+            walletAddresses: operation.walletAddresses,
+          }) as T;
+        default:
+          throw new Error(`Unsupported operation: ${operation.type}`);
+      }
+    } catch (error) {
+      this.logger.error(
+        `Operation execution failed - Type: ${operation.type}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`
+      );
+      throw error;
+    }
+  }
+
+  async isHealthy(): Promise<boolean> {
+    try {
+      const response = await this.httpClient.get<number>('/blocks/tip/height');
+      return typeof response === 'number' && response > 0;
+    } catch (error) {
+      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
+      return false;
+    }
+  }
+
+  async testConnection(): Promise<boolean> {
+    try {
+      // Test with a simple endpoint that should always work
+      const blockHeight = await this.httpClient.get<number>('/blocks/tip/height');
+      this.logger.debug(`Connection test successful - CurrentBlockHeight: ${blockHeight}`);
+      return typeof blockHeight === 'number' && blockHeight > 0;
+    } catch (error) {
+      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
+      return false;
     }
   }
 }

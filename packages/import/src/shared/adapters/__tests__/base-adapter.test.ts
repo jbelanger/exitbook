@@ -14,10 +14,10 @@ import { BaseAdapter } from '../base-adapter.ts';
 
 // Mock logger
 const mockLogger = {
-  error: vi.fn(),
-  warn: vi.fn(),
-  info: vi.fn(),
   debug: vi.fn(),
+  error: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
 };
 
 vi.mock('@crypto/shared-logger', () => ({
@@ -26,48 +26,40 @@ vi.mock('@crypto/shared-logger', () => ({
 
 // Test implementation of BaseAdapter
 class TestAdapter extends BaseAdapter {
-  private mockRawTransactions: unknown[] = [];
-  private mockRawBalances: unknown[] = [];
-  private mockTransactions: UniversalTransaction[] = [];
   private mockBalances: UniversalBalance[] = [];
+  private mockRawBalances: unknown[] = [];
+  private mockRawTransactions: unknown[] = [];
+  private mockTransactions: UniversalTransaction[] = [];
 
   constructor(config: UniversalAdapterConfig) {
     super(config);
-  }
-
-  async getInfo(): Promise<UniversalAdapterInfo> {
-    return {
-      id: 'test-adapter',
-      name: 'Test Adapter',
-      type: 'exchange',
-      capabilities: {
-        supportedOperations: ['fetchTransactions', 'fetchBalances'],
-        maxBatchSize: 100,
-        supportsHistoricalData: true,
-        supportsPagination: true,
-        requiresApiKey: false,
-      },
-    };
-  }
-
-  async testConnection(): Promise<boolean> {
-    return true;
-  }
-
-  protected async fetchRawTransactions(): Promise<unknown> {
-    return this.mockRawTransactions;
   }
 
   protected async fetchRawBalances(): Promise<unknown> {
     return this.mockRawBalances;
   }
 
-  protected async transformTransactions(): Promise<UniversalTransaction[]> {
-    return this.mockTransactions;
+  protected async fetchRawTransactions(): Promise<unknown> {
+    return this.mockRawTransactions;
   }
 
-  protected async transformBalances(): Promise<UniversalBalance[]> {
-    return this.mockBalances;
+  async getInfo(): Promise<UniversalAdapterInfo> {
+    return {
+      capabilities: {
+        maxBatchSize: 100,
+        requiresApiKey: false,
+        supportedOperations: ['fetchTransactions', 'fetchBalances'],
+        supportsHistoricalData: true,
+        supportsPagination: true,
+      },
+      id: 'test-adapter',
+      name: 'Test Adapter',
+      type: 'exchange',
+    };
+  }
+
+  setMockBalances(balances: UniversalBalance[]) {
+    this.mockBalances = balances;
   }
 
   // Test helpers
@@ -75,31 +67,39 @@ class TestAdapter extends BaseAdapter {
     this.mockTransactions = transactions;
   }
 
-  setMockBalances(balances: UniversalBalance[]) {
-    this.mockBalances = balances;
+  async testConnection(): Promise<boolean> {
+    return true;
+  }
+
+  protected async transformBalances(): Promise<UniversalBalance[]> {
+    return this.mockBalances;
+  }
+
+  protected async transformTransactions(): Promise<UniversalTransaction[]> {
+    return this.mockTransactions;
   }
 }
 
 describe('BaseAdapter Validation Integration', () => {
   let adapter: TestAdapter;
   const mockConfig: UniversalAdapterConfig = {
-    type: 'exchange',
     id: 'test',
     subType: 'ccxt',
+    type: 'exchange',
   };
 
   const validTransaction: UniversalTransaction = {
-    id: 'tx_valid',
-    timestamp: 1640995200000,
-    datetime: '2022-01-01T00:00:00.000Z',
-    type: 'trade' as TransactionType,
-    status: 'closed' as TransactionStatus,
     amount: {
       amount: new Decimal('100.50'),
       currency: 'BTC',
     },
-    source: 'test',
+    datetime: '2022-01-01T00:00:00.000Z',
+    id: 'tx_valid',
     metadata: { test: true },
+    source: 'test',
+    status: 'closed' as TransactionStatus,
+    timestamp: 1640995200000,
+    type: 'trade' as TransactionType,
   };
 
   beforeEach(() => {
@@ -111,15 +111,15 @@ describe('BaseAdapter Validation Integration', () => {
     // Create intentionally invalid transaction for testing validation
     interface InvalidTransactionTest {
       id: string;
+      source: string; // Empty string
       timestamp: string; // Should be number
       type: string; // Invalid enum value
-      source: string; // Empty string
     }
     const invalidTransactionData: InvalidTransactionTest = {
       id: 'tx_invalid',
+      source: '', // Empty string
       timestamp: 'invalid_timestamp', // Should be number
       type: 'invalid_type', // Invalid enum value
-      source: '', // Empty string
     };
     const invalidTransaction = invalidTransactionData as unknown as UniversalTransaction;
 
@@ -177,8 +177,8 @@ describe('BaseAdapter Validation Integration', () => {
       const btcTransaction = { ...validTransaction, id: 'btc_tx' };
       const ethTransaction = {
         ...validTransaction,
-        id: 'eth_tx',
         amount: { amount: new Decimal('10'), currency: 'ETH' },
+        id: 'eth_tx',
       };
 
       adapter.setMockTransactions([btcTransaction, ethTransaction, invalidTransaction]);
@@ -217,15 +217,15 @@ describe('BaseAdapter Validation Integration', () => {
   describe('fetchBalances with validation', () => {
     const validBalance: UniversalBalance = {
       currency: 'BTC',
-      total: 1.5,
       free: 1.2,
+      total: 1.5,
       used: 0.3,
     };
 
     const invalidBalance = {
       currency: '', // Empty currency
-      total: -1, // Negative total
       free: 0.8,
+      total: -1, // Negative total
       used: 0.2,
     } as UniversalBalance;
 
@@ -264,8 +264,8 @@ describe('BaseAdapter Validation Integration', () => {
     it('should validate complex balance constraints', async () => {
       const invalidConstraintBalance: UniversalBalance = {
         currency: 'BTC',
-        total: 1.0,
         free: 0.8,
+        total: 1.0,
         used: 0.5, // total (1.0) < free + used (1.3)
       };
 
@@ -283,17 +283,17 @@ describe('BaseAdapter Validation Integration', () => {
   describe('Performance and edge cases', () => {
     it('should handle large batches efficiently', async () => {
       const largeTransactionBatch: UniversalTransaction[] = Array.from({ length: 1000 }, (_, i) => ({
-        id: `tx_${i}`,
-        timestamp: 1640995200000 + i,
-        datetime: '2022-01-01T00:00:00.000Z',
-        type: 'trade' as TransactionType,
-        status: 'closed' as TransactionStatus,
         amount: {
           amount: new Decimal('100'),
           currency: 'BTC',
         },
-        source: 'test',
+        datetime: '2022-01-01T00:00:00.000Z',
+        id: `tx_${i}`,
         metadata: {},
+        source: 'test',
+        status: 'closed' as TransactionStatus,
+        timestamp: 1640995200000 + i,
+        type: 'trade' as TransactionType,
       }));
 
       adapter.setMockTransactions(largeTransactionBatch);
@@ -328,17 +328,17 @@ describe('BaseAdapter Validation Integration', () => {
           return { id: `invalid_${i}`, invalid: true };
         }
         return {
-          id: `valid_${i}`,
-          timestamp: 1640995200000 + i,
-          datetime: '2022-01-01T00:00:00.000Z',
-          type: 'trade' as TransactionType,
-          status: 'closed' as TransactionStatus,
           amount: {
             amount: new Decimal('100'),
             currency: 'BTC',
           },
-          source: 'test',
+          datetime: '2022-01-01T00:00:00.000Z',
+          id: `valid_${i}`,
           metadata: {},
+          source: 'test',
+          status: 'closed' as TransactionStatus,
+          timestamp: 1640995200000 + i,
+          type: 'trade' as TransactionType,
         };
       });
 

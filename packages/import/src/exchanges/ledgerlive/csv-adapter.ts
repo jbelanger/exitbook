@@ -27,81 +27,50 @@ export class LedgerLiveCSVAdapter extends BaseAdapter {
     super(config);
   }
 
-  async close(): Promise<void> {
-    this.cachedTransactions = null;
-  }
+  private convertOperationToUniversalTransaction(row: CsvLedgerLiveOperationRow): UniversalTransaction | null {
+    const operationType = this.mapOperationType(row['Operation Type']);
 
-  async getInfo(): Promise<UniversalAdapterInfo> {
-    return {
-      id: 'ledgerlive',
-      name: 'Ledger Live CSV',
-      type: 'exchange',
-      subType: 'csv',
-      capabilities: {
-        supportedOperations: ['fetchTransactions'],
-        maxBatchSize: 1000,
-        supportsHistoricalData: true,
-        supportsPagination: false,
-        requiresApiKey: false,
-      },
-    };
-  }
-
-  async testConnection(): Promise<boolean> {
-    try {
-      const config = this.config as UniversalExchangeAdapterConfig;
-      for (const csvDirectory of config.csvDirectories || []) {
-        try {
-          const stats = await fs.stat(csvDirectory);
-          if (!stats.isDirectory()) {
-            continue;
-          }
-
-          const files = await fs.readdir(csvDirectory);
-          const csvFiles = files.filter(f => f.endsWith('.csv'));
-
-          if (csvFiles.length > 0) {
-            return true;
-          }
-        } catch (dirError) {
-          this.logger.warn(`CSV directory test failed for directory - Error: ${dirError}, Directory: ${csvDirectory}`);
-          continue;
-        }
-      }
-
-      return false;
-    } catch (error) {
-      this.logger.error(`CSV directories test failed - Error: ${error}`);
-      return false;
+    // Skip transactions that don't map to standard types (like FEES, STAKE, etc.)
+    if (!operationType) {
+      this.logger.debug(
+        `Skipping non-standard operation type - Type: ${row['Operation Type']}, Hash: ${row['Operation Hash']}`
+      );
+      return null;
     }
-  }
 
-  protected async fetchRawTransactions(params: UniversalFetchParams): Promise<CsvLedgerLiveOperationRow[]> {
-    this.logger.debug(`Fetching raw transactions with params - Params: ${JSON.stringify(params)}`);
-    return this.loadAllTransactions();
-  }
+    const timestamp = new Date(row['Operation Date']).getTime();
+    const amount = parseDecimal(row['Operation Amount']).abs(); // Ensure positive amount
+    const fee = parseDecimal(row['Operation Fees'] || '0');
+    const currency = row['Currency Ticker'];
+    const status = this.mapStatus(row['Status']);
 
-  protected async transformTransactions(
-    rawTxs: CsvLedgerLiveOperationRow[],
-    params: UniversalFetchParams
-  ): Promise<UniversalTransaction[]> {
-    const transactions = this.processOperationRows(rawTxs);
+    // For LedgerLive, negative amounts in OUT operations are normal
+    // The mapOperationType already determines if it's deposit/withdrawal
+    const netAmount = amount.minus(fee);
 
-    return transactions
-      .filter(tx => !params.since || tx.timestamp >= params.since)
-      .filter(tx => !params.until || tx.timestamp <= params.until);
-  }
-
-  protected async fetchRawBalances(params: UniversalFetchParams): Promise<unknown> {
-    this.logger.debug(`Fetching raw balances with params - Params: ${JSON.stringify(params)}`);
-    throw new Error('Balance fetching not supported for CSV adapter - CSV files do not contain current balance data');
-  }
-
-  protected async transformBalances(raw: unknown, params: UniversalFetchParams): Promise<UniversalBalance[]> {
-    this.logger.debug(
-      `Transforming raw balances with params - Raw: ${JSON.stringify(raw)}, Params: ${JSON.stringify(params)}`
-    );
-    throw new Error('Balance fetching not supported for CSV adapter');
+    return {
+      amount: createMoney(netAmount.toNumber(), currency),
+      datetime: row['Operation Date'],
+      fee: createMoney(fee.toNumber(), currency),
+      id: row['Operation Hash'],
+      metadata: {
+        accountName: row['Account Name'],
+        accountXpub: row['Account xpub'],
+        countervalueAtExport: row['Countervalue at CSV Export'],
+        countervalueAtOperation: row['Countervalue at Operation Date'],
+        countervalueTicker: row['Countervalue Ticker'],
+        grossAmount: amount.toNumber(), // Store original amount before fee deduction
+        operationType: row['Operation Type'],
+        originalRow: row,
+      },
+      network: 'exchange',
+      price: undefined,
+      source: 'ledgerlive',
+      status,
+      symbol: undefined,
+      timestamp,
+      type: operationType,
+    };
   }
 
   /**
@@ -169,28 +138,43 @@ export class LedgerLiveCSVAdapter extends BaseAdapter {
     }
   }
 
+  private mapOperationType(operationType: string): 'trade' | 'deposit' | 'withdrawal' | null {
+    switch (operationType.toUpperCase()) {
+      case 'IN':
+        return 'deposit';
+      case 'OUT':
+        return 'withdrawal';
+      case 'FEES':
+        return null; // Fee-only transactions will be handled separately
+      case 'STAKE':
+      case 'DELEGATE':
+      case 'UNDELEGATE':
+      case 'WITHDRAW_UNBONDED':
+      case 'OPT_OUT':
+        return null; // These are special operations, handled as metadata
+      default:
+        return null;
+    }
+  }
+
+  private mapStatus(status: string): TransactionStatus {
+    switch (status.toLowerCase()) {
+      case 'confirmed':
+        return 'closed';
+      case 'pending':
+        return 'open';
+      case 'failed':
+        return 'canceled';
+      default:
+        return 'closed'; // Default to closed for unknown statuses
+    }
+  }
+
   /**
    * Parse a CSV file using the common parsing logic
    */
   private async parseCsvFile<T>(filePath: string): Promise<T[]> {
     return CsvParser.parseFile<T>(filePath);
-  }
-
-  /**
-   * Validate CSV headers and determine file type
-   */
-  private async validateCSVHeaders(filePath: string): Promise<string> {
-    const expectedHeaders = {
-      [EXPECTED_HEADERS.LEDGERLIVE_CSV]: 'operations',
-    };
-    const fileType = await CsvParser.validateHeaders(filePath, expectedHeaders);
-
-    if (fileType === 'unknown') {
-      const headers = await CsvParser.getHeaders(filePath);
-      this.logger.warn(`Unrecognized CSV headers in ${filePath} - Headers: ${headers}`);
-    }
-
-    return fileType;
   }
 
   /**
@@ -218,81 +202,97 @@ export class LedgerLiveCSVAdapter extends BaseAdapter {
     return transactions;
   }
 
-  private mapStatus(status: string): TransactionStatus {
-    switch (status.toLowerCase()) {
-      case 'confirmed':
-        return 'closed';
-      case 'pending':
-        return 'open';
-      case 'failed':
-        return 'canceled';
-      default:
-        return 'closed'; // Default to closed for unknown statuses
-    }
-  }
-
-  private mapOperationType(operationType: string): 'trade' | 'deposit' | 'withdrawal' | null {
-    switch (operationType.toUpperCase()) {
-      case 'IN':
-        return 'deposit';
-      case 'OUT':
-        return 'withdrawal';
-      case 'FEES':
-        return null; // Fee-only transactions will be handled separately
-      case 'STAKE':
-      case 'DELEGATE':
-      case 'UNDELEGATE':
-      case 'WITHDRAW_UNBONDED':
-      case 'OPT_OUT':
-        return null; // These are special operations, handled as metadata
-      default:
-        return null;
-    }
-  }
-
-  private convertOperationToUniversalTransaction(row: CsvLedgerLiveOperationRow): UniversalTransaction | null {
-    const operationType = this.mapOperationType(row['Operation Type']);
-
-    // Skip transactions that don't map to standard types (like FEES, STAKE, etc.)
-    if (!operationType) {
-      this.logger.debug(
-        `Skipping non-standard operation type - Type: ${row['Operation Type']}, Hash: ${row['Operation Hash']}`
-      );
-      return null;
-    }
-
-    const timestamp = new Date(row['Operation Date']).getTime();
-    const amount = parseDecimal(row['Operation Amount']).abs(); // Ensure positive amount
-    const fee = parseDecimal(row['Operation Fees'] || '0');
-    const currency = row['Currency Ticker'];
-    const status = this.mapStatus(row['Status']);
-
-    // For LedgerLive, negative amounts in OUT operations are normal
-    // The mapOperationType already determines if it's deposit/withdrawal
-    const netAmount = amount.minus(fee);
-
-    return {
-      id: row['Operation Hash'],
-      type: operationType,
-      timestamp,
-      datetime: row['Operation Date'],
-      status,
-      amount: createMoney(netAmount.toNumber(), currency),
-      fee: createMoney(fee.toNumber(), currency),
-      symbol: undefined,
-      price: undefined,
-      source: 'ledgerlive',
-      network: 'exchange',
-      metadata: {
-        originalRow: row,
-        operationType: row['Operation Type'],
-        accountName: row['Account Name'],
-        accountXpub: row['Account xpub'],
-        countervalueTicker: row['Countervalue Ticker'],
-        countervalueAtOperation: row['Countervalue at Operation Date'],
-        countervalueAtExport: row['Countervalue at CSV Export'],
-        grossAmount: amount.toNumber(), // Store original amount before fee deduction
-      },
+  /**
+   * Validate CSV headers and determine file type
+   */
+  private async validateCSVHeaders(filePath: string): Promise<string> {
+    const expectedHeaders = {
+      [EXPECTED_HEADERS.LEDGERLIVE_CSV]: 'operations',
     };
+    const fileType = await CsvParser.validateHeaders(filePath, expectedHeaders);
+
+    if (fileType === 'unknown') {
+      const headers = await CsvParser.getHeaders(filePath);
+      this.logger.warn(`Unrecognized CSV headers in ${filePath} - Headers: ${headers}`);
+    }
+
+    return fileType;
+  }
+
+  async close(): Promise<void> {
+    this.cachedTransactions = null;
+  }
+
+  protected async fetchRawBalances(params: UniversalFetchParams): Promise<unknown> {
+    this.logger.debug(`Fetching raw balances with params - Params: ${JSON.stringify(params)}`);
+    throw new Error('Balance fetching not supported for CSV adapter - CSV files do not contain current balance data');
+  }
+
+  protected async fetchRawTransactions(params: UniversalFetchParams): Promise<CsvLedgerLiveOperationRow[]> {
+    this.logger.debug(`Fetching raw transactions with params - Params: ${JSON.stringify(params)}`);
+    return this.loadAllTransactions();
+  }
+
+  async getInfo(): Promise<UniversalAdapterInfo> {
+    return {
+      capabilities: {
+        maxBatchSize: 1000,
+        requiresApiKey: false,
+        supportedOperations: ['fetchTransactions'],
+        supportsHistoricalData: true,
+        supportsPagination: false,
+      },
+      id: 'ledgerlive',
+      name: 'Ledger Live CSV',
+      subType: 'csv',
+      type: 'exchange',
+    };
+  }
+
+  async testConnection(): Promise<boolean> {
+    try {
+      const config = this.config as UniversalExchangeAdapterConfig;
+      for (const csvDirectory of config.csvDirectories || []) {
+        try {
+          const stats = await fs.stat(csvDirectory);
+          if (!stats.isDirectory()) {
+            continue;
+          }
+
+          const files = await fs.readdir(csvDirectory);
+          const csvFiles = files.filter(f => f.endsWith('.csv'));
+
+          if (csvFiles.length > 0) {
+            return true;
+          }
+        } catch (dirError) {
+          this.logger.warn(`CSV directory test failed for directory - Error: ${dirError}, Directory: ${csvDirectory}`);
+          continue;
+        }
+      }
+
+      return false;
+    } catch (error) {
+      this.logger.error(`CSV directories test failed - Error: ${error}`);
+      return false;
+    }
+  }
+
+  protected async transformBalances(raw: unknown, params: UniversalFetchParams): Promise<UniversalBalance[]> {
+    this.logger.debug(
+      `Transforming raw balances with params - Raw: ${JSON.stringify(raw)}, Params: ${JSON.stringify(params)}`
+    );
+    throw new Error('Balance fetching not supported for CSV adapter');
+  }
+
+  protected async transformTransactions(
+    rawTxs: CsvLedgerLiveOperationRow[],
+    params: UniversalFetchParams
+  ): Promise<UniversalTransaction[]> {
+    const transactions = this.processOperationRows(rawTxs);
+
+    return transactions
+      .filter(tx => !params.since || tx.timestamp >= params.since)
+      .filter(tx => !params.until || tx.timestamp <= params.until);
   }
 }

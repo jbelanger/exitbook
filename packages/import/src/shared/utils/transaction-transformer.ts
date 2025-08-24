@@ -4,22 +4,22 @@ import crypto from 'crypto';
 
 // CCXT Transaction interface based on commonly used properties
 export interface CCXTTransaction {
-  id?: string;
-  txid?: string;
-  timestamp?: number;
-  datetime?: string;
-  symbol?: string;
   amount?: number;
-  side?: string;
-  price?: number;
   cost?: number;
-  status?: string;
   currency?: string;
+  datetime?: string;
   fee?: {
     cost?: number;
     currency?: string;
   };
+  id?: string;
   info?: Record<string, unknown>;
+  price?: number;
+  side?: string;
+  status?: string;
+  symbol?: string;
+  timestamp?: number;
+  txid?: string;
   type?: string;
 }
 
@@ -29,37 +29,20 @@ export interface CCXTTransaction {
  */
 export class TransactionTransformer {
   /**
-   * Converts CCXT transaction data to standardized CryptoTransaction format
+   * Generates unique transaction identifier from transaction data
    */
-  static fromCCXT(ccxtTransaction: CCXTTransaction, type: TransactionType, exchangeId: string): CryptoTransaction {
-    const { baseCurrency, quoteCurrency } = this.extractCurrencies(ccxtTransaction);
-    const transactionId = this.extractTransactionId(ccxtTransaction, exchangeId);
-    const timestamp = ccxtTransaction.timestamp || Date.now();
-    const amount = Math.abs(ccxtTransaction.amount || 0);
+  static createTransactionHash(transaction: CCXTTransaction, exchangeId: string): string {
+    const hashData = JSON.stringify({
+      amount: transaction.amount,
+      exchange: exchangeId,
+      id: transaction.id,
+      side: transaction.side,
+      symbol: transaction.symbol,
+      timestamp: transaction.timestamp,
+      type: transaction.type,
+    });
 
-    const amountMoney = createMoney(amount, baseCurrency);
-    const priceMoney = this.extractPrice(ccxtTransaction, type, quoteCurrency);
-    const fee = this.extractFee(ccxtTransaction);
-
-    const result: CryptoTransaction = {
-      id: transactionId,
-      type,
-      timestamp,
-      datetime: ccxtTransaction.datetime || new Date(timestamp).toISOString(),
-      symbol: ccxtTransaction.symbol || 'UNKNOWN',
-      amount: amountMoney,
-      price: priceMoney,
-      fee,
-      status: this.normalizeStatus(ccxtTransaction.status),
-      info: ccxtTransaction,
-    };
-
-    // Only add side property if it has a valid value
-    if (ccxtTransaction.side === 'buy' || ccxtTransaction.side === 'sell') {
-      result.side = ccxtTransaction.side;
-    }
-
-    return result;
+    return crypto.createHash('sha256').update(hashData).digest('hex').slice(0, 16);
   }
 
   /**
@@ -91,10 +74,13 @@ export class TransactionTransformer {
   }
 
   /**
-   * Extracts transaction ID with fallback to generated hash
+   * Extracts fee information from transaction
    */
-  private static extractTransactionId(transaction: CCXTTransaction, exchangeId: string): string {
-    return transaction.id || transaction.txid || this.createTransactionHash(transaction, exchangeId);
+  private static extractFee(transaction: CCXTTransaction): Money | undefined {
+    if (transaction.fee?.cost) {
+      return createMoney(transaction.fee.cost, transaction.fee.currency || 'unknown');
+    }
+    return undefined;
   }
 
   /**
@@ -118,13 +104,44 @@ export class TransactionTransformer {
   }
 
   /**
-   * Extracts fee information from transaction
+   * Extracts transaction ID with fallback to generated hash
    */
-  private static extractFee(transaction: CCXTTransaction): Money | undefined {
-    if (transaction.fee?.cost) {
-      return createMoney(transaction.fee.cost, transaction.fee.currency || 'unknown');
+  private static extractTransactionId(transaction: CCXTTransaction, exchangeId: string): string {
+    return transaction.id || transaction.txid || this.createTransactionHash(transaction, exchangeId);
+  }
+
+  /**
+   * Converts CCXT transaction data to standardized CryptoTransaction format
+   */
+  static fromCCXT(ccxtTransaction: CCXTTransaction, type: TransactionType, exchangeId: string): CryptoTransaction {
+    const { baseCurrency, quoteCurrency } = this.extractCurrencies(ccxtTransaction);
+    const transactionId = this.extractTransactionId(ccxtTransaction, exchangeId);
+    const timestamp = ccxtTransaction.timestamp || Date.now();
+    const amount = Math.abs(ccxtTransaction.amount || 0);
+
+    const amountMoney = createMoney(amount, baseCurrency);
+    const priceMoney = this.extractPrice(ccxtTransaction, type, quoteCurrency);
+    const fee = this.extractFee(ccxtTransaction);
+
+    const result: CryptoTransaction = {
+      amount: amountMoney,
+      datetime: ccxtTransaction.datetime || new Date(timestamp).toISOString(),
+      fee,
+      id: transactionId,
+      info: ccxtTransaction,
+      price: priceMoney,
+      status: this.normalizeStatus(ccxtTransaction.status),
+      symbol: ccxtTransaction.symbol || 'UNKNOWN',
+      timestamp,
+      type,
+    };
+
+    // Only add side property if it has a valid value
+    if (ccxtTransaction.side === 'buy' || ccxtTransaction.side === 'sell') {
+      result.side = ccxtTransaction.side;
     }
-    return undefined;
+
+    return result;
   }
 
   /**
@@ -134,39 +151,22 @@ export class TransactionTransformer {
     if (!status || typeof status !== 'string') return 'pending';
 
     const statusMap: Record<string, TransactionStatus> = {
-      open: 'open',
-      closed: 'closed',
-      filled: 'closed',
-      completed: 'closed',
-      complete: 'closed',
       canceled: 'canceled',
       cancelled: 'canceled',
-      pending: 'pending',
-      rejected: 'failed',
+      closed: 'closed',
+      complete: 'closed',
+      completed: 'closed',
       expired: 'failed',
       failed: 'failed',
+      filled: 'closed',
       ok: 'ok',
+      open: 'open',
+      pending: 'pending',
+      rejected: 'failed',
     };
 
     const normalizedStatus = statusMap[status.toLowerCase()];
     return normalizedStatus || 'pending';
-  }
-
-  /**
-   * Generates unique transaction identifier from transaction data
-   */
-  static createTransactionHash(transaction: CCXTTransaction, exchangeId: string): string {
-    const hashData = JSON.stringify({
-      id: transaction.id,
-      timestamp: transaction.timestamp,
-      symbol: transaction.symbol,
-      amount: transaction.amount,
-      side: transaction.side,
-      type: transaction.type,
-      exchange: exchangeId,
-    });
-
-    return crypto.createHash('sha256').update(hashData).digest('hex').slice(0, 16);
   }
 
   /**

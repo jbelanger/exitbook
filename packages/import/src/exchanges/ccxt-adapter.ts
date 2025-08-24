@@ -6,9 +6,9 @@ import { BaseCCXTAdapter } from './base-ccxt-adapter.ts';
 export class CCXTAdapter extends BaseCCXTAdapter {
   constructor(exchange: Exchange, exchangeId: string, enableOnlineVerification: boolean = false) {
     const config: UniversalExchangeAdapterConfig = {
-      type: 'exchange',
       id: exchangeId,
       subType: 'ccxt',
+      type: 'exchange',
     };
 
     super(exchange, config, enableOnlineVerification);
