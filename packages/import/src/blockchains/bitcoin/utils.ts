@@ -12,8 +12,6 @@ import type {
   XpubType,
 } from './types.ts';
 
-// Parameter types removed - using discriminated union
-
 const logger = getLogger('BitcoinUtils');
 
 /**

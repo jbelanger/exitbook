@@ -157,6 +157,21 @@ Benefits:
 
 ## Important Implementation Notes
 
+### Code Cleanup Guidelines
+
+**Legacy AI Comments**: Remove outdated comments left by previous AI sessions that no longer provide value:
+
+- Comments like `// Parameter types removed - using discriminated union`
+- Placeholder comments that describe removed functionality
+- Implementation notes that are no longer relevant to current code structure
+- TODO comments for completed work
+
+**When cleaning up code**:
+
+- Remove comments that don't explain "why" or provide useful context
+- Keep comments that explain complex business logic or non-obvious implementation details
+- Update comments when refactoring to ensure they remain accurate
+
 ### Provider Development
 
 When adding new blockchain providers:
@@ -270,7 +285,7 @@ interface CryptoTransaction {
   timestamp: number;
   amount: Money; // Uses Decimal.js for precision
   symbol?: string;
-  side?: "buy" | "sell";
+  side?: 'buy' | 'sell';
   price?: Money;
   fee?: Money;
   status?: TransactionStatus;
@@ -297,16 +312,16 @@ Example provider registration:
 
 ```typescript
 @RegisterProvider({
-  blockchain: "bitcoin",
-  name: "mempool-space",
-  displayName: "Mempool.space",
-  type: "api",
+  blockchain: 'bitcoin',
+  name: 'mempool-space',
+  displayName: 'Mempool.space',
+  type: 'api',
   requiresApiKey: false,
   networks: {
-    mainnet: { baseUrl: "https://mempool.space/api" },
+    mainnet: { baseUrl: 'https://mempool.space/api' },
   },
   capabilities: {
-    supportedOperations: ["getAddressTransactions", "getAddressBalance"],
+    supportedOperations: ['getAddressTransactions', 'getAddressBalance'],
     maxBatchSize: 1,
     supportsHistoricalData: true,
   },

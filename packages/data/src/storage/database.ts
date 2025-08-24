@@ -61,42 +61,7 @@ export class Database {
     this.initializeTables();
   }
 
-  async clearAndReinitialize(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.logger.debug('Clearing and reinitializing database');
-
-      // Close current connection
-      this.db.close(err => {
-        if (err) {
-          this.logger.error(`Error closing database for reinitialization: ${err.message}`);
-          return reject(err);
-        }
-
-        // Recreate connection and reinitialize with clear flag
-        this.db = new sqlite3.Database(this.dbPath, dbErr => {
-          if (dbErr) {
-            this.logger.error(`Failed to reconnect to database: ${dbErr.message}`);
-            return reject(dbErr);
-          }
-
-          // Enable foreign keys and WAL mode
-          this.db.serialize(() => {
-            this.db.run('PRAGMA foreign_keys = ON');
-            this.db.run('PRAGMA journal_mode = WAL');
-            this.db.run('PRAGMA synchronous = NORMAL');
-          });
-
-          // Initialize tables with clear flag
-          this.initializeTables(true);
-          this.logger.debug('Database cleared and reinitialized');
-          resolve();
-        });
-      });
-    });
-  }
-
   private initializeTables(clearExisting: boolean = false): void {
-    // Create tables first
     const tableQueries: string[] = [];
 
     if (clearExisting) {
@@ -191,7 +156,6 @@ export class Database {
       )`
     );
 
-    // Create indexes after tables are created
     const indexQueries = [
       `CREATE INDEX IF NOT EXISTS idx_transactions_exchange_timestamp 
        ON transactions(exchange, timestamp)`,
@@ -232,9 +196,7 @@ export class Database {
        ON raw_transactions(import_session_id) WHERE import_session_id IS NOT NULL`,
     ];
 
-    // Run table and index creation synchronously
     this.db.serialize(() => {
-      // Create tables first
       for (const query of tableQueries) {
         this.db.run(query, err => {
           if (err) {
@@ -254,6 +216,497 @@ export class Database {
     });
 
     this.logger.debug('Database tables initialized');
+  }
+
+  async addWalletAddress(request: CreateWalletAddressRequest): Promise<WalletAddress> {
+    return new Promise((resolve, reject) => {
+      const now = Math.floor(Date.now() / 1000);
+      const addressType = request.addressType || 'personal';
+
+      const query = `
+        INSERT INTO wallet_addresses (address, blockchain, label, address_type, notes, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `;
+
+      this.db.run(
+        query,
+        [request.address, request.blockchain, request.label, addressType, request.notes, now, now],
+        function (err) {
+          if (err) {
+            if (err.message.includes('UNIQUE constraint failed')) {
+              reject(
+                new Error(`Wallet address ${request.address} already exists for blockchain ${request.blockchain}`)
+              );
+            } else {
+              reject(err);
+            }
+          } else {
+            // Fetch the created record
+            resolve({
+              address: request.address,
+              addressType: addressType as 'personal' | 'exchange' | 'contract' | 'unknown',
+              blockchain: request.blockchain,
+              createdAt: now,
+              id: this.lastID,
+              isActive: true,
+              label: request.label ?? '',
+              notes: request.notes ?? '',
+              updatedAt: now,
+            });
+          }
+        }
+      );
+    });
+  }
+
+  async clearAndReinitialize(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.logger.debug('Clearing and reinitializing database');
+
+      // Close current connection
+      this.db.close(err => {
+        if (err) {
+          this.logger.error(`Error closing database for reinitialization: ${err.message}`);
+          return reject(err);
+        }
+
+        // Recreate connection and reinitialize with clear flag
+        this.db = new sqlite3.Database(this.dbPath, dbErr => {
+          if (dbErr) {
+            this.logger.error(`Failed to reconnect to database: ${dbErr.message}`);
+            return reject(dbErr);
+          }
+
+          // Enable foreign keys and WAL mode
+          this.db.serialize(() => {
+            this.db.run('PRAGMA foreign_keys = ON');
+            this.db.run('PRAGMA journal_mode = WAL');
+            this.db.run('PRAGMA synchronous = NORMAL');
+          });
+
+          // Initialize tables with clear flag
+          this.initializeTables(true);
+          this.logger.debug('Database cleared and reinitialized');
+          resolve();
+        });
+      });
+    });
+  }
+
+  async close(): Promise<void> {
+    return new Promise(resolve => {
+      this.db.close(err => {
+        if (err) {
+          this.logger.error(`Error closing database: ${err.message}`);
+        } else {
+          this.logger.info('Database connection closed');
+        }
+        resolve();
+      });
+    });
+  }
+
+  async deleteWalletAddress(id: number): Promise<boolean> {
+    return new Promise((resolve, reject) => {
+      const query = 'DELETE FROM wallet_addresses WHERE id = ?';
+
+      this.db.run(query, [id], function (err) {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(this.changes > 0);
+        }
+      });
+    });
+  }
+
+  async findWalletAddressByAddress(address: string, blockchain: string): Promise<WalletAddress | null> {
+    return new Promise((resolve, reject) => {
+      const query = 'SELECT * FROM wallet_addresses WHERE address = ? AND blockchain = ?';
+
+      this.db.get(query, [address, blockchain], (err, row: WalletAddress) => {
+        if (err) {
+          reject(err);
+        } else if (!row) {
+          resolve(null);
+        } else {
+          resolve({
+            address: row.address,
+            addressType: row.addressType,
+            blockchain: row.blockchain,
+            createdAt: row.createdAt,
+            id: row.id,
+            isActive: Boolean(row.isActive),
+            label: row.label,
+            notes: row.notes,
+            updatedAt: row.updatedAt,
+          });
+        }
+      });
+    });
+  }
+
+  async findWalletAddressByAddressNormalized(
+    normalizedAddress: string,
+    blockchain: string
+  ): Promise<WalletAddress | null> {
+    return new Promise((resolve, reject) => {
+      // For Ethereum, do case-insensitive matching by comparing lowercase addresses
+      let query: string;
+      if (blockchain === 'ethereum') {
+        query = 'SELECT * FROM wallet_addresses WHERE LOWER(address) = ? AND blockchain = ?';
+      } else {
+        query = 'SELECT * FROM wallet_addresses WHERE address = ? AND blockchain = ?';
+      }
+
+      this.db.get(query, [normalizedAddress, blockchain], (err, row: WalletAddress) => {
+        if (err) {
+          reject(err);
+        } else if (!row) {
+          resolve(null);
+        } else {
+          resolve({
+            address: row.address,
+            addressType: row.addressType,
+            blockchain: row.blockchain,
+            createdAt: row.createdAt,
+            id: row.id,
+            isActive: Boolean(row.isActive),
+            label: row.label,
+            notes: row.notes,
+            updatedAt: row.updatedAt,
+          });
+        }
+      });
+    });
+  }
+
+  async getLatestBalanceVerifications(exchange?: string): Promise<BalanceVerificationRecord[]> {
+    return new Promise((resolve, reject) => {
+      let query = `
+        SELECT * FROM balance_verifications 
+        WHERE timestamp = (
+          SELECT MAX(timestamp) FROM balance_verifications bv2 
+          WHERE bv2.exchange = balance_verifications.exchange 
+          AND bv2.currency = balance_verifications.currency
+        )
+      `;
+      const params: SQLParam[] = [];
+
+      if (exchange) {
+        query += ' AND exchange = ?';
+        params.push(exchange);
+      }
+
+      query += ' ORDER BY exchange, currency';
+
+      this.db.all(query, params, (err, rows: BalanceVerificationRecord[]) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(rows);
+        }
+      });
+    });
+  }
+
+  async getRawTransactions(
+    adapterId?: string,
+    importSessionId?: string
+  ): Promise<
+    Array<{
+      adapterId: string;
+      adapterType: string;
+      createdAt: number;
+      id: string;
+      importSessionId?: string;
+      rawData: unknown;
+      sourceTransactionId: string;
+    }>
+  > {
+    return new Promise((resolve, reject) => {
+      let query = 'SELECT * FROM raw_transactions';
+      const params: SQLParam[] = [];
+      const conditions: string[] = [];
+
+      if (adapterId) {
+        conditions.push('adapter_id = ?');
+        params.push(adapterId);
+      }
+
+      if (importSessionId) {
+        conditions.push('import_session_id = ?');
+        params.push(importSessionId);
+      }
+
+      if (conditions.length > 0) {
+        query += ' WHERE ' + conditions.join(' AND ');
+      }
+
+      query += ' ORDER BY created_at DESC';
+
+      this.db.all(query, params, (err, rows: unknown[]) => {
+        if (err) {
+          reject(err);
+        } else {
+          const results = rows.map(row => {
+            const dbRow = row as Record<string, unknown>;
+            return {
+              adapterId: dbRow.adapter_id as string,
+              adapterType: dbRow.adapter_type as string,
+              createdAt: dbRow.created_at as number,
+              id: dbRow.id as string,
+              importSessionId: dbRow.import_session_id as string,
+              rawData: JSON.parse(dbRow.raw_data as string),
+              sourceTransactionId: dbRow.source_transaction_id as string,
+            };
+          });
+          resolve(results);
+        }
+      });
+    });
+  }
+
+  async getStats(): Promise<DatabaseStats> {
+    return new Promise((resolve, reject) => {
+      const queries = [
+        'SELECT COUNT(*) as total_transactions FROM transactions',
+        'SELECT COUNT(DISTINCT exchange) as total_exchanges FROM transactions',
+        'SELECT exchange, COUNT(*) as count FROM transactions GROUP BY exchange',
+        'SELECT COUNT(*) as total_verifications FROM balance_verifications',
+        'SELECT COUNT(*) as total_snapshots FROM balance_snapshots',
+        'SELECT COUNT(*) as total_raw_transactions FROM raw_transactions',
+      ];
+
+      const results: DatabaseStats = {
+        totalExchanges: 0,
+        totalRawTransactions: 0,
+        totalSnapshots: 0,
+        totalTransactions: 0,
+        totalVerifications: 0,
+        transactionsByExchange: [],
+      };
+
+      this.db.serialize(() => {
+        this.db.get(queries[0]!, (err, row: StatRow) => {
+          if (err) return reject(err);
+          results.totalTransactions = row.total_transactions || 0;
+        });
+
+        this.db.get(queries[1]!, (err, row: StatRow) => {
+          if (err) return reject(err);
+          results.totalExchanges = row.total_exchanges || 0;
+        });
+
+        this.db.all(queries[2]!, (err, rows: Array<{ count: number; exchange: string; }>) => {
+          if (err) return reject(err);
+          results.transactionsByExchange = rows;
+        });
+
+        this.db.get(queries[3]!, (err, row: StatRow) => {
+          if (err) return reject(err);
+          results.totalVerifications = row.total_verifications || 0;
+        });
+
+        this.db.get(queries[4]!, (err, row: StatRow) => {
+          if (err) return reject(err);
+          results.totalSnapshots = row.total_snapshots || 0;
+        });
+
+        this.db.get(queries[5]!, (err, row: StatRow) => {
+          if (err) return reject(err);
+          results.totalRawTransactions = row.total_raw_transactions || 0;
+          resolve(results);
+        });
+      });
+    });
+  }
+
+  async getTransactionCount(exchange?: string): Promise<number> {
+    return new Promise((resolve, reject) => {
+      let query = 'SELECT COUNT(*) as count FROM transactions';
+      const params: SQLParam[] = [];
+
+      if (exchange) {
+        query += ' WHERE exchange = ?';
+        params.push(exchange);
+      }
+
+      this.db.get(query, params, (err, row: TransactionCountRow) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(row.count);
+        }
+      });
+    });
+  }
+
+  async getTransactions(exchange?: string, since?: number): Promise<StoredTransaction[]> {
+    return new Promise((resolve, reject) => {
+      let query = 'SELECT * FROM transactions';
+      const params: SQLParam[] = [];
+
+      if (exchange || since) {
+        query += ' WHERE';
+        const conditions: string[] = [];
+
+        if (exchange) {
+          conditions.push(' exchange = ?');
+          params.push(exchange);
+        }
+
+        if (since) {
+          conditions.push(' timestamp >= ?');
+          params.push(since);
+        }
+
+        query += conditions.join(' AND');
+      }
+
+      query += ' ORDER BY timestamp DESC';
+
+      this.db.all(query, params, (err, rows: StoredTransaction[]) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(rows);
+        }
+      });
+    });
+  }
+
+  async getWalletAddress(id: number): Promise<WalletAddress | null> {
+    return new Promise((resolve, reject) => {
+      const query = 'SELECT * FROM wallet_addresses WHERE id = ?';
+
+      this.db.get<WalletAddress>(query, [id], (err, row: WalletAddress | undefined) => {
+        if (err) {
+          reject(err);
+        } else if (!row) {
+          resolve(null);
+        } else {
+          resolve({
+            address: row.address,
+            addressType: row.addressType,
+            blockchain: row.blockchain,
+            createdAt: row.createdAt,
+            id: row.id,
+            isActive: Boolean(row.isActive),
+            label: row.label,
+            notes: row.notes,
+            updatedAt: row.updatedAt,
+          });
+        }
+      });
+    });
+  }
+
+  async getWalletAddresses(query?: WalletAddressQuery): Promise<WalletAddress[]> {
+    return new Promise((resolve, reject) => {
+      let sql = 'SELECT * FROM wallet_addresses';
+      const conditions: string[] = [];
+      const params: SQLParam[] = [];
+
+      if (query) {
+        if (query.blockchain) {
+          conditions.push('blockchain = ?');
+          params.push(query.blockchain);
+        }
+        if (query.addressType) {
+          conditions.push('address_type = ?');
+          params.push(query.addressType);
+        }
+        if (query.isActive !== undefined) {
+          conditions.push('is_active = ?');
+          params.push(query.isActive ? 1 : 0);
+        }
+        if (query.search) {
+          conditions.push('(address LIKE ? OR label LIKE ? OR notes LIKE ?)');
+          const searchTerm = `%${query.search}%`;
+          params.push(searchTerm, searchTerm, searchTerm);
+        }
+      }
+
+      if (conditions.length > 0) {
+        sql += ' WHERE ' + conditions.join(' AND ');
+      }
+
+      sql += ' ORDER BY created_at DESC';
+
+      this.db.all(sql, params, (err, rows: WalletAddress[]) => {
+        if (err) {
+          reject(err);
+        } else {
+          const addresses = rows.map(row => ({
+            address: row.address,
+            addressType: row.addressType,
+            blockchain: row.blockchain,
+            createdAt: row.createdAt,
+            id: row.id,
+            isActive: Boolean(row.isActive),
+            label: row.label,
+            notes: row.notes,
+            updatedAt: row.updatedAt,
+          }));
+          resolve(addresses);
+        }
+      });
+    });
+  }
+
+  // Balance operations
+  async saveBalanceSnapshot(snapshot: BalanceSnapshot): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const stmt = this.db.prepare(`
+        INSERT INTO balance_snapshots 
+        (exchange, currency, balance, timestamp)
+        VALUES (?, ?, ?, ?)
+      `);
+
+      stmt.run([snapshot.exchange, snapshot.currency, String(snapshot.balance), snapshot.timestamp], function (err) {
+        if (err) {
+          reject(err);
+        } else {
+          resolve();
+        }
+      });
+
+      stmt.finalize();
+    });
+  }
+
+  // Wallet address management methods
+
+  async saveBalanceVerification(verification: BalanceVerificationRecord): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const stmt = this.db.prepare(`
+        INSERT INTO balance_verifications 
+        (exchange, currency, expected_balance, actual_balance, difference, status, timestamp)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `);
+
+      stmt.run(
+        [
+          verification.exchange,
+          verification.currency,
+          String(verification.expected_balance),
+          String(verification.actual_balance),
+          String(verification.difference),
+          verification.status,
+          verification.timestamp,
+        ],
+        function (err) {
+          if (err) {
+            reject(err);
+          } else {
+            resolve();
+          }
+        }
+      );
+
+      stmt.finalize();
+    });
   }
 
   // Raw transaction operations
@@ -289,7 +742,7 @@ export class Database {
   async saveRawTransactions(
     adapterId: string,
     adapterType: string,
-    rawTransactions: Array<{ id: string; data: unknown }>,
+    rawTransactions: Array<{ data: unknown; id: string; }>,
     importSessionId?: string
   ): Promise<number> {
     return new Promise((resolve, reject) => {
@@ -326,63 +779,6 @@ export class Database {
             resolve(saved);
           }
         });
-      });
-    });
-  }
-
-  async getRawTransactions(
-    adapterId?: string,
-    importSessionId?: string
-  ): Promise<
-    Array<{
-      id: string;
-      adapterId: string;
-      adapterType: string;
-      sourceTransactionId: string;
-      rawData: unknown;
-      createdAt: number;
-      importSessionId?: string;
-    }>
-  > {
-    return new Promise((resolve, reject) => {
-      let query = 'SELECT * FROM raw_transactions';
-      const params: SQLParam[] = [];
-      const conditions: string[] = [];
-
-      if (adapterId) {
-        conditions.push('adapter_id = ?');
-        params.push(adapterId);
-      }
-
-      if (importSessionId) {
-        conditions.push('import_session_id = ?');
-        params.push(importSessionId);
-      }
-
-      if (conditions.length > 0) {
-        query += ' WHERE ' + conditions.join(' AND ');
-      }
-
-      query += ' ORDER BY created_at DESC';
-
-      this.db.all(query, params, (err, rows: unknown[]) => {
-        if (err) {
-          reject(err);
-        } else {
-          const results = rows.map(row => {
-            const dbRow = row as Record<string, unknown>;
-            return {
-              id: dbRow.id as string,
-              adapterId: dbRow.adapter_id as string,
-              adapterType: dbRow.adapter_type as string,
-              sourceTransactionId: dbRow.source_transaction_id as string,
-              rawData: JSON.parse(dbRow.raw_data as string),
-              createdAt: dbRow.created_at as number,
-              importSessionId: dbRow.import_session_id as string,
-            };
-          });
-          resolve(results);
-        }
       });
     });
   }
@@ -544,263 +940,26 @@ export class Database {
     });
   }
 
-  async getTransactions(exchange?: string, since?: number): Promise<StoredTransaction[]> {
+  async updateTransactionAddresses(
+    transactionId: string,
+    fromAddress?: string,
+    toAddress?: string,
+    walletId?: number
+  ): Promise<void> {
     return new Promise((resolve, reject) => {
-      let query = 'SELECT * FROM transactions';
-      const params: SQLParam[] = [];
-
-      if (exchange || since) {
-        query += ' WHERE';
-        const conditions: string[] = [];
-
-        if (exchange) {
-          conditions.push(' exchange = ?');
-          params.push(exchange);
-        }
-
-        if (since) {
-          conditions.push(' timestamp >= ?');
-          params.push(since);
-        }
-
-        query += conditions.join(' AND');
-      }
-
-      query += ' ORDER BY timestamp DESC';
-
-      this.db.all(query, params, (err, rows: StoredTransaction[]) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(rows);
-        }
-      });
-    });
-  }
-
-  async getTransactionCount(exchange?: string): Promise<number> {
-    return new Promise((resolve, reject) => {
-      let query = 'SELECT COUNT(*) as count FROM transactions';
-      const params: SQLParam[] = [];
-
-      if (exchange) {
-        query += ' WHERE exchange = ?';
-        params.push(exchange);
-      }
-
-      this.db.get(query, params, (err, row: TransactionCountRow) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(row.count);
-        }
-      });
-    });
-  }
-
-  // Balance operations
-  async saveBalanceSnapshot(snapshot: BalanceSnapshot): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const stmt = this.db.prepare(`
-        INSERT INTO balance_snapshots 
-        (exchange, currency, balance, timestamp)
-        VALUES (?, ?, ?, ?)
-      `);
-
-      stmt.run([snapshot.exchange, snapshot.currency, String(snapshot.balance), snapshot.timestamp], function (err) {
-        if (err) {
-          reject(err);
-        } else {
-          resolve();
-        }
-      });
-
-      stmt.finalize();
-    });
-  }
-
-  async saveBalanceVerification(verification: BalanceVerificationRecord): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const stmt = this.db.prepare(`
-        INSERT INTO balance_verifications 
-        (exchange, currency, expected_balance, actual_balance, difference, status, timestamp)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `);
-
-      stmt.run(
-        [
-          verification.exchange,
-          verification.currency,
-          String(verification.expected_balance),
-          String(verification.actual_balance),
-          String(verification.difference),
-          verification.status,
-          verification.timestamp,
-        ],
-        function (err) {
-          if (err) {
-            reject(err);
-          } else {
-            resolve();
-          }
-        }
-      );
-
-      stmt.finalize();
-    });
-  }
-
-  async getLatestBalanceVerifications(exchange?: string): Promise<BalanceVerificationRecord[]> {
-    return new Promise((resolve, reject) => {
-      let query = `
-        SELECT * FROM balance_verifications 
-        WHERE timestamp = (
-          SELECT MAX(timestamp) FROM balance_verifications bv2 
-          WHERE bv2.exchange = balance_verifications.exchange 
-          AND bv2.currency = balance_verifications.currency
-        )
-      `;
-      const params: SQLParam[] = [];
-
-      if (exchange) {
-        query += ' AND exchange = ?';
-        params.push(exchange);
-      }
-
-      query += ' ORDER BY exchange, currency';
-
-      this.db.all(query, params, (err, rows: BalanceVerificationRecord[]) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(rows);
-        }
-      });
-    });
-  }
-
-  async close(): Promise<void> {
-    return new Promise(resolve => {
-      this.db.close(err => {
-        if (err) {
-          this.logger.error(`Error closing database: ${err.message}`);
-        } else {
-          this.logger.info('Database connection closed');
-        }
-        resolve();
-      });
-    });
-  }
-
-  // Utility methods
-  async vacuum(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.db.run('VACUUM', err => {
-        if (err) {
-          reject(err);
-        } else {
-          this.logger.info('Database vacuumed');
-          resolve();
-        }
-      });
-    });
-  }
-
-  async getStats(): Promise<DatabaseStats> {
-    return new Promise((resolve, reject) => {
-      const queries = [
-        'SELECT COUNT(*) as total_transactions FROM transactions',
-        'SELECT COUNT(DISTINCT exchange) as total_exchanges FROM transactions',
-        'SELECT exchange, COUNT(*) as count FROM transactions GROUP BY exchange',
-        'SELECT COUNT(*) as total_verifications FROM balance_verifications',
-        'SELECT COUNT(*) as total_snapshots FROM balance_snapshots',
-        'SELECT COUNT(*) as total_raw_transactions FROM raw_transactions',
-      ];
-
-      const results: DatabaseStats = {
-        totalTransactions: 0,
-        totalExchanges: 0,
-        transactionsByExchange: [],
-        totalVerifications: 0,
-        totalSnapshots: 0,
-        totalRawTransactions: 0,
-      };
-
-      this.db.serialize(() => {
-        this.db.get(queries[0]!, (err, row: StatRow) => {
-          if (err) return reject(err);
-          results.totalTransactions = row.total_transactions || 0;
-        });
-
-        this.db.get(queries[1]!, (err, row: StatRow) => {
-          if (err) return reject(err);
-          results.totalExchanges = row.total_exchanges || 0;
-        });
-
-        this.db.all(queries[2]!, (err, rows: Array<{ exchange: string; count: number }>) => {
-          if (err) return reject(err);
-          results.transactionsByExchange = rows;
-        });
-
-        this.db.get(queries[3]!, (err, row: StatRow) => {
-          if (err) return reject(err);
-          results.totalVerifications = row.total_verifications || 0;
-        });
-
-        this.db.get(queries[4]!, (err, row: StatRow) => {
-          if (err) return reject(err);
-          results.totalSnapshots = row.total_snapshots || 0;
-        });
-
-        this.db.get(queries[5]!, (err, row: StatRow) => {
-          if (err) return reject(err);
-          results.totalRawTransactions = row.total_raw_transactions || 0;
-          resolve(results);
-        });
-      });
-    });
-  }
-
-  // Wallet address management methods
-
-  async addWalletAddress(request: CreateWalletAddressRequest): Promise<WalletAddress> {
-    return new Promise((resolve, reject) => {
-      const now = Math.floor(Date.now() / 1000);
-      const addressType = request.addressType || 'personal';
-
       const query = `
-        INSERT INTO wallet_addresses (address, blockchain, label, address_type, notes, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        UPDATE transactions 
+        SET from_address = ?, to_address = ?, wallet_id = ?
+        WHERE id = ?
       `;
 
-      this.db.run(
-        query,
-        [request.address, request.blockchain, request.label, addressType, request.notes, now, now],
-        function (err) {
-          if (err) {
-            if (err.message.includes('UNIQUE constraint failed')) {
-              reject(
-                new Error(`Wallet address ${request.address} already exists for blockchain ${request.blockchain}`)
-              );
-            } else {
-              reject(err);
-            }
-          } else {
-            // Fetch the created record
-            resolve({
-              id: this.lastID,
-              address: request.address,
-              blockchain: request.blockchain,
-              label: request.label ?? '',
-              addressType: addressType as 'personal' | 'exchange' | 'contract' | 'unknown',
-              isActive: true,
-              notes: request.notes ?? '',
-              createdAt: now,
-              updatedAt: now,
-            });
-          }
+      this.db.run(query, [fromAddress, toAddress, walletId, transactionId], err => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve();
         }
-      );
+      });
     });
   }
 
@@ -848,177 +1007,14 @@ export class Database {
     });
   }
 
-  async getWalletAddress(id: number): Promise<WalletAddress | null> {
+  // Utility methods
+  async vacuum(): Promise<void> {
     return new Promise((resolve, reject) => {
-      const query = 'SELECT * FROM wallet_addresses WHERE id = ?';
-
-      this.db.get<WalletAddress>(query, [id], (err, row: WalletAddress | undefined) => {
-        if (err) {
-          reject(err);
-        } else if (!row) {
-          resolve(null);
-        } else {
-          resolve({
-            id: row.id,
-            address: row.address,
-            blockchain: row.blockchain,
-            label: row.label,
-            addressType: row.addressType,
-            isActive: Boolean(row.isActive),
-            notes: row.notes,
-            createdAt: row.createdAt,
-            updatedAt: row.updatedAt,
-          });
-        }
-      });
-    });
-  }
-
-  async getWalletAddresses(query?: WalletAddressQuery): Promise<WalletAddress[]> {
-    return new Promise((resolve, reject) => {
-      let sql = 'SELECT * FROM wallet_addresses';
-      const conditions: string[] = [];
-      const params: SQLParam[] = [];
-
-      if (query) {
-        if (query.blockchain) {
-          conditions.push('blockchain = ?');
-          params.push(query.blockchain);
-        }
-        if (query.addressType) {
-          conditions.push('address_type = ?');
-          params.push(query.addressType);
-        }
-        if (query.isActive !== undefined) {
-          conditions.push('is_active = ?');
-          params.push(query.isActive ? 1 : 0);
-        }
-        if (query.search) {
-          conditions.push('(address LIKE ? OR label LIKE ? OR notes LIKE ?)');
-          const searchTerm = `%${query.search}%`;
-          params.push(searchTerm, searchTerm, searchTerm);
-        }
-      }
-
-      if (conditions.length > 0) {
-        sql += ' WHERE ' + conditions.join(' AND ');
-      }
-
-      sql += ' ORDER BY created_at DESC';
-
-      this.db.all(sql, params, (err, rows: WalletAddress[]) => {
+      this.db.run('VACUUM', err => {
         if (err) {
           reject(err);
         } else {
-          const addresses = rows.map(row => ({
-            id: row.id,
-            address: row.address,
-            blockchain: row.blockchain,
-            label: row.label,
-            addressType: row.addressType,
-            isActive: Boolean(row.isActive),
-            notes: row.notes,
-            createdAt: row.createdAt,
-            updatedAt: row.updatedAt,
-          }));
-          resolve(addresses);
-        }
-      });
-    });
-  }
-
-  async findWalletAddressByAddress(address: string, blockchain: string): Promise<WalletAddress | null> {
-    return new Promise((resolve, reject) => {
-      const query = 'SELECT * FROM wallet_addresses WHERE address = ? AND blockchain = ?';
-
-      this.db.get(query, [address, blockchain], (err, row: WalletAddress) => {
-        if (err) {
-          reject(err);
-        } else if (!row) {
-          resolve(null);
-        } else {
-          resolve({
-            id: row.id,
-            address: row.address,
-            blockchain: row.blockchain,
-            label: row.label,
-            addressType: row.addressType,
-            isActive: Boolean(row.isActive),
-            notes: row.notes,
-            createdAt: row.createdAt,
-            updatedAt: row.updatedAt,
-          });
-        }
-      });
-    });
-  }
-
-  async findWalletAddressByAddressNormalized(
-    normalizedAddress: string,
-    blockchain: string
-  ): Promise<WalletAddress | null> {
-    return new Promise((resolve, reject) => {
-      // For Ethereum, do case-insensitive matching by comparing lowercase addresses
-      let query: string;
-      if (blockchain === 'ethereum') {
-        query = 'SELECT * FROM wallet_addresses WHERE LOWER(address) = ? AND blockchain = ?';
-      } else {
-        query = 'SELECT * FROM wallet_addresses WHERE address = ? AND blockchain = ?';
-      }
-
-      this.db.get(query, [normalizedAddress, blockchain], (err, row: WalletAddress) => {
-        if (err) {
-          reject(err);
-        } else if (!row) {
-          resolve(null);
-        } else {
-          resolve({
-            id: row.id,
-            address: row.address,
-            blockchain: row.blockchain,
-            label: row.label,
-            addressType: row.addressType,
-            isActive: Boolean(row.isActive),
-            notes: row.notes,
-            createdAt: row.createdAt,
-            updatedAt: row.updatedAt,
-          });
-        }
-      });
-    });
-  }
-
-  async deleteWalletAddress(id: number): Promise<boolean> {
-    return new Promise((resolve, reject) => {
-      const query = 'DELETE FROM wallet_addresses WHERE id = ?';
-
-      this.db.run(query, [id], function (err) {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(this.changes > 0);
-        }
-      });
-    });
-  }
-
-  async updateTransactionAddresses(
-    transactionId: string,
-    fromAddress?: string,
-    toAddress?: string,
-    walletId?: number
-  ): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const query = `
-        UPDATE transactions 
-        SET from_address = ?, to_address = ?, wallet_id = ?
-        WHERE id = ?
-      `;
-
-      this.db.run(query, [fromAddress, toAddress, walletId, transactionId], err => {
-        if (err) {
-          reject(err);
-        } else {
+          this.logger.info('Database vacuumed');
           resolve();
         }
       });

@@ -263,10 +263,7 @@
         "type": "rest",
         "description": "Solana blockchain explorer API with transaction and account data access",
         "capabilities": {
-          "supportedOperations": [
-            "getAddressTransactions",
-            "getAddressBalance"
-          ],
+          "supportedOperations": ["getAddressTransactions", "getAddressBalance"],
           "maxBatchSize": 1,
           "supportsHistoricalData": true,
           "supportsRealTimeData": true,
@@ -348,10 +345,7 @@
         "type": "rest",
         "description": "Direct connection to Injective Protocol blockchain explorer with comprehensive transaction data",
         "capabilities": {
-          "supportedOperations": [
-            "getAddressTransactions",
-            "getRawAddressTransactions"
-          ],
+          "supportedOperations": ["getAddressTransactions", "getRawAddressTransactions"],
           "maxBatchSize": 1,
           "supportsHistoricalData": true,
           "supportsRealTimeData": true,
@@ -423,10 +417,7 @@
         "type": "rest",
         "description": "Multi-chain Substrate provider supporting Polkadot, Kusama, and Bittensor networks with explorer APIs and RPC fallback",
         "capabilities": {
-          "supportedOperations": [
-            "getAddressTransactions",
-            "getAddressBalance"
-          ],
+          "supportedOperations": ["getAddressTransactions", "getAddressBalance"],
           "maxBatchSize": 1,
           "supportsHistoricalData": true,
           "supportsRealTimeData": true,

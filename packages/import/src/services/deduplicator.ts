@@ -32,7 +32,6 @@ export class Deduplicator {
   }
 
   private createPrimaryKey(transaction: UniversalTransaction): string {
-    // Create a key based on core transaction properties
     const keyParts = [
       transaction.source,
       transaction.type,
@@ -46,7 +45,6 @@ export class Deduplicator {
   }
 
   private createTransactionHash(transaction: UniversalTransaction): string {
-    // Create a hash from key transaction properties for deduplication
     const hashData = JSON.stringify({
       amount: transaction.amount,
       id: transaction.id,
@@ -141,24 +139,20 @@ export class Deduplicator {
     };
 
     for (const tx of transactions) {
-      // Check for missing IDs
       if (!tx.id) {
         anomalies.missingIds.push(tx);
       }
 
-      // Check for invalid timestamps
       if (!tx.timestamp || tx.timestamp <= 0 || tx.timestamp > Date.now() + 86400000) {
         // Future date + 1 day tolerance
         anomalies.invalidTimestamps.push(tx);
       }
 
-      // Check for zero amounts in trades (might be valid for some transaction types)
       const amount = moneyToNumber(tx.amount);
       if (tx.type === 'trade' && (!amount || amount === 0)) {
         anomalies.zeroAmounts.push(tx);
       }
 
-      // Check for missing symbols in trades
       if (tx.type === 'trade' && !tx.symbol) {
         anomalies.missingSymbols.push(tx);
       }

@@ -47,8 +47,8 @@ function createRootLogger(): Logger {
   // Define a more flexible transport target type
   type TransportTarget = {
     level: string;
-    target: string;
     options: Record<string, unknown>;
+    target: string;
   };
 
   // Build transport targets array
@@ -58,28 +58,28 @@ function createRootLogger(): Logger {
   if (env.NODE_ENV === 'development') {
     transportTargets.push({
       level: 'trace',
-      target: 'pino-pretty',
       options: {
         colorize: true,
-        translateTime: 'yyyy-mm-dd HH:MM:ss.l',
-        messageFormat: '[{categoryLabel}]: {msg}',
-        customLevels: logLevelsSchema,
         customColors: 'info:blue,error:red,warn:yellow,debug:green',
-        useOnlyCustomLevels: true,
+        customLevels: logLevelsSchema,
         ignore: 'pid,hostname,category,categoryLabel,service,environment,correlationId',
         levelPadding: true,
+        messageFormat: '[{categoryLabel}]: {msg}',
+        translateTime: 'yyyy-mm-dd HH:MM:ss.l',
+        useOnlyCustomLevels: true,
       },
+      target: 'pino-pretty',
     });
   } else {
     // In production, explicitly add a transport for stdout
     // This ensures logs go to container stdout in JSON format
     transportTargets.push({
       level: 'trace',
-      target: 'pino/file',
       options: {
         destination: 1, // stdout file descriptor
         // No additional formatting - pure JSON for log processors
       },
+      target: 'pino/file',
     });
   }
 
@@ -87,29 +87,29 @@ function createRootLogger(): Logger {
   if (env.LOGGER_AUDIT_LOG_ENABLED) {
     transportTargets.push({
       level: 'audit',
-      target: 'pino-roll',
       options: {
         file: `./${env.LOGGER_AUDIT_LOG_DIRNAME}/${env.LOGGER_AUDIT_LOG_FILENAME}_${os.hostname()}.log`,
         frequency: 'daily',
+        max: env.LOGGER_AUDIT_LOG_RETENTION_DAYS,
         mkdir: true,
         size: '10M',
-        max: env.LOGGER_AUDIT_LOG_RETENTION_DAYS,
       },
+      target: 'pino-roll',
     });
   }
 
   // Create the Pino logger with standard configuration
   const pinoConfig: pino.LoggerOptions<'audit'> = {
-    level: env.LOGGER_LOG_LEVEL.toLowerCase(),
-    customLevels: logLevelsSchema,
-    useOnlyCustomLevels: true,
-    timestamp: pino.stdTimeFunctions.isoTime,
     base: {
+      environment: env.NODE_ENV,
       hostname: os.hostname(),
       pid: process.pid,
       service: env.LOGGER_SERVICE_NAME,
-      environment: env.NODE_ENV,
     },
+    customLevels: logLevelsSchema,
+    level: env.LOGGER_LOG_LEVEL.toLowerCase(),
+    timestamp: pino.stdTimeFunctions.isoTime,
+    useOnlyCustomLevels: true,
   };
 
   // Only add transport configuration if we have targets
@@ -128,23 +128,19 @@ function createRootLogger(): Logger {
  * Creates a child logger from the root logger with category-specific context.
  */
 export const getLogger = (category: string): Logger => {
-  // Return cached logger if it exists
   if (loggerCache.has(category)) {
     return loggerCache.get(category)!;
   }
 
-  // Create root logger if it doesn't exist
   if (!rootLogger) {
     rootLogger = createRootLogger();
   }
 
-  // Create a child logger with category context
   const categoryLogger = rootLogger.child({
     category,
     categoryLabel: formatLabel(category, 25),
   }) as Logger;
 
-  // Cache the logger
   loggerCache.set(category, categoryLogger);
 
   return categoryLogger;

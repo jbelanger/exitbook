@@ -13,8 +13,6 @@ import { BaseAdapter } from '../../shared/adapters/base-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
 import type { BlockchainExplorersConfig } from '../shared/explorer-config.ts';
 
-// Parameter types removed - using discriminated union
-
 export class InjectiveAdapter extends BaseAdapter {
   private providerManager: BlockchainProviderManager;
 
