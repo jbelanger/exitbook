@@ -1,76 +1,77 @@
 {
-  "name": "crypto-tx-import",
-  "version": "1.0.0",
-  "description": "Crypto transaction import and verification tool using CCXT - Monorepo",
-  "type": "module",
-  "private": true,
-  "scripts": {
-    "build": "pnpm -F crypto-portfolio-cli build",
-    "clean": "pnpm -r run clean",
-    "dev": "pnpm -F crypto-portfolio-cli dev",
-    "import": "pnpm -F crypto-portfolio-cli import",
-    "import:verify": "pnpm -F crypto-portfolio-cli import:verify",
-    "verify": "pnpm -F crypto-portfolio-cli verify",
-    "status": "pnpm -F crypto-portfolio-cli status",
-    "export": "pnpm -F crypto-portfolio-cli export",
-    "test": "vitest run",
-    "test:unit": "vitest run",
-    "test:e2e": "vitest run --config vitest.e2e.config.ts",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
-    "test:ui": "vitest --ui",
-    "test:coinbase": "pnpm -F crypto-portfolio-cli test --exchange coinbase",
-    "test:coinbase:e2e": "pnpm -F crypto-portfolio-cli test --exchange coinbase",
-    "typecheck": "pnpm -r run typecheck",
-    "lint": "pnpm -r run lint",
-    "prettier": "pnpm -r run prettier",
-    "prettier:fix": "pnpm -r run prettier:fix",
-    "blockchain-providers:list": "pnpm -F @crypto/import blockchain-providers:list",
-    "blockchain-providers:validate": "pnpm -F @crypto/import blockchain-providers:validate",
-    "blockchain-config:generate": "pnpm -F @crypto/import blockchain-config:generate",
-    "blockchain-config:validate": "pnpm -F @crypto/import blockchain-config:validate",
-    "exchanges:list": "pnpm -F @crypto/import exchanges:list",
-    "exchanges:generate": "pnpm -F @crypto/import exchanges:generate",
-    "exchanges:validate": "pnpm -F @crypto/import exchanges:validate",
-    "exchanges:validate-config": "pnpm -F @crypto/import exchanges:validate-config",
-    "workspace:build": "pnpm -r build",
-    "workspace:clean": "pnpm -r clean",
-    "workspace:test": "pnpm -r test",
-    "prepare": "husky"
-  },
-  "keywords": [
-    "ccxt",
-    "crypto",
-    "transactions",
-    "import",
-    "balance-verification"
-  ],
-  "engines": {
-    "node": ">=23.0.0",
-    "pnpm": ">=10.6.2"
-  },
-  "packageManager": "pnpm@10.6.2",
-  "lint-staged": {
-    "*.{js,ts,tsx,json,md,yaml,yml}": [
-      "prettier --write"
-    ],
-    "*.{js,ts,tsx}": [
-      "eslint --fix"
-    ]
-  },
-  "devDependencies": {
-    "@eslint/js": "^9.34.0",
-    "@types/prettier": "^3.0.0",
-    "@typescript-eslint/eslint-plugin": "^8.40.0",
-    "@typescript-eslint/parser": "^8.40.0",
-    "@vitest/coverage-v8": "^3.2.4",
-    "@vitest/ui": "^3.2.4",
-    "eslint-plugin-unicorn": "^60.0.0",
-    "globals": "^16.3.0",
-    "husky": "^9.1.7",
-    "lint-staged": "^16.1.5",
-    "prettier": "^3.6.2",
-    "typescript-eslint": "^8.40.0",
-    "vitest": "^3.2.4"
-  }
+   "name": "crypto-tx-import",
+   "version": "1.0.0",
+   "description": "Crypto transaction import and verification tool using CCXT - Monorepo",
+   "type": "module",
+   "private": true,
+   "scripts": {
+      "build": "pnpm -F crypto-portfolio-cli build",
+      "clean": "pnpm -r run clean",
+      "dev": "pnpm -F crypto-portfolio-cli dev",
+      "import": "pnpm -F crypto-portfolio-cli import",
+      "import:verify": "pnpm -F crypto-portfolio-cli import:verify",
+      "verify": "pnpm -F crypto-portfolio-cli verify",
+      "status": "pnpm -F crypto-portfolio-cli status",
+      "export": "pnpm -F crypto-portfolio-cli export",
+      "test": "vitest run",
+      "test:unit": "vitest run",
+      "test:e2e": "vitest run --config vitest.e2e.config.ts",
+      "test:watch": "vitest",
+      "test:coverage": "vitest run --coverage",
+      "test:ui": "vitest --ui",
+      "test:coinbase": "pnpm -F crypto-portfolio-cli test --exchange coinbase",
+      "test:coinbase:e2e": "pnpm -F crypto-portfolio-cli test --exchange coinbase",
+      "typecheck": "pnpm -r run typecheck",
+      "lint": "pnpm -r run lint",
+      "prettier": "pnpm -r run prettier",
+      "prettier:fix": "pnpm -r run prettier:fix",
+      "blockchain-providers:list": "pnpm -F @crypto/import blockchain-providers:list",
+      "blockchain-providers:validate": "pnpm -F @crypto/import blockchain-providers:validate",
+      "blockchain-config:generate": "pnpm -F @crypto/import blockchain-config:generate",
+      "blockchain-config:validate": "pnpm -F @crypto/import blockchain-config:validate",
+      "exchanges:list": "pnpm -F @crypto/import exchanges:list",
+      "exchanges:generate": "pnpm -F @crypto/import exchanges:generate",
+      "exchanges:validate": "pnpm -F @crypto/import exchanges:validate",
+      "exchanges:validate-config": "pnpm -F @crypto/import exchanges:validate-config",
+      "workspace:build": "pnpm -r build",
+      "workspace:clean": "pnpm -r clean",
+      "workspace:test": "pnpm -r test",
+      "prepare": "husky"
+   },
+   "keywords": [
+      "ccxt",
+      "crypto",
+      "transactions",
+      "import",
+      "balance-verification"
+   ],
+   "engines": {
+      "node": ">=23.0.0",
+      "pnpm": ">=10.6.2"
+   },
+   "packageManager": "pnpm@10.6.2",
+   "lint-staged": {
+      "*.{js,ts,tsx,json,md,yaml,yml}": [
+         "prettier --write"
+      ],
+      "*.{js,ts,tsx}": [
+         "eslint --fix"
+      ]
+   },
+   "devDependencies": {
+      "@eslint/js": "^9.34.0",
+      "@trivago/prettier-plugin-sort-imports": "^5.2.2",
+      "@types/prettier": "^3.0.0",
+      "@typescript-eslint/eslint-plugin": "^8.40.0",
+      "@typescript-eslint/parser": "^8.40.0",
+      "@vitest/coverage-v8": "^3.2.4",
+      "@vitest/ui": "^3.2.4",
+      "eslint-plugin-unicorn": "^60.0.0",
+      "globals": "^16.3.0",
+      "husky": "^9.1.7",
+      "lint-staged": "^16.1.5",
+      "prettier": "^3.6.2",
+      "typescript-eslint": "^8.40.0",
+      "vitest": "^3.2.4"
+   }
 }
