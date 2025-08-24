@@ -90,13 +90,13 @@ export interface SnowtraceTokenBalance {
 export interface AtomicTransaction {
   id: string;
   timestamp: string;
-  type: "import" | "export";
-  sourceChain: "P" | "X" | "C";
-  destinationChain: "P" | "X" | "C";
+  type: 'import' | 'export';
+  sourceChain: 'P' | 'X' | 'C';
+  destinationChain: 'P' | 'X' | 'C';
   amount: string;
   asset: string;
   fee: string;
-  status: "accepted" | "processing" | "rejected";
+  status: 'accepted' | 'processing' | 'rejected';
 }
 
 // Network configuration for Avalanche C-Chain

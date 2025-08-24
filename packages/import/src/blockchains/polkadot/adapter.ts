@@ -7,23 +7,20 @@ import type {
   UniversalBlockchainAdapterConfig,
   UniversalFetchParams,
   UniversalTransaction,
-} from "@crypto/core";
+} from '@crypto/core';
 
 // Parameter types removed - using discriminated union
 
-import { BaseAdapter } from "../../shared/adapters/base-adapter.ts";
-import { BlockchainProviderManager } from "../shared/blockchain-provider-manager.ts";
-import type { BlockchainExplorersConfig } from "../shared/explorer-config.ts";
-import { SUBSTRATE_CHAINS, type SubstrateChainConfig } from "./types.ts";
+import { BaseAdapter } from '../../shared/adapters/base-adapter.ts';
+import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
+import type { BlockchainExplorersConfig } from '../shared/explorer-config.ts';
+import { SUBSTRATE_CHAINS, type SubstrateChainConfig } from './types.ts';
 
 export class SubstrateAdapter extends BaseAdapter {
   private chainConfig: SubstrateChainConfig;
   private providerManager: BlockchainProviderManager;
 
-  constructor(
-    config: UniversalBlockchainAdapterConfig,
-    explorerConfig: BlockchainExplorersConfig,
-  ) {
+  constructor(config: UniversalBlockchainAdapterConfig, explorerConfig: BlockchainExplorersConfig) {
     super(config);
 
     // Always use Polkadot mainnet as default, but can be extended for other chains
@@ -31,10 +28,10 @@ export class SubstrateAdapter extends BaseAdapter {
 
     // Create and initialize provider manager with registry
     this.providerManager = new BlockchainProviderManager(explorerConfig);
-    this.providerManager.autoRegisterFromConfig("polkadot", "mainnet");
+    this.providerManager.autoRegisterFromConfig('polkadot', 'mainnet');
 
     this.logger.info(
-      `Initialized Substrate adapter with registry-based provider manager - Chain: ${this.chainConfig.name}, DisplayName: ${this.chainConfig.displayName}, TokenSymbol: ${this.chainConfig.tokenSymbol}, SS58Format: ${this.chainConfig.ss58Format}, ProvidersCount: ${this.providerManager.getProviders("polkadot").length}`,
+      `Initialized Substrate adapter with registry-based provider manager - Chain: ${this.chainConfig.name}, DisplayName: ${this.chainConfig.displayName}, TokenSymbol: ${this.chainConfig.tokenSymbol}, SS58Format: ${this.chainConfig.ss58Format}, ProvidersCount: ${this.providerManager.getProviders('polkadot').length}`
     );
   }
 
@@ -42,10 +39,10 @@ export class SubstrateAdapter extends BaseAdapter {
     return {
       id: this.chainConfig.name,
       name: this.chainConfig.displayName,
-      type: "blockchain",
-      subType: "rest",
+      type: 'blockchain',
+      subType: 'rest',
       capabilities: {
-        supportedOperations: ["fetchTransactions", "fetchBalances"],
+        supportedOperations: ['fetchTransactions', 'fetchBalances'],
         maxBatchSize: 1,
         supportsHistoricalData: true,
         supportsPagination: true,
@@ -58,43 +55,36 @@ export class SubstrateAdapter extends BaseAdapter {
     };
   }
 
-  protected async fetchRawTransactions(
-    params: UniversalFetchParams,
-  ): Promise<BlockchainTransaction[]> {
+  protected async fetchRawTransactions(params: UniversalFetchParams): Promise<BlockchainTransaction[]> {
     if (!params.addresses?.length) {
-      throw new Error("Addresses required for Substrate adapter");
+      throw new Error('Addresses required for Substrate adapter');
     }
 
     const allTransactions: BlockchainTransaction[] = [];
 
     for (const address of params.addresses) {
-      this.logger.info(
-        `SubstrateAdapter: Fetching transactions for address: ${address.substring(0, 20)}...`,
-      );
+      this.logger.info(`SubstrateAdapter: Fetching transactions for address: ${address.substring(0, 20)}...`);
       this.logger.debug(
-        `SubstrateAdapter.getAddressTransactions called - Address: ${address}, Since: ${params.since}, Chain: ${this.chainConfig.name}`,
+        `SubstrateAdapter.getAddressTransactions called - Address: ${address}, Since: ${params.since}, Chain: ${this.chainConfig.name}`
       );
 
       try {
-        const transactions = (await this.providerManager.executeWithFailover(
-          "polkadot",
-          {
-            type: "getAddressTransactions",
-            address: address,
-            since: params.since,
-            getCacheKey: (cacheParams) =>
-              `${this.chainConfig.name}_tx_${cacheParams.type === 'getAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getAddressTransactions' ? cacheParams.since || "all" : 'unknown'}`,
-          },
-        )) as BlockchainTransaction[];
+        const transactions = (await this.providerManager.executeWithFailover('polkadot', {
+          type: 'getAddressTransactions',
+          address: address,
+          since: params.since,
+          getCacheKey: cacheParams =>
+            `${this.chainConfig.name}_tx_${cacheParams.type === 'getAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getAddressTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
+        })) as BlockchainTransaction[];
 
         allTransactions.push(...transactions);
 
         this.logger.info(
-          `SubstrateAdapter: Found ${transactions.length} transactions for ${this.chainConfig.name} address`,
+          `SubstrateAdapter: Found ${transactions.length} transactions for ${this.chainConfig.name} address`
         );
       } catch (error) {
         this.logger.error(
-          `Failed to fetch address transactions via provider manager - Address: ${address}, Chain: ${this.chainConfig.name}, Error: ${error instanceof Error ? error.message : String(error)}`,
+          `Failed to fetch address transactions via provider manager - Address: ${address}, Chain: ${this.chainConfig.name}, Error: ${error instanceof Error ? error.message : String(error)}`
         );
         throw error;
       }
@@ -103,44 +93,35 @@ export class SubstrateAdapter extends BaseAdapter {
     // Sort by timestamp (newest first)
     allTransactions.sort((a, b) => b.timestamp - a.timestamp);
 
-    this.logger.info(
-      `SubstrateAdapter: Found ${allTransactions.length} total transactions`,
-    );
+    this.logger.info(`SubstrateAdapter: Found ${allTransactions.length} total transactions`);
     return allTransactions;
   }
 
-  protected async fetchRawBalances(
-    params: UniversalFetchParams,
-  ): Promise<Balance[]> {
+  protected async fetchRawBalances(params: UniversalFetchParams): Promise<Balance[]> {
     if (!params.addresses?.length) {
-      throw new Error("Addresses required for Substrate balance fetching");
+      throw new Error('Addresses required for Substrate balance fetching');
     }
 
     const allBalances: Balance[] = [];
 
     for (const address of params.addresses) {
       this.logger.debug(
-        `SubstrateAdapter.getAddressBalance called - Address: ${address}, Chain: ${this.chainConfig.name}`,
+        `SubstrateAdapter.getAddressBalance called - Address: ${address}, Chain: ${this.chainConfig.name}`
       );
 
       try {
-        const balances = (await this.providerManager.executeWithFailover(
-          "polkadot",
-          {
-            type: "getAddressBalance",
-            address: address,
-            getCacheKey: (cacheParams) =>
-              `${this.chainConfig.name}_balance_${cacheParams.type === 'getAddressBalance' ? cacheParams.address : 'unknown'}`,
-          },
-        )) as Balance[];
+        const balances = (await this.providerManager.executeWithFailover('polkadot', {
+          type: 'getAddressBalance',
+          address: address,
+          getCacheKey: cacheParams =>
+            `${this.chainConfig.name}_balance_${cacheParams.type === 'getAddressBalance' ? cacheParams.address : 'unknown'}`,
+        })) as Balance[];
 
         allBalances.push(...balances);
-        this.logger.info(
-          `SubstrateAdapter: Found ${balances.length} balances for ${this.chainConfig.name} address`,
-        );
+        this.logger.info(`SubstrateAdapter: Found ${balances.length} balances for ${this.chainConfig.name} address`);
       } catch (error) {
         this.logger.error(
-          `Failed to fetch address balance via provider manager - Address: ${address}, Chain: ${this.chainConfig.name}, Error: ${error instanceof Error ? error.message : String(error)}`,
+          `Failed to fetch address balance via provider manager - Address: ${address}, Chain: ${this.chainConfig.name}, Error: ${error instanceof Error ? error.message : String(error)}`
         );
         throw error;
       }
@@ -151,13 +132,13 @@ export class SubstrateAdapter extends BaseAdapter {
 
   protected async transformTransactions(
     rawTxs: BlockchainTransaction[],
-    params: UniversalFetchParams,
+    params: UniversalFetchParams
   ): Promise<UniversalTransaction[]> {
     const userAddresses = params.addresses || [];
 
-    return rawTxs.map((tx) => {
+    return rawTxs.map(tx => {
       // Determine transaction type based on user addresses
-      let type: TransactionType = "transfer";
+      let type: TransactionType = 'transfer';
 
       if (userAddresses.length > 0) {
         const userAddress = userAddresses[0].toLowerCase();
@@ -165,9 +146,9 @@ export class SubstrateAdapter extends BaseAdapter {
         const isOutgoing = tx.from.toLowerCase() === userAddress;
 
         if (isIncoming && !isOutgoing) {
-          type = "deposit";
+          type = 'deposit';
         } else if (isOutgoing && !isIncoming) {
-          type = "withdrawal";
+          type = 'withdrawal';
         }
       }
 
@@ -176,12 +157,7 @@ export class SubstrateAdapter extends BaseAdapter {
         timestamp: tx.timestamp,
         datetime: new Date(tx.timestamp).toISOString(),
         type,
-        status:
-          tx.status === "success"
-            ? "closed"
-            : tx.status === "pending"
-              ? "open"
-              : "canceled",
+        status: tx.status === 'success' ? 'closed' : tx.status === 'pending' ? 'open' : 'canceled',
         amount: tx.value,
         fee: tx.fee,
         from: tx.from,
@@ -201,11 +177,8 @@ export class SubstrateAdapter extends BaseAdapter {
     });
   }
 
-  protected async transformBalances(
-    rawBalances: Balance[],
-    params: UniversalFetchParams,
-  ): Promise<UniversalBalance[]> {
-    return rawBalances.map((balance) => ({
+  protected async transformBalances(rawBalances: Balance[], params: UniversalFetchParams): Promise<UniversalBalance[]> {
+    return rawBalances.map(balance => ({
       currency: balance.currency,
       total: balance.total,
       free: balance.balance,
@@ -215,13 +188,11 @@ export class SubstrateAdapter extends BaseAdapter {
   }
 
   async testConnection(): Promise<boolean> {
-    this.logger.debug(
-      `SubstrateAdapter.testConnection called - Chain: ${this.chainConfig.name}`,
-    );
+    this.logger.debug(`SubstrateAdapter.testConnection called - Chain: ${this.chainConfig.name}`);
 
     try {
       // Test connection using provider manager
-      const providers = this.providerManager.getProviders("polkadot");
+      const providers = this.providerManager.getProviders('polkadot');
       if (providers.length === 0) {
         this.logger.warn(`No polkadot providers available for connection test`);
         return false;
@@ -232,14 +203,12 @@ export class SubstrateAdapter extends BaseAdapter {
         try {
           const isHealthy = await provider.isHealthy();
           if (isHealthy) {
-            this.logger.info(
-              `Connection test successful with provider: ${provider.name}`,
-            );
+            this.logger.info(`Connection test successful with provider: ${provider.name}`);
             return true;
           }
         } catch (error) {
           this.logger.debug(
-            `Provider ${provider.name} failed health check - Error: ${error instanceof Error ? error.message : String(error)}`,
+            `Provider ${provider.name} failed health check - Error: ${error instanceof Error ? error.message : String(error)}`
           );
         }
       }
@@ -248,7 +217,7 @@ export class SubstrateAdapter extends BaseAdapter {
       return false;
     } catch (error) {
       this.logger.error(
-        `Connection test failed - Chain: ${this.chainConfig.name}, Error: ${error instanceof Error ? error.message : String(error)}`,
+        `Connection test failed - Chain: ${this.chainConfig.name}, Error: ${error instanceof Error ? error.message : String(error)}`
       );
       return false;
     }
@@ -260,13 +229,9 @@ export class SubstrateAdapter extends BaseAdapter {
   async close(): Promise<void> {
     try {
       this.providerManager.destroy();
-      this.logger.info(
-        `${this.chainConfig.displayName} adapter closed successfully`,
-      );
+      this.logger.info(`${this.chainConfig.displayName} adapter closed successfully`);
     } catch (error) {
-      this.logger.warn(
-        `Error during ${this.chainConfig.displayName} adapter close - Error: ${error}`,
-      );
+      this.logger.warn(`Error during ${this.chainConfig.displayName} adapter close - Error: ${error}`);
     }
   }
 }

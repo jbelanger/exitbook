@@ -1,4 +1,4 @@
-import { vi } from "vitest";
+import { vi } from 'vitest';
 
 /**
  * Reusable HttpClient mock for testing
@@ -53,7 +53,7 @@ export function createHttpClientMock() {
      * Inject the mock HttpClient into a class instance that has a private httpClient property
      */
     injectIntoInstance(instance: object): void {
-      Object.defineProperty(instance, "httpClient", {
+      Object.defineProperty(instance, 'httpClient', {
         value: mockHttpClient,
         writable: true,
         configurable: true,
@@ -72,11 +72,11 @@ export function createHttpClientMock() {
      */
     getModuleMocks() {
       return {
-        "@crypto/shared-utils": {
+        '@crypto/shared-utils': {
           HttpClient: MockHttpClient,
           RateLimiterFactory: MockRateLimiterFactory,
         },
-        "@crypto/shared-logger": {
+        '@crypto/shared-logger': {
           getLogger: MockLogger,
         },
       };

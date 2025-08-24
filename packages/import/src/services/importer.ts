@@ -4,21 +4,16 @@ import type {
   UniversalAdapterConfig,
   UniversalFetchParams,
   UniversalTransaction,
-} from "@crypto/core";
-import {
-  Database,
-  TransactionRepository,
-  TransactionService,
-  WalletRepository,
-  WalletService,
-} from "@crypto/data";
-import { getLogger } from "@crypto/shared-logger";
-import { type BlockchainExplorersConfig } from "@crypto/shared-utils";
-import { UniversalAdapterFactory } from "../shared/adapters/adapter-factory.ts";
-import type { BlockchainAdapterConfig } from "../shared/types/config.ts";
-import type { ImportResult, ImportSummary } from "../shared/types/types.ts";
-import { detectScamFromSymbol } from "../shared/utils/scam-detection.ts";
-import { Deduplicator } from "./deduplicator.ts";
+} from '@crypto/core';
+import { Database, TransactionRepository, TransactionService, WalletRepository, WalletService } from '@crypto/data';
+import { getLogger } from '@crypto/shared-logger';
+import { type BlockchainExplorersConfig } from '@crypto/shared-utils';
+
+import { UniversalAdapterFactory } from '../shared/adapters/adapter-factory.ts';
+import type { BlockchainAdapterConfig } from '../shared/types/config.ts';
+import type { ImportResult, ImportSummary } from '../shared/types/types.ts';
+import { detectScamFromSymbol } from '../shared/utils/scam-detection.ts';
+import { Deduplicator } from './deduplicator.ts';
 
 interface BlockchainImportOptions {
   blockchain: string;
@@ -28,7 +23,7 @@ interface BlockchainImportOptions {
 }
 
 export class TransactionImporter {
-  private logger = getLogger("TransactionImporter");
+  private logger = getLogger('TransactionImporter');
 
   private transactionService: TransactionService;
   private deduplicator: Deduplicator;
@@ -36,42 +31,33 @@ export class TransactionImporter {
 
   constructor(
     private readonly database: Database,
-    private readonly explorerConfig: BlockchainExplorersConfig,
+    private readonly explorerConfig: BlockchainExplorersConfig
   ) {
     this.database = database;
     const transactionRepository = new TransactionRepository(database);
     const walletRepository = new WalletRepository(database);
-    this.transactionService = new TransactionService(
-      transactionRepository,
-      walletRepository,
-    );
+    this.transactionService = new TransactionService(transactionRepository, walletRepository);
     this.deduplicator = new Deduplicator();
     this.walletService = new WalletService(walletRepository);
   }
 
-  async importFromBlockchain(
-    options: BlockchainImportOptions,
-  ): Promise<ImportSummary> {
+  async importFromBlockchain(options: BlockchainImportOptions): Promise<ImportSummary> {
     const startTime = Date.now();
-    this.logger.info("Starting transaction import from blockchain");
+    this.logger.info('Starting transaction import from blockchain');
 
     try {
       await this.ensureWalletAddresses(options.addresses, options.blockchain);
       const adapters = await this.createBlockchainAdapters(options);
-      const summary = await this.processBlockchainImports(
-        adapters,
-        options,
-        startTime,
-      );
+      const summary = await this.processBlockchainImports(adapters, options, startTime);
 
       this.logger.info(
-        `Blockchain import completed for ${options.blockchain} - Total: ${summary.totalTransactions}, New: ${summary.newTransactions}, Duration: ${summary.duration}ms`,
+        `Blockchain import completed for ${options.blockchain} - Total: ${summary.totalTransactions}, New: ${summary.newTransactions}, Duration: ${summary.duration}ms`
       );
       return summary;
     } catch (error) {
       const duration = Date.now() - startTime;
       this.logger.error(
-        `Blockchain import failed: ${error instanceof Error ? error.message : "Unknown error"} (duration: ${duration}ms)`,
+        `Blockchain import failed: ${error instanceof Error ? error.message : 'Unknown error'} (duration: ${duration}ms)`
       );
       throw error;
     }
@@ -79,7 +65,7 @@ export class TransactionImporter {
 
   async importFromExchangeWithCredentials(options: {
     exchangeId: string;
-    adapterType: "ccxt" | "csv" | "native";
+    adapterType: 'ccxt' | 'csv' | 'native';
     credentials?: {
       apiKey: string;
       secret: string;
@@ -90,24 +76,17 @@ export class TransactionImporter {
     since?: number;
   }): Promise<ImportResult> {
     // Use the new universal approach
-    return this.importFromExchangeUniversal(
-      options.exchangeId,
-      options.adapterType,
-      {
-        credentials: options.credentials,
-        csvDirectories: options.csvDirectories,
-        since: options.since,
-      },
-    );
+    return this.importFromExchangeUniversal(options.exchangeId, options.adapterType, {
+      credentials: options.credentials,
+      csvDirectories: options.csvDirectories,
+      since: options.since,
+    });
   }
 
   /**
    * Universal adapter import method - unified interface for all adapter types
    */
-  async importFromAdapter(
-    adapter: IUniversalAdapter,
-    params: UniversalFetchParams,
-  ): Promise<ImportResult> {
+  async importFromAdapter(adapter: IUniversalAdapter, params: UniversalFetchParams): Promise<ImportResult> {
     const startTime = Date.now();
     const info = await adapter.getInfo();
     this.logger.info(`Starting import from ${info.name} (${info.type})`);
@@ -123,8 +102,7 @@ export class TransactionImporter {
       const transactions = await adapter.fetchTransactions(params);
 
       // Save transactions using universal pipeline
-      const { saved, duplicates } =
-        await this.processAndSaveUniversalTransactions(transactions, info.id);
+      const { saved, duplicates } = await this.processAndSaveUniversalTransactions(transactions, info.id);
 
       const duration = Date.now() - startTime;
 
@@ -138,22 +116,20 @@ export class TransactionImporter {
       };
 
       this.logger.info(
-        `Completed import from ${info.name} - Transactions: ${transactions.length}, New: ${saved}, Duplicates: ${duplicates.length}, Duration: ${duration}ms`,
+        `Completed import from ${info.name} - Transactions: ${transactions.length}, New: ${saved}, Duplicates: ${duplicates.length}, Duration: ${duration}ms`
       );
 
       return result;
     } catch (error) {
       const duration = Date.now() - startTime;
-      this.logger.error(
-        `Import failed for ${info.name}: ${error} (duration: ${duration}ms)`,
-      );
+      this.logger.error(`Import failed for ${info.name}: ${error} (duration: ${duration}ms)`);
 
       return {
         source: info.id,
         transactions: 0,
         newTransactions: 0,
         duplicatesSkipped: 0,
-        errors: [error instanceof Error ? error.message : "Unknown error"],
+        errors: [error instanceof Error ? error.message : 'Unknown error'],
         duration,
       };
     } finally {
@@ -166,7 +142,7 @@ export class TransactionImporter {
    */
   async importFromExchangeUniversal(
     exchangeId: string,
-    adapterType: "ccxt" | "csv" | "native",
+    adapterType: 'ccxt' | 'csv' | 'native',
     options: {
       credentials?:
         | {
@@ -178,10 +154,10 @@ export class TransactionImporter {
       csvDirectories?: string[] | undefined;
       since?: number | undefined;
       symbols?: string[] | undefined;
-    },
+    }
   ): Promise<ImportResult> {
     const config: UniversalAdapterConfig = {
-      type: "exchange",
+      type: 'exchange',
       id: exchangeId,
       subType: adapterType,
       credentials: options.credentials,
@@ -206,19 +182,16 @@ export class TransactionImporter {
       network?: string;
       includeTokens?: boolean;
       symbols?: string[];
-    } = {},
+    } = {}
   ): Promise<ImportResult> {
     const config: BlockchainAdapterConfig = {
-      type: "blockchain",
+      type: 'blockchain',
       id: blockchain,
-      subType: "rest",
-      network: options.network || "mainnet",
+      subType: 'rest',
+      network: options.network || 'mainnet',
     };
 
-    const adapter = await UniversalAdapterFactory.create(
-      config,
-      this.explorerConfig,
-    );
+    const adapter = await UniversalAdapterFactory.create(config, this.explorerConfig);
     return this.importFromAdapter(adapter, {
       addresses,
       since: options.since || Date.now() - 30 * 24 * 60 * 60 * 1000, // 30 days default
@@ -232,23 +205,18 @@ export class TransactionImporter {
    */
   private async processAndSaveUniversalTransactions(
     transactions: UniversalTransaction[],
-    sourceId: string,
+    sourceId: string
   ): Promise<{ saved: number; duplicates: UniversalTransaction[] }> {
-    const enhancedTransactions = transactions.map((tx) =>
-      this.enhanceUniversalTransaction(tx, sourceId),
-    );
-    const { unique, duplicates } = await this.deduplicator.process(
-      enhancedTransactions,
-      sourceId,
-    );
+    const enhancedTransactions = transactions.map(tx => this.enhanceUniversalTransaction(tx, sourceId));
+    const { unique, duplicates } = await this.deduplicator.process(enhancedTransactions, sourceId);
     const saved = await this.transactionService.saveManyUniversal(unique);
 
-    if (saved > 0 && sourceId !== "exchange") {
+    if (saved > 0 && sourceId !== 'exchange') {
       try {
         await this.linkUniversalTransactionsToWallets(unique, sourceId);
       } catch (linkError) {
         this.logger.warn(
-          `Failed to link transactions to wallet addresses for ${sourceId}: ${linkError instanceof Error ? linkError.message : String(linkError)}`,
+          `Failed to link transactions to wallet addresses for ${sourceId}: ${linkError instanceof Error ? linkError.message : String(linkError)}`
         );
       }
     }
@@ -259,26 +227,18 @@ export class TransactionImporter {
   /**
    * Enhance universal transaction with additional metadata
    */
-  private enhanceUniversalTransaction(
-    transaction: UniversalTransaction,
-    sourceId: string,
-  ): UniversalTransaction {
+  private enhanceUniversalTransaction(transaction: UniversalTransaction, sourceId: string): UniversalTransaction {
     // Detect scam tokens for blockchain transactions
     let scamNote: TransactionNote | undefined = undefined;
     const isBlockchainTransaction =
-      sourceId.includes("mainnet") ||
-      ["ethereum", "bitcoin", "solana"].includes(sourceId);
-    if (
-      isBlockchainTransaction &&
-      transaction.symbol &&
-      transaction.type === "deposit"
-    ) {
+      sourceId.includes('mainnet') || ['ethereum', 'bitcoin', 'solana'].includes(sourceId);
+    if (isBlockchainTransaction && transaction.symbol && transaction.type === 'deposit') {
       const scamCheck = detectScamFromSymbol(transaction.symbol);
       if (scamCheck.isScam) {
         scamNote = {
-          type: "SCAM_TOKEN",
+          type: 'SCAM_TOKEN',
           message: `🚨 Scam token detected: ${scamCheck.reason} - Do not interact`,
-          severity: "error",
+          severity: 'error',
           metadata: {
             tokenSymbol: transaction.symbol,
             amount: transaction.amount?.amount,
@@ -307,16 +267,13 @@ export class TransactionImporter {
    */
   private async linkUniversalTransactionsToWallets(
     transactions: UniversalTransaction[],
-    blockchain: string,
+    blockchain: string
   ): Promise<void> {
-    this.logger.info(
-      `Linking ${transactions.length} universal transactions to wallet addresses for ${blockchain}`,
-    );
+    this.logger.info(`Linking ${transactions.length} universal transactions to wallet addresses for ${blockchain}`);
 
     for (const transaction of transactions) {
       try {
-        const { from: fromAddress, to: toAddress } =
-          this.extractUniversalTransactionAddresses(transaction);
+        const { from: fromAddress, to: toAddress } = this.extractUniversalTransactionAddresses(transaction);
 
         if (!fromAddress && !toAddress) {
           continue;
@@ -333,7 +290,7 @@ export class TransactionImporter {
         // Link transaction to wallets is handled in TransactionService.saveManyUniversal
       } catch (error) {
         this.logger.warn(
-          `Failed to link transaction ${transaction.id} to wallets: ${error instanceof Error ? error.message : String(error)}`,
+          `Failed to link transaction ${transaction.id} to wallets: ${error instanceof Error ? error.message : String(error)}`
         );
       }
     }
@@ -342,40 +299,36 @@ export class TransactionImporter {
   /**
    * Extract addresses from universal transaction
    */
-  private extractUniversalTransactionAddresses(
-    transaction: UniversalTransaction,
-  ): { from: string | null; to: string | null } {
+  private extractUniversalTransactionAddresses(transaction: UniversalTransaction): {
+    from: string | null;
+    to: string | null;
+  } {
     return {
       from: transaction.from || null,
       to: transaction.to || null,
     };
   }
 
-  async createBlockchainAdapters(
-    options: BlockchainImportOptions,
-  ): Promise<Array<{ adapter: IUniversalAdapter }>> {
+  async createBlockchainAdapters(options: BlockchainImportOptions): Promise<Array<{ adapter: IUniversalAdapter }>> {
     try {
       // Use the new universal approach
       const config: BlockchainAdapterConfig = {
-        type: "blockchain",
+        type: 'blockchain',
         id: options.blockchain.toLowerCase(),
-        subType: "rest",
-        network: options.network || "mainnet",
+        subType: 'rest',
+        network: options.network || 'mainnet',
       };
 
-      const adapter = await UniversalAdapterFactory.create(
-        config,
-        this.explorerConfig,
-      );
+      const adapter = await UniversalAdapterFactory.create(config, this.explorerConfig);
 
       this.logger.info(
-        `Created universal blockchain adapter: ${options.blockchain} (addresses: ${options.addresses.length}, network: ${options.network || "mainnet"})`,
+        `Created universal blockchain adapter: ${options.blockchain} (addresses: ${options.addresses.length}, network: ${options.network || 'mainnet'})`
       );
 
       return [{ adapter }];
     } catch (error) {
       this.logger.error(
-        `Failed to create blockchain adapter for ${options.blockchain}: ${error instanceof Error ? error.message : "Unknown error"}`,
+        `Failed to create blockchain adapter for ${options.blockchain}: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
       throw error;
     }
@@ -384,7 +337,7 @@ export class TransactionImporter {
   private async processBlockchainImports(
     adapters: Array<{ adapter: IUniversalAdapter }>,
     options: BlockchainImportOptions,
-    startTime: number,
+    startTime: number
   ): Promise<ImportSummary> {
     const sourceResults: ImportResult[] = [];
     let totalTransactions = 0;
@@ -407,7 +360,7 @@ export class TransactionImporter {
         totalDuplicatesSkipped += result.duplicatesSkipped;
         allErrors.push(...result.errors);
       } catch (error) {
-        const errorMessage = `Failed to import from ${adapterInfo.id}: ${error instanceof Error ? error.message : "Unknown error"}`;
+        const errorMessage = `Failed to import from ${adapterInfo.id}: ${error instanceof Error ? error.message : 'Unknown error'}`;
         this.logger.error(errorMessage);
         allErrors.push(errorMessage);
 
@@ -423,9 +376,7 @@ export class TransactionImporter {
         try {
           await adapter.close();
         } catch (closeError) {
-          this.logger.warn(
-            `Failed to close adapter for ${adapterInfo.id}: ${closeError}`,
-          );
+          this.logger.warn(`Failed to close adapter for ${adapterInfo.id}: ${closeError}`);
         }
       }
     }
@@ -444,54 +395,40 @@ export class TransactionImporter {
   /**
    * Ensure wallet address exists (helper method)
    */
-  private async ensureWalletAddress(
-    address: string,
-    blockchain: string,
-  ): Promise<void> {
+  private async ensureWalletAddress(address: string, blockchain: string): Promise<void> {
     try {
       // Use the wallet service to create wallet address
-      await this.walletService.createWalletAddressFromTransaction(
-        address,
-        blockchain,
-        {
-          label: `${blockchain} wallet (auto-created)`,
-          addressType: "personal",
-          notes: `Auto-created during transaction import for ${blockchain}`,
-        },
-      );
+      await this.walletService.createWalletAddressFromTransaction(address, blockchain, {
+        label: `${blockchain} wallet (auto-created)`,
+        addressType: 'personal',
+        notes: `Auto-created during transaction import for ${blockchain}`,
+      });
     } catch (error) {
       // Ignore errors if wallet already exists
-      this.logger.debug(
-        `Wallet for address ${address} may already exist: ${error}`,
-      );
+      this.logger.debug(`Wallet for address ${address} may already exist: ${error}`);
     }
   }
 
   /**
    * Ensure wallet addresses exist for the given blockchain
    */
-  private async ensureWalletAddresses(
-    addresses: string[],
-    blockchain: string,
-  ): Promise<void> {
+  private async ensureWalletAddresses(addresses: string[], blockchain: string): Promise<void> {
     if (!addresses?.length) return;
 
-    this.logger.debug(
-      `Creating wallet records for ${addresses.length} ${blockchain} addresses`,
-    );
+    this.logger.debug(`Creating wallet records for ${addresses.length} ${blockchain} addresses`);
 
-    const createPromises = addresses.map((address) =>
+    const createPromises = addresses.map(address =>
       this.walletService
         .createWalletAddressFromTransaction(address, blockchain, {
           label: `${blockchain} wallet (CLI)`,
-          addressType: "personal",
-          notes: "Added from CLI arguments",
+          addressType: 'personal',
+          notes: 'Added from CLI arguments',
         })
-        .catch((error) => {
+        .catch(error => {
           this.logger.debug(
-            `Address ${address} may already exist: ${error instanceof Error ? error.message : String(error)}`,
+            `Address ${address} may already exist: ${error instanceof Error ? error.message : String(error)}`
           );
-        }),
+        })
     );
 
     await Promise.allSettled(createPromises);

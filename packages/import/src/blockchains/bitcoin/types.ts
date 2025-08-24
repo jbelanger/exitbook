@@ -1,9 +1,9 @@
-import type { HDKey } from "@scure/bip32";
+import type { HDKey } from '@scure/bip32';
 
 // Bitcoin provider-specific API response types
-export type XpubType = "xpub" | "ypub" | "zpub" | "address";
-export type BipStandard = "bip44" | "bip49" | "bip84";
-export type AddressType = "legacy" | "segwit" | "bech32";
+export type XpubType = 'xpub' | 'ypub' | 'zpub' | 'address';
+export type BipStandard = 'bip44' | 'bip49' | 'bip84';
+export type AddressType = 'legacy' | 'segwit' | 'bech32';
 
 export interface BitcoinWalletAddress {
   address: string; // Original user-provided address (xpub or regular)

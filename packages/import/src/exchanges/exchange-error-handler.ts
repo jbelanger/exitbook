@@ -1,11 +1,7 @@
-import {
-  AuthenticationError,
-  RateLimitError,
-  ServiceError,
-} from "@crypto/core";
-import type { Logger } from "@crypto/shared-logger";
-import { isErrorWithMessage, getErrorProperties } from "@crypto/shared-utils";
-import ccxt from "ccxt";
+import { AuthenticationError, RateLimitError, ServiceError } from '@crypto/core';
+import type { Logger } from '@crypto/shared-logger';
+import { getErrorProperties, isErrorWithMessage } from '@crypto/shared-utils';
+import ccxt from 'ccxt';
 
 /**
  * Centralized error handling for exchange operations
@@ -15,15 +11,10 @@ export class ServiceErrorHandler {
   /**
    * Handle errors and convert to appropriate exception types
    */
-  static handle(
-    error: unknown,
-    operation: string,
-    exchangeId: string,
-    logger?: Logger,
-  ): never {
+  static handle(error: unknown, operation: string, exchangeId: string, logger?: Logger): never {
     if (logger) {
       logger.error(
-        `Exchange operation failed: ${operation} - Exchange: ${exchangeId}, Error: ${error instanceof Error ? error.message : "Unknown error"}, Type: ${error instanceof Error ? error.constructor.name : "Unknown"}`,
+        `Exchange operation failed: ${operation} - Exchange: ${exchangeId}, Error: ${error instanceof Error ? error.message : 'Unknown error'}, Type: ${error instanceof Error ? error.constructor.name : 'Unknown'}`
       );
     }
 
@@ -31,33 +22,31 @@ export class ServiceErrorHandler {
     if (this.isRateLimit(error)) {
       const retryAfter = this.extractRetryAfter(error);
       if (logger) {
-        logger.warn(
-          `Rate limit exceeded for ${exchangeId}, should retry after ${retryAfter}ms`,
-        );
+        logger.warn(`Rate limit exceeded for ${exchangeId}, should retry after ${retryAfter}ms`);
       }
 
       throw new RateLimitError(
-        `Rate limit exceeded: ${error instanceof Error ? error.message : "Unknown error"}`,
+        `Rate limit exceeded: ${error instanceof Error ? error.message : 'Unknown error'}`,
         exchangeId,
         operation,
-        retryAfter,
+        retryAfter
       );
     }
 
     if (this.isAuthError(error)) {
       throw new AuthenticationError(
-        `Authentication failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+        `Authentication failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         exchangeId,
-        operation,
+        operation
       );
     }
 
     if (this.isNetworkError(error)) {
       throw new ServiceError(
-        `Network error: ${error instanceof Error ? error.message : "Unknown error"}`,
+        `Network error: ${error instanceof Error ? error.message : 'Unknown error'}`,
         exchangeId,
         operation,
-        error instanceof Error ? error : undefined,
+        error instanceof Error ? error : undefined
       );
     }
 
@@ -65,32 +54,28 @@ export class ServiceErrorHandler {
       // For unsupported operations, we'll log it but create a specific error
       if (logger) {
         logger.warn(
-          `Operation not supported: ${operation} - Exchange: ${exchangeId}, Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+          `Operation not supported: ${operation} - Exchange: ${exchangeId}, Error: ${error instanceof Error ? error.message : 'Unknown error'}`
         );
       }
       throw new ServiceError(
-        `Operation not supported: ${error instanceof Error ? error.message : "Unknown error"}`,
+        `Operation not supported: ${error instanceof Error ? error.message : 'Unknown error'}`,
         exchangeId,
         operation,
-        error instanceof Error ? error : undefined,
+        error instanceof Error ? error : undefined
       );
     }
 
     // Re-throw if it's already one of our custom errors
-    if (
-      error instanceof ServiceError ||
-      error instanceof RateLimitError ||
-      error instanceof AuthenticationError
-    ) {
+    if (error instanceof ServiceError || error instanceof RateLimitError || error instanceof AuthenticationError) {
       throw error;
     }
 
     // Generic exchange error fallback
     throw new ServiceError(
-      `Operation failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      `Operation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
       exchangeId,
       operation,
-      error instanceof Error ? error : undefined,
+      error instanceof Error ? error : undefined
     );
   }
 
@@ -100,10 +85,8 @@ export class ServiceErrorHandler {
   static isRateLimit(error: unknown): boolean {
     return (
       error instanceof ccxt.RateLimitExceeded ||
-      (error instanceof Error && error.name === "RateLimitExceeded") ||
-      (error instanceof Error &&
-        !!error.message &&
-        error.message.toLowerCase().includes("rate limit"))
+      (error instanceof Error && error.name === 'RateLimitExceeded') ||
+      (error instanceof Error && !!error.message && error.message.toLowerCase().includes('rate limit'))
     );
   }
 
@@ -116,17 +99,17 @@ export class ServiceErrorHandler {
     }
 
     if (error instanceof Error) {
-      if (error.name === "AuthenticationError") {
+      if (error.name === 'AuthenticationError') {
         return true;
       }
 
       if (error.message) {
         const msg = error.message.toLowerCase();
         return (
-          msg.includes("authentication") ||
-          msg.includes("unauthorized") ||
-          msg.includes("invalid api") ||
-          msg.includes("api key")
+          msg.includes('authentication') ||
+          msg.includes('unauthorized') ||
+          msg.includes('invalid api') ||
+          msg.includes('api key')
         );
       }
     }
@@ -143,17 +126,13 @@ export class ServiceErrorHandler {
     }
 
     if (error instanceof Error) {
-      if (error.name === "NetworkError") {
+      if (error.name === 'NetworkError') {
         return true;
       }
 
       if (error.message) {
         const msg = error.message.toLowerCase();
-        return (
-          msg.includes("network") ||
-          msg.includes("timeout") ||
-          msg.includes("connection")
-        );
+        return msg.includes('network') || msg.includes('timeout') || msg.includes('connection');
       }
     }
 
@@ -169,13 +148,13 @@ export class ServiceErrorHandler {
     }
 
     if (error instanceof Error) {
-      if (error.name === "NotSupported") {
+      if (error.name === 'NotSupported') {
         return true;
       }
 
       if (error.message) {
         const msg = error.message.toLowerCase();
-        return msg.includes("not supported") || msg.includes("not implemented");
+        return msg.includes('not supported') || msg.includes('not implemented');
       }
     }
 
@@ -188,7 +167,7 @@ export class ServiceErrorHandler {
   static extractRetryAfter(error: unknown): number {
     // Try to get retry after from CCXT error
     const errorProps = getErrorProperties(error);
-    if (errorProps.retryAfter && typeof errorProps.retryAfter === "number") {
+    if (errorProps.retryAfter && typeof errorProps.retryAfter === 'number') {
       return errorProps.retryAfter;
     }
 
@@ -207,41 +186,28 @@ export class ServiceErrorHandler {
   /**
    * Create a standardized error message
    */
-  static formatErrorMessage(
-    operation: string,
-    exchangeId: string,
-    originalMessage: string,
-  ): string {
+  static formatErrorMessage(operation: string, exchangeId: string, originalMessage: string): string {
     return `Failed to ${operation} from ${exchangeId}: ${originalMessage}`;
   }
 
   /**
    * Log error details for debugging
    */
-  static logErrorDetails(
-    error: unknown,
-    operation: string,
-    exchangeId: string,
-    logger: Logger,
-  ): void {
+  static logErrorDetails(error: unknown, operation: string, exchangeId: string, logger: Logger): void {
     const errorProps = getErrorProperties(error);
     const details = {
       operation,
       exchange: exchangeId,
-      errorType: isErrorWithMessage(error)
-        ? error.constructor.name
-        : typeof error,
+      errorType: isErrorWithMessage(error) ? error.constructor.name : typeof error,
       message: errorProps.message,
       stack: isErrorWithMessage(error) ? error.stack : undefined,
       // Include CCXT-specific details if available
       ...(errorProps.code !== undefined ? { code: errorProps.code } : {}),
       ...(errorProps.status !== undefined ? { status: errorProps.status } : {}),
-      ...(errorProps.retryAfter !== undefined
-        ? { retryAfter: errorProps.retryAfter }
-        : {}),
+      ...(errorProps.retryAfter !== undefined ? { retryAfter: errorProps.retryAfter } : {}),
     };
 
-    logger.error(details, "Detailed error information");
+    logger.error(details, 'Detailed error information');
   }
 
   /**
@@ -253,8 +219,7 @@ export class ServiceErrorHandler {
       this.isNetworkError(error) ||
       (error instanceof Error &&
         !!error.message &&
-        (error.message.toLowerCase().includes("temporary") ||
-          error.message.toLowerCase().includes("try again")))
+        (error.message.toLowerCase().includes('temporary') || error.message.toLowerCase().includes('try again')))
     );
   }
 }

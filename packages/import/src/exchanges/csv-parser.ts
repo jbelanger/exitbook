@@ -1,5 +1,5 @@
-import { parse } from "csv-parse/sync";
-import fs from "fs/promises";
+import { parse } from 'csv-parse/sync';
+import fs from 'fs/promises';
 
 /**
  * Generic CSV file parser with common preprocessing
@@ -11,8 +11,8 @@ export class CsvParser {
    * @returns Array of parsed rows as objects
    */
   static async parseFile<T>(filePath: string): Promise<T[]> {
-    const content = await fs.readFile(filePath, "utf-8");
-    const cleanContent = content.replace(/^\uFEFF/, ""); // Remove BOM
+    const content = await fs.readFile(filePath, 'utf-8');
+    const cleanContent = content.replace(/^\uFEFF/, ''); // Remove BOM
 
     return parse(cleanContent, {
       columns: true,
@@ -27,31 +27,26 @@ export class CsvParser {
    * @param expectedHeaders Map of header strings to file types
    * @returns The file type or 'unknown'
    */
-  static async validateHeaders(
-    filePath: string,
-    expectedHeaders: Record<string, string>,
-  ): Promise<string> {
+  static async validateHeaders(filePath: string, expectedHeaders: Record<string, string>): Promise<string> {
     try {
-      const content = await fs.readFile(filePath, "utf-8");
-      const cleanContent = content.replace(/^\uFEFF/, ""); // Remove BOM
-      const lines = cleanContent.split("\n");
+      const content = await fs.readFile(filePath, 'utf-8');
+      const cleanContent = content.replace(/^\uFEFF/, ''); // Remove BOM
+      const lines = cleanContent.split('\n');
 
-      if (lines.length === 0) return "unknown";
+      if (lines.length === 0) return 'unknown';
 
-      const headerLine = lines[0]?.trim() ?? "";
+      const headerLine = lines[0]?.trim() ?? '';
 
       // Find matching header
-      for (const [expectedHeader, fileType] of Object.entries(
-        expectedHeaders,
-      )) {
+      for (const [expectedHeader, fileType] of Object.entries(expectedHeaders)) {
         if (headerLine === expectedHeader) {
           return fileType;
         }
       }
 
-      return "unknown";
+      return 'unknown';
     } catch {
-      return "unknown";
+      return 'unknown';
     }
   }
 
@@ -62,12 +57,12 @@ export class CsvParser {
    */
   static async getHeaders(filePath: string): Promise<string> {
     try {
-      const content = await fs.readFile(filePath, "utf-8");
-      const cleanContent = content.replace(/^\uFEFF/, "");
-      const lines = cleanContent.split("\n");
-      return lines[0]?.trim() ?? "";
+      const content = await fs.readFile(filePath, 'utf-8');
+      const cleanContent = content.replace(/^\uFEFF/, '');
+      const lines = cleanContent.split('\n');
+      return lines[0]?.trim() ?? '';
     } catch {
-      return "";
+      return '';
     }
   }
 }

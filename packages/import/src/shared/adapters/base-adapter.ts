@@ -1,17 +1,14 @@
-import type { Logger } from "@crypto/shared-logger";
-import { getLogger } from "@crypto/shared-logger";
 import type {
   IUniversalAdapter,
+  UniversalAdapterConfig,
   UniversalAdapterInfo,
+  UniversalBalance,
   UniversalFetchParams,
   UniversalTransaction,
-  UniversalBalance,
-  UniversalAdapterConfig,
-} from "@crypto/core";
-import {
-  validateUniversalTransactions,
-  validateUniversalBalances,
-} from "@crypto/core";
+} from '@crypto/core';
+import { validateUniversalBalances, validateUniversalTransactions } from '@crypto/core';
+import type { Logger } from '@crypto/shared-logger';
+import { getLogger } from '@crypto/shared-logger';
 
 export abstract class BaseAdapter implements IUniversalAdapter {
   protected logger: Logger;
@@ -24,9 +21,7 @@ export abstract class BaseAdapter implements IUniversalAdapter {
   abstract testConnection(): Promise<boolean>;
 
   // Template method pattern
-  async fetchTransactions(
-    params: UniversalFetchParams,
-  ): Promise<UniversalTransaction[]> {
+  async fetchTransactions(params: UniversalFetchParams): Promise<UniversalTransaction[]> {
     await this.validateParams(params);
     const rawData = await this.fetchRawTransactions(params);
     const transactions = await this.transformTransactions(rawData, params);
@@ -40,26 +35,18 @@ export abstract class BaseAdapter implements IUniversalAdapter {
         `${invalid.length} invalid transactions from ${this.constructor.name}. ` +
           `Adapter: ${this.constructor.name}, Invalid: ${invalid.length}, Valid: ${valid.length}, Total: ${transactions.length}. ` +
           `Errors: ${invalid
-            .map(({ errors }) =>
-              errors.issues
-                .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
-                .join("; "),
-            )
-            .join(" | ")}`,
+            .map(({ errors }) => errors.issues.map(issue => `${issue.path.join('.')}: ${issue.message}`).join('; '))
+            .join(' | ')}`
       );
     }
 
-    this.logger.debug(
-      `Validation completed: ${valid.length} valid, ${invalid.length} invalid transactions`,
-    );
+    this.logger.debug(`Validation completed: ${valid.length} valid, ${invalid.length} invalid transactions`);
 
     const filtered = this.applyFilters(valid, params);
     return this.sortTransactions(filtered);
   }
 
-  async fetchBalances(
-    params: UniversalFetchParams,
-  ): Promise<UniversalBalance[]> {
+  async fetchBalances(params: UniversalFetchParams): Promise<UniversalBalance[]> {
     await this.validateParams(params);
     const rawBalances = await this.fetchRawBalances(params);
     const balances = await this.transformBalances(rawBalances, params);
@@ -73,83 +60,53 @@ export abstract class BaseAdapter implements IUniversalAdapter {
         `${invalid.length} invalid balances from ${this.constructor.name}. ` +
           `Adapter: ${this.constructor.name}, Invalid: ${invalid.length}, Valid: ${valid.length}, Total: ${balances.length}. ` +
           `Errors: ${invalid
-            .map(({ errors }) =>
-              errors.issues
-                .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
-                .join("; "),
-            )
-            .join(" | ")}`,
+            .map(({ errors }) => errors.issues.map(issue => `${issue.path.join('.')}: ${issue.message}`).join('; '))
+            .join(' | ')}`
       );
     }
 
-    this.logger.debug(
-      `Balance validation completed: ${valid.length} valid, ${invalid.length} invalid balances`,
-    );
+    this.logger.debug(`Balance validation completed: ${valid.length} valid, ${invalid.length} invalid balances`);
 
     return valid;
   }
 
   // Abstract hooks for subclasses
-  protected abstract fetchRawTransactions(
-    params: UniversalFetchParams,
-  ): Promise<unknown>;
-  protected abstract fetchRawBalances(
-    params: UniversalFetchParams,
-  ): Promise<unknown>;
-  protected abstract transformTransactions(
-    raw: unknown,
-    params: UniversalFetchParams,
-  ): Promise<UniversalTransaction[]>;
-  protected abstract transformBalances(
-    raw: unknown,
-    params: UniversalFetchParams,
-  ): Promise<UniversalBalance[]>;
+  protected abstract fetchRawTransactions(params: UniversalFetchParams): Promise<unknown>;
+  protected abstract fetchRawBalances(params: UniversalFetchParams): Promise<unknown>;
+  protected abstract transformTransactions(raw: unknown, params: UniversalFetchParams): Promise<UniversalTransaction[]>;
+  protected abstract transformBalances(raw: unknown, params: UniversalFetchParams): Promise<UniversalBalance[]>;
 
   // Common utilities
   protected async validateParams(params: UniversalFetchParams): Promise<void> {
     // Common validation logic
     if (params.since && params.until && params.since > params.until) {
-      throw new Error("since cannot be greater than until");
+      throw new Error('since cannot be greater than until');
     }
 
     // Validate operation support
     const info = await this.getInfo();
-    if (
-      params.addresses &&
-      !info.capabilities.supportedOperations.includes("getAddressTransactions")
-    ) {
-      throw new Error(
-        `${info.name} does not support address-based transaction fetching`,
-      );
+    if (params.addresses && !info.capabilities.supportedOperations.includes('getAddressTransactions')) {
+      throw new Error(`${info.name} does not support address-based transaction fetching`);
     }
   }
 
-  protected applyFilters(
-    transactions: UniversalTransaction[],
-    params: UniversalFetchParams,
-  ): UniversalTransaction[] {
+  protected applyFilters(transactions: UniversalTransaction[], params: UniversalFetchParams): UniversalTransaction[] {
     let filtered = transactions;
 
     if (params.symbols?.length) {
       filtered = filtered.filter(
-        (tx) =>
-          params.symbols!.includes(tx.amount.currency) ||
-          (tx.symbol && params.symbols!.includes(tx.symbol)),
+        tx => params.symbols!.includes(tx.amount.currency) || (tx.symbol && params.symbols!.includes(tx.symbol))
       );
     }
 
     if (params.transactionTypes?.length) {
-      filtered = filtered.filter((tx) =>
-        params.transactionTypes!.includes(tx.type),
-      );
+      filtered = filtered.filter(tx => params.transactionTypes!.includes(tx.type));
     }
 
     return filtered;
   }
 
-  protected sortTransactions(
-    transactions: UniversalTransaction[],
-  ): UniversalTransaction[] {
+  protected sortTransactions(transactions: UniversalTransaction[]): UniversalTransaction[] {
     return transactions.sort((a, b) => b.timestamp - a.timestamp);
   }
 

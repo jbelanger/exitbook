@@ -1,4 +1,4 @@
-import { Decimal } from "decimal.js";
+import { Decimal } from 'decimal.js';
 
 // Money type for consistent amount and currency structure with high precision
 export interface Money {
@@ -28,29 +28,16 @@ export interface CryptoTransaction {
   datetime?: string;
   symbol?: string;
   amount: Money;
-  side?: "buy" | "sell" | undefined;
+  side?: 'buy' | 'sell' | undefined;
   price?: Money | undefined;
   fee?: Money | undefined;
   status?: TransactionStatus;
   info?: unknown; // Raw response data from source (exchange API response or blockchain transaction data)
 }
 
-export type TransactionType =
-  | "trade"
-  | "deposit"
-  | "withdrawal"
-  | "order"
-  | "ledger"
-  | "transfer"
-  | "fee";
+export type TransactionType = 'trade' | 'deposit' | 'withdrawal' | 'order' | 'ledger' | 'transfer' | 'fee';
 
-export type TransactionStatus =
-  | "pending"
-  | "open"
-  | "closed"
-  | "canceled"
-  | "failed"
-  | "ok";
+export type TransactionStatus = 'pending' | 'open' | 'closed' | 'canceled' | 'failed' | 'ok';
 
 /**
  * Enhanced transaction with processing metadata for internal application use.
@@ -84,7 +71,7 @@ export interface EnhancedTransaction extends CryptoTransaction {
 export interface TransactionNote {
   type: TransactionNoteType;
   message: string;
-  severity?: "info" | "warning" | "error";
+  severity?: 'info' | 'warning' | 'error';
   metadata?: Record<string, unknown>;
 }
 
@@ -183,18 +170,18 @@ export interface BlockchainTransaction {
   /** Gas price per unit (Ethereum/EVM chains) */
   gasPrice?: number | undefined;
   /** Blockchain-native transaction status */
-  status: "success" | "failed" | "pending";
+  status: 'success' | 'failed' | 'pending';
   /** Detailed blockchain-specific transaction type for accurate classification */
   type:
-    | "transfer"
-    | "contract_execution"
-    | "token_transfer"
-    | "transfer_in"
-    | "transfer_out"
-    | "internal_transfer_in"
-    | "internal_transfer_out"
-    | "token_transfer_in"
-    | "token_transfer_out";
+    | 'transfer'
+    | 'contract_execution'
+    | 'token_transfer'
+    | 'transfer_in'
+    | 'transfer_out'
+    | 'internal_transfer_in'
+    | 'internal_transfer_out'
+    | 'token_transfer_in'
+    | 'token_transfer_out';
   /** Token contract address (for token transactions) */
   tokenContract?: string | undefined;
   /** Token symbol (for token transactions) */
@@ -233,7 +220,7 @@ export class ServiceError extends Error {
     public originalError?: Error
   ) {
     super(message);
-    this.name = "ServiceError";
+    this.name = 'ServiceError';
   }
 }
 
@@ -252,14 +239,14 @@ export class RateLimitError extends ServiceError {
     public retryAfter?: number
   ) {
     super(message, service, operation);
-    this.name = "RateLimitError";
+    this.name = 'RateLimitError';
   }
 }
 
 export class AuthenticationError extends ServiceError {
   constructor(message: string, service: string, operation: string) {
     super(message, service, operation);
-    this.name = "AuthenticationError";
+    this.name = 'AuthenticationError';
   }
 }
 
@@ -316,27 +303,21 @@ export interface IUniversalAdapter {
   getInfo(): Promise<UniversalAdapterInfo>;
   testConnection(): Promise<boolean>;
   close(): Promise<void>;
-  fetchTransactions(
-    params: UniversalFetchParams
-  ): Promise<UniversalTransaction[]>;
+  fetchTransactions(params: UniversalFetchParams): Promise<UniversalTransaction[]>;
   fetchBalances(params: UniversalFetchParams): Promise<UniversalBalance[]>;
 }
 
 export interface UniversalAdapterInfo {
   id: string;
   name: string;
-  type: "exchange" | "blockchain";
-  subType?: "ccxt" | "csv" | "native" | "rpc" | "rest";
+  type: 'exchange' | 'blockchain';
+  subType?: 'ccxt' | 'csv' | 'native' | 'rpc' | 'rest';
   capabilities: UniversalAdapterCapabilities;
 }
 
 export interface UniversalAdapterCapabilities {
   supportedOperations: Array<
-    | "fetchTransactions"
-    | "fetchBalances"
-    | "getAddressTransactions"
-    | "getAddressBalance"
-    | "getTokenTransactions"
+    'fetchTransactions' | 'fetchBalances' | 'getAddressTransactions' | 'getAddressBalance' | 'getTokenTransactions'
   >;
   maxBatchSize: number;
   supportsHistoricalData: boolean;
@@ -376,7 +357,7 @@ export interface UniversalTransaction {
   amount: Money;
   fee?: Money | undefined;
   price?: Money | undefined;
-  side?: "buy" | "sell" | undefined; // Trade side for balance calculations
+  side?: 'buy' | 'sell' | undefined; // Trade side for balance calculations
 
   // Parties (works for both)
   from?: string | undefined; // Sender address OR exchange account
@@ -411,14 +392,13 @@ export interface PrecisionUniversalBalance {
 
 // Universal adapter configuration
 interface BaseUniversalAdapterConfig {
-  type: "exchange" | "blockchain";
+  type: 'exchange' | 'blockchain';
   id: string;
 }
 
-export interface UniversalExchangeAdapterConfig
-  extends BaseUniversalAdapterConfig {
-  type: "exchange";
-  subType: "ccxt" | "csv" | "native";
+export interface UniversalExchangeAdapterConfig extends BaseUniversalAdapterConfig {
+  type: 'exchange';
+  subType: 'ccxt' | 'csv' | 'native';
   credentials?:
     | {
         apiKey: string;
@@ -429,13 +409,10 @@ export interface UniversalExchangeAdapterConfig
   csvDirectories?: string[] | undefined;
 }
 
-export interface UniversalBlockchainAdapterConfig
-  extends BaseUniversalAdapterConfig {
-  type: "blockchain";
-  subType: "rest" | "rpc";
+export interface UniversalBlockchainAdapterConfig extends BaseUniversalAdapterConfig {
+  type: 'blockchain';
+  subType: 'rest' | 'rpc';
   network: string;
 }
 
-export type UniversalAdapterConfig =
-  | UniversalExchangeAdapterConfig
-  | UniversalBlockchainAdapterConfig;
+export type UniversalAdapterConfig = UniversalExchangeAdapterConfig | UniversalBlockchainAdapterConfig;

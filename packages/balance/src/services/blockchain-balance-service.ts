@@ -1,8 +1,6 @@
-import type { IUniversalAdapter } from "@crypto/core";
-import type {
-  IBalanceService,
-  ServiceCapabilities,
-} from "./balance-service.js";
+import type { IUniversalAdapter } from '@crypto/core';
+
+import type { IBalanceService, ServiceCapabilities } from './balance-service.js';
 
 export class BlockchainBalanceService implements IBalanceService {
   private _cachedId?: string;
@@ -10,21 +8,20 @@ export class BlockchainBalanceService implements IBalanceService {
 
   constructor(
     private adapter: IUniversalAdapter,
-    private addresses: string[],
+    private addresses: string[]
   ) {}
 
   async initialize(): Promise<void> {
     const info = await this.adapter.getInfo();
     this._cachedId = info.id;
     this._cachedCapabilities = {
-      fetchBalance:
-        info.capabilities.supportedOperations.includes("fetchBalances"),
+      fetchBalance: info.capabilities.supportedOperations.includes('fetchBalances'),
       name: info.name,
     };
   }
 
   getServiceId(): string {
-    return this._cachedId || "unknown";
+    return this._cachedId || 'unknown';
   }
 
   async getBalances(): Promise<Record<string, number>> {
@@ -38,8 +35,7 @@ export class BlockchainBalanceService implements IBalanceService {
 
       for (const balance of balances) {
         const currency = balance.currency;
-        aggregatedBalances[currency] =
-          (aggregatedBalances[currency] || 0) + balance.total;
+        aggregatedBalances[currency] = (aggregatedBalances[currency] || 0) + balance.total;
       }
     } catch (error) {
       // Log error but continue
@@ -57,7 +53,7 @@ export class BlockchainBalanceService implements IBalanceService {
     return (
       this._cachedCapabilities || {
         fetchBalance: true,
-        name: "Unknown Blockchain",
+        name: 'Unknown Blockchain',
       }
     );
   }

@@ -9,15 +9,11 @@ export class CsvFilters {
    * @param value Value to match (if undefined, no filtering is applied)
    * @returns Filtered array
    */
-  static filterByField<T, K extends keyof T>(
-    rows: T[],
-    field: K,
-    value?: T[K],
-  ): T[] {
+  static filterByField<T, K extends keyof T>(rows: T[], field: K, value?: T[K]): T[] {
     if (value === undefined || value === null) {
       return rows;
     }
-    return rows.filter((row) => row[field] === value);
+    return rows.filter(row => row[field] === value);
   }
 
   /**
@@ -26,11 +22,8 @@ export class CsvFilters {
    * @param filters Object with field names as keys and values to match
    * @returns Filtered array
    */
-  static filterByFields<T>(
-    rows: T[],
-    filters: Partial<Record<keyof T, unknown>>,
-  ): T[] {
-    return rows.filter((row) => {
+  static filterByFields<T>(rows: T[], filters: Partial<Record<keyof T, unknown>>): T[] {
+    return rows.filter(row => {
       return Object.entries(filters).every(([field, value]) => {
         if (value === undefined || value === null) {
           return true;
@@ -47,7 +40,7 @@ export class CsvFilters {
    * @returns Filtered array
    */
   static filterByUid<T extends { UID: string }>(rows: T[], uid?: string): T[] {
-    return this.filterByField(rows, "UID", uid);
+    return this.filterByField(rows, 'UID', uid);
   }
 
   /**
@@ -57,12 +50,8 @@ export class CsvFilters {
    * @param until Maximum timestamp (if undefined, no upper bound)
    * @returns Filtered array
    */
-  static filterByTimestamp<T extends { timestamp: number }>(
-    rows: T[],
-    since?: number,
-    until?: number,
-  ): T[] {
-    return rows.filter((row) => {
+  static filterByTimestamp<T extends { timestamp: number }>(rows: T[], since?: number, until?: number): T[] {
+    return rows.filter(row => {
       if (since !== undefined && row.timestamp < since) {
         return false;
       }
@@ -79,10 +68,7 @@ export class CsvFilters {
    * @param field Field name to group by
    * @returns Map with field values as keys and arrays of rows as values
    */
-  static groupByField<T, K extends keyof T>(
-    rows: T[],
-    field: K,
-  ): Map<T[K], T[]> {
+  static groupByField<T, K extends keyof T>(rows: T[], field: K): Map<T[K], T[]> {
     const groups = new Map<T[K], T[]>();
 
     for (const row of rows) {
