@@ -25,7 +25,6 @@
     "exchanges:validate-config": "tsx src/scripts/validate-exchange-config.ts"
   },
   "dependencies": {
-    "@scure/base": "^1.2.6",
     "@scure/bip32": "^1.7.0",
     "@types/jsonwebtoken": "^9.0.10",
     "bitcoinjs-lib": "^6.1.7",
