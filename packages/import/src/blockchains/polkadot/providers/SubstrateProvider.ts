@@ -1,38 +1,33 @@
-import { Decimal } from "decimal.js";
+import type { Balance, BlockchainTransaction } from '@crypto/core';
+import { HttpClient, createMoney, maskAddress } from '@crypto/shared-utils';
+import { Decimal } from 'decimal.js';
 
-import type { Balance, BlockchainTransaction } from "@crypto/core";
-import { createMoney, maskAddress, HttpClient } from "@crypto/shared-utils";
-
-import type { JsonRpcResponse } from "../../shared/types.ts";
-
-import { BaseRegistryProvider } from "../../shared/registry/base-registry-provider.ts";
-import { RegisterProvider } from "../../shared/registry/decorators.ts";
+import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
+import { RegisterProvider } from '../../shared/registry/decorators.ts';
+import type { JsonRpcResponse } from '../../shared/types.ts';
+import { ProviderOperation } from '../../shared/types.ts';
 import type {
-  SubstrateAccountInfo,
-  SubstrateChainConfig,
   SubscanAccountResponse,
   SubscanTransfer,
   SubscanTransfersResponse,
+  SubstrateAccountInfo,
+  SubstrateChainConfig,
   TaostatsBalanceResponse,
   TaostatsTransaction,
-} from "../types.ts";
-import { SUBSTRATE_CHAINS } from "../types.ts";
-
-import {
-  ProviderOperation,
-} from "../../shared/types.ts";
-import { isValidSS58Address } from "../utils.ts";
+} from '../types.ts';
+import { SUBSTRATE_CHAINS } from '../types.ts';
+import { isValidSS58Address } from '../utils.ts';
 
 @RegisterProvider({
-  name: "subscan",
-  blockchain: "polkadot",
-  displayName: "Substrate Networks Provider",
-  type: "rest",
+  name: 'subscan',
+  blockchain: 'polkadot',
+  displayName: 'Substrate Networks Provider',
+  type: 'rest',
   requiresApiKey: false,
   description:
-    "Multi-chain Substrate provider supporting Polkadot, Kusama, and Bittensor networks with explorer APIs and RPC fallback",
+    'Multi-chain Substrate provider supporting Polkadot, Kusama, and Bittensor networks with explorer APIs and RPC fallback',
   capabilities: {
-    supportedOperations: ["getAddressTransactions", "getAddressBalance"],
+    supportedOperations: ['getAddressTransactions', 'getAddressBalance'],
     maxBatchSize: 1,
     supportsHistoricalData: true,
     supportsPagination: true,
@@ -41,10 +36,10 @@ import { isValidSS58Address } from "../utils.ts";
   },
   networks: {
     mainnet: {
-      baseUrl: "https://polkadot.api.subscan.io",
+      baseUrl: 'https://polkadot.api.subscan.io',
     },
     testnet: {
-      baseUrl: "https://westend.api.subscan.io",
+      baseUrl: 'https://westend.api.subscan.io',
     },
   },
   defaultConfig: {
@@ -63,18 +58,18 @@ export class SubstrateProvider extends BaseRegistryProvider {
   private readonly rpcClient?: HttpClient; // RPC client for JSON-RPC calls
 
   constructor() {
-    super("polkadot", "subscan", "mainnet"); // Subscan provider for Polkadot
+    super('polkadot', 'subscan', 'mainnet'); // Subscan provider for Polkadot
 
     // Initialize chain config for Polkadot by default
-    const chainConfig = SUBSTRATE_CHAINS["polkadot"];
+    const chainConfig = SUBSTRATE_CHAINS['polkadot'];
     if (!chainConfig) {
-      throw new Error("Substrate chain configuration not found");
+      throw new Error('Substrate chain configuration not found');
     }
 
     this.chainConfig = chainConfig;
 
     this.logger.debug(
-      `Initialized SubstrateProvider from registry metadata - Network: ${this.network}, BaseUrl: ${this.baseUrl}, DisplayName: ${chainConfig.displayName}, TokenSymbol: ${chainConfig.tokenSymbol}, Ss58Format: ${chainConfig.ss58Format}`,
+      `Initialized SubstrateProvider from registry metadata - Network: ${this.network}, BaseUrl: ${this.baseUrl}, DisplayName: ${chainConfig.displayName}, TokenSymbol: ${chainConfig.tokenSymbol}, Ss58Format: ${chainConfig.ss58Format}`
     );
   }
 
@@ -92,9 +87,9 @@ export class SubstrateProvider extends BaseRegistryProvider {
 
     // Update network and base URL based on chain
     const networkUrls: Record<string, string> = {
-      polkadot: "https://polkadot.api.subscan.io",
-      kusama: "https://kusama.api.subscan.io",
-      bittensor: "https://api.taostats.io",
+      polkadot: 'https://polkadot.api.subscan.io',
+      kusama: 'https://kusama.api.subscan.io',
+      bittensor: 'https://api.taostats.io',
     };
 
     const baseUrl = networkUrls[chain];
@@ -103,7 +98,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
     }
 
     this.logger.debug(
-      `Switched to ${chain} chain - DisplayName: ${chainConfig.displayName}, TokenSymbol: ${chainConfig.tokenSymbol}, BaseUrl: ${this.baseUrl}`,
+      `Switched to ${chain} chain - DisplayName: ${chainConfig.displayName}, TokenSymbol: ${chainConfig.tokenSymbol}, BaseUrl: ${this.baseUrl}`
     );
   }
 
@@ -123,8 +118,8 @@ export class SubstrateProvider extends BaseRegistryProvider {
       },
       providerName: this.name,
       defaultHeaders: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
       },
     });
   }
@@ -146,7 +141,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
       return false;
     } catch (error) {
       this.logger.warn(
-        `Health check failed - Chain: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`,
+        `Health check failed - Chain: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`
       );
       return false;
     }
@@ -158,17 +153,17 @@ export class SubstrateProvider extends BaseRegistryProvider {
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
     this.logger.debug(
-      `Executing operation - Type: ${operation.type}, Address: ${"address" in operation ? maskAddress(operation.address as string) : "N/A"}`,
+      `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
     );
 
     try {
       switch (operation.type) {
-        case "getAddressTransactions":
+        case 'getAddressTransactions':
           return this.getAddressTransactions({
             address: operation.address,
             since: operation.since,
           }) as T;
-        case "getAddressBalance":
+        case 'getAddressBalance':
           return this.getAddressBalance({
             address: operation.address,
           }) as T;
@@ -177,7 +172,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
       }
     } catch (error) {
       this.logger.error(
-        `Operation execution failed - Type: ${operation.type}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`,
+        `Operation execution failed - Type: ${operation.type}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`
       );
       throw error;
     }
@@ -189,30 +184,21 @@ export class SubstrateProvider extends BaseRegistryProvider {
   }): Promise<BlockchainTransaction[]> {
     const { address, since } = params;
     if (!isValidSS58Address(address)) {
-      throw new Error(
-        `Invalid SS58 address for ${this.blockchain}: ${address}`,
-      );
+      throw new Error(`Invalid SS58 address for ${this.blockchain}: ${address}`);
     }
 
     try {
-      this.logger.debug(
-        `Fetching transactions for ${this.network} address: ${maskAddress(address)}`,
-      );
+      this.logger.debug(`Fetching transactions for ${this.network} address: ${maskAddress(address)}`);
 
       // Try explorer API first
       if (this.httpClient) {
         try {
-          const transactions = await this.getTransactionsFromExplorer(
-            address,
-            since,
-          );
+          const transactions = await this.getTransactionsFromExplorer(address, since);
           if (transactions.length > 0) {
             return transactions;
           }
         } catch (error) {
-          this.logger.warn(
-            `Explorer API failed, trying RPC fallback - Error: ${error}`,
-          );
+          this.logger.warn(`Explorer API failed, trying RPC fallback - Error: ${error}`);
         }
       }
 
@@ -221,30 +207,24 @@ export class SubstrateProvider extends BaseRegistryProvider {
         return await this.getTransactionsFromRPC(address, since);
       }
 
-      this.logger.warn("No available data sources for transactions");
+      this.logger.warn('No available data sources for transactions');
       return [];
     } catch (error) {
       this.logger.error(
-        `Failed to fetch transactions for ${this.network} address - Address: ${maskAddress(address)}, Error: ${error}`,
+        `Failed to fetch transactions for ${this.network} address - Address: ${maskAddress(address)}, Error: ${error}`
       );
       throw error;
     }
   }
 
-  private async getAddressBalance(params: {
-    address: string;
-  }): Promise<Balance[]> {
+  private async getAddressBalance(params: { address: string }): Promise<Balance[]> {
     const { address } = params;
     if (!isValidSS58Address(address)) {
-      throw new Error(
-        `Invalid SS58 address for ${this.blockchain}: ${address}`,
-      );
+      throw new Error(`Invalid SS58 address for ${this.blockchain}: ${address}`);
     }
 
     try {
-      this.logger.debug(
-        `Fetching balance for ${this.network} address: ${maskAddress(address)}`,
-      );
+      this.logger.debug(`Fetching balance for ${this.network} address: ${maskAddress(address)}`);
 
       // Try RPC first for most accurate balance
       if (this.rpcClient) {
@@ -254,9 +234,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
             return [balance];
           }
         } catch (error) {
-          this.logger.warn(
-            `RPC balance query failed, trying explorer API - Error: ${error}`,
-          );
+          this.logger.warn(`RPC balance query failed, trying explorer API - Error: ${error}`);
         }
       }
 
@@ -268,11 +246,11 @@ export class SubstrateProvider extends BaseRegistryProvider {
         }
       }
 
-      this.logger.warn("No available data sources for balance");
+      this.logger.warn('No available data sources for balance');
       return [];
     } catch (error) {
       this.logger.error(
-        `Failed to fetch balance for ${this.network} address - Address: ${maskAddress(address)}, Error: ${error}`,
+        `Failed to fetch balance for ${this.network} address - Address: ${maskAddress(address)}, Error: ${error}`
       );
       throw error;
     }
@@ -281,14 +259,11 @@ export class SubstrateProvider extends BaseRegistryProvider {
   private async testExplorerApi(): Promise<boolean> {
     try {
       // Use Subscan's metadata endpoint for health check - it's available on all Subscan APIs
-      const response = await this.httpClient.post<{ code?: number }>(
-        "/api/scan/metadata",
-        {},
-      );
+      const response = await this.httpClient.post<{ code?: number }>('/api/scan/metadata', {});
       return response && response.code === 0;
     } catch (error) {
       this.logger.debug(
-        `Explorer API health check failed - Chain: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`,
+        `Explorer API health check failed - Chain: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`
       );
       return false;
     }
@@ -304,10 +279,10 @@ export class SubstrateProvider extends BaseRegistryProvider {
           tokenDecimals?: number[];
           tokenSymbol?: string[];
         }>
-      >("", {
+      >('', {
         id: 1,
-        jsonrpc: "2.0",
-        method: "system_properties",
+        jsonrpc: '2.0',
+        method: 'system_properties',
         params: [],
       });
 
@@ -317,13 +292,10 @@ export class SubstrateProvider extends BaseRegistryProvider {
     }
   }
 
-  private async getTransactionsFromExplorer(
-    address: string,
-    since?: number,
-  ): Promise<BlockchainTransaction[]> {
+  private async getTransactionsFromExplorer(address: string, since?: number): Promise<BlockchainTransaction[]> {
     const transactions: BlockchainTransaction[] = [];
 
-    if (this.network === "bittensor") {
+    if (this.network === 'bittensor') {
       // Taostats API implementation
       try {
         const response = await this.httpClient.get<{
@@ -338,42 +310,32 @@ export class SubstrateProvider extends BaseRegistryProvider {
           }
         }
       } catch (error) {
-        this.logger.debug(
-          `Taostats API transaction fetch failed - Error: ${error}`,
-        );
+        this.logger.debug(`Taostats API transaction fetch failed - Error: ${error}`);
       }
-    } else if (this.network === "polkadot" || this.network === "kusama") {
+    } else if (this.network === 'polkadot' || this.network === 'kusama') {
       // Subscan API implementation
       try {
-        this.logger.debug(
-          `Calling Subscan API for ${this.network} transactions - Address: ${maskAddress(address)}`,
-        );
+        this.logger.debug(`Calling Subscan API for ${this.network} transactions - Address: ${maskAddress(address)}`);
 
-        const response = await this.httpClient.post<SubscanTransfersResponse>(
-          "/api/v2/scan/transfers",
-          {
-            address: address,
-            page: 0,
-            row: 100,
-          },
-        );
+        const response = await this.httpClient.post<SubscanTransfersResponse>('/api/v2/scan/transfers', {
+          address: address,
+          page: 0,
+          row: 100,
+        });
 
         this.logger.debug(
-          `Subscan API response received - HasResponse: ${!!response}, Code: ${response.code}, HasData: ${!!response.data}, TransferCount: ${response.data?.transfers?.length || 0}`,
+          `Subscan API response received - HasResponse: ${!!response}, Code: ${response.code}, HasData: ${!!response.data}, TransferCount: ${response.data?.transfers?.length || 0}`
         );
 
         if (response.code === 0 && response.data?.transfers) {
           for (const transfer of response.data.transfers) {
             this.logger.debug(
-              `Processing transfer - From: ${transfer.from}, To: ${transfer.to}, UserAddress: ${maskAddress(address)}, Amount: ${transfer.amount}`,
+              `Processing transfer - From: ${transfer.from}, To: ${transfer.to}, UserAddress: ${maskAddress(address)}, Amount: ${transfer.amount}`
             );
 
-            const blockchainTx = this.convertSubscanTransaction(
-              transfer,
-              address,
-            );
+            const blockchainTx = this.convertSubscanTransaction(transfer, address);
             this.logger.debug(
-              `Converted transaction result - HasTransaction: ${!!blockchainTx}, Since: ${since}, TxTimestamp: ${blockchainTx?.timestamp}`,
+              `Converted transaction result - HasTransaction: ${!!blockchainTx}, Since: ${since}, TxTimestamp: ${blockchainTx?.timestamp}`
             );
 
             if (blockchainTx && (!since || blockchainTx.timestamp >= since)) {
@@ -383,25 +345,20 @@ export class SubstrateProvider extends BaseRegistryProvider {
         }
       } catch (error) {
         this.logger.warn(
-          `Subscan API transaction fetch failed - Error: ${error instanceof Error ? error.message : String(error)}, Blockchain: ${this.network}`,
+          `Subscan API transaction fetch failed - Error: ${error instanceof Error ? error.message : String(error)}, Blockchain: ${this.network}`
         );
       }
     }
 
-    this.logger.debug(
-      `Found ${transactions.length} transactions via explorer API for ${this.network}`,
-    );
+    this.logger.debug(`Found ${transactions.length} transactions via explorer API for ${this.network}`);
     return transactions;
   }
 
-  private async getTransactionsFromRPC(
-    _address: string,
-    _since?: number,
-  ): Promise<BlockchainTransaction[]> {
+  private async getTransactionsFromRPC(_address: string, _since?: number): Promise<BlockchainTransaction[]> {
     // RPC-based transaction fetching is more complex and would require
     // iterating through blocks and filtering extrinsics
     // For now, return empty array as fallback
-    this.logger.debug("RPC transaction fetching not implemented yet");
+    this.logger.debug('RPC transaction fetching not implemented yet');
     return [];
   }
 
@@ -409,12 +366,10 @@ export class SubstrateProvider extends BaseRegistryProvider {
     if (!this.rpcClient) return null;
 
     try {
-      const response = await this.rpcClient.post<
-        JsonRpcResponse<SubstrateAccountInfo>
-      >("", {
+      const response = await this.rpcClient.post<JsonRpcResponse<SubstrateAccountInfo>>('', {
         id: 1,
-        jsonrpc: "2.0",
-        method: "system_account",
+        jsonrpc: '2.0',
+        method: 'system_account',
         params: [address],
       });
 
@@ -440,26 +395,20 @@ export class SubstrateProvider extends BaseRegistryProvider {
 
       return null;
     } catch (error) {
-      this.logger.debug(
-        `RPC balance query failed - Address: ${maskAddress(address)}, Error: ${error}`,
-      );
+      this.logger.debug(`RPC balance query failed - Address: ${maskAddress(address)}, Error: ${error}`);
       return null;
     }
   }
 
-  private async getBalanceFromExplorer(
-    address: string,
-  ): Promise<Balance | null> {
+  private async getBalanceFromExplorer(address: string): Promise<Balance | null> {
     try {
-      if (this.network === "bittensor") {
+      if (this.network === 'bittensor') {
         // Taostats balance endpoint
-        const response = await this.httpClient.get<TaostatsBalanceResponse>(
-          `/api/account/${address}/balance`,
-        );
+        const response = await this.httpClient.get<TaostatsBalanceResponse>(`/api/account/${address}/balance`);
         if (response.balance !== undefined) {
           const balance = new Decimal(response.balance);
           return {
-            currency: "TAO",
+            currency: 'TAO',
             balance: balance.toNumber(),
             used: 0, // Taostats might not provide reserved balance
             total: balance.toNumber(),
@@ -467,16 +416,13 @@ export class SubstrateProvider extends BaseRegistryProvider {
         }
       } else {
         // Subscan balance endpoint
-        const response = await this.httpClient.post<SubscanAccountResponse>(
-          "/api/scan/account",
-          {
-            key: address,
-          },
-        );
+        const response = await this.httpClient.post<SubscanAccountResponse>('/api/scan/account', {
+          key: address,
+        });
 
         if (response.code === 0 && response.data) {
-          const freeBalance = new Decimal(response.data.balance || "0");
-          const reservedBalance = new Decimal(response.data.reserved || "0");
+          const freeBalance = new Decimal(response.data.balance || '0');
+          const reservedBalance = new Decimal(response.data.reserved || '0');
           const totalBalance = freeBalance.plus(reservedBalance);
 
           const divisor = new Decimal(10).pow(this.chainConfig.tokenDecimals);
@@ -495,17 +441,12 @@ export class SubstrateProvider extends BaseRegistryProvider {
 
       return null;
     } catch (error) {
-      this.logger.debug(
-        `Explorer balance query failed - Address: ${maskAddress(address)}, Error: ${error}`,
-      );
+      this.logger.debug(`Explorer balance query failed - Address: ${maskAddress(address)}, Error: ${error}`);
       return null;
     }
   }
 
-  private convertTaostatsTransaction(
-    tx: TaostatsTransaction,
-    userAddress: string,
-  ): BlockchainTransaction | null {
+  private convertTaostatsTransaction(tx: TaostatsTransaction, userAddress: string): BlockchainTransaction | null {
     try {
       const isFromUser = tx.from === userAddress;
       const isToUser = tx.to === userAddress;
@@ -514,80 +455,69 @@ export class SubstrateProvider extends BaseRegistryProvider {
         return null; // Not relevant to this address
       }
 
-      const amount = new Decimal(tx.amount || "0");
-      const fee = new Decimal(tx.fee || "0");
+      const amount = new Decimal(tx.amount || '0');
+      const fee = new Decimal(tx.fee || '0');
 
-      const type = isFromUser ? "transfer_out" : "transfer_in";
+      const type = isFromUser ? 'transfer_out' : 'transfer_in';
 
       return {
         hash: tx.hash,
         blockNumber: tx.block_number || 0,
-        blockHash: tx.block_hash || "",
+        blockHash: tx.block_hash || '',
         timestamp: new Date(tx.timestamp).getTime(),
         from: tx.from,
         to: tx.to,
-        value: createMoney(amount.toNumber(), "TAO"),
-        fee: createMoney(fee.toNumber(), "TAO"),
-        status: tx.success ? "success" : "failed",
+        value: createMoney(amount.toNumber(), 'TAO'),
+        fee: createMoney(fee.toNumber(), 'TAO'),
+        status: tx.success ? 'success' : 'failed',
         type,
         confirmations: tx.confirmations || 1,
       };
     } catch (error) {
-      this.logger.warn(
-        `Failed to convert Taostats transaction - Tx: ${JSON.stringify(tx)}, Error: ${error}`,
-      );
+      this.logger.warn(`Failed to convert Taostats transaction - Tx: ${JSON.stringify(tx)}, Error: ${error}`);
       return null;
     }
   }
 
-  private convertSubscanTransaction(
-    transfer: SubscanTransfer,
-    userAddress: string,
-  ): BlockchainTransaction | null {
+  private convertSubscanTransaction(transfer: SubscanTransfer, userAddress: string): BlockchainTransaction | null {
     try {
       const isFromUser = transfer.from === userAddress;
       const isToUser = transfer.to === userAddress;
 
       this.logger.debug(
-        `Checking transaction relevance - From: ${transfer.from}, To: ${transfer.to}, UserAddress: ${maskAddress(userAddress)}, IsFromUser: ${isFromUser}, IsToUser: ${isToUser}`,
+        `Checking transaction relevance - From: ${transfer.from}, To: ${transfer.to}, UserAddress: ${maskAddress(userAddress)}, IsFromUser: ${isFromUser}, IsToUser: ${isToUser}`
       );
 
       if (!isFromUser && !isToUser) {
-        this.logger.debug("Transaction not relevant to user address");
+        this.logger.debug('Transaction not relevant to user address');
         return null; // Not relevant to this address
       }
 
-      const amount = new Decimal(transfer.amount || "0");
+      const amount = new Decimal(transfer.amount || '0');
       const divisor = new Decimal(10).pow(this.chainConfig.tokenDecimals);
       const amountInMainUnit = amount.dividedBy(divisor);
 
-      const fee = new Decimal(transfer.fee || "0");
+      const fee = new Decimal(transfer.fee || '0');
       const feeInMainUnit = fee.dividedBy(divisor);
 
-      const type = isFromUser ? "transfer_out" : "transfer_in";
+      const type = isFromUser ? 'transfer_out' : 'transfer_in';
 
       return {
         hash: transfer.hash,
         blockNumber: transfer.block_num || 0,
-        blockHash: transfer.block_hash || "",
+        blockHash: transfer.block_hash || '',
         timestamp: transfer.block_timestamp * 1000, // Convert to milliseconds
         from: transfer.from,
         to: transfer.to,
-        value: createMoney(
-          amountInMainUnit.toNumber(),
-          this.chainConfig.tokenSymbol,
-        ),
-        fee: createMoney(
-          feeInMainUnit.toNumber(),
-          this.chainConfig.tokenSymbol,
-        ),
-        status: transfer.success ? "success" : "failed",
+        value: createMoney(amountInMainUnit.toNumber(), this.chainConfig.tokenSymbol),
+        fee: createMoney(feeInMainUnit.toNumber(), this.chainConfig.tokenSymbol),
+        status: transfer.success ? 'success' : 'failed',
         type,
         confirmations: 1,
       };
     } catch (error) {
       this.logger.warn(
-        `Failed to convert Subscan transaction - Transfer: ${JSON.stringify(transfer)}, Error: ${error}`,
+        `Failed to convert Subscan transaction - Transfer: ${JSON.stringify(transfer)}, Error: ${error}`
       );
       return null;
     }
@@ -599,7 +529,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
   private updateChainConfig(chainConfig: SubstrateChainConfig): void {
     // We need to update the private chainConfig property
     // Since it's a class field, we can assign it directly if we declare it properly
-    Object.defineProperty(this, "chainConfig", {
+    Object.defineProperty(this, 'chainConfig', {
       value: chainConfig,
       writable: true,
       enumerable: false,
@@ -612,7 +542,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
    */
   private reinitializeForChain(chain: string, baseUrl: string): void {
     // Update network property
-    Object.defineProperty(this, "network", {
+    Object.defineProperty(this, 'network', {
       value: chain,
       writable: true,
       enumerable: false,
@@ -620,7 +550,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
     });
 
     // Update baseUrl property
-    Object.defineProperty(this, "baseUrl", {
+    Object.defineProperty(this, 'baseUrl', {
       value: baseUrl,
       writable: true,
       enumerable: false,
@@ -628,7 +558,7 @@ export class SubstrateProvider extends BaseRegistryProvider {
     });
 
     // Reinitialize HTTP client with new base URL
-    Object.defineProperty(this, "httpClient", {
+    Object.defineProperty(this, 'httpClient', {
       value: this.initializeHttpClient(baseUrl),
       writable: true,
       enumerable: false,

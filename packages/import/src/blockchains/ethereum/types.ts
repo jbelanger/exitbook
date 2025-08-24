@@ -161,7 +161,6 @@ export interface AlchemyAssetTransferParams {
   contractAddresses?: string[];
 }
 
-
 export interface AlchemyAssetTransfer {
   from: string;
   to: string;

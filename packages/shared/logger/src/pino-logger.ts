@@ -1,8 +1,8 @@
-import fs from "node:fs";
-import os from "node:os";
-import pino from "pino";
+import fs from 'node:fs';
+import os from 'node:os';
+import pino from 'pino';
 
-import { logLevelsSchema, validateLoggerEnv } from "./env.schema.ts";
+import { logLevelsSchema, validateLoggerEnv } from './env.schema.ts';
 
 // Validate environment variables
 const env = validateLoggerEnv(process.env);
@@ -18,7 +18,7 @@ function formatLabel(label: string, size: number) {
 }
 
 // Our Logger type extending Pino's base logger type
-export interface Logger extends pino.Logger<"audit"> {
+export interface Logger extends pino.Logger<'audit'> {
   audit: pino.LogFn;
 }
 
@@ -55,19 +55,18 @@ function createRootLogger(): Logger {
   const transportTargets: TransportTarget[] = [];
 
   // In development, use pino-pretty for human-readable logs
-  if (env.NODE_ENV === "development") {
+  if (env.NODE_ENV === 'development') {
     transportTargets.push({
-      level: "trace",
-      target: "pino-pretty",
+      level: 'trace',
+      target: 'pino-pretty',
       options: {
         colorize: true,
-        translateTime: "yyyy-mm-dd HH:MM:ss.l",
-        messageFormat: "[{categoryLabel}]: {msg}",
+        translateTime: 'yyyy-mm-dd HH:MM:ss.l',
+        messageFormat: '[{categoryLabel}]: {msg}',
         customLevels: logLevelsSchema,
-        customColors: "info:blue,error:red,warn:yellow,debug:green",
+        customColors: 'info:blue,error:red,warn:yellow,debug:green',
         useOnlyCustomLevels: true,
-        ignore:
-          "pid,hostname,category,categoryLabel,service,environment,correlationId",
+        ignore: 'pid,hostname,category,categoryLabel,service,environment,correlationId',
         levelPadding: true,
       },
     });
@@ -75,8 +74,8 @@ function createRootLogger(): Logger {
     // In production, explicitly add a transport for stdout
     // This ensures logs go to container stdout in JSON format
     transportTargets.push({
-      level: "trace",
-      target: "pino/file",
+      level: 'trace',
+      target: 'pino/file',
       options: {
         destination: 1, // stdout file descriptor
         // No additional formatting - pure JSON for log processors
@@ -87,20 +86,20 @@ function createRootLogger(): Logger {
   // Add audit log transport if enabled (same for both environments)
   if (env.LOGGER_AUDIT_LOG_ENABLED) {
     transportTargets.push({
-      level: "audit",
-      target: "pino-roll",
+      level: 'audit',
+      target: 'pino-roll',
       options: {
         file: `./${env.LOGGER_AUDIT_LOG_DIRNAME}/${env.LOGGER_AUDIT_LOG_FILENAME}_${os.hostname()}.log`,
-        frequency: "daily",
+        frequency: 'daily',
         mkdir: true,
-        size: "10M",
+        size: '10M',
         max: env.LOGGER_AUDIT_LOG_RETENTION_DAYS,
       },
     });
   }
 
   // Create the Pino logger with standard configuration
-  const pinoConfig: pino.LoggerOptions<"audit"> = {
+  const pinoConfig: pino.LoggerOptions<'audit'> = {
     level: env.LOGGER_LOG_LEVEL.toLowerCase(),
     customLevels: logLevelsSchema,
     useOnlyCustomLevels: true,
@@ -119,7 +118,7 @@ function createRootLogger(): Logger {
     pinoConfig.transport = { targets: transportTargets };
   }
 
-  const pinoLogger = pino.pino<"audit">(pinoConfig);
+  const pinoLogger = pino.pino<'audit'>(pinoConfig);
 
   return pinoLogger as Logger;
 }

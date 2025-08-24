@@ -1,4 +1,4 @@
-import type { Database as SQLiteDatabase } from "sqlite3";
+import type { Database as SQLiteDatabase } from 'sqlite3';
 
 export type SQLParam = string | number | boolean | null | Buffer;
 

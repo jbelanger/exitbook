@@ -1,13 +1,32 @@
-import type { DataSourceCapabilities, RateLimitConfig } from "@crypto/core";
+import type { DataSourceCapabilities, RateLimitConfig } from '@crypto/core';
 
 // Parameter interfaces removed - discriminated union provides type safety
 
 // Discriminated union type for all possible operation parameters
 export type ProviderOperationParams =
-  | { type: 'getAddressTransactions'; address: string; since?: number | undefined; until?: number | undefined; limit?: number | undefined }
-  | { type: 'getRawAddressTransactions'; address: string; since?: number | undefined; until?: number | undefined; limit?: number | undefined }
+  | {
+      type: 'getAddressTransactions';
+      address: string;
+      since?: number | undefined;
+      until?: number | undefined;
+      limit?: number | undefined;
+    }
+  | {
+      type: 'getRawAddressTransactions';
+      address: string;
+      since?: number | undefined;
+      until?: number | undefined;
+      limit?: number | undefined;
+    }
   | { type: 'getAddressBalance'; address: string; contractAddresses?: string[] | undefined }
-  | { type: 'getTokenTransactions'; address: string; contractAddress?: string | undefined; since?: number | undefined; until?: number | undefined; limit?: number | undefined }
+  | {
+      type: 'getTokenTransactions';
+      address: string;
+      contractAddress?: string | undefined;
+      since?: number | undefined;
+      until?: number | undefined;
+      limit?: number | undefined;
+    }
   | { type: 'getTokenBalances'; address: string; contractAddresses?: string[] | undefined }
   | { type: 'getAddressInfo'; address: string }
   | { type: 'parseWalletTransaction'; tx: unknown; walletAddresses: string[] }
@@ -45,16 +64,15 @@ export type ProviderOperation<T> = {
 
 // Provider-specific operation types for capabilities
 export type ProviderOperationType =
-  | "getAddressTransactions"
-  | "getAddressBalance"
-  | "getTokenTransactions"
-  | "getTokenBalances"
-  | "getRawAddressTransactions"
-  | "getAddressInfo"
-  | "parseWalletTransaction";
+  | 'getAddressTransactions'
+  | 'getAddressBalance'
+  | 'getTokenTransactions'
+  | 'getTokenBalances'
+  | 'getRawAddressTransactions'
+  | 'getAddressInfo'
+  | 'parseWalletTransaction';
 
-export interface ProviderCapabilities
-  extends DataSourceCapabilities<ProviderOperationType> {
+export interface ProviderCapabilities extends DataSourceCapabilities<ProviderOperationType> {
   /** Whether the provider supports real-time data access */
   supportsRealTimeData: boolean;
 

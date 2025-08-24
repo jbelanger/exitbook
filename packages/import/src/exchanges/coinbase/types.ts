@@ -85,95 +85,131 @@ export interface RawCoinbaseTransaction {
   /** Resource path */
   resource_path: string;
   /** Instant exchange information (for buy/sell transactions) */
-  instant_exchange?: {
-    id: string;
-    resource: string;
-    resource_path: string;
-  } | undefined;
+  instant_exchange?:
+    | {
+        id: string;
+        resource: string;
+        resource_path: string;
+      }
+    | undefined;
   /** Buy information (for buy transactions) */
-  buy?: {
-    id: string;
-    resource: string;
-    resource_path: string;
-    fee?: {
-      amount: string;
-      currency: string;
-    } | undefined;
-    payment_method_name?: string | undefined;
-    subtotal?: {
-      amount: string;
-      currency: string;
-    } | undefined;
-    total?: {
-      amount: string;
-      currency: string;
-    } | undefined;
-  } | undefined;
+  buy?:
+    | {
+        id: string;
+        resource: string;
+        resource_path: string;
+        fee?:
+          | {
+              amount: string;
+              currency: string;
+            }
+          | undefined;
+        payment_method_name?: string | undefined;
+        subtotal?:
+          | {
+              amount: string;
+              currency: string;
+            }
+          | undefined;
+        total?:
+          | {
+              amount: string;
+              currency: string;
+            }
+          | undefined;
+      }
+    | undefined;
   /** Sell information (for sell transactions) */
-  sell?: {
-    id: string;
-    resource: string;
-    resource_path: string;
-    fee?: {
-      amount: string;
-      currency: string;
-    } | undefined;
-    payment_method_name?: string | undefined;
-    subtotal?: {
-      amount: string;
-      currency: string;
-    } | undefined;
-    total?: {
-      amount: string;
-      currency: string;
-    } | undefined;
-  } | undefined;
+  sell?:
+    | {
+        id: string;
+        resource: string;
+        resource_path: string;
+        fee?:
+          | {
+              amount: string;
+              currency: string;
+            }
+          | undefined;
+        payment_method_name?: string | undefined;
+        subtotal?:
+          | {
+              amount: string;
+              currency: string;
+            }
+          | undefined;
+        total?:
+          | {
+              amount: string;
+              currency: string;
+            }
+          | undefined;
+      }
+    | undefined;
   /** Trade information (for trade transactions) */
-  trade?: {
-    id: string;
-    resource: string;
-    resource_path: string;
-  } | undefined;
+  trade?:
+    | {
+        id: string;
+        resource: string;
+        resource_path: string;
+      }
+    | undefined;
   /** Network information (for crypto transactions) */
-  network?: {
-    status: string;
-    status_description?: string | undefined;
-    hash?: string | undefined;
-    transaction_fee?: {
-      amount: string;
-      currency: string;
-    } | undefined;
-    transaction_amount?: {
-      amount: string;
-      currency: string;
-    } | undefined;
-    confirmations?: number | undefined;
-  } | undefined;
+  network?:
+    | {
+        status: string;
+        status_description?: string | undefined;
+        hash?: string | undefined;
+        transaction_fee?:
+          | {
+              amount: string;
+              currency: string;
+            }
+          | undefined;
+        transaction_amount?:
+          | {
+              amount: string;
+              currency: string;
+            }
+          | undefined;
+        confirmations?: number | undefined;
+      }
+    | undefined;
   /** Recipient information (for send transactions) */
-  to?: {
-    resource: string;
-    address?: string | undefined;
-    currency?: string | undefined;
-    address_info?: {
-      address: string;
-    } | undefined;
-  } | undefined;
+  to?:
+    | {
+        resource: string;
+        address?: string | undefined;
+        currency?: string | undefined;
+        address_info?:
+          | {
+              address: string;
+            }
+          | undefined;
+      }
+    | undefined;
   /** Sender information */
-  from?: {
-    resource: string;
-    address?: string | undefined;
-    currency?: string | undefined;
-    address_info?: {
-      address: string;
-    } | undefined;
-  } | undefined;
+  from?:
+    | {
+        resource: string;
+        address?: string | undefined;
+        currency?: string | undefined;
+        address_info?:
+          | {
+              address: string;
+            }
+          | undefined;
+      }
+    | undefined;
   /** Additional transaction details */
-  details?: {
-    title?: string | undefined;
-    subtitle?: string | undefined;
-    header?: string | undefined;
-    health?: string | undefined;
-  } | undefined;
+  details?:
+    | {
+        title?: string | undefined;
+        subtitle?: string | undefined;
+        header?: string | undefined;
+        health?: string | undefined;
+      }
+    | undefined;
   /** Hide from overview */
   hide?: boolean | undefined;
   /** Whether this transaction can be canceled */
@@ -211,7 +247,7 @@ export interface RawCoinbaseLedgerEntry {
    * Direction of money flow from account perspective
    * 'DEBIT' = money going out, 'CREDIT' = money coming in
    */
-  direction: "DEBIT" | "CREDIT";
+  direction: 'DEBIT' | 'CREDIT';
   /** Additional details specific to the transaction type */
   details: RawCoinbaseLedgerDetails;
 }
@@ -227,19 +263,23 @@ export interface RawCoinbaseLedgerDetails {
   /** Product/trading pair ID (e.g., 'BTC-USD') */
   product_id?: string | undefined;
   /** Side of the order ('BUY' or 'SELL') */
-  order_side?: "BUY" | "SELL" | undefined;
+  order_side?: 'BUY' | 'SELL' | undefined;
   /** Fee associated with this entry */
-  fee?: {
-    value: string;
-    currency: string;
-  } | undefined;
+  fee?:
+    | {
+        value: string;
+        currency: string;
+      }
+    | undefined;
   /** Transfer ID for internal transfers */
   transfer_id?: string | undefined;
   /** Deposit/withdrawal method details */
-  payment_method?: {
-    id: string;
-    type: string;
-  } | undefined;
+  payment_method?:
+    | {
+        id: string;
+        type: string;
+      }
+    | undefined;
   /** Cryptocurrency network for deposits/withdrawals */
   network?: string | undefined;
   /** Blockchain transaction hash */
@@ -255,16 +295,18 @@ export interface RawCoinbaseTransactionsResponse {
   /** Array of transaction entries */
   data: RawCoinbaseTransaction[];
   /** Pagination information */
-  pagination?: {
-    ending_before?: string | undefined;
-    starting_after?: string | undefined;
-    previous_ending_before?: string | undefined;
-    next_starting_after?: string | undefined;
-    limit?: number | undefined;
-    order?: string | undefined;
-    previous_uri?: string | undefined;
-    next_uri?: string | undefined;
-  } | undefined;
+  pagination?:
+    | {
+        ending_before?: string | undefined;
+        starting_after?: string | undefined;
+        previous_ending_before?: string | undefined;
+        next_starting_after?: string | undefined;
+        limit?: number | undefined;
+        order?: string | undefined;
+        previous_uri?: string | undefined;
+        next_uri?: string | undefined;
+      }
+    | undefined;
 }
 
 /**
@@ -286,16 +328,18 @@ export interface RawCoinbaseAccountsResponse {
   /** Array of user accounts */
   data: RawCoinbaseAccount[];
   /** Pagination information */
-  pagination?: {
-    ending_before?: string | undefined;
-    starting_after?: string | undefined;
-    previous_ending_before?: string | undefined;
-    next_starting_after?: string | undefined;
-    limit?: number | undefined;
-    order?: string | undefined;
-    previous_uri?: string | undefined;
-    next_uri?: string | undefined;
-  } | undefined;
+  pagination?:
+    | {
+        ending_before?: string | undefined;
+        starting_after?: string | undefined;
+        previous_ending_before?: string | undefined;
+        next_starting_after?: string | undefined;
+        limit?: number | undefined;
+        order?: string | undefined;
+        previous_uri?: string | undefined;
+        next_uri?: string | undefined;
+      }
+    | undefined;
 }
 
 /**
@@ -391,10 +435,10 @@ export interface CcxtCoinbaseAdapterOptions {
 export interface CcxtCoinbaseAccount {
   id: string;
   currency: string;
-  balance: import("decimal.js").Decimal | number;
+  balance: import('decimal.js').Decimal | number;
   type: string;
   code: string; // Required by ccxt.Account
-  info: import("ccxt").Balance; // Required by ccxt.Account
+  info: import('ccxt').Balance; // Required by ccxt.Account
   free?: number | undefined;
   used?: number | undefined;
   total?: number | undefined;

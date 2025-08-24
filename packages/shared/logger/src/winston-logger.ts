@@ -1,12 +1,12 @@
-import { isEmpty, omit } from "moderndash";
-import os from "node:os";
-import util from "node:util";
-import { LEVEL, MESSAGE, SPLAT } from "triple-beam";
-import type { LeveledLogMethod, Logger as WinstonLogger } from "winston";
-import winston, { format, transports } from "winston";
-import "winston-daily-rotate-file";
-import { fullFormat } from "winston-error-format";
-import { z } from "zod";
+import { isEmpty, omit } from 'moderndash';
+import os from 'node:os';
+import util from 'node:util';
+import { LEVEL, MESSAGE, SPLAT } from 'triple-beam';
+import type { LeveledLogMethod, Logger as WinstonLogger } from 'winston';
+import winston, { format, transports } from 'winston';
+import 'winston-daily-rotate-file';
+import { fullFormat } from 'winston-error-format';
+import { z } from 'zod';
 
 // see https://github.com/winstonjs/winston?tab=readme-ov-file#using-custom-logging-levels
 const logLevels = {
@@ -22,26 +22,26 @@ const env = {
   logLevel: z //
     .string()
     .refine((val: string) => Object.keys(logLevels).includes(val), {
-      message: "Invalid log level",
+      message: 'Invalid log level',
     })
-    .default("info")
+    .default('info')
     .parse(process.env.LOG_LEVEL),
   auditLogEnabled: z //
     .string()
-    .default("true")
-    .transform((val: string) => val === "true")
+    .default('true')
+    .transform((val: string) => val === 'true')
     .parse(process.env.AUDIT_LOG_ENABLED),
   auditLogDirname: z //
     .string()
     .trim()
-    .min(1, { message: "Invalid audit log directory name" })
-    .default("logs")
+    .min(1, { message: 'Invalid audit log directory name' })
+    .default('logs')
     .parse(process.env.AUDIT_LOG_DIRNAME),
   auditLogFilename: z //
     .string()
     .trim()
-    .min(1, { message: "Invalid audit log file name" })
-    .default("audit")
+    .min(1, { message: 'Invalid audit log file name' })
+    .default('audit')
     .parse(process.env.AUDIT_LOG_FILENAME),
 } as const;
 
@@ -63,10 +63,10 @@ const dailyRotateFileTransport = new transports.DailyRotateFile({
 });
 
 // Monitor new listener additions
-dailyRotateFileTransport.on("newListener", (event) => {
+dailyRotateFileTransport.on('newListener', event => {
   const currentCount = dailyRotateFileTransport.listenerCount(event);
   console.log(`New '${event}' listener added (total: ${currentCount + 1})`);
-  console.log("Event added by:", new Error().stack);
+  console.log('Event added by:', new Error().stack);
 });
 
 /**
@@ -101,7 +101,7 @@ export const getLogger = (category: string): Logger => {
       format.timestamp(),
       format.splat(),
       fullFormat(),
-      format.printf((info) => {
+      format.printf(info => {
         const { label, level, message, timestamp, ...rest } = info;
         let formattedInfo = `${timestamp} ${level.toUpperCase().padStart(7)} --- [${formatLabel(`${label}`, 25)}]: ${message}`;
 
@@ -111,7 +111,7 @@ export const getLogger = (category: string): Logger => {
         }
 
         return formattedInfo;
-      }),
+      })
     ),
     transports: [consoleTransport],
   });

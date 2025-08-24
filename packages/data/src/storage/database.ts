@@ -1,37 +1,27 @@
-import type {
-  BalanceSnapshot,
-  BalanceVerificationRecord,
-} from "@crypto/balance";
-import type { EnhancedTransaction } from "@crypto/core";
-import { getLogger } from "@crypto/shared-logger";
-import { Decimal } from "decimal.js";
-import * as fs from "fs";
-import * as path from "path";
-import sqlite3Module from "sqlite3";
+import type { BalanceSnapshot, BalanceVerificationRecord } from '@crypto/balance';
+import type { EnhancedTransaction } from '@crypto/core';
+import { getLogger } from '@crypto/shared-logger';
+import { Decimal } from 'decimal.js';
+import * as fs from 'fs';
+import * as path from 'path';
+import sqlite3Module from 'sqlite3';
+
 import type {
   CreateWalletAddressRequest,
   StoredTransaction,
   UpdateWalletAddressRequest,
   WalletAddress,
   WalletAddressQuery,
-} from "../types/data-types.ts";
-import type {
-  DatabaseStats,
-  SQLParam,
-  StatRow,
-  TransactionCountRow,
-} from "../types/database-types.js";
+} from '../types/data-types.ts';
+import type { DatabaseStats, SQLParam, StatRow, TransactionCountRow } from '../types/database-types.js';
 
 const sqlite3 = sqlite3Module;
 
 type SQLiteDatabase = InstanceType<typeof sqlite3Module.Database>;
 
 // Local utility functions to avoid cyclic dependency with shared-utils
-function moneyToDbString(money: {
-  amount: Decimal | number;
-  currency: string;
-}): string {
-  if (typeof money.amount === "number") {
+function moneyToDbString(money: { amount: Decimal | number; currency: string }): string {
+  if (typeof money.amount === 'number') {
     return String(money.amount);
   }
   return money.amount.toString();
@@ -40,10 +30,10 @@ function moneyToDbString(money: {
 export class Database {
   private db: SQLiteDatabase;
   private dbPath: string;
-  private logger = getLogger("Database");
+  private logger = getLogger('Database');
 
   constructor(dbPath?: string) {
-    const defaultPath = path.join(process.cwd(), "data", "transactions.db");
+    const defaultPath = path.join(process.cwd(), 'data', 'transactions.db');
     const finalPath = dbPath || defaultPath;
     this.dbPath = finalPath;
 
@@ -53,11 +43,9 @@ export class Database {
       fs.mkdirSync(dataDir, { recursive: true });
     }
 
-    this.db = new sqlite3.Database(finalPath, (err) => {
+    this.db = new sqlite3.Database(finalPath, err => {
       if (err) {
-        this.logger.error(
-          `Failed to connect to database: ${err.message} (path: ${finalPath})`,
-        );
+        this.logger.error(`Failed to connect to database: ${err.message} (path: ${finalPath})`);
         throw err;
       }
       this.logger.info(`Connected to SQLite database: ${finalPath}`);
@@ -65,9 +53,9 @@ export class Database {
 
     // Enable foreign keys and WAL mode for better performance
     this.db.serialize(() => {
-      this.db.run("PRAGMA foreign_keys = ON");
-      this.db.run("PRAGMA journal_mode = WAL");
-      this.db.run("PRAGMA synchronous = NORMAL");
+      this.db.run('PRAGMA foreign_keys = ON');
+      this.db.run('PRAGMA journal_mode = WAL');
+      this.db.run('PRAGMA synchronous = NORMAL');
     });
 
     this.initializeTables();
@@ -75,36 +63,32 @@ export class Database {
 
   async clearAndReinitialize(): Promise<void> {
     return new Promise((resolve, reject) => {
-      this.logger.debug("Clearing and reinitializing database");
+      this.logger.debug('Clearing and reinitializing database');
 
       // Close current connection
-      this.db.close((err) => {
+      this.db.close(err => {
         if (err) {
-          this.logger.error(
-            `Error closing database for reinitialization: ${err.message}`,
-          );
+          this.logger.error(`Error closing database for reinitialization: ${err.message}`);
           return reject(err);
         }
 
         // Recreate connection and reinitialize with clear flag
-        this.db = new sqlite3.Database(this.dbPath, (dbErr) => {
+        this.db = new sqlite3.Database(this.dbPath, dbErr => {
           if (dbErr) {
-            this.logger.error(
-              `Failed to reconnect to database: ${dbErr.message}`,
-            );
+            this.logger.error(`Failed to reconnect to database: ${dbErr.message}`);
             return reject(dbErr);
           }
 
           // Enable foreign keys and WAL mode
           this.db.serialize(() => {
-            this.db.run("PRAGMA foreign_keys = ON");
-            this.db.run("PRAGMA journal_mode = WAL");
-            this.db.run("PRAGMA synchronous = NORMAL");
+            this.db.run('PRAGMA foreign_keys = ON');
+            this.db.run('PRAGMA journal_mode = WAL');
+            this.db.run('PRAGMA synchronous = NORMAL');
           });
 
           // Initialize tables with clear flag
           this.initializeTables(true);
-          this.logger.debug("Database cleared and reinitialized");
+          this.logger.debug('Database cleared and reinitialized');
           resolve();
         });
       });
@@ -121,13 +105,13 @@ export class Database {
         `DROP TABLE IF EXISTS raw_transactions`,
         `DROP TABLE IF EXISTS balance_snapshots`,
         `DROP TABLE IF EXISTS balance_verifications`,
-        `DROP TABLE IF EXISTS wallet_addresses`,
+        `DROP TABLE IF EXISTS wallet_addresses`
       );
     }
 
     tableQueries.push(
       // Raw transactions table - stores unprocessed transaction data from adapters
-      `CREATE TABLE ${clearExisting ? "" : "IF NOT EXISTS "}raw_transactions (
+      `CREATE TABLE ${clearExisting ? '' : 'IF NOT EXISTS '}raw_transactions (
         id TEXT PRIMARY KEY,
         adapter_id TEXT NOT NULL,
         adapter_type TEXT NOT NULL,
@@ -140,7 +124,7 @@ export class Database {
 
       // Transactions table - stores transactions from all adapters with standardized structure
       // Using TEXT for decimal values to preserve precision
-      `CREATE TABLE ${clearExisting ? "" : "IF NOT EXISTS "}transactions (
+      `CREATE TABLE ${clearExisting ? '' : 'IF NOT EXISTS '}transactions (
         id TEXT PRIMARY KEY,
         exchange TEXT NOT NULL,
         type TEXT NOT NULL,
@@ -170,7 +154,7 @@ export class Database {
       )`,
 
       // Balance snapshots - store point-in-time balance data
-      `CREATE TABLE ${clearExisting ? "" : "IF NOT EXISTS "}balance_snapshots (
+      `CREATE TABLE ${clearExisting ? '' : 'IF NOT EXISTS '}balance_snapshots (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         exchange TEXT NOT NULL,
         currency TEXT NOT NULL,
@@ -180,7 +164,7 @@ export class Database {
       )`,
 
       // Balance verification records - track verification results
-      `CREATE TABLE ${clearExisting ? "" : "IF NOT EXISTS "}balance_verifications (
+      `CREATE TABLE ${clearExisting ? '' : 'IF NOT EXISTS '}balance_verifications (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         exchange TEXT NOT NULL,
         currency TEXT NOT NULL,
@@ -193,7 +177,7 @@ export class Database {
       )`,
 
       // Wallet addresses - store user's wallet addresses for tracking and consolidation
-      `CREATE TABLE ${clearExisting ? "" : "IF NOT EXISTS "}wallet_addresses (
+      `CREATE TABLE ${clearExisting ? '' : 'IF NOT EXISTS '}wallet_addresses (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         address TEXT NOT NULL,
         blockchain TEXT NOT NULL,
@@ -204,7 +188,7 @@ export class Database {
         created_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
         updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
         UNIQUE(address, blockchain)
-      )`,
+      )`
     );
 
     // Create indexes after tables are created
@@ -252,28 +236,24 @@ export class Database {
     this.db.serialize(() => {
       // Create tables first
       for (const query of tableQueries) {
-        this.db.run(query, (err) => {
+        this.db.run(query, err => {
           if (err) {
-            this.logger.error(
-              `Failed to create table: ${err.message} (query: ${query})`,
-            );
+            this.logger.error(`Failed to create table: ${err.message} (query: ${query})`);
           }
         });
       }
 
       // Then create indexes after tables are complete
       for (const query of indexQueries) {
-        this.db.run(query, (err) => {
+        this.db.run(query, err => {
           if (err) {
-            this.logger.error(
-              `Failed to create index: ${err.message} (query: ${query})`,
-            );
+            this.logger.error(`Failed to create index: ${err.message} (query: ${query})`);
           }
         });
       }
     });
 
-    this.logger.debug("Database tables initialized");
+    this.logger.debug('Database tables initialized');
   }
 
   // Raw transaction operations
@@ -294,23 +274,13 @@ export class Database {
       const id = `${adapterId}-raw-${sourceTransactionId}`;
       const rawDataJson = JSON.stringify(rawData);
 
-      stmt.run(
-        [
-          id,
-          adapterId,
-          adapterType,
-          sourceTransactionId,
-          rawDataJson,
-          importSessionId || null,
-        ],
-        function (err) {
-          if (err) {
-            reject(err);
-          } else {
-            resolve();
-          }
-        },
-      );
+      stmt.run([id, adapterId, adapterType, sourceTransactionId, rawDataJson, importSessionId || null], function (err) {
+        if (err) {
+          reject(err);
+        } else {
+          resolve();
+        }
+      });
 
       stmt.finalize();
     });
@@ -326,7 +296,7 @@ export class Database {
       let saved = 0;
 
       this.db.serialize(() => {
-        this.db.run("BEGIN TRANSACTION");
+        this.db.run('BEGIN TRANSACTION');
 
         const stmt = this.db.prepare(`
           INSERT OR IGNORE INTO raw_transactions 
@@ -338,28 +308,18 @@ export class Database {
           const id = `${adapterId}-raw-${rawTx.id}`;
           const rawDataJson = JSON.stringify(rawTx.data);
 
-          stmt.run(
-            [
-              id,
-              adapterId,
-              adapterType,
-              rawTx.id,
-              rawDataJson,
-              importSessionId || null,
-            ],
-            function (err) {
-              if (err && !err.message.includes("UNIQUE constraint failed")) {
-                stmt.finalize();
-                return reject(err);
-              }
-              if (this.changes > 0) saved++;
-            },
-          );
+          stmt.run([id, adapterId, adapterType, rawTx.id, rawDataJson, importSessionId || null], function (err) {
+            if (err && !err.message.includes('UNIQUE constraint failed')) {
+              stmt.finalize();
+              return reject(err);
+            }
+            if (this.changes > 0) saved++;
+          });
         }
 
         stmt.finalize();
 
-        this.db.run("COMMIT", (err) => {
+        this.db.run('COMMIT', err => {
           if (err) {
             reject(err);
           } else {
@@ -373,49 +333,54 @@ export class Database {
   async getRawTransactions(
     adapterId?: string,
     importSessionId?: string
-  ): Promise<Array<{
-    id: string;
-    adapterId: string;
-    adapterType: string;
-    sourceTransactionId: string;
-    rawData: unknown;
-    createdAt: number;
-    importSessionId?: string;
-  }>> {
+  ): Promise<
+    Array<{
+      id: string;
+      adapterId: string;
+      adapterType: string;
+      sourceTransactionId: string;
+      rawData: unknown;
+      createdAt: number;
+      importSessionId?: string;
+    }>
+  > {
     return new Promise((resolve, reject) => {
-      let query = "SELECT * FROM raw_transactions";
+      let query = 'SELECT * FROM raw_transactions';
       const params: SQLParam[] = [];
       const conditions: string[] = [];
 
       if (adapterId) {
-        conditions.push("adapter_id = ?");
+        conditions.push('adapter_id = ?');
         params.push(adapterId);
       }
 
       if (importSessionId) {
-        conditions.push("import_session_id = ?");
+        conditions.push('import_session_id = ?');
         params.push(importSessionId);
       }
 
       if (conditions.length > 0) {
-        query += " WHERE " + conditions.join(" AND ");
+        query += ' WHERE ' + conditions.join(' AND ');
       }
 
-      query += " ORDER BY created_at DESC";
+      query += ' ORDER BY created_at DESC';
 
-      this.db.all(query, params, (err, rows: any[]) => {
+      this.db.all(query, params, (err, rows: unknown[]) => {
         if (err) {
           reject(err);
         } else {
-          const results = rows.map(row => ({
-            id: row.id,
-            adapterId: row.adapter_id,
-            adapterType: row.adapter_type,
-            sourceTransactionId: row.source_transaction_id,
-            rawData: JSON.parse(row.raw_data),
-            createdAt: row.created_at,
-            importSessionId: row.import_session_id,
-          }));
+          const results = rows.map(row => {
+            const dbRow = row as Record<string, unknown>;
+            return {
+              id: dbRow.id as string,
+              adapterId: dbRow.adapter_id as string,
+              adapterType: dbRow.adapter_type as string,
+              sourceTransactionId: dbRow.source_transaction_id as string,
+              rawData: JSON.parse(dbRow.raw_data as string),
+              createdAt: dbRow.created_at as number,
+              importSessionId: dbRow.import_session_id as string,
+            };
+          });
           resolve(results);
         }
       });
@@ -438,19 +403,11 @@ export class Database {
       let priceCurrency: string | null = null;
 
       // Primary: Extract from Money type structure
-      if (
-        transaction.amount &&
-        typeof transaction.amount === "object" &&
-        transaction.amount.currency
-      ) {
+      if (transaction.amount && typeof transaction.amount === 'object' && transaction.amount.currency) {
         amountCurrency = transaction.amount.currency;
       }
 
-      if (
-        transaction.price &&
-        typeof transaction.price === "object" &&
-        transaction.price.currency
-      ) {
+      if (transaction.price && typeof transaction.price === 'object' && transaction.price.currency) {
         priceCurrency = transaction.price.currency;
       }
 
@@ -458,27 +415,25 @@ export class Database {
         [
           transaction.id,
           transaction.source,
-          transaction.type || "unknown",
+          transaction.type || 'unknown',
           transaction.timestamp || Date.now(),
           transaction.datetime || null,
           transaction.symbol || null,
-          typeof transaction.amount === "object"
+          typeof transaction.amount === 'object'
             ? moneyToDbString(transaction.amount)
             : transaction.amount
               ? String(transaction.amount)
               : null,
           amountCurrency,
           transaction.side || null,
-          typeof transaction.price === "object"
+          typeof transaction.price === 'object'
             ? moneyToDbString(transaction.price)
             : transaction.price
               ? String(transaction.price)
               : null,
           priceCurrency,
-          typeof transaction.fee === "object"
-            ? moneyToDbString(transaction.fee)
-            : null,
-          typeof transaction.fee === "object" ? transaction.fee.currency : null,
+          typeof transaction.fee === 'object' ? moneyToDbString(transaction.fee) : null,
+          typeof transaction.fee === 'object' ? transaction.fee.currency : null,
           transaction.status || null,
           rawDataJson,
           transaction.hash,
@@ -486,9 +441,7 @@ export class Database {
           transaction.note?.type || null,
           transaction.note?.message || null,
           transaction.note?.severity || null,
-          transaction.note?.metadata
-            ? JSON.stringify(transaction.note.metadata)
-            : null,
+          transaction.note?.metadata ? JSON.stringify(transaction.note.metadata) : null,
         ],
         function (err) {
           if (err) {
@@ -496,7 +449,7 @@ export class Database {
           } else {
             resolve();
           }
-        },
+        }
       );
 
       stmt.finalize();
@@ -508,7 +461,7 @@ export class Database {
       let saved = 0;
 
       this.db.serialize(() => {
-        this.db.run("BEGIN TRANSACTION");
+        this.db.run('BEGIN TRANSACTION');
 
         const stmt = this.db.prepare(`
           INSERT OR IGNORE INTO transactions 
@@ -524,19 +477,11 @@ export class Database {
           let priceCurrency: string | null = null;
 
           // Primary: Extract from Money type structure
-          if (
-            transaction.amount &&
-            typeof transaction.amount === "object" &&
-            transaction.amount.currency
-          ) {
+          if (transaction.amount && typeof transaction.amount === 'object' && transaction.amount.currency) {
             amountCurrency = transaction.amount.currency;
           }
 
-          if (
-            transaction.price &&
-            typeof transaction.price === "object" &&
-            transaction.price.currency
-          ) {
+          if (transaction.price && typeof transaction.price === 'object' && transaction.price.currency) {
             priceCurrency = transaction.price.currency;
           }
 
@@ -547,29 +492,25 @@ export class Database {
             [
               transaction.id,
               transaction.source,
-              transaction.type || "unknown",
+              transaction.type || 'unknown',
               transaction.timestamp || Date.now(),
               transaction.datetime || null,
               transaction.symbol || null,
-              typeof transaction.amount === "object"
+              typeof transaction.amount === 'object'
                 ? moneyToDbString(transaction.amount)
                 : transaction.amount
                   ? String(transaction.amount)
                   : null,
               amountCurrency,
               transaction.side || null,
-              typeof transaction.price === "object"
+              typeof transaction.price === 'object'
                 ? moneyToDbString(transaction.price)
                 : transaction.price
                   ? String(transaction.price)
                   : null,
               priceCurrency,
-              typeof transaction.fee === "object"
-                ? moneyToDbString(transaction.fee)
-                : null,
-              typeof transaction.fee === "object"
-                ? transaction.fee.currency
-                : null,
+              typeof transaction.fee === 'object' ? moneyToDbString(transaction.fee) : null,
+              typeof transaction.fee === 'object' ? transaction.fee.currency : null,
               transaction.status || null,
               walletId,
               rawDataJson,
@@ -578,23 +519,21 @@ export class Database {
               transaction.note?.type || null,
               transaction.note?.message || null,
               transaction.note?.severity || null,
-              transaction.note?.metadata
-                ? JSON.stringify(transaction.note.metadata)
-                : null,
+              transaction.note?.metadata ? JSON.stringify(transaction.note.metadata) : null,
             ],
             function (err) {
-              if (err && !err.message.includes("UNIQUE constraint failed")) {
+              if (err && !err.message.includes('UNIQUE constraint failed')) {
                 stmt.finalize();
                 return reject(err);
               }
               if (this.changes > 0) saved++;
-            },
+            }
           );
         }
 
         stmt.finalize();
 
-        this.db.run("COMMIT", (err) => {
+        this.db.run('COMMIT', err => {
           if (err) {
             reject(err);
           } else {
@@ -605,32 +544,29 @@ export class Database {
     });
   }
 
-  async getTransactions(
-    exchange?: string,
-    since?: number,
-  ): Promise<StoredTransaction[]> {
+  async getTransactions(exchange?: string, since?: number): Promise<StoredTransaction[]> {
     return new Promise((resolve, reject) => {
-      let query = "SELECT * FROM transactions";
+      let query = 'SELECT * FROM transactions';
       const params: SQLParam[] = [];
 
       if (exchange || since) {
-        query += " WHERE";
+        query += ' WHERE';
         const conditions: string[] = [];
 
         if (exchange) {
-          conditions.push(" exchange = ?");
+          conditions.push(' exchange = ?');
           params.push(exchange);
         }
 
         if (since) {
-          conditions.push(" timestamp >= ?");
+          conditions.push(' timestamp >= ?');
           params.push(since);
         }
 
-        query += conditions.join(" AND");
+        query += conditions.join(' AND');
       }
 
-      query += " ORDER BY timestamp DESC";
+      query += ' ORDER BY timestamp DESC';
 
       this.db.all(query, params, (err, rows: StoredTransaction[]) => {
         if (err) {
@@ -644,11 +580,11 @@ export class Database {
 
   async getTransactionCount(exchange?: string): Promise<number> {
     return new Promise((resolve, reject) => {
-      let query = "SELECT COUNT(*) as count FROM transactions";
+      let query = 'SELECT COUNT(*) as count FROM transactions';
       const params: SQLParam[] = [];
 
       if (exchange) {
-        query += " WHERE exchange = ?";
+        query += ' WHERE exchange = ?';
         params.push(exchange);
       }
 
@@ -671,29 +607,19 @@ export class Database {
         VALUES (?, ?, ?, ?)
       `);
 
-      stmt.run(
-        [
-          snapshot.exchange,
-          snapshot.currency,
-          String(snapshot.balance),
-          snapshot.timestamp,
-        ],
-        function (err) {
-          if (err) {
-            reject(err);
-          } else {
-            resolve();
-          }
-        },
-      );
+      stmt.run([snapshot.exchange, snapshot.currency, String(snapshot.balance), snapshot.timestamp], function (err) {
+        if (err) {
+          reject(err);
+        } else {
+          resolve();
+        }
+      });
 
       stmt.finalize();
     });
   }
 
-  async saveBalanceVerification(
-    verification: BalanceVerificationRecord,
-  ): Promise<void> {
+  async saveBalanceVerification(verification: BalanceVerificationRecord): Promise<void> {
     return new Promise((resolve, reject) => {
       const stmt = this.db.prepare(`
         INSERT INTO balance_verifications 
@@ -717,16 +643,14 @@ export class Database {
           } else {
             resolve();
           }
-        },
+        }
       );
 
       stmt.finalize();
     });
   }
 
-  async getLatestBalanceVerifications(
-    exchange?: string,
-  ): Promise<BalanceVerificationRecord[]> {
+  async getLatestBalanceVerifications(exchange?: string): Promise<BalanceVerificationRecord[]> {
     return new Promise((resolve, reject) => {
       let query = `
         SELECT * FROM balance_verifications 
@@ -739,11 +663,11 @@ export class Database {
       const params: SQLParam[] = [];
 
       if (exchange) {
-        query += " AND exchange = ?";
+        query += ' AND exchange = ?';
         params.push(exchange);
       }
 
-      query += " ORDER BY exchange, currency";
+      query += ' ORDER BY exchange, currency';
 
       this.db.all(query, params, (err, rows: BalanceVerificationRecord[]) => {
         if (err) {
@@ -756,12 +680,12 @@ export class Database {
   }
 
   async close(): Promise<void> {
-    return new Promise((resolve) => {
-      this.db.close((err) => {
+    return new Promise(resolve => {
+      this.db.close(err => {
         if (err) {
           this.logger.error(`Error closing database: ${err.message}`);
         } else {
-          this.logger.info("Database connection closed");
+          this.logger.info('Database connection closed');
         }
         resolve();
       });
@@ -771,11 +695,11 @@ export class Database {
   // Utility methods
   async vacuum(): Promise<void> {
     return new Promise((resolve, reject) => {
-      this.db.run("VACUUM", (err) => {
+      this.db.run('VACUUM', err => {
         if (err) {
           reject(err);
         } else {
-          this.logger.info("Database vacuumed");
+          this.logger.info('Database vacuumed');
           resolve();
         }
       });
@@ -785,12 +709,12 @@ export class Database {
   async getStats(): Promise<DatabaseStats> {
     return new Promise((resolve, reject) => {
       const queries = [
-        "SELECT COUNT(*) as total_transactions FROM transactions",
-        "SELECT COUNT(DISTINCT exchange) as total_exchanges FROM transactions",
-        "SELECT exchange, COUNT(*) as count FROM transactions GROUP BY exchange",
-        "SELECT COUNT(*) as total_verifications FROM balance_verifications",
-        "SELECT COUNT(*) as total_snapshots FROM balance_snapshots",
-        "SELECT COUNT(*) as total_raw_transactions FROM raw_transactions",
+        'SELECT COUNT(*) as total_transactions FROM transactions',
+        'SELECT COUNT(DISTINCT exchange) as total_exchanges FROM transactions',
+        'SELECT exchange, COUNT(*) as count FROM transactions GROUP BY exchange',
+        'SELECT COUNT(*) as total_verifications FROM balance_verifications',
+        'SELECT COUNT(*) as total_snapshots FROM balance_snapshots',
+        'SELECT COUNT(*) as total_raw_transactions FROM raw_transactions',
       ];
 
       const results: DatabaseStats = {
@@ -813,13 +737,10 @@ export class Database {
           results.totalExchanges = row.total_exchanges || 0;
         });
 
-        this.db.all(
-          queries[2]!,
-          (err, rows: Array<{ exchange: string; count: number }>) => {
-            if (err) return reject(err);
-            results.transactionsByExchange = rows;
-          },
-        );
+        this.db.all(queries[2]!, (err, rows: Array<{ exchange: string; count: number }>) => {
+          if (err) return reject(err);
+          results.transactionsByExchange = rows;
+        });
 
         this.db.get(queries[3]!, (err, row: StatRow) => {
           if (err) return reject(err);
@@ -842,12 +763,10 @@ export class Database {
 
   // Wallet address management methods
 
-  async addWalletAddress(
-    request: CreateWalletAddressRequest,
-  ): Promise<WalletAddress> {
+  async addWalletAddress(request: CreateWalletAddressRequest): Promise<WalletAddress> {
     return new Promise((resolve, reject) => {
       const now = Math.floor(Date.now() / 1000);
-      const addressType = request.addressType || "personal";
+      const addressType = request.addressType || 'personal';
 
       const query = `
         INSERT INTO wallet_addresses (address, blockchain, label, address_type, notes, created_at, updated_at)
@@ -856,22 +775,12 @@ export class Database {
 
       this.db.run(
         query,
-        [
-          request.address,
-          request.blockchain,
-          request.label,
-          addressType,
-          request.notes,
-          now,
-          now,
-        ],
+        [request.address, request.blockchain, request.label, addressType, request.notes, now, now],
         function (err) {
           if (err) {
-            if (err.message.includes("UNIQUE constraint failed")) {
+            if (err.message.includes('UNIQUE constraint failed')) {
               reject(
-                new Error(
-                  `Wallet address ${request.address} already exists for blockchain ${request.blockchain}`,
-                ),
+                new Error(`Wallet address ${request.address} already exists for blockchain ${request.blockchain}`)
               );
             } else {
               reject(err);
@@ -882,46 +791,39 @@ export class Database {
               id: this.lastID,
               address: request.address,
               blockchain: request.blockchain,
-              label: request.label ?? "",
-              addressType: addressType as
-                | "personal"
-                | "exchange"
-                | "contract"
-                | "unknown",
+              label: request.label ?? '',
+              addressType: addressType as 'personal' | 'exchange' | 'contract' | 'unknown',
               isActive: true,
-              notes: request.notes ?? "",
+              notes: request.notes ?? '',
               createdAt: now,
               updatedAt: now,
             });
           }
-        },
+        }
       );
     });
   }
 
-  async updateWalletAddress(
-    id: number,
-    updates: UpdateWalletAddressRequest,
-  ): Promise<WalletAddress | null> {
+  async updateWalletAddress(id: number, updates: UpdateWalletAddressRequest): Promise<WalletAddress | null> {
     return new Promise((resolve, reject) => {
       const now = Math.floor(Date.now() / 1000);
       const setParts: string[] = [];
       const params: SQLParam[] = [];
 
       if (updates.label !== undefined) {
-        setParts.push("label = ?");
+        setParts.push('label = ?');
         params.push(updates.label);
       }
       if (updates.addressType !== undefined) {
-        setParts.push("address_type = ?");
+        setParts.push('address_type = ?');
         params.push(updates.addressType);
       }
       if (updates.isActive !== undefined) {
-        setParts.push("is_active = ?");
+        setParts.push('is_active = ?');
         params.push(updates.isActive ? 1 : 0);
       }
       if (updates.notes !== undefined) {
-        setParts.push("notes = ?");
+        setParts.push('notes = ?');
         params.push(updates.notes);
       }
 
@@ -930,13 +832,13 @@ export class Database {
         return;
       }
 
-      setParts.push("updated_at = ?");
+      setParts.push('updated_at = ?');
       params.push(now);
       params.push(id);
 
-      const query = `UPDATE wallet_addresses SET ${setParts.join(", ")} WHERE id = ?`;
+      const query = `UPDATE wallet_addresses SET ${setParts.join(', ')} WHERE id = ?`;
 
-      this.db.run(query, params, (err) => {
+      this.db.run(query, params, err => {
         if (err) {
           reject(err);
         } else {
@@ -948,73 +850,67 @@ export class Database {
 
   async getWalletAddress(id: number): Promise<WalletAddress | null> {
     return new Promise((resolve, reject) => {
-      const query = "SELECT * FROM wallet_addresses WHERE id = ?";
+      const query = 'SELECT * FROM wallet_addresses WHERE id = ?';
 
-      this.db.get<WalletAddress>(
-        query,
-        [id],
-        (err, row: WalletAddress | undefined) => {
-          if (err) {
-            reject(err);
-          } else if (!row) {
-            resolve(null);
-          } else {
-            resolve({
-              id: row.id,
-              address: row.address,
-              blockchain: row.blockchain,
-              label: row.label,
-              addressType: row.addressType,
-              isActive: Boolean(row.isActive),
-              notes: row.notes,
-              createdAt: row.createdAt,
-              updatedAt: row.updatedAt,
-            });
-          }
-        },
-      );
+      this.db.get<WalletAddress>(query, [id], (err, row: WalletAddress | undefined) => {
+        if (err) {
+          reject(err);
+        } else if (!row) {
+          resolve(null);
+        } else {
+          resolve({
+            id: row.id,
+            address: row.address,
+            blockchain: row.blockchain,
+            label: row.label,
+            addressType: row.addressType,
+            isActive: Boolean(row.isActive),
+            notes: row.notes,
+            createdAt: row.createdAt,
+            updatedAt: row.updatedAt,
+          });
+        }
+      });
     });
   }
 
-  async getWalletAddresses(
-    query?: WalletAddressQuery,
-  ): Promise<WalletAddress[]> {
+  async getWalletAddresses(query?: WalletAddressQuery): Promise<WalletAddress[]> {
     return new Promise((resolve, reject) => {
-      let sql = "SELECT * FROM wallet_addresses";
+      let sql = 'SELECT * FROM wallet_addresses';
       const conditions: string[] = [];
       const params: SQLParam[] = [];
 
       if (query) {
         if (query.blockchain) {
-          conditions.push("blockchain = ?");
+          conditions.push('blockchain = ?');
           params.push(query.blockchain);
         }
         if (query.addressType) {
-          conditions.push("address_type = ?");
+          conditions.push('address_type = ?');
           params.push(query.addressType);
         }
         if (query.isActive !== undefined) {
-          conditions.push("is_active = ?");
+          conditions.push('is_active = ?');
           params.push(query.isActive ? 1 : 0);
         }
         if (query.search) {
-          conditions.push("(address LIKE ? OR label LIKE ? OR notes LIKE ?)");
+          conditions.push('(address LIKE ? OR label LIKE ? OR notes LIKE ?)');
           const searchTerm = `%${query.search}%`;
           params.push(searchTerm, searchTerm, searchTerm);
         }
       }
 
       if (conditions.length > 0) {
-        sql += " WHERE " + conditions.join(" AND ");
+        sql += ' WHERE ' + conditions.join(' AND ');
       }
 
-      sql += " ORDER BY created_at DESC";
+      sql += ' ORDER BY created_at DESC';
 
       this.db.all(sql, params, (err, rows: WalletAddress[]) => {
         if (err) {
           reject(err);
         } else {
-          const addresses = rows.map((row) => ({
+          const addresses = rows.map(row => ({
             id: row.id,
             address: row.address,
             blockchain: row.blockchain,
@@ -1031,13 +927,9 @@ export class Database {
     });
   }
 
-  async findWalletAddressByAddress(
-    address: string,
-    blockchain: string,
-  ): Promise<WalletAddress | null> {
+  async findWalletAddressByAddress(address: string, blockchain: string): Promise<WalletAddress | null> {
     return new Promise((resolve, reject) => {
-      const query =
-        "SELECT * FROM wallet_addresses WHERE address = ? AND blockchain = ?";
+      const query = 'SELECT * FROM wallet_addresses WHERE address = ? AND blockchain = ?';
 
       this.db.get(query, [address, blockchain], (err, row: WalletAddress) => {
         if (err) {
@@ -1063,48 +955,42 @@ export class Database {
 
   async findWalletAddressByAddressNormalized(
     normalizedAddress: string,
-    blockchain: string,
+    blockchain: string
   ): Promise<WalletAddress | null> {
     return new Promise((resolve, reject) => {
       // For Ethereum, do case-insensitive matching by comparing lowercase addresses
       let query: string;
-      if (blockchain === "ethereum") {
-        query =
-          "SELECT * FROM wallet_addresses WHERE LOWER(address) = ? AND blockchain = ?";
+      if (blockchain === 'ethereum') {
+        query = 'SELECT * FROM wallet_addresses WHERE LOWER(address) = ? AND blockchain = ?';
       } else {
-        query =
-          "SELECT * FROM wallet_addresses WHERE address = ? AND blockchain = ?";
+        query = 'SELECT * FROM wallet_addresses WHERE address = ? AND blockchain = ?';
       }
 
-      this.db.get(
-        query,
-        [normalizedAddress, blockchain],
-        (err, row: WalletAddress) => {
-          if (err) {
-            reject(err);
-          } else if (!row) {
-            resolve(null);
-          } else {
-            resolve({
-              id: row.id,
-              address: row.address,
-              blockchain: row.blockchain,
-              label: row.label,
-              addressType: row.addressType,
-              isActive: Boolean(row.isActive),
-              notes: row.notes,
-              createdAt: row.createdAt,
-              updatedAt: row.updatedAt,
-            });
-          }
-        },
-      );
+      this.db.get(query, [normalizedAddress, blockchain], (err, row: WalletAddress) => {
+        if (err) {
+          reject(err);
+        } else if (!row) {
+          resolve(null);
+        } else {
+          resolve({
+            id: row.id,
+            address: row.address,
+            blockchain: row.blockchain,
+            label: row.label,
+            addressType: row.addressType,
+            isActive: Boolean(row.isActive),
+            notes: row.notes,
+            createdAt: row.createdAt,
+            updatedAt: row.updatedAt,
+          });
+        }
+      });
     });
   }
 
   async deleteWalletAddress(id: number): Promise<boolean> {
     return new Promise((resolve, reject) => {
-      const query = "DELETE FROM wallet_addresses WHERE id = ?";
+      const query = 'DELETE FROM wallet_addresses WHERE id = ?';
 
       this.db.run(query, [id], function (err) {
         if (err) {
@@ -1120,7 +1006,7 @@ export class Database {
     transactionId: string,
     fromAddress?: string,
     toAddress?: string,
-    walletId?: number,
+    walletId?: number
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       const query = `
@@ -1129,17 +1015,13 @@ export class Database {
         WHERE id = ?
       `;
 
-      this.db.run(
-        query,
-        [fromAddress, toAddress, walletId, transactionId],
-        (err) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve();
-          }
-        },
-      );
+      this.db.run(query, [fromAddress, toAddress, walletId, transactionId], err => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve();
+        }
+      });
     });
   }
 }

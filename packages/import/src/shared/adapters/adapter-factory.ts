@@ -3,24 +3,23 @@ import type {
   UniversalAdapterConfig,
   UniversalBlockchainAdapterConfig,
   UniversalExchangeAdapterConfig,
-} from "@crypto/core";
-import { getLogger } from "@crypto/shared-logger";
-import type { BlockchainExplorersConfig } from "../../blockchains/shared/explorer-config.ts";
+} from '@crypto/core';
+import { getLogger } from '@crypto/shared-logger';
 
 // Import specific adapters directly
-import { AvalancheAdapter } from "../../blockchains/avalanche/adapter.ts";
-import { BitcoinAdapter } from "../../blockchains/bitcoin/adapter.ts";
-import { EthereumAdapter } from "../../blockchains/ethereum/adapter.ts";
-import { InjectiveAdapter } from "../../blockchains/injective/adapter.ts";
-import { SubstrateAdapter } from "../../blockchains/polkadot/adapter.ts";
-import { SolanaAdapter } from "../../blockchains/solana/adapter.ts";
-
+import { AvalancheAdapter } from '../../blockchains/avalanche/adapter.ts';
+import { BitcoinAdapter } from '../../blockchains/bitcoin/adapter.ts';
+import { EthereumAdapter } from '../../blockchains/ethereum/adapter.ts';
+import { InjectiveAdapter } from '../../blockchains/injective/adapter.ts';
+import { SubstrateAdapter } from '../../blockchains/polkadot/adapter.ts';
+import type { BlockchainExplorersConfig } from '../../blockchains/shared/explorer-config.ts';
+import { SolanaAdapter } from '../../blockchains/solana/adapter.ts';
 // Import exchange adapters directly
-import { CoinbaseAdapter } from "../../exchanges/coinbase/adapter.ts";
-import { CoinbaseCCXTAdapter } from "../../exchanges/coinbase/ccxt-adapter.ts";
-import { KrakenCSVAdapter } from "../../exchanges/kraken/csv-adapter.ts";
-import { KuCoinCSVAdapter } from "../../exchanges/kucoin/csv-adapter.ts";
-import { LedgerLiveCSVAdapter } from "../../exchanges/ledgerlive/csv-adapter.ts";
+import { CoinbaseAdapter } from '../../exchanges/coinbase/adapter.ts';
+import { CoinbaseCCXTAdapter } from '../../exchanges/coinbase/ccxt-adapter.ts';
+import { KrakenCSVAdapter } from '../../exchanges/kraken/csv-adapter.ts';
+import { KuCoinCSVAdapter } from '../../exchanges/kucoin/csv-adapter.ts';
+import { LedgerLiveCSVAdapter } from '../../exchanges/ledgerlive/csv-adapter.ts';
 
 /**
  * Universal adapter factory that creates adapters implementing the IUniversalAdapter interface.
@@ -30,35 +29,26 @@ import { LedgerLiveCSVAdapter } from "../../exchanges/ledgerlive/csv-adapter.ts"
  * unified interface to work with existing adapter implementations without modification.
  */
 export class UniversalAdapterFactory {
-  private static readonly logger = getLogger("UniversalAdapterFactory");
+  private static readonly logger = getLogger('UniversalAdapterFactory');
 
   /**
    * Create a single universal adapter based on configuration
    */
   static async create(
     config: UniversalAdapterConfig,
-    explorerConfig?: BlockchainExplorersConfig,
+    explorerConfig?: BlockchainExplorersConfig
   ): Promise<IUniversalAdapter> {
-    this.logger.info(
-      `Creating universal adapter for ${config.id} (type: ${config.type})`,
-    );
+    this.logger.info(`Creating universal adapter for ${config.id} (type: ${config.type})`);
 
-    if (config.type === "exchange") {
-      return this.createExchangeAdapter(
-        config as UniversalExchangeAdapterConfig,
-      );
+    if (config.type === 'exchange') {
+      return this.createExchangeAdapter(config as UniversalExchangeAdapterConfig);
     }
 
-    if (config.type === "blockchain") {
-      return this.createBlockchainAdapter(
-        config as UniversalBlockchainAdapterConfig,
-        explorerConfig,
-      );
+    if (config.type === 'blockchain') {
+      return this.createBlockchainAdapter(config as UniversalBlockchainAdapterConfig, explorerConfig);
     }
 
-    throw new Error(
-      `Unsupported adapter type: ${(config as UniversalAdapterConfig).type}`,
-    );
+    throw new Error(`Unsupported adapter type: ${(config as UniversalAdapterConfig).type}`);
   }
 
   /**
@@ -66,62 +56,52 @@ export class UniversalAdapterFactory {
    */
   static async createMany(
     configs: UniversalAdapterConfig[],
-    explorerConfig?: BlockchainExplorersConfig,
+    explorerConfig?: BlockchainExplorersConfig
   ): Promise<IUniversalAdapter[]> {
     this.logger.info(`Creating ${configs.length} universal adapters`);
 
-    return Promise.all(
-      configs.map((config) => this.create(config, explorerConfig)),
-    );
+    return Promise.all(configs.map(config => this.create(config, explorerConfig)));
   }
 
   /**
    * Create an exchange adapter directly (no more bridge adapters)
    */
-  private static async createExchangeAdapter(
-    config: UniversalExchangeAdapterConfig,
-  ): Promise<IUniversalAdapter> {
-    this.logger.debug(
-      `Creating exchange adapter for ${config.id} with subType: ${config.subType}`,
-    );
+  private static async createExchangeAdapter(config: UniversalExchangeAdapterConfig): Promise<IUniversalAdapter> {
+    this.logger.debug(`Creating exchange adapter for ${config.id} with subType: ${config.subType}`);
 
-    if (config.subType === "csv") {
+    if (config.subType === 'csv') {
       return this.createCSVExchangeAdapter(config);
-    } else if (config.subType === "ccxt") {
+    } else if (config.subType === 'ccxt') {
       return this.createCCXTExchangeAdapter(config);
-    } else if (config.subType === "native") {
+    } else if (config.subType === 'native') {
       return this.createNativeExchangeAdapter(config);
     }
 
-    throw new Error(
-      `Unsupported exchange adapter subType: ${config.subType} for ${config.id}`,
-    );
+    throw new Error(`Unsupported exchange adapter subType: ${config.subType} for ${config.id}`);
   }
 
   /**
    * Create CSV exchange adapter directly
    */
-  private static async createCSVExchangeAdapter(
-    config: UniversalExchangeAdapterConfig,
-  ): Promise<IUniversalAdapter> {
+  private static async createCSVExchangeAdapter(config: UniversalExchangeAdapterConfig): Promise<IUniversalAdapter> {
     if (!config.csvDirectories?.length) {
-      throw new Error("CSV directories required for CSV exchange adapters");
+      throw new Error('CSV directories required for CSV exchange adapters');
     }
 
     // Create adapter config for CSV adapters
     const adapterConfig = {
-      type: "exchange" as const,
+      type: 'exchange' as const,
       id: config.id,
-      subType: "csv" as const,
+      subType: 'csv' as const,
       csvDirectories: config.csvDirectories,
     };
 
     switch (config.id.toLowerCase()) {
-      case "kraken":
+      case 'kraken':
         return new KrakenCSVAdapter(adapterConfig);
-      case "kucoin":
+      case 'kucoin':
         return new KuCoinCSVAdapter(adapterConfig);
-      case "ledgerlive":
+      case 'ledgerlive':
         return new LedgerLiveCSVAdapter(adapterConfig);
       default:
         throw new Error(`Unsupported CSV exchange: ${config.id}`);
@@ -131,23 +111,21 @@ export class UniversalAdapterFactory {
   /**
    * Create CCXT exchange adapter directly
    */
-  private static async createCCXTExchangeAdapter(
-    config: UniversalExchangeAdapterConfig,
-  ): Promise<IUniversalAdapter> {
+  private static async createCCXTExchangeAdapter(config: UniversalExchangeAdapterConfig): Promise<IUniversalAdapter> {
     if (!config.credentials) {
-      throw new Error("Credentials required for CCXT exchange adapters");
+      throw new Error('Credentials required for CCXT exchange adapters');
     }
 
     switch (config.id.toLowerCase()) {
-      case "coinbase":
+      case 'coinbase':
         return new CoinbaseCCXTAdapter(
           {
             apiKey: config.credentials.apiKey,
             secret: config.credentials.secret,
-            passphrase: config.credentials.password || "",
+            passphrase: config.credentials.password || '',
             sandbox: false,
           },
-          { enableOnlineVerification: true },
+          { enableOnlineVerification: true }
         );
       default:
         throw new Error(`Unsupported CCXT exchange: ${config.id}`);
@@ -157,19 +135,17 @@ export class UniversalAdapterFactory {
   /**
    * Create native exchange adapter directly
    */
-  private static async createNativeExchangeAdapter(
-    config: UniversalExchangeAdapterConfig,
-  ): Promise<IUniversalAdapter> {
+  private static async createNativeExchangeAdapter(config: UniversalExchangeAdapterConfig): Promise<IUniversalAdapter> {
     if (!config.credentials) {
-      throw new Error("Credentials required for native exchange adapters");
+      throw new Error('Credentials required for native exchange adapters');
     }
 
     switch (config.id.toLowerCase()) {
-      case "coinbase":
+      case 'coinbase':
         return new CoinbaseAdapter(config, {
           apiKey: config.credentials.apiKey,
           secret: config.credentials.secret,
-          passphrase: config.credentials.password || "",
+          passphrase: config.credentials.password || '',
           sandbox: false,
         });
       default:
@@ -182,31 +158,27 @@ export class UniversalAdapterFactory {
    */
   private static async createBlockchainAdapter(
     config: UniversalBlockchainAdapterConfig,
-    explorerConfig?: BlockchainExplorersConfig,
+    explorerConfig?: BlockchainExplorersConfig
   ): Promise<IUniversalAdapter> {
     if (!explorerConfig) {
-      throw new Error(
-        "Explorer configuration required for blockchain adapters",
-      );
+      throw new Error('Explorer configuration required for blockchain adapters');
     }
 
-    this.logger.debug(
-      `Creating blockchain adapter for ${config.id} with network: ${config.network}`,
-    );
+    this.logger.debug(`Creating blockchain adapter for ${config.id} with network: ${config.network}`);
 
     // Create the specific blockchain adapter directly
     switch (config.id.toLowerCase()) {
-      case "bitcoin":
+      case 'bitcoin':
         return new BitcoinAdapter(config, explorerConfig);
-      case "ethereum":
+      case 'ethereum':
         return new EthereumAdapter(config, explorerConfig);
-      case "solana":
+      case 'solana':
         return new SolanaAdapter(config, explorerConfig);
-      case "avalanche":
+      case 'avalanche':
         return new AvalancheAdapter(config, explorerConfig);
-      case "injective":
+      case 'injective':
         return new InjectiveAdapter(config, explorerConfig);
-      case "polkadot":
+      case 'polkadot':
         return new SubstrateAdapter(config, explorerConfig);
       default:
         throw new Error(`Unsupported blockchain: ${config.id}`);
@@ -218,7 +190,7 @@ export class UniversalAdapterFactory {
    */
   static createExchangeConfig(
     exchangeId: string,
-    subType: "ccxt" | "csv" | "native",
+    subType: 'ccxt' | 'csv' | 'native',
     options: {
       credentials?:
         | {
@@ -228,10 +200,10 @@ export class UniversalAdapterFactory {
           }
         | undefined;
       csvDirectories?: string[] | undefined;
-    },
+    }
   ): UniversalExchangeAdapterConfig {
     return {
-      type: "exchange",
+      type: 'exchange',
       id: exchangeId,
       subType,
       credentials: options.credentials,
@@ -244,11 +216,11 @@ export class UniversalAdapterFactory {
    */
   static createBlockchainConfig(
     blockchain: string,
-    network: string = "mainnet",
-    subType: "rest" | "rpc" = "rest",
+    network: string = 'mainnet',
+    subType: 'rest' | 'rpc' = 'rest'
   ): UniversalBlockchainAdapterConfig {
     return {
-      type: "blockchain",
+      type: 'blockchain',
       id: blockchain,
       subType,
       network,

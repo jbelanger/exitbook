@@ -1,5 +1,6 @@
-import type { TransactionNote } from "@crypto/core";
-import { TransactionNoteType } from "../types/types.ts";
+import type { TransactionNote } from '@crypto/core';
+
+import { TransactionNoteType } from '../types/types.ts';
 
 /**
  * Token metadata from DAS API for scam detection
@@ -26,63 +27,52 @@ export function detectScamToken(
   }
 ): TransactionNote | null {
   const suspiciousIndicators: string[] = [];
-  let riskLevel: "warning" | "error" = "warning";
+  let riskLevel: 'warning' | 'error' = 'warning';
 
   // Analyze token name for gift/reward emojis
   if (tokenMetadata.name && containsGiftEmojis(tokenMetadata.name)) {
-    suspiciousIndicators.push("Gift/drop emojis in token name");
-    riskLevel = "error";
+    suspiciousIndicators.push('Gift/drop emojis in token name');
+    riskLevel = 'error';
   }
 
   // Check for project impersonation attempts
-  const impersonationResult = detectProjectImpersonation(
-    tokenMetadata.symbol,
-    tokenMetadata.name
-  );
+  const impersonationResult = detectProjectImpersonation(tokenMetadata.symbol, tokenMetadata.name);
   if (impersonationResult.isImpersonation) {
-    suspiciousIndicators.push(
-      `Impersonating ${impersonationResult.targetProject}`
-    );
-    riskLevel = "error";
+    suspiciousIndicators.push(`Impersonating ${impersonationResult.targetProject}`);
+    riskLevel = 'error';
   }
 
   // Validate external URLs for suspicious patterns
-  if (
-    tokenMetadata.external_url &&
-    isSuspiciousUrl(tokenMetadata.external_url)
-  ) {
-    suspiciousIndicators.push("Suspicious external URL");
-    riskLevel = "error";
+  if (tokenMetadata.external_url && isSuspiciousUrl(tokenMetadata.external_url)) {
+    suspiciousIndicators.push('Suspicious external URL');
+    riskLevel = 'error';
   }
 
   // Check for time-sensitive drop language
   if (tokenMetadata.name && hasTimeBasedDropPattern(tokenMetadata.name)) {
-    suspiciousIndicators.push("Suspicious year/drop pattern in name");
-    riskLevel = "warning";
+    suspiciousIndicators.push('Suspicious year/drop pattern in name');
+    riskLevel = 'warning';
   }
 
   // Detect embedded URLs in token names
   if (tokenMetadata.name && containsUrlPattern(tokenMetadata.name)) {
-    suspiciousIndicators.push("Contains suspicious URL/website pattern");
-    riskLevel = "error";
+    suspiciousIndicators.push('Contains suspicious URL/website pattern');
+    riskLevel = 'error';
   }
 
   // Evaluate airdrop context
   if (transactionContext?.isAirdrop && transactionContext.amount > 0) {
-    suspiciousIndicators.push("Unsolicited airdrop");
-    riskLevel = "warning";
+    suspiciousIndicators.push('Unsolicited airdrop');
+    riskLevel = 'warning';
   }
 
   // Generate warning note if suspicious patterns found
   if (suspiciousIndicators.length > 0) {
-    const noteType =
-      riskLevel === "error"
-        ? TransactionNoteType.SCAM_TOKEN
-        : TransactionNoteType.SUSPICIOUS_AIRDROP;
+    const noteType = riskLevel === 'error' ? TransactionNoteType.SCAM_TOKEN : TransactionNoteType.SUSPICIOUS_AIRDROP;
 
     return {
       type: noteType,
-      message: `⚠️ ${riskLevel === "error" ? "Scam token detected" : "Suspicious token"}: ${suspiciousIndicators.join(", ")}`,
+      message: `⚠️ ${riskLevel === 'error' ? 'Scam token detected' : 'Suspicious token'}: ${suspiciousIndicators.join(', ')}`,
       severity: riskLevel,
       metadata: {
         mintAddress,
@@ -113,12 +103,12 @@ function detectProjectImpersonation(
   name: string
 ): { isImpersonation: boolean; targetProject?: string } {
   const knownProjects = [
-    { symbols: ["jup"], names: ["jupiter"], project: "Jupiter Exchange" },
-    { symbols: ["sol"], names: ["solana"], project: "Solana" },
-    { symbols: ["ray"], names: ["raydium"], project: "Raydium" },
-    { symbols: ["srm"], names: ["serum"], project: "Serum" },
-    { symbols: ["orca"], names: ["orca"], project: "Orca" },
-    { symbols: ["mngo"], names: ["mango"], project: "Mango Markets" },
+    { symbols: ['jup'], names: ['jupiter'], project: 'Jupiter Exchange' },
+    { symbols: ['sol'], names: ['solana'], project: 'Solana' },
+    { symbols: ['ray'], names: ['raydium'], project: 'Raydium' },
+    { symbols: ['srm'], names: ['serum'], project: 'Serum' },
+    { symbols: ['orca'], names: ['orca'], project: 'Orca' },
+    { symbols: ['mngo'], names: ['mango'], project: 'Mango Markets' },
   ];
 
   const lowerSymbol = symbol.toLowerCase();
@@ -134,13 +124,8 @@ function detectProjectImpersonation(
     }
 
     // Check if name contains project name but has suspicious additions
-    const hasProjectName = project.names.some(projName =>
-      lowerName.includes(projName)
-    );
-    if (
-      hasProjectName &&
-      (hasTimeBasedDropPattern(name) || containsGiftEmojis(name))
-    ) {
+    const hasProjectName = project.names.some(projName => lowerName.includes(projName));
+    if (hasProjectName && (hasTimeBasedDropPattern(name) || containsGiftEmojis(name))) {
       return { isImpersonation: true, targetProject: project.project };
     }
   }
@@ -152,8 +137,7 @@ function detectProjectImpersonation(
  * Detects time-sensitive language commonly used in scam tokens
  */
 function hasTimeBasedDropPattern(name: string): boolean {
-  const yearDropPatterns =
-    /\b(202[3-9]|drop|airdrop|claim|bonus|reward|visit|free|prize|win)\b/i;
+  const yearDropPatterns = /\b(202[3-9]|drop|airdrop|claim|bonus|reward|visit|free|prize|win)\b/i;
   return yearDropPatterns.test(name);
 }
 
@@ -161,8 +145,7 @@ function hasTimeBasedDropPattern(name: string): boolean {
  * Identifies URL or website patterns embedded in token names
  */
 function containsUrlPattern(name: string): boolean {
-  const urlPatterns =
-    /\b(www\.|\.com|\.net|\.org|\.io|\.app|\.xyz|token-|claim-|visit |go to )/i;
+  const urlPatterns = /\b(www\.|\.com|\.net|\.org|\.io|\.app|\.xyz|token-|claim-|visit |go to )/i;
   return urlPatterns.test(name);
 }
 
@@ -210,26 +193,26 @@ export function detectScamFromSymbol(tokenSymbol: string): {
 } {
   // Check for URL patterns in token symbol (very obvious scam pattern)
   if (containsUrlPattern(tokenSymbol)) {
-    return { isScam: true, reason: "Contains suspicious URL/website pattern" };
+    return { isScam: true, reason: 'Contains suspicious URL/website pattern' };
   }
 
   // Check for very obvious scam phrases (not individual words like "claim" but full suspicious phrases)
   if (containsExplicitScamPhrases(tokenSymbol)) {
-    return { isScam: true, reason: "Contains obvious scam phrases" };
+    return { isScam: true, reason: 'Contains obvious scam phrases' };
   }
 
   // Check for gift emojis (legitimate tokens don't typically have these)
   if (containsGiftEmojis(tokenSymbol)) {
-    return { isScam: true, reason: "Contains gift/reward emojis" };
+    return { isScam: true, reason: 'Contains gift/reward emojis' };
   }
 
   // Check known specific scam tokens
-  const knownScamTokens = ["jup"]; // Fake Jupiter from Solana - specific known scam
+  const knownScamTokens = ['jup']; // Fake Jupiter from Solana - specific known scam
   if (knownScamTokens.includes(tokenSymbol.toLowerCase())) {
-    return { isScam: true, reason: "Known scam token" };
+    return { isScam: true, reason: 'Known scam token' };
   }
 
-  return { isScam: false, reason: "" };
+  return { isScam: false, reason: '' };
 }
 
 /**
@@ -237,21 +220,21 @@ export function detectScamFromSymbol(tokenSymbol: string): {
  */
 function isKnownLegitimateToken(symbol: string): boolean {
   const legitimateTokens = [
-    "SOL",
-    "USDC",
-    "USDT",
-    "BTC",
-    "ETH",
-    "RAY",
-    "SRM",
-    "ORCA",
-    "MNGO",
-    "STEP",
-    "RENDER",
-    "HNT",
-    "BONK",
-    "JTO",
-    "PYTH",
+    'SOL',
+    'USDC',
+    'USDT',
+    'BTC',
+    'ETH',
+    'RAY',
+    'SRM',
+    'ORCA',
+    'MNGO',
+    'STEP',
+    'RENDER',
+    'HNT',
+    'BONK',
+    'JTO',
+    'PYTH',
   ];
 
   return legitimateTokens.includes(symbol.toUpperCase());

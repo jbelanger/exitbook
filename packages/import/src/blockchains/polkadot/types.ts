@@ -17,57 +17,48 @@ export interface SubstrateChainConfig {
 // Supported Substrate chains
 export const SUBSTRATE_CHAINS: { [key: string]: SubstrateChainConfig } = {
   polkadot: {
-    name: "polkadot",
-    displayName: "Polkadot Relay Chain",
+    name: 'polkadot',
+    displayName: 'Polkadot Relay Chain',
     ss58Format: 0,
-    tokenSymbol: "DOT",
+    tokenSymbol: 'DOT',
     tokenDecimals: 10,
     rpcEndpoints: [
-      "wss://rpc.polkadot.io",
-      "wss://polkadot.api.onfinality.io/public-ws",
-      "wss://polkadot-rpc.dwellir.com",
+      'wss://rpc.polkadot.io',
+      'wss://polkadot.api.onfinality.io/public-ws',
+      'wss://polkadot-rpc.dwellir.com',
     ],
-    explorerUrls: [
-      "https://polkadot.subscan.io",
-      "https://polkadot.js.org/apps",
-    ],
-    explorerApiUrl: "https://polkadot.api.subscan.io",
-    genesisHash:
-      "0x91b171bb158e2d3848fa23a9f1c25182fb8e20313b2c1eb49219da7a70ce90c3",
+    explorerUrls: ['https://polkadot.subscan.io', 'https://polkadot.js.org/apps'],
+    explorerApiUrl: 'https://polkadot.api.subscan.io',
+    genesisHash: '0x91b171bb158e2d3848fa23a9f1c25182fb8e20313b2c1eb49219da7a70ce90c3',
   },
   kusama: {
-    name: "kusama",
-    displayName: "Kusama Relay Chain",
+    name: 'kusama',
+    displayName: 'Kusama Relay Chain',
     ss58Format: 2,
-    tokenSymbol: "KSM",
+    tokenSymbol: 'KSM',
     tokenDecimals: 12,
     rpcEndpoints: [
-      "wss://kusama-rpc.polkadot.io",
-      "wss://kusama.api.onfinality.io/public-ws",
-      "wss://kusama-rpc.dwellir.com",
+      'wss://kusama-rpc.polkadot.io',
+      'wss://kusama.api.onfinality.io/public-ws',
+      'wss://kusama-rpc.dwellir.com',
     ],
     explorerUrls: [
-      "https://kusama.subscan.io",
-      "https://polkadot.js.org/apps/?rpc=wss://kusama-rpc.polkadot.io#/explorer",
+      'https://kusama.subscan.io',
+      'https://polkadot.js.org/apps/?rpc=wss://kusama-rpc.polkadot.io#/explorer',
     ],
-    explorerApiUrl: "https://kusama.api.subscan.io",
-    genesisHash:
-      "0xb0a8d493285c2df73290dfb7e61f870f17b41801197a149ca93654499ea3dafe",
+    explorerApiUrl: 'https://kusama.api.subscan.io',
+    genesisHash: '0xb0a8d493285c2df73290dfb7e61f870f17b41801197a149ca93654499ea3dafe',
   },
   bittensor: {
-    name: "bittensor",
-    displayName: "Bittensor Network",
+    name: 'bittensor',
+    displayName: 'Bittensor Network',
     ss58Format: 42,
-    tokenSymbol: "TAO",
+    tokenSymbol: 'TAO',
     tokenDecimals: 9,
-    rpcEndpoints: [
-      "wss://entrypoint-finney.opentensor.ai:443",
-      "wss://bittensor-finney.api.onfinality.io/public-ws",
-    ],
-    explorerUrls: ["https://taostats.io", "https://bittensor.com/scan"],
-    explorerApiUrl: "https://taostats.io/api",
-    genesisHash:
-      "0x5c0d1176a568c1f92944340dbfed9e9c530ebca703c85910e7164cb7d1c9e47b",
+    rpcEndpoints: ['wss://entrypoint-finney.opentensor.ai:443', 'wss://bittensor-finney.api.onfinality.io/public-ws'],
+    explorerUrls: ['https://taostats.io', 'https://bittensor.com/scan'],
+    explorerApiUrl: 'https://taostats.io/api',
+    genesisHash: '0x5c0d1176a568c1f92944340dbfed9e9c530ebca703c85910e7164cb7d1c9e47b',
   },
 };
 
@@ -151,33 +142,29 @@ export interface SubstrateRPCMethods {
 
   // State methods
   state_getStorage: (key: string, blockHash?: string) => Promise<string>;
-  state_call: (
-    method: string,
-    data: string,
-    blockHash?: string,
-  ) => Promise<string>;
+  state_call: (method: string, data: string, blockHash?: string) => Promise<string>;
 }
 
 // Substrate transaction types
 export type SubstrateTransactionType =
-  | "transfer"
-  | "transfer_keep_alive"
-  | "force_transfer"
-  | "staking_bond"
-  | "staking_unbond"
-  | "staking_withdraw_unbonded"
-  | "staking_nominate"
-  | "staking_chill"
-  | "democracy_vote"
-  | "council_vote"
-  | "treasury_propose"
-  | "utility_batch"
-  | "proxy_proxy"
-  | "identity_set_identity"
-  | "multisig_approve_as_multi"
-  | "vesting_vest"
-  | "session_set_keys"
-  | "custom";
+  | 'transfer'
+  | 'transfer_keep_alive'
+  | 'force_transfer'
+  | 'staking_bond'
+  | 'staking_unbond'
+  | 'staking_withdraw_unbonded'
+  | 'staking_nominate'
+  | 'staking_chill'
+  | 'democracy_vote'
+  | 'council_vote'
+  | 'treasury_propose'
+  | 'utility_batch'
+  | 'proxy_proxy'
+  | 'identity_set_identity'
+  | 'multisig_approve_as_multi'
+  | 'vesting_vest'
+  | 'session_set_keys'
+  | 'custom';
 
 // Taostats transaction interface for Bittensor
 export interface TaostatsTransaction {

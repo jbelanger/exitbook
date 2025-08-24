@@ -1,7 +1,7 @@
-import type { UniversalTransaction } from "@crypto/core";
-import { getLogger } from "@crypto/shared-logger";
-import { moneyToNumber } from "@crypto/shared-utils";
-import { createHash } from "crypto";
+import type { UniversalTransaction } from '@crypto/core';
+import { getLogger } from '@crypto/shared-logger';
+import { moneyToNumber } from '@crypto/shared-utils';
+import { createHash } from 'crypto';
 
 interface DeduplicationResult {
   unique: UniversalTransaction[];
@@ -9,15 +9,10 @@ interface DeduplicationResult {
 }
 
 export class Deduplicator {
-  private logger = getLogger("Deduplicator");
+  private logger = getLogger('Deduplicator');
 
-  async process(
-    transactions: UniversalTransaction[],
-    sourceId: string,
-  ): Promise<DeduplicationResult> {
-    this.logger.info(
-      `Starting deduplication for ${transactions.length} transactions from ${sourceId}`,
-    );
+  async process(transactions: UniversalTransaction[], sourceId: string): Promise<DeduplicationResult> {
+    this.logger.info(`Starting deduplication for ${transactions.length} transactions from ${sourceId}`);
 
     const result = this.deduplicateByHash(transactions, sourceId);
     this.logDeduplicationStats(result, sourceId);
@@ -25,16 +20,11 @@ export class Deduplicator {
     return result;
   }
 
-  async processAdvanced(
-    transactions: UniversalTransaction[],
-    sourceId: string,
-  ): Promise<DeduplicationResult> {
-    this.logger.info(
-      `Starting advanced deduplication for ${transactions.length} transactions from ${sourceId}`,
-    );
+  async processAdvanced(transactions: UniversalTransaction[], sourceId: string): Promise<DeduplicationResult> {
+    this.logger.info(`Starting advanced deduplication for ${transactions.length} transactions from ${sourceId}`);
 
     const result = this.deduplicateBySimilarity(transactions, sourceId);
-    this.logDeduplicationStats(result, sourceId, "advanced");
+    this.logDeduplicationStats(result, sourceId, 'advanced');
 
     return result;
   }
@@ -65,30 +55,26 @@ export class Deduplicator {
       }
 
       // Check for invalid timestamps
-      if (
-        !tx.timestamp ||
-        tx.timestamp <= 0 ||
-        tx.timestamp > Date.now() + 86400000
-      ) {
+      if (!tx.timestamp || tx.timestamp <= 0 || tx.timestamp > Date.now() + 86400000) {
         // Future date + 1 day tolerance
         anomalies.invalidTimestamps.push(tx);
       }
 
       // Check for zero amounts in trades (might be valid for some transaction types)
       const amount = moneyToNumber(tx.amount);
-      if (tx.type === "trade" && (!amount || amount === 0)) {
+      if (tx.type === 'trade' && (!amount || amount === 0)) {
         anomalies.zeroAmounts.push(tx);
       }
 
       // Check for missing symbols in trades
-      if (tx.type === "trade" && !tx.symbol) {
+      if (tx.type === 'trade' && !tx.symbol) {
         anomalies.missingSymbols.push(tx);
       }
     }
 
-    if (Object.values(anomalies).some((arr) => arr.length > 0)) {
+    if (Object.values(anomalies).some(arr => arr.length > 0)) {
       this.logger.warn(
-        `Data quality issues detected - Missing IDs: ${anomalies.missingIds.length}, Invalid timestamps: ${anomalies.invalidTimestamps.length}, Zero amounts: ${anomalies.zeroAmounts.length}, Missing symbols: ${anomalies.missingSymbols.length}`,
+        `Data quality issues detected - Missing IDs: ${anomalies.missingIds.length}, Invalid timestamps: ${anomalies.invalidTimestamps.length}, Zero amounts: ${anomalies.zeroAmounts.length}, Missing symbols: ${anomalies.missingSymbols.length}`
       );
     }
 
@@ -112,10 +98,7 @@ export class Deduplicator {
     };
   }
 
-  private deduplicateByHash(
-    transactions: UniversalTransaction[],
-    sourceId: string,
-  ): DeduplicationResult {
+  private deduplicateByHash(transactions: UniversalTransaction[], sourceId: string): DeduplicationResult {
     const unique: UniversalTransaction[] = [];
     const duplicates: UniversalTransaction[] = [];
     const seenHashes = new Set<string>();
@@ -135,10 +118,7 @@ export class Deduplicator {
     return { unique, duplicates };
   }
 
-  private deduplicateBySimilarity(
-    transactions: UniversalTransaction[],
-    sourceId: string,
-  ): DeduplicationResult {
+  private deduplicateBySimilarity(transactions: UniversalTransaction[], sourceId: string): DeduplicationResult {
     const unique: UniversalTransaction[] = [];
     const duplicates: UniversalTransaction[] = [];
     const transactionIndex = new Map<string, UniversalTransaction>();
@@ -153,7 +133,7 @@ export class Deduplicator {
           this.logDuplicateTransaction(transaction.id, sourceId);
         } else {
           unique.push(transaction);
-          transactionIndex.set(primaryKey + "_" + unique.length, transaction);
+          transactionIndex.set(primaryKey + '_' + unique.length, transaction);
         }
       } else {
         transactionIndex.set(primaryKey, transaction);
@@ -170,18 +150,15 @@ export class Deduplicator {
       transaction.source,
       transaction.type,
       Math.floor(transaction.timestamp / 1000), // Round to seconds to handle minor timestamp differences
-      transaction.symbol || "",
+      transaction.symbol || '',
       this.normalizeAmount(moneyToNumber(transaction.amount)),
-      transaction.metadata?.side || "",
+      transaction.metadata?.side || '',
     ];
 
-    return keyParts.join("|");
+    return keyParts.join('|');
   }
 
-  private areTransactionsSimilar(
-    tx1: UniversalTransaction,
-    tx2: UniversalTransaction,
-  ): boolean {
+  private areTransactionsSimilar(tx1: UniversalTransaction, tx2: UniversalTransaction): boolean {
     // Define similarity criteria
     const timestampDiff = Math.abs(tx1.timestamp - tx2.timestamp);
     const timestampTolerance = 5000; // 5 seconds
@@ -195,7 +172,7 @@ export class Deduplicator {
       tx1.source === tx2.source &&
       tx1.type === tx2.type &&
       tx1.symbol === tx2.symbol &&
-      (tx1.metadata?.side || "") === (tx2.metadata?.side || "") &&
+      (tx1.metadata?.side || '') === (tx2.metadata?.side || '') &&
       timestampDiff <= timestampTolerance &&
       amountDiff <= amountTolerance
     );
@@ -213,31 +190,21 @@ export class Deduplicator {
       source: transaction.source,
     });
 
-    return createHash("sha256").update(hashData).digest("hex").slice(0, 16);
+    return createHash('sha256').update(hashData).digest('hex').slice(0, 16);
   }
 
-  private logDeduplicationStats(
-    result: DeduplicationResult,
-    sourceId: string,
-    mode: string = "standard",
-  ): void {
+  private logDeduplicationStats(result: DeduplicationResult, sourceId: string, mode: string = 'standard'): void {
     const total = result.unique.length + result.duplicates.length;
-    const duplicatePercentage =
-      total > 0
-        ? ((result.duplicates.length / total) * 100).toFixed(2)
-        : "0.00";
+    const duplicatePercentage = total > 0 ? ((result.duplicates.length / total) * 100).toFixed(2) : '0.00';
 
     this.logger.info(
-      `${mode.charAt(0).toUpperCase() + mode.slice(1)} deduplication completed for ${sourceId} - Total: ${total}, Unique: ${result.unique.length}, Duplicates: ${result.duplicates.length} (${duplicatePercentage}%)`,
+      `${mode.charAt(0).toUpperCase() + mode.slice(1)} deduplication completed for ${sourceId} - Total: ${total}, Unique: ${result.unique.length}, Duplicates: ${result.duplicates.length} (${duplicatePercentage}%)`
     );
   }
 
-  private logDuplicateTransaction(
-    transactionId: string,
-    sourceId: string,
-  ): void {
+  private logDuplicateTransaction(transactionId: string, sourceId: string): void {
     this.logger.debug(
-      `Duplicate transaction skipped - ID: ${transactionId}, Source: ${sourceId}, Timestamp: ${Date.now()}`,
+      `Duplicate transaction skipped - ID: ${transactionId}, Source: ${sourceId}, Timestamp: ${Date.now()}`
     );
   }
 }

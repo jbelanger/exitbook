@@ -1,4 +1,4 @@
-import { Decimal } from "decimal.js";
+import { Decimal } from 'decimal.js';
 
 /**
  * Solana transaction from Solscan API
@@ -8,7 +8,7 @@ export interface SolscanTransaction {
   blockTime: number;
   slot: number;
   fee: number;
-  status: "Success" | "Fail";
+  status: 'Success' | 'Fail';
   lamport: number;
   signer: string[];
   logMessage: string[];
@@ -101,8 +101,8 @@ export interface ProcessedSolanaTransaction {
   slot: number;
   blockTime: number;
   fee: number;
-  status: "success" | "failed";
-  type: "transfer_in" | "transfer_out" | "swap" | "stake" | "unstake" | "other";
+  status: 'success' | 'failed';
+  type: 'transfer_in' | 'transfer_out' | 'swap' | 'stake' | 'unstake' | 'other';
   amount: Decimal;
   from?: string;
   to?: string;

@@ -1,4 +1,4 @@
-import { AsyncLocalStorage } from "node:async_hooks";
+import { AsyncLocalStorage } from 'node:async_hooks';
 
 // Create async storage for correlation ID
 const correlationStorage = new AsyncLocalStorage<string>();
@@ -28,9 +28,6 @@ export function withCorrelationId<T>(correlationId: string, fn: () => T): T {
  * Sets the correlation ID for the current async context.
  * Should only be used at the entry point of requests.
  */
-export function setCorrelationContext<T>(
-  correlationId: string,
-  fn: () => T,
-): T {
+export function setCorrelationContext<T>(correlationId: string, fn: () => T): T {
   return withCorrelationId(correlationId, fn);
 }

@@ -1,25 +1,24 @@
-import { BalanceRepository, BalanceService } from "@crypto/data";
-import { getLogger } from "@crypto/shared-logger";
-import { Decimal } from "decimal.js";
+import { BalanceRepository, BalanceService } from '@crypto/data';
+import { getLogger } from '@crypto/shared-logger';
+import { Decimal } from 'decimal.js';
+
 import type {
   BalanceComparison,
   BalanceVerificationRecord,
   BalanceVerificationResult,
-} from "../types/balance-types.js";
-import type { IBalanceService } from "./balance-service.js";
+} from '../types/balance-types.js';
+import type { IBalanceService } from './balance-service.js';
 
 export class BalanceVerifier {
-  private logger = getLogger("BalanceVerifier");
+  private logger = getLogger('BalanceVerifier');
   private balanceService: BalanceService;
 
   constructor(balanceService: BalanceService) {
     this.balanceService = balanceService;
   }
 
-  async verifyAllServices(
-    services: IBalanceService[],
-  ): Promise<BalanceVerificationResult[]> {
-    this.logger.info("Starting balance verification for all services");
+  async verifyAllServices(services: IBalanceService[]): Promise<BalanceVerificationResult[]> {
+    this.logger.info('Starting balance verification for all services');
     const results: BalanceVerificationResult[] = [];
 
     for (const service of services) {
@@ -29,15 +28,15 @@ export class BalanceVerifier {
       } catch (error) {
         const serviceId = service.getServiceId();
         this.logger.error(
-          `Balance verification failed for ${serviceId}: ${error instanceof Error ? error.message : "Unknown error"}`,
+          `Balance verification failed for ${serviceId}: ${error instanceof Error ? error.message : 'Unknown error'}`
         );
 
         results.push({
           exchange: serviceId,
           timestamp: Date.now(),
-          status: "error",
+          status: 'error',
           comparisons: [],
-          error: error instanceof Error ? error.message : "Unknown error",
+          error: error instanceof Error ? error.message : 'Unknown error',
           summary: {
             totalCurrencies: 0,
             matches: 0,
@@ -48,15 +47,11 @@ export class BalanceVerifier {
       }
     }
 
-    this.logger.info(
-      `Balance verification completed for ${results.length} services`,
-    );
+    this.logger.info(`Balance verification completed for ${results.length} services`);
     return results;
   }
 
-  async verifyService(
-    service: IBalanceService,
-  ): Promise<BalanceVerificationResult> {
+  async verifyService(service: IBalanceService): Promise<BalanceVerificationResult> {
     const serviceId = service.getServiceId();
     const capabilities = service.getCapabilities();
 
@@ -66,19 +61,17 @@ export class BalanceVerifier {
       // Check if this service supports balance fetching
       if (!service.supportsLiveBalanceFetching()) {
         this.logger.info(
-          `Skipping balance verification for ${serviceId} - service does not support live balance fetching`,
+          `Skipping balance verification for ${serviceId} - service does not support live balance fetching`
         );
 
         // For services without live balance, show calculated balances as informational
-        const calculatedBalances =
-          await this.balanceService.calculateBalances(serviceId);
-        const comparisons =
-          this.createCalculatedOnlyComparisons(calculatedBalances);
+        const calculatedBalances = await this.balanceService.calculateBalances(serviceId);
+        const comparisons = this.createCalculatedOnlyComparisons(calculatedBalances);
 
         const result: BalanceVerificationResult = {
           exchange: serviceId,
           timestamp: Date.now(),
-          status: "warning", // Warning because we can't verify against live data
+          status: 'warning', // Warning because we can't verify against live data
           comparisons,
           summary: {
             totalCurrencies: comparisons.length,
@@ -90,7 +83,7 @@ export class BalanceVerifier {
         };
 
         this.logger.info(
-          `Balance calculation completed for ${serviceId} (calculated mode) - TotalCurrencies: ${result.summary.totalCurrencies}`,
+          `Balance calculation completed for ${serviceId} (calculated mode) - TotalCurrencies: ${result.summary.totalCurrencies}`
         );
 
         return result;
@@ -100,14 +93,10 @@ export class BalanceVerifier {
       const liveBalances = await service.getBalances();
 
       // Calculate balances from our stored transactions
-      const calculatedBalances =
-        await this.balanceService.calculateBalances(serviceId);
+      const calculatedBalances = await this.balanceService.calculateBalances(serviceId);
 
       // Compare balances
-      const comparisons = this.compareBalances(
-        liveBalances,
-        calculatedBalances,
-      );
+      const comparisons = this.compareBalances(liveBalances, calculatedBalances);
 
       // Determine overall status
       const status = this.determineVerificationStatus(comparisons);
@@ -130,13 +119,13 @@ export class BalanceVerifier {
       };
 
       this.logger.info(
-        `Balance verification completed for ${serviceId} - Status: ${status}, TotalCurrencies: ${summary.totalCurrencies}, Matches: ${summary.matches}, Mismatches: ${summary.mismatches}`,
+        `Balance verification completed for ${serviceId} - Status: ${status}, TotalCurrencies: ${summary.totalCurrencies}, Matches: ${summary.matches}, Mismatches: ${summary.mismatches}`
       );
 
       return result;
     } catch (error) {
       this.logger.error(
-        `Balance verification failed for ${serviceId}: ${error instanceof Error ? error.message : "Unknown error"}`,
+        `Balance verification failed for ${serviceId}: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
       throw error;
     }
@@ -145,30 +134,26 @@ export class BalanceVerifier {
   private compareBalances(
     liveBalances: Record<string, number>,
     calculatedBalances: Record<string, Decimal>,
-    tolerance: number = 0.00000001,
+    tolerance: number = 0.00000001
   ): BalanceComparison[] {
     const comparisons: BalanceComparison[] = [];
-    const allCurrencies = new Set([
-      ...Object.keys(liveBalances),
-      ...Object.keys(calculatedBalances),
-    ]);
+    const allCurrencies = new Set([...Object.keys(liveBalances), ...Object.keys(calculatedBalances)]);
 
     for (const currency of Array.from(allCurrencies)) {
       const liveBalance = liveBalances[currency] || 0;
       const calculatedBalance = calculatedBalances[currency]?.toNumber() || 0;
       const difference = Math.abs(liveBalance - calculatedBalance);
-      const percentageDiff =
-        liveBalance !== 0 ? (difference / Math.abs(liveBalance)) * 100 : 0;
+      const percentageDiff = liveBalance !== 0 ? (difference / Math.abs(liveBalance)) * 100 : 0;
 
-      let status: "match" | "mismatch" | "warning";
+      let status: 'match' | 'mismatch' | 'warning';
 
       if (difference <= tolerance) {
-        status = "match";
+        status = 'match';
       } else if (percentageDiff < 1) {
         // Less than 1% difference
-        status = "warning";
+        status = 'warning';
       } else {
-        status = "mismatch";
+        status = 'mismatch';
       }
 
       comparisons.push({
@@ -185,34 +170,29 @@ export class BalanceVerifier {
     return comparisons.sort((a, b) => b.difference - a.difference);
   }
 
-  private determineVerificationStatus(
-    comparisons: BalanceComparison[],
-  ): "success" | "error" | "warning" {
-    const mismatches = comparisons.filter((c) => c.status === "mismatch");
-    const warnings = comparisons.filter((c) => c.status === "warning");
+  private determineVerificationStatus(comparisons: BalanceComparison[]): 'success' | 'error' | 'warning' {
+    const mismatches = comparisons.filter(c => c.status === 'mismatch');
+    const warnings = comparisons.filter(c => c.status === 'warning');
 
     if (mismatches.length > 0) {
-      return "error";
+      return 'error';
     } else if (warnings.length > 0) {
-      return "warning";
+      return 'warning';
     } else {
-      return "success";
+      return 'success';
     }
   }
 
   private createSummary(comparisons: BalanceComparison[]) {
     return {
       totalCurrencies: comparisons.length,
-      matches: comparisons.filter((c) => c.status === "match").length,
-      mismatches: comparisons.filter((c) => c.status === "mismatch").length,
-      warnings: comparisons.filter((c) => c.status === "warning").length,
+      matches: comparisons.filter(c => c.status === 'match').length,
+      mismatches: comparisons.filter(c => c.status === 'mismatch').length,
+      warnings: comparisons.filter(c => c.status === 'warning').length,
     };
   }
 
-  private async storeVerificationResults(
-    exchangeId: string,
-    comparisons: BalanceComparison[],
-  ): Promise<void> {
+  private async storeVerificationResults(exchangeId: string, comparisons: BalanceComparison[]): Promise<void> {
     const timestamp = Date.now();
 
     for (const comparison of comparisons) {
@@ -231,23 +211,18 @@ export class BalanceVerifier {
     }
   }
 
-  private logVerificationResults(
-    exchangeId: string,
-    comparisons: BalanceComparison[],
-  ): void {
+  private logVerificationResults(exchangeId: string, comparisons: BalanceComparison[]): void {
     for (const comparison of comparisons) {
       this.logBalanceVerification(exchangeId, comparison.currency, comparison);
 
       // Log significant discrepancies as errors
-      if (comparison.status === "mismatch" && comparison.percentageDiff > 5) {
+      if (comparison.status === 'mismatch' && comparison.percentageDiff > 5) {
         this.logBalanceDiscrepancy(exchangeId, comparison.currency, comparison);
       }
     }
   }
 
-  private createCalculatedOnlyComparisons(
-    calculatedBalances: Record<string, Decimal>,
-  ): BalanceComparison[] {
+  private createCalculatedOnlyComparisons(calculatedBalances: Record<string, Decimal>): BalanceComparison[] {
     const comparisons: BalanceComparison[] = [];
 
     for (const [currency, balance] of Object.entries(calculatedBalances)) {
@@ -259,20 +234,16 @@ export class BalanceVerifier {
         liveBalance: 0, // No live balance available
         calculatedBalance: balanceNumber,
         difference: balanceNumber, // Difference is the calculated balance itself
-        status: "warning", // Always warning since we can't verify
+        status: 'warning', // Always warning since we can't verify
         percentageDiff: 0,
         tolerance: 0,
       });
     }
 
-    return comparisons.sort(
-      (a, b) => Math.abs(b.calculatedBalance) - Math.abs(a.calculatedBalance),
-    );
+    return comparisons.sort((a, b) => Math.abs(b.calculatedBalance) - Math.abs(a.calculatedBalance));
   }
 
-  async getVerificationHistory(
-    exchangeId?: string,
-  ): Promise<BalanceVerificationRecord[]> {
+  async getVerificationHistory(exchangeId?: string): Promise<BalanceVerificationRecord[]> {
     return await this.balanceService.getLatestVerifications(exchangeId);
   }
 
@@ -295,7 +266,7 @@ export class BalanceVerifier {
       }
 
       // Show problematic balances
-      const issues = result.comparisons.filter((c) => c.status !== "match");
+      const issues = result.comparisons.filter(c => c.status !== 'match');
       if (issues.length > 0) {
         report += `### Issues Found:\n`;
         for (const issue of issues) {
@@ -304,19 +275,15 @@ export class BalanceVerifier {
           report += `Calculated: ${issue.calculatedBalance.toFixed(8)}, `;
           report += `Diff: ${issue.difference.toFixed(8)} (${issue.percentageDiff.toFixed(2)}%)\n`;
         }
-        report += "\n";
+        report += '\n';
       }
     }
 
     // Overall summary
     const totalExchanges = results.length;
-    const successfulExchanges = results.filter(
-      (r) => r.status === "success",
-    ).length;
-    const warningExchanges = results.filter(
-      (r) => r.status === "warning",
-    ).length;
-    const errorExchanges = results.filter((r) => r.status === "error").length;
+    const successfulExchanges = results.filter(r => r.status === 'success').length;
+    const warningExchanges = results.filter(r => r.status === 'warning').length;
+    const errorExchanges = results.filter(r => r.status === 'error').length;
 
     report += `## Overall Summary\n`;
     report += `- **Total Exchanges**: ${totalExchanges}\n`;
@@ -328,45 +295,31 @@ export class BalanceVerifier {
   }
 
   // Check if verification is needed (e.g., hasn't been run in X hours)
-  async shouldRunVerification(
-    exchangeId: string,
-    maxAgeHours: number = 24,
-  ): Promise<boolean> {
-    const latestVerifications =
-      await this.balanceService.getLatestVerifications(exchangeId);
+  async shouldRunVerification(exchangeId: string, maxAgeHours: number = 24): Promise<boolean> {
+    const latestVerifications = await this.balanceService.getLatestVerifications(exchangeId);
 
     if (latestVerifications.length === 0) {
       return true; // Never verified
     }
 
-    const latestTimestamp = Math.max(
-      ...latestVerifications.map((v: BalanceVerificationRecord) => v.timestamp),
-    );
+    const latestTimestamp = Math.max(...latestVerifications.map((v: BalanceVerificationRecord) => v.timestamp));
     const ageHours = (Date.now() - latestTimestamp) / (1000 * 60 * 60);
 
     return ageHours >= maxAgeHours;
   }
 
-  private logBalanceVerification(
-    exchange: string,
-    currency: string,
-    result: BalanceComparison,
-  ) {
-    const level = result.status === "mismatch" ? "warn" : "info";
+  private logBalanceVerification(exchange: string, currency: string, result: BalanceComparison) {
+    const level = result.status === 'mismatch' ? 'warn' : 'info';
     const message = `Balance verification ${result.status} for ${exchange} ${currency}`;
 
     this.logger[level](
-      `${message} - Exchange: ${exchange}, Currency: ${currency}, Operation: balance_verification, LiveBalance: ${result.liveBalance}, CalculatedBalance: ${result.calculatedBalance}, Difference: ${result.difference}, PercentageDiff: ${result.percentageDiff}%, Status: ${result.status}`,
+      `${message} - Exchange: ${exchange}, Currency: ${currency}, Operation: balance_verification, LiveBalance: ${result.liveBalance}, CalculatedBalance: ${result.calculatedBalance}, Difference: ${result.difference}, PercentageDiff: ${result.percentageDiff}%, Status: ${result.status}`
     );
   }
 
-  private logBalanceDiscrepancy(
-    exchange: string,
-    currency: string,
-    discrepancy: BalanceComparison,
-  ) {
+  private logBalanceDiscrepancy(exchange: string, currency: string, discrepancy: BalanceComparison) {
     this.logger.error(
-      `Significant balance discrepancy detected - Exchange: ${exchange}, Currency: ${currency}, Operation: balance_verification_error, LiveBalance: ${discrepancy.liveBalance}, CalculatedBalance: ${discrepancy.calculatedBalance}, Difference: ${discrepancy.difference}, PercentageDiff: ${discrepancy.percentageDiff}%`,
+      `Significant balance discrepancy detected - Exchange: ${exchange}, Currency: ${currency}, Operation: balance_verification_error, LiveBalance: ${discrepancy.liveBalance}, CalculatedBalance: ${discrepancy.calculatedBalance}, Difference: ${discrepancy.difference}, PercentageDiff: ${discrepancy.percentageDiff}%`
     );
   }
 }
