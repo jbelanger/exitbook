@@ -379,10 +379,10 @@
         "description": "Avalanche blockchain explorer API with comprehensive transaction and balance data",
         "capabilities": {
           "supportedOperations": [
-            "getAddressTransactions",
-            "getAddressBalance",
+            "getRawAddressTransactions",
+            "getRawAddressBalance",
             "getTokenTransactions",
-            "getTokenBalances"
+            "getRawTokenBalances"
           ],
           "maxBatchSize": 1,
           "supportsHistoricalData": true,
