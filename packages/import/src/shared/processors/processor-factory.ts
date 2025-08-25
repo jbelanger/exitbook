@@ -30,10 +30,12 @@ export class ProcessorFactory {
   }
 
   /**
-   * Create Bitcoin processor - placeholder for future implementation.
+   * Create Bitcoin processor.
    */
-  private static async createBitcoinProcessor<T>(_config: ETLComponentConfig): Promise<IProcessor<T>> {
-    throw new Error('BitcoinProcessor not yet implemented');
+  private static async createBitcoinProcessor<T>(config: ETLComponentConfig): Promise<IProcessor<T>> {
+    // Dynamic import to avoid circular dependencies
+    const { BitcoinTransactionProcessor } = await import('../../blockchains/bitcoin/transaction-processor.ts');
+    return new BitcoinTransactionProcessor(config.dependencies) as unknown as IProcessor<T>;
   }
 
   /**

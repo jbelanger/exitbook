@@ -351,7 +351,7 @@ export class BitcoinAdapter extends BaseAdapter {
           requestsPerSecond: 2,
         },
         requiresApiKey: false,
-        supportedOperations: ['fetchTransactions', 'fetchBalances'],
+        supportedOperations: ['fetchTransactions', 'fetchBalances', 'getAddressTransactions'],
         supportsHistoricalData: true,
         supportsPagination: false,
       },

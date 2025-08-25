@@ -12,6 +12,8 @@ import { BitcoinAdapter } from '../../blockchains/bitcoin/adapter.ts';
 import { EthereumAdapter } from '../../blockchains/ethereum/adapter.ts';
 import { InjectiveAdapter } from '../../blockchains/injective/adapter.ts';
 import { SubstrateAdapter } from '../../blockchains/polkadot/adapter.ts';
+// Ensure blockchain providers are registered
+import '../../blockchains/registry/register-providers.ts';
 import type { BlockchainExplorersConfig } from '../../blockchains/shared/explorer-config.ts';
 import { SolanaAdapter } from '../../blockchains/solana/adapter.ts';
 // Import exchange adapters directly
