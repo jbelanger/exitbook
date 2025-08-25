@@ -28,10 +28,10 @@ import { isValidSolanaAddress, lamportsToSol } from '../utils.ts';
   },
   defaultConfig: {
     rateLimit: {
-      burstLimit: 20,
+      burstLimit: 1,
       requestsPerHour: 5000,
       requestsPerMinute: 500,
-      requestsPerSecond: 10, // Helius has generous rate limits
+      requestsPerSecond: 5, // Conservative rate limit to avoid server-side 429s
     },
     retries: 3,
     timeout: 30000,
@@ -41,10 +41,10 @@ import { isValidSolanaAddress, lamportsToSol } from '../utils.ts';
   name: 'helius',
   networks: {
     devnet: {
-      baseUrl: 'https://rpc.helius.xyz',
+      baseUrl: 'https://devnet.helius-rpc.com',
     },
     mainnet: {
-      baseUrl: 'https://mainnet.helius-rpc.com',
+      baseUrl: 'https://rpc.helius.xyz',
     },
     testnet: {
       baseUrl: 'https://rpc.helius.xyz',
