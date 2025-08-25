@@ -82,7 +82,7 @@ export class SubstrateAdapter extends BaseAdapter {
         const rawResult = await this.providerManager.executeWithFailover('polkadot', {
           address: address,
           getCacheKey: cacheParams =>
-            `${this.chainConfig.name}_balance_${cacheParams.type === 'getRawAddressBalance' ? cacheParams.address : 'unknown'}`,
+            `dot_raw_balance_${cacheParams.type === 'getRawAddressBalance' ? cacheParams.address : 'unknown'}`,
           type: 'getRawAddressBalance',
         });
 
@@ -118,7 +118,7 @@ export class SubstrateAdapter extends BaseAdapter {
         const rawResult = await this.providerManager.executeWithFailover('polkadot', {
           address: address,
           getCacheKey: cacheParams =>
-            `${this.chainConfig.name}_tx_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
+            `dot_raw_tx_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
           since: params.since,
           type: 'getRawAddressTransactions',
         });

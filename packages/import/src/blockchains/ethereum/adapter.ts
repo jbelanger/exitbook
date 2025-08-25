@@ -114,7 +114,7 @@ export class EthereumAdapter extends BaseAdapter {
         const failoverResult = await this.providerManager.executeWithFailover('ethereum', {
           address: address,
           getCacheKey: cacheParams =>
-            `eth_balance_${cacheParams.type === 'getRawAddressBalance' ? cacheParams.address : 'unknown'}`,
+            `eth_raw_balance_${cacheParams.type === 'getRawAddressBalance' ? cacheParams.address : 'unknown'}`,
           type: 'getRawAddressBalance',
         });
 
@@ -126,7 +126,7 @@ export class EthereumAdapter extends BaseAdapter {
           const tokenFailoverResult = await this.providerManager.executeWithFailover('ethereum', {
             address: address,
             getCacheKey: cacheParams =>
-              `eth_token_balance_${cacheParams.type === 'getRawTokenBalances' ? cacheParams.address : 'unknown'}`,
+              `eth_raw_token_balance_${cacheParams.type === 'getRawTokenBalances' ? cacheParams.address : 'unknown'}`,
             type: 'getRawTokenBalances',
           });
 
@@ -164,7 +164,7 @@ export class EthereumAdapter extends BaseAdapter {
         const regularTxsFailoverResult = await this.providerManager.executeWithFailover('ethereum', {
           address: address,
           getCacheKey: cacheParams =>
-            `eth_tx_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
+            `eth_raw_tx_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
           since: params.since,
           type: 'getRawAddressTransactions',
         });
@@ -181,7 +181,7 @@ export class EthereumAdapter extends BaseAdapter {
           const tokenTxsFailoverResult = await this.providerManager.executeWithFailover('ethereum', {
             address: address,
             getCacheKey: cacheParams =>
-              `eth_token_tx_${cacheParams.type === 'getTokenTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getTokenTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
+              `eth_raw_token_tx_${cacheParams.type === 'getTokenTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getTokenTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
             since: params.since,
             type: 'getTokenTransactions',
           });

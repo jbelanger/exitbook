@@ -96,7 +96,7 @@ export class AvalancheAdapter extends BaseAdapter {
         const processedBalance = this.processRawBalance(rawBalanceData, failoverResult.providerName);
 
         allBalances.push(processedBalance);
-        this.logger.info(`AvalancheAdapter: Found balance for address`);
+        this.logger.info(`Found balance for address: ${address.substring(0, 20)}...`);
       } catch (error) {
         this.logger.error(
           `Failed to fetch address balance via provider manager - Address: ${address}, Error: ${error instanceof Error ? error.message : String(error)}`
@@ -151,7 +151,9 @@ export class AvalancheAdapter extends BaseAdapter {
         }
 
         allTransactions.push(...tokenTxs);
-        this.logger.debug(`Transaction breakdown: ${processedTransactions.length} regular, ${tokenTxs.length} token`);
+        this.logger.debug(
+          `Transaction breakdown for ${address.substring(0, 20)}... - Regular: ${processedTransactions.length}, Token: ${tokenTxs.length}`
+        );
       } catch (error) {
         this.logger.error(
           `Failed to fetch address transactions via provider manager - Address: ${address}, Error: ${error instanceof Error ? error.message : String(error)}`
@@ -170,7 +172,7 @@ export class AvalancheAdapter extends BaseAdapter {
 
     uniqueTransactions.sort((a, b) => b.timestamp - a.timestamp);
 
-    this.logger.debug(`AvalancheAdapter: Found ${uniqueTransactions.length} unique transactions total`);
+    this.logger.info(`Found ${uniqueTransactions.length} unique transactions total`);
     return uniqueTransactions;
   }
 
