@@ -11,8 +11,8 @@ import { hasProperty, isObject } from '@crypto/shared-utils';
 import type { Exchange } from 'ccxt';
 
 import { BaseAdapter } from '../shared/adapters/base-adapter.ts';
-import { TransactionTransformer } from '../shared/utils/transaction-transformer.ts';
-import type { CCXTTransaction } from '../shared/utils/transaction-transformer.ts';
+import { TransactionProcessor } from '../shared/utils/transaction-processor.ts';
+import type { CCXTTransaction } from '../shared/utils/transaction-processor.ts';
 import type { CcxtBalanceInfo, CcxtBalances } from './ccxt-types.ts';
 import { ServiceErrorHandler } from './exchange-error-handler.ts';
 
@@ -295,7 +295,7 @@ export abstract class BaseCCXTAdapter extends BaseAdapter {
    * Can be overridden by subclasses for exchange-specific transformation
    */
   protected transformCCXTTransaction(transaction: CCXTTransaction, type: TransactionType): CryptoTransaction {
-    return TransactionTransformer.fromCCXT(transaction, type, this.exchangeId);
+    return TransactionProcessor.fromCCXT(transaction, type, this.exchangeId);
   }
 
   /**
@@ -304,7 +304,7 @@ export abstract class BaseCCXTAdapter extends BaseAdapter {
    */
   protected transformCCXTTransactions(transactions: CCXTTransaction[], type: TransactionType): CryptoTransaction[] {
     return transactions
-      .filter(tx => !TransactionTransformer.shouldFilterOut(tx))
+      .filter(tx => !TransactionProcessor.shouldFilterOut(tx))
       .map(tx => this.transformCCXTTransaction(tx, type));
   }
 

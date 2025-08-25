@@ -16,16 +16,16 @@ This document outlines the design choices made to model these capabilities effec
 
 To ensure clarity between the business domain and the code, we've established a Ubiquitous Language. These are the core terms used consistently throughout the codebase, from package names down to class names.
 
-| Term                      | Definition                                                                                                                           |
-| :------------------------ | :----------------------------------------------------------------------------------------------------------------------------------- |
-| **Ingestion**             | The business process of fetching raw, unprocessed data from an external `Source` and persisting it for later use.                    |
-| **Processing**            | The business process of transforming ingested raw data into our standardized, canonical format.                                      |
-| **Export**                | The business process of converting our canonical data into an external format (e.g., a Koinly CSV).                                  |
-| **Source**                | An external system from which we get data, such as the Coinbase API or the Bitcoin blockchain.                                       |
-| **Canonical Transaction** | The single, authoritative, standardized representation of a transaction within our system. This is our "single source of truth."     |
-| **Importer**              | A component responsible for connecting to a `Source` and fetching its raw data.                                                      |
-| **Processor**             | A component responsible for applying business rules to map raw data from a `Source` into a `CanonicalTransaction`.                   |
-| **Orchestrator**          | A high-level service that manages a business process by coordinating the necessary components (Importers, Processors, Repositories). |
+| Term                      | Definition                                                                                                                                                   |
+| :------------------------ | :----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Ingestion**             | The business process of fetching raw, unprocessed data from an external `Source` and persisting it for later use.                                            |
+| **Processing**            | The business process of transforming ingested raw data into our standardized, canonical format.                                                              |
+| **Export**                | The business process of converting our canonical data into an external format (e.g., a Koinly CSV).                                                          |
+| **Source**                | An external system from which we get data, such as the Coinbase API or the Bitcoin blockchain.                                                               |
+| **Canonical Transaction** | The single, authoritative, standardized representation of a transaction within our system. This is our "single source of truth."                             |
+| **Importer**              | A component responsible for connecting to a `Source` and fetching its raw data.                                                                              |
+| **Processor**             | A component responsible for applying business rules to map raw data from a `Source` into a `CanonicalTransaction`.                                           |
+| **Ingestion Service**     | A high-level service that manages the transaction ingestion business process by coordinating the necessary components (Importers, Processors, Repositories). |
 
 ## 3. High-Level Architecture: A Decoupled Data Pipeline
 
@@ -154,7 +154,7 @@ This architecture was developed through a collaborative process between an exper
 - **The Expert's Role (The Driver):** The developer provided the foundational knowledge of software architecture principles (DDD, Vertical Slicing, ETL), asked critical questions, and evaluated the AI's suggestions against real-world experience and the project's long-term goals. The expert acted as the architect, guiding the design.
 
 - **The AI's Role (The Collaborator):** The AI acted as a "Socratic partner" and a knowledge accelerator. It was able to:
-  1.  Rapidly generate alternative designs based on named patterns (`Extractor` vs. `Importer`).
+  1.  Rapidly generate alternative designs based on named patterns (`Extractor` vs. `Importer` vs. business-focused terminology).
   2.  Instantly connect high-level principles (like DDD) to concrete implementation details (like class and file names).
   3.  Articulate the pros and cons of different approaches, helping to validate the expert's instincts.
   4.  Serve as a tireless sounding board for refining the Ubiquitous Language.

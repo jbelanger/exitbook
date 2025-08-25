@@ -25,8 +25,8 @@ async function main() {
 
   // Import command
   program
-    .command('import')
-    .description('Import transactions from configured exchanges or specific blockchain')
+    .command('import-old')
+    .description('[LEGACY] Import transactions from configured exchanges or specific blockchain (full pipeline)')
     .option('--exchange <name>', 'Import from specific exchange only')
     .option('--adapter-type <type>', 'Exchange adapter type (ccxt, csv, native)', 'ccxt')
     .option('--api-key <key>', 'Exchange API key (for CCXT adapters)')
@@ -566,8 +566,8 @@ async function main() {
 
   // Import command - new ETL workflow
   program
-    .command('import-only')
-    .description('Import raw data from source without processing (ETL: Import only)')
+    .command('import')
+    .description('Import raw data from source without processing')
     .option('--adapter <name>', 'Adapter name (e.g., kraken, bitcoin)', 'kraken')
     .option('--adapter-type <type>', 'Adapter type (exchange, blockchain)', 'exchange')
     .option('--csv-directories <paths...>', 'CSV directories for exchange adapters (space-separated)')
@@ -579,14 +579,14 @@ async function main() {
     .option('--clear-db', 'Clear and reinitialize database before import')
     .action(async options => {
       try {
-        logger.info('Starting data import (ETL: Import phase only)');
+        logger.info('Starting data import from external sources');
 
         // Initialize database
         const database = await initializeDatabase(options.clearDb);
 
         // Create ingestion service with dependencies
         const { TransactionIngestionService } = await import(
-          '@crypto/import/src/shared/orchestrators/ingestion-service.ts'
+          '@crypto/import/src/shared/ingestion/ingestion-service.ts'
         );
         const { ExternalDataStore } = await import('@crypto/import/src/shared/storage/external-data-store.ts');
 
@@ -647,8 +647,8 @@ async function main() {
 
   // Process command - new ETL workflow
   program
-    .command('process-only')
-    .description('Process raw data to universal format (ETL: Process only)')
+    .command('process')
+    .description('Process raw data to universal format')
     .option('--adapter <name>', 'Adapter name (e.g., kraken, bitcoin)', 'kraken')
     .option('--adapter-type <type>', 'Adapter type (exchange, blockchain)', 'exchange')
     .option('--session <id>', 'Import session ID to process')
@@ -658,14 +658,14 @@ async function main() {
     .option('--clear-db', 'Clear and reinitialize database before processing')
     .action(async options => {
       try {
-        logger.info('Starting data processing (ETL: Process phase only)');
+        logger.info('Starting data processing to universal format');
 
         // Initialize database
         const database = await initializeDatabase(options.cleardb);
 
         // Create ingestion service with dependencies
         const { TransactionIngestionService } = await import(
-          '@crypto/import/src/shared/orchestrators/ingestion-service.ts'
+          '@crypto/import/src/shared/ingestion/ingestion-service.ts'
         );
         const { ExternalDataStore } = await import('@crypto/import/src/shared/storage/external-data-store.ts');
 
