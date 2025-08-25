@@ -56,8 +56,6 @@ graph TD
     style K fill:#ccf,stroke:#333,stroke-width:2px
 ```
 
-````
-
 ## 4. Vertical Slicing in Practice
 
 We structure our code around business capabilities (features), not technical layers. This is **Vertical Slicing**. The best example is how we add support for a new data source.
@@ -162,4 +160,3 @@ This architecture was developed through a collaborative process between an exper
   4.  Serve as a tireless sounding board for refining the Ubiquitous Language.
 
 The final design is not one that the AI produced on its own, but one that was arrived at _faster_ and with _higher confidence_ because the expert could use the AI to explore the solution space and formalize the architecture much more efficiently than with traditional research alone.
-````
