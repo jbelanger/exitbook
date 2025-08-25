@@ -4,6 +4,7 @@ import { Decimal } from 'decimal.js';
 
 import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
+import { MoralisTransactionArraySchema } from '../schemas.ts';
 import type { MoralisNativeBalance, MoralisTokenBalance, MoralisTokenTransfer, MoralisTransaction } from '../types.ts';
 
 @RegisterProcessor('moralis')
@@ -172,53 +173,20 @@ export class MoralisProcessor implements IProviderProcessor<MoralisTransaction[]
   }
 
   validate(rawData: MoralisTransaction[]): ValidationResult {
-    const errors: string[] = [];
+    const result = MoralisTransactionArraySchema.safeParse(rawData);
 
-    // Validate that we have an array
-    if (!Array.isArray(rawData)) {
-      errors.push('Raw data must be an array of MoralisTransaction');
-      return { errors, isValid: false };
+    if (result.success) {
+      return { isValid: true };
     }
 
-    // Validate each transaction
-    for (let i = 0; i < rawData.length; i++) {
-      const tx = rawData[i];
-      const prefix = `Transaction ${i}:`;
-
-      if (!tx.hash) {
-        errors.push(`${prefix} Transaction hash is required`);
-      }
-
-      if (!tx.from_address) {
-        errors.push(`${prefix} From address is required`);
-      }
-
-      if (!tx.to_address) {
-        errors.push(`${prefix} To address is required`);
-      }
-
-      if (!tx.block_number) {
-        errors.push(`${prefix} Block number is required`);
-      }
-
-      if (!tx.block_timestamp) {
-        errors.push(`${prefix} Block timestamp is required`);
-      }
-
-      // Validate value is a valid number string
-      if (tx.value && isNaN(parseFloat(tx.value))) {
-        errors.push(`${prefix} Value must be a valid number`);
-      }
-
-      // Validate receipt_status is valid
-      if (tx.receipt_status && !['0', '1'].includes(tx.receipt_status)) {
-        errors.push(`${prefix} Receipt status must be '0' or '1'`);
-      }
-    }
+    const errors = result.error.issues.map(issue => {
+      const path = issue.path.length > 0 ? ` at ${issue.path.join('.')}` : '';
+      return `${issue.message}${path}`;
+    });
 
     return {
-      isValid: errors.length === 0,
-      ...(errors.length > 0 && { errors }),
+      errors,
+      isValid: false,
     };
   }
 }

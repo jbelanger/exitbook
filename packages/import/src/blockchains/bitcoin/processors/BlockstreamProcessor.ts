@@ -3,6 +3,7 @@ import { createMoney } from '@crypto/shared-utils';
 
 import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
+import { BlockstreamTransactionSchema } from '../schemas.ts';
 import type { BlockstreamTransaction } from '../types.ts';
 
 @RegisterProcessor('blockstream.info')
@@ -106,37 +107,20 @@ export class BlockstreamProcessor implements IProviderProcessor<BlockstreamTrans
   }
 
   validate(rawData: BlockstreamTransaction): ValidationResult {
-    const errors: string[] = [];
+    const result = BlockstreamTransactionSchema.safeParse(rawData);
 
-    // Validate required fields
-    if (!rawData.txid) {
-      errors.push('Transaction ID is required');
+    if (result.success) {
+      return { isValid: true };
     }
 
-    if (!Array.isArray(rawData.vin)) {
-      errors.push('Transaction inputs (vin) must be an array');
-    }
+    const errors = result.error.issues.map(issue => {
+      const path = issue.path.length > 0 ? ` at ${issue.path.join('.')}` : '';
+      return `${issue.message}${path}`;
+    });
 
-    if (!Array.isArray(rawData.vout)) {
-      errors.push('Transaction outputs (vout) must be an array');
-    }
-
-    if (typeof rawData.fee !== 'number' || rawData.fee < 0) {
-      errors.push('Transaction fee must be a non-negative number');
-    }
-
-    if (!rawData.status || typeof rawData.status !== 'object') {
-      errors.push('Transaction status is required');
-    }
-
-    const result: ValidationResult = {
-      isValid: errors.length === 0,
+    return {
+      errors,
+      isValid: false,
     };
-
-    if (errors.length > 0) {
-      result.errors = errors;
-    }
-
-    return result;
   }
 }

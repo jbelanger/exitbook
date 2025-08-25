@@ -1,0 +1,173 @@
+/**
+ * Zod validation schemas for Injective transaction data formats
+ *
+ * These schemas validate the structure and content of transaction data
+ * from different Injective API providers (Injective Explorer, Injective LCD)
+ * before processing.
+ */
+import { z } from 'zod';
+
+/**
+ * Schema for Injective amount (denom and amount pair)
+ */
+export const InjectiveAmountSchema = z.object({
+  amount: z.string().min(1, 'Amount must not be empty'),
+  denom: z.string().min(1, 'Denom must not be empty'),
+});
+
+/**
+ * Schema for Injective gas fee structure
+ */
+export const InjectiveGasFeeSchema = z.object({
+  amount: z.array(InjectiveAmountSchema).min(1, 'Gas fee must have at least one amount'),
+  gas_limit: z.number().nonnegative('Gas limit must be non-negative'),
+  granter: z.string(),
+  payer: z.string(),
+});
+
+/**
+ * Schema for Injective message value (flexible structure for different message types)
+ */
+export const InjectiveMessageValueSchema = z.object({
+  // Common fields across message types
+  amount: z.union([z.array(InjectiveAmountSchema), z.string()]).optional(),
+  ethereum_receiver: z.string().optional(),
+  from_address: z.string().optional(),
+  injective_receiver: z.string().optional(),
+  memo: z.string().optional(),
+  receiver: z.string().optional(),
+  sender: z.string().optional(),
+  source_channel: z.string().optional(),
+  source_port: z.string().optional(),
+  timeout_height: z.any().optional(), // Can be various types
+  timeout_timestamp: z.string().optional(),
+  to_address: z.string().optional(),
+  token: InjectiveAmountSchema.optional(),
+  token_contract: z.string().optional(),
+});
+
+/**
+ * Schema for Injective message structure
+ */
+export const InjectiveMessageSchema = z.object({
+  type: z.string().min(1, 'Message type must not be empty'),
+  value: InjectiveMessageValueSchema,
+});
+
+/**
+ * Schema for validating Injective transaction format
+ */
+export const InjectiveTransactionSchema = z
+  .object({
+    block_number: z.number().nonnegative('Block number must be non-negative'),
+    block_timestamp: z.string().min(1, 'Block timestamp must not be empty'),
+    code: z.number().nonnegative('Transaction code must be non-negative'),
+    extension_options: z.array(z.unknown()).default([]),
+    fetchedByAddress: z.string().optional(), // Added by importer
+    gas_fee: InjectiveGasFeeSchema,
+    gas_used: z.number().nonnegative('Gas used must be non-negative'),
+    gas_wanted: z.number().nonnegative('Gas wanted must be non-negative'),
+    hash: z.string().min(1, 'Transaction hash must not be empty'),
+    id: z.string().min(1, 'Transaction ID must not be empty'),
+    info: z.string(),
+    memo: z.string().optional(),
+    messages: z.array(InjectiveMessageSchema).min(1, 'Transaction must have at least one message'),
+    non_critical_extension_options: z.array(z.unknown()).default([]),
+    signatures: z.array(z.unknown()).default([]),
+    timeout_height: z.number().nonnegative('Timeout height must be non-negative'),
+    tx_type: z.string().min(1, 'Transaction type must not be empty'),
+  })
+  .strict();
+
+/**
+ * Schema for Injective balance structure
+ */
+export const InjectiveBalanceSchema = z.object({
+  amount: z.string().min(1, 'Balance amount must not be empty'),
+  denom: z.string().min(1, 'Balance denom must not be empty'),
+});
+
+/**
+ * Schema for Injective balance response
+ */
+export const InjectiveBalanceResponseSchema = z.object({
+  balances: z.array(InjectiveBalanceSchema),
+  pagination: z.object({
+    next_key: z.string().optional(),
+    total: z.string().min(1, 'Pagination total must not be empty'),
+  }),
+});
+
+/**
+ * Schema for Injective API response wrapper
+ */
+export const InjectiveApiResponseSchema = z.object({
+  data: z.array(InjectiveTransactionSchema),
+  paging: z
+    .object({
+      from: z.number().optional(),
+      to: z.number().optional(),
+      total: z.number().nonnegative('Total must be non-negative'),
+    })
+    .optional(),
+});
+
+/**
+ * Union schema for any Injective transaction format
+ * Note: Currently only one format, but keeping union structure for future extensibility
+ */
+export const InjectiveTransactionUnionSchema = InjectiveTransactionSchema;
+
+/**
+ * Schema for validating arrays of Injective transactions
+ */
+export const InjectiveTransactionArraySchema = z.array(InjectiveTransactionSchema);
+
+/**
+ * Validation result type
+ */
+export interface ValidationResult {
+  errors: string[];
+  isValid: boolean;
+  warnings: string[];
+}
+
+/**
+ * Validate Injective transaction data using schemas
+ */
+export function validateInjectiveTransactions(
+  transactions: unknown[],
+  providerName: 'injective-explorer' | 'injective-lcd'
+): ValidationResult {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  if (!Array.isArray(transactions)) {
+    errors.push('Transaction data must be an array');
+    return { errors, isValid: false, warnings };
+  }
+
+  if (transactions.length === 0) {
+    warnings.push('No transactions found in data');
+    return { errors, isValid: true, warnings };
+  }
+
+  // Use the same schema for both providers since they use the same format
+  const schema = z.array(InjectiveTransactionSchema);
+
+  // Validate the data
+  const result = schema.safeParse(transactions);
+
+  if (!result.success) {
+    for (const issue of result.error.issues) {
+      const path = issue.path.length > 0 ? ` at ${issue.path.join('.')}` : '';
+      errors.push(`${issue.message}${path}`);
+    }
+  }
+
+  return {
+    errors,
+    isValid: errors.length === 0,
+    warnings,
+  };
+}

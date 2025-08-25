@@ -5,6 +5,7 @@ import { createMoney, maskAddress } from '@crypto/shared-utils';
 import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
 import type { SolanaRPCRawTransactionData } from '../clients/SolanaRPCApiClient.ts';
+import { SolanaRPCRawTransactionDataSchema } from '../schemas.ts';
 import type { SolanaRPCTransaction } from '../types.ts';
 import { lamportsToSol } from '../utils.ts';
 
@@ -234,53 +235,20 @@ export class SolanaRPCProcessor implements IProviderProcessor<SolanaRPCRawTransa
   }
 
   validate(rawData: SolanaRPCRawTransactionData): ValidationResult {
-    const errors: string[] = [];
+    const result = SolanaRPCRawTransactionDataSchema.safeParse(rawData);
 
-    // Validate the structure
-    if (!rawData || typeof rawData !== 'object') {
-      errors.push('Raw data must be a SolanaRPCRawTransactionData object');
-      return { errors, isValid: false };
+    if (result.success) {
+      return { isValid: true };
     }
 
-    if (!Array.isArray(rawData.normal)) {
-      errors.push('Normal transactions must be an array');
-      return { errors, isValid: false };
-    }
-
-    // Validate each transaction
-    for (let i = 0; i < rawData.normal.length; i++) {
-      const tx = rawData.normal[i];
-      const prefix = `Transaction ${i}:`;
-
-      // Check for signature
-      if (!tx.transaction?.signatures || tx.transaction.signatures.length === 0) {
-        errors.push(`${prefix} Transaction signatures are required`);
-      }
-
-      if (!tx.slot || typeof tx.slot !== 'number') {
-        errors.push(`${prefix} Slot number is required and must be a number`);
-      }
-
-      if (!tx.transaction || typeof tx.transaction !== 'object') {
-        errors.push(`${prefix} Transaction object is required`);
-      }
-
-      if (!tx.meta || typeof tx.meta !== 'object') {
-        errors.push(`${prefix} Meta object is required`);
-      }
-
-      if (tx.transaction && (!tx.transaction.message || !tx.transaction.message.accountKeys)) {
-        errors.push(`${prefix} Transaction message with accountKeys is required`);
-      }
-
-      if (tx.meta && (!Array.isArray(tx.meta.preBalances) || !Array.isArray(tx.meta.postBalances))) {
-        errors.push(`${prefix} Meta preBalances and postBalances must be arrays`);
-      }
-    }
+    const errors = result.error.issues.map(issue => {
+      const path = issue.path.length > 0 ? ` at ${issue.path.join('.')}` : '';
+      return `${issue.message}${path}`;
+    });
 
     return {
-      isValid: errors.length === 0,
-      ...(errors.length > 0 && { errors }),
+      errors,
+      isValid: false,
     };
   }
 }

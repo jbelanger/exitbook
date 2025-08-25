@@ -6,6 +6,7 @@ import { Decimal } from 'decimal.js';
 import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
 import type { SolscanRawTransactionData } from '../clients/SolscanApiClient.ts';
+import { SolscanRawTransactionDataSchema } from '../schemas.ts';
 import type { SolscanTransaction } from '../types.ts';
 import { lamportsToSol } from '../utils.ts';
 
@@ -139,49 +140,20 @@ export class SolscanProcessor implements IProviderProcessor<SolscanRawTransactio
   }
 
   validate(rawData: SolscanRawTransactionData): ValidationResult {
-    const errors: string[] = [];
+    const result = SolscanRawTransactionDataSchema.safeParse(rawData);
 
-    // Validate the structure
-    if (!rawData || typeof rawData !== 'object') {
-      errors.push('Raw data must be a SolscanRawTransactionData object');
-      return { errors, isValid: false };
+    if (result.success) {
+      return { isValid: true };
     }
 
-    if (!Array.isArray(rawData.normal)) {
-      errors.push('Normal transactions must be an array');
-      return { errors, isValid: false };
-    }
-
-    // Validate each transaction
-    for (let i = 0; i < rawData.normal.length; i++) {
-      const tx = rawData.normal[i];
-      const prefix = `Transaction ${i}:`;
-
-      if (!tx.txHash) {
-        errors.push(`${prefix} Transaction hash is required`);
-      }
-
-      if (!tx.blockTime || typeof tx.blockTime !== 'number') {
-        errors.push(`${prefix} Block time is required and must be a number`);
-      }
-
-      if (!tx.slot || typeof tx.slot !== 'number') {
-        errors.push(`${prefix} Slot number is required and must be a number`);
-      }
-
-      if (!Array.isArray(tx.signer)) {
-        errors.push(`${prefix} Signer must be an array`);
-      }
-
-      // inputAccount is optional but if present should be array
-      if (tx.inputAccount && !Array.isArray(tx.inputAccount)) {
-        errors.push(`${prefix} Input account must be an array if present`);
-      }
-    }
+    const errors = result.error.issues.map(issue => {
+      const path = issue.path.length > 0 ? ` at ${issue.path.join('.')}` : '';
+      return `${issue.message}${path}`;
+    });
 
     return {
-      isValid: errors.length === 0,
-      ...(errors.length > 0 && { errors }),
+      errors,
+      isValid: false,
     };
   }
 }

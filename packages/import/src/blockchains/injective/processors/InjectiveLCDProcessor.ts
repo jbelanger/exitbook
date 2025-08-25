@@ -3,6 +3,7 @@ import { createMoney, parseDecimal } from '@crypto/shared-utils';
 
 import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
+import { InjectiveBalanceResponseSchema } from '../schemas.ts';
 import type { InjectiveBalanceResponse } from '../types.ts';
 
 @RegisterProcessor('injective-lcd')
@@ -26,32 +27,20 @@ export class InjectiveLCDProcessor implements IProviderProcessor<InjectiveBalanc
   }
 
   validate(rawData: InjectiveBalanceResponse): ValidationResult {
-    const errors: string[] = [];
+    const result = InjectiveBalanceResponseSchema.safeParse(rawData);
 
-    // Validate required fields for balance response
-    if (!Array.isArray(rawData.balances)) {
-      errors.push('Balances must be an array');
+    if (result.success) {
+      return { isValid: true };
     }
 
-    // Validate each balance entry
-    for (const balance of rawData.balances || []) {
-      if (!balance.amount) {
-        errors.push('Balance amount is required');
-      }
+    const errors = result.error.issues.map(issue => {
+      const path = issue.path.length > 0 ? ` at ${issue.path.join('.')}` : '';
+      return `${issue.message}${path}`;
+    });
 
-      if (!balance.denom) {
-        errors.push('Balance denomination is required');
-      }
-    }
-
-    const result: ValidationResult = {
-      isValid: errors.length === 0,
+    return {
+      errors,
+      isValid: false,
     };
-
-    if (errors.length > 0) {
-      result.errors = errors;
-    }
-
-    return result;
   }
 }

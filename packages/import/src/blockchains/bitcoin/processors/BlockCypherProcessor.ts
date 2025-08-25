@@ -3,6 +3,7 @@ import { createMoney } from '@crypto/shared-utils';
 
 import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
+import { BlockCypherTransactionSchema } from '../schemas.ts';
 import type { BlockCypherTransaction } from '../types.ts';
 
 @RegisterProcessor('blockcypher')
@@ -125,63 +126,20 @@ export class BlockCypherProcessor implements IProviderProcessor<BlockCypherTrans
   }
 
   validate(rawData: BlockCypherTransaction): ValidationResult {
-    const errors: string[] = [];
+    const result = BlockCypherTransactionSchema.safeParse(rawData);
 
-    // Validate required fields
-    if (!rawData.hash) {
-      errors.push('Transaction hash is required');
+    if (result.success) {
+      return { isValid: true };
     }
 
-    if (!Array.isArray(rawData.inputs)) {
-      errors.push('Transaction inputs must be an array');
-    }
+    const errors = result.error.issues.map(issue => {
+      const path = issue.path.length > 0 ? ` at ${issue.path.join('.')}` : '';
+      return `${issue.message}${path}`;
+    });
 
-    if (!Array.isArray(rawData.outputs)) {
-      errors.push('Transaction outputs must be an array');
-    }
-
-    if (typeof rawData.fees !== 'number' || rawData.fees < 0) {
-      errors.push('Transaction fees must be a non-negative number');
-    }
-
-    if (typeof rawData.confirmations !== 'number' || rawData.confirmations < 0) {
-      errors.push('Transaction confirmations must be a non-negative number');
-    }
-
-    // Validate input structure
-    if (Array.isArray(rawData.inputs)) {
-      for (let i = 0; i < rawData.inputs.length; i++) {
-        const input = rawData.inputs[i];
-        if (!Array.isArray(input.addresses)) {
-          errors.push(`Input ${i} addresses must be an array`);
-        }
-        if (typeof input.output_value !== 'number' || input.output_value < 0) {
-          errors.push(`Input ${i} output_value must be a non-negative number`);
-        }
-      }
-    }
-
-    // Validate output structure
-    if (Array.isArray(rawData.outputs)) {
-      for (let i = 0; i < rawData.outputs.length; i++) {
-        const output = rawData.outputs[i];
-        if (!Array.isArray(output.addresses)) {
-          errors.push(`Output ${i} addresses must be an array`);
-        }
-        if (typeof output.value !== 'number' || output.value < 0) {
-          errors.push(`Output ${i} value must be a non-negative number`);
-        }
-      }
-    }
-
-    const result: ValidationResult = {
-      isValid: errors.length === 0,
+    return {
+      errors,
+      isValid: false,
     };
-
-    if (errors.length > 0) {
-      result.errors = errors;
-    }
-
-    return result;
   }
 }

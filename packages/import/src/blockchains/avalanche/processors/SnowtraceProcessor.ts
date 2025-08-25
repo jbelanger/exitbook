@@ -4,6 +4,7 @@ import { Decimal } from 'decimal.js';
 
 import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
+import { SnowtraceRawDataSchema } from '../schemas.ts';
 import type { SnowtraceInternalTransaction, SnowtraceTokenTransfer, SnowtraceTransaction } from '../types.ts';
 
 export interface SnowtraceRawData {
@@ -210,77 +211,20 @@ export class SnowtraceProcessor implements IProviderProcessor<SnowtraceRawData> 
   }
 
   validate(rawData: SnowtraceRawData): ValidationResult {
-    const errors: string[] = [];
+    const result = SnowtraceRawDataSchema.safeParse(rawData);
 
-    // Validate the structure
-    if (!rawData || typeof rawData !== 'object') {
-      errors.push('Raw data must be a SnowtraceRawData object');
-      return { errors, isValid: false };
+    if (result.success) {
+      return { isValid: true };
     }
 
-    if (!Array.isArray(rawData.normal)) {
-      errors.push('Normal transactions must be an array');
-    }
-
-    if (!Array.isArray(rawData.internal)) {
-      errors.push('Internal transactions must be an array');
-    }
-
-    // Validate normal transactions
-    for (let i = 0; i < rawData.normal.length; i++) {
-      const tx = rawData.normal[i];
-      const prefix = `Normal transaction ${i}:`;
-
-      if (!tx.hash) {
-        errors.push(`${prefix} Transaction hash is required`);
-      }
-
-      if (!tx.from) {
-        errors.push(`${prefix} From address is required`);
-      }
-
-      if (!tx.to) {
-        errors.push(`${prefix} To address is required`);
-      }
-
-      if (!tx.timeStamp) {
-        errors.push(`${prefix} Timestamp is required`);
-      }
-
-      if (!tx.blockNumber) {
-        errors.push(`${prefix} Block number is required`);
-      }
-    }
-
-    // Validate internal transactions
-    for (let i = 0; i < rawData.internal.length; i++) {
-      const tx = rawData.internal[i];
-      const prefix = `Internal transaction ${i}:`;
-
-      if (!tx.hash) {
-        errors.push(`${prefix} Transaction hash is required`);
-      }
-
-      if (!tx.from) {
-        errors.push(`${prefix} From address is required`);
-      }
-
-      if (!tx.to) {
-        errors.push(`${prefix} To address is required`);
-      }
-
-      if (!tx.timeStamp) {
-        errors.push(`${prefix} Timestamp is required`);
-      }
-
-      if (!tx.blockNumber) {
-        errors.push(`${prefix} Block number is required`);
-      }
-    }
+    const errors = result.error.issues.map(issue => {
+      const path = issue.path.length > 0 ? ` at ${issue.path.join('.')}` : '';
+      return `${issue.message}${path}`;
+    });
 
     return {
-      isValid: errors.length === 0,
-      ...(errors.length > 0 && { errors }),
+      errors,
+      isValid: false,
     };
   }
 }
