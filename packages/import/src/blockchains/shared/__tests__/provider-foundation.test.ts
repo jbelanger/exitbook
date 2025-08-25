@@ -6,8 +6,8 @@ import { RateLimitConfig } from '@crypto/core';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { CircuitBreaker } from '../../../shared/utils/circuit-breaker.ts';
-// Import providers to trigger registration
-import '../../ethereum/providers/EtherscanProvider';
+// Import clients to trigger registration
+import '../../ethereum/clients/index.ts';
 import { BlockchainProviderManager } from '../blockchain-provider-manager.ts';
 import { ProviderInfo, ProviderRegistry } from '../registry/provider-registry.ts';
 import { IBlockchainProvider, ProviderCapabilities, ProviderOperation } from '../types.ts';
@@ -400,33 +400,33 @@ describe('ProviderRegistry', () => {
     availableEthereumProviders = ProviderRegistry.getAvailable('ethereum');
   });
 
-  test('should have registered Etherscan provider', () => {
-    const isRegistered = ProviderRegistry.isRegistered('ethereum', 'etherscan');
+  test('should have registered Alchemy provider', () => {
+    const isRegistered = ProviderRegistry.isRegistered('ethereum', 'alchemy');
     expect(isRegistered).toBe(true);
   });
 
-  test('should list Etherscan in available Ethereum providers', () => {
+  test('should list Alchemy in available Ethereum providers', () => {
     expect(availableEthereumProviders.length).toBeGreaterThanOrEqual(1);
 
-    const etherscan = availableEthereumProviders.find(p => p.name === 'etherscan');
-    expect(etherscan).toBeDefined();
-    expect(etherscan?.blockchain).toBe('ethereum');
-    expect(etherscan?.displayName).toBe('Etherscan API');
-    expect(etherscan?.requiresApiKey).toBe(true);
+    const alchemy = availableEthereumProviders.find(p => p.name === 'alchemy');
+    expect(alchemy).toBeDefined();
+    expect(alchemy?.blockchain).toBe('ethereum');
+    expect(alchemy?.displayName).toBe('Alchemy');
+    expect(alchemy?.requiresApiKey).toBe(true);
   });
 
   test('should have correct provider metadata', () => {
-    const metadata = ProviderRegistry.getMetadata('ethereum', 'etherscan');
+    const metadata = ProviderRegistry.getMetadata('ethereum', 'alchemy');
 
     expect(metadata).toBeDefined();
-    expect(metadata?.name).toBe('etherscan');
+    expect(metadata?.name).toBe('alchemy');
     expect(metadata?.blockchain).toBe('ethereum');
-    expect(metadata?.displayName).toBe('Etherscan API');
+    expect(metadata?.displayName).toBe('Alchemy');
     expect(metadata?.requiresApiKey).toBe(true);
     expect(metadata?.type).toBe('rest');
     expect(metadata?.defaultConfig).toBeDefined();
     expect(metadata?.networks.mainnet).toBeDefined();
-    expect(metadata?.networks.mainnet.baseUrl).toBe('https://api.etherscan.io/api');
+    expect(metadata?.networks.mainnet.baseUrl).toBe('https://eth-mainnet.g.alchemy.com/v2');
   });
 
   test('should create provider instances from registry', () => {
@@ -436,20 +436,20 @@ describe('ProviderRegistry', () => {
       timeout: 10000,
     };
 
-    const provider = ProviderRegistry.createProvider('ethereum', 'etherscan', config);
+    const provider = ProviderRegistry.createProvider('ethereum', 'alchemy', config);
 
     expect(provider).toBeDefined();
-    expect(provider.name).toBe('etherscan');
+    expect(provider.name).toBe('alchemy');
     expect(provider.blockchain).toBe('ethereum');
     expect(provider.capabilities).toBeDefined();
-    expect(provider.capabilities.supportedOperations).toContain('getAddressTransactions');
-    expect(provider.capabilities.supportedOperations).toContain('getAddressBalance');
+    expect(provider.capabilities.supportedOperations).toContain('getRawAddressTransactions');
+    expect(provider.capabilities.supportedOperations).toContain('getRawAddressBalance');
   });
 
   test('should validate configuration correctly', () => {
     const validConfig = {
       ethereum: {
-        explorers: [{ enabled: true, name: 'etherscan', priority: 1 }],
+        explorers: [{ enabled: true, name: 'alchemy', priority: 1 }],
       },
     };
 
@@ -481,30 +481,28 @@ describe('ProviderRegistry', () => {
   });
 
   test('should provide provider capabilities information', () => {
-    const etherscan = availableEthereumProviders.find(p => p.name === 'etherscan');
+    const alchemy = availableEthereumProviders.find(p => p.name === 'alchemy');
 
-    expect(etherscan?.capabilities).toBeDefined();
-    expect(etherscan?.capabilities.supportedOperations).toBeDefined();
-    expect(etherscan?.capabilities.maxBatchSize).toBe(1);
-    expect(etherscan?.capabilities.supportsHistoricalData).toBe(true);
-    expect(etherscan?.capabilities.supportsPagination).toBe(true);
+    expect(alchemy?.capabilities).toBeDefined();
+    expect(alchemy?.capabilities.supportedOperations).toBeDefined();
+    expect(alchemy?.capabilities.maxBatchSize).toBe(100);
+    expect(alchemy?.capabilities.supportsHistoricalData).toBe(true);
+    expect(alchemy?.capabilities.supportsPagination).toBe(true);
   });
 
   test('should provide rate limiting information', () => {
-    const etherscan = availableEthereumProviders.find(p => p.name === 'etherscan');
+    const alchemy = availableEthereumProviders.find(p => p.name === 'alchemy');
 
-    expect(etherscan?.defaultConfig.rateLimit).toBeDefined();
-    expect(etherscan?.defaultConfig.rateLimit.requestsPerSecond).toBe(0.2);
-    expect(etherscan?.defaultConfig.rateLimit.requestsPerMinute).toBe(30);
-    expect(etherscan?.defaultConfig.rateLimit.requestsPerHour).toBe(100);
+    expect(alchemy?.defaultConfig.rateLimit).toBeDefined();
+    expect(alchemy?.defaultConfig.rateLimit.requestsPerSecond).toBe(5);
+    expect(alchemy?.defaultConfig.rateLimit.burstLimit).toBe(10);
   });
 
   test('should provide network support information', () => {
-    const etherscan = availableEthereumProviders.find(p => p.name === 'etherscan');
+    const alchemy = availableEthereumProviders.find(p => p.name === 'alchemy');
 
-    expect(etherscan?.supportedNetworks).toBeDefined();
-    expect(etherscan?.supportedNetworks).toContain('mainnet');
-    expect(etherscan?.supportedNetworks).toContain('testnet');
+    expect(alchemy?.supportedNetworks).toBeDefined();
+    expect(alchemy?.supportedNetworks).toContain('mainnet');
   });
 });
 
@@ -551,12 +549,12 @@ describe('Provider System Integration', () => {
         timeout: 10000,
       };
 
-      const provider = ProviderRegistry.createProvider('ethereum', 'etherscan', testConfig);
+      const provider = ProviderRegistry.createProvider('ethereum', 'alchemy', testConfig);
       manager.registerProviders('ethereum', [provider]);
 
       const registeredProviders = manager.getProviders('ethereum');
       expect(registeredProviders.length).toBe(1);
-      expect(registeredProviders[0]?.name).toBe('etherscan');
+      expect(registeredProviders[0]?.name).toBe('alchemy');
     } finally {
       manager.destroy();
     }
