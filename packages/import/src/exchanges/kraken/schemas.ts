@@ -53,7 +53,7 @@ export const CsvKrakenLedgerRowSchema = z
     /** Transaction ID */
     txid: z.string().min(1, 'Transaction ID must not be empty'),
 
-    /** Transaction type (e.g., 'trade', 'deposit', 'withdrawal', 'transfer') */
+    /** Transaction type (e.g., 'trade', 'deposit', 'withdrawal', 'transfer', 'spend', 'receive') */
     type: z
       .string()
       .min(1, 'Transaction type must not be empty')
@@ -64,6 +64,8 @@ export const CsvKrakenLedgerRowSchema = z
             'deposit',
             'withdrawal',
             'transfer',
+            'spend',
+            'receive',
             'staking',
             'margin',
             'rollover',
