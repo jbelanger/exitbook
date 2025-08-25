@@ -6,10 +6,10 @@ import { type Logger, getLogger } from '@crypto/shared-logger';
  * Provides proactive rate limiting with burst capacity
  */
 export class RateLimiter {
+  private readonly config: RateLimitConfig;
+  private lastRefill: number;
   private readonly logger: Logger;
   private tokens: number;
-  private lastRefill: number;
-  private readonly config: RateLimitConfig;
 
   constructor(providerName: string, config: RateLimitConfig) {
     this.config = config;
@@ -20,6 +20,45 @@ export class RateLimiter {
     this.logger.debug(
       `Rate limiter initialized - RequestsPerSecond: ${config.requestsPerSecond}, BurstLimit: ${config.burstLimit}`
     );
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  private refillTokens(): void {
+    const now = Date.now();
+    const timePassed = (now - this.lastRefill) / 1000; // Convert to seconds
+
+    if (timePassed > 0) {
+      const tokensToAdd = timePassed * (this.config.requestsPerSecond || 1);
+      this.tokens = Math.min(this.config.burstLimit || 1, this.tokens + tokensToAdd);
+      this.lastRefill = now;
+    }
+  }
+
+  /**
+   * Check if a request can be made immediately without waiting
+   */
+  canMakeRequest(): boolean {
+    this.refillTokens();
+    return this.tokens >= 1;
+  }
+
+  /**
+   * Get current rate limit status
+   */
+  getStatus(): {
+    maxTokens: number;
+    requestsPerSecond: number;
+    tokens: number;
+  } {
+    this.refillTokens();
+    return {
+      maxTokens: this.config.burstLimit || 1,
+      requestsPerSecond: this.config.requestsPerSecond || 1,
+      tokens: this.tokens,
+    };
   }
 
   /**
@@ -44,45 +83,6 @@ export class RateLimiter {
 
     // Retry after waiting
     return this.waitForPermission();
-  }
-
-  /**
-   * Check if a request can be made immediately without waiting
-   */
-  canMakeRequest(): boolean {
-    this.refillTokens();
-    return this.tokens >= 1;
-  }
-
-  /**
-   * Get current rate limit status
-   */
-  getStatus(): {
-    tokens: number;
-    maxTokens: number;
-    requestsPerSecond: number;
-  } {
-    this.refillTokens();
-    return {
-      tokens: this.tokens,
-      maxTokens: this.config.burstLimit || 1,
-      requestsPerSecond: this.config.requestsPerSecond || 1,
-    };
-  }
-
-  private refillTokens(): void {
-    const now = Date.now();
-    const timePassed = (now - this.lastRefill) / 1000; // Convert to seconds
-
-    if (timePassed > 0) {
-      const tokensToAdd = timePassed * (this.config.requestsPerSecond || 1);
-      this.tokens = Math.min(this.config.burstLimit || 1, this.tokens + tokensToAdd);
-      this.lastRefill = now;
-    }
-  }
-
-  private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
   }
 }
 

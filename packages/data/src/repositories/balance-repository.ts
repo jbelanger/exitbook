@@ -10,14 +10,6 @@ export class BalanceRepository {
     this.database = database;
   }
 
-  async saveSnapshot(snapshot: BalanceSnapshot): Promise<void> {
-    return this.database.saveBalanceSnapshot(snapshot);
-  }
-
-  async saveVerification(verification: BalanceVerificationRecord): Promise<void> {
-    return this.database.saveBalanceVerification(verification);
-  }
-
   async getLatestVerifications(exchange?: string): Promise<BalanceVerificationRecord[]> {
     return this.database.getLatestBalanceVerifications(exchange);
   }
@@ -49,5 +41,13 @@ export class BalanceRepository {
         }
       });
     });
+  }
+
+  async saveSnapshot(snapshot: BalanceSnapshot): Promise<void> {
+    return this.database.saveBalanceSnapshot(snapshot);
+  }
+
+  async saveVerification(verification: BalanceVerificationRecord): Promise<void> {
+    return this.database.saveBalanceVerification(verification);
   }
 }

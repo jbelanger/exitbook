@@ -1,7 +1,7 @@
 import { Decimal } from 'decimal.js';
 import { describe, expect, it, vi } from 'vitest';
 
-import { canSafelyConvertToNumber, createMoney, safeDecimalToNumber, safeMoneyToNumber } from '../decimal-utils.js';
+import { canSafelyConvertToNumber, safeDecimalToNumber } from '../decimal-utils.js';
 
 describe('Precision Validation', () => {
   describe('canSafelyConvertToNumber', () => {
@@ -59,26 +59,6 @@ describe('Precision Validation', () => {
       });
 
       expect(warningCallback).toHaveBeenCalledWith(expect.stringContaining('Precision loss detected'));
-    });
-  });
-
-  describe('safeMoneyToNumber', () => {
-    it('should handle Money objects safely', () => {
-      const money = createMoney('1.5', 'BTC');
-      expect(safeMoneyToNumber(money)).toBe(1.5);
-    });
-
-    it('should handle number inputs directly', () => {
-      expect(safeMoneyToNumber(1.5)).toBe(1.5);
-    });
-
-    it('should handle undefined inputs', () => {
-      expect(safeMoneyToNumber()).toBe(0);
-    });
-
-    it('should throw for unsafe Money conversions', () => {
-      const money = createMoney(Number.MAX_SAFE_INTEGER.toString() + '1', 'BTC');
-      expect(() => safeMoneyToNumber(money)).toThrow(/Precision loss detected/);
     });
   });
 

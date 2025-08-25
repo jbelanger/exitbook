@@ -1,56 +1,56 @@
 // Balance verification types
 export interface BalanceComparison {
-  currency: string;
-  liveBalance: number;
   calculatedBalance: number;
+  currency: string;
   difference: number;
-  status: 'match' | 'mismatch' | 'warning';
+  liveBalance: number;
   percentageDiff: number;
+  status: 'match' | 'mismatch' | 'warning';
   tolerance: number;
 }
 
 export interface BalanceVerificationResult {
-  exchange: string;
-  timestamp: number;
-  status: 'success' | 'error' | 'warning';
   comparisons: BalanceComparison[];
   error?: string;
+  exchange: string;
   note?: string;
+  status: 'success' | 'error' | 'warning';
   summary: {
-    totalCurrencies: number;
     matches: number;
     mismatches: number;
+    totalCurrencies: number;
     warnings: number;
   };
+  timestamp: number;
 }
 
 export interface BalanceVerificationRecord {
-  id?: number;
-  exchange: string;
-  currency: string;
-  expected_balance: number;
   actual_balance: number;
+  created_at?: number;
+  currency: string;
   difference: number;
+  exchange: string;
+  expected_balance: number;
+  id?: number;
   status: string;
   timestamp: number;
-  created_at?: number;
 }
 
 export interface BalanceSnapshot {
-  id?: number;
-  exchange: string;
-  currency: string;
   balance: number;
-  timestamp: number;
   created_at: number;
+  currency: string;
+  exchange: string;
+  id?: number;
+  timestamp: number;
 }
 
 // Balance service abstraction
 export interface IBalanceService {
   /**
-   * Get the unique identifier for this balance service (exchange/blockchain name)
+   * Clean up resources
    */
-  getServiceId(): string;
+  close(): Promise<void>;
 
   /**
    * Get current balances as a currency -> amount mapping
@@ -58,24 +58,24 @@ export interface IBalanceService {
   getBalances(): Promise<Record<string, number>>;
 
   /**
-   * Whether this service supports live balance fetching
-   */
-  supportsLiveBalanceFetching(): boolean;
-
-  /**
    * Get service capabilities for display purposes
    */
   getCapabilities(): ServiceCapabilities;
 
   /**
+   * Get the unique identifier for this balance service (exchange/blockchain name)
+   */
+  getServiceId(): string;
+
+  /**
+   * Whether this service supports live balance fetching
+   */
+  supportsLiveBalanceFetching(): boolean;
+
+  /**
    * Test if the service is available and working
    */
   testConnection(): Promise<boolean>;
-
-  /**
-   * Clean up resources
-   */
-  close(): Promise<void>;
 }
 
 export interface ServiceCapabilities {

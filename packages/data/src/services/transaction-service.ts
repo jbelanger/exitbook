@@ -9,24 +9,92 @@ import { TransactionLinkingService } from './transaction-linking-service.ts';
 
 export class TransactionService {
   private logger = getLogger('TransactionService');
-  private transactionRepository: TransactionRepository;
   private transactionLinkingService: TransactionLinkingService;
+  private transactionRepository: TransactionRepository;
 
   constructor(transactionRepository: TransactionRepository, walletRepository: WalletRepository) {
     this.transactionRepository = transactionRepository;
     this.transactionLinkingService = new TransactionLinkingService(walletRepository);
   }
 
+  /**
+   * Convert UniversalTransaction to EnhancedTransaction format
+   */
+  private convertUniversalToEnhanced(universalTx: UniversalTransaction): EnhancedTransaction {
+    // Create a unique hash for deduplication
+    const hash = createHash('sha256')
+      .update(
+        JSON.stringify({
+          amount: universalTx.amount,
+          id: universalTx.id,
+          source: universalTx.source,
+          symbol: universalTx.symbol,
+          timestamp: universalTx.timestamp,
+          type: universalTx.type,
+        })
+      )
+      .digest('hex')
+      .slice(0, 16);
+
+    return {
+      amount: universalTx.amount,
+      datetime: universalTx.datetime,
+      fee: universalTx.fee,
+      hash,
+      id: universalTx.id,
+      importedAt: Date.now(),
+      info: {
+        from: universalTx.from,
+        network: universalTx.network,
+        source: universalTx.source,
+        to: universalTx.to,
+        ...universalTx.metadata,
+      },
+      originalData: universalTx,
+      price: universalTx.price,
+      side: universalTx.side ?? 'buy',
+      source: universalTx.source,
+      status: universalTx.status,
+      symbol: universalTx.symbol ?? '',
+      timestamp: universalTx.timestamp,
+      type: universalTx.type,
+      verified: false,
+    };
+  }
+
+  async count(exchange?: string): Promise<number> {
+    return this.transactionRepository.count(exchange);
+  }
+
+  async findAll(exchange?: string, since?: number): Promise<StoredTransaction[]> {
+    return this.transactionRepository.findAll(exchange, since);
+  }
+
+  async linkTransactionToWallets(transactionId: string, fromAddress?: string, toAddress?: string): Promise<void> {
+    const walletId = await this.transactionLinkingService.findWalletIdForTransaction(fromAddress, toAddress);
+    return this.transactionRepository.updateAddresses(transactionId, fromAddress, toAddress, walletId || undefined);
+  }
+
   async save(transaction: EnhancedTransaction): Promise<void> {
     return this.transactionRepository.save(transaction);
   }
 
-  /**
-   * Save UniversalTransaction directly without conversion
-   */
-  async saveUniversal(transaction: UniversalTransaction): Promise<void> {
-    const enhancedTx = this.convertUniversalToEnhanced(transaction);
-    return this.transactionRepository.save(enhancedTx);
+  async saveMany(transactions: EnhancedTransaction[]): Promise<number> {
+    const saved = await this.transactionRepository.saveMany(transactions);
+
+    if (saved > 0) {
+      for (const transaction of transactions) {
+        const info = transaction.info as Record<string, unknown> | undefined;
+        const fromAddress = typeof info?.from === 'string' ? (info!.from as string) : null;
+        const toAddress = typeof info?.to === 'string' ? (info!.to as string) : null;
+
+        if (fromAddress || toAddress) {
+          await this.linkTransactionToWallets(transaction.id, fromAddress ?? undefined, toAddress ?? undefined);
+        }
+      }
+    }
+
+    return saved;
   }
 
   /**
@@ -51,79 +119,11 @@ export class TransactionService {
     return saved;
   }
 
-  async saveMany(transactions: EnhancedTransaction[]): Promise<number> {
-    const saved = await this.transactionRepository.saveMany(transactions);
-
-    if (saved > 0) {
-      for (const transaction of transactions) {
-        const info = transaction.info as Record<string, unknown> | undefined;
-        const fromAddress = typeof info?.from === 'string' ? (info!.from as string) : null;
-        const toAddress = typeof info?.to === 'string' ? (info!.to as string) : null;
-
-        if (fromAddress || toAddress) {
-          await this.linkTransactionToWallets(transaction.id, fromAddress ?? undefined, toAddress ?? undefined);
-        }
-      }
-    }
-
-    return saved;
-  }
-
-  async findAll(exchange?: string, since?: number): Promise<StoredTransaction[]> {
-    return this.transactionRepository.findAll(exchange, since);
-  }
-
-  async count(exchange?: string): Promise<number> {
-    return this.transactionRepository.count(exchange);
-  }
-
-  async linkTransactionToWallets(transactionId: string, fromAddress?: string, toAddress?: string): Promise<void> {
-    const walletId = await this.transactionLinkingService.findWalletIdForTransaction(fromAddress, toAddress);
-    return this.transactionRepository.updateAddresses(transactionId, fromAddress, toAddress, walletId || undefined);
-  }
-
   /**
-   * Convert UniversalTransaction to EnhancedTransaction format
+   * Save UniversalTransaction directly without conversion
    */
-  private convertUniversalToEnhanced(universalTx: UniversalTransaction): EnhancedTransaction {
-    // Create a unique hash for deduplication
-    const hash = createHash('sha256')
-      .update(
-        JSON.stringify({
-          id: universalTx.id,
-          timestamp: universalTx.timestamp,
-          symbol: universalTx.symbol,
-          amount: universalTx.amount,
-          type: universalTx.type,
-          source: universalTx.source,
-        })
-      )
-      .digest('hex')
-      .slice(0, 16);
-
-    return {
-      id: universalTx.id,
-      timestamp: universalTx.timestamp,
-      datetime: universalTx.datetime,
-      type: universalTx.type,
-      status: universalTx.status,
-      amount: universalTx.amount,
-      fee: universalTx.fee,
-      price: universalTx.price,
-      symbol: universalTx.symbol ?? '',
-      side: universalTx.side ?? 'buy',
-      source: universalTx.source,
-      hash,
-      importedAt: Date.now(),
-      verified: false,
-      info: {
-        from: universalTx.from,
-        to: universalTx.to,
-        source: universalTx.source,
-        network: universalTx.network,
-        ...universalTx.metadata,
-      },
-      originalData: universalTx,
-    };
+  async saveUniversal(transaction: UniversalTransaction): Promise<void> {
+    const enhancedTx = this.convertUniversalToEnhanced(transaction);
+    return this.transactionRepository.save(enhancedTx);
   }
 }

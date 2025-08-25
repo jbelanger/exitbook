@@ -6,6 +6,7 @@ import type { ImportParams, ValidationResult } from '../../shared/importers/inte
 import { CsvParser } from '../csv-parser.ts';
 import { CSV_FILE_TYPES } from './constants.ts';
 import type { CsvKrakenLedgerRow } from './types.ts';
+import { formatKrakenValidationErrors, validateKrakenCsvRows } from './utils.ts';
 
 /**
  * Importer for Kraken CSV ledger files.
@@ -106,33 +107,37 @@ export class KrakenCsvImporter extends BaseImporter<CsvKrakenLedgerRow> {
   }
 
   protected validateRawDataSpecific(data: CsvKrakenLedgerRow[], result: ValidationResult): ValidationResult {
-    // Validate required fields in CSV data
-    const requiredFields = ['txid', 'refid', 'time', 'type', 'asset', 'amount'];
+    this.logger.debug(`Validating ${data.length} Kraken CSV rows with Zod schema`);
 
-    let invalidRecords = 0;
-    for (let i = 0; i < Math.min(data.length, 10); i++) {
-      // Check first 10 records
-      const record = data[i];
-      for (const field of requiredFields) {
-        if (!record[field as keyof CsvKrakenLedgerRow]) {
-          result.errors.push(`Missing required field '${field}' in record ${i + 1}`);
-          invalidRecords++;
-          break;
-        }
+    const validationResult = validateKrakenCsvRows(data);
+
+    if (validationResult.invalid.length > 0) {
+      const errorMessage = formatKrakenValidationErrors(validationResult);
+      this.logger.warn(`Kraken CSV validation issues: ${errorMessage}`);
+
+      // Add detailed error information
+      result.warnings.push(errorMessage);
+
+      // Add individual errors for the first few invalid rows
+      validationResult.invalid.slice(0, 5).forEach(({ errors, rowIndex }) => {
+        const fieldErrors = errors.issues.map(
+          issue => `Row ${rowIndex + 1}, ${issue.path.join('.')}: ${issue.message}`
+        );
+        result.errors.push(...fieldErrors);
+      });
+
+      // If there are too many errors, mark as invalid
+      const errorRate = validationResult.invalid.length / validationResult.totalRows;
+      if (errorRate > 0.1) {
+        // More than 10% error rate
+        result.isValid = false;
+        result.errors.push(`High error rate: ${(errorRate * 100).toFixed(1)}% of rows failed validation`);
       }
     }
 
-    if (invalidRecords > 0) {
-      result.isValid = false;
-      result.errors.push(`Found ${invalidRecords} invalid records (checked first 10)`);
-    }
-
-    // Check for valid timestamps
-    const sampleRecord = data[0];
-    if (sampleRecord && isNaN(new Date(sampleRecord.time).getTime())) {
-      result.warnings.push('Invalid timestamp format detected in sample record');
-    }
-
+    this.logger.info(
+      `Kraken CSV validation: ${validationResult.valid.length} valid, ${validationResult.invalid.length} invalid rows`
+    );
     return result;
   }
 

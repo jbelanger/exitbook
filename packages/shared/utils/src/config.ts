@@ -12,29 +12,29 @@ export interface BlockchainExplorersConfig {
 }
 
 interface ExplorerConfig {
-  name: string;
   enabled: boolean;
-  priority: number;
-  requiresApiKey?: boolean;
   mainnet: {
     baseUrl: string;
   };
-  testnet: {
-    baseUrl: string;
-  };
+  name: string;
+  priority: number;
   rateLimit: {
     requestsPerSecond: number;
   };
-  timeout: number;
+  requiresApiKey?: boolean;
   retries: number;
+  testnet: {
+    baseUrl: string;
+  };
+  timeout: number;
 }
 
 export interface ExchangeConfiguration {
   exchanges: {
     [exchangeId: string]: {
-      enabled: boolean;
       adapterType: 'ccxt' | 'native' | 'csv';
       credentials: Record<string, string>;
+      enabled: boolean;
       options: Record<string, unknown>;
     };
   };
@@ -42,9 +42,9 @@ export interface ExchangeConfiguration {
 
 // Bootstrap options
 export interface BootstrapOptions {
+  clearDatabase?: boolean;
   exchangeConfigPath?: string;
   explorerConfigPath?: string;
-  clearDatabase?: boolean;
 }
 
 /**
@@ -52,23 +52,25 @@ export interface BootstrapOptions {
  */
 export class ConfigUtils {
   /**
-   * Load blockchain explorer configuration
+   * Create logger instance
    */
-  static loadExplorerConfig(configPath?: string): BlockchainExplorersConfig {
-    const finalPath = configPath
-      ? path.resolve(process.cwd(), configPath)
-      : process.env.BLOCKCHAIN_EXPLORERS_CONFIG
-        ? path.resolve(process.cwd(), process.env.BLOCKCHAIN_EXPLORERS_CONFIG)
-        : path.join(process.cwd(), 'config/blockchain-explorers.json');
+  static createLogger(name: string): Logger {
+    return getLogger(name);
+  }
 
-    try {
-      const configData = fs.readFileSync(finalPath, 'utf-8');
-      return JSON.parse(configData);
-    } catch (error) {
-      throw new Error(
-        `Failed to load blockchain explorer configuration from ${finalPath}: ${error instanceof Error ? error.message : String(error)}`
-      );
+  /**
+   * Initialize database with optional cleanup
+   */
+  static async initializeDatabase(clearDatabase = false): Promise<Database> {
+    const database = new Database();
+
+    if (clearDatabase) {
+      await database.clearAndReinitialize();
+      const logger = getLogger('ConfigUtils');
+      logger.info('Database cleared and reinitialized');
     }
+
+    return database;
   }
 
   /**
@@ -86,32 +88,32 @@ export class ConfigUtils {
         // Create default configuration
         const defaultConfig: ExchangeConfiguration = {
           exchanges: {
-            kraken: {
-              enabled: false,
-              adapterType: 'ccxt',
-              credentials: {
-                apiKey: 'env:KRAKEN_API_KEY',
-                secret: 'env:KRAKEN_SECRET',
-              },
-              options: {},
-            },
-            kucoin: {
-              enabled: false,
-              adapterType: 'native',
-              credentials: {
-                apiKey: 'env:KUCOIN_API_KEY',
-                secret: 'env:KUCOIN_SECRET',
-                password: 'env:KUCOIN_PASSPHRASE',
-              },
-              options: {},
-            },
             coinbase: {
-              enabled: false,
               adapterType: 'ccxt',
               credentials: {
                 apiKey: 'env:COINBASE_API_KEY',
                 secret: 'env:COINBASE_SECRET',
               },
+              enabled: false,
+              options: {},
+            },
+            kraken: {
+              adapterType: 'ccxt',
+              credentials: {
+                apiKey: 'env:KRAKEN_API_KEY',
+                secret: 'env:KRAKEN_SECRET',
+              },
+              enabled: false,
+              options: {},
+            },
+            kucoin: {
+              adapterType: 'native',
+              credentials: {
+                apiKey: 'env:KUCOIN_API_KEY',
+                password: 'env:KUCOIN_PASSPHRASE',
+                secret: 'env:KUCOIN_SECRET',
+              },
+              enabled: false,
               options: {},
             },
           },
@@ -135,25 +137,23 @@ export class ConfigUtils {
   }
 
   /**
-   * Initialize database with optional cleanup
+   * Load blockchain explorer configuration
    */
-  static async initializeDatabase(clearDatabase = false): Promise<Database> {
-    const database = new Database();
+  static loadExplorerConfig(configPath?: string): BlockchainExplorersConfig {
+    const finalPath = configPath
+      ? path.resolve(process.cwd(), configPath)
+      : process.env.BLOCKCHAIN_EXPLORERS_CONFIG
+        ? path.resolve(process.cwd(), process.env.BLOCKCHAIN_EXPLORERS_CONFIG)
+        : path.join(process.cwd(), 'config/blockchain-explorers.json');
 
-    if (clearDatabase) {
-      await database.clearAndReinitialize();
-      const logger = getLogger('ConfigUtils');
-      logger.info('Database cleared and reinitialized');
+    try {
+      const configData = fs.readFileSync(finalPath, 'utf-8');
+      return JSON.parse(configData);
+    } catch (error) {
+      throw new Error(
+        `Failed to load blockchain explorer configuration from ${finalPath}: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
-
-    return database;
-  }
-
-  /**
-   * Create logger instance
-   */
-  static createLogger(name: string): Logger {
-    return getLogger(name);
   }
 
   /**

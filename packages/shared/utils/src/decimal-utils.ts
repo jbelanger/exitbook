@@ -4,13 +4,13 @@ import { Decimal } from 'decimal.js';
 // Configure Decimal.js for cryptocurrency precision
 // Most cryptocurrencies use up to 18 decimal places, so we set precision high
 Decimal.set({
+  maxE: 9e15, // Maximum exponent
+  minE: -9e15, // Minimum exponent
+  modulo: Decimal.ROUND_HALF_UP,
   precision: 28, // High precision for crypto calculations
   rounding: Decimal.ROUND_HALF_UP, // Standard rounding
   toExpNeg: -7, // Use exponential notation for numbers smaller than 1e-7
   toExpPos: 21, // Use exponential notation for numbers larger than 1e+21
-  maxE: 9e15, // Maximum exponent
-  minE: -9e15, // Minimum exponent
-  modulo: Decimal.ROUND_HALF_UP,
 });
 
 /**
@@ -105,27 +105,6 @@ export function moneyToNumber(money: Money | number | undefined): number {
   }
 
   return money.amount.toNumber();
-}
-
-/**
- * Safely convert Money to number with precision validation
- */
-export function safeMoneyToNumber(
-  money: Money | number | undefined,
-  options?: {
-    allowPrecisionLoss?: boolean;
-    warningCallback?: (message: string) => void;
-  }
-): number {
-  if (typeof money === 'number') {
-    return money;
-  }
-
-  if (!money) {
-    return 0;
-  }
-
-  return safeDecimalToNumber(money.amount, options);
 }
 
 /**

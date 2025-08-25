@@ -17,12 +17,12 @@ export class WalletRepository {
     return this.database.addWalletAddress(request);
   }
 
-  async update(id: number, updates: UpdateWalletAddressRequest): Promise<WalletAddress | null> {
-    return this.database.updateWalletAddress(id, updates);
+  async delete(id: number): Promise<boolean> {
+    return this.database.deleteWalletAddress(id);
   }
 
-  async findById(id: number): Promise<WalletAddress | null> {
-    return this.database.getWalletAddress(id);
+  async findAll(query?: WalletAddressQuery): Promise<WalletAddress[]> {
+    return this.database.getWalletAddresses(query);
   }
 
   async findByAddress(address: string, blockchain: string): Promise<WalletAddress | null> {
@@ -33,11 +33,11 @@ export class WalletRepository {
     return this.database.findWalletAddressByAddressNormalized(normalizedAddress, blockchain);
   }
 
-  async findAll(query?: WalletAddressQuery): Promise<WalletAddress[]> {
-    return this.database.getWalletAddresses(query);
+  async findById(id: number): Promise<WalletAddress | null> {
+    return this.database.getWalletAddress(id);
   }
 
-  async delete(id: number): Promise<boolean> {
-    return this.database.deleteWalletAddress(id);
+  async update(id: number, updates: UpdateWalletAddressRequest): Promise<WalletAddress | null> {
+    return this.database.updateWalletAddress(id, updates);
   }
 }

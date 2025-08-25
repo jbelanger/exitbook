@@ -151,7 +151,7 @@ export function getCcxtNestedInfo(obj: unknown): Record<string, unknown> | undef
 export function isApiResponse<T>(
   response: unknown,
   dataProperty: string = 'result'
-): response is { status: string; [key: string]: unknown } & Record<typeof dataProperty, T> {
+): response is { [key: string]: unknown; status: string } & Record<typeof dataProperty, T> {
   return (
     hasProperty(response, 'status') && hasStringProperty(response, 'status') && hasProperty(response, dataProperty)
   );
@@ -162,8 +162,8 @@ export function isApiResponse<T>(
  */
 export function isExtendedError(error: unknown): error is Error & {
   code?: string | number;
-  status?: string | number;
   retryAfter?: number;
+  status?: string | number;
 } {
   return isErrorWithMessage(error);
 }
@@ -172,10 +172,10 @@ export function isExtendedError(error: unknown): error is Error & {
  * Safe error property extractor
  */
 export function getErrorProperties(error: unknown): {
-  message: string;
   code?: string | number;
-  status?: string | number;
+  message: string;
   retryAfter?: number;
+  status?: string | number;
 } {
   if (!isErrorWithMessage(error)) {
     return { message: String(error) };

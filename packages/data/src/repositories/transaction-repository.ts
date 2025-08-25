@@ -10,20 +10,20 @@ export class TransactionRepository {
     this.database = database;
   }
 
-  async save(transaction: EnhancedTransaction): Promise<void> {
-    return this.database.saveTransaction(transaction);
-  }
-
-  async saveMany(transactions: EnhancedTransaction[]): Promise<number> {
-    return this.database.saveTransactions(transactions);
+  async count(exchange?: string): Promise<number> {
+    return this.database.getTransactionCount(exchange);
   }
 
   async findAll(exchange?: string, since?: number): Promise<StoredTransaction[]> {
     return this.database.getTransactions(exchange, since);
   }
 
-  async count(exchange?: string): Promise<number> {
-    return this.database.getTransactionCount(exchange);
+  async save(transaction: EnhancedTransaction): Promise<void> {
+    return this.database.saveTransaction(transaction);
+  }
+
+  async saveMany(transactions: EnhancedTransaction[]): Promise<number> {
+    return this.database.saveTransactions(transactions);
   }
 
   async updateAddresses(

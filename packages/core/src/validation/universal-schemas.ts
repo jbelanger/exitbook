@@ -21,35 +21,35 @@ export const TransactionStatusSchema = z.enum(['pending', 'open', 'closed', 'can
 // Universal Transaction schema
 export const UniversalTransactionSchema = z
   .object({
-    // Required universal fields
-    id: z.string().min(1, 'Transaction ID must not be empty'),
-    timestamp: z.number().int().positive('Timestamp must be a positive integer'),
-    datetime: z.string().min(1, 'Datetime string must not be empty'),
-    type: TransactionTypeSchema,
-    status: TransactionStatusSchema,
     amount: MoneySchema,
-    source: z.string().min(1, 'Source must not be empty'),
-    metadata: z.record(z.string(), z.any()).default({}),
-
+    datetime: z.string().min(1, 'Datetime string must not be empty'),
     // Optional fields
     fee: MoneySchema.optional(),
-    price: MoneySchema.optional(),
-    side: z.enum(['buy', 'sell']).optional().or(z.undefined()), // Trade side for balance calculations
     from: z.string().optional(),
-    to: z.string().optional(),
-    symbol: z.string().optional(),
+    // Required universal fields
+    id: z.string().min(1, 'Transaction ID must not be empty'),
+    metadata: z.record(z.string(), z.any()).default({}),
     network: z.string().optional(),
+    price: MoneySchema.optional(),
+
+    side: z.enum(['buy', 'sell']).optional().or(z.undefined()), // Trade side for balance calculations
+    source: z.string().min(1, 'Source must not be empty'),
+    status: TransactionStatusSchema,
+    symbol: z.string().optional(),
+    timestamp: z.number().int().positive('Timestamp must be a positive integer'),
+    to: z.string().optional(),
+    type: TransactionTypeSchema,
   })
   .strict(); // Reject unknown properties
 
 // Universal Balance schema
 export const UniversalBalanceSchema = z
   .object({
-    currency: z.string().min(1, 'Currency must not be empty'),
-    total: z.number().min(0, 'Total balance must be non-negative'),
-    free: z.number().min(0, 'Free balance must be non-negative'),
-    used: z.number().min(0, 'Used balance must be non-negative'),
     contractAddress: z.string().optional(),
+    currency: z.string().min(1, 'Currency must not be empty'),
+    free: z.number().min(0, 'Free balance must be non-negative'),
+    total: z.number().min(0, 'Total balance must be non-negative'),
+    used: z.number().min(0, 'Used balance must be non-negative'),
   })
   .strict()
   .refine(data => data.total >= data.free + data.used, {
@@ -64,9 +64,9 @@ export type ValidatedMoney = z.infer<typeof MoneySchema>;
 
 // Validation result types for error handling
 export interface ValidationResult<T> {
-  success: boolean;
   data?: T;
   errors?: z.ZodError;
+  success: boolean;
 }
 
 // Helper function to validate and return typed results
@@ -74,26 +74,26 @@ export function validateUniversalTransaction(data: unknown): ValidationResult<Va
   const result = UniversalTransactionSchema.safeParse(data);
 
   if (result.success) {
-    return { success: true, data: result.data };
+    return { data: result.data, success: true };
   }
 
-  return { success: false, errors: result.error };
+  return { errors: result.error, success: false };
 }
 
 export function validateUniversalBalance(data: unknown): ValidationResult<ValidatedUniversalBalance> {
   const result = UniversalBalanceSchema.safeParse(data);
 
   if (result.success) {
-    return { success: true, data: result.data };
+    return { data: result.data, success: true };
   }
 
-  return { success: false, errors: result.error };
+  return { errors: result.error, success: false };
 }
 
 // Batch validation helpers
 export function validateUniversalTransactions(data: unknown[]): {
-  valid: ValidatedUniversalTransaction[];
   invalid: Array<{ data: unknown; errors: z.ZodError }>;
+  valid: ValidatedUniversalTransaction[];
 } {
   const valid: ValidatedUniversalTransaction[] = [];
   const invalid: Array<{ data: unknown; errors: z.ZodError }> = [];
@@ -107,12 +107,12 @@ export function validateUniversalTransactions(data: unknown[]): {
     }
   }
 
-  return { valid, invalid };
+  return { invalid, valid };
 }
 
 export function validateUniversalBalances(data: unknown[]): {
-  valid: ValidatedUniversalBalance[];
   invalid: Array<{ data: unknown; errors: z.ZodError }>;
+  valid: ValidatedUniversalBalance[];
 } {
   const valid: ValidatedUniversalBalance[] = [];
   const invalid: Array<{ data: unknown; errors: z.ZodError }> = [];
@@ -126,5 +126,5 @@ export function validateUniversalBalances(data: unknown[]): {
     }
   }
 
-  return { valid, invalid };
+  return { invalid, valid };
 }

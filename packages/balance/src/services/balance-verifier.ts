@@ -10,125 +10,11 @@ import type {
 import type { IBalanceService } from './balance-service.js';
 
 export class BalanceVerifier {
-  private logger = getLogger('BalanceVerifier');
   private balanceService: BalanceService;
+  private logger = getLogger('BalanceVerifier');
 
   constructor(balanceService: BalanceService) {
     this.balanceService = balanceService;
-  }
-
-  async verifyAllServices(services: IBalanceService[]): Promise<BalanceVerificationResult[]> {
-    this.logger.info('Starting balance verification for all services');
-    const results: BalanceVerificationResult[] = [];
-
-    for (const service of services) {
-      try {
-        const result = await this.verifyService(service);
-        results.push(result);
-      } catch (error) {
-        const serviceId = service.getServiceId();
-        this.logger.error(
-          `Balance verification failed for ${serviceId}: ${error instanceof Error ? error.message : 'Unknown error'}`
-        );
-
-        results.push({
-          exchange: serviceId,
-          timestamp: Date.now(),
-          status: 'error',
-          comparisons: [],
-          error: error instanceof Error ? error.message : 'Unknown error',
-          summary: {
-            totalCurrencies: 0,
-            matches: 0,
-            mismatches: 0,
-            warnings: 0,
-          },
-        });
-      }
-    }
-
-    this.logger.info(`Balance verification completed for ${results.length} services`);
-    return results;
-  }
-
-  async verifyService(service: IBalanceService): Promise<BalanceVerificationResult> {
-    const serviceId = service.getServiceId();
-    const capabilities = service.getCapabilities();
-
-    this.logger.info(`Starting balance verification for ${serviceId}`);
-
-    try {
-      // Check if this service supports balance fetching
-      if (!service.supportsLiveBalanceFetching()) {
-        this.logger.info(
-          `Skipping balance verification for ${serviceId} - service does not support live balance fetching`
-        );
-
-        // For services without live balance, show calculated balances as informational
-        const calculatedBalances = await this.balanceService.calculateBalances(serviceId);
-        const comparisons = this.createCalculatedOnlyComparisons(calculatedBalances);
-
-        const result: BalanceVerificationResult = {
-          exchange: serviceId,
-          timestamp: Date.now(),
-          status: 'warning', // Warning because we can't verify against live data
-          comparisons,
-          summary: {
-            totalCurrencies: comparisons.length,
-            matches: 0,
-            mismatches: 0,
-            warnings: comparisons.length,
-          },
-          note: `${capabilities.name} - showing calculated balances only (no live verification possible)`,
-        };
-
-        this.logger.info(
-          `Balance calculation completed for ${serviceId} (calculated mode) - TotalCurrencies: ${result.summary.totalCurrencies}`
-        );
-
-        return result;
-      }
-
-      // Get current live balances from service
-      const liveBalances = await service.getBalances();
-
-      // Calculate balances from our stored transactions
-      const calculatedBalances = await this.balanceService.calculateBalances(serviceId);
-
-      // Compare balances
-      const comparisons = this.compareBalances(liveBalances, calculatedBalances);
-
-      // Determine overall status
-      const status = this.determineVerificationStatus(comparisons);
-
-      // Create summary
-      const summary = this.createSummary(comparisons);
-
-      // Store verification results in database
-      await this.storeVerificationResults(serviceId, comparisons);
-
-      // Log results
-      this.logVerificationResults(serviceId, comparisons);
-
-      const result: BalanceVerificationResult = {
-        exchange: serviceId,
-        timestamp: Date.now(),
-        status,
-        comparisons,
-        summary,
-      };
-
-      this.logger.info(
-        `Balance verification completed for ${serviceId} - Status: ${status}, TotalCurrencies: ${summary.totalCurrencies}, Matches: ${summary.matches}, Mismatches: ${summary.mismatches}`
-      );
-
-      return result;
-    } catch (error) {
-      this.logger.error(
-        `Balance verification failed for ${serviceId}: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
-      throw error;
-    }
   }
 
   private compareBalances(
@@ -157,17 +43,47 @@ export class BalanceVerifier {
       }
 
       comparisons.push({
-        currency,
-        liveBalance,
         calculatedBalance,
+        currency,
         difference,
-        status,
+        liveBalance,
         percentageDiff,
+        status,
         tolerance,
       });
     }
 
     return comparisons.sort((a, b) => b.difference - a.difference);
+  }
+
+  private createCalculatedOnlyComparisons(calculatedBalances: Record<string, Decimal>): BalanceComparison[] {
+    const comparisons: BalanceComparison[] = [];
+
+    for (const [currency, balance] of Object.entries(calculatedBalances)) {
+      const balanceNumber = balance.toNumber();
+      // For CSV adapters, we show calculated balance as both live and calculated
+      // since we can't fetch live balances
+      comparisons.push({
+        calculatedBalance: balanceNumber,
+        currency,
+        difference: balanceNumber, // Difference is the calculated balance itself
+        liveBalance: 0, // No live balance available
+        percentageDiff: 0,
+        status: 'warning', // Always warning since we can't verify
+        tolerance: 0,
+      });
+    }
+
+    return comparisons.sort((a, b) => Math.abs(b.calculatedBalance) - Math.abs(a.calculatedBalance));
+  }
+
+  private createSummary(comparisons: BalanceComparison[]) {
+    return {
+      matches: comparisons.filter(c => c.status === 'match').length,
+      mismatches: comparisons.filter(c => c.status === 'mismatch').length,
+      totalCurrencies: comparisons.length,
+      warnings: comparisons.filter(c => c.status === 'warning').length,
+    };
   }
 
   private determineVerificationStatus(comparisons: BalanceComparison[]): 'success' | 'error' | 'warning' {
@@ -183,32 +99,19 @@ export class BalanceVerifier {
     }
   }
 
-  private createSummary(comparisons: BalanceComparison[]) {
-    return {
-      totalCurrencies: comparisons.length,
-      matches: comparisons.filter(c => c.status === 'match').length,
-      mismatches: comparisons.filter(c => c.status === 'mismatch').length,
-      warnings: comparisons.filter(c => c.status === 'warning').length,
-    };
+  private logBalanceDiscrepancy(exchange: string, currency: string, discrepancy: BalanceComparison) {
+    this.logger.error(
+      `Significant balance discrepancy detected - Exchange: ${exchange}, Currency: ${currency}, Operation: balance_verification_error, LiveBalance: ${discrepancy.liveBalance}, CalculatedBalance: ${discrepancy.calculatedBalance}, Difference: ${discrepancy.difference}, PercentageDiff: ${discrepancy.percentageDiff}%`
+    );
   }
 
-  private async storeVerificationResults(exchangeId: string, comparisons: BalanceComparison[]): Promise<void> {
-    const timestamp = Date.now();
+  private logBalanceVerification(exchange: string, currency: string, result: BalanceComparison) {
+    const level = result.status === 'mismatch' ? 'warn' : 'info';
+    const message = `Balance verification ${result.status} for ${exchange} ${currency}`;
 
-    for (const comparison of comparisons) {
-      const record: BalanceVerificationRecord = {
-        exchange: exchangeId,
-        currency: comparison.currency,
-        expected_balance: comparison.liveBalance,
-        actual_balance: comparison.calculatedBalance,
-        difference: comparison.difference,
-        status: comparison.status,
-        timestamp,
-        created_at: Date.now(),
-      };
-
-      await this.balanceService.saveVerification(record);
-    }
+    this.logger[level](
+      `${message} - Exchange: ${exchange}, Currency: ${currency}, Operation: balance_verification, LiveBalance: ${result.liveBalance}, CalculatedBalance: ${result.calculatedBalance}, Difference: ${result.difference}, PercentageDiff: ${result.percentageDiff}%, Status: ${result.status}`
+    );
   }
 
   private logVerificationResults(exchangeId: string, comparisons: BalanceComparison[]): void {
@@ -222,29 +125,23 @@ export class BalanceVerifier {
     }
   }
 
-  private createCalculatedOnlyComparisons(calculatedBalances: Record<string, Decimal>): BalanceComparison[] {
-    const comparisons: BalanceComparison[] = [];
+  private async storeVerificationResults(exchangeId: string, comparisons: BalanceComparison[]): Promise<void> {
+    const timestamp = Date.now();
 
-    for (const [currency, balance] of Object.entries(calculatedBalances)) {
-      const balanceNumber = balance.toNumber();
-      // For CSV adapters, we show calculated balance as both live and calculated
-      // since we can't fetch live balances
-      comparisons.push({
-        currency,
-        liveBalance: 0, // No live balance available
-        calculatedBalance: balanceNumber,
-        difference: balanceNumber, // Difference is the calculated balance itself
-        status: 'warning', // Always warning since we can't verify
-        percentageDiff: 0,
-        tolerance: 0,
-      });
+    for (const comparison of comparisons) {
+      const record: BalanceVerificationRecord = {
+        actual_balance: comparison.calculatedBalance,
+        created_at: Date.now(),
+        currency: comparison.currency,
+        difference: comparison.difference,
+        exchange: exchangeId,
+        expected_balance: comparison.liveBalance,
+        status: comparison.status,
+        timestamp,
+      };
+
+      await this.balanceService.saveVerification(record);
     }
-
-    return comparisons.sort((a, b) => Math.abs(b.calculatedBalance) - Math.abs(a.calculatedBalance));
-  }
-
-  async getVerificationHistory(exchangeId?: string): Promise<BalanceVerificationRecord[]> {
-    return await this.balanceService.getLatestVerifications(exchangeId);
   }
 
   // Generate a verification report
@@ -294,6 +191,10 @@ export class BalanceVerifier {
     return report;
   }
 
+  async getVerificationHistory(exchangeId?: string): Promise<BalanceVerificationRecord[]> {
+    return await this.balanceService.getLatestVerifications(exchangeId);
+  }
+
   // Check if verification is needed (e.g., hasn't been run in X hours)
   async shouldRunVerification(exchangeId: string, maxAgeHours: number = 24): Promise<boolean> {
     const latestVerifications = await this.balanceService.getLatestVerifications(exchangeId);
@@ -308,18 +209,117 @@ export class BalanceVerifier {
     return ageHours >= maxAgeHours;
   }
 
-  private logBalanceVerification(exchange: string, currency: string, result: BalanceComparison) {
-    const level = result.status === 'mismatch' ? 'warn' : 'info';
-    const message = `Balance verification ${result.status} for ${exchange} ${currency}`;
+  async verifyAllServices(services: IBalanceService[]): Promise<BalanceVerificationResult[]> {
+    this.logger.info('Starting balance verification for all services');
+    const results: BalanceVerificationResult[] = [];
 
-    this.logger[level](
-      `${message} - Exchange: ${exchange}, Currency: ${currency}, Operation: balance_verification, LiveBalance: ${result.liveBalance}, CalculatedBalance: ${result.calculatedBalance}, Difference: ${result.difference}, PercentageDiff: ${result.percentageDiff}%, Status: ${result.status}`
-    );
+    for (const service of services) {
+      try {
+        const result = await this.verifyService(service);
+        results.push(result);
+      } catch (error) {
+        const serviceId = service.getServiceId();
+        this.logger.error(
+          `Balance verification failed for ${serviceId}: ${error instanceof Error ? error.message : 'Unknown error'}`
+        );
+
+        results.push({
+          comparisons: [],
+          error: error instanceof Error ? error.message : 'Unknown error',
+          exchange: serviceId,
+          status: 'error',
+          summary: {
+            matches: 0,
+            mismatches: 0,
+            totalCurrencies: 0,
+            warnings: 0,
+          },
+          timestamp: Date.now(),
+        });
+      }
+    }
+
+    this.logger.info(`Balance verification completed for ${results.length} services`);
+    return results;
   }
 
-  private logBalanceDiscrepancy(exchange: string, currency: string, discrepancy: BalanceComparison) {
-    this.logger.error(
-      `Significant balance discrepancy detected - Exchange: ${exchange}, Currency: ${currency}, Operation: balance_verification_error, LiveBalance: ${discrepancy.liveBalance}, CalculatedBalance: ${discrepancy.calculatedBalance}, Difference: ${discrepancy.difference}, PercentageDiff: ${discrepancy.percentageDiff}%`
-    );
+  async verifyService(service: IBalanceService): Promise<BalanceVerificationResult> {
+    const serviceId = service.getServiceId();
+    const capabilities = service.getCapabilities();
+
+    this.logger.info(`Starting balance verification for ${serviceId}`);
+
+    try {
+      // Check if this service supports balance fetching
+      if (!service.supportsLiveBalanceFetching()) {
+        this.logger.info(
+          `Skipping balance verification for ${serviceId} - service does not support live balance fetching`
+        );
+
+        // For services without live balance, show calculated balances as informational
+        const calculatedBalances = await this.balanceService.calculateBalances(serviceId);
+        const comparisons = this.createCalculatedOnlyComparisons(calculatedBalances);
+
+        const result: BalanceVerificationResult = {
+          comparisons,
+          exchange: serviceId,
+          note: `${capabilities.name} - showing calculated balances only (no live verification possible)`,
+          status: 'warning', // Warning because we can't verify against live data
+          summary: {
+            matches: 0,
+            mismatches: 0,
+            totalCurrencies: comparisons.length,
+            warnings: comparisons.length,
+          },
+          timestamp: Date.now(),
+        };
+
+        this.logger.info(
+          `Balance calculation completed for ${serviceId} (calculated mode) - TotalCurrencies: ${result.summary.totalCurrencies}`
+        );
+
+        return result;
+      }
+
+      // Get current live balances from service
+      const liveBalances = await service.getBalances();
+
+      // Calculate balances from our stored transactions
+      const calculatedBalances = await this.balanceService.calculateBalances(serviceId);
+
+      // Compare balances
+      const comparisons = this.compareBalances(liveBalances, calculatedBalances);
+
+      // Determine overall status
+      const status = this.determineVerificationStatus(comparisons);
+
+      // Create summary
+      const summary = this.createSummary(comparisons);
+
+      // Store verification results in database
+      await this.storeVerificationResults(serviceId, comparisons);
+
+      // Log results
+      this.logVerificationResults(serviceId, comparisons);
+
+      const result: BalanceVerificationResult = {
+        comparisons,
+        exchange: serviceId,
+        status,
+        summary,
+        timestamp: Date.now(),
+      };
+
+      this.logger.info(
+        `Balance verification completed for ${serviceId} - Status: ${status}, TotalCurrencies: ${summary.totalCurrencies}, Matches: ${summary.matches}, Mismatches: ${summary.mismatches}`
+      );
+
+      return result;
+    } catch (error) {
+      this.logger.error(
+        `Balance verification failed for ${serviceId}: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+      throw error;
+    }
   }
 }
