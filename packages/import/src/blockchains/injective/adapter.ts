@@ -1,6 +1,5 @@
 import type {
   Balance,
-  BlockchainTransaction,
   TransactionType,
   UniversalAdapterInfo,
   UniversalBalance,
@@ -8,10 +7,15 @@ import type {
   UniversalFetchParams,
   UniversalTransaction,
 } from '@crypto/core';
+import { createMoney } from '@crypto/shared-utils';
 
 import { BaseAdapter } from '../../shared/adapters/base-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
 import type { BlockchainExplorersConfig } from '../shared/explorer-config.ts';
+// Import clients to ensure they are registered
+import './clients/InjectiveExplorerApiClient.ts';
+import './clients/InjectiveLCDApiClient.ts';
+import type { InjectiveBalanceResponse, InjectiveTransaction } from './types.ts';
 
 export class InjectiveAdapter extends BaseAdapter {
   private providerManager: BlockchainProviderManager;
@@ -52,20 +56,34 @@ export class InjectiveAdapter extends BaseAdapter {
         throw new Error(`Invalid Injective address: ${address}`);
       }
 
-      this.logger.info(`Getting balance for address: ${address.substring(0, 20)}...`);
+      this.logger.info(`Getting raw balance for address: ${address.substring(0, 20)}...`);
 
       try {
         const failoverResult = await this.providerManager.executeWithFailover('injective', {
           address: address,
           getCacheKey: cacheParams =>
-            `inj_balance_${cacheParams.type === 'getAddressBalance' ? cacheParams.address : 'unknown'}`,
-          type: 'getAddressBalance',
+            `inj_raw_balance_${cacheParams.type === 'getRawAddressBalance' ? cacheParams.address : 'unknown'}`,
+          type: 'getRawAddressBalance',
         });
-        const balances = failoverResult.data as Balance[];
+        const rawBalanceResponse = failoverResult.data as InjectiveBalanceResponse;
+
+        // Transform raw balance response to Balance format
+        // This is minimal transformation - detailed processing should be in processors if needed
+        const balances: Balance[] = rawBalanceResponse.balances.map(balance => {
+          const amount = parseFloat(balance.amount) / Math.pow(10, 18); // Convert from smallest unit
+          const currency = balance.denom === 'inj' || balance.denom === 'uinj' ? 'INJ' : balance.denom.toUpperCase();
+          return {
+            balance: amount,
+            contractAddress: undefined,
+            currency,
+            total: amount,
+            used: 0,
+          };
+        });
 
         allBalances.push(...balances);
       } catch (error) {
-        this.logger.error(`Failed to fetch balance for ${address} - Error: ${error}`);
+        this.logger.error(`Failed to fetch raw balance for ${address} - Error: ${error}`);
         throw error;
       }
     }
@@ -73,12 +91,16 @@ export class InjectiveAdapter extends BaseAdapter {
     return allBalances;
   }
 
-  protected async fetchRawTransactions(params: UniversalFetchParams): Promise<BlockchainTransaction[]> {
+  /**
+   * Fetch raw transaction data from Injective blockchain APIs.
+   * Returns raw InjectiveTransaction data that will be processed by specific processors.
+   */
+  protected async fetchRawTransactions(params: UniversalFetchParams): Promise<InjectiveTransaction[]> {
     if (!params.addresses?.length) {
       throw new Error('Addresses required for Injective adapter');
     }
 
-    const allTransactions: BlockchainTransaction[] = [];
+    const allRawTransactions: InjectiveTransaction[] = [];
 
     for (const address of params.addresses) {
       // Basic Injective address validation - starts with 'inj' and is bech32 encoded
@@ -86,60 +108,52 @@ export class InjectiveAdapter extends BaseAdapter {
         throw new Error(`Invalid Injective address: ${address}`);
       }
 
-      this.logger.info(`InjectiveAdapter: Fetching transactions for address: ${address.substring(0, 20)}...`);
+      this.logger.info(`InjectiveAdapter: Fetching raw transactions for address: ${address.substring(0, 20)}...`);
 
       try {
-        // Fetch regular INJ transactions
-        const regularTxsFailoverResult = await this.providerManager.executeWithFailover('injective', {
+        // Fetch raw transactions from Injective Explorer API
+        const failoverResult = await this.providerManager.executeWithFailover('injective', {
           address: address,
           getCacheKey: cacheParams =>
-            `inj_tx_${cacheParams.type === 'getAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getAddressTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
+            `inj_raw_tx_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
           since: params.since,
-          type: 'getAddressTransactions',
+          type: 'getRawAddressTransactions',
         });
-        const regularTxs = regularTxsFailoverResult.data as BlockchainTransaction[];
+        const rawTransactions = failoverResult.data as InjectiveTransaction[];
 
-        // Try to fetch token transactions (if provider supports it)
-        // Note: In Injective, tokens are represented as different denoms, not separate contracts
-        let tokenTxs: BlockchainTransaction[] = [];
-        try {
-          const tokenTxsFailoverResult = await this.providerManager.executeWithFailover('injective', {
-            address: address,
-            getCacheKey: cacheParams =>
-              `inj_token_tx_${cacheParams.type === 'getTokenTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getTokenTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
-            since: params.since,
-            type: 'getTokenTransactions',
-          });
-          tokenTxs = tokenTxsFailoverResult.data as BlockchainTransaction[];
-        } catch (error) {
-          this.logger.debug(
-            `Provider does not support separate token transactions or failed to fetch - Error: ${error instanceof Error ? error.message : String(error)}`
-          );
-          // Continue without separate token transactions - provider may already include them in getAddressTransactions
-        }
+        // Add fetching address to each raw transaction for processor context
+        const enhancedRawTransactions = rawTransactions.map(tx => ({
+          ...tx,
+          fetchedByAddress: address,
+        }));
 
-        allTransactions.push(...regularTxs, ...tokenTxs);
+        allRawTransactions.push(...enhancedRawTransactions);
 
         this.logger.info(
-          `InjectiveAdapter transaction breakdown for ${address.substring(0, 20)}... - Regular: ${regularTxs.length}, Token: ${tokenTxs.length}`
+          `InjectiveAdapter: Found ${rawTransactions.length} raw transactions for ${address.substring(0, 20)}...`
         );
       } catch (error) {
-        this.logger.error(`Failed to fetch transactions for ${address} - Error: ${error}`);
+        this.logger.error(`Failed to fetch raw transactions for ${address} - Error: ${error}`);
         throw error;
       }
     }
 
-    // Remove duplicates and sort by timestamp
-    const uniqueTransactions = allTransactions.reduce((acc, tx) => {
+    // Remove duplicates based on hash and sort by timestamp
+    const uniqueTransactions = allRawTransactions.reduce((acc, tx) => {
       if (!acc.find(existing => existing.hash === tx.hash)) {
         acc.push(tx);
       }
       return acc;
-    }, [] as BlockchainTransaction[]);
+    }, [] as InjectiveTransaction[]);
 
-    uniqueTransactions.sort((a, b) => b.timestamp - a.timestamp);
+    // Sort by block timestamp (newest first)
+    uniqueTransactions.sort((a, b) => {
+      const timestampA = new Date(a.block_timestamp).getTime();
+      const timestampB = new Date(b.block_timestamp).getTime();
+      return timestampB - timestampA;
+    });
 
-    this.logger.info(`InjectiveAdapter: Found ${uniqueTransactions.length} unique transactions total`);
+    this.logger.info(`InjectiveAdapter: Found ${uniqueTransactions.length} unique raw transactions total`);
     return uniqueTransactions;
   }
 
@@ -152,7 +166,7 @@ export class InjectiveAdapter extends BaseAdapter {
           requestsPerSecond: 3,
         },
         requiresApiKey: false,
-        supportedOperations: ['fetchTransactions', 'fetchBalances'],
+        supportedOperations: ['fetchTransactions', 'fetchBalances', 'getAddressTransactions'],
         supportsHistoricalData: true,
         supportsPagination: true,
       },
@@ -193,49 +207,118 @@ export class InjectiveAdapter extends BaseAdapter {
   }
 
   protected async transformTransactions(
-    rawTxs: BlockchainTransaction[],
+    rawTxs: InjectiveTransaction[],
     params: UniversalFetchParams
   ): Promise<UniversalTransaction[]> {
+    // BRIDGE: Temporary compatibility layer for old import system
+    // This method provides backward compatibility while maintaining the new processor architecture
+    // The new system uses InjectiveTransactionProcessor via ProcessorFactory
+
     const userAddresses = params.addresses || [];
+    const relevantAddresses = new Set(userAddresses);
+    const universalTransactions: UniversalTransaction[] = [];
 
-    return rawTxs.map(tx => {
-      // Determine transaction type based on user addresses
-      let type: TransactionType = 'transfer';
+    for (const tx of rawTxs) {
+      try {
+        // Use the same logic as InjectiveExplorerProcessor for consistency
+        const timestamp = new Date(tx.block_timestamp).getTime();
 
-      if (userAddresses.length > 0) {
-        const userAddress = userAddresses[0].toLowerCase();
-        const isIncoming = tx.to.toLowerCase() === userAddress;
-        const isOutgoing = tx.from.toLowerCase() === userAddress;
+        let value = createMoney(0, 'INJ');
+        let fee = createMoney(0, 'INJ');
+        let from = '';
+        let to = '';
+        let tokenSymbol = 'INJ';
+        let isRelevantTransaction = false;
+        let isIncoming = false;
+        let isOutgoing = false;
 
+        // Parse fee from gas_fee field
+        if (tx.gas_fee && tx.gas_fee.amount && Array.isArray(tx.gas_fee.amount) && tx.gas_fee.amount.length > 0) {
+          const firstFee = tx.gas_fee.amount[0];
+          if (firstFee && firstFee.amount && firstFee.denom) {
+            const feeAmount = parseFloat(firstFee.amount) / Math.pow(10, 18);
+            fee = createMoney(
+              feeAmount.toString(),
+              firstFee.denom === 'inj' || firstFee.denom === 'uinj' ? 'INJ' : firstFee.denom.toUpperCase()
+            );
+          }
+        }
+
+        // Parse messages to extract transfer information
+        for (const message of tx.messages) {
+          if (message.type === '/cosmos.bank.v1beta1.MsgSend') {
+            from = message.value.from_address || '';
+            to = message.value.to_address || '';
+
+            if (message.value.amount && Array.isArray(message.value.amount) && message.value.amount.length > 0) {
+              const transferAmount = message.value.amount[0];
+              if (transferAmount) {
+                const amount = parseFloat(transferAmount.amount) / Math.pow(10, 18);
+                const denom =
+                  transferAmount.denom === 'inj' || transferAmount.denom === 'uinj'
+                    ? 'INJ'
+                    : transferAmount.denom.toUpperCase();
+                value = createMoney(amount.toString(), denom);
+                tokenSymbol = denom;
+              }
+            }
+
+            // Check if relevant to wallet addresses
+            if (to && relevantAddresses.has(to) && value.amount.toNumber() > 0) {
+              isRelevantTransaction = true;
+              isIncoming = true;
+            } else if (from && relevantAddresses.has(from) && value.amount.toNumber() > 0) {
+              isRelevantTransaction = true;
+              isOutgoing = true;
+            }
+            break;
+          }
+        }
+
+        // Only process relevant transactions
+        if (!isRelevantTransaction) {
+          continue;
+        }
+
+        // Determine transaction type
+        let type: TransactionType = 'transfer';
         if (isIncoming && !isOutgoing) {
           type = 'deposit';
         } else if (isOutgoing && !isIncoming) {
           type = 'withdrawal';
+        } else if (isIncoming && isOutgoing) {
+          type = 'transfer';
         }
-      }
 
-      return {
-        amount: tx.value,
-        datetime: new Date(tx.timestamp).toISOString(),
-        fee: tx.fee,
-        from: tx.from,
-        id: tx.hash,
-        metadata: {
-          blockHash: tx.blockHash,
-          blockNumber: tx.blockNumber,
-          confirmations: tx.confirmations,
-          originalTransaction: tx,
-          tokenContract: tx.tokenContract,
-          transactionType: tx.type,
-        },
-        network: 'mainnet',
-        source: 'injective',
-        status: tx.status === 'success' ? 'closed' : tx.status === 'pending' ? 'open' : 'canceled',
-        symbol: tx.tokenSymbol || tx.value.currency,
-        timestamp: tx.timestamp,
-        to: tx.to,
-        type,
-      };
-    });
+        universalTransactions.push({
+          amount: value,
+          datetime: new Date(timestamp).toISOString(),
+          fee,
+          from,
+          id: tx.hash,
+          metadata: {
+            blockchain: 'injective',
+            blockNumber: tx.block_number,
+            confirmations: tx.code === 0 ? 1 : 0,
+            gasUsed: tx.gas_used,
+            originalTransaction: tx,
+          },
+          network: 'mainnet',
+          source: 'injective',
+          status: tx.code === 0 ? 'closed' : tx.code === 0 ? 'open' : 'canceled',
+          symbol: tokenSymbol,
+          timestamp,
+          to,
+          type,
+        });
+      } catch (error) {
+        this.logger.warn(`Failed to transform transaction ${tx.hash}: ${error}`);
+      }
+    }
+
+    this.logger.debug(
+      `Transformed ${universalTransactions.length} transactions from ${rawTxs.length} raw transactions`
+    );
+    return universalTransactions;
   }
 }

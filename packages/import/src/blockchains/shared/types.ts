@@ -28,6 +28,8 @@ export type ProviderOperationParams =
       until?: number | undefined;
     }
   | { address: string; contractAddresses?: string[] | undefined; type: 'getTokenBalances' }
+  | { address: string; contractAddresses?: string[] | undefined; type: 'getRawAddressBalance' }
+  | { address: string; contractAddresses?: string[] | undefined; type: 'getRawTokenBalances' }
   | { address: string; type: 'getAddressInfo' }
   | { tx: unknown; type: 'parseWalletTransaction'; walletAddresses: string[] }
   | { type: 'testConnection' }
@@ -69,8 +71,12 @@ export type ProviderOperationType =
   | 'getTokenTransactions'
   | 'getTokenBalances'
   | 'getRawAddressTransactions'
+  | 'getRawAddressBalance'
+  | 'getRawTokenBalances'
   | 'getAddressInfo'
-  | 'parseWalletTransaction';
+  | 'parseWalletTransaction'
+  | 'custom'
+  | 'testConnection';
 
 export interface ProviderCapabilities extends DataSourceCapabilities<ProviderOperationType> {
   /** Whether the provider supports real-time data access */
