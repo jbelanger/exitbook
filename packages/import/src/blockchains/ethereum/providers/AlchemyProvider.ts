@@ -54,7 +54,7 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
   constructor(config: AlchemyConfig = {}) {
     this.apiKey = config.apiKey || process.env.ALCHEMY_API_KEY || '';
     this.network = config.network || 'eth-mainnet';
-    this.baseUrl = config.baseUrl || `https://${this.network}.g.alchemy.com/v2/${this.apiKey}`;
+    this.baseUrl = config.baseUrl || `https://${this.network}.g.alchemy.com/v2`;
     this.httpClient = new HttpClient({
       baseUrl: this.baseUrl,
       providerName: this.name,
@@ -126,7 +126,7 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
   private async getAddressBalance(address: string): Promise<Balance[]> {
     try {
       // Get ETH balance
-      const ethBalanceResponse = await this.httpClient.post<JsonRpcResponse<string>>('', {
+      const ethBalanceResponse = await this.httpClient.post<JsonRpcResponse<string>>(`/${this.apiKey}`, {
         id: 1,
         jsonrpc: '2.0',
         method: 'eth_getBalance',
@@ -199,7 +199,7 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
     }
 
     // Get transfers from address
-    const fromResponse = await this.httpClient.post<JsonRpcResponse<AlchemyAssetTransfersResponse>>('', {
+    const fromResponse = await this.httpClient.post<JsonRpcResponse<AlchemyAssetTransfersResponse>>(`/${this.apiKey}`, {
       id: 1,
       jsonrpc: '2.0',
       method: 'alchemy_getAssetTransfers',
@@ -210,7 +210,7 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
     const toParams = { ...params };
     delete toParams.fromAddress;
     toParams.toAddress = address;
-    const toResponse = await this.httpClient.post<JsonRpcResponse<AlchemyAssetTransfersResponse>>('', {
+    const toResponse = await this.httpClient.post<JsonRpcResponse<AlchemyAssetTransfersResponse>>(`/${this.apiKey}`, {
       id: 1,
       jsonrpc: '2.0',
       method: 'alchemy_getAssetTransfers',
@@ -234,7 +234,7 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
 
   private async getTokenBalancesForAddress(address: string, contractAddresses?: string[]): Promise<Balance[]> {
     try {
-      const response = await this.httpClient.post<JsonRpcResponse<AlchemyTokenBalancesResponse>>('', {
+      const response = await this.httpClient.post<JsonRpcResponse<AlchemyTokenBalancesResponse>>(`/${this.apiKey}`, {
         id: 1,
         jsonrpc: '2.0',
         method: 'alchemy_getTokenBalances',
@@ -247,7 +247,7 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
         if (tokenBalance.tokenBalance && tokenBalance.tokenBalance !== '0x0') {
           // Get token metadata
           const metadata = await this.httpClient
-            .post<JsonRpcResponse<AlchemyTokenMetadata>>('', {
+            .post<JsonRpcResponse<AlchemyTokenMetadata>>(`/${this.apiKey}`, {
               id: 1,
               jsonrpc: '2.0',
               method: 'alchemy_getTokenMetadata',
@@ -309,7 +309,7 @@ export class AlchemyProvider implements IBlockchainProvider<AlchemyConfig> {
   async isHealthy(): Promise<boolean> {
     try {
       // Test with a simple JSON-RPC call
-      const response = await this.httpClient.post<JsonRpcResponse<string>>('', {
+      const response = await this.httpClient.post<JsonRpcResponse<string>>(`/${this.apiKey}`, {
         id: 1,
         jsonrpc: '2.0',
         method: 'eth_blockNumber',

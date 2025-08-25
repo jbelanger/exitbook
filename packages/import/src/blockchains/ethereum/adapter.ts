@@ -12,6 +12,19 @@ import type {
 import { BaseAdapter } from '../../shared/adapters/base-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
 import type { BlockchainExplorersConfig } from '../shared/explorer-config.ts';
+import './clients/index.ts';
+// Import clients to trigger registration
+import { AlchemyProcessor } from './processors/AlchemyProcessor.ts';
+import { MoralisProcessor } from './processors/MoralisProcessor.ts';
+import { EthereumTransactionProcessor } from './transaction-processor.ts';
+import type {
+  AlchemyAssetTransfer,
+  EtherscanBalance,
+  MoralisNativeBalance,
+  MoralisTokenBalance,
+  MoralisTokenTransfer,
+  MoralisTransaction,
+} from './types.ts';
 
 export class EthereumAdapter extends BaseAdapter {
   private providerManager: BlockchainProviderManager;
@@ -25,6 +38,54 @@ export class EthereumAdapter extends BaseAdapter {
     this.logger.info(
       `Initialized Ethereum adapter with registry-based provider manager - ProvidersCount: ${this.providerManager.getProviders('ethereum').length}`
     );
+  }
+
+  private processRawBalance(rawData: unknown, providerName: string): Balance[] {
+    switch (providerName) {
+      case 'alchemy':
+        return AlchemyProcessor.processAddressBalance(rawData as EtherscanBalance[]);
+      case 'moralis':
+        return MoralisProcessor.processAddressBalance(rawData as MoralisNativeBalance);
+      default:
+        throw new Error(`Unsupported provider for balance processing: ${providerName}`);
+    }
+  }
+
+  private processRawTokenBalances(rawData: unknown, providerName: string): Balance[] {
+    switch (providerName) {
+      case 'moralis':
+        return MoralisProcessor.processTokenBalances(rawData as MoralisTokenBalance[]);
+      default:
+        this.logger.debug(`Provider ${providerName} does not support token balances or processing not implemented`);
+        return [];
+    }
+  }
+
+  private processRawTokenTransactions(
+    rawData: unknown,
+    providerName: string,
+    userAddress: string
+  ): BlockchainTransaction[] {
+    switch (providerName) {
+      case 'alchemy':
+        return AlchemyProcessor.processTokenTransactions(rawData as AlchemyAssetTransfer[], userAddress);
+      case 'moralis':
+        return MoralisProcessor.processTokenTransactions(rawData as MoralisTokenTransfer[], userAddress);
+      default:
+        this.logger.debug(`Provider ${providerName} does not support token transactions or processing not implemented`);
+        return [];
+    }
+  }
+
+  private processRawTransactions(rawData: unknown, providerName: string, userAddress: string): BlockchainTransaction[] {
+    switch (providerName) {
+      case 'alchemy':
+        return AlchemyProcessor.processAddressTransactions(rawData as AlchemyAssetTransfer[], userAddress);
+      case 'moralis':
+        return MoralisProcessor.processAddressTransactions(rawData as MoralisTransaction[], userAddress);
+      default:
+        throw new Error(`Unsupported provider for transaction processing: ${providerName}`);
+    }
   }
 
   /**
@@ -53,12 +114,32 @@ export class EthereumAdapter extends BaseAdapter {
         const failoverResult = await this.providerManager.executeWithFailover('ethereum', {
           address: address,
           getCacheKey: cacheParams =>
-            `eth_balance_${cacheParams.type === 'getAddressBalance' ? cacheParams.address : 'unknown'}`,
-          type: 'getAddressBalance',
+            `eth_balance_${cacheParams.type === 'getRawAddressBalance' ? cacheParams.address : 'unknown'}`,
+          type: 'getRawAddressBalance',
         });
-        const balances = failoverResult.data as Balance[];
 
+        const balances = this.processRawBalance(failoverResult.data, failoverResult.providerName);
         allBalances.push(...balances);
+
+        // Get token balances
+        try {
+          const tokenFailoverResult = await this.providerManager.executeWithFailover('ethereum', {
+            address: address,
+            getCacheKey: cacheParams =>
+              `eth_token_balance_${cacheParams.type === 'getRawTokenBalances' ? cacheParams.address : 'unknown'}`,
+            type: 'getRawTokenBalances',
+          });
+
+          const tokenBalances = this.processRawTokenBalances(
+            tokenFailoverResult.data,
+            tokenFailoverResult.providerName
+          );
+          allBalances.push(...tokenBalances);
+        } catch (error) {
+          this.logger.debug(
+            `Token balances not available or failed - Error: ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
       } catch (error) {
         this.logger.error(`Failed to fetch balance for ${address} - Error: ${error}`);
         throw error;
@@ -83,11 +164,16 @@ export class EthereumAdapter extends BaseAdapter {
         const regularTxsFailoverResult = await this.providerManager.executeWithFailover('ethereum', {
           address: address,
           getCacheKey: cacheParams =>
-            `eth_tx_${cacheParams.type === 'getAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getAddressTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
+            `eth_tx_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
           since: params.since,
-          type: 'getAddressTransactions',
+          type: 'getRawAddressTransactions',
         });
-        const regularTxs = regularTxsFailoverResult.data as BlockchainTransaction[];
+
+        const regularTxs = this.processRawTransactions(
+          regularTxsFailoverResult.data,
+          regularTxsFailoverResult.providerName,
+          address
+        );
 
         // Try to fetch ERC-20 token transactions (if provider supports it)
         let tokenTxs: BlockchainTransaction[] = [];
@@ -99,12 +185,16 @@ export class EthereumAdapter extends BaseAdapter {
             since: params.since,
             type: 'getTokenTransactions',
           });
-          tokenTxs = tokenTxsFailoverResult.data as BlockchainTransaction[];
+
+          tokenTxs = this.processRawTokenTransactions(
+            tokenTxsFailoverResult.data,
+            tokenTxsFailoverResult.providerName,
+            address
+          );
         } catch (error) {
           this.logger.debug(
             `Provider does not support separate token transactions or failed to fetch - Error: ${error instanceof Error ? error.message : String(error)}`
           );
-          // Continue without separate token transactions - provider may already include them in getAddressTransactions
         }
 
         allTransactions.push(...regularTxs, ...tokenTxs);
@@ -141,7 +231,7 @@ export class EthereumAdapter extends BaseAdapter {
           requestsPerSecond: 5,
         },
         requiresApiKey: false,
-        supportedOperations: ['fetchTransactions', 'fetchBalances'],
+        supportedOperations: ['fetchTransactions', 'fetchBalances', 'getAddressTransactions'],
         supportsHistoricalData: true,
         supportsPagination: true,
       },
@@ -187,45 +277,6 @@ export class EthereumAdapter extends BaseAdapter {
     params: UniversalFetchParams
   ): Promise<UniversalTransaction[]> {
     const userAddresses = params.addresses || [];
-
-    return rawTxs.map(tx => {
-      // Determine transaction type based on user addresses
-      let type: TransactionType = 'transfer';
-
-      if (userAddresses.length > 0) {
-        const userAddress = userAddresses[0].toLowerCase();
-        const isIncoming = tx.to.toLowerCase() === userAddress;
-        const isOutgoing = tx.from.toLowerCase() === userAddress;
-
-        if (isIncoming && !isOutgoing) {
-          type = 'deposit';
-        } else if (isOutgoing && !isIncoming) {
-          type = 'withdrawal';
-        }
-      }
-
-      return {
-        amount: tx.value,
-        datetime: new Date(tx.timestamp).toISOString(),
-        fee: tx.fee,
-        from: tx.from,
-        id: tx.hash,
-        metadata: {
-          blockHash: tx.blockHash,
-          blockNumber: tx.blockNumber,
-          confirmations: tx.confirmations,
-          originalTransaction: tx,
-          tokenContract: tx.tokenContract,
-          transactionType: tx.type,
-        },
-        network: 'mainnet',
-        source: 'ethereum',
-        status: tx.status === 'success' ? 'closed' : tx.status === 'pending' ? 'open' : 'canceled',
-        symbol: tx.tokenSymbol || tx.value.currency,
-        timestamp: tx.timestamp,
-        to: tx.to,
-        type,
-      };
-    });
+    return EthereumTransactionProcessor.processTransactions(rawTxs, userAddresses);
   }
 }
