@@ -80,11 +80,16 @@ export class Database {
         id TEXT PRIMARY KEY,
         adapter_id TEXT NOT NULL,
         adapter_type TEXT NOT NULL,
+        provider_id TEXT,
         source_transaction_id TEXT NOT NULL,
         raw_data JSON NOT NULL,
+        metadata JSON,
+        processing_status TEXT DEFAULT 'pending',
+        processing_error TEXT,
+        processed_at INTEGER,
         created_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
         import_session_id TEXT,
-        UNIQUE(adapter_id, source_transaction_id)
+        UNIQUE(adapter_id, provider_id, source_transaction_id)
       )`,
 
       // Transactions table - stores transactions from all adapters with standardized structure
@@ -411,32 +416,57 @@ export class Database {
   }
 
   async getRawTransactions(
-    adapterId?: string,
-    importSessionId?: string
+    filters?: {
+      adapterId?: string | undefined;
+      importSessionId?: string | undefined;
+      processingStatus?: 'pending' | 'processed' | 'failed' | undefined;
+      providerId?: string | undefined;
+      since?: number | undefined;
+    }
   ): Promise<
     Array<{
       adapterId: string;
       adapterType: string;
       createdAt: number;
       id: string;
-      importSessionId?: string;
+      importSessionId?: string | undefined;
+      metadata?: unknown;
+      processedAt?: number | undefined;
+      processingError?: string | undefined;
+      processingStatus: string;
+      providerId?: string | undefined;
       rawData: unknown;
       sourceTransactionId: string;
     }>
   > {
     return new Promise((resolve, reject) => {
-      let query = 'SELECT * FROM raw_transactions';
+      let query = 'SELECT * FROM external_transaction_data';
       const params: SQLParam[] = [];
       const conditions: string[] = [];
 
-      if (adapterId) {
+      if (filters?.adapterId) {
         conditions.push('adapter_id = ?');
-        params.push(adapterId);
+        params.push(filters.adapterId);
       }
 
-      if (importSessionId) {
+      if (filters?.importSessionId) {
         conditions.push('import_session_id = ?');
-        params.push(importSessionId);
+        params.push(filters.importSessionId);
+      }
+
+      if (filters?.providerId) {
+        conditions.push('provider_id = ?');
+        params.push(filters.providerId);
+      }
+
+      if (filters?.processingStatus) {
+        conditions.push('processing_status = ?');
+        params.push(filters.processingStatus);
+      }
+
+      if (filters?.since) {
+        conditions.push('created_at >= ?');
+        params.push(filters.since);
       }
 
       if (conditions.length > 0) {
@@ -456,7 +486,12 @@ export class Database {
               adapterType: dbRow.adapter_type as string,
               createdAt: dbRow.created_at as number,
               id: dbRow.id as string,
-              importSessionId: dbRow.import_session_id as string,
+              importSessionId: dbRow.import_session_id ? (dbRow.import_session_id as string) : undefined,
+              metadata: dbRow.metadata ? JSON.parse(dbRow.metadata as string) : undefined,
+              processedAt: dbRow.processed_at ? (dbRow.processed_at as number) : undefined,
+              processingError: dbRow.processing_error ? (dbRow.processing_error as string) : undefined,
+              processingStatus: dbRow.processing_status as string,
+              providerId: dbRow.provider_id ? (dbRow.provider_id as string) : undefined,
               rawData: JSON.parse(dbRow.raw_data as string),
               sourceTransactionId: dbRow.source_transaction_id as string,
             };
@@ -475,12 +510,12 @@ export class Database {
         'SELECT exchange, COUNT(*) as count FROM transactions GROUP BY exchange',
         'SELECT COUNT(*) as total_verifications FROM balance_verifications',
         'SELECT COUNT(*) as total_snapshots FROM balance_snapshots',
-        'SELECT COUNT(*) as total_raw_transactions FROM raw_transactions',
+        'SELECT COUNT(*) as total_external_transactions FROM external_transaction_data',
       ];
 
       const results: DatabaseStats = {
         totalExchanges: 0,
-        totalRawTransactions: 0,
+        totalExternalTransactions: 0,
         totalSnapshots: 0,
         totalTransactions: 0,
         totalVerifications: 0,
@@ -515,7 +550,7 @@ export class Database {
 
         this.db.get(queries[5]!, (err, row: StatRow) => {
           if (err) return reject(err);
-          results.totalRawTransactions = row.total_raw_transactions || 0;
+          results.totalExternalTransactions = row.total_external_transactions || 0;
           resolve(results);
         });
       });
@@ -715,19 +750,36 @@ export class Database {
     adapterType: string,
     sourceTransactionId: string,
     rawData: unknown,
-    importSessionId?: string
+    options?: {
+      importSessionId?: string | undefined;
+      metadata?: unknown;
+      providerId?: string | undefined;
+    }
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       const stmt = this.db.prepare(`
         INSERT OR REPLACE INTO raw_transactions 
-        (id, adapter_id, adapter_type, source_transaction_id, raw_data, import_session_id)
-        VALUES (?, ?, ?, ?, ?, ?)
+        (id, adapter_id, adapter_type, provider_id, source_transaction_id, raw_data, metadata, import_session_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
-      const id = `${adapterId}-raw-${sourceTransactionId}`;
+      const providerId = options?.providerId || null;
+      const id = providerId 
+        ? `${adapterId}-${providerId}-raw-${sourceTransactionId}`
+        : `${adapterId}-raw-${sourceTransactionId}`;
       const rawDataJson = JSON.stringify(rawData);
+      const metadataJson = options?.metadata ? JSON.stringify(options.metadata) : null;
 
-      stmt.run([id, adapterId, adapterType, sourceTransactionId, rawDataJson, importSessionId || null], function (err) {
+      stmt.run([
+        id, 
+        adapterId, 
+        adapterType, 
+        providerId,
+        sourceTransactionId, 
+        rawDataJson, 
+        metadataJson,
+        options?.importSessionId || null
+      ], function (err) {
         if (err) {
           reject(err);
         } else {
@@ -743,7 +795,11 @@ export class Database {
     adapterId: string,
     adapterType: string,
     rawTransactions: Array<{ data: unknown; id: string; }>,
-    importSessionId?: string
+    options?: {
+      importSessionId?: string | undefined;
+      metadata?: unknown;
+      providerId?: string | undefined;
+    }
   ): Promise<number> {
     return new Promise((resolve, reject) => {
       let saved = 0;
@@ -753,15 +809,28 @@ export class Database {
 
         const stmt = this.db.prepare(`
           INSERT OR IGNORE INTO raw_transactions 
-          (id, adapter_id, adapter_type, source_transaction_id, raw_data, import_session_id)
-          VALUES (?, ?, ?, ?, ?, ?)
+          (id, adapter_id, adapter_type, provider_id, source_transaction_id, raw_data, metadata, import_session_id)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         for (const rawTx of rawTransactions) {
-          const id = `${adapterId}-raw-${rawTx.id}`;
+          const providerId = options?.providerId || null;
+          const id = providerId 
+            ? `${adapterId}-${providerId}-raw-${rawTx.id}`
+            : `${adapterId}-raw-${rawTx.id}`;
           const rawDataJson = JSON.stringify(rawTx.data);
+          const metadataJson = options?.metadata ? JSON.stringify(options.metadata) : null;
 
-          stmt.run([id, adapterId, adapterType, rawTx.id, rawDataJson, importSessionId || null], function (err) {
+          stmt.run([
+            id, 
+            adapterId, 
+            adapterType, 
+            providerId,
+            rawTx.id, 
+            rawDataJson, 
+            metadataJson,
+            options?.importSessionId || null
+          ], function (err) {
             if (err && !err.message.includes('UNIQUE constraint failed')) {
               stmt.finalize();
               return reject(err);
@@ -937,6 +1006,42 @@ export class Database {
           }
         });
       });
+    });
+  }
+
+  async updateRawTransactionProcessingStatus(
+    adapterId: string,
+    sourceTransactionId: string,
+    status: 'pending' | 'processed' | 'failed',
+    error?: string,
+    providerId?: string
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const stmt = this.db.prepare(`
+        UPDATE raw_transactions 
+        SET processing_status = ?, processing_error = ?, processed_at = ?
+        WHERE adapter_id = ? AND source_transaction_id = ? AND (provider_id = ? OR (provider_id IS NULL AND ? IS NULL))
+      `);
+
+      const processedAt = status === 'processed' ? Math.floor(Date.now() / 1000) : null;
+
+      stmt.run([
+        status, 
+        error || null, 
+        processedAt,
+        adapterId, 
+        sourceTransactionId,
+        providerId || null,
+        providerId || null
+      ], function (err) {
+        if (err) {
+          reject(err);
+        } else {
+          resolve();
+        }
+      });
+
+      stmt.finalize();
     });
   }
 

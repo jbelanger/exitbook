@@ -1,0 +1,125 @@
+import { getLogger } from '@crypto/shared-logger';
+
+import type { ETLComponentConfig } from '../common/interfaces.ts';
+import type { IImporter } from './interfaces.ts';
+
+/**
+ * Factory for creating importer instances.
+ * Handles dependency injection and adapter-specific instantiation.
+ */
+export class ImporterFactory {
+  private static readonly logger = getLogger('ImporterFactory');
+
+  /**
+   * Create an importer for the specified adapter.
+   */
+  static async create<T>(config: ETLComponentConfig): Promise<IImporter<T>> {
+    const { adapterId, adapterType } = config;
+
+    ImporterFactory.logger.info(`Creating importer for ${adapterId} (type: ${adapterType})`);
+
+    if (adapterType === 'exchange') {
+      return await ImporterFactory.createExchangeImporter<T>(config);
+    }
+
+    if (adapterType === 'blockchain') {
+      return await ImporterFactory.createBlockchainImporter<T>(config);
+    }
+
+    throw new Error(`Unsupported adapter type: ${adapterType}`);
+  }
+
+  /**
+   * Create Bitcoin importer - placeholder for future implementation.
+   */
+  private static async createBitcoinImporter<T>(_config: ETLComponentConfig): Promise<IImporter<T>> {
+    throw new Error('BitcoinImporter not yet implemented');
+  }
+
+  /**
+   * Create a blockchain importer.
+   */
+  private static async createBlockchainImporter<T>(config: ETLComponentConfig): Promise<IImporter<T>> {
+    const { adapterId, dependencies } = config;
+
+    if (!dependencies.providerManager) {
+      throw new Error(`Provider manager required for blockchain importer: ${adapterId}`);
+    }
+
+    switch (adapterId.toLowerCase()) {
+      case 'bitcoin':
+        return await ImporterFactory.createBitcoinImporter<T>(config);
+
+      case 'ethereum':
+        return await ImporterFactory.createEthereumImporter<T>(config);
+
+      default:
+        throw new Error(`Unsupported blockchain importer: ${adapterId}`);
+    }
+  }
+
+  /**
+   * Create Coinbase importer - placeholder for future implementation.
+   */
+  private static async createCoinbaseImporter<T>(_config: ETLComponentConfig): Promise<IImporter<T>> {
+    throw new Error('CoinbaseImporter not yet implemented');
+  }
+
+  /**
+   * Create Ethereum importer - placeholder for future implementation.
+   */
+  private static async createEthereumImporter<T>(_config: ETLComponentConfig): Promise<IImporter<T>> {
+    throw new Error('EthereumImporter not yet implemented');
+  }
+
+  /**
+   * Create an exchange importer.
+   */
+  private static async createExchangeImporter<T>(config: ETLComponentConfig): Promise<IImporter<T>> {
+    const { adapterId } = config;
+
+    switch (adapterId.toLowerCase()) {
+      case 'kraken':
+        // Dynamic import to avoid circular dependencies
+        return await ImporterFactory.createKrakenImporter<T>(config);
+
+      case 'coinbase':
+        return await ImporterFactory.createCoinbaseImporter<T>(config);
+
+      default:
+        throw new Error(`Unsupported exchange importer: ${adapterId}`);
+    }
+  }
+
+  /**
+   * Create Kraken CSV importer.
+   */
+  private static async createKrakenImporter<T>(_config: ETLComponentConfig): Promise<IImporter<T>> {
+    // Dynamic import to avoid circular dependencies
+    const { KrakenCsvImporter } = await import('../../exchanges/kraken/importer.ts');
+    return new KrakenCsvImporter() as unknown as IImporter<T>;
+  }
+
+  /**
+   * Check if an importer is available for the given adapter.
+   */
+  static isSupported(adapterId: string, adapterType: string): boolean {
+    try {
+      // Create a mock config to test support
+      // Check supported adapters without creating mock config
+
+      // Try to determine if we would be able to create this importer
+      if (adapterType === 'exchange') {
+        return ['kraken', 'coinbase'].includes(adapterId.toLowerCase());
+      }
+
+      if (adapterType === 'blockchain') {
+        return ['bitcoin', 'ethereum'].includes(adapterId.toLowerCase());
+      }
+
+      return false;
+    } catch {
+      return false;
+    }
+  }
+}

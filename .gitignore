@@ -159,3 +159,4 @@ out/
 *.sqlite
 *.sqlite3
 commands.txt
+*files*.txt
