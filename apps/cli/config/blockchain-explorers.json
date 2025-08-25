@@ -85,7 +85,7 @@
       {
         "name": "mempool.space",
         "displayName": "Mempool.space API",
-        "enabled": false,
+        "enabled": true,
         "priority": 3,
         "type": "rest",
         "description": "Bitcoin blockchain explorer API with comprehensive transaction and balance data (no API key required)",

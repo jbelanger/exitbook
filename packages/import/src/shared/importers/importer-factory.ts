@@ -30,10 +30,12 @@ export class ImporterFactory {
   }
 
   /**
-   * Create Bitcoin importer - placeholder for future implementation.
+   * Create Bitcoin importer.
    */
-  private static async createBitcoinImporter<T>(_config: ETLComponentConfig): Promise<IImporter<T>> {
-    throw new Error('BitcoinImporter not yet implemented');
+  private static async createBitcoinImporter<T>(config: ETLComponentConfig): Promise<IImporter<T>> {
+    // Dynamic import to avoid circular dependencies
+    const { BitcoinTransactionImporter } = await import('../../blockchains/bitcoin/transaction-importer.ts');
+    return new BitcoinTransactionImporter(config.dependencies) as unknown as IImporter<T>;
   }
 
   /**

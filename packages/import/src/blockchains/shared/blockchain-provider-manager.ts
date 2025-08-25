@@ -438,6 +438,19 @@ export class BlockchainProviderManager {
             continue;
           }
 
+          // Check if provider requires API key and if it's available
+          if (metadata.requiresApiKey) {
+            const envVar = metadata.apiKeyEnvVar || `${metadata.name.toUpperCase()}_API_KEY`;
+            const apiKey = process.env[envVar];
+
+            if (!apiKey || apiKey === 'YourApiKeyToken') {
+              logger.warn(
+                `No API key found for ${metadata.displayName}. Set environment variable: ${envVar}. Skipping provider.`
+              );
+              continue;
+            }
+          }
+
           // Build provider config by merging defaults with overrides
           const networkEndpoints = explorerConfig as unknown as Record<string, { baseUrl: string }>; // Explorer config has dynamic network properties
           const metadataNetworks = metadata.networks as Record<string, { baseUrl: string; websocketUrl?: string }>; // Metadata networks has dynamic properties

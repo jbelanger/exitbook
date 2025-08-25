@@ -158,10 +158,27 @@ export class HttpClient {
 
           if (response.status === 429) {
             const retryAfter = response.headers.get('Retry-After');
-            const delay = retryAfter ? parseInt(retryAfter) * 1000 : 2000;
+            const rawDelay = retryAfter ? parseInt(retryAfter) : null;
+
+            let delay = 2000; // Default fallback
+
+            if (rawDelay !== null) {
+              // Auto-detect if value is in seconds or milliseconds
+              // If rawDelay > 300 (5 minutes), assume it's milliseconds
+              // If rawDelay <= 300, assume it's seconds (RFC standard)
+              if (rawDelay > 300) {
+                // Likely already in milliseconds, cap at 30 seconds
+                delay = Math.min(rawDelay, 30000);
+                this.logger.debug(`Detected Retry-After as milliseconds: ${rawDelay}ms`);
+              } else {
+                // Likely in seconds per RFC, convert and cap at 30 seconds
+                delay = Math.min(rawDelay * 1000, 30000);
+                this.logger.debug(`Detected Retry-After as seconds: ${rawDelay}s`);
+              }
+            }
 
             this.logger.warn(
-              `Rate limit exceeded by server, waiting before retry - Delay: ${delay}ms, Attempt: ${attempt}/${this.config.retries}`
+              `Rate limit exceeded by server, waiting before retry - RawRetryAfter: ${rawDelay}, Delay: ${delay}ms, Attempt: ${attempt}/${this.config.retries}`
             );
 
             if (attempt < this.config.retries!) {

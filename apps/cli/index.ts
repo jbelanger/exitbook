@@ -584,16 +584,30 @@ async function main() {
         // Initialize database
         const database = await initializeDatabase(options.clearDb);
 
+        // Load explorer config for blockchain adapters
+        const explorerConfig = loadExplorerConfig();
+
         // Create ingestion service with dependencies
         const { TransactionIngestionService } = await import(
           '@crypto/import/src/shared/ingestion/ingestion-service.ts'
         );
         const { ExternalDataStore } = await import('@crypto/import/src/shared/storage/external-data-store.ts');
 
+        // Import blockchain dependencies conditionally
+        let providerManager;
+        if (options.adapterType === 'blockchain') {
+          const { BlockchainProviderManager } = await import(
+            '@crypto/import/src/blockchains/shared/blockchain-provider-manager.ts'
+          );
+          providerManager = new BlockchainProviderManager(explorerConfig);
+        }
+
         const dependencies = {
           database,
+          explorerConfig,
           externalDataStore: new ExternalDataStore(database),
           logger,
+          ...(providerManager && { providerManager }),
         };
 
         const ingestionService = new TransactionIngestionService(dependencies);
@@ -663,16 +677,30 @@ async function main() {
         // Initialize database
         const database = await initializeDatabase(options.cleardb);
 
+        // Load explorer config for blockchain adapters
+        const explorerConfig = loadExplorerConfig();
+
         // Create ingestion service with dependencies
         const { TransactionIngestionService } = await import(
           '@crypto/import/src/shared/ingestion/ingestion-service.ts'
         );
         const { ExternalDataStore } = await import('@crypto/import/src/shared/storage/external-data-store.ts');
 
+        // Import blockchain dependencies conditionally
+        let providerManager;
+        if (options.adapterType === 'blockchain') {
+          const { BlockchainProviderManager } = await import(
+            '@crypto/import/src/blockchains/shared/blockchain-provider-manager.ts'
+          );
+          providerManager = new BlockchainProviderManager(explorerConfig);
+        }
+
         const dependencies = {
           database,
+          explorerConfig,
           externalDataStore: new ExternalDataStore(database),
           logger,
+          ...(providerManager && { providerManager }),
         };
 
         const ingestionService = new TransactionIngestionService(dependencies);
