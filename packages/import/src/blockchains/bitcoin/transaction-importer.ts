@@ -1,14 +1,14 @@
-import { getLogger } from '@crypto/shared-logger';
 import type { Logger } from '@crypto/shared-logger';
+import { getLogger } from '@crypto/shared-logger';
 import * as bitcoin from 'bitcoinjs-lib';
 
 import type { IDependencyContainer } from '../../shared/common/interfaces.ts';
-import type { IImporter, ImportParams, ImportResult, ValidationResult } from '../../shared/importers/interfaces.ts';
+import type { IImporter, ImportParams, ValidationResult } from '../../shared/importers/interfaces.ts';
+import type { SourcedRawData } from '../../shared/processors/interfaces.ts';
 // Ensure Bitcoin providers are registered
 import '../registry/register-providers.ts';
 import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
-import type { BlockchainExplorersConfig } from '../shared/explorer-config.ts';
-import type { BitcoinWalletAddress, BlockstreamTransaction, MempoolTransaction } from './types.ts';
+import type { BitcoinTransaction, BitcoinWalletAddress } from './types.ts';
 import { BitcoinUtils } from './utils.ts';
 
 /**
@@ -16,7 +16,7 @@ import { BitcoinUtils } from './utils.ts';
  * Supports both regular Bitcoin addresses and extended public keys (xpub/ypub/zpub).
  * Uses provider manager for failover between multiple blockchain API providers.
  */
-export class BitcoinTransactionImporter implements IImporter<MempoolTransaction | BlockstreamTransaction> {
+export class BitcoinTransactionImporter implements IImporter<SourcedRawData<BitcoinTransaction>> {
   private addressGap: number;
   private addressInfoCache = new Map<string, { balance: string; txCount: number }>();
   private logger: Logger;
@@ -42,22 +42,29 @@ export class BitcoinTransactionImporter implements IImporter<MempoolTransaction 
   }
 
   /**
-   * Fetch raw transactions for a single address.
+   * Fetch raw transactions for a single address with provider provenance.
    */
   private async fetchRawTransactionsForAddress(
     address: string,
     since?: number
-  ): Promise<(MempoolTransaction | BlockstreamTransaction)[]> {
+  ): Promise<SourcedRawData<BitcoinTransaction>[]> {
     try {
-      const rawTransactions = (await this.providerManager.executeWithFailover('bitcoin', {
+      const result = await this.providerManager.executeWithFailover('bitcoin', {
         address: address,
         getCacheKey: params =>
           `bitcoin:raw-txs:${params.type === 'getRawAddressTransactions' ? params.address : 'unknown'}:${params.type === 'getRawAddressTransactions' ? params.since || 'all' : 'unknown'}`,
         since: since,
         type: 'getRawAddressTransactions',
-      })) as (MempoolTransaction | BlockstreamTransaction)[];
+      });
 
-      return rawTransactions;
+      const rawTransactions = result.data as BitcoinTransaction[];
+      const providerId = result.providerName;
+
+      // Wrap each transaction with provider provenance
+      return rawTransactions.map(rawData => ({
+        providerId,
+        rawData,
+      }));
     } catch (error) {
       this.logger.error(`Provider manager failed to fetch transactions for ${address}: ${error}`);
       throw error;
@@ -70,8 +77,8 @@ export class BitcoinTransactionImporter implements IImporter<MempoolTransaction 
   private async fetchRawTransactionsForDerivedAddresses(
     derivedAddresses: string[],
     since?: number
-  ): Promise<(MempoolTransaction | BlockstreamTransaction)[]> {
-    const uniqueRawTransactions = new Map<string, MempoolTransaction | BlockstreamTransaction>();
+  ): Promise<SourcedRawData<BitcoinTransaction>[]> {
+    const uniqueSourcedTransactions = new Map<string, SourcedRawData<BitcoinTransaction>>();
 
     for (const address of derivedAddresses) {
       // Check cache first to see if this address has any transactions
@@ -84,21 +91,28 @@ export class BitcoinTransactionImporter implements IImporter<MempoolTransaction 
       }
 
       try {
-        const rawTransactions = await this.fetchRawTransactionsForAddress(address, since);
+        const sourcedTransactions = await this.fetchRawTransactionsForAddress(address, since);
 
-        // Add raw transactions to the unique set
-        for (const rawTx of rawTransactions) {
-          uniqueRawTransactions.set(rawTx.txid, rawTx);
+        // Add sourced transactions to the unique set with address information
+        for (const sourcedTx of sourcedTransactions) {
+          // Add the fetching address to the raw transaction data
+          const enhancedRawData: BitcoinTransaction = { ...sourcedTx.rawData, fetchedByAddress: address };
+          const txId = this.getTransactionId(enhancedRawData);
+
+          uniqueSourcedTransactions.set(txId, {
+            providerId: sourcedTx.providerId,
+            rawData: enhancedRawData,
+          });
         }
 
-        this.logger.debug(`Found ${rawTransactions.length} transactions for address ${address}`);
+        this.logger.debug(`Found ${sourcedTransactions.length} transactions for address ${address}`);
       } catch (error) {
         this.logger.error(`Failed to fetch raw transactions for address ${address}: ${error}`);
       }
     }
 
-    this.logger.info(`Found ${uniqueRawTransactions.size} unique raw transactions across all derived addresses`);
-    return Array.from(uniqueRawTransactions.values());
+    this.logger.info(`Found ${uniqueSourcedTransactions.size} unique raw transactions across all derived addresses`);
+    return Array.from(uniqueSourcedTransactions.values());
   }
 
   /**
@@ -143,13 +157,14 @@ export class BitcoinTransactionImporter implements IImporter<MempoolTransaction 
    * Remove duplicate transactions based on txid.
    */
   private removeDuplicateTransactions(
-    transactions: (MempoolTransaction | BlockstreamTransaction)[]
-  ): (MempoolTransaction | BlockstreamTransaction)[] {
-    const uniqueTransactions = new Map<string, MempoolTransaction | BlockstreamTransaction>();
+    sourcedTransactions: SourcedRawData<BitcoinTransaction>[]
+  ): SourcedRawData<BitcoinTransaction>[] {
+    const uniqueTransactions = new Map<string, SourcedRawData<BitcoinTransaction>>();
 
-    for (const tx of transactions) {
-      if (!uniqueTransactions.has(tx.txid)) {
-        uniqueTransactions.set(tx.txid, tx);
+    for (const sourcedTx of sourcedTransactions) {
+      const txId = this.getTransactionId(sourcedTx.rawData);
+      if (!uniqueTransactions.has(txId)) {
+        uniqueTransactions.set(txId, sourcedTx);
       }
     }
 
@@ -157,16 +172,29 @@ export class BitcoinTransactionImporter implements IImporter<MempoolTransaction 
   }
 
   /**
-   * Import raw transaction data from Bitcoin blockchain APIs.
+   * Get transaction ID from any Bitcoin transaction type
    */
-  async importFromSource(params: ImportParams): Promise<(MempoolTransaction | BlockstreamTransaction)[]> {
+  public getTransactionId(tx: BitcoinTransaction): string {
+    // Handle different transaction formats
+    if ('txid' in tx) {
+      return tx.txid; // MempoolTransaction, BlockstreamTransaction
+    } else if ('hash' in tx) {
+      return tx.hash; // BlockCypherTransaction
+    }
+    return 'unknown';
+  }
+
+  /**
+   * Import raw transaction data from Bitcoin blockchain APIs with provider provenance.
+   */
+  async importFromSource(params: ImportParams): Promise<SourcedRawData<BitcoinTransaction>[]> {
     if (!params.addresses?.length) {
       throw new Error('Addresses required for Bitcoin transaction import');
     }
 
     this.logger.info(`Starting Bitcoin transaction import for ${params.addresses.length} addresses`);
 
-    const allRawTransactions: (MempoolTransaction | BlockstreamTransaction)[] = [];
+    const allSourcedTransactions: SourcedRawData<BitcoinTransaction>[] = [];
 
     for (const userAddress of params.addresses) {
       this.logger.info(`Importing transactions for address: ${userAddress.substring(0, 20)}...`);
@@ -197,16 +225,25 @@ export class BitcoinTransactionImporter implements IImporter<MempoolTransaction 
       if (wallet.derivedAddresses) {
         // Xpub wallet - fetch from all derived addresses
         this.logger.info(`Fetching from ${wallet.derivedAddresses.length} derived addresses`);
-        const walletTransactions = await this.fetchRawTransactionsForDerivedAddresses(
+        const walletSourcedTransactions = await this.fetchRawTransactionsForDerivedAddresses(
           wallet.derivedAddresses,
           params.since
         );
-        allRawTransactions.push(...walletTransactions);
+        allSourcedTransactions.push(...walletSourcedTransactions);
       } else {
         // Regular address - fetch directly
         try {
-          const rawTransactions = await this.fetchRawTransactionsForAddress(userAddress, params.since);
-          allRawTransactions.push(...rawTransactions);
+          const sourcedTransactions = await this.fetchRawTransactionsForAddress(userAddress, params.since);
+
+          // Add the fetching address to each raw transaction
+          const enhancedSourcedTransactions: SourcedRawData<BitcoinTransaction>[] = sourcedTransactions.map(
+            sourcedTx => ({
+              providerId: sourcedTx.providerId,
+              rawData: { ...sourcedTx.rawData, fetchedByAddress: userAddress },
+            })
+          );
+
+          allSourcedTransactions.push(...enhancedSourcedTransactions);
         } catch (error) {
           this.logger.error(`Failed to fetch Bitcoin transactions for ${userAddress}: ${error}`);
           throw error;
@@ -215,16 +252,17 @@ export class BitcoinTransactionImporter implements IImporter<MempoolTransaction 
     }
 
     // Remove duplicates based on txid
-    const uniqueTransactions = this.removeDuplicateTransactions(allRawTransactions);
+    const uniqueTransactions = this.removeDuplicateTransactions(allSourcedTransactions);
 
-    this.logger.info(`Bitcoin import completed: ${uniqueTransactions.length} unique raw transactions`);
+    this.logger.info(`Bitcoin import completed: ${uniqueTransactions.length} unique sourced transactions`);
     return uniqueTransactions;
   }
 
   /**
-   * Validate raw transaction data format.
+   * Validate sourced raw transaction data format using basic checks.
+   * Detailed validation is delegated to provider-specific processors.
    */
-  validateRawData(data: (MempoolTransaction | BlockstreamTransaction)[]): ValidationResult {
+  validateRawData(data: SourcedRawData<BitcoinTransaction>[]): ValidationResult {
     const errors: string[] = [];
     const warnings: string[] = [];
 
@@ -237,28 +275,27 @@ export class BitcoinTransactionImporter implements IImporter<MempoolTransaction 
       warnings.push('No transactions found in raw data');
     }
 
-    // Validate each transaction has required fields
+    // Basic validation - detailed validation delegated to providers
     for (let i = 0; i < data.length; i++) {
-      const tx = data[i];
-      if (!tx) {
-        errors.push(`Transaction at index ${i} is null or undefined`);
+      const sourcedTx = data[i];
+      if (!sourcedTx) {
+        errors.push(`Sourced transaction at index ${i} is null or undefined`);
         continue;
       }
 
-      if (!tx.txid || typeof tx.txid !== 'string') {
-        errors.push(`Transaction at index ${i} missing valid txid`);
+      if (!sourcedTx.rawData) {
+        errors.push(`Sourced transaction at index ${i} missing raw data`);
+        continue;
       }
 
-      if (!tx.status || typeof tx.status !== 'object') {
-        errors.push(`Transaction at index ${i} missing valid status`);
+      if (!sourcedTx.providerId) {
+        errors.push(`Sourced transaction at index ${i} missing provider ID`);
+        continue;
       }
 
-      if (!Array.isArray(tx.vin) || !Array.isArray(tx.vout)) {
-        errors.push(`Transaction at index ${i} missing valid inputs/outputs`);
-      }
-
-      if (typeof tx.fee !== 'number') {
-        warnings.push(`Transaction ${tx.txid || i} has invalid fee field`);
+      const txId = this.getTransactionId(sourcedTx.rawData);
+      if (!txId || txId === 'unknown') {
+        errors.push(`Transaction at index ${i} missing valid transaction ID`);
       }
     }
 

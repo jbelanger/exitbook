@@ -214,8 +214,8 @@ describe('BlockchainProviderManager', () => {
     };
 
     const result = await manager.executeWithFailover('ethereum', operation);
-    expect(result.balance).toBe(100);
-    expect(result.currency).toBe('ETH');
+    expect(result.data.balance).toBe(100);
+    expect(result.data.currency).toBe('ETH');
   });
 
   test('should failover to secondary provider', async () => {
@@ -228,7 +228,7 @@ describe('BlockchainProviderManager', () => {
     };
 
     const result = await manager.executeWithFailover('ethereum', operation);
-    expect(result.balance).toBe(100); // Should get result from fallback
+    expect(result.data.balance).toBe(100); // Should get result from fallback
   });
 
   test('should fail when all providers fail', async () => {
@@ -323,7 +323,7 @@ describe('BlockchainProviderManager', () => {
       // Next call should skip primary (circuit breaker open) and go to fallback
       const result = await manager.executeWithFailover('ethereum', operation);
 
-      expect(result.balance).toBe(100);
+      expect(result.data.balance).toBe(100);
       expect(executeSpyPrimary).not.toHaveBeenCalled(); // Primary skipped due to circuit breaker
       expect(executeSpyFallback).toHaveBeenCalledTimes(1); // Fallback used
     } finally {
@@ -376,7 +376,7 @@ describe('BlockchainProviderManager', () => {
 
     // First call - should cache result
     const result1 = await manager.executeWithFailover('ethereum', operation);
-    expect(result1.balance).toBe(100);
+    expect(result1.data.balance).toBe(100);
 
     // Advance time past cache expiry (30 seconds + buffer)
     vi.advanceTimersByTime(35000);
@@ -386,7 +386,7 @@ describe('BlockchainProviderManager', () => {
 
     // Second call - cache expired, should fail over to fallback
     const result2 = await manager.executeWithFailover('ethereum', operation);
-    expect(result2.balance).toBe(100); // Should get result from fallback, not stale cache
+    expect(result2.data.balance).toBe(100); // Should get result from fallback, not stale cache
 
     vi.useRealTimers();
   });
@@ -526,8 +526,8 @@ describe('Provider System Integration', () => {
       };
 
       const result = await manager.executeWithFailover('bitcoin', operation);
-      expect(result.transactions).toEqual([]);
-      expect(result.address).toBe('bc1xyz');
+      expect(result.data.transactions).toEqual([]);
+      expect(result.data.address).toBe('bc1xyz');
 
       // Verify health status
       const health = manager.getProviderHealth('bitcoin');

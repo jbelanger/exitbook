@@ -5,7 +5,7 @@ import { Decimal } from 'decimal.js';
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
 import { RegisterProvider } from '../../shared/registry/decorators.ts';
 import type { JsonRpcResponse } from '../../shared/types.ts';
-import { ProviderOperation } from '../../shared/types.ts';
+import type { ProviderOperation } from '../../shared/types.ts';
 import type {
   SubscanAccountResponse,
   SubscanTransfer,

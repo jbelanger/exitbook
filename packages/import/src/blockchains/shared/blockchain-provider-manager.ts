@@ -1,5 +1,6 @@
 import { getLogger } from '@crypto/shared-logger';
 
+import type { FailoverExecutionResult } from '../../shared/processors/interfaces.ts';
 import { CircuitBreaker } from '../../shared/utils/circuit-breaker.ts';
 import type { BlockchainExplorersConfig } from './explorer-config.ts';
 import { ProviderRegistry } from './registry/provider-registry.ts';
@@ -98,7 +99,10 @@ export class BlockchainProviderManager {
   /**
    * Execute with circuit breaker protection and automatic failover
    */
-  private async executeWithCircuitBreaker<T>(blockchain: string, operation: ProviderOperation<T>): Promise<T> {
+  private async executeWithCircuitBreaker<T>(
+    blockchain: string,
+    operation: ProviderOperation<T>
+  ): Promise<FailoverExecutionResult<T>> {
     const providers = this.getProvidersInOrder(blockchain, operation);
 
     if (providers.length === 0) {
@@ -155,7 +159,10 @@ export class BlockchainProviderManager {
         circuitBreaker.recordSuccess();
         this.updateHealthMetrics(provider.name, true, responseTime);
 
-        return result;
+        return {
+          data: result,
+          providerName: provider.name,
+        };
       } catch (error) {
         lastError = error as Error;
         const responseTime = Date.now() - startTime;
@@ -519,13 +526,17 @@ export class BlockchainProviderManager {
   /**
    * Execute operation with intelligent failover and caching
    */
-  async executeWithFailover<T>(blockchain: string, operation: ProviderOperation<T>): Promise<T> {
+  async executeWithFailover<T>(
+    blockchain: string,
+    operation: ProviderOperation<T>
+  ): Promise<FailoverExecutionResult<T>> {
     // Check cache first
     if (operation.getCacheKey) {
       const cacheKey = operation.getCacheKey(operation);
       const cached = this.requestCache.get(cacheKey);
       if (cached && cached.expiry > Date.now()) {
-        return cached.result as T;
+        const cachedResult = cached.result as FailoverExecutionResult<T>;
+        return cachedResult;
       }
     }
 

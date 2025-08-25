@@ -58,12 +58,13 @@ export class SubstrateAdapter extends BaseAdapter {
       );
 
       try {
-        const balances = (await this.providerManager.executeWithFailover('polkadot', {
+        const failoverResult = await this.providerManager.executeWithFailover('polkadot', {
           address: address,
           getCacheKey: cacheParams =>
             `${this.chainConfig.name}_balance_${cacheParams.type === 'getAddressBalance' ? cacheParams.address : 'unknown'}`,
           type: 'getAddressBalance',
-        })) as Balance[];
+        });
+        const balances = failoverResult.data as Balance[];
 
         allBalances.push(...balances);
         this.logger.info(`SubstrateAdapter: Found ${balances.length} balances for ${this.chainConfig.name} address`);
@@ -92,13 +93,14 @@ export class SubstrateAdapter extends BaseAdapter {
       );
 
       try {
-        const transactions = (await this.providerManager.executeWithFailover('polkadot', {
+        const transactionsFailoverResult = await this.providerManager.executeWithFailover('polkadot', {
           address: address,
           getCacheKey: cacheParams =>
             `${this.chainConfig.name}_tx_${cacheParams.type === 'getAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getAddressTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
           since: params.since,
           type: 'getAddressTransactions',
-        })) as BlockchainTransaction[];
+        });
+        const transactions = transactionsFailoverResult.data as BlockchainTransaction[];
 
         allTransactions.push(...transactions);
 
