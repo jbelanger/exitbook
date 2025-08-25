@@ -1,7 +1,7 @@
 import { HttpClient, maskAddress } from '@crypto/shared-utils';
 
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
-import { RegisterProvider } from '../../shared/registry/decorators.ts';
+import { RegisterApiClient } from '../../shared/registry/decorators.ts';
 import type { JsonRpcResponse } from '../../shared/types.ts';
 import type { ProviderOperation } from '../../shared/types.ts';
 import type {
@@ -15,7 +15,7 @@ import type {
 import { SUBSTRATE_CHAINS } from '../types.ts';
 import { isValidSS58Address } from '../utils.ts';
 
-@RegisterProvider({
+@RegisterApiClient({
   blockchain: 'polkadot',
   capabilities: {
     maxBatchSize: 1,

@@ -1,7 +1,7 @@
 import { maskAddress } from '@crypto/shared-utils';
 
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
-import { RegisterProvider } from '../../shared/registry/decorators.ts';
+import { RegisterApiClient } from '../../shared/registry/decorators.ts';
 import type { JsonRpcResponse, ProviderOperation } from '../../shared/types.ts';
 import type { SolanaRPCTransaction, SolanaSignature, SolanaTokenAccountsResponse } from '../types.ts';
 import { isValidSolanaAddress } from '../utils.ts';
@@ -18,7 +18,7 @@ export interface SolanaRPCRawTokenBalanceData {
   tokenAccounts: SolanaTokenAccountsResponse;
 }
 
-@RegisterProvider({
+@RegisterApiClient({
   blockchain: 'solana',
   capabilities: {
     maxBatchSize: 1,

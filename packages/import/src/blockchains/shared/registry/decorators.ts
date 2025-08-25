@@ -2,9 +2,9 @@ import type { IBlockchainProvider } from '../types.ts';
 import { type ProviderFactory, type ProviderMetadata, ProviderRegistry } from './provider-registry.ts';
 
 /**
- * Decorator to register a provider class with the registry
+ * Decorator to register an API client class with the registry
  */
-export function RegisterProvider(
+export function RegisterApiClient(
   metadata: ProviderMetadata
 ): <T extends new (...args: unknown[]) => IBlockchainProvider>(constructor: T) => T {
   return function <T extends new (...args: unknown[]) => IBlockchainProvider>(constructor: T): T {
@@ -19,4 +19,14 @@ export function RegisterProvider(
 
     return constructor;
   };
+}
+
+/**
+ * @deprecated Use RegisterApiClient instead. This alias is provided for backward compatibility.
+ * Decorator to register a provider class with the registry
+ */
+export function RegisterProvider(
+  metadata: ProviderMetadata
+): <T extends new (...args: unknown[]) => IBlockchainProvider>(constructor: T) => T {
+  return RegisterApiClient(metadata);
 }

@@ -1,7 +1,9 @@
-import type { Balance, BlockchainTransaction } from '@crypto/core';
+import type { Balance, BlockchainTransaction, UniversalTransaction } from '@crypto/core';
 import { createMoney, maskAddress } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
 
+import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
+import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
 import type { SubscanTransfer, SubstrateAccountInfo, SubstrateChainConfig, TaostatsTransaction } from '../types.ts';
 import { SUBSTRATE_CHAINS } from '../types.ts';
 
@@ -15,7 +17,8 @@ export interface SubstrateRawData {
   since?: number;
 }
 
-export class SubstrateProcessor {
+@RegisterProcessor('subscan')
+export class SubstrateProcessor implements IProviderProcessor<SubstrateRawData> {
   private static convertSubscanTransaction(
     transfer: SubscanTransfer,
     userAddress: string,
@@ -188,5 +191,122 @@ export class SubstrateProcessor {
         used: 0, // Taostats might not provide reserved balance
       },
     ];
+  }
+
+  // IProviderProcessor interface implementation
+  transform(rawData: SubstrateRawData, walletAddresses: string[]): UniversalTransaction {
+    // Process the first transaction for interface compatibility
+    const userAddress = walletAddresses[0] || '';
+
+    if (!rawData.data || rawData.data.length === 0) {
+      throw new Error('No transactions to transform from SubstrateRawData');
+    }
+
+    const transactions = SubstrateProcessor.processAddressTransactions(rawData, userAddress);
+
+    if (transactions.length === 0) {
+      throw new Error('No relevant transactions found for user address');
+    }
+
+    const bcTx = transactions[0]; // Take the first processed transaction
+
+    // Convert to UniversalTransaction following Bitcoin pattern
+    let type: UniversalTransaction['type'];
+    if (bcTx.type === 'transfer_in') {
+      type = 'deposit';
+    } else if (bcTx.type === 'transfer_out') {
+      type = 'withdrawal';
+    } else {
+      type = 'transfer';
+    }
+
+    return {
+      amount: bcTx.value,
+      datetime: new Date(bcTx.timestamp).toISOString(),
+      fee: bcTx.fee,
+      from: bcTx.from,
+      id: bcTx.hash,
+      metadata: {
+        blockchain: 'polkadot',
+        blockNumber: bcTx.blockNumber,
+        providerId: 'subscan',
+        rawData: bcTx,
+      },
+      source: 'polkadot',
+      status: bcTx.status === 'success' ? 'ok' : 'failed',
+      symbol: bcTx.value.currency,
+      timestamp: bcTx.timestamp,
+      to: bcTx.to,
+      type,
+    };
+  }
+
+  validate(rawData: SubstrateRawData): ValidationResult {
+    const errors: string[] = [];
+
+    // Validate the structure
+    if (!rawData || typeof rawData !== 'object') {
+      errors.push('Raw data must be a SubstrateRawData object');
+      return { errors, isValid: false };
+    }
+
+    if (!Array.isArray(rawData.data)) {
+      errors.push('Data must be an array');
+      return { errors, isValid: false };
+    }
+
+    if (!rawData.provider || !['subscan', 'taostats', 'rpc', 'unknown'].includes(rawData.provider)) {
+      errors.push('Provider must be one of: subscan, taostats, rpc, unknown');
+    }
+
+    // Validate based on provider type
+    if (rawData.provider === 'subscan') {
+      for (let i = 0; i < rawData.data.length; i++) {
+        const transfer = rawData.data[i] as SubscanTransfer;
+        const prefix = `Subscan transfer ${i}:`;
+
+        if (!transfer.hash) {
+          errors.push(`${prefix} Transaction hash is required`);
+        }
+
+        if (!transfer.from) {
+          errors.push(`${prefix} From address is required`);
+        }
+
+        if (!transfer.to) {
+          errors.push(`${prefix} To address is required`);
+        }
+
+        if (!transfer.block_timestamp || typeof transfer.block_timestamp !== 'number') {
+          errors.push(`${prefix} Block timestamp is required and must be a number`);
+        }
+      }
+    } else if (rawData.provider === 'taostats') {
+      for (let i = 0; i < rawData.data.length; i++) {
+        const tx = rawData.data[i] as TaostatsTransaction;
+        const prefix = `Taostats transaction ${i}:`;
+
+        if (!tx.hash) {
+          errors.push(`${prefix} Transaction hash is required`);
+        }
+
+        if (!tx.from) {
+          errors.push(`${prefix} From address is required`);
+        }
+
+        if (!tx.to) {
+          errors.push(`${prefix} To address is required`);
+        }
+
+        if (!tx.timestamp) {
+          errors.push(`${prefix} Timestamp is required`);
+        }
+      }
+    }
+
+    return {
+      isValid: errors.length === 0,
+      ...(errors.length > 0 && { errors }),
+    };
   }
 }

@@ -1,13 +1,13 @@
-import type { Balance, BlockchainTransaction } from '@crypto/core';
-import { getLogger } from '@crypto/shared-logger';
-import { createMoney } from '@crypto/shared-utils';
+import type { Balance, BlockchainTransaction, UniversalTransaction } from '@crypto/core';
+import { createMoney, parseDecimal } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
 
+import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
+import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
 import type { MoralisNativeBalance, MoralisTokenBalance, MoralisTokenTransfer, MoralisTransaction } from '../types.ts';
 
-const logger = getLogger('MoralisProcessor');
-
-export class MoralisProcessor {
+@RegisterProcessor('moralis')
+export class MoralisProcessor implements IProviderProcessor<MoralisTransaction[]> {
   private static convertNativeTransaction(tx: MoralisTransaction, userAddress: string): BlockchainTransaction {
     const isFromUser = tx.from_address.toLowerCase() === userAddress.toLowerCase();
     const isToUser = tx.to_address.toLowerCase() === userAddress.toLowerCase();
@@ -117,5 +117,108 @@ export class MoralisProcessor {
 
   static processTokenTransactions(transfers: MoralisTokenTransfer[], userAddress: string): BlockchainTransaction[] {
     return transfers.map(tx => this.convertTokenTransfer(tx, userAddress));
+  }
+
+  // IProviderProcessor interface implementation
+  transform(rawData: MoralisTransaction[], walletAddresses: string[]): UniversalTransaction {
+    // Note: This interface expects single transaction but Moralis returns arrays
+    // This is a temporary implementation for architectural consistency
+    // The array processing is handled by the bridge pattern in the adapter
+    if (!rawData || rawData.length === 0) {
+      throw new Error('No transactions provided to MoralisProcessor.transform');
+    }
+
+    // Process the first transaction as a single transaction for interface compatibility
+    const tx = rawData[0];
+    const userAddress = walletAddresses[0] || '';
+
+    const isFromUser = tx.from_address.toLowerCase() === userAddress.toLowerCase();
+    const isToUser = tx.to_address.toLowerCase() === userAddress.toLowerCase();
+
+    // Determine transaction type based on Bitcoin pattern
+    let type: UniversalTransaction['type'];
+    if (isFromUser && isToUser) {
+      type = 'transfer';
+    } else if (isFromUser) {
+      type = 'withdrawal';
+    } else {
+      type = 'deposit';
+    }
+
+    const valueWei = parseDecimal(tx.value);
+    const valueEth = valueWei.dividedBy(new Decimal(10).pow(18));
+    const timestamp = new Date(tx.block_timestamp).getTime();
+
+    return {
+      amount: createMoney(valueEth.toString(), 'ETH'),
+      datetime: new Date(timestamp).toISOString(),
+      fee: createMoney(0, 'ETH'),
+      from: tx.from_address,
+      id: tx.hash,
+      metadata: {
+        blockchain: 'ethereum',
+        blockNumber: parseInt(tx.block_number),
+        gasUsed: parseInt(tx.receipt_gas_used),
+        providerId: 'moralis',
+        rawData: tx,
+      },
+      source: 'ethereum',
+      status: tx.receipt_status === '1' ? 'ok' : 'failed',
+      symbol: 'ETH',
+      timestamp,
+      to: tx.to_address,
+      type,
+    };
+  }
+
+  validate(rawData: MoralisTransaction[]): ValidationResult {
+    const errors: string[] = [];
+
+    // Validate that we have an array
+    if (!Array.isArray(rawData)) {
+      errors.push('Raw data must be an array of MoralisTransaction');
+      return { errors, isValid: false };
+    }
+
+    // Validate each transaction
+    for (let i = 0; i < rawData.length; i++) {
+      const tx = rawData[i];
+      const prefix = `Transaction ${i}:`;
+
+      if (!tx.hash) {
+        errors.push(`${prefix} Transaction hash is required`);
+      }
+
+      if (!tx.from_address) {
+        errors.push(`${prefix} From address is required`);
+      }
+
+      if (!tx.to_address) {
+        errors.push(`${prefix} To address is required`);
+      }
+
+      if (!tx.block_number) {
+        errors.push(`${prefix} Block number is required`);
+      }
+
+      if (!tx.block_timestamp) {
+        errors.push(`${prefix} Block timestamp is required`);
+      }
+
+      // Validate value is a valid number string
+      if (tx.value && isNaN(parseFloat(tx.value))) {
+        errors.push(`${prefix} Value must be a valid number`);
+      }
+
+      // Validate receipt_status is valid
+      if (tx.receipt_status && !['0', '1'].includes(tx.receipt_status)) {
+        errors.push(`${prefix} Receipt status must be '0' or '1'`);
+      }
+    }
+
+    return {
+      isValid: errors.length === 0,
+      ...(errors.length > 0 && { errors }),
+    };
   }
 }

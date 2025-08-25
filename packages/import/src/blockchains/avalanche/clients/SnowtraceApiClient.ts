@@ -2,7 +2,7 @@ import { AuthenticationError, ServiceError } from '@crypto/core';
 import { maskAddress } from '@crypto/shared-utils';
 
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
-import { RegisterProvider } from '../../shared/registry/decorators.ts';
+import { RegisterApiClient } from '../../shared/registry/decorators.ts';
 import type { ProviderOperation } from '../../shared/types.ts';
 import type {
   SnowtraceApiResponse,
@@ -13,7 +13,7 @@ import type {
 } from '../types.ts';
 import { isValidAvalancheAddress } from '../utils.ts';
 
-@RegisterProvider({
+@RegisterApiClient({
   apiKeyEnvVar: 'SNOWTRACE_API_KEY',
   blockchain: 'avalanche',
   capabilities: {

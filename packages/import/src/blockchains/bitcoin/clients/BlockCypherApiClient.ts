@@ -1,11 +1,11 @@
 import { hasStringProperty, isErrorWithMessage, maskAddress } from '@crypto/shared-utils';
 
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
-import { RegisterProvider } from '../../shared/registry/decorators.ts';
+import { RegisterApiClient } from '../../shared/registry/decorators.ts';
 import type { ProviderOperation } from '../../shared/types.ts';
 import type { BlockCypherAddress, BlockCypherTransaction } from '../types.ts';
 
-@RegisterProvider({
+@RegisterApiClient({
   apiKeyEnvVar: 'BLOCKCYPHER_API_KEY',
   blockchain: 'bitcoin',
   capabilities: {

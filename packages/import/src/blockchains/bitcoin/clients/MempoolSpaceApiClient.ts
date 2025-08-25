@@ -1,11 +1,11 @@
 import { maskAddress } from '@crypto/shared-utils';
 
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
-import { RegisterProvider } from '../../shared/registry/decorators.ts';
+import { RegisterApiClient } from '../../shared/registry/decorators.ts';
 import type { ProviderOperation } from '../../shared/types.ts';
 import type { MempoolAddressInfo, MempoolTransaction } from '../types.ts';
 
-@RegisterProvider({
+@RegisterApiClient({
   blockchain: 'bitcoin',
   capabilities: {
     maxBatchSize: 25,
