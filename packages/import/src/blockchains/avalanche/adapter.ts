@@ -8,11 +8,15 @@ import type {
   UniversalFetchParams,
   UniversalTransaction,
 } from '@crypto/core';
+import { Decimal } from 'decimal.js';
 
 import { BaseAdapter } from '../../shared/adapters/base-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
 import type { BlockchainExplorersConfig } from '../shared/explorer-config.ts';
-import './providers/SnowtraceProvider.ts';
+import './clients/index.ts';
+import { SnowtraceProcessor } from './processors/SnowtraceProcessor.ts';
+import type { SnowtraceRawData } from './processors/SnowtraceProcessor.ts';
+import type { SnowtraceTokenTransfer } from './types.ts';
 
 export class AvalancheAdapter extends BaseAdapter {
   private providerManager: BlockchainProviderManager;
@@ -26,6 +30,35 @@ export class AvalancheAdapter extends BaseAdapter {
     this.logger.debug(
       `Initialized Avalanche adapter with ${this.providerManager.getProviders('avalanche').length} providers`
     );
+  }
+
+  private processRawBalance(rawData: unknown, providerName: string): Balance {
+    switch (providerName) {
+      case 'snowtrace': {
+        // Process Snowtrace raw balance response
+        const response = rawData as { result: string };
+        const balanceWei = new Decimal(response.result);
+        const balanceAvax = balanceWei.dividedBy(new Decimal(10).pow(18));
+
+        return {
+          balance: balanceAvax.toNumber(),
+          currency: 'AVAX',
+          total: balanceAvax.toNumber(),
+          used: 0,
+        };
+      }
+      default:
+        throw new Error(`Unsupported provider for balance processing: ${providerName}`);
+    }
+  }
+
+  private processRawTransactions(rawData: unknown, providerName: string, userAddress: string): BlockchainTransaction[] {
+    switch (providerName) {
+      case 'snowtrace':
+        return SnowtraceProcessor.processAddressTransactions(rawData as SnowtraceRawData, userAddress);
+      default:
+        throw new Error(`Unsupported provider for transaction processing: ${providerName}`);
+    }
   }
 
   /**
@@ -54,13 +87,16 @@ export class AvalancheAdapter extends BaseAdapter {
         const failoverResult = await this.providerManager.executeWithFailover('avalanche', {
           address: address,
           getCacheKey: cacheParams =>
-            `avax_balance_${cacheParams.type === 'getAddressBalance' ? cacheParams.address : 'unknown'}`,
-          type: 'getAddressBalance',
+            `avax_raw_balance_${cacheParams.type === 'getRawAddressBalance' ? cacheParams.address : 'unknown'}`,
+          type: 'getRawAddressBalance',
         });
-        const balances = failoverResult.data as Balance[];
 
-        allBalances.push(...balances);
-        this.logger.info(`AvalancheAdapter: Found ${balances.length} balances for address`);
+        // Process raw balance data using bridge pattern
+        const rawBalanceData = failoverResult.data;
+        const processedBalance = this.processRawBalance(rawBalanceData, failoverResult.providerName);
+
+        allBalances.push(processedBalance);
+        this.logger.info(`AvalancheAdapter: Found balance for address`);
       } catch (error) {
         this.logger.error(
           `Failed to fetch address balance via provider manager - Address: ${address}, Error: ${error instanceof Error ? error.message : String(error)}`
@@ -83,17 +119,20 @@ export class AvalancheAdapter extends BaseAdapter {
       this.logger.info(`AvalancheAdapter: Fetching transactions for address: ${address.substring(0, 20)}...`);
 
       try {
-        // Fetch regular AVAX transactions
-        const regularTxsFailoverResult = await this.providerManager.executeWithFailover('avalanche', {
+        // Fetch raw transactions using new architecture
+        const rawResult = await this.providerManager.executeWithFailover('avalanche', {
           address: address,
           getCacheKey: cacheParams =>
-            `avax_tx_${cacheParams.type === 'getAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getAddressTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
+            `avax_raw_tx_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
           since: params.since,
-          type: 'getAddressTransactions',
+          type: 'getRawAddressTransactions',
         });
-        const regularTxs = regularTxsFailoverResult.data as BlockchainTransaction[];
 
-        // Try to fetch ERC-20 token transactions (if provider supports it)
+        // Process raw data using bridge pattern
+        const processedTransactions = this.processRawTransactions(rawResult.data, rawResult.providerName, address);
+        allTransactions.push(...processedTransactions);
+
+        // Try to fetch token transactions separately (if provider supports it)
         let tokenTxs: BlockchainTransaction[] = [];
         try {
           const tokenTxsFailoverResult = await this.providerManager.executeWithFailover('avalanche', {
@@ -103,17 +142,16 @@ export class AvalancheAdapter extends BaseAdapter {
             since: params.since,
             type: 'getTokenTransactions',
           });
-          tokenTxs = tokenTxsFailoverResult.data as BlockchainTransaction[];
+          const rawTokenTxs = tokenTxsFailoverResult.data as SnowtraceTokenTransfer[];
+          tokenTxs = SnowtraceProcessor.processTokenTransactions(rawTokenTxs, address);
         } catch (error) {
           this.logger.debug(
             `Provider does not support separate token transactions or failed to fetch: ${error instanceof Error ? error.message : String(error)}`
           );
-          // Continue without separate token transactions - provider may already include them in getAddressTransactions
         }
 
-        allTransactions.push(...regularTxs, ...tokenTxs);
-
-        this.logger.debug(`Transaction breakdown: ${regularTxs.length} regular, ${tokenTxs.length} token`);
+        allTransactions.push(...tokenTxs);
+        this.logger.debug(`Transaction breakdown: ${processedTransactions.length} regular, ${tokenTxs.length} token`);
       } catch (error) {
         this.logger.error(
           `Failed to fetch address transactions via provider manager - Address: ${address}, Error: ${error instanceof Error ? error.message : String(error)}`
@@ -145,7 +183,7 @@ export class AvalancheAdapter extends BaseAdapter {
           requestsPerSecond: 5,
         },
         requiresApiKey: false,
-        supportedOperations: ['fetchTransactions', 'fetchBalances'],
+        supportedOperations: ['fetchTransactions', 'fetchBalances', 'getAddressTransactions'],
         supportsHistoricalData: true,
         supportsPagination: true,
       },
@@ -204,22 +242,27 @@ export class AvalancheAdapter extends BaseAdapter {
     rawTxs: BlockchainTransaction[],
     params: UniversalFetchParams
   ): Promise<UniversalTransaction[]> {
-    const userAddresses = params.addresses || [];
-
     return rawTxs.map(tx => {
-      // Determine transaction type based on user addresses
-      let type: TransactionType = 'transfer';
+      // Map blockchain-specific types to UniversalTransaction types
+      let universalType: TransactionType;
 
-      if (userAddresses.length > 0) {
-        const userAddress = userAddresses[0].toLowerCase();
-        const isIncoming = tx.to.toLowerCase() === userAddress;
-        const isOutgoing = tx.from.toLowerCase() === userAddress;
-
-        if (isIncoming && !isOutgoing) {
-          type = 'deposit';
-        } else if (isOutgoing && !isIncoming) {
-          type = 'withdrawal';
-        }
+      switch (tx.type) {
+        case 'transfer_in':
+        case 'internal_transfer_in':
+        case 'token_transfer_in':
+          universalType = 'deposit';
+          break;
+        case 'transfer_out':
+        case 'internal_transfer_out':
+        case 'token_transfer_out':
+          universalType = 'withdrawal';
+          break;
+        case 'transfer':
+          universalType = 'transfer';
+          break;
+        default:
+          universalType = 'transfer';
+          break;
       }
 
       return {
@@ -242,7 +285,7 @@ export class AvalancheAdapter extends BaseAdapter {
         symbol: tx.tokenSymbol || tx.value.currency,
         timestamp: tx.timestamp,
         to: tx.to,
-        type,
+        type: universalType,
       };
     });
   }
