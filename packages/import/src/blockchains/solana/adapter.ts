@@ -13,9 +13,13 @@ import { BaseAdapter } from '../../shared/adapters/base-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
 import type { BlockchainExplorersConfig } from '../shared/explorer-config.ts';
 import type { SolanaRawTransactionData } from './clients/HeliusApiClient.ts';
+import type { SolanaRPCRawTransactionData } from './clients/SolanaRPCApiClient.ts';
+import type { SolscanRawTransactionData } from './clients/SolscanApiClient.ts';
 // Import clients to trigger registration
 import './clients/index.ts';
 import { HeliusProcessor } from './processors/HeliusProcessor.ts';
+import { SolanaRPCProcessor } from './processors/SolanaRPCProcessor.ts';
+import { SolscanProcessor } from './processors/SolscanProcessor.ts';
 
 export class SolanaAdapter extends BaseAdapter {
   private providerManager: BlockchainProviderManager;
@@ -35,6 +39,10 @@ export class SolanaAdapter extends BaseAdapter {
     switch (providerName) {
       case 'helius':
         return HeliusProcessor.processAddressTransactions(rawData as SolanaRawTransactionData, userAddress);
+      case 'solana-rpc':
+        return SolanaRPCProcessor.processAddressTransactions(rawData as SolanaRPCRawTransactionData, userAddress);
+      case 'solscan':
+        return SolscanProcessor.processAddressTransactions(rawData as SolscanRawTransactionData, userAddress);
       default:
         throw new Error(`Unsupported provider for transaction processing: ${providerName}`);
     }
