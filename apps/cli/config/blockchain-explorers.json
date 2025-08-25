@@ -127,10 +127,86 @@
   "ethereum": {
     "explorers": [
       {
-        "name": "etherscan",
-        "displayName": "Etherscan API",
+        "name": "alchemy",
+        "displayName": "Alchemy",
         "enabled": true,
         "priority": 1,
+        "type": "rest",
+        "requiresApiKey": true,
+        "apiKeyEnvVar": "ALCHEMY_API_KEY",
+        "description": "Alchemy Ethereum API with enhanced features for transactions and token data",
+        "capabilities": {
+          "supportedOperations": [
+            "getRawAddressTransactions",
+            "getRawAddressBalance",
+            "getTokenTransactions",
+            "getRawTokenBalances"
+          ],
+          "maxBatchSize": 100,
+          "supportsHistoricalData": true,
+          "supportsRealTimeData": true,
+          "supportsTokenData": true,
+          "supportsPagination": true
+        },
+        "networks": {
+          "mainnet": {
+            "baseUrl": "https://eth-mainnet.g.alchemy.com/v2"
+          }
+        },
+        "defaultConfig": {
+          "timeout": 10000,
+          "retries": 3,
+          "rateLimit": {
+            "requestsPerSecond": 5,
+            "requestsPerMinute": 300,
+            "requestsPerHour": 3600,
+            "burstLimit": 10
+          }
+        }
+      },
+      {
+        "name": "moralis",
+        "displayName": "Moralis",
+        "enabled": true,
+        "priority": 2,
+        "type": "rest",
+        "requiresApiKey": true,
+        "apiKeyEnvVar": "MORALIS_API_KEY",
+        "description": "Moralis Ethereum API with comprehensive Web3 data and multi-chain support",
+        "capabilities": {
+          "supportedOperations": [
+            "getRawAddressTransactions",
+            "getRawAddressBalance",
+            "getTokenTransactions",
+            "getRawTokenBalances"
+          ],
+          "maxBatchSize": 1,
+          "supportsHistoricalData": true,
+          "supportsRealTimeData": true,
+          "supportsTokenData": true,
+          "supportsPagination": true
+        },
+        "networks": {
+          "mainnet": {
+            "baseUrl": "https://deep-index.moralis.io/api/v2"
+          }
+        },
+        "defaultConfig": {
+          "timeout": 10000,
+          "retries": 3,
+          "rateLimit": {
+            "requestsPerSecond": 2,
+            "requestsPerMinute": 120,
+            "requestsPerHour": 1000,
+            "burstLimit": 5
+          }
+        }
+      },
+      {
+        "name": "etherscan",
+        "displayName": "Etherscan API",
+        "enabled": false,
+        "priority": 3,
         "type": "rest",
         "requiresApiKey": true,
         "apiKeyEnvVar": "ETHERSCAN_API_KEY",

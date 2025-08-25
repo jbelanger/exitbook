@@ -1,5 +1,13 @@
 // Ethereum and EVM blockchain adapter types
 
+// Common JSON-RPC response interface for Ethereum providers
+export interface JsonRpcResponse<T = unknown> {
+  error?: { code: number; message: string };
+  id?: number | string;
+  jsonrpc?: string;
+  result: T;
+}
+
 export interface EtherscanTransaction {
   blockHash: string;
   blockNumber: string;
