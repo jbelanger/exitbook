@@ -12,6 +12,8 @@ export interface InjectiveTransaction {
   block_timestamp: string;
   code: number;
   extension_options: unknown[];
+  // Added by importer/adapter for processor context
+  fetchedByAddress?: string;
   gas_fee: InjectiveGasFee;
   gas_used: number;
   gas_wanted: number;

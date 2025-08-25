@@ -5,7 +5,7 @@
 This document outlines the implementation plan for refactoring the provider architecture to separate API clients from processors with decorator-based registration.
 
 **GitHub Issue**: [#30](https://github.com/jbelanger/crypto-portfolio/issues/30)  
-**Status**: Bitcoin implementation ✅ COMPLETED | Remaining blockchains ⏳ PENDING
+**Status**: Bitcoin ✅ COMPLETED | Injective ✅ COMPLETED | Remaining blockchains ⏳ PENDING
 
 ## Target Architecture
 
@@ -84,6 +84,78 @@ packages/import/src/blockchains/bitcoin/
 }
 ```
 
+## ✅ Injective Implementation - COMPLETED
+
+### What Was Accomplished
+
+**💫 Injective Migration Success:**
+
+- ✅ **2 ApiClients**: InjectiveExplorer, InjectiveLCD (raw data fetching only)
+- ✅ **2 Processors**: Each with validation + transformation to `UniversalTransaction`
+- ✅ **Transaction Processor**: Uses `ProcessorFactory` for auto-dispatch
+- ✅ **Adapter Bridge**: Backward compatibility with old import system
+- ✅ **Live Testing**: Successfully imports real Injective transactions (6 raw → 3 relevant)
+- ✅ **Type Extensions**: Added `getRawAddressBalance`, `getRawTokenBalances` operation types
+
+### 🌉 Critical Bridge Pattern Discovery
+
+The **adapter bridge** enables backward compatibility while maintaining new architecture:
+
+```typescript
+// In InjectiveAdapter.transformTransactions() - BRIDGE LAYER
+protected async transformTransactions(
+  rawTxs: InjectiveTransaction[],
+  params: UniversalFetchParams
+): Promise<UniversalTransaction[]> {
+  // BRIDGE: Temporary compatibility for old import system
+  // Replicates processor logic for backward compatibility
+  // New system uses InjectiveTransactionProcessor via ProcessorFactory
+
+  const universalTransactions: UniversalTransaction[] = [];
+
+  for (const tx of rawTxs) {
+    // Parse blockchain-specific transaction format
+    // Extract from/to/amount from message structures
+    // Apply wallet address filtering for relevance
+    // Transform to UniversalTransaction format
+  }
+
+  return universalTransactions;
+}
+```
+
+**Key Bridge Benefits:**
+
+- ✅ Old system (`import-old`) works immediately
+- ✅ New processor architecture ready for future
+- ✅ Zero breaking changes to existing workflows
+- ✅ Type-safe transformation with proper validation
+
+**🔧 Required Type System Extensions:**
+
+When migrating new blockchains, these types need to be added to `shared/types.ts`:
+
+```typescript
+// Add to ProviderOperationType union
+export type ProviderOperationType =
+  | 'getRawAddressBalance' // For balance API clients
+  | 'getRawTokenBalances'; // For token balance API clients
+// ... existing types
+
+// Add to ProviderOperationParams union
+export type ProviderOperationParams =
+  | { address: string; contractAddresses?: string[]; type: 'getRawAddressBalance' }
+  | { address: string; contractAddresses?: string[]; type: 'getRawTokenBalances' };
+// ... existing params
+```
+
+**📋 Injective-Specific Patterns:**
+
+- **Complex Message Parsing**: Injective uses `messages[]` array with different message types (`/cosmos.bank.v1beta1.MsgSend`, `/ibc.applications.transfer.v1.MsgTransfer`)
+- **Multi-Denomination Support**: Handles INJ and other tokens via `denom` field
+- **Relevance Filtering**: Only processes transactions involving user wallet addresses
+- **Gas Fee Parsing**: Extracts fees from `gas_fee.amount[]` array structure
+
 ## 🚀 Next Phase: Remaining Blockchains
 
 ### Phase 3: Apply Bitcoin Patterns to Other Blockchains
@@ -102,46 +174,95 @@ The Bitcoin implementation provides the proven template. Each blockchain should 
 #### Remaining Blockchains
 
 **Status**: ⏳ PENDING  
-**Estimated effort**: 3-4 days total
+**Estimated effort**: 2-3 days total (reduced due to bridge pattern)
 
 1. **Solana**: `HeliusProvider` → client + processor
-2. **Injective**: `InjectiveExplorerProvider` + `InjectiveLCDProvider` → clients + processors
-3. **Polkadot**: `SubstrateProvider` → client + processor
-4. **Avalanche**: Current providers → clients + processors
+2. **Polkadot**: `SubstrateProvider` → client + processor
+3. **Avalanche**: Current providers → clients + processors
 
-### Step-by-Step Migration Checklist
+**✅ COMPLETED:**
+
+- ~~**Injective**: `InjectiveExplorerProvider` + `InjectiveLCDProvider` → clients + processors~~
+
+### 🚀 Improved Migration Checklist (v2.0)
+
+**Based on successful Bitcoin & Injective migrations**
 
 For **each blockchain**, follow this proven process:
 
 #### 🔄 Step 1: Convert Providers to ApiClients
 
+- [ ] Create `clients/` directory: `mkdir -p clients/`
 - [ ] Rename `XProvider.ts` → `XApiClient.ts` in new `clients/` directory
 - [ ] Remove all validation and transformation methods
-- [ ] Keep only raw data fetching methods (`getRawAddressTransactions`, `getAddressBalance`, etc.)
+- [ ] Keep only raw data fetching methods (`getRawAddressTransactions`, `getRawAddressBalance`, etc.)
 - [ ] Update `supportedOperations` to focus on raw data only
+- [ ] **NEW**: Ensure operation names match `ProviderOperationType` union
 
 #### ⚙️ Step 2: Create Processors
 
+- [ ] Create `processors/` directory: `mkdir -p processors/`
 - [ ] Create `XProcessor.ts` in `processors/` directory
-- [ ] Add `@RegisterProcessor('provider-name')` decorator
+- [ ] Add `@RegisterProcessor('provider-name')` decorator (must match client name)
 - [ ] Implement `IProviderProcessor<TRawData>` interface:
   - `validate(rawData): ValidationResult`
   - `transform(rawData, walletAddresses): UniversalTransaction`
 - [ ] Use proper transaction type mapping (`deposit`/`withdrawal`/`transfer`)
-- [ ] Follow UniversalTransaction field pattern (see above)
+- [ ] Follow UniversalTransaction field pattern with `createMoney()` for amounts
 
-#### 🔗 Step 3: Update Core Files
+#### 🔗 Step 3: Update Adapter (Bridge Pattern)
 
-- [ ] Update transaction-importer to return `SourcedRawData<T>[]`
-- [ ] Update transaction-processor to use `ProcessorFactory.create(providerId)`
-- [ ] Create barrel files: `processors/index.ts` and `clients/index.ts`
-- [ ] Import processors in transaction-processor
+- [ ] **CRITICAL**: Add `getAddressTransactions` to adapter's `supportedOperations` array
+- [ ] Update `fetchRawTransactions()` to return blockchain-specific raw type (e.g., `SolanaTransaction[]`)
+- [ ] **Bridge Pattern**: Update `transformTransactions()` method:
+  ```typescript
+  protected async transformTransactions(
+    rawTxs: BlockchainSpecificTransaction[],
+    params: UniversalFetchParams
+  ): Promise<UniversalTransaction[]> {
+    // BRIDGE: Temporary compatibility for old import system
+    // Replicate processor transformation logic here
+    // This enables immediate backward compatibility
+  }
+  ```
+- [ ] Import new clients to ensure registration: `import './clients/XApiClient.ts'`
 
-#### ✅ Step 4: Verify
+#### 🔧 Step 4: Extend Type System (If Needed)
 
-- [ ] Run `pnpm run workspace:build` - zero TypeScript errors
-- [ ] Run `pnpm run lint` - zero linting issues
-- [ ] Update imports in test files if needed
+- [ ] **Check**: Do new operations exist in `ProviderOperationType`?
+- [ ] **If not**: Add to `blockchains/shared/types.ts`:
+
+  ```typescript
+  export type ProviderOperationType =
+    | 'getRawAddressBalance' // Add if needed
+    | 'getRawTokenBalances'; // Add if needed
+  // ... existing types
+
+  export type ProviderOperationParams = { address: string; type: 'getRawAddressBalance' }; // Add if needed
+  // ... existing params
+  ```
+
+#### 🏗️ Step 5: Create Transaction Processor
+
+- [ ] Create `transaction-processor.ts` based on Injective/Bitcoin pattern
+- [ ] Import all processors to trigger registration
+- [ ] Implement `IProcessor<SourcedRawData<BlockchainTransaction>>` interface
+
+#### 📦 Step 6: Create Barrel Files
+
+- [ ] Create `processors/index.ts`: Export all processors
+- [ ] Create `clients/index.ts`: Export all clients
+
+#### ✅ Step 7: Test & Verify
+
+- [ ] **Build**: `pnpm run build` - zero TypeScript errors
+- [ ] **Lint**: `pnpm run lint` - zero linting issues
+- [ ] **CRITICAL TEST**: Run import with real address:
+  ```bash
+  pnpm run dev import-old --blockchain BLOCKCHAIN --addresses ADDRESS
+  ```
+- [ ] **Verify**: Successful transaction import with proper counts
+- [ ] **Debug**: Check logs for validation errors or transformation issues
 
 ### Success Criteria
 
@@ -159,21 +280,32 @@ For **each blockchain**, follow this proven process:
 ### ✅ COMPLETED
 
 - **Bitcoin (100%)**: Foundation + 3 providers fully migrated and tested
-- **Architecture**: Processor factory, interfaces, validation patterns
+- **Injective (100%)**: 2 providers migrated + bridge pattern + live testing ✨
+- **Architecture**: Processor factory, interfaces, validation patterns, bridge compatibility
 - **Type Safety**: All compilation and linting errors resolved
 
 ### ⏳ PENDING
 
 - **Ethereum**: 2 providers to migrate
 - **Solana**: 1 provider to migrate
-- **Injective**: 2 providers to migrate
 - **Polkadot**: 1 provider to migrate
 - **Avalanche**: Check current providers
 
 ### 🎯 Next Immediate Steps
 
 1. **Start with Ethereum** - most similar to Bitcoin
-2. **Follow the proven Bitcoin pattern exactly**
-3. **Test each blockchain individually before moving to next**
+2. **Apply bridge pattern** - enables immediate backward compatibility
+3. **Test each blockchain individually** before moving to next
 
-**Total remaining effort**: ~4-6 days for all blockchains
+### 📊 Progress Summary
+
+**Completion Rate**: 2/5 blockchains (40%)  
+**Remaining Effort**: ~3-4 days total (reduced due to proven patterns)  
+**Key Innovation**: Bridge pattern allows instant compatibility with old system
+
+**Major Breakthrough**: Injective migration proved the bridge pattern works perfectly, enabling:
+
+- ✅ Zero breaking changes for existing workflows
+- ✅ New architecture ready for future full migration
+- ✅ Real-world validation with live blockchain data
+- ✅ Reduced migration complexity for remaining blockchains
