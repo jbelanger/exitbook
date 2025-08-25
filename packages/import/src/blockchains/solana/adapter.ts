@@ -12,6 +12,10 @@ import type {
 import { BaseAdapter } from '../../shared/adapters/base-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
 import type { BlockchainExplorersConfig } from '../shared/explorer-config.ts';
+import type { SolanaRawTransactionData } from './clients/HeliusApiClient.ts';
+// Import clients to trigger registration
+import './clients/index.ts';
+import { HeliusProcessor } from './processors/HeliusProcessor.ts';
 
 export class SolanaAdapter extends BaseAdapter {
   private providerManager: BlockchainProviderManager;
@@ -25,6 +29,15 @@ export class SolanaAdapter extends BaseAdapter {
     this.logger.info(
       `Initialized Solana adapter with registry-based provider manager - ProvidersCount: ${this.providerManager.getProviders('solana').length}`
     );
+  }
+
+  private processRawTransactions(rawData: unknown, providerName: string, userAddress: string): BlockchainTransaction[] {
+    switch (providerName) {
+      case 'helius':
+        return HeliusProcessor.processAddressTransactions(rawData as SolanaRawTransactionData, userAddress);
+      default:
+        throw new Error(`Unsupported provider for transaction processing: ${providerName}`);
+    }
   }
 
   /**
@@ -79,38 +92,20 @@ export class SolanaAdapter extends BaseAdapter {
       this.logger.info(`SolanaAdapter: Fetching transactions for address: ${address.substring(0, 20)}...`);
 
       try {
-        // Fetch regular SOL transactions
-        const regularTxsFailoverResult = await this.providerManager.executeWithFailover('solana', {
+        // Use bridge pattern - fetch raw data and process with provider-specific processor
+        const rawResult = await this.providerManager.executeWithFailover('solana', {
           address: address,
           getCacheKey: cacheParams =>
-            `solana_tx_${cacheParams.type === 'getAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getAddressTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
+            `solana_tx_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
           since: params.since,
-          type: 'getAddressTransactions',
+          type: 'getRawAddressTransactions',
         });
-        const regularTxs = regularTxsFailoverResult.data as BlockchainTransaction[];
 
-        // Try to fetch SPL token transactions (if provider supports it)
-        let tokenTxs: BlockchainTransaction[] = [];
-        try {
-          const tokenTxsFailoverResult = await this.providerManager.executeWithFailover('solana', {
-            address: address,
-            getCacheKey: cacheParams =>
-              `solana_token_tx_${cacheParams.type === 'getTokenTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getTokenTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
-            since: params.since,
-            type: 'getTokenTransactions',
-          });
-          tokenTxs = tokenTxsFailoverResult.data as BlockchainTransaction[];
-        } catch (error) {
-          this.logger.debug(
-            `Provider does not support token transactions or failed to fetch - Error: ${error instanceof Error ? error.message : String(error)}`
-          );
-          // Continue without token transactions if provider doesn't support them
-        }
-
-        allTransactions.push(...regularTxs, ...tokenTxs);
+        const processed = this.processRawTransactions(rawResult.data, rawResult.providerName, address);
+        allTransactions.push(...processed);
 
         this.logger.info(
-          `SolanaAdapter transaction breakdown for ${address.substring(0, 20)}... - Regular: ${regularTxs.length}, Token: ${tokenTxs.length}`
+          `SolanaAdapter: Processed transactions for ${address.substring(0, 20)}... - Provider: ${rawResult.providerName}, Count: ${processed.length}`
         );
       } catch (error) {
         this.logger.error(`Failed to fetch transactions for ${address} - Error: ${error}`);
@@ -141,7 +136,7 @@ export class SolanaAdapter extends BaseAdapter {
           requestsPerSecond: 5,
         },
         requiresApiKey: false,
-        supportedOperations: ['fetchTransactions', 'fetchBalances'],
+        supportedOperations: ['fetchTransactions', 'fetchBalances', 'getAddressTransactions'],
         supportsHistoricalData: true,
         supportsPagination: true,
       },
