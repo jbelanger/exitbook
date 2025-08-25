@@ -12,18 +12,8 @@ import path from 'path';
 
 import { BaseAdapter } from '../../shared/adapters/base-adapter.ts';
 import { CsvParser } from '../csv-parser.ts';
+import { CSV_FILE_TYPES } from './constants.ts';
 import type { CsvAccountHistoryRow, CsvDepositWithdrawalRow, CsvKuCoinRawData, CsvSpotOrderRow } from './types.ts';
-
-// Expected CSV headers for validation
-const EXPECTED_HEADERS = {
-  ACCOUNT_HISTORY_CSV: 'UID,Account Type,Currency,Side,Amount,Fee,Time(UTC),Remark,Type',
-  CONVERT_CSV: 'UID,Account Type,Payment Account,Sell,Buy,Price,Tax,Time of Update(UTC),Status', // Legacy - not used, we get converts from account history
-  DEPOSIT_CSV: 'UID,Account Type,Time(UTC),Coin,Amount,Fee,Hash,Deposit Address,Transfer Network,Status,Remarks',
-  TRADING_CSV:
-    'UID,Account Type,Order ID,Order Time(UTC),Symbol,Side,Order Type,Order Price,Order Amount,Avg. Filled Price,Filled Amount,Filled Volume,Filled Volume (USDT),Filled Time(UTC),Fee,Fee Currency,Tax,Status',
-  WITHDRAWAL_CSV:
-    'UID,Account Type,Time(UTC),Coin,Amount,Fee,Hash,Withdrawal Address/Account,Transfer Network,Status,Remarks',
-};
 
 export class KuCoinCSVAdapter extends BaseAdapter {
   private cachedTransactions: CsvKuCoinRawData | null = null;
@@ -386,11 +376,7 @@ export class KuCoinCSVAdapter extends BaseAdapter {
    */
   private async validateCSVHeaders(filePath: string): Promise<string> {
     const expectedHeaders = {
-      [EXPECTED_HEADERS.ACCOUNT_HISTORY_CSV]: 'account_history',
-      [EXPECTED_HEADERS.CONVERT_CSV]: 'convert',
-      [EXPECTED_HEADERS.DEPOSIT_CSV]: 'deposit',
-      [EXPECTED_HEADERS.TRADING_CSV]: 'trading',
-      [EXPECTED_HEADERS.WITHDRAWAL_CSV]: 'withdrawal',
+      ...CSV_FILE_TYPES,
     };
     const fileType = await CsvParser.validateHeaders(filePath, expectedHeaders);
 

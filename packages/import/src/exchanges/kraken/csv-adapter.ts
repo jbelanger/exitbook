@@ -18,12 +18,8 @@ import { TransactionIngestionService } from '../../shared/ingestion/ingestion-se
 import { ExternalDataStore } from '../../shared/storage/external-data-store.ts';
 import { CsvFilters } from '../csv-filters.ts';
 import { CsvParser } from '../csv-parser.ts';
+import { CSV_FILE_TYPES } from './constants.ts';
 import type { CsvKrakenLedgerRow } from './types.ts';
-
-// Expected CSV headers for validation
-const EXPECTED_HEADERS = {
-  LEDGERS_CSV: '"txid","refid","time","type","subtype","aclass","asset","wallet","amount","fee","balance"',
-};
 
 export class KrakenCSVAdapter extends BaseAdapter {
   private cachedTransactions: CsvKrakenLedgerRow[] | null = null;
@@ -727,7 +723,7 @@ export class KrakenCSVAdapter extends BaseAdapter {
    */
   private async validateCSVHeaders(filePath: string): Promise<string> {
     const expectedHeaders = {
-      [EXPECTED_HEADERS.LEDGERS_CSV]: 'ledgers',
+      ...CSV_FILE_TYPES,
     };
     const fileType = await CsvParser.validateHeaders(filePath, expectedHeaders);
 

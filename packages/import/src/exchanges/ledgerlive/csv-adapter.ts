@@ -12,13 +12,8 @@ import path from 'path';
 
 import { BaseAdapter } from '../../shared/adapters/base-adapter.ts';
 import { CsvParser } from '../csv-parser.ts';
+import { CSV_FILE_TYPES } from './constants.ts';
 import type { CsvLedgerLiveOperationRow } from './types.ts';
-
-// Expected CSV headers for validation
-const EXPECTED_HEADERS = {
-  LEDGERLIVE_CSV:
-    'Operation Date,Status,Currency Ticker,Operation Type,Operation Amount,Operation Fees,Operation Hash,Account Name,Account xpub,Countervalue Ticker,Countervalue at Operation Date,Countervalue at CSV Export',
-};
 
 export class LedgerLiveCSVAdapter extends BaseAdapter {
   private cachedTransactions: CsvLedgerLiveOperationRow[] | null = null;
@@ -207,7 +202,7 @@ export class LedgerLiveCSVAdapter extends BaseAdapter {
    */
   private async validateCSVHeaders(filePath: string): Promise<string> {
     const expectedHeaders = {
-      [EXPECTED_HEADERS.LEDGERLIVE_CSV]: 'operations',
+      ...CSV_FILE_TYPES,
     };
     const fileType = await CsvParser.validateHeaders(filePath, expectedHeaders);
 
