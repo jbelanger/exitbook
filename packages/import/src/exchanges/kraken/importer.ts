@@ -4,12 +4,8 @@ import path from 'path';
 import { BaseImporter } from '../../shared/importers/base-importer.ts';
 import type { ImportParams, ValidationResult } from '../../shared/importers/interfaces.ts';
 import { CsvParser } from '../csv-parser.ts';
+import { CSV_FILE_TYPES } from './constants.ts';
 import type { CsvKrakenLedgerRow } from './types.ts';
-
-// Expected CSV headers for validation
-const EXPECTED_HEADERS = {
-  LEDGERS_CSV: '"txid","refid","time","type","subtype","aclass","asset","wallet","amount","fee","balance"',
-};
 
 /**
  * Importer for Kraken CSV ledger files.
@@ -36,9 +32,7 @@ export class KrakenCsvImporter extends BaseImporter<CsvKrakenLedgerRow> {
    * Validate CSV headers and determine file type.
    */
   private async validateCSVHeaders(filePath: string): Promise<string> {
-    const expectedHeaders = {
-      [EXPECTED_HEADERS.LEDGERS_CSV]: 'ledgers',
-    };
+    const expectedHeaders = CSV_FILE_TYPES;
 
     try {
       const fileType = await CsvParser.validateHeaders(filePath, expectedHeaders);
