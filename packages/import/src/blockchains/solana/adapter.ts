@@ -1,5 +1,5 @@
 import type {
-  BlockchainBalance,
+  Balance,
   BlockchainTransaction,
   TransactionType,
   UniversalAdapterInfo,
@@ -60,12 +60,12 @@ export class SolanaAdapter extends BaseAdapter {
     }
   }
 
-  protected async fetchRawBalances(params: UniversalFetchParams): Promise<BlockchainBalance[]> {
+  protected async fetchRawBalances(params: UniversalFetchParams): Promise<Balance[]> {
     if (!params.addresses?.length) {
       throw new Error('Addresses required for Solana balance fetching');
     }
 
-    const allBalances: BlockchainBalance[] = [];
+    const allBalances: Balance[] = [];
 
     for (const address of params.addresses) {
       this.logger.info(`Getting balance for address: ${address.substring(0, 20)}...`);
@@ -75,9 +75,9 @@ export class SolanaAdapter extends BaseAdapter {
           address: address,
           getCacheKey: cacheParams =>
             `solana_balance_${cacheParams.type === 'getAddressBalance' ? cacheParams.address : 'unknown'}`,
-          type: 'getAddressBalance',
+          type: 'getRawAddressBalance',
         });
-        const balances = failoverResult.data as BlockchainBalance[];
+        const balances = failoverResult.data as Balance[];
 
         allBalances.push(...balances);
       } catch (error) {
@@ -175,10 +175,7 @@ export class SolanaAdapter extends BaseAdapter {
     }
   }
 
-  protected async transformBalances(
-    rawBalances: BlockchainBalance[],
-    params: UniversalFetchParams
-  ): Promise<UniversalBalance[]> {
+  protected async transformBalances(rawBalances: Balance[], params: UniversalFetchParams): Promise<UniversalBalance[]> {
     return rawBalances.map(balance => ({
       contractAddress: balance.contractAddress,
       currency: balance.currency,

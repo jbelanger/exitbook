@@ -81,7 +81,7 @@ export class AvalancheAdapter extends BaseAdapter {
     const allBalances: Balance[] = [];
 
     for (const address of params.addresses) {
-      this.logger.debug(`AvalancheAdapter.getAddressBalance called - Address: ${address}`);
+      this.logger.info(`Getting balance for address: ${address.substring(0, 20)}...`);
 
       try {
         const failoverResult = await this.providerManager.executeWithFailover('avalanche', {

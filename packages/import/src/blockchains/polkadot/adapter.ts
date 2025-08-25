@@ -12,6 +12,9 @@ import type {
 import { BaseAdapter } from '../../shared/adapters/base-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
 import type { BlockchainExplorersConfig } from '../shared/explorer-config.ts';
+// Import clients to trigger registration
+import './clients/index.ts';
+import { SubstrateProcessor, type SubstrateRawData } from './processors/SubstrateProcessor.ts';
 import { SUBSTRATE_CHAINS, type SubstrateChainConfig } from './types.ts';
 
 export class SubstrateAdapter extends BaseAdapter {
@@ -31,6 +34,24 @@ export class SubstrateAdapter extends BaseAdapter {
     this.logger.info(
       `Initialized Substrate adapter with registry-based provider manager - Chain: ${this.chainConfig.name}, DisplayName: ${this.chainConfig.displayName}, TokenSymbol: ${this.chainConfig.tokenSymbol}, SS58Format: ${this.chainConfig.ss58Format}, ProvidersCount: ${this.providerManager.getProviders('polkadot').length}`
     );
+  }
+
+  private processRawBalance(rawData: unknown, providerName: string): Balance[] {
+    switch (providerName) {
+      case 'subscan':
+        return SubstrateProcessor.processAddressBalance(rawData as SubstrateRawData);
+      default:
+        throw new Error(`Unsupported provider for balance processing: ${providerName}`);
+    }
+  }
+
+  private processRawTransactions(rawData: unknown, providerName: string, userAddress: string): BlockchainTransaction[] {
+    switch (providerName) {
+      case 'subscan':
+        return SubstrateProcessor.processAddressTransactions(rawData as SubstrateRawData, userAddress);
+      default:
+        throw new Error(`Unsupported provider for transaction processing: ${providerName}`);
+    }
   }
 
   /**
@@ -54,20 +75,21 @@ export class SubstrateAdapter extends BaseAdapter {
 
     for (const address of params.addresses) {
       this.logger.debug(
-        `SubstrateAdapter.getAddressBalance called - Address: ${address}, Chain: ${this.chainConfig.name}`
+        `SubstrateAdapter.fetchRawBalances called - Address: ${address}, Chain: ${this.chainConfig.name}`
       );
 
       try {
-        const failoverResult = await this.providerManager.executeWithFailover('polkadot', {
+        const rawResult = await this.providerManager.executeWithFailover('polkadot', {
           address: address,
           getCacheKey: cacheParams =>
-            `${this.chainConfig.name}_balance_${cacheParams.type === 'getAddressBalance' ? cacheParams.address : 'unknown'}`,
-          type: 'getAddressBalance',
+            `${this.chainConfig.name}_balance_${cacheParams.type === 'getRawAddressBalance' ? cacheParams.address : 'unknown'}`,
+          type: 'getRawAddressBalance',
         });
-        const balances = failoverResult.data as Balance[];
 
-        allBalances.push(...balances);
-        this.logger.info(`SubstrateAdapter: Found ${balances.length} balances for ${this.chainConfig.name} address`);
+        const processed = this.processRawBalance(rawResult.data, rawResult.providerName);
+        allBalances.push(...processed);
+
+        this.logger.info(`SubstrateAdapter: Found ${processed.length} balances for ${this.chainConfig.name} address`);
       } catch (error) {
         this.logger.error(
           `Failed to fetch address balance via provider manager - Address: ${address}, Chain: ${this.chainConfig.name}, Error: ${error instanceof Error ? error.message : String(error)}`
@@ -89,23 +111,23 @@ export class SubstrateAdapter extends BaseAdapter {
     for (const address of params.addresses) {
       this.logger.info(`SubstrateAdapter: Fetching transactions for address: ${address.substring(0, 20)}...`);
       this.logger.debug(
-        `SubstrateAdapter.getAddressTransactions called - Address: ${address}, Since: ${params.since}, Chain: ${this.chainConfig.name}`
+        `SubstrateAdapter.fetchRawTransactions called - Address: ${address}, Since: ${params.since}, Chain: ${this.chainConfig.name}`
       );
 
       try {
-        const transactionsFailoverResult = await this.providerManager.executeWithFailover('polkadot', {
+        const rawResult = await this.providerManager.executeWithFailover('polkadot', {
           address: address,
           getCacheKey: cacheParams =>
-            `${this.chainConfig.name}_tx_${cacheParams.type === 'getAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getAddressTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
+            `${this.chainConfig.name}_tx_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
           since: params.since,
-          type: 'getAddressTransactions',
+          type: 'getRawAddressTransactions',
         });
-        const transactions = transactionsFailoverResult.data as BlockchainTransaction[];
 
-        allTransactions.push(...transactions);
+        const processed = this.processRawTransactions(rawResult.data, rawResult.providerName, address);
+        allTransactions.push(...processed);
 
         this.logger.info(
-          `SubstrateAdapter: Found ${transactions.length} transactions for ${this.chainConfig.name} address`
+          `SubstrateAdapter: Found ${processed.length} transactions for ${this.chainConfig.name} address`
         );
       } catch (error) {
         this.logger.error(
@@ -131,7 +153,7 @@ export class SubstrateAdapter extends BaseAdapter {
           requestsPerSecond: 3,
         },
         requiresApiKey: false,
-        supportedOperations: ['fetchTransactions', 'fetchBalances'],
+        supportedOperations: ['fetchTransactions', 'fetchBalances', 'getAddressTransactions'],
         supportsHistoricalData: true,
         supportsPagination: true,
       },

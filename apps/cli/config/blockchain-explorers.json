@@ -488,7 +488,7 @@
         "type": "rest",
         "description": "Multi-chain Substrate provider supporting Polkadot, Kusama, and Bittensor networks with explorer APIs and RPC fallback",
         "capabilities": {
-          "supportedOperations": ["getAddressTransactions", "getAddressBalance"],
+          "supportedOperations": ["getRawAddressTransactions", "getRawAddressBalance"],
           "maxBatchSize": 1,
           "supportsHistoricalData": true,
           "supportsRealTimeData": true,
