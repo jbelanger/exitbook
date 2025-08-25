@@ -4,6 +4,7 @@ import { Decimal } from 'decimal.js';
 
 import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
+import { SubstrateRawDataSchema } from '../schemas.ts';
 import type { SubscanTransfer, SubstrateAccountInfo, SubstrateChainConfig, TaostatsTransaction } from '../types.ts';
 import { SUBSTRATE_CHAINS } from '../types.ts';
 
@@ -242,71 +243,20 @@ export class SubstrateProcessor implements IProviderProcessor<SubstrateRawData> 
   }
 
   validate(rawData: SubstrateRawData): ValidationResult {
-    const errors: string[] = [];
+    const result = SubstrateRawDataSchema.safeParse(rawData);
 
-    // Validate the structure
-    if (!rawData || typeof rawData !== 'object') {
-      errors.push('Raw data must be a SubstrateRawData object');
-      return { errors, isValid: false };
+    if (result.success) {
+      return { isValid: true };
     }
 
-    if (!Array.isArray(rawData.data)) {
-      errors.push('Data must be an array');
-      return { errors, isValid: false };
-    }
-
-    if (!rawData.provider || !['subscan', 'taostats', 'rpc', 'unknown'].includes(rawData.provider)) {
-      errors.push('Provider must be one of: subscan, taostats, rpc, unknown');
-    }
-
-    // Validate based on provider type
-    if (rawData.provider === 'subscan') {
-      for (let i = 0; i < rawData.data.length; i++) {
-        const transfer = rawData.data[i] as SubscanTransfer;
-        const prefix = `Subscan transfer ${i}:`;
-
-        if (!transfer.hash) {
-          errors.push(`${prefix} Transaction hash is required`);
-        }
-
-        if (!transfer.from) {
-          errors.push(`${prefix} From address is required`);
-        }
-
-        if (!transfer.to) {
-          errors.push(`${prefix} To address is required`);
-        }
-
-        if (!transfer.block_timestamp || typeof transfer.block_timestamp !== 'number') {
-          errors.push(`${prefix} Block timestamp is required and must be a number`);
-        }
-      }
-    } else if (rawData.provider === 'taostats') {
-      for (let i = 0; i < rawData.data.length; i++) {
-        const tx = rawData.data[i] as TaostatsTransaction;
-        const prefix = `Taostats transaction ${i}:`;
-
-        if (!tx.hash) {
-          errors.push(`${prefix} Transaction hash is required`);
-        }
-
-        if (!tx.from) {
-          errors.push(`${prefix} From address is required`);
-        }
-
-        if (!tx.to) {
-          errors.push(`${prefix} To address is required`);
-        }
-
-        if (!tx.timestamp) {
-          errors.push(`${prefix} Timestamp is required`);
-        }
-      }
-    }
+    const errors = result.error.issues.map(issue => {
+      const path = issue.path.length > 0 ? ` at ${issue.path.join('.')}` : '';
+      return `${issue.message}${path}`;
+    });
 
     return {
-      isValid: errors.length === 0,
-      ...(errors.length > 0 && { errors }),
+      errors,
+      isValid: false,
     };
   }
 }

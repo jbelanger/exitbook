@@ -4,6 +4,7 @@ import { Decimal } from 'decimal.js';
 
 import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
+import { InjectiveTransactionSchema } from '../schemas.ts';
 import type { InjectiveMessageValue, InjectiveTransaction } from '../types.ts';
 
 @RegisterProcessor('injective-explorer')
@@ -172,37 +173,20 @@ export class InjectiveExplorerProcessor implements IProviderProcessor<InjectiveT
   }
 
   validate(rawData: InjectiveTransaction): ValidationResult {
-    const errors: string[] = [];
+    const result = InjectiveTransactionSchema.safeParse(rawData);
 
-    // Validate required fields
-    if (!rawData.hash) {
-      errors.push('Transaction hash is required');
+    if (result.success) {
+      return { isValid: true };
     }
 
-    if (!rawData.block_timestamp) {
-      errors.push('Block timestamp is required');
-    }
+    const errors = result.error.issues.map(issue => {
+      const path = issue.path.length > 0 ? ` at ${issue.path.join('.')}` : '';
+      return `${issue.message}${path}`;
+    });
 
-    if (!Array.isArray(rawData.messages)) {
-      errors.push('Transaction messages must be an array');
-    }
-
-    if (typeof rawData.block_number !== 'number') {
-      errors.push('Block number must be a number');
-    }
-
-    if (typeof rawData.code !== 'number') {
-      errors.push('Transaction code must be a number');
-    }
-
-    const result: ValidationResult = {
-      isValid: errors.length === 0,
+    return {
+      errors,
+      isValid: false,
     };
-
-    if (errors.length > 0) {
-      result.errors = errors;
-    }
-
-    return result;
   }
 }

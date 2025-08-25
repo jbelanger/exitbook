@@ -4,6 +4,7 @@ import { Decimal } from 'decimal.js';
 
 import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
+import { AlchemyAssetTransferArraySchema } from '../schemas.ts';
 import type { AlchemyAssetTransfer, EtherscanBalance } from '../types.ts';
 
 @RegisterProcessor('alchemy')
@@ -144,48 +145,20 @@ export class AlchemyProcessor implements IProviderProcessor<AlchemyAssetTransfer
   }
 
   validate(rawData: AlchemyAssetTransfer[]): ValidationResult {
-    const errors: string[] = [];
+    const result = AlchemyAssetTransferArraySchema.safeParse(rawData);
 
-    // Validate that we have an array
-    if (!Array.isArray(rawData)) {
-      errors.push('Raw data must be an array of AlchemyAssetTransfer');
-      return { errors, isValid: false };
+    if (result.success) {
+      return { isValid: true };
     }
 
-    // Validate each transfer
-    for (let i = 0; i < rawData.length; i++) {
-      const transfer = rawData[i];
-      const prefix = `Transfer ${i}:`;
-
-      if (!transfer.hash) {
-        errors.push(`${prefix} Transaction hash is required`);
-      }
-
-      if (!transfer.from) {
-        errors.push(`${prefix} From address is required`);
-      }
-
-      if (!transfer.to) {
-        errors.push(`${prefix} To address is required`);
-      }
-
-      if (!transfer.blockNum) {
-        errors.push(`${prefix} Block number is required`);
-      }
-
-      if (!transfer.category) {
-        errors.push(`${prefix} Category is required`);
-      }
-
-      // Validate value is a valid number string
-      if (transfer.value && isNaN(parseFloat(transfer.value))) {
-        errors.push(`${prefix} Value must be a valid number`);
-      }
-    }
+    const errors = result.error.issues.map(issue => {
+      const path = issue.path.length > 0 ? ` at ${issue.path.join('.')}` : '';
+      return `${issue.message}${path}`;
+    });
 
     return {
-      isValid: errors.length === 0,
-      ...(errors.length > 0 && { errors }),
+      errors,
+      isValid: false,
     };
   }
 }
