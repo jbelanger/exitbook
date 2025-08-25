@@ -294,17 +294,12 @@
       {
         "name": "solana-rpc",
         "displayName": "Solana RPC",
-        "enabled": false,
+        "enabled": true,
         "priority": 2,
         "type": "rpc",
         "description": "Direct connection to Solana mainnet RPC endpoints with basic transaction data",
         "capabilities": {
-          "supportedOperations": [
-            "getAddressTransactions",
-            "getAddressBalance",
-            "getTokenTransactions",
-            "getTokenBalances"
-          ],
+          "supportedOperations": ["getRawAddressTransactions", "getRawAddressBalance", "getRawTokenBalances"],
           "maxBatchSize": 1,
           "supportsHistoricalData": true,
           "supportsRealTimeData": true,
@@ -334,12 +329,12 @@
       {
         "name": "solscan",
         "displayName": "Solscan API",
-        "enabled": false,
+        "enabled": true,
         "priority": 3,
         "type": "rest",
         "description": "Solana blockchain explorer API with transaction and account data access",
         "capabilities": {
-          "supportedOperations": ["getAddressTransactions", "getAddressBalance"],
+          "supportedOperations": ["getRawAddressTransactions", "getRawAddressBalance"],
           "maxBatchSize": 1,
           "supportsHistoricalData": true,
           "supportsRealTimeData": true,
