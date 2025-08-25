@@ -1,15 +1,18 @@
-import type { BlockchainTransaction } from '@crypto/core';
+import type { BlockchainTransaction, UniversalTransaction } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
 import { createMoney, maskAddress } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
 
+import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
+import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
 import type { SolscanRawTransactionData } from '../clients/SolscanApiClient.ts';
 import type { SolscanTransaction } from '../types.ts';
 import { lamportsToSol } from '../utils.ts';
 
 const logger = getLogger('SolscanProcessor');
 
-export class SolscanProcessor {
+@RegisterProcessor('solscan')
+export class SolscanProcessor implements IProviderProcessor<SolscanRawTransactionData> {
   static processAddressTransactions(rawData: SolscanRawTransactionData, userAddress: string): BlockchainTransaction[] {
     logger.debug(
       `Processing Solscan address transactions - Address: ${maskAddress(userAddress)}, RawTransactionCount: ${rawData.normal.length}`
@@ -86,5 +89,99 @@ export class SolscanProcessor {
       );
       return null;
     }
+  }
+
+  // IProviderProcessor interface implementation
+  transform(rawData: SolscanRawTransactionData, walletAddresses: string[]): UniversalTransaction {
+    // Process the first transaction for interface compatibility
+    const userAddress = walletAddresses[0] || '';
+
+    if (!rawData.normal || rawData.normal.length === 0) {
+      throw new Error('No transactions to transform from SolscanRawTransactionData');
+    }
+
+    const tx = rawData.normal[0];
+    const processedTx = SolscanProcessor.transformTransaction(tx, userAddress);
+
+    if (!processedTx) {
+      throw new Error('Unable to transform Solscan transaction to UniversalTransaction');
+    }
+
+    // Convert BlockchainTransaction to UniversalTransaction
+    let type: UniversalTransaction['type'];
+    if (processedTx.type === 'transfer_in') {
+      type = 'deposit';
+    } else if (processedTx.type === 'transfer_out') {
+      type = 'withdrawal';
+    } else {
+      type = 'transfer';
+    }
+
+    return {
+      amount: processedTx.value,
+      datetime: new Date(processedTx.timestamp).toISOString(),
+      fee: processedTx.fee,
+      from: processedTx.from,
+      id: processedTx.hash,
+      metadata: {
+        blockchain: 'solana',
+        blockNumber: processedTx.blockNumber,
+        providerId: 'solscan',
+        rawData: tx,
+      },
+      source: 'solana',
+      status: processedTx.status === 'success' ? 'ok' : 'failed',
+      symbol: processedTx.tokenSymbol || 'SOL',
+      timestamp: processedTx.timestamp,
+      to: processedTx.to,
+      type,
+    };
+  }
+
+  validate(rawData: SolscanRawTransactionData): ValidationResult {
+    const errors: string[] = [];
+
+    // Validate the structure
+    if (!rawData || typeof rawData !== 'object') {
+      errors.push('Raw data must be a SolscanRawTransactionData object');
+      return { errors, isValid: false };
+    }
+
+    if (!Array.isArray(rawData.normal)) {
+      errors.push('Normal transactions must be an array');
+      return { errors, isValid: false };
+    }
+
+    // Validate each transaction
+    for (let i = 0; i < rawData.normal.length; i++) {
+      const tx = rawData.normal[i];
+      const prefix = `Transaction ${i}:`;
+
+      if (!tx.txHash) {
+        errors.push(`${prefix} Transaction hash is required`);
+      }
+
+      if (!tx.blockTime || typeof tx.blockTime !== 'number') {
+        errors.push(`${prefix} Block time is required and must be a number`);
+      }
+
+      if (!tx.slot || typeof tx.slot !== 'number') {
+        errors.push(`${prefix} Slot number is required and must be a number`);
+      }
+
+      if (!Array.isArray(tx.signer)) {
+        errors.push(`${prefix} Signer must be an array`);
+      }
+
+      // inputAccount is optional but if present should be array
+      if (tx.inputAccount && !Array.isArray(tx.inputAccount)) {
+        errors.push(`${prefix} Input account must be an array if present`);
+      }
+    }
+
+    return {
+      isValid: errors.length === 0,
+      ...(errors.length > 0 && { errors }),
+    };
   }
 }

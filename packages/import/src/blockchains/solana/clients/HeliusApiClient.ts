@@ -1,7 +1,7 @@
 import { maskAddress } from '@crypto/shared-utils';
 
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
-import { RegisterProvider } from '../../shared/registry/decorators.ts';
+import { RegisterApiClient } from '../../shared/registry/decorators.ts';
 import type { JsonRpcResponse, ProviderOperation } from '../../shared/types.ts';
 import type {
   HeliusAssetResponse,
@@ -25,7 +25,7 @@ export interface SolanaRawTokenBalanceData {
   tokenAccounts: SolanaTokenAccountsResponse;
 }
 
-@RegisterProvider({
+@RegisterApiClient({
   apiKeyEnvVar: 'SOLANA_HELIUS_API_KEY',
   blockchain: 'solana',
   capabilities: {

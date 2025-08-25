@@ -1,7 +1,7 @@
 import { maskAddress } from '@crypto/shared-utils';
 
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
-import { RegisterProvider } from '../../shared/registry/decorators.ts';
+import { RegisterApiClient } from '../../shared/registry/decorators.ts';
 import type { ProviderOperation } from '../../shared/types.ts';
 import type { SolscanResponse, SolscanTransaction } from '../types.ts';
 import { isValidSolanaAddress } from '../utils.ts';
@@ -14,7 +14,7 @@ export interface SolscanRawBalanceData {
   lamports: string;
 }
 
-@RegisterProvider({
+@RegisterApiClient({
   apiKeyEnvVar: 'SOLSCAN_API_KEY',
   blockchain: 'solana',
   capabilities: {

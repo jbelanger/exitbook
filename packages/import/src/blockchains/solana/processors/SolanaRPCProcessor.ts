@@ -1,14 +1,17 @@
-import type { BlockchainTransaction } from '@crypto/core';
+import type { BlockchainTransaction, UniversalTransaction } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
 import { createMoney, maskAddress } from '@crypto/shared-utils';
 
+import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
+import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
 import type { SolanaRPCRawTransactionData } from '../clients/SolanaRPCApiClient.ts';
 import type { SolanaRPCTransaction } from '../types.ts';
 import { lamportsToSol } from '../utils.ts';
 
 const logger = getLogger('SolanaRPCProcessor');
 
-export class SolanaRPCProcessor {
+@RegisterProcessor('solana-rpc')
+export class SolanaRPCProcessor implements IProviderProcessor<SolanaRPCRawTransactionData> {
   private static extractTokenTransaction(
     tx: SolanaRPCTransaction,
     userAddress: string,
@@ -181,5 +184,103 @@ export class SolanaRPCProcessor {
       );
       return null;
     }
+  }
+
+  // IProviderProcessor interface implementation
+  transform(rawData: SolanaRPCRawTransactionData, walletAddresses: string[]): UniversalTransaction {
+    // Process the first transaction for interface compatibility
+    const userAddress = walletAddresses[0] || '';
+
+    if (!rawData.normal || rawData.normal.length === 0) {
+      throw new Error('No transactions to transform from SolanaRPCRawTransactionData');
+    }
+
+    const tx = rawData.normal[0];
+    const processedTx = SolanaRPCProcessor.transformTransaction(tx, userAddress);
+
+    if (!processedTx) {
+      throw new Error('Unable to transform SolanaRPC transaction to UniversalTransaction');
+    }
+
+    // Convert BlockchainTransaction to UniversalTransaction
+    let type: UniversalTransaction['type'];
+    if (processedTx.type === 'transfer_in') {
+      type = 'deposit';
+    } else if (processedTx.type === 'transfer_out') {
+      type = 'withdrawal';
+    } else {
+      type = 'transfer';
+    }
+
+    return {
+      amount: processedTx.value,
+      datetime: new Date(processedTx.timestamp).toISOString(),
+      fee: processedTx.fee,
+      from: processedTx.from,
+      id: processedTx.hash,
+      metadata: {
+        blockchain: 'solana',
+        blockNumber: processedTx.blockNumber,
+        providerId: 'solana-rpc',
+        rawData: tx,
+      },
+      source: 'solana',
+      status: processedTx.status === 'success' ? 'ok' : 'failed',
+      symbol: processedTx.tokenSymbol || 'SOL',
+      timestamp: processedTx.timestamp,
+      to: processedTx.to,
+      type,
+    };
+  }
+
+  validate(rawData: SolanaRPCRawTransactionData): ValidationResult {
+    const errors: string[] = [];
+
+    // Validate the structure
+    if (!rawData || typeof rawData !== 'object') {
+      errors.push('Raw data must be a SolanaRPCRawTransactionData object');
+      return { errors, isValid: false };
+    }
+
+    if (!Array.isArray(rawData.normal)) {
+      errors.push('Normal transactions must be an array');
+      return { errors, isValid: false };
+    }
+
+    // Validate each transaction
+    for (let i = 0; i < rawData.normal.length; i++) {
+      const tx = rawData.normal[i];
+      const prefix = `Transaction ${i}:`;
+
+      // Check for signature
+      if (!tx.transaction?.signatures || tx.transaction.signatures.length === 0) {
+        errors.push(`${prefix} Transaction signatures are required`);
+      }
+
+      if (!tx.slot || typeof tx.slot !== 'number') {
+        errors.push(`${prefix} Slot number is required and must be a number`);
+      }
+
+      if (!tx.transaction || typeof tx.transaction !== 'object') {
+        errors.push(`${prefix} Transaction object is required`);
+      }
+
+      if (!tx.meta || typeof tx.meta !== 'object') {
+        errors.push(`${prefix} Meta object is required`);
+      }
+
+      if (tx.transaction && (!tx.transaction.message || !tx.transaction.message.accountKeys)) {
+        errors.push(`${prefix} Transaction message with accountKeys is required`);
+      }
+
+      if (tx.meta && (!Array.isArray(tx.meta.preBalances) || !Array.isArray(tx.meta.postBalances))) {
+        errors.push(`${prefix} Meta preBalances and postBalances must be arrays`);
+      }
+    }
+
+    return {
+      isValid: errors.length === 0,
+      ...(errors.length > 0 && { errors }),
+    };
   }
 }

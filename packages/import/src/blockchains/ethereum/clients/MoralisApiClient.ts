@@ -1,7 +1,7 @@
 import { maskAddress } from '@crypto/shared-utils';
 
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
-import { RegisterProvider } from '../../shared/registry/decorators.ts';
+import { RegisterApiClient } from '../../shared/registry/decorators.ts';
 import type { ProviderOperation } from '../../shared/types.ts';
 import type {
   MoralisNativeBalance,
@@ -12,7 +12,7 @@ import type {
   MoralisTransactionResponse,
 } from '../types.ts';
 
-@RegisterProvider({
+@RegisterApiClient({
   blockchain: 'ethereum',
   capabilities: {
     maxBatchSize: 1,
