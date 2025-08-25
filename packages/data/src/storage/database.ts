@@ -67,6 +67,7 @@ export class Database {
     if (clearExisting) {
       tableQueries.push(
         `DROP TABLE IF EXISTS transactions`,
+        `DROP TABLE IF EXISTS external_transaction_data`,
         `DROP TABLE IF EXISTS raw_transactions`,
         `DROP TABLE IF EXISTS balance_snapshots`,
         `DROP TABLE IF EXISTS balance_verifications`,
@@ -75,8 +76,8 @@ export class Database {
     }
 
     tableQueries.push(
-      // Raw transactions table - stores unprocessed transaction data from adapters
-      `CREATE TABLE ${clearExisting ? '' : 'IF NOT EXISTS '}raw_transactions (
+      // External transaction data table - stores unprocessed transaction data from adapters
+      `CREATE TABLE ${clearExisting ? '' : 'IF NOT EXISTS '}external_transaction_data (
         id TEXT PRIMARY KEY,
         adapter_id TEXT NOT NULL,
         adapter_type TEXT NOT NULL,
@@ -114,7 +115,7 @@ export class Database {
         wallet_id INTEGER,
         raw_data JSON NOT NULL,
         created_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
-        hash TEXT UNIQUE,
+        hash TEXT,
         verified BOOLEAN DEFAULT 0,
         note_type TEXT,
         note_message TEXT,
@@ -193,12 +194,12 @@ export class Database {
       `CREATE INDEX IF NOT EXISTS idx_wallet_addresses_active 
        ON wallet_addresses(is_active) WHERE is_active = 1`,
 
-      // Raw transactions indexes
-      `CREATE INDEX IF NOT EXISTS idx_raw_transactions_adapter 
-       ON raw_transactions(adapter_id, created_at)`,
+      // External transaction data indexes
+      `CREATE INDEX IF NOT EXISTS idx_external_transaction_data_adapter 
+       ON external_transaction_data(adapter_id, created_at)`,
 
-      `CREATE INDEX IF NOT EXISTS idx_raw_transactions_session 
-       ON raw_transactions(import_session_id) WHERE import_session_id IS NOT NULL`,
+      `CREATE INDEX IF NOT EXISTS idx_external_transaction_data_session 
+       ON external_transaction_data(import_session_id) WHERE import_session_id IS NOT NULL`,
     ];
 
     this.db.serialize(() => {
@@ -758,7 +759,7 @@ export class Database {
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       const stmt = this.db.prepare(`
-        INSERT OR REPLACE INTO raw_transactions 
+        INSERT OR REPLACE INTO external_transaction_data 
         (id, adapter_id, adapter_type, provider_id, source_transaction_id, raw_data, metadata, import_session_id)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `);
@@ -808,7 +809,7 @@ export class Database {
         this.db.run('BEGIN TRANSACTION');
 
         const stmt = this.db.prepare(`
-          INSERT OR IGNORE INTO raw_transactions 
+          INSERT OR IGNORE INTO external_transaction_data 
           (id, adapter_id, adapter_type, provider_id, source_transaction_id, raw_data, metadata, import_session_id)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `);
@@ -1018,7 +1019,7 @@ export class Database {
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       const stmt = this.db.prepare(`
-        UPDATE raw_transactions 
+        UPDATE external_transaction_data 
         SET processing_status = ?, processing_error = ?, processed_at = ?
         WHERE adapter_id = ? AND source_transaction_id = ? AND (provider_id = ? OR (provider_id IS NULL AND ? IS NULL))
       `);
