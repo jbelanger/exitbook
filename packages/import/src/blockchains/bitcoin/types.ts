@@ -39,6 +39,10 @@ export interface MempoolTransaction {
   weight: number;
 }
 
+export type BitcoinTransaction = (MempoolTransaction | BlockstreamTransaction | BlockCypherTransaction) & {
+  fetchedByAddress?: string;
+};
+
 export interface MempoolInput {
   prevout?: MempoolPrevout;
   scriptsig: string;

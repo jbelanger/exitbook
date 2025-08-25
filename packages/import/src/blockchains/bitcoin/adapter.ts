@@ -68,13 +68,14 @@ export class BitcoinAdapter extends BaseAdapter {
       }
 
       try {
-        const rawTransactions = (await this.providerManager.executeWithFailover('bitcoin', {
+        const result = await this.providerManager.executeWithFailover('bitcoin', {
           address: address,
           getCacheKey: params =>
             `bitcoin:raw-txs:${params.type === 'getRawAddressTransactions' ? params.address : 'unknown'}:${params.type === 'getRawAddressTransactions' ? params.since || 'all' : 'unknown'}`,
           since: since,
           type: 'getRawAddressTransactions',
-        })) as (MempoolTransaction | BlockstreamTransaction)[];
+        });
+        const rawTransactions = result.data as (MempoolTransaction | BlockstreamTransaction)[];
 
         // Add raw transactions to the unique set
         for (const rawTx of rawTransactions) {
@@ -236,12 +237,13 @@ export class BitcoinAdapter extends BaseAdapter {
 
     for (const address of params.addresses) {
       try {
-        const result = (await this.providerManager.executeWithFailover('bitcoin', {
+        const result = await this.providerManager.executeWithFailover('bitcoin', {
           address: address,
           type: 'getAddressBalance',
-        })) as { balance: string; token: string };
+        });
+        const balanceData = result.data as { balance: string; token: string };
 
-        const balanceValue = parseFloat(result.balance);
+        const balanceValue = parseFloat(balanceData.balance);
         if (balanceValue > 0) {
           allBalances.push({
             balance: balanceValue,
@@ -304,13 +306,14 @@ export class BitcoinAdapter extends BaseAdapter {
       } else {
         // Regular address - use provider manager with raw transactions for wallet-aware parsing
         try {
-          const rawTransactions = (await this.providerManager.executeWithFailover('bitcoin', {
+          const result = await this.providerManager.executeWithFailover('bitcoin', {
             address: userAddress,
             getCacheKey: cacheParams =>
               `bitcoin:raw-txs:${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.address : 'unknown'}:${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
             since: params.since,
             type: 'getRawAddressTransactions',
-          })) as (MempoolTransaction | BlockstreamTransaction)[];
+          });
+          const rawTransactions = result.data as (MempoolTransaction | BlockstreamTransaction)[];
 
           // Parse raw transactions with wallet context (single address, local parsing)
           for (const rawTx of rawTransactions) {

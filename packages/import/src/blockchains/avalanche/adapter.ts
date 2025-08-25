@@ -51,12 +51,13 @@ export class AvalancheAdapter extends BaseAdapter {
       this.logger.debug(`AvalancheAdapter.getAddressBalance called - Address: ${address}`);
 
       try {
-        const balances = (await this.providerManager.executeWithFailover('avalanche', {
+        const failoverResult = await this.providerManager.executeWithFailover('avalanche', {
           address: address,
           getCacheKey: cacheParams =>
             `avax_balance_${cacheParams.type === 'getAddressBalance' ? cacheParams.address : 'unknown'}`,
           type: 'getAddressBalance',
-        })) as Balance[];
+        });
+        const balances = failoverResult.data as Balance[];
 
         allBalances.push(...balances);
         this.logger.info(`AvalancheAdapter: Found ${balances.length} balances for address`);
@@ -83,24 +84,26 @@ export class AvalancheAdapter extends BaseAdapter {
 
       try {
         // Fetch regular AVAX transactions
-        const regularTxs = (await this.providerManager.executeWithFailover('avalanche', {
+        const regularTxsFailoverResult = await this.providerManager.executeWithFailover('avalanche', {
           address: address,
           getCacheKey: cacheParams =>
             `avax_tx_${cacheParams.type === 'getAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getAddressTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
           since: params.since,
           type: 'getAddressTransactions',
-        })) as BlockchainTransaction[];
+        });
+        const regularTxs = regularTxsFailoverResult.data as BlockchainTransaction[];
 
         // Try to fetch ERC-20 token transactions (if provider supports it)
         let tokenTxs: BlockchainTransaction[] = [];
         try {
-          tokenTxs = (await this.providerManager.executeWithFailover('avalanche', {
+          const tokenTxsFailoverResult = await this.providerManager.executeWithFailover('avalanche', {
             address: address,
             getCacheKey: cacheParams =>
               `avax_token_tx_${cacheParams.type === 'getTokenTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getTokenTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
             since: params.since,
             type: 'getTokenTransactions',
-          })) as BlockchainTransaction[];
+          });
+          tokenTxs = tokenTxsFailoverResult.data as BlockchainTransaction[];
         } catch (error) {
           this.logger.debug(
             `Provider does not support separate token transactions or failed to fetch: ${error instanceof Error ? error.message : String(error)}`

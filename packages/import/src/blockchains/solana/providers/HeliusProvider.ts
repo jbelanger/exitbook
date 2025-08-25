@@ -4,7 +4,7 @@ import { Decimal } from 'decimal.js';
 
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
 import { RegisterProvider } from '../../shared/registry/decorators.ts';
-import { JsonRpcResponse, ProviderOperation } from '../../shared/types.ts';
+import type { JsonRpcResponse, ProviderOperation } from '../../shared/types.ts';
 import type {
   HeliusAssetResponse,
   HeliusSignatureResponse,

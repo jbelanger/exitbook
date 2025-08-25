@@ -50,12 +50,13 @@ export class EthereumAdapter extends BaseAdapter {
       this.logger.info(`Getting balance for address: ${address.substring(0, 20)}...`);
 
       try {
-        const balances = (await this.providerManager.executeWithFailover('ethereum', {
+        const failoverResult = await this.providerManager.executeWithFailover('ethereum', {
           address: address,
           getCacheKey: cacheParams =>
             `eth_balance_${cacheParams.type === 'getAddressBalance' ? cacheParams.address : 'unknown'}`,
           type: 'getAddressBalance',
-        })) as Balance[];
+        });
+        const balances = failoverResult.data as Balance[];
 
         allBalances.push(...balances);
       } catch (error) {
@@ -79,24 +80,26 @@ export class EthereumAdapter extends BaseAdapter {
 
       try {
         // Fetch regular ETH transactions
-        const regularTxs = (await this.providerManager.executeWithFailover('ethereum', {
+        const regularTxsFailoverResult = await this.providerManager.executeWithFailover('ethereum', {
           address: address,
           getCacheKey: cacheParams =>
             `eth_tx_${cacheParams.type === 'getAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getAddressTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
           since: params.since,
           type: 'getAddressTransactions',
-        })) as BlockchainTransaction[];
+        });
+        const regularTxs = regularTxsFailoverResult.data as BlockchainTransaction[];
 
         // Try to fetch ERC-20 token transactions (if provider supports it)
         let tokenTxs: BlockchainTransaction[] = [];
         try {
-          tokenTxs = (await this.providerManager.executeWithFailover('ethereum', {
+          const tokenTxsFailoverResult = await this.providerManager.executeWithFailover('ethereum', {
             address: address,
             getCacheKey: cacheParams =>
               `eth_token_tx_${cacheParams.type === 'getTokenTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getTokenTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
             since: params.since,
             type: 'getTokenTransactions',
-          })) as BlockchainTransaction[];
+          });
+          tokenTxs = tokenTxsFailoverResult.data as BlockchainTransaction[];
         } catch (error) {
           this.logger.debug(
             `Provider does not support separate token transactions or failed to fetch - Error: ${error instanceof Error ? error.message : String(error)}`

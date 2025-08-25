@@ -42,3 +42,44 @@ export interface IProcessor<TRawData> {
    */
   processSingle(rawData: StoredRawData<TRawData>): Promise<UniversalTransaction | null>;
 }
+
+// New interfaces for the processor architecture refactor
+
+/**
+ * Validation result for raw data validation
+ */
+export interface ValidationResult {
+  errors?: string[];
+  isValid: boolean;
+}
+
+/**
+ * Interface for provider-specific processors that handle validation and transformation
+ */
+export interface IProviderProcessor<TRawData> {
+  /**
+   * Transform validated raw data into blockchain transactions
+   */
+  transform(rawData: TRawData, walletAddresses: string[]): UniversalTransaction;
+
+  /**
+   * Validate the raw data from a provider
+   */
+  validate(rawData: TRawData): ValidationResult;
+}
+
+/**
+ * Raw data with provenance information
+ */
+export interface SourcedRawData<TRawData> {
+  providerId: string;
+  rawData: TRawData;
+}
+
+/**
+ * Result from failover execution that includes provenance
+ */
+export interface FailoverExecutionResult<T> {
+  data: T;
+  providerName: string;
+}

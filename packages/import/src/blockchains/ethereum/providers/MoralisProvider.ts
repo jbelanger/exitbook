@@ -4,7 +4,7 @@ import { getLogger } from '@crypto/shared-logger';
 import { HttpClient, createMoney } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
 
-import { IBlockchainProvider, ProviderCapabilities, ProviderOperation } from '../../shared/types.ts';
+import type { IBlockchainProvider, ProviderCapabilities, ProviderOperation } from '../../shared/types.ts';
 import type {
   MoralisDateToBlockResponse,
   MoralisNativeBalance,

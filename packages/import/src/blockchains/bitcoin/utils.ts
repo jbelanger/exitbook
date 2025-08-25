@@ -219,12 +219,13 @@ export class BitcoinUtils {
 
       // Fetch lightweight address info using provider manager
       try {
-        const addressInfo = (await providerManager.executeWithFailover('bitcoin', {
+        const result = await providerManager.executeWithFailover('bitcoin', {
           address,
           getCacheKey: params =>
             `bitcoin:address-info:${params.type === 'getAddressInfo' ? params.address : 'unknown'}`,
           type: 'getAddressInfo',
-        })) as AddressInfo;
+        });
+        const addressInfo = result.data as AddressInfo;
 
         const hasActivity = addressInfo.txCount > 0;
         if (hasActivity) {
@@ -319,10 +320,11 @@ export class BitcoinUtils {
         logger.debug(`Checking Legacy address for activity: ${firstLegacyAddress}`);
 
         try {
-          const addressInfo = (await providerManager.executeWithFailover('bitcoin', {
+          const result = await providerManager.executeWithFailover('bitcoin', {
             address: firstLegacyAddress,
             type: 'getAddressInfo',
-          })) as AddressInfo;
+          });
+          const addressInfo = result.data as AddressInfo;
           const hasActivity = addressInfo.txCount > 0;
           if (hasActivity) {
             logger.info('Found activity on Legacy path (BIP44). Proceeding.');
@@ -351,10 +353,11 @@ export class BitcoinUtils {
         logger.debug(`Checking Native SegWit address for activity: ${firstSegwitAddress}`);
 
         try {
-          const addressInfo = (await providerManager.executeWithFailover('bitcoin', {
+          const result = await providerManager.executeWithFailover('bitcoin', {
             address: firstSegwitAddress,
             type: 'getAddressInfo',
-          })) as AddressInfo;
+          });
+          const addressInfo = result.data as AddressInfo;
           const hasActivity = addressInfo.txCount > 0;
           if (hasActivity) {
             logger.info('Found activity on Native SegWit path (BIP84). Proceeding.');

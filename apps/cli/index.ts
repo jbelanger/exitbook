@@ -594,7 +594,9 @@ async function main() {
         const { ExternalDataStore } = await import('@crypto/import/src/shared/storage/external-data-store.ts');
 
         // Import blockchain dependencies conditionally
-        let providerManager;
+        let providerManager:
+          | import('@crypto/import/src/blockchains/shared/blockchain-provider-manager.ts').BlockchainProviderManager
+          | null = null;
         if (options.adapterType === 'blockchain') {
           const { BlockchainProviderManager } = await import(
             '@crypto/import/src/blockchains/shared/blockchain-provider-manager.ts'
@@ -607,52 +609,58 @@ async function main() {
           explorerConfig,
           externalDataStore: new ExternalDataStore(database),
           logger,
-          ...(providerManager && { providerManager }),
+          ...(providerManager ? { providerManager } : {}),
         };
 
         const ingestionService = new TransactionIngestionService(dependencies);
 
-        // Parse options
-        const since = options.since
-          ? isNaN(options.since)
-            ? new Date(options.since).getTime()
-            : parseInt(options.since)
-          : undefined;
-        const until = options.until
-          ? isNaN(options.until)
-            ? new Date(options.until).getTime()
-            : parseInt(options.until)
-          : undefined;
+        try {
+          // Parse options
+          const since = options.since
+            ? isNaN(options.since)
+              ? new Date(options.since).getTime()
+              : parseInt(options.since)
+            : undefined;
+          const until = options.until
+            ? isNaN(options.until)
+              ? new Date(options.until).getTime()
+              : parseInt(options.until)
+            : undefined;
 
-        const importParams: {
-          addresses?: string[] | undefined;
-          csvDirectories?: string[] | undefined;
-          providerId?: string | undefined;
-          since?: number | undefined;
-          until?: number | undefined;
-        } = { since, until };
+          const importParams: {
+            addresses?: string[] | undefined;
+            csvDirectories?: string[] | undefined;
+            providerId?: string | undefined;
+            since?: number | undefined;
+            until?: number | undefined;
+          } = { since, until };
 
-        if (options.adapterType === 'exchange') {
-          if (!options.csvDirectories) {
-            logger.error('--csv-directories is required for exchange adapters');
-            process.exit(1);
+          if (options.adapterType === 'exchange') {
+            if (!options.csvDirectories) {
+              logger.error('--csv-directories is required for exchange adapters');
+              process.exit(1);
+            }
+            importParams.csvDirectories = options.csvDirectories;
+          } else if (options.adapterType === 'blockchain') {
+            if (!options.addresses) {
+              logger.error('--addresses is required for blockchain adapters');
+              process.exit(1);
+            }
+            importParams.addresses = options.addresses;
+            importParams.providerId = options.provider;
           }
-          importParams.csvDirectories = options.csvDirectories;
-        } else if (options.adapterType === 'blockchain') {
-          if (!options.addresses) {
-            logger.error('--addresses is required for blockchain adapters');
-            process.exit(1);
+
+          const result = await ingestionService.importFromSource(options.adapter, options.adapterType, importParams);
+
+          logger.info(`Import completed: ${result.imported} items imported`);
+          logger.info(`Session ID: ${result.importSessionId}`);
+        } finally {
+          // Cleanup blockchain provider manager to stop background health checks
+          if (providerManager) {
+            providerManager.destroy();
           }
-          importParams.addresses = options.addresses;
-          importParams.providerId = options.provider;
+          await database.close();
         }
-
-        const result = await ingestionService.importFromSource(options.adapter, options.adapterType, importParams);
-
-        logger.info(`Import completed: ${result.imported} items imported`);
-        logger.info(`Session ID: ${result.importSessionId}`);
-
-        await database.close();
       } catch (error) {
         logger.error(`Import failed: ${error}`);
         process.exit(1);
@@ -687,7 +695,9 @@ async function main() {
         const { ExternalDataStore } = await import('@crypto/import/src/shared/storage/external-data-store.ts');
 
         // Import blockchain dependencies conditionally
-        let providerManager;
+        let providerManager:
+          | import('@crypto/import/src/blockchains/shared/blockchain-provider-manager.ts').BlockchainProviderManager
+          | null = null;
         if (options.adapterType === 'blockchain') {
           const { BlockchainProviderManager } = await import(
             '@crypto/import/src/blockchains/shared/blockchain-provider-manager.ts'
@@ -700,36 +710,42 @@ async function main() {
           explorerConfig,
           externalDataStore: new ExternalDataStore(database),
           logger,
-          ...(providerManager && { providerManager }),
+          ...(providerManager ? { providerManager } : {}),
         };
 
         const ingestionService = new TransactionIngestionService(dependencies);
 
-        // Parse filters
-        const filters: { createdAfter?: number; importSessionId?: string } = {};
+        try {
+          // Parse filters
+          const filters: { createdAfter?: number; importSessionId?: string } = {};
 
-        if (options.session) {
-          filters.importSessionId = options.session;
-        }
-
-        if (options.since) {
-          const sinceTimestamp = isNaN(options.since) ? new Date(options.since).getTime() : parseInt(options.since);
-          filters.createdAfter = Math.floor(sinceTimestamp / 1000); // Convert to seconds for database
-        }
-
-        const result = await ingestionService.processAndStore(options.adapter, options.adapterType, filters);
-
-        logger.info(`Processing completed: ${result.processed} processed, ${result.failed} failed`);
-
-        if (result.errors.length > 0) {
-          logger.error('Processing errors:');
-          result.errors.slice(0, 5).forEach(error => logger.error(`  ${error}`));
-          if (result.errors.length > 5) {
-            logger.error(`  ... and ${result.errors.length - 5} more errors`);
+          if (options.session) {
+            filters.importSessionId = options.session;
           }
-        }
 
-        await database.close();
+          if (options.since) {
+            const sinceTimestamp = isNaN(options.since) ? new Date(options.since).getTime() : parseInt(options.since);
+            filters.createdAfter = Math.floor(sinceTimestamp / 1000); // Convert to seconds for database
+          }
+
+          const result = await ingestionService.processAndStore(options.adapter, options.adapterType, filters);
+
+          logger.info(`Processing completed: ${result.processed} processed, ${result.failed} failed`);
+
+          if (result.errors.length > 0) {
+            logger.error('Processing errors:');
+            result.errors.slice(0, 5).forEach(error => logger.error(`  ${error}`));
+            if (result.errors.length > 5) {
+              logger.error(`  ... and ${result.errors.length - 5} more errors`);
+            }
+          }
+        } finally {
+          // Cleanup blockchain provider manager to stop background health checks
+          if (providerManager) {
+            providerManager.destroy();
+          }
+          await database.close();
+        }
       } catch (error) {
         logger.error(`Processing failed: ${error}`);
         process.exit(1);

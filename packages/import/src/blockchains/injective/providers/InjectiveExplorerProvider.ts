@@ -3,7 +3,7 @@ import { createMoney, maskAddress, parseDecimal } from '@crypto/shared-utils';
 
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
 import { RegisterProvider } from '../../shared/registry/decorators.ts';
-import { ProviderOperation } from '../../shared/types.ts';
+import type { ProviderOperation } from '../../shared/types.ts';
 import type { InjectiveApiResponse, InjectiveMessageValue, InjectiveTransaction } from '../types.ts';
 
 @RegisterProvider({
