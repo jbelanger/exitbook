@@ -70,8 +70,8 @@ export class BitcoinAdapter extends BaseAdapter {
       try {
         const result = await this.providerManager.executeWithFailover('bitcoin', {
           address: address,
-          getCacheKey: params =>
-            `bitcoin:raw-txs:${params.type === 'getRawAddressTransactions' ? params.address : 'unknown'}:${params.type === 'getRawAddressTransactions' ? params.since || 'all' : 'unknown'}`,
+          getCacheKey: cacheParams =>
+            `btc_raw_tx_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
           since: since,
           type: 'getRawAddressTransactions',
         });
@@ -149,7 +149,7 @@ export class BitcoinAdapter extends BaseAdapter {
       }
     }
 
-    // Determine transaction type
+    // Determine transaction type - use consistent mapping
     let type: 'transfer_in' | 'transfer_out' | 'internal_transfer_in' | 'internal_transfer_out';
 
     if (isIncoming && !isOutgoing) {
@@ -239,7 +239,9 @@ export class BitcoinAdapter extends BaseAdapter {
       try {
         const result = await this.providerManager.executeWithFailover('bitcoin', {
           address: address,
-          type: 'getAddressBalance',
+          getCacheKey: cacheParams =>
+            `btc_raw_balance_${cacheParams.type === 'getRawAddressBalance' ? cacheParams.address : 'unknown'}`,
+          type: 'getRawAddressBalance',
         });
         const balanceData = result.data as { balance: string; token: string };
 
@@ -270,7 +272,7 @@ export class BitcoinAdapter extends BaseAdapter {
     const allTransactions: BlockchainTransaction[] = [];
 
     for (const userAddress of params.addresses) {
-      this.logger.info(`Fetching transactions for address: ${userAddress.substring(0, 20)}...`);
+      this.logger.info(`BitcoinAdapter: Fetching transactions for address: ${userAddress.substring(0, 20)}...`);
 
       let wallet: BitcoinWalletAddress;
 
@@ -309,7 +311,7 @@ export class BitcoinAdapter extends BaseAdapter {
           const result = await this.providerManager.executeWithFailover('bitcoin', {
             address: userAddress,
             getCacheKey: cacheParams =>
-              `bitcoin:raw-txs:${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.address : 'unknown'}:${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
+              `btc_raw_tx_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
             since: params.since,
             type: 'getRawAddressTransactions',
           });

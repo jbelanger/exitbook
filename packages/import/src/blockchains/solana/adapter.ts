@@ -74,14 +74,16 @@ export class SolanaAdapter extends BaseAdapter {
         const failoverResult = await this.providerManager.executeWithFailover('solana', {
           address: address,
           getCacheKey: cacheParams =>
-            `solana_balance_${cacheParams.type === 'getAddressBalance' ? cacheParams.address : 'unknown'}`,
+            `sol_raw_balance_${cacheParams.type === 'getRawAddressBalance' ? cacheParams.address : 'unknown'}`,
           type: 'getRawAddressBalance',
         });
         const balances = failoverResult.data as Balance[];
 
         allBalances.push(...balances);
       } catch (error) {
-        this.logger.error(`Failed to fetch balance for ${address} - Error: ${error}`);
+        this.logger.error(
+          `Failed to fetch balance for ${address.substring(0, 20)}... - Error: ${error instanceof Error ? error.message : String(error)}`
+        );
         throw error;
       }
     }
@@ -97,14 +99,14 @@ export class SolanaAdapter extends BaseAdapter {
     const allTransactions: BlockchainTransaction[] = [];
 
     for (const address of params.addresses) {
-      this.logger.info(`SolanaAdapter: Fetching transactions for address: ${address.substring(0, 20)}...`);
+      this.logger.info(`Fetching transactions for address: ${address.substring(0, 20)}...`);
 
       try {
         // Use bridge pattern - fetch raw data and process with provider-specific processor
         const rawResult = await this.providerManager.executeWithFailover('solana', {
           address: address,
           getCacheKey: cacheParams =>
-            `solana_tx_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
+            `sol_raw_tx_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
           since: params.since,
           type: 'getRawAddressTransactions',
         });
@@ -113,10 +115,12 @@ export class SolanaAdapter extends BaseAdapter {
         allTransactions.push(...processed);
 
         this.logger.info(
-          `SolanaAdapter: Processed transactions for ${address.substring(0, 20)}... - Provider: ${rawResult.providerName}, Count: ${processed.length}`
+          `Processed transactions for ${address.substring(0, 20)}... - Provider: ${rawResult.providerName}, Count: ${processed.length}`
         );
       } catch (error) {
-        this.logger.error(`Failed to fetch transactions for ${address} - Error: ${error}`);
+        this.logger.error(
+          `Failed to fetch transactions for ${address.substring(0, 20)}... - Error: ${error instanceof Error ? error.message : String(error)}`
+        );
         throw error;
       }
     }
@@ -131,7 +135,7 @@ export class SolanaAdapter extends BaseAdapter {
 
     uniqueTransactions.sort((a, b) => b.timestamp - a.timestamp);
 
-    this.logger.info(`SolanaAdapter: Found ${uniqueTransactions.length} unique transactions total`);
+    this.logger.info(`Found ${uniqueTransactions.length} unique transactions total`);
     return uniqueTransactions;
   }
 
@@ -170,7 +174,7 @@ export class SolanaAdapter extends BaseAdapter {
       this.logger.debug(`Connection test result: ${result}`);
       return result;
     } catch (error) {
-      this.logger.error(`Connection test failed - Error: ${error}`);
+      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
       return false;
     }
   }
