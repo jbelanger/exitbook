@@ -55,17 +55,17 @@ describe('Universal Schemas Validation', () => {
 
   describe('UniversalTransactionSchema', () => {
     const validTransaction = {
-      id: 'tx_123',
-      timestamp: 1640995200000, // 2022-01-01 00:00:00 UTC
-      datetime: '2022-01-01T00:00:00.000Z',
-      type: 'trade',
-      status: 'closed',
       amount: {
         amount: new Decimal('100.50'),
         currency: 'BTC',
       },
-      source: 'coinbase',
+      datetime: '2022-01-01T00:00:00.000Z',
+      id: 'tx_123',
       metadata: { test: true },
+      source: 'coinbase',
+      status: 'closed',
+      timestamp: 1640995200000, // 2022-01-01 00:00:00 UTC
+      type: 'trade',
     };
 
     it('should validate valid universal transaction', () => {
@@ -85,14 +85,14 @@ describe('Universal Schemas Validation', () => {
           amount: new Decimal('0.001'),
           currency: 'BTC',
         },
+        from: 'address1',
+        network: 'mainnet',
         price: {
           amount: new Decimal('45000'),
           currency: 'USD',
         },
-        from: 'address1',
-        to: 'address2',
         symbol: 'BTC/USD',
-        network: 'mainnet',
+        to: 'address2',
       };
 
       const result = UniversalTransactionSchema.safeParse(fullTransaction);
@@ -188,8 +188,8 @@ describe('Universal Schemas Validation', () => {
   describe('UniversalBalanceSchema', () => {
     const validBalance = {
       currency: 'BTC',
-      total: 1.5,
       free: 1.2,
+      total: 1.5,
       used: 0.3,
     };
 
@@ -231,8 +231,8 @@ describe('Universal Schemas Validation', () => {
     it('should reject balance where total < free + used', () => {
       const invalidBalance = {
         currency: 'BTC',
-        total: 1.0,
         free: 0.8,
+        total: 1.0,
         used: 0.5, // 0.8 + 0.5 = 1.3 > 1.0
       };
 
@@ -261,14 +261,14 @@ describe('Universal Schemas Validation', () => {
     describe('validateUniversalTransaction', () => {
       it('should return success for valid transaction', () => {
         const validTx = {
-          id: 'tx_123',
-          timestamp: 1640995200000,
-          datetime: '2022-01-01T00:00:00.000Z',
-          type: 'trade',
-          status: 'closed',
           amount: { amount: new Decimal('100'), currency: 'BTC' },
-          source: 'coinbase',
+          datetime: '2022-01-01T00:00:00.000Z',
+          id: 'tx_123',
           metadata: {},
+          source: 'coinbase',
+          status: 'closed',
+          timestamp: 1640995200000,
+          type: 'trade',
         };
 
         const result = validateUniversalTransaction(validTx);
@@ -290,14 +290,14 @@ describe('Universal Schemas Validation', () => {
     describe('validateUniversalTransactions (batch)', () => {
       it('should separate valid and invalid transactions', () => {
         const validTx = {
-          id: 'tx_valid',
-          timestamp: 1640995200000,
-          datetime: '2022-01-01T00:00:00.000Z',
-          type: 'trade',
-          status: 'closed',
           amount: { amount: new Decimal('100'), currency: 'BTC' },
-          source: 'coinbase',
+          datetime: '2022-01-01T00:00:00.000Z',
+          id: 'tx_valid',
           metadata: {},
+          source: 'coinbase',
+          status: 'closed',
+          timestamp: 1640995200000,
+          type: 'trade',
         };
 
         const invalidTx = { id: 'tx_invalid' };
@@ -322,8 +322,8 @@ describe('Universal Schemas Validation', () => {
       it('should separate valid and invalid balances', () => {
         const validBalance = {
           currency: 'BTC',
-          total: 1.0,
           free: 0.8,
+          total: 1.0,
           used: 0.2,
         };
 
@@ -342,17 +342,17 @@ describe('Universal Schemas Validation', () => {
   describe('Edge Cases and Performance', () => {
     it('should handle very large numbers in Decimal', () => {
       const largeTransaction = {
-        id: 'tx_large',
-        timestamp: 1640995200000,
-        datetime: '2022-01-01T00:00:00.000Z',
-        type: 'trade',
-        status: 'closed',
         amount: {
           amount: new Decimal('999999999999999999.123456789'),
           currency: 'BTC',
         },
-        source: 'test',
+        datetime: '2022-01-01T00:00:00.000Z',
+        id: 'tx_large',
         metadata: {},
+        source: 'test',
+        status: 'closed',
+        timestamp: 1640995200000,
+        type: 'trade',
       };
 
       const result = UniversalTransactionSchema.safeParse(largeTransaction);
@@ -361,17 +361,17 @@ describe('Universal Schemas Validation', () => {
 
     it('should handle very small numbers in Decimal', () => {
       const smallTransaction = {
-        id: 'tx_small',
-        timestamp: 1640995200000,
-        datetime: '2022-01-01T00:00:00.000Z',
-        type: 'trade',
-        status: 'closed',
         amount: {
           amount: new Decimal('0.000000000000000001'),
           currency: 'BTC',
         },
-        source: 'test',
+        datetime: '2022-01-01T00:00:00.000Z',
+        id: 'tx_small',
         metadata: {},
+        source: 'test',
+        status: 'closed',
+        timestamp: 1640995200000,
+        type: 'trade',
       };
 
       const result = UniversalTransactionSchema.safeParse(smallTransaction);
@@ -380,17 +380,17 @@ describe('Universal Schemas Validation', () => {
 
     it('should validate batch of 1000 transactions within reasonable time', () => {
       const transactions = Array.from({ length: 1000 }, (_, i) => ({
-        id: `tx_${i}`,
-        timestamp: 1640995200000 + i,
-        datetime: '2022-01-01T00:00:00.000Z',
-        type: 'trade',
-        status: 'closed',
         amount: {
           amount: new Decimal('100'),
           currency: 'BTC',
         },
-        source: 'test',
+        datetime: '2022-01-01T00:00:00.000Z',
+        id: `tx_${i}`,
         metadata: {},
+        source: 'test',
+        status: 'closed',
+        timestamp: 1640995200000 + i,
+        type: 'trade',
       }));
 
       const start = Date.now();

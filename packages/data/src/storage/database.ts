@@ -114,7 +114,7 @@ export class Database {
         wallet_id INTEGER,
         raw_data JSON NOT NULL,
         created_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
-        hash TEXT UNIQUE NOT NULL,
+        hash TEXT UNIQUE,
         verified BOOLEAN DEFAULT 0,
         note_type TEXT,
         note_message TEXT,

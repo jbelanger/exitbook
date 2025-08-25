@@ -18,18 +18,18 @@ describe('BalanceCalculationService Precision', () => {
     feeCurrency?: string
   ): StoredTransaction => {
     const transaction: StoredTransaction = {
-      id: 'test-id',
-      exchange: 'test-exchange',
-      type,
-      timestamp: Date.now(),
       amount,
+      created_at: Date.now(),
+      exchange: 'test-exchange',
+      hash: 'test-hash',
+      id: 'test-id',
       raw_data: JSON.stringify({
         amount,
-        price,
         fee_cost: feeCost,
+        price,
       }),
-      created_at: Date.now(),
-      hash: 'test-hash',
+      timestamp: Date.now(),
+      type,
     };
 
     if (amountCurrency) transaction.amount_currency = amountCurrency;

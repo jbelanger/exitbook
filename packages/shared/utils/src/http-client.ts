@@ -6,17 +6,17 @@ import { RateLimiterFactory } from './rate-limiter.ts';
 
 export interface HttpClientConfig {
   baseUrl: string;
-  timeout?: number;
-  retries?: number;
   defaultHeaders?: Record<string, string>;
-  rateLimit: RateLimitConfig;
   providerName: string;
+  rateLimit: RateLimitConfig;
+  retries?: number;
+  timeout?: number;
 }
 
 export interface HttpRequestOptions {
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
-  headers?: Record<string, string>;
   body?: BodyInit | object | null;
+  headers?: Record<string, string>;
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
   timeout?: number;
 }
 
@@ -25,18 +25,18 @@ export interface HttpRequestOptions {
  * Eliminates duplication across blockchain providers
  */
 export class HttpClient {
-  private readonly logger: ReturnType<typeof getLogger>;
   private readonly config: HttpClientConfig;
+  private readonly logger: ReturnType<typeof getLogger>;
   private readonly rateLimiter: ReturnType<typeof RateLimiterFactory.getOrCreate>;
 
   constructor(config: HttpClientConfig) {
     this.config = {
-      timeout: 10000,
-      retries: 3,
       defaultHeaders: {
         Accept: 'application/json',
         'User-Agent': 'ccxt-crypto-tx-import/1.0.0',
       },
+      retries: 3,
+      timeout: 10000,
       ...config,
     };
 
@@ -46,6 +46,66 @@ export class HttpClient {
     this.logger.debug(
       `HTTP client initialized - BaseUrl: ${config.baseUrl}, Timeout: ${this.config.timeout}ms, Retries: ${this.config.retries}, RateLimit: ${JSON.stringify(config.rateLimit)}`
     );
+  }
+
+  private buildUrl(endpoint: string): string {
+    const baseUrl = this.config.baseUrl.endsWith('/') ? this.config.baseUrl.slice(0, -1) : this.config.baseUrl;
+
+    // If endpoint is empty or just '/', return baseUrl (for RPC endpoints with query params)
+    if (!endpoint || endpoint === '' || endpoint === '/') {
+      return baseUrl;
+    }
+
+    const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    return `${baseUrl}${cleanEndpoint}`;
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  private sanitizeUrl(url: string): string {
+    // Remove potential API keys or sensitive query parameters from logs
+    const urlObj = new URL(url);
+    if (urlObj.searchParams.has('token')) {
+      urlObj.searchParams.set('token', '***');
+    }
+    if (urlObj.searchParams.has('key')) {
+      urlObj.searchParams.set('key', '***');
+    }
+    if (urlObj.searchParams.has('apikey')) {
+      urlObj.searchParams.set('apikey', '***');
+    }
+    return urlObj.toString();
+  }
+
+  /**
+   * Convenience method for GET requests
+   */
+  async get<T = unknown>(endpoint: string, options: Omit<HttpRequestOptions, 'method'> = {}): Promise<T> {
+    return this.request<T>(endpoint, { ...options, method: 'GET' });
+  }
+
+  /**
+   * Get rate limiter status
+   */
+  getRateLimitStatus() {
+    return this.rateLimiter.getStatus();
+  }
+
+  /**
+   * Convenience method for POST requests
+   */
+  async post<T = unknown>(
+    endpoint: string,
+    body?: unknown,
+    options: Omit<HttpRequestOptions, 'method' | 'body'> = {}
+  ): Promise<T> {
+    return this.request<T>(endpoint, {
+      ...options,
+      body: body as BodyInit | object | null,
+      method: 'POST',
+    });
   }
 
   /**
@@ -85,9 +145,9 @@ export class HttpClient {
         }
 
         const response = await fetch(url, {
-          method,
-          headers,
           body: body ?? null,
+          headers,
+          method,
           signal: controller.signal,
         });
 
@@ -163,65 +223,5 @@ export class HttpClient {
     }
 
     throw lastError!;
-  }
-
-  /**
-   * Convenience method for GET requests
-   */
-  async get<T = unknown>(endpoint: string, options: Omit<HttpRequestOptions, 'method'> = {}): Promise<T> {
-    return this.request<T>(endpoint, { ...options, method: 'GET' });
-  }
-
-  /**
-   * Convenience method for POST requests
-   */
-  async post<T = unknown>(
-    endpoint: string,
-    body?: unknown,
-    options: Omit<HttpRequestOptions, 'method' | 'body'> = {}
-  ): Promise<T> {
-    return this.request<T>(endpoint, {
-      ...options,
-      method: 'POST',
-      body: body as BodyInit | object | null,
-    });
-  }
-
-  /**
-   * Get rate limiter status
-   */
-  getRateLimitStatus() {
-    return this.rateLimiter.getStatus();
-  }
-
-  private buildUrl(endpoint: string): string {
-    const baseUrl = this.config.baseUrl.endsWith('/') ? this.config.baseUrl.slice(0, -1) : this.config.baseUrl;
-
-    // If endpoint is empty or just '/', return baseUrl (for RPC endpoints with query params)
-    if (!endpoint || endpoint === '' || endpoint === '/') {
-      return baseUrl;
-    }
-
-    const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-    return `${baseUrl}${cleanEndpoint}`;
-  }
-
-  private sanitizeUrl(url: string): string {
-    // Remove potential API keys or sensitive query parameters from logs
-    const urlObj = new URL(url);
-    if (urlObj.searchParams.has('token')) {
-      urlObj.searchParams.set('token', '***');
-    }
-    if (urlObj.searchParams.has('key')) {
-      urlObj.searchParams.set('key', '***');
-    }
-    if (urlObj.searchParams.has('apikey')) {
-      urlObj.searchParams.set('apikey', '***');
-    }
-    return urlObj.toString();
-  }
-
-  private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
   }
 }

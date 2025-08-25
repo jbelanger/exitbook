@@ -15,8 +15,8 @@ export class WalletService {
     address: string,
     blockchain: string,
     options?: {
-      label?: string;
       addressType?: 'personal' | 'exchange' | 'contract' | 'unknown';
+      label?: string;
       notes?: string;
     }
   ): Promise<void> {
@@ -26,9 +26,9 @@ export class WalletService {
       if (!existingWallet) {
         const walletRequest: CreateWalletAddressRequest = {
           address,
+          addressType: options?.addressType || 'personal',
           blockchain,
           label: options?.label || `${blockchain} wallet`,
-          addressType: options?.addressType || 'personal',
           notes: options?.notes || 'Added from CLI arguments',
         };
 

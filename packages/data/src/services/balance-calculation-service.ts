@@ -5,17 +5,16 @@ import type { StoredTransaction } from '../types/data-types.js';
 
 export class BalanceCalculationService {
   /**
-   * Calculate exchange balances with full precision (recommended)
-   * Returns Decimal values to prevent precision loss in cryptocurrency amounts
+   * Clean up dust balances while preserving precision (recommended)
    */
-  async calculateExchangeBalancesWithPrecision(transactions: StoredTransaction[]): Promise<Record<string, Decimal>> {
-    const balances: Record<string, Decimal> = {};
-
-    for (const transaction of transactions) {
-      this.processTransactionForBalance(transaction, balances);
+  private cleanupDustBalancesWithPrecision(balances: Record<string, Decimal>): Record<string, Decimal> {
+    const cleanedBalances: Record<string, Decimal> = {};
+    for (const [currency, balance] of Object.entries(balances)) {
+      if (balance.abs().greaterThan(0.00000001)) {
+        cleanedBalances[currency] = balance;
+      }
     }
-
-    return this.cleanupDustBalancesWithPrecision(balances);
+    return cleanedBalances;
   }
 
   private processTransactionForBalance(transaction: StoredTransaction, balances: Record<string, Decimal>): void {
@@ -80,15 +79,16 @@ export class BalanceCalculationService {
   }
 
   /**
-   * Clean up dust balances while preserving precision (recommended)
+   * Calculate exchange balances with full precision (recommended)
+   * Returns Decimal values to prevent precision loss in cryptocurrency amounts
    */
-  private cleanupDustBalancesWithPrecision(balances: Record<string, Decimal>): Record<string, Decimal> {
-    const cleanedBalances: Record<string, Decimal> = {};
-    for (const [currency, balance] of Object.entries(balances)) {
-      if (balance.abs().greaterThan(0.00000001)) {
-        cleanedBalances[currency] = balance;
-      }
+  async calculateExchangeBalancesWithPrecision(transactions: StoredTransaction[]): Promise<Record<string, Decimal>> {
+    const balances: Record<string, Decimal> = {};
+
+    for (const transaction of transactions) {
+      this.processTransactionForBalance(transaction, balances);
     }
-    return cleanedBalances;
+
+    return this.cleanupDustBalancesWithPrecision(balances);
   }
 }

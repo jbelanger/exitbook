@@ -22,17 +22,17 @@ export interface Money {
  * const cryptoTx = blockchainAdapter.convertToCryptoTransaction(blockchainTx, userAddress); // Returns CryptoTransaction
  */
 export interface CryptoTransaction {
-  id: string;
-  type: TransactionType;
-  timestamp: number;
-  datetime?: string;
-  symbol?: string;
   amount: Money;
-  side?: 'buy' | 'sell' | undefined;
-  price?: Money | undefined;
+  datetime?: string;
   fee?: Money | undefined;
-  status?: TransactionStatus;
+  id: string;
   info?: unknown; // Raw response data from source (exchange API response or blockchain transaction data)
+  price?: Money | undefined;
+  side?: 'buy' | 'sell' | undefined;
+  status?: TransactionStatus;
+  symbol?: string;
+  timestamp: number;
+  type: TransactionType;
 }
 
 export type TransactionType = 'trade' | 'deposit' | 'withdrawal' | 'order' | 'ledger' | 'transfer' | 'fee';
@@ -53,26 +53,26 @@ export type TransactionStatus = 'pending' | 'open' | 'closed' | 'canceled' | 'fa
  * await database.saveTransactions(unique);
  */
 export interface EnhancedTransaction extends CryptoTransaction {
-  /** Exchange ID or blockchain identifier (e.g., 'kucoin', 'ethereum', 'bitcoin') */
-  source: string;
   /** Unique hash for deduplication, generated from transaction properties and source */
   hash: string;
   /** Timestamp when transaction was imported into the system */
   importedAt: number;
-  /** Whether transaction has been verified against live exchange/blockchain data */
-  verified?: boolean;
-  /** Original raw data from source for debugging and compatibility */
-  originalData?: unknown;
   /** Optional annotation for scam detection, warnings, or classification */
   note?: TransactionNote;
+  /** Original raw data from source for debugging and compatibility */
+  originalData?: unknown;
+  /** Exchange ID or blockchain identifier (e.g., 'kucoin', 'ethereum', 'bitcoin') */
+  source: string;
+  /** Whether transaction has been verified against live exchange/blockchain data */
+  verified?: boolean;
 }
 
 // Transaction note interface
 export interface TransactionNote {
-  type: TransactionNoteType;
   message: string;
-  severity?: 'info' | 'warning' | 'error';
   metadata?: Record<string, unknown>;
+  severity?: 'info' | 'warning' | 'error';
+  type: TransactionNoteType;
 }
 
 // Lightweight alias for transaction note types coming from other packages.
@@ -82,42 +82,42 @@ export type TransactionNoteType = string;
 
 // CLI types
 export interface CLIOptions {
-  verify?: boolean;
+  config?: string;
   exchange?: string;
   since?: string;
   verbose?: boolean;
-  config?: string;
+  verify?: boolean;
 }
 
 // ===== BLOCKCHAIN-SPECIFIC TYPES =====
 export interface BlockchainInfo {
+  capabilities: BlockchainCapabilities;
   id: string;
   name: string;
   network: string;
-  capabilities: BlockchainCapabilities;
 }
 
 export interface BlockchainCapabilities {
   supportsAddressTransactions: boolean;
-  supportsTokenTransactions: boolean;
   supportsBalanceQueries: boolean;
   supportsHistoricalData: boolean;
   supportsPagination: boolean;
+  supportsTokenTransactions: boolean;
 }
 
 export interface TokenConfig {
-  symbol: string;
   contractAddress?: string;
   decimals: number;
   name?: string;
+  symbol: string;
 }
 
 export interface BlockchainBalance {
-  currency: string;
   balance: number; // Available/free amount
-  used: number; // Used/frozen amount
-  total: number; // Total balance (balance + used)
   contractAddress?: string | undefined;
+  currency: string;
+  total: number; // Total balance (balance + used)
+  used: number; // Used/frozen amount
 }
 
 /**
@@ -125,11 +125,11 @@ export interface BlockchainBalance {
  * Recommended for new code to avoid precision loss in cryptocurrency amounts
  */
 export interface PrecisionBlockchainBalance {
-  currency: string;
   balance: Decimal; // Available/free amount with full precision
-  used: Decimal; // Used/frozen amount with full precision
-  total: Decimal; // Total balance (balance + used) with full precision
   contractAddress?: string | undefined;
+  currency: string;
+  total: Decimal; // Total balance (balance + used) with full precision
+  used: Decimal; // Used/frozen amount with full precision
 }
 
 // Legacy alias for compatibility
@@ -149,28 +149,34 @@ export type Balance = BlockchainBalance;
  * const cryptoTxs = ethTxs.map(tx => adapter.convertToCryptoTransaction(tx, address));
  */
 export interface BlockchainTransaction {
-  /** Transaction hash - unique identifier on the blockchain */
-  hash: string;
-  /** Block number where transaction was included */
-  blockNumber: number;
   /** Hash of the block containing this transaction */
   blockHash: string;
-  /** Unix timestamp when transaction was mined/confirmed */
-  timestamp: number;
-  /** Sender address (blockchain-native format) */
-  from: string;
-  /** Recipient address (blockchain-native format) */
-  to: string;
-  /** Transaction value/amount with currency information */
-  value: Money;
+  /** Block number where transaction was included */
+  blockNumber: number;
+  /** Number of block confirmations */
+  confirmations?: number | undefined;
   /** Transaction fee paid */
   fee: Money;
-  /** Gas units consumed (Ethereum/EVM chains) */
-  gasUsed?: number | undefined;
+  /** Sender address (blockchain-native format) */
+  from: string;
   /** Gas price per unit (Ethereum/EVM chains) */
   gasPrice?: number | undefined;
+  /** Gas units consumed (Ethereum/EVM chains) */
+  gasUsed?: number | undefined;
+  /** Transaction hash - unique identifier on the blockchain */
+  hash: string;
+  /** Transaction nonce (ordering/replay protection) */
+  nonce?: number | undefined;
   /** Blockchain-native transaction status */
   status: 'success' | 'failed' | 'pending';
+  /** Unix timestamp when transaction was mined/confirmed */
+  timestamp: number;
+  /** Recipient address (blockchain-native format) */
+  to: string;
+  /** Token contract address (for token transactions) */
+  tokenContract?: string | undefined;
+  /** Token symbol (for token transactions) */
+  tokenSymbol?: string | undefined;
   /** Detailed blockchain-specific transaction type for accurate classification */
   type:
     | 'transfer'
@@ -182,33 +188,27 @@ export interface BlockchainTransaction {
     | 'internal_transfer_out'
     | 'token_transfer_in'
     | 'token_transfer_out';
-  /** Token contract address (for token transactions) */
-  tokenContract?: string | undefined;
-  /** Token symbol (for token transactions) */
-  tokenSymbol?: string | undefined;
-  /** Transaction nonce (ordering/replay protection) */
-  nonce?: number | undefined;
-  /** Number of block confirmations */
-  confirmations?: number | undefined;
+  /** Transaction value/amount with currency information */
+  value: Money;
 }
 
 // ===== API AND UTILITY TYPES =====
 export interface ApiResponse<T> {
-  success: boolean;
   data?: T;
   error?: string;
   pagination?: {
+    hasMore: boolean;
     page: number;
     pageSize: number;
     total: number;
-    hasMore: boolean;
   };
+  success: boolean;
 }
 
 export interface CacheConfig {
-  ttl: number; // Time to live in seconds
-  maxSize: number; // Maximum number of cached items
   enabled: boolean;
+  maxSize: number; // Maximum number of cached items
+  ttl: number; // Time to live in seconds
 }
 
 // Generic error classes for both exchange and blockchain operations
@@ -225,10 +225,10 @@ export class ServiceError extends Error {
 }
 
 export interface RateLimitConfig {
-  requestsPerSecond: number;
-  requestsPerMinute?: number;
-  requestsPerHour?: number;
   burstLimit?: number;
+  requestsPerHour?: number;
+  requestsPerMinute?: number;
+  requestsPerSecond: number;
 }
 
 export class RateLimitError extends ServiceError {
@@ -272,24 +272,24 @@ export class AuthenticationError extends ServiceError {
  * }
  */
 export interface DataSourceCapabilities<TOperations extends string = string> {
-  /** Array of operation types that this data source supports */
-  supportedOperations: TOperations[];
-
-  /** Whether the data source supports paginated requests for large datasets */
-  supportsPagination: boolean;
-
-  /** Whether the data source provides access to historical data */
-  supportsHistoricalData: boolean;
-
-  /** Maximum number of items that can be requested in a single batch operation */
-  maxBatchSize?: number;
-
   /**
    * Extension point for data source specific capabilities.
    * Allows each data source type to add custom capability flags without
    * polluting the base interface.
    */
   extensions?: Record<string, unknown>;
+
+  /** Maximum number of items that can be requested in a single batch operation */
+  maxBatchSize?: number;
+
+  /** Array of operation types that this data source supports */
+  supportedOperations: TOperations[];
+
+  /** Whether the data source provides access to historical data */
+  supportsHistoricalData: boolean;
+
+  /** Whether the data source supports paginated requests for large datasets */
+  supportsPagination: boolean;
 }
 
 // Universal Adapter System - Single unified interface for all data sources
@@ -300,82 +300,82 @@ export interface DataSourceCapabilities<TOperations extends string = string> {
  * IBlockchainAdapter interfaces with a single unified interface.
  */
 export interface IUniversalAdapter {
+  close(): Promise<void>;
+  fetchBalances(params: UniversalFetchParams): Promise<UniversalBalance[]>;
+  fetchTransactions(params: UniversalFetchParams): Promise<UniversalTransaction[]>;
   getInfo(): Promise<UniversalAdapterInfo>;
   testConnection(): Promise<boolean>;
-  close(): Promise<void>;
-  fetchTransactions(params: UniversalFetchParams): Promise<UniversalTransaction[]>;
-  fetchBalances(params: UniversalFetchParams): Promise<UniversalBalance[]>;
 }
 
 export interface UniversalAdapterInfo {
+  capabilities: UniversalAdapterCapabilities;
   id: string;
   name: string;
-  type: 'exchange' | 'blockchain';
   subType?: 'ccxt' | 'csv' | 'native' | 'rpc' | 'rest';
-  capabilities: UniversalAdapterCapabilities;
+  type: 'exchange' | 'blockchain';
 }
 
 export interface UniversalAdapterCapabilities {
+  maxBatchSize: number;
+  rateLimit?: {
+    burstLimit: number;
+    requestsPerSecond: number;
+  };
+  requiresApiKey: boolean;
   supportedOperations: Array<
     'fetchTransactions' | 'fetchBalances' | 'getAddressTransactions' | 'getAddressBalance' | 'getTokenTransactions'
   >;
-  maxBatchSize: number;
   supportsHistoricalData: boolean;
   supportsPagination: boolean;
-  requiresApiKey: boolean;
-  rateLimit?: {
-    requestsPerSecond: number;
-    burstLimit: number;
-  };
 }
 
 export interface UniversalFetchParams {
   // Universal params
   addresses?: string[] | undefined; // For blockchains OR exchange accounts
-  symbols?: string[] | undefined; // Filter by asset symbols
-  since?: number | undefined; // Time filter
-  until?: number | undefined; // Time filter
-
   // Optional type-specific params
   includeTokens?: boolean | undefined; // For blockchains
-  transactionTypes?: TransactionType[] | undefined;
-
   // Pagination
   limit?: number | undefined;
   offset?: number | undefined;
+
+  since?: number | undefined; // Time filter
+  symbols?: string[] | undefined; // Filter by asset symbols
+
+  transactionTypes?: TransactionType[] | undefined;
+  until?: number | undefined; // Time filter
 }
 
 export interface UniversalTransaction {
-  // Universal fields
-  id: string;
-  timestamp: number;
-  datetime: string;
-  type: TransactionType;
-  status: TransactionStatus;
-
   // Amounts
   amount: Money;
+  datetime: string;
   fee?: Money | undefined;
+  // Parties (works for both)
+  from?: string | undefined; // Sender address OR exchange account
+  // Universal fields
+  id: string;
+
+  metadata: Record<string, unknown>;
+  network?: string | undefined; // e.g., 'mainnet'
   price?: Money | undefined;
   side?: 'buy' | 'sell' | undefined; // Trade side for balance calculations
 
-  // Parties (works for both)
-  from?: string | undefined; // Sender address OR exchange account
-  to?: string | undefined; // Receiver address OR exchange account
-  symbol?: string | undefined; // Add symbol for trades
-
   // Metadata
   source: string; // e.g., 'coinbase', 'bitcoin'
-  network?: string | undefined; // e.g., 'mainnet'
-  metadata: Record<string, unknown>;
+  status: TransactionStatus;
+  symbol?: string | undefined; // Add symbol for trades
+
+  timestamp: number;
+  to?: string | undefined; // Receiver address OR exchange account
+  type: TransactionType;
 }
 
 export interface UniversalBalance {
-  currency: string;
-  total: number;
-  free: number;
-  used: number;
   contractAddress?: string | undefined;
+  currency: string;
+  free: number;
+  total: number;
+  used: number;
 }
 
 /**
@@ -383,36 +383,36 @@ export interface UniversalBalance {
  * Recommended for new code to avoid precision loss in cryptocurrency amounts
  */
 export interface PrecisionUniversalBalance {
-  currency: string;
-  total: Decimal;
-  free: Decimal;
-  used: Decimal;
   contractAddress?: string | undefined;
+  currency: string;
+  free: Decimal;
+  total: Decimal;
+  used: Decimal;
 }
 
 // Universal adapter configuration
 interface BaseUniversalAdapterConfig {
-  type: 'exchange' | 'blockchain';
   id: string;
+  type: 'exchange' | 'blockchain';
 }
 
 export interface UniversalExchangeAdapterConfig extends BaseUniversalAdapterConfig {
-  type: 'exchange';
-  subType: 'ccxt' | 'csv' | 'native';
   credentials?:
     | {
         apiKey: string;
-        secret: string;
         password?: string | undefined;
+        secret: string;
       }
     | undefined;
   csvDirectories?: string[] | undefined;
+  subType: 'ccxt' | 'csv' | 'native';
+  type: 'exchange';
 }
 
 export interface UniversalBlockchainAdapterConfig extends BaseUniversalAdapterConfig {
-  type: 'blockchain';
-  subType: 'rest' | 'rpc';
   network: string;
+  subType: 'rest' | 'rpc';
+  type: 'blockchain';
 }
 
 export type UniversalAdapterConfig = UniversalExchangeAdapterConfig | UniversalBlockchainAdapterConfig;
