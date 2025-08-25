@@ -14,7 +14,7 @@ import path from 'path';
 
 import { BaseAdapter } from '../../shared/adapters/base-adapter.ts';
 import type { IDependencyContainer } from '../../shared/common/interfaces.ts';
-import { TransactionIngestionService } from '../../shared/orchestrators/ingestion-service.ts';
+import { TransactionIngestionService } from '../../shared/ingestion/ingestion-service.ts';
 import { ExternalDataStore } from '../../shared/storage/external-data-store.ts';
 import { CsvFilters } from '../csv-filters.ts';
 import { CsvParser } from '../csv-parser.ts';

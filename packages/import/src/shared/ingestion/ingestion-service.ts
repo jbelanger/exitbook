@@ -25,10 +25,10 @@ export class TransactionIngestionService {
    */
   private extractTransactionId(rawData: Record<string, unknown>, fallbackIndex: number): string {
     // Try common transaction ID fields
-    if (rawData.txid) return rawData.txid;
-    if (rawData.id) return rawData.id;
-    if (rawData.hash) return rawData.hash;
-    if (rawData.transactionId) return rawData.transactionId;
+    if (rawData.txid && typeof rawData.txid === 'string') return rawData.txid;
+    if (rawData.id && typeof rawData.id === 'string') return rawData.id;
+    if (rawData.hash && typeof rawData.hash === 'string') return rawData.hash;
+    if (rawData.transactionId && typeof rawData.transactionId === 'string') return rawData.transactionId;
 
     // Fallback to index-based ID
     return `item-${fallbackIndex}`;
@@ -183,7 +183,7 @@ export class TransactionIngestionService {
         adapterType,
         rawData.map((item, index) => ({
           data: item,
-          id: this.extractTransactionId(item, index),
+          id: this.extractTransactionId(item as Record<string, unknown>, index),
         })),
         {
           importSessionId: importSessionId ?? undefined,

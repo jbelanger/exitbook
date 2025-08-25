@@ -24,10 +24,10 @@ export interface CCXTTransaction {
 }
 
 /**
- * Transforms CCXT transactions to our standard CryptoTransaction format
+ * Processes CCXT transactions to our standard CryptoTransaction format
  * Provides consistent data normalization across all exchange adapters
  */
-export class TransactionTransformer {
+export class TransactionProcessor {
   /**
    * Generates unique transaction identifier from transaction data
    */

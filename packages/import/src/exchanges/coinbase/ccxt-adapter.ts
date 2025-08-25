@@ -12,7 +12,7 @@ import * as ccxt from 'ccxt';
 import type { Exchange } from 'ccxt';
 import { Decimal } from 'decimal.js';
 
-import type { CCXTTransaction } from '../../shared/utils/transaction-transformer.ts';
+import type { CCXTTransaction } from '../../shared/utils/transaction-processor.ts';
 import { BaseCCXTAdapter } from '../base-ccxt-adapter.ts';
 import type { CcxtCoinbaseAccount, CcxtCoinbaseAdapterOptions, CoinbaseCredentials } from './types.ts';
 
