@@ -7,11 +7,15 @@ import type {
   UniversalFetchParams,
   UniversalTransaction,
 } from '@crypto/core';
+import type { Database } from '@crypto/data';
 import { createMoney, parseDecimal } from '@crypto/shared-utils';
 import fs from 'fs/promises';
 import path from 'path';
 
 import { BaseAdapter } from '../../shared/adapters/base-adapter.ts';
+import type { IDependencyContainer } from '../../shared/common/interfaces.ts';
+import { TransactionIngestionService } from '../../shared/orchestrators/ingestion-service.ts';
+import { ExternalDataStore } from '../../shared/storage/external-data-store.ts';
 import { CsvFilters } from '../csv-filters.ts';
 import { CsvParser } from '../csv-parser.ts';
 import type { CsvKrakenLedgerRow } from './types.ts';
@@ -23,9 +27,20 @@ const EXPECTED_HEADERS = {
 
 export class KrakenCSVAdapter extends BaseAdapter {
   private cachedTransactions: CsvKrakenLedgerRow[] | null = null;
+  private ingestionService: TransactionIngestionService | null = null;
 
-  constructor(config: UniversalExchangeAdapterConfig) {
+  constructor(config: UniversalExchangeAdapterConfig, database?: Database) {
     super(config);
+
+    // Create ingestion service if database is provided (for new ETL workflow)
+    if (database) {
+      const dependencies: IDependencyContainer = {
+        database,
+        externalDataStore: new ExternalDataStore(database),
+        logger: this.logger,
+      };
+      this.ingestionService = new TransactionIngestionService(dependencies);
+    }
   }
 
   private convertDepositToTransaction(row: CsvKrakenLedgerRow): UniversalTransaction {
@@ -598,6 +613,21 @@ export class KrakenCSVAdapter extends BaseAdapter {
     return { processedRefIds, transactions };
   }
 
+  /**
+   * Query processed transactions from the database for backward compatibility
+   * with the existing adapter interface.
+   */
+  private async queryProcessedTransactions(params: UniversalFetchParams): Promise<UniversalTransaction[]> {
+    if (!this.ingestionService) {
+      return [];
+    }
+
+    // For now, return empty array since we don't have a transaction service yet
+    // TODO: Implement proper transaction querying when TransactionService is available
+    this.logger.warn('Transaction querying not yet implemented for ETL workflow');
+    return [];
+  }
+
   private validateAllRecordsProcessed(
     allRows: CsvKrakenLedgerRow[],
     processed: {
@@ -719,6 +749,40 @@ export class KrakenCSVAdapter extends BaseAdapter {
 
   protected async fetchRawTransactions(): Promise<CsvKrakenLedgerRow[]> {
     return this.loadAllTransactions();
+  }
+
+  /**
+   * Override fetchTransactions to use ingestion service when available.
+   * Falls back to legacy behavior for backward compatibility.
+   */
+  async fetchTransactions(params: UniversalFetchParams): Promise<UniversalTransaction[]> {
+    if (this.ingestionService) {
+      // New ETL workflow using ingestion service
+      this.logger.info('Using new ETL workflow with ingestion service');
+
+      const csvDirectories = (this.config as UniversalExchangeAdapterConfig).csvDirectories;
+      if (!csvDirectories?.length) {
+        throw new Error('CSV directories are required for Kraken adapter');
+      }
+
+      const importParams = {
+        csvDirectories,
+        since: params.since,
+        until: params.until,
+      };
+
+      const result = await this.ingestionService.importAndProcess('kraken', 'exchange', importParams);
+
+      this.logger.info(`ETL workflow completed: ${result.imported} imported, ${result.processed} processed`);
+
+      // Query and return the processed transactions for backward compatibility
+      const processedTransactions = await this.queryProcessedTransactions(params);
+      return processedTransactions;
+    } else {
+      // Legacy workflow using existing BaseAdapter implementation
+      this.logger.info('Using legacy workflow');
+      return super.fetchTransactions(params);
+    }
   }
 
   async getInfo(): Promise<UniversalAdapterInfo> {

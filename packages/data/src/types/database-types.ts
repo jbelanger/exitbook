@@ -8,8 +8,8 @@ export interface SQLiteError extends Error {
 }
 
 export interface DBQueryResult {
-  lastID?: number;
   changes?: number;
+  lastID?: number;
 }
 
 export interface DatabaseResultRow {
@@ -23,15 +23,15 @@ export interface Database {
 }
 
 export interface DatabaseStats {
-  totalTransactions: number;
   totalExchanges: number;
-  transactionsByExchange: Array<{
-    exchange: string;
-    count: number;
-  }>;
-  totalVerifications: number;
+  totalExternalTransactions: number;
   totalSnapshots: number;
-  totalRawTransactions: number;
+  totalTransactions: number;
+  totalVerifications: number;
+  transactionsByExchange: Array<{
+    count: number;
+    exchange: string;
+  }>;
 }
 
 export interface TransactionCountRow {
@@ -39,9 +39,9 @@ export interface TransactionCountRow {
 }
 
 export interface StatRow {
-  total_transactions?: number;
   total_exchanges?: number;
-  total_verifications?: number;
+  total_external_transactions?: number;
   total_snapshots?: number;
-  total_raw_transactions?: number;
+  total_transactions?: number;
+  total_verifications?: number;
 }

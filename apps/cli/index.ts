@@ -564,6 +564,150 @@ async function main() {
       }
     });
 
+  // Import command - new ETL workflow
+  program
+    .command('import-only')
+    .description('Import raw data from source without processing (ETL: Import only)')
+    .option('--adapter <name>', 'Adapter name (e.g., kraken, bitcoin)', 'kraken')
+    .option('--adapter-type <type>', 'Adapter type (exchange, blockchain)', 'exchange')
+    .option('--csv-directories <paths...>', 'CSV directories for exchange adapters (space-separated)')
+    .option('--addresses <addresses...>', 'Wallet addresses for blockchain adapters (space-separated)')
+    .option('--provider <name>', 'Blockchain provider for blockchain adapters')
+    .option('--since <date>', 'Import data since date (YYYY-MM-DD, timestamp, or 0 for all history)')
+    .option('--until <date>', 'Import data until date (YYYY-MM-DD or timestamp)')
+    .option('--config <path>', 'Path to configuration file')
+    .option('--clear-db', 'Clear and reinitialize database before import')
+    .action(async options => {
+      try {
+        logger.info('Starting data import (ETL: Import phase only)');
+
+        // Initialize database
+        const database = await initializeDatabase(options.clearDb);
+
+        // Create ingestion service with dependencies
+        const { TransactionIngestionService } = await import(
+          '@crypto/import/src/shared/orchestrators/ingestion-service.ts'
+        );
+        const { ExternalDataStore } = await import('@crypto/import/src/shared/storage/external-data-store.ts');
+
+        const dependencies = {
+          database,
+          externalDataStore: new ExternalDataStore(database),
+          logger,
+        };
+
+        const ingestionService = new TransactionIngestionService(dependencies);
+
+        // Parse options
+        const since = options.since
+          ? isNaN(options.since)
+            ? new Date(options.since).getTime()
+            : parseInt(options.since)
+          : undefined;
+        const until = options.until
+          ? isNaN(options.until)
+            ? new Date(options.until).getTime()
+            : parseInt(options.until)
+          : undefined;
+
+        const importParams: {
+          addresses?: string[] | undefined;
+          csvDirectories?: string[] | undefined;
+          providerId?: string | undefined;
+          since?: number | undefined;
+          until?: number | undefined;
+        } = { since, until };
+
+        if (options.adapterType === 'exchange') {
+          if (!options.csvDirectories) {
+            logger.error('--csv-directories is required for exchange adapters');
+            process.exit(1);
+          }
+          importParams.csvDirectories = options.csvDirectories;
+        } else if (options.adapterType === 'blockchain') {
+          if (!options.addresses) {
+            logger.error('--addresses is required for blockchain adapters');
+            process.exit(1);
+          }
+          importParams.addresses = options.addresses;
+          importParams.providerId = options.provider;
+        }
+
+        const result = await ingestionService.importFromSource(options.adapter, options.adapterType, importParams);
+
+        logger.info(`Import completed: ${result.imported} items imported`);
+        logger.info(`Session ID: ${result.importSessionId}`);
+
+        await database.close();
+      } catch (error) {
+        logger.error(`Import failed: ${error}`);
+        process.exit(1);
+      }
+    });
+
+  // Process command - new ETL workflow
+  program
+    .command('process-only')
+    .description('Process raw data to universal format (ETL: Process only)')
+    .option('--adapter <name>', 'Adapter name (e.g., kraken, bitcoin)', 'kraken')
+    .option('--adapter-type <type>', 'Adapter type (exchange, blockchain)', 'exchange')
+    .option('--session <id>', 'Import session ID to process')
+    .option('--since <date>', 'Process data since date (YYYY-MM-DD or timestamp)')
+    .option('--all', 'Process all pending raw data for this adapter')
+    .option('--config <path>', 'Path to configuration file')
+    .option('--clear-db', 'Clear and reinitialize database before processing')
+    .action(async options => {
+      try {
+        logger.info('Starting data processing (ETL: Process phase only)');
+
+        // Initialize database
+        const database = await initializeDatabase(options.cleardb);
+
+        // Create ingestion service with dependencies
+        const { TransactionIngestionService } = await import(
+          '@crypto/import/src/shared/orchestrators/ingestion-service.ts'
+        );
+        const { ExternalDataStore } = await import('@crypto/import/src/shared/storage/external-data-store.ts');
+
+        const dependencies = {
+          database,
+          externalDataStore: new ExternalDataStore(database),
+          logger,
+        };
+
+        const ingestionService = new TransactionIngestionService(dependencies);
+
+        // Parse filters
+        const filters: { createdAfter?: number; importSessionId?: string } = {};
+
+        if (options.session) {
+          filters.importSessionId = options.session;
+        }
+
+        if (options.since) {
+          const sinceTimestamp = isNaN(options.since) ? new Date(options.since).getTime() : parseInt(options.since);
+          filters.createdAfter = Math.floor(sinceTimestamp / 1000); // Convert to seconds for database
+        }
+
+        const result = await ingestionService.processAndStore(options.adapter, options.adapterType, filters);
+
+        logger.info(`Processing completed: ${result.processed} processed, ${result.failed} failed`);
+
+        if (result.errors.length > 0) {
+          logger.error('Processing errors:');
+          result.errors.slice(0, 5).forEach(error => logger.error(`  ${error}`));
+          if (result.errors.length > 5) {
+            logger.error(`  ... and ${result.errors.length - 5} more errors`);
+          }
+        }
+
+        await database.close();
+      } catch (error) {
+        logger.error(`Processing failed: ${error}`);
+        process.exit(1);
+      }
+    });
+
   await program.parseAsync();
 }
 
