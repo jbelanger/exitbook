@@ -1,19 +1,19 @@
-import type { BlockchainTransaction, TransactionType, UniversalTransaction } from '@crypto/core';
+import type { BlockchainTransaction, UniversalTransaction } from '@crypto/core';
 import { createMoney, parseDecimal } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
 
 import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
-import { SnowtraceRawDataSchema } from '../schemas.ts';
+import { SnowtraceRawDataSchema, SnowtraceTransactionSchema } from '../schemas.ts';
 import type { SnowtraceInternalTransaction, SnowtraceTokenTransfer, SnowtraceTransaction } from '../types.ts';
 
-export interface SnowtraceRawData {
+export type SnowtraceRawData = {
   internal: SnowtraceInternalTransaction[];
   normal: SnowtraceTransaction[];
-}
+};
 
 @RegisterProcessor('snowtrace')
-export class SnowtraceProcessor implements IProviderProcessor<SnowtraceRawData> {
+export class SnowtraceProcessor implements IProviderProcessor<SnowtraceTransaction> {
   private static convertInternalTransaction(
     tx: SnowtraceInternalTransaction,
     userAddress: string
@@ -128,59 +128,23 @@ export class SnowtraceProcessor implements IProviderProcessor<SnowtraceRawData> 
   }
 
   static processAddressTransactions(rawData: SnowtraceRawData, userAddress: string): BlockchainTransaction[] {
-    const transactions: BlockchainTransaction[] = [];
+    const normalTransactions = rawData.normal?.map(tx => this.convertNormalTransaction(tx, userAddress)) || [];
+    const internalTransactions = rawData.internal?.map(tx => this.convertInternalTransaction(tx, userAddress)) || [];
 
-    // Process normal transactions
-    for (const tx of rawData.normal) {
-      transactions.push(this.convertNormalTransaction(tx, userAddress));
-    }
-
-    // Process internal transactions
-    for (const tx of rawData.internal) {
-      transactions.push(this.convertInternalTransaction(tx, userAddress));
-    }
-
-    // Sort by timestamp (newest first)
-    transactions.sort((a, b) => b.timestamp - a.timestamp);
-
-    return transactions;
+    return [...normalTransactions, ...internalTransactions];
   }
 
-  static processTokenTransactions(rawData: SnowtraceTokenTransfer[], userAddress: string): BlockchainTransaction[] {
-    return rawData.map(tx => this.convertTokenTransfer(tx, userAddress));
+  static processTokenTransactions(tokens: SnowtraceTokenTransfer[], userAddress: string): BlockchainTransaction[] {
+    return tokens.map(tx => this.convertTokenTransfer(tx, userAddress));
   }
 
-  // IProviderProcessor interface implementation
-  transform(rawData: SnowtraceRawData, walletAddresses: string[]): UniversalTransaction {
-    // Process the first transaction from combined normal and internal data
+  transform(rawData: SnowtraceTransaction, walletAddresses: string[]): UniversalTransaction {
     const userAddress = walletAddresses[0] || '';
+    const isFromUser = rawData.from.toLowerCase() === userAddress.toLowerCase();
+    const isToUser = rawData.to.toLowerCase() === userAddress.toLowerCase();
 
-    // Combine all transactions
-    const allTransactions: BlockchainTransaction[] = [];
-
-    // Process normal transactions
-    for (const tx of rawData.normal) {
-      allTransactions.push(SnowtraceProcessor.convertNormalTransaction(tx, userAddress));
-    }
-
-    // Process internal transactions
-    for (const tx of rawData.internal) {
-      allTransactions.push(SnowtraceProcessor.convertInternalTransaction(tx, userAddress));
-    }
-
-    if (allTransactions.length === 0) {
-      throw new Error('No transactions to transform from SnowtraceRawData');
-    }
-
-    // Sort by timestamp (newest first) and take the first one
-    allTransactions.sort((a, b) => b.timestamp - a.timestamp);
-    const bcTx = allTransactions[0];
-
-    // Convert to UniversalTransaction following Bitcoin pattern
+    // Determine transaction type
     let type: UniversalTransaction['type'];
-    const isFromUser = bcTx.from.toLowerCase() === userAddress.toLowerCase();
-    const isToUser = bcTx.to.toLowerCase() === userAddress.toLowerCase();
-
     if (isFromUser && isToUser) {
       type = 'transfer';
     } else if (isFromUser) {
@@ -189,29 +153,41 @@ export class SnowtraceProcessor implements IProviderProcessor<SnowtraceRawData> 
       type = 'deposit';
     }
 
+    // Convert value from wei to AVAX
+    const valueWei = new Decimal(rawData.value);
+    const valueAvax = valueWei.dividedBy(new Decimal(10).pow(18));
+
+    // Calculate fee
+    const gasUsed = new Decimal(rawData.gasUsed);
+    const gasPrice = new Decimal(rawData.gasPrice);
+    const feeWei = gasUsed.mul(gasPrice);
+    const feeAvax = feeWei.dividedBy(new Decimal(10).pow(18));
+
+    const timestamp = parseInt(rawData.timeStamp) * 1000;
+
     return {
-      amount: bcTx.value,
-      datetime: new Date(bcTx.timestamp).toISOString(),
-      fee: bcTx.fee,
-      from: bcTx.from,
-      id: bcTx.hash,
+      amount: createMoney(valueAvax.toString(), 'AVAX'),
+      datetime: new Date(timestamp).toISOString(),
+      fee: createMoney(feeAvax.toString(), 'AVAX'),
+      from: rawData.from,
+      id: rawData.hash,
       metadata: {
         blockchain: 'avalanche',
-        blockNumber: bcTx.blockNumber,
+        blockNumber: parseInt(rawData.blockNumber),
         providerId: 'snowtrace',
-        rawData: bcTx,
+        rawData,
       },
       source: 'avalanche',
-      status: bcTx.status === 'success' ? 'ok' : 'failed',
-      symbol: bcTx.tokenSymbol || 'AVAX',
-      timestamp: bcTx.timestamp,
-      to: bcTx.to,
+      status: rawData.txreceipt_status === '1' ? 'ok' : 'failed',
+      symbol: 'AVAX',
+      timestamp,
+      to: rawData.to,
       type,
     };
   }
 
-  validate(rawData: SnowtraceRawData): ValidationResult {
-    const result = SnowtraceRawDataSchema.safeParse(rawData);
+  validate(rawData: SnowtraceTransaction): ValidationResult {
+    const result = SnowtraceTransactionSchema.safeParse(rawData);
 
     if (result.success) {
       return { isValid: true };

@@ -30,6 +30,15 @@ export class ProcessorFactory {
   }
 
   /**
+   * Create Avalanche processor.
+   */
+  private static async createAvalancheProcessor<T>(config: ETLComponentConfig): Promise<IProcessor<T>> {
+    // Dynamic import to avoid circular dependencies
+    const { AvalancheTransactionProcessor } = await import('../../blockchains/avalanche/transaction-processor.ts');
+    return new AvalancheTransactionProcessor(config.dependencies) as unknown as IProcessor<T>;
+  }
+
+  /**
    * Create Bitcoin processor.
    */
   private static async createBitcoinProcessor<T>(config: ETLComponentConfig): Promise<IProcessor<T>> {
@@ -56,6 +65,9 @@ export class ProcessorFactory {
 
       case 'solana':
         return await ProcessorFactory.createSolanaProcessor<T>(config);
+
+      case 'avalanche':
+        return await ProcessorFactory.createAvalancheProcessor<T>(config);
 
       default:
         throw new Error(`Unsupported blockchain processor: ${adapterId}`);
@@ -132,7 +144,7 @@ export class ProcessorFactory {
     }
 
     if (adapterType === 'blockchain') {
-      return ['bitcoin', 'ethereum', 'injective', 'solana'];
+      return ['bitcoin', 'ethereum', 'injective', 'solana', 'avalanche'];
     }
 
     return [];
@@ -148,7 +160,7 @@ export class ProcessorFactory {
       }
 
       if (adapterType === 'blockchain') {
-        return ['bitcoin', 'ethereum', 'injective', 'solana'].includes(adapterId.toLowerCase());
+        return ['bitcoin', 'ethereum', 'injective', 'solana', 'avalanche'].includes(adapterId.toLowerCase());
       }
 
       return false;
