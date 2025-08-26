@@ -4,11 +4,11 @@ import { Decimal } from 'decimal.js';
 
 import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
-import { MoralisTransactionArraySchema } from '../schemas.ts';
+import { MoralisTransactionSchema } from '../schemas.ts';
 import type { MoralisNativeBalance, MoralisTokenBalance, MoralisTokenTransfer, MoralisTransaction } from '../types.ts';
 
 @RegisterProcessor('moralis')
-export class MoralisProcessor implements IProviderProcessor<MoralisTransaction[]> {
+export class MoralisProcessor implements IProviderProcessor<MoralisTransaction> {
   private static convertNativeTransaction(tx: MoralisTransaction, userAddress: string): BlockchainTransaction {
     const isFromUser = tx.from_address.toLowerCase() === userAddress.toLowerCase();
     const isToUser = tx.to_address.toLowerCase() === userAddress.toLowerCase();
@@ -121,20 +121,11 @@ export class MoralisProcessor implements IProviderProcessor<MoralisTransaction[]
   }
 
   // IProviderProcessor interface implementation
-  transform(rawData: MoralisTransaction[], walletAddresses: string[]): UniversalTransaction {
-    // Note: This interface expects single transaction but Moralis returns arrays
-    // This is a temporary implementation for architectural consistency
-    // The array processing is handled by the bridge pattern in the adapter
-    if (!rawData || rawData.length === 0) {
-      throw new Error('No transactions provided to MoralisProcessor.transform');
-    }
-
-    // Process the first transaction as a single transaction for interface compatibility
-    const tx = rawData[0];
+  transform(rawData: MoralisTransaction, walletAddresses: string[]): UniversalTransaction {
     const userAddress = walletAddresses[0] || '';
 
-    const isFromUser = tx.from_address.toLowerCase() === userAddress.toLowerCase();
-    const isToUser = tx.to_address.toLowerCase() === userAddress.toLowerCase();
+    const isFromUser = rawData.from_address.toLowerCase() === userAddress.toLowerCase();
+    const isToUser = rawData.to_address.toLowerCase() === userAddress.toLowerCase();
 
     // Determine transaction type based on Bitcoin pattern
     let type: UniversalTransaction['type'];
@@ -146,34 +137,34 @@ export class MoralisProcessor implements IProviderProcessor<MoralisTransaction[]
       type = 'deposit';
     }
 
-    const valueWei = parseDecimal(tx.value);
+    const valueWei = parseDecimal(rawData.value);
     const valueEth = valueWei.dividedBy(new Decimal(10).pow(18));
-    const timestamp = new Date(tx.block_timestamp).getTime();
+    const timestamp = new Date(rawData.block_timestamp).getTime();
 
     return {
       amount: createMoney(valueEth.toString(), 'ETH'),
       datetime: new Date(timestamp).toISOString(),
-      fee: createMoney(0, 'ETH'),
-      from: tx.from_address,
-      id: tx.hash,
+      fee: createMoney('0', 'ETH'),
+      from: rawData.from_address,
+      id: rawData.hash,
       metadata: {
         blockchain: 'ethereum',
-        blockNumber: parseInt(tx.block_number),
-        gasUsed: parseInt(tx.receipt_gas_used),
+        blockNumber: parseInt(rawData.block_number),
+        gasUsed: parseInt(rawData.receipt_gas_used),
         providerId: 'moralis',
-        rawData: tx,
+        rawData: rawData,
       },
       source: 'ethereum',
-      status: tx.receipt_status === '1' ? 'ok' : 'failed',
+      status: rawData.receipt_status === '1' ? 'ok' : 'failed',
       symbol: 'ETH',
       timestamp,
-      to: tx.to_address,
+      to: rawData.to_address,
       type,
     };
   }
 
-  validate(rawData: MoralisTransaction[]): ValidationResult {
-    const result = MoralisTransactionArraySchema.safeParse(rawData);
+  validate(rawData: MoralisTransaction): ValidationResult {
+    const result = MoralisTransactionSchema.safeParse(rawData);
 
     if (result.success) {
       return { isValid: true };

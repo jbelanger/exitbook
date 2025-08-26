@@ -58,6 +58,9 @@ export class ImporterFactory {
       case 'injective':
         return await ImporterFactory.createInjectiveImporter<T>(config);
 
+      case 'solana':
+        return await ImporterFactory.createSolanaImporter<T>(config);
+
       default:
         throw new Error(`Unsupported blockchain importer: ${adapterId}`);
     }
@@ -71,10 +74,12 @@ export class ImporterFactory {
   }
 
   /**
-   * Create Ethereum importer - placeholder for future implementation.
+   * Create Ethereum importer.
    */
-  private static async createEthereumImporter<T>(_config: ETLComponentConfig): Promise<IImporter<T>> {
-    throw new Error('EthereumImporter not yet implemented');
+  private static async createEthereumImporter<T>(config: ETLComponentConfig): Promise<IImporter<T>> {
+    // Dynamic import to avoid circular dependencies
+    const { EthereumTransactionImporter } = await import('../../blockchains/ethereum/transaction-importer.ts');
+    return new EthereumTransactionImporter(config.dependencies) as unknown as IImporter<T>;
   }
 
   /**
@@ -115,6 +120,15 @@ export class ImporterFactory {
   }
 
   /**
+   * Create Solana importer.
+   */
+  private static async createSolanaImporter<T>(config: ETLComponentConfig): Promise<IImporter<T>> {
+    // Dynamic import to avoid circular dependencies
+    const { SolanaTransactionImporter } = await import('../../blockchains/solana/transaction-importer.ts');
+    return new SolanaTransactionImporter(config.dependencies) as unknown as IImporter<T>;
+  }
+
+  /**
    * Check if an importer is available for the given adapter.
    */
   static isSupported(adapterId: string, adapterType: string): boolean {
@@ -128,7 +142,7 @@ export class ImporterFactory {
       }
 
       if (adapterType === 'blockchain') {
-        return ['bitcoin', 'ethereum', 'injective'].includes(adapterId.toLowerCase());
+        return ['bitcoin', 'ethereum', 'injective', 'solana'].includes(adapterId.toLowerCase());
       }
 
       return false;

@@ -4,11 +4,11 @@ import { Decimal } from 'decimal.js';
 
 import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
-import { AlchemyAssetTransferArraySchema } from '../schemas.ts';
+import { AlchemyAssetTransferSchema } from '../schemas.ts';
 import type { AlchemyAssetTransfer, EtherscanBalance } from '../types.ts';
 
 @RegisterProcessor('alchemy')
-export class AlchemyProcessor implements IProviderProcessor<AlchemyAssetTransfer[]> {
+export class AlchemyProcessor implements IProviderProcessor<AlchemyAssetTransfer> {
   private static convertAssetTransfer(transfer: AlchemyAssetTransfer, userAddress: string): BlockchainTransaction {
     const isFromUser = transfer.from.toLowerCase() === userAddress.toLowerCase();
     const isToUser = transfer.to.toLowerCase() === userAddress.toLowerCase();
@@ -82,20 +82,11 @@ export class AlchemyProcessor implements IProviderProcessor<AlchemyAssetTransfer
   }
 
   // IProviderProcessor interface implementation
-  transform(rawData: AlchemyAssetTransfer[], walletAddresses: string[]): UniversalTransaction {
-    // Note: This interface expects single transaction but Alchemy returns arrays
-    // This is a temporary implementation for architectural consistency
-    // The array processing is handled by the bridge pattern in the adapter
-    if (!rawData || rawData.length === 0) {
-      throw new Error('No asset transfers provided to AlchemyProcessor.transform');
-    }
-
-    // Process the first transfer as a single transaction for interface compatibility
-    const transfer = rawData[0];
+  transform(rawData: AlchemyAssetTransfer, walletAddresses: string[]): UniversalTransaction {
     const userAddress = walletAddresses[0] || '';
 
-    const isFromUser = transfer.from.toLowerCase() === userAddress.toLowerCase();
-    const isToUser = transfer.to.toLowerCase() === userAddress.toLowerCase();
+    const isFromUser = rawData.from.toLowerCase() === userAddress.toLowerCase();
+    const isToUser = rawData.to.toLowerCase() === userAddress.toLowerCase();
 
     // Determine transaction type based on Bitcoin pattern
     let type: UniversalTransaction['type'];
@@ -109,43 +100,46 @@ export class AlchemyProcessor implements IProviderProcessor<AlchemyAssetTransfer
 
     // Handle different asset types
     let currency = 'ETH';
-    let amount = parseDecimal(transfer.value || '0');
+    let amount = parseDecimal(String(rawData.value || 0));
 
-    if (transfer.category === 'token') {
-      currency = transfer.asset || 'UNKNOWN';
-      if (transfer.rawContract?.decimal) {
-        const decimals = parseInt(transfer.rawContract.decimal);
+    if (rawData.category === 'token') {
+      currency = rawData.asset || 'UNKNOWN';
+      if (rawData.rawContract?.decimal) {
+        const decimals =
+          typeof rawData.rawContract.decimal === 'number'
+            ? rawData.rawContract.decimal
+            : parseInt(String(rawData.rawContract.decimal));
         amount = amount.dividedBy(new Decimal(10).pow(decimals));
       }
     }
 
-    const timestamp = transfer.metadata?.blockTimestamp
-      ? new Date(transfer.metadata.blockTimestamp).getTime()
+    const timestamp = rawData.metadata?.blockTimestamp
+      ? new Date(rawData.metadata.blockTimestamp).getTime()
       : Date.now();
 
     return {
       amount: createMoney(amount.toString(), currency),
       datetime: new Date(timestamp).toISOString(),
-      fee: createMoney(0, 'ETH'),
-      from: transfer.from,
-      id: transfer.hash,
+      fee: createMoney('0', 'ETH'),
+      from: rawData.from,
+      id: rawData.hash,
       metadata: {
         blockchain: 'ethereum',
-        blockNumber: parseInt(transfer.blockNum, 16),
+        blockNumber: parseInt(rawData.blockNum, 16),
         providerId: 'alchemy',
-        rawData: transfer,
+        rawData: rawData,
       },
       source: 'ethereum',
       status: 'ok',
       symbol: currency,
       timestamp,
-      to: transfer.to,
+      to: rawData.to,
       type,
     };
   }
 
-  validate(rawData: AlchemyAssetTransfer[]): ValidationResult {
-    const result = AlchemyAssetTransferArraySchema.safeParse(rawData);
+  validate(rawData: AlchemyAssetTransfer): ValidationResult {
+    const result = AlchemyAssetTransferSchema.safeParse(rawData);
 
     if (result.success) {
       return { isValid: true };

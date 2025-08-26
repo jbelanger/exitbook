@@ -4,19 +4,20 @@ import type { IDependencyContainer } from '../../shared/common/interfaces.ts';
 import { BaseProcessor } from '../../shared/processors/base-processor.ts';
 import type { ApiClientRawData, StoredRawData } from '../../shared/processors/interfaces.ts';
 import { ProcessorFactory } from '../../shared/processors/processor-registry.ts';
+import type { SolanaRawTransactionData } from './clients/HeliusApiClient.ts';
 // Import processors to trigger registration
-import './processors/AlchemyProcessor.ts';
-import './processors/MoralisProcessor.ts';
-import type { EthereumRawTransactionData } from './transaction-importer.ts';
+import './processors/HeliusProcessor.ts';
+import './processors/SolanaRPCProcessor.ts';
+import './processors/SolscanProcessor.ts';
 
 /**
- * Ethereum transaction processor that converts sourced raw blockchain transaction data
+ * Solana transaction processor that converts sourced raw blockchain transaction data
  * into UniversalTransaction format. Uses ProcessorFactory to dispatch to provider-specific
- * processors based on data provenance.
+ * processors (Helius, SolanaRPC, Solscan) based on data provenance.
  */
-export class EthereumTransactionProcessor extends BaseProcessor<ApiClientRawData<EthereumRawTransactionData>> {
+export class SolanaTransactionProcessor extends BaseProcessor<ApiClientRawData<SolanaRawTransactionData>> {
   constructor(_dependencies: IDependencyContainer) {
-    super('ethereum');
+    super('solana');
   }
 
   /**
@@ -27,10 +28,10 @@ export class EthereumTransactionProcessor extends BaseProcessor<ApiClientRawData
   }
 
   /**
-   * Process a single sourced raw transaction using provider-specific processors.
+   * Process a single sourced raw transaction batch using provider-specific processors.
    */
   async processSingle(
-    rawDataItem: StoredRawData<ApiClientRawData<EthereumRawTransactionData>>
+    rawDataItem: StoredRawData<ApiClientRawData<SolanaRawTransactionData>>
   ): Promise<UniversalTransaction | null> {
     try {
       const apiClientRawData = rawDataItem.rawData;
@@ -52,8 +53,19 @@ export class EthereumTransactionProcessor extends BaseProcessor<ApiClientRawData
 
       // Extract wallet addresses from raw data (added by importer during fetch)
       const walletAddresses: string[] = [];
-      // For Ethereum, we don't currently add fetchedByAddress to the raw data
-      // We'll need to get addresses from somewhere else or update the importer
+
+      // For Solana, check the first transaction for fetchedByAddress
+      if (rawData.normal && rawData.normal.length > 0) {
+        const firstTx = rawData.normal[0] as { fetchedByAddress?: string };
+        if (firstTx.fetchedByAddress) {
+          walletAddresses.push(firstTx.fetchedByAddress);
+        }
+      }
+
+      if (walletAddresses.length === 0) {
+        this.logger.warn(`No wallet addresses found in raw data for provider: ${providerId}`);
+        // Still attempt transformation with empty array
+      }
 
       // Transform using the provider-specific processor
       const universalTransaction = processor.transform(rawData, walletAddresses);
