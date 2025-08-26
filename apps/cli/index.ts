@@ -212,6 +212,7 @@ async function main() {
         }
 
         await database.close();
+        process.exit(0);
       } catch (error) {
         logger.error(`Import failed: ${error}`);
         process.exit(1);
@@ -345,6 +346,7 @@ async function main() {
         }
 
         await database.close();
+        process.exit(0);
       } catch (error) {
         logger.error(`Verification failed: ${error}`);
         process.exit(1);
@@ -402,6 +404,7 @@ async function main() {
         }
 
         await database.close();
+        process.exit(0);
       } catch (error) {
         logger.error(`Status check failed: ${error}`);
         process.exit(1);
@@ -451,6 +454,7 @@ async function main() {
         logger.info(`\n💾 Exported ${transactions.length} transactions to: ${outputPath}`);
 
         await database.close();
+        process.exit(0);
       } catch (error) {
         logger.error(`Export failed: ${error}`);
         process.exit(1);
@@ -587,6 +591,7 @@ async function main() {
         }
 
         await database.close();
+        process.exit(0);
       } catch (error) {
         logger.error(`Connection test failed: ${error}`);
         process.exit(1);
@@ -724,6 +729,9 @@ async function main() {
           }
           await database.close();
         }
+
+        // Exit successfully
+        process.exit(0);
       } catch (error) {
         logger.error(`Import failed: ${error}`);
         process.exit(1);
@@ -821,6 +829,9 @@ async function main() {
           }
           await database.close();
         }
+
+        // Exit successfully
+        process.exit(0);
       } catch (error) {
         logger.error(`Processing failed: ${error}`);
         process.exit(1);
