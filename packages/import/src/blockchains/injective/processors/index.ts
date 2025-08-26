@@ -1,2 +1,3 @@
-export { InjectiveExplorerProcessor } from './InjectiveExplorerProcessor.ts';
-export { InjectiveLCDProcessor } from './InjectiveLCDProcessor.ts';
+// Import processors to trigger registration
+import './processors/InjectiveExplorerProcessor.ts';
+import './processors/InjectiveLCDProcessor.ts';
