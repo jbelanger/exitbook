@@ -87,7 +87,6 @@ export const InjectiveTransactionSchema = z.object({
   data: z.string().optional(),
   error_log: z.string().optional(),
   extension_options: z.array(z.unknown()).optional(),
-  fetchedByAddress: z.string().optional(), // Added by importer
   gas_fee: InjectiveGasFeeSchema,
   gas_used: z.number().nonnegative('Gas used must be non-negative'),
   gas_wanted: z.number().nonnegative('Gas wanted must be non-negative'),

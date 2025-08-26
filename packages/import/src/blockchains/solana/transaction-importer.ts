@@ -180,9 +180,8 @@ export class SolanaTransactionImporter extends BaseImporter<SolanaRawTransaction
         const enhancedSourcedTransactions: ApiClientRawData<SolanaRawTransactionData>[] = sourcedTransactions.map(
           sourcedTx => ({
             providerId: sourcedTx.providerId,
-            rawData: {
-              normal: sourcedTx.rawData.normal.map(tx => ({ ...tx, fetchedByAddress: address })),
-            },
+            rawData: sourcedTx.rawData,
+            sourceAddress: address,
           })
         );
 

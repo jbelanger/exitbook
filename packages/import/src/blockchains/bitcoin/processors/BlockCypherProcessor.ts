@@ -1,5 +1,5 @@
 import type { UniversalTransaction } from '@crypto/core';
-import { createMoney } from '@crypto/shared-utils';
+import { type Result, createMoney } from '@crypto/shared-utils';
 
 import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
@@ -8,7 +8,7 @@ import type { BlockCypherTransaction } from '../types.ts';
 
 @RegisterProcessor('blockcypher')
 export class BlockCypherProcessor implements IProviderProcessor<BlockCypherTransaction> {
-  transform(rawData: BlockCypherTransaction, walletAddresses: string[]): UniversalTransaction {
+  transform(rawData: BlockCypherTransaction, walletAddresses: string[]): Result<UniversalTransaction> {
     const timestamp = rawData.confirmed ? new Date(rawData.confirmed).getTime() : Date.now();
 
     // Calculate transaction value considering all wallet addresses
@@ -56,8 +56,12 @@ export class BlockCypherProcessor implements IProviderProcessor<BlockCypherTrans
       // Internal transfer within our wallet
       type = 'transfer';
     } else {
-      // Neither incoming nor outgoing (shouldn't happen with proper filtering)
-      type = 'withdrawal';
+      // Neither incoming nor outgoing - cannot determine transaction type
+      return {
+        error:
+          'Unable to determine transaction type: transaction has no relevant wallet addresses in inputs or outputs',
+        success: false,
+      };
     }
 
     const totalValue = Math.abs(totalValueChange);
@@ -103,25 +107,28 @@ export class BlockCypherProcessor implements IProviderProcessor<BlockCypherTrans
     }
 
     return {
-      amount: createMoney(totalValue / 100000000, 'BTC'),
-      datetime: new Date(timestamp).toISOString(),
-      fee: createMoney(fee / 100000000, 'BTC'),
-      from: fromAddress,
-      id: rawData.hash,
-      metadata: {
-        blockchain: 'bitcoin',
-        blockHash: rawData.block_hash || undefined,
-        blockHeight: rawData.block_height || undefined,
-        confirmations: rawData.confirmations || 0,
-        providerId: 'blockcypher',
-        rawData,
+      success: true,
+      value: {
+        amount: createMoney(totalValue / 100000000, 'BTC'),
+        datetime: new Date(timestamp).toISOString(),
+        fee: createMoney(fee / 100000000, 'BTC'),
+        from: fromAddress,
+        id: rawData.hash,
+        metadata: {
+          blockchain: 'bitcoin',
+          blockHash: rawData.block_hash || undefined,
+          blockHeight: rawData.block_height || undefined,
+          confirmations: rawData.confirmations || 0,
+          providerId: 'blockcypher',
+          rawData,
+        },
+        source: 'bitcoin',
+        status: rawData.confirmations > 0 ? 'ok' : 'pending',
+        symbol: 'BTC',
+        timestamp,
+        to: toAddress,
+        type,
       },
-      source: 'bitcoin',
-      status: rawData.confirmations > 0 ? 'ok' : 'pending',
-      symbol: 'BTC',
-      timestamp,
-      to: toAddress,
-      type,
     };
   }
 

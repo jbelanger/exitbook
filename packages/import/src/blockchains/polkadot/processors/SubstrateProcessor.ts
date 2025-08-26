@@ -1,5 +1,5 @@
 import type { Balance, BlockchainTransaction, UniversalTransaction } from '@crypto/core';
-import { createMoney, maskAddress } from '@crypto/shared-utils';
+import { type Result, createMoney, maskAddress } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
 
 import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
@@ -195,7 +195,7 @@ export class SubstrateProcessor implements IProviderProcessor<SubscanTransfer> {
   }
 
   // IProviderProcessor interface implementation
-  transform(rawData: SubscanTransfer, walletAddresses: string[]): UniversalTransaction {
+  transform(rawData: SubscanTransfer, walletAddresses: string[]): Result<UniversalTransaction> {
     const userAddress = walletAddresses[0] || '';
     const chainConfig = SUBSTRATE_CHAINS['polkadot']!;
 
@@ -203,7 +203,10 @@ export class SubstrateProcessor implements IProviderProcessor<SubscanTransfer> {
     const bcTx = SubstrateProcessor.convertSubscanTransaction(rawData, userAddress, chainConfig);
 
     if (!bcTx) {
-      throw new Error(`Transaction not relevant to user address: ${userAddress}`);
+      return {
+        error: `Transaction not relevant to user address: ${userAddress}`,
+        success: false,
+      };
     }
 
     // Convert to UniversalTransaction following Bitcoin pattern
@@ -217,23 +220,26 @@ export class SubstrateProcessor implements IProviderProcessor<SubscanTransfer> {
     }
 
     return {
-      amount: bcTx.value,
-      datetime: new Date(bcTx.timestamp).toISOString(),
-      fee: bcTx.fee,
-      from: bcTx.from,
-      id: bcTx.hash,
-      metadata: {
-        blockchain: 'polkadot',
-        blockNumber: bcTx.blockNumber,
-        providerId: 'subscan',
-        rawData: bcTx,
+      success: true,
+      value: {
+        amount: bcTx.value,
+        datetime: new Date(bcTx.timestamp).toISOString(),
+        fee: bcTx.fee,
+        from: bcTx.from,
+        id: bcTx.hash,
+        metadata: {
+          blockchain: 'polkadot',
+          blockNumber: bcTx.blockNumber,
+          providerId: 'subscan',
+          rawData: bcTx,
+        },
+        source: 'polkadot',
+        status: bcTx.status === 'success' ? 'ok' : 'failed',
+        symbol: bcTx.value.currency,
+        timestamp: bcTx.timestamp,
+        to: bcTx.to,
+        type,
       },
-      source: 'polkadot',
-      status: bcTx.status === 'success' ? 'ok' : 'failed',
-      symbol: bcTx.value.currency,
-      timestamp: bcTx.timestamp,
-      to: bcTx.to,
-      type,
     };
   }
 

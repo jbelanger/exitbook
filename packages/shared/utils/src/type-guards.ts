@@ -237,3 +237,8 @@ export function isPositiveNumber(value: unknown): value is number {
 export function isValidTimestamp(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value > 0;
 }
+
+/**
+ * Simple Result type for functional error handling
+ */
+export type Result<T, E = string> = { success: true; value: T } | { error: E; success: false };

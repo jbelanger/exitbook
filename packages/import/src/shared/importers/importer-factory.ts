@@ -122,6 +122,9 @@ export class ImporterFactory {
         // Dynamic import to avoid circular dependencies
         return await ImporterFactory.createKrakenImporter<T>(config);
 
+      case 'kucoin':
+        return await ImporterFactory.createKucoinImporter<T>(config);
+
       case 'coinbase':
         return await ImporterFactory.createCoinbaseImporter<T>(config);
 
@@ -146,6 +149,15 @@ export class ImporterFactory {
     // Dynamic import to avoid circular dependencies
     const { KrakenCsvImporter } = await import('../../exchanges/kraken/importer.ts');
     return new KrakenCsvImporter() as unknown as IImporter<T>;
+  }
+
+  /**
+   * Create KuCoin CSV importer.
+   */
+  private static async createKucoinImporter<T>(_config: ETLComponentConfig): Promise<IImporter<T>> {
+    // Dynamic import to avoid circular dependencies
+    const { KucoinCsvImporter } = await import('../../exchanges/kucoin/importer.ts');
+    return new KucoinCsvImporter() as unknown as IImporter<T>;
   }
 
   /**
@@ -176,7 +188,7 @@ export class ImporterFactory {
 
       // Try to determine if we would be able to create this importer
       if (adapterType === 'exchange') {
-        return ['kraken', 'coinbase'].includes(adapterId.toLowerCase());
+        return ['kraken', 'kucoin', 'coinbase'].includes(adapterId.toLowerCase());
       }
 
       if (adapterType === 'blockchain') {

@@ -49,25 +49,21 @@ export class SolanaTransactionProcessor extends BaseProcessor<ApiClientRawData<S
         return null;
       }
 
-      // Extract wallet addresses from raw data (added by importer during fetch)
+      // Extract wallet addresses from source address context
       const walletAddresses: string[] = [];
-
-      // For Solana, check the first transaction for fetchedByAddress
-      if (rawData.normal && rawData.normal.length > 0) {
-        const firstTx = rawData.normal[0] as { fetchedByAddress?: string };
-        if (firstTx.fetchedByAddress) {
-          walletAddresses.push(firstTx.fetchedByAddress);
-        }
-      }
-
-      if (walletAddresses.length === 0) {
-        this.logger.warn(`No wallet addresses found in raw data for provider: ${providerId}`);
-        // Still attempt transformation with empty array
+      if (apiClientRawData.sourceAddress) {
+        walletAddresses.push(apiClientRawData.sourceAddress);
       }
 
       // Transform using the provider-specific processor
-      const universalTransaction = processor.transform(rawData, walletAddresses);
+      const transformResult = processor.transform(rawData, walletAddresses);
 
+      if (!transformResult.success) {
+        this.logger.error(`Transform failed for ${providerId}: ${transformResult.error}`);
+        return null;
+      }
+
+      const universalTransaction = transformResult.value;
       this.logger.debug(`Successfully processed transaction ${universalTransaction.id} from ${providerId}`);
       return universalTransaction;
     } catch (error) {

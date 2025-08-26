@@ -103,6 +103,9 @@ export class ProcessorFactory {
       case 'kraken':
         return await ProcessorFactory.createKrakenProcessor<T>(config);
 
+      case 'kucoin':
+        return await ProcessorFactory.createKucoinProcessor<T>(config);
+
       case 'coinbase':
         return await ProcessorFactory.createCoinbaseProcessor<T>(config);
 
@@ -130,6 +133,15 @@ export class ProcessorFactory {
   }
 
   /**
+   * Create KuCoin processor.
+   */
+  private static async createKucoinProcessor<T>(_config: ETLComponentConfig): Promise<IProcessor<T>> {
+    // Dynamic import to avoid circular dependencies
+    const { KucoinProcessor } = await import('../../exchanges/kucoin/processor.ts');
+    return new KucoinProcessor() as unknown as IProcessor<T>;
+  }
+
+  /**
    * Create Polkadot processor.
    */
   private static async createPolkadotProcessor<T>(config: ETLComponentConfig): Promise<IProcessor<T>> {
@@ -152,7 +164,7 @@ export class ProcessorFactory {
    */
   static getSupportedAdapters(adapterType: 'exchange' | 'blockchain'): string[] {
     if (adapterType === 'exchange') {
-      return ['kraken', 'coinbase'];
+      return ['kraken', 'kucoin', 'coinbase'];
     }
 
     if (adapterType === 'blockchain') {
@@ -168,7 +180,7 @@ export class ProcessorFactory {
   static isSupported(adapterId: string, adapterType: string): boolean {
     try {
       if (adapterType === 'exchange') {
-        return ['kraken', 'coinbase'].includes(adapterId.toLowerCase());
+        return ['kraken', 'kucoin', 'coinbase'].includes(adapterId.toLowerCase());
       }
 
       if (adapterType === 'blockchain') {

@@ -17,8 +17,6 @@ export interface InjectiveTransaction {
   data?: string;
   error_log?: string;
   extension_options?: unknown[];
-  // Added by importer/adapter for processor context
-  fetchedByAddress?: string;
   gas_fee: InjectiveGasFee;
   gas_used: number;
   gas_wanted: number;

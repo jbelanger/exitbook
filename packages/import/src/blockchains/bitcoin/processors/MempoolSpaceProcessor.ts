@@ -1,5 +1,5 @@
 import type { UniversalTransaction } from '@crypto/core';
-import { createMoney } from '@crypto/shared-utils';
+import { type Result, createMoney } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
 
 import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
@@ -9,7 +9,7 @@ import type { MempoolTransaction } from '../types.ts';
 
 @RegisterProcessor('mempool.space')
 export class MempoolSpaceProcessor implements IProviderProcessor<MempoolTransaction> {
-  transform(rawData: MempoolTransaction, walletAddresses: string[]): UniversalTransaction {
+  transform(rawData: MempoolTransaction, walletAddresses: string[]): Result<UniversalTransaction> {
     const timestamp =
       rawData.status.confirmed && rawData.status.block_time ? rawData.status.block_time * 1000 : Date.now();
 
@@ -48,8 +48,12 @@ export class MempoolSpaceProcessor implements IProviderProcessor<MempoolTransact
       // Internal transfer within our wallet
       type = 'transfer';
     } else {
-      // Neither incoming nor outgoing (shouldn't happen with proper filtering)
-      type = 'withdrawal';
+      // Neither incoming nor outgoing - cannot determine transaction type
+      return {
+        error:
+          'Unable to determine transaction type: transaction has no relevant wallet addresses in inputs or outputs',
+        success: false,
+      };
     }
 
     const totalValue = Math.abs(totalValueChange);
@@ -85,25 +89,28 @@ export class MempoolSpaceProcessor implements IProviderProcessor<MempoolTransact
     }
 
     return {
-      amount: createMoney(new Decimal(totalValue).div(100000000).toString(), 'BTC'),
-      datetime: new Date(timestamp).toISOString(),
-      fee: createMoney(new Decimal(fee).div(100000000).toString(), 'BTC'),
-      from: fromAddress,
-      id: rawData.txid,
-      metadata: {
-        blockchain: 'bitcoin',
-        blockHash: rawData.status.block_hash || undefined,
-        blockHeight: rawData.status.block_height || undefined,
-        confirmations: rawData.status.confirmed ? 1 : 0,
-        providerId: 'mempool.space',
-        rawData,
+      success: true,
+      value: {
+        amount: createMoney(new Decimal(totalValue).div(100000000).toString(), 'BTC'),
+        datetime: new Date(timestamp).toISOString(),
+        fee: createMoney(new Decimal(fee).div(100000000).toString(), 'BTC'),
+        from: fromAddress,
+        id: rawData.txid,
+        metadata: {
+          blockchain: 'bitcoin',
+          blockHash: rawData.status.block_hash || undefined,
+          blockHeight: rawData.status.block_height || undefined,
+          confirmations: rawData.status.confirmed ? 1 : 0,
+          providerId: 'mempool.space',
+          rawData,
+        },
+        source: 'bitcoin',
+        status: rawData.status.confirmed ? 'ok' : 'pending',
+        symbol: 'BTC',
+        timestamp,
+        to: toAddress,
+        type,
       },
-      source: 'bitcoin',
-      status: rawData.status.confirmed ? 'ok' : 'pending',
-      symbol: 'BTC',
-      timestamp,
-      to: toAddress,
-      type,
     };
   }
 

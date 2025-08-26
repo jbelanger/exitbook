@@ -39,14 +39,11 @@ export interface MempoolTransaction {
   weight: number;
 }
 
-export type BitcoinTransaction = (
+export type BitcoinTransaction =
   | MempoolTransaction
   | BlockstreamTransaction
   | BlockCypherTransaction
-  | BlockchainComTransaction
-) & {
-  fetchedByAddress?: string;
-};
+  | BlockchainComTransaction;
 
 export interface MempoolInput {
   prevout?: MempoolPrevout;
