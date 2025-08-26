@@ -3,12 +3,12 @@ import { maskAddress } from '@crypto/shared-utils';
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
 import { RegisterApiClient } from '../../shared/registry/decorators.ts';
 import type { ProviderOperation } from '../../shared/types.ts';
-import type { AddressInfo, MempoolAddressInfo, MempoolTransaction } from '../types.ts';
+import type { AddressInfo, BlockchainComAddressResponse, BlockchainComTransaction } from '../types.ts';
 
 @RegisterApiClient({
   blockchain: 'bitcoin',
   capabilities: {
-    maxBatchSize: 25,
+    maxBatchSize: 1,
     supportedOperations: ['getRawAddressTransactions', 'getAddressInfo'],
     supportsHistoricalData: true,
     supportsPagination: true,
@@ -18,33 +18,30 @@ import type { AddressInfo, MempoolAddressInfo, MempoolTransaction } from '../typ
   defaultConfig: {
     rateLimit: {
       burstLimit: 1,
-      requestsPerHour: 600,
-      requestsPerMinute: 15,
-      requestsPerSecond: 0.25, // Conservative: 1 request per 4 seconds
+      requestsPerHour: 300,
+      requestsPerMinute: 10,
+      requestsPerSecond: 0.17, // Conservative: 1 request per 6 seconds
     },
     retries: 3,
-    timeout: 10000,
+    timeout: 15000,
   },
-  description: 'Bitcoin blockchain explorer API with comprehensive transaction and balance data (no API key required)',
-  displayName: 'Mempool.space API',
-  name: 'mempool.space',
+  description: 'Blockchain.com Bitcoin explorer API with transaction and balance data (no API key required)',
+  displayName: 'Blockchain.com API',
+  name: 'blockchain.com',
   networks: {
     mainnet: {
-      baseUrl: 'https://mempool.space/api',
-    },
-    testnet: {
-      baseUrl: 'https://mempool.space/testnet/api',
+      baseUrl: 'https://blockchain.info',
     },
   },
   requiresApiKey: false,
   type: 'rest',
 })
-export class MempoolSpaceApiClient extends BaseRegistryProvider {
+export class BlockchainComApiClient extends BaseRegistryProvider {
   constructor() {
-    super('bitcoin', 'mempool.space', 'mainnet');
+    super('bitcoin', 'blockchain.com', 'mainnet');
 
     this.logger.debug(
-      `Initialized MempoolSpaceApiClient from registry metadata - Network: ${this.network}, BaseUrl: ${this.baseUrl}`
+      `Initialized BlockchainComApiClient from registry metadata - Network: ${this.network}, BaseUrl: ${this.baseUrl}`
     );
   }
 
@@ -57,24 +54,16 @@ export class MempoolSpaceApiClient extends BaseRegistryProvider {
     this.logger.debug(`Fetching raw address info - Address: ${maskAddress(address)}`);
 
     try {
-      const addressInfo = await this.httpClient.get<MempoolAddressInfo>(`/address/${address}`);
-
-      // Calculate transaction count
-      const txCount = addressInfo.chain_stats.tx_count + addressInfo.mempool_stats.tx_count;
-
-      // Calculate current balance: funded amount - spent amount
-      const chainBalance = addressInfo.chain_stats.funded_txo_sum - addressInfo.chain_stats.spent_txo_sum;
-      const mempoolBalance = addressInfo.mempool_stats.funded_txo_sum - addressInfo.mempool_stats.spent_txo_sum;
-      const totalBalanceSats = chainBalance + mempoolBalance;
+      const addressInfo = await this.httpClient.get<BlockchainComAddressResponse>(`/rawaddr/${address}?limit=0`);
 
       // Convert satoshis to BTC
-      const balanceBTC = (totalBalanceSats / 100000000).toString();
+      const balanceBTC = (addressInfo.final_balance / 100000000).toString();
 
       this.logger.debug(`Successfully retrieved raw address info - Address: ${maskAddress(address)}`);
 
       return {
         balance: balanceBTC,
-        txCount,
+        txCount: addressInfo.n_tx,
       };
     } catch (error) {
       this.logger.error(
@@ -90,44 +79,36 @@ export class MempoolSpaceApiClient extends BaseRegistryProvider {
   private async getRawAddressTransactions(params: {
     address: string;
     since?: number | undefined;
-  }): Promise<MempoolTransaction[]> {
+  }): Promise<BlockchainComTransaction[]> {
     const { address, since } = params;
 
     this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
 
     try {
-      // Get raw transaction list directly - mempool.space returns full transaction objects
-      // No need to check address info first as empty addresses will just return empty array
-      const rawTransactions = await this.httpClient.get<MempoolTransaction[]>(`/address/${address}/txs`);
+      // Use limit=50 to get the maximum transactions per request
+      const addressData = await this.httpClient.get<BlockchainComAddressResponse>(`/rawaddr/${address}?limit=50`);
 
-      if (!Array.isArray(rawTransactions) || rawTransactions.length === 0) {
+      if (!addressData.txs || addressData.txs.length === 0) {
         this.logger.debug(`No raw transactions found - Address: ${maskAddress(address)}`);
         return [];
       }
 
-      this.logger.debug(
-        `Retrieved raw transactions - Address: ${maskAddress(address)}, Count: ${rawTransactions.length}`
-      );
+      let filteredTransactions = addressData.txs;
 
       // Filter by timestamp if 'since' is provided
-      let filteredTransactions = rawTransactions;
       if (since) {
-        filteredTransactions = rawTransactions.filter(tx => {
-          const timestamp = tx.status.confirmed && tx.status.block_time ? tx.status.block_time * 1000 : Date.now();
+        filteredTransactions = addressData.txs.filter(tx => {
+          const timestamp = tx.time * 1000; // Convert to milliseconds
           return timestamp >= since;
         });
 
         this.logger.debug(
-          `Filtered raw transactions by timestamp - OriginalCount: ${rawTransactions.length}, FilteredCount: ${filteredTransactions.length}`
+          `Filtered raw transactions by timestamp - OriginalCount: ${addressData.txs.length}, FilteredCount: ${filteredTransactions.length}`
         );
       }
 
       // Sort by timestamp (newest first)
-      filteredTransactions.sort((a, b) => {
-        const timestampA = a.status.confirmed && a.status.block_time ? a.status.block_time : 0;
-        const timestampB = b.status.confirmed && b.status.block_time ? b.status.block_time : 0;
-        return timestampB - timestampA;
-      });
+      filteredTransactions.sort((a, b) => b.time - a.time);
 
       this.logger.debug(
         `Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${filteredTransactions.length}`
@@ -171,8 +152,8 @@ export class MempoolSpaceApiClient extends BaseRegistryProvider {
 
   async isHealthy(): Promise<boolean> {
     try {
-      const response = await this.httpClient.get<number>('/blocks/tip/height');
-      return typeof response === 'number' && response > 0;
+      const response = await this.httpClient.get<{ height: number }>('/latestblock');
+      return typeof response.height === 'number' && response.height > 0;
     } catch (error) {
       this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
       return false;
@@ -182,9 +163,9 @@ export class MempoolSpaceApiClient extends BaseRegistryProvider {
   async testConnection(): Promise<boolean> {
     try {
       // Test with a simple endpoint that should always work
-      const blockHeight = await this.httpClient.get<number>('/blocks/tip/height');
-      this.logger.debug(`Connection test successful - CurrentBlockHeight: ${blockHeight}`);
-      return typeof blockHeight === 'number' && blockHeight > 0;
+      const blockData = await this.httpClient.get<{ height: number }>('/latestblock');
+      this.logger.debug(`Connection test successful - CurrentBlockHeight: ${blockData.height}`);
+      return typeof blockData.height === 'number' && blockData.height > 0;
     } catch (error) {
       this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
       return false;
