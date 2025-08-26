@@ -69,6 +69,7 @@ export class AvalancheTransactionImporter extends BaseImporter<AvalancheRawTrans
             sourcedTransactions.push({
               providerId: normalResult.providerName,
               rawData: tx,
+              sourceAddress: address,
             });
           }
         }
@@ -79,6 +80,7 @@ export class AvalancheTransactionImporter extends BaseImporter<AvalancheRawTrans
             sourcedTransactions.push({
               providerId: 'snowtrace-internal',
               rawData: tx,
+              sourceAddress: address,
             });
           }
         }
@@ -100,6 +102,7 @@ export class AvalancheTransactionImporter extends BaseImporter<AvalancheRawTrans
             sourcedTransactions.push({
               providerId: 'snowtrace-token',
               rawData: tx,
+              sourceAddress: address,
             });
           }
         }

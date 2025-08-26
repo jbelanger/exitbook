@@ -59,6 +59,69 @@ export class BlockCypherApiClient extends BaseRegistryProvider {
   }
 
   /**
+   * Fetch a complete transaction with all inputs and outputs (handles pagination)
+   */
+  private async fetchCompleteTransaction(txHash: string): Promise<BlockCypherTransaction> {
+    // First, fetch transaction with higher limit to reduce pagination
+    const initialTx = await this.httpClient.get<BlockCypherTransaction>(this.buildEndpoint(`/txs/${txHash}?limit=100`));
+
+    // Handle paginated outputs if needed
+    const transaction = { ...initialTx };
+    while (transaction.next_outputs) {
+      this.logger.debug(`Fetching next outputs for transaction ${txHash}: ${transaction.next_outputs}`);
+      try {
+        const nextOutputsResponse = await this.httpClient.get<{
+          next_outputs?: string;
+          outputs: BlockCypherTransaction['outputs'];
+        }>(transaction.next_outputs.replace('https://api.blockcypher.com/v1/btc/main', ''));
+
+        transaction.outputs.push(...nextOutputsResponse.outputs);
+        transaction.next_outputs = nextOutputsResponse.next_outputs;
+
+        // Update output count
+        if (transaction.vout_sz) {
+          transaction.vout_sz = transaction.outputs.length;
+        }
+      } catch (error) {
+        this.logger.warn(
+          `Failed to fetch paginated outputs for transaction ${txHash}: ${error instanceof Error ? error.message : String(error)}`
+        );
+        break; // Don't fail the entire transaction for pagination issues
+      }
+    }
+
+    // Handle paginated inputs if needed (less common but possible)
+    while (transaction.next_inputs) {
+      this.logger.debug(`Fetching next inputs for transaction ${txHash}: ${transaction.next_inputs}`);
+      try {
+        const nextInputsResponse = await this.httpClient.get<{
+          inputs: BlockCypherTransaction['inputs'];
+          next_inputs?: string;
+        }>(transaction.next_inputs.replace('https://api.blockcypher.com/v1/btc/main', ''));
+
+        transaction.inputs.push(...nextInputsResponse.inputs);
+        transaction.next_inputs = nextInputsResponse.next_inputs;
+
+        // Update input count
+        if (transaction.vin_sz) {
+          transaction.vin_sz = transaction.inputs.length;
+        }
+      } catch (error) {
+        this.logger.warn(
+          `Failed to fetch paginated inputs for transaction ${txHash}: ${error instanceof Error ? error.message : String(error)}`
+        );
+        break; // Don't fail the entire transaction for pagination issues
+      }
+    }
+
+    this.logger.debug(
+      `Complete transaction fetched - TxHash: ${txHash}, Inputs: ${transaction.inputs.length}, Outputs: ${transaction.outputs.length}${transaction.next_outputs || transaction.next_inputs ? ' (had pagination)' : ''}`
+    );
+
+    return transaction;
+  }
+
+  /**
    * Get raw address info
    */
   private async getAddressInfo(params: { address: string }): Promise<AddressInfo> {
@@ -133,7 +196,7 @@ export class BlockCypherApiClient extends BaseRegistryProvider {
         const batchTransactions = await Promise.all(
           batch.map(async txHash => {
             try {
-              const rawTx = await this.httpClient.get<BlockCypherTransaction>(this.buildEndpoint(`/txs/${txHash}`));
+              const rawTx = await this.fetchCompleteTransaction(txHash);
               return rawTx;
             } catch (error) {
               this.logger.warn(

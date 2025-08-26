@@ -50,13 +50,11 @@ export class InjectiveTransactionImporter extends BaseImporter<InjectiveTransact
       const rawTransactions = result.data as InjectiveTransaction[];
       const providerId = result.providerName;
 
-      // Wrap each transaction with provider provenance and add fetching address
+      // Wrap each transaction with provider provenance and source address context
       return rawTransactions.map(rawData => ({
         providerId,
-        rawData: {
-          ...rawData,
-          fetchedByAddress: address,
-        },
+        rawData,
+        sourceAddress: address,
       }));
     } catch (error) {
       this.logger.error(`Provider manager failed to fetch transactions for ${address}: ${error}`);

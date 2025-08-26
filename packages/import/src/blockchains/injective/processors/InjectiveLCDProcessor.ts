@@ -1,5 +1,5 @@
 import type { UniversalTransaction } from '@crypto/core';
-import { createMoney, parseDecimal } from '@crypto/shared-utils';
+import { type Result } from '@crypto/shared-utils';
 
 import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
@@ -20,10 +20,13 @@ export class InjectiveLCDProcessor implements IProviderProcessor<InjectiveBalanc
     return denom.toUpperCase();
   }
 
-  transform(rawData: InjectiveBalanceResponse, walletAddresses: string[]): UniversalTransaction {
+  transform(rawData: InjectiveBalanceResponse, walletAddresses: string[]): Result<UniversalTransaction> {
     // LCD processor is for balance data, not transaction data
     // This processor is created for consistency but should not be used for balance operations
-    throw new Error('InjectiveLCDProcessor is designed for balance data, not transaction processing');
+    return {
+      error: 'InjectiveLCDProcessor is designed for balance data, not transaction processing',
+      success: false,
+    };
   }
 
   validate(rawData: InjectiveBalanceResponse): ValidationResult {

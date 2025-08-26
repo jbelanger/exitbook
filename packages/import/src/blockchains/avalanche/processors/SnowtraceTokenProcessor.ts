@@ -1,5 +1,5 @@
 import type { UniversalTransaction } from '@crypto/core';
-import { createMoney } from '@crypto/shared-utils';
+import { type Result, createMoney } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
 
 import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
@@ -9,7 +9,7 @@ import type { SnowtraceTokenTransfer } from '../types.ts';
 
 @RegisterProcessor('snowtrace-token')
 export class SnowtraceTokenProcessor implements IProviderProcessor<SnowtraceTokenTransfer> {
-  transform(rawData: SnowtraceTokenTransfer, walletAddresses: string[]): UniversalTransaction {
+  transform(rawData: SnowtraceTokenTransfer, walletAddresses: string[]): Result<UniversalTransaction> {
     const userAddress = walletAddresses[0] || '';
     const isFromUser = rawData.from.toLowerCase() === userAddress.toLowerCase();
     const isToUser = rawData.to.toLowerCase() === userAddress.toLowerCase();
@@ -29,23 +29,26 @@ export class SnowtraceTokenProcessor implements IProviderProcessor<SnowtraceToke
     const timestamp = parseInt(rawData.timeStamp) * 1000;
 
     return {
-      amount: createMoney(value.toString(), rawData.tokenSymbol),
-      datetime: new Date(timestamp).toISOString(),
-      fee: createMoney('0', 'AVAX'),
-      from: rawData.from,
-      id: rawData.hash,
-      metadata: {
-        blockchain: 'avalanche',
-        blockNumber: parseInt(rawData.blockNumber),
-        providerId: 'snowtrace-token',
-        rawData,
+      success: true,
+      value: {
+        amount: createMoney(value.toString(), rawData.tokenSymbol),
+        datetime: new Date(timestamp).toISOString(),
+        fee: createMoney('0', 'AVAX'),
+        from: rawData.from,
+        id: rawData.hash,
+        metadata: {
+          blockchain: 'avalanche',
+          blockNumber: parseInt(rawData.blockNumber),
+          providerId: 'snowtrace-token',
+          rawData,
+        },
+        source: 'avalanche',
+        status: 'ok',
+        symbol: rawData.tokenSymbol,
+        timestamp,
+        to: rawData.to,
+        type,
       },
-      source: 'avalanche',
-      status: 'ok',
-      symbol: rawData.tokenSymbol,
-      timestamp,
-      to: rawData.to,
-      type,
     };
   }
 

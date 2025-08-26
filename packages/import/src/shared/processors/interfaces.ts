@@ -1,4 +1,5 @@
 import type { UniversalTransaction } from '@crypto/core';
+import type { Result } from '@crypto/shared-utils';
 
 export interface StoredRawData<TRawData = unknown> {
   adapterId: string;
@@ -60,7 +61,7 @@ export interface IProviderProcessor<TRawData> {
   /**
    * Transform validated raw data into blockchain transactions
    */
-  transform(rawData: TRawData, walletAddresses: string[]): UniversalTransaction;
+  transform(rawData: TRawData, walletAddresses: string[]): Result<UniversalTransaction>;
 
   /**
    * Validate the raw data from a provider
@@ -74,6 +75,7 @@ export interface IProviderProcessor<TRawData> {
 export interface ApiClientRawData<TRawData> {
   providerId: string;
   rawData: TRawData;
+  sourceAddress?: string | undefined; // Optional address context for the data
 }
 
 /**

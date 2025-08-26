@@ -1,6 +1,6 @@
 import type { BlockchainTransaction, UniversalTransaction } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
-import { createMoney, maskAddress } from '@crypto/shared-utils';
+import { type Result, createMoney, maskAddress } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
 
 import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
@@ -93,7 +93,7 @@ export class SolscanProcessor implements IProviderProcessor<SolscanRawTransactio
   }
 
   // IProviderProcessor interface implementation
-  transform(rawData: SolscanRawTransactionData, walletAddresses: string[]): UniversalTransaction {
+  transform(rawData: SolscanRawTransactionData, walletAddresses: string[]): Result<UniversalTransaction> {
     // Process the first transaction for interface compatibility
     const userAddress = walletAddresses[0] || '';
 
@@ -119,23 +119,26 @@ export class SolscanProcessor implements IProviderProcessor<SolscanRawTransactio
     }
 
     return {
-      amount: processedTx.value,
-      datetime: new Date(processedTx.timestamp).toISOString(),
-      fee: processedTx.fee,
-      from: processedTx.from,
-      id: processedTx.hash,
-      metadata: {
-        blockchain: 'solana',
-        blockNumber: processedTx.blockNumber,
-        providerId: 'solscan',
-        rawData: tx,
+      success: true,
+      value: {
+        amount: processedTx.value,
+        datetime: new Date(processedTx.timestamp).toISOString(),
+        fee: processedTx.fee,
+        from: processedTx.from,
+        id: processedTx.hash,
+        metadata: {
+          blockchain: 'solana',
+          blockNumber: processedTx.blockNumber,
+          providerId: 'solscan',
+          rawData: tx,
+        },
+        source: 'solana',
+        status: processedTx.status === 'success' ? 'ok' : 'failed',
+        symbol: processedTx.tokenSymbol || 'SOL',
+        timestamp: processedTx.timestamp,
+        to: processedTx.to,
+        type,
       },
-      source: 'solana',
-      status: processedTx.status === 'success' ? 'ok' : 'failed',
-      symbol: processedTx.tokenSymbol || 'SOL',
-      timestamp: processedTx.timestamp,
-      to: processedTx.to,
-      type,
     };
   }
 

@@ -1,5 +1,5 @@
 import type { UniversalTransaction } from '@crypto/core';
-import { createMoney, parseDecimal } from '@crypto/shared-utils';
+import { type Result, createMoney, parseDecimal } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
 
 import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
@@ -23,7 +23,7 @@ export class InjectiveExplorerProcessor implements IProviderProcessor<InjectiveT
     return denom.toUpperCase();
   }
 
-  transform(rawData: InjectiveTransaction, walletAddresses: string[]): UniversalTransaction {
+  transform(rawData: InjectiveTransaction, walletAddresses: string[]): Result<UniversalTransaction> {
     const timestamp = new Date(rawData.block_timestamp).getTime();
     const relevantAddresses = new Set(walletAddresses);
 
@@ -146,29 +146,35 @@ export class InjectiveExplorerProcessor implements IProviderProcessor<InjectiveT
     } else if (isIncoming && isOutgoing) {
       type = 'transfer';
     } else {
-      type = 'withdrawal';
+      return {
+        error: 'Unable to determine transaction type - neither incoming nor outgoing flags set',
+        success: false,
+      };
     }
 
     return {
-      amount: value,
-      datetime: new Date(timestamp).toISOString(),
-      fee,
-      from,
-      id: rawData.hash,
-      metadata: {
-        blockchain: 'injective',
-        blockNumber: rawData.block_number,
-        confirmations: rawData.code === 0 ? 1 : 0,
-        gasUsed: rawData.gas_used,
-        providerId: 'injective-explorer',
-        rawData,
+      success: true,
+      value: {
+        amount: value,
+        datetime: new Date(timestamp).toISOString(),
+        fee,
+        from,
+        id: rawData.hash,
+        metadata: {
+          blockchain: 'injective',
+          blockNumber: rawData.block_number,
+          confirmations: rawData.code === 0 ? 1 : 0,
+          gasUsed: rawData.gas_used,
+          providerId: 'injective-explorer',
+          rawData,
+        },
+        source: 'injective',
+        status: rawData.code === 0 ? 'ok' : 'failed',
+        symbol: tokenSymbol,
+        timestamp,
+        to,
+        type,
       },
-      source: 'injective',
-      status: rawData.code === 0 ? 'ok' : 'failed',
-      symbol: tokenSymbol,
-      timestamp,
-      to,
-      type,
     };
   }
 

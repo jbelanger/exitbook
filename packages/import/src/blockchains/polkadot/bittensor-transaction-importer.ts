@@ -82,7 +82,7 @@ export class BittensorTransactionImporter extends BaseImporter<TaostatsTransacti
    * Get transaction ID from Taostats transaction.
    */
   public getTransactionId(transaction: TaostatsTransaction): string {
-    return transaction.hash || transaction.id || `${transaction.block_num}-${transaction.extrinsic_index}`;
+    return transaction.hash || `${transaction.block_number}-${transaction.block}`;
   }
 
   /**
@@ -152,8 +152,8 @@ export class BittensorTransactionImporter extends BaseImporter<TaostatsTransacti
 
     // Sort by timestamp or block number (newest first)
     deduplicatedTransactions.sort((a, b) => {
-      const timestampA = a.rawData.timestamp || a.rawData.block_num || 0;
-      const timestampB = b.rawData.timestamp || b.rawData.block_num || 0;
+      const timestampA = a.rawData.timestamp || a.rawData.block_number || 0;
+      const timestampB = b.rawData.timestamp || b.rawData.block_number || 0;
       return timestampB - timestampA;
     });
 

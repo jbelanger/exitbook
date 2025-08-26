@@ -93,13 +93,12 @@ export class BitcoinTransactionImporter extends BaseImporter<BitcoinTransaction>
 
         // Add sourced transactions to the unique set with address information
         for (const sourcedTx of sourcedTransactions) {
-          // Add the fetching address to the raw transaction data
-          const enhancedRawData: BitcoinTransaction = { ...sourcedTx.rawData, fetchedByAddress: address };
-          const txId = this.getTransactionId(enhancedRawData);
+          const txId = this.getTransactionId(sourcedTx.rawData);
 
           uniqueSourcedTransactions.set(txId, {
             providerId: sourcedTx.providerId,
-            rawData: enhancedRawData,
+            rawData: sourcedTx.rawData,
+            sourceAddress: address,
           });
         }
 
@@ -265,11 +264,12 @@ export class BitcoinTransactionImporter extends BaseImporter<BitcoinTransaction>
         try {
           const sourcedTransactions = await this.fetchRawTransactionsForAddress(userAddress, params.since);
 
-          // Add the fetching address to each raw transaction
+          // Add the source address context to each transaction
           const enhancedSourcedTransactions: ApiClientRawData<BitcoinTransaction>[] = sourcedTransactions.map(
             sourcedTx => ({
               providerId: sourcedTx.providerId,
-              rawData: { ...sourcedTx.rawData, fetchedByAddress: userAddress },
+              rawData: sourcedTx.rawData,
+              sourceAddress: userAddress,
             })
           );
 

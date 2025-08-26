@@ -66,8 +66,14 @@ export class PolkadotTransactionProcessor extends BaseProcessor<ApiClientRawData
       }
 
       // Transform using the provider-specific processor
-      const universalTransaction = processor.transform(rawData, walletAddresses);
+      const transformResult = processor.transform(rawData, walletAddresses);
 
+      if (!transformResult.success) {
+        this.logger.error(`Transform failed for ${providerId}: ${transformResult.error}`);
+        return null;
+      }
+
+      const universalTransaction = transformResult.value;
       this.logger.debug(`Successfully processed transaction ${universalTransaction.id} from ${providerId}`);
       return universalTransaction;
     } catch (error) {

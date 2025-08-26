@@ -1,5 +1,5 @@
 import type { Balance, BlockchainTransaction, UniversalTransaction } from '@crypto/core';
-import { createMoney, parseDecimal } from '@crypto/shared-utils';
+import { type Result, createMoney, parseDecimal } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
 
 import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
@@ -82,7 +82,7 @@ export class AlchemyProcessor implements IProviderProcessor<AlchemyAssetTransfer
   }
 
   // IProviderProcessor interface implementation
-  transform(rawData: AlchemyAssetTransfer, walletAddresses: string[]): UniversalTransaction {
+  transform(rawData: AlchemyAssetTransfer, walletAddresses: string[]): Result<UniversalTransaction> {
     const userAddress = walletAddresses[0] || '';
 
     const isFromUser = rawData.from.toLowerCase() === userAddress.toLowerCase();
@@ -118,23 +118,26 @@ export class AlchemyProcessor implements IProviderProcessor<AlchemyAssetTransfer
       : Date.now();
 
     return {
-      amount: createMoney(amount.toString(), currency),
-      datetime: new Date(timestamp).toISOString(),
-      fee: createMoney('0', 'ETH'),
-      from: rawData.from,
-      id: rawData.hash,
-      metadata: {
-        blockchain: 'ethereum',
-        blockNumber: parseInt(rawData.blockNum, 16),
-        providerId: 'alchemy',
-        rawData: rawData,
+      success: true,
+      value: {
+        amount: createMoney(amount.toString(), currency),
+        datetime: new Date(timestamp).toISOString(),
+        fee: createMoney('0', 'ETH'),
+        from: rawData.from,
+        id: rawData.hash,
+        metadata: {
+          blockchain: 'ethereum',
+          blockNumber: parseInt(rawData.blockNum, 16),
+          providerId: 'alchemy',
+          rawData: rawData,
+        },
+        source: 'ethereum',
+        status: 'ok',
+        symbol: currency,
+        timestamp,
+        to: rawData.to,
+        type,
       },
-      source: 'ethereum',
-      status: 'ok',
-      symbol: currency,
-      timestamp,
-      to: rawData.to,
-      type,
     };
   }
 

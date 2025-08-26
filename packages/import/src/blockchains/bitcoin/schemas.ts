@@ -58,7 +58,6 @@ export const MempoolOutputSchema = z.object({
 export const MempoolTransactionSchema = z
   .object({
     fee: z.number().nonnegative('Fee must be non-negative'),
-    fetchedByAddress: z.string().optional(), // Added by our importer
     locktime: z.number().nonnegative(),
     size: z.number().positive('Size must be positive'),
     status: MempoolTransactionStatusSchema,
@@ -117,7 +116,6 @@ export const BlockstreamOutputSchema = z.object({
 export const BlockstreamTransactionSchema = z
   .object({
     fee: z.number().nonnegative('Fee must be non-negative'),
-    fetchedByAddress: z.string().optional(), // Added by our importer
     locktime: z.number().nonnegative(),
     size: z.number().positive('Size must be positive'),
     status: BlockstreamTransactionStatusSchema,
@@ -157,27 +155,32 @@ export const BlockCypherOutputSchema = z.object({
  */
 export const BlockCypherTransactionSchema = z
   .object({
-    block_hash: z.string(),
-    block_height: z.number().nonnegative(),
-    block_index: z.number().nonnegative(),
+    addresses: z.array(z.string()).optional(), // Root-level addresses involved in transaction
+    block_hash: z.string().optional(), // Optional for unconfirmed transactions
+    block_height: z.number().nonnegative().optional(), // Optional for unconfirmed transactions
+    block_index: z.number().nonnegative().optional(), // Optional for unconfirmed transactions
     confidence: z.number().min(0).max(1),
     confirmations: z.number().nonnegative(),
-    confirmed: z.string().min(1, 'Confirmed timestamp must not be empty'), // ISO 8601 date
+    confirmed: z.string().optional(), // ISO 8601 date, optional for unconfirmed transactions
     double_spend: z.boolean(),
     fees: z.number().nonnegative('Fees must be non-negative'), // Note: 'fees' not 'fee'
-    fetchedByAddress: z.string().optional(), // Added by our importer
     gas_limit: z.number().optional(),
     gas_price: z.number().optional(),
     gas_used: z.number().optional(),
     hash: z.string().min(1, 'Transaction hash must not be empty'), // Note: 'hash' not 'txid'
     inputs: z.array(BlockCypherInputSchema).min(1, 'Transaction must have at least one input'),
-    lock_time: z.number().nonnegative(),
+    next_inputs: z.string().optional(), // URL for next page of inputs
+    next_outputs: z.string().optional(), // URL for next page of outputs
+    opt_in_rbf: z.boolean().optional(), // Replace-by-fee flag
     outputs: z.array(BlockCypherOutputSchema).min(1, 'Transaction must have at least one output'),
     preference: z.string(),
     received: z.string().min(1, 'Received timestamp must not be empty'), // ISO 8601 date
-    relayed_by: z.string(),
+    relayed_by: z.string().optional(), // IP address that relayed the transaction
     size: z.number().positive('Size must be positive'),
+    total: z.number().nonnegative().optional(), // Total amount transacted in satoshis
     ver: z.number(),
+    vin_sz: z.number().nonnegative().optional(), // Number of inputs
+    vout_sz: z.number().nonnegative().optional(), // Number of outputs
     vsize: z.number().positive('Virtual size must be positive'),
   })
   .strict();

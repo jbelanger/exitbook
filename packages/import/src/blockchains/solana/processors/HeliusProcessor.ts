@@ -1,6 +1,6 @@
 import type { BlockchainTransaction, UniversalTransaction } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
-import { createMoney, maskAddress } from '@crypto/shared-utils';
+import { type Result, createMoney, maskAddress } from '@crypto/shared-utils';
 
 import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
@@ -171,7 +171,7 @@ export class HeliusProcessor implements IProviderProcessor<SolanaRawTransactionD
   }
 
   // IProviderProcessor interface implementation
-  transform(rawData: SolanaRawTransactionData, walletAddresses: string[]): UniversalTransaction {
+  transform(rawData: SolanaRawTransactionData, walletAddresses: string[]): Result<UniversalTransaction> {
     // Process the first transaction for interface compatibility
     const userAddress = walletAddresses[0] || '';
 
@@ -197,23 +197,26 @@ export class HeliusProcessor implements IProviderProcessor<SolanaRawTransactionD
     }
 
     return {
-      amount: processedTx.value,
-      datetime: new Date(processedTx.timestamp * 1000).toISOString(),
-      fee: processedTx.fee,
-      from: processedTx.from,
-      id: processedTx.hash,
-      metadata: {
-        blockchain: 'solana',
-        blockNumber: processedTx.blockNumber,
-        providerId: 'helius',
-        rawData: tx,
+      success: true,
+      value: {
+        amount: processedTx.value,
+        datetime: new Date(processedTx.timestamp * 1000).toISOString(),
+        fee: processedTx.fee,
+        from: processedTx.from,
+        id: processedTx.hash,
+        metadata: {
+          blockchain: 'solana',
+          blockNumber: processedTx.blockNumber,
+          providerId: 'helius',
+          rawData: tx,
+        },
+        source: 'solana',
+        status: processedTx.status === 'success' ? 'ok' : 'failed',
+        symbol: processedTx.tokenSymbol || 'SOL',
+        timestamp: processedTx.timestamp * 1000,
+        to: processedTx.to,
+        type,
       },
-      source: 'solana',
-      status: processedTx.status === 'success' ? 'ok' : 'failed',
-      symbol: processedTx.tokenSymbol || 'SOL',
-      timestamp: processedTx.timestamp * 1000,
-      to: processedTx.to,
-      type,
     };
   }
 

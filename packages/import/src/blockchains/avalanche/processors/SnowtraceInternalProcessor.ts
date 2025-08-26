@@ -1,5 +1,5 @@
 import type { UniversalTransaction } from '@crypto/core';
-import { createMoney } from '@crypto/shared-utils';
+import { type Result, createMoney } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
 
 import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
@@ -9,7 +9,7 @@ import type { SnowtraceInternalTransaction } from '../types.ts';
 
 @RegisterProcessor('snowtrace-internal')
 export class SnowtraceInternalProcessor implements IProviderProcessor<SnowtraceInternalTransaction> {
-  transform(rawData: SnowtraceInternalTransaction, walletAddresses: string[]): UniversalTransaction {
+  transform(rawData: SnowtraceInternalTransaction, walletAddresses: string[]): Result<UniversalTransaction> {
     const userAddress = walletAddresses[0] || '';
     const isFromUser = rawData.from.toLowerCase() === userAddress.toLowerCase();
     const isToUser = rawData.to.toLowerCase() === userAddress.toLowerCase();
@@ -28,23 +28,26 @@ export class SnowtraceInternalProcessor implements IProviderProcessor<SnowtraceI
     const timestamp = parseInt(rawData.timeStamp) * 1000;
 
     return {
-      amount: createMoney(valueAvax.toString(), 'AVAX'),
-      datetime: new Date(timestamp).toISOString(),
-      fee: createMoney('0', 'AVAX'),
-      from: rawData.from,
-      id: rawData.hash,
-      metadata: {
-        blockchain: 'avalanche',
-        blockNumber: parseInt(rawData.blockNumber),
-        providerId: 'snowtrace-internal',
-        rawData,
+      success: true,
+      value: {
+        amount: createMoney(valueAvax.toString(), 'AVAX'),
+        datetime: new Date(timestamp).toISOString(),
+        fee: createMoney('0', 'AVAX'),
+        from: rawData.from,
+        id: rawData.hash,
+        metadata: {
+          blockchain: 'avalanche',
+          blockNumber: parseInt(rawData.blockNumber),
+          providerId: 'snowtrace-internal',
+          rawData,
+        },
+        source: 'avalanche',
+        status: rawData.isError === '0' ? 'ok' : 'failed',
+        symbol: 'AVAX',
+        timestamp,
+        to: rawData.to,
+        type,
       },
-      source: 'avalanche',
-      status: rawData.isError === '0' ? 'ok' : 'failed',
-      symbol: 'AVAX',
-      timestamp,
-      to: rawData.to,
-      type,
     };
   }
 
