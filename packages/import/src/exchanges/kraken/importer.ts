@@ -7,6 +7,7 @@ import type { ApiClientRawData } from '../../shared/processors/interfaces.ts';
 import { CsvParser } from '../csv-parser.ts';
 import { CSV_FILE_TYPES } from './constants.ts';
 import type { CsvKrakenLedgerRow } from './types.ts';
+import { formatKrakenValidationErrors, validateKrakenCsvRows } from './utils.ts';
 
 /**
  * Importer for Kraken CSV ledger files.
@@ -108,9 +109,21 @@ export class KrakenCsvImporter extends BaseImporter<CsvKrakenLedgerRow> {
 
             if (fileType === 'ledgers') {
               this.logger.info(`Processing ledgers CSV file: ${file}`);
-              const fileTransactions = await this.parseCsvFile<CsvKrakenLedgerRow>(filePath);
-              this.logger.info(`Parsed ${fileTransactions.length} transactions from ${file}`);
-              allTransactions.push(...fileTransactions);
+              const rawData = await this.parseCsvFile<CsvKrakenLedgerRow>(filePath);
+
+              // Validate CSV data using Zod schemas
+              const validationResult = validateKrakenCsvRows(rawData);
+
+              if (validationResult.invalid.length > 0) {
+                this.logger.error(
+                  `${validationResult.invalid.length} invalid CSV rows in ${file}. ` +
+                    `Invalid: ${validationResult.invalid.length}, Valid: ${validationResult.valid.length}, Total: ${validationResult.totalRows}. ` +
+                    `Errors: ${formatKrakenValidationErrors(validationResult)}`
+                );
+              }
+
+              this.logger.info(`Parsed and validated ${validationResult.valid.length} transactions from ${file}`);
+              allTransactions.push(...validationResult.valid);
             } else if (fileType === 'unknown') {
               this.logger.warn(`Skipping unrecognized CSV file: ${file}`);
             } else {

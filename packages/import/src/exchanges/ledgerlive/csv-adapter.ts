@@ -14,6 +14,7 @@ import { BaseAdapter } from '../../shared/adapters/base-adapter.ts';
 import { CsvParser } from '../csv-parser.ts';
 import { CSV_FILE_TYPES } from './constants.ts';
 import type { CsvLedgerLiveOperationRow } from './types.ts';
+import { formatLedgerLiveValidationErrors, validateLedgerLiveCsvRows } from './utils.ts';
 
 export class LedgerLiveCSVAdapter extends BaseAdapter {
   private cachedTransactions: CsvLedgerLiveOperationRow[] | null = null;
@@ -100,11 +101,23 @@ export class LedgerLiveCSVAdapter extends BaseAdapter {
 
             if (fileType === 'operations') {
               this.logger.info(`Processing ${fileType} CSV file - File: ${file}, Directory: ${csvDirectory}`);
-              const fileTransactions = await this.parseCsvFile<CsvLedgerLiveOperationRow>(filePath);
+              const rawData = await this.parseCsvFile<CsvLedgerLiveOperationRow>(filePath);
+
+              // Validate CSV data using Zod schemas
+              const validationResult = validateLedgerLiveCsvRows(rawData);
+
+              if (validationResult.invalid.length > 0) {
+                this.logger.error(
+                  `${validationResult.invalid.length} invalid CSV rows in ${file}. ` +
+                    `Invalid: ${validationResult.invalid.length}, Valid: ${validationResult.valid.length}, Total: ${validationResult.totalRows}. ` +
+                    `Errors: ${formatLedgerLiveValidationErrors(validationResult)}`
+                );
+              }
+
               this.logger.info(
-                `Parsed ${fileType} transactions - File: ${file}, Directory: ${csvDirectory}, Count: ${fileTransactions.length}`
+                `Parsed and validated ${fileType} transactions - File: ${file}, Directory: ${csvDirectory}, Valid: ${validationResult.valid.length}, Invalid: ${validationResult.invalid.length}`
               );
-              transactions.push(...fileTransactions);
+              transactions.push(...validationResult.valid);
             } else if (fileType === 'unknown') {
               this.logger.warn(`Skipping unrecognized CSV file - File: ${file}, Directory: ${csvDirectory}`);
             } else {

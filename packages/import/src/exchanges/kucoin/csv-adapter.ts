@@ -14,6 +14,7 @@ import { BaseAdapter } from '../../shared/adapters/base-adapter.ts';
 import { CsvParser } from '../csv-parser.ts';
 import { CSV_FILE_TYPES } from './constants.ts';
 import type { CsvAccountHistoryRow, CsvDepositWithdrawalRow, CsvKuCoinRawData, CsvSpotOrderRow } from './types.ts';
+import { validateKuCoinAccountHistory, validateKuCoinDepositsWithdrawals, validateKuCoinSpotOrders } from './utils.ts';
 
 export class KuCoinCSVAdapter extends BaseAdapter {
   private cachedTransactions: CsvKuCoinRawData | null = null;
@@ -304,8 +305,19 @@ export class KuCoinCSVAdapter extends BaseAdapter {
   }
 
   private async parseAccountHistory(filePath: string): Promise<CsvAccountHistoryRow[]> {
-    const rows = await this.parseCsvFile<CsvAccountHistoryRow>(filePath);
-    return this.filterByUid(rows);
+    const rawData = await this.parseCsvFile<CsvAccountHistoryRow>(filePath);
+
+    // Validate CSV data using Zod schemas
+    const validationResult = validateKuCoinAccountHistory(rawData);
+
+    if (validationResult.invalid.length > 0) {
+      this.logger.error(
+        `${validationResult.invalid.length} invalid account history rows in ${filePath}. ` +
+          `Invalid: ${validationResult.invalid.length}, Valid: ${validationResult.valid.length}, Total: ${rawData.length}`
+      );
+    }
+
+    return this.filterByUid(validationResult.valid);
   }
 
   /**
@@ -316,18 +328,51 @@ export class KuCoinCSVAdapter extends BaseAdapter {
   }
 
   private async parseDepositHistory(filePath: string): Promise<CsvDepositWithdrawalRow[]> {
-    const rows = await this.parseCsvFile<CsvDepositWithdrawalRow>(filePath);
-    return this.filterByUid(rows);
+    const rawData = await this.parseCsvFile<CsvDepositWithdrawalRow>(filePath);
+
+    // Validate CSV data using Zod schemas
+    const validationResult = validateKuCoinDepositsWithdrawals(rawData);
+
+    if (validationResult.invalid.length > 0) {
+      this.logger.error(
+        `${validationResult.invalid.length} invalid deposit rows in ${filePath}. ` +
+          `Invalid: ${validationResult.invalid.length}, Valid: ${validationResult.valid.length}, Total: ${rawData.length}`
+      );
+    }
+
+    return this.filterByUid(validationResult.valid);
   }
 
   private async parseSpotOrders(filePath: string): Promise<CsvSpotOrderRow[]> {
-    const rows = await this.parseCsvFile<CsvSpotOrderRow>(filePath);
-    return this.filterByUid(rows);
+    const rawData = await this.parseCsvFile<CsvSpotOrderRow>(filePath);
+
+    // Validate CSV data using Zod schemas
+    const validationResult = validateKuCoinSpotOrders(rawData);
+
+    if (validationResult.invalid.length > 0) {
+      this.logger.error(
+        `${validationResult.invalid.length} invalid spot order rows in ${filePath}. ` +
+          `Invalid: ${validationResult.invalid.length}, Valid: ${validationResult.valid.length}, Total: ${rawData.length}`
+      );
+    }
+
+    return this.filterByUid(validationResult.valid);
   }
 
   private async parseWithdrawalHistory(filePath: string): Promise<CsvDepositWithdrawalRow[]> {
-    const rows = await this.parseCsvFile<CsvDepositWithdrawalRow>(filePath);
-    return this.filterByUid(rows);
+    const rawData = await this.parseCsvFile<CsvDepositWithdrawalRow>(filePath);
+
+    // Validate CSV data using Zod schemas
+    const validationResult = validateKuCoinDepositsWithdrawals(rawData);
+
+    if (validationResult.invalid.length > 0) {
+      this.logger.error(
+        `${validationResult.invalid.length} invalid withdrawal rows in ${filePath}. ` +
+          `Invalid: ${validationResult.invalid.length}, Valid: ${validationResult.valid.length}, Total: ${rawData.length}`
+      );
+    }
+
+    return this.filterByUid(validationResult.valid);
   }
 
   // Process account history to extract convert market transactions

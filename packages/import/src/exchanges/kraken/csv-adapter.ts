@@ -20,6 +20,7 @@ import { CsvFilters } from '../csv-filters.ts';
 import { CsvParser } from '../csv-parser.ts';
 import { CSV_FILE_TYPES } from './constants.ts';
 import type { CsvKrakenLedgerRow } from './types.ts';
+import { formatKrakenValidationErrors, validateKrakenCsvRows } from './utils.ts';
 
 export class KrakenCSVAdapter extends BaseAdapter {
   private cachedTransactions: CsvKrakenLedgerRow[] | null = null;
@@ -387,11 +388,23 @@ export class KrakenCSVAdapter extends BaseAdapter {
 
             if (fileType === 'ledgers') {
               this.logger.info(`Processing ${fileType} CSV file - File: ${file}, Directory: ${csvDirectory}`);
-              const fileTransactions = await this.parseCsvFile<CsvKrakenLedgerRow>(filePath);
+              const rawData = await this.parseCsvFile<CsvKrakenLedgerRow>(filePath);
+
+              // Validate CSV data using Zod schemas
+              const validationResult = validateKrakenCsvRows(rawData);
+
+              if (validationResult.invalid.length > 0) {
+                this.logger.error(
+                  `${validationResult.invalid.length} invalid CSV rows in ${file}. ` +
+                    `Invalid: ${validationResult.invalid.length}, Valid: ${validationResult.valid.length}, Total: ${validationResult.totalRows}. ` +
+                    `Errors: ${formatKrakenValidationErrors(validationResult)}`
+                );
+              }
+
               this.logger.info(
-                `Parsed ${fileType} transactions - File: ${file}, Directory: ${csvDirectory}, Count: ${fileTransactions.length}`
+                `Parsed and validated ${fileType} transactions - File: ${file}, Directory: ${csvDirectory}, Valid: ${validationResult.valid.length}, Invalid: ${validationResult.invalid.length}`
               );
-              transactions.push(...fileTransactions);
+              transactions.push(...validationResult.valid);
             } else if (fileType === 'unknown') {
               this.logger.warn(`Skipping unrecognized CSV file - File: ${file}, Directory: ${csvDirectory}`);
             } else {

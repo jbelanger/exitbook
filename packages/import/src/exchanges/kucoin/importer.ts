@@ -7,6 +7,7 @@ import type { ApiClientRawData } from '../../shared/processors/interfaces.ts';
 import { CsvParser } from '../csv-parser.ts';
 import { CSV_FILE_TYPES } from './constants.ts';
 import type { CsvAccountHistoryRow, CsvDepositWithdrawalRow, CsvKuCoinRawData, CsvSpotOrderRow } from './types.ts';
+import { validateKuCoinAccountHistory, validateKuCoinDepositsWithdrawals, validateKuCoinSpotOrders } from './utils.ts';
 
 /**
  * Importer for KuCoin CSV files.
@@ -114,30 +115,82 @@ export class KucoinCsvImporter extends BaseImporter<CsvKuCoinRawData> {
             switch (fileType) {
               case 'trading': {
                 this.logger.info(`Processing trading CSV file: ${file}`);
-                const rows = await this.parseCsvFile<CsvSpotOrderRow>(filePath);
-                this.logger.info(`Parsed ${rows.length} trading transactions from ${file}`);
-                rawData.spotOrders.push(...rows);
+                const rawRows = await this.parseCsvFile<CsvSpotOrderRow>(filePath);
+
+                // Validate CSV data using Zod schemas
+                const validationResult = validateKuCoinSpotOrders(rawRows);
+
+                if (validationResult.invalid.length > 0) {
+                  this.logger.error(
+                    `${validationResult.invalid.length} invalid trading rows in ${file}. ` +
+                      `Invalid: ${validationResult.invalid.length}, Valid: ${validationResult.valid.length}, Total: ${rawRows.length}`
+                  );
+                }
+
+                this.logger.info(
+                  `Parsed and validated ${validationResult.valid.length} trading transactions from ${file}`
+                );
+                rawData.spotOrders.push(...validationResult.valid);
                 break;
               }
               case 'deposit': {
                 this.logger.info(`Processing deposit CSV file: ${file}`);
-                const rows = await this.parseCsvFile<CsvDepositWithdrawalRow>(filePath);
-                this.logger.info(`Parsed ${rows.length} deposit transactions from ${file}`);
-                rawData.deposits.push(...rows);
+                const rawRows = await this.parseCsvFile<CsvDepositWithdrawalRow>(filePath);
+
+                // Validate CSV data using Zod schemas
+                const validationResult = validateKuCoinDepositsWithdrawals(rawRows);
+
+                if (validationResult.invalid.length > 0) {
+                  this.logger.error(
+                    `${validationResult.invalid.length} invalid deposit rows in ${file}. ` +
+                      `Invalid: ${validationResult.invalid.length}, Valid: ${validationResult.valid.length}, Total: ${rawRows.length}`
+                  );
+                }
+
+                this.logger.info(
+                  `Parsed and validated ${validationResult.valid.length} deposit transactions from ${file}`
+                );
+                rawData.deposits.push(...validationResult.valid);
                 break;
               }
               case 'withdrawal': {
                 this.logger.info(`Processing withdrawal CSV file: ${file}`);
-                const rows = await this.parseCsvFile<CsvDepositWithdrawalRow>(filePath);
-                this.logger.info(`Parsed ${rows.length} withdrawal transactions from ${file}`);
-                rawData.withdrawals.push(...rows);
+                const rawRows = await this.parseCsvFile<CsvDepositWithdrawalRow>(filePath);
+
+                // Validate CSV data using Zod schemas
+                const validationResult = validateKuCoinDepositsWithdrawals(rawRows);
+
+                if (validationResult.invalid.length > 0) {
+                  this.logger.error(
+                    `${validationResult.invalid.length} invalid withdrawal rows in ${file}. ` +
+                      `Invalid: ${validationResult.invalid.length}, Valid: ${validationResult.valid.length}, Total: ${rawRows.length}`
+                  );
+                }
+
+                this.logger.info(
+                  `Parsed and validated ${validationResult.valid.length} withdrawal transactions from ${file}`
+                );
+                rawData.withdrawals.push(...validationResult.valid);
                 break;
               }
               case 'account_history': {
                 this.logger.info(`Processing account history CSV file: ${file}`);
-                const rows = await this.parseCsvFile<CsvAccountHistoryRow>(filePath);
-                this.logger.info(`Parsed ${rows.length} account history entries from ${file}`);
-                rawData.accountHistory.push(...rows);
+                const rawRows = await this.parseCsvFile<CsvAccountHistoryRow>(filePath);
+
+                // Validate CSV data using Zod schemas
+                const validationResult = validateKuCoinAccountHistory(rawRows);
+
+                if (validationResult.invalid.length > 0) {
+                  this.logger.error(
+                    `${validationResult.invalid.length} invalid account history rows in ${file}. ` +
+                      `Invalid: ${validationResult.invalid.length}, Valid: ${validationResult.valid.length}, Total: ${rawRows.length}`
+                  );
+                }
+
+                this.logger.info(
+                  `Parsed and validated ${validationResult.valid.length} account history entries from ${file}`
+                );
+                rawData.accountHistory.push(...validationResult.valid);
                 break;
               }
               case 'convert':

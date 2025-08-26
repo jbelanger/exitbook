@@ -1,4 +1,5 @@
 import type { UniversalTransaction } from '@crypto/core';
+import { validateUniversalTransactions } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
 import type { Logger } from '@crypto/shared-logger';
 
@@ -57,7 +58,23 @@ export abstract class BaseProcessor<TRawData> implements IProcessor<TRawData> {
       }
     }
 
-    this.logger.info(`Processing completed for ${this.adapterId}: ${processed} successful, ${failed} failed`);
+    // NEW: Validate all generated transactions using Zod schemas
+    const { invalid, valid } = validateUniversalTransactions(transactions);
+
+    // Log validation errors but continue processing with valid transactions
+    if (invalid.length > 0) {
+      this.logger.error(
+        `${invalid.length} invalid transactions from ${this.adapterId}Processor. ` +
+          `Invalid: ${invalid.length}, Valid: ${valid.length}, Total: ${transactions.length}. ` +
+          `Errors: ${invalid
+            .map(({ errors }) => errors.issues.map(issue => `${issue.path.join('.')}: ${issue.message}`).join('; '))
+            .join(' | ')}`
+      );
+    }
+
+    this.logger.info(
+      `Processing completed for ${this.adapterId}: ${valid.length} valid, ${invalid.length} invalid, ${failed} failed`
+    );
 
     if (errors.length > 0) {
       this.logger.warn(
@@ -65,7 +82,7 @@ export abstract class BaseProcessor<TRawData> implements IProcessor<TRawData> {
       );
     }
 
-    return transactions;
+    return valid;
   }
 
   abstract processSingle(rawData: StoredRawData<TRawData>): Promise<UniversalTransaction | null>;
