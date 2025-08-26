@@ -1,7 +1,8 @@
-import { getLogger } from '@crypto/shared-logger';
 import type { Logger } from '@crypto/shared-logger';
+import { getLogger } from '@crypto/shared-logger';
 
-import type { IImporter, ImportParams, ValidationResult } from './interfaces.ts';
+import type { ApiClientRawData } from '../processors/interfaces.ts';
+import type { IImporter, ImportParams } from './interfaces.ts';
 
 /**
  * Base class providing common functionality for all importers.
@@ -13,6 +14,29 @@ export abstract class BaseImporter<TRawData> implements IImporter<TRawData> {
   constructor(protected adapterId: string) {
     this.logger = getLogger(`${adapterId}Importer`);
   }
+
+  async canImport(params: ImportParams): Promise<boolean> {
+    this.logger.debug(`Validating import parameters for ${this.adapterId}`);
+
+    try {
+      // Basic parameter validation
+      if (!params) {
+        this.logger.error('Import parameters are required');
+        return false;
+      }
+
+      // Let subclasses implement specific validation
+      return this.canImportSpecific(params);
+    } catch (error) {
+      this.logger.error(`Import parameters validation failed for ${this.adapterId}: ${error}`);
+      return false;
+    }
+  }
+
+  /**
+   * Subclasses should implement source-specific validation logic.
+   */
+  protected abstract canImportSpecific(params: ImportParams): Promise<boolean>;
 
   /**
    * Helper method to generate session IDs.
@@ -30,59 +54,5 @@ export abstract class BaseImporter<TRawData> implements IImporter<TRawData> {
     throw new Error(`${this.adapterId} import failed: ${errorMessage}`);
   }
 
-  abstract importFromSource(params: ImportParams): Promise<TRawData[]>;
-
-  validateRawData(data: TRawData[]): ValidationResult {
-    this.logger.debug(`Validating ${data.length} raw data items for ${this.adapterId}`);
-
-    const result: ValidationResult = {
-      errors: [],
-      isValid: true,
-      warnings: [],
-    };
-
-    if (!Array.isArray(data)) {
-      result.isValid = false;
-      result.errors.push('Raw data must be an array');
-      return result;
-    }
-
-    if (data.length === 0) {
-      result.warnings.push('No data imported');
-    }
-
-    // Let subclasses add specific validation
-    return this.validateRawDataSpecific(data, result);
-  }
-
-  /**
-   * Subclasses can add specific raw data validation logic.
-   */
-  protected validateRawDataSpecific(_data: TRawData[], result: ValidationResult): ValidationResult {
-    // Default implementation - subclasses can override
-    return result;
-  }
-
-  async validateSource(params: ImportParams): Promise<boolean> {
-    this.logger.debug(`Validating source for ${this.adapterId}`);
-
-    try {
-      // Basic parameter validation
-      if (!params) {
-        this.logger.error('Import parameters are required');
-        return false;
-      }
-
-      // Let subclasses implement specific validation
-      return this.validateSourceSpecific(params);
-    } catch (error) {
-      this.logger.error(`Source validation failed for ${this.adapterId}: ${error}`);
-      return false;
-    }
-  }
-
-  /**
-   * Subclasses should implement source-specific validation logic.
-   */
-  protected abstract validateSourceSpecific(params: ImportParams): Promise<boolean>;
+  abstract import(params: ImportParams): Promise<ApiClientRawData<TRawData>[]>;
 }

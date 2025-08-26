@@ -1,10 +1,9 @@
-import type { Logger } from '@crypto/shared-logger';
-import { getLogger } from '@crypto/shared-logger';
 import * as bitcoin from 'bitcoinjs-lib';
 
 import type { IDependencyContainer } from '../../shared/common/interfaces.ts';
-import type { IImporter, ImportParams, ValidationResult } from '../../shared/importers/interfaces.ts';
-import type { SourcedRawData } from '../../shared/processors/interfaces.ts';
+import { BaseImporter } from '../../shared/importers/base-importer.ts';
+import type { ImportParams } from '../../shared/importers/interfaces.ts';
+import type { ApiClientRawData } from '../../shared/processors/interfaces.ts';
 // Ensure Bitcoin providers are registered
 import '../registry/register-providers.ts';
 import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
@@ -16,15 +15,14 @@ import { BitcoinUtils } from './utils.ts';
  * Supports both regular Bitcoin addresses and extended public keys (xpub/ypub/zpub).
  * Uses provider manager for failover between multiple blockchain API providers.
  */
-export class BitcoinTransactionImporter implements IImporter<SourcedRawData<BitcoinTransaction>> {
+export class BitcoinTransactionImporter extends BaseImporter<BitcoinTransaction> {
   private addressGap: number;
   private addressInfoCache = new Map<string, { balance: string; txCount: number }>();
-  private logger: Logger;
   private providerManager: BlockchainProviderManager;
   private walletAddresses: BitcoinWalletAddress[] = [];
 
   constructor(dependencies: IDependencyContainer, options?: { addressGap?: number }) {
-    this.logger = getLogger('BitcoinTransactionImporter');
+    super('bitcoin');
 
     if (!dependencies.providerManager || !dependencies.explorerConfig) {
       throw new Error('Provider manager and explorer config required for Bitcoin importer');
@@ -47,7 +45,7 @@ export class BitcoinTransactionImporter implements IImporter<SourcedRawData<Bitc
   private async fetchRawTransactionsForAddress(
     address: string,
     since?: number
-  ): Promise<SourcedRawData<BitcoinTransaction>[]> {
+  ): Promise<ApiClientRawData<BitcoinTransaction>[]> {
     try {
       const result = await this.providerManager.executeWithFailover('bitcoin', {
         address: address,
@@ -77,8 +75,8 @@ export class BitcoinTransactionImporter implements IImporter<SourcedRawData<Bitc
   private async fetchRawTransactionsForDerivedAddresses(
     derivedAddresses: string[],
     since?: number
-  ): Promise<SourcedRawData<BitcoinTransaction>[]> {
-    const uniqueSourcedTransactions = new Map<string, SourcedRawData<BitcoinTransaction>>();
+  ): Promise<ApiClientRawData<BitcoinTransaction>[]> {
+    const uniqueSourcedTransactions = new Map<string, ApiClientRawData<BitcoinTransaction>>();
 
     for (const address of derivedAddresses) {
       // Check cache first to see if this address has any transactions
@@ -157,9 +155,9 @@ export class BitcoinTransactionImporter implements IImporter<SourcedRawData<Bitc
    * Remove duplicate transactions based on txid.
    */
   private removeDuplicateTransactions(
-    sourcedTransactions: SourcedRawData<BitcoinTransaction>[]
-  ): SourcedRawData<BitcoinTransaction>[] {
-    const uniqueTransactions = new Map<string, SourcedRawData<BitcoinTransaction>>();
+    sourcedTransactions: ApiClientRawData<BitcoinTransaction>[]
+  ): ApiClientRawData<BitcoinTransaction>[] {
+    const uniqueTransactions = new Map<string, ApiClientRawData<BitcoinTransaction>>();
 
     for (const sourcedTx of sourcedTransactions) {
       const txId = this.getTransactionId(sourcedTx.rawData);
@@ -169,6 +167,38 @@ export class BitcoinTransactionImporter implements IImporter<SourcedRawData<Bitc
     }
 
     return Array.from(uniqueTransactions.values());
+  }
+
+  /**
+   * Validate source parameters and connectivity.
+   */
+  protected async canImportSpecific(params: ImportParams): Promise<boolean> {
+    if (!params.addresses?.length) {
+      this.logger.error('No addresses provided for Bitcoin import');
+      return false;
+    }
+
+    // Validate address formats
+    for (const address of params.addresses) {
+      if (!this.isValidBitcoinAddress(address)) {
+        this.logger.error(`Invalid Bitcoin address format: ${address}`);
+        return false;
+      }
+    }
+
+    // Test provider connectivity
+    const healthStatus = this.providerManager.getProviderHealth('bitcoin');
+    const hasHealthyProvider = Array.from(healthStatus.values()).some(
+      health => health.isHealthy && health.circuitState !== 'OPEN'
+    );
+
+    if (!hasHealthyProvider) {
+      this.logger.error('No healthy Bitcoin providers available');
+      return false;
+    }
+
+    this.logger.info('Bitcoin source validation passed');
+    return true;
   }
 
   /**
@@ -187,14 +217,14 @@ export class BitcoinTransactionImporter implements IImporter<SourcedRawData<Bitc
   /**
    * Import raw transaction data from Bitcoin blockchain APIs with provider provenance.
    */
-  async importFromSource(params: ImportParams): Promise<SourcedRawData<BitcoinTransaction>[]> {
+  async import(params: ImportParams): Promise<ApiClientRawData<BitcoinTransaction>[]> {
     if (!params.addresses?.length) {
       throw new Error('Addresses required for Bitcoin transaction import');
     }
 
     this.logger.info(`Starting Bitcoin transaction import for ${params.addresses.length} addresses`);
 
-    const allSourcedTransactions: SourcedRawData<BitcoinTransaction>[] = [];
+    const allSourcedTransactions: ApiClientRawData<BitcoinTransaction>[] = [];
 
     for (const userAddress of params.addresses) {
       this.logger.info(`Importing transactions for address: ${userAddress.substring(0, 20)}...`);
@@ -236,7 +266,7 @@ export class BitcoinTransactionImporter implements IImporter<SourcedRawData<Bitc
           const sourcedTransactions = await this.fetchRawTransactionsForAddress(userAddress, params.since);
 
           // Add the fetching address to each raw transaction
-          const enhancedSourcedTransactions: SourcedRawData<BitcoinTransaction>[] = sourcedTransactions.map(
+          const enhancedSourcedTransactions: ApiClientRawData<BitcoinTransaction>[] = sourcedTransactions.map(
             sourcedTx => ({
               providerId: sourcedTx.providerId,
               rawData: { ...sourcedTx.rawData, fetchedByAddress: userAddress },
@@ -245,8 +275,7 @@ export class BitcoinTransactionImporter implements IImporter<SourcedRawData<Bitc
 
           allSourcedTransactions.push(...enhancedSourcedTransactions);
         } catch (error) {
-          this.logger.error(`Failed to fetch Bitcoin transactions for ${userAddress}: ${error}`);
-          throw error;
+          this.handleImportError(error, `fetching transactions for ${userAddress}`);
         }
       }
     }
@@ -256,90 +285,5 @@ export class BitcoinTransactionImporter implements IImporter<SourcedRawData<Bitc
 
     this.logger.info(`Bitcoin import completed: ${uniqueTransactions.length} unique sourced transactions`);
     return uniqueTransactions;
-  }
-
-  /**
-   * Validate sourced raw transaction data format using basic checks.
-   * Detailed validation is delegated to provider-specific processors.
-   */
-  validateRawData(data: SourcedRawData<BitcoinTransaction>[]): ValidationResult {
-    const errors: string[] = [];
-    const warnings: string[] = [];
-
-    if (!Array.isArray(data)) {
-      errors.push('Raw data must be an array');
-      return { errors, isValid: false, warnings };
-    }
-
-    if (data.length === 0) {
-      warnings.push('No transactions found in raw data');
-    }
-
-    // Basic validation - detailed validation delegated to providers
-    for (let i = 0; i < data.length; i++) {
-      const sourcedTx = data[i];
-      if (!sourcedTx) {
-        errors.push(`Sourced transaction at index ${i} is null or undefined`);
-        continue;
-      }
-
-      if (!sourcedTx.rawData) {
-        errors.push(`Sourced transaction at index ${i} missing raw data`);
-        continue;
-      }
-
-      if (!sourcedTx.providerId) {
-        errors.push(`Sourced transaction at index ${i} missing provider ID`);
-        continue;
-      }
-
-      const txId = this.getTransactionId(sourcedTx.rawData);
-      if (!txId || txId === 'unknown') {
-        errors.push(`Transaction at index ${i} missing valid transaction ID`);
-      }
-    }
-
-    return {
-      errors,
-      isValid: errors.length === 0,
-      warnings,
-    };
-  }
-
-  /**
-   * Validate source parameters and connectivity.
-   */
-  async validateSource(params: ImportParams): Promise<boolean> {
-    try {
-      if (!params.addresses?.length) {
-        this.logger.error('No addresses provided for Bitcoin import');
-        return false;
-      }
-
-      // Validate address formats
-      for (const address of params.addresses) {
-        if (!this.isValidBitcoinAddress(address)) {
-          this.logger.error(`Invalid Bitcoin address format: ${address}`);
-          return false;
-        }
-      }
-
-      // Test provider connectivity
-      const healthStatus = this.providerManager.getProviderHealth('bitcoin');
-      const hasHealthyProvider = Array.from(healthStatus.values()).some(
-        health => health.isHealthy && health.circuitState !== 'OPEN'
-      );
-
-      if (!hasHealthyProvider) {
-        this.logger.error('No healthy Bitcoin providers available');
-        return false;
-      }
-
-      this.logger.info('Bitcoin source validation passed');
-      return true;
-    } catch (error) {
-      this.logger.error(`Bitcoin source validation failed: ${error}`);
-      return false;
-    }
   }
 }

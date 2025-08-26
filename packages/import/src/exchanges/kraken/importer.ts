@@ -2,11 +2,11 @@ import fs from 'fs/promises';
 import path from 'path';
 
 import { BaseImporter } from '../../shared/importers/base-importer.ts';
-import type { ImportParams, ValidationResult } from '../../shared/importers/interfaces.ts';
+import type { ImportParams } from '../../shared/importers/interfaces.ts';
+import type { ApiClientRawData } from '../../shared/processors/interfaces.ts';
 import { CsvParser } from '../csv-parser.ts';
 import { CSV_FILE_TYPES } from './constants.ts';
 import type { CsvKrakenLedgerRow } from './types.ts';
-import { formatKrakenValidationErrors, validateKrakenCsvRows } from './utils.ts';
 
 /**
  * Importer for Kraken CSV ledger files.
@@ -50,7 +50,38 @@ export class KrakenCsvImporter extends BaseImporter<CsvKrakenLedgerRow> {
     }
   }
 
-  async importFromSource(params: ImportParams): Promise<CsvKrakenLedgerRow[]> {
+  protected async canImportSpecific(params: ImportParams): Promise<boolean> {
+    if (!params.csvDirectories?.length) {
+      this.logger.error('CSV directories are required for Kraken import');
+      return false;
+    }
+
+    // Check that all directories exist and are accessible
+    for (const csvDirectory of params.csvDirectories) {
+      try {
+        const stats = await fs.stat(csvDirectory);
+        if (!stats.isDirectory()) {
+          this.logger.error(`Path is not a directory: ${csvDirectory}`);
+          return false;
+        }
+
+        // Check if directory contains CSV files
+        const files = await fs.readdir(csvDirectory);
+        const csvFiles = files.filter(f => f.endsWith('.csv'));
+
+        if (csvFiles.length === 0) {
+          this.logger.warn(`No CSV files found in directory: ${csvDirectory}`);
+        }
+      } catch (dirError) {
+        this.logger.error(`Cannot access CSV directory ${csvDirectory}: ${dirError}`);
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  async import(params: ImportParams): Promise<ApiClientRawData<CsvKrakenLedgerRow>[]> {
     this.logger.info(`Starting Kraken CSV import from directories: ${params.csvDirectories}`);
 
     if (!params.csvDirectories?.length) {
@@ -100,75 +131,13 @@ export class KrakenCsvImporter extends BaseImporter<CsvKrakenLedgerRow> {
         `Completed Kraken CSV import: ${allTransactions.length} transactions from ${params.csvDirectories.length} directories`
       );
 
-      return allTransactions;
+      // Wrap raw CSV data with provider information
+      return allTransactions.map(rawData => ({
+        providerId: 'kraken',
+        rawData,
+      }));
     } catch (error) {
       this.handleImportError(error, 'CSV file processing');
     }
-  }
-
-  protected validateRawDataSpecific(data: CsvKrakenLedgerRow[], result: ValidationResult): ValidationResult {
-    this.logger.debug(`Validating ${data.length} Kraken CSV rows with Zod schema`);
-
-    const validationResult = validateKrakenCsvRows(data);
-
-    if (validationResult.invalid.length > 0) {
-      const errorMessage = formatKrakenValidationErrors(validationResult);
-      this.logger.warn(`Kraken CSV validation issues: ${errorMessage}`);
-
-      // Add detailed error information
-      result.warnings.push(errorMessage);
-
-      // Add individual errors for the first few invalid rows
-      validationResult.invalid.slice(0, 5).forEach(({ errors, rowIndex }) => {
-        const fieldErrors = errors.issues.map(
-          issue => `Row ${rowIndex + 1}, ${issue.path.join('.')}: ${issue.message}`
-        );
-        result.errors.push(...fieldErrors);
-      });
-
-      // If there are too many errors, mark as invalid
-      const errorRate = validationResult.invalid.length / validationResult.totalRows;
-      if (errorRate > 0.1) {
-        // More than 10% error rate
-        result.isValid = false;
-        result.errors.push(`High error rate: ${(errorRate * 100).toFixed(1)}% of rows failed validation`);
-      }
-    }
-
-    this.logger.info(
-      `Kraken CSV validation: ${validationResult.valid.length} valid, ${validationResult.invalid.length} invalid rows`
-    );
-    return result;
-  }
-
-  protected async validateSourceSpecific(params: ImportParams): Promise<boolean> {
-    if (!params.csvDirectories?.length) {
-      this.logger.error('CSV directories are required for Kraken import');
-      return false;
-    }
-
-    // Check that all directories exist and are accessible
-    for (const csvDirectory of params.csvDirectories) {
-      try {
-        const stats = await fs.stat(csvDirectory);
-        if (!stats.isDirectory()) {
-          this.logger.error(`Path is not a directory: ${csvDirectory}`);
-          return false;
-        }
-
-        // Check if directory contains CSV files
-        const files = await fs.readdir(csvDirectory);
-        const csvFiles = files.filter(f => f.endsWith('.csv'));
-
-        if (csvFiles.length === 0) {
-          this.logger.warn(`No CSV files found in directory: ${csvDirectory}`);
-        }
-      } catch (dirError) {
-        this.logger.error(`Cannot access CSV directory ${csvDirectory}: ${dirError}`);
-        return false;
-      }
-    }
-
-    return true;
   }
 }

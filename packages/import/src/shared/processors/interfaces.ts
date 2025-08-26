@@ -69,9 +69,9 @@ export interface IProviderProcessor<TRawData> {
 }
 
 /**
- * Raw data with provenance information
+ * Raw data tagged with the API client that fetched it
  */
-export interface SourcedRawData<TRawData> {
+export interface ApiClientRawData<TRawData> {
   providerId: string;
   rawData: TRawData;
 }

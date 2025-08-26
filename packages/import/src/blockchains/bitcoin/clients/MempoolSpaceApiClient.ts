@@ -51,7 +51,7 @@ export class MempoolSpaceApiClient extends BaseRegistryProvider {
   /**
    * Get raw address info for efficient gap scanning
    */
-  private async getAddressInfo(params: { address: string }): Promise<MempoolAddressInfo> {
+  private async getAddressInfo(params: { address: string }): Promise<AddressInfo> {
     const { address } = params;
 
     this.logger.debug(`Fetching raw address info - Address: ${maskAddress(address)}`);
@@ -59,9 +59,23 @@ export class MempoolSpaceApiClient extends BaseRegistryProvider {
     try {
       const addressInfo = await this.httpClient.get<MempoolAddressInfo>(`/address/${address}`);
 
+      // Calculate transaction count
+      const txCount = addressInfo.chain_stats.tx_count + addressInfo.mempool_stats.tx_count;
+
+      // Calculate current balance: funded amount - spent amount
+      const chainBalance = addressInfo.chain_stats.funded_txo_sum - addressInfo.chain_stats.spent_txo_sum;
+      const mempoolBalance = addressInfo.mempool_stats.funded_txo_sum - addressInfo.mempool_stats.spent_txo_sum;
+      const totalBalanceSats = chainBalance + mempoolBalance;
+
+      // Convert satoshis to BTC
+      const balanceBTC = (totalBalanceSats / 100000000).toString();
+
       this.logger.debug(`Successfully retrieved raw address info - Address: ${maskAddress(address)}`);
 
-      return addressInfo;
+      return {
+        balance: balanceBTC,
+        txCount,
+      };
     } catch (error) {
       this.logger.error(
         `Failed to get raw address info - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`

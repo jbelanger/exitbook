@@ -3,7 +3,7 @@ import { hasStringProperty, isErrorWithMessage, maskAddress } from '@crypto/shar
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
 import { RegisterApiClient } from '../../shared/registry/decorators.ts';
 import type { ProviderOperation } from '../../shared/types.ts';
-import type { BlockCypherAddress, BlockCypherTransaction } from '../types.ts';
+import type { AddressInfo, BlockCypherAddress, BlockCypherTransaction } from '../types.ts';
 
 @RegisterApiClient({
   apiKeyEnvVar: 'BLOCKCYPHER_API_KEY',
@@ -61,7 +61,7 @@ export class BlockCypherApiClient extends BaseRegistryProvider {
   /**
    * Get raw address info
    */
-  private async getAddressInfo(params: { address: string }): Promise<BlockCypherAddress> {
+  private async getAddressInfo(params: { address: string }): Promise<AddressInfo> {
     const { address } = params;
 
     this.logger.debug(`Fetching raw address info - Address: ${maskAddress(address)}`);
@@ -71,11 +71,20 @@ export class BlockCypherApiClient extends BaseRegistryProvider {
         this.buildEndpoint(`/addrs/${address}/balance`)
       );
 
+      // Get transaction count (final_n_tx includes confirmed transactions)
+      const txCount = addressInfo.final_n_tx;
+
+      // Get balance in BTC (BlockCypher returns in satoshis)
+      const balanceBTC = (addressInfo.final_balance / 100000000).toString();
+
       this.logger.debug(
-        `Successfully retrieved raw address info - Address: ${maskAddress(address)}, TxCount: ${addressInfo.final_n_tx}, Balance: ${addressInfo.final_balance}`
+        `Successfully retrieved raw address info - Address: ${maskAddress(address)}, TxCount: ${txCount}, Balance: ${addressInfo.final_balance}`
       );
 
-      return addressInfo;
+      return {
+        balance: balanceBTC,
+        txCount,
+      };
     } catch (error) {
       this.logger.error(
         `Failed to get raw address info - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`
