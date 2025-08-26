@@ -30,6 +30,15 @@ export class ImporterFactory {
   }
 
   /**
+   * Create Avalanche importer.
+   */
+  private static async createAvalancheImporter<T>(config: ETLComponentConfig): Promise<IImporter<T>> {
+    // Dynamic import to avoid circular dependencies
+    const { AvalancheTransactionImporter } = await import('../../blockchains/avalanche/transaction-importer.ts');
+    return new AvalancheTransactionImporter(config.dependencies) as unknown as IImporter<T>;
+  }
+
+  /**
    * Create Bitcoin importer.
    */
   private static async createBitcoinImporter<T>(config: ETLComponentConfig): Promise<IImporter<T>> {
@@ -60,6 +69,9 @@ export class ImporterFactory {
 
       case 'solana':
         return await ImporterFactory.createSolanaImporter<T>(config);
+
+      case 'avalanche':
+        return await ImporterFactory.createAvalancheImporter<T>(config);
 
       default:
         throw new Error(`Unsupported blockchain importer: ${adapterId}`);
@@ -142,7 +154,7 @@ export class ImporterFactory {
       }
 
       if (adapterType === 'blockchain') {
-        return ['bitcoin', 'ethereum', 'injective', 'solana'].includes(adapterId.toLowerCase());
+        return ['bitcoin', 'ethereum', 'injective', 'solana', 'avalanche'].includes(adapterId.toLowerCase());
       }
 
       return false;

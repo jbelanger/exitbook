@@ -27,12 +27,12 @@ export class AvalancheAdapter extends BaseAdapter {
     this.providerManager = new BlockchainProviderManager(explorerConfig);
     this.providerManager.autoRegisterFromConfig('avalanche', 'mainnet');
 
-    this.logger.debug(
-      `Initialized Avalanche adapter with ${this.providerManager.getProviders('avalanche').length} providers`
+    this.logger.info(
+      `Initialized Avalanche adapter with registry-based provider manager - ProvidersCount: ${this.providerManager.getProviders('avalanche').length}`
     );
   }
 
-  private processRawBalance(rawData: unknown, providerName: string): Balance {
+  private processRawBalance(rawData: unknown, providerName: string): Balance[] {
     switch (providerName) {
       case 'snowtrace': {
         // Process Snowtrace raw balance response
@@ -40,15 +40,42 @@ export class AvalancheAdapter extends BaseAdapter {
         const balanceWei = new Decimal(response.result);
         const balanceAvax = balanceWei.dividedBy(new Decimal(10).pow(18));
 
-        return {
-          balance: balanceAvax.toNumber(),
-          currency: 'AVAX',
-          total: balanceAvax.toNumber(),
-          used: 0,
-        };
+        return [
+          {
+            balance: balanceAvax.toNumber(),
+            currency: 'AVAX',
+            total: balanceAvax.toNumber(),
+            used: 0,
+          },
+        ];
       }
       default:
         throw new Error(`Unsupported provider for balance processing: ${providerName}`);
+    }
+  }
+
+  private processRawTokenBalances(rawData: unknown, providerName: string): Balance[] {
+    switch (providerName) {
+      case 'snowtrace':
+        this.logger.debug(`Provider ${providerName} does not support token balances or processing not implemented`);
+        return [];
+      default:
+        this.logger.debug(`Provider ${providerName} does not support token balances or processing not implemented`);
+        return [];
+    }
+  }
+
+  private processRawTokenTransactions(
+    rawData: unknown,
+    providerName: string,
+    userAddress: string
+  ): BlockchainTransaction[] {
+    switch (providerName) {
+      case 'snowtrace':
+        return SnowtraceProcessor.processTokenTransactions(rawData as SnowtraceTokenTransfer[], userAddress);
+      default:
+        this.logger.debug(`Provider ${providerName} does not support token transactions or processing not implemented`);
+        return [];
     }
   }
 
@@ -93,14 +120,31 @@ export class AvalancheAdapter extends BaseAdapter {
 
         // Process raw balance data using bridge pattern
         const rawBalanceData = failoverResult.data;
-        const processedBalance = this.processRawBalance(rawBalanceData, failoverResult.providerName);
+        const processedBalances = this.processRawBalance(rawBalanceData, failoverResult.providerName);
 
-        allBalances.push(processedBalance);
-        this.logger.info(`Found balance for address: ${address.substring(0, 20)}...`);
+        allBalances.push(...processedBalances);
+
+        // Get token balances
+        try {
+          const tokenFailoverResult = await this.providerManager.executeWithFailover('avalanche', {
+            address: address,
+            getCacheKey: cacheParams =>
+              `avax_raw_token_balance_${cacheParams.type === 'getRawTokenBalances' ? cacheParams.address : 'unknown'}`,
+            type: 'getRawTokenBalances',
+          });
+
+          const tokenBalances = this.processRawTokenBalances(
+            tokenFailoverResult.data,
+            tokenFailoverResult.providerName
+          );
+          allBalances.push(...tokenBalances);
+        } catch (error) {
+          this.logger.debug(
+            `Token balances not available or failed - Error: ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
       } catch (error) {
-        this.logger.error(
-          `Failed to fetch address balance via provider manager - Address: ${address}, Error: ${error instanceof Error ? error.message : String(error)}`
-        );
+        this.logger.error(`Failed to fetch balance for ${address} - Error: ${error}`);
         throw error;
       }
     }
@@ -142,8 +186,12 @@ export class AvalancheAdapter extends BaseAdapter {
             since: params.since,
             type: 'getTokenTransactions',
           });
-          const rawTokenTxs = tokenTxsFailoverResult.data as SnowtraceTokenTransfer[];
-          tokenTxs = SnowtraceProcessor.processTokenTransactions(rawTokenTxs, address);
+
+          tokenTxs = this.processRawTokenTransactions(
+            tokenTxsFailoverResult.data,
+            tokenTxsFailoverResult.providerName,
+            address
+          );
         } catch (error) {
           this.logger.debug(
             `Provider does not support separate token transactions or failed to fetch: ${error instanceof Error ? error.message : String(error)}`
@@ -151,13 +199,11 @@ export class AvalancheAdapter extends BaseAdapter {
         }
 
         allTransactions.push(...tokenTxs);
-        this.logger.debug(
-          `Transaction breakdown for ${address.substring(0, 20)}... - Regular: ${processedTransactions.length}, Token: ${tokenTxs.length}`
+        this.logger.info(
+          `AvalancheAdapter transaction breakdown for ${address.substring(0, 20)}... - Regular: ${processedTransactions.length}, Token: ${tokenTxs.length}`
         );
       } catch (error) {
-        this.logger.error(
-          `Failed to fetch address transactions via provider manager - Address: ${address}, Error: ${error instanceof Error ? error.message : String(error)}`
-        );
+        this.logger.error(`Failed to fetch transactions for ${address} - Error: ${error}`);
         throw error;
       }
     }
@@ -172,7 +218,7 @@ export class AvalancheAdapter extends BaseAdapter {
 
     uniqueTransactions.sort((a, b) => b.timestamp - a.timestamp);
 
-    this.logger.info(`Found ${uniqueTransactions.length} unique transactions total`);
+    this.logger.info(`AvalancheAdapter: Found ${uniqueTransactions.length} unique transactions total`);
     return uniqueTransactions;
   }
 
@@ -198,34 +244,20 @@ export class AvalancheAdapter extends BaseAdapter {
 
   async testConnection(): Promise<boolean> {
     this.logger.debug('AvalancheAdapter.testConnection called');
-
     try {
-      // Test connection using provider manager
       const providers = this.providerManager.getProviders('avalanche');
+      this.logger.debug(`Found ${providers.length} providers`);
       if (providers.length === 0) {
-        this.logger.warn('No Avalanche providers available for connection test');
+        this.logger.warn('No providers available for connection test');
         return false;
       }
 
-      // Test the first healthy provider
-      for (const provider of providers) {
-        try {
-          const isHealthy = await provider.isHealthy();
-          if (isHealthy) {
-            this.logger.info(`Connection test successful with provider: ${provider.name}`);
-            return true;
-          }
-        } catch (error) {
-          this.logger.debug(
-            `Provider ${provider.name} failed health check - Error: ${error instanceof Error ? error.message : String(error)}`
-          );
-        }
-      }
-
-      this.logger.warn('All Avalanche providers failed connection test');
-      return false;
+      // Test the first provider
+      const result = (await providers[0]?.testConnection()) || false;
+      this.logger.debug(`Connection test result: ${result}`);
+      return result;
     } catch (error) {
-      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`Connection test failed - Error: ${error}`);
       return false;
     }
   }
