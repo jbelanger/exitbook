@@ -4,7 +4,7 @@ import { Decimal } from 'decimal.js';
 
 import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
-import { SubstrateRawDataSchema } from '../schemas.ts';
+import { SubscanTransferSchema } from '../schemas.ts';
 import type { SubscanTransfer, SubstrateAccountInfo, SubstrateChainConfig, TaostatsTransaction } from '../types.ts';
 import { SUBSTRATE_CHAINS } from '../types.ts';
 
@@ -19,7 +19,7 @@ export interface SubstrateRawData {
 }
 
 @RegisterProcessor('subscan')
-export class SubstrateProcessor implements IProviderProcessor<SubstrateRawData> {
+export class SubstrateProcessor implements IProviderProcessor<SubscanTransfer> {
   private static convertSubscanTransaction(
     transfer: SubscanTransfer,
     userAddress: string,
@@ -195,21 +195,16 @@ export class SubstrateProcessor implements IProviderProcessor<SubstrateRawData> 
   }
 
   // IProviderProcessor interface implementation
-  transform(rawData: SubstrateRawData, walletAddresses: string[]): UniversalTransaction {
-    // Process the first transaction for interface compatibility
+  transform(rawData: SubscanTransfer, walletAddresses: string[]): UniversalTransaction {
     const userAddress = walletAddresses[0] || '';
+    const chainConfig = SUBSTRATE_CHAINS['polkadot']!;
 
-    if (!rawData.data || rawData.data.length === 0) {
-      throw new Error('No transactions to transform from SubstrateRawData');
+    // Convert single SubscanTransfer to BlockchainTransaction
+    const bcTx = SubstrateProcessor.convertSubscanTransaction(rawData, userAddress, chainConfig);
+
+    if (!bcTx) {
+      throw new Error(`Transaction not relevant to user address: ${userAddress}`);
     }
-
-    const transactions = SubstrateProcessor.processAddressTransactions(rawData, userAddress);
-
-    if (transactions.length === 0) {
-      throw new Error('No relevant transactions found for user address');
-    }
-
-    const bcTx = transactions[0]; // Take the first processed transaction
 
     // Convert to UniversalTransaction following Bitcoin pattern
     let type: UniversalTransaction['type'];
@@ -242,8 +237,8 @@ export class SubstrateProcessor implements IProviderProcessor<SubstrateRawData> 
     };
   }
 
-  validate(rawData: SubstrateRawData): ValidationResult {
-    const result = SubstrateRawDataSchema.safeParse(rawData);
+  validate(rawData: SubscanTransfer): ValidationResult {
+    const result = SubscanTransferSchema.safeParse(rawData);
 
     if (result.success) {
       return { isValid: true };

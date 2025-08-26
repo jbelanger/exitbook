@@ -69,6 +69,9 @@ export class ProcessorFactory {
       case 'avalanche':
         return await ProcessorFactory.createAvalancheProcessor<T>(config);
 
+      case 'polkadot':
+        return await ProcessorFactory.createPolkadotProcessor<T>(config);
+
       default:
         throw new Error(`Unsupported blockchain processor: ${adapterId}`);
     }
@@ -127,6 +130,15 @@ export class ProcessorFactory {
   }
 
   /**
+   * Create Polkadot processor.
+   */
+  private static async createPolkadotProcessor<T>(config: ETLComponentConfig): Promise<IProcessor<T>> {
+    // Dynamic import to avoid circular dependencies
+    const { PolkadotTransactionProcessor } = await import('../../blockchains/polkadot/transaction-processor.ts');
+    return new PolkadotTransactionProcessor(config.dependencies) as unknown as IProcessor<T>;
+  }
+
+  /**
    * Create Solana processor.
    */
   private static async createSolanaProcessor<T>(config: ETLComponentConfig): Promise<IProcessor<T>> {
@@ -144,7 +156,7 @@ export class ProcessorFactory {
     }
 
     if (adapterType === 'blockchain') {
-      return ['bitcoin', 'ethereum', 'injective', 'solana', 'avalanche'];
+      return ['bitcoin', 'ethereum', 'injective', 'solana', 'avalanche', 'polkadot'];
     }
 
     return [];
