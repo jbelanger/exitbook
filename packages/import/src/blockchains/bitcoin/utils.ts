@@ -222,7 +222,7 @@ export class BitcoinUtils {
       try {
         const result = await providerManager.executeWithFailover('bitcoin', {
           address,
-          getCacheKey: params => `bitcoin:address-info:${(params as ProviderOperationParams).address}`,
+          getCacheKey: params => `bitcoin:address-info:${(params as { address: string }).address}`,
           type: 'getAddressInfo',
         });
         const addressInfo = result.data as AddressInfo;
