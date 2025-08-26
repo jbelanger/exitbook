@@ -128,6 +128,9 @@ export class ImporterFactory {
       case 'coinbase':
         return await ImporterFactory.createCoinbaseImporter<T>(config);
 
+      case 'ledgerlive':
+        return await ImporterFactory.createLedgerLiveImporter<T>(config);
+
       default:
         throw new Error(`Unsupported exchange importer: ${adapterId}`);
     }
@@ -161,6 +164,15 @@ export class ImporterFactory {
   }
 
   /**
+   * Create Ledger Live CSV importer.
+   */
+  private static async createLedgerLiveImporter<T>(_config: ETLComponentConfig): Promise<IImporter<T>> {
+    // Dynamic import to avoid circular dependencies
+    const { LedgerLiveCsvImporter } = await import('../../exchanges/ledgerlive/importer.ts');
+    return new LedgerLiveCsvImporter() as unknown as IImporter<T>;
+  }
+
+  /**
    * Create Polkadot importer.
    */
   private static async createPolkadotImporter<T>(config: ETLComponentConfig): Promise<IImporter<T>> {
@@ -188,7 +200,7 @@ export class ImporterFactory {
 
       // Try to determine if we would be able to create this importer
       if (adapterType === 'exchange') {
-        return ['kraken', 'kucoin', 'coinbase'].includes(adapterId.toLowerCase());
+        return ['kraken', 'kucoin', 'coinbase', 'ledgerlive'].includes(adapterId.toLowerCase());
       }
 
       if (adapterType === 'blockchain') {
