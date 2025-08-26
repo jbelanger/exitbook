@@ -55,29 +55,54 @@ export const InjectiveMessageSchema = z.object({
 });
 
 /**
+ * Schema for Injective transaction log events
+ */
+export const InjectiveEventAttributeSchema = z.object({
+  index: z.boolean().optional(),
+  key: z.string().optional(),
+  msg_index: z.string().optional(),
+  value: z.string().optional(),
+});
+
+export const InjectiveEventSchema = z.object({
+  attributes: z.array(InjectiveEventAttributeSchema).optional(),
+  type: z.string().optional(),
+});
+
+export const InjectiveTransactionLogSchema = z.object({
+  events: z.array(InjectiveEventSchema).optional(),
+  msg_index: z.string().optional(),
+});
+
+/**
  * Schema for validating Injective transaction format
  */
-export const InjectiveTransactionSchema = z
-  .object({
-    block_number: z.number().nonnegative('Block number must be non-negative'),
-    block_timestamp: z.string().min(1, 'Block timestamp must not be empty'),
-    code: z.number().nonnegative('Transaction code must be non-negative'),
-    extension_options: z.array(z.unknown()).default([]),
-    fetchedByAddress: z.string().optional(), // Added by importer
-    gas_fee: InjectiveGasFeeSchema,
-    gas_used: z.number().nonnegative('Gas used must be non-negative'),
-    gas_wanted: z.number().nonnegative('Gas wanted must be non-negative'),
-    hash: z.string().min(1, 'Transaction hash must not be empty'),
-    id: z.string().min(1, 'Transaction ID must not be empty'),
-    info: z.string(),
-    memo: z.string().optional(),
-    messages: z.array(InjectiveMessageSchema).min(1, 'Transaction must have at least one message'),
-    non_critical_extension_options: z.array(z.unknown()).default([]),
-    signatures: z.array(z.unknown()).default([]),
-    timeout_height: z.number().nonnegative('Timeout height must be non-negative'),
-    tx_type: z.string().min(1, 'Transaction type must not be empty'),
-  })
-  .strict();
+export const InjectiveTransactionSchema = z.object({
+  block_number: z.number().nonnegative('Block number must be non-negative'),
+  block_timestamp: z.string().min(1, 'Block timestamp must not be empty'),
+  block_unix_timestamp: z.number().optional(),
+  claim_id: z.array(z.number()).optional(),
+  code: z.number().nonnegative('Transaction code must be non-negative'),
+  codespace: z.string().optional(),
+  data: z.string().optional(),
+  error_log: z.string().optional(),
+  extension_options: z.array(z.unknown()).optional(),
+  fetchedByAddress: z.string().optional(), // Added by importer
+  gas_fee: InjectiveGasFeeSchema,
+  gas_used: z.number().nonnegative('Gas used must be non-negative'),
+  gas_wanted: z.number().nonnegative('Gas wanted must be non-negative'),
+  hash: z.string().min(1, 'Transaction hash must not be empty'),
+  id: z.string().optional(), // Can be empty, use hash instead
+  info: z.string().optional(),
+  logs: z.array(InjectiveTransactionLogSchema).optional(),
+  memo: z.string().optional(),
+  messages: z.array(InjectiveMessageSchema).min(1, 'Transaction must have at least one message'),
+  non_critical_extension_options: z.array(z.unknown()).optional(),
+  signatures: z.array(z.unknown()).optional(),
+  timeout_height: z.number().nonnegative('Timeout height must be non-negative').optional(),
+  tx_number: z.number().optional(),
+  tx_type: z.string().min(1, 'Transaction type must not be empty'),
+});
 
 /**
  * Schema for Injective balance structure
@@ -137,7 +162,7 @@ export interface ValidationResult {
  */
 export function validateInjectiveTransactions(
   transactions: unknown[],
-  providerName: 'injective-explorer' | 'injective-lcd'
+  _providerName: 'injective-explorer' | 'injective-lcd'
 ): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
