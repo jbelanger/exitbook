@@ -17,7 +17,6 @@ import '../../blockchains/registry/register-providers.ts';
 import type { BlockchainExplorersConfig } from '../../blockchains/shared/explorer-config.ts';
 import { SolanaAdapter } from '../../blockchains/solana/adapter.ts';
 // Import exchange adapters directly
-import { CoinbaseAdapter } from '../../exchanges/coinbase/adapter.ts';
 import { CoinbaseCCXTAdapter } from '../../exchanges/coinbase/ccxt-adapter.ts';
 import { KrakenCSVAdapter } from '../../exchanges/kraken/csv-adapter.ts';
 import { KuCoinCSVAdapter } from '../../exchanges/kucoin/csv-adapter.ts';
@@ -217,13 +216,6 @@ export class UniversalAdapterFactory {
     }
 
     switch (config.id.toLowerCase()) {
-      case 'coinbase':
-        return new CoinbaseAdapter(config, {
-          apiKey: config.credentials.apiKey,
-          passphrase: config.credentials.password || '',
-          sandbox: false,
-          secret: config.credentials.secret,
-        });
       default:
         throw new Error(`Unsupported native exchange: ${config.id}`);
     }

@@ -22,7 +22,7 @@ export interface CsvSpotOrderRow {
   Side: string;
   Status: string;
   Symbol: string;
-  Tax?: string;
+  Tax?: string | undefined;
   UID: string;
 }
 
@@ -30,7 +30,7 @@ export interface CsvDepositWithdrawalRow {
   'Account Type': string;
   Amount: string;
   Coin: string;
-  'Deposit Address'?: string;
+  'Deposit Address'?: string | undefined;
   Fee: string;
   Hash: string;
   Remarks: string;
@@ -38,7 +38,7 @@ export interface CsvDepositWithdrawalRow {
   'Time(UTC)': string;
   'Transfer Network': string;
   UID: string;
-  'Withdrawal Address/Account'?: string;
+  'Withdrawal Address/Account'?: string | undefined;
 }
 
 export interface CsvAccountHistoryRow {
