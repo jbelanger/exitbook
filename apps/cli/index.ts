@@ -14,6 +14,35 @@ import { Command } from 'commander';
 import path from 'path';
 import 'reflect-metadata';
 
+// TODO: This source type determination needs improvement in the future.
+// Consider implementing a proper source registry system that both blockchain
+// and exchange adapters can register with, eliminating the need for try-catch logic.
+async function determineSourceType(sourceName: string): Promise<'blockchain' | 'exchange' | null> {
+  const { UniversalAdapterFactory } = await import('@crypto/import');
+  const { loadExplorerConfig } = await import('@crypto/shared-utils');
+
+  // Try blockchain first - attempt to create a real adapter
+  try {
+    const config = UniversalAdapterFactory.createBlockchainConfig(sourceName);
+    const explorerConfig = loadExplorerConfig();
+    // This will throw if the blockchain is not supported
+    await UniversalAdapterFactory.create(config, explorerConfig);
+    return 'blockchain';
+  } catch {
+    // Try exchange - attempt to create a real adapter
+    try {
+      const config = UniversalAdapterFactory.createExchangeConfig(sourceName, 'csv', {
+        csvDirectories: ['/tmp'], // dummy directory for validation
+      });
+      // This will throw if the exchange is not supported
+      await UniversalAdapterFactory.create(config);
+      return 'exchange';
+    } catch {
+      return null; // Unknown source
+    }
+  }
+}
+
 const logger = getLogger('CLI');
 const program = new Command();
 
@@ -567,19 +596,32 @@ async function main() {
   // Import command - new ETL workflow
   program
     .command('import')
-    .description('Import raw data from source without processing')
-    .option('--adapter <name>', 'Adapter name (e.g., kraken, bitcoin)', 'kraken')
-    .option('--adapter-type <type>', 'Adapter type (exchange, blockchain)', 'exchange')
-    .option('--csv-directories <paths...>', 'CSV directories for exchange adapters (space-separated)')
-    .option('--addresses <addresses...>', 'Wallet addresses for blockchain adapters (space-separated)')
-    .option('--provider <name>', 'Blockchain provider for blockchain adapters')
+    .description('Import raw data from external sources (blockchain or exchange)')
+    .option('--source <name>', 'Source name (e.g., kraken, bitcoin, polkadot, bittensor)')
+    .option('--csv-dir <path>', 'CSV directory for exchange sources')
+    .option('--addresses <addresses...>', 'Wallet addresses for blockchain sources (space-separated)')
+    .option('--provider <name>', 'Blockchain provider for blockchain sources')
     .option('--since <date>', 'Import data since date (YYYY-MM-DD, timestamp, or 0 for all history)')
     .option('--until <date>', 'Import data until date (YYYY-MM-DD or timestamp)')
+    .option('--process', 'Process data after import (combined import+process pipeline)')
     .option('--config <path>', 'Path to configuration file')
     .option('--clear-db', 'Clear and reinitialize database before import')
     .action(async options => {
       try {
-        logger.info('Starting data import from external sources');
+        // Validate required source parameter
+        if (!options.source) {
+          logger.error('--source is required. Examples: bitcoin, ethereum, polkadot, bittensor, kraken');
+          process.exit(1);
+        }
+
+        logger.info(`Starting data import from ${options.source}`);
+
+        // Determine adapter type based on source name
+        const adapterType = await determineSourceType(options.source);
+        if (!adapterType) {
+          logger.error(`Unknown source: ${options.source}. Source must be a valid blockchain or exchange adapter.`);
+          process.exit(1);
+        }
 
         // Initialize database
         const database = await initializeDatabase(options.clearDb);
@@ -597,7 +639,7 @@ async function main() {
         let providerManager:
           | import('@crypto/import/src/blockchains/shared/blockchain-provider-manager.ts').BlockchainProviderManager
           | null = null;
-        if (options.adapterType === 'blockchain') {
+        if (adapterType === 'blockchain') {
           const { BlockchainProviderManager } = await import(
             '@crypto/import/src/blockchains/shared/blockchain-provider-manager.ts'
           );
@@ -635,25 +677,46 @@ async function main() {
             until?: number | undefined;
           } = { since, until };
 
-          if (options.adapterType === 'exchange') {
-            if (!options.csvDirectories) {
-              logger.error('--csv-directories is required for exchange adapters');
+          // Validate parameters based on adapter type
+          if (adapterType === 'exchange') {
+            if (!options.csvDir) {
+              logger.error('--csv-dir is required for exchange sources');
               process.exit(1);
             }
-            importParams.csvDirectories = options.csvDirectories;
-          } else if (options.adapterType === 'blockchain') {
+            importParams.csvDirectories = [options.csvDir];
+          } else if (adapterType === 'blockchain') {
             if (!options.addresses) {
-              logger.error('--addresses is required for blockchain adapters');
+              logger.error('--addresses is required for blockchain sources');
               process.exit(1);
             }
             importParams.addresses = options.addresses;
             importParams.providerId = options.provider;
           }
 
-          const result = await ingestionService.importFromSource(options.adapter, options.adapterType, importParams);
+          // Import raw data
+          const importResult = await ingestionService.importFromSource(options.source, adapterType, importParams);
 
-          logger.info(`Import completed: ${result.imported} items imported`);
-          logger.info(`Session ID: ${result.importSessionId}`);
+          logger.info(`Import completed: ${importResult.imported} items imported`);
+          logger.info(`Session ID: ${importResult.importSessionId}`);
+
+          // Process data if --process flag is provided
+          if (options.process) {
+            logger.info('Processing imported data to universal format');
+
+            const processResult = await ingestionService.processAndStore(options.source, adapterType, {
+              importSessionId: importResult.importSessionId,
+            });
+
+            logger.info(`Processing completed: ${processResult.processed} processed, ${processResult.failed} failed`);
+
+            if (processResult.errors.length > 0) {
+              logger.error('Processing errors:');
+              processResult.errors.slice(0, 5).forEach(error => logger.error(`  ${error}`));
+              if (processResult.errors.length > 5) {
+                logger.error(`  ... and ${processResult.errors.length - 5} more errors`);
+              }
+            }
+          }
         } finally {
           // Cleanup blockchain provider manager to stop background health checks
           if (providerManager) {
@@ -670,20 +733,32 @@ async function main() {
   // Process command - new ETL workflow
   program
     .command('process')
-    .description('Process raw data to universal format')
-    .option('--adapter <name>', 'Adapter name (e.g., kraken, bitcoin)', 'kraken')
-    .option('--adapter-type <type>', 'Adapter type (exchange, blockchain)', 'exchange')
+    .description('Transform raw imported data to universal transaction format')
+    .option('--source <name>', 'Source name (e.g., kraken, bitcoin, polkadot, bittensor)')
     .option('--session <id>', 'Import session ID to process')
     .option('--since <date>', 'Process data since date (YYYY-MM-DD or timestamp)')
-    .option('--all', 'Process all pending raw data for this adapter')
+    .option('--all', 'Process all pending raw data for this source')
     .option('--config <path>', 'Path to configuration file')
     .option('--clear-db', 'Clear and reinitialize database before processing')
     .action(async options => {
       try {
-        logger.info('Starting data processing to universal format');
+        // Validate required source parameter
+        if (!options.source) {
+          logger.error('--source is required. Examples: bitcoin, ethereum, polkadot, bittensor, kraken');
+          process.exit(1);
+        }
+
+        logger.info(`Starting data processing from ${options.source} to universal format`);
+
+        // Determine adapter type based on source name
+        const adapterType = await determineSourceType(options.source);
+        if (!adapterType) {
+          logger.error(`Unknown source: ${options.source}. Source must be a valid blockchain or exchange adapter.`);
+          process.exit(1);
+        }
 
         // Initialize database
-        const database = await initializeDatabase(options.cleardb);
+        const database = await initializeDatabase(options.clearDb);
 
         // Load explorer config for blockchain adapters
         const explorerConfig = loadExplorerConfig();
@@ -698,7 +773,7 @@ async function main() {
         let providerManager:
           | import('@crypto/import/src/blockchains/shared/blockchain-provider-manager.ts').BlockchainProviderManager
           | null = null;
-        if (options.adapterType === 'blockchain') {
+        if (adapterType === 'blockchain') {
           const { BlockchainProviderManager } = await import(
             '@crypto/import/src/blockchains/shared/blockchain-provider-manager.ts'
           );
@@ -728,7 +803,7 @@ async function main() {
             filters.createdAfter = Math.floor(sinceTimestamp / 1000); // Convert to seconds for database
           }
 
-          const result = await ingestionService.processAndStore(options.adapter, options.adapterType, filters);
+          const result = await ingestionService.processAndStore(options.source, adapterType, filters);
 
           logger.info(`Processing completed: ${result.processed} processed, ${result.failed} failed`);
 
