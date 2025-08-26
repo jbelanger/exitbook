@@ -11,8 +11,8 @@ import { z } from 'zod';
  * Schema for Alchemy raw contract structure
  */
 export const AlchemyRawContractSchema = z.object({
-  address: z.string().optional(),
-  decimal: z.string().optional(),
+  address: z.union([z.string(), z.null()]).optional(),
+  decimal: z.union([z.string(), z.number(), z.null()]).optional(),
 });
 
 /**
@@ -34,7 +34,7 @@ export const AlchemyAssetTransferSchema = z.object({
   metadata: AlchemyMetadataSchema.optional(),
   rawContract: AlchemyRawContractSchema.optional(),
   to: z.string().min(1, 'To address must not be empty'),
-  value: z.string().optional(),
+  value: z.union([z.string(), z.number(), z.null()]).optional(),
 });
 
 /**

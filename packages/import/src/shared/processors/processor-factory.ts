@@ -54,6 +54,9 @@ export class ProcessorFactory {
       case 'injective':
         return await ProcessorFactory.createInjectiveProcessor<T>(config);
 
+      case 'solana':
+        return await ProcessorFactory.createSolanaProcessor<T>(config);
+
       default:
         throw new Error(`Unsupported blockchain processor: ${adapterId}`);
     }
@@ -67,10 +70,12 @@ export class ProcessorFactory {
   }
 
   /**
-   * Create Ethereum processor - placeholder for future implementation.
+   * Create Ethereum processor.
    */
-  private static async createEthereumProcessor<T>(_config: ETLComponentConfig): Promise<IProcessor<T>> {
-    throw new Error('EthereumProcessor not yet implemented');
+  private static async createEthereumProcessor<T>(config: ETLComponentConfig): Promise<IProcessor<T>> {
+    // Dynamic import to avoid circular dependencies
+    const { EthereumTransactionProcessor } = await import('../../blockchains/ethereum/transaction-processor.ts');
+    return new EthereumTransactionProcessor(config.dependencies) as unknown as IProcessor<T>;
   }
 
   /**
@@ -110,6 +115,15 @@ export class ProcessorFactory {
   }
 
   /**
+   * Create Solana processor.
+   */
+  private static async createSolanaProcessor<T>(config: ETLComponentConfig): Promise<IProcessor<T>> {
+    // Dynamic import to avoid circular dependencies
+    const { SolanaTransactionProcessor } = await import('../../blockchains/solana/transaction-processor.ts');
+    return new SolanaTransactionProcessor(config.dependencies) as unknown as IProcessor<T>;
+  }
+
+  /**
    * Get all supported adapters for a given type.
    */
   static getSupportedAdapters(adapterType: 'exchange' | 'blockchain'): string[] {
@@ -118,7 +132,7 @@ export class ProcessorFactory {
     }
 
     if (adapterType === 'blockchain') {
-      return ['bitcoin', 'ethereum', 'injective'];
+      return ['bitcoin', 'ethereum', 'injective', 'solana'];
     }
 
     return [];
@@ -134,7 +148,7 @@ export class ProcessorFactory {
       }
 
       if (adapterType === 'blockchain') {
-        return ['bitcoin', 'ethereum', 'injective'].includes(adapterId.toLowerCase());
+        return ['bitcoin', 'ethereum', 'injective', 'solana'].includes(adapterId.toLowerCase());
       }
 
       return false;
