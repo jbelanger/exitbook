@@ -109,6 +109,9 @@ export class ProcessorFactory {
       case 'coinbase':
         return await ProcessorFactory.createCoinbaseProcessor<T>(config);
 
+      case 'ledgerlive':
+        return await ProcessorFactory.createLedgerLiveProcessor<T>(config);
+
       default:
         throw new Error(`Unsupported exchange processor: ${adapterId}`);
     }
@@ -142,6 +145,15 @@ export class ProcessorFactory {
   }
 
   /**
+   * Create Ledger Live processor.
+   */
+  private static async createLedgerLiveProcessor<T>(_config: ETLComponentConfig): Promise<IProcessor<T>> {
+    // Dynamic import to avoid circular dependencies
+    const { LedgerLiveProcessor } = await import('../../exchanges/ledgerlive/processor.ts');
+    return new LedgerLiveProcessor() as unknown as IProcessor<T>;
+  }
+
+  /**
    * Create Polkadot processor.
    */
   private static async createPolkadotProcessor<T>(config: ETLComponentConfig): Promise<IProcessor<T>> {
@@ -164,7 +176,7 @@ export class ProcessorFactory {
    */
   static getSupportedAdapters(adapterType: 'exchange' | 'blockchain'): string[] {
     if (adapterType === 'exchange') {
-      return ['kraken', 'kucoin', 'coinbase'];
+      return ['kraken', 'kucoin', 'coinbase', 'ledgerlive'];
     }
 
     if (adapterType === 'blockchain') {
@@ -180,7 +192,7 @@ export class ProcessorFactory {
   static isSupported(adapterId: string, adapterType: string): boolean {
     try {
       if (adapterType === 'exchange') {
-        return ['kraken', 'kucoin', 'coinbase'].includes(adapterId.toLowerCase());
+        return ['kraken', 'kucoin', 'coinbase', 'ledgerlive'].includes(adapterId.toLowerCase());
       }
 
       if (adapterType === 'blockchain') {

@@ -59,8 +59,13 @@ export const CsvLedgerLiveOperationRowSchema = z
     /** Network fees paid for the operation */
     'Operation Fees': z
       .string()
-      .regex(/^-?\d+(\.\d+)?$/, 'Operation Fees must be a valid number format')
-      .refine(val => !isNaN(parseFloat(val)), 'Operation Fees must be parseable as number'),
+      .transform(val => (val === '' ? '0' : val)) // Convert empty strings to '0'
+      .pipe(
+        z
+          .string()
+          .regex(/^-?\d+(\.\d+)?$/, 'Operation Fees must be a valid number format')
+          .refine(val => !isNaN(parseFloat(val)), 'Operation Fees must be parseable as number')
+      ),
 
     /** Blockchain transaction hash */
     'Operation Hash': z.string(), // Can be empty for some operation types
@@ -70,8 +75,20 @@ export const CsvLedgerLiveOperationRowSchema = z
       .string()
       .min(1, 'Operation Type must not be empty')
       .refine(
-        val => ['IN', 'OUT', 'SELF', 'FEES', 'NONE'].includes(val.toUpperCase()),
-        'Operation Type must be one of: IN, OUT, SELF, FEES, NONE'
+        val =>
+          [
+            'IN',
+            'OUT',
+            'SELF',
+            'FEES',
+            'NONE',
+            'STAKE',
+            'DELEGATE',
+            'UNDELEGATE',
+            'WITHDRAW_UNBONDED',
+            'OPT_OUT',
+          ].includes(val.toUpperCase()),
+        'Operation Type must be one of: IN, OUT, SELF, FEES, NONE, STAKE, DELEGATE, UNDELEGATE, WITHDRAW_UNBONDED, OPT_OUT'
       ),
 
     /** Operation status */

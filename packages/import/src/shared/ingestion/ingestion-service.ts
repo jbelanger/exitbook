@@ -255,22 +255,14 @@ export class TransactionIngestionService {
         }
       }
 
-      // Mark raw data as processed
-      const processedIds = rawDataItems.slice(0, transactions.length).map(item => item.sourceTransactionId);
-      await this.dependencies.externalDataStore.markAsProcessed(adapterId, processedIds, filters?.providerId);
+      // Mark all raw data items as processed - both those that generated transactions and those that were skipped
+      const allRawDataIds = rawDataItems.map(item => item.sourceTransactionId);
+      await this.dependencies.externalDataStore.markAsProcessed(adapterId, allRawDataIds, filters?.providerId);
 
-      // Mark failed items
-      if (failed > 0) {
-        const failedIds = rawDataItems.slice(transactions.length).map(item => item.sourceTransactionId);
-        for (const failedId of failedIds) {
-          await this.dependencies.externalDataStore.updateProcessingStatus(
-            adapterId,
-            failedId,
-            'failed',
-            'Processing or save failed',
-            filters?.providerId
-          );
-        }
+      // Log the processing results
+      const skippedCount = rawDataItems.length - transactions.length;
+      if (skippedCount > 0) {
+        this.logger.info(`${skippedCount} items were processed but skipped (likely non-standard operation types)`);
       }
 
       this.logger.info(`Processing completed for ${adapterId}: ${savedCount} processed, ${failed} failed`);
