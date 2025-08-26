@@ -78,10 +78,12 @@ export class ProcessorFactory {
   }
 
   /**
-   * Create Coinbase processor - placeholder for future implementation.
+   * Create Coinbase processor.
    */
   private static async createCoinbaseProcessor<T>(_config: ETLComponentConfig): Promise<IProcessor<T>> {
-    throw new Error('CoinbaseProcessor not yet implemented');
+    // Dynamic import to avoid circular dependencies
+    const { CoinbaseProcessor } = await import('../../exchanges/coinbase/processor.ts');
+    return new CoinbaseProcessor() as unknown as IProcessor<T>;
   }
 
   /**

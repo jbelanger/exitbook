@@ -106,7 +106,7 @@ export class LedgerLiveProcessor extends BaseProcessor<CsvLedgerLiveOperationRow
 
     try {
       for (const rawDataItem of rawDataItems) {
-        const row = rawDataItem.rawData.rawData;
+        const row = rawDataItem.rawData;
 
         // Skip empty or invalid rows
         if (!row['Operation Date'] || !row['Currency Ticker'] || !row['Operation Amount']) {
@@ -132,7 +132,7 @@ export class LedgerLiveProcessor extends BaseProcessor<CsvLedgerLiveOperationRow
 
   async processSingle(rawData: StoredRawData<CsvLedgerLiveOperationRow>): Promise<UniversalTransaction | null> {
     try {
-      const row = rawData.rawData.rawData;
+      const row = rawData.rawData;
 
       // Skip empty or invalid rows
       if (!row['Operation Date'] || !row['Currency Ticker'] || !row['Operation Amount']) {

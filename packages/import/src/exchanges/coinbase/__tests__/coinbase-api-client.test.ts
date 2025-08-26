@@ -168,7 +168,7 @@ describe('CoinbaseAPIClient', () => {
       await client.getAccounts({ cursor: 'test-cursor', limit: 50 });
 
       expect(mocks.mockHttpClient.request).toHaveBeenCalledWith(
-        '/v2/accounts?limit=50&cursor=test-cursor',
+        '/v2/accounts?cursor=test-cursor&limit=50',
         expect.objectContaining({
           headers: expect.objectContaining({
             Authorization: 'Bearer mocked-jwt-token',
