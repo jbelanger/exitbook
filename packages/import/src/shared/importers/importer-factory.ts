@@ -48,6 +48,17 @@ export class ImporterFactory {
   }
 
   /**
+   * Create Bittensor importer.
+   */
+  private static async createBittensorImporter<T>(config: ETLComponentConfig): Promise<IImporter<T>> {
+    // Dynamic import to avoid circular dependencies
+    const { BittensorTransactionImporter } = await import(
+      '../../blockchains/polkadot/bittensor-transaction-importer.ts'
+    );
+    return new BittensorTransactionImporter(config.dependencies) as unknown as IImporter<T>;
+  }
+
+  /**
    * Create a blockchain importer.
    */
   private static async createBlockchainImporter<T>(config: ETLComponentConfig): Promise<IImporter<T>> {
@@ -72,6 +83,12 @@ export class ImporterFactory {
 
       case 'avalanche':
         return await ImporterFactory.createAvalancheImporter<T>(config);
+
+      case 'polkadot':
+        return await ImporterFactory.createPolkadotImporter<T>(config);
+
+      case 'bittensor':
+        return await ImporterFactory.createBittensorImporter<T>(config);
 
       default:
         throw new Error(`Unsupported blockchain importer: ${adapterId}`);
@@ -132,6 +149,15 @@ export class ImporterFactory {
   }
 
   /**
+   * Create Polkadot importer.
+   */
+  private static async createPolkadotImporter<T>(config: ETLComponentConfig): Promise<IImporter<T>> {
+    // Dynamic import to avoid circular dependencies
+    const { PolkadotTransactionImporter } = await import('../../blockchains/polkadot/transaction-importer.ts');
+    return new PolkadotTransactionImporter(config.dependencies) as unknown as IImporter<T>;
+  }
+
+  /**
    * Create Solana importer.
    */
   private static async createSolanaImporter<T>(config: ETLComponentConfig): Promise<IImporter<T>> {
@@ -154,7 +180,9 @@ export class ImporterFactory {
       }
 
       if (adapterType === 'blockchain') {
-        return ['bitcoin', 'ethereum', 'injective', 'solana', 'avalanche'].includes(adapterId.toLowerCase());
+        return ['bitcoin', 'ethereum', 'injective', 'solana', 'avalanche', 'polkadot', 'bittensor'].includes(
+          adapterId.toLowerCase()
+        );
       }
 
       return false;

@@ -478,6 +478,43 @@
       }
     ]
   },
+  "bittensor": {
+    "explorers": [
+      {
+        "name": "taostats",
+        "displayName": "Taostats API",
+        "enabled": true,
+        "priority": 1,
+        "type": "rest",
+        "requiresApiKey": true,
+        "apiKeyEnvVar": "TAOSTATS_API_KEY",
+        "description": "Bittensor network explorer API with comprehensive transaction and account data (requires API key)",
+        "capabilities": {
+          "supportedOperations": ["getRawAddressTransactions", "getRawAddressBalance"],
+          "maxBatchSize": 1,
+          "supportsHistoricalData": true,
+          "supportsRealTimeData": true,
+          "supportsTokenData": false,
+          "supportsPagination": true
+        },
+        "networks": {
+          "mainnet": {
+            "baseUrl": "https://api.taostats.io/api"
+          }
+        },
+        "defaultConfig": {
+          "timeout": 15000,
+          "retries": 3,
+          "rateLimit": {
+            "requestsPerSecond": 0.08,
+            "requestsPerMinute": 5,
+            "requestsPerHour": 300,
+            "burstLimit": 1
+          }
+        }
+      }
+    ]
+  },
   "polkadot": {
     "explorers": [
       {

@@ -1,7 +1,6 @@
 import { HttpClient, maskAddress } from '@crypto/shared-utils';
 
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
-import { RegisterApiClient } from '../../shared/registry/decorators.ts';
 import type { JsonRpcResponse } from '../../shared/types.ts';
 import type { ProviderOperation } from '../../shared/types.ts';
 import type {
@@ -12,67 +11,28 @@ import type {
   TaostatsBalanceResponse,
   TaostatsTransaction,
 } from '../types.ts';
-import { SUBSTRATE_CHAINS } from '../types.ts';
 import { isValidSS58Address } from '../utils.ts';
 
-@RegisterApiClient({
-  blockchain: 'polkadot',
-  capabilities: {
-    maxBatchSize: 1,
-    supportedOperations: ['getRawAddressTransactions', 'getRawAddressBalance'],
-    supportsHistoricalData: true,
-    supportsPagination: true,
-    supportsRealTimeData: true,
-    supportsTokenData: false,
-  },
-  defaultConfig: {
-    rateLimit: {
-      burstLimit: 3,
-      requestsPerHour: 500,
-      requestsPerMinute: 30,
-      requestsPerSecond: 1,
-    },
-    retries: 3,
-    timeout: 10000,
-  },
-  description:
-    'Multi-chain Substrate provider supporting Polkadot, Kusama, and Bittensor networks with explorer APIs and RPC fallback',
-  displayName: 'Substrate Networks Provider',
-  name: 'subscan',
-  networks: {
-    mainnet: {
-      baseUrl: 'https://polkadot.api.subscan.io',
-    },
-    testnet: {
-      baseUrl: 'https://westend.api.subscan.io',
-    },
-  },
-  requiresApiKey: false,
-  type: 'rest',
-})
-export class SubstrateApiClient extends BaseRegistryProvider {
-  private readonly chainConfig: SubstrateChainConfig;
+/**
+ * Base class for Substrate-based blockchain API clients.
+ * Provides common functionality for all Substrate chains.
+ */
+export abstract class BaseSubstrateApiClient extends BaseRegistryProvider {
   private readonly rpcClient?: HttpClient;
+  protected readonly chainConfig: SubstrateChainConfig;
 
-  constructor() {
-    super('polkadot', 'subscan', 'mainnet');
-
-    // Initialize chain config for Polkadot by default
-    const chainConfig = SUBSTRATE_CHAINS['polkadot'];
-    if (!chainConfig) {
-      throw new Error('Substrate chain configuration not found');
-    }
-
+  constructor(blockchain: string, providerName: string, network: string, chainConfig: SubstrateChainConfig) {
+    super(blockchain, providerName, network);
     this.chainConfig = chainConfig;
 
     this.logger.debug(
-      `Initialized SubstrateApiClient from registry metadata - Network: ${this.network}, BaseUrl: ${this.baseUrl}, DisplayName: ${chainConfig.displayName}, TokenSymbol: ${chainConfig.tokenSymbol}, Ss58Format: ${chainConfig.ss58Format}`
+      `Initialized ${this.constructor.name} - Network: ${network}, BaseUrl: ${this.baseUrl}, DisplayName: ${chainConfig.displayName}, TokenSymbol: ${chainConfig.tokenSymbol}, Ss58Format: ${chainConfig.ss58Format}`
     );
   }
 
   private async getBalanceFromExplorer(address: string): Promise<unknown> {
     try {
-      if (this.network === 'bittensor') {
+      if (this.blockchain === 'bittensor') {
         // Taostats balance endpoint
         const response = await this.httpClient.get<TaostatsBalanceResponse>(`/api/account/${address}/balance`);
         if (response.balance !== undefined) {
@@ -177,6 +137,7 @@ export class SubstrateApiClient extends BaseRegistryProvider {
 
     try {
       this.logger.debug(`Fetching transactions for ${this.network} address: ${maskAddress(address)}`);
+
       // Try explorer API first
       if (this.httpClient) {
         try {
@@ -202,62 +163,12 @@ export class SubstrateApiClient extends BaseRegistryProvider {
     }
   }
 
-  private async getTransactionsFromExplorer(address: string, _since?: number): Promise<unknown> {
-    if (this.network === 'bittensor') {
-      // Taostats API implementation
-      try {
-        const response = await this.httpClient.get<{
-          data?: TaostatsTransaction[];
-        }>(`/api/account/${address}/transactions`);
-        return {
-          data: response?.data || [],
-        };
-      } catch (error) {
-        this.logger.debug(`Taostats API transaction fetch failed - Error: ${error}`);
-        return { data: [] };
-      }
-    } else if (this.blockchain === 'polkadot' && (this.network === 'mainnet' || this.network === 'testnet')) {
-      // Subscan API implementation
-      try {
-        const response = await this.httpClient.post<SubscanTransfersResponse>('/api/v2/scan/transfers', {
-          address: address,
-          page: 0,
-          row: 100,
-        });
-
-        return {
-          data: response.data?.transfers || [],
-        };
-      } catch (error) {
-        this.logger.warn(
-          `Subscan API transaction fetch failed - Error: ${error instanceof Error ? error.message : String(error)}, Blockchain: ${this.network}`
-        );
-        return { data: [] };
-      }
-    }
-
-    return { data: [] };
-  }
-
   private async getTransactionsFromRPC(_address: string, _since?: number): Promise<unknown> {
     // RPC-based transaction fetching is more complex and would require
     // iterating through blocks and filtering extrinsics
     // For now, return empty array as fallback
     this.logger.debug('RPC transaction fetching not implemented yet');
     return { data: [] };
-  }
-
-  private async testExplorerApi(): Promise<boolean> {
-    try {
-      // Use Subscan's metadata endpoint for health check - it's available on all Subscan APIs
-      const response = await this.httpClient.post<{ code?: number }>('/api/scan/metadata', {});
-      return response && response.code === 0;
-    } catch (error) {
-      this.logger.debug(
-        `Explorer API health check failed - Chain: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`
-      );
-      return false;
-    }
   }
 
   private async testRpcConnection(): Promise<boolean> {
@@ -310,6 +221,12 @@ export class SubstrateApiClient extends BaseRegistryProvider {
     }
   }
 
+  /**
+   * Abstract method for chain-specific transaction fetching from explorer APIs.
+   * Each chain should implement this according to their specific API format.
+   */
+  protected abstract getTransactionsFromExplorer(address: string, since?: number): Promise<unknown>;
+
   async isHealthy(): Promise<boolean> {
     try {
       // Try explorer API first if available
@@ -336,4 +253,9 @@ export class SubstrateApiClient extends BaseRegistryProvider {
   async testConnection(): Promise<boolean> {
     return this.isHealthy();
   }
+
+  /**
+   * Abstract method for chain-specific health check implementation.
+   */
+  protected abstract testExplorerApi(): Promise<boolean>;
 }
