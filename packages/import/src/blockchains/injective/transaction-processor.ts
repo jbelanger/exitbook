@@ -1,9 +1,8 @@
 import type { UniversalTransaction } from '@crypto/core';
-import type { Logger } from '@crypto/shared-logger';
-import { getLogger } from '@crypto/shared-logger';
 
 import type { IDependencyContainer } from '../../shared/common/interfaces.ts';
-import type { IProcessor, SourcedRawData, StoredRawData } from '../../shared/processors/interfaces.ts';
+import { BaseProcessor } from '../../shared/processors/base-processor.ts';
+import type { ApiClientRawData, StoredRawData } from '../../shared/processors/interfaces.ts';
 import { ProcessorFactory } from '../../shared/processors/processor-registry.ts';
 // Import processors to trigger registration
 import './processors/InjectiveExplorerProcessor.ts';
@@ -15,48 +14,23 @@ import type { InjectiveTransaction } from './types.ts';
  * into UniversalTransaction format. Uses ProcessorFactory to dispatch to provider-specific
  * processors based on data provenance.
  */
-export class InjectiveTransactionProcessor implements IProcessor<SourcedRawData<InjectiveTransaction>> {
-  private logger: Logger;
-
-  constructor(dependencies: IDependencyContainer) {
-    this.logger = getLogger('InjectiveTransactionProcessor');
+export class InjectiveTransactionProcessor extends BaseProcessor<ApiClientRawData<InjectiveTransaction>> {
+  constructor(_dependencies: IDependencyContainer) {
+    super('injective');
   }
 
   /**
-   * Check if this processor can handle data from the specified adapter.
+   * Check if this processor can handle the specified adapter type.
    */
-  canProcess(adapterId: string, adapterType: string): boolean {
-    return adapterId.toLowerCase() === 'injective' && adapterType === 'blockchain';
-  }
-
-  /**
-   * Process sourced raw blockchain transaction data into UniversalTransaction format.
-   */
-  async process(rawDataItems: StoredRawData<SourcedRawData<InjectiveTransaction>>[]): Promise<UniversalTransaction[]> {
-    this.logger.info(`Processing ${rawDataItems.length} sourced Injective transactions`);
-
-    const universalTransactions: UniversalTransaction[] = [];
-
-    for (const item of rawDataItems) {
-      try {
-        const transaction = await this.processSingle(item);
-        if (transaction) {
-          universalTransactions.push(transaction);
-        }
-      } catch (error) {
-        this.logger.error(`Failed to process transaction ${item.sourceTransactionId}: ${error}`);
-      }
-    }
-
-    this.logger.info(`Successfully processed ${universalTransactions.length} Injective transactions`);
-    return universalTransactions;
+  protected canProcessAdapterType(adapterType: string): boolean {
+    return adapterType === 'blockchain';
   }
 
   /**
    * Process a single sourced raw transaction using provider-specific processors.
    */
   async processSingle(
-    rawDataItem: StoredRawData<SourcedRawData<InjectiveTransaction>>
+    rawDataItem: StoredRawData<ApiClientRawData<InjectiveTransaction>>
   ): Promise<UniversalTransaction | null> {
     try {
       const sourcedRawData = rawDataItem.rawData;

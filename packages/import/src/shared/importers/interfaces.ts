@@ -1,3 +1,5 @@
+import type { ApiClientRawData } from '../processors/interfaces.ts';
+
 export interface ImportParams {
   [key: string]: unknown;
   addresses?: string[] | undefined;
@@ -28,18 +30,13 @@ export interface ValidationResult {
  */
 export interface IImporter<TRawData> {
   /**
-   * Import raw data from the source and return it.
-   * Does NOT save to database - that's handled by the ingestion service.
-   */
-  importFromSource(params: ImportParams): Promise<TRawData[]>;
-
-  /**
-   * Validate raw data format after extraction.
-   */
-  validateRawData(data: TRawData[]): ValidationResult;
-
-  /**
    * Validate that the source is accessible and parameters are correct.
    */
-  validateSource(params: ImportParams): Promise<boolean>;
+  canImport(params: ImportParams): Promise<boolean>;
+
+  /**
+   * Import raw data from the source and return it with API client provenance.
+   * Does NOT save to database - that's handled by the ingestion service.
+   */
+  import(params: ImportParams): Promise<ApiClientRawData<TRawData>[]>;
 }

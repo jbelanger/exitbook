@@ -3,6 +3,7 @@ import { HDKey } from '@scure/bip32';
 import * as bitcoin from 'bitcoinjs-lib';
 
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
+import type { ProviderOperationParams } from '../shared/types.ts';
 import type {
   AddressInfo,
   AddressType,
@@ -221,8 +222,7 @@ export class BitcoinUtils {
       try {
         const result = await providerManager.executeWithFailover('bitcoin', {
           address,
-          getCacheKey: params =>
-            `bitcoin:address-info:${params.type === 'getAddressInfo' ? params.address : 'unknown'}`,
+          getCacheKey: params => `bitcoin:address-info:${(params as ProviderOperationParams).address}`,
           type: 'getAddressInfo',
         });
         const addressInfo = result.data as AddressInfo;

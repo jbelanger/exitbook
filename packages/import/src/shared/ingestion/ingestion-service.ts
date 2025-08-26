@@ -1,5 +1,5 @@
-import { getLogger } from '@crypto/shared-logger';
 import type { Logger } from '@crypto/shared-logger';
+import { getLogger } from '@crypto/shared-logger';
 
 import type { IDependencyContainer, SessionInfo } from '../common/interfaces.ts';
 import { ImporterFactory } from '../importers/importer-factory.ts';
@@ -156,23 +156,13 @@ export class TransactionIngestionService {
       });
 
       // Validate source before import
-      const isValidSource = await importer.validateSource(params);
+      const isValidSource = await importer.canImport(params);
       if (!isValidSource) {
         throw new Error(`Source validation failed for ${adapterId}`);
       }
 
       // Import raw data
-      const rawData = await importer.importFromSource(params);
-
-      // Validate imported data
-      const validation = importer.validateRawData(rawData);
-      if (!validation.isValid) {
-        throw new Error(`Raw data validation failed: ${validation.errors.join(', ')}`);
-      }
-
-      if (validation.warnings.length > 0) {
-        this.logger.warn(`Import warnings for ${adapterId}: ${validation.warnings.join(', ')}`);
-      }
+      const rawData = await importer.import(params);
 
       // Generate session ID if not provided
       const importSessionId = params.importSessionId || this.generateSessionId(adapterId);
@@ -183,7 +173,7 @@ export class TransactionIngestionService {
         adapterType,
         rawData.map((item, index) => ({
           data: item,
-          id: this.extractTransactionId(item as Record<string, unknown>, index),
+          id: this.extractTransactionId(item.rawData as Record<string, unknown>, index),
         })),
         {
           importSessionId: importSessionId ?? undefined,
