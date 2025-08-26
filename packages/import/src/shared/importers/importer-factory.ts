@@ -96,10 +96,12 @@ export class ImporterFactory {
   }
 
   /**
-   * Create Coinbase importer - placeholder for future implementation.
+   * Create Coinbase importer.
    */
   private static async createCoinbaseImporter<T>(_config: ETLComponentConfig): Promise<IImporter<T>> {
-    throw new Error('CoinbaseImporter not yet implemented');
+    // Dynamic import to avoid circular dependencies
+    const { CoinbaseImporter } = await import('../../exchanges/coinbase/importer.ts');
+    return new CoinbaseImporter() as unknown as IImporter<T>;
   }
 
   /**

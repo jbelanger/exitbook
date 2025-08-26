@@ -5,7 +5,8 @@ import { UniversalAdapterFactory } from '../adapter-factory.ts';
 
 describe('UniversalAdapterFactory', () => {
   describe('Native Exchange Adapters', () => {
-    it('should create native Coinbase adapter', async () => {
+    it('should throw error for unsupported native Coinbase adapter', async () => {
+      // Coinbase uses importer/processor pattern, not native adapter
       const config: UniversalExchangeAdapterConfig = {
         credentials: {
           apiKey: 'organizations/test-org/apiKeys/test-key',
@@ -17,30 +18,7 @@ describe('UniversalAdapterFactory', () => {
         type: 'exchange',
       };
 
-      const adapter = await UniversalAdapterFactory.create(config);
-
-      expect(adapter).toBeDefined();
-
-      const info = await adapter.getInfo();
-      expect(info).toEqual({
-        capabilities: {
-          maxBatchSize: 100,
-          rateLimit: {
-            burstLimit: 5,
-            requestsPerSecond: 3,
-          },
-          requiresApiKey: true,
-          supportedOperations: ['fetchTransactions', 'fetchBalances'],
-          supportsHistoricalData: true,
-          supportsPagination: true,
-        },
-        id: 'coinbase',
-        name: 'Coinbase Track API',
-        subType: 'native',
-        type: 'exchange',
-      });
-
-      await adapter.close();
+      await expect(UniversalAdapterFactory.create(config)).rejects.toThrow('Unsupported native exchange: coinbase');
     });
 
     it('should throw error for unsupported native exchange', async () => {
