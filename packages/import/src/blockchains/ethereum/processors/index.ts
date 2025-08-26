@@ -1,2 +1,3 @@
-export { AlchemyProcessor } from './AlchemyProcessor.ts';
-export { MoralisProcessor } from './MoralisProcessor.ts';
+// Import processors to trigger registration
+import './processors/AlchemyProcessor.ts';
+import './processors/MoralisProcessor.ts';

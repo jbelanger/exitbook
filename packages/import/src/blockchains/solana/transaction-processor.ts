@@ -6,9 +6,7 @@ import type { ApiClientRawData, StoredRawData } from '../../shared/processors/in
 import { ProcessorFactory } from '../../shared/processors/processor-registry.ts';
 import type { SolanaRawTransactionData } from './clients/HeliusApiClient.ts';
 // Import processors to trigger registration
-import './processors/HeliusProcessor.ts';
-import './processors/SolanaRPCProcessor.ts';
-import './processors/SolscanProcessor.ts';
+import './processors/index.ts';
 
 /**
  * Solana transaction processor that converts sourced raw blockchain transaction data
