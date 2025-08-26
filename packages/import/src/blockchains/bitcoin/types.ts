@@ -188,6 +188,9 @@ export interface BlockCypherTransaction {
     sequence: number;
   }>;
   lock_time: number;
+  // Pagination properties
+  next_inputs?: string | undefined;
+  next_outputs?: string | undefined;
   outputs: Array<{
     addresses: string[];
     script: string;
@@ -199,6 +202,8 @@ export interface BlockCypherTransaction {
   relayed_by: string;
   size: number;
   ver: number;
+  vin_sz?: number | undefined;
+  vout_sz?: number | undefined;
   vsize: number;
 }
 

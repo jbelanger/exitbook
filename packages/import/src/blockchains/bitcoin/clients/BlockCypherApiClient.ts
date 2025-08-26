@@ -71,7 +71,7 @@ export class BlockCypherApiClient extends BaseRegistryProvider {
       this.logger.debug(`Fetching next outputs for transaction ${txHash}: ${transaction.next_outputs}`);
       try {
         const nextOutputsResponse = await this.httpClient.get<{
-          next_outputs?: string;
+          next_outputs?: string | undefined;
           outputs: BlockCypherTransaction['outputs'];
         }>(transaction.next_outputs.replace('https://api.blockcypher.com/v1/btc/main', ''));
 
@@ -96,7 +96,7 @@ export class BlockCypherApiClient extends BaseRegistryProvider {
       try {
         const nextInputsResponse = await this.httpClient.get<{
           inputs: BlockCypherTransaction['inputs'];
-          next_inputs?: string;
+          next_inputs?: string | undefined;
         }>(transaction.next_inputs.replace('https://api.blockcypher.com/v1/btc/main', ''));
 
         transaction.inputs.push(...nextInputsResponse.inputs);
