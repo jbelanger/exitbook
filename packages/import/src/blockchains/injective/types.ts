@@ -10,21 +10,28 @@ export interface InjectiveApiResponse {
 export interface InjectiveTransaction {
   block_number: number;
   block_timestamp: string;
+  block_unix_timestamp?: number;
+  claim_id?: number[];
   code: number;
-  extension_options: unknown[];
+  codespace?: string;
+  data?: string;
+  error_log?: string;
+  extension_options?: unknown[];
   // Added by importer/adapter for processor context
   fetchedByAddress?: string;
   gas_fee: InjectiveGasFee;
   gas_used: number;
   gas_wanted: number;
   hash: string;
-  id: string;
-  info: string;
+  id?: string;
+  info?: string;
+  logs?: InjectiveTransactionLog[];
   memo?: string;
   messages: InjectiveMessage[];
-  non_critical_extension_options: unknown[];
-  signatures: unknown[];
-  timeout_height: number;
+  non_critical_extension_options?: unknown[];
+  signatures?: unknown[];
+  timeout_height?: number;
+  tx_number?: number;
   tx_type: string;
 }
 
@@ -73,4 +80,21 @@ export interface InjectiveBalanceResponse {
     next_key?: string;
     total: string;
   };
+}
+
+export interface InjectiveTransactionLog {
+  events?: InjectiveEvent[];
+  msg_index?: string;
+}
+
+export interface InjectiveEvent {
+  attributes?: InjectiveEventAttribute[];
+  type?: string;
+}
+
+export interface InjectiveEventAttribute {
+  index?: boolean;
+  key?: string;
+  msg_index?: string;
+  value?: string;
 }

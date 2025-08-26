@@ -55,6 +55,9 @@ export class ImporterFactory {
       case 'ethereum':
         return await ImporterFactory.createEthereumImporter<T>(config);
 
+      case 'injective':
+        return await ImporterFactory.createInjectiveImporter<T>(config);
+
       default:
         throw new Error(`Unsupported blockchain importer: ${adapterId}`);
     }
@@ -94,6 +97,15 @@ export class ImporterFactory {
   }
 
   /**
+   * Create Injective importer.
+   */
+  private static async createInjectiveImporter<T>(config: ETLComponentConfig): Promise<IImporter<T>> {
+    // Dynamic import to avoid circular dependencies
+    const { InjectiveTransactionImporter } = await import('../../blockchains/injective/transaction-importer.ts');
+    return new InjectiveTransactionImporter(config.dependencies) as unknown as IImporter<T>;
+  }
+
+  /**
    * Create Kraken CSV importer.
    */
   private static async createKrakenImporter<T>(_config: ETLComponentConfig): Promise<IImporter<T>> {
@@ -116,7 +128,7 @@ export class ImporterFactory {
       }
 
       if (adapterType === 'blockchain') {
-        return ['bitcoin', 'ethereum'].includes(adapterId.toLowerCase());
+        return ['bitcoin', 'ethereum', 'injective'].includes(adapterId.toLowerCase());
       }
 
       return false;

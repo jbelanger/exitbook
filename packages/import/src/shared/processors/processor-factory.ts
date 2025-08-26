@@ -51,6 +51,9 @@ export class ProcessorFactory {
       case 'ethereum':
         return await ProcessorFactory.createEthereumProcessor<T>(config);
 
+      case 'injective':
+        return await ProcessorFactory.createInjectiveProcessor<T>(config);
+
       default:
         throw new Error(`Unsupported blockchain processor: ${adapterId}`);
     }
@@ -89,6 +92,15 @@ export class ProcessorFactory {
   }
 
   /**
+   * Create Injective processor.
+   */
+  private static async createInjectiveProcessor<T>(config: ETLComponentConfig): Promise<IProcessor<T>> {
+    // Dynamic import to avoid circular dependencies
+    const { InjectiveTransactionProcessor } = await import('../../blockchains/injective/transaction-processor.ts');
+    return new InjectiveTransactionProcessor(config.dependencies) as unknown as IProcessor<T>;
+  }
+
+  /**
    * Create Kraken processor.
    */
   private static async createKrakenProcessor<T>(_config: ETLComponentConfig): Promise<IProcessor<T>> {
@@ -106,7 +118,7 @@ export class ProcessorFactory {
     }
 
     if (adapterType === 'blockchain') {
-      return ['bitcoin', 'ethereum'];
+      return ['bitcoin', 'ethereum', 'injective'];
     }
 
     return [];
@@ -122,7 +134,7 @@ export class ProcessorFactory {
       }
 
       if (adapterType === 'blockchain') {
-        return ['bitcoin', 'ethereum'].includes(adapterId.toLowerCase());
+        return ['bitcoin', 'ethereum', 'injective'].includes(adapterId.toLowerCase());
       }
 
       return false;
