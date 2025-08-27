@@ -21,8 +21,6 @@ export class ExternalDataStore implements IExternalDataStore {
 
       this.logger.info(`Loaded ${rawData.length} raw data items`);
       return rawData.map(item => ({
-        adapterId: item.adapterId,
-        adapterType: item.adapterType,
         createdAt: item.createdAt,
         id: item.id,
         importSessionId: item.importSessionId,
@@ -32,7 +30,9 @@ export class ExternalDataStore implements IExternalDataStore {
         processingStatus: item.processingStatus,
         providerId: item.providerId,
         rawData: item.rawData,
+        sourceId: item.sourceId,
         sourceTransactionId: item.sourceTransactionId,
+        sourceType: item.sourceType,
       }));
     } catch (error) {
       this.logger.error(`Failed to load raw data: ${error}`);
@@ -40,65 +40,65 @@ export class ExternalDataStore implements IExternalDataStore {
     }
   }
 
-  async markAsProcessed(adapterId: string, sourceTransactionIds: string[], providerId?: string): Promise<void> {
-    this.logger.info(`Marking ${sourceTransactionIds.length} items as processed for ${adapterId}`);
+  async markAsProcessed(sourceId: string, sourceTransactionIds: string[], providerId?: string): Promise<void> {
+    this.logger.info(`Marking ${sourceTransactionIds.length} items as processed for ${sourceId}`);
 
     try {
       const promises = sourceTransactionIds.map(id =>
-        this.updateProcessingStatus(adapterId, id, 'processed', undefined, providerId)
+        this.updateProcessingStatus(sourceId, id, 'processed', undefined, providerId)
       );
 
       await Promise.all(promises);
 
-      this.logger.info(`Successfully marked ${sourceTransactionIds.length} items as processed for ${adapterId}`);
+      this.logger.info(`Successfully marked ${sourceTransactionIds.length} items as processed for ${sourceId}`);
     } catch (error) {
-      this.logger.error(`Failed to mark items as processed for ${adapterId}: ${error}`);
+      this.logger.error(`Failed to mark items as processed for ${sourceId}: ${error}`);
       throw error;
     }
   }
 
   async save(
-    adapterId: string,
-    adapterType: string,
-    rawData: Array<{ data: unknown; id: string; }>,
+    sourceId: string,
+    sourceType: string,
+    rawData: Array<{ data: unknown; id: string }>,
     options?: SaveRawDataOptions
   ): Promise<number> {
-    this.logger.info(`Saving ${rawData.length} raw data items for ${adapterId}`);
+    this.logger.info(`Saving ${rawData.length} raw data items for ${sourceId}`);
 
     try {
-      const saved = await this.database.saveRawTransactions(adapterId, adapterType, rawData, {
+      const saved = await this.database.saveRawTransactions(sourceId, sourceType, rawData, {
         importSessionId: options?.importSessionId ?? undefined,
         metadata: options?.metadata,
         providerId: options?.providerId ?? undefined,
       });
 
-      this.logger.info(`Successfully saved ${saved}/${rawData.length} raw data items for ${adapterId}`);
+      this.logger.info(`Successfully saved ${saved}/${rawData.length} raw data items for ${sourceId}`);
       return saved;
     } catch (error) {
-      this.logger.error(`Failed to save raw data for ${adapterId}: ${error}`);
+      this.logger.error(`Failed to save raw data for ${sourceId}: ${error}`);
       throw error;
     }
   }
 
   async saveSingle(
-    adapterId: string,
-    adapterType: string,
+    sourceId: string,
+    sourceType: string,
     sourceTransactionId: string,
     rawData: unknown,
     options?: SaveRawDataOptions
   ): Promise<void> {
-    this.logger.debug(`Saving single raw data item ${sourceTransactionId} for ${adapterId}`);
+    this.logger.debug(`Saving single raw data item ${sourceTransactionId} for ${sourceId}`);
 
     try {
-      await this.database.saveRawTransaction(adapterId, adapterType, sourceTransactionId, rawData, {
+      await this.database.saveRawTransaction(sourceId, sourceType, sourceTransactionId, rawData, {
         importSessionId: options?.importSessionId ?? undefined,
         metadata: options?.metadata,
         providerId: options?.providerId ?? undefined,
       });
 
-      this.logger.debug(`Successfully saved raw data item ${sourceTransactionId} for ${adapterId}`);
+      this.logger.debug(`Successfully saved raw data item ${sourceTransactionId} for ${sourceId}`);
     } catch (error) {
-      this.logger.error(`Failed to save raw data item ${sourceTransactionId} for ${adapterId}: ${error}`);
+      this.logger.error(`Failed to save raw data item ${sourceTransactionId} for ${sourceId}: ${error}`);
       throw error;
     }
   }

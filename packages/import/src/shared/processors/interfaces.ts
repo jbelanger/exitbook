@@ -2,8 +2,6 @@ import type { UniversalTransaction } from '@crypto/core';
 import type { Result } from '@crypto/shared-utils';
 
 export interface StoredRawData<TRawData = unknown> {
-  adapterId: string;
-  adapterType: string;
   createdAt: number;
   id: string;
   importSessionId?: string | undefined;
@@ -11,9 +9,10 @@ export interface StoredRawData<TRawData = unknown> {
   processedAt?: number | undefined;
   processingError?: string | undefined;
   processingStatus: string;
-  providerId?: string | undefined;
   rawData: TRawData;
+  sourceId: string;
   sourceTransactionId: string;
+  sourceType: string;
 }
 
 export interface ProcessResult {
@@ -31,7 +30,7 @@ export interface IProcessor<TRawData> {
   /**
    * Check if this processor can handle data from the specified adapter.
    */
-  canProcess(adapterId: string, adapterType: string): boolean;
+  canProcess(sourceId: string, sourceType: string): boolean;
 
   /**
    * Process raw data into UniversalTransaction objects.

@@ -27,15 +27,3 @@ export interface ETLComponentConfig {
   sourceId: string;
   sourceType: 'exchange' | 'blockchain';
 }
-
-/**
- * Session information for tracking import/process operations.
- */
-export interface SessionInfo {
-  adapterId: string;
-  adapterType: string;
-  id: string;
-  metadata?: unknown;
-  providerId?: string | undefined;
-  startedAt: number;
-}

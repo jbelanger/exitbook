@@ -7,11 +7,11 @@ export interface SaveRawDataOptions {
 }
 
 export interface LoadRawDataFilters {
-  adapterId?: string | undefined;
   importSessionId?: string | undefined;
   processingStatus?: 'pending' | 'processed' | 'failed' | undefined;
   providerId?: string | undefined;
   since?: number | undefined;
+  sourceId?: string | undefined;
 }
 
 /**
@@ -27,15 +27,15 @@ export interface IExternalDataStore {
   /**
    * Mark multiple items as processed.
    */
-  markAsProcessed(adapterId: string, sourceTransactionIds: string[], providerId?: string): Promise<void>;
+  markAsProcessed(sourceId: string, sourceTransactionIds: string[], providerId?: string): Promise<void>;
 
   /**
    * Save external data items to storage.
    */
   save(
-    adapterId: string,
-    adapterType: string,
-    rawData: Array<{ data: unknown; id: string; }>,
+    sourceId: string,
+    sourceType: string,
+    rawData: Array<{ data: unknown; id: string }>,
     options?: SaveRawDataOptions
   ): Promise<number>;
 
@@ -43,8 +43,8 @@ export interface IExternalDataStore {
    * Save a single external data item to storage.
    */
   saveSingle(
-    adapterId: string,
-    adapterType: string,
+    sourceId: string,
+    sourceType: string,
     sourceTransactionId: string,
     rawData: unknown,
     options?: SaveRawDataOptions
@@ -54,7 +54,7 @@ export interface IExternalDataStore {
    * Update the processing status of external data items.
    */
   updateProcessingStatus(
-    adapterId: string,
+    sourceId: string,
     sourceTransactionId: string,
     status: 'pending' | 'processed' | 'failed',
     error?: string,
