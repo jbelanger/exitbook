@@ -85,6 +85,7 @@ async function main() {
         logger.info('================');
         logger.info(`Total transactions: ${stats.totalTransactions}`);
         logger.info(`Total exchanges: ${stats.totalExchanges}`);
+        logger.info(`Total import sessions: ${stats.totalImportSessions}`);
         logger.info(`Total verifications: ${stats.totalVerifications}`);
         logger.info(`Total snapshots: ${stats.totalSnapshots}`);
 

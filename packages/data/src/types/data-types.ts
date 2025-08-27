@@ -65,3 +65,46 @@ export interface WalletAddressQuery {
   isActive?: boolean | undefined;
   search?: string | undefined; // Search in address, label, or notes
 }
+
+// Import session tracking types
+export interface ImportSession {
+  completedAt?: number | undefined;
+  createdAt: number;
+  durationMs?: number | undefined;
+  errorDetails?: unknown;
+  errorMessage?: string | undefined;
+  id: string;
+  providerId?: string | undefined;
+  sessionMetadata?: unknown;
+  sourceId: string;
+  sourceType: 'exchange' | 'blockchain';
+  startedAt: number;
+  status: 'started' | 'completed' | 'failed' | 'cancelled';
+  transactionsFailed: number;
+  transactionsImported: number;
+  updatedAt: number;
+}
+
+export interface CreateImportSessionRequest {
+  providerId?: string | undefined;
+  sessionMetadata?: unknown;
+  sourceId: string;
+  sourceType: 'exchange' | 'blockchain';
+}
+
+export interface UpdateImportSessionRequest {
+  errorDetails?: unknown;
+  errorMessage?: string | undefined;
+  sessionMetadata?: unknown;
+  status?: 'started' | 'completed' | 'failed' | 'cancelled';
+  transactionsFailed?: number;
+  transactionsImported?: number;
+}
+
+export interface ImportSessionQuery {
+  limit?: number | undefined;
+  since?: number | undefined;
+  sourceId?: string | undefined;
+  sourceType?: 'exchange' | 'blockchain';
+  status?: 'started' | 'completed' | 'failed' | 'cancelled';
+}

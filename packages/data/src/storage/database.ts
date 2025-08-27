@@ -7,13 +7,17 @@ import * as path from 'path';
 import sqlite3Module from 'sqlite3';
 
 import type {
+  CreateImportSessionRequest,
   CreateWalletAddressRequest,
+  ImportSession,
+  ImportSessionQuery,
   StoredTransaction,
+  UpdateImportSessionRequest,
   UpdateWalletAddressRequest,
   WalletAddress,
   WalletAddressQuery,
 } from '../types/data-types.ts';
-import type { DatabaseStats, SQLParam, StatRow, TransactionCountRow } from '../types/database-types.js';
+import type { DatabaseStats, ImportSessionRow, SQLParam, StatRow, TransactionCountRow } from '../types/database-types.js';
 
 const sqlite3 = sqlite3Module;
 
@@ -25,6 +29,26 @@ function moneyToDbString(money: { amount: Decimal | number; currency: string }):
     return String(money.amount);
   }
   return money.amount.toString();
+}
+
+function importSessionRowToImportSession(row: ImportSessionRow): ImportSession {
+  return {
+    completedAt: row.completed_at || undefined,
+    createdAt: row.created_at,
+    durationMs: row.duration_ms || undefined,
+    errorDetails: row.error_details ? JSON.parse(row.error_details) : undefined,
+    errorMessage: row.error_message || undefined,
+    id: row.id,
+    providerId: row.provider_id || undefined,
+    sessionMetadata: row.session_metadata ? JSON.parse(row.session_metadata) : undefined,
+    sourceId: row.source_id,
+    sourceType: row.source_type,
+    startedAt: row.started_at,
+    status: row.status,
+    transactionsFailed: row.transactions_failed,
+    transactionsImported: row.transactions_imported,
+    updatedAt: row.updated_at,
+  };
 }
 
 export class Database {
@@ -71,11 +95,31 @@ export class Database {
         `DROP TABLE IF EXISTS raw_transactions`,
         `DROP TABLE IF EXISTS balance_snapshots`,
         `DROP TABLE IF EXISTS balance_verifications`,
-        `DROP TABLE IF EXISTS wallet_addresses`
+        `DROP TABLE IF EXISTS wallet_addresses`,
+        `DROP TABLE IF EXISTS import_sessions`
       );
     }
 
     tableQueries.push(
+      // Import sessions table - tracks import session metadata and execution details
+      `CREATE TABLE ${clearExisting ? '' : 'IF NOT EXISTS '}import_sessions (
+        id TEXT PRIMARY KEY,
+        source_id TEXT NOT NULL,
+        source_type TEXT NOT NULL CHECK (source_type IN ('exchange', 'blockchain')),
+        provider_id TEXT,
+        status TEXT NOT NULL DEFAULT 'started' CHECK (status IN ('started', 'completed', 'failed', 'cancelled')),
+        started_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
+        completed_at INTEGER,
+        duration_ms INTEGER,
+        error_message TEXT,
+        error_details JSON,
+        session_metadata JSON,
+        transactions_imported INTEGER DEFAULT 0,
+        transactions_failed INTEGER DEFAULT 0,
+        created_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
+        updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
+      )`,
+
       // External transaction data table - stores unprocessed transaction data from sources
       `CREATE TABLE ${clearExisting ? '' : 'IF NOT EXISTS '}external_transaction_data (
         id TEXT PRIMARY KEY,
@@ -193,6 +237,16 @@ export class Database {
 
       `CREATE INDEX IF NOT EXISTS idx_wallet_addresses_active 
        ON wallet_addresses(is_active) WHERE is_active = 1`,
+
+      // Import sessions indexes
+      `CREATE INDEX IF NOT EXISTS idx_import_sessions_source 
+       ON import_sessions(source_id, started_at)`,
+
+      `CREATE INDEX IF NOT EXISTS idx_import_sessions_status 
+       ON import_sessions(status, started_at)`,
+
+      `CREATE INDEX IF NOT EXISTS idx_import_sessions_source_type 
+       ON import_sessions(source_type, started_at)`,
 
       // External transaction data indexes
       `CREATE INDEX IF NOT EXISTS idx_external_transaction_data_source 
@@ -312,6 +366,35 @@ export class Database {
     });
   }
 
+  // Import session operations
+  async createImportSession(
+    sessionId: string,
+    sourceId: string,
+    sourceType: 'exchange' | 'blockchain',
+    providerId?: string,
+    sessionMetadata?: unknown
+  ): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const stmt = this.db.prepare(`
+        INSERT INTO import_sessions 
+        (id, source_id, source_type, provider_id, session_metadata)
+        VALUES (?, ?, ?, ?, ?)
+      `);
+
+      const metadataJson = sessionMetadata ? JSON.stringify(sessionMetadata) : null;
+
+      stmt.run([sessionId, sourceId, sourceType, providerId || null, metadataJson], function (err) {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(sessionId);
+        }
+      });
+
+      stmt.finalize();
+    });
+  }
+
   async deleteWalletAddress(id: number): Promise<boolean> {
     return new Promise((resolve, reject) => {
       const query = 'DELETE FROM wallet_addresses WHERE id = ?';
@@ -322,6 +405,37 @@ export class Database {
         } else {
           resolve(this.changes > 0);
         }
+      });
+    });
+  }
+
+  async finalizeImportSession(
+    sessionId: string,
+    status: 'completed' | 'failed' | 'cancelled',
+    startTime: number,
+    transactionsImported: number = 0,
+    transactionsFailed: number = 0,
+    errorMessage?: string,
+    errorDetails?: unknown
+  ): Promise<void> {
+    const durationMs = Date.now() - startTime;
+    
+    return this.updateImportSession(sessionId, {
+      errorDetails,
+      errorMessage,
+      status,
+      transactionsFailed,
+      transactionsImported,
+    }).then(() => {
+      return new Promise<void>((resolve, reject) => {
+        this.db.run(
+          'UPDATE import_sessions SET duration_ms = ? WHERE id = ?',
+          [durationMs, sessionId],
+          err => {
+            if (err) reject(err);
+            else resolve();
+          }
+        );
       });
     });
   }
@@ -382,6 +496,70 @@ export class Database {
             notes: row.notes,
             updatedAt: row.updatedAt,
           });
+        }
+      });
+    });
+  }
+
+  async getImportSession(sessionId: string): Promise<ImportSession | null> {
+    return new Promise((resolve, reject) => {
+      const query = 'SELECT * FROM import_sessions WHERE id = ?';
+
+      this.db.get(query, [sessionId], (err, row: ImportSessionRow | undefined) => {
+        if (err) {
+          reject(err);
+        } else if (!row) {
+          resolve(null);
+        } else {
+          resolve(importSessionRowToImportSession(row));
+        }
+      });
+    });
+  }
+
+  async getImportSessions(filters?: ImportSessionQuery): Promise<ImportSession[]> {
+    return new Promise((resolve, reject) => {
+      let query = 'SELECT * FROM import_sessions';
+      const params: (string | number)[] = [];
+      const conditions: string[] = [];
+
+      if (filters?.sourceId) {
+        conditions.push('source_id = ?');
+        params.push(filters.sourceId);
+      }
+
+      if (filters?.sourceType) {
+        conditions.push('source_type = ?');
+        params.push(filters.sourceType);
+      }
+
+      if (filters?.status) {
+        conditions.push('status = ?');
+        params.push(filters.status);
+      }
+
+      if (filters?.since) {
+        conditions.push('started_at >= ?');
+        params.push(filters.since);
+      }
+
+      if (conditions.length > 0) {
+        query += ' WHERE ' + conditions.join(' AND ');
+      }
+
+      query += ' ORDER BY started_at DESC';
+
+      if (filters?.limit) {
+        query += ' LIMIT ?';
+        params.push(filters.limit);
+      }
+
+      this.db.all(query, params, (err, rows: ImportSessionRow[]) => {
+        if (err) {
+          reject(err);
+        } else {
+          const sessions = rows.map(importSessionRowToImportSession);
+          resolve(sessions);
         }
       });
     });
@@ -512,11 +690,13 @@ export class Database {
         'SELECT COUNT(*) as total_verifications FROM balance_verifications',
         'SELECT COUNT(*) as total_snapshots FROM balance_snapshots',
         'SELECT COUNT(*) as total_external_transactions FROM external_transaction_data',
+        'SELECT COUNT(*) as total_import_sessions FROM import_sessions',
       ];
 
       const results: DatabaseStats = {
         totalExchanges: 0,
         totalExternalTransactions: 0,
+        totalImportSessions: 0,
         totalSnapshots: 0,
         totalTransactions: 0,
         totalVerifications: 0,
@@ -552,6 +732,11 @@ export class Database {
         this.db.get(queries[5]!, (err, row: StatRow) => {
           if (err) return reject(err);
           results.totalExternalTransactions = row.total_external_transactions || 0;
+        });
+
+        this.db.get(queries[6]!, (err, row: StatRow) => {
+          if (err) return reject(err);
+          results.totalImportSessions = row.total_import_sessions || 0;
           resolve(results);
         });
       });
@@ -577,6 +762,8 @@ export class Database {
       });
     });
   }
+
+  // Wallet address management methods
 
   async getTransactions(exchange?: string, since?: number): Promise<StoredTransaction[]> {
     return new Promise((resolve, reject) => {
@@ -711,8 +898,6 @@ export class Database {
       stmt.finalize();
     });
   }
-
-  // Wallet address management methods
 
   async saveBalanceVerification(verification: BalanceVerificationRecord): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -1006,6 +1191,70 @@ export class Database {
             resolve(saved);
           }
         });
+      });
+    });
+  }
+
+  async updateImportSession(
+    sessionId: string,
+    updates: UpdateImportSessionRequest
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const setParts: string[] = [];
+      const params: (string | number | null)[] = [];
+
+      if (updates.status !== undefined) {
+        setParts.push('status = ?');
+        params.push(updates.status);
+
+        if (updates.status === 'completed' || updates.status === 'failed' || updates.status === 'cancelled') {
+          setParts.push('completed_at = ?');
+          params.push(Math.floor(Date.now() / 1000));
+        }
+      }
+
+      if (updates.errorMessage !== undefined) {
+        setParts.push('error_message = ?');
+        params.push(updates.errorMessage);
+      }
+
+      if (updates.errorDetails !== undefined) {
+        setParts.push('error_details = ?');
+        params.push(updates.errorDetails ? JSON.stringify(updates.errorDetails) : null);
+      }
+
+      if (updates.transactionsImported !== undefined) {
+        setParts.push('transactions_imported = ?');
+        params.push(updates.transactionsImported);
+      }
+
+      if (updates.transactionsFailed !== undefined) {
+        setParts.push('transactions_failed = ?');
+        params.push(updates.transactionsFailed);
+      }
+
+      if (updates.sessionMetadata !== undefined) {
+        setParts.push('session_metadata = ?');
+        params.push(updates.sessionMetadata ? JSON.stringify(updates.sessionMetadata) : null);
+      }
+
+      if (setParts.length === 0) {
+        resolve();
+        return;
+      }
+
+      setParts.push('updated_at = ?');
+      params.push(Math.floor(Date.now() / 1000));
+      params.push(sessionId);
+
+      const query = `UPDATE import_sessions SET ${setParts.join(', ')} WHERE id = ?`;
+
+      this.db.run(query, params, err => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve();
+        }
       });
     });
   }

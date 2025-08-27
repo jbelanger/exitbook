@@ -4,7 +4,7 @@ import { Decimal } from 'decimal.js';
 
 import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
-import { SnowtraceRawDataSchema, SnowtraceTransactionSchema } from '../schemas.ts';
+import { SnowtraceTransactionSchema } from '../schemas.ts';
 import type { SnowtraceInternalTransaction, SnowtraceTokenTransfer, SnowtraceTransaction } from '../types.ts';
 
 export type SnowtraceRawData = {
