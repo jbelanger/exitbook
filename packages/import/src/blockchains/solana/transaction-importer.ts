@@ -1,6 +1,6 @@
 import type { IDependencyContainer } from '../../shared/common/interfaces.ts';
 import { BaseImporter } from '../../shared/importers/base-importer.ts';
-import type { ImportParams } from '../../shared/importers/interfaces.ts';
+import type { ImportParams, ImportRunResult } from '../../shared/importers/interfaces.ts';
 import type { ApiClientRawData } from '../../shared/processors/interfaces.ts';
 import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
 import type { SolanaRawTransactionData } from './clients/HeliusApiClient.ts';
@@ -76,17 +76,17 @@ export class SolanaTransactionImporter extends BaseImporter<SolanaRawTransaction
    * Remove duplicate transactions based on signature.
    */
   private removeDuplicateTransactions(
-    sourcedTransactions: ApiClientRawData<SolanaRawTransactionData>[]
+    rawTransactions: ApiClientRawData<SolanaRawTransactionData>[]
   ): ApiClientRawData<SolanaRawTransactionData>[] {
     const uniqueTransactions = new Map<string, ApiClientRawData<SolanaRawTransactionData>>();
     const allSignatures = new Set<string>();
 
-    for (const sourcedTx of sourcedTransactions) {
-      const combinedKey = `${sourcedTx.providerId}`;
+    for (const rawTx of rawTransactions) {
+      const combinedKey = `${rawTx.providerId}`;
 
       // Collect all signatures from this batch
       const signatures = new Set<string>();
-      for (const tx of sourcedTx.rawData.normal) {
+      for (const tx of rawTx.rawData.normal) {
         const signature = tx.transaction.signatures?.[0] || tx.signature;
         if (signature && !allSignatures.has(signature)) {
           signatures.add(signature);
@@ -96,14 +96,14 @@ export class SolanaTransactionImporter extends BaseImporter<SolanaRawTransaction
 
       // Only include transactions with unique signatures
       if (signatures.size > 0) {
-        const filteredTransactions = sourcedTx.rawData.normal.filter(tx => {
+        const filteredTransactions = rawTx.rawData.normal.filter(tx => {
           const signature = tx.transaction.signatures?.[0] || tx.signature;
           return signature && signatures.has(signature);
         });
 
         if (filteredTransactions.length > 0) {
           uniqueTransactions.set(combinedKey, {
-            providerId: sourcedTx.providerId,
+            providerId: rawTx.providerId,
             rawData: {
               normal: filteredTransactions,
             },
@@ -161,7 +161,7 @@ export class SolanaTransactionImporter extends BaseImporter<SolanaRawTransaction
   /**
    * Import raw transaction data from Solana blockchain APIs with provider provenance.
    */
-  async import(params: ImportParams): Promise<ApiClientRawData<SolanaRawTransactionData>[]> {
+  async import(params: ImportParams): Promise<ImportRunResult<SolanaRawTransactionData>> {
     if (!params.addresses?.length) {
       throw new Error('Addresses required for Solana transaction import');
     }
@@ -174,13 +174,13 @@ export class SolanaTransactionImporter extends BaseImporter<SolanaRawTransaction
       this.logger.info(`Importing transactions for address: ${address.substring(0, 20)}...`);
 
       try {
-        const sourcedTransactions = await this.fetchRawTransactionsForAddress(address, params.since);
+        const rawTransactions = await this.fetchRawTransactionsForAddress(address, params.since);
 
         // Add the fetching address to each raw transaction batch
-        const enhancedSourcedTransactions: ApiClientRawData<SolanaRawTransactionData>[] = sourcedTransactions.map(
-          sourcedTx => ({
-            providerId: sourcedTx.providerId,
-            rawData: sourcedTx.rawData,
+        const enhancedSourcedTransactions: ApiClientRawData<SolanaRawTransactionData>[] = rawTransactions.map(
+          rawTx => ({
+            providerId: rawTx.providerId,
+            rawData: rawTx.rawData,
             sourceAddress: address,
           })
         );
@@ -188,7 +188,7 @@ export class SolanaTransactionImporter extends BaseImporter<SolanaRawTransaction
         allSourcedTransactions.push(...enhancedSourcedTransactions);
 
         this.logger.info(
-          `Found ${sourcedTransactions.reduce((acc, tx) => acc + tx.rawData.normal.length, 0)} transactions for address ${address.substring(0, 20)}...`
+          `Found ${rawTransactions.reduce((acc, tx) => acc + tx.rawData.normal.length, 0)} transactions for address ${address.substring(0, 20)}...`
         );
       } catch (error) {
         this.handleImportError(error, `fetching transactions for ${address}`);
@@ -199,8 +199,10 @@ export class SolanaTransactionImporter extends BaseImporter<SolanaRawTransaction
     const uniqueTransactions = this.removeDuplicateTransactions(allSourcedTransactions);
 
     const totalTransactionCount = uniqueTransactions.reduce((acc, tx) => acc + tx.rawData.normal.length, 0);
-    this.logger.info(`Solana import completed: ${totalTransactionCount} unique sourced transactions`);
+    this.logger.info(`Solana import completed: ${totalTransactionCount} unique transactions`);
 
-    return uniqueTransactions;
+    return {
+      rawData: uniqueTransactions,
+    };
   }
 }

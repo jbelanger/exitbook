@@ -17,6 +17,11 @@ export interface ImportResult {
   providerId?: string | undefined;
 }
 
+export interface ImportRunResult<TRawData> {
+  metadata?: Record<string, unknown> | undefined;
+  rawData: ApiClientRawData<TRawData>[];
+}
+
 export interface ValidationResult {
   errors: string[];
   isValid: boolean;
@@ -35,8 +40,8 @@ export interface IImporter<TRawData> {
   canImport(params: ImportParams): Promise<boolean>;
 
   /**
-   * Import raw data from the source and return it with API client provenance.
+   * Import raw data from the source and return it with API client provenance and metadata.
    * Does NOT save to database - that's handled by the ingestion service.
    */
-  import(params: ImportParams): Promise<ApiClientRawData<TRawData>[]>;
+  import(params: ImportParams): Promise<ImportRunResult<TRawData>>;
 }

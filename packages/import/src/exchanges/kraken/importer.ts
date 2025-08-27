@@ -2,7 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 
 import { BaseImporter } from '../../shared/importers/base-importer.ts';
-import type { ImportParams } from '../../shared/importers/interfaces.ts';
+import type { ImportParams, ImportRunResult } from '../../shared/importers/interfaces.ts';
 import type { ApiClientRawData } from '../../shared/processors/interfaces.ts';
 import { CsvParser } from '../csv-parser.ts';
 import { CSV_FILE_TYPES } from './constants.ts';
@@ -82,7 +82,7 @@ export class KrakenCsvImporter extends BaseImporter<CsvKrakenLedgerRow> {
     return true;
   }
 
-  async import(params: ImportParams): Promise<ApiClientRawData<CsvKrakenLedgerRow>[]> {
+  async import(params: ImportParams): Promise<ImportRunResult<CsvKrakenLedgerRow>> {
     this.logger.info(`Starting Kraken CSV import from directories: ${params.csvDirectories}`);
 
     if (!params.csvDirectories?.length) {
@@ -145,12 +145,19 @@ export class KrakenCsvImporter extends BaseImporter<CsvKrakenLedgerRow> {
       );
 
       // Wrap raw CSV data with provider information
-      return allTransactions.map(rawData => ({
+      const rawData = allTransactions.map(rawData => ({
         providerId: 'kraken',
         rawData,
       }));
+
+      return {
+        rawData,
+      };
     } catch (error) {
       this.handleImportError(error, 'CSV file processing');
+      return {
+        rawData: [],
+      };
     }
   }
 }

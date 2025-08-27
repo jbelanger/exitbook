@@ -1,6 +1,6 @@
 import type { IDependencyContainer } from '../../shared/common/interfaces.ts';
 import { BaseImporter } from '../../shared/importers/base-importer.ts';
-import type { ImportParams } from '../../shared/importers/interfaces.ts';
+import type { ImportParams, ImportRunResult } from '../../shared/importers/interfaces.ts';
 import type { ApiClientRawData } from '../../shared/processors/interfaces.ts';
 import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
 // Ensure Avalanche API clients are registered
@@ -45,7 +45,7 @@ export class AvalancheTransactionImporter extends BaseImporter<AvalancheRawTrans
     address: string,
     since?: number
   ): Promise<ApiClientRawData<AvalancheRawTransactionData>[]> {
-    const sourcedTransactions: ApiClientRawData<AvalancheRawTransactionData>[] = [];
+    const rawTransactions: ApiClientRawData<AvalancheRawTransactionData>[] = [];
 
     try {
       // Fetch normal and internal transactions
@@ -66,7 +66,7 @@ export class AvalancheTransactionImporter extends BaseImporter<AvalancheRawTrans
         // Process normal transactions
         if (compositeData.normal && Array.isArray(compositeData.normal)) {
           for (const tx of compositeData.normal) {
-            sourcedTransactions.push({
+            rawTransactions.push({
               providerId: normalResult.providerName,
               rawData: tx,
               sourceAddress: address,
@@ -77,7 +77,7 @@ export class AvalancheTransactionImporter extends BaseImporter<AvalancheRawTrans
         // Process internal transactions
         if (compositeData.internal && Array.isArray(compositeData.internal)) {
           for (const tx of compositeData.internal) {
-            sourcedTransactions.push({
+            rawTransactions.push({
               providerId: 'snowtrace-internal',
               rawData: tx,
               sourceAddress: address,
@@ -99,7 +99,7 @@ export class AvalancheTransactionImporter extends BaseImporter<AvalancheRawTrans
         if (tokenResult.data && Array.isArray(tokenResult.data)) {
           const tokenTransactions = tokenResult.data as SnowtraceTokenTransfer[];
           for (const tx of tokenTransactions) {
-            sourcedTransactions.push({
+            rawTransactions.push({
               providerId: 'snowtrace-token',
               rawData: tx,
               sourceAddress: address,
@@ -110,10 +110,8 @@ export class AvalancheTransactionImporter extends BaseImporter<AvalancheRawTrans
         this.logger.debug(`No token transactions available for ${address.substring(0, 20)}...: ${error}`);
       }
 
-      this.logger.debug(
-        `Fetched ${sourcedTransactions.length} transactions for address: ${address.substring(0, 20)}...`
-      );
-      return sourcedTransactions;
+      this.logger.debug(`Fetched ${rawTransactions.length} transactions for address: ${address.substring(0, 20)}...`);
+      return rawTransactions;
     } catch (error) {
       this.logger.error(`Failed to fetch transactions for address ${address}: ${error}`);
       throw error;
@@ -145,7 +143,7 @@ export class AvalancheTransactionImporter extends BaseImporter<AvalancheRawTrans
   /**
    * Import raw transaction data from Avalanche blockchain APIs.
    */
-  async import(params: ImportParams): Promise<ApiClientRawData<AvalancheRawTransactionData>[]> {
+  async import(params: ImportParams): Promise<ImportRunResult<AvalancheRawTransactionData>> {
     if (!params.addresses?.length) {
       throw new Error('Addresses required for Avalanche import');
     }
@@ -181,6 +179,8 @@ export class AvalancheTransactionImporter extends BaseImporter<AvalancheRawTrans
     });
 
     this.logger.info(`Total unique transactions imported: ${sortedTransactions.length}`);
-    return sortedTransactions;
+    return {
+      rawData: sortedTransactions,
+    };
   }
 }

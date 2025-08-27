@@ -1,6 +1,6 @@
 import type { IDependencyContainer } from '../../shared/common/interfaces.ts';
 import { BaseImporter } from '../../shared/importers/base-importer.ts';
-import type { ImportParams } from '../../shared/importers/interfaces.ts';
+import type { ImportParams, ImportRunResult } from '../../shared/importers/interfaces.ts';
 import type { ApiClientRawData } from '../../shared/processors/interfaces.ts';
 import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
 // Ensure Ethereum API clients are registered
@@ -185,7 +185,7 @@ export class EthereumTransactionImporter extends BaseImporter<EthereumRawTransac
     return true;
   }
 
-  async import(params: ImportParams): Promise<ApiClientRawData<EthereumRawTransactionData>[]> {
+  async import(params: ImportParams): Promise<ImportRunResult<EthereumRawTransactionData>> {
     if (!(await this.canImportSpecific(params))) {
       throw new Error('Cannot import - validation failed');
     }
@@ -279,6 +279,8 @@ export class EthereumTransactionImporter extends BaseImporter<EthereumRawTransac
       `Ethereum import completed - Total addresses: ${addresses.length}, Raw transactions collected: ${allRawData.length}, Unique transactions: ${uniqueRawData.length}`
     );
 
-    return uniqueRawData;
+    return {
+      rawData: uniqueRawData,
+    };
   }
 }

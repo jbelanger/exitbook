@@ -2,7 +2,7 @@ import * as bitcoin from 'bitcoinjs-lib';
 
 import type { IDependencyContainer } from '../../shared/common/interfaces.ts';
 import { BaseImporter } from '../../shared/importers/base-importer.ts';
-import type { ImportParams } from '../../shared/importers/interfaces.ts';
+import type { ImportParams, ImportRunResult } from '../../shared/importers/interfaces.ts';
 import type { ApiClientRawData } from '../../shared/processors/interfaces.ts';
 // Ensure Bitcoin providers are registered
 import '../registry/register-providers.ts';
@@ -76,7 +76,7 @@ export class BitcoinTransactionImporter extends BaseImporter<BitcoinTransaction>
     derivedAddresses: string[],
     since?: number
   ): Promise<ApiClientRawData<BitcoinTransaction>[]> {
-    const uniqueSourcedTransactions = new Map<string, ApiClientRawData<BitcoinTransaction>>();
+    const uniqueTransactions = new Map<string, ApiClientRawData<BitcoinTransaction>>();
 
     for (const address of derivedAddresses) {
       // Check cache first to see if this address has any transactions
@@ -89,27 +89,27 @@ export class BitcoinTransactionImporter extends BaseImporter<BitcoinTransaction>
       }
 
       try {
-        const sourcedTransactions = await this.fetchRawTransactionsForAddress(address, since);
+        const rawTransactions = await this.fetchRawTransactionsForAddress(address, since);
 
-        // Add sourced transactions to the unique set with address information
-        for (const sourcedTx of sourcedTransactions) {
-          const txId = this.getTransactionId(sourcedTx.rawData);
+        // Add transactions to the unique set with address information
+        for (const rawTx of rawTransactions) {
+          const txId = this.getTransactionId(rawTx.rawData);
 
-          uniqueSourcedTransactions.set(txId, {
-            providerId: sourcedTx.providerId,
-            rawData: sourcedTx.rawData,
+          uniqueTransactions.set(txId, {
+            providerId: rawTx.providerId,
+            rawData: rawTx.rawData,
             sourceAddress: address,
           });
         }
 
-        this.logger.debug(`Found ${sourcedTransactions.length} transactions for address ${address}`);
+        this.logger.debug(`Found ${rawTransactions.length} transactions for address ${address}`);
       } catch (error) {
         this.logger.error(`Failed to fetch raw transactions for address ${address}: ${error}`);
       }
     }
 
-    this.logger.info(`Found ${uniqueSourcedTransactions.size} unique raw transactions across all derived addresses`);
-    return Array.from(uniqueSourcedTransactions.values());
+    this.logger.info(`Found ${uniqueTransactions.size} unique raw transactions across all derived addresses`);
+    return Array.from(uniqueTransactions.values());
   }
 
   /**
@@ -154,14 +154,14 @@ export class BitcoinTransactionImporter extends BaseImporter<BitcoinTransaction>
    * Remove duplicate transactions based on txid.
    */
   private removeDuplicateTransactions(
-    sourcedTransactions: ApiClientRawData<BitcoinTransaction>[]
+    rawTransactions: ApiClientRawData<BitcoinTransaction>[]
   ): ApiClientRawData<BitcoinTransaction>[] {
     const uniqueTransactions = new Map<string, ApiClientRawData<BitcoinTransaction>>();
 
-    for (const sourcedTx of sourcedTransactions) {
-      const txId = this.getTransactionId(sourcedTx.rawData);
+    for (const rawTx of rawTransactions) {
+      const txId = this.getTransactionId(rawTx.rawData);
       if (!uniqueTransactions.has(txId)) {
-        uniqueTransactions.set(txId, sourcedTx);
+        uniqueTransactions.set(txId, rawTx);
       }
     }
 
@@ -201,6 +201,27 @@ export class BitcoinTransactionImporter extends BaseImporter<BitcoinTransaction>
   }
 
   /**
+   * Get derived addresses metadata for session storage.
+   * This allows the processor to access the expensive address derivation results.
+   */
+  getDerivedAddressesMetadata(): Record<string, unknown> {
+    const metadata: Record<string, unknown> = {};
+
+    for (const wallet of this.walletAddresses) {
+      if (wallet.derivedAddresses) {
+        metadata[wallet.address] = {
+          addressType: wallet.addressType,
+          bipStandard: wallet.bipStandard,
+          derivationPath: wallet.derivationPath,
+          derivedAddresses: wallet.derivedAddresses,
+        };
+      }
+    }
+
+    return metadata;
+  }
+
+  /**
    * Get transaction ID from any Bitcoin transaction type
    */
   public getTransactionId(tx: BitcoinTransaction): string {
@@ -216,7 +237,7 @@ export class BitcoinTransactionImporter extends BaseImporter<BitcoinTransaction>
   /**
    * Import raw transaction data from Bitcoin blockchain APIs with provider provenance.
    */
-  async import(params: ImportParams): Promise<ApiClientRawData<BitcoinTransaction>[]> {
+  async import(params: ImportParams): Promise<ImportRunResult<BitcoinTransaction>> {
     if (!params.addresses?.length) {
       throw new Error('Addresses required for Bitcoin transaction import');
     }
@@ -262,16 +283,14 @@ export class BitcoinTransactionImporter extends BaseImporter<BitcoinTransaction>
       } else {
         // Regular address - fetch directly
         try {
-          const sourcedTransactions = await this.fetchRawTransactionsForAddress(userAddress, params.since);
+          const rawTransactions = await this.fetchRawTransactionsForAddress(userAddress, params.since);
 
           // Add the source address context to each transaction
-          const enhancedSourcedTransactions: ApiClientRawData<BitcoinTransaction>[] = sourcedTransactions.map(
-            sourcedTx => ({
-              providerId: sourcedTx.providerId,
-              rawData: sourcedTx.rawData,
-              sourceAddress: userAddress,
-            })
-          );
+          const enhancedSourcedTransactions: ApiClientRawData<BitcoinTransaction>[] = rawTransactions.map(rawTx => ({
+            providerId: rawTx.providerId,
+            rawData: rawTx.rawData,
+            sourceAddress: userAddress,
+          }));
 
           allSourcedTransactions.push(...enhancedSourcedTransactions);
         } catch (error) {
@@ -283,7 +302,20 @@ export class BitcoinTransactionImporter extends BaseImporter<BitcoinTransaction>
     // Remove duplicates based on txid
     const uniqueTransactions = this.removeDuplicateTransactions(allSourcedTransactions);
 
-    this.logger.info(`Bitcoin import completed: ${uniqueTransactions.length} unique sourced transactions`);
-    return uniqueTransactions;
+    // Get session metadata with derived addresses
+    const derivedAddressesMetadata = this.getDerivedAddressesMetadata();
+    const sessionMetadata: Record<string, unknown> = {};
+    if (Object.keys(derivedAddressesMetadata).length > 0) {
+      sessionMetadata.bitcoinDerivedAddresses = derivedAddressesMetadata;
+      this.logger.info(
+        `Captured derived addresses metadata for ${Object.keys(derivedAddressesMetadata).length} xpub wallets`
+      );
+    }
+
+    this.logger.info(`Bitcoin import completed: ${uniqueTransactions.length} unique transactions`);
+    return {
+      metadata: Object.keys(sessionMetadata).length > 0 ? sessionMetadata : undefined,
+      rawData: uniqueTransactions,
+    };
   }
 }

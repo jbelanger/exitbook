@@ -9,12 +9,15 @@ import './processors/index.ts';
 import type { BitcoinTransaction } from './types.ts';
 
 /**
- * Bitcoin transaction processor that converts sourced raw blockchain transaction data
+ * Bitcoin transaction processor that converts raw blockchain transaction data
  * into UniversalTransaction format. Uses ProcessorFactory to dispatch to provider-specific
  * processors based on data provenance.
  */
 export class BitcoinTransactionProcessor extends BaseProcessor<ApiClientRawData<BitcoinTransaction>> {
-  constructor(_dependencies: IDependencyContainer) {
+  constructor(
+    _dependencies: IDependencyContainer,
+    private context?: { derivedAddresses: string[] }
+  ) {
     super('bitcoin');
   }
 
@@ -26,7 +29,7 @@ export class BitcoinTransactionProcessor extends BaseProcessor<ApiClientRawData<
   }
 
   /**
-   * Process a single sourced raw transaction using provider-specific processors.
+   * Process a single raw transaction using provider-specific processors.
    */
   async processSingle(
     rawDataItem: StoredRawData<ApiClientRawData<BitcoinTransaction>>
@@ -49,9 +52,11 @@ export class BitcoinTransactionProcessor extends BaseProcessor<ApiClientRawData<
         return null;
       }
 
-      // Extract wallet addresses from source address context
-      const walletAddresses: string[] = [];
-      if (apiClientRawData.sourceAddress) {
+      // Use derived addresses from context if available, otherwise fall back to source address
+      const walletAddresses: string[] = this.context?.derivedAddresses || [];
+
+      // Fallback to source address if no context available
+      if (walletAddresses.length === 0 && apiClientRawData.sourceAddress) {
         walletAddresses.push(apiClientRawData.sourceAddress);
       }
 
