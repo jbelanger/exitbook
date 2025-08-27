@@ -5,28 +5,28 @@ import type { IProcessor } from './interfaces.ts';
 
 /**
  * Factory for creating processor instances.
- * Handles dependency injection and adapter-specific instantiation.
+ * Handles dependency injection and source-specific instantiation.
  */
 export class ProcessorFactory {
   private static readonly logger = getLogger('ProcessorFactory');
 
   /**
-   * Create a processor for the specified adapter.
+   * Create a processor for the specified source.
    */
   static async create<T>(config: ETLComponentConfig): Promise<IProcessor<T>> {
-    const { adapterId, adapterType } = config;
+    const { sourceId: sourceId, sourceType: sourceType } = config;
 
-    ProcessorFactory.logger.info(`Creating processor for ${adapterId} (type: ${adapterType})`);
+    ProcessorFactory.logger.info(`Creating processor for ${sourceId} (type: ${sourceType})`);
 
-    if (adapterType === 'exchange') {
+    if (sourceType === 'exchange') {
       return await ProcessorFactory.createExchangeProcessor<T>(config);
     }
 
-    if (adapterType === 'blockchain') {
+    if (sourceType === 'blockchain') {
       return await ProcessorFactory.createBlockchainProcessor<T>(config);
     }
 
-    throw new Error(`Unsupported adapter type: ${adapterType}`);
+    throw new Error(`Unsupported source type: ${sourceType}`);
   }
 
   /**
@@ -51,9 +51,9 @@ export class ProcessorFactory {
    * Create a blockchain processor.
    */
   private static async createBlockchainProcessor<T>(config: ETLComponentConfig): Promise<IProcessor<T>> {
-    const { adapterId } = config;
+    const { sourceId: sourceId } = config;
 
-    switch (adapterId.toLowerCase()) {
+    switch (sourceId.toLowerCase()) {
       case 'bitcoin':
         return await ProcessorFactory.createBitcoinProcessor<T>(config);
 
@@ -73,7 +73,7 @@ export class ProcessorFactory {
         return await ProcessorFactory.createPolkadotProcessor<T>(config);
 
       default:
-        throw new Error(`Unsupported blockchain processor: ${adapterId}`);
+        throw new Error(`Unsupported blockchain processor: ${sourceId}`);
     }
   }
 
@@ -99,9 +99,9 @@ export class ProcessorFactory {
    * Create an exchange processor.
    */
   private static async createExchangeProcessor<T>(config: ETLComponentConfig): Promise<IProcessor<T>> {
-    const { adapterId } = config;
+    const { sourceId: sourceId } = config;
 
-    switch (adapterId.toLowerCase()) {
+    switch (sourceId.toLowerCase()) {
       case 'kraken':
         return await ProcessorFactory.createKrakenProcessor<T>(config);
 
@@ -115,7 +115,7 @@ export class ProcessorFactory {
         return await ProcessorFactory.createLedgerLiveProcessor<T>(config);
 
       default:
-        throw new Error(`Unsupported exchange processor: ${adapterId}`);
+        throw new Error(`Unsupported exchange processor: ${sourceId}`);
     }
   }
 
@@ -174,14 +174,14 @@ export class ProcessorFactory {
   }
 
   /**
-   * Get all supported adapters for a given type.
+   * Get all supported sources for a given type.
    */
-  static getSupportedAdapters(adapterType: 'exchange' | 'blockchain'): string[] {
-    if (adapterType === 'exchange') {
+  static getSupportedSources(sourceType: 'exchange' | 'blockchain'): string[] {
+    if (sourceType === 'exchange') {
       return ['kraken', 'kucoin', 'coinbase', 'ledgerlive'];
     }
 
-    if (adapterType === 'blockchain') {
+    if (sourceType === 'blockchain') {
       return ['bitcoin', 'ethereum', 'injective', 'solana', 'avalanche', 'polkadot'];
     }
 
@@ -189,16 +189,16 @@ export class ProcessorFactory {
   }
 
   /**
-   * Check if a processor is available for the given adapter.
+   * Check if a processor is available for the given source.
    */
-  static isSupported(adapterId: string, adapterType: string): boolean {
+  static isSupported(sourceId: string, sourceType: string): boolean {
     try {
-      if (adapterType === 'exchange') {
-        return ['kraken', 'kucoin', 'coinbase', 'ledgerlive'].includes(adapterId.toLowerCase());
+      if (sourceType === 'exchange') {
+        return ['kraken', 'kucoin', 'coinbase', 'ledgerlive'].includes(sourceId.toLowerCase());
       }
 
-      if (adapterType === 'blockchain') {
-        return ['bitcoin', 'ethereum', 'injective', 'solana', 'avalanche'].includes(adapterId.toLowerCase());
+      if (sourceType === 'blockchain') {
+        return ['bitcoin', 'ethereum', 'injective', 'solana', 'avalanche'].includes(sourceId.toLowerCase());
       }
 
       return false;

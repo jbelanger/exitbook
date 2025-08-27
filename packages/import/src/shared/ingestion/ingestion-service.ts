@@ -1,7 +1,7 @@
 import type { Logger } from '@crypto/shared-logger';
 import { getLogger } from '@crypto/shared-logger';
 
-import type { IDependencyContainer, SessionInfo } from '../common/interfaces.ts';
+import type { IDependencyContainer } from '../common/interfaces.ts';
 import { ImporterFactory } from '../importers/importer-factory.ts';
 import type { ImportParams, ImportResult } from '../importers/interfaces.ts';
 import type { ProcessResult } from '../processors/interfaces.ts';
@@ -76,55 +76,26 @@ export class TransactionIngestionService {
   }
 
   /**
-   * Get session information for tracking operations.
-   */
-  async getSessionInfo(adapterId: string, importSessionId: string): Promise<SessionInfo | null> {
-    try {
-      const rawData = await this.dependencies.externalDataStore.load({
-        adapterId,
-        importSessionId,
-      });
-
-      if (rawData.length === 0) {
-        return null;
-      }
-
-      const firstItem = rawData[0];
-      return {
-        adapterId,
-        adapterType: firstItem.adapterType,
-        id: importSessionId,
-        metadata: firstItem.metadata,
-        providerId: firstItem.providerId,
-        startedAt: firstItem.createdAt * 1000, // Convert to milliseconds
-      };
-    } catch (error) {
-      this.logger.error(`Failed to get session info: ${error}`);
-      return null;
-    }
-  }
-
-  /**
    * Execute the full ETL pipeline: Import → Store Raw Data → Process → Load.
    */
   async importAndProcess(
-    adapterId: string,
-    adapterType: 'exchange' | 'blockchain',
+    sourceId: string,
+    sourceType: 'exchange' | 'blockchain',
     params: ImportParams
   ): Promise<{ imported: number; processed: number }> {
-    this.logger.info(`Starting full ETL pipeline for ${adapterId} (${adapterType})`);
+    this.logger.info(`Starting full ETL pipeline for ${sourceId} (${sourceType})`);
 
     try {
       // Step 1: Import raw data
-      const importResult = await this.importFromSource(adapterId, adapterType, params);
+      const importResult = await this.importFromSource(sourceId, sourceType, params);
 
       // Step 2: Process and load
-      const processResult = await this.processAndStore(adapterId, adapterType, {
+      const processResult = await this.processAndStore(sourceId, sourceType, {
         importSessionId: importResult.importSessionId,
       });
 
       this.logger.info(
-        `Completed full ETL pipeline for ${adapterId}: ${importResult.imported} imported, ${processResult.processed} processed`
+        `Completed full ETL pipeline for ${sourceId}: ${importResult.imported} imported, ${processResult.processed} processed`
       );
 
       return {
@@ -132,7 +103,7 @@ export class TransactionIngestionService {
         processed: processResult.processed,
       };
     } catch (error) {
-      this.logger.error(`ETL pipeline failed for ${adapterId}: ${error}`);
+      this.logger.error(`ETL pipeline failed for ${sourceId}: ${error}`);
       throw error;
     }
   }
@@ -141,36 +112,36 @@ export class TransactionIngestionService {
    * Import raw data from source and store it in external_transaction_data table.
    */
   async importFromSource(
-    adapterId: string,
-    adapterType: 'exchange' | 'blockchain',
+    sourceId: string,
+    sourceType: 'exchange' | 'blockchain',
     params: ImportParams
   ): Promise<ImportResult> {
-    this.logger.info(`Starting import for ${adapterId} (${adapterType})`);
+    this.logger.info(`Starting import for ${sourceId} (${sourceType})`);
 
     try {
       // Create importer
       const importer = await ImporterFactory.create({
-        adapterId,
-        adapterType,
         dependencies: this.dependencies,
+        sourceId: sourceId,
+        sourceType: sourceType,
       });
 
       // Validate source before import
       const isValidSource = await importer.canImport(params);
       if (!isValidSource) {
-        throw new Error(`Source validation failed for ${adapterId}`);
+        throw new Error(`Source validation failed for ${sourceId}`);
       }
 
       // Import raw data
       const rawData = await importer.import(params);
 
       // Generate session ID if not provided
-      const importSessionId = params.importSessionId || this.generateSessionId(adapterId);
+      const importSessionId = params.importSessionId || this.generateSessionId(sourceId);
 
       // Save raw data to storage
       const savedCount = await this.dependencies.externalDataStore.save(
-        adapterId,
-        adapterType,
+        sourceId,
+        sourceType,
         rawData.map((item, index) => ({
           data: item,
           id: this.extractTransactionId(item.rawData as Record<string, unknown>, index),
@@ -185,7 +156,7 @@ export class TransactionIngestionService {
         }
       );
 
-      this.logger.info(`Import completed for ${adapterId}: ${savedCount} items saved`);
+      this.logger.info(`Import completed for ${sourceId}: ${savedCount} items saved`);
 
       return {
         imported: savedCount,
@@ -193,7 +164,7 @@ export class TransactionIngestionService {
         providerId: params.providerId ?? undefined,
       };
     } catch (error) {
-      this.logger.error(`Import failed for ${adapterId}: ${error}`);
+      this.logger.error(`Import failed for ${sourceId}: ${error}`);
       throw error;
     }
   }
@@ -227,9 +198,9 @@ export class TransactionIngestionService {
 
       // Create processor
       const processor = await ProcessorFactory.create({
-        adapterId,
-        adapterType,
         dependencies: this.dependencies,
+        sourceId: adapterId,
+        sourceType: adapterType,
       });
 
       // Process raw data to UniversalTransaction

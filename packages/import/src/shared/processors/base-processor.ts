@@ -1,7 +1,7 @@
 import type { UniversalTransaction } from '@crypto/core';
 import { validateUniversalTransactions } from '@crypto/core';
-import { getLogger } from '@crypto/shared-logger';
 import type { Logger } from '@crypto/shared-logger';
+import { getLogger } from '@crypto/shared-logger';
 
 import type { IProcessor, StoredRawData } from './interfaces.ts';
 
@@ -12,18 +12,18 @@ import type { IProcessor, StoredRawData } from './interfaces.ts';
 export abstract class BaseProcessor<TRawData> implements IProcessor<TRawData> {
   protected logger: Logger;
 
-  constructor(protected adapterId: string) {
-    this.logger = getLogger(`${adapterId}Processor`);
+  constructor(protected sourceId: string) {
+    this.logger = getLogger(`${sourceId}Processor`);
   }
 
-  canProcess(adapterId: string, adapterType: string): boolean {
-    return adapterId === this.adapterId && this.canProcessAdapterType(adapterType);
+  canProcess(sourceId: string, sourceType: string): boolean {
+    return sourceId === this.sourceId && this.canProcessSpecific(sourceType);
   }
 
   /**
-   * Subclasses should specify which adapter types they can handle.
+   * Subclasses should specify which source types they can handle.
    */
-  protected abstract canProcessAdapterType(adapterType: string): boolean;
+  protected abstract canProcessSpecific(sourceType: string): boolean;
 
   /**
    * Helper method to handle processing errors consistently.
@@ -31,11 +31,11 @@ export abstract class BaseProcessor<TRawData> implements IProcessor<TRawData> {
   protected handleProcessingError(error: unknown, rawData: StoredRawData<TRawData>, context: string): never {
     const errorMessage = error instanceof Error ? error.message : String(error);
     this.logger.error(`Processing failed for ${rawData.sourceTransactionId} in ${context}: ${errorMessage}`);
-    throw new Error(`${this.adapterId} processing failed: ${errorMessage}`);
+    throw new Error(`${this.sourceId} processing failed: ${errorMessage}`);
   }
 
   async process(rawData: StoredRawData<TRawData>[]): Promise<UniversalTransaction[]> {
-    this.logger.info(`Processing ${rawData.length} raw data items for ${this.adapterId}`);
+    this.logger.info(`Processing ${rawData.length} raw data items for ${this.sourceId}`);
 
     const transactions: UniversalTransaction[] = [];
     const errors: string[] = [];
@@ -64,7 +64,7 @@ export abstract class BaseProcessor<TRawData> implements IProcessor<TRawData> {
     // Log validation errors but continue processing with valid transactions
     if (invalid.length > 0) {
       this.logger.error(
-        `${invalid.length} invalid transactions from ${this.adapterId}Processor. ` +
+        `${invalid.length} invalid transactions from ${this.sourceId}Processor. ` +
           `Invalid: ${invalid.length}, Valid: ${valid.length}, Total: ${transactions.length}. ` +
           `Errors: ${invalid
             .map(({ errors }) => errors.issues.map(issue => `${issue.path.join('.')}: ${issue.message}`).join('; '))
@@ -73,12 +73,12 @@ export abstract class BaseProcessor<TRawData> implements IProcessor<TRawData> {
     }
 
     this.logger.info(
-      `Processing completed for ${this.adapterId}: ${valid.length} valid, ${invalid.length} invalid, ${failed} failed`
+      `Processing completed for ${this.sourceId}: ${valid.length} valid, ${invalid.length} invalid, ${failed} failed`
     );
 
     if (errors.length > 0) {
       this.logger.warn(
-        `Processing errors for ${this.adapterId}: ${errors.slice(0, 5).join('; ')}${errors.length > 5 ? '...' : ''}`
+        `Processing errors for ${this.sourceId}: ${errors.slice(0, 5).join('; ')}${errors.length > 5 ? '...' : ''}`
       );
     }
 

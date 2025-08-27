@@ -6,8 +6,7 @@ import type { ApiClientRawData, StoredRawData } from '../../shared/processors/in
 import { ProcessorFactory } from '../../shared/processors/processor-registry.ts';
 import './processors/SnowtraceInternalProcessor.ts';
 // Import processors to trigger registration
-import './processors/SnowtraceProcessor.ts';
-import './processors/SnowtraceTokenProcessor.ts';
+import './processors/index.ts';
 import type { AvalancheRawTransactionData } from './transaction-importer.ts';
 
 /**
@@ -21,10 +20,10 @@ export class AvalancheTransactionProcessor extends BaseProcessor<ApiClientRawDat
   }
 
   /**
-   * Check if this processor can handle the specified adapter type.
+   * Check if this processor can handle the specified source type.
    */
-  protected canProcessAdapterType(adapterType: string): boolean {
-    return adapterType === 'blockchain';
+  protected canProcessSpecific(sourceType: string): boolean {
+    return sourceType === 'blockchain';
   }
 
   /**

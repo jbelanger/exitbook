@@ -5,28 +5,28 @@ import type { IImporter } from './interfaces.ts';
 
 /**
  * Factory for creating importer instances.
- * Handles dependency injection and adapter-specific instantiation.
+ * Handles dependency injection and source-specific instantiation.
  */
 export class ImporterFactory {
   private static readonly logger = getLogger('ImporterFactory');
 
   /**
-   * Create an importer for the specified adapter.
+   * Create an importer for the specified source.
    */
   static async create<T>(config: ETLComponentConfig): Promise<IImporter<T>> {
-    const { adapterId, adapterType } = config;
+    const { sourceId: sourceId, sourceType: sourceType } = config;
 
-    ImporterFactory.logger.info(`Creating importer for ${adapterId} (type: ${adapterType})`);
+    ImporterFactory.logger.info(`Creating importer for ${sourceId} (type: ${sourceType})`);
 
-    if (adapterType === 'exchange') {
+    if (sourceType === 'exchange') {
       return await ImporterFactory.createExchangeImporter<T>(config);
     }
 
-    if (adapterType === 'blockchain') {
+    if (sourceType === 'blockchain') {
       return await ImporterFactory.createBlockchainImporter<T>(config);
     }
 
-    throw new Error(`Unsupported adapter type: ${adapterType}`);
+    throw new Error(`Unsupported source type: ${sourceType}`);
   }
 
   /**
@@ -62,13 +62,13 @@ export class ImporterFactory {
    * Create a blockchain importer.
    */
   private static async createBlockchainImporter<T>(config: ETLComponentConfig): Promise<IImporter<T>> {
-    const { adapterId, dependencies } = config;
+    const { dependencies, sourceId: sourceId } = config;
 
     if (!dependencies.providerManager) {
-      throw new Error(`Provider manager required for blockchain importer: ${adapterId}`);
+      throw new Error(`Provider manager required for blockchain importer: ${sourceId}`);
     }
 
-    switch (adapterId.toLowerCase()) {
+    switch (sourceId.toLowerCase()) {
       case 'bitcoin':
         return await ImporterFactory.createBitcoinImporter<T>(config);
 
@@ -91,7 +91,7 @@ export class ImporterFactory {
         return await ImporterFactory.createBittensorImporter<T>(config);
 
       default:
-        throw new Error(`Unsupported blockchain importer: ${adapterId}`);
+        throw new Error(`Unsupported blockchain importer: ${sourceId}`);
     }
   }
 
@@ -117,9 +117,9 @@ export class ImporterFactory {
    * Create an exchange importer.
    */
   private static async createExchangeImporter<T>(config: ETLComponentConfig): Promise<IImporter<T>> {
-    const { adapterId } = config;
+    const { sourceId: sourceId } = config;
 
-    switch (adapterId.toLowerCase()) {
+    switch (sourceId.toLowerCase()) {
       case 'kraken':
         // Dynamic import to avoid circular dependencies
         return await ImporterFactory.createKrakenImporter<T>(config);
@@ -134,7 +134,7 @@ export class ImporterFactory {
         return await ImporterFactory.createLedgerLiveImporter<T>(config);
 
       default:
-        throw new Error(`Unsupported exchange importer: ${adapterId}`);
+        throw new Error(`Unsupported exchange importer: ${sourceId}`);
     }
   }
 
@@ -193,21 +193,21 @@ export class ImporterFactory {
   }
 
   /**
-   * Check if an importer is available for the given adapter.
+   * Check if an importer is available for the given source.
    */
-  static isSupported(adapterId: string, adapterType: string): boolean {
+  static isSupported(sourceId: string, sourceType: string): boolean {
     try {
       // Create a mock config to test support
-      // Check supported adapters without creating mock config
+      // Check supported sources without creating mock config
 
       // Try to determine if we would be able to create this importer
-      if (adapterType === 'exchange') {
-        return ['kraken', 'kucoin', 'coinbase', 'ledgerlive'].includes(adapterId.toLowerCase());
+      if (sourceType === 'exchange') {
+        return ['kraken', 'kucoin', 'coinbase', 'ledgerlive'].includes(sourceId.toLowerCase());
       }
 
-      if (adapterType === 'blockchain') {
+      if (sourceType === 'blockchain') {
         return ['bitcoin', 'ethereum', 'injective', 'solana', 'avalanche', 'polkadot', 'bittensor'].includes(
-          adapterId.toLowerCase()
+          sourceId.toLowerCase()
         );
       }
 

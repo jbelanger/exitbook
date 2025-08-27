@@ -204,16 +204,16 @@ async function main() {
           process.exit(1);
         }
 
-        const adapterType = options.exchange ? 'exchange' : 'blockchain';
-        logger.info(`Starting data import from ${sourceName} (${adapterType})`);
+        const sourceType = options.exchange ? 'exchange' : 'blockchain';
+        logger.info(`Starting data import from ${sourceName} (${sourceType})`);
 
-        // Validate parameters based on adapter type
-        if (adapterType === 'exchange' && !options.csvDir) {
+        // Validate parameters based on source type
+        if (sourceType === 'exchange' && !options.csvDir) {
           logger.error('--csv-dir is required for exchange sources');
           process.exit(1);
         }
 
-        if (adapterType === 'blockchain' && !options.addresses) {
+        if (sourceType === 'blockchain' && !options.addresses) {
           logger.error('--addresses is required for blockchain sources');
           process.exit(1);
         }
@@ -221,7 +221,7 @@ async function main() {
         // Initialize database
         const database = await initializeDatabase(options.clearDb);
 
-        // Load explorer config for blockchain adapters
+        // Load explorer config for blockchain sources
         const explorerConfig = loadExplorerConfig();
 
         // Create ingestion service with dependencies
@@ -234,7 +234,7 @@ async function main() {
         let providerManager:
           | import('@crypto/import/src/blockchains/shared/blockchain-provider-manager.ts').BlockchainProviderManager
           | null = null;
-        if (adapterType === 'blockchain') {
+        if (sourceType === 'blockchain') {
           const { BlockchainProviderManager } = await import(
             '@crypto/import/src/blockchains/shared/blockchain-provider-manager.ts'
           );
@@ -272,8 +272,8 @@ async function main() {
             until?: number | undefined;
           } = { since, until };
 
-          // Set parameters based on adapter type
-          if (adapterType === 'exchange') {
+          // Set parameters based on source type
+          if (sourceType === 'exchange') {
             importParams.csvDirectories = [options.csvDir];
           } else {
             importParams.addresses = options.addresses;
@@ -281,7 +281,7 @@ async function main() {
           }
 
           // Import raw data
-          const importResult = await ingestionService.importFromSource(sourceName, adapterType, importParams);
+          const importResult = await ingestionService.importFromSource(sourceName, sourceType, importParams);
 
           logger.info(`Import completed: ${importResult.imported} items imported`);
           logger.info(`Session ID: ${importResult.importSessionId}`);
@@ -290,7 +290,7 @@ async function main() {
           if (options.process) {
             logger.info('Processing imported data to universal format');
 
-            const processResult = await ingestionService.processAndStore(sourceName, adapterType, {
+            const processResult = await ingestionService.processAndStore(sourceName, sourceType, {
               importSessionId: importResult.importSessionId,
             });
 
@@ -347,13 +347,13 @@ async function main() {
           process.exit(1);
         }
 
-        const adapterType = options.exchange ? 'exchange' : 'blockchain';
-        logger.info(`Starting data processing from ${sourceName} (${adapterType}) to universal format`);
+        const sourceType = options.exchange ? 'exchange' : 'blockchain';
+        logger.info(`Starting data processing from ${sourceName} (${sourceType}) to universal format`);
 
         // Initialize database
         const database = await initializeDatabase(options.clearDb);
 
-        // Load explorer config for blockchain adapters
+        // Load explorer config for blockchain sources
         const explorerConfig = loadExplorerConfig();
 
         // Create ingestion service with dependencies
@@ -366,7 +366,7 @@ async function main() {
         let providerManager:
           | import('@crypto/import/src/blockchains/shared/blockchain-provider-manager.ts').BlockchainProviderManager
           | null = null;
-        if (adapterType === 'blockchain') {
+        if (sourceType === 'blockchain') {
           const { BlockchainProviderManager } = await import(
             '@crypto/import/src/blockchains/shared/blockchain-provider-manager.ts'
           );
@@ -396,7 +396,7 @@ async function main() {
             filters.createdAfter = Math.floor(sinceTimestamp / 1000); // Convert to seconds for database
           }
 
-          const result = await ingestionService.processAndStore(sourceName, adapterType, filters);
+          const result = await ingestionService.processAndStore(sourceName, sourceType, filters);
 
           logger.info(`Processing completed: ${result.processed} processed, ${result.failed} failed`);
 
@@ -426,42 +426,46 @@ async function main() {
   // List exchanges command
   program
     .command('list-exchanges')
-    .description('List all available exchange adapters')
+    .description('List all available exchanges')
     .action(async () => {
       try {
-        logger.info('Available Exchange Adapters:');
+        logger.info('Available Exchanges:');
         logger.info('==========================');
         logger.info('');
 
-        // Extract exchanges from the adapter factory by testing what's supported
+        // Get supported exchanges from ProcessorFactory
+        const { ProcessorFactory } = await import('@crypto/import/src/shared/processors/processor-factory.ts');
+        const supportedExchanges = ProcessorFactory.getSupportedSources('exchange');
+
+        // Map exchange names to their supported subtypes based on adapter capabilities
+        const exchangeSubtypes: Record<string, string[]> = {
+          coinbase: ['ccxt', 'native'],
+          kraken: ['csv'],
+          kucoin: ['csv'],
+          ledgerlive: ['csv'],
+        };
+
         const { UniversalAdapterFactory } = await import('@crypto/import');
-
-        // Test each potential exchange to see if it's supported
-        const testExchanges = [
-          { name: 'coinbase', subtypes: ['ccxt', 'native'] },
-          { name: 'kraken', subtypes: ['csv'] },
-          { name: 'kucoin', subtypes: ['csv'] },
-          { name: 'ledgerlive', subtypes: ['csv'] },
-        ];
-
         const availableExchanges: Array<{ name: string; subtypes: string[] }> = [];
 
-        for (const testExchange of testExchanges) {
-          for (const subtype of testExchange.subtypes as ('ccxt' | 'csv' | 'native')[]) {
+        for (const exchangeName of supportedExchanges) {
+          const subtypes = exchangeSubtypes[exchangeName] || ['csv']; // Default to CSV if not specified
+
+          for (const subtype of subtypes as ('ccxt' | 'csv' | 'native')[]) {
             try {
-              const config = UniversalAdapterFactory.createExchangeConfig(testExchange.name, subtype, {
+              const config = UniversalAdapterFactory.createExchangeConfig(exchangeName, subtype, {
                 credentials: subtype === 'ccxt' ? { apiKey: 'test', secret: 'test' } : undefined,
                 csvDirectories: ['/tmp'], // dummy for validation
               });
               // This will throw if not supported
               await UniversalAdapterFactory.create(config);
 
-              const existing = availableExchanges.find(e => e.name === testExchange.name);
+              const existing = availableExchanges.find(e => e.name === exchangeName);
               if (existing) {
                 existing.subtypes.push(subtype);
               } else {
                 availableExchanges.push({
-                  name: testExchange.name,
+                  name: exchangeName,
                   subtypes: [subtype],
                 });
               }
@@ -499,16 +503,20 @@ async function main() {
   // List blockchains command
   program
     .command('list-blockchains')
-    .description('List all available blockchain adapters')
+    .description('List all available blockchains')
     .action(async () => {
       try {
-        logger.info('Available Blockchain Adapters:');
+        logger.info('Available Blockchains:');
         logger.info('=============================');
         logger.info('');
         logger.info('For detailed provider information, run: pnpm run blockchain-providers:list');
         logger.info('');
 
-        // Dynamically import provider registry to get available blockchains
+        // Get supported blockchains from ProcessorFactory
+        const { ProcessorFactory } = await import('@crypto/import/src/shared/processors/processor-factory.ts');
+        const supportedBlockchains = ProcessorFactory.getSupportedSources('blockchain');
+
+        // Also get provider information for completeness
         const { ProviderRegistry } = await import(
           '@crypto/import/src/blockchains/shared/registry/provider-registry.ts'
         );
@@ -518,29 +526,29 @@ async function main() {
 
         // Get all providers and group by blockchain
         const allProviders = ProviderRegistry.getAllProviders();
-        const blockchainGroups = allProviders.reduce(
+        const providersByBlockchain = allProviders.reduce(
           (acc, provider) => {
             if (!acc[provider.blockchain]) {
-              acc[provider.blockchain] = {
-                name: provider.blockchain,
-                providers: [],
-              };
+              acc[provider.blockchain] = [];
             }
-            acc[provider.blockchain].providers.push(provider.name);
+            acc[provider.blockchain].push(provider.name);
             return acc;
           },
-          {} as Record<string, { name: string; providers: string[] }>
+          {} as Record<string, string[]>
         );
 
-        const blockchains = Object.values(blockchainGroups);
-
-        for (const blockchain of blockchains) {
-          logger.info(`⛓️  ${blockchain.name.toUpperCase()}`);
-          logger.info(`   Providers: ${blockchain.providers.join(', ')}`);
+        for (const blockchainName of supportedBlockchains) {
+          logger.info(`⛓️  ${blockchainName.toUpperCase()}`);
+          const providers = providersByBlockchain[blockchainName] || [];
+          if (providers.length > 0) {
+            logger.info(`   Providers: ${providers.join(', ')}`);
+          } else {
+            logger.info('   Providers: (none registered)');
+          }
           logger.info('');
         }
 
-        logger.info(`Total blockchains: ${blockchains.length}`);
+        logger.info(`Total blockchains: ${supportedBlockchains.length}`);
         logger.info('');
         logger.info('Usage examples:');
         logger.info('  crypto-import import --blockchain bitcoin --addresses 1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa');
