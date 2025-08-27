@@ -239,6 +239,8 @@ export function isValidTimestamp(value: unknown): value is number {
 }
 
 /**
- * Simple Result type for functional error handling
+ * Re-export neverthrow's Result type for functional error handling
+ * TODO: Remove re-export once all files import directly from neverthrow
  */
-export type Result<T, E = string> = { success: true; value: T } | { error: E; success: false };
+export type { Result } from 'neverthrow';
+export { ok, err } from 'neverthrow';

@@ -58,7 +58,7 @@ export class SolanaTransactionProcessor extends BaseProcessor<ApiClientRawData<S
       // Transform using the provider-specific processor
       const transformResult = processor.transform(rawData, walletAddresses);
 
-      if (!transformResult.success) {
+      if (transformResult.isErr()) {
         this.logger.error(`Transform failed for ${providerId}: ${transformResult.error}`);
         return null;
       }

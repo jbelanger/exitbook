@@ -1,5 +1,6 @@
 import type { UniversalTransaction } from '@crypto/core';
-import { type Result, createMoney } from '@crypto/shared-utils';
+import { createMoney } from '@crypto/shared-utils';
+import { type Result, err, ok } from 'neverthrow';
 
 import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
@@ -8,7 +9,7 @@ import type { BlockstreamTransaction } from '../types.ts';
 
 @RegisterProcessor('blockstream.info')
 export class BlockstreamProcessor implements IProviderProcessor<BlockstreamTransaction> {
-  transform(rawData: BlockstreamTransaction, walletAddresses: string[]): Result<UniversalTransaction> {
+  transform(rawData: BlockstreamTransaction, walletAddresses: string[]): Result<UniversalTransaction, string> {
     const timestamp =
       rawData.status.confirmed && rawData.status.block_time ? rawData.status.block_time * 1000 : Date.now();
 
@@ -48,11 +49,9 @@ export class BlockstreamProcessor implements IProviderProcessor<BlockstreamTrans
       type = 'transfer';
     } else {
       // Neither incoming nor outgoing - cannot determine transaction type
-      return {
-        error:
-          'Unable to determine transaction type: transaction has no relevant wallet addresses in inputs or outputs',
-        success: false,
-      };
+      return err(
+        'Unable to determine transaction type: transaction has no relevant wallet addresses in inputs or outputs'
+      );
     }
 
     const totalValue = Math.abs(totalValueChange);
@@ -87,30 +86,27 @@ export class BlockstreamProcessor implements IProviderProcessor<BlockstreamTrans
       toAddress = rawData.vout[0].scriptpubkey_address;
     }
 
-    return {
-      success: true,
-      value: {
-        amount: createMoney(totalValue / 100000000, 'BTC'),
-        datetime: new Date(timestamp).toISOString(),
-        fee: createMoney(fee / 100000000, 'BTC'),
-        from: fromAddress,
-        id: rawData.txid,
-        metadata: {
-          blockchain: 'bitcoin',
-          blockHash: rawData.status.block_hash || undefined,
-          blockHeight: rawData.status.block_height || undefined,
-          confirmations: rawData.status.confirmed ? 1 : 0,
-          providerId: 'blockstream.info',
-          rawData,
-        },
-        source: 'bitcoin',
-        status: rawData.status.confirmed ? 'ok' : 'pending',
-        symbol: 'BTC',
-        timestamp,
-        to: toAddress,
-        type,
+    return ok({
+      amount: createMoney(totalValue / 100000000, 'BTC'),
+      datetime: new Date(timestamp).toISOString(),
+      fee: createMoney(fee / 100000000, 'BTC'),
+      from: fromAddress,
+      id: rawData.txid,
+      metadata: {
+        blockchain: 'bitcoin',
+        blockHash: rawData.status.block_hash || undefined,
+        blockHeight: rawData.status.block_height || undefined,
+        confirmations: rawData.status.confirmed ? 1 : 0,
+        providerId: 'blockstream.info',
+        rawData,
       },
-    };
+      source: 'bitcoin',
+      status: rawData.status.confirmed ? 'ok' : 'pending',
+      symbol: 'BTC',
+      timestamp,
+      to: toAddress,
+      type,
+    });
   }
 
   validate(rawData: BlockstreamTransaction): ValidationResult {
