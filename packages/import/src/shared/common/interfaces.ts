@@ -23,9 +23,9 @@ export interface IDependencyContainer {
  * Factory configuration for creating ETL components.
  */
 export interface ETLComponentConfig {
-  adapterId: string;
-  adapterType: 'exchange' | 'blockchain';
   dependencies: IDependencyContainer;
+  sourceId: string;
+  sourceType: 'exchange' | 'blockchain';
 }
 
 /**

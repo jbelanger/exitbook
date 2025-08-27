@@ -20,13 +20,3 @@ export function RegisterApiClient(
     return constructor;
   };
 }
-
-/**
- * @deprecated Use RegisterApiClient instead. This alias is provided for backward compatibility.
- * Decorator to register a provider class with the registry
- */
-export function RegisterProvider(
-  metadata: ProviderMetadata
-): <T extends new (...args: unknown[]) => IBlockchainProvider>(constructor: T) => T {
-  return RegisterApiClient(metadata);
-}

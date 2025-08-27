@@ -95,8 +95,8 @@ export class LedgerLiveProcessor extends BaseProcessor<CsvLedgerLiveOperationRow
     }
   }
 
-  protected canProcessAdapterType(adapterType: string): boolean {
-    return adapterType === 'exchange';
+  protected canProcessSpecific(sourceType: string): boolean {
+    return sourceType === 'exchange';
   }
 
   async process(rawDataItems: StoredRawData<CsvLedgerLiveOperationRow>[]): Promise<UniversalTransaction[]> {

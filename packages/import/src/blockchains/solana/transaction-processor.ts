@@ -19,10 +19,10 @@ export class SolanaTransactionProcessor extends BaseProcessor<ApiClientRawData<S
   }
 
   /**
-   * Check if this processor can handle the specified adapter type.
+   * Check if this processor can handle the specified source type.
    */
-  protected canProcessAdapterType(adapterType: string): boolean {
-    return adapterType === 'blockchain';
+  protected canProcessSpecific(sourceType: string): boolean {
+    return sourceType === 'blockchain';
   }
 
   /**

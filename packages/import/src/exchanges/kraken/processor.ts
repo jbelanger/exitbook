@@ -438,8 +438,8 @@ export class KrakenProcessor extends BaseProcessor<CsvKrakenLedgerRow> {
     return { processedRefIds, transactions };
   }
 
-  protected canProcessAdapterType(adapterType: string): boolean {
-    return adapterType === 'exchange';
+  protected canProcessSpecific(sourceType: string): boolean {
+    return sourceType === 'exchange';
   }
 
   async process(rawDataItems: StoredRawData<CsvKrakenLedgerRow>[]): Promise<UniversalTransaction[]> {

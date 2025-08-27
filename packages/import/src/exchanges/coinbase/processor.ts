@@ -23,8 +23,8 @@ export class CoinbaseProcessor extends BaseProcessor<UniversalTransaction> {
     super('coinbase');
   }
 
-  protected canProcessAdapterType(adapterType: string): boolean {
-    return adapterType === 'exchange';
+  protected canProcessSpecific(sourceType: string): boolean {
+    return sourceType === 'exchange';
   }
 
   async process(rawDataItems: StoredRawData<UniversalTransaction>[]): Promise<UniversalTransaction[]> {
