@@ -7,35 +7,6 @@ import { Command } from 'commander';
 import path from 'path';
 import 'reflect-metadata';
 
-// TODO: This source type determination needs improvement in the future.
-// Consider implementing a proper source registry system that both blockchain
-// and exchange adapters can register with, eliminating the need for try-catch logic.
-async function determineSourceType(sourceName: string): Promise<'blockchain' | 'exchange' | null> {
-  const { UniversalAdapterFactory } = await import('@crypto/import');
-  const { loadExplorerConfig } = await import('@crypto/shared-utils');
-
-  // Try blockchain first - attempt to create a real adapter
-  try {
-    const config = UniversalAdapterFactory.createBlockchainConfig(sourceName);
-    const explorerConfig = loadExplorerConfig();
-    // This will throw if the blockchain is not supported
-    await UniversalAdapterFactory.create(config, explorerConfig);
-    return 'blockchain';
-  } catch {
-    // Try exchange - attempt to create a real adapter
-    try {
-      const config = UniversalAdapterFactory.createExchangeConfig(sourceName, 'csv', {
-        csvDirectories: ['/tmp'], // dummy directory for validation
-      });
-      // This will throw if the exchange is not supported
-      await UniversalAdapterFactory.create(config);
-      return 'exchange';
-    } catch {
-      return null; // Unknown source
-    }
-  }
-}
-
 const logger = getLogger('CLI');
 const program = new Command();
 
@@ -49,7 +20,8 @@ async function main() {
   program
     .command('verify')
     .description('Verify calculated balances from imported transaction data')
-    .option('--source <name>', 'Source to verify (exchange or blockchain name)')
+    .option('--exchange <name>', 'Exchange name to verify (e.g., kraken, coinbase)')
+    .option('--blockchain <name>', 'Blockchain name to verify (e.g., bitcoin, ethereum)')
     .option('--report', 'Generate detailed verification report')
     .action(async options => {
       try {
@@ -62,12 +34,20 @@ async function main() {
         const balanceService = new BalanceService(balanceRepository);
         const verifier = new BalanceVerifier(balanceService);
 
-        if (!options.source) {
-          logger.error('--source is required. Examples: kraken, bitcoin, ethereum');
+        const sourceName = options.exchange || options.blockchain;
+        if (!sourceName) {
+          logger.error(
+            'Either --exchange or --blockchain is required. Examples: --exchange kraken, --blockchain bitcoin'
+          );
           process.exit(1);
         }
 
-        const results = await verifier.verifyExchangeById(options.source);
+        if (options.exchange && options.blockchain) {
+          logger.error('Cannot specify both --exchange and --blockchain. Choose one.');
+          process.exit(1);
+        }
+
+        const results = await verifier.verifyExchangeById(sourceName);
 
         displayVerificationResults(results);
 
@@ -198,7 +178,8 @@ async function main() {
   program
     .command('import')
     .description('Import raw data from external sources (blockchain or exchange)')
-    .option('--source <name>', 'Source name (e.g., kraken, bitcoin, polkadot, bittensor)')
+    .option('--exchange <name>', 'Exchange name (e.g., kraken, coinbase, kucoin)')
+    .option('--blockchain <name>', 'Blockchain name (e.g., bitcoin, ethereum, polkadot, bittensor)')
     .option('--csv-dir <path>', 'CSV directory for exchange sources')
     .option('--addresses <addresses...>', 'Wallet addresses for blockchain sources (space-separated)')
     .option('--provider <name>', 'Blockchain provider for blockchain sources')
@@ -209,18 +190,31 @@ async function main() {
     .option('--clear-db', 'Clear and reinitialize database before import')
     .action(async options => {
       try {
-        // Validate required source parameter
-        if (!options.source) {
-          logger.error('--source is required. Examples: bitcoin, ethereum, polkadot, bittensor, kraken');
+        // Validate required parameters
+        const sourceName = options.exchange || options.blockchain;
+        if (!sourceName) {
+          logger.error(
+            'Either --exchange or --blockchain is required. Examples: --exchange kraken, --blockchain bitcoin'
+          );
           process.exit(1);
         }
 
-        logger.info(`Starting data import from ${options.source}`);
+        if (options.exchange && options.blockchain) {
+          logger.error('Cannot specify both --exchange and --blockchain. Choose one.');
+          process.exit(1);
+        }
 
-        // Determine adapter type based on source name
-        const adapterType = await determineSourceType(options.source);
-        if (!adapterType) {
-          logger.error(`Unknown source: ${options.source}. Source must be a valid blockchain or exchange adapter.`);
+        const adapterType = options.exchange ? 'exchange' : 'blockchain';
+        logger.info(`Starting data import from ${sourceName} (${adapterType})`);
+
+        // Validate parameters based on adapter type
+        if (adapterType === 'exchange' && !options.csvDir) {
+          logger.error('--csv-dir is required for exchange sources');
+          process.exit(1);
+        }
+
+        if (adapterType === 'blockchain' && !options.addresses) {
+          logger.error('--addresses is required for blockchain sources');
           process.exit(1);
         }
 
@@ -278,24 +272,16 @@ async function main() {
             until?: number | undefined;
           } = { since, until };
 
-          // Validate parameters based on adapter type
+          // Set parameters based on adapter type
           if (adapterType === 'exchange') {
-            if (!options.csvDir) {
-              logger.error('--csv-dir is required for exchange sources');
-              process.exit(1);
-            }
             importParams.csvDirectories = [options.csvDir];
-          } else if (adapterType === 'blockchain') {
-            if (!options.addresses) {
-              logger.error('--addresses is required for blockchain sources');
-              process.exit(1);
-            }
+          } else {
             importParams.addresses = options.addresses;
             importParams.providerId = options.provider;
           }
 
           // Import raw data
-          const importResult = await ingestionService.importFromSource(options.source, adapterType, importParams);
+          const importResult = await ingestionService.importFromSource(sourceName, adapterType, importParams);
 
           logger.info(`Import completed: ${importResult.imported} items imported`);
           logger.info(`Session ID: ${importResult.importSessionId}`);
@@ -304,7 +290,7 @@ async function main() {
           if (options.process) {
             logger.info('Processing imported data to universal format');
 
-            const processResult = await ingestionService.processAndStore(options.source, adapterType, {
+            const processResult = await ingestionService.processAndStore(sourceName, adapterType, {
               importSessionId: importResult.importSessionId,
             });
 
@@ -338,7 +324,8 @@ async function main() {
   program
     .command('process')
     .description('Transform raw imported data to universal transaction format')
-    .option('--source <name>', 'Source name (e.g., kraken, bitcoin, polkadot, bittensor)')
+    .option('--exchange <name>', 'Exchange name (e.g., kraken, coinbase, kucoin)')
+    .option('--blockchain <name>', 'Blockchain name (e.g., bitcoin, ethereum, polkadot, bittensor)')
     .option('--session <id>', 'Import session ID to process')
     .option('--since <date>', 'Process data since date (YYYY-MM-DD or timestamp)')
     .option('--all', 'Process all pending raw data for this source')
@@ -346,20 +333,22 @@ async function main() {
     .option('--clear-db', 'Clear and reinitialize database before processing')
     .action(async options => {
       try {
-        // Validate required source parameter
-        if (!options.source) {
-          logger.error('--source is required. Examples: bitcoin, ethereum, polkadot, bittensor, kraken');
+        // Validate required parameters
+        const sourceName = options.exchange || options.blockchain;
+        if (!sourceName) {
+          logger.error(
+            'Either --exchange or --blockchain is required. Examples: --exchange kraken, --blockchain bitcoin'
+          );
           process.exit(1);
         }
 
-        logger.info(`Starting data processing from ${options.source} to universal format`);
-
-        // Determine adapter type based on source name
-        const adapterType = await determineSourceType(options.source);
-        if (!adapterType) {
-          logger.error(`Unknown source: ${options.source}. Source must be a valid blockchain or exchange adapter.`);
+        if (options.exchange && options.blockchain) {
+          logger.error('Cannot specify both --exchange and --blockchain. Choose one.');
           process.exit(1);
         }
+
+        const adapterType = options.exchange ? 'exchange' : 'blockchain';
+        logger.info(`Starting data processing from ${sourceName} (${adapterType}) to universal format`);
 
         // Initialize database
         const database = await initializeDatabase(options.clearDb);
@@ -407,7 +396,7 @@ async function main() {
             filters.createdAfter = Math.floor(sinceTimestamp / 1000); // Convert to seconds for database
           }
 
-          const result = await ingestionService.processAndStore(options.source, adapterType, filters);
+          const result = await ingestionService.processAndStore(sourceName, adapterType, filters);
 
           logger.info(`Processing completed: ${result.processed} processed, ${result.failed} failed`);
 
@@ -430,6 +419,136 @@ async function main() {
         process.exit(0);
       } catch (error) {
         logger.error(`Processing failed: ${error}`);
+        process.exit(1);
+      }
+    });
+
+  // List exchanges command
+  program
+    .command('list-exchanges')
+    .description('List all available exchange adapters')
+    .action(async () => {
+      try {
+        logger.info('Available Exchange Adapters:');
+        logger.info('==========================');
+        logger.info('');
+
+        // Extract exchanges from the adapter factory by testing what's supported
+        const { UniversalAdapterFactory } = await import('@crypto/import');
+
+        // Test each potential exchange to see if it's supported
+        const testExchanges = [
+          { name: 'coinbase', subtypes: ['ccxt', 'native'] },
+          { name: 'kraken', subtypes: ['csv'] },
+          { name: 'kucoin', subtypes: ['csv'] },
+          { name: 'ledgerlive', subtypes: ['csv'] },
+        ];
+
+        const availableExchanges: Array<{ name: string; subtypes: string[] }> = [];
+
+        for (const testExchange of testExchanges) {
+          for (const subtype of testExchange.subtypes as ('ccxt' | 'csv' | 'native')[]) {
+            try {
+              const config = UniversalAdapterFactory.createExchangeConfig(testExchange.name, subtype, {
+                credentials: subtype === 'ccxt' ? { apiKey: 'test', secret: 'test' } : undefined,
+                csvDirectories: ['/tmp'], // dummy for validation
+              });
+              // This will throw if not supported
+              await UniversalAdapterFactory.create(config);
+
+              const existing = availableExchanges.find(e => e.name === testExchange.name);
+              if (existing) {
+                existing.subtypes.push(subtype);
+              } else {
+                availableExchanges.push({
+                  name: testExchange.name,
+                  subtypes: [subtype],
+                });
+              }
+            } catch {
+              // Exchange/subtype not supported, skip silently
+            }
+          }
+        }
+
+        for (const exchange of availableExchanges) {
+          logger.info(`📈 ${exchange.name.toUpperCase()}`);
+
+          const methods: string[] = [];
+          if (exchange.subtypes.includes('ccxt')) methods.push('CCXT API');
+          if (exchange.subtypes.includes('csv')) methods.push('CSV files');
+          if (exchange.subtypes.includes('native')) methods.push('Native API');
+
+          logger.info(`   Methods: ${methods.join(', ')}`);
+          logger.info('');
+        }
+
+        logger.info(`Total exchanges: ${availableExchanges.length}`);
+        logger.info('');
+        logger.info('Usage examples:');
+        logger.info('  crypto-import import --exchange kraken --csv-dir ./data/kraken');
+        logger.info('  crypto-import import --exchange coinbase --csv-dir ./data/coinbase');
+
+        process.exit(0);
+      } catch (error) {
+        logger.error(`Failed to list exchanges: ${error}`);
+        process.exit(1);
+      }
+    });
+
+  // List blockchains command
+  program
+    .command('list-blockchains')
+    .description('List all available blockchain adapters')
+    .action(async () => {
+      try {
+        logger.info('Available Blockchain Adapters:');
+        logger.info('=============================');
+        logger.info('');
+        logger.info('For detailed provider information, run: pnpm run blockchain-providers:list');
+        logger.info('');
+
+        // Dynamically import provider registry to get available blockchains
+        const { ProviderRegistry } = await import(
+          '@crypto/import/src/blockchains/shared/registry/provider-registry.ts'
+        );
+
+        // Import all providers to ensure they're registered
+        await import('@crypto/import/src/blockchains/registry/register-providers.ts');
+
+        // Get all providers and group by blockchain
+        const allProviders = ProviderRegistry.getAllProviders();
+        const blockchainGroups = allProviders.reduce(
+          (acc, provider) => {
+            if (!acc[provider.blockchain]) {
+              acc[provider.blockchain] = {
+                name: provider.blockchain,
+                providers: [],
+              };
+            }
+            acc[provider.blockchain].providers.push(provider.name);
+            return acc;
+          },
+          {} as Record<string, { name: string; providers: string[] }>
+        );
+
+        const blockchains = Object.values(blockchainGroups);
+
+        for (const blockchain of blockchains) {
+          logger.info(`⛓️  ${blockchain.name.toUpperCase()}`);
+          logger.info(`   Providers: ${blockchain.providers.join(', ')}`);
+          logger.info('');
+        }
+
+        logger.info(`Total blockchains: ${blockchains.length}`);
+        logger.info('');
+        logger.info('Usage examples:');
+        logger.info('  crypto-import import --blockchain bitcoin --addresses 1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa');
+        logger.info('  crypto-import import --blockchain ethereum --addresses 0x742d35Cc...');
+
+        process.exit(0);
+      } catch (error) {
+        logger.error(`Failed to list blockchains: ${error}`);
         process.exit(1);
       }
     });
