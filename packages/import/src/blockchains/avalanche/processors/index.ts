@@ -1,3 +1,4 @@
 // Import processors to trigger registration
-import './processors/SnowtraceProcessor.ts';
-import './processors/SnowtraceTokenProcessor.ts';
+import './SnowtraceInternalProcessor.ts';
+import './SnowtraceProcessor.ts';
+import './SnowtraceTokenProcessor.ts';

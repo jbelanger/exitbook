@@ -77,14 +77,6 @@ export const SnowtraceTokenTransferSchema = z.object({
 });
 
 /**
- * Schema for Snowtrace composite raw data (normal + internal transactions)
- */
-export const SnowtraceRawDataSchema = z.object({
-  internal: z.array(SnowtraceInternalTransactionSchema),
-  normal: z.array(SnowtraceTransactionSchema),
-});
-
-/**
  * Schema for Snowtrace API response wrapper
  */
 export const SnowtraceApiResponseSchema = z.object({
@@ -162,33 +154,4 @@ export interface ValidationResult {
   errors: string[];
   isValid: boolean;
   warnings: string[];
-}
-
-/**
- * Validate Avalanche transaction data using Snowtrace schemas
- */
-export function validateAvalancheTransactions(transactions: unknown, providerName: 'snowtrace'): ValidationResult {
-  const errors: string[] = [];
-  const warnings: string[] = [];
-
-  if (providerName !== 'snowtrace') {
-    errors.push(`Unknown provider: ${providerName}`);
-    return { errors, isValid: false, warnings };
-  }
-
-  // Validate composite raw data structure
-  const result = SnowtraceRawDataSchema.safeParse(transactions);
-
-  if (!result.success) {
-    for (const issue of result.error.issues) {
-      const path = issue.path.length > 0 ? ` at ${issue.path.join('.')}` : '';
-      errors.push(`${issue.message}${path}`);
-    }
-  }
-
-  return {
-    errors,
-    isValid: errors.length === 0,
-    warnings,
-  };
 }

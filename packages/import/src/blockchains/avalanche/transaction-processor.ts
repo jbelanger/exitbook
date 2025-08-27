@@ -4,7 +4,6 @@ import type { IDependencyContainer } from '../../shared/common/interfaces.ts';
 import { BaseProcessor } from '../../shared/processors/base-processor.ts';
 import type { ApiClientRawData, StoredRawData } from '../../shared/processors/interfaces.ts';
 import { ProcessorFactory } from '../../shared/processors/processor-registry.ts';
-import './processors/SnowtraceInternalProcessor.ts';
 // Import processors to trigger registration
 import './processors/index.ts';
 import type { AvalancheRawTransactionData } from './transaction-importer.ts';

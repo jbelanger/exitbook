@@ -1,3 +1,4 @@
+import { ImportSessionRepository } from '@crypto/data';
 import type { Logger } from '@crypto/shared-logger';
 import { getLogger } from '@crypto/shared-logger';
 
@@ -15,9 +16,11 @@ import type { LoadRawDataFilters } from '../storage/interfaces.ts';
  */
 export class TransactionIngestionService {
   private logger: Logger;
+  private sessionRepository: ImportSessionRepository;
 
   constructor(private dependencies: IDependencyContainer) {
     this.logger = getLogger('TransactionIngestionService');
+    this.sessionRepository = new ImportSessionRepository(dependencies.database);
   }
 
   /**
@@ -118,7 +121,32 @@ export class TransactionIngestionService {
   ): Promise<ImportResult> {
     this.logger.info(`Starting import for ${sourceId} (${sourceType})`);
 
+    const startTime = Date.now();
+    let importSessionId = params.importSessionId;
+    let sessionCreated = false;
+
     try {
+      // Create import session if not provided
+      if (!importSessionId) {
+        importSessionId = this.generateSessionId(sourceId);
+        this.logger.debug(`Generated session ID: ${importSessionId}`);
+        const actualSessionId = await this.sessionRepository.create(
+          importSessionId,
+          sourceId,
+          sourceType,
+          params.providerId,
+          {
+            addresses: params.addresses,
+            csvDirectories: params.csvDirectories,
+            importedAt: Date.now(),
+            importParams: params,
+          }
+        );
+        this.logger.debug(`Repository returned session ID: ${actualSessionId}`);
+        sessionCreated = true;
+        this.logger.debug(`Created import session: ${importSessionId}`);
+      }
+
       // Create importer
       const importer = await ImporterFactory.create({
         dependencies: this.dependencies,
@@ -134,9 +162,6 @@ export class TransactionIngestionService {
 
       // Import raw data
       const rawData = await importer.import(params);
-
-      // Generate session ID if not provided
-      const importSessionId = params.importSessionId || this.generateSessionId(sourceId);
 
       // Save raw data to storage
       const savedCount = await this.dependencies.externalDataStore.save(
@@ -156,6 +181,13 @@ export class TransactionIngestionService {
         }
       );
 
+      // Update session with success
+      if (sessionCreated) {
+        this.logger.debug(`Finalizing session ${importSessionId} with ${savedCount} transactions`);
+        await this.sessionRepository.finalize(importSessionId, 'completed', startTime, savedCount, 0);
+        this.logger.debug(`Successfully finalized session ${importSessionId}`);
+      }
+
       this.logger.info(`Import completed for ${sourceId}: ${savedCount} items saved`);
 
       return {
@@ -164,6 +196,23 @@ export class TransactionIngestionService {
         providerId: params.providerId ?? undefined,
       };
     } catch (error) {
+      // Update session with error if we created it
+      if (sessionCreated && importSessionId) {
+        try {
+          await this.sessionRepository.finalize(
+            importSessionId,
+            'failed',
+            startTime,
+            0,
+            0,
+            error instanceof Error ? error.message : String(error),
+            error instanceof Error ? { stack: error.stack } : { error: String(error) }
+          );
+        } catch (sessionError) {
+          this.logger.error(`Failed to update session on error: ${sessionError}`);
+        }
+      }
+
       this.logger.error(`Import failed for ${sourceId}: ${error}`);
       throw error;
     }
