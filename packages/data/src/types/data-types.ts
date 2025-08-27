@@ -1,4 +1,3 @@
-import type { EnhancedTransaction } from '@crypto/core';
 
 // Database schema types for data persistence
 
@@ -65,15 +64,4 @@ export interface WalletAddressQuery {
   blockchain?: string;
   isActive?: boolean | undefined;
   search?: string | undefined; // Search in address, label, or notes
-}
-
-// Enhanced transaction type with wallet address references
-export interface TransactionWithAddresses extends EnhancedTransaction {
-  fromAddress?: string | undefined;
-  fromWallet?: WalletAddress | undefined;
-  fromWalletId?: number | undefined;
-  isInternalTransfer?: boolean | undefined;
-  toAddress?: string | undefined;
-  toWallet?: WalletAddress | undefined;
-  toWalletId?: number | undefined;
 }

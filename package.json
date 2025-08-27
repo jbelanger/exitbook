@@ -19,8 +19,6 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
-    "test:coinbase": "pnpm -F crypto-portfolio-cli test --exchange coinbase",
-    "test:coinbase:e2e": "pnpm -F crypto-portfolio-cli test --exchange coinbase",
     "typecheck": "pnpm -r run typecheck",
     "lint": "pnpm -r run lint",
     "prettier": "pnpm -r run prettier",
