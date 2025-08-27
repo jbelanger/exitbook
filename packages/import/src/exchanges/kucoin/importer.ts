@@ -2,7 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 
 import { BaseImporter } from '../../shared/importers/base-importer.ts';
-import type { ImportParams } from '../../shared/importers/interfaces.ts';
+import type { ImportParams, ImportRunResult } from '../../shared/importers/interfaces.ts';
 import type { ApiClientRawData } from '../../shared/processors/interfaces.ts';
 import { CsvParser } from '../csv-parser.ts';
 import { CSV_FILE_TYPES } from './constants.ts';
@@ -82,7 +82,7 @@ export class KucoinCsvImporter extends BaseImporter<CsvKuCoinRawData> {
     return true;
   }
 
-  async import(params: ImportParams): Promise<ApiClientRawData<CsvKuCoinRawData>[]> {
+  async import(params: ImportParams): Promise<ImportRunResult<CsvKuCoinRawData>> {
     this.logger.info(`Starting KuCoin CSV import from directories: ${params.csvDirectories}`);
 
     if (!params.csvDirectories?.length) {
@@ -231,14 +231,19 @@ export class KucoinCsvImporter extends BaseImporter<CsvKuCoinRawData> {
       );
 
       // Return as a single batch with all the parsed data
-      return [
-        {
-          providerId: 'kucoin',
-          rawData,
-        },
-      ];
+      return {
+        rawData: [
+          {
+            providerId: 'kucoin',
+            rawData,
+          },
+        ],
+      };
     } catch (error) {
       this.handleImportError(error, 'CSV file processing');
+      return {
+        rawData: [],
+      };
     }
   }
 }

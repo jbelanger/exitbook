@@ -44,7 +44,31 @@ export class ProcessorFactory {
   private static async createBitcoinProcessor<T>(config: ETLComponentConfig): Promise<IProcessor<T>> {
     // Dynamic import to avoid circular dependencies
     const { BitcoinTransactionProcessor } = await import('../../blockchains/bitcoin/transaction-processor.ts');
-    return new BitcoinTransactionProcessor(config.dependencies) as unknown as IProcessor<T>;
+
+    // Extract derivedAddresses from session metadata for Bitcoin
+    const metadata = config.sessionMetadata as Record<string, unknown> | undefined;
+
+    // Look for derived addresses in bitcoinDerivedAddresses metadata structure
+    const bitcoinMetadata = metadata?.bitcoinDerivedAddresses as Record<string, unknown> | undefined;
+    const derivedAddresses: string[] = [];
+
+    if (bitcoinMetadata) {
+      // Extract all derived addresses from all xpubs in the session
+      for (const xpubData of Object.values(bitcoinMetadata)) {
+        if (
+          xpubData &&
+          typeof xpubData === 'object' &&
+          'derivedAddresses' in xpubData &&
+          Array.isArray(xpubData.derivedAddresses)
+        ) {
+          derivedAddresses.push(...(xpubData.derivedAddresses as string[]));
+        }
+      }
+    }
+
+    const context = derivedAddresses.length > 0 ? { derivedAddresses } : undefined;
+
+    return new BitcoinTransactionProcessor(config.dependencies, context) as unknown as IProcessor<T>;
   }
 
   /**

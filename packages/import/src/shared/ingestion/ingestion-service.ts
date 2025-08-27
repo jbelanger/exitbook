@@ -1,3 +1,4 @@
+import type { UniversalTransaction } from '@crypto/core';
 import { ImportSessionRepository } from '@crypto/data';
 import type { Logger } from '@crypto/shared-logger';
 import { getLogger } from '@crypto/shared-logger';
@@ -40,29 +41,29 @@ export class TransactionIngestionService {
   /**
    * Generate a unique session ID for tracking import operations.
    */
-  private generateSessionId(adapterId: string): string {
+  private generateSessionId(sourceId: string): string {
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 8);
-    return `${adapterId}-${timestamp}-${random}`;
+    return `${sourceId}-${timestamp}-${random}`;
   }
 
   /**
-   * Get processing status summary for an adapter.
+   * Get processing status summary for a source.
    */
-  async getProcessingStatus(adapterId: string) {
+  async getProcessingStatus(sourceId: string) {
     try {
       const [pending, processedItems, failedItems] = await Promise.all([
         this.dependencies.externalDataStore.load({
           processingStatus: 'pending',
-          sourceId: adapterId,
+          sourceId: sourceId,
         }),
         this.dependencies.externalDataStore.load({
           processingStatus: 'processed',
-          sourceId: adapterId,
+          sourceId: sourceId,
         }),
         this.dependencies.externalDataStore.load({
           processingStatus: 'failed',
-          sourceId: adapterId,
+          sourceId: sourceId,
         }),
       ]);
 
@@ -161,7 +162,8 @@ export class TransactionIngestionService {
       }
 
       // Import raw data
-      const rawData = await importer.import(params);
+      const importResult = await importer.import(params);
+      const rawData = importResult.rawData;
 
       // Save raw data to storage
       const savedCount = await this.dependencies.externalDataStore.save(
@@ -181,10 +183,27 @@ export class TransactionIngestionService {
         }
       );
 
-      // Update session with success
+      // Update session with success and metadata
       if (sessionCreated) {
         this.logger.debug(`Finalizing session ${importSessionId} with ${savedCount} transactions`);
         await this.sessionRepository.finalize(importSessionId, 'completed', startTime, savedCount, 0);
+
+        // Update session with import metadata if available
+        if (importResult.metadata) {
+          const sessionMetadata = {
+            addresses: params.addresses,
+            csvDirectories: params.csvDirectories,
+            importedAt: Date.now(),
+            importParams: params,
+            ...importResult.metadata,
+          };
+
+          await this.sessionRepository.update(importSessionId, { sessionMetadata });
+          this.logger.debug(
+            `Updated session ${importSessionId} with metadata keys: ${Object.keys(importResult.metadata).join(', ')}`
+          );
+        }
+
         this.logger.debug(`Successfully finalized session ${importSessionId}`);
       }
 
@@ -245,15 +264,51 @@ export class TransactionIngestionService {
 
       this.logger.info(`Found ${rawDataItems.length} raw data items to process for ${sourceId}`);
 
-      // Create processor
-      const processor = await ProcessorFactory.create({
-        dependencies: this.dependencies,
-        sourceId: sourceId,
-        sourceType: sourceType,
-      });
+      // Group raw data items by import session ID
+      const sessionGroups = new Map<string | undefined, typeof rawDataItems>();
+      for (const item of rawDataItems) {
+        const sessionId = item.importSessionId;
+        if (!sessionGroups.has(sessionId)) {
+          sessionGroups.set(sessionId, []);
+        }
+        sessionGroups.get(sessionId)!.push(item);
+      }
 
-      // Process raw data to UniversalTransaction
-      const transactions = await processor.process(rawDataItems);
+      this.logger.info(`Processing ${sessionGroups.size} session groups`);
+
+      const allTransactions: UniversalTransaction[] = [];
+
+      // Process each session group with its own context
+      for (const [sessionId, sessionItems] of sessionGroups) {
+        // Get session metadata for this group
+        let sessionMetadata: unknown = undefined;
+        if (sessionId) {
+          try {
+            const session = await this.sessionRepository.findById(sessionId);
+            sessionMetadata = session?.sessionMetadata;
+          } catch (error) {
+            this.logger.warn(`Failed to fetch session metadata for ${sessionId}: ${error}`);
+          }
+        }
+
+        // Create processor with session-specific context
+        const processor = await ProcessorFactory.create({
+          dependencies: this.dependencies,
+          sessionMetadata,
+          sourceId: sourceId,
+          sourceType: sourceType,
+        });
+
+        // Process this session's raw data
+        const sessionTransactions = await processor.process(sessionItems);
+        allTransactions.push(...sessionTransactions);
+
+        this.logger.debug(
+          `Processed ${sessionTransactions.length} transactions for session ${sessionId || 'undefined'}`
+        );
+      }
+
+      const transactions = allTransactions;
 
       // Save processed transactions to database
       // Note: This would typically use a transaction service, but for now we'll use the database directly

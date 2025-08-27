@@ -24,6 +24,7 @@ export interface IDependencyContainer {
  */
 export interface ETLComponentConfig {
   dependencies: IDependencyContainer;
+  sessionMetadata?: unknown;
   sourceId: string;
   sourceType: 'exchange' | 'blockchain';
 }

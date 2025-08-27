@@ -1,4 +1,5 @@
 import type { UniversalTransaction } from '@crypto/core';
+import { getLogger } from '@crypto/shared-logger';
 import { type Result, createMoney } from '@crypto/shared-utils';
 
 import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
@@ -8,7 +9,16 @@ import type { BlockCypherTransaction } from '../types.ts';
 
 @RegisterProcessor('blockcypher')
 export class BlockCypherProcessor implements IProviderProcessor<BlockCypherTransaction> {
+  private logger = getLogger('BlockCypherProcessor');
+
   transform(rawData: BlockCypherTransaction, walletAddresses: string[]): Result<UniversalTransaction> {
+    this.logger.debug(
+      `Transform called with ${walletAddresses.length} wallet addresses: ${walletAddresses
+        .slice(0, 3)
+        .map(addr => addr.substring(0, 8) + '...')
+        .join(', ')}${walletAddresses.length > 3 ? '...' : ''}`
+    );
+
     const timestamp = rawData.confirmed ? new Date(rawData.confirmed).getTime() : Date.now();
 
     // Calculate transaction value considering all wallet addresses
@@ -17,44 +27,67 @@ export class BlockCypherProcessor implements IProviderProcessor<BlockCypherTrans
     let isOutgoing = false;
     const relevantAddresses = new Set(walletAddresses);
 
-    // Check inputs - money going out of our wallet (BlockCypher format uses arrays)
+    // Check inputs and outputs to determine transaction type
+    let walletInputValue = 0;
+    let walletOutputValue = 0;
+    let hasExternalOutput = false;
+
+    // Check inputs - money going out of our wallet
     for (const input of rawData.inputs) {
       if (input.addresses) {
+        let hasWalletAddress = false;
         for (const address of input.addresses) {
           if (relevantAddresses.has(address)) {
+            hasWalletAddress = true;
             isOutgoing = true;
             if (input.output_value) {
+              walletInputValue += input.output_value;
               totalValueChange -= input.output_value;
             }
-            break; // Found a match in this input
+            break;
           }
         }
       }
     }
 
-    // Check outputs - money coming into our wallet (BlockCypher format uses arrays)
+    // Check outputs - money coming into our wallet or going to external addresses
     for (const output of rawData.outputs) {
       if (output.addresses) {
+        let hasWalletAddress = false;
         for (const address of output.addresses) {
           if (relevantAddresses.has(address)) {
+            hasWalletAddress = true;
             isIncoming = true;
+            walletOutputValue += output.value;
             totalValueChange += output.value;
-            break; // Found a match in this output
+            break;
           }
+        }
+        if (!hasWalletAddress) {
+          hasExternalOutput = true;
         }
       }
     }
 
-    // Determine transaction type
+    // Determine transaction type based on fund flow
     let type: UniversalTransaction['type'];
 
     if (isIncoming && !isOutgoing) {
+      // Funds only coming into wallet from external sources
       type = 'deposit';
     } else if (isOutgoing && !isIncoming) {
+      // Funds only going out to external addresses
       type = 'withdrawal';
     } else if (isIncoming && isOutgoing) {
-      // Internal transfer within our wallet
-      type = 'transfer';
+      if (hasExternalOutput) {
+        // Funds going out to external addresses (with possible change back to wallet)
+        type = 'withdrawal';
+        // For withdrawals, calculate the net amount going out (excluding change)
+        totalValueChange = walletInputValue - walletOutputValue;
+      } else {
+        // Only internal movement between wallet addresses
+        type = 'transfer';
+      }
     } else {
       // Neither incoming nor outgoing - cannot determine transaction type
       return {

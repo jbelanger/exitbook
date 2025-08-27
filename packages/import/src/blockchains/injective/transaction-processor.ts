@@ -9,7 +9,7 @@ import './processors/index.ts';
 import type { InjectiveTransaction } from './types.ts';
 
 /**
- * Injective transaction processor that converts sourced raw blockchain transaction data
+ * Injective transaction processor that converts raw blockchain transaction data
  * into UniversalTransaction format. Uses ProcessorFactory to dispatch to provider-specific
  * processors based on data provenance.
  */
@@ -26,14 +26,14 @@ export class InjectiveTransactionProcessor extends BaseProcessor<ApiClientRawDat
   }
 
   /**
-   * Process a single sourced raw transaction using provider-specific processors.
+   * Process a single raw transaction using provider-specific processors.
    */
   async processSingle(
     rawDataItem: StoredRawData<ApiClientRawData<InjectiveTransaction>>
   ): Promise<UniversalTransaction | null> {
     try {
-      const sourcedRawData = rawDataItem.rawData;
-      const { providerId, rawData } = sourcedRawData;
+      const apiClientRawData = rawDataItem.rawData;
+      const { providerId, rawData } = apiClientRawData;
 
       // Get the appropriate processor for this provider
       const processor = ProcessorFactory.create(providerId);
@@ -51,8 +51,8 @@ export class InjectiveTransactionProcessor extends BaseProcessor<ApiClientRawDat
 
       // Extract wallet addresses from source address context
       const walletAddresses: string[] = [];
-      if (sourcedRawData.sourceAddress) {
-        walletAddresses.push(sourcedRawData.sourceAddress);
+      if (apiClientRawData.sourceAddress) {
+        walletAddresses.push(apiClientRawData.sourceAddress);
       }
 
       // Transform using the provider-specific processor

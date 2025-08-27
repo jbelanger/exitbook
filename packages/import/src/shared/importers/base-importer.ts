@@ -1,8 +1,7 @@
 import type { Logger } from '@crypto/shared-logger';
 import { getLogger } from '@crypto/shared-logger';
 
-import type { ApiClientRawData } from '../processors/interfaces.ts';
-import type { IImporter, ImportParams } from './interfaces.ts';
+import type { IImporter, ImportParams, ImportRunResult } from './interfaces.ts';
 
 /**
  * Base class providing common functionality for all importers.
@@ -11,12 +10,12 @@ import type { IImporter, ImportParams } from './interfaces.ts';
 export abstract class BaseImporter<TRawData> implements IImporter<TRawData> {
   protected logger: Logger;
 
-  constructor(protected adapterId: string) {
-    this.logger = getLogger(`${adapterId}Importer`);
+  constructor(protected sourceId: string) {
+    this.logger = getLogger(`${sourceId}Importer`);
   }
 
   async canImport(params: ImportParams): Promise<boolean> {
-    this.logger.debug(`Validating import parameters for ${this.adapterId}`);
+    this.logger.debug(`Validating import parameters for ${this.sourceId}`);
 
     try {
       // Basic parameter validation
@@ -28,7 +27,7 @@ export abstract class BaseImporter<TRawData> implements IImporter<TRawData> {
       // Let subclasses implement specific validation
       return this.canImportSpecific(params);
     } catch (error) {
-      this.logger.error(`Import parameters validation failed for ${this.adapterId}: ${error}`);
+      this.logger.error(`Import parameters validation failed for ${this.sourceId}: ${error}`);
       return false;
     }
   }
@@ -42,7 +41,7 @@ export abstract class BaseImporter<TRawData> implements IImporter<TRawData> {
    * Helper method to generate session IDs.
    */
   protected generateSessionId(): string {
-    return `${this.adapterId}-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+    return `${this.sourceId}-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
   }
 
   /**
@@ -51,8 +50,8 @@ export abstract class BaseImporter<TRawData> implements IImporter<TRawData> {
   protected handleImportError(error: unknown, context: string): never {
     const errorMessage = error instanceof Error ? error.message : String(error);
     this.logger.error(`Import failed in ${context}: ${errorMessage}`);
-    throw new Error(`${this.adapterId} import failed: ${errorMessage}`);
+    throw new Error(`${this.sourceId} import failed: ${errorMessage}`);
   }
 
-  abstract import(params: ImportParams): Promise<ApiClientRawData<TRawData>[]>;
+  abstract import(params: ImportParams): Promise<ImportRunResult<TRawData>>;
 }

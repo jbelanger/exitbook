@@ -9,7 +9,7 @@ import type { SolanaRawTransactionData } from './clients/HeliusApiClient.ts';
 import './processors/index.ts';
 
 /**
- * Solana transaction processor that converts sourced raw blockchain transaction data
+ * Solana transaction processor that converts raw blockchain transaction data
  * into UniversalTransaction format. Uses ProcessorFactory to dispatch to provider-specific
  * processors (Helius, SolanaRPC, Solscan) based on data provenance.
  */
@@ -26,7 +26,7 @@ export class SolanaTransactionProcessor extends BaseProcessor<ApiClientRawData<S
   }
 
   /**
-   * Process a single sourced raw transaction batch using provider-specific processors.
+   * Process a single raw transaction batch using provider-specific processors.
    */
   async processSingle(
     rawDataItem: StoredRawData<ApiClientRawData<SolanaRawTransactionData>>

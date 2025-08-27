@@ -9,7 +9,7 @@ import './processors/index.ts';
 import type { EthereumRawTransactionData } from './transaction-importer.ts';
 
 /**
- * Ethereum transaction processor that converts sourced raw blockchain transaction data
+ * Ethereum transaction processor that converts raw blockchain transaction data
  * into UniversalTransaction format. Uses ProcessorFactory to dispatch to provider-specific
  * processors based on data provenance.
  */
@@ -26,7 +26,7 @@ export class EthereumTransactionProcessor extends BaseProcessor<ApiClientRawData
   }
 
   /**
-   * Process a single sourced raw transaction using provider-specific processors.
+   * Process a single raw transaction using provider-specific processors.
    */
   async processSingle(
     rawDataItem: StoredRawData<ApiClientRawData<EthereumRawTransactionData>>

@@ -1,6 +1,6 @@
 import type { IDependencyContainer } from '../../shared/common/interfaces.ts';
 import { BaseImporter } from '../../shared/importers/base-importer.ts';
-import type { ImportParams } from '../../shared/importers/interfaces.ts';
+import type { ImportParams, ImportRunResult } from '../../shared/importers/interfaces.ts';
 import type { ApiClientRawData } from '../../shared/processors/interfaces.ts';
 import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
 // Ensure providers are registered
@@ -88,14 +88,14 @@ export class BittensorTransactionImporter extends BaseImporter<TaostatsTransacti
   /**
    * Import raw transaction data from Bittensor blockchain APIs with provider provenance.
    */
-  async import(params: ImportParams): Promise<ApiClientRawData<TaostatsTransaction>[]> {
+  async import(params: ImportParams): Promise<ImportRunResult<TaostatsTransaction>> {
     if (!params.addresses?.length) {
       throw new Error('Addresses required for Bittensor transaction import');
     }
 
     this.logger.info(`Starting Bittensor transaction import for ${params.addresses.length} addresses`);
 
-    const allSourcedTransactions: ApiClientRawData<TaostatsTransaction>[] = [];
+    const allRawTransactions: ApiClientRawData<TaostatsTransaction>[] = [];
 
     for (const address of params.addresses) {
       this.logger.info(`Importing transactions for Bittensor address: ${address.substring(0, 20)}...`);
@@ -115,17 +115,15 @@ export class BittensorTransactionImporter extends BaseImporter<TaostatsTransacti
           const bittensorTxData = rawData as { data: TaostatsTransaction[] };
 
           if (Array.isArray(bittensorTxData.data)) {
-            const sourcedTransactions: ApiClientRawData<TaostatsTransaction>[] = bittensorTxData.data.map(
-              transaction => ({
-                providerId: result.providerName,
-                rawData: transaction,
-              })
-            );
+            const rawTransactions: ApiClientRawData<TaostatsTransaction>[] = bittensorTxData.data.map(transaction => ({
+              providerId: result.providerName,
+              rawData: transaction,
+            }));
 
-            allSourcedTransactions.push(...sourcedTransactions);
+            allRawTransactions.push(...rawTransactions);
 
             this.logger.info(
-              `Imported ${sourcedTransactions.length} raw transactions for address via provider ${result.providerName}`
+              `Imported ${rawTransactions.length} raw transactions for address via provider ${result.providerName}`
             );
           }
         } else {
@@ -141,7 +139,7 @@ export class BittensorTransactionImporter extends BaseImporter<TaostatsTransacti
 
     // Remove duplicates based on transaction hash/ID
     const uniqueTransactions = new Map<string, ApiClientRawData<TaostatsTransaction>>();
-    for (const tx of allSourcedTransactions) {
+    for (const tx of allRawTransactions) {
       const txId = this.getTransactionId(tx.rawData);
       if (!uniqueTransactions.has(txId)) {
         uniqueTransactions.set(txId, tx);
@@ -158,9 +156,11 @@ export class BittensorTransactionImporter extends BaseImporter<TaostatsTransacti
     });
 
     this.logger.info(
-      `Bittensor transaction import completed - Total: ${allSourcedTransactions.length}, Unique: ${deduplicatedTransactions.length}`
+      `Bittensor transaction import completed - Total: ${allRawTransactions.length}, Unique: ${deduplicatedTransactions.length}`
     );
 
-    return deduplicatedTransactions;
+    return {
+      rawData: deduplicatedTransactions,
+    };
   }
 }

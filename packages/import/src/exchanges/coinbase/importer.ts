@@ -1,7 +1,7 @@
 import type { TransactionType, UniversalTransaction } from '@crypto/core';
 
 import { BaseImporter } from '../../shared/importers/base-importer.ts';
-import type { ImportParams } from '../../shared/importers/interfaces.ts';
+import type { ImportParams, ImportRunResult } from '../../shared/importers/interfaces.ts';
 import type { ApiClientRawData } from '../../shared/processors/interfaces.ts';
 import { CoinbaseCCXTAdapter } from './ccxt-adapter.ts';
 import type { CoinbaseCredentials } from './types.ts';
@@ -51,7 +51,7 @@ export class CoinbaseImporter extends BaseImporter<UniversalTransaction> {
     }
   }
 
-  async import(params: ImportParams): Promise<ApiClientRawData<UniversalTransaction>[]> {
+  async import(params: ImportParams): Promise<ImportRunResult<UniversalTransaction>> {
     this.logger.info('Starting Coinbase transaction import using CCXT adapter');
 
     const exchangeCredentials = params.exchangeCredentials as { coinbase?: Partial<CoinbaseCredentials> } | undefined;
@@ -91,13 +91,19 @@ export class CoinbaseImporter extends BaseImporter<UniversalTransaction> {
       this.logger.info(`Successfully imported ${transactions.length} transactions from Coinbase`);
 
       // Wrap transactions with provider information for the processor
-      return transactions.map(transaction => ({
+      const rawData = transactions.map(transaction => ({
         providerId: 'coinbase-ccxt',
         rawData: transaction,
       }));
+
+      return {
+        rawData,
+      };
     } catch (error) {
       this.handleImportError(error, 'Coinbase CCXT adapter');
-      return [];
+      return {
+        rawData: [],
+      };
     } finally {
       if (adapter) {
         await adapter.close();

@@ -1,6 +1,6 @@
 import type { IDependencyContainer } from '../../shared/common/interfaces.ts';
 import { BaseImporter } from '../../shared/importers/base-importer.ts';
-import type { ImportParams } from '../../shared/importers/interfaces.ts';
+import type { ImportParams, ImportRunResult } from '../../shared/importers/interfaces.ts';
 import type { ApiClientRawData } from '../../shared/processors/interfaces.ts';
 import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
 // Ensure providers are registered
@@ -89,7 +89,7 @@ export class PolkadotTransactionImporter extends BaseImporter<SubscanTransfer> {
   /**
    * Import raw transaction data from Polkadot blockchain APIs with provider provenance.
    */
-  async import(params: ImportParams): Promise<ApiClientRawData<SubscanTransfer>[]> {
+  async import(params: ImportParams): Promise<ImportRunResult<SubscanTransfer>> {
     if (!params.addresses?.length) {
       throw new Error('Addresses required for Polkadot transaction import');
     }
@@ -116,15 +116,15 @@ export class PolkadotTransactionImporter extends BaseImporter<SubscanTransfer> {
           const substrateTxData = rawData as { data: SubscanTransfer[] };
 
           if (Array.isArray(substrateTxData.data)) {
-            const sourcedTransactions: ApiClientRawData<SubscanTransfer>[] = substrateTxData.data.map(transfer => ({
+            const rawTransactions: ApiClientRawData<SubscanTransfer>[] = substrateTxData.data.map(transfer => ({
               providerId: result.providerName,
               rawData: transfer,
             }));
 
-            allSourcedTransactions.push(...sourcedTransactions);
+            allSourcedTransactions.push(...rawTransactions);
 
             this.logger.info(
-              `Imported ${sourcedTransactions.length} raw transactions for address via provider ${result.providerName}`
+              `Imported ${rawTransactions.length} raw transactions for address via provider ${result.providerName}`
             );
           }
         } else {
@@ -160,6 +160,8 @@ export class PolkadotTransactionImporter extends BaseImporter<SubscanTransfer> {
       `Polkadot transaction import completed - Total: ${allSourcedTransactions.length}, Unique: ${deduplicatedTransactions.length}`
     );
 
-    return deduplicatedTransactions;
+    return {
+      rawData: deduplicatedTransactions,
+    };
   }
 }

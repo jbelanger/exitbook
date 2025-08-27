@@ -1,6 +1,6 @@
 import type { IDependencyContainer } from '../../shared/common/interfaces.ts';
 import { BaseImporter } from '../../shared/importers/base-importer.ts';
-import type { ImportParams } from '../../shared/importers/interfaces.ts';
+import type { ImportParams, ImportRunResult } from '../../shared/importers/interfaces.ts';
 import type { ApiClientRawData } from '../../shared/processors/interfaces.ts';
 import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
 // Ensure Injective API clients are registered
@@ -81,14 +81,14 @@ export class InjectiveTransactionImporter extends BaseImporter<InjectiveTransact
    * Remove duplicate transactions based on hash.
    */
   private removeDuplicateTransactions(
-    sourcedTransactions: ApiClientRawData<InjectiveTransaction>[]
+    rawTransactions: ApiClientRawData<InjectiveTransaction>[]
   ): ApiClientRawData<InjectiveTransaction>[] {
     const uniqueTransactions = new Map<string, ApiClientRawData<InjectiveTransaction>>();
 
-    for (const sourcedTx of sourcedTransactions) {
-      const txHash = sourcedTx.rawData.hash;
+    for (const rawTx of rawTransactions) {
+      const txHash = rawTx.rawData.hash;
       if (!uniqueTransactions.has(txHash)) {
-        uniqueTransactions.set(txHash, sourcedTx);
+        uniqueTransactions.set(txHash, rawTx);
       }
     }
 
@@ -130,7 +130,7 @@ export class InjectiveTransactionImporter extends BaseImporter<InjectiveTransact
   /**
    * Import raw transaction data from Injective blockchain APIs with provider provenance.
    */
-  async import(params: ImportParams): Promise<ApiClientRawData<InjectiveTransaction>[]> {
+  async import(params: ImportParams): Promise<ImportRunResult<InjectiveTransaction>> {
     if (!params.addresses?.length) {
       throw new Error('Addresses required for Injective transaction import');
     }
@@ -143,10 +143,10 @@ export class InjectiveTransactionImporter extends BaseImporter<InjectiveTransact
       this.logger.info(`Importing transactions for address: ${address.substring(0, 20)}...`);
 
       try {
-        const sourcedTransactions = await this.fetchRawTransactionsForAddress(address, params.since);
-        allSourcedTransactions.push(...sourcedTransactions);
+        const rawTransactions = await this.fetchRawTransactionsForAddress(address, params.since);
+        allSourcedTransactions.push(...rawTransactions);
 
-        this.logger.info(`Found ${sourcedTransactions.length} transactions for address ${address.substring(0, 20)}...`);
+        this.logger.info(`Found ${rawTransactions.length} transactions for address ${address.substring(0, 20)}...`);
       } catch (error) {
         this.handleImportError(error, `fetching transactions for ${address}`);
       }
@@ -162,7 +162,9 @@ export class InjectiveTransactionImporter extends BaseImporter<InjectiveTransact
       return timestampB - timestampA;
     });
 
-    this.logger.info(`Injective import completed: ${uniqueTransactions.length} unique sourced transactions`);
-    return uniqueTransactions;
+    this.logger.info(`Injective import completed: ${uniqueTransactions.length} unique transactions`);
+    return {
+      rawData: uniqueTransactions,
+    };
   }
 }
