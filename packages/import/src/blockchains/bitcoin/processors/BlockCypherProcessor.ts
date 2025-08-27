@@ -1,6 +1,7 @@
 import type { UniversalTransaction } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
-import { type Result, createMoney } from '@crypto/shared-utils';
+import { createMoney } from '@crypto/shared-utils';
+import { type Result, err, ok } from 'neverthrow';
 
 import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
@@ -11,7 +12,7 @@ import type { BlockCypherTransaction } from '../types.ts';
 export class BlockCypherProcessor implements IProviderProcessor<BlockCypherTransaction> {
   private logger = getLogger('BlockCypherProcessor');
 
-  transform(rawData: BlockCypherTransaction, walletAddresses: string[]): Result<UniversalTransaction> {
+  transform(rawData: BlockCypherTransaction, walletAddresses: string[]): Result<UniversalTransaction, string> {
     this.logger.debug(
       `Transform called with ${walletAddresses.length} wallet addresses: ${walletAddresses
         .slice(0, 3)
@@ -90,11 +91,9 @@ export class BlockCypherProcessor implements IProviderProcessor<BlockCypherTrans
       }
     } else {
       // Neither incoming nor outgoing - cannot determine transaction type
-      return {
-        error:
-          'Unable to determine transaction type: transaction has no relevant wallet addresses in inputs or outputs',
-        success: false,
-      };
+      return err(
+        'Unable to determine transaction type: transaction has no relevant wallet addresses in inputs or outputs'
+      );
     }
 
     const totalValue = Math.abs(totalValueChange);
@@ -139,30 +138,27 @@ export class BlockCypherProcessor implements IProviderProcessor<BlockCypherTrans
       toAddress = rawData.outputs[0].addresses[0];
     }
 
-    return {
-      success: true,
-      value: {
-        amount: createMoney(totalValue / 100000000, 'BTC'),
-        datetime: new Date(timestamp).toISOString(),
-        fee: createMoney(fee / 100000000, 'BTC'),
-        from: fromAddress,
-        id: rawData.hash,
-        metadata: {
-          blockchain: 'bitcoin',
-          blockHash: rawData.block_hash || undefined,
-          blockHeight: rawData.block_height || undefined,
-          confirmations: rawData.confirmations || 0,
-          providerId: 'blockcypher',
-          rawData,
-        },
-        source: 'bitcoin',
-        status: rawData.confirmations > 0 ? 'ok' : 'pending',
-        symbol: 'BTC',
-        timestamp,
-        to: toAddress,
-        type,
+    return ok({
+      amount: createMoney(totalValue / 100000000, 'BTC'),
+      datetime: new Date(timestamp).toISOString(),
+      fee: createMoney(fee / 100000000, 'BTC'),
+      from: fromAddress,
+      id: rawData.hash,
+      metadata: {
+        blockchain: 'bitcoin',
+        blockHash: rawData.block_hash || undefined,
+        blockHeight: rawData.block_height || undefined,
+        confirmations: rawData.confirmations || 0,
+        providerId: 'blockcypher',
+        rawData,
       },
-    };
+      source: 'bitcoin',
+      status: rawData.confirmations > 0 ? 'ok' : 'pending',
+      symbol: 'BTC',
+      timestamp,
+      to: toAddress,
+      type,
+    });
   }
 
   validate(rawData: BlockCypherTransaction): ValidationResult {

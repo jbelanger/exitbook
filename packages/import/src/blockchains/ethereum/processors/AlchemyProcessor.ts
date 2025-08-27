@@ -1,6 +1,7 @@
 import type { Balance, BlockchainTransaction, UniversalTransaction } from '@crypto/core';
-import { type Result, createMoney, parseDecimal } from '@crypto/shared-utils';
+import { createMoney, parseDecimal } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
+import { type Result, err, ok } from 'neverthrow';
 
 import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
@@ -82,7 +83,7 @@ export class AlchemyProcessor implements IProviderProcessor<AlchemyAssetTransfer
   }
 
   // IProviderProcessor interface implementation
-  transform(rawData: AlchemyAssetTransfer, walletAddresses: string[]): Result<UniversalTransaction> {
+  transform(rawData: AlchemyAssetTransfer, walletAddresses: string[]): Result<UniversalTransaction, string> {
     const userAddress = walletAddresses[0] || '';
 
     const isFromUser = rawData.from.toLowerCase() === userAddress.toLowerCase();
@@ -117,28 +118,25 @@ export class AlchemyProcessor implements IProviderProcessor<AlchemyAssetTransfer
       ? new Date(rawData.metadata.blockTimestamp).getTime()
       : Date.now();
 
-    return {
-      success: true,
-      value: {
-        amount: createMoney(amount.toString(), currency),
-        datetime: new Date(timestamp).toISOString(),
-        fee: createMoney('0', 'ETH'),
-        from: rawData.from,
-        id: rawData.hash,
-        metadata: {
-          blockchain: 'ethereum',
-          blockNumber: parseInt(rawData.blockNum, 16),
-          providerId: 'alchemy',
-          rawData: rawData,
-        },
-        source: 'ethereum',
-        status: 'ok',
-        symbol: currency,
-        timestamp,
-        to: rawData.to,
-        type,
+    return ok({
+      amount: createMoney(amount.toString(), currency),
+      datetime: new Date(timestamp).toISOString(),
+      fee: createMoney('0', 'ETH'),
+      from: rawData.from,
+      id: rawData.hash,
+      metadata: {
+        blockchain: 'ethereum',
+        blockNumber: parseInt(rawData.blockNum, 16),
+        providerId: 'alchemy',
+        rawData: rawData,
       },
-    };
+      source: 'ethereum',
+      status: 'ok',
+      symbol: currency,
+      timestamp,
+      to: rawData.to,
+      type,
+    });
   }
 
   validate(rawData: AlchemyAssetTransfer): ValidationResult {

@@ -1,6 +1,7 @@
 import type { UniversalTransaction } from '@crypto/core';
-import { type Result, createMoney } from '@crypto/shared-utils';
+import { createMoney } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
+import { type Result, err, ok } from 'neverthrow';
 
 import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
@@ -9,7 +10,7 @@ import type { SnowtraceTokenTransfer } from '../types.ts';
 
 @RegisterProcessor('snowtrace-token')
 export class SnowtraceTokenProcessor implements IProviderProcessor<SnowtraceTokenTransfer> {
-  transform(rawData: SnowtraceTokenTransfer, walletAddresses: string[]): Result<UniversalTransaction> {
+  transform(rawData: SnowtraceTokenTransfer, walletAddresses: string[]): Result<UniversalTransaction, string> {
     const userAddress = walletAddresses[0] || '';
     const isFromUser = rawData.from.toLowerCase() === userAddress.toLowerCase();
     const isToUser = rawData.to.toLowerCase() === userAddress.toLowerCase();
@@ -28,28 +29,25 @@ export class SnowtraceTokenProcessor implements IProviderProcessor<SnowtraceToke
     const value = valueRaw.dividedBy(new Decimal(10).pow(decimals));
     const timestamp = parseInt(rawData.timeStamp) * 1000;
 
-    return {
-      success: true,
-      value: {
-        amount: createMoney(value.toString(), rawData.tokenSymbol),
-        datetime: new Date(timestamp).toISOString(),
-        fee: createMoney('0', 'AVAX'),
-        from: rawData.from,
-        id: rawData.hash,
-        metadata: {
-          blockchain: 'avalanche',
-          blockNumber: parseInt(rawData.blockNumber),
-          providerId: 'snowtrace-token',
-          rawData,
-        },
-        source: 'avalanche',
-        status: 'ok',
-        symbol: rawData.tokenSymbol,
-        timestamp,
-        to: rawData.to,
-        type,
+    return ok({
+      amount: createMoney(value.toString(), rawData.tokenSymbol),
+      datetime: new Date(timestamp).toISOString(),
+      fee: createMoney('0', 'AVAX'),
+      from: rawData.from,
+      id: rawData.hash,
+      metadata: {
+        blockchain: 'avalanche',
+        blockNumber: parseInt(rawData.blockNumber),
+        providerId: 'snowtrace-token',
+        rawData,
       },
-    };
+      source: 'avalanche',
+      status: 'ok',
+      symbol: rawData.tokenSymbol,
+      timestamp,
+      to: rawData.to,
+      type,
+    });
   }
 
   validate(rawData: SnowtraceTokenTransfer): ValidationResult {

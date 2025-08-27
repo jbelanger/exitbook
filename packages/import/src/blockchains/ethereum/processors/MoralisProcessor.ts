@@ -1,6 +1,7 @@
 import type { Balance, BlockchainTransaction, UniversalTransaction } from '@crypto/core';
-import { type Result, createMoney, parseDecimal } from '@crypto/shared-utils';
+import { createMoney, parseDecimal } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
+import { type Result, err, ok } from 'neverthrow';
 
 import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
@@ -121,7 +122,7 @@ export class MoralisProcessor implements IProviderProcessor<MoralisTransaction> 
   }
 
   // IProviderProcessor interface implementation
-  transform(rawData: MoralisTransaction, walletAddresses: string[]): Result<UniversalTransaction> {
+  transform(rawData: MoralisTransaction, walletAddresses: string[]): Result<UniversalTransaction, string> {
     const userAddress = walletAddresses[0] || '';
 
     const isFromUser = rawData.from_address.toLowerCase() === userAddress.toLowerCase();
@@ -141,29 +142,26 @@ export class MoralisProcessor implements IProviderProcessor<MoralisTransaction> 
     const valueEth = valueWei.dividedBy(new Decimal(10).pow(18));
     const timestamp = new Date(rawData.block_timestamp).getTime();
 
-    return {
-      success: true,
-      value: {
-        amount: createMoney(valueEth.toString(), 'ETH'),
-        datetime: new Date(timestamp).toISOString(),
-        fee: createMoney('0', 'ETH'),
-        from: rawData.from_address,
-        id: rawData.hash,
-        metadata: {
-          blockchain: 'ethereum',
-          blockNumber: parseInt(rawData.block_number),
-          gasUsed: parseInt(rawData.receipt_gas_used),
-          providerId: 'moralis',
-          rawData: rawData,
-        },
-        source: 'ethereum',
-        status: rawData.receipt_status === '1' ? 'ok' : 'failed',
-        symbol: 'ETH',
-        timestamp,
-        to: rawData.to_address,
-        type,
+    return ok({
+      amount: createMoney(valueEth.toString(), 'ETH'),
+      datetime: new Date(timestamp).toISOString(),
+      fee: createMoney('0', 'ETH'),
+      from: rawData.from_address,
+      id: rawData.hash,
+      metadata: {
+        blockchain: 'ethereum',
+        blockNumber: parseInt(rawData.block_number),
+        gasUsed: parseInt(rawData.receipt_gas_used),
+        providerId: 'moralis',
+        rawData: rawData,
       },
-    };
+      source: 'ethereum',
+      status: rawData.receipt_status === '1' ? 'ok' : 'failed',
+      symbol: 'ETH',
+      timestamp,
+      to: rawData.to_address,
+      type,
+    });
   }
 
   validate(rawData: MoralisTransaction): ValidationResult {

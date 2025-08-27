@@ -1,6 +1,7 @@
 import type { BlockchainTransaction, UniversalTransaction } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
-import { type Result, createMoney, maskAddress } from '@crypto/shared-utils';
+import { createMoney, maskAddress } from '@crypto/shared-utils';
+import { type Result, err, ok } from 'neverthrow';
 
 import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
@@ -188,7 +189,7 @@ export class SolanaRPCProcessor implements IProviderProcessor<SolanaRPCRawTransa
   }
 
   // IProviderProcessor interface implementation
-  transform(rawData: SolanaRPCRawTransactionData, walletAddresses: string[]): Result<UniversalTransaction> {
+  transform(rawData: SolanaRPCRawTransactionData, walletAddresses: string[]): Result<UniversalTransaction, string> {
     // Process the first transaction for interface compatibility
     const userAddress = walletAddresses[0] || '';
 
@@ -213,28 +214,25 @@ export class SolanaRPCProcessor implements IProviderProcessor<SolanaRPCRawTransa
       type = 'transfer';
     }
 
-    return {
-      success: true,
-      value: {
-        amount: processedTx.value,
-        datetime: new Date(processedTx.timestamp).toISOString(),
-        fee: processedTx.fee,
-        from: processedTx.from,
-        id: processedTx.hash,
-        metadata: {
-          blockchain: 'solana',
-          blockNumber: processedTx.blockNumber,
-          providerId: 'solana-rpc',
-          rawData: tx,
-        },
-        source: 'solana',
-        status: processedTx.status === 'success' ? 'ok' : 'failed',
-        symbol: processedTx.tokenSymbol || 'SOL',
-        timestamp: processedTx.timestamp,
-        to: processedTx.to,
-        type,
+    return ok({
+      amount: processedTx.value,
+      datetime: new Date(processedTx.timestamp).toISOString(),
+      fee: processedTx.fee,
+      from: processedTx.from,
+      id: processedTx.hash,
+      metadata: {
+        blockchain: 'solana',
+        blockNumber: processedTx.blockNumber,
+        providerId: 'solana-rpc',
+        rawData: tx,
       },
-    };
+      source: 'solana',
+      status: processedTx.status === 'success' ? 'ok' : 'failed',
+      symbol: processedTx.tokenSymbol || 'SOL',
+      timestamp: processedTx.timestamp,
+      to: processedTx.to,
+      type,
+    });
   }
 
   validate(rawData: SolanaRPCRawTransactionData): ValidationResult {
