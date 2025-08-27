@@ -76,11 +76,11 @@ export class Database {
     }
 
     tableQueries.push(
-      // External transaction data table - stores unprocessed transaction data from adapters
+      // External transaction data table - stores unprocessed transaction data from sources
       `CREATE TABLE ${clearExisting ? '' : 'IF NOT EXISTS '}external_transaction_data (
         id TEXT PRIMARY KEY,
-        adapter_id TEXT NOT NULL,
-        adapter_type TEXT NOT NULL,
+        source_id TEXT NOT NULL,
+        source_type TEXT NOT NULL,
         provider_id TEXT,
         source_transaction_id TEXT NOT NULL,
         raw_data JSON NOT NULL,
@@ -90,10 +90,10 @@ export class Database {
         processed_at INTEGER,
         created_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
         import_session_id TEXT,
-        UNIQUE(adapter_id, provider_id, source_transaction_id)
+        UNIQUE(source_id, provider_id, source_transaction_id)
       )`,
 
-      // Transactions table - stores transactions from all adapters with standardized structure
+      // Transactions table - stores transactions from all sources with standardized structure
       // Using TEXT for decimal values to preserve precision
       `CREATE TABLE ${clearExisting ? '' : 'IF NOT EXISTS '}transactions (
         id TEXT PRIMARY KEY,
@@ -195,8 +195,8 @@ export class Database {
        ON wallet_addresses(is_active) WHERE is_active = 1`,
 
       // External transaction data indexes
-      `CREATE INDEX IF NOT EXISTS idx_external_transaction_data_adapter 
-       ON external_transaction_data(adapter_id, created_at)`,
+      `CREATE INDEX IF NOT EXISTS idx_external_transaction_data_source 
+       ON external_transaction_data(source_id, created_at)`,
 
       `CREATE INDEX IF NOT EXISTS idx_external_transaction_data_session 
        ON external_transaction_data(import_session_id) WHERE import_session_id IS NOT NULL`,
@@ -418,16 +418,14 @@ export class Database {
 
   async getRawTransactions(
     filters?: {
-      adapterId?: string | undefined;
       importSessionId?: string | undefined;
       processingStatus?: 'pending' | 'processed' | 'failed' | undefined;
       providerId?: string | undefined;
       since?: number | undefined;
+      sourceId?: string | undefined;
     }
   ): Promise<
     Array<{
-      adapterId: string;
-      adapterType: string;
       createdAt: number;
       id: string;
       importSessionId?: string | undefined;
@@ -437,7 +435,9 @@ export class Database {
       processingStatus: string;
       providerId?: string | undefined;
       rawData: unknown;
+      sourceId: string;
       sourceTransactionId: string;
+      sourceType: string;
     }>
   > {
     return new Promise((resolve, reject) => {
@@ -445,9 +445,9 @@ export class Database {
       const params: SQLParam[] = [];
       const conditions: string[] = [];
 
-      if (filters?.adapterId) {
-        conditions.push('adapter_id = ?');
-        params.push(filters.adapterId);
+      if (filters?.sourceId) {
+        conditions.push('source_id = ?');
+        params.push(filters.sourceId);
       }
 
       if (filters?.importSessionId) {
@@ -483,8 +483,6 @@ export class Database {
           const results = rows.map(row => {
             const dbRow = row as Record<string, unknown>;
             return {
-              adapterId: dbRow.adapter_id as string,
-              adapterType: dbRow.adapter_type as string,
               createdAt: dbRow.created_at as number,
               id: dbRow.id as string,
               importSessionId: dbRow.import_session_id ? (dbRow.import_session_id as string) : undefined,
@@ -494,7 +492,9 @@ export class Database {
               processingStatus: dbRow.processing_status as string,
               providerId: dbRow.provider_id ? (dbRow.provider_id as string) : undefined,
               rawData: JSON.parse(dbRow.raw_data as string),
+              sourceId: dbRow.source_id as string,
               sourceTransactionId: dbRow.source_transaction_id as string,
+              sourceType: dbRow.source_type as string,
             };
           });
           resolve(results);
@@ -747,8 +747,8 @@ export class Database {
 
   // Raw transaction operations
   async saveRawTransaction(
-    adapterId: string,
-    adapterType: string,
+    sourceId: string,
+    sourceType: string,
     sourceTransactionId: string,
     rawData: unknown,
     options?: {
@@ -760,21 +760,21 @@ export class Database {
     return new Promise((resolve, reject) => {
       const stmt = this.db.prepare(`
         INSERT OR REPLACE INTO external_transaction_data 
-        (id, adapter_id, adapter_type, provider_id, source_transaction_id, raw_data, metadata, import_session_id)
+        (id, source_id, source_type, provider_id, source_transaction_id, raw_data, metadata, import_session_id)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       const providerId = options?.providerId || null;
       const id = providerId 
-        ? `${adapterId}-${providerId}-raw-${sourceTransactionId}`
-        : `${adapterId}-raw-${sourceTransactionId}`;
+        ? `${sourceId}-${providerId}-raw-${sourceTransactionId}`
+        : `${sourceId}-raw-${sourceTransactionId}`;
       const rawDataJson = JSON.stringify(rawData);
       const metadataJson = options?.metadata ? JSON.stringify(options.metadata) : null;
 
       stmt.run([
         id, 
-        adapterId, 
-        adapterType, 
+        sourceId, 
+        sourceType, 
         providerId,
         sourceTransactionId, 
         rawDataJson, 
@@ -793,8 +793,8 @@ export class Database {
   }
 
   async saveRawTransactions(
-    adapterId: string,
-    adapterType: string,
+    sourceId: string,
+    sourceType: string,
     rawTransactions: Array<{ data: unknown; id: string; }>,
     options?: {
       importSessionId?: string | undefined;
@@ -810,22 +810,22 @@ export class Database {
 
         const stmt = this.db.prepare(`
           INSERT OR IGNORE INTO external_transaction_data 
-          (id, adapter_id, adapter_type, provider_id, source_transaction_id, raw_data, metadata, import_session_id)
+          (id, source_id, source_type, provider_id, source_transaction_id, raw_data, metadata, import_session_id)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         for (const rawTx of rawTransactions) {
           const providerId = options?.providerId || null;
           const id = providerId 
-            ? `${adapterId}-${providerId}-raw-${rawTx.id}`
-            : `${adapterId}-raw-${rawTx.id}`;
+            ? `${sourceId}-${providerId}-raw-${rawTx.id}`
+            : `${sourceId}-raw-${rawTx.id}`;
           const rawDataJson = JSON.stringify(rawTx.data);
           const metadataJson = options?.metadata ? JSON.stringify(options.metadata) : null;
 
           stmt.run([
             id, 
-            adapterId, 
-            adapterType, 
+            sourceId, 
+            sourceType, 
             providerId,
             rawTx.id, 
             rawDataJson, 
@@ -1011,7 +1011,7 @@ export class Database {
   }
 
   async updateRawTransactionProcessingStatus(
-    adapterId: string,
+    sourceId: string,
     sourceTransactionId: string,
     status: 'pending' | 'processed' | 'failed',
     error?: string,
@@ -1021,7 +1021,7 @@ export class Database {
       const stmt = this.db.prepare(`
         UPDATE external_transaction_data 
         SET processing_status = ?, processing_error = ?, processed_at = ?
-        WHERE adapter_id = ? AND source_transaction_id = ? AND (provider_id = ? OR (provider_id IS NULL AND ? IS NULL))
+        WHERE source_id = ? AND source_transaction_id = ? AND (provider_id = ? OR (provider_id IS NULL AND ? IS NULL))
       `);
 
       const processedAt = status === 'processed' ? Math.floor(Date.now() / 1000) : null;
@@ -1030,7 +1030,7 @@ export class Database {
         status, 
         error || null, 
         processedAt,
-        adapterId, 
+        sourceId, 
         sourceTransactionId,
         providerId || null,
         providerId || null

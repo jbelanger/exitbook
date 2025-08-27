@@ -50,16 +50,16 @@ export class TransactionIngestionService {
     try {
       const [pending, processedItems, failedItems] = await Promise.all([
         this.dependencies.externalDataStore.load({
-          adapterId,
           processingStatus: 'pending',
+          sourceId: adapterId,
         }),
         this.dependencies.externalDataStore.load({
-          adapterId,
           processingStatus: 'processed',
+          sourceId: adapterId,
         }),
         this.dependencies.externalDataStore.load({
-          adapterId,
           processingStatus: 'failed',
+          sourceId: adapterId,
         }),
       ]);
 
@@ -173,34 +173,34 @@ export class TransactionIngestionService {
    * Process raw data from storage into UniversalTransaction format and save to database.
    */
   async processAndStore(
-    adapterId: string,
-    adapterType: 'exchange' | 'blockchain',
+    sourceId: string,
+    sourceType: 'exchange' | 'blockchain',
     filters?: LoadRawDataFilters
   ): Promise<ProcessResult> {
-    this.logger.info(`Starting processing for ${adapterId} (${adapterType})`);
+    this.logger.info(`Starting processing for ${sourceId} (${sourceType})`);
 
     try {
       // Load raw data from storage
       const loadFilters: LoadRawDataFilters = {
-        adapterId,
         processingStatus: 'pending',
+        sourceId: sourceId,
         ...filters,
       };
 
       const rawDataItems = await this.dependencies.externalDataStore.load(loadFilters);
 
       if (rawDataItems.length === 0) {
-        this.logger.warn(`No pending raw data found for processing: ${adapterId}`);
+        this.logger.warn(`No pending raw data found for processing: ${sourceId}`);
         return { errors: [], failed: 0, processed: 0 };
       }
 
-      this.logger.info(`Found ${rawDataItems.length} raw data items to process for ${adapterId}`);
+      this.logger.info(`Found ${rawDataItems.length} raw data items to process for ${sourceId}`);
 
       // Create processor
       const processor = await ProcessorFactory.create({
         dependencies: this.dependencies,
-        sourceId: adapterId,
-        sourceType: adapterType,
+        sourceId: sourceId,
+        sourceType: sourceType,
       });
 
       // Process raw data to UniversalTransaction
@@ -228,7 +228,7 @@ export class TransactionIngestionService {
 
       // Mark all raw data items as processed - both those that generated transactions and those that were skipped
       const allRawDataIds = rawDataItems.map(item => item.sourceTransactionId);
-      await this.dependencies.externalDataStore.markAsProcessed(adapterId, allRawDataIds, filters?.providerId);
+      await this.dependencies.externalDataStore.markAsProcessed(sourceId, allRawDataIds, filters?.providerId);
 
       // Log the processing results
       const skippedCount = rawDataItems.length - transactions.length;
@@ -236,7 +236,7 @@ export class TransactionIngestionService {
         this.logger.info(`${skippedCount} items were processed but skipped (likely non-standard operation types)`);
       }
 
-      this.logger.info(`Processing completed for ${adapterId}: ${savedCount} processed, ${failed} failed`);
+      this.logger.info(`Processing completed for ${sourceId}: ${savedCount} processed, ${failed} failed`);
 
       return {
         errors,
@@ -244,7 +244,7 @@ export class TransactionIngestionService {
         processed: savedCount,
       };
     } catch (error) {
-      this.logger.error(`Processing failed for ${adapterId}: ${error}`);
+      this.logger.error(`Processing failed for ${sourceId}: ${error}`);
       throw error;
     }
   }
