@@ -1,4 +1,4 @@
-import { BalanceRepository, BalanceService } from '@crypto/data';
+import { BalanceService } from '@crypto/data';
 import { getLogger } from '@crypto/shared-logger';
 import { Decimal } from 'decimal.js';
 
@@ -14,45 +14,6 @@ export class BalanceVerifier {
 
   constructor(balanceService: BalanceService) {
     this.balanceService = balanceService;
-  }
-
-  private compareBalances(
-    liveBalances: Record<string, number>,
-    calculatedBalances: Record<string, Decimal>,
-    tolerance: number = 0.00000001
-  ): BalanceComparison[] {
-    const comparisons: BalanceComparison[] = [];
-    const allCurrencies = new Set([...Object.keys(liveBalances), ...Object.keys(calculatedBalances)]);
-
-    for (const currency of Array.from(allCurrencies)) {
-      const liveBalance = liveBalances[currency] || 0;
-      const calculatedBalance = calculatedBalances[currency]?.toNumber() || 0;
-      const difference = Math.abs(liveBalance - calculatedBalance);
-      const percentageDiff = liveBalance !== 0 ? (difference / Math.abs(liveBalance)) * 100 : 0;
-
-      let status: 'match' | 'mismatch' | 'warning';
-
-      if (difference <= tolerance) {
-        status = 'match';
-      } else if (percentageDiff < 1) {
-        // Less than 1% difference
-        status = 'warning';
-      } else {
-        status = 'mismatch';
-      }
-
-      comparisons.push({
-        calculatedBalance,
-        currency,
-        difference,
-        liveBalance,
-        percentageDiff,
-        status,
-        tolerance,
-      });
-    }
-
-    return comparisons.sort((a, b) => b.difference - a.difference);
   }
 
   private createCalculatedOnlyComparisons(calculatedBalances: Record<string, Decimal>): BalanceComparison[] {
@@ -74,73 +35,6 @@ export class BalanceVerifier {
     }
 
     return comparisons.sort((a, b) => Math.abs(b.calculatedBalance) - Math.abs(a.calculatedBalance));
-  }
-
-  private createSummary(comparisons: BalanceComparison[]) {
-    return {
-      matches: comparisons.filter(c => c.status === 'match').length,
-      mismatches: comparisons.filter(c => c.status === 'mismatch').length,
-      totalCurrencies: comparisons.length,
-      warnings: comparisons.filter(c => c.status === 'warning').length,
-    };
-  }
-
-  private determineVerificationStatus(comparisons: BalanceComparison[]): 'success' | 'error' | 'warning' {
-    const mismatches = comparisons.filter(c => c.status === 'mismatch');
-    const warnings = comparisons.filter(c => c.status === 'warning');
-
-    if (mismatches.length > 0) {
-      return 'error';
-    } else if (warnings.length > 0) {
-      return 'warning';
-    } else {
-      return 'success';
-    }
-  }
-
-  private logBalanceDiscrepancy(exchange: string, currency: string, discrepancy: BalanceComparison) {
-    this.logger.error(
-      `Significant balance discrepancy detected - Exchange: ${exchange}, Currency: ${currency}, Operation: balance_verification_error, LiveBalance: ${discrepancy.liveBalance}, CalculatedBalance: ${discrepancy.calculatedBalance}, Difference: ${discrepancy.difference}, PercentageDiff: ${discrepancy.percentageDiff}%`
-    );
-  }
-
-  private logBalanceVerification(exchange: string, currency: string, result: BalanceComparison) {
-    const level = result.status === 'mismatch' ? 'warn' : 'info';
-    const message = `Balance verification ${result.status} for ${exchange} ${currency}`;
-
-    this.logger[level](
-      `${message} - Exchange: ${exchange}, Currency: ${currency}, Operation: balance_verification, LiveBalance: ${result.liveBalance}, CalculatedBalance: ${result.calculatedBalance}, Difference: ${result.difference}, PercentageDiff: ${result.percentageDiff}%, Status: ${result.status}`
-    );
-  }
-
-  private logVerificationResults(exchangeId: string, comparisons: BalanceComparison[]): void {
-    for (const comparison of comparisons) {
-      this.logBalanceVerification(exchangeId, comparison.currency, comparison);
-
-      // Log significant discrepancies as errors
-      if (comparison.status === 'mismatch' && comparison.percentageDiff > 5) {
-        this.logBalanceDiscrepancy(exchangeId, comparison.currency, comparison);
-      }
-    }
-  }
-
-  private async storeVerificationResults(exchangeId: string, comparisons: BalanceComparison[]): Promise<void> {
-    const timestamp = Date.now();
-
-    for (const comparison of comparisons) {
-      const record: BalanceVerificationRecord = {
-        actual_balance: comparison.calculatedBalance,
-        created_at: Date.now(),
-        currency: comparison.currency,
-        difference: comparison.difference,
-        exchange: exchangeId,
-        expected_balance: comparison.liveBalance,
-        status: comparison.status,
-        timestamp,
-      };
-
-      await this.balanceService.saveVerification(record);
-    }
   }
 
   // Generate a verification report
