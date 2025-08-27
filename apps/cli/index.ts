@@ -1,13 +1,6 @@
 #!/usr/bin/env node
-import {
-  type BalanceVerificationResult,
-  BalanceVerifier,
-  BlockchainBalanceService,
-  ExchangeBalanceService,
-} from '@crypto/balance';
-import type { IUniversalAdapter, UniversalAdapterInfo } from '@crypto/core';
+import { type BalanceVerificationResult, BalanceVerifier } from '@crypto/balance';
 import { BalanceRepository, BalanceService, Database, type StoredTransaction } from '@crypto/data';
-import { type ImportResult, type ImportSummary, TransactionImporter, UniversalAdapterFactory } from '@crypto/import';
 import { getLogger } from '@crypto/shared-logger';
 import { initializeDatabase, loadExplorerConfig } from '@crypto/shared-utils';
 import { Command } from 'commander';
@@ -52,280 +45,29 @@ async function main() {
     .description('Crypto transaction import and verification tool using CCXT')
     .version('1.0.0');
 
-  // Import command
-  program
-    .command('import-old')
-    .description('[LEGACY] Import transactions from configured exchanges or specific blockchain (full pipeline)')
-    .option('--exchange <name>', 'Import from specific exchange only')
-    .option('--adapter-type <type>', 'Exchange adapter type (ccxt, csv, native)', 'ccxt')
-    .option('--api-key <key>', 'Exchange API key (for CCXT adapters)')
-    .option('--secret <secret>', 'Exchange API secret (for CCXT adapters)')
-    .option('--password <password>', 'Exchange API password/passphrase (for CCXT adapters)')
-    .option('--csv-directories <paths...>', 'CSV directories (for CSV adapters, space-separated)')
-    .option('--sandbox', 'Use sandbox/testnet mode')
-    .option('--blockchain <name>', 'Import from specific blockchain (bitcoin, ethereum, injective)')
-    .option('--addresses <addresses...>', 'Wallet addresses/xpubs for blockchain import (space-separated)')
-    .option('--since <date>', 'Import transactions since date (YYYY-MM-DD, timestamp, or 0 for all history)')
-    .option('--verify', 'Run balance verification after import')
-    .option('--config <path>', 'Path to configuration file')
-    .option('--clear-db', 'Clear and reinitialize database before import')
-    .action(async options => {
-      try {
-        logger.info('Starting transaction import');
-
-        // Load configurations using shared config utils
-        const explorerConfig = loadExplorerConfig();
-
-        // Initialize database
-        const database = await initializeDatabase(options.clearDb);
-
-        // Create importer with minimal dependencies
-        const importer = new TransactionImporter(database, explorerConfig);
-
-        let since: number | undefined;
-        if (options.since) {
-          // Support multiple since formats:
-          // 1. Numeric timestamp: "0", "1609459200000"
-          // 2. Date string: "2003-01-01", "2021-01-01"
-          const sinceStr = options.since.toString();
-
-          if (/^\d+$/.test(sinceStr)) {
-            // Pure numeric value - treat as timestamp
-            since = parseInt(sinceStr, 10);
-            if (since === 0) {
-              // Special case: 0 means get all history (don't set since parameter)
-              since = undefined;
-            }
-          } else {
-            // Date string format
-            since = new Date(sinceStr).getTime();
-            if (isNaN(since)) {
-              logger.error('Invalid date format. Use YYYY-MM-DD, timestamp, or 0 for all history');
-              process.exit(1);
-            }
-          }
-        }
-
-        // Validate blockchain + addresses combination
-        if (options.blockchain && !options.addresses) {
-          logger.error('--addresses is required when using --blockchain');
-          process.exit(1);
-        }
-
-        if (options.blockchain && options.exchange) {
-          logger.error('Cannot use both --blockchain and --exchange options');
-          process.exit(1);
-        }
-
-        // Validate exchange parameters
-        if (options.exchange) {
-          if (options.adapterType === 'ccxt' || options.adapterType === 'native') {
-            if (!options.apiKey || !options.secret) {
-              logger.error('--api-key and --secret are required for CCXT and native adapters');
-              process.exit(1);
-            }
-            if (options.exchange === 'coinbase' && options.adapterType === 'ccxt' && !options.password) {
-              logger.error('--password is required for Coinbase CCXT adapter');
-              process.exit(1);
-            }
-          } else if (options.adapterType === 'csv') {
-            if (!options.csvDirectories || options.csvDirectories.length === 0) {
-              logger.error('--csv-directories is required for CSV adapters');
-              process.exit(1);
-            }
-          }
-        }
-
-        let result: ImportSummary | ImportResult;
-        if (options.blockchain) {
-          result = await importer.importFromBlockchain({
-            addresses: options.addresses,
-            blockchain: options.blockchain,
-            ...(since !== undefined && { since }),
-          });
-        } else if (options.exchange) {
-          // Create adapter directly with provided credentials
-          result = await importer.importFromExchangeWithCredentials({
-            adapterType: options.adapterType,
-            exchangeId: options.exchange,
-            ...((options.adapterType === 'ccxt' || options.adapterType === 'native') && {
-              credentials: {
-                apiKey: options.apiKey,
-                password: options.password,
-                sandbox: options.sandbox,
-                secret: options.secret,
-              },
-            }),
-            csvDirectories: options.csvDirectories,
-            ...(since !== undefined && { since }),
-          });
-        } else {
-          logger.error('Either --exchange or --blockchain must be specified');
-          process.exit(1);
-        }
-
-        // Display results
-        const totalTxns = 'totalTransactions' in result ? result.totalTransactions : result.transactions;
-        logger.info(
-          `Import completed - Total: ${totalTxns}, New: ${result.newTransactions}, Duplicates: ${result.duplicatesSkipped}, Duration: ${(result.duration / 1000).toFixed(1)}s`
-        );
-        if (result.errors.length > 0) {
-          logger.warn(`Errors encountered during import: ${result.errors.length} errors`);
-          result.errors.forEach((error: string, index: number) => {
-            logger.warn(`Error ${index + 1}: ${error}`);
-          });
-        }
-
-        // Run verification if requested
-        if (options.verify) {
-          logger.info('Running balance verification');
-          const balanceRepository = new BalanceRepository(database);
-          const balanceService = new BalanceService(balanceRepository);
-          const verifier = new BalanceVerifier(balanceService);
-          let balanceServices: (BlockchainBalanceService | ExchangeBalanceService)[];
-          if (options.blockchain) {
-            const blockchainAdapters = await importer.createBlockchainAdapters({
-              addresses: options.addresses,
-              blockchain: options.blockchain,
-            });
-            // Create blockchain balance services
-            balanceServices = await Promise.all(
-              blockchainAdapters.map(async (ba: { adapter: IUniversalAdapter }) => {
-                const service = new BlockchainBalanceService(ba.adapter, options.addresses);
-                await service.initialize();
-                return service;
-              })
-            );
-          } else {
-            // For exchange verification after import, we need to recreate the adapter
-            if (!options.exchange) {
-              logger.error('Exchange verification requires --exchange option');
-              process.exit(1);
-            }
-            // Note: For verification after import, we would need credentials or config
-            logger.warn('Exchange balance verification after import is not yet implemented');
-            balanceServices = [];
-          }
-          const verificationResults = await verifier.verifyAllServices(balanceServices);
-
-          displayVerificationResults(verificationResults);
-        }
-
-        await database.close();
-        process.exit(0);
-      } catch (error) {
-        logger.error(`Import failed: ${error}`);
-        process.exit(1);
-      }
-    });
-
   // Verify command
   program
     .command('verify')
-    .description('Verify balances across exchanges or specific blockchain')
-    .option('--exchange <name>', 'Verify specific exchange only')
-    .option('--adapter-type <type>', 'Exchange adapter type (ccxt, csv, native)', 'ccxt')
-    .option('--api-key <key>', 'Exchange API key (for CCXT adapters)')
-    .option('--secret <secret>', 'Exchange API secret (for CCXT adapters)')
-    .option('--password <password>', 'Exchange API password/passphrase (for CCXT adapters)')
-    .option('--csv-directories <paths...>', 'CSV directories (for CSV adapters, space-separated)')
-    .option('--sandbox', 'Use sandbox/testnet mode')
-    .option('--blockchain <name>', 'Verify specific blockchain (bitcoin, ethereum, injective)')
-    .option('--addresses <addresses...>', 'Wallet addresses/xpubs for blockchain verification (space-separated)')
+    .description('Verify calculated balances from imported transaction data')
+    .option('--source <name>', 'Source to verify (exchange or blockchain name)')
     .option('--report', 'Generate detailed verification report')
-    .option('--config <path>', 'Path to configuration file')
-    .option('--clear-db', 'Clear and reinitialize database before verify')
     .action(async options => {
       try {
         logger.info('Starting balance verification');
 
-        // Load configurations using shared config utils
-        const explorerConfig = loadExplorerConfig();
-
         // Initialize database
-        const database = await initializeDatabase(options.clearDb);
+        const database = await initializeDatabase();
 
         const balanceRepository = new BalanceRepository(database);
         const balanceService = new BalanceService(balanceRepository);
         const verifier = new BalanceVerifier(balanceService);
-        const importer = new TransactionImporter(database, explorerConfig);
 
-        // Validate blockchain + addresses combination
-        if (options.blockchain && !options.addresses) {
-          logger.error('--addresses is required when using --blockchain');
+        if (!options.source) {
+          logger.error('--source is required. Examples: kraken, bitcoin, ethereum');
           process.exit(1);
         }
 
-        if (options.blockchain && options.exchange) {
-          logger.error('Cannot use both --blockchain and --exchange options');
-          process.exit(1);
-        }
-
-        // Validate exchange parameters
-        if (options.exchange) {
-          if (options.adapterType === 'ccxt' || options.adapterType === 'native') {
-            if (!options.apiKey || !options.secret) {
-              logger.error('--api-key and --secret are required for CCXT and native adapters');
-              process.exit(1);
-            }
-            if (options.exchange === 'coinbase' && options.adapterType === 'ccxt' && !options.password) {
-              logger.error('--password is required for Coinbase CCXT adapter');
-              process.exit(1);
-            }
-          } else if (options.adapterType === 'csv') {
-            if (!options.csvDirectories || options.csvDirectories.length === 0) {
-              logger.error('--csv-directories is required for CSV adapters');
-              process.exit(1);
-            }
-          }
-        }
-
-        let balanceServices: (BlockchainBalanceService | ExchangeBalanceService)[];
-        if (options.blockchain) {
-          const blockchainAdapters = await importer.createBlockchainAdapters({
-            addresses: options.addresses,
-            blockchain: options.blockchain,
-          });
-
-          if (blockchainAdapters.length === 0) {
-            logger.error(`Blockchain '${options.blockchain}' not supported or addresses invalid`);
-            process.exit(1);
-          }
-
-          // Create blockchain balance services
-          balanceServices = await Promise.all(
-            blockchainAdapters.map(async (ba: { adapter: IUniversalAdapter }) => {
-              const service = new BlockchainBalanceService(ba.adapter, options.addresses);
-              await service.initialize();
-              return service;
-            })
-          );
-        } else if (options.exchange) {
-          // Create exchange adapter with provided credentials using UniversalAdapterFactory
-          const adapter = await UniversalAdapterFactory.create({
-            credentials:
-              options.adapterType === 'ccxt' || options.adapterType === 'native'
-                ? {
-                    apiKey: options.apiKey,
-                    password: options.password,
-                    secret: options.secret,
-                  }
-                : undefined,
-            csvDirectories: options.csvDirectories,
-            id: options.exchange,
-            subType: options.adapterType as 'ccxt' | 'csv' | 'native',
-            type: 'exchange',
-          });
-
-          // Create exchange balance service
-          const exchangeService = new ExchangeBalanceService(adapter);
-          await exchangeService.initialize();
-          balanceServices = [exchangeService];
-        } else {
-          logger.error('Either --exchange or --blockchain must be specified');
-          process.exit(1);
-        }
-        const results = await verifier.verifyAllServices(balanceServices);
+        const results = await verifier.verifyExchangeById(options.source);
 
         displayVerificationResults(results);
 
@@ -334,15 +76,6 @@ async function main() {
           const reportPath = path.join(process.cwd(), 'data', 'verification-report.md');
           await import('fs').then(fs => fs.promises.writeFile(reportPath, report));
           logger.info(`Verification report generated: ${reportPath}`);
-        }
-
-        // Close all services
-        for (const service of balanceServices) {
-          try {
-            await service.close();
-          } catch (closeError) {
-            logger.warn(`Failed to close service: ${closeError}`);
-          }
         }
 
         await database.close();
@@ -457,143 +190,6 @@ async function main() {
         process.exit(0);
       } catch (error) {
         logger.error(`Export failed: ${error}`);
-        process.exit(1);
-      }
-    });
-
-  // Test command
-  program
-    .command('test')
-    .description('Test exchange connections or specific blockchain')
-    .option('--exchange <name>', 'Test specific exchange only')
-    .option('--adapter-type <type>', 'Exchange adapter type (ccxt, csv, native)', 'ccxt')
-    .option('--api-key <key>', 'Exchange API key (for CCXT adapters)')
-    .option('--secret <secret>', 'Exchange API secret (for CCXT adapters)')
-    .option('--password <password>', 'Exchange API password/passphrase (for CCXT adapters)')
-    .option('--csv-directories <paths...>', 'CSV directories (for CSV adapters, space-separated)')
-    .option('--sandbox', 'Use sandbox/testnet mode')
-    .option('--blockchain <name>', 'Test specific blockchain (bitcoin, ethereum, injective)')
-    .option('--addresses <addresses...>', 'Wallet addresses/xpubs for blockchain testing (space-separated)')
-    .option('--config <path>', 'Path to configuration file')
-    .option('--clear-db', 'Clear and reinitialize database before test')
-    .action(async options => {
-      try {
-        logger.info('Testing exchange connections');
-
-        // Load configurations using shared config utils
-        const explorerConfig = loadExplorerConfig();
-
-        // Initialize database
-        const database = await initializeDatabase(options.clearDb);
-
-        const importer = new TransactionImporter(database, explorerConfig);
-        // Validate blockchain + addresses combination
-        if (options.blockchain && !options.addresses) {
-          logger.error('--addresses is required when using --blockchain');
-          process.exit(1);
-        }
-
-        if (options.blockchain && options.exchange) {
-          logger.error('Cannot use both --blockchain and --exchange options');
-          process.exit(1);
-        }
-
-        // Validate exchange parameters
-        if (options.exchange) {
-          if (options.adapterType === 'ccxt' || options.adapterType === 'native') {
-            if (!options.apiKey || !options.secret) {
-              logger.error('--api-key and --secret are required for CCXT and native adapters');
-              process.exit(1);
-            }
-            if (options.exchange === 'coinbase' && options.adapterType === 'ccxt' && !options.password) {
-              logger.error('--password is required for Coinbase CCXT adapter');
-              process.exit(1);
-            }
-          } else if (options.adapterType === 'csv') {
-            if (!options.csvDirectories || options.csvDirectories.length === 0) {
-              logger.error('--csv-directories is required for CSV adapters');
-              process.exit(1);
-            }
-          }
-        }
-
-        let adapters: { adapter: IUniversalAdapter }[];
-        if (options.blockchain) {
-          const blockchainAdapters = await importer.createBlockchainAdapters({
-            addresses: options.addresses,
-            blockchain: options.blockchain,
-          });
-          adapters = blockchainAdapters.map((ba: { adapter: IUniversalAdapter }) => ({ adapter: ba.adapter }));
-        } else if (options.exchange) {
-          // Create exchange adapter with provided credentials using UniversalAdapterFactory
-          const adapter = await UniversalAdapterFactory.create({
-            credentials:
-              options.adapterType === 'ccxt' || options.adapterType === 'native'
-                ? {
-                    apiKey: options.apiKey,
-                    password: options.password,
-                    secret: options.secret,
-                  }
-                : undefined,
-            csvDirectories: options.csvDirectories,
-            id: options.exchange,
-            subType: options.adapterType as 'ccxt' | 'csv' | 'native',
-            type: 'exchange',
-          });
-          adapters = [{ adapter }];
-        } else {
-          logger.error('Either --exchange or --blockchain must be specified');
-          process.exit(1);
-        }
-
-        logger.info(`Testing connections for ${adapters.length} adapters`);
-        logger.info('\nTesting Connections');
-        logger.info('=================================');
-
-        for (const { adapter } of adapters) {
-          let connectionInfo: UniversalAdapterInfo;
-
-          try {
-            connectionInfo = await adapter.getInfo();
-          } catch (error) {
-            // Fallback to a basic info structure if getInfo fails
-            connectionInfo = {
-              capabilities: {
-                maxBatchSize: 1,
-                requiresApiKey: false,
-                supportedOperations: [],
-                supportsHistoricalData: false,
-                supportsPagination: false,
-              },
-              id: 'unknown-adapter',
-              name: 'Unknown Adapter',
-              type: 'exchange' as const,
-            };
-          }
-
-          process.stdout.write(`Testing ${connectionInfo.id}... `);
-
-          const isConnected = await adapter.testConnection();
-          logger.info(`Connection test result for ${connectionInfo.id}: ${isConnected ? 'Connected' : 'Failed'}`);
-          logger.info(isConnected ? 'Connected' : 'Failed');
-
-          if (isConnected && connectionInfo.capabilities) {
-            const capabilities = connectionInfo.capabilities;
-            const capabilityList = Object.entries(capabilities)
-              .filter(([_, v]) => v)
-              .map(([k]) => k)
-              .join(', ');
-            if (capabilityList) {
-              logger.debug(`Adapter capabilities for ${connectionInfo.id}: ${capabilityList}`);
-              logger.info(`  Capabilities: ${capabilityList}`);
-            }
-          }
-        }
-
-        await database.close();
-        process.exit(0);
-      } catch (error) {
-        logger.error(`Connection test failed: ${error}`);
         process.exit(1);
       }
     });
