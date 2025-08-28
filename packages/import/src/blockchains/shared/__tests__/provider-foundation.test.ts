@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { CircuitBreaker } from '../../../shared/utils/circuit-breaker.ts';
 // Import clients to trigger registration
-import '../../ethereum/clients/index.ts';
+import '../../ethereum/api/index.ts';
 import { BlockchainProviderManager } from '../blockchain-provider-manager.ts';
 import { ProviderInfo, ProviderRegistry } from '../registry/provider-registry.ts';
 import { IBlockchainProvider, ProviderCapabilities, ProviderOperation } from '../types.ts';

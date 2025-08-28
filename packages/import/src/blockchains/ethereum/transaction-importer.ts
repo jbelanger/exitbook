@@ -4,7 +4,7 @@ import type { ImportParams, ImportRunResult } from '../../shared/importers/inter
 import type { ApiClientRawData } from '../../shared/processors/interfaces.ts';
 import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
 // Ensure Ethereum API clients are registered
-import './clients/index.ts';
+import './api/index.ts';
 import { validateEthereumTransactions } from './schemas.ts';
 import type { AlchemyAssetTransfer, MoralisTokenTransfer, MoralisTransaction } from './types.ts';
 

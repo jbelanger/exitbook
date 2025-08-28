@@ -1,7 +1,6 @@
 import type {
   Balance,
   BlockchainTransaction,
-  TransactionType,
   UniversalAdapterInfo,
   UniversalBalance,
   UniversalBlockchainAdapterConfig,
@@ -13,11 +12,10 @@ import { Decimal } from 'decimal.js';
 import { BaseAdapter } from '../../shared/adapters/base-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
 import type { BlockchainExplorersConfig } from '../shared/explorer-config.ts';
-import './clients/index.ts';
+import './api/index.ts';
 // Import clients to trigger registration
 import { AlchemyProcessor } from './processors/AlchemyProcessor.ts';
 import { MoralisProcessor } from './processors/MoralisProcessor.ts';
-import { EthereumTransactionProcessor } from './transaction-processor.ts';
 import type {
   AlchemyAssetTransfer,
   EtherscanBalance,
