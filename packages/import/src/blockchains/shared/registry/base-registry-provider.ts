@@ -89,7 +89,7 @@ export abstract class BaseRegistryProvider implements IBlockchainProvider {
     return this.metadata.capabilities;
   }
 
-  abstract execute<T>(operation: ProviderOperation<T>): Promise<T>;
+  abstract execute<T>(operation: ProviderOperation<T>, config?: Record<string, unknown>): Promise<T>;
 
   // Abstract methods that must be implemented by concrete providers
   abstract isHealthy(): Promise<boolean>;
