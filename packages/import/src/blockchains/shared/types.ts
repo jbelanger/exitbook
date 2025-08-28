@@ -1,7 +1,5 @@
 import type { DataSourceCapabilities, RateLimitConfig } from '@crypto/core';
 
-// Parameter interfaces removed - discriminated union provides type safety
-
 // Discriminated union type for all possible operation parameters
 export type ProviderOperationParams =
   | {

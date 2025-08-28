@@ -113,3 +113,32 @@ export interface AvalancheNetwork {
   };
   rpcUrls: string[];
 }
+
+// Transaction correlation types
+export interface TransactionGroup {
+  hash: string;
+  internal?: SnowtraceInternalTransaction[];
+  normal?: SnowtraceTransaction;
+  timestamp: number;
+  tokens?: SnowtraceTokenTransfer[];
+  userAddress: string;
+}
+
+export interface ClassificationResult {
+  assets: Array<{
+    amount: string;
+    direction: 'in' | 'out';
+    symbol: string;
+  }>;
+  primaryAmount: string;
+  primarySymbol: string;
+  reason: string;
+  type: 'deposit' | 'withdrawal' | 'transfer';
+}
+
+export interface ValueFlow {
+  amountIn: string;
+  amountOut: string;
+  netFlow: string;
+  symbol: string;
+}

@@ -135,9 +135,17 @@ export class AvalancheTransactionImporter extends BaseImporter<AvalancheRawTrans
 
   /**
    * Extract unique transaction identifier from raw transaction data.
+   * Include provider type to prevent deduplication of different transaction types with same hash.
    */
   protected getTransactionId(rawData: AvalancheRawTransactionData): string {
-    return rawData.hash;
+    // Determine transaction type based on structure to create unique keys
+    if ('tokenSymbol' in rawData) {
+      return `${rawData.hash}-token`;
+    } else if ('type' in rawData && rawData.type === 'call') {
+      return `${rawData.hash}-internal`;
+    } else {
+      return `${rawData.hash}-normal`;
+    }
   }
 
   /**
