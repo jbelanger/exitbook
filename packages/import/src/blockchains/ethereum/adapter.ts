@@ -7,11 +7,11 @@ import type {
   UniversalFetchParams,
   UniversalTransaction,
 } from '@crypto/core';
+import type { BlockchainExplorersConfig } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
 
 import { BaseAdapter } from '../../shared/adapters/base-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
-import type { BlockchainExplorersConfig } from '../shared/explorer-config.ts';
 import './api/index.ts';
 // Import clients to trigger registration
 import { AlchemyProcessor } from './processors/AlchemyProcessor.ts';
@@ -28,7 +28,7 @@ import type {
 export class EthereumAdapter extends BaseAdapter {
   private providerManager: BlockchainProviderManager;
 
-  constructor(config: UniversalBlockchainAdapterConfig, explorerConfig: BlockchainExplorersConfig) {
+  constructor(config: UniversalBlockchainAdapterConfig, explorerConfig: BlockchainExplorersConfig | null) {
     super(config);
 
     this.providerManager = new BlockchainProviderManager(explorerConfig);

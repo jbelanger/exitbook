@@ -8,11 +8,11 @@ import type {
   UniversalFetchParams,
   UniversalTransaction,
 } from '@crypto/core';
+import type { BlockchainExplorersConfig } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
 
 import { BaseAdapter } from '../../shared/adapters/base-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
-import type { BlockchainExplorersConfig } from '../shared/explorer-config.ts';
 import './api/index.ts';
 import type { SnowtraceRawData } from './processors/SnowtraceProcessor.ts';
 import { SnowtraceProcessor } from './processors/SnowtraceProcessor.ts';
@@ -21,7 +21,7 @@ import type { SnowtraceTokenTransfer } from './types.ts';
 export class AvalancheAdapter extends BaseAdapter {
   private providerManager: BlockchainProviderManager;
 
-  constructor(config: UniversalBlockchainAdapterConfig, explorerConfig: BlockchainExplorersConfig) {
+  constructor(config: UniversalBlockchainAdapterConfig, explorerConfig: BlockchainExplorersConfig | null) {
     super(config);
 
     this.providerManager = new BlockchainProviderManager(explorerConfig);

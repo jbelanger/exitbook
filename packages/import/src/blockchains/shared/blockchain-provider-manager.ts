@@ -1,11 +1,16 @@
 import { getLogger } from '@crypto/shared-logger';
+import type { BlockchainExplorersConfig, ProviderOverride } from '@crypto/shared-utils';
 
 import type { FailoverExecutionResult } from '../../shared/processors/interfaces.ts';
 import { CircuitBreaker } from '../../shared/utils/circuit-breaker.ts';
-import type { BlockchainExplorersConfig } from './explorer-config.ts';
 import { ProviderRegistry } from './registry/provider-registry.ts';
-import type { ProviderHealth } from './types.ts';
-import type { IBlockchainProvider, ProviderCapabilities, ProviderOperation, ProviderOperationType } from './types.ts';
+import type {
+  IBlockchainProvider,
+  ProviderCapabilities,
+  ProviderHealth,
+  ProviderOperation,
+  ProviderOperationType,
+} from './types.ts';
 
 // Type guards no longer needed with discriminated union
 
@@ -27,12 +32,123 @@ export class BlockchainProviderManager {
   private rateLimiters = new Map<string, { lastRequest: number; tokens: number }>(); // Simple token bucket
   private requestCache = new Map<string, CacheEntry>();
 
-  constructor(private readonly explorerConfig: BlockchainExplorersConfig) {
+  constructor(private readonly explorerConfig: BlockchainExplorersConfig | null) {
     // Start periodic health checks
     this.healthCheckTimer = setInterval(() => this.performHealthChecks(), this.healthCheckInterval);
 
     // Start cache cleanup
     this.cacheCleanupTimer = setInterval(() => this.cleanupCache(), this.cacheTimeout);
+  }
+
+  /**
+   * Auto-register all available providers from the registry (used when no config exists)
+   */
+  private autoRegisterFromRegistry(
+    blockchain: string,
+    network: string = 'mainnet',
+    preferredProvider?: string
+  ): IBlockchainProvider[] {
+    try {
+      let registeredProviders = ProviderRegistry.getAvailable(blockchain);
+
+      // If a preferred provider is specified, filter to only that provider
+      if (preferredProvider) {
+        const matchingProvider = registeredProviders.find(provider => provider.name === preferredProvider);
+        if (matchingProvider) {
+          registeredProviders = [matchingProvider];
+          logger.info(`Filtering to preferred provider: ${preferredProvider} for ${blockchain}`);
+        } else {
+          const availableProviders = registeredProviders.map(p => p.name).join(', ');
+          const suggestions = [
+            `💡 Available providers for ${blockchain}: ${availableProviders}`,
+            `💡 Run 'pnpm run providers:list --blockchain ${blockchain}' to see all options`,
+            `💡 Check for typos in provider name: '${preferredProvider}'`,
+            `💡 Use 'pnpm run providers:sync --fix' to sync configuration`,
+          ];
+
+          throw new Error(
+            `Preferred provider '${preferredProvider}' not found for ${blockchain}.\n${suggestions.join('\n')}`
+          );
+        }
+      }
+
+      const providers: IBlockchainProvider[] = [];
+      let priority = 1;
+
+      for (const providerInfo of registeredProviders) {
+        try {
+          // Get provider metadata from registry
+          const metadata = ProviderRegistry.getMetadata(blockchain, providerInfo.name);
+          if (!metadata) {
+            logger.warn(`No metadata found for provider ${providerInfo.name}. Skipping.`);
+            continue;
+          }
+
+          // Check if provider requires API key and if it's available
+          if (metadata.requiresApiKey) {
+            const envVar = metadata.apiKeyEnvVar || `${metadata.name.toUpperCase()}_API_KEY`;
+            const apiKey = process.env[envVar];
+
+            if (!apiKey || apiKey === 'YourApiKeyToken') {
+              logger.warn(
+                `No API key found for ${metadata.displayName}. Set environment variable: ${envVar}. Skipping provider.`
+              );
+              continue;
+            }
+          }
+
+          // Check if the provider supports the requested network
+          const networkEndpoint = metadata.networks[network as keyof typeof metadata.networks];
+          if (!networkEndpoint) {
+            logger.warn(`Provider ${providerInfo.name} does not support network ${network}. Skipping.`);
+            continue;
+          }
+
+          // Build provider config using registry defaults
+          const providerConfig = {
+            ...metadata.defaultConfig,
+            baseUrl: networkEndpoint.baseUrl,
+            displayName: metadata.displayName,
+            // Add basic config properties for compatibility
+            enabled: true,
+            name: metadata.name,
+            network,
+            priority: priority++,
+            requiresApiKey: metadata.requiresApiKey,
+            type: metadata.type,
+          };
+
+          // Create provider instance from registry
+          const provider = ProviderRegistry.createProvider(blockchain, providerInfo.name, providerConfig);
+          providers.push(provider);
+
+          logger.debug(
+            `Successfully created provider ${providerInfo.name} for ${blockchain} (registry) - Priority: ${providerConfig.priority}, BaseUrl: ${providerConfig.baseUrl}, RequiresApiKey: ${metadata.requiresApiKey}`
+          );
+        } catch (error) {
+          logger.error(
+            `Failed to create provider ${providerInfo.name} for ${blockchain} - Error: ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
+      }
+
+      // Register the providers with this manager
+      if (providers.length > 0) {
+        this.registerProviders(blockchain, providers);
+        logger.info(
+          `Auto-registered ${providers.length} providers from registry for ${blockchain}: ${providers.map(p => p.name).join(', ')}`
+        );
+      } else {
+        logger.warn(`No suitable providers found for ${blockchain} on network ${network}`);
+      }
+
+      return providers;
+    } catch (error) {
+      logger.error(
+        `Failed to auto-register providers from registry for ${blockchain} - Error: ${error instanceof Error ? error.message : String(error)}`
+      );
+      return [];
+    }
   }
 
   /**
@@ -259,6 +375,151 @@ export class BlockchainProviderManager {
   }
 
   /**
+   * Handle new override-based configuration format
+   */
+  private handleOverrideConfig(
+    blockchain: string,
+    network: string,
+    preferredProvider: string | undefined,
+    blockchainConfig: { defaultEnabled?: string[]; overrides?: { [providerName: string]: ProviderOverride } }
+  ): IBlockchainProvider[] {
+    // Get all registered providers for this blockchain
+    const allRegisteredProviders = ProviderRegistry.getAvailable(blockchain);
+
+    // Determine which providers to enable
+    const defaultEnabled = blockchainConfig.defaultEnabled || allRegisteredProviders.map(p => p.name);
+    const overrides = blockchainConfig.overrides || {};
+
+    // Build list of providers to create
+    const providersToCreate: Array<{ name: string; overrideConfig: ProviderOverride; priority: number }> = [];
+
+    // If preferred provider specified, use only that one
+    if (preferredProvider) {
+      if (allRegisteredProviders.some(p => p.name === preferredProvider)) {
+        const override = overrides[preferredProvider] || {};
+        // Check if explicitly disabled
+        if (override.enabled === false) {
+          logger.warn(`Preferred provider '${preferredProvider}' is disabled in config overrides`);
+        } else {
+          providersToCreate.push({
+            name: preferredProvider,
+            overrideConfig: override,
+            priority: override.priority || 1,
+          });
+        }
+      } else {
+        const registeredProviders = allRegisteredProviders.map(p => p.name).join(', ');
+        const suggestions = [
+          `💡 Available providers for ${blockchain}: ${registeredProviders}`,
+          `💡 Run 'pnpm run providers:list --blockchain ${blockchain}' to see all options`,
+          `💡 Check for typos in provider name: '${preferredProvider}'`,
+          `💡 Use 'pnpm run providers:sync --fix' to sync configuration`,
+        ];
+
+        throw new Error(
+          `Preferred provider '${preferredProvider}' not found for ${blockchain}.\n${suggestions.join('\n')}`
+        );
+      }
+    } else {
+      // Use defaultEnabled list, filtered by overrides
+      for (const providerName of defaultEnabled) {
+        if (!allRegisteredProviders.some(p => p.name === providerName)) {
+          logger.warn(`Default provider '${providerName}' not registered for ${blockchain}. Skipping.`);
+          continue;
+        }
+
+        const override = overrides[providerName] || {};
+
+        // Skip if explicitly disabled
+        if (override.enabled === false) {
+          logger.debug(`Provider '${providerName}' disabled via config override for ${blockchain}`);
+          continue;
+        }
+
+        providersToCreate.push({
+          name: providerName,
+          overrideConfig: override,
+          priority: override.priority || providersToCreate.length + 1,
+        });
+      }
+
+      // Sort by priority
+      providersToCreate.sort((a, b) => a.priority - b.priority);
+    }
+
+    const providers: IBlockchainProvider[] = [];
+
+    for (const providerInfo of providersToCreate) {
+      try {
+        // Get provider metadata from registry
+        const metadata = ProviderRegistry.getMetadata(blockchain, providerInfo.name);
+        if (!metadata) {
+          logger.warn(`No metadata found for provider ${providerInfo.name}. Skipping.`);
+          continue;
+        }
+
+        // Check API key requirements
+        if (metadata.requiresApiKey) {
+          const envVar = metadata.apiKeyEnvVar || `${metadata.name.toUpperCase()}_API_KEY`;
+          const apiKey = process.env[envVar];
+
+          if (!apiKey || apiKey === 'YourApiKeyToken') {
+            logger.warn(
+              `No API key found for ${metadata.displayName}. Set environment variable: ${envVar}. Skipping provider.`
+            );
+            continue;
+          }
+        }
+
+        // Check network support
+        const networkEndpoint = metadata.networks[network as keyof typeof metadata.networks];
+        if (!networkEndpoint) {
+          logger.warn(`Provider ${providerInfo.name} does not support network ${network}. Skipping.`);
+          continue;
+        }
+
+        // Build provider config by merging registry defaults with overrides
+        const providerConfig = {
+          ...metadata.defaultConfig,
+          ...providerInfo.overrideConfig,
+          baseUrl: networkEndpoint.baseUrl,
+          displayName: metadata.displayName,
+          enabled: true,
+          name: metadata.name,
+          network,
+          priority: providerInfo.priority,
+          requiresApiKey: metadata.requiresApiKey,
+          type: metadata.type,
+        };
+
+        // Create provider instance
+        const provider = ProviderRegistry.createProvider(blockchain, providerInfo.name, providerConfig);
+        providers.push(provider);
+
+        logger.debug(
+          `Created provider ${providerInfo.name} for ${blockchain} - Priority: ${providerInfo.priority}, BaseUrl: ${providerConfig.baseUrl}, RequiresApiKey: ${metadata.requiresApiKey}`
+        );
+      } catch (error) {
+        logger.error(
+          `Failed to create provider ${providerInfo.name} for ${blockchain} - Error: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+    }
+
+    // Register providers with manager
+    if (providers.length > 0) {
+      this.registerProviders(blockchain, providers);
+      logger.info(
+        `Auto-registered ${providers.length} providers for ${blockchain}: ${providers.map(p => p.name).join(', ')}`
+      );
+    } else {
+      logger.warn(`No suitable providers found for ${blockchain} on network ${network}`);
+    }
+
+    return providers;
+  }
+
+  /**
    * Check if there are available providers (circuit not open)
    */
   private hasAvailableProviders(providers: IBlockchainProvider[]): boolean {
@@ -413,6 +674,7 @@ export class BlockchainProviderManager {
 
   /**
    * Auto-register providers from configuration using the registry
+   * Falls back to all registered providers when no configuration exists
    */
   autoRegisterFromConfig(
     blockchain: string,
@@ -420,97 +682,22 @@ export class BlockchainProviderManager {
     preferredProvider?: string
   ): IBlockchainProvider[] {
     try {
-      const config = this.explorerConfig;
-      const blockchainConfig = config[blockchain];
+      // If no config file exists, use all registered providers
+      if (!this.explorerConfig) {
+        logger.info(`No configuration file found. Using all registered providers for ${blockchain}`);
+        return this.autoRegisterFromRegistry(blockchain, network, preferredProvider);
+      }
 
+      const blockchainConfig = this.explorerConfig[blockchain];
+
+      // If blockchain not in config, fall back to registry
       if (!blockchainConfig) {
-        logger.warn(`No configuration found for blockchain: ${blockchain}`);
-        return [];
+        logger.info(`No configuration found for blockchain: ${blockchain}. Using all registered providers.`);
+        return this.autoRegisterFromRegistry(blockchain, network, preferredProvider);
       }
 
-      let enabledExplorers = blockchainConfig.explorers
-        .filter(explorer => explorer.enabled)
-        .sort((a, b) => a.priority - b.priority);
-
-      // If a preferred provider is specified, filter to only that provider
-      if (preferredProvider) {
-        const matchingProvider = enabledExplorers.find(explorer => explorer.name === preferredProvider);
-        if (matchingProvider) {
-          enabledExplorers = [matchingProvider];
-          logger.info(`Filtering to preferred provider: ${preferredProvider} for ${blockchain}`);
-        } else {
-          const availableProviders = enabledExplorers.map(e => e.name).join(', ');
-          throw new Error(
-            `Preferred provider '${preferredProvider}' not found or not enabled for ${blockchain}. Available providers: ${availableProviders}`
-          );
-        }
-      }
-
-      const providers: IBlockchainProvider[] = [];
-
-      for (const explorerConfig of enabledExplorers) {
-        try {
-          // Check if provider is registered in the registry
-          if (!ProviderRegistry.isRegistered(blockchain, explorerConfig.name)) {
-            logger.warn(`Provider ${explorerConfig.name} not found in registry for ${blockchain}. Skipping.`);
-            continue;
-          }
-
-          // Get provider metadata from registry
-          const metadata = ProviderRegistry.getMetadata(blockchain, explorerConfig.name);
-          if (!metadata) {
-            logger.warn(`No metadata found for provider ${explorerConfig.name}. Skipping.`);
-            continue;
-          }
-
-          // Check if provider requires API key and if it's available
-          if (metadata.requiresApiKey) {
-            const envVar = metadata.apiKeyEnvVar || `${metadata.name.toUpperCase()}_API_KEY`;
-            const apiKey = process.env[envVar];
-
-            if (!apiKey || apiKey === 'YourApiKeyToken') {
-              logger.warn(
-                `No API key found for ${metadata.displayName}. Set environment variable: ${envVar}. Skipping provider.`
-              );
-              continue;
-            }
-          }
-
-          // Build provider config by merging defaults with overrides
-          const networkEndpoints = explorerConfig as unknown as Record<string, { baseUrl: string }>; // Explorer config has dynamic network properties
-          const metadataNetworks = metadata.networks as Record<string, { baseUrl: string; websocketUrl?: string }>; // Metadata networks has dynamic properties
-
-          const providerConfig = {
-            ...metadata.defaultConfig,
-            ...explorerConfig,
-            // Set the base URL from the network configuration
-            baseUrl: networkEndpoints[network]?.baseUrl || metadataNetworks[network]?.baseUrl,
-            network,
-          };
-
-          // Create provider instance from registry
-          const provider = ProviderRegistry.createProvider(blockchain, explorerConfig.name, providerConfig);
-          providers.push(provider);
-
-          logger.debug(
-            `Successfully created provider ${explorerConfig.name} for ${blockchain} - Priority: ${explorerConfig.priority}, BaseUrl: ${providerConfig.baseUrl}, RequiresApiKey: ${metadata.requiresApiKey}`
-          );
-        } catch (error) {
-          logger.error(
-            `Failed to create provider ${explorerConfig.name} for ${blockchain} - Error: ${error instanceof Error ? error.message : String(error)}`
-          );
-        }
-      }
-
-      // Register the providers with this manager
-      if (providers.length > 0) {
-        this.registerProviders(blockchain, providers);
-        logger.debug(
-          `Auto-registered ${providers.length} providers for ${blockchain}: ${providers.map(p => p.name).join(', ')}`
-        );
-      }
-
-      return providers;
+      // Use override-based config format
+      return this.handleOverrideConfig(blockchain, network, preferredProvider, blockchainConfig);
     } catch (error) {
       logger.error(
         `Failed to auto-register providers for ${blockchain} - Error: ${error instanceof Error ? error.message : String(error)}`

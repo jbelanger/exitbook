@@ -8,10 +8,10 @@ import type {
   UniversalFetchParams,
   UniversalTransaction,
 } from '@crypto/core';
+import type { BlockchainExplorersConfig } from '@crypto/shared-utils';
 
 import { BaseAdapter } from '../../shared/adapters/base-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
-import type { BlockchainExplorersConfig } from '../shared/explorer-config.ts';
 // Import clients to trigger registration
 import './api/index.ts';
 import { SubstrateProcessor, type SubstrateRawData } from './processors/SubstrateProcessor.ts';
@@ -21,7 +21,7 @@ export class SubstrateAdapter extends BaseAdapter {
   private chainConfig: SubstrateChainConfig;
   private providerManager: BlockchainProviderManager;
 
-  constructor(config: UniversalBlockchainAdapterConfig, explorerConfig: BlockchainExplorersConfig) {
+  constructor(config: UniversalBlockchainAdapterConfig, explorerConfig: BlockchainExplorersConfig | null) {
     super(config);
 
     // Always use Polkadot mainnet as default, but can be extended for other chains
