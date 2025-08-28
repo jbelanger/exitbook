@@ -13,7 +13,7 @@ import { BaseAdapter } from '../../shared/adapters/base-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
 import type { BlockchainExplorersConfig } from '../shared/explorer-config.ts';
 // Import clients to ensure they are registered
-import './clients/index.ts';
+import './api/index.ts';
 import type { InjectiveBalanceResponse, InjectiveTransaction } from './types.ts';
 
 export class InjectiveAdapter extends BaseAdapter {

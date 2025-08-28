@@ -1,7 +1,7 @@
 import type { BlockchainTransaction } from '@crypto/core';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { MempoolSpaceApiClient } from '../../clients/MempoolSpaceApiClient.ts';
+import { MempoolSpaceApiClient } from '../../api/MempoolSpaceApiClient.ts';
 import type { AddressInfo, MempoolTransaction } from '../../types.ts';
 
 describe('MempoolSpaceProvider Integration', () => {

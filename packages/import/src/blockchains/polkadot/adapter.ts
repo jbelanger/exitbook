@@ -13,7 +13,7 @@ import { BaseAdapter } from '../../shared/adapters/base-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
 import type { BlockchainExplorersConfig } from '../shared/explorer-config.ts';
 // Import clients to trigger registration
-import './clients/index.ts';
+import './api/index.ts';
 import { SubstrateProcessor, type SubstrateRawData } from './processors/SubstrateProcessor.ts';
 import { SUBSTRATE_CHAINS, type SubstrateChainConfig } from './types.ts';
 

@@ -13,9 +13,9 @@ import { Decimal } from 'decimal.js';
 import { BaseAdapter } from '../../shared/adapters/base-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
 import type { BlockchainExplorersConfig } from '../shared/explorer-config.ts';
-import './clients/index.ts';
-import { SnowtraceProcessor } from './processors/SnowtraceProcessor.ts';
+import './api/index.ts';
 import type { SnowtraceRawData } from './processors/SnowtraceProcessor.ts';
+import { SnowtraceProcessor } from './processors/SnowtraceProcessor.ts';
 import type { SnowtraceTokenTransfer } from './types.ts';
 
 export class AvalancheAdapter extends BaseAdapter {
