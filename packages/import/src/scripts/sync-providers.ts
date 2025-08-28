@@ -3,7 +3,7 @@
  * Sync registered providers with blockchain configuration
  * Detects missing providers and can automatically fix config drift
  */
-import type { BlockchainExplorersConfig } from '@crypto/shared/utils';
+import type { BlockchainExplorersConfig } from '@crypto/shared-utils';
 import { readFileSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
 

@@ -1,6 +1,5 @@
 import type { Database } from '@crypto/data';
 import type { Logger } from '@crypto/shared-logger';
-import type { BlockchainExplorersConfig } from '@crypto/shared-utils';
 
 import type { BlockchainProviderManager } from '../../blockchains/shared/blockchain-provider-manager.ts';
 import type { IExternalDataStore } from '../storage/interfaces.ts';
@@ -11,7 +10,6 @@ import type { IExternalDataStore } from '../storage/interfaces.ts';
  */
 export interface IDependencyContainer {
   database: Database;
-  explorerConfig?: BlockchainExplorersConfig | null;
   externalDataStore: IExternalDataStore;
 
   logger: Logger;
