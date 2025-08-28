@@ -8,10 +8,10 @@ import type {
   UniversalFetchParams,
   UniversalTransaction,
 } from '@crypto/core';
+import type { BlockchainExplorersConfig } from '@crypto/shared-utils';
 
 import { BaseAdapter } from '../../shared/adapters/base-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
-import type { BlockchainExplorersConfig } from '../shared/explorer-config.ts';
 import type { SolanaRawTransactionData } from './clients/HeliusApiClient.ts';
 import type { SolanaRPCRawTransactionData } from './clients/SolanaRPCApiClient.ts';
 import type { SolscanRawTransactionData } from './clients/SolscanApiClient.ts';
@@ -24,7 +24,7 @@ import { SolscanProcessor } from './processors/SolscanProcessor.ts';
 export class SolanaAdapter extends BaseAdapter {
   private providerManager: BlockchainProviderManager;
 
-  constructor(config: UniversalBlockchainAdapterConfig, explorerConfig: BlockchainExplorersConfig) {
+  constructor(config: UniversalBlockchainAdapterConfig, explorerConfig: BlockchainExplorersConfig | null) {
     super(config);
 
     this.providerManager = new BlockchainProviderManager(explorerConfig);

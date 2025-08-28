@@ -9,11 +9,11 @@ import type {
   UniversalTransaction,
 } from '@crypto/core';
 import { createMoney } from '@crypto/shared-utils';
+import type { BlockchainExplorersConfig } from '@crypto/shared-utils';
 import * as bitcoin from 'bitcoinjs-lib';
 
 import { BaseAdapter } from '../../shared/adapters/base-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
-import type { BlockchainExplorersConfig } from '../shared/explorer-config.ts';
 import type { BlockstreamTransaction, MempoolTransaction } from './types.js';
 import type { BitcoinWalletAddress } from './types.ts';
 import { BitcoinUtils } from './utils.ts';
@@ -27,7 +27,7 @@ export class BitcoinAdapter extends BaseAdapter {
 
   constructor(
     config: UniversalBlockchainAdapterConfig,
-    explorerConfig: BlockchainExplorersConfig,
+    explorerConfig: BlockchainExplorersConfig | null,
     options?: { addressGap?: number }
   ) {
     super(config);
