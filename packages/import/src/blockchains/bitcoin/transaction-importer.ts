@@ -21,7 +21,10 @@ export class BitcoinTransactionImporter extends BaseImporter<BitcoinTransaction>
   private providerManager: BlockchainProviderManager;
   private walletAddresses: BitcoinWalletAddress[] = [];
 
-  constructor(dependencies: IDependencyContainer, options?: { addressGap?: number }) {
+  constructor(
+    dependencies: IDependencyContainer,
+    options?: { addressGap?: number; preferredProvider?: string | undefined }
+  ) {
     super('bitcoin');
 
     if (!dependencies.providerManager || !dependencies.explorerConfig) {
@@ -32,7 +35,7 @@ export class BitcoinTransactionImporter extends BaseImporter<BitcoinTransaction>
     this.addressGap = options?.addressGap || 20;
 
     // Auto-register providers for bitcoin mainnet
-    this.providerManager.autoRegisterFromConfig('bitcoin', 'mainnet');
+    this.providerManager.autoRegisterFromConfig('bitcoin', 'mainnet', options?.preferredProvider);
 
     this.logger.info(
       `Initialized Bitcoin transaction importer - AddressGap: ${this.addressGap}, ProvidersCount: ${this.providerManager.getProviders('bitcoin').length}`

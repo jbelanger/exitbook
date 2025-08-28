@@ -21,7 +21,7 @@ export type AvalancheRawTransactionData = SnowtraceTransaction | SnowtraceIntern
 export class AvalancheTransactionImporter extends BaseImporter<AvalancheRawTransactionData> {
   private providerManager: BlockchainProviderManager;
 
-  constructor(dependencies: IDependencyContainer) {
+  constructor(dependencies: IDependencyContainer, options?: { preferredProvider?: string | undefined }) {
     super('avalanche');
 
     if (!dependencies.providerManager || !dependencies.explorerConfig) {
@@ -31,7 +31,7 @@ export class AvalancheTransactionImporter extends BaseImporter<AvalancheRawTrans
     this.providerManager = dependencies.providerManager;
 
     // Auto-register providers for avalanche mainnet
-    this.providerManager.autoRegisterFromConfig('avalanche', 'mainnet');
+    this.providerManager.autoRegisterFromConfig('avalanche', 'mainnet', options?.preferredProvider);
 
     this.logger.info(
       `Initialized Avalanche transaction importer - ProvidersCount: ${this.providerManager.getProviders('avalanche').length}`

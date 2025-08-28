@@ -14,7 +14,7 @@ import type { InjectiveTransaction } from './types.ts';
 export class InjectiveTransactionImporter extends BaseImporter<InjectiveTransaction> {
   private providerManager: BlockchainProviderManager;
 
-  constructor(dependencies: IDependencyContainer) {
+  constructor(dependencies: IDependencyContainer, options?: { preferredProvider?: string | undefined }) {
     super('injective');
 
     if (!dependencies.providerManager || !dependencies.explorerConfig) {
@@ -24,7 +24,7 @@ export class InjectiveTransactionImporter extends BaseImporter<InjectiveTransact
     this.providerManager = dependencies.providerManager;
 
     // Auto-register providers for injective mainnet
-    this.providerManager.autoRegisterFromConfig('injective', 'mainnet');
+    this.providerManager.autoRegisterFromConfig('injective', 'mainnet', options?.preferredProvider);
 
     this.logger.info(
       `Initialized Injective transaction importer - ProvidersCount: ${this.providerManager.getProviders('injective').length}`
