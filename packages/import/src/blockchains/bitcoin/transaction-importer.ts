@@ -27,8 +27,8 @@ export class BitcoinTransactionImporter extends BaseImporter<BitcoinTransaction>
   ) {
     super('bitcoin');
 
-    if (!dependencies.providerManager || !dependencies.explorerConfig) {
-      throw new Error('Provider manager and explorer config required for Bitcoin importer');
+    if (!dependencies.providerManager) {
+      throw new Error('Provider manager required for Bitcoin importer');
     }
 
     this.providerManager = dependencies.providerManager;

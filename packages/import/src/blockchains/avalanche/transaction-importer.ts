@@ -24,8 +24,8 @@ export class AvalancheTransactionImporter extends BaseImporter<AvalancheRawTrans
   constructor(dependencies: IDependencyContainer, options?: { preferredProvider?: string | undefined }) {
     super('avalanche');
 
-    if (!dependencies.providerManager || !dependencies.explorerConfig) {
-      throw new Error('Provider manager and explorer config required for Avalanche importer');
+    if (!dependencies.providerManager) {
+      throw new Error('Provider manager required for Avalanche importer');
     }
 
     this.providerManager = dependencies.providerManager;

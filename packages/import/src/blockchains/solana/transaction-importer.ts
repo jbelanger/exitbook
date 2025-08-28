@@ -19,8 +19,8 @@ export class SolanaTransactionImporter extends BaseImporter<SolanaRawTransaction
   constructor(dependencies: IDependencyContainer, options?: { preferredProvider?: string | undefined }) {
     super('solana');
 
-    if (!dependencies.providerManager || !dependencies.explorerConfig) {
-      throw new Error('Provider manager and explorer config required for Solana importer');
+    if (!dependencies.providerManager) {
+      throw new Error('Provider manager required for Solana importer');
     }
 
     this.providerManager = dependencies.providerManager;

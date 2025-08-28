@@ -17,8 +17,8 @@ export class BittensorTransactionImporter extends BaseImporter<TaostatsTransacti
   constructor(dependencies: IDependencyContainer, options?: { preferredProvider?: string | undefined }) {
     super('bittensor');
 
-    if (!dependencies.providerManager || !dependencies.explorerConfig) {
-      throw new Error('Provider manager and explorer config required for Bittensor importer');
+    if (!dependencies.providerManager) {
+      throw new Error('Provider manager required for Bittensor importer');
     }
 
     this.providerManager = dependencies.providerManager;

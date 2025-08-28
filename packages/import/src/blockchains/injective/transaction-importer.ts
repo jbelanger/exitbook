@@ -17,8 +17,8 @@ export class InjectiveTransactionImporter extends BaseImporter<InjectiveTransact
   constructor(dependencies: IDependencyContainer, options?: { preferredProvider?: string | undefined }) {
     super('injective');
 
-    if (!dependencies.providerManager || !dependencies.explorerConfig) {
-      throw new Error('Provider manager and explorer config required for Injective importer');
+    if (!dependencies.providerManager) {
+      throw new Error('Provider manager required for Injective importer');
     }
 
     this.providerManager = dependencies.providerManager;
