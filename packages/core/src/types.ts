@@ -39,19 +39,6 @@ export type TransactionType = 'trade' | 'deposit' | 'withdrawal' | 'order' | 'le
 
 export type TransactionStatus = 'pending' | 'open' | 'closed' | 'canceled' | 'failed' | 'ok';
 
-/**
- * Enhanced transaction with processing metadata for internal application use.
- * This interface extends CryptoTransaction with tracking, deduplication, and annotation metadata
- * required for the import pipeline, storage, and verification processes.
- *
- * Created by: TransactionImporter.enhanceTransaction()
- * Used by: Deduplicator, Database, BalanceVerifier
- *
- * @example
- * const enhanced = importer.enhanceTransaction(cryptoTx, 'kucoin'); // Adds hash, source, etc.
- * const { unique, duplicates } = await deduplicator.process(enhancedTxs, 'kucoin');
- * await database.saveTransactions(unique);
- */
 export interface EnhancedTransaction extends CryptoTransaction {
   /** Unique hash for deduplication, generated from transaction properties and source */
   hash: string;
