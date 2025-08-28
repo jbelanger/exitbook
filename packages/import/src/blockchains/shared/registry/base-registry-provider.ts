@@ -22,7 +22,19 @@ export abstract class BaseRegistryProvider implements IBlockchainProvider {
     // Get metadata from registry
     const metadata = ProviderRegistry.getMetadata(blockchain, providerName);
     if (!metadata) {
-      throw new Error(`Provider '${providerName}' not found in registry for blockchain '${blockchain}'`);
+      const available = ProviderRegistry.getAvailable(blockchain)
+        .map(p => p.name)
+        .join(', ');
+      const suggestions = [
+        `💡 Available providers for ${blockchain}: ${available}`,
+        `💡 Run 'pnpm run providers:list --blockchain ${blockchain}' to see all options`,
+        `💡 Check for typos in provider name: '${providerName}'`,
+        `💡 Use 'pnpm run providers:sync --fix' to sync configuration`,
+      ];
+
+      throw new Error(
+        `Provider '${providerName}' not found in registry for blockchain '${blockchain}'.\n${suggestions.join('\n')}`
+      );
     }
     this.metadata = metadata;
 

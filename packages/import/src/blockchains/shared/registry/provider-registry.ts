@@ -73,7 +73,11 @@ export class ProviderRegistry {
     if (!factory) {
       const available = this.getAvailable(blockchain).map(p => p.name);
       throw new Error(
-        `Provider ${name} not found for blockchain ${blockchain}. ` + `Available providers: ${available.join(', ')}`
+        `Provider '${name}' not found for blockchain ${blockchain}.\n` +
+          `💡 Available providers: ${available.join(', ')}\n` +
+          `💡 Run 'pnpm run providers:list --blockchain ${blockchain}' to see all options\n` +
+          `💡 Check for typos in provider name: '${name}'\n` +
+          `💡 Use 'pnpm run providers:sync --fix' to sync configuration`
       );
     }
 
@@ -146,6 +150,7 @@ export class ProviderRegistry {
 
   /**
    * Validate provider configuration against registered providers
+   * Supports both legacy (explorers array) and new (override-based) formats
    */
   static validateConfig(config: Record<string, unknown>): {
     errors: string[];
@@ -158,22 +163,54 @@ export class ProviderRegistry {
         continue;
       }
 
-      const { explorers = [] } = blockchainConfig as { explorers?: unknown[] };
+      const configObj = blockchainConfig as {
+        defaultEnabled?: string[];
+        explorers?: unknown[];
+        overrides?: Record<string, unknown>;
+      };
+
       const availableProviders = this.getAvailable(blockchain);
       const availableNames = availableProviders.map(p => p.name);
 
-      for (const explorer of explorers) {
-        const explorerObj = explorer as { name?: string };
-        if (!explorerObj.name) {
-          errors.push(`Missing name for explorer in blockchain ${blockchain}`);
-          continue;
-        }
+      // Handle legacy format (explorers array)
+      if (configObj.explorers) {
+        for (const explorer of configObj.explorers) {
+          const explorerObj = explorer as { name?: string };
+          if (!explorerObj.name) {
+            errors.push(`Missing name for explorer in blockchain ${blockchain}`);
+            continue;
+          }
 
-        if (!availableNames.includes(explorerObj.name)) {
-          errors.push(
-            `Unknown provider '${explorerObj.name}' for blockchain '${blockchain}'. ` +
-              `Available: ${availableNames.join(', ')}`
-          );
+          if (!availableNames.includes(explorerObj.name)) {
+            errors.push(
+              `Unknown provider '${explorerObj.name}' for blockchain '${blockchain}'. ` +
+                `Available: ${availableNames.join(', ')}`
+            );
+          }
+        }
+      }
+
+      // Handle new override-based format
+      if (configObj.defaultEnabled) {
+        for (const providerName of configObj.defaultEnabled) {
+          if (!availableNames.includes(providerName)) {
+            errors.push(
+              `Unknown provider '${providerName}' in defaultEnabled for blockchain '${blockchain}'. ` +
+                `Available: ${availableNames.join(', ')}`
+            );
+          }
+        }
+      }
+
+      // Validate overrides section
+      if (configObj.overrides) {
+        for (const providerName of Object.keys(configObj.overrides)) {
+          if (!availableNames.includes(providerName)) {
+            errors.push(
+              `Unknown provider '${providerName}' in overrides for blockchain '${blockchain}'. ` +
+                `Available: ${availableNames.join(', ')}`
+            );
+          }
         }
       }
     }
