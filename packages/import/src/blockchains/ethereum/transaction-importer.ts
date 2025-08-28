@@ -22,7 +22,7 @@ export type EthereumRawTransactionData = AlchemyAssetTransfer | MoralisTransacti
 export class EthereumTransactionImporter extends BaseImporter<EthereumRawTransactionData> {
   private providerManager: BlockchainProviderManager;
 
-  constructor(dependencies: IDependencyContainer) {
+  constructor(dependencies: IDependencyContainer, options?: { preferredProvider?: string | undefined }) {
     super('ethereum');
 
     if (!dependencies.providerManager || !dependencies.explorerConfig) {
@@ -32,7 +32,7 @@ export class EthereumTransactionImporter extends BaseImporter<EthereumRawTransac
     this.providerManager = dependencies.providerManager;
 
     // Auto-register providers for ethereum mainnet
-    this.providerManager.autoRegisterFromConfig('ethereum', 'mainnet');
+    this.providerManager.autoRegisterFromConfig('ethereum', 'mainnet', options?.preferredProvider);
 
     this.logger.info(
       `Initialized Ethereum transaction importer - ProvidersCount: ${this.providerManager.getProviders('ethereum').length}`
