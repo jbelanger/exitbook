@@ -16,8 +16,11 @@ export class MempoolSpaceProcessor implements IProviderProcessor<MempoolTransact
 
     // Calculate transaction value considering all wallet addresses
     let totalValueChange = 0;
+    let walletInputValue = 0;
+    let walletOutputValue = 0;
     let isIncoming = false;
     let isOutgoing = false;
+    let hasExternalOutput = false;
     const relevantAddresses = new Set(walletAddresses);
 
     // Check inputs - money going out of our wallet
@@ -25,29 +28,43 @@ export class MempoolSpaceProcessor implements IProviderProcessor<MempoolTransact
       if (input.prevout?.scriptpubkey_address && relevantAddresses.has(input.prevout.scriptpubkey_address)) {
         isOutgoing = true;
         if (input.prevout?.value) {
+          walletInputValue += input.prevout.value;
           totalValueChange -= input.prevout.value;
         }
       }
     }
 
-    // Check outputs - money coming into our wallet
+    // Check outputs - money coming into our wallet or going to external addresses
     for (const output of rawData.vout) {
       if (output.scriptpubkey_address && relevantAddresses.has(output.scriptpubkey_address)) {
         isIncoming = true;
+        walletOutputValue += output.value;
         totalValueChange += output.value;
+      } else {
+        // Output going to external address (not in wallet)
+        hasExternalOutput = true;
       }
     }
 
-    // Determine transaction type
+    // Determine transaction type based on fund flow
     let type: UniversalTransaction['type'];
 
     if (isIncoming && !isOutgoing) {
+      // Funds only coming into wallet from external sources
       type = 'deposit';
     } else if (isOutgoing && !isIncoming) {
+      // Funds only going out to external addresses
       type = 'withdrawal';
     } else if (isIncoming && isOutgoing) {
-      // Internal transfer within our wallet
-      type = 'transfer';
+      if (hasExternalOutput) {
+        // Funds going out to external addresses (with possible change back to wallet)
+        type = 'withdrawal';
+        // For withdrawals, calculate the net amount going out (excluding change)
+        totalValueChange = walletInputValue - walletOutputValue;
+      } else {
+        // Only internal movement between wallet addresses
+        type = 'transfer';
+      }
     } else {
       // Neither incoming nor outgoing - cannot determine transaction type
       return err(

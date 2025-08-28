@@ -59,6 +59,7 @@ export const MempoolTransactionSchema = z
   .object({
     fee: z.number().nonnegative('Fee must be non-negative'),
     locktime: z.number().nonnegative(),
+    sigops: z.number().nonnegative('Sigops must be non-negative').optional(),
     size: z.number().positive('Size must be positive'),
     status: MempoolTransactionStatusSchema,
     txid: z.string().min(1, 'Transaction ID must not be empty'),
