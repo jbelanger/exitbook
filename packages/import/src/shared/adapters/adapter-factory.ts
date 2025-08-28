@@ -10,7 +10,6 @@ import type { BlockchainExplorersConfig } from '@crypto/shared-utils';
 
 // Import specific adapters directly
 import { AvalancheAdapter } from '../../blockchains/avalanche/adapter.ts';
-import { BitcoinAdapter } from '../../blockchains/bitcoin/adapter.ts';
 import { EthereumAdapter } from '../../blockchains/ethereum/adapter.ts';
 import { InjectiveAdapter } from '../../blockchains/injective/adapter.ts';
 import { SubstrateAdapter } from '../../blockchains/polkadot/adapter.ts';
@@ -66,8 +65,6 @@ export class UniversalAdapterFactory {
 
     // Create the specific blockchain adapter directly
     switch (config.id.toLowerCase()) {
-      case 'bitcoin':
-        return new BitcoinAdapter(config, resolvedConfig);
       case 'ethereum':
         return new EthereumAdapter(config, resolvedConfig);
       case 'solana':

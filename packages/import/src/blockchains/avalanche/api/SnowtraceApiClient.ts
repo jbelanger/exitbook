@@ -44,10 +44,10 @@ import { isValidAvalancheAddress } from '../utils.ts';
   name: 'snowtrace',
   networks: {
     mainnet: {
-      baseUrl: 'https://api.snowtrace.io/api',
+      baseUrl: 'https://api.routescan.io/v2/network/mainnet/evm/43114/etherscan/api',
     },
     testnet: {
-      baseUrl: 'https://api-testnet.snowtrace.io/api',
+      baseUrl: 'https://api.routescan.io/v2/network/testnet/evm/43113/etherscan/api',
     },
   },
   requiresApiKey: false,
