@@ -59,68 +59,120 @@ export class SnowtraceApiClient extends BaseRegistryProvider {
   }
 
   private async getInternalTransactions(address: string, since?: number): Promise<SnowtraceInternalTransaction[]> {
-    const params = new URLSearchParams({
-      action: 'txlistinternal',
-      address: address,
-      endblock: '99999999',
-      module: 'account',
-      sort: 'asc',
-      startblock: '0',
-    });
+    const allTransactions: SnowtraceInternalTransaction[] = [];
+    let page = 1;
 
-    if (since) {
-      params.set('startblock', Math.floor(since / 1000).toString());
-    }
+    while (true) {
+      // API constraint: page * offset <= 10000, so optimize accordingly
+      const maxOffset = Math.floor(10000 / page);
+      if (maxOffset < 1) break; // Can't fetch more pages
 
-    if (this.apiKey && this.apiKey !== 'YourApiKeyToken') {
-      params.append('apikey', this.apiKey);
-    }
+      const params = new URLSearchParams({
+        action: 'txlistinternal',
+        address: address,
+        endblock: '99999999',
+        module: 'account',
+        offset: maxOffset.toString(),
+        page: page.toString(),
+        sort: 'asc',
+        startblock: '0',
+      });
 
-    try {
-      const response = (await this.httpClient.get(
-        `?${params.toString()}`
-      )) as SnowtraceApiResponse<SnowtraceInternalTransaction>;
-
-      if (response.status !== '1') {
-        this.logger.debug(`No internal transactions found - Message: ${response.message}`);
-        return [];
+      if (since) {
+        params.set('startblock', Math.floor(since / 1000).toString());
       }
 
-      return response.result;
-    } catch (error) {
-      this.logger.warn(`Failed to fetch internal transactions`);
-      return [];
+      if (this.apiKey && this.apiKey !== 'YourApiKeyToken') {
+        params.append('apikey', this.apiKey);
+      }
+
+      try {
+        const response = (await this.httpClient.get(
+          `?${params.toString()}`
+        )) as SnowtraceApiResponse<SnowtraceInternalTransaction>;
+
+        if (response.status !== '1') {
+          // If no results found or error, break the loop
+          if (response.message === 'No transactions found') {
+            break;
+          }
+          this.logger.debug(`No internal transactions found - Message: ${response.message}`);
+          break;
+        }
+
+        const transactions = response.result || [];
+        allTransactions.push(...transactions);
+
+        // If we got less than the max offset, we've reached the end
+        if (transactions.length < maxOffset) {
+          break;
+        }
+
+        page++;
+      } catch (error) {
+        this.logger.warn(`Failed to fetch internal transactions page ${page}`);
+        break;
+      }
     }
+
+    return allTransactions;
   }
 
   private async getNormalTransactions(address: string, since?: number): Promise<SnowtraceTransaction[]> {
-    const params = new URLSearchParams({
-      action: 'txlist',
-      address: address,
-      endblock: '99999999',
-      module: 'account',
-      sort: 'asc',
-      startblock: '0',
-    });
+    const allTransactions: SnowtraceTransaction[] = [];
+    let page = 1;
 
-    if (since) {
-      params.set('startblock', Math.floor(since / 1000).toString());
-    }
+    while (true) {
+      // API constraint: page * offset <= 10000, so optimize accordingly
+      const maxOffset = Math.floor(10000 / page);
+      if (maxOffset < 1) break; // Can't fetch more pages
 
-    if (this.apiKey && this.apiKey !== 'YourApiKeyToken') {
-      params.append('apikey', this.apiKey);
-    }
+      const params = new URLSearchParams({
+        action: 'txlist',
+        address: address,
+        endblock: '99999999',
+        module: 'account',
+        offset: maxOffset.toString(),
+        page: page.toString(),
+        sort: 'asc',
+        startblock: '0',
+      });
 
-    const response = (await this.httpClient.get(`?${params.toString()}`)) as SnowtraceApiResponse<SnowtraceTransaction>;
-
-    if (response.status !== '1') {
-      if (response.message === 'NOTOK' && response.message.includes('Invalid API Key')) {
-        throw new AuthenticationError('Invalid Snowtrace API key', this.name, 'getNormalTransactions');
+      if (since) {
+        params.set('startblock', Math.floor(since / 1000).toString());
       }
-      throw new ServiceError(`Snowtrace API error: ${response.message}`, this.name, 'getNormalTransactions');
+
+      if (this.apiKey && this.apiKey !== 'YourApiKeyToken') {
+        params.append('apikey', this.apiKey);
+      }
+
+      const response = (await this.httpClient.get(
+        `?${params.toString()}`
+      )) as SnowtraceApiResponse<SnowtraceTransaction>;
+
+      if (response.status !== '1') {
+        if (response.message === 'NOTOK' && response.message.includes('Invalid API Key')) {
+          throw new AuthenticationError('Invalid Snowtrace API key', this.name, 'getNormalTransactions');
+        }
+        // If no results found, break the loop
+        if (response.message === 'No transactions found') {
+          break;
+        }
+        throw new ServiceError(`Snowtrace API error: ${response.message}`, this.name, 'getNormalTransactions');
+      }
+
+      const transactions = response.result || [];
+      allTransactions.push(...transactions);
+
+      // If we got less than the max offset, we've reached the end
+      if (transactions.length < maxOffset) {
+        break;
+      }
+
+      page++;
     }
 
-    return response.result;
+    return allTransactions;
   }
 
   private async getRawAddressBalance(params: { address: string }): Promise<SnowtraceBalanceResponse> {
@@ -221,42 +273,67 @@ export class SnowtraceApiClient extends BaseRegistryProvider {
     since?: number,
     contractAddress?: string
   ): Promise<SnowtraceTokenTransfer[]> {
-    const params = new URLSearchParams({
-      action: 'tokentx',
-      address: address,
-      endblock: '99999999',
-      module: 'account',
-      sort: 'asc',
-      startblock: '0',
-    });
+    const allTransactions: SnowtraceTokenTransfer[] = [];
+    let page = 1;
 
-    if (since) {
-      params.set('startblock', Math.floor(since / 1000).toString());
-    }
+    while (true) {
+      // API constraint: page * offset <= 10000, so optimize accordingly
+      const maxOffset = Math.floor(10000 / page);
+      if (maxOffset < 1) break; // Can't fetch more pages
 
-    if (contractAddress) {
-      params.append('contractaddress', contractAddress);
-    }
+      const params = new URLSearchParams({
+        action: 'tokentx',
+        address: address,
+        endblock: '99999999',
+        module: 'account',
+        offset: maxOffset.toString(),
+        page: page.toString(),
+        sort: 'asc',
+        startblock: '0',
+      });
 
-    if (this.apiKey && this.apiKey !== 'YourApiKeyToken') {
-      params.append('apikey', this.apiKey);
-    }
-
-    try {
-      const response = (await this.httpClient.get(
-        `?${params.toString()}`
-      )) as SnowtraceApiResponse<SnowtraceTokenTransfer>;
-
-      if (response.status !== '1') {
-        this.logger.debug(`No token transfers found - Message: ${response.message}`);
-        return [];
+      if (since) {
+        params.set('startblock', Math.floor(since / 1000).toString());
       }
 
-      return response.result;
-    } catch (error) {
-      this.logger.warn(`Failed to fetch token transfers`);
-      return [];
+      if (contractAddress) {
+        params.append('contractaddress', contractAddress);
+      }
+
+      if (this.apiKey && this.apiKey !== 'YourApiKeyToken') {
+        params.append('apikey', this.apiKey);
+      }
+
+      try {
+        const response = (await this.httpClient.get(
+          `?${params.toString()}`
+        )) as SnowtraceApiResponse<SnowtraceTokenTransfer>;
+
+        if (response.status !== '1') {
+          // If no results found or error, break the loop
+          if (response.message === 'No transactions found') {
+            break;
+          }
+          this.logger.debug(`No token transfers found - Message: ${response.message}`);
+          break;
+        }
+
+        const transactions = response.result || [];
+        allTransactions.push(...transactions);
+
+        // If we got less than the max offset, we've reached the end
+        if (transactions.length < maxOffset) {
+          break;
+        }
+
+        page++;
+      } catch (error) {
+        this.logger.warn(`Failed to fetch token transfers page ${page}`);
+        break;
+      }
     }
+
+    return allTransactions;
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
