@@ -14,7 +14,7 @@ import type { SubscanTransfer } from './types.ts';
 export class PolkadotTransactionImporter extends BaseImporter<SubscanTransfer> {
   private providerManager: BlockchainProviderManager;
 
-  constructor(dependencies: IDependencyContainer) {
+  constructor(dependencies: IDependencyContainer, options?: { preferredProvider?: string | undefined }) {
     super('polkadot');
 
     if (!dependencies.providerManager || !dependencies.explorerConfig) {
@@ -24,7 +24,7 @@ export class PolkadotTransactionImporter extends BaseImporter<SubscanTransfer> {
     this.providerManager = dependencies.providerManager;
 
     // Auto-register providers for polkadot mainnet
-    this.providerManager.autoRegisterFromConfig('polkadot', 'mainnet');
+    this.providerManager.autoRegisterFromConfig('polkadot', 'mainnet', options?.preferredProvider);
 
     this.logger.info(
       `Initialized Polkadot transaction importer - ProvidersCount: ${this.providerManager.getProviders('polkadot').length}`

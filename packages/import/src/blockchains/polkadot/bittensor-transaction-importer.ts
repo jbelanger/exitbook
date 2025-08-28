@@ -14,7 +14,7 @@ import type { TaostatsTransaction } from './types.ts';
 export class BittensorTransactionImporter extends BaseImporter<TaostatsTransaction> {
   private providerManager: BlockchainProviderManager;
 
-  constructor(dependencies: IDependencyContainer) {
+  constructor(dependencies: IDependencyContainer, options?: { preferredProvider?: string | undefined }) {
     super('bittensor');
 
     if (!dependencies.providerManager || !dependencies.explorerConfig) {
@@ -24,7 +24,7 @@ export class BittensorTransactionImporter extends BaseImporter<TaostatsTransacti
     this.providerManager = dependencies.providerManager;
 
     // Auto-register providers for bittensor mainnet
-    this.providerManager.autoRegisterFromConfig('bittensor', 'mainnet');
+    this.providerManager.autoRegisterFromConfig('bittensor', 'mainnet', options?.preferredProvider);
 
     this.logger.info(
       `Initialized Bittensor transaction importer - ProvidersCount: ${this.providerManager.getProviders('bittensor').length}`

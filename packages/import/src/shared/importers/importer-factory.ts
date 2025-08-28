@@ -35,7 +35,9 @@ export class ImporterFactory {
   private static async createAvalancheImporter<T>(config: ETLComponentConfig): Promise<IImporter<T>> {
     // Dynamic import to avoid circular dependencies
     const { AvalancheTransactionImporter } = await import('../../blockchains/avalanche/transaction-importer.ts');
-    return new AvalancheTransactionImporter(config.dependencies) as unknown as IImporter<T>;
+    return new AvalancheTransactionImporter(config.dependencies, {
+      preferredProvider: config.providerId,
+    }) as unknown as IImporter<T>;
   }
 
   /**
@@ -44,7 +46,9 @@ export class ImporterFactory {
   private static async createBitcoinImporter<T>(config: ETLComponentConfig): Promise<IImporter<T>> {
     // Dynamic import to avoid circular dependencies
     const { BitcoinTransactionImporter } = await import('../../blockchains/bitcoin/transaction-importer.ts');
-    return new BitcoinTransactionImporter(config.dependencies) as unknown as IImporter<T>;
+    return new BitcoinTransactionImporter(config.dependencies, {
+      preferredProvider: config.providerId,
+    }) as unknown as IImporter<T>;
   }
 
   /**
@@ -55,7 +59,9 @@ export class ImporterFactory {
     const { BittensorTransactionImporter } = await import(
       '../../blockchains/polkadot/bittensor-transaction-importer.ts'
     );
-    return new BittensorTransactionImporter(config.dependencies) as unknown as IImporter<T>;
+    return new BittensorTransactionImporter(config.dependencies, {
+      preferredProvider: config.providerId,
+    }) as unknown as IImporter<T>;
   }
 
   /**
@@ -110,7 +116,9 @@ export class ImporterFactory {
   private static async createEthereumImporter<T>(config: ETLComponentConfig): Promise<IImporter<T>> {
     // Dynamic import to avoid circular dependencies
     const { EthereumTransactionImporter } = await import('../../blockchains/ethereum/transaction-importer.ts');
-    return new EthereumTransactionImporter(config.dependencies) as unknown as IImporter<T>;
+    return new EthereumTransactionImporter(config.dependencies, {
+      preferredProvider: config.providerId,
+    }) as unknown as IImporter<T>;
   }
 
   /**
@@ -144,7 +152,9 @@ export class ImporterFactory {
   private static async createInjectiveImporter<T>(config: ETLComponentConfig): Promise<IImporter<T>> {
     // Dynamic import to avoid circular dependencies
     const { InjectiveTransactionImporter } = await import('../../blockchains/injective/transaction-importer.ts');
-    return new InjectiveTransactionImporter(config.dependencies) as unknown as IImporter<T>;
+    return new InjectiveTransactionImporter(config.dependencies, {
+      preferredProvider: config.providerId,
+    }) as unknown as IImporter<T>;
   }
 
   /**
@@ -180,7 +190,9 @@ export class ImporterFactory {
   private static async createPolkadotImporter<T>(config: ETLComponentConfig): Promise<IImporter<T>> {
     // Dynamic import to avoid circular dependencies
     const { PolkadotTransactionImporter } = await import('../../blockchains/polkadot/transaction-importer.ts');
-    return new PolkadotTransactionImporter(config.dependencies) as unknown as IImporter<T>;
+    return new PolkadotTransactionImporter(config.dependencies, {
+      preferredProvider: config.providerId,
+    }) as unknown as IImporter<T>;
   }
 
   /**
@@ -189,7 +201,9 @@ export class ImporterFactory {
   private static async createSolanaImporter<T>(config: ETLComponentConfig): Promise<IImporter<T>> {
     // Dynamic import to avoid circular dependencies
     const { SolanaTransactionImporter } = await import('../../blockchains/solana/transaction-importer.ts');
-    return new SolanaTransactionImporter(config.dependencies) as unknown as IImporter<T>;
+    return new SolanaTransactionImporter(config.dependencies, {
+      preferredProvider: config.providerId,
+    }) as unknown as IImporter<T>;
   }
 
   /**

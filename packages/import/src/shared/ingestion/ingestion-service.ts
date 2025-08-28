@@ -151,6 +151,7 @@ export class TransactionIngestionService {
       // Create importer
       const importer = await ImporterFactory.create({
         dependencies: this.dependencies,
+        providerId: params.providerId,
         sourceId: sourceId,
         sourceType: sourceType,
       });

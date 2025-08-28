@@ -414,7 +414,11 @@ export class BlockchainProviderManager {
   /**
    * Auto-register providers from configuration using the registry
    */
-  autoRegisterFromConfig(blockchain: string, network: string = 'mainnet'): IBlockchainProvider[] {
+  autoRegisterFromConfig(
+    blockchain: string,
+    network: string = 'mainnet',
+    preferredProvider?: string
+  ): IBlockchainProvider[] {
     try {
       const config = this.explorerConfig;
       const blockchainConfig = config[blockchain];
@@ -424,9 +428,23 @@ export class BlockchainProviderManager {
         return [];
       }
 
-      const enabledExplorers = blockchainConfig.explorers
+      let enabledExplorers = blockchainConfig.explorers
         .filter(explorer => explorer.enabled)
         .sort((a, b) => a.priority - b.priority);
+
+      // If a preferred provider is specified, filter to only that provider
+      if (preferredProvider) {
+        const matchingProvider = enabledExplorers.find(explorer => explorer.name === preferredProvider);
+        if (matchingProvider) {
+          enabledExplorers = [matchingProvider];
+          logger.info(`Filtering to preferred provider: ${preferredProvider} for ${blockchain}`);
+        } else {
+          const availableProviders = enabledExplorers.map(e => e.name).join(', ');
+          throw new Error(
+            `Preferred provider '${preferredProvider}' not found or not enabled for ${blockchain}. Available providers: ${availableProviders}`
+          );
+        }
+      }
 
       const providers: IBlockchainProvider[] = [];
 

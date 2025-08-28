@@ -16,7 +16,7 @@ import { isValidSolanaAddress } from './utils.ts';
 export class SolanaTransactionImporter extends BaseImporter<SolanaRawTransactionData> {
   private providerManager: BlockchainProviderManager;
 
-  constructor(dependencies: IDependencyContainer) {
+  constructor(dependencies: IDependencyContainer, options?: { preferredProvider?: string | undefined }) {
     super('solana');
 
     if (!dependencies.providerManager || !dependencies.explorerConfig) {
@@ -26,7 +26,7 @@ export class SolanaTransactionImporter extends BaseImporter<SolanaRawTransaction
     this.providerManager = dependencies.providerManager;
 
     // Auto-register providers for solana mainnet
-    this.providerManager.autoRegisterFromConfig('solana', 'mainnet');
+    this.providerManager.autoRegisterFromConfig('solana', 'mainnet', options?.preferredProvider);
 
     this.logger.info(
       `Initialized Solana transaction importer - ProvidersCount: ${this.providerManager.getProviders('solana').length}`
