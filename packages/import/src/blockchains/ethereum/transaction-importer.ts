@@ -25,8 +25,8 @@ export class EthereumTransactionImporter extends BaseImporter<EthereumRawTransac
   constructor(dependencies: IDependencyContainer, options?: { preferredProvider?: string | undefined }) {
     super('ethereum');
 
-    if (!dependencies.providerManager || !dependencies.explorerConfig) {
-      throw new Error('Provider manager and explorer config required for Ethereum importer');
+    if (!dependencies.providerManager) {
+      throw new Error('Provider manager required for Ethereum importer');
     }
 
     this.providerManager = dependencies.providerManager;

@@ -17,8 +17,8 @@ export class PolkadotTransactionImporter extends BaseImporter<SubscanTransfer> {
   constructor(dependencies: IDependencyContainer, options?: { preferredProvider?: string | undefined }) {
     super('polkadot');
 
-    if (!dependencies.providerManager || !dependencies.explorerConfig) {
-      throw new Error('Provider manager and explorer config required for Polkadot importer');
+    if (!dependencies.providerManager) {
+      throw new Error('Provider manager required for Polkadot importer');
     }
 
     this.providerManager = dependencies.providerManager;
