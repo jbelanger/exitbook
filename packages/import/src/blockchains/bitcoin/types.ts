@@ -43,7 +43,8 @@ export type BitcoinTransaction =
   | MempoolTransaction
   | BlockstreamTransaction
   | BlockCypherTransaction
-  | BlockchainComTransaction;
+  | BlockchainComTransaction
+  | TatumBitcoinTransaction;
 
 export interface MempoolInput {
   prevout?: MempoolPrevout;
@@ -288,4 +289,57 @@ export interface BlockchainComBalanceResponse {
     n_tx: number;
     total_received: number;
   };
+}
+
+// Tatum API response types
+export interface TatumBitcoinTransaction {
+  block: string;
+  blockNumber: number;
+  fee: number;
+  hash: string;
+  hex: string;
+  index: number;
+  inputs: TatumBitcoinInput[];
+  locktime: number;
+  outputs: TatumBitcoinOutput[];
+  size: number;
+  time: number;
+  version: number;
+  vsize: number;
+  weight: number;
+  witnessHash: string;
+}
+
+export interface TatumBitcoinInput {
+  coin: {
+    address: string;
+    coinbase: boolean;
+    height: number;
+    reqSigs: number | null;
+    script: string;
+    type: string | null;
+    value: number;
+    version: number;
+  };
+  prevout: {
+    hash: string;
+    index: number;
+  };
+  script: string;
+  sequence: number;
+}
+
+export interface TatumBitcoinOutput {
+  address: string;
+  script: string;
+  scriptPubKey: {
+    reqSigs: number | null;
+    type: string;
+  };
+  value: number;
+}
+
+export interface TatumBitcoinBalance {
+  incoming: string;
+  outgoing: string;
 }
