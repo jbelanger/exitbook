@@ -5,6 +5,8 @@ import type {
   UniversalExchangeAdapterConfig,
 } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
+// Import exchange adapters directly
+import type { BlockchainExplorersConfig } from '@crypto/shared-utils';
 
 // Import specific adapters directly
 import { AvalancheAdapter } from '../../blockchains/avalanche/adapter.ts';
@@ -14,9 +16,7 @@ import { InjectiveAdapter } from '../../blockchains/injective/adapter.ts';
 import { SubstrateAdapter } from '../../blockchains/polkadot/adapter.ts';
 // Ensure blockchain providers are registered
 import '../../blockchains/registry/register-providers.ts';
-import type { BlockchainExplorersConfig } from '../../blockchains/shared/explorer-config.ts';
 import { SolanaAdapter } from '../../blockchains/solana/adapter.ts';
-// Import exchange adapters directly
 import { CoinbaseCCXTAdapter } from '../../exchanges/coinbase/ccxt-adapter.ts';
 import { KrakenCSVAdapter } from '../../exchanges/kraken/csv-adapter.ts';
 import { KuCoinCSVAdapter } from '../../exchanges/kucoin/csv-adapter.ts';
@@ -37,7 +37,7 @@ export class UniversalAdapterFactory {
    */
   static async create(
     config: UniversalAdapterConfig,
-    explorerConfig?: BlockchainExplorersConfig
+    explorerConfig?: BlockchainExplorersConfig | null
   ): Promise<IUniversalAdapter> {
     this.logger.info(`Creating universal adapter for ${config.id} (type: ${config.type})`);
 
@@ -57,28 +57,27 @@ export class UniversalAdapterFactory {
    */
   private static async createBlockchainAdapter(
     config: UniversalBlockchainAdapterConfig,
-    explorerConfig?: BlockchainExplorersConfig
+    explorerConfig?: BlockchainExplorersConfig | null
   ): Promise<IUniversalAdapter> {
-    if (!explorerConfig) {
-      throw new Error('Explorer configuration required for blockchain adapters');
-    }
-
     this.logger.debug(`Creating blockchain adapter for ${config.id} with network: ${config.network}`);
+
+    // Pass null instead of undefined to indicate that config is optional
+    const resolvedConfig = explorerConfig === undefined ? null : explorerConfig;
 
     // Create the specific blockchain adapter directly
     switch (config.id.toLowerCase()) {
       case 'bitcoin':
-        return new BitcoinAdapter(config, explorerConfig);
+        return new BitcoinAdapter(config, resolvedConfig);
       case 'ethereum':
-        return new EthereumAdapter(config, explorerConfig);
+        return new EthereumAdapter(config, resolvedConfig);
       case 'solana':
-        return new SolanaAdapter(config, explorerConfig);
+        return new SolanaAdapter(config, resolvedConfig);
       case 'avalanche':
-        return new AvalancheAdapter(config, explorerConfig);
+        return new AvalancheAdapter(config, resolvedConfig);
       case 'injective':
-        return new InjectiveAdapter(config, explorerConfig);
+        return new InjectiveAdapter(config, resolvedConfig);
       case 'polkadot':
-        return new SubstrateAdapter(config, explorerConfig);
+        return new SubstrateAdapter(config, resolvedConfig);
       default:
         throw new Error(`Unsupported blockchain: ${config.id}`);
     }
@@ -200,7 +199,7 @@ export class UniversalAdapterFactory {
    */
   static async createMany(
     configs: UniversalAdapterConfig[],
-    explorerConfig?: BlockchainExplorersConfig
+    explorerConfig?: BlockchainExplorersConfig | null
   ): Promise<IUniversalAdapter[]> {
     this.logger.info(`Creating ${configs.length} universal adapters`);
 

@@ -13,14 +13,7 @@ import { ProviderInfo, ProviderRegistry } from '../registry/provider-registry.ts
 import { IBlockchainProvider, ProviderCapabilities, ProviderOperation } from '../types.ts';
 
 // Mock explorer config for tests
-const mockExplorerConfig = {
-  bitcoin: {
-    explorers: [],
-  },
-  ethereum: {
-    explorers: [],
-  },
-};
+const mockExplorerConfig = {};
 
 // Mock provider for testing
 class MockProvider implements IBlockchainProvider {
@@ -446,7 +439,7 @@ describe('ProviderRegistry', () => {
     expect(provider.capabilities.supportedOperations).toContain('getRawAddressBalance');
   });
 
-  test('should validate configuration correctly', () => {
+  test('should validate legacy configuration correctly', () => {
     const validConfig = {
       ethereum: {
         explorers: [{ enabled: true, name: 'alchemy', priority: 1 }],
@@ -469,10 +462,51 @@ describe('ProviderRegistry', () => {
     expect(invalidResult.errors[0]).toContain('invalid-provider');
   });
 
-  test('should throw error for non-existent providers', () => {
+  test('should validate new override-based configuration correctly', () => {
+    const validOverrideConfig = {
+      ethereum: {
+        defaultEnabled: ['alchemy', 'moralis'],
+        overrides: {
+          alchemy: { priority: 1, rateLimit: { requestsPerSecond: 0.5 } },
+          moralis: { enabled: false },
+        },
+      },
+    };
+
+    const invalidOverrideConfig = {
+      ethereum: {
+        defaultEnabled: ['invalid-provider'],
+        overrides: {},
+      },
+    };
+
+    // Note: validateConfig currently handles legacy format, so we test direct validation
+    const validResult = ProviderRegistry.validateConfig(validOverrideConfig);
+    expect(validResult.valid).toBe(true);
+    expect(validResult.errors).toHaveLength(0);
+
+    const invalidResult = ProviderRegistry.validateConfig(invalidOverrideConfig);
+    expect(invalidResult.valid).toBe(false);
+    expect(invalidResult.errors.length).toBeGreaterThan(0);
+    expect(invalidResult.errors[0]).toContain('invalid-provider');
+  });
+
+  test('should throw error with helpful suggestions for non-existent providers', () => {
     expect(() => {
       ProviderRegistry.createProvider('ethereum', 'non-existent', {});
-    }).toThrow('Provider non-existent not found for blockchain ethereum');
+    }).toThrow(/Provider 'non-existent' not found for blockchain ethereum/);
+
+    // Should contain helpful suggestions
+    try {
+      ProviderRegistry.createProvider('ethereum', 'non-existent', {});
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      expect(message).toContain('💡 Available providers');
+      expect(message).toContain('💡 Run');
+      expect(message).toContain('providers:list');
+      expect(message).toContain('💡 Check for typos');
+      expect(message).toContain('providers:sync --fix');
+    }
   });
 
   test('should handle empty blockchain configurations', () => {

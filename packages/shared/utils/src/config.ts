@@ -7,26 +7,25 @@ import path from 'path';
 // Configuration types
 export interface BlockchainExplorersConfig {
   [blockchain: string]: {
-    explorers: ExplorerConfig[];
+    defaultEnabled?: string[];
+    overrides?: {
+      [providerName: string]: ProviderOverride;
+    };
   };
 }
 
-interface ExplorerConfig {
-  enabled: boolean;
-  mainnet: {
-    baseUrl: string;
+export interface ProviderOverride {
+  description?: string;
+  enabled?: boolean;
+  priority?: number;
+  rateLimit?: {
+    burstLimit?: number;
+    requestsPerHour?: number;
+    requestsPerMinute?: number;
+    requestsPerSecond?: number;
   };
-  name: string;
-  priority: number;
-  rateLimit: {
-    requestsPerSecond: number;
-  };
-  requiresApiKey?: boolean;
-  retries: number;
-  testnet: {
-    baseUrl: string;
-  };
-  timeout: number;
+  retries?: number;
+  timeout?: number;
 }
 
 /**
@@ -57,8 +56,9 @@ export class ConfigUtils {
 
   /**
    * Load blockchain explorer configuration
+   * Returns null if configuration file doesn't exist (for optional config)
    */
-  static loadExplorerConfig(configPath?: string): BlockchainExplorersConfig {
+  static loadExplorerConfig(configPath?: string): BlockchainExplorersConfig | null {
     const finalPath = configPath
       ? path.resolve(process.cwd(), configPath)
       : process.env.BLOCKCHAIN_EXPLORERS_CONFIG
@@ -69,6 +69,10 @@ export class ConfigUtils {
       const configData = fs.readFileSync(finalPath, 'utf-8');
       return JSON.parse(configData);
     } catch (error) {
+      if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+        // File doesn't exist - this is OK, we'll use registry defaults
+        return null;
+      }
       throw new Error(
         `Failed to load blockchain explorer configuration from ${finalPath}: ${error instanceof Error ? error.message : String(error)}`
       );
