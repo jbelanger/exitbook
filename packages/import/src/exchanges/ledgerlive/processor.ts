@@ -1,5 +1,6 @@
 import type { UniversalTransaction } from '@crypto/core';
 import { createMoney, parseDecimal } from '@crypto/shared-utils';
+import { type Result, err, ok } from 'neverthrow';
 
 import { BaseProcessor } from '../../shared/processors/base-processor.ts';
 import type { StoredRawData } from '../../shared/processors/interfaces.ts';
@@ -95,54 +96,49 @@ export class LedgerLiveProcessor extends BaseProcessor<CsvLedgerLiveOperationRow
     }
   }
 
+  private processSingle(
+    rawData: StoredRawData<CsvLedgerLiveOperationRow>
+  ): Result<UniversalTransaction | null, string> {
+    const row = rawData.rawData;
+
+    // Skip empty or invalid rows
+    if (!row['Operation Date'] || !row['Currency Ticker'] || !row['Operation Amount']) {
+      return err(
+        `Missing required fields - Operation Date: ${row['Operation Date']}, Currency Ticker: ${row['Currency Ticker']}, Operation Amount: ${row['Operation Amount']}`
+      );
+    }
+
+    try {
+      const transaction = this.convertOperationToTransaction(row);
+      return ok(transaction);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return err(`Failed to convert operation to transaction: ${errorMessage}`);
+    }
+  }
+
   protected canProcessSpecific(sourceType: string): boolean {
     return sourceType === 'exchange';
   }
 
-  async process(rawDataItems: StoredRawData<CsvLedgerLiveOperationRow>[]): Promise<UniversalTransaction[]> {
-    this.logger.info(`Processing ${rawDataItems.length} Ledger Live operation rows`);
-
+  protected async processInternal(
+    rawDataItems: StoredRawData<CsvLedgerLiveOperationRow>[]
+  ): Promise<Result<UniversalTransaction[], string>> {
     const transactions: UniversalTransaction[] = [];
 
-    try {
-      for (const rawDataItem of rawDataItems) {
-        const row = rawDataItem.rawData;
-
-        // Skip empty or invalid rows
-        if (!row['Operation Date'] || !row['Currency Ticker'] || !row['Operation Amount']) {
-          this.logger.warn(`Skipping invalid row with missing required fields - Row: ${JSON.stringify(row)}`);
-          continue;
-        }
-
-        const transaction = this.convertOperationToTransaction(row);
-        if (transaction) {
-          transactions.push(transaction);
-        }
+    for (const rawDataItem of rawDataItems) {
+      const result = this.processSingle(rawDataItem);
+      if (result.isErr()) {
+        this.logger.warn(`Failed to process Ledger Live row ${rawDataItem.sourceTransactionId}: ${result.error}`);
+        continue;
       }
 
-      this.logger.info(
-        `Successfully processed ${transactions.length} Ledger Live transactions from ${rawDataItems.length} rows`
-      );
-      return transactions;
-    } catch (error) {
-      this.logger.error(`Failed to process Ledger Live data: ${error}`);
-      throw error;
-    }
-  }
-
-  async processSingle(rawData: StoredRawData<CsvLedgerLiveOperationRow>): Promise<UniversalTransaction | null> {
-    try {
-      const row = rawData.rawData;
-
-      // Skip empty or invalid rows
-      if (!row['Operation Date'] || !row['Currency Ticker'] || !row['Operation Amount']) {
-        this.logger.warn(`Skipping invalid row with missing required fields - Row: ${JSON.stringify(row)}`);
-        return null;
+      const transaction = result.value;
+      if (transaction) {
+        transactions.push(transaction);
       }
-
-      return this.convertOperationToTransaction(row);
-    } catch (error) {
-      this.handleProcessingError(error, rawData, 'single item processing');
     }
+
+    return ok(transactions);
   }
 }

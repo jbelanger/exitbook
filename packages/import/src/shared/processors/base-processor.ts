@@ -2,6 +2,7 @@ import type { UniversalTransaction } from '@crypto/core';
 import { validateUniversalTransactions } from '@crypto/core';
 import type { Logger } from '@crypto/shared-logger';
 import { getLogger } from '@crypto/shared-logger';
+import { type Result } from 'neverthrow';
 
 import type { IProcessor, StoredRawData } from './interfaces.ts';
 
@@ -37,28 +38,17 @@ export abstract class BaseProcessor<TRawData> implements IProcessor<TRawData> {
   async process(rawData: StoredRawData<TRawData>[]): Promise<UniversalTransaction[]> {
     this.logger.info(`Processing ${rawData.length} raw data items for ${this.sourceId}`);
 
-    const transactions: UniversalTransaction[] = [];
-    const errors: string[] = [];
-    let processed = 0;
-    let failed = 0;
+    // Delegate to subclass for actual processing logic
+    const result = await this.processInternal(rawData);
 
-    for (const rawItem of rawData) {
-      try {
-        const transaction = await this.processSingle(rawItem);
-        if (transaction) {
-          transactions.push(transaction);
-          processed++;
-        }
-      } catch (error) {
-        failed++;
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        const contextMessage = `Failed to process ${rawItem.sourceTransactionId}: ${errorMessage}`;
-        errors.push(contextMessage);
-        this.logger.warn(contextMessage);
-      }
+    if (result.isErr()) {
+      this.logger.error(`Processing failed for ${this.sourceId}: ${result.error}`);
+      return [];
     }
 
-    // NEW: Validate all generated transactions using Zod schemas
+    const transactions = result.value;
+
+    // Validate all generated transactions using Zod schemas
     const { invalid, valid } = validateUniversalTransactions(transactions);
 
     // Log validation errors but continue processing with valid transactions
@@ -72,20 +62,18 @@ export abstract class BaseProcessor<TRawData> implements IProcessor<TRawData> {
       );
     }
 
-    this.logger.info(
-      `Processing completed for ${this.sourceId}: ${valid.length} valid, ${invalid.length} invalid, ${failed} failed`
-    );
-
-    if (errors.length > 0) {
-      this.logger.warn(
-        `Processing errors for ${this.sourceId}: ${errors.slice(0, 5).join('; ')}${errors.length > 5 ? '...' : ''}`
-      );
-    }
+    this.logger.info(`Processing completed for ${this.sourceId}: ${valid.length} valid, ${invalid.length} invalid`);
 
     return valid;
   }
 
-  abstract processSingle(rawData: StoredRawData<TRawData>): Promise<UniversalTransaction | null>;
+  /**
+   * Subclasses implement this method to provide their specific processing logic.
+   * The base class handles logging, error handling, and validation.
+   */
+  protected abstract processInternal(
+    rawData: StoredRawData<TRawData>[]
+  ): Promise<Result<UniversalTransaction[], string>>;
 
   /**
    * Helper method to validate required fields in raw data.

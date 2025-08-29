@@ -36,11 +36,6 @@ export interface IProcessor<TRawData> {
    * Process raw data into UniversalTransaction objects.
    */
   process(rawData: StoredRawData<TRawData>[]): Promise<UniversalTransaction[]>;
-
-  /**
-   * Process a single raw data item (useful for testing and debugging).
-   */
-  processSingle(rawData: StoredRawData<TRawData>): Promise<UniversalTransaction | null>;
 }
 
 // New interfaces for the processor architecture refactor
@@ -75,6 +70,7 @@ export interface ApiClientRawData<TRawData> {
   providerId: string;
   rawData: TRawData;
   sourceAddress?: string | undefined; // Optional address context for the data
+  transactionType?: string | undefined; // Optional transaction type for classification
 }
 
 /**

@@ -1,4 +1,5 @@
 import type { UniversalTransaction } from '@crypto/core';
+import { type Result, err, ok } from 'neverthrow';
 
 import { BaseProcessor } from '../../shared/processors/base-processor.ts';
 import type { StoredRawData } from '../../shared/processors/interfaces.ts';
@@ -23,83 +24,69 @@ export class CoinbaseProcessor extends BaseProcessor<UniversalTransaction> {
     super('coinbase');
   }
 
+  private processSingle(rawData: StoredRawData<UniversalTransaction>): Result<UniversalTransaction | null, string> {
+    const transaction = rawData.rawData;
+
+    // The CoinbaseCCXTAdapter already provides transactions in UniversalTransaction format
+    // We mainly need to validate and potentially enhance the data
+
+    if (!transaction.id || !transaction.type || !transaction.amount) {
+      return err(`Invalid transaction data: missing required fields for transaction ${transaction.id || 'unknown'}`);
+    }
+
+    // Validate transaction type
+    const validTypes = ['trade', 'deposit', 'withdrawal', 'transfer', 'fee', 'income', 'other'];
+    if (!validTypes.includes(transaction.type)) {
+      return err(`Invalid transaction type: ${transaction.type} for transaction ${transaction.id}`);
+    }
+
+    // Ensure the transaction has proper metadata
+    const processedTransaction: UniversalTransaction = {
+      ...transaction,
+      metadata: {
+        ...transaction.metadata,
+        processedBy: 'CoinbaseProcessor',
+        processingTimestamp: Date.now(),
+      },
+      network: 'exchange',
+      source: 'coinbase',
+    };
+
+    // Additional validation for trade transactions
+    if (transaction.type === 'trade') {
+      if (!transaction.symbol || !transaction.side) {
+        this.logger.warn(
+          `Trade transaction missing symbol or side: ${transaction.id}, symbol: ${transaction.symbol}, side: ${transaction.side}`
+        );
+        // Don't reject, but log the issue
+      }
+    }
+
+    return ok(processedTransaction);
+  }
+
   protected canProcessSpecific(sourceType: string): boolean {
     return sourceType === 'exchange';
   }
 
-  async process(rawDataItems: StoredRawData<UniversalTransaction>[]): Promise<UniversalTransaction[]> {
-    this.logger.info(`Processing ${rawDataItems.length} Coinbase transactions`);
-
+  protected async processInternal(
+    rawDataItems: StoredRawData<UniversalTransaction>[]
+  ): Promise<Result<UniversalTransaction[], string>> {
     const transactions: UniversalTransaction[] = [];
 
     for (const item of rawDataItems) {
-      try {
-        const transaction = await this.processSingle(item);
-        if (transaction) {
-          transactions.push(transaction);
-        }
-      } catch (error) {
-        this.logger.warn(
-          `Failed to process Coinbase transaction ${item.rawData.id}: ${
-            error instanceof Error ? error.message : 'Unknown error'
-          }`
-        );
-        // Continue processing other transactions
+      const result = this.processSingle(item);
+      if (result.isErr()) {
+        this.logger.warn(`Failed to process Coinbase transaction ${item.rawData.id}: ${result.error}`);
         continue;
       }
+
+      const transaction = result.value;
+      if (transaction) {
+        transactions.push(transaction);
+      }
     }
 
-    this.logger.info(`Successfully processed ${transactions.length} Coinbase transactions`);
-    return transactions;
-  }
-
-  async processSingle(rawData: StoredRawData<UniversalTransaction>): Promise<UniversalTransaction | null> {
-    const transaction = rawData.rawData;
-
-    try {
-      // The CoinbaseCCXTAdapter already provides transactions in UniversalTransaction format
-      // We mainly need to validate and potentially enhance the data
-
-      if (!transaction.id || !transaction.type || !transaction.amount) {
-        this.logger.warn(
-          `Invalid transaction data: missing required fields for transaction ${transaction.id || 'unknown'}`
-        );
-        return null;
-      }
-
-      // Validate transaction type
-      const validTypes = ['trade', 'deposit', 'withdrawal', 'transfer', 'fee', 'income', 'other'];
-      if (!validTypes.includes(transaction.type)) {
-        this.logger.warn(`Invalid transaction type: ${transaction.type} for transaction ${transaction.id}`);
-        return null;
-      }
-
-      // Ensure the transaction has proper metadata
-      const processedTransaction: UniversalTransaction = {
-        ...transaction,
-        metadata: {
-          ...transaction.metadata,
-          processedBy: 'CoinbaseProcessor',
-          processingTimestamp: Date.now(),
-        },
-        network: 'exchange',
-        source: 'coinbase',
-      };
-
-      // Additional validation for trade transactions
-      if (transaction.type === 'trade') {
-        if (!transaction.symbol || !transaction.side) {
-          this.logger.warn(
-            `Trade transaction missing symbol or side: ${transaction.id}, symbol: ${transaction.symbol}, side: ${transaction.side}`
-          );
-          // Don't reject, but log the issue
-        }
-      }
-
-      return processedTransaction;
-    } catch (error) {
-      this.handleProcessingError(error, rawData, 'single transaction processing');
-      return null;
-    }
+    return ok(transactions);
   }
 }

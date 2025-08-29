@@ -70,6 +70,7 @@ export class AvalancheTransactionImporter extends BaseImporter<AvalancheRawTrans
               providerId: normalResult.providerName,
               rawData: tx,
               sourceAddress: address,
+              transactionType: 'normal',
             });
           }
         }
@@ -78,9 +79,10 @@ export class AvalancheTransactionImporter extends BaseImporter<AvalancheRawTrans
         if (compositeData.internal && Array.isArray(compositeData.internal)) {
           for (const tx of compositeData.internal) {
             rawTransactions.push({
-              providerId: 'snowtrace-internal',
+              providerId: normalResult.providerName,
               rawData: tx,
               sourceAddress: address,
+              transactionType: 'internal',
             });
           }
         }
@@ -100,9 +102,10 @@ export class AvalancheTransactionImporter extends BaseImporter<AvalancheRawTrans
           const tokenTransactions = tokenResult.data as SnowtraceTokenTransfer[];
           for (const tx of tokenTransactions) {
             rawTransactions.push({
-              providerId: 'snowtrace-token',
+              providerId: tokenResult.providerName,
               rawData: tx,
               sourceAddress: address,
+              transactionType: 'token',
             });
           }
         }

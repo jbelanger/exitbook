@@ -1,5 +1,6 @@
 import type { UniversalTransaction } from '@crypto/core';
 import { createMoney, parseDecimal } from '@crypto/shared-utils';
+import { type Result, err, ok } from 'neverthrow';
 
 import { BaseProcessor } from '../../shared/processors/base-processor.ts';
 import type { StoredRawData } from '../../shared/processors/interfaces.ts';
@@ -442,46 +443,17 @@ export class KrakenProcessor extends BaseProcessor<CsvKrakenLedgerRow> {
     return sourceType === 'exchange';
   }
 
-  async process(rawDataItems: StoredRawData<CsvKrakenLedgerRow>[]): Promise<UniversalTransaction[]> {
-    this.logger.info(`Processing ${rawDataItems.length} Kraken ledger rows using complex pairing logic`);
-
-    // Extract the raw ledger rows for batch processing
-    const rows = rawDataItems.map(item => item.rawData);
-
+  protected async processInternal(
+    rawDataItems: StoredRawData<CsvKrakenLedgerRow>[]
+  ): Promise<Result<UniversalTransaction[], string>> {
     try {
+      // Extract the raw ledger rows for batch processing
+      const rows = rawDataItems.map(item => item.rawData);
       const transactions = this.parseLedgers(rows);
-
-      this.logger.info(`Successfully processed ${transactions.length} Kraken transactions`);
-      return transactions;
+      return ok(transactions);
     } catch (error) {
-      this.logger.error(`Failed to process Kraken data: ${error}`);
-      throw error;
-    }
-  }
-
-  async processSingle(rawData: StoredRawData<CsvKrakenLedgerRow>): Promise<UniversalTransaction | null> {
-    // For Kraken, single processing doesn't make much sense due to complex pairing logic
-    // This method is mainly for compatibility - the real logic is in the batch process
-    const ledgerRow = rawData.rawData;
-
-    try {
-      // Handle simple cases that don't require pairing
-      if (ledgerRow.type === 'deposit') {
-        return this.convertDepositToTransaction(ledgerRow);
-      }
-
-      if (ledgerRow.type === 'withdrawal') {
-        return this.convertWithdrawalToTransaction(ledgerRow);
-      }
-
-      if (ledgerRow.type === 'trade') {
-        return this.convertSingleTradeToTransaction(ledgerRow);
-      }
-
-      // For spend/receive pairs and complex cases, return null - they need batch processing
-      return null;
-    } catch (error) {
-      this.handleProcessingError(error, rawData, 'single item processing');
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return err(`Failed to process Kraken data: ${errorMessage}`);
     }
   }
 }
