@@ -1,5 +1,6 @@
 import type { UniversalTransaction } from '@crypto/core';
 import { createMoney, parseDecimal } from '@crypto/shared-utils';
+import { type Result, err, ok } from 'neverthrow';
 
 import { BaseProcessor } from '../../shared/processors/base-processor.ts';
 import type { StoredRawData } from '../../shared/processors/interfaces.ts';
@@ -222,54 +223,62 @@ export class KucoinProcessor extends BaseProcessor<CsvKuCoinRawData> {
     return convertTransactions;
   }
 
+  private processSingle(rawDataItem: StoredRawData<CsvKuCoinRawData>): Result<UniversalTransaction[], string> {
+    try {
+      const rawData = rawDataItem.rawData;
+      const transactions: UniversalTransaction[] = [];
+
+      // Process spot orders
+      for (const row of rawData.spotOrders) {
+        const transaction = this.convertSpotOrderToTransaction(row);
+        transactions.push(transaction);
+      }
+
+      // Process deposits
+      for (const row of rawData.deposits) {
+        const transaction = this.convertDepositToTransaction(row);
+        transactions.push(transaction);
+      }
+
+      // Process withdrawals
+      for (const row of rawData.withdrawals) {
+        const transaction = this.convertWithdrawalToTransaction(row);
+        transactions.push(transaction);
+      }
+
+      // Process account history (convert market transactions)
+      const convertTransactions = this.processAccountHistory(rawData.accountHistory);
+      transactions.push(...convertTransactions);
+
+      return ok(transactions);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return err(`Failed to process KuCoin batch: ${errorMessage}`);
+    }
+  }
+
   protected canProcessSpecific(sourceType: string): boolean {
     return sourceType === 'exchange';
   }
 
-  async process(rawDataItems: StoredRawData<CsvKuCoinRawData>[]): Promise<UniversalTransaction[]> {
-    this.logger.info(`Processing ${rawDataItems.length} KuCoin raw data batches`);
-
+  protected async processInternal(
+    rawDataItems: StoredRawData<CsvKuCoinRawData>[]
+  ): Promise<Result<UniversalTransaction[], string>> {
     const allTransactions: UniversalTransaction[] = [];
 
-    try {
-      for (const rawDataItem of rawDataItems) {
-        const rawData = rawDataItem.rawData;
-
-        // Process spot orders
-        for (const row of rawData.spotOrders) {
-          const transaction = this.convertSpotOrderToTransaction(row);
-          allTransactions.push(transaction);
-        }
-
-        // Process deposits
-        for (const row of rawData.deposits) {
-          const transaction = this.convertDepositToTransaction(row);
-          allTransactions.push(transaction);
-        }
-
-        // Process withdrawals
-        for (const row of rawData.withdrawals) {
-          const transaction = this.convertWithdrawalToTransaction(row);
-          allTransactions.push(transaction);
-        }
-
-        // Process account history (convert market transactions)
-        const convertTransactions = this.processAccountHistory(rawData.accountHistory);
-        allTransactions.push(...convertTransactions);
+    for (const rawDataItem of rawDataItems) {
+      const result = this.processSingle(rawDataItem);
+      if (result.isErr()) {
+        this.logger.warn(`Failed to process KuCoin batch ${rawDataItem.sourceTransactionId}: ${result.error}`);
+        continue;
       }
 
-      this.logger.info(`Successfully processed ${allTransactions.length} KuCoin transactions`);
-      return allTransactions;
-    } catch (error) {
-      this.logger.error(`Failed to process KuCoin data: ${error}`);
-      throw error;
+      const transactions = result.value;
+      if (transactions) {
+        allTransactions.push(...transactions);
+      }
     }
-  }
 
-  async processSingle(_rawData: StoredRawData<CsvKuCoinRawData>): Promise<UniversalTransaction | null> {
-    // For KuCoin, we don't process single items as the data comes in structured batches
-    // This method is mainly for compatibility - the real logic is in the batch process
-    this.logger.warn('Single processing not supported for KuCoin - use batch processing instead');
-    return null;
+    return ok(allTransactions);
   }
 }

@@ -1,4 +1,5 @@
 import type { UniversalTransaction } from '@crypto/core';
+import { type Result, err, ok } from 'neverthrow';
 
 import type { IDependencyContainer } from '../../shared/common/interfaces.ts';
 import { BaseProcessor } from '../../shared/processors/base-processor.ts';
@@ -18,6 +19,42 @@ export class SolanaTransactionProcessor extends BaseProcessor<ApiClientRawData<S
     super('solana');
   }
 
+  private processSingle(
+    rawDataItem: StoredRawData<ApiClientRawData<SolanaRawTransactionData>>
+  ): Result<UniversalTransaction | null, string> {
+    const apiClientRawData = rawDataItem.rawData;
+    const { providerId, rawData } = apiClientRawData;
+
+    // Get the appropriate processor for this provider
+    const processor = ProcessorFactory.create(providerId);
+    if (!processor) {
+      return err(`No processor found for provider: ${providerId}`);
+    }
+
+    // Validate the raw data
+    const validationResult = processor.validate(rawData);
+    if (!validationResult.isValid) {
+      return err(`Invalid raw data from ${providerId}: ${validationResult.errors?.join(', ')}`);
+    }
+
+    // Extract wallet addresses from source address context
+    const walletAddresses: string[] = [];
+    if (apiClientRawData.sourceAddress) {
+      walletAddresses.push(apiClientRawData.sourceAddress);
+    }
+
+    // Transform using the provider-specific processor
+    const transformResult = processor.transform(rawData, walletAddresses);
+
+    if (transformResult.isErr()) {
+      return err(`Transform failed for ${providerId}: ${transformResult.error}`);
+    }
+
+    const universalTransaction = transformResult.value;
+    this.logger.debug(`Successfully processed transaction ${universalTransaction.id} from ${providerId}`);
+    return ok(universalTransaction);
+  }
+
   /**
    * Check if this processor can handle the specified source type.
    */
@@ -25,50 +62,24 @@ export class SolanaTransactionProcessor extends BaseProcessor<ApiClientRawData<S
     return sourceType === 'blockchain';
   }
 
-  /**
-   * Process a single raw transaction batch using provider-specific processors.
-   */
-  async processSingle(
-    rawDataItem: StoredRawData<ApiClientRawData<SolanaRawTransactionData>>
-  ): Promise<UniversalTransaction | null> {
-    try {
-      const apiClientRawData = rawDataItem.rawData;
-      const { providerId, rawData } = apiClientRawData;
+  protected async processInternal(
+    rawDataItems: StoredRawData<ApiClientRawData<SolanaRawTransactionData>>[]
+  ): Promise<Result<UniversalTransaction[], string>> {
+    const transactions: UniversalTransaction[] = [];
 
-      // Get the appropriate processor for this provider
-      const processor = ProcessorFactory.create(providerId);
-      if (!processor) {
-        this.logger.error(`No processor found for provider: ${providerId}`);
-        return null;
+    for (const item of rawDataItems) {
+      const result = this.processSingle(item);
+      if (result.isErr()) {
+        this.logger.warn(`Failed to process transaction ${item.sourceTransactionId}: ${result.error}`);
+        continue; // Continue processing other transactions
       }
 
-      // Validate the raw data
-      const validationResult = processor.validate(rawData);
-      if (!validationResult.isValid) {
-        this.logger.error(`Invalid raw data from ${providerId}: ${validationResult.errors?.join(', ')}`);
-        return null;
+      const transaction = result.value;
+      if (transaction) {
+        transactions.push(transaction);
       }
-
-      // Extract wallet addresses from source address context
-      const walletAddresses: string[] = [];
-      if (apiClientRawData.sourceAddress) {
-        walletAddresses.push(apiClientRawData.sourceAddress);
-      }
-
-      // Transform using the provider-specific processor
-      const transformResult = processor.transform(rawData, walletAddresses);
-
-      if (transformResult.isErr()) {
-        this.logger.error(`Transform failed for ${providerId}: ${transformResult.error}`);
-        return null;
-      }
-
-      const universalTransaction = transformResult.value;
-      this.logger.debug(`Successfully processed transaction ${universalTransaction.id} from ${providerId}`);
-      return universalTransaction;
-    } catch (error) {
-      this.logger.error(`Failed to process single transaction ${rawDataItem.sourceTransactionId}: ${error}`);
-      return null;
     }
+
+    return ok(transactions);
   }
 }
