@@ -31,13 +31,13 @@ export class EthereumTransactionProcessor extends BaseProcessor<ApiClientRawData
       return err(`No processor found for provider: ${providerId}`);
     }
 
-    // Extract wallet addresses from raw data (added by importer during fetch)
-    const walletAddresses: string[] = [];
-    // For Ethereum, we don't currently add fetchedByAddress to the raw data
-    // We'll need to get addresses from somewhere else or update the importer
+    // Create session context for Ethereum (uses addresses field)
+    const sessionContext = {
+      addresses: apiClientRawData.sourceAddress ? [apiClientRawData.sourceAddress] : [],
+    };
 
     // Transform using the provider-specific processor
-    const transformResult = processor.transform(rawData, walletAddresses);
+    const transformResult = processor.transform(rawData, sessionContext);
 
     if (transformResult.isErr()) {
       return err(`Transform failed for ${providerId}: ${transformResult.error}`);

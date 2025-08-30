@@ -7,6 +7,7 @@ import type { IDependencyContainer } from '../common/interfaces.ts';
 import { ImporterFactory } from '../importers/importer-factory.ts';
 import type { ImportParams, ImportResult } from '../importers/interfaces.ts';
 import type { ProcessResult } from '../processors/interfaces.ts';
+import type { ApiClientRawData, ImportSessionMetadata, StoredRawData } from '../processors/interfaces.ts';
 import { ProcessorFactory } from '../processors/processor-factory.ts';
 import type { LoadRawDataFilters } from '../storage/interfaces.ts';
 
@@ -300,8 +301,19 @@ export class TransactionIngestionService {
           sourceType: sourceType,
         });
 
+        // Create ProcessingImportSession for this group
+        const processingSession = {
+          createdAt: Date.now(),
+          id: sessionId || `generated-${Date.now()}`,
+          rawDataItems: sessionItems as StoredRawData<ApiClientRawData<unknown>>[],
+          sessionMetadata: sessionMetadata as ImportSessionMetadata | undefined,
+          sourceId: sourceId,
+          sourceType: sourceType as 'exchange' | 'blockchain',
+          status: 'processing',
+        };
+
         // Process this session's raw data
-        const sessionTransactions = await processor.process(sessionItems);
+        const sessionTransactions = await processor.process(processingSession);
         allTransactions.push(...sessionTransactions);
 
         this.logger.debug(

@@ -5,6 +5,7 @@ import { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
 import { BaseProviderProcessor } from '../../../shared/processors/base-provider-processor.ts';
+import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
 import type { SolscanRawTransactionData } from '../clients/SolscanApiClient.ts';
 import { SolscanRawTransactionDataSchema } from '../schemas.ts';
@@ -97,10 +98,11 @@ export class SolscanProcessor extends BaseProviderProcessor<SolscanRawTransactio
   // IProviderProcessor interface implementation
   protected transformValidated(
     rawData: SolscanRawTransactionData,
-    walletAddresses: string[]
+    sessionContext: ImportSessionMetadata
   ): Result<UniversalTransaction, string> {
-    // Process the first transaction for interface compatibility
-    const userAddress = walletAddresses[0] || '';
+    // Extract addresses from rich session context
+    const addresses = sessionContext.addresses || [];
+    const userAddress = addresses[0] || '';
 
     if (!rawData.normal || rawData.normal.length === 0) {
       throw new Error('No transactions to transform from SolscanRawTransactionData');

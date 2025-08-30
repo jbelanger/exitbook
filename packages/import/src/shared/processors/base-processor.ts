@@ -4,7 +4,7 @@ import type { Logger } from '@crypto/shared-logger';
 import { getLogger } from '@crypto/shared-logger';
 import { type Result } from 'neverthrow';
 
-import type { IProcessor, StoredRawData } from './interfaces.ts';
+import type { IProcessor, ProcessingImportSession, StoredRawData } from './interfaces.ts';
 
 /**
  * Base class providing common functionality for all processors.
@@ -35,11 +35,11 @@ export abstract class BaseProcessor<TRawData> implements IProcessor<TRawData> {
     throw new Error(`${this.sourceId} processing failed: ${errorMessage}`);
   }
 
-  async process(rawData: StoredRawData<TRawData>[]): Promise<UniversalTransaction[]> {
-    this.logger.info(`Processing ${rawData.length} raw data items for ${this.sourceId}`);
+  async process(importSession: ProcessingImportSession): Promise<UniversalTransaction[]> {
+    this.logger.info(`Processing ${importSession.rawDataItems.length} raw data items for ${this.sourceId}`);
 
     // Delegate to subclass for actual processing logic
-    const result = await this.processInternal(rawData);
+    const result = await this.processInternal(importSession.rawDataItems as StoredRawData<TRawData>[]);
 
     if (result.isErr()) {
       this.logger.error(`Processing failed for ${this.sourceId}: ${result.error}`);

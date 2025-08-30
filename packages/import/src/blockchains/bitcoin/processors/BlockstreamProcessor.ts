@@ -3,6 +3,7 @@ import { createMoney } from '@crypto/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseProviderProcessor } from '../../../shared/processors/base-provider-processor.ts';
+import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
 import { BlockstreamTransactionSchema } from '../schemas.ts';
 import type { BlockstreamTransaction } from '../types.ts';
@@ -13,7 +14,7 @@ export class BlockstreamProcessor extends BaseProviderProcessor<BlockstreamTrans
 
   protected transformValidated(
     rawData: BlockstreamTransaction,
-    walletAddresses: string[]
+    sessionContext: ImportSessionMetadata
   ): Result<UniversalTransaction, string> {
     const timestamp =
       rawData.status.confirmed && rawData.status.block_time ? rawData.status.block_time * 1000 : Date.now();
@@ -22,7 +23,9 @@ export class BlockstreamProcessor extends BaseProviderProcessor<BlockstreamTrans
     let totalValueChange = 0;
     let isIncoming = false;
     let isOutgoing = false;
-    const relevantAddresses = new Set(walletAddresses);
+    // Extract addresses from rich session context (Bitcoin uses derivedAddresses)
+    const addresses = sessionContext.derivedAddresses || sessionContext.addresses || [];
+    const relevantAddresses = new Set(addresses);
 
     // Check inputs - money going out of our wallet (Blockstream format)
     for (const input of rawData.vin) {

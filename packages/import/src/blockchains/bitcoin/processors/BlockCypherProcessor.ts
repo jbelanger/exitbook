@@ -4,6 +4,7 @@ import { createMoney } from '@crypto/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseProviderProcessor } from '../../../shared/processors/base-provider-processor.ts';
+import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
 import { BlockCypherTransactionSchema } from '../schemas.ts';
 import type { BlockCypherTransaction } from '../types.ts';
@@ -15,13 +16,16 @@ export class BlockCypherProcessor extends BaseProviderProcessor<BlockCypherTrans
 
   protected transformValidated(
     rawData: BlockCypherTransaction,
-    walletAddresses: string[]
+    sessionContext: ImportSessionMetadata
   ): Result<UniversalTransaction, string> {
+    // Extract addresses from rich session context (Bitcoin uses derivedAddresses)
+    const addresses = sessionContext.derivedAddresses || sessionContext.addresses || [];
+
     this.logger.debug(
-      `Transform called with ${walletAddresses.length} wallet addresses: ${walletAddresses
+      `Transform called with ${addresses.length} wallet addresses: ${addresses
         .slice(0, 3)
         .map(addr => addr.substring(0, 8) + '...')
-        .join(', ')}${walletAddresses.length > 3 ? '...' : ''}`
+        .join(', ')}${addresses.length > 3 ? '...' : ''}`
     );
 
     const timestamp = rawData.confirmed ? new Date(rawData.confirmed).getTime() : Date.now();
@@ -30,7 +34,7 @@ export class BlockCypherProcessor extends BaseProviderProcessor<BlockCypherTrans
     let totalValueChange = 0;
     let isIncoming = false;
     let isOutgoing = false;
-    const relevantAddresses = new Set(walletAddresses);
+    const relevantAddresses = new Set(addresses);
 
     // Check inputs and outputs to determine transaction type
     let walletInputValue = 0;

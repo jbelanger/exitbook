@@ -31,24 +31,26 @@ export class PolkadotTransactionProcessor extends BaseProcessor<ApiClientRawData
       return err(`No processor found for provider: ${providerId}`);
     }
 
-    // Extract wallet addresses from metadata
-    const walletAddresses: string[] = [];
+    // Create session context for Polkadot (uses addresses field from metadata)
+    const addresses: string[] = [];
     if (rawDataItem.metadata && typeof rawDataItem.metadata === 'object') {
       const metadata = rawDataItem.metadata as Record<string, unknown>;
       if (metadata.walletAddresses && Array.isArray(metadata.walletAddresses)) {
-        walletAddresses.push(...(metadata.walletAddresses as string[]));
+        addresses.push(...(metadata.walletAddresses as string[]));
       }
     }
 
     // If no wallet addresses in metadata, we can't determine transaction direction
-    if (walletAddresses.length === 0) {
+    if (addresses.length === 0) {
       this.logger.warn(`No wallet addresses found in metadata for transaction ${rawDataItem.sourceTransactionId}`);
       // We can still process the transaction, but with limited context
-      walletAddresses.push(''); // Empty address as fallback
+      addresses.push(''); // Empty address as fallback
     }
 
+    const sessionContext = { addresses };
+
     // Transform using the provider-specific processor
-    const transformResult = processor.transform(rawData, walletAddresses);
+    const transformResult = processor.transform(rawData, sessionContext);
 
     if (transformResult.isErr()) {
       return err(`Transform failed for ${providerId}: ${transformResult.error}`);

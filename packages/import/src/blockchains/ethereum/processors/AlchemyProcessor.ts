@@ -4,6 +4,7 @@ import { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
 import { BaseProviderProcessor } from '../../../shared/processors/base-provider-processor.ts';
+import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
 import { AlchemyAssetTransferSchema } from '../schemas.ts';
 import type { AlchemyAssetTransfer, EtherscanBalance } from '../types.ts';
@@ -86,9 +87,11 @@ export class AlchemyProcessor extends BaseProviderProcessor<AlchemyAssetTransfer
   // IProviderProcessor interface implementation
   protected transformValidated(
     rawData: AlchemyAssetTransfer,
-    walletAddresses: string[]
+    sessionContext: ImportSessionMetadata
   ): Result<UniversalTransaction, string> {
-    const userAddress = walletAddresses[0] || '';
+    // Extract addresses from rich session context
+    const addresses = sessionContext.addresses || sessionContext.contractAddresses || [];
+    const userAddress = addresses[0] || '';
 
     const isFromUser = rawData.from.toLowerCase() === userAddress.toLowerCase();
     const isToUser = rawData.to.toLowerCase() === userAddress.toLowerCase();

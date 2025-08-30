@@ -3,14 +3,20 @@ import { createMoney } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
-import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
+import type {
+  IProviderProcessor,
+  ImportSessionMetadata,
+  ValidationResult,
+} from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
 import type { TransactionGroup } from '../types.ts';
 import { AvalancheUtils } from '../utils.ts';
 
 @RegisterProcessor('avalanche-correlation')
 export class CorrelationProcessor implements IProviderProcessor<TransactionGroup> {
-  transform(rawData: TransactionGroup, walletAddresses: string[]): Result<UniversalTransaction, string> {
+  transform(rawData: TransactionGroup, sessionContext: ImportSessionMetadata): Result<UniversalTransaction, string> {
+    const addresses = sessionContext.addresses || [];
+    const walletAddresses = addresses; // Temporary compatibility
     try {
       // Use the correlation system to classify the transaction group
       const classification = AvalancheUtils.classifyTransactionGroup(rawData);

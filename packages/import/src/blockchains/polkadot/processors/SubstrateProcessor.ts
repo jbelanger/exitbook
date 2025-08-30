@@ -4,6 +4,7 @@ import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseProviderProcessor } from '../../../shared/processors/base-provider-processor.ts';
+import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
 import { SubscanTransferSchema } from '../schemas.ts';
 import type { SubscanTransfer, SubstrateAccountInfo, SubstrateChainConfig, TaostatsTransaction } from '../types.ts';
@@ -199,9 +200,11 @@ export class SubstrateProcessor extends BaseProviderProcessor<SubscanTransfer> {
   // IProviderProcessor interface implementation
   protected transformValidated(
     rawData: SubscanTransfer,
-    walletAddresses: string[]
+    sessionContext: ImportSessionMetadata
   ): Result<UniversalTransaction, string> {
-    const userAddress = walletAddresses[0] || '';
+    // Extract addresses from rich session context
+    const addresses = sessionContext.addresses || [];
+    const userAddress = addresses[0] || '';
     const chainConfig = SUBSTRATE_CHAINS['polkadot']!;
 
     // Convert single SubscanTransfer to BlockchainTransaction
