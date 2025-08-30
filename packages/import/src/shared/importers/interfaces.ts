@@ -22,12 +22,6 @@ export interface ImportRunResult<TRawData> {
   rawData: ApiClientRawData<TRawData>[];
 }
 
-export interface ValidationResult {
-  errors: string[];
-  isValid: boolean;
-  warnings: string[];
-}
-
 /**
  * Interface for importing raw data from external sources.
  * Each importer is responsible for fetching data from a specific source

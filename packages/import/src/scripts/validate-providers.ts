@@ -3,74 +3,65 @@
  * Validate that all providers are properly registered and functional
  */
 // Import all providers to trigger registration
+import { Result, err, ok } from 'neverthrow';
+
 import '../blockchains/registry/register-providers.ts';
 import { ProviderRegistry } from '../blockchains/shared/registry/index.ts';
 
-interface ValidationResult {
-  blockchain: string;
-  errors: string[];
-  provider: string;
-  valid: boolean;
-  warnings: string[];
+interface ValidationError {
+  message: string;
+  type: 'error' | 'warning';
 }
 
+type ValidationResult = Result<string[], ValidationError[]>;
+
 function validateProvider(blockchain: string, providerName: string): ValidationResult {
-  const result: ValidationResult = {
-    blockchain,
-    errors: [],
-    provider: providerName,
-    valid: true,
-    warnings: [],
-  };
+  const errors: ValidationError[] = [];
+  const warnings: string[] = [];
+
+  const addError = (message: string) => errors.push({ message, type: 'error' });
+  const addWarning = (message: string) => errors.push({ message, type: 'warning' });
 
   try {
     // Check if provider is registered
     if (!ProviderRegistry.isRegistered(blockchain, providerName)) {
-      result.valid = false;
-      result.errors.push('Provider not found in registry');
-      return result;
+      addError('Provider not found in registry');
+      return err(errors);
     }
 
     // Get metadata
     const metadata = ProviderRegistry.getMetadata(blockchain, providerName);
     if (!metadata) {
-      result.valid = false;
-      result.errors.push('No metadata found');
-      return result;
+      addError('No metadata found');
+      return err(errors);
     }
 
     // Validate metadata fields
     if (!metadata.name) {
-      result.valid = false;
-      result.errors.push('Missing name in metadata');
+      addError('Missing name in metadata');
     }
 
     if (!metadata.displayName) {
-      result.valid = false;
-      result.errors.push('Missing displayName in metadata');
+      addError('Missing displayName in metadata');
     }
 
     if (!metadata.networks?.mainnet?.baseUrl) {
-      result.valid = false;
-      result.errors.push('Missing mainnet baseUrl in metadata');
+      addError('Missing mainnet baseUrl in metadata');
     }
 
     if (!metadata.defaultConfig?.rateLimit?.requestsPerSecond) {
-      result.valid = false;
-      result.errors.push('Missing rateLimit configuration');
+      addError('Missing rateLimit configuration');
     }
 
     if (!metadata.defaultConfig?.timeout) {
-      result.valid = false;
-      result.errors.push('Missing timeout configuration');
+      addError('Missing timeout configuration');
     }
 
     if (!metadata.capabilities) {
-      result.valid = false;
-      result.errors.push('Missing capabilities in metadata');
+      addError('Missing capabilities in metadata');
     } else {
       if (!metadata.capabilities.supportedOperations?.length) {
-        result.warnings.push('No supported operations defined in capabilities');
+        addWarning('No supported operations defined in capabilities');
       }
     }
 
@@ -80,42 +71,42 @@ function validateProvider(blockchain: string, providerName: string): ValidationR
 
       // Check provider properties
       if (provider.name !== providerName) {
-        result.valid = false;
-        result.errors.push(`Provider name mismatch: expected '${providerName}', got '${provider.name}'`);
+        addError(`Provider name mismatch: expected '${providerName}', got '${provider.name}'`);
       }
 
       if (provider.blockchain !== blockchain) {
-        result.valid = false;
-        result.errors.push(`Blockchain mismatch: expected '${blockchain}', got '${provider.blockchain}'`);
+        addError(`Blockchain mismatch: expected '${blockchain}', got '${provider.blockchain}'`);
       }
 
       if (!provider.capabilities) {
-        result.valid = false;
-        result.errors.push('Missing capabilities');
+        addError('Missing capabilities');
       } else {
         if (!provider.capabilities.supportedOperations?.length) {
-          result.warnings.push('No supported operations defined');
+          addWarning('No supported operations defined');
         }
       }
     } catch (error) {
-      result.valid = false;
-      result.errors.push(`Provider instantiation failed: ${error instanceof Error ? error.message : error}`);
+      addError(`Provider instantiation failed: ${error instanceof Error ? error.message : error}`);
     }
 
     // Warnings for best practices
     if (!metadata.description) {
-      result.warnings.push('Missing description - consider adding for better documentation');
+      addWarning('Missing description - consider adding for better documentation');
     }
 
     if (metadata.requiresApiKey && !metadata.networks?.testnet) {
-      result.warnings.push('API key required but no testnet configuration - consider adding for testing');
+      addWarning('API key required but no testnet configuration - consider adding for testing');
     }
   } catch (error) {
-    result.valid = false;
-    result.errors.push(`Validation error: ${error instanceof Error ? error.message : error}`);
+    addError(`Validation error: ${error instanceof Error ? error.message : error}`);
   }
 
-  return result;
+  const errorMessages = errors.filter(e => e.type === 'error');
+  if (errorMessages.length > 0) {
+    return err(errors);
+  }
+
+  return ok(warnings);
 }
 
 function validateProviders(): void {
@@ -128,20 +119,32 @@ function validateProviders(): void {
     process.exit(1);
   }
 
-  const results: ValidationResult[] = [];
-  const errors: string[] = [];
-  const warnings: string[] = [];
+  const results: Array<{
+    blockchain: string;
+    providerName: string;
+    result: ValidationResult;
+  }> = [];
+  const allErrors: string[] = [];
+  const allWarnings: string[] = [];
 
   // Validate each provider
   for (const provider of allProviders) {
     const result = validateProvider(provider.blockchain, provider.name);
-    results.push(result);
+    results.push({
+      blockchain: provider.blockchain,
+      providerName: provider.name,
+      result,
+    });
 
-    if (!result.valid) {
-      errors.push(...result.errors.map(err => `${provider.blockchain}:${provider.name} - ${err}`));
+    if (result.isErr()) {
+      const errors = result.error.filter(e => e.type === 'error');
+      const warnings = result.error.filter(e => e.type === 'warning');
+
+      allErrors.push(...errors.map(err => `${provider.blockchain}:${provider.name} - ${err.message}`));
+      allWarnings.push(...warnings.map(warn => `${provider.blockchain}:${provider.name} - ${warn.message}`));
+    } else {
+      allWarnings.push(...result.value.map(warn => `${provider.blockchain}:${provider.name} - ${warn}`));
     }
-
-    warnings.push(...result.warnings.map(warn => `${provider.blockchain}:${provider.name} - ${warn}`));
   }
 
   // Show results
@@ -149,29 +152,34 @@ function validateProviders(): void {
   console.log('─'.repeat(50));
 
   // Group by blockchain
-  const providersByBlockchain = new Map<string, ValidationResult[]>();
-  for (const result of results) {
-    if (!providersByBlockchain.has(result.blockchain)) {
-      providersByBlockchain.set(result.blockchain, []);
+  const providersByBlockchain = new Map<string, typeof results>();
+  for (const item of results) {
+    if (!providersByBlockchain.has(item.blockchain)) {
+      providersByBlockchain.set(item.blockchain, []);
     }
-    providersByBlockchain.get(result.blockchain)!.push(result);
+    providersByBlockchain.get(item.blockchain)!.push(item);
   }
 
   for (const [blockchain, providerResults] of providersByBlockchain.entries()) {
     console.log(`\n${blockchain.toUpperCase()}:`);
 
-    for (const result of providerResults) {
-      const status = result.valid ? '✅' : '❌';
-      console.log(`  ${status} ${result.provider}`);
+    for (const { providerName, result } of providerResults) {
+      const status = result.isOk() ? '✅' : '❌';
+      console.log(`  ${status} ${providerName}`);
 
-      if (result.errors.length > 0) {
-        result.errors.forEach(error => {
-          console.log(`      ❌ ${error}`);
+      if (result.isErr()) {
+        const errors = result.error.filter(e => e.type === 'error');
+        const warnings = result.error.filter(e => e.type === 'warning');
+
+        errors.forEach(error => {
+          console.log(`      ❌ ${error.message}`);
         });
-      }
 
-      if (result.warnings.length > 0) {
-        result.warnings.forEach(warning => {
+        warnings.forEach(warning => {
+          console.log(`      ⚠️  ${warning.message}`);
+        });
+      } else {
+        result.value.forEach(warning => {
           console.log(`      ⚠️  ${warning}`);
         });
       }
@@ -179,21 +187,21 @@ function validateProviders(): void {
   }
 
   // Summary
-  const validProviders = results.filter(r => r.valid).length;
-  const invalidProviders = results.filter(r => !r.valid).length;
+  const validProviders = results.filter(r => r.result.isOk()).length;
+  const invalidProviders = results.filter(r => r.result.isErr()).length;
 
   console.log('\n📊 Summary');
   console.log('─'.repeat(20));
   console.log(`Total Providers: ${results.length}`);
   console.log(`Valid: ${validProviders}`);
   console.log(`Invalid: ${invalidProviders}`);
-  console.log(`Warnings: ${warnings.length}`);
+  console.log(`Warnings: ${allWarnings.length}`);
 
   if (invalidProviders > 0) {
     console.log('\n🚨 Validation Failed!');
     console.log('Fix the errors above before proceeding.');
     process.exit(1);
-  } else if (warnings.length > 0) {
+  } else if (allWarnings.length > 0) {
     console.log('\n⚠️  Validation Passed with Warnings');
     console.log('Consider addressing the warnings above for better provider quality.');
   } else {

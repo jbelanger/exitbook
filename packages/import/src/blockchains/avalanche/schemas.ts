@@ -146,12 +146,3 @@ export const AvalancheNetworkSchema = z.object({
   }),
   rpcUrls: z.array(z.string().min(1, 'RPC URL must not be empty')),
 });
-
-/**
- * Validation result type
- */
-export interface ValidationResult {
-  errors: string[];
-  isValid: boolean;
-  warnings: string[];
-}
