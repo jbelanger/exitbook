@@ -1,11 +1,10 @@
-import type { UniversalTransaction } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
-import { createMoney } from '@crypto/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseProviderProcessor } from '../../../shared/processors/base-provider-processor.ts';
 import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
+import type { UniversalBlockchainTransaction } from '../../shared/types.ts';
 import { BlockCypherTransactionSchema } from '../schemas.ts';
 import type { BlockCypherTransaction } from '../types.ts';
 
@@ -17,7 +16,7 @@ export class BlockCypherProcessor extends BaseProviderProcessor<BlockCypherTrans
   protected transformValidated(
     rawData: BlockCypherTransaction,
     sessionContext: ImportSessionMetadata
-  ): Result<UniversalTransaction, string> {
+  ): Result<UniversalBlockchainTransaction, string> {
     // Extract addresses from rich session context (Bitcoin uses derivedAddresses)
     const addresses = sessionContext.derivedAddresses || sessionContext.addresses || [];
 
@@ -78,30 +77,19 @@ export class BlockCypherProcessor extends BaseProviderProcessor<BlockCypherTrans
       }
     }
 
-    // Determine transaction type based on fund flow
-    let type: UniversalTransaction['type'];
+    // All Bitcoin transactions are transfers in the universal blockchain transaction model
+    const type: UniversalBlockchainTransaction['type'] = 'transfer';
 
-    if (isIncoming && !isOutgoing) {
-      // Funds only coming into wallet from external sources
-      type = 'deposit';
-    } else if (isOutgoing && !isIncoming) {
-      // Funds only going out to external addresses
-      type = 'withdrawal';
-    } else if (isIncoming && isOutgoing) {
-      if (hasExternalOutput) {
-        // Funds going out to external addresses (with possible change back to wallet)
-        type = 'withdrawal';
-        // For withdrawals, calculate the net amount going out (excluding change)
-        totalValueChange = walletInputValue - walletOutputValue;
-      } else {
-        // Only internal movement between wallet addresses
-        type = 'transfer';
-      }
-    } else {
+    if (!isIncoming && !isOutgoing) {
       // Neither incoming nor outgoing - cannot determine transaction type
       return err(
         'Unable to determine transaction type: transaction has no relevant wallet addresses in inputs or outputs'
       );
+    }
+
+    if (isIncoming && isOutgoing && hasExternalOutput) {
+      // For withdrawals, calculate the net amount going out (excluding change)
+      totalValueChange = walletInputValue - walletOutputValue;
     }
 
     const totalValue = Math.abs(totalValueChange);
@@ -146,26 +134,33 @@ export class BlockCypherProcessor extends BaseProviderProcessor<BlockCypherTrans
       toAddress = rawData.outputs[0].addresses[0];
     }
 
-    return ok({
-      amount: createMoney(totalValue / 100000000, 'BTC'),
-      datetime: new Date(timestamp).toISOString(),
-      fee: createMoney(fee / 100000000, 'BTC'),
+    const btcAmount = (totalValue / 100000000).toString();
+    const btcFee = (fee / 100000000).toString();
+
+    const transaction: UniversalBlockchainTransaction = {
+      amount: btcAmount,
+      currency: 'BTC',
       from: fromAddress,
       id: rawData.hash,
-      metadata: {
-        blockchain: 'bitcoin',
-        blockHash: rawData.block_hash || undefined,
-        blockHeight: rawData.block_height || undefined,
-        confirmations: rawData.confirmations || 0,
-        providerId: 'blockcypher',
-        rawData,
-      },
-      source: 'bitcoin',
-      status: rawData.confirmations > 0 ? 'ok' : 'pending',
-      symbol: 'BTC',
+      providerId: 'blockcypher',
+      status: rawData.confirmations > 0 ? 'success' : 'pending',
       timestamp,
       to: toAddress,
       type,
-    });
+    };
+
+    // Add optional fields
+    if (rawData.block_height) {
+      transaction.blockHeight = rawData.block_height;
+    }
+    if (rawData.block_hash) {
+      transaction.blockId = rawData.block_hash;
+    }
+    if (fee > 0) {
+      transaction.feeAmount = btcFee;
+      transaction.feeCurrency = 'BTC';
+    }
+
+    return ok(transaction);
   }
 }

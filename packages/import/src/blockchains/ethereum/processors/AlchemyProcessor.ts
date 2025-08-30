@@ -1,4 +1,4 @@
-import type { Balance, BlockchainTransaction, UniversalTransaction } from '@crypto/core';
+import type { Balance, BlockchainTransaction } from '@crypto/core';
 import { createMoney, parseDecimal } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
@@ -6,6 +6,7 @@ import { type Result, ok } from 'neverthrow';
 import { BaseProviderProcessor } from '../../../shared/processors/base-provider-processor.ts';
 import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
+import type { UniversalBlockchainTransaction } from '../../shared/types.ts';
 import { AlchemyAssetTransferSchema } from '../schemas.ts';
 import type { AlchemyAssetTransfer, EtherscanBalance } from '../types.ts';
 
@@ -88,7 +89,7 @@ export class AlchemyProcessor extends BaseProviderProcessor<AlchemyAssetTransfer
   protected transformValidated(
     rawData: AlchemyAssetTransfer,
     sessionContext: ImportSessionMetadata
-  ): Result<UniversalTransaction, string> {
+  ): Result<UniversalBlockchainTransaction, string> {
     // Extract addresses from rich session context
     const addresses = sessionContext.addresses || sessionContext.contractAddresses || [];
     const userAddress = addresses[0] || '';
@@ -96,14 +97,12 @@ export class AlchemyProcessor extends BaseProviderProcessor<AlchemyAssetTransfer
     const isFromUser = rawData.from.toLowerCase() === userAddress.toLowerCase();
     const isToUser = rawData.to.toLowerCase() === userAddress.toLowerCase();
 
-    // Determine transaction type based on Bitcoin pattern
-    let type: UniversalTransaction['type'];
-    if (isFromUser && isToUser) {
-      type = 'transfer';
-    } else if (isFromUser) {
-      type = 'withdrawal';
+    // Determine transaction type
+    let type: UniversalBlockchainTransaction['type'];
+    if (rawData.category === 'token') {
+      type = 'token_transfer';
     } else {
-      type = 'deposit';
+      type = 'transfer';
     }
 
     // Handle different asset types
@@ -125,24 +124,32 @@ export class AlchemyProcessor extends BaseProviderProcessor<AlchemyAssetTransfer
       ? new Date(rawData.metadata.blockTimestamp).getTime()
       : Date.now();
 
-    return ok({
-      amount: createMoney(amount.toString(), currency),
-      datetime: new Date(timestamp).toISOString(),
-      fee: createMoney('0', 'ETH'),
+    const transaction: UniversalBlockchainTransaction = {
+      amount: amount.toString(),
+      blockHeight: parseInt(rawData.blockNum, 16),
+      currency,
       from: rawData.from,
       id: rawData.hash,
-      metadata: {
-        blockchain: 'ethereum',
-        blockNumber: parseInt(rawData.blockNum, 16),
-        providerId: 'alchemy',
-        rawData: rawData,
-      },
-      source: 'ethereum',
-      status: 'ok',
-      symbol: currency,
+      providerId: 'alchemy',
+      status: 'success',
       timestamp,
       to: rawData.to,
       type,
-    });
+    };
+
+    // Add token-specific fields if it's a token transfer
+    if (rawData.category === 'token' && rawData.rawContract?.address) {
+      transaction.tokenAddress = rawData.rawContract.address;
+      transaction.tokenSymbol = currency;
+      if (rawData.rawContract.decimal) {
+        const decimals =
+          typeof rawData.rawContract.decimal === 'number'
+            ? rawData.rawContract.decimal
+            : parseInt(String(rawData.rawContract.decimal));
+        transaction.tokenDecimals = decimals;
+      }
+    }
+
+    return ok(transaction);
   }
 }
