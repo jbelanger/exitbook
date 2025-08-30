@@ -2,14 +2,19 @@ import type { UniversalTransaction } from '@crypto/core';
 import { createMoney } from '@crypto/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
-import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
+import { BaseProviderProcessor } from '../../../shared/processors/base-provider-processor.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
 import { BlockstreamTransactionSchema } from '../schemas.ts';
 import type { BlockstreamTransaction } from '../types.ts';
 
 @RegisterProcessor('blockstream.info')
-export class BlockstreamProcessor implements IProviderProcessor<BlockstreamTransaction> {
-  transform(rawData: BlockstreamTransaction, walletAddresses: string[]): Result<UniversalTransaction, string> {
+export class BlockstreamProcessor extends BaseProviderProcessor<BlockstreamTransaction> {
+  protected readonly schema = BlockstreamTransactionSchema;
+
+  protected transformValidated(
+    rawData: BlockstreamTransaction,
+    walletAddresses: string[]
+  ): Result<UniversalTransaction, string> {
     const timestamp =
       rawData.status.confirmed && rawData.status.block_time ? rawData.status.block_time * 1000 : Date.now();
 
@@ -107,23 +112,5 @@ export class BlockstreamProcessor implements IProviderProcessor<BlockstreamTrans
       to: toAddress,
       type,
     });
-  }
-
-  validate(rawData: BlockstreamTransaction): ValidationResult {
-    const result = BlockstreamTransactionSchema.safeParse(rawData);
-
-    if (result.success) {
-      return { isValid: true };
-    }
-
-    const errors = result.error.issues.map(issue => {
-      const path = issue.path.length > 0 ? ` at ${issue.path.join('.')}` : '';
-      return `${issue.message}${path}`;
-    });
-
-    return {
-      errors,
-      isValid: false,
-    };
   }
 }

@@ -31,12 +31,6 @@ export class SolanaTransactionProcessor extends BaseProcessor<ApiClientRawData<S
       return err(`No processor found for provider: ${providerId}`);
     }
 
-    // Validate the raw data
-    const validationResult = processor.validate(rawData);
-    if (!validationResult.isValid) {
-      return err(`Invalid raw data from ${providerId}: ${validationResult.errors?.join(', ')}`);
-    }
-
     // Extract wallet addresses from source address context
     const walletAddresses: string[] = [];
     if (apiClientRawData.sourceAddress) {

@@ -3,14 +3,19 @@ import { createMoney } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
-import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
+import { BaseProviderProcessor } from '../../../shared/processors/base-provider-processor.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
 import { MempoolTransactionSchema } from '../schemas.ts';
 import type { MempoolTransaction } from '../types.ts';
 
 @RegisterProcessor('mempool.space')
-export class MempoolSpaceProcessor implements IProviderProcessor<MempoolTransaction> {
-  transform(rawData: MempoolTransaction, walletAddresses: string[]): Result<UniversalTransaction, string> {
+export class MempoolSpaceProcessor extends BaseProviderProcessor<MempoolTransaction> {
+  protected readonly schema = MempoolTransactionSchema;
+
+  protected transformValidated(
+    rawData: MempoolTransaction,
+    walletAddresses: string[]
+  ): Result<UniversalTransaction, string> {
     const timestamp =
       rawData.status.confirmed && rawData.status.block_time ? rawData.status.block_time * 1000 : Date.now();
 
@@ -125,23 +130,5 @@ export class MempoolSpaceProcessor implements IProviderProcessor<MempoolTransact
       to: toAddress,
       type,
     });
-  }
-
-  validate(rawData: MempoolTransaction): ValidationResult {
-    const result = MempoolTransactionSchema.safeParse(rawData);
-
-    if (result.success) {
-      return { isValid: true };
-    }
-
-    const errors = result.error.issues.map(issue => {
-      const path = issue.path.length > 0 ? ` at ${issue.path.join('.')}` : '';
-      return `${issue.message}${path}`;
-    });
-
-    return {
-      errors,
-      isValid: false,
-    };
   }
 }

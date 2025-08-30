@@ -2,9 +2,9 @@ import type { BlockchainTransaction, UniversalTransaction } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
 import { createMoney, maskAddress } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
-import { type Result, err, ok } from 'neverthrow';
+import { type Result, ok } from 'neverthrow';
 
-import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
+import { BaseProviderProcessor } from '../../../shared/processors/base-provider-processor.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
 import type { SolscanRawTransactionData } from '../clients/SolscanApiClient.ts';
 import { SolscanRawTransactionDataSchema } from '../schemas.ts';
@@ -14,7 +14,8 @@ import { lamportsToSol } from '../utils.ts';
 const logger = getLogger('SolscanProcessor');
 
 @RegisterProcessor('solscan')
-export class SolscanProcessor implements IProviderProcessor<SolscanRawTransactionData> {
+export class SolscanProcessor extends BaseProviderProcessor<SolscanRawTransactionData> {
+  protected readonly schema = SolscanRawTransactionDataSchema;
   static processAddressTransactions(rawData: SolscanRawTransactionData, userAddress: string): BlockchainTransaction[] {
     logger.debug(
       `Processing Solscan address transactions - Address: ${maskAddress(userAddress)}, RawTransactionCount: ${rawData.normal.length}`
@@ -94,7 +95,10 @@ export class SolscanProcessor implements IProviderProcessor<SolscanRawTransactio
   }
 
   // IProviderProcessor interface implementation
-  transform(rawData: SolscanRawTransactionData, walletAddresses: string[]): Result<UniversalTransaction, string> {
+  protected transformValidated(
+    rawData: SolscanRawTransactionData,
+    walletAddresses: string[]
+  ): Result<UniversalTransaction, string> {
     // Process the first transaction for interface compatibility
     const userAddress = walletAddresses[0] || '';
 
@@ -138,23 +142,5 @@ export class SolscanProcessor implements IProviderProcessor<SolscanRawTransactio
       to: processedTx.to,
       type,
     });
-  }
-
-  validate(rawData: SolscanRawTransactionData): ValidationResult {
-    const result = SolscanRawTransactionDataSchema.safeParse(rawData);
-
-    if (result.success) {
-      return { isValid: true };
-    }
-
-    const errors = result.error.issues.map(issue => {
-      const path = issue.path.length > 0 ? ` at ${issue.path.join('.')}` : '';
-      return `${issue.message}${path}`;
-    });
-
-    return {
-      errors,
-      isValid: false,
-    };
   }
 }

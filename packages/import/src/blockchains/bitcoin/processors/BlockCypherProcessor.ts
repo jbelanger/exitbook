@@ -3,16 +3,20 @@ import { getLogger } from '@crypto/shared-logger';
 import { createMoney } from '@crypto/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
-import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
+import { BaseProviderProcessor } from '../../../shared/processors/base-provider-processor.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
 import { BlockCypherTransactionSchema } from '../schemas.ts';
 import type { BlockCypherTransaction } from '../types.ts';
 
 @RegisterProcessor('blockcypher')
-export class BlockCypherProcessor implements IProviderProcessor<BlockCypherTransaction> {
+export class BlockCypherProcessor extends BaseProviderProcessor<BlockCypherTransaction> {
   private logger = getLogger('BlockCypherProcessor');
+  protected readonly schema = BlockCypherTransactionSchema;
 
-  transform(rawData: BlockCypherTransaction, walletAddresses: string[]): Result<UniversalTransaction, string> {
+  protected transformValidated(
+    rawData: BlockCypherTransaction,
+    walletAddresses: string[]
+  ): Result<UniversalTransaction, string> {
     this.logger.debug(
       `Transform called with ${walletAddresses.length} wallet addresses: ${walletAddresses
         .slice(0, 3)
@@ -159,23 +163,5 @@ export class BlockCypherProcessor implements IProviderProcessor<BlockCypherTrans
       to: toAddress,
       type,
     });
-  }
-
-  validate(rawData: BlockCypherTransaction): ValidationResult {
-    const result = BlockCypherTransactionSchema.safeParse(rawData);
-
-    if (result.success) {
-      return { isValid: true };
-    }
-
-    const errors = result.error.issues.map(issue => {
-      const path = issue.path.length > 0 ? ` at ${issue.path.join('.')}` : '';
-      return `${issue.message}${path}`;
-    });
-
-    return {
-      errors,
-      isValid: false,
-    };
   }
 }

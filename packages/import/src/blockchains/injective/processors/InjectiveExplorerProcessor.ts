@@ -2,14 +2,15 @@ import type { UniversalTransaction } from '@crypto/core';
 import { createMoney, parseDecimal } from '@crypto/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
-import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
+import { BaseProviderProcessor } from '../../../shared/processors/base-provider-processor.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
 import { InjectiveTransactionSchema } from '../schemas.ts';
 import type { InjectiveMessageValue, InjectiveTransaction } from '../types.ts';
 
 @RegisterProcessor('injective-explorer')
-export class InjectiveExplorerProcessor implements IProviderProcessor<InjectiveTransaction> {
+export class InjectiveExplorerProcessor extends BaseProviderProcessor<InjectiveTransaction> {
   private readonly INJECTIVE_DENOM = 'inj';
+  protected readonly schema = InjectiveTransactionSchema;
 
   private formatDenom(denom: string | undefined): string {
     if (!denom) {
@@ -23,7 +24,10 @@ export class InjectiveExplorerProcessor implements IProviderProcessor<InjectiveT
     return denom.toUpperCase();
   }
 
-  transform(rawData: InjectiveTransaction, walletAddresses: string[]): Result<UniversalTransaction, string> {
+  protected transformValidated(
+    rawData: InjectiveTransaction,
+    walletAddresses: string[]
+  ): Result<UniversalTransaction, string> {
     const timestamp = new Date(rawData.block_timestamp).getTime();
     const relevantAddresses = new Set(walletAddresses);
 
@@ -170,23 +174,5 @@ export class InjectiveExplorerProcessor implements IProviderProcessor<InjectiveT
       to,
       type,
     });
-  }
-
-  validate(rawData: InjectiveTransaction): ValidationResult {
-    const result = InjectiveTransactionSchema.safeParse(rawData);
-
-    if (result.success) {
-      return { isValid: true };
-    }
-
-    const errors = result.error.issues.map(issue => {
-      const path = issue.path.length > 0 ? ` at ${issue.path.join('.')}` : '';
-      return `${issue.message}${path}`;
-    });
-
-    return {
-      errors,
-      isValid: false,
-    };
   }
 }

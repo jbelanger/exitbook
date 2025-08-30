@@ -34,12 +34,6 @@ export class BitcoinTransactionProcessor extends BaseProcessor<ApiClientRawData<
       return err(`No processor found for provider: ${providerId}`);
     }
 
-    // Validate the raw data
-    const validationResult = processor.validate(rawData);
-    if (!validationResult.isValid) {
-      return err(`Invalid raw data from ${providerId}: ${validationResult.errors?.join(', ')}`);
-    }
-
     // Use derived addresses from context if available, otherwise fall back to source address
     const walletAddresses: string[] = this.context?.derivedAddresses || [];
 
