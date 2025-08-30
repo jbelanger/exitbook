@@ -37,14 +37,14 @@ export class PolkadotTransactionProcessor extends BaseProcessor<ApiClientRawData
     const addresses: string[] = [];
     if (rawDataItem.metadata && typeof rawDataItem.metadata === 'object') {
       const metadata = rawDataItem.metadata as Record<string, unknown>;
-      if (metadata.walletAddresses && Array.isArray(metadata.walletAddresses)) {
-        addresses.push(...(metadata.walletAddresses as string[]));
+      if (metadata.addresses && Array.isArray(metadata.addresses)) {
+        addresses.push(...(metadata.addresses as string[]));
       }
     }
 
-    // If no wallet addresses in metadata, we can't determine transaction direction
+    // If no addresses in metadata, we can't determine transaction direction
     if (addresses.length === 0) {
-      this.logger.warn(`No wallet addresses found in metadata for transaction ${rawDataItem.sourceTransactionId}`);
+      this.logger.warn(`No addresses found in metadata for transaction ${rawDataItem.sourceTransactionId}`);
       // We can still process the transaction, but with limited context
       addresses.push(''); // Empty address as fallback
     }
