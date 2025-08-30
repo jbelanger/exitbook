@@ -161,8 +161,7 @@ export class AvalancheTransactionProcessor extends BaseProcessor<ApiClientRawDat
         continue;
       }
 
-      // TODO: broken during refactor of issue 38
-      //avalancheTransactions.push();
+      avalancheTransactions.push(transformResult.value as AvalancheTransaction);
     }
 
     // Step 2: Group AvalancheTransactions by hash for correlation

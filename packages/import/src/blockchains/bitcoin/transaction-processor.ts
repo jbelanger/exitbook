@@ -47,7 +47,7 @@ export class BitcoinTransactionProcessor extends BaseProcessor<ApiClientRawData<
       return err(`Transform failed for ${providerId}: ${transformResult.error}`);
     }
 
-    const universalTransaction = transformResult.value;
+    const universalTransaction = transformResult.value as UniversalTransaction;
     this.logger.debug(`Successfully processed transaction ${universalTransaction.id} from ${providerId}`);
     return ok(universalTransaction);
   }
