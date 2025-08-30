@@ -34,16 +34,14 @@ export class BitcoinTransactionProcessor extends BaseProcessor<ApiClientRawData<
       return err(`No processor found for provider: ${providerId}`);
     }
 
-    // Use derived addresses from context if available, otherwise fall back to source address
-    const walletAddresses: string[] = this.context?.derivedAddresses || [];
-
-    // Fallback to source address if no context available
-    if (walletAddresses.length === 0 && apiClientRawData.sourceAddress) {
-      walletAddresses.push(apiClientRawData.sourceAddress);
-    }
+    // Create rich session context from Bitcoin-specific context
+    const sessionContext = {
+      addresses: apiClientRawData.sourceAddress ? [apiClientRawData.sourceAddress] : [],
+      derivedAddresses: this.context?.derivedAddresses || [],
+    };
 
     // Transform using the provider-specific processor
-    const transformResult = processor.transform(rawData, walletAddresses);
+    const transformResult = processor.transform(rawData, sessionContext);
 
     if (transformResult.isErr()) {
       return err(`Transform failed for ${providerId}: ${transformResult.error}`);

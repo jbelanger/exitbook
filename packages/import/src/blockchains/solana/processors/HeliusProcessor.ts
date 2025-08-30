@@ -4,6 +4,7 @@ import { createMoney, maskAddress } from '@crypto/shared-utils';
 import { type Result, ok } from 'neverthrow';
 
 import { BaseProviderProcessor } from '../../../shared/processors/base-provider-processor.ts';
+import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
 import type { SolanaRawTransactionData } from '../clients/HeliusApiClient.ts';
 import { SolanaRawTransactionDataSchema } from '../schemas.ts';
@@ -175,10 +176,11 @@ export class HeliusProcessor extends BaseProviderProcessor<SolanaRawTransactionD
   // IProviderProcessor interface implementation
   protected transformValidated(
     rawData: SolanaRawTransactionData,
-    walletAddresses: string[]
+    sessionContext: ImportSessionMetadata
   ): Result<UniversalTransaction, string> {
-    // Process the first transaction for interface compatibility
-    const userAddress = walletAddresses[0] || '';
+    // Extract addresses from rich session context
+    const addresses = sessionContext.addresses || [];
+    const userAddress = addresses[0] || '';
 
     if (!rawData.normal || rawData.normal.length === 0) {
       throw new Error('No transactions to transform from SolanaRawTransactionData');

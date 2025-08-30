@@ -82,7 +82,8 @@ export class AvalancheTransactionProcessor extends BaseProcessor<ApiClientRawDat
       return err('Normal transaction processor not found');
     }
 
-    return processor.transform(rawData, walletAddresses);
+    const sessionContext = { addresses: walletAddresses };
+    return processor.transform(rawData, sessionContext);
   }
 
   private transformTokenTransfer(
@@ -260,7 +261,8 @@ export class AvalancheTransactionProcessor extends BaseProcessor<ApiClientRawDat
       }
 
       for (const group of transactionGroups) {
-        const transformResult = correlationProcessor.transform(group, [sourceAddress]);
+        const sessionContext = { addresses: [sourceAddress] };
+        const transformResult = correlationProcessor.transform(group, sessionContext);
         if (transformResult.isErr()) {
           this.correlationLogger.error(`Failed to transform group ${group.hash}: ${transformResult.error}`);
           continue;

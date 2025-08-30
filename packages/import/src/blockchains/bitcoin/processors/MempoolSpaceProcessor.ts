@@ -4,6 +4,7 @@ import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseProviderProcessor } from '../../../shared/processors/base-provider-processor.ts';
+import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
 import { MempoolTransactionSchema } from '../schemas.ts';
 import type { MempoolTransaction } from '../types.ts';
@@ -14,7 +15,7 @@ export class MempoolSpaceProcessor extends BaseProviderProcessor<MempoolTransact
 
   protected transformValidated(
     rawData: MempoolTransaction,
-    walletAddresses: string[]
+    sessionContext: ImportSessionMetadata
   ): Result<UniversalTransaction, string> {
     const timestamp =
       rawData.status.confirmed && rawData.status.block_time ? rawData.status.block_time * 1000 : Date.now();
@@ -26,7 +27,9 @@ export class MempoolSpaceProcessor extends BaseProviderProcessor<MempoolTransact
     let isIncoming = false;
     let isOutgoing = false;
     let hasExternalOutput = false;
-    const relevantAddresses = new Set(walletAddresses);
+    // Extract addresses from rich session context (Bitcoin uses derivedAddresses)
+    const addresses = sessionContext.derivedAddresses || sessionContext.addresses || [];
+    const relevantAddresses = new Set(addresses);
 
     // Check inputs - money going out of our wallet
     for (const input of rawData.vin) {

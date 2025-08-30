@@ -3,6 +3,7 @@ import { createMoney, parseDecimal } from '@crypto/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseProviderProcessor } from '../../../shared/processors/base-provider-processor.ts';
+import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
 import { InjectiveTransactionSchema } from '../schemas.ts';
 import type { InjectiveMessageValue, InjectiveTransaction } from '../types.ts';
@@ -26,10 +27,12 @@ export class InjectiveExplorerProcessor extends BaseProviderProcessor<InjectiveT
 
   protected transformValidated(
     rawData: InjectiveTransaction,
-    walletAddresses: string[]
+    sessionContext: ImportSessionMetadata
   ): Result<UniversalTransaction, string> {
     const timestamp = new Date(rawData.block_timestamp).getTime();
-    const relevantAddresses = new Set(walletAddresses);
+    // Extract addresses from rich session context
+    const addresses = sessionContext.addresses || [];
+    const relevantAddresses = new Set(addresses);
 
     let value = createMoney(0, this.INJECTIVE_DENOM);
     let fee = createMoney(0, this.INJECTIVE_DENOM);

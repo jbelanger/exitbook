@@ -31,14 +31,13 @@ export class InjectiveTransactionProcessor extends BaseProcessor<ApiClientRawDat
       return err(`No processor found for provider: ${providerId}`);
     }
 
-    // Extract wallet addresses from source address context
-    const walletAddresses: string[] = [];
-    if (apiClientRawData.sourceAddress) {
-      walletAddresses.push(apiClientRawData.sourceAddress);
-    }
+    // Create session context for Injective (uses addresses field)
+    const sessionContext = {
+      addresses: apiClientRawData.sourceAddress ? [apiClientRawData.sourceAddress] : [],
+    };
 
     // Transform using the provider-specific processor
-    const transformResult = processor.transform(rawData, walletAddresses);
+    const transformResult = processor.transform(rawData, sessionContext);
 
     if (transformResult.isErr()) {
       return err(`Transform failed for ${providerId}: ${transformResult.error}`);

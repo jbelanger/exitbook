@@ -2,7 +2,7 @@ import type { UniversalTransaction } from '@crypto/core';
 import { type Result, err } from 'neverthrow';
 import type { ZodSchema } from 'zod';
 
-import type { IProviderProcessor, ValidationResult } from './interfaces.ts';
+import type { IProviderProcessor, ImportSessionMetadata, ValidationResult } from './interfaces.ts';
 
 /**
  * Abstract base class for provider processors that handles validation automatically.
@@ -18,7 +18,7 @@ export abstract class BaseProviderProcessor<TRawData> implements IProviderProces
   /**
    * Public transform method that handles validation internally and delegates to transformValidated.
    */
-  transform(rawData: TRawData, walletAddresses: string[]): Result<UniversalTransaction, string> {
+  transform(rawData: TRawData, context: ImportSessionMetadata): Result<UniversalTransaction, string> {
     // Validate input data first
     const validationResult = this.schema.safeParse(rawData);
     if (!validationResult.success) {
@@ -30,16 +30,16 @@ export abstract class BaseProviderProcessor<TRawData> implements IProviderProces
     }
 
     // Delegate to concrete implementation with validated data
-    return this.transformValidated(validationResult.data, walletAddresses);
+    return this.transformValidated(validationResult.data, context);
   }
 
   /**
    * Transform raw data after validation has passed.
-   * This method is called only with validated data.
+   * This method is called only with validated data and rich session context.
    */
   protected abstract transformValidated(
     rawData: TRawData,
-    walletAddresses: string[]
+    sessionContext: ImportSessionMetadata
   ): Result<UniversalTransaction, string>;
 
   /**

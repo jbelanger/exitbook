@@ -4,6 +4,7 @@ import { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
 import { BaseProviderProcessor } from '../../../shared/processors/base-provider-processor.ts';
+import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
 import { MoralisTransactionSchema } from '../schemas.ts';
 import type { MoralisNativeBalance, MoralisTokenBalance, MoralisTokenTransfer, MoralisTransaction } from '../types.ts';
@@ -125,9 +126,11 @@ export class MoralisProcessor extends BaseProviderProcessor<MoralisTransaction> 
   // IProviderProcessor interface implementation
   protected transformValidated(
     rawData: MoralisTransaction,
-    walletAddresses: string[]
+    sessionContext: ImportSessionMetadata
   ): Result<UniversalTransaction, string> {
-    const userAddress = walletAddresses[0] || '';
+    // Extract addresses from rich session context
+    const addresses = sessionContext.addresses || sessionContext.contractAddresses || [];
+    const userAddress = addresses[0] || '';
 
     const isFromUser = rawData.from_address.toLowerCase() === userAddress.toLowerCase();
     const isToUser = rawData.to_address.toLowerCase() === userAddress.toLowerCase();
