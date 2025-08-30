@@ -1,4 +1,5 @@
 import type { UniversalTransaction } from '@crypto/core';
+import type { StoredRawData } from '@crypto/data';
 import { getLogger } from '@crypto/shared-logger';
 import { createMoney } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
@@ -6,12 +7,13 @@ import { type Result, err, ok } from 'neverthrow';
 
 import type { IDependencyContainer } from '../../shared/common/interfaces.ts';
 import { BaseProcessor } from '../../shared/processors/base-processor.ts';
-import type { ApiClientRawData, StoredRawData } from '../../shared/processors/interfaces.ts';
+import type { ApiClientRawData } from '../../shared/processors/interfaces.ts';
 import { ProcessorFactory } from '../../shared/processors/processor-registry.ts';
 import type { UniversalBlockchainTransaction } from '../shared/types.ts';
 // Import processors to trigger registration
 import './processors/index.ts';
 import type { AvalancheRawTransactionData } from './transaction-importer.ts';
+import type { SnowtraceInternalTransaction, SnowtraceTokenTransfer, SnowtraceTransaction } from './types.ts';
 import { AvalancheUtils } from './utils.ts';
 
 /**

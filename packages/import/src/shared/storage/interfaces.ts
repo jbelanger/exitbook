@@ -1,4 +1,4 @@
-import type { StoredRawData } from '../processors/interfaces.ts';
+import type { StoredRawData } from '@crypto/data';
 
 export interface SaveRawDataOptions {
   importSessionId?: string | undefined;

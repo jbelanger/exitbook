@@ -1,21 +1,8 @@
 import type { UniversalTransaction } from '@crypto/core';
+import type { StoredRawData } from '@crypto/data';
 import { type Result } from 'neverthrow';
 
 import type { UniversalBlockchainTransaction } from '../../blockchains/shared/types.ts';
-
-export interface StoredRawData<TRawData = unknown> {
-  createdAt: number;
-  id: string;
-  importSessionId?: string | undefined;
-  metadata?: unknown;
-  processedAt?: number | undefined;
-  processingError?: string | undefined;
-  processingStatus: string;
-  rawData: TRawData;
-  sourceId: string;
-  sourceTransactionId: string;
-  sourceType: string;
-}
 
 export interface ProcessResult {
   errors: string[];

@@ -11,6 +11,7 @@ import type {
   CreateWalletAddressRequest,
   ImportSession,
   ImportSessionQuery,
+  ImportSessionWithRawData,
   StoredTransaction,
   UpdateImportSessionRequest,
   UpdateWalletAddressRequest,
@@ -560,6 +561,124 @@ export class Database {
         } else {
           const sessions = rows.map(importSessionRowToImportSession);
           resolve(sessions);
+        }
+      });
+    });
+  }
+
+  async getImportSessionsWithRawData(filters?: ImportSessionQuery): Promise<ImportSessionWithRawData[]> {
+    return new Promise((resolve, reject) => {
+      let query = `
+        SELECT 
+          s.*,
+          r.id as raw_id,
+          r.provider_id,
+          r.source_transaction_id,
+          r.raw_data,
+          r.metadata as raw_metadata,
+          r.processing_status,
+          r.processing_error,
+          r.processed_at,
+          r.created_at as raw_created_at
+        FROM import_sessions s
+        LEFT JOIN external_transaction_data r ON s.id = r.import_session_id
+      `;
+      const params: (string | number)[] = [];
+      const conditions: string[] = [];
+
+      if (filters?.sourceId) {
+        conditions.push('s.source_id = ?');
+        params.push(filters.sourceId);
+      }
+
+      if (filters?.sourceType) {
+        conditions.push('s.source_type = ?');
+        params.push(filters.sourceType);
+      }
+
+      if (filters?.status) {
+        conditions.push('s.status = ?');
+        params.push(filters.status);
+      }
+
+      if (filters?.since) {
+        conditions.push('s.started_at >= ?');
+        params.push(filters.since);
+      }
+
+      if (conditions.length > 0) {
+        query += ' WHERE ' + conditions.join(' AND ');
+      }
+
+      query += ' ORDER BY s.started_at DESC, r.created_at ASC';
+
+      if (filters?.limit) {
+        query += ' LIMIT ?';
+        params.push(filters.limit);
+      }
+
+      this.db.all(query, params, (err, rows: unknown[]) => {
+        if (err) {
+          reject(err);
+        } else {
+          // Group results by session
+          const sessionsMap = new Map<string, ImportSessionWithRawData>();
+
+          rows.forEach(row => {
+            const dbRow = row as Record<string, unknown>;
+            
+            // Extract session data
+            const sessionRow: ImportSessionRow = {
+              completed_at: dbRow.completed_at ? (dbRow.completed_at as number) : null,
+              created_at: dbRow.created_at as number,
+              duration_ms: dbRow.duration_ms ? (dbRow.duration_ms as number) : null,
+              error_details: dbRow.error_details ? (dbRow.error_details as string) : null,
+              error_message: dbRow.error_message ? (dbRow.error_message as string) : null,
+              id: dbRow.id as string,
+              provider_id: dbRow.provider_id ? (dbRow.provider_id as string) : null,
+              session_metadata: dbRow.session_metadata ? (dbRow.session_metadata as string) : null,
+              source_id: dbRow.source_id as string,
+              source_type: dbRow.source_type as 'exchange' | 'blockchain',
+              started_at: dbRow.started_at as number,
+              status: dbRow.status as 'started' | 'completed' | 'failed' | 'cancelled',
+              transactions_failed: dbRow.transactions_failed as number,
+              transactions_imported: dbRow.transactions_imported as number,
+              updated_at: dbRow.updated_at as number,
+            };
+
+            const session = importSessionRowToImportSession(sessionRow);
+            const sessionId = session.id;
+
+            if (!sessionsMap.has(sessionId)) {
+              sessionsMap.set(sessionId, {
+                rawDataItems: [],
+                session,
+              });
+            }
+
+            // Add raw data item if present
+            if (dbRow.raw_id) {
+              const rawDataItem = {
+                createdAt: dbRow.raw_created_at as number,
+                id: dbRow.raw_id as string,
+                importSessionId: session.id,
+                metadata: dbRow.raw_metadata ? JSON.parse(dbRow.raw_metadata as string) : undefined,
+                processedAt: dbRow.processed_at ? (dbRow.processed_at as number) : undefined,
+                processingError: dbRow.processing_error ? (dbRow.processing_error as string) : undefined,
+                processingStatus: dbRow.processing_status as string,
+                providerId: dbRow.provider_id ? (dbRow.provider_id as string) : undefined,
+                rawData: JSON.parse(dbRow.raw_data as string),
+                sourceId: session.sourceId,
+                sourceTransactionId: dbRow.source_transaction_id as string,
+                sourceType: session.sourceType,
+              };
+
+              sessionsMap.get(sessionId)!.rawDataItems.push(rawDataItem);
+            }
+          });
+
+          const results = Array.from(sessionsMap.values());
+          resolve(results);
         }
       });
     });

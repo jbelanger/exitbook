@@ -1,9 +1,9 @@
 import type { UniversalTransaction } from '@crypto/core';
+import type { StoredRawData } from '@crypto/data';
 import { createMoney, parseDecimal } from '@crypto/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseProcessor } from '../../shared/processors/base-processor.ts';
-import type { StoredRawData } from '../../shared/processors/interfaces.ts';
 import { CsvFilters } from '../csv-filters.ts';
 import type { CsvKrakenLedgerRow } from './types.ts';
 
