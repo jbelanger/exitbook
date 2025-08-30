@@ -2,7 +2,7 @@ import type { UniversalTransaction } from '@crypto/core';
 import { type Result, err } from 'neverthrow';
 import type { ZodSchema } from 'zod';
 
-import type { IProviderProcessor, ImportSessionMetadata, ValidationResult } from './interfaces.ts';
+import type { IProviderProcessor, ImportSessionMetadata } from './interfaces.ts';
 
 /**
  * Abstract base class for provider processors that handles validation automatically.
@@ -41,26 +41,4 @@ export abstract class BaseProviderProcessor<TRawData> implements IProviderProces
     rawData: TRawData,
     sessionContext: ImportSessionMetadata
   ): Result<UniversalTransaction, string>;
-
-  /**
-   * Validate method for backward compatibility.
-   * This will be removed once we update the interfaces.
-   */
-  validate(rawData: TRawData): ValidationResult {
-    const result = this.schema.safeParse(rawData);
-
-    if (result.success) {
-      return { isValid: true };
-    }
-
-    const errors = result.error.issues.map(issue => {
-      const path = issue.path.length > 0 ? ` at ${issue.path.join('.')}` : '';
-      return `${issue.message}${path}`;
-    });
-
-    return {
-      errors,
-      isValid: false,
-    };
-  }
 }
