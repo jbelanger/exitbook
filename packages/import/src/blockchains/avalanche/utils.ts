@@ -1,6 +1,7 @@
 import { Decimal } from 'decimal.js';
 
-import type { AvalancheTransaction, ClassificationResult, ValueFlow } from './types.ts';
+import type { UniversalBlockchainTransaction } from '../shared/types.ts';
+import type { ClassificationResult, ValueFlow } from './types.ts';
 
 // Avalanche address validation
 export function isValidAvalancheAddress(address: string): boolean {
@@ -25,17 +26,34 @@ export class AvalancheUtils {
   /**
    * Classifies a transaction group based on actual value flows
    */
-  static classifyTransactionGroup(txGroup: AvalancheTransaction[], userAddress: string): ClassificationResult {
+  static classifyTransactionGroup(
+    txGroup: UniversalBlockchainTransaction[],
+    userAddress: string
+  ): ClassificationResult {
     const userAddr = userAddress.toLowerCase();
     const valueFlows = new Map<string, ValueFlow>();
 
     // Analyze token transfers first (highest priority)
-    const tokenTransfers = txGroup.filter(tx => tx.type === 'token');
-    if (tokenTransfers.length) {
+    const tokenTransfers = txGroup.filter(tx => tx.type === 'token_transfer');
+    if (tokenTransfers.length > 0) {
       for (const token of tokenTransfers) {
-        const symbol = token.symbol || 'UNKNOWN';
-        const decimals = token.tokenDecimal || 18;
-        const amount = new Decimal(token.value).dividedBy(new Decimal(10).pow(decimals));
+        // Only process tokens that directly involve the user
+        const isUserSender = token.from.toLowerCase() === userAddr;
+        const isUserReceiver = token.to.toLowerCase() === userAddr;
+
+        if (!isUserSender && !isUserReceiver) {
+          // Skip tokens that don't involve the user directly
+          continue;
+        }
+
+        const symbol = token.tokenSymbol || token.currency || 'UNKNOWN';
+        const decimals = token.tokenDecimals || 18;
+        const amount = new Decimal(token.amount || '0').dividedBy(new Decimal(10).pow(decimals));
+
+        // Skip zero amounts unless this is the only transaction
+        if (amount.isZero() && tokenTransfers.length > 1) {
+          continue;
+        }
 
         if (!valueFlows.has(symbol)) {
           valueFlows.set(symbol, {
@@ -47,10 +65,10 @@ export class AvalancheUtils {
         }
 
         const flow = valueFlows.get(symbol)!;
-        if (token.from.toLowerCase() === userAddr) {
+        if (isUserSender) {
           // User sending tokens
           flow.amountOut = new Decimal(flow.amountOut).plus(amount).toString();
-        } else if (token.to.toLowerCase() === userAddr) {
+        } else if (isUserReceiver) {
           // User receiving tokens
           flow.amountIn = new Decimal(flow.amountIn).plus(amount).toString();
         }
@@ -65,9 +83,18 @@ export class AvalancheUtils {
     const internalTransfers = txGroup.filter(tx => tx.type === 'internal');
     if (internalTransfers.length) {
       for (const internal of internalTransfers) {
-        if (internal.value === '0') continue;
+        if (internal.amount === '0') continue;
 
-        const amount = new Decimal(internal.value).dividedBy(new Decimal(10).pow(18));
+        // Only process internal transactions that directly involve the user
+        const isUserSender = internal.from.toLowerCase() === userAddr;
+        const isUserReceiver = internal.to.toLowerCase() === userAddr;
+
+        if (!isUserSender && !isUserReceiver) {
+          // Skip internal transactions that don't involve the user directly
+          continue;
+        }
+
+        const amount = new Decimal(internal.amount).dividedBy(new Decimal(10).pow(18));
         if (!valueFlows.has('AVAX')) {
           valueFlows.set('AVAX', {
             amountIn: '0',
@@ -78,9 +105,9 @@ export class AvalancheUtils {
         }
 
         const flow = valueFlows.get('AVAX')!;
-        if (internal.from.toLowerCase() === userAddr) {
+        if (isUserSender) {
           flow.amountOut = new Decimal(flow.amountOut).plus(amount).toString();
-        } else if (internal.to.toLowerCase() === userAddr) {
+        } else if (isUserReceiver) {
           flow.amountIn = new Decimal(flow.amountIn).plus(amount).toString();
         }
 
@@ -90,24 +117,30 @@ export class AvalancheUtils {
     }
 
     // Analyze normal transaction (lowest priority, only if no other flows)
-    const normalTx = txGroup.find(tx => tx.type === 'normal');
-    if (valueFlows.size === 0 && normalTx && normalTx.value !== '0') {
-      const amount = new Decimal(normalTx.value).dividedBy(new Decimal(10).pow(18));
-      const flow: ValueFlow = {
-        amountIn: '0',
-        amountOut: '0',
-        netFlow: '0',
-        symbol: 'AVAX',
-      };
+    const normalTx = txGroup.find(tx => tx.type === 'transfer');
+    if (valueFlows.size === 0 && normalTx && normalTx.amount !== '0') {
+      // Only process normal transactions that directly involve the user
+      const isUserSender = normalTx.from.toLowerCase() === userAddr;
+      const isUserReceiver = normalTx.to.toLowerCase() === userAddr;
 
-      if (normalTx.from.toLowerCase() === userAddr) {
-        flow.amountOut = amount.toString();
-      } else if (normalTx.to.toLowerCase() === userAddr) {
-        flow.amountIn = amount.toString();
+      if (isUserSender || isUserReceiver) {
+        const amount = new Decimal(normalTx.amount).dividedBy(new Decimal(10).pow(18));
+        const flow: ValueFlow = {
+          amountIn: '0',
+          amountOut: '0',
+          netFlow: '0',
+          symbol: 'AVAX',
+        };
+
+        if (isUserSender) {
+          flow.amountOut = amount.toString();
+        } else if (isUserReceiver) {
+          flow.amountIn = amount.toString();
+        }
+
+        flow.netFlow = new Decimal(flow.amountIn).minus(flow.amountOut).toString();
+        valueFlows.set('AVAX', flow);
       }
-
-      flow.netFlow = new Decimal(flow.amountIn).minus(flow.amountOut).toString();
-      valueFlows.set('AVAX', flow);
     }
 
     // Determine overall classification based on value flows
@@ -124,25 +157,40 @@ export class AvalancheUtils {
         primaryAmount: '0',
         primarySymbol: 'AVAX',
         reason: 'No value flows detected',
-        type: 'transfer',
+        type: 'fee',
       };
     }
 
+    // Prefer non-AVAX tokens over AVAX (tokens are more important than gas)
     // Find the flow with the largest absolute net amount (primary asset)
     let primaryFlow = flows[0];
     let maxAbsFlow = new Decimal(0);
 
+    // First pass: look for non-AVAX flows with significant amounts
     for (const flow of flows) {
       const absFlow = new Decimal(flow.netFlow).abs();
-      if (absFlow.greaterThan(maxAbsFlow)) {
-        maxAbsFlow = absFlow;
-        primaryFlow = flow;
+      if (flow.symbol !== 'AVAX' && absFlow.greaterThan(0)) {
+        if (absFlow.greaterThan(maxAbsFlow) || primaryFlow.symbol === 'AVAX') {
+          maxAbsFlow = absFlow;
+          primaryFlow = flow;
+        }
+      }
+    }
+
+    // Second pass: if no non-AVAX flows found, use AVAX flows
+    if (primaryFlow.symbol === 'AVAX' || maxAbsFlow.isZero()) {
+      for (const flow of flows) {
+        const absFlow = new Decimal(flow.netFlow).abs();
+        if (absFlow.greaterThan(maxAbsFlow)) {
+          maxAbsFlow = absFlow;
+          primaryFlow = flow;
+        }
       }
     }
 
     // Determine type based on primary flow direction
     const primaryNetFlow = new Decimal(primaryFlow.netFlow);
-    let type: 'deposit' | 'withdrawal' | 'transfer';
+    let type: 'deposit' | 'withdrawal' | 'trade' | 'fee';
     let reason: string;
 
     if (primaryNetFlow.greaterThan(0)) {
@@ -157,8 +205,13 @@ export class AvalancheUtils {
         flow => new Decimal(flow.amountIn).greaterThan(0) || new Decimal(flow.amountOut).greaterThan(0)
       );
 
-      type = hasNonZeroFlows ? 'transfer' : 'transfer';
-      reason = hasNonZeroFlows ? 'Net zero flow with asset movement (likely swap)' : 'No significant value movement';
+      if (hasNonZeroFlows) {
+        type = 'trade';
+        reason = 'Net zero flow with asset movement (swap/DeFi interaction)';
+      } else {
+        type = 'fee';
+        reason = 'No asset movement (fee/gas payment only)';
+      }
     }
 
     // Build assets array
