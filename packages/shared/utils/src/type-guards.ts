@@ -237,10 +237,3 @@ export function isPositiveNumber(value: unknown): value is number {
 export function isValidTimestamp(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value > 0;
 }
-
-/**
- * Re-export neverthrow's Result type for functional error handling
- * TODO: Remove re-export once all files import directly from neverthrow
- */
-export type { Result } from 'neverthrow';
-export { ok, err } from 'neverthrow';

@@ -1,9 +1,9 @@
-import type { UniversalTransaction } from '@crypto/core';
-import { createMoney } from '@crypto/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseProviderProcessor } from '../../../shared/processors/base-provider-processor.ts';
+import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
+import type { UniversalBlockchainTransaction } from '../../shared/types.ts';
 import { BlockstreamTransactionSchema } from '../schemas.ts';
 import type { BlockstreamTransaction } from '../types.ts';
 
@@ -13,8 +13,8 @@ export class BlockstreamProcessor extends BaseProviderProcessor<BlockstreamTrans
 
   protected transformValidated(
     rawData: BlockstreamTransaction,
-    walletAddresses: string[]
-  ): Result<UniversalTransaction, string> {
+    sessionContext: ImportSessionMetadata
+  ): Result<UniversalBlockchainTransaction, string> {
     const timestamp =
       rawData.status.confirmed && rawData.status.block_time ? rawData.status.block_time * 1000 : Date.now();
 
@@ -22,7 +22,9 @@ export class BlockstreamProcessor extends BaseProviderProcessor<BlockstreamTrans
     let totalValueChange = 0;
     let isIncoming = false;
     let isOutgoing = false;
-    const relevantAddresses = new Set(walletAddresses);
+    // Extract addresses from rich session context (Bitcoin uses derivedAddresses)
+    const addresses = sessionContext.derivedAddresses || sessionContext.addresses || [];
+    const relevantAddresses = new Set(addresses);
 
     // Check inputs - money going out of our wallet (Blockstream format)
     for (const input of rawData.vin) {
@@ -42,17 +44,10 @@ export class BlockstreamProcessor extends BaseProviderProcessor<BlockstreamTrans
       }
     }
 
-    // Determine transaction type
-    let type: UniversalTransaction['type'];
+    // All Bitcoin transactions are transfers in the universal blockchain transaction model
+    const type: UniversalBlockchainTransaction['type'] = 'transfer';
 
-    if (isIncoming && !isOutgoing) {
-      type = 'deposit';
-    } else if (isOutgoing && !isIncoming) {
-      type = 'withdrawal';
-    } else if (isIncoming && isOutgoing) {
-      // Internal transfer within our wallet
-      type = 'transfer';
-    } else {
+    if (!isIncoming && !isOutgoing) {
       // Neither incoming nor outgoing - cannot determine transaction type
       return err(
         'Unable to determine transaction type: transaction has no relevant wallet addresses in inputs or outputs'
@@ -91,26 +86,33 @@ export class BlockstreamProcessor extends BaseProviderProcessor<BlockstreamTrans
       toAddress = rawData.vout[0].scriptpubkey_address;
     }
 
-    return ok({
-      amount: createMoney(totalValue / 100000000, 'BTC'),
-      datetime: new Date(timestamp).toISOString(),
-      fee: createMoney(fee / 100000000, 'BTC'),
+    const btcAmount = (totalValue / 100000000).toString();
+    const btcFee = (fee / 100000000).toString();
+
+    const transaction: UniversalBlockchainTransaction = {
+      amount: btcAmount,
+      currency: 'BTC',
       from: fromAddress,
       id: rawData.txid,
-      metadata: {
-        blockchain: 'bitcoin',
-        blockHash: rawData.status.block_hash || undefined,
-        blockHeight: rawData.status.block_height || undefined,
-        confirmations: rawData.status.confirmed ? 1 : 0,
-        providerId: 'blockstream.info',
-        rawData,
-      },
-      source: 'bitcoin',
-      status: rawData.status.confirmed ? 'ok' : 'pending',
-      symbol: 'BTC',
+      providerId: 'blockstream.info',
+      status: rawData.status.confirmed ? 'success' : 'pending',
       timestamp,
       to: toAddress,
       type,
-    });
+    };
+
+    // Add optional fields
+    if (rawData.status.block_height) {
+      transaction.blockHeight = rawData.status.block_height;
+    }
+    if (rawData.status.block_hash) {
+      transaction.blockId = rawData.status.block_hash;
+    }
+    if (fee > 0) {
+      transaction.feeAmount = btcFee;
+      transaction.feeCurrency = 'BTC';
+    }
+
+    return ok(transaction);
   }
 }

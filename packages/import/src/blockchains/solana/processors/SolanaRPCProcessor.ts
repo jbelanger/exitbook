@@ -1,10 +1,12 @@
-import type { BlockchainTransaction, UniversalTransaction } from '@crypto/core';
+import type { BlockchainTransaction } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
 import { createMoney, maskAddress } from '@crypto/shared-utils';
 import { type Result, ok } from 'neverthrow';
 
 import { BaseProviderProcessor } from '../../../shared/processors/base-provider-processor.ts';
+import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
+import type { UniversalBlockchainTransaction } from '../../shared/types.ts';
 import type { SolanaRPCRawTransactionData } from '../clients/SolanaRPCApiClient.ts';
 import { SolanaRPCRawTransactionDataSchema } from '../schemas.ts';
 import type { SolanaRPCTransaction } from '../types.ts';
@@ -192,10 +194,11 @@ export class SolanaRPCProcessor extends BaseProviderProcessor<SolanaRPCRawTransa
   // IProviderProcessor interface implementation
   protected transformValidated(
     rawData: SolanaRPCRawTransactionData,
-    walletAddresses: string[]
-  ): Result<UniversalTransaction, string> {
-    // Process the first transaction for interface compatibility
-    const userAddress = walletAddresses[0] || '';
+    sessionContext: ImportSessionMetadata
+  ): Result<UniversalBlockchainTransaction, string> {
+    // Extract addresses from rich session context
+    const addresses = sessionContext.addresses || [];
+    const userAddress = addresses[0] || '';
 
     if (!rawData.normal || rawData.normal.length === 0) {
       throw new Error('No transactions to transform from SolanaRPCRawTransactionData');
@@ -208,34 +211,31 @@ export class SolanaRPCProcessor extends BaseProviderProcessor<SolanaRPCRawTransa
       throw new Error('Unable to transform SolanaRPC transaction to UniversalTransaction');
     }
 
-    // Convert BlockchainTransaction to UniversalTransaction
-    let type: UniversalTransaction['type'];
-    if (processedTx.type === 'transfer_in') {
-      type = 'deposit';
-    } else if (processedTx.type === 'transfer_out') {
-      type = 'withdrawal';
-    } else {
-      type = 'transfer';
-    }
-
-    return ok({
-      amount: processedTx.value,
-      datetime: new Date(processedTx.timestamp).toISOString(),
-      fee: processedTx.fee,
+    const transaction: UniversalBlockchainTransaction = {
+      amount: processedTx.value.amount.toString(),
+      currency: processedTx.tokenSymbol || 'SOL',
       from: processedTx.from,
       id: processedTx.hash,
-      metadata: {
-        blockchain: 'solana',
-        blockNumber: processedTx.blockNumber,
-        providerId: 'solana-rpc',
-        rawData: tx,
-      },
-      source: 'solana',
-      status: processedTx.status === 'success' ? 'ok' : 'failed',
-      symbol: processedTx.tokenSymbol || 'SOL',
+      providerId: 'solana-rpc',
+      status: processedTx.status === 'success' ? 'success' : 'failed',
       timestamp: processedTx.timestamp,
       to: processedTx.to,
-      type,
-    });
+      type: processedTx.type === 'token_transfer' ? 'token_transfer' : 'transfer',
+    };
+
+    // Add optional fields
+    if (processedTx.blockNumber > 0) {
+      transaction.blockHeight = processedTx.blockNumber;
+    }
+    if (processedTx.fee.amount.toNumber() > 0) {
+      transaction.feeAmount = processedTx.fee.amount.toString();
+      transaction.feeCurrency = 'SOL';
+    }
+    if (processedTx.tokenContract) {
+      transaction.tokenAddress = processedTx.tokenContract;
+      transaction.tokenSymbol = processedTx.tokenSymbol || 'UNKNOWN';
+    }
+
+    return ok(transaction);
   }
 }

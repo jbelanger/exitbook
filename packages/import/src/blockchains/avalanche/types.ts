@@ -142,3 +142,34 @@ export interface ValueFlow {
   netFlow: string;
   symbol: string;
 }
+
+// Intermediate transaction type for correlation processing
+export interface AvalancheTransaction {
+  blockHash?: string | undefined;
+  blockNumber: number;
+  confirmations?: number | undefined;
+  contractAddress?: string | undefined;
+  cumulativeGasUsed?: number | undefined;
+  errCode?: string | undefined;
+  from: string;
+  functionName?: string | undefined;
+  gas?: number | undefined;
+  gasPrice?: string | undefined;
+  gasUsed?: number | undefined;
+  hash: string;
+  input?: string | undefined;
+  isError?: boolean | undefined;
+  methodId?: string | undefined;
+  nonce?: string | undefined;
+  providerId: string;
+  status: 'success' | 'failed';
+  symbol: string;
+  timestamp: number;
+  to: string;
+  tokenDecimal?: number | undefined;
+  tokenName?: string | undefined;
+  traceId?: string | undefined;
+  transactionIndex?: number | undefined;
+  type: 'normal' | 'internal' | 'token';
+  value: string;
+}

@@ -1,8 +1,8 @@
-import type { UniversalTransaction } from '@crypto/core';
 import { type Result, err } from 'neverthrow';
 import type { ZodSchema } from 'zod';
 
-import type { IProviderProcessor, ValidationResult } from './interfaces.ts';
+import type { UniversalBlockchainTransaction } from '../../blockchains/shared/types.ts';
+import type { IProviderProcessor, ImportSessionMetadata } from './interfaces.ts';
 
 /**
  * Abstract base class for provider processors that handles validation automatically.
@@ -17,8 +17,9 @@ export abstract class BaseProviderProcessor<TRawData> implements IProviderProces
 
   /**
    * Public transform method that handles validation internally and delegates to transformValidated.
+   * Returns UniversalBlockchainTransaction for type-safe consumption by transaction processors.
    */
-  transform(rawData: TRawData, walletAddresses: string[]): Result<UniversalTransaction, string> {
+  transform(rawData: TRawData, context: ImportSessionMetadata): Result<UniversalBlockchainTransaction, string> {
     // Validate input data first
     const validationResult = this.schema.safeParse(rawData);
     if (!validationResult.success) {
@@ -30,37 +31,16 @@ export abstract class BaseProviderProcessor<TRawData> implements IProviderProces
     }
 
     // Delegate to concrete implementation with validated data
-    return this.transformValidated(validationResult.data, walletAddresses);
+    return this.transformValidated(validationResult.data, context);
   }
 
   /**
    * Transform raw data after validation has passed.
-   * This method is called only with validated data.
+   * This method is called only with validated data and rich session context.
+   * Must return UniversalBlockchainTransaction for type safety.
    */
   protected abstract transformValidated(
     rawData: TRawData,
-    walletAddresses: string[]
-  ): Result<UniversalTransaction, string>;
-
-  /**
-   * Validate method for backward compatibility.
-   * This will be removed once we update the interfaces.
-   */
-  validate(rawData: TRawData): ValidationResult {
-    const result = this.schema.safeParse(rawData);
-
-    if (result.success) {
-      return { isValid: true };
-    }
-
-    const errors = result.error.issues.map(issue => {
-      const path = issue.path.length > 0 ? ` at ${issue.path.join('.')}` : '';
-      return `${issue.message}${path}`;
-    });
-
-    return {
-      errors,
-      isValid: false,
-    };
-  }
+    sessionContext: ImportSessionMetadata
+  ): Result<UniversalBlockchainTransaction, string>;
 }

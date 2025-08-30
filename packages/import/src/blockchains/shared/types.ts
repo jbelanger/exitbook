@@ -95,3 +95,39 @@ export interface ProviderHealth {
   rateLimitEvents: number; // Total rate limit events encountered
   rateLimitRate: number; // Percentage of requests that were rate limited (0-1)
 }
+
+/**
+ * Universal blockchain transaction structure that captures the essential
+ * transaction data across all blockchain types in a normalized format.
+ */
+export interface UniversalBlockchainTransaction {
+  amount: string; // Primary transaction amount (preserves precision)
+  // Block context (optional for pending)
+  blockHeight?: number; // Block number/height/slot
+  blockId?: string; // Block hash/ID
+
+  currency: string; // Primary currency symbol (BTC, ETH, AVAX, SOL, INJ)
+  // Fee (single field, not nested object)
+  feeAmount?: string; // Fee amount as string for precision
+  feeCurrency?: string; // Fee currency (usually same as primary currency)
+  // Transaction participants and value
+  from: string; // Source address
+
+  // Core transaction identity
+  id: string; // hash/txid/signature
+  // Provider metadata
+  providerId: string; // Which provider fetched this data
+
+  status: 'success' | 'failed' | 'pending';
+  timestamp: number; // Unix timestamp in milliseconds
+
+  to: string; // Destination address
+
+  // Token context (for token transfers)
+  tokenAddress?: string; // Contract/mint address
+  tokenDecimals?: number; // Token decimal places
+  tokenSymbol?: string; // Token symbol
+
+  // Transaction classification
+  type: 'transfer' | 'contract_call' | 'token_transfer' | 'internal';
+}
