@@ -133,7 +133,7 @@ export interface ClassificationResult {
   primaryAmount: string;
   primarySymbol: string;
   reason: string;
-  type: 'deposit' | 'withdrawal' | 'transfer';
+  type: 'deposit' | 'withdrawal' | 'trade' | 'fee';
 }
 
 export interface ValueFlow {
