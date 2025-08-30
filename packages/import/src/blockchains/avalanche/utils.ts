@@ -1,13 +1,6 @@
 import { Decimal } from 'decimal.js';
 
-import type {
-  ClassificationResult,
-  SnowtraceInternalTransaction,
-  SnowtraceTokenTransfer,
-  SnowtraceTransaction,
-  TransactionGroup,
-  ValueFlow,
-} from './types.ts';
+import type { AvalancheTransaction, ClassificationResult, ValueFlow } from './types.ts';
 
 // Avalanche address validation
 export function isValidAvalancheAddress(address: string): boolean {
@@ -32,15 +25,16 @@ export class AvalancheUtils {
   /**
    * Classifies a transaction group based on actual value flows
    */
-  static classifyTransactionGroup(group: TransactionGroup): ClassificationResult {
-    const userAddr = group.userAddress.toLowerCase();
+  static classifyTransactionGroup(txGroup: AvalancheTransaction[], userAddress: string): ClassificationResult {
+    const userAddr = userAddress.toLowerCase();
     const valueFlows = new Map<string, ValueFlow>();
 
     // Analyze token transfers first (highest priority)
-    if (group.tokens?.length) {
-      for (const token of group.tokens) {
-        const symbol = token.tokenSymbol;
-        const decimals = parseInt(token.tokenDecimal);
+    const tokenTransfers = txGroup.filter(tx => tx.type === 'token');
+    if (tokenTransfers.length) {
+      for (const token of tokenTransfers) {
+        const symbol = token.symbol || 'UNKNOWN';
+        const decimals = token.tokenDecimal || 18;
         const amount = new Decimal(token.value).dividedBy(new Decimal(10).pow(decimals));
 
         if (!valueFlows.has(symbol)) {
@@ -68,8 +62,9 @@ export class AvalancheUtils {
     }
 
     // Analyze internal transactions (medium priority)
-    if (group.internal?.length) {
-      for (const internal of group.internal) {
+    const internalTransfers = txGroup.filter(tx => tx.type === 'internal');
+    if (internalTransfers.length) {
+      for (const internal of internalTransfers) {
         if (internal.value === '0') continue;
 
         const amount = new Decimal(internal.value).dividedBy(new Decimal(10).pow(18));
@@ -95,8 +90,9 @@ export class AvalancheUtils {
     }
 
     // Analyze normal transaction (lowest priority, only if no other flows)
-    if (valueFlows.size === 0 && group.normal && group.normal.value !== '0') {
-      const amount = new Decimal(group.normal.value).dividedBy(new Decimal(10).pow(18));
+    const normalTx = txGroup.find(tx => tx.type === 'normal');
+    if (valueFlows.size === 0 && normalTx && normalTx.value !== '0') {
+      const amount = new Decimal(normalTx.value).dividedBy(new Decimal(10).pow(18));
       const flow: ValueFlow = {
         amountIn: '0',
         amountOut: '0',
@@ -104,9 +100,9 @@ export class AvalancheUtils {
         symbol: 'AVAX',
       };
 
-      if (group.normal.from.toLowerCase() === userAddr) {
+      if (normalTx.from.toLowerCase() === userAddr) {
         flow.amountOut = amount.toString();
-      } else if (group.normal.to.toLowerCase() === userAddr) {
+      } else if (normalTx.to.toLowerCase() === userAddr) {
         flow.amountIn = amount.toString();
       }
 
@@ -184,60 +180,5 @@ export class AvalancheUtils {
       reason,
       type,
     };
-  }
-
-  /**
-   * Groups transactions by their hash for correlated processing
-   */
-  static groupTransactionsByHash(
-    normal: SnowtraceTransaction[],
-    internal: SnowtraceInternalTransaction[],
-    tokens: SnowtraceTokenTransfer[],
-    userAddress: string
-  ): TransactionGroup[] {
-    const groups = new Map<string, TransactionGroup>();
-
-    // Process normal transactions first to establish base groups
-    for (const tx of normal) {
-      groups.set(tx.hash, {
-        hash: tx.hash,
-        internal: [],
-        normal: tx,
-        timestamp: parseInt(tx.timeStamp) * 1000,
-        tokens: [],
-        userAddress,
-      });
-    }
-
-    // Add internal transactions to existing groups or create new ones
-    for (const tx of internal) {
-      if (groups.has(tx.hash)) {
-        groups.get(tx.hash)!.internal!.push(tx);
-      } else {
-        groups.set(tx.hash, {
-          hash: tx.hash,
-          internal: [tx],
-          timestamp: parseInt(tx.timeStamp) * 1000,
-          tokens: [],
-          userAddress,
-        });
-      }
-    }
-
-    // Add token transactions to existing groups or create new ones
-    for (const tx of tokens) {
-      if (groups.has(tx.hash)) {
-        groups.get(tx.hash)!.tokens!.push(tx);
-      } else {
-        groups.set(tx.hash, {
-          hash: tx.hash,
-          timestamp: parseInt(tx.timeStamp) * 1000,
-          tokens: [tx],
-          userAddress,
-        });
-      }
-    }
-
-    return Array.from(groups.values());
   }
 }

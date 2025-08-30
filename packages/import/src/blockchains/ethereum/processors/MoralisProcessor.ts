@@ -1,10 +1,12 @@
-import type { Balance, BlockchainTransaction, UniversalTransaction } from '@crypto/core';
+import type { Balance, BlockchainTransaction } from '@crypto/core';
 import { createMoney, parseDecimal } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
 import { BaseProviderProcessor } from '../../../shared/processors/base-provider-processor.ts';
+import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
+import type { UniversalBlockchainTransaction } from '../../shared/types.ts';
 import { MoralisTransactionSchema } from '../schemas.ts';
 import type { MoralisNativeBalance, MoralisTokenBalance, MoralisTokenTransfer, MoralisTransaction } from '../types.ts';
 
@@ -125,46 +127,35 @@ export class MoralisProcessor extends BaseProviderProcessor<MoralisTransaction> 
   // IProviderProcessor interface implementation
   protected transformValidated(
     rawData: MoralisTransaction,
-    walletAddresses: string[]
-  ): Result<UniversalTransaction, string> {
-    const userAddress = walletAddresses[0] || '';
+    sessionContext: ImportSessionMetadata
+  ): Result<UniversalBlockchainTransaction, string> {
+    // Extract addresses from rich session context
+    const addresses = sessionContext.addresses || sessionContext.contractAddresses || [];
+    const userAddress = addresses[0] || '';
 
     const isFromUser = rawData.from_address.toLowerCase() === userAddress.toLowerCase();
     const isToUser = rawData.to_address.toLowerCase() === userAddress.toLowerCase();
 
-    // Determine transaction type based on Bitcoin pattern
-    let type: UniversalTransaction['type'];
-    if (isFromUser && isToUser) {
-      type = 'transfer';
-    } else if (isFromUser) {
-      type = 'withdrawal';
-    } else {
-      type = 'deposit';
-    }
+    // Determine transaction type - ETH native transfers are just transfers
+    const type: UniversalBlockchainTransaction['type'] = 'transfer';
 
     const valueWei = parseDecimal(rawData.value);
     const valueEth = valueWei.dividedBy(new Decimal(10).pow(18));
     const timestamp = new Date(rawData.block_timestamp).getTime();
 
-    return ok({
-      amount: createMoney(valueEth.toString(), 'ETH'),
-      datetime: new Date(timestamp).toISOString(),
-      fee: createMoney('0', 'ETH'),
+    const transaction: UniversalBlockchainTransaction = {
+      amount: valueEth.toString(),
+      blockHeight: parseInt(rawData.block_number),
+      currency: 'ETH',
       from: rawData.from_address,
       id: rawData.hash,
-      metadata: {
-        blockchain: 'ethereum',
-        blockNumber: parseInt(rawData.block_number),
-        gasUsed: parseInt(rawData.receipt_gas_used),
-        providerId: 'moralis',
-        rawData: rawData,
-      },
-      source: 'ethereum',
-      status: rawData.receipt_status === '1' ? 'ok' : 'failed',
-      symbol: 'ETH',
+      providerId: 'moralis',
+      status: rawData.receipt_status === '1' ? 'success' : 'failed',
       timestamp,
       to: rawData.to_address,
       type,
-    });
+    };
+
+    return ok(transaction);
   }
 }

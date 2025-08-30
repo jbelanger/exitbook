@@ -1,10 +1,12 @@
 import type { UniversalTransaction } from '@crypto/core';
+import { createMoney } from '@crypto/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
 import type { IDependencyContainer } from '../../shared/common/interfaces.ts';
 import { BaseProcessor } from '../../shared/processors/base-processor.ts';
 import type { ApiClientRawData, StoredRawData } from '../../shared/processors/interfaces.ts';
 import { ProcessorFactory } from '../../shared/processors/processor-registry.ts';
+import type { UniversalBlockchainTransaction } from '../shared/types.ts';
 // Import processors to trigger registration
 import './processors/index.ts';
 import type { EthereumRawTransactionData } from './transaction-importer.ts';
@@ -31,19 +33,46 @@ export class EthereumTransactionProcessor extends BaseProcessor<ApiClientRawData
       return err(`No processor found for provider: ${providerId}`);
     }
 
-    // Extract wallet addresses from raw data (added by importer during fetch)
-    const walletAddresses: string[] = [];
-    // For Ethereum, we don't currently add fetchedByAddress to the raw data
-    // We'll need to get addresses from somewhere else or update the importer
+    // Create session context for Ethereum (uses addresses field)
+    const sessionContext = {
+      addresses: apiClientRawData.sourceAddress ? [apiClientRawData.sourceAddress] : [],
+    };
 
     // Transform using the provider-specific processor
-    const transformResult = processor.transform(rawData, walletAddresses);
+    const transformResult = processor.transform(rawData, sessionContext);
 
     if (transformResult.isErr()) {
       return err(`Transform failed for ${providerId}: ${transformResult.error}`);
     }
 
-    const universalTransaction = transformResult.value;
+    const blockchainTransaction = transformResult.value;
+
+    // Convert UniversalBlockchainTransaction to UniversalTransaction
+    const universalTransaction: UniversalTransaction = {
+      amount: createMoney(blockchainTransaction.amount, blockchainTransaction.currency),
+      datetime: new Date(blockchainTransaction.timestamp).toISOString(),
+      fee: blockchainTransaction.feeAmount
+        ? createMoney(blockchainTransaction.feeAmount, blockchainTransaction.feeCurrency || 'ETH')
+        : createMoney(0, 'ETH'),
+      from: blockchainTransaction.from,
+      id: blockchainTransaction.id,
+      metadata: {
+        blockchain: 'ethereum',
+        blockHeight: blockchainTransaction.blockHeight,
+        blockId: blockchainTransaction.blockId,
+        providerId: blockchainTransaction.providerId,
+        tokenAddress: blockchainTransaction.tokenAddress,
+        tokenDecimals: blockchainTransaction.tokenDecimals,
+        tokenSymbol: blockchainTransaction.tokenSymbol,
+      },
+      source: 'ethereum',
+      status: blockchainTransaction.status === 'success' ? 'ok' : 'failed',
+      symbol: blockchainTransaction.currency,
+      timestamp: blockchainTransaction.timestamp,
+      to: blockchainTransaction.to,
+      type: blockchainTransaction.type === 'token_transfer' ? 'transfer' : 'transfer',
+    };
+
     this.logger.debug(`Successfully processed transaction ${universalTransaction.id} from ${providerId}`);
     return ok(universalTransaction);
   }

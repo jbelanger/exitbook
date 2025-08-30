@@ -1,9 +1,10 @@
-import type { UniversalTransaction } from '@crypto/core';
-import { createMoney, parseDecimal } from '@crypto/shared-utils';
+import { parseDecimal } from '@crypto/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseProviderProcessor } from '../../../shared/processors/base-provider-processor.ts';
+import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
+import type { UniversalBlockchainTransaction } from '../../shared/types.ts';
 import { InjectiveTransactionSchema } from '../schemas.ts';
 import type { InjectiveMessageValue, InjectiveTransaction } from '../types.ts';
 
@@ -26,16 +27,19 @@ export class InjectiveExplorerProcessor extends BaseProviderProcessor<InjectiveT
 
   protected transformValidated(
     rawData: InjectiveTransaction,
-    walletAddresses: string[]
-  ): Result<UniversalTransaction, string> {
+    sessionContext: ImportSessionMetadata
+  ): Result<UniversalBlockchainTransaction, string> {
     const timestamp = new Date(rawData.block_timestamp).getTime();
-    const relevantAddresses = new Set(walletAddresses);
+    // Extract addresses from rich session context
+    const addresses = sessionContext.addresses || [];
+    const relevantAddresses = new Set(addresses);
 
-    let value = createMoney(0, this.INJECTIVE_DENOM);
-    let fee = createMoney(0, this.INJECTIVE_DENOM);
+    let amount = '0';
+    let feeAmount = '0';
     let from = '';
     let to = '';
-    let tokenSymbol = this.INJECTIVE_DENOM;
+    let currency = 'INJ';
+    let feeCurrency = 'INJ';
 
     // Parse fee from gas_fee field
     if (
@@ -46,10 +50,8 @@ export class InjectiveExplorerProcessor extends BaseProviderProcessor<InjectiveT
     ) {
       const firstFee = rawData.gas_fee.amount[0];
       if (firstFee && firstFee.amount && firstFee.denom) {
-        fee = createMoney(
-          parseDecimal(firstFee.amount).div(Math.pow(10, 18)).toString(),
-          this.formatDenom(firstFee.denom)
-        );
+        feeAmount = parseDecimal(firstFee.amount).div(Math.pow(10, 18)).toString();
+        feeCurrency = this.formatDenom(firstFee.denom);
       }
     }
 
@@ -67,19 +69,16 @@ export class InjectiveExplorerProcessor extends BaseProviderProcessor<InjectiveT
         if (message.value.amount && Array.isArray(message.value.amount) && message.value.amount.length > 0) {
           const transferAmount = message.value.amount[0];
           if (transferAmount) {
-            value = createMoney(
-              parseDecimal(transferAmount.amount).div(Math.pow(10, 18)).toString(),
-              this.formatDenom(transferAmount.denom)
-            );
-            tokenSymbol = this.formatDenom(transferAmount.denom);
+            amount = parseDecimal(transferAmount.amount).div(Math.pow(10, 18)).toString();
+            currency = this.formatDenom(transferAmount.denom);
           }
         }
 
         // Determine if this transaction is relevant to our wallet
-        if (to && relevantAddresses.has(to) && value.amount.toNumber() > 0) {
+        if (to && relevantAddresses.has(to) && parseDecimal(amount).toNumber() > 0) {
           isRelevantTransaction = true;
           isIncoming = true;
-        } else if (from && relevantAddresses.has(from) && value.amount.toNumber() > 0) {
+        } else if (from && relevantAddresses.has(from) && parseDecimal(amount).toNumber() > 0) {
           isRelevantTransaction = true;
           isOutgoing = true;
         }
@@ -92,18 +91,15 @@ export class InjectiveExplorerProcessor extends BaseProviderProcessor<InjectiveT
         to = message.value.receiver || '';
 
         if (message.value.token) {
-          value = createMoney(
-            parseDecimal(message.value.token.amount).div(Math.pow(10, 18)).toString(),
-            this.formatDenom(message.value.token.denom)
-          );
-          tokenSymbol = this.formatDenom(message.value.token.denom);
+          amount = parseDecimal(message.value.token.amount).div(Math.pow(10, 18)).toString();
+          currency = this.formatDenom(message.value.token.denom);
         }
 
         // Determine if this transaction is relevant to our wallet
-        if (to && relevantAddresses.has(to) && value.amount.toNumber() > 0) {
+        if (to && relevantAddresses.has(to) && parseDecimal(amount).toNumber() > 0) {
           isRelevantTransaction = true;
           isIncoming = true;
-        } else if (from && relevantAddresses.has(from) && value.amount.toNumber() > 0) {
+        } else if (from && relevantAddresses.has(from) && parseDecimal(amount).toNumber() > 0) {
           isRelevantTransaction = true;
           isOutgoing = true;
         }
@@ -128,8 +124,8 @@ export class InjectiveExplorerProcessor extends BaseProviderProcessor<InjectiveT
           if (messageValue.amount && messageValue.token_contract) {
             const amountValue =
               typeof messageValue.amount === 'string' ? messageValue.amount : messageValue.amount[0]?.amount || '0';
-            value = createMoney(parseDecimal(amountValue).div(Math.pow(10, 18)).toString(), 'INJ');
-            tokenSymbol = 'INJ';
+            amount = parseDecimal(amountValue).div(Math.pow(10, 18)).toString();
+            currency = 'INJ';
           }
         }
       }
@@ -140,39 +136,40 @@ export class InjectiveExplorerProcessor extends BaseProviderProcessor<InjectiveT
       throw new Error('Transaction is not relevant to provided wallet addresses');
     }
 
-    // Determine transaction type based on Bitcoin pattern
-    let type: UniversalTransaction['type'];
+    // Determine transaction type
+    let type: UniversalBlockchainTransaction['type'];
 
     if (isIncoming && !isOutgoing) {
-      type = 'deposit';
+      type = 'transfer';
     } else if (isOutgoing && !isIncoming) {
-      type = 'withdrawal';
+      type = 'transfer';
     } else if (isIncoming && isOutgoing) {
       type = 'transfer';
     } else {
       return err('Unable to determine transaction type - neither incoming nor outgoing flags set');
     }
 
-    return ok({
-      amount: value,
-      datetime: new Date(timestamp).toISOString(),
-      fee,
+    const transaction: UniversalBlockchainTransaction = {
+      amount,
+      currency,
       from,
       id: rawData.hash,
-      metadata: {
-        blockchain: 'injective',
-        blockNumber: rawData.block_number,
-        confirmations: rawData.code === 0 ? 1 : 0,
-        gasUsed: rawData.gas_used,
-        providerId: 'injective-explorer',
-        rawData,
-      },
-      source: 'injective',
-      status: rawData.code === 0 ? 'ok' : 'failed',
-      symbol: tokenSymbol,
+      providerId: 'injective-explorer',
+      status: rawData.code === 0 ? 'success' : 'failed',
       timestamp,
       to,
       type,
-    });
+    };
+
+    // Add optional fields
+    if (rawData.block_number) {
+      transaction.blockHeight = rawData.block_number;
+    }
+    if (feeAmount !== '0') {
+      transaction.feeAmount = feeAmount;
+      transaction.feeCurrency = feeCurrency;
+    }
+
+    return ok(transaction);
   }
 }
