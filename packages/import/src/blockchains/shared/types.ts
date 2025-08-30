@@ -29,11 +29,9 @@ export type ProviderOperationParams =
   | { address: string; contractAddresses?: string[] | undefined; type: 'getRawAddressBalance' }
   | { address: string; contractAddresses?: string[] | undefined; type: 'getRawTokenBalances' }
   | { address: string; type: 'getAddressInfo' }
-  | { tx: unknown; type: 'parseWalletTransaction'; walletAddresses: string[] }
-  | { type: 'testConnection' }
   | { [key: string]: unknown; type: 'custom' };
 
-// Type guard functions removed - discriminated union provides automatic type narrowing
+// Discriminated union provides automatic type narrowing
 
 // Common JSON-RPC response interface for blockchain providers
 export interface JsonRpcResponse<T = unknown> {
@@ -72,9 +70,7 @@ export type ProviderOperationType =
   | 'getRawAddressBalance'
   | 'getRawTokenBalances'
   | 'getAddressInfo'
-  | 'parseWalletTransaction'
-  | 'custom'
-  | 'testConnection';
+  | 'custom';
 
 export interface ProviderCapabilities extends DataSourceCapabilities<ProviderOperationType> {
   /** Whether the provider supports real-time data access */

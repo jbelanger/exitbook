@@ -17,7 +17,6 @@ describe('MempoolSpaceProvider Integration', () => {
       expect(provider.blockchain).toBe('bitcoin');
       expect(provider.capabilities.supportedOperations).toContain('getAddressTransactions');
       expect(provider.capabilities.supportedOperations).toContain('getAddressBalance');
-      expect(provider.capabilities.supportedOperations).toContain('parseWalletTransaction');
     });
 
     it('should have correct rate limiting configuration', () => {
@@ -176,34 +175,6 @@ describe('MempoolSpaceProvider Integration', () => {
         expect(transactions[0]).toHaveProperty('vin');
         expect(transactions[0]).toHaveProperty('vout');
         expect(transactions[0]).toHaveProperty('status');
-      }
-    }, 30000);
-  });
-
-  describe('Parse Wallet Transaction', () => {
-    it('should parse wallet transaction with multiple addresses', async () => {
-      // First get a real transaction to test with
-      const testAddress = '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2';
-      const rawTransactions = await provider.execute<MempoolTransaction[]>({
-        address: testAddress,
-        type: 'getRawAddressTransactions',
-      });
-
-      if (rawTransactions.length > 0) {
-        const walletAddresses = [testAddress];
-        const parsedTx = await provider.execute<BlockchainTransaction>({
-          tx: rawTransactions[0],
-          type: 'parseWalletTransaction',
-          walletAddresses,
-        });
-
-        expect(parsedTx).toHaveProperty('hash');
-        expect(parsedTx).toHaveProperty('timestamp');
-        expect(parsedTx).toHaveProperty('value');
-        expect(parsedTx.value).toHaveProperty('currency', 'BTC');
-        expect(['transfer_in', 'transfer_out', 'internal_transfer_in', 'internal_transfer_out']).toContain(
-          parsedTx.type
-        );
       }
     }, 30000);
   });

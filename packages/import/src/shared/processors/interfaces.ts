@@ -36,7 +36,6 @@ export interface IProcessor<TRawData> {
 
   /**
    * Process import sessions with rich context into UniversalTransaction objects.
-   * This replaces the old process(rawData[]) method to enable session-based processing.
    */
   process(importSession: ProcessingImportSession): Promise<UniversalTransaction[]>;
 }
@@ -49,17 +48,14 @@ export interface IProviderProcessor<TRawData> {
    * Transform validated raw data into standardized blockchain transaction format.
    * Returns UniversalBlockchainTransaction for type-safe consumption by transaction processors.
    */
-  transform(
-    rawData: TRawData,
-    contextOrAddresses: ImportSessionMetadata
-  ): Result<UniversalBlockchainTransaction, string>;
+  transform(rawData: TRawData, sessionContext: ImportSessionMetadata): Result<UniversalBlockchainTransaction, string>;
 }
 
 /**
  * Raw data tagged with the API client that fetched it
  */
 /**
- * Rich session metadata to replace the problematic walletAddresses parameter
+ * Rich session metadata providing blockchain-specific address context
  */
 export interface ImportSessionMetadata {
   // Provider-specific metadata
@@ -100,7 +96,7 @@ export interface ProcessingImportSession {
   id: string;
   // Raw data items for this session (from potentially multiple providers)
   rawDataItems: StoredRawData<ApiClientRawData<unknown>>[];
-  // Rich session context (replaces walletAddresses parameter)
+  // Rich session context with blockchain-specific metadata
   sessionMetadata?: ImportSessionMetadata | undefined;
   sourceId: string;
 
