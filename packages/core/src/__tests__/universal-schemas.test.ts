@@ -7,7 +7,6 @@ import {
   UniversalBalanceSchema,
   UniversalTransactionSchema,
   validateUniversalBalances,
-  validateUniversalTransaction,
   validateUniversalTransactions,
 } from '../validation/universal-schemas.js';
 
@@ -258,35 +257,6 @@ describe('Universal Schemas Validation', () => {
   });
 
   describe('Validation Helper Functions', () => {
-    describe('validateUniversalTransaction', () => {
-      it('should return success for valid transaction', () => {
-        const validTx = {
-          amount: { amount: new Decimal('100'), currency: 'BTC' },
-          datetime: '2022-01-01T00:00:00.000Z',
-          id: 'tx_123',
-          metadata: {},
-          source: 'coinbase',
-          status: 'closed',
-          timestamp: 1640995200000,
-          type: 'trade',
-        };
-
-        const result = validateUniversalTransaction(validTx);
-        expect(result.success).toBe(true);
-        expect(result.data).toBeDefined();
-        expect(result.errors).toBeUndefined();
-      });
-
-      it('should return error for invalid transaction', () => {
-        const invalidTx = { id: 'invalid' };
-
-        const result = validateUniversalTransaction(invalidTx);
-        expect(result.success).toBe(false);
-        expect(result.data).toBeUndefined();
-        expect(result.errors).toBeDefined();
-      });
-    });
-
     describe('validateUniversalTransactions (batch)', () => {
       it('should separate valid and invalid transactions', () => {
         const validTx = {

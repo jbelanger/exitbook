@@ -41,16 +41,6 @@ export interface IProcessor<TRawData> {
   process(importSession: ProcessingImportSession): Promise<UniversalTransaction[]>;
 }
 
-// New interfaces for the processor architecture refactor
-
-/**
- * Validation result for raw data validation
- */
-export interface ValidationResult {
-  errors?: string[];
-  isValid: boolean;
-}
-
 /**
  * Interface for provider-specific processors that handle validation and transformation
  */
