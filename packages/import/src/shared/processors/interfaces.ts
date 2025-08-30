@@ -52,12 +52,12 @@ export interface ValidationResult {
 /**
  * Interface for provider-specific processors that handle validation and transformation
  */
-export interface IProviderProcessor<TRawData, TOutputTransaction = UniversalTransaction> {
+export interface IProviderProcessor<TRawData> {
   /**
    * Transform validated raw data into blockchain transactions.
    * Supports both old walletAddresses and new sessionContext for backward compatibility.
    */
-  transform(rawData: TRawData, contextOrAddresses: ImportSessionMetadata): Result<TOutputTransaction, string>;
+  transform(rawData: TRawData, contextOrAddresses: ImportSessionMetadata): Result<unknown, string>;
 }
 
 /**

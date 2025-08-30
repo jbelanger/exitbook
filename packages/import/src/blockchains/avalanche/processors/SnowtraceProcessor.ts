@@ -1,7 +1,7 @@
-import type { BlockchainTransaction, UniversalTransaction } from '@crypto/core';
+import type { BlockchainTransaction } from '@crypto/core';
 import { createMoney, parseDecimal } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
-import { Result, ok } from 'neverthrow';
+import { Result, err, ok } from 'neverthrow';
 
 import { BaseProviderProcessor } from '../../../shared/processors/base-provider-processor.ts';
 import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
@@ -233,20 +233,19 @@ export class SnowtraceProcessor extends BaseProviderProcessor<
   protected transformValidated(
     rawData: SnowtraceTransaction | SnowtraceInternalTransaction | SnowtraceTokenTransfer,
     _sessionContext: ImportSessionMetadata
-  ): Result<UniversalTransaction, string> {
-    throw new Error('Method not implemented.'); // Broken during refactor of issue 38
+  ): Result<AvalancheTransaction, string> {
     // Determine transaction type and convert accordingly
-    // if ('txreceipt_status' in rawData) {
-    //   // Normal transaction
-    //   return this.transformNormalTransaction(rawData);
-    // } else if ('traceId' in rawData) {
-    //   // Internal transaction
-    //   return this.transformInternalTransaction(rawData);
-    // } else if ('tokenSymbol' in rawData) {
-    //   // Token transfer
-    //   return this.transformTokenTransfer(rawData);
-    // } else {
-    //   return err('Unknown transaction type');
-    // }
+    if ('txreceipt_status' in rawData) {
+      // Normal transaction
+      return this.transformNormalTransaction(rawData);
+    } else if ('traceId' in rawData) {
+      // Internal transaction
+      return this.transformInternalTransaction(rawData);
+    } else if ('tokenSymbol' in rawData) {
+      // Token transfer
+      return this.transformTokenTransfer(rawData);
+    } else {
+      return err('Unknown transaction type');
+    }
   }
 }
