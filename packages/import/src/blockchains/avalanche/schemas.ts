@@ -131,6 +131,16 @@ export const AtomicTransactionSchema = z.object({
 });
 
 /**
+ * Union schema that can validate any of the three Snowtrace transaction types
+ * Order matters: most specific schemas (with more required fields) should come first
+ */
+export const SnowtraceAnyTransactionSchema = z.union([
+  SnowtraceTokenTransferSchema, // Most specific - has token fields
+  SnowtraceInternalTransactionSchema, // Medium specificity - has internal transaction fields
+  SnowtraceTransactionSchema, // Least specific - basic transaction fields
+]);
+
+/**
  * Schema for Avalanche network configuration
  */
 export const AvalancheNetworkSchema = z.object({
