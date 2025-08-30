@@ -1,9 +1,9 @@
 import type { BlockchainTransaction, UniversalTransaction } from '@crypto/core';
 import { createMoney, parseDecimal } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
-import { type Result, err, ok } from 'neverthrow';
+import { type Result, ok } from 'neverthrow';
 
-import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
+import { BaseProviderProcessor } from '../../../shared/processors/base-provider-processor.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
 import { SnowtraceTransactionSchema } from '../schemas.ts';
 import type { SnowtraceInternalTransaction, SnowtraceTokenTransfer, SnowtraceTransaction } from '../types.ts';
@@ -14,7 +14,8 @@ export type SnowtraceRawData = {
 };
 
 @RegisterProcessor('snowtrace')
-export class SnowtraceProcessor implements IProviderProcessor<SnowtraceTransaction> {
+export class SnowtraceProcessor extends BaseProviderProcessor<SnowtraceTransaction> {
+  protected readonly schema = SnowtraceTransactionSchema;
   private static convertInternalTransaction(
     tx: SnowtraceInternalTransaction,
     userAddress: string
@@ -139,7 +140,10 @@ export class SnowtraceProcessor implements IProviderProcessor<SnowtraceTransacti
     return tokens.map(tx => this.convertTokenTransfer(tx, userAddress));
   }
 
-  transform(rawData: SnowtraceTransaction, walletAddresses: string[]): Result<UniversalTransaction, string> {
+  protected transformValidated(
+    rawData: SnowtraceTransaction,
+    walletAddresses: string[]
+  ): Result<UniversalTransaction, string> {
     const userAddress = walletAddresses[0] || '';
     const isFromUser = rawData.from.toLowerCase() === userAddress.toLowerCase();
     const isToUser = rawData.to.toLowerCase() === userAddress.toLowerCase();
@@ -185,23 +189,5 @@ export class SnowtraceProcessor implements IProviderProcessor<SnowtraceTransacti
       to: rawData.to,
       type,
     });
-  }
-
-  validate(rawData: SnowtraceTransaction): ValidationResult {
-    const result = SnowtraceTransactionSchema.safeParse(rawData);
-
-    if (result.success) {
-      return { isValid: true };
-    }
-
-    const errors = result.error.issues.map(issue => {
-      const path = issue.path.length > 0 ? ` at ${issue.path.join('.')}` : '';
-      return `${issue.message}${path}`;
-    });
-
-    return {
-      errors,
-      isValid: false,
-    };
   }
 }

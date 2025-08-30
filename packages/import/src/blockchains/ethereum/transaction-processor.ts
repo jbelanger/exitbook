@@ -31,12 +31,6 @@ export class EthereumTransactionProcessor extends BaseProcessor<ApiClientRawData
       return err(`No processor found for provider: ${providerId}`);
     }
 
-    // Validate the raw data
-    const validationResult = processor.validate(rawData);
-    if (!validationResult.isValid) {
-      return err(`Invalid raw data from ${providerId}: ${validationResult.errors?.join(', ')}`);
-    }
-
     // Extract wallet addresses from raw data (added by importer during fetch)
     const walletAddresses: string[] = [];
     // For Ethereum, we don't currently add fetchedByAddress to the raw data

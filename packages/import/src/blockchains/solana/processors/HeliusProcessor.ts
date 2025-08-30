@@ -1,18 +1,19 @@
 import type { BlockchainTransaction, UniversalTransaction } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
 import { createMoney, maskAddress } from '@crypto/shared-utils';
-import { type Result, err, ok } from 'neverthrow';
+import { type Result, ok } from 'neverthrow';
 
-import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
+import { BaseProviderProcessor } from '../../../shared/processors/base-provider-processor.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
 import type { SolanaRawTransactionData } from '../clients/HeliusApiClient.ts';
 import { SolanaRawTransactionDataSchema } from '../schemas.ts';
-import type { HeliusTransaction, SolanaTokenBalance } from '../types.ts';
+import type { HeliusTransaction } from '../types.ts';
 import { lamportsToSol } from '../utils.ts';
 
 @RegisterProcessor('helius')
-export class HeliusProcessor implements IProviderProcessor<SolanaRawTransactionData> {
+export class HeliusProcessor extends BaseProviderProcessor<SolanaRawTransactionData> {
   private static logger = getLogger('HeliusProcessor');
+  protected readonly schema = SolanaRawTransactionDataSchema;
 
   private static extractTokenTransaction(tx: HeliusTransaction, userAddress: string): BlockchainTransaction | null {
     try {
@@ -172,7 +173,10 @@ export class HeliusProcessor implements IProviderProcessor<SolanaRawTransactionD
   }
 
   // IProviderProcessor interface implementation
-  transform(rawData: SolanaRawTransactionData, walletAddresses: string[]): Result<UniversalTransaction, string> {
+  protected transformValidated(
+    rawData: SolanaRawTransactionData,
+    walletAddresses: string[]
+  ): Result<UniversalTransaction, string> {
     // Process the first transaction for interface compatibility
     const userAddress = walletAddresses[0] || '';
 
@@ -216,23 +220,5 @@ export class HeliusProcessor implements IProviderProcessor<SolanaRawTransactionD
       to: processedTx.to,
       type,
     });
-  }
-
-  validate(rawData: SolanaRawTransactionData): ValidationResult {
-    const result = SolanaRawTransactionDataSchema.safeParse(rawData);
-
-    if (result.success) {
-      return { isValid: true };
-    }
-
-    const errors = result.error.issues.map(issue => {
-      const path = issue.path.length > 0 ? ` at ${issue.path.join('.')}` : '';
-      return `${issue.message}${path}`;
-    });
-
-    return {
-      errors,
-      isValid: false,
-    };
   }
 }

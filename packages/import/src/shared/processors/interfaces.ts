@@ -56,11 +56,6 @@ export interface IProviderProcessor<TRawData> {
    * Transform validated raw data into blockchain transactions
    */
   transform(rawData: TRawData, walletAddresses: string[]): Result<UniversalTransaction, string>;
-
-  /**
-   * Validate the raw data from a provider
-   */
-  validate(rawData: TRawData): ValidationResult;
 }
 
 /**

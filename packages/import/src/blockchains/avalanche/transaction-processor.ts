@@ -16,12 +16,7 @@ import {
   SnowtraceTransactionSchema,
 } from './schemas.ts';
 import type { AvalancheRawTransactionData } from './transaction-importer.ts';
-import type {
-  SnowtraceInternalTransaction,
-  SnowtraceTokenTransfer,
-  SnowtraceTransaction,
-  TransactionGroup,
-} from './types.ts';
+import type { SnowtraceInternalTransaction, SnowtraceTokenTransfer, SnowtraceTransaction } from './types.ts';
 import { AvalancheUtils } from './utils.ts';
 
 /**
@@ -265,14 +260,6 @@ export class AvalancheTransactionProcessor extends BaseProcessor<ApiClientRawDat
       }
 
       for (const group of transactionGroups) {
-        const validationResult = correlationProcessor.validate(group);
-        if (!validationResult.isValid) {
-          this.correlationLogger.warn(
-            `Invalid transaction group ${group.hash}: ${validationResult.errors?.join(', ')}`
-          );
-          continue;
-        }
-
         const transformResult = correlationProcessor.transform(group, [sourceAddress]);
         if (transformResult.isErr()) {
           this.correlationLogger.error(`Failed to transform group ${group.hash}: ${transformResult.error}`);

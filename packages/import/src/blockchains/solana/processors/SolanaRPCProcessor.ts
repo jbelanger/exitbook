@@ -1,9 +1,9 @@
 import type { BlockchainTransaction, UniversalTransaction } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
 import { createMoney, maskAddress } from '@crypto/shared-utils';
-import { type Result, err, ok } from 'neverthrow';
+import { type Result, ok } from 'neverthrow';
 
-import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
+import { BaseProviderProcessor } from '../../../shared/processors/base-provider-processor.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
 import type { SolanaRPCRawTransactionData } from '../clients/SolanaRPCApiClient.ts';
 import { SolanaRPCRawTransactionDataSchema } from '../schemas.ts';
@@ -13,7 +13,8 @@ import { lamportsToSol } from '../utils.ts';
 const logger = getLogger('SolanaRPCProcessor');
 
 @RegisterProcessor('solana-rpc')
-export class SolanaRPCProcessor implements IProviderProcessor<SolanaRPCRawTransactionData> {
+export class SolanaRPCProcessor extends BaseProviderProcessor<SolanaRPCRawTransactionData> {
+  protected readonly schema = SolanaRPCRawTransactionDataSchema;
   private static extractTokenTransaction(
     tx: SolanaRPCTransaction,
     userAddress: string,
@@ -189,7 +190,10 @@ export class SolanaRPCProcessor implements IProviderProcessor<SolanaRPCRawTransa
   }
 
   // IProviderProcessor interface implementation
-  transform(rawData: SolanaRPCRawTransactionData, walletAddresses: string[]): Result<UniversalTransaction, string> {
+  protected transformValidated(
+    rawData: SolanaRPCRawTransactionData,
+    walletAddresses: string[]
+  ): Result<UniversalTransaction, string> {
     // Process the first transaction for interface compatibility
     const userAddress = walletAddresses[0] || '';
 
@@ -233,23 +237,5 @@ export class SolanaRPCProcessor implements IProviderProcessor<SolanaRPCRawTransa
       to: processedTx.to,
       type,
     });
-  }
-
-  validate(rawData: SolanaRPCRawTransactionData): ValidationResult {
-    const result = SolanaRPCRawTransactionDataSchema.safeParse(rawData);
-
-    if (result.success) {
-      return { isValid: true };
-    }
-
-    const errors = result.error.issues.map(issue => {
-      const path = issue.path.length > 0 ? ` at ${issue.path.join('.')}` : '';
-      return `${issue.message}${path}`;
-    });
-
-    return {
-      errors,
-      isValid: false,
-    };
   }
 }

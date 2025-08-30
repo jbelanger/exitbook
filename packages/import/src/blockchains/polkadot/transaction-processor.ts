@@ -31,12 +31,6 @@ export class PolkadotTransactionProcessor extends BaseProcessor<ApiClientRawData
       return err(`No processor found for provider: ${providerId}`);
     }
 
-    // Validate the raw data
-    const validationResult = processor.validate(rawData);
-    if (!validationResult.isValid) {
-      return err(`Invalid raw data from ${providerId}: ${validationResult.errors?.join(', ')}`);
-    }
-
     // Extract wallet addresses from metadata
     const walletAddresses: string[] = [];
     if (rawDataItem.metadata && typeof rawDataItem.metadata === 'object') {

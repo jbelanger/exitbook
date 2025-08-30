@@ -1,15 +1,16 @@
 import type { Balance, BlockchainTransaction, UniversalTransaction } from '@crypto/core';
 import { createMoney, parseDecimal } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
-import { type Result, err, ok } from 'neverthrow';
+import { type Result, ok } from 'neverthrow';
 
-import type { IProviderProcessor, ValidationResult } from '../../../shared/processors/interfaces.ts';
+import { BaseProviderProcessor } from '../../../shared/processors/base-provider-processor.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
 import { AlchemyAssetTransferSchema } from '../schemas.ts';
 import type { AlchemyAssetTransfer, EtherscanBalance } from '../types.ts';
 
 @RegisterProcessor('alchemy')
-export class AlchemyProcessor implements IProviderProcessor<AlchemyAssetTransfer> {
+export class AlchemyProcessor extends BaseProviderProcessor<AlchemyAssetTransfer> {
+  protected readonly schema = AlchemyAssetTransferSchema;
   private static convertAssetTransfer(transfer: AlchemyAssetTransfer, userAddress: string): BlockchainTransaction {
     const isFromUser = transfer.from.toLowerCase() === userAddress.toLowerCase();
     const isToUser = transfer.to.toLowerCase() === userAddress.toLowerCase();
@@ -83,7 +84,10 @@ export class AlchemyProcessor implements IProviderProcessor<AlchemyAssetTransfer
   }
 
   // IProviderProcessor interface implementation
-  transform(rawData: AlchemyAssetTransfer, walletAddresses: string[]): Result<UniversalTransaction, string> {
+  protected transformValidated(
+    rawData: AlchemyAssetTransfer,
+    walletAddresses: string[]
+  ): Result<UniversalTransaction, string> {
     const userAddress = walletAddresses[0] || '';
 
     const isFromUser = rawData.from.toLowerCase() === userAddress.toLowerCase();
@@ -137,23 +141,5 @@ export class AlchemyProcessor implements IProviderProcessor<AlchemyAssetTransfer
       to: rawData.to,
       type,
     });
-  }
-
-  validate(rawData: AlchemyAssetTransfer): ValidationResult {
-    const result = AlchemyAssetTransferSchema.safeParse(rawData);
-
-    if (result.success) {
-      return { isValid: true };
-    }
-
-    const errors = result.error.issues.map(issue => {
-      const path = issue.path.length > 0 ? ` at ${issue.path.join('.')}` : '';
-      return `${issue.message}${path}`;
-    });
-
-    return {
-      errors,
-      isValid: false,
-    };
   }
 }
