@@ -1,8 +1,8 @@
 import type { UniversalTransaction } from '@crypto/core';
+import type { StoredRawData } from '@crypto/data';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseProcessor } from '../../shared/processors/base-processor.ts';
-import type { StoredRawData } from '../../shared/processors/interfaces.ts';
 
 /**
  * Processor for Coinbase transactions.

@@ -1,9 +1,9 @@
 import type { UniversalTransaction } from '@crypto/core';
+import type { StoredRawData } from '@crypto/data';
 import { createMoney, parseDecimal } from '@crypto/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseProcessor } from '../../shared/processors/base-processor.ts';
-import type { StoredRawData } from '../../shared/processors/interfaces.ts';
 import type { CsvAccountHistoryRow, CsvDepositWithdrawalRow, CsvKuCoinRawData, CsvSpotOrderRow } from './types.ts';
 
 /**

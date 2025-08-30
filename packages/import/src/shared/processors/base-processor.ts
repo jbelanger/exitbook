@@ -1,10 +1,11 @@
 import type { UniversalTransaction } from '@crypto/core';
 import { validateUniversalTransactions } from '@crypto/core';
+import type { StoredRawData } from '@crypto/data';
 import type { Logger } from '@crypto/shared-logger';
 import { getLogger } from '@crypto/shared-logger';
 import { type Result } from 'neverthrow';
 
-import type { IProcessor, ProcessingImportSession, StoredRawData } from './interfaces.ts';
+import type { IProcessor, ProcessingImportSession } from './interfaces.ts';
 
 /**
  * Base class providing common functionality for all processors.

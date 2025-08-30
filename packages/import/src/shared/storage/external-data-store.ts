@@ -1,7 +1,7 @@
 import type { Database } from '@crypto/data';
+import type { StoredRawData } from '@crypto/data';
 import { getLogger } from '@crypto/shared-logger';
 
-import type { StoredRawData } from '../processors/interfaces.ts';
 import type { IExternalDataStore, LoadRawDataFilters, SaveRawDataOptions } from './interfaces.ts';
 
 /**

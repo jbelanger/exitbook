@@ -108,3 +108,24 @@ export interface ImportSessionQuery {
   sourceType?: 'exchange' | 'blockchain';
   status?: 'started' | 'completed' | 'failed' | 'cancelled';
 }
+
+// Raw data storage - matches external_transaction_data table structure
+export interface StoredRawData<TRawData = unknown> {
+  createdAt: number;
+  id: string;
+  importSessionId?: string | undefined;
+  metadata?: unknown;
+  processedAt?: number | undefined;
+  processingError?: string | undefined;
+  processingStatus: string;
+  providerId?: string | undefined;
+  rawData: TRawData;
+  sourceId: string;
+  sourceTransactionId: string;
+  sourceType: string;
+}
+
+export interface ImportSessionWithRawData {
+  rawDataItems: StoredRawData[];
+  session: ImportSession;
+}

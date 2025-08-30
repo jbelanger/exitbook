@@ -1,13 +1,17 @@
 import type { UniversalTransaction } from '@crypto/core';
-import { ImportSessionRepository } from '@crypto/data';
+import { ImportSessionRepository, type StoredRawData } from '@crypto/data';
 import type { Logger } from '@crypto/shared-logger';
 import { getLogger } from '@crypto/shared-logger';
 
 import type { IDependencyContainer } from '../common/interfaces.ts';
 import { ImporterFactory } from '../importers/importer-factory.ts';
 import type { ImportParams, ImportResult } from '../importers/interfaces.ts';
-import type { ProcessResult } from '../processors/interfaces.ts';
-import type { ApiClientRawData, ImportSessionMetadata, StoredRawData } from '../processors/interfaces.ts';
+import type {
+  ApiClientRawData,
+  ImportSessionMetadata,
+  ProcessResult,
+  ProcessingImportSession,
+} from '../processors/interfaces.ts';
 import { ProcessorFactory } from '../processors/processor-factory.ts';
 import type { LoadRawDataFilters } from '../storage/interfaces.ts';
 
@@ -266,49 +270,51 @@ export class TransactionIngestionService {
 
       this.logger.info(`Found ${rawDataItems.length} raw data items to process for ${sourceId}`);
 
-      // Group raw data items by import session ID
-      const sessionGroups = new Map<string | undefined, typeof rawDataItems>();
-      for (const item of rawDataItems) {
-        const sessionId = item.importSessionId;
-        if (!sessionGroups.has(sessionId)) {
-          sessionGroups.set(sessionId, []);
-        }
-        sessionGroups.get(sessionId)!.push(item);
-      }
+      // Use combined query to fetch sessions with their raw data in a single JOIN
+      const sessionsWithRawData = await this.dependencies.database.getImportSessionsWithRawData({
+        sourceId: sourceId,
+      });
 
-      this.logger.info(`Processing ${sessionGroups.size} session groups`);
+      // Filter sessions to only include those with pending raw data items
+      const sessionsToProcess = sessionsWithRawData.filter(sessionData =>
+        sessionData.rawDataItems.some(
+          item =>
+            item.processingStatus === 'pending' &&
+            (!filters?.importSessionId || item.id.includes(filters.importSessionId))
+        )
+      );
+
+      this.logger.info(`Processing ${sessionsToProcess.length} sessions with pending raw data`);
 
       const allTransactions: UniversalTransaction[] = [];
 
-      // Process each session group with its own context
-      for (const [sessionId, sessionItems] of sessionGroups) {
-        // Get session metadata for this group
-        let sessionMetadata: unknown = undefined;
-        if (sessionId) {
-          try {
-            const session = await this.sessionRepository.findById(sessionId);
-            sessionMetadata = session?.sessionMetadata;
-          } catch (error) {
-            this.logger.warn(`Failed to fetch session metadata for ${sessionId}: ${error}`);
-          }
+      // Process each session with its raw data and metadata
+      for (const sessionData of sessionsToProcess) {
+        const { rawDataItems: sessionRawItems, session } = sessionData;
+
+        // Filter to only pending items for this session
+        const pendingItems = sessionRawItems.filter(item => item.processingStatus === 'pending');
+
+        if (pendingItems.length === 0) {
+          continue;
         }
 
         // Create processor with session-specific context
         const processor = await ProcessorFactory.create({
           dependencies: this.dependencies,
-          sessionMetadata,
+          sessionMetadata: session.sessionMetadata,
           sourceId: sourceId,
           sourceType: sourceType,
         });
 
-        // Create ProcessingImportSession for this group
-        const processingSession = {
-          createdAt: Date.now(),
-          id: sessionId || `generated-${Date.now()}`,
-          rawDataItems: sessionItems as StoredRawData<ApiClientRawData<unknown>>[],
-          sessionMetadata: sessionMetadata as ImportSessionMetadata | undefined,
-          sourceId: sourceId,
-          sourceType: sourceType as 'exchange' | 'blockchain',
+        // Create ProcessingImportSession for this session
+        const processingSession: ProcessingImportSession = {
+          createdAt: session.createdAt,
+          id: session.id,
+          rawDataItems: pendingItems as StoredRawData<ApiClientRawData<unknown>>[],
+          sessionMetadata: session.sessionMetadata as ImportSessionMetadata | undefined,
+          sourceId: session.sourceId,
+          sourceType: session.sourceType,
           status: 'processing',
         };
 
@@ -316,9 +322,7 @@ export class TransactionIngestionService {
         const sessionTransactions = await processor.process(processingSession);
         allTransactions.push(...sessionTransactions);
 
-        this.logger.debug(
-          `Processed ${sessionTransactions.length} transactions for session ${sessionId || 'undefined'}`
-        );
+        this.logger.debug(`Processed ${sessionTransactions.length} transactions for session ${session.id}`);
       }
 
       const transactions = allTransactions;
@@ -343,12 +347,15 @@ export class TransactionIngestionService {
         }
       }
 
-      // Mark all raw data items as processed - both those that generated transactions and those that were skipped
-      const allRawDataIds = rawDataItems.map(item => item.sourceTransactionId);
+      // Mark all processed raw data items as processed - both those that generated transactions and those that were skipped
+      const allProcessedItems = sessionsToProcess.flatMap(sessionData =>
+        sessionData.rawDataItems.filter(item => item.processingStatus === 'pending')
+      );
+      const allRawDataIds = allProcessedItems.map(item => item.sourceTransactionId);
       await this.dependencies.externalDataStore.markAsProcessed(sourceId, allRawDataIds, filters?.providerId);
 
       // Log the processing results
-      const skippedCount = rawDataItems.length - transactions.length;
+      const skippedCount = allProcessedItems.length - transactions.length;
       if (skippedCount > 0) {
         this.logger.info(`${skippedCount} items were processed but skipped (likely non-standard operation types)`);
       }
