@@ -299,7 +299,7 @@ export class BlockchainProviderManager {
           willRetry: attemptNumber < providers.length,
         };
         // Only log params for non-sensitive operations
-        if (operation.type === 'testConnection' || operation.type === 'custom') {
+        if (operation.type === 'custom') {
           logData.params = { type: operation.type };
         }
 

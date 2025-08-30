@@ -4,7 +4,7 @@ import { BaseProviderProcessor } from '../../../shared/processors/base-provider-
 import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
 import type { UniversalBlockchainTransaction } from '../../shared/types.ts';
-import { SnowtraceTransactionSchema } from '../schemas.ts';
+import { SnowtraceAnyTransactionSchema } from '../schemas.ts';
 import type { SnowtraceInternalTransaction, SnowtraceTokenTransfer, SnowtraceTransaction } from '../types.ts';
 
 export type SnowtraceRawData = {
@@ -16,7 +16,7 @@ export type SnowtraceRawData = {
 export class SnowtraceProcessor extends BaseProviderProcessor<
   SnowtraceTransaction | SnowtraceInternalTransaction | SnowtraceTokenTransfer
 > {
-  protected readonly schema = SnowtraceTransactionSchema;
+  protected readonly schema = SnowtraceAnyTransactionSchema;
 
   private transformInternalTransaction(
     rawData: SnowtraceInternalTransaction
@@ -110,18 +110,43 @@ export class SnowtraceProcessor extends BaseProviderProcessor<
     rawData: SnowtraceTransaction | SnowtraceInternalTransaction | SnowtraceTokenTransfer,
     _sessionContext: ImportSessionMetadata
   ): Result<UniversalBlockchainTransaction, string> {
-    // Determine transaction type and convert accordingly
-    if ('txreceipt_status' in rawData) {
-      // Normal transaction
-      return this.transformNormalTransaction(rawData);
-    } else if ('traceId' in rawData) {
-      // Internal transaction
-      return this.transformInternalTransaction(rawData);
-    } else if ('tokenSymbol' in rawData) {
-      // Token transfer
+    // More robust transaction type detection with fallbacks
+
+    // Check for token transfer first (most specific)
+    if ('tokenSymbol' in rawData && rawData.tokenSymbol) {
       return this.transformTokenTransfer(rawData);
-    } else {
-      return err('Unknown transaction type');
     }
+
+    // Check for internal transaction
+    if ('traceId' in rawData && rawData.traceId) {
+      return this.transformInternalTransaction(rawData);
+    }
+
+    // Check for normal transaction (txreceipt_status is optional)
+    if ('txreceipt_status' in rawData || ('blockHash' in rawData && 'nonce' in rawData)) {
+      return this.transformNormalTransaction(rawData);
+    }
+
+    // Fallback: try to detect based on available fields
+    const fields = Object.keys(rawData);
+
+    // Has token-specific fields
+    if (fields.includes('tokenName') || fields.includes('tokenDecimal') || fields.includes('contractAddress')) {
+      return this.transformTokenTransfer(rawData as unknown as SnowtraceTokenTransfer);
+    }
+
+    // Has internal transaction fields
+    if (fields.includes('type') || fields.includes('errCode')) {
+      return this.transformInternalTransaction(rawData as unknown as SnowtraceInternalTransaction);
+    }
+
+    // Has normal transaction fields
+    if (fields.includes('gasPrice') || fields.includes('gasUsed') || fields.includes('gas')) {
+      return this.transformNormalTransaction(rawData as unknown as SnowtraceTransaction);
+    }
+
+    // Last resort: log the structure for debugging
+    const availableFields = fields.join(', ');
+    return err(`Unknown transaction type. Available fields: ${availableFields}`);
   }
 }

@@ -5,7 +5,6 @@ import type { ApiClientRawData } from '../../shared/processors/interfaces.ts';
 import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
 // Ensure Ethereum API clients are registered
 import './api/index.ts';
-import { validateEthereumTransactions } from './schemas.ts';
 import type { AlchemyAssetTransfer, MoralisTokenTransfer, MoralisTransaction } from './types.ts';
 
 /**
@@ -57,36 +56,8 @@ export class EthereumTransactionImporter extends BaseImporter<EthereumRawTransac
 
       const rawTransactions = Array.isArray(result.data) ? result.data : [result.data];
 
-      // Validate the raw data based on provider
-      const providerName = result.providerName as 'alchemy' | 'moralis';
-      const validationResult = validateEthereumTransactions(rawTransactions, providerName);
-
-      if (!validationResult.isValid) {
-        this.logger.warn(
-          `Validation issues for regular transactions from ${result.providerName} - Errors: ${validationResult.errors.length}, Warnings: ${validationResult.warnings.length}`
-        );
-        if (validationResult.errors.length > 0) {
-          this.logger.debug(`Validation errors: ${validationResult.errors.join(', ')}`);
-        }
-      }
-
-      // Filter out invalid transactions but continue with valid ones
-      const validTransactions = rawTransactions.filter((tx: unknown) => {
-        const itemValidation =
-          providerName === 'alchemy'
-            ? validateEthereumTransactions([tx], 'alchemy')
-            : validateEthereumTransactions([tx], 'moralis');
-        return itemValidation.isValid;
-      });
-
-      if (validTransactions.length < rawTransactions.length) {
-        this.logger.warn(
-          `Filtered ${rawTransactions.length - validTransactions.length} invalid transactions out of ${rawTransactions.length} total`
-        );
-      }
-
       // Create raw data entries with provider provenance
-      return validTransactions.map((tx: EthereumRawTransactionData) => ({
+      return rawTransactions.map((tx: EthereumRawTransactionData) => ({
         providerId: result.providerName,
         rawData: tx,
       }));
@@ -115,28 +86,6 @@ export class EthereumTransactionImporter extends BaseImporter<EthereumRawTransac
       });
 
       const rawTokenTransactions = Array.isArray(result.data) ? result.data : [result.data];
-
-      // For token transactions, we use different validation based on provider
-      // Alchemy returns AssetTransfers, Moralis returns TokenTransfers
-      let validationResult;
-      if (result.providerName === 'alchemy') {
-        validationResult = validateEthereumTransactions(rawTokenTransactions, 'alchemy');
-      } else if (result.providerName === 'moralis') {
-        // For Moralis token transfers, we need to validate differently as they have different structure
-        // For now, we'll do basic validation
-        validationResult = { errors: [], isValid: true, warnings: [] };
-      } else {
-        validationResult = { errors: [], isValid: true, warnings: [] };
-      }
-
-      if (!validationResult.isValid) {
-        this.logger.warn(
-          `Validation issues for token transactions from ${result.providerName} - Errors: ${validationResult.errors.length}, Warnings: ${validationResult.warnings.length}`
-        );
-        if (validationResult.errors.length > 0) {
-          this.logger.debug(`Token transaction validation errors: ${validationResult.errors.join(', ')}`);
-        }
-      }
 
       // Create raw data entries with provider provenance
       return rawTokenTransactions.map((tx: EthereumRawTransactionData) => ({
