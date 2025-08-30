@@ -1,6 +1,8 @@
 import type { UniversalTransaction } from '@crypto/core';
 import { type Result } from 'neverthrow';
 
+import type { UniversalBlockchainTransaction } from '../../blockchains/shared/types.ts';
+
 export interface StoredRawData<TRawData = unknown> {
   createdAt: number;
   id: string;
@@ -54,10 +56,13 @@ export interface ValidationResult {
  */
 export interface IProviderProcessor<TRawData> {
   /**
-   * Transform validated raw data into blockchain transactions.
-   * Supports both old walletAddresses and new sessionContext for backward compatibility.
+   * Transform validated raw data into standardized blockchain transaction format.
+   * Returns UniversalBlockchainTransaction for type-safe consumption by transaction processors.
    */
-  transform(rawData: TRawData, contextOrAddresses: ImportSessionMetadata): Result<unknown, string>;
+  transform(
+    rawData: TRawData,
+    contextOrAddresses: ImportSessionMetadata
+  ): Result<UniversalBlockchainTransaction, string>;
 }
 
 /**

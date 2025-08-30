@@ -1,4 +1,4 @@
-import type { Balance, BlockchainTransaction, UniversalTransaction } from '@crypto/core';
+import type { Balance, BlockchainTransaction } from '@crypto/core';
 import { createMoney } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
@@ -6,6 +6,7 @@ import { type Result, err, ok } from 'neverthrow';
 import { BaseProviderProcessor } from '../../../shared/processors/base-provider-processor.ts';
 import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
+import type { UniversalBlockchainTransaction } from '../../shared/types.ts';
 import { SubscanTransferSchema } from '../schemas.ts';
 import type { SubscanTransfer, SubstrateAccountInfo, SubstrateChainConfig, TaostatsTransaction } from '../types.ts';
 import { SUBSTRATE_CHAINS } from '../types.ts';
@@ -201,7 +202,7 @@ export class SubstrateProcessor extends BaseProviderProcessor<SubscanTransfer> {
   protected transformValidated(
     rawData: SubscanTransfer,
     sessionContext: ImportSessionMetadata
-  ): Result<UniversalTransaction, string> {
+  ): Result<UniversalBlockchainTransaction, string> {
     // Extract addresses from rich session context
     const addresses = sessionContext.addresses || [];
     const userAddress = addresses[0] || '';
@@ -214,34 +215,34 @@ export class SubstrateProcessor extends BaseProviderProcessor<SubscanTransfer> {
       return err(`Transaction not relevant to user address: ${userAddress}`);
     }
 
-    // Convert to UniversalTransaction following Bitcoin pattern
-    let type: UniversalTransaction['type'];
-    if (bcTx.type === 'transfer_in') {
-      type = 'deposit';
-    } else if (bcTx.type === 'transfer_out') {
-      type = 'withdrawal';
-    } else {
-      type = 'transfer';
-    }
+    // Convert amounts to string format
+    const amount = new Decimal(bcTx.value.amount.toString());
+    const feeAmount = new Decimal(bcTx.fee.amount.toString());
 
-    return ok({
-      amount: bcTx.value,
-      datetime: new Date(bcTx.timestamp).toISOString(),
-      fee: bcTx.fee,
+    const transaction: UniversalBlockchainTransaction = {
+      amount: amount.toString(),
+      currency: bcTx.value.currency,
       from: bcTx.from,
       id: bcTx.hash,
-      metadata: {
-        blockchain: 'polkadot',
-        blockNumber: bcTx.blockNumber,
-        providerId: 'subscan',
-        rawData: bcTx,
-      },
-      source: 'polkadot',
-      status: bcTx.status === 'success' ? 'ok' : 'failed',
-      symbol: bcTx.value.currency,
+      providerId: 'subscan',
+      status: bcTx.status === 'success' ? 'success' : 'failed',
       timestamp: bcTx.timestamp,
       to: bcTx.to,
-      type,
-    });
+      type: 'transfer',
+    };
+
+    // Add optional fields
+    if (bcTx.blockNumber > 0) {
+      transaction.blockHeight = bcTx.blockNumber;
+    }
+    if (feeAmount.toNumber() > 0) {
+      transaction.feeAmount = feeAmount.toString();
+      transaction.feeCurrency = bcTx.fee.currency;
+    }
+    if (bcTx.blockHash) {
+      transaction.blockId = bcTx.blockHash;
+    }
+
+    return ok(transaction);
   }
 }

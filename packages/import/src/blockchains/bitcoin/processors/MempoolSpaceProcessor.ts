@@ -1,11 +1,10 @@
-import type { UniversalTransaction } from '@crypto/core';
-import { createMoney } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseProviderProcessor } from '../../../shared/processors/base-provider-processor.ts';
 import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
+import type { UniversalBlockchainTransaction } from '../../shared/types.ts';
 import { MempoolTransactionSchema } from '../schemas.ts';
 import type { MempoolTransaction } from '../types.ts';
 
@@ -16,7 +15,7 @@ export class MempoolSpaceProcessor extends BaseProviderProcessor<MempoolTransact
   protected transformValidated(
     rawData: MempoolTransaction,
     sessionContext: ImportSessionMetadata
-  ): Result<UniversalTransaction, string> {
+  ): Result<UniversalBlockchainTransaction, string> {
     const timestamp =
       rawData.status.confirmed && rawData.status.block_time ? rawData.status.block_time * 1000 : Date.now();
 
@@ -55,18 +54,18 @@ export class MempoolSpaceProcessor extends BaseProviderProcessor<MempoolTransact
     }
 
     // Determine transaction type based on fund flow
-    let type: UniversalTransaction['type'];
+    let type: UniversalBlockchainTransaction['type'];
 
     if (isIncoming && !isOutgoing) {
       // Funds only coming into wallet from external sources
-      type = 'deposit';
+      type = 'transfer';
     } else if (isOutgoing && !isIncoming) {
       // Funds only going out to external addresses
-      type = 'withdrawal';
+      type = 'transfer';
     } else if (isIncoming && isOutgoing) {
       if (hasExternalOutput) {
         // Funds going out to external addresses (with possible change back to wallet)
-        type = 'withdrawal';
+        type = 'transfer';
         // For withdrawals, calculate the net amount going out (excluding change)
         totalValueChange = walletInputValue - walletOutputValue;
       } else {
@@ -112,26 +111,33 @@ export class MempoolSpaceProcessor extends BaseProviderProcessor<MempoolTransact
       toAddress = rawData.vout[0].scriptpubkey_address;
     }
 
-    return ok({
-      amount: createMoney(new Decimal(totalValue).div(100000000).toString(), 'BTC'),
-      datetime: new Date(timestamp).toISOString(),
-      fee: createMoney(new Decimal(fee).div(100000000).toString(), 'BTC'),
+    const btcAmount = new Decimal(totalValue).div(100000000).toString();
+    const btcFee = new Decimal(fee).div(100000000).toString();
+
+    const transaction: UniversalBlockchainTransaction = {
+      amount: btcAmount,
+      currency: 'BTC',
       from: fromAddress,
       id: rawData.txid,
-      metadata: {
-        blockchain: 'bitcoin',
-        blockHash: rawData.status.block_hash || undefined,
-        blockHeight: rawData.status.block_height || undefined,
-        confirmations: rawData.status.confirmed ? 1 : 0,
-        providerId: 'mempool.space',
-        rawData,
-      },
-      source: 'bitcoin',
-      status: rawData.status.confirmed ? 'ok' : 'pending',
-      symbol: 'BTC',
+      providerId: 'mempool.space',
+      status: rawData.status.confirmed ? 'success' : 'pending',
       timestamp,
       to: toAddress,
       type,
-    });
+    };
+
+    // Add optional fields
+    if (rawData.status.block_height) {
+      transaction.blockHeight = rawData.status.block_height;
+    }
+    if (rawData.status.block_hash) {
+      transaction.blockId = rawData.status.block_hash;
+    }
+    if (fee > 0) {
+      transaction.feeAmount = btcFee;
+      transaction.feeCurrency = 'BTC';
+    }
+
+    return ok(transaction);
   }
 }

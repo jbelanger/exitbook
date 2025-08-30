@@ -1,9 +1,9 @@
-import type { UniversalTransaction } from '@crypto/core';
 import { type Result, err } from 'neverthrow';
 
 import { BaseProviderProcessor } from '../../../shared/processors/base-provider-processor.ts';
 import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
+import type { UniversalBlockchainTransaction } from '../../shared/types.ts';
 import { InjectiveBalanceResponseSchema } from '../schemas.ts';
 import type { InjectiveBalanceResponse } from '../types.ts';
 
@@ -25,7 +25,7 @@ export class InjectiveLCDProcessor extends BaseProviderProcessor<InjectiveBalanc
   protected transformValidated(
     rawData: InjectiveBalanceResponse,
     sessionContext: ImportSessionMetadata
-  ): Result<UniversalTransaction, string> {
+  ): Result<UniversalBlockchainTransaction, string> {
     // LCD processor is for balance data, not transaction data
     // This processor is created for consistency but should not be used for balance operations
     return err('InjectiveLCDProcessor is designed for balance data, not transaction processing');

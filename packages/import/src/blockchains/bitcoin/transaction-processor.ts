@@ -1,10 +1,12 @@
 import type { UniversalTransaction } from '@crypto/core';
+import { createMoney } from '@crypto/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
 import type { IDependencyContainer } from '../../shared/common/interfaces.ts';
 import { BaseProcessor } from '../../shared/processors/base-processor.ts';
 import type { ApiClientRawData, StoredRawData } from '../../shared/processors/interfaces.ts';
 import { ProcessorFactory } from '../../shared/processors/processor-registry.ts';
+import type { UniversalBlockchainTransaction } from '../shared/types.ts';
 // Import processors to trigger registration
 import './processors/index.ts';
 import type { BitcoinTransaction } from './types.ts';
@@ -47,7 +49,31 @@ export class BitcoinTransactionProcessor extends BaseProcessor<ApiClientRawData<
       return err(`Transform failed for ${providerId}: ${transformResult.error}`);
     }
 
-    const universalTransaction = transformResult.value as UniversalTransaction;
+    const blockchainTransaction = transformResult.value;
+
+    // Convert UniversalBlockchainTransaction to UniversalTransaction
+    const universalTransaction: UniversalTransaction = {
+      amount: createMoney(blockchainTransaction.amount, blockchainTransaction.currency),
+      datetime: new Date(blockchainTransaction.timestamp).toISOString(),
+      fee: blockchainTransaction.feeAmount
+        ? createMoney(blockchainTransaction.feeAmount, blockchainTransaction.feeCurrency || 'BTC')
+        : createMoney(0, 'BTC'),
+      from: blockchainTransaction.from,
+      id: blockchainTransaction.id,
+      metadata: {
+        blockchain: 'bitcoin',
+        blockHeight: blockchainTransaction.blockHeight,
+        blockId: blockchainTransaction.blockId,
+        providerId: blockchainTransaction.providerId,
+      },
+      source: 'bitcoin',
+      status: blockchainTransaction.status === 'success' ? 'ok' : 'failed',
+      symbol: blockchainTransaction.currency,
+      timestamp: blockchainTransaction.timestamp,
+      to: blockchainTransaction.to,
+      type: 'transfer',
+    };
+
     this.logger.debug(`Successfully processed transaction ${universalTransaction.id} from ${providerId}`);
     return ok(universalTransaction);
   }
