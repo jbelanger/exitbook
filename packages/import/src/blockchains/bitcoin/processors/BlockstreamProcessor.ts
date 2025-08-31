@@ -14,7 +14,7 @@ export class BlockstreamProcessor extends BaseProviderProcessor<BlockstreamTrans
   protected transformValidated(
     rawData: BlockstreamTransaction,
     sessionContext: ImportSessionMetadata
-  ): Result<UniversalBlockchainTransaction, string> {
+  ): Result<UniversalBlockchainTransaction[], string> {
     const timestamp =
       rawData.status.confirmed && rawData.status.block_time ? rawData.status.block_time * 1000 : Date.now();
 
@@ -131,6 +131,6 @@ export class BlockstreamProcessor extends BaseProviderProcessor<BlockstreamTrans
       transaction.feeCurrency = 'BTC';
     }
 
-    return ok(transaction);
+    return ok([transaction]);
   }
 }

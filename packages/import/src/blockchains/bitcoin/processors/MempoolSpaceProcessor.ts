@@ -15,7 +15,7 @@ export class MempoolSpaceProcessor extends BaseProviderProcessor<MempoolTransact
   protected transformValidated(
     rawData: MempoolTransaction,
     sessionContext: ImportSessionMetadata
-  ): Result<UniversalBlockchainTransaction, string> {
+  ): Result<UniversalBlockchainTransaction[], string> {
     const timestamp =
       rawData.status.confirmed && rawData.status.block_time ? rawData.status.block_time * 1000 : Date.now();
 
@@ -156,6 +156,6 @@ export class MempoolSpaceProcessor extends BaseProviderProcessor<MempoolTransact
       transaction.feeCurrency = 'BTC';
     }
 
-    return ok(transaction);
+    return ok([transaction]);
   }
 }

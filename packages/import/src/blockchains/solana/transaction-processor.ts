@@ -33,25 +33,18 @@ export class SolanaTransactionProcessor extends BaseProcessor<ApiClientRawData<S
       return err(`No processor found for provider: ${providerId}`);
     }
 
+    // Transform the full batch using the provider-specific processor
+    const transformResult = processor.transform(rawData, sessionContext);
+
+    if (transformResult.isErr()) {
+      return err(`Transform failed for ${providerId}: ${transformResult.error}`);
+    }
+
+    const blockchainTransactions = transformResult.value;
     const transactions: UniversalTransaction[] = [];
 
-    // Process each individual transaction in the batch
-    for (let i = 0; i < rawData.normal.length; i++) {
-      // Create a single-transaction raw data for processing
-      const singleTransactionRawData = {
-        normal: [rawData.normal[i]],
-      };
-
-      // Transform using the provider-specific processor
-      const transformResult = processor.transform(singleTransactionRawData, sessionContext);
-
-      if (transformResult.isErr()) {
-        this.logger.warn(`Transform failed for ${providerId} transaction ${i}: ${transformResult.error}`);
-        continue; // Continue with other transactions
-      }
-
-      const blockchainTransaction = transformResult.value;
-
+    // Convert each UniversalBlockchainTransaction to UniversalTransaction
+    for (const blockchainTransaction of blockchainTransactions) {
       // Determine proper transaction type based on Solana transaction flow
       const transactionType = this.mapTransactionType(blockchainTransaction, sessionContext);
 

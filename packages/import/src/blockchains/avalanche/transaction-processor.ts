@@ -173,7 +173,14 @@ export class AvalancheTransactionProcessor extends BaseProcessor<ApiClientRawDat
         continue;
       }
 
-      universalTransactions.push(transformResult.value);
+      const blockchainTransactions = transformResult.value;
+      if (blockchainTransactions.length === 0) {
+        this.correlationLogger.warn(`No transactions returned from ${apiClientRawData.providerId} processor`);
+        continue;
+      }
+
+      // Avalanche processors return array with single transaction
+      universalTransactions.push(blockchainTransactions[0]);
     }
 
     // Step 2: Group UniversalBlockchainTransactions by id (hash) for correlation

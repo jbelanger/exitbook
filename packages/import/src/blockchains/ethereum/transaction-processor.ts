@@ -41,7 +41,13 @@ export class EthereumTransactionProcessor extends BaseProcessor<ApiClientRawData
       return err(`Transform failed for ${providerId}: ${transformResult.error}`);
     }
 
-    const blockchainTransaction = transformResult.value;
+    const blockchainTransactions = transformResult.value;
+    if (blockchainTransactions.length === 0) {
+      return err(`No transactions returned from ${providerId} processor`);
+    }
+
+    // Ethereum processors return array with single transaction
+    const blockchainTransaction = blockchainTransactions[0];
 
     // Determine proper transaction type based on Ethereum transaction flow
     const transactionType = this.mapTransactionType(blockchainTransaction, sessionContext);

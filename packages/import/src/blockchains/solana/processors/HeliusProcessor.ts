@@ -184,7 +184,7 @@ export class HeliusProcessor extends BaseProviderProcessor<SolanaRawTransactionD
   protected transformValidated(
     rawData: SolanaRawTransactionData,
     sessionContext: ImportSessionMetadata
-  ): Result<UniversalBlockchainTransaction, string> {
+  ): Result<UniversalBlockchainTransaction[], string> {
     // Extract addresses from rich session context
     const addresses = sessionContext.addresses || [];
     const userAddress = addresses[0] || '';
@@ -193,38 +193,45 @@ export class HeliusProcessor extends BaseProviderProcessor<SolanaRawTransactionD
       return err('No transactions to transform from SolanaRawTransactionData');
     }
 
-    const tx = rawData.normal[0];
-    const processedTx = HeliusProcessor.transformTransaction(tx, userAddress);
+    const transactions: UniversalBlockchainTransaction[] = [];
 
-    if (!processedTx) {
-      return err('Transaction filtered out (likely fee-only transaction)');
+    // Process ALL transactions in the batch, not just the first one
+    for (const tx of rawData.normal) {
+      const processedTx = HeliusProcessor.transformTransaction(tx, userAddress);
+
+      if (!processedTx) {
+        // Transaction filtered out (likely fee-only or failed transaction) - continue with next
+        continue;
+      }
+
+      const transaction: UniversalBlockchainTransaction = {
+        amount: processedTx.value.amount.toString(),
+        currency: processedTx.tokenSymbol || 'SOL',
+        from: processedTx.from,
+        id: processedTx.hash,
+        providerId: 'helius',
+        status: processedTx.status === 'success' ? 'success' : 'failed',
+        timestamp: processedTx.timestamp * 1000,
+        to: processedTx.to,
+        type: processedTx.type === 'token_transfer' ? 'token_transfer' : 'transfer',
+      };
+
+      // Add optional fields
+      if (processedTx.blockNumber > 0) {
+        transaction.blockHeight = processedTx.blockNumber;
+      }
+      if (processedTx.fee.amount.toNumber() > 0) {
+        transaction.feeAmount = processedTx.fee.amount.toString();
+        transaction.feeCurrency = 'SOL';
+      }
+      if (processedTx.tokenContract) {
+        transaction.tokenAddress = processedTx.tokenContract;
+        transaction.tokenSymbol = processedTx.tokenSymbol || 'UNKNOWN';
+      }
+
+      transactions.push(transaction);
     }
 
-    const transaction: UniversalBlockchainTransaction = {
-      amount: processedTx.value.amount.toString(),
-      currency: processedTx.tokenSymbol || 'SOL',
-      from: processedTx.from,
-      id: processedTx.hash,
-      providerId: 'helius',
-      status: processedTx.status === 'success' ? 'success' : 'failed',
-      timestamp: processedTx.timestamp * 1000,
-      to: processedTx.to,
-      type: processedTx.type === 'token_transfer' ? 'token_transfer' : 'transfer',
-    };
-
-    // Add optional fields
-    if (processedTx.blockNumber > 0) {
-      transaction.blockHeight = processedTx.blockNumber;
-    }
-    if (processedTx.fee.amount.toNumber() > 0) {
-      transaction.feeAmount = processedTx.fee.amount.toString();
-      transaction.feeCurrency = 'SOL';
-    }
-    if (processedTx.tokenContract) {
-      transaction.tokenAddress = processedTx.tokenContract;
-      transaction.tokenSymbol = processedTx.tokenSymbol || 'UNKNOWN';
-    }
-
-    return ok(transaction);
+    return ok(transactions);
   }
 }

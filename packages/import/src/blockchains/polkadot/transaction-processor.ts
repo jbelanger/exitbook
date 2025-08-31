@@ -41,7 +41,13 @@ export class PolkadotTransactionProcessor extends BaseProcessor<ApiClientRawData
       return err(`Transform failed for ${providerId}: ${transformResult.error}`);
     }
 
-    const blockchainTransaction = transformResult.value;
+    const blockchainTransactions = transformResult.value;
+    if (blockchainTransactions.length === 0) {
+      return err(`No transactions returned from ${providerId} processor`);
+    }
+
+    // Polkadot processors return array with single transaction
+    const blockchainTransaction = blockchainTransactions[0];
 
     // Determine proper transaction type based on Polkadot transaction flow
     const transactionType = this.mapTransactionType(blockchainTransaction, sessionContext);

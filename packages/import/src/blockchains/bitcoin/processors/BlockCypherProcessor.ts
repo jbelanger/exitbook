@@ -16,7 +16,7 @@ export class BlockCypherProcessor extends BaseProviderProcessor<BlockCypherTrans
   protected transformValidated(
     rawData: BlockCypherTransaction,
     sessionContext: ImportSessionMetadata
-  ): Result<UniversalBlockchainTransaction, string> {
+  ): Result<UniversalBlockchainTransaction[], string> {
     // Extract addresses from rich session context (Bitcoin uses derivedAddresses)
     const addresses = sessionContext.derivedAddresses || sessionContext.addresses || [];
 
@@ -189,6 +189,6 @@ export class BlockCypherProcessor extends BaseProviderProcessor<BlockCypherTrans
       transaction.feeCurrency = 'BTC';
     }
 
-    return ok(transaction);
+    return ok([transaction]);
   }
 }

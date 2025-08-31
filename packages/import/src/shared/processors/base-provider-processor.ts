@@ -17,9 +17,9 @@ export abstract class BaseProviderProcessor<TRawData> implements IProviderProces
 
   /**
    * Public transform method that handles validation internally and delegates to transformValidated.
-   * Returns UniversalBlockchainTransaction for type-safe consumption by transaction processors.
+   * Returns array of UniversalBlockchainTransaction for type-safe consumption by transaction processors.
    */
-  transform(rawData: TRawData, context: ImportSessionMetadata): Result<UniversalBlockchainTransaction, string> {
+  transform(rawData: TRawData, context: ImportSessionMetadata): Result<UniversalBlockchainTransaction[], string> {
     // Validate input data first
     const validationResult = this.schema.safeParse(rawData);
     if (!validationResult.success) {
@@ -37,10 +37,10 @@ export abstract class BaseProviderProcessor<TRawData> implements IProviderProces
   /**
    * Transform raw data after validation has passed.
    * This method is called only with validated data and rich session context.
-   * Must return UniversalBlockchainTransaction for type safety.
+   * Must return array of UniversalBlockchainTransaction for type safety.
    */
   protected abstract transformValidated(
     rawData: TRawData,
     sessionContext: ImportSessionMetadata
-  ): Result<UniversalBlockchainTransaction, string>;
+  ): Result<UniversalBlockchainTransaction[], string>;
 }

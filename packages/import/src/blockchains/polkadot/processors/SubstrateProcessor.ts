@@ -202,7 +202,7 @@ export class SubstrateProcessor extends BaseProviderProcessor<SubscanTransfer> {
   protected transformValidated(
     rawData: SubscanTransfer,
     sessionContext: ImportSessionMetadata
-  ): Result<UniversalBlockchainTransaction, string> {
+  ): Result<UniversalBlockchainTransaction[], string> {
     // Extract addresses from rich session context
     const addresses = sessionContext.addresses || [];
     const userAddress = addresses[0] || '';
@@ -243,6 +243,6 @@ export class SubstrateProcessor extends BaseProviderProcessor<SubscanTransfer> {
       transaction.blockId = bcTx.blockHash;
     }
 
-    return ok(transaction);
+    return ok([transaction]);
   }
 }

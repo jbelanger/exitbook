@@ -25,7 +25,7 @@ export class InjectiveLCDProcessor extends BaseProviderProcessor<InjectiveBalanc
   protected transformValidated(
     rawData: InjectiveBalanceResponse,
     sessionContext: ImportSessionMetadata
-  ): Result<UniversalBlockchainTransaction, string> {
+  ): Result<UniversalBlockchainTransaction[], string> {
     // LCD processor is for balance data, not transaction data
     // This processor is created for consistency but should not be used for balance operations
     return err('InjectiveLCDProcessor is designed for balance data, not transaction processing');

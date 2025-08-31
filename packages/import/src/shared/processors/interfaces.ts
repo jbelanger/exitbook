@@ -33,9 +33,10 @@ export interface IProcessor<TRawData> {
 export interface IProviderProcessor<TRawData> {
   /**
    * Transform validated raw data into standardized blockchain transaction format.
-   * Returns UniversalBlockchainTransaction for type-safe consumption by transaction processors.
+   * Returns array of UniversalBlockchainTransaction for type-safe consumption by transaction processors.
+   * Single transactions should return array with one element, batch responses return multiple elements.
    */
-  transform(rawData: TRawData, sessionContext: ImportSessionMetadata): Result<UniversalBlockchainTransaction, string>;
+  transform(rawData: TRawData, sessionContext: ImportSessionMetadata): Result<UniversalBlockchainTransaction[], string>;
 }
 
 /**

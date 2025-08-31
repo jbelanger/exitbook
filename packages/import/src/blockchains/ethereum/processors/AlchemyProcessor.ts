@@ -89,7 +89,7 @@ export class AlchemyProcessor extends BaseProviderProcessor<AlchemyAssetTransfer
   protected transformValidated(
     rawData: AlchemyAssetTransfer,
     sessionContext: ImportSessionMetadata
-  ): Result<UniversalBlockchainTransaction, string> {
+  ): Result<UniversalBlockchainTransaction[], string> {
     // Extract addresses from rich session context
     const addresses = sessionContext.addresses || sessionContext.contractAddresses || [];
     const userAddress = addresses[0] || '';
@@ -150,6 +150,6 @@ export class AlchemyProcessor extends BaseProviderProcessor<AlchemyAssetTransfer
       }
     }
 
-    return ok(transaction);
+    return ok([transaction]);
   }
 }

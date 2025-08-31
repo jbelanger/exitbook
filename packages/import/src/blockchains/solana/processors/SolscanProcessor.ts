@@ -100,7 +100,7 @@ export class SolscanProcessor extends BaseProviderProcessor<SolscanRawTransactio
   protected transformValidated(
     rawData: SolscanRawTransactionData,
     sessionContext: ImportSessionMetadata
-  ): Result<UniversalBlockchainTransaction, string> {
+  ): Result<UniversalBlockchainTransaction[], string> {
     // Extract addresses from rich session context
     const addresses = sessionContext.addresses || [];
     const userAddress = addresses[0] || '';
@@ -109,26 +109,33 @@ export class SolscanProcessor extends BaseProviderProcessor<SolscanRawTransactio
       throw new Error('No transactions to transform from SolscanRawTransactionData');
     }
 
-    const tx = rawData.normal[0];
-    const processedTx = SolscanProcessor.transformTransaction(tx, userAddress);
+    const transactions: UniversalBlockchainTransaction[] = [];
 
-    if (!processedTx) {
-      throw new Error('Unable to transform Solscan transaction to UniversalTransaction');
+    // Process ALL transactions in the batch, not just the first one
+    for (const tx of rawData.normal) {
+      const processedTx = SolscanProcessor.transformTransaction(tx, userAddress);
+
+      if (!processedTx) {
+        // Transaction filtered out - continue with next
+        continue;
+      }
+
+      transactions.push({
+        amount: processedTx.value.amount.toString(),
+        blockHeight: processedTx.blockNumber,
+        currency: processedTx.tokenSymbol || 'SOL',
+        feeAmount: processedTx.fee.amount.toString(),
+        feeCurrency: 'SOL',
+        from: processedTx.from,
+        id: processedTx.hash,
+        providerId: 'solscan',
+        status: processedTx.status === 'success' ? 'success' : 'failed',
+        timestamp: processedTx.timestamp,
+        to: processedTx.to,
+        type: 'transfer',
+      });
     }
 
-    return ok({
-      amount: processedTx.value.amount.toString(),
-      blockHeight: processedTx.blockNumber,
-      currency: processedTx.tokenSymbol || 'SOL',
-      feeAmount: processedTx.fee.amount.toString(),
-      feeCurrency: 'SOL',
-      from: processedTx.from,
-      id: processedTx.hash,
-      providerId: 'solscan',
-      status: processedTx.status === 'success' ? 'success' : 'failed',
-      timestamp: processedTx.timestamp,
-      to: processedTx.to,
-      type: 'transfer',
-    });
+    return ok(transactions);
   }
 }

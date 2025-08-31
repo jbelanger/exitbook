@@ -28,7 +28,7 @@ export class InjectiveExplorerProcessor extends BaseProviderProcessor<InjectiveT
   protected transformValidated(
     rawData: InjectiveTransaction,
     sessionContext: ImportSessionMetadata
-  ): Result<UniversalBlockchainTransaction, string> {
+  ): Result<UniversalBlockchainTransaction[], string> {
     const timestamp = new Date(rawData.block_timestamp).getTime();
     // Extract addresses from rich session context
     const addresses = sessionContext.addresses || [];
@@ -170,6 +170,6 @@ export class InjectiveExplorerProcessor extends BaseProviderProcessor<InjectiveT
       transaction.feeCurrency = feeCurrency;
     }
 
-    return ok(transaction);
+    return ok([transaction]);
   }
 }

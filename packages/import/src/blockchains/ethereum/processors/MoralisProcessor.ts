@@ -128,7 +128,7 @@ export class MoralisProcessor extends BaseProviderProcessor<MoralisTransaction> 
   protected transformValidated(
     rawData: MoralisTransaction,
     sessionContext: ImportSessionMetadata
-  ): Result<UniversalBlockchainTransaction, string> {
+  ): Result<UniversalBlockchainTransaction[], string> {
     // Extract addresses from rich session context
     const addresses = sessionContext.addresses || sessionContext.contractAddresses || [];
     const userAddress = addresses[0] || '';
@@ -156,6 +156,6 @@ export class MoralisProcessor extends BaseProviderProcessor<MoralisTransaction> 
       type,
     };
 
-    return ok(transaction);
+    return ok([transaction]);
   }
 }
