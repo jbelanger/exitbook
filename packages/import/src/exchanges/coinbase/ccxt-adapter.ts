@@ -1,6 +1,6 @@
 import type {
-  CryptoTransaction,
   Money,
+  TransactionStatus,
   TransactionType,
   UniversalExchangeAdapterConfig,
   UniversalFetchParams,
@@ -15,6 +15,21 @@ import { Decimal } from 'decimal.js';
 import type { CCXTTransaction } from '../../shared/utils/transaction-processor.ts';
 import { BaseCCXTAdapter } from '../base-ccxt-adapter.ts';
 import type { CcxtCoinbaseAccount, CcxtCoinbaseAdapterOptions, CoinbaseCredentials } from './types.ts';
+
+// Temporary internal type for Coinbase processing - matches old CryptoTransaction structure
+interface CoinbaseInternalTransaction {
+  amount: Money;
+  datetime?: string | undefined;
+  fee?: Money | undefined;
+  id: string;
+  info?: unknown;
+  price?: Money | undefined;
+  side?: 'buy' | 'sell' | undefined;
+  status?: TransactionStatus | undefined;
+  symbol?: string | undefined;
+  timestamp: number;
+  type: TransactionType;
+}
 
 /**
  * Specialized Coinbase adapter that uses fetchLedger for comprehensive transaction data
@@ -128,7 +143,10 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
   /**
    * Combine multiple ledger entries into a single trade transaction
    */
-  private combineMultipleLedgerEntries(groupId: string, entries: CryptoTransaction[]): CryptoTransaction | null {
+  private combineMultipleLedgerEntries(
+    groupId: string,
+    entries: CoinbaseInternalTransaction[]
+  ): CoinbaseInternalTransaction | null {
     if (entries.length === 0) return null;
 
     // Use the first entry as the base
@@ -304,7 +322,7 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
         priceAmount = totalQuoteAmount.minus(totalFee);
       }
 
-      const combinedTrade: CryptoTransaction = {
+      const combinedTrade: CoinbaseInternalTransaction = {
         amount: { amount: totalBaseAmount, currency: baseCurrency },
         datetime: new Date(timestamp).toISOString(),
         fee:
@@ -336,9 +354,36 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
   }
 
   /**
+   * Convert internal CoinbaseInternalTransaction back to UniversalTransaction
+   */
+  private convertFromInternal(tx: CoinbaseInternalTransaction): UniversalTransaction {
+    return {
+      amount: tx.amount,
+      datetime: tx.datetime || new Date(tx.timestamp).toISOString(),
+      fee: tx.fee,
+      from: 'exchange',
+      id: tx.id,
+      metadata: {
+        exchange: this.exchangeId,
+        originalData: tx.info,
+        processedBy: 'CoinbaseCCXTAdapter',
+      },
+      network: 'exchange',
+      price: tx.price,
+      side: tx.side,
+      source: this.exchangeId,
+      status: tx.status || 'closed',
+      symbol: tx.symbol,
+      timestamp: tx.timestamp,
+      to: 'exchange',
+      type: tx.type,
+    };
+  }
+
+  /**
    * Convert a Coinbase ledger entry to a proper transaction with correct price, side, and type
    */
-  private convertLedgerEntryToTrade(transaction: CryptoTransaction): CryptoTransaction {
+  private convertLedgerEntryToTrade(transaction: CoinbaseInternalTransaction): CoinbaseInternalTransaction {
     const info = transaction.info;
     if (!info) return transaction;
 
@@ -351,7 +396,7 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
     const price = this.extractPriceFromInfo(info, transaction.price, properType);
 
     // Create a proper transaction from the ledger entry
-    const enhancedTransaction: CryptoTransaction = {
+    const enhancedTransaction: CoinbaseInternalTransaction = {
       ...transaction,
       info: {
         ...info,
@@ -368,10 +413,31 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
   }
 
   /**
+   * Convert UniversalTransaction to internal CoinbaseInternalTransaction for processing
+   */
+  private convertToInternal(tx: UniversalTransaction): CoinbaseInternalTransaction {
+    return {
+      amount: tx.amount,
+      datetime: tx.datetime,
+      fee: tx.fee,
+      id: tx.id,
+      info: tx.metadata?.originalData || {},
+      price: tx.price,
+      side: tx.side,
+      status: tx.status,
+      symbol: tx.symbol,
+      timestamp: tx.timestamp,
+      type: tx.type,
+    };
+  }
+
+  /**
    * Create single trade transactions from grouped ledger entries
    */
-  private createTradeFromGroups(tradeGroups: Map<string, CryptoTransaction[]>): CryptoTransaction[] {
-    const trades: CryptoTransaction[] = [];
+  private createTradeFromGroups(
+    tradeGroups: Map<string, CoinbaseInternalTransaction[]>
+  ): CoinbaseInternalTransaction[] {
+    const trades: CoinbaseInternalTransaction[] = [];
 
     for (const [groupId, entries] of tradeGroups.entries()) {
       if (entries.length === 0) continue;
@@ -547,7 +613,7 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
   /**
    * Extract the trade group ID from a Coinbase ledger entry
    */
-  private extractTradeGroupId(transaction: CryptoTransaction): string | null {
+  private extractTradeGroupId(transaction: CoinbaseInternalTransaction): string | null {
     const nestedInfo = getCcxtNestedInfo(transaction.info);
     if (!nestedInfo) return null;
 
@@ -837,7 +903,7 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
   /**
    * Determine if transaction is trade-related
    */
-  private isTradeRelatedTransaction(transaction: CryptoTransaction): boolean {
+  private isTradeRelatedTransaction(transaction: CoinbaseInternalTransaction): boolean {
     const info = transaction.info;
     if (!info || typeof info !== 'object' || info === null) return false;
 
@@ -939,14 +1005,16 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
   /**
    * Process ledger entries to group orders and fills into complete trades
    */
-  private async processLedgerEntries(ledgerTransactions: CryptoTransaction[]): Promise<CryptoTransaction[]> {
+  private async processLedgerEntries(
+    ledgerTransactions: CoinbaseInternalTransaction[]
+  ): Promise<CoinbaseInternalTransaction[]> {
     this.logger.info(`Processing Coinbase ledger entries for grouping - TotalEntries: ${ledgerTransactions.length}`);
 
     this.logger.info(`Processing all ledger transactions - TotalCount: ${ledgerTransactions.length}`);
 
     // Restore the original grouping approach now that we understand the data structure
-    const tradeGroups = new Map<string, CryptoTransaction[]>();
-    const nonTradeTransactions: CryptoTransaction[] = [];
+    const tradeGroups = new Map<string, CoinbaseInternalTransaction[]>();
+    const nonTradeTransactions: CoinbaseInternalTransaction[] = [];
 
     // Group trade entries by their reference IDs
     for (const transaction of ledgerTransactions) {
@@ -986,12 +1054,12 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
    * Override to fetch only the raw ledger entries from the API.
    * This should return the raw CCXT response, not a transformed one.
    */
-  protected async fetchRawTransactions(params: UniversalFetchParams): Promise<CryptoTransaction[]> {
+  protected async fetchRawTransactions(params: UniversalFetchParams): Promise<UniversalTransaction[]> {
     // This is the only place we should be calling the exchange API.
     // We can reuse the pagination logic from the old fetchLedger method.
     const rawLedgerEntries = await this.fetchAllLedgerEntriesWithPagination(params.since);
 
-    // Transform raw CCXT entries to CryptoTransaction[] before returning to satisfy the base class's return type
+    // Transform raw CCXT entries to UniversalTransaction[] before returning to satisfy the base class's return type
     return this.transformCCXTTransactions(rawLedgerEntries as CCXTTransaction[], 'ledger');
   }
 
@@ -1000,7 +1068,7 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
    * This is where all transformation logic now lives.
    */
   protected async transformTransactions(
-    rawCryptoTxs: CryptoTransaction[],
+    rawCryptoTxs: UniversalTransaction[],
     params: UniversalFetchParams
   ): Promise<UniversalTransaction[]> {
     const requestedTypes = params.transactionTypes || ['trade', 'deposit', 'withdrawal', 'order', 'ledger'];
@@ -1008,12 +1076,14 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
       `Transforming ${rawCryptoTxs.length} raw Coinbase ledger entries for types: ${requestedTypes.join(', ')}`
     );
 
-    // We no longer transform from raw CCXT entries here, as fetchRawTransactions already does the conversion.
-    // Now we directly process the CryptoTransaction array.
-    const processedCryptoTxs: CryptoTransaction[] = await this.processLedgerEntries(rawCryptoTxs);
+    // Convert UniversalTransactions to internal format for complex Coinbase processing
+    const internalTxs = rawCryptoTxs.map(tx => this.convertToInternal(tx));
+
+    // Process using existing complex Coinbase logic
+    const processedCryptoTxs: CoinbaseInternalTransaction[] = await this.processLedgerEntries(internalTxs);
 
     // Filter transactions by requested types before final transformation
-    const filteredTxs = processedCryptoTxs.filter((tx: CryptoTransaction) => {
+    const filteredTxs = processedCryptoTxs.filter((tx: CoinbaseInternalTransaction) => {
       if (!tx.type) return false;
       return requestedTypes.includes(tx.type);
     });
@@ -1023,8 +1093,7 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
       this.logger.info(`Filtered out ${filteredCount} transactions not matching requested types`);
     }
 
-    // Finally, convert the filtered CryptoTransactions to the UniversalTransaction format.
-    return super.transformTransactions(filteredTxs, params);
-    // The base transformTransactions method already handles this final mapping.
+    // Convert back to UniversalTransaction format
+    return filteredTxs.map(tx => this.convertFromInternal(tx));
   }
 }

@@ -1,6 +1,7 @@
-import type { CryptoTransaction, Money, TransactionStatus, TransactionType } from '@crypto/core';
+import type { Money, TransactionStatus, TransactionType, UniversalTransaction } from '@crypto/core';
 import { createMoney } from '@crypto/shared-utils';
 import crypto from 'crypto';
+import { Decimal } from 'decimal.js';
 
 // CCXT Transaction interface based on commonly used properties
 export interface CCXTTransaction {
@@ -24,7 +25,7 @@ export interface CCXTTransaction {
 }
 
 /**
- * Processes CCXT transactions to our standard CryptoTransaction format
+ * Processes CCXT transactions to our standard UniversalTransaction format
  * Provides consistent data normalization across all exchange adapters
  */
 export class TransactionProcessor {
@@ -111,34 +112,46 @@ export class TransactionProcessor {
   }
 
   /**
-   * Converts CCXT transaction data to standardized CryptoTransaction format
+   * Converts CCXT transaction data to standardized UniversalTransaction format
    */
-  static fromCCXT(ccxtTransaction: CCXTTransaction, type: TransactionType, exchangeId: string): CryptoTransaction {
+  static fromCCXT(ccxtTransaction: CCXTTransaction, type: TransactionType, exchangeId: string): UniversalTransaction {
     const { baseCurrency, quoteCurrency } = this.extractCurrencies(ccxtTransaction);
     const transactionId = this.extractTransactionId(ccxtTransaction, exchangeId);
     const timestamp = ccxtTransaction.timestamp || Date.now();
     const amount = Math.abs(ccxtTransaction.amount || 0);
 
-    const amountMoney = createMoney(amount, baseCurrency);
-    const priceMoney = this.extractPrice(ccxtTransaction, type, quoteCurrency);
     const fee = this.extractFee(ccxtTransaction);
 
-    const result: CryptoTransaction = {
-      amount: amountMoney,
+    const result: UniversalTransaction = {
+      amount: { amount: new Decimal(amount), currency: baseCurrency },
       datetime: ccxtTransaction.datetime || new Date(timestamp).toISOString(),
       fee,
+      from: 'exchange',
       id: transactionId,
-      info: ccxtTransaction,
-      price: priceMoney,
+      metadata: {
+        exchange: exchangeId,
+        originalData: ccxtTransaction,
+      },
+      network: 'exchange',
+      source: exchangeId,
       status: this.normalizeStatus(ccxtTransaction.status),
-      symbol: ccxtTransaction.symbol || 'UNKNOWN',
+      symbol: ccxtTransaction.symbol,
       timestamp,
+      to: 'exchange',
       type,
     };
 
     // Only add side property if it has a valid value
     if (ccxtTransaction.side === 'buy' || ccxtTransaction.side === 'sell') {
       result.side = ccxtTransaction.side;
+    }
+
+    // Add price for trades
+    if (type === 'trade') {
+      const priceMoney = this.extractPrice(ccxtTransaction, type, quoteCurrency);
+      if (priceMoney) {
+        result.price = priceMoney;
+      }
     }
 
     return result;

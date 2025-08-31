@@ -69,7 +69,7 @@ export class EthereumAdapter extends BaseAdapter {
       case 'alchemy':
         return AlchemyProcessor.processTokenTransactions(rawData as AlchemyAssetTransfer[], userAddress);
       case 'moralis':
-        return MoralisProcessor.processTokenTransactions(rawData as MoralisTokenTransfer[], userAddress);
+        return MoralisProcessor.processTokenTransactions(rawData as MoralisTokenTransfer[]);
       default:
         this.logger.debug(`Provider ${providerName} does not support token transactions or processing not implemented`);
         return [];
@@ -85,7 +85,7 @@ export class EthereumAdapter extends BaseAdapter {
       case 'alchemy':
         return AlchemyProcessor.processAddressTransactions(rawData as AlchemyAssetTransfer[], userAddress);
       case 'moralis':
-        return MoralisProcessor.processAddressTransactions(rawData as MoralisTransaction[], userAddress);
+        return MoralisProcessor.processAddressTransactions(rawData as MoralisTransaction[]);
       default:
         throw new Error(`Unsupported provider for transaction processing: ${providerName}`);
     }
@@ -213,7 +213,7 @@ export class EthereumAdapter extends BaseAdapter {
 
     // Remove duplicates and sort by timestamp
     const uniqueTransactions = allTransactions.reduce((acc, tx) => {
-      if (!acc.find(existing => existing.hash === tx.hash)) {
+      if (!acc.find(existing => existing.blockId === tx.blockId)) {
         acc.push(tx);
       }
       return acc;

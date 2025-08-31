@@ -1,5 +1,5 @@
 import type {
-  CryptoTransaction,
+  TransactionStatus,
   TransactionType,
   UniversalAdapterInfo,
   UniversalBalance,
@@ -9,6 +9,7 @@ import type {
 } from '@crypto/core';
 import { hasProperty, isObject } from '@crypto/shared-utils';
 import type { Exchange } from 'ccxt';
+import { Decimal } from 'decimal.js';
 
 import { BaseAdapter } from '../shared/adapters/base-adapter.ts';
 import { TransactionProcessor } from '../shared/utils/transaction-processor.ts';
@@ -51,7 +52,7 @@ export abstract class BaseCCXTAdapter extends BaseAdapter {
    */
   protected abstract createExchange(): Exchange;
 
-  async fetchClosedOrders(since?: number): Promise<CryptoTransaction[]> {
+  async fetchClosedOrders(since?: number): Promise<UniversalTransaction[]> {
     try {
       if (!this.exchange.has['fetchClosedOrders']) {
         this.logger.debug(`Exchange ${this.exchangeId} does not support fetchClosedOrders`);
@@ -66,7 +67,7 @@ export abstract class BaseCCXTAdapter extends BaseAdapter {
     }
   }
 
-  async fetchDeposits(since?: number): Promise<CryptoTransaction[]> {
+  async fetchDeposits(since?: number): Promise<UniversalTransaction[]> {
     try {
       if (!this.exchange.has['fetchDeposits']) {
         this.logger.debug(`Exchange ${this.exchangeId} does not support fetchDeposits`);
@@ -81,7 +82,7 @@ export abstract class BaseCCXTAdapter extends BaseAdapter {
     }
   }
 
-  async fetchLedger(since?: number): Promise<CryptoTransaction[]> {
+  async fetchLedger(since?: number): Promise<UniversalTransaction[]> {
     try {
       if (!this.exchange.has['fetchLedger']) {
         this.logger.debug(`Exchange ${this.exchangeId} does not support fetchLedger`);
@@ -113,16 +114,16 @@ export abstract class BaseCCXTAdapter extends BaseAdapter {
 
   // CCXT-specific transaction fetching methods
 
-  protected async fetchRawTransactions(params: UniversalFetchParams): Promise<CryptoTransaction[]> {
+  protected async fetchRawTransactions(params: UniversalFetchParams): Promise<UniversalTransaction[]> {
     const startTime = Date.now();
     const requestedTypes = params.transactionTypes || ['trade', 'deposit', 'withdrawal', 'order', 'ledger'];
     this.logger.info(`Starting fetchRawTransactions for ${this.exchangeId} with types: ${requestedTypes.join(', ')}`);
 
     try {
-      const allTransactions: CryptoTransaction[] = [];
+      const allTransactions: UniversalTransaction[] = [];
       const fetchPromises: Array<{
         label: string;
-        promise: Promise<CryptoTransaction[]>;
+        promise: Promise<UniversalTransaction[]>;
       }> = [];
 
       // Only call methods for requested transaction types
@@ -189,7 +190,7 @@ export abstract class BaseCCXTAdapter extends BaseAdapter {
     }
   }
 
-  async fetchTrades(since?: number): Promise<CryptoTransaction[]> {
+  async fetchTrades(since?: number): Promise<UniversalTransaction[]> {
     try {
       if (!this.exchange.has['fetchMyTrades']) {
         this.logger.debug(`Exchange ${this.exchangeId} does not support fetchMyTrades`);
@@ -204,7 +205,7 @@ export abstract class BaseCCXTAdapter extends BaseAdapter {
     }
   }
 
-  async fetchWithdrawals(since?: number): Promise<CryptoTransaction[]> {
+  async fetchWithdrawals(since?: number): Promise<UniversalTransaction[]> {
     try {
       if (!this.exchange.has['fetchWithdrawals']) {
         this.logger.debug(`Exchange ${this.exchangeId} does not support fetchWithdrawals`);
@@ -294,7 +295,7 @@ export abstract class BaseCCXTAdapter extends BaseAdapter {
    * Transform a single CCXT transaction to our standard format
    * Can be overridden by subclasses for exchange-specific transformation
    */
-  protected transformCCXTTransaction(transaction: CCXTTransaction, type: TransactionType): CryptoTransaction {
+  protected transformCCXTTransaction(transaction: CCXTTransaction, type: TransactionType): UniversalTransaction {
     return TransactionProcessor.fromCCXT(transaction, type, this.exchangeId);
   }
 
@@ -302,42 +303,17 @@ export abstract class BaseCCXTAdapter extends BaseAdapter {
    * Transform array of CCXT transactions to our standard format
    * Can be overridden by subclasses for exchange-specific transformation
    */
-  protected transformCCXTTransactions(transactions: CCXTTransaction[], type: TransactionType): CryptoTransaction[] {
+  protected transformCCXTTransactions(transactions: CCXTTransaction[], type: TransactionType): UniversalTransaction[] {
     return transactions
       .filter(tx => !TransactionProcessor.shouldFilterOut(tx))
       .map(tx => this.transformCCXTTransaction(tx, type));
   }
 
   protected async transformTransactions(
-    rawTxs: CryptoTransaction[],
+    rawTxs: UniversalTransaction[],
     params: UniversalFetchParams
   ): Promise<UniversalTransaction[]> {
-    // Transform CryptoTransaction to universal Transaction format
-    return rawTxs.map(tx => ({
-      amount: tx.amount,
-      datetime: tx.datetime || new Date(tx.timestamp).toISOString(),
-      fee: tx.fee,
-      from:
-        tx.info && typeof tx.info === 'object' && 'from' in tx.info && typeof tx.info.from === 'string'
-          ? tx.info.from
-          : undefined,
-      id: tx.id,
-      metadata: {
-        ...(isObject(tx.info) ? tx.info : {}),
-        originalTransactionType: tx.type,
-      },
-      network: 'exchange',
-      price: tx.price,
-      side: tx.side, // Include the side field directly
-      source: this.exchangeId,
-      status: tx.status || 'closed',
-      symbol: tx.symbol,
-      timestamp: tx.timestamp,
-      to:
-        tx.info && typeof tx.info === 'object' && 'to' in tx.info && typeof tx.info.to === 'string'
-          ? tx.info.to
-          : undefined,
-      type: tx.type,
-    }));
+    // Input is already in UniversalTransaction format, just return it
+    return rawTxs;
   }
 }

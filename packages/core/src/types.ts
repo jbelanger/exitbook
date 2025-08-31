@@ -6,35 +6,6 @@ export interface Money {
   currency: string;
 }
 
-/**
- * Universal transaction format that serves as the common abstraction layer across all transaction sources.
- * This interface provides a standardized representation for transactions from exchanges (CCXT, native, CSV)
- * and blockchain adapters, enabling unified processing throughout the application.
- *
- * Flow: BlockchainTransaction/ExchangeTransaction → CryptoTransaction → UniversalTransaction
- *
- * @example
- * // From exchange adapter
- * const cryptoTx = exchangeAdapter.fetchTrades()[0]; // Returns CryptoTransaction
- *
- * // From blockchain adapter
- * const blockchainTx = blockchainAdapter.getAddressTransactions()[0]; // Returns BlockchainTransaction
- * const cryptoTx = blockchainAdapter.convertToCryptoTransaction(blockchainTx, userAddress); // Returns CryptoTransaction
- */
-export interface CryptoTransaction {
-  amount: Money;
-  datetime?: string;
-  fee?: Money | undefined;
-  id: string;
-  info?: unknown; // Raw response data from source (exchange API response or blockchain transaction data)
-  price?: Money | undefined;
-  side?: 'buy' | 'sell' | undefined;
-  status?: TransactionStatus;
-  symbol?: string;
-  timestamp: number;
-  type: TransactionType;
-}
-
 export type TransactionType = 'trade' | 'deposit' | 'withdrawal' | 'order' | 'ledger' | 'transfer' | 'fee';
 
 export type TransactionStatus = 'pending' | 'open' | 'closed' | 'canceled' | 'failed' | 'ok';

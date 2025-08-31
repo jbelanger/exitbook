@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import type { UniversalBlockchainTransaction } from '../../../shared/types.ts';
 import { MempoolSpaceApiClient } from '../../api/MempoolSpaceApiClient.ts';
-import type { UniversalBlockchainTransaction } from '../../shared/types.ts';
 import type { AddressInfo, MempoolTransaction } from '../../types.ts';
 
 describe('MempoolSpaceProvider Integration', () => {
