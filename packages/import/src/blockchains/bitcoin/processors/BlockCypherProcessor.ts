@@ -95,37 +95,65 @@ export class BlockCypherProcessor extends BaseProviderProcessor<BlockCypherTrans
     const totalValue = Math.abs(totalValueChange);
     const fee = isOutgoing ? rawData.fees : 0;
 
-    // Determine from/to addresses (first relevant address found)
+    // Determine from/to addresses properly for transaction type mapping
     let fromAddress = '';
     let toAddress = '';
 
-    // For from address, look for wallet addresses in inputs
-    for (const input of rawData.inputs) {
-      if (input.addresses) {
-        for (const address of input.addresses) {
-          if (relevantAddresses.has(address)) {
-            fromAddress = address;
-            break;
+    if (isOutgoing) {
+      // Outgoing: wallet → external
+      // From address: first wallet address in inputs
+      for (const input of rawData.inputs) {
+        if (input.addresses) {
+          for (const address of input.addresses) {
+            if (relevantAddresses.has(address)) {
+              fromAddress = address;
+              break;
+            }
           }
+          if (fromAddress) break;
         }
-        if (fromAddress) break;
+      }
+      // To address: first external address in outputs
+      for (const output of rawData.outputs) {
+        if (output.addresses) {
+          for (const address of output.addresses) {
+            if (!relevantAddresses.has(address)) {
+              toAddress = address;
+              break;
+            }
+          }
+          if (toAddress) break;
+        }
+      }
+    } else if (isIncoming) {
+      // Incoming: external → wallet
+      // From address: first external address in inputs
+      for (const input of rawData.inputs) {
+        if (input.addresses) {
+          for (const address of input.addresses) {
+            if (!relevantAddresses.has(address)) {
+              fromAddress = address;
+              break;
+            }
+          }
+          if (fromAddress) break;
+        }
+      }
+      // To address: first wallet address in outputs
+      for (const output of rawData.outputs) {
+        if (output.addresses) {
+          for (const address of output.addresses) {
+            if (relevantAddresses.has(address)) {
+              toAddress = address;
+              break;
+            }
+          }
+          if (toAddress) break;
+        }
       }
     }
 
-    // For to address, look for wallet addresses in outputs
-    for (const output of rawData.outputs) {
-      if (output.addresses) {
-        for (const address of output.addresses) {
-          if (relevantAddresses.has(address)) {
-            toAddress = address;
-            break;
-          }
-        }
-        if (toAddress) break;
-      }
-    }
-
-    // Fallback to first addresses if no wallet addresses found
+    // Fallback to any address if specific logic didn't work
     if (!fromAddress && rawData.inputs.length > 0 && rawData.inputs[0]?.addresses?.length > 0) {
       fromAddress = rawData.inputs[0].addresses[0];
     }
