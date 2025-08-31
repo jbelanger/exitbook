@@ -69,7 +69,7 @@ export interface IRawDataRepository {
  * Uses the enhanced external_transaction_data table for storing raw data.
  */
 export class RawDataRepository implements IRawDataRepository {
-  private logger = getLogger('ExternalDataStore');
+  private logger = getLogger('RawDataRepository');
 
   constructor(private database: Database) {}
 

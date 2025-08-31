@@ -139,30 +139,17 @@ export class BittensorTransactionImporter extends BaseImporter<TaostatsTransacti
       }
     }
 
-    // Remove duplicates based on transaction hash/ID
-    const uniqueTransactions = new Map<string, ApiClientRawData<TaostatsTransaction>>();
-    for (const tx of allRawTransactions) {
-      const txId = this.getTransactionId(tx.rawData);
-      if (!uniqueTransactions.has(txId)) {
-        uniqueTransactions.set(txId, tx);
-      }
-    }
-
-    const deduplicatedTransactions = Array.from(uniqueTransactions.values());
-
     // Sort by timestamp or block number (newest first)
-    deduplicatedTransactions.sort((a, b) => {
+    allRawTransactions.sort((a, b) => {
       const timestampA = a.rawData.timestamp || a.rawData.block_number || 0;
       const timestampB = b.rawData.timestamp || b.rawData.block_number || 0;
       return timestampB - timestampA;
     });
 
-    this.logger.info(
-      `Bittensor transaction import completed - Total: ${allRawTransactions.length}, Unique: ${deduplicatedTransactions.length}`
-    );
+    this.logger.info(`Bittensor transaction import completed - Total: ${allRawTransactions.length}`);
 
     return {
-      rawData: deduplicatedTransactions,
+      rawData: allRawTransactions,
     };
   }
 }

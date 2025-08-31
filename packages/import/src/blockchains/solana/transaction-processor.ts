@@ -23,7 +23,7 @@ export class SolanaTransactionProcessor extends BaseProcessor<ApiClientRawData<S
   private processSingle(
     rawDataItem: StoredRawData<ApiClientRawData<SolanaRawTransactionData>>,
     sessionContext: ImportSessionMetadata
-  ): Result<UniversalTransaction | null, string> {
+  ): Result<UniversalTransaction[], string> {
     const apiClientRawData = rawDataItem.rawData;
     const { providerId, rawData } = apiClientRawData;
 
@@ -33,46 +33,64 @@ export class SolanaTransactionProcessor extends BaseProcessor<ApiClientRawData<S
       return err(`No processor found for provider: ${providerId}`);
     }
 
-    // Transform using the provider-specific processor
-    const transformResult = processor.transform(rawData, sessionContext);
+    const transactions: UniversalTransaction[] = [];
 
-    if (transformResult.isErr()) {
-      return err(`Transform failed for ${providerId}: ${transformResult.error}`);
+    // Process each individual transaction in the batch
+    for (let i = 0; i < rawData.normal.length; i++) {
+      // Create a single-transaction raw data for processing
+      const singleTransactionRawData = {
+        normal: [rawData.normal[i]],
+      };
+
+      // Transform using the provider-specific processor
+      const transformResult = processor.transform(singleTransactionRawData, sessionContext);
+
+      if (transformResult.isErr()) {
+        this.logger.warn(`Transform failed for ${providerId} transaction ${i}: ${transformResult.error}`);
+        continue; // Continue with other transactions
+      }
+
+      const blockchainTransaction = transformResult.value;
+
+      // Determine proper transaction type based on Solana transaction flow
+      const transactionType = this.mapTransactionType(blockchainTransaction, sessionContext);
+
+      // Convert UniversalBlockchainTransaction to UniversalTransaction
+      const universalTransaction: UniversalTransaction = {
+        amount: createMoney(blockchainTransaction.amount, blockchainTransaction.currency),
+        datetime: new Date(blockchainTransaction.timestamp).toISOString(),
+        fee: blockchainTransaction.feeAmount
+          ? createMoney(blockchainTransaction.feeAmount, blockchainTransaction.feeCurrency || 'SOL')
+          : createMoney(0, 'SOL'),
+        from: blockchainTransaction.from,
+        id: blockchainTransaction.id,
+        metadata: {
+          blockchain: 'solana',
+          blockHeight: blockchainTransaction.blockHeight,
+          blockId: blockchainTransaction.blockId,
+          providerId: blockchainTransaction.providerId,
+          tokenAddress: blockchainTransaction.tokenAddress,
+          tokenDecimals: blockchainTransaction.tokenDecimals,
+          tokenSymbol: blockchainTransaction.tokenSymbol,
+        },
+        source: 'solana',
+        status: blockchainTransaction.status === 'success' ? 'ok' : 'failed',
+        symbol: blockchainTransaction.currency,
+        timestamp: blockchainTransaction.timestamp,
+        to: blockchainTransaction.to,
+        type: transactionType,
+      };
+
+      // Log the transaction before adding to validation
+      this.logger.debug(
+        `Created UniversalTransaction - ID: ${universalTransaction.id}, Amount: ${JSON.stringify(universalTransaction.amount)}, Timestamp: ${universalTransaction.timestamp}, Status: ${universalTransaction.status}, Type: ${universalTransaction.type}, From: ${universalTransaction.from}, To: ${universalTransaction.to}`
+      );
+
+      transactions.push(universalTransaction);
+      this.logger.debug(`Successfully processed transaction ${universalTransaction.id} from ${providerId}`);
     }
 
-    const blockchainTransaction = transformResult.value;
-
-    // Determine proper transaction type based on Solana transaction flow
-    const transactionType = this.mapTransactionType(blockchainTransaction, sessionContext);
-
-    // Convert UniversalBlockchainTransaction to UniversalTransaction
-    const universalTransaction: UniversalTransaction = {
-      amount: createMoney(blockchainTransaction.amount, blockchainTransaction.currency),
-      datetime: new Date(blockchainTransaction.timestamp).toISOString(),
-      fee: blockchainTransaction.feeAmount
-        ? createMoney(blockchainTransaction.feeAmount, blockchainTransaction.feeCurrency || 'SOL')
-        : createMoney(0, 'SOL'),
-      from: blockchainTransaction.from,
-      id: blockchainTransaction.id,
-      metadata: {
-        blockchain: 'solana',
-        blockHeight: blockchainTransaction.blockHeight,
-        blockId: blockchainTransaction.blockId,
-        providerId: blockchainTransaction.providerId,
-        tokenAddress: blockchainTransaction.tokenAddress,
-        tokenDecimals: blockchainTransaction.tokenDecimals,
-        tokenSymbol: blockchainTransaction.tokenSymbol,
-      },
-      source: 'solana',
-      status: blockchainTransaction.status === 'success' ? 'ok' : 'failed',
-      symbol: blockchainTransaction.currency,
-      timestamp: blockchainTransaction.timestamp,
-      to: blockchainTransaction.to,
-      type: transactionType,
-    };
-
-    this.logger.debug(`Successfully processed transaction ${universalTransaction.id} from ${providerId}`);
-    return ok(universalTransaction);
+    return ok(transactions);
   }
 
   /**
@@ -94,13 +112,13 @@ export class SolanaTransactionProcessor extends BaseProcessor<ApiClientRawData<S
     for (const item of rawDataItems) {
       const result = this.processSingle(item, sessionContext);
       if (result.isErr()) {
-        this.logger.warn(`Failed to process transaction ${item.sourceTransactionId}: ${result.error}`);
-        continue; // Continue processing other transactions
+        this.logger.warn(`Failed to process transaction batch ${item.sourceTransactionId}: ${result.error}`);
+        continue; // Continue processing other transaction batches
       }
 
-      const transaction = result.value;
-      if (transaction) {
-        transactions.push(transaction);
+      const batchTransactions = result.value;
+      if (batchTransactions && batchTransactions.length > 0) {
+        transactions.push(...batchTransactions);
       }
     }
 

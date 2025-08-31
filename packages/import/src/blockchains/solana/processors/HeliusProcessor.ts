@@ -1,7 +1,7 @@
 import type { BlockchainTransaction } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
 import { createMoney, maskAddress } from '@crypto/shared-utils';
-import { type Result, ok } from 'neverthrow';
+import { type Result, err, ok } from 'neverthrow';
 
 import { BaseProviderProcessor } from '../../../shared/processors/base-provider-processor.ts';
 import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
@@ -134,6 +134,11 @@ export class HeliusProcessor extends BaseProviderProcessor<SolanaRawTransactionD
         const type: 'transfer_in' | 'transfer_out' = balanceChange > 0 ? 'transfer_in' : 'transfer_out';
         const fee = lamportsToSol(tx.meta.fee);
 
+        // Log transaction details for investigation
+        this.logger.debug(
+          `Processing SOL transaction - Hash: ${tx.transaction.signatures?.[0] || tx.signature}, PreBalance: ${preBalance}, PostBalance: ${postBalance}, RawChange: ${rawBalanceChange}, FeeAdjustment: ${feeAdjustment}, FinalBalanceChange: ${balanceChange}, Amount: ${amount.toNumber()}, Fee: ${fee.toNumber()}`
+        );
+
         // Skip transactions with no meaningful amount (pure fee transactions)
         // Only filter out if the balance change is exactly zero (pure fee transaction)
         if (Math.abs(balanceChange) === 0) {
@@ -185,14 +190,14 @@ export class HeliusProcessor extends BaseProviderProcessor<SolanaRawTransactionD
     const userAddress = addresses[0] || '';
 
     if (!rawData.normal || rawData.normal.length === 0) {
-      throw new Error('No transactions to transform from SolanaRawTransactionData');
+      return err('No transactions to transform from SolanaRawTransactionData');
     }
 
     const tx = rawData.normal[0];
     const processedTx = HeliusProcessor.transformTransaction(tx, userAddress);
 
     if (!processedTx) {
-      throw new Error('Unable to transform Helius transaction to UniversalTransaction');
+      return err('Transaction filtered out (likely fee-only transaction)');
     }
 
     const transaction: UniversalBlockchainTransaction = {

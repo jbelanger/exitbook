@@ -82,24 +82,6 @@ export class InjectiveTransactionImporter extends BaseImporter<InjectiveTransact
   }
 
   /**
-   * Remove duplicate transactions based on hash.
-   */
-  private removeDuplicateTransactions(
-    rawTransactions: ApiClientRawData<InjectiveTransaction>[]
-  ): ApiClientRawData<InjectiveTransaction>[] {
-    const uniqueTransactions = new Map<string, ApiClientRawData<InjectiveTransaction>>();
-
-    for (const rawTx of rawTransactions) {
-      const txHash = rawTx.rawData.hash;
-      if (!uniqueTransactions.has(txHash)) {
-        uniqueTransactions.set(txHash, rawTx);
-      }
-    }
-
-    return Array.from(uniqueTransactions.values());
-  }
-
-  /**
    * Validate source parameters and connectivity.
    */
   protected async canImportSpecific(params: ImportParams): Promise<boolean> {
@@ -156,19 +138,16 @@ export class InjectiveTransactionImporter extends BaseImporter<InjectiveTransact
       }
     }
 
-    // Remove duplicates based on hash
-    const uniqueTransactions = this.removeDuplicateTransactions(allSourcedTransactions);
-
     // Sort by block timestamp (newest first)
-    uniqueTransactions.sort((a, b) => {
+    allSourcedTransactions.sort((a, b) => {
       const timestampA = new Date(a.rawData.block_timestamp).getTime();
       const timestampB = new Date(b.rawData.block_timestamp).getTime();
       return timestampB - timestampA;
     });
 
-    this.logger.info(`Injective import completed: ${uniqueTransactions.length} unique transactions`);
+    this.logger.info(`Injective import completed: ${allSourcedTransactions.length} transactions`);
     return {
-      rawData: uniqueTransactions,
+      rawData: allSourcedTransactions,
     };
   }
 }

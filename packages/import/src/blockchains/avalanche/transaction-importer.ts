@@ -176,22 +176,14 @@ export class AvalancheTransactionImporter extends BaseImporter<AvalancheRawTrans
       allSourcedTransactions.push(...addressTransactions);
     }
 
-    // Remove duplicates and sort by timestamp
-    const uniqueTransactions = new Map<string, ApiClientRawData<AvalancheRawTransactionData>>();
-    for (const tx of allSourcedTransactions) {
-      const id = this.getTransactionId(tx.rawData);
-      if (!uniqueTransactions.has(id)) {
-        uniqueTransactions.set(id, tx);
-      }
-    }
-
-    const sortedTransactions = Array.from(uniqueTransactions.values()).sort((a, b) => {
+    // Sort by timestamp
+    const sortedTransactions = allSourcedTransactions.sort((a, b) => {
       const timestampA = parseInt(a.rawData.timeStamp);
       const timestampB = parseInt(b.rawData.timeStamp);
       return timestampB - timestampA;
     });
 
-    this.logger.info(`Total unique transactions imported: ${sortedTransactions.length}`);
+    this.logger.info(`Total transactions imported: ${sortedTransactions.length}`);
     return {
       rawData: sortedTransactions,
     };

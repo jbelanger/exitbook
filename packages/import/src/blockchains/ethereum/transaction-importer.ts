@@ -169,46 +169,8 @@ export class EthereumTransactionImporter extends BaseImporter<EthereumRawTransac
       }
     }
 
-    // Remove duplicates based on transaction hash
-    const uniqueRawData = allRawData.reduce((acc, item) => {
-      // Extract hash based on data type
-      let hash: string;
-      const data = item.rawData;
-
-      if ('hash' in data) {
-        hash = data.hash;
-      } else if ('transaction_hash' in data) {
-        hash = data.transaction_hash;
-      } else {
-        // If no hash available, keep the item (shouldn't happen with proper validation)
-        acc.push(item);
-        return acc;
-      }
-
-      // Check if we already have this transaction
-      const existingIndex = acc.findIndex(existing => {
-        const existingData = existing.rawData;
-        const existingHash =
-          'hash' in existingData
-            ? existingData.hash
-            : 'transaction_hash' in existingData
-              ? existingData.transaction_hash
-              : null;
-        return existingHash === hash;
-      });
-
-      if (existingIndex === -1) {
-        acc.push(item);
-      } else {
-        // Keep the first occurrence (could implement more sophisticated deduplication logic)
-        this.logger.debug(`Duplicate transaction hash detected: ${hash}`);
-      }
-
-      return acc;
-    }, [] as ApiClientRawData<EthereumRawTransactionData>[]);
-
     // Sort by timestamp if available (most recent first)
-    uniqueRawData.sort((a, b) => {
+    allRawData.sort((a, b) => {
       const getTimestamp = (data: EthereumRawTransactionData): number => {
         if ('metadata' in data && data.metadata?.blockTimestamp) {
           return new Date(data.metadata.blockTimestamp).getTime();
@@ -227,11 +189,11 @@ export class EthereumTransactionImporter extends BaseImporter<EthereumRawTransac
     });
 
     this.logger.info(
-      `Ethereum import completed - Total addresses: ${addresses.length}, Raw transactions collected: ${allRawData.length}, Unique transactions: ${uniqueRawData.length}`
+      `Ethereum import completed - Total addresses: ${addresses.length}, Raw transactions collected: ${allRawData.length}`
     );
 
     return {
-      rawData: uniqueRawData,
+      rawData: allRawData,
     };
   }
 }

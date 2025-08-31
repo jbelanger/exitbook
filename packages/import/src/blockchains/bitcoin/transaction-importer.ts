@@ -153,24 +153,6 @@ export class BitcoinTransactionImporter extends BaseImporter<BitcoinTransaction>
   }
 
   /**
-   * Remove duplicate transactions based on txid.
-   */
-  private removeDuplicateTransactions(
-    rawTransactions: ApiClientRawData<BitcoinTransaction>[]
-  ): ApiClientRawData<BitcoinTransaction>[] {
-    const uniqueTransactions = new Map<string, ApiClientRawData<BitcoinTransaction>>();
-
-    for (const rawTx of rawTransactions) {
-      const txId = this.getTransactionId(rawTx.rawData);
-      if (!uniqueTransactions.has(txId)) {
-        uniqueTransactions.set(txId, rawTx);
-      }
-    }
-
-    return Array.from(uniqueTransactions.values());
-  }
-
-  /**
    * Validate source parameters and connectivity.
    */
   protected async canImportSpecific(params: ImportParams): Promise<boolean> {
@@ -301,9 +283,6 @@ export class BitcoinTransactionImporter extends BaseImporter<BitcoinTransaction>
       }
     }
 
-    // Remove duplicates based on txid
-    const uniqueTransactions = this.removeDuplicateTransactions(allSourcedTransactions);
-
     // Get session metadata with derived addresses
     const derivedAddressesMetadata = this.getDerivedAddressesMetadata();
     const sessionMetadata: Record<string, unknown> = {};
@@ -314,10 +293,10 @@ export class BitcoinTransactionImporter extends BaseImporter<BitcoinTransaction>
       );
     }
 
-    this.logger.info(`Bitcoin import completed: ${uniqueTransactions.length} unique transactions`);
+    this.logger.info(`Bitcoin import completed: ${allSourcedTransactions.length} transactions`);
     return {
       metadata: Object.keys(sessionMetadata).length > 0 ? sessionMetadata : undefined,
-      rawData: uniqueTransactions,
+      rawData: allSourcedTransactions,
     };
   }
 }

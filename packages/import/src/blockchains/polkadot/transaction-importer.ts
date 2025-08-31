@@ -140,30 +140,17 @@ export class PolkadotTransactionImporter extends BaseImporter<SubscanTransfer> {
       }
     }
 
-    // Remove duplicates based on transaction hash
-    const uniqueTransactions = new Map<string, ApiClientRawData<SubscanTransfer>>();
-    for (const tx of allSourcedTransactions) {
-      const txId = this.getTransactionId(tx.rawData);
-      if (!uniqueTransactions.has(txId)) {
-        uniqueTransactions.set(txId, tx);
-      }
-    }
-
-    const deduplicatedTransactions = Array.from(uniqueTransactions.values());
-
     // Sort by timestamp (newest first)
-    deduplicatedTransactions.sort((a, b) => {
+    allSourcedTransactions.sort((a, b) => {
       const timestampA = a.rawData.block_timestamp || 0;
       const timestampB = b.rawData.block_timestamp || 0;
       return timestampB - timestampA;
     });
 
-    this.logger.info(
-      `Polkadot transaction import completed - Total: ${allSourcedTransactions.length}, Unique: ${deduplicatedTransactions.length}`
-    );
+    this.logger.info(`Polkadot transaction import completed - Total: ${allSourcedTransactions.length}`);
 
     return {
-      rawData: deduplicatedTransactions,
+      rawData: allSourcedTransactions,
     };
   }
 }

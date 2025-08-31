@@ -68,49 +68,6 @@ export class SolanaTransactionImporter extends BaseImporter<SolanaRawTransaction
   }
 
   /**
-   * Remove duplicate transactions based on signature.
-   */
-  private removeDuplicateTransactions(
-    rawTransactions: ApiClientRawData<SolanaRawTransactionData>[]
-  ): ApiClientRawData<SolanaRawTransactionData>[] {
-    const uniqueTransactions = new Map<string, ApiClientRawData<SolanaRawTransactionData>>();
-    const allSignatures = new Set<string>();
-
-    for (const rawTx of rawTransactions) {
-      const combinedKey = `${rawTx.providerId}`;
-
-      // Collect all signatures from this batch
-      const signatures = new Set<string>();
-      for (const tx of rawTx.rawData.normal) {
-        const signature = tx.transaction.signatures?.[0] || tx.signature;
-        if (signature && !allSignatures.has(signature)) {
-          signatures.add(signature);
-          allSignatures.add(signature);
-        }
-      }
-
-      // Only include transactions with unique signatures
-      if (signatures.size > 0) {
-        const filteredTransactions = rawTx.rawData.normal.filter(tx => {
-          const signature = tx.transaction.signatures?.[0] || tx.signature;
-          return signature && signatures.has(signature);
-        });
-
-        if (filteredTransactions.length > 0) {
-          uniqueTransactions.set(combinedKey, {
-            providerId: rawTx.providerId,
-            rawData: {
-              normal: filteredTransactions,
-            },
-          });
-        }
-      }
-    }
-
-    return Array.from(uniqueTransactions.values());
-  }
-
-  /**
    * Validate source parameters and connectivity.
    */
   protected async canImportSpecific(params: ImportParams): Promise<boolean> {
@@ -190,14 +147,11 @@ export class SolanaTransactionImporter extends BaseImporter<SolanaRawTransaction
       }
     }
 
-    // Remove duplicates based on transaction signature
-    const uniqueTransactions = this.removeDuplicateTransactions(allSourcedTransactions);
-
-    const totalTransactionCount = uniqueTransactions.reduce((acc, tx) => acc + tx.rawData.normal.length, 0);
-    this.logger.info(`Solana import completed: ${totalTransactionCount} unique transactions`);
+    const totalTransactionCount = allSourcedTransactions.reduce((acc, tx) => acc + tx.rawData.normal.length, 0);
+    this.logger.info(`Solana import completed: ${totalTransactionCount} transactions`);
 
     return {
-      rawData: uniqueTransactions,
+      rawData: allSourcedTransactions,
     };
   }
 }

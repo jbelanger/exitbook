@@ -37,7 +37,7 @@ export class ImporterFactory {
    */
   private static async createAvalancheImporter<T>(
     blockchainProviderManager: BlockchainProviderManager,
-    providerId: string
+    providerId: string | undefined
   ): Promise<IImporter<T>> {
     // Dynamic import to avoid circular dependencies
     const { AvalancheTransactionImporter } = await import('../../blockchains/avalanche/transaction-importer.ts');
@@ -51,7 +51,7 @@ export class ImporterFactory {
    */
   private static async createBitcoinImporter<T>(
     blockchainProviderManager: BlockchainProviderManager,
-    providerId: string
+    providerId: string | undefined
   ): Promise<IImporter<T>> {
     // Dynamic import to avoid circular dependencies
     const { BitcoinTransactionImporter } = await import('../../blockchains/bitcoin/transaction-importer.ts');
@@ -65,7 +65,7 @@ export class ImporterFactory {
    */
   private static async createBittensorImporter<T>(
     blockchainProviderManager: BlockchainProviderManager,
-    providerId: string
+    providerId: string | undefined
   ): Promise<IImporter<T>> {
     // Dynamic import to avoid circular dependencies
     const { BittensorTransactionImporter } = await import(
@@ -88,9 +88,7 @@ export class ImporterFactory {
       throw new Error(`Provider manager required for blockchain importer`);
     }
 
-    if (!providerId) {
-      throw new Error(`Provider ID required for blockchain importer: ${sourceId}`);
-    }
+    // providerId is optional - when not provided, importers will use all available providers
 
     switch (sourceId.toLowerCase()) {
       case 'bitcoin':
@@ -133,7 +131,7 @@ export class ImporterFactory {
    */
   private static async createEthereumImporter<T>(
     blockchainProviderManager: BlockchainProviderManager,
-    providerId: string
+    providerId: string | undefined
   ): Promise<IImporter<T>> {
     // Dynamic import to avoid circular dependencies
     const { EthereumTransactionImporter } = await import('../../blockchains/ethereum/transaction-importer.ts');
@@ -170,7 +168,7 @@ export class ImporterFactory {
    */
   private static async createInjectiveImporter<T>(
     blockchainProviderManager: BlockchainProviderManager,
-    providerId: string
+    providerId: string | undefined
   ): Promise<IImporter<T>> {
     // Dynamic import to avoid circular dependencies
     const { InjectiveTransactionImporter } = await import('../../blockchains/injective/transaction-importer.ts');
@@ -211,7 +209,7 @@ export class ImporterFactory {
    */
   private static async createPolkadotImporter<T>(
     blockchainProviderManager: BlockchainProviderManager,
-    providerId: string
+    providerId: string | undefined
   ): Promise<IImporter<T>> {
     // Dynamic import to avoid circular dependencies
     const { PolkadotTransactionImporter } = await import('../../blockchains/polkadot/transaction-importer.ts');
@@ -225,7 +223,7 @@ export class ImporterFactory {
    */
   private static async createSolanaImporter<T>(
     blockchainProviderManager: BlockchainProviderManager,
-    providerId: string
+    providerId: string | undefined
   ): Promise<IImporter<T>> {
     // Dynamic import to avoid circular dependencies
     const { SolanaTransactionImporter } = await import('../../blockchains/solana/transaction-importer.ts');
