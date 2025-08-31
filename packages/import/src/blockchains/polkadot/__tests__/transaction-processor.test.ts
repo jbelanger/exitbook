@@ -40,14 +40,17 @@ describe('PolkadotTransactionProcessor Integration', () => {
     transaction: SubscanTransfer,
     sourceAddress: string
   ): StoredRawData<ApiClientRawData<SubscanTransfer>> => ({
+    createdAt: Date.now(),
+    id: 1,
+    processingStatus: 'pending',
     rawData: {
       providerId: 'subscan',
       rawData: transaction,
       sourceAddress,
     },
-    source: 'polkadot',
+    sourceId: 'polkadot',
     sourceTransactionId: transaction.hash,
-    timestamp: Date.now(),
+    sourceType: 'blockchain',
   });
 
   describe('SS58 Address Variant Handling', () => {
@@ -65,14 +68,14 @@ describe('PolkadotTransactionProcessor Integration', () => {
       );
 
       expect(enrichedContext.derivedAddresses).toBeDefined();
-      expect(enrichedContext.derivedAddresses.length).toBeGreaterThan(0);
+      expect(enrichedContext.derivedAddresses?.length).toBeGreaterThan(0);
 
       // Should contain variants for both addresses
       expect(enrichedContext.derivedAddresses).toContain(polkadotAddress);
       expect(enrichedContext.derivedAddresses).toContain(kusamaAddress);
 
       // Should contain various SS58 format variants
-      expect(enrichedContext.derivedAddresses.length).toBeGreaterThanOrEqual(6);
+      expect(enrichedContext.derivedAddresses?.length).toBeGreaterThanOrEqual(6);
     });
 
     it('should handle multiple source addresses with different SS58 formats', () => {
@@ -97,7 +100,7 @@ describe('PolkadotTransactionProcessor Integration', () => {
       );
 
       expect(enrichedContext.derivedAddresses).toBeDefined();
-      expect(enrichedContext.derivedAddresses.length).toBeGreaterThan(0);
+      expect(enrichedContext.derivedAddresses?.length).toBeGreaterThan(0);
 
       // Should contain all address variants
       expect(enrichedContext.derivedAddresses).toContain(polkadotAddress);
@@ -105,7 +108,7 @@ describe('PolkadotTransactionProcessor Integration', () => {
       expect(enrichedContext.derivedAddresses).toContain(genericAddress);
 
       // Should generate more variants with more source addresses
-      expect(enrichedContext.derivedAddresses.length).toBeGreaterThanOrEqual(6);
+      expect(enrichedContext.derivedAddresses?.length).toBeGreaterThanOrEqual(6);
     });
 
     it('should deduplicate identical SS58 variants', () => {
@@ -127,7 +130,7 @@ describe('PolkadotTransactionProcessor Integration', () => {
 
       // Should not have duplicates
       const uniqueAddresses = new Set(enrichedContext.derivedAddresses);
-      expect(uniqueAddresses.size).toBe(enrichedContext.derivedAddresses.length);
+      expect(uniqueAddresses.size).toBe(enrichedContext.derivedAddresses?.length);
     });
 
     it('should handle invalid addresses gracefully', () => {
@@ -236,14 +239,17 @@ describe('PolkadotTransactionProcessor Integration', () => {
 
     it('should handle missing sourceAddress in raw data', async () => {
       const rawDataItem: StoredRawData<ApiClientRawData<SubscanTransfer>> = {
+        createdAt: Date.now(),
+        id: 1,
+        processingStatus: 'pending',
         rawData: {
           providerId: 'subscan',
           rawData: mockTransaction,
           // sourceAddress is missing
         } as ApiClientRawData<SubscanTransfer>,
-        source: 'polkadot',
+        sourceId: 'polkadot',
         sourceTransactionId: mockTransaction.hash,
-        timestamp: Date.now(),
+        sourceType: 'blockchain',
       };
 
       const rawDataItems = [rawDataItem];
