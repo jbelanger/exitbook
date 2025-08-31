@@ -85,22 +85,14 @@ export class EthereumTransactionProcessor extends BaseProcessor<ApiClientRawData
   }
 
   protected async processInternal(
-    rawDataItems: StoredRawData<ApiClientRawData<EthereumRawTransactionData>>[]
+    rawDataItems: StoredRawData<ApiClientRawData<EthereumRawTransactionData>>[],
+    sessionMetadata?: ImportSessionMetadata
   ): Promise<Result<UniversalTransaction[], string>> {
     const transactions: UniversalTransaction[] = [];
 
-    // Collect source addresses from raw data items to build session context
-    const sourceAddresses: string[] = [];
-    for (const item of rawDataItems) {
-      const apiClientRawData = item.rawData;
-      if (apiClientRawData.sourceAddress && !sourceAddresses.includes(apiClientRawData.sourceAddress)) {
-        sourceAddresses.push(apiClientRawData.sourceAddress);
-      }
-    }
-
-    // Create session context for Ethereum
-    const sessionContext: ImportSessionMetadata = {
-      addresses: sourceAddresses,
+    // Use provided session metadata or create default
+    const sessionContext: ImportSessionMetadata = sessionMetadata || {
+      addresses: [],
     };
 
     for (const item of rawDataItems) {

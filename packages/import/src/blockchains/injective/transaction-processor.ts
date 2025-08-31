@@ -82,22 +82,14 @@ export class InjectiveTransactionProcessor extends BaseProcessor<ApiClientRawDat
   }
 
   protected async processInternal(
-    rawDataItems: StoredRawData<ApiClientRawData<InjectiveTransaction>>[]
+    rawDataItems: StoredRawData<ApiClientRawData<InjectiveTransaction>>[],
+    sessionMetadata?: ImportSessionMetadata
   ): Promise<Result<UniversalTransaction[], string>> {
     const transactions: UniversalTransaction[] = [];
 
-    // Collect source addresses from raw data items to build session context
-    const sourceAddresses: string[] = [];
-    for (const item of rawDataItems) {
-      const apiClientRawData = item.rawData;
-      if (apiClientRawData.sourceAddress && !sourceAddresses.includes(apiClientRawData.sourceAddress)) {
-        sourceAddresses.push(apiClientRawData.sourceAddress);
-      }
-    }
-
-    // Create session context for Injective
-    const sessionContext: ImportSessionMetadata = {
-      addresses: sourceAddresses,
+    // Use provided session metadata or create default
+    const sessionContext: ImportSessionMetadata = sessionMetadata || {
+      addresses: [],
     };
 
     for (const item of rawDataItems) {

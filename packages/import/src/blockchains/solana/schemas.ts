@@ -57,12 +57,13 @@ export const HeliusTransactionSchema = z.object({
   blockTime: z.number().optional(),
   err: z.unknown().nullable(),
   meta: HeliusTransactionMetaSchema,
-  signature: z.string().min(1, 'Signature must not be empty'),
+  signature: z.string().min(1, 'Signature must not be empty').optional(),
   slot: z.number().nonnegative('Slot must be non-negative'),
   transaction: z.object({
     message: HeliusTransactionMessageSchema,
     signatures: z.array(z.string().min(1, 'Signature must not be empty')),
   }),
+  version: z.number().or(z.string()).optional(),
 });
 
 /**

@@ -82,29 +82,14 @@ export class PolkadotTransactionProcessor extends BaseProcessor<ApiClientRawData
   }
 
   protected async processInternal(
-    rawDataItems: StoredRawData<ApiClientRawData<SubscanTransfer>>[]
+    rawDataItems: StoredRawData<ApiClientRawData<SubscanTransfer>>[],
+    sessionMetadata?: ImportSessionMetadata
   ): Promise<Result<UniversalTransaction[], string>> {
     const transactions: UniversalTransaction[] = [];
 
-    // Build session context for Polkadot - collect addresses from metadata
-    const allAddresses: string[] = [];
-    for (const item of rawDataItems) {
-      if (item.metadata && typeof item.metadata === 'object') {
-        const metadata = item.metadata as Record<string, unknown>;
-        if (metadata.addresses && Array.isArray(metadata.addresses)) {
-          const itemAddresses = metadata.addresses as string[];
-          for (const addr of itemAddresses) {
-            if (!allAddresses.includes(addr)) {
-              allAddresses.push(addr);
-            }
-          }
-        }
-      }
-    }
-
-    // Create session context for Polkadot
-    const sessionContext: ImportSessionMetadata = {
-      addresses: allAddresses,
+    // Use provided session metadata or create default
+    const sessionContext: ImportSessionMetadata = sessionMetadata || {
+      addresses: [],
     };
 
     for (const item of rawDataItems) {

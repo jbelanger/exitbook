@@ -77,7 +77,10 @@ export abstract class BaseProcessor<TRawData> implements IProcessor<TRawData> {
     this.logger.info(`Processing ${importSession.rawDataItems.length} raw data items for ${this.sourceId}`);
 
     // Delegate to subclass for actual processing logic
-    const result = await this.processInternal(importSession.rawDataItems as StoredRawData<TRawData>[]);
+    const result = await this.processInternal(
+      importSession.rawDataItems as StoredRawData<TRawData>[],
+      importSession.sessionMetadata
+    );
 
     if (result.isErr()) {
       this.logger.error(`Processing failed for ${this.sourceId}: ${result.error}`);
@@ -110,7 +113,8 @@ export abstract class BaseProcessor<TRawData> implements IProcessor<TRawData> {
    * The base class handles logging, error handling, and validation.
    */
   protected abstract processInternal(
-    rawData: StoredRawData<TRawData>[]
+    rawData: StoredRawData<TRawData>[],
+    sessionMetadata?: ImportSessionMetadata
   ): Promise<Result<UniversalTransaction[], string>>;
 
   /**

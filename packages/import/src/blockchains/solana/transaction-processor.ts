@@ -84,23 +84,13 @@ export class SolanaTransactionProcessor extends BaseProcessor<ApiClientRawData<S
   }
 
   protected async processInternal(
-    rawDataItems: StoredRawData<ApiClientRawData<SolanaRawTransactionData>>[]
+    rawDataItems: StoredRawData<ApiClientRawData<SolanaRawTransactionData>>[],
+    sessionMetadata?: ImportSessionMetadata
   ): Promise<Result<UniversalTransaction[], string>> {
     const transactions: UniversalTransaction[] = [];
 
-    // Collect source addresses from raw data items to build session context
-    const sourceAddresses: string[] = [];
-    for (const item of rawDataItems) {
-      const apiClientRawData = item.rawData;
-      if (apiClientRawData.sourceAddress && !sourceAddresses.includes(apiClientRawData.sourceAddress)) {
-        sourceAddresses.push(apiClientRawData.sourceAddress);
-      }
-    }
-
-    // Create session context for Solana
-    const sessionContext: ImportSessionMetadata = {
-      addresses: sourceAddresses,
-    };
+    // Use session metadata directly - no fallback logic
+    const sessionContext: ImportSessionMetadata = sessionMetadata || {};
 
     for (const item of rawDataItems) {
       const result = this.processSingle(item, sessionContext);

@@ -183,7 +183,8 @@ export class BitcoinTransactionProcessor extends BaseProcessor<ApiClientRawData<
    * Legacy method for backward compatibility - delegates to session-based processing.
    */
   protected async processInternal(
-    rawDataItems: StoredRawData<ApiClientRawData<BitcoinTransaction>>[]
+    rawDataItems: StoredRawData<ApiClientRawData<BitcoinTransaction>>[],
+    sessionMetadata?: ImportSessionMetadata
   ): Promise<Result<UniversalTransaction[], string>> {
     // Create a minimal session for backward compatibility
     const legacySession: ProcessingImportSession = {
