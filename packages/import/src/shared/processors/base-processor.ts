@@ -6,6 +6,7 @@ import { getLogger } from '@crypto/shared-logger';
 import { type Result } from 'neverthrow';
 
 import type { UniversalBlockchainTransaction } from '../../blockchains/shared/types.ts';
+import { detectScamFromSymbol, detectScamToken } from '../utils/scam-detection.ts';
 import type { IProcessor, ImportSessionMetadata, ProcessingImportSession } from './interfaces.ts';
 
 /**
@@ -17,6 +18,37 @@ export abstract class BaseProcessor<TRawData> implements IProcessor<TRawData> {
 
   constructor(protected sourceId: string) {
     this.logger = getLogger(`${sourceId}Processor`);
+  }
+
+  /**
+   * Apply scam detection to transactions using symbol-based detection.
+   * Can be overridden by subclasses for more sophisticated detection.
+   */
+  protected applyScamDetection(transactions: UniversalTransaction[]): UniversalTransaction[] {
+    return transactions.map(transaction => {
+      // Skip if transaction already has a note
+      if (transaction.note) {
+        return transaction;
+      }
+
+      // Apply scam detection based on symbol
+      if (transaction.symbol) {
+        const scamResult = detectScamFromSymbol(transaction.symbol);
+        if (scamResult.isScam) {
+          return {
+            ...transaction,
+            note: {
+              message: `⚠️ Potential scam token: ${scamResult.reason}`,
+              metadata: { scamReason: scamResult.reason },
+              severity: 'warning' as const,
+              type: 'SCAM_TOKEN',
+            },
+          };
+        }
+      }
+
+      return transaction;
+    });
   }
 
   canProcess(sourceId: string, sourceType: string): boolean {
@@ -103,9 +135,12 @@ export abstract class BaseProcessor<TRawData> implements IProcessor<TRawData> {
       );
     }
 
+    // Apply scam detection to valid transactions
+    const transactionsWithScamDetection = this.applyScamDetection(valid);
+
     this.logger.info(`Processing completed for ${this.sourceId}: ${valid.length} valid, ${invalid.length} invalid`);
 
-    return valid;
+    return transactionsWithScamDetection;
   }
 
   /**

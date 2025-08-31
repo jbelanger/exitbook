@@ -1,5 +1,5 @@
 import type { BalanceSnapshot, BalanceVerificationRecord } from '@crypto/balance';
-import type { EnhancedTransaction } from '@crypto/core';
+import type { UniversalTransaction } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
 import { Decimal } from 'decimal.js';
 import * as fs from 'fs';
@@ -7,7 +7,6 @@ import * as path from 'path';
 import sqlite3Module from 'sqlite3';
 
 import type {
-  CreateImportSessionRequest,
   CreateWalletAddressRequest,
   ImportSession,
   ImportSessionQuery,
@@ -16,7 +15,7 @@ import type {
   UpdateImportSessionRequest,
   UpdateWalletAddressRequest,
   WalletAddress,
-  WalletAddressQuery,
+  WalletAddressQuery
 } from '../types/data-types.ts';
 import type { DatabaseStats, ImportSessionRow, SQLParam, StatRow, TransactionCountRow } from '../types/database-types.js';
 
@@ -1158,12 +1157,12 @@ export class Database {
   }
 
   // Transaction operations
-  async saveTransaction(transaction: EnhancedTransaction): Promise<void> {
+  async saveTransaction(transaction: UniversalTransaction): Promise<void> {
     return new Promise((resolve, reject) => {
       const stmt = this.db.prepare(`
         INSERT OR REPLACE INTO transactions 
-        (id, exchange, type, timestamp, datetime, symbol, amount, amount_currency, side, price, price_currency, fee_cost, fee_currency, status, raw_data, hash, verified, note_type, note_message, note_severity, note_metadata)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (id, exchange, type, timestamp, datetime, symbol, amount, amount_currency, side, price, price_currency, fee_cost, fee_currency, status, from_address, to_address, raw_data, hash, verified, note_type, note_message, note_severity, note_metadata)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       const rawDataJson = JSON.stringify(transaction);
@@ -1205,9 +1204,11 @@ export class Database {
           typeof transaction.fee === 'object' ? moneyToDbString(transaction.fee) : null,
           typeof transaction.fee === 'object' ? transaction.fee.currency : null,
           transaction.status || null,
+          transaction.from || null,
+          transaction.to || null,
           rawDataJson,
-          transaction.hash,
-          transaction.verified ? 1 : 0,
+          transaction.metadata?.hash || `${transaction.source}-${transaction.id}`,
+          transaction.metadata?.verified ? 1 : 0,
           transaction.note?.type || null,
           transaction.note?.message || null,
           transaction.note?.severity || null,
@@ -1226,7 +1227,7 @@ export class Database {
     });
   }
 
-  async saveTransactions(transactions: EnhancedTransaction[]): Promise<number> {
+  async saveTransactions(transactions: UniversalTransaction[]): Promise<number> {
     return new Promise((resolve, reject) => {
       let saved = 0;
 
@@ -1235,8 +1236,8 @@ export class Database {
 
         const stmt = this.db.prepare(`
           INSERT OR IGNORE INTO transactions 
-          (id, exchange, type, timestamp, datetime, symbol, amount, amount_currency, side, price, price_currency, fee_cost, fee_currency, status, wallet_id, raw_data, hash, verified, note_type, note_message, note_severity, note_metadata)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          (id, exchange, type, timestamp, datetime, symbol, amount, amount_currency, side, price, price_currency, fee_cost, fee_currency, status, from_address, to_address, wallet_id, raw_data, hash, verified, note_type, note_message, note_severity, note_metadata)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         for (const transaction of transactions) {
@@ -1282,10 +1283,12 @@ export class Database {
               typeof transaction.fee === 'object' ? moneyToDbString(transaction.fee) : null,
               typeof transaction.fee === 'object' ? transaction.fee.currency : null,
               transaction.status || null,
+              transaction.from || null,
+              transaction.to || null,
               walletId,
               rawDataJson,
-              transaction.hash,
-              transaction.verified ? 1 : 0,
+              transaction.metadata?.hash || `${transaction.source}-${transaction.id}`,
+              transaction.metadata?.verified ? 1 : 0,
               transaction.note?.type || null,
               transaction.note?.message || null,
               transaction.note?.severity || null,
@@ -1411,29 +1414,6 @@ export class Database {
       });
 
       stmt.finalize();
-    });
-  }
-
-  async updateTransactionAddresses(
-    transactionId: string,
-    fromAddress?: string,
-    toAddress?: string,
-    walletId?: number
-  ): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const query = `
-        UPDATE transactions 
-        SET from_address = ?, to_address = ?, wallet_id = ?
-        WHERE id = ?
-      `;
-
-      this.db.run(query, [fromAddress, toAddress, walletId, transactionId], err => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve();
-        }
-      });
     });
   }
 

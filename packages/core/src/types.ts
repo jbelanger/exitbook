@@ -11,7 +11,7 @@ export interface Money {
  * This interface provides a standardized representation for transactions from exchanges (CCXT, native, CSV)
  * and blockchain adapters, enabling unified processing throughout the application.
  *
- * Flow: BlockchainTransaction/ExchangeTransaction → CryptoTransaction → EnhancedTransaction
+ * Flow: BlockchainTransaction/ExchangeTransaction → CryptoTransaction → UniversalTransaction
  *
  * @example
  * // From exchange adapter
@@ -38,21 +38,6 @@ export interface CryptoTransaction {
 export type TransactionType = 'trade' | 'deposit' | 'withdrawal' | 'order' | 'ledger' | 'transfer' | 'fee';
 
 export type TransactionStatus = 'pending' | 'open' | 'closed' | 'canceled' | 'failed' | 'ok';
-
-export interface EnhancedTransaction extends CryptoTransaction {
-  /** Unique hash for deduplication, generated from transaction properties and source */
-  hash: string;
-  /** Timestamp when transaction was imported into the system */
-  importedAt: number;
-  /** Optional annotation for scam detection, warnings, or classification */
-  note?: TransactionNote;
-  /** Original raw data from source for debugging and compatibility */
-  originalData?: unknown;
-  /** Exchange ID or blockchain identifier (e.g., 'kucoin', 'ethereum', 'bitcoin') */
-  source: string;
-  /** Whether transaction has been verified against live exchange/blockchain data */
-  verified?: boolean;
-}
 
 // Transaction note interface
 export interface TransactionNote {
@@ -344,6 +329,7 @@ export interface UniversalTransaction {
 
   metadata: Record<string, unknown>;
   network?: string | undefined; // e.g., 'mainnet'
+  note?: TransactionNote | undefined; // Scam detection, warnings, classification
   price?: Money | undefined;
   side?: 'buy' | 'sell' | undefined; // Trade side for balance calculations
 

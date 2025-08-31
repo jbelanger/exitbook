@@ -332,9 +332,7 @@ export class TransactionIngestionService {
 
       for (const transaction of transactions) {
         try {
-          await this.database.saveTransaction(
-            transaction as unknown as Parameters<typeof this.database.saveTransaction>[0]
-          ); // Cast needed for enhanced transaction type
+          await this.database.saveTransaction(transaction);
           savedCount++;
         } catch (error) {
           failed++;
