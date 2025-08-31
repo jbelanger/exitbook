@@ -6,7 +6,7 @@ import { type Result, err, ok } from 'neverthrow';
 
 import type { IDependencyContainer } from '../../shared/common/interfaces.ts';
 import { BaseProcessor } from '../../shared/processors/base-processor.ts';
-import type { ApiClientRawData } from '../../shared/processors/interfaces.ts';
+import type { ApiClientRawData, ImportSessionMetadata } from '../../shared/processors/interfaces.ts';
 import { ProcessorFactory } from '../../shared/processors/processor-registry.ts';
 // Import processors to trigger registration
 import './processors/SubstrateProcessor.ts';
@@ -23,7 +23,8 @@ export class PolkadotTransactionProcessor extends BaseProcessor<ApiClientRawData
   }
 
   private processSingle(
-    rawDataItem: StoredRawData<ApiClientRawData<SubscanTransfer>>
+    rawDataItem: StoredRawData<ApiClientRawData<SubscanTransfer>>,
+    sessionContext: ImportSessionMetadata
   ): Result<UniversalTransaction | null, string> {
     const apiClientRawData = rawDataItem.rawData;
     const { providerId, rawData } = apiClientRawData;
@@ -34,24 +35,6 @@ export class PolkadotTransactionProcessor extends BaseProcessor<ApiClientRawData
       return err(`No processor found for provider: ${providerId}`);
     }
 
-    // Create session context for Polkadot (uses addresses field from metadata)
-    const addresses: string[] = [];
-    if (rawDataItem.metadata && typeof rawDataItem.metadata === 'object') {
-      const metadata = rawDataItem.metadata as Record<string, unknown>;
-      if (metadata.addresses && Array.isArray(metadata.addresses)) {
-        addresses.push(...(metadata.addresses as string[]));
-      }
-    }
-
-    // If no addresses in metadata, we can't determine transaction direction
-    if (addresses.length === 0) {
-      this.logger.warn(`No addresses found in metadata for transaction ${rawDataItem.sourceTransactionId}`);
-      // We can still process the transaction, but with limited context
-      addresses.push(''); // Empty address as fallback
-    }
-
-    const sessionContext = { addresses };
-
     // Transform using the provider-specific processor
     const transformResult = processor.transform(rawData, sessionContext);
 
@@ -60,6 +43,9 @@ export class PolkadotTransactionProcessor extends BaseProcessor<ApiClientRawData
     }
 
     const blockchainTransaction = transformResult.value;
+
+    // Determine proper transaction type based on Polkadot transaction flow
+    const transactionType = this.mapTransactionType(blockchainTransaction, sessionContext);
 
     // Convert UniversalBlockchainTransaction to UniversalTransaction
     const universalTransaction: UniversalTransaction = {
@@ -81,7 +67,7 @@ export class PolkadotTransactionProcessor extends BaseProcessor<ApiClientRawData
       symbol: blockchainTransaction.currency,
       timestamp: blockchainTransaction.timestamp,
       to: blockchainTransaction.to,
-      type: 'transfer',
+      type: transactionType,
     };
 
     this.logger.debug(`Successfully processed transaction ${universalTransaction.id} from ${providerId}`);
@@ -100,8 +86,29 @@ export class PolkadotTransactionProcessor extends BaseProcessor<ApiClientRawData
   ): Promise<Result<UniversalTransaction[], string>> {
     const transactions: UniversalTransaction[] = [];
 
+    // Build session context for Polkadot - collect addresses from metadata
+    const allAddresses: string[] = [];
     for (const item of rawDataItems) {
-      const result = this.processSingle(item);
+      if (item.metadata && typeof item.metadata === 'object') {
+        const metadata = item.metadata as Record<string, unknown>;
+        if (metadata.addresses && Array.isArray(metadata.addresses)) {
+          const itemAddresses = metadata.addresses as string[];
+          for (const addr of itemAddresses) {
+            if (!allAddresses.includes(addr)) {
+              allAddresses.push(addr);
+            }
+          }
+        }
+      }
+    }
+
+    // Create session context for Polkadot
+    const sessionContext: ImportSessionMetadata = {
+      addresses: allAddresses,
+    };
+
+    for (const item of rawDataItems) {
+      const result = this.processSingle(item, sessionContext);
       if (result.isErr()) {
         this.logger.warn(`Failed to process transaction ${item.sourceTransactionId}: ${result.error}`);
         continue; // Continue processing other transactions

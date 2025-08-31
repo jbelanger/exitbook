@@ -80,41 +80,6 @@ export class BitcoinTransactionProcessor extends BaseProcessor<ApiClientRawData<
   }
 
   /**
-   * Map blockchain transaction type to proper UniversalTransaction type based on fund direction.
-   */
-  private mapTransactionType(
-    blockchainTransaction: UniversalBlockchainTransaction,
-    sessionContext: ImportSessionMetadata
-  ): TransactionType {
-    const { from, to } = blockchainTransaction;
-    const allWalletAddresses = new Set([
-      ...(sessionContext.addresses || []),
-      ...(sessionContext.derivedAddresses || []),
-    ]);
-
-    const isFromWallet = from && allWalletAddresses.has(from);
-    const isToWallet = to && allWalletAddresses.has(to);
-
-    // Determine transaction type based on fund flow direction
-    if (isFromWallet && isToWallet) {
-      // Internal transfer between wallet addresses
-      return 'transfer';
-    } else if (!isFromWallet && isToWallet) {
-      // Funds coming into wallet from external source
-      return 'deposit';
-    } else if (isFromWallet && !isToWallet) {
-      // Funds going out of wallet to external address
-      return 'withdrawal';
-    } else {
-      // Neither from nor to wallet addresses - shouldn't happen but default to transfer
-      this.logger.warn(
-        `Unable to determine transaction direction for ${blockchainTransaction.id}: from=${from}, to=${to}, wallet addresses: ${Array.from(allWalletAddresses).join(', ')}`
-      );
-      return 'transfer';
-    }
-  }
-
-  /**
    * Process a single transaction with shared session context.
    */
   private processSingleWithContext(

@@ -6,7 +6,7 @@ import { type Result, err, ok } from 'neverthrow';
 
 import type { IDependencyContainer } from '../../shared/common/interfaces.ts';
 import { BaseProcessor } from '../../shared/processors/base-processor.ts';
-import type { ApiClientRawData } from '../../shared/processors/interfaces.ts';
+import type { ApiClientRawData, ImportSessionMetadata } from '../../shared/processors/interfaces.ts';
 import { ProcessorFactory } from '../../shared/processors/processor-registry.ts';
 import type { SolanaRawTransactionData } from './clients/HeliusApiClient.ts';
 import './processors/index.ts';
@@ -22,7 +22,8 @@ export class SolanaTransactionProcessor extends BaseProcessor<ApiClientRawData<S
   }
 
   private processSingle(
-    rawDataItem: StoredRawData<ApiClientRawData<SolanaRawTransactionData>>
+    rawDataItem: StoredRawData<ApiClientRawData<SolanaRawTransactionData>>,
+    sessionContext: ImportSessionMetadata
   ): Result<UniversalTransaction | null, string> {
     const apiClientRawData = rawDataItem.rawData;
     const { providerId, rawData } = apiClientRawData;
@@ -33,11 +34,6 @@ export class SolanaTransactionProcessor extends BaseProcessor<ApiClientRawData<S
       return err(`No processor found for provider: ${providerId}`);
     }
 
-    // Create session context for Solana (uses addresses field)
-    const sessionContext = {
-      addresses: apiClientRawData.sourceAddress ? [apiClientRawData.sourceAddress] : [],
-    };
-
     // Transform using the provider-specific processor
     const transformResult = processor.transform(rawData, sessionContext);
 
@@ -46,6 +42,9 @@ export class SolanaTransactionProcessor extends BaseProcessor<ApiClientRawData<S
     }
 
     const blockchainTransaction = transformResult.value;
+
+    // Determine proper transaction type based on Solana transaction flow
+    const transactionType = this.mapTransactionType(blockchainTransaction, sessionContext);
 
     // Convert UniversalBlockchainTransaction to UniversalTransaction
     const universalTransaction: UniversalTransaction = {
@@ -70,7 +69,7 @@ export class SolanaTransactionProcessor extends BaseProcessor<ApiClientRawData<S
       symbol: blockchainTransaction.currency,
       timestamp: blockchainTransaction.timestamp,
       to: blockchainTransaction.to,
-      type: blockchainTransaction.type === 'token_transfer' ? 'transfer' : 'transfer',
+      type: transactionType,
     };
 
     this.logger.debug(`Successfully processed transaction ${universalTransaction.id} from ${providerId}`);
@@ -89,8 +88,22 @@ export class SolanaTransactionProcessor extends BaseProcessor<ApiClientRawData<S
   ): Promise<Result<UniversalTransaction[], string>> {
     const transactions: UniversalTransaction[] = [];
 
+    // Collect source addresses from raw data items to build session context
+    const sourceAddresses: string[] = [];
     for (const item of rawDataItems) {
-      const result = this.processSingle(item);
+      const apiClientRawData = item.rawData;
+      if (apiClientRawData.sourceAddress && !sourceAddresses.includes(apiClientRawData.sourceAddress)) {
+        sourceAddresses.push(apiClientRawData.sourceAddress);
+      }
+    }
+
+    // Create session context for Solana
+    const sessionContext: ImportSessionMetadata = {
+      addresses: sourceAddresses,
+    };
+
+    for (const item of rawDataItems) {
+      const result = this.processSingle(item, sessionContext);
       if (result.isErr()) {
         this.logger.warn(`Failed to process transaction ${item.sourceTransactionId}: ${result.error}`);
         continue; // Continue processing other transactions
