@@ -18,7 +18,7 @@ export class BalanceRepository {
     return new Promise((resolve, reject) => {
       const query = `
         SELECT 
-          exchange,
+          source_id,
           symbol,
           type,
           amount,
@@ -30,7 +30,7 @@ export class BalanceRepository {
           fee_currency,
           raw_data
         FROM transactions 
-        WHERE exchange = ?
+        WHERE source_id = ?
         ORDER BY timestamp ASC
       `;
 
