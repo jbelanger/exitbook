@@ -82,27 +82,45 @@ export class MempoolSpaceProcessor extends BaseProviderProcessor<MempoolTransact
     const totalValue = Math.abs(totalValueChange);
     const fee = isOutgoing ? rawData.fee : 0;
 
-    // Determine from/to addresses (first relevant address found)
+    // Determine from/to addresses properly for transaction type mapping
     let fromAddress = '';
     let toAddress = '';
 
-    // For from address, look for wallet addresses in inputs
-    for (const input of rawData.vin) {
-      if (input.prevout?.scriptpubkey_address && relevantAddresses.has(input.prevout.scriptpubkey_address)) {
-        fromAddress = input.prevout.scriptpubkey_address;
-        break;
+    if (isOutgoing) {
+      // Outgoing: wallet → external
+      // From address: first wallet address in inputs
+      for (const input of rawData.vin) {
+        if (input.prevout?.scriptpubkey_address && relevantAddresses.has(input.prevout.scriptpubkey_address)) {
+          fromAddress = input.prevout.scriptpubkey_address;
+          break;
+        }
+      }
+      // To address: first external address in outputs
+      for (const output of rawData.vout) {
+        if (output.scriptpubkey_address && !relevantAddresses.has(output.scriptpubkey_address)) {
+          toAddress = output.scriptpubkey_address;
+          break;
+        }
+      }
+    } else if (isIncoming) {
+      // Incoming: external → wallet
+      // From address: first external address in inputs
+      for (const input of rawData.vin) {
+        if (input.prevout?.scriptpubkey_address && !relevantAddresses.has(input.prevout.scriptpubkey_address)) {
+          fromAddress = input.prevout.scriptpubkey_address;
+          break;
+        }
+      }
+      // To address: first wallet address in outputs
+      for (const output of rawData.vout) {
+        if (output.scriptpubkey_address && relevantAddresses.has(output.scriptpubkey_address)) {
+          toAddress = output.scriptpubkey_address;
+          break;
+        }
       }
     }
 
-    // For to address, look for wallet addresses in outputs
-    for (const output of rawData.vout) {
-      if (output.scriptpubkey_address && relevantAddresses.has(output.scriptpubkey_address)) {
-        toAddress = output.scriptpubkey_address;
-        break;
-      }
-    }
-
-    // Fallback to first addresses if no wallet addresses found
+    // Fallback to any address if specific logic didn't work
     if (!fromAddress && rawData.vin.length > 0 && rawData.vin[0]?.prevout?.scriptpubkey_address) {
       fromAddress = rawData.vin[0].prevout.scriptpubkey_address;
     }
