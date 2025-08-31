@@ -31,10 +31,16 @@ export const InjectiveGasFeeSchema = z.object({
 export const InjectiveMessageValueSchema = z.object({
   // Common fields across message types
   amount: z.union([z.array(InjectiveAmountSchema), z.string()]).optional(),
+  block_height: z.string().optional(),
+  cosmos_receiver: z.string().optional(),
+  data: z.string().optional(),
   ethereum_receiver: z.string().optional(),
+  ethereum_sender: z.string().optional(),
+  event_nonce: z.string().optional(), // For Peggy bridge deposits
   from_address: z.string().optional(),
   injective_receiver: z.string().optional(),
   memo: z.string().optional(),
+  orchestrator: z.string().optional(),
   receiver: z.string().optional(),
   sender: z.string().optional(),
   source_channel: z.string().optional(),

@@ -30,6 +30,7 @@ export class InjectiveExplorerProcessor extends BaseProviderProcessor<InjectiveT
     sessionContext: ImportSessionMetadata
   ): Result<UniversalBlockchainTransaction[], string> {
     const timestamp = new Date(rawData.block_timestamp).getTime();
+
     // Extract addresses from rich session context
     const addresses = sessionContext.addresses || [];
     const relevantAddresses = new Set(addresses);
@@ -59,6 +60,7 @@ export class InjectiveExplorerProcessor extends BaseProviderProcessor<InjectiveT
     let isRelevantTransaction = false;
     let isIncoming = false;
     let isOutgoing = false;
+    let eventNonce: string | undefined;
 
     for (const message of rawData.messages) {
       // Handle bank transfer messages
@@ -109,16 +111,20 @@ export class InjectiveExplorerProcessor extends BaseProviderProcessor<InjectiveT
       // Handle Peggy bridge deposit messages (when funds come from Ethereum)
       else if (message.type === '/injective.peggy.v1.MsgDepositClaim') {
         const messageValue = message.value as InjectiveMessageValue & {
+          cosmos_receiver?: string;
           ethereum_receiver?: string;
-          injective_receiver?: string;
+          ethereum_sender?: string;
+          event_nonce?: string;
         };
+
         if (
           (messageValue.ethereum_receiver && relevantAddresses.has(messageValue.ethereum_receiver)) ||
-          (messageValue.injective_receiver && relevantAddresses.has(messageValue.injective_receiver))
+          (messageValue.cosmos_receiver && relevantAddresses.has(messageValue.cosmos_receiver))
         ) {
           isRelevantTransaction = true;
           isIncoming = true;
-          to = messageValue.injective_receiver || messageValue.ethereum_receiver || '';
+          to = messageValue.cosmos_receiver || messageValue.ethereum_receiver || '';
+          eventNonce = messageValue.event_nonce;
 
           // Extract amount from the deposit claim if available
           if (messageValue.amount && messageValue.token_contract) {
@@ -149,11 +155,22 @@ export class InjectiveExplorerProcessor extends BaseProviderProcessor<InjectiveT
       return err('Unable to determine transaction type - neither incoming nor outgoing flags set');
     }
 
+    // For Peggy deposits, use event_nonce as the unique identifier to deduplicate validator consensus votes
+    // Fall back to claim_id from transaction level if event_nonce is not available
+    let peggyId: string | undefined;
+    if (eventNonce) {
+      peggyId = eventNonce;
+    } else if (rawData.claim_id && Array.isArray(rawData.claim_id) && rawData.claim_id.length > 0) {
+      peggyId = String(rawData.claim_id[0]);
+    }
+
+    const transactionId = peggyId ? `peggy-deposit-${peggyId}` : rawData.hash;
+
     const transaction: UniversalBlockchainTransaction = {
       amount,
       currency,
       from,
-      id: rawData.hash,
+      id: transactionId,
       providerId: 'injective-explorer',
       status: rawData.code === 0 ? 'success' : 'failed',
       timestamp,
