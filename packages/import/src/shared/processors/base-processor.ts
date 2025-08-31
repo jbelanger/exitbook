@@ -6,7 +6,7 @@ import { getLogger } from '@crypto/shared-logger';
 import { type Result } from 'neverthrow';
 
 import type { UniversalBlockchainTransaction } from '../../blockchains/shared/types.ts';
-import { detectScamFromSymbol, detectScamToken } from '../utils/scam-detection.ts';
+import { detectScamFromSymbol } from '../utils/scam-detection.ts';
 import type { IProcessor, ImportSessionMetadata, ProcessingImportSession } from './interfaces.ts';
 
 /**
