@@ -3,13 +3,13 @@ import type { Database } from '../storage/database.ts';
 import type { StoredRawData } from '../types/data-types.ts';
 
 export interface SaveRawDataOptions {
-  importSessionId?: string | undefined;
+  importSessionId?: number | undefined;
   metadata?: unknown;
   providerId?: string | undefined;
 }
 
 export interface LoadRawDataFilters {
-  importSessionId?: string | undefined;
+  importSessionId?: number | undefined;
   processingStatus?: 'pending' | 'processed' | 'failed' | undefined;
   providerId?: string | undefined;
   since?: number | undefined;

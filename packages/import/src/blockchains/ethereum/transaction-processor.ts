@@ -1,4 +1,4 @@
-import type { UniversalTransaction } from '@crypto/core';
+import type { TransactionType, UniversalTransaction } from '@crypto/core';
 // Import processors to trigger registration
 import type { StoredRawData } from '@crypto/data';
 import { createMoney } from '@crypto/shared-utils';
@@ -49,8 +49,19 @@ export class EthereumTransactionProcessor extends BaseProcessor<ApiClientRawData
     // Ethereum processors return array with single transaction
     const blockchainTransaction = blockchainTransactions[0];
 
+    // Debug logging to understand what type we're getting
+    this.logger.debug(
+      `Processing transaction ${blockchainTransaction.id} with type: ${blockchainTransaction.type}, currency: ${blockchainTransaction.currency}, tokenSymbol: ${blockchainTransaction.tokenSymbol}`
+    );
+
     // Determine proper transaction type based on Ethereum transaction flow
-    const transactionType = this.mapTransactionType(blockchainTransaction, sessionContext);
+    // Use BaseProcessor logic for both token transfers and ETH transfers to properly classify
+    // deposits, withdrawals, and internal transfers based on address ownership
+    const transactionType: TransactionType = this.mapTransactionType(blockchainTransaction, sessionContext);
+
+    this.logger.debug(
+      `Transaction ${blockchainTransaction.id} (${blockchainTransaction.type}) classified as: ${transactionType}`
+    );
 
     // Convert UniversalBlockchainTransaction to UniversalTransaction
     const universalTransaction: UniversalTransaction = {
@@ -72,7 +83,7 @@ export class EthereumTransactionProcessor extends BaseProcessor<ApiClientRawData
       },
       source: 'ethereum',
       status: blockchainTransaction.status === 'success' ? 'ok' : 'failed',
-      symbol: blockchainTransaction.currency,
+      symbol: blockchainTransaction.tokenSymbol || blockchainTransaction.currency,
       timestamp: blockchainTransaction.timestamp,
       to: blockchainTransaction.to,
       type: transactionType,

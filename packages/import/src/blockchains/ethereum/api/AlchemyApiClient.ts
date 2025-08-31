@@ -62,47 +62,84 @@ export class AlchemyApiClient extends BaseRegistryProvider {
     category: string[] = ['external', 'internal', 'erc20', 'erc721', 'erc1155'],
     contractAddress?: string
   ): Promise<AlchemyAssetTransfer[]> {
-    const params: AlchemyAssetTransferParams = {
+    const allTransfers: AlchemyAssetTransfer[] = [];
+
+    // Get transfers FROM address (outgoing transactions)
+    const fromParams: AlchemyAssetTransferParams = {
       category,
       excludeZeroValue: false,
       fromAddress: address,
+      fromBlock: '0x0', // Explicit fromBlock for complete historical data
       maxCount: '0x3e8', // 1000 in hex
-      toAddress: address,
+      toBlock: 'latest', // Explicit toBlock for latest data
       withMetadata: true,
     };
-
     if (contractAddress) {
-      params.contractAddresses = [contractAddress];
+      fromParams.contractAddresses = [contractAddress];
     }
+    const fromTransfers = await this.getAssetTransfersPaginated(fromParams);
 
-    // Get transfers from address
-    const fromResponse = await this.httpClient.post<JsonRpcResponse<AlchemyAssetTransfersResponse>>(`/${this.apiKey}`, {
-      id: 1,
-      jsonrpc: '2.0',
-      method: 'alchemy_getAssetTransfers',
-      params: [params],
-    });
+    // Get transfers TO address (incoming transactions)
+    const toParams: AlchemyAssetTransferParams = {
+      category,
+      excludeZeroValue: false,
+      fromBlock: '0x0', // Explicit fromBlock for complete historical data
+      maxCount: '0x3e8', // 1000 in hex
+      toAddress: address,
+      toBlock: 'latest', // Explicit toBlock for latest data
+      withMetadata: true,
+    };
+    if (contractAddress) {
+      toParams.contractAddresses = [contractAddress];
+    }
+    const toTransfers = await this.getAssetTransfersPaginated(toParams);
 
-    // Get transfers to address
-    const toParams = { ...params };
-    delete toParams.fromAddress;
-    toParams.toAddress = address;
-    const toResponse = await this.httpClient.post<JsonRpcResponse<AlchemyAssetTransfersResponse>>(`/${this.apiKey}`, {
-      id: 1,
-      jsonrpc: '2.0',
-      method: 'alchemy_getAssetTransfers',
-      params: [toParams],
-    });
+    allTransfers.push(...fromTransfers, ...toTransfers);
 
-    const allTransfers = [...(fromResponse.result?.transfers || []), ...(toResponse.result?.transfers || [])];
-
-    // Remove duplicates based on hash + category
-    const uniqueTransfers = allTransfers.filter(
-      (transfer, index, array) =>
-        array.findIndex(t => t.hash === transfer.hash && t.category === transfer.category) === index
+    // TEMPORARILY DISABLE deduplication
+    this.logger.debug(
+      `Total transfers WITHOUT deduplication: ${allTransfers.length} (from ${fromTransfers.length} outgoing + ${toTransfers.length} incoming)`
     );
+    return allTransfers;
+  }
 
-    return uniqueTransfers;
+  private async getAssetTransfersPaginated(params: AlchemyAssetTransferParams): Promise<AlchemyAssetTransfer[]> {
+    const transfers: AlchemyAssetTransfer[] = [];
+    let pageKey: string | undefined;
+    let pageCount = 0;
+    const maxPages = 10; // Safety limit to prevent infinite loops
+
+    do {
+      const requestParams: AlchemyAssetTransferParams = { ...params };
+      if (pageKey) {
+        requestParams.pageKey = pageKey;
+      }
+
+      const response = await this.httpClient.post<JsonRpcResponse<AlchemyAssetTransfersResponse>>(`/${this.apiKey}`, {
+        id: 1,
+        jsonrpc: '2.0',
+        method: 'alchemy_getAssetTransfers',
+        params: [requestParams],
+      });
+
+      const responseTransfers = response.result?.transfers || [];
+      transfers.push(...responseTransfers);
+
+      pageKey = response.result?.pageKey;
+      pageCount++;
+
+      this.logger.debug(
+        `Fetched page ${pageCount}: ${responseTransfers.length} transfers${pageKey ? ' (more pages available)' : ' (last page)'}`
+      );
+
+      // Safety check to prevent infinite pagination
+      if (pageCount >= maxPages) {
+        this.logger.warn(`Reached maximum page limit (${maxPages}), stopping pagination`);
+        break;
+      }
+    } while (pageKey);
+
+    return transfers;
   }
 
   private async getRawAddressBalance(address: string): Promise<EtherscanBalance[]> {

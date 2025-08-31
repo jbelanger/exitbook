@@ -8,12 +8,11 @@ export interface StoredTransaction {
   cost_currency?: string;
   created_at: number;
   datetime?: string;
-  exchange: string;
   fee_cost?: string;
   fee_currency?: string;
   from_address?: string;
   hash: string;
-  id: string;
+  id: number; // Auto-generated database ID
   note_message?: string;
   note_metadata?: string; // JSON stringified metadata
   note_severity?: 'info' | 'warning' | 'error';
@@ -22,6 +21,7 @@ export interface StoredTransaction {
   price_currency?: string;
   raw_data: string; // JSON stringified transaction data
   side?: string;
+  source_id: string;
   status?: string;
   symbol?: string;
   timestamp: number;
@@ -73,7 +73,7 @@ export interface ImportSession {
   durationMs?: number | undefined;
   errorDetails?: unknown;
   errorMessage?: string | undefined;
-  id: string;
+  id: number;
   providerId?: string | undefined;
   sessionMetadata?: unknown;
   sourceId: string;
@@ -112,8 +112,8 @@ export interface ImportSessionQuery {
 // Raw data storage - matches external_transaction_data table structure
 export interface StoredRawData<TRawData = unknown> {
   createdAt: number;
-  id: string;
-  importSessionId?: string | undefined;
+  id: number;
+  importSessionId?: number | undefined;
   metadata?: unknown;
   processedAt?: number | undefined;
   processingError?: string | undefined;

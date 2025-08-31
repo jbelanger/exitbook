@@ -44,6 +44,7 @@ export interface StatRow {
   total_external_transactions?: number;
   total_import_sessions?: number;
   total_snapshots?: number;
+  total_sources?: number;
   total_transactions?: number;
   total_verifications?: number;
 }
@@ -54,7 +55,7 @@ export interface ImportSessionRow {
   duration_ms?: number | null;
   error_details?: string | null; // JSON string
   error_message?: string | null;
-  id: string;
+  id: number;
   provider_id?: string | null;
   session_metadata?: string | null; // JSON string
   source_id: string;

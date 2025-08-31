@@ -279,35 +279,61 @@ export class EthereumAdapter extends BaseAdapter {
     rawTxs: UniversalBlockchainTransaction[],
     params: UniversalFetchParams
   ): Promise<UniversalTransaction[]> {
-    // TODO: This adapter should be deprecated in favor of the ETL pipeline
-    // For now, we'll use a basic transformation to fix compilation
     const userAddresses = params.addresses || [];
+    const sessionContext = { addresses: userAddresses };
 
-    // Simple transformation - this is a temporary fix
-    return rawTxs.map(tx => ({
-      amount: {
-        amount: new Decimal(tx.amount || '0'),
-        currency: tx.currency,
-      },
-      datetime: new Date(tx.timestamp || Date.now()).toISOString(),
-      fee: tx.feeAmount
-        ? {
-            amount: new Decimal(tx.feeAmount),
-            currency: tx.feeCurrency || tx.currency,
-          }
-        : undefined,
-      id: tx.id,
-      metadata: {
-        blockHeight: tx.blockHeight,
-        from: tx.from,
-        to: tx.to,
-        tokenAddress: tx.tokenAddress,
-        tokenSymbol: tx.tokenSymbol,
-      },
-      source: 'ethereum',
-      status: 'ok' as const,
-      timestamp: tx.timestamp,
-      type: tx.type === 'token_transfer' ? 'trade' : ('transfer' as const),
-    }));
+    return rawTxs.map(tx => {
+      // Use proper symbol: tokenSymbol for token transfers, currency for native ETH
+      const symbol = tx.tokenSymbol || tx.currency;
+
+      // Map transaction type properly based on fund direction
+      let transactionType: 'deposit' | 'withdrawal' | 'transfer' | 'trade' | 'fee';
+
+      if (tx.type === 'token_transfer') {
+        // Token transfers are trades (swaps/exchanges of tokens)
+        transactionType = 'trade';
+      } else {
+        // For native ETH transfers, determine direction based on addresses
+        const isFromUser = tx.from && userAddresses.includes(tx.from);
+        const isToUser = tx.to && userAddresses.includes(tx.to);
+
+        if (isFromUser && isToUser) {
+          transactionType = 'transfer'; // Internal transfer
+        } else if (!isFromUser && isToUser) {
+          transactionType = 'deposit'; // Incoming
+        } else if (isFromUser && !isToUser) {
+          transactionType = 'withdrawal'; // Outgoing
+        } else {
+          transactionType = 'transfer'; // Default fallback
+        }
+      }
+
+      return {
+        amount: {
+          amount: new Decimal(tx.amount || '0'),
+          currency: tx.currency,
+        },
+        datetime: new Date(tx.timestamp || Date.now()).toISOString(),
+        fee: tx.feeAmount
+          ? {
+              amount: new Decimal(tx.feeAmount),
+              currency: tx.feeCurrency || 'ETH',
+            }
+          : undefined,
+        id: tx.id,
+        metadata: {
+          blockHeight: tx.blockHeight,
+          from: tx.from,
+          to: tx.to,
+          tokenAddress: tx.tokenAddress,
+          tokenSymbol: tx.tokenSymbol,
+        },
+        source: 'ethereum',
+        status: 'ok' as const,
+        symbol, // Properly set symbol field
+        timestamp: tx.timestamp,
+        type: transactionType,
+      };
+    });
   }
 }

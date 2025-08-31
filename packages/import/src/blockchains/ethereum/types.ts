@@ -163,9 +163,12 @@ export interface AlchemyAssetTransferParams {
   contractAddresses?: string[];
   excludeZeroValue: boolean;
   fromAddress?: string;
+  fromBlock?: string;
   maxCount: string;
   order?: string;
+  pageKey?: string;
   toAddress?: string;
+  toBlock?: string;
   withMetadata: boolean;
 }
 
@@ -173,6 +176,10 @@ export interface AlchemyAssetTransfer {
   asset?: string;
   blockNum: string;
   category: string;
+  erc1155Metadata?: Array<{
+    tokenId?: string;
+    value?: string;
+  }>;
   from: string;
   hash: string;
   metadata?: {

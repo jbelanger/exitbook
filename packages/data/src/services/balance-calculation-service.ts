@@ -36,7 +36,7 @@ export class BalanceCalculationService {
     const priceCurrency = transaction.price_currency;
     const feeCost = stringToDecimal(String(transaction.fee_cost));
     const feeCurrency = transaction.fee_currency;
-    const exchange = transaction.exchange;
+    const exchange = transaction.source_id;
 
 
     if (amountCurrency && !balances[amountCurrency]) balances[amountCurrency] = new Decimal(0);

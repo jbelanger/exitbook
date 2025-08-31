@@ -359,10 +359,10 @@ async function main() {
 
         try {
           // Parse filters
-          const filters: { createdAfter?: number; importSessionId?: string } = {};
+          const filters: { createdAfter?: number; importSessionId?: number } = {};
 
           if (options.session) {
-            filters.importSessionId = options.session;
+            filters.importSessionId = parseInt(options.session);
           }
 
           if (options.since) {
@@ -592,7 +592,7 @@ async function convertToCSV(transactions: StoredTransaction[]): Promise<string> 
 
     const values = [
       tx.id || '',
-      tx.exchange || '',
+      tx.source_id || '',
       tx.type || '',
       tx.timestamp || '',
       datetime,
@@ -644,7 +644,6 @@ async function convertToJSON(transactions: StoredTransaction[]): Promise<string>
       cost: cost,
       created_at: tx.created_at,
       datetime: tx.datetime,
-      exchange: tx.exchange,
       fee_cost: tx.fee_cost,
       fee_currency: tx.fee_currency,
       hash: tx.hash,
@@ -652,6 +651,7 @@ async function convertToJSON(transactions: StoredTransaction[]): Promise<string>
       price: tx.price,
       price_currency: tx.price_currency,
       side: tx.side,
+      source_id: tx.source_id,
       status: tx.status,
       symbol: tx.symbol,
       timestamp: tx.timestamp,

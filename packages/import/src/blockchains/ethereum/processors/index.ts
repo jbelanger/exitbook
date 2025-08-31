@@ -1,3 +1,3 @@
 // Import processors to trigger registration
-import './processors/AlchemyProcessor.ts';
-import './processors/MoralisProcessor.ts';
+import './AlchemyProcessor.ts';
+import './MoralisProcessor.ts';

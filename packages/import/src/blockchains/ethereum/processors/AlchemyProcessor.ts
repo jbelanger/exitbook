@@ -1,5 +1,5 @@
 import type { Balance } from '@crypto/core';
-import { createMoney, parseDecimal } from '@crypto/shared-utils';
+import { parseDecimal } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
@@ -111,11 +111,17 @@ export class AlchemyProcessor extends BaseProviderProcessor<AlchemyAssetTransfer
   // IProviderProcessor interface implementation
   protected transformValidated(
     rawData: AlchemyAssetTransfer,
-    sessionContext: ImportSessionMetadata
+    _sessionContext: ImportSessionMetadata
   ): Result<UniversalBlockchainTransaction[], string> {
-    // Determine transaction type
+    // Determine transaction type based on Alchemy categories
     let type: UniversalBlockchainTransaction['type'];
-    if (rawData.category === 'token') {
+    const isTokenTransfer =
+      rawData.category === 'token' ||
+      rawData.category === 'erc20' ||
+      rawData.category === 'erc721' ||
+      rawData.category === 'erc1155';
+
+    if (isTokenTransfer) {
       type = 'token_transfer';
     } else {
       type = 'transfer';
@@ -125,15 +131,21 @@ export class AlchemyProcessor extends BaseProviderProcessor<AlchemyAssetTransfer
     let currency = 'ETH';
     let amount = parseDecimal(String(rawData.value || 0));
 
-    if (rawData.category === 'token') {
+    if (isTokenTransfer) {
       currency = rawData.asset || 'UNKNOWN';
-      if (rawData.rawContract?.decimal) {
-        const decimals =
-          typeof rawData.rawContract.decimal === 'number'
-            ? rawData.rawContract.decimal
-            : parseInt(String(rawData.rawContract.decimal));
-        amount = amount.dividedBy(new Decimal(10).pow(decimals));
+
+      // Alchemy returns human-readable amounts, not raw wei values
+      // So we don't need to divide by decimals
+      // The rawData.value is already in the correct token units
+
+      // For NFTs, amount is typically 1 or the specified quantity
+      if (rawData.category === 'erc721') {
+        amount = new Decimal(1);
+      } else if (rawData.category === 'erc1155' && rawData.erc1155Metadata && rawData.erc1155Metadata.length > 0) {
+        // Use the first token's value for ERC-1155
+        amount = parseDecimal(rawData.erc1155Metadata[0].value || '1');
       }
+      // For ERC-20 tokens, use the amount as-is since Alchemy provides human-readable values
     }
 
     const timestamp = rawData.metadata?.blockTimestamp
@@ -154,7 +166,7 @@ export class AlchemyProcessor extends BaseProviderProcessor<AlchemyAssetTransfer
     };
 
     // Add token-specific fields if it's a token transfer
-    if (rawData.category === 'token' && rawData.rawContract?.address) {
+    if (isTokenTransfer && rawData.rawContract?.address) {
       transaction.tokenAddress = rawData.rawContract.address;
       transaction.tokenSymbol = currency;
       if (rawData.rawContract.decimal) {

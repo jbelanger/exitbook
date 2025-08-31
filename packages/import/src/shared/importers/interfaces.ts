@@ -4,7 +4,7 @@ export interface ImportParams {
   [key: string]: unknown;
   addresses?: string[] | undefined;
   csvDirectories?: string[] | undefined;
-  importSessionId?: string | undefined;
+  importSessionId?: number | undefined;
   providerId?: string | undefined;
   since?: number | undefined;
   until?: number | undefined;
@@ -12,7 +12,7 @@ export interface ImportParams {
 
 export interface ImportResult {
   imported: number;
-  importSessionId: string;
+  importSessionId: number;
   metadata?: unknown;
   providerId?: string | undefined;
 }

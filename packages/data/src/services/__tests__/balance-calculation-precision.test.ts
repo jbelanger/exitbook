@@ -20,14 +20,14 @@ describe('BalanceCalculationService Precision', () => {
     const transaction: StoredTransaction = {
       amount,
       created_at: Date.now(),
-      exchange: 'test-exchange',
       hash: 'test-hash',
-      id: 'test-id',
+      id: 1,
       raw_data: JSON.stringify({
         amount,
         fee_cost: feeCost,
         price,
       }),
+      source_id: 'test-exchange',
       timestamp: Date.now(),
       type,
     };

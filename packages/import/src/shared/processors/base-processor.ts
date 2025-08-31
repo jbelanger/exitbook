@@ -78,13 +78,15 @@ export abstract class BaseProcessor<TRawData> implements IProcessor<TRawData> {
     sessionContext: ImportSessionMetadata
   ): TransactionType {
     const { amount, feeAmount, from, to } = blockchainTransaction;
+
+    // Convert all wallet addresses to lowercase for case-insensitive comparison
     const allWalletAddresses = new Set([
-      ...(sessionContext.addresses || []),
-      ...(sessionContext.derivedAddresses || []),
+      ...(sessionContext.addresses || []).map(addr => addr.toLowerCase()),
+      ...(sessionContext.derivedAddresses || []).map(addr => addr.toLowerCase()),
     ]);
 
-    const isFromWallet = from && allWalletAddresses.has(from);
-    const isToWallet = to && allWalletAddresses.has(to);
+    const isFromWallet = from && allWalletAddresses.has(from.toLowerCase());
+    const isToWallet = to && allWalletAddresses.has(to.toLowerCase());
 
     // Check if this is a fee-only transaction (amount is 0 or equals fee, but fee > 0)
     const transactionAmount = parseFloat(amount || '0');

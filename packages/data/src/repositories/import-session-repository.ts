@@ -13,17 +13,16 @@ export class ImportSessionRepository {
   }
 
   async create(
-    sessionId: string,
     sourceId: string,
     sourceType: 'exchange' | 'blockchain',
     providerId?: string | undefined,
     sessionMetadata?: unknown
-  ): Promise<string> {
-    return this.database.createImportSession(sessionId, sourceId, sourceType, providerId, sessionMetadata);
+  ): Promise<number> {
+    return this.database.createImportSession(sourceId, sourceType, providerId, sessionMetadata);
   }
 
   async finalize(
-    sessionId: string,
+    sessionId: number,
     status: 'completed' | 'failed' | 'cancelled',
     startTime: number,
     transactionsImported: number = 0,
@@ -50,7 +49,7 @@ export class ImportSessionRepository {
     return this.database.getImportSessions(filters);
   }
 
-  async findById(sessionId: string): Promise<ImportSession | null> {
+  async findById(sessionId: number): Promise<ImportSession | null> {
     return this.database.getImportSession(sessionId);
   }
 
@@ -62,7 +61,7 @@ export class ImportSessionRepository {
     return this.database.getImportSessions({ limit });
   }
 
-  async update(sessionId: string, updates: UpdateImportSessionRequest): Promise<void> {
+  async update(sessionId: number, updates: UpdateImportSessionRequest): Promise<void> {
     return this.database.updateImportSession(sessionId, updates);
   }
 }

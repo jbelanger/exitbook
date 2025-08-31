@@ -103,7 +103,7 @@ export class Database {
     tableQueries.push(
       // Import sessions table - tracks import session metadata and execution details
       `CREATE TABLE ${clearExisting ? '' : 'IF NOT EXISTS '}import_sessions (
-        id TEXT PRIMARY KEY,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
         source_id TEXT NOT NULL,
         source_type TEXT NOT NULL CHECK (source_type IN ('exchange', 'blockchain')),
         provider_id TEXT,
@@ -122,7 +122,7 @@ export class Database {
 
       // External transaction data table - stores unprocessed transaction data from sources
       `CREATE TABLE ${clearExisting ? '' : 'IF NOT EXISTS '}external_transaction_data (
-        id TEXT PRIMARY KEY,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
         source_id TEXT NOT NULL,
         source_type TEXT NOT NULL,
         provider_id TEXT,
@@ -133,15 +133,16 @@ export class Database {
         processing_error TEXT,
         processed_at INTEGER,
         created_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
-        import_session_id TEXT,
-        UNIQUE(source_id, provider_id, source_transaction_id)
+        import_session_id INTEGER,
+        UNIQUE(source_id, provider_id, source_transaction_id),
+        FOREIGN KEY (import_session_id) REFERENCES import_sessions (id)
       )`,
 
       // Transactions table - stores transactions from all sources with standardized structure
       // Using TEXT for decimal values to preserve precision
       `CREATE TABLE ${clearExisting ? '' : 'IF NOT EXISTS '}transactions (
-        id TEXT PRIMARY KEY,
-        exchange TEXT NOT NULL,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        source_id TEXT NOT NULL,
         type TEXT NOT NULL,
         timestamp INTEGER NOT NULL,
         datetime TEXT,
@@ -207,8 +208,8 @@ export class Database {
     );
 
     const indexQueries = [
-      `CREATE INDEX IF NOT EXISTS idx_transactions_exchange_timestamp 
-       ON transactions(exchange, timestamp)`,
+      `CREATE INDEX IF NOT EXISTS idx_transactions_source_timestamp 
+       ON transactions(source_id, timestamp)`,
 
       `CREATE INDEX IF NOT EXISTS idx_transactions_type_timestamp 
        ON transactions(type, timestamp)`,
@@ -368,26 +369,25 @@ export class Database {
 
   // Import session operations
   async createImportSession(
-    sessionId: string,
     sourceId: string,
     sourceType: 'exchange' | 'blockchain',
     providerId?: string,
     sessionMetadata?: unknown
-  ): Promise<string> {
+  ): Promise<number> {
     return new Promise((resolve, reject) => {
       const stmt = this.db.prepare(`
         INSERT INTO import_sessions 
-        (id, source_id, source_type, provider_id, session_metadata)
-        VALUES (?, ?, ?, ?, ?)
+        (source_id, source_type, provider_id, session_metadata)
+        VALUES (?, ?, ?, ?)
       `);
 
       const metadataJson = sessionMetadata ? JSON.stringify(sessionMetadata) : null;
 
-      stmt.run([sessionId, sourceId, sourceType, providerId || null, metadataJson], function (err) {
+      stmt.run([sourceId, sourceType, providerId || null, metadataJson], function (err) {
         if (err) {
           reject(err);
         } else {
-          resolve(sessionId);
+          resolve(this.lastID as number);
         }
       });
 
@@ -410,7 +410,7 @@ export class Database {
   }
 
   async finalizeImportSession(
-    sessionId: string,
+    sessionId: number,
     status: 'completed' | 'failed' | 'cancelled',
     startTime: number,
     transactionsImported: number = 0,
@@ -501,7 +501,7 @@ export class Database {
     });
   }
 
-  async getImportSession(sessionId: string): Promise<ImportSession | null> {
+  async getImportSession(sessionId: number): Promise<ImportSession | null> {
     return new Promise((resolve, reject) => {
       const query = 'SELECT * FROM import_sessions WHERE id = ?';
 
@@ -633,7 +633,7 @@ export class Database {
               duration_ms: dbRow.duration_ms ? (dbRow.duration_ms as number) : null,
               error_details: dbRow.error_details ? (dbRow.error_details as string) : null,
               error_message: dbRow.error_message ? (dbRow.error_message as string) : null,
-              id: dbRow.id as string,
+              id: dbRow.id as number,
               provider_id: dbRow.provider_id ? (dbRow.provider_id as string) : null,
               session_metadata: dbRow.session_metadata ? (dbRow.session_metadata as string) : null,
               source_id: dbRow.source_id as string,
@@ -646,7 +646,7 @@ export class Database {
             };
 
             const session = importSessionRowToImportSession(sessionRow);
-            const sessionId = session.id;
+            const sessionId = String(session.id);
 
             if (!sessionsMap.has(sessionId)) {
               sessionsMap.set(sessionId, {
@@ -659,7 +659,7 @@ export class Database {
             if (dbRow.raw_id) {
               const rawDataItem = {
                 createdAt: dbRow.raw_created_at as number,
-                id: dbRow.raw_id as string,
+                id: dbRow.raw_id as number,
                 importSessionId: session.id,
                 metadata: dbRow.raw_metadata ? JSON.parse(dbRow.raw_metadata as string) : undefined,
                 processedAt: dbRow.processed_at ? (dbRow.processed_at as number) : undefined,
@@ -714,7 +714,7 @@ export class Database {
 
   async getRawTransactions(
     filters?: {
-      importSessionId?: string | undefined;
+      importSessionId?: number | undefined;
       processingStatus?: 'pending' | 'processed' | 'failed' | undefined;
       providerId?: string | undefined;
       since?: number | undefined;
@@ -723,8 +723,8 @@ export class Database {
   ): Promise<
     Array<{
       createdAt: number;
-      id: string;
-      importSessionId?: string | undefined;
+      id: number;
+      importSessionId?: number | undefined;
       metadata?: unknown;
       processedAt?: number | undefined;
       processingError?: string | undefined;
@@ -780,8 +780,8 @@ export class Database {
             const dbRow = row as Record<string, unknown>;
             return {
               createdAt: dbRow.created_at as number,
-              id: dbRow.id as string,
-              importSessionId: dbRow.import_session_id ? (dbRow.import_session_id as string) : undefined,
+              id: dbRow.id as number,
+              importSessionId: dbRow.import_session_id ? (dbRow.import_session_id as number) : undefined,
               metadata: dbRow.metadata ? JSON.parse(dbRow.metadata as string) : undefined,
               processedAt: dbRow.processed_at ? (dbRow.processed_at as number) : undefined,
               processingError: dbRow.processing_error ? (dbRow.processing_error as string) : undefined,
@@ -803,8 +803,8 @@ export class Database {
     return new Promise((resolve, reject) => {
       const queries = [
         'SELECT COUNT(*) as total_transactions FROM transactions',
-        'SELECT COUNT(DISTINCT exchange) as total_exchanges FROM transactions',
-        'SELECT exchange, COUNT(*) as count FROM transactions GROUP BY exchange',
+        'SELECT COUNT(DISTINCT source_id) as total_sources FROM transactions',
+        'SELECT source_id, COUNT(*) as count FROM transactions GROUP BY source_id',
         'SELECT COUNT(*) as total_verifications FROM balance_verifications',
         'SELECT COUNT(*) as total_snapshots FROM balance_snapshots',
         'SELECT COUNT(*) as total_external_transactions FROM external_transaction_data',
@@ -829,12 +829,12 @@ export class Database {
 
         this.db.get(queries[1]!, (err, row: StatRow) => {
           if (err) return reject(err);
-          results.totalExchanges = row.total_exchanges || 0;
+          results.totalExchanges = row.total_sources || 0;
         });
 
-        this.db.all(queries[2]!, (err, rows: Array<{ count: number; exchange: string; }>) => {
+        this.db.all(queries[2]!, (err, rows: Array<{ count: number; source_id: string; }>) => {
           if (err) return reject(err);
-          results.transactionsByExchange = rows;
+          results.transactionsByExchange = rows.map(row => ({ count: row.count, exchange: row.source_id }));
         });
 
         this.db.get(queries[3]!, (err, row: StatRow) => {
@@ -861,14 +861,14 @@ export class Database {
     });
   }
 
-  async getTransactionCount(exchange?: string): Promise<number> {
+  async getTransactionCount(sourceId?: string): Promise<number> {
     return new Promise((resolve, reject) => {
       let query = 'SELECT COUNT(*) as count FROM transactions';
       const params: SQLParam[] = [];
 
-      if (exchange) {
-        query += ' WHERE exchange = ?';
-        params.push(exchange);
+      if (sourceId) {
+        query += ' WHERE source_id = ?';
+        params.push(sourceId);
       }
 
       this.db.get(query, params, (err, row: TransactionCountRow) => {
@@ -883,18 +883,18 @@ export class Database {
 
   // Wallet address management methods
 
-  async getTransactions(exchange?: string, since?: number): Promise<StoredTransaction[]> {
+  async getTransactions(sourceId?: string, since?: number): Promise<StoredTransaction[]> {
     return new Promise((resolve, reject) => {
       let query = 'SELECT * FROM transactions';
       const params: SQLParam[] = [];
 
-      if (exchange || since) {
+      if (sourceId || since) {
         query += ' WHERE';
         const conditions: string[] = [];
 
-        if (exchange) {
-          conditions.push(' exchange = ?');
-          params.push(exchange);
+        if (sourceId) {
+          conditions.push(' source_id = ?');
+          params.push(sourceId);
         }
 
         if (since) {
@@ -1055,27 +1055,27 @@ export class Database {
     sourceTransactionId: string,
     rawData: unknown,
     options?: {
-      importSessionId?: string | undefined;
+      importSessionId?: number | undefined;
       metadata?: unknown;
       providerId?: string | undefined;
     }
-  ): Promise<void> {
+  ): Promise<number> {
     return new Promise((resolve, reject) => {
       const stmt = this.db.prepare(`
-        INSERT OR REPLACE INTO external_transaction_data 
-        (id, source_id, source_type, provider_id, source_transaction_id, raw_data, metadata, import_session_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO external_transaction_data 
+        (source_id, source_type, provider_id, source_transaction_id, raw_data, metadata, import_session_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(source_id, provider_id, source_transaction_id) DO UPDATE SET
+          raw_data = excluded.raw_data,
+          metadata = excluded.metadata,
+          import_session_id = excluded.import_session_id
       `);
 
       const providerId = options?.providerId || null;
-      const id = providerId 
-        ? `${sourceId}-${providerId}-raw-${sourceTransactionId}`
-        : `${sourceId}-raw-${sourceTransactionId}`;
       const rawDataJson = JSON.stringify(rawData);
       const metadataJson = options?.metadata ? JSON.stringify(options.metadata) : null;
 
       stmt.run([
-        id, 
         sourceId, 
         sourceType, 
         providerId,
@@ -1087,7 +1087,7 @@ export class Database {
         if (err) {
           reject(err);
         } else {
-          resolve();
+          resolve(this.lastID as number);
         }
       });
 
@@ -1100,7 +1100,7 @@ export class Database {
     sourceType: string,
     rawTransactions: Array<{ data: unknown; id: string; }>,
     options?: {
-      importSessionId?: string | undefined;
+      importSessionId?: number | undefined;
       metadata?: unknown;
       providerId?: string | undefined;
     }
@@ -1113,20 +1113,16 @@ export class Database {
 
         const stmt = this.db.prepare(`
           INSERT OR IGNORE INTO external_transaction_data 
-          (id, source_id, source_type, provider_id, source_transaction_id, raw_data, metadata, import_session_id)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          (source_id, source_type, provider_id, source_transaction_id, raw_data, metadata, import_session_id)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
         `);
 
         for (const rawTx of rawTransactions) {
           const providerId = options?.providerId || null;
-          const id = providerId 
-            ? `${sourceId}-${providerId}-raw-${rawTx.id}`
-            : `${sourceId}-raw-${rawTx.id}`;
           const rawDataJson = JSON.stringify(rawTx.data);
           const metadataJson = options?.metadata ? JSON.stringify(options.metadata) : null;
 
           stmt.run([
-            id, 
             sourceId, 
             sourceType, 
             providerId,
@@ -1157,12 +1153,12 @@ export class Database {
   }
 
   // Transaction operations
-  async saveTransaction(transaction: UniversalTransaction): Promise<void> {
+  async saveTransaction(transaction: UniversalTransaction): Promise<number> {
     return new Promise((resolve, reject) => {
       const stmt = this.db.prepare(`
         INSERT OR REPLACE INTO transactions 
-        (id, exchange, type, timestamp, datetime, symbol, amount, amount_currency, side, price, price_currency, fee_cost, fee_currency, status, from_address, to_address, raw_data, hash, verified, note_type, note_message, note_severity, note_metadata)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (source_id, type, timestamp, datetime, symbol, amount, amount_currency, side, price, price_currency, fee_cost, fee_currency, status, from_address, to_address, raw_data, hash, verified, note_type, note_message, note_severity, note_metadata)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       const rawDataJson = JSON.stringify(transaction);
@@ -1182,7 +1178,6 @@ export class Database {
 
       stmt.run(
         [
-          transaction.id,
           transaction.source,
           transaction.type || 'unknown',
           transaction.timestamp || Date.now(),
@@ -1218,7 +1213,7 @@ export class Database {
           if (err) {
             reject(err);
           } else {
-            resolve();
+            resolve(this.lastID as number);
           }
         }
       );
@@ -1236,7 +1231,7 @@ export class Database {
 
         const stmt = this.db.prepare(`
           INSERT OR IGNORE INTO transactions 
-          (id, exchange, type, timestamp, datetime, symbol, amount, amount_currency, side, price, price_currency, fee_cost, fee_currency, status, from_address, to_address, wallet_id, raw_data, hash, verified, note_type, note_message, note_severity, note_metadata)
+          (source_id, type, timestamp, datetime, symbol, amount, amount_currency, side, price, price_currency, fee_cost, fee_currency, status, from_address, to_address, wallet_id, raw_data, hash, verified, note_type, note_message, note_severity, note_metadata)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
@@ -1261,7 +1256,6 @@ export class Database {
 
           stmt.run(
             [
-              transaction.id,
               transaction.source,
               transaction.type || 'unknown',
               transaction.timestamp || Date.now(),
@@ -1318,7 +1312,7 @@ export class Database {
   }
 
   async updateImportSession(
-    sessionId: string,
+    sessionId: number,
     updates: UpdateImportSessionRequest
   ): Promise<void> {
     return new Promise((resolve, reject) => {

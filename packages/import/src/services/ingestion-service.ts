@@ -51,15 +51,6 @@ export class TransactionIngestionService {
   }
 
   /**
-   * Generate a unique session ID for tracking import operations.
-   */
-  private generateSessionId(sourceId: string): string {
-    const timestamp = Date.now();
-    const random = Math.random().toString(36).substring(2, 8);
-    return `${sourceId}-${timestamp}-${random}`;
-  }
-
-  /**
    * Get processing status summary for a source.
    */
   async getProcessingStatus(sourceId: string) {
@@ -141,21 +132,12 @@ export class TransactionIngestionService {
     try {
       // Create import session if not provided
       if (!importSessionId) {
-        importSessionId = this.generateSessionId(sourceId);
-        this.logger.debug(`Generated session ID: ${importSessionId}`);
-        const actualSessionId = await this.sessionRepository.create(
-          importSessionId,
-          sourceId,
-          sourceType,
-          params.providerId,
-          {
-            addresses: params.addresses,
-            csvDirectories: params.csvDirectories,
-            importedAt: Date.now(),
-            importParams: params,
-          }
-        );
-        this.logger.debug(`Repository returned session ID: ${actualSessionId}`);
+        importSessionId = await this.sessionRepository.create(sourceId, sourceType, params.providerId, {
+          addresses: params.addresses,
+          csvDirectories: params.csvDirectories,
+          importedAt: Date.now(),
+          importParams: params,
+        });
         sessionCreated = true;
         this.logger.debug(`Created import session: ${importSessionId}`);
       }
@@ -179,7 +161,7 @@ export class TransactionIngestionService {
         sourceType,
         rawData.map((item, index) => ({
           data: item,
-          id: this.extractTransactionId(item.rawData as Record<string, unknown>, index, importSessionId ?? ''),
+          id: this.extractTransactionId(item.rawData as Record<string, unknown>, index, String(importSessionId ?? 0)),
         })),
         {
           importSessionId: importSessionId ?? undefined,
@@ -192,7 +174,7 @@ export class TransactionIngestionService {
       );
 
       // Update session with success and metadata
-      if (sessionCreated) {
+      if (sessionCreated && typeof importSessionId === 'number') {
         this.logger.debug(`Finalizing session ${importSessionId} with ${savedCount} transactions`);
         await this.sessionRepository.finalize(importSessionId, 'completed', startTime, savedCount, 0);
 
@@ -224,7 +206,7 @@ export class TransactionIngestionService {
       };
     } catch (error) {
       // Update session with error if we created it
-      if (sessionCreated && importSessionId) {
+      if (sessionCreated && typeof importSessionId === 'number') {
         try {
           await this.sessionRepository.finalize(
             importSessionId,
@@ -282,7 +264,7 @@ export class TransactionIngestionService {
         sessionData.rawDataItems.some(
           item =>
             item.processingStatus === 'pending' &&
-            (!filters?.importSessionId || item.id.includes(filters.importSessionId))
+            (!filters?.importSessionId || item.importSessionId === filters.importSessionId)
         )
       );
 
