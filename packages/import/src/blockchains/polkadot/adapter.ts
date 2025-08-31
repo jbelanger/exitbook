@@ -1,6 +1,5 @@
 import type {
   Balance,
-  BlockchainTransaction,
   TransactionType,
   UniversalAdapterInfo,
   UniversalBalance,
@@ -9,9 +8,11 @@ import type {
   UniversalTransaction,
 } from '@crypto/core';
 import type { BlockchainExplorersConfig } from '@crypto/shared-utils';
+import { Decimal } from 'decimal.js';
 
 import { BaseAdapter } from '../../shared/adapters/base-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
+import type { UniversalBlockchainTransaction } from '../shared/types.ts';
 // Import clients to trigger registration
 import './api/index.ts';
 import { SubstrateProcessor, type SubstrateRawData } from './processors/SubstrateProcessor.ts';
@@ -45,7 +46,11 @@ export class SubstrateAdapter extends BaseAdapter {
     }
   }
 
-  private processRawTransactions(rawData: unknown, providerName: string, userAddress: string): BlockchainTransaction[] {
+  private processRawTransactions(
+    rawData: unknown,
+    providerName: string,
+    userAddress: string
+  ): UniversalBlockchainTransaction[] {
     switch (providerName) {
       case 'subscan':
         return SubstrateProcessor.processAddressTransactions(rawData as SubstrateRawData, userAddress);
@@ -101,12 +106,12 @@ export class SubstrateAdapter extends BaseAdapter {
     return allBalances;
   }
 
-  protected async fetchRawTransactions(params: UniversalFetchParams): Promise<BlockchainTransaction[]> {
+  protected async fetchRawTransactions(params: UniversalFetchParams): Promise<UniversalBlockchainTransaction[]> {
     if (!params.addresses?.length) {
       throw new Error('Addresses required for Substrate adapter');
     }
 
-    const allTransactions: BlockchainTransaction[] = [];
+    const allTransactions: UniversalBlockchainTransaction[] = [];
 
     for (const address of params.addresses) {
       this.logger.info(`SubstrateAdapter: Fetching transactions for address: ${address.substring(0, 20)}...`);
@@ -211,7 +216,7 @@ export class SubstrateAdapter extends BaseAdapter {
   }
 
   protected async transformTransactions(
-    rawTxs: BlockchainTransaction[],
+    rawTxs: UniversalBlockchainTransaction[],
     params: UniversalFetchParams
   ): Promise<UniversalTransaction[]> {
     const userAddresses = params.addresses || [];
@@ -233,23 +238,31 @@ export class SubstrateAdapter extends BaseAdapter {
       }
 
       return {
-        amount: tx.value,
+        amount: {
+          amount: new Decimal(tx.amount),
+          currency: tx.currency,
+        },
         datetime: new Date(tx.timestamp).toISOString(),
-        fee: tx.fee,
+        fee: tx.feeAmount
+          ? {
+              amount: new Decimal(tx.feeAmount),
+              currency: tx.feeCurrency || tx.currency,
+            }
+          : undefined,
         from: tx.from,
-        id: tx.hash,
+        id: tx.id,
         metadata: {
-          blockHash: tx.blockHash,
-          blockNumber: tx.blockNumber,
-          confirmations: tx.confirmations,
+          blockHeight: tx.blockHeight,
+          blockId: tx.blockId,
           originalTransaction: tx,
-          tokenContract: tx.tokenContract,
+          tokenAddress: tx.tokenAddress,
+          tokenSymbol: tx.tokenSymbol,
           transactionType: tx.type,
         },
         network: this.chainConfig.name,
         source: this.chainConfig.name,
         status: tx.status === 'success' ? 'closed' : tx.status === 'pending' ? 'open' : 'canceled',
-        symbol: tx.tokenSymbol || tx.value.currency,
+        symbol: tx.tokenSymbol || tx.currency,
         timestamp: tx.timestamp,
         to: tx.to,
         type,

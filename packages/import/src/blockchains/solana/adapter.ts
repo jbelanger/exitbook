@@ -1,6 +1,5 @@
 import type {
   Balance,
-  BlockchainTransaction,
   TransactionType,
   UniversalAdapterInfo,
   UniversalBalance,
@@ -9,9 +8,11 @@ import type {
   UniversalTransaction,
 } from '@crypto/core';
 import type { BlockchainExplorersConfig } from '@crypto/shared-utils';
+import { Decimal } from 'decimal.js';
 
 import { BaseAdapter } from '../../shared/adapters/base-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
+import type { UniversalBlockchainTransaction } from '../shared/types.ts';
 import type { SolanaRawTransactionData } from './clients/HeliusApiClient.ts';
 import type { SolanaRPCRawTransactionData } from './clients/SolanaRPCApiClient.ts';
 import type { SolscanRawTransactionData } from './clients/SolscanApiClient.ts';
@@ -35,7 +36,11 @@ export class SolanaAdapter extends BaseAdapter {
     );
   }
 
-  private processRawTransactions(rawData: unknown, providerName: string, userAddress: string): BlockchainTransaction[] {
+  private processRawTransactions(
+    rawData: unknown,
+    providerName: string,
+    userAddress: string
+  ): UniversalBlockchainTransaction[] {
     switch (providerName) {
       case 'helius':
         return HeliusProcessor.processAddressTransactions(rawData as SolanaRawTransactionData, userAddress);
@@ -91,12 +96,12 @@ export class SolanaAdapter extends BaseAdapter {
     return allBalances;
   }
 
-  protected async fetchRawTransactions(params: UniversalFetchParams): Promise<BlockchainTransaction[]> {
+  protected async fetchRawTransactions(params: UniversalFetchParams): Promise<UniversalBlockchainTransaction[]> {
     if (!params.addresses?.length) {
       throw new Error('Addresses required for Solana adapter');
     }
 
-    const allTransactions: BlockchainTransaction[] = [];
+    const allTransactions: UniversalBlockchainTransaction[] = [];
 
     for (const address of params.addresses) {
       this.logger.info(`Fetching transactions for address: ${address.substring(0, 20)}...`);
@@ -127,11 +132,11 @@ export class SolanaAdapter extends BaseAdapter {
 
     // Remove duplicates and sort by timestamp
     const uniqueTransactions = allTransactions.reduce((acc, tx) => {
-      if (!acc.find(existing => existing.hash === tx.hash)) {
+      if (!acc.find(existing => existing.id === tx.id)) {
         acc.push(tx);
       }
       return acc;
-    }, [] as BlockchainTransaction[]);
+    }, [] as UniversalBlockchainTransaction[]);
 
     uniqueTransactions.sort((a, b) => b.timestamp - a.timestamp);
 
@@ -190,7 +195,7 @@ export class SolanaAdapter extends BaseAdapter {
   }
 
   protected async transformTransactions(
-    rawTxs: BlockchainTransaction[],
+    rawTxs: UniversalBlockchainTransaction[],
     params: UniversalFetchParams
   ): Promise<UniversalTransaction[]> {
     const userAddresses = params.addresses || [];
@@ -208,27 +213,41 @@ export class SolanaAdapter extends BaseAdapter {
           type = 'deposit';
         } else if (isOutgoing && !isIncoming) {
           type = 'withdrawal';
+        } else if (isIncoming && isOutgoing) {
+          // Self-transfer: determine type based on value change
+          // Positive value = staking rewards, airdrops, etc. = deposit
+          // Negative value = staking delegation, burns, etc. = withdrawal
+          const amount = parseFloat(tx.amount);
+          type = amount > 0 ? 'deposit' : amount < 0 ? 'withdrawal' : 'transfer';
         }
       }
 
       return {
-        amount: tx.value,
+        amount: {
+          amount: new Decimal(tx.amount),
+          currency: tx.currency,
+        },
         datetime: new Date(tx.timestamp).toISOString(),
-        fee: tx.fee,
+        fee: tx.feeAmount
+          ? {
+              amount: new Decimal(tx.feeAmount),
+              currency: tx.feeCurrency || tx.currency,
+            }
+          : undefined,
         from: tx.from,
-        id: tx.hash,
+        id: tx.id,
         metadata: {
-          blockHash: tx.blockHash,
-          blockNumber: tx.blockNumber,
-          confirmations: tx.confirmations,
+          blockHeight: tx.blockHeight,
+          blockId: tx.blockId,
           originalTransaction: tx,
-          tokenContract: tx.tokenContract,
+          tokenAddress: tx.tokenAddress,
+          tokenSymbol: tx.tokenSymbol,
           transactionType: tx.type,
         },
         network: 'mainnet',
         source: 'solana',
         status: tx.status === 'success' ? 'closed' : tx.status === 'pending' ? 'open' : 'canceled',
-        symbol: tx.tokenSymbol || tx.value.currency,
+        symbol: tx.tokenSymbol || tx.currency,
         timestamp: tx.timestamp,
         to: tx.to,
         type,

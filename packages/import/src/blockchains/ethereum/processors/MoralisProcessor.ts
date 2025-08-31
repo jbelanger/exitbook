@@ -1,5 +1,5 @@
-import type { Balance, BlockchainTransaction } from '@crypto/core';
-import { createMoney, parseDecimal } from '@crypto/shared-utils';
+import type { Balance } from '@crypto/core';
+import { parseDecimal } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
@@ -13,68 +13,54 @@ import type { MoralisNativeBalance, MoralisTokenBalance, MoralisTokenTransfer, M
 @RegisterProcessor('moralis')
 export class MoralisProcessor extends BaseProviderProcessor<MoralisTransaction> {
   protected readonly schema = MoralisTransactionSchema;
-  private static convertNativeTransaction(tx: MoralisTransaction, userAddress: string): BlockchainTransaction {
-    const isFromUser = tx.from_address.toLowerCase() === userAddress.toLowerCase();
-    const isToUser = tx.to_address.toLowerCase() === userAddress.toLowerCase();
-
-    let type: 'transfer_in' | 'transfer_out';
-    if (isFromUser && isToUser) {
-      type = 'transfer_in';
-    } else if (isFromUser) {
-      type = 'transfer_out';
-    } else {
-      type = 'transfer_in';
-    }
-
-    const valueWei = new Decimal(tx.value);
+  private static convertNativeTransaction(tx: MoralisTransaction): UniversalBlockchainTransaction {
+    const valueWei = parseDecimal(tx.value);
     const valueEth = valueWei.dividedBy(new Decimal(10).pow(18));
+    const timestamp = new Date(tx.block_timestamp).getTime();
+
+    // Calculate gas fee
+    const gasPrice = parseDecimal(tx.gas_price);
+    const gasUsed = parseDecimal(tx.receipt_gas_used);
+    const feeWei = gasPrice.mul(gasUsed);
+    const feeEth = feeWei.dividedBy(new Decimal(10).pow(18));
 
     return {
-      blockHash: tx.block_hash,
-      blockNumber: parseInt(tx.block_number),
-      fee: createMoney(0, 'ETH'),
+      amount: valueEth.toString(),
+      blockHeight: parseInt(tx.block_number),
+      blockId: tx.block_hash,
+      currency: 'ETH',
+      feeAmount: feeEth.toString(),
+      feeCurrency: 'ETH',
       from: tx.from_address,
-      gasPrice: new Decimal(tx.gas_price).toNumber(),
-      gasUsed: parseInt(tx.receipt_gas_used),
-      hash: tx.hash,
+      id: tx.hash,
+      providerId: 'moralis',
       status: tx.receipt_status === '1' ? 'success' : 'failed',
-      timestamp: new Date(tx.block_timestamp).getTime(),
+      timestamp,
       to: tx.to_address,
-      type,
-      value: createMoney(valueEth.toNumber(), 'ETH'),
+      type: 'transfer',
     };
   }
 
-  private static convertTokenTransfer(tx: MoralisTokenTransfer, userAddress: string): BlockchainTransaction {
-    const isFromUser = tx.from_address.toLowerCase() === userAddress.toLowerCase();
-    const isToUser = tx.to_address.toLowerCase() === userAddress.toLowerCase();
-
-    let type: 'token_transfer_in' | 'token_transfer_out';
-    if (isFromUser && isToUser) {
-      type = 'token_transfer_in';
-    } else if (isFromUser) {
-      type = 'token_transfer_out';
-    } else {
-      type = 'token_transfer_in';
-    }
-
+  private static convertTokenTransfer(tx: MoralisTokenTransfer): UniversalBlockchainTransaction {
     const decimals = parseInt(tx.token_decimals);
-    const valueRaw = new Decimal(tx.value);
+    const valueRaw = parseDecimal(tx.value);
     const value = valueRaw.dividedBy(new Decimal(10).pow(decimals));
+    const timestamp = new Date(tx.block_timestamp).getTime();
 
     return {
-      blockHash: '',
-      blockNumber: parseInt(tx.block_number),
-      fee: createMoney(0, 'ETH'),
+      amount: value.toString(),
+      blockHeight: parseInt(tx.block_number),
+      currency: tx.token_symbol,
       from: tx.from_address,
-      hash: tx.transaction_hash,
-      status: 'success' as const,
-      timestamp: new Date(tx.block_timestamp).getTime(),
+      id: tx.transaction_hash,
+      providerId: 'moralis',
+      status: 'success',
+      timestamp,
       to: tx.to_address,
-      tokenContract: tx.address,
+      tokenAddress: tx.address,
+      tokenDecimals: decimals,
       tokenSymbol: tx.token_symbol,
-      type,
-      value: createMoney(value.toNumber(), tx.token_symbol),
+      type: 'token_transfer',
     };
   }
 
@@ -92,8 +78,8 @@ export class MoralisProcessor extends BaseProviderProcessor<MoralisTransaction> 
     ];
   }
 
-  static processAddressTransactions(transactions: MoralisTransaction[], userAddress: string): BlockchainTransaction[] {
-    return transactions.map(tx => this.convertNativeTransaction(tx, userAddress));
+  static processAddressTransactions(transactions: MoralisTransaction[]): UniversalBlockchainTransaction[] {
+    return transactions.map(tx => this.convertNativeTransaction(tx));
   }
 
   static processTokenBalances(balances: MoralisTokenBalance[]): Balance[] {
@@ -120,8 +106,8 @@ export class MoralisProcessor extends BaseProviderProcessor<MoralisTransaction> 
     return processedBalances;
   }
 
-  static processTokenTransactions(transfers: MoralisTokenTransfer[], userAddress: string): BlockchainTransaction[] {
-    return transfers.map(tx => this.convertTokenTransfer(tx, userAddress));
+  static processTokenTransactions(transfers: MoralisTokenTransfer[]): UniversalBlockchainTransaction[] {
+    return transfers.map(tx => this.convertTokenTransfer(tx));
   }
 
   // IProviderProcessor interface implementation
@@ -132,9 +118,6 @@ export class MoralisProcessor extends BaseProviderProcessor<MoralisTransaction> 
     // Extract addresses from rich session context
     const addresses = sessionContext.addresses || sessionContext.contractAddresses || [];
     const userAddress = addresses[0] || '';
-
-    const isFromUser = rawData.from_address.toLowerCase() === userAddress.toLowerCase();
-    const isToUser = rawData.to_address.toLowerCase() === userAddress.toLowerCase();
 
     // Determine transaction type - ETH native transfers are just transfers
     const type: UniversalBlockchainTransaction['type'] = 'transfer';

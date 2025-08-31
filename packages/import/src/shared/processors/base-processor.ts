@@ -77,7 +77,7 @@ export abstract class BaseProcessor<TRawData> implements IProcessor<TRawData> {
     blockchainTransaction: UniversalBlockchainTransaction,
     sessionContext: ImportSessionMetadata
   ): TransactionType {
-    const { from, to } = blockchainTransaction;
+    const { amount, feeAmount, from, to } = blockchainTransaction;
     const allWalletAddresses = new Set([
       ...(sessionContext.addresses || []),
       ...(sessionContext.derivedAddresses || []),
@@ -85,6 +85,15 @@ export abstract class BaseProcessor<TRawData> implements IProcessor<TRawData> {
 
     const isFromWallet = from && allWalletAddresses.has(from);
     const isToWallet = to && allWalletAddresses.has(to);
+
+    // Check if this is a fee-only transaction (amount is 0 or equals fee, but fee > 0)
+    const transactionAmount = parseFloat(amount || '0');
+    const feeAmount_num = parseFloat(feeAmount || '0');
+    const isFeeOnlyTransaction = transactionAmount === feeAmount_num && feeAmount_num > 0;
+
+    if (isFeeOnlyTransaction) {
+      return 'fee';
+    }
 
     // Determine transaction type based on fund flow direction
     if (isFromWallet && isToWallet) {

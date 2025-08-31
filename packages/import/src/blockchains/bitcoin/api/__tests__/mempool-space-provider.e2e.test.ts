@@ -1,7 +1,7 @@
-import type { BlockchainTransaction } from '@crypto/core';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { MempoolSpaceApiClient } from '../../api/MempoolSpaceApiClient.ts';
+import type { UniversalBlockchainTransaction } from '../../shared/types.ts';
 import type { AddressInfo, MempoolTransaction } from '../../types.ts';
 
 describe('MempoolSpaceProvider Integration', () => {
@@ -50,18 +50,17 @@ describe('MempoolSpaceProvider Integration', () => {
     const testAddress = '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'; // Known address with transactions
 
     it('should fetch address transactions successfully', async () => {
-      const transactions = await provider.execute<BlockchainTransaction[]>({
+      const transactions = await provider.execute<UniversalBlockchainTransaction[]>({
         address: testAddress,
         type: 'getAddressTransactions',
       });
 
       expect(Array.isArray(transactions)).toBe(true);
       if (transactions.length > 0) {
-        expect(transactions[0]).toHaveProperty('hash');
+        expect(transactions[0]).toHaveProperty('id');
         expect(transactions[0]).toHaveProperty('timestamp');
-        expect(transactions[0]).toHaveProperty('value');
-        expect(transactions[0].value).toHaveProperty('amount');
-        expect(transactions[0].value).toHaveProperty('currency', 'BTC');
+        expect(transactions[0]).toHaveProperty('amount');
+        expect(transactions[0]).toHaveProperty('currency', 'BTC');
         expect(['transfer_in', 'transfer_out']).toContain(transactions[0].type);
         expect(['success', 'pending']).toContain(transactions[0].status);
       }
@@ -70,7 +69,7 @@ describe('MempoolSpaceProvider Integration', () => {
     it('should return empty array for unused address', async () => {
       const unusedAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa'; // Genesis block address, unlikely to have new txs
 
-      const transactions = await provider.execute<BlockchainTransaction[]>({
+      const transactions = await provider.execute<UniversalBlockchainTransaction[]>({
         address: unusedAddress,
         type: 'getAddressTransactions',
       });
@@ -81,7 +80,7 @@ describe('MempoolSpaceProvider Integration', () => {
     it('should filter transactions by timestamp when since parameter is provided', async () => {
       const futureTimestamp = Date.now() + 86400000; // 24 hours from now
 
-      const transactions = await provider.execute<BlockchainTransaction[]>({
+      const transactions = await provider.execute<UniversalBlockchainTransaction[]>({
         address: testAddress,
         since: futureTimestamp,
         type: 'getAddressTransactions',

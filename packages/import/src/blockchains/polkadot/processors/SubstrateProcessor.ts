@@ -1,5 +1,4 @@
-import type { Balance, BlockchainTransaction } from '@crypto/core';
-import { createMoney } from '@crypto/shared-utils';
+import type { Balance } from '@crypto/core';
 import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
@@ -28,7 +27,7 @@ export class SubstrateProcessor extends BaseProviderProcessor<SubscanTransfer> {
     transfer: SubscanTransfer,
     userAddress: string,
     chainConfig: SubstrateChainConfig
-  ): BlockchainTransaction | null {
+  ): UniversalBlockchainTransaction | null {
     try {
       const isFromUser = transfer.from === userAddress;
       const isToUser = transfer.to === userAddress;
@@ -47,17 +46,19 @@ export class SubstrateProcessor extends BaseProviderProcessor<SubscanTransfer> {
       const type = isFromUser ? 'transfer_out' : 'transfer_in';
 
       return {
-        blockHash: transfer.block_hash || '',
-        blockNumber: transfer.block_num || 0,
-        confirmations: 1,
-        fee: createMoney(feeInMainUnit.toNumber(), chainConfig.tokenSymbol),
+        amount: amountInMainUnit.toString(),
+        blockHeight: transfer.block_num || 0,
+        blockId: transfer.block_hash || '',
+        currency: chainConfig.tokenSymbol,
+        feeAmount: feeInMainUnit.toString(),
+        feeCurrency: chainConfig.tokenSymbol,
         from: transfer.from,
-        hash: transfer.hash,
+        id: transfer.hash,
+        providerId: 'subscan',
         status: transfer.success ? 'success' : 'failed',
         timestamp: transfer.block_timestamp * 1000, // Convert to milliseconds
         to: transfer.to,
-        type,
-        value: createMoney(amountInMainUnit.toNumber(), chainConfig.tokenSymbol),
+        type: type === 'transfer_out' ? 'transfer_out' : 'transfer_in',
       };
     } catch (error) {
       console.warn(`Failed to convert Subscan transaction - Transfer: ${JSON.stringify(transfer)}, Error: ${error}`);
@@ -68,7 +69,7 @@ export class SubstrateProcessor extends BaseProviderProcessor<SubscanTransfer> {
   private static convertTaostatsTransaction(
     tx: TaostatsTransaction,
     userAddress: string
-  ): BlockchainTransaction | null {
+  ): UniversalBlockchainTransaction | null {
     try {
       const isFromUser = tx.from === userAddress;
       const isToUser = tx.to === userAddress;
@@ -83,17 +84,19 @@ export class SubstrateProcessor extends BaseProviderProcessor<SubscanTransfer> {
       const type = isFromUser ? 'transfer_out' : 'transfer_in';
 
       return {
-        blockHash: tx.block_hash || '',
-        blockNumber: tx.block_number || 0,
-        confirmations: tx.confirmations || 1,
-        fee: createMoney(fee.toNumber(), 'TAO'),
+        amount: amount.toString(),
+        blockHeight: tx.block_number || 0,
+        blockId: tx.block_hash || '',
+        currency: 'TAO',
+        feeAmount: fee.toString(),
+        feeCurrency: 'TAO',
         from: tx.from,
-        hash: tx.hash,
+        id: tx.hash,
+        providerId: 'taostats',
         status: tx.success ? 'success' : 'failed',
         timestamp: new Date(tx.timestamp).getTime(),
         to: tx.to,
-        type,
-        value: createMoney(amount.toNumber(), 'TAO'),
+        type: type === 'transfer_out' ? 'transfer_out' : 'transfer_in',
       };
     } catch (error) {
       console.warn(`Failed to convert Taostats transaction - Tx: ${JSON.stringify(tx)}, Error: ${error}`);
@@ -119,8 +122,8 @@ export class SubstrateProcessor extends BaseProviderProcessor<SubscanTransfer> {
     return [];
   }
 
-  static processAddressTransactions(rawData: SubstrateRawData, userAddress: string): BlockchainTransaction[] {
-    const transactions: BlockchainTransaction[] = [];
+  static processAddressTransactions(rawData: SubstrateRawData, userAddress: string): UniversalBlockchainTransaction[] {
+    const transactions: UniversalBlockchainTransaction[] = [];
 
     // Default to polkadot chain config (could be enhanced to detect chain dynamically)
     const chainConfig = SUBSTRATE_CHAINS['polkadot']!;
@@ -208,39 +211,11 @@ export class SubstrateProcessor extends BaseProviderProcessor<SubscanTransfer> {
     const userAddress = addresses[0] || '';
     const chainConfig = SUBSTRATE_CHAINS['polkadot']!;
 
-    // Convert single SubscanTransfer to BlockchainTransaction
-    const bcTx = SubstrateProcessor.convertSubscanTransaction(rawData, userAddress, chainConfig);
+    // Convert single SubscanTransfer directly to UniversalBlockchainTransaction
+    const transaction = SubstrateProcessor.convertSubscanTransaction(rawData, userAddress, chainConfig);
 
-    if (!bcTx) {
+    if (!transaction) {
       return err(`Transaction not relevant to user address: ${userAddress}`);
-    }
-
-    // Convert amounts to string format
-    const amount = new Decimal(bcTx.value.amount.toString());
-    const feeAmount = new Decimal(bcTx.fee.amount.toString());
-
-    const transaction: UniversalBlockchainTransaction = {
-      amount: amount.toString(),
-      currency: bcTx.value.currency,
-      from: bcTx.from,
-      id: bcTx.hash,
-      providerId: 'subscan',
-      status: bcTx.status === 'success' ? 'success' : 'failed',
-      timestamp: bcTx.timestamp,
-      to: bcTx.to,
-      type: 'transfer',
-    };
-
-    // Add optional fields
-    if (bcTx.blockNumber > 0) {
-      transaction.blockHeight = bcTx.blockNumber;
-    }
-    if (feeAmount.toNumber() > 0) {
-      transaction.feeAmount = feeAmount.toString();
-      transaction.feeCurrency = bcTx.fee.currency;
-    }
-    if (bcTx.blockHash) {
-      transaction.blockId = bcTx.blockHash;
     }
 
     return ok([transaction]);

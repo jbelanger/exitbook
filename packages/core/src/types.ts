@@ -107,63 +107,6 @@ export interface PrecisionBlockchainBalance {
 // Legacy alias for compatibility
 export type Balance = BlockchainBalance;
 
-/**
- * Raw blockchain transaction format containing blockchain-specific metadata.
- * This interface represents transactions in their native blockchain format with full context
- * including block information, gas details, and blockchain-specific transaction types.
- *
- * Source: Blockchain providers (Etherscan, Mempool.space, Injective Explorer, etc.)
- * Converted to: CryptoTransaction via IBlockchainAdapter.convertToCryptoTransaction()
- *
- * @example
- * // From Ethereum provider
- * const ethTxs = await etherscanProvider.getTransactions(address); // Returns BlockchainTransaction[]
- * const cryptoTxs = ethTxs.map(tx => adapter.convertToCryptoTransaction(tx, address));
- */
-export interface BlockchainTransaction {
-  /** Hash of the block containing this transaction */
-  blockHash: string;
-  /** Block number where transaction was included */
-  blockNumber: number;
-  /** Number of block confirmations */
-  confirmations?: number | undefined;
-  /** Transaction fee paid */
-  fee: Money;
-  /** Sender address (blockchain-native format) */
-  from: string;
-  /** Gas price per unit (Ethereum/EVM chains) */
-  gasPrice?: number | undefined;
-  /** Gas units consumed (Ethereum/EVM chains) */
-  gasUsed?: number | undefined;
-  /** Transaction hash - unique identifier on the blockchain */
-  hash: string;
-  /** Transaction nonce (ordering/replay protection) */
-  nonce?: number | undefined;
-  /** Blockchain-native transaction status */
-  status: 'success' | 'failed' | 'pending';
-  /** Unix timestamp when transaction was mined/confirmed */
-  timestamp: number;
-  /** Recipient address (blockchain-native format) */
-  to: string;
-  /** Token contract address (for token transactions) */
-  tokenContract?: string | undefined;
-  /** Token symbol (for token transactions) */
-  tokenSymbol?: string | undefined;
-  /** Detailed blockchain-specific transaction type for accurate classification */
-  type:
-    | 'transfer'
-    | 'contract_execution'
-    | 'token_transfer'
-    | 'transfer_in'
-    | 'transfer_out'
-    | 'internal_transfer_in'
-    | 'internal_transfer_out'
-    | 'token_transfer_in'
-    | 'token_transfer_out';
-  /** Transaction value/amount with currency information */
-  value: Money;
-}
-
 // ===== API AND UTILITY TYPES =====
 export interface ApiResponse<T> {
   data?: T;

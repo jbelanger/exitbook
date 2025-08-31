@@ -99,13 +99,13 @@ export interface ProviderHealth {
 export interface UniversalBlockchainTransaction {
   amount: string; // Primary transaction amount (preserves precision)
   // Block context (optional for pending)
-  blockHeight?: number; // Block number/height/slot
-  blockId?: string; // Block hash/ID
+  blockHeight?: number | undefined; // Block number/height/slot
+  blockId?: string | undefined; // Block hash/ID
 
   currency: string; // Primary currency symbol (BTC, ETH, AVAX, SOL, INJ)
   // Fee (single field, not nested object)
-  feeAmount?: string; // Fee amount as string for precision
-  feeCurrency?: string; // Fee currency (usually same as primary currency)
+  feeAmount?: string | undefined; // Fee amount as string for precision
+  feeCurrency?: string | undefined; // Fee currency (usually same as primary currency)
   // Transaction participants and value
   from: string; // Source address
 
@@ -120,10 +120,18 @@ export interface UniversalBlockchainTransaction {
   to: string; // Destination address
 
   // Token context (for token transfers)
-  tokenAddress?: string; // Contract/mint address
-  tokenDecimals?: number; // Token decimal places
-  tokenSymbol?: string; // Token symbol
+  tokenAddress?: string | undefined; // Contract/mint address
+  tokenDecimals?: number | undefined; // Token decimal places
+  tokenSymbol?: string | undefined; // Token symbol
 
   // Transaction classification
-  type: 'transfer' | 'contract_call' | 'token_transfer' | 'internal';
+  type:
+    | 'transfer'
+    | 'transfer_in'
+    | 'transfer_out'
+    | 'contract_call'
+    | 'token_transfer'
+    | 'internal'
+    | 'delegate'
+    | 'undelegate';
 }

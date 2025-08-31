@@ -1,4 +1,4 @@
-import type { Balance, BlockchainTransaction } from '@crypto/core';
+import type { Balance } from '@crypto/core';
 import { createMoney, parseDecimal } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
@@ -13,20 +13,22 @@ import type { AlchemyAssetTransfer, EtherscanBalance } from '../types.ts';
 @RegisterProcessor('alchemy')
 export class AlchemyProcessor extends BaseProviderProcessor<AlchemyAssetTransfer> {
   protected readonly schema = AlchemyAssetTransferSchema;
-  private static convertAssetTransfer(transfer: AlchemyAssetTransfer, userAddress: string): BlockchainTransaction {
+  private static convertAssetTransfer(
+    transfer: AlchemyAssetTransfer,
+    userAddress: string
+  ): UniversalBlockchainTransaction {
     const isFromUser = transfer.from.toLowerCase() === userAddress.toLowerCase();
-    const isToUser = transfer.to.toLowerCase() === userAddress.toLowerCase();
 
     // Determine transaction type
-    let type: 'transfer_in' | 'transfer_out' | 'token_transfer_in' | 'token_transfer_out';
+    let type: UniversalBlockchainTransaction['type'];
     const isToken = transfer.category === 'token';
 
-    if (isFromUser && isToUser) {
-      type = isToken ? 'token_transfer_in' : 'transfer_in';
+    if (isToken) {
+      type = 'token_transfer';
     } else if (isFromUser) {
-      type = isToken ? 'token_transfer_out' : 'transfer_out';
+      type = 'transfer_out';
     } else {
-      type = isToken ? 'token_transfer_in' : 'transfer_in';
+      type = 'transfer_in';
     }
 
     // Handle different asset types
@@ -47,20 +49,35 @@ export class AlchemyProcessor extends BaseProviderProcessor<AlchemyAssetTransfer
       ? new Date(transfer.metadata.blockTimestamp).getTime()
       : Date.now();
 
-    return {
-      blockHash: '',
-      blockNumber: parseInt(transfer.blockNum, 16),
-      fee: createMoney(0, 'ETH'),
+    const transaction: UniversalBlockchainTransaction = {
+      amount: amount.toString(),
+      blockHeight: parseInt(transfer.blockNum, 16),
+      currency,
       from: transfer.from,
-      hash: transfer.hash,
-      status: 'success' as const,
+      id: transfer.hash,
+      providerId: 'alchemy',
+      status: 'success',
       timestamp,
       to: transfer.to,
-      tokenContract: transfer.rawContract?.address,
-      tokenSymbol: currency !== 'ETH' ? currency : undefined,
       type,
-      value: createMoney(amount.toNumber(), currency),
     };
+
+    // Add token-specific fields if applicable
+    if (transfer.rawContract?.address) {
+      transaction.tokenAddress = transfer.rawContract.address;
+      if (currency !== 'ETH') {
+        transaction.tokenSymbol = currency;
+      }
+      if (transfer.rawContract.decimal) {
+        const decimals =
+          typeof transfer.rawContract.decimal === 'number'
+            ? transfer.rawContract.decimal
+            : parseInt(String(transfer.rawContract.decimal));
+        transaction.tokenDecimals = decimals;
+      }
+    }
+
+    return transaction;
   }
 
   static processAddressBalance(balances: EtherscanBalance[]): Balance[] {
@@ -77,11 +94,17 @@ export class AlchemyProcessor extends BaseProviderProcessor<AlchemyAssetTransfer
     });
   }
 
-  static processAddressTransactions(transfers: AlchemyAssetTransfer[], userAddress: string): BlockchainTransaction[] {
+  static processAddressTransactions(
+    transfers: AlchemyAssetTransfer[],
+    userAddress: string
+  ): UniversalBlockchainTransaction[] {
     return transfers.map(transfer => this.convertAssetTransfer(transfer, userAddress));
   }
 
-  static processTokenTransactions(transfers: AlchemyAssetTransfer[], userAddress: string): BlockchainTransaction[] {
+  static processTokenTransactions(
+    transfers: AlchemyAssetTransfer[],
+    userAddress: string
+  ): UniversalBlockchainTransaction[] {
     return transfers.map(transfer => this.convertAssetTransfer(transfer, userAddress));
   }
 
@@ -90,13 +113,6 @@ export class AlchemyProcessor extends BaseProviderProcessor<AlchemyAssetTransfer
     rawData: AlchemyAssetTransfer,
     sessionContext: ImportSessionMetadata
   ): Result<UniversalBlockchainTransaction[], string> {
-    // Extract addresses from rich session context
-    const addresses = sessionContext.addresses || sessionContext.contractAddresses || [];
-    const userAddress = addresses[0] || '';
-
-    const isFromUser = rawData.from.toLowerCase() === userAddress.toLowerCase();
-    const isToUser = rawData.to.toLowerCase() === userAddress.toLowerCase();
-
     // Determine transaction type
     let type: UniversalBlockchainTransaction['type'];
     if (rawData.category === 'token') {

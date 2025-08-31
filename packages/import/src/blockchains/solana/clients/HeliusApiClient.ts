@@ -124,7 +124,7 @@ export class HeliusApiClient extends BaseRegistryProvider {
       params: [
         address,
         {
-          limit: 10, // Keep small to minimize requests
+          limit: 1000, // Get full transaction history
         },
       ],
     });
@@ -135,7 +135,7 @@ export class HeliusApiClient extends BaseRegistryProvider {
     }
 
     const transactions: HeliusTransaction[] = [];
-    const signatures = signaturesResponse.result.slice(0, 8); // Reduced to 8 to minimize API calls
+    const signatures = signaturesResponse.result.slice(0, 200); // Process more historical transactions
 
     this.logger.debug(`Retrieved direct signatures - Address: ${maskAddress(address)}, Count: ${signatures.length}`);
 
@@ -320,10 +320,67 @@ export class HeliusApiClient extends BaseRegistryProvider {
 
   private async getTokenAccountTransactions(address: string, since?: number): Promise<HeliusTransaction[]> {
     try {
-      // Skip token account transactions for now to avoid rate limits
-      // The direct address transactions should capture most relevant token transfers
-      this.logger.debug(`Skipping token account transactions to avoid rate limits - Address: ${maskAddress(address)}`);
-      return [];
+      this.logger.debug(`Fetching token account transactions - Address: ${maskAddress(address)}`);
+
+      // Get token accounts owned by the user
+      const tokenAccountAddresses = await this.getTokenAccountsOwnedByAddress(address);
+      const tokenTransactions: HeliusTransaction[] = [];
+
+      // Fetch transactions for each token account (limit to avoid rate limits)
+      const maxTokenAccounts = 20; // Reasonable limit
+      const accountsToProcess = tokenAccountAddresses.slice(0, maxTokenAccounts);
+
+      this.logger.debug(`Processing ${accountsToProcess.length} token accounts for address ${maskAddress(address)}`);
+
+      for (const account of accountsToProcess) {
+        try {
+          const signaturesResponse = await this.httpClient.post<JsonRpcResponse<SolanaSignature[]>>('/', {
+            id: 1,
+            jsonrpc: '2.0',
+            method: 'getSignaturesForAddress',
+            params: [
+              account,
+              {
+                limit: 50, // Increase to get more historical token transactions
+              },
+            ],
+          });
+
+          if (signaturesResponse?.result) {
+            const signatures = signaturesResponse.result.slice(0, 20); // Increase limit per token account
+
+            for (const sig of signatures) {
+              const txResponse = await this.httpClient.post<JsonRpcResponse<HeliusTransaction>>('/', {
+                id: 1,
+                jsonrpc: '2.0',
+                method: 'getTransaction',
+                params: [
+                  sig.signature,
+                  {
+                    encoding: 'json',
+                    maxSupportedTransactionVersion: 0,
+                  },
+                ],
+              });
+
+              if (txResponse?.result) {
+                tokenTransactions.push(txResponse.result);
+              }
+            }
+          }
+        } catch (error) {
+          this.logger.debug(
+            `Failed to fetch transactions for token account ${account} - Error: ${error instanceof Error ? error.message : String(error)}`
+          );
+          // Continue with other token accounts
+        }
+      }
+
+      this.logger.debug(
+        `Retrieved token account transactions - Address: ${maskAddress(address)}, TokenAccounts: ${accountsToProcess.length}, Transactions: ${tokenTransactions.length}`
+      );
+
+      return tokenTransactions;
     } catch (error) {
       this.logger.warn(
         `Failed to get token account transactions - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`

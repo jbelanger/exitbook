@@ -1,4 +1,4 @@
-import type { UniversalTransaction } from '@crypto/core';
+import type { TransactionType, UniversalTransaction } from '@crypto/core';
 // Import processors to trigger registration
 import type { StoredRawData } from '@crypto/data';
 import { createMoney } from '@crypto/shared-utils';
@@ -7,6 +7,7 @@ import { type Result, err, ok } from 'neverthrow';
 import { BaseProcessor } from '../../shared/processors/base-processor.ts';
 import type { ApiClientRawData, ImportSessionMetadata } from '../../shared/processors/interfaces.ts';
 import { ProcessorFactory } from '../../shared/processors/processor-registry.ts';
+import type { UniversalBlockchainTransaction } from '../shared/types.ts';
 import type { SolanaRawTransactionData } from './clients/HeliusApiClient.ts';
 import './processors/index.ts';
 
@@ -91,6 +92,60 @@ export class SolanaTransactionProcessor extends BaseProcessor<ApiClientRawData<S
    */
   protected canProcessSpecific(sourceType: string): boolean {
     return sourceType === 'blockchain';
+  }
+
+  /**
+   * Override the base transaction type mapping to handle Solana-specific cases.
+   * Specifically handles self-transfers that represent staking rewards/penalties.
+   */
+  protected mapTransactionType(
+    blockchainTransaction: UniversalBlockchainTransaction,
+    sessionContext: ImportSessionMetadata
+  ): TransactionType {
+    const { amount, from, to, type } = blockchainTransaction;
+    const allWalletAddresses = new Set([
+      ...(sessionContext.addresses || []),
+      ...(sessionContext.derivedAddresses || []),
+    ]);
+
+    const isFromWallet = from && allWalletAddresses.has(from);
+    const isToWallet = to && allWalletAddresses.has(to);
+
+    // Handle token transfers - they should follow standard direction logic
+    if (type === 'token_transfer') {
+      if (!isFromWallet && isToWallet) {
+        return 'deposit';
+      } else if (isFromWallet && !isToWallet) {
+        return 'withdrawal';
+      }
+      return 'transfer';
+    }
+
+    // Handle staking operations
+    if (type === 'delegate') {
+      return 'withdrawal'; // Staking delegation - funds leaving active balance
+    } else if (type === 'undelegate') {
+      return 'deposit'; // Unstaking - funds returning to active balance
+    }
+
+    // Handle directional transfers from processor
+    if (type === 'transfer_in') {
+      return 'deposit';
+    } else if (type === 'transfer_out') {
+      return 'withdrawal';
+    }
+
+    // For SOL transfers, handle self-transfers specially for staking rewards
+    if (isFromWallet && isToWallet && from === to) {
+      // Self-transfer: determine type based on value change
+      // Positive value = staking rewards, airdrops, etc. = deposit
+      // Negative value = staking delegation, burns, etc. = withdrawal
+      const transactionAmount = parseFloat(amount || '0');
+      return transactionAmount > 0 ? 'deposit' : transactionAmount < 0 ? 'withdrawal' : 'transfer';
+    }
+
+    // Use base class logic for everything else
+    return super.mapTransactionType(blockchainTransaction, sessionContext);
   }
 
   protected async processInternal(

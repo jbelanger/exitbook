@@ -1,6 +1,5 @@
 import type {
   Balance,
-  BlockchainTransaction,
   UniversalAdapterInfo,
   UniversalBalance,
   UniversalBlockchainAdapterConfig,
@@ -12,6 +11,7 @@ import { Decimal } from 'decimal.js';
 
 import { BaseAdapter } from '../../shared/adapters/base-adapter.ts';
 import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
+import type { UniversalBlockchainTransaction } from '../shared/types.ts';
 import './api/index.ts';
 // Import clients to trigger registration
 import { AlchemyProcessor } from './processors/AlchemyProcessor.ts';
@@ -64,7 +64,7 @@ export class EthereumAdapter extends BaseAdapter {
     rawData: unknown,
     providerName: string,
     userAddress: string
-  ): BlockchainTransaction[] {
+  ): UniversalBlockchainTransaction[] {
     switch (providerName) {
       case 'alchemy':
         return AlchemyProcessor.processTokenTransactions(rawData as AlchemyAssetTransfer[], userAddress);
@@ -76,7 +76,11 @@ export class EthereumAdapter extends BaseAdapter {
     }
   }
 
-  private processRawTransactions(rawData: unknown, providerName: string, userAddress: string): BlockchainTransaction[] {
+  private processRawTransactions(
+    rawData: unknown,
+    providerName: string,
+    userAddress: string
+  ): UniversalBlockchainTransaction[] {
     switch (providerName) {
       case 'alchemy':
         return AlchemyProcessor.processAddressTransactions(rawData as AlchemyAssetTransfer[], userAddress);
@@ -148,12 +152,12 @@ export class EthereumAdapter extends BaseAdapter {
     return allBalances;
   }
 
-  protected async fetchRawTransactions(params: UniversalFetchParams): Promise<BlockchainTransaction[]> {
+  protected async fetchRawTransactions(params: UniversalFetchParams): Promise<UniversalBlockchainTransaction[]> {
     if (!params.addresses?.length) {
       throw new Error('Addresses required for Ethereum adapter');
     }
 
-    const allTransactions: BlockchainTransaction[] = [];
+    const allTransactions: UniversalBlockchainTransaction[] = [];
 
     for (const address of params.addresses) {
       this.logger.info(`EthereumAdapter: Fetching transactions for address: ${address.substring(0, 20)}...`);
@@ -175,7 +179,7 @@ export class EthereumAdapter extends BaseAdapter {
         );
 
         // Try to fetch ERC-20 token transactions (if provider supports it)
-        let tokenTxs: BlockchainTransaction[] = [];
+        let tokenTxs: UniversalBlockchainTransaction[] = [];
         try {
           const tokenTxsFailoverResult = await this.providerManager.executeWithFailover('ethereum', {
             address: address,
@@ -213,7 +217,7 @@ export class EthereumAdapter extends BaseAdapter {
         acc.push(tx);
       }
       return acc;
-    }, [] as BlockchainTransaction[]);
+    }, [] as UniversalBlockchainTransaction[]);
 
     uniqueTransactions.sort((a, b) => b.timestamp - a.timestamp);
 
@@ -272,7 +276,7 @@ export class EthereumAdapter extends BaseAdapter {
   }
 
   protected async transformTransactions(
-    rawTxs: BlockchainTransaction[],
+    rawTxs: UniversalBlockchainTransaction[],
     params: UniversalFetchParams
   ): Promise<UniversalTransaction[]> {
     // TODO: This adapter should be deprecated in favor of the ETL pipeline
@@ -281,22 +285,29 @@ export class EthereumAdapter extends BaseAdapter {
 
     // Simple transformation - this is a temporary fix
     return rawTxs.map(tx => ({
-      amount: tx.value || {
-        amount: new Decimal(0),
-        currency: 'ETH',
+      amount: {
+        amount: new Decimal(tx.amount || '0'),
+        currency: tx.currency,
       },
       datetime: new Date(tx.timestamp || Date.now()).toISOString(),
-      fee: tx.fee,
-      id: tx.hash || 'unknown',
+      fee: tx.feeAmount
+        ? {
+            amount: new Decimal(tx.feeAmount),
+            currency: tx.feeCurrency || tx.currency,
+          }
+        : undefined,
+      id: tx.id,
       metadata: {
-        blockNumber: tx.blockNumber,
+        blockHeight: tx.blockHeight,
         from: tx.from,
         to: tx.to,
+        tokenAddress: tx.tokenAddress,
+        tokenSymbol: tx.tokenSymbol,
       },
       source: 'ethereum',
       status: 'ok' as const,
-      timestamp: tx.timestamp || Date.now(),
-      type: 'transfer' as const,
+      timestamp: tx.timestamp,
+      type: tx.type === 'token_transfer' ? 'trade' : ('transfer' as const),
     }));
   }
 }

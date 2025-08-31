@@ -1,6 +1,5 @@
-import type { BlockchainTransaction } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
-import { createMoney, maskAddress } from '@crypto/shared-utils';
+import { maskAddress } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
@@ -18,12 +17,15 @@ const logger = getLogger('SolscanProcessor');
 @RegisterProcessor('solscan')
 export class SolscanProcessor extends BaseProviderProcessor<SolscanRawTransactionData> {
   protected readonly schema = SolscanRawTransactionDataSchema;
-  static processAddressTransactions(rawData: SolscanRawTransactionData, userAddress: string): BlockchainTransaction[] {
+  static processAddressTransactions(
+    rawData: SolscanRawTransactionData,
+    userAddress: string
+  ): UniversalBlockchainTransaction[] {
     logger.debug(
       `Processing Solscan address transactions - Address: ${maskAddress(userAddress)}, RawTransactionCount: ${rawData.normal.length}`
     );
 
-    const transactions: BlockchainTransaction[] = [];
+    const transactions: UniversalBlockchainTransaction[] = [];
 
     for (const tx of rawData.normal) {
       const processedTx = this.transformTransaction(tx, userAddress);
@@ -42,7 +44,10 @@ export class SolscanProcessor extends BaseProviderProcessor<SolscanRawTransactio
     return transactions;
   }
 
-  private static transformTransaction(tx: SolscanTransaction, userAddress: string): BlockchainTransaction | null {
+  private static transformTransaction(
+    tx: SolscanTransaction,
+    userAddress: string
+  ): UniversalBlockchainTransaction | null {
     try {
       // Check if user is involved in the transaction
       const isUserSigner = tx.signer.includes(userAddress);
@@ -71,22 +76,18 @@ export class SolscanProcessor extends BaseProviderProcessor<SolscanRawTransactio
       const fee = lamportsToSol(tx.fee);
 
       return {
-        blockHash: '',
-        blockNumber: tx.slot,
-        confirmations: 1,
-        fee: createMoney(fee.toNumber(), 'SOL'),
+        amount: amount.toString(),
+        blockHeight: tx.slot,
+        currency: 'SOL',
+        feeAmount: fee.toString(),
+        feeCurrency: 'SOL',
         from: tx.signer?.[0] || '',
-        gasPrice: undefined,
-        gasUsed: undefined,
-        hash: tx.txHash,
-        nonce: undefined,
+        id: tx.txHash,
+        providerId: 'solscan',
         status: tx.status === 'Success' ? 'success' : 'failed',
         timestamp: tx.blockTime * 1000,
         to: '',
-        tokenContract: undefined,
-        tokenSymbol: 'SOL',
-        type,
-        value: createMoney(amount.toNumber(), 'SOL'),
+        type: type === 'transfer_out' ? 'transfer_out' : 'transfer_in',
       };
     } catch (error) {
       logger.warn(
@@ -120,20 +121,7 @@ export class SolscanProcessor extends BaseProviderProcessor<SolscanRawTransactio
         continue;
       }
 
-      transactions.push({
-        amount: processedTx.value.amount.toString(),
-        blockHeight: processedTx.blockNumber,
-        currency: processedTx.tokenSymbol || 'SOL',
-        feeAmount: processedTx.fee.amount.toString(),
-        feeCurrency: 'SOL',
-        from: processedTx.from,
-        id: processedTx.hash,
-        providerId: 'solscan',
-        status: processedTx.status === 'success' ? 'success' : 'failed',
-        timestamp: processedTx.timestamp,
-        to: processedTx.to,
-        type: 'transfer',
-      });
+      transactions.push(processedTx);
     }
 
     return ok(transactions);

@@ -1,4 +1,3 @@
-import type { BlockchainTransaction } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
 import { createMoney, maskAddress } from '@crypto/shared-utils';
 import { type Result, ok } from 'neverthrow';
@@ -21,7 +20,7 @@ export class SolanaRPCProcessor extends BaseProviderProcessor<SolanaRPCRawTransa
     tx: SolanaRPCTransaction,
     userAddress: string,
     targetContract?: string
-  ): BlockchainTransaction | null {
+  ): UniversalBlockchainTransaction | null {
     try {
       // Look for token balance changes in preTokenBalances and postTokenBalances
       const preTokenBalances = tx.meta.preTokenBalances || [];
@@ -56,22 +55,20 @@ export class SolanaRPCProcessor extends BaseProviderProcessor<SolanaRPCRawTransa
         const type: 'transfer_in' | 'transfer_out' = change > 0 ? 'transfer_in' : 'transfer_out';
 
         return {
-          blockHash: '',
-          blockNumber: tx.slot,
-          confirmations: 1,
-          fee: createMoney(lamportsToSol(tx.meta.fee).toNumber(), 'SOL'),
+          amount: Math.abs(change).toString(),
+          blockHeight: tx.slot,
+          currency: 'UNKNOWN', // Will be updated with proper symbol later
+          feeAmount: lamportsToSol(tx.meta.fee).toString(),
+          feeCurrency: 'SOL',
           from: type === 'transfer_out' ? userAddress : '',
-          gasPrice: undefined,
-          gasUsed: undefined,
-          hash: tx.transaction.signatures?.[0] || '',
-          nonce: undefined,
+          id: tx.transaction.signatures?.[0] || '',
+          providerId: 'solana-rpc',
           status: tx.meta.err ? 'failed' : 'success',
           timestamp: (tx.blockTime || 0) * 1000,
           to: type === 'transfer_in' ? userAddress : '',
-          tokenContract: postBalance.mint,
-          tokenSymbol: postBalance.uiTokenAmount.uiAmountString?.includes('.') ? 'UNKNOWN' : 'UNKNOWN',
+          tokenAddress: postBalance.mint,
+          tokenSymbol: 'UNKNOWN',
           type: 'token_transfer',
-          value: createMoney(Math.abs(change), 'UNKNOWN'), // Will be updated with proper symbol later
         };
       }
 
@@ -87,12 +84,12 @@ export class SolanaRPCProcessor extends BaseProviderProcessor<SolanaRPCRawTransa
   static processAddressTransactions(
     rawData: SolanaRPCRawTransactionData,
     userAddress: string
-  ): BlockchainTransaction[] {
+  ): UniversalBlockchainTransaction[] {
     logger.debug(
       `Processing Solana RPC address transactions - Address: ${maskAddress(userAddress)}, RawTransactionCount: ${rawData.normal.length}`
     );
 
-    const transactions: BlockchainTransaction[] = [];
+    const transactions: UniversalBlockchainTransaction[] = [];
 
     for (const tx of rawData.normal) {
       const processedTx = this.transformTransaction(tx, userAddress);
@@ -112,12 +109,12 @@ export class SolanaRPCProcessor extends BaseProviderProcessor<SolanaRPCRawTransa
     rawData: SolanaRPCRawTransactionData,
     userAddress: string,
     contractAddress?: string
-  ): BlockchainTransaction[] {
+  ): UniversalBlockchainTransaction[] {
     logger.debug(
       `Processing Solana RPC token transactions - Address: ${maskAddress(userAddress)}, ContractAddress: ${contractAddress ? maskAddress(contractAddress) : 'All'}, RawTransactionCount: ${rawData.normal.length}`
     );
 
-    const tokenTransactions: BlockchainTransaction[] = [];
+    const tokenTransactions: UniversalBlockchainTransaction[] = [];
 
     for (const tx of rawData.normal) {
       const tokenTx = this.extractTokenTransaction(tx, userAddress, contractAddress);
@@ -133,8 +130,19 @@ export class SolanaRPCProcessor extends BaseProviderProcessor<SolanaRPCRawTransa
     return tokenTransactions;
   }
 
-  private static transformTransaction(tx: SolanaRPCTransaction, userAddress: string): BlockchainTransaction | null {
+  private static transformTransaction(
+    tx: SolanaRPCTransaction,
+    userAddress: string
+  ): UniversalBlockchainTransaction | null {
     try {
+      // Skip failed transactions - they shouldn't be processed
+      if (tx.meta.err) {
+        logger.debug(
+          `Skipping failed transaction - Hash: ${tx.transaction.signatures?.[0]}, Error: ${JSON.stringify(tx.meta.err)}`
+        );
+        return null;
+      }
+
       const accountKeys = tx.transaction.message.accountKeys;
       const userIndex = accountKeys.findIndex(key => key === userAddress);
 
@@ -157,31 +165,21 @@ export class SolanaRPCProcessor extends BaseProviderProcessor<SolanaRPCRawTransa
       const type: 'transfer_in' | 'transfer_out' = balanceChange > 0 ? 'transfer_in' : 'transfer_out';
       const fee = lamportsToSol(tx.meta.fee);
 
-      // Skip transactions with no meaningful amount (pure fee transactions)
-      if (amount.toNumber() <= fee.toNumber() && amount.toNumber() < 0.000001) {
-        logger.debug(
-          `Skipping fee-only transaction - Hash: ${tx.transaction.signatures?.[0]}, Amount: ${amount.toNumber()}, Fee: ${fee.toNumber()}`
-        );
-        return null;
-      }
+      // Don't skip fee-only transactions - the base class will properly classify them as 'fee' type
 
       return {
-        blockHash: '',
-        blockNumber: tx.slot,
-        confirmations: 1,
-        fee: createMoney(fee.toNumber(), 'SOL'),
+        amount: amount.toString(),
+        blockHeight: tx.slot,
+        currency: 'SOL',
+        feeAmount: fee.toString(),
+        feeCurrency: 'SOL',
         from: accountKeys?.[0] || '',
-        gasPrice: undefined,
-        gasUsed: undefined,
-        hash: tx.transaction.signatures?.[0] || '',
-        nonce: undefined,
+        id: tx.transaction.signatures?.[0] || '',
+        providerId: 'solana-rpc',
         status: tx.meta.err ? 'failed' : 'success',
         timestamp: (tx.blockTime || 0) * 1000,
         to: '',
-        tokenContract: undefined,
-        tokenSymbol: 'SOL',
         type,
-        value: createMoney(amount.toNumber(), 'SOL'),
       };
     } catch (error) {
       logger.warn(
@@ -215,32 +213,7 @@ export class SolanaRPCProcessor extends BaseProviderProcessor<SolanaRPCRawTransa
         continue;
       }
 
-      const transaction: UniversalBlockchainTransaction = {
-        amount: processedTx.value.amount.toString(),
-        currency: processedTx.tokenSymbol || 'SOL',
-        from: processedTx.from,
-        id: processedTx.hash,
-        providerId: 'solana-rpc',
-        status: processedTx.status === 'success' ? 'success' : 'failed',
-        timestamp: processedTx.timestamp,
-        to: processedTx.to,
-        type: processedTx.type === 'token_transfer' ? 'token_transfer' : 'transfer',
-      };
-
-      // Add optional fields
-      if (processedTx.blockNumber > 0) {
-        transaction.blockHeight = processedTx.blockNumber;
-      }
-      if (processedTx.fee.amount.toNumber() > 0) {
-        transaction.feeAmount = processedTx.fee.amount.toString();
-        transaction.feeCurrency = 'SOL';
-      }
-      if (processedTx.tokenContract) {
-        transaction.tokenAddress = processedTx.tokenContract;
-        transaction.tokenSymbol = processedTx.tokenSymbol || 'UNKNOWN';
-      }
-
-      transactions.push(transaction);
+      transactions.push(processedTx);
     }
 
     return ok(transactions);

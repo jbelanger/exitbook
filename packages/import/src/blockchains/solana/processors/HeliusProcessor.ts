@@ -1,6 +1,5 @@
-import type { BlockchainTransaction } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
-import { createMoney, maskAddress } from '@crypto/shared-utils';
+import { maskAddress } from '@crypto/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseProviderProcessor } from '../../../shared/processors/base-provider-processor.ts';
@@ -14,10 +13,54 @@ import { lamportsToSol } from '../utils.ts';
 
 @RegisterProcessor('helius')
 export class HeliusProcessor extends BaseProviderProcessor<SolanaRawTransactionData> {
+  // Known Solana token mint addresses to symbols mapping
+  private static readonly KNOWN_TOKEN_SYMBOLS: Record<string, string> = {
+    '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R': 'RAY',
+    BvkjtktEZyjix9rSKEiA3ftMU1UCS61XEERFxtMqN1zd: 'MOBILE',
+    hntyVP6YFm1Hg25TN9WGLqM12b8TQmcknKrdu1oxWux: 'HNT',
+    rndrizKT3MK1iimdxRdWabcF7Zg7AR5T4nud4EkHBof: 'RENDER',
+    // Add more known tokens as needed
+  };
   private static logger = getLogger('HeliusProcessor');
+
   protected readonly schema = SolanaRawTransactionDataSchema;
 
-  private static extractTokenTransaction(tx: HeliusTransaction, userAddress: string): BlockchainTransaction | null {
+  /**
+   * Detect staking operations by examining transaction instructions
+   */
+  private static detectStakingOperation(tx: HeliusTransaction): 'delegate' | 'undelegate' | null {
+    try {
+      // Solana Stake Program ID
+      const STAKE_PROGRAM_ID = '11111111111111111111111111111112';
+
+      // Look for staking-related instructions
+      const instructions = tx.transaction.message.instructions || [];
+
+      for (const instruction of instructions) {
+        if (typeof instruction === 'object' && instruction !== null && 'programIdIndex' in instruction) {
+          const programId = tx.transaction.message.accountKeys[instruction.programIdIndex as number];
+
+          // Check if this is a stake program instruction
+          if (programId === STAKE_PROGRAM_ID) {
+            // Decode instruction data to determine operation type
+            // This is simplified - in a full implementation, you'd decode the instruction data
+            // For now, we can infer from balance changes and context
+            return 'delegate'; // Could be delegate or undelegate
+          }
+        }
+      }
+
+      return null;
+    } catch (error) {
+      this.logger.debug(`Failed to detect staking operation: ${error}`);
+      return null;
+    }
+  }
+
+  private static extractTokenTransaction(
+    tx: HeliusTransaction,
+    userAddress: string
+  ): UniversalBlockchainTransaction | null {
     try {
       // Look for token balance changes in preTokenBalances and postTokenBalances
       const preTokenBalances = tx.meta.preTokenBalances || [];
@@ -50,26 +93,24 @@ export class HeliusProcessor extends BaseProviderProcessor<SolanaRawTransactionD
         // Determine transfer direction
         const type: 'transfer_in' | 'transfer_out' = change > 0 ? 'transfer_in' : 'transfer_out';
 
-        // Use truncated mint address as fallback token symbol
-        const tokenSymbol = `${postBalance.mint.slice(0, 6)}...`;
+        // Get proper token symbol from known mappings
+        const tokenSymbol = this.getTokenSymbolFromMint(postBalance.mint);
 
         return {
-          blockHash: '',
-          blockNumber: tx.slot,
-          confirmations: 1,
-          fee: createMoney(lamportsToSol(tx.meta.fee).toNumber(), 'SOL'),
+          amount: Math.abs(change).toString(),
+          blockHeight: tx.slot,
+          currency: tokenSymbol,
+          feeAmount: lamportsToSol(tx.meta.fee).toString(),
+          feeCurrency: 'SOL',
           from: type === 'transfer_out' ? userAddress : '',
-          gasPrice: undefined,
-          gasUsed: undefined,
-          hash: tx.transaction.signatures?.[0] || tx.signature,
-          nonce: undefined,
+          id: tx.transaction.signatures?.[0] || tx.signature,
+          providerId: 'helius',
           status: tx.meta.err ? 'failed' : 'success',
-          timestamp: tx.blockTime || 0,
+          timestamp: (tx.blockTime || 0) * 1000,
           to: type === 'transfer_in' ? userAddress : '',
-          tokenContract: postBalance.mint,
+          tokenAddress: postBalance.mint,
           tokenSymbol,
           type: 'token_transfer',
-          value: createMoney(Math.abs(change), tokenSymbol),
         };
       }
 
@@ -82,8 +123,15 @@ export class HeliusProcessor extends BaseProviderProcessor<SolanaRawTransactionD
     }
   }
 
-  static processAddressTransactions(rawData: SolanaRawTransactionData, userAddress: string): BlockchainTransaction[] {
-    const transactions: BlockchainTransaction[] = [];
+  private static getTokenSymbolFromMint(mintAddress: string): string {
+    return this.KNOWN_TOKEN_SYMBOLS[mintAddress] || `${mintAddress.slice(0, 6)}...`;
+  }
+
+  static processAddressTransactions(
+    rawData: SolanaRawTransactionData,
+    userAddress: string
+  ): UniversalBlockchainTransaction[] {
+    const transactions: UniversalBlockchainTransaction[] = [];
 
     for (const tx of rawData.normal) {
       try {
@@ -108,8 +156,19 @@ export class HeliusProcessor extends BaseProviderProcessor<SolanaRawTransactionD
     return transactions;
   }
 
-  private static transformTransaction(tx: HeliusTransaction, userAddress: string): BlockchainTransaction | null {
+  private static transformTransaction(
+    tx: HeliusTransaction,
+    userAddress: string
+  ): UniversalBlockchainTransaction | null {
     try {
+      // Skip failed transactions - they shouldn't be processed
+      if (tx.meta.err) {
+        this.logger.debug(
+          `Skipping failed transaction - Hash: ${tx.transaction.signatures?.[0] || tx.signature}, Error: ${JSON.stringify(tx.meta.err)}`
+        );
+        return null;
+      }
+
       const accountKeys = tx.transaction.message.accountKeys;
       const userIndex = accountKeys.findIndex(key => key === userAddress);
 
@@ -118,6 +177,9 @@ export class HeliusProcessor extends BaseProviderProcessor<SolanaRawTransactionD
       if (tokenTransaction) {
         return tokenTransaction;
       }
+
+      // Check for staking operations
+      const stakingOperation = this.detectStakingOperation(tx);
 
       // Fall back to SOL transfer handling
       if (userIndex !== -1) {
@@ -131,7 +193,19 @@ export class HeliusProcessor extends BaseProviderProcessor<SolanaRawTransactionD
         const balanceChange = rawBalanceChange + feeAdjustment;
 
         const amount = lamportsToSol(Math.abs(balanceChange));
-        const type: 'transfer_in' | 'transfer_out' = balanceChange > 0 ? 'transfer_in' : 'transfer_out';
+
+        // Determine transaction type - prioritize staking operations
+        let type: 'transfer_in' | 'transfer_out' | 'delegate' | 'undelegate' =
+          balanceChange > 0 ? 'transfer_in' : 'transfer_out';
+
+        if (stakingOperation) {
+          // Use detected staking operation, but infer delegate vs undelegate from balance change
+          type = balanceChange < 0 ? 'delegate' : 'undelegate';
+          this.logger.debug(
+            `Detected staking operation - Hash: ${tx.transaction.signatures?.[0] || tx.signature}, Type: ${type}, BalanceChange: ${balanceChange}`
+          );
+        }
+
         const fee = lamportsToSol(tx.meta.fee);
 
         // Log transaction details for investigation
@@ -139,32 +213,44 @@ export class HeliusProcessor extends BaseProviderProcessor<SolanaRawTransactionD
           `Processing SOL transaction - Hash: ${tx.transaction.signatures?.[0] || tx.signature}, PreBalance: ${preBalance}, PostBalance: ${postBalance}, RawChange: ${rawBalanceChange}, FeeAdjustment: ${feeAdjustment}, FinalBalanceChange: ${balanceChange}, Amount: ${amount.toNumber()}, Fee: ${fee.toNumber()}`
         );
 
-        // Skip transactions with no meaningful amount (pure fee transactions)
-        // Only filter out if the balance change is exactly zero (pure fee transaction)
-        if (Math.abs(balanceChange) === 0) {
+        // For fee-only transactions (balance change is 0), still create a transaction
+        // The base class mapTransactionType will properly classify it as 'fee' type
+        const isFeeOnlyTransaction = Math.abs(balanceChange) === 0 && fee.toNumber() > 0;
+
+        if (isFeeOnlyTransaction) {
           this.logger.debug(
-            `Skipping fee-only transaction - Hash: ${tx.transaction.signatures?.[0] || tx.signature}, Amount: ${amount.toNumber()}, Fee: ${fee.toNumber()}`
+            `Processing fee-only transaction - Hash: ${tx.transaction.signatures?.[0] || tx.signature}, Amount: ${amount.toNumber()}, Fee: ${fee.toNumber()}`
           );
-          return null;
+
+          return {
+            amount: fee.toString(),
+            blockHeight: tx.slot,
+            currency: 'SOL',
+            feeAmount: fee.toString(),
+            feeCurrency: 'SOL',
+            from: userAddress,
+            id: tx.transaction.signatures?.[0] || tx.signature,
+            providerId: 'helius',
+            status: 'success',
+            timestamp: (tx.blockTime || 0) * 1000,
+            to: '',
+            type: 'transfer_out',
+          };
         }
 
         return {
-          blockHash: '',
-          blockNumber: tx.slot,
-          confirmations: 1,
-          fee: createMoney(fee.toNumber(), 'SOL'),
-          from: type === 'transfer_out' ? userAddress : accountKeys?.[0] || '',
-          gasPrice: undefined,
-          gasUsed: undefined,
-          hash: tx.transaction.signatures?.[0] || tx.signature,
-          nonce: undefined,
+          amount: amount.toString(),
+          blockHeight: tx.slot,
+          currency: 'SOL',
+          feeAmount: fee.toString(),
+          feeCurrency: 'SOL',
+          from: type === 'transfer_out' || type === 'delegate' ? userAddress : accountKeys?.[0] || '',
+          id: tx.transaction.signatures?.[0] || tx.signature,
+          providerId: 'helius',
           status: tx.meta.err ? 'failed' : 'success',
-          timestamp: tx.blockTime || 0,
-          to: type === 'transfer_in' ? userAddress : '',
-          tokenContract: undefined,
-          tokenSymbol: 'SOL',
+          timestamp: (tx.blockTime || 0) * 1000,
+          to: type === 'transfer_in' || type === 'undelegate' ? userAddress : '',
           type,
-          value: createMoney(amount.toNumber(), 'SOL'),
         };
       }
 
@@ -199,37 +285,9 @@ export class HeliusProcessor extends BaseProviderProcessor<SolanaRawTransactionD
     for (const tx of rawData.normal) {
       const processedTx = HeliusProcessor.transformTransaction(tx, userAddress);
 
-      if (!processedTx) {
-        // Transaction filtered out (likely fee-only or failed transaction) - continue with next
-        continue;
+      if (processedTx) {
+        transactions.push(processedTx);
       }
-
-      const transaction: UniversalBlockchainTransaction = {
-        amount: processedTx.value.amount.toString(),
-        currency: processedTx.tokenSymbol || 'SOL',
-        from: processedTx.from,
-        id: processedTx.hash,
-        providerId: 'helius',
-        status: processedTx.status === 'success' ? 'success' : 'failed',
-        timestamp: processedTx.timestamp * 1000,
-        to: processedTx.to,
-        type: processedTx.type === 'token_transfer' ? 'token_transfer' : 'transfer',
-      };
-
-      // Add optional fields
-      if (processedTx.blockNumber > 0) {
-        transaction.blockHeight = processedTx.blockNumber;
-      }
-      if (processedTx.fee.amount.toNumber() > 0) {
-        transaction.feeAmount = processedTx.fee.amount.toString();
-        transaction.feeCurrency = 'SOL';
-      }
-      if (processedTx.tokenContract) {
-        transaction.tokenAddress = processedTx.tokenContract;
-        transaction.tokenSymbol = processedTx.tokenSymbol || 'UNKNOWN';
-      }
-
-      transactions.push(transaction);
     }
 
     return ok(transactions);
