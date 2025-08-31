@@ -106,7 +106,7 @@ export class BalanceVerifier {
     this.logger.info(`Starting balance verification for ${exchangeId}`);
 
     try {
-      const calculatedBalances = await this.balanceService.calculateBalances(exchangeId);
+      const calculatedBalances = await this.balanceService.calculateBalancesForVerification(exchangeId);
       const comparisons = this.createCalculatedOnlyComparisons(calculatedBalances);
 
       const result: BalanceVerificationResult = {

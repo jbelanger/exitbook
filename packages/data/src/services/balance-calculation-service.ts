@@ -38,10 +38,6 @@ export class BalanceCalculationService {
     const feeCurrency = transaction.fee_currency;
     const exchange = transaction.exchange;
 
-    // Debug logging for first withdrawal
-    if (type === 'withdrawal' && !feeCost.isZero()) {
-      console.log(`WITHDRAWAL DEBUG: exchange=${exchange}, isBlockchain=${this.isBlockchainTransaction(exchange)}, amount=${amount}, fee=${feeCost}`);
-    }
 
     if (amountCurrency && !balances[amountCurrency]) balances[amountCurrency] = new Decimal(0);
     if (priceCurrency && !balances[priceCurrency]) balances[priceCurrency] = new Decimal(0);
@@ -49,17 +45,17 @@ export class BalanceCalculationService {
     switch (type) {
       case 'deposit':
         if (amountCurrency && balances[amountCurrency]) {
+          // For blockchain transactions, the full amount is received (sender paid the fee)
+          // For exchange transactions, the full amount is credited (fees handled separately if any)
           balances[amountCurrency] = balances[amountCurrency].plus(amount);
         }
         break;
 
       case 'withdrawal':
         if (amountCurrency && balances[amountCurrency]) {
-          // For blockchain transactions, the total withdrawal is amount + fee
-          // For exchange transactions, amount is the full withdrawal and fees are separate  
-          const isBlockchainTransaction = this.isBlockchainTransaction(exchange);
-          const withdrawalAmount = isBlockchainTransaction ? amount.plus(feeCost) : amount;
-          balances[amountCurrency] = balances[amountCurrency].minus(withdrawalAmount);
+          // For blockchain transactions, amount already represents the net withdrawal (fees included)
+          // For exchange transactions, amount is the withdrawal and fees are handled separately
+          balances[amountCurrency] = balances[amountCurrency].minus(amount);
         }
         break;
 
@@ -97,6 +93,21 @@ export class BalanceCalculationService {
       if (!balances[feeCurrency]) balances[feeCurrency] = new Decimal(0);
       balances[feeCurrency] = balances[feeCurrency].minus(feeCost);
     }
+  }
+
+  /**
+   * Calculate exchange balances including zero balances (for verification purposes)
+   * Returns all currencies that have transactions, even if current balance is zero
+   */
+  async calculateExchangeBalancesForVerification(transactions: StoredTransaction[]): Promise<Record<string, Decimal>> {
+    const balances: Record<string, Decimal> = {};
+
+    for (const transaction of transactions) {
+      this.processTransactionForBalance(transaction, balances);
+    }
+
+    // Don't cleanup dust balances - return all currencies that had transactions
+    return balances;
   }
 
   /**

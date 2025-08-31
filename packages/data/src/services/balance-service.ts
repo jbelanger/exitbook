@@ -20,6 +20,11 @@ export class BalanceService {
     return this.balanceCalculationService.calculateExchangeBalancesWithPrecision(transactions);
   }
 
+  async calculateBalancesForVerification(exchange: string): Promise<Record<string, Decimal>> {
+    const transactions = await this.balanceRepository.getTransactionsForCalculation(exchange);
+    return this.balanceCalculationService.calculateExchangeBalancesForVerification(transactions);
+  }
+
   async getLatestVerifications(exchange?: string): Promise<BalanceVerificationRecord[]> {
     return this.balanceRepository.getLatestVerifications(exchange);
   }

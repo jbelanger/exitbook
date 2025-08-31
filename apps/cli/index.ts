@@ -513,8 +513,17 @@ function displayVerificationResults(results: BalanceVerificationResult[]): void 
       logger.info(`  Mismatches: ${result.summary.mismatches}`);
 
       // Show calculated balances for significant currencies
+      // For blockchain verifications (status warning, live balance always 0), show all currencies with transactions
+      // For exchange verifications, only show non-zero balances
+      const isBlockchainVerification =
+        result.status === 'warning' && result.comparisons.every(c => c.liveBalance === 0);
       const significantBalances = result.comparisons
-        .filter(c => Math.abs(c.calculatedBalance) > 0.00000001 || Math.abs(c.liveBalance) > 0.00000001)
+        .filter(
+          c =>
+            isBlockchainVerification ||
+            Math.abs(c.calculatedBalance) > 0.00000001 ||
+            Math.abs(c.liveBalance) > 0.00000001
+        )
         .sort((a, b) => Math.abs(b.calculatedBalance) - Math.abs(a.calculatedBalance))
         .slice(0, 10); // Show top 10
 
