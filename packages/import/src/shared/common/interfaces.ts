@@ -1,8 +1,7 @@
-import type { Database } from '@crypto/data';
+import type { Database, RawDataRepository } from '@crypto/data';
 import type { Logger } from '@crypto/shared-logger';
 
 import type { BlockchainProviderManager } from '../../blockchains/shared/blockchain-provider-manager.ts';
-import type { IExternalDataStore } from '../storage/interfaces.ts';
 
 /**
  * Dependency injection container for ETL components.
@@ -10,7 +9,7 @@ import type { IExternalDataStore } from '../storage/interfaces.ts';
  */
 export interface IDependencyContainer {
   database: Database;
-  externalDataStore: IExternalDataStore;
+  externalDataStore: RawDataRepository;
 
   logger: Logger;
   // Optional dependencies for specific adapter types

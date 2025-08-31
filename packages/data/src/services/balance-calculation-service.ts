@@ -17,6 +17,16 @@ export class BalanceCalculationService {
     return cleanedBalances;
   }
 
+  /**
+   * Check if a transaction is from a blockchain source (vs exchange)
+   */
+  private isBlockchainTransaction(exchange: string | null | undefined): boolean {
+    if (!exchange) return false;
+    // Known blockchain identifiers - add more as needed
+    const blockchainIdentifiers = ['bitcoin', 'ethereum', 'solana', 'injective', 'avalanche', 'polkadot'];
+    return blockchainIdentifiers.includes(exchange.toLowerCase());
+  }
+
   private processTransactionForBalance(transaction: StoredTransaction, balances: Record<string, Decimal>): void {
     const type = transaction.type;
     const amount = stringToDecimal(String(transaction.amount));
@@ -26,6 +36,12 @@ export class BalanceCalculationService {
     const priceCurrency = transaction.price_currency;
     const feeCost = stringToDecimal(String(transaction.fee_cost));
     const feeCurrency = transaction.fee_currency;
+    const exchange = transaction.exchange;
+
+    // Debug logging for first withdrawal
+    if (type === 'withdrawal' && !feeCost.isZero()) {
+      console.log(`WITHDRAWAL DEBUG: exchange=${exchange}, isBlockchain=${this.isBlockchainTransaction(exchange)}, amount=${amount}, fee=${feeCost}`);
+    }
 
     if (amountCurrency && !balances[amountCurrency]) balances[amountCurrency] = new Decimal(0);
     if (priceCurrency && !balances[priceCurrency]) balances[priceCurrency] = new Decimal(0);
@@ -39,7 +55,11 @@ export class BalanceCalculationService {
 
       case 'withdrawal':
         if (amountCurrency && balances[amountCurrency]) {
-          balances[amountCurrency] = balances[amountCurrency].minus(amount);
+          // For blockchain transactions, the total withdrawal is amount + fee
+          // For exchange transactions, amount is the full withdrawal and fees are separate  
+          const isBlockchainTransaction = this.isBlockchainTransaction(exchange);
+          const withdrawalAmount = isBlockchainTransaction ? amount.plus(feeCost) : amount;
+          balances[amountCurrency] = balances[amountCurrency].minus(withdrawalAmount);
         }
         break;
 
@@ -72,7 +92,8 @@ export class BalanceCalculationService {
         break;
     }
 
-    if (!feeCost.isZero() && feeCurrency) {
+    // Only subtract fees separately for exchange transactions, not blockchain transactions
+    if (!feeCost.isZero() && feeCurrency && !this.isBlockchainTransaction(exchange)) {
       if (!balances[feeCurrency]) balances[feeCurrency] = new Decimal(0);
       balances[feeCurrency] = balances[feeCurrency].minus(feeCost);
     }

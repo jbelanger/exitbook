@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { type BalanceVerificationResult, BalanceVerifier } from '@crypto/balance';
 import { BalanceRepository, BalanceService, Database, type StoredTransaction } from '@crypto/data';
+import { TransactionIngestionService } from '@crypto/import/src/services/ingestion-service';
 import { getLogger } from '@crypto/shared-logger';
 import { initializeDatabase, loadExplorerConfig } from '@crypto/shared-utils';
 import { Command } from 'commander';
@@ -225,16 +226,10 @@ async function main() {
         // Load explorer config for blockchain sources
         const explorerConfig = loadExplorerConfig();
 
-        // Create ingestion service with dependencies
-        const { TransactionIngestionService } = await import(
-          '@crypto/import/src/shared/ingestion/ingestion-service.ts'
-        );
-        const { ExternalDataStore } = await import('@crypto/import/src/shared/storage/external-data-store.ts');
-
         // Import blockchain dependencies conditionally
         let providerManager:
           | import('@crypto/import/src/blockchains/shared/blockchain-provider-manager.ts').BlockchainProviderManager
-          | null = null;
+          | undefined;
         if (sourceType === 'blockchain') {
           const { BlockchainProviderManager } = await import(
             '@crypto/import/src/blockchains/shared/blockchain-provider-manager.ts'
@@ -242,15 +237,7 @@ async function main() {
           providerManager = new BlockchainProviderManager(explorerConfig);
         }
 
-        const dependencies = {
-          database,
-          explorerConfig,
-          externalDataStore: new ExternalDataStore(database),
-          logger,
-          ...(providerManager ? { providerManager } : {}),
-        };
-
-        const ingestionService = new TransactionIngestionService(dependencies);
+        const ingestionService = new TransactionIngestionService(database, providerManager);
 
         try {
           // Parse options
@@ -357,16 +344,10 @@ async function main() {
         // Load explorer config for blockchain sources
         const explorerConfig = loadExplorerConfig();
 
-        // Create ingestion service with dependencies
-        const { TransactionIngestionService } = await import(
-          '@crypto/import/src/shared/ingestion/ingestion-service.ts'
-        );
-        const { ExternalDataStore } = await import('@crypto/import/src/shared/storage/external-data-store.ts');
-
         // Import blockchain dependencies conditionally
         let providerManager:
           | import('@crypto/import/src/blockchains/shared/blockchain-provider-manager.ts').BlockchainProviderManager
-          | null = null;
+          | undefined;
         if (sourceType === 'blockchain') {
           const { BlockchainProviderManager } = await import(
             '@crypto/import/src/blockchains/shared/blockchain-provider-manager.ts'
@@ -374,15 +355,7 @@ async function main() {
           providerManager = new BlockchainProviderManager(explorerConfig);
         }
 
-        const dependencies = {
-          database,
-          explorerConfig,
-          externalDataStore: new ExternalDataStore(database),
-          logger,
-          ...(providerManager ? { providerManager } : {}),
-        };
-
-        const ingestionService = new TransactionIngestionService(dependencies);
+        const ingestionService = new TransactionIngestionService(database, providerManager);
 
         try {
           // Parse filters
@@ -420,83 +393,6 @@ async function main() {
         process.exit(0);
       } catch (error) {
         logger.error(`Processing failed: ${error}`);
-        process.exit(1);
-      }
-    });
-
-  // List exchanges command
-  program
-    .command('list-exchanges')
-    .description('List all available exchanges')
-    .action(async () => {
-      try {
-        logger.info('Available Exchanges:');
-        logger.info('==========================');
-        logger.info('');
-
-        // Get supported exchanges from ProcessorFactory
-        const { ProcessorFactory } = await import('@crypto/import/src/shared/processors/processor-factory.ts');
-        const supportedExchanges = ProcessorFactory.getSupportedSources('exchange');
-
-        // Map exchange names to their supported subtypes based on adapter capabilities
-        const exchangeSubtypes: Record<string, string[]> = {
-          coinbase: ['ccxt', 'native'],
-          kraken: ['csv'],
-          kucoin: ['csv'],
-          ledgerlive: ['csv'],
-        };
-
-        const { UniversalAdapterFactory } = await import('@crypto/import');
-        const availableExchanges: Array<{ name: string; subtypes: string[] }> = [];
-
-        for (const exchangeName of supportedExchanges) {
-          const subtypes = exchangeSubtypes[exchangeName] || ['csv']; // Default to CSV if not specified
-
-          for (const subtype of subtypes as ('ccxt' | 'csv' | 'native')[]) {
-            try {
-              const config = UniversalAdapterFactory.createExchangeConfig(exchangeName, subtype, {
-                credentials: subtype === 'ccxt' ? { apiKey: 'test', secret: 'test' } : undefined,
-                csvDirectories: ['/tmp'], // dummy for validation
-              });
-              // This will throw if not supported
-              await UniversalAdapterFactory.create(config);
-
-              const existing = availableExchanges.find(e => e.name === exchangeName);
-              if (existing) {
-                existing.subtypes.push(subtype);
-              } else {
-                availableExchanges.push({
-                  name: exchangeName,
-                  subtypes: [subtype],
-                });
-              }
-            } catch {
-              // Exchange/subtype not supported, skip silently
-            }
-          }
-        }
-
-        for (const exchange of availableExchanges) {
-          logger.info(`📈 ${exchange.name.toUpperCase()}`);
-
-          const methods: string[] = [];
-          if (exchange.subtypes.includes('ccxt')) methods.push('CCXT API');
-          if (exchange.subtypes.includes('csv')) methods.push('CSV files');
-          if (exchange.subtypes.includes('native')) methods.push('Native API');
-
-          logger.info(`   Methods: ${methods.join(', ')}`);
-          logger.info('');
-        }
-
-        logger.info(`Total exchanges: ${availableExchanges.length}`);
-        logger.info('');
-        logger.info('Usage examples:');
-        logger.info('  crypto-import import --exchange kraken --csv-dir ./data/kraken');
-        logger.info('  crypto-import import --exchange coinbase --csv-dir ./data/coinbase');
-
-        process.exit(0);
-      } catch (error) {
-        logger.error(`Failed to list exchanges: ${error}`);
         process.exit(1);
       }
     });

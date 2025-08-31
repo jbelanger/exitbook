@@ -1,4 +1,3 @@
-import type { IDependencyContainer } from '../../shared/common/interfaces.ts';
 import { BaseImporter } from '../../shared/importers/base-importer.ts';
 import type { ImportParams, ImportRunResult } from '../../shared/importers/interfaces.ts';
 import type { ApiClientRawData } from '../../shared/processors/interfaces.ts';
@@ -21,14 +20,17 @@ export type AvalancheRawTransactionData = SnowtraceTransaction | SnowtraceIntern
 export class AvalancheTransactionImporter extends BaseImporter<AvalancheRawTransactionData> {
   private providerManager: BlockchainProviderManager;
 
-  constructor(dependencies: IDependencyContainer, options?: { preferredProvider?: string | undefined }) {
+  constructor(
+    blockchainProviderManager: BlockchainProviderManager,
+    options?: { preferredProvider?: string | undefined }
+  ) {
     super('avalanche');
 
-    if (!dependencies.providerManager) {
+    if (!blockchainProviderManager) {
       throw new Error('Provider manager required for Avalanche importer');
     }
 
-    this.providerManager = dependencies.providerManager;
+    this.providerManager = blockchainProviderManager;
 
     // Auto-register providers for avalanche mainnet
     this.providerManager.autoRegisterFromConfig('avalanche', 'mainnet', options?.preferredProvider);

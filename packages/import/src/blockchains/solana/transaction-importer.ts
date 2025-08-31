@@ -1,4 +1,3 @@
-import type { IDependencyContainer } from '../../shared/common/interfaces.ts';
 import { BaseImporter } from '../../shared/importers/base-importer.ts';
 import type { ImportParams, ImportRunResult } from '../../shared/importers/interfaces.ts';
 import type { ApiClientRawData } from '../../shared/processors/interfaces.ts';
@@ -16,14 +15,17 @@ import { isValidSolanaAddress } from './utils.ts';
 export class SolanaTransactionImporter extends BaseImporter<SolanaRawTransactionData> {
   private providerManager: BlockchainProviderManager;
 
-  constructor(dependencies: IDependencyContainer, options?: { preferredProvider?: string | undefined }) {
+  constructor(
+    blockchainProviderManager: BlockchainProviderManager,
+    options?: { preferredProvider?: string | undefined }
+  ) {
     super('solana');
 
-    if (!dependencies.providerManager) {
+    this.providerManager = blockchainProviderManager;
+
+    if (!this.providerManager) {
       throw new Error('Provider manager required for Solana importer');
     }
-
-    this.providerManager = dependencies.providerManager;
 
     // Auto-register providers for solana mainnet
     this.providerManager.autoRegisterFromConfig('solana', 'mainnet', options?.preferredProvider);
@@ -63,13 +65,6 @@ export class SolanaTransactionImporter extends BaseImporter<SolanaRawTransaction
       this.logger.error(`Provider manager failed to fetch transactions for ${address}: ${error}`);
       throw error;
     }
-  }
-
-  /**
-   * Validate Solana address format.
-   */
-  private isValidAddress(address: string): boolean {
-    return isValidSolanaAddress(address);
   }
 
   /**
@@ -126,7 +121,7 @@ export class SolanaTransactionImporter extends BaseImporter<SolanaRawTransaction
 
     // Validate address formats
     for (const address of params.addresses) {
-      if (!this.isValidAddress(address)) {
+      if (!isValidSolanaAddress(address)) {
         this.logger.error(`Invalid Solana address format: ${address}`);
         return false;
       }

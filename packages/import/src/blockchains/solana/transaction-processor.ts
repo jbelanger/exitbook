@@ -4,7 +4,6 @@ import type { StoredRawData } from '@crypto/data';
 import { createMoney } from '@crypto/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
-import type { IDependencyContainer } from '../../shared/common/interfaces.ts';
 import { BaseProcessor } from '../../shared/processors/base-processor.ts';
 import type { ApiClientRawData, ImportSessionMetadata } from '../../shared/processors/interfaces.ts';
 import { ProcessorFactory } from '../../shared/processors/processor-registry.ts';
@@ -17,7 +16,7 @@ import './processors/index.ts';
  * processors (Helius, SolanaRPC, Solscan) based on data provenance.
  */
 export class SolanaTransactionProcessor extends BaseProcessor<ApiClientRawData<SolanaRawTransactionData>> {
-  constructor(_dependencies: IDependencyContainer) {
+  constructor() {
     super('solana');
   }
 

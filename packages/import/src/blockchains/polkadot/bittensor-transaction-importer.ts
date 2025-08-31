@@ -1,4 +1,3 @@
-import type { IDependencyContainer } from '../../shared/common/interfaces.ts';
 import { BaseImporter } from '../../shared/importers/base-importer.ts';
 import type { ImportParams, ImportRunResult } from '../../shared/importers/interfaces.ts';
 import type { ApiClientRawData } from '../../shared/processors/interfaces.ts';
@@ -14,14 +13,17 @@ import type { TaostatsTransaction } from './types.ts';
 export class BittensorTransactionImporter extends BaseImporter<TaostatsTransaction> {
   private providerManager: BlockchainProviderManager;
 
-  constructor(dependencies: IDependencyContainer, options?: { preferredProvider?: string | undefined }) {
+  constructor(
+    blockchainProviderManager: BlockchainProviderManager,
+    options?: { preferredProvider?: string | undefined }
+  ) {
     super('bittensor');
 
-    if (!dependencies.providerManager) {
+    if (!blockchainProviderManager) {
       throw new Error('Provider manager required for Bittensor importer');
     }
 
-    this.providerManager = dependencies.providerManager;
+    this.providerManager = blockchainProviderManager;
 
     // Auto-register providers for bittensor mainnet
     this.providerManager.autoRegisterFromConfig('bittensor', 'mainnet', options?.preferredProvider);

@@ -1,4 +1,3 @@
-import type { IDependencyContainer } from '../../shared/common/interfaces.ts';
 import { BaseImporter } from '../../shared/importers/base-importer.ts';
 import type { ImportParams, ImportRunResult } from '../../shared/importers/interfaces.ts';
 import type { ApiClientRawData } from '../../shared/processors/interfaces.ts';
@@ -14,14 +13,17 @@ import type { SubscanTransfer } from './types.ts';
 export class PolkadotTransactionImporter extends BaseImporter<SubscanTransfer> {
   private providerManager: BlockchainProviderManager;
 
-  constructor(dependencies: IDependencyContainer, options?: { preferredProvider?: string | undefined }) {
+  constructor(
+    blockchainProviderManager: BlockchainProviderManager,
+    options?: { preferredProvider?: string | undefined }
+  ) {
     super('polkadot');
 
-    if (!dependencies.providerManager) {
+    this.providerManager = blockchainProviderManager;
+
+    if (!this.providerManager) {
       throw new Error('Provider manager required for Polkadot importer');
     }
-
-    this.providerManager = dependencies.providerManager;
 
     // Auto-register providers for polkadot mainnet
     this.providerManager.autoRegisterFromConfig('polkadot', 'mainnet', options?.preferredProvider);

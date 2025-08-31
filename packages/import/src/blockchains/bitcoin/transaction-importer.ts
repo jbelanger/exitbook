@@ -1,12 +1,11 @@
 import * as bitcoin from 'bitcoinjs-lib';
 
-import type { IDependencyContainer } from '../../shared/common/interfaces.ts';
 import { BaseImporter } from '../../shared/importers/base-importer.ts';
 import type { ImportParams, ImportRunResult } from '../../shared/importers/interfaces.ts';
 import type { ApiClientRawData } from '../../shared/processors/interfaces.ts';
 // Ensure Bitcoin providers are registered
-import '../registry/register-providers.ts';
 import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
+import './api/index.ts';
 import type { BitcoinTransaction, BitcoinWalletAddress } from './types.ts';
 import { BitcoinUtils } from './utils.ts';
 
@@ -22,16 +21,16 @@ export class BitcoinTransactionImporter extends BaseImporter<BitcoinTransaction>
   private walletAddresses: BitcoinWalletAddress[] = [];
 
   constructor(
-    dependencies: IDependencyContainer,
+    blockchainProviderManager: BlockchainProviderManager,
     options?: { addressGap?: number; preferredProvider?: string | undefined }
   ) {
     super('bitcoin');
 
-    if (!dependencies.providerManager) {
+    if (!blockchainProviderManager) {
       throw new Error('Provider manager required for Bitcoin importer');
     }
 
-    this.providerManager = dependencies.providerManager;
+    this.providerManager = blockchainProviderManager;
     this.addressGap = options?.addressGap || 20;
 
     // Auto-register providers for bitcoin mainnet

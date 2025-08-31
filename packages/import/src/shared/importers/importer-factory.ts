@@ -1,6 +1,6 @@
 import { getLogger } from '@crypto/shared-logger';
 
-import type { ETLComponentConfig } from '../common/interfaces.ts';
+import { BlockchainProviderManager } from '../../blockchains/shared/index.ts';
 import type { IImporter } from './interfaces.ts';
 
 /**
@@ -13,17 +13,20 @@ export class ImporterFactory {
   /**
    * Create an importer for the specified source.
    */
-  static async create<T>(config: ETLComponentConfig): Promise<IImporter<T>> {
-    const { sourceId: sourceId, sourceType: sourceType } = config;
-
+  static async create<T>(
+    sourceId: string,
+    sourceType: string,
+    providerId: string | undefined,
+    providerManager: BlockchainProviderManager | undefined
+  ): Promise<IImporter<T>> {
     ImporterFactory.logger.info(`Creating importer for ${sourceId} (type: ${sourceType})`);
 
     if (sourceType === 'exchange') {
-      return await ImporterFactory.createExchangeImporter<T>(config);
+      return await ImporterFactory.createExchangeImporter<T>(sourceId);
     }
 
     if (sourceType === 'blockchain') {
-      return await ImporterFactory.createBlockchainImporter<T>(config);
+      return await ImporterFactory.createBlockchainImporter<T>(providerManager, sourceId, providerId);
     }
 
     throw new Error(`Unsupported source type: ${sourceType}`);
@@ -32,69 +35,84 @@ export class ImporterFactory {
   /**
    * Create Avalanche importer.
    */
-  private static async createAvalancheImporter<T>(config: ETLComponentConfig): Promise<IImporter<T>> {
+  private static async createAvalancheImporter<T>(
+    blockchainProviderManager: BlockchainProviderManager,
+    providerId: string
+  ): Promise<IImporter<T>> {
     // Dynamic import to avoid circular dependencies
     const { AvalancheTransactionImporter } = await import('../../blockchains/avalanche/transaction-importer.ts');
-    return new AvalancheTransactionImporter(config.dependencies, {
-      preferredProvider: config.providerId,
+    return new AvalancheTransactionImporter(blockchainProviderManager, {
+      preferredProvider: providerId,
     }) as unknown as IImporter<T>;
   }
 
   /**
    * Create Bitcoin importer.
    */
-  private static async createBitcoinImporter<T>(config: ETLComponentConfig): Promise<IImporter<T>> {
+  private static async createBitcoinImporter<T>(
+    blockchainProviderManager: BlockchainProviderManager,
+    providerId: string
+  ): Promise<IImporter<T>> {
     // Dynamic import to avoid circular dependencies
     const { BitcoinTransactionImporter } = await import('../../blockchains/bitcoin/transaction-importer.ts');
-    return new BitcoinTransactionImporter(config.dependencies, {
-      preferredProvider: config.providerId,
+    return new BitcoinTransactionImporter(blockchainProviderManager, {
+      preferredProvider: providerId,
     }) as unknown as IImporter<T>;
   }
 
   /**
    * Create Bittensor importer.
    */
-  private static async createBittensorImporter<T>(config: ETLComponentConfig): Promise<IImporter<T>> {
+  private static async createBittensorImporter<T>(
+    blockchainProviderManager: BlockchainProviderManager,
+    providerId: string
+  ): Promise<IImporter<T>> {
     // Dynamic import to avoid circular dependencies
     const { BittensorTransactionImporter } = await import(
       '../../blockchains/polkadot/bittensor-transaction-importer.ts'
     );
-    return new BittensorTransactionImporter(config.dependencies, {
-      preferredProvider: config.providerId,
+    return new BittensorTransactionImporter(blockchainProviderManager, {
+      preferredProvider: providerId,
     }) as unknown as IImporter<T>;
   }
 
   /**
    * Create a blockchain importer.
    */
-  private static async createBlockchainImporter<T>(config: ETLComponentConfig): Promise<IImporter<T>> {
-    const { dependencies, sourceId: sourceId } = config;
+  private static async createBlockchainImporter<T>(
+    providerManager: BlockchainProviderManager | undefined,
+    sourceId: string,
+    providerId: string | undefined
+  ): Promise<IImporter<T>> {
+    if (!providerManager) {
+      throw new Error(`Provider manager required for blockchain importer`);
+    }
 
-    if (!dependencies.providerManager) {
-      throw new Error(`Provider manager required for blockchain importer: ${sourceId}`);
+    if (!providerId) {
+      throw new Error(`Provider ID required for blockchain importer: ${sourceId}`);
     }
 
     switch (sourceId.toLowerCase()) {
       case 'bitcoin':
-        return await ImporterFactory.createBitcoinImporter<T>(config);
+        return await ImporterFactory.createBitcoinImporter<T>(providerManager, providerId);
 
       case 'ethereum':
-        return await ImporterFactory.createEthereumImporter<T>(config);
+        return await ImporterFactory.createEthereumImporter<T>(providerManager, providerId);
 
       case 'injective':
-        return await ImporterFactory.createInjectiveImporter<T>(config);
+        return await ImporterFactory.createInjectiveImporter<T>(providerManager, providerId);
 
       case 'solana':
-        return await ImporterFactory.createSolanaImporter<T>(config);
+        return await ImporterFactory.createSolanaImporter<T>(providerManager, providerId);
 
       case 'avalanche':
-        return await ImporterFactory.createAvalancheImporter<T>(config);
+        return await ImporterFactory.createAvalancheImporter<T>(providerManager, providerId);
 
       case 'polkadot':
-        return await ImporterFactory.createPolkadotImporter<T>(config);
+        return await ImporterFactory.createPolkadotImporter<T>(providerManager, providerId);
 
       case 'bittensor':
-        return await ImporterFactory.createBittensorImporter<T>(config);
+        return await ImporterFactory.createBittensorImporter<T>(providerManager, providerId);
 
       default:
         throw new Error(`Unsupported blockchain importer: ${sourceId}`);
@@ -104,7 +122,7 @@ export class ImporterFactory {
   /**
    * Create Coinbase importer.
    */
-  private static async createCoinbaseImporter<T>(_config: ETLComponentConfig): Promise<IImporter<T>> {
+  private static async createCoinbaseImporter<T>(): Promise<IImporter<T>> {
     // Dynamic import to avoid circular dependencies
     const { CoinbaseImporter } = await import('../../exchanges/coinbase/importer.ts');
     return new CoinbaseImporter() as unknown as IImporter<T>;
@@ -113,33 +131,34 @@ export class ImporterFactory {
   /**
    * Create Ethereum importer.
    */
-  private static async createEthereumImporter<T>(config: ETLComponentConfig): Promise<IImporter<T>> {
+  private static async createEthereumImporter<T>(
+    blockchainProviderManager: BlockchainProviderManager,
+    providerId: string
+  ): Promise<IImporter<T>> {
     // Dynamic import to avoid circular dependencies
     const { EthereumTransactionImporter } = await import('../../blockchains/ethereum/transaction-importer.ts');
-    return new EthereumTransactionImporter(config.dependencies, {
-      preferredProvider: config.providerId,
+    return new EthereumTransactionImporter(blockchainProviderManager, {
+      preferredProvider: providerId,
     }) as unknown as IImporter<T>;
   }
 
   /**
    * Create an exchange importer.
    */
-  private static async createExchangeImporter<T>(config: ETLComponentConfig): Promise<IImporter<T>> {
-    const { sourceId: sourceId } = config;
-
+  private static async createExchangeImporter<T>(sourceId: string): Promise<IImporter<T>> {
     switch (sourceId.toLowerCase()) {
       case 'kraken':
         // Dynamic import to avoid circular dependencies
-        return await ImporterFactory.createKrakenImporter<T>(config);
+        return await ImporterFactory.createKrakenImporter<T>();
 
       case 'kucoin':
-        return await ImporterFactory.createKucoinImporter<T>(config);
+        return await ImporterFactory.createKucoinImporter<T>();
 
       case 'coinbase':
-        return await ImporterFactory.createCoinbaseImporter<T>(config);
+        return await ImporterFactory.createCoinbaseImporter<T>();
 
       case 'ledgerlive':
-        return await ImporterFactory.createLedgerLiveImporter<T>(config);
+        return await ImporterFactory.createLedgerLiveImporter<T>();
 
       default:
         throw new Error(`Unsupported exchange importer: ${sourceId}`);
@@ -149,18 +168,21 @@ export class ImporterFactory {
   /**
    * Create Injective importer.
    */
-  private static async createInjectiveImporter<T>(config: ETLComponentConfig): Promise<IImporter<T>> {
+  private static async createInjectiveImporter<T>(
+    blockchainProviderManager: BlockchainProviderManager,
+    providerId: string
+  ): Promise<IImporter<T>> {
     // Dynamic import to avoid circular dependencies
     const { InjectiveTransactionImporter } = await import('../../blockchains/injective/transaction-importer.ts');
-    return new InjectiveTransactionImporter(config.dependencies, {
-      preferredProvider: config.providerId,
+    return new InjectiveTransactionImporter(blockchainProviderManager, {
+      preferredProvider: providerId,
     }) as unknown as IImporter<T>;
   }
 
   /**
    * Create Kraken CSV importer.
    */
-  private static async createKrakenImporter<T>(_config: ETLComponentConfig): Promise<IImporter<T>> {
+  private static async createKrakenImporter<T>(): Promise<IImporter<T>> {
     // Dynamic import to avoid circular dependencies
     const { KrakenCsvImporter } = await import('../../exchanges/kraken/importer.ts');
     return new KrakenCsvImporter() as unknown as IImporter<T>;
@@ -169,7 +191,7 @@ export class ImporterFactory {
   /**
    * Create KuCoin CSV importer.
    */
-  private static async createKucoinImporter<T>(_config: ETLComponentConfig): Promise<IImporter<T>> {
+  private static async createKucoinImporter<T>(): Promise<IImporter<T>> {
     // Dynamic import to avoid circular dependencies
     const { KucoinCsvImporter } = await import('../../exchanges/kucoin/importer.ts');
     return new KucoinCsvImporter() as unknown as IImporter<T>;
@@ -178,7 +200,7 @@ export class ImporterFactory {
   /**
    * Create Ledger Live CSV importer.
    */
-  private static async createLedgerLiveImporter<T>(_config: ETLComponentConfig): Promise<IImporter<T>> {
+  private static async createLedgerLiveImporter<T>(): Promise<IImporter<T>> {
     // Dynamic import to avoid circular dependencies
     const { LedgerLiveCsvImporter } = await import('../../exchanges/ledgerlive/importer.ts');
     return new LedgerLiveCsvImporter() as unknown as IImporter<T>;
@@ -187,22 +209,28 @@ export class ImporterFactory {
   /**
    * Create Polkadot importer.
    */
-  private static async createPolkadotImporter<T>(config: ETLComponentConfig): Promise<IImporter<T>> {
+  private static async createPolkadotImporter<T>(
+    blockchainProviderManager: BlockchainProviderManager,
+    providerId: string
+  ): Promise<IImporter<T>> {
     // Dynamic import to avoid circular dependencies
     const { PolkadotTransactionImporter } = await import('../../blockchains/polkadot/transaction-importer.ts');
-    return new PolkadotTransactionImporter(config.dependencies, {
-      preferredProvider: config.providerId,
+    return new PolkadotTransactionImporter(blockchainProviderManager, {
+      preferredProvider: providerId,
     }) as unknown as IImporter<T>;
   }
 
   /**
    * Create Solana importer.
    */
-  private static async createSolanaImporter<T>(config: ETLComponentConfig): Promise<IImporter<T>> {
+  private static async createSolanaImporter<T>(
+    blockchainProviderManager: BlockchainProviderManager,
+    providerId: string
+  ): Promise<IImporter<T>> {
     // Dynamic import to avoid circular dependencies
     const { SolanaTransactionImporter } = await import('../../blockchains/solana/transaction-importer.ts');
-    return new SolanaTransactionImporter(config.dependencies, {
-      preferredProvider: config.providerId,
+    return new SolanaTransactionImporter(blockchainProviderManager, {
+      preferredProvider: providerId,
     }) as unknown as IImporter<T>;
   }
 

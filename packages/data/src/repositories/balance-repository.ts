@@ -18,6 +18,7 @@ export class BalanceRepository {
     return new Promise((resolve, reject) => {
       const query = `
         SELECT 
+          exchange,
           symbol,
           type,
           amount,

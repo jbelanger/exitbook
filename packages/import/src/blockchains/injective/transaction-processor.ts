@@ -4,7 +4,6 @@ import type { StoredRawData } from '@crypto/data';
 import { createMoney } from '@crypto/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
-import type { IDependencyContainer } from '../../shared/common/interfaces.ts';
 import { BaseProcessor } from '../../shared/processors/base-processor.ts';
 import type { ApiClientRawData, ImportSessionMetadata } from '../../shared/processors/interfaces.ts';
 import { ProcessorFactory } from '../../shared/processors/processor-registry.ts';
@@ -18,7 +17,7 @@ import type { InjectiveTransaction } from './types.ts';
  * processors based on data provenance.
  */
 export class InjectiveTransactionProcessor extends BaseProcessor<ApiClientRawData<InjectiveTransaction>> {
-  constructor(_dependencies: IDependencyContainer) {
+  constructor() {
     super('injective');
   }
 

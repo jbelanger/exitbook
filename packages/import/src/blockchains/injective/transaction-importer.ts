@@ -1,4 +1,3 @@
-import type { IDependencyContainer } from '../../shared/common/interfaces.ts';
 import { BaseImporter } from '../../shared/importers/base-importer.ts';
 import type { ImportParams, ImportRunResult } from '../../shared/importers/interfaces.ts';
 import type { ApiClientRawData } from '../../shared/processors/interfaces.ts';
@@ -14,14 +13,19 @@ import type { InjectiveTransaction } from './types.ts';
 export class InjectiveTransactionImporter extends BaseImporter<InjectiveTransaction> {
   private providerManager: BlockchainProviderManager;
 
-  constructor(dependencies: IDependencyContainer, options?: { preferredProvider?: string | undefined }) {
+  constructor(
+    blockchainProviderManager: BlockchainProviderManager,
+    options?: { preferredProvider?: string | undefined }
+  ) {
     super('injective');
 
-    if (!dependencies.providerManager) {
+    this.providerManager = blockchainProviderManager;
+
+    if (!this.providerManager) {
       throw new Error('Provider manager required for Injective importer');
     }
 
-    this.providerManager = dependencies.providerManager;
+    this.providerManager = blockchainProviderManager;
 
     // Auto-register providers for injective mainnet
     this.providerManager.autoRegisterFromConfig('injective', 'mainnet', options?.preferredProvider);

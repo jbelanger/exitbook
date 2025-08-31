@@ -1,18 +1,12 @@
-import type { TransactionType, UniversalTransaction } from '@crypto/core';
+import type { UniversalTransaction } from '@crypto/core';
 // Import processors to trigger registration
 import type { StoredRawData } from '@crypto/data';
 import { createMoney } from '@crypto/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
-import type { IDependencyContainer } from '../../shared/common/interfaces.ts';
 import { BaseProcessor } from '../../shared/processors/base-processor.ts';
-import type {
-  ApiClientRawData,
-  ImportSessionMetadata,
-  ProcessingImportSession,
-} from '../../shared/processors/interfaces.ts';
+import type { ApiClientRawData, ImportSessionMetadata } from '../../shared/processors/interfaces.ts';
 import { ProcessorFactory } from '../../shared/processors/processor-registry.ts';
-import type { UniversalBlockchainTransaction } from '../shared/types.ts';
 // Import processors to trigger registration
 import './processors/index.ts';
 import type { BitcoinTransaction } from './types.ts';
@@ -23,19 +17,17 @@ import type { BitcoinTransaction } from './types.ts';
  * processors based on data provenance. Optimized for multi-address processing using session context.
  */
 export class BitcoinTransactionProcessor extends BaseProcessor<ApiClientRawData<BitcoinTransaction>> {
-  constructor(
-    _dependencies: IDependencyContainer,
-    private context?: { derivedAddresses: string[] }
-  ) {
+  constructor() {
     super('bitcoin');
   }
 
   /**
    * Extract rich Bitcoin-specific session context from session metadata.
    */
-  private createSessionContext(importSession: ProcessingImportSession): ImportSessionMetadata {
-    const sessionMetadata = importSession.sessionMetadata || {};
-
+  private createSessionContext(
+    sessionMetadata: ImportSessionMetadata,
+    rawDataItems: StoredRawData<ApiClientRawData<BitcoinTransaction>>[]
+  ): ImportSessionMetadata {
     // Extract derived addresses from Bitcoin-specific metadata
     let derivedAddresses: string[] = [];
 
@@ -58,14 +50,9 @@ export class BitcoinTransactionProcessor extends BaseProcessor<ApiClientRawData<
       }
     }
 
-    // Fallback to legacy context if available
-    if (derivedAddresses.length === 0 && this.context?.derivedAddresses?.length) {
-      derivedAddresses = this.context.derivedAddresses;
-    }
-
     // Collect source addresses from raw data items
     const sourceAddresses: string[] = [];
-    for (const item of importSession.rawDataItems) {
+    for (const item of rawDataItems) {
       const rawData = item.rawData as ApiClientRawData<BitcoinTransaction>;
       if (rawData.sourceAddress && !sourceAddresses.includes(rawData.sourceAddress)) {
         sourceAddresses.push(rawData.sourceAddress);
@@ -144,16 +131,18 @@ export class BitcoinTransactionProcessor extends BaseProcessor<ApiClientRawData<
   /**
    * Process import session with optimized multi-address session context.
    */
-  async process(importSession: ProcessingImportSession): Promise<UniversalTransaction[]> {
-    if (!this.canProcess(importSession.sourceId, importSession.sourceType)) {
-      return [];
+  protected async processInternal(
+    rawDataItems: StoredRawData<ApiClientRawData<BitcoinTransaction>>[],
+    sessionMetadata?: ImportSessionMetadata
+  ): Promise<Result<UniversalTransaction[], string>> {
+    if (!sessionMetadata) {
+      throw new Error('Missing session metadata');
     }
-
     // Create rich session context once for the entire batch
-    const sessionContext = this.createSessionContext(importSession);
+    const sessionContext = this.createSessionContext(sessionMetadata, rawDataItems);
 
     this.logger.info(
-      `Processing Bitcoin session with ${importSession.rawDataItems.length} transactions, ` +
+      `Processing Bitcoin session with ${rawDataItems.length} transactions, ` +
         `${sessionContext.derivedAddresses?.length || 0} derived addresses, ` +
         `${sessionContext.addresses?.length || 0} source addresses`
     );
@@ -161,7 +150,7 @@ export class BitcoinTransactionProcessor extends BaseProcessor<ApiClientRawData<
     const transactions: UniversalTransaction[] = [];
 
     // Process all transactions with shared session context
-    for (const item of importSession.rawDataItems) {
+    for (const item of rawDataItems) {
       const typedItem = item as StoredRawData<ApiClientRawData<BitcoinTransaction>>;
       const result = this.processSingleWithContext(typedItem, sessionContext);
       if (result.isErr()) {
@@ -176,34 +165,6 @@ export class BitcoinTransactionProcessor extends BaseProcessor<ApiClientRawData<
     }
 
     this.logger.info(`Bitcoin processing completed: ${transactions.length} transactions processed successfully`);
-    return transactions;
-  }
-
-  /**
-   * Legacy method for backward compatibility - delegates to session-based processing.
-   */
-  protected async processInternal(
-    rawDataItems: StoredRawData<ApiClientRawData<BitcoinTransaction>>[],
-    sessionMetadata?: ImportSessionMetadata
-  ): Promise<Result<UniversalTransaction[], string>> {
-    // Create a minimal session for backward compatibility
-    const legacySession: ProcessingImportSession = {
-      createdAt: Date.now(),
-      id: 'legacy-session',
-      rawDataItems: rawDataItems as StoredRawData<ApiClientRawData<unknown>>[],
-      sessionMetadata: {
-        derivedAddresses: this.context?.derivedAddresses || [],
-      },
-      sourceId: 'bitcoin',
-      sourceType: 'blockchain',
-      status: 'processing',
-    };
-
-    try {
-      const transactions = await this.process(legacySession);
-      return ok(transactions);
-    } catch (error) {
-      return err(`Bitcoin processing failed: ${error instanceof Error ? error.message : String(error)}`);
-    }
+    return ok(transactions);
   }
 }

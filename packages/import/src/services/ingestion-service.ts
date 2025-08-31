@@ -1,19 +1,19 @@
 import type { UniversalTransaction } from '@crypto/core';
-import { ImportSessionRepository, type StoredRawData } from '@crypto/data';
+import { Database, ImportSessionRepository, RawDataRepository, type StoredRawData } from '@crypto/data';
+import type { LoadRawDataFilters } from '@crypto/data/src/repositories/raw-data-repository.ts';
 import type { Logger } from '@crypto/shared-logger';
 import { getLogger } from '@crypto/shared-logger';
 
-import type { IDependencyContainer } from '../common/interfaces.ts';
-import { ImporterFactory } from '../importers/importer-factory.ts';
-import type { ImportParams, ImportResult } from '../importers/interfaces.ts';
+import { BlockchainProviderManager } from '../blockchains/shared/index.ts';
+import { ImporterFactory } from '../shared/importers/importer-factory.ts';
+import type { ImportParams, ImportResult } from '../shared/importers/interfaces.ts';
 import type {
   ApiClientRawData,
   ImportSessionMetadata,
   ProcessResult,
   ProcessingImportSession,
-} from '../processors/interfaces.ts';
-import { ProcessorFactory } from '../processors/processor-factory.ts';
-import type { LoadRawDataFilters } from '../storage/interfaces.ts';
+} from '../shared/processors/interfaces.ts';
+import { ProcessorFactory } from '../shared/processors/processor-factory.ts';
 
 /**
  * Manages the ETL pipeline for cryptocurrency transaction data.
@@ -22,11 +22,18 @@ import type { LoadRawDataFilters } from '../storage/interfaces.ts';
  */
 export class TransactionIngestionService {
   private logger: Logger;
+  private providerManager?: BlockchainProviderManager | undefined;
+  private rawDataRepository: RawDataRepository;
   private sessionRepository: ImportSessionRepository;
 
-  constructor(private dependencies: IDependencyContainer) {
+  constructor(
+    private database: Database,
+    providerManager?: BlockchainProviderManager | undefined
+  ) {
     this.logger = getLogger('TransactionIngestionService');
-    this.sessionRepository = new ImportSessionRepository(dependencies.database);
+    this.sessionRepository = new ImportSessionRepository(this.database);
+    this.rawDataRepository = new RawDataRepository(this.database);
+    this.providerManager = providerManager;
   }
 
   /**
@@ -58,15 +65,15 @@ export class TransactionIngestionService {
   async getProcessingStatus(sourceId: string) {
     try {
       const [pending, processedItems, failedItems] = await Promise.all([
-        this.dependencies.externalDataStore.load({
+        this.rawDataRepository.load({
           processingStatus: 'pending',
           sourceId: sourceId,
         }),
-        this.dependencies.externalDataStore.load({
+        this.rawDataRepository.load({
           processingStatus: 'processed',
           sourceId: sourceId,
         }),
-        this.dependencies.externalDataStore.load({
+        this.rawDataRepository.load({
           processingStatus: 'failed',
           sourceId: sourceId,
         }),
@@ -154,12 +161,7 @@ export class TransactionIngestionService {
       }
 
       // Create importer
-      const importer = await ImporterFactory.create({
-        dependencies: this.dependencies,
-        providerId: params.providerId,
-        sourceId: sourceId,
-        sourceType: sourceType,
-      });
+      const importer = await ImporterFactory.create(sourceId, sourceType, params.providerId, this.providerManager);
 
       // Validate source before import
       const isValidSource = await importer.canImport(params);
@@ -172,7 +174,7 @@ export class TransactionIngestionService {
       const rawData = importResult.rawData;
 
       // Save raw data to storage
-      const savedCount = await this.dependencies.externalDataStore.save(
+      const savedCount = await this.rawDataRepository.save(
         sourceId,
         sourceType,
         rawData.map((item, index) => ({
@@ -261,7 +263,7 @@ export class TransactionIngestionService {
         ...filters,
       };
 
-      const rawDataItems = await this.dependencies.externalDataStore.load(loadFilters);
+      const rawDataItems = await this.rawDataRepository.load(loadFilters);
 
       if (rawDataItems.length === 0) {
         this.logger.warn(`No pending raw data found for processing: ${sourceId}`);
@@ -271,7 +273,7 @@ export class TransactionIngestionService {
       this.logger.info(`Found ${rawDataItems.length} raw data items to process for ${sourceId}`);
 
       // Use combined query to fetch sessions with their raw data in a single JOIN
-      const sessionsWithRawData = await this.dependencies.database.getImportSessionsWithRawData({
+      const sessionsWithRawData = await this.database.getImportSessionsWithRawData({
         sourceId: sourceId,
       });
 
@@ -300,12 +302,7 @@ export class TransactionIngestionService {
         }
 
         // Create processor with session-specific context
-        const processor = await ProcessorFactory.create({
-          dependencies: this.dependencies,
-          sessionMetadata: session.sessionMetadata,
-          sourceId: sourceId,
-          sourceType: sourceType,
-        });
+        const processor = await ProcessorFactory.create(sourceId, sourceType);
 
         // Create ProcessingImportSession for this session
         const processingSession: ProcessingImportSession = {
@@ -335,8 +332,8 @@ export class TransactionIngestionService {
 
       for (const transaction of transactions) {
         try {
-          await this.dependencies.database.saveTransaction(
-            transaction as unknown as Parameters<typeof this.dependencies.database.saveTransaction>[0]
+          await this.database.saveTransaction(
+            transaction as unknown as Parameters<typeof this.database.saveTransaction>[0]
           ); // Cast needed for enhanced transaction type
           savedCount++;
         } catch (error) {
@@ -352,7 +349,7 @@ export class TransactionIngestionService {
         sessionData.rawDataItems.filter(item => item.processingStatus === 'pending')
       );
       const allRawDataIds = allProcessedItems.map(item => item.sourceTransactionId);
-      await this.dependencies.externalDataStore.markAsProcessed(sourceId, allRawDataIds, filters?.providerId);
+      await this.rawDataRepository.markAsProcessed(sourceId, allRawDataIds, filters?.providerId);
 
       // Log the processing results
       const skippedCount = allProcessedItems.length - transactions.length;
