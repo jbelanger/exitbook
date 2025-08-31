@@ -7,7 +7,7 @@ import { type Result, err, ok } from 'neverthrow';
 
 import type { IDependencyContainer } from '../../shared/common/interfaces.ts';
 import { BaseProcessor } from '../../shared/processors/base-processor.ts';
-import type { ApiClientRawData } from '../../shared/processors/interfaces.ts';
+import type { ApiClientRawData, ImportSessionMetadata } from '../../shared/processors/interfaces.ts';
 import { ProcessorFactory } from '../../shared/processors/processor-registry.ts';
 import type { UniversalBlockchainTransaction } from '../shared/types.ts';
 // Import processors to trigger registration
@@ -140,7 +140,8 @@ export class AvalancheTransactionProcessor extends BaseProcessor<ApiClientRawDat
    * Implement the template method with integrated correlation logic
    */
   protected async processInternal(
-    rawDataItems: StoredRawData<ApiClientRawData<AvalancheRawTransactionData>>[]
+    rawDataItems: StoredRawData<ApiClientRawData<AvalancheRawTransactionData>>[],
+    sessionMetadata?: ImportSessionMetadata
   ): Promise<Result<UniversalTransaction[], string>> {
     if (rawDataItems.length === 0) {
       return ok([]);
@@ -166,7 +167,7 @@ export class AvalancheTransactionProcessor extends BaseProcessor<ApiClientRawDat
         return err(`No processor found for provider: ${apiClientRawData.providerId}`);
       }
 
-      const sessionContext = { addresses: [sourceAddress] };
+      const sessionContext = sessionMetadata || { addresses: [sourceAddress] };
       const transformResult = processor.transform(apiClientRawData.rawData, sessionContext);
 
       if (transformResult.isErr()) {

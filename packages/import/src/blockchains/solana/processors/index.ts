@@ -1,4 +1,4 @@
 // Import processors to trigger registration
-import './processors/HeliusProcessor.ts';
-import './processors/SolanaRPCProcessor.ts';
-import './processors/SolscanProcessor.ts';
+import './HeliusProcessor.ts';
+import './SolanaRPCProcessor.ts';
+import './SolscanProcessor.ts';
