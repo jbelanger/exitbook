@@ -135,7 +135,8 @@ export class HeliusProcessor extends BaseProviderProcessor<SolanaRawTransactionD
         const fee = lamportsToSol(tx.meta.fee);
 
         // Skip transactions with no meaningful amount (pure fee transactions)
-        if (amount.toNumber() <= fee.toNumber() && amount.toNumber() < 0.000001) {
+        // Only filter out if the balance change is exactly zero (pure fee transaction)
+        if (Math.abs(balanceChange) === 0) {
           this.logger.debug(
             `Skipping fee-only transaction - Hash: ${tx.transaction.signatures?.[0] || tx.signature}, Amount: ${amount.toNumber()}, Fee: ${fee.toNumber()}`
           );
