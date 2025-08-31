@@ -112,10 +112,10 @@ export const SubstrateChainConfigSchema = z.object({
  */
 export const SubscanTransferSchema = z.object({
   amount: z.string().min(1, 'Amount must not be empty'),
-  block_hash: z.string().min(1, 'Block hash must not be empty'),
+  block_hash: z.string().optional(),
   block_num: z.number().nonnegative('Block number must be non-negative'),
   block_timestamp: z.number().nonnegative('Block timestamp must be non-negative'),
-  call: z.string().min(1, 'Call must not be empty'),
+  call: z.string().optional(),
   extrinsic_index: z.string().min(1, 'Extrinsic index must not be empty'),
   fee: z.string().min(1, 'Fee must not be empty'),
   from: z.string().min(1, 'From address must not be empty'),

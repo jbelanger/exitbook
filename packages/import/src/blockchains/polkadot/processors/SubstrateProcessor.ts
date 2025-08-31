@@ -25,12 +25,12 @@ export class SubstrateProcessor extends BaseProviderProcessor<SubscanTransfer> {
   protected readonly schema = SubscanTransferSchema;
   private static convertSubscanTransaction(
     transfer: SubscanTransfer,
-    userAddress: string,
+    relevantAddresses: Set<string>,
     chainConfig: SubstrateChainConfig
   ): UniversalBlockchainTransaction | null {
     try {
-      const isFromUser = transfer.from === userAddress;
-      const isToUser = transfer.to === userAddress;
+      const isFromUser = relevantAddresses.has(transfer.from);
+      const isToUser = relevantAddresses.has(transfer.to);
 
       if (!isFromUser && !isToUser) {
         return null; // Not relevant to this address
@@ -124,13 +124,14 @@ export class SubstrateProcessor extends BaseProviderProcessor<SubscanTransfer> {
 
   static processAddressTransactions(rawData: SubstrateRawData, userAddress: string): UniversalBlockchainTransaction[] {
     const transactions: UniversalBlockchainTransaction[] = [];
+    const userAddresses = new Set([userAddress]);
 
     // Default to polkadot chain config (could be enhanced to detect chain dynamically)
     const chainConfig = SUBSTRATE_CHAINS['polkadot']!;
 
     if (rawData.provider === 'subscan' && Array.isArray(rawData.data)) {
       for (const transfer of rawData.data as SubscanTransfer[]) {
-        const blockchainTx = this.convertSubscanTransaction(transfer, userAddress, chainConfig);
+        const blockchainTx = this.convertSubscanTransaction(transfer, userAddresses, chainConfig);
         if (blockchainTx && (!rawData.since || blockchainTx.timestamp >= rawData.since)) {
           transactions.push(blockchainTx);
         }
@@ -206,16 +207,26 @@ export class SubstrateProcessor extends BaseProviderProcessor<SubscanTransfer> {
     rawData: SubscanTransfer,
     sessionContext: ImportSessionMetadata
   ): Result<UniversalBlockchainTransaction[], string> {
-    // Extract addresses from rich session context
-    const addresses = sessionContext.addresses || [];
-    const userAddress = addresses[0] || '';
+    // Extract addresses from rich session context (similar to Bitcoin's approach)
+    // Use derivedAddresses for SS58 variants, fallback to addresses for backward compatibility
+    const addresses = sessionContext.derivedAddresses || sessionContext.addresses || [];
+    const relevantAddresses = new Set(addresses);
     const chainConfig = SUBSTRATE_CHAINS['polkadot']!;
 
+    // Check if transaction involves any of our addresses
+    const isFromUser = relevantAddresses.has(rawData.from);
+    const isToUser = relevantAddresses.has(rawData.to);
+
+    if (!isFromUser && !isToUser) {
+      return err(`Transaction not relevant to user addresses: ${Array.from(relevantAddresses).join(', ')}`);
+    }
+
     // Convert single SubscanTransfer directly to UniversalBlockchainTransaction
-    const transaction = SubstrateProcessor.convertSubscanTransaction(rawData, userAddress, chainConfig);
+    // Pass all relevant addresses for proper matching
+    const transaction = SubstrateProcessor.convertSubscanTransaction(rawData, relevantAddresses, chainConfig);
 
     if (!transaction) {
-      return err(`Transaction not relevant to user address: ${userAddress}`);
+      return err(`Failed to convert transaction for addresses: ${Array.from(relevantAddresses).join(', ')}`);
     }
 
     return ok([transaction]);
