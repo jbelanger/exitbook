@@ -15,9 +15,15 @@ import type {
   UpdateImportSessionRequest,
   UpdateWalletAddressRequest,
   WalletAddress,
-  WalletAddressQuery
+  WalletAddressQuery,
 } from '../types/data-types.ts';
-import type { DatabaseStats, ImportSessionRow, SQLParam, StatRow, TransactionCountRow } from '../types/database-types.js';
+import type {
+  DatabaseStats,
+  ImportSessionRow,
+  SQLParam,
+  StatRow,
+  TransactionCountRow,
+} from '../types/database-types.js';
 
 const sqlite3 = sqlite3Module;
 
@@ -374,11 +380,11 @@ export class Database {
   ): Promise<number> {
     return new Promise((resolve, reject) => {
       const db = this.db; // Capture db reference
-      
+
       // Use a transaction to ensure the session is committed
       db.serialize(() => {
         db.run('BEGIN IMMEDIATE');
-        
+
         const stmt = db.prepare(`
           INSERT INTO import_sessions 
           (source_id, source_type, provider_id, session_metadata)
@@ -390,13 +396,13 @@ export class Database {
         stmt.run([sourceId, sourceType, providerId || null, metadataJson], function (err) {
           const sessionId = this.lastID as number;
           stmt.finalize();
-          
+
           if (err) {
             db.run('ROLLBACK', () => {
               reject(err);
             });
           } else {
-            db.run('COMMIT', (commitErr) => {
+            db.run('COMMIT', commitErr => {
               if (commitErr) {
                 reject(commitErr);
               } else {
@@ -433,7 +439,7 @@ export class Database {
     errorDetails?: unknown
   ): Promise<void> {
     const durationMs = Date.now() - startTime;
-    
+
     return this.updateImportSession(sessionId, {
       errorDetails,
       errorMessage,
@@ -442,14 +448,10 @@ export class Database {
       transactionsImported,
     }).then(() => {
       return new Promise<void>((resolve, reject) => {
-        this.db.run(
-          'UPDATE import_sessions SET duration_ms = ? WHERE id = ?',
-          [durationMs, sessionId],
-          err => {
-            if (err) reject(err);
-            else resolve();
-          }
-        );
+        this.db.run('UPDATE import_sessions SET duration_ms = ? WHERE id = ?', [durationMs, sessionId], err => {
+          if (err) reject(err);
+          else resolve();
+        });
       });
     });
   }
@@ -638,7 +640,7 @@ export class Database {
 
           rows.forEach(row => {
             const dbRow = row as Record<string, unknown>;
-            
+
             // Extract session data
             const sessionRow: ImportSessionRow = {
               completed_at: dbRow.completed_at ? (dbRow.completed_at as number) : null,
@@ -724,15 +726,13 @@ export class Database {
     });
   }
 
-  async getRawTransactions(
-    filters?: {
-      importSessionId?: number | undefined;
-      processingStatus?: 'pending' | 'processed' | 'failed' | undefined;
-      providerId?: string | undefined;
-      since?: number | undefined;
-      sourceId?: string | undefined;
-    }
-  ): Promise<
+  async getRawTransactions(filters?: {
+    importSessionId?: number | undefined;
+    processingStatus?: 'pending' | 'processed' | 'failed' | undefined;
+    providerId?: string | undefined;
+    since?: number | undefined;
+    sourceId?: string | undefined;
+  }): Promise<
     Array<{
       createdAt: number;
       id: number;
@@ -842,7 +842,7 @@ export class Database {
           results.totalExchanges = row.total_sources || 0;
         });
 
-        this.db.all(queries[2]!, (err, rows: Array<{ count: number; source_id: string; }>) => {
+        this.db.all(queries[2]!, (err, rows: Array<{ count: number; source_id: string }>) => {
           if (err) return reject(err);
           results.transactionsByExchange = rows.map(row => ({ count: row.count, exchange: row.source_id }));
         });
@@ -1084,20 +1084,16 @@ export class Database {
       const rawDataJson = JSON.stringify(rawData);
       const metadataJson = options?.metadata ? JSON.stringify(options.metadata) : null;
 
-      stmt.run([
-        sourceId, 
-        sourceType, 
-        providerId,
-        rawDataJson, 
-        metadataJson,
-        options?.importSessionId || null
-      ], function (err) {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(this.lastID as number);
+      stmt.run(
+        [sourceId, sourceType, providerId, rawDataJson, metadataJson, options?.importSessionId || null],
+        function (err) {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(this.lastID as number);
+          }
         }
-      });
+      );
 
       stmt.finalize();
     });
@@ -1106,7 +1102,7 @@ export class Database {
   async saveRawTransactions(
     sourceId: string,
     sourceType: string,
-    rawTransactions: Array<{ data: unknown; }>,
+    rawTransactions: Array<{ data: unknown }>,
     options?: {
       importSessionId?: number | undefined;
       metadata?: unknown;
@@ -1126,8 +1122,7 @@ export class Database {
       }
 
       db.serialize(() => {
-
-        db.run('BEGIN TRANSACTION', (err) => {
+        db.run('BEGIN TRANSACTION', err => {
           if (err) {
             return reject(err);
           }
@@ -1145,17 +1140,9 @@ export class Database {
           const metadataJson = options?.metadata ? JSON.stringify(options.metadata) : null;
           const importSessionId = options?.importSessionId || null;
 
-
-          stmt.run([
-            sourceId, 
-            sourceType, 
-            providerId,
-            rawDataJson, 
-            metadataJson,
-            importSessionId
-          ], function (err) {
+          stmt.run([sourceId, sourceType, providerId, rawDataJson, metadataJson, importSessionId], function (err) {
             completed++;
-            
+
             if (err && !err.message.includes('UNIQUE constraint failed')) {
               if (!hasError) {
                 hasError = true;
@@ -1166,13 +1153,13 @@ export class Database {
               }
               return;
             }
-            
+
             if (this.changes > 0) saved++;
-            
+
             // Check if all operations are complete
             if (completed === total && !hasError) {
               stmt.finalize();
-              db.run('COMMIT', (commitErr) => {
+              db.run('COMMIT', commitErr => {
                 if (commitErr) {
                   reject(commitErr);
                 } else {
@@ -1222,7 +1209,7 @@ export class Database {
             : transaction.amount
               ? String(transaction.amount)
               : null,
-          amountCurrency,          
+          amountCurrency,
           typeof transaction.price === 'object'
             ? moneyToDbString(transaction.price)
             : transaction.price
@@ -1343,10 +1330,7 @@ export class Database {
     });
   }
 
-  async updateImportSession(
-    sessionId: number,
-    updates: UpdateImportSessionRequest
-  ): Promise<void> {
+  async updateImportSession(sessionId: number, updates: UpdateImportSessionRequest): Promise<void> {
     return new Promise((resolve, reject) => {
       const setParts: string[] = [];
       const params: (string | number | null)[] = [];
@@ -1422,20 +1406,16 @@ export class Database {
 
       const processedAt = status === 'processed' ? Math.floor(Date.now() / 1000) : null;
 
-      stmt.run([
-        status, 
-        error || null, 
-        processedAt,
-        rawTransactionId, 
-        providerId || null,
-        providerId || null
-      ], function (err) {
-        if (err) {
-          reject(err);
-        } else {
-          resolve();
+      stmt.run(
+        [status, error || null, processedAt, rawTransactionId, providerId || null, providerId || null],
+        function (err) {
+          if (err) {
+            reject(err);
+          } else {
+            resolve();
+          }
         }
-      });
+      );
 
       stmt.finalize();
     });

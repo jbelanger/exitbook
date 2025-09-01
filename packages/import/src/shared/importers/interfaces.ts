@@ -1,13 +1,12 @@
 import type { ApiClientRawData } from '../processors/interfaces.ts';
+import type { ExchangeCredentials } from '../types/types.ts';
 
 export interface ImportParams {
-  [key: string]: unknown;
-  addresses?: string[] | undefined;
+  address?: string | undefined;
   csvDirectories?: string[] | undefined;
-  importSessionId?: number | undefined;
+  exchangeCredentials?: Partial<ExchangeCredentials> | undefined;
   providerId?: string | undefined;
   since?: number | undefined;
-  until?: number | undefined;
 }
 
 export interface ImportResult {

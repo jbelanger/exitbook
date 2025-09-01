@@ -1,9 +1,5 @@
 import { Database } from '../storage/database.ts';
-import type {
-  ImportSession,
-  ImportSessionQuery,
-  UpdateImportSessionRequest,
-} from '../types/data-types.js';
+import type { ImportSession, ImportSessionQuery, UpdateImportSessionRequest } from '../types/data-types.js';
 
 export class ImportSessionRepository {
   private database: Database;

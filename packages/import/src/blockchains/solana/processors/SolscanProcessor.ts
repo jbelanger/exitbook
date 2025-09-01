@@ -1,7 +1,7 @@
 import { getLogger } from '@crypto/shared-logger';
 import { maskAddress } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
-import { type Result, ok } from 'neverthrow';
+import { type Result, err, ok } from 'neverthrow';
 
 import { BaseProviderProcessor } from '../../../shared/processors/base-provider-processor.ts';
 import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
@@ -102,19 +102,19 @@ export class SolscanProcessor extends BaseProviderProcessor<SolscanRawTransactio
     rawData: SolscanRawTransactionData,
     sessionContext: ImportSessionMetadata
   ): Result<UniversalBlockchainTransaction[], string> {
-    // Extract addresses from rich session context
-    const addresses = sessionContext.addresses || [];
-    const userAddress = addresses[0] || '';
+    if (!sessionContext.address) {
+      return err('No address found in session context');
+    }
 
     if (!rawData.normal || rawData.normal.length === 0) {
-      throw new Error('No transactions to transform from SolscanRawTransactionData');
+      return err('No transactions to transform from SolscanRawTransactionData');
     }
 
     const transactions: UniversalBlockchainTransaction[] = [];
 
     // Process ALL transactions in the batch, not just the first one
     for (const tx of rawData.normal) {
-      const processedTx = SolscanProcessor.transformTransaction(tx, userAddress);
+      const processedTx = SolscanProcessor.transformTransaction(tx, sessionContext.address);
 
       if (!processedTx) {
         // Transaction filtered out - continue with next

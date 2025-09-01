@@ -71,7 +71,6 @@ export class AvalancheTransactionImporter extends BaseImporter<AvalancheRawTrans
             rawTransactions.push({
               providerId: normalResult.providerName,
               rawData: tx,
-              sourceAddress: address,
               transactionType: 'normal',
             });
           }
@@ -83,7 +82,6 @@ export class AvalancheTransactionImporter extends BaseImporter<AvalancheRawTrans
             rawTransactions.push({
               providerId: normalResult.providerName,
               rawData: tx,
-              sourceAddress: address,
               transactionType: 'internal',
             });
           }
@@ -106,7 +104,6 @@ export class AvalancheTransactionImporter extends BaseImporter<AvalancheRawTrans
             rawTransactions.push({
               providerId: tokenResult.providerName,
               rawData: tx,
-              sourceAddress: address,
               transactionType: 'token',
             });
           }
@@ -135,7 +132,7 @@ export class AvalancheTransactionImporter extends BaseImporter<AvalancheRawTrans
    * Check if the importer can handle the specified import parameters.
    */
   protected async canImportSpecific(params: ImportParams): Promise<boolean> {
-    return Boolean(params.addresses?.length);
+    return !params.address;
   }
 
   /**
@@ -157,24 +154,22 @@ export class AvalancheTransactionImporter extends BaseImporter<AvalancheRawTrans
    * Import raw transaction data from Avalanche blockchain APIs.
    */
   async import(params: ImportParams): Promise<ImportRunResult<AvalancheRawTransactionData>> {
-    if (!params.addresses?.length) {
-      throw new Error('Addresses required for Avalanche import');
+    if (!params.address) {
+      throw new Error('Address is required for Avalanche import');
     }
 
     const allSourcedTransactions: ApiClientRawData<AvalancheRawTransactionData>[] = [];
 
-    for (const address of params.addresses) {
-      this.logger.info(`Importing transactions for address: ${address.substring(0, 20)}...`);
+    this.logger.info(`Importing transactions for address: ${params.address.substring(0, 20)}...`);
 
-      // Validate Avalanche address
-      if (!this.validateAddress(address)) {
-        this.logger.warn(`Invalid Avalanche address: ${address}`);
-        continue;
-      }
-
-      const addressTransactions = await this.fetchRawTransactionsForAddress(address, params.since);
-      allSourcedTransactions.push(...addressTransactions);
+    // Validate Avalanche address
+    if (!this.validateAddress(params.address)) {
+      this.logger.warn(`Invalid Avalanche address: ${params.address}`);
+      return { rawData: [] };
     }
+
+    const addressTransactions = await this.fetchRawTransactionsForAddress(params.address, params.since);
+    allSourcedTransactions.push(...addressTransactions);
 
     // Sort by timestamp
     const sortedTransactions = allSourcedTransactions.sort((a, b) => {

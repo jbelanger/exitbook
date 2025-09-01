@@ -31,9 +31,12 @@ export class InjectiveExplorerProcessor extends BaseProviderProcessor<InjectiveT
   ): Result<UniversalBlockchainTransaction[], string> {
     const timestamp = new Date(rawData.block_timestamp).getTime();
 
-    // Extract addresses from rich session context
-    const addresses = sessionContext.addresses || [];
-    const relevantAddresses = new Set(addresses);
+    if (!sessionContext.address) {
+      return err('Invalid address');
+    }
+
+    // Extract address from rich session context
+    const relevantAddress = sessionContext.address;
 
     let amount = '0';
     let feeAmount = '0';
@@ -77,10 +80,10 @@ export class InjectiveExplorerProcessor extends BaseProviderProcessor<InjectiveT
         }
 
         // Determine if this transaction is relevant to our wallet
-        if (to && relevantAddresses.has(to) && parseDecimal(amount).toNumber() > 0) {
+        if (to && relevantAddress === to && parseDecimal(amount).toNumber() > 0) {
           isRelevantTransaction = true;
           isIncoming = true;
-        } else if (from && relevantAddresses.has(from) && parseDecimal(amount).toNumber() > 0) {
+        } else if (from && relevantAddress === from && parseDecimal(amount).toNumber() > 0) {
           isRelevantTransaction = true;
           isOutgoing = true;
         }
@@ -98,10 +101,10 @@ export class InjectiveExplorerProcessor extends BaseProviderProcessor<InjectiveT
         }
 
         // Determine if this transaction is relevant to our wallet
-        if (to && relevantAddresses.has(to) && parseDecimal(amount).toNumber() > 0) {
+        if (to && relevantAddress === to && parseDecimal(amount).toNumber() > 0) {
           isRelevantTransaction = true;
           isIncoming = true;
-        } else if (from && relevantAddresses.has(from) && parseDecimal(amount).toNumber() > 0) {
+        } else if (from && relevantAddress === from && parseDecimal(amount).toNumber() > 0) {
           isRelevantTransaction = true;
           isOutgoing = true;
         }
@@ -118,8 +121,8 @@ export class InjectiveExplorerProcessor extends BaseProviderProcessor<InjectiveT
         };
 
         if (
-          (messageValue.ethereum_receiver && relevantAddresses.has(messageValue.ethereum_receiver)) ||
-          (messageValue.cosmos_receiver && relevantAddresses.has(messageValue.cosmos_receiver))
+          (messageValue.ethereum_receiver && relevantAddress === messageValue.ethereum_receiver) ||
+          (messageValue.cosmos_receiver && relevantAddress === messageValue.cosmos_receiver)
         ) {
           isRelevantTransaction = true;
           isIncoming = true;
@@ -139,7 +142,7 @@ export class InjectiveExplorerProcessor extends BaseProviderProcessor<InjectiveT
 
     // Only process transactions that are relevant to our wallet
     if (!isRelevantTransaction) {
-      throw new Error('Transaction is not relevant to provided wallet addresses');
+      throw new Error('Transaction is not relevant to provided wallet address');
     }
 
     // Determine transaction type

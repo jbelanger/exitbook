@@ -1,4 +1,3 @@
-
 // Database schema types for data persistence
 
 export interface StoredTransaction {

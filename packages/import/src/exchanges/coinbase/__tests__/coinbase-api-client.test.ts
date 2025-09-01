@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { ExchangeCredentials } from '../../../shared/types/types.ts';
 import { CoinbaseAPIClient } from '../coinbase-api-client.ts';
-import type { CoinbaseCredentials, RawCoinbaseAccount, RawCoinbaseTransaction } from '../types.ts';
+import type { RawCoinbaseAccount, RawCoinbaseTransaction } from '../types.ts';
 
 // Use vi.hoisted to define variables accessible in vi.mock
 const mocks = vi.hoisted(() => {
@@ -68,7 +69,7 @@ vi.mock('@coinbase/cdp-sdk/auth', () => ({
 
 describe('CoinbaseAPIClient', () => {
   let client: CoinbaseAPIClient;
-  let credentials: CoinbaseCredentials;
+  let credentials: ExchangeCredentials;
 
   beforeEach(() => {
     credentials = {

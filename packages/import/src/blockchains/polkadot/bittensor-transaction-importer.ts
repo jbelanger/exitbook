@@ -52,17 +52,15 @@ export class BittensorTransactionImporter extends BaseImporter<TaostatsTransacti
    * Validate source parameters and connectivity.
    */
   protected async canImportSpecific(params: ImportParams): Promise<boolean> {
-    if (!params.addresses?.length) {
-      this.logger.error('No addresses provided for Bittensor import');
+    if (!params.address?.length) {
+      this.logger.error('No address provided for Bittensor import');
       return false;
     }
 
     // Basic validation for Bittensor addresses (SS58 format)
-    for (const address of params.addresses) {
-      if (!this.isValidBittensorAddress(address)) {
-        this.logger.error(`Invalid Bittensor address format: ${address}`);
-        return false;
-      }
+    if (!this.isValidBittensorAddress(params.address)) {
+      this.logger.error(`Invalid Bittensor address format: ${params.address}`);
+      return false;
     }
 
     // Test provider connectivity
@@ -91,52 +89,50 @@ export class BittensorTransactionImporter extends BaseImporter<TaostatsTransacti
    * Import raw transaction data from Bittensor blockchain APIs with provider provenance.
    */
   async import(params: ImportParams): Promise<ImportRunResult<TaostatsTransaction>> {
-    if (!params.addresses?.length) {
-      throw new Error('Addresses required for Bittensor transaction import');
+    if (!params.address?.length) {
+      throw new Error('Address required for Bittensor transaction import');
     }
 
-    this.logger.info(`Starting Bittensor transaction import for ${params.addresses.length} addresses`);
+    this.logger.info(`Starting Bittensor transaction import for address: ${params.address.substring(0, 20)}...`);
 
     const allRawTransactions: ApiClientRawData<TaostatsTransaction>[] = [];
 
-    for (const address of params.addresses) {
-      this.logger.info(`Importing transactions for Bittensor address: ${address.substring(0, 20)}...`);
+    this.logger.info(`Importing transactions for Bittensor address: ${params.address.substring(0, 20)}...`);
 
-      try {
-        const result = await this.providerManager.executeWithFailover('bittensor', {
-          address: address,
-          getCacheKey: cacheParams =>
-            `tao_raw_tx_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
-          since: params.since,
-          type: 'getRawAddressTransactions',
-        });
+    try {
+      const result = await this.providerManager.executeWithFailover('bittensor', {
+        address: params.address,
+        getCacheKey: cacheParams =>
+          `tao_raw_tx_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
+        since: params.since,
+        type: 'getRawAddressTransactions',
+      });
 
-        // Transform raw response to individual transactions with provider provenance
-        const rawData = result.data;
-        if (rawData && typeof rawData === 'object' && 'data' in rawData) {
-          const bittensorTxData = rawData as { data: TaostatsTransaction[] };
+      // Transform raw response to individual transactions with provider provenance
+      const rawData = result.data;
+      if (rawData && typeof rawData === 'object' && 'data' in rawData) {
+        const bittensorTxData = rawData as { data: TaostatsTransaction[] };
 
-          if (Array.isArray(bittensorTxData.data)) {
-            const rawTransactions: ApiClientRawData<TaostatsTransaction>[] = bittensorTxData.data.map(transaction => ({
-              providerId: result.providerName,
-              rawData: transaction,
-            }));
+        if (Array.isArray(bittensorTxData.data)) {
+          const rawTransactions: ApiClientRawData<TaostatsTransaction>[] = bittensorTxData.data.map(transaction => ({
+            providerId: result.providerName,
+            rawData: transaction,
+          }));
 
-            allRawTransactions.push(...rawTransactions);
+          allRawTransactions.push(...rawTransactions);
 
-            this.logger.info(
-              `Imported ${rawTransactions.length} raw transactions for address via provider ${result.providerName}`
-            );
-          }
-        } else {
-          this.logger.warn(`Unexpected data format from provider ${result.providerName} for address ${address}`);
+          this.logger.info(
+            `Imported ${rawTransactions.length} raw transactions for address via provider ${result.providerName}`
+          );
         }
-      } catch (error) {
-        this.logger.error(
-          `Failed to import transactions for address ${address}: ${error instanceof Error ? error.message : String(error)}`
-        );
-        // Continue with other addresses rather than failing completely
+      } else {
+        this.logger.warn(`Unexpected data format from provider ${result.providerName} for address ${params.address}`);
       }
+    } catch (error) {
+      this.logger.error(
+        `Failed to import transactions for address ${params.address}: ${error instanceof Error ? error.message : String(error)}`
+      );
+      // Continue with other addresses rather than failing completely
     }
 
     // Sort by timestamp or block number (newest first)

@@ -217,7 +217,6 @@ export interface UniversalAdapterCapabilities {
 
 export interface UniversalFetchParams {
   // Universal params
-  addresses?: string[] | undefined; // For blockchains OR exchange accounts
   // Optional type-specific params
   includeTokens?: boolean | undefined; // For blockchains
   // Pagination

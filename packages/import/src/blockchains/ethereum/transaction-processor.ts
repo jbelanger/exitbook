@@ -106,13 +106,12 @@ export class EthereumTransactionProcessor extends BaseProcessor<ApiClientRawData
   ): Promise<Result<UniversalTransaction[], string>> {
     const transactions: UniversalTransaction[] = [];
 
-    // Use provided session metadata or create default
-    const sessionContext: ImportSessionMetadata = sessionMetadata || {
-      addresses: [],
-    };
+    if (!sessionMetadata) {
+      return err('Missing session metadata');
+    }
 
     for (const item of rawDataItems) {
-      const result = this.processSingle(item, sessionContext);
+      const result = this.processSingle(item, sessionMetadata);
       if (result.isErr()) {
         this.logger.warn(`Failed to process transaction ${item.id}: ${result.error}`);
         continue; // Continue processing other transactions

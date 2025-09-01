@@ -28,27 +28,8 @@ export class BitcoinTransactionProcessor extends BaseProcessor<ApiClientRawData<
     sessionMetadata: ImportSessionMetadata,
     rawDataItems: StoredRawData<ApiClientRawData<BitcoinTransaction>>[]
   ): ImportSessionMetadata {
-    // Extract derived addresses from Bitcoin-specific metadata
-    let derivedAddresses: string[] = [];
-
-    // First, try to get from direct session metadata
-    if (sessionMetadata.derivedAddresses?.length) {
-      derivedAddresses = sessionMetadata.derivedAddresses;
-    }
-
-    // Second, try to extract from bitcoinDerivedAddresses metadata
-    if (derivedAddresses.length === 0 && sessionMetadata.bitcoinDerivedAddresses) {
-      const bitcoinMetadata = sessionMetadata.bitcoinDerivedAddresses as Record<string, unknown>;
-      // Collect all derived addresses from all xpub wallets
-      for (const xpubData of Object.values(bitcoinMetadata)) {
-        if (xpubData && typeof xpubData === 'object' && xpubData !== null && 'derivedAddresses' in xpubData) {
-          const addresses = xpubData.derivedAddresses;
-          if (Array.isArray(addresses)) {
-            derivedAddresses.push(...addresses.filter((addr): addr is string => typeof addr === 'string'));
-          }
-        }
-      }
-    }
+    // Extract derived addresses from session metadata
+    const derivedAddresses: string[] = sessionMetadata.derivedAddresses ?? [];
 
     // Collect source addresses from raw data items
     const sourceAddresses: string[] = [];
@@ -60,7 +41,7 @@ export class BitcoinTransactionProcessor extends BaseProcessor<ApiClientRawData<
     }
 
     return {
-      addresses: sourceAddresses,
+      address: sessionMetadata.address,
       derivedAddresses,
       ...sessionMetadata,
     };
@@ -149,8 +130,7 @@ export class BitcoinTransactionProcessor extends BaseProcessor<ApiClientRawData<
 
     this.logger.info(
       `Processing Bitcoin session with ${rawDataItems.length} transactions, ` +
-        `${sessionContext.derivedAddresses?.length || 0} derived addresses, ` +
-        `${sessionContext.addresses?.length || 0} source addresses`
+        `${sessionContext.derivedAddresses?.length || 0} derived addresses`
     );
 
     const transactions: UniversalTransaction[] = [];

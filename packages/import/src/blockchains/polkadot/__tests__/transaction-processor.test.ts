@@ -57,7 +57,7 @@ describe('PolkadotTransactionProcessor Integration', () => {
       const rawDataItems = [createMockRawDataItem(mockTransaction, polkadotAddress)];
 
       const sessionMetadata: ImportSessionMetadata = {
-        addresses: [kusamaAddress], // Different format than source
+        address: kusamaAddress, // Different format than source
       };
 
       // Access the enrichSessionContext method via reflection to test it
@@ -90,7 +90,7 @@ describe('PolkadotTransactionProcessor Integration', () => {
       ];
 
       const sessionMetadata: ImportSessionMetadata = {
-        addresses: [kusamaAddress],
+        address: kusamaAddress,
       };
 
       const enrichedContext = (processor as TestablePolkadotTransactionProcessor).enrichSessionContext(
@@ -117,7 +117,7 @@ describe('PolkadotTransactionProcessor Integration', () => {
       ];
 
       const sessionMetadata: ImportSessionMetadata = {
-        addresses: [polkadotAddress], // Same address again
+        address: polkadotAddress, // Same address again
       };
 
       const enrichedContext = (processor as TestablePolkadotTransactionProcessor).enrichSessionContext(
@@ -142,7 +142,7 @@ describe('PolkadotTransactionProcessor Integration', () => {
       const rawDataItems = [createMockRawDataItem(invalidTransaction, 'invalid-address')];
 
       const sessionMetadata: ImportSessionMetadata = {
-        addresses: ['another-invalid-address'],
+        address: 'another-invalid-address',
       };
 
       const enrichedContext = (processor as TestablePolkadotTransactionProcessor).enrichSessionContext(
@@ -162,7 +162,7 @@ describe('PolkadotTransactionProcessor Integration', () => {
       const rawDataItems = [createMockRawDataItem(mockTransaction, polkadotAddress)];
 
       const sessionMetadata: ImportSessionMetadata = {
-        addresses: [kusamaAddress], // Different format than source
+        address: kusamaAddress, // Different format than source
       };
 
       const enrichedContext = (processor as TestablePolkadotTransactionProcessor).enrichSessionContext(
@@ -187,7 +187,7 @@ describe('PolkadotTransactionProcessor Integration', () => {
       const rawDataItems = [createMockRawDataItem(transactionWithGenericFormat, genericAddress)];
 
       const sessionMetadata: ImportSessionMetadata = {
-        addresses: [polkadotAddress], // Polkadot mainnet format
+        address: polkadotAddress, // Polkadot mainnet format
       };
 
       const enrichedContext = (processor as TestablePolkadotTransactionProcessor).enrichSessionContext(
@@ -224,7 +224,7 @@ describe('PolkadotTransactionProcessor Integration', () => {
       const rawDataItems: StoredRawData<ApiClientRawData<SubscanTransfer>>[] = [];
 
       const sessionMetadata: ImportSessionMetadata = {
-        addresses: [polkadotAddress],
+        address: polkadotAddress,
       };
 
       const enrichedContext = (processor as TestablePolkadotTransactionProcessor).enrichSessionContext(
@@ -253,7 +253,7 @@ describe('PolkadotTransactionProcessor Integration', () => {
       const rawDataItems = [rawDataItem];
 
       const sessionMetadata: ImportSessionMetadata = {
-        addresses: [polkadotAddress],
+        address: polkadotAddress,
       };
 
       const enrichedContext = (processor as TestablePolkadotTransactionProcessor).enrichSessionContext(

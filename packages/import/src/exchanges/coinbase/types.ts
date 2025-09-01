@@ -367,20 +367,6 @@ export interface CoinbaseAPIResponse<T> {
 }
 
 /**
- * Authentication configuration for Coinbase API
- */
-export interface CoinbaseCredentials {
-  /** API key */
-  apiKey: string;
-  /** Passphrase associated with API key (not required for CDP keys) */
-  passphrase?: string | undefined;
-  /** Whether to use sandbox environment */
-  sandbox?: boolean | undefined;
-  /** API secret for signing requests */
-  secret: string;
-}
-
-/**
  * Request parameters for transactions endpoint
  */
 export interface CoinbaseTransactionsParams extends Record<string, unknown> {

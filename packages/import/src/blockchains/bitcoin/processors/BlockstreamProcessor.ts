@@ -23,7 +23,7 @@ export class BlockstreamProcessor extends BaseProviderProcessor<BlockstreamTrans
     let isIncoming = false;
     let isOutgoing = false;
     // Extract addresses from rich session context (Bitcoin uses derivedAddresses)
-    const addresses = sessionContext.derivedAddresses || sessionContext.addresses || [];
+    const addresses = sessionContext.derivedAddresses || [sessionContext.address];
     const relevantAddresses = new Set(addresses);
 
     // Check inputs - money going out of our wallet (Blockstream format)

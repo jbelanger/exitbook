@@ -27,7 +27,7 @@ export class MempoolSpaceProcessor extends BaseProviderProcessor<MempoolTransact
     let isOutgoing = false;
     let hasExternalOutput = false;
     // Extract addresses from rich session context (Bitcoin uses derivedAddresses)
-    const addresses = sessionContext.derivedAddresses || sessionContext.addresses || [];
+    const addresses = sessionContext.derivedAddresses || [sessionContext.address];
     const relevantAddresses = new Set(addresses);
 
     // Check inputs - money going out of our wallet

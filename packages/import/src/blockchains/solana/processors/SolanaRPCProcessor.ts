@@ -1,6 +1,6 @@
 import { getLogger } from '@crypto/shared-logger';
-import { createMoney, maskAddress } from '@crypto/shared-utils';
-import { type Result, ok } from 'neverthrow';
+import { maskAddress } from '@crypto/shared-utils';
+import { type Result, err, ok } from 'neverthrow';
 
 import { BaseProviderProcessor } from '../../../shared/processors/base-provider-processor.ts';
 import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
@@ -194,9 +194,9 @@ export class SolanaRPCProcessor extends BaseProviderProcessor<SolanaRPCRawTransa
     rawData: SolanaRPCRawTransactionData,
     sessionContext: ImportSessionMetadata
   ): Result<UniversalBlockchainTransaction[], string> {
-    // Extract addresses from rich session context
-    const addresses = sessionContext.addresses || [];
-    const userAddress = addresses[0] || '';
+    if (!sessionContext.address) {
+      return err('No address found in session context');
+    }
 
     if (!rawData.normal || rawData.normal.length === 0) {
       throw new Error('No transactions to transform from SolanaRPCRawTransactionData');
@@ -206,7 +206,7 @@ export class SolanaRPCProcessor extends BaseProviderProcessor<SolanaRPCRawTransa
 
     // Process ALL transactions in the batch, not just the first one
     for (const tx of rawData.normal) {
-      const processedTx = SolanaRPCProcessor.transformTransaction(tx, userAddress);
+      const processedTx = SolanaRPCProcessor.transformTransaction(tx, sessionContext.address);
 
       if (!processedTx) {
         // Transaction filtered out - continue with next

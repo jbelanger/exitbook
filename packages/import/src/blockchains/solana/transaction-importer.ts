@@ -71,17 +71,15 @@ export class SolanaTransactionImporter extends BaseImporter<SolanaRawTransaction
    * Validate source parameters and connectivity.
    */
   protected async canImportSpecific(params: ImportParams): Promise<boolean> {
-    if (!params.addresses?.length) {
-      this.logger.error('No addresses provided for Solana import');
+    if (!params.address?.length) {
+      this.logger.error('No address provided for Solana import');
       return false;
     }
 
     // Validate address formats
-    for (const address of params.addresses) {
-      if (!isValidSolanaAddress(address)) {
-        this.logger.error(`Invalid Solana address format: ${address}`);
-        return false;
-      }
+    if (!isValidSolanaAddress(params.address)) {
+      this.logger.error(`Invalid Solana address format: ${params.address}`);
+      return false;
     }
 
     // Test provider connectivity
@@ -114,37 +112,33 @@ export class SolanaTransactionImporter extends BaseImporter<SolanaRawTransaction
    * Import raw transaction data from Solana blockchain APIs with provider provenance.
    */
   async import(params: ImportParams): Promise<ImportRunResult<SolanaRawTransactionData>> {
-    if (!params.addresses?.length) {
-      throw new Error('Addresses required for Solana transaction import');
+    if (!params.address) {
+      throw new Error('Address required for Solana transaction import');
     }
 
-    this.logger.info(`Starting Solana transaction import for ${params.addresses.length} addresses`);
+    this.logger.info(`Starting Solana transaction import for address: ${params.address.substring(0, 20)}...`);
 
     const allSourcedTransactions: ApiClientRawData<SolanaRawTransactionData>[] = [];
 
-    for (const address of params.addresses) {
-      this.logger.info(`Importing transactions for address: ${address.substring(0, 20)}...`);
+    this.logger.info(`Importing transactions for address: ${params.address.substring(0, 20)}...`);
 
-      try {
-        const rawTransactions = await this.fetchRawTransactionsForAddress(address, params.since);
+    try {
+      const rawTransactions = await this.fetchRawTransactionsForAddress(params.address, params.since);
 
-        // Add the fetching address to each raw transaction batch
-        const enhancedSourcedTransactions: ApiClientRawData<SolanaRawTransactionData>[] = rawTransactions.map(
-          rawTx => ({
-            providerId: rawTx.providerId,
-            rawData: rawTx.rawData,
-            sourceAddress: address,
-          })
-        );
+      // Add the fetching address to each raw transaction batch
+      const enhancedSourcedTransactions: ApiClientRawData<SolanaRawTransactionData>[] = rawTransactions.map(rawTx => ({
+        providerId: rawTx.providerId,
+        rawData: rawTx.rawData,
+        sourceAddress: params.address,
+      }));
 
-        allSourcedTransactions.push(...enhancedSourcedTransactions);
+      allSourcedTransactions.push(...enhancedSourcedTransactions);
 
-        this.logger.info(
-          `Found ${rawTransactions.reduce((acc, tx) => acc + tx.rawData.normal.length, 0)} transactions for address ${address.substring(0, 20)}...`
-        );
-      } catch (error) {
-        this.handleImportError(error, `fetching transactions for ${address}`);
-      }
+      this.logger.info(
+        `Found ${rawTransactions.reduce((acc, tx) => acc + tx.rawData.normal.length, 0)} transactions for address ${params.address.substring(0, 20)}...`
+      );
+    } catch (error) {
+      this.handleImportError(error, `fetching transactions for ${params.address}`);
     }
 
     const totalTransactionCount = allSourcedTransactions.reduce((acc, tx) => acc + tx.rawData.normal.length, 0);

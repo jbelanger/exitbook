@@ -1,4 +1,5 @@
 import { getLogger } from '@crypto/shared-logger';
+
 import type { Database } from '../storage/database.ts';
 import type { StoredRawData } from '../types/data-types.ts';
 
@@ -91,9 +92,7 @@ export class RawDataRepository implements IRawDataRepository {
     this.logger.info(`Marking ${rawTransactionIds.length} items as processed for ${sourceId}`);
 
     try {
-      const promises = rawTransactionIds.map(id =>
-        this.updateProcessingStatus(id, 'processed', undefined, providerId)
-      );
+      const promises = rawTransactionIds.map(id => this.updateProcessingStatus(id, 'processed', undefined, providerId));
 
       await Promise.all(promises);
 
@@ -107,11 +106,10 @@ export class RawDataRepository implements IRawDataRepository {
   async save(
     sourceId: string,
     sourceType: string,
-    rawData: Array<{ data: unknown;}>,
+    rawData: Array<{ data: unknown }>,
     options?: SaveRawDataOptions
   ): Promise<number> {
     this.logger.info(`Saving ${rawData.length} raw data items for ${sourceId}`);
-
 
     try {
       const saved = await this.database.saveRawTransactions(sourceId, sourceType, rawData, {
@@ -133,15 +131,9 @@ export class RawDataRepository implements IRawDataRepository {
     status: 'pending' | 'processed' | 'failed',
     error?: string,
     providerId?: string
-  ): Promise<void> {    
+  ): Promise<void> {
     try {
-      await this.database.updateRawTransactionProcessingStatus(
-        rawTransactionId,        
-        status,
-        error,
-        providerId
-      );
-
+      await this.database.updateRawTransactionProcessingStatus(rawTransactionId, status, error, providerId);
     } catch (error) {
       this.logger.error(`Failed to update processing status for ${rawTransactionId}: ${error}`);
       throw error;

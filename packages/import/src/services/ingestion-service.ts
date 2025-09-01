@@ -37,20 +37,6 @@ export class TransactionIngestionService {
   }
 
   /**
-   * Extract transaction ID from raw data for storage.
-   */
-  private extractTransactionId(rawData: Record<string, unknown>, fallbackIndex: number, sessionId?: string): string {
-    // Try common transaction ID fields
-    if (rawData.txid && typeof rawData.txid === 'string') return rawData.txid;
-    if (rawData.id && typeof rawData.id === 'string') return rawData.id;
-    if (rawData.hash && typeof rawData.hash === 'string') return rawData.hash;
-    if (rawData.transactionId && typeof rawData.transactionId === 'string') return rawData.transactionId;
-
-    // Fallback to session-based unique ID
-    return sessionId ? `${sessionId}-item-${fallbackIndex}` : `item-${fallbackIndex}`;
-  }
-
-  /**
    * Get processing status summary for a source.
    */
   async getProcessingStatus(sourceId: string) {
@@ -126,21 +112,17 @@ export class TransactionIngestionService {
     this.logger.info(`Starting import for ${sourceId} (${sourceType})`);
 
     const startTime = Date.now();
-    let importSessionId = params.importSessionId;
     let sessionCreated = false;
-
+    let importSessionId: number | undefined;
     try {
-      // Create import session if not provided
-      if (!importSessionId) {
-        importSessionId = await this.sessionRepository.create(sourceId, sourceType, params.providerId, {
-          addresses: params.addresses,
-          csvDirectories: params.csvDirectories,
-          importedAt: Date.now(),
-          importParams: params,
-        });
-        sessionCreated = true;
-        this.logger.debug(`Created import session: ${importSessionId}`);
-      }
+      importSessionId = await this.sessionRepository.create(sourceId, sourceType, params.providerId, {
+        address: params.address,
+        csvDirectories: params.csvDirectories,
+        importedAt: Date.now(),
+        importParams: params,
+      });
+      sessionCreated = true;
+      this.logger.debug(`Created import session: ${importSessionId}`);
 
       // Create importer
       const importer = await ImporterFactory.create(sourceId, sourceType, params.providerId, this.providerManager);
@@ -180,7 +162,7 @@ export class TransactionIngestionService {
         // Update session with import metadata if available
         if (importResult.metadata) {
           const sessionMetadata = {
-            addresses: params.addresses,
+            address: params.address,
             csvDirectories: params.csvDirectories,
             importedAt: Date.now(),
             importParams: params,

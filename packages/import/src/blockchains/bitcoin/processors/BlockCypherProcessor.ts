@@ -18,7 +18,7 @@ export class BlockCypherProcessor extends BaseProviderProcessor<BlockCypherTrans
     sessionContext: ImportSessionMetadata
   ): Result<UniversalBlockchainTransaction[], string> {
     // Extract addresses from rich session context (Bitcoin uses derivedAddresses)
-    const addresses = sessionContext.derivedAddresses || sessionContext.addresses || [];
+    const addresses = sessionContext.derivedAddresses || (sessionContext.address ? [sessionContext.address] : []);
 
     this.logger.debug(
       `Transform called with ${addresses.length} wallet addresses: ${addresses

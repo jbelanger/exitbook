@@ -12,9 +12,10 @@ import * as ccxt from 'ccxt';
 import type { Exchange } from 'ccxt';
 import { Decimal } from 'decimal.js';
 
+import type { ExchangeCredentials } from '../../shared/types/types.ts';
 import type { CCXTTransaction } from '../../shared/utils/transaction-processor.ts';
 import { BaseCCXTAdapter } from '../base-ccxt-adapter.ts';
-import type { CcxtCoinbaseAccount, CcxtCoinbaseAdapterOptions, CoinbaseCredentials } from './types.ts';
+import type { CcxtCoinbaseAccount, CcxtCoinbaseAdapterOptions } from './types.ts';
 
 // Temporary internal type for Coinbase processing - matches old CryptoTransaction structure
 interface CoinbaseInternalTransaction {
@@ -86,7 +87,7 @@ export class CoinbaseCCXTAdapter extends BaseCCXTAdapter {
   private accounts: CcxtCoinbaseAccount[] | null = null;
 
   constructor(
-    configOrCredentials: CoinbaseCredentials,
+    configOrCredentials: ExchangeCredentials,
     enableOnlineVerificationOrOptions?: CcxtCoinbaseAdapterOptions | boolean
   ) {
     let enableOnlineVerification: boolean = false;

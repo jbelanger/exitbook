@@ -106,11 +106,5 @@ export abstract class BaseAdapter implements IUniversalAdapter {
     if (params.since && params.until && params.since > params.until) {
       throw new Error('since cannot be greater than until');
     }
-
-    // Validate operation support
-    const info = await this.getInfo();
-    if (params.addresses && !info.capabilities.supportedOperations.includes('getAddressTransactions')) {
-      throw new Error(`${info.name} does not support address-based transaction fetching`);
-    }
   }
 }

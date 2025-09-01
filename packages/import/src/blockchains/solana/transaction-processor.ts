@@ -103,10 +103,7 @@ export class SolanaTransactionProcessor extends BaseProcessor<ApiClientRawData<S
     sessionContext: ImportSessionMetadata
   ): TransactionType {
     const { amount, from, to, type } = blockchainTransaction;
-    const allWalletAddresses = new Set([
-      ...(sessionContext.addresses || []),
-      ...(sessionContext.derivedAddresses || []),
-    ]);
+    const allWalletAddresses = new Set([sessionContext.address, ...(sessionContext.derivedAddresses || [])]);
 
     const isFromWallet = from && allWalletAddresses.has(from);
     const isToWallet = to && allWalletAddresses.has(to);

@@ -271,9 +271,9 @@ export class HeliusProcessor extends BaseProviderProcessor<SolanaRawTransactionD
     rawData: SolanaRawTransactionData,
     sessionContext: ImportSessionMetadata
   ): Result<UniversalBlockchainTransaction[], string> {
-    // Extract addresses from rich session context
-    const addresses = sessionContext.addresses || [];
-    const userAddress = addresses[0] || '';
+    if (!sessionContext.address) {
+      return err('No address found in session context');
+    }
 
     if (!rawData.normal || rawData.normal.length === 0) {
       return err('No transactions to transform from SolanaRawTransactionData');
@@ -283,7 +283,7 @@ export class HeliusProcessor extends BaseProviderProcessor<SolanaRawTransactionD
 
     // Process ALL transactions in the batch, not just the first one
     for (const tx of rawData.normal) {
-      const processedTx = HeliusProcessor.transformTransaction(tx, userAddress);
+      const processedTx = HeliusProcessor.transformTransaction(tx, sessionContext.address);
 
       if (processedTx) {
         transactions.push(processedTx);

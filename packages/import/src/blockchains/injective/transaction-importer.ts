@@ -85,17 +85,15 @@ export class InjectiveTransactionImporter extends BaseImporter<InjectiveTransact
    * Validate source parameters and connectivity.
    */
   protected async canImportSpecific(params: ImportParams): Promise<boolean> {
-    if (!params.addresses?.length) {
-      this.logger.error('No addresses provided for Injective import');
+    if (!params.address?.length) {
+      this.logger.error('No address provided for Injective import');
       return false;
     }
 
     // Validate address formats
-    for (const address of params.addresses) {
-      if (!this.isValidInjectiveAddress(address)) {
-        this.logger.error(`Invalid Injective address format: ${address}`);
-        return false;
-      }
+    if (!this.isValidInjectiveAddress(params.address)) {
+      this.logger.error(`Invalid Injective address format: ${params.address}`);
+      return false;
     }
 
     // Test provider connectivity
@@ -117,25 +115,25 @@ export class InjectiveTransactionImporter extends BaseImporter<InjectiveTransact
    * Import raw transaction data from Injective blockchain APIs with provider provenance.
    */
   async import(params: ImportParams): Promise<ImportRunResult<InjectiveTransaction>> {
-    if (!params.addresses?.length) {
-      throw new Error('Addresses required for Injective transaction import');
+    if (!params.address?.length) {
+      throw new Error('Address required for Injective transaction import');
     }
 
-    this.logger.info(`Starting Injective transaction import for ${params.addresses.length} addresses`);
+    this.logger.info(`Starting Injective transaction import for address: ${params.address.substring(0, 20)}...`);
 
     const allSourcedTransactions: ApiClientRawData<InjectiveTransaction>[] = [];
 
-    for (const address of params.addresses) {
-      this.logger.info(`Importing transactions for address: ${address.substring(0, 20)}...`);
+    this.logger.info(`Importing transactions for address: ${params.address.substring(0, 20)}...`);
 
-      try {
-        const rawTransactions = await this.fetchRawTransactionsForAddress(address, params.since);
-        allSourcedTransactions.push(...rawTransactions);
+    try {
+      const rawTransactions = await this.fetchRawTransactionsForAddress(params.address, params.since);
+      allSourcedTransactions.push(...rawTransactions);
 
-        this.logger.info(`Found ${rawTransactions.length} transactions for address ${address.substring(0, 20)}...`);
-      } catch (error) {
-        this.handleImportError(error, `fetching transactions for ${address}`);
-      }
+      this.logger.info(
+        `Found ${rawTransactions.length} transactions for address ${params.address.substring(0, 20)}...`
+      );
+    } catch (error) {
+      this.handleImportError(error, `fetching transactions for ${params.address}`);
     }
 
     // Sort by block timestamp (newest first)

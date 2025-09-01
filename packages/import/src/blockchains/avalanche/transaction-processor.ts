@@ -152,7 +152,7 @@ export class AvalancheTransactionProcessor extends BaseProcessor<ApiClientRawDat
 
     for (const rawDataItem of rawDataItems) {
       const apiClientRawData = rawDataItem.rawData;
-      const sourceAddress = apiClientRawData.sourceAddress;
+      const sourceAddress = sessionMetadata?.address;
 
       if (!sourceAddress) {
         this.correlationLogger.warn('Skipping transaction without source address');
@@ -165,8 +165,7 @@ export class AvalancheTransactionProcessor extends BaseProcessor<ApiClientRawDat
         return err(`No processor found for provider: ${apiClientRawData.providerId}`);
       }
 
-      const sessionContext = sessionMetadata || { addresses: [sourceAddress] };
-      const transformResult = processor.transform(apiClientRawData.rawData, sessionContext);
+      const transformResult = processor.transform(apiClientRawData.rawData, sessionMetadata);
 
       if (transformResult.isErr()) {
         this.correlationLogger.error(`Failed to transform transaction: ${transformResult.error}`);

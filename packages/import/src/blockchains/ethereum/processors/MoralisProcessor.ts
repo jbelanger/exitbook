@@ -113,12 +113,8 @@ export class MoralisProcessor extends BaseProviderProcessor<MoralisTransaction> 
   // IProviderProcessor interface implementation
   protected transformValidated(
     rawData: MoralisTransaction,
-    sessionContext: ImportSessionMetadata
+    _sessionContext: ImportSessionMetadata
   ): Result<UniversalBlockchainTransaction[], string> {
-    // Extract addresses from rich session context
-    const addresses = sessionContext.addresses || sessionContext.contractAddresses || [];
-    const userAddress = addresses[0] || '';
-
     // Determine transaction type - ETH native transfers are just transfers
     const type: UniversalBlockchainTransaction['type'] = 'transfer';
 

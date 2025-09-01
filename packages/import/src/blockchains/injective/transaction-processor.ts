@@ -90,26 +90,27 @@ export class InjectiveTransactionProcessor extends BaseProcessor<ApiClientRawDat
     rawDataItems: StoredRawData<ApiClientRawData<InjectiveTransaction>>[],
     sessionMetadata?: ImportSessionMetadata
   ): Promise<Result<UniversalTransaction[], string>> {
-    const transactions: UniversalTransaction[] = [];
+    if (!sessionMetadata) {
+      return err(`No session metadata provided`);
+    }
 
-    // Use provided session metadata or create default
-    const sessionContext: ImportSessionMetadata = sessionMetadata || {
-      addresses: [],
-    };
+    // Group raw data items by transaction ID to handle duplicates
+    const transactionMap = new Map<string, UniversalTransaction>();
 
     for (const item of rawDataItems) {
-      const result = this.processSingle(item, sessionContext);
+      const result = this.processSingle(item, sessionMetadata);
       if (result.isErr()) {
         this.logger.warn(`Failed to process transaction ${item.id}: ${result.error}`);
-        continue; // Continue processing other transactions
+        continue;
       }
 
       const transaction = result.value;
       if (transaction) {
-        transactions.push(transaction);
+        // Use transaction ID as key to deduplicate
+        transactionMap.set(transaction.id, transaction);
       }
     }
 
-    return ok(transactions);
+    return ok(Array.from(transactionMap.values()));
   }
 }

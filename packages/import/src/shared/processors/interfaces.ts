@@ -15,7 +15,7 @@ export interface ProcessResult {
  * Each processor is responsible for converting source-specific raw data
  * into the standardized UniversalTransaction format.
  */
-export interface IProcessor<TRawData = unknown> {
+export interface IProcessor {
   /**
    * Check if this processor can handle data from the specified adapter.
    */
@@ -46,33 +46,11 @@ export interface IProviderProcessor<TRawData> {
  * Rich session metadata providing blockchain-specific address context
  */
 export interface ImportSessionMetadata {
-  // Provider-specific metadata
-  [key: string]: unknown;
-
-  // User-provided addresses for single-address blockchains
-  addresses?: string[];
-
-  // Bitcoin-specific metadata
-  bitcoinDerivedAddresses?: {
-    addresses: string[];
-    derivationPath?: string;
-    xpub?: string;
-  };
-
-  // Ethereum contract addresses for token transactions
-  contractAddresses?: string[];
+  // User-provided address
+  address?: string | undefined;
 
   // Bitcoin xpub-derived addresses for multi-address wallets
   derivedAddresses?: string[];
-
-  // Full import parameters for context
-  importParams?: {
-    [key: string]: unknown;
-    addresses?: string[];
-    blockchain?: string;
-    derivationPath?: string;
-    exchange?: string;
-  };
 }
 
 /**

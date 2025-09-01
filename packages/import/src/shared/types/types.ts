@@ -17,6 +17,20 @@ export interface ImportSummary {
   totalTransactions: number;
 }
 
+/**
+ * Authentication configuration for Coinbase API
+ */
+export interface ExchangeCredentials {
+  /** API key */
+  apiKey: string;
+  /** Passphrase associated with API key (not required for CDP keys) */
+  passphrase?: string | undefined;
+  /** Whether to use sandbox environment */
+  sandbox?: boolean | undefined;
+  /** API secret for signing requests */
+  secret: string;
+}
+
 // Transaction Note Types - Enum for standardized transaction annotations
 export enum TransactionNoteType {
   // Special Cases

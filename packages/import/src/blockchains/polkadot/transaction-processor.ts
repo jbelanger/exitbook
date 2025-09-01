@@ -91,41 +91,28 @@ export class PolkadotTransactionProcessor extends BaseProcessor<ApiClientRawData
    * Enrich session context with SS58 address variants for better transaction matching.
    * Similar to Bitcoin's derived address approach but for Substrate/Polkadot ecosystem.
    */
-  protected enrichSessionContext(
-    rawDataItems: StoredRawData<ApiClientRawData<SubscanTransfer>>[],
-    sessionMetadata: ImportSessionMetadata
-  ): ImportSessionMetadata {
-    // Collect all source addresses from raw data items
-    const sourceAddresses: string[] = [];
-    for (const item of rawDataItems) {
-      const rawData = item.rawData as ApiClientRawData<SubscanTransfer>;
-      if (rawData.sourceAddress && !sourceAddresses.includes(rawData.sourceAddress)) {
-        sourceAddresses.push(rawData.sourceAddress);
-      }
+  protected enrichSessionContext(address: string): ImportSessionMetadata {
+    if (!address) {
+      throw new Error('Missing session address in metadata for Polkadot processing');
     }
 
     // Generate SS58 address variants for all addresses
     const allDerivedAddresses: string[] = [];
-    const addressesToProcess = [...(sessionMetadata.addresses || []), ...sourceAddresses];
 
-    for (const address of addressesToProcess) {
-      const variants = derivePolkadotAddressVariants(address);
-      allDerivedAddresses.push(...variants);
-    }
+    const variants = derivePolkadotAddressVariants(address);
+    allDerivedAddresses.push(...variants);
 
     // Remove duplicates
     const uniqueDerivedAddresses = Array.from(new Set(allDerivedAddresses));
 
     this.logger.info(
-      `Enriched Polkadot session context - Original addresses: ${addressesToProcess.length}, ` +
-        `SS58 variants generated: ${uniqueDerivedAddresses.length}, ` +
-        `Source addresses: ${sourceAddresses.length}`
+      `Enriched Polkadot session context - Original address: ${address}, ` +
+        `SS58 variants generated: ${uniqueDerivedAddresses.length}`
     );
 
     return {
-      addresses: [...(sessionMetadata.addresses || []), ...sourceAddresses],
+      address: address,
       derivedAddresses: uniqueDerivedAddresses,
-      ...sessionMetadata,
     };
   }
 
@@ -135,13 +122,12 @@ export class PolkadotTransactionProcessor extends BaseProcessor<ApiClientRawData
   ): Promise<Result<UniversalTransaction[], string>> {
     const transactions: UniversalTransaction[] = [];
 
-    // Use provided session metadata or create default
-    const baseSessionContext: ImportSessionMetadata = sessionMetadata || {
-      addresses: [],
-    };
+    if (!sessionMetadata?.address) {
+      throw new Error('Missing session address in metadata for Polkadot processing');
+    }
 
     // Enrich session context with SS58 address variants
-    const sessionContext = this.enrichSessionContext(rawDataItems, baseSessionContext);
+    const sessionContext = this.enrichSessionContext(sessionMetadata.address);
 
     for (const item of rawDataItems) {
       const result = this.processSingle(item, sessionContext);

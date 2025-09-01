@@ -208,8 +208,8 @@ export class SubstrateProcessor extends BaseProviderProcessor<SubscanTransfer> {
     sessionContext: ImportSessionMetadata
   ): Result<UniversalBlockchainTransaction[], string> {
     // Extract addresses from rich session context (similar to Bitcoin's approach)
-    // Use derivedAddresses for SS58 variants, fallback to addresses for backward compatibility
-    const addresses = sessionContext.derivedAddresses || sessionContext.addresses || [];
+    // Use derivedAddresses for SS58 variants, fallback to address for backward compatibility
+    const addresses = sessionContext.derivedAddresses || (sessionContext.address ? [sessionContext.address] : []);
     const relevantAddresses = new Set(addresses);
     const chainConfig = SUBSTRATE_CHAINS['polkadot']!;
 

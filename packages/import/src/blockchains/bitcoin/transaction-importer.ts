@@ -156,17 +156,15 @@ export class BitcoinTransactionImporter extends BaseImporter<BitcoinTransaction>
    * Validate source parameters and connectivity.
    */
   protected async canImportSpecific(params: ImportParams): Promise<boolean> {
-    if (!params.addresses?.length) {
-      this.logger.error('No addresses provided for Bitcoin import');
+    if (!params.address) {
+      this.logger.error('No address provided for Bitcoin import');
       return false;
     }
 
     // Validate address formats
-    for (const address of params.addresses) {
-      if (!this.isValidBitcoinAddress(address)) {
-        this.logger.error(`Invalid Bitcoin address format: ${address}`);
-        return false;
-      }
+    if (!this.isValidBitcoinAddress(params.address)) {
+      this.logger.error(`Invalid Bitcoin address format: ${params.address}`);
+      return false;
     }
 
     // Test provider connectivity
@@ -182,27 +180,6 @@ export class BitcoinTransactionImporter extends BaseImporter<BitcoinTransaction>
 
     this.logger.info('Bitcoin source validation passed');
     return true;
-  }
-
-  /**
-   * Get derived addresses metadata for session storage.
-   * This allows the processor to access the expensive address derivation results.
-   */
-  getDerivedAddressesMetadata(): Record<string, unknown> {
-    const metadata: Record<string, unknown> = {};
-
-    for (const wallet of this.walletAddresses) {
-      if (wallet.derivedAddresses) {
-        metadata[wallet.address] = {
-          addressType: wallet.addressType,
-          bipStandard: wallet.bipStandard,
-          derivationPath: wallet.derivationPath,
-          derivedAddresses: wallet.derivedAddresses,
-        };
-      }
-    }
-
-    return metadata;
   }
 
   /**
@@ -222,80 +199,64 @@ export class BitcoinTransactionImporter extends BaseImporter<BitcoinTransaction>
    * Import raw transaction data from Bitcoin blockchain APIs with provider provenance.
    */
   async import(params: ImportParams): Promise<ImportRunResult<BitcoinTransaction>> {
-    if (!params.addresses?.length) {
-      throw new Error('Addresses required for Bitcoin transaction import');
+    if (!params.address) {
+      throw new Error('Address required for Bitcoin transaction import');
     }
 
-    this.logger.info(`Starting Bitcoin transaction import for ${params.addresses.length} addresses`);
+    this.logger.info(`Starting Bitcoin transaction import for address: ${params.address.substring(0, 20)}...`);
 
     const allSourcedTransactions: ApiClientRawData<BitcoinTransaction>[] = [];
 
-    for (const userAddress of params.addresses) {
-      this.logger.info(`Importing transactions for address: ${userAddress.substring(0, 20)}...`);
+    this.logger.info(`Importing transactions for address: ${params.address.substring(0, 20)}...`);
 
-      let wallet: BitcoinWalletAddress;
+    // Initialize wallet for this address (handles both xpub and regular addresses)
+    const wallet: BitcoinWalletAddress = {
+      address: params.address,
+      type: BitcoinUtils.getAddressType(params.address),
+    };
 
-      // Check if we've already processed this address
-      const existingWallet = this.walletAddresses.find(w => w.address === userAddress);
-      if (existingWallet) {
-        wallet = existingWallet;
-      } else {
-        // Initialize this specific address (handles both xpub and regular addresses)
-        wallet = {
-          address: userAddress,
-          type: BitcoinUtils.getAddressType(userAddress),
-        };
-
-        if (BitcoinUtils.isXpub(userAddress)) {
-          this.logger.info(`Processing xpub: ${userAddress.substring(0, 20)}...`);
-          await this.initializeXpubWallet(wallet);
-        } else {
-          this.logger.info(`Processing regular address: ${userAddress}`);
-        }
-
-        this.walletAddresses.push(wallet);
-      }
-
-      if (wallet.derivedAddresses) {
-        // Xpub wallet - fetch from all derived addresses
-        this.logger.info(`Fetching from ${wallet.derivedAddresses.length} derived addresses`);
-        const walletSourcedTransactions = await this.fetchRawTransactionsForDerivedAddresses(
-          wallet.derivedAddresses,
-          params.since
-        );
-        allSourcedTransactions.push(...walletSourcedTransactions);
-      } else {
-        // Regular address - fetch directly
-        try {
-          const rawTransactions = await this.fetchRawTransactionsForAddress(userAddress, params.since);
-
-          // Add the source address context to each transaction
-          const enhancedSourcedTransactions: ApiClientRawData<BitcoinTransaction>[] = rawTransactions.map(rawTx => ({
-            providerId: rawTx.providerId,
-            rawData: rawTx.rawData,
-            sourceAddress: userAddress,
-          }));
-
-          allSourcedTransactions.push(...enhancedSourcedTransactions);
-        } catch (error) {
-          this.handleImportError(error, `fetching transactions for ${userAddress}`);
-        }
-      }
+    if (BitcoinUtils.isXpub(params.address)) {
+      this.logger.info(`Processing xpub: ${params.address.substring(0, 20)}...`);
+      await this.initializeXpubWallet(wallet);
+    } else {
+      this.logger.info(`Processing regular address: ${params.address}`);
     }
 
-    // Get session metadata with derived addresses
-    const derivedAddressesMetadata = this.getDerivedAddressesMetadata();
-    const sessionMetadata: Record<string, unknown> = {};
-    if (Object.keys(derivedAddressesMetadata).length > 0) {
-      sessionMetadata.bitcoinDerivedAddresses = derivedAddressesMetadata;
-      this.logger.info(
-        `Captured derived addresses metadata for ${Object.keys(derivedAddressesMetadata).length} xpub wallets`
+    this.walletAddresses.push(wallet);
+
+    if (wallet.derivedAddresses) {
+      // Xpub wallet - fetch from all derived addresses
+      this.logger.info(`Fetching from ${wallet.derivedAddresses.length} derived addresses`);
+      const walletSourcedTransactions = await this.fetchRawTransactionsForDerivedAddresses(
+        wallet.derivedAddresses,
+        params.since
       );
+      allSourcedTransactions.push(...walletSourcedTransactions);
+    } else {
+      // Regular address - fetch directly
+      try {
+        const rawTransactions = await this.fetchRawTransactionsForAddress(params.address, params.since);
+
+        // Add the source address context to each transaction
+        const enhancedSourcedTransactions: ApiClientRawData<BitcoinTransaction>[] = rawTransactions.map(rawTx => ({
+          providerId: rawTx.providerId,
+          rawData: rawTx.rawData,
+          sourceAddress: params.address,
+        }));
+
+        allSourcedTransactions.push(...enhancedSourcedTransactions);
+      } catch (error) {
+        this.handleImportError(error, `fetching transactions for ${params.address}`);
+      }
     }
 
     this.logger.info(`Bitcoin import completed: ${allSourcedTransactions.length} transactions`);
+
+    // Include derived addresses in metadata if this is an xpub wallet
+    const metadata = wallet.derivedAddresses ? { derivedAddresses: wallet.derivedAddresses } : undefined;
+
     return {
-      metadata: Object.keys(sessionMetadata).length > 0 ? sessionMetadata : undefined,
+      metadata,
       rawData: allSourcedTransactions,
     };
   }

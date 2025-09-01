@@ -113,17 +113,15 @@ export class EthereumTransactionImporter extends BaseImporter<EthereumRawTransac
   }
 
   protected async canImportSpecific(params: ImportParams): Promise<boolean> {
-    if (!params.addresses || params.addresses.length === 0) {
-      this.logger.debug('No addresses provided for Ethereum import');
+    if (!params.address || params.address?.length === 0) {
+      this.logger.debug('No address provided for Ethereum import');
       return false;
     }
 
     // Validate all provided addresses
-    for (const address of params.addresses) {
-      if (!this.isValidEthereumAddress(address)) {
-        this.logger.error(`Invalid Ethereum address format: ${address}`);
-        return false;
-      }
+    if (!this.isValidEthereumAddress(params.address)) {
+      this.logger.error(`Invalid Ethereum address format: ${params.address}`);
+      return false;
     }
 
     // Check if we have any providers available
@@ -142,31 +140,36 @@ export class EthereumTransactionImporter extends BaseImporter<EthereumRawTransac
     }
 
     const allRawData: ApiClientRawData<EthereumRawTransactionData>[] = [];
-    const addresses = params.addresses || [];
 
-    this.logger.info(`Starting Ethereum import for ${addresses.length} addresses`);
+    if (!params.address) {
+      return {
+        rawData: [],
+      };
+    }
 
-    for (const address of addresses) {
-      this.logger.info(`Fetching Ethereum transactions for address: ${address.substring(0, 20)}...`);
+    const address = params.address;
 
-      try {
-        // Fetch regular ETH transactions
-        const regularTxs = await this.fetchRegularTransactions(address, params.since);
-        allRawData.push(...regularTxs);
+    this.logger.info(`Starting Ethereum import for ${address}`);
 
-        // Fetch ERC-20 token transactions (if supported by provider)
-        const tokenTxs = await this.fetchTokenTransactions(address, params.since);
-        allRawData.push(...tokenTxs);
+    this.logger.info(`Fetching Ethereum transactions for address: ${address.substring(0, 20)}...`);
 
-        this.logger.info(
-          `Ethereum import for ${address.substring(0, 20)}... - Regular: ${regularTxs.length}, Token: ${tokenTxs.length}, Total: ${regularTxs.length + tokenTxs.length}`
-        );
-      } catch (error) {
-        this.logger.error(
-          `Failed to import transactions for address ${address} - Error: ${error instanceof Error ? error.message : String(error)}`
-        );
-        throw error;
-      }
+    try {
+      // Fetch regular ETH transactions
+      const regularTxs = await this.fetchRegularTransactions(address, params.since);
+      allRawData.push(...regularTxs);
+
+      // Fetch ERC-20 token transactions (if supported by provider)
+      const tokenTxs = await this.fetchTokenTransactions(address, params.since);
+      allRawData.push(...tokenTxs);
+
+      this.logger.info(
+        `Ethereum import for ${address.substring(0, 20)}... - Regular: ${regularTxs.length}, Token: ${tokenTxs.length}, Total: ${regularTxs.length + tokenTxs.length}`
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to import transactions for address ${address} - Error: ${error instanceof Error ? error.message : String(error)}`
+      );
+      throw error;
     }
 
     // Sort by timestamp if available (most recent first)
@@ -188,9 +191,7 @@ export class EthereumTransactionImporter extends BaseImporter<EthereumRawTransac
       return getTimestamp(b.rawData) - getTimestamp(a.rawData);
     });
 
-    this.logger.info(
-      `Ethereum import completed - Total addresses: ${addresses.length}, Raw transactions collected: ${allRawData.length}`
-    );
+    this.logger.info(`Ethereum import completed - Raw transactions collected: ${allRawData.length}`);
 
     return {
       rawData: allRawData,

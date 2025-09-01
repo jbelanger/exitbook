@@ -2,9 +2,8 @@ import type { TransactionType, UniversalTransaction } from '@crypto/core';
 
 import { BaseImporter } from '../../shared/importers/base-importer.ts';
 import type { ImportParams, ImportRunResult } from '../../shared/importers/interfaces.ts';
-import type { ApiClientRawData } from '../../shared/processors/interfaces.ts';
+import type { ExchangeCredentials } from '../../shared/types/types.ts';
 import { CoinbaseCCXTAdapter } from './ccxt-adapter.ts';
-import type { CoinbaseCredentials } from './types.ts';
 
 /**
  * Importer for Coinbase transactions using CCXT adapter.
@@ -16,7 +15,7 @@ export class CoinbaseImporter extends BaseImporter<UniversalTransaction> {
   }
 
   protected async canImportSpecific(params: ImportParams): Promise<boolean> {
-    const exchangeCredentials = params.exchangeCredentials as { coinbase?: Partial<CoinbaseCredentials> } | undefined;
+    const exchangeCredentials = params.exchangeCredentials as { coinbase?: Partial<ExchangeCredentials> } | undefined;
     if (!exchangeCredentials?.coinbase) {
       this.logger.error('Coinbase credentials are required for import');
       return false;
@@ -30,7 +29,7 @@ export class CoinbaseImporter extends BaseImporter<UniversalTransaction> {
 
     // Test connection to Coinbase
     try {
-      const coinbaseCredentials: CoinbaseCredentials = {
+      const coinbaseCredentials: ExchangeCredentials = {
         apiKey: credentials.apiKey,
         passphrase: credentials.passphrase,
         sandbox: credentials.sandbox || false,
@@ -54,13 +53,13 @@ export class CoinbaseImporter extends BaseImporter<UniversalTransaction> {
   async import(params: ImportParams): Promise<ImportRunResult<UniversalTransaction>> {
     this.logger.info('Starting Coinbase transaction import using CCXT adapter');
 
-    const exchangeCredentials = params.exchangeCredentials as { coinbase?: Partial<CoinbaseCredentials> } | undefined;
+    const exchangeCredentials = params.exchangeCredentials as { coinbase?: Partial<ExchangeCredentials> } | undefined;
     if (!exchangeCredentials?.coinbase) {
       throw new Error('Coinbase credentials are required for import');
     }
 
     const credentials = exchangeCredentials.coinbase;
-    const coinbaseCredentials: CoinbaseCredentials = {
+    const coinbaseCredentials: ExchangeCredentials = {
       apiKey: credentials.apiKey!,
       passphrase: credentials.passphrase || '',
       sandbox: credentials.sandbox || false,
@@ -75,15 +74,10 @@ export class CoinbaseImporter extends BaseImporter<UniversalTransaction> {
 
       // Fetch transactions using the adapter
       const fetchParams = {
-        limit: (params.limit as number) || 1000,
+        limit: 1000,
         since: params.since,
-        symbols: params.symbols as string[] | undefined,
-        transactionTypes: (params.transactionTypes as TransactionType[]) || [
-          'trade',
-          'deposit',
-          'withdrawal',
-          'ledger',
-        ],
+        symbols: undefined,
+        transactionTypes: ['trade', 'deposit', 'withdrawal', 'ledger'] as TransactionType[],
       };
 
       const transactions = await adapter.fetchTransactions(fetchParams);

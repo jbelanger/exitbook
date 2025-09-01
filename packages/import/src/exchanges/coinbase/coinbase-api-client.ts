@@ -5,13 +5,12 @@ import { HttpClient } from '@crypto/shared-utils';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 
+import { ExchangeCredentials } from '../../shared/types/types.ts';
 import type {
   CoinbaseAccountsParams,
-  CoinbaseCredentials,
   CoinbaseTransactionsParams,
   RawCoinbaseAccount,
   RawCoinbaseAccountsResponse,
-  RawCoinbaseTransaction,
   RawCoinbaseTransactionsResponse,
 } from './types.ts';
 
@@ -31,11 +30,11 @@ import type {
  */
 export class CoinbaseAPIClient {
   private readonly baseUrl: string;
-  private readonly credentials: CoinbaseCredentials;
+  private readonly credentials: ExchangeCredentials;
   private readonly httpClient: HttpClient;
   private readonly logger: ReturnType<typeof getLogger>;
 
-  constructor(credentials: CoinbaseCredentials) {
+  constructor(credentials: ExchangeCredentials) {
     this.credentials = credentials;
     this.logger = getLogger('CoinbaseAPIClient');
 

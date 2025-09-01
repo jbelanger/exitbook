@@ -12,15 +12,15 @@ export class ProcessorFactory {
   /**
    * Create a processor for the specified source.
    */
-  static async create<T>(sourceId: string, sourceType: string): Promise<IProcessor<T>> {
+  static async create<T>(sourceId: string, sourceType: string): Promise<IProcessor> {
     ProcessorFactory.logger.info(`Creating processor for ${sourceId} (type: ${sourceType})`);
 
     if (sourceType === 'exchange') {
-      return await ProcessorFactory.createExchangeProcessor<T>(sourceId);
+      return await ProcessorFactory.createExchangeProcessor(sourceId);
     }
 
     if (sourceType === 'blockchain') {
-      return await ProcessorFactory.createBlockchainProcessor<T>(sourceId);
+      return await ProcessorFactory.createBlockchainProcessor(sourceId);
     }
 
     throw new Error(`Unsupported source type: ${sourceType}`);
@@ -29,43 +29,43 @@ export class ProcessorFactory {
   /**
    * Create Avalanche processor.
    */
-  private static async createAvalancheProcessor<T>(): Promise<IProcessor<T>> {
+  private static async createAvalancheProcessor(): Promise<IProcessor> {
     // Dynamic import to avoid circular dependencies
     const { AvalancheTransactionProcessor } = await import('../../blockchains/avalanche/transaction-processor.ts');
-    return new AvalancheTransactionProcessor() as unknown as IProcessor<T>;
+    return new AvalancheTransactionProcessor();
   }
 
   /**
    * Create Bitcoin processor.
    */
-  private static async createBitcoinProcessor<T>(): Promise<IProcessor<T>> {
+  private static async createBitcoinProcessor(): Promise<IProcessor> {
     // Dynamic import to avoid circular dependencies
     const { BitcoinTransactionProcessor } = await import('../../blockchains/bitcoin/transaction-processor.ts');
-    return new BitcoinTransactionProcessor() as unknown as IProcessor<T>;
+    return new BitcoinTransactionProcessor();
   }
 
   /**
    * Create a blockchain processor.
    */
-  private static async createBlockchainProcessor<T>(sourceId: string): Promise<IProcessor<T>> {
+  private static async createBlockchainProcessor(sourceId: string): Promise<IProcessor> {
     switch (sourceId.toLowerCase()) {
       case 'bitcoin':
-        return await ProcessorFactory.createBitcoinProcessor<T>();
+        return await ProcessorFactory.createBitcoinProcessor();
 
       case 'ethereum':
-        return await ProcessorFactory.createEthereumProcessor<T>();
+        return await ProcessorFactory.createEthereumProcessor();
 
       case 'injective':
-        return await ProcessorFactory.createInjectiveProcessor<T>();
+        return await ProcessorFactory.createInjectiveProcessor();
 
       case 'solana':
-        return await ProcessorFactory.createSolanaProcessor<T>();
+        return await ProcessorFactory.createSolanaProcessor();
 
       case 'avalanche':
-        return await ProcessorFactory.createAvalancheProcessor<T>();
+        return await ProcessorFactory.createAvalancheProcessor();
 
       case 'polkadot':
-        return await ProcessorFactory.createPolkadotProcessor<T>();
+        return await ProcessorFactory.createPolkadotProcessor();
 
       default:
         throw new Error(`Unsupported blockchain processor: ${sourceId}`);
@@ -75,37 +75,37 @@ export class ProcessorFactory {
   /**
    * Create Coinbase processor.
    */
-  private static async createCoinbaseProcessor<T>(): Promise<IProcessor<T>> {
+  private static async createCoinbaseProcessor(): Promise<IProcessor> {
     // Dynamic import to avoid circular dependencies
     const { CoinbaseProcessor } = await import('../../exchanges/coinbase/processor.ts');
-    return new CoinbaseProcessor() as unknown as IProcessor<T>;
+    return new CoinbaseProcessor();
   }
 
   /**
    * Create Ethereum processor.
    */
-  private static async createEthereumProcessor<T>(): Promise<IProcessor<T>> {
+  private static async createEthereumProcessor(): Promise<IProcessor> {
     // Dynamic import to avoid circular dependencies
     const { EthereumTransactionProcessor } = await import('../../blockchains/ethereum/transaction-processor.ts');
-    return new EthereumTransactionProcessor() as unknown as IProcessor<T>;
+    return new EthereumTransactionProcessor();
   }
 
   /**
    * Create an exchange processor.
    */
-  private static async createExchangeProcessor<T>(sourceId: string): Promise<IProcessor<T>> {
+  private static async createExchangeProcessor(sourceId: string): Promise<IProcessor> {
     switch (sourceId.toLowerCase()) {
       case 'kraken':
-        return await ProcessorFactory.createKrakenProcessor<T>();
+        return await ProcessorFactory.createKrakenProcessor();
 
       case 'kucoin':
-        return await ProcessorFactory.createKucoinProcessor<T>();
+        return await ProcessorFactory.createKucoinProcessor();
 
       case 'coinbase':
-        return await ProcessorFactory.createCoinbaseProcessor<T>();
+        return await ProcessorFactory.createCoinbaseProcessor();
 
       case 'ledgerlive':
-        return await ProcessorFactory.createLedgerLiveProcessor<T>();
+        return await ProcessorFactory.createLedgerLiveProcessor();
 
       default:
         throw new Error(`Unsupported exchange processor: ${sourceId}`);
@@ -115,55 +115,55 @@ export class ProcessorFactory {
   /**
    * Create Injective processor.
    */
-  private static async createInjectiveProcessor<T>(): Promise<IProcessor<T>> {
+  private static async createInjectiveProcessor(): Promise<IProcessor> {
     // Dynamic import to avoid circular dependencies
     const { InjectiveTransactionProcessor } = await import('../../blockchains/injective/transaction-processor.ts');
-    return new InjectiveTransactionProcessor() as unknown as IProcessor<T>;
+    return new InjectiveTransactionProcessor();
   }
 
   /**
    * Create Kraken processor.
    */
-  private static async createKrakenProcessor<T>(): Promise<IProcessor<T>> {
+  private static async createKrakenProcessor(): Promise<IProcessor> {
     // Dynamic import to avoid circular dependencies
     const { KrakenProcessor } = await import('../../exchanges/kraken/processor.ts');
-    return new KrakenProcessor() as unknown as IProcessor<T>;
+    return new KrakenProcessor();
   }
 
   /**
    * Create KuCoin processor.
    */
-  private static async createKucoinProcessor<T>(): Promise<IProcessor<T>> {
+  private static async createKucoinProcessor(): Promise<IProcessor> {
     // Dynamic import to avoid circular dependencies
     const { KucoinProcessor } = await import('../../exchanges/kucoin/processor.ts');
-    return new KucoinProcessor() as unknown as IProcessor<T>;
+    return new KucoinProcessor();
   }
 
   /**
    * Create Ledger Live processor.
    */
-  private static async createLedgerLiveProcessor<T>(): Promise<IProcessor<T>> {
+  private static async createLedgerLiveProcessor(): Promise<IProcessor> {
     // Dynamic import to avoid circular dependencies
     const { LedgerLiveProcessor } = await import('../../exchanges/ledgerlive/processor.ts');
-    return new LedgerLiveProcessor() as unknown as IProcessor<T>;
+    return new LedgerLiveProcessor();
   }
 
   /**
    * Create Polkadot processor.
    */
-  private static async createPolkadotProcessor<T>(): Promise<IProcessor<T>> {
+  private static async createPolkadotProcessor(): Promise<IProcessor> {
     // Dynamic import to avoid circular dependencies
     const { PolkadotTransactionProcessor } = await import('../../blockchains/polkadot/transaction-processor.ts');
-    return new PolkadotTransactionProcessor() as unknown as IProcessor<T>;
+    return new PolkadotTransactionProcessor();
   }
 
   /**
    * Create Solana processor.
    */
-  private static async createSolanaProcessor<T>(): Promise<IProcessor<T>> {
+  private static async createSolanaProcessor(): Promise<IProcessor> {
     // Dynamic import to avoid circular dependencies
     const { SolanaTransactionProcessor } = await import('../../blockchains/solana/transaction-processor.ts');
-    return new SolanaTransactionProcessor() as unknown as IProcessor<T>;
+    return new SolanaTransactionProcessor();
   }
 
   /**

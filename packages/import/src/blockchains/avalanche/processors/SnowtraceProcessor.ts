@@ -112,43 +112,17 @@ export class SnowtraceProcessor extends BaseProviderProcessor<
     rawData: SnowtraceTransaction | SnowtraceInternalTransaction | SnowtraceTokenTransfer,
     _sessionContext: ImportSessionMetadata
   ): Result<UniversalBlockchainTransaction[], string> {
-    // More robust transaction type detection with fallbacks
+    // Type discrimination handled by SnowtraceAnyTransactionSchema discriminated union
+    // Token transfers have tokenSymbol, internal transactions have traceId, normal transactions have nonce
 
-    // Check for token transfer first (most specific)
-    if ('tokenSymbol' in rawData && rawData.tokenSymbol) {
+    if ('tokenSymbol' in rawData) {
       return this.transformTokenTransfer(rawData);
     }
 
-    // Check for internal transaction
-    if ('traceId' in rawData && rawData.traceId) {
+    if ('traceId' in rawData) {
       return this.transformInternalTransaction(rawData);
     }
 
-    // Check for normal transaction (txreceipt_status is optional)
-    if ('txreceipt_status' in rawData || ('blockHash' in rawData && 'nonce' in rawData)) {
-      return this.transformNormalTransaction(rawData);
-    }
-
-    // Fallback: try to detect based on available fields
-    const fields = Object.keys(rawData);
-
-    // Has token-specific fields
-    if (fields.includes('tokenName') || fields.includes('tokenDecimal') || fields.includes('contractAddress')) {
-      return this.transformTokenTransfer(rawData as unknown as SnowtraceTokenTransfer);
-    }
-
-    // Has internal transaction fields
-    if (fields.includes('type') || fields.includes('errCode')) {
-      return this.transformInternalTransaction(rawData as unknown as SnowtraceInternalTransaction);
-    }
-
-    // Has normal transaction fields
-    if (fields.includes('gasPrice') || fields.includes('gasUsed') || fields.includes('gas')) {
-      return this.transformNormalTransaction(rawData as unknown as SnowtraceTransaction);
-    }
-
-    // Last resort: log the structure for debugging
-    const availableFields = fields.join(', ');
-    return err(`Unknown transaction type. Available fields: ${availableFields}`);
+    return this.transformNormalTransaction(rawData);
   }
 }

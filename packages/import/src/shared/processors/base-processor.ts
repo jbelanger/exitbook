@@ -13,7 +13,7 @@ import type { IProcessor, ImportSessionMetadata, ProcessingImportSession } from 
  * Base class providing common functionality for all processors.
  * Implements logging, error handling, and batch processing patterns.
  */
-export abstract class BaseProcessor<TRawData> implements IProcessor<TRawData> {
+export abstract class BaseProcessor<TRawData> implements IProcessor {
   protected logger: Logger;
 
   constructor(protected sourceId: string) {
@@ -81,7 +81,7 @@ export abstract class BaseProcessor<TRawData> implements IProcessor<TRawData> {
 
     // Convert all wallet addresses to lowercase for case-insensitive comparison
     const allWalletAddresses = new Set([
-      ...(sessionContext.addresses || []).map(addr => addr.toLowerCase()),
+      sessionContext.address?.toLowerCase(),
       ...(sessionContext.derivedAddresses || []).map(addr => addr.toLowerCase()),
     ]);
 

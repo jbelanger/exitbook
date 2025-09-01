@@ -53,17 +53,15 @@ export class PolkadotTransactionImporter extends BaseImporter<SubscanTransfer> {
    * Validate source parameters and connectivity.
    */
   protected async canImportSpecific(params: ImportParams): Promise<boolean> {
-    if (!params.addresses?.length) {
-      this.logger.error('No addresses provided for Polkadot import');
+    if (!params.address?.length) {
+      this.logger.error('No address provided for Polkadot import');
       return false;
     }
 
     // Basic validation for Polkadot addresses (SS58 format)
-    for (const address of params.addresses) {
-      if (!this.isValidPolkadotAddress(address)) {
-        this.logger.error(`Invalid Polkadot address format: ${address}`);
-        return false;
-      }
+    if (!this.isValidPolkadotAddress(params.address)) {
+      this.logger.error(`Invalid Polkadot address format: ${params.address}`);
+      return false;
     }
 
     // Test provider connectivity
@@ -92,52 +90,50 @@ export class PolkadotTransactionImporter extends BaseImporter<SubscanTransfer> {
    * Import raw transaction data from Polkadot blockchain APIs with provider provenance.
    */
   async import(params: ImportParams): Promise<ImportRunResult<SubscanTransfer>> {
-    if (!params.addresses?.length) {
-      throw new Error('Addresses required for Polkadot transaction import');
+    if (!params.address?.length) {
+      throw new Error('Address required for Polkadot transaction import');
     }
 
-    this.logger.info(`Starting Polkadot transaction import for ${params.addresses.length} addresses`);
+    this.logger.info(`Starting Polkadot transaction import for address: ${params.address.substring(0, 20)}...`);
 
     const allSourcedTransactions: ApiClientRawData<SubscanTransfer>[] = [];
 
-    for (const address of params.addresses) {
-      this.logger.info(`Importing transactions for Polkadot address: ${address.substring(0, 20)}...`);
+    this.logger.info(`Importing transactions for Polkadot address: ${params.address.substring(0, 20)}...`);
 
-      try {
-        const result = await this.providerManager.executeWithFailover('polkadot', {
-          address: address,
-          getCacheKey: cacheParams =>
-            `dot_raw_tx_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
-          since: params.since,
-          type: 'getRawAddressTransactions',
-        });
+    try {
+      const result = await this.providerManager.executeWithFailover('polkadot', {
+        address: params.address,
+        getCacheKey: cacheParams =>
+          `dot_raw_tx_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
+        since: params.since,
+        type: 'getRawAddressTransactions',
+      });
 
-        // Transform raw response to individual transactions with provider provenance
-        const rawData = result.data;
-        if (rawData && typeof rawData === 'object' && 'data' in rawData) {
-          const substrateTxData = rawData as { data: SubscanTransfer[] };
+      // Transform raw response to individual transactions with provider provenance
+      const rawData = result.data;
+      if (rawData && typeof rawData === 'object' && 'data' in rawData) {
+        const substrateTxData = rawData as { data: SubscanTransfer[] };
 
-          if (Array.isArray(substrateTxData.data)) {
-            const rawTransactions: ApiClientRawData<SubscanTransfer>[] = substrateTxData.data.map(transfer => ({
-              providerId: result.providerName,
-              rawData: transfer,
-            }));
+        if (Array.isArray(substrateTxData.data)) {
+          const rawTransactions: ApiClientRawData<SubscanTransfer>[] = substrateTxData.data.map(transfer => ({
+            providerId: result.providerName,
+            rawData: transfer,
+          }));
 
-            allSourcedTransactions.push(...rawTransactions);
+          allSourcedTransactions.push(...rawTransactions);
 
-            this.logger.info(
-              `Imported ${rawTransactions.length} raw transactions for address via provider ${result.providerName}`
-            );
-          }
-        } else {
-          this.logger.warn(`Unexpected data format from provider ${result.providerName} for address ${address}`);
+          this.logger.info(
+            `Imported ${rawTransactions.length} raw transactions for address via provider ${result.providerName}`
+          );
         }
-      } catch (error) {
-        this.logger.error(
-          `Failed to import transactions for address ${address}: ${error instanceof Error ? error.message : String(error)}`
-        );
-        // Continue with other addresses rather than failing completely
+      } else {
+        this.logger.warn(`Unexpected data format from provider ${result.providerName} for address ${params.address}`);
       }
+    } catch (error) {
+      this.logger.error(
+        `Failed to import transactions for address ${params.address}: ${error instanceof Error ? error.message : String(error)}`
+      );
+      // Continue with other addresses rather than failing completely
     }
 
     // Sort by timestamp (newest first)

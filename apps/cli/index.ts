@@ -183,7 +183,7 @@ async function main() {
     .option('--exchange <name>', 'Exchange name (e.g., kraken, coinbase, kucoin)')
     .option('--blockchain <name>', 'Blockchain name (e.g., bitcoin, ethereum, polkadot, bittensor)')
     .option('--csv-dir <path>', 'CSV directory for exchange sources')
-    .option('--addresses <addresses...>', 'Wallet addresses for blockchain sources (space-separated)')
+    .option('--address <address>', 'Wallet address for blockchain source')
     .option('--provider <name>', 'Blockchain provider for blockchain sources')
     .option('--since <date>', 'Import data since date (YYYY-MM-DD, timestamp, or 0 for all history)')
     .option('--until <date>', 'Import data until date (YYYY-MM-DD or timestamp)')
@@ -215,8 +215,8 @@ async function main() {
           process.exit(1);
         }
 
-        if (sourceType === 'blockchain' && !options.addresses) {
-          logger.error('--addresses is required for blockchain sources');
+        if (sourceType === 'blockchain' && !options.address) {
+          logger.error('--address is required for blockchain sources');
           process.exit(1);
         }
 
@@ -253,7 +253,7 @@ async function main() {
             : undefined;
 
           const importParams: {
-            addresses?: string[] | undefined;
+            address?: string | undefined;
             csvDirectories?: string[] | undefined;
             providerId?: string | undefined;
             since?: number | undefined;
@@ -264,7 +264,7 @@ async function main() {
           if (sourceType === 'exchange') {
             importParams.csvDirectories = [options.csvDir];
           } else {
-            importParams.addresses = options.addresses;
+            importParams.address = options.address;
             importParams.providerId = options.provider;
           }
 
@@ -448,8 +448,8 @@ async function main() {
         logger.info(`Total blockchains: ${supportedBlockchains.length}`);
         logger.info('');
         logger.info('Usage examples:');
-        logger.info('  crypto-import import --blockchain bitcoin --addresses 1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa');
-        logger.info('  crypto-import import --blockchain ethereum --addresses 0x742d35Cc...');
+        logger.info('  crypto-import import --blockchain bitcoin --address 1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa');
+        logger.info('  crypto-import import --blockchain ethereum --address 0x742d35Cc...');
 
         process.exit(0);
       } catch (error) {
