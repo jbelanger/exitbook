@@ -141,11 +141,6 @@ export class TransactionProcessor {
       type,
     };
 
-    // Only add side property if it has a valid value
-    if (ccxtTransaction.side === 'buy' || ccxtTransaction.side === 'sell') {
-      result.side = ccxtTransaction.side;
-    }
-
     // Add price for trades
     if (type === 'trade') {
       const priceMoney = this.extractPrice(ccxtTransaction, type, quoteCurrency);

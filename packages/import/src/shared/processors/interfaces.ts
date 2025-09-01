@@ -15,7 +15,7 @@ export interface ProcessResult {
  * Each processor is responsible for converting source-specific raw data
  * into the standardized UniversalTransaction format.
  */
-export interface IProcessor<TRawData> {
+export interface IProcessor<TRawData = unknown> {
   /**
    * Check if this processor can handle data from the specified adapter.
    */

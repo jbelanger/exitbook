@@ -31,8 +31,6 @@ export const UniversalTransactionSchema = z
     metadata: z.record(z.string(), z.any()).default({}),
     network: z.string().optional(),
     price: MoneySchema.optional(),
-
-    side: z.enum(['buy', 'sell']).optional().or(z.undefined()), // Trade side for balance calculations
     source: z.string().min(1, 'Source must not be empty'),
     status: TransactionStatusSchema,
     symbol: z.string().optional(),

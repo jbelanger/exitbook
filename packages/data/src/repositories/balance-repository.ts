@@ -23,7 +23,6 @@ export class BalanceRepository {
           type,
           amount,
           amount_currency,
-          side,
           price,
           price_currency,
           fee_cost,

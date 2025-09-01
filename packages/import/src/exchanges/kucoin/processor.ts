@@ -4,6 +4,7 @@ import { createMoney, parseDecimal } from '@crypto/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseProcessor } from '../../shared/processors/base-processor.ts';
+import type { ApiClientRawData } from '../../shared/processors/interfaces.ts';
 import type { CsvAccountHistoryRow, CsvDepositWithdrawalRow, CsvKuCoinRawData, CsvSpotOrderRow } from './types.ts';
 
 /**
@@ -13,7 +14,7 @@ import type { CsvAccountHistoryRow, CsvDepositWithdrawalRow, CsvKuCoinRawData, C
  * - Deposit and withdrawal handling
  * - Convert market transaction processing from account history
  */
-export class KucoinProcessor extends BaseProcessor<CsvKuCoinRawData> {
+export class KucoinProcessor extends BaseProcessor<ApiClientRawData<CsvKuCoinRawData>> {
   constructor() {
     super('kucoin');
   }
@@ -47,7 +48,6 @@ export class KucoinProcessor extends BaseProcessor<CsvKuCoinRawData> {
         depositRow: deposit,
         sellAmount,
         sellCurrency,
-        side: 'buy',
         type: 'convert_market',
         withdrawalFee,
         withdrawalRow: withdrawal,
@@ -223,31 +223,33 @@ export class KucoinProcessor extends BaseProcessor<CsvKuCoinRawData> {
     return convertTransactions;
   }
 
-  private processSingle(rawDataItem: StoredRawData<CsvKuCoinRawData>): Result<UniversalTransaction[], string> {
+  private processSingle(
+    rawDataItem: StoredRawData<ApiClientRawData<CsvKuCoinRawData>>
+  ): Result<UniversalTransaction[], string> {
     try {
       const rawData = rawDataItem.rawData;
       const transactions: UniversalTransaction[] = [];
 
       // Process spot orders
-      for (const row of rawData.spotOrders) {
+      for (const row of rawData.rawData.spotOrders) {
         const transaction = this.convertSpotOrderToTransaction(row);
         transactions.push(transaction);
       }
 
       // Process deposits
-      for (const row of rawData.deposits) {
+      for (const row of rawData.rawData.deposits) {
         const transaction = this.convertDepositToTransaction(row);
         transactions.push(transaction);
       }
 
       // Process withdrawals
-      for (const row of rawData.withdrawals) {
+      for (const row of rawData.rawData.withdrawals) {
         const transaction = this.convertWithdrawalToTransaction(row);
         transactions.push(transaction);
       }
 
       // Process account history (convert market transactions)
-      const convertTransactions = this.processAccountHistory(rawData.accountHistory);
+      const convertTransactions = this.processAccountHistory(rawData.rawData.accountHistory);
       transactions.push(...convertTransactions);
 
       return ok(transactions);
@@ -262,7 +264,7 @@ export class KucoinProcessor extends BaseProcessor<CsvKuCoinRawData> {
   }
 
   protected async processInternal(
-    rawDataItems: StoredRawData<CsvKuCoinRawData>[]
+    rawDataItems: StoredRawData<ApiClientRawData<CsvKuCoinRawData>>[]
   ): Promise<Result<UniversalTransaction[], string>> {
     const allTransactions: UniversalTransaction[] = [];
 

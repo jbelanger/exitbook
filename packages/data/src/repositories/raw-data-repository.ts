@@ -125,6 +125,7 @@ export class RawDataRepository implements IRawDataRepository {
   ): Promise<number> {
     this.logger.info(`Saving ${rawData.length} raw data items for ${sourceId}`);
 
+
     try {
       const saved = await this.database.saveRawTransactions(sourceId, sourceType, rawData, {
         importSessionId: options?.importSessionId ?? undefined,
@@ -169,9 +170,7 @@ export class RawDataRepository implements IRawDataRepository {
     status: 'pending' | 'processed' | 'failed',
     error?: string,
     providerId?: string
-  ): Promise<void> {
-    this.logger.debug(`Updating processing status for ${adapterId}:${sourceTransactionId} to ${status}`);
-
+  ): Promise<void> {    
     try {
       await this.database.updateRawTransactionProcessingStatus(
         adapterId,
@@ -181,7 +180,6 @@ export class RawDataRepository implements IRawDataRepository {
         providerId
       );
 
-      this.logger.debug(`Successfully updated processing status for ${adapterId}:${sourceTransactionId}`);
     } catch (error) {
       this.logger.error(`Failed to update processing status for ${adapterId}:${sourceTransactionId}: ${error}`);
       throw error;

@@ -4,6 +4,7 @@ import { createMoney, parseDecimal } from '@crypto/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseProcessor } from '../../shared/processors/base-processor.ts';
+import type { ApiClientRawData } from '../../shared/processors/interfaces.ts';
 import { CsvFilters } from '../csv-filters.ts';
 import type { CsvKrakenLedgerRow } from './types.ts';
 
@@ -15,18 +16,19 @@ import type { CsvKrakenLedgerRow } from './types.ts';
  * - Token migration detection
  * - Dustsweeping handling
  */
-export class KrakenProcessor extends BaseProcessor<CsvKrakenLedgerRow> {
+export class KrakenProcessor extends BaseProcessor<ApiClientRawData<CsvKrakenLedgerRow>> {
   constructor() {
     super('kraken');
   }
 
   private convertDepositToTransaction(row: CsvKrakenLedgerRow): UniversalTransaction {
     const timestamp = new Date(row.time).getTime();
-    const amount = parseDecimal(row.amount).toNumber();
+    const grossAmount = parseDecimal(row.amount).toNumber();
     const fee = parseDecimal(row.fee || '0').toNumber();
+    const netAmount = grossAmount - fee; // Net amount after fee
 
     return {
-      amount: createMoney(amount, row.asset),
+      amount: createMoney(netAmount, row.asset),
       datetime: row.time,
       fee: createMoney(fee, row.asset),
       id: row.txid,
@@ -38,6 +40,7 @@ export class KrakenProcessor extends BaseProcessor<CsvKrakenLedgerRow> {
       network: 'exchange',
       source: 'kraken',
       status: this.mapStatus(),
+      symbol: row.asset,
       timestamp,
       type: 'deposit' as const,
     };
@@ -55,7 +58,6 @@ export class KrakenProcessor extends BaseProcessor<CsvKrakenLedgerRow> {
       id: trade.txid,
       metadata: {
         originalRow: trade,
-        side: parseDecimal(trade.amount).isPositive() ? 'buy' : 'sell',
       },
       network: 'exchange',
       source: 'kraken',
@@ -83,7 +85,6 @@ export class KrakenProcessor extends BaseProcessor<CsvKrakenLedgerRow> {
         fromAsset: negative.asset,
         fromTransaction: negative,
         originalRows: { negative, positive },
-        side: 'buy',
         toAsset: positive.asset,
         tokenMigration: true,
         toTransaction: positive,
@@ -128,14 +129,13 @@ export class KrakenProcessor extends BaseProcessor<CsvKrakenLedgerRow> {
         feeAdjustment: receiveFee > 0 ? 'receive_adjusted' : 'spend_fee',
         originalRows: { receive, spend },
         receive,
-        side: 'buy',
         spend,
       },
       network: 'exchange',
       price: createMoney(spendAmount, spend.asset),
       source: 'kraken',
       status: this.mapStatus(),
-      symbol: `${receive.asset}/${spend.asset}`,
+      symbol: receive.asset,
       timestamp,
       type: 'trade' as const,
     };
@@ -159,6 +159,7 @@ export class KrakenProcessor extends BaseProcessor<CsvKrakenLedgerRow> {
       network: 'exchange',
       source: 'kraken',
       status: this.mapStatus(),
+      symbol: transfer.asset,
       timestamp,
       type: isIncoming ? ('deposit' as const) : ('withdrawal' as const),
     };
@@ -182,6 +183,7 @@ export class KrakenProcessor extends BaseProcessor<CsvKrakenLedgerRow> {
       network: 'exchange',
       source: 'kraken',
       status: this.mapStatus(),
+      symbol: row.asset,
       timestamp,
       type: 'withdrawal' as const,
     };
@@ -301,14 +303,8 @@ export class KrakenProcessor extends BaseProcessor<CsvKrakenLedgerRow> {
     // Filter out failed transactions and get valid withdrawals
     const { validWithdrawals } = this.filterFailedTransactions(rows.filter(row => row.type === 'withdrawal'));
 
-    // Process existing single trade records
-    for (const trade of tradeRows) {
-      const transaction = this.convertSingleTradeToTransaction(trade);
-      transactions.push(transaction);
-    }
-
-    // Process spend/receive pairs by grouping by refid
-    const spendReceiveRows = [...spendRows, ...receiveRows];
+    // Process spend/receive/trade pairs by grouping by refid
+    const spendReceiveRows = [...spendRows, ...receiveRows, ...tradeRows];
     const tradeGroups = CsvFilters.groupByField(spendReceiveRows, 'refid');
     const processedRefIds = new Set<string>();
 
@@ -389,6 +385,14 @@ export class KrakenProcessor extends BaseProcessor<CsvKrakenLedgerRow> {
       processedRefIds.add(refId);
     }
 
+    // Process any remaining unpaired trade rows (genuine single trades)
+    for (const trade of tradeRows) {
+      if (!processedRefIds.has(trade.refid)) {
+        const transaction = this.convertSingleTradeToTransaction(trade);
+        transactions.push(transaction);
+      }
+    }
+
     return transactions;
   }
 
@@ -444,11 +448,12 @@ export class KrakenProcessor extends BaseProcessor<CsvKrakenLedgerRow> {
   }
 
   protected async processInternal(
-    rawDataItems: StoredRawData<CsvKrakenLedgerRow>[]
+    rawDataItems: StoredRawData<ApiClientRawData<CsvKrakenLedgerRow>>[]
   ): Promise<Result<UniversalTransaction[], string>> {
     try {
       // Extract the raw ledger rows for batch processing
-      const rows = rawDataItems.map(item => item.rawData);
+      // Handle ApiClientRawData format: { providerId: string, rawData: CsvKrakenLedgerRow }
+      const rows = rawDataItems.map(item => item.rawData.rawData);
       const transactions = this.parseLedgers(rows);
       return ok(transactions);
     } catch (error) {

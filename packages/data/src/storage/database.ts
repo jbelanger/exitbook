@@ -149,7 +149,6 @@ export class Database {
         symbol TEXT,
         amount TEXT,
         amount_currency TEXT,
-        side TEXT,
         price TEXT,
         price_currency TEXT,
         fee_cost TEXT,
@@ -375,23 +374,39 @@ export class Database {
     sessionMetadata?: unknown
   ): Promise<number> {
     return new Promise((resolve, reject) => {
-      const stmt = this.db.prepare(`
-        INSERT INTO import_sessions 
-        (source_id, source_type, provider_id, session_metadata)
-        VALUES (?, ?, ?, ?)
-      `);
+      const db = this.db; // Capture db reference
+      
+      // Use a transaction to ensure the session is committed
+      db.serialize(() => {
+        db.run('BEGIN IMMEDIATE');
+        
+        const stmt = db.prepare(`
+          INSERT INTO import_sessions 
+          (source_id, source_type, provider_id, session_metadata)
+          VALUES (?, ?, ?, ?)
+        `);
 
-      const metadataJson = sessionMetadata ? JSON.stringify(sessionMetadata) : null;
+        const metadataJson = sessionMetadata ? JSON.stringify(sessionMetadata) : null;
 
-      stmt.run([sourceId, sourceType, providerId || null, metadataJson], function (err) {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(this.lastID as number);
-        }
+        stmt.run([sourceId, sourceType, providerId || null, metadataJson], function (err) {
+          const sessionId = this.lastID as number;
+          stmt.finalize();
+          
+          if (err) {
+            db.run('ROLLBACK', () => {
+              reject(err);
+            });
+          } else {
+            db.run('COMMIT', (commitErr) => {
+              if (commitErr) {
+                reject(commitErr);
+              } else {
+                resolve(sessionId);
+              }
+            });
+          }
+        });
       });
-
-      stmt.finalize();
     });
   }
 
@@ -1107,11 +1122,25 @@ export class Database {
   ): Promise<number> {
     return new Promise((resolve, reject) => {
       let saved = 0;
+      let completed = 0;
+      const total = rawTransactions.length;
+      let hasError = false;
+      const db = this.db; // Capture db reference for use in callbacks
 
-      this.db.serialize(() => {
-        this.db.run('BEGIN TRANSACTION');
+      if (total === 0) {
+        resolve(0);
+        return;
+      }
 
-        const stmt = this.db.prepare(`
+      db.serialize(() => {
+
+        db.run('BEGIN TRANSACTION', (err) => {
+          if (err) {
+            return reject(err);
+          }
+        });
+
+        const stmt = db.prepare(`
           INSERT OR IGNORE INTO external_transaction_data 
           (source_id, source_type, provider_id, source_transaction_id, raw_data, metadata, import_session_id)
           VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -1121,6 +1150,8 @@ export class Database {
           const providerId = options?.providerId || null;
           const rawDataJson = JSON.stringify(rawTx.data);
           const metadataJson = options?.metadata ? JSON.stringify(options.metadata) : null;
+          const importSessionId = options?.importSessionId || null;
+
 
           stmt.run([
             sourceId, 
@@ -1129,25 +1160,36 @@ export class Database {
             rawTx.id, 
             rawDataJson, 
             metadataJson,
-            options?.importSessionId || null
+            importSessionId
           ], function (err) {
+            completed++;
+            
             if (err && !err.message.includes('UNIQUE constraint failed')) {
-              stmt.finalize();
-              return reject(err);
+              if (!hasError) {
+                hasError = true;
+                stmt.finalize();
+                db.run('ROLLBACK', () => {
+                  reject(err);
+                });
+              }
+              return;
             }
+            
             if (this.changes > 0) saved++;
+            
+            // Check if all operations are complete
+            if (completed === total && !hasError) {
+              stmt.finalize();
+              db.run('COMMIT', (commitErr) => {
+                if (commitErr) {
+                  reject(commitErr);
+                } else {
+                  resolve(saved);
+                }
+              });
+            }
           });
         }
-
-        stmt.finalize();
-
-        this.db.run('COMMIT', err => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(saved);
-          }
-        });
       });
     });
   }
@@ -1157,8 +1199,8 @@ export class Database {
     return new Promise((resolve, reject) => {
       const stmt = this.db.prepare(`
         INSERT OR REPLACE INTO transactions 
-        (source_id, type, timestamp, datetime, symbol, amount, amount_currency, side, price, price_currency, fee_cost, fee_currency, status, from_address, to_address, raw_data, hash, verified, note_type, note_message, note_severity, note_metadata)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (source_id, type, timestamp, datetime, symbol, amount, amount_currency, price, price_currency, fee_cost, fee_currency, status, from_address, to_address, raw_data, hash, verified, note_type, note_message, note_severity, note_metadata)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       const rawDataJson = JSON.stringify(transaction);
@@ -1188,8 +1230,7 @@ export class Database {
             : transaction.amount
               ? String(transaction.amount)
               : null,
-          amountCurrency,
-          transaction.side || null,
+          amountCurrency,          
           typeof transaction.price === 'object'
             ? moneyToDbString(transaction.price)
             : transaction.price
@@ -1231,8 +1272,8 @@ export class Database {
 
         const stmt = this.db.prepare(`
           INSERT OR IGNORE INTO transactions 
-          (source_id, type, timestamp, datetime, symbol, amount, amount_currency, side, price, price_currency, fee_cost, fee_currency, status, from_address, to_address, wallet_id, raw_data, hash, verified, note_type, note_message, note_severity, note_metadata)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          (source_id, type, timestamp, datetime, symbol, amount, amount_currency, price, price_currency, fee_cost, fee_currency, status, from_address, to_address, wallet_id, raw_data, hash, verified, note_type, note_message, note_severity, note_metadata)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         for (const transaction of transactions) {
@@ -1267,7 +1308,6 @@ export class Database {
                   ? String(transaction.amount)
                   : null,
               amountCurrency,
-              transaction.side || null,
               typeof transaction.price === 'object'
                 ? moneyToDbString(transaction.price)
                 : transaction.price

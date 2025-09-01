@@ -52,16 +52,6 @@ export class CoinbaseProcessor extends BaseProcessor<UniversalTransaction> {
       source: 'coinbase',
     };
 
-    // Additional validation for trade transactions
-    if (transaction.type === 'trade') {
-      if (!transaction.symbol || !transaction.side) {
-        this.logger.warn(
-          `Trade transaction missing symbol or side: ${transaction.id}, symbol: ${transaction.symbol}, side: ${transaction.side}`
-        );
-        // Don't reject, but log the issue
-      }
-    }
-
     return ok(processedTransaction);
   }
 

@@ -245,7 +245,6 @@ export interface UniversalTransaction {
   network?: string | undefined; // e.g., 'mainnet'
   note?: TransactionNote | undefined; // Scam detection, warnings, classification
   price?: Money | undefined;
-  side?: 'buy' | 'sell' | undefined; // Trade side for balance calculations
 
   // Metadata
   source: string; // e.g., 'coinbase', 'bitcoin'

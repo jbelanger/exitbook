@@ -11,7 +11,6 @@ describe('BalanceCalculationService Precision', () => {
     type: string,
     amount: string,
     amountCurrency: string,
-    side?: 'buy' | 'sell',
     price?: string,
     priceCurrency?: string,
     feeCost?: string,
@@ -33,7 +32,6 @@ describe('BalanceCalculationService Precision', () => {
     };
 
     if (amountCurrency) transaction.amount_currency = amountCurrency;
-    if (side) transaction.side = side;
     if (price) transaction.price = price;
     if (priceCurrency) transaction.price_currency = priceCurrency;
     if (feeCost) transaction.fee_cost = feeCost;
@@ -89,7 +87,6 @@ describe('BalanceCalculationService Precision', () => {
           'trade',
           '1.0',
           'BTC',
-          'buy',
           '50000.0',
           'USDT',
           '0.123456789012345678', // High precision fee

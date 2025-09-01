@@ -31,7 +31,6 @@ export class BalanceCalculationService {
     const type = transaction.type;
     const amount = stringToDecimal(String(transaction.amount));
     const amountCurrency = transaction.amount_currency;
-    const side = transaction.side;
     const price = stringToDecimal(String(transaction.price));
     const priceCurrency = transaction.price_currency;
     const feeCost = stringToDecimal(String(transaction.fee_cost));
@@ -68,22 +67,14 @@ export class BalanceCalculationService {
       case 'trade':
       case 'limit':
       case 'market':
-        if (side === 'buy') {
-          if (amountCurrency && balances[amountCurrency]) {
-            balances[amountCurrency] = balances[amountCurrency].plus(amount);
-          }
-          if (priceCurrency && !price.isZero()) {
-            if (!balances[priceCurrency]) balances[priceCurrency] = new Decimal(0);
-            balances[priceCurrency] = balances[priceCurrency].minus(price);
-          }
-        } else if (side === 'sell') {
-          if (amountCurrency && balances[amountCurrency]) {
-            balances[amountCurrency] = balances[amountCurrency].minus(amount);
-          }
-          if (priceCurrency && !price.isZero()) {
-            if (!balances[priceCurrency]) balances[priceCurrency] = new Decimal(0);
-            balances[priceCurrency] = balances[priceCurrency].plus(price);
-          }
+        // Symbol indicates what asset is being received (bought)
+        // Amount currency is what we're receiving, price currency is what we're spending
+        if (amountCurrency && balances[amountCurrency]) {
+          balances[amountCurrency] = balances[amountCurrency].plus(amount);
+        }
+        if (priceCurrency && !price.isZero()) {
+          if (!balances[priceCurrency]) balances[priceCurrency] = new Decimal(0);
+          balances[priceCurrency] = balances[priceCurrency].minus(price);
         }
         break;
     }

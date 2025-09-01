@@ -20,7 +20,6 @@ export interface StoredTransaction {
   price?: string;
   price_currency?: string;
   raw_data: string; // JSON stringified transaction data
-  side?: string;
   source_id: string;
   status?: string;
   symbol?: string;
