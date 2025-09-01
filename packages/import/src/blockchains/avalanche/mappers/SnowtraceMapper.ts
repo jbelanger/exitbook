@@ -1,8 +1,8 @@
-import { Result, err, ok } from 'neverthrow';
+import { Result, ok } from 'neverthrow';
 
-import { BaseProviderProcessor } from '../../../shared/processors/base-provider-processor.ts';
 import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
+import { BaseRawDataTransformer } from '../../shared/base-raw-data-mapper.ts';
 import type { UniversalBlockchainTransaction } from '../../shared/types.ts';
 import { SnowtraceAnyTransactionSchema } from '../schemas.ts';
 import type { SnowtraceInternalTransaction, SnowtraceTokenTransfer, SnowtraceTransaction } from '../types.ts';
@@ -13,7 +13,7 @@ export type SnowtraceRawData = {
 };
 
 @RegisterProcessor('snowtrace')
-export class SnowtraceProcessor extends BaseProviderProcessor<
+export class SnowtraceProcessor extends BaseRawDataTransformer<
   SnowtraceTransaction | SnowtraceInternalTransaction | SnowtraceTokenTransfer
 > {
   protected readonly schema = SnowtraceAnyTransactionSchema;

@@ -10,7 +10,7 @@ import type { ApiClientRawData, ImportSessionMetadata } from '../../shared/proce
 import { ProcessorFactory } from '../../shared/processors/processor-registry.ts';
 import type { UniversalBlockchainTransaction } from '../shared/types.ts';
 // Import processors to trigger registration
-import './processors/index.ts';
+import './mappers/index.ts';
 import type { AvalancheRawTransactionData } from './transaction-importer.ts';
 import { AvalancheUtils } from './utils.ts';
 

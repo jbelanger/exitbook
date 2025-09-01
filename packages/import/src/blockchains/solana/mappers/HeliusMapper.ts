@@ -2,9 +2,9 @@ import { getLogger } from '@crypto/shared-logger';
 import { maskAddress } from '@crypto/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
-import { BaseProviderProcessor } from '../../../shared/processors/base-provider-processor.ts';
 import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
+import { BaseRawDataTransformer } from '../../shared/base-raw-data-mapper.ts';
 import type { UniversalBlockchainTransaction } from '../../shared/types.ts';
 import type { SolanaRawTransactionData } from '../clients/HeliusApiClient.ts';
 import { SolanaRawTransactionDataSchema } from '../schemas.ts';
@@ -12,7 +12,7 @@ import type { HeliusTransaction } from '../types.ts';
 import { lamportsToSol } from '../utils.ts';
 
 @RegisterProcessor('helius')
-export class HeliusProcessor extends BaseProviderProcessor<SolanaRawTransactionData> {
+export class HeliusProcessor extends BaseRawDataTransformer<SolanaRawTransactionData> {
   // Known Solana token mint addresses to symbols mapping
   private static readonly KNOWN_TOKEN_SYMBOLS: Record<string, string> = {
     '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R': 'RAY',
@@ -266,7 +266,6 @@ export class HeliusProcessor extends BaseProviderProcessor<SolanaRawTransactionD
     }
   }
 
-  // IProviderProcessor interface implementation
   protected transformValidated(
     rawData: SolanaRawTransactionData,
     sessionContext: ImportSessionMetadata

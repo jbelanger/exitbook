@@ -8,7 +8,7 @@ import { BaseProcessor } from '../../shared/processors/base-processor.ts';
 import type { ApiClientRawData, ImportSessionMetadata } from '../../shared/processors/interfaces.ts';
 import { ProcessorFactory } from '../../shared/processors/processor-registry.ts';
 // Import processors to trigger registration
-import './processors/index.ts';
+import './mappers/index.ts';
 import type { BitcoinTransaction } from './types.ts';
 
 /**

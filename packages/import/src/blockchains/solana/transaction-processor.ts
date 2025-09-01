@@ -9,7 +9,7 @@ import type { ApiClientRawData, ImportSessionMetadata } from '../../shared/proce
 import { ProcessorFactory } from '../../shared/processors/processor-registry.ts';
 import type { UniversalBlockchainTransaction } from '../shared/types.ts';
 import type { SolanaRawTransactionData } from './clients/HeliusApiClient.ts';
-import './processors/index.ts';
+import './mappers/index.ts';
 
 /**
  * Solana transaction processor that converts raw blockchain transaction data

@@ -1,18 +1,19 @@
+import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
-import { BaseProviderProcessor } from '../../../shared/processors/base-provider-processor.ts';
 import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
+import { BaseRawDataTransformer } from '../../shared/base-raw-data-mapper.ts';
 import type { UniversalBlockchainTransaction } from '../../shared/types.ts';
-import { BlockstreamTransactionSchema } from '../schemas.ts';
-import type { BlockstreamTransaction } from '../types.ts';
+import { MempoolTransactionSchema } from '../schemas.ts';
+import type { MempoolTransaction } from '../types.ts';
 
-@RegisterProcessor('blockstream.info')
-export class BlockstreamProcessor extends BaseProviderProcessor<BlockstreamTransaction> {
-  protected readonly schema = BlockstreamTransactionSchema;
+@RegisterProcessor('mempool.space')
+export class MempoolSpaceProcessor extends BaseRawDataTransformer<MempoolTransaction> {
+  protected readonly schema = MempoolTransactionSchema;
 
   protected transformValidated(
-    rawData: BlockstreamTransaction,
+    rawData: MempoolTransaction,
     sessionContext: ImportSessionMetadata
   ): Result<UniversalBlockchainTransaction[], string> {
     const timestamp =
@@ -20,34 +21,58 @@ export class BlockstreamProcessor extends BaseProviderProcessor<BlockstreamTrans
 
     // Calculate transaction value considering all wallet addresses
     let totalValueChange = 0;
+    let walletInputValue = 0;
+    let walletOutputValue = 0;
     let isIncoming = false;
     let isOutgoing = false;
+    let hasExternalOutput = false;
     // Extract addresses from rich session context (Bitcoin uses derivedAddresses)
     const addresses = sessionContext.derivedAddresses || [sessionContext.address];
     const relevantAddresses = new Set(addresses);
 
-    // Check inputs - money going out of our wallet (Blockstream format)
+    // Check inputs - money going out of our wallet
     for (const input of rawData.vin) {
       if (input.prevout?.scriptpubkey_address && relevantAddresses.has(input.prevout.scriptpubkey_address)) {
         isOutgoing = true;
         if (input.prevout?.value) {
+          walletInputValue += input.prevout.value;
           totalValueChange -= input.prevout.value;
         }
       }
     }
 
-    // Check outputs - money coming into our wallet (Blockstream format)
+    // Check outputs - money coming into our wallet or going to external addresses
     for (const output of rawData.vout) {
       if (output.scriptpubkey_address && relevantAddresses.has(output.scriptpubkey_address)) {
         isIncoming = true;
+        walletOutputValue += output.value;
         totalValueChange += output.value;
+      } else {
+        // Output going to external address (not in wallet)
+        hasExternalOutput = true;
       }
     }
 
-    // All Bitcoin transactions are transfers in the universal blockchain transaction model
-    const type: UniversalBlockchainTransaction['type'] = 'transfer';
+    // Determine transaction type based on fund flow
+    let type: UniversalBlockchainTransaction['type'];
 
-    if (!isIncoming && !isOutgoing) {
+    if (isIncoming && !isOutgoing) {
+      // Funds only coming into wallet from external sources
+      type = 'transfer';
+    } else if (isOutgoing && !isIncoming) {
+      // Funds only going out to external addresses
+      type = 'transfer';
+    } else if (isIncoming && isOutgoing) {
+      if (hasExternalOutput) {
+        // Funds going out to external addresses (with possible change back to wallet)
+        type = 'transfer';
+        // For withdrawals, calculate the net amount going out (excluding change)
+        totalValueChange = walletInputValue - walletOutputValue;
+      } else {
+        // Only internal movement between wallet addresses
+        type = 'transfer';
+      }
+    } else {
       // Neither incoming nor outgoing - cannot determine transaction type
       return err(
         'Unable to determine transaction type: transaction has no relevant wallet addresses in inputs or outputs'
@@ -104,15 +129,15 @@ export class BlockstreamProcessor extends BaseProviderProcessor<BlockstreamTrans
       toAddress = rawData.vout[0].scriptpubkey_address;
     }
 
-    const btcAmount = (totalValue / 100000000).toString();
-    const btcFee = (fee / 100000000).toString();
+    const btcAmount = new Decimal(totalValue).div(100000000).toString();
+    const btcFee = new Decimal(fee).div(100000000).toString();
 
     const transaction: UniversalBlockchainTransaction = {
       amount: btcAmount,
       currency: 'BTC',
       from: fromAddress,
       id: rawData.txid,
-      providerId: 'blockstream.info',
+      providerId: 'mempool.space',
       status: rawData.status.confirmed ? 'success' : 'pending',
       timestamp,
       to: toAddress,

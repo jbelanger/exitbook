@@ -3,15 +3,15 @@ import { parseDecimal } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
-import { BaseProviderProcessor } from '../../../shared/processors/base-provider-processor.ts';
 import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
+import { BaseRawDataTransformer } from '../../shared/base-raw-data-mapper.ts';
 import type { UniversalBlockchainTransaction } from '../../shared/types.ts';
 import { MoralisTransactionSchema } from '../schemas.ts';
 import type { MoralisNativeBalance, MoralisTokenBalance, MoralisTokenTransfer, MoralisTransaction } from '../types.ts';
 
 @RegisterProcessor('moralis')
-export class MoralisProcessor extends BaseProviderProcessor<MoralisTransaction> {
+export class MoralisProcessor extends BaseRawDataTransformer<MoralisTransaction> {
   protected readonly schema = MoralisTransactionSchema;
   private static convertNativeTransaction(tx: MoralisTransaction): UniversalBlockchainTransaction {
     const valueWei = parseDecimal(tx.value);
@@ -110,7 +110,6 @@ export class MoralisProcessor extends BaseProviderProcessor<MoralisTransaction> 
     return transfers.map(tx => this.convertTokenTransfer(tx));
   }
 
-  // IProviderProcessor interface implementation
   protected transformValidated(
     rawData: MoralisTransaction,
     _sessionContext: ImportSessionMetadata

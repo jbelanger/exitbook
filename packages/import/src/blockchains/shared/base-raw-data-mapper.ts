@@ -1,14 +1,14 @@
 import { type Result, err } from 'neverthrow';
 import type { ZodSchema } from 'zod';
 
-import type { UniversalBlockchainTransaction } from '../../blockchains/shared/types.ts';
-import type { IProviderProcessor, ImportSessionMetadata } from './interfaces.ts';
+import type { IRawDataMapper, ImportSessionMetadata } from '../../shared/processors/interfaces.ts';
+import type { UniversalBlockchainTransaction } from './types.ts';
 
 /**
- * Abstract base class for provider processors that handles validation automatically.
+ * Abstract base class for raw data transformers that handles validation automatically.
  * Implementing classes only need to provide the schema and implement the validated transform logic.
  */
-export abstract class BaseProviderProcessor<TRawData> implements IProviderProcessor<TRawData> {
+export abstract class BaseRawDataTransformer<TRawData> implements IRawDataMapper<TRawData> {
   /**
    * Schema used to validate raw data before transformation.
    * Must be implemented by concrete processor classes.

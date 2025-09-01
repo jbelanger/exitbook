@@ -1,15 +1,15 @@
 import { parseDecimal } from '@crypto/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
-import { BaseProviderProcessor } from '../../../shared/processors/base-provider-processor.ts';
 import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
+import { BaseRawDataTransformer } from '../../shared/base-raw-data-mapper.ts';
 import type { UniversalBlockchainTransaction } from '../../shared/types.ts';
 import { InjectiveTransactionSchema } from '../schemas.ts';
 import type { InjectiveMessageValue, InjectiveTransaction } from '../types.ts';
 
 @RegisterProcessor('injective-explorer')
-export class InjectiveExplorerProcessor extends BaseProviderProcessor<InjectiveTransaction> {
+export class InjectiveExplorerProcessor extends BaseRawDataTransformer<InjectiveTransaction> {
   private readonly INJECTIVE_DENOM = 'inj';
   protected readonly schema = InjectiveTransactionSchema;
 

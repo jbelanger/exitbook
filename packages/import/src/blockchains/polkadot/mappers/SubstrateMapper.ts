@@ -2,9 +2,9 @@ import type { Balance } from '@crypto/core';
 import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
-import { BaseProviderProcessor } from '../../../shared/processors/base-provider-processor.ts';
 import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
+import { BaseRawDataTransformer } from '../../shared/base-raw-data-mapper.ts';
 import type { UniversalBlockchainTransaction } from '../../shared/types.ts';
 import { SubscanTransferSchema } from '../schemas.ts';
 import type { SubscanTransfer, SubstrateAccountInfo, SubstrateChainConfig, TaostatsTransaction } from '../types.ts';
@@ -21,7 +21,7 @@ export interface SubstrateRawData {
 }
 
 @RegisterProcessor('subscan')
-export class SubstrateProcessor extends BaseProviderProcessor<SubscanTransfer> {
+export class SubstrateProcessor extends BaseRawDataTransformer<SubscanTransfer> {
   protected readonly schema = SubscanTransferSchema;
   private static convertSubscanTransaction(
     transfer: SubscanTransfer,
@@ -202,7 +202,6 @@ export class SubstrateProcessor extends BaseProviderProcessor<SubscanTransfer> {
     ];
   }
 
-  // IProviderProcessor interface implementation
   protected transformValidated(
     rawData: SubscanTransfer,
     sessionContext: ImportSessionMetadata

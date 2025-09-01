@@ -3,15 +3,15 @@ import { parseDecimal } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
-import { BaseProviderProcessor } from '../../../shared/processors/base-provider-processor.ts';
 import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
+import { BaseRawDataTransformer } from '../../shared/base-raw-data-mapper.ts';
 import type { UniversalBlockchainTransaction } from '../../shared/types.ts';
 import { AlchemyAssetTransferSchema } from '../schemas.ts';
 import type { AlchemyAssetTransfer, EtherscanBalance } from '../types.ts';
 
 @RegisterProcessor('alchemy')
-export class AlchemyProcessor extends BaseProviderProcessor<AlchemyAssetTransfer> {
+export class AlchemyProcessor extends BaseRawDataTransformer<AlchemyAssetTransfer> {
   protected readonly schema = AlchemyAssetTransferSchema;
   private static convertAssetTransfer(
     transfer: AlchemyAssetTransfer,
@@ -108,7 +108,6 @@ export class AlchemyProcessor extends BaseProviderProcessor<AlchemyAssetTransfer
     return transfers.map(transfer => this.convertAssetTransfer(transfer, userAddress));
   }
 
-  // IProviderProcessor interface implementation
   protected transformValidated(
     rawData: AlchemyAssetTransfer,
     _sessionContext: ImportSessionMetadata

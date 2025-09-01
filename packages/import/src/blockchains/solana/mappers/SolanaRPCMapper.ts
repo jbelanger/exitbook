@@ -2,9 +2,9 @@ import { getLogger } from '@crypto/shared-logger';
 import { maskAddress } from '@crypto/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
-import { BaseProviderProcessor } from '../../../shared/processors/base-provider-processor.ts';
 import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
+import { BaseRawDataTransformer } from '../../shared/base-raw-data-mapper.ts';
 import type { UniversalBlockchainTransaction } from '../../shared/types.ts';
 import type { SolanaRPCRawTransactionData } from '../clients/SolanaRPCApiClient.ts';
 import { SolanaRPCRawTransactionDataSchema } from '../schemas.ts';
@@ -14,7 +14,7 @@ import { lamportsToSol } from '../utils.ts';
 const logger = getLogger('SolanaRPCProcessor');
 
 @RegisterProcessor('solana-rpc')
-export class SolanaRPCProcessor extends BaseProviderProcessor<SolanaRPCRawTransactionData> {
+export class SolanaRPCProcessor extends BaseRawDataTransformer<SolanaRPCRawTransactionData> {
   protected readonly schema = SolanaRPCRawTransactionDataSchema;
   private static extractTokenTransaction(
     tx: SolanaRPCTransaction,
@@ -189,7 +189,6 @@ export class SolanaRPCProcessor extends BaseProviderProcessor<SolanaRPCRawTransa
     }
   }
 
-  // IProviderProcessor interface implementation
   protected transformValidated(
     rawData: SolanaRPCRawTransactionData,
     sessionContext: ImportSessionMetadata

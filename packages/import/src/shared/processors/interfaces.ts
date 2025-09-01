@@ -30,7 +30,7 @@ export interface IProcessor {
 /**
  * Interface for provider-specific processors that handle validation and transformation
  */
-export interface IProviderProcessor<TRawData> {
+export interface IRawDataMapper<TRawData> {
   /**
    * Transform validated raw data into standardized blockchain transaction format.
    * Returns array of UniversalBlockchainTransaction for type-safe consumption by transaction processors.

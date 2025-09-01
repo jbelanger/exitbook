@@ -3,9 +3,9 @@ import { maskAddress } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
-import { BaseProviderProcessor } from '../../../shared/processors/base-provider-processor.ts';
 import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
 import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
+import { BaseRawDataTransformer } from '../../shared/base-raw-data-mapper.ts';
 import type { UniversalBlockchainTransaction } from '../../shared/types.ts';
 import type { SolscanRawTransactionData } from '../clients/SolscanApiClient.ts';
 import { SolscanRawTransactionDataSchema } from '../schemas.ts';
@@ -15,7 +15,7 @@ import { lamportsToSol } from '../utils.ts';
 const logger = getLogger('SolscanProcessor');
 
 @RegisterProcessor('solscan')
-export class SolscanProcessor extends BaseProviderProcessor<SolscanRawTransactionData> {
+export class SolscanProcessor extends BaseRawDataTransformer<SolscanRawTransactionData> {
   protected readonly schema = SolscanRawTransactionDataSchema;
   static processAddressTransactions(
     rawData: SolscanRawTransactionData,
@@ -97,7 +97,6 @@ export class SolscanProcessor extends BaseProviderProcessor<SolscanRawTransactio
     }
   }
 
-  // IProviderProcessor interface implementation
   protected transformValidated(
     rawData: SolscanRawTransactionData,
     sessionContext: ImportSessionMetadata

@@ -8,7 +8,7 @@ import { BaseProcessor } from '../../shared/processors/base-processor.ts';
 import type { ApiClientRawData, ImportSessionMetadata } from '../../shared/processors/interfaces.ts';
 import { ProcessorFactory } from '../../shared/processors/processor-registry.ts';
 // Import processors to trigger registration
-import './processors/SubstrateProcessor.ts';
+import './mappers/SubstrateMapper.ts';
 import type { SubscanTransfer } from './types.ts';
 import { derivePolkadotAddressVariants } from './utils.ts';
 

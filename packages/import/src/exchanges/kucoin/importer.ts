@@ -3,7 +3,6 @@ import path from 'path';
 
 import { BaseImporter } from '../../shared/importers/base-importer.ts';
 import type { ImportParams, ImportRunResult } from '../../shared/importers/interfaces.ts';
-import type { ApiClientRawData } from '../../shared/processors/interfaces.ts';
 import { CsvParser } from '../csv-parser.ts';
 import { CSV_FILE_TYPES } from './constants.ts';
 import type { CsvAccountHistoryRow, CsvDepositWithdrawalRow, CsvKuCoinRawData, CsvSpotOrderRow } from './types.ts';
