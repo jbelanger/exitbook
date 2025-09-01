@@ -2,18 +2,18 @@ import { getLogger } from '@crypto/shared-logger';
 import { type Result, err, ok } from 'neverthrow';
 
 import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
-import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
-import { BaseRawDataTransformer as BaseRawDataMapper } from '../../shared/base-raw-data-mapper.ts';
+import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.ts';
+import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.ts';
 import type { UniversalBlockchainTransaction } from '../../shared/types.ts';
 import { BlockCypherTransactionSchema } from '../schemas.ts';
 import type { BlockCypherTransaction } from '../types.ts';
 
-@RegisterProcessor('blockcypher')
-export class BlockCypherProcessor extends BaseRawDataMapper<BlockCypherTransaction> {
+@RegisterTransactionMapper('blockcypher')
+export class BlockCypherTransactionMapper extends BaseRawDataMapper<BlockCypherTransaction> {
   private logger = getLogger('BlockCypherProcessor');
   protected readonly schema = BlockCypherTransactionSchema;
 
-  protected transformValidated(
+  protected mapInternal(
     rawData: BlockCypherTransaction,
     sessionContext: ImportSessionMetadata
   ): Result<UniversalBlockchainTransaction[], string> {

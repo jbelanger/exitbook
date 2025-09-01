@@ -4,15 +4,16 @@ import { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
 import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
-import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
-import { BaseRawDataTransformer } from '../../shared/base-raw-data-mapper.ts';
+import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.ts';
+import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.ts';
 import type { UniversalBlockchainTransaction } from '../../shared/types.ts';
 import { MoralisTransactionSchema } from '../schemas.ts';
 import type { MoralisNativeBalance, MoralisTokenBalance, MoralisTokenTransfer, MoralisTransaction } from '../types.ts';
 
-@RegisterProcessor('moralis')
-export class MoralisProcessor extends BaseRawDataTransformer<MoralisTransaction> {
+@RegisterTransactionMapper('moralis')
+export class MoralisTransactionMapper extends BaseRawDataMapper<MoralisTransaction> {
   protected readonly schema = MoralisTransactionSchema;
+
   private static convertNativeTransaction(tx: MoralisTransaction): UniversalBlockchainTransaction {
     const valueWei = parseDecimal(tx.value);
     const valueEth = valueWei.dividedBy(new Decimal(10).pow(18));
@@ -110,7 +111,7 @@ export class MoralisProcessor extends BaseRawDataTransformer<MoralisTransaction>
     return transfers.map(tx => this.convertTokenTransfer(tx));
   }
 
-  protected transformValidated(
+  protected mapInternal(
     rawData: MoralisTransaction,
     _sessionContext: ImportSessionMetadata
   ): Result<UniversalBlockchainTransaction[], string> {

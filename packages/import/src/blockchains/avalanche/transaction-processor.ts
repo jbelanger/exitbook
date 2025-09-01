@@ -7,7 +7,7 @@ import { type Result, err, ok } from 'neverthrow';
 
 import { BaseProcessor } from '../../shared/processors/base-processor.ts';
 import type { ApiClientRawData, ImportSessionMetadata } from '../../shared/processors/interfaces.ts';
-import { ProcessorFactory } from '../../shared/processors/processor-registry.ts';
+import { TransactionMapperFactory } from '../../shared/processors/processor-registry.ts';
 import type { UniversalBlockchainTransaction } from '../shared/types.ts';
 // Import processors to trigger registration
 import './mappers/index.ts';
@@ -160,12 +160,12 @@ export class AvalancheTransactionProcessor extends BaseProcessor<ApiClientRawDat
       }
 
       // Get the appropriate processor for this provider
-      const processor = ProcessorFactory.create(apiClientRawData.providerId);
+      const processor = TransactionMapperFactory.create(apiClientRawData.providerId);
       if (!processor) {
         return err(`No processor found for provider: ${apiClientRawData.providerId}`);
       }
 
-      const transformResult = processor.transform(apiClientRawData.rawData, sessionMetadata);
+      const transformResult = processor.map(apiClientRawData.rawData, sessionMetadata);
 
       if (transformResult.isErr()) {
         this.correlationLogger.error(`Failed to transform transaction: ${transformResult.error}`);

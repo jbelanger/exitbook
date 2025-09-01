@@ -1,8 +1,8 @@
 import { Result, ok } from 'neverthrow';
 
 import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
-import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
-import { BaseRawDataTransformer } from '../../shared/base-raw-data-mapper.ts';
+import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.ts';
+import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.ts';
 import type { UniversalBlockchainTransaction } from '../../shared/types.ts';
 import { SnowtraceAnyTransactionSchema } from '../schemas.ts';
 import type { SnowtraceInternalTransaction, SnowtraceTokenTransfer, SnowtraceTransaction } from '../types.ts';
@@ -12,8 +12,8 @@ export type SnowtraceRawData = {
   normal: SnowtraceTransaction[];
 };
 
-@RegisterProcessor('snowtrace')
-export class SnowtraceProcessor extends BaseRawDataTransformer<
+@RegisterTransactionMapper('snowtrace')
+export class SnowtraceTransactionMapper extends BaseRawDataMapper<
   SnowtraceTransaction | SnowtraceInternalTransaction | SnowtraceTokenTransfer
 > {
   protected readonly schema = SnowtraceAnyTransactionSchema;
@@ -108,7 +108,7 @@ export class SnowtraceProcessor extends BaseRawDataTransformer<
     return ok([transaction]);
   }
 
-  protected transformValidated(
+  protected mapInternal(
     rawData: SnowtraceTransaction | SnowtraceInternalTransaction | SnowtraceTokenTransfer,
     _sessionContext: ImportSessionMetadata
   ): Result<UniversalBlockchainTransaction[], string> {

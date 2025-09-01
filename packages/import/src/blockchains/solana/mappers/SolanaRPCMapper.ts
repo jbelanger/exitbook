@@ -3,8 +3,8 @@ import { maskAddress } from '@crypto/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
 import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
-import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
-import { BaseRawDataTransformer } from '../../shared/base-raw-data-mapper.ts';
+import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.ts';
+import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.ts';
 import type { UniversalBlockchainTransaction } from '../../shared/types.ts';
 import type { SolanaRPCRawTransactionData } from '../clients/SolanaRPCApiClient.ts';
 import { SolanaRPCRawTransactionDataSchema } from '../schemas.ts';
@@ -13,8 +13,8 @@ import { lamportsToSol } from '../utils.ts';
 
 const logger = getLogger('SolanaRPCProcessor');
 
-@RegisterProcessor('solana-rpc')
-export class SolanaRPCProcessor extends BaseRawDataTransformer<SolanaRPCRawTransactionData> {
+@RegisterTransactionMapper('solana-rpc')
+export class SolanaRPCTransactionMapper extends BaseRawDataMapper<SolanaRPCRawTransactionData> {
   protected readonly schema = SolanaRPCRawTransactionDataSchema;
   private static extractTokenTransaction(
     tx: SolanaRPCTransaction,
@@ -189,7 +189,7 @@ export class SolanaRPCProcessor extends BaseRawDataTransformer<SolanaRPCRawTrans
     }
   }
 
-  protected transformValidated(
+  protected mapInternal(
     rawData: SolanaRPCRawTransactionData,
     sessionContext: ImportSessionMetadata
   ): Result<UniversalBlockchainTransaction[], string> {
@@ -205,7 +205,7 @@ export class SolanaRPCProcessor extends BaseRawDataTransformer<SolanaRPCRawTrans
 
     // Process ALL transactions in the batch, not just the first one
     for (const tx of rawData.normal) {
-      const processedTx = SolanaRPCProcessor.transformTransaction(tx, sessionContext.address);
+      const processedTx = SolanaRPCTransactionMapper.transformTransaction(tx, sessionContext.address);
 
       if (!processedTx) {
         // Transaction filtered out - continue with next

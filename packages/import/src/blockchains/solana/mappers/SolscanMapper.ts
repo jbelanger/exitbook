@@ -4,8 +4,8 @@ import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
 import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
-import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
-import { BaseRawDataTransformer } from '../../shared/base-raw-data-mapper.ts';
+import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.ts';
+import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.ts';
 import type { UniversalBlockchainTransaction } from '../../shared/types.ts';
 import type { SolscanRawTransactionData } from '../clients/SolscanApiClient.ts';
 import { SolscanRawTransactionDataSchema } from '../schemas.ts';
@@ -14,8 +14,8 @@ import { lamportsToSol } from '../utils.ts';
 
 const logger = getLogger('SolscanProcessor');
 
-@RegisterProcessor('solscan')
-export class SolscanProcessor extends BaseRawDataTransformer<SolscanRawTransactionData> {
+@RegisterTransactionMapper('solscan')
+export class SolscanTransactionMapper extends BaseRawDataMapper<SolscanRawTransactionData> {
   protected readonly schema = SolscanRawTransactionDataSchema;
   static processAddressTransactions(
     rawData: SolscanRawTransactionData,
@@ -97,7 +97,7 @@ export class SolscanProcessor extends BaseRawDataTransformer<SolscanRawTransacti
     }
   }
 
-  protected transformValidated(
+  protected mapInternal(
     rawData: SolscanRawTransactionData,
     sessionContext: ImportSessionMetadata
   ): Result<UniversalBlockchainTransaction[], string> {
@@ -113,7 +113,7 @@ export class SolscanProcessor extends BaseRawDataTransformer<SolscanRawTransacti
 
     // Process ALL transactions in the batch, not just the first one
     for (const tx of rawData.normal) {
-      const processedTx = SolscanProcessor.transformTransaction(tx, sessionContext.address);
+      const processedTx = SolscanTransactionMapper.transformTransaction(tx, sessionContext.address);
 
       if (!processedTx) {
         // Transaction filtered out - continue with next

@@ -8,7 +8,7 @@ import type { UniversalBlockchainTransaction } from './types.ts';
  * Abstract base class for raw data transformers that handles validation automatically.
  * Implementing classes only need to provide the schema and implement the validated transform logic.
  */
-export abstract class BaseRawDataTransformer<TRawData> implements IRawDataMapper<TRawData> {
+export abstract class BaseRawDataMapper<TRawData> implements IRawDataMapper<TRawData> {
   /**
    * Schema used to validate raw data before transformation.
    * Must be implemented by concrete processor classes.
@@ -19,7 +19,7 @@ export abstract class BaseRawDataTransformer<TRawData> implements IRawDataMapper
    * Public transform method that handles validation internally and delegates to transformValidated.
    * Returns array of UniversalBlockchainTransaction for type-safe consumption by transaction processors.
    */
-  transform(rawData: TRawData, context: ImportSessionMetadata): Result<UniversalBlockchainTransaction[], string> {
+  map(rawData: TRawData, context: ImportSessionMetadata): Result<UniversalBlockchainTransaction[], string> {
     // Validate input data first
     const validationResult = this.schema.safeParse(rawData);
     if (!validationResult.success) {
@@ -31,7 +31,7 @@ export abstract class BaseRawDataTransformer<TRawData> implements IRawDataMapper
     }
 
     // Delegate to concrete implementation with validated data
-    return this.transformValidated(validationResult.data, context);
+    return this.mapInternal(validationResult.data, context);
   }
 
   /**
@@ -39,7 +39,7 @@ export abstract class BaseRawDataTransformer<TRawData> implements IRawDataMapper
    * This method is called only with validated data and rich session context.
    * Must return array of UniversalBlockchainTransaction for type safety.
    */
-  protected abstract transformValidated(
+  protected abstract mapInternal(
     rawData: TRawData,
     sessionContext: ImportSessionMetadata
   ): Result<UniversalBlockchainTransaction[], string>;

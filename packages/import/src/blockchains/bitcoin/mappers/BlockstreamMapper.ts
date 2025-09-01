@@ -1,17 +1,17 @@
 import { type Result, err, ok } from 'neverthrow';
 
 import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
-import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
-import { BaseRawDataTransformer } from '../../shared/base-raw-data-mapper.ts';
+import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.ts';
+import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.ts';
 import type { UniversalBlockchainTransaction } from '../../shared/types.ts';
 import { BlockstreamTransactionSchema } from '../schemas.ts';
 import type { BlockstreamTransaction } from '../types.ts';
 
-@RegisterProcessor('blockstream.info')
-export class BlockstreamProcessor extends BaseRawDataTransformer<BlockstreamTransaction> {
+@RegisterTransactionMapper('blockstream.info')
+export class BlockstreamTransactionMapper extends BaseRawDataMapper<BlockstreamTransaction> {
   protected readonly schema = BlockstreamTransactionSchema;
 
-  protected transformValidated(
+  protected mapInternal(
     rawData: BlockstreamTransaction,
     sessionContext: ImportSessionMetadata
   ): Result<UniversalBlockchainTransaction[], string> {

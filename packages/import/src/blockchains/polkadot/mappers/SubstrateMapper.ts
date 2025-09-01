@@ -3,8 +3,8 @@ import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
 import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
-import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
-import { BaseRawDataTransformer } from '../../shared/base-raw-data-mapper.ts';
+import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.ts';
+import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.ts';
 import type { UniversalBlockchainTransaction } from '../../shared/types.ts';
 import { SubscanTransferSchema } from '../schemas.ts';
 import type { SubscanTransfer, SubstrateAccountInfo, SubstrateChainConfig, TaostatsTransaction } from '../types.ts';
@@ -20,8 +20,8 @@ export interface SubstrateRawData {
   since?: number;
 }
 
-@RegisterProcessor('subscan')
-export class SubstrateProcessor extends BaseRawDataTransformer<SubscanTransfer> {
+@RegisterTransactionMapper('subscan')
+export class SubstrateTransactionMapper extends BaseRawDataMapper<SubscanTransfer> {
   protected readonly schema = SubscanTransferSchema;
   private static convertSubscanTransaction(
     transfer: SubscanTransfer,
@@ -202,7 +202,7 @@ export class SubstrateProcessor extends BaseRawDataTransformer<SubscanTransfer> 
     ];
   }
 
-  protected transformValidated(
+  protected mapInternal(
     rawData: SubscanTransfer,
     sessionContext: ImportSessionMetadata
   ): Result<UniversalBlockchainTransaction[], string> {
@@ -222,7 +222,7 @@ export class SubstrateProcessor extends BaseRawDataTransformer<SubscanTransfer> 
 
     // Convert single SubscanTransfer directly to UniversalBlockchainTransaction
     // Pass all relevant addresses for proper matching
-    const transaction = SubstrateProcessor.convertSubscanTransaction(rawData, relevantAddresses, chainConfig);
+    const transaction = SubstrateTransactionMapper.convertSubscanTransaction(rawData, relevantAddresses, chainConfig);
 
     if (!transaction) {
       return err(`Failed to convert transaction for addresses: ${Array.from(relevantAddresses).join(', ')}`);

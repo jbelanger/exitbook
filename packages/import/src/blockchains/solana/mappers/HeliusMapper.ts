@@ -3,16 +3,16 @@ import { maskAddress } from '@crypto/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
 import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
-import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
-import { BaseRawDataTransformer } from '../../shared/base-raw-data-mapper.ts';
+import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.ts';
+import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.ts';
 import type { UniversalBlockchainTransaction } from '../../shared/types.ts';
 import type { SolanaRawTransactionData } from '../clients/HeliusApiClient.ts';
 import { SolanaRawTransactionDataSchema } from '../schemas.ts';
 import type { HeliusTransaction } from '../types.ts';
 import { lamportsToSol } from '../utils.ts';
 
-@RegisterProcessor('helius')
-export class HeliusProcessor extends BaseRawDataTransformer<SolanaRawTransactionData> {
+@RegisterTransactionMapper('helius')
+export class HeliusTransactionMapper extends BaseRawDataMapper<SolanaRawTransactionData> {
   // Known Solana token mint addresses to symbols mapping
   private static readonly KNOWN_TOKEN_SYMBOLS: Record<string, string> = {
     '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R': 'RAY',
@@ -266,7 +266,7 @@ export class HeliusProcessor extends BaseRawDataTransformer<SolanaRawTransaction
     }
   }
 
-  protected transformValidated(
+  protected mapInternal(
     rawData: SolanaRawTransactionData,
     sessionContext: ImportSessionMetadata
   ): Result<UniversalBlockchainTransaction[], string> {
@@ -282,7 +282,7 @@ export class HeliusProcessor extends BaseRawDataTransformer<SolanaRawTransaction
 
     // Process ALL transactions in the batch, not just the first one
     for (const tx of rawData.normal) {
-      const processedTx = HeliusProcessor.transformTransaction(tx, sessionContext.address);
+      const processedTx = HeliusTransactionMapper.transformTransaction(tx, sessionContext.address);
 
       if (processedTx) {
         transactions.push(processedTx);

@@ -1,30 +1,19 @@
 import { type Result, err } from 'neverthrow';
 
 import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
-import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
-import { BaseRawDataTransformer } from '../../shared/base-raw-data-mapper.ts';
+import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.ts';
+import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.ts';
 import type { UniversalBlockchainTransaction } from '../../shared/types.ts';
 import { InjectiveBalanceResponseSchema } from '../schemas.ts';
 import type { InjectiveBalanceResponse } from '../types.ts';
 
-@RegisterProcessor('injective-lcd')
-export class InjectiveLCDProcessor extends BaseRawDataTransformer<InjectiveBalanceResponse> {
+@RegisterTransactionMapper('injective-lcd')
+export class InjectiveLCDTransactionMapper extends BaseRawDataMapper<InjectiveBalanceResponse> {
   protected readonly schema = InjectiveBalanceResponseSchema;
-  private formatDenom(denom: string | undefined): string {
-    if (!denom) {
-      return 'INJ';
-    }
 
-    if (denom === 'inj' || denom === 'uinj') {
-      return 'INJ';
-    }
-
-    return denom.toUpperCase();
-  }
-
-  protected transformValidated(
-    rawData: InjectiveBalanceResponse,
-    sessionContext: ImportSessionMetadata
+  protected mapInternal(
+    _rawData: InjectiveBalanceResponse,
+    _sessionContext: ImportSessionMetadata
   ): Result<UniversalBlockchainTransaction[], string> {
     // LCD processor is for balance data, not transaction data
     // This processor is created for consistency but should not be used for balance operations

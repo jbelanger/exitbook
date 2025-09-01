@@ -36,7 +36,7 @@ export interface IRawDataMapper<TRawData> {
    * Returns array of UniversalBlockchainTransaction for type-safe consumption by transaction processors.
    * Single transactions should return array with one element, batch responses return multiple elements.
    */
-  transform(rawData: TRawData, sessionContext: ImportSessionMetadata): Result<UniversalBlockchainTransaction[], string>;
+  map(rawData: TRawData, sessionContext: ImportSessionMetadata): Result<UniversalBlockchainTransaction[], string>;
 }
 
 /**

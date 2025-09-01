@@ -4,15 +4,16 @@ import { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
 import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
-import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
-import { BaseRawDataTransformer } from '../../shared/base-raw-data-mapper.ts';
+import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.ts';
+import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.ts';
 import type { UniversalBlockchainTransaction } from '../../shared/types.ts';
 import { AlchemyAssetTransferSchema } from '../schemas.ts';
 import type { AlchemyAssetTransfer, EtherscanBalance } from '../types.ts';
 
-@RegisterProcessor('alchemy')
-export class AlchemyProcessor extends BaseRawDataTransformer<AlchemyAssetTransfer> {
+@RegisterTransactionMapper('alchemy')
+export class AlchemyTransactionMapper extends BaseRawDataMapper<AlchemyAssetTransfer> {
   protected readonly schema = AlchemyAssetTransferSchema;
+
   private static convertAssetTransfer(
     transfer: AlchemyAssetTransfer,
     userAddress: string
@@ -108,7 +109,7 @@ export class AlchemyProcessor extends BaseRawDataTransformer<AlchemyAssetTransfe
     return transfers.map(transfer => this.convertAssetTransfer(transfer, userAddress));
   }
 
-  protected transformValidated(
+  protected mapInternal(
     rawData: AlchemyAssetTransfer,
     _sessionContext: ImportSessionMetadata
   ): Result<UniversalBlockchainTransaction[], string> {

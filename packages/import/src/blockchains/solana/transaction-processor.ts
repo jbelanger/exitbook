@@ -6,7 +6,7 @@ import { type Result, err, ok } from 'neverthrow';
 
 import { BaseProcessor } from '../../shared/processors/base-processor.ts';
 import type { ApiClientRawData, ImportSessionMetadata } from '../../shared/processors/interfaces.ts';
-import { ProcessorFactory } from '../../shared/processors/processor-registry.ts';
+import { TransactionMapperFactory } from '../../shared/processors/processor-registry.ts';
 import type { UniversalBlockchainTransaction } from '../shared/types.ts';
 import type { SolanaRawTransactionData } from './clients/HeliusApiClient.ts';
 import './mappers/index.ts';
@@ -29,13 +29,13 @@ export class SolanaTransactionProcessor extends BaseProcessor<ApiClientRawData<S
     const { providerId, rawData } = apiClientRawData;
 
     // Get the appropriate processor for this provider
-    const processor = ProcessorFactory.create(providerId);
+    const processor = TransactionMapperFactory.create(providerId);
     if (!processor) {
       return err(`No processor found for provider: ${providerId}`);
     }
 
     // Transform the full batch using the provider-specific processor
-    const transformResult = processor.transform(rawData, sessionContext);
+    const transformResult = processor.map(rawData, sessionContext);
 
     if (transformResult.isErr()) {
       return err(`Transform failed for ${providerId}: ${transformResult.error}`);

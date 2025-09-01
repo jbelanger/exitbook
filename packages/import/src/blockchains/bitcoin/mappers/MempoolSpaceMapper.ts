@@ -2,17 +2,17 @@ import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
 import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
-import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
-import { BaseRawDataTransformer } from '../../shared/base-raw-data-mapper.ts';
+import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.ts';
+import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.ts';
 import type { UniversalBlockchainTransaction } from '../../shared/types.ts';
 import { MempoolTransactionSchema } from '../schemas.ts';
 import type { MempoolTransaction } from '../types.ts';
 
-@RegisterProcessor('mempool.space')
-export class MempoolSpaceProcessor extends BaseRawDataTransformer<MempoolTransaction> {
+@RegisterTransactionMapper('mempool.space')
+export class MempoolSpaceTransactionMapper extends BaseRawDataMapper<MempoolTransaction> {
   protected readonly schema = MempoolTransactionSchema;
 
-  protected transformValidated(
+  protected mapInternal(
     rawData: MempoolTransaction,
     sessionContext: ImportSessionMetadata
   ): Result<UniversalBlockchainTransaction[], string> {

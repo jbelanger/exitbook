@@ -1,49 +1,49 @@
 import type { IRawDataMapper } from './interfaces.ts';
 
-const processorMap = new Map<string, new () => IRawDataMapper<unknown>>();
+const transactionMapperMap = new Map<string, new () => IRawDataMapper<unknown>>();
 
 /**
- * Decorator to register a processor with a specific provider ID
+ * Decorator to register a mapper with a specific provider ID
  */
-export function RegisterProcessor(providerId: string) {
+export function RegisterTransactionMapper(providerId: string) {
   return function (constructor: new () => IRawDataMapper<unknown>) {
-    if (processorMap.has(providerId)) {
-      console.warn(`Processor already registered for providerId: ${providerId}`);
+    if (transactionMapperMap.has(providerId)) {
+      console.warn(`Mapper already registered for providerId: ${providerId}`);
     }
-    processorMap.set(providerId, constructor);
+    transactionMapperMap.set(providerId, constructor);
   };
 }
 
 /**
- * Factory for creating processor instances based on provider ID
+ * Factory for creating mapper instances based on provider ID
  */
-export class ProcessorFactory {
+export class TransactionMapperFactory {
   /**
-   * Clear all registered processors (mainly for testing)
+   * Clear all registered mappers (mainly for testing)
    */
   static clear(): void {
-    processorMap.clear();
+    transactionMapperMap.clear();
   }
 
   /**
-   * Create a processor instance for the given provider ID
+   * Create a mapper instance for the given provider ID
    */
   static create(providerId: string): IRawDataMapper<unknown> | undefined {
-    const ProcessorClass = processorMap.get(providerId);
-    return ProcessorClass ? new ProcessorClass() : undefined;
+    const MapperClass = transactionMapperMap.get(providerId);
+    return MapperClass ? new MapperClass() : undefined;
   }
 
   /**
    * Get all registered provider IDs
    */
   static getRegisteredProviderIds(): string[] {
-    return Array.from(processorMap.keys());
+    return Array.from(transactionMapperMap.keys());
   }
 
   /**
-   * Check if a processor is registered for the given provider ID
+   * Check if a mapper is registered for the given provider ID
    */
   static isRegistered(providerId: string): boolean {
-    return processorMap.has(providerId);
+    return transactionMapperMap.has(providerId);
   }
 }

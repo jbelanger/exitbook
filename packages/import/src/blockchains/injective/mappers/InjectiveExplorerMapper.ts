@@ -2,15 +2,14 @@ import { parseDecimal } from '@crypto/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
 import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
-import { RegisterProcessor } from '../../../shared/processors/processor-registry.ts';
-import { BaseRawDataTransformer } from '../../shared/base-raw-data-mapper.ts';
+import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.ts';
+import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.ts';
 import type { UniversalBlockchainTransaction } from '../../shared/types.ts';
 import { InjectiveTransactionSchema } from '../schemas.ts';
 import type { InjectiveMessageValue, InjectiveTransaction } from '../types.ts';
 
-@RegisterProcessor('injective-explorer')
-export class InjectiveExplorerProcessor extends BaseRawDataTransformer<InjectiveTransaction> {
-  private readonly INJECTIVE_DENOM = 'inj';
+@RegisterTransactionMapper('injective-explorer')
+export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<InjectiveTransaction> {
   protected readonly schema = InjectiveTransactionSchema;
 
   private formatDenom(denom: string | undefined): string {
@@ -25,7 +24,7 @@ export class InjectiveExplorerProcessor extends BaseRawDataTransformer<Injective
     return denom.toUpperCase();
   }
 
-  protected transformValidated(
+  protected mapInternal(
     rawData: InjectiveTransaction,
     sessionContext: ImportSessionMetadata
   ): Result<UniversalBlockchainTransaction[], string> {
