@@ -126,7 +126,6 @@ export class Database {
         source_id TEXT NOT NULL,
         source_type TEXT NOT NULL,
         provider_id TEXT,
-        source_transaction_id TEXT NOT NULL,
         raw_data JSON NOT NULL,
         metadata JSON,
         processing_status TEXT DEFAULT 'pending',
@@ -134,7 +133,7 @@ export class Database {
         processed_at INTEGER,
         created_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
         import_session_id INTEGER,
-        UNIQUE(source_id, provider_id, source_transaction_id),
+        UNIQUE(source_id, provider_id),
         FOREIGN KEY (import_session_id) REFERENCES import_sessions (id)
       )`,
 
@@ -587,7 +586,6 @@ export class Database {
           s.*,
           r.id as raw_id,
           r.provider_id,
-          r.source_transaction_id,
           r.raw_data,
           r.metadata as raw_metadata,
           r.processing_status,
@@ -683,7 +681,6 @@ export class Database {
                 providerId: dbRow.provider_id ? (dbRow.provider_id as string) : undefined,
                 rawData: JSON.parse(dbRow.raw_data as string),
                 sourceId: session.sourceId,
-                sourceTransactionId: dbRow.source_transaction_id as string,
                 sourceType: session.sourceType,
               };
 
@@ -747,7 +744,6 @@ export class Database {
       providerId?: string | undefined;
       rawData: unknown;
       sourceId: string;
-      sourceTransactionId: string;
       sourceType: string;
     }>
   > {
@@ -804,7 +800,6 @@ export class Database {
               providerId: dbRow.provider_id ? (dbRow.provider_id as string) : undefined,
               rawData: JSON.parse(dbRow.raw_data as string),
               sourceId: dbRow.source_id as string,
-              sourceTransactionId: dbRow.source_transaction_id as string,
               sourceType: dbRow.source_type as string,
             };
           });
@@ -1067,7 +1062,6 @@ export class Database {
   async saveRawTransaction(
     sourceId: string,
     sourceType: string,
-    sourceTransactionId: string,
     rawData: unknown,
     options?: {
       importSessionId?: number | undefined;
@@ -1078,9 +1072,9 @@ export class Database {
     return new Promise((resolve, reject) => {
       const stmt = this.db.prepare(`
         INSERT INTO external_transaction_data 
-        (source_id, source_type, provider_id, source_transaction_id, raw_data, metadata, import_session_id)
+        (source_id, source_type, provider_id, raw_data, metadata, import_session_id)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(source_id, provider_id, source_transaction_id) DO UPDATE SET
+        ON CONFLICT(source_id, provider_id) DO UPDATE SET
           raw_data = excluded.raw_data,
           metadata = excluded.metadata,
           import_session_id = excluded.import_session_id
@@ -1094,7 +1088,6 @@ export class Database {
         sourceId, 
         sourceType, 
         providerId,
-        sourceTransactionId, 
         rawDataJson, 
         metadataJson,
         options?.importSessionId || null
@@ -1113,7 +1106,7 @@ export class Database {
   async saveRawTransactions(
     sourceId: string,
     sourceType: string,
-    rawTransactions: Array<{ data: unknown; id: string; }>,
+    rawTransactions: Array<{ data: unknown; }>,
     options?: {
       importSessionId?: number | undefined;
       metadata?: unknown;
@@ -1142,8 +1135,8 @@ export class Database {
 
         const stmt = db.prepare(`
           INSERT OR IGNORE INTO external_transaction_data 
-          (source_id, source_type, provider_id, source_transaction_id, raw_data, metadata, import_session_id)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
+          (source_id, source_type, provider_id, raw_data, metadata, import_session_id)
+          VALUES (?, ?, ?, ?, ?, ?)
         `);
 
         for (const rawTx of rawTransactions) {
@@ -1157,7 +1150,6 @@ export class Database {
             sourceId, 
             sourceType, 
             providerId,
-            rawTx.id, 
             rawDataJson, 
             metadataJson,
             importSessionId
@@ -1416,8 +1408,7 @@ export class Database {
   }
 
   async updateRawTransactionProcessingStatus(
-    sourceId: string,
-    sourceTransactionId: string,
+    rawTransactionId: number,
     status: 'pending' | 'processed' | 'failed',
     error?: string,
     providerId?: string
@@ -1426,7 +1417,7 @@ export class Database {
       const stmt = this.db.prepare(`
         UPDATE external_transaction_data 
         SET processing_status = ?, processing_error = ?, processed_at = ?
-        WHERE source_id = ? AND source_transaction_id = ? AND (provider_id = ? OR (provider_id IS NULL AND ? IS NULL))
+        WHERE id = ? AND (provider_id = ? OR (provider_id IS NULL AND ? IS NULL))
       `);
 
       const processedAt = status === 'processed' ? Math.floor(Date.now() / 1000) : null;
@@ -1435,8 +1426,7 @@ export class Database {
         status, 
         error || null, 
         processedAt,
-        sourceId, 
-        sourceTransactionId,
+        rawTransactionId, 
         providerId || null,
         providerId || null
       ], function (err) {

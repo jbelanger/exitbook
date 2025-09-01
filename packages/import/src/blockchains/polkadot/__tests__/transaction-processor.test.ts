@@ -49,7 +49,6 @@ describe('PolkadotTransactionProcessor Integration', () => {
       sourceAddress,
     },
     sourceId: 'polkadot',
-    sourceTransactionId: transaction.hash,
     sourceType: 'blockchain',
   });
 
@@ -248,7 +247,6 @@ describe('PolkadotTransactionProcessor Integration', () => {
           // sourceAddress is missing
         } as ApiClientRawData<SubscanTransfer>,
         sourceId: 'polkadot',
-        sourceTransactionId: mockTransaction.hash,
         sourceType: 'blockchain',
       };
 

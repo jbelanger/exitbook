@@ -65,7 +65,7 @@ export abstract class BaseProcessor<TRawData> implements IProcessor<TRawData> {
    */
   protected handleProcessingError(error: unknown, rawData: StoredRawData<TRawData>, context: string): never {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    this.logger.error(`Processing failed for ${rawData.sourceTransactionId} in ${context}: ${errorMessage}`);
+    this.logger.error(`Processing failed for ${rawData.id} in ${context}: ${errorMessage}`);
     throw new Error(`${this.sourceId} processing failed: ${errorMessage}`);
   }
 

@@ -161,7 +161,6 @@ export class TransactionIngestionService {
         sourceType,
         rawData.map((item, index) => ({
           data: item,
-          id: this.extractTransactionId(item.rawData as Record<string, unknown>, index, String(importSessionId ?? 0)),
         })),
         {
           importSessionId: importSessionId ?? undefined,
@@ -328,7 +327,7 @@ export class TransactionIngestionService {
       const allProcessedItems = sessionsToProcess.flatMap(sessionData =>
         sessionData.rawDataItems.filter(item => item.processingStatus === 'pending')
       );
-      const allRawDataIds = allProcessedItems.map(item => item.sourceTransactionId);
+      const allRawDataIds = allProcessedItems.map(item => item.id);
       await this.rawDataRepository.markAsProcessed(sourceId, allRawDataIds, filters?.providerId);
 
       // Log the processing results

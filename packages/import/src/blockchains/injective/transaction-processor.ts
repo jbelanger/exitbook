@@ -100,7 +100,7 @@ export class InjectiveTransactionProcessor extends BaseProcessor<ApiClientRawDat
     for (const item of rawDataItems) {
       const result = this.processSingle(item, sessionContext);
       if (result.isErr()) {
-        this.logger.warn(`Failed to process transaction ${item.sourceTransactionId}: ${result.error}`);
+        this.logger.warn(`Failed to process transaction ${item.id}: ${result.error}`);
         continue; // Continue processing other transactions
       }
 

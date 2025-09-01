@@ -29,7 +29,7 @@ export interface IRawDataRepository {
   /**
    * Mark multiple items as processed.
    */
-  markAsProcessed(sourceId: string, sourceTransactionIds: string[], providerId?: string): Promise<void>;
+  markAsProcessed(sourceId: string, sourceTransactionIds: number[], providerId?: string): Promise<void>;
 
   /**
    * Save external data items to storage.
@@ -42,22 +42,10 @@ export interface IRawDataRepository {
   ): Promise<number>;
 
   /**
-   * Save a single external data item to storage.
-   */
-  saveSingle(
-    sourceId: string,
-    sourceType: string,
-    sourceTransactionId: string,
-    rawData: unknown,
-    options?: SaveRawDataOptions
-  ): Promise<void>;
-
-  /**
    * Update the processing status of external data items.
    */
   updateProcessingStatus(
-    sourceId: string,
-    sourceTransactionId: string,
+    rawTransactionId: number,
     status: 'pending' | 'processed' | 'failed',
     error?: string,
     providerId?: string
@@ -91,7 +79,6 @@ export class RawDataRepository implements IRawDataRepository {
         providerId: item.providerId,
         rawData: item.rawData,
         sourceId: item.sourceId,
-        sourceTransactionId: item.sourceTransactionId,
         sourceType: item.sourceType,
       }));
     } catch (error) {
@@ -100,17 +87,17 @@ export class RawDataRepository implements IRawDataRepository {
     }
   }
 
-  async markAsProcessed(sourceId: string, sourceTransactionIds: string[], providerId?: string): Promise<void> {
-    this.logger.info(`Marking ${sourceTransactionIds.length} items as processed for ${sourceId}`);
+  async markAsProcessed(sourceId: string, rawTransactionIds: number[], providerId?: string): Promise<void> {
+    this.logger.info(`Marking ${rawTransactionIds.length} items as processed for ${sourceId}`);
 
     try {
-      const promises = sourceTransactionIds.map(id =>
-        this.updateProcessingStatus(sourceId, id, 'processed', undefined, providerId)
+      const promises = rawTransactionIds.map(id =>
+        this.updateProcessingStatus(id, 'processed', undefined, providerId)
       );
 
       await Promise.all(promises);
 
-      this.logger.info(`Successfully marked ${sourceTransactionIds.length} items as processed for ${sourceId}`);
+      this.logger.info(`Successfully marked ${rawTransactionIds.length} items as processed for ${sourceId}`);
     } catch (error) {
       this.logger.error(`Failed to mark items as processed for ${sourceId}: ${error}`);
       throw error;
@@ -120,7 +107,7 @@ export class RawDataRepository implements IRawDataRepository {
   async save(
     sourceId: string,
     sourceType: string,
-    rawData: Array<{ data: unknown; id: string }>,
+    rawData: Array<{ data: unknown;}>,
     options?: SaveRawDataOptions
   ): Promise<number> {
     this.logger.info(`Saving ${rawData.length} raw data items for ${sourceId}`);
@@ -141,47 +128,22 @@ export class RawDataRepository implements IRawDataRepository {
     }
   }
 
-  async saveSingle(
-    sourceId: string,
-    sourceType: string,
-    sourceTransactionId: string,
-    rawData: unknown,
-    options?: SaveRawDataOptions
-  ): Promise<void> {
-    this.logger.debug(`Saving single raw data item ${sourceTransactionId} for ${sourceId}`);
-
-    try {
-      await this.database.saveRawTransaction(sourceId, sourceType, sourceTransactionId, rawData, {
-        importSessionId: options?.importSessionId ?? undefined,
-        metadata: options?.metadata,
-        providerId: options?.providerId ?? undefined,
-      });
-
-      this.logger.debug(`Successfully saved raw data item ${sourceTransactionId} for ${sourceId}`);
-    } catch (error) {
-      this.logger.error(`Failed to save raw data item ${sourceTransactionId} for ${sourceId}: ${error}`);
-      throw error;
-    }
-  }
-
   async updateProcessingStatus(
-    adapterId: string,
-    sourceTransactionId: string,
+    rawTransactionId: number,
     status: 'pending' | 'processed' | 'failed',
     error?: string,
     providerId?: string
   ): Promise<void> {    
     try {
       await this.database.updateRawTransactionProcessingStatus(
-        adapterId,
-        sourceTransactionId,
+        rawTransactionId,        
         status,
         error,
         providerId
       );
 
     } catch (error) {
-      this.logger.error(`Failed to update processing status for ${adapterId}:${sourceTransactionId}: ${error}`);
+      this.logger.error(`Failed to update processing status for ${rawTransactionId}: ${error}`);
       throw error;
     }
   }

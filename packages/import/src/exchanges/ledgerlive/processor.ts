@@ -129,7 +129,7 @@ export class LedgerLiveProcessor extends BaseProcessor<CsvLedgerLiveOperationRow
     for (const rawDataItem of rawDataItems) {
       const result = this.processSingle(rawDataItem);
       if (result.isErr()) {
-        this.logger.warn(`Failed to process Ledger Live row ${rawDataItem.sourceTransactionId}: ${result.error}`);
+        this.logger.warn(`Failed to process Ledger Live row ${rawDataItem.id}: ${result.error}`);
         continue;
       }
 

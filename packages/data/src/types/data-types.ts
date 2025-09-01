@@ -120,7 +120,6 @@ export interface StoredRawData<TRawData = unknown> {
   providerId?: string | undefined;
   rawData: TRawData;
   sourceId: string;
-  sourceTransactionId: string;
   sourceType: string;
 }
 

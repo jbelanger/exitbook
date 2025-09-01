@@ -271,7 +271,7 @@ export class KucoinProcessor extends BaseProcessor<ApiClientRawData<CsvKuCoinRaw
     for (const rawDataItem of rawDataItems) {
       const result = this.processSingle(rawDataItem);
       if (result.isErr()) {
-        this.logger.warn(`Failed to process KuCoin batch ${rawDataItem.sourceTransactionId}: ${result.error}`);
+        this.logger.warn(`Failed to process KuCoin batch: ${result.error}`);
         continue;
       }
 

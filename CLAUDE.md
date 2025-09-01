@@ -30,21 +30,21 @@ pnpm run test:coinbase:e2e
 # Development with hot reload and debug logging
 pnpm run dev
 
-# Import from all configured exchanges
-pnpm run import
-
 # Import from specific exchange or blockchain
-pnpm run import -- --exchange kucoin
-pnpm run import -- --blockchain bitcoin --addresses <address1> <address2>
+pnpm run dev import --exchange kucoin --csv-dir ""
+pnpm run dev import --blockchain bitcoin --addresses <address1> <address2>
+
+# Process Import
+pnpm run dev process --exchange kucoin --all
+pnpm run dev process --blockchain bitcoin --all
 
 # Import with balance verification
-pnpm run import:verify
+pnpm run dev verify --exchange kucoin
+pnpm run dev verify --blockchain bitcoin
 
 # Check account status and balances
 pnpm run status
 
-# Verify existing balances
-pnpm run verify
 ```
 
 ### Provider and Configuration Management
@@ -59,9 +59,6 @@ pnpm run blockchain-providers:validate
 # Generate blockchain config template from providers
 pnpm run blockchain-config:generate
 
-# Note: Some exchange management commands may not be fully functional:
-# pnpm run exchanges:list
-# pnpm run exchanges:validate-config
 ```
 
 ## Architecture Overview

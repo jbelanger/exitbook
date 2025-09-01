@@ -160,7 +160,7 @@ export class BitcoinTransactionProcessor extends BaseProcessor<ApiClientRawData<
       const typedItem = item as StoredRawData<ApiClientRawData<BitcoinTransaction>>;
       const result = this.processSingleWithContext(typedItem, sessionContext);
       if (result.isErr()) {
-        this.logger.warn(`Failed to process transaction ${item.sourceTransactionId}: ${result.error}`);
+        this.logger.warn(`Failed to process transaction ${item.id}: ${result.error}`);
         continue; // Continue processing other transactions
       }
 

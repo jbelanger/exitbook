@@ -160,7 +160,7 @@ export class SolanaTransactionProcessor extends BaseProcessor<ApiClientRawData<S
     for (const item of rawDataItems) {
       const result = this.processSingle(item, sessionContext);
       if (result.isErr()) {
-        this.logger.warn(`Failed to process transaction batch ${item.sourceTransactionId}: ${result.error}`);
+        this.logger.warn(`Failed to process transaction batch ${item.id}: ${result.error}`);
         continue; // Continue processing other transaction batches
       }
 
