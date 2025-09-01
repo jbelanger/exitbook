@@ -24,8 +24,12 @@ export class KrakenProcessor extends BaseProcessor<ApiClientRawData<CsvKrakenLed
   private convertDepositToTransaction(row: CsvKrakenLedgerRow): UniversalTransaction {
     const timestamp = new Date(row.time).getTime();
     const grossAmount = parseDecimal(row.amount).toNumber();
-    const fee = parseDecimal(row.fee || '0').toNumber();
-    const netAmount = grossAmount - fee; // Net amount after fee
+    const fee = parseDecimal(row.fee || '0')
+      .abs()
+      .toNumber();
+
+    // For Kraken deposits: amount is gross, user actually receives amount - fee
+    const netAmount = grossAmount - fee;
 
     return {
       amount: createMoney(netAmount, row.asset),
@@ -105,10 +109,14 @@ export class KrakenProcessor extends BaseProcessor<ApiClientRawData<CsvKrakenLed
     const receiveAmount = parseDecimal(receive.amount).toNumber();
 
     // Check fees from both spend and receive transactions
-    const spendFee = parseDecimal(spend.fee || '0').toNumber();
-    const receiveFee = parseDecimal(receive.fee || '0').toNumber();
+    const spendFee = parseDecimal(spend.fee || '0')
+      .abs()
+      .toNumber();
+    const receiveFee = parseDecimal(receive.fee || '0')
+      .abs()
+      .toNumber();
 
-    // Determine which transaction has the fee and adjust accordingly
+    // Determine fee source and amount
     let totalFee = 0;
     let feeAsset = spend.asset;
 
@@ -120,13 +128,16 @@ export class KrakenProcessor extends BaseProcessor<ApiClientRawData<CsvKrakenLed
       feeAsset = receive.asset;
     }
 
+    // For Kraken: fee is always additional to the shown amounts
+    // Receive amount is always the net amount (no adjustment needed)
+    const finalReceiveAmount = receiveAmount;
+
     return {
-      amount: createMoney(receiveAmount, receive.asset),
+      amount: createMoney(finalReceiveAmount, receive.asset),
       datetime: spend.time,
       fee: createMoney(totalFee, feeAsset),
       id: spend.txid,
       metadata: {
-        feeAdjustment: receiveFee > 0 ? 'receive_adjusted' : 'spend_fee',
         originalRows: { receive, spend },
         receive,
         spend,
@@ -168,7 +179,9 @@ export class KrakenProcessor extends BaseProcessor<ApiClientRawData<CsvKrakenLed
   private convertWithdrawalToTransaction(row: CsvKrakenLedgerRow): UniversalTransaction {
     const timestamp = new Date(row.time).getTime();
     const amount = parseDecimal(row.amount).abs().toNumber();
-    const fee = parseDecimal(row.fee || '0').toNumber();
+    const fee = parseDecimal(row.fee || '0')
+      .abs()
+      .toNumber();
 
     return {
       amount: createMoney(amount, row.asset),
@@ -328,30 +341,67 @@ export class KrakenProcessor extends BaseProcessor<ApiClientRawData<CsvKrakenLed
         );
 
         if (receive && spends.length > 0) {
-          const receiveAmount = parseDecimal(receive.amount).abs().toNumber();
+          const receiveAmountAbs = parseDecimal(receive.amount).abs().toNumber();
 
           // Kraken dustsweeping: small amounts (< 1) get converted, creating multiple spends for one receive
-          if (receiveAmount < 1) {
+          if (receiveAmountAbs < 1) {
             this.logger.warn(
-              `Dustsweeping detected for refid ${refId}: ${receiveAmount} ${receive.asset} with ${spends.length} spend transactions`
+              `Dustsweeping detected for refid ${refId}: ${receiveAmountAbs} ${receive.asset} with ${spends.length} spend transactions`
             );
 
-            // Create deposit transaction for the received amount
-            const depositTransaction = this.convertDepositToTransaction(receive);
-            depositTransaction.metadata = {
-              ...depositTransaction.metadata,
-              dustsweeping: true,
-              relatedRefId: refId,
+            // Create deposit transaction for the received amount (net after fee deduction)
+            const receiveAmount = parseDecimal(receive.amount).toNumber();
+            const receiveFee = parseDecimal(receive.fee || '0')
+              .abs()
+              .toNumber();
+            const netReceiveAmount = receiveAmount - receiveFee;
+
+            const depositTransaction: UniversalTransaction = {
+              amount: createMoney(netReceiveAmount, receive.asset),
+              datetime: receive.time,
+              fee: createMoney(receiveFee, receive.asset),
+              id: receive.txid,
+              metadata: {
+                dustsweeping: true,
+                originalRow: receive,
+                relatedRefId: refId,
+                txHash: undefined,
+                wallet: receive.wallet,
+              },
+              network: 'exchange',
+              source: 'kraken',
+              status: this.mapStatus(),
+              symbol: receive.asset,
+              timestamp: new Date(receive.time).getTime(),
+              type: 'deposit' as const,
             };
             transactions.push(depositTransaction);
 
             // Create withdrawal transactions for each spend
             for (const spend of spends) {
-              const withdrawalTransaction = this.convertWithdrawalToTransaction(spend);
-              withdrawalTransaction.metadata = {
-                ...withdrawalTransaction.metadata,
-                dustsweeping: true,
-                relatedRefId: refId,
+              const spendAmount = parseDecimal(spend.amount).abs().toNumber();
+              const spendFee = parseDecimal(spend.fee || '0')
+                .abs()
+                .toNumber();
+
+              const withdrawalTransaction: UniversalTransaction = {
+                amount: createMoney(spendAmount, spend.asset),
+                datetime: spend.time,
+                fee: createMoney(spendFee, spend.asset),
+                id: spend.txid,
+                metadata: {
+                  dustsweeping: true,
+                  originalRow: spend,
+                  relatedRefId: refId,
+                  txHash: undefined,
+                  wallet: spend.wallet,
+                },
+                network: 'exchange',
+                source: 'kraken',
+                status: this.mapStatus(),
+                symbol: spend.asset,
+                timestamp: new Date(spend.time).getTime(),
+                type: 'withdrawal' as const,
               };
               transactions.push(withdrawalTransaction);
             }
