@@ -1,6 +1,7 @@
 import type { UniversalTransaction } from '@crypto/core';
 import type { StoredRawData } from '@crypto/data';
 import { createMoney, parseDecimal } from '@crypto/shared-utils';
+import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseProcessor } from '../../shared/processors/base-processor.ts';
@@ -23,13 +24,11 @@ export class KrakenProcessor extends BaseProcessor<ApiClientRawData<CsvKrakenLed
 
   private convertDepositToTransaction(row: CsvKrakenLedgerRow): UniversalTransaction {
     const timestamp = new Date(row.time).getTime();
-    const grossAmount = parseDecimal(row.amount).toNumber();
-    const fee = parseDecimal(row.fee || '0')
-      .abs()
-      .toNumber();
+    const grossAmount = row.amount;
+    const fee = row.fee || '0';
 
     // For Kraken deposits: amount is gross, user actually receives amount - fee
-    const netAmount = grossAmount - fee;
+    const netAmount = String(parseDecimal(grossAmount).minus(fee));
 
     return {
       amount: createMoney(netAmount, row.asset),
@@ -52,8 +51,8 @@ export class KrakenProcessor extends BaseProcessor<ApiClientRawData<CsvKrakenLed
 
   private convertSingleTradeToTransaction(trade: CsvKrakenLedgerRow): UniversalTransaction {
     const timestamp = new Date(trade.time).getTime();
-    const amount = parseDecimal(trade.amount).abs().toNumber();
-    const fee = parseDecimal(trade.fee || '0').toNumber();
+    const amount = trade.amount;
+    const fee = trade.fee || '0';
 
     return {
       amount: createMoney(amount, trade.asset),
@@ -77,13 +76,13 @@ export class KrakenProcessor extends BaseProcessor<ApiClientRawData<CsvKrakenLed
     positive: CsvKrakenLedgerRow
   ): UniversalTransaction {
     const timestamp = new Date(negative.time).getTime();
-    const sentAmount = parseDecimal(negative.amount).abs().toNumber();
-    const receivedAmount = parseDecimal(positive.amount).toNumber();
+    const sentAmount = negative.amount;
+    const receivedAmount = positive.amount;
 
     return {
       amount: createMoney(receivedAmount, positive.asset),
       datetime: negative.time,
-      fee: createMoney(0, positive.asset),
+      fee: createMoney('0', positive.asset),
       id: `${negative.txid}_${positive.txid}`,
       metadata: {
         fromAsset: negative.asset,
@@ -105,32 +104,30 @@ export class KrakenProcessor extends BaseProcessor<ApiClientRawData<CsvKrakenLed
 
   private convertTradeToTransaction(spend: CsvKrakenLedgerRow, receive: CsvKrakenLedgerRow): UniversalTransaction {
     const timestamp = new Date(spend.time).getTime();
-    const spendAmount = parseDecimal(spend.amount).abs().toNumber();
-    const receiveAmount = parseDecimal(receive.amount).toNumber();
+    const spendAmount = spend.amount;
+    const receiveAmount = receive.amount;
 
     // Check fees from both spend and receive transactions
-    const spendFee = parseDecimal(spend.fee || '0')
-      .abs()
-      .toNumber();
-    const receiveFee = parseDecimal(receive.fee || '0')
-      .abs()
-      .toNumber();
+    const spendFee = spend.fee || '0';
+    const receiveFee = receive.fee || '0';
 
     // Determine fee source and amount
-    let totalFee = 0;
+    let totalFee = '0';
     let feeAsset = spend.asset;
 
-    if (spendFee > 0) {
+    if (!parseDecimal(spendFee).isZero()) {
       totalFee = spendFee;
       feeAsset = spend.asset;
-    } else if (receiveFee > 0) {
+    } else if (!parseDecimal(receiveFee).isZero()) {
       totalFee = receiveFee;
       feeAsset = receive.asset;
     }
 
     // For Kraken: fee is always additional to the shown amounts
     // Receive amount is always the net amount (no adjustment needed)
-    const finalReceiveAmount = receiveAmount;
+    //const finalReceiveAmount = receiveAmount;
+    const isReceiveFee = receive.asset === feeAsset && !parseDecimal(receiveFee).isZero();
+    const finalReceiveAmount = isReceiveFee ? String(parseDecimal(receiveAmount).minus(totalFee)) : receiveAmount;
 
     return {
       amount: createMoney(finalReceiveAmount, receive.asset),
@@ -157,9 +154,9 @@ export class KrakenProcessor extends BaseProcessor<ApiClientRawData<CsvKrakenLed
     const isIncoming = parseDecimal(transfer.amount).isPositive();
 
     return {
-      amount: createMoney(parseDecimal(transfer.amount).abs().toNumber(), transfer.asset),
+      amount: createMoney(transfer.amount, transfer.asset),
       datetime: transfer.time,
-      fee: createMoney(parseDecimal(transfer.fee || '0').toNumber(), transfer.asset),
+      fee: createMoney(transfer.fee || '0', transfer.asset),
       id: transfer.txid,
       metadata: {
         isTransfer: true,
@@ -178,15 +175,11 @@ export class KrakenProcessor extends BaseProcessor<ApiClientRawData<CsvKrakenLed
 
   private convertWithdrawalToTransaction(row: CsvKrakenLedgerRow): UniversalTransaction {
     const timestamp = new Date(row.time).getTime();
-    const amount = parseDecimal(row.amount).abs().toNumber();
-    const fee = parseDecimal(row.fee || '0')
-      .abs()
-      .toNumber();
 
     return {
-      amount: createMoney(amount, row.asset),
+      amount: createMoney(row.amount, row.asset),
       datetime: row.time,
-      fee: createMoney(fee, row.asset),
+      fee: createMoney(row.fee, row.asset),
       id: row.txid,
       metadata: {
         originalRow: row,
@@ -240,7 +233,7 @@ export class KrakenProcessor extends BaseProcessor<ApiClientRawData<CsvKrakenLed
     for (const transfer of transferRows) {
       if (processed.has(transfer.txid)) continue;
 
-      const amount = parseDecimal(transfer.amount).abs().toNumber();
+      const amount = parseDecimal(transfer.amount);
       const transferDate = new Date(transfer.time).toDateString();
 
       const match = transferRows.find(
@@ -341,20 +334,18 @@ export class KrakenProcessor extends BaseProcessor<ApiClientRawData<CsvKrakenLed
         );
 
         if (receive && spends.length > 0) {
-          const receiveAmountAbs = parseDecimal(receive.amount).abs().toNumber();
+          const receiveAmountAbs = parseDecimal(receive.amount);
 
           // Kraken dustsweeping: small amounts (< 1) get converted, creating multiple spends for one receive
-          if (receiveAmountAbs < 1) {
+          if (receiveAmountAbs.lt(1)) {
             this.logger.warn(
               `Dustsweeping detected for refid ${refId}: ${receiveAmountAbs} ${receive.asset} with ${spends.length} spend transactions`
             );
 
             // Create deposit transaction for the received amount (net after fee deduction)
-            const receiveAmount = parseDecimal(receive.amount).toNumber();
-            const receiveFee = parseDecimal(receive.fee || '0')
-              .abs()
-              .toNumber();
-            const netReceiveAmount = receiveAmount - receiveFee;
+            const receiveAmount = receive.amount;
+            const receiveFee = receive.fee || '0';
+            const netReceiveAmount = String(parseDecimal(receiveAmount).minus(receiveFee));
 
             const depositTransaction: UniversalTransaction = {
               amount: createMoney(netReceiveAmount, receive.asset),
@@ -379,10 +370,8 @@ export class KrakenProcessor extends BaseProcessor<ApiClientRawData<CsvKrakenLed
 
             // Create withdrawal transactions for each spend
             for (const spend of spends) {
-              const spendAmount = parseDecimal(spend.amount).abs().toNumber();
-              const spendFee = parseDecimal(spend.fee || '0')
-                .abs()
-                .toNumber();
+              const spendAmount = parseDecimal(spend.amount);
+              const spendFee = parseDecimal(spend.fee || '0');
 
               const withdrawalTransaction: UniversalTransaction = {
                 amount: createMoney(spendAmount, spend.asset),
@@ -461,13 +450,13 @@ export class KrakenProcessor extends BaseProcessor<ApiClientRawData<CsvKrakenLed
         const positive = group.find(t => parseDecimal(t.amount).gt(0));
 
         if (negative && positive && negative.asset !== positive.asset) {
-          const negativeAmount = parseDecimal(negative.amount).abs().toNumber();
-          const positiveAmount = parseDecimal(positive.amount).toNumber();
+          const negativeAmount = parseDecimal(negative.amount);
+          const positiveAmount = parseDecimal(positive.amount);
 
-          const amountDiff = Math.abs(negativeAmount - positiveAmount);
-          const relativeDiff = amountDiff / Math.max(negativeAmount, positiveAmount);
+          const amountDiff = negativeAmount.minus(positiveAmount);
+          const relativeDiff = amountDiff.dividedBy(Decimal.max(negativeAmount, positiveAmount));
 
-          if (relativeDiff < 0.001) {
+          if (relativeDiff.lt(0.001)) {
             this.logger.info(
               `Token migration detected: ${negativeAmount} ${negative.asset} -> ${positiveAmount} ${positive.asset}`
             );

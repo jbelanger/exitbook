@@ -16,7 +16,7 @@ Decimal.set({
 /**
  * Try to parse a string or number to a Decimal
  */
-export function tryParseDecimal(value: string | number | undefined | null, out?: { value: Decimal }): boolean {
+export function tryParseDecimal(value: string | Decimal | undefined | null, out?: { value: Decimal }): boolean {
   if (value === undefined || value === null || value === '') {
     if (out) out.value = new Decimal(0);
     return true;
@@ -34,7 +34,7 @@ export function tryParseDecimal(value: string | number | undefined | null, out?:
 /**
  * Parse a string or number to a Decimal with fallback to zero
  */
-export function parseDecimal(value: string | number | undefined | null): Decimal {
+export function parseDecimal(value: string | Decimal | undefined | null): Decimal {
   const result = { value: new Decimal(0) };
   tryParseDecimal(value, result);
   return result.value;
@@ -43,7 +43,7 @@ export function parseDecimal(value: string | number | undefined | null): Decimal
 /**
  * Create a Money object with proper decimal parsing
  */
-export function createMoney(amount: string | number | undefined | null, currency: string): Money {
+export function createMoney(amount: string | Decimal | undefined | null, currency: string): Money {
   return {
     amount: parseDecimal(amount),
     currency: currency || 'unknown',

@@ -47,6 +47,9 @@ export class BalanceCalculationService {
           // For exchange transactions, the full amount is credited (fees handled separately if any)
           balances[amountCurrency] = balances[amountCurrency].plus(amount);
         }
+        else {
+          throw new Error(`Amount is zero for deposit transaction ID: ${transaction.id}`);
+        }
         break;
 
       case 'withdrawal':
@@ -54,12 +57,22 @@ export class BalanceCalculationService {
           // For blockchain transactions, amount already represents the net withdrawal (fees included)
           // For exchange transactions, amount is the withdrawal and fees are handled separately
           balances[amountCurrency] = balances[amountCurrency].minus(amount);
+          if (!feeCost.isZero() && feeCurrency && !this.isBlockchainTransaction(exchange)) {
+            if (!balances[feeCurrency]) balances[feeCurrency] = new Decimal(0);
+            balances[feeCurrency] = balances[feeCurrency].minus(feeCost);
+          }
+        }
+        else {
+          throw new Error(`Amount is zero for withdrawal transaction ID: ${transaction.id}`);
         }
         break;
 
       case 'fee':
         if (amountCurrency && balances[amountCurrency]) {
           balances[amountCurrency] = balances[amountCurrency].minus(amount);
+        }
+        else {
+          throw new Error(`Amount is zero for fee transaction ID: ${transaction.id}`);
         }
         break;
 
@@ -71,18 +84,27 @@ export class BalanceCalculationService {
         if (amountCurrency && balances[amountCurrency]) {
           balances[amountCurrency] = balances[amountCurrency].plus(amount);
         }
+        else {
+          throw new Error(`Amount is zero for trade transaction ID: ${transaction.id}`);
+        }
+
         if (priceCurrency && !price.isZero()) {
           if (!balances[priceCurrency]) balances[priceCurrency] = new Decimal(0);
           balances[priceCurrency] = balances[priceCurrency].minus(price);
         }
+        else{
+          console.log(transaction)
+          throw new Error(`Price is zero for trade transaction ID: ${transaction}`);
+        }
+        
         break;
     }
 
     // Only subtract fees separately for exchange transactions, not blockchain transactions
-    if (!feeCost.isZero() && feeCurrency && !this.isBlockchainTransaction(exchange)) {
-      if (!balances[feeCurrency]) balances[feeCurrency] = new Decimal(0);
-      balances[feeCurrency] = balances[feeCurrency].minus(feeCost);
-    }
+    // if (!feeCost.isZero() && feeCurrency && !this.isBlockchainTransaction(exchange)) {
+    //   if (!balances[feeCurrency]) balances[feeCurrency] = new Decimal(0);
+    //   balances[feeCurrency] = balances[feeCurrency].minus(feeCost);
+    // }
   }
 
   /**
