@@ -42,8 +42,9 @@ Research from major companies reveals a **pragmatic approach to microservices ad
 **Modular monoliths** have gained significant traction as a hybrid approach, allowing clear domain boundaries within a single deployable unit that can later extract microservices as needed. This approach provides **faster initial development** while maintaining **architectural flexibility** for future scaling needs.
 
 Major implementation patterns include:
+
 - **Event-driven architectures** for decoupled communication
-- **API gateway patterns** for service orchestration  
+- **API gateway patterns** for service orchestration
 - **Circuit breaker implementations** for resilience
 - **Domain-oriented microservice architecture (DOMA)** as used by Uber
 
@@ -58,6 +59,7 @@ Several approaches effectively maintain clear architectural boundaries, addressi
 **Monorepo strategies** effectively manage multiple related services or applications. Tools like **Nx provide advanced dependency graphs** and build orchestration, while **Turborepo offers fast, simple build coordination**. This approach enables **shared libraries and consistent tooling** across projects while maintaining clear boundaries.
 
 **Clean architecture implementations** using Express or Fastify require more discipline but offer maximum flexibility. Successful patterns include:
+
 - Layered folder structures separating domain, application, and infrastructure concerns
 - Interface-based dependency abstractions
 - Service locator patterns for dependency resolution
@@ -76,6 +78,7 @@ Major technology companies provide compelling evidence for Node.js architectural
 **LinkedIn's mobile backend rewrite** replaced **60K lines of Ruby** with just **2K lines of Node.js**, scaling from 15 servers to 4 instances while handling **double the traffic** with **2-10x faster client performance**.
 
 **Open-source exemplars** provide concrete implementation examples:
+
 - **Strapi**: Headless CMS with clean plugin architecture
 - **CodelyTV's DDD examples**: Production-ready TypeScript clean architecture
 - **@node-ts/ddd repositories**: Enterprise DDD framework implementations

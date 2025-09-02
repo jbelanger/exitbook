@@ -13,12 +13,13 @@ Imagine your application trying to fetch Bitcoin transactions from mempool.space
 
 ```
 App → mempool.space API (DOWN) → Wait 30 seconds → TIMEOUT
-App → mempool.space API (DOWN) → Wait 30 seconds → TIMEOUT  
+App → mempool.space API (DOWN) → Wait 30 seconds → TIMEOUT
 App → mempool.space API (DOWN) → Wait 30 seconds → TIMEOUT
 ...continues hammering the failed service...
 ```
 
 **Problems:**
+
 - **Wasted Resources**: Your application spends time and memory on doomed requests
 - **Slow Failure**: Users wait 30+ seconds to discover the service is down
 - **Service Overload**: Your requests may prevent the failing service from recovering
@@ -37,6 +38,7 @@ App → Circuit Breaker → "OPEN - Skip Request" (Instant response)
 ```
 
 **Benefits:**
+
 - **Fast Failure**: Instant response when service is known to be down
 - **Resource Protection**: No wasted time/memory on doomed requests
 - **Service Recovery**: Reduces load on failing service, helping it recover
@@ -56,17 +58,19 @@ The circuit breaker operates in three distinct states:
 ```
 
 **Behavior:**
+
 - All requests pass through to the provider
 - Failures are counted but don't block requests
 - State changes to OPEN after reaching failure threshold
 
 **Example:**
+
 ```typescript
 const breaker = new CircuitBreaker('mempool.space', 3, 300000); // 3 failures, 5 min timeout
 
 // Service is healthy - all requests succeed
 await breaker.execute(() => fetchTransactions()); // ✅ Success
-await breaker.execute(() => fetchTransactions()); // ✅ Success  
+await breaker.execute(() => fetchTransactions()); // ✅ Success
 await breaker.execute(() => fetchTransactions()); // ✅ Success
 
 console.log(breaker.getState()); // "closed"
@@ -82,15 +86,17 @@ console.log(breaker.getState()); // "closed"
 ```
 
 **Behavior:**
+
 - All requests are immediately rejected (no API calls made)
 - Provides instant failure response
 - After timeout period, state changes to HALF-OPEN for testing
 
 **Example:**
+
 ```typescript
 // Service starts failing
 await breaker.execute(() => fetchTransactions()); // ❌ Failure 1
-await breaker.execute(() => fetchTransactions()); // ❌ Failure 2  
+await breaker.execute(() => fetchTransactions()); // ❌ Failure 2
 await breaker.execute(() => fetchTransactions()); // ❌ Failure 3
 
 console.log(breaker.getState()); // "open"
@@ -110,19 +116,21 @@ await breaker.execute(() => fetchTransactions()); // ⚡ Instant rejection (no A
 ```
 
 **Behavior:**
+
 - Single test request is allowed through
 - If successful: Circuit breaker resets to CLOSED
 - If fails: Circuit breaker returns to OPEN state
 
 **Example:**
+
 ```typescript
 // Wait 5 minutes (timeout period)
 setTimeout(() => {
   console.log(breaker.getState()); // "half-open"
-  
+
   // Next request is a test request
   await breaker.execute(() => fetchTransactions()); // Test if service recovered
-  
+
   if (/* request succeeded */) {
     console.log(breaker.getState()); // "closed" - service recovered!
   } else {
@@ -160,16 +168,19 @@ setTimeout(() => {
 Think of your home's electrical system:
 
 ### Normal Operation (CLOSED)
+
 - Electricity flows normally to all outlets
 - Occasional small power fluctuations are handled fine
 - Everything works as expected
 
-### Overload Detected (OPEN)  
+### Overload Detected (OPEN)
+
 - Electrical fuse "trips" when it detects dangerous overload
 - Power is immediately cut to protect your appliances
 - No electricity flows until the problem is resolved
 
 ### Testing Recovery (HALF-OPEN)
+
 - After fixing the electrical problem, you flip the breaker back on
 - Small test load is applied to see if the system is stable
 - If stable: normal operation resumes
@@ -183,9 +194,9 @@ Think of your home's electrical system:
 
 ```typescript
 interface CircuitBreakerConfig {
-  maxFailures: number;    // Default: 3 failures
-  timeoutMs: number;      // Default: 5 minutes (300,000ms)
-  enabled: boolean;       // Default: true
+  maxFailures: number; // Default: 3 failures
+  timeoutMs: number; // Default: 5 minutes (300,000ms)
+  enabled: boolean; // Default: true
 }
 ```
 
@@ -198,9 +209,9 @@ Every provider automatically gets circuit breaker protection:
 const providerManager = new BlockchainProviderManager();
 
 providerManager.registerProviders('bitcoin', [
-  new MempoolSpaceProvider(),    // Gets circuit breaker: "mempool.space"
-  new BlockstreamProvider(),     // Gets circuit breaker: "blockstream.info"
-  new BlockcypherProvider()      // Gets circuit breaker: "blockcypher"
+  new MempoolSpaceProvider(), // Gets circuit breaker: "mempool.space"
+  new BlockstreamProvider(), // Gets circuit breaker: "blockstream.info"
+  new BlockcypherProvider(), // Gets circuit breaker: "blockcypher"
 ]);
 ```
 
@@ -209,16 +220,16 @@ providerManager.registerProviders('bitcoin', [
 ```typescript
 async executeWithFailover(blockchain: string, operation: ProviderOperation): Promise<any> {
   const providers = this.getProvidersInOrder(blockchain, operation);
-  
+
   for (const provider of providers) {
     const circuitBreaker = this.getCircuitBreaker(provider.name);
-    
+
     // Skip providers with open circuit breakers
     if (circuitBreaker.isOpen()) {
       console.log(`Skipping ${provider.name} - circuit breaker OPEN`);
       continue;
     }
-    
+
     try {
       const result = await provider.execute(operation);
       circuitBreaker.recordSuccess(); // Reset failure count
@@ -229,7 +240,7 @@ async executeWithFailover(blockchain: string, operation: ProviderOperation): Pro
       continue;
     }
   }
-  
+
   throw new Error('All providers failed');
 }
 ```
@@ -239,15 +250,17 @@ async executeWithFailover(blockchain: string, operation: ProviderOperation): Pro
 ### Scenario: mempool.space Outage
 
 **Without Circuit Breaker:**
+
 ```
 12:00:00 - Request to mempool.space → 30s timeout → Fail
-12:00:30 - Request to mempool.space → 30s timeout → Fail  
+12:00:30 - Request to mempool.space → 30s timeout → Fail
 12:01:00 - Request to mempool.space → 30s timeout → Fail
 12:01:30 - Request to mempool.space → 30s timeout → Fail
 ...continues for hours...
 ```
 
 **With Circuit Breaker:**
+
 ```
 12:00:00 - Request to mempool.space → 30s timeout → Fail (1/3)
 12:00:30 - Request to mempool.space → 30s timeout → Fail (2/3)
@@ -261,12 +274,12 @@ async executeWithFailover(blockchain: string, operation: ProviderOperation): Pro
 
 ### Performance Impact
 
-| Metric | Without Circuit Breaker | With Circuit Breaker |
-|--------|------------------------|---------------------|
-| **Response Time** | 30+ seconds during outages | 2-3 seconds (failover) |
-| **Resource Usage** | High (waiting on timeouts) | Low (instant failures) |
-| **User Experience** | Very poor during outages | Minimal impact |
-| **Service Recovery** | Slower (continued hammering) | Faster (reduced load) |
+| Metric               | Without Circuit Breaker      | With Circuit Breaker   |
+| -------------------- | ---------------------------- | ---------------------- |
+| **Response Time**    | 30+ seconds during outages   | 2-3 seconds (failover) |
+| **Resource Usage**   | High (waiting on timeouts)   | Low (instant failures) |
+| **User Experience**  | Very poor during outages     | Minimal impact         |
+| **Service Recovery** | Slower (continued hammering) | Faster (reduced load)  |
 
 ## Advanced Circuit Breaker Features
 
@@ -278,7 +291,7 @@ For flaky services, you can configure exponential backoff:
 const breaker = new CircuitBreaker('flaky-service', 3, 60000); // 1 minute initial timeout
 
 // First failure: 1 minute timeout
-// Second failure: 2 minute timeout  
+// Second failure: 2 minute timeout
 // Third failure: 4 minute timeout
 // Etc.
 ```
@@ -292,12 +305,12 @@ class SmartCircuitBreaker extends CircuitBreaker {
     if (error instanceof RateLimitError) {
       return false;
     }
-    
+
     // Don't count authentication errors (configuration issue)
     if (error instanceof AuthenticationError) {
-      return false; 
+      return false;
     }
-    
+
     // Only count actual service failures
     return error instanceof ServiceUnavailableError;
   }
@@ -311,7 +324,7 @@ class SmartCircuitBreaker extends CircuitBreaker {
 if (circuitBreaker.isHalfOpen()) {
   // Use lighter health check instead of full operation
   const isHealthy = await provider.isHealthy();
-  
+
   if (isHealthy) {
     circuitBreaker.recordSuccess();
   } else {
@@ -330,9 +343,9 @@ const health = providerManager.getProviderHealth('bitcoin');
 
 for (const [providerName, status] of health) {
   console.log(`${providerName}: ${status.circuitState}`);
-  // Output: 
+  // Output:
   // mempool.space: closed
-  // blockstream.info: closed  
+  // blockstream.info: closed
   // blockcypher: open
 }
 ```
@@ -341,16 +354,16 @@ for (const [providerName, status] of health) {
 
 ```typescript
 // Listen for circuit breaker events
-circuitBreaker.on('open', (provider) => {
+circuitBreaker.on('open', provider => {
   console.log(`⚠️  Circuit breaker OPENED for ${provider}`);
   // Alert operations team
 });
 
-circuitBreaker.on('halfOpen', (provider) => {
+circuitBreaker.on('halfOpen', provider => {
   console.log(`🔍 Circuit breaker testing recovery for ${provider}`);
 });
 
-circuitBreaker.on('close', (provider) => {
+circuitBreaker.on('close', provider => {
   console.log(`✅ Circuit breaker CLOSED - ${provider} recovered`);
 });
 ```
@@ -371,7 +384,7 @@ const stats = circuitBreaker.getStats();
 // Set up alerts
 if (stats.state === 'open' && stats.timeUntilRecovery > 240000) {
   // Alert: Service has been down for more than 4 minutes
-  sendAlert(`Bitcoin provider ${stats.name} down for ${stats.timeUntilRecovery/1000}s`);
+  sendAlert(`Bitcoin provider ${stats.name} down for ${stats.timeUntilRecovery / 1000}s`);
 }
 ```
 
@@ -383,7 +396,7 @@ if (stats.state === 'open' && stats.timeUntilRecovery > 240000) {
 // ✅ Good: Conservative thresholds
 const breaker = new CircuitBreaker('provider', 3, 300000); // 3 failures, 5 minutes
 
-// ❌ Too sensitive: Single failure trips breaker  
+// ❌ Too sensitive: Single failure trips breaker
 const breaker = new CircuitBreaker('provider', 1, 60000);
 
 // ❌ Too tolerant: Many failures before tripping
@@ -399,7 +412,7 @@ const breaker = new CircuitBreaker('provider', 3, 300000); // 5 minutes
 // ❌ Too short: May not allow enough recovery time
 const breaker = new CircuitBreaker('provider', 3, 30000); // 30 seconds
 
-// ❌ Too long: Users suffer during extended outages  
+// ❌ Too long: Users suffer during extended outages
 const breaker = new CircuitBreaker('provider', 3, 1800000); // 30 minutes
 ```
 
@@ -407,8 +420,7 @@ const breaker = new CircuitBreaker('provider', 3, 1800000); // 30 minutes
 
 ```typescript
 // ✅ Good: Only count actual service failures
-if (error instanceof ServiceUnavailableError || 
-    error instanceof TimeoutError) {
+if (error instanceof ServiceUnavailableError || error instanceof TimeoutError) {
   circuitBreaker.recordFailure();
 } else {
   // Don't trip circuit breaker for auth/config errors
@@ -435,6 +447,7 @@ if (circuitBreaker.isOpen()) {
 ### Common Issues
 
 #### Circuit Breaker Stuck Open
+
 ```
 Symptom: Circuit breaker remains open even though service recovered
 Cause: Timeout period too long or service still actually failing
@@ -442,6 +455,7 @@ Solution: Check service health manually, reduce timeout, or reset circuit breake
 ```
 
 #### Circuit Breaker Too Sensitive
+
 ```
 Symptom: Circuit breaker opens after single network hiccup
 Cause: Failure threshold too low
@@ -449,6 +463,7 @@ Solution: Increase maxFailures to 3-5 for better tolerance
 ```
 
 #### Circuit Breaker Never Opens
+
 ```
 Symptom: Circuit breaker never opens even during clear outages
 Cause: Errors not being properly recorded as failures
@@ -472,12 +487,13 @@ circuitBreaker.reset();
 
 ### Circuit Breaker vs Retry Pattern
 
-| Pattern | Purpose | When to Use |
-|---------|---------|-------------|
-| **Circuit Breaker** | Prevent cascading failures | Service is down/degraded |
-| **Retry Pattern** | Handle transient failures | Network glitches, temporary errors |
+| Pattern             | Purpose                    | When to Use                        |
+| ------------------- | -------------------------- | ---------------------------------- |
+| **Circuit Breaker** | Prevent cascading failures | Service is down/degraded           |
+| **Retry Pattern**   | Handle transient failures  | Network glitches, temporary errors |
 
 **Best Practice**: Use both together:
+
 ```typescript
 // First: Try with retries for transient failures
 const result = await retryWithBackoff(() => provider.execute(operation));
@@ -490,18 +506,16 @@ if (circuitBreaker.isOpen()) {
 
 ### Circuit Breaker vs Timeout Pattern
 
-| Pattern | Purpose | Scope |
-|---------|---------|-------|
+| Pattern             | Purpose                          | Scope                    |
+| ------------------- | -------------------------------- | ------------------------ |
 | **Circuit Breaker** | Protect against failing services | Across multiple requests |
-| **Timeout Pattern** | Prevent hanging requests | Individual request |
+| **Timeout Pattern** | Prevent hanging requests         | Individual request       |
 
 **Best Practice**: Use both together:
+
 ```typescript
 // Individual request timeout: 10 seconds
-const result = await Promise.race([
-  provider.execute(operation),
-  timeout(10000)
-]);
+const result = await Promise.race([provider.execute(operation), timeout(10000)]);
 
 // Circuit breaker: Overall service health across requests
 circuitBreaker.execute(() => result);

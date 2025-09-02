@@ -29,6 +29,7 @@ DEBUG=provider:* pnpm run import --dry-run
 ### Issue: "Provider connection failed"
 
 #### Symptoms
+
 ```
 Error: Connection failed for provider 'etherscan'
 Provider health check: FAILED
@@ -38,6 +39,7 @@ Circuit breaker state: OPEN
 #### Common Causes and Solutions
 
 **Cause 1: Missing or Invalid API Key**
+
 ```bash
 # Check if environment variable is set
 echo $ETHERSCAN_API_KEY
@@ -47,6 +49,7 @@ echo $ETHERSCAN_API_KEY | wc -c
 ```
 
 **Solution:**
+
 ```bash
 # Set the correct API key
 export ETHERSCAN_API_KEY=YourValidApiKeyHere
@@ -56,22 +59,25 @@ echo "ETHERSCAN_API_KEY=YourValidApiKeyHere" >> .env
 ```
 
 **Cause 2: Incorrect Base URL**
+
 ```json
 {
   "name": "etherscan",
-  "baseUrl": "https://api.etherscan.io/api/v1"  // ❌ Wrong - has /v1
+  "baseUrl": "https://api.etherscan.io/api/v1" // ❌ Wrong - has /v1
 }
 ```
 
 **Solution:**
+
 ```json
 {
-  "name": "etherscan", 
-  "baseUrl": "https://api.etherscan.io/api"     // ✅ Correct
+  "name": "etherscan",
+  "baseUrl": "https://api.etherscan.io/api" // ✅ Correct
 }
 ```
 
 **Cause 3: Network/Firewall Issues**
+
 ```bash
 # Test connectivity manually
 curl -s "https://api.etherscan.io/api?module=account&action=balance&address=0x123&apikey=$ETHERSCAN_API_KEY"
@@ -81,6 +87,7 @@ ping api.etherscan.io
 ```
 
 **Solution:**
+
 - Configure corporate proxy settings
 - Whitelist blockchain API domains
 - Use alternative provider endpoints
@@ -88,6 +95,7 @@ ping api.etherscan.io
 ### Issue: "All providers failed"
 
 #### Symptoms
+
 ```
 Error: All providers failed for blockchain 'bitcoin'
 Last error: Circuit breaker OPEN for all providers
@@ -96,6 +104,7 @@ Last error: Circuit breaker OPEN for all providers
 #### Diagnostic Steps
 
 **Step 1: Check Provider Status**
+
 ```bash
 # Get detailed provider health
 node -e "
@@ -106,6 +115,7 @@ console.log(JSON.stringify(health, null, 2));
 ```
 
 **Step 2: Check Circuit Breaker Status**
+
 ```typescript
 // Check circuit breaker states
 const circuitBreakers = providerManager.getCircuitBreakerStatus('bitcoin');
@@ -115,6 +125,7 @@ for (const [provider, status] of circuitBreakers) {
 ```
 
 **Step 3: Manual Provider Testing**
+
 ```bash
 # Test each provider individually
 pnpm run test:provider bitcoin mempool.space
@@ -125,6 +136,7 @@ pnpm run test:provider bitcoin blockcypher
 #### Solutions
 
 **Solution 1: Reset Circuit Breakers**
+
 ```typescript
 // Emergency reset for all providers
 const providerManager = new BlockchainProviderManager();
@@ -132,24 +144,26 @@ providerManager.resetAllCircuitBreakers('bitcoin');
 ```
 
 **Solution 2: Temporary Provider Disable/Enable**
+
 ```json
 {
   "providers": [
     {
       "name": "mempool.space",
-      "enabled": false,           // Temporarily disable problematic provider
+      "enabled": false, // Temporarily disable problematic provider
       "priority": 1
     },
     {
       "name": "blockstream.info",
-      "enabled": true,            // Keep working provider enabled
-      "priority": 1               // Promote to primary
+      "enabled": true, // Keep working provider enabled
+      "priority": 1 // Promote to primary
     }
   ]
 }
 ```
 
 **Solution 3: Add Emergency Backup Provider**
+
 ```json
 {
   "name": "emergency-backup",
@@ -165,6 +179,7 @@ providerManager.resetAllCircuitBreakers('bitcoin');
 ### Issue: "Rate limit exceeded"
 
 #### Symptoms
+
 ```
 Error: Rate limit exceeded for provider 'etherscan'
 HTTP 429: Too Many Requests
@@ -174,26 +189,29 @@ Retry-After: 300 seconds
 #### Understanding Rate Limits
 
 Common API rate limits:
+
 - **Etherscan Free**: 1 req/5 seconds (0.2 req/sec)
-- **Etherscan Pro**: 5 req/second  
+- **Etherscan Pro**: 5 req/second
 - **mempool.space**: 1 req/4 seconds (0.25 req/sec)
 - **BlockCypher Free**: 3 req/second, 200 req/hour
 
 #### Solutions
 
 **Solution 1: Reduce Request Rate**
+
 ```json
 {
   "name": "etherscan",
   "rateLimit": {
-    "requestsPerSecond": 0.15,    // 25% below actual limit for safety
-    "burstLimit": 1,              // No bursts on free tier
-    "backoffMs": 6000            // 6 second backoff
+    "requestsPerSecond": 0.15, // 25% below actual limit for safety
+    "burstLimit": 1, // No bursts on free tier
+    "backoffMs": 6000 // 6 second backoff
   }
 }
 ```
 
 **Solution 2: Upgrade API Plan**
+
 ```bash
 # Check current usage
 curl -s "https://api.etherscan.io/api?module=stats&action=tokensupply&contractaddress=0x123&apikey=$ETHERSCAN_API_KEY"
@@ -204,6 +222,7 @@ curl -s "https://api.etherscan.io/api?module=stats&action=tokensupply&contractad
 ```
 
 **Solution 3: Implement Request Queuing**
+
 ```typescript
 class QueuedProvider extends BaseProvider {
   private requestQueue: Array<() => Promise<any>> = [];
@@ -219,14 +238,14 @@ class QueuedProvider extends BaseProvider {
           reject(error);
         }
       });
-      
+
       this.processQueue();
     });
   }
 
   private async processQueue() {
     if (this.processing || this.requestQueue.length === 0) return;
-    
+
     this.processing = true;
     while (this.requestQueue.length > 0) {
       const request = this.requestQueue.shift()!;
@@ -241,39 +260,41 @@ class QueuedProvider extends BaseProvider {
 ### Issue: "Rate limit headers not respected"
 
 #### Symptoms
+
 ```
 Provider continues making requests despite 429 responses
 Rate limiting backoff not working properly
 ```
 
 #### Solution: Enhanced Rate Limit Detection
+
 ```typescript
 class SmartRateLimitProvider extends BaseProvider {
   private async makeRequest(url: string, options: RequestInit): Promise<Response> {
     const response = await fetch(url, options);
-    
+
     // Check multiple rate limit indicators
     if (this.isRateLimited(response)) {
       const retryAfter = this.getRetryAfter(response);
       await this.delay(retryAfter * 1000);
       return this.makeRequest(url, options); // Retry after delay
     }
-    
+
     return response;
   }
 
   private isRateLimited(response: Response): boolean {
     // Check HTTP status
     if (response.status === 429) return true;
-    
+
     // Check rate limit headers
     const remaining = response.headers.get('X-RateLimit-Remaining');
     if (remaining && parseInt(remaining) === 0) return true;
-    
+
     // Check provider-specific indicators
     const resetTime = response.headers.get('X-RateLimit-Reset');
     if (resetTime && parseInt(resetTime) > Date.now() / 1000) return true;
-    
+
     return false;
   }
 
@@ -281,7 +302,7 @@ class SmartRateLimitProvider extends BaseProvider {
     // Standard Retry-After header
     const retryAfter = response.headers.get('Retry-After');
     if (retryAfter) return parseInt(retryAfter);
-    
+
     // Rate limit reset time
     const resetTime = response.headers.get('X-RateLimit-Reset');
     if (resetTime) {
@@ -289,7 +310,7 @@ class SmartRateLimitProvider extends BaseProvider {
       const currentTime = Math.floor(Date.now() / 1000);
       return Math.max(0, resetTimestamp - currentTime);
     }
-    
+
     // Default backoff
     return 60;
   }
@@ -301,6 +322,7 @@ class SmartRateLimitProvider extends BaseProvider {
 ### Issue: "Invalid API key"
 
 #### Symptoms
+
 ```
 Error: Authentication failed for provider 'blockcypher'
 HTTP 401: Unauthorized
@@ -310,6 +332,7 @@ Invalid API key format
 #### Diagnostic Steps
 
 **Step 1: Verify API Key Format**
+
 ```bash
 # Different providers have different key formats
 echo "Etherscan key length: $(echo $ETHERSCAN_API_KEY | wc -c)"      # Should be 35 (34 + newline)
@@ -318,17 +341,19 @@ echo "Moralis key format: $(echo $MORALIS_API_KEY | grep -E '^[A-Za-z0-9]{64}$')
 ```
 
 **Step 2: Test API Key Manually**
+
 ```bash
 # Test Etherscan key
 curl -s "https://api.etherscan.io/api?module=account&action=balance&address=0x123&apikey=$ETHERSCAN_API_KEY" | jq .
 
-# Test Alchemy key  
+# Test Alchemy key
 curl -s -X POST "https://eth-mainnet.alchemyapi.io/v2/$ALCHEMY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'
 ```
 
 **Step 3: Check Key Permissions**
+
 ```bash
 # Some APIs require specific permissions
 curl -s "https://api.etherscan.io/api?module=account&action=tokenbalance&contractaddress=0x123&address=0x456&tag=latest&apikey=$ETHERSCAN_API_KEY"
@@ -337,6 +362,7 @@ curl -s "https://api.etherscan.io/api?module=account&action=tokenbalance&contrac
 #### Solutions
 
 **Solution 1: Regenerate API Keys**
+
 1. Log into provider dashboard
 2. Revoke old API key
 3. Generate new API key
@@ -344,6 +370,7 @@ curl -s "https://api.etherscan.io/api?module=account&action=tokenbalance&contrac
 5. Test new key
 
 **Solution 2: Configure Key Rotation**
+
 ```typescript
 class RotatingKeyProvider extends BaseProvider {
   private apiKeys: string[];
@@ -379,6 +406,7 @@ class RotatingKeyProvider extends BaseProvider {
 ### Issue: "API key quota exceeded"
 
 #### Symptoms
+
 ```
 Error: Monthly quota exceeded for API key
 HTTP 403: Forbidden
@@ -388,6 +416,7 @@ Upgrade your plan message
 #### Solutions
 
 **Solution 1: Monitor Usage**
+
 ```typescript
 class QuotaAwareProvider extends BaseProvider {
   private requestCount = 0;
@@ -400,7 +429,7 @@ class QuotaAwareProvider extends BaseProvider {
 
     const result = await super.execute(operation);
     this.requestCount++;
-    
+
     return result;
   }
 
@@ -419,6 +448,7 @@ setInterval(() => {
 ```
 
 **Solution 2: Implement Usage-Based Fallback**
+
 ```json
 {
   "providers": [
@@ -431,7 +461,7 @@ setInterval(() => {
     {
       "name": "etherscan-free",
       "priority": 2,
-      "apiKey": "env:ETHERSCAN_FREE_KEY", 
+      "apiKey": "env:ETHERSCAN_FREE_KEY",
       "dailyLimit": 10000
     },
     {
@@ -449,6 +479,7 @@ setInterval(() => {
 ### Issue: "Transaction data mismatch between providers"
 
 #### Symptoms
+
 ```
 Provider A returns: { value: "1.5", timestamp: 1640995200 }
 Provider B returns: { value: "1500000000000000000", timestamp: 1640995200000 }
@@ -463,7 +494,7 @@ class StandardizedProvider extends BaseProvider {
     if (typeof amount === 'number') {
       amount = amount.toString();
     }
-    
+
     // Handle different input formats
     if (amount.includes('.')) {
       // Already in decimal format (e.g., "1.5")
@@ -476,12 +507,12 @@ class StandardizedProvider extends BaseProvider {
 
   protected normalizeTimestamp(timestamp: string | number): number {
     const ts = typeof timestamp === 'string' ? parseInt(timestamp) : timestamp;
-    
+
     // Convert milliseconds to seconds if needed
     if (ts > 1e12) {
       return Math.floor(ts / 1000);
     }
-    
+
     return ts;
   }
 
@@ -494,11 +525,11 @@ class StandardizedProvider extends BaseProvider {
     if (typeof status === 'boolean') {
       return status ? 'confirmed' : 'failed';
     }
-    
+
     if (typeof status === 'number') {
       return status === 1 ? 'confirmed' : 'failed';
     }
-    
+
     if (typeof status === 'string') {
       const normalized = status.toLowerCase();
       if (['success', 'confirmed', 'mined', '1', 'true'].includes(normalized)) {
@@ -508,7 +539,7 @@ class StandardizedProvider extends BaseProvider {
         return 'failed';
       }
     }
-    
+
     return 'pending';
   }
 }
@@ -517,15 +548,17 @@ class StandardizedProvider extends BaseProvider {
 ### Issue: "Missing transactions from some providers"
 
 #### Symptoms
+
 ```
 Provider A: 15 transactions found
-Provider B: 12 transactions found  
+Provider B: 12 transactions found
 Provider C: 18 transactions found
 ```
 
 #### Diagnostic Steps
 
 **Step 1: Compare Transaction Lists**
+
 ```typescript
 async function compareProviders(address: string) {
   const providers = ['mempool.space', 'blockstream.info', 'blockcypher'];
@@ -548,7 +581,7 @@ async function compareProviders(address: string) {
   }
 
   console.log(`Total unique transactions: ${allHashes.size}`);
-  
+
   // Check which transactions are missing from each provider
   for (const [provider, txs] of results) {
     const hashes = new Set(txs.map(tx => tx.hash));
@@ -561,6 +594,7 @@ async function compareProviders(address: string) {
 ```
 
 **Step 2: Check Provider Capabilities**
+
 ```typescript
 // Verify each provider supports the required operation type
 for (const provider of providers) {
@@ -575,6 +609,7 @@ for (const provider of providers) {
 #### Solutions
 
 **Solution 1: Implement Transaction Merging**
+
 ```typescript
 class MergingProviderManager extends BlockchainProviderManager {
   async getAllTransactions(blockchain: string, address: string): Promise<BlockchainTransaction[]> {
@@ -590,7 +625,7 @@ class MergingProviderManager extends BlockchainProviderManager {
       try {
         const txs = await provider.execute({
           type: 'getAddressTransactions',
-          params: { address }
+          params: { address },
         });
 
         // Merge transactions, preferring more detailed data
@@ -605,8 +640,7 @@ class MergingProviderManager extends BlockchainProviderManager {
       }
     }
 
-    return Array.from(allTransactions.values())
-      .sort((a, b) => b.timestamp - a.timestamp);
+    return Array.from(allTransactions.values()).sort((a, b) => b.timestamp - a.timestamp);
   }
 
   private isMoreDetailed(tx1: BlockchainTransaction, tx2: BlockchainTransaction): boolean {
@@ -628,6 +662,7 @@ class MergingProviderManager extends BlockchainProviderManager {
 ```
 
 **Solution 2: Provider-Specific Pagination**
+
 ```typescript
 class PaginationAwareProvider extends BaseProvider {
   async getAllTransactions(address: string): Promise<BlockchainTransaction[]> {
@@ -635,15 +670,16 @@ class PaginationAwareProvider extends BaseProvider {
     let page = 1;
     let hasMore = true;
 
-    while (hasMore && allTxs.length < 10000) { // Safety limit
+    while (hasMore && allTxs.length < 10000) {
+      // Safety limit
       const batch = await this.getTransactionPage(address, page);
-      
+
       if (batch.length === 0) {
         hasMore = false;
       } else {
         allTxs.push(...batch);
         page++;
-        
+
         // Rate limiting between pages
         await this.delay(this.rateLimit.backoffMs || 1000);
       }
@@ -656,7 +692,7 @@ class PaginationAwareProvider extends BaseProvider {
     // Provider-specific pagination implementation
     const response = await this.makeRequest({
       endpoint: '/transactions',
-      params: { address, page, limit: 50 }
+      params: { address, page, limit: 50 },
     });
 
     return response.data.map(tx => this.transformTransaction(tx));
@@ -669,6 +705,7 @@ class PaginationAwareProvider extends BaseProvider {
 ### Issue: "Slow response times"
 
 #### Symptoms
+
 ```
 Average response time: 15 seconds
 Request timeouts increasing
@@ -678,20 +715,21 @@ Circuit breakers opening due to timeouts
 #### Diagnostic Steps
 
 **Step 1: Measure Response Times**
+
 ```typescript
 class PerformanceMonitoringProvider extends BaseProvider {
   private responseTimes: number[] = [];
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
     const startTime = Date.now();
-    
+
     try {
       const result = await super.execute(operation);
       const responseTime = Date.now() - startTime;
-      
+
       this.responseTimes.push(responseTime);
       this.logPerformanceMetrics();
-      
+
       return result;
     } catch (error) {
       const responseTime = Date.now() - startTime;
@@ -705,13 +743,14 @@ class PerformanceMonitoringProvider extends BaseProvider {
     const average = recent.reduce((a, b) => a + b, 0) / recent.length;
     const max = Math.max(...recent);
     const min = Math.min(...recent);
-    
+
     console.log(`Performance - Avg: ${average.toFixed(0)}ms, Max: ${max}ms, Min: ${min}ms`);
   }
 }
 ```
 
 **Step 2: Identify Bottlenecks**
+
 ```typescript
 // Check what's taking time
 DEBUG=provider:timing pnpm run import
@@ -725,6 +764,7 @@ console.timeEnd('getAddressTransactions');
 #### Solutions
 
 **Solution 1: Implement Request Concurrency**
+
 ```typescript
 class ConcurrentProvider extends BaseProvider {
   private maxConcurrency = 3;
@@ -772,13 +812,14 @@ class ConcurrentProvider extends BaseProvider {
 ```
 
 **Solution 2: Implement Response Caching**
+
 ```typescript
 class CachedProvider extends BaseProvider {
   private cache = new Map<string, { data: any; expiry: number }>();
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
     const cacheKey = this.getCacheKey(operation);
-    
+
     // Check cache first
     const cached = this.cache.get(cacheKey);
     if (cached && cached.expiry > Date.now()) {
@@ -788,11 +829,11 @@ class CachedProvider extends BaseProvider {
 
     // Execute request
     const result = await super.execute(operation);
-    
+
     // Cache result
     this.cache.set(cacheKey, {
       data: result,
-      expiry: Date.now() + this.getCacheTTL(operation.type)
+      expiry: Date.now() + this.getCacheTTL(operation.type),
     });
 
     return result;
@@ -804,9 +845,12 @@ class CachedProvider extends BaseProvider {
 
   private getCacheTTL(operationType: string): number {
     switch (operationType) {
-      case 'getAddressBalance': return 30000;      // 30 seconds
-      case 'getAddressTransactions': return 60000; // 1 minute
-      default: return 30000;
+      case 'getAddressBalance':
+        return 30000; // 30 seconds
+      case 'getAddressTransactions':
+        return 60000; // 1 minute
+      default:
+        return 30000;
     }
   }
 }
@@ -815,6 +859,7 @@ class CachedProvider extends BaseProvider {
 ### Issue: "Memory leaks"
 
 #### Symptoms
+
 ```
 Memory usage constantly increasing
 Node.js process running out of memory
@@ -824,6 +869,7 @@ Garbage collection taking longer
 #### Solutions
 
 **Solution 1: Implement Proper Cleanup**
+
 ```typescript
 class ResourceManagedProvider extends BaseProvider {
   private abortControllers = new Set<AbortController>();
@@ -832,11 +878,14 @@ class ResourceManagedProvider extends BaseProvider {
 
   constructor(config: any) {
     super(config);
-    
+
     // Cleanup every 5 minutes
-    this.cleanupInterval = setInterval(() => {
-      this.cleanup();
-    }, 5 * 60 * 1000);
+    this.cleanupInterval = setInterval(
+      () => {
+        this.cleanup();
+      },
+      5 * 60 * 1000
+    );
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
@@ -862,7 +911,9 @@ class ResourceManagedProvider extends BaseProvider {
 
     // Log memory usage
     const used = process.memoryUsage();
-    console.log(`Memory usage - RSS: ${Math.round(used.rss / 1024 / 1024)}MB, Heap: ${Math.round(used.heapUsed / 1024 / 1024)}MB`);
+    console.log(
+      `Memory usage - RSS: ${Math.round(used.rss / 1024 / 1024)}MB, Heap: ${Math.round(used.heapUsed / 1024 / 1024)}MB`
+    );
   }
 
   async shutdown(): Promise<void> {
@@ -888,6 +939,7 @@ class ResourceManagedProvider extends BaseProvider {
 ### Issue: "Configuration validation failed"
 
 #### Symptoms
+
 ```
 Error: Invalid provider configuration
 Missing required field: blockchain
@@ -895,6 +947,7 @@ Invalid rate limit configuration
 ```
 
 #### Solution: Configuration Validation
+
 ```typescript
 import Joi from 'joi';
 
@@ -907,10 +960,10 @@ const providerConfigSchema = Joi.object({
   rateLimit: Joi.object({
     requestsPerSecond: Joi.number().positive().required(),
     burstLimit: Joi.number().integer().positive().optional(),
-    backoffMs: Joi.number().integer().positive().optional()
+    backoffMs: Joi.number().integer().positive().optional(),
   }).required(),
   timeout: Joi.number().integer().positive().optional(),
-  retries: Joi.number().integer().min(0).optional()
+  retries: Joi.number().integer().min(0).optional(),
 });
 
 const blockchainConfigSchema = Joi.object({
@@ -918,8 +971,8 @@ const blockchainConfigSchema = Joi.object({
   adapterType: Joi.string().valid('blockchain').required(),
   options: Joi.object({
     blockchain: Joi.string().required(),
-    providers: Joi.array().items(providerConfigSchema).min(1).required()
-  }).required()
+    providers: Joi.array().items(providerConfigSchema).min(1).required(),
+  }).required(),
 });
 
 function validateConfiguration(config: any): void {
@@ -935,6 +988,7 @@ function validateConfiguration(config: any): void {
 ### Issue: "Environment variables not loading"
 
 #### Symptoms
+
 ```
 Error: Missing required environment variable: ETHERSCAN_API_KEY
 Environment variable is set but not accessible
@@ -943,6 +997,7 @@ Environment variable is set but not accessible
 #### Solutions
 
 **Solution 1: Debug Environment Loading**
+
 ```typescript
 // Add to your startup script
 console.log('Environment debugging:');
@@ -961,6 +1016,7 @@ if (process.env.ETHERSCAN_API_KEY?.startsWith(' ') || process.env.ETHERSCAN_API_
 ```
 
 **Solution 2: Environment File Loading**
+
 ```typescript
 // Load environment files in correct order
 import dotenv from 'dotenv';
@@ -974,10 +1030,7 @@ dotenv.config({ path: path.resolve(process.cwd(), envFile) });
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
 // Validate required variables
-const required = [
-  'ETHERSCAN_API_KEY',
-  'ALCHEMY_API_KEY'
-];
+const required = ['ETHERSCAN_API_KEY', 'ALCHEMY_API_KEY'];
 
 for (const envVar of required) {
   if (!process.env[envVar]) {
@@ -1050,14 +1103,14 @@ class ProviderHealthDashboard {
   async generateReport(): Promise<void> {
     const report = {
       timestamp: new Date().toISOString(),
-      providers: new Map<string, any>()
+      providers: new Map<string, any>(),
     };
 
     const blockchains = ['bitcoin', 'ethereum', 'injective'];
-    
+
     for (const blockchain of blockchains) {
       const providers = this.providerManager.getProviders(blockchain);
-      
+
       for (const provider of providers) {
         const health = await this.getProviderHealth(provider);
         report.providers.set(`${blockchain}/${provider.name}`, health);
@@ -1065,15 +1118,17 @@ class ProviderHealthDashboard {
     }
 
     console.log('\n📊 PROVIDER HEALTH DASHBOARD');
-    console.log('=' .repeat(50));
-    
+    console.log('='.repeat(50));
+
     for (const [key, health] of report.providers) {
       const status = health.isHealthy ? '✅' : '❌';
       const circuit = health.circuitState.toUpperCase();
-      console.log(`${status} ${key}: ${circuit} (${health.responseTime}ms, ${(health.errorRate * 100).toFixed(1)}% errors)`);
+      console.log(
+        `${status} ${key}: ${circuit} (${health.responseTime}ms, ${(health.errorRate * 100).toFixed(1)}% errors)`
+      );
     }
-    
-    console.log('=' .repeat(50));
+
+    console.log('='.repeat(50));
   }
 
   private async getProviderHealth(provider: any): Promise<any> {
@@ -1081,19 +1136,19 @@ class ProviderHealthDashboard {
       const startTime = Date.now();
       const isHealthy = await provider.isHealthy();
       const responseTime = Date.now() - startTime;
-      
+
       return {
         isHealthy,
         responseTime,
         circuitState: 'closed', // Would get from circuit breaker
-        errorRate: 0.05 // Would calculate from recent requests
+        errorRate: 0.05, // Would calculate from recent requests
       };
     } catch (error) {
       return {
         isHealthy: false,
         responseTime: 0,
         circuitState: 'open',
-        errorRate: 1.0
+        errorRate: 1.0,
       };
     }
   }

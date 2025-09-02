@@ -14,7 +14,7 @@ The Universal Blockchain Provider Architecture transforms our cryptocurrency tra
 Without this architecture, every blockchain adapter in our system would be a potential catastrophic failure point:
 
 - **Bitcoin Adapter**: Hardcoded dependency on mempool.space (free service)
-- **Ethereum Adapter**: Single Etherscan API dependency with 1 req/sec rate limits  
+- **Ethereum Adapter**: Single Etherscan API dependency with 1 req/sec rate limits
 - **Injective Adapter**: Sole reliance on Injective's own indexer API
 
 **Business Impact**: Any single API outage would completely halt transaction imports for that blockchain, leaving users unable to track their portfolio or verify balances.
@@ -56,15 +56,15 @@ The foundation of the entire system - a single interface that every provider mus
 
 ```typescript
 interface IBlockchainProvider<TConfig = any> {
-  readonly name: string;           // "mempool.space", "etherscan", etc.
-  readonly blockchain: string;     // "bitcoin", "ethereum", etc.
+  readonly name: string; // "mempool.space", "etherscan", etc.
+  readonly blockchain: string; // "bitcoin", "ethereum", etc.
   readonly capabilities: ProviderCapabilities;
   readonly rateLimit: RateLimitConfig;
-  
+
   // Health and connectivity
   isHealthy(): Promise<boolean>;
   testConnection(): Promise<boolean>;
-  
+
   // Universal operation execution
   execute<T>(operation: ProviderOperation<T>, config: TConfig): Promise<T>;
 }
@@ -80,18 +80,19 @@ Operations define what work needs to be done, with built-in caching and capabili
 interface ProviderOperation<T> {
   type: 'getAddressTransactions' | 'getAddressBalance' | 'getTokenTransactions' | 'custom';
   params: Record<string, any>;
-  transform?: (response: any) => T;           // Response transformation
-  getCacheKey?: (params: any) => string;      // Cache optimization
+  transform?: (response: any) => T; // Response transformation
+  getCacheKey?: (params: any) => string; // Cache optimization
 }
 ```
 
 **Example Operation**:
+
 ```typescript
 const operation: ProviderOperation<Transaction[]> = {
   type: 'getAddressTransactions',
   params: { address: 'bc1abc123...', since: 1640995200 },
-  getCacheKey: (params) => `txs-${params.address}-${params.since}`,
-  transform: (response) => this.convertToBlockchainTransactions(response)
+  getCacheKey: params => `txs-${params.address}-${params.since}`,
+  transform: response => this.convertToBlockchainTransactions(response),
 };
 ```
 
@@ -187,20 +188,20 @@ The system scores providers based on multiple factors:
 ```typescript
 private scoreProvider(provider: IBlockchainProvider): number {
   let score = 100; // Base score
-  
+
   // Health penalties
   if (!health.isHealthy) score -= 50;
   if (circuitBreaker.isOpen()) score -= 100;    // Severe penalty
   if (circuitBreaker.isHalfOpen()) score -= 25; // Moderate penalty
-  
-  // Performance bonuses/penalties  
+
+  // Performance bonuses/penalties
   if (health.averageResponseTime < 1000) score += 20; // Fast response bonus
   if (health.averageResponseTime > 5000) score -= 30; // Slow response penalty
-  
+
   // Error rate and consecutive failure penalties
   score -= health.errorRate * 50;
   score -= health.consecutiveFailures * 10;
-  
+
   return Math.max(0, score);
 }
 ```
@@ -234,7 +235,7 @@ private async performHealthChecks(): Promise<void> {
         const startTime = Date.now();
         const isHealthy = await provider.isHealthy();
         const responseTime = Date.now() - startTime;
-        
+
         this.updateHealthMetrics(provider.name, isHealthy, responseTime);
       } catch (error) {
         this.updateHealthMetrics(provider.name, false, 0, error.message);
@@ -250,9 +251,8 @@ Response times and error rates use exponential moving averages for accurate tren
 
 ```typescript
 // Response time smoothing (80% history, 20% current)
-health.averageResponseTime = health.averageResponseTime === 0 
-  ? responseTime 
-  : (health.averageResponseTime * 0.8 + responseTime * 0.2);
+health.averageResponseTime =
+  health.averageResponseTime === 0 ? responseTime : health.averageResponseTime * 0.8 + responseTime * 0.2;
 
 // Error rate smoothing (90% history, 10% current)
 const errorWeight = success ? 0 : 1;
@@ -302,7 +302,7 @@ Enhanced configuration supports multiple providers per blockchain:
         },
         {
           "name": "blockstream.info",
-          "priority": 2, 
+          "priority": 2,
           "rateLimit": { "requestsPerSecond": 1.0 }
         },
         {
@@ -334,7 +334,7 @@ Enhanced configuration supports multiple providers per blockchain:
 ### Resource Management
 
 - **Memory Usage**: ~1MB per 1000 cached operations
-- **Background Tasks**: 2 timers (health checks, cache cleanup) 
+- **Background Tasks**: 2 timers (health checks, cache cleanup)
 - **Cleanup**: Proper resource cleanup prevents Jest/memory leaks
 
 ## Error Handling and Resilience
@@ -374,7 +374,7 @@ The system maintains operation even under adverse conditions:
 
 ```
 Bitcoin Import: mempool.space DOWN → COMPLETE FAILURE
-Ethereum Import: Etherscan rate limit → COMPLETE FAILURE  
+Ethereum Import: Etherscan rate limit → COMPLETE FAILURE
 Injective Import: Indexer timeout → COMPLETE FAILURE
 ```
 
@@ -413,9 +413,9 @@ class SolanaRPCProvider implements IBlockchainProvider<SolanaConfig> {
   capabilities = {
     supportedOperations: ['getAddressTransactions', 'getAddressBalance'],
     providesHistoricalData: true,
-    supportsPagination: true
+    supportsPagination: true,
   };
-  
+
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
     // Solana-specific implementation
   }
@@ -425,7 +425,7 @@ class SolanaRPCProvider implements IBlockchainProvider<SolanaConfig> {
 providerManager.registerProviders('solana', [
   new SolanaRPCProvider(config),
   new SolanaBeachProvider(config),
-  new SolflareProvider(config)
+  new SolflareProvider(config),
 ]);
 
 // 3. Blockchain adapter automatically gets resilience
@@ -443,23 +443,26 @@ capabilities.supportedOperations.push('getStakingRewards');
 // Automatic routing to supporting providers
 const rewards = await providerManager.executeWithFailover('ethereum', {
   type: 'getStakingRewards',
-  params: { validator: 'eth2-validator-123' }
+  params: { validator: 'eth2-validator-123' },
 });
 ```
 
 ## Production Deployment Strategy
 
 ### Phase 1: Shadow Mode (Low Risk)
+
 - Deploy with existing providers as primary
 - Alternative providers in monitoring-only mode
 - Collect performance and consistency metrics
 
-### Phase 2: Limited Failover (Medium Risk)  
+### Phase 2: Limited Failover (Medium Risk)
+
 - Enable failover for 10% of operations
 - Monitor error rates and response times
 - Gradually increase to 50%, then 100%
 
 ### Phase 3: Full Production (Standard Operation)
+
 - Complete failover enabled across all operations
 - Performance optimization based on real usage patterns
 - Advanced provider selection algorithms
@@ -479,6 +482,7 @@ This architecture eliminates several categories of technical debt:
 The Universal Blockchain Provider Architecture represents a fundamental evolution from prototype-grade blockchain adapters to production-grade financial infrastructure. By establishing resilience patterns once and applying them universally, we've created a system that will serve as a reliable foundation for years of operation and growth.
 
 **Key Achievements:**
+
 - **100% Single Point of Failure Elimination**: Every blockchain now has multiple provider options
 - **Production-Grade Resilience**: Circuit breakers, caching, and automatic recovery
 - **Future-Proof Foundation**: Adding new blockchains and providers follows established patterns

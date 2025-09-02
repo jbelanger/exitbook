@@ -69,22 +69,22 @@ Each provider in the `providers` array supports these options:
 
 ```typescript
 interface ProviderConfig {
-  name: string;                    // Unique provider identifier
-  priority: number;                // 1 = highest priority (try first)
-  enabled: boolean;                // Enable/disable without removing config
-  
+  name: string; // Unique provider identifier
+  priority: number; // 1 = highest priority (try first)
+  enabled: boolean; // Enable/disable without removing config
+
   // API Configuration
-  apiKey?: string;                 // API key (use "env:VAR_NAME" format)
-  baseUrl?: string;                // Custom API endpoint
-  rateLimit: RateLimitConfig;      // Rate limiting configuration
-  
+  apiKey?: string; // API key (use "env:VAR_NAME" format)
+  baseUrl?: string; // Custom API endpoint
+  rateLimit: RateLimitConfig; // Rate limiting configuration
+
   // Advanced Options
-  timeout?: number;                // Request timeout in milliseconds
-  retries?: number;                // Retry attempts for failed requests
+  timeout?: number; // Request timeout in milliseconds
+  retries?: number; // Retry attempts for failed requests
   circuitBreaker?: CircuitBreakerConfig; // Custom circuit breaker settings
-  
+
   // Provider-specific options
-  options?: Record<string, any>;   // Provider-specific configuration
+  options?: Record<string, any>; // Provider-specific configuration
 }
 ```
 
@@ -92,9 +92,9 @@ interface ProviderConfig {
 
 ```typescript
 interface RateLimitConfig {
-  requestsPerSecond: number;       // Maximum requests per second
-  burstLimit?: number;             // Allow bursts up to this limit
-  backoffMs?: number;              // Backoff time when rate limited
+  requestsPerSecond: number; // Maximum requests per second
+  burstLimit?: number; // Allow bursts up to this limit
+  backoffMs?: number; // Backoff time when rate limited
 }
 ```
 
@@ -102,9 +102,9 @@ interface RateLimitConfig {
 
 ```typescript
 interface CircuitBreakerConfig {
-  maxFailures: number;             // Failures before opening circuit (default: 3)
-  timeoutMs: number;               // Recovery timeout in milliseconds (default: 5 minutes)
-  enabled: boolean;                // Enable/disable circuit breaker (default: true)
+  maxFailures: number; // Failures before opening circuit (default: 3)
+  timeoutMs: number; // Recovery timeout in milliseconds (default: 5 minutes)
+  enabled: boolean; // Enable/disable circuit breaker (default: true)
 }
 ```
 
@@ -113,6 +113,7 @@ interface CircuitBreakerConfig {
 ### Bitcoin Configuration
 
 #### Free Providers
+
 ```json
 {
   "bitcoin": {
@@ -129,7 +130,7 @@ interface CircuitBreakerConfig {
           "baseUrl": "https://mempool.space"
         },
         {
-          "name": "blockstream.info", 
+          "name": "blockstream.info",
           "priority": 2,
           "enabled": true,
           "rateLimit": { "requestsPerSecond": 1.0 },
@@ -142,6 +143,7 @@ interface CircuitBreakerConfig {
 ```
 
 #### With Paid API Keys
+
 ```json
 {
   "name": "blockcypher",
@@ -156,13 +158,14 @@ interface CircuitBreakerConfig {
 ### Ethereum Configuration
 
 #### Basic Setup with Etherscan
+
 ```json
 {
   "ethereum": {
     "enabled": true,
     "adapterType": "blockchain",
     "options": {
-      "blockchain": "ethereum", 
+      "blockchain": "ethereum",
       "providers": [
         {
           "name": "etherscan",
@@ -179,6 +182,7 @@ interface CircuitBreakerConfig {
 ```
 
 #### Multi-Provider Ethereum Setup
+
 ```json
 {
   "providers": [
@@ -193,7 +197,7 @@ interface CircuitBreakerConfig {
       "name": "alchemy",
       "priority": 2,
       "enabled": true,
-      "apiKey": "env:ALCHEMY_API_KEY", 
+      "apiKey": "env:ALCHEMY_API_KEY",
       "rateLimit": { "requestsPerSecond": 5.0 }
     },
     {
@@ -219,7 +223,7 @@ interface CircuitBreakerConfig {
       "providers": [
         {
           "name": "injective-indexer",
-          "priority": 1, 
+          "priority": 1,
           "enabled": true,
           "rateLimit": { "requestsPerSecond": 2.0 },
           "baseUrl": "https://k8s.mainnet.lcd.injective.network"
@@ -259,7 +263,7 @@ The system validates environment variables at startup:
 if (config.apiKey?.startsWith('env:')) {
   const envVar = config.apiKey.replace('env:', '');
   const value = process.env[envVar];
-  
+
   if (!value) {
     throw new Error(`Missing required environment variable: ${envVar}`);
   }
@@ -269,6 +273,7 @@ if (config.apiKey?.startsWith('env:')) {
 ### Development vs Production
 
 #### Development (`.env.development`)
+
 ```bash
 # Use free tiers and test networks
 ETHERSCAN_API_KEY=free_tier_key
@@ -276,6 +281,7 @@ BITCOIN_NETWORK=testnet
 ```
 
 #### Production (`.env.production`)
+
 ```bash
 # Use paid tiers for reliability
 ETHERSCAN_API_KEY=paid_tier_key
@@ -292,8 +298,8 @@ BITCOIN_NETWORK=mainnet
   "name": "high-reliability-provider",
   "priority": 1,
   "circuitBreaker": {
-    "maxFailures": 5,        // Allow more failures before opening
-    "timeoutMs": 120000,     // 2 minute recovery timeout
+    "maxFailures": 5, // Allow more failures before opening
+    "timeoutMs": 120000, // 2 minute recovery timeout
     "enabled": true
   }
 }
@@ -305,9 +311,9 @@ BITCOIN_NETWORK=mainnet
 {
   "name": "custom-provider",
   "healthCheck": {
-    "intervalMs": 30000,     // Check every 30 seconds
-    "timeoutMs": 5000,       // 5 second timeout for health checks
-    "endpoint": "/health"    // Custom health check endpoint
+    "intervalMs": 30000, // Check every 30 seconds
+    "timeoutMs": 5000, // 5 second timeout for health checks
+    "endpoint": "/health" // Custom health check endpoint
   }
 }
 ```
@@ -316,11 +322,11 @@ BITCOIN_NETWORK=mainnet
 
 ```json
 {
-  "name": "cached-provider", 
+  "name": "cached-provider",
   "caching": {
     "enabled": true,
-    "ttlMs": 60000,          // 1 minute cache TTL
-    "maxEntries": 1000       // Maximum cached entries
+    "ttlMs": 60000, // 1 minute cache TTL
+    "maxEntries": 1000 // Maximum cached entries
   }
 }
 ```
@@ -332,17 +338,19 @@ BITCOIN_NETWORK=mainnet
 1. **Sign up**: Visit [blockcypher.com](https://www.blockcypher.com/)
 2. **Get API key**: Create account and generate token
 3. **Configure**:
+
 ```json
 {
   "name": "blockcypher",
   "apiKey": "env:BLOCKCYPHER_API_KEY",
   "rateLimit": { "requestsPerSecond": 3.0 },
   "options": {
-    "network": "main",       // or "test3" for testnet
+    "network": "main", // or "test3" for testnet
     "includeUnconfirmed": false
   }
 }
 ```
+
 4. **Set environment**: `BLOCKCYPHER_API_KEY=your_token_here`
 
 ### Alchemy Setup
@@ -350,10 +358,11 @@ BITCOIN_NETWORK=mainnet
 1. **Sign up**: Visit [alchemy.com](https://www.alchemy.com/)
 2. **Create app**: Select Ethereum mainnet
 3. **Configure**:
+
 ```json
 {
   "name": "alchemy",
-  "apiKey": "env:ALCHEMY_API_KEY", 
+  "apiKey": "env:ALCHEMY_API_KEY",
   "rateLimit": { "requestsPerSecond": 5.0 },
   "options": {
     "network": "eth-mainnet",
@@ -361,6 +370,7 @@ BITCOIN_NETWORK=mainnet
   }
 }
 ```
+
 4. **Set environment**: `ALCHEMY_API_KEY=your_api_key_here`
 
 ### Moralis Setup
@@ -368,6 +378,7 @@ BITCOIN_NETWORK=mainnet
 1. **Sign up**: Visit [moralis.io](https://moralis.io/)
 2. **Get API key**: From dashboard
 3. **Configure**:
+
 ```json
 {
   "name": "moralis",
@@ -379,6 +390,7 @@ BITCOIN_NETWORK=mainnet
   }
 }
 ```
+
 4. **Set environment**: `MORALIS_API_KEY=your_api_key_here`
 
 ## Testing Configuration
@@ -429,27 +441,35 @@ curl http://localhost:3000/api/health/circuit-breakers
 ### Common Issues
 
 #### 1. Missing Environment Variables
+
 ```
 Error: Missing required environment variable: ETHERSCAN_API_KEY
 ```
+
 **Solution**: Add the variable to your `.env` file
 
 #### 2. Invalid API Keys
+
 ```
 Error: Authentication failed for provider 'etherscan'
 ```
+
 **Solution**: Verify API key is correct and has required permissions
 
 #### 3. Rate Limit Exceeded
+
 ```
 Error: Rate limit exceeded for provider 'etherscan'
 ```
+
 **Solution**: Reduce `requestsPerSecond` or upgrade API plan
 
 #### 4. Provider Connection Failed
+
 ```
 Error: Connection failed for provider 'custom-provider'
 ```
+
 **Solution**: Check `baseUrl` and network connectivity
 
 ### Configuration Validation
@@ -460,7 +480,7 @@ The system performs automatic validation on startup:
 // Example validation output
 Provider Configuration Validation:
 ✅ bitcoin/mempool.space: Connected successfully
-✅ bitcoin/blockstream.info: Connected successfully  
+✅ bitcoin/blockstream.info: Connected successfully
 ❌ bitcoin/blockcypher: Missing API key (BLOCKCYPHER_API_KEY)
 ✅ ethereum/etherscan: Connected successfully
 ⚠️  ethereum/alchemy: Rate limit detected, using conservative settings
@@ -488,9 +508,9 @@ DEBUG=provider:*,circuit-breaker:*,cache:* pnpm run import
 ```json
 {
   "rateLimit": {
-    "requestsPerSecond": 2.0,    // Conservative baseline
-    "burstLimit": 10,            // Allow occasional bursts
-    "backoffMs": 1000           // Wait 1s when rate limited
+    "requestsPerSecond": 2.0, // Conservative baseline
+    "burstLimit": 10, // Allow occasional bursts
+    "backoffMs": 1000 // Wait 1s when rate limited
   }
 }
 ```
@@ -502,17 +522,17 @@ DEBUG=provider:*,circuit-breaker:*,cache:* pnpm run import
   "providers": [
     {
       "name": "fast-paid-provider",
-      "priority": 1,             // Try first - fastest
+      "priority": 1, // Try first - fastest
       "rateLimit": { "requestsPerSecond": 10.0 }
     },
     {
-      "name": "reliable-free-provider", 
-      "priority": 2,             // Fallback - reliable
+      "name": "reliable-free-provider",
+      "priority": 2, // Fallback - reliable
       "rateLimit": { "requestsPerSecond": 1.0 }
     },
     {
       "name": "backup-provider",
-      "priority": 3,             // Last resort
+      "priority": 3, // Last resort
       "rateLimit": { "requestsPerSecond": 0.5 }
     }
   ]
@@ -524,8 +544,8 @@ DEBUG=provider:*,circuit-breaker:*,cache:* pnpm run import
 ```json
 {
   "caching": {
-    "ttlMs": 30000,              // 30 second cache for balance queries
-    "maxEntries": 500,           // Limit memory usage
+    "ttlMs": 30000, // 30 second cache for balance queries
+    "maxEntries": 500, // Limit memory usage
     "enabled": true
   }
 }
@@ -536,6 +556,7 @@ DEBUG=provider:*,circuit-breaker:*,cache:* pnpm run import
 ### From Single Provider to Multi-Provider
 
 #### Step 1: Current Configuration
+
 ```json
 {
   "bitcoin": {
@@ -549,11 +570,12 @@ DEBUG=provider:*,circuit-breaker:*,cache:* pnpm run import
 ```
 
 #### Step 2: Add Provider Structure
+
 ```json
 {
   "bitcoin": {
     "enabled": true,
-    "adapterType": "blockchain", 
+    "adapterType": "blockchain",
     "options": {
       "blockchain": "bitcoin",
       "providers": [
@@ -571,6 +593,7 @@ DEBUG=provider:*,circuit-breaker:*,cache:* pnpm run import
 ```
 
 #### Step 3: Add Backup Providers
+
 ```json
 {
   "providers": [
@@ -582,7 +605,7 @@ DEBUG=provider:*,circuit-breaker:*,cache:* pnpm run import
     },
     {
       "name": "blockstream.info",
-      "priority": 2, 
+      "priority": 2,
       "enabled": true,
       "rateLimit": { "requestsPerSecond": 1.0 }
     }
@@ -614,9 +637,9 @@ ETHERSCAN_API_KEY=your_secret_key
 ```json
 {
   "rateLimit": {
-    "requestsPerSecond": 0.8,    // 20% below provider limit
-    "burstLimit": 3,             // Conservative burst allowance
-    "backoffMs": 2000           // Generous backoff time
+    "requestsPerSecond": 0.8, // 20% below provider limit
+    "burstLimit": 3, // Conservative burst allowance
+    "backoffMs": 2000 // Generous backoff time
   }
 }
 ```
@@ -626,8 +649,9 @@ ETHERSCAN_API_KEY=your_secret_key
 ```json
 {
   "options": {
-    "timeout": 10000,           // 10 second timeout
-    "retries": 2,               // Limited retry attempts
-    "userAgent": "YourApp/1.0"  // Identify your application
+    "timeout": 10000, // 10 second timeout
+    "retries": 2, // Limited retry attempts
+    "userAgent": "YourApp/1.0" // Identify your application
   }
 }
+```

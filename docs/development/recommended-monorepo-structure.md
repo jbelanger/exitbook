@@ -56,9 +56,11 @@ crypto-portfolio-platform/
 ## Key Domain Separation Strategy
 
 ### 1. **Import Domain** (`packages/import/`)
+
 Your existing sophisticated importer becomes a self-contained domain with blockchain-centric organization:
 
 #### **Blockchain-Centric Structure**
+
 Each blockchain is organized as a self-contained feature module:
 
 ```
@@ -73,7 +75,7 @@ packages/import/blockchains/bitcoin/
 └── index.ts               # Public exports
 
 packages/import/blockchains/ethereum/
-├── adapter.ts              # Ethereum blockchain adapter  
+├── adapter.ts              # Ethereum blockchain adapter
 ├── providers/
 │   ├── etherscan-provider.ts
 │   ├── alchemy-provider.ts
@@ -84,12 +86,13 @@ packages/import/blockchains/ethereum/
 ```
 
 #### **Import Services**
+
 ```typescript
 // packages/import/services/transaction-importer.ts
 export class TransactionImporter {
-  async importFromExchanges(config: ExchangeImportConfig): Promise<ImportResult>
-  async importFromBlockchain(config: BlockchainImportConfig): Promise<ImportResult>
-  async verifyImportedData(importId: string): Promise<VerificationResult>
+  async importFromExchanges(config: ExchangeImportConfig): Promise<ImportResult>;
+  async importFromBlockchain(config: BlockchainImportConfig): Promise<ImportResult>;
+  async verifyImportedData(importId: string): Promise<VerificationResult>;
 }
 
 // packages/import/shared/provider-registry.ts
@@ -100,12 +103,14 @@ export class ProviderRegistry {
 ```
 
 #### **Benefits of Blockchain-Centric Organization**
+
 - **Feature Cohesion**: All Bitcoin-related code (adapter, providers, utils, types) lives together
 - **Developer Experience**: Easy to find and modify blockchain-specific functionality
 - **Clear Boundaries**: Each blockchain is a self-contained module with defined interfaces
 - **Scalability**: Adding new blockchains follows a consistent, predictable pattern
 
 ### 2. **Portfolio Domain** (`packages/portfolio/`)
+
 New portfolio functionality with clear boundaries:
 
 ```typescript
@@ -117,23 +122,27 @@ export class Portfolio {
     private transactions: Transaction[]
   ) {}
 
-  calculateCurrentValue(prices: PriceMap): Money
-  getPerformanceMetrics(timeframe: Timeframe): PerformanceMetrics
-  generateReports(type: ReportType): Report
+  calculateCurrentValue(prices: PriceMap): Money;
+  getPerformanceMetrics(timeframe: Timeframe): PerformanceMetrics;
+  generateReports(type: ReportType): Report;
 }
 
 // packages/portfolio/services/portfolio-calculator.ts
 export class PortfolioCalculator {
-  calculateHoldings(transactions: Transaction[]): Holding[]
-  calculateReturns(holdings: Holding[], prices: PriceMap): Returns
-  calculateRisk(portfolio: Portfolio): RiskMetrics
+  calculateHoldings(transactions: Transaction[]): Holding[];
+  calculateReturns(holdings: Holding[], prices: PriceMap): Returns;
+  calculateRisk(portfolio: Portfolio): RiskMetrics;
 }
 ```
 
 ### 3. **Shared Core** (`packages/core/`)
+
 Common domain entities and types:
 
 ```typescript
+// Clean import pattern
+import { BitcoinAdapter, MempoolSpaceProvider } from '@crypto/import/blockchains/bitcoin';
+
 // packages/core/domain/transaction.ts
 export interface Transaction {
   id: string;
@@ -156,14 +165,12 @@ export { BitcoinAdapter } from './adapter.ts';
 export { MempoolSpaceProvider, BlockstreamProvider } from './providers/index.ts';
 export { BitcoinUtils } from './utils.ts';
 export * from './providers/types.ts';
-
-// Clean import pattern
-import { BitcoinAdapter, MempoolSpaceProvider } from '@crypto/import/blockchains/bitcoin';
 ```
 
 ## Application Layer Structure
 
 ### **API Server** (`apps/api/`)
+
 NestJS application with clear module separation:
 
 ```typescript
@@ -171,10 +178,10 @@ NestJS application with clear module separation:
 @Module({
   imports: [
     // Domain modules
-    ImportModule,      // Import-related endpoints
-    PortfolioModule,   // Portfolio-related endpoints
-    AuthModule,        // Authentication
-    HealthModule,      // Health checks
+    ImportModule, // Import-related endpoints
+    PortfolioModule, // Portfolio-related endpoints
+    AuthModule, // Authentication
+    HealthModule, // Health checks
   ],
 })
 export class AppModule {}
@@ -197,25 +204,20 @@ export class PortfolioModule {}
 ```
 
 ### **CLI Tool** (`apps/cli/`)
+
 Commander.js with domain-specific commands:
 
 ```typescript
 // apps/cli/src/commands/import.ts
 export class ImportCommand {
   @Command('import:exchange')
-  async importExchange(
-    @Option('exchange') exchange: string,
-    @Option('config') config: string
-  ) {
+  async importExchange(@Option('exchange') exchange: string, @Option('config') config: string) {
     const importer = new TransactionImporter();
     return importer.importFromExchanges(/* config */);
   }
 
   @Command('import:blockchain')
-  async importBlockchain(
-    @Option('blockchain') blockchain: string,
-    @Option('addresses') addresses: string[]
-  ) {
+  async importBlockchain(@Option('blockchain') blockchain: string, @Option('addresses') addresses: string[]) {
     const importer = new TransactionImporter();
     return importer.importFromBlockchain({
       blockchain,
@@ -228,10 +230,7 @@ export class ImportCommand {
 // apps/cli/src/commands/portfolio.ts
 export class PortfolioCommand {
   @Command('portfolio:analyze')
-  async analyzePortfolio(
-    @Option('user') userId: string,
-    @Option('timeframe') timeframe: string
-  ) {
+  async analyzePortfolio(@Option('user') userId: string, @Option('timeframe') timeframe: string) {
     const calculator = new PortfolioCalculator();
     return calculator.analyzePerformance(/* params */);
   }
@@ -239,6 +238,7 @@ export class PortfolioCommand {
 ```
 
 ### **Web Frontend** (`apps/web/`)
+
 React/Next.js with feature-based organization:
 
 ```typescript
@@ -268,6 +268,7 @@ React/Next.js with feature-based organization:
 ## Package Dependencies Strategy
 
 ### **Dependency Flow**
+
 ```
 apps/api     → packages/import, packages/portfolio, packages/data
 apps/web     → packages/ui, packages/core/types
@@ -285,28 +286,24 @@ packages/shared    → packages/core
 ```
 
 ### **Internal Import Structure**
+
 Each blockchain module is self-contained with clean exports:
 
 ```typescript
 // ✅ Good - Import from blockchain module
 import { BitcoinAdapter, BitcoinUtils } from '@crypto/import/blockchains/bitcoin';
-
-// ✅ Good - Import shared registry
-import { ProviderRegistry } from '@crypto/import/shared';
-
 // ❌ Avoid - Deep imports into internal structure
 import { MempoolSpaceProvider } from '@crypto/import/blockchains/bitcoin/providers/mempool-space-provider';
+// ✅ Good - Import shared registry
+import { ProviderRegistry } from '@crypto/import/shared';
 ```
 
 ### **Package.json Workspace Structure**
+
 ```json
 {
   "name": "crypto-portfolio-platform",
-  "workspaces": [
-    "apps/*",
-    "packages/*",
-    "tools/*"
-  ],
+  "workspaces": ["apps/*", "packages/*", "tools/*"],
   "scripts": {
     "dev:api": "pnpm --filter api dev",
     "dev:web": "pnpm --filter web dev",
@@ -321,6 +318,7 @@ import { MempoolSpaceProvider } from '@crypto/import/blockchains/bitcoin/provide
 ## Inter-Domain Communication
 
 ### **Event-Driven Architecture**
+
 Implement domain events for loose coupling:
 
 ```typescript
@@ -344,13 +342,14 @@ export class ImportCompletedHandler {
 ```
 
 ### **Shared Database with Domain Boundaries**
+
 ```sql
 -- Import domain tables
 transactions
 import_logs
 provider_health
 
--- Portfolio domain tables  
+-- Portfolio domain tables
 portfolios
 holdings
 performance_snapshots
@@ -364,12 +363,13 @@ exchange_info
 ## Development Workflow
 
 ### **Independent Development**
+
 ```bash
 # Work on import features
 pnpm --filter @crypto/import dev
 pnpm --filter @crypto/import test
 
-# Work on portfolio features  
+# Work on portfolio features
 pnpm --filter @crypto/portfolio dev
 pnpm --filter @crypto/portfolio test
 
@@ -379,6 +379,7 @@ pnpm dev:web &
 ```
 
 ### **Deployment Strategy**
+
 ```bash
 # Deploy API with both domains
 pnpm --filter api build
@@ -396,6 +397,7 @@ pnpm --filter web deploy
 ## Benefits of This Structure
 
 ### **Domain-Level Benefits**
+
 1. **Clear Domain Boundaries** - Import and portfolio logic completely separated
 2. **Reusable Packages** - CLI and API can share the same business logic
 3. **Independent Scaling** - Each domain can evolve independently
@@ -404,6 +406,7 @@ pnpm --filter web deploy
 6. **Deployment Flexibility** - Can deploy domains separately if needed
 
 ### **Blockchain-Centric Benefits**
+
 7. **Feature Cohesion** - All blockchain-related code grouped together (adapter + providers + utilities)
 8. **Developer Productivity** - Easy to find and modify blockchain-specific functionality
 9. **Consistent Patterns** - Each blockchain follows the same organizational structure

@@ -25,17 +25,17 @@ Before writing code, clearly define what your provider will do:
 ```typescript
 // Example: New Solana provider planning
 const providerPlan = {
-  name: 'solana-rpc',           // Unique identifier
-  blockchain: 'solana',         // Target blockchain
+  name: 'solana-rpc', // Unique identifier
+  blockchain: 'solana', // Target blockchain
   capabilities: [
-    'getAddressTransactions',   // What operations it supports
+    'getAddressTransactions', // What operations it supports
     'getAddressBalance',
-    'getTokenTransactions'
+    'getTokenTransactions',
   ],
   apiEndpoint: 'https://api.mainnet-beta.solana.com',
-  rateLimit: 100,              // Requests per second
-  requiresApiKey: false,       // Authentication requirements
-  cost: 'free'                 // Pricing model
+  rateLimit: 100, // Requests per second
+  requiresApiKey: false, // Authentication requirements
+  cost: 'free', // Pricing model
 };
 ```
 
@@ -54,12 +54,15 @@ Gather essential information about the target API:
 Determine which type of provider you're building:
 
 #### Type 1: New Blockchain Provider
+
 Adding support for a completely new blockchain (e.g., Solana, Cardano, Polygon)
 
-#### Type 2: Alternative Provider  
+#### Type 2: Alternative Provider
+
 Adding an alternative API for existing blockchain (e.g., new Bitcoin API alongside mempool.space)
 
 #### Type 3: Specialized Provider
+
 Adding specialized capabilities (e.g., NFT transactions, DeFi protocols, staking data)
 
 ## Step 2: Implement the Provider Interface
@@ -70,8 +73,8 @@ Every provider must implement the `IBlockchainProvider` interface:
 
 ```typescript
 // src/providers/SolanaRPCProvider.ts
-import { IBlockchainProvider, ProviderOperation, ProviderCapabilities, RateLimitConfig } from './IBlockchainProvider';
 import { BlockchainTransaction } from '../types/blockchain';
+import { IBlockchainProvider, ProviderCapabilities, ProviderOperation, RateLimitConfig } from './IBlockchainProvider';
 
 export class SolanaRPCProvider implements IBlockchainProvider<SolanaConfig> {
   readonly name = 'solana-rpc';
@@ -83,12 +86,12 @@ export class SolanaRPCProvider implements IBlockchainProvider<SolanaConfig> {
     supportsPagination: true,
     maxLookbackDays: 365,
     supportsRealTimeData: true,
-    supportsTokenData: true
+    supportsTokenData: true,
   };
   readonly rateLimit: RateLimitConfig = {
     requestsPerSecond: 10,
     burstLimit: 20,
-    backoffMs: 1000
+    backoffMs: 1000,
   };
 
   constructor(private config: SolanaConfig) {}
@@ -136,7 +139,7 @@ export class SolanaRPCProvider implements IBlockchainProvider<SolanaConfig> {
 ```typescript
 private async getAddressTransactions(params: { address: string; since?: number }): Promise<BlockchainTransaction[]> {
   const { address, since } = params;
-  
+
   // Build RPC request
   const rpcParams = {
     method: 'getConfirmedSignaturesForAddress2',
@@ -150,7 +153,7 @@ private async getAddressTransactions(params: { address: string; since?: number }
   };
 
   const response = await this.makeRequest(rpcParams.method, rpcParams.params);
-  
+
   // Transform Solana response to standard format
   return response.result.map(tx => this.transformTransaction(tx, address));
 }
@@ -183,7 +186,7 @@ private async getAddressBalance(params: { address: string; tokenAddress?: string
       { mint: tokenAddress },
       { encoding: 'jsonParsed' }
     ]);
-    
+
     const tokenAccount = response.result.value[0];
     return {
       balance: tokenAccount?.account.data.parsed.info.tokenAmount.uiAmountString || '0',
@@ -225,7 +228,7 @@ private async makeRequest(method: string, params: any[]): Promise<any> {
   }
 
   const data = await response.json();
-  
+
   if (data.error) {
     throw new Error(`Solana RPC error: ${data.error.message}`);
   }
@@ -244,15 +247,15 @@ private handleError(error: any): never {
   if (error.message?.includes('rate limit')) {
     throw new RateLimitError('Solana RPC rate limit exceeded');
   }
-  
+
   if (error.message?.includes('unauthorized') || error.message?.includes('invalid api key')) {
     throw new AuthenticationError('Invalid Solana RPC credentials');
   }
-  
+
   if (error.message?.includes('service unavailable') || error.code === 503) {
     throw new ServiceUnavailableError('Solana RPC service unavailable');
   }
-  
+
   // Generic error
   throw new Error(`Solana RPC error: ${error.message}`);
 }
@@ -289,11 +292,7 @@ export interface BlockchainConfig {
 }
 
 // Add to provider config union
-export type ProviderSpecificConfig = 
-  | BitcoinConfig 
-  | EthereumConfig 
-  | InjectiveConfig
-  | SolanaConfig;  // New addition
+export type ProviderSpecificConfig = BitcoinConfig | EthereumConfig | InjectiveConfig | SolanaConfig; // New addition
 ```
 
 ### Example Configuration
@@ -347,7 +346,7 @@ describe('SolanaRPCProvider', () => {
   beforeEach(() => {
     config = {
       baseUrl: 'https://api.mainnet-beta.solana.com',
-      network: 'mainnet-beta'
+      network: 'mainnet-beta',
     };
     provider = new SolanaRPCProvider(config);
   });
@@ -357,7 +356,7 @@ describe('SolanaRPCProvider', () => {
       // Mock successful RPC response
       global.fetch = jest.fn().mockResolvedValue({
         ok: true,
-        json: () => Promise.resolve({ result: { version: '1.14.0' } })
+        json: () => Promise.resolve({ result: { version: '1.14.0' } }),
       });
 
       const isHealthy = await provider.isHealthy();
@@ -380,23 +379,23 @@ describe('SolanaRPCProvider', () => {
             signature: 'test-signature-123',
             slot: 123456789,
             blockTime: 1640995200,
-            err: null
-          }
-        ]
+            err: null,
+          },
+        ],
       };
 
       global.fetch = jest.fn().mockResolvedValue({
         ok: true,
-        json: () => Promise.resolve(mockResponse)
+        json: () => Promise.resolve(mockResponse),
       });
 
       const operation = {
         type: 'getAddressTransactions' as const,
-        params: { address: 'test-address' }
+        params: { address: 'test-address' },
       };
 
       const transactions = await provider.execute(operation, config);
-      
+
       expect(transactions).toHaveLength(1);
       expect(transactions[0].hash).toBe('test-signature-123');
       expect(transactions[0].status).toBe('confirmed');
@@ -409,19 +408,19 @@ describe('SolanaRPCProvider', () => {
             signature: 'failed-signature',
             slot: 123456789,
             blockTime: 1640995200,
-            err: { InstructionError: [0, 'Custom'] }
-          }
-        ]
+            err: { InstructionError: [0, 'Custom'] },
+          },
+        ],
       };
 
       global.fetch = jest.fn().mockResolvedValue({
         ok: true,
-        json: () => Promise.resolve(mockResponse)
+        json: () => Promise.resolve(mockResponse),
       });
 
       const operation = {
         type: 'getAddressTransactions' as const,
-        params: { address: 'test-address' }
+        params: { address: 'test-address' },
       };
 
       const transactions = await provider.execute(operation, config);
@@ -434,17 +433,15 @@ describe('SolanaRPCProvider', () => {
       global.fetch = jest.fn().mockResolvedValue({
         ok: false,
         status: 429,
-        statusText: 'Too Many Requests'
+        statusText: 'Too Many Requests',
       });
 
       const operation = {
         type: 'getAddressTransactions' as const,
-        params: { address: 'test-address' }
+        params: { address: 'test-address' },
       };
 
-      await expect(provider.execute(operation, config))
-        .rejects
-        .toThrow('rate limit');
+      await expect(provider.execute(operation, config)).rejects.toThrow('rate limit');
     });
   });
 });
@@ -459,24 +456,19 @@ describe('Solana Provider Integration', () => {
 
   beforeEach(() => {
     providerManager = new BlockchainProviderManager();
-    providerManager.registerProviders('solana', [
-      new SolanaRPCProvider(config),
-      new QuickNodeSolanaProvider(config)
-    ]);
+    providerManager.registerProviders('solana', [new SolanaRPCProvider(config), new QuickNodeSolanaProvider(config)]);
   });
 
   it('should successfully failover between Solana providers', async () => {
     // Mock first provider failure
-    jest.spyOn(SolanaRPCProvider.prototype, 'execute')
-      .mockRejectedValueOnce(new Error('Service unavailable'));
+    jest.spyOn(SolanaRPCProvider.prototype, 'execute').mockRejectedValueOnce(new Error('Service unavailable'));
 
     // Mock second provider success
-    jest.spyOn(QuickNodeSolanaProvider.prototype, 'execute')
-      .mockResolvedValueOnce([{ hash: 'success-tx' }]);
+    jest.spyOn(QuickNodeSolanaProvider.prototype, 'execute').mockResolvedValueOnce([{ hash: 'success-tx' }]);
 
     const operation = {
       type: 'getAddressTransactions' as const,
-      params: { address: 'test-address' }
+      params: { address: 'test-address' },
     };
 
     const result = await providerManager.executeWithFailover('solana', operation);
@@ -485,14 +477,14 @@ describe('Solana Provider Integration', () => {
 
   it('should respect Solana provider capabilities', async () => {
     const operation = {
-      type: 'getStakingRewards' as const,  // Not supported by basic provider
-      params: { address: 'test-address' }
+      type: 'getStakingRewards' as const, // Not supported by basic provider
+      params: { address: 'test-address' },
     };
 
     // Should skip providers that don't support this operation
-    await expect(providerManager.executeWithFailover('solana', operation))
-      .rejects
-      .toThrow('No providers support operation');
+    await expect(providerManager.executeWithFailover('solana', operation)).rejects.toThrow(
+      'No providers support operation'
+    );
   });
 });
 ```
@@ -503,14 +495,14 @@ describe('Solana Provider Integration', () => {
 
 ```typescript
 // src/adapters/blockchain/solana-adapter.ts
-import { BaseBlockchainAdapter } from './base-blockchain-adapter';
-import { SolanaRPCProvider } from '../../providers/SolanaRPCProvider';
 import { QuickNodeSolanaProvider } from '../../providers/QuickNodeSolanaProvider';
+import { SolanaRPCProvider } from '../../providers/SolanaRPCProvider';
+import { BaseBlockchainAdapter } from './base-blockchain-adapter';
 
 export class SolanaAdapter extends BaseBlockchainAdapter {
   constructor(config: SolanaConfig) {
     super(config);
-    
+
     // Register all Solana providers
     this.providerManager.registerProviders('solana', [
       new SolanaRPCProvider(config),
@@ -535,7 +527,7 @@ export function createBlockchainAdapter(options: BlockchainImportOptions): Block
   // ... existing code ...
 
     const blockchain = options.options.blockchain;
-    
+
     switch (blockchain) {
       case 'bitcoin':
         return new BitcoinAdapter(options.options);
@@ -586,10 +578,10 @@ export class AdvancedSolanaProvider implements IBlockchainProvider {
   readonly capabilities: ProviderCapabilities = {
     supportedOperations: [
       'getAddressTransactions',
-      'getAddressBalance', 
+      'getAddressBalance',
       'getTokenTransactions',
-      'getStakingRewards',     // Custom capability
-      'getNFTTransactions'     // Custom capability
+      'getStakingRewards', // Custom capability
+      'getNFTTransactions', // Custom capability
     ],
     maxBatchSize: 100,
     providesHistoricalData: true,
@@ -598,7 +590,7 @@ export class AdvancedSolanaProvider implements IBlockchainProvider {
     supportsTokenData: true,
     // Custom capabilities
     supportsStaking: true,
-    supportsNFTs: true
+    supportsNFTs: true,
   };
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
@@ -625,7 +617,7 @@ export class CachedSolanaProvider extends SolanaRPCProvider {
     if (operation.getCacheKey && this.shouldCache(operation.type)) {
       const cacheKey = operation.getCacheKey(operation.params);
       const cached = this.cache.get(cacheKey);
-      
+
       if (cached && cached.expiry > Date.now()) {
         return cached.data;
       }
@@ -638,7 +630,7 @@ export class CachedSolanaProvider extends SolanaRPCProvider {
       const cacheKey = operation.getCacheKey(operation.params);
       this.cache.set(cacheKey, {
         data: result,
-        expiry: Date.now() + this.getCacheTTL(operation.type)
+        expiry: Date.now() + this.getCacheTTL(operation.type),
       });
     }
 
@@ -652,9 +644,12 @@ export class CachedSolanaProvider extends SolanaRPCProvider {
 
   private getCacheTTL(operationType: string): number {
     switch (operationType) {
-      case 'getAddressTransactions': return 60000;  // 1 minute
-      case 'getAddressBalance': return 30000;       // 30 seconds
-      default: return 60000;
+      case 'getAddressTransactions':
+        return 60000; // 1 minute
+      case 'getAddressBalance':
+        return 30000; // 30 seconds
+      default:
+        return 60000;
     }
   }
 }
@@ -670,15 +665,15 @@ private handleError(error: any): never {
   if (error.code === 429 || error.message?.includes('rate limit')) {
     throw new RateLimitError('Rate limit exceeded', { retryAfter: 60 });
   }
-  
+
   if (error.code === 401 || error.code === 403) {
     throw new AuthenticationError('Invalid credentials');
   }
-  
+
   if (error.code >= 500) {
     throw new ServiceUnavailableError('Service temporarily unavailable');
   }
-  
+
   throw new Error(`Provider error: ${error.message}`);
 }
 
@@ -700,10 +695,10 @@ async getAllTransactions(address: string): Promise<BlockchainTransaction[]> {
   while (hasMore && allTransactions.length < 10000) { // Prevent infinite loops
     const batch = await this.getTransactionBatch(address, cursor);
     allTransactions.push(...batch.transactions);
-    
+
     cursor = batch.nextCursor;
     hasMore = batch.hasMore;
-    
+
     // Rate limiting
     await this.delay(this.rateLimit.backoffMs || 100);
   }
@@ -718,15 +713,15 @@ async getAllTransactions(address: string): Promise<BlockchainTransaction[]> {
 // ✅ Good: Respect rate limits
 private async makeRateLimitedRequest(url: string, options: RequestInit): Promise<Response> {
   await this.rateLimiter.wait(); // Wait for rate limit clearance
-  
+
   const response = await fetch(url, options);
-  
+
   if (response.status === 429) {
     const retryAfter = parseInt(response.headers.get('Retry-After') || '60');
     await this.delay(retryAfter * 1000);
     return this.makeRateLimitedRequest(url, options); // Retry
   }
-  
+
   return response;
 }
 ```
@@ -746,7 +741,7 @@ describe('Provider Edge Cases', () => {
     // Mock malformed response
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve({ invalid: 'structure' })
+      json: () => Promise.resolve({ invalid: 'structure' }),
     });
 
     await expect(provider.execute(operation, config)).rejects.toThrow();
@@ -754,14 +749,10 @@ describe('Provider Edge Cases', () => {
 
   it('should respect timeout settings', async () => {
     // Mock slow response
-    global.fetch = jest.fn().mockImplementation(
-      () => new Promise(resolve => setTimeout(resolve, 10000))
-    );
+    global.fetch = jest.fn().mockImplementation(() => new Promise(resolve => setTimeout(resolve, 10000)));
 
     const configWithTimeout = { ...config, timeout: 1000 };
-    await expect(provider.execute(operation, configWithTimeout))
-      .rejects
-      .toThrow('timeout');
+    await expect(provider.execute(operation, configWithTimeout)).rejects.toThrow('timeout');
   });
 });
 ```

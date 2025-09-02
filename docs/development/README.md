@@ -19,7 +19,7 @@ pnpm install
 cp .env.example .env
 # Edit .env with your API keys
 
-# Test provider connections  
+# Test provider connections
 pnpm run test:providers
 
 # Run with provider architecture
@@ -74,20 +74,24 @@ DEBUG=provider:* pnpm run import
 ## What You Get
 
 ### ✅ Eliminate Single Points of Failure
+
 - **Before**: One API down = complete system failure
 - **After**: Automatic failover to backup providers
 
-### ✅ Production-Grade Resilience  
+### ✅ Production-Grade Resilience
+
 - **Circuit Breakers**: Stop hammering failed services
 - **Smart Retry Logic**: Exponential backoff and recovery testing
 - **Health Monitoring**: Real-time provider status tracking
 
 ### ✅ Performance Optimization
+
 - **Request Caching**: 30-second cache for expensive operations
 - **Rate Limit Respect**: Automatic rate limiting and backoff
 - **Concurrent Processing**: Multiple providers working simultaneously
 
 ### ✅ Zero Breaking Changes
+
 - **Existing Code Compatible**: Your current adapters continue working unchanged
 - **Gradual Migration**: Add providers incrementally
 - **Configuration Driven**: Enable/disable providers without code changes
@@ -113,30 +117,32 @@ DEBUG=provider:* pnpm run import
 **⚡ Circuit Breakers**: Protect against cascading failures  
 **🎯 Capability Routing**: Operations route to providers that support them  
 **📊 Health Monitoring**: Real-time provider status and performance tracking  
-**💾 Request Caching**: Intelligent caching for performance optimization  
+**💾 Request Caching**: Intelligent caching for performance optimization
 
 ## Supported Blockchains
 
-| Blockchain | Primary Providers | Alternative Providers | Status |
-|------------|------------------|----------------------|---------|
-| **Bitcoin** | mempool.space | blockstream.info, BlockCypher | ✅ Production |
-| **Ethereum** | Etherscan | Alchemy, Moralis | ✅ Production |
-| **Injective** | Injective Indexer | Cosmos API | ✅ Production |
+| Blockchain    | Primary Providers | Alternative Providers         | Status        |
+| ------------- | ----------------- | ----------------------------- | ------------- |
+| **Bitcoin**   | mempool.space     | blockstream.info, BlockCypher | ✅ Production |
+| **Ethereum**  | Etherscan         | Alchemy, Moralis              | ✅ Production |
+| **Injective** | Injective Indexer | Cosmos API                    | ✅ Production |
 
 ## Real-World Impact
 
 ### Scenario: mempool.space Outage
 
 **Without Provider Architecture:**
+
 ```
 ❌ 12:00 PM - mempool.space goes down
-❌ 12:01 PM - Bitcoin imports start failing  
+❌ 12:01 PM - Bitcoin imports start failing
 ❌ 12:30 PM - All Bitcoin transaction tracking stopped
 ❌ 2:00 PM - Manual intervention required
 ❌ 3:00 PM - System restored after manual config changes
 ```
 
 **With Provider Architecture:**
+
 ```
 ✅ 12:00 PM - mempool.space goes down
 ✅ 12:00 PM - Circuit breaker opens, failover to blockstream.info
@@ -150,6 +156,7 @@ DEBUG=provider:* pnpm run import
 ## Configuration Examples
 
 ### Multi-Provider Bitcoin Setup
+
 ```json
 {
   "bitcoin": {
@@ -164,7 +171,7 @@ DEBUG=provider:* pnpm run import
           "rateLimit": { "requestsPerSecond": 0.25 }
         },
         {
-          "name": "blockstream.info", 
+          "name": "blockstream.info",
           "priority": 2,
           "rateLimit": { "requestsPerSecond": 1.0 }
         },
@@ -181,6 +188,7 @@ DEBUG=provider:* pnpm run import
 ```
 
 ### High-Performance Ethereum Setup
+
 ```json
 {
   "ethereum": {
@@ -210,17 +218,19 @@ DEBUG=provider:* pnpm run import
 ## Monitoring & Health Checks
 
 ### Real-Time Status Dashboard
+
 ```bash
 # Get provider health overview
 pnpm run status --providers
 
 # Example output:
 # ✅ bitcoin/mempool.space: HEALTHY (850ms avg, 0.1% errors)
-# ⚠️  bitcoin/blockstream.info: DEGRADED (2.1s avg, 5% errors)  
+# ⚠️  bitcoin/blockstream.info: DEGRADED (2.1s avg, 5% errors)
 # ❌ bitcoin/blockcypher: CIRCUIT_OPEN (3 consecutive failures)
 ```
 
 ### Performance Monitoring
+
 ```bash
 # Monitor provider performance in real-time
 DEBUG=provider:performance pnpm run import
@@ -237,7 +247,7 @@ pnpm run dev                    # Run with hot reload
 pnpm run build                  # Compile TypeScript
 pnpm test                       # Run all tests
 
-# Provider Management  
+# Provider Management
 pnpm run test:providers         # Test all provider connections
 pnpm run test:provider bitcoin mempool.space  # Test specific provider
 pnpm run validate:config        # Validate configuration file
@@ -276,6 +286,7 @@ BLOCKCYPHER_API_KEY=your_blockcypher_token  # Optional - free tier available
 ### From Single Provider to Multi-Provider
 
 **Step 1**: Current single-provider configuration
+
 ```json
 {
   "bitcoin": {
@@ -289,11 +300,12 @@ BLOCKCYPHER_API_KEY=your_blockcypher_token  # Optional - free tier available
 ```
 
 **Step 2**: Add provider structure (backward compatible)
+
 ```json
 {
   "bitcoin": {
     "enabled": true,
-    "adapterType": "blockchain", 
+    "adapterType": "blockchain",
     "options": {
       "blockchain": "bitcoin",
       "providers": [
@@ -310,6 +322,7 @@ BLOCKCYPHER_API_KEY=your_blockcypher_token  # Optional - free tier available
 ```
 
 **Step 3**: Add backup providers
+
 ```json
 {
   "providers": [
@@ -333,36 +346,39 @@ BLOCKCYPHER_API_KEY=your_blockcypher_token  # Optional - free tier available
 
 ## Documentation
 
-| Document | Description | Audience |
-|----------|-------------|----------|
-| **[README.md](README.md)** | Overview and quick start | Everyone |
-| **[architecture.md](architecture.md)** | Technical deep-dive | Developers, Architects |
-| **[configuration.md](configuration.md)** | Setup and configuration guide | DevOps, Operators |
-| **[circuit-breaker.md](circuit-breaker.md)** | Circuit breaker pattern explanation | Developers, SREs |
-| **[provider-development.md](provider-development.md)** | How to add new providers | Developers |
-| **[troubleshooting.md](troubleshooting.md)** | Common issues and solutions | Support, Operations |
+| Document                                               | Description                         | Audience               |
+| ------------------------------------------------------ | ----------------------------------- | ---------------------- |
+| **[README.md](README.md)**                             | Overview and quick start            | Everyone               |
+| **[architecture.md](architecture.md)**                 | Technical deep-dive                 | Developers, Architects |
+| **[configuration.md](configuration.md)**               | Setup and configuration guide       | DevOps, Operators      |
+| **[circuit-breaker.md](circuit-breaker.md)**           | Circuit breaker pattern explanation | Developers, SREs       |
+| **[provider-development.md](provider-development.md)** | How to add new providers            | Developers             |
+| **[troubleshooting.md](troubleshooting.md)**           | Common issues and solutions         | Support, Operations    |
 
 ## Performance Benchmarks
 
 ### Response Time Improvements
-| Scenario | Without Providers | With Providers | Improvement |
-|----------|------------------|----------------|-------------|
-| **Normal Operation** | 850ms | 720ms | 15% faster (caching) |
-| **Single Provider Down** | 30s timeout | 2s failover | 93% faster |
-| **All Providers Slow** | 15s average | 3s (fastest wins) | 80% faster |
+
+| Scenario                 | Without Providers | With Providers    | Improvement          |
+| ------------------------ | ----------------- | ----------------- | -------------------- |
+| **Normal Operation**     | 850ms             | 720ms             | 15% faster (caching) |
+| **Single Provider Down** | 30s timeout       | 2s failover       | 93% faster           |
+| **All Providers Slow**   | 15s average       | 3s (fastest wins) | 80% faster           |
 
 ### Reliability Improvements
-| Metric | Before | After | Improvement |
-|--------|--------|-------|-------------|
-| **Uptime** | 95.2% | 99.8% | +4.6% uptime |
-| **Mean Time to Recovery** | 2.5 hours | 3 minutes | 98% faster |
-| **Failed Import Rate** | 8.3% | 0.2% | 97% reduction |
+
+| Metric                    | Before    | After     | Improvement   |
+| ------------------------- | --------- | --------- | ------------- |
+| **Uptime**                | 95.2%     | 99.8%     | +4.6% uptime  |
+| **Mean Time to Recovery** | 2.5 hours | 3 minutes | 98% faster    |
+| **Failed Import Rate**    | 8.3%      | 0.2%      | 97% reduction |
 
 ## Troubleshooting Quick Reference
 
 ### Common Issues
 
 **Provider Connection Failed**
+
 ```bash
 # Check API keys
 echo $ETHERSCAN_API_KEY | wc -c  # Should be 35 characters
@@ -372,16 +388,18 @@ curl "https://api.etherscan.io/api?module=account&action=balance&address=0x123&a
 ```
 
 **Rate Limit Exceeded**
+
 ```json
 {
   "rateLimit": {
-    "requestsPerSecond": 0.8,  // Reduce by 20%
-    "backoffMs": 2000         // Increase backoff
+    "requestsPerSecond": 0.8, // Reduce by 20%
+    "backoffMs": 2000 // Increase backoff
   }
 }
 ```
 
 **Circuit Breaker Stuck Open**
+
 ```bash
 # Emergency circuit breaker reset
 node -e "
@@ -396,12 +414,15 @@ console.log('Circuit breakers reset');
 ### Adding New Providers
 
 1. **Implement Provider Interface**
+
 ```typescript
 export class NewProvider implements IBlockchainProvider {
   readonly name = 'new-provider';
   readonly blockchain = 'bitcoin';
-  readonly capabilities = { /* ... */ };
-  
+  readonly capabilities = {
+    /* ... */
+  };
+
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
     // Implementation
   }
@@ -409,6 +430,7 @@ export class NewProvider implements IBlockchainProvider {
 ```
 
 2. **Add Configuration**
+
 ```json
 {
   "name": "new-provider",
@@ -419,6 +441,7 @@ export class NewProvider implements IBlockchainProvider {
 ```
 
 3. **Write Tests**
+
 ```typescript
 describe('NewProvider', () => {
   it('should handle address transactions', async () => {
@@ -448,7 +471,7 @@ pnpm run dev
 ### Getting Help
 
 - 📖 **Documentation**: Start with [configuration.md](configuration.md) for setup
-- 🐛 **Issues**: Check [troubleshooting.md](troubleshooting.md) for common problems  
+- 🐛 **Issues**: Check [troubleshooting.md](troubleshooting.md) for common problems
 - 💬 **Discussions**: Technical questions and architecture discussions
 - 🚨 **Critical Issues**: For production outages and urgent problems
 
@@ -474,7 +497,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Acknowledgments
 
 - **CCXT Library**: For comprehensive exchange connectivity
-- **Circuit Breaker Pattern**: Based on Netflix Hystrix principles  
+- **Circuit Breaker Pattern**: Based on Netflix Hystrix principles
 - **Blockchain APIs**: mempool.space, Etherscan, Alchemy, and other providers
 - **Community**: Contributors and users who make this project better
 
