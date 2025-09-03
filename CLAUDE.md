@@ -15,10 +15,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Development & Build
 
 - `pnpm install` - Install dependencies (requires Node.js >= 22.0.0)
+- `pnpm build` - Build all applications (NestJS)
 - `pnpm build:api` - Build API application (NestJS)
 - `pnpm build:cli` - Build CLI application (NestJS Commander)
 - `pnpm start:api` - Start API server (requires database)
 - `pnpm start:cli` - Run CLI application
+- `pnpm start:dev` - Start in watch mode
+- `pnpm start:debug` - Start with debug and watch
+- `pnpm start:prod` - Start production build
+- `pnpm clean` - Clean all build artifacts
 - `pnpm db:generate` - Generate new Drizzle migration
 - `pnpm db:migrate` - Run database migrations
 - `pnpm db:studio` - Launch Drizzle Studio (database GUI)
@@ -26,19 +31,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Testing & Quality
 
 - `pnpm test` - Run unit tests (using Vitest)
-- `pnpm test:coverage` - Run tests with coverage
+- `pnpm test:unit` - Run unit tests
 - `pnpm test:e2e` - Run end-to-end tests
+- `pnpm test:watch` - Run tests in watch mode
+- `pnpm test:coverage` - Run tests with coverage
+- `pnpm test:ui` - Run tests with UI
 - `pnpm typecheck` - Type checking
 - `pnpm lint` - ESLint checking
 - `pnpm lint:fix` - Auto-fix ESLint issues (including perfectionist sorting)
+- `pnpm prettier` - Check formatting
 - `pnpm prettier:fix` - Auto-fix formatting issues
 
 ### Future Commands (Not Yet Implemented)
 
 The following commands are planned but not yet implemented:
 
-- `pnpm start api` - Start API server (NestJS REST API)
-- `pnpm start cli` - Run CLI application (NestJS Commander)
 - `pnpm status` - Show system status
 - `pnpm import` - Import transactions
 - `pnpm verify` - Balance verification
