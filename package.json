@@ -58,6 +58,7 @@
     "@eslint/js": "^9.34.0",
     "@nestjs/cli": "^11.0.10",
     "@trivago/prettier-plugin-sort-imports": "^5.2.2",
+    "@types/node": "^24.3.0",
     "@types/prettier": "^3.0.0",
     "@typescript-eslint/eslint-plugin": "^8.40.0",
     "@typescript-eslint/parser": "^8.40.0",
@@ -74,21 +75,16 @@
   },
   "pnpm": {
     "onlyBuiltDependencies": [
+      "@nestjs/core",
       "esbuild"
+    ],
+    "ignoredBuiltDependencies": [
+      "@scarf/scarf",
+      "ccxt",
+      "unrs-resolver"
     ]
   },
   "dependencies": {
-    "@nestjs/common": "^11.1.6",
-    "@nestjs/config": "^4.0.2",
-    "@nestjs/core": "^11.1.6",
-    "@nestjs/platform-express": "^11.1.6",
-    "@nestjs/swagger": "^11.2.0",
-    "class-transformer": "^0.5.1",
-    "class-validator": "^0.14.2",
-    "drizzle-kit": "^0.31.4",
-    "drizzle-orm": "^0.44.5",
-    "postgres": "^3.4.7",
-    "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.2"
+    "typescript": "^5.9.2"
   }
 }

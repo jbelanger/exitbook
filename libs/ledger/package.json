@@ -4,10 +4,17 @@
   "description": "ExitBook Ledger - Ledger business logic and account services",
   "main": "index.js",
   "scripts": {
-    "build": "tsc -p tsconfig.lib.json",
+    "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@exitbook/core": "workspace:*",
+    "@exitbook/database": "workspace:*"
   },
   "devDependencies": {
     "@exitbook/shared-tsconfig": "workspace:*"
+  },
+  "peerDependencies": {
+    "@nestjs/common": "^11.1.6"
   }
 }

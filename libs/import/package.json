@@ -4,10 +4,19 @@
   "description": "ExitBook Import - Importers, processors, and orchestration services",
   "main": "index.js",
   "scripts": {
-    "build": "tsc -p tsconfig.lib.json",
+    "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@exitbook/core": "workspace:*",
+    "@exitbook/database": "workspace:*",
+    "@exitbook/ledger": "workspace:*",
+    "@exitbook/providers": "workspace:*"
   },
   "devDependencies": {
     "@exitbook/shared-tsconfig": "workspace:*"
+  },
+  "peerDependencies": {
+    "@nestjs/common": "^11.1.6"
   }
 }
