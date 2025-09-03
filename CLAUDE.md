@@ -14,7 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Development & Build
 
-- `pnpm install` - Install dependencies (requires Node.js >= 23.0.0)
+- `pnpm install` - Install dependencies (requires Node.js >= 22.0.0)
 - `pnpm build:api` - Build API application (NestJS)
 - `pnpm build:cli` - Build CLI application (NestJS Commander) 
 - `pnpm start:api` - Start API server (requires database)

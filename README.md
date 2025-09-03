@@ -121,8 +121,8 @@ pnpm prettier:fix   # Auto-fix code formatting
 
 ### Prerequisites
 
-- **Node.js** >= 23.0.0 (specified in package.json engines)
-- **pnpm** >= 10.6.2 (package manager)
+- **Node.js** >= 22.0.0 (Current LTS recommended)
+- **pnpm** >= 10.0.0 (Modern package manager)
 - **PostgreSQL** (for database, connection string in .env)
 
 ### Environment Setup

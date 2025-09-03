@@ -42,8 +42,8 @@
     "balance-verification"
   ],
   "engines": {
-    "node": ">=23.0.0",
-    "pnpm": ">=10.6.2"
+    "node": ">=22.0.0",
+    "pnpm": ">=10.0.0"
   },
   "packageManager": "pnpm@10.6.2",
   "lint-staged": {
