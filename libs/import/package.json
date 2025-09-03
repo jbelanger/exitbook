@@ -1,0 +1,10 @@
+{
+  "name": "@exitbook/import",
+  "version": "1.0.0",
+  "description": "ExitBook Import - Importers, processors, and orchestration services",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.lib.json",
+    "typecheck": "tsc --noEmit"
+  }
+}

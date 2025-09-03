@@ -1,0 +1,10 @@
+{
+  "name": "@exitbook/ledger",
+  "version": "1.0.0",
+  "description": "ExitBook Ledger - Ledger business logic and account services",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.lib.json",
+    "typecheck": "tsc --noEmit"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "@exitbook/database",
+  "version": "1.0.0",
+  "description": "ExitBook Database - Drizzle ORM integration and repositories",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.lib.json",
+    "typecheck": "tsc --noEmit"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "@exitbook/core",
+  "version": "1.0.0",
+  "description": "ExitBook Core - Domain entities, types, and validation",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.lib.json",
+    "typecheck": "tsc --noEmit"
+  }
+}
