@@ -1,40 +1,45 @@
-import { Module, OnModuleInit, Logger } from '@nestjs/common';
+import { Logger, Module, OnModuleInit } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import postgres from 'postgres';
+
 import * as schema from './schema';
 import { CurrencySeederService } from './services/currency-seeder.service';
 import { DatabaseHealthService } from './services/database-health.service';
 
 @Module({
+  exports: ['DATABASE_CONNECTION', DatabaseHealthService, CurrencySeederService],
   imports: [ConfigModule],
   providers: [
     {
-      provide: 'DATABASE_CONNECTION',
       inject: [ConfigService],
+      provide: 'DATABASE_CONNECTION',
       useFactory: async (configService: ConfigService) => {
-        const databaseUrl = configService.get<string>('DATABASE_URL') || 
+        const databaseUrl =
+          configService.get<string>('DATABASE_URL') ||
           'postgresql://crypto_user:crypto_pass@localhost:5432/crypto_tx_import';
-        
+
         const client = postgres(databaseUrl, {
           max: configService.get<number>('DATABASE_POOL_SIZE', 10),
-          ssl: configService.get<string>('DATABASE_SSL_MODE', 'disable') !== 'disable' ? { rejectUnauthorized: false } : false,
+          ssl:
+            configService.get<string>('DATABASE_SSL_MODE', 'disable') !== 'disable'
+              ? { rejectUnauthorized: false }
+              : false,
         });
-        
+
         return drizzle(client, { schema });
       },
     },
     CurrencySeederService,
     DatabaseHealthService,
   ],
-  exports: ['DATABASE_CONNECTION', DatabaseHealthService, CurrencySeederService],
 })
 export class DatabaseModule implements OnModuleInit {
   private readonly logger = new Logger(DatabaseModule.name);
 
   constructor(
     private currencySeeder: CurrencySeederService,
-    private healthService: DatabaseHealthService,
+    private healthService: DatabaseHealthService
   ) {}
 
   async onModuleInit() {

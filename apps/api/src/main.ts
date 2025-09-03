@@ -1,6 +1,7 @@
-import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -9,12 +10,12 @@ async function bootstrap() {
   // Enable validation globally
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
       transformOptions: {
         enableImplicitConversion: true,
       },
+      whitelist: true,
     })
   );
 
@@ -23,7 +24,7 @@ async function bootstrap() {
     .setTitle('ExitBook API')
     .setDescription('Cryptocurrency transaction import and double-entry ledger system')
     .setVersion('1.0')
-    .addApiKey({ type: 'apiKey', name: 'x-api-key', in: 'header' }, 'api-key')
+    .addApiKey({ in: 'header', name: 'x-api-key', type: 'apiKey' }, 'api-key')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

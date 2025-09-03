@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+
 // import { DatabaseModule } from '@exitbook/database';
 // import { LedgerModule } from '@exitbook/ledger';
 // import { ImportModule } from '@exitbook/import';
@@ -9,8 +10,8 @@ import { ConfigModule } from '@nestjs/config';
 @Module({
   imports: [
     ConfigModule.forRoot({
-      isGlobal: true,
       envFilePath: ['.env.local', '.env'],
+      isGlobal: true,
     }),
     // DatabaseModule,
     // LedgerModule,
