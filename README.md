@@ -1,4 +1,4 @@
-# <img src="./docs/assets/images/exitbook-brand.png" alt="ExitBook" width="50" align="middle"/> ExitBook
+# <img src="./docs/assets/images/exitbook-brand.png" alt="ExitBook" width="50" align="middle"/><span>&nbsp;&nbsp;</span>ExitBook
 
 **Track, log, and analyze your crypto journey.**
 _Your personal book of crypto decisions — from entry to cash-out._
