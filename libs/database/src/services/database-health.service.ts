@@ -1,8 +1,9 @@
-import { Injectable, Inject, Logger } from '@nestjs/common';
-import { sql, eq } from 'drizzle-orm';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { eq, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
+
+import { accounts, currencies, ledgerTransactions } from '../schema';
 import { CurrencySeederService } from './currency-seeder.service';
-import { currencies, accounts, ledgerTransactions } from '../schema';
 
 type DrizzleDB = NodePgDatabase<Record<string, unknown>>;
 
@@ -12,8 +13,38 @@ export class DatabaseHealthService {
 
   constructor(
     @Inject('DATABASE_CONNECTION') private db: DrizzleDB,
-    private currencySeeder: CurrencySeederService,
+    private currencySeeder: CurrencySeederService
   ) {}
+
+  async getHealthMetrics(): Promise<{
+    currenciesSeeded: boolean;
+    databaseConnected: boolean;
+    totalAccounts: number;
+    totalCurrencies: number;
+    totalTransactions: number;
+  }> {
+    try {
+      const [currencyCount] = await this.db.select({ count: sql<number>`count(*)` }).from(currencies);
+      const [accountCount] = await this.db.select({ count: sql<number>`count(*)` }).from(accounts);
+      const [transactionCount] = await this.db.select({ count: sql<number>`count(*)` }).from(ledgerTransactions);
+
+      return {
+        currenciesSeeded: currencyCount.count >= 5, // BTC, ETH, USDC, SOL, USD
+        databaseConnected: true,
+        totalAccounts: accountCount.count,
+        totalCurrencies: currencyCount.count,
+        totalTransactions: transactionCount.count,
+      };
+    } catch (error) {
+      return {
+        currenciesSeeded: false,
+        databaseConnected: false,
+        totalAccounts: 0,
+        totalCurrencies: 0,
+        totalTransactions: 0,
+      };
+    }
+  }
 
   async isHealthy(): Promise<boolean> {
     try {
@@ -42,36 +73,6 @@ export class DatabaseHealthService {
     } catch (error) {
       this.logger.error(`Database health check failed: ${error.message}`);
       return false;
-    }
-  }
-
-  async getHealthMetrics(): Promise<{
-    databaseConnected: boolean;
-    currenciesSeeded: boolean;
-    totalCurrencies: number;
-    totalAccounts: number;
-    totalTransactions: number;
-  }> {
-    try {
-      const [currencyCount] = await this.db.select({ count: sql<number>`count(*)` }).from(currencies);
-      const [accountCount] = await this.db.select({ count: sql<number>`count(*)` }).from(accounts);
-      const [transactionCount] = await this.db.select({ count: sql<number>`count(*)` }).from(ledgerTransactions);
-
-      return {
-        databaseConnected: true,
-        currenciesSeeded: currencyCount.count >= 5, // BTC, ETH, USDC, SOL, USD
-        totalCurrencies: currencyCount.count,
-        totalAccounts: accountCount.count,
-        totalTransactions: transactionCount.count,
-      };
-    } catch (error) {
-      return {
-        databaseConnected: false,
-        currenciesSeeded: false,
-        totalCurrencies: 0,
-        totalAccounts: 0,
-        totalTransactions: 0,
-      };
     }
   }
 }

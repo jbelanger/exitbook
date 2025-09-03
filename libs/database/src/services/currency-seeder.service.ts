@@ -1,6 +1,7 @@
-import { Injectable, Inject, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
+
 import { currencies } from '../schema';
 
 type DrizzleDB = NodePgDatabase<Record<string, unknown>>;
@@ -9,19 +10,31 @@ type DrizzleDB = NodePgDatabase<Record<string, unknown>>;
 export class CurrencySeederService {
   private readonly logger = new Logger(CurrencySeederService.name);
 
-  constructor(
-    @Inject('DATABASE_CONNECTION') private db: DrizzleDB,
-  ) {}
+  constructor(@Inject('DATABASE_CONNECTION') private db: DrizzleDB) {}
 
   async seedDefaultCurrencies(): Promise<void> {
     this.logger.log('Starting currency seeding process...');
 
     const defaultCurrencies = [
-      { ticker: 'BTC', name: 'Bitcoin', decimals: 8, assetClass: 'CRYPTO' as const, isNative: true },
-      { ticker: 'ETH', name: 'Ethereum', decimals: 18, assetClass: 'CRYPTO' as const, network: 'ethereum', isNative: true },
-      { ticker: 'USDC', name: 'USD Coin', decimals: 6, assetClass: 'CRYPTO' as const, network: 'ethereum', contractAddress: '0xA0b86a33E6441e0fD4f5f6aF08e6E56fF29b4c3D' },
-      { ticker: 'SOL', name: 'Solana', decimals: 9, assetClass: 'CRYPTO' as const, network: 'solana', isNative: true },
-      { ticker: 'USD', name: 'US Dollar', decimals: 2, assetClass: 'FIAT' as const, isNative: true },
+      { assetClass: 'CRYPTO' as const, decimals: 8, isNative: true, name: 'Bitcoin', ticker: 'BTC' },
+      {
+        assetClass: 'CRYPTO' as const,
+        decimals: 18,
+        isNative: true,
+        name: 'Ethereum',
+        network: 'ethereum',
+        ticker: 'ETH',
+      },
+      {
+        assetClass: 'CRYPTO' as const,
+        contractAddress: '0xA0b86a33E6441e0fD4f5f6aF08e6E56fF29b4c3D',
+        decimals: 6,
+        name: 'USD Coin',
+        network: 'ethereum',
+        ticker: 'USDC',
+      },
+      { assetClass: 'CRYPTO' as const, decimals: 9, isNative: true, name: 'Solana', network: 'solana', ticker: 'SOL' },
+      { assetClass: 'FIAT' as const, decimals: 2, isNative: true, name: 'US Dollar', ticker: 'USD' },
     ];
 
     let seededCount = 0;
@@ -42,7 +55,9 @@ export class CurrencySeederService {
       }
     }
 
-    this.logger.log(`Currency seeding completed. New currencies added: ${seededCount}, Total currencies: ${defaultCurrencies.length}`);
+    this.logger.log(
+      `Currency seeding completed. New currencies added: ${seededCount}, Total currencies: ${defaultCurrencies.length}`
+    );
   }
 
   async validateCurrencySeeding(): Promise<boolean> {

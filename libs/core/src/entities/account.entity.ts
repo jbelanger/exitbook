@@ -1,13 +1,13 @@
 // Account entity placeholder
 export interface AccountEntity {
+  accountType: string;
+  createdAt: Date;
+  currencyId: number;
+  externalAddress?: string;
   id: number;
   name: string;
-  currencyId: number;
-  accountType: string;
   network?: string;
-  externalAddress?: string;
-  source?: string;
   parentAccountId?: number;
-  createdAt: Date;
+  source?: string;
   updatedAt: Date;
 }
