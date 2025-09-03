@@ -8,8 +8,6 @@ _Your personal book of crypto decisions — from entry to cash-out._
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18-blue.svg)](https://nodejs.org)
 [![NestJS](https://img.shields.io/badge/built%20with-NestJS-red.svg)](https://nestjs.com)
 
----
-
 ## 🚀 Overview
 
 ExitBook is a **NestJS-based double-entry ledger system** for cryptocurrency.
