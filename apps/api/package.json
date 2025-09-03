@@ -16,6 +16,7 @@
     "@exitbook/ledger": "workspace:*",
     "@exitbook/import": "workspace:*",
     "@exitbook/providers": "workspace:*",
-    "@exitbook/shared": "workspace:*"
+    "@exitbook/shared-logger": "workspace:*",
+    "@exitbook/shared-utils": "workspace:*"
   }
 }
