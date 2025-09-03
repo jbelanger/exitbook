@@ -1,6 +1,7 @@
 # <img src="./docs/assets/images/exitbook-brand.png" alt="ExitBook" width="50" align="middle"/><span>&nbsp;&nbsp;</span>ExitBook
 
 **Track, log, and analyze your crypto journey.**
+
 _Your personal book of crypto decisions — from entry to cash-out._
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
