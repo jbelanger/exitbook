@@ -16,7 +16,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - `pnpm install` - Install dependencies (requires Node.js >= 22.0.0)
 - `pnpm build:api` - Build API application (NestJS)
-- `pnpm build:cli` - Build CLI application (NestJS Commander) 
+- `pnpm build:cli` - Build CLI application (NestJS Commander)
 - `pnpm start:api` - Start API server (requires database)
 - `pnpm start:cli` - Run CLI application
 - `pnpm db:generate` - Generate new Drizzle migration
@@ -92,15 +92,18 @@ exitbook/
 │   ├── ledger/     # Ledger & account services
 │   ├── import/     # Importers & processors
 │   ├── providers/  # Provider registry & managers
-│   └── shared/     # Logging, errors, utils
+│   └── shared/     # Multiple focused packages:
+│       ├── logger/     # @exitbook/shared-logger
+│       ├── tsconfig/   # @exitbook/shared-tsconfig
+│       └── utils/      # @exitbook/shared-utils
 ```
 
 ## Implementation Plan
 
 ### Node.js Version Requirements
 
-- **Required**: Node.js >= 23.0.0 (according to package.json)
-- **Package Manager**: pnpm >= 10.6.2
+- **Required**: Node.js >= 22.0.0 (according to package.json)
+- **Package Manager**: pnpm >= 10.0.0 (packageManager: pnpm@10.6.2)
 
 ### Target Technologies
 
@@ -126,7 +129,7 @@ exitbook/
 
 1. `pnpm install` - Install dependencies
 2. `pnpm build:api` - Build API (✅ working)
-3. `pnpm db:generate` - Generate migrations (✅ working) 
+3. `pnpm db:generate` - Generate migrations (✅ working)
 4. `pnpm typecheck` - Type checking (✅ mostly working)
 5. `pnpm lint` - Check linting
 6. `pnpm lint:fix` - Auto-fix ESLint issues (including perfectionist sorting)
@@ -171,7 +174,8 @@ The implementation follows the strategy outlined in `docs/architecture/future-v2
 This is a **greenfield project** implementing a complete NestJS architecture. **Foundation phase completed** - the project now has:
 
 - Complete database schema with proper relationships and indexes
-- Working NestJS monorepo with scoped packages (@exitbook/*)
+- Working NestJS monorepo with scoped packages (@exitbook/\*)
+- **Granular shared packages**: @exitbook/shared-logger, @exitbook/shared-tsconfig, @exitbook/shared-utils
 - Drizzle ORM integration with migrations and seeding
 - TypeScript compilation and build system
 - Ready for core service implementation
