@@ -1,0 +1,10 @@
+{
+  "name": "@exitbook/providers",
+  "version": "1.0.0",
+  "description": "ExitBook Providers - Provider registry and blockchain provider managers",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.lib.json",
+    "typecheck": "tsc --noEmit"
+  }
+}

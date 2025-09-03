@@ -4,39 +4,45 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-ExitBook is a cryptocurrency transaction import and ledger system built with NestJS and featuring a Universal Blockchain Provider Architecture for resilient transaction imports. The system transforms from fragile single-point-of-failure blockchain adapters into a production-grade infrastructure with automatic failover.
+**NESTJS PROJECT**: This is the `exitbook` branch - a complete rewrite implementation of ExitBook, a cryptocurrency transaction import and ledger system. This branch starts fresh with a new NestJS-based architecture implementing a double-entry ledger system with Universal Blockchain Provider Architecture.
+
+**Current Status**: Foundation phase completed - NestJS monorepo structure implemented with complete database schema, Drizzle ORM integration, and core services scaffolding based on the architecture outlined in `docs/architecture/future-v2/project-strategy.md`.
 
 ## Essential Commands
 
+**Note**: Most commands do not exist yet as this is a greenfield project. Current available commands:
+
 ### Development & Build
 
-- `pnpm install` - Install dependencies (takes ~25 seconds, requires Node.js >= 23.0.0)
-- `pnpm build` - Build TypeScript CLI app (~4 seconds)
-- `pnpm dev` - Run with hot reload
-- `pnpm start api` - Start API server (runs at http://localhost:3000)
-- `pnpm start cli` - Run CLI application
+- `pnpm install` - Install dependencies (requires Node.js >= 23.0.0)
+- `pnpm build:api` - Build API application (NestJS)
+- `pnpm build:cli` - Build CLI application (NestJS Commander) 
+- `pnpm start:api` - Start API server (requires database)
+- `pnpm start:cli` - Run CLI application
+- `pnpm db:generate` - Generate new Drizzle migration
+- `pnpm db:migrate` - Run database migrations
+- `pnpm db:studio` - Launch Drizzle Studio (database GUI)
 
 ### Testing & Quality
 
-- `pnpm test` - Run unit tests (~2 seconds, some existing failures)
+- `pnpm test` - Run unit tests (using Vitest)
 - `pnpm test:coverage` - Run tests with coverage
 - `pnpm test:e2e` - Run end-to-end tests
-- `pnpm typecheck` - Type checking (~12 seconds, has existing TypeScript errors)
-- `pnpm lint` - ESLint checking (~8 seconds, has existing lint errors)
+- `pnpm typecheck` - Type checking
+- `pnpm lint` - ESLint checking
+- `pnpm lint:fix` - Auto-fix ESLint issues (including perfectionist sorting)
 - `pnpm prettier:fix` - Auto-fix formatting issues
 
-### CLI Operations
+### Future Commands (Not Yet Implemented)
 
-- `pnpm status` - Show system status (database, transactions, verifications)
-- `pnpm import` - Import transactions with automatic failover
+The following commands are planned but not yet implemented:
+
+- `pnpm start api` - Start API server (NestJS REST API)
+- `pnpm start cli` - Run CLI application (NestJS Commander)
+- `pnpm status` - Show system status
+- `pnpm import` - Import transactions
 - `pnpm verify` - Balance verification
 - `pnpm export` - Export transaction data
-
-### Provider Management
-
-- `pnpm blockchain-providers:list` - List all blockchain providers
-- `pnpm blockchain-providers:validate` - Validate provider registrations
-- `pnpm config:validate` - Validate configuration files
 
 ## Architecture
 
@@ -89,82 +95,85 @@ exitbook/
 │   └── shared/     # Logging, errors, utils
 ```
 
-## Important Implementation Details
+## Implementation Plan
 
 ### Node.js Version Requirements
 
 - **Required**: Node.js >= 23.0.0 (according to package.json)
-- **Reality**: Runs on Node.js 20.19.4 with warnings (can be ignored)
+- **Package Manager**: pnpm >= 10.6.2
 
-### Database
+### Target Technologies
 
-- Uses SQLite3 for local transaction storage
-- Automatic initialization on first run
-- Includes transaction deduplication
+- **Framework**: NestJS (not yet implemented)
+- **Database**: Drizzle ORM with PostgreSQL/SQLite support (not yet implemented)
+- **Architecture**: Double-entry ledger system (not yet implemented)
+- **Testing**: Vitest (configured)
+- **Linting**: ESLint + Prettier (configured)
 
-### Provider System
+### Current State
 
-- 11 blockchain providers across 6 blockchains
-- Multi-provider resilience with automatic failover
-- Registry-based provider discovery using `@RegisterProvider` decorators
-- Rate limiting and caching built-in
-
-### Configuration
-
-- Environment variables in `.env` files
-- Provider configs support multiple APIs per blockchain
-- Circuit breaker and rate limit settings per provider
-
-## Testing Strategy
-
-### Manual Validation Workflows
-
-Always test these after changes:
-
-1. `pnpm status` - should show system information
-2. `pnpm blockchain-providers:list` - should show all providers
-3. `pnpm blockchain-providers:validate` - should validate registrations
-4. Database operations work by checking status after imports
-
-### Environment Setup
-
-For full testing, set up `.env` with API keys:
-
-- `ETHERSCAN_API_KEY=your_etherscan_api_key`
-- `BLOCKCYPHER_API_KEY=your_blockcypher_token`
-- Exchange keys: `KUCOIN_API_KEY`, `KUCOIN_SECRET`, `KUCOIN_PASSPHRASE`
-
-## Known Issues & Limitations
-
-- TypeScript errors exist in blockchain providers (~80+ errors)
-- Some lint errors in exchange CCXT adapter (~16 errors)
-- Some test failures exist (4 failed tests in Coinbase adapter)
-- Prettier formatting issues in some packages
-- Commands like `pnpm exchanges:list` are broken (missing script files)
-
-These are existing issues - focus on testing your specific changes rather than fixing these unless directly related.
-
-## Performance Expectations
-
-- Dependency install: ~25 seconds (set timeout 60+ minutes)
-- Build: ~4 seconds (set timeout 60+ minutes)
-- Tests: ~2 seconds (set timeout 30+ minutes)
-- Lint: ~8 seconds (set timeout 30+ minutes)
-
-## Debugging
-
-- `DEBUG=provider:* pnpm import` - Debug provider operations
-- `DEBUG=circuit-breaker:* pnpm import` - Debug circuit breaker state
-- Enable structured logging for troubleshooting
+- **✅ Complete NestJS monorepo structure** with 2 apps and 6 scoped libraries
+- **✅ Full database schema implemented** with 7 tables, indexes, and foreign key constraints
+- **✅ Drizzle ORM integration** with migrations and database services
+- **✅ Currency management** with automatic seeding of default cryptocurrencies
+- **✅ Development tooling** configured (ESLint, Prettier, Husky, Vitest)
+- **✅ TypeScript configuration** with proper path mapping for monorepo
+- **⏳ Core services scaffolding** (ledger, account, import services) - ready for implementation
 
 ## Development Workflow
 
-1. Always run `pnpm build` after code changes
-2. Test with manual scenarios above
-3. Run `pnpm prettier:fix && pnpm lint` before committing
-4. Validate end-to-end workflows actually work
-5. Check provider health with `pnpm status`
+### Current Phase: Foundation Completed ✅
 
-## Migration & Integration
+1. `pnpm install` - Install dependencies
+2. `pnpm build:api` - Build API (✅ working)
+3. `pnpm db:generate` - Generate migrations (✅ working) 
+4. `pnpm typecheck` - Type checking (✅ mostly working)
+5. `pnpm lint` - Check linting
+6. `pnpm lint:fix` - Auto-fix ESLint issues (including perfectionist sorting)
+7. `pnpm prettier:fix` - Fix formatting
 
-The architecture maintains backward compatibility - existing adapters require minimal changes to gain resilience. New providers follow the `IBlockchainProvider` interface pattern with capability declarations.
+### Next Steps (Implementation Plan)
+
+The implementation follows the strategy outlined in `docs/architecture/future-v2/greenfield-project-strategy.md`:
+
+**Phase 1: NestJS Project Setup & Database Foundation**
+
+- Create NestJS monorepo with apps (api, cli) and libs
+- Implement complete database schema with Drizzle ORM
+- Set up typed configuration and health checks
+
+**Phase 2: Core Services & Domain Logic**
+
+- Implement double-entry ledger services
+- Create account and currency management
+- Build Universal-to-Ledger transformation services
+
+**Phase 3: Import Services**
+
+- Port existing importer/processor logic as NestJS services
+- Implement orchestration services
+- Create provider registry system
+
+**Phase 4: Applications**
+
+- Build REST API application
+- Create CLI application with Commander
+- Add monitoring and metrics
+
+### Testing Strategy
+
+- **Unit Tests**: Vitest for all services and business logic
+- **Integration Tests**: Database operations and service interactions
+- **E2E Tests**: Complete import workflows
+
+### Current State
+
+This is a **greenfield project** implementing a complete NestJS architecture. **Foundation phase completed** - the project now has:
+
+- Complete database schema with proper relationships and indexes
+- Working NestJS monorepo with scoped packages (@exitbook/*)
+- Drizzle ORM integration with migrations and seeding
+- TypeScript compilation and build system
+- Ready for core service implementation
+
+The existing codebase on other branches provides domain knowledge and business logic to be reimplemented using the new NestJS architecture patterns.

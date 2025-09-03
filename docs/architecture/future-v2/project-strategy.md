@@ -1,10 +1,10 @@
-# Greenfield Implementation Strategy: NestJS Double-Entry Ledger Architecture
+# Implementation Strategy: NestJS Double-Entry Ledger Architecture
 
 ## Overview
 
 **Objective**: Build a new NestJS-based cryptocurrency transaction import system implementing a complete double-entry ledger architecture with Drizzle ORM from the ground up.
 
-**Approach**: Greenfield NestJS implementation using CQRS pattern that leverages existing importer/processor domain knowledge and provider registry patterns while building on modern, production-ready architecture. This eliminates large services/repositories in favor of small, focused command/query handlers. This is a complete rewrite, not a migration of existing data.
+**Approach**: NestJS implementation using CQRS pattern that leverages existing importer/processor domain knowledge and provider registry patterns while building on modern, production-ready architecture. This eliminates large services/repositories in favor of small, focused command/query handlers. This is a complete rewrite, not a migration of existing data.
 
 ## Current System Analysis
 
@@ -2868,7 +2868,7 @@ export class LedgerService {
 - **Foreign Key Constraints**: Proper cascade and restrict policies prevent orphaned data
 - **Idempotency Guarantees**: Unique constraints on `(external_id, source)` prevent duplicate imports
 
-This greenfield approach provides a modern, scalable NestJS foundation built from the ground up with complete architectural integrity and operational excellence. By implementing the full data model specification from day one, we ensure optimal performance, data integrity, and feature completeness. The implementation preserves all valuable domain knowledge from the existing system while building on a solid, production-ready foundation that includes:
+This approach provides a modern, scalable NestJS foundation built from the ground up with complete architectural integrity and operational excellence. By implementing the full data model specification from day one, we ensure optimal performance, data integrity, and feature completeness. The implementation preserves all valuable domain knowledge from the existing system while building on a solid, production-ready foundation that includes:
 
 - **Multi-currency ledger architecture** with proper normalization and per-currency balancing
 - **Granular account types** enabling detailed financial reporting and categorization
