@@ -17,6 +17,11 @@
     "@exitbook/providers": "workspace:*",
     "@exitbook/shared-logger": "workspace:*",
     "@exitbook/shared-utils": "workspace:*",
-    "nest-commander": "^3.13.0"
+    "@exitbook/shared-tsconfig": "workspace:*",
+    "@nestjs/common": "^11.1.6",
+    "@nestjs/core": "^11.1.6",
+    "nest-commander": "^3.13.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2"
   }
 }

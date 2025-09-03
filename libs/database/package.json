@@ -4,8 +4,13 @@
   "description": "ExitBook Database - Drizzle ORM integration and repositories",
   "main": "index.js",
   "scripts": {
-    "build": "tsc -p tsconfig.lib.json",
+    "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "drizzle-kit": "^0.31.4",
+    "drizzle-orm": "^0.44.5",
+    "postgres": "^3.4.7"
   },
   "devDependencies": {
     "@exitbook/shared-tsconfig": "workspace:*"

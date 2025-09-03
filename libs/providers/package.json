@@ -4,10 +4,17 @@
   "description": "ExitBook Providers - Provider registry and blockchain provider managers",
   "main": "index.js",
   "scripts": {
-    "build": "tsc -p tsconfig.lib.json",
+    "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@exitbook/core": "workspace:*",
+    "@exitbook/shared-utils": "workspace:*"
   },
   "devDependencies": {
     "@exitbook/shared-tsconfig": "workspace:*"
+  },
+  "peerDependencies": {
+    "@nestjs/common": "^11.1.6"
   }
 }

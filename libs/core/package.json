@@ -4,8 +4,12 @@
   "description": "ExitBook Core - Domain entities, types, and validation",
   "main": "index.js",
   "scripts": {
-    "build": "tsc -p tsconfig.lib.json",
+    "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.2"
   },
   "devDependencies": {
     "@exitbook/shared-tsconfig": "workspace:*"
