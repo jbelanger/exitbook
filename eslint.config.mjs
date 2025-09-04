@@ -1,4 +1,5 @@
 import js from '@eslint/js';
+// import neverthrow from 'eslint-plugin-neverthrow'; // Available but disabled due to ESLint 9 compatibility
 import perfectionist from 'eslint-plugin-perfectionist';
 import unicorn from 'eslint-plugin-unicorn';
 import globals from 'globals';
@@ -18,10 +19,14 @@ export default [
       },
     },
     plugins: {
-      unicorn,
+      // neverthrow, // Disabled due to ESLint 9 flat config compatibility issues
       perfectionist,
+      unicorn,
     },
     rules: {
+      // --- NEVERTHROW RULES (EXPLICIT ERROR HANDLING) ---
+      // 'neverthrow/must-use-result': 'error', // Disabled - see note above
+
       // --- UNICORN RULES (MAINTAINABILITY & PRAGMATIC BEST PRACTICES) ---
       '@typescript-eslint/no-unused-vars': 'off',
       'unicorn/no-array-for-each': 'error',

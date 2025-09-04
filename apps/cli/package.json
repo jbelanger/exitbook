@@ -7,7 +7,12 @@
     "build": "nest build",
     "start": "nest start",
     "start:dev": "nest start --watch",
-    "start:debug": "nest start --debug --watch"
+    "start:debug": "nest start --debug --watch",
+    "lint": "eslint \"src/**/*.ts*\"",
+    "lint:fix": "eslint \"src/**/*.ts*\" --fix",
+    "prettier": "prettier --check .",
+    "prettier:fix": "prettier --write .",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@exitbook/core": "workspace:*",

@@ -89,13 +89,6 @@ Key components:
 - **Request Caching**: 30-second cache for expensive operations
 - **Health Monitoring**: Real-time provider status tracking
 
-### Data Architecture
-
-- **Double-entry ledger** for balance-safe accounting
-- **CQRS pattern** with focused handlers
-- **Drizzle ORM** with PostgreSQL/SQLite
-- **Local-first security** approach
-
 ## Project Structure
 
 Based on README.md, the intended structure is:
@@ -107,6 +100,14 @@ exitbook/
 │   └── cli/        # CLI application (NestJS Commander)
 ├── libs/
 │   ├── core/       # Entities, types, validation
+│   │   ├── value-objects/     # Domain value objects
+│   │   │   └── money/         # Money VO with co-located errors
+│   │   │       ├── money.vo.ts
+│   │   │       ├── money.errors.ts
+│   │   │       └── __tests__/
+│   │   │           └── money.vo.test.ts
+│   │   ├── aggregates/        # Domain aggregates
+│   │   └── services/          # Domain services
 │   ├── database/   # Drizzle ORM schema & repos
 │   ├── ledger/     # Ledger & account services
 │   ├── import/     # Importers & processors
@@ -128,21 +129,26 @@ exitbook/
 
 - **Framework**: NestJS (foundation implemented)
 - **Database**: Drizzle ORM with PostgreSQL/SQLite support (schema implemented)
-- **Architecture**: Double-entry ledger system (ready for implementation)
+- **Architecture**: Double-entry ledger system with CQRS pattern
 - **Testing**: Vitest (configured)
 - **Linting**: ESLint + Prettier (configured)
 - **TypeScript**: Dual configuration - ESM base (`tsconfig.json`) and CommonJS NestJS (`tsconfig.nest.json`)
+- **Validation**: Manual validation for core domain, class-validator for NestJS DTOs
 
 ### Current State
 
-- **✅ Complete NestJS monorepo structure** with 2 apps and 6 scoped libraries
-- **✅ Full database schema implemented** with 7 tables, indexes, and foreign key constraints
-- **✅ Drizzle ORM integration** with migrations and database services
-- **✅ Currency management** with automatic seeding of default cryptocurrencies
-- **✅ Development tooling** configured (ESLint, Prettier, Husky, Vitest)
-- **✅ TypeScript configuration** with proper path mapping for monorepo and CommonJS/ESM compatibility
-- **✅ Logger service** implementing NestJS LoggerService interface with Pino, correlation tracking, and audit logging
-- **⏳ Core services scaffolding** (ledger, account, import services) - ready for implementation
+**Foundation phase completed** - the project now has:
+
+- Complete NestJS monorepo with 2 apps and 6 scoped libraries (@exitbook/\*)
+- Full database schema with 7 tables, indexes, and foreign key constraints
+- Drizzle ORM integration with migrations and seeding
+- Development tooling configured (ESLint, Prettier, Husky, Vitest)
+- TypeScript dual configuration (ESM base + CommonJS NestJS)
+- Logger service with Pino, correlation tracking, and audit logging
+- **Money value object implemented** with comprehensive test coverage
+- Ready for core domain services implementation
+
+This is a **greenfield project** - existing codebase on other branches provides domain knowledge to be reimplemented using NestJS architecture patterns.
 
 ## TypeScript Configuration Architecture
 
@@ -211,22 +217,97 @@ The implementation follows the strategy outlined in `docs/architecture/future-v2
 - Create CLI application with Commander
 - Add monitoring and metrics
 
-### Testing Strategy
+## Domain-Driven Design Principles
+
+### Core DDD Concepts
+
+**Factory Method Pattern (CRITICAL):**
+
+- **Private constructors + static factory methods** - All domain objects use this pattern
+- **Invariant protection** - Objects can never exist in invalid states
+- **Pattern**: `private constructor()` + `static create()` returning `Result<T, Error>`
+- **Example**: Money value object uses `Money.fromDecimal()`, never `new Money()`
+
+**Financial Domain Invariants:**
+
+- **Double-entry ledger**: All transactions must balance (sum of entries = 0)
+- **Currency consistency**: Money amounts must match account currencies
+- **User ownership**: Users can only access their own financial data
+- **Balance integrity**: Asset accounts cannot go negative without explicit liability accounts
+
+**Error Handling Strategy:**
+
+- **Domain layer**: neverthrow `Result<T, Error>` types, never throw exceptions
+- **Application layer**: Convert Results to NestJS exceptions at API boundary
+- **Explicit error types**: Each business rule has specific error classes
+- **Composable**: Use `pipe()` and `Result.flatMap()` for operation chaining
+
+**CQRS Application Layer:**
+
+- **Commands**: Business operations (ImportTransaction, CreateAccount)
+- **Queries**: Data retrieval (GetAccountBalance, GetTransactionHistory)
+- **Handlers**: Separate command/query handlers using `@nestjs/cqrs`
+- **Events**: Domain events for audit trail and cross-aggregate communication
+- **Pattern**: Domain aggregates → Command/Query handlers → NestJS controllers
+
+### Validation Strategy
+
+**Dual-layer approach:**
+
+- **Core Domain**: Manual validation for critical financial operations (performance + control)
+  - Rigorous financial validation with complex business rules
+  - Cryptocurrency precision (8 decimals BTC, 18 ETH)
+  - Cross-field validation for currency relationships
+- **API Layer**: class-validator for NestJS DTOs and HTTP requests
+- **Use neverthrow Result types** - never throw exceptions in domain logic
+- **Zod**: Reserved for non-critical validations and API boundaries
+
+**Rationale**: Manual validation provides fine-grained control and performance for financial operations where correctness is critical.
+
+## Folder Organization & Naming Conventions
+
+### Domain-Driven Design Structure
+
+**Value Objects**: Each value object gets its own subdirectory with co-located domain concepts:
+
+```
+libs/core/src/value-objects/
+├── money/                    # Money domain concepts
+│   ├── money.vo.ts          # Money Value Object
+│   ├── money.errors.ts      # Money-specific errors
+│   └── __tests__/           # Tests separated from source
+│       └── money.vo.test.ts # Vitest unit tests
+├── currency/                # Currency domain (future)
+└── account-id/              # AccountId domain (future)
+```
+
+**Aggregates**: Similar structure for domain aggregates:
+
+```
+libs/core/src/aggregates/
+├── user/
+│   ├── user.aggregate.ts
+│   ├── user.errors.ts
+│   ├── account.entity.ts
+│   └── __tests__/
+│       ├── user.aggregate.test.ts
+│       └── account.entity.test.ts
+```
+
+### Testing & File Organization
+
+**Testing Strategy:**
 
 - **Unit Tests**: Vitest for all services and business logic
 - **Integration Tests**: Database operations and service interactions
 - **E2E Tests**: Complete import workflows
+- **Test Organization**: `__tests__/` folders with `.test.ts` files
+- **NestJS integration**: Use `@nestjs/testing` with Vitest for dependency injection
 
-### Current State
+**File Naming:**
 
-This is a **greenfield project** implementing a complete NestJS architecture. **Foundation phase completed** - the project now has:
-
-- Complete database schema with proper relationships and indexes
-- Working NestJS monorepo with scoped packages (@exitbook/\*)
-- **Granular shared packages**: @exitbook/shared-logger, @exitbook/shared-tsconfig, @exitbook/shared-utils
-- Drizzle ORM integration with migrations and seeding
-- TypeScript compilation and build system with proper CommonJS output for NestJS compatibility
-- Logger service implementing NestJS LoggerService interface
-- Ready for core service implementation
-
-The existing codebase on other branches provides domain knowledge and business logic to be reimplemented using the new NestJS architecture patterns.
+- **Value Objects**: `*.vo.ts` (e.g., `money.vo.ts`)
+- **Entities**: `*.entity.ts` (e.g., `account.entity.ts`)
+- **Aggregates**: `*.aggregate.ts` (e.g., `user.aggregate.ts`)
+- **Errors**: `*.errors.ts` (e.g., `money.errors.ts`)
+- **Tests**: `*.test.ts` (e.g., `money.vo.test.ts`)

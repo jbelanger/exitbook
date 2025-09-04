@@ -1,3 +1,4 @@
 // Core types will be exported here
-export * from './money.types';
+export * from '../value-objects/money/money.vo';
+export * from '../value-objects/money/money.errors';
 export * from './transaction.types';
