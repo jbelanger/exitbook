@@ -51,7 +51,7 @@ export class CurrencySeederService {
           this.logger.debug(`Seeded currency: ${currency.ticker}`);
         }
       } catch (error) {
-        this.logger.warn(`Failed to seed currency ${currency.ticker}: ${error.message}`);
+        this.logger.warn(`Failed to seed currency ${currency.ticker}: ${(error as Error).message}`);
       }
     }
 
@@ -79,7 +79,7 @@ export class CurrencySeederService {
 
       return true;
     } catch (error) {
-      this.logger.error(`Currency validation failed: ${error.message}`);
+      this.logger.error(`Currency validation failed: ${(error as Error).message}`);
       return false;
     }
   }

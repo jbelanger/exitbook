@@ -3,6 +3,7 @@ import { eq, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import { accounts, currencies, ledgerTransactions } from '../schema';
+
 import { CurrencySeederService } from './currency-seeder.service';
 
 type DrizzleDB = NodePgDatabase<Record<string, unknown>>;
@@ -71,7 +72,7 @@ export class DatabaseHealthService {
       this.logger.log('Database health check passed');
       return true;
     } catch (error) {
-      this.logger.error(`Database health check failed: ${error.message}`);
+      this.logger.error(`Database health check failed: ${(error as Error).message}`);
       return false;
     }
   }
