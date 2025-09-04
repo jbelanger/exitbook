@@ -139,12 +139,8 @@
           "name": "accounts_currency_id_currencies_id_fk",
           "tableFrom": "accounts",
           "tableTo": "currencies",
-          "columnsFrom": [
-            "currency_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["currency_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -152,12 +148,8 @@
           "name": "accounts_parent_account_id_accounts_id_fk",
           "tableFrom": "accounts",
           "tableTo": "accounts",
-          "columnsFrom": [
-            "parent_account_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["parent_account_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -269,12 +261,8 @@
           "name": "blockchain_transaction_details_transaction_id_ledger_transactions_id_fk",
           "tableFrom": "blockchain_transaction_details",
           "tableTo": "ledger_transactions",
-          "columnsFrom": [
-            "transaction_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["transaction_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -284,9 +272,7 @@
         "blockchain_transaction_details_tx_hash_unique": {
           "name": "blockchain_transaction_details_tx_hash_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "tx_hash"
-          ]
+          "columns": ["tx_hash"]
         }
       },
       "policies": {},
@@ -362,9 +348,7 @@
         "currencies_ticker_unique": {
           "name": "currencies_ticker_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "ticker"
-          ]
+          "columns": ["ticker"]
         }
       },
       "policies": {},
@@ -466,12 +450,8 @@
           "name": "exchange_transaction_details_transaction_id_ledger_transactions_id_fk",
           "tableFrom": "exchange_transaction_details",
           "tableTo": "ledger_transactions",
-          "columnsFrom": [
-            "transaction_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["transaction_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -611,12 +591,8 @@
           "name": "entries_transaction_id_ledger_transactions_id_fk",
           "tableFrom": "entries",
           "tableTo": "ledger_transactions",
-          "columnsFrom": [
-            "transaction_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["transaction_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -624,12 +600,8 @@
           "name": "entries_account_id_accounts_id_fk",
           "tableFrom": "entries",
           "tableTo": "accounts",
-          "columnsFrom": [
-            "account_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["account_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -637,12 +609,8 @@
           "name": "entries_currency_id_currencies_id_fk",
           "tableFrom": "entries",
           "tableTo": "currencies",
-          "columnsFrom": [
-            "currency_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["currency_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -856,12 +824,8 @@
           "name": "transaction_metadata_transaction_id_ledger_transactions_id_fk",
           "tableFrom": "transaction_metadata",
           "tableTo": "ledger_transactions",
-          "columnsFrom": [
-            "transaction_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["transaction_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -895,37 +859,22 @@
     "public.blockchain_status": {
       "name": "blockchain_status",
       "schema": "public",
-      "values": [
-        "pending",
-        "confirmed",
-        "failed"
-      ]
+      "values": ["pending", "confirmed", "failed"]
     },
     "public.asset_class": {
       "name": "asset_class",
       "schema": "public",
-      "values": [
-        "CRYPTO",
-        "FIAT",
-        "NFT",
-        "STOCK"
-      ]
+      "values": ["CRYPTO", "FIAT", "NFT", "STOCK"]
     },
     "public.trade_side": {
       "name": "trade_side",
       "schema": "public",
-      "values": [
-        "buy",
-        "sell"
-      ]
+      "values": ["buy", "sell"]
     },
     "public.direction": {
       "name": "direction",
       "schema": "public",
-      "values": [
-        "CREDIT",
-        "DEBIT"
-      ]
+      "values": ["CREDIT", "DEBIT"]
     },
     "public.entry_type": {
       "name": "entry_type",
@@ -948,12 +897,7 @@
     "public.metadata_type": {
       "name": "metadata_type",
       "schema": "public",
-      "values": [
-        "string",
-        "number",
-        "json",
-        "boolean"
-      ]
+      "values": ["string", "number", "json", "boolean"]
     }
   },
   "schemas": {},
