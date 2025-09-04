@@ -64,7 +64,7 @@ const loadProvidersConfig = () => {
         const mergedConfig = configService.get<Record<string, unknown>>('') || {};
         const validationResult = validateConfig(mergedConfig);
 
-        return validationResult.unwrapOrThrow();
+        return validationResult._unsafeUnwrap();
       },
     },
   ],
