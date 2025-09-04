@@ -4,6 +4,17 @@
 
 A NestJS-based cryptocurrency transaction import system implementing a complete double-entry ledger architecture with Drizzle ORM. The system uses CQRS pattern with small, focused command/query handlers for maintainability and scalability. Error handling is implemented using `neverthrow` for explicit, type-safe error handling that eliminates hidden exceptions and provides structured error data.
 
+### Core Philosophy: Domain-Driven Design (DDD)
+
+While the system uses CQRS for orchestration, the core business logic, rules, and invariants are encapsulated within a rich **Domain Model** as defined in `libs/core`. This approach avoids an anemic domain model where logic is scattered in services, and instead creates a robust, testable, and maintainable core.
+
+**Key Principles Adopted:**
+
+- **Aggregates & Entities:** Business concepts like `LedgerTransaction` and `User` are modeled as classes (`Aggregates`) that protect their own internal consistency (`invariants`).
+- **Value Objects:** Concepts without identity, like `Money`, are modeled as immutable value objects to ensure correctness (e.g., preventing operations between different currencies).
+- **Factory Pattern:** Aggregates cannot be instantiated directly. They are created via static `create()` factory methods that contain all validation logic, ensuring no invalid object can ever exist in the system.
+- **Rich Domain Model:** Business logic lives within the domain objects themselves (e.g., `LedgerTransaction.addEntry()`), not in application services or repositories.
+
 ## Multi-Tenant Architecture & User Context Management
 
 **Critical:** This system is designed as a multi-tenant architecture where all data is scoped by `userId`. Every command, query, and repository operation must include user context to ensure data isolation and security.
@@ -45,6 +56,27 @@ For financial operations, errors are not "exceptions" but common, expected outco
 - **Data integrity issues**: Duplicate transactions, currency mismatches
 
 The `Result<T, E>` type explicitly represents success (`Ok<T>`) or failure (`Err<E>`), forcing developers to handle both paths and eliminating entire classes of runtime errors.
+
+A key principle is that these domain errors are generated **from within the domain aggregates themselves**. When a factory method or a business method on an aggregate encounters a violation of a rule (an invariant), it returns an `Err` result containing a specific, typed domain error.
+
+**Example:**
+
+```typescript
+// libs/core/src/aggregates/transaction/ledger-transaction.aggregate.ts
+
+export class LedgerTransaction extends AggregateRoot {
+  // ...
+
+  public addEntry(entry: Entry): Result<void, UnbalancedTransactionError> {
+    // ... logic to check if adding this entry would unbalance the transaction
+    if (isUnbalanced) {
+      return err(new UnbalancedTransactionError('Adding this entry would unbalance the transaction'));
+    }
+    this._entries.push(entry);
+    return ok(undefined);
+  }
+}
+```
 
 ### Domain Error Classes
 
@@ -116,12 +148,13 @@ crypto-tx-import/
 │       │   └── commands/             # CLI commands as services
 │       └── test/
 ├── libs/                             # NestJS shared libraries
-│   ├── core/                         # Domain entities & types
+│   ├── core/                         # Pure Domain Model (DDD)
 │   │   ├── src/
-│   │   │   ├── entities/             # Account, LedgerTransaction, Entry
-│   │   │   ├── types/                # Ledger-specific types
-│   │   │   ├── validation/           # Zod schemas
-│   │   │   └── core.module.ts
+│   │   │   ├── aggregates/           # Aggregate Roots and child Entities (e.g., LedgerTransaction, Entry)
+│   │   │   ├── value-objects/        # Immutable value objects (e.g., Money)
+│   │   │   ├── services/             # Stateless Domain Services (e.g., BalanceCalculator)
+│   │   │   ├── repositories/         # Repository INTERFACES (the contract for persistence)
+│   │   │   └── errors/               # Custom, typed Domain Errors
 │   │   └── test/
 │   ├── database/                     # Drizzle ORM integration
 │   │   ├── src/
@@ -161,14 +194,10 @@ crypto-tx-import/
 │   │   │   ├── blockchain/           # Blockchain provider managers
 │   │   │   └── providers.module.ts
 │   │   └── test/
-│   └── shared/                       # Cross-cutting concerns
-│       ├── src/
-│       │   ├── logger/               # Winston logging
-│       │   ├── utils/                # Common utilities
-│       │   ├── errors/               # Domain exceptions
-│       │   ├── filters/              # Exception filters
-│       │   └── shared.module.ts
-│       └── test/
+│   └── shared/                       # Cross-cutting concerns (implemented as scoped packages)
+│       ├── config/                   # @exitbook/shared-config
+│       ├── logger/                   # @exitbook/shared-logger
+│       └── ... other shared packages
 ```
 
 ## CQRS Architecture Design
@@ -209,7 +238,7 @@ export class RecordTransactionHandler implements ICommandHandler<RecordTransacti
   constructor(
     private readonly ledgerRepository: LedgerRepository,
     private readonly accountService: AccountService,
-    private readonly logger: Logger
+    private readonly logger: LoggerService
   ) {}
 
   async execute(command: RecordTransactionCommand): ResultAsync<LedgerTransactionDto, DomainError> {
@@ -245,7 +274,7 @@ export class GetAccountBalanceHandler implements IQueryHandler<GetAccountBalance
 
 ### Controllers as Command/Query Dispatchers
 
-Controllers become thin layers that dispatch commands and queries:
+Controllers are kept lean and are only responsible for dispatching commands and queries. They contain no business logic. Error handling for `Result` types is managed globally by a NestJS Exception Filter, which unwraps the result and maps domain errors to appropriate HTTP responses.
 
 ```typescript
 import { Result } from 'neverthrow';
@@ -259,102 +288,71 @@ export class LedgerController {
 
   @Post('transactions')
   async createTransaction(@Body() request: CreateLedgerTransactionDto) {
-    const result = await this.commandBus.execute(new RecordTransactionCommand(request));
-
-    // Handle Result type in controller
-    return result.match(
-      transactionDto => transactionDto,
-      error => {
-        // Convert domain errors to appropriate HTTP responses
-        throw new HttpException(
-          {
-            message: error.message,
-            code: error.code,
-            details: error.details,
-          },
-          this.getHttpStatus(error)
-        );
-      }
+    const result: Result<LedgerTransactionDto, DomainError> = await this.commandBus.execute(
+      new RecordTransactionCommand(request)
     );
+
+    // The controller simply returns the result.
+    // If it's an Err, unwrapOrThrow will throw the DomainError,
+    // which is then caught by our GlobalExceptionFilter.
+    return result.unwrapOrThrow();
   }
 
   @Get('accounts/:id/balance')
   async getBalance(@Param('id') accountId: number) {
-    const result = await this.queryBus.execute(new GetAccountBalanceQuery(accountId));
+    const result: Result<BalanceDto, DomainError> = await this.queryBus.execute(new GetAccountBalanceQuery(accountId));
 
-    return result.match(
-      balance => balance,
-      error => {
-        throw new HttpException(
-          {
-            message: error.message,
-            code: error.code,
-            details: error.details,
-          },
-          this.getHttpStatus(error)
-        );
-      }
-    );
-  }
-
-  private getHttpStatus(error: DomainError): HttpStatus {
-    switch (error.code) {
-      case 'ACCOUNT_NOT_FOUND':
-        return HttpStatus.NOT_FOUND;
-      case 'LEDGER_UNBALANCED':
-        return HttpStatus.BAD_REQUEST;
-      default:
-        return HttpStatus.INTERNAL_SERVER_ERROR;
-    }
+    return result.unwrapOrThrow();
   }
 }
 ```
 
 ### Handler Responsibilities vs. Worker Services
 
-CQRS handlers are **orchestrators**, not containers for complex business logic.
+CQRS handlers are **orchestrators** of the domain model, not containers for complex business logic. Their role is to fetch domain aggregates from repositories, call their methods, and save the results.
 
 ```typescript
-// ✅ CORRECT: Handler orchestrates with neverthrow batch processing
-@CommandHandler(ProcessUniversalTransactionsCommand)
-export class ProcessUniversalTransactionsHandler implements ICommandHandler<ProcessUniversalTransactionsCommand> {
+// ✅ CORRECT: Handler orchestrates the domain model
+@CommandHandler(RecordTransactionCommand)
+export class RecordTransactionHandler implements ICommandHandler<RecordTransactionCommand> {
   constructor(
-    private readonly processorFactory: ProcessorFactoryService,
-    private readonly rawDataRepository: RawDataRepository,
-    private readonly logger: ContextualLoggerService
+    private readonly transactionRepository: ITransactionRepository, // Using interface from libs/core
+    private readonly logger: LoggerService
   ) {}
 
-  async execute(command: ProcessUniversalTransactionsCommand): ResultAsync<BatchProcessingResult, DomainError> {
-    const { userId, sourceId, sessionId } = command;
+  async execute(command: RecordTransactionCommand): ResultAsync<LedgerTransactionDto, DomainError> {
+    const { userId, transactionData } = command;
 
-    // Handler orchestrates the workflow using neverthrow patterns
-    return this.rawDataRepository
-      .findBySession(userId, sessionId)
-      .andThen(rawDataItems => {
-        this.logger.log(`Processing ${rawDataItems.length} raw transactions for session ${sessionId}`);
+    // 1. Use the domain aggregate's factory to create a valid transaction object.
+    //    All validation and business rules are contained within the aggregate itself.
+    const transactionResult = LedgerTransaction.create({
+      userId,
+      externalId: transactionData.externalId,
+      // ... other data
+    });
 
-        // Delegate complex business logic to specialized worker service
-        return this.processorFactory.create(sourceId, 'exchange');
-      })
-      .andThen(processor => {
-        // Process with structured batch result handling
-        return processor.processBatch({
-          id: sessionId,
-          sourceId,
-          sourceType: 'exchange',
-          userId,
-          rawDataItems,
-        });
-      })
-      .andThen(result => {
-        // Log batch processing results
-        this.logger.log(
-          `Batch processing complete. Success: ${result.successful.length}, Failed: ${result.failed.length}`
-        );
+    if (transactionResult.isErr()) {
+      // If the domain rules are violated, return the specific domain error.
+      return errAsync(transactionResult.error);
+    }
 
-        // Return structured batch result instead of throwing on partial failures
-        return okAsync(result);
-      });
+    const transaction = transactionResult.value;
+
+    // 2. Add entries using the aggregate's methods, which enforce invariants.
+    for (const entryData of transactionData.entries) {
+      const entryResult = Entry.create(entryData);
+      if (entryResult.isErr()) return errAsync(entryResult.error);
+
+      const addEntryResult = transaction.addEntry(entryResult.value);
+      if (addEntryResult.isErr()) return errAsync(addEntryResult.error);
+    }
+
+    // 3. Persist the valid aggregate state using the repository.
+    //    The repository's job is persistence, not business logic.
+    return this.transactionRepository.save(transaction).andThen(() => {
+      this.logger.log(`Transaction recorded: ${transaction.id}`);
+      return okAsync(this.mapToDto(transaction)); // Map aggregate state to DTO
+    });
   }
 }
 
@@ -417,105 +415,16 @@ pnpm add @nestjs/cqrs
 # - shared: Cross-cutting concerns
 ```
 
-#### Typed Configuration Setup:
+#### Typed Configuration Setup
 
-```typescript
-// libs/shared/src/config/configuration.ts
-import { Transform, plainToClass } from 'class-transformer';
-import { IsNumber, IsOptional, IsString, validateSync } from 'class-validator';
+The system uses a standalone, type-safe configuration package: `@exitbook/shared-config`. This module provides a robust and validated configuration object to the entire application.
 
-export class DatabaseConfig {
-  @IsString()
-  DATABASE_URL: string;
+**Key Features:**
 
-  @IsNumber()
-  @Transform(({ value }) => parseInt(value))
-  @IsOptional()
-  DATABASE_POOL_SIZE?: number = 10;
-
-  @IsString()
-  @IsOptional()
-  DATABASE_SSL_MODE?: string = 'prefer';
-}
-
-export class ProvidersConfig {
-  @IsObject()
-  bitcoin: {
-    enabled: boolean;
-    providers: string[];
-    priority: string[];
-  };
-
-  @IsObject()
-  ethereum: {
-    enabled: boolean;
-    providers: string[];
-    priority: string[];
-  };
-
-  // Add other blockchains as needed
-}
-
-export class AppConfig {
-  @IsNumber()
-  @Transform(({ value }) => parseInt(value))
-  PORT: number = 3000;
-
-  @IsString()
-  NODE_ENV: string = 'development';
-
-  @IsString()
-  @IsOptional()
-  LOG_LEVEL?: string = 'info';
-}
-
-export class Configuration {
-  database: DatabaseConfig;
-  app: AppConfig;
-  providers: ProvidersConfig;
-}
-
-export function validateConfiguration(config: Record<string, unknown>): Configuration {
-  const validatedConfig = plainToClass(Configuration, {
-    database: plainToClass(DatabaseConfig, config),
-    app: plainToClass(AppConfig, config),
-    providers: plainToClass(ProvidersConfig, config.providers || {}),
-  });
-
-  const errors = validateSync(validatedConfig, { skipMissingProperties: false });
-
-  if (errors.length > 0) {
-    throw new Error(`Configuration validation error: ${errors.toString()}`);
-  }
-
-  return validatedConfig;
-}
-
-// libs/shared/src/config/config.module.ts
-@Module({
-  imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-      validate: validateConfiguration,
-      validationOptions: {
-        allowUnknown: true,
-        abortEarly: true,
-      },
-    }),
-  ],
-  providers: [
-    {
-      provide: 'TYPED_CONFIG',
-      useFactory: (configService: ConfigService) => {
-        return validateConfiguration(configService.get<Record<string, unknown>>(''));
-      },
-      inject: [ConfigService],
-    },
-  ],
-  exports: ['TYPED_CONFIG'],
-})
-export class TypedConfigModule {}
-```
+- **Zod Schema:** Configuration is defined and validated using a Zod schema, making it the single source of truth.
+- **Fail-Fast Validation:** The application will not start if the configuration is invalid, preventing runtime errors.
+- **Cascading Load Strategy:** It intelligently loads configuration from `.env` files and environment-specific `.json` files (e.g., `providers.development.json`), allowing for flexible overrides.
+- **Type-Safe Injection:** The final, validated `Configuration` object is available globally via the `'TYPED_CONFIG'` injection token.
 
 #### Database Module with Drizzle Schema & Migrations:
 
@@ -694,9 +603,9 @@ export const entries = pgTable(
       provide: 'DATABASE_CONNECTION',
       inject: ['TYPED_CONFIG'],
       useFactory: async (config: Configuration) => {
-        const client = postgres(config.database.DATABASE_URL, {
-          max: config.database.DATABASE_POOL_SIZE,
-          ssl: config.database.DATABASE_SSL_MODE !== 'disable' ? { rejectUnauthorized: false } : false,
+        const client = postgres(config.DATABASE_URL, {
+          max: config.DATABASE_POOL_SIZE,
+          ssl: config.DATABASE_SSL_MODE !== 'disable' ? { rejectUnauthorized: false } : false,
         });
         return drizzle(client, {
           schema: {
@@ -720,14 +629,14 @@ export class DatabaseModule implements OnModuleInit {
   constructor(
     private currencySeeder: CurrencySeederService,
     private healthService: DatabaseHealthService,
-    private logger: Logger
+    private logger: LoggerService
   ) {}
 
   async onModuleInit() {
     this.logger.log('Initializing database module...');
 
     // Ensure global currencies are seeded on every application startup
-    await this.currencySeeder.seedGlobalCurrencies();
+    await this.currencySeeder.seedDefaultCurrencies();
 
     // Validate database health
     const isHealthy = await this.healthService.isHealthy();
@@ -745,7 +654,7 @@ import { currencies } from '../schema';
 export class CurrencySeederService {
   constructor(
     @Inject('DATABASE_CONNECTION') private db: DrizzleDB,
-    private logger: Logger
+    private logger: LoggerService
   ) {}
 
   /**
@@ -755,7 +664,7 @@ export class CurrencySeederService {
    * Provides 10,000x reduction in currency records, faster queries, and simpler architecture.
    * No per-user provisioning needed - all users access the same currency table.
    */
-  async seedGlobalCurrencies(): Promise<void> {
+  async seedDefaultCurrencies(): Promise<void> {
     this.logger.log('Starting global currency seeding process...');
 
     const globalCurrencies = [
@@ -1213,7 +1122,7 @@ export class DatabaseHealthService {
   constructor(
     @Inject('DATABASE_CONNECTION') private db: DrizzleDB,
     private currencySeeder: CurrencySeederService,
-    private logger: Logger
+    private logger: LoggerService
   ) {}
 
   async isHealthy(): Promise<boolean> {
@@ -1378,79 +1287,55 @@ export class HealthController {
 
 The system includes complete database schema with all tables, indexes, constraints, triggers, automated seeding, health checks, and production monitoring.
 
+### Repository Pattern: Interfaces vs. Implementations
+
+The architecture strictly separates the domain model from the persistence mechanism.
+
+1.  **Repository Interfaces (in `libs/core`):** The `core` library defines the _contracts_ for persistence (e.g., `ITransactionRepository`). These interfaces are pure and have no knowledge of databases or Drizzle. The domain model depends only on these interfaces.
+
+2.  **Repository Implementations (in `libs/database`):** The `database` library provides the concrete Drizzle ORM implementations of those interfaces. These classes are responsible for mapping the domain aggregates to the database schema and performing the actual database operations.
+
+**This shifts business logic out of the repository and into the domain model.**
+
+- **Before (Logic in Repository):** The repository was responsible for validating business rules, like ensuring a transaction was balanced.
+
+- **After (Logic in Aggregate):** The repository's _only_ job is persistence. It receives a `LedgerTransaction` aggregate that is already guaranteed to be valid by its own internal logic.
+
+  ```typescript
+  // New Responsibility of the Repository Implementation in libs/database
+
+  @Injectable()
+  export class DrizzleTransactionRepository implements ITransactionRepository {
+    constructor(@Inject('DATABASE_CONNECTION') private db: DrizzleDB) {}
+
+    async save(transaction: LedgerTransaction): ResultAsync<void, DomainError> {
+      // The 'transaction' object is already validated by the domain.
+      // The repository's only job is to map and save.
+      const state = transaction.getState(); // Get raw data from the aggregate
+
+      return ResultAsync.fromPromise(
+        this.db.transaction(async trx => {
+          // Map aggregate state to Drizzle schema and insert/update.
+          // Contains NO business logic.
+        }),
+        (error: Error) => new DomainError(error.message, 'DATABASE_ERROR')
+      );
+    }
+  }
+  ```
+
 ## CQRS Command & Query Handlers
 
-### Contextual Logging:
+### Production-Grade Logging
 
-```typescript
-// libs/shared/src/logger/contextual-logger.service.ts
-import { Injectable, Logger, Scope } from '@nestjs/common';
-import { AsyncLocalStorage } from 'async_hooks';
+The system uses a standalone logging package: `@exitbook/shared-logger`. This module provides high-performance, structured (JSON) logging suitable for production environments.
 
-interface LogContext {
-  correlationId?: string;
-  sessionId?: string;
-  userId?: string;
-  operation?: string;
-}
+**Key Features:**
 
-@Injectable({ scope: Scope.REQUEST })
-export class ContextualLoggerService extends Logger {
-  private static asyncLocalStorage = new AsyncLocalStorage<LogContext>();
-
-  static runWithContext<T>(context: LogContext, callback: () => T): T {
-    return this.asyncLocalStorage.run(context, callback);
-  }
-
-  private getContext(): LogContext {
-    return ContextualLoggerService.asyncLocalStorage.getStore() || {};
-  }
-
-  private formatMessage(message: string): string {
-    const context = this.getContext();
-    const contextStr = Object.entries(context)
-      .filter(([_, value]) => value)
-      .map(([key, value]) => `${key}=${value}`)
-      .join(' ');
-
-    return contextStr ? `[${contextStr}] ${message}` : message;
-  }
-
-  log(message: string, context?: string) {
-    super.log(this.formatMessage(message), context);
-  }
-
-  error(message: string, trace?: string, context?: string) {
-    super.error(this.formatMessage(message), trace, context);
-  }
-
-  warn(message: string, context?: string) {
-    super.warn(this.formatMessage(message), context);
-  }
-
-  debug(message: string, context?: string) {
-    super.debug(this.formatMessage(message), context);
-  }
-}
-
-// libs/shared/src/interceptors/logging.interceptor.ts
-@Injectable()
-export class LoggingInterceptor implements NestInterceptor {
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
-    const request = context.switchToHttp().getRequest();
-    const correlationId = request.headers['x-correlation-id'] || crypto.randomUUID();
-
-    return new Observable(observer => {
-      ContextualLoggerService.runWithContext(
-        { correlationId, operation: `${context.getClass().name}.${context.getHandler().name}` },
-        () => {
-          next.handle().subscribe(observer);
-        }
-      );
-    });
-  }
-}
-```
+- **Pino-Powered:** Leverages the Pino logger for speed and low overhead.
+- **Correlation Tracking:** A `CorrelationService` establishes a unique ID for each request (API) or execution (CLI), which is automatically included in all log entries for easy tracing.
+- **Structured Logging:** All logs are emitted as JSON, making them easily parsable by log management systems.
+- **Centralized Integration:** A `LoggingInterceptor` (for API) and a `GlobalExceptionFilter` provide zero-configuration observability for HTTP requests and unhandled errors.
 
 ### Ledger Command Handlers:
 
@@ -1470,7 +1355,7 @@ export class RecordTransactionCommand {
 export class RecordTransactionHandler implements ICommandHandler<RecordTransactionCommand> {
   constructor(
     private readonly ledgerRepository: LedgerRepository,
-    private readonly logger: ContextualLoggerService
+    private readonly logger: LoggerService // From @exitbook/shared-logger
   ) {}
 
   async execute(command: RecordTransactionCommand): Promise<LedgerTransactionDto> {
@@ -1535,7 +1420,7 @@ export class CreateAccountHandler implements ICommandHandler<CreateAccountComman
   constructor(
     private readonly accountRepository: AccountRepository,
     private readonly currencyService: CurrencyService,
-    private readonly logger: Logger
+    private readonly logger: LoggerService
   ) {}
 
   async execute(command: CreateAccountCommand): Promise<AccountDto> {
@@ -1619,7 +1504,7 @@ export class GetAllBalancesQuery {
 export class GetAllBalancesHandler implements IQueryHandler<GetAllBalancesQuery> {
   constructor(
     private readonly ledgerRepository: LedgerRepository,
-    private readonly logger: ContextualLoggerService
+    private readonly logger: LoggerService // From @exitbook/shared-logger
   ) {}
 
   async execute(query: GetAllBalancesQuery): Promise<BalanceDto[]> {
@@ -1985,7 +1870,7 @@ export class CurrencyService implements OnModuleInit {
   constructor(
     @Inject('DATABASE_CONNECTION') private db: DrizzleDB,
     @Inject('REDIS_CLIENT') private redis: Redis,
-    private logger: ContextualLoggerService
+    private logger: LoggerService
   ) {
     this.redisClient = redis;
   }
@@ -2190,7 +2075,7 @@ export class ImportFromExchangeHandler implements ICommandHandler<ImportFromExch
     private readonly importerFactory: ImporterFactoryService,
     private readonly rawDataRepository: RawDataRepository,
     private readonly sessionRepository: ImportSessionRepository,
-    private readonly logger: ContextualLoggerService
+    private readonly logger: LoggerService // From @exitbook/shared-logger
   ) {}
 
   async execute(command: ImportFromExchangeCommand): Promise<ImportResultDto> {
@@ -2238,7 +2123,7 @@ export class ProcessUniversalTransactionsHandler implements ICommandHandler<Proc
   constructor(
     private readonly processorFactory: ProcessorFactoryService,
     private readonly rawDataRepository: RawDataRepository,
-    private readonly logger: ContextualLoggerService
+    private readonly logger: LoggerService // From @exitbook/shared-logger
   ) {}
 
   async execute(command: ProcessUniversalTransactionsCommand): Promise<UniversalTransaction[]> {
@@ -2279,7 +2164,7 @@ export class TransformToLedgerHandler implements ICommandHandler<TransformToLedg
   constructor(
     private readonly transformerService: UniversalToLedgerTransformerService,
     private readonly commandBus: CommandBus,
-    private readonly logger: ContextualLoggerService
+    private readonly logger: LoggerService // From @exitbook/shared-logger
   ) {}
 
   async execute(command: TransformToLedgerCommand): ResultAsync<BatchTransformResult, DomainError> {
@@ -2443,7 +2328,7 @@ export class CompleteImportPipelineHandler implements ICommandHandler<CompleteIm
   constructor(
     private readonly commandBus: CommandBus,
     private readonly queryBus: QueryBus,
-    private readonly logger: ContextualLoggerService
+    private readonly logger: LoggerService // From @exitbook/shared-logger
   ) {}
 
   async execute(command: CompleteImportPipelineCommand): Promise<CompleteImportResultDto> {
@@ -2552,7 +2437,7 @@ export class UniversalToLedgerTransformerService {
   constructor(
     private readonly currencyService: CurrencyService,
     private readonly commandBus: CommandBus,
-    private readonly logger: ContextualLoggerService
+    private readonly logger: LoggerService // From @exitbook/shared-logger
   ) {}
 
   /**
@@ -3127,7 +3012,7 @@ export class ProviderRegistryService {
 
   constructor(
     @Inject('PROVIDERS_CONFIG') private config: ProvidersConfig,
-    private logger: Logger
+    private logger: LoggerService
   ) {}
 
   // Keep all existing provider registry logic
@@ -3156,7 +3041,7 @@ All importers/processors work as NestJS services.
 describe('RecordTransactionHandler', () => {
   let handler: RecordTransactionHandler;
   let ledgerRepository: LedgerRepository;
-  let logger: ContextualLoggerService;
+  let logger: LoggerService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -3167,7 +3052,7 @@ describe('RecordTransactionHandler', () => {
           useValue: createMockRepository(),
         },
         {
-          provide: ContextualLoggerService,
+          provide: LoggerService,
           useValue: createMockLogger(),
         },
       ],
@@ -3175,7 +3060,7 @@ describe('RecordTransactionHandler', () => {
 
     handler = module.get<RecordTransactionHandler>(RecordTransactionHandler);
     ledgerRepository = module.get<LedgerRepository>(LedgerRepository);
-    logger = module.get<ContextualLoggerService>(ContextualLoggerService);
+    logger = module.get<LoggerService>(LoggerService);
   });
 
   describe('execute', () => {
@@ -3441,35 +3326,30 @@ interface ImportJobData {
 export class ImportJobProcessor {
   constructor(
     private readonly commandBus: CommandBus,
-    private readonly logger: ContextualLoggerService
+    private readonly logger: LoggerService // From @exitbook/shared-logger
   ) {}
 
   @Process('import-and-process')
   async handleImportJob(job: Job<ImportJobData>): Promise<CompleteImportResultDto> {
     const { sourceId, sourceType, params, correlationId } = job.data;
 
-    return ContextualLoggerService.runWithContext(
-      { correlationId, sessionId: `job-${job.id}`, operation: 'async-import' },
-      async () => {
-        this.logger.log(`Processing import job ${job.id} for ${sourceId}`);
+    this.logger.log(`Processing import job ${job.id} for ${sourceId}`, { correlationId, jobId: job.id });
 
-        // Update job progress
-        await job.progress(10);
+    // Update job progress
+    await job.progress(10);
 
-        try {
-          // Use CQRS command instead of direct service call
-          const result = await this.commandBus.execute(new CompleteImportPipelineCommand(sourceId, sourceType, params));
+    try {
+      // Use CQRS command instead of direct service call
+      const result = await this.commandBus.execute(new CompleteImportPipelineCommand(sourceId, sourceType, params));
 
-          await job.progress(100);
-          this.logger.log(`Import job ${job.id} completed successfully`);
+      await job.progress(100);
+      this.logger.log(`Import job ${job.id} completed successfully`, { jobId: job.id });
 
-          return result;
-        } catch (error) {
-          this.logger.error(`Import job ${job.id} failed: ${error.message}`);
-          throw error;
-        }
-      }
-    );
+      return result;
+    } catch (error) {
+      this.logger.error(`Import job ${job.id} failed: ${error.message}`, { jobId: job.id, error });
+      throw error;
+    }
   }
 }
 
@@ -3479,7 +3359,7 @@ export class ImportJobProcessor {
 export class AsyncImportController {
   constructor(
     @InjectQueue('import-jobs') private importQueue: Queue,
-    private logger: ContextualLoggerService
+    private logger: LoggerService
   ) {}
 
   @Post(':sourceId')
@@ -3601,7 +3481,7 @@ export class ImportCommandService {
   constructor(
     private readonly commandBus: CommandBus,
     private readonly queryBus: QueryBus,
-    private readonly logger: Logger
+    private readonly logger: LoggerService
   ) {}
 
   async import(options: ImportOptionsDto & { userId: string }): Promise<void> {
