@@ -18,17 +18,20 @@
   "dependencies": {
     "@exitbook/core": "workspace:*",
     "@exitbook/database": "workspace:*",
-    "@exitbook/ledger": "workspace:*",
     "@exitbook/import": "workspace:*",
+    "@exitbook/ledger": "workspace:*",
     "@exitbook/providers": "workspace:*",
+    "@exitbook/shared-config": "workspace:*",
     "@exitbook/shared-logger": "workspace:*",
-    "@exitbook/shared-utils": "workspace:*",
     "@exitbook/shared-tsconfig": "workspace:*",
+    "@exitbook/shared-utils": "workspace:*",
     "@nestjs/common": "^11.1.6",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.1.6",
+    "@nestjs/cqrs": "^11.0.3",
     "@nestjs/platform-express": "^11.1.6",
     "@nestjs/swagger": "^11.2.0",
+    "@types/express": "^5.0.3",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2"
   }

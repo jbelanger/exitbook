@@ -14,7 +14,7 @@
   "dependencies": {
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
-    "neverthrow": "^8.0.0",
+    "neverthrow": "^8.2.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {

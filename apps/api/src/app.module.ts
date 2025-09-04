@@ -1,5 +1,7 @@
+import { TypedConfigModule } from '@exitbook/shared-config';
+import { LoggerModule } from '@exitbook/shared-logger';
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { CqrsModule } from '@nestjs/cqrs';
 
 // import { DatabaseModule } from '@exitbook/database';
 // import { LedgerModule } from '@exitbook/ledger';
@@ -10,10 +12,11 @@ import { ConfigModule } from '@nestjs/config';
 @Module({
   controllers: [],
   imports: [
-    ConfigModule.forRoot({
-      envFilePath: ['.env.local', '.env'],
-      isGlobal: true,
+    TypedConfigModule,
+    LoggerModule.forRoot({
+      serviceName: 'exitbook-api',
     }),
+    CqrsModule,
     // DatabaseModule,
     // LedgerModule,
     // ImportModule,
