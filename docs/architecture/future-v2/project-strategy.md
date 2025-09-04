@@ -187,10 +187,10 @@ crypto-tx-import/
 │   │   │   ├── processors/           # Processor implementations
 │   │   │   └── import.module.ts
 │   │   └── test/
-│   ├── providers/                    # Provider registry & circuit breakers
+│   ├── providers/                    # External data provider integration
 │   │   ├── src/
-│   │   │   ├── registry/             # Provider registry
-│   │   │   ├── circuit-breaker/      # Resilience patterns
+│   │   │   ├── registry/             # Provider registry for exchanges/blockchains
+│   │   │   ├── pricing/              # Historical price provider infrastructure
 │   │   │   ├── blockchain/           # Blockchain provider managers
 │   │   │   └── providers.module.ts
 │   │   └── test/
@@ -581,6 +581,12 @@ export const entries = pgTable(
     amount: bigint('amount', { mode: 'bigint' }).notNull(),
     direction: directionEnum('direction').notNull(),
     entryType: entryTypeEnum('entry_type').notNull(),
+
+    // ADDED: First-class storage for historical price
+    // These columns are nullable as not all entries require pricing (e.g., a USD entry).
+    priceAmount: bigint('price_amount', { mode: 'bigint' }),
+    priceCurrencyId: integer('price_currency_id').references(() => currencies.id, { onDelete: 'restrict' }),
+
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   table => ({
@@ -1324,6 +1330,55 @@ The architecture strictly separates the domain model from the persistence mechan
   }
   ```
 
+### First-Class Historical Price Handling
+
+For accurate cost-basis tracking and tax reporting, historical price is a first-class citizen of every financial event. The system is designed to handle this from day one, ensuring financial integrity and preventing future technical debt.
+
+#### Core Principle: Price Belongs to the `Entry`
+
+The most critical design decision is that **price information is attached to the `Entry` entity, not the `LedgerTransaction` aggregate.** This provides the necessary granularity for complex financial scenarios:
+
+- **Trades**: In a BTC/USD trade, the BTC `Entry` is priced in USD. Attaching a single price to the parent `LedgerTransaction` would be ambiguous.
+- **Fees**: A transaction fee can be paid in a third currency (e.g., BNB for an ETH swap) and requires its own distinct price.
+- **Clarity**: Each movement of value (an `Entry`) has a Fair Market Value at that moment. The model must capture this one-to-one relationship.
+
+#### Domain Model Changes (`libs/core`)
+
+The `Entry` entity is enhanced to optionally include a `price` as a `Money` value object.
+
+```typescript
+// libs/core/src/aggregates/transaction/entry.entity.ts
+export interface CreateEntryData {
+  accountId: number;
+  amount: Money;
+  price?: Money; // The price of ONE unit of the amount's currency
+  description?: string;
+  metadata?: Record<string, any>;
+}
+```
+
+#### Price Provider Infrastructure (`libs/providers`)
+
+To decouple price fetching from business logic, the system uses a dedicated provider interface. This allows for interchangeable sources (e.g., CoinGecko, Kaiko, internal systems) and robust testing.
+
+- **`IPriceProvider` Interface**: Defines the contract for fetching historical prices.
+- **Caching Layer**: A `HistoricalPriceService` acts as a caching layer on top of the provider to minimize redundant and costly API calls.
+
+```typescript
+// libs/providers/src/pricing/price-provider.interface.ts
+export interface IPriceProvider {
+  fetchPrice(baseAsset: string, quoteAsset: string, timestamp: Date): Promise<Result<Money, PriceProviderError>>;
+}
+```
+
+#### Integration into CQRS Flow
+
+The price enrichment happens during the import pipeline, before domain objects are created. The `ProcessUniversalTransactionsHandler` will be responsible for:
+
+1.  Calling the `HistoricalPriceService` with the transaction's asset and timestamp.
+2.  Passing the resulting `Money` object (the price) into the `Entry.create()` factory method.
+3.  The `LedgerRepository` then persists this price data into the dedicated columns on the `entries` table.
+
 ## CQRS Command & Query Handlers
 
 ### Production-Grade Logging
@@ -1655,18 +1710,25 @@ export class LedgerRepository extends BaseRepository<LedgerTransaction> {
           })
           .returning();
 
+        // Insert entries, now including price data
         const dbEntries = await trx
           .insert(entries)
           .values(
-            transaction.entries.map(entry => ({
-              userId,
-              transactionId: dbTransaction.id,
-              accountId: entry.accountId,
-              currencyId: entry.currencyId,
-              amount: entry.amount,
-              direction: entry.direction,
-              entryType: entry.entryType,
-            }))
+            transaction.entries.map(entry => {
+              const entryState = entry.getState(); // Get state from domain entity
+              return {
+                userId,
+                transactionId: dbTransaction.id,
+                accountId: entryState.accountId,
+                currencyId: entryState.currencyId,
+                amount: entryState.amount.value,
+                direction: entryState.direction,
+                entryType: entryState.entryType,
+                // Map price from Money VO to database columns
+                priceAmount: entryState.price ? entryState.price.value : null,
+                priceCurrencyId: entryState.price ? entryState.priceCurrencyId : null, // Assumes priceCurrencyId is attached
+              };
+            })
           )
           .returning();
 
@@ -2047,6 +2109,72 @@ export class CurrencyService implements OnModuleInit {
 ```
 
 CQRS handlers eliminate large services, providing focused single-purpose classes and clear separation of concerns while preserving domain logic in specialized worker services.
+
+## Domain Services & Business Logic Engines
+
+While CQRS handlers orchestrate data flow, the complex, multi-aggregate business logic resides in dedicated domain services. These services represent the core value proposition of the portfolio application, providing users with critical financial insights. They are called by CQRS handlers and operate on the domain aggregates.
+
+### Pillar 1: Reporting & Analytics
+
+#### Portfolio Valuation Service
+
+- **Business Need**: Provides a real-time snapshot of the user's entire portfolio, valued in their preferred fiat currency.
+- **Dependencies**:
+  - `GetAllBalancesQuery`: To fetch the quantity of all held assets.
+  - `RealTimePriceProvider`: A new, dedicated price provider for fetching current market prices with a short cache duration (1-5 minutes).
+- **Output**: A `PortfolioSnapshotDto` detailing the value of each asset and the total portfolio value.
+
+#### Cost Basis & Capital Gains Engine
+
+- **Business Need**: The core tax-reporting engine, responsible for calculating profit and loss for every disposal event (sell, trade, spend).
+- **Architectural Consideration**: This requires a **`tax_lots` table** to track individual parcels of assets acquired at a specific time and price. The double-entry ledger confirms accounting correctness, while the `tax_lots` table provides the necessary detail for tax-lot accounting. This table will be populated by a domain event listener that triggers on asset acquisition entries.
+- **Implementation**: A `CostBasisEngine` domain service that implements user-configurable accounting methods (e.g., FIFO, HIFO).
+- **Dependencies**:
+  - `ITransactionRepository`: To fetch the user's entire transaction history.
+  - `TaxLotRepository`: A new repository for managing the `tax_lots` table.
+  - `UserSettingsService`: To retrieve the user's chosen accounting method.
+
+#### Tax & Income Reporting Services
+
+- **Business Need**: Generates user-facing reports for tax filing and income analysis.
+- **Implementation**:
+  - `TaxReportGenerator`: Consumes data from the `CostBasisEngine` to produce downloadable reports in formats like IRS Form 8949 CSV.
+  - `IncomeReportQueryHandler`: A specialized query that aggregates all entries in `INCOME_*` accounts, prices them using the historical price, and provides a yearly income summary.
+
+### Pillar 2: Advanced Transaction Handling
+
+#### Transaction Classifier Service
+
+- **Business Need**: Translates ambiguous on-chain interactions into clear, human-readable financial events (e.g., "Uniswap Swap," "Aave Deposit").
+- **Implementation**: A rule-based service that analyzes raw transaction data against known contract signatures and patterns.
+- **Domain Impact**: This service will necessitate expanding the `AccountType` and `EntryType` enums to include more granular DeFi and NFT-related concepts (`DEFI_SWAP`, `ADD_LIQUIDITY`, `NFT_MINT`, etc.).
+
+#### NFT & DeFi Modeling Strategy
+
+- **NFTs**: Modeled as unique currencies in the `currencies` table with a `decimals` of 0 and an `asset_class` of 'NFT'. This allows them to be tracked with full double-entry integrity.
+- **LP Tokens**: Modeled as distinct assets. An "add liquidity" event is a disposal of two underlying assets in exchange for a new LP token asset.
+
+### Pillar 3: Data Integrity & User Control
+
+#### Reconciliation Service
+
+- **Business Need**: Allows users to verify that the balances calculated by the ledger match the actual balances on their exchanges or wallets.
+- **Implementation**: A service that uses read-only API keys to fetch live balances from external sources and compares them against the output of `GetAllBalancesQuery`, flagging discrepancies.
+
+#### Manual Transaction & Correction Logic
+
+- **Business Need**: Enable users to fix missing data or re-classify transactions without compromising ledger integrity.
+- **Implementation**:
+  - **`CreateManualTransactionCommand`**: A dedicated CQRS command for user-initiated entries.
+  - **`ReverseTransactionCommand`**: Implements the principle of immutable corrections. It creates a new, perfectly opposing transaction to nullify an incorrect one, preserving a complete and accurate audit trail.
+
+### Pillar 4: System & Security
+
+#### Secure Credential Management Service
+
+- **Business Need**: Securely store user-provided, read-only API keys for automated data synchronization.
+- **Architectural Requirement**: API keys **must not** be stored in the primary application database, even if encrypted. A dedicated secret management solution (e.g., HashiCorp Vault, AWS/GCP Secret Manager) must be used to ensure security.
+- **Implementation**: A `CredentialsService` that acts as a secure facade to the chosen secret management system.
 
 ## Import CQRS Handlers
 
