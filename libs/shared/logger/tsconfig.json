@@ -1,8 +1,10 @@
 {
-  "extends": "@exitbook/shared-tsconfig/tsconfig.json",
+  "extends": "@exitbook/shared-tsconfig/tsconfig.nest.json",
   "compilerOptions": {
-    "allowImportingTsExtensions": true,
-    "noEmit": true
+    "outDir": "./dist",
+    "declaration": true,
+    "sourceMap": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["node_modules", "dist"]
 }

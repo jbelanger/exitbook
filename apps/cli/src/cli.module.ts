@@ -1,3 +1,4 @@
+import { LoggerModule } from '@exitbook/shared-logger';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 
@@ -13,6 +14,7 @@ import { ConfigModule } from '@nestjs/config';
       envFilePath: ['.env.local', '.env'],
       isGlobal: true,
     }),
+    LoggerModule,
     // DatabaseModule,
     // LedgerModule,
     // ImportModule,
