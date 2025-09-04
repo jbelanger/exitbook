@@ -5,7 +5,7 @@
   "compilerOptions": {
     "deleteOutDir": true,
     "webpack": false,
-    "tsConfigPath": "apps/api/tsconfig.app.json",
+    "tsConfigPath": "apps/api/tsconfig.json",
     "assets": ["**/*.js"],
     "watchAssets": true
   },
@@ -18,7 +18,7 @@
       "entryFile": "main",
       "sourceRoot": "apps/api/src",
       "compilerOptions": {
-        "tsConfigPath": "apps/api/tsconfig.app.json"
+        "tsConfigPath": "apps/api/tsconfig.json"
       }
     },
     "cli": {
@@ -27,7 +27,7 @@
       "entryFile": "main",
       "sourceRoot": "apps/cli/src",
       "compilerOptions": {
-        "tsConfigPath": "apps/cli/tsconfig.app.json"
+        "tsConfigPath": "apps/cli/tsconfig.json"
       }
     },
     "@exitbook/core": {
