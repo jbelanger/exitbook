@@ -1,14 +1,12 @@
 {
-  "providers": {
-    "bitcoin": {
-      "enabled": true,
-      "providers": ["mempool.space"],
-      "priority": ["mempool.space"]
-    },
-    "ethereum": {
-      "enabled": true,
-      "providers": ["etherscan", "alchemy"],
-      "priority": ["alchemy", "etherscan"]
-    }
+  "bitcoin": {
+    "enabled": true,
+    "providers": ["mempool.space"],
+    "priority": ["mempool.space"]
+  },
+  "ethereum": {
+    "enabled": true,
+    "providers": ["etherscan", "alchemy"],
+    "priority": ["alchemy", "etherscan"]
   }
 }
