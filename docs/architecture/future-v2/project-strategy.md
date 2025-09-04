@@ -29,7 +29,7 @@ The existing system uses a clean ETL pipeline that maps well to NestJS patterns:
 ## New NestJS Project Structure
 
 ```
-crypto-tx-import-v2/
+exitbook/
 ├── apps/
 │   ├── api/                          # NestJS REST API application
 │   │   ├── src/
@@ -102,8 +102,8 @@ crypto-tx-import-v2/
 ```bash
 # Create NestJS monorepo
 npm i -g @nestjs/cli
-nest new crypto-tx-import-v2 --package-manager pnpm
-cd crypto-tx-import-v2
+nest new exitbook --package-manager pnpm
+cd exitbook
 
 # Generate applications
 nest generate app api

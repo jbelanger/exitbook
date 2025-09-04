@@ -1,7 +1,8 @@
 import type { InferSelectModel } from 'drizzle-orm';
-import { index, integer, pgEnum, pgTable, serial, text, timestamp, varchar } from 'drizzle-orm/pg-core';
+import { index, integer, pgEnum, pgTable, serial, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
 
 import { currencies } from './currencies';
+import { users } from './users';
 
 export const accountTypeEnum = pgEnum('account_type', [
   'ASSET_WALLET',
@@ -33,6 +34,9 @@ export const accounts = pgTable(
     parentAccountId: integer('parent_account_id'),
     source: varchar('source', { length: 50 }),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
   },
   table => ({
     accountTypeIdx: index('idx_accounts_type').on(table.accountType),
@@ -40,6 +44,8 @@ export const accounts = pgTable(
     currencyIdx: index('idx_accounts_currency').on(table.currencyId),
     parentIdx: index('idx_accounts_parent').on(table.parentAccountId),
     sourceIdx: index('idx_accounts_source').on(table.source),
+    // Multi-tenant indexes - currencies are global, accounts are user-scoped
+    userIdIdx: index('idx_accounts_user_id').on(table.userId),
   })
 );
 
