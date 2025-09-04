@@ -113,7 +113,7 @@ CREATE TABLE accounts (
 );
 
 CREATE INDEX idx_accounts_user_id ON accounts(user_id);
-CREATE INDEX idx_accounts_user_currency ON accounts(user_id, currency_id);
+-- Note: No user+currency index needed since currencies are global
 
 -- Account type categorization:
 --   Assets: 'ASSET_WALLET', 'ASSET_EXCHANGE', 'ASSET_DEFI_LP'
@@ -177,7 +177,7 @@ CREATE TABLE entries (
 
 -- Critical indexes for multi-tenant performance
 CREATE INDEX idx_entries_user_id ON entries(user_id);
-CREATE INDEX idx_entries_user_account_currency ON entries(user_id, account_id, currency_id);
+-- Note: No user+account+currency index needed since account already determines currency
 CREATE INDEX idx_entries_transaction ON entries(transaction_id);
 CREATE INDEX idx_entries_currency ON entries(currency_id);
 ```
@@ -262,7 +262,7 @@ CREATE TABLE transaction_metadata (
 
 1. **User Context**: All operations include `userId = 'user-123'`
 2. **User-Scoped Accounts**: Accounts belong to specific user
-3. **User-Scoped Currencies**: User has their own currency definitions
+3. **Global Currencies**: Currencies are shared across all users (BTC, ETH, etc.)
 4. **User-Scoped Idempotency**: Transaction uniqueness per user
 
 ### Conceptual Ledger Entries:
@@ -439,7 +439,7 @@ WHERE t.user_id = $1          -- Critical: Filter by user
 **Key Validation Rules**:
 
 1. **Balance Validation**: All entries must sum to zero per currency per user
-2. **User Ownership**: User must own all referenced accounts and currencies
+2. **User Ownership**: User must own all referenced accounts (currencies are global)
 3. **Atomic Operations**: All validation occurs within database transactions
 4. **Multi-Currency Support**: Each currency balances independently
 
@@ -478,7 +478,7 @@ WHERE t.user_id = $1          -- Critical: Filter by user
 8. **Flexibility**: Handles complex multi-currency operations (DEX swaps, bridges, etc.) per user
 9. **Multi-Currency Integrity**: Application-level validation ensures mathematical correctness per currency per user
 10. **Granular Account Types**: Enables detailed financial reporting and categorization per user
-11. **Performance**: User-optimized indexes for common query patterns (user+account+currency, user+currency aggregations)
+11. **Performance**: User-optimized indexes for common query patterns (user+account, currency aggregations)
 12. **Immutability**: Financial records are never modified, only added to with user context
 13. **Query Performance**: Structured tables for blockchain/exchange data with efficient global currency joins
 14. **Type Safety**: Strongly typed currency references with global foreign key constraints

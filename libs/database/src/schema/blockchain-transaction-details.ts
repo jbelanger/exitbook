@@ -1,3 +1,4 @@
+import type { InferSelectModel } from 'drizzle-orm';
 import { bigint, index, integer, pgEnum, pgTable, timestamp, varchar } from 'drizzle-orm/pg-core';
 
 import { ledgerTransactions } from './ledger';
@@ -23,3 +24,5 @@ export const blockchainTransactionDetails = pgTable(
     txHashIdx: index('idx_blockchain_tx_hash').on(table.txHash),
   })
 );
+
+export type BlockchainTransactionDetails = InferSelectModel<typeof blockchainTransactionDetails>;

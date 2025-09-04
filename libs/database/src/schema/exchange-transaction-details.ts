@@ -1,3 +1,4 @@
+import type { InferSelectModel } from 'drizzle-orm';
 import { index, integer, pgEnum, pgTable, timestamp, varchar } from 'drizzle-orm/pg-core';
 
 import { ledgerTransactions } from './ledger';
@@ -22,3 +23,5 @@ export const exchangeTransactionDetails = pgTable(
     tradeIdIdx: index('idx_exchange_trade_id').on(table.tradeId),
   })
 );
+
+export type ExchangeTransactionDetails = InferSelectModel<typeof exchangeTransactionDetails>;

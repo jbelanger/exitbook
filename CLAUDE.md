@@ -2,6 +2,18 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Development Instructions
+
+When working on this project, follow these guidelines:
+
+- **Be 100% honest about your opinion** - Don't be a yes-man; provide genuine technical feedback
+- **Ask for clarification when details are missing** - Before proceeding with any task, verify you have complete information; if not, stop and ask questions
+- **Challenge problematic patterns** - Question ideas, instructions, or implementations that don't align with project principles or best practices
+- **Follow industry best practices** - Structure code according to established software engineering standards
+- **Avoid over-engineering from the start** - Keep initial implementations simple while designing for future evolution
+- **Think ahead for scalability** - Leave room for growth without premature optimization
+- **Apply Martin Fowler's refactoring principles** - Use his methodologies when restructuring or improving code
+
 ## Project Overview
 
 **NESTJS PROJECT**: This is the `exitbook` branch - a complete rewrite implementation of ExitBook, a cryptocurrency transaction import and ledger system. This branch starts fresh with a new NestJS-based architecture implementing a double-entry ledger system with Universal Blockchain Provider Architecture.

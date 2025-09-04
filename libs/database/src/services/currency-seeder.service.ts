@@ -16,7 +16,14 @@ export class CurrencySeederService {
     this.logger.log('Starting currency seeding process...');
 
     const defaultCurrencies = [
-      { assetClass: 'CRYPTO' as const, decimals: 8, isNative: true, name: 'Bitcoin', ticker: 'BTC' },
+      {
+        assetClass: 'CRYPTO' as const,
+        decimals: 8,
+        isNative: true,
+        name: 'Bitcoin',
+        network: 'bitcoin',
+        ticker: 'BTC',
+      },
       {
         assetClass: 'CRYPTO' as const,
         decimals: 18,

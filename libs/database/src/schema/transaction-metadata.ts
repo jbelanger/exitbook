@@ -1,3 +1,4 @@
+import type { InferSelectModel } from 'drizzle-orm';
 import { index, integer, pgEnum, pgTable, serial, text, timestamp, uniqueIndex, varchar } from 'drizzle-orm/pg-core';
 
 import { ledgerTransactions } from './ledger';
@@ -22,3 +23,5 @@ export const transactionMetadata = pgTable(
     uniqueKeyPerTransaction: uniqueIndex('unique_transaction_metadata_key').on(table.transactionId, table.key),
   })
 );
+
+export type TransactionMetadata = InferSelectModel<typeof transactionMetadata>;
