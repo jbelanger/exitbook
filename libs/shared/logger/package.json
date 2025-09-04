@@ -3,9 +3,8 @@
   "description": "ExitBook Shared Logger - Logging utilities for the platform",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
-  "main": "src/index.ts",
-  "types": "src/index.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "clean": "rm -rf dist",
@@ -16,23 +15,20 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "logform": "^2.7.0",
-    "moderndash": "^4.0.0",
-    "moment-timezone": "^0.6.0",
+    "@nestjs/common": "^11.1.6",
+    "@opentelemetry/api": "^1.8.0",
     "pino": "^9.9.0",
     "pino-pretty": "^13.1.1",
     "pino-roll": "^3.1.0",
-    "winston": "^3.17.0",
-    "winston-daily-rotate-file": "^5.0.0",
-    "winston-error-format": "^3.0.2",
     "zod": "^4.0.17"
+  },
+  "peerDependencies": {
+    "@nestjs/config": "^4.0.2"
   },
   "devDependencies": {
     "@exitbook/shared-tsconfig": "workspace:*",
     "@types/node": "^24.3.0",
-    "@types/triple-beam": "^1.3.5",
     "prettier": "^3.6.2",
-    "triple-beam": "^1.4.1",
     "typescript": "^5.9.2"
   }
 }

@@ -114,11 +114,12 @@ exitbook/
 
 ### Target Technologies
 
-- **Framework**: NestJS (not yet implemented)
-- **Database**: Drizzle ORM with PostgreSQL/SQLite support (not yet implemented)
-- **Architecture**: Double-entry ledger system (not yet implemented)
+- **Framework**: NestJS (foundation implemented)
+- **Database**: Drizzle ORM with PostgreSQL/SQLite support (schema implemented)
+- **Architecture**: Double-entry ledger system (ready for implementation)
 - **Testing**: Vitest (configured)
 - **Linting**: ESLint + Prettier (configured)
+- **TypeScript**: Dual configuration - ESM base (`tsconfig.json`) and CommonJS NestJS (`tsconfig.nest.json`)
 
 ### Current State
 
@@ -127,8 +128,36 @@ exitbook/
 - **✅ Drizzle ORM integration** with migrations and database services
 - **✅ Currency management** with automatic seeding of default cryptocurrencies
 - **✅ Development tooling** configured (ESLint, Prettier, Husky, Vitest)
-- **✅ TypeScript configuration** with proper path mapping for monorepo
+- **✅ TypeScript configuration** with proper path mapping for monorepo and CommonJS/ESM compatibility
+- **✅ Logger service** implementing NestJS LoggerService interface with Pino, correlation tracking, and audit logging
 - **⏳ Core services scaffolding** (ledger, account, import services) - ready for implementation
+
+## TypeScript Configuration Architecture
+
+The monorepo uses a dual TypeScript configuration strategy to handle both ESM and CommonJS compatibility:
+
+### Shared TypeScript Configs (@exitbook/shared-tsconfig)
+
+- **`tsconfig.json`**: Base ESM configuration (NodeNext, for future ESM packages)
+- **`tsconfig.nest.json`**: CommonJS configuration for NestJS compatibility (CommonJS, Node resolution)
+
+### Usage Pattern
+
+**For NestJS libraries/apps**: Extend `@exitbook/shared-tsconfig/tsconfig.nest.json`
+
+```json
+{
+  "extends": "@exitbook/shared-tsconfig/tsconfig.nest.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "declaration": true
+  }
+}
+```
+
+**For future ESM packages**: Extend `@exitbook/shared-tsconfig/tsconfig.json`
+
+**Key Rule**: NestJS ecosystem packages should always use the `nest.json` config to ensure CommonJS compatibility and avoid import/require conflicts.
 
 ## Development Workflow
 
@@ -184,7 +213,8 @@ This is a **greenfield project** implementing a complete NestJS architecture. **
 - Working NestJS monorepo with scoped packages (@exitbook/\*)
 - **Granular shared packages**: @exitbook/shared-logger, @exitbook/shared-tsconfig, @exitbook/shared-utils
 - Drizzle ORM integration with migrations and seeding
-- TypeScript compilation and build system
+- TypeScript compilation and build system with proper CommonJS output for NestJS compatibility
+- Logger service implementing NestJS LoggerService interface
 - Ready for core service implementation
 
 The existing codebase on other branches provides domain knowledge and business logic to be reimplemented using the new NestJS architecture patterns.

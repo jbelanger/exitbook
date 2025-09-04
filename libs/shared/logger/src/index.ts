@@ -1,11 +1,18 @@
 /**
- * Using Pino to avoid Winston's DailyRotateFile transport event listener limits when audit logging is enabled.
+ * NestJS-compatible logger services using Pino to avoid Winston's DailyRotateFile
+ * transport event listener limits when audit logging is enabled.
  * Also provides correlation ID tracking for request tracing.
  */
-import { type Logger, getLogger } from './pino-logger';
 
-// Export logger functionality
-export { getLogger, type Logger };
+// Export NestJS module
+export { LoggerModule, type LoggerModuleAsyncOptions } from './logger.module';
 
-// Export envvironment schema
-export { loggerEnvSchema } from './env.schema';
+// Export NestJS services
+export { CorrelationService, type TraceContext, type CorrelationContext } from './correlation.service';
+export { LoggerService, type Logger, type ErrorContext } from './logger.service';
+
+// Export configuration
+export { LOGGER_CONFIG, type LoggerConfig, validateLoggerConfig } from './logger.config';
+
+// Export environment schema
+export { loggerEnvironmentSchema, validateLoggerEnvironment } from './environment.schema';

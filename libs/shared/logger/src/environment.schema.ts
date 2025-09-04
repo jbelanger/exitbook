@@ -11,20 +11,20 @@ export const logLevelsSchema = {
 } as const;
 
 // Define environment schema
-export const loggerEnvSchema = z.object({
+export const loggerEnvironmentSchema = z.object({
   LOGGER_AUDIT_LOG_DIRNAME: z.string().trim().min(1, { message: 'Invalid audit log directory name' }).default('logs'),
   LOGGER_AUDIT_LOG_ENABLED: z
     .string()
     .default('true')
-    .transform((val: string) => val === 'true'),
+    .transform((value: string) => value === 'true'),
   LOGGER_AUDIT_LOG_FILENAME: z.string().trim().min(1, { message: 'Invalid audit log file name' }).default('audit'),
   LOGGER_AUDIT_LOG_RETENTION_DAYS: z
     .string()
     .default('30')
-    .transform((val: string) => parseInt(val, 10)),
+    .transform((value: string) => parseInt(value, 10)),
   LOGGER_LOG_LEVEL: z
     .string()
-    .refine((val: string) => Object.keys(logLevelsSchema).includes(val), {
+    .refine((value: string) => Object.keys(logLevelsSchema).includes(value), {
       message: 'Invalid log level',
     })
     .default('info'),
@@ -33,9 +33,9 @@ export const loggerEnvSchema = z.object({
 });
 
 // Infer TypeScript type from schema
-export type LoggerEnvConfig = z.infer<typeof loggerEnvSchema>;
+export type LoggerEnvironmentConfig = z.infer<typeof loggerEnvironmentSchema>;
 
 // Function to validate environment variables
-export function validateLoggerEnv(env: NodeJS.ProcessEnv = process.env): LoggerEnvConfig {
-  return loggerEnvSchema.parse(env);
+export function validateLoggerEnvironment(environment: NodeJS.ProcessEnv = process.env): LoggerEnvironmentConfig {
+  return loggerEnvironmentSchema.parse(environment);
 }

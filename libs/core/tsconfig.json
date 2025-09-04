@@ -1,5 +1,5 @@
 {
-  "extends": "@exitbook/shared-tsconfig/tsconfig.json",
+  "extends": "@exitbook/shared-tsconfig/tsconfig.nest.json",
   "compilerOptions": {
     "allowImportingTsExtensions": true,
     "noEmit": true
