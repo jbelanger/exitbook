@@ -57,7 +57,7 @@ export class DatabaseModule implements OnModuleInit {
 
       this.logger.log('Database module initialized successfully');
     } catch (error) {
-      this.logger.error(`Database module initialization failed: ${error.message}`);
+      this.logger.error(`Database module initialization failed: ${(error as Error).message}`);
       throw error;
     }
   }

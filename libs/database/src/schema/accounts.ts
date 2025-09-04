@@ -1,3 +1,4 @@
+import type { InferSelectModel } from 'drizzle-orm';
 import { index, integer, pgEnum, pgTable, serial, text, timestamp, varchar } from 'drizzle-orm/pg-core';
 
 import { currencies } from './currencies';
@@ -29,7 +30,7 @@ export const accounts = pgTable(
     id: serial('id').primaryKey(),
     name: varchar('name', { length: 255 }).notNull(),
     network: varchar('network', { length: 50 }),
-    parentAccountId: integer('parent_account_id').references(() => accounts.id),
+    parentAccountId: integer('parent_account_id'),
     source: varchar('source', { length: 50 }),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
@@ -41,3 +42,8 @@ export const accounts = pgTable(
     sourceIdx: index('idx_accounts_source').on(table.source),
   })
 );
+
+// Note: The self-referencing foreign key constraint (parent_account_id -> id)
+// is handled in the database migration to avoid circular reference issues in TypeScript
+
+export type Account = InferSelectModel<typeof accounts>;

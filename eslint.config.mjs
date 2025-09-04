@@ -53,6 +53,7 @@ export default [
             num: true,
             obj: true,
             param: true,
+            prop: true,
             ref: true,
             repo: true,
             ret: true,
