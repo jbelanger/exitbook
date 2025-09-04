@@ -23,10 +23,13 @@ const appSchema = z.object({
   PROVIDERS_CONFIG_PATH: z.string().default('./config/providers.config.json'),
 });
 
-const providersDataSchema = z.object({
-  bitcoin: z.object({ enabled: z.boolean(), priority: z.array(z.string()), providers: z.array(z.string()) }),
-  ethereum: z.object({ enabled: z.boolean(), priority: z.array(z.string()), providers: z.array(z.string()) }),
+const blockchainConfigSchema = z.object({
+  enabled: z.boolean(),
+  priority: z.array(z.string()),
+  providers: z.array(z.string()),
 });
+
+const providersDataSchema = z.record(z.string(), blockchainConfigSchema);
 
 const finalConfigSchema = databaseSchema.merge(appSchema).extend({
   providers: providersDataSchema.optional(),
