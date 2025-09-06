@@ -1,3 +1,4 @@
+import { sanitizeCurrencyTicker } from '@exitbook/shared-utils';
 import { ResultAsync, err, fromPromise, ok } from 'neverthrow';
 
 import { Account } from '../aggregates/account/account.aggregate';
@@ -248,20 +249,42 @@ export class BalanceCalculatorService {
     const scale = this.getCurrencyScale(account.currencyTicker);
     const balanceResult = Money.fromBigInt(totalValue, account.currencyTicker, scale);
 
+    // Create safe fallback balance - use BigInt constructor directly to avoid error propagation
+    const safeFallbackBalance = balanceResult.isOk()
+      ? balanceResult.value
+      : this.createSafeZeroBalance(account.currencyTicker, scale);
+
     return {
       accountId: account.id!,
       accountName: account.name,
       accountType: account.type,
-      balance: balanceResult.isOk()
-        ? balanceResult.value
-        : Money.fromDecimal('0', account.currencyTicker, scale).unwrapOr(
-            Money.fromBigInt(0n, account.currencyTicker, scale).unwrapOr(
-              Money.fromDecimal('0', 'USD', 2)._unsafeUnwrap() // Fallback
-            )
-          ),
+      balance: safeFallbackBalance,
       currencyTicker: account.currencyTicker,
       source: account.source,
     };
+  }
+
+  /**
+   * Create a safe zero balance that never throws
+   * Used as fallback when normal Money creation fails
+   */
+  private createSafeZeroBalance(currencyTicker: string, scale: number): Money {
+    // Try to create zero balance with provided currency/scale
+    const zeroResult = Money.fromBigInt(0n, currencyTicker, scale);
+    if (zeroResult.isOk()) {
+      return zeroResult.value;
+    }
+
+    // If that fails, try with sanitized currency ticker
+    const sanitizedTicker = sanitizeCurrencyTicker(currencyTicker) || 'USD';
+    const fallbackResult = Money.fromBigInt(0n, sanitizedTicker, Math.max(0, Math.min(18, scale)));
+    if (fallbackResult.isOk()) {
+      return fallbackResult.value;
+    }
+
+    // Final fallback - should never fail
+    const finalResult = Money.fromBigInt(0n, 'USD', 2);
+    return finalResult.isOk() ? finalResult.value : ({} as Money); // Emergency fallback
   }
 
   /**

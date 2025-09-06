@@ -3,13 +3,13 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   resolve: {
     alias: {
-      '@exitbook/core': './libs/core/src',
-      '@exitbook/database': './libs/database/src',
-      '@exitbook/import': './libs/import/src',
-      '@exitbook/ledger': './libs/ledger/src',
-      '@exitbook/providers': './libs/providers/src',
-      '@exitbook/shared-logger': './libs/shared/logger/src',
-      '@exitbook/shared-utils': './libs/shared/utils/src',
+      '@exitbook/core': new URL('./libs/core/src', import.meta.url).pathname,
+      '@exitbook/database': new URL('./libs/database/src', import.meta.url).pathname,
+      '@exitbook/import': new URL('./libs/import/src', import.meta.url).pathname,
+      '@exitbook/ledger': new URL('./libs/ledger/src', import.meta.url).pathname,
+      '@exitbook/providers': new URL('./libs/providers/src', import.meta.url).pathname,
+      '@exitbook/shared-logger': new URL('./libs/shared/logger/src', import.meta.url).pathname,
+      '@exitbook/shared-utils': new URL('./libs/shared/utils/src', import.meta.url).pathname,
     },
   },
   test: {
