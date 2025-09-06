@@ -48,32 +48,71 @@ This document tracks the implementation progress of the Domain-Driven Design arc
 
 - None currently
 
+### ✅ Phase 3: Repository Interfaces (COMPLETED)
+
+#### 4. Repository Interfaces (Dependency Inversion) ✅
+
+**Transaction Repository Interface** ✅
+
+- [x] `libs/core/src/repositories/transaction.repository.interface.ts`
+  - [x] `save(userId: string, transaction: LedgerTransaction): ResultAsync<void, DomainError>`
+  - [x] `findById(userId: string, id: number): ResultAsync<LedgerTransaction | null, DomainError>`
+  - [x] `findByExternalId(userId: string, externalId: string, source: string): ResultAsync<LedgerTransaction | null, DomainError>`
+  - [x] `findBySource(userId: string, source: string): ResultAsync<LedgerTransaction[], DomainError>`
+  - [x] `findByDateRange(userId: string, startDate: Date, endDate: Date): ResultAsync<LedgerTransaction[], DomainError>`
+  - [x] `countByUser(userId: string): ResultAsync<number, DomainError>`
+  - [x] `delete(userId: string, id: number): ResultAsync<boolean, DomainError>`
+  - [x] `existsByExternalId(userId: string, externalId: string, source: string): ResultAsync<boolean, DomainError>`
+
+**Account Repository Interface** ✅
+
+- [x] `libs/core/src/repositories/account.repository.interface.ts`
+  - [x] `findByIdentifier(userId: string, currencyTicker: string, source: string): ResultAsync<Account | null, DomainError>`
+  - [x] `create(userId: string, account: CreateAccountData): ResultAsync<Account, DomainError>`
+  - [x] `findById(userId: string, id: number): ResultAsync<Account | null, DomainError>`
+  - [x] `findByUser(userId: string): ResultAsync<Account[], DomainError>`
+  - [x] `findByCurrency(userId: string, currencyTicker: string): ResultAsync<Account[], DomainError>`
+  - [x] `findBySource(userId: string, source: string): ResultAsync<Account[], DomainError>`
+  - [x] `findByType(userId: string, type: AccountType): ResultAsync<Account[], DomainError>`
+  - [x] `update(userId: string, account: Account): ResultAsync<Account, DomainError>`
+  - [x] `delete(userId: string, id: number): ResultAsync<boolean, DomainError>`
+  - [x] `exists(userId: string, currencyTicker: string, source: string): ResultAsync<boolean, DomainError>`
+  - [x] `countByUser(userId: string): ResultAsync<number, DomainError>`
+  - [x] `findOrCreate(userId: string, accountData: CreateAccountData): ResultAsync<Account, DomainError>`
+
+**User Repository Interface** ✅
+
+- [x] `libs/core/src/repositories/user.repository.interface.ts`
+  - [x] `create(userData: CreateUserData): ResultAsync<User, DomainError>`
+  - [x] `findById(userId: string): ResultAsync<User | null, DomainError>`
+  - [x] `findByEmail(email: string): ResultAsync<User | null, DomainError>`
+  - [x] `update(user: User): ResultAsync<User, DomainError>`
+  - [x] `findByStatus(status: UserStatus): ResultAsync<User[], DomainError>`
+  - [x] `findAll(): ResultAsync<User[], DomainError>`
+  - [x] `delete(userId: string): ResultAsync<boolean, DomainError>`
+  - [x] `existsById(userId: string): ResultAsync<boolean, DomainError>`
+  - [x] `existsByEmail(email: string): ResultAsync<boolean, DomainError>`
+  - [x] `count(): ResultAsync<number, DomainError>`
+  - [x] `countByStatus(status: UserStatus): ResultAsync<number, DomainError>`
+  - [x] `updateStatus(userId: string, status: UserStatus): ResultAsync<User, DomainError>`
+  - [x] `findOrCreate(userData: CreateUserData): ResultAsync<User, DomainError>`
+
+#### 5. Domain Services ✅
+
+- [x] `libs/core/src/services/balance-calculator.service.ts` - Cross-aggregate balance calculations
+  - [x] `calculateAccountBalance(userId, accountId): ResultAsync<CurrencyBalance, DomainError>`
+  - [x] `calculatePortfolioBalance(userId): ResultAsync<PortfolioBalance, DomainError>`
+  - [x] `validateSystemBalance(userId): ResultAsync<boolean, DomainError>`
+  - [x] `calculateCurrencyTotal(userId, currencyTicker): ResultAsync<Money, DomainError>`
+- [x] `libs/core/src/services/transaction-validator.service.ts` - Complex transaction validation
+  - [x] `validateTransaction(userId, transaction): ResultAsync<ValidationResult, DomainError>`
+  - [x] `validateTransactionSync(transaction): Result<ValidationResult, DomainError>`
+  - [x] External ID uniqueness validation
+  - [x] Account reference validation
+  - [x] Currency rules validation
+  - [x] Business rules validation
+
 ### ❌ Not Started
-
-#### 4. Repository Interfaces (Dependency Inversion)
-
-**Transaction Repository Interface**
-
-- [ ] `libs/core/src/repositories/transaction.repository.interface.ts`
-  - [ ] `save(userId: string, transaction: LedgerTransaction): ResultAsync<void, DomainError>`
-  - [ ] `findById(userId: string, id: number): ResultAsync<LedgerTransaction | null, DomainError>`
-  - [ ] `findByExternalId(userId: string, externalId: string, source: string): ResultAsync<LedgerTransaction | null, DomainError>`
-
-**Account Repository Interface**
-
-- [ ] `libs/core/src/repositories/account.repository.interface.ts`
-  - [ ] `findByIdentifier(userId: string, currencyTicker: string, source: string): ResultAsync<Account | null, DomainError>`
-  - [ ] `create(userId: string, account: CreateAccountData): ResultAsync<Account, DomainError>`
-
-**User Repository Interface**
-
-- [ ] `libs/core/src/repositories/user.repository.interface.ts`
-  - [ ] User management operations with proper scoping
-
-#### 5. Domain Services
-
-- [ ] `libs/core/src/services/balance-calculator.service.ts` - Cross-aggregate balance calculations
-- [ ] `libs/core/src/services/transaction-validator.service.ts` - Complex transaction validation
 
 #### 6. Repository Implementations (Infrastructure)
 
@@ -156,11 +195,12 @@ Cross-aggregate services like BalanceCalculatorService not yet created.
 3. ✅ Implement User aggregate
 4. ✅ Implement Account entity
 
-### 🔄 Phase 3: Repository Interfaces (NEXT)
+### ✅ Phase 3: Repository Interfaces (COMPLETED)
 
-1. Create repository interfaces in core library
-2. Define proper dependency inversion contracts
-3. Add user-scoped repository operations
+1. ✅ Create repository interfaces in core library
+2. ✅ Define proper dependency inversion contracts
+3. ✅ Add user-scoped repository operations
+4. ✅ Add domain services for cross-aggregate operations
 
 ### Phase 4: Infrastructure (FUTURE)
 
