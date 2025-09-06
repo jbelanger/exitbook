@@ -2,11 +2,10 @@
 
 ## Overview
 
-The system implements a **multi-tenant double-entry ledger** model using NestJS and Drizzle ORM to ensure data integrity and accurate balance calculations. This approach treats every financial operation as a transaction composed of multiple balanced entries, with all data scoped by user for complete data isolation.
+The system implements a **double-entry ledger** model using NestJS and Drizzle ORM to ensure data integrity and accurate balance calculations. This approach treats every financial operation as a transaction composed of multiple balanced entries, with all data scoped by user for complete data isolation.
 
 **Key Architectural Features:**
 
-- Multi-tenant architecture with user-scoped data isolation
 - NestJS framework with Drizzle ORM for type-safe database operations
 - CQRS pattern with focused command/query handlers
 - Provider registry system with circuit breakers for multi-provider resilience
@@ -24,11 +23,11 @@ The system implements a **multi-tenant double-entry ledger** model using NestJS 
 
 ## Database Schema
 
-**Note**: For complete implementation using NestJS and Drizzle ORM, see [v2.md](./v2.md#database-schema). This document focuses on the conceptual data model with SQL examples showing multi-tenant structure.
+**Note**: For complete implementation using NestJS and Drizzle ORM, see [v2.md](./v2.md#database-schema). This document focuses on the conceptual data model with SQL examples.
 
 ### Users Table
 
-**Foundation table** for multi-tenant user management.
+**Foundation table** for user management.
 
 ```sql
 CREATE TABLE users (
@@ -96,7 +95,7 @@ CREATE TYPE account_type_enum AS ENUM (
 
 CREATE TABLE accounts (
   id SERIAL PRIMARY KEY,
-  user_id UUID NOT NULL,               -- Multi-tenant: scoped by user
+  user_id UUID NOT NULL,               -- Scoped by user
   name VARCHAR(255) NOT NULL,          -- Human-readable name
   currency_id INTEGER NOT NULL,        -- Foreign key to currencies table
   account_type account_type_enum NOT NULL, -- Enum for granular account types
@@ -130,7 +129,7 @@ Container for financial events, **scoped by user**. Acts as a grouping mechanism
 ```sql
 CREATE TABLE ledger_transactions (
   id SERIAL PRIMARY KEY,
-  user_id UUID NOT NULL,              -- Multi-tenant: scoped by user
+  user_id UUID NOT NULL,              -- Scoped by user
   external_id VARCHAR(255) NOT NULL,  -- Original hash/ID from source
   source VARCHAR(50) NOT NULL,        -- 'kraken', 'bitcoin', 'uniswap', etc.
   description TEXT NOT NULL,           -- Human-readable description
@@ -160,7 +159,7 @@ CREATE TYPE entry_type_enum AS ENUM (
 
 CREATE TABLE entries (
   id SERIAL PRIMARY KEY,
-  user_id UUID NOT NULL,              -- Multi-tenant: scoped by user
+  user_id UUID NOT NULL,              -- Scoped by user
   transaction_id INTEGER NOT NULL,
   account_id INTEGER NOT NULL,
   currency_id INTEGER NOT NULL,        -- Explicit currency reference for multi-currency validation
@@ -175,7 +174,7 @@ CREATE TABLE entries (
   FOREIGN KEY (currency_id) REFERENCES currencies(id) ON DELETE RESTRICT
 );
 
--- Critical indexes for multi-tenant performance
+-- Critical indexes for performance
 CREATE INDEX idx_entries_user_id ON entries(user_id);
 -- Note: No user+account+currency index needed since account already determines currency
 CREATE INDEX idx_entries_transaction ON entries(transaction_id);
@@ -254,11 +253,11 @@ CREATE TABLE transaction_metadata (
 -- ('dex_protocol', 'uniswap_v3', 'string')
 ```
 
-## Example: Multi-Tenant Cryptocurrency Trade
+## Example: Cryptocurrency Trade
 
 **Scenario**: User buys 0.5 ETH for 1000 USDC with 5 USDC fee on Coinbase
 
-### Key Multi-Tenant Considerations:
+### Key Considerations:
 
 1. **User Context**: All operations include `userId = 'user-123'`
 2. **User-Scoped Accounts**: Accounts belong to specific user
@@ -320,7 +319,7 @@ INSERT INTO entries (user_id, transaction_id, account_id, amount, direction, ent
   ('user-123', 4, polygon_usdc_account, 100000000, 'CREDIT', 'TRANSFER');   -- +100 USDC on Polygon
 ```
 
-## Balance Calculations (Multi-Tenant)
+## Balance Calculations
 
 All balance queries must include user context for data isolation.
 
@@ -445,7 +444,7 @@ WHERE t.user_id = $1          -- Critical: Filter by user
 
 ```
 
-### Multi-Tenant Considerations
+### Considerations
 
 **User Context Requirements**:
 - All operations must include `user_id` parameter
@@ -466,10 +465,10 @@ WHERE t.user_id = $1          -- Critical: Filter by user
 **Critical Rule**: Sum of amounts for all entries in a transaction must equal zero **per currency per user**.
 ```
 
-## Benefits of This Multi-Tenant Ledger Model
+## Benefits of Ledger Model
 
-1. **Complete Data Isolation**: Multi-tenant architecture ensures users cannot access each other's data
-2. **Scalable Architecture**: User-scoped queries and indexes optimize for multi-tenant performance
+1. **Complete Data Isolation**: Architecture ensures users cannot access each other's data
+2. **Scalable Architecture**: User-scoped queries and indexes optimize for performance
 3. **Multi-Currency Precision**: Proper decimal handling per asset type with no precision loss
 4. **Data Normalization**: Currency metadata centralized globally, preventing inconsistencies
 5. **Accurate Balance Calculations**: Simple SUM() operations with currency and user context
@@ -486,7 +485,7 @@ WHERE t.user_id = $1          -- Critical: Filter by user
 16. **Future-Proof**: Easy to add new assets, networks, and account types per user
 17. **Reporting Ready**: Account type granularity enables per-user P&L statements and tax reporting
 18. **User Context Security**: Every operation requires user context, preventing cross-tenant data access
-19. **Scalable Multi-Tenancy**: Efficient user-scoped indexes support thousands of concurrent users
+19. **Scalable**: Efficient user-scoped indexes support thousands of concurrent users
 20. **CQRS Integration**: Clean separation of read/write operations with user context built-in
 
 ## Migration from Single-Entry Model
