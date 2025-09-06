@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json.schemastore.org/nest-cli",
+  "collection": "@nestjs/schematics",
+  "sourceRoot": "apps/api/src",
+  "compilerOptions": {
+    "deleteOutDir": true,
+    "webpack": false,
+    "tsConfigPath": "apps/api/tsconfig.json",
+    "assets": ["**/*.js"],
+    "watchAssets": true
+  },
+  "monorepo": true,
+  "root": "apps/api",
+  "projects": {
+    "api": {
+      "type": "application",
+      "root": "apps/api",
+      "entryFile": "main",
+      "sourceRoot": "apps/api/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/api/tsconfig.json"
+      }
+    },
+    "cli": {
+      "type": "application",
+      "root": "apps/cli",
+      "entryFile": "main",
+      "sourceRoot": "apps/cli/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/cli/tsconfig.json"
+      }
+    },
+    "@exitbook/core": {
+      "type": "library",
+      "root": "libs/core",
+      "entryFile": "index",
+      "sourceRoot": "libs/core/src",
+      "compilerOptions": {
+        "tsConfigPath": "libs/core/tsconfig.lib.json"
+      }
+    },
+    "@exitbook/database": {
+      "type": "library",
+      "root": "libs/database",
+      "entryFile": "index",
+      "sourceRoot": "libs/database/src",
+      "compilerOptions": {
+        "tsConfigPath": "libs/database/tsconfig.lib.json"
+      }
+    },
+    "@exitbook/ledger": {
+      "type": "library",
+      "root": "libs/ledger",
+      "entryFile": "index",
+      "sourceRoot": "libs/ledger/src",
+      "compilerOptions": {
+        "tsConfigPath": "libs/ledger/tsconfig.lib.json"
+      }
+    },
+    "@exitbook/import": {
+      "type": "library",
+      "root": "libs/import",
+      "entryFile": "index",
+      "sourceRoot": "libs/import/src",
+      "compilerOptions": {
+        "tsConfigPath": "libs/import/tsconfig.lib.json"
+      }
+    },
+    "@exitbook/providers": {
+      "type": "library",
+      "root": "libs/providers",
+      "entryFile": "index",
+      "sourceRoot": "libs/providers/src",
+      "compilerOptions": {
+        "tsConfigPath": "libs/providers/tsconfig.lib.json"
+      }
+    },
+    "@exitbook/shared": {
+      "type": "library",
+      "root": "libs/shared",
+      "entryFile": "index",
+      "sourceRoot": "libs/shared/src",
+      "compilerOptions": {
+        "tsConfigPath": "libs/shared/tsconfig.lib.json"
+      }
+    }
+  }
+}

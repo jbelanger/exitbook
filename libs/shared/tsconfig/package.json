@@ -1,0 +1,9 @@
+{
+  "name": "@exitbook/shared-tsconfig",
+  "version": "1.0.0",
+  "description": "Shared TypeScript configuration for ExitBook platform",
+  "private": true,
+  "files": [
+    "tsconfig.json"
+  ]
+}

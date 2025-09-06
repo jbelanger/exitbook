@@ -160,3 +160,6 @@ out/
 *.sqlite3
 commands.txt
 *files*.txt
+
+# Local Override Config Files
+/config/providers.local.json

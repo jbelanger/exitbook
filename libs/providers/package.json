@@ -1,0 +1,24 @@
+{
+  "name": "@exitbook/providers",
+  "version": "1.0.0",
+  "description": "ExitBook Providers - Provider registry and blockchain provider managers",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint \"src/**/*.ts*\"",
+    "lint:fix": "eslint \"src/**/*.ts*\" --fix",
+    "prettier": "prettier --check .",
+    "prettier:fix": "prettier --write ."
+  },
+  "dependencies": {
+    "@exitbook/core": "workspace:*",
+    "@exitbook/shared-utils": "workspace:*"
+  },
+  "devDependencies": {
+    "@exitbook/shared-tsconfig": "workspace:*"
+  },
+  "peerDependencies": {
+    "@nestjs/common": "^11.1.6"
+  }
+}

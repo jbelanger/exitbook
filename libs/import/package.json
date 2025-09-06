@@ -1,0 +1,26 @@
+{
+  "name": "@exitbook/import",
+  "version": "1.0.0",
+  "description": "ExitBook Import - Importers, processors, and orchestration services",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint \"src/**/*.ts*\"",
+    "lint:fix": "eslint \"src/**/*.ts*\" --fix",
+    "prettier": "prettier --check .",
+    "prettier:fix": "prettier --write ."
+  },
+  "dependencies": {
+    "@exitbook/core": "workspace:*",
+    "@exitbook/database": "workspace:*",
+    "@exitbook/ledger": "workspace:*",
+    "@exitbook/providers": "workspace:*"
+  },
+  "devDependencies": {
+    "@exitbook/shared-tsconfig": "workspace:*"
+  },
+  "peerDependencies": {
+    "@nestjs/common": "^11.1.6"
+  }
+}

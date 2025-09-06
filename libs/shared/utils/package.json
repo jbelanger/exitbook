@@ -1,0 +1,36 @@
+{
+  "name": "@exitbook/shared-utils",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ExitBook Shared Utils - Common utilities for the platform",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf dist",
+    "lint": "eslint \"src/**/*.ts*\"",
+    "lint:fix": "eslint \"src/**/*.ts*\" --fix",
+    "prettier": "prettier --check .",
+    "prettier:fix": "prettier --write .",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "ccxt": "^4.5.1",
+    "decimal.js": "^10.6.0"
+  },
+  "devDependencies": {
+    "@jest/globals": "^30.0.5",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24.3.0",
+    "jest": "^30.0.5",
+    "ts-jest": "^29.4.1",
+    "@exitbook/shared-tsconfig": "workspace:*",
+    "tsx": "^4.20.4",
+    "typescript": "^5.9.2"
+  },
+  "peerDependencies": {
+    "@exitbook/shared-logger": "workspace:*"
+  }
+}

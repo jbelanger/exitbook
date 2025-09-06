@@ -4,6 +4,17 @@
 
 A NestJS-based cryptocurrency transaction import system implementing a complete double-entry ledger architecture with Drizzle ORM. The system uses CQRS pattern with small, focused command/query handlers for maintainability and scalability. Error handling is implemented using `neverthrow` for explicit, type-safe error handling that eliminates hidden exceptions and provides structured error data.
 
+### Core Philosophy: Domain-Driven Design (DDD)
+
+While the system uses CQRS for orchestration, the core business logic, rules, and invariants are encapsulated within a rich **Domain Model** as defined in `libs/core`. This approach avoids an anemic domain model where logic is scattered in services, and instead creates a robust, testable, and maintainable core.
+
+**Key Principles Adopted:**
+
+- **Aggregates & Entities:** Business concepts like `LedgerTransaction` and `User` are modeled as classes (`Aggregates`) that protect their own internal consistency (`invariants`).
+- **Value Objects:** Concepts without identity, like `Money`, are modeled as immutable value objects to ensure correctness (e.g., preventing operations between different currencies).
+- **Factory Pattern:** Aggregates cannot be instantiated directly. They are created via static `create()` factory methods that contain all validation logic, ensuring no invalid object can ever exist in the system.
+- **Rich Domain Model:** Business logic lives within the domain objects themselves (e.g., `LedgerTransaction.addEntry()`), not in application services or repositories.
+
 ## Multi-Tenant Architecture & User Context Management
 
 **Critical:** This system is designed as a multi-tenant architecture where all data is scoped by `userId`. Every command, query, and repository operation must include user context to ensure data isolation and security.
@@ -45,6 +56,27 @@ For financial operations, errors are not "exceptions" but common, expected outco
 - **Data integrity issues**: Duplicate transactions, currency mismatches
 
 The `Result<T, E>` type explicitly represents success (`Ok<T>`) or failure (`Err<E>`), forcing developers to handle both paths and eliminating entire classes of runtime errors.
+
+A key principle is that these domain errors are generated **from within the domain aggregates themselves**. When a factory method or a business method on an aggregate encounters a violation of a rule (an invariant), it returns an `Err` result containing a specific, typed domain error.
+
+**Example:**
+
+```typescript
+// libs/core/src/aggregates/transaction/ledger-transaction.aggregate.ts
+
+export class LedgerTransaction extends AggregateRoot {
+  // ...
+
+  public addEntry(entry: Entry): Result<void, UnbalancedTransactionError> {
+    // ... logic to check if adding this entry would unbalance the transaction
+    if (isUnbalanced) {
+      return err(new UnbalancedTransactionError('Adding this entry would unbalance the transaction'));
+    }
+    this._entries.push(entry);
+    return ok(undefined);
+  }
+}
+```
 
 ### Domain Error Classes
 
@@ -116,12 +148,13 @@ crypto-tx-import/
 │       │   └── commands/             # CLI commands as services
 │       └── test/
 ├── libs/                             # NestJS shared libraries
-│   ├── core/                         # Domain entities & types
+│   ├── core/                         # Pure Domain Model (DDD)
 │   │   ├── src/
-│   │   │   ├── entities/             # Account, LedgerTransaction, Entry
-│   │   │   ├── types/                # Ledger-specific types
-│   │   │   ├── validation/           # Zod schemas
-│   │   │   └── core.module.ts
+│   │   │   ├── aggregates/           # Aggregate Roots and child Entities (e.g., LedgerTransaction, Entry)
+│   │   │   ├── value-objects/        # Immutable value objects (e.g., Money)
+│   │   │   ├── services/             # Stateless Domain Services (e.g., BalanceCalculator)
+│   │   │   ├── repositories/         # Repository INTERFACES (the contract for persistence)
+│   │   │   └── errors/               # Custom, typed Domain Errors
 │   │   └── test/
 │   ├── database/                     # Drizzle ORM integration
 │   │   ├── src/
@@ -154,21 +187,17 @@ crypto-tx-import/
 │   │   │   ├── processors/           # Processor implementations
 │   │   │   └── import.module.ts
 │   │   └── test/
-│   ├── providers/                    # Provider registry & circuit breakers
+│   ├── providers/                    # External data provider integration
 │   │   ├── src/
-│   │   │   ├── registry/             # Provider registry
-│   │   │   ├── circuit-breaker/      # Resilience patterns
+│   │   │   ├── registry/             # Provider registry for exchanges/blockchains
+│   │   │   ├── pricing/              # Historical price provider infrastructure
 │   │   │   ├── blockchain/           # Blockchain provider managers
 │   │   │   └── providers.module.ts
 │   │   └── test/
-│   └── shared/                       # Cross-cutting concerns
-│       ├── src/
-│       │   ├── logger/               # Winston logging
-│       │   ├── utils/                # Common utilities
-│       │   ├── errors/               # Domain exceptions
-│       │   ├── filters/              # Exception filters
-│       │   └── shared.module.ts
-│       └── test/
+│   └── shared/                       # Cross-cutting concerns (implemented as scoped packages)
+│       ├── config/                   # @exitbook/shared-config
+│       ├── logger/                   # @exitbook/shared-logger
+│       └── ... other shared packages
 ```
 
 ## CQRS Architecture Design
@@ -209,7 +238,7 @@ export class RecordTransactionHandler implements ICommandHandler<RecordTransacti
   constructor(
     private readonly ledgerRepository: LedgerRepository,
     private readonly accountService: AccountService,
-    private readonly logger: Logger
+    private readonly logger: LoggerService
   ) {}
 
   async execute(command: RecordTransactionCommand): ResultAsync<LedgerTransactionDto, DomainError> {
@@ -245,7 +274,7 @@ export class GetAccountBalanceHandler implements IQueryHandler<GetAccountBalance
 
 ### Controllers as Command/Query Dispatchers
 
-Controllers become thin layers that dispatch commands and queries:
+Controllers are kept lean and are only responsible for dispatching commands and queries. They contain no business logic. Error handling for `Result` types is managed globally by a NestJS Exception Filter, which unwraps the result and maps domain errors to appropriate HTTP responses.
 
 ```typescript
 import { Result } from 'neverthrow';
@@ -259,102 +288,71 @@ export class LedgerController {
 
   @Post('transactions')
   async createTransaction(@Body() request: CreateLedgerTransactionDto) {
-    const result = await this.commandBus.execute(new RecordTransactionCommand(request));
-
-    // Handle Result type in controller
-    return result.match(
-      transactionDto => transactionDto,
-      error => {
-        // Convert domain errors to appropriate HTTP responses
-        throw new HttpException(
-          {
-            message: error.message,
-            code: error.code,
-            details: error.details,
-          },
-          this.getHttpStatus(error)
-        );
-      }
+    const result: Result<LedgerTransactionDto, DomainError> = await this.commandBus.execute(
+      new RecordTransactionCommand(request)
     );
+
+    // The controller simply returns the result.
+    // If it's an Err, unwrapOrThrow will throw the DomainError,
+    // which is then caught by our GlobalExceptionFilter.
+    return result.unwrapOrThrow();
   }
 
   @Get('accounts/:id/balance')
   async getBalance(@Param('id') accountId: number) {
-    const result = await this.queryBus.execute(new GetAccountBalanceQuery(accountId));
+    const result: Result<BalanceDto, DomainError> = await this.queryBus.execute(new GetAccountBalanceQuery(accountId));
 
-    return result.match(
-      balance => balance,
-      error => {
-        throw new HttpException(
-          {
-            message: error.message,
-            code: error.code,
-            details: error.details,
-          },
-          this.getHttpStatus(error)
-        );
-      }
-    );
-  }
-
-  private getHttpStatus(error: DomainError): HttpStatus {
-    switch (error.code) {
-      case 'ACCOUNT_NOT_FOUND':
-        return HttpStatus.NOT_FOUND;
-      case 'LEDGER_UNBALANCED':
-        return HttpStatus.BAD_REQUEST;
-      default:
-        return HttpStatus.INTERNAL_SERVER_ERROR;
-    }
+    return result.unwrapOrThrow();
   }
 }
 ```
 
 ### Handler Responsibilities vs. Worker Services
 
-CQRS handlers are **orchestrators**, not containers for complex business logic.
+CQRS handlers are **orchestrators** of the domain model, not containers for complex business logic. Their role is to fetch domain aggregates from repositories, call their methods, and save the results.
 
 ```typescript
-// ✅ CORRECT: Handler orchestrates with neverthrow batch processing
-@CommandHandler(ProcessUniversalTransactionsCommand)
-export class ProcessUniversalTransactionsHandler implements ICommandHandler<ProcessUniversalTransactionsCommand> {
+// ✅ CORRECT: Handler orchestrates the domain model
+@CommandHandler(RecordTransactionCommand)
+export class RecordTransactionHandler implements ICommandHandler<RecordTransactionCommand> {
   constructor(
-    private readonly processorFactory: ProcessorFactoryService,
-    private readonly rawDataRepository: RawDataRepository,
-    private readonly logger: ContextualLoggerService,
+    private readonly transactionRepository: ITransactionRepository, // Using interface from libs/core
+    private readonly logger: LoggerService
   ) {}
 
-  async execute(command: ProcessUniversalTransactionsCommand): ResultAsync<BatchProcessingResult, DomainError> {
-    const { userId, sourceId, sessionId } = command;
+  async execute(command: RecordTransactionCommand): ResultAsync<LedgerTransactionDto, DomainError> {
+    const { userId, transactionData } = command;
 
-    // Handler orchestrates the workflow using neverthrow patterns
-    return this.rawDataRepository
-      .findBySession(userId, sessionId)
-      .andThen(rawDataItems => {
-        this.logger.log(`Processing ${rawDataItems.length} raw transactions for session ${sessionId}`);
+    // 1. Use the domain aggregate's factory to create a valid transaction object.
+    //    All validation and business rules are contained within the aggregate itself.
+    const transactionResult = LedgerTransaction.create({
+      userId,
+      externalId: transactionData.externalId,
+      // ... other data
+    });
 
-        // Delegate complex business logic to specialized worker service
-        return this.processorFactory.create(sourceId, 'exchange');
-      })
-      .andThen(processor => {
-        // Process with structured batch result handling
-        return processor.processBatch({
-          id: sessionId,
-          sourceId,
-          sourceType: 'exchange',
-          userId,
-          rawDataItems,
-        });
-      })
-      .andThen(result => {
-        // Log batch processing results
-        this.logger.log(
-          `Batch processing complete. Success: ${result.successful.length}, Failed: ${result.failed.length}`
-        );
+    if (transactionResult.isErr()) {
+      // If the domain rules are violated, return the specific domain error.
+      return errAsync(transactionResult.error);
+    }
 
-        // Return structured batch result instead of throwing on partial failures
-        return okAsync(result);
-      });
+    const transaction = transactionResult.value;
+
+    // 2. Add entries using the aggregate's methods, which enforce invariants.
+    for (const entryData of transactionData.entries) {
+      const entryResult = Entry.create(entryData);
+      if (entryResult.isErr()) return errAsync(entryResult.error);
+
+      const addEntryResult = transaction.addEntry(entryResult.value);
+      if (addEntryResult.isErr()) return errAsync(addEntryResult.error);
+    }
+
+    // 3. Persist the valid aggregate state using the repository.
+    //    The repository's job is persistence, not business logic.
+    return this.transactionRepository.save(transaction).andThen(() => {
+      this.logger.log(`Transaction recorded: ${transaction.id}`);
+      return okAsync(this.mapToDto(transaction)); // Map aggregate state to DTO
+    });
   }
 }
 
@@ -417,105 +415,16 @@ pnpm add @nestjs/cqrs
 # - shared: Cross-cutting concerns
 ```
 
-#### Typed Configuration Setup:
+#### Typed Configuration Setup
 
-```typescript
-// libs/shared/src/config/configuration.ts
-import { Transform, plainToClass } from 'class-transformer';
-import { IsNumber, IsOptional, IsString, validateSync } from 'class-validator';
+The system uses a standalone, type-safe configuration package: `@exitbook/shared-config`. This module provides a robust and validated configuration object to the entire application.
 
-export class DatabaseConfig {
-  @IsString()
-  DATABASE_URL: string;
+**Key Features:**
 
-  @IsNumber()
-  @Transform(({ value }) => parseInt(value))
-  @IsOptional()
-  DATABASE_POOL_SIZE?: number = 10;
-
-  @IsString()
-  @IsOptional()
-  DATABASE_SSL_MODE?: string = 'prefer';
-}
-
-export class ProvidersConfig {
-  @IsObject()
-  bitcoin: {
-    enabled: boolean;
-    providers: string[];
-    priority: string[];
-  };
-
-  @IsObject()
-  ethereum: {
-    enabled: boolean;
-    providers: string[];
-    priority: string[];
-  };
-
-  // Add other blockchains as needed
-}
-
-export class AppConfig {
-  @IsNumber()
-  @Transform(({ value }) => parseInt(value))
-  PORT: number = 3000;
-
-  @IsString()
-  NODE_ENV: string = 'development';
-
-  @IsString()
-  @IsOptional()
-  LOG_LEVEL?: string = 'info';
-}
-
-export class Configuration {
-  database: DatabaseConfig;
-  app: AppConfig;
-  providers: ProvidersConfig;
-}
-
-export function validateConfiguration(config: Record<string, unknown>): Configuration {
-  const validatedConfig = plainToClass(Configuration, {
-    database: plainToClass(DatabaseConfig, config),
-    app: plainToClass(AppConfig, config),
-    providers: plainToClass(ProvidersConfig, config.providers || {}),
-  });
-
-  const errors = validateSync(validatedConfig, { skipMissingProperties: false });
-
-  if (errors.length > 0) {
-    throw new Error(`Configuration validation error: ${errors.toString()}`);
-  }
-
-  return validatedConfig;
-}
-
-// libs/shared/src/config/config.module.ts
-@Module({
-  imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-      validate: validateConfiguration,
-      validationOptions: {
-        allowUnknown: true,
-        abortEarly: true,
-      },
-    }),
-  ],
-  providers: [
-    {
-      provide: 'TYPED_CONFIG',
-      useFactory: (configService: ConfigService) => {
-        return validateConfiguration(configService.get<Record<string, unknown>>(''));
-      },
-      inject: [ConfigService],
-    },
-  ],
-  exports: ['TYPED_CONFIG'],
-})
-export class TypedConfigModule {}
-```
+- **Zod Schema:** Configuration is defined and validated using a Zod schema, making it the single source of truth.
+- **Fail-Fast Validation:** The application will not start if the configuration is invalid, preventing runtime errors.
+- **Cascading Load Strategy:** It intelligently loads configuration from `.env` files and environment-specific `.json` files (e.g., `providers.development.json`), allowing for flexible overrides.
+- **Type-Safe Injection:** The final, validated `Configuration` object is available globally via the `'TYPED_CONFIG'` injection token.
 
 #### Database Module with Drizzle Schema & Migrations:
 
@@ -549,7 +458,6 @@ export const currencies = pgTable('currencies', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
-
 // libs/database/src/schema/accounts.ts
 import { pgTable, serial, varchar, timestamp, text, pgEnum, integer, uuid, index } from 'drizzle-orm/pg-core';
 import { currencies } from './currencies';
@@ -567,69 +475,131 @@ export const accountTypeEnum = pgEnum('account_type', [
   'INCOME_AIRDROP',
   'INCOME_MINING',
   'EXPENSE_FEES_GAS',
-  'EXPENSE_FEES_TRADE'
+  'EXPENSE_FEES_TRADE',
 ]);
 
-export const accounts = pgTable('accounts', {
-  id: serial('id').primaryKey(),
-  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
-  name: varchar('name', { length: 255 }).notNull(),
-  currencyId: integer('currency_id').references(() => currencies.id, { onDelete: 'restrict' }).notNull(),
-  accountType: accountTypeEnum('account_type').notNull(),
-  network: varchar('network', { length: 50 }),
-  externalAddress: varchar('external_address', { length: 255 }),
-  source: varchar('source', { length: 50 }),
-  parentAccountId: integer('parent_account_id').references(() => accounts.id),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-}, (table) => ({
-  userIdIdx: index('accounts_user_id_idx').on(table.userId),
-  userCurrencyIdx: index('accounts_user_currency_idx').on(table.userId, table.currencyId),
-}));
+export const accounts = pgTable(
+  'accounts',
+  {
+    id: serial('id').primaryKey(),
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    name: varchar('name', { length: 255 }).notNull(),
+    currencyId: integer('currency_id')
+      .references(() => currencies.id, { onDelete: 'restrict' })
+      .notNull(),
+    accountType: accountTypeEnum('account_type').notNull(),
+    network: varchar('network', { length: 50 }),
+    externalAddress: varchar('external_address', { length: 255 }),
+    source: varchar('source', { length: 50 }),
+    parentAccountId: integer('parent_account_id').references(() => accounts.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  table => ({
+    userIdIdx: index('accounts_user_id_idx').on(table.userId),
+    userCurrencyIdx: index('accounts_user_currency_idx').on(table.userId, table.currencyId),
+  })
+);
 
 // libs/database/src/schema/ledger.ts
-import { pgTable, serial, varchar, timestamp, text, bigint, pgEnum, uniqueIndex, integer, uuid, index } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  serial,
+  varchar,
+  timestamp,
+  text,
+  bigint,
+  pgEnum,
+  uniqueIndex,
+  integer,
+  uuid,
+  index,
+} from 'drizzle-orm/pg-core';
 import { accounts } from './accounts';
 import { currencies } from './currencies';
 import { users } from './users';
 
 export const directionEnum = pgEnum('direction', ['CREDIT', 'DEBIT']);
 export const entryTypeEnum = pgEnum('entry_type', [
-  'TRADE', 'DEPOSIT', 'WITHDRAWAL', 'FEE', 'REWARD',
-  'STAKING', 'AIRDROP', 'MINING', 'LOAN', 'REPAYMENT', 'TRANSFER', 'GAS'
+  'TRADE',
+  'DEPOSIT',
+  'WITHDRAWAL',
+  'FEE',
+  'REWARD',
+  'STAKING',
+  'AIRDROP',
+  'MINING',
+  'LOAN',
+  'REPAYMENT',
+  'TRANSFER',
+  'GAS',
 ]);
 
-export const ledgerTransactions = pgTable('ledger_transactions', {
-  id: serial('id').primaryKey(),
-  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
-  externalId: varchar('external_id', { length: 255 }).notNull(),
-  source: varchar('source', { length: 50 }).notNull(),
-  description: text('description').notNull(),
-  transactionDate: timestamp('transaction_date', { withTimezone: true }).notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-}, (table) => ({
-  externalIdSourceUserIdx: uniqueIndex('external_id_source_user_idx').on(table.userId, table.externalId, table.source),
-  userIdIdx: index('ledger_transactions_user_id_idx').on(table.userId),
-  userDateIdx: index('ledger_transactions_user_date_idx').on(table.userId, table.transactionDate),
-  userSourceIdx: index('ledger_transactions_user_source_idx').on(table.userId, table.source),
-}));
+export const ledgerTransactions = pgTable(
+  'ledger_transactions',
+  {
+    id: serial('id').primaryKey(),
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    externalId: varchar('external_id', { length: 255 }).notNull(),
+    source: varchar('source', { length: 50 }).notNull(),
+    description: text('description').notNull(),
+    transactionDate: timestamp('transaction_date', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  table => ({
+    externalIdSourceUserIdx: uniqueIndex('external_id_source_user_idx').on(
+      table.userId,
+      table.externalId,
+      table.source
+    ),
+    userIdIdx: index('ledger_transactions_user_id_idx').on(table.userId),
+    userDateIdx: index('ledger_transactions_user_date_idx').on(table.userId, table.transactionDate),
+    userSourceIdx: index('ledger_transactions_user_source_idx').on(table.userId, table.source),
+  })
+);
 
-export const entries = pgTable('entries', {
-  id: serial('id').primaryKey(),
-  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
-  transactionId: integer('transaction_id').references(() => ledgerTransactions.id, { onDelete: 'cascade' }).notNull(),
-  accountId: integer('account_id').references(() => accounts.id, { onDelete: 'restrict' }).notNull(),
-  currencyId: integer('currency_id').references(() => currencies.id, { onDelete: 'restrict' }).notNull(),
-  amount: bigint('amount', { mode: 'bigint' }).notNull(),
-  direction: directionEnum('direction').notNull(),
-  entryType: entryTypeEnum('entry_type').notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-}, (table) => ({
-  userIdIdx: index('entries_user_id_idx').on(table.userId),
-  userAccountCurrencyIdx: index('entries_user_account_currency_idx').on(table.userId, table.accountId, table.currencyId),
-  transactionIdx: index('entries_transaction_idx').on(table.transactionId),
-  currencyIdx: index('entries_currency_idx').on(table.currencyId),
-}));
+export const entries = pgTable(
+  'entries',
+  {
+    id: serial('id').primaryKey(),
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    transactionId: integer('transaction_id')
+      .references(() => ledgerTransactions.id, { onDelete: 'cascade' })
+      .notNull(),
+    accountId: integer('account_id')
+      .references(() => accounts.id, { onDelete: 'restrict' })
+      .notNull(),
+    currencyId: integer('currency_id')
+      .references(() => currencies.id, { onDelete: 'restrict' })
+      .notNull(),
+    amount: bigint('amount', { mode: 'bigint' }).notNull(),
+    direction: directionEnum('direction').notNull(),
+    entryType: entryTypeEnum('entry_type').notNull(),
+
+    // ADDED: First-class storage for historical price
+    // These columns are nullable as not all entries require pricing (e.g., a USD entry).
+    priceAmount: bigint('price_amount', { mode: 'bigint' }),
+    priceCurrencyId: integer('price_currency_id').references(() => currencies.id, { onDelete: 'restrict' }),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  table => ({
+    userIdIdx: index('entries_user_id_idx').on(table.userId),
+    userAccountCurrencyIdx: index('entries_user_account_currency_idx').on(
+      table.userId,
+      table.accountId,
+      table.currencyId
+    ),
+    transactionIdx: index('entries_transaction_idx').on(table.transactionId),
+    currencyIdx: index('entries_currency_idx').on(table.currencyId),
+  })
+);
 
 // libs/database/src/database.module.ts
 @Module({
@@ -639,9 +609,9 @@ export const entries = pgTable('entries', {
       provide: 'DATABASE_CONNECTION',
       inject: ['TYPED_CONFIG'],
       useFactory: async (config: Configuration) => {
-        const client = postgres(config.database.DATABASE_URL, {
-          max: config.database.DATABASE_POOL_SIZE,
-          ssl: config.database.DATABASE_SSL_MODE !== 'disable' ? { rejectUnauthorized: false } : false,
+        const client = postgres(config.DATABASE_URL, {
+          max: config.DATABASE_POOL_SIZE,
+          ssl: config.DATABASE_SSL_MODE !== 'disable' ? { rejectUnauthorized: false } : false,
         });
         return drizzle(client, {
           schema: {
@@ -651,8 +621,8 @@ export const entries = pgTable('entries', {
             entries,
             blockchainTransactionDetails,
             exchangeTransactionDetails,
-            transactionMetadata
-          }
+            transactionMetadata,
+          },
         });
       },
     },
@@ -665,14 +635,14 @@ export class DatabaseModule implements OnModuleInit {
   constructor(
     private currencySeeder: CurrencySeederService,
     private healthService: DatabaseHealthService,
-    private logger: Logger,
+    private logger: LoggerService
   ) {}
 
   async onModuleInit() {
     this.logger.log('Initializing database module...');
 
     // Ensure global currencies are seeded on every application startup
-    await this.currencySeeder.seedGlobalCurrencies();
+    await this.currencySeeder.seedDefaultCurrencies();
 
     // Validate database health
     const isHealthy = await this.healthService.isHealthy();
@@ -690,7 +660,7 @@ import { currencies } from '../schema';
 export class CurrencySeederService {
   constructor(
     @Inject('DATABASE_CONNECTION') private db: DrizzleDB,
-    private logger: Logger,
+    private logger: LoggerService
   ) {}
 
   /**
@@ -700,13 +670,20 @@ export class CurrencySeederService {
    * Provides 10,000x reduction in currency records, faster queries, and simpler architecture.
    * No per-user provisioning needed - all users access the same currency table.
    */
-  async seedGlobalCurrencies(): Promise<void> {
+  async seedDefaultCurrencies(): Promise<void> {
     this.logger.log('Starting global currency seeding process...');
 
     const globalCurrencies = [
       { ticker: 'BTC', name: 'Bitcoin', decimals: 8, assetClass: 'CRYPTO', isNative: true, network: 'bitcoin' },
       { ticker: 'ETH', name: 'Ethereum', decimals: 18, assetClass: 'CRYPTO', network: 'ethereum', isNative: true },
-      { ticker: 'USDC', name: 'USD Coin', decimals: 6, assetClass: 'CRYPTO', network: 'ethereum', contractAddress: '0xA0b86a33E6441e0fD4f5f6aF08e6E56fF29b4c3D' },
+      {
+        ticker: 'USDC',
+        name: 'USD Coin',
+        decimals: 6,
+        assetClass: 'CRYPTO',
+        network: 'ethereum',
+        contractAddress: '0xA0b86a33E6441e0fD4f5f6aF08e6E56fF29b4c3D',
+      },
       { ticker: 'SOL', name: 'Solana', decimals: 9, assetClass: 'CRYPTO', network: 'solana', isNative: true },
       { ticker: 'USD', name: 'US Dollar', decimals: 2, assetClass: 'FIAT', isNative: true },
     ];
@@ -729,9 +706,10 @@ export class CurrencySeederService {
       }
     }
 
-    this.logger.log(`Global currency seeding completed. New currencies added: ${seededCount}, Total currencies: ${globalCurrencies.length}`);
+    this.logger.log(
+      `Global currency seeding completed. New currencies added: ${seededCount}, Total currencies: ${globalCurrencies.length}`
+    );
   }
-
 
   async validateCurrencySeeding(): Promise<boolean> {
     const expectedCurrencies = ['BTC', 'ETH', 'USDC', 'SOL', 'USD'];
@@ -764,19 +742,25 @@ import { ledgerTransactions } from './ledger';
 
 export const blockchainStatusEnum = pgEnum('blockchain_status', ['pending', 'confirmed', 'failed']);
 
-export const blockchainTransactionDetails = pgTable('blockchain_transaction_details', {
-  transactionId: integer('transaction_id').primaryKey().references(() => ledgerTransactions.id, { onDelete: 'cascade' }),
-  txHash: varchar('tx_hash', { length: 100 }).unique().notNull(),
-  blockHeight: integer('block_height'),
-  status: blockchainStatusEnum('status').notNull(),
-  gasUsed: integer('gas_used'),
-  gasPrice: bigint('gas_price', { mode: 'bigint' }), // Use bigint to prevent overflow with high gas prices
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-}, (table) => ({
-  txHashIdx: index('idx_blockchain_tx_hash').on(table.txHash),
-  statusIdx: index('idx_blockchain_status').on(table.status),
-  blockHeightIdx: index('idx_blockchain_block_height').on(table.blockHeight),
-}));
+export const blockchainTransactionDetails = pgTable(
+  'blockchain_transaction_details',
+  {
+    transactionId: integer('transaction_id')
+      .primaryKey()
+      .references(() => ledgerTransactions.id, { onDelete: 'cascade' }),
+    txHash: varchar('tx_hash', { length: 100 }).unique().notNull(),
+    blockHeight: integer('block_height'),
+    status: blockchainStatusEnum('status').notNull(),
+    gasUsed: integer('gas_used'),
+    gasPrice: bigint('gas_price', { mode: 'bigint' }), // Use bigint to prevent overflow with high gas prices
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  table => ({
+    txHashIdx: index('idx_blockchain_tx_hash').on(table.txHash),
+    statusIdx: index('idx_blockchain_status').on(table.status),
+    blockHeightIdx: index('idx_blockchain_block_height').on(table.blockHeight),
+  })
+);
 
 // libs/database/src/schema/exchange-transaction-details.ts
 import { pgTable, integer, varchar, timestamp, pgEnum } from 'drizzle-orm/pg-core';
@@ -785,7 +769,9 @@ import { ledgerTransactions } from './ledger';
 export const tradeSideEnum = pgEnum('trade_side', ['buy', 'sell']);
 
 export const exchangeTransactionDetails = pgTable('exchange_transaction_details', {
-  transactionId: integer('transaction_id').primaryKey().references(() => ledgerTransactions.id, { onDelete: 'cascade' }),
+  transactionId: integer('transaction_id')
+    .primaryKey()
+    .references(() => ledgerTransactions.id, { onDelete: 'cascade' }),
   orderId: varchar('order_id', { length: 100 }),
   tradeId: varchar('trade_id', { length: 100 }),
   symbol: varchar('symbol', { length: 20 }),
@@ -799,16 +785,22 @@ import { ledgerTransactions } from './ledger';
 
 export const metadataTypeEnum = pgEnum('metadata_type', ['string', 'number', 'json', 'boolean']);
 
-export const transactionMetadata = pgTable('transaction_metadata', {
-  id: serial('id').primaryKey(),
-  transactionId: integer('transaction_id').references(() => ledgerTransactions.id, { onDelete: 'cascade' }).notNull(),
-  key: varchar('key', { length: 100 }).notNull(),
-  value: text('value').notNull(),
-  dataType: metadataTypeEnum('data_type').notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-}, (table) => ({
-  uniqueKeyPerTransaction: uniqueIndex('unique_transaction_metadata_key').on(table.transactionId, table.key),
-}));
+export const transactionMetadata = pgTable(
+  'transaction_metadata',
+  {
+    id: serial('id').primaryKey(),
+    transactionId: integer('transaction_id')
+      .references(() => ledgerTransactions.id, { onDelete: 'cascade' })
+      .notNull(),
+    key: varchar('key', { length: 100 }).notNull(),
+    value: text('value').notNull(),
+    dataType: metadataTypeEnum('data_type').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  table => ({
+    uniqueKeyPerTransaction: uniqueIndex('unique_transaction_metadata_key').on(table.transactionId, table.key),
+  })
+);
 
 // libs/database/src/schema/index.ts
 export * from './currencies';
@@ -827,7 +819,7 @@ export * from './transaction-metadata';
 export abstract class BaseRepository<T> {
   constructor(
     @Inject('DATABASE_CONNECTION') protected db: DrizzleDB,
-    protected logger: Logger,
+    protected logger: Logger
   ) {}
 }
 
@@ -835,7 +827,7 @@ export abstract class BaseRepository<T> {
 @Injectable()
 export class LedgerRepository extends BaseRepository<LedgerTransaction> {
   async createTransaction(transaction: CreateLedgerTransaction): Promise<LedgerTransaction> {
-    return this.db.transaction(async (trx) => {
+    return this.db.transaction(async trx => {
       // Validate entries balance per currency before inserting
       // Transaction balance validation at application level
       // within a database transaction, not via database triggers
@@ -852,12 +844,14 @@ export class LedgerRepository extends BaseRepository<LedgerTransaction> {
           throw new LedgerValidationException({
             message: `Entries for currency ${currencyId} must balance to zero, got ${sum}`,
             code: 'ENTRIES_UNBALANCED',
-            unbalancedCurrencies: [{
-              currencyId,
-              delta: sum.toString(),
-              // Include currency ticker if available
-              ticker: await this.getCurrencyTicker(currencyId),
-            }],
+            unbalancedCurrencies: [
+              {
+                currencyId,
+                delta: sum.toString(),
+                // Include currency ticker if available
+                ticker: await this.getCurrencyTicker(currencyId),
+              },
+            ],
             transactionId: transaction.externalId,
             source: transaction.source,
           });
@@ -892,21 +886,17 @@ export class LedgerRepository extends BaseRepository<LedgerTransaction> {
 
       // Create blockchain or exchange details if provided
       if (transaction.blockchainDetails) {
-        await trx
-          .insert(blockchainTransactionDetails)
-          .values({
-            transactionId: dbTransaction.id,
-            ...transaction.blockchainDetails,
-          });
+        await trx.insert(blockchainTransactionDetails).values({
+          transactionId: dbTransaction.id,
+          ...transaction.blockchainDetails,
+        });
       }
 
       if (transaction.exchangeDetails) {
-        await trx
-          .insert(exchangeTransactionDetails)
-          .values({
-            transactionId: dbTransaction.id,
-            ...transaction.exchangeDetails,
-          });
+        await trx.insert(exchangeTransactionDetails).values({
+          transactionId: dbTransaction.id,
+          ...transaction.exchangeDetails,
+        });
       }
 
       // Create metadata entries if provided
@@ -969,7 +959,7 @@ export class LedgerRepository extends BaseRepository<LedgerTransaction> {
       .select({
         balance: sql<string>`coalesce(sum(${entries.amount}), 0)`,
         currencyTicker: currencies.ticker,
-        currencyDecimals: currencies.decimals
+        currencyDecimals: currencies.decimals,
       })
       .from(entries)
       .innerJoin(accounts, eq(entries.accountId, accounts.id))
@@ -995,7 +985,7 @@ export class LedgerRepository extends BaseRepository<LedgerTransaction> {
         accountName: accounts.name,
         balance: sql<string>`coalesce(sum(${entries.amount}), 0)`,
         currencyTicker: currencies.ticker,
-        currencyDecimals: currencies.decimals
+        currencyDecimals: currencies.decimals,
       })
       .from(entries)
       .innerJoin(accounts, eq(entries.accountId, accounts.id))
@@ -1138,7 +1128,7 @@ export class DatabaseHealthService {
   constructor(
     @Inject('DATABASE_CONNECTION') private db: DrizzleDB,
     private currencySeeder: CurrencySeederService,
-    private logger: Logger
+    private logger: LoggerService
   ) {}
 
   async isHealthy(): Promise<boolean> {
@@ -1303,79 +1293,104 @@ export class HealthController {
 
 The system includes complete database schema with all tables, indexes, constraints, triggers, automated seeding, health checks, and production monitoring.
 
-## CQRS Command & Query Handlers
+### Repository Pattern: Interfaces vs. Implementations
 
-### Contextual Logging:
+The architecture strictly separates the domain model from the persistence mechanism.
+
+1.  **Repository Interfaces (in `libs/core`):** The `core` library defines the _contracts_ for persistence (e.g., `ITransactionRepository`). These interfaces are pure and have no knowledge of databases or Drizzle. The domain model depends only on these interfaces.
+
+2.  **Repository Implementations (in `libs/database`):** The `database` library provides the concrete Drizzle ORM implementations of those interfaces. These classes are responsible for mapping the domain aggregates to the database schema and performing the actual database operations.
+
+**This shifts business logic out of the repository and into the domain model.**
+
+- **Before (Logic in Repository):** The repository was responsible for validating business rules, like ensuring a transaction was balanced.
+
+- **After (Logic in Aggregate):** The repository's _only_ job is persistence. It receives a `LedgerTransaction` aggregate that is already guaranteed to be valid by its own internal logic.
+
+  ```typescript
+  // New Responsibility of the Repository Implementation in libs/database
+
+  @Injectable()
+  export class DrizzleTransactionRepository implements ITransactionRepository {
+    constructor(@Inject('DATABASE_CONNECTION') private db: DrizzleDB) {}
+
+    async save(transaction: LedgerTransaction): ResultAsync<void, DomainError> {
+      // The 'transaction' object is already validated by the domain.
+      // The repository's only job is to map and save.
+      const state = transaction.getState(); // Get raw data from the aggregate
+
+      return ResultAsync.fromPromise(
+        this.db.transaction(async trx => {
+          // Map aggregate state to Drizzle schema and insert/update.
+          // Contains NO business logic.
+        }),
+        (error: Error) => new DomainError(error.message, 'DATABASE_ERROR')
+      );
+    }
+  }
+  ```
+
+### First-Class Historical Price Handling
+
+For accurate cost-basis tracking and tax reporting, historical price is a first-class citizen of every financial event. The system is designed to handle this from day one, ensuring financial integrity and preventing future technical debt.
+
+#### Core Principle: Price Belongs to the `Entry`
+
+The most critical design decision is that **price information is attached to the `Entry` entity, not the `LedgerTransaction` aggregate.** This provides the necessary granularity for complex financial scenarios:
+
+- **Trades**: In a BTC/USD trade, the BTC `Entry` is priced in USD. Attaching a single price to the parent `LedgerTransaction` would be ambiguous.
+- **Fees**: A transaction fee can be paid in a third currency (e.g., BNB for an ETH swap) and requires its own distinct price.
+- **Clarity**: Each movement of value (an `Entry`) has a Fair Market Value at that moment. The model must capture this one-to-one relationship.
+
+#### Domain Model Changes (`libs/core`)
+
+The `Entry` entity is enhanced to optionally include a `price` as a `Money` value object.
 
 ```typescript
-// libs/shared/src/logger/contextual-logger.service.ts
-import { Injectable, Logger, Scope } from '@nestjs/common';
-import { AsyncLocalStorage } from 'async_hooks';
-
-interface LogContext {
-  correlationId?: string;
-  sessionId?: string;
-  userId?: string;
-  operation?: string;
-}
-
-@Injectable({ scope: Scope.REQUEST })
-export class ContextualLoggerService extends Logger {
-  private static asyncLocalStorage = new AsyncLocalStorage<LogContext>();
-
-  static runWithContext<T>(context: LogContext, callback: () => T): T {
-    return this.asyncLocalStorage.run(context, callback);
-  }
-
-  private getContext(): LogContext {
-    return ContextualLoggerService.asyncLocalStorage.getStore() || {};
-  }
-
-  private formatMessage(message: string): string {
-    const context = this.getContext();
-    const contextStr = Object.entries(context)
-      .filter(([_, value]) => value)
-      .map(([key, value]) => `${key}=${value}`)
-      .join(' ');
-
-    return contextStr ? `[${contextStr}] ${message}` : message;
-  }
-
-  log(message: string, context?: string) {
-    super.log(this.formatMessage(message), context);
-  }
-
-  error(message: string, trace?: string, context?: string) {
-    super.error(this.formatMessage(message), trace, context);
-  }
-
-  warn(message: string, context?: string) {
-    super.warn(this.formatMessage(message), context);
-  }
-
-  debug(message: string, context?: string) {
-    super.debug(this.formatMessage(message), context);
-  }
-}
-
-// libs/shared/src/interceptors/logging.interceptor.ts
-@Injectable()
-export class LoggingInterceptor implements NestInterceptor {
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
-    const request = context.switchToHttp().getRequest();
-    const correlationId = request.headers['x-correlation-id'] || crypto.randomUUID();
-
-    return new Observable(observer => {
-      ContextualLoggerService.runWithContext(
-        { correlationId, operation: `${context.getClass().name}.${context.getHandler().name}` },
-        () => {
-          next.handle().subscribe(observer);
-        }
-      );
-    });
-  }
+// libs/core/src/aggregates/transaction/entry.entity.ts
+export interface CreateEntryData {
+  accountId: number;
+  amount: Money;
+  price?: Money; // The price of ONE unit of the amount's currency
+  description?: string;
+  metadata?: Record<string, any>;
 }
 ```
+
+#### Price Provider Infrastructure (`libs/providers`)
+
+To decouple price fetching from business logic, the system uses a dedicated provider interface. This allows for interchangeable sources (e.g., CoinGecko, Kaiko, internal systems) and robust testing.
+
+- **`IPriceProvider` Interface**: Defines the contract for fetching historical prices.
+- **Caching Layer**: A `HistoricalPriceService` acts as a caching layer on top of the provider to minimize redundant and costly API calls.
+
+```typescript
+// libs/providers/src/pricing/price-provider.interface.ts
+export interface IPriceProvider {
+  fetchPrice(baseAsset: string, quoteAsset: string, timestamp: Date): Promise<Result<Money, PriceProviderError>>;
+}
+```
+
+#### Integration into CQRS Flow
+
+The price enrichment happens during the import pipeline, before domain objects are created. The `ProcessUniversalTransactionsHandler` will be responsible for:
+
+1.  Calling the `HistoricalPriceService` with the transaction's asset and timestamp.
+2.  Passing the resulting `Money` object (the price) into the `Entry.create()` factory method.
+3.  The `LedgerRepository` then persists this price data into the dedicated columns on the `entries` table.
+
+## CQRS Command & Query Handlers
+
+### Production-Grade Logging
+
+The system uses a standalone logging package: `@exitbook/shared-logger`. This module provides high-performance, structured (JSON) logging suitable for production environments.
+
+**Key Features:**
+
+- **Pino-Powered:** Leverages the Pino logger for speed and low overhead.
+- **Correlation Tracking:** A `CorrelationService` establishes a unique ID for each request (API) or execution (CLI), which is automatically included in all log entries for easy tracing.
+- **Structured Logging:** All logs are emitted as JSON, making them easily parsable by log management systems.
+- **Centralized Integration:** A `LoggingInterceptor` (for API) and a `GlobalExceptionFilter` provide zero-configuration observability for HTTP requests and unhandled errors.
 
 ### Ledger Command Handlers:
 
@@ -1395,7 +1410,7 @@ export class RecordTransactionCommand {
 export class RecordTransactionHandler implements ICommandHandler<RecordTransactionCommand> {
   constructor(
     private readonly ledgerRepository: LedgerRepository,
-    private readonly logger: ContextualLoggerService
+    private readonly logger: LoggerService // From @exitbook/shared-logger
   ) {}
 
   async execute(command: RecordTransactionCommand): Promise<LedgerTransactionDto> {
@@ -1460,7 +1475,7 @@ export class CreateAccountHandler implements ICommandHandler<CreateAccountComman
   constructor(
     private readonly accountRepository: AccountRepository,
     private readonly currencyService: CurrencyService,
-    private readonly logger: Logger
+    private readonly logger: LoggerService
   ) {}
 
   async execute(command: CreateAccountCommand): Promise<AccountDto> {
@@ -1544,7 +1559,7 @@ export class GetAllBalancesQuery {
 export class GetAllBalancesHandler implements IQueryHandler<GetAllBalancesQuery> {
   constructor(
     private readonly ledgerRepository: LedgerRepository,
-    private readonly logger: ContextualLoggerService
+    private readonly logger: LoggerService // From @exitbook/shared-logger
   ) {}
 
   async execute(query: GetAllBalancesQuery): Promise<BalanceDto[]> {
@@ -1695,18 +1710,25 @@ export class LedgerRepository extends BaseRepository<LedgerTransaction> {
           })
           .returning();
 
+        // Insert entries, now including price data
         const dbEntries = await trx
           .insert(entries)
           .values(
-            transaction.entries.map(entry => ({
-              userId,
-              transactionId: dbTransaction.id,
-              accountId: entry.accountId,
-              currencyId: entry.currencyId,
-              amount: entry.amount,
-              direction: entry.direction,
-              entryType: entry.entryType,
-            }))
+            transaction.entries.map(entry => {
+              const entryState = entry.getState(); // Get state from domain entity
+              return {
+                userId,
+                transactionId: dbTransaction.id,
+                accountId: entryState.accountId,
+                currencyId: entryState.currencyId,
+                amount: entryState.amount.value,
+                direction: entryState.direction,
+                entryType: entryState.entryType,
+                // Map price from Money VO to database columns
+                priceAmount: entryState.price ? entryState.price.value : null,
+                priceCurrencyId: entryState.price ? entryState.priceCurrencyId : null, // Assumes priceCurrencyId is attached
+              };
+            })
           )
           .returning();
 
@@ -1910,7 +1932,7 @@ export class CurrencyService implements OnModuleInit {
   constructor(
     @Inject('DATABASE_CONNECTION') private db: DrizzleDB,
     @Inject('REDIS_CLIENT') private redis: Redis,
-    private logger: ContextualLoggerService
+    private logger: LoggerService
   ) {
     this.redisClient = redis;
   }
@@ -2088,6 +2110,72 @@ export class CurrencyService implements OnModuleInit {
 
 CQRS handlers eliminate large services, providing focused single-purpose classes and clear separation of concerns while preserving domain logic in specialized worker services.
 
+## Domain Services & Business Logic Engines
+
+While CQRS handlers orchestrate data flow, the complex, multi-aggregate business logic resides in dedicated domain services. These services represent the core value proposition of the portfolio application, providing users with critical financial insights. They are called by CQRS handlers and operate on the domain aggregates.
+
+### Pillar 1: Reporting & Analytics
+
+#### Portfolio Valuation Service
+
+- **Business Need**: Provides a real-time snapshot of the user's entire portfolio, valued in their preferred fiat currency.
+- **Dependencies**:
+  - `GetAllBalancesQuery`: To fetch the quantity of all held assets.
+  - `RealTimePriceProvider`: A new, dedicated price provider for fetching current market prices with a short cache duration (1-5 minutes).
+- **Output**: A `PortfolioSnapshotDto` detailing the value of each asset and the total portfolio value.
+
+#### Cost Basis & Capital Gains Engine
+
+- **Business Need**: The core tax-reporting engine, responsible for calculating profit and loss for every disposal event (sell, trade, spend).
+- **Architectural Consideration**: This requires a **`tax_lots` table** to track individual parcels of assets acquired at a specific time and price. The double-entry ledger confirms accounting correctness, while the `tax_lots` table provides the necessary detail for tax-lot accounting. This table will be populated by a domain event listener that triggers on asset acquisition entries.
+- **Implementation**: A `CostBasisEngine` domain service that implements user-configurable accounting methods (e.g., FIFO, HIFO).
+- **Dependencies**:
+  - `ITransactionRepository`: To fetch the user's entire transaction history.
+  - `TaxLotRepository`: A new repository for managing the `tax_lots` table.
+  - `UserSettingsService`: To retrieve the user's chosen accounting method.
+
+#### Tax & Income Reporting Services
+
+- **Business Need**: Generates user-facing reports for tax filing and income analysis.
+- **Implementation**:
+  - `TaxReportGenerator`: Consumes data from the `CostBasisEngine` to produce downloadable reports in formats like IRS Form 8949 CSV.
+  - `IncomeReportQueryHandler`: A specialized query that aggregates all entries in `INCOME_*` accounts, prices them using the historical price, and provides a yearly income summary.
+
+### Pillar 2: Advanced Transaction Handling
+
+#### Transaction Classifier Service
+
+- **Business Need**: Translates ambiguous on-chain interactions into clear, human-readable financial events (e.g., "Uniswap Swap," "Aave Deposit").
+- **Implementation**: A rule-based service that analyzes raw transaction data against known contract signatures and patterns.
+- **Domain Impact**: This service will necessitate expanding the `AccountType` and `EntryType` enums to include more granular DeFi and NFT-related concepts (`DEFI_SWAP`, `ADD_LIQUIDITY`, `NFT_MINT`, etc.).
+
+#### NFT & DeFi Modeling Strategy
+
+- **NFTs**: Modeled as unique currencies in the `currencies` table with a `decimals` of 0 and an `asset_class` of 'NFT'. This allows them to be tracked with full double-entry integrity.
+- **LP Tokens**: Modeled as distinct assets. An "add liquidity" event is a disposal of two underlying assets in exchange for a new LP token asset.
+
+### Pillar 3: Data Integrity & User Control
+
+#### Reconciliation Service
+
+- **Business Need**: Allows users to verify that the balances calculated by the ledger match the actual balances on their exchanges or wallets.
+- **Implementation**: A service that uses read-only API keys to fetch live balances from external sources and compares them against the output of `GetAllBalancesQuery`, flagging discrepancies.
+
+#### Manual Transaction & Correction Logic
+
+- **Business Need**: Enable users to fix missing data or re-classify transactions without compromising ledger integrity.
+- **Implementation**:
+  - **`CreateManualTransactionCommand`**: A dedicated CQRS command for user-initiated entries.
+  - **`ReverseTransactionCommand`**: Implements the principle of immutable corrections. It creates a new, perfectly opposing transaction to nullify an incorrect one, preserving a complete and accurate audit trail.
+
+### Pillar 4: System & Security
+
+#### Secure Credential Management Service
+
+- **Business Need**: Securely store user-provided, read-only API keys for automated data synchronization.
+- **Architectural Requirement**: API keys **must not** be stored in the primary application database, even if encrypted. A dedicated secret management solution (e.g., HashiCorp Vault, AWS/GCP Secret Manager) must be used to ensure security.
+- **Implementation**: A `CredentialsService` that acts as a secure facade to the chosen secret management system.
+
 ## Import CQRS Handlers
 
 The system transforms importers/processors into focused CQRS command and query handlers while preserving all domain logic.
@@ -2115,7 +2203,7 @@ export class ImportFromExchangeHandler implements ICommandHandler<ImportFromExch
     private readonly importerFactory: ImporterFactoryService,
     private readonly rawDataRepository: RawDataRepository,
     private readonly sessionRepository: ImportSessionRepository,
-    private readonly logger: ContextualLoggerService
+    private readonly logger: LoggerService // From @exitbook/shared-logger
   ) {}
 
   async execute(command: ImportFromExchangeCommand): Promise<ImportResultDto> {
@@ -2163,7 +2251,7 @@ export class ProcessUniversalTransactionsHandler implements ICommandHandler<Proc
   constructor(
     private readonly processorFactory: ProcessorFactoryService,
     private readonly rawDataRepository: RawDataRepository,
-    private readonly logger: ContextualLoggerService
+    private readonly logger: LoggerService // From @exitbook/shared-logger
   ) {}
 
   async execute(command: ProcessUniversalTransactionsCommand): Promise<UniversalTransaction[]> {
@@ -2204,7 +2292,7 @@ export class TransformToLedgerHandler implements ICommandHandler<TransformToLedg
   constructor(
     private readonly transformerService: UniversalToLedgerTransformerService,
     private readonly commandBus: CommandBus,
-    private readonly logger: ContextualLoggerService
+    private readonly logger: LoggerService // From @exitbook/shared-logger
   ) {}
 
   async execute(command: TransformToLedgerCommand): ResultAsync<BatchTransformResult, DomainError> {
@@ -2368,7 +2456,7 @@ export class CompleteImportPipelineHandler implements ICommandHandler<CompleteIm
   constructor(
     private readonly commandBus: CommandBus,
     private readonly queryBus: QueryBus,
-    private readonly logger: ContextualLoggerService
+    private readonly logger: LoggerService // From @exitbook/shared-logger
   ) {}
 
   async execute(command: CompleteImportPipelineCommand): Promise<CompleteImportResultDto> {
@@ -2477,7 +2565,7 @@ export class UniversalToLedgerTransformerService {
   constructor(
     private readonly currencyService: CurrencyService,
     private readonly commandBus: CommandBus,
-    private readonly logger: ContextualLoggerService
+    private readonly logger: LoggerService // From @exitbook/shared-logger
   ) {}
 
   /**
@@ -3052,7 +3140,7 @@ export class ProviderRegistryService {
 
   constructor(
     @Inject('PROVIDERS_CONFIG') private config: ProvidersConfig,
-    private logger: Logger
+    private logger: LoggerService
   ) {}
 
   // Keep all existing provider registry logic
@@ -3081,7 +3169,7 @@ All importers/processors work as NestJS services.
 describe('RecordTransactionHandler', () => {
   let handler: RecordTransactionHandler;
   let ledgerRepository: LedgerRepository;
-  let logger: ContextualLoggerService;
+  let logger: LoggerService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -3092,7 +3180,7 @@ describe('RecordTransactionHandler', () => {
           useValue: createMockRepository(),
         },
         {
-          provide: ContextualLoggerService,
+          provide: LoggerService,
           useValue: createMockLogger(),
         },
       ],
@@ -3100,7 +3188,7 @@ describe('RecordTransactionHandler', () => {
 
     handler = module.get<RecordTransactionHandler>(RecordTransactionHandler);
     ledgerRepository = module.get<LedgerRepository>(LedgerRepository);
-    logger = module.get<ContextualLoggerService>(ContextualLoggerService);
+    logger = module.get<LoggerService>(LoggerService);
   });
 
   describe('execute', () => {
@@ -3366,35 +3454,30 @@ interface ImportJobData {
 export class ImportJobProcessor {
   constructor(
     private readonly commandBus: CommandBus,
-    private readonly logger: ContextualLoggerService
+    private readonly logger: LoggerService // From @exitbook/shared-logger
   ) {}
 
   @Process('import-and-process')
   async handleImportJob(job: Job<ImportJobData>): Promise<CompleteImportResultDto> {
     const { sourceId, sourceType, params, correlationId } = job.data;
 
-    return ContextualLoggerService.runWithContext(
-      { correlationId, sessionId: `job-${job.id}`, operation: 'async-import' },
-      async () => {
-        this.logger.log(`Processing import job ${job.id} for ${sourceId}`);
+    this.logger.log(`Processing import job ${job.id} for ${sourceId}`, { correlationId, jobId: job.id });
 
-        // Update job progress
-        await job.progress(10);
+    // Update job progress
+    await job.progress(10);
 
-        try {
-          // Use CQRS command instead of direct service call
-          const result = await this.commandBus.execute(new CompleteImportPipelineCommand(sourceId, sourceType, params));
+    try {
+      // Use CQRS command instead of direct service call
+      const result = await this.commandBus.execute(new CompleteImportPipelineCommand(sourceId, sourceType, params));
 
-          await job.progress(100);
-          this.logger.log(`Import job ${job.id} completed successfully`);
+      await job.progress(100);
+      this.logger.log(`Import job ${job.id} completed successfully`, { jobId: job.id });
 
-          return result;
-        } catch (error) {
-          this.logger.error(`Import job ${job.id} failed: ${error.message}`);
-          throw error;
-        }
-      }
-    );
+      return result;
+    } catch (error) {
+      this.logger.error(`Import job ${job.id} failed: ${error.message}`, { jobId: job.id, error });
+      throw error;
+    }
   }
 }
 
@@ -3404,7 +3487,7 @@ export class ImportJobProcessor {
 export class AsyncImportController {
   constructor(
     @InjectQueue('import-jobs') private importQueue: Queue,
-    private logger: ContextualLoggerService
+    private logger: LoggerService
   ) {}
 
   @Post(':sourceId')
@@ -3516,11 +3599,7 @@ The system provides async import processing with progress tracking and job manag
       inject: ['TYPED_CONFIG'],
     }),
   ],
-  providers: [
-    ImportCommandService,
-    BalanceCommandService,
-    StatusCommandService,
-  ],
+  providers: [ImportCommandService, BalanceCommandService, StatusCommandService],
 })
 export class CliModule {}
 
@@ -3530,7 +3609,7 @@ export class ImportCommandService {
   constructor(
     private readonly commandBus: CommandBus,
     private readonly queryBus: QueryBus,
-    private readonly logger: Logger,
+    private readonly logger: LoggerService
   ) {}
 
   async import(options: ImportOptionsDto & { userId: string }): Promise<void> {
@@ -3571,9 +3650,7 @@ export class ImportCommandService {
 // apps/cli/src/commands/balance.command.ts
 @Injectable()
 export class BalanceCommandService {
-  constructor(
-    private readonly queryBus: QueryBus
-  ) {}
+  constructor(private readonly queryBus: QueryBus) {}
 
   async showBalances(options: { userId: string }): Promise<void> {
     if (!options.userId) {

@@ -1,0 +1,35 @@
+{
+  "name": "@exitbook/shared-logger",
+  "description": "ExitBook Shared Logger - Logging utilities for the platform",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf dist",
+    "lint": "eslint \"src/**/*.ts*\"",
+    "lint:fix": "eslint \"src/**/*.ts*\" --fix",
+    "prettier": "prettier --check .",
+    "prettier:fix": "prettier --write .",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.1.6",
+    "@opentelemetry/api": "^1.8.0",
+    "pino": "^9.9.0",
+    "pino-pretty": "^13.1.1",
+    "pino-roll": "^3.1.0",
+    "zod": "^4.0.17"
+  },
+  "peerDependencies": {
+    "@nestjs/config": "^4.0.2"
+  },
+  "devDependencies": {
+    "@exitbook/shared-tsconfig": "workspace:*",
+    "@types/node": "^24.3.0",
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.2"
+  }
+}
