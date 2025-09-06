@@ -1,18 +1,15 @@
 ## Portfolio Context - Complete Implementation
 
-**Confidence Level: 8.5/10**
-
-Let's build the Portfolio Context which manages positions, valuations, and portfolio analytics.
-
 ### 1. Core Domain Value Objects
 
 ```typescript
 // src/contexts/portfolio/domain/value-objects/position.vo.ts
 import { Data, Effect, Brand, Option, pipe } from 'effect';
-import { Quantity } from '../../trading/domain/value-objects/quantity.vo';
-import { Money } from '../../trading/domain/value-objects/money.vo';
-import { AssetId } from '../../trading/domain/value-objects/identifiers.vo';
+import { Quantity } from '../../../../@core/domain/common-types/quantity.vo';
+import { Money } from '../../../../@core/domain/common-types/money.vo';
+import { AssetId } from '../../../../@core/domain/common-types/asset-id.vo';
 import BigNumber from 'bignumber.js';
+import { v4 as uuidv4 } from 'uuid';
 
 // Position-specific identifiers
 export type PositionId = string & Brand.Brand<'PositionId'>;
@@ -170,11 +167,14 @@ export class AssetAllocation extends Data.Class<{
 // src/contexts/portfolio/domain/aggregates/position.aggregate.ts
 import { Effect, pipe, Option, ReadonlyArray } from 'effect';
 import { Data } from 'effect';
+import { EventSourcedAggregate } from '../../../../@core/domain/base/aggregate-root.base';
+import { DomainEvent } from '../../../../@core/domain/base/domain-event.base';
 import { PositionId, Acquisition, CostBasis, AcquisitionMethod } from '../value-objects/position.vo';
-import { UserId, AssetId, TransactionId } from '../../trading/domain/value-objects/identifiers.vo';
-import { Quantity, NegativeQuantityError } from '../../trading/domain/value-objects/quantity.vo';
-import { Money } from '../../trading/domain/value-objects/money.vo';
-import { DomainEvent } from '../../trading/domain/events/transaction.events';
+import { UserId, TransactionId } from '../../../../@core/domain/common-types/identifiers';
+import { AssetId } from '../../../../@core/domain/common-types/asset-id.vo';
+import { Quantity, NegativeQuantityError } from '../../../../@core/domain/common-types/quantity.vo';
+import { Money } from '../../../../@core/domain/common-types/money.vo';
+import { v4 as uuidv4 } from 'uuid';
 
 // Position errors
 export class PositionError extends Data.TaggedError('PositionError')<{
@@ -290,12 +290,21 @@ export class PositionClosed extends DomainEvent {
 
 // Commands
 export interface OpenPositionCommand {
-  readonly userId: UserId;
-  readonly asset: AssetId;
-  readonly quantity: Quantity;
-  readonly price: Money;
-  readonly method: AcquisitionMethod;
-  readonly transactionId: TransactionId;
+  // Accept raw DTO data - parsing happens in handler
+  readonly userId: string;
+  readonly asset: {
+    readonly symbol: string;
+    readonly blockchain: string;
+  };
+  readonly quantity: string | number;
+  readonly price: {
+    readonly amount: string | number;
+    readonly currency: string;
+    readonly decimals: number;
+    readonly currencyName: string;
+  };
+  readonly method: string;
+  readonly transactionId: string;
 }
 
 export interface IncreasePositionCommand {
@@ -314,7 +323,7 @@ export interface DecreasePositionCommand {
 }
 
 // Position Aggregate
-export class Position extends Data.Class<{
+export class Position extends EventSourcedAggregate {
   readonly positionId: Option.Option<PositionId>;
   readonly userId: Option.Option<UserId>;
   readonly asset: Option.Option<AssetId>;
@@ -322,61 +331,163 @@ export class Position extends Data.Class<{
   readonly acquisitions: ReadonlyArray<Acquisition>;
   readonly costBasis: CostBasis;
   readonly status: PositionStatus;
-  readonly events: ReadonlyArray<DomainEvent>;
-  readonly version: number;
-}> {
-  // Open new position
-  static open(command: OpenPositionCommand): Effect.Effect<Position, never> {
-    return Effect.sync(() => {
-      const positionId = PositionId.generate();
-      const totalCost = command.price.multiply(command.quantity.toNumber());
 
-      const event = new PositionOpened({
-        positionId,
-        userId: command.userId,
-        asset: command.asset,
-        initialQuantity: command.quantity,
-        acquisitionPrice: command.price,
-        acquisitionMethod: command.method,
-        transactionId: command.transactionId,
-        openedAt: new Date(),
-      });
+  constructor(data: {
+    readonly positionId: Option.Option<PositionId>;
+    readonly userId: Option.Option<UserId>;
+    readonly asset: Option.Option<AssetId>;
+    readonly quantity: Quantity;
+    readonly acquisitions: ReadonlyArray<Acquisition>;
+    readonly costBasis: CostBasis;
+    readonly status: PositionStatus;
+    readonly version: number;
+    readonly events: ReadonlyArray<DomainEvent>;
+  }) {
+    super({ version: data.version, events: data.events });
+    this.positionId = data.positionId;
+    this.userId = data.userId;
+    this.asset = data.asset;
+    this.quantity = data.quantity;
+    this.acquisitions = data.acquisitions;
+    this.costBasis = data.costBasis;
+    this.status = data.status;
+  }
 
-      const acquisition = new Acquisition({
-        quantity: command.quantity,
-        price: command.price,
-        date: new Date(),
-        transactionId: command.transactionId,
-        method: command.method,
-      });
-
-      const costBasis = new CostBasis({
-        totalCost,
-        quantity: command.quantity,
-        method: command.method,
-      });
-
-      return new Position({
-        positionId: Option.some(positionId),
-        userId: Option.some(command.userId),
-        asset: Option.some(command.asset),
-        quantity: command.quantity,
-        acquisitions: [acquisition],
-        costBasis,
-        status: PositionStatus.OPEN,
-        events: [event],
-        version: 0,
-      });
+  protected get aggregateId(): Option.Option<string> {
+    return this.positionId;
+  }
+  // Create empty position for reconstruction
+  static createEmpty(): Position {
+    return new Position({
+      positionId: Option.none(),
+      userId: Option.none(),
+      asset: Option.none(),
+      quantity: Quantity.zero(),
+      acquisitions: [],
+      costBasis: new CostBasis({
+        totalCost: Money.zero(Currency({ symbol: 'USD', decimals: 2, name: 'US Dollar' })),
+        quantity: Quantity.zero(),
+        method: AcquisitionMethod.PURCHASE,
+      }),
+      status: PositionStatus.OPEN,
+      events: [],
+      version: 0,
     });
   }
 
-  // Increase position
+  // The ONLY place where state transitions happen
+  apply(event: DomainEvent): Position {
+    switch (event._tag) {
+      case 'PositionOpened':
+        const openedData = (event as PositionOpened).data;
+        const totalCost = openedData.acquisitionPrice.multiply(openedData.initialQuantity.toNumber());
+
+        const acquisition = new Acquisition({
+          quantity: openedData.initialQuantity,
+          price: openedData.acquisitionPrice,
+          date: openedData.openedAt,
+          transactionId: openedData.transactionId,
+          method: openedData.acquisitionMethod,
+        });
+
+        const costBasis = new CostBasis({
+          totalCost,
+          quantity: openedData.initialQuantity,
+          method: openedData.acquisitionMethod,
+        });
+
+        return this.copy({
+          positionId: Option.some(openedData.positionId),
+          userId: Option.some(openedData.userId),
+          asset: Option.some(openedData.asset),
+          quantity: openedData.initialQuantity,
+          acquisitions: [acquisition],
+          costBasis,
+          status: PositionStatus.OPEN,
+          events: [...this.events, event],
+        });
+
+      case 'PositionIncreased':
+        const increasedData = (event as PositionIncreased).data;
+        const additionalCost = increasedData.acquisitionPrice.multiply(increasedData.addedQuantity.toNumber());
+
+        const newAcquisition = new Acquisition({
+          quantity: increasedData.addedQuantity,
+          price: increasedData.acquisitionPrice,
+          date: increasedData.increasedAt,
+          transactionId: increasedData.transactionId,
+          method: increasedData.acquisitionMethod,
+        });
+
+        const newTotalCost = this.costBasis.totalCost.add(additionalCost).getOrElse(() => this.costBasis.totalCost);
+        const updatedCostBasis = new CostBasis({
+          totalCost: newTotalCost,
+          quantity: increasedData.newQuantity,
+          method: this.costBasis.method,
+        });
+
+        return this.copy({
+          quantity: increasedData.newQuantity,
+          acquisitions: [...this.acquisitions, newAcquisition],
+          costBasis: updatedCostBasis,
+          events: [...this.events, event],
+        });
+
+      case 'PositionDecreased':
+        const decreasedData = (event as PositionDecreased).data;
+        const costBasisRatio = decreasedData.removedQuantity.toNumber() / decreasedData.previousQuantity.toNumber();
+        const remainingCost = this.costBasis.totalCost.multiply(1 - costBasisRatio);
+
+        const decreasedCostBasis = new CostBasis({
+          totalCost: remainingCost,
+          quantity: decreasedData.newQuantity,
+          method: this.costBasis.method,
+        });
+
+        return this.copy({
+          quantity: decreasedData.newQuantity,
+          costBasis: decreasedCostBasis,
+          events: [...this.events, event],
+        });
+
+      case 'PositionClosed':
+        return this.copy({
+          status: PositionStatus.CLOSED,
+          events: [...this.events, event],
+        });
+
+      default:
+        return this;
+    }
+  }
+
+  // Factory method for opening - returns event, not new state
+  static open(command: OpenPositionCommand): Effect.Effect<ReadonlyArray<DomainEvent>, never> {
+    return Effect.sync(() => {
+      const positionId = PositionId.generate();
+
+      return [
+        new PositionOpened({
+          positionId,
+          userId: command.userId,
+          asset: command.asset,
+          initialQuantity: command.quantity,
+          acquisitionPrice: command.price,
+          acquisitionMethod: command.method,
+          transactionId: command.transactionId,
+          openedAt: new Date(),
+        }),
+      ];
+    });
+  }
+
+  // Increase position - returns event only
   increase(
     amount: Quantity,
     price: Money,
     method: AcquisitionMethod,
     transactionId: TransactionId
-  ): Effect.Effect<Position, PositionClosedError> {
+  ): Effect.Effect<ReadonlyArray<DomainEvent>, PositionClosedError> {
     if (this.status === PositionStatus.CLOSED) {
       return Effect.fail(
         new PositionClosedError({
@@ -387,50 +498,28 @@ export class Position extends Data.Class<{
 
     return Effect.sync(() => {
       const newQuantity = this.quantity.add(amount);
-      const additionalCost = price.multiply(amount.toNumber());
-      const newTotalCost = this.costBasis.totalCost.add(additionalCost).getOrElse(() => this.costBasis.totalCost);
 
-      const event = new PositionIncreased({
-        positionId: Option.getOrThrow(this.positionId),
-        previousQuantity: this.quantity,
-        addedQuantity: amount,
-        newQuantity,
-        acquisitionPrice: price,
-        acquisitionMethod: method,
-        transactionId,
-        increasedAt: new Date(),
-      });
-
-      const acquisition = new Acquisition({
-        quantity: amount,
-        price,
-        date: new Date(),
-        transactionId,
-        method,
-      });
-
-      const costBasis = new CostBasis({
-        totalCost: newTotalCost,
-        quantity: newQuantity,
-        method: this.costBasis.method, // Keep original method
-      });
-
-      return new Position({
-        ...this,
-        quantity: newQuantity,
-        acquisitions: [...this.acquisitions, acquisition],
-        costBasis,
-        events: [...this.events, event],
-      });
+      return [
+        new PositionIncreased({
+          positionId: Option.getOrThrow(this.positionId),
+          previousQuantity: this.quantity,
+          addedQuantity: amount,
+          newQuantity,
+          acquisitionPrice: price,
+          acquisitionMethod: method,
+          transactionId,
+          increasedAt: new Date(),
+        }),
+      ];
     });
   }
 
-  // Decrease position
+  // Decrease position - returns events only
   decrease(
     amount: Quantity,
     price: Money,
     transactionId: TransactionId
-  ): Effect.Effect<Position, InsufficientQuantityError | NegativeQuantityError> {
+  ): Effect.Effect<ReadonlyArray<DomainEvent>, InsufficientQuantityError | NegativeQuantityError> {
     if (this.quantity.isLessThan(amount)) {
       return Effect.fail(
         new InsufficientQuantityError({
@@ -442,7 +531,7 @@ export class Position extends Data.Class<{
 
     return pipe(
       this.quantity.subtract(amount),
-      Effect.flatMap(newQuantity => {
+      Effect.map(newQuantity => {
         // Calculate realized gain
         const disposalValue = price.multiply(amount.toNumber());
         const costBasisRatio = amount.toNumber() / this.quantity.toNumber();
@@ -475,23 +564,7 @@ export class Position extends Data.Class<{
           );
         }
 
-        // Update cost basis
-        const newTotalCost = this.costBasis.totalCost.multiply(1 - costBasisRatio);
-        const costBasis = new CostBasis({
-          totalCost: newTotalCost,
-          quantity: newQuantity,
-          method: this.costBasis.method,
-        });
-
-        return Effect.succeed(
-          new Position({
-            ...this,
-            quantity: newQuantity,
-            costBasis,
-            status: newQuantity.isZero() ? PositionStatus.CLOSED : this.status,
-            events: [...this.events, ...events],
-          })
-        );
+        return events;
       })
     );
   }
@@ -515,19 +588,6 @@ export class Position extends Data.Class<{
       currentValue.subtract(this.costBasis.totalCost).getOrElse(() => Money.zero(currentPrice.currency))
     );
   }
-
-  // Get uncommitted events
-  getUncommittedEvents(): ReadonlyArray<DomainEvent> {
-    return this.events.slice(this.version);
-  }
-
-  // Mark events as committed
-  markEventsAsCommitted(): Position {
-    return new Position({
-      ...this,
-      version: this.events.length,
-    });
-  }
 }
 ```
 
@@ -537,10 +597,13 @@ export class Position extends Data.Class<{
 // src/contexts/portfolio/domain/aggregates/portfolio.aggregate.ts
 import { Effect, pipe, Option, ReadonlyArray, ReadonlyRecord } from 'effect';
 import { Data } from 'effect';
+import { EventSourcedAggregate } from '../../../../@core/domain/base/aggregate-root.base';
+import { DomainEvent } from '../../../../@core/domain/base/domain-event.base';
 import { PortfolioId, PortfolioValuation, AssetAllocation, Holding } from '../value-objects/position.vo';
-import { UserId, AssetId } from '../../trading/domain/value-objects/identifiers.vo';
-import { Money, Currency } from '../../trading/domain/value-objects/money.vo';
-import { DomainEvent } from '../../trading/domain/events/transaction.events';
+import { UserId } from '../../../../@core/domain/common-types/identifiers';
+import { AssetId } from '../../../../@core/domain/common-types/asset-id.vo';
+import { Money, Currency } from '../../../../@core/domain/common-types/money.vo';
+import { v4 as uuidv4 } from 'uuid';
 
 // Portfolio errors
 export class PortfolioError extends Data.TaggedError('PortfolioError')<{
@@ -632,54 +695,98 @@ export class PositionSummary extends Data.Class<{
 export type PriceMap = ReadonlyRecord.ReadonlyRecord<string, Money>;
 
 // Portfolio aggregate
-export class Portfolio extends Data.Class<{
+export class Portfolio extends EventSourcedAggregate {
   readonly portfolioId: Option.Option<PortfolioId>;
   readonly userId: Option.Option<UserId>;
   readonly baseCurrency: Option.Option<Currency>;
   readonly positions: ReadonlyRecord.ReadonlyRecord<string, PositionSummary>;
   readonly lastValuation: Option.Option<PortfolioValuation>;
   readonly targetAllocations: ReadonlyRecord.ReadonlyRecord<string, number>;
-  readonly events: ReadonlyArray<DomainEvent>;
-  readonly version: number;
-}> {
-  // Initialize portfolio
-  static initialize(userId: UserId, baseCurrency: Currency): Effect.Effect<Portfolio, never> {
+
+  constructor(data: {
+    readonly portfolioId: Option.Option<PortfolioId>;
+    readonly userId: Option.Option<UserId>;
+    readonly baseCurrency: Option.Option<Currency>;
+    readonly positions: ReadonlyRecord.ReadonlyRecord<string, PositionSummary>;
+    readonly lastValuation: Option.Option<PortfolioValuation>;
+    readonly targetAllocations: ReadonlyRecord.ReadonlyRecord<string, number>;
+    readonly events: ReadonlyArray<DomainEvent>;
+    readonly version: number;
+  }) {
+    super({ version: data.version, events: data.events });
+    this.portfolioId = data.portfolioId;
+    this.userId = data.userId;
+    this.baseCurrency = data.baseCurrency;
+    this.positions = data.positions;
+    this.lastValuation = data.lastValuation;
+    this.targetAllocations = data.targetAllocations;
+  }
+
+  protected get aggregateId(): Option.Option<string> {
+    return this.portfolioId;
+  }
+  // Create empty portfolio for reconstruction
+  static createEmpty(): Portfolio {
+    return new Portfolio({
+      portfolioId: Option.none(),
+      userId: Option.none(),
+      baseCurrency: Option.none(),
+      positions: {},
+      lastValuation: Option.none(),
+      targetAllocations: {},
+      events: [],
+      version: 0,
+    });
+  }
+
+  // The ONLY place where state transitions happen
+  apply(event: DomainEvent): Portfolio {
+    switch (event._tag) {
+      case 'PortfolioInitialized':
+        const initializedData = (event as PortfolioInitialized).data;
+        return this.copy({
+          portfolioId: Option.some(initializedData.portfolioId),
+          userId: Option.some(initializedData.userId),
+          baseCurrency: Option.some(initializedData.baseCurrency),
+          events: [...this.events, event],
+        });
+
+      case 'PortfolioValuated':
+        const valuatedData = (event as PortfolioValuated).data;
+        return this.copy({
+          lastValuation: Option.some(valuatedData.valuation),
+          events: [...this.events, event],
+        });
+
+      case 'PortfolioRebalanced':
+        // No state change needed for rebalancing event, just record it
+        return this.copy({
+          events: [...this.events, event],
+        });
+
+      default:
+        return this;
+    }
+  }
+
+  // Factory method for initializing - returns event, not new state
+  static initialize(userId: UserId, baseCurrency: Currency): Effect.Effect<ReadonlyArray<DomainEvent>, never> {
     return Effect.sync(() => {
       const portfolioId = PortfolioId.generate();
 
-      const event = new PortfolioInitialized({
-        portfolioId,
-        userId,
-        baseCurrency,
-        initializedAt: new Date(),
-      });
-
-      return new Portfolio({
-        portfolioId: Option.some(portfolioId),
-        userId: Option.some(userId),
-        baseCurrency: Option.some(baseCurrency),
-        positions: {},
-        lastValuation: Option.none(),
-        targetAllocations: {},
-        events: [event],
-        version: 0,
-      });
+      return [
+        new PortfolioInitialized({
+          portfolioId,
+          userId,
+          baseCurrency,
+          initializedAt: new Date(),
+        }),
+      ];
     });
   }
 
-  // Update position in portfolio
-  updatePosition(position: PositionSummary): Portfolio {
-    return new Portfolio({
-      ...this,
-      positions: {
-        ...this.positions,
-        [position.asset.toString()]: position,
-      },
-    });
-  }
-
-  // Calculate portfolio valuation
-  calculateValuation(prices: PriceMap): Effect.Effect<Portfolio, MissingPriceError> {
+  // Calculate portfolio valuation - returns events only
+  calculateValuation(prices: PriceMap): Effect.Effect<ReadonlyArray<DomainEvent>, MissingPriceError> {
     return pipe(
       Effect.forEach(
         Object.entries(this.positions),
@@ -740,17 +847,13 @@ export class Portfolio extends Data.Class<{
           baseCurrency: Option.getOrThrow(this.baseCurrency).symbol,
         });
 
-        const event = new PortfolioValuated({
-          portfolioId: Option.getOrThrow(this.portfolioId),
-          valuation,
-          valuatedAt: new Date(),
-        });
-
-        return new Portfolio({
-          ...this,
-          lastValuation: Option.some(valuation),
-          events: [...this.events, event],
-        });
+        return [
+          new PortfolioValuated({
+            portfolioId: Option.getOrThrow(this.portfolioId),
+            valuation,
+            valuatedAt: new Date(),
+          }),
+        ];
       })
     );
   }
@@ -778,8 +881,8 @@ export class Portfolio extends Data.Class<{
     );
   }
 
-  // Calculate rebalance orders
-  calculateRebalance(): Effect.Effect<ReadonlyArray<RebalanceOrder>, PortfolioError> {
+  // Calculate rebalance orders - returns events only
+  calculateRebalance(): Effect.Effect<ReadonlyArray<DomainEvent>, PortfolioError> {
     return pipe(
       this.lastValuation,
       Option.match({
@@ -828,32 +931,17 @@ export class Portfolio extends Data.Class<{
             });
           });
 
-          const event = new PortfolioRebalanced({
-            portfolioId: Option.getOrThrow(this.portfolioId),
-            rebalanceOrders: orders,
-            rebalancedAt: new Date(),
-          });
-
-          // Note: In practice, we'd update the aggregate with the event
-          // But since we're returning orders, we'll handle that in the command handler
-
-          return Effect.succeed(orders);
+          // Return the event inside the Effect
+          return Effect.succeed([
+            new PortfolioRebalanced({
+              portfolioId: Option.getOrThrow(this.portfolioId),
+              rebalanceOrders: orders,
+              rebalancedAt: new Date(),
+            }),
+          ]);
         },
       })
     );
-  }
-
-  // Get uncommitted events
-  getUncommittedEvents(): ReadonlyArray<DomainEvent> {
-    return this.events.slice(this.version);
-  }
-
-  // Mark events as committed
-  markEventsAsCommitted(): Portfolio {
-    return new Portfolio({
-      ...this,
-      version: this.events.length,
-    });
   }
 }
 ```
@@ -863,8 +951,8 @@ export class Portfolio extends Data.Class<{
 ```typescript
 // src/contexts/portfolio/domain/services/valuation.service.ts
 import { Effect, Context, Layer, pipe } from 'effect';
-import { Money, Currency } from '../../trading/domain/value-objects/money.vo';
-import { AssetId } from '../../trading/domain/value-objects/identifiers.vo';
+import { Money, Currency } from '../../../../@core/domain/common-types/money.vo';
+import { AssetId } from '../../../../@core/domain/common-types/asset-id.vo';
 import { Data } from 'effect';
 
 // Price provider errors
@@ -1011,9 +1099,15 @@ export class PerformanceCalculator {
 // src/contexts/portfolio/application/commands/open-position.handler.ts
 import { Injectable } from '@nestjs/common';
 import { CommandHandler, ICommandHandler, EventBus } from '@nestjs/cqrs';
-import { Effect, pipe } from 'effect';
+import { Effect, pipe, Exit, Data } from 'effect';
 import { Position, OpenPositionCommand } from '../../domain/aggregates/position.aggregate';
 import { PositionRepository } from '../../infrastructure/repositories/position.repository';
+
+// Event publishing error
+export class PublishEventError extends Data.TaggedError('PublishEventError')<{
+  readonly eventType: string;
+  readonly message: string;
+}> {}
 
 @Injectable()
 @CommandHandler(OpenPositionCommand)
@@ -1024,27 +1118,68 @@ export class OpenPositionHandler implements ICommandHandler<OpenPositionCommand>
   ) {}
 
   async execute(command: OpenPositionCommand): Promise<void> {
+    // Single, unbroken pipeline from start to finish
     const program = pipe(
-      Position.open(command),
-      Effect.flatMap(position =>
-        Effect.tryPromise({
-          try: async () => {
-            // Save position
-            await this.repository.save(position);
+      // 1. Safely parse DTO entries into domain objects first
+      Effect.all({
+        userId: Effect.succeed(UserId(command.userId)),
+        asset: Effect.succeed(AssetId.crypto(command.asset.symbol, command.asset.blockchain)),
+        quantity: Quantity.of(command.quantity),
+        price: Money.of(
+          command.price.amount,
+          Currency({
+            symbol: CurrencySymbol(command.price.currency),
+            decimals: command.price.decimals,
+            name: command.price.currencyName,
+          })
+        ),
+        method: Effect.succeed(command.method as AcquisitionMethod),
+        transactionId: Effect.succeed(TransactionId(command.transactionId)),
+      }),
+      // If parsing fails, the program stops here and returns the typed error
 
-            // Publish events
-            for (const event of position.getUncommittedEvents()) {
-              await this.eventBus.publish(event);
-            }
+      // 2. flatMap to continue the pipeline with valid domain objects
+      Effect.flatMap(validCommand =>
+        pipe(
+          // 3. Create the event(s) using pure domain logic
+          Position.open(validCommand),
 
-            return position;
-          },
-          catch: error => new Error(`Failed to save position: ${error}`),
-        })
+          // 4. Build initial position state from the event(s)
+          Effect.map(events => {
+            const position = events.reduce((acc, event) => acc.apply(event), Position.createEmpty());
+            return { position, events };
+          }),
+
+          // 5. Save the new aggregate (which saves the events)
+          Effect.flatMap(({ position, events }) =>
+            pipe(
+              this.repository.save(position),
+              Effect.map(() => events) // Pass events for publishing
+            )
+          ),
+
+          // 6. Publish the events after successful save
+          Effect.tap(events =>
+            Effect.tryPromise({
+              try: () => this.eventBus.publishAll(events), // Assuming publishAll
+              catch: error =>
+                new PublishEventError({
+                  eventType: 'PositionOpened',
+                  message: `${error}`,
+                }),
+            })
+          )
+        )
       )
     );
 
-    await Effect.runPromise(program);
+    // Run the entire program and let the Exception Filter handle typed errors
+    const exit = await Effect.runPromiseExit(program);
+
+    if (Exit.isFailure(exit)) {
+      const error = exit.cause._tag === 'Fail' ? exit.cause.error : new Error('Unknown error');
+      throw error;
+    }
   }
 }
 ```
@@ -1053,18 +1188,26 @@ export class OpenPositionHandler implements ICommandHandler<OpenPositionCommand>
 // src/contexts/portfolio/application/commands/calculate-valuation.handler.ts
 import { Injectable } from '@nestjs/common';
 import { CommandHandler, ICommandHandler, EventBus } from '@nestjs/cqrs';
-import { Effect, pipe, Layer } from 'effect';
+import { Effect, pipe, Exit, Data } from 'effect';
 import { Portfolio } from '../../domain/aggregates/portfolio.aggregate';
 import { PortfolioRepository } from '../../infrastructure/repositories/portfolio.repository';
 import { PriceProvider } from '../../domain/services/valuation.service';
-import { UserId, PortfolioId } from '../../trading/domain/value-objects/identifiers.vo';
+import { UserId, TransactionId } from '../../../../@core/domain/common-types/identifiers';
+import { PortfolioId } from '../value-objects/position.vo';
 
 export class CalculateValuationCommand {
+  // Accept raw DTO data - parsing happens in handler
   constructor(
-    readonly portfolioId: PortfolioId,
-    readonly userId: UserId
+    readonly portfolioId: string,
+    readonly userId: string
   ) {}
 }
+
+// Event publishing error
+export class PublishEventError extends Data.TaggedError('PublishEventError')<{
+  readonly eventType: string;
+  readonly message: string;
+}> {}
 
 @Injectable()
 @CommandHandler(CalculateValuationCommand)
@@ -1076,51 +1219,80 @@ export class CalculateValuationHandler implements ICommandHandler<CalculateValua
   ) {}
 
   async execute(command: CalculateValuationCommand): Promise<void> {
+    // Single, unbroken pipeline from start to finish
     const program = pipe(
-      // Load portfolio
-      Effect.tryPromise({
-        try: () => this.repository.load(command.portfolioId),
-        catch: error => new Error(`Failed to load portfolio: ${error}`),
+      // 1. Safely parse DTO entries into domain objects first
+      Effect.all({
+        portfolioId: Effect.succeed(PortfolioId(command.portfolioId)),
+        userId: Effect.succeed(UserId(command.userId)),
       }),
-      Effect.flatMap(portfolio => {
-        // Get all asset IDs
-        const assetIds = Object.values(portfolio.positions).map(p => p.asset);
+      // If parsing fails, the program stops here and returns the typed error
 
-        // Fetch prices
-        return pipe(
-          this.priceProvider.getPrices(assetIds, portfolio.baseCurrency.getOrThrow(), new Date()),
-          Effect.map(prices => {
-            // Convert to price map
-            const priceMap = prices.reduce(
-              (acc, p) => ({
-                ...acc,
-                [p.asset.toString()]: p.price,
-              }),
-              {}
+      // 2. flatMap to continue the pipeline with valid domain objects
+      Effect.flatMap(({ portfolioId, userId }) =>
+        pipe(
+          // 3. Load the aggregate (returns Effect with typed error)
+          this.repository.load(portfolioId),
+
+          // 4. Get all asset IDs and fetch prices
+          Effect.flatMap(portfolio => {
+            const assetIds = Object.values(portfolio.positions).map(p => p.asset);
+
+            return pipe(
+              this.priceProvider.getPrices(assetIds, Option.getOrThrow(portfolio.baseCurrency), new Date()),
+              Effect.map(prices => {
+                // Convert to price map
+                const priceMap = prices.reduce(
+                  (acc, p) => ({
+                    ...acc,
+                    [p.asset.toString()]: p.price,
+                  }),
+                  {}
+                );
+
+                return { portfolio, priceMap };
+              })
             );
+          }),
 
-            return { portfolio, priceMap };
-          })
-        );
-      }),
-      Effect.flatMap(({ portfolio, priceMap }) => portfolio.calculateValuation(priceMap)),
-      Effect.flatMap(updatedPortfolio =>
-        Effect.tryPromise({
-          try: async () => {
-            // Save portfolio
-            await this.repository.save(updatedPortfolio);
+          // 5. Execute the domain valuation logic (returns Effect with typed error)
+          Effect.flatMap(({ portfolio, priceMap }) =>
+            pipe(
+              portfolio.calculateValuation(priceMap),
+              Effect.map(updatedPortfolio => ({ updatedPortfolio, events: updatedPortfolio.getUncommittedEvents() }))
+            )
+          ),
 
-            // Publish events
-            for (const event of updatedPortfolio.getUncommittedEvents()) {
-              await this.eventBus.publish(event);
-            }
-          },
-          catch: error => new Error(`Failed to save valuation: ${error}`),
-        })
+          // 6. Save the updated aggregate
+          Effect.flatMap(({ updatedPortfolio, events }) =>
+            pipe(
+              this.repository.save(updatedPortfolio),
+              Effect.map(() => events) // Pass events for publishing
+            )
+          ),
+
+          // 7. Publish the events after successful save
+          Effect.tap(events =>
+            Effect.tryPromise({
+              try: () => this.eventBus.publishAll(events),
+              catch: error =>
+                new PublishEventError({
+                  eventType: 'PortfolioValuated',
+                  message: `Failed to publish valuation event: ${error}`,
+                }),
+            })
+          )
+        )
       )
     );
 
-    await Effect.runPromise(program.pipe(Effect.provideService(PriceProvider, this.priceProvider)));
+    // Run the entire program and let the Exception Filter handle typed errors
+    const exit = await Effect.runPromiseExit(program.pipe(Effect.provideService(PriceProvider, this.priceProvider)));
+
+    if (Exit.isFailure(exit)) {
+      const error = exit.cause._tag === 'Fail' ? exit.cause.error : new Error('Unknown error');
+      throw error;
+    }
   }
 }
 ```
@@ -1237,8 +1409,8 @@ export class PositionRepository {
 import { Injectable } from '@nestjs/common';
 import { Effect, pipe } from 'effect';
 import { PriceProvider, Price, PriceFetchError } from '../../domain/services/valuation.service';
-import { AssetId } from '../../../trading/domain/value-objects/identifiers.vo';
-import { Money, Currency } from '../../../trading/domain/value-objects/money.vo';
+import { AssetId } from '../../../../@core/domain/common-types/asset-id.vo';
+import { Money, Currency } from '../../../../@core/domain/common-types/money.vo';
 import axios from 'axios';
 
 @Injectable()
@@ -1360,6 +1532,7 @@ import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { OpenPositionCommand, CalculateValuationCommand } from '../application/commands';
 import { GetPortfolioValuationQuery } from '../application/queries';
+import { OpenPositionDto } from './dto';
 
 @ApiTags('portfolio')
 @Controller('portfolio')
@@ -1372,23 +1545,10 @@ export class PortfolioController {
   @Post('positions')
   @ApiOperation({ summary: 'Open a new position' })
   async openPosition(@Body() dto: OpenPositionDto) {
-    const command = new OpenPositionCommand(
-      UserId(dto.userId),
-      AssetId.crypto(dto.asset.symbol, dto.asset.blockchain),
-      await Effect.runPromise(Quantity.of(dto.quantity)),
-      await Effect.runPromise(
-        Money.of(
-          dto.price.amount,
-          Currency({
-            symbol: dto.price.currency,
-            decimals: dto.price.decimals,
-            name: dto.price.currencyName,
-          })
-        )
-      ),
-      dto.method as AcquisitionMethod,
-      TransactionId(dto.transactionId)
-    );
+    // Pass raw DTO directly to the command - parsing happens in the handler
+    const command = new OpenPositionCommand({
+      ...dto, // Raw DTO data
+    });
 
     await this.commandBus.execute(command);
 
@@ -1398,9 +1558,10 @@ export class PortfolioController {
   @Post(':id/valuate')
   @ApiOperation({ summary: 'Calculate portfolio valuation' })
   async calculateValuation(@Param('id') portfolioId: string) {
+    // Pass raw data directly to command
     const command = new CalculateValuationCommand(
-      PortfolioId(portfolioId),
-      UserId('current-user') // From auth context
+      portfolioId,
+      'current-user' // From auth context - raw string
     );
 
     await this.commandBus.execute(command);
@@ -1411,31 +1572,10 @@ export class PortfolioController {
   @Get(':id/valuation')
   @ApiOperation({ summary: 'Get current portfolio valuation' })
   async getValuation(@Param('id') portfolioId: string) {
-    const query = new GetPortfolioValuationQuery(PortfolioId(portfolioId));
+    // Pass raw string directly
+    const query = new GetPortfolioValuationQuery(portfolioId);
 
     return this.queryBus.execute(query);
   }
 }
 ```
-
-This completes the **Portfolio Context** with:
-
-1. ✅ Position tracking with cost basis
-2. ✅ Portfolio valuation and allocations
-3. ✅ Rebalancing calculations
-4. ✅ Performance metrics
-5. ✅ Price provider integration
-6. ✅ Event sourcing for positions
-7. ✅ Effect-TS for domain logic
-8. ✅ NestJS for infrastructure
-
-Key features implemented:
-
-- Weighted average cost calculation
-- Unrealized/realized gain tracking
-- Multi-currency support
-- Target allocation and rebalancing
-- Performance metrics (Sharpe ratio, max drawdown)
-- External price integration
-
-Would you like me to continue with the **Taxation Context** next, or would you like to review/adjust anything in the Portfolio Context?

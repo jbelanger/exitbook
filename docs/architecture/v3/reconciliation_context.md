@@ -9,9 +9,10 @@ The Reconciliation Context is crucial for ensuring data integrity between intern
 ```typescript
 // src/contexts/reconciliation/domain/value-objects/reconciliation.vo.ts
 import { Data, Effect, Brand, Option, pipe } from 'effect';
-import { Money } from '../../trading/domain/value-objects/money.vo';
-import { AssetId } from '../../trading/domain/value-objects/identifiers.vo';
-import { Quantity } from '../../trading/domain/value-objects/quantity.vo';
+import { Money } from '../../../../@core/domain/common-types/money.vo';
+import { AssetId } from '../../../../@core/domain/common-types/asset-id.vo';
+import { Quantity } from '../../../../@core/domain/common-types/quantity.vo';
+import { v4 as uuidv4 } from 'uuid';
 import BigNumber from 'bignumber.js';
 
 // Reconciliation identifiers
@@ -386,6 +387,8 @@ export class Evidence extends Data.Class<{
 // src/contexts/reconciliation/domain/aggregates/reconciliation.aggregate.ts
 import { Effect, pipe, Option, ReadonlyArray } from 'effect';
 import { Data } from 'effect';
+import { EventSourcedAggregate } from '../../../../@core/domain/base/aggregate-root.base';
+import { DomainEvent } from '../../../../@core/domain/base/domain-event.base';
 import {
   ReconciliationId,
   ReconciliationStatus,
@@ -395,9 +398,11 @@ import {
   Resolution,
   ResolutionType,
   Adjustment,
+  BalanceSnapshot,
+  DiscrepancyId,
 } from '../value-objects/reconciliation.vo';
-import { UserId } from '../../trading/domain/value-objects/identifiers.vo';
-import { DomainEvent } from '../../trading/domain/events/transaction.events';
+import { UserId } from '../../../../@core/domain/common-types/identifiers';
+import { v4 as uuidv4 } from 'uuid';
 
 // Reconciliation errors
 export class ReconciliationError extends Data.TaggedError('ReconciliationError')<{
@@ -556,7 +561,7 @@ export interface CompleteReconciliationCommand {
 }
 
 // Reconciliation Aggregate
-export class Reconciliation extends Data.Class<{
+export class Reconciliation extends EventSourcedAggregate {
   readonly reconciliationId: Option.Option<ReconciliationId>;
   readonly userId: Option.Option<UserId>;
   readonly sources: ReadonlyArray<DataSource>;
@@ -564,59 +569,155 @@ export class Reconciliation extends Data.Class<{
   readonly discrepancies: ReadonlyArray<Discrepancy>;
   readonly balances: Map<DataSource, ReadonlyArray<BalanceSnapshot>>;
   readonly startedAt: Option.Option<Date>;
-  readonly events: ReadonlyArray<DomainEvent>;
-  readonly version: number;
-}> {
-  // Initiate reconciliation
-  static initiate(command: InitiateReconciliationCommand): Effect.Effect<Reconciliation, never> {
+
+  constructor(data: {
+    readonly reconciliationId: Option.Option<ReconciliationId>;
+    readonly userId: Option.Option<UserId>;
+    readonly sources: ReadonlyArray<DataSource>;
+    readonly status: ReconciliationStatus;
+    readonly discrepancies: ReadonlyArray<Discrepancy>;
+    readonly balances: Map<DataSource, ReadonlyArray<BalanceSnapshot>>;
+    readonly startedAt: Option.Option<Date>;
+    readonly version: number;
+    readonly events: ReadonlyArray<DomainEvent>;
+  }) {
+    super({ version: data.version, events: data.events });
+    this.reconciliationId = data.reconciliationId;
+    this.userId = data.userId;
+    this.sources = data.sources;
+    this.status = data.status;
+    this.discrepancies = data.discrepancies;
+    this.balances = data.balances;
+    this.startedAt = data.startedAt;
+  }
+
+  protected get aggregateId(): Option.Option<string> {
+    return this.reconciliationId;
+  }
+
+  // Create empty reconciliation for reconstruction
+  static empty(): Reconciliation {
+    return new Reconciliation({
+      reconciliationId: Option.none(),
+      userId: Option.none(),
+      sources: [],
+      status: ReconciliationStatus.INITIATED,
+      discrepancies: [],
+      balances: new Map(),
+      startedAt: Option.none(),
+      events: [],
+      version: 0,
+    });
+  }
+
+  // The ONLY place where state transitions happen
+  apply(event: DomainEvent): Reconciliation {
+    switch (event._tag) {
+      case 'ReconciliationInitiated':
+        const initiatedData = (event as ReconciliationInitiated).data;
+        return this.copy({
+          reconciliationId: Option.some(initiatedData.reconciliationId),
+          userId: Option.some(initiatedData.userId),
+          sources: initiatedData.sources,
+          status: ReconciliationStatus.INITIATED,
+          discrepancies: [],
+          balances: new Map(),
+          startedAt: Option.some(initiatedData.initiatedAt),
+          events: [...this.events, event],
+        });
+
+      case 'BalancesFetched':
+        const balanceData = (event as BalancesFetched).data;
+        const newBalances = new Map(this.balances);
+        newBalances.set(balanceData.source, balanceData.balances);
+        return this.copy({
+          status: ReconciliationStatus.FETCHING,
+          balances: newBalances,
+          events: [...this.events, event],
+        });
+
+      case 'DiscrepancyDetected':
+        const discrepancyData = (event as DiscrepancyDetected).data;
+        return this.copy({
+          status: ReconciliationStatus.IN_PROGRESS,
+          discrepancies: [...this.discrepancies, discrepancyData.discrepancy],
+          events: [...this.events, event],
+        });
+
+      case 'DiscrepancyResolved':
+        const resolutionData = (event as DiscrepancyResolved).data;
+        const discrepancyIndex = this.discrepancies.findIndex(d => d.id === resolutionData.discrepancyId);
+
+        if (discrepancyIndex !== -1) {
+          const resolvedDiscrepancy = new Discrepancy({
+            ...this.discrepancies[discrepancyIndex],
+            isResolved: true,
+            resolution: Option.some(resolutionData.resolution),
+          });
+
+          const updatedDiscrepancies = [
+            ...this.discrepancies.slice(0, discrepancyIndex),
+            resolvedDiscrepancy,
+            ...this.discrepancies.slice(discrepancyIndex + 1),
+          ];
+
+          return this.copy({
+            discrepancies: updatedDiscrepancies,
+            events: [...this.events, event],
+          });
+        }
+        return this;
+
+      case 'ReconciliationCompleted':
+        return this.copy({
+          status: ReconciliationStatus.COMPLETED,
+          events: [...this.events, event],
+        });
+
+      case 'ReconciliationFailed':
+        return this.copy({
+          status: ReconciliationStatus.FAILED,
+          events: [...this.events, event],
+        });
+
+      default:
+        return this;
+    }
+  }
+
+  // Factory method for initiating - returns events, not new state
+  static initiate(command: InitiateReconciliationCommand): Effect.Effect<ReadonlyArray<DomainEvent>, never> {
     return Effect.succeed(() => {
       const reconciliationId = ReconciliationId.generate();
-
       const event = new ReconciliationInitiated({
         reconciliationId,
         userId: command.userId,
         sources: command.sources,
         initiatedAt: new Date(),
       });
-
-      return new Reconciliation({
-        reconciliationId: Option.some(reconciliationId),
-        userId: Option.some(command.userId),
-        sources: command.sources,
-        status: ReconciliationStatus.INITIATED,
-        discrepancies: [],
-        balances: new Map(),
-        startedAt: Option.some(new Date()),
-        events: [event],
-        version: 0,
-      });
+      return [event];
     })();
   }
 
-  // Record fetched balances
-  recordBalances(source: DataSource, balances: ReadonlyArray<BalanceSnapshot>): Effect.Effect<Reconciliation, never> {
-    const event = new BalancesFetched({
-      reconciliationId: Option.getOrThrow(this.reconciliationId),
-      source,
-      balances,
-      fetchedAt: new Date(),
-    });
-
-    const newBalances = new Map(this.balances);
-    newBalances.set(source, balances);
-
-    return Effect.succeed(
-      new Reconciliation({
-        ...this,
-        status: ReconciliationStatus.FETCHING,
-        balances: newBalances,
-        events: [...this.events, event],
-      })
-    );
+  // Record fetched balances - returns events only
+  recordBalances(
+    source: DataSource,
+    balances: ReadonlyArray<BalanceSnapshot>
+  ): Effect.Effect<ReadonlyArray<DomainEvent>, never> {
+    return Effect.succeed(() => {
+      const reconciliationId = Option.getOrThrow(this.reconciliationId);
+      const event = new BalancesFetched({
+        reconciliationId,
+        source,
+        balances,
+        fetchedAt: new Date(),
+      });
+      return [event];
+    })();
   }
 
-  // Record discrepancy
-  recordDiscrepancy(discrepancy: Discrepancy): Effect.Effect<Reconciliation, ReconciliationError> {
+  // Record discrepancy - returns events only
+  recordDiscrepancy(discrepancy: Discrepancy): Effect.Effect<ReadonlyArray<DomainEvent>, ReconciliationError> {
     if (this.status !== ReconciliationStatus.COMPARING && this.status !== ReconciliationStatus.IN_PROGRESS) {
       return Effect.fail(
         new ReconciliationError({
@@ -625,27 +726,22 @@ export class Reconciliation extends Data.Class<{
       );
     }
 
-    const event = new DiscrepancyDetected({
-      reconciliationId: Option.getOrThrow(this.reconciliationId),
-      discrepancy,
-      detectedAt: new Date(),
-    });
-
-    return Effect.succeed(
-      new Reconciliation({
-        ...this,
-        status: ReconciliationStatus.IN_PROGRESS,
-        discrepancies: [...this.discrepancies, discrepancy],
-        events: [...this.events, event],
-      })
-    );
+    return Effect.succeed(() => {
+      const reconciliationId = Option.getOrThrow(this.reconciliationId);
+      const event = new DiscrepancyDetected({
+        reconciliationId,
+        discrepancy,
+        detectedAt: new Date(),
+      });
+      return [event];
+    })();
   }
 
-  // Resolve discrepancy
+  // Resolve discrepancy - returns events only
   resolveDiscrepancy(
     discrepancyId: DiscrepancyId,
     resolution: Resolution
-  ): Effect.Effect<Reconciliation, DiscrepancyNotFoundError> {
+  ): Effect.Effect<ReadonlyArray<DomainEvent>, DiscrepancyNotFoundError> {
     const discrepancyIndex = this.discrepancies.findIndex(d => d.id === discrepancyId);
 
     if (discrepancyIndex === -1) {
@@ -656,38 +752,23 @@ export class Reconciliation extends Data.Class<{
       );
     }
 
-    const resolvedDiscrepancy = new Discrepancy({
-      ...this.discrepancies[discrepancyIndex],
-      isResolved: true,
-      resolution: Option.some(resolution),
-    });
-
-    const updatedDiscrepancies = [
-      ...this.discrepancies.slice(0, discrepancyIndex),
-      resolvedDiscrepancy,
-      ...this.discrepancies.slice(discrepancyIndex + 1),
-    ];
-
-    const event = new DiscrepancyResolved({
-      reconciliationId: Option.getOrThrow(this.reconciliationId),
-      discrepancyId,
-      resolution,
-      resolvedAt: new Date(),
-    });
-
-    return Effect.succeed(
-      new Reconciliation({
-        ...this,
-        discrepancies: updatedDiscrepancies,
-        events: [...this.events, event],
-      })
-    );
+    return Effect.succeed(() => {
+      const reconciliationId = Option.getOrThrow(this.reconciliationId);
+      const event = new DiscrepancyResolved({
+        reconciliationId,
+        discrepancyId,
+        resolution,
+        resolvedAt: new Date(),
+      });
+      return [event];
+    })();
   }
 
-  // Auto-resolve minor discrepancies
-  autoResolveMinorDiscrepancies(): Effect.Effect<Reconciliation, never> {
+  // Auto-resolve minor discrepancies - returns events only
+  autoResolveMinorDiscrepancies(): Effect.Effect<ReadonlyArray<DomainEvent>, never> {
     return Effect.sync(() => {
-      let updated = this;
+      const events: DomainEvent[] = [];
+      const reconciliationId = Option.getOrThrow(this.reconciliationId);
 
       this.discrepancies
         .filter(d => !d.isResolved && d.canAutoResolve())
@@ -704,15 +785,22 @@ export class Reconciliation extends Data.Class<{
             approvedAt: Option.some(new Date()),
           });
 
-          updated = Effect.runSync(updated.resolveDiscrepancy(discrepancy.id, resolution));
+          const event = new DiscrepancyResolved({
+            reconciliationId,
+            discrepancyId: discrepancy.id,
+            resolution,
+            resolvedAt: new Date(),
+          });
+
+          events.push(event);
         });
 
-      return updated;
+      return events;
     });
   }
 
-  // Complete reconciliation
-  complete(): Effect.Effect<Reconciliation, UnresolvedDiscrepanciesError> {
+  // Complete reconciliation - returns events only
+  complete(): Effect.Effect<ReadonlyArray<DomainEvent>, UnresolvedDiscrepanciesError> {
     const unresolvedCount = this.discrepancies.filter(d => !d.isResolved).length;
 
     if (unresolvedCount > 0) {
@@ -723,50 +811,43 @@ export class Reconciliation extends Data.Class<{
       );
     }
 
-    const summary = new ReconciliationSession({
-      id: Option.getOrThrow(this.reconciliationId),
-      sources: this.sources,
-      startedAt: Option.getOrThrow(this.startedAt),
-      completedAt: Option.some(new Date()),
-      status: ReconciliationStatus.COMPLETED,
-      totalAssets: this.getUniqueAssetCount(),
-      totalDiscrepancies: this.discrepancies.length,
-      resolvedDiscrepancies: this.discrepancies.filter(d => d.isResolved).length,
-      criticalCount: this.discrepancies.filter(d => d.severity === 'CRITICAL').length,
-      warningCount: this.discrepancies.filter(d => d.severity === 'WARNING').length,
-      minorCount: this.discrepancies.filter(d => d.severity === 'MINOR').length,
-    });
-
-    const event = new ReconciliationCompleted({
-      reconciliationId: Option.getOrThrow(this.reconciliationId),
-      summary,
-      completedAt: new Date(),
-    });
-
-    return Effect.succeed(
-      new Reconciliation({
-        ...this,
+    return Effect.succeed(() => {
+      const reconciliationId = Option.getOrThrow(this.reconciliationId);
+      const summary = new ReconciliationSession({
+        id: reconciliationId,
+        sources: this.sources,
+        startedAt: Option.getOrThrow(this.startedAt),
+        completedAt: Option.some(new Date()),
         status: ReconciliationStatus.COMPLETED,
-        events: [...this.events, event],
-      })
-    );
+        totalAssets: this.getUniqueAssetCount(),
+        totalDiscrepancies: this.discrepancies.length,
+        resolvedDiscrepancies: this.discrepancies.filter(d => d.isResolved).length,
+        criticalCount: this.discrepancies.filter(d => d.severity === 'CRITICAL').length,
+        warningCount: this.discrepancies.filter(d => d.severity === 'WARNING').length,
+        minorCount: this.discrepancies.filter(d => d.severity === 'MINOR').length,
+      });
+
+      const event = new ReconciliationCompleted({
+        reconciliationId,
+        summary,
+        completedAt: new Date(),
+      });
+
+      return [event];
+    })();
   }
 
-  // Mark as failed
-  fail(reason: string): Effect.Effect<Reconciliation, never> {
-    const event = new ReconciliationFailed({
-      reconciliationId: Option.getOrThrow(this.reconciliationId),
-      reason,
-      failedAt: new Date(),
-    });
-
-    return Effect.succeed(
-      new Reconciliation({
-        ...this,
-        status: ReconciliationStatus.FAILED,
-        events: [...this.events, event],
-      })
-    );
+  // Mark as failed - returns events only
+  fail(reason: string): Effect.Effect<ReadonlyArray<DomainEvent>, never> {
+    return Effect.succeed(() => {
+      const reconciliationId = Option.getOrThrow(this.reconciliationId);
+      const event = new ReconciliationFailed({
+        reconciliationId,
+        reason,
+        failedAt: new Date(),
+      });
+      return [event];
+    })();
   }
 
   // Helper methods
@@ -791,19 +872,6 @@ export class Reconciliation extends Data.Class<{
   requiresManualReview(): boolean {
     return this.discrepancies.some(d => !d.isResolved && d.requiresManualReview());
   }
-
-  // Get uncommitted events
-  getUncommittedEvents(): ReadonlyArray<DomainEvent> {
-    return this.events.slice(this.version);
-  }
-
-  // Mark events as committed
-  markEventsAsCommitted(): Reconciliation {
-    return new Reconciliation({
-      ...this,
-      version: this.events.length,
-    });
-  }
 }
 ```
 
@@ -813,6 +881,8 @@ export class Reconciliation extends Data.Class<{
 // src/contexts/reconciliation/domain/aggregates/correction.aggregate.ts
 import { Effect, pipe, Option, ReadonlyArray } from 'effect';
 import { Data } from 'effect';
+import { EventSourcedAggregate } from '../../../../@core/domain/base/aggregate-root.base';
+import { DomainEvent } from '../../../../@core/domain/base/domain-event.base';
 import {
   CorrectionId,
   CorrectionType,
@@ -820,8 +890,8 @@ import {
   Adjustment,
   Evidence,
 } from '../value-objects/reconciliation.vo';
-import { UserId } from '../../trading/domain/value-objects/identifiers.vo';
-import { DomainEvent } from '../../trading/domain/events/transaction.events';
+import { UserId } from '../../../../@core/domain/common-types/identifiers';
+import { v4 as uuidv4 } from 'uuid';
 
 // Correction status
 export enum CorrectionStatus {
@@ -982,7 +1052,7 @@ export interface ApplyCorrectionCommand {
 }
 
 // Correction Aggregate
-export class Correction extends Data.Class<{
+export class Correction extends EventSourcedAggregate {
   readonly correctionId: Option.Option<CorrectionId>;
   readonly userId: Option.Option<UserId>;
   readonly correctionType: CorrectionType;
@@ -991,22 +1061,110 @@ export class Correction extends Data.Class<{
   readonly status: CorrectionStatus;
   readonly reason: string;
   readonly reviewNotes: Option.Option<string>;
-  readonly events: ReadonlyArray<DomainEvent>;
-  readonly version: number;
-}> {
-  // Propose correction
-  static propose(command: ProposeCorrectionCommand): Effect.Effect<Correction, CorrectionError> {
+
+  constructor(data: {
+    readonly correctionId: Option.Option<CorrectionId>;
+    readonly userId: Option.Option<UserId>;
+    readonly correctionType: CorrectionType;
+    readonly adjustments: ReadonlyArray<Adjustment>;
+    readonly evidence: ReadonlyArray<Evidence>;
+    readonly status: CorrectionStatus;
+    readonly reason: string;
+    readonly reviewNotes: Option.Option<string>;
+    readonly version: number;
+    readonly events: ReadonlyArray<DomainEvent>;
+  }) {
+    super({ version: data.version, events: data.events });
+    this.correctionId = data.correctionId;
+    this.userId = data.userId;
+    this.correctionType = data.correctionType;
+    this.adjustments = data.adjustments;
+    this.evidence = data.evidence;
+    this.status = data.status;
+    this.reason = data.reason;
+    this.reviewNotes = data.reviewNotes;
+  }
+
+  protected get aggregateId(): Option.Option<string> {
+    return this.correctionId;
+  }
+
+  // Create empty correction for reconstruction
+  static empty(): Correction {
+    return new Correction({
+      correctionId: Option.none(),
+      userId: Option.none(),
+      correctionType: CorrectionType.BALANCE_ADJUSTMENT,
+      adjustments: [],
+      evidence: [],
+      status: CorrectionStatus.PROPOSED,
+      reason: '',
+      reviewNotes: Option.none(),
+      events: [],
+      version: 0,
+    });
+  }
+
+  // The ONLY place where state transitions happen
+  apply(event: DomainEvent): Correction {
+    switch (event._tag) {
+      case 'CorrectionProposed':
+        const proposedData = (event as CorrectionProposed).data;
+        return this.copy({
+          correctionId: Option.some(proposedData.correctionId),
+          userId: Option.some(proposedData.userId),
+          correctionType: proposedData.correctionType,
+          adjustments: proposedData.adjustments,
+          evidence: [], // Evidence set separately in the command
+          status: CorrectionStatus.PROPOSED,
+          reason: proposedData.reason,
+          reviewNotes: Option.none(),
+          events: [...this.events, event],
+        });
+
+      case 'CorrectionReviewed':
+        const reviewData = (event as CorrectionReviewed).data;
+        return this.copy({
+          status: CorrectionStatus.PENDING_REVIEW,
+          reviewNotes: Option.some(reviewData.reviewNotes),
+          events: [...this.events, event],
+        });
+
+      case 'CorrectionApproved':
+        return this.copy({
+          status: CorrectionStatus.APPROVED,
+          events: [...this.events, event],
+        });
+
+      case 'CorrectionRejected':
+        return this.copy({
+          status: CorrectionStatus.REJECTED,
+          events: [...this.events, event],
+        });
+
+      case 'CorrectionApplied':
+        return this.copy({
+          status: CorrectionStatus.APPLIED,
+          events: [...this.events, event],
+        });
+
+      default:
+        return this;
+    }
+  }
+
+  // Propose correction - returns events only
+  static propose(command: ProposeCorrectionCommand): Effect.Effect<ReadonlyArray<DomainEvent>, CorrectionError> {
     // Validate adjustments balance (if applicable)
     if (command.type === CorrectionType.BALANCE_ADJUSTMENT) {
       const validation = this.validateBalanceAdjustments(command.adjustments);
-      if (validation.isErr()) {
-        return Effect.fail(validation.error);
+      if (Effect.isFailure(validation)) {
+        return validation;
       }
     }
 
     return Effect.succeed(() => {
       const correctionId = CorrectionId.generate();
-
       const event = new CorrectionProposed({
         correctionId,
         userId: command.userId,
@@ -1016,24 +1174,15 @@ export class Correction extends Data.Class<{
         proposedBy: command.proposedBy,
         proposedAt: new Date(),
       });
-
-      return new Correction({
-        correctionId: Option.some(correctionId),
-        userId: Option.some(command.userId),
-        correctionType: command.type,
-        adjustments: command.adjustments,
-        evidence: command.evidence,
-        status: CorrectionStatus.PROPOSED,
-        reason: command.reason,
-        reviewNotes: Option.none(),
-        events: [event],
-        version: 0,
-      });
+      return [event];
     })();
   }
 
-  // Review correction
-  review(reviewedBy: UserId, reviewNotes: string): Effect.Effect<Correction, InvalidCorrectionStatusError> {
+  // Review correction - returns events only
+  review(
+    reviewedBy: UserId,
+    reviewNotes: string
+  ): Effect.Effect<ReadonlyArray<DomainEvent>, InvalidCorrectionStatusError> {
     if (this.status !== CorrectionStatus.PROPOSED) {
       return Effect.fail(
         new InvalidCorrectionStatusError({
@@ -1043,25 +1192,23 @@ export class Correction extends Data.Class<{
       );
     }
 
-    const event = new CorrectionReviewed({
-      correctionId: Option.getOrThrow(this.correctionId),
-      reviewedBy,
-      reviewNotes,
-      reviewedAt: new Date(),
-    });
-
-    return Effect.succeed(
-      new Correction({
-        ...this,
-        status: CorrectionStatus.PENDING_REVIEW,
-        reviewNotes: Option.some(reviewNotes),
-        events: [...this.events, event],
-      })
-    );
+    return Effect.succeed(() => {
+      const correctionId = Option.getOrThrow(this.correctionId);
+      const event = new CorrectionReviewed({
+        correctionId,
+        reviewedBy,
+        reviewNotes,
+        reviewedAt: new Date(),
+      });
+      return [event];
+    })();
   }
 
-  // Approve correction
-  approve(approvedBy: UserId, approvalNotes?: string): Effect.Effect<Correction, InvalidCorrectionStatusError> {
+  // Approve correction - returns events only
+  approve(
+    approvedBy: UserId,
+    approvalNotes?: string
+  ): Effect.Effect<ReadonlyArray<DomainEvent>, InvalidCorrectionStatusError> {
     if (this.status !== CorrectionStatus.PENDING_REVIEW && this.status !== CorrectionStatus.PROPOSED) {
       return Effect.fail(
         new InvalidCorrectionStatusError({
@@ -1071,24 +1218,23 @@ export class Correction extends Data.Class<{
       );
     }
 
-    const event = new CorrectionApproved({
-      correctionId: Option.getOrThrow(this.correctionId),
-      approvedBy,
-      approvalNotes: Option.fromNullable(approvalNotes),
-      approvedAt: new Date(),
-    });
-
-    return Effect.succeed(
-      new Correction({
-        ...this,
-        status: CorrectionStatus.APPROVED,
-        events: [...this.events, event],
-      })
-    );
+    return Effect.succeed(() => {
+      const correctionId = Option.getOrThrow(this.correctionId);
+      const event = new CorrectionApproved({
+        correctionId,
+        approvedBy,
+        approvalNotes: Option.fromNullable(approvalNotes),
+        approvedAt: new Date(),
+      });
+      return [event];
+    })();
   }
 
-  // Reject correction
-  reject(rejectedBy: UserId, rejectionReason: string): Effect.Effect<Correction, InvalidCorrectionStatusError> {
+  // Reject correction - returns events only
+  reject(
+    rejectedBy: UserId,
+    rejectionReason: string
+  ): Effect.Effect<ReadonlyArray<DomainEvent>, InvalidCorrectionStatusError> {
     if (this.status !== CorrectionStatus.PENDING_REVIEW && this.status !== CorrectionStatus.PROPOSED) {
       return Effect.fail(
         new InvalidCorrectionStatusError({
@@ -1098,24 +1244,20 @@ export class Correction extends Data.Class<{
       );
     }
 
-    const event = new CorrectionRejected({
-      correctionId: Option.getOrThrow(this.correctionId),
-      rejectedBy,
-      rejectionReason,
-      rejectedAt: new Date(),
-    });
-
-    return Effect.succeed(
-      new Correction({
-        ...this,
-        status: CorrectionStatus.REJECTED,
-        events: [...this.events, event],
-      })
-    );
+    return Effect.succeed(() => {
+      const correctionId = Option.getOrThrow(this.correctionId);
+      const event = new CorrectionRejected({
+        correctionId,
+        rejectedBy,
+        rejectionReason,
+        rejectedAt: new Date(),
+      });
+      return [event];
+    })();
   }
 
-  // Apply correction
-  apply(): Effect.Effect<Correction, CorrectionNotApprovedError> {
+  // Apply correction - returns events only
+  applyCorrection(): Effect.Effect<ReadonlyArray<DomainEvent>, CorrectionNotApprovedError> {
     if (this.status !== CorrectionStatus.APPROVED) {
       return Effect.fail(
         new CorrectionNotApprovedError({
@@ -1124,19 +1266,15 @@ export class Correction extends Data.Class<{
       );
     }
 
-    const event = new CorrectionApplied({
-      correctionId: Option.getOrThrow(this.correctionId),
-      adjustments: this.adjustments,
-      appliedAt: new Date(),
-    });
-
-    return Effect.succeed(
-      new Correction({
-        ...this,
-        status: CorrectionStatus.APPLIED,
-        events: [...this.events, event],
-      })
-    );
+    return Effect.succeed(() => {
+      const correctionId = Option.getOrThrow(this.correctionId);
+      const event = new CorrectionApplied({
+        correctionId,
+        adjustments: this.adjustments,
+        appliedAt: new Date(),
+      });
+      return [event];
+    })();
   }
 
   // Validation helpers
@@ -1169,19 +1307,6 @@ export class Correction extends Data.Class<{
     }
 
     return Effect.void;
-  }
-
-  // Get uncommitted events
-  getUncommittedEvents(): ReadonlyArray<DomainEvent> {
-    return this.events.slice(this.version);
-  }
-
-  // Mark events as committed
-  markEventsAsCommitted(): Correction {
-    return new Correction({
-      ...this,
-      version: this.events.length,
-    });
   }
 }
 ```
@@ -1393,10 +1518,21 @@ interface SourceSpecificFetcher {
 // src/contexts/reconciliation/application/commands/initiate-reconciliation.handler.ts
 import { Injectable } from '@nestjs/common';
 import { CommandHandler, ICommandHandler, EventBus } from '@nestjs/cqrs';
-import { Effect, pipe } from 'effect';
+import { Effect, pipe, Exit, Data } from 'effect';
 import { Reconciliation, InitiateReconciliationCommand } from '../../domain/aggregates/reconciliation.aggregate';
 import { ReconciliationRepository } from '../../infrastructure/repositories/reconciliation.repository';
 import { ReconciliationSaga } from '../sagas/reconciliation.saga';
+
+// Event publishing error
+export class PublishEventError extends Data.TaggedError('PublishEventError')<{
+  readonly eventType: string;
+  readonly message: string;
+}> {}
+
+// Saga error
+export class SagaError extends Data.TaggedError('SagaError')<{
+  readonly message: string;
+}> {}
 
 @Injectable()
 @CommandHandler(InitiateReconciliationCommand)
@@ -1408,34 +1544,69 @@ export class InitiateReconciliationHandler implements ICommandHandler<InitiateRe
   ) {}
 
   async execute(command: InitiateReconciliationCommand): Promise<void> {
+    // Single, unbroken pipeline from start to finish
     const program = pipe(
+      // 1. Create the event(s) using pure domain logic
       Reconciliation.initiate(command),
-      Effect.flatMap(reconciliation =>
-        Effect.tryPromise({
-          try: async () => {
-            // Save reconciliation
-            await this.repository.save(reconciliation);
 
-            // Publish events
-            for (const event of reconciliation.getUncommittedEvents()) {
-              await this.eventBus.publish(event);
-            }
+      // 2. Build the initial state from the event(s)
+      Effect.map(events => {
+        const reconciliation = events.reduce((acc, event) => acc.apply(event), Reconciliation.empty());
+        return { reconciliation, events };
+      }),
 
-            // Start reconciliation saga
-            await this.saga.execute({
-              reconciliationId: reconciliation.reconciliationId.getOrThrow(),
-              userId: command.userId,
-              sources: command.sources,
-            });
+      // 3. Save the new aggregate (which saves the events)
+      Effect.flatMap(({ reconciliation, events }) =>
+        pipe(
+          this.repository.save(reconciliation),
+          Effect.map(() => ({ reconciliation, events }))
+        )
+      ),
 
-            return reconciliation;
-          },
-          catch: error => new Error(`Failed to initiate reconciliation: ${error}`),
-        })
-      )
+      // 4. Publish events after successful save
+      Effect.tap(({ events }) =>
+        Effect.forEach(
+          events,
+          event =>
+            Effect.tryPromise({
+              try: () => this.eventBus.publish(event),
+              catch: e =>
+                new PublishEventError({
+                  eventType: event._tag,
+                  message: `Failed to publish event: ${e}`,
+                }),
+            }),
+          { concurrency: 'unbounded' }
+        )
+      ),
+
+      // 5. Start saga after successful save and event publishing
+      Effect.tap(({ reconciliation }) => {
+        const reconciliationId = reconciliation.reconciliationId;
+        if (reconciliationId._tag === 'Some') {
+          return Effect.tryPromise({
+            try: () =>
+              this.saga.execute({
+                reconciliationId: reconciliationId.value,
+                userId: command.userId,
+                sources: command.sources,
+              }),
+            catch: e => new SagaError({ message: `${e}` }),
+          });
+        }
+        return Effect.void;
+      })
     );
 
-    await Effect.runPromise(program);
+    // Run the entire program and handle the final exit state
+    const exit = await Effect.runPromiseExit(program);
+
+    if (Exit.isFailure(exit)) {
+      // The cause contains the specific, typed error from anywhere in the pipeline
+      const error = exit.cause._tag === 'Fail' ? exit.cause.error : new Error('Unknown error');
+      // Re-throw the original typed error - it will be caught by the Exception Filter
+      throw error;
+    }
   }
 }
 ```
@@ -1514,41 +1685,58 @@ export class ReconciliationSaga {
     await Effect.runPromise(program);
   }
 
-  private async recordDiscrepancies(
+  private recordDiscrepancies(
     reconciliationId: string,
     discrepancies: ReadonlyArray<Discrepancy>
-  ): Promise<void> {
-    const reconciliation = await this.repository.load(reconciliationId);
-
-    for (const discrepancy of discrepancies) {
-      const updated = await Effect.runPromise(reconciliation.recordDiscrepancy(discrepancy));
-      await this.repository.save(updated);
-    }
+  ): Effect.Effect<void, any> {
+    return pipe(
+      this.repository.load(reconciliationId),
+      Effect.flatMap(reconciliation =>
+        Effect.forEach(
+          discrepancies,
+          discrepancy =>
+            pipe(
+              reconciliation.recordDiscrepancy(discrepancy),
+              Effect.map(events => events.reduce((acc, event) => acc.apply(event), reconciliation)),
+              Effect.flatMap(updatedReconciliation => this.repository.save(updatedReconciliation))
+            ),
+          { concurrency: 1 }
+        )
+      ),
+      Effect.asVoid
+    );
   }
 
-  private async autoResolveMinor(reconciliationId: string): Promise<void> {
-    const reconciliation = await this.repository.load(reconciliationId);
-
-    const updated = await Effect.runPromise(reconciliation.autoResolveMinorDiscrepancies());
-
-    await this.repository.save(updated);
+  private autoResolveMinor(reconciliationId: string): Effect.Effect<void, any> {
+    return pipe(
+      this.repository.load(reconciliationId),
+      Effect.flatMap(reconciliation =>
+        pipe(
+          reconciliation.autoResolveMinorDiscrepancies(),
+          Effect.map(events => events.reduce((acc, event) => acc.apply(event), reconciliation)),
+          Effect.flatMap(updatedReconciliation => this.repository.save(updatedReconciliation))
+        )
+      )
+    );
   }
 
-  private async checkManualReviewRequired(reconciliationId: string): Promise<void> {
-    const reconciliation = await this.repository.load(reconciliationId);
-
-    if (reconciliation.requiresManualReview()) {
-      // Send notification for manual review
-      // This would integrate with your notification system
-      console.log(`Reconciliation ${reconciliationId} requires manual review`);
-    } else {
-      // Try to complete if all resolved
-      const completed = await Effect.runPromise(reconciliation.complete()).catch(() => null);
-
-      if (completed) {
-        await this.repository.save(completed);
-      }
-    }
+  private checkManualReviewRequired(reconciliationId: string): Effect.Effect<void, any> {
+    return pipe(
+      this.repository.load(reconciliationId),
+      Effect.flatMap(reconciliation =>
+        reconciliation.requiresManualReview()
+          ? Effect.sync(() => {
+              // Send notification for manual review
+              console.log(`Reconciliation ${reconciliationId} requires manual review`);
+            })
+          : pipe(
+              reconciliation.complete(),
+              Effect.map(events => events.reduce((acc, event) => acc.apply(event), reconciliation)),
+              Effect.flatMap(completedReconciliation => this.repository.save(completedReconciliation)),
+              Effect.orElse(() => Effect.void) // Ignore completion errors
+            )
+      )
+    );
   }
 }
 ```
@@ -1561,9 +1749,20 @@ import { Injectable } from '@nestjs/common';
 import { EventStore } from '../../../../infrastructure/event-store/event-store.service';
 import { Reconciliation, ReconciliationStatus } from '../../domain/aggregates/reconciliation.aggregate';
 import { ReconciliationId } from '../../domain/value-objects/reconciliation.vo';
-import { Option } from 'effect';
+import { Option, Effect, pipe, Data } from 'effect';
 import { Knex } from 'knex';
 import { InjectConnection } from 'nest-knexjs';
+
+// Repository-specific errors
+export class LoadReconciliationError extends Data.TaggedError('LoadReconciliationError')<{
+  readonly reconciliationId: ReconciliationId;
+  readonly message: string;
+}> {}
+
+export class SaveReconciliationError extends Data.TaggedError('SaveReconciliationError')<{
+  readonly reconciliationId?: ReconciliationId;
+  readonly message: string;
+}> {}
 
 @Injectable()
 export class ReconciliationRepository {
@@ -1572,110 +1771,66 @@ export class ReconciliationRepository {
     @InjectConnection() private readonly knex: Knex
   ) {}
 
-  async load(reconciliationId: ReconciliationId): Promise<Reconciliation> {
-    const events = await this.eventStore.readStream(reconciliationId);
-
-    // Reconstruct from events
-    let reconciliation = new Reconciliation({
-      reconciliationId: Option.none(),
-      userId: Option.none(),
-      sources: [],
-      status: ReconciliationStatus.INITIATED,
-      discrepancies: [],
-      balances: new Map(),
-      startedAt: Option.none(),
-      events: [],
-      version: 0,
-    });
-
-    // Apply events
-    for (const event of events) {
-      reconciliation = this.applyEvent(reconciliation, event);
-    }
-
-    return reconciliation;
-  }
-
-  async save(reconciliation: Reconciliation): Promise<void> {
-    const uncommittedEvents = reconciliation.getUncommittedEvents();
-
-    if (uncommittedEvents.length === 0) {
-      return;
-    }
-
-    await this.eventStore.append(
-      Option.getOrThrow(reconciliation.reconciliationId),
-      uncommittedEvents,
-      reconciliation.version
+  load(reconciliationId: ReconciliationId): Effect.Effect<Reconciliation, LoadReconciliationError> {
+    return pipe(
+      Effect.tryPromise({
+        try: () => this.eventStore.readStream(reconciliationId),
+        catch: error =>
+          new LoadReconciliationError({
+            reconciliationId,
+            message: `Failed to read event stream: ${error}`,
+          }),
+      }),
+      Effect.map(events => events.reduce((aggregate, event) => aggregate.apply(event), Reconciliation.empty()))
     );
   }
 
-  async findActiveByUser(userId: string): Promise<Reconciliation[]> {
-    const results = await this.knex('reconciliation_projections')
-      .where('user_id', userId)
-      .whereIn('status', ['INITIATED', 'IN_PROGRESS', 'PENDING_REVIEW'])
-      .orderBy('started_at', 'desc');
+  save(reconciliation: Reconciliation): Effect.Effect<void, SaveReconciliationError> {
+    const uncommittedEvents = reconciliation.getUncommittedEvents();
 
-    const reconciliations: Reconciliation[] = [];
-
-    for (const result of results) {
-      const recon = await this.load(result.reconciliation_id);
-      reconciliations.push(recon);
+    if (uncommittedEvents.length === 0) {
+      return Effect.void;
     }
 
-    return reconciliations;
+    return pipe(
+      reconciliation.reconciliationId,
+      Effect.fromOption(
+        () =>
+          new SaveReconciliationError({
+            message: 'Reconciliation ID is missing for save operation',
+          })
+      ),
+      Effect.flatMap(reconciliationId =>
+        Effect.tryPromise({
+          try: () => this.eventStore.append(reconciliationId, uncommittedEvents, reconciliation.version),
+          catch: error =>
+            new SaveReconciliationError({
+              reconciliationId,
+              message: `Failed to save events: ${error}`,
+            }),
+        })
+      )
+    );
   }
 
-  private applyEvent(reconciliation: Reconciliation, event: any): Reconciliation {
-    switch (event._tag) {
-      case 'ReconciliationInitiated':
-        return new Reconciliation({
-          ...reconciliation,
-          reconciliationId: Option.some(event.data.reconciliationId),
-          userId: Option.some(event.data.userId),
-          sources: event.data.sources,
-          status: ReconciliationStatus.INITIATED,
-          startedAt: Option.some(event.data.initiatedAt),
-          version: reconciliation.version + 1,
-        });
-
-      case 'DiscrepancyDetected':
-        return new Reconciliation({
-          ...reconciliation,
-          status: ReconciliationStatus.IN_PROGRESS,
-          discrepancies: [...reconciliation.discrepancies, event.data.discrepancy],
-          version: reconciliation.version + 1,
-        });
-
-      case 'DiscrepancyResolved':
-        const index = reconciliation.discrepancies.findIndex(d => d.id === event.data.discrepancyId);
-
-        if (index !== -1) {
-          const updated = [...reconciliation.discrepancies];
-          updated[index] = {
-            ...updated[index],
-            isResolved: true,
-            resolution: Option.some(event.data.resolution),
-          };
-
-          return new Reconciliation({
-            ...reconciliation,
-            discrepancies: updated,
-            version: reconciliation.version + 1,
-          });
-        }
-        return reconciliation;
-
-      case 'ReconciliationCompleted':
-        return new Reconciliation({
-          ...reconciliation,
-          status: ReconciliationStatus.COMPLETED,
-          version: reconciliation.version + 1,
-        });
-
-      default:
-        return reconciliation;
-    }
+  findActiveByUser(userId: string): Effect.Effect<ReadonlyArray<Reconciliation>, LoadReconciliationError> {
+    return pipe(
+      Effect.tryPromise({
+        try: () =>
+          this.knex('reconciliation_projections')
+            .where('user_id', userId)
+            .whereIn('status', ['INITIATED', 'IN_PROGRESS', 'PENDING_REVIEW'])
+            .orderBy('started_at', 'desc'),
+        catch: error =>
+          new LoadReconciliationError({
+            reconciliationId: '' as ReconciliationId,
+            message: `Failed to query active reconciliations: ${error}`,
+          }),
+      }),
+      Effect.flatMap(results =>
+        Effect.forEach(results, result => this.load(result.reconciliation_id), { concurrency: 'unbounded' })
+      )
+    );
   }
 }
 ```
