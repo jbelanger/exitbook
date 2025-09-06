@@ -1,3 +1,4 @@
+import { sanitizeErrorMessage } from '@exitbook/shared-utils';
 import { Result, err, ok } from 'neverthrow';
 
 import {
@@ -44,7 +45,8 @@ export class Money {
 
       return ok(new Money(bigIntValue, currency.toUpperCase(), scale));
     } catch (error) {
-      return err(new InvalidDecimalError(value.toString(), error instanceof Error ? error.message : 'Unknown error'));
+      const sanitizedMessage = sanitizeErrorMessage(error instanceof Error ? error.message : 'Unknown error');
+      return err(new InvalidDecimalError(value.toString(), sanitizedMessage));
     }
   }
 
@@ -286,7 +288,8 @@ export class Money {
 
       return ok(BigInt(whole + paddedDecimal));
     } catch (error) {
-      return err(new InvalidDecimalError(value.toString(), error instanceof Error ? error.message : 'Unknown error'));
+      const sanitizedMessage = sanitizeErrorMessage(error instanceof Error ? error.message : 'Unknown error');
+      return err(new InvalidDecimalError(value.toString(), sanitizedMessage));
     }
   }
 }
