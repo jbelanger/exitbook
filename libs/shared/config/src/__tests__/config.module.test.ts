@@ -21,17 +21,26 @@ describe('TypedConfigModule', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     // Reset environment variables
-    delete process.env.NODE_ENV;
+    process.env.NODE_ENV = 'test';
     delete process.env.PROVIDERS_CONFIG_PATH;
+    // Set required DATABASE_URL for tests to pass
+    process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/testdb';
+  });
+
+  afterEach(() => {
+    // Clean up environment variables after each test
+    delete process.env.DATABASE_URL;
   });
 
   describe('loadProvidersConfig', () => {
     it('should load config from explicit path when PROVIDERS_CONFIG_PATH is set', async () => {
       const configData = {
-        bitcoin: {
-          enabled: true,
-          priority: ['mempool.space'],
-          providers: ['mempool.space', 'blockchair'],
+        providers: {
+          bitcoin: {
+            enabled: true,
+            priority: ['mempool.space'],
+            providers: ['mempool.space', 'blockchair'],
+          },
         },
       };
 
@@ -44,20 +53,21 @@ describe('TypedConfigModule', () => {
         imports: [TypedConfigModule],
       }).compile();
 
-      const configService = module.get<ConfigService>(ConfigService);
-      const loadedConfig = configService.get('');
+      const typedConfig = module.get<Configuration>('TYPED_CONFIG');
 
       expect(mockPath.resolve).toHaveBeenCalledWith(process.cwd(), '/custom/path/config.json');
       expect(mockFs.readFileSync).toHaveBeenCalledWith('/custom/path/config.json', 'utf-8');
-      expect(loadedConfig).toEqual(configData);
+      expect(typedConfig.providers).toEqual(configData.providers);
     });
 
     it('should load config from local file when it exists', async () => {
       const configData = {
-        ethereum: {
-          enabled: false,
-          priority: ['etherscan'],
-          providers: ['etherscan'],
+        providers: {
+          ethereum: {
+            enabled: false,
+            priority: ['etherscan'],
+            providers: ['etherscan'],
+          },
         },
       };
 
@@ -69,20 +79,22 @@ describe('TypedConfigModule', () => {
         imports: [TypedConfigModule],
       }).compile();
 
-      const configService = module.get<ConfigService>(ConfigService);
-      const loadedConfig = configService.get('');
+      const typedConfig = module.get<Configuration>('TYPED_CONFIG');
 
       expect(mockPath.resolve).toHaveBeenCalledWith(process.cwd(), './config/providers.local.json');
       expect(mockFs.readFileSync).toHaveBeenCalledWith('/resolved/path/providers.local.json', 'utf-8');
-      expect(loadedConfig).toEqual(configData);
+      expect(typedConfig.providers).toEqual(configData.providers);
     });
 
     it('should load environment-specific config', async () => {
       const configData = {
-        bitcoin: {
-          enabled: true,
-          priority: ['mempool.space'],
-          providers: ['mempool.space'],
+        DATABASE_URL: 'postgresql://test:test@localhost:5432/testdb',
+        providers: {
+          bitcoin: {
+            enabled: true,
+            priority: ['mempool.space'],
+            providers: ['mempool.space'],
+          },
         },
       };
 
@@ -99,20 +111,22 @@ describe('TypedConfigModule', () => {
         imports: [TypedConfigModule],
       }).compile();
 
-      const configService = module.get<ConfigService>(ConfigService);
-      const loadedConfig = configService.get('');
+      const typedConfig = module.get<Configuration>('TYPED_CONFIG');
 
       expect(mockPath.resolve).toHaveBeenCalledWith(process.cwd(), './config/providers.production.json');
       expect(mockFs.readFileSync).toHaveBeenCalledWith('/resolved/path/providers.production.json', 'utf-8');
-      expect(loadedConfig).toEqual(configData);
+      expect(typedConfig.providers).toEqual(configData.providers);
     });
 
     it('should load default config when no environment-specific config exists', async () => {
       const configData = {
-        bitcoin: {
-          enabled: true,
-          priority: ['mempool.space'],
-          providers: ['mempool.space'],
+        DATABASE_URL: 'postgresql://test:test@localhost:5432/testdb',
+        providers: {
+          bitcoin: {
+            enabled: true,
+            priority: ['mempool.space'],
+            providers: ['mempool.space'],
+          },
         },
       };
 
@@ -131,12 +145,11 @@ describe('TypedConfigModule', () => {
         imports: [TypedConfigModule],
       }).compile();
 
-      const configService = module.get<ConfigService>(ConfigService);
-      const loadedConfig = configService.get('');
+      const typedConfig = module.get<Configuration>('TYPED_CONFIG');
 
       expect(mockPath.resolve).toHaveBeenCalledWith(process.cwd(), './config/providers.json');
       expect(mockFs.readFileSync).toHaveBeenCalledWith('/resolved/path/providers.json', 'utf-8');
-      expect(loadedConfig).toEqual(configData);
+      expect(typedConfig.providers).toEqual(configData.providers);
     });
 
     it('should return empty object when no config file exists', async () => {
@@ -150,10 +163,9 @@ describe('TypedConfigModule', () => {
         imports: [TypedConfigModule],
       }).compile();
 
-      const configService = module.get<ConfigService>(ConfigService);
-      const loadedConfig = configService.get('');
+      const typedConfig = module.get<Configuration>('TYPED_CONFIG');
 
-      expect(loadedConfig).toEqual({});
+      expect(typedConfig.providers).toBeUndefined();
       expect(consoleWarnSpy).toHaveBeenCalledWith('[ConfigModule] No providers config file found. Skipping.');
 
       consoleWarnSpy.mockRestore();
@@ -172,6 +184,9 @@ describe('TypedConfigModule', () => {
     });
 
     it('should use development as default NODE_ENV', async () => {
+      // Reset NODE_ENV to test default behavior
+      delete process.env.NODE_ENV;
+
       mockPath.resolve
         .mockReturnValueOnce('/resolved/path/providers.local.json')
         .mockReturnValueOnce('/resolved/path/providers.development.json');
@@ -190,17 +205,6 @@ describe('TypedConfigModule', () => {
 
   describe('TYPED_CONFIG provider', () => {
     it('should provide validated configuration', async () => {
-      const configData = {};
-      const mockValidConfig = {
-        DATABASE_POOL_SIZE: 10,
-        DATABASE_SSL_MODE: 'prefer',
-        DATABASE_URL: 'postgresql://user:pass@localhost:5432/db',
-        LOG_LEVEL: 'info',
-        NODE_ENV: 'development',
-        PORT: 3000,
-        PROVIDERS_CONFIG_PATH: './config/providers.config.json',
-      } as Configuration;
-
       mockPath.resolve.mockReturnValue('/resolved/path');
       mockFs.existsSync.mockReturnValue(false);
 
@@ -231,7 +235,7 @@ describe('TypedConfigModule', () => {
       expect(typedConfig).toBeDefined();
       expect(typedConfig.DATABASE_URL).toBe('postgresql://user:pass@localhost:5432/db');
       expect(typedConfig.PORT).toBe(3000);
-      expect(typedConfig.NODE_ENV).toBe('development');
+      expect(typedConfig.NODE_ENV).toBe('test');
 
       consoleWarnSpy.mockRestore();
     });
@@ -243,22 +247,13 @@ describe('TypedConfigModule', () => {
       // Mock console.warn to avoid output during tests
       const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
+      // Set invalid DATABASE_URL directly in process.env to cause validation failure
+      process.env.DATABASE_URL = 'invalid-url'; // Invalid URL will cause validation to fail
+
       await expect(
         Test.createTestingModule({
           imports: [TypedConfigModule],
-        })
-          .overrideProvider(ConfigService)
-          .useValue({
-            get: vi.fn().mockImplementation((key: string) => {
-              if (key === '') {
-                return {
-                  DATABASE_URL: 'invalid-url', // Invalid URL will cause validation to fail
-                };
-              }
-              return;
-            }),
-          })
-          .compile()
+        }).compile()
       ).rejects.toThrow();
 
       consoleWarnSpy.mockRestore();
@@ -286,7 +281,6 @@ describe('TypedConfigModule', () => {
       expect(typedConfig).toBeDefined();
 
       consoleWarnSpy.mockRestore();
-      delete process.env.DATABASE_URL;
     });
 
     it('should provide ConfigService via NestJS', async () => {
@@ -307,7 +301,6 @@ describe('TypedConfigModule', () => {
       expect(configService).toBeDefined();
 
       consoleWarnSpy.mockRestore();
-      delete process.env.DATABASE_URL;
     });
   });
 });

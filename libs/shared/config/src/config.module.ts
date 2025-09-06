@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 import { Global, Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigModule } from '@nestjs/config';
 
 import { Configuration, validateConfig } from './config.schema';
 
@@ -53,18 +53,24 @@ const loadProvidersConfig = () => {
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [loadProvidersConfig],
     }),
   ],
   providers: [
     {
-      inject: [ConfigService],
       provide: 'TYPED_CONFIG',
-      useFactory: (configService: ConfigService): Configuration => {
-        const mergedConfig = configService.get<Record<string, unknown>>('') || {};
-        const validationResult = validateConfig(mergedConfig);
+      useFactory: (): Configuration => {
+        // Load providers config and merge with environment variables
+        const providersConfig = loadProvidersConfig();
+        const mergedConfig = {
+          ...providersConfig,
+          ...process.env,
+        };
 
-        return validationResult._unsafeUnwrap();
+        const validationResult = validateConfig(mergedConfig);
+        if (validationResult.isErr()) {
+          throw validationResult.error;
+        }
+        return validationResult.value;
       },
     },
   ],
