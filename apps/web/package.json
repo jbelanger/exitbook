@@ -1,0 +1,10 @@
+{
+  "name": "@apps/web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "echo \"(stub) add your Remix/Next dev script\"",
+    "build": "echo \"(stub) add your Remix/Next build script\"",
+    "test": "vitest run"
+  }
+}

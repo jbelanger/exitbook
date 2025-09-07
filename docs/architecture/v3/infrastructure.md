@@ -1,41 +1,20 @@
-## Complete Infrastructure Implementation
+## Enhanced Infrastructure Implementation
 
-### 1. Event Store Infrastructure
+### 1. Event Store with Outbox Pattern Support
 
 ```typescript
 // src/infrastructure/event-store/event-store.service.ts
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { InjectConnection } from 'nest-knexjs';
 import { Knex } from 'knex';
-import { Effect, Data, pipe } from 'effect';
+import { Effect, Data, pipe, Schema } from 'effect';
 import { Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DomainEvent } from '../../@core/domain/base/domain-event.base';
 import * as crypto from 'crypto';
 import BigNumber from 'bignumber.js';
 
-export interface StoredEvent {
-  id: number;
-  event_id: string;
-  aggregate_id: string;
-  aggregate_type: string;
-  event_type: string;
-  event_version: number;
-  event_data: any;
-  metadata: EventMetadata;
-  created_at: Date;
-  stream_version: number;
-}
-
-export interface EventMetadata {
-  userId?: string;
-  correlationId?: string;
-  causationId?: string;
-  timestamp: Date;
-  source?: string;
-}
-
-// Add these error types
+// Event Store Errors
 export class SaveEventError extends Data.TaggedError('SaveEventError')<{
   readonly reason: string;
 }> {}
@@ -48,17 +27,36 @@ export class IdempotencyError extends Data.TaggedError('IdempotencyError')<{
   readonly reason: string;
 }> {}
 
-export class RebuildError extends Data.TaggedError('RebuildError')<{
-  readonly projectionName: string;
-  readonly reason: string;
+export class OptimisticLockError extends Data.TaggedError('OptimisticLockError')<{
+  readonly aggregateId: string;
+  readonly expectedVersion: number;
+  readonly actualVersion: number;
 }> {}
 
-export interface EventStream {
-  aggregateId: string;
-  aggregateType: string;
-  version: number;
-  events: StoredEvent[];
-}
+// Schema for event validation
+const EventMetadataSchema = Schema.struct({
+  userId: Schema.optional(Schema.string),
+  correlationId: Schema.optional(Schema.string),
+  causationId: Schema.optional(Schema.string),
+  timestamp: Schema.Date,
+  source: Schema.optional(Schema.string),
+});
+
+const StoredEventSchema = Schema.struct({
+  id: Schema.number,
+  event_id: Schema.string,
+  aggregate_id: Schema.string,
+  aggregate_type: Schema.string,
+  event_type: Schema.string,
+  event_schema_version: Schema.number,
+  event_data: Schema.unknown,
+  metadata: EventMetadataSchema,
+  created_at: Schema.Date,
+  stream_version: Schema.number,
+});
+
+export type StoredEvent = Schema.Schema.Type<typeof StoredEventSchema>;
+export type EventMetadata = Schema.Schema.Type<typeof EventMetadataSchema>;
 
 @Injectable()
 export class EventStore implements OnModuleInit, OnModuleDestroy {
@@ -82,7 +80,6 @@ export class EventStore implements OnModuleInit, OnModuleDestroy {
   }
 
   private async initializeEventStore() {
-    // Ensure event store tables exist
     const hasTable = await this.writeDb.schema.hasTable('event_store');
     if (!hasTable) {
       await this.createEventStoreTables();
@@ -90,18 +87,18 @@ export class EventStore implements OnModuleInit, OnModuleDestroy {
   }
 
   private async createEventStoreTables() {
-    // Events table
+    // Events table with timestamptz
     await this.writeDb.schema.createTable('event_store', table => {
       table.bigIncrements('id').primary();
       table.uuid('event_id').notNullable().unique();
       table.string('aggregate_id', 255).notNullable();
       table.string('aggregate_type', 100).notNullable();
       table.string('event_type', 100).notNullable();
-      table.integer('event_version').notNullable();
+      table.integer('event_schema_version').notNullable().defaultTo(1); // Schema version for upcasting
       table.jsonb('event_data').notNullable();
       table.jsonb('metadata').notNullable();
-      table.integer('stream_version').notNullable();
-      table.timestamp('created_at').defaultTo(this.writeDb.fn.now());
+      table.integer('stream_version').notNullable(); // Position in aggregate stream
+      table.timestamptz('created_at').defaultTo(this.writeDb.fn.now());
 
       // Indexes for performance
       table.index(['aggregate_id', 'stream_version']);
@@ -109,9 +106,31 @@ export class EventStore implements OnModuleInit, OnModuleDestroy {
       table.index('event_type');
       table.index('created_at');
 
-      // Add unique constraint to prevent race conditions at the database level
-      // Provides hard guarantee of stream consistency for concurrent writes
+      // Unique constraint for optimistic concurrency
       table.unique(['aggregate_id', 'stream_version']);
+
+      // Data validation constraints
+      table.check('stream_version >= 1', [], 'chk_stream_version_pos');
+      table.check("jsonb_typeof(event_data) = 'object'", [], 'chk_event_data_obj');
+    });
+
+    // Outbox table for CDC with proper constraints
+    await this.writeDb.schema.createTable('event_outbox', table => {
+      table.bigIncrements('id').primary();
+      table.uuid('event_id').notNullable().unique(); // Prevent duplicates
+      table.string('aggregate_id', 255).notNullable();
+      table.string('aggregate_type', 100).notNullable();
+      table.string('event_type', 100).notNullable();
+      table.jsonb('payload').notNullable();
+      table.jsonb('metadata').notNullable();
+      table.enum('status', ['PENDING', 'PROCESSED', 'FAILED']).defaultTo('PENDING');
+      table.timestamptz('created_at').defaultTo(this.writeDb.fn.now());
+      table.timestamptz('processed_at').nullable();
+
+      table.index(['status', 'created_at']);
+
+      // Add check constraint for payload type
+      table.check("jsonb_typeof(payload) = 'object'", [], 'check_payload_is_object');
     });
 
     // Snapshots table
@@ -120,8 +139,9 @@ export class EventStore implements OnModuleInit, OnModuleDestroy {
       table.string('aggregate_id', 255).notNullable();
       table.string('aggregate_type', 100).notNullable();
       table.integer('version').notNullable();
+      table.integer('schema_version').notNullable().defaultTo(1);
       table.jsonb('data').notNullable();
-      table.timestamp('created_at').defaultTo(this.writeDb.fn.now());
+      table.timestamptz('created_at').defaultTo(this.writeDb.fn.now());
 
       table.unique(['aggregate_id', 'version']);
       table.index(['aggregate_id', 'created_at']);
@@ -131,8 +151,8 @@ export class EventStore implements OnModuleInit, OnModuleDestroy {
     await this.writeDb.schema.createTable('event_idempotency', table => {
       table.string('idempotency_key', 255).primary();
       table.uuid('event_id').notNullable();
-      table.timestamp('created_at').defaultTo(this.writeDb.fn.now());
-      table.timestamp('expires_at').notNullable();
+      table.timestamptz('created_at').defaultTo(this.writeDb.fn.now());
+      table.timestamptz('expires_at').notNullable();
 
       table.index('expires_at');
     });
@@ -140,61 +160,140 @@ export class EventStore implements OnModuleInit, OnModuleDestroy {
 
   public append(
     aggregateId: string,
-    aggregateType: string, // <-- ADDED for robustness
+    aggregateType: string,
     events: ReadonlyArray<DomainEvent>,
-    expectedVersion: number
-    // metadata?: Partial<EventMetadata> // This should come from a shared context/layer if needed
-  ): Effect.Effect<void, OptimisticLockError | SaveEventError> {
+    expectedVersion: number,
+    options?: {
+      metadata?: Partial<EventMetadata>;
+      idempotencyKey?: string;
+    }
+  ): Effect.Effect<void, OptimisticLockError | SaveEventError | IdempotencyError> {
     const program = Effect.tryPromise({
       try: () =>
         this.writeDb.transaction(async trx => {
-          // 1. Check for optimistic concurrency
+          // Handle idempotency inside transaction
+          if (options?.idempotencyKey) {
+            const existing = await trx('event_idempotency')
+              .where('idempotency_key', options.idempotencyKey)
+              .where('expires_at', '>', new Date())
+              .first();
+
+            if (existing) {
+              throw new IdempotencyError({
+                reason: `Duplicate request with key: ${options.idempotencyKey}`,
+              });
+            }
+          }
+
+          // Check optimistic concurrency
           const currentVersion = await this.getCurrentVersion(aggregateId, trx);
           if (currentVersion !== expectedVersion) {
-            // Throw a typed error that Effect.tryPromise will catch
-            throw new OptimisticLockError({ aggregateId, expectedVersion, actualVersion: currentVersion });
+            throw new OptimisticLockError({
+              aggregateId,
+              expectedVersion,
+              actualVersion: currentVersion,
+            });
           }
 
           let streamVersion = expectedVersion;
 
-          // 2. Map events to be stored
+          // Prepare events for storage
           const eventsToStore = events.map(event => {
             streamVersion++;
-            return {
+            const eventData = {
               event_id: event.eventId,
               aggregate_id: aggregateId,
-              aggregate_type: aggregateType, // <-- USE EXPLICIT TYPE
+              aggregate_type: aggregateType,
               event_type: event._tag,
-              event_version: event.version,
+              event_schema_version: 1, // Track schema version for upcasting
               event_data: this.serializeEvent(event),
-              metadata: { timestamp: event.timestamp },
+              metadata: {
+                ...options?.metadata,
+                timestamp: event.timestamp,
+              },
               stream_version: streamVersion,
             };
+
+            return eventData;
           });
 
           if (eventsToStore.length > 0) {
+            // Store events
             await trx('event_store').insert(eventsToStore);
+
+            // Add to outbox for CDC
+            const outboxEntries = eventsToStore.map(e => ({
+              event_id: e.event_id,
+              aggregate_id: e.aggregate_id,
+              aggregate_type: e.aggregate_type,
+              event_type: e.event_type,
+              payload: e.event_data,
+              metadata: e.metadata,
+              status: 'PENDING',
+            }));
+
+            await trx('event_outbox').insert(outboxEntries);
+
+            // Save idempotency key if provided
+            if (options?.idempotencyKey) {
+              const expiresAt = new Date();
+              expiresAt.setHours(expiresAt.getHours() + 24);
+
+              await trx('event_idempotency').insert({
+                idempotency_key: options.idempotencyKey,
+                event_id: eventsToStore[0].event_id,
+                expires_at: expiresAt,
+              });
+            }
           }
         }),
-      catch: error =>
-        // This ensures our typed error is preserved in the Effect's error channel
-        error instanceof OptimisticLockError
-          ? error
-          : new SaveEventError({ reason: `Failed to append events: ${error}` }),
+      catch: async (error: any) => {
+        // Unique violation?
+        if (error?.code === '23505') {
+          const table = String(error.table ?? '');
+          const constraint = String(error.constraint ?? '');
+
+          // outbox duplicate (typical default name: event_outbox_event_id_key)
+          if (
+            table.includes('event_outbox') ||
+            constraint.includes('event_outbox') ||
+            constraint.includes('event_id_key')
+          ) {
+            return new IdempotencyError({ reason: 'Duplicate request (idempotency or outbox)' });
+          }
+
+          // idempotency table duplicates
+          if (table.includes('event_idempotency') || constraint.includes('event_idempotency')) {
+            return new IdempotencyError({ reason: 'Duplicate request (idempotency or outbox)' });
+          }
+
+          // aggregate stream unique -> optimistic lock
+          if (
+            (table.includes('event_store') || constraint.includes('event_store')) &&
+            constraint.includes('aggregate_id') &&
+            constraint.includes('stream_version')
+          ) {
+            const actual = await this.getCurrentVersion(aggregateId);
+            return new OptimisticLockError({ aggregateId, expectedVersion, actualVersion: actual });
+          }
+        }
+
+        if (error instanceof OptimisticLockError || error instanceof IdempotencyError) return error;
+        return new SaveEventError({ reason: `Failed to append events: ${error}` });
+      },
     });
 
-    // 3. Publish events *after* the transaction successfully commits
+    // Publish events locally after transaction commits
     return pipe(
       program,
       Effect.tap(() =>
         Effect.sync(() => {
           for (const event of events) {
-            // Use NestJS's EventEmitter for loose coupling to projections
             this.eventEmitter.emit(`event.${event._tag}`, event);
           }
         })
       ),
-      Effect.asVoid // Ensure the return type is Effect<void, ...>
+      Effect.asVoid
     );
   }
 
@@ -203,161 +302,52 @@ export class EventStore implements OnModuleInit, OnModuleDestroy {
     fromVersion: number = 0,
     toVersion?: number
   ): Effect.Effect<DomainEvent[], ReadEventError> {
-    return Effect.tryPromise({
-      try: async () => {
-        const query = this.readDb('event_store')
-          .where('aggregate_id', aggregateId)
-          .where('stream_version', '>', fromVersion)
-          .orderBy('stream_version', 'asc');
-
-        // Handle edge case where toVersion = 0 (read events up to version 0)
-        if (toVersion !== undefined) {
-          query.where('stream_version', '<=', toVersion);
-        }
-
-        const events = await query;
-        return events.map(e => this.deserializeEvent(e));
-      },
-      catch: error => new ReadEventError({ reason: `Failed to read stream: ${error}` }),
-    });
-  }
-
-  readStreamWithSnapshot(
-    aggregateId: string
-  ): Effect.Effect<{ snapshot?: any; events: DomainEvent[] }, ReadEventError> {
-    const getSnapshot = Effect.tryPromise({
-      try: () => this.readDb('event_snapshots').where('aggregate_id', aggregateId).orderBy('version', 'desc').first(),
-      catch: e => new ReadEventError({ reason: `Failed to read snapshot: ${e}` }),
-    });
-
-    return pipe(
-      getSnapshot,
-      Effect.flatMap(snapshot => {
-        const fromVersion = snapshot?.version ?? 0;
-        // Chain the readStream Effect
-        return pipe(
-          this.readStream(aggregateId, fromVersion),
-          Effect.map(events => ({
-            // Use safe copy for mutable downstream usage
-            snapshot: snapshot ? structuredClone(snapshot.data) : undefined,
-            events,
-          }))
-        );
-      })
-    );
-  }
-
-  saveSnapshot(
-    aggregateId: string,
-    aggregateType: string,
-    version: number,
-    data: any
-  ): Effect.Effect<void, SaveEventError> {
     return pipe(
       Effect.tryPromise({
-        try: () =>
-          this.writeDb('event_snapshots').insert({
-            aggregate_id: aggregateId,
-            aggregate_type: aggregateType,
-            version,
-            // Pass the plain object directly to the driver for jsonb serialization
-            data: data,
-          }),
-        catch: e => new SaveEventError({ reason: `Failed to save snapshot: ${e}` }),
+        try: async () => {
+          const query = this.readDb('event_store')
+            .where('aggregate_id', aggregateId)
+            .where('stream_version', '>', fromVersion)
+            .orderBy('stream_version', 'asc');
+
+          if (toVersion !== undefined) {
+            query.where('stream_version', '<=', toVersion);
+          }
+
+          return await query;
+        },
+        catch: error => new ReadEventError({ reason: `Failed to read stream: ${error}` }),
       }),
-      Effect.tap(() => Effect.promise(() => this.cleanOldSnapshots(aggregateId))), // Fire-and-forget cleanup
-      Effect.asVoid
+      Effect.flatMap(events => Effect.forEach(events, e => this.deserializeEvent(e, e.event_schema_version || 1)))
     );
-  }
-
-  findByIdempotencyKey(key: string): Effect.Effect<string | null, IdempotencyError> {
-    return Effect.tryPromise({
-      try: async () => {
-        const result = await this.readDb('event_idempotency')
-          .where('idempotency_key', key)
-          .where('expires_at', '>', new Date())
-          .first();
-        return result?.event_id || null;
-      },
-      catch: e => new IdempotencyError({ reason: `Failed to check idempotency key ${key}: ${e}` }),
-    });
-  }
-
-  saveIdempotencyKey(key: string, eventId: string, ttlHours: number = 24): Effect.Effect<void, IdempotencyError> {
-    return Effect.tryPromise({
-      try: async () => {
-        const expiresAt = new Date();
-        expiresAt.setHours(expiresAt.getHours() + ttlHours);
-        await this.writeDb('event_idempotency')
-          .insert({
-            idempotency_key: key,
-            event_id: eventId,
-            expires_at: expiresAt,
-          })
-          .onConflict('idempotency_key')
-          .ignore();
-      },
-      catch: e => new IdempotencyError({ reason: `Failed to save idempotency key ${key}: ${e}` }),
-    });
-  }
-
-  getEventsByType(eventType: string, limit: number = 100, after?: Date): Effect.Effect<StoredEvent[], ReadEventError> {
-    return Effect.tryPromise({
-      try: () => {
-        const query = this.readDb('event_store')
-          .where('event_type', eventType)
-          .orderBy('created_at', 'desc')
-          .limit(limit);
-
-        if (after) {
-          query.where('created_at', '>', after);
-        }
-        return query;
-      },
-      catch: e => new ReadEventError({ reason: `Failed to get events by type ${eventType}: ${e}` }),
-    });
-  }
-
-  getAggregateEvents(aggregateType: string, limit: number = 100): Effect.Effect<StoredEvent[], ReadEventError> {
-    return Effect.tryPromise({
-      try: () =>
-        this.readDb('event_store').where('aggregate_type', aggregateType).orderBy('created_at', 'desc').limit(limit),
-      catch: e => new ReadEventError({ reason: `Failed to get events by aggregate type ${aggregateType}: ${e}` }),
-    });
   }
 
   private async getCurrentVersion(aggregateId: string, trx?: Knex.Transaction): Promise<number> {
-    const db = trx || this.readDb;
+    const db = trx ?? this.writeDb;
     const result = await db('event_store').where('aggregate_id', aggregateId).max('stream_version as version').first();
 
     return result?.version || 0;
   }
 
-  private async updateStreamVersion(aggregateId: string, version: number, trx: Knex.Transaction): Promise<void> {
-    // Could maintain a separate streams table for performance
-    // For now, we rely on the event_store table
-  }
-
   private async cleanOldSnapshots(aggregateId: string): Promise<void> {
+    const keepCount = parseInt(process.env.SNAPSHOT_RETENTION_COUNT || '3', 10);
     const snapshots = await this.writeDb('event_snapshots')
       .where('aggregate_id', aggregateId)
       .orderBy('version', 'desc')
       .select('id');
 
-    if (snapshots.length > 3) {
-      const idsToDelete = snapshots.slice(3).map(s => s.id);
+    if (snapshots.length > keepCount) {
+      const idsToDelete = snapshots.slice(keepCount).map(s => s.id);
       await this.writeDb('event_snapshots').whereIn('id', idsToDelete).delete();
+
+      // Emit metric for monitoring
+      this.logger.debug(`Deleted ${idsToDelete.length} old snapshots for aggregate ${aggregateId}`);
     }
   }
 
-  // Removed: publishEvent method - replaced by EventEmitter2 in append method
-
   private serializeEvent(event: DomainEvent): any {
-    // Return a plain object, not a string. Let the PostgreSQL driver handle JSON serialization.
-    // This recursive transformer handles nested custom types safely.
     const transformValue = (value: any): any => {
-      // Support multiple BigNumber libraries (bignumber.js and ethers.js)
-      if (value?._isBigNumber || (BigNumber as any).isBigNumber?.(value)) {
+      if (value?._isBigNumber || BigNumber.isBigNumber(value)) {
         return { _type: 'BigNumber', value: value.toString() };
       }
       if (value instanceof Date) return { _type: 'Date', value: value.toISOString() };
@@ -376,337 +366,149 @@ export class EventStore implements OnModuleInit, OnModuleDestroy {
     return transformValue(event);
   }
 
-  private deserializeEvent(stored: StoredEvent): DomainEvent {
-    // Safely handle both string and object types from the database
+  private deserializeEvent(stored: StoredEvent, schemaVersion: number): Effect.Effect<DomainEvent, ReadEventError> {
+    return Effect.try({
+      try: () => {
+        // Apply schema migrations/upcasters based on version
+        let eventData = this.deserializeEventData(stored.event_data);
+
+        if (schemaVersion < 1) {
+          // Apply migration from v0 to v1
+          eventData = this.migrateEventV0ToV1(eventData);
+        }
+
+        const reconstructedEvent = {
+          ...eventData,
+          _tag: stored.event_type,
+          eventId: stored.event_id,
+          aggregateId: stored.aggregate_id,
+          timestamp: new Date(stored.metadata?.timestamp ?? stored.created_at),
+          version: stored.stream_version,
+        };
+
+        return reconstructedEvent as DomainEvent;
+      },
+      catch: e => new ReadEventError({ reason: `Failed to deserialize event: ${e}` }),
+    });
+  }
+
+  private deserializeEventData(data: any): any {
     const reviver = (key: string, value: any) => {
       if (value?._type === 'BigNumber') return new BigNumber(value.value);
       if (value?._type === 'Date') return new Date(value.value);
       return value;
     };
 
-    // Handle raw data from the event_data column - may already be parsed as object
-    const rawPayload =
-      typeof stored.event_data === 'string'
-        ? JSON.parse(stored.event_data, reviver)
-        : JSON.parse(JSON.stringify(stored.event_data), reviver); // Deep transformation for objects
+    const rawPayload = typeof data === 'string' ? JSON.parse(data, reviver) : JSON.parse(JSON.stringify(data), reviver);
 
-    const reconstructedEvent = {
-      ...rawPayload,
-      _tag: stored.event_type,
-      eventId: stored.event_id,
-      aggregateId: stored.aggregate_id,
-      // Prefer metadata timestamp to preserve original event time
-      timestamp: new Date(stored.metadata?.timestamp ?? stored.created_at),
-      // Use stream_version for aggregate versioning - critical for optimistic concurrency
-      version: stored.stream_version,
-    };
-
-    return reconstructedEvent as DomainEvent;
+    return rawPayload;
   }
 
+  private migrateEventV0ToV1(eventData: any): any {
+    // Example migration logic
+    return eventData;
+  }
+
+  // ✅ fail -> false, success -> true
   healthCheck(): Effect.Effect<boolean, never> {
     return pipe(
-      Effect.tryPromise({
-        try: () => this.readDb.raw('SELECT 1'),
-        catch: () => false, // Map any database error to a failure boolean
+      Effect.tryPromise(async () => {
+        await this.readDb.raw('SELECT 1');
       }),
-      Effect.as(true), // If the query succeeds, the result is `true`
-      Effect.catchAll(() => Effect.succeed(false)) // Ensure any failure results in `false`
-    );
-  }
-
-  // Removed: subscribe/unsubscribe methods - replaced by EventEmitter2 pattern
-  // Use @EventsHandler decorators in projection classes for event handling
-}
-
-// The existing OptimisticLockError should also extend Data.TaggedError
-export class OptimisticLockError extends Data.TaggedError('OptimisticLockError')<{
-  readonly aggregateId: string;
-  readonly expectedVersion: number;
-  readonly actualVersion: number;
-}> {
-  constructor(props: { aggregateId: string; expectedVersion: number; actualVersion: number }) {
-    super(props);
-    this.message = `Optimistic lock error for aggregate ${props.aggregateId}. Expected version ${props.expectedVersion}, but was ${props.actualVersion}`;
-  }
-}
-```
-
-### 2. Projection Rebuilder
-
-```typescript
-// src/infrastructure/event-store/projection-rebuilder.service.ts
-import { Injectable, OnModuleInit } from '@nestjs/common';
-import { InjectConnection } from 'nest-knexjs';
-import { Knex } from 'knex';
-import { Logger } from '@nestjs/common';
-import { Effect, Data, pipe, Option } from 'effect';
-
-export interface StoredEvent {
-  id: number;
-  event_id: string;
-  aggregate_id: string;
-  aggregate_type: string;
-  event_type: string;
-  event_version: number;
-  event_data: any;
-  metadata: any;
-  created_at: Date;
-  stream_version: number;
-}
-
-@Injectable()
-export class ProjectionRebuilder implements OnModuleInit {
-  private readonly logger = new Logger(ProjectionRebuilder.name);
-
-  constructor(
-    @InjectConnection('write') private readonly writeDb: Knex,
-    @InjectConnection('read') private readonly readDb: Knex
-  ) {}
-
-  async onModuleInit() {
-    await this.initializeCheckpointsTable();
-    this.logger.log('Projection Rebuilder initialized. Live updates are handled by @EventsHandler.');
-  }
-
-  private async initializeCheckpointsTable() {
-    const hasTable = await this.readDb.schema.hasTable('projection_checkpoints');
-    if (!hasTable) {
-      await this.readDb.schema.createTable('projection_checkpoints', table => {
-        table.string('projection_name', 100).primary();
-        table.bigInteger('position').notNullable().defaultTo(0);
-        table.integer('version').notNullable();
-        table.timestamp('last_updated').defaultTo(this.readDb.fn.now());
-      });
-    }
-  }
-
-  getCheckpoint(projectionName: string): Effect.Effect<number, RebuildError> {
-    return Effect.tryPromise({
-      try: async () => {
-        const result = await this.readDb('projection_checkpoints').where('projection_name', projectionName).first();
-        return result?.position || 0;
-      },
-      catch: e => new RebuildError({ projectionName, reason: `Failed to get checkpoint: ${e}` }),
-    });
-  }
-
-  setCheckpoint(projectionName: string, position: number): Effect.Effect<void, RebuildError> {
-    return Effect.tryPromise({
-      try: () =>
-        this.writeDb('projection_checkpoints')
-          .insert({
-            projection_name: projectionName,
-            position,
-            version: 1,
-            last_updated: new Date(),
-          })
-          .onConflict('projection_name')
-          .merge(['position', 'last_updated']),
-      catch: e => new RebuildError({ projectionName, reason: `Failed to set checkpoint: ${e}` }),
-    });
-  }
-
-  rebuildProjection(
-    projectionName: string,
-    eventHandler: (event: StoredEvent, trx: Knex.Transaction) => Promise<void>,
-    // Default to safer fromCheckpoint = true and expose batchSize
-    options: { fromCheckpoint?: boolean; batchSize?: number } = {}
-  ): Effect.Effect<void, RebuildError> {
-    const { fromCheckpoint = true, batchSize = 500 } = options;
-
-    const getStartingPosition = fromCheckpoint ? this.getCheckpoint(projectionName) : Effect.succeed(0);
-    const rebuildLoop = (startPosition: number) =>
-      Effect.loop(startPosition, {
-        while: () => true,
-        body: currentPosition =>
-          pipe(
-            Effect.tryPromise({
-              try: () =>
-                this.readDb('event_store').where('id', '>', currentPosition).orderBy('id', 'asc').limit(batchSize),
-              catch: e => new RebuildError({ projectionName, reason: `Failed to read events: ${e}` }),
-            }),
-            Effect.flatMap(events => {
-              if (events.length === 0) {
-                return Effect.fail(Option.none());
-              }
-
-              const lastEventInBatch = events[events.length - 1];
-
-              return pipe(
-                Effect.tryPromise({
-                  try: () =>
-                    this.writeDb.transaction(async trx => {
-                      for (const event of events) {
-                        await eventHandler(event, trx);
-                      }
-
-                      // Update checkpoint within the same transaction for atomicity
-                      await trx('projection_checkpoints')
-                        .insert({
-                          projection_name: projectionName,
-                          position: lastEventInBatch.id,
-                          version: 1,
-                          last_updated: new Date(),
-                        })
-                        .onConflict('projection_name')
-                        .merge(['position', 'last_updated']);
-                    }),
-                  catch: e => new RebuildError({ projectionName, reason: `Handler failed: ${e}` }),
-                }),
-                Effect.tap(() =>
-                  Effect.sync(() => this.logger.log(`Rebuilt ${projectionName} up to event ID ${lastEventInBatch.id}`))
-                ),
-                Effect.map(() => lastEventInBatch.id)
-              );
-            })
-          ),
-        inc: pos => pos,
-      });
-
-    return pipe(
-      Effect.sync(() => this.logger.warn(`Starting rebuild for projection: ${projectionName}`)),
-      // Conditionally reset checkpoint based on fromCheckpoint option
-      Effect.flatMap(() => (fromCheckpoint ? Effect.void : this.setCheckpoint(projectionName, 0))),
-      Effect.flatMap(() => getStartingPosition),
-      Effect.flatMap(rebuildLoop),
-      // CLARIFICATION: The loop body signals completion by failing with `Option.none()`.
-      // This `catchTag` intercepts that specific "success" signal and gracefully
-      // stops the pipeline, while letting actual `RebuildError`s propagate.
-      Effect.catchTag('Fail', e => (Option.isNone(e.error) ? Effect.void : Effect.fail(e.error as RebuildError))),
-      Effect.tap(() => Effect.sync(() => this.logger.warn(`Finished rebuild for projection: ${projectionName}`))),
-      Effect.asVoid
+      Effect.map(() => true),
+      Effect.catchAll(() => Effect.succeed(false))
     );
   }
 }
 ```
 
-For live projection updates, use standard NestJS `@EventsHandler` classes within each context module.
-
-The ProjectionRebuilder uses Effect for robust error handling and declarative control flow. The rebuild process uses Effect.loop with transactional integrity - checkpoint updates happen within the same database transaction as event processing to ensure atomicity and prevent data corruption on service restarts.
-
-### 3. Message Bus (Event-Driven Communication)
+### 2. Enhanced Message Bus with golevelup Integration
 
 ```typescript
 // src/infrastructure/messaging/message-bus.service.ts
-import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as amqp from 'amqplib';
+import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
 import { Logger } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
-import { Effect, Data } from 'effect';
+import { Effect, Data, Schema, pipe } from 'effect';
 
-export interface Message {
-  id: string;
-  type: string;
-  data: any;
-  metadata: MessageMetadata;
-}
+// Message schema for validation
+const MessageMetadataSchema = Schema.struct({
+  correlationId: Schema.string,
+  causationId: Schema.optional(Schema.string),
+  userId: Schema.optional(Schema.string),
+  timestamp: Schema.Date,
+  source: Schema.string,
+  version: Schema.string,
+});
 
-export interface MessageMetadata {
-  correlationId: string;
-  causationId?: string;
-  userId?: string;
-  timestamp: Date;
-  source: string;
-  version: string;
-}
+const MessageSchema = Schema.struct({
+  id: Schema.string,
+  type: Schema.string,
+  data: Schema.unknown,
+  metadata: MessageMetadataSchema,
+});
+
+export type Message = Schema.Schema.Type<typeof MessageSchema>;
+export type MessageMetadata = Schema.Schema.Type<typeof MessageMetadataSchema>;
+
+export class MessageBusError extends Data.TaggedError('MessageBusError')<{
+  readonly reason: string;
+}> {}
 
 @Injectable()
-export class MessageBus implements OnModuleInit, OnModuleDestroy {
+export class MessageBus implements OnModuleInit {
   private readonly logger = new Logger(MessageBus.name);
-  private connection: amqp.Connection;
-  private channel: amqp.ConfirmChannel; // Use ConfirmChannel for durable publishing
-  private subscriptions = new Map<string, Set<MessageHandler>>();
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly amqpConnection: AmqpConnection,
+    private readonly configService: ConfigService
+  ) {}
 
   async onModuleInit() {
-    await this.connect();
-  }
-
-  async onModuleDestroy() {
-    await this.disconnect();
-  }
-
-  private async connect(): Promise<void> {
-    try {
-      // Add heartbeat for connection health monitoring
-      const url = this.configService.get('RABBITMQ_URL') || 'amqp://localhost?heartbeat=30';
-      this.connection = await amqp.connect(url);
-
-      // Add robust connection event listeners
-      this.connection.on('error', err => this.logger.error('Message bus connection error', err));
-      this.connection.on('close', () => this.logger.warn('Message bus connection closed. Attempting to reconnect...'));
-
-      this.channel = await this.connection.createConfirmChannel();
-
-      // Handle unroutable messages with mandatory flag
-      this.channel.on('return', msg => {
-        this.logger.error(`Message unroutable and returned: ${msg.properties.messageId}`, {
-          exchange: msg.fields.exchange,
-          routingKey: msg.fields.routingKey,
-        });
+    // Handle unroutable messages with correlation ID logging
+    this.amqpConnection.channel.on('return', msg => {
+      const cid = msg.properties.headers?.['x-correlation-id'];
+      this.logger.error(`Unroutable ${msg.properties.messageId} (${cid})`, {
+        exchange: msg.fields.exchange,
+        routingKey: msg.fields.routingKey,
       });
-
-      // Setup exchanges
-      await this.setupExchanges();
-
-      // Setup dead letter queue
-      await this.setupDeadLetterQueue();
-
-      this.logger.log('Message bus connected');
-    } catch (error) {
-      this.logger.error('Failed to connect to message bus', error);
-      throw error;
-    }
-  }
-
-  private async setupExchanges(): Promise<void> {
-    // Domain events exchange
-    await this.channel.assertExchange('domain.events', 'topic', {
-      durable: true,
     });
 
-    // Commands exchange
-    await this.channel.assertExchange('commands', 'direct', {
-      durable: true,
-    });
+    // Setup DLQ manually since queues array isn't used by golevelup
+    await this.setupDeadLetterQueue();
 
-    // Integration events exchange
-    await this.channel.assertExchange('integration.events', 'topic', {
-      durable: true,
-    });
+    this.logger.log('Message bus initialized with golevelup/nestjs-rabbitmq');
   }
 
   private async setupDeadLetterQueue(): Promise<void> {
-    await this.channel.assertQueue('dead.letter.queue', {
-      durable: true,
-      arguments: {
-        'x-message-ttl': 86400000, // 24 hours
-      },
-    });
+    try {
+      await this.amqpConnection.channel.assertQueue('dead.letter.queue', {
+        durable: true,
+        arguments: {
+          'x-queue-mode': 'lazy', // 👈 tiny but helpful in prod
+          'x-message-ttl': 86400000, // 24 hours
+          'x-max-length': 10000,
+        },
+      });
 
-    await this.channel.assertExchange('dead.letter.exchange', 'fanout', {
-      durable: true,
-    });
+      await this.amqpConnection.channel.bindQueue('dead.letter.queue', 'dlx', '');
 
-    await this.channel.bindQueue('dead.letter.queue', 'dead.letter.exchange', '');
+      this.logger.log('Dead letter queue configured');
+    } catch (error) {
+      this.logger.error('Failed to setup dead letter queue', error);
+    }
   }
 
   publish(
     exchange: string,
     routingKey: string,
     message: any,
-    options?: amqp.Options.Publish
+    options?: PublishOptions
   ): Effect.Effect<void, MessageBusError> {
-    // If the service is not connected, fail early
-    if (!this.channel) {
-      return Effect.fail(new MessageBusError({ reason: 'Message bus is not connected.' }));
-    }
-
-    return Effect.tryPromise({
-      try: async () => {
+    return pipe(
+      Effect.sync(() => {
         const messageId = uuidv4();
         const envelope: Message = {
           id: messageId,
@@ -714,160 +516,70 @@ export class MessageBus implements OnModuleInit, OnModuleDestroy {
           data: message,
           metadata: {
             correlationId: options?.correlationId || uuidv4(),
-            causationId: options?.headers?.causationId,
-            userId: options?.headers?.userId,
+            causationId: options?.causationId,
+            userId: options?.userId,
             timestamp: new Date(),
-            // Make service source configurable for microservice environments
             source: this.configService.get('SERVICE_NAME') ?? 'crypto-portfolio',
             version: '1.0',
           },
         };
+        return envelope;
+      }),
+      Effect.flatMap(envelope =>
+        pipe(
+          // Validate message schema
+          Schema.decodeUnknown(MessageSchema)(envelope),
+          Effect.mapError(e => new MessageBusError({ reason: `Invalid message format: ${e}` }))
+        )
+      ),
+      Effect.flatMap(validEnvelope =>
+        Effect.tryPromise({
+          try: async () => {
+            // Build headers, only including defined values
+            const headers: Record<string, any> = {
+              'x-correlation-id': validEnvelope.metadata.correlationId,
+            };
 
-        const buffer = Buffer.from(JSON.stringify(envelope));
+            if (validEnvelope.metadata.causationId) {
+              headers['x-causation-id'] = validEnvelope.metadata.causationId;
+            }
 
-        const publishOptions = {
-          persistent: true,
-          contentType: 'application/json',
-          messageId,
-          timestamp: Math.floor(Date.now() / 1000),
-          mandatory: true, // Ensure message is routable or get return event
-          ...options,
-        };
+            if (validEnvelope.metadata.userId) {
+              headers['x-user-id'] = validEnvelope.metadata.userId;
+            }
 
-        const ok = this.channel.publish(exchange, routingKey, buffer, publishOptions);
-
-        // Handle TCP backpressure from the broker
-        if (!ok) {
-          await new Promise(res => this.channel.once('drain', res));
-        }
-
-        // Wait for broker confirmation to ensure message durability
-        await this.channel.waitForConfirms();
-
-        this.logger.debug(`Published and confirmed message to ${exchange}/${routingKey}`);
-      },
-      catch: error => new MessageBusError({ reason: `Failed to publish and confirm message: ${error}` }),
-    });
-  }
-
-  async subscribe(
-    queue: string,
-    exchange: string,
-    pattern: string,
-    handler: MessageHandler,
-    options?: SubscribeOptions
-  ): Promise<void> {
-    // Assert queue with dead letter exchange for failed messages
-    await this.channel.assertQueue(queue, {
-      durable: true,
-      arguments: {
-        'x-dead-letter-exchange': 'dead.letter.exchange',
-        ...options?.queueArguments,
-      },
-    });
-
-    // Bind to exchange
-    await this.channel.bindQueue(queue, exchange, pattern);
-
-    // Set prefetch count to control backpressure - prevents consumer flooding
-    await this.channel.prefetch(options?.prefetchCount || 32);
-
-    // Setup consumer
-    await this.channel.consume(
-      queue,
-      async msg => {
-        if (!msg) return;
-
-        try {
-          const message: Message = JSON.parse(msg.content.toString());
-
-          // Process message
-          await this.processMessage(message, handler, options);
-
-          // Acknowledge
-          this.channel.ack(msg);
-        } catch (error) {
-          this.logger.error(`Error processing message: ${error.message}`, error);
-
-          // Handle retry logic
-          await this.handleMessageError(msg, error, options);
-        }
-      },
-      {
-        noAck: false,
-      }
+            await this.amqpConnection.publish(exchange, routingKey, validEnvelope, {
+              persistent: true,
+              mandatory: true, // Ensure message is routable
+              messageId: validEnvelope.id,
+              timestamp: Math.floor(Date.now() / 1000),
+              contentType: 'application/json',
+              headers,
+            });
+          },
+          catch: error => new MessageBusError({ reason: `Failed to publish message: ${error}` }),
+        })
+      ),
+      Effect.asVoid
     );
-
-    this.logger.log(`Subscribed to ${exchange}/${pattern} -> ${queue}`);
-  }
-
-  private async processMessage(message: Message, handler: MessageHandler, options?: SubscribeOptions): Promise<void> {
-    // Apply middleware
-    if (options?.middleware) {
-      for (const middleware of options.middleware) {
-        await middleware(message);
-      }
-    }
-
-    // Call handler
-    await handler(message);
-  }
-
-  private async handleMessageError(msg: amqp.Message, error: Error, options?: SubscribeOptions): Promise<void> {
-    const retryCount = (msg.properties.headers['x-retry-count'] || 0) + 1;
-    const maxRetries = options?.maxRetries || 3;
-
-    if (retryCount <= maxRetries) {
-      // DURABLE RETRY: Use DLQ + separate retry service instead of unsafe setTimeout
-      // This prevents message loss if the process crashes during retry delay
-      this.logger.warn(`Message processing failed. Sending to DLQ for durable retry.`, {
-        messageId: msg.properties.messageId,
-        retryCount,
-        error: error.message,
-      });
-      // Nack to DLQ - a separate retry service can implement delay logic
-      this.channel.nack(msg, false, false);
-    } else {
-      // Send to dead letter queue after max retries exceeded
-      this.channel.nack(msg, false, false);
-      this.logger.error(`Message sent to DLQ after ${maxRetries} retries: ${msg.properties.messageId}`);
-    }
-  }
-
-  private async disconnect(): Promise<void> {
-    if (this.channel) {
-      await this.channel.close();
-    }
-    if (this.connection) {
-      await this.connection.close();
-    }
-    this.logger.log('Message bus disconnected');
   }
 }
 
-export type MessageHandler = (message: Message) => Promise<void>;
-
-export interface SubscribeOptions {
-  maxRetries?: number;
-  prefetchCount?: number; // Controls message backpressure
-  middleware?: MessageMiddleware[];
-  queueArguments?: Record<string, any>;
+export interface PublishOptions {
+  correlationId?: string;
+  causationId?: string;
+  userId?: string;
 }
-
-export type MessageMiddleware = (message: Message) => Promise<void>;
-
-export class MessageBusError extends Data.TaggedError('MessageBusError')<{
-  readonly reason: string;
-}> {}
 ```
 
-### 4. Cache Infrastructure (Redis)
+### 3. Enhanced Redis Cache with Redlock
 
 ```typescript
 // src/infrastructure/cache/redis-cache.service.ts
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as Redis from 'ioredis';
+import Redlock from 'redlock';
 import { Logger } from '@nestjs/common';
 import { Effect, Data, Option, pipe, Duration } from 'effect';
 
@@ -876,18 +588,13 @@ export class CacheError extends Data.TaggedError('CacheError')<{
   readonly reason: string;
 }> {}
 
-export interface CacheOptions {
-  ttl?: number; // seconds
-  prefix?: string;
-  tags?: string[];
-}
-
 @Injectable()
 export class RedisCacheService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(RedisCacheService.name);
   private client: Redis.Redis;
   private subscriber: Redis.Redis;
   private publisher: Redis.Redis;
+  private redlock: Redlock;
   private isConnected = false;
 
   constructor(private readonly configService: ConfigService) {}
@@ -903,30 +610,43 @@ export class RedisCacheService implements OnModuleInit, OnModuleDestroy {
   private async connect(): Promise<void> {
     const config = {
       host: this.configService.get('REDIS_HOST') || 'localhost',
-      port: this.configService.get('REDIS_PORT') || 6379,
+      port: Number(this.configService.get('REDIS_PORT') ?? 6379), // FIXED: Coerce to number
       password: this.configService.get('REDIS_PASSWORD'),
-      db: this.configService.get('REDIS_DB') || 0,
+      db: Number(this.configService.get('REDIS_DB') ?? 0), // FIXED: Coerce to number
       retryStrategy: (times: number) => Math.min(times * 50, 2000),
+      enableReadyCheck: true,
+      maxRetriesPerRequest: 3,
     };
 
     this.client = new Redis.Redis(config);
     this.subscriber = new Redis.Redis(config);
     this.publisher = new Redis.Redis(config);
 
+    // Initialize Redlock with proper configuration
+    this.redlock = new Redlock([this.client], {
+      driftFactor: 0.01,
+      retryCount: 10,
+      retryDelay: 200,
+      retryJitter: 200,
+      automaticExtensionThreshold: 500,
+    });
+
+    this.redlock.on('error', err => {
+      this.logger.error('Redlock error:', err);
+    });
+
     await this.waitForConnection();
 
     this.isConnected = true;
-    this.logger.log('Redis cache connected');
+    this.logger.log('Redis cache connected with Redlock support');
   }
 
   private async waitForConnection(): Promise<void> {
-    // Prevent connection listener leaks with proper cleanup
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         reject(new Error('Redis connection timeout'));
       }, 5000);
 
-      // Use 'once' to prevent listener leaks
       this.client.once('ready', () => {
         clearTimeout(timeout);
         resolve();
@@ -939,369 +659,46 @@ export class RedisCacheService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  public get<T>(key: string): Effect.Effect<Option.Option<T>, CacheError> {
-    return Effect.tryPromise({
-      try: async () => {
-        const value = await this.client.get(this.prefixKey(key));
-        return value ? Option.some(JSON.parse(value) as T) : Option.none();
-      },
-      catch: e => new CacheError({ operation: 'GET', reason: String(e) }),
-    });
-  }
-
-  public set<T>(key: string, value: T, options?: CacheOptions): Effect.Effect<void, CacheError> {
-    const serialized = typeof value === 'string' ? value : JSON.stringify(value);
-    const prefixedKey = this.prefixKey(key);
-
-    return Effect.tryPromise({
-      try: async () => {
-        const multi = this.client.multi();
-        if (options?.ttl) {
-          multi.setex(prefixedKey, options.ttl, serialized);
-        } else {
-          multi.set(prefixedKey, serialized);
-        }
-
-        // Handle cache tagging for efficient bulk invalidation
-        if (options?.tags && options.tags.length > 0) {
-          for (const tag of options.tags) {
-            multi.sadd(this.prefixKey(`tag:${tag}`), prefixedKey);
-          }
-        }
-        await multi.exec();
-      },
-      catch: e => new CacheError({ operation: 'SET', reason: String(e) }),
-    });
-  }
-
-  delete(key: string): Effect.Effect<void, CacheError> {
-    return Effect.tryPromise({
-      try: () => this.client.del(this.prefixKey(key)).then(() => {}),
-      catch: e => new CacheError({ operation: 'DELETE', reason: String(e) }),
-    });
-  }
-
+  // FIXED: Proper pipeline batching
   deleteByPattern(pattern: string): Effect.Effect<void, CacheError> {
-    // Use SCAN instead of KEYS to avoid blocking Redis event loop in production
     return Effect.tryPromise({
       try: async () => {
         const stream = this.client.scanStream({
           match: this.prefixKey(pattern),
           count: 100,
         });
-        const keysToDelete: string[] = [];
+
+        let pipeline = this.client.pipeline();
+        let count = 0;
+
         for await (const keys of stream) {
           if (keys.length) {
-            keysToDelete.push(...keys);
+            keys.forEach((key: string) => {
+              pipeline.del(key);
+              count++;
+            });
+
+            // Execute in batches of 1000
+            if (count >= 1000) {
+              await pipeline.exec();
+              pipeline = this.client.pipeline(); // Create new pipeline
+              count = 0;
+            }
           }
         }
-        if (keysToDelete.length > 0) {
-          await this.client.del(keysToDelete);
+
+        if (count > 0) {
+          await pipeline.exec();
         }
       },
       catch: e => new CacheError({ operation: 'DELETE_PATTERN', reason: String(e) }),
     });
   }
 
-  deleteByTags(tags: string[]): Effect.Effect<void, CacheError> {
-    return Effect.tryPromise({
-      try: async () => {
-        const keys = new Set<string>();
-
-        for (const tag of tags) {
-          // Apply global prefix to tag lookup for consistency
-          const taggedKeys = await this.client.smembers(this.prefixKey(`tag:${tag}`));
-          taggedKeys.forEach(key => keys.add(key));
-        }
-
-        if (keys.size > 0) {
-          await this.client.del(...Array.from(keys));
-          await Promise.all(tags.map(tag => this.client.del(`tag:${tag}`)));
-        }
-      },
-      catch: e => new CacheError({ operation: 'DELETE_TAGS', reason: String(e) }),
-    });
-  }
-
-  exists(key: string): Effect.Effect<boolean, CacheError> {
-    return Effect.tryPromise({
-      try: async () => {
-        const result = await this.client.exists(this.prefixKey(key));
-        return result === 1;
-      },
-      catch: e => new CacheError({ operation: 'EXISTS', reason: String(e) }),
-    });
-  }
-
-  ttl(key: string): Effect.Effect<number, CacheError> {
-    return Effect.tryPromise({
-      try: () => this.client.ttl(this.prefixKey(key)),
-      catch: e => new CacheError({ operation: 'TTL', reason: String(e) }),
-    });
-  }
-
-  expire(key: string, seconds: number): Effect.Effect<void, CacheError> {
-    return Effect.tryPromise({
-      try: () => this.client.expire(this.prefixKey(key), seconds).then(() => {}),
-      catch: e => new CacheError({ operation: 'EXPIRE', reason: String(e) }),
-    });
-  }
-
-  increment(key: string, by: number = 1): Effect.Effect<number, CacheError> {
-    return Effect.tryPromise({
-      try: () => this.client.incrby(this.prefixKey(key), by),
-      catch: e => new CacheError({ operation: 'INCRBY', reason: String(e) }),
-    });
-  }
-
-  decrement(key: string, by: number = 1): Effect.Effect<number, CacheError> {
-    return Effect.tryPromise({
-      try: () => this.client.decrby(this.prefixKey(key), by),
-      catch: e => new CacheError({ operation: 'DECRBY', reason: String(e) }),
-    });
-  }
-
-  lpush<T>(key: string, ...values: T[]): Effect.Effect<number, CacheError> {
-    const serialized = values.map(v => (typeof v === 'string' ? v : JSON.stringify(v)));
-    return Effect.tryPromise({
-      try: () => this.client.lpush(this.prefixKey(key), ...serialized),
-      catch: e => new CacheError({ operation: 'LPUSH', reason: String(e) }),
-    });
-  }
-
-  rpop<T>(key: string): Effect.Effect<Option.Option<T>, CacheError> {
-    return Effect.tryPromise({
-      try: async () => {
-        const value = await this.client.rpop(this.prefixKey(key));
-        return value ? Option.some(JSON.parse(value) as T) : Option.none();
-      },
-      catch: e => new CacheError({ operation: 'RPOP', reason: String(e) }),
-    });
-  }
-
-  lrange<T>(key: string, start: number, stop: number): Effect.Effect<T[], CacheError> {
-    return Effect.tryPromise({
-      try: async () => {
-        const safeParse = (v: string) => {
-          try {
-            return JSON.parse(v);
-          } catch {
-            return v as any;
-          }
-        };
-        const values = await this.client.lrange(this.prefixKey(key), start, stop);
-        // Safely parse each value to handle mixed data types
-        return values.map(safeParse);
-      },
-      catch: e => new CacheError({ operation: 'LRANGE', reason: String(e) }),
-    });
-  }
-
-  sadd(key: string, ...members: string[]): Effect.Effect<number, CacheError> {
-    return Effect.tryPromise({
-      try: () => this.client.sadd(this.prefixKey(key), ...members),
-      catch: e => new CacheError({ operation: 'SADD', reason: String(e) }),
-    });
-  }
-
-  smembers(key: string): Effect.Effect<string[], CacheError> {
-    return Effect.tryPromise({
-      try: () => this.client.smembers(this.prefixKey(key)),
-      catch: e => new CacheError({ operation: 'SMEMBERS', reason: String(e) }),
-    });
-  }
-
-  sismember(key: string, member: string): Effect.Effect<boolean, CacheError> {
-    return Effect.tryPromise({
-      try: async () => {
-        const result = await this.client.sismember(this.prefixKey(key), member);
-        return result === 1;
-      },
-      catch: e => new CacheError({ operation: 'SISMEMBER', reason: String(e) }),
-    });
-  }
-
-  hgetall<T>(key: string): Effect.Effect<Record<string, T>, CacheError> {
-    return pipe(
-      Effect.tryPromise({
-        try: () => this.client.hgetall(this.prefixKey(key)),
-        catch: e => new CacheError({ operation: 'HGETALL', reason: String(e) }),
-      }),
-      Effect.map(hash => {
-        const result: Record<string, T> = {};
-        for (const [field, value] of Object.entries(hash)) {
-          result[field] = JSON.parse(value);
-        }
-        return result;
-      })
-    );
-  }
-
-  publish(channel: string, message: any): Effect.Effect<void, CacheError> {
-    return Effect.tryPromise({
-      try: () => this.publisher.publish(channel, JSON.stringify(message)).then(() => {}),
-      catch: e => new CacheError({ operation: 'PUBLISH', reason: String(e) }),
-    });
-  }
-
-  subscribe(channel: string, handler: (message: any) => void): Effect.Effect<void, CacheError> {
-    return Effect.tryPromise({
-      try: async () => {
-        await this.subscriber.subscribe(channel);
-
-        this.subscriber.on('message', (ch, message) => {
-          if (ch === channel) {
-            try {
-              const parsed = JSON.parse(message);
-              handler(parsed);
-            } catch {
-              handler(message);
-            }
-          }
-        });
-      },
-      catch: e => new CacheError({ operation: 'SUBSCRIBE', reason: String(e) }),
-    });
-  }
-
-  acquireLock(key: string, ttl: number = 30, retries: number = 10): Effect.Effect<Option.Option<string>, CacheError> {
-    const lockKey = this.prefixKey(`lock:${key}`); // Lock namespacing handled here
-    const lockValue = `${Date.now()}:${Math.random()}`;
-
-    return Effect.tryPromise({
-      try: async () => {
-        for (let i = 0; i < retries; i++) {
-          const result = await this.client.set(lockKey, lockValue, 'NX', 'EX', ttl);
-
-          if (result === 'OK') {
-            return Option.some(lockValue);
-          }
-
-          await this.delay(100 * Math.pow(2, i));
-        }
-        return Option.none();
-      },
-      catch: e => new CacheError({ operation: 'ACQUIRE_LOCK', reason: String(e) }),
-    });
-  }
-
-  releaseLock(key: string, lockValue: string): Effect.Effect<boolean, CacheError> {
-    const lockKey = this.prefixKey(`lock:${key}`); // Lock namespacing handled here
-
-    const script = `
-      if redis.call("get", KEYS[1]) == ARGV[1] then
-        return redis.call("del", KEYS[1])
-      else
-        return 0
-      end
-    `;
-
-    return Effect.tryPromise({
-      try: async () => {
-        const result = await this.client.eval(script, 1, lockKey, lockValue);
-        return result === 1;
-      },
-      catch: e => new CacheError({ operation: 'RELEASE_LOCK', reason: String(e) }),
-    });
-  }
-
-  public getOrSet<T, E, R>(
-    key: string,
-    factory: Effect.Effect<T, E, R>,
-    options?: CacheOptions
-  ): Effect.Effect<T, CacheError | E, R> {
-    const prefixedKey = this.prefixKey(key);
-
-    // Scoped effect that acquires a distributed lock and guarantees its release
-    const lock = Effect.acquireRelease(
-      this.acquireLock(key, 10), // Pass base key - lock methods handle their own prefixing
-      lockValueOption =>
-        pipe(
-          lockValueOption,
-          Option.match({
-            onNone: () => Effect.void, // Nothing to release if lock wasn't acquired
-            onSome: lockValue => this.releaseLock(key, lockValue), // Pass base key
-          })
-        )
-    );
-
-    const logic = pipe(
-      this.get<T>(key), // Double-check cache after acquiring lock
-      Effect.flatMap(
-        Option.match({
-          onSome: Effect.succeed,
-          onNone: () =>
-            pipe(
-              factory,
-              Effect.tap(newValue => this.set(key, newValue, options))
-            ),
-        })
-      )
-    );
-
-    return pipe(
-      this.get<T>(key), // 1. First check of the cache
-      Effect.flatMap(
-        Option.match({
-          onSome: Effect.succeed, // Cache hit, we're done
-          onNone: () =>
-            // 2. Cache miss, use the scoped lock to coordinate the factory execution
-            Effect.scoped(
-              pipe(
-                lock,
-                Effect.flatMap(lockValueOption =>
-                  Option.match(lockValueOption, {
-                    // If we failed to get a lock, wait a moment and retry the whole operation
-                    onNone: () =>
-                      pipe(
-                        Effect.sleep(Duration.millis(150)),
-                        Effect.flatMap(() => this.getOrSet(key, factory, options))
-                      ),
-                    // If we got the lock, execute the logic
-                    onSome: () => logic,
-                  })
-                )
-              )
-            ),
-        })
-      )
-    );
-  }
-
-  public hset(key: string, field: string, value: any): Effect.Effect<void, CacheError> {
-    return Effect.tryPromise({
-      try: () => this.client.hset(this.prefixKey(key), field, JSON.stringify(value)).then(() => {}),
-      catch: e => new CacheError({ operation: 'HSET', reason: String(e) }),
-    });
-  }
-
-  public hget<T>(key: string, field: string): Effect.Effect<Option.Option<T>, CacheError> {
-    return Effect.tryPromise({
-      try: async () => {
-        const value = await this.client.hget(this.prefixKey(key), field);
-        return value ? Option.some(JSON.parse(value) as T) : Option.none();
-      },
-      catch: e => new CacheError({ operation: 'HGET', reason: String(e) }),
-    });
-  }
-
-  private prefixKey(key: string, prefix?: string): string {
-    const basePrefix = prefix || this.configService.get('REDIS_PREFIX') || 'crypto';
-    return `${basePrefix}:${key}`;
-  }
-
-  private addToTags(key: string, tags: string[]): Effect.Effect<void, CacheError> {
-    return Effect.tryPromise({
-      try: () => Promise.all(tags.map(tag => this.client.sadd(`tag:${tag}`, key))).then(() => {}),
-      catch: e => new CacheError({ operation: 'ADD_TAGS', reason: String(e) }),
-    });
-  }
-
-  private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
+  // Keep all other methods from previous implementation...
 
   private async disconnect(): Promise<void> {
+    // No redlock.quit() - just close Redis connections
     if (this.client) {
       await this.client.quit();
     }
@@ -1318,286 +715,642 @@ export class RedisCacheService implements OnModuleInit, OnModuleDestroy {
 
   healthCheck(): Effect.Effect<boolean, never> {
     return pipe(
-      Effect.tryPromise({
-        try: () => this.client.ping(),
-        catch: e => e, // Pass the error into the Effect's error channel
-      }),
-      Effect.map(() => true), // If success, the service is healthy
-      Effect.catchAll(() => Effect.succeed(false)) // If failure, the service is unhealthy
+      Effect.tryPromise({ try: () => this.client.ping() }),
+      Effect.map(() => true),
+      Effect.catchAll(() => Effect.succeed(false))
     );
   }
 }
 ```
 
-### 5. Monitoring & Observability
-
-#### Metrics Controller
+### 4. OpenTelemetry Integration
 
 ```typescript
-// src/infrastructure/monitoring/metrics.controller.ts
-import { Controller, Get, Res } from '@nestjs/common';
-import { MetricsService } from './metrics.service';
-import { Response } from 'express';
-import { register } from 'prom-client';
-
-@Controller('metrics')
-export class MetricsController {
-  constructor(private readonly metricsService: MetricsService) {}
-
-  @Get()
-  async getMetrics(@Res() res: Response) {
-    res.set('Content-Type', register.contentType);
-    res.end(await this.metricsService.getMetrics());
-  }
-}
-```
-
-#### Metrics Service
-
-```typescript
-// src/infrastructure/monitoring/metrics.service.ts
-import { Injectable, OnModuleInit } from '@nestjs/common';
-import { register, Counter, Histogram, Gauge, Summary, collectDefaultMetrics } from 'prom-client';
+// src/infrastructure/monitoring/opentelemetry.service.ts
+import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { NodeSDK } from '@opentelemetry/sdk-node';
+import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
+import { Resource } from '@opentelemetry/resources';
+import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
+import { JaegerExporter } from '@opentelemetry/exporter-jaeger';
+import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
+import { ConfigService } from '@nestjs/config';
 import { Logger } from '@nestjs/common';
 
-// Guard against double-registering default metrics in complex module scenarios
-let defaultMetricsCollected = false;
-
 @Injectable()
-export class MetricsService implements OnModuleInit {
-  private readonly logger = new Logger(MetricsService.name);
+export class OpenTelemetryService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(OpenTelemetryService.name);
+  private sdk: NodeSDK;
 
-  // HTTP metrics
-  public readonly httpRequestDuration: Histogram<string>;
-  public readonly httpRequestTotal: Counter<string>;
-  public readonly httpRequestErrors: Counter<string>;
-
-  // Business metrics
-  public readonly transactionImported: Counter<string>;
-  public readonly portfolioValuationCalculated: Counter<string>;
-  public readonly taxReportGenerated: Counter<string>;
-  public readonly reconciliationCompleted: Counter<string>;
-
-  // System metrics
-  public readonly eventStoreSize: Gauge<string>;
-  public readonly projectionLag: Gauge<string>;
-  public readonly cacheHitRate: Gauge<string>;
-
-  // Performance metrics
-  public readonly commandExecutionTime: Histogram<string>;
-  public readonly queryExecutionTime: Histogram<string>;
-  public readonly eventProcessingTime: Histogram<string>;
-
-  constructor() {
-    // HTTP metrics
-    this.httpRequestDuration = new Histogram({
-      name: 'http_request_duration_seconds',
-      help: 'Duration of HTTP requests in seconds',
-      labelNames: ['method', 'route', 'status'],
-      buckets: [0.1, 0.5, 1, 2, 5],
-    });
-
-    this.httpRequestTotal = new Counter({
-      name: 'http_requests_total',
-      help: 'Total number of HTTP requests',
-      labelNames: ['method', 'route', 'status'],
-    });
-
-    this.httpRequestErrors = new Counter({
-      name: 'http_request_errors_total',
-      help: 'Total number of HTTP request errors',
-      labelNames: ['method', 'route', 'error'],
-    });
-
-    // Business metrics
-    this.transactionImported = new Counter({
-      name: 'transactions_imported_total',
-      help: 'Total number of transactions imported',
-      labelNames: ['source', 'status'],
-    });
-
-    this.portfolioValuationCalculated = new Counter({
-      name: 'portfolio_valuations_calculated_total',
-      help: 'Total number of portfolio valuations calculated',
-      labelNames: ['currency'],
-    });
-
-    this.taxReportGenerated = new Counter({
-      name: 'tax_reports_generated_total',
-      help: 'Total number of tax reports generated',
-      labelNames: ['year', 'method'],
-    });
-
-    this.reconciliationCompleted = new Counter({
-      name: 'reconciliations_completed_total',
-      help: 'Total number of reconciliations completed',
-      labelNames: ['source', 'status'],
-    });
-
-    // System metrics
-    this.eventStoreSize = new Gauge({
-      name: 'event_store_size_bytes',
-      help: 'Size of the event store in bytes',
-      labelNames: ['aggregate_type'],
-    });
-
-    this.projectionLag = new Gauge({
-      name: 'projection_lag_seconds',
-      help: 'Lag of projections behind the event store',
-      labelNames: ['projection'],
-    });
-
-    this.cacheHitRate = new Gauge({
-      name: 'cache_hit_rate',
-      help: 'Cache hit rate percentage',
-      labelNames: ['cache_type'],
-    });
-
-    // Performance metrics
-    this.commandExecutionTime = new Histogram({
-      name: 'command_execution_duration_seconds',
-      help: 'Duration of command execution in seconds',
-      labelNames: ['command'],
-      buckets: [0.01, 0.05, 0.1, 0.5, 1, 2, 5],
-    });
-
-    this.queryExecutionTime = new Histogram({
-      name: 'query_execution_duration_seconds',
-      help: 'Duration of query execution in seconds',
-      labelNames: ['query'],
-      buckets: [0.001, 0.01, 0.05, 0.1, 0.5, 1],
-    });
-
-    this.eventProcessingTime = new Histogram({
-      name: 'event_processing_duration_seconds',
-      help: 'Duration of event processing in seconds',
-      labelNames: ['event_type'],
-      buckets: [0.001, 0.01, 0.05, 0.1, 0.5],
-    });
-  }
+  constructor(private readonly configService: ConfigService) {}
 
   async onModuleInit() {
-    // Ensure default metrics are only registered once per process
-    if (!defaultMetricsCollected) {
-      collectDefaultMetrics({ register });
-      defaultMetricsCollected = true;
-    }
+    const serviceName = this.configService.get('SERVICE_NAME', 'crypto-portfolio');
+    const serviceVersion = this.configService.get('SERVICE_VERSION', '1.0.0');
+    const environment = this.configService.get('NODE_ENV', 'development');
 
-    this.logger.log('Metrics service initialized');
+    const resource = Resource.default().merge(
+      new Resource({
+        [SemanticResourceAttributes.SERVICE_NAME]: serviceName,
+        [SemanticResourceAttributes.SERVICE_VERSION]: serviceVersion,
+        [SemanticResourceAttributes.DEPLOYMENT_ENVIRONMENT]: environment,
+      })
+    );
+
+    // Jaeger exporter for traces only
+    const jaegerExporter = new JaegerExporter({
+      endpoint: this.configService.get('JAEGER_ENDPOINT', 'http://localhost:14268/api/traces'),
+    });
+
+    this.sdk = new NodeSDK({
+      resource,
+      spanProcessor: new BatchSpanProcessor(jaegerExporter),
+      instrumentations: [
+        getNodeAutoInstrumentations({
+          '@opentelemetry/instrumentation-fs': {
+            enabled: false,
+          },
+        }),
+      ],
+    });
+
+    await this.sdk.start();
+    this.logger.log('OpenTelemetry SDK initialized for tracing');
   }
 
-  getMetrics(): Promise<string> {
-    return register.metrics();
-  }
-
-  resetMetrics(): void {
-    register.clear();
-    // Reset guard to allow re-registration in hot-reload scenarios
-    defaultMetricsCollected = false;
+  async onModuleDestroy() {
+    await this.sdk.shutdown();
   }
 }
 ```
 
-**Usage in Effect Pipelines:**
+### 5. Health Check Controller
 
 ```typescript
-// In some command handler...
+// src/infrastructure/monitoring/health.controller.ts
+import { Controller, Get } from '@nestjs/common';
+import { HealthCheck, HealthCheckService } from '@nestjs/terminus'; // ✅
+import { EventStore } from '../event-store/event-store.service';
+import { RedisCacheService } from '../cache/redis-cache.service';
+import { Effect } from 'effect';
 
-// GOOD: Logging is treated as a fire-and-forget side effect within a pipeline.
-// Effect.tap provides a clean way to do this without affecting the main flow.
+@Controller('health')
+export class HealthController {
+  constructor(
+    private health: HealthCheckService,
+    private readonly eventStore: EventStore,
+    private readonly cache: RedisCacheService
+  ) {}
 
-pipe(
-  // ... main logic ...
-  Effect.tap(() => Effect.sync(() => this.metrics.transactionImported.inc({ source: 'binance' }))),
-  Effect.tapError(err => Effect.sync(() => this.logger.error('Operation failed', err.stack, 'ContextName')))
-  // ... more logic ...
-);
+  @Get()
+  @HealthCheck()
+  async check() {
+    return this.health.check([
+      async () => {
+        const isHealthy = await Effect.runPromise(this.eventStore.healthCheck());
+        return {
+          eventStore: {
+            status: isHealthy ? 'up' : 'down',
+          },
+        };
+      },
+      async () => {
+        const isHealthy = await Effect.runPromise(this.cache.healthCheck());
+        return {
+          redis: {
+            status: isHealthy ? 'up' : 'down',
+          },
+        };
+      },
+    ]);
+  }
+
+  @Get('ready')
+  async readiness() {
+    const eventStoreReady = await Effect.runPromise(this.eventStore.healthCheck());
+    const cacheReady = await Effect.runPromise(this.cache.healthCheck());
+
+    if (eventStoreReady && cacheReady) {
+      return { status: 'ready' };
+    }
+
+    throw new Error('Service not ready');
+  }
+
+  @Get('live')
+  async liveness() {
+    return { status: 'alive' };
+  }
+}
 ```
 
-### 6. Logging Service
+### 6. Outbox Dispatcher Worker
 
 ```typescript
-// src/infrastructure/monitoring/logger.service.ts
-import { LoggerService, Injectable } from '@nestjs/common';
-import * as winston from 'winston';
-import { ElasticsearchTransport } from 'winston-elasticsearch';
+// src/infrastructure/event-store/outbox-dispatcher.service.ts
+import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { InjectConnection } from 'nest-knexjs';
+import { Knex } from 'knex';
+import { Logger } from '@nestjs/common';
+import { MessageBus } from '../messaging/message-bus.service';
 
 @Injectable()
-export class CustomLoggerService implements LoggerService {
-  private logger: winston.Logger;
+export class OutboxDispatcher implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(OutboxDispatcher.name);
+  private stop = false;
 
-  constructor() {
-    this.logger = winston.createLogger({
-      level: process.env.LOG_LEVEL || 'info',
-      format: winston.format.combine(
-        winston.format.timestamp(),
-        winston.format.errors({ stack: true }),
-        winston.format.json()
-      ),
-      defaultMeta: {
-        service: 'crypto-portfolio',
-        environment: process.env.NODE_ENV || 'development',
-      },
-      transports: this.getTransports(),
-    });
+  constructor(
+    @InjectConnection('write') private readonly db: Knex,
+    private readonly bus: MessageBus
+  ) {}
+
+  async onModuleInit() {
+    this.loop();
   }
 
-  private getTransports(): winston.transport[] {
-    const transports: winston.transport[] = [
-      // Console transport
-      new winston.transports.Console({
-        format: winston.format.combine(winston.format.colorize(), winston.format.simple()),
-        handleExceptions: true, // Handle uncaught exceptions
+  async onModuleDestroy() {
+    this.stop = true;
+  }
+
+  private async loop() {
+    // simple forever loop; replace with Bull/worker if you prefer
+    for (; !this.stop; ) {
+      try {
+        await this.db.transaction(async trx => {
+          const rows = await trx<{
+            id: number;
+            event_type: string;
+            payload: any;
+            metadata: any;
+          }>('event_outbox')
+            .where({ status: 'PENDING' })
+            .orderBy('id', 'asc')
+            .limit(100)
+            .forUpdate()
+            .skipLocked();
+
+          for (const r of rows) {
+            try {
+              await this.bus.publish('domain.events', r.event_type, r.payload, {
+                correlationId: r.metadata?.correlationId,
+                userId: r.metadata?.userId,
+                causationId: r.metadata?.causationId,
+              });
+              await trx('event_outbox').where({ id: r.id }).update({
+                status: 'PROCESSED',
+                processed_at: trx.fn.now(),
+              });
+            } catch (error) {
+              this.logger.error(`Failed to process outbox event ${r.id}:`, error);
+              await trx('event_outbox').where({ id: r.id }).update({ status: 'FAILED' });
+            }
+          }
+        });
+
+        await new Promise(r => setTimeout(r, 200));
+      } catch (error) {
+        this.logger.error('Error in outbox dispatcher loop:', error);
+        await new Promise(r => setTimeout(r, 1000)); // Longer wait on loop error
+      }
+    }
+  }
+}
+```
+
+### 7. Infrastructure Module
+
+```typescript
+// src/infrastructure/infrastructure.module.ts
+import { Global, Module } from '@nestjs/common';
+import { KnexModule } from 'nest-knexjs';
+import { EventEmitterModule } from '@nestjs/event-emitter';
+import { RabbitMQModule } from '@golevelup/nestjs-rabbitmq';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { PrometheusModule } from '@willsoto/nestjs-prometheus';
+import { TerminusModule } from '@nestjs/terminus';
+
+import { EventStore } from './event-store/event-store.service';
+import { ProjectionRebuilder } from './event-store/projection-rebuilder.service';
+import { OutboxDispatcher } from './event-store/outbox-dispatcher.service';
+import { RedisCacheService } from './cache/redis-cache.service';
+import { MessageBus } from './messaging/message-bus.service';
+import { MetricsService } from './monitoring/metrics.service';
+import { OpenTelemetryService } from './monitoring/opentelemetry.service';
+import { HealthController } from './monitoring/health.controller';
+
+@Global()
+@Module({
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
+    EventEmitterModule.forRoot({
+      wildcard: true,
+      delimiter: '.',
+      maxListeners: 10,
+      verboseMemoryLeak: true,
+    }),
+    // ✅ WRITE
+    KnexModule.forRootAsync({
+      name: 'write',
+      useFactory: (config: ConfigService) => ({
+        config: {
+          client: 'postgresql',
+          connection: {
+            host: config.get('DB_HOST'),
+            port: Number(config.get('DB_PORT')),
+            user: config.get('DB_USER'),
+            password: config.get('DB_PASSWORD'),
+            database: config.get('DB_NAME'),
+          },
+          pool: { min: 2, max: 10 },
+          migrations: { directory: './migrations' },
+        },
       }),
-    ];
+      inject: [ConfigService],
+    }),
+    // ✅ READ (point to replica, or same for now)
+    KnexModule.forRootAsync({
+      name: 'read',
+      useFactory: (config: ConfigService) => ({
+        config: {
+          client: 'postgresql',
+          connection: {
+            host: config.get('DB_HOST'),
+            port: Number(config.get('DB_PORT')),
+            user: config.get('DB_USER'),
+            password: config.get('DB_PASSWORD'),
+            database: config.get('DB_NAME'),
+          },
+          pool: { min: 2, max: 10 },
+        },
+      }),
+      inject: [ConfigService],
+    }),
+    RabbitMQModule.forRootAsync(RabbitMQModule, {
+      useFactory: (configService: ConfigService) => ({
+        exchanges: [
+          {
+            name: 'domain.events',
+            type: 'topic',
+            options: { durable: true },
+          },
+          {
+            name: 'commands',
+            type: 'direct',
+            options: { durable: true },
+          },
+          {
+            name: 'integration.events',
+            type: 'topic',
+            options: { durable: true },
+          },
+          {
+            name: 'dlx',
+            type: 'fanout',
+            options: { durable: true },
+          },
+        ],
+        // REMOVED queues array - not used by golevelup
+        uri: configService.get('RABBITMQ_URL', 'amqp://localhost'),
+        connectionInitOptions: { wait: true }, // ✅ Wait for connection
+        enableControllerDiscovery: true,
+        defaultRpcTimeout: 30000,
+        defaultExchangeType: 'topic',
+        defaultRpcErrorBehavior: 'REQUEUE',
+        defaultSubscribeErrorBehavior: 'NACK', // ✅ safer default
+        channels: {
+          'channel-1': {
+            prefetchCount: 32,
+            default: true,
+          },
+        },
+      }),
+      inject: [ConfigService],
+    }),
+    PrometheusModule.register({
+      defaultMetrics: {
+        enabled: true,
+        config: {},
+      },
+    }),
+    TerminusModule,
+  ],
+  controllers: [HealthController],
+  providers: [
+    EventStore,
+    ProjectionRebuilder,
+    OutboxDispatcher,
+    RedisCacheService,
+    MessageBus,
+    MetricsService,
+    OpenTelemetryService,
+  ],
+  exports: [EventStore, ProjectionRebuilder, OutboxDispatcher, RedisCacheService, MessageBus, MetricsService],
+})
+export class InfrastructureModule {}
+```
 
-    // File transport
-    if (process.env.LOG_TO_FILE === 'true') {
-      transports.push(
-        new winston.transports.File({
-          filename: 'logs/error.log',
-          level: 'error',
-        }),
-        new winston.transports.File({
-          filename: 'logs/combined.log',
-        })
-      );
-    }
+### 7. Package.json Dependencies
 
-    // Elasticsearch transport with date-based indexing
-    if (process.env.ELASTICSEARCH_URL) {
-      transports.push(
-        new ElasticsearchTransport({
-          level: 'info',
-          clientOpts: { node: process.env.ELASTICSEARCH_URL },
-          indexPrefix: 'crypto-portfolio-logs', // Date formatting handled by transport
-          indexSuffixPattern: 'YYYY.MM.DD',
-          handleExceptions: true, // Handle exceptions in Elasticsearch too
-        })
-      );
-    }
-
-    return transports;
+```json
+{
+  "name": "crypto-portfolio",
+  "version": "1.0.0",
+  "description": "Event-sourced crypto portfolio management system",
+  "scripts": {
+    "start": "nest start",
+    "start:dev": "nest start --watch",
+    "start:debug": "nest start --debug --watch",
+    "start:prod": "node dist/main",
+    "build": "nest build",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "migration:create": "knex migrate:make",
+    "migration:run": "knex migrate:latest",
+    "migration:rollback": "knex migrate:rollback"
+  },
+  "dependencies": {
+    "@nestjs/common": "^10.0.0",
+    "@nestjs/core": "^10.0.0",
+    "@nestjs/platform-express": "^10.0.0",
+    "@nestjs/cqrs": "^10.0.0",
+    "@nestjs/event-emitter": "^2.0.0",
+    "@nestjs/config": "^3.0.0",
+    "@nestjs/terminus": "^10.0.0",
+    "@nestjs/swagger": "^7.0.0",
+    "@golevelup/nestjs-rabbitmq": "^4.0.0",
+    "@willsoto/nestjs-prometheus": "^5.0.0",
+    "@opentelemetry/sdk-node": "^0.45.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.40.0",
+    "@opentelemetry/exporter-jaeger": "^1.18.0",
+    "effect": "^2.0.0",
+    "@effect/schema": "^0.48.0",
+    "knex": "^3.0.0",
+    "pg": "^8.11.0",
+    "nest-knexjs": "^2.0.0",
+    "ioredis": "^5.3.0",
+    "redlock": "^5.0.0-beta.2",
+    "amqplib": "^0.10.0",
+    "winston": "^3.11.0",
+    "winston-elasticsearch": "^0.17.0",
+    "bignumber.js": "^9.1.0",
+    "uuid": "^9.0.0",
+    "class-transformer": "^0.5.0",
+    "class-validator": "^0.14.0",
+    "rxjs": "^7.8.0",
+    "reflect-metadata": "^0.1.13"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^10.0.0",
+    "@nestjs/schematics": "^10.0.0",
+    "@nestjs/testing": "^10.0.0",
+    "@types/express": "^4.17.17",
+    "@types/jest": "^29.5.0",
+    "@types/node": "^20.3.1",
+    "@types/amqplib": "^0.10.0",
+    "@types/uuid": "^9.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.42.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-prettier": "^5.0.0",
+    "jest": "^29.5.0",
+    "prettier": "^3.0.0",
+    "source-map-support": "^0.5.21",
+    "ts-jest": "^29.1.0",
+    "ts-loader": "^9.4.3",
+    "ts-node": "^10.9.1",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.1.3",
+    "testcontainers": "^10.2.0"
   }
+}
+```
 
-  log(message: string, context?: string) {
-    this.logger.info(message, { context });
-  }
+### 8. Environment Configuration
 
-  error(message: string, trace?: string, context?: string) {
-    this.logger.error(message, { trace, context });
-  }
+```bash
+# .env.example
+# Database
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=postgres
+DB_NAME=crypto_portfolio
 
-  warn(message: string, context?: string) {
-    this.logger.warn(message, { context });
-  }
+# Redis
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=
+REDIS_DB=0
+REDIS_PREFIX=crypto
 
-  debug(message: string, context?: string) {
-    this.logger.debug(message, { context });
-  }
+# RabbitMQ
+RABBITMQ_URL=amqp://guest:guest@localhost:5672
 
-  verbose(message: string, context?: string) {
-    this.logger.verbose(message, { context });
+# Service Configuration
+SERVICE_NAME=crypto-portfolio
+SERVICE_VERSION=1.0.0
+NODE_ENV=development
+LOG_LEVEL=info
+LOG_TO_FILE=false
+
+# Snapshot Configuration
+SNAPSHOT_RETENTION_COUNT=3
+
+# Elasticsearch (optional)
+ELASTICSEARCH_URL=
+
+# Jaeger (optional)
+JAEGER_ENDPOINT=http://localhost:14268/api/traces
+
+# API Port
+PORT=3000
+```
+
+### 9. Docker Compose for Local Development
+
+```yaml
+# docker-compose.yml
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: crypto_portfolio
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - '5672:5672'
+      - '15672:15672'
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - '16686:16686'
+      - '14268:14268'
+    environment:
+      COLLECTOR_OTLP_ENABLED: true
+
+  # Optional: Debezium for CDC (future enhancement)
+  # connect:
+  #   image: debezium/connect:2.4
+  #   ports:
+  #     - "8083:8083"
+  #   environment:
+  #     BOOTSTRAP_SERVERS: kafka:9092
+  #     GROUP_ID: 1
+  #     CONFIG_STORAGE_TOPIC: connect_configs
+  #     OFFSET_STORAGE_TOPIC: connect_offsets
+  #     STATUS_STORAGE_TOPIC: connect_statuses
+  #   depends_on:
+  #     - postgres
+  #     - kafka
+
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
+```
+
+### 10. Main Application Entry Point
+
+```typescript
+// src/main.ts
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+import { ValidationPipe } from '@nestjs/common';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { ConfigService } from '@nestjs/config';
+import { Logger } from '@nestjs/common';
+
+async function bootstrap() {
+  const logger = new Logger('Bootstrap');
+
+  const app = await NestFactory.create(AppModule, {
+    logger: ['error', 'warn', 'log', 'debug', 'verbose'],
+  });
+
+  const configService = app.get(ConfigService);
+
+  // Global validation pipe
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
+    })
+  );
+
+  // Swagger documentation
+  const config = new DocumentBuilder()
+    .setTitle('Crypto Portfolio API')
+    .setDescription('Event-sourced crypto portfolio management system')
+    .setVersion('1.0')
+    .addBearerAuth()
+    .build();
+
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api', app, document);
+
+  // Enable graceful shutdown
+  app.enableShutdownHooks();
+
+  const port = configService.get('PORT', 3000);
+  await app.listen(port);
+
+  logger.log(`Application is running on: http://localhost:${port}`);
+  logger.log(`Swagger documentation: http://localhost:${port}/api`);
+  logger.log(`Health check: http://localhost:${port}/health`);
+  logger.log(`Metrics: http://localhost:${port}/metrics`);
+}
+
+bootstrap();
+```
+
+### 11. App Module
+
+```typescript
+// src/app.module.ts
+import { Module } from '@nestjs/common';
+import { CqrsModule } from '@nestjs/cqrs';
+import { CoreModule } from './@core/core.module';
+import { InfrastructureModule } from './infrastructure/infrastructure.module';
+import { TradingModule } from './contexts/trading/trading.module';
+import { PortfolioModule } from './contexts/portfolio/portfolio.module';
+import { TaxationModule } from './contexts/taxation/taxation.module';
+import { ReconciliationModule } from './contexts/reconciliation/reconciliation.module';
+
+@Module({
+  imports: [
+    // Core and infrastructure
+    CoreModule,
+    InfrastructureModule,
+    CqrsModule.forRoot(),
+
+    // Bounded contexts
+    TradingModule,
+    PortfolioModule,
+    TaxationModule,
+    ReconciliationModule,
+  ],
+})
+export class AppModule {}
+```
+
+### 12. Example Consumer with DLQ Configuration
+
+```typescript
+// src/contexts/trading/application/event-handlers/transaction-imported.handler.ts
+import { Injectable } from '@nestjs/common';
+import { RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
+import { TransactionImported } from '../../domain/events/transaction.events';
+
+@Injectable()
+export class TransactionImportedHandler {
+  @RabbitSubscribe({
+    exchange: 'domain.events',
+    routingKey: 'transaction.imported',
+    queue: 'trading.transaction.imported',
+    queueOptions: {
+      durable: true,
+      arguments: {
+        'x-dead-letter-exchange': 'dlx',
+        'x-dead-letter-routing-key': '',
+        'x-message-ttl': 3600000, // 1 hour TTL for messages
+      },
+    },
+  })
+  async handle(message: TransactionImported) {
+    console.log(`Handling transaction imported: ${message.data.transactionId}`);
+
+    // Process the event
+    // If this throws, the message will be sent to DLQ after retries
   }
 }
 ```

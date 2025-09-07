@@ -1,0 +1,6 @@
+{
+  "name": "@core/root",
+  "private": true,
+  "type": "module",
+  "exports": "./index.ts"
+}
