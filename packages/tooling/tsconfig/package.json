@@ -1,0 +1,12 @@
+{
+  "name": "@internal/tsconfig",
+  "private": true,
+  "version": "1.0.0",
+  "files": ["tsconfig.*.json"],
+  "exports": {
+    "./base": "./tsconfig.json",
+    "./node": "./tsconfig.node.json",
+    "./web": "./tsconfig.web.json",
+    "./nest": "./tsconfig.nest.json"
+  }
+}

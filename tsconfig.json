@@ -1,0 +1,24 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/core" },
+    { "path": "packages/contracts" },
+    { "path": "packages/platform/event-store" },
+    { "path": "packages/platform/database" },
+    { "path": "packages/platform/cache" },
+    { "path": "packages/platform/messaging" },
+    { "path": "packages/platform/monitoring" },
+    { "path": "packages/platform/security" },
+    { "path": "packages/contexts/trading" },
+    { "path": "packages/contexts/portfolio" },
+    { "path": "packages/contexts/taxation" },
+    { "path": "packages/contexts/reconciliation" },
+    { "path": "packages/tooling/tsconfig" },
+    { "path": "packages/ui" },
+    { "path": "packages/api-client" },
+    { "path": "apps/api" },
+    { "path": "apps/workers" },
+    { "path": "apps/cli" },
+    { "path": "apps/web" }
+  ]
+}

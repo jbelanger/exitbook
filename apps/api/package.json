@@ -1,11 +1,20 @@
 {
-  "name": "@apps/api",
-  "private": true,
+  "name": "exitbook-api",
+  "version": "1.0.0",
+  "description": "ExitBook REST API",
   "type": "module",
+  "main": "main.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsx watch src/main.ts",
     "start": "node dist/src/main.js",
     "test": "vitest run"
+  },
+  "devDependencies": {
+    "@internal/tsconfig": "workspace:*",
+    "@nestjs/common": "^11.1.6",
+    "@nestjs/core": "^11.1.6",
+    "tsx": "^4.20.5",
+    "vitest": "^3.2.4"
   }
 }

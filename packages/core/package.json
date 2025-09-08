@@ -1,6 +1,36 @@
 {
-  "name": "@core/root",
+  "name": "@exitbook/core",
+  "version": "0.0.0",
   "private": true,
   "type": "module",
-  "exports": "./index.ts"
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -b",
+    "dev": "tsc -b -w",
+    "clean": "rimraf dist",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "bignumber.js": "^9.3.1",
+    "effect": "^3.17.13",
+    "uuid": "^12.0.0"
+  },
+  "devDependencies": {
+    "@internal/tsconfig": "workspace:*",
+    "@types/node": "^24.3.1",
+    "@types/uuid": "^10.0.0",
+    "rimraf": "^6.0.1",
+    "typescript": "^5.9.2"
+  }
 }

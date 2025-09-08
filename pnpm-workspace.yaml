@@ -2,3 +2,4 @@ packages:
   - "apps/*"
   - "packages/*"
   - "packages/contexts/*"
+  - "packages/tooling/*"

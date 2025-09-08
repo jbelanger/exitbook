@@ -6,5 +6,9 @@
     "dev": "echo \"(stub) add your Remix/Next dev script\"",
     "build": "echo \"(stub) add your Remix/Next build script\"",
     "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.4",
+    "@internal/tsconfig": "workspace:*"
   }
 }

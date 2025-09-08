@@ -128,6 +128,21 @@ No cross-context imports (e.g., trading ↔ portfolio) except via contracts/mess
 | `infra/*`                      | Docker, K8s, Terraform, migrations, scripts                                     | n/a                                      | n/a                                 |
 | `docs/*`                       | ADRs, domain maps, architecture, runbooks, OpenAPI                              | n/a                                      | n/a                                 |
 
+## TypeScript Configuration
+
+* **Standard structure**: All packages use `src/` for source code, build to `dist/`
+* **Project references**: Each package has its own `tsconfig.json` with `composite: true`
+* **ESM-first**: Modern module resolution (`NodeNext` for Node, `Bundler` for shared libs)
+* **Path mapping**: Consistent aliases pointing to `src/` directories
+
+### Rationale
+
+This enables:
+- Fast incremental builds via TypeScript project references
+- Proper IDE IntelliSense across package boundaries
+- Efficient build caching in Turborepo/Nx
+- Clean separation of source vs build artifacts
+
 ## Enforcement
 
 **TypeScript path aliases (`tsconfig.base.json`)**
@@ -137,11 +152,11 @@ No cross-context imports (e.g., trading ↔ portfolio) except via contracts/mess
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@core/*": ["packages/core/*"],
-      "@contracts/*": ["packages/contracts/*"],
-      "@platform/*": ["packages/platform/*"],
-      "@ctx/*": ["packages/contexts/*"],
-      "@ui/*": ["packages/ui/*"]
+      "@core/*": ["packages/core/src/*"],
+      "@contracts/*": ["packages/contracts/src/*"],
+      "@platform/*": ["packages/platform/*/src/*"],
+      "@ctx/*": ["packages/contexts/*/src/*"],
+      "@ui/*": ["packages/ui/src/*"]
     }
   }
 }

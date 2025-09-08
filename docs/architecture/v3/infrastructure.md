@@ -425,7 +425,7 @@ export class EventStore implements OnModuleInit, OnModuleDestroy {
 ### 2. Enhanced Message Bus with golevelup Integration
 
 ```typescript
-// src/infrastructure/messaging/message-bus.service.ts
+// packages/platform/messaging/message-bus.service.ts
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
@@ -575,7 +575,7 @@ export interface PublishOptions {
 ### 3. Enhanced Redis Cache with Redlock
 
 ```typescript
-// src/infrastructure/cache/redis-cache.service.ts
+// packages/platform/cache/redis-cache.service.ts
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as Redis from 'ioredis';
@@ -726,7 +726,7 @@ export class RedisCacheService implements OnModuleInit, OnModuleDestroy {
 ### 4. OpenTelemetry Integration
 
 ```typescript
-// src/infrastructure/monitoring/opentelemetry.service.ts
+// packages/platform/monitoring/opentelemetry.service.ts
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
@@ -787,7 +787,7 @@ export class OpenTelemetryService implements OnModuleInit, OnModuleDestroy {
 ### 5. Health Check Controller
 
 ```typescript
-// src/infrastructure/monitoring/health.controller.ts
+// packages/platform/monitoring/health.controller.ts
 import { Controller, Get } from '@nestjs/common';
 import { HealthCheck, HealthCheckService } from '@nestjs/terminus'; // ✅
 import { EventStore } from '../event-store/event-store.service';

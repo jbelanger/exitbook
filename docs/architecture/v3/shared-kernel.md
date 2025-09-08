@@ -1,161 +1,9 @@
-## Complete folder structure
-
-```
-src/
-├── @core/                                    # SHARED KERNEL
-│   ├── domain/
-│   │   ├── base/
-│   │   │   ├── aggregate-root.base.ts       # EventSourcedAggregate base class
-│   │   │   ├── entity.base.ts               # Entity base class
-│   │   │   ├── value-object.base.ts         # Value object base class
-│   │   │   ├── domain-event.base.ts         # DomainEvent base class
-│   │   │   └── saga.base.ts                 # Saga base class
-│   │   ├── common-types/
-│   │   │   ├── identifiers.ts               # UserId, TransactionId (shared IDs)
-│   │   │   ├── currency.vo.ts               # Currency value object
-│   │   │   ├── money.vo.ts                  # Money value object
-│   │   │   ├── quantity.vo.ts               # Quantity value object
-│   │   │   └── asset-id.vo.ts               # AssetId value object
-│   │   └── common-errors/
-│   │       ├── domain.errors.ts             # Base domain errors
-│   │       └── validation.errors.ts         # Common validation errors
-│   ├── application/
-│   │   ├── interfaces/
-│   │   │   ├── command.interface.ts         # ICommand interface
-│   │   │   ├── query.interface.ts           # IQuery interface
-│   │   │   ├── use-case.interface.ts        # IUseCase interface
-│   │   │   └── event-handler.interface.ts   # IEventHandler interface
-│   │   └── decorators/
-│   │       ├── transactional.decorator.ts   # @Transactional decorator
-│   │       └── retry.decorator.ts           # @Retry decorator
-│   ├── infrastructure/
-│   │   ├── effect/
-│   │   │   ├── runtime.ts                   # Effect runtime configuration
-│   │   │   ├── layers.ts                    # Common Effect layers
-│   │   │   └── services.ts                  # Common Effect services
-│   │   ├── result/
-│   │   │   └── result.ts                    # Result type if not using Effect everywhere
-│   │   └── clock/
-│   │       └── clock.service.ts             # Clock service for testing
-│   └── utils/
-│       ├── bignum.utils.ts                  # BigNumber utilities
-│       ├── date.utils.ts                    # Date utilities
-│       ├── crypto.utils.ts                  # Encryption/hashing utilities
-│       └── validation.utils.ts              # Common validators
-│
-├── contexts/                                 # BOUNDED CONTEXTS
-│   ├── trading/
-│   │   ├── domain/
-│   │   │   ├── aggregates/
-│   │   │   ├── entities/
-│   │   │   ├── value-objects/               # Context-specific VOs only
-│   │   │   ├── events/
-│   │   │   ├── services/
-│   │   │   └── policies/
-│   │   ├── application/
-│   │   ├── infrastructure/
-│   │   └── trading.module.ts
-│   │
-│   ├── portfolio/
-│   │   ├── domain/
-│   │   ├── application/
-│   │   ├── infrastructure/
-│   │   └── portfolio.module.ts
-│   │
-│   ├── taxation/
-│   │   ├── domain/
-│   │   ├── application/
-│   │   ├── infrastructure/
-│   │   └── taxation.module.ts
-│   │
-│   └── reconciliation/
-│       ├── domain/
-│       ├── application/
-│       ├── infrastructure/
-│       └── reconciliation.module.ts
-│
-├── infrastructure/                          # CROSS-CUTTING INFRASTRUCTURE
-│   ├── event-store/
-│   │   ├── event-store.service.ts
-│   │   ├── event-store.repository.ts
-│   │   ├── snapshot-store.service.ts
-│   │   ├── event-bus.service.ts
-│   │   ├── migrations/
-│   │   └── event-store.module.ts
-│   ├── database/
-│   │   ├── postgres/
-│   │   │   ├── postgres.module.ts
-│   │   │   ├── knexfile.ts
-│   │   │   └── migrations/
-│   │   └── redis/
-│   │       ├── redis.module.ts
-│   │       └── redis.config.ts
-│   ├── messaging/
-│   │   ├── kafka/
-│   │   │   ├── kafka.module.ts
-│   │   │   └── kafka.config.ts
-│   │   └── rabbitmq/
-│   │       ├── rabbitmq.module.ts
-│   │       └── rabbitmq.config.ts
-│   ├── monitoring/
-│   │   ├── metrics/
-│   │   │   ├── prometheus.module.ts
-│   │   │   └── metrics.service.ts
-│   │   ├── logging/
-│   │   │   ├── winston.module.ts
-│   │   │   └── logger.service.ts
-│   │   └── tracing/
-│   │       ├── opentelemetry.module.ts
-│   │       └── tracer.service.ts
-│   └── security/
-│       ├── encryption/
-│       │   └── encryption.service.ts
-│       ├── auth/
-│       │   ├── auth.module.ts
-│       │   └── jwt.strategy.ts
-│       └── rate-limiting/
-│           └── rate-limit.module.ts
-│
-├── api/                                     # API LAYER
-│   ├── rest/
-│   │   ├── controllers/
-│   │   │   ├── transaction.controller.ts
-│   │   │   ├── portfolio.controller.ts
-│   │   │   ├── tax.controller.ts
-│   │   │   └── reconciliation.controller.ts
-│   │   ├── dto/
-│   │   │   ├── common/
-│   │   │   └── [context-specific-dtos]/
-│   │   ├── validators/
-│   │   ├── filters/
-│   │   │   ├── exception.filter.ts
-│   │   │   └── validation.filter.ts
-│   │   └── interceptors/
-│   │       ├── logging.interceptor.ts
-│   │       └── transform.interceptor.ts
-│   ├── graphql/
-│   │   ├── resolvers/
-│   │   └── schemas/
-│   └── websocket/
-│       └── gateways/
-│
-├── config/                                  # CONFIGURATION
-│   ├── app.config.ts
-│   ├── database.config.ts
-│   ├── redis.config.ts
-│   ├── effect.config.ts
-│   └── integrations.config.ts
-│
-├── main.ts                                  # Application entry point
-└── app.module.ts                           # Root module
-```
-
 ## Shared Kernel Implementation
 
 ### 1. Base Classes
 
 ```typescript
-// src/@core/domain/base/aggregate-root.base.ts
+// packages/core/domain/base/aggregate-root.base.ts
 import { Data, Option, ReadonlyArray } from 'effect';
 import { DomainEvent } from './domain-event.base';
 
@@ -181,7 +29,7 @@ export abstract class EventSourcedAggregate extends Data.Class<{
 ```
 
 ```typescript
-// src/@core/domain/base/domain-event.base.ts
+// packages/core/domain/base/domain-event.base.ts
 import { Data } from 'effect';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -207,7 +55,7 @@ export abstract class DomainEvent extends Data.Class<{
 ### 2. Common Value Objects
 
 ```typescript
-// src/@core/domain/common-types/identifiers.ts
+// packages/core/domain/common-types/identifiers.ts
 import { Brand } from 'effect';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -232,7 +80,7 @@ export const createIdType = <T extends string>(tag: T) => {
 ```
 
 ```typescript
-// src/@core/domain/common-types/currency.vo.ts
+// packages/core/domain/common-types/currency.vo.ts
 import { Data, Brand } from 'effect';
 
 export type CurrencySymbol = string & Brand.Brand<'CurrencySymbol'>;
@@ -249,7 +97,7 @@ export const Currency = Data.tagged<Currency>('Currency');
 ```
 
 ```typescript
-// src/@core/domain/common-types/money.vo.ts
+// packages/core/domain/common-types/money.vo.ts
 import { Effect, Data, Brand, pipe } from 'effect';
 import BigNumber from 'bignumber.js';
 import { Currency } from './currency.vo';
@@ -361,7 +209,7 @@ export class Money extends Data.Class<{
 ```
 
 ```typescript
-// src/@core/domain/common-types/quantity.vo.ts
+// packages/core/domain/common-types/quantity.vo.ts
 import { Effect, Data } from 'effect';
 import BigNumber from 'bignumber.js';
 
@@ -424,7 +272,7 @@ export class Quantity extends Data.Class<{
 ```
 
 ```typescript
-// src/@core/domain/common-types/asset-id.vo.ts
+// packages/core/domain/common-types/asset-id.vo.ts
 import { Data } from 'effect';
 
 export enum AssetType {
@@ -465,7 +313,7 @@ export class AssetId extends Data.Class<{
 ### 3. Effect Runtime Configuration
 
 ```typescript
-// src/@core/infrastructure/effect/runtime.ts
+// packages/core/effect/runtime.ts
 import { Layer, Runtime, Effect, Context } from 'effect';
 import { Clock } from '../clock/clock.service';
 
@@ -493,7 +341,7 @@ export const createRuntime = <R, E, A>(
 ### 4. Infrastructure Services
 
 ```typescript
-// src/@core/infrastructure/clock/clock.service.ts
+// packages/core/effect/clock.ts
 import { Effect, Context, Layer } from 'effect';
 
 export interface Clock {

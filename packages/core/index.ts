@@ -1,3 +1,3 @@
-export * from "./domain";
-export * from "./effect";
-export * from "./utils";
+export * from "./src/domain";
+export * from "./src/effect";
+export * from "./src/utils";

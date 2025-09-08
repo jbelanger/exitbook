@@ -12,7 +12,7 @@ Transform your cryptocurrency transaction import system from fragile single poin
 ```bash
 # Clone and install
 git clone <your-repo>
-cd ccxt-crypto-tx-import
+cd exitbook
 pnpm install
 
 # Configure environment
@@ -455,7 +455,7 @@ describe('NewProvider', () => {
 ```bash
 # Development environment
 git clone <repo>
-cd ccxt-crypto-tx-import
+cd exitbook
 pnpm install
 cp .env.example .env.development
 

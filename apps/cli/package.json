@@ -5,5 +5,9 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.5",
+    "@internal/tsconfig": "workspace:*"
   }
 }

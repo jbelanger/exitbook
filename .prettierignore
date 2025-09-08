@@ -1,12 +1,21 @@
-node_modules/
+# build & cache
 dist/
-build/
 coverage/
-*.log
-.env
-.env.*
+node_modules/
+.turbo/
+.next/
+.out/
+build/
+apps/**/dist/
+packages/**/dist/
+
+# generated & locks
 pnpm-lock.yaml
-*.db
-*.db-*
-data/
-logs/
+yarn.lock
+*.snap
+*.d.ts
+**/*.generated.*
+**/__generated__/**
+
+# misc
+.DS_Store
