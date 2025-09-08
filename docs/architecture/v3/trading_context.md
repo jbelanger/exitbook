@@ -3,7 +3,7 @@
 ### 1. Core Domain Layer (Effect-TS)
 
 ```typescript
-// src/contexts/trading/domain/value-objects/identifiers.vo.ts
+// packages/contexts/trading/src/core/value-objects/identifiers.vo.ts
 import { Brand } from 'effect';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -21,7 +21,7 @@ export const ExternalId = Brand.nominal<ExternalId>();
 ### 2. Domain Events
 
 ```typescript
-// src/contexts/trading/domain/events/transaction.events.ts
+// packages/contexts/trading/src/core/events/transaction.events.ts
 import { DomainEvent } from '../../../../@core/domain/base/domain-event.base';
 import {
   TransactionId,
@@ -120,7 +120,7 @@ export class TransactionReversed extends DomainEvent {
 ### 3. Domain Services and Policies
 
 ```typescript
-// src/contexts/trading/domain/services/ledger-rules.service.ts
+// packages/contexts/trading/src/core/services/ledger-rules.service.ts
 import { Effect, ReadonlyArray, pipe } from 'effect';
 import {
   Money,
@@ -241,7 +241,7 @@ export class LedgerRules {
 ```
 
 ```typescript
-// src/contexts/trading/domain/services/transaction-classifier.service.ts
+// packages/contexts/trading/src/core/services/transaction-classifier.service.ts
 import { Effect, Context, Layer } from 'effect';
 import { Data } from 'effect';
 
@@ -315,7 +315,7 @@ export const RuleBasedTransactionClassifierLayer = (
 ### 4. Domain Aggregate (Transaction)
 
 ```typescript
-// src/contexts/trading/domain/aggregates/transaction.aggregate.ts
+// packages/contexts/trading/src/core/aggregates/transaction.aggregate.ts
 import { Effect, pipe, ReadonlyArray, Option } from 'effect';
 import { Data } from 'effect';
 import { EventSourcedAggregate } from '../../../../@core/domain/base/aggregate-root.base';
@@ -623,7 +623,7 @@ export class Transaction extends EventSourcedAggregate {
 ### 5. Application Layer (Command Handlers)
 
 ```typescript
-// src/contexts/trading/application/commands/import-transaction.handler.ts
+// packages/contexts/trading/src/app/commands/import-transaction.handler.ts
 import { Injectable } from '@nestjs/common';
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { Effect, pipe, Exit, Option, Data } from 'effect';
@@ -714,7 +714,7 @@ export class ImportTransactionHandler
 ```
 
 ```typescript
-// src/contexts/trading/application/commands/record-entries.handler.ts
+// packages/contexts/trading/src/app/commands/record-entries.handler.ts
 import { Injectable } from '@nestjs/common';
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { Effect, pipe, Exit, Data } from 'effect';
@@ -821,7 +821,7 @@ export class RecordEntriesHandler
 ```
 
 ```typescript
-// src/contexts/trading/application/commands/classify-transaction.handler.ts
+// packages/contexts/trading/src/app/commands/classify-transaction.handler.ts
 import { Injectable } from '@nestjs/common';
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { Effect, pipe, Exit, Data } from 'effect';
@@ -904,7 +904,7 @@ export class ClassifyTransactionHandler
 ### 6. Infrastructure Layer
 
 ```typescript
-// src/contexts/trading/infrastructure/repositories/transaction.repository.ts
+// packages/contexts/trading/src/adapters/repositories/transaction.repository.ts
 import { Injectable } from '@nestjs/common';
 import { EventStore } from '../../../../infrastructure/event-store/event-store.service';
 import {
@@ -1019,7 +1019,7 @@ export class TransactionRepository {
 ### 7. NestJS Module Configuration
 
 ```typescript
-// src/contexts/trading/trading.module.ts
+// packages/contexts/trading/src/trading.module.ts
 import { Module } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
 import { ImportTransactionHandler } from './application/commands/import-transaction.handler';
@@ -1079,7 +1079,7 @@ export class TradingModule {}
 ### 8. Domain Error Exception Filter
 
 ```typescript
-// src/contexts/trading/api/filters/domain-error.filter.ts
+// packages/contexts/trading/src/api/filters/domain-error.filter.ts
 import {
   ExceptionFilter,
   Catch,
@@ -1233,7 +1233,7 @@ export class DomainErrorFilter implements ExceptionFilter {
 ### 9. API Controller
 
 ```typescript
-// src/contexts/trading/api/transaction.controller.ts
+// packages/contexts/trading/src/api/transaction.controller.ts
 import { Controller, Post, Body, Param, UseGuards } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';

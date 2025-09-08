@@ -10,7 +10,11 @@ functional core.
 Adopt a **context-first monorepo** that separates _deployables_ (`apps/*`) from
 _reusable libraries_ (`packages/*`), with strict boundaries that keep the
 **NestJS shell replaceable** and the **Effect-TS core pure and
-framework-agnostic**.
+framework-agnostic**. NestJS modules are owned by their **contexts** under
+`packages/contexts/*/nest`. Each context also exposes **Effect composition**
+under `packages/contexts/*/compose` (e.g., `default.ts`, `test.ts`). The API
+imports Nest modules from contexts; the CLI imports composition layers (or the
+same Nest modules if it boots with Nest).
 
 ### Repository layout
 
@@ -20,12 +24,10 @@ framework-agnostic**.
 │  ├─ api/                                 # NestJS shell (HTTP)
 │  │  ├─ src/
 │  │  │  ├─ shell/                         # controllers/dto/filters/interceptors/guards
-│  │  │  ├─ modules/                       # Nest modules bridging to Effect layers
-│  │  │  ├─ boot/                          # composition root: Effect Layers + Providers
 │  │  │  └─ main.ts
 │  │  └─ test/                             # e2e/integration tests (supertest, testcontainers)
 │  ├─ workers/                             # outbox dispatcher, schedulers, consumers
-│  ├─ cli/                                 # admin/maintenance CLI wired to app effects
+│  ├─ cli/                                 # admin/maintenance CLI (plain Effect or Nest-Commander)
 │  └─ web/                                 # Remix/Next frontend (app/src, tests)
 │
 ├─ packages/                               # Reusable libraries (versioned)
@@ -38,10 +40,18 @@ framework-agnostic**.
 │  │  │  ├─ core/                          #   pure: VOs, events, aggregates, policies/services
 │  │  │  ├─ ports/                         #   Effect Tags (interfaces) needed by core/app
 │  │  │  ├─ adapters/                      #   impure impls: repositories, http, mq, projections
-│  │  │  └─ app/                           #   thin orchestration (commands/queries/sagas as Effects)
+│  │  │  ├─ app/                           #   thin orchestration (commands/queries/sagas as Effects)
+│  │  │  ├─ compose/
+│  │  │  │  ├─ default.ts                  #   prod runtime layers
+│  │  │  │  └─ test.ts                     #   in-memory/fake layers
+│  │  │  └─ nest/
+│  │  │     └─ trading.module.ts           #   DynamicModule factory
 │  │  ├─ portfolio/
+│  │  │  └─ ...same...
 │  │  ├─ taxation/
+│  │  │  └─ ...same...
 │  │  └─ reconciliation/
+│  │     └─ ...same...
 │  ├─ platform/                            # cross-cutting infra (impure, reusable)
 │  │  ├─ event-store/                      # ES + snapshots + outbox + idempotency
 │  │  ├─ database/                         # knex/prisma, connection mgmt, migrations
@@ -85,14 +95,15 @@ framework-agnostic**.
 ### Golden import rules (enforced)
 
 ```
-apps/*               → can import packages/*
+apps/api|workers (Nest) → packages/contexts/*/{nest,ports,core}
+apps/cli (plain Effect) → packages/contexts/*/{compose,ports,core,app}
 apps/web             → may import packages/{contracts,api-client,ui,core/utils}; never server-only
-apps/api|workers|cli → may import packages/contexts/*/{app,ports,core} and packages/platform/*
 packages/contexts/*  →
   core    (pure)     → may import packages/core only
   app     (effects)  → may import its own ports + core; no direct DB/HTTP
-  adapters(impure)   → may import packages/platform/*; implements ports
-packages/platform/*  → must not import from contexts/*
+  adapters(impure)   → may import packages/platform/*; implements ports (❌ never imported by apps)
+  compose            → wiring only (no I/O code beyond adapters it merges)
+packages/platform/*  → never import from contexts/*
 packages/contracts   → universal; no imports from contexts or platform
 packages/ui          → browser-safe; no server imports
 No cross-context imports (e.g., trading ↔ portfolio) except via contracts/messages.
@@ -118,24 +129,30 @@ No cross-context imports (e.g., trading ↔ portfolio) except via contracts/mess
   preference).
 - Runtime: Node 20+, TypeScript strict mode.
 - Observability: OpenTelemetry compatible; health endpoints exposed by shell.
+- **Live implementations**: `*.live.ts` files are **adapters** (real
+  implementations) living under `adapters/`. The `compose/default.ts` merely
+  **assembles** layers; it is not itself an adapter.
 
 ## Detailed responsibilities
 
-| Area                           | Contains                                                                        | May depend on                            | Must not depend on                  |
-| ------------------------------ | ------------------------------------------------------------------------------- | ---------------------------------------- | ----------------------------------- |
-| `apps/api` (NestJS)            | Controllers, DTOs, filters, pipes, guards, **Nest modules**, composition root   | packages/contexts/_, packages/platform/_ | other apps, internal web code       |
-| `apps/workers`, `apps/cli`     | Processes using same app effects (outbox, schedulers, admin CLI)                | contexts/\* app+ports, platform/\*       | web/ui                              |
-| `apps/web`                     | Routes, components, hooks; consumes generated client + contracts                | contracts/, api-client/, ui/, core/utils | platform, contexts adapters, server |
-| `packages/contexts/*/core`     | VOs, Events, Aggregates, policies/services (pure)                               | core/                                    | platform, shell, Node APIs          |
-| `packages/contexts/*/ports`    | Effect Tags/interfaces (Repository, MessageBus, PriceFeed…)                     | core/ types                              | platform implementations            |
-| `packages/contexts/*/adapters` | Repositories (EventStore/DB), integrations (HTTP/MQ), projections (read models) | platform/\*, core/, ports/               | other contexts                      |
-| `packages/contexts/*/app`      | Commands/Queries/Sagas as Effect programs (thin orchestration)                  | core/, ports/                            | platform directly                   |
-| `packages/platform/*`          | Event Store, DB, Cache, Messaging, Monitoring, Security                         | core/utils                               | contexts/\*                         |
-| `packages/contracts`           | Zod/OpenAPI schemas and inferred TS types; message payloads                     | —                                        | contexts, platform                  |
-| `packages/api-client`          | Generated client from OpenAPI for FE/CLI consumption                            | contracts/api                            | platform, contexts                  |
-| `packages/ui`                  | Design system (tokens + components); browser-only                               | —                                        | Node-only modules                   |
-| `infra/*`                      | Docker, K8s, Terraform, migrations, scripts                                     | n/a                                      | n/a                                 |
-| `docs/*`                       | ADRs, domain maps, architecture, runbooks, OpenAPI                              | n/a                                      | n/a                                 |
+| Area                           | Contains                                                                                                           | May depend on                                           | Must not depend on                  |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------- | ----------------------------------- |
+| `apps/api` (NestJS)            | **Contains controllers/filters/guards only**; imports **context Nest modules** from `packages/contexts/*/nest`     | packages/contexts/_/nest, packages/platform/_           | other apps, internal web code       |
+| `apps/cli`                     | **Effect or Nest** shell; imports `compose/default` (Effect) or the same context **Nest modules** (Nest-Commander) | packages/contexts/_/{compose,nest}, packages/platform/_ | web/ui                              |
+| `apps/workers`                 | Processes using same app effects (outbox, schedulers)                                                              | contexts/\* nest+ports, platform/\*                     | web/ui                              |
+| `apps/web`                     | Routes, components, hooks; consumes generated client + contracts                                                   | contracts/, api-client/, ui/, core/utils                | platform, contexts adapters, server |
+| `packages/contexts/*/core`     | VOs, Events, Aggregates, policies/services (pure)                                                                  | core/                                                   | platform, shell, Node APIs          |
+| `packages/contexts/*/ports`    | Effect Tags/interfaces (Repository, MessageBus, PriceFeed…)                                                        | core/ types                                             | platform implementations            |
+| `packages/contexts/*/adapters` | Repositories (EventStore/DB), integrations (HTTP/MQ), projections (read models)                                    | platform/\*, core/, ports/                              | other contexts                      |
+| `packages/contexts/*/app`      | Commands/Queries/Sagas as Effect programs (thin orchestration)                                                     | core/, ports/                                           | platform directly                   |
+| `packages/contexts/*/nest`     | **DynamicModule** factories that bind **ports** to **adapters** (via `compose/default`)                            | core/, ports/, compose/                                 | other contexts                      |
+| `packages/contexts/*/compose`  | **default** (prod-ish) and **test** (in-memory/fakes) runtime layers                                               | adapters/, ports/, core/                                | other contexts                      |
+| `packages/platform/*`          | Event Store, DB, Cache, Messaging, Monitoring, Security                                                            | core/utils                                              | contexts/\*                         |
+| `packages/contracts`           | Zod/OpenAPI schemas and inferred TS types; message payloads                                                        | —                                                       | contexts, platform                  |
+| `packages/api-client`          | Generated client from OpenAPI for FE/CLI consumption                                                               | contracts/api                                           | platform, contexts                  |
+| `packages/ui`                  | Design system (tokens + components); browser-only                                                                  | —                                                       | Node-only modules                   |
+| `infra/*`                      | Docker, K8s, Terraform, migrations, scripts                                                                        | n/a                                                     | n/a                                 |
+| `docs/*`                       | ADRs, domain maps, architecture, runbooks, OpenAPI                                                                 | n/a                                                     | n/a                                 |
 
 ## TypeScript Configuration
 
@@ -175,7 +192,7 @@ This enables:
 }
 ```
 
-**ESLint “boundaries” (example snippet)**
+**ESLint "boundaries" (example snippet)**
 
 ```js
 // .eslintrc.cjs
@@ -208,8 +225,36 @@ module.exports = {
         ],
       },
     ],
+    'no-restricted-imports': [
+      2,
+      {
+        patterns: [
+          {
+            group: ['packages/contexts/*/adapters/*'],
+            message:
+              'Direct adapter imports forbidden. Use nest/* or compose/* instead.',
+          },
+        ],
+      },
+    ],
   },
 };
+```
+
+**Package.json exports guidance**
+
+In each `packages/contexts/<ctx>/package.json`, **do not export `adapters/*`**.
+Export only `core/*`, `ports/*`, `compose/*`, and `nest/*`:
+
+```json
+{
+  "exports": {
+    "./core/*": "./src/core/*",
+    "./ports/*": "./src/ports/*",
+    "./compose/*": "./src/compose/*",
+    "./nest/*": "./src/nest/*"
+  }
+}
 ```
 
 **Build graph (Turbo)**
@@ -236,6 +281,36 @@ module.exports = {
   `@api-client` for calls.
 - **Benefit**: Backward-compatible changes are easy to detect; FE breakage shows
   up in typechecks.
+
+## Cross-Context Communication
+
+Direct imports between contexts (e.g., `trading` importing from `portfolio`) are
+strictly forbidden. Communication must occur through well-defined, decoupled
+contracts:
+
+1.  **Asynchronous (Preferred):** One context publishes a domain event
+    (`TransactionCompleted`), and another context subscribes to it via the
+    message bus (`platform/messaging`). This is the default pattern for
+    inter-context workflows.
+2.  **Synchronous (Use Sparingly):** One context exposes a query handler
+    (`GetPortfolioValuationQuery`) that another context's _adapter_ can call.
+    This should be reserved for read-only data fetching where eventual
+    consistency is not acceptable. The dependency is still on the query
+    contract, not the internal implementation.
+
+## Configuration Management
+
+Configuration is managed as an `Effect.Layer` to ensure the functional core
+remains pure.
+
+- **Source:** Environment variables (`.env` for local, secrets management for
+  prod) are the source of truth.
+- **Loading:** The `apps/api/src/boot/` directory is responsible for reading
+  these variables and creating a `Config.Layer<PlatformConfig>`.
+- **Consumption:** Services within `packages/platform` and
+  `packages/contexts/adapters` can access configuration via the `Config` service
+  provided by this layer. The pure `core` of a context should not be
+  configuration-aware.
 
 ## Testing Strategy
 
@@ -290,11 +365,11 @@ module.exports = {
 ## Diagram (dependency flow)
 
 ```
-apps/*  ─────▶  packages/contexts/*/{app,ports,core}
-   │                     │
-   │                     ├────▶ packages/platform/*
-   │                     │
-   ├────▶ packages/contracts ───▶ apps/web + api-client
+apps/* ─────▶ packages/contexts/*/{nest|compose, ports, core}
+   │                    │
+   │                    ├────▶ packages/platform/*
+   │
+   ├────▶ packages/contracts ─▶ apps/web + api-client
    └────▶ packages/ui (web only)
 
 contexts/*/core ──▶ packages/core (shared kernel)
@@ -303,7 +378,13 @@ platform/*       ──X (no imports from contexts)
 
 ## Migration Notes
 
-- Move all Nest-specific code under `apps/api/src/shell` & `modules`.
+- Move **existing feature modules** from `apps/api/src/modules/*` →
+  `packages/contexts/*/nest/*.module.ts`.
+- Create **`packages/contexts/*/compose/default.ts`** (real adapters) and
+  **`compose/test.ts`** (in-memory/fakes).
+- API imports `@ctx/<ctx>/nest/<ctx>.module`.
+- CLI (plain Effect) imports `@ctx/<ctx>/compose/default` (tests import
+  `compose/test`).
 - Extract domain logic into `packages/contexts/*/core`; define **ports** for
   I/O.
 - Implement **adapters** over `packages/platform/*` (EventStore/DB/MQ/Cache).
@@ -315,6 +396,8 @@ platform/*       ──X (no imports from contexts)
 - Which message bus (RabbitMQ vs Kafka) becomes standard in
   `platform/messaging`?
 - Do we enforce ADR review before adding new cross-cutting packages?
+- Formalize the default cross-context communication pattern. Is event-driven
+  communication via `platform/messaging` the mandated default?
 
 ## How to Teach This
 
@@ -339,3 +422,24 @@ platform/*       ──X (no imports from contexts)
 3. App orchestrates; Adapters integrate.
 4. Platform is shared infra; never depends on contexts.
 5. Contracts are the FE/BE handshake.
+
+**Appendix C — Example imports after edits**
+
+**API**:
+
+```ts
+// apps/api/src/app.module.ts
+import { TradingModule } from '@ctx/trading/nest/trading.module';
+import { PortfolioModule } from '@ctx/portfolio/nest/portfolio.module';
+// ...
+```
+
+**CLI (plain Effect)**:
+
+```ts
+// apps/cli/src/main.ts
+import { TradingRuntimeDefault } from '@ctx/trading/compose/default';
+await Effect.runPromise(
+  program.pipe(Effect.provideLayer(TradingRuntimeDefault)),
+);
+```

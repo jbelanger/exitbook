@@ -3,7 +3,7 @@
 ### 1. Core Domain Value Objects
 
 ```typescript
-// src/contexts/taxation/domain/value-objects/tax-lot.vo.ts
+// packages/contexts/taxation/src/core/value-objects/tax-lot.vo.ts
 import { Data, Effect, Brand, Option, pipe } from 'effect';
 import { v4 as uuidv4 } from 'uuid';
 import { Quantity } from '../../../../@core/domain/common-types/quantity.vo';
@@ -297,7 +297,7 @@ export class TaxableTransaction extends Data.Class<{
 ### 2. Tax Lot Aggregate
 
 ```typescript
-// src/contexts/taxation/domain/aggregates/tax-lot.aggregate.ts
+// packages/contexts/taxation/src/core/aggregates/tax-lot.aggregate.ts
 import { Effect, pipe, Option, ReadonlyArray } from 'effect';
 import { Data } from 'effect';
 import { EventSourcedAggregate } from '../../../../@core/domain/base/aggregate-root.base';
@@ -756,7 +756,7 @@ export class TaxLot extends EventSourcedAggregate {
 ### 3. Tax Report Aggregate
 
 ```typescript
-// src/contexts/taxation/domain/aggregates/tax-report.aggregate.ts
+// packages/contexts/taxation/src/core/aggregates/tax-report.aggregate.ts
 import { Effect, pipe, Option, ReadonlyArray } from 'effect';
 import { Data } from 'effect';
 import { EventSourcedAggregate } from '../../../../@core/domain/base/aggregate-root.base';
@@ -1218,7 +1218,7 @@ class Form8949Data extends Data.Class<{
 ### 4. Domain Services
 
 ```typescript
-// src/contexts/taxation/domain/services/tax-lot-selector.service.ts
+// packages/contexts/taxation/src/core/services/tax-lot-selector.service.ts
 import { Effect, pipe, ReadonlyArray, Option } from 'effect';
 import { Context, Layer } from 'effect';
 import { TaxLot } from '../aggregates/tax-lot.aggregate';
@@ -1391,7 +1391,7 @@ export const createTaxLotSelector = (
 ```
 
 ```typescript
-// src/contexts/taxation/domain/services/wash-sale-detector.service.ts
+// packages/contexts/taxation/src/core/services/wash-sale-detector.service.ts
 import { Effect, pipe, ReadonlyArray, Option } from 'effect';
 import { Data } from 'effect';
 import { AssetId } from '../../../../@core/domain/common-types/asset-id.vo';
@@ -1578,7 +1578,7 @@ export class WashSaleDetector {
 ### 5. Application Layer
 
 ```typescript
-// src/contexts/taxation/application/commands/create-tax-lot.handler.ts
+// packages/contexts/taxation/src/application/commands/create-tax-lot.handler.ts
 import {
   Injectable,
   BadRequestException,
@@ -1619,7 +1619,7 @@ export class CreateTaxLotHandler
 ```
 
 ```typescript
-// src/contexts/taxation/application/commands/generate-tax-report.handler.ts
+// packages/contexts/taxation/src/application/commands/generate-tax-report.handler.ts
 import {
   Injectable,
   BadRequestException,
@@ -1704,7 +1704,7 @@ export class GenerateTaxReportHandler
 ```
 
 ```typescript
-// src/contexts/taxation/application/commands/adjust-cost-basis.handler.ts
+// packages/contexts/taxation/src/application/commands/adjust-cost-basis.handler.ts
 import {
   Injectable,
   BadRequestException,
@@ -1782,7 +1782,7 @@ export class AdjustCostBasisHandler
 ### 6. Tax Calculation Saga
 
 ```typescript
-// src/contexts/taxation/application/sagas/tax-calculation.saga.ts
+// packages/contexts/taxation/src/application/sagas/tax-calculation.saga.ts
 import { Injectable } from '@nestjs/common';
 import { Effect, pipe, ReadonlyArray } from 'effect';
 import { TaxReportRepository } from '../../infrastructure/repositories/tax-report.repository';
@@ -2008,7 +2008,7 @@ export class TaxReportCalculationService {
 ## Jurisdiction-Specific Tax Policies
 
 ```typescript
-// src/contexts/taxation/domain/services/jurisdiction-tax-policy.service.ts
+// packages/contexts/taxation/src/core/services/jurisdiction-tax-policy.service.ts
 import { Effect, Context, Layer } from 'effect';
 
 // Generic tax policy interface
@@ -2397,7 +2397,7 @@ export const CanadianTaxPolicyLayer = Layer.succeed(
 ### 7. Module Configuration
 
 ```typescript
-// src/contexts/taxation/taxation.module.ts
+// packages/contexts/taxation/src/taxation.module.ts
 import { Module } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
 import { CreateTaxLotHandler } from './application/commands/create-tax-lot.handler';
@@ -2442,7 +2442,7 @@ export class TaxationModule {}
 ### 8. API Controller
 
 `````typescript
-// src/contexts/taxation/api/tax.controller.ts
+// packages/contexts/taxation/src/api/tax.controller.ts
 import { Controller, Post, Get, Body, Param, Query, Res } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
@@ -2483,7 +2483,7 @@ export class TaxController {
   ### 8. API Controller (continued)
 
 ````typescript
-// src/contexts/taxation/api/tax.controller.ts (continued)
+// packages/contexts/taxation/src/api/tax.controller.ts (continued)
   async getTaxReport(
     @Param('year') year: string,
     @Query('format') format: string = 'json',
@@ -2608,7 +2608,7 @@ export class TaxController {
 ### 9. Domain Error Filter
 
 ```typescript
-// src/contexts/taxation/api/filters/domain-error.filter.ts
+// packages/contexts/taxation/src/api/filters/domain-error.filter.ts
 import {
   ExceptionFilter,
   Catch,
@@ -2731,7 +2731,7 @@ export class DomainErrorFilter implements ExceptionFilter {
 ### 10. Infrastructure Repositories
 
 ```typescript
-// src/contexts/taxation/infrastructure/repositories/tax-lot.repository.ts
+// packages/contexts/taxation/src/infrastructure/repositories/tax-lot.repository.ts
 import { Injectable } from '@nestjs/common';
 import { EventStore } from '../../../../infrastructure/event-store/event-store.service';
 import {
@@ -2910,7 +2910,7 @@ export class TaxReportRepository {
 ### 10. Projection Handlers
 
 ```typescript
-// src/contexts/taxation/infrastructure/projections/tax-lot.projection.ts
+// packages/contexts/taxation/src/infrastructure/projections/tax-lot.projection.ts
 import { EventsHandler, IEventHandler } from '@nestjs/cqrs';
 import { InjectConnection } from 'nest-knexjs';
 import { Knex } from 'knex';
@@ -3043,7 +3043,7 @@ export class TaxLotAdjustedHandler implements IEventHandler<TaxLotAdjusted> {
 ### 11. Database Migrations
 
 ```typescript
-// src/contexts/taxation/infrastructure/migrations/001_create_tax_tables.ts
+// packages/contexts/taxation/src/infrastructure/migrations/001_create_tax_tables.ts
 import { Knex } from 'knex';
 
 export async function up(knex: Knex): Promise<void> {
@@ -3161,7 +3161,7 @@ export async function down(knex: Knex): Promise<void> {
 ### 12. Query Handlers
 
 ```typescript
-// src/contexts/taxation/application/queries/get-tax-report.query.ts
+// packages/contexts/taxation/src/application/queries/get-tax-report.query.ts
 import { IQueryHandler, QueryHandler } from '@nestjs/cqrs';
 import { InjectConnection } from 'nest-knexjs';
 import { Knex } from 'knex';

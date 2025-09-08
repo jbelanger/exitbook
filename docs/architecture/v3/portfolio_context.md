@@ -3,7 +3,7 @@
 ### 1. Core Domain Value Objects
 
 ```typescript
-// src/contexts/portfolio/domain/value-objects/position.vo.ts
+// packages/contexts/portfolio/src/core/value-objects/position.vo.ts
 import { Data, Effect, Brand, Option, pipe } from 'effect';
 import { Quantity } from '../../../../@core/domain/common-types/quantity.vo';
 import { Money } from '../../../../@core/domain/common-types/money.vo';
@@ -173,7 +173,7 @@ export class AssetAllocation extends Data.Class<{
 ### 2. Position Aggregate
 
 ```typescript
-// src/contexts/portfolio/domain/aggregates/position.aggregate.ts
+// packages/contexts/portfolio/src/core/aggregates/position.aggregate.ts
 import { Effect, pipe, Option, ReadonlyArray } from 'effect';
 import { Data } from 'effect';
 import { EventSourcedAggregate } from '../../../../@core/domain/base/aggregate-root.base';
@@ -640,7 +640,7 @@ export class Position extends EventSourcedAggregate {
 ### 3. Portfolio Aggregate
 
 ```typescript
-// src/contexts/portfolio/domain/aggregates/portfolio.aggregate.ts
+// packages/contexts/portfolio/src/core/aggregates/portfolio.aggregate.ts
 import { Effect, pipe, Option, ReadonlyArray, ReadonlyRecord } from 'effect';
 import { Data } from 'effect';
 import { EventSourcedAggregate } from '../../../../@core/domain/base/aggregate-root.base';
@@ -1025,7 +1025,7 @@ export class Portfolio extends EventSourcedAggregate {
 ### 4. Domain Services
 
 ```typescript
-// src/contexts/portfolio/domain/services/valuation.service.ts
+// packages/contexts/portfolio/src/core/services/valuation.service.ts
 import { Effect, Context, Layer, pipe } from 'effect';
 import {
   Money,
@@ -1191,7 +1191,7 @@ export class PerformanceCalculator {
 ### 5. Application Layer
 
 ```typescript
-// src/contexts/portfolio/application/commands/open-position.handler.ts
+// packages/contexts/portfolio/src/application/commands/open-position.handler.ts
 import { Injectable } from '@nestjs/common';
 import { CommandHandler, ICommandHandler, EventBus } from '@nestjs/cqrs';
 import { Effect, pipe, Exit, Data } from 'effect';
@@ -1293,7 +1293,7 @@ export class OpenPositionHandler
 ```
 
 ```typescript
-// src/contexts/portfolio/application/commands/calculate-valuation.handler.ts
+// packages/contexts/portfolio/src/application/commands/calculate-valuation.handler.ts
 import { Injectable } from '@nestjs/common';
 import { CommandHandler, ICommandHandler, EventBus } from '@nestjs/cqrs';
 import { Effect, pipe, Exit, Data } from 'effect';
@@ -1427,7 +1427,7 @@ export class CalculateValuationHandler
 ### 6. Infrastructure Layer
 
 ```typescript
-// src/contexts/portfolio/infrastructure/repositories/position.repository.ts
+// packages/contexts/portfolio/src/infrastructure/repositories/position.repository.ts
 import { Injectable } from '@nestjs/common';
 import { EventStore } from '../../../../infrastructure/event-store/event-store.service';
 import {
@@ -1544,7 +1544,7 @@ export class PositionRepository {
 ```
 
 ```typescript
-// src/contexts/portfolio/infrastructure/integrations/price-provider.implementation.ts
+// packages/contexts/portfolio/src/infrastructure/integrations/price-provider.implementation.ts
 import { Injectable } from '@nestjs/common';
 import { Effect, pipe } from 'effect';
 import {
@@ -1633,7 +1633,7 @@ export class CoinGeckoPriceProvider implements PriceProvider {
 ### 7. Module Configuration
 
 ```typescript
-// src/contexts/portfolio/portfolio.module.ts
+// packages/contexts/portfolio/src/portfolio.module.ts
 import { Module } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
 import { OpenPositionHandler } from './application/commands/open-position.handler';
@@ -1676,7 +1676,7 @@ export class PortfolioModule {}
 ### 8. API Controller
 
 ```typescript
-// src/contexts/portfolio/api/portfolio.controller.ts
+// packages/contexts/portfolio/src/api/portfolio.controller.ts
 import { Controller, Post, Get, Body, Param, UseGuards } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';

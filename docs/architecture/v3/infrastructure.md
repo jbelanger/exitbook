@@ -1419,7 +1419,7 @@ export class AppModule {}
 ### 12. Example Consumer with DLQ Configuration
 
 ```typescript
-// src/contexts/trading/application/event-handlers/transaction-imported.handler.ts
+// packages/contexts/trading/src/application/event-handlers/transaction-imported.handler.ts
 import { Injectable } from '@nestjs/common';
 import { RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
 import { TransactionImported } from '../../domain/events/transaction.events';

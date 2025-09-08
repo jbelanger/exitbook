@@ -9,7 +9,7 @@ export interface Clock {
 export const Clock = Context.GenericTag<Clock>('Clock');
 
 export class SystemClock implements Clock {
-  private testTime?: Date;
+  private testTime: Date | undefined;
 
   now(): Date {
     return this.testTime || new Date();
@@ -20,7 +20,7 @@ export class SystemClock implements Clock {
   }
 
   clearTestTime(): void {
-    delete (this as unknown).testTime;
+    this.testTime = undefined;
   }
 }
 

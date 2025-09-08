@@ -3,7 +3,7 @@
 ### 1. Core Domain Value Objects
 
 ```typescript
-// src/contexts/reconciliation/domain/value-objects/reconciliation.vo.ts
+// packages/contexts/reconciliation/src/core/value-objects/reconciliation.vo.ts
 import { Data, Effect, Brand, Option, pipe } from 'effect';
 import { Money } from '../../../../@core/domain/common-types/money.vo';
 import { AssetId } from '../../../../@core/domain/common-types/asset-id.vo';
@@ -413,7 +413,7 @@ export class Evidence extends Data.Class<{
 ### 2. Reconciliation Aggregate
 
 ```typescript
-// src/contexts/reconciliation/domain/aggregates/reconciliation.aggregate.ts
+// packages/contexts/reconciliation/src/core/aggregates/reconciliation.aggregate.ts
 import { Effect, pipe, Option, ReadonlyArray } from 'effect';
 import { Data } from 'effect';
 import { EventSourcedAggregate } from '../../../../@core/domain/base/aggregate-root.base';
@@ -941,7 +941,7 @@ export class Reconciliation extends EventSourcedAggregate {
 ### 3. Correction Aggregate
 
 ```typescript
-// src/contexts/reconciliation/domain/aggregates/correction.aggregate.ts
+// packages/contexts/reconciliation/src/core/aggregates/correction.aggregate.ts
 import { Effect, pipe, Option, ReadonlyArray } from 'effect';
 import { Data } from 'effect';
 import { EventSourcedAggregate } from '../../../../@core/domain/base/aggregate-root.base';
@@ -1392,7 +1392,7 @@ export class Correction extends EventSourcedAggregate {
 ### 4. Domain Services
 
 ```typescript
-// src/contexts/reconciliation/domain/services/discrepancy-analyzer.service.ts
+// packages/contexts/reconciliation/src/core/services/discrepancy-analyzer.service.ts
 import { Effect, pipe, ReadonlyArray } from 'effect';
 import { Context, Layer } from 'effect';
 import {
@@ -1530,7 +1530,7 @@ export const StandardDiscrepancyAnalyzerLayer = Layer.succeed(
 ```
 
 ```typescript
-// src/contexts/reconciliation/domain/services/balance-fetcher.service.ts
+// packages/contexts/reconciliation/src/core/services/balance-fetcher.service.ts
 import { Effect, pipe, ReadonlyArray } from 'effect';
 import { Context, Layer } from 'effect';
 import {
@@ -1636,7 +1636,7 @@ interface SourceSpecificFetcher {
 ### 5. Application Layer
 
 ```typescript
-// src/contexts/reconciliation/application/commands/initiate-reconciliation.handler.ts
+// packages/contexts/reconciliation/src/application/commands/initiate-reconciliation.handler.ts
 import { Injectable } from '@nestjs/common';
 import { CommandHandler, ICommandHandler, EventBus } from '@nestjs/cqrs';
 import { Effect, pipe, Exit, Data } from 'effect';
@@ -1744,7 +1744,7 @@ export class InitiateReconciliationHandler
 ```
 
 ```typescript
-// src/contexts/reconciliation/application/sagas/reconciliation.saga.ts
+// packages/contexts/reconciliation/src/application/sagas/reconciliation.saga.ts
 import { Injectable } from '@nestjs/common';
 import { Effect, pipe, ReadonlyArray } from 'effect';
 import { ReconciliationRepository } from '../../infrastructure/repositories/reconciliation.repository';
@@ -1903,7 +1903,7 @@ export class ReconciliationSaga {
 ### 6. Infrastructure Layer
 
 ```typescript
-// src/contexts/reconciliation/infrastructure/repositories/reconciliation.repository.ts
+// packages/contexts/reconciliation/src/infrastructure/repositories/reconciliation.repository.ts
 import { Injectable } from '@nestjs/common';
 import { EventStore } from '../../../../infrastructure/event-store/event-store.service';
 import {
@@ -2024,7 +2024,7 @@ export class ReconciliationRepository {
 ### 7. Module Configuration
 
 ```typescript
-// src/contexts/reconciliation/reconciliation.module.ts
+// packages/contexts/reconciliation/src/reconciliation.module.ts
 import { Module } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
 import { InitiateReconciliationHandler } from './application/commands/initiate-reconciliation.handler';
@@ -2100,7 +2100,7 @@ export class ReconciliationModule {}
 ### 8. API Controller
 
 `````typescript
-// src/contexts/reconciliation/api/reconciliation.controller.ts
+// packages/contexts/reconciliation/src/api/reconciliation.controller.ts
 import { Controller, Post, Get, Put, Body, Param, Query } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
@@ -2127,7 +2127,7 @@ export class ReconciliationController {
   ### 8. API Controller (continued)
 
 ````typescript
-// src/contexts/reconciliation/api/reconciliation.controller.ts (continued)
+// packages/contexts/reconciliation/src/api/reconciliation.controller.ts (continued)
   @Post('initiate')
   @ApiOperation({ summary: 'Initiate a new reconciliation session' })
   async initiateReconciliation(@Body() dto: InitiateReconciliationDto) {
@@ -2342,7 +2342,7 @@ export class ReconciliationController {
 ### 9. Query Handlers
 
 ```typescript
-// src/contexts/reconciliation/application/queries/get-reconciliation-details.query.ts
+// packages/contexts/reconciliation/src/application/queries/get-reconciliation-details.query.ts
 import { IQueryHandler, QueryHandler } from '@nestjs/cqrs';
 import { InjectConnection } from 'nest-knexjs';
 import { Knex } from 'knex';
@@ -2418,7 +2418,7 @@ export class GetReconciliationDetailsHandler
 ```
 
 ```typescript
-// src/contexts/reconciliation/application/queries/get-reconciliation-dashboard.query.ts
+// packages/contexts/reconciliation/src/application/queries/get-reconciliation-dashboard.query.ts
 import { IQueryHandler, QueryHandler } from '@nestjs/cqrs';
 import { InjectConnection } from 'nest-knexjs';
 import { Knex } from 'knex';
@@ -2584,7 +2584,7 @@ export class GetReconciliationDashboardHandler
 ### 10. Database Migrations
 
 ```typescript
-// src/contexts/reconciliation/infrastructure/migrations/001_create_reconciliation_tables.ts
+// packages/contexts/reconciliation/src/infrastructure/migrations/001_create_reconciliation_tables.ts
 import { Knex } from 'knex';
 
 export async function up(knex: Knex): Promise<void> {
@@ -2793,7 +2793,7 @@ export async function down(knex: Knex): Promise<void> {
 ### 11. External Balance Fetchers
 
 ```typescript
-// src/contexts/reconciliation/infrastructure/fetchers/binance.fetcher.ts
+// packages/contexts/reconciliation/src/infrastructure/fetchers/binance.fetcher.ts
 import { Injectable } from '@nestjs/common';
 import { Effect, pipe, Option } from 'effect';
 import {

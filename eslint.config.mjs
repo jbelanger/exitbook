@@ -5,6 +5,7 @@ import tseslint from 'typescript-eslint';
 import unicorn from 'eslint-plugin-unicorn';
 import perfectionist from 'eslint-plugin-perfectionist';
 import eslintComments from 'eslint-plugin-eslint-comments';
+import importPlugin from 'eslint-plugin-import';
 
 export default [
   // Global ignores
@@ -43,6 +44,7 @@ export default [
       unicorn,
       perfectionist,
       'eslint-comments': eslintComments,
+      import: importPlugin,
     },
     rules: {
       // --- Type safety hardening ---
@@ -200,6 +202,240 @@ export default [
             },
           ],
           patterns: ['@nestjs/*'],
+        },
+      ],
+      'import/no-restricted-paths': [
+        'error',
+        {
+          zones: [
+            // ===== Core purity =====
+            {
+              target: 'packages/core/**',
+              from: 'packages/platform/**',
+              message: 'core must not depend on platform',
+            },
+            {
+              target: 'packages/core/**',
+              from: 'packages/contexts/**',
+              message: 'core must not depend on contexts',
+            },
+            {
+              target: 'packages/core/**',
+              from: 'apps/**',
+              message: 'core must not depend on apps',
+            },
+
+            // ===== Platform never depends on contexts or apps =====
+            {
+              target: 'packages/platform/**',
+              from: 'packages/contexts/**',
+              message: 'platform must not depend on contexts',
+            },
+            {
+              target: 'packages/platform/**',
+              from: 'apps/**',
+              message: 'platform must not depend on apps',
+            },
+
+            // ===== Contracts are universal (no server/domain deps) =====
+            {
+              target: 'packages/contracts/**',
+              from: 'packages/platform/**',
+              message: 'contracts must not depend on platform',
+            },
+            {
+              target: 'packages/contracts/**',
+              from: 'packages/contexts/**',
+              message: 'contracts must not depend on contexts',
+            },
+
+            // ===== UI (browser-only) =====
+            {
+              target: 'packages/ui/**',
+              from: 'packages/platform/**',
+              message: 'ui must not depend on platform (server-only)',
+            },
+            {
+              target: 'packages/ui/**',
+              from: 'packages/contexts/**',
+              message: 'ui must not depend on contexts',
+            },
+            { target: 'packages/ui/**', from: 'apps/**', message: 'ui must not depend on apps' },
+
+            // ===== Apps: never import adapters (use ports/compose/nest bridges) =====
+            {
+              target: 'apps/api/**',
+              from: 'packages/contexts/*/adapters/**',
+              message: 'apps must not import adapters; go through ports/compose',
+            },
+            {
+              target: 'apps/cli/**',
+              from: 'packages/contexts/*/adapters/**',
+              message: 'apps must not import adapters; go through ports/compose',
+            },
+            {
+              target: 'apps/workers/**',
+              from: 'packages/contexts/*/adapters/**',
+              message: 'apps must not import adapters; go through ports/compose',
+            },
+            {
+              target: 'apps/web/**',
+              from: 'packages/contexts/*/adapters/**',
+              message: 'apps must not import adapters; go through ports/compose',
+            },
+
+            // ===== Apps: no app→app imports =====
+            {
+              target: 'apps/api/**',
+              from: ['apps/cli/**', 'apps/web/**', 'apps/workers/**'],
+              message: 'apps must not import other apps',
+            },
+            {
+              target: 'apps/cli/**',
+              from: ['apps/api/**', 'apps/web/**', 'apps/workers/**'],
+              message: 'apps must not import other apps',
+            },
+            {
+              target: 'apps/workers/**',
+              from: ['apps/api/**', 'apps/web/**', 'apps/cli/**'],
+              message: 'apps must not import other apps',
+            },
+            {
+              target: 'apps/web/**',
+              from: ['apps/api/**', 'apps/cli/**', 'apps/workers/**'],
+              message: 'apps must not import other apps',
+            },
+
+            // ===== Web: browser-only consumption (contracts, api-client, ui, core/utils only) =====
+            {
+              target: 'apps/web/**',
+              from: 'packages/platform/**',
+              message: 'web must not import platform (server-only)',
+            },
+            {
+              target: 'apps/web/**',
+              from: 'packages/contexts/**',
+              message: 'web must not import contexts',
+            },
+            // allow only core utils from core (block other core areas)
+            {
+              target: 'apps/web/**',
+              from: 'packages/core/**',
+              except: ['packages/core/src/utils', 'packages/core/utils'],
+              message: 'web may import core/utils only',
+            },
+
+            // ===== Contexts: no cross-context imports =====
+            {
+              target: 'packages/contexts/trading/**',
+              from: [
+                'packages/contexts/portfolio/**',
+                'packages/contexts/taxation/**',
+                'packages/contexts/reconciliation/**',
+              ],
+              message: 'no cross-context imports',
+            },
+            {
+              target: 'packages/contexts/portfolio/**',
+              from: [
+                'packages/contexts/trading/**',
+                'packages/contexts/taxation/**',
+                'packages/contexts/reconciliation/**',
+              ],
+              message: 'no cross-context imports',
+            },
+            {
+              target: 'packages/contexts/taxation/**',
+              from: [
+                'packages/contexts/trading/**',
+                'packages/contexts/portfolio/**',
+                'packages/contexts/reconciliation/**',
+              ],
+              message: 'no cross-context imports',
+            },
+            {
+              target: 'packages/contexts/reconciliation/**',
+              from: [
+                'packages/contexts/trading/**',
+                'packages/contexts/portfolio/**',
+                'packages/contexts/taxation/**',
+              ],
+              message: 'no cross-context imports',
+            },
+
+            // ===== Context internals: keep layers clean =====
+            // core: only core (shared kernel) allowed; block platform/adapters/app/contracts/ui/apps
+            {
+              target: 'packages/contexts/trading/core/**',
+              from: [
+                'packages/platform/**',
+                'packages/contexts/**/adapters/**',
+                'packages/contexts/**/app/**',
+                'packages/contracts/**',
+                'packages/ui/**',
+                'apps/**',
+              ],
+              message: 'context/core must remain pure',
+            },
+            {
+              target: 'packages/contexts/portfolio/core/**',
+              from: [
+                'packages/platform/**',
+                'packages/contexts/**/adapters/**',
+                'packages/contexts/**/app/**',
+                'packages/contracts/**',
+                'packages/ui/**',
+                'apps/**',
+              ],
+              message: 'context/core must remain pure',
+            },
+            {
+              target: 'packages/contexts/taxation/core/**',
+              from: [
+                'packages/platform/**',
+                'packages/contexts/**/adapters/**',
+                'packages/contexts/**/app/**',
+                'packages/contracts/**',
+                'packages/ui/**',
+                'apps/**',
+              ],
+              message: 'context/core must remain pure',
+            },
+            {
+              target: 'packages/contexts/reconciliation/core/**',
+              from: [
+                'packages/platform/**',
+                'packages/contexts/**/adapters/**',
+                'packages/contexts/**/app/**',
+                'packages/contracts/**',
+                'packages/ui/**',
+                'apps/**',
+              ],
+              message: 'context/core must remain pure',
+            },
+
+            // app: no direct platform or adapters (go through ports; platform comes via compose)
+            {
+              target: 'packages/contexts/trading/app/**',
+              from: ['packages/platform/**', 'packages/contexts/**/adapters/**'],
+              message: 'context/app must not import platform or adapters',
+            },
+            {
+              target: 'packages/contexts/portfolio/app/**',
+              from: ['packages/platform/**', 'packages/contexts/**/adapters/**'],
+              message: 'context/app must not import platform or adapters',
+            },
+            {
+              target: 'packages/contexts/taxation/app/**',
+              from: ['packages/platform/**', 'packages/contexts/**/adapters/**'],
+              message: 'context/app must not import platform or adapters',
+            },
+            {
+              target: 'packages/contexts/reconciliation/app/**',
+              from: ['packages/platform/**', 'packages/contexts/**/adapters/**'],
+              message: 'context/app must not import platform or adapters',
+            },
+          ],
         },
       ],
     },
