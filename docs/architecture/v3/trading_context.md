@@ -23,7 +23,10 @@ export const ExternalId = Brand.nominal<ExternalId>();
 ```typescript
 // src/contexts/trading/domain/events/transaction.events.ts
 import { DomainEvent } from '../../../../@core/domain/base/domain-event.base';
-import { TransactionId, UserId } from '../../../../@core/domain/common-types/identifiers';
+import {
+  TransactionId,
+  UserId,
+} from '../../../../@core/domain/common-types/identifiers';
 import { AssetId } from '../../../../@core/domain/common-types/asset-id.vo';
 import { Money } from '../../../../@core/domain/common-types/money.vo';
 import { ExternalId, AccountId } from '../value-objects/identifiers.vo';
@@ -41,7 +44,7 @@ export class TransactionImported extends DomainEvent {
       readonly rawData: unknown;
       readonly idempotencyKey: string;
       readonly importedAt: Date;
-    }
+    },
   ) {
     super({
       aggregateId: data.transactionId,
@@ -61,7 +64,7 @@ export class TransactionClassified extends DomainEvent {
       readonly confidence: number;
       readonly protocol?: string;
       readonly classifiedAt: Date;
-    }
+    },
   ) {
     super({
       aggregateId: data.transactionId,
@@ -84,7 +87,7 @@ export class LedgerEntriesRecorded extends DomainEvent {
         readonly entryType: string;
       }>;
       readonly recordedAt: Date;
-    }
+    },
   ) {
     super({
       aggregateId: data.transactionId,
@@ -103,7 +106,7 @@ export class TransactionReversed extends DomainEvent {
       readonly reversalReason: string;
       readonly reversedBy: UserId;
       readonly reversedAt: Date;
-    }
+    },
   ) {
     super({
       aggregateId: data.transactionId,
@@ -119,15 +122,22 @@ export class TransactionReversed extends DomainEvent {
 ```typescript
 // src/contexts/trading/domain/services/ledger-rules.service.ts
 import { Effect, ReadonlyArray, pipe } from 'effect';
-import { Money, CurrencyMismatchError } from '../../../../@core/domain/common-types/money.vo';
+import {
+  Money,
+  CurrencyMismatchError,
+} from '../../../../@core/domain/common-types/money.vo';
 import { Data } from 'effect';
 
-export class UnbalancedEntriesError extends Data.TaggedError('UnbalancedEntriesError')<{
+export class UnbalancedEntriesError extends Data.TaggedError(
+  'UnbalancedEntriesError',
+)<{
   readonly currency: string;
   readonly difference: Money;
 }> {}
 
-export class InvalidAccountCombinationError extends Data.TaggedError('InvalidAccountCombinationError')<{
+export class InvalidAccountCombinationError extends Data.TaggedError(
+  'InvalidAccountCombinationError',
+)<{
   readonly accountType: string;
   readonly assetType: string;
 }> {}
@@ -141,29 +151,32 @@ export interface LedgerEntry {
 
 export class LedgerRules {
   static validateBalance(
-    entries: ReadonlyArray<LedgerEntry>
+    entries: ReadonlyArray<LedgerEntry>,
   ): Effect.Effect<void, UnbalancedEntriesError | CurrencyMismatchError> {
     return pipe(
       Effect.succeed(entries),
-      Effect.flatMap(entries => {
+      Effect.flatMap((entries) => {
         // Group by currency
         const byCurrency = new Map<string, Money>();
 
         return Effect.forEach(
           entries,
-          entry => {
+          (entry) => {
             const currency = entry.amount.currency.symbol;
-            const current = byCurrency.get(currency) || Money.zero(entry.amount.currency);
+            const current =
+              byCurrency.get(currency) || Money.zero(entry.amount.currency);
 
             return pipe(
-              entry.direction === 'DEBIT' ? current.subtract(entry.amount) : current.add(entry.amount),
-              Effect.map(updated => {
+              entry.direction === 'DEBIT'
+                ? current.subtract(entry.amount)
+                : current.add(entry.amount),
+              Effect.map((updated) => {
                 byCurrency.set(currency, updated);
                 return updated;
-              })
+              }),
             );
           },
-          { concurrency: 'unbounded' }
+          { concurrency: 'unbounded' },
         ).pipe(
           Effect.flatMap(() => {
             // Check each currency balances to zero
@@ -173,25 +186,25 @@ export class LedgerRules {
                   new UnbalancedEntriesError({
                     currency,
                     difference: balance,
-                  })
+                  }),
                 );
               }
             }
             return Effect.void;
-          })
+          }),
         );
-      })
+      }),
     );
   }
 
   static validateAccountTypes(
     entries: ReadonlyArray<LedgerEntry>,
     accountTypes: Map<string, string>,
-    assetTypes: Map<string, string>
+    assetTypes: Map<string, string>,
   ): Effect.Effect<void, InvalidAccountCombinationError> {
     return Effect.forEach(
       entries,
-      entry => {
+      (entry) => {
         const accountType = accountTypes.get(entry.accountId);
         const assetType = assetTypes.get(entry.amount.currency.symbol);
 
@@ -205,7 +218,7 @@ export class LedgerRules {
             new InvalidAccountCombinationError({
               accountType,
               assetType,
-            })
+            }),
           );
         }
 
@@ -215,13 +228,13 @@ export class LedgerRules {
             new InvalidAccountCombinationError({
               accountType,
               assetType,
-            })
+            }),
           );
         }
 
         return Effect.void;
       },
-      { concurrency: 'unbounded' }
+      { concurrency: 'unbounded' },
     ).pipe(Effect.asVoid);
   }
 }
@@ -257,16 +270,22 @@ export interface RawTransactionData {
 
 // Service interface
 export interface TransactionClassifier {
-  classify(rawData: RawTransactionData): Effect.Effect<TransactionClassification, never>;
+  classify(
+    rawData: RawTransactionData,
+  ): Effect.Effect<TransactionClassification, never>;
 }
 
-export const TransactionClassifier = Context.GenericTag<TransactionClassifier>('TransactionClassifier');
+export const TransactionClassifier = Context.GenericTag<TransactionClassifier>(
+  'TransactionClassifier',
+);
 
 // Implementation
 export class RuleBasedTransactionClassifier implements TransactionClassifier {
   constructor(private rules: ClassificationRule[]) {}
 
-  classify(rawData: RawTransactionData): Effect.Effect<TransactionClassification, never> {
+  classify(
+    rawData: RawTransactionData,
+  ): Effect.Effect<TransactionClassification, never> {
     return Effect.sync(() => {
       for (const rule of this.rules) {
         if (rule.matches(rawData)) {
@@ -284,8 +303,13 @@ export interface ClassificationRule {
 }
 
 // Layer
-export const RuleBasedTransactionClassifierLayer = (rules: ClassificationRule[]) =>
-  Layer.succeed(TransactionClassifier, new RuleBasedTransactionClassifier(rules));
+export const RuleBasedTransactionClassifierLayer = (
+  rules: ClassificationRule[],
+) =>
+  Layer.succeed(
+    TransactionClassifier,
+    new RuleBasedTransactionClassifier(rules),
+  );
 ```
 
 ### 4. Domain Aggregate (Transaction)
@@ -296,7 +320,10 @@ import { Effect, pipe, ReadonlyArray, Option } from 'effect';
 import { Data } from 'effect';
 import { EventSourcedAggregate } from '../../../../@core/domain/base/aggregate-root.base';
 import { DomainEvent } from '../../../../@core/domain/base/domain-event.base';
-import { TransactionId, UserId } from '../../../../@core/domain/common-types/identifiers';
+import {
+  TransactionId,
+  UserId,
+} from '../../../../@core/domain/common-types/identifiers';
 import { ExternalId } from '../value-objects/identifiers.vo';
 import {
   TransactionImported,
@@ -305,14 +332,19 @@ import {
   TransactionReversed,
 } from '../events/transaction.events';
 import { LedgerRules, LedgerEntry } from '../services/ledger-rules.service';
-import { TransactionClassifier, TransactionClassification } from '../services/transaction-classifier.service';
+import {
+  TransactionClassifier,
+  TransactionClassification,
+} from '../services/transaction-classifier.service';
 
 // Transaction errors
 export class InvalidStateError extends Data.TaggedError('InvalidStateError')<{
   readonly message: string;
 }> {}
 
-export class AlreadyReversedError extends Data.TaggedError('AlreadyReversedError')<{
+export class AlreadyReversedError extends Data.TaggedError(
+  'AlreadyReversedError',
+)<{
   readonly transactionId: TransactionId;
 }> {}
 
@@ -420,7 +452,7 @@ export class Transaction extends EventSourcedAggregate {
               type: event.data.classification,
               confidence: event.data.confidence,
               protocol: event.data.protocol,
-            })
+            }),
           ),
           events: [...this.events, event],
         });
@@ -444,7 +476,9 @@ export class Transaction extends EventSourcedAggregate {
   }
 
   // Factory method for importing - returns event, not new state
-  static import(command: ImportTransactionCommand): Effect.Effect<TransactionImported, never> {
+  static import(
+    command: ImportTransactionCommand,
+  ): Effect.Effect<TransactionImported, never> {
     return Effect.sync(() => {
       const transactionId = TransactionId.generate();
       return new TransactionImported({
@@ -460,49 +494,58 @@ export class Transaction extends EventSourcedAggregate {
   }
 
   // Classify transaction - returns event only
-  classify(): Effect.Effect<TransactionClassified, InvalidStateError, TransactionClassifier> {
+  classify(): Effect.Effect<
+    TransactionClassified,
+    InvalidStateError,
+    TransactionClassifier
+  > {
     if (this.status !== TransactionStatus.IMPORTED) {
       return Effect.fail(
         new InvalidStateError({
           message: 'Transaction already classified',
-        })
+        }),
       );
     }
 
     return pipe(
       this.transactionId,
-      Effect.fromOption(() => new InvalidStateError({ message: 'Transaction ID is missing' })),
-      Effect.flatMap(transactionId =>
+      Effect.fromOption(
+        () => new InvalidStateError({ message: 'Transaction ID is missing' }),
+      ),
+      Effect.flatMap((transactionId) =>
         pipe(
           TransactionClassifier,
-          Effect.flatMap(classifier =>
+          Effect.flatMap((classifier) =>
             // In real implementation, we'd pass the raw data here
-            classifier.classify({ source: 'binance', type: 'trade' })
+            classifier.classify({ source: 'binance', type: 'trade' }),
           ),
           Effect.map(
-            classification =>
+            (classification) =>
               new TransactionClassified({
                 transactionId,
                 classification: classification.type,
                 confidence: classification.confidence,
                 protocol: classification.protocol,
                 classifiedAt: new Date(),
-              })
-          )
-        )
-      )
+              }),
+          ),
+        ),
+      ),
     );
   }
 
   // Record ledger entries - returns event only
   recordEntries(
-    entries: ReadonlyArray<LedgerEntry>
-  ): Effect.Effect<LedgerEntriesRecorded, InvalidStateError | ReturnType<typeof LedgerRules.validateBalance>> {
+    entries: ReadonlyArray<LedgerEntry>,
+  ): Effect.Effect<
+    LedgerEntriesRecorded,
+    InvalidStateError | ReturnType<typeof LedgerRules.validateBalance>
+  > {
     if (this.status === TransactionStatus.REVERSED) {
       return Effect.fail(
         new InvalidStateError({
           message: 'Cannot record entries for reversed transaction',
-        })
+        }),
       );
     }
 
@@ -510,59 +553,68 @@ export class Transaction extends EventSourcedAggregate {
       return Effect.fail(
         new InvalidStateError({
           message: 'Transaction must be classified before recording entries',
-        })
+        }),
       );
     }
 
     return pipe(
       this.transactionId,
-      Effect.fromOption(() => new InvalidStateError({ message: 'Transaction ID is missing' })),
-      Effect.flatMap(transactionId =>
+      Effect.fromOption(
+        () => new InvalidStateError({ message: 'Transaction ID is missing' }),
+      ),
+      Effect.flatMap((transactionId) =>
         pipe(
           LedgerRules.validateBalance(entries),
           Effect.map(
             () =>
               new LedgerEntriesRecorded({
                 transactionId,
-                entries: entries.map(e => ({
+                entries: entries.map((e) => ({
                   accountId: e.accountId,
                   amount: e.amount,
                   direction: e.direction,
                   entryType: e.entryType,
                 })),
                 recordedAt: new Date(),
-              })
-          )
-        )
-      )
+              }),
+          ),
+        ),
+      ),
     );
   }
 
   // Reverse transaction - returns event only
   reverse(
     reason: string,
-    reversedBy: UserId
-  ): Effect.Effect<TransactionReversed, AlreadyReversedError | InvalidStateError> {
+    reversedBy: UserId,
+  ): Effect.Effect<
+    TransactionReversed,
+    AlreadyReversedError | InvalidStateError
+  > {
     if (this.status === TransactionStatus.REVERSED) {
       return Effect.fail(
         new AlreadyReversedError({
-          transactionId: Option.getOrUndefined(this.transactionId) || TransactionId.generate(),
-        })
+          transactionId:
+            Option.getOrUndefined(this.transactionId) ||
+            TransactionId.generate(),
+        }),
       );
     }
 
     return pipe(
       this.transactionId,
-      Effect.fromOption(() => new InvalidStateError({ message: 'Transaction ID is missing' })),
+      Effect.fromOption(
+        () => new InvalidStateError({ message: 'Transaction ID is missing' }),
+      ),
       Effect.map(
-        transactionId =>
+        (transactionId) =>
           new TransactionReversed({
             transactionId,
             reversalReason: reason,
             reversedBy,
             reversedAt: new Date(),
-          })
-      )
+          }),
+      ),
     );
   }
 }
@@ -575,7 +627,10 @@ export class Transaction extends EventSourcedAggregate {
 import { Injectable } from '@nestjs/common';
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { Effect, pipe, Exit, Option, Data } from 'effect';
-import { Transaction, ImportTransactionCommand } from '../../domain/aggregates/transaction.aggregate';
+import {
+  Transaction,
+  ImportTransactionCommand,
+} from '../../domain/aggregates/transaction.aggregate';
 import { TransactionRepository } from '../../infrastructure/repositories/transaction.repository';
 import { EventStore } from '../../../../infrastructure/event-store/event-store.service';
 import { EventBus } from '@nestjs/cqrs';
@@ -588,11 +643,13 @@ export class PublishEventError extends Data.TaggedError('PublishEventError')<{
 
 @Injectable()
 @CommandHandler(ImportTransactionCommand)
-export class ImportTransactionHandler implements ICommandHandler<ImportTransactionCommand> {
+export class ImportTransactionHandler
+  implements ICommandHandler<ImportTransactionCommand>
+{
   constructor(
     private readonly repository: TransactionRepository,
     private readonly eventStore: EventStore,
-    private readonly eventBus: EventBus
+    private readonly eventBus: EventBus,
   ) {}
 
   async execute(command: ImportTransactionCommand): Promise<void> {
@@ -603,7 +660,7 @@ export class ImportTransactionHandler implements ICommandHandler<ImportTransacti
       // 1. Check idempotency (returns Effect with typed error)
       this.repository.checkIdempotency(idempotencyKey),
 
-      Effect.flatMap(alreadyExists =>
+      Effect.flatMap((alreadyExists) =>
         alreadyExists
           ? Effect.void // Skip if already imported
           : pipe(
@@ -611,7 +668,7 @@ export class ImportTransactionHandler implements ICommandHandler<ImportTransacti
               Transaction.import(command),
 
               // 3. Build initial transaction state
-              Effect.map(event => {
+              Effect.map((event) => {
                 const transaction = Transaction.createEmpty().apply(event);
                 return { transaction, event };
               }),
@@ -620,23 +677,23 @@ export class ImportTransactionHandler implements ICommandHandler<ImportTransacti
               Effect.flatMap(({ transaction, event }) =>
                 pipe(
                   this.repository.save(transaction),
-                  Effect.map(() => event) // Pass event for publishing
-                )
+                  Effect.map(() => event), // Pass event for publishing
+                ),
               ),
 
               // 5. Publish the event after successful save
-              Effect.tap(event =>
+              Effect.tap((event) =>
                 Effect.tryPromise({
                   try: () => this.eventBus.publish(event),
-                  catch: error =>
+                  catch: (error) =>
                     new PublishEventError({
                       eventType: event._tag,
                       message: `Failed to publish import event: ${error}`,
                     }),
-                })
-              )
-            )
-      )
+                }),
+              ),
+            ),
+      ),
     );
 
     // Run the entire program and handle the final exit state
@@ -644,7 +701,10 @@ export class ImportTransactionHandler implements ICommandHandler<ImportTransacti
 
     if (Exit.isFailure(exit)) {
       // The cause contains the specific, typed error from anywhere in the pipeline
-      const error = exit.cause._tag === 'Fail' ? exit.cause.error : new Error('Unknown error');
+      const error =
+        exit.cause._tag === 'Fail'
+          ? exit.cause.error
+          : new Error('Unknown error');
 
       // Re-throw the original typed error - it will be caught by the Exception Filter
       throw error;
@@ -662,7 +722,10 @@ import { RecordEntriesCommand } from '../../domain/aggregates/transaction.aggreg
 import { TransactionRepository } from '../../infrastructure/repositories/transaction.repository';
 import { EventBus } from '@nestjs/cqrs';
 import { Money } from '../../../../@core/domain/common-types/money.vo';
-import { Currency, CurrencySymbol } from '../../../../@core/domain/common-types/currency.vo';
+import {
+  Currency,
+  CurrencySymbol,
+} from '../../../../@core/domain/common-types/currency.vo';
 
 // Event publishing error
 export class PublishEventError extends Data.TaggedError('PublishEventError')<{
@@ -672,17 +735,19 @@ export class PublishEventError extends Data.TaggedError('PublishEventError')<{
 
 @Injectable()
 @CommandHandler(RecordEntriesCommand)
-export class RecordEntriesHandler implements ICommandHandler<RecordEntriesCommand> {
+export class RecordEntriesHandler
+  implements ICommandHandler<RecordEntriesCommand>
+{
   constructor(
     private readonly repository: TransactionRepository,
-    private readonly eventBus: EventBus
+    private readonly eventBus: EventBus,
   ) {}
 
   async execute(command: RecordEntriesCommand): Promise<void> {
     // This is now one single, unbroken pipeline from start to finish
     const program = pipe(
       // 1. Safely parse DTO entries into domain objects first
-      Effect.forEach(command.entries, dtoEntry =>
+      Effect.forEach(command.entries, (dtoEntry) =>
         pipe(
           Money.of(
             dtoEntry.amount,
@@ -690,28 +755,28 @@ export class RecordEntriesHandler implements ICommandHandler<RecordEntriesComman
               symbol: CurrencySymbol(dtoEntry.currency),
               decimals: dtoEntry.decimals,
               name: dtoEntry.currencyName,
-            })
+            }),
           ),
-          Effect.map(money => ({
+          Effect.map((money) => ({
             accountId: dtoEntry.accountId,
             amount: money,
             direction: dtoEntry.direction as 'DEBIT' | 'CREDIT',
             entryType: dtoEntry.entryType,
-          }))
-        )
+          })),
+        ),
       ),
       // If parsing fails, the program stops here and returns the typed error
-      Effect.flatMap(validEntries =>
+      Effect.flatMap((validEntries) =>
         pipe(
           // 2. Load the aggregate (returns Effect with typed error)
           this.repository.load(command.transactionId),
 
           // 3. Execute the domain logic (returns Effect with typed error)
-          Effect.flatMap(transaction =>
+          Effect.flatMap((transaction) =>
             pipe(
               transaction.recordEntries(validEntries),
-              Effect.map(event => ({ transaction, event })) // Keep both for next step
-            )
+              Effect.map((event) => ({ transaction, event })), // Keep both for next step
+            ),
           ),
 
           // 4. Orchestrate the state change and save
@@ -719,23 +784,23 @@ export class RecordEntriesHandler implements ICommandHandler<RecordEntriesComman
             const updatedTransaction = transaction.apply(event);
             return pipe(
               this.repository.save(updatedTransaction), // returns Effect with typed error
-              Effect.map(() => event) // Pass the event along for the next step
+              Effect.map(() => event), // Pass the event along for the next step
             );
           }),
 
           // 5. Publish the event after a successful save
-          Effect.tap(event =>
+          Effect.tap((event) =>
             Effect.tryPromise({
               try: () => this.eventBus.publish(event),
-              catch: error =>
+              catch: (error) =>
                 new PublishEventError({
                   eventType: event._tag,
                   message: `Failed to publish event: ${error}`,
                 }),
-            })
-          )
-        )
-      )
+            }),
+          ),
+        ),
+      ),
     );
 
     // Run the entire program and handle the final exit state
@@ -743,7 +808,10 @@ export class RecordEntriesHandler implements ICommandHandler<RecordEntriesComman
 
     if (Exit.isFailure(exit)) {
       // The cause contains the specific, typed error from anywhere in the pipeline
-      const error = exit.cause._tag === 'Fail' ? exit.cause.error : new Error('Unknown error');
+      const error =
+        exit.cause._tag === 'Fail'
+          ? exit.cause.error
+          : new Error('Unknown error');
 
       // Re-throw the original typed error - it will be caught by the Exception Filter
       throw error;
@@ -770,11 +838,13 @@ export class PublishEventError extends Data.TaggedError('PublishEventError')<{
 
 @Injectable()
 @CommandHandler(ClassifyTransactionCommand)
-export class ClassifyTransactionHandler implements ICommandHandler<ClassifyTransactionCommand> {
+export class ClassifyTransactionHandler
+  implements ICommandHandler<ClassifyTransactionCommand>
+{
   constructor(
     private readonly repository: TransactionRepository,
     private readonly eventBus: EventBus,
-    private readonly classifier: TransactionClassifier // Injected from NestJS DI
+    private readonly classifier: TransactionClassifier, // Injected from NestJS DI
   ) {}
 
   async execute(command: ClassifyTransactionCommand): Promise<void> {
@@ -784,12 +854,12 @@ export class ClassifyTransactionHandler implements ICommandHandler<ClassifyTrans
       this.repository.load(command.transactionId),
 
       // 2. Execute the domain classification logic with injected service
-      Effect.flatMap(transaction =>
+      Effect.flatMap((transaction) =>
         pipe(
           transaction.classify(),
           Effect.provideService(TransactionClassifier, this.classifier), // Provide the required service
-          Effect.map(event => ({ transaction, event })) // Keep both for next step
-        )
+          Effect.map((event) => ({ transaction, event })), // Keep both for next step
+        ),
       ),
 
       // 3. Orchestrate the state change and save
@@ -797,21 +867,21 @@ export class ClassifyTransactionHandler implements ICommandHandler<ClassifyTrans
         const updatedTransaction = transaction.apply(event);
         return pipe(
           this.repository.save(updatedTransaction), // returns Effect with typed error
-          Effect.map(() => event) // Pass the event along for the next step
+          Effect.map(() => event), // Pass the event along for the next step
         );
       }),
 
       // 4. Publish the event after successful save
-      Effect.tap(event =>
+      Effect.tap((event) =>
         Effect.tryPromise({
           try: () => this.eventBus.publish(event),
-          catch: error =>
+          catch: (error) =>
             new PublishEventError({
               eventType: event._tag,
               message: `Failed to publish classification event: ${error}`,
             }),
-        })
-      )
+        }),
+      ),
     );
 
     // Run the entire program and handle the final exit state
@@ -819,7 +889,10 @@ export class ClassifyTransactionHandler implements ICommandHandler<ClassifyTrans
 
     if (Exit.isFailure(exit)) {
       // The cause contains the specific, typed error from anywhere in the pipeline
-      const error = exit.cause._tag === 'Fail' ? exit.cause.error : new Error('Unknown error');
+      const error =
+        exit.cause._tag === 'Fail'
+          ? exit.cause.error
+          : new Error('Unknown error');
 
       // Re-throw the original typed error - it will be caught by the Exception Filter
       throw error;
@@ -834,22 +907,31 @@ export class ClassifyTransactionHandler implements ICommandHandler<ClassifyTrans
 // src/contexts/trading/infrastructure/repositories/transaction.repository.ts
 import { Injectable } from '@nestjs/common';
 import { EventStore } from '../../../../infrastructure/event-store/event-store.service';
-import { Transaction, TransactionStatus } from '../../domain/aggregates/transaction.aggregate';
+import {
+  Transaction,
+  TransactionStatus,
+} from '../../domain/aggregates/transaction.aggregate';
 import { Option, Effect, pipe, Data } from 'effect';
 import { TransactionId } from '../../../../@core/domain/common-types/identifiers';
 
 // Repository-specific errors
-export class LoadTransactionError extends Data.TaggedError('LoadTransactionError')<{
+export class LoadTransactionError extends Data.TaggedError(
+  'LoadTransactionError',
+)<{
   readonly transactionId: TransactionId;
   readonly message: string;
 }> {}
 
-export class SaveTransactionError extends Data.TaggedError('SaveTransactionError')<{
+export class SaveTransactionError extends Data.TaggedError(
+  'SaveTransactionError',
+)<{
   readonly transactionId?: TransactionId;
   readonly message: string;
 }> {}
 
-export class IdempotencyCheckError extends Data.TaggedError('IdempotencyCheckError')<{
+export class IdempotencyCheckError extends Data.TaggedError(
+  'IdempotencyCheckError',
+)<{
   readonly idempotencyKey: string;
   readonly message: string;
 }> {}
@@ -859,17 +941,24 @@ export class TransactionRepository {
   constructor(private readonly eventStore: EventStore) {}
 
   // Returns a description of how to load, not the result itself
-  load(transactionId: TransactionId): Effect.Effect<Transaction, LoadTransactionError> {
+  load(
+    transactionId: TransactionId,
+  ): Effect.Effect<Transaction, LoadTransactionError> {
     return pipe(
       Effect.tryPromise({
         try: () => this.eventStore.readStream(transactionId),
-        catch: error =>
+        catch: (error) =>
           new LoadTransactionError({
             transactionId,
             message: `Failed to read event stream: ${error}`,
           }),
       }),
-      Effect.map(events => events.reduce((aggregate, event) => aggregate.apply(event), Transaction.createEmpty()))
+      Effect.map((events) =>
+        events.reduce(
+          (aggregate, event) => aggregate.apply(event),
+          Transaction.createEmpty(),
+        ),
+      ),
     );
   }
 
@@ -887,29 +976,37 @@ export class TransactionRepository {
         () =>
           new SaveTransactionError({
             message: 'Transaction ID is missing for save operation',
-          })
+          }),
       ),
-      Effect.flatMap(transactionId =>
+      Effect.flatMap((transactionId) =>
         Effect.tryPromise({
-          try: () => this.eventStore.append(transactionId, uncommittedEvents, transaction.version),
-          catch: error =>
+          try: () =>
+            this.eventStore.append(
+              transactionId,
+              uncommittedEvents,
+              transaction.version,
+            ),
+          catch: (error) =>
             new SaveTransactionError({
               transactionId,
               message: `Failed to save events: ${error}`,
             }),
-        })
-      )
+        }),
+      ),
     );
   }
 
   // Check idempotency without side effects
-  checkIdempotency(idempotencyKey: string): Effect.Effect<boolean, IdempotencyCheckError> {
+  checkIdempotency(
+    idempotencyKey: string,
+  ): Effect.Effect<boolean, IdempotencyCheckError> {
     return Effect.tryPromise({
       try: async () => {
-        const existing = await this.eventStore.findByIdempotencyKey(idempotencyKey);
+        const existing =
+          await this.eventStore.findByIdempotencyKey(idempotencyKey);
         return !!existing;
       },
-      catch: error =>
+      catch: (error) =>
         new IdempotencyCheckError({
           idempotencyKey,
           message: `Failed to check idempotency: ${error}`,
@@ -940,7 +1037,11 @@ import {
 } from './domain/services/transaction-classifier.service';
 
 // Command handlers
-const CommandHandlers = [ImportTransactionHandler, RecordEntriesHandler, ClassifyTransactionHandler];
+const CommandHandlers = [
+  ImportTransactionHandler,
+  RecordEntriesHandler,
+  ClassifyTransactionHandler,
+];
 
 // Event handlers
 const EventHandlers = [];
@@ -992,9 +1093,18 @@ import {
 import { Response } from 'express';
 
 // Domain errors from various layers
-import { InvalidMoneyAmountError, CurrencyMismatchError } from '../../../../@core/domain/common-types/money.vo';
-import { UnbalancedEntriesError, InvalidAccountCombinationError } from '../../domain/services/ledger-rules.service';
-import { InvalidStateError, AlreadyReversedError } from '../../domain/aggregates/transaction.aggregate';
+import {
+  InvalidMoneyAmountError,
+  CurrencyMismatchError,
+} from '../../../../@core/domain/common-types/money.vo';
+import {
+  UnbalancedEntriesError,
+  InvalidAccountCombinationError,
+} from '../../domain/services/ledger-rules.service';
+import {
+  InvalidStateError,
+  AlreadyReversedError,
+} from '../../domain/aggregates/transaction.aggregate';
 import {
   LoadTransactionError,
   SaveTransactionError,
@@ -1105,7 +1215,8 @@ export class DomainErrorFilter implements ExceptionFilter {
       return {
         status: HttpStatus.INTERNAL_SERVER_ERROR,
         error: 'Event Publishing Failed',
-        message: 'Operation completed but event notification failed. Support has been notified.',
+        message:
+          'Operation completed but event notification failed. Support has been notified.',
       };
     }
 
@@ -1127,8 +1238,14 @@ import { Controller, Post, Body, Param, UseGuards } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { ImportTransactionDto, RecordEntriesDto } from './dto';
-import { ImportTransactionCommand, RecordEntriesCommand } from '../domain/aggregates/transaction.aggregate';
-import { UserId, TransactionId } from '../../../@core/domain/common-types/identifiers';
+import {
+  ImportTransactionCommand,
+  RecordEntriesCommand,
+} from '../domain/aggregates/transaction.aggregate';
+import {
+  UserId,
+  TransactionId,
+} from '../../../@core/domain/common-types/identifiers';
 import { ExternalId } from '../domain/value-objects/identifiers.vo';
 
 @ApiTags('transactions')
@@ -1153,7 +1270,10 @@ export class TransactionController {
 
   @Post(':id/entries')
   @ApiOperation({ summary: 'Record ledger entries for a transaction' })
-  async recordEntries(@Param('id') transactionId: string, @Body() dto: RecordEntriesDto) {
+  async recordEntries(
+    @Param('id') transactionId: string,
+    @Body() dto: RecordEntriesDto,
+  ) {
     // Pass raw DTO to command - parsing happens in the handler
     const command: RecordEntriesCommand = {
       transactionId: TransactionId(transactionId),

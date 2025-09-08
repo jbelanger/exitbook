@@ -1,9 +1,14 @@
 # Universal Blockchain Provider Architecture
 
 > **📋 Open Source Notice**  
-> The Universal Blockchain Provider Architecture provides resilient, production-grade infrastructure for cryptocurrency transaction import systems. The core framework is open source, though some third-party APIs may require commercial licenses.
+> The Universal Blockchain Provider Architecture provides resilient,
+> production-grade infrastructure for cryptocurrency transaction import systems.
+> The core framework is open source, though some third-party APIs may require
+> commercial licenses.
 
-Transform your cryptocurrency transaction import system from fragile single points of failure into a resilient, self-healing infrastructure that maintains 99.9% uptime even when individual blockchain APIs experience outages.
+Transform your cryptocurrency transaction import system from fragile single
+points of failure into a resilient, self-healing infrastructure that maintains
+99.9% uptime even when individual blockchain APIs experience outages.
 
 ## Quick Start
 
@@ -69,7 +74,8 @@ pnpm run import bitcoin
 DEBUG=provider:* pnpm run import
 ```
 
-**That's it!** Your system now has automatic failover, circuit breaker protection, and self-healing recovery.
+**That's it!** Your system now has automatic failover, circuit breaker
+protection, and self-healing recovery.
 
 ## What You Get
 
@@ -470,8 +476,10 @@ pnpm run dev
 
 ### Getting Help
 
-- 📖 **Documentation**: Start with [configuration.md](configuration.md) for setup
-- 🐛 **Issues**: Check [troubleshooting.md](troubleshooting.md) for common problems
+- 📖 **Documentation**: Start with [configuration.md](configuration.md) for
+  setup
+- 🐛 **Issues**: Check [troubleshooting.md](troubleshooting.md) for common
+  problems
 - 💬 **Discussions**: Technical questions and architecture discussions
 - 🚨 **Critical Issues**: For production outages and urgent problems
 
@@ -492,7 +500,8 @@ DEBUG=provider:* pnpm run test:providers > debug-output.txt 2>&1
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the LICENSE file for
+details.
 
 ## Acknowledgments
 
@@ -503,4 +512,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ---
 
-**Ready to eliminate single points of failure?** Start with the [Quick Start](#quick-start) section above, then dive into [configuration.md](configuration.md) for detailed setup instructions.
+**Ready to eliminate single points of failure?** Start with the
+[Quick Start](#quick-start) section above, then dive into
+[configuration.md](configuration.md) for detailed setup instructions.

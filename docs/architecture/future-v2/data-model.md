@@ -2,7 +2,10 @@
 
 ## Overview
 
-The system implements a **double-entry ledger** model using NestJS and Drizzle ORM to ensure data integrity and accurate balance calculations. This approach treats every financial operation as a transaction composed of multiple balanced entries, with all data scoped by user for complete data isolation.
+The system implements a **double-entry ledger** model using NestJS and Drizzle
+ORM to ensure data integrity and accurate balance calculations. This approach
+treats every financial operation as a transaction composed of multiple balanced
+entries, with all data scoped by user for complete data isolation.
 
 **Key Architectural Features:**
 
@@ -14,16 +17,24 @@ The system implements a **double-entry ledger** model using NestJS and Drizzle O
 
 ## Core Principles
 
-1. **Multi-Tenancy**: All data is scoped by `userId` for complete data isolation between users
-2. **Double-Entry Accounting**: Every transaction consists of entries that must sum to zero per currency
-3. **Precision**: All monetary amounts stored as integers in smallest currency units (satoshis, wei, cents)
-4. **Immutability**: Financial records are never updated, only new correcting transactions are created
-5. **Auditability**: Complete trail of all financial movements with full traceability
-6. **User Context**: Every command, query, and repository operation must include user context
+1. **Multi-Tenancy**: All data is scoped by `userId` for complete data isolation
+   between users
+2. **Double-Entry Accounting**: Every transaction consists of entries that must
+   sum to zero per currency
+3. **Precision**: All monetary amounts stored as integers in smallest currency
+   units (satoshis, wei, cents)
+4. **Immutability**: Financial records are never updated, only new correcting
+   transactions are created
+5. **Auditability**: Complete trail of all financial movements with full
+   traceability
+6. **User Context**: Every command, query, and repository operation must include
+   user context
 
 ## Database Schema
 
-**Note**: For complete implementation using NestJS and Drizzle ORM, see [v2.md](./v2.md#database-schema). This document focuses on the conceptual data model with SQL examples.
+**Note**: For complete implementation using NestJS and Drizzle ORM, see
+[v2.md](./v2.md#database-schema). This document focuses on the conceptual data
+model with SQL examples.
 
 ### Users Table
 
@@ -42,7 +53,8 @@ CREATE TABLE users (
 
 ### Currencies Table
 
-**Global foundation table** containing asset metadata and precision information, **shared across all users**.
+**Global foundation table** containing asset metadata and precision information,
+**shared across all users**.
 
 ```sql
 -- Create enum for asset classes
@@ -74,7 +86,8 @@ INSERT INTO currencies (ticker, name, decimals, asset_class, network, is_native)
 
 ### Accounts Table
 
-Represents different "buckets" where value can be held, **scoped by user** with references to global currencies.
+Represents different "buckets" where value can be held, **scoped by user** with
+references to global currencies.
 
 ```sql
 -- Create enum for account types
@@ -124,7 +137,8 @@ CREATE INDEX idx_accounts_user_id ON accounts(user_id);
 
 ### Ledger Transactions Table
 
-Container for financial events, **scoped by user**. Acts as a grouping mechanism for related entries.
+Container for financial events, **scoped by user**. Acts as a grouping mechanism
+for related entries.
 
 ```sql
 CREATE TABLE ledger_transactions (
@@ -147,7 +161,8 @@ CREATE INDEX idx_ledger_tx_user_source ON ledger_transactions(user_id, source);
 
 ### Entries Table (Core Ledger)
 
-Records actual movement of funds, **scoped by user**. **Sum of amounts for all entries in a transaction must equal zero PER CURRENCY.**
+Records actual movement of funds, **scoped by user**. **Sum of amounts for all
+entries in a transaction must equal zero PER CURRENCY.**
 
 ```sql
 -- Create enums for entries table
@@ -183,7 +198,8 @@ CREATE INDEX idx_entries_currency ON entries(currency_id);
 
 ### Blockchain Transaction Details Table
 
-Structured storage for blockchain-specific transaction data with optimized query performance.
+Structured storage for blockchain-specific transaction data with optimized query
+performance.
 
 ```sql
 -- Create enum for blockchain transaction status
@@ -229,7 +245,8 @@ CREATE TABLE exchange_transaction_details (
 
 ### Transaction Metadata Table
 
-Flexible storage for additional transaction data and edge cases not covered by structured tables.
+Flexible storage for additional transaction data and edge cases not covered by
+structured tables.
 
 ```sql
 -- Create enum for metadata data types
@@ -261,7 +278,8 @@ CREATE TABLE transaction_metadata (
 
 1. **User Context**: All operations include `userId = 'user-123'`
 2. **User-Scoped Accounts**: Accounts belong to specific user
-3. **Global Currencies**: Currencies are shared across all users (BTC, ETH, etc.)
+3. **Global Currencies**: Currencies are shared across all users (BTC, ETH,
+   etc.)
 4. **User-Scoped Idempotency**: Transaction uniqueness per user
 
 ### Conceptual Ledger Entries:
@@ -280,8 +298,10 @@ Balance Verification (per currency):
 
 **Notes**:
 
-- All amounts stored as integers in smallest currency units (wei for ETH, micro-USDC for USDC)
-- The "Fee Expense Account" is of type `EXPENSE_FEES_TRADE`, following proper accounting principles where fees are recorded as expenses
+- All amounts stored as integers in smallest currency units (wei for ETH,
+  micro-USDC for USDC)
+- The "Fee Expense Account" is of type `EXPENSE_FEES_TRADE`, following proper
+  accounting principles where fees are recorded as expenses
 
 ## Complex Transaction Examples
 
@@ -423,22 +443,26 @@ WHERE t.user_id = $1          -- Critical: Filter by user
 
 ### Application-Level Validation (V2 Architecture)
 
-**Critical Architecture Decision**: Transaction balance validation occurs in the **application layer** using NestJS Command Handlers, not database triggers.
+**Critical Architecture Decision**: Transaction balance validation occurs in the
+**application layer** using NestJS Command Handlers, not database triggers.
 
 **Why Application-Level?**
 
-- Database triggers fire after each individual entry insert, causing validation failures
+- Database triggers fire after each individual entry insert, causing validation
+  failures
 - Multi-entry transactions require atomic validation of the complete entry set
 - Application-level validation provides better error handling and user feedback
 
 ### Repository-Level Validation
 
-**Application-Level Implementation**: Transaction validation occurs in NestJS Command Handlers before database operations.
+**Application-Level Implementation**: Transaction validation occurs in NestJS
+Command Handlers before database operations.
 
 **Key Validation Rules**:
 
 1. **Balance Validation**: All entries must sum to zero per currency per user
-2. **User Ownership**: User must own all referenced accounts (currencies are global)
+2. **User Ownership**: User must own all referenced accounts (currencies are
+   global)
 3. **Atomic Operations**: All validation occurs within database transactions
 4. **Multi-Currency Support**: Each currency balances independently
 
@@ -467,33 +491,56 @@ WHERE t.user_id = $1          -- Critical: Filter by user
 
 ## Benefits of Ledger Model
 
-1. **Complete Data Isolation**: Architecture ensures users cannot access each other's data
-2. **Scalable Architecture**: User-scoped queries and indexes optimize for performance
-3. **Multi-Currency Precision**: Proper decimal handling per asset type with no precision loss
-4. **Data Normalization**: Currency metadata centralized globally, preventing inconsistencies
-5. **Accurate Balance Calculations**: Simple SUM() operations with currency and user context
-6. **Natural CSV Import Mapping**: Each CSV row maps to user-scoped ledger entries with proper currency resolution
-7. **Enhanced Audit Trail**: Complete history with currency metadata, user context, and timezone awareness
-8. **Flexibility**: Handles complex multi-currency operations (DEX swaps, bridges, etc.) per user
-9. **Multi-Currency Integrity**: Application-level validation ensures mathematical correctness per currency per user
-10. **Granular Account Types**: Enables detailed financial reporting and categorization per user
-11. **Performance**: User-optimized indexes for common query patterns (user+account, currency aggregations)
-12. **Immutability**: Financial records are never modified, only added to with user context
-13. **Query Performance**: Structured tables for blockchain/exchange data with efficient global currency joins
-14. **Type Safety**: Strongly typed currency references with global foreign key constraints
-15. **Separation of Concerns**: Core ledger remains source-agnostic while global currency table handles asset specifics
-16. **Future-Proof**: Easy to add new assets, networks, and account types per user
-17. **Reporting Ready**: Account type granularity enables per-user P&L statements and tax reporting
-18. **User Context Security**: Every operation requires user context, preventing cross-tenant data access
-19. **Scalable**: Efficient user-scoped indexes support thousands of concurrent users
-20. **CQRS Integration**: Clean separation of read/write operations with user context built-in
+1. **Complete Data Isolation**: Architecture ensures users cannot access each
+   other's data
+2. **Scalable Architecture**: User-scoped queries and indexes optimize for
+   performance
+3. **Multi-Currency Precision**: Proper decimal handling per asset type with no
+   precision loss
+4. **Data Normalization**: Currency metadata centralized globally, preventing
+   inconsistencies
+5. **Accurate Balance Calculations**: Simple SUM() operations with currency and
+   user context
+6. **Natural CSV Import Mapping**: Each CSV row maps to user-scoped ledger
+   entries with proper currency resolution
+7. **Enhanced Audit Trail**: Complete history with currency metadata, user
+   context, and timezone awareness
+8. **Flexibility**: Handles complex multi-currency operations (DEX swaps,
+   bridges, etc.) per user
+9. **Multi-Currency Integrity**: Application-level validation ensures
+   mathematical correctness per currency per user
+10. **Granular Account Types**: Enables detailed financial reporting and
+    categorization per user
+11. **Performance**: User-optimized indexes for common query patterns
+    (user+account, currency aggregations)
+12. **Immutability**: Financial records are never modified, only added to with
+    user context
+13. **Query Performance**: Structured tables for blockchain/exchange data with
+    efficient global currency joins
+14. **Type Safety**: Strongly typed currency references with global foreign key
+    constraints
+15. **Separation of Concerns**: Core ledger remains source-agnostic while global
+    currency table handles asset specifics
+16. **Future-Proof**: Easy to add new assets, networks, and account types per
+    user
+17. **Reporting Ready**: Account type granularity enables per-user P&L
+    statements and tax reporting
+18. **User Context Security**: Every operation requires user context, preventing
+    cross-tenant data access
+19. **Scalable**: Efficient user-scoped indexes support thousands of concurrent
+    users
+20. **CQRS Integration**: Clean separation of read/write operations with user
+    context built-in
 
 ## Migration from Single-Entry Model
 
-The current `UniversalTransaction` model can be transformed to this enhanced multi-currency ledger model:
+The current `UniversalTransaction` model can be transformed to this enhanced
+multi-currency ledger model:
 
 ```typescript
-async function transformToLedger(tx: UniversalTransaction): Promise<LedgerTransaction> {
+async function transformToLedger(
+  tx: UniversalTransaction,
+): Promise<LedgerTransaction> {
   const entries: LedgerEntry[] = [];
 
   // Resolve currencies first
@@ -503,7 +550,11 @@ async function transformToLedger(tx: UniversalTransaction): Promise<LedgerTransa
   }
 
   // Main transaction amount
-  const mainAccount = await getOrCreateAccount(tx.symbol, tx.source, 'ASSET_EXCHANGE');
+  const mainAccount = await getOrCreateAccount(
+    tx.symbol,
+    tx.source,
+    'ASSET_EXCHANGE',
+  );
   const rawAmount = convertToRawAmount(tx.amount, mainCurrency.decimals);
 
   entries.push({
@@ -522,8 +573,15 @@ async function transformToLedger(tx: UniversalTransaction): Promise<LedgerTransa
     }
 
     const counterAmount = tx.amount * tx.price;
-    const rawCounterAmount = convertToRawAmount(counterAmount, quoteCurrency.decimals);
-    const counterAccount = await getOrCreateAccount(tx.quoteCurrency, tx.source, 'ASSET_EXCHANGE');
+    const rawCounterAmount = convertToRawAmount(
+      counterAmount,
+      quoteCurrency.decimals,
+    );
+    const counterAccount = await getOrCreateAccount(
+      tx.quoteCurrency,
+      tx.source,
+      'ASSET_EXCHANGE',
+    );
 
     entries.push({
       accountId: counterAccount.id,
@@ -541,12 +599,23 @@ async function transformToLedger(tx: UniversalTransaction): Promise<LedgerTransa
       throw new Error(`Fee currency ${tx.fee.currency} not found`);
     }
 
-    const rawFeeAmount = convertToRawAmount(tx.fee.amount, feeCurrency.decimals);
-    const feeAccount = await getOrCreateAccount(tx.fee.currency, tx.source, 'EXPENSE_FEES_TRADE');
+    const rawFeeAmount = convertToRawAmount(
+      tx.fee.amount,
+      feeCurrency.decimals,
+    );
+    const feeAccount = await getOrCreateAccount(
+      tx.fee.currency,
+      tx.source,
+      'EXPENSE_FEES_TRADE',
+    );
     const sourceAccount =
       tx.symbol === tx.fee.currency
         ? mainAccount
-        : await getOrCreateAccount(tx.fee.currency, tx.source, 'ASSET_EXCHANGE');
+        : await getOrCreateAccount(
+            tx.fee.currency,
+            tx.source,
+            'ASSET_EXCHANGE',
+          );
 
     // Debit from source account
     entries.push({
@@ -593,15 +662,22 @@ function convertToRawAmount(amount: number, decimals: number): bigint {
 
 **Decision**: Application-level validation within database transactions
 
-**Rationale**: Database triggers for balance validation are logically flawed because they execute after each individual entry insert. In a multi-entry transaction, all entries except the last would fail validation, making the system unusable.
+**Rationale**: Database triggers for balance validation are logically flawed
+because they execute after each individual entry insert. In a multi-entry
+transaction, all entries except the last would fail validation, making the
+system unusable.
 
-**Implementation**: Use application-level validation (see `LedgerRepository.createTransaction()` in greenfield strategy) that validates the complete set of entries before inserting any data.
+**Implementation**: Use application-level validation (see
+`LedgerRepository.createTransaction()` in greenfield strategy) that validates
+the complete set of entries before inserting any data.
 
 ### 2. Entry Type Field Nullability
 
 **Decision**: `entry_type` column is `NOT NULL`
 
-**Rationale**: This field is essential for financial reporting, categorization, and tax preparation. Making it optional would degrade the system's analytical capabilities.
+**Rationale**: This field is essential for financial reporting, categorization,
+and tax preparation. Making it optional would degrade the system's analytical
+capabilities.
 
 ### 3. Amount vs Direction Design
 
@@ -614,7 +690,8 @@ function convertToRawAmount(amount: number, decimals: number): bigint {
 - Database trigger ensures consistency between the two fields
 - Provides redundancy that catches data corruption issues
 
-This hybrid approach balances computational efficiency with semantic clarity, despite the apparent redundancy.
+This hybrid approach balances computational efficiency with semantic clarity,
+despite the apparent redundancy.
 
 ```
 

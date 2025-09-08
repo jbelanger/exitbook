@@ -3,11 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch src/index.ts"
   },
   "devDependencies": {
-    "tsx": "^4.20.5",
-    "@internal/tsconfig": "workspace:*"
+    "@internal/tsconfig": "workspace:*",
+    "tsx": "^4.20.5"
   }
 }

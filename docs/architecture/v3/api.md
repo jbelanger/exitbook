@@ -30,7 +30,13 @@ import { TimeoutInterceptor } from './interceptors/timeout.interceptor';
       limit: 100,
     }),
   ],
-  controllers: [TransactionController, PortfolioController, TaxController, ReconciliationController, HealthController],
+  controllers: [
+    TransactionController,
+    PortfolioController,
+    TaxController,
+    ReconciliationController,
+    HealthController,
+  ],
   providers: [
     {
       provide: APP_FILTER,
@@ -203,7 +209,11 @@ import {
   GetTransactionsQuery,
   GetTransactionsByDateRangeQuery,
 } from '../../contexts/trading/application/queries';
-import { UserId, TransactionId, ExternalId } from '../../@core/domain/common-types/identifiers';
+import {
+  UserId,
+  TransactionId,
+  ExternalId,
+} from '../../@core/domain/common-types/identifiers';
 import { Money, Currency } from '../../@core/domain/common-types/money.vo';
 
 @ApiTags('transactions')
@@ -213,7 +223,7 @@ import { Money, Currency } from '../../@core/domain/common-types/money.vo';
 export class TransactionController {
   constructor(
     private readonly commandBus: CommandBus,
-    private readonly queryBus: QueryBus
+    private readonly queryBus: QueryBus,
   ) {}
 
   @Post('import')
@@ -233,7 +243,7 @@ export class TransactionController {
   })
   async importTransaction(
     @Body() dto: ImportTransactionDto,
-    @CurrentUser() user: { userId: string }
+    @CurrentUser() user: { userId: string },
   ): Promise<TransactionResponseDto> {
     const command: ImportTransactionCommand = {
       userId: UserId(user.userId),
@@ -278,13 +288,17 @@ export class TransactionController {
   async bulkImportTransactions(
     @UploadedFile() file: Express.Multer.File,
     @Body() dto: BulkImportDto,
-    @CurrentUser() user: { userId: string }
+    @CurrentUser() user: { userId: string },
   ): Promise<{ jobId: string; status: string }> {
     // Parse file and queue for processing
     const transactions = await this.parseImportFile(file, dto.source);
 
     // Queue bulk import job
-    const jobId = await this.queueBulkImport(user.userId, transactions, dto.source);
+    const jobId = await this.queueBulkImport(
+      user.userId,
+      transactions,
+      dto.source,
+    );
 
     return {
       jobId,
@@ -296,13 +310,14 @@ export class TransactionController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Classify transaction type',
-    description: 'Uses ML or rule-based classification to determine transaction type',
+    description:
+      'Uses ML or rule-based classification to determine transaction type',
   })
   @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
   async classifyTransaction(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ClassifyTransactionDto,
-    @CurrentUser() user: { userId: string }
+    @CurrentUser() user: { userId: string },
   ): Promise<TransactionResponseDto> {
     const command: ClassifyTransactionCommand = {
       transactionId: TransactionId(id),
@@ -329,10 +344,10 @@ export class TransactionController {
   async recordEntries(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: RecordEntriesDto,
-    @CurrentUser() user: { userId: string }
+    @CurrentUser() user: { userId: string },
   ): Promise<TransactionResponseDto> {
     const entries = await Promise.all(
-      dto.entries.map(async e => ({
+      dto.entries.map(async (e) => ({
         accountId: e.accountId,
         amount: await Effect.runPromise(
           Money.of(
@@ -341,12 +356,12 @@ export class TransactionController {
               symbol: e.currency,
               decimals: e.decimals,
               name: e.currencyName,
-            })
-          )
+            }),
+          ),
         ),
         direction: e.direction as 'DEBIT' | 'CREDIT',
         entryType: e.entryType,
-      }))
+      })),
     );
 
     const command: RecordEntriesCommand = {
@@ -373,7 +388,7 @@ export class TransactionController {
   async reverseTransaction(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ReverseTransactionDto,
-    @CurrentUser() user: { userId: string }
+    @CurrentUser() user: { userId: string },
   ): Promise<TransactionResponseDto> {
     const command: ReverseTransactionCommand = {
       transactionId: TransactionId(id),
@@ -398,16 +413,28 @@ export class TransactionController {
   })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
-  @ApiQuery({ name: 'source', required: false, enum: ['BINANCE', 'COINBASE', 'KRAKEN'] })
-  @ApiQuery({ name: 'status', required: false, enum: ['IMPORTED', 'CLASSIFIED', 'RECORDED', 'REVERSED'] })
+  @ApiQuery({
+    name: 'source',
+    required: false,
+    enum: ['BINANCE', 'COINBASE', 'KRAKEN'],
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['IMPORTED', 'CLASSIFIED', 'RECORDED', 'REVERSED'],
+  })
   @ApiQuery({ name: 'startDate', required: false, type: String })
   @ApiQuery({ name: 'endDate', required: false, type: String })
   @ApiQuery({ name: 'asset', required: false, type: String })
-  @ApiQuery({ name: 'sortBy', required: false, enum: ['date', 'amount', 'status'] })
+  @ApiQuery({
+    name: 'sortBy',
+    required: false,
+    enum: ['date', 'amount', 'status'],
+  })
   @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'] })
   async getTransactions(
     @Query() filter: TransactionFilterDto,
-    @CurrentUser() user: { userId: string }
+    @CurrentUser() user: { userId: string },
   ): Promise<PaginatedResponseDto<any>> {
     const query = new GetTransactionsQuery({
       userId: UserId(user.userId),
@@ -444,9 +471,13 @@ export class TransactionController {
   @Get(':id')
   @ApiOperation({
     summary: 'Get transaction by ID',
-    description: 'Returns detailed transaction information including ledger entries',
+    description:
+      'Returns detailed transaction information including ledger entries',
   })
-  async getTransaction(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: { userId: string }): Promise<any> {
+  async getTransaction(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: { userId: string },
+  ): Promise<any> {
     const query = new GetTransactionQuery({
       transactionId: TransactionId(id),
       userId: UserId(user.userId),
@@ -463,7 +494,7 @@ export class TransactionController {
   })
   async deleteTransaction(
     @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser() user: { userId: string }
+    @CurrentUser() user: { userId: string },
   ): Promise<void> {
     // Soft delete implementation
     const command = {
@@ -476,7 +507,10 @@ export class TransactionController {
   }
 
   // Helper methods
-  private async parseImportFile(file: Express.Multer.File, source: string): Promise<any[]> {
+  private async parseImportFile(
+    file: Express.Multer.File,
+    source: string,
+  ): Promise<any[]> {
     // Implementation for parsing CSV/JSON files
     if (file.mimetype === 'text/csv') {
       // Parse CSV
@@ -488,7 +522,11 @@ export class TransactionController {
     throw new Error('Unsupported file format');
   }
 
-  private async queueBulkImport(userId: string, transactions: any[], source: string): Promise<string> {
+  private async queueBulkImport(
+    userId: string,
+    transactions: any[],
+    source: string,
+  ): Promise<string> {
     // Queue implementation (Bull/BullMQ)
     return `job-${Date.now()}`;
   }
@@ -512,7 +550,13 @@ import {
   HttpStatus,
   ParseUUIDPipe,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { JwtAuthGuard } from '../../infrastructure/security/auth/jwt-auth.guard';
 import { CurrentUser } from '../../infrastructure/security/auth/current-user.decorator';
@@ -530,7 +574,7 @@ import {
 export class PortfolioController {
   constructor(
     private readonly commandBus: CommandBus,
-    private readonly queryBus: QueryBus
+    private readonly queryBus: QueryBus,
   ) {}
 
   @Get('valuation')
@@ -539,7 +583,10 @@ export class PortfolioController {
     description: 'Returns current portfolio value with asset breakdown',
   })
   @ApiQuery({ name: 'currency', required: false, default: 'USD' })
-  async getValuation(@Query('currency') currency: string = 'USD', @CurrentUser() user: { userId: string }) {
+  async getValuation(
+    @Query('currency') currency: string = 'USD',
+    @CurrentUser() user: { userId: string },
+  ) {
     const query = new GetPortfolioValuationQuery({
       userId: user.userId,
       baseCurrency: currency,
@@ -555,8 +602,10 @@ export class PortfolioController {
       lastUpdated: result.timestamp,
       metadata: {
         totalAssets: result.holdings.length,
-        profitablePositions: result.holdings.filter(h => h.unrealizedGain > 0).length,
-        losingPositions: result.holdings.filter(h => h.unrealizedGain < 0).length,
+        profitablePositions: result.holdings.filter((h) => h.unrealizedGain > 0)
+          .length,
+        losingPositions: result.holdings.filter((h) => h.unrealizedGain < 0)
+          .length,
       },
     };
   }
@@ -566,8 +615,15 @@ export class PortfolioController {
     summary: 'Get portfolio performance metrics',
     description: 'Returns performance metrics including ROI, gains/losses',
   })
-  @ApiQuery({ name: 'period', required: false, enum: ['1d', '1w', '1m', '3m', '1y', 'all'] })
-  async getPerformance(@Query('period') period: string = '1m', @CurrentUser() user: { userId: string }) {
+  @ApiQuery({
+    name: 'period',
+    required: false,
+    enum: ['1d', '1w', '1m', '3m', '1y', 'all'],
+  })
+  async getPerformance(
+    @Query('period') period: string = '1m',
+    @CurrentUser() user: { userId: string },
+  ) {
     const query = new GetPortfolioPerformanceQuery({
       userId: user.userId,
       period,
@@ -600,12 +656,16 @@ export class PortfolioController {
     summary: 'Get all positions',
     description: 'Returns all open and closed positions with P&L',
   })
-  @ApiQuery({ name: 'status', required: false, enum: ['OPEN', 'CLOSED', 'ALL'] })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['OPEN', 'CLOSED', 'ALL'],
+  })
   @ApiQuery({ name: 'asset', required: false })
   async getPositions(
     @Query('status') status: string = 'OPEN',
     @Query('asset') asset?: string,
-    @CurrentUser() user: { userId: string }
+    @CurrentUser() user: { userId: string },
   ) {
     const query = new GetPositionsQuery({
       userId: user.userId,
@@ -616,7 +676,7 @@ export class PortfolioController {
     const positions = await this.queryBus.execute(query);
 
     return {
-      positions: positions.map(p => ({
+      positions: positions.map((p) => ({
         id: p.positionId,
         asset: p.asset,
         quantity: p.quantity,
@@ -634,8 +694,14 @@ export class PortfolioController {
       summary: {
         totalPositions: positions.length,
         totalCostBasis: positions.reduce((sum, p) => sum + p.costBasis, 0),
-        totalUnrealizedGain: positions.reduce((sum, p) => sum + p.unrealizedGain, 0),
-        totalRealizedGain: positions.reduce((sum, p) => sum + p.realizedGain, 0),
+        totalUnrealizedGain: positions.reduce(
+          (sum, p) => sum + p.unrealizedGain,
+          0,
+        ),
+        totalRealizedGain: positions.reduce(
+          (sum, p) => sum + p.realizedGain,
+          0,
+        ),
       },
     };
   }
@@ -645,12 +711,20 @@ export class PortfolioController {
     summary: 'Get portfolio value history',
     description: 'Returns historical portfolio values for charting',
   })
-  @ApiQuery({ name: 'period', required: false, enum: ['1d', '1w', '1m', '3m', '1y', 'all'] })
-  @ApiQuery({ name: 'interval', required: false, enum: ['hourly', 'daily', 'weekly', 'monthly'] })
+  @ApiQuery({
+    name: 'period',
+    required: false,
+    enum: ['1d', '1w', '1m', '3m', '1y', 'all'],
+  })
+  @ApiQuery({
+    name: 'interval',
+    required: false,
+    enum: ['hourly', 'daily', 'weekly', 'monthly'],
+  })
   async getHistory(
     @Query('period') period: string = '1m',
     @Query('interval') interval: string = 'daily',
-    @CurrentUser() user: { userId: string }
+    @CurrentUser() user: { userId: string },
   ) {
     const query = new GetPortfolioHistoryQuery({
       userId: user.userId,
@@ -663,7 +737,7 @@ export class PortfolioController {
     return {
       period,
       interval,
-      data: history.map(h => ({
+      data: history.map((h) => ({
         timestamp: h.timestamp,
         totalValue: h.totalValue,
         costBasis: h.costBasis,
@@ -673,8 +747,8 @@ export class PortfolioController {
       statistics: {
         startValue: history[0]?.totalValue || 0,
         endValue: history[history.length - 1]?.totalValue || 0,
-        highValue: Math.max(...history.map(h => h.totalValue)),
-        lowValue: Math.min(...history.map(h => h.totalValue)),
+        highValue: Math.max(...history.map((h) => h.totalValue)),
+        lowValue: Math.min(...history.map((h) => h.totalValue)),
         volatility: this.calculateVolatility(history),
       },
     };
@@ -688,7 +762,7 @@ export class PortfolioController {
   })
   async calculateRebalance(
     @Body() dto: { targetAllocations: Record<string, number> },
-    @CurrentUser() user: { userId: string }
+    @CurrentUser() user: { userId: string },
   ) {
     const command = {
       userId: user.userId,
@@ -709,12 +783,16 @@ export class PortfolioController {
 
     const returns = [];
     for (let i = 1; i < history.length; i++) {
-      const dailyReturn = (history[i].totalValue - history[i - 1].totalValue) / history[i - 1].totalValue;
+      const dailyReturn =
+        (history[i].totalValue - history[i - 1].totalValue) /
+        history[i - 1].totalValue;
       returns.push(dailyReturn);
     }
 
     const mean = returns.reduce((sum, r) => sum + r, 0) / returns.length;
-    const variance = returns.reduce((sum, r) => sum + Math.pow(r - mean, 2), 0) / returns.length;
+    const variance =
+      returns.reduce((sum, r) => sum + Math.pow(r - mean, 2), 0) /
+      returns.length;
 
     return Math.sqrt(variance) * Math.sqrt(252); // Annualized volatility
   }
@@ -738,7 +816,14 @@ import {
   HttpStatus,
   StreamableFile,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery, ApiProduces } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiQuery,
+  ApiProduces,
+} from '@nestjs/swagger';
 import { Response } from 'express';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { JwtAuthGuard } from '../../infrastructure/security/auth/jwt-auth.guard';
@@ -751,7 +836,7 @@ import { CurrentUser } from '../../infrastructure/security/auth/current-user.dec
 export class TaxController {
   constructor(
     private readonly commandBus: CommandBus,
-    private readonly queryBus: QueryBus
+    private readonly queryBus: QueryBus,
   ) {}
 
   @Post('reports/generate')
@@ -768,7 +853,7 @@ export class TaxController {
       includeNFTs?: boolean;
       includeDeFi?: boolean;
     },
-    @CurrentUser() user: { userId: string }
+    @CurrentUser() user: { userId: string },
   ) {
     const command = {
       userId: user.userId,
@@ -793,7 +878,10 @@ export class TaxController {
     summary: 'Get tax report for a specific year',
     description: 'Returns complete tax report with gains/losses breakdown',
   })
-  async getReport(@Param('year') year: number, @CurrentUser() user: { userId: string }) {
+  async getReport(
+    @Param('year') year: number,
+    @CurrentUser() user: { userId: string },
+  ) {
     const query = {
       userId: user.userId,
       taxYear: year,
@@ -814,7 +902,7 @@ export class TaxController {
         totalTaxableGain: report.totalTaxableGain,
         washSaleDisallowed: report.washSaleDisallowed,
       },
-      transactions: report.transactions.map(tx => ({
+      transactions: report.transactions.map((tx) => ({
         id: tx.transactionId,
         date: tx.date,
         asset: tx.asset,
@@ -844,7 +932,7 @@ export class TaxController {
     @Param('year') year: number,
     @Query('format') format: string = 'csv',
     @CurrentUser() user: { userId: string },
-    @Res() res: Response
+    @Res() res: Response,
   ) {
     const query = {
       userId: user.userId,
@@ -874,12 +962,16 @@ export class TaxController {
     summary: 'Get tax lots',
     description: 'Returns all tax lots with cost basis information',
   })
-  @ApiQuery({ name: 'status', enum: ['OPEN', 'PARTIAL', 'CLOSED'], required: false })
+  @ApiQuery({
+    name: 'status',
+    enum: ['OPEN', 'PARTIAL', 'CLOSED'],
+    required: false,
+  })
   @ApiQuery({ name: 'asset', required: false })
   async getTaxLots(
     @Query('status') status?: string,
     @Query('asset') asset?: string,
-    @CurrentUser() user: { userId: string }
+    @CurrentUser() user: { userId: string },
   ) {
     const query = {
       userId: user.userId,
@@ -890,7 +982,7 @@ export class TaxController {
     const lots = await this.queryBus.execute(query);
 
     return {
-      lots: lots.map(lot => ({
+      lots: lots.map((lot) => ({
         id: lot.lotId,
         asset: lot.asset,
         acquisitionDate: lot.acquisitionDate,
@@ -903,7 +995,7 @@ export class TaxController {
       })),
       summary: {
         totalLots: lots.length,
-        openLots: lots.filter(l => l.status === 'OPEN').length,
+        openLots: lots.filter((l) => l.status === 'OPEN').length,
         totalCostBasis: lots.reduce((sum, l) => sum + l.costBasis, 0),
       },
     };
@@ -914,7 +1006,10 @@ export class TaxController {
     summary: 'Get wash sale violations',
     description: 'Returns detected wash sales for the tax year',
   })
-  async getWashSales(@Param('year') year: number, @CurrentUser() user: { userId: string }) {
+  async getWashSales(
+    @Param('year') year: number,
+    @CurrentUser() user: { userId: string },
+  ) {
     const query = {
       userId: user.userId,
       taxYear: year,
@@ -924,7 +1019,7 @@ export class TaxController {
 
     return {
       taxYear: year,
-      violations: washSales.map(ws => ({
+      violations: washSales.map((ws) => ({
         disposalDate: ws.disposalDate,
         acquisitionDate: ws.acquisitionDate,
         asset: ws.asset,
@@ -932,7 +1027,10 @@ export class TaxController {
         disallowedAmount: ws.disallowedAmount,
         daysApart: ws.daysApart,
       })),
-      totalDisallowed: washSales.reduce((sum, ws) => sum + ws.disallowedAmount, 0),
+      totalDisallowed: washSales.reduce(
+        (sum, ws) => sum + ws.disallowedAmount,
+        0,
+      ),
     };
   }
 
@@ -963,7 +1061,8 @@ export class TaxController {
         },
         totalEstimated: estimate.totalEstimated,
       },
-      disclaimer: 'This is an estimate only. Consult a tax professional for accurate calculations.',
+      disclaimer:
+        'This is an estimate only. Consult a tax professional for accurate calculations.',
     };
   }
 }
@@ -973,7 +1072,18 @@ export class TaxController {
 
 ```typescript
 // src/api/controllers/reconciliation.controller.ts
-import { Controller, Get, Post, Put, Body, Param, Query, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { JwtAuthGuard } from '../../infrastructure/security/auth/jwt-auth.guard';
@@ -986,14 +1096,15 @@ import { CurrentUser } from '../../infrastructure/security/auth/current-user.dec
 export class ReconciliationController {
   constructor(
     private readonly commandBus: CommandBus,
-    private readonly queryBus: QueryBus
+    private readonly queryBus: QueryBus,
   ) {}
 
   @Post('initiate')
   @HttpCode(HttpStatus.ACCEPTED)
   @ApiOperation({
     summary: 'Initiate reconciliation process',
-    description: 'Starts reconciliation between internal records and external sources',
+    description:
+      'Starts reconciliation between internal records and external sources',
   })
   async initiateReconciliation(
     @Body()
@@ -1002,7 +1113,7 @@ export class ReconciliationController {
       autoResolve?: boolean;
       notifyOnCompletion?: boolean;
     },
-    @CurrentUser() user: { userId: string }
+    @CurrentUser() user: { userId: string },
   ) {
     const command = {
       userId: user.userId,
@@ -1035,7 +1146,7 @@ export class ReconciliationController {
     const sessions = await this.queryBus.execute(query);
 
     return {
-      sessions: sessions.map(s => ({
+      sessions: sessions.map((s) => ({
         id: s.reconciliationId,
         status: s.status,
         sources: s.sources,
@@ -1059,7 +1170,7 @@ export class ReconciliationController {
   async getDiscrepancies(
     @Param('id') reconciliationId: string,
     @Query('severity') severity?: string,
-    @CurrentUser() user: { userId: string }
+    @CurrentUser() user: { userId: string },
   ) {
     const query = {
       reconciliationId,
@@ -1071,7 +1182,7 @@ export class ReconciliationController {
 
     return {
       reconciliationId,
-      discrepancies: discrepancies.map(d => ({
+      discrepancies: discrepancies.map((d) => ({
         id: d.discrepancyId,
         asset: d.asset,
         internal: d.internalBalance,
@@ -1102,7 +1213,11 @@ export class ReconciliationController {
     @Param('discrepancyId') discrepancyId: string,
     @Body()
     dto: {
-      resolution: 'ADJUST_INTERNAL' | 'ADJUST_EXTERNAL' | 'IGNORE' | 'INVESTIGATE';
+      resolution:
+        | 'ADJUST_INTERNAL'
+        | 'ADJUST_EXTERNAL'
+        | 'IGNORE'
+        | 'INVESTIGATE';
       notes: string;
       adjustment?: {
         type: 'INCREASE' | 'DECREASE';
@@ -1110,7 +1225,7 @@ export class ReconciliationController {
         reason: string;
       };
     },
-    @CurrentUser() user: { userId: string }
+    @CurrentUser() user: { userId: string },
   ) {
     const command = {
       reconciliationId,
@@ -1139,7 +1254,7 @@ export class ReconciliationController {
 
   private calculateResolutionRate(discrepancies: any[]): number {
     if (discrepancies.length === 0) return 100;
-    const resolved = discrepancies.filter(d => d.isResolved).length;
+    const resolved = discrepancies.filter((d) => d.isResolved).length;
     return Math.round((resolved / discrepancies.length) * 100);
   }
 }
@@ -1149,7 +1264,13 @@ export class ReconciliationController {
 
 ```typescript
 // src/api/filters/effect-exception.filter.ts
-import { ExceptionFilter, Catch, ArgumentsHost, HttpStatus, Logger } from '@nestjs/common';
+import {
+  ExceptionFilter,
+  Catch,
+  ArgumentsHost,
+  HttpStatus,
+  Logger,
+} from '@nestjs/common';
 import { Response } from 'express';
 import * as Effect from 'effect';
 
@@ -1198,7 +1319,7 @@ export class EffectExceptionFilter implements ExceptionFilter {
     // Log the error
     this.logger.error(
       `${request.method} ${request.url} - ${status} - ${message}`,
-      exception instanceof Error ? exception.stack : exception
+      exception instanceof Error ? exception.stack : exception,
     );
 
     response.status(status).json({
@@ -1227,7 +1348,7 @@ import { EventStore } from '../../infrastructure/event-store/event-store.service
 export class HealthController {
   constructor(
     private readonly database: DatabaseService,
-    private readonly eventStore: EventStore
+    private readonly eventStore: EventStore,
   ) {}
 
   @Get()

@@ -24,7 +24,7 @@ export abstract class EventSourcedAggregate extends Data.Class<{
 
   protected addEvent(event: DomainEvent): this {
     return this.copy({
-      events: [...this.events, event]
+      events: [...this.events, event],
     });
   }
 }

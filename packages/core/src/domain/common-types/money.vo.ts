@@ -20,7 +20,10 @@ export class Money extends Data.Class<{
   readonly amount: BigNumber;
   readonly currency: Currency;
 }> {
-  static of(amount: string | number, currency: Currency): Effect.Effect<Money, InvalidMoneyAmountError> {
+  static of(
+    amount: string | number,
+    currency: Currency,
+  ): Effect.Effect<Money, InvalidMoneyAmountError> {
     return Effect.try({
       catch: () => new InvalidMoneyAmountError({ amount }),
       try: () => {
@@ -43,14 +46,14 @@ export class Money extends Data.Class<{
         new CurrencyMismatchError({
           left: this.currency,
           right: other.currency,
-        })
+        }),
       );
     }
     return Effect.succeed(
       new Money({
         amount: this.amount.plus(other.amount),
         currency: this.currency,
-      })
+      }),
     );
   }
 
@@ -60,14 +63,14 @@ export class Money extends Data.Class<{
         new CurrencyMismatchError({
           left: this.currency,
           right: other.currency,
-        })
+        }),
       );
     }
     return Effect.succeed(
       new Money({
         amount: this.amount.minus(other.amount),
         currency: this.currency,
-      })
+      }),
     );
   }
 

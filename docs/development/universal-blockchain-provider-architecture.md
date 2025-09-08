@@ -1,35 +1,52 @@
 # Universal Blockchain Provider Architecture
 
 > **📋 Open Source Notice**  
-> This documentation describes the Universal Blockchain Provider Architecture for cryptocurrency transaction import systems. The core architecture and examples are provided under open source licensing for educational and development purposes. Some referenced third-party APIs may require paid subscriptions for production use. Always review provider terms of service and rate limits before deployment.
+> This documentation describes the Universal Blockchain Provider Architecture
+> for cryptocurrency transaction import systems. The core architecture and
+> examples are provided under open source licensing for educational and
+> development purposes. Some referenced third-party APIs may require paid
+> subscriptions for production use. Always review provider terms of service and
+> rate limits before deployment.
 
 ## Executive Summary
 
-The Universal Blockchain Provider Architecture transforms our cryptocurrency transaction import system from a collection of fragile, single-point-of-failure services into a resilient, production-grade financial infrastructure. This architecture eliminates system-wide vulnerabilities while establishing patterns that will serve as the foundation for years of reliable operation.
+The Universal Blockchain Provider Architecture transforms our cryptocurrency
+transaction import system from a collection of fragile, single-point-of-failure
+services into a resilient, production-grade financial infrastructure. This
+architecture eliminates system-wide vulnerabilities while establishing patterns
+that will serve as the foundation for years of reliable operation.
 
 ## Core Problem Statement
 
 ### The Fragility Crisis
 
-Without this architecture, every blockchain adapter in our system would be a potential catastrophic failure point:
+Without this architecture, every blockchain adapter in our system would be a
+potential catastrophic failure point:
 
 - **Bitcoin Adapter**: Hardcoded dependency on mempool.space (free service)
-- **Ethereum Adapter**: Single Etherscan API dependency with 1 req/sec rate limits
+- **Ethereum Adapter**: Single Etherscan API dependency with 1 req/sec rate
+  limits
 - **Injective Adapter**: Sole reliance on Injective's own indexer API
 
-**Business Impact**: Any single API outage would completely halt transaction imports for that blockchain, leaving users unable to track their portfolio or verify balances.
+**Business Impact**: Any single API outage would completely halt transaction
+imports for that blockchain, leaving users unable to track their portfolio or
+verify balances.
 
 ### The Solution: Universal Provider Abstraction
 
-Instead of fixing each blockchain individually, we created a **universal provider system** that can be applied to any blockchain adapter, establishing resilience patterns once and reusing them everywhere.
+Instead of fixing each blockchain individually, we created a **universal
+provider system** that can be applied to any blockchain adapter, establishing
+resilience patterns once and reusing them everywhere.
 
 ## Architectural Foundation
 
 ### Core Design Principles
 
 1. **Universal Abstraction**: One provider system works for all blockchains
-2. **Capability-Driven Routing**: Operations route to providers that explicitly support them
-3. **Graceful Degradation**: System continues operating even when multiple providers fail
+2. **Capability-Driven Routing**: Operations route to providers that explicitly
+   support them
+3. **Graceful Degradation**: System continues operating even when multiple
+   providers fail
 4. **Self-Healing Recovery**: Automatic provider restoration after outages
 5. **Zero Breaking Changes**: Existing adapters continue working unchanged
 
@@ -52,7 +69,8 @@ Instead of fixing each blockchain individually, we created a **universal provide
 
 ### 1. Universal Provider Interface (`IBlockchainProvider`)
 
-The foundation of the entire system - a single interface that every provider must implement:
+The foundation of the entire system - a single interface that every provider
+must implement:
 
 ```typescript
 interface IBlockchainProvider<TConfig = any> {
@@ -70,15 +88,23 @@ interface IBlockchainProvider<TConfig = any> {
 }
 ```
 
-**Key Design Decision**: The `execute<T>()` method with generic operations avoids bloated interfaces. Instead of having separate methods for every possible blockchain operation, providers receive operation objects and handle them appropriately.
+**Key Design Decision**: The `execute<T>()` method with generic operations
+avoids bloated interfaces. Instead of having separate methods for every possible
+blockchain operation, providers receive operation objects and handle them
+appropriately.
 
 ### 2. Provider Operations (`ProviderOperation<T>`)
 
-Operations define what work needs to be done, with built-in caching and capability awareness:
+Operations define what work needs to be done, with built-in caching and
+capability awareness:
 
 ```typescript
 interface ProviderOperation<T> {
-  type: 'getAddressTransactions' | 'getAddressBalance' | 'getTokenTransactions' | 'custom';
+  type:
+    | 'getAddressTransactions'
+    | 'getAddressBalance'
+    | 'getTokenTransactions'
+    | 'custom';
   params: Record<string, any>;
   transform?: (response: any) => T; // Response transformation
   getCacheKey?: (params: any) => string; // Cache optimization
@@ -91,8 +117,8 @@ interface ProviderOperation<T> {
 const operation: ProviderOperation<Transaction[]> = {
   type: 'getAddressTransactions',
   params: { address: 'bc1abc123...', since: 1640995200 },
-  getCacheKey: params => `txs-${params.address}-${params.since}`,
-  transform: response => this.convertToBlockchainTransactions(response),
+  getCacheKey: (params) => `txs-${params.address}-${params.since}`,
+  transform: (response) => this.convertToBlockchainTransactions(response),
 };
 ```
 
@@ -102,7 +128,11 @@ Providers declare exactly what they can do, enabling intelligent routing:
 
 ```typescript
 interface ProviderCapabilities {
-  supportedOperations: ('getAddressTransactions' | 'getAddressBalance' | 'getTokenTransactions')[];
+  supportedOperations: (
+    | 'getAddressTransactions'
+    | 'getAddressBalance'
+    | 'getTokenTransactions'
+  )[];
   maxBatchSize?: number;
   providesHistoricalData: boolean;
   supportsPagination: boolean;
@@ -112,11 +142,14 @@ interface ProviderCapabilities {
 }
 ```
 
-**Routing Intelligence**: The system automatically routes token-related operations to providers that declare `supportsTokenData: true`, ensuring compatibility and optimal performance.
+**Routing Intelligence**: The system automatically routes token-related
+operations to providers that declare `supportsTokenData: true`, ensuring
+compatibility and optimal performance.
 
 ### 4. Circuit Breaker Pattern (`CircuitBreaker`)
 
-Prevents the system from hammering failed services and enables automatic recovery:
+Prevents the system from hammering failed services and enables automatic
+recovery:
 
 #### States and Transitions
 
@@ -166,7 +199,8 @@ try {
 
 ### 5. Blockchain Provider Manager (`BlockchainProviderManager`)
 
-The central orchestrator that coordinates all providers with intelligent failover and caching:
+The central orchestrator that coordinates all providers with intelligent
+failover and caching:
 
 #### Request-Scoped Caching
 
@@ -247,12 +281,15 @@ private async performHealthChecks(): Promise<void> {
 
 #### Exponential Moving Averages
 
-Response times and error rates use exponential moving averages for accurate trending:
+Response times and error rates use exponential moving averages for accurate
+trending:
 
 ```typescript
 // Response time smoothing (80% history, 20% current)
 health.averageResponseTime =
-  health.averageResponseTime === 0 ? responseTime : health.averageResponseTime * 0.8 + responseTime * 0.2;
+  health.averageResponseTime === 0
+    ? responseTime
+    : health.averageResponseTime * 0.8 + responseTime * 0.2;
 
 // Error rate smoothing (90% history, 10% current)
 const errorWeight = success ? 0 : 1;
@@ -263,7 +300,8 @@ health.errorRate = health.errorRate * 0.9 + errorWeight * 0.1;
 
 ### Minimal Adapter Changes
 
-The genius of this architecture is that existing blockchain adapters require minimal changes:
+The genius of this architecture is that existing blockchain adapters require
+minimal changes:
 
 ```typescript
 // WITHOUT PROVIDER ARCHITECTURE: Direct API dependency
@@ -321,8 +359,10 @@ Enhanced configuration supports multiple providers per blockchain:
 
 ### Caching Strategy
 
-- **Request-Scoped**: 30-second cache for expensive operations within single request contexts
-- **Cache Key Strategy**: Operations define their own cache keys for optimal hit rates
+- **Request-Scoped**: 30-second cache for expensive operations within single
+  request contexts
+- **Cache Key Strategy**: Operations define their own cache keys for optimal hit
+  rates
 - **Automatic Cleanup**: Background cleanup prevents memory leaks
 
 ### Latency Optimization
@@ -471,22 +511,33 @@ const rewards = await providerManager.executeWithFailover('ethereum', {
 
 This architecture eliminates several categories of technical debt:
 
-1. **Single Point of Failure Debt**: Every blockchain now has redundant providers
+1. **Single Point of Failure Debt**: Every blockchain now has redundant
+   providers
 2. **Inconsistent Error Handling**: Unified error handling across all providers
 3. **Manual Failover Debt**: Automatic failover eliminates manual intervention
-4. **Monitoring Debt**: Built-in health monitoring and circuit breaker visibility
-5. **Scalability Debt**: Adding new providers/blockchains follows established patterns
+4. **Monitoring Debt**: Built-in health monitoring and circuit breaker
+   visibility
+5. **Scalability Debt**: Adding new providers/blockchains follows established
+   patterns
 
 ## Conclusion
 
-The Universal Blockchain Provider Architecture represents a fundamental evolution from prototype-grade blockchain adapters to production-grade financial infrastructure. By establishing resilience patterns once and applying them universally, we've created a system that will serve as a reliable foundation for years of operation and growth.
+The Universal Blockchain Provider Architecture represents a fundamental
+evolution from prototype-grade blockchain adapters to production-grade financial
+infrastructure. By establishing resilience patterns once and applying them
+universally, we've created a system that will serve as a reliable foundation for
+years of operation and growth.
 
 **Key Achievements:**
 
-- **100% Single Point of Failure Elimination**: Every blockchain now has multiple provider options
-- **Production-Grade Resilience**: Circuit breakers, caching, and automatic recovery
-- **Future-Proof Foundation**: Adding new blockchains and providers follows established patterns
+- **100% Single Point of Failure Elimination**: Every blockchain now has
+  multiple provider options
+- **Production-Grade Resilience**: Circuit breakers, caching, and automatic
+  recovery
+- **Future-Proof Foundation**: Adding new blockchains and providers follows
+  established patterns
 - **Zero Breaking Changes**: Existing functionality continues unchanged
 - **Operational Excellence**: Real-time monitoring and self-healing capabilities
 
-This architecture transforms our system from a collection of individual blockchain adapters into a unified, resilient financial service platform.
+This architecture transforms our system from a collection of individual
+blockchain adapters into a unified, resilient financial service platform.

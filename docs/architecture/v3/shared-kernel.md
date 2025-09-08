@@ -106,12 +106,16 @@ export class MoneyError extends Data.TaggedError('MoneyError')<{
   readonly message: string;
 }> {}
 
-export class CurrencyMismatchError extends Data.TaggedError('CurrencyMismatchError')<{
+export class CurrencyMismatchError extends Data.TaggedError(
+  'CurrencyMismatchError',
+)<{
   readonly left: Currency;
   readonly right: Currency;
 }> {}
 
-export class InvalidMoneyAmountError extends Data.TaggedError('InvalidMoneyAmountError')<{
+export class InvalidMoneyAmountError extends Data.TaggedError(
+  'InvalidMoneyAmountError',
+)<{
   readonly amount: string | number;
 }> {}
 
@@ -119,7 +123,10 @@ export class Money extends Data.Class<{
   readonly amount: BigNumber;
   readonly currency: Currency;
 }> {
-  static of(amount: string | number, currency: Currency): Effect.Effect<Money, InvalidMoneyAmountError> {
+  static of(
+    amount: string | number,
+    currency: Currency,
+  ): Effect.Effect<Money, InvalidMoneyAmountError> {
     return Effect.try({
       try: () => {
         const bigAmount = new BigNumber(amount);
@@ -142,14 +149,14 @@ export class Money extends Data.Class<{
         new CurrencyMismatchError({
           left: this.currency,
           right: other.currency,
-        })
+        }),
       );
     }
     return Effect.succeed(
       new Money({
         amount: this.amount.plus(other.amount),
         currency: this.currency,
-      })
+      }),
     );
   }
 
@@ -159,14 +166,14 @@ export class Money extends Data.Class<{
         new CurrencyMismatchError({
           left: this.currency,
           right: other.currency,
-        })
+        }),
       );
     }
     return Effect.succeed(
       new Money({
         amount: this.amount.minus(other.amount),
         currency: this.currency,
-      })
+      }),
     );
   }
 
@@ -217,7 +224,9 @@ export class QuantityError extends Data.TaggedError('QuantityError')<{
   readonly message: string;
 }> {}
 
-export class NegativeQuantityError extends Data.TaggedError('NegativeQuantityError')<{
+export class NegativeQuantityError extends Data.TaggedError(
+  'NegativeQuantityError',
+)<{
   readonly value: string;
 }> {}
 
@@ -225,7 +234,10 @@ export class Quantity extends Data.Class<{
   readonly value: BigNumber;
   readonly precision: number;
 }> {
-  static of(value: string | number, precision: number = 18): Effect.Effect<Quantity, QuantityError> {
+  static of(
+    value: string | number,
+    precision: number = 18,
+  ): Effect.Effect<Quantity, QuantityError> {
     return Effect.try({
       try: () => {
         const bigValue = new BigNumber(value);
@@ -252,9 +264,13 @@ export class Quantity extends Data.Class<{
   subtract(other: Quantity): Effect.Effect<Quantity, NegativeQuantityError> {
     const result = this.value.minus(other.value);
     if (result.isNegative()) {
-      return Effect.fail(new NegativeQuantityError({ value: result.toString() }));
+      return Effect.fail(
+        new NegativeQuantityError({ value: result.toString() }),
+      );
     }
-    return Effect.succeed(new Quantity({ value: result, precision: this.precision }));
+    return Effect.succeed(
+      new Quantity({ value: result, precision: this.precision }),
+    );
   }
 
   isZero(): boolean {
@@ -288,7 +304,11 @@ export class AssetId extends Data.Class<{
   readonly blockchain?: string;
   readonly contractAddress?: string;
 }> {
-  static crypto(symbol: string, blockchain: string, contractAddress?: string): AssetId {
+  static crypto(
+    symbol: string,
+    blockchain: string,
+    contractAddress?: string,
+  ): AssetId {
     return new AssetId({
       symbol: symbol.toUpperCase(),
       type: AssetType.CRYPTO,
@@ -330,11 +350,16 @@ export const CoreLayer = Layer.mergeAll(Clock.layer);
 // Create runtime with core services
 export const createRuntime = <R, E, A>(
   program: Effect.Effect<A, E, R>,
-  contextLayer?: Layer.Layer<R, never, never>
+  contextLayer?: Layer.Layer<R, never, never>,
 ) => {
-  const fullLayer = contextLayer ? Layer.merge(CoreLayer, contextLayer) : CoreLayer;
+  const fullLayer = contextLayer
+    ? Layer.merge(CoreLayer, contextLayer)
+    : CoreLayer;
 
-  return Runtime.runPromise(Runtime.defaultRuntime.pipe(Runtime.provideLayer(fullLayer)), program);
+  return Runtime.runPromise(
+    Runtime.defaultRuntime.pipe(Runtime.provideLayer(fullLayer)),
+    program,
+  );
 };
 ```
 

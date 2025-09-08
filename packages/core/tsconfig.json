@@ -2,7 +2,7 @@
   "extends": "@internal/tsconfig/node",
   "compilerOptions": {
     "composite": true,
-    "rootDir": "src",
+    "rootDir": ".",
     "outDir": "dist",
     "module": "ES2022",
     "moduleResolution": "Bundler",
@@ -10,6 +10,6 @@
     "declarationMap": true,
     "sourceMap": true
   },
-  "include": ["src"],
+  "include": ["src", "index.ts"],
   "exclude": ["dist", "node_modules"]
 }

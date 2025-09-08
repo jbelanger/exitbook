@@ -2,7 +2,12 @@
 
 ## 1. Executive Summary
 
-The Taxation bounded context is responsible for managing tax compliance for cryptocurrency transactions, implementing tax lot accounting methodologies (FIFO, LIFO, HIFO, Specific ID), calculating realized gains/losses, detecting wash sale violations, and generating jurisdiction-specific tax reports. This context transforms raw trading transactions into tax-compliant reporting data while maintaining full auditability through event sourcing.
+The Taxation bounded context is responsible for managing tax compliance for
+cryptocurrency transactions, implementing tax lot accounting methodologies
+(FIFO, LIFO, HIFO, Specific ID), calculating realized gains/losses, detecting
+wash sale violations, and generating jurisdiction-specific tax reports. This
+context transforms raw trading transactions into tax-compliant reporting data
+while maintaining full auditability through event sourcing.
 
 ## 2. Business Domain Overview
 
@@ -11,7 +16,8 @@ The Taxation bounded context is responsible for managing tax compliance for cryp
 Cryptocurrency taxation is complex due to:
 
 - Multiple accounting methods (FIFO, LIFO, HIFO, Specific ID)
-- Wash sale rules that disallow losses when substantially similar assets are repurchased
+- Wash sale rules that disallow losses when substantially similar assets are
+  repurchased
 - Different tax treatments based on holding periods and jurisdictions
 - Need for detailed transaction-level audit trails
 - Amendment and correction requirements for filed reports
@@ -35,9 +41,12 @@ Cryptocurrency taxation is complex due to:
 
 ### 3.1 Core Responsibilities
 
-1. **Tax Lot Management**: Track cost basis and consumption of cryptocurrency holdings
-2. **Gain/Loss Calculation**: Compute realized gains/losses using various accounting methods
-3. **Wash Sale Detection**: Identify and apply wash sale rules for loss disallowance
+1. **Tax Lot Management**: Track cost basis and consumption of cryptocurrency
+   holdings
+2. **Gain/Loss Calculation**: Compute realized gains/losses using various
+   accounting methods
+3. **Wash Sale Detection**: Identify and apply wash sale rules for loss
+   disallowance
 4. **Tax Report Generation**: Create jurisdiction-specific tax reports and forms
 5. **Amendment Processing**: Handle corrections to previously filed reports
 
@@ -83,8 +92,8 @@ Cryptocurrency taxation is complex due to:
 
 #### UC-1: Create Tax Lot from Acquisition
 
-**Actor**: System (triggered by Trading transaction)
-**Goal**: Create a new tax lot when assets are acquired
+**Actor**: System (triggered by Trading transaction) **Goal**: Create a new tax
+lot when assets are acquired
 
 **Main Flow:**
 
@@ -103,8 +112,8 @@ Cryptocurrency taxation is complex due to:
 
 #### UC-2: Process Asset Disposal
 
-**Actor**: System (triggered by Trading transaction)
-**Goal**: Consume tax lots and calculate realized gains/losses
+**Actor**: System (triggered by Trading transaction) **Goal**: Consume tax lots
+and calculate realized gains/losses
 
 **Main Flow:**
 
@@ -125,8 +134,8 @@ Cryptocurrency taxation is complex due to:
 
 #### UC-3: Detect and Apply Wash Sale Rules
 
-**Actor**: System (part of tax report generation)
-**Goal**: Identify wash sale violations and adjust tax treatment
+**Actor**: System (part of tax report generation) **Goal**: Identify wash sale
+violations and adjust tax treatment
 
 **Main Flow:**
 
@@ -145,8 +154,7 @@ Cryptocurrency taxation is complex due to:
 
 #### UC-4: Generate Annual Tax Report
 
-**Actor**: User
-**Goal**: Create comprehensive tax report for filing
+**Actor**: User **Goal**: Create comprehensive tax report for filing
 
 **Main Flow:**
 
@@ -167,8 +175,8 @@ Cryptocurrency taxation is complex due to:
 
 #### UC-5: Amend Filed Tax Report
 
-**Actor**: User/Tax Professional
-**Goal**: Create amendment for previously filed report
+**Actor**: User/Tax Professional **Goal**: Create amendment for previously filed
+report
 
 **Main Flow:**
 
@@ -191,23 +199,22 @@ Cryptocurrency taxation is complex due to:
 
 #### UC-6: Adjust Cost Basis for Wash Sales
 
-**Actor**: System (automated) or Tax Professional (manual)
-**Goal**: Modify tax lot cost basis due to wash sale or other adjustments
+**Actor**: System (automated) or Tax Professional (manual) **Goal**: Modify tax
+lot cost basis due to wash sale or other adjustments
 
 #### UC-7: Export Tax Forms
 
-**Actor**: User/Tax Professional
-**Goal**: Generate downloadable tax forms (PDF, CSV, JSON)
+**Actor**: User/Tax Professional **Goal**: Generate downloadable tax forms (PDF,
+CSV, JSON)
 
 #### UC-8: Query Tax Lot Status
 
-**Actor**: User
-**Goal**: View current tax lot holdings and their status
+**Actor**: User **Goal**: View current tax lot holdings and their status
 
 #### UC-9: Validate Tax Calculations
 
-**Actor**: Tax Professional
-**Goal**: Verify accuracy of tax calculations and detect anomalies
+**Actor**: Tax Professional **Goal**: Verify accuracy of tax calculations and
+detect anomalies
 
 ## 5. Architecture Overview
 
@@ -293,7 +300,8 @@ All state changes are captured as immutable events:
 
 `TaxCalculationSaga` orchestrates complex multi-step processes:
 
-1. Load transactions → 2. Process disposals → 3. Apply tax rules → 4. Generate report
+1. Load transactions → 2. Process disposals → 3. Apply tax rules → 4. Generate
+   report
 
 ### 5.3 Technology Stack
 
@@ -309,16 +317,16 @@ All state changes are captured as immutable events:
 #### TaxLot Aggregate
 
 **Purpose**: Manages individual asset holdings with cost basis tracking
-**State**: Lot ID, Asset, Quantity (original/remaining/consumed), Cost Basis, Status
-**Commands**: Create, Consume, AdjustCostBasis
-**Events**: Created, PartiallyConsumed, FullyConsumed, Adjusted
+**State**: Lot ID, Asset, Quantity (original/remaining/consumed), Cost Basis,
+Status **Commands**: Create, Consume, AdjustCostBasis **Events**: Created,
+PartiallyConsumed, FullyConsumed, Adjusted
 
 #### TaxReport Aggregate
 
-**Purpose**: Manages tax report generation and lifecycle
-**State**: Report ID, Tax Year, Transactions, Summary, Status
-**Commands**: Generate, AddTransaction, Finalize, Amend
-**Events**: Generated, TransactionAdded, Calculated, Finalized, Filed, Amended
+**Purpose**: Manages tax report generation and lifecycle **State**: Report ID,
+Tax Year, Transactions, Summary, Status **Commands**: Generate, AddTransaction,
+Finalize, Amend **Events**: Generated, TransactionAdded, Calculated, Finalized,
+Filed, Amended
 
 ### 6.2 Key Value Objects
 
@@ -368,13 +376,13 @@ All state changes are captured as immutable events:
 
 #### WashSaleDetector
 
-**Purpose**: Identifies wash sale violations
-**Enhancement**: Uses `SubstantiallySimilarAssetDetector` interface for flexible asset matching
+**Purpose**: Identifies wash sale violations **Enhancement**: Uses
+`SubstantiallySimilarAssetDetector` interface for flexible asset matching
 
 #### JurisdictionTaxPolicy
 
-**Purpose**: Applies jurisdiction-specific tax rules
-**Implementations**: USTaxPolicy, CanadaTaxPolicy
+**Purpose**: Applies jurisdiction-specific tax rules **Implementations**:
+USTaxPolicy, CanadaTaxPolicy
 
 ## 7. Data Flow & Process Flows
 
@@ -664,22 +672,31 @@ CREATE TABLE tax_report_projections (
 **Date**: 2024-01-15  
 **Decision Maker**: Me, myself, and I
 
-**Context**: Tax calculations require absolute auditability and the ability to replay historical calculations with different rules or corrections.
+**Context**: Tax calculations require absolute auditability and the ability to
+replay historical calculations with different rules or corrections.
 
-**Decision**: Implement Event Sourcing as the primary persistence strategy for the Taxation context.
+**Decision**: Implement Event Sourcing as the primary persistence strategy for
+the Taxation context.
 
 **Rationale**:
 
-- **Auditability**: Complete immutable log of all tax-related changes required for regulatory compliance
-- **Temporal Queries**: Ability to reconstruct system state at any point in time for historical reporting
-- **Amendment Support**: Can replay events with corrections to generate amended reports
-- **Regulatory Requirements**: Many jurisdictions require detailed audit trails for tax calculations
+- **Auditability**: Complete immutable log of all tax-related changes required
+  for regulatory compliance
+- **Temporal Queries**: Ability to reconstruct system state at any point in time
+  for historical reporting
+- **Amendment Support**: Can replay events with corrections to generate amended
+  reports
+- **Regulatory Requirements**: Many jurisdictions require detailed audit trails
+  for tax calculations
 
 **Consequences**:
 
-- **Positive**: Complete audit trail, temporal queries, natural support for amendments
-- **Negative**: Increased storage requirements, complexity in handling event schema evolution
-- **Risk Mitigation**: Implement event versioning and migration strategies from day one
+- **Positive**: Complete audit trail, temporal queries, natural support for
+  amendments
+- **Negative**: Increased storage requirements, complexity in handling event
+  schema evolution
+- **Risk Mitigation**: Implement event versioning and migration strategies from
+  day one
 
 ---
 
@@ -689,22 +706,30 @@ CREATE TABLE tax_report_projections (
 **Date**: 2024-01-20  
 **Decision Maker**: Just me (after way too much research)
 
-**Context**: Tax calculations involve complex error handling, multiple validation steps, and composition of operations that can fail.
+**Context**: Tax calculations involve complex error handling, multiple
+validation steps, and composition of operations that can fail.
 
-**Decision**: Use Effect-TS as the primary functional programming library for domain logic implementation.
+**Decision**: Use Effect-TS as the primary functional programming library for
+domain logic implementation.
 
 **Rationale**:
 
-- **Type-Safe Error Handling**: Tax calculations must handle errors explicitly without silent failures
-- **Compositionality**: Complex tax workflows require composable operations (lot selection, consumption, gain calculation)
-- **Effect Management**: Tax operations have side effects (persistence, external calls) that need controlled management
-- **Deterministic Testing**: Pure functional approach enables reliable unit testing of tax logic
+- **Type-Safe Error Handling**: Tax calculations must handle errors explicitly
+  without silent failures
+- **Compositionality**: Complex tax workflows require composable operations (lot
+  selection, consumption, gain calculation)
+- **Effect Management**: Tax operations have side effects (persistence, external
+  calls) that need controlled management
+- **Deterministic Testing**: Pure functional approach enables reliable unit
+  testing of tax logic
 
 **Consequences**:
 
-- **Positive**: Eliminated runtime errors in tax calculations, improved composability of complex workflows
+- **Positive**: Eliminated runtime errors in tax calculations, improved
+  composability of complex workflows
 - **Negative**: Learning curve for team, potential performance overhead
-- **Mitigation**: Comprehensive training program, performance benchmarking against business requirements
+- **Mitigation**: Comprehensive training program, performance benchmarking
+  against business requirements
 
 ---
 
@@ -714,22 +739,30 @@ CREATE TABLE tax_report_projections (
 **Date**: 2024-01-25  
 **Decision Maker**: Solo architect (me) wearing multiple hats
 
-**Context**: Tax queries (lot lookups, report generation) have different performance characteristics than tax commands (lot creation, consumption).
+**Context**: Tax queries (lot lookups, report generation) have different
+performance characteristics than tax commands (lot creation, consumption).
 
-**Decision**: Implement Command Query Responsibility Segregation (CQRS) with dedicated projection tables.
+**Decision**: Implement Command Query Responsibility Segregation (CQRS) with
+dedicated projection tables.
 
 **Rationale**:
 
-- **Query Performance**: Tax lot queries need millisecond response times for user experience
-- **Complex Aggregations**: Tax reports require complex joins and aggregations not suitable for event store
-- **Read Optimization**: Different query patterns (by user, by asset, by date) require different indexing strategies
+- **Query Performance**: Tax lot queries need millisecond response times for
+  user experience
+- **Complex Aggregations**: Tax reports require complex joins and aggregations
+  not suitable for event store
+- **Read Optimization**: Different query patterns (by user, by asset, by date)
+  require different indexing strategies
 - **Scalability**: Read and write workloads can be scaled independently
 
 **Consequences**:
 
-- **Positive**: Optimized read performance, flexible query models, independent scaling
-- **Negative**: Eventual consistency between commands and queries, increased complexity
-- **Mitigation**: Implement projection health monitoring and reconstruction capabilities
+- **Positive**: Optimized read performance, flexible query models, independent
+  scaling
+- **Negative**: Eventual consistency between commands and queries, increased
+  complexity
+- **Mitigation**: Implement projection health monitoring and reconstruction
+  capabilities
 
 ---
 
@@ -739,20 +772,27 @@ CREATE TABLE tax_report_projections (
 **Date**: 2024-02-01  
 **Decision Maker**: Me (consulting my rubber duck)
 
-**Context**: Tax report generation involves multiple steps across different aggregates and external services.
+**Context**: Tax report generation involves multiple steps across different
+aggregates and external services.
 
-**Decision**: Implement the Saga pattern for orchestrating complex tax calculation workflows.
+**Decision**: Implement the Saga pattern for orchestrating complex tax
+calculation workflows.
 
 **Rationale**:
 
-- **Workflow Coordination**: Tax reports require processing transactions, calculating gains, applying wash sales, and generating forms
-- **Failure Handling**: Each step can fail and requires specific compensation logic
-- **Auditability**: Need to track progress and status of long-running tax calculations
-- **Consistency**: Ensure all steps complete successfully or system returns to consistent state
+- **Workflow Coordination**: Tax reports require processing transactions,
+  calculating gains, applying wash sales, and generating forms
+- **Failure Handling**: Each step can fail and requires specific compensation
+  logic
+- **Auditability**: Need to track progress and status of long-running tax
+  calculations
+- **Consistency**: Ensure all steps complete successfully or system returns to
+  consistent state
 
 **Consequences**:
 
-- **Positive**: Reliable workflow execution, clear failure handling, progress tracking
+- **Positive**: Reliable workflow execution, clear failure handling, progress
+  tracking
 - **Negative**: Increased complexity in workflow management and testing
 - **Risk Mitigation**: Implement comprehensive saga testing and monitoring
 
@@ -764,27 +804,47 @@ CREATE TABLE tax_report_projections (
 **Date**: 2024-02-10  
 **Decision Maker**: Yours truly (after googling tax laws at 2 AM)
 
-**Context**: Different tax jurisdictions have varying rules for holding periods, wash sales, and gain classifications.
+**Context**: Different tax jurisdictions have varying rules for holding periods,
+wash sales, and gain classifications.
 
-**Decision**: Implement tax jurisdiction rules as pluggable policy objects using the Strategy pattern.
+**Decision**: Implement tax jurisdiction rules as pluggable policy objects using
+the Strategy pattern.
 
 **Rationale**:
 
-- **Extensibility**: New jurisdictions can be added without modifying core tax logic
+- **Extensibility**: New jurisdictions can be added without modifying core tax
+  logic
 - **Testability**: Each jurisdiction's rules can be tested independently
 - **Compliance**: Jurisdiction-specific logic is isolated and clearly documented
-- **Maintenance**: Tax law changes affect only the specific jurisdiction implementation
+- **Maintenance**: Tax law changes affect only the specific jurisdiction
+  implementation
 
 **Consequences**:
 
-- **Positive**: Easy jurisdiction expansion, clear separation of tax rules, isolated testing
-- **Negative**: Additional abstraction layer, potential over-engineering for simple rules
-- **Future Considerations**: May need jurisdiction-specific form generators and validation rules
+- **Positive**: Easy jurisdiction expansion, clear separation of tax rules,
+  isolated testing
+- **Negative**: Additional abstraction layer, potential over-engineering for
+  simple rules
+- **Future Considerations**: May need jurisdiction-specific form generators and
+  validation rules
 
 ## 16. Conclusion
 
-The Taxation bounded context provides a robust, auditable, and compliant solution for cryptocurrency tax calculations. Through event sourcing and CQRS, it maintains complete transparency while optimizing for both command and query performance. The recent architectural enhancements address key real-world requirements including report amendments, diverse asset classifications, and sophisticated wash sale detection.
+The Taxation bounded context provides a robust, auditable, and compliant
+solution for cryptocurrency tax calculations. Through event sourcing and CQRS,
+it maintains complete transparency while optimizing for both command and query
+performance. The recent architectural enhancements address key real-world
+requirements including report amendments, diverse asset classifications, and
+sophisticated wash sale detection.
 
-The context is designed for extensibility, supporting multiple accounting methods, tax jurisdictions, and asset types while maintaining clean separation of concerns through hexagonal architecture principles. This foundation enables the system to evolve with changing tax regulations and business requirements while preserving data integrity and compliance.
+The context is designed for extensibility, supporting multiple accounting
+methods, tax jurisdictions, and asset types while maintaining clean separation
+of concerns through hexagonal architecture principles. This foundation enables
+the system to evolve with changing tax regulations and business requirements
+while preserving data integrity and compliance.
 
-The architectural decisions documented in the ADR log provide clear rationale for key design choices, ensuring future maintainers understand the context and trade-offs behind each decision. These decisions collectively create a system that balances complexity with maintainability, performance with auditability, and flexibility with reliability.
+The architectural decisions documented in the ADR log provide clear rationale
+for key design choices, ensuring future maintainers understand the context and
+trade-offs behind each decision. These decisions collectively create a system
+that balances complexity with maintainability, performance with auditability,
+and flexibility with reliability.

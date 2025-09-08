@@ -19,9 +19,7 @@ export class AssetId extends Data.Class<{
       symbol: symbol.toUpperCase(),
       type: AssetType.CRYPTO,
     };
-    return new AssetId(
-      contractAddress ? { ...base, contractAddress } : base
-    );
+    return new AssetId(contractAddress ? { ...base, contractAddress } : base);
   }
 
   static fiat(symbol: string): AssetId {

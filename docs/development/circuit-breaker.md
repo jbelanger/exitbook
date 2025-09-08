@@ -1,15 +1,22 @@
 # Circuit Breaker Pattern Explanation
 
 > **📋 Open Source Notice**  
-> This guide explains the Circuit Breaker pattern implementation in the Universal Blockchain Provider Architecture. The pattern is open source and follows industry-standard practices for building resilient distributed systems.
+> This guide explains the Circuit Breaker pattern implementation in the
+> Universal Blockchain Provider Architecture. The pattern is open source and
+> follows industry-standard practices for building resilient distributed
+> systems.
 
 ## What is a Circuit Breaker?
 
-A **Circuit Breaker** is a design pattern that prevents your application from repeatedly calling a failing service. Just like an electrical circuit breaker in your home protects against power surges, a software circuit breaker protects against cascading failures.
+A **Circuit Breaker** is a design pattern that prevents your application from
+repeatedly calling a failing service. Just like an electrical circuit breaker in
+your home protects against power surges, a software circuit breaker protects
+against cascading failures.
 
 ### The Problem Without Circuit Breakers
 
-Imagine your application trying to fetch Bitcoin transactions from mempool.space:
+Imagine your application trying to fetch Bitcoin transactions from
+mempool.space:
 
 ```
 App → mempool.space API (DOWN) → Wait 30 seconds → TIMEOUT
@@ -20,10 +27,13 @@ App → mempool.space API (DOWN) → Wait 30 seconds → TIMEOUT
 
 **Problems:**
 
-- **Wasted Resources**: Your application spends time and memory on doomed requests
+- **Wasted Resources**: Your application spends time and memory on doomed
+  requests
 - **Slow Failure**: Users wait 30+ seconds to discover the service is down
-- **Service Overload**: Your requests may prevent the failing service from recovering
-- **Cascading Failures**: Other parts of your system may timeout waiting for responses
+- **Service Overload**: Your requests may prevent the failing service from
+  recovering
+- **Cascading Failures**: Other parts of your system may timeout waiting for
+  responses
 
 ### The Solution: Circuit Breaker Pattern
 
@@ -186,7 +196,8 @@ Think of your home's electrical system:
 - If stable: normal operation resumes
 - If unstable: breaker trips again immediately
 
-**The software circuit breaker works the same way but for API calls instead of electricity.**
+**The software circuit breaker works the same way but for API calls instead of
+electricity.**
 
 ## Implementation in the Provider System
 
@@ -354,16 +365,16 @@ for (const [providerName, status] of health) {
 
 ```typescript
 // Listen for circuit breaker events
-circuitBreaker.on('open', provider => {
+circuitBreaker.on('open', (provider) => {
   console.log(`⚠️  Circuit breaker OPENED for ${provider}`);
   // Alert operations team
 });
 
-circuitBreaker.on('halfOpen', provider => {
+circuitBreaker.on('halfOpen', (provider) => {
   console.log(`🔍 Circuit breaker testing recovery for ${provider}`);
 });
 
-circuitBreaker.on('close', provider => {
+circuitBreaker.on('close', (provider) => {
   console.log(`✅ Circuit breaker CLOSED - ${provider} recovered`);
 });
 ```
@@ -384,7 +395,9 @@ const stats = circuitBreaker.getStats();
 // Set up alerts
 if (stats.state === 'open' && stats.timeUntilRecovery > 240000) {
   // Alert: Service has been down for more than 4 minutes
-  sendAlert(`Bitcoin provider ${stats.name} down for ${stats.timeUntilRecovery / 1000}s`);
+  sendAlert(
+    `Bitcoin provider ${stats.name} down for ${stats.timeUntilRecovery / 1000}s`,
+  );
 }
 ```
 
@@ -515,7 +528,10 @@ if (circuitBreaker.isOpen()) {
 
 ```typescript
 // Individual request timeout: 10 seconds
-const result = await Promise.race([provider.execute(operation), timeout(10000)]);
+const result = await Promise.race([
+  provider.execute(operation),
+  timeout(10000),
+]);
 
 // Circuit breaker: Overall service health across requests
 circuitBreaker.execute(() => result);
@@ -523,12 +539,17 @@ circuitBreaker.execute(() => result);
 
 ## Conclusion
 
-The Circuit Breaker pattern is essential for building resilient distributed systems. In the Universal Blockchain Provider Architecture, circuit breakers:
+The Circuit Breaker pattern is essential for building resilient distributed
+systems. In the Universal Blockchain Provider Architecture, circuit breakers:
 
-**✅ Prevent Cascading Failures**: Stop your application from hammering failed services
-**✅ Enable Fast Failures**: Provide instant feedback when services are down  
-**✅ Support Automatic Recovery**: Test and restore service connections automatically
-**✅ Improve User Experience**: Reduce response times during outages through intelligent failover
-**✅ Protect Service Recovery**: Reduce load on failing services to help them recover faster
+**✅ Prevent Cascading Failures**: Stop your application from hammering failed
+services **✅ Enable Fast Failures**: Provide instant feedback when services are
+down  
+**✅ Support Automatic Recovery**: Test and restore service connections
+automatically **✅ Improve User Experience**: Reduce response times during
+outages through intelligent failover **✅ Protect Service Recovery**: Reduce
+load on failing services to help them recover faster
 
-By understanding and properly configuring circuit breakers, you ensure your cryptocurrency transaction import system remains responsive and reliable even when individual blockchain APIs experience outages or degradation.
+By understanding and properly configuring circuit breakers, you ensure your
+cryptocurrency transaction import system remains responsive and reliable even
+when individual blockchain APIs experience outages or degradation.

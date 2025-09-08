@@ -1,5 +1,5 @@
-
 ## Complete Kubernetes & Docker Setup
+
 ### 1. Docker Configuration
 
 ```dockerfile
@@ -158,7 +158,9 @@ services:
   redis:
     image: redis:7-alpine
     container_name: crypto-redis
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    command:
+      redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy
+      allkeys-lru
     volumes:
       - redis-data:/data
     ports:
@@ -205,7 +207,8 @@ services:
     ports:
       - '9200:9200'
     healthcheck:
-      test: ['CMD-SHELL', 'curl -f http://localhost:9200/_cluster/health || exit 1']
+      test:
+        ['CMD-SHELL', 'curl -f http://localhost:9200/_cluster/health || exit 1']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -1295,4 +1298,3 @@ jobs:
             -n crypto-portfolio
           kubectl rollout status deployment/crypto-portfolio-app -n crypto-portfolio
 ```
-

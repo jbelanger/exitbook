@@ -7,7 +7,10 @@
 import { Data, Effect, Brand, Option, pipe } from 'effect';
 import { v4 as uuidv4 } from 'uuid';
 import { Quantity } from '../../../../@core/domain/common-types/quantity.vo';
-import { Money, CurrencyMismatchError } from '../../../../@core/domain/common-types/money.vo';
+import {
+  Money,
+  CurrencyMismatchError,
+} from '../../../../@core/domain/common-types/money.vo';
 import { AssetId } from '../../../../@core/domain/common-types/asset-id.vo';
 import { TransactionId } from '../../../../@core/domain/common-types/identifiers';
 
@@ -103,7 +106,9 @@ export class CostBasis extends Data.Class<{
     });
   }
 
-  addAdjustment(adjustment: CostBasisAdjustment): Effect.Effect<CostBasis, CurrencyMismatchError> {
+  addAdjustment(
+    adjustment: CostBasisAdjustment,
+  ): Effect.Effect<CostBasis, CurrencyMismatchError> {
     const effect =
       adjustment.type === 'INCREASE'
         ? this.adjustedAmount.add(adjustment.amount)
@@ -111,23 +116,25 @@ export class CostBasis extends Data.Class<{
 
     return Effect.map(
       effect,
-      newAdjustedAmount =>
+      (newAdjustedAmount) =>
         new CostBasis({
           originalAmount: this.originalAmount,
           adjustedAmount: newAdjustedAmount,
           adjustments: [...this.adjustments, adjustment],
-        })
+        }),
     );
   }
 
   perUnit(quantity: Quantity): Effect.Effect<Money, Error> {
     if (quantity.isZero()) {
-      return Effect.fail(new Error('Cannot calculate per-unit cost for zero quantity'));
+      return Effect.fail(
+        new Error('Cannot calculate per-unit cost for zero quantity'),
+      );
     }
 
     return Effect.try({
       try: () => this.adjustedAmount.divide(quantity.toNumber()),
-      catch: e => new Error(`Failed to calculate per-unit cost: ${e}`),
+      catch: (e) => new Error(`Failed to calculate per-unit cost: ${e}`),
     });
   }
 }
@@ -157,19 +164,21 @@ export class TaxLotQuantity extends Data.Class<{
 
   consume(amount: Quantity): Effect.Effect<TaxLotQuantity, Error> {
     if (amount.isGreaterThan(this.remaining)) {
-      return Effect.fail(new Error('Cannot consume more than remaining quantity'));
+      return Effect.fail(
+        new Error('Cannot consume more than remaining quantity'),
+      );
     }
 
     return pipe(
       this.remaining.subtract(amount),
       Effect.map(
-        newRemaining =>
+        (newRemaining) =>
           new TaxLotQuantity({
             original: this.original,
             remaining: newRemaining,
             consumed: this.consumed.add(amount),
-          })
-      )
+          }),
+      ),
     );
   }
 
@@ -195,24 +204,24 @@ export class RealizedGain extends Data.Class<{
     proceeds: Money,
     costBasis: Money,
     holdingPeriod: HoldingPeriod,
-    washSaleAdjustment?: Money
+    washSaleAdjustment?: Money,
   ): Effect.Effect<RealizedGain, CurrencyMismatchError> {
     return pipe(
       proceeds.subtract(costBasis),
-      Effect.flatMap(gain => {
+      Effect.flatMap((gain) => {
         if (washSaleAdjustment) {
           return pipe(
             gain.subtract(washSaleAdjustment),
             Effect.map(
-              adjustedGain =>
+              (adjustedGain) =>
                 new RealizedGain({
                   proceeds,
                   costBasis,
                   gain: adjustedGain,
                   holdingPeriod,
                   washSaleAdjustment: Option.some(washSaleAdjustment),
-                })
-            )
+                }),
+            ),
           );
         }
 
@@ -223,9 +232,9 @@ export class RealizedGain extends Data.Class<{
             gain,
             holdingPeriod,
             washSaleAdjustment: Option.none(),
-          })
+          }),
         );
-      })
+      }),
     );
   }
 
@@ -241,7 +250,7 @@ export class RealizedGain extends Data.Class<{
     // Apply wash sale rules if applicable
     return Option.match(this.washSaleAdjustment, {
       onNone: () => this.gain,
-      onSome: adjustment => {
+      onSome: (adjustment) => {
         // If it's a loss and wash sale applies, disallow the loss
         if (this.isLoss()) {
           return Money.zero(this.gain.currency);
@@ -275,7 +284,12 @@ export class TaxableTransaction extends Data.Class<{
   readonly realizedGain: Option.Option<RealizedGain>;
 }> {
   isTaxableEvent(): boolean {
-    return this.type === 'DISPOSAL' || this.type === 'INCOME' || this.type === 'MINING' || this.type === 'STAKING';
+    return (
+      this.type === 'DISPOSAL' ||
+      this.type === 'INCOME' ||
+      this.type === 'MINING' ||
+      this.type === 'STAKING'
+    );
   }
 }
 ```
@@ -296,11 +310,17 @@ import {
   RealizedGain,
   TaxLotStatus,
 } from '../value-objects/tax-lot.vo';
-import { UserId, TransactionId } from '../../../../@core/domain/common-types/identifiers';
+import {
+  UserId,
+  TransactionId,
+} from '../../../../@core/domain/common-types/identifiers';
 import { AssetId } from '../../../../@core/domain/common-types/asset-id.vo';
 import { Quantity } from '../../../../@core/domain/common-types/quantity.vo';
 import { Money } from '../../../../@core/domain/common-types/money.vo';
-import { Currency, CurrencySymbol } from '../../../../@core/domain/common-types/currency.vo';
+import {
+  Currency,
+  CurrencySymbol,
+} from '../../../../@core/domain/common-types/currency.vo';
 import { DomainEvent } from '../../../../@core/domain/base/domain-event.base';
 import { AcquisitionMethod } from '../../portfolio/domain/value-objects/position.vo';
 
@@ -309,15 +329,21 @@ export class TaxLotError extends Data.TaggedError('TaxLotError')<{
   readonly message: string;
 }> {}
 
-export class InvalidCostBasisError extends Data.TaggedError('InvalidCostBasisError')<{
+export class InvalidCostBasisError extends Data.TaggedError(
+  'InvalidCostBasisError',
+)<{
   readonly costBasis: Money;
 }> {}
 
-export class TaxLotNotAvailableError extends Data.TaggedError('TaxLotNotAvailableError')<{
+export class TaxLotNotAvailableError extends Data.TaggedError(
+  'TaxLotNotAvailableError',
+)<{
   readonly lotId: TaxLotId;
 }> {}
 
-export class InsufficientLotQuantityError extends Data.TaggedError('InsufficientLotQuantityError')<{
+export class InsufficientLotQuantityError extends Data.TaggedError(
+  'InsufficientLotQuantityError',
+)<{
   readonly lotId: TaxLotId;
   readonly available: Quantity;
   readonly requested: Quantity;
@@ -338,7 +364,7 @@ export class TaxLotCreated extends DomainEvent {
       readonly acquisitionMethod: AcquisitionMethod;
       readonly transactionId: TransactionId;
       readonly createdAt: Date;
-    }
+    },
   ) {
     super({
       aggregateId: data.lotId,
@@ -361,7 +387,7 @@ export class TaxLotPartiallyConsumed extends DomainEvent {
       readonly realizedGain: RealizedGain;
       readonly disposalTransactionId: TransactionId;
       readonly consumedAt: Date;
-    }
+    },
   ) {
     super({
       aggregateId: data.lotId,
@@ -383,7 +409,7 @@ export class TaxLotFullyConsumed extends DomainEvent {
       readonly realizedGain: RealizedGain;
       readonly disposalTransactionId: TransactionId;
       readonly consumedAt: Date;
-    }
+    },
   ) {
     super({
       aggregateId: data.lotId,
@@ -403,7 +429,7 @@ export class TaxLotAdjusted extends DomainEvent {
       readonly newCostBasis: CostBasis;
       readonly reason: string;
       readonly adjustedAt: Date;
-    }
+    },
   ) {
     super({
       aggregateId: data.lotId,
@@ -480,12 +506,14 @@ export class TaxLot extends EventSourcedAggregate {
     return this.lotId;
   }
   // Command methods now ONLY return events
-  static create(command: CreateTaxLotCommand): Effect.Effect<DomainEvent[], InvalidCostBasisError> {
+  static create(
+    command: CreateTaxLotCommand,
+  ): Effect.Effect<DomainEvent[], InvalidCostBasisError> {
     if (command.costBasis.isNegative()) {
       return Effect.fail(
         new InvalidCostBasisError({
           costBasis: command.costBasis,
-        })
+        }),
       );
     }
 
@@ -509,12 +537,19 @@ export class TaxLot extends EventSourcedAggregate {
     disposalQuantity: Quantity,
     disposalPrice: Money,
     disposalDate: Date,
-    disposalTransactionId: TransactionId
-  ): Effect.Effect<DomainEvent[], TaxLotNotAvailableError | InsufficientLotQuantityError | CurrencyMismatchError> {
+    disposalTransactionId: TransactionId,
+  ): Effect.Effect<
+    DomainEvent[],
+    | TaxLotNotAvailableError
+    | InsufficientLotQuantityError
+    | CurrencyMismatchError
+  > {
     return pipe(
       Effect.fromOption(this.lotId),
-      Effect.mapError(() => new TaxLotNotAvailableError({ lotId: TaxLotId.generate() })),
-      Effect.flatMap(lotId => {
+      Effect.mapError(
+        () => new TaxLotNotAvailableError({ lotId: TaxLotId.generate() }),
+      ),
+      Effect.flatMap((lotId) => {
         if (this.status === TaxLotStatus.CLOSED) {
           return Effect.fail(new TaxLotNotAvailableError({ lotId }));
         }
@@ -525,7 +560,7 @@ export class TaxLot extends EventSourcedAggregate {
               lotId,
               available: this.quantity.remaining,
               requested: disposalQuantity,
-            })
+            }),
           );
         }
 
@@ -534,9 +569,9 @@ export class TaxLot extends EventSourcedAggregate {
           disposalQuantity,
           disposalPrice,
           disposalDate,
-          disposalTransactionId
+          disposalTransactionId,
         );
-      })
+      }),
     );
   }
 
@@ -545,8 +580,11 @@ export class TaxLot extends EventSourcedAggregate {
     disposalQuantity: Quantity,
     disposalPrice: Money,
     disposalDate: Date,
-    disposalTransactionId: TransactionId
-  ): Effect.Effect<DomainEvent[], InsufficientLotQuantityError | CurrencyMismatchError> {
+    disposalTransactionId: TransactionId,
+  ): Effect.Effect<
+    DomainEvent[],
+    InsufficientLotQuantityError | CurrencyMismatchError
+  > {
     return pipe(
       // This subtract operation can fail - let it propagate properly
       this.quantity.remaining.subtract(disposalQuantity),
@@ -556,20 +594,25 @@ export class TaxLot extends EventSourcedAggregate {
             lotId,
             available: this.quantity.remaining,
             requested: disposalQuantity,
-          })
+          }),
       ),
       // Use flatMap to handle the Effect returned by RealizedGain.calculate
-      Effect.flatMap(newRemaining => {
+      Effect.flatMap((newRemaining) => {
         // Calculate values for the event
-        const consumptionRatio = disposalQuantity.toNumber() / this.quantity.original.toNumber();
-        const consumedCostBasis = this.costBasis.adjustedAmount.multiply(consumptionRatio);
+        const consumptionRatio =
+          disposalQuantity.toNumber() / this.quantity.original.toNumber();
+        const consumedCostBasis =
+          this.costBasis.adjustedAmount.multiply(consumptionRatio);
         const proceeds = disposalPrice.multiply(disposalQuantity.toNumber());
-        const holdingPeriod = HoldingPeriod.between(this.acquisitionDate, disposalDate);
+        const holdingPeriod = HoldingPeriod.between(
+          this.acquisitionDate,
+          disposalDate,
+        );
 
         // The call to calculate now returns an Effect, so we continue the pipeline
         return pipe(
           RealizedGain.calculate(proceeds, consumedCostBasis, holdingPeriod),
-          Effect.map(realizedGain => {
+          Effect.map((realizedGain) => {
             const isFullyConsumed = newRemaining.isZero();
 
             const event: DomainEvent = isFullyConsumed
@@ -594,9 +637,9 @@ export class TaxLot extends EventSourcedAggregate {
                 });
 
             return [event];
-          })
+          }),
         );
-      })
+      }),
     );
   }
 
@@ -654,11 +697,15 @@ export class TaxLot extends EventSourcedAggregate {
     return this.costBasis.perUnit(this.quantity.original);
   }
 
-  adjustCostBasis(adjustment: CostBasisAdjustment): Effect.Effect<DomainEvent[], TaxLotNotAvailableError> {
+  adjustCostBasis(
+    adjustment: CostBasisAdjustment,
+  ): Effect.Effect<DomainEvent[], TaxLotNotAvailableError> {
     return pipe(
       Effect.fromOption(this.lotId),
-      Effect.mapError(() => new TaxLotNotAvailableError({ lotId: TaxLotId.generate() })),
-      Effect.flatMap(lotId => {
+      Effect.mapError(
+        () => new TaxLotNotAvailableError({ lotId: TaxLotId.generate() }),
+      ),
+      Effect.flatMap((lotId) => {
         // Cannot adjust a closed lot
         if (this.status === TaxLotStatus.CLOSED) {
           return Effect.fail(new TaxLotNotAvailableError({ lotId }));
@@ -666,7 +713,7 @@ export class TaxLot extends EventSourcedAggregate {
 
         return pipe(
           this.costBasis.addAdjustment(adjustment),
-          Effect.map(newCostBasis => [
+          Effect.map((newCostBasis) => [
             new TaxLotAdjusted({
               lotId,
               adjustment,
@@ -674,9 +721,9 @@ export class TaxLot extends EventSourcedAggregate {
               reason: adjustment.reason,
               adjustedAt: new Date(),
             }),
-          ])
+          ]),
         );
-      })
+      }),
     );
   }
 
@@ -693,8 +740,8 @@ export class TaxLot extends EventSourcedAggregate {
             symbol: CurrencySymbol('USD'),
             decimals: 2,
             name: 'US Dollar',
-          })
-        )
+          }),
+        ),
       ),
       acquisitionDate: new Date(),
       acquisitionMethod: AcquisitionMethod.PURCHASE,
@@ -714,7 +761,13 @@ import { Effect, pipe, Option, ReadonlyArray } from 'effect';
 import { Data } from 'effect';
 import { EventSourcedAggregate } from '../../../../@core/domain/base/aggregate-root.base';
 import { DomainEvent } from '../../../../@core/domain/base/domain-event.base';
-import { TaxReportId, TaxYear, TaxSummary, TaxableTransaction, AccountingMethod } from '../value-objects/tax-lot.vo';
+import {
+  TaxReportId,
+  TaxYear,
+  TaxSummary,
+  TaxableTransaction,
+  AccountingMethod,
+} from '../value-objects/tax-lot.vo';
 import { UserId } from '../../../../@core/domain/common-types/identifiers';
 import { Money } from '../../../../@core/domain/common-types/money.vo';
 import { Currency } from '../../../../@core/domain/common-types/currency.vo';
@@ -744,11 +797,15 @@ export class TaxReportError extends Data.TaggedError('TaxReportError')<{
   readonly message: string;
 }> {}
 
-export class InvalidTaxYearError extends Data.TaggedError('InvalidTaxYearError')<{
+export class InvalidTaxYearError extends Data.TaggedError(
+  'InvalidTaxYearError',
+)<{
   readonly year: number;
 }> {}
 
-export class ReportFinalizedError extends Data.TaggedError('ReportFinalizedError')<{
+export class ReportFinalizedError extends Data.TaggedError(
+  'ReportFinalizedError',
+)<{
   readonly reportId: TaxReportId;
 }> {}
 
@@ -767,7 +824,7 @@ export class TaxReportGenerated extends DomainEvent {
       readonly taxYear: TaxYear;
       readonly accountingMethod: AccountingMethod;
       readonly generatedAt: Date;
-    }
+    },
   ) {
     super({
       aggregateId: data.reportId,
@@ -785,7 +842,7 @@ export class TaxableTransactionAdded extends DomainEvent {
       readonly reportId: TaxReportId;
       readonly transaction: TaxableTransaction;
       readonly addedAt: Date;
-    }
+    },
   ) {
     super({
       aggregateId: data.reportId,
@@ -803,7 +860,7 @@ export class TaxReportCalculated extends DomainEvent {
       readonly reportId: TaxReportId;
       readonly summary: TaxSummary;
       readonly calculatedAt: Date;
-    }
+    },
   ) {
     super({
       aggregateId: data.reportId,
@@ -822,7 +879,7 @@ export class TaxReportFinalized extends DomainEvent {
       readonly finalSummary: TaxSummary;
       readonly finalizedAt: Date;
       readonly finalizedBy: UserId;
-    }
+    },
   ) {
     super({
       aggregateId: data.reportId,
@@ -841,7 +898,7 @@ export class TaxReportFiled extends DomainEvent {
       readonly filingReference: string;
       readonly filedAt: Date;
       readonly filedBy: UserId;
-    }
+    },
   ) {
     super({
       aggregateId: data.reportId,
@@ -861,7 +918,7 @@ export class TaxReportAmended extends DomainEvent {
       readonly amendmentReason: string;
       readonly amendedBy: UserId;
       readonly amendedAt: Date;
-    }
+    },
   ) {
     super({
       aggregateId: data.reportId,
@@ -929,7 +986,9 @@ export class TaxReport extends EventSourcedAggregate {
     return this.reportId;
   }
   // Generate new tax report - returns events only
-  static generate(command: GenerateTaxReportCommand): Effect.Effect<DomainEvent[], InvalidTaxYearError> {
+  static generate(
+    command: GenerateTaxReportCommand,
+  ): Effect.Effect<DomainEvent[], InvalidTaxYearError> {
     const taxYear = TaxYear.of(command.taxYear);
     const currentYear = new Date().getFullYear();
 
@@ -937,7 +996,7 @@ export class TaxReport extends EventSourcedAggregate {
       return Effect.fail(
         new InvalidTaxYearError({
           year: command.taxYear,
-        })
+        }),
       );
     }
 
@@ -986,7 +1045,10 @@ export class TaxReport extends EventSourcedAggregate {
       case 'TaxableTransactionAdded':
         const transactionAdded = event as TaxableTransactionAdded;
         return this.copy({
-          transactions: [...this.transactions, transactionAdded.data.transaction],
+          transactions: [
+            ...this.transactions,
+            transactionAdded.data.transaction,
+          ],
           status: ReportStatus.CALCULATING,
           events: [...this.events, event],
         });
@@ -1019,12 +1081,22 @@ export class TaxReport extends EventSourcedAggregate {
   }
 
   // Add taxable transaction - returns events only
-  addTransaction(transaction: TaxableTransaction): Effect.Effect<DomainEvent[], ReportFinalizedError> {
+  addTransaction(
+    transaction: TaxableTransaction,
+  ): Effect.Effect<DomainEvent[], ReportFinalizedError> {
     return pipe(
-      Effect.all([Effect.fromOption(this.reportId), Effect.fromOption(this.taxYear)]),
-      Effect.mapError(() => new ReportFinalizedError({ reportId: TaxReportId.generate() })),
+      Effect.all([
+        Effect.fromOption(this.reportId),
+        Effect.fromOption(this.taxYear),
+      ]),
+      Effect.mapError(
+        () => new ReportFinalizedError({ reportId: TaxReportId.generate() }),
+      ),
       Effect.flatMap(([reportId, taxYear]) => {
-        if (this.status === ReportStatus.FINALIZED || this.status === ReportStatus.FILED) {
+        if (
+          this.status === ReportStatus.FINALIZED ||
+          this.status === ReportStatus.FILED
+        ) {
           return Effect.fail(new ReportFinalizedError({ reportId }));
         }
 
@@ -1040,17 +1112,27 @@ export class TaxReport extends EventSourcedAggregate {
         });
 
         return Effect.succeed([event]);
-      })
+      }),
     );
   }
 
   // Finalize report - returns events only
-  finalize(finalizedBy: UserId): Effect.Effect<DomainEvent[], ReportFinalizedError> {
+  finalize(
+    finalizedBy: UserId,
+  ): Effect.Effect<DomainEvent[], ReportFinalizedError> {
     return pipe(
-      Effect.all([Effect.fromOption(this.reportId), Effect.fromOption(this.summary)]),
-      Effect.mapError(() => new ReportFinalizedError({ reportId: TaxReportId.generate() })),
+      Effect.all([
+        Effect.fromOption(this.reportId),
+        Effect.fromOption(this.summary),
+      ]),
+      Effect.mapError(
+        () => new ReportFinalizedError({ reportId: TaxReportId.generate() }),
+      ),
       Effect.flatMap(([reportId, summary]) => {
-        if (this.status === ReportStatus.FINALIZED || this.status === ReportStatus.FILED) {
+        if (
+          this.status === ReportStatus.FINALIZED ||
+          this.status === ReportStatus.FILED
+        ) {
           return Effect.fail(new ReportFinalizedError({ reportId }));
         }
 
@@ -1062,16 +1144,21 @@ export class TaxReport extends EventSourcedAggregate {
         });
 
         return Effect.succeed([event]);
-      })
+      }),
     );
   }
 
   // Mark as filed - returns events only
-  markAsFiled(filingReference: string, filedBy: UserId): Effect.Effect<DomainEvent[], AlreadyFiledError> {
+  markAsFiled(
+    filingReference: string,
+    filedBy: UserId,
+  ): Effect.Effect<DomainEvent[], AlreadyFiledError> {
     return pipe(
       Effect.fromOption(this.reportId),
-      Effect.mapError(() => new AlreadyFiledError({ reportId: TaxReportId.generate() })),
-      Effect.flatMap(reportId => {
+      Effect.mapError(
+        () => new AlreadyFiledError({ reportId: TaxReportId.generate() }),
+      ),
+      Effect.flatMap((reportId) => {
         if (this.status === ReportStatus.FILED) {
           return Effect.fail(new AlreadyFiledError({ reportId }));
         }
@@ -1084,12 +1171,14 @@ export class TaxReport extends EventSourcedAggregate {
         });
 
         return Effect.succeed([event]);
-      })
+      }),
     );
   }
 
   // Create amendment (new report based on existing one) - returns events only
-  static amend(command: AmendTaxReportCommand): Effect.Effect<DomainEvent[], TaxReportError> {
+  static amend(
+    command: AmendTaxReportCommand,
+  ): Effect.Effect<DomainEvent[], TaxReportError> {
     const amendmentReportId = TaxReportId.generate();
 
     const event = new TaxReportAmended({
@@ -1138,7 +1227,9 @@ import { AccountingMethod } from '../value-objects/tax-lot.vo';
 import { Data } from 'effect';
 
 // Errors
-export class InsufficientLotsError extends Data.TaggedError('InsufficientLotsError')<{
+export class InsufficientLotsError extends Data.TaggedError(
+  'InsufficientLotsError',
+)<{
   readonly needed: Quantity;
   readonly available: Quantity;
 }> {}
@@ -1148,22 +1239,25 @@ export interface TaxLotSelector {
   selectLots(
     availableLots: ReadonlyArray<TaxLot>,
     quantityNeeded: Quantity,
-    method: AccountingMethod
+    method: AccountingMethod,
   ): Effect.Effect<ReadonlyArray<TaxLot>, InsufficientLotsError>;
 }
 
-export const TaxLotSelector = Context.GenericTag<TaxLotSelector>('TaxLotSelector');
+export const TaxLotSelector =
+  Context.GenericTag<TaxLotSelector>('TaxLotSelector');
 
 // FIFO Implementation
 export class FIFOSelector implements TaxLotSelector {
   selectLots(
     availableLots: ReadonlyArray<TaxLot>,
     quantityNeeded: Quantity,
-    method: AccountingMethod
+    method: AccountingMethod,
   ): Effect.Effect<ReadonlyArray<TaxLot>, InsufficientLotsError> {
     return Effect.sync(() => {
       // Sort by acquisition date (oldest first)
-      const sorted = [...availableLots].sort((a, b) => a.acquisitionDate.getTime() - b.acquisitionDate.getTime());
+      const sorted = [...availableLots].sort(
+        (a, b) => a.acquisitionDate.getTime() - b.acquisitionDate.getTime(),
+      );
 
       return this.selectUntilQuantityMet(sorted, quantityNeeded);
     }).pipe(Effect.flatten);
@@ -1171,7 +1265,7 @@ export class FIFOSelector implements TaxLotSelector {
 
   private selectUntilQuantityMet(
     lots: ReadonlyArray<TaxLot>,
-    needed: Quantity
+    needed: Quantity,
   ): Effect.Effect<ReadonlyArray<TaxLot>, InsufficientLotsError> {
     const selected: TaxLot[] = [];
     let accumulated = Quantity.of(0, needed.precision).getOrElse(() => needed);
@@ -1190,7 +1284,7 @@ export class FIFOSelector implements TaxLotSelector {
         new InsufficientLotsError({
           needed,
           available: accumulated,
-        })
+        }),
       );
     }
 
@@ -1203,11 +1297,13 @@ export class LIFOSelector implements TaxLotSelector {
   selectLots(
     availableLots: ReadonlyArray<TaxLot>,
     quantityNeeded: Quantity,
-    method: AccountingMethod
+    method: AccountingMethod,
   ): Effect.Effect<ReadonlyArray<TaxLot>, InsufficientLotsError> {
     return Effect.sync(() => {
       // Sort by acquisition date (newest first)
-      const sorted = [...availableLots].sort((a, b) => b.acquisitionDate.getTime() - a.acquisitionDate.getTime());
+      const sorted = [...availableLots].sort(
+        (a, b) => b.acquisitionDate.getTime() - a.acquisitionDate.getTime(),
+      );
 
       return new FIFOSelector().selectUntilQuantityMet(sorted, quantityNeeded);
     }).pipe(Effect.flatten);
@@ -1219,29 +1315,32 @@ export class HIFOSelector implements TaxLotSelector {
   selectLots(
     availableLots: ReadonlyArray<TaxLot>,
     quantityNeeded: Quantity,
-    method: AccountingMethod
+    method: AccountingMethod,
   ): Effect.Effect<ReadonlyArray<TaxLot>, InsufficientLotsError> {
     return pipe(
       Effect.forEach(
         availableLots,
-        lot =>
+        (lot) =>
           pipe(
             lot.getPerUnitCost(),
-            Effect.map(perUnit => ({ lot, perUnit })),
-            Effect.orElseSucceed(() => ({ lot, perUnit: null }))
+            Effect.map((perUnit) => ({ lot, perUnit })),
+            Effect.orElseSucceed(() => ({ lot, perUnit: null })),
           ),
-        { concurrency: 'unbounded' }
+        { concurrency: 'unbounded' },
       ),
-      Effect.map(lotsWithCost => {
+      Effect.map((lotsWithCost) => {
         // Sort by cost per unit (highest first)
         const sorted = lotsWithCost
-          .filter(item => item.perUnit !== null)
+          .filter((item) => item.perUnit !== null)
           .sort((a, b) => b.perUnit!.toNumber() - a.perUnit!.toNumber())
-          .map(item => item.lot);
+          .map((item) => item.lot);
 
-        return new FIFOSelector().selectUntilQuantityMet(sorted, quantityNeeded);
+        return new FIFOSelector().selectUntilQuantityMet(
+          sorted,
+          quantityNeeded,
+        );
       }),
-      Effect.flatten
+      Effect.flatten,
     );
   }
 }
@@ -1253,17 +1352,20 @@ export class SpecificIDSelector implements TaxLotSelector {
   selectLots(
     availableLots: ReadonlyArray<TaxLot>,
     quantityNeeded: Quantity,
-    method: AccountingMethod
+    method: AccountingMethod,
   ): Effect.Effect<ReadonlyArray<TaxLot>, InsufficientLotsError> {
     return Effect.sync(() => {
-      const selected = availableLots.filter(lot =>
+      const selected = availableLots.filter((lot) =>
         Option.match(lot.lotId, {
           onNone: () => false,
-          onSome: id => this.specificLotIds.includes(id),
-        })
+          onSome: (id) => this.specificLotIds.includes(id),
+        }),
       );
 
-      return new FIFOSelector().selectUntilQuantityMet(selected, quantityNeeded);
+      return new FIFOSelector().selectUntilQuantityMet(
+        selected,
+        quantityNeeded,
+      );
     }).pipe(Effect.flatten);
   }
 }
@@ -1271,7 +1373,7 @@ export class SpecificIDSelector implements TaxLotSelector {
 // Factory for creating selectors
 export const createTaxLotSelector = (
   method: AccountingMethod,
-  specificLotIds?: ReadonlyArray<string>
+  specificLotIds?: ReadonlyArray<string>,
 ): TaxLotSelector => {
   switch (method) {
     case AccountingMethod.FIFO:
@@ -1337,12 +1439,20 @@ export interface AcquisitionEvent {
 
 // Substantially similar asset detector interface
 export interface SubstantiallySimilarAssetDetector {
-  areSubstantiallySimilar(asset1: AssetId, asset2: AssetId): Effect.Effect<boolean, never>;
+  areSubstantiallySimilar(
+    asset1: AssetId,
+    asset2: AssetId,
+  ): Effect.Effect<boolean, never>;
 }
 
 // Simple implementation - only identical assets
-export class IdenticalAssetDetector implements SubstantiallySimilarAssetDetector {
-  areSubstantiallySimilar(asset1: AssetId, asset2: AssetId): Effect.Effect<boolean, never> {
+export class IdenticalAssetDetector
+  implements SubstantiallySimilarAssetDetector
+{
+  areSubstantiallySimilar(
+    asset1: AssetId,
+    asset2: AssetId,
+  ): Effect.Effect<boolean, never> {
     return Effect.succeed(asset1.equals(asset2));
   }
 }
@@ -1355,12 +1465,12 @@ export class MissingGainError extends Data.TaggedError('MissingGainError')<{
 // Wash sale detector service
 export class WashSaleDetector {
   constructor(
-    private readonly similarAssetDetector: SubstantiallySimilarAssetDetector = new IdenticalAssetDetector()
+    private readonly similarAssetDetector: SubstantiallySimilarAssetDetector = new IdenticalAssetDetector(),
   ) {}
 
   detectWashSales(
     disposals: ReadonlyArray<DisposalEvent>,
-    acquisitions: ReadonlyArray<AcquisitionEvent>
+    acquisitions: ReadonlyArray<AcquisitionEvent>,
   ): Effect.Effect<ReadonlyArray<WashSaleViolation>, never> {
     return Effect.sync(() => {
       const violations: WashSaleViolation[] = [];
@@ -1370,23 +1480,28 @@ export class WashSaleDetector {
         if (!disposal.realizedGain.isNegative()) continue;
 
         // Find acquisitions of substantially similar assets within wash sale window
-        const relevantAcquisitionsEffect = Effect.forEach(acquisitions, acq =>
+        const relevantAcquisitionsEffect = Effect.forEach(acquisitions, (acq) =>
           pipe(
-            this.similarAssetDetector.areSubstantiallySimilar(disposal.asset, acq.asset),
-            Effect.map(isSimilar => ({ acquisition: acq, isSimilar }))
-          )
+            this.similarAssetDetector.areSubstantiallySimilar(
+              disposal.asset,
+              acq.asset,
+            ),
+            Effect.map((isSimilar) => ({ acquisition: acq, isSimilar })),
+          ),
         ).pipe(
-          Effect.map(results => results.filter(r => r.isSimilar).map(r => r.acquisition)),
-          Effect.map(similarAcquisitions =>
-            similarAcquisitions.filter(acq => {
+          Effect.map((results) =>
+            results.filter((r) => r.isSimilar).map((r) => r.acquisition),
+          ),
+          Effect.map((similarAcquisitions) =>
+            similarAcquisitions.filter((acq) => {
               const daysDiff = this.daysBetween(disposal.date, acq.date);
               return Math.abs(daysDiff) <= WASH_SALE_WINDOW_DAYS;
-            })
-          )
+            }),
+          ),
         );
 
         // For now, use synchronous approach for compatibility
-        const relevantAcquisitions = acquisitions.filter(acq => {
+        const relevantAcquisitions = acquisitions.filter((acq) => {
           if (!acq.asset.equals(disposal.asset)) return false;
 
           const daysDiff = this.daysBetween(disposal.date, acq.date);
@@ -1418,11 +1533,13 @@ export class WashSaleDetector {
 
   adjustForWashSales(
     transactions: ReadonlyArray<TaxableTransaction>,
-    violations: ReadonlyArray<WashSaleViolation>
+    violations: ReadonlyArray<WashSaleViolation>,
   ): Effect.Effect<ReadonlyArray<TaxableTransaction>, MissingGainError> {
-    const violationMap = new Map(violations.map(v => [v.disposalTransactionId.toString(), v]));
+    const violationMap = new Map(
+      violations.map((v) => [v.disposalTransactionId.toString(), v]),
+    );
 
-    return Effect.forEach(transactions, tx => {
+    return Effect.forEach(transactions, (tx) => {
       const violation = violationMap.get(tx.transactionId.toString());
 
       if (!violation) {
@@ -1432,8 +1549,10 @@ export class WashSaleDetector {
       // Safely handle the optional gain
       return pipe(
         tx.realizedGain,
-        Effect.fromOption(() => new MissingGainError({ transactionId: tx.transactionId })),
-        Effect.map(gain => {
+        Effect.fromOption(
+          () => new MissingGainError({ transactionId: tx.transactionId }),
+        ),
+        Effect.map((gain) => {
           // Adjust the realized gain for wash sale
           const adjustedGain = new RealizedGain({
             ...gain,
@@ -1444,7 +1563,7 @@ export class WashSaleDetector {
             ...tx,
             realizedGain: Option.some(adjustedGain),
           });
-        })
+        }),
       );
     });
   }
@@ -1460,27 +1579,37 @@ export class WashSaleDetector {
 
 ```typescript
 // src/contexts/taxation/application/commands/create-tax-lot.handler.ts
-import { Injectable, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { CommandHandler, ICommandHandler, EventBus } from '@nestjs/cqrs';
 import { Effect, pipe, Exit } from 'effect';
-import { TaxLot, CreateTaxLotCommand, InvalidCostBasisError } from '../../domain/aggregates/tax-lot.aggregate';
+import {
+  TaxLot,
+  CreateTaxLotCommand,
+  InvalidCostBasisError,
+} from '../../domain/aggregates/tax-lot.aggregate';
 import { TaxLotRepository } from '../../infrastructure/repositories/tax-lot.repository';
 
 @Injectable()
 @CommandHandler(CreateTaxLotCommand)
-export class CreateTaxLotHandler implements ICommandHandler<CreateTaxLotCommand> {
+export class CreateTaxLotHandler
+  implements ICommandHandler<CreateTaxLotCommand>
+{
   constructor(
     private readonly repository: TaxLotRepository,
-    private readonly eventBus: EventBus
+    private readonly eventBus: EventBus,
   ) {}
 
   async execute(command: CreateTaxLotCommand): Promise<void> {
     const program = pipe(
       TaxLot.create(command),
-      Effect.flatMap(events => this.repository.saveEventsEffect(events)),
+      Effect.flatMap((events) => this.repository.saveEventsEffect(events)),
       // NOTE: This assumes eventBus.publishAllEffect returns Effect<void, ...>
       // If it throws, wrap it with Effect.tryPromise
-      Effect.tap(events => this.eventBus.publishAllEffect(events))
+      Effect.tap((events) => this.eventBus.publishAllEffect(events)),
     );
 
     // The DomainErrorFilter will now handle any failure from the program.
@@ -1491,10 +1620,18 @@ export class CreateTaxLotHandler implements ICommandHandler<CreateTaxLotCommand>
 
 ```typescript
 // src/contexts/taxation/application/commands/generate-tax-report.handler.ts
-import { Injectable, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { Effect, pipe, Exit, Layer } from 'effect';
-import { TaxReport, GenerateTaxReportCommand, InvalidTaxYearError } from '../../domain/aggregates/tax-report.aggregate';
+import {
+  TaxReport,
+  GenerateTaxReportCommand,
+  InvalidTaxYearError,
+} from '../../domain/aggregates/tax-report.aggregate';
 import { TaxReportRepository } from '../../infrastructure/repositories/tax-report.repository';
 import { TaxReportCalculationService } from '../services/tax-report-calculation.service';
 import {
@@ -1502,14 +1639,19 @@ import {
   USTaxPolicy,
   CanadianTaxPolicy,
 } from '../../domain/services/jurisdiction-tax-policy.service';
-import { TaxLotSelector, createTaxLotSelector } from '../../domain/services/tax-lot-selector.service';
+import {
+  TaxLotSelector,
+  createTaxLotSelector,
+} from '../../domain/services/tax-lot-selector.service';
 
 @Injectable()
 @CommandHandler(GenerateTaxReportCommand)
-export class GenerateTaxReportHandler implements ICommandHandler<GenerateTaxReportCommand> {
+export class GenerateTaxReportHandler
+  implements ICommandHandler<GenerateTaxReportCommand>
+{
   constructor(
     private readonly reportRepository: TaxReportRepository,
-    private readonly calculationService: TaxReportCalculationService
+    private readonly calculationService: TaxReportCalculationService,
   ) {}
 
   async execute(command: GenerateTaxReportCommand): Promise<void> {
@@ -1519,19 +1661,24 @@ export class GenerateTaxReportHandler implements ICommandHandler<GenerateTaxRepo
     // Create the service layers the saga needs
     const taxPolicyLayer = Layer.succeed(
       JurisdictionTaxPolicy,
-      userJurisdiction === 'US' ? new USTaxPolicy() : new CanadianTaxPolicy()
+      userJurisdiction === 'US' ? new USTaxPolicy() : new CanadianTaxPolicy(),
     );
-    const lotSelectorLayer = Layer.succeed(TaxLotSelector, createTaxLotSelector(command.accountingMethod));
+    const lotSelectorLayer = Layer.succeed(
+      TaxLotSelector,
+      createTaxLotSelector(command.accountingMethod),
+    );
 
     const program = pipe(
       // 1. Generate the creation event(s) from the static aggregate method
       TaxReport.generate(command),
 
       // 2. Save the new events to the event store
-      Effect.flatMap(events => this.reportRepository.saveEventsEffect(events)),
+      Effect.flatMap((events) =>
+        this.reportRepository.saveEventsEffect(events),
+      ),
 
       // 3. Extract the new reportId from the generated event to kick off the calculation
-      Effect.flatMap(events => {
+      Effect.flatMap((events) => {
         const generatedEvent = events[0] as TaxReportGenerated; // Safely get the event
         const reportId = generatedEvent.data.reportId;
 
@@ -1546,7 +1693,7 @@ export class GenerateTaxReportHandler implements ICommandHandler<GenerateTaxRepo
 
       // 3. Provide the required services to the program
       Effect.provide(taxPolicyLayer),
-      Effect.provide(lotSelectorLayer)
+      Effect.provide(lotSelectorLayer),
     );
 
     // If the program fails, it will throw the tagged error,
@@ -1558,19 +1705,35 @@ export class GenerateTaxReportHandler implements ICommandHandler<GenerateTaxRepo
 
 ```typescript
 // src/contexts/taxation/application/commands/adjust-cost-basis.handler.ts
-import { Injectable, BadRequestException, NotFoundException, InternalServerErrorException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { Effect, pipe, Exit, Option } from 'effect';
-import { TaxLot, TaxLotNotAvailableError } from '../../domain/aggregates/tax-lot.aggregate';
+import {
+  TaxLot,
+  TaxLotNotAvailableError,
+} from '../../domain/aggregates/tax-lot.aggregate';
 import { TaxLotRepository } from '../../infrastructure/repositories/tax-lot.repository';
-import { TaxLotId, CostBasisAdjustment } from '../../domain/value-objects/tax-lot.vo';
-import { Money, CurrencyMismatchError } from '../../../../@core/domain/common-types/money.vo';
+import {
+  TaxLotId,
+  CostBasisAdjustment,
+} from '../../domain/value-objects/tax-lot.vo';
+import {
+  Money,
+  CurrencyMismatchError,
+} from '../../../../@core/domain/common-types/money.vo';
 import { Currency } from '../../../../@core/domain/common-types/currency.vo';
 import { TransactionId } from '../../../../@core/domain/common-types/identifiers';
 
 @Injectable()
 @CommandHandler(AdjustCostBasisCommand)
-export class AdjustCostBasisHandler implements ICommandHandler<AdjustCostBasisCommand> {
+export class AdjustCostBasisHandler
+  implements ICommandHandler<AdjustCostBasisCommand>
+{
   constructor(private readonly repository: TaxLotRepository) {}
 
   async execute(command: AdjustCostBasisCommand): Promise<void> {
@@ -1583,31 +1746,31 @@ export class AdjustCostBasisHandler implements ICommandHandler<AdjustCostBasisCo
           symbol: command.currency,
           decimals: 2,
           name: command.currency,
-        })
+        }),
       ),
 
       // 2. Create the CostBasisAdjustment object
       Effect.map(
-        moneyAmount =>
+        (moneyAmount) =>
           new CostBasisAdjustment({
             type: command.type,
             amount: moneyAmount,
             reason: command.reason,
             date: new Date(),
-            relatedTransactionId: Option.fromNullable(command.relatedTransactionId).pipe(
-              Option.map(id => TransactionId(id))
-            ),
-          })
+            relatedTransactionId: Option.fromNullable(
+              command.relatedTransactionId,
+            ).pipe(Option.map((id) => TransactionId(id))),
+          }),
       ),
 
       // 3. Load the aggregate and run the domain logic
-      Effect.flatMap(adjustment =>
+      Effect.flatMap((adjustment) =>
         pipe(
           this.repository.loadForCommand(TaxLotId(command.lotId)),
-          Effect.flatMap(lot => lot.adjustCostBasis(adjustment)),
-          Effect.flatMap(events => this.repository.saveEventsEffect(events))
-        )
-      )
+          Effect.flatMap((lot) => lot.adjustCostBasis(adjustment)),
+          Effect.flatMap((events) => this.repository.saveEventsEffect(events)),
+        ),
+      ),
     );
 
     // The DomainErrorFilter will now handle any failure from the program.
@@ -1642,113 +1805,154 @@ export class TaxReportCalculationService {
     private readonly reportRepository: TaxReportRepository,
     private readonly lotRepository: TaxLotRepository,
     private readonly transactionRepository: TransactionRepository,
-    private readonly washSaleDetector: WashSaleDetector
+    private readonly washSaleDetector: WashSaleDetector,
   ) {}
 
   // Complete saga implementation as a single Effect pipeline
   execute(
-    context: TaxCalculationContext
-  ): Effect.Effect<void, TaxCalculationError, TaxLotSelector | JurisdictionTaxPolicy> {
+    context: TaxCalculationContext,
+  ): Effect.Effect<
+    void,
+    TaxCalculationError,
+    TaxLotSelector | JurisdictionTaxPolicy
+  > {
     return pipe(
       // Step 1: Load transactions
       this.loadTransactionsForYear(context.userId, context.taxYear),
 
       // Step 2: Process all disposals
-      Effect.flatMap(transactions =>
+      Effect.flatMap((transactions) =>
         this.processAllDisposals(
-          transactions.filter(tx => tx.type === 'DISPOSAL'),
-          context
-        )
+          transactions.filter((tx) => tx.type === 'DISPOSAL'),
+          context,
+        ),
       ),
 
       // Step 3: Apply jurisdiction-specific loss rules
-      Effect.flatMap(processedTxs =>
+      Effect.flatMap((processedTxs) =>
         pipe(
-          Effect.serviceWithEffect(JurisdictionTaxPolicy, policy => policy.applyLossRules(processedTxs)),
-          Effect.map(adjusted => ({ processedTxs, adjusted }))
-        )
+          Effect.serviceWithEffect(JurisdictionTaxPolicy, (policy) =>
+            policy.applyLossRules(processedTxs),
+          ),
+          Effect.map((adjusted) => ({ processedTxs, adjusted })),
+        ),
       ),
 
       // Step 4: Update report with transactions
-      Effect.flatMap(({ adjusted }) => this.updateReportWithTransactions(context.reportId, adjusted)),
+      Effect.flatMap(({ adjusted }) =>
+        this.updateReportWithTransactions(context.reportId, adjusted),
+      ),
 
       // Step 5: Calculate final summary using jurisdiction policy
       Effect.flatMap(() =>
         pipe(
           this.reportRepository.loadEffect(context.reportId),
-          Effect.flatMap(report =>
+          Effect.flatMap((report) =>
             pipe(
-              Effect.serviceWithEffect(JurisdictionTaxPolicy, policy =>
-                policy.calculateTaxSummary(report.transactions)
+              Effect.serviceWithEffect(JurisdictionTaxPolicy, (policy) =>
+                policy.calculateTaxSummary(report.transactions),
               ),
-              Effect.flatMap(summary => this.reportRepository.updateSummaryEffect(context.reportId, summary))
-            )
-          )
-        )
+              Effect.flatMap((summary) =>
+                this.reportRepository.updateSummaryEffect(
+                  context.reportId,
+                  summary,
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
 
-      Effect.asVoid
+      Effect.asVoid,
     );
   }
 
-  private loadTransactionsForYear(userId: string, year: number): Effect.Effect<Transaction[], TransactionLoadError> {
+  private loadTransactionsForYear(
+    userId: string,
+    year: number,
+  ): Effect.Effect<Transaction[], TransactionLoadError> {
     const startDate = new Date(`${year}-01-01`);
     const endDate = new Date(`${year}-12-31T23:59:59.999Z`);
 
-    return this.transactionRepository.findByUserAndDateRangeEffect(userId, startDate, endDate);
+    return this.transactionRepository.findByUserAndDateRangeEffect(
+      userId,
+      startDate,
+      endDate,
+    );
   }
 
   private processAllDisposals(
     disposals: Transaction[],
-    context: TaxCalculationContext
-  ): Effect.Effect<ProcessedDisposal[], DisposalProcessingError, TaxLotSelector> {
+    context: TaxCalculationContext,
+  ): Effect.Effect<
+    ProcessedDisposal[],
+    DisposalProcessingError,
+    TaxLotSelector
+  > {
     return Effect.forEach(
       disposals,
-      disposal => this.processSingleDisposal(disposal, context),
-      { concurrency: 1 } // Sequential for correct lot consumption
+      (disposal) => this.processSingleDisposal(disposal, context),
+      { concurrency: 1 }, // Sequential for correct lot consumption
     );
   }
 
   private processSingleDisposal(
     disposal: Transaction,
-    context: TaxCalculationContext
+    context: TaxCalculationContext,
   ): Effect.Effect<ProcessedDisposal, DisposalProcessingError, TaxLotSelector> {
     return pipe(
       // Get selector from context
       Effect.service(TaxLotSelector),
 
       // Load lot IDs from projection, then rehydrate selected lots
-      Effect.flatMap(selector =>
+      Effect.flatMap((selector) =>
         pipe(
-          this.lotRepository.findAvailableLotIdsFromProjection(context.userId, disposal.asset),
-          Effect.flatMap(lotIds => Effect.forEach(lotIds, lotId => this.lotRepository.loadForCommand(lotId))),
-          Effect.flatMap(fullLots => selector.selectLots(fullLots, disposal.quantity, context.accountingMethod)),
+          this.lotRepository.findAvailableLotIdsFromProjection(
+            context.userId,
+            disposal.asset,
+          ),
+          Effect.flatMap((lotIds) =>
+            Effect.forEach(lotIds, (lotId) =>
+              this.lotRepository.loadForCommand(lotId),
+            ),
+          ),
+          Effect.flatMap((fullLots) =>
+            selector.selectLots(
+              fullLots,
+              disposal.quantity,
+              context.accountingMethod,
+            ),
+          ),
 
-          Effect.map(selectedLots => ({ selector, selectedLots }))
-        )
+          Effect.map((selectedLots) => ({ selector, selectedLots })),
+        ),
       ),
 
       // Consume lots and collect events
-      Effect.flatMap(({ selectedLots }) => this.consumeLotsForDisposal(selectedLots, disposal)),
+      Effect.flatMap(({ selectedLots }) =>
+        this.consumeLotsForDisposal(selectedLots, disposal),
+      ),
 
       // Save events and return processed disposal
-      Effect.flatMap(consumptionResults =>
+      Effect.flatMap((consumptionResults) =>
         pipe(
           // Save all events atomically
-          this.lotRepository.saveEventsEffect(consumptionResults.flatMap(r => r.events)),
+          this.lotRepository.saveEventsEffect(
+            consumptionResults.flatMap((r) => r.events),
+          ),
           Effect.map(() => ({
             disposal,
             consumptions: consumptionResults,
             totalGain: this.aggregateGains(consumptionResults),
-          }))
-        )
-      )
+          })),
+        ),
+      ),
     );
   }
 
   private consumeLotsForDisposal(
     lots: readonly TaxLot[],
-    disposal: Transaction
+    disposal: Transaction,
   ): Effect.Effect<readonly ConsumptionResult[], ConsumptionError> {
     // Use a stateful reducer pattern within an Effect pipeline
     const initialState = {
@@ -1762,18 +1966,26 @@ export class TaxReportCalculationService {
         return Effect.succeed(state);
       }
 
-      const quantityToConsume = Quantity.min(state.remainingQuantity, lot.quantity.remaining);
+      const quantityToConsume = Quantity.min(
+        state.remainingQuantity,
+        lot.quantity.remaining,
+      );
 
       // Chain all operations in a single, unbroken pipeline
       return pipe(
         // 1. Consume the lot, which produces events
-        lot.consume(quantityToConsume, disposal.price, disposal.date, disposal.transactionId),
-        Effect.flatMap(events =>
+        lot.consume(
+          quantityToConsume,
+          disposal.price,
+          disposal.date,
+          disposal.transactionId,
+        ),
+        Effect.flatMap((events) =>
           // 2. Safely calculate the new remaining quantity
           pipe(
             state.remainingQuantity.subtract(quantityToConsume),
             // 3. Create the new state for the next iteration
-            Effect.map(newRemainingQuantity => ({
+            Effect.map((newRemainingQuantity) => ({
               remainingQuantity: newRemainingQuantity,
               results: [
                 ...state.results,
@@ -1784,11 +1996,11 @@ export class TaxReportCalculationService {
                   realizedGain: this.extractRealizedGain(events),
                 },
               ],
-            }))
-          )
-        )
+            })),
+          ),
+        ),
       );
-    }).pipe(Effect.map(finalState => finalState.results)); // Return only the results array
+    }).pipe(Effect.map((finalState) => finalState.results)); // Return only the results array
   }
 }
 ```
@@ -1803,18 +2015,28 @@ import { Effect, Context, Layer } from 'effect';
 export interface JurisdictionTaxPolicy {
   readonly jurisdiction: string;
 
-  calculateTaxSummary(transactions: TaxableTransaction[]): Effect.Effect<TaxSummary, TaxCalculationError>;
+  calculateTaxSummary(
+    transactions: TaxableTransaction[],
+  ): Effect.Effect<TaxSummary, TaxCalculationError>;
 
-  getHoldingPeriodClassification(holdingPeriod: HoldingPeriod): TaxTreatmentType;
+  getHoldingPeriodClassification(
+    holdingPeriod: HoldingPeriod,
+  ): TaxTreatmentType;
 
-  applyLossRules(transactions: ProcessedDisposal[]): Effect.Effect<AdjustedTransaction[], LossRuleError>;
+  applyLossRules(
+    transactions: ProcessedDisposal[],
+  ): Effect.Effect<AdjustedTransaction[], LossRuleError>;
 
   getRequiredForms(): TaxForm[];
 }
 
-export const JurisdictionTaxPolicy = Context.GenericTag<JurisdictionTaxPolicy>('JurisdictionTaxPolicy');
+export const JurisdictionTaxPolicy = Context.GenericTag<JurisdictionTaxPolicy>(
+  'JurisdictionTaxPolicy',
+);
 
-export class FormGenerationError extends Data.TaggedError('FormGenerationError')<{
+export class FormGenerationError extends Data.TaggedError(
+  'FormGenerationError',
+)<{
   readonly message: string;
 }> {}
 
@@ -1822,11 +2044,15 @@ export class FormGenerationError extends Data.TaggedError('FormGenerationError')
 export class USTaxPolicy implements JurisdictionTaxPolicy {
   readonly jurisdiction = 'US';
 
-  getHoldingPeriodClassification(holdingPeriod: HoldingPeriod): TaxTreatmentType {
+  getHoldingPeriodClassification(
+    holdingPeriod: HoldingPeriod,
+  ): TaxTreatmentType {
     return holdingPeriod.days > 365 ? 'LONG_TERM' : 'SHORT_TERM';
   }
 
-  calculateTaxSummary(transactions: TaxableTransaction[]): Effect.Effect<TaxSummary, CurrencyMismatchError> {
+  calculateTaxSummary(
+    transactions: TaxableTransaction[],
+  ): Effect.Effect<TaxSummary, CurrencyMismatchError> {
     // Initialize totals inside an Effect to be safe and architecturally pure
     const initialTotals = Effect.succeed({
       shortTermGains: Money.zero(Currency.USD),
@@ -1841,15 +2067,22 @@ export class USTaxPolicy implements JurisdictionTaxPolicy {
     // Process each transaction with US-specific logic - now fully Effect-based
     const totalsEffect = pipe(
       initialTotals,
-      Effect.flatMap(totals =>
+      Effect.flatMap((totals) =>
         Effect.reduce(transactions, totals, (acc, tx) => {
           if (tx.type === 'DISPOSAL' && Option.isSome(tx.realizedGain)) {
             return pipe(
               Effect.fromOption(tx.realizedGain),
-              Effect.mapError(() => new CurrencyMismatchError({ message: 'Missing realized gain' })),
-              Effect.flatMap(gain => {
+              Effect.mapError(
+                () =>
+                  new CurrencyMismatchError({
+                    message: 'Missing realized gain',
+                  }),
+              ),
+              Effect.flatMap((gain) => {
                 // Classify holding period according to US rules
-                const treatment = this.getHoldingPeriodClassification(gain.holdingPeriod);
+                const treatment = this.getHoldingPeriodClassification(
+                  gain.holdingPeriod,
+                );
 
                 // Now all add operations are properly handled - if any fail, the whole Effect fails
                 return pipe(
@@ -1862,85 +2095,89 @@ export class USTaxPolicy implements JurisdictionTaxPolicy {
                       if (gain.isGain()) {
                         return pipe(
                           acc.shortTermGains.add(gain.gain),
-                          Effect.map(newShortTermGains => ({
+                          Effect.map((newShortTermGains) => ({
                             ...acc,
                             totalProceeds: newTotalProceeds,
                             totalCostBasis: newTotalCostBasis,
                             shortTermGains: newShortTermGains,
-                          }))
+                          })),
                         );
                       } else {
                         return pipe(
                           acc.shortTermLosses.add(gain.gain.abs()),
-                          Effect.map(newShortTermLosses => ({
+                          Effect.map((newShortTermLosses) => ({
                             ...acc,
                             totalProceeds: newTotalProceeds,
                             totalCostBasis: newTotalCostBasis,
                             shortTermLosses: newShortTermLosses,
-                          }))
+                          })),
                         );
                       }
                     } else {
                       if (gain.isGain()) {
                         return pipe(
                           acc.longTermGains.add(gain.gain),
-                          Effect.map(newLongTermGains => ({
+                          Effect.map((newLongTermGains) => ({
                             ...acc,
                             totalProceeds: newTotalProceeds,
                             totalCostBasis: newTotalCostBasis,
                             longTermGains: newLongTermGains,
-                          }))
+                          })),
                         );
                       } else {
                         return pipe(
                           acc.longTermLosses.add(gain.gain.abs()),
-                          Effect.map(newLongTermLosses => ({
+                          Effect.map((newLongTermLosses) => ({
                             ...acc,
                             totalProceeds: newTotalProceeds,
                             totalCostBasis: newTotalCostBasis,
                             longTermLosses: newLongTermLosses,
-                          }))
+                          })),
                         );
                       }
                     }
                   }),
-                  Effect.flatMap(updatedAcc =>
+                  Effect.flatMap((updatedAcc) =>
                     // Handle wash sale adjustments
                     Option.match(gain.washSaleAdjustment, {
                       onNone: () => Effect.succeed(updatedAcc),
-                      onSome: adjustment =>
+                      onSome: (adjustment) =>
                         pipe(
                           updatedAcc.washSaleDisallowed.add(adjustment),
-                          Effect.map(newWashSaleDisallowed => ({
+                          Effect.map((newWashSaleDisallowed) => ({
                             ...updatedAcc,
                             washSaleDisallowed: newWashSaleDisallowed,
-                          }))
+                          })),
                         ),
-                    })
-                  )
+                    }),
+                  ),
                 );
-              })
+              }),
             );
           }
           return Effect.succeed(acc);
-        })
-      )
+        }),
+      ),
     );
 
     // Calculate final summary with proper error handling
     return pipe(
       totalsEffect,
-      Effect.flatMap(totals =>
+      Effect.flatMap((totals) =>
         pipe(
           Effect.all({
             netGain: totals.totalProceeds.subtract(totals.totalCostBasis),
-            netShortTerm: totals.shortTermGains.subtract(totals.shortTermLosses),
+            netShortTerm: totals.shortTermGains.subtract(
+              totals.shortTermLosses,
+            ),
             netLongTerm: totals.longTermGains.subtract(totals.longTermLosses),
           }),
           Effect.map(
             ({ netGain, netShortTerm, netLongTerm }) =>
               new TaxSummary({
-                taxYear: transactions[0]?.taxYear || TaxYear.of(new Date().getFullYear()),
+                taxYear:
+                  transactions[0]?.taxYear ||
+                  TaxYear.of(new Date().getFullYear()),
                 jurisdiction: 'US',
                 totalProceeds: totals.totalProceeds,
                 totalCostBasis: totals.totalCostBasis,
@@ -1954,18 +2191,22 @@ export class USTaxPolicy implements JurisdictionTaxPolicy {
                   netShortTerm: netShortTerm.toNumber(),
                   netLongTerm: netLongTerm.toNumber(),
                 },
-              })
-          )
-        )
-      )
+              }),
+          ),
+        ),
+      ),
     );
   }
 
-  applyLossRules(transactions: ProcessedDisposal[]): Effect.Effect<AdjustedTransaction[], never> {
+  applyLossRules(
+    transactions: ProcessedDisposal[],
+  ): Effect.Effect<AdjustedTransaction[], never> {
     // US wash sale rules
     return pipe(
       this.detectWashSales(transactions),
-      Effect.map(violations => this.applyWashSaleAdjustments(transactions, violations))
+      Effect.map((violations) =>
+        this.applyWashSaleAdjustments(transactions, violations),
+      ),
     );
   }
 
@@ -1976,25 +2217,32 @@ export class USTaxPolicy implements JurisdictionTaxPolicy {
     ];
   }
 
-  generateRequiredForms(report: TaxReport): Effect.Effect<Form8949Data, FormGenerationError> {
+  generateRequiredForms(
+    report: TaxReport,
+  ): Effect.Effect<Form8949Data, FormGenerationError> {
     return pipe(
-      Effect.all([Effect.fromOption(report.taxYear), Effect.fromOption(report.summary)]),
+      Effect.all([
+        Effect.fromOption(report.taxYear),
+        Effect.fromOption(report.summary),
+      ]),
       Effect.mapError(
         () =>
           new FormGenerationError({
             message: 'Cannot generate forms for incomplete report',
-          })
+          }),
       ),
       Effect.map(([taxYear, summary]) => {
         const shortTermSales: Form8949Entry[] = [];
         const longTermSales: Form8949Entry[] = [];
 
         report.transactions
-          .filter(tx => tx.type === 'DISPOSAL' && Option.isSome(tx.realizedGain))
-          .forEach(tx => {
+          .filter(
+            (tx) => tx.type === 'DISPOSAL' && Option.isSome(tx.realizedGain),
+          )
+          .forEach((tx) => {
             Option.match(tx.realizedGain, {
               onNone: () => {},
-              onSome: gain => {
+              onSome: (gain) => {
                 const entry: Form8949Entry = {
                   description: tx.asset.toString(),
                   dateAcquired: gain.holdingPeriod.startDate,
@@ -2002,15 +2250,19 @@ export class USTaxPolicy implements JurisdictionTaxPolicy {
                   proceeds: gain.proceeds.toNumber(),
                   costBasis: gain.costBasis.toNumber(),
                   gainOrLoss: gain.gain.toNumber(),
-                  adjustmentCode: Option.isSome(gain.washSaleAdjustment) ? 'W' : '',
+                  adjustmentCode: Option.isSome(gain.washSaleAdjustment)
+                    ? 'W'
+                    : '',
                   adjustmentAmount: Option.match(gain.washSaleAdjustment, {
                     onNone: () => 0,
-                    onSome: adj => adj.toNumber(),
+                    onSome: (adj) => adj.toNumber(),
                   }),
                 };
 
                 // Classify holding period according to US rules
-                const treatment = this.getHoldingPeriodClassification(gain.holdingPeriod);
+                const treatment = this.getHoldingPeriodClassification(
+                  gain.holdingPeriod,
+                );
 
                 if (treatment === 'SHORT_TERM') {
                   shortTermSales.push(entry);
@@ -2027,11 +2279,13 @@ export class USTaxPolicy implements JurisdictionTaxPolicy {
           longTermSales,
           totals: summary,
         });
-      })
+      }),
     );
   }
 
-  private detectWashSales(transactions: ProcessedDisposal[]): Effect.Effect<WashSaleViolation[], never> {
+  private detectWashSales(
+    transactions: ProcessedDisposal[],
+  ): Effect.Effect<WashSaleViolation[], never> {
     // US-specific 30-day wash sale window logic
     // ... implementation
     return Effect.succeed([]);
@@ -2039,7 +2293,7 @@ export class USTaxPolicy implements JurisdictionTaxPolicy {
 
   private applyWashSaleAdjustments(
     transactions: ProcessedDisposal[],
-    violations: WashSaleViolation[]
+    violations: WashSaleViolation[],
   ): AdjustedTransaction[] {
     // ... implementation
     return transactions;
@@ -2050,21 +2304,25 @@ export class USTaxPolicy implements JurisdictionTaxPolicy {
 export class CanadaTaxPolicy implements JurisdictionTaxPolicy {
   readonly jurisdiction = 'CA';
 
-  getHoldingPeriodClassification(holdingPeriod: HoldingPeriod): TaxTreatmentType {
+  getHoldingPeriodClassification(
+    holdingPeriod: HoldingPeriod,
+  ): TaxTreatmentType {
     // Canada doesn't distinguish by holding period
     return 'CAPITAL_GAIN';
   }
 
-  calculateTaxSummary(transactions: TaxableTransaction[]): Effect.Effect<TaxSummary, CurrencyMismatchError> {
+  calculateTaxSummary(
+    transactions: TaxableTransaction[],
+  ): Effect.Effect<TaxSummary, CurrencyMismatchError> {
     const moneyZero = Money.zero(Currency.CAD);
 
     // Helper function to safely sum money values from transactions
     const calculateTotal = (
       txs: readonly TaxableTransaction[],
-      isGain: boolean
+      isGain: boolean,
     ): Effect.Effect<Money, CurrencyMismatchError> => {
       // Filter for transactions that have a realized gain
-      const relevantTxs = txs.filter(tx => Option.isSome(tx.realizedGain));
+      const relevantTxs = txs.filter((tx) => Option.isSome(tx.realizedGain));
 
       return Effect.reduce(relevantTxs, moneyZero, (sum, tx) => {
         // We know realizedGain is Some, so we can get it.
@@ -2072,7 +2330,9 @@ export class CanadaTaxPolicy implements JurisdictionTaxPolicy {
 
         if (isGain ? gain.isGain() : gain.isLoss()) {
           // All additions are now effectful and will propagate CurrencyMismatchError
-          return sum.add(gain.gain.isNegative() ? gain.gain.negate() : gain.gain);
+          return sum.add(
+            gain.gain.isNegative() ? gain.gain.negate() : gain.gain,
+          );
         }
         return Effect.succeed(sum);
       });
@@ -2086,7 +2346,7 @@ export class CanadaTaxPolicy implements JurisdictionTaxPolicy {
       Effect.flatMap(({ totalGains, totalLosses }) =>
         pipe(
           totalGains.subtract(totalLosses),
-          Effect.map(netCapitalGain => {
+          Effect.map((netCapitalGain) => {
             const taxableCapitalGain = netCapitalGain.multiply(0.5); // 50% inclusion rate
             return new CanadianTaxSummary({
               totalCapitalGains: totalGains,
@@ -2095,13 +2355,15 @@ export class CanadaTaxPolicy implements JurisdictionTaxPolicy {
               taxableCapitalGain,
               inclusionRate: 0.5,
             });
-          })
-        )
-      )
+          }),
+        ),
+      ),
     );
   }
 
-  applyLossRules(transactions: ProcessedDisposal[]): Effect.Effect<AdjustedTransaction[], never> {
+  applyLossRules(
+    transactions: ProcessedDisposal[],
+  ): Effect.Effect<AdjustedTransaction[], never> {
     // Canadian superficial loss rules (similar to wash sale but different window)
     return this.detectSuperficialLosses(transactions);
   }
@@ -2113,15 +2375,23 @@ export class CanadaTaxPolicy implements JurisdictionTaxPolicy {
     ];
   }
 
-  private detectSuperficialLosses(transactions: ProcessedDisposal[]): Effect.Effect<AdjustedTransaction[], never> {
+  private detectSuperficialLosses(
+    transactions: ProcessedDisposal[],
+  ): Effect.Effect<AdjustedTransaction[], never> {
     // Canadian 30-day before/after rule but with different criteria
     // ... implementation
   }
 }
 
 // Layer configuration
-export const USTaxPolicyLayer = Layer.succeed(JurisdictionTaxPolicy, new USTaxPolicy());
-export const CanadianTaxPolicyLayer = Layer.succeed(JurisdictionTaxPolicy, new CanadaTaxPolicy());
+export const USTaxPolicyLayer = Layer.succeed(
+  JurisdictionTaxPolicy,
+  new USTaxPolicy(),
+);
+export const CanadianTaxPolicyLayer = Layer.succeed(
+  JurisdictionTaxPolicy,
+  new CanadaTaxPolicy(),
+);
 ```
 
 ### 7. Module Configuration
@@ -2339,7 +2609,12 @@ export class TaxController {
 
 ```typescript
 // src/contexts/taxation/api/filters/domain-error.filter.ts
-import { ExceptionFilter, Catch, ArgumentsHost, HttpStatus } from '@nestjs/common';
+import {
+  ExceptionFilter,
+  Catch,
+  ArgumentsHost,
+  HttpStatus,
+} from '@nestjs/common';
 import { Response } from 'express';
 import { Data } from 'effect';
 
@@ -2363,7 +2638,8 @@ export class DomainErrorFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
 
-    const { status, error, message } = this.mapDomainErrorToHttpResponse(exception);
+    const { status, error, message } =
+      this.mapDomainErrorToHttpResponse(exception);
 
     response.status(status).json({
       statusCode: status,
@@ -2387,10 +2663,18 @@ export class DomainErrorFilter implements ExceptionFilter {
       };
     }
     if (exception instanceof InvalidCostBasisError) {
-      return { status: HttpStatus.BAD_REQUEST, error: 'Invalid Cost Basis', message: 'Cost basis cannot be negative.' };
+      return {
+        status: HttpStatus.BAD_REQUEST,
+        error: 'Invalid Cost Basis',
+        message: 'Cost basis cannot be negative.',
+      };
     }
     if (exception instanceof CurrencyMismatchError) {
-      return { status: HttpStatus.BAD_REQUEST, error: 'Currency Mismatch', message: exception.message };
+      return {
+        status: HttpStatus.BAD_REQUEST,
+        error: 'Currency Mismatch',
+        message: exception.message,
+      };
     }
 
     // Business rule / State violation errors -> 409 Conflict
@@ -2450,7 +2734,10 @@ export class DomainErrorFilter implements ExceptionFilter {
 // src/contexts/taxation/infrastructure/repositories/tax-lot.repository.ts
 import { Injectable } from '@nestjs/common';
 import { EventStore } from '../../../../infrastructure/event-store/event-store.service';
-import { TaxLot, TaxLotStatus } from '../../domain/aggregates/tax-lot.aggregate';
+import {
+  TaxLot,
+  TaxLotStatus,
+} from '../../domain/aggregates/tax-lot.aggregate';
 import { TaxLotId } from '../../domain/value-objects/tax-lot.vo';
 import { Option } from 'effect';
 import { Knex } from 'knex';
@@ -2471,11 +2758,21 @@ export class TaxLotProjection extends Data.Class<{
       Effect.all([
         pipe(
           Quantity.of(row.remaining_quantity, 18),
-          Effect.mapError(() => new ParsingError({ message: `Invalid quantity: ${row.remaining_quantity}` }))
+          Effect.mapError(
+            () =>
+              new ParsingError({
+                message: `Invalid quantity: ${row.remaining_quantity}`,
+              }),
+          ),
         ),
         pipe(
           Money.of(row.adjusted_cost_basis, Currency.USD),
-          Effect.mapError(() => new ParsingError({ message: `Invalid cost basis: ${row.adjusted_cost_basis}` }))
+          Effect.mapError(
+            () =>
+              new ParsingError({
+                message: `Invalid cost basis: ${row.adjusted_cost_basis}`,
+              }),
+          ),
         ),
       ]),
       Effect.map(
@@ -2488,8 +2785,8 @@ export class TaxLotProjection extends Data.Class<{
             costBasis,
             acquisitionDate: new Date(row.acquisition_date),
             status: row.status as TaxLotStatus,
-          })
-      )
+          }),
+      ),
     );
   }
 }
@@ -2503,19 +2800,27 @@ export class ParsingError extends Data.TaggedError('ParsingError')<{
 export class TaxLotRepository {
   constructor(
     private readonly eventStore: EventStore,
-    @InjectConnection() private readonly knex: Knex
+    @InjectConnection() private readonly knex: Knex,
   ) {}
 
   // Only load from event store when we need to execute commands
   loadForCommand(lotId: TaxLotId): Effect.Effect<TaxLot, LoadError> {
     return pipe(
       this.eventStore.readStreamEffect(lotId),
-      Effect.map(events => events.reduce((aggregate, event) => aggregate.apply(event), TaxLot.empty()))
+      Effect.map((events) =>
+        events.reduce(
+          (aggregate, event) => aggregate.apply(event),
+          TaxLot.empty(),
+        ),
+      ),
     );
   }
 
   // For selector logic, return only lot IDs from projection for efficient loading
-  findAvailableLotIdsFromProjection(userId: string, assetId: string): Effect.Effect<TaxLotId[], QueryError> {
+  findAvailableLotIdsFromProjection(
+    userId: string,
+    assetId: string,
+  ): Effect.Effect<TaxLotId[], QueryError> {
     return Effect.tryPromise({
       try: () =>
         this.knex('tax_lot_projections')
@@ -2524,12 +2829,15 @@ export class TaxLotRepository {
           .whereIn('status', ['OPEN', 'PARTIAL'])
           .orderBy('acquisition_date', 'asc')
           .pluck('lot_id'),
-      catch: error => new QueryError({ message: String(error) }),
-    }).pipe(Effect.map(ids => ids.map(id => TaxLotId(id))));
+      catch: (error) => new QueryError({ message: String(error) }),
+    }).pipe(Effect.map((ids) => ids.map((id) => TaxLotId(id))));
   }
 
   // For read-only queries, use the projection directly
-  findAvailableLotsFromProjection(userId: string, assetId: string): Effect.Effect<TaxLotProjection[], QueryError> {
+  findAvailableLotsFromProjection(
+    userId: string,
+    assetId: string,
+  ): Effect.Effect<TaxLotProjection[], QueryError> {
     return Effect.tryPromise({
       try: () =>
         this.knex('tax_lot_projections')
@@ -2537,15 +2845,19 @@ export class TaxLotRepository {
           .where('asset_id', assetId)
           .whereIn('status', ['OPEN', 'PARTIAL'])
           .orderBy('acquisition_date', 'asc'),
-      catch: error => new QueryError({ message: String(error) }),
-    }).pipe(Effect.flatMap(rows => Effect.all(rows.map(row => TaxLotProjection.fromRow(row)))));
+      catch: (error) => new QueryError({ message: String(error) }),
+    }).pipe(
+      Effect.flatMap((rows) =>
+        Effect.all(rows.map((row) => TaxLotProjection.fromRow(row))),
+      ),
+    );
   }
 
   // Save events atomically
   saveEventsEffect(events: DomainEvent[]): Effect.Effect<void, SaveError> {
     return Effect.tryPromise({
       try: () => this.eventStore.appendBatch(events),
-      catch: error => new SaveError({ message: String(error) }),
+      catch: (error) => new SaveError({ message: String(error) }),
     });
   }
 }
@@ -2562,9 +2874,14 @@ export class TaxReportRepository {
     return pipe(
       Effect.tryPromise({
         try: () => this.eventStore.readStream(reportId),
-        catch: error => new LoadError({ message: String(error) }),
+        catch: (error) => new LoadError({ message: String(error) }),
       }),
-      Effect.map(events => events.reduce((aggregate, event) => aggregate.apply(event), TaxReport.empty()))
+      Effect.map((events) =>
+        events.reduce(
+          (aggregate, event) => aggregate.apply(event),
+          TaxReport.empty(),
+        ),
+      ),
     );
   }
 
@@ -2572,7 +2889,9 @@ export class TaxReportRepository {
    * Saves an array of domain events to the Event Store. This is the primary
    * method used by command handlers after aggregate logic is executed.
    */
-  saveEventsEffect(events: DomainEvent[]): Effect.Effect<DomainEvent[], SaveError> {
+  saveEventsEffect(
+    events: DomainEvent[],
+  ): Effect.Effect<DomainEvent[], SaveError> {
     if (events.length === 0) {
       return Effect.succeed([]);
     }
@@ -2580,9 +2899,9 @@ export class TaxReportRepository {
     return pipe(
       Effect.tryPromise({
         try: () => this.eventStore.appendBatch(events),
-        catch: error => new SaveError({ message: String(error) }),
+        catch: (error) => new SaveError({ message: String(error) }),
       }),
-      Effect.map(() => events) // Return events for further processing
+      Effect.map(() => events), // Return events for further processing
     );
   }
 }
@@ -2626,16 +2945,20 @@ export class TaxLotCreatedHandler implements IEventHandler<TaxLotCreated> {
 }
 
 @EventsHandler(TaxLotPartiallyConsumed)
-export class TaxLotPartiallyConsumedHandler implements IEventHandler<TaxLotPartiallyConsumed> {
+export class TaxLotPartiallyConsumedHandler
+  implements IEventHandler<TaxLotPartiallyConsumed>
+{
   constructor(@InjectConnection() private readonly knex: Knex) {}
 
   async handle(event: TaxLotPartiallyConsumed): Promise<void> {
-    await this.knex('tax_lot_projections').where('lot_id', event.data.lotId).update({
-      remaining_quantity: event.data.remaining.toNumber(),
-      consumed_quantity: event.data.consumed.toNumber(),
-      status: 'PARTIAL',
-      updated_at: event.data.consumedAt,
-    });
+    await this.knex('tax_lot_projections')
+      .where('lot_id', event.data.lotId)
+      .update({
+        remaining_quantity: event.data.remaining.toNumber(),
+        consumed_quantity: event.data.consumed.toNumber(),
+        status: 'PARTIAL',
+        updated_at: event.data.consumedAt,
+      });
 
     // Record the realized gain
     await this.knex('realized_gains').insert({
@@ -2647,24 +2970,30 @@ export class TaxLotPartiallyConsumedHandler implements IEventHandler<TaxLotParti
       realized_gain: event.data.realizedGain.gain.toNumber(),
       holding_period_days: event.data.realizedGain.holdingPeriod.days,
       tax_treatment: event.data.realizedGain.taxTreatment,
-      wash_sale_adjustment: event.data.realizedGain.washSaleAdjustment.map(adj => adj.toNumber()).getOrElse(() => null),
+      wash_sale_adjustment: event.data.realizedGain.washSaleAdjustment
+        .map((adj) => adj.toNumber())
+        .getOrElse(() => null),
       created_at: event.data.consumedAt,
     });
   }
 }
 
 @EventsHandler(TaxLotFullyConsumed)
-export class TaxLotFullyConsumedHandler implements IEventHandler<TaxLotFullyConsumed> {
+export class TaxLotFullyConsumedHandler
+  implements IEventHandler<TaxLotFullyConsumed>
+{
   constructor(@InjectConnection() private readonly knex: Knex) {}
 
   async handle(event: TaxLotFullyConsumed): Promise<void> {
-    await this.knex('tax_lot_projections').where('lot_id', event.data.lotId).update({
-      remaining_quantity: 0,
-      consumed_quantity: event.data.consumedQuantity.toNumber(),
-      status: 'CLOSED',
-      closed_at: event.data.consumedAt,
-      updated_at: event.data.consumedAt,
-    });
+    await this.knex('tax_lot_projections')
+      .where('lot_id', event.data.lotId)
+      .update({
+        remaining_quantity: 0,
+        consumed_quantity: event.data.consumedQuantity.toNumber(),
+        status: 'CLOSED',
+        closed_at: event.data.consumedAt,
+        updated_at: event.data.consumedAt,
+      });
 
     // Record the realized gain
     await this.knex('realized_gains').insert({
@@ -2676,7 +3005,9 @@ export class TaxLotFullyConsumedHandler implements IEventHandler<TaxLotFullyCons
       realized_gain: event.data.realizedGain.gain.toNumber(),
       holding_period_days: event.data.realizedGain.holdingPeriod.days,
       tax_treatment: event.data.realizedGain.taxTreatment,
-      wash_sale_adjustment: event.data.realizedGain.washSaleAdjustment.map(adj => adj.toNumber()).getOrElse(() => null),
+      wash_sale_adjustment: event.data.realizedGain.washSaleAdjustment
+        .map((adj) => adj.toNumber())
+        .getOrElse(() => null),
       created_at: event.data.consumedAt,
     });
   }
@@ -2687,11 +3018,13 @@ export class TaxLotAdjustedHandler implements IEventHandler<TaxLotAdjusted> {
   constructor(@InjectConnection() private readonly knex: Knex) {}
 
   async handle(event: TaxLotAdjusted): Promise<void> {
-    await this.knex('tax_lot_projections').where('lot_id', event.data.lotId).update({
-      adjusted_cost_basis: event.data.newCostBasis.adjustedAmount.toNumber(),
-      status: 'ADJUSTED',
-      updated_at: event.data.adjustedAt,
-    });
+    await this.knex('tax_lot_projections')
+      .where('lot_id', event.data.lotId)
+      .update({
+        adjusted_cost_basis: event.data.newCostBasis.adjustedAmount.toNumber(),
+        status: 'ADJUSTED',
+        updated_at: event.data.adjustedAt,
+      });
 
     // Record the adjustment
     await this.knex('cost_basis_adjustments').insert({
@@ -2699,7 +3032,8 @@ export class TaxLotAdjustedHandler implements IEventHandler<TaxLotAdjusted> {
       adjustment_type: event.data.adjustment.type,
       adjustment_amount: event.data.adjustment.amount.toNumber(),
       reason: event.data.reason,
-      related_transaction_id: event.data.adjustment.relatedTransactionId.getOrElse(() => null),
+      related_transaction_id:
+        event.data.adjustment.relatedTransactionId.getOrElse(() => null),
       created_at: event.data.adjustedAt,
     });
   }
@@ -2714,7 +3048,7 @@ import { Knex } from 'knex';
 
 export async function up(knex: Knex): Promise<void> {
   // Tax lot projections table
-  await knex.schema.createTable('tax_lot_projections', table => {
+  await knex.schema.createTable('tax_lot_projections', (table) => {
     table.uuid('lot_id').primary();
     table.uuid('user_id').notNullable();
     table.string('asset_id').notNullable();
@@ -2726,7 +3060,9 @@ export async function up(knex: Knex): Promise<void> {
     table.decimal('original_cost_basis', 20, 2).notNullable();
     table.decimal('adjusted_cost_basis', 20, 2).notNullable();
     table.string('cost_basis_currency', 10).notNullable();
-    table.enum('status', ['OPEN', 'PARTIAL', 'CLOSED', 'ADJUSTED']).notNullable();
+    table
+      .enum('status', ['OPEN', 'PARTIAL', 'CLOSED', 'ADJUSTED'])
+      .notNullable();
     table.timestamp('created_at').notNullable();
     table.timestamp('updated_at');
     table.timestamp('closed_at');
@@ -2737,7 +3073,7 @@ export async function up(knex: Knex): Promise<void> {
   });
 
   // Realized gains table
-  await knex.schema.createTable('realized_gains', table => {
+  await knex.schema.createTable('realized_gains', (table) => {
     table.uuid('id').primary().defaultTo(knex.raw('uuid_generate_v4()'));
     table.uuid('lot_id').notNullable();
     table.uuid('disposal_transaction_id').notNullable();
@@ -2756,7 +3092,7 @@ export async function up(knex: Knex): Promise<void> {
   });
 
   // Cost basis adjustments table
-  await knex.schema.createTable('cost_basis_adjustments', table => {
+  await knex.schema.createTable('cost_basis_adjustments', (table) => {
     table.uuid('id').primary().defaultTo(knex.raw('uuid_generate_v4()'));
     table.uuid('lot_id').notNullable();
     table.enum('adjustment_type', ['INCREASE', 'DECREASE']).notNullable();
@@ -2769,12 +3105,14 @@ export async function up(knex: Knex): Promise<void> {
   });
 
   // Tax report projections table
-  await knex.schema.createTable('tax_report_projections', table => {
+  await knex.schema.createTable('tax_report_projections', (table) => {
     table.uuid('report_id').primary();
     table.uuid('user_id').notNullable();
     table.integer('tax_year').notNullable();
     table.string('accounting_method').notNullable();
-    table.enum('status', ['DRAFT', 'CALCULATING', 'READY', 'FINALIZED', 'FILED']).notNullable();
+    table
+      .enum('status', ['DRAFT', 'CALCULATING', 'READY', 'FINALIZED', 'FILED'])
+      .notNullable();
     table.decimal('short_term_gains', 20, 2);
     table.decimal('short_term_losses', 20, 2);
     table.decimal('long_term_gains', 20, 2);
@@ -2794,7 +3132,7 @@ export async function up(knex: Knex): Promise<void> {
   });
 
   // Wash sale violations table
-  await knex.schema.createTable('wash_sale_violations', table => {
+  await knex.schema.createTable('wash_sale_violations', (table) => {
     table.uuid('id').primary().defaultTo(knex.raw('uuid_generate_v4()'));
     table.uuid('disposal_transaction_id').notNullable();
     table.uuid('acquisition_transaction_id').notNullable();
@@ -2832,7 +3170,7 @@ import { UserId } from '../../../../@core/domain/common-types/identifiers';
 export class GetTaxReportQuery {
   constructor(
     readonly userId: UserId,
-    readonly taxYear: number
+    readonly taxYear: number,
   ) {}
 }
 
@@ -2855,18 +3193,23 @@ export class GetTaxReportHandler implements IQueryHandler<GetTaxReportQuery> {
       .join('tax_lot_projections as tlp', 'rg.lot_id', 'tlp.lot_id')
       .where('tlp.user_id', query.userId)
       .whereRaw('EXTRACT(YEAR FROM rg.created_at) = ?', [query.taxYear])
-      .select('rg.*', 'tlp.asset_id', 'tlp.acquisition_date', 'tlp.acquisition_method')
+      .select(
+        'rg.*',
+        'tlp.asset_id',
+        'tlp.acquisition_date',
+        'tlp.acquisition_method',
+      )
       .orderBy('rg.created_at');
 
     // Get wash sale violations
     const washSales = await this.knex('wash_sale_violations')
       .whereIn(
         'disposal_transaction_id',
-        transactions.map(t => t.disposal_transaction_id)
+        transactions.map((t) => t.disposal_transaction_id),
       )
       .orWhereIn(
         'acquisition_transaction_id',
-        transactions.map(t => t.disposal_transaction_id)
+        transactions.map((t) => t.disposal_transaction_id),
       );
 
     return {

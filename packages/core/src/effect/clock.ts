@@ -1,4 +1,4 @@
-import { Context, Layer } from "effect";
+import { Context, Layer } from 'effect';
 
 export interface Clock {
   clearTestTime(): void;
@@ -6,7 +6,7 @@ export interface Clock {
   setTestTime(date: Date): void;
 }
 
-export const Clock = Context.GenericTag<Clock>("Clock");
+export const Clock = Context.GenericTag<Clock>('Clock');
 
 export class SystemClock implements Clock {
   private testTime?: Date;
@@ -20,7 +20,7 @@ export class SystemClock implements Clock {
   }
 
   clearTestTime(): void {
-    delete (this as any).testTime;
+    delete (this as unknown).testTime;
   }
 }
 

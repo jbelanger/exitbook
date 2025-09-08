@@ -1,13 +1,16 @@
 # Provider Registry System
 
-This document explains the new provider registry system that eliminates the disconnect between JSON configuration and provider implementations.
+This document explains the new provider registry system that eliminates the
+disconnect between JSON configuration and provider implementations.
 
 ## Overview
 
-The Provider Registry system creates a **type-safe, self-documenting** approach to blockchain provider management where:
+The Provider Registry system creates a **type-safe, self-documenting** approach
+to blockchain provider management where:
 
 - ✅ **Provider metadata lives with the code** (rate limits, URLs, capabilities)
-- ✅ **JSON config only contains user preferences** (enabled/disabled, priorities, overrides)
+- ✅ **JSON config only contains user preferences** (enabled/disabled,
+  priorities, overrides)
 - ✅ **Strong connection** between configuration and implementation
 - ✅ **Auto-discovery** of available providers
 - ✅ **Runtime validation** of configurations
@@ -160,7 +163,7 @@ import { ProviderRegistry } from './src/providers/registry/index.js';
 
 // Get all providers for Ethereum
 const ethereumProviders = ProviderRegistry.getAvailable('ethereum');
-console.log(ethereumProviders.map(p => p.name)); // ['etherscan', 'alchemy', 'moralis']
+console.log(ethereumProviders.map((p) => p.name)); // ['etherscan', 'alchemy', 'moralis']
 
 // Get all providers across all blockchains
 const allProviders = ProviderRegistry.getAllProviders();
@@ -175,7 +178,11 @@ const config = {
   timeout: 10000,
 };
 
-const provider = ProviderRegistry.createProvider('ethereum', 'etherscan', config);
+const provider = ProviderRegistry.createProvider(
+  'ethereum',
+  'etherscan',
+  config,
+);
 ```
 
 ### Validate Configuration
@@ -397,7 +404,8 @@ const provider = ProviderRegistry.createProvider('ethereum', 'etherscan', {
 
 **Solutions**:
 
-1. Ensure provider file is imported: `import '../../providers/ethereum/EtherscanProvider.js';`
+1. Ensure provider file is imported:
+   `import '../../providers/ethereum/EtherscanProvider.js';`
 2. Check `@RegisterProvider` decorator is present and correct
 3. Verify provider name matches exactly
 

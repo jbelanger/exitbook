@@ -3,8 +3,10 @@
 ## Decision Summary
 
 **Selected**: Drizzle ORM  
-**Rationale**: Best fit for financial systems requiring complex queries, type safety, and SQL transparency  
-**Alternative Considered**: Prisma (excellent but less suitable for complex financial operations)
+**Rationale**: Best fit for financial systems requiring complex queries, type
+safety, and SQL transparency  
+**Alternative Considered**: Prisma (excellent but less suitable for complex
+financial operations)
 
 ## Why Drizzle for Financial Systems
 
@@ -25,7 +27,10 @@ const costBasis = await db
   .select({
     accountId: entries.accountId,
     amount: entries.amount,
-    runningTotal: sql`SUM(${entries.amount}) OVER (ORDER BY ${transactions.transactionDate})`.as('running_total'),
+    runningTotal:
+      sql`SUM(${entries.amount}) OVER (ORDER BY ${transactions.transactionDate})`.as(
+        'running_total',
+      ),
   })
   .from(entries)
   .innerJoin(transactions, eq(entries.transactionId, transactions.id))
@@ -71,13 +76,22 @@ const costBasis = await prisma.$queryRaw`
 Drizzle provides excellent TypeScript integration through schema-as-code:
 
 ```typescript
-import { bigint, integer, pgTable, serial, text, timestamp } from 'drizzle-orm/pg-core';
+import {
+  bigint,
+  integer,
+  pgTable,
+  serial,
+  text,
+  timestamp,
+} from 'drizzle-orm/pg-core';
 
 export const accounts = pgTable('accounts', {
   id: serial('id').primaryKey(),
   name: text('name').notNull(),
   currencyTicker: text('currency_ticker').notNull(),
-  accountType: text('account_type').$type<'WALLET' | 'EXCHANGE' | 'FEES' | 'DEFI'>().notNull(),
+  accountType: text('account_type')
+    .$type<'WALLET' | 'EXCHANGE' | 'FEES' | 'DEFI'>()
+    .notNull(),
   network: text('network'),
   externalAddress: text('external_address'),
   parentAccountId: integer('parent_account_id'),
@@ -90,7 +104,9 @@ export const transactions = pgTable('transactions', {
   source: text('source').notNull(),
   description: text('description'),
   transactionDate: timestamp('transaction_date').notNull(),
-  status: text('status').$type<'pending' | 'confirmed' | 'failed' | 'finalized'>().default('confirmed'),
+  status: text('status')
+    .$type<'pending' | 'confirmed' | 'failed' | 'finalized'>()
+    .default('confirmed'),
   blockHeight: integer('block_height'),
   txHash: text('tx_hash'),
   gasUsed: integer('gas_used'),
@@ -108,7 +124,9 @@ export const entries = pgTable('entries', {
     .references(() => accounts.id),
   amount: bigint('amount', { mode: 'bigint' }).notNull(), // Critical: bigint for precision
   direction: text('direction').$type<'CREDIT' | 'DEBIT'>().notNull(),
-  entryType: text('entry_type').$type<'TRADE' | 'FEE' | 'TRANSFER' | 'REWARD' | 'GAS'>(),
+  entryType: text('entry_type').$type<
+    'TRADE' | 'FEE' | 'TRANSFER' | 'REWARD' | 'GAS'
+  >(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
@@ -148,7 +166,8 @@ export const entriesRelations = relations(entries, ({ one }) => ({
 
 ### 4. Precision-First Design
 
-Financial applications require exact decimal arithmetic. Drizzle's `bigint` mode provides:
+Financial applications require exact decimal arithmetic. Drizzle's `bigint` mode
+provides:
 
 ```typescript
 // Native bigint support for precise calculations
@@ -225,11 +244,16 @@ export class LedgerService {
   constructor(@Inject('DATABASE_CONNECTION') private db: DrizzleDB) {}
 
   async recordTransaction(transaction: LedgerTransaction): Promise<void> {
-    return this.db.transaction(async trx => {
+    return this.db.transaction(async (trx) => {
       // Validate entries balance
-      const sum = transaction.entries.reduce((total, entry) => total + entry.amount, 0n);
+      const sum = transaction.entries.reduce(
+        (total, entry) => total + entry.amount,
+        0n,
+      );
       if (sum !== 0n) {
-        throw new BadRequestException('Transaction entries must balance to zero');
+        throw new BadRequestException(
+          'Transaction entries must balance to zero',
+        );
       }
 
       // Insert transaction
@@ -245,13 +269,13 @@ export class LedgerService {
 
       // Insert entries
       await trx.insert(entries).values(
-        transaction.entries.map(entry => ({
+        transaction.entries.map((entry) => ({
           transactionId: dbTransaction.id,
           accountId: entry.accountId,
           amount: entry.amount,
           direction: entry.direction,
           entryType: entry.entryType,
-        }))
+        })),
       );
     });
   }
@@ -292,7 +316,8 @@ export class LedgerService {
 
 ### Phase 2: Service Layer (NestJS-Ready)
 
-1. Design service interfaces that work with both current architecture and future NestJS
+1. Design service interfaces that work with both current architecture and future
+   NestJS
 2. Implement repository pattern for data access
 3. Add comprehensive validation and error handling
 4. Create transaction management utilities
@@ -339,4 +364,7 @@ export default defineConfig({
 
 ## Conclusion
 
-Drizzle ORM provides the right balance of type safety, performance, and SQL control needed for a robust financial system. Its schema-as-code approach and excellent TypeScript integration make it ideal for the crypto transaction import system while remaining compatible with future NestJS migration plans.
+Drizzle ORM provides the right balance of type safety, performance, and SQL
+control needed for a robust financial system. Its schema-as-code approach and
+excellent TypeScript integration make it ideal for the crypto transaction import
+system while remaining compatible with future NestJS migration plans.

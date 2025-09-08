@@ -1,6 +1,7 @@
 ## Event-Sourced Architecture: Complete Data Model
 
-Here's a comprehensive data model for the crypto portfolio system using event sourcing, CQRS, and proper domain boundaries.
+Here's a comprehensive data model for the crypto portfolio system using event
+sourcing, CQRS, and proper domain boundaries.
 
 ## 1. **Event Store (Core Source of Truth)**
 
@@ -85,7 +86,11 @@ namespace DomainEvents {
       rawData: {
         timestamp: Date;
         type: string;
-        amounts: Array<{ asset: string; quantity: string; direction: 'in' | 'out' }>;
+        amounts: Array<{
+          asset: string;
+          quantity: string;
+          direction: 'in' | 'out';
+        }>;
         fees?: Array<{ asset: string; quantity: string }>;
         metadata: Record<string, unknown>;
       };
@@ -134,7 +139,12 @@ namespace DomainEvents {
       assetId: string;
       initialQuantity: string;
       acquisitionPrice: string;
-      acquisitionMethod: 'purchase' | 'reward' | 'airdrop' | 'mining' | 'transfer_in';
+      acquisitionMethod:
+        | 'purchase'
+        | 'reward'
+        | 'airdrop'
+        | 'mining'
+        | 'transfer_in';
       source: string;
     };
   }
@@ -241,7 +251,10 @@ namespace DomainEvents {
     eventType: 'ManualCorrectionApplied';
     data: {
       correctionId: UUID;
-      correctionType: 'balance_adjustment' | 'transaction_reversal' | 'missing_transaction';
+      correctionType:
+        | 'balance_adjustment'
+        | 'transaction_reversal'
+        | 'missing_transaction';
       reason: string;
       adjustments: Array<{
         accountId: UUID;
@@ -653,9 +666,12 @@ CREATE INDEX idx_data_exports_user ON data_exports(user_id, requested_at DESC);
 
 ## Key Design Principles
 
-1. **Event Store as Single Source of Truth**: All state changes go through events first
-2. **Projections for Queries**: Denormalized views optimized for specific query patterns
-3. **No Foreign Keys Between Contexts**: Bounded contexts communicate through events only
+1. **Event Store as Single Source of Truth**: All state changes go through
+   events first
+2. **Projections for Queries**: Denormalized views optimized for specific query
+   patterns
+3. **No Foreign Keys Between Contexts**: Bounded contexts communicate through
+   events only
 4. **Idempotency Built-in**: Command inbox prevents duplicate processing
 5. **Audit by Design**: Event store provides complete audit trail
 6. **Performance Optimized**: Projections and indexes for sub-second queries

@@ -1,10 +1,13 @@
 ## Alternative Architecture Design for a Greenfield Crypto Portfolio System
 
-Given this is a greenfield project, I'd propose a significantly different architecture that learns from the current design's strengths while avoiding its complexity traps.
+Given this is a greenfield project, I'd propose a significantly different
+architecture that learns from the current design's strengths while avoiding its
+complexity traps.
 
 ### Core Philosophy: Event-Sourced Domain with CQRS
 
-Instead of a hybrid state-based/event-aware system, I'd go fully event-sourced for the financial domain. Here's why and how:
+Instead of a hybrid state-based/event-aware system, I'd go fully event-sourced
+for the financial domain. Here's why and how:
 
 ## 1. **Event-Sourced Aggregates Instead of State-Based**
 
@@ -27,7 +30,10 @@ class TaxLot {
 class TaxLotAggregate extends EventSourcedAggregate {
   // State is derived from events
   static fromEvents(events: DomainEvent[]): TaxLotAggregate {
-    return events.reduce((lot, event) => lot.apply(event), new TaxLotAggregate());
+    return events.reduce(
+      (lot, event) => lot.apply(event),
+      new TaxLotAggregate(),
+    );
   }
 
   // Commands return events, not mutations
@@ -73,14 +79,20 @@ class PortfolioValuationService {
 // Pure functional core
 namespace PortfolioDomain {
   // Pure functions with no I/O
-  export function calculatePortfolioValue(holdings: Holding[], prices: PriceMap): PortfolioValue {
-    return holdings.map(h => ({
+  export function calculatePortfolioValue(
+    holdings: Holding[],
+    prices: PriceMap,
+  ): PortfolioValue {
+    return holdings.map((h) => ({
       ...h,
       value: h.quantity.multiply(prices.get(h.asset)),
     }));
   }
 
-  export function identifyDiscrepancies(calculated: Balance[], external: Balance[]): Discrepancy[] {
+  export function identifyDiscrepancies(
+    calculated: Balance[],
+    external: Balance[],
+  ): Discrepancy[] {
     // Pure comparison logic
   }
 }
@@ -182,7 +194,9 @@ class ImportWorkflow extends Saga {
 // Each step is isolated and testable
 class ClassifyTransactionsStep implements WorkflowStep {
   async execute(context: ImportContext): Promise<StepResult> {
-    const classified = context.transactions.map(tx => this.classifier.classify(tx));
+    const classified = context.transactions.map((tx) =>
+      this.classifier.classify(tx),
+    );
     return { ...context, classifiedTransactions: classified };
   }
 }
@@ -288,7 +302,9 @@ interface DiscrepancySeverityPolicy {
 }
 
 class PercentageBasedSeverityPolicy implements DiscrepancySeverityPolicy {
-  constructor(private thresholds: { critical: number; warning: number; minor: number }) {}
+  constructor(
+    private thresholds: { critical: number; warning: number; minor: number },
+  ) {}
 
   evaluate(discrepancy: Discrepancy): Severity {
     const percentage = discrepancy.getPercentage();
@@ -302,7 +318,7 @@ class PercentageBasedSeverityPolicy implements DiscrepancySeverityPolicy {
 class ReconciliationService {
   constructor(
     private severityPolicy: DiscrepancySeverityPolicy,
-    private tolerancePolicy: TolerancePolicy
+    private tolerancePolicy: TolerancePolicy,
   ) {}
 }
 ```
@@ -375,7 +391,7 @@ describe('TaxLot consumption', () => {
         const result = lot.consume(quantity);
         const totalValue = result.consumedBasis.add(result.remainingBasis);
         return totalValue.equals(lot.originalBasis);
-      })
+      }),
     );
   });
 });
@@ -411,4 +427,6 @@ This architecture provides:
 - **Maintainability** (bounded contexts, policies)
 - **Flexibility** (event-driven, loosely coupled)
 
-The main trade-off is initial complexity - event sourcing has a learning curve. But for a financial system where audit, corrections, and temporal queries are critical, it's worth the investment.
+The main trade-off is initial complexity - event sourcing has a learning curve.
+But for a financial system where audit, corrections, and temporal queries are
+critical, it's worth the investment.

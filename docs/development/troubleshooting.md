@@ -1,11 +1,15 @@
 # Troubleshooting Guide: Common Issues and Solutions
 
 > **📋 Open Source Notice**  
-> This troubleshooting guide covers common issues with the Universal Blockchain Provider Architecture. The core system is open source, but some third-party APIs mentioned may require commercial licenses or have service-specific limitations.
+> This troubleshooting guide covers common issues with the Universal Blockchain
+> Provider Architecture. The core system is open source, but some third-party
+> APIs mentioned may require commercial licenses or have service-specific
+> limitations.
 
 ## Quick Diagnostic Commands
 
-Before diving into specific issues, run these diagnostic commands to get system status:
+Before diving into specific issues, run these diagnostic commands to get system
+status:
 
 ```bash
 # Check overall provider health
@@ -270,7 +274,10 @@ Rate limiting backoff not working properly
 
 ```typescript
 class SmartRateLimitProvider extends BaseProvider {
-  private async makeRequest(url: string, options: RequestInit): Promise<Response> {
+  private async makeRequest(
+    url: string,
+    options: RequestInit,
+  ): Promise<Response> {
     const response = await fetch(url, options);
 
     // Check multiple rate limit indicators
@@ -386,7 +393,9 @@ class RotatingKeyProvider extends BaseProvider {
 
   private rotateApiKey(): void {
     this.currentKeyIndex = (this.currentKeyIndex + 1) % this.apiKeys.length;
-    console.log(`Rotated to API key ${this.currentKeyIndex + 1}/${this.apiKeys.length}`);
+    console.log(
+      `Rotated to API key ${this.currentKeyIndex + 1}/${this.apiKeys.length}`,
+    );
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
@@ -424,7 +433,9 @@ class QuotaAwareProvider extends BaseProvider {
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
     if (this.requestCount >= this.dailyLimit * 0.9) {
-      console.warn(`Approaching daily limit: ${this.requestCount}/${this.dailyLimit}`);
+      console.warn(
+        `Approaching daily limit: ${this.requestCount}/${this.dailyLimit}`,
+      );
     }
 
     const result = await super.execute(operation);
@@ -490,7 +501,10 @@ Inconsistent decimal places and timestamp formats
 
 ```typescript
 class StandardizedProvider extends BaseProvider {
-  protected normalizeAmount(amount: string | number, decimals: number = 18): string {
+  protected normalizeAmount(
+    amount: string | number,
+    decimals: number = 18,
+  ): string {
     if (typeof amount === 'number') {
       amount = amount.toString();
     }
@@ -577,17 +591,19 @@ async function compareProviders(address: string) {
   // Find unique transaction hashes across all providers
   const allHashes = new Set<string>();
   for (const txs of results.values()) {
-    txs.forEach(tx => allHashes.add(tx.hash));
+    txs.forEach((tx) => allHashes.add(tx.hash));
   }
 
   console.log(`Total unique transactions: ${allHashes.size}`);
 
   // Check which transactions are missing from each provider
   for (const [provider, txs] of results) {
-    const hashes = new Set(txs.map(tx => tx.hash));
-    const missing = Array.from(allHashes).filter(hash => !hashes.has(hash));
+    const hashes = new Set(txs.map((tx) => tx.hash));
+    const missing = Array.from(allHashes).filter((hash) => !hashes.has(hash));
     if (missing.length > 0) {
-      console.log(`${provider} missing: ${missing.slice(0, 5).join(', ')}${missing.length > 5 ? '...' : ''}`);
+      console.log(
+        `${provider} missing: ${missing.slice(0, 5).join(', ')}${missing.length > 5 ? '...' : ''}`,
+      );
     }
   }
 }
@@ -602,7 +618,9 @@ for (const provider of providers) {
   console.log(`${provider.name}:`);
   console.log(`  Historical data: ${capabilities.providesHistoricalData}`);
   console.log(`  Pagination: ${capabilities.supportsPagination}`);
-  console.log(`  Lookback days: ${capabilities.maxLookbackDays || 'unlimited'}`);
+  console.log(
+    `  Lookback days: ${capabilities.maxLookbackDays || 'unlimited'}`,
+  );
 }
 ```
 
@@ -612,7 +630,10 @@ for (const provider of providers) {
 
 ```typescript
 class MergingProviderManager extends BlockchainProviderManager {
-  async getAllTransactions(blockchain: string, address: string): Promise<BlockchainTransaction[]> {
+  async getAllTransactions(
+    blockchain: string,
+    address: string,
+  ): Promise<BlockchainTransaction[]> {
     const providers = this.getProviders(blockchain);
     const allTransactions = new Map<string, BlockchainTransaction>();
 
@@ -640,10 +661,15 @@ class MergingProviderManager extends BlockchainProviderManager {
       }
     }
 
-    return Array.from(allTransactions.values()).sort((a, b) => b.timestamp - a.timestamp);
+    return Array.from(allTransactions.values()).sort(
+      (a, b) => b.timestamp - a.timestamp,
+    );
   }
 
-  private isMoreDetailed(tx1: BlockchainTransaction, tx2: BlockchainTransaction): boolean {
+  private isMoreDetailed(
+    tx1: BlockchainTransaction,
+    tx2: BlockchainTransaction,
+  ): boolean {
     // Prefer transaction with more complete data
     const score1 = this.getDetailScore(tx1);
     const score2 = this.getDetailScore(tx2);
@@ -688,14 +714,17 @@ class PaginationAwareProvider extends BaseProvider {
     return allTxs;
   }
 
-  private async getTransactionPage(address: string, page: number): Promise<BlockchainTransaction[]> {
+  private async getTransactionPage(
+    address: string,
+    page: number,
+  ): Promise<BlockchainTransaction[]> {
     // Provider-specific pagination implementation
     const response = await this.makeRequest({
       endpoint: '/transactions',
       params: { address, page, limit: 50 },
     });
 
-    return response.data.map(tx => this.transformTransaction(tx));
+    return response.data.map((tx) => this.transformTransaction(tx));
   }
 }
 ```
@@ -744,7 +773,9 @@ class PerformanceMonitoringProvider extends BaseProvider {
     const max = Math.max(...recent);
     const min = Math.min(...recent);
 
-    console.log(`Performance - Avg: ${average.toFixed(0)}ms, Max: ${max}ms, Min: ${min}ms`);
+    console.log(
+      `Performance - Avg: ${average.toFixed(0)}ms, Max: ${max}ms, Min: ${min}ms`,
+    );
   }
 }
 ```
@@ -779,7 +810,9 @@ class ConcurrentProvider extends BaseProvider {
     }
   }
 
-  private async executeImmediately<T>(operation: ProviderOperation<T>): Promise<T> {
+  private async executeImmediately<T>(
+    operation: ProviderOperation<T>,
+  ): Promise<T> {
     this.activeRequests++;
     try {
       return await super.execute(operation);
@@ -803,7 +836,10 @@ class ConcurrentProvider extends BaseProvider {
   }
 
   private processQueue(): void {
-    if (this.requestQueue.length > 0 && this.activeRequests < this.maxConcurrency) {
+    if (
+      this.requestQueue.length > 0 &&
+      this.activeRequests < this.maxConcurrency
+    ) {
       const request = this.requestQueue.shift()!;
       request();
     }
@@ -884,7 +920,7 @@ class ResourceManagedProvider extends BaseProvider {
       () => {
         this.cleanup();
       },
-      5 * 60 * 1000
+      5 * 60 * 1000,
     );
   }
 
@@ -893,7 +929,9 @@ class ResourceManagedProvider extends BaseProvider {
     this.abortControllers.add(controller);
 
     try {
-      const result = await super.execute(operation, { signal: controller.signal });
+      const result = await super.execute(operation, {
+        signal: controller.signal,
+      });
       return result;
     } finally {
       this.abortControllers.delete(controller);
@@ -912,7 +950,7 @@ class ResourceManagedProvider extends BaseProvider {
     // Log memory usage
     const used = process.memoryUsage();
     console.log(
-      `Memory usage - RSS: ${Math.round(used.rss / 1024 / 1024)}MB, Heap: ${Math.round(used.heapUsed / 1024 / 1024)}MB`
+      `Memory usage - RSS: ${Math.round(used.rss / 1024 / 1024)}MB, Heap: ${Math.round(used.heapUsed / 1024 / 1024)}MB`,
     );
   }
 
@@ -979,7 +1017,9 @@ function validateConfiguration(config: any): void {
   for (const [blockchain, blockchainConfig] of Object.entries(config)) {
     const { error } = blockchainConfigSchema.validate(blockchainConfig);
     if (error) {
-      throw new Error(`Configuration error for ${blockchain}: ${error.message}`);
+      throw new Error(
+        `Configuration error for ${blockchain}: ${error.message}`,
+      );
     }
   }
 }
@@ -1003,14 +1043,19 @@ Environment variable is set but not accessible
 console.log('Environment debugging:');
 console.log(`NODE_ENV: ${process.env.NODE_ENV}`);
 console.log(`ETHERSCAN_API_KEY exists: ${!!process.env.ETHERSCAN_API_KEY}`);
-console.log(`ETHERSCAN_API_KEY length: ${process.env.ETHERSCAN_API_KEY?.length || 0}`);
+console.log(
+  `ETHERSCAN_API_KEY length: ${process.env.ETHERSCAN_API_KEY?.length || 0}`,
+);
 
 // Check for common issues
 if (process.env.ETHERSCAN_API_KEY?.includes('\n')) {
   console.warn('WARNING: API key contains newline characters');
 }
 
-if (process.env.ETHERSCAN_API_KEY?.startsWith(' ') || process.env.ETHERSCAN_API_KEY?.endsWith(' ')) {
+if (
+  process.env.ETHERSCAN_API_KEY?.startsWith(' ') ||
+  process.env.ETHERSCAN_API_KEY?.endsWith(' ')
+) {
   console.warn('WARNING: API key has leading/trailing spaces');
 }
 ```
@@ -1124,7 +1169,7 @@ class ProviderHealthDashboard {
       const status = health.isHealthy ? '✅' : '❌';
       const circuit = health.circuitState.toUpperCase();
       console.log(
-        `${status} ${key}: ${circuit} (${health.responseTime}ms, ${(health.errorRate * 100).toFixed(1)}% errors)`
+        `${status} ${key}: ${circuit} (${health.responseTime}ms, ${(health.errorRate * 100).toFixed(1)}% errors)`,
       );
     }
 
@@ -1159,4 +1204,7 @@ const dashboard = new ProviderHealthDashboard();
 setInterval(() => dashboard.generateReport(), 60000); // Every minute
 ```
 
-This troubleshooting guide provides comprehensive solutions for the most common issues you'll encounter with the Universal Blockchain Provider Architecture. Keep this guide handy during deployment and operations for quick problem resolution.
+This troubleshooting guide provides comprehensive solutions for the most common
+issues you'll encounter with the Universal Blockchain Provider Architecture.
+Keep this guide handy during deployment and operations for quick problem
+resolution.

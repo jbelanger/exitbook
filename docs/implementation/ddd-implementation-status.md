@@ -1,27 +1,33 @@
 # DDD Implementation Status
 
-This document tracks the implementation progress of the Domain-Driven Design architecture as outlined in `project-strategy.md`.
+This document tracks the implementation progress of the Domain-Driven Design
+architecture as outlined in `project-strategy.md`.
 
 ## Implementation Progress Overview
 
 ### ✅ Completed
 
-- **Money value object** with factory method pattern (`libs/core/src/value-objects/money/`)
+- **Money value object** with factory method pattern
+  (`libs/core/src/value-objects/money/`)
   - `money.vo.ts` - Money value object with `fromDecimal()` factory
-  - `money.errors.ts` - Domain-specific errors (InvalidAmountError, CurrencyMismatchError, etc.)
+  - `money.errors.ts` - Domain-specific errors (InvalidAmountError,
+    CurrencyMismatchError, etc.)
   - `__tests__/money.vo.test.ts` - Comprehensive test coverage
 - **Domain Error Hierarchy** (`libs/core/src/errors/`)
   - `domain-errors.ts` - Base DomainError class and common error types
   - Exported from core library index
-- **DDD Directory Structure** - Complete directory layout for aggregates, services, repositories
+- **DDD Directory Structure** - Complete directory layout for aggregates,
+  services, repositories
 - **Transaction Domain Errors** (`libs/core/src/aggregates/transaction/`)
-  - `transaction.errors.ts` - UnbalancedTransactionError, DuplicateExternalIdError, etc.
+  - `transaction.errors.ts` - UnbalancedTransactionError,
+    DuplicateExternalIdError, etc.
   - `entry.errors.ts` - ZeroAmountEntryError, EntryCurrencyMismatchError, etc.
 - **Entry Entity** (`libs/core/src/aggregates/transaction/entry.entity.ts`)
   - Private constructor + static `create()` factory method
   - Rich domain behavior (isDebit/isCredit, currency validation)
   - Comprehensive unit tests
-- **LedgerTransaction Aggregate Root** (`libs/core/src/aggregates/transaction/ledger-transaction.aggregate.ts`)
+- **LedgerTransaction Aggregate Root**
+  (`libs/core/src/aggregates/transaction/ledger-transaction.aggregate.ts`)
   - Extends NestJS CQRS AggregateRoot
   - Factory method pattern with Result types
   - Double-entry balance validation
@@ -99,12 +105,14 @@ This document tracks the implementation progress of the Domain-Driven Design arc
 
 #### 5. Domain Services ✅
 
-- [x] `libs/core/src/services/balance-calculator.service.ts` - Cross-aggregate balance calculations
+- [x] `libs/core/src/services/balance-calculator.service.ts` - Cross-aggregate
+      balance calculations
   - [x] `calculateAccountBalance(userId, accountId): ResultAsync<CurrencyBalance, DomainError>`
   - [x] `calculatePortfolioBalance(userId): ResultAsync<PortfolioBalance, DomainError>`
   - [x] `validateSystemBalance(userId): ResultAsync<boolean, DomainError>`
   - [x] `calculateCurrencyTotal(userId, currencyTicker): ResultAsync<Money, DomainError>`
-- [x] `libs/core/src/services/transaction-validator.service.ts` - Complex transaction validation
+- [x] `libs/core/src/services/transaction-validator.service.ts` - Complex
+      transaction validation
   - [x] `validateTransaction(userId, transaction): ResultAsync<ValidationResult, DomainError>`
   - [x] `validateTransactionSync(transaction): Result<ValidationResult, DomainError>`
   - [x] External ID uniqueness validation
@@ -134,7 +142,8 @@ This document tracks the implementation progress of the Domain-Driven Design arc
 
 ### 1. Rich Domain Model ✅
 
-**Completed**: Transformed from anemic entity interfaces to rich domain aggregates with behavior:
+**Completed**: Transformed from anemic entity interfaces to rich domain
+aggregates with behavior:
 
 ```typescript
 // Before: Anemic Interface
@@ -149,7 +158,10 @@ export class LedgerTransaction extends AggregateRoot {
   private constructor() {}
   static create(): Result<LedgerTransaction, DomainError> {}
   addEntry(entry: Entry): Result<void, UnbalancedTransactionError> {}
-  finalize(): Result<void, EmptyTransactionError | UnbalancedTransactionError> {}
+  finalize(): Result<
+    void,
+    EmptyTransactionError | UnbalancedTransactionError
+  > {}
 }
 ```
 

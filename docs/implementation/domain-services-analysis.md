@@ -6,16 +6,23 @@
 
 ## Executive Summary
 
-This document provides a comprehensive analysis of the proposed Domain Services & Business Logic Engines outlined in the project strategy. While the business requirements are sound, the proposed implementation has significant architectural flaws that must be addressed before proceeding.
+This document provides a comprehensive analysis of the proposed Domain Services
+& Business Logic Engines outlined in the project strategy. While the business
+requirements are sound, the proposed implementation has significant
+architectural flaws that must be addressed before proceeding.
 
-**Key Finding**: The current proposal violates several DDD principles and introduces performance/security risks that would be problematic in a production financial application.
+**Key Finding**: The current proposal violates several DDD principles and
+introduces performance/security risks that would be problematic in a production
+financial application.
 
 ## Current Codebase Foundation Assessment
 
 ### ✅ Strengths
 
-- **Solid Money Value Object**: Proper BigInt precision handling, comprehensive test coverage
-- **Well-Designed Aggregates**: User and Account aggregates follow DDD patterns correctly
+- **Solid Money Value Object**: Proper BigInt precision handling, comprehensive
+  test coverage
+- **Well-Designed Aggregates**: User and Account aggregates follow DDD patterns
+  correctly
 - **Proper Error Handling**: neverthrow Result types throughout domain layer
 - **Factory Method Pattern**: Private constructors with static factory methods
 - **Double-Entry Ledger**: Correct implementation with proper validation
@@ -23,7 +30,8 @@ This document provides a comprehensive analysis of the proposed Domain Services 
 ### ⚠️ Areas for Enhancement
 
 - **Limited Account Types**: Current enum needs expansion for DeFi/NFT support
-- **Missing Domain Events**: No event-driven architecture for cross-aggregate communication
+- **Missing Domain Events**: No event-driven architecture for cross-aggregate
+  communication
 - **Service Layer Gaps**: Limited domain services for complex business logic
 
 ## Detailed Analysis of Proposed Features
@@ -44,7 +52,8 @@ export class TaxLot {
 
 **Problems:**
 
-- TaxLot has complex lifecycle (FIFO/HIFO consumption, partial depletion) → needs own aggregate
+- TaxLot has complex lifecycle (FIFO/HIFO consumption, partial depletion) →
+  needs own aggregate
 - User aggregate already at capacity managing account references
 - Direct foreign key references violate DDD principles
 
@@ -77,7 +86,7 @@ export class TaxLot extends AggregateRoot {
     private readonly _originalQuantity: Money,
     private _remainingQuantity: Money,
     private readonly _costBasisSnapshot: CostBasisSnapshot, // Immutable at creation
-    private _status: LotStatus
+    private _status: LotStatus,
   ) {
     super();
   }
@@ -112,27 +121,46 @@ export const taxLots = pgTable(
       .notNull(),
 
     // Immutable acquisition data (no cross-aggregate FKs)
-    acquisitionTransactionId: varchar('acquisition_transaction_id', { length: 255 }).notNull(),
-    acquisitionDate: timestamp('acquisition_date', { withTimezone: true }).notNull(),
+    acquisitionTransactionId: varchar('acquisition_transaction_id', {
+      length: 255,
+    }).notNull(),
+    acquisitionDate: timestamp('acquisition_date', {
+      withTimezone: true,
+    }).notNull(),
 
     assetSymbol: varchar('asset_symbol', { length: 20 }).notNull(),
     originalQuantity: bigint('original_quantity', { mode: 'bigint' }).notNull(),
-    remainingQuantity: bigint('remaining_quantity', { mode: 'bigint' }).notNull(),
+    remainingQuantity: bigint('remaining_quantity', {
+      mode: 'bigint',
+    }).notNull(),
 
     // Immutable cost basis snapshot
     costBasisAmount: bigint('cost_basis_amount', { mode: 'bigint' }).notNull(),
     costBasisCurrency: varchar('cost_basis_currency', { length: 10 }).notNull(),
-    costBasisExchangeRate: bigint('cost_basis_exchange_rate', { mode: 'bigint' }),
+    costBasisExchangeRate: bigint('cost_basis_exchange_rate', {
+      mode: 'bigint',
+    }),
 
     status: lotStatusEnum('status').default('OPEN').notNull(),
 
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
   },
-  table => ({
-    userAssetDateIdx: index('idx_tax_lots_user_asset_date').on(table.userId, table.assetSymbol, table.acquisitionDate),
-    userStatusIdx: index('idx_tax_lots_user_status').on(table.userId, table.status),
-  })
+  (table) => ({
+    userAssetDateIdx: index('idx_tax_lots_user_asset_date').on(
+      table.userId,
+      table.assetSymbol,
+      table.acquisitionDate,
+    ),
+    userStatusIdx: index('idx_tax_lots_user_status').on(
+      table.userId,
+      table.status,
+    ),
+  }),
 );
 ```
 
@@ -188,7 +216,11 @@ export const IRealTimePriceProvider = Symbol('IRealTimePriceProvider');
 ```typescript
 // CURRENT: Too simplistic
 export interface IHistoricalPriceProvider {
-  fetchPrice(baseAsset: string, quoteAsset: string, timestamp: Date): Promise<Result<Money, PriceProviderError>>;
+  fetchPrice(
+    baseAsset: string,
+    quoteAsset: string,
+    timestamp: Date,
+  ): Promise<Result<Money, PriceProviderError>>;
 }
 
 // RECOMMENDED: Production-ready interface
@@ -197,7 +229,7 @@ export interface IHistoricalPriceProvider {
     baseAsset: string,
     quoteAsset: string,
     timestamp: Date,
-    options?: PriceProviderOptions
+    options?: PriceProviderOptions,
   ): Promise<Result<PriceResponse, PriceProviderError>>;
 
   // Essential for financial applications
@@ -257,7 +289,8 @@ export interface HoldingDto {
 
 **Problems:**
 
-1. **Type safety lost too early** - should preserve Money objects until API boundary
+1. **Type safety lost too early** - should preserve Money objects until API
+   boundary
 2. **Precision handling unclear** - which string format? How many decimals?
 3. **Calculation errors undetectable** at compile time
 
@@ -317,7 +350,7 @@ export class TaxLotCreated extends DomainEvent {
     public readonly lotId: TaxLotId,
     public readonly userId: UserId,
     public readonly asset: AssetId,
-    public readonly acquisitionData: AcquisitionData
+    public readonly acquisitionData: AcquisitionData,
   ) {
     super();
   }
@@ -349,13 +382,15 @@ export class TaxLotCreatedHandler implements IEventHandler<TaxLotCreated> {
 export class TaxCalculationService {
   async calculateGains(
     disposalEvent: DisposalEvent,
-    fallbackOptions: FallbackOptions
+    fallbackOptions: FallbackOptions,
   ): Promise<Result<TaxCalculationResult, TaxCalculationError>> {
     return this.priceProvider
       .fetchPrice(/* ... */)
-      .orElse(error => this.handlePriceProviderFailure(error, fallbackOptions))
-      .andThen(price => this.performCalculation(disposalEvent, price))
-      .orElse(error => this.handleCalculationFailure(error, fallbackOptions));
+      .orElse((error) =>
+        this.handlePriceProviderFailure(error, fallbackOptions),
+      )
+      .andThen((price) => this.performCalculation(disposalEvent, price))
+      .orElse((error) => this.handleCalculationFailure(error, fallbackOptions));
   }
 }
 ```
@@ -382,7 +417,8 @@ export class TaxCalculationService {
 1. **Expand AccountType enum** with DeFi/NFT types
 2. **Implement proper Price Provider interfaces** with fallback strategies
 3. **Add Domain Events infrastructure** to existing aggregates
-4. **Create secure CredentialsService interface** (implementation can be mocked initially)
+4. **Create secure CredentialsService interface** (implementation can be mocked
+   initially)
 
 ### Phase 2: TaxLot Aggregate (Do Second)
 
@@ -419,7 +455,10 @@ export class TaxCalculationService {
 
 ## Conclusion
 
-The proposed Domain Services address legitimate business needs, but the current implementation approach has significant architectural flaws. The recommendations above provide a path to production-ready financial software that maintains data integrity, security, and performance at scale.
+The proposed Domain Services address legitimate business needs, but the current
+implementation approach has significant architectural flaws. The recommendations
+above provide a path to production-ready financial software that maintains data
+integrity, security, and performance at scale.
 
 **Next Steps:**
 
@@ -430,4 +469,5 @@ The proposed Domain Services address legitimate business needs, but the current 
 
 ---
 
-**Review Required**: This analysis should be reviewed by the technical lead before proceeding with implementation.
+**Review Required**: This analysis should be reviewed by the technical lead
+before proceeding with implementation.

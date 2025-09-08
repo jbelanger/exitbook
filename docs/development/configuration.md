@@ -1,13 +1,17 @@
 # Provider Configuration and Setup Guide
 
 > **📋 Open Source Notice**  
-> This guide covers configuring the Universal Blockchain Provider Architecture. The core system is open source, but some third-party APIs mentioned require paid subscriptions. Always verify provider pricing and terms before production deployment.
+> This guide covers configuring the Universal Blockchain Provider Architecture.
+> The core system is open source, but some third-party APIs mentioned require
+> paid subscriptions. Always verify provider pricing and terms before production
+> deployment.
 
 ## Quick Start
 
 ### 1. Basic Configuration Structure
 
-The provider system extends your existing `config/exchanges.json` with multi-provider support:
+The provider system extends your existing `config/exchanges.json` with
+multi-provider support:
 
 ```json
 {
@@ -615,7 +619,8 @@ DEBUG=provider:*,circuit-breaker:*,cache:* pnpm run import
 
 ### Gradual Rollout
 
-1. **Week 1**: Deploy with existing provider as priority 1, new providers disabled
+1. **Week 1**: Deploy with existing provider as priority 1, new providers
+   disabled
 2. **Week 2**: Enable backup providers for testing
 3. **Week 3**: Monitor failover events and performance
 4. **Week 4**: Optimize priority and rate limits based on real data

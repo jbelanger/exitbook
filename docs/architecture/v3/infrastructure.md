@@ -27,7 +27,9 @@ export class IdempotencyError extends Data.TaggedError('IdempotencyError')<{
   readonly reason: string;
 }> {}
 
-export class OptimisticLockError extends Data.TaggedError('OptimisticLockError')<{
+export class OptimisticLockError extends Data.TaggedError(
+  'OptimisticLockError',
+)<{
   readonly aggregateId: string;
   readonly expectedVersion: number;
   readonly actualVersion: number;
@@ -66,7 +68,7 @@ export class EventStore implements OnModuleInit, OnModuleDestroy {
   constructor(
     @InjectConnection('write') private readonly writeDb: Knex,
     @InjectConnection('read') private readonly readDb: Knex,
-    private readonly eventEmitter: EventEmitter2
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async onModuleInit() {
@@ -88,7 +90,7 @@ export class EventStore implements OnModuleInit, OnModuleDestroy {
 
   private async createEventStoreTables() {
     // Events table with timestamptz
-    await this.writeDb.schema.createTable('event_store', table => {
+    await this.writeDb.schema.createTable('event_store', (table) => {
       table.bigIncrements('id').primary();
       table.uuid('event_id').notNullable().unique();
       table.string('aggregate_id', 255).notNullable();
@@ -111,11 +113,15 @@ export class EventStore implements OnModuleInit, OnModuleDestroy {
 
       // Data validation constraints
       table.check('stream_version >= 1', [], 'chk_stream_version_pos');
-      table.check("jsonb_typeof(event_data) = 'object'", [], 'chk_event_data_obj');
+      table.check(
+        "jsonb_typeof(event_data) = 'object'",
+        [],
+        'chk_event_data_obj',
+      );
     });
 
     // Outbox table for CDC with proper constraints
-    await this.writeDb.schema.createTable('event_outbox', table => {
+    await this.writeDb.schema.createTable('event_outbox', (table) => {
       table.bigIncrements('id').primary();
       table.uuid('event_id').notNullable().unique(); // Prevent duplicates
       table.string('aggregate_id', 255).notNullable();
@@ -123,18 +129,24 @@ export class EventStore implements OnModuleInit, OnModuleDestroy {
       table.string('event_type', 100).notNullable();
       table.jsonb('payload').notNullable();
       table.jsonb('metadata').notNullable();
-      table.enum('status', ['PENDING', 'PROCESSED', 'FAILED']).defaultTo('PENDING');
+      table
+        .enum('status', ['PENDING', 'PROCESSED', 'FAILED'])
+        .defaultTo('PENDING');
       table.timestamptz('created_at').defaultTo(this.writeDb.fn.now());
       table.timestamptz('processed_at').nullable();
 
       table.index(['status', 'created_at']);
 
       // Add check constraint for payload type
-      table.check("jsonb_typeof(payload) = 'object'", [], 'check_payload_is_object');
+      table.check(
+        "jsonb_typeof(payload) = 'object'",
+        [],
+        'check_payload_is_object',
+      );
     });
 
     // Snapshots table
-    await this.writeDb.schema.createTable('event_snapshots', table => {
+    await this.writeDb.schema.createTable('event_snapshots', (table) => {
       table.bigIncrements('id').primary();
       table.string('aggregate_id', 255).notNullable();
       table.string('aggregate_type', 100).notNullable();
@@ -148,7 +160,7 @@ export class EventStore implements OnModuleInit, OnModuleDestroy {
     });
 
     // Idempotency table
-    await this.writeDb.schema.createTable('event_idempotency', table => {
+    await this.writeDb.schema.createTable('event_idempotency', (table) => {
       table.string('idempotency_key', 255).primary();
       table.uuid('event_id').notNullable();
       table.timestamptz('created_at').defaultTo(this.writeDb.fn.now());
@@ -166,11 +178,14 @@ export class EventStore implements OnModuleInit, OnModuleDestroy {
     options?: {
       metadata?: Partial<EventMetadata>;
       idempotencyKey?: string;
-    }
-  ): Effect.Effect<void, OptimisticLockError | SaveEventError | IdempotencyError> {
+    },
+  ): Effect.Effect<
+    void,
+    OptimisticLockError | SaveEventError | IdempotencyError
+  > {
     const program = Effect.tryPromise({
       try: () =>
-        this.writeDb.transaction(async trx => {
+        this.writeDb.transaction(async (trx) => {
           // Handle idempotency inside transaction
           if (options?.idempotencyKey) {
             const existing = await trx('event_idempotency')
@@ -198,7 +213,7 @@ export class EventStore implements OnModuleInit, OnModuleDestroy {
           let streamVersion = expectedVersion;
 
           // Prepare events for storage
-          const eventsToStore = events.map(event => {
+          const eventsToStore = events.map((event) => {
             streamVersion++;
             const eventData = {
               event_id: event.eventId,
@@ -222,7 +237,7 @@ export class EventStore implements OnModuleInit, OnModuleDestroy {
             await trx('event_store').insert(eventsToStore);
 
             // Add to outbox for CDC
-            const outboxEntries = eventsToStore.map(e => ({
+            const outboxEntries = eventsToStore.map((e) => ({
               event_id: e.event_id,
               aggregate_id: e.aggregate_id,
               aggregate_type: e.aggregate_type,
@@ -259,27 +274,45 @@ export class EventStore implements OnModuleInit, OnModuleDestroy {
             constraint.includes('event_outbox') ||
             constraint.includes('event_id_key')
           ) {
-            return new IdempotencyError({ reason: 'Duplicate request (idempotency or outbox)' });
+            return new IdempotencyError({
+              reason: 'Duplicate request (idempotency or outbox)',
+            });
           }
 
           // idempotency table duplicates
-          if (table.includes('event_idempotency') || constraint.includes('event_idempotency')) {
-            return new IdempotencyError({ reason: 'Duplicate request (idempotency or outbox)' });
+          if (
+            table.includes('event_idempotency') ||
+            constraint.includes('event_idempotency')
+          ) {
+            return new IdempotencyError({
+              reason: 'Duplicate request (idempotency or outbox)',
+            });
           }
 
           // aggregate stream unique -> optimistic lock
           if (
-            (table.includes('event_store') || constraint.includes('event_store')) &&
+            (table.includes('event_store') ||
+              constraint.includes('event_store')) &&
             constraint.includes('aggregate_id') &&
             constraint.includes('stream_version')
           ) {
             const actual = await this.getCurrentVersion(aggregateId);
-            return new OptimisticLockError({ aggregateId, expectedVersion, actualVersion: actual });
+            return new OptimisticLockError({
+              aggregateId,
+              expectedVersion,
+              actualVersion: actual,
+            });
           }
         }
 
-        if (error instanceof OptimisticLockError || error instanceof IdempotencyError) return error;
-        return new SaveEventError({ reason: `Failed to append events: ${error}` });
+        if (
+          error instanceof OptimisticLockError ||
+          error instanceof IdempotencyError
+        )
+          return error;
+        return new SaveEventError({
+          reason: `Failed to append events: ${error}`,
+        });
       },
     });
 
@@ -291,16 +324,16 @@ export class EventStore implements OnModuleInit, OnModuleDestroy {
           for (const event of events) {
             this.eventEmitter.emit(`event.${event._tag}`, event);
           }
-        })
+        }),
       ),
-      Effect.asVoid
+      Effect.asVoid,
     );
   }
 
   readStream(
     aggregateId: string,
     fromVersion: number = 0,
-    toVersion?: number
+    toVersion?: number,
   ): Effect.Effect<DomainEvent[], ReadEventError> {
     return pipe(
       Effect.tryPromise({
@@ -316,15 +349,26 @@ export class EventStore implements OnModuleInit, OnModuleDestroy {
 
           return await query;
         },
-        catch: error => new ReadEventError({ reason: `Failed to read stream: ${error}` }),
+        catch: (error) =>
+          new ReadEventError({ reason: `Failed to read stream: ${error}` }),
       }),
-      Effect.flatMap(events => Effect.forEach(events, e => this.deserializeEvent(e, e.event_schema_version || 1)))
+      Effect.flatMap((events) =>
+        Effect.forEach(events, (e) =>
+          this.deserializeEvent(e, e.event_schema_version || 1),
+        ),
+      ),
     );
   }
 
-  private async getCurrentVersion(aggregateId: string, trx?: Knex.Transaction): Promise<number> {
+  private async getCurrentVersion(
+    aggregateId: string,
+    trx?: Knex.Transaction,
+  ): Promise<number> {
     const db = trx ?? this.writeDb;
-    const result = await db('event_store').where('aggregate_id', aggregateId).max('stream_version as version').first();
+    const result = await db('event_store')
+      .where('aggregate_id', aggregateId)
+      .max('stream_version as version')
+      .first();
 
     return result?.version || 0;
   }
@@ -337,11 +381,13 @@ export class EventStore implements OnModuleInit, OnModuleDestroy {
       .select('id');
 
     if (snapshots.length > keepCount) {
-      const idsToDelete = snapshots.slice(keepCount).map(s => s.id);
+      const idsToDelete = snapshots.slice(keepCount).map((s) => s.id);
       await this.writeDb('event_snapshots').whereIn('id', idsToDelete).delete();
 
       // Emit metric for monitoring
-      this.logger.debug(`Deleted ${idsToDelete.length} old snapshots for aggregate ${aggregateId}`);
+      this.logger.debug(
+        `Deleted ${idsToDelete.length} old snapshots for aggregate ${aggregateId}`,
+      );
     }
   }
 
@@ -350,7 +396,8 @@ export class EventStore implements OnModuleInit, OnModuleDestroy {
       if (value?._isBigNumber || BigNumber.isBigNumber(value)) {
         return { _type: 'BigNumber', value: value.toString() };
       }
-      if (value instanceof Date) return { _type: 'Date', value: value.toISOString() };
+      if (value instanceof Date)
+        return { _type: 'Date', value: value.toISOString() };
       if (Array.isArray(value)) return value.map(transformValue);
       if (value && typeof value === 'object' && value.constructor === Object) {
         const transformedObj: { [key: string]: any } = {};
@@ -366,7 +413,10 @@ export class EventStore implements OnModuleInit, OnModuleDestroy {
     return transformValue(event);
   }
 
-  private deserializeEvent(stored: StoredEvent, schemaVersion: number): Effect.Effect<DomainEvent, ReadEventError> {
+  private deserializeEvent(
+    stored: StoredEvent,
+    schemaVersion: number,
+  ): Effect.Effect<DomainEvent, ReadEventError> {
     return Effect.try({
       try: () => {
         // Apply schema migrations/upcasters based on version
@@ -388,7 +438,8 @@ export class EventStore implements OnModuleInit, OnModuleDestroy {
 
         return reconstructedEvent as DomainEvent;
       },
-      catch: e => new ReadEventError({ reason: `Failed to deserialize event: ${e}` }),
+      catch: (e) =>
+        new ReadEventError({ reason: `Failed to deserialize event: ${e}` }),
     });
   }
 
@@ -399,7 +450,10 @@ export class EventStore implements OnModuleInit, OnModuleDestroy {
       return value;
     };
 
-    const rawPayload = typeof data === 'string' ? JSON.parse(data, reviver) : JSON.parse(JSON.stringify(data), reviver);
+    const rawPayload =
+      typeof data === 'string'
+        ? JSON.parse(data, reviver)
+        : JSON.parse(JSON.stringify(data), reviver);
 
     return rawPayload;
   }
@@ -416,7 +470,7 @@ export class EventStore implements OnModuleInit, OnModuleDestroy {
         await this.readDb.raw('SELECT 1');
       }),
       Effect.map(() => true),
-      Effect.catchAll(() => Effect.succeed(false))
+      Effect.catchAll(() => Effect.succeed(false)),
     );
   }
 }
@@ -463,12 +517,12 @@ export class MessageBus implements OnModuleInit {
 
   constructor(
     private readonly amqpConnection: AmqpConnection,
-    private readonly configService: ConfigService
+    private readonly configService: ConfigService,
   ) {}
 
   async onModuleInit() {
     // Handle unroutable messages with correlation ID logging
-    this.amqpConnection.channel.on('return', msg => {
+    this.amqpConnection.channel.on('return', (msg) => {
       const cid = msg.properties.headers?.['x-correlation-id'];
       this.logger.error(`Unroutable ${msg.properties.messageId} (${cid})`, {
         exchange: msg.fields.exchange,
@@ -493,7 +547,11 @@ export class MessageBus implements OnModuleInit {
         },
       });
 
-      await this.amqpConnection.channel.bindQueue('dead.letter.queue', 'dlx', '');
+      await this.amqpConnection.channel.bindQueue(
+        'dead.letter.queue',
+        'dlx',
+        '',
+      );
 
       this.logger.log('Dead letter queue configured');
     } catch (error) {
@@ -505,7 +563,7 @@ export class MessageBus implements OnModuleInit {
     exchange: string,
     routingKey: string,
     message: any,
-    options?: PublishOptions
+    options?: PublishOptions,
   ): Effect.Effect<void, MessageBusError> {
     return pipe(
       Effect.sync(() => {
@@ -519,20 +577,24 @@ export class MessageBus implements OnModuleInit {
             causationId: options?.causationId,
             userId: options?.userId,
             timestamp: new Date(),
-            source: this.configService.get('SERVICE_NAME') ?? 'crypto-portfolio',
+            source:
+              this.configService.get('SERVICE_NAME') ?? 'crypto-portfolio',
             version: '1.0',
           },
         };
         return envelope;
       }),
-      Effect.flatMap(envelope =>
+      Effect.flatMap((envelope) =>
         pipe(
           // Validate message schema
           Schema.decodeUnknown(MessageSchema)(envelope),
-          Effect.mapError(e => new MessageBusError({ reason: `Invalid message format: ${e}` }))
-        )
+          Effect.mapError(
+            (e) =>
+              new MessageBusError({ reason: `Invalid message format: ${e}` }),
+          ),
+        ),
       ),
-      Effect.flatMap(validEnvelope =>
+      Effect.flatMap((validEnvelope) =>
         Effect.tryPromise({
           try: async () => {
             // Build headers, only including defined values
@@ -548,19 +610,27 @@ export class MessageBus implements OnModuleInit {
               headers['x-user-id'] = validEnvelope.metadata.userId;
             }
 
-            await this.amqpConnection.publish(exchange, routingKey, validEnvelope, {
-              persistent: true,
-              mandatory: true, // Ensure message is routable
-              messageId: validEnvelope.id,
-              timestamp: Math.floor(Date.now() / 1000),
-              contentType: 'application/json',
-              headers,
-            });
+            await this.amqpConnection.publish(
+              exchange,
+              routingKey,
+              validEnvelope,
+              {
+                persistent: true,
+                mandatory: true, // Ensure message is routable
+                messageId: validEnvelope.id,
+                timestamp: Math.floor(Date.now() / 1000),
+                contentType: 'application/json',
+                headers,
+              },
+            );
           },
-          catch: error => new MessageBusError({ reason: `Failed to publish message: ${error}` }),
-        })
+          catch: (error) =>
+            new MessageBusError({
+              reason: `Failed to publish message: ${error}`,
+            }),
+        }),
       ),
-      Effect.asVoid
+      Effect.asVoid,
     );
   }
 }
@@ -631,7 +701,7 @@ export class RedisCacheService implements OnModuleInit, OnModuleDestroy {
       automaticExtensionThreshold: 500,
     });
 
-    this.redlock.on('error', err => {
+    this.redlock.on('error', (err) => {
       this.logger.error('Redlock error:', err);
     });
 
@@ -652,7 +722,7 @@ export class RedisCacheService implements OnModuleInit, OnModuleDestroy {
         resolve();
       });
 
-      this.client.once('error', err => {
+      this.client.once('error', (err) => {
         clearTimeout(timeout);
         reject(err);
       });
@@ -691,7 +761,8 @@ export class RedisCacheService implements OnModuleInit, OnModuleDestroy {
           await pipeline.exec();
         }
       },
-      catch: e => new CacheError({ operation: 'DELETE_PATTERN', reason: String(e) }),
+      catch: (e) =>
+        new CacheError({ operation: 'DELETE_PATTERN', reason: String(e) }),
     });
   }
 
@@ -717,7 +788,7 @@ export class RedisCacheService implements OnModuleInit, OnModuleDestroy {
     return pipe(
       Effect.tryPromise({ try: () => this.client.ping() }),
       Effect.map(() => true),
-      Effect.catchAll(() => Effect.succeed(false))
+      Effect.catchAll(() => Effect.succeed(false)),
     );
   }
 }
@@ -745,7 +816,10 @@ export class OpenTelemetryService implements OnModuleInit, OnModuleDestroy {
   constructor(private readonly configService: ConfigService) {}
 
   async onModuleInit() {
-    const serviceName = this.configService.get('SERVICE_NAME', 'crypto-portfolio');
+    const serviceName = this.configService.get(
+      'SERVICE_NAME',
+      'crypto-portfolio',
+    );
     const serviceVersion = this.configService.get('SERVICE_VERSION', '1.0.0');
     const environment = this.configService.get('NODE_ENV', 'development');
 
@@ -754,12 +828,15 @@ export class OpenTelemetryService implements OnModuleInit, OnModuleDestroy {
         [SemanticResourceAttributes.SERVICE_NAME]: serviceName,
         [SemanticResourceAttributes.SERVICE_VERSION]: serviceVersion,
         [SemanticResourceAttributes.DEPLOYMENT_ENVIRONMENT]: environment,
-      })
+      }),
     );
 
     // Jaeger exporter for traces only
     const jaegerExporter = new JaegerExporter({
-      endpoint: this.configService.get('JAEGER_ENDPOINT', 'http://localhost:14268/api/traces'),
+      endpoint: this.configService.get(
+        'JAEGER_ENDPOINT',
+        'http://localhost:14268/api/traces',
+      ),
     });
 
     this.sdk = new NodeSDK({
@@ -799,7 +876,7 @@ export class HealthController {
   constructor(
     private health: HealthCheckService,
     private readonly eventStore: EventStore,
-    private readonly cache: RedisCacheService
+    private readonly cache: RedisCacheService,
   ) {}
 
   @Get()
@@ -807,7 +884,9 @@ export class HealthController {
   async check() {
     return this.health.check([
       async () => {
-        const isHealthy = await Effect.runPromise(this.eventStore.healthCheck());
+        const isHealthy = await Effect.runPromise(
+          this.eventStore.healthCheck(),
+        );
         return {
           eventStore: {
             status: isHealthy ? 'up' : 'down',
@@ -827,7 +906,9 @@ export class HealthController {
 
   @Get('ready')
   async readiness() {
-    const eventStoreReady = await Effect.runPromise(this.eventStore.healthCheck());
+    const eventStoreReady = await Effect.runPromise(
+      this.eventStore.healthCheck(),
+    );
     const cacheReady = await Effect.runPromise(this.cache.healthCheck());
 
     if (eventStoreReady && cacheReady) {
@@ -861,7 +942,7 @@ export class OutboxDispatcher implements OnModuleInit, OnModuleDestroy {
 
   constructor(
     @InjectConnection('write') private readonly db: Knex,
-    private readonly bus: MessageBus
+    private readonly bus: MessageBus,
   ) {}
 
   async onModuleInit() {
@@ -876,7 +957,7 @@ export class OutboxDispatcher implements OnModuleInit, OnModuleDestroy {
     // simple forever loop; replace with Bull/worker if you prefer
     for (; !this.stop; ) {
       try {
-        await this.db.transaction(async trx => {
+        await this.db.transaction(async (trx) => {
           const rows = await trx<{
             id: number;
             event_type: string;
@@ -901,16 +982,21 @@ export class OutboxDispatcher implements OnModuleInit, OnModuleDestroy {
                 processed_at: trx.fn.now(),
               });
             } catch (error) {
-              this.logger.error(`Failed to process outbox event ${r.id}:`, error);
-              await trx('event_outbox').where({ id: r.id }).update({ status: 'FAILED' });
+              this.logger.error(
+                `Failed to process outbox event ${r.id}:`,
+                error,
+              );
+              await trx('event_outbox')
+                .where({ id: r.id })
+                .update({ status: 'FAILED' });
             }
           }
         });
 
-        await new Promise(r => setTimeout(r, 200));
+        await new Promise((r) => setTimeout(r, 200));
       } catch (error) {
         this.logger.error('Error in outbox dispatcher loop:', error);
-        await new Promise(r => setTimeout(r, 1000)); // Longer wait on loop error
+        await new Promise((r) => setTimeout(r, 1000)); // Longer wait on loop error
       }
     }
   }
@@ -1046,7 +1132,14 @@ import { HealthController } from './monitoring/health.controller';
     MetricsService,
     OpenTelemetryService,
   ],
-  exports: [EventStore, ProjectionRebuilder, OutboxDispatcher, RedisCacheService, MessageBus, MetricsService],
+  exports: [
+    EventStore,
+    ProjectionRebuilder,
+    OutboxDispatcher,
+    RedisCacheService,
+    MessageBus,
+    MetricsService,
+  ],
 })
 export class InfrastructureModule {}
 ```
@@ -1264,7 +1357,7 @@ async function bootstrap() {
       transformOptions: {
         enableImplicitConversion: true,
       },
-    })
+    }),
   );
 
   // Swagger documentation

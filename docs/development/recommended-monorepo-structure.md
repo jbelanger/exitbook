@@ -57,7 +57,8 @@ crypto-portfolio-platform/
 
 ### 1. **Import Domain** (`packages/import/`)
 
-Your existing sophisticated importer becomes a self-contained domain with blockchain-centric organization:
+Your existing sophisticated importer becomes a self-contained domain with
+blockchain-centric organization:
 
 #### **Blockchain-Centric Structure**
 
@@ -90,8 +91,12 @@ packages/import/blockchains/ethereum/
 ```typescript
 // packages/import/services/transaction-importer.ts
 export class TransactionImporter {
-  async importFromExchanges(config: ExchangeImportConfig): Promise<ImportResult>;
-  async importFromBlockchain(config: BlockchainImportConfig): Promise<ImportResult>;
+  async importFromExchanges(
+    config: ExchangeImportConfig,
+  ): Promise<ImportResult>;
+  async importFromBlockchain(
+    config: BlockchainImportConfig,
+  ): Promise<ImportResult>;
   async verifyImportedData(importId: string): Promise<VerificationResult>;
 }
 
@@ -104,10 +109,14 @@ export class ProviderRegistry {
 
 #### **Benefits of Blockchain-Centric Organization**
 
-- **Feature Cohesion**: All Bitcoin-related code (adapter, providers, utils, types) lives together
-- **Developer Experience**: Easy to find and modify blockchain-specific functionality
-- **Clear Boundaries**: Each blockchain is a self-contained module with defined interfaces
-- **Scalability**: Adding new blockchains follows a consistent, predictable pattern
+- **Feature Cohesion**: All Bitcoin-related code (adapter, providers, utils,
+  types) lives together
+- **Developer Experience**: Easy to find and modify blockchain-specific
+  functionality
+- **Clear Boundaries**: Each blockchain is a self-contained module with defined
+  interfaces
+- **Scalability**: Adding new blockchains follows a consistent, predictable
+  pattern
 
 ### 2. **Portfolio Domain** (`packages/portfolio/`)
 
@@ -119,7 +128,7 @@ export class Portfolio {
   constructor(
     public readonly userId: string,
     private holdings: Map<string, Holding>,
-    private transactions: Transaction[]
+    private transactions: Transaction[],
   ) {}
 
   calculateCurrentValue(prices: PriceMap): Money;
@@ -141,7 +150,10 @@ Common domain entities and types:
 
 ```typescript
 // Clean import pattern
-import { BitcoinAdapter, MempoolSpaceProvider } from '@crypto/import/blockchains/bitcoin';
+import {
+  BitcoinAdapter,
+  MempoolSpaceProvider,
+} from '@crypto/import/blockchains/bitcoin';
 
 // packages/core/domain/transaction.ts
 export interface Transaction {
@@ -162,7 +174,10 @@ export class Money {
 // Example blockchain module usage
 // packages/import/blockchains/bitcoin/index.ts
 export { BitcoinAdapter } from './adapter.ts';
-export { MempoolSpaceProvider, BlockstreamProvider } from './providers/index.ts';
+export {
+  MempoolSpaceProvider,
+  BlockstreamProvider,
+} from './providers/index.ts';
 export { BitcoinUtils } from './utils.ts';
 export * from './providers/types.ts';
 ```
@@ -211,13 +226,19 @@ Commander.js with domain-specific commands:
 // apps/cli/src/commands/import.ts
 export class ImportCommand {
   @Command('import:exchange')
-  async importExchange(@Option('exchange') exchange: string, @Option('config') config: string) {
+  async importExchange(
+    @Option('exchange') exchange: string,
+    @Option('config') config: string,
+  ) {
     const importer = new TransactionImporter();
     return importer.importFromExchanges(/* config */);
   }
 
   @Command('import:blockchain')
-  async importBlockchain(@Option('blockchain') blockchain: string, @Option('addresses') addresses: string[]) {
+  async importBlockchain(
+    @Option('blockchain') blockchain: string,
+    @Option('addresses') addresses: string[],
+  ) {
     const importer = new TransactionImporter();
     return importer.importFromBlockchain({
       blockchain,
@@ -230,7 +251,10 @@ export class ImportCommand {
 // apps/cli/src/commands/portfolio.ts
 export class PortfolioCommand {
   @Command('portfolio:analyze')
-  async analyzePortfolio(@Option('user') userId: string, @Option('timeframe') timeframe: string) {
+  async analyzePortfolio(
+    @Option('user') userId: string,
+    @Option('timeframe') timeframe: string,
+  ) {
     const calculator = new PortfolioCalculator();
     return calculator.analyzePerformance(/* params */);
   }
@@ -291,7 +315,10 @@ Each blockchain module is self-contained with clean exports:
 
 ```typescript
 // ✅ Good - Import from blockchain module
-import { BitcoinAdapter, BitcoinUtils } from '@crypto/import/blockchains/bitcoin';
+import {
+  BitcoinAdapter,
+  BitcoinUtils,
+} from '@crypto/import/blockchains/bitcoin';
 // ❌ Avoid - Deep imports into internal structure
 import { MempoolSpaceProvider } from '@crypto/import/blockchains/bitcoin/providers/mempool-space-provider';
 // ✅ Good - Import shared registry
@@ -407,10 +434,17 @@ pnpm --filter web deploy
 
 ### **Blockchain-Centric Benefits**
 
-7. **Feature Cohesion** - All blockchain-related code grouped together (adapter + providers + utilities)
-8. **Developer Productivity** - Easy to find and modify blockchain-specific functionality
-9. **Consistent Patterns** - Each blockchain follows the same organizational structure
-10. **Type Safety** - Provider-specific API types are co-located with their implementations
-11. **Reduced Context Switching** - Working on Bitcoin features doesn't require jumping between distant folders
-12. **Self-Documenting** - Clear directory structure makes the codebase architecture obvious
-13. **Plugin-like Architecture** - Easy to add/remove blockchain support by adding/removing directories
+7. **Feature Cohesion** - All blockchain-related code grouped together
+   (adapter + providers + utilities)
+8. **Developer Productivity** - Easy to find and modify blockchain-specific
+   functionality
+9. **Consistent Patterns** - Each blockchain follows the same organizational
+   structure
+10. **Type Safety** - Provider-specific API types are co-located with their
+    implementations
+11. **Reduced Context Switching** - Working on Bitcoin features doesn't require
+    jumping between distant folders
+12. **Self-Documenting** - Clear directory structure makes the codebase
+    architecture obvious
+13. **Plugin-like Architecture** - Easy to add/remove blockchain support by
+    adding/removing directories

@@ -2,11 +2,15 @@
 
 **Date**: 2025-09-04  
 **Status**: Implementation Planning  
-**Scope**: Phase-by-phase implementation of domain services outlined in project strategy
+**Scope**: Phase-by-phase implementation of domain services outlined in project
+strategy
 
 ## Executive Summary
 
-This document outlines a comprehensive 6-phase implementation strategy for the Domain Services & Business Logic Engines. Each phase builds upon the previous one, delivering incremental business value while maintaining architectural integrity.
+This document outlines a comprehensive 6-phase implementation strategy for the
+Domain Services & Business Logic Engines. Each phase builds upon the previous
+one, delivering incremental business value while maintaining architectural
+integrity.
 
 **Total Estimated Timeline**: 16-20 weeks  
 **Complexity**: High (Financial domain with regulatory requirements)  
@@ -55,7 +59,7 @@ export interface IHistoricalPriceProvider {
     baseAsset: string,
     quoteAsset: string,
     timestamp: Date,
-    options?: PriceProviderOptions
+    options?: PriceProviderOptions,
   ): Promise<Result<PriceResponse, PriceProviderError>>;
 
   isAvailable(baseAsset: string, quoteAsset: string): Promise<boolean>;
@@ -66,10 +70,13 @@ export interface IHistoricalPriceProvider {
 export interface IRealTimePriceProvider {
   fetchPrices(
     baseAssets: string[],
-    quoteAsset: string
+    quoteAsset: string,
   ): Promise<Result<Map<string, PriceResponse>, PriceProviderError>>;
 
-  subscribeToUpdates(pairs: TradingPair[], callback: (updates: PriceUpdate[]) => void): Promise<Subscription>;
+  subscribeToUpdates(
+    pairs: TradingPair[],
+    callback: (updates: PriceUpdate[]) => void,
+  ): Promise<Subscription>;
 }
 
 interface PriceProviderOptions {
@@ -98,11 +105,16 @@ export interface IPortfolioValuationService {
   calculatePortfolioSnapshot(
     userId: string,
     baseCurrency: string,
-    options?: PortfolioOptions
+    options?: PortfolioOptions,
   ): Promise<Result<PortfolioSnapshot, PortfolioError>>;
 
-  calculateAssetAllocation(userId: string): Promise<Result<AssetAllocation[], PortfolioError>>;
-  calculatePerformanceMetrics(userId: string, period: TimePeriod): Promise<Result<PerformanceMetrics, PortfolioError>>;
+  calculateAssetAllocation(
+    userId: string,
+  ): Promise<Result<AssetAllocation[], PortfolioError>>;
+  calculatePerformanceMetrics(
+    userId: string,
+    period: TimePeriod,
+  ): Promise<Result<PerformanceMetrics, PortfolioError>>;
 }
 
 interface PortfolioOptions {
@@ -122,13 +134,13 @@ export interface ICostBasisEngine {
   calculateRealizedGains(
     userId: string,
     disposalEvent: DisposalEvent,
-    accountingMethod: AccountingMethod
+    accountingMethod: AccountingMethod,
   ): Promise<Result<RealizedGainsResult, TaxCalculationError>>;
 
   generateTaxReport(
     userId: string,
     taxYear: number,
-    reportFormat: TaxReportFormat
+    reportFormat: TaxReportFormat,
   ): Promise<Result<TaxReport, TaxCalculationError>>;
 }
 
@@ -238,7 +250,12 @@ export abstract class DomainEvent {
   public readonly occurredAt: Date;
   public readonly version: number;
 
-  protected constructor(aggregateId: string, userId: string, eventType: string, version: number = 1) {
+  protected constructor(
+    aggregateId: string,
+    userId: string,
+    eventType: string,
+    version: number = 1,
+  ) {
     this.eventId = crypto.randomUUID();
     this.aggregateId = aggregateId;
     this.userId = userId;
@@ -262,7 +279,11 @@ export class AssetAcquired extends DomainEvent {
     public readonly asset: AssetId,
     public readonly quantity: Money,
     public readonly costBasis: Money,
-    public readonly acquisitionMethod: 'PURCHASE' | 'REWARD' | 'AIRDROP' | 'MINING'
+    public readonly acquisitionMethod:
+      | 'PURCHASE'
+      | 'REWARD'
+      | 'AIRDROP'
+      | 'MINING',
   ) {
     super(transactionId, userId, 'AssetAcquired');
   }
@@ -283,7 +304,7 @@ export class AssetDisposed extends DomainEvent {
     public readonly userId: string,
     public readonly asset: AssetId,
     public readonly quantity: Money,
-    public readonly disposalMethod: 'SALE' | 'TRADE' | 'SPEND'
+    public readonly disposalMethod: 'SALE' | 'TRADE' | 'SPEND',
   ) {
     super(transactionId, userId, 'AssetDisposed');
   }
@@ -305,7 +326,9 @@ export class AssetDisposed extends DomainEvent {
 ```typescript
 // libs/providers/src/pricing/mock-price-provider.ts
 @Injectable()
-export class MockPriceProvider implements IHistoricalPriceProvider, IRealTimePriceProvider {
+export class MockPriceProvider
+  implements IHistoricalPriceProvider, IRealTimePriceProvider
+{
   private readonly mockPrices = new Map<string, Money>();
 
   constructor() {
@@ -319,7 +342,7 @@ export class MockPriceProvider implements IHistoricalPriceProvider, IRealTimePri
     baseAsset: string,
     quoteAsset: string,
     timestamp: Date,
-    options?: PriceProviderOptions
+    options?: PriceProviderOptions,
   ): Promise<Result<PriceResponse, PriceProviderError>> {
     const pair = `${baseAsset}-${quoteAsset}`;
     const mockPrice = this.mockPrices.get(pair);
@@ -344,7 +367,7 @@ export class MockPriceProvider implements IHistoricalPriceProvider, IRealTimePri
 
   async fetchPrices(
     baseAssets: string[],
-    quoteAsset: string
+    quoteAsset: string,
   ): Promise<Result<Map<string, PriceResponse>, PriceProviderError>> {
     const results = new Map<string, PriceResponse>();
 
@@ -418,7 +441,8 @@ export class MockPriceProvider implements IHistoricalPriceProvider, IRealTimePri
 
 #### 2.1 Enhanced Balance Calculation Service (Week 1)
 
-**Current State**: Basic `BalanceCalculatorService` exists but lacks aggregation and multi-currency support
+**Current State**: Basic `BalanceCalculatorService` exists but lacks aggregation
+and multi-currency support
 
 **Enhanced Implementation**:
 
@@ -430,7 +454,7 @@ export class EnhancedBalanceCalculatorService {
     private readonly entryRepository: IEntryRepository,
     private readonly accountRepository: IAccountRepository,
     private readonly currencyRepository: ICurrencyRepository,
-    private readonly logger: LoggerService
+    private readonly logger: LoggerService,
   ) {}
 
   /**
@@ -438,7 +462,7 @@ export class EnhancedBalanceCalculatorService {
    */
   async calculateAllBalances(
     userId: string,
-    options?: BalanceCalculationOptions
+    options?: BalanceCalculationOptions,
   ): Promise<Result<AssetBalance[], BalanceCalculationError>> {
     const startTime = Date.now();
 
@@ -446,32 +470,51 @@ export class EnhancedBalanceCalculatorService {
       // Get all user accounts
       const accountsResult = await this.accountRepository.findByUserId(userId);
       if (accountsResult.isErr()) {
-        return err(new BalanceCalculationError('Failed to fetch user accounts', accountsResult.error));
+        return err(
+          new BalanceCalculationError(
+            'Failed to fetch user accounts',
+            accountsResult.error,
+          ),
+        );
       }
 
       // Calculate balances for each asset
-      const balancePromises = this.groupAccountsByCurrency(accountsResult.value).map(([currency, accounts]) =>
-        this.calculateAssetBalance(userId, currency, accounts, options)
+      const balancePromises = this.groupAccountsByCurrency(
+        accountsResult.value,
+      ).map(([currency, accounts]) =>
+        this.calculateAssetBalance(userId, currency, accounts, options),
       );
 
       const balanceResults = await Promise.all(balancePromises);
-      const failures = balanceResults.filter(result => result.isErr());
+      const failures = balanceResults.filter((result) => result.isErr());
 
       if (failures.length > 0) {
-        this.logger.warn(`Failed to calculate ${failures.length} asset balances for user ${userId}`);
+        this.logger.warn(
+          `Failed to calculate ${failures.length} asset balances for user ${userId}`,
+        );
       }
 
       const successfulBalances = balanceResults
-        .filter(result => result.isOk())
-        .map(result => result.value)
-        .filter(balance => !balance.totalQuantity.isZero() || options?.includeZeroBalances);
+        .filter((result) => result.isOk())
+        .map((result) => result.value)
+        .filter(
+          (balance) =>
+            !balance.totalQuantity.isZero() || options?.includeZeroBalances,
+        );
 
       const duration = Date.now() - startTime;
-      this.logger.log(`Calculated ${successfulBalances.length} balances for user ${userId} in ${duration}ms`);
+      this.logger.log(
+        `Calculated ${successfulBalances.length} balances for user ${userId} in ${duration}ms`,
+      );
 
       return ok(successfulBalances);
     } catch (error) {
-      return err(new BalanceCalculationError('Unexpected error in balance calculation', error));
+      return err(
+        new BalanceCalculationError(
+          'Unexpected error in balance calculation',
+          error,
+        ),
+      );
     }
   }
 
@@ -482,12 +525,15 @@ export class EnhancedBalanceCalculatorService {
     userId: string,
     currencyTicker: string,
     accounts: Account[],
-    options?: BalanceCalculationOptions
+    options?: BalanceCalculationOptions,
   ): Promise<Result<AssetBalance, BalanceCalculationError>> {
     // Get currency metadata for proper decimal handling
-    const currencyResult = await this.currencyRepository.findByTicker(currencyTicker);
+    const currencyResult =
+      await this.currencyRepository.findByTicker(currencyTicker);
     if (currencyResult.isErr()) {
-      return err(new BalanceCalculationError(`Currency ${currencyTicker} not found`));
+      return err(
+        new BalanceCalculationError(`Currency ${currencyTicker} not found`),
+      );
     }
 
     const currency = currencyResult.value;
@@ -495,10 +541,14 @@ export class EnhancedBalanceCalculatorService {
 
     // Calculate balance for each account
     const accountBalances = await Promise.all(
-      accounts.map(account => this.calculateAccountBalance(account, asOfTimestamp))
+      accounts.map((account) =>
+        this.calculateAccountBalance(account, asOfTimestamp),
+      ),
     );
 
-    const successfulBalances = accountBalances.filter(result => result.isOk()).map(result => result.value);
+    const successfulBalances = accountBalances
+      .filter((result) => result.isOk())
+      .map((result) => result.value);
 
     if (successfulBalances.length === 0) {
       return ok(this.createZeroBalance(currency, accounts));
@@ -507,7 +557,7 @@ export class EnhancedBalanceCalculatorService {
     // Aggregate across all accounts
     const totalQuantity = successfulBalances.reduce(
       (sum, balance) => sum.add(balance.quantity).unwrap(),
-      Money.zero(currencyTicker, currency.decimals).unwrap()
+      Money.zero(currencyTicker, currency.decimals).unwrap(),
     );
 
     const assetBalance: AssetBalance = {
@@ -527,17 +577,21 @@ export class EnhancedBalanceCalculatorService {
 
   private async calculateAccountBalance(
     account: Account,
-    asOfTimestamp: Date
+    asOfTimestamp: Date,
   ): Promise<Result<AccountBalance, BalanceCalculationError>> {
     // Reuse existing balance calculation but with timestamp filtering
     const entriesResult = await this.entryRepository.findByAccountAndDateRange(
       account.id!,
       new Date(0), // From beginning
-      asOfTimestamp
+      asOfTimestamp,
     );
 
     if (entriesResult.isErr()) {
-      return err(new BalanceCalculationError(`Failed to fetch entries for account ${account.id}`));
+      return err(
+        new BalanceCalculationError(
+          `Failed to fetch entries for account ${account.id}`,
+        ),
+      );
     }
 
     const entries = entriesResult.value;
@@ -559,7 +613,8 @@ export class EnhancedBalanceCalculatorService {
         source: account.source,
       },
       quantity: balance,
-      lastTransactionDate: entries.length > 0 ? entries[entries.length - 1].createdAt : null,
+      lastTransactionDate:
+        entries.length > 0 ? entries[entries.length - 1].createdAt : null,
     });
   }
 
@@ -577,7 +632,10 @@ export class EnhancedBalanceCalculatorService {
   }
 
   private createZeroBalance(currency: any, accounts: Account[]): AssetBalance {
-    const zeroQuantity = Money.zero(currency.ticker, currency.decimals).unwrap();
+    const zeroQuantity = Money.zero(
+      currency.ticker,
+      currency.decimals,
+    ).unwrap();
 
     return {
       asset: {
@@ -587,7 +645,7 @@ export class EnhancedBalanceCalculatorService {
         assetClass: currency.assetClass,
       },
       totalQuantity: zeroQuantity,
-      accountBreakdown: accounts.map(account => ({
+      accountBreakdown: accounts.map((account) => ({
         account: {
           id: account.id!,
           name: account.name,
@@ -642,13 +700,13 @@ export class PortfolioValuationService implements IPortfolioValuationService {
     private readonly balanceCalculator: EnhancedBalanceCalculatorService,
     private readonly realTimePriceProvider: IRealTimePriceProvider,
     private readonly portfolioCache: IPortfolioCache,
-    private readonly logger: LoggerService
+    private readonly logger: LoggerService,
   ) {}
 
   async calculatePortfolioSnapshot(
     userId: string,
     baseCurrency: string = 'USD',
-    options?: PortfolioOptions
+    options?: PortfolioOptions,
   ): Promise<Result<PortfolioSnapshot, PortfolioError>> {
     const startTime = Date.now();
 
@@ -657,41 +715,64 @@ export class PortfolioValuationService implements IPortfolioValuationService {
       const cacheKey = this.generateCacheKey(userId, baseCurrency, options);
       const cachedSnapshot = await this.portfolioCache.get(cacheKey);
 
-      if (cachedSnapshot && this.isCacheValid(cachedSnapshot, this.CACHE_TTL_MINUTES)) {
+      if (
+        cachedSnapshot &&
+        this.isCacheValid(cachedSnapshot, this.CACHE_TTL_MINUTES)
+      ) {
         this.logger.log(`Portfolio snapshot cache hit for user ${userId}`);
         return ok(cachedSnapshot);
       }
 
       // Calculate fresh snapshot
-      const snapshotResult = await this.calculateFreshSnapshot(userId, baseCurrency, options);
+      const snapshotResult = await this.calculateFreshSnapshot(
+        userId,
+        baseCurrency,
+        options,
+      );
 
       if (snapshotResult.isOk()) {
         // Cache the result
-        await this.portfolioCache.set(cacheKey, snapshotResult.value, this.CACHE_TTL_MINUTES * 60);
+        await this.portfolioCache.set(
+          cacheKey,
+          snapshotResult.value,
+          this.CACHE_TTL_MINUTES * 60,
+        );
 
         const duration = Date.now() - startTime;
-        this.logger.log(`Generated fresh portfolio snapshot for user ${userId} in ${duration}ms`);
+        this.logger.log(
+          `Generated fresh portfolio snapshot for user ${userId} in ${duration}ms`,
+        );
       }
 
       return snapshotResult;
     } catch (error) {
-      return err(new PortfolioError('Failed to calculate portfolio snapshot', error));
+      return err(
+        new PortfolioError('Failed to calculate portfolio snapshot', error),
+      );
     }
   }
 
   private async calculateFreshSnapshot(
     userId: string,
     baseCurrency: string,
-    options?: PortfolioOptions
+    options?: PortfolioOptions,
   ): Promise<Result<PortfolioSnapshot, PortfolioError>> {
     // Step 1: Get all asset balances
-    const balancesResult = await this.balanceCalculator.calculateAllBalances(userId, {
-      asOfTimestamp: options?.asOfTimestamp,
-      includeZeroBalances: false,
-    });
+    const balancesResult = await this.balanceCalculator.calculateAllBalances(
+      userId,
+      {
+        asOfTimestamp: options?.asOfTimestamp,
+        includeZeroBalances: false,
+      },
+    );
 
     if (balancesResult.isErr()) {
-      return err(new PortfolioError('Failed to calculate asset balances', balancesResult.error));
+      return err(
+        new PortfolioError(
+          'Failed to calculate asset balances',
+          balancesResult.error,
+        ),
+      );
     }
 
     const assetBalances = balancesResult.value;
@@ -707,11 +788,21 @@ export class PortfolioValuationService implements IPortfolioValuationService {
     }
 
     // Step 2: Get current prices for all assets
-    const assetTickers = filteredBalances.map(balance => balance.asset.ticker);
-    const pricesResult = await this.realTimePriceProvider.fetchPrices(assetTickers, baseCurrency);
+    const assetTickers = filteredBalances.map(
+      (balance) => balance.asset.ticker,
+    );
+    const pricesResult = await this.realTimePriceProvider.fetchPrices(
+      assetTickers,
+      baseCurrency,
+    );
 
     if (pricesResult.isErr()) {
-      return err(new PortfolioError('Failed to fetch current prices', pricesResult.error));
+      return err(
+        new PortfolioError(
+          'Failed to fetch current prices',
+          pricesResult.error,
+        ),
+      );
     }
 
     const prices = pricesResult.value;
@@ -724,15 +815,23 @@ export class PortfolioValuationService implements IPortfolioValuationService {
       const priceResponse = prices.get(assetBalance.asset.ticker);
 
       if (!priceResponse) {
-        this.logger.warn(`No price found for ${assetBalance.asset.ticker}, excluding from portfolio`);
+        this.logger.warn(
+          `No price found for ${assetBalance.asset.ticker}, excluding from portfolio`,
+        );
         continue;
       }
 
       // Calculate current value
-      const currentValue = this.calculateAssetValue(assetBalance.totalQuantity, priceResponse.price, baseCurrency);
+      const currentValue = this.calculateAssetValue(
+        assetBalance.totalQuantity,
+        priceResponse.price,
+        baseCurrency,
+      );
 
       if (currentValue.isErr()) {
-        this.logger.warn(`Failed to calculate value for ${assetBalance.asset.ticker}: ${currentValue.error.message}`);
+        this.logger.warn(
+          `Failed to calculate value for ${assetBalance.asset.ticker}: ${currentValue.error.message}`,
+        );
         continue;
       }
 
@@ -776,19 +875,30 @@ export class PortfolioValuationService implements IPortfolioValuationService {
     return ok(portfolioSnapshot);
   }
 
-  private calculateAssetValue(quantity: Money, price: Money, baseCurrency: string): Result<Money, PortfolioError> {
+  private calculateAssetValue(
+    quantity: Money,
+    price: Money,
+    baseCurrency: string,
+  ): Result<Money, PortfolioError> {
     // Handle unit conversion: quantity (asset units) * price (baseCurrency per asset unit)
     const valueResult = quantity.multiply(price.toFixedString());
 
     if (valueResult.isErr()) {
-      return err(new PortfolioError(`Failed to calculate value: ${valueResult.error.message}`));
+      return err(
+        new PortfolioError(
+          `Failed to calculate value: ${valueResult.error.message}`,
+        ),
+      );
     }
 
     // Convert result to base currency with appropriate decimals
     return Money.fromDecimal(valueResult.value.toDecimal(), baseCurrency, 2);
   }
 
-  private filterSmallBalances(balances: AssetBalance[], minThreshold?: Money): AssetBalance[] {
+  private filterSmallBalances(
+    balances: AssetBalance[],
+    minThreshold?: Money,
+  ): AssetBalance[] {
     if (!minThreshold) {
       return balances;
     }
@@ -801,7 +911,10 @@ export class PortfolioValuationService implements IPortfolioValuationService {
   private calculateAverageConfidence(holdings: Holding[]): number {
     if (holdings.length === 0) return 1.0;
 
-    const totalConfidence = holdings.reduce((sum, holding) => sum + holding.priceConfidence, 0);
+    const totalConfidence = holdings.reduce(
+      (sum, holding) => sum + holding.priceConfidence,
+      0,
+    );
     return totalConfidence / holdings.length;
   }
 
@@ -821,12 +934,19 @@ export class PortfolioValuationService implements IPortfolioValuationService {
     };
   }
 
-  private generateCacheKey(userId: string, baseCurrency: string, options?: PortfolioOptions): string {
+  private generateCacheKey(
+    userId: string,
+    baseCurrency: string,
+    options?: PortfolioOptions,
+  ): string {
     const optionsHash = options ? JSON.stringify(options) : '';
     return `portfolio:${userId}:${baseCurrency}:${optionsHash}`;
   }
 
-  private isCacheValid(snapshot: PortfolioSnapshot, maxAgeMinutes: number): boolean {
+  private isCacheValid(
+    snapshot: PortfolioSnapshot,
+    maxAgeMinutes: number,
+  ): boolean {
     const maxAge = maxAgeMinutes * 60 * 1000; // Convert to milliseconds
     const age = Date.now() - snapshot.asOfTimestamp.getTime();
     return age < maxAge;
@@ -841,23 +961,31 @@ export class PortfolioValuationService implements IPortfolioValuationService {
 ```typescript
 // libs/core/src/queries/handlers/get-portfolio-snapshot.handler.ts
 @QueryHandler(GetPortfolioSnapshotQuery)
-export class GetPortfolioSnapshotHandler implements IQueryHandler<GetPortfolioSnapshotQuery> {
+export class GetPortfolioSnapshotHandler
+  implements IQueryHandler<GetPortfolioSnapshotQuery>
+{
   constructor(
     private readonly portfolioService: IPortfolioValuationService,
-    private readonly logger: LoggerService
+    private readonly logger: LoggerService,
   ) {}
 
-  async execute(query: GetPortfolioSnapshotQuery): Promise<PortfolioSnapshotDto> {
+  async execute(
+    query: GetPortfolioSnapshotQuery,
+  ): Promise<PortfolioSnapshotDto> {
     const { userId, baseCurrency, options } = query;
 
     this.logger.log(`Executing portfolio snapshot query for user ${userId}`);
 
-    const result = await this.portfolioService.calculatePortfolioSnapshot(userId, baseCurrency, options);
+    const result = await this.portfolioService.calculatePortfolioSnapshot(
+      userId,
+      baseCurrency,
+      options,
+    );
 
     if (result.isErr()) {
       throw new PortfolioCalculationException(
         `Failed to calculate portfolio snapshot: ${result.error.message}`,
-        result.error
+        result.error,
       );
     }
 
@@ -870,7 +998,7 @@ export class GetPortfolioSnapshotHandler implements IQueryHandler<GetPortfolioSn
       totalValue: this.mapMoneyToDto(snapshot.totalValue),
       totalCostBasis: this.mapMoneyToDto(snapshot.totalCostBasis),
       totalUnrealizedGain: this.mapMoneyToDto(snapshot.totalUnrealizedGain),
-      holdings: snapshot.holdings.map(holding => ({
+      holdings: snapshot.holdings.map((holding) => ({
         asset: {
           ticker: holding.asset.ticker,
           name: holding.asset.name,
@@ -906,7 +1034,7 @@ export class GetPortfolioSnapshotQuery {
   constructor(
     public readonly userId: string,
     public readonly baseCurrency: string = 'USD',
-    public readonly options?: PortfolioOptions
+    public readonly options?: PortfolioOptions,
   ) {}
 }
 ```
@@ -918,7 +1046,9 @@ export class GetPortfolioSnapshotQuery {
 ```typescript
 // libs/providers/src/pricing/coingecko-price-provider.ts
 @Injectable()
-export class CoinGeckoPriceProvider implements IRealTimePriceProvider, IHistoricalPriceProvider {
+export class CoinGeckoPriceProvider
+  implements IRealTimePriceProvider, IHistoricalPriceProvider
+{
   private readonly BASE_URL = 'https://api.coingecko.com/api/v3';
   private readonly RATE_LIMIT_MS = 1000; // 1 second between requests (free tier)
   private lastRequestTime = 0;
@@ -926,12 +1056,12 @@ export class CoinGeckoPriceProvider implements IRealTimePriceProvider, IHistoric
   constructor(
     private readonly httpService: HttpService,
     private readonly logger: LoggerService,
-    private readonly configService: ConfigService
+    private readonly configService: ConfigService,
   ) {}
 
   async fetchPrices(
     baseAssets: string[],
-    quoteAsset: string
+    quoteAsset: string,
   ): Promise<Result<Map<string, PriceResponse>, PriceProviderError>> {
     try {
       await this.enforceRateLimit();
@@ -951,7 +1081,9 @@ export class CoinGeckoPriceProvider implements IRealTimePriceProvider, IHistoric
       const response = await this.httpService.get(url, { params }).toPromise();
 
       if (!response || !response.data) {
-        return err(new PriceProviderError('Invalid response from CoinGecko API'));
+        return err(
+          new PriceProviderError('Invalid response from CoinGecko API'),
+        );
       }
 
       const prices = new Map<string, PriceResponse>();
@@ -966,7 +1098,9 @@ export class CoinGeckoPriceProvider implements IRealTimePriceProvider, IHistoric
         }
 
         const priceValue = priceData[quoteCurrency];
-        const lastUpdated = priceData.last_updated_at ? new Date(priceData.last_updated_at * 1000) : now;
+        const lastUpdated = priceData.last_updated_at
+          ? new Date(priceData.last_updated_at * 1000)
+          : now;
 
         const money = Money.fromDecimal(priceValue, quoteAsset, 2);
         if (money.isErr()) {
@@ -986,7 +1120,9 @@ export class CoinGeckoPriceProvider implements IRealTimePriceProvider, IHistoric
       return ok(prices);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      return err(new PriceProviderError(`CoinGecko API error: ${message}`, error));
+      return err(
+        new PriceProviderError(`CoinGecko API error: ${message}`, error),
+      );
     }
   }
 
@@ -994,7 +1130,7 @@ export class CoinGeckoPriceProvider implements IRealTimePriceProvider, IHistoric
     baseAsset: string,
     quoteAsset: string,
     timestamp: Date,
-    options?: PriceProviderOptions
+    options?: PriceProviderOptions,
   ): Promise<Result<PriceResponse, PriceProviderError>> {
     try {
       await this.enforceRateLimit();
@@ -1018,14 +1154,17 @@ export class CoinGeckoPriceProvider implements IRealTimePriceProvider, IHistoric
         return err(new PriceNotFoundError(baseAsset, quoteAsset, timestamp));
       }
 
-      const priceValue = response.data.market_data.current_price[quoteAsset.toLowerCase()];
+      const priceValue =
+        response.data.market_data.current_price[quoteAsset.toLowerCase()];
       if (!priceValue) {
         return err(new PriceNotFoundError(baseAsset, quoteAsset, timestamp));
       }
 
       const money = Money.fromDecimal(priceValue, quoteAsset, 2);
       if (money.isErr()) {
-        return err(new PriceProviderError(`Invalid price value: ${priceValue}`));
+        return err(
+          new PriceProviderError(`Invalid price value: ${priceValue}`),
+        );
       }
 
       return ok({
@@ -1037,11 +1176,18 @@ export class CoinGeckoPriceProvider implements IRealTimePriceProvider, IHistoric
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      return err(new PriceProviderError(`CoinGecko historical API error: ${message}`, error));
+      return err(
+        new PriceProviderError(
+          `CoinGecko historical API error: ${message}`,
+          error,
+        ),
+      );
     }
   }
 
-  private async mapTickersToIds(tickers: string[]): Promise<Map<string, string>> {
+  private async mapTickersToIds(
+    tickers: string[],
+  ): Promise<Map<string, string>> {
     // This would typically be cached or use a lookup table
     // For MVP, we'll use common mappings
     const mapping = new Map<string, string>([
@@ -1053,7 +1199,11 @@ export class CoinGeckoPriceProvider implements IRealTimePriceProvider, IHistoric
       // Add more as needed
     ]);
 
-    return new Map(tickers.filter(ticker => mapping.has(ticker)).map(ticker => [ticker, mapping.get(ticker)!]));
+    return new Map(
+      tickers
+        .filter((ticker) => mapping.has(ticker))
+        .map((ticker) => [ticker, mapping.get(ticker)!]),
+    );
   }
 
   private async getTickerId(ticker: string): Promise<string | null> {
@@ -1083,7 +1233,7 @@ export class CoinGeckoPriceProvider implements IRealTimePriceProvider, IHistoric
     const timeSinceLastRequest = Date.now() - this.lastRequestTime;
     if (timeSinceLastRequest < this.RATE_LIMIT_MS) {
       const waitTime = this.RATE_LIMIT_MS - timeSinceLastRequest;
-      await new Promise(resolve => setTimeout(resolve, waitTime));
+      await new Promise((resolve) => setTimeout(resolve, waitTime));
     }
     this.lastRequestTime = Date.now();
   }
@@ -1188,7 +1338,7 @@ export class TaxLot extends AggregateRoot {
     private _status: TaxLotStatus,
     private readonly _acquisitionMethod: AcquisitionMethod,
     private readonly _createdAt: Date,
-    private _updatedAt: Date
+    private _updatedAt: Date,
   ) {
     super();
   }
@@ -1209,7 +1359,7 @@ export class TaxLot extends AggregateRoot {
       data.costBasisCurrency,
       data.exchangeRate,
       data.priceSource,
-      data.acquisitionDate
+      data.acquisitionDate,
     );
 
     const now = new Date();
@@ -1225,7 +1375,7 @@ export class TaxLot extends AggregateRoot {
       TaxLotStatus.OPEN,
       data.acquisitionMethod,
       now,
-      now
+      now,
     );
 
     // Emit domain event for audit trail and cross-aggregate coordination
@@ -1238,7 +1388,7 @@ export class TaxLot extends AggregateRoot {
         costBasisSnapshot,
         acquisitionMethod: data.acquisitionMethod,
         acquisitionDate: data.acquisitionDate,
-      })
+      }),
     );
 
     return ok(taxLot);
@@ -1252,7 +1402,7 @@ export class TaxLot extends AggregateRoot {
     disposalQuantity: Money,
     disposalPrice: Money,
     disposalDate: Date,
-    disposalTransaction: TransactionReference
+    disposalTransaction: TransactionReference,
   ): Result<LotConsumptionResult, TaxLotError> {
     // Validate consumption
     if (this._status !== TaxLotStatus.OPEN) {
@@ -1260,23 +1410,36 @@ export class TaxLot extends AggregateRoot {
     }
 
     if (disposalQuantity.isGreaterThan(this._remainingQuantity).unwrap()) {
-      return err(new InsufficientLotQuantityError(this._id.value, disposalQuantity, this._remainingQuantity));
+      return err(
+        new InsufficientLotQuantityError(
+          this._id.value,
+          disposalQuantity,
+          this._remainingQuantity,
+        ),
+      );
     }
 
     if (!disposalQuantity.currency === this._assetSymbol) {
-      return err(new CurrencyMismatchError(disposalQuantity.currency, this._assetSymbol));
+      return err(
+        new CurrencyMismatchError(disposalQuantity.currency, this._assetSymbol),
+      );
     }
 
     // Calculate consumed portion of cost basis
     const consumptionRatio = this.calculateConsumptionRatio(disposalQuantity);
-    const consumedCostBasis = this._costBasisSnapshot.calculatePortionValue(consumptionRatio);
+    const consumedCostBasis =
+      this._costBasisSnapshot.calculatePortionValue(consumptionRatio);
 
     // Calculate realized gain/loss
-    const disposalValue = disposalQuantity.multiply(disposalPrice.toFixedString()).unwrap();
+    const disposalValue = disposalQuantity
+      .multiply(disposalPrice.toFixedString())
+      .unwrap();
     const realizedGainLoss = disposalValue.subtract(consumedCostBasis).unwrap();
 
     // Update remaining quantity
-    const newRemainingQuantity = this._remainingQuantity.subtract(disposalQuantity).unwrap();
+    const newRemainingQuantity = this._remainingQuantity
+      .subtract(disposalQuantity)
+      .unwrap();
     this._remainingQuantity = newRemainingQuantity;
 
     // Update status if fully consumed
@@ -1311,7 +1474,7 @@ export class TaxLot extends AggregateRoot {
         disposalDate,
         isLongTerm: this.isLongTermHolding(disposalDate),
         consumptionResult,
-      })
+      }),
     );
 
     return ok(consumptionResult);
@@ -1321,16 +1484,23 @@ export class TaxLot extends AggregateRoot {
    * Check if this lot can satisfy a disposal quantity
    */
   canSatisfyDisposal(quantity: Money): boolean {
-    return this._status === TaxLotStatus.OPEN && this._remainingQuantity.isGreaterThanOrEqual(quantity).unwrap();
+    return (
+      this._status === TaxLotStatus.OPEN &&
+      this._remainingQuantity.isGreaterThanOrEqual(quantity).unwrap()
+    );
   }
 
   private calculateConsumptionRatio(consumedQuantity: Money): number {
-    const ratio = consumedQuantity.toDecimal() / this._originalQuantity.toDecimal();
+    const ratio =
+      consumedQuantity.toDecimal() / this._originalQuantity.toDecimal();
     return Math.min(ratio, 1.0); // Cap at 100%
   }
 
   private calculateHoldingPeriod(disposalDate: Date): HoldingPeriod {
-    const holdingDays = Math.floor((disposalDate.getTime() - this._acquisitionDate.getTime()) / (1000 * 60 * 60 * 24));
+    const holdingDays = Math.floor(
+      (disposalDate.getTime() - this._acquisitionDate.getTime()) /
+        (1000 * 60 * 60 * 24),
+    );
 
     return HoldingPeriod.create(holdingDays);
   }
@@ -1340,7 +1510,9 @@ export class TaxLot extends AggregateRoot {
     return holdingPeriod.days >= 365; // US tax code: 1 year for long-term
   }
 
-  private static validateCreateData(data: CreateTaxLotData): Result<void, TaxLotError> {
+  private static validateCreateData(
+    data: CreateTaxLotData,
+  ): Result<void, TaxLotError> {
     if (data.originalQuantity.isNegative() || data.originalQuantity.isZero()) {
       return err(new InvalidTaxLotQuantityError(data.originalQuantity));
     }
@@ -1394,10 +1566,15 @@ export class TaxLot extends AggregateRoot {
     }
 
     const totalCostBasis = this._costBasisSnapshot.totalValue;
-    const remainingRatio = this._remainingQuantity.toDecimal() / this._originalQuantity.toDecimal();
-    const remainingCostBasis = totalCostBasis.multiply(remainingRatio.toString()).unwrap();
+    const remainingRatio =
+      this._remainingQuantity.toDecimal() / this._originalQuantity.toDecimal();
+    const remainingCostBasis = totalCostBasis
+      .multiply(remainingRatio.toString())
+      .unwrap();
 
-    return remainingCostBasis.divide(this._remainingQuantity.toFixedString()).unwrap();
+    return remainingCostBasis
+      .divide(this._remainingQuantity.toFixedString())
+      .unwrap();
   }
 
   /**
@@ -1450,7 +1627,7 @@ export class CostBasisSnapshot {
     private readonly _currency: string,
     private readonly _exchangeRate: number | null,
     private readonly _priceSource: string,
-    private readonly _snapshotDate: Date
+    private readonly _snapshotDate: Date,
   ) {}
 
   static create(
@@ -1458,9 +1635,15 @@ export class CostBasisSnapshot {
     currency: string,
     exchangeRate: number | null,
     priceSource: string,
-    snapshotDate: Date
+    snapshotDate: Date,
   ): CostBasisSnapshot {
-    return new CostBasisSnapshot(amount, currency, exchangeRate, priceSource, snapshotDate);
+    return new CostBasisSnapshot(
+      amount,
+      currency,
+      exchangeRate,
+      priceSource,
+      snapshotDate,
+    );
   }
 
   calculatePortionValue(ratio: number): Money {
@@ -1507,10 +1690,23 @@ export class HoldingPeriod {
 
 ```typescript
 // libs/database/src/schema/tax-lots.ts
-import { index, integer, pgEnum, pgTable, serial, timestamp, varchar, bigint } from 'drizzle-orm/pg-core';
+import {
+  index,
+  integer,
+  pgEnum,
+  pgTable,
+  serial,
+  timestamp,
+  varchar,
+  bigint,
+} from 'drizzle-orm/pg-core';
 import { users } from './users';
 
-export const taxLotStatusEnum = pgEnum('tax_lot_status', ['OPEN', 'DEPLETED', 'TRANSFERRED']);
+export const taxLotStatusEnum = pgEnum('tax_lot_status', [
+  'OPEN',
+  'DEPLETED',
+  'TRANSFERRED',
+]);
 export const acquisitionMethodEnum = pgEnum('acquisition_method', [
   'PURCHASE',
   'MINING',
@@ -1534,13 +1730,19 @@ export const taxLots = pgTable(
     assetSymbol: varchar('asset_symbol', { length: 20 }).notNull(),
 
     // Acquisition transaction reference (domain ID, not FK)
-    acquisitionTransactionId: varchar('acquisition_transaction_id', { length: 255 }).notNull(),
-    acquisitionDate: timestamp('acquisition_date', { withTimezone: true }).notNull(),
+    acquisitionTransactionId: varchar('acquisition_transaction_id', {
+      length: 255,
+    }).notNull(),
+    acquisitionDate: timestamp('acquisition_date', {
+      withTimezone: true,
+    }).notNull(),
     acquisitionMethod: acquisitionMethodEnum('acquisition_method').notNull(),
 
     // Quantity tracking
     originalQuantity: bigint('original_quantity', { mode: 'bigint' }).notNull(),
-    remainingQuantity: bigint('remaining_quantity', { mode: 'bigint' }).notNull(),
+    remainingQuantity: bigint('remaining_quantity', {
+      mode: 'bigint',
+    }).notNull(),
 
     // Immutable cost basis snapshot
     costBasisAmount: bigint('cost_basis_amount', { mode: 'bigint' }).notNull(),
@@ -1552,15 +1754,26 @@ export const taxLots = pgTable(
     status: taxLotStatusEnum('status').default('OPEN').notNull(),
 
     // Timestamps
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
   },
-  table => ({
+  (table) => ({
     // Performance indexes for tax calculations
-    userAssetStatusIdx: index('idx_tax_lots_user_asset_status').on(table.userId, table.assetSymbol, table.status),
-    userAcquisitionDateIdx: index('idx_tax_lots_user_date').on(table.userId, table.acquisitionDate),
+    userAssetStatusIdx: index('idx_tax_lots_user_asset_status').on(
+      table.userId,
+      table.assetSymbol,
+      table.status,
+    ),
+    userAcquisitionDateIdx: index('idx_tax_lots_user_date').on(
+      table.userId,
+      table.acquisitionDate,
+    ),
     assetSymbolIdx: index('idx_tax_lots_asset').on(table.assetSymbol),
-  })
+  }),
 );
 
 // Lot consumption tracking for audit trail
@@ -1573,25 +1786,33 @@ export const lotConsumptions = pgTable(
       .notNull(),
 
     // Disposal information
-    disposalTransactionId: varchar('disposal_transaction_id', { length: 255 }).notNull(),
+    disposalTransactionId: varchar('disposal_transaction_id', {
+      length: 255,
+    }).notNull(),
     disposalDate: timestamp('disposal_date', { withTimezone: true }).notNull(),
 
     // Quantities and values
     consumedQuantity: bigint('consumed_quantity', { mode: 'bigint' }).notNull(),
-    consumedCostBasis: bigint('consumed_cost_basis', { mode: 'bigint' }).notNull(),
+    consumedCostBasis: bigint('consumed_cost_basis', {
+      mode: 'bigint',
+    }).notNull(),
     disposalValue: bigint('disposal_value', { mode: 'bigint' }).notNull(),
-    realizedGainLoss: bigint('realized_gain_loss', { mode: 'bigint' }).notNull(),
+    realizedGainLoss: bigint('realized_gain_loss', {
+      mode: 'bigint',
+    }).notNull(),
 
     // Tax calculation fields
     holdingPeriodDays: integer('holding_period_days').notNull(),
     isLongTerm: boolean('is_long_term').notNull(),
 
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
   },
-  table => ({
+  (table) => ({
     lotIdIdx: index('idx_lot_consumptions_lot').on(table.lotId),
     disposalDateIdx: index('idx_lot_consumptions_date').on(table.disposalDate),
-  })
+  }),
 );
 
 export type TaxLot = InferSelectModel<typeof taxLots>;
@@ -1610,29 +1831,32 @@ export class CostBasisEngineService implements ICostBasisEngine {
     private readonly taxLotRepository: ITaxLotRepository,
     private readonly historicalPriceProvider: IHistoricalPriceProvider,
     private readonly userSettingsService: IUserSettingsService,
-    private readonly logger: LoggerService
+    private readonly logger: LoggerService,
   ) {}
 
   async calculateRealizedGains(
     userId: string,
     disposalEvent: DisposalEvent,
-    accountingMethod?: AccountingMethod
+    accountingMethod?: AccountingMethod,
   ): Promise<Result<RealizedGainsResult, TaxCalculationError>> {
     try {
       const startTime = Date.now();
 
       // Get user's preferred accounting method if not specified
-      const method = accountingMethod || (await this.getUserAccountingMethod(userId));
+      const method =
+        accountingMethod || (await this.getUserAccountingMethod(userId));
 
       // Get available tax lots for the asset
       const lotsResult = await this.taxLotRepository.findAvailableLots(
         userId,
         disposalEvent.assetSymbol,
-        disposalEvent.disposalDate
+        disposalEvent.disposalDate,
       );
 
       if (lotsResult.isErr()) {
-        return err(new TaxCalculationError('Failed to fetch tax lots', lotsResult.error));
+        return err(
+          new TaxCalculationError('Failed to fetch tax lots', lotsResult.error),
+        );
       }
 
       const availableLots = lotsResult.value;
@@ -1640,12 +1864,16 @@ export class CostBasisEngineService implements ICostBasisEngine {
       // Check if we have enough quantity to satisfy the disposal
       const totalAvailable = availableLots.reduce(
         (sum, lot) => sum.add(lot.remainingQuantity).unwrap(),
-        Money.zero(disposalEvent.assetSymbol, 8).unwrap()
+        Money.zero(disposalEvent.assetSymbol, 8).unwrap(),
       );
 
       if (totalAvailable.isLessThan(disposalEvent.quantity).unwrap()) {
         return err(
-          new InsufficientAssetQuantityError(disposalEvent.assetSymbol, disposalEvent.quantity, totalAvailable)
+          new InsufficientAssetQuantityError(
+            disposalEvent.assetSymbol,
+            disposalEvent.quantity,
+            totalAvailable,
+          ),
         );
       }
 
@@ -1653,30 +1881,43 @@ export class CostBasisEngineService implements ICostBasisEngine {
       const sortedLots = this.sortLotsByAccountingMethod(availableLots, method);
 
       // Perform lot consumption
-      const consumptionResults = await this.consumeLots(sortedLots, disposalEvent, method);
+      const consumptionResults = await this.consumeLots(
+        sortedLots,
+        disposalEvent,
+        method,
+      );
 
       if (consumptionResults.isErr()) {
         return err(consumptionResults.error);
       }
 
       // Aggregate results
-      const realizedGainsResult = this.aggregateConsumptionResults(consumptionResults.value, disposalEvent, method);
+      const realizedGainsResult = this.aggregateConsumptionResults(
+        consumptionResults.value,
+        disposalEvent,
+        method,
+      );
 
       const duration = Date.now() - startTime;
       this.logger.log(
-        `Calculated realized gains for ${disposalEvent.quantity} ${disposalEvent.assetSymbol} in ${duration}ms`
+        `Calculated realized gains for ${disposalEvent.quantity} ${disposalEvent.assetSymbol} in ${duration}ms`,
       );
 
       return ok(realizedGainsResult);
     } catch (error) {
-      return err(new TaxCalculationError('Unexpected error in realized gains calculation', error));
+      return err(
+        new TaxCalculationError(
+          'Unexpected error in realized gains calculation',
+          error,
+        ),
+      );
     }
   }
 
   private async consumeLots(
     sortedLots: TaxLot[],
     disposalEvent: DisposalEvent,
-    method: AccountingMethod
+    method: AccountingMethod,
   ): Promise<Result<LotConsumptionResult[], TaxCalculationError>> {
     const consumptionResults: LotConsumptionResult[] = [];
     let remainingToDispose = disposalEvent.quantity;
@@ -1687,7 +1928,9 @@ export class CostBasisEngineService implements ICostBasisEngine {
       }
 
       // Calculate how much to consume from this lot
-      const quantityToConsume = remainingToDispose.isLessThanOrEqual(lot.remainingQuantity).unwrap()
+      const quantityToConsume = remainingToDispose
+        .isLessThanOrEqual(lot.remainingQuantity)
+        .unwrap()
         ? remainingToDispose
         : lot.remainingQuantity;
 
@@ -1695,11 +1938,15 @@ export class CostBasisEngineService implements ICostBasisEngine {
       const disposalPrice = await this.getDisposalPrice(
         disposalEvent.assetSymbol,
         disposalEvent.baseCurrency,
-        disposalEvent.disposalDate
+        disposalEvent.disposalDate,
       );
 
       if (disposalPrice.isErr()) {
-        return err(new TaxCalculationError(`Failed to get disposal price: ${disposalPrice.error.message}`));
+        return err(
+          new TaxCalculationError(
+            `Failed to get disposal price: ${disposalPrice.error.message}`,
+          ),
+        );
       }
 
       // Consume from the lot
@@ -1707,15 +1954,21 @@ export class CostBasisEngineService implements ICostBasisEngine {
         quantityToConsume,
         disposalPrice.value,
         disposalEvent.disposalDate,
-        disposalEvent.disposalTransaction
+        disposalEvent.disposalTransaction,
       );
 
       if (consumptionResult.isErr()) {
-        return err(new TaxCalculationError(`Failed to consume lot: ${consumptionResult.error.message}`));
+        return err(
+          new TaxCalculationError(
+            `Failed to consume lot: ${consumptionResult.error.message}`,
+          ),
+        );
       }
 
       consumptionResults.push(consumptionResult.value);
-      remainingToDispose = remainingToDispose.subtract(quantityToConsume).unwrap();
+      remainingToDispose = remainingToDispose
+        .subtract(quantityToConsume)
+        .unwrap();
 
       // Persist the updated lot
       await this.taxLotRepository.save(lot);
@@ -1724,13 +1977,20 @@ export class CostBasisEngineService implements ICostBasisEngine {
     return ok(consumptionResults);
   }
 
-  private sortLotsByAccountingMethod(lots: TaxLot[], method: AccountingMethod): TaxLot[] {
+  private sortLotsByAccountingMethod(
+    lots: TaxLot[],
+    method: AccountingMethod,
+  ): TaxLot[] {
     switch (method) {
       case AccountingMethod.FIFO:
-        return [...lots].sort((a, b) => a.acquisitionDate.getTime() - b.acquisitionDate.getTime());
+        return [...lots].sort(
+          (a, b) => a.acquisitionDate.getTime() - b.acquisitionDate.getTime(),
+        );
 
       case AccountingMethod.LIFO:
-        return [...lots].sort((a, b) => b.acquisitionDate.getTime() - a.acquisitionDate.getTime());
+        return [...lots].sort(
+          (a, b) => b.acquisitionDate.getTime() - a.acquisitionDate.getTime(),
+        );
 
       case AccountingMethod.HIFO:
         return [...lots].sort((a, b) => {
@@ -1752,7 +2012,7 @@ export class CostBasisEngineService implements ICostBasisEngine {
   private aggregateConsumptionResults(
     consumptions: LotConsumptionResult[],
     disposalEvent: DisposalEvent,
-    method: AccountingMethod
+    method: AccountingMethod,
   ): RealizedGainsResult {
     let totalCostBasis = Money.zero(disposalEvent.baseCurrency, 2).unwrap();
     let totalRealizedGain = Money.zero(disposalEvent.baseCurrency, 2).unwrap();
@@ -1760,13 +2020,21 @@ export class CostBasisEngineService implements ICostBasisEngine {
     let totalLongTerm = Money.zero(disposalEvent.baseCurrency, 2).unwrap();
 
     for (const consumption of consumptions) {
-      totalCostBasis = totalCostBasis.add(consumption.consumedCostBasis).unwrap();
-      totalRealizedGain = totalRealizedGain.add(consumption.realizedGainLoss).unwrap();
+      totalCostBasis = totalCostBasis
+        .add(consumption.consumedCostBasis)
+        .unwrap();
+      totalRealizedGain = totalRealizedGain
+        .add(consumption.realizedGainLoss)
+        .unwrap();
 
       if (consumption.isLongTerm) {
-        totalLongTerm = totalLongTerm.add(consumption.realizedGainLoss).unwrap();
+        totalLongTerm = totalLongTerm
+          .add(consumption.realizedGainLoss)
+          .unwrap();
       } else {
-        totalShortTerm = totalShortTerm.add(consumption.realizedGainLoss).unwrap();
+        totalShortTerm = totalShortTerm
+          .add(consumption.realizedGainLoss)
+          .unwrap();
       }
     }
 
@@ -1789,16 +2057,23 @@ export class CostBasisEngineService implements ICostBasisEngine {
   private async getDisposalPrice(
     assetSymbol: string,
     baseCurrency: string,
-    disposalDate: Date
+    disposalDate: Date,
   ): Promise<Result<Money, PriceProviderError>> {
-    return this.historicalPriceProvider.fetchPrice(assetSymbol, baseCurrency, disposalDate, {
-      allowApproximateTimestamp: true,
-      maxAgeMinutes: 60, // Allow 1-hour approximation
-      fallbackToNearest: true,
-    });
+    return this.historicalPriceProvider.fetchPrice(
+      assetSymbol,
+      baseCurrency,
+      disposalDate,
+      {
+        allowApproximateTimestamp: true,
+        maxAgeMinutes: 60, // Allow 1-hour approximation
+        fallbackToNearest: true,
+      },
+    );
   }
 
-  private async getUserAccountingMethod(userId: string): Promise<AccountingMethod> {
+  private async getUserAccountingMethod(
+    userId: string,
+  ): Promise<AccountingMethod> {
     try {
       const settings = await this.userSettingsService.getTaxSettings(userId);
       return settings?.accountingMethod || AccountingMethod.FIFO; // Default to FIFO
@@ -1810,14 +2085,20 @@ export class CostBasisEngineService implements ICostBasisEngine {
   async generateTaxReport(
     userId: string,
     taxYear: number,
-    reportFormat: TaxReportFormat
+    reportFormat: TaxReportFormat,
   ): Promise<Result<TaxReport, TaxCalculationError>> {
     try {
       // Get all lot consumptions for the tax year
-      const consumptionsResult = await this.taxLotRepository.findConsumptionsByYear(userId, taxYear);
+      const consumptionsResult =
+        await this.taxLotRepository.findConsumptionsByYear(userId, taxYear);
 
       if (consumptionsResult.isErr()) {
-        return err(new TaxCalculationError('Failed to fetch lot consumptions', consumptionsResult.error));
+        return err(
+          new TaxCalculationError(
+            'Failed to fetch lot consumptions',
+            consumptionsResult.error,
+          ),
+        );
       }
 
       const consumptions = consumptionsResult.value;
@@ -1862,7 +2143,9 @@ export class CostBasisEngineService implements ICostBasisEngine {
 
       return ok(taxReport);
     } catch (error) {
-      return err(new TaxCalculationError('Failed to generate tax report', error));
+      return err(
+        new TaxCalculationError('Failed to generate tax report', error),
+      );
     }
   }
 
@@ -1873,7 +2156,7 @@ export class CostBasisEngineService implements ICostBasisEngine {
 
     return transactions.reduce(
       (total, transaction) => total.add(transaction.gainLoss).unwrap(),
-      Money.zero(transactions[0].gainLoss.currency, 2).unwrap()
+      Money.zero(transactions[0].gainLoss.currency, 2).unwrap(),
     );
   }
 }
@@ -1899,7 +2182,7 @@ export class RealizedGainsResult {
     public readonly shortTermGain: Money,
     public readonly longTermGain: Money,
     public readonly lotConsumptions: LotConsumptionResult[],
-    public readonly calculatedAt: Date
+    public readonly calculatedAt: Date,
   ) {}
 
   static create(data: {
@@ -1924,7 +2207,7 @@ export class RealizedGainsResult {
       data.shortTermGain,
       data.longTermGain,
       data.lotConsumptions,
-      data.calculatedAt
+      data.calculatedAt,
     );
   }
 
@@ -1933,8 +2216,12 @@ export class RealizedGainsResult {
     const shortTermRate = 0.35; // Ordinary income tax rate
     const longTermRate = 0.15; // Long-term capital gains rate
 
-    const shortTermTax = this.shortTermGain.multiply(shortTermRate.toString()).unwrap();
-    const longTermTax = this.longTermGain.multiply(longTermRate.toString()).unwrap();
+    const shortTermTax = this.shortTermGain
+      .multiply(shortTermRate.toString())
+      .unwrap();
+    const longTermTax = this.longTermGain
+      .multiply(longTermRate.toString())
+      .unwrap();
     const totalTax = shortTermTax.add(longTermTax).unwrap();
 
     if (this.totalRealizedGain.isZero()) {
@@ -1957,18 +2244,26 @@ export class AssetAcquiredHandler implements IEventHandler<AssetAcquired> {
   constructor(
     private readonly taxLotRepository: ITaxLotRepository,
     private readonly historicalPriceProvider: IHistoricalPriceProvider,
-    private readonly logger: LoggerService
+    private readonly logger: LoggerService,
   ) {}
 
   async handle(event: AssetAcquired): Promise<void> {
     try {
-      this.logger.log(`Processing asset acquisition: ${event.quantity} ${event.asset} for user ${event.userId}`);
+      this.logger.log(
+        `Processing asset acquisition: ${event.quantity} ${event.asset} for user ${event.userId}`,
+      );
 
       // Get historical price for cost basis calculation
-      const costBasisPrice = await this.getCostBasisPrice(event.asset, event.costBasis.currency, event.acquisitionDate);
+      const costBasisPrice = await this.getCostBasisPrice(
+        event.asset,
+        event.costBasis.currency,
+        event.acquisitionDate,
+      );
 
       if (costBasisPrice.isErr()) {
-        this.logger.error(`Failed to get cost basis price for ${event.asset}: ${costBasisPrice.error.message}`);
+        this.logger.error(
+          `Failed to get cost basis price for ${event.asset}: ${costBasisPrice.error.message}`,
+        );
         return;
       }
 
@@ -1976,7 +2271,9 @@ export class AssetAcquiredHandler implements IEventHandler<AssetAcquired> {
       const taxLotData: CreateTaxLotData = {
         userId: UserId.fromString(event.userId).unwrap(),
         assetSymbol: event.asset,
-        acquisitionTransaction: TransactionReference.fromId(event.transactionId),
+        acquisitionTransaction: TransactionReference.fromId(
+          event.transactionId,
+        ),
         acquisitionDate: event.acquisitionDate,
         originalQuantity: event.quantity,
         costBasisAmount: event.costBasis,
@@ -1989,7 +2286,9 @@ export class AssetAcquiredHandler implements IEventHandler<AssetAcquired> {
       const taxLotResult = TaxLot.create(taxLotData);
 
       if (taxLotResult.isErr()) {
-        this.logger.error(`Failed to create tax lot: ${taxLotResult.error.message}`);
+        this.logger.error(
+          `Failed to create tax lot: ${taxLotResult.error.message}`,
+        );
         return;
       }
 
@@ -1997,27 +2296,39 @@ export class AssetAcquiredHandler implements IEventHandler<AssetAcquired> {
       const saveResult = await this.taxLotRepository.save(taxLotResult.value);
 
       if (saveResult.isErr()) {
-        this.logger.error(`Failed to save tax lot: ${saveResult.error.message}`);
+        this.logger.error(
+          `Failed to save tax lot: ${saveResult.error.message}`,
+        );
         return;
       }
 
-      this.logger.log(`Created tax lot for ${event.quantity} ${event.asset} acquired on ${event.acquisitionDate}`);
+      this.logger.log(
+        `Created tax lot for ${event.quantity} ${event.asset} acquired on ${event.acquisitionDate}`,
+      );
     } catch (error) {
-      this.logger.error(`Error processing asset acquisition event: ${error.message}`, error);
+      this.logger.error(
+        `Error processing asset acquisition event: ${error.message}`,
+        error,
+      );
     }
   }
 
   private async getCostBasisPrice(
     asset: string,
     baseCurrency: string,
-    acquisitionDate: Date
+    acquisitionDate: Date,
   ): Promise<Result<PriceResponse, PriceProviderError>> {
     // For purchases, we already know the cost basis from the transaction
     // For rewards/airdrops, we need to fetch historical price
-    return this.historicalPriceProvider.fetchPrice(asset, baseCurrency, acquisitionDate, {
-      allowApproximateTimestamp: true,
-      maxAgeMinutes: 24 * 60, // Allow 24-hour approximation for historical data
-    });
+    return this.historicalPriceProvider.fetchPrice(
+      asset,
+      baseCurrency,
+      acquisitionDate,
+      {
+        allowApproximateTimestamp: true,
+        maxAgeMinutes: 24 * 60, // Allow 24-hour approximation for historical data
+      },
+    );
   }
 
   private mapAcquisitionMethod(method: string): AcquisitionMethod {
@@ -2044,12 +2355,14 @@ export class AssetDisposedHandler implements IEventHandler<AssetDisposed> {
   constructor(
     private readonly costBasisEngine: ICostBasisEngine,
     private readonly realizedGainsRepository: IRealizedGainsRepository,
-    private readonly logger: LoggerService
+    private readonly logger: LoggerService,
   ) {}
 
   async handle(event: AssetDisposed): Promise<void> {
     try {
-      this.logger.log(`Processing asset disposal: ${event.quantity} ${event.asset} for user ${event.userId}`);
+      this.logger.log(
+        `Processing asset disposal: ${event.quantity} ${event.asset} for user ${event.userId}`,
+      );
 
       // Create disposal event
       const disposalEvent: DisposalEvent = {
@@ -2062,26 +2375,38 @@ export class AssetDisposedHandler implements IEventHandler<AssetDisposed> {
       };
 
       // Calculate realized gains using cost basis engine
-      const gainsResult = await this.costBasisEngine.calculateRealizedGains(event.userId, disposalEvent);
+      const gainsResult = await this.costBasisEngine.calculateRealizedGains(
+        event.userId,
+        disposalEvent,
+      );
 
       if (gainsResult.isErr()) {
-        this.logger.error(`Failed to calculate realized gains: ${gainsResult.error.message}`);
+        this.logger.error(
+          `Failed to calculate realized gains: ${gainsResult.error.message}`,
+        );
         return;
       }
 
       // Save realized gains record
-      const saveResult = await this.realizedGainsRepository.save(gainsResult.value);
+      const saveResult = await this.realizedGainsRepository.save(
+        gainsResult.value,
+      );
 
       if (saveResult.isErr()) {
-        this.logger.error(`Failed to save realized gains: ${saveResult.error.message}`);
+        this.logger.error(
+          `Failed to save realized gains: ${saveResult.error.message}`,
+        );
         return;
       }
 
       this.logger.log(
-        `Calculated realized gains: ${gainsResult.value.totalRealizedGain} for ${event.quantity} ${event.asset}`
+        `Calculated realized gains: ${gainsResult.value.totalRealizedGain} for ${event.quantity} ${event.asset}`,
       );
     } catch (error) {
-      this.logger.error(`Error processing asset disposal event: ${error.message}`, error);
+      this.logger.error(
+        `Error processing asset disposal event: ${error.message}`,
+        error,
+      );
     }
   }
 
@@ -2111,7 +2436,7 @@ export class EnhancedPortfolioValuationService extends PortfolioValuationService
     realTimePriceProvider: IRealTimePriceProvider,
     portfolioCache: IPortfolioCache,
     private readonly taxLotRepository: ITaxLotRepository,
-    logger: LoggerService
+    logger: LoggerService,
   ) {
     super(balanceCalculator, realTimePriceProvider, portfolioCache, logger);
   }
@@ -2119,10 +2444,14 @@ export class EnhancedPortfolioValuationService extends PortfolioValuationService
   async calculatePortfolioSnapshot(
     userId: string,
     baseCurrency: string = 'USD',
-    options?: PortfolioOptions
+    options?: PortfolioOptions,
   ): Promise<Result<PortfolioSnapshot, PortfolioError>> {
     // Get base portfolio snapshot from parent
-    const baseSnapshotResult = await super.calculatePortfolioSnapshot(userId, baseCurrency, options);
+    const baseSnapshotResult = await super.calculatePortfolioSnapshot(
+      userId,
+      baseCurrency,
+      options,
+    );
 
     if (baseSnapshotResult.isErr()) {
       return baseSnapshotResult;
@@ -2131,7 +2460,11 @@ export class EnhancedPortfolioValuationService extends PortfolioValuationService
     const baseSnapshot = baseSnapshotResult.value;
 
     // Enhance with cost basis information
-    const enhancedHoldings = await this.enhanceHoldingsWithCostBasis(userId, baseSnapshot.holdings, baseCurrency);
+    const enhancedHoldings = await this.enhanceHoldingsWithCostBasis(
+      userId,
+      baseSnapshot.holdings,
+      baseCurrency,
+    );
 
     // Calculate total cost basis and unrealized gains
     let totalCostBasis = Money.zero(baseCurrency, 2).unwrap();
@@ -2139,7 +2472,9 @@ export class EnhancedPortfolioValuationService extends PortfolioValuationService
 
     for (const holding of enhancedHoldings) {
       totalCostBasis = totalCostBasis.add(holding.costBasis).unwrap();
-      totalUnrealizedGain = totalUnrealizedGain.add(holding.unrealizedGain).unwrap();
+      totalUnrealizedGain = totalUnrealizedGain
+        .add(holding.unrealizedGain)
+        .unwrap();
     }
 
     const enhancedSnapshot: PortfolioSnapshot = {
@@ -2160,13 +2495,17 @@ export class EnhancedPortfolioValuationService extends PortfolioValuationService
   private async enhanceHoldingsWithCostBasis(
     userId: string,
     holdings: Holding[],
-    baseCurrency: string
+    baseCurrency: string,
   ): Promise<Holding[]> {
     const enhancedHoldings: Holding[] = [];
 
     for (const holding of holdings) {
       // Get tax lots for this asset
-      const lotsResult = await this.taxLotRepository.findAvailableLots(userId, holding.asset.ticker, new Date());
+      const lotsResult = await this.taxLotRepository.findAvailableLots(
+        userId,
+        holding.asset.ticker,
+        new Date(),
+      );
 
       if (lotsResult.isErr()) {
         // If we can't get cost basis, use original holding
@@ -2181,23 +2520,33 @@ export class EnhancedPortfolioValuationService extends PortfolioValuationService
 
       for (const lot of lots) {
         // Convert lot's cost basis to base currency if needed
-        const lotCostBasis = await this.convertToBaseCurrency(lot.costBasisSnapshot.totalValue, baseCurrency);
+        const lotCostBasis = await this.convertToBaseCurrency(
+          lot.costBasisSnapshot.totalValue,
+          baseCurrency,
+        );
 
         if (lotCostBasis.isOk()) {
           // Calculate remaining cost basis for this lot
-          const remainingRatio = lot.remainingQuantity.toDecimal() / lot.originalQuantity.toDecimal();
-          const remainingCostBasis = lotCostBasis.value.multiply(remainingRatio.toString()).unwrap();
+          const remainingRatio =
+            lot.remainingQuantity.toDecimal() /
+            lot.originalQuantity.toDecimal();
+          const remainingCostBasis = lotCostBasis.value
+            .multiply(remainingRatio.toString())
+            .unwrap();
           totalCostBasis = totalCostBasis.add(remainingCostBasis).unwrap();
         }
       }
 
       // Calculate unrealized gain/loss
-      const unrealizedGain = holding.currentValue.subtract(totalCostBasis).unwrap();
+      const unrealizedGain = holding.currentValue
+        .subtract(totalCostBasis)
+        .unwrap();
 
       // Calculate gain/loss percentage
       let gainLossPercentage = 0;
       if (!totalCostBasis.isZero()) {
-        gainLossPercentage = (unrealizedGain.toDecimal() / totalCostBasis.toDecimal()) * 100;
+        gainLossPercentage =
+          (unrealizedGain.toDecimal() / totalCostBasis.toDecimal()) * 100;
       }
 
       const enhancedHolding: Holding = {
@@ -2213,7 +2562,10 @@ export class EnhancedPortfolioValuationService extends PortfolioValuationService
     return enhancedHoldings;
   }
 
-  private async convertToBaseCurrency(amount: Money, baseCurrency: string): Promise<Result<Money, PortfolioError>> {
+  private async convertToBaseCurrency(
+    amount: Money,
+    baseCurrency: string,
+  ): Promise<Result<Money, PortfolioError>> {
     if (amount.currency === baseCurrency) {
       return ok(amount);
     }
@@ -2284,11 +2636,14 @@ export class EnhancedPortfolioValuationService extends PortfolioValuationService
 // libs/core/src/services/transaction-classifier.service.ts
 @Injectable()
 export class TransactionClassifierService {
-  private readonly classificationRules = new Map<string, ClassificationRule[]>();
+  private readonly classificationRules = new Map<
+    string,
+    ClassificationRule[]
+  >();
 
   constructor(
     private readonly contractRegistry: IContractRegistry,
-    private readonly logger: LoggerService
+    private readonly logger: LoggerService,
   ) {
     this.initializeClassificationRules();
   }
@@ -2297,14 +2652,17 @@ export class TransactionClassifierService {
    * Classify a raw blockchain transaction into business-meaningful categories
    */
   async classifyTransaction(
-    rawTransaction: RawBlockchainTransaction
+    rawTransaction: RawBlockchainTransaction,
   ): Promise<Result<ClassifiedTransaction, ClassificationError>> {
     try {
       // Extract transaction features for classification
       const features = await this.extractTransactionFeatures(rawTransaction);
 
       // Apply classification rules in priority order
-      const classificationResult = await this.applyClassificationRules(features, rawTransaction);
+      const classificationResult = await this.applyClassificationRules(
+        features,
+        rawTransaction,
+      );
 
       if (classificationResult.isErr()) {
         return err(classificationResult.error);
@@ -2313,13 +2671,23 @@ export class TransactionClassifierService {
       const classification = classificationResult.value;
 
       // Enhance with additional metadata
-      const enhancedClassification = await this.enhanceClassification(classification, rawTransaction, features);
+      const enhancedClassification = await this.enhanceClassification(
+        classification,
+        rawTransaction,
+        features,
+      );
 
-      this.logger.log(`Classified transaction ${rawTransaction.hash} as ${classification.type}`);
+      this.logger.log(
+        `Classified transaction ${rawTransaction.hash} as ${classification.type}`,
+      );
 
       return ok(enhancedClassification);
     } catch (error) {
-      return err(new ClassificationError(`Failed to classify transaction: ${error.message}`));
+      return err(
+        new ClassificationError(
+          `Failed to classify transaction: ${error.message}`,
+        ),
+      );
     }
   }
 
@@ -2327,20 +2695,23 @@ export class TransactionClassifierService {
    * Batch classify multiple transactions with optimization
    */
   async classifyTransactions(
-    rawTransactions: RawBlockchainTransaction[]
+    rawTransactions: RawBlockchainTransaction[],
   ): Promise<Result<ClassifiedTransaction[], ClassificationError>> {
     const results: ClassifiedTransaction[] = [];
     const errors: ClassificationError[] = [];
 
     // Group transactions by contract address for batch processing
-    const transactionsByContract = this.groupTransactionsByContract(rawTransactions);
+    const transactionsByContract =
+      this.groupTransactionsByContract(rawTransactions);
 
     for (const [contractAddress, transactions] of transactionsByContract) {
       // Get contract information once per batch
-      const contractInfo = await this.contractRegistry.getContractInfo(contractAddress);
+      const contractInfo =
+        await this.contractRegistry.getContractInfo(contractAddress);
 
       for (const transaction of transactions) {
-        const classificationResult = await this.classifyTransaction(transaction);
+        const classificationResult =
+          await this.classifyTransaction(transaction);
 
         if (classificationResult.isOk()) {
           results.push(classificationResult.value);
@@ -2357,14 +2728,16 @@ export class TransactionClassifierService {
     return ok(results);
   }
 
-  private async extractTransactionFeatures(rawTransaction: RawBlockchainTransaction): Promise<TransactionFeatures> {
+  private async extractTransactionFeatures(
+    rawTransaction: RawBlockchainTransaction,
+  ): Promise<TransactionFeatures> {
     const features: TransactionFeatures = {
       contractAddress: rawTransaction.to?.toLowerCase(),
       methodSignature: rawTransaction.input?.slice(0, 10), // First 4 bytes
       tokenTransfers: await this.extractTokenTransfers(rawTransaction),
       ethValue: rawTransaction.value,
       gasUsed: rawTransaction.gasUsed,
-      logTopics: rawTransaction.logs?.map(log => log.topics).flat() || [],
+      logTopics: rawTransaction.logs?.map((log) => log.topics).flat() || [],
       timestamp: rawTransaction.timestamp,
     };
 
@@ -2373,11 +2746,13 @@ export class TransactionClassifierService {
 
   private async applyClassificationRules(
     features: TransactionFeatures,
-    rawTransaction: RawBlockchainTransaction
+    rawTransaction: RawBlockchainTransaction,
   ): Promise<Result<TransactionClassification, ClassificationError>> {
     // Check contract-specific rules first (highest priority)
     if (features.contractAddress) {
-      const contractRules = this.classificationRules.get(features.contractAddress);
+      const contractRules = this.classificationRules.get(
+        features.contractAddress,
+      );
       if (contractRules) {
         for (const rule of contractRules) {
           const matchResult = await rule.matches(features, rawTransaction);
@@ -2390,7 +2765,9 @@ export class TransactionClassifierService {
 
     // Apply method signature rules (medium priority)
     if (features.methodSignature) {
-      const methodRules = this.classificationRules.get(features.methodSignature);
+      const methodRules = this.classificationRules.get(
+        features.methodSignature,
+      );
       if (methodRules) {
         for (const rule of methodRules) {
           const matchResult = await rule.matches(features, rawTransaction);
@@ -2420,57 +2797,57 @@ export class TransactionClassifierService {
     // Uniswap V2/V3 Rules
     this.addClassificationRule(
       '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D', // Uniswap V2 Router
-      new UniswapV2SwapRule()
+      new UniswapV2SwapRule(),
     );
 
     this.addClassificationRule(
       '0xE592427A0AEce92De3Edee1F18E0157C05861564', // Uniswap V3 Router
-      new UniswapV3SwapRule()
+      new UniswapV3SwapRule(),
     );
 
     // Method signature rules
     this.addClassificationRule(
       '0x38ed1739', // swapExactTokensForTokens
-      new GenericSwapRule('DEX_SWAP', 'Token swap via DEX')
+      new GenericSwapRule('DEX_SWAP', 'Token swap via DEX'),
     );
 
     this.addClassificationRule(
       '0xe8e33700', // addLiquidity
-      new LiquidityAddRule()
+      new LiquidityAddRule(),
     );
 
     this.addClassificationRule(
       '0xbaa2abde', // removeLiquidity
-      new LiquidityRemoveRule()
+      new LiquidityRemoveRule(),
     );
 
     // Aave Protocol Rules
     this.addClassificationRule(
       '0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9', // Aave V2 LendingPool
-      new AaveLendingRule()
+      new AaveLendingRule(),
     );
 
     // Compound Protocol Rules
     this.addClassificationRule(
       '0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B', // Compound Comptroller
-      new CompoundRule()
+      new CompoundRule(),
     );
 
     // NFT Marketplace Rules (OpenSea, LooksRare, etc.)
     this.addClassificationRule(
       '0x7Be8076f4EA4A4AD08075C2508e481d6C946D12b', // OpenSea
-      new NFTTradeRule('OPENSEA')
+      new NFTTradeRule('OPENSEA'),
     );
 
     this.addClassificationRule(
       '0x59728544B08AB483533076417FbBB2fD0B17CE3a', // LooksRare
-      new NFTTradeRule('LOOKSRARE')
+      new NFTTradeRule('LOOKSRARE'),
     );
 
     // Staking Rules (ETH 2.0, protocols)
     this.addClassificationRule(
       '0x00000000219ab540356cBB839Cbe05303d7705Fa', // ETH 2.0 Deposit
-      new ETH2StakingRule()
+      new ETH2StakingRule(),
     );
 
     // General pattern rules
@@ -2479,19 +2856,25 @@ export class TransactionClassifierService {
     this.addClassificationRule('*', new ContractCreationRule());
   }
 
-  private addClassificationRule(identifier: string, rule: ClassificationRule): void {
+  private addClassificationRule(
+    identifier: string,
+    rule: ClassificationRule,
+  ): void {
     if (!this.classificationRules.has(identifier)) {
       this.classificationRules.set(identifier, []);
     }
     this.classificationRules.get(identifier)!.push(rule);
   }
 
-  private async extractTokenTransfers(rawTransaction: RawBlockchainTransaction): Promise<TokenTransfer[]> {
+  private async extractTokenTransfers(
+    rawTransaction: RawBlockchainTransaction,
+  ): Promise<TokenTransfer[]> {
     const transfers: TokenTransfer[] = [];
 
     if (!rawTransaction.logs) return transfers;
 
-    const transferTopic = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'; // Transfer(address,address,uint256)
+    const transferTopic =
+      '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'; // Transfer(address,address,uint256)
 
     for (const log of rawTransaction.logs) {
       if (log.topics[0] === transferTopic && log.topics.length >= 3) {
@@ -2516,7 +2899,7 @@ export class TransactionClassifierService {
 
   private createDefaultClassification(
     features: TransactionFeatures,
-    rawTransaction: RawBlockchainTransaction
+    rawTransaction: RawBlockchainTransaction,
   ): TransactionClassification {
     // Default classification logic based on basic transaction properties
     if (features.tokenTransfers.length > 0) {
@@ -2525,7 +2908,7 @@ export class TransactionClassifierService {
         subType: 'ERC20_TRANSFER',
         confidence: 0.7,
         description: 'Token transfer transaction',
-        involvedAssets: features.tokenTransfers.map(t => t.tokenSymbol),
+        involvedAssets: features.tokenTransfers.map((t) => t.tokenSymbol),
         metadata: {
           tokenTransfers: features.tokenTransfers,
         },
@@ -2556,7 +2939,7 @@ export class TransactionClassifierService {
   }
 
   private groupTransactionsByContract(
-    transactions: RawBlockchainTransaction[]
+    transactions: RawBlockchainTransaction[],
   ): Map<string, RawBlockchainTransaction[]> {
     const grouped = new Map<string, RawBlockchainTransaction[]>();
 
@@ -2574,7 +2957,7 @@ export class TransactionClassifierService {
   private async enhanceClassification(
     classification: TransactionClassification,
     rawTransaction: RawBlockchainTransaction,
-    features: TransactionFeatures
+    features: TransactionFeatures,
   ): Promise<ClassifiedTransaction> {
     // Add protocol information if available
     const protocolInfo = await this.identifyProtocol(features.contractAddress);
@@ -2590,10 +2973,13 @@ export class TransactionClassifierService {
     };
   }
 
-  private async identifyProtocol(contractAddress?: string): Promise<ProtocolInfo | null> {
+  private async identifyProtocol(
+    contractAddress?: string,
+  ): Promise<ProtocolInfo | null> {
     if (!contractAddress) return null;
 
-    const contractInfo = await this.contractRegistry.getContractInfo(contractAddress);
+    const contractInfo =
+      await this.contractRegistry.getContractInfo(contractAddress);
     if (!contractInfo) return null;
 
     return {
@@ -2645,7 +3031,13 @@ export interface ClassifiedTransaction extends TransactionClassification {
 export interface ProtocolInfo {
   name: string;
   version?: string;
-  category: 'DEX' | 'LENDING' | 'NFT_MARKETPLACE' | 'STAKING' | 'BRIDGE' | 'OTHER';
+  category:
+    | 'DEX'
+    | 'LENDING'
+    | 'NFT_MARKETPLACE'
+    | 'STAKING'
+    | 'BRIDGE'
+    | 'OTHER';
   website?: string;
 }
 
@@ -2653,10 +3045,13 @@ export interface ProtocolInfo {
 export abstract class ClassificationRule {
   abstract matches(
     features: TransactionFeatures,
-    rawTransaction: RawBlockchainTransaction
+    rawTransaction: RawBlockchainTransaction,
   ): Promise<Result<boolean, ClassificationError>>;
 
-  abstract classify(features: TransactionFeatures, rawTransaction: RawBlockchainTransaction): TransactionClassification;
+  abstract classify(
+    features: TransactionFeatures,
+    rawTransaction: RawBlockchainTransaction,
+  ): TransactionClassification;
 }
 ```
 
@@ -2669,7 +3064,7 @@ export abstract class ClassificationRule {
 export class UniswapV2SwapRule extends ClassificationRule {
   async matches(
     features: TransactionFeatures,
-    rawTransaction: RawBlockchainTransaction
+    rawTransaction: RawBlockchainTransaction,
   ): Promise<Result<boolean, ClassificationError>> {
     // Check for Uniswap V2 swap signatures
     const swapSignatures = [
@@ -2685,7 +3080,10 @@ export class UniswapV2SwapRule extends ClassificationRule {
     return ok(isSwap && hasTokenTransfers);
   }
 
-  classify(features: TransactionFeatures, rawTransaction: RawBlockchainTransaction): TransactionClassification {
+  classify(
+    features: TransactionFeatures,
+    rawTransaction: RawBlockchainTransaction,
+  ): TransactionClassification {
     const inputToken = this.identifyInputToken(features);
     const outputToken = this.identifyOutputToken(features);
 
@@ -2707,7 +3105,9 @@ export class UniswapV2SwapRule extends ClassificationRule {
   private identifyInputToken(features: TransactionFeatures): TokenInfo {
     // Logic to identify input token from token transfers
     const transfers = features.tokenTransfers;
-    const inputTransfer = transfers.find(t => t.from.toLowerCase() === rawTransaction.from?.toLowerCase());
+    const inputTransfer = transfers.find(
+      (t) => t.from.toLowerCase() === rawTransaction.from?.toLowerCase(),
+    );
 
     return {
       address: inputTransfer?.contractAddress || 'ETH',
@@ -2719,7 +3119,9 @@ export class UniswapV2SwapRule extends ClassificationRule {
   private identifyOutputToken(features: TransactionFeatures): TokenInfo {
     // Logic to identify output token from token transfers
     const transfers = features.tokenTransfers;
-    const outputTransfer = transfers.find(t => t.to.toLowerCase() === rawTransaction.from?.toLowerCase());
+    const outputTransfer = transfers.find(
+      (t) => t.to.toLowerCase() === rawTransaction.from?.toLowerCase(),
+    );
 
     return {
       address: outputTransfer?.contractAddress || 'ETH',
@@ -2738,22 +3140,29 @@ export class UniswapV2SwapRule extends ClassificationRule {
 export class LiquidityAddRule extends ClassificationRule {
   async matches(
     features: TransactionFeatures,
-    rawTransaction: RawBlockchainTransaction
+    rawTransaction: RawBlockchainTransaction,
   ): Promise<Result<boolean, ClassificationError>> {
     const addLiquiditySignatures = [
       '0xe8e33700', // addLiquidity
       '0xf305d719', // addLiquidityETH
     ];
 
-    const isAddLiquidity = addLiquiditySignatures.includes(features.methodSignature || '');
+    const isAddLiquidity = addLiquiditySignatures.includes(
+      features.methodSignature || '',
+    );
     const hasLPTokenMint = features.tokenTransfers.some(
-      t => t.to.toLowerCase() === rawTransaction.from?.toLowerCase() && this.isLPToken(t.contractAddress)
+      (t) =>
+        t.to.toLowerCase() === rawTransaction.from?.toLowerCase() &&
+        this.isLPToken(t.contractAddress),
     );
 
     return ok(isAddLiquidity && hasLPTokenMint);
   }
 
-  classify(features: TransactionFeatures, rawTransaction: RawBlockchainTransaction): TransactionClassification {
+  classify(
+    features: TransactionFeatures,
+    rawTransaction: RawBlockchainTransaction,
+  ): TransactionClassification {
     const lpToken = this.identifyLPToken(features);
     const providedTokens = this.identifyProvidedTokens(features);
 
@@ -2761,8 +3170,8 @@ export class LiquidityAddRule extends ClassificationRule {
       type: 'LIQUIDITY_ADD',
       subType: 'UNISWAP_V2_ADD',
       confidence: 0.9,
-      description: `Add liquidity to ${providedTokens.map(t => t.symbol).join('/')} pool`,
-      involvedAssets: [...providedTokens.map(t => t.symbol), lpToken.symbol],
+      description: `Add liquidity to ${providedTokens.map((t) => t.symbol).join('/')} pool`,
+      involvedAssets: [...providedTokens.map((t) => t.symbol), lpToken.symbol],
       metadata: {
         protocol: 'Uniswap V2',
         lpToken,
@@ -2780,7 +3189,9 @@ export class LiquidityAddRule extends ClassificationRule {
 
   private identifyLPToken(features: TransactionFeatures): TokenInfo {
     const lpTransfer = features.tokenTransfers.find(
-      t => t.to.toLowerCase() === rawTransaction.from?.toLowerCase() && this.isLPToken(t.contractAddress)
+      (t) =>
+        t.to.toLowerCase() === rawTransaction.from?.toLowerCase() &&
+        this.isLPToken(t.contractAddress),
     );
 
     return {
@@ -2792,9 +3203,11 @@ export class LiquidityAddRule extends ClassificationRule {
 
   private identifyProvidedTokens(features: TransactionFeatures): TokenInfo[] {
     return features.tokenTransfers
-      .filter(t => t.from.toLowerCase() === rawTransaction.from?.toLowerCase())
-      .filter(t => !this.isLPToken(t.contractAddress))
-      .map(t => ({
+      .filter(
+        (t) => t.from.toLowerCase() === rawTransaction.from?.toLowerCase(),
+      )
+      .filter((t) => !this.isLPToken(t.contractAddress))
+      .map((t) => ({
         address: t.contractAddress,
         symbol: t.tokenSymbol,
         amount: t.value.toString(),
@@ -2814,17 +3227,22 @@ export class NFTTradeRule extends ClassificationRule {
 
   async matches(
     features: TransactionFeatures,
-    rawTransaction: RawBlockchainTransaction
+    rawTransaction: RawBlockchainTransaction,
   ): Promise<Result<boolean, ClassificationError>> {
-    const nftTransferTopic = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+    const nftTransferTopic =
+      '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
     const hasNFTTransfer = features.logTopics.includes(nftTransferTopic);
     const hasPayment =
-      features.tokenTransfers.length > 0 || (rawTransaction.value && BigInt(rawTransaction.value) > 0n);
+      features.tokenTransfers.length > 0 ||
+      (rawTransaction.value && BigInt(rawTransaction.value) > 0n);
 
     return ok(hasNFTTransfer && hasPayment);
   }
 
-  classify(features: TransactionFeatures, rawTransaction: RawBlockchainTransaction): TransactionClassification {
+  classify(
+    features: TransactionFeatures,
+    rawTransaction: RawBlockchainTransaction,
+  ): TransactionClassification {
     const nftInfo = this.identifyNFTTransfer(features, rawTransaction);
     const paymentInfo = this.identifyPayment(features, rawTransaction);
 
@@ -2843,15 +3261,20 @@ export class NFTTradeRule extends ClassificationRule {
     };
   }
 
-  private identifyNFTTransfer(features: TransactionFeatures, rawTransaction: RawBlockchainTransaction): NFTInfo {
+  private identifyNFTTransfer(
+    features: TransactionFeatures,
+    rawTransaction: RawBlockchainTransaction,
+  ): NFTInfo {
     // Parse NFT transfer from logs
     const transferLogs =
       rawTransaction.logs?.filter(
-        log => log.topics[0] === '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
+        (log) =>
+          log.topics[0] ===
+          '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef',
       ) || [];
 
     const nftTransfer = transferLogs.find(
-      log => log.topics.length === 4 // ERC-721 has 3 indexed topics + event signature
+      (log) => log.topics.length === 4, // ERC-721 has 3 indexed topics + event signature
     );
 
     if (!nftTransfer) {
@@ -2871,7 +3294,10 @@ export class NFTTradeRule extends ClassificationRule {
     };
   }
 
-  private identifyPayment(features: TransactionFeatures, rawTransaction: RawBlockchainTransaction): PaymentInfo {
+  private identifyPayment(
+    features: TransactionFeatures,
+    rawTransaction: RawBlockchainTransaction,
+  ): PaymentInfo {
     // Check for ETH payment
     if (rawTransaction.value && BigInt(rawTransaction.value) > 0n) {
       return {
@@ -2883,7 +3309,7 @@ export class NFTTradeRule extends ClassificationRule {
 
     // Check for ERC-20 payment (WETH, USDC, etc.)
     const paymentTransfer = features.tokenTransfers.find(
-      t => t.from.toLowerCase() === rawTransaction.from?.toLowerCase()
+      (t) => t.from.toLowerCase() === rawTransaction.from?.toLowerCase(),
     );
 
     if (paymentTransfer) {
@@ -2903,7 +3329,7 @@ export class NFTTradeRule extends ClassificationRule {
 
   private identifyTradeType(
     features: TransactionFeatures,
-    rawTransaction: RawBlockchainTransaction
+    rawTransaction: RawBlockchainTransaction,
   ): 'PURCHASE' | 'SALE' | 'AUCTION' | 'OFFER_ACCEPTED' {
     // Simplified logic - would need marketplace-specific analysis
     return 'PURCHASE';
@@ -2963,12 +3389,25 @@ export class NFTCurrency extends Currency {
     private readonly _tokenStandard: NFTStandard,
     private readonly _metadata: NFTMetadata,
     createdAt: Date,
-    updatedAt: Date
+    updatedAt: Date,
   ) {
-    super(id, ticker, name, decimals, assetClass, network, contractAddress, isNative, createdAt, updatedAt);
+    super(
+      id,
+      ticker,
+      name,
+      decimals,
+      assetClass,
+      network,
+      contractAddress,
+      isNative,
+      createdAt,
+      updatedAt,
+    );
   }
 
-  static createNFT(data: CreateNFTCurrencyData): Result<NFTCurrency, CurrencyError> {
+  static createNFT(
+    data: CreateNFTCurrencyData,
+  ): Result<NFTCurrency, CurrencyError> {
     // NFTs always have 0 decimals (they are indivisible)
     if (data.decimals !== 0) {
       return err(new InvalidDecimalsError('NFTs must have 0 decimals'));
@@ -2994,7 +3433,7 @@ export class NFTCurrency extends Currency {
       data.tokenStandard,
       data.metadata,
       now,
-      now
+      now,
     );
 
     return ok(nftCurrency);
@@ -3028,7 +3467,10 @@ export class NFTCurrency extends Currency {
    * Check if this NFT belongs to the same collection as another
    */
   isSameCollection(other: NFTCurrency): boolean {
-    return this._collectionAddress.toLowerCase() === other._collectionAddress.toLowerCase();
+    return (
+      this._collectionAddress.toLowerCase() ===
+      other._collectionAddress.toLowerCase()
+    );
   }
 }
 
@@ -3083,19 +3525,36 @@ export class LPTokenCurrency extends Currency {
     private readonly _poolType: PoolType,
     private readonly _feeRate: number,
     createdAt: Date,
-    updatedAt: Date
+    updatedAt: Date,
   ) {
-    super(id, ticker, name, decimals, assetClass, network, contractAddress, isNative, createdAt, updatedAt);
+    super(
+      id,
+      ticker,
+      name,
+      decimals,
+      assetClass,
+      network,
+      contractAddress,
+      isNative,
+      createdAt,
+      updatedAt,
+    );
   }
 
-  static createLPToken(data: CreateLPTokenData): Result<LPTokenCurrency, CurrencyError> {
+  static createLPToken(
+    data: CreateLPTokenData,
+  ): Result<LPTokenCurrency, CurrencyError> {
     // Validate underlying tokens
     if (data.underlyingTokens.length < 2) {
-      return err(new InvalidLPTokenError('LP tokens must have at least 2 underlying tokens'));
+      return err(
+        new InvalidLPTokenError(
+          'LP tokens must have at least 2 underlying tokens',
+        ),
+      );
     }
 
     // Create descriptive ticker: PROTOCOL-TOKEN1/TOKEN2-LP
-    const tokenSymbols = data.underlyingTokens.map(t => t.symbol).join('/');
+    const tokenSymbols = data.underlyingTokens.map((t) => t.symbol).join('/');
     const ticker = `${data.protocol.toUpperCase()}-${tokenSymbols}-LP`;
     const name = `${data.protocol} ${tokenSymbols} LP Token`;
 
@@ -3115,7 +3574,7 @@ export class LPTokenCurrency extends Currency {
       data.poolType,
       data.feeRate,
       now,
-      now
+      now,
     );
 
     return ok(lpToken);
@@ -3144,7 +3603,7 @@ export class LPTokenCurrency extends Currency {
   async calculateLPTokenValue(
     lpTokenQuantity: Money,
     underlyingReserves: Map<string, Money>,
-    priceProvider: IRealTimePriceProvider
+    priceProvider: IRealTimePriceProvider,
   ): Promise<Result<Money, LPTokenError>> {
     try {
       // Get total supply of LP tokens
@@ -3161,13 +3620,18 @@ export class LPTokenCurrency extends Currency {
         if (!reserve) continue;
 
         const userShare = reserve.multiply(sharePercentage.toString()).unwrap();
-        const priceResult = await priceProvider.fetchPrices([underlyingToken.symbol], 'USD');
+        const priceResult = await priceProvider.fetchPrices(
+          [underlyingToken.symbol],
+          'USD',
+        );
 
         if (priceResult.isOk()) {
           const prices = priceResult.value;
           const tokenPrice = prices.get(underlyingToken.symbol);
           if (tokenPrice) {
-            const tokenValue = userShare.multiply(tokenPrice.price.toFixedString()).unwrap();
+            const tokenValue = userShare
+              .multiply(tokenPrice.price.toFixedString())
+              .unwrap();
             totalValue = totalValue.add(tokenValue).unwrap();
           }
         }
@@ -3175,7 +3639,11 @@ export class LPTokenCurrency extends Currency {
 
       return ok(totalValue);
     } catch (error) {
-      return err(new LPTokenError(`Failed to calculate LP token value: ${error.message}`));
+      return err(
+        new LPTokenError(
+          `Failed to calculate LP token value: ${error.message}`,
+        ),
+      );
     }
   }
 
@@ -3220,17 +3688,19 @@ export class EnhancedAccountCreationService {
   constructor(
     private readonly currencyRepository: ICurrencyRepository,
     private readonly accountRepository: IAccountRepository,
-    private readonly nftMetadataService: INFTMetadataService
+    private readonly nftMetadataService: INFTMetadataService,
   ) {}
 
   /**
    * Create account with automatic type detection based on currency
    */
   async createAccountWithTypeDetection(
-    data: CreateAccountWithDetectionData
+    data: CreateAccountWithDetectionData,
   ): Promise<Result<Account, AccountCreationError>> {
     // Get currency information
-    const currencyResult = await this.currencyRepository.findByTicker(data.currencyTicker);
+    const currencyResult = await this.currencyRepository.findByTicker(
+      data.currencyTicker,
+    );
     if (currencyResult.isErr()) {
       return err(new CurrencyNotFoundError(data.currencyTicker));
     }
@@ -3238,7 +3708,11 @@ export class EnhancedAccountCreationService {
     const currency = currencyResult.value;
 
     // Determine appropriate account type based on currency and source
-    const accountType = await this.determineAccountType(currency, data.source, data.metadata);
+    const accountType = await this.determineAccountType(
+      currency,
+      data.source,
+      data.metadata,
+    );
 
     // Create account with determined type
     const accountData: CreateAccountData = {
@@ -3248,13 +3722,20 @@ export class EnhancedAccountCreationService {
 
     const accountResult = Account.create(accountData);
     if (accountResult.isErr()) {
-      return err(new AccountCreationError('Failed to create account', accountResult.error));
+      return err(
+        new AccountCreationError(
+          'Failed to create account',
+          accountResult.error,
+        ),
+      );
     }
 
     // Save account
     const saveResult = await this.accountRepository.save(accountResult.value);
     if (saveResult.isErr()) {
-      return err(new AccountCreationError('Failed to save account', saveResult.error));
+      return err(
+        new AccountCreationError('Failed to save account', saveResult.error),
+      );
     }
 
     return ok(accountResult.value);
@@ -3263,7 +3744,7 @@ export class EnhancedAccountCreationService {
   private async determineAccountType(
     currency: Currency,
     source: string,
-    metadata?: Record<string, unknown>
+    metadata?: Record<string, unknown>,
   ): Promise<AccountType> {
     // NFT-specific logic
     if (currency.assetClass === AssetClass.NFT) {
@@ -3294,12 +3775,29 @@ export class EnhancedAccountCreationService {
   }
 
   private isExchangeSource(source: string): boolean {
-    const exchanges = ['binance', 'coinbase', 'kraken', 'bybit', 'okx', 'huobi', 'kucoin', 'gate', 'bitget', 'mexc'];
+    const exchanges = [
+      'binance',
+      'coinbase',
+      'kraken',
+      'bybit',
+      'okx',
+      'huobi',
+      'kucoin',
+      'gate',
+      'bitget',
+      'mexc',
+    ];
     return exchanges.includes(source.toLowerCase());
   }
 
   private isStakingSource(source: string): boolean {
-    const stakingSources = ['eth2', 'beacon-chain', 'rocketpool', 'lido', 'stakewise'];
+    const stakingSources = [
+      'eth2',
+      'beacon-chain',
+      'rocketpool',
+      'lido',
+      'stakewise',
+    ];
     return stakingSources.includes(source.toLowerCase());
   }
 
@@ -3319,17 +3817,25 @@ export class EnhancedAccountCreationService {
     return defiProtocols.includes(source.toLowerCase());
   }
 
-  private getDeFiAccountType(source: string, currency: Currency, metadata?: Record<string, unknown>): AccountType {
+  private getDeFiAccountType(
+    source: string,
+    currency: Currency,
+    metadata?: Record<string, unknown>,
+  ): AccountType {
     const protocol = source.toLowerCase();
 
     // Lending protocols
     if (['aave', 'compound'].includes(protocol)) {
-      return metadata?.borrowed === true ? AccountType.LIABILITY_BORROWING : AccountType.ASSET_YIELD_BEARING;
+      return metadata?.borrowed === true
+        ? AccountType.LIABILITY_BORROWING
+        : AccountType.ASSET_YIELD_BEARING;
     }
 
     // DEX protocols
     if (['uniswap', 'sushiswap', 'curve', 'balancer'].includes(protocol)) {
-      return currency.assetClass === AssetClass.LP_TOKEN ? AccountType.ASSET_DEFI_LP : AccountType.ASSET_WALLET;
+      return currency.assetClass === AssetClass.LP_TOKEN
+        ? AccountType.ASSET_DEFI_LP
+        : AccountType.ASSET_WALLET;
     }
 
     // Yield farming protocols
@@ -3354,16 +3860,20 @@ export interface CreateAccountWithDetectionData {
 
 ### Success Criteria Phase 4
 
-- [ ] Transaction classifier correctly identifying major DeFi protocols (90%+ accuracy)
+- [ ] Transaction classifier correctly identifying major DeFi protocols (90%+
+      accuracy)
 - [ ] NFT and LP token currency models working with proper valuation
-- [ ] Enhanced account types properly assigned based on transaction classification
-- [ ] Support for complex multi-step DeFi transactions (swaps, liquidity provision)
+- [ ] Enhanced account types properly assigned based on transaction
+      classification
+- [ ] Support for complex multi-step DeFi transactions (swaps, liquidity
+      provision)
 - [ ] Integration with tax lot creation for DeFi acquisition events
 - [ ] Performance optimization for batch transaction classification
 
 ### Dependencies & Blockers
 
-- **Contract Registry**: Database of known DeFi protocol contracts and signatures
+- **Contract Registry**: Database of known DeFi protocol contracts and
+  signatures
 - **Token Metadata**: External services for NFT and token information
 - **Protocol Updates**: Keeping up with new DeFi protocols and contract changes
 - **Gas Optimization**: Efficient contract calls for metadata retrieval
@@ -3382,7 +3892,8 @@ export interface CreateAccountWithDetectionData {
 **Duration**: 3-4 weeks  
 **Priority**: High (User trust and data accuracy)  
 **Business Value**: High (User confidence and professional features)  
-**Technical Risk**: Medium (External API reliability, data reconciliation complexity)
+**Technical Risk**: Medium (External API reliability, data reconciliation
+complexity)
 
 ### Objectives
 
@@ -3414,7 +3925,7 @@ export class ReconciliationService {
     private readonly externalBalanceFetcher: IExternalBalanceFetcher,
     private readonly credentialsService: ICredentialsService,
     private readonly reconciliationRepository: IReconciliationRepository,
-    private readonly logger: LoggerService
+    private readonly logger: LoggerService,
   ) {}
 
   /**
@@ -3422,7 +3933,7 @@ export class ReconciliationService {
    */
   async performFullReconciliation(
     userId: string,
-    options?: ReconciliationOptions
+    options?: ReconciliationOptions,
   ): Promise<Result<ReconciliationReport, ReconciliationError>> {
     const startTime = Date.now();
 
@@ -3444,26 +3955,41 @@ export class ReconciliationService {
       const sourceReconciliations: SourceReconciliation[] = [];
 
       for (const [source, sourceAccounts] of accountsBySource) {
-        const sourceReconciliation = await this.reconcileSource(userId, source, sourceAccounts, options);
+        const sourceReconciliation = await this.reconcileSource(
+          userId,
+          source,
+          sourceAccounts,
+          options,
+        );
 
         if (sourceReconciliation.isOk()) {
           sourceReconciliations.push(sourceReconciliation.value);
         } else {
-          this.logger.warn(`Failed to reconcile source ${source}: ${sourceReconciliation.error.message}`);
+          this.logger.warn(
+            `Failed to reconcile source ${source}: ${sourceReconciliation.error.message}`,
+          );
         }
       }
 
       // Aggregate results
-      const report = this.aggregateReconciliationResults(userId, sourceReconciliations, Date.now() - startTime);
+      const report = this.aggregateReconciliationResults(
+        userId,
+        sourceReconciliations,
+        Date.now() - startTime,
+      );
 
       // Save reconciliation report
       await this.reconciliationRepository.saveReport(report);
 
-      this.logger.log(`Completed reconciliation for user ${userId} in ${Date.now() - startTime}ms`);
+      this.logger.log(
+        `Completed reconciliation for user ${userId} in ${Date.now() - startTime}ms`,
+      );
 
       return ok(report);
     } catch (error) {
-      return err(new ReconciliationError(`Reconciliation failed: ${error.message}`));
+      return err(
+        new ReconciliationError(`Reconciliation failed: ${error.message}`),
+      );
     }
   }
 
@@ -3474,14 +4000,21 @@ export class ReconciliationService {
     userId: string,
     source: string,
     accounts: ReconciliationAccount[],
-    options?: ReconciliationOptions
+    options?: ReconciliationOptions,
   ): Promise<Result<SourceReconciliation, ReconciliationError>> {
     try {
       // Calculate internal balances
-      const internalBalances = await this.calculateInternalBalances(userId, accounts);
+      const internalBalances = await this.calculateInternalBalances(
+        userId,
+        accounts,
+      );
 
       // Fetch external balances
-      const externalBalancesResult = await this.fetchExternalBalances(userId, source, accounts);
+      const externalBalancesResult = await this.fetchExternalBalances(
+        userId,
+        source,
+        accounts,
+      );
       if (externalBalancesResult.isErr()) {
         return err(externalBalancesResult.error);
       }
@@ -3492,11 +4025,12 @@ export class ReconciliationService {
       const discrepancies = this.identifyDiscrepancies(
         internalBalances,
         externalBalances,
-        options?.toleranceThreshold || 0.001 // 0.1% default tolerance
+        options?.toleranceThreshold || 0.001, // 0.1% default tolerance
       );
 
       // Categorize discrepancies by severity
-      const { critical, warnings, minor } = this.categorizeDiscrepancies(discrepancies);
+      const { critical, warnings, minor } =
+        this.categorizeDiscrepancies(discrepancies);
 
       const sourceReconciliation: SourceReconciliation = {
         source,
@@ -3507,59 +4041,89 @@ export class ReconciliationService {
         criticalDiscrepancies: critical,
         warningDiscrepancies: warnings,
         minorDiscrepancies: minor,
-        overallStatus: critical.length > 0 ? 'CRITICAL' : warnings.length > 0 ? 'WARNING' : 'MATCHED',
+        overallStatus:
+          critical.length > 0
+            ? 'CRITICAL'
+            : warnings.length > 0
+              ? 'WARNING'
+              : 'MATCHED',
         externalBalancesFetched: externalBalances.size,
         fetchDurationMs: 0, // Would be tracked from actual fetch
       };
 
       return ok(sourceReconciliation);
     } catch (error) {
-      return err(new ReconciliationError(`Source reconciliation failed for ${source}: ${error.message}`));
+      return err(
+        new ReconciliationError(
+          `Source reconciliation failed for ${source}: ${error.message}`,
+        ),
+      );
     }
   }
 
   private async fetchExternalBalances(
     userId: string,
     source: string,
-    accounts: ReconciliationAccount[]
+    accounts: ReconciliationAccount[],
   ): Promise<Result<Map<string, Money>, ReconciliationError>> {
     // Get credentials for this source
-    const credentialsResult = await this.credentialsService.getCredentialHandle(userId, source);
+    const credentialsResult = await this.credentialsService.getCredentialHandle(
+      userId,
+      source,
+    );
     if (credentialsResult.isErr()) {
-      return err(new ReconciliationError(`No credentials found for source ${source}`));
+      return err(
+        new ReconciliationError(`No credentials found for source ${source}`),
+      );
     }
 
     const credentialHandle = credentialsResult.value;
 
     // Use credentials service's secure execution pattern
-    return this.credentialsService.executeWithCredentials(credentialHandle, async credentials => {
-      return this.externalBalanceFetcher.fetchBalances(source, credentials, accounts);
-    });
+    return this.credentialsService.executeWithCredentials(
+      credentialHandle,
+      async (credentials) => {
+        return this.externalBalanceFetcher.fetchBalances(
+          source,
+          credentials,
+          accounts,
+        );
+      },
+    );
   }
 
-  private calculateInternalBalances(userId: string, accounts: ReconciliationAccount[]): Promise<Map<string, Money>> {
-    const balancePromises = accounts.map(async account => {
+  private calculateInternalBalances(
+    userId: string,
+    accounts: ReconciliationAccount[],
+  ): Promise<Map<string, Money>> {
+    const balancePromises = accounts.map(async (account) => {
       const balanceResult = await this.balanceCalculator.calculateAssetBalance(
         userId,
         account.currencyTicker,
         [account],
-        { asOfTimestamp: new Date() }
+        { asOfTimestamp: new Date() },
       );
 
       if (balanceResult.isOk()) {
-        return [account.currencyTicker, balanceResult.value.totalQuantity] as [string, Money];
+        return [account.currencyTicker, balanceResult.value.totalQuantity] as [
+          string,
+          Money,
+        ];
       }
 
-      return [account.currencyTicker, Money.zero(account.currencyTicker, 8).unwrap()] as [string, Money];
+      return [
+        account.currencyTicker,
+        Money.zero(account.currencyTicker, 8).unwrap(),
+      ] as [string, Money];
     });
 
-    return Promise.all(balancePromises).then(results => new Map(results));
+    return Promise.all(balancePromises).then((results) => new Map(results));
   }
 
   private identifyDiscrepancies(
     internalBalances: Map<string, Money>,
     externalBalances: Map<string, Money>,
-    toleranceThreshold: number
+    toleranceThreshold: number,
   ): BalanceDiscrepancy[] {
     const discrepancies: BalanceDiscrepancy[] = [];
 
@@ -3582,8 +4146,14 @@ export class ReconciliationService {
       }
 
       // Calculate discrepancy
-      const discrepancyAmount = internalBalance.subtract(externalBalance).unwrap().abs();
-      const discrepancyPercentage = this.calculateDiscrepancyPercentage(internalBalance, externalBalance);
+      const discrepancyAmount = internalBalance
+        .subtract(externalBalance)
+        .unwrap()
+        .abs();
+      const discrepancyPercentage = this.calculateDiscrepancyPercentage(
+        internalBalance,
+        externalBalance,
+      );
 
       if (discrepancyPercentage > toleranceThreshold) {
         discrepancies.push({
@@ -3616,7 +4186,10 @@ export class ReconciliationService {
     return discrepancies;
   }
 
-  private calculateDiscrepancyPercentage(internal: Money, external: Money): number {
+  private calculateDiscrepancyPercentage(
+    internal: Money,
+    external: Money,
+  ): number {
     if (internal.isZero() && external.isZero()) {
       return 0;
     }
@@ -3631,7 +4204,9 @@ export class ReconciliationService {
     return (difference.toDecimal() / average.toDecimal()) * 100;
   }
 
-  private determineSeverity(discrepancyPercentage: number): 'MINOR' | 'WARNING' | 'CRITICAL' {
+  private determineSeverity(
+    discrepancyPercentage: number,
+  ): 'MINOR' | 'WARNING' | 'CRITICAL' {
     if (discrepancyPercentage > 10) return 'CRITICAL'; // >10% difference
     if (discrepancyPercentage > 1) return 'WARNING'; // >1% difference
     return 'MINOR'; // <1% difference
@@ -3643,22 +4218,31 @@ export class ReconciliationService {
     minor: BalanceDiscrepancy[];
   } {
     return {
-      critical: discrepancies.filter(d => d.severity === 'CRITICAL'),
-      warnings: discrepancies.filter(d => d.severity === 'WARNING'),
-      minor: discrepancies.filter(d => d.severity === 'MINOR'),
+      critical: discrepancies.filter((d) => d.severity === 'CRITICAL'),
+      warnings: discrepancies.filter((d) => d.severity === 'WARNING'),
+      minor: discrepancies.filter((d) => d.severity === 'MINOR'),
     };
   }
 
   private aggregateReconciliationResults(
     userId: string,
     sourceReconciliations: SourceReconciliation[],
-    durationMs: number
+    durationMs: number,
   ): ReconciliationReport {
-    const totalDiscrepancies = sourceReconciliations.reduce((sum, source) => sum + source.discrepancies.length, 0);
+    const totalDiscrepancies = sourceReconciliations.reduce(
+      (sum, source) => sum + source.discrepancies.length,
+      0,
+    );
 
-    const criticalCount = sourceReconciliations.reduce((sum, source) => sum + source.criticalDiscrepancies.length, 0);
+    const criticalCount = sourceReconciliations.reduce(
+      (sum, source) => sum + source.criticalDiscrepancies.length,
+      0,
+    );
 
-    const warningCount = sourceReconciliations.reduce((sum, source) => sum + source.warningDiscrepancies.length, 0);
+    const warningCount = sourceReconciliations.reduce(
+      (sum, source) => sum + source.warningDiscrepancies.length,
+      0,
+    );
 
     const overallStatus: ReconciliationStatus =
       criticalCount > 0 ? 'CRITICAL' : warningCount > 0 ? 'WARNING' : 'MATCHED';
@@ -3671,7 +4255,10 @@ export class ReconciliationService {
       sourceReconciliations,
       summary: {
         totalSources: sourceReconciliations.length,
-        totalAssets: sourceReconciliations.reduce((sum, s) => sum + s.totalAssets, 0),
+        totalAssets: sourceReconciliations.reduce(
+          (sum, s) => sum + s.totalAssets,
+          0,
+        ),
         totalDiscrepancies,
         criticalDiscrepancies: criticalCount,
         warningDiscrepancies: warningCount,
@@ -3681,7 +4268,9 @@ export class ReconciliationService {
     };
   }
 
-  private groupAccountsBySource(accounts: ReconciliationAccount[]): Map<string, ReconciliationAccount[]> {
+  private groupAccountsBySource(
+    accounts: ReconciliationAccount[],
+  ): Map<string, ReconciliationAccount[]> {
     const grouped = new Map<string, ReconciliationAccount[]>();
 
     for (const account of accounts) {
@@ -3695,7 +4284,7 @@ export class ReconciliationService {
   }
 
   private async getReconciliationAccounts(
-    userId: string
+    userId: string,
   ): Promise<Result<ReconciliationAccount[], ReconciliationError>> {
     // This would fetch accounts from the account repository
     // and transform them into ReconciliationAccount format
@@ -3772,13 +4361,13 @@ export type ReconciliationStatus = 'MATCHED' | 'WARNING' | 'CRITICAL';
 export class ExternalBalanceFetcherService implements IExternalBalanceFetcher {
   constructor(
     private readonly httpService: HttpService,
-    private readonly logger: LoggerService
+    private readonly logger: LoggerService,
   ) {}
 
   async fetchBalances(
     source: string,
     credentials: DecryptedCredentials,
-    accounts: ReconciliationAccount[]
+    accounts: ReconciliationAccount[],
   ): Promise<Result<Map<string, Money>, ExternalBalanceError>> {
     const fetcher = this.getFetcherForSource(source);
 
@@ -3789,7 +4378,11 @@ export class ExternalBalanceFetcherService implements IExternalBalanceFetcher {
     try {
       return await fetcher.fetchBalances(credentials, accounts);
     } catch (error) {
-      return err(new ExternalBalanceError(`Failed to fetch balances from ${source}: ${error.message}`));
+      return err(
+        new ExternalBalanceError(
+          `Failed to fetch balances from ${source}: ${error.message}`,
+        ),
+      );
     }
   }
 
@@ -3815,18 +4408,21 @@ export class BinanceBalanceFetcher implements ISourceBalanceFetcher {
 
   constructor(
     private readonly httpService: HttpService,
-    private readonly logger: LoggerService
+    private readonly logger: LoggerService,
   ) {}
 
   async fetchBalances(
     credentials: DecryptedCredentials,
-    accounts: ReconciliationAccount[]
+    accounts: ReconciliationAccount[],
   ): Promise<Result<Map<string, Money>, ExternalBalanceError>> {
     try {
       // Create signed request to Binance API
       const timestamp = Date.now();
       const queryString = `timestamp=${timestamp}`;
-      const signature = this.createSignature(queryString, credentials.apiSecret);
+      const signature = this.createSignature(
+        queryString,
+        credentials.apiSecret,
+      );
 
       const url = `${this.BASE_URL}/account?${queryString}&signature=${signature}`;
       const headers = {
@@ -3836,7 +4432,9 @@ export class BinanceBalanceFetcher implements ISourceBalanceFetcher {
       const response = await this.httpService.get(url, { headers }).toPromise();
 
       if (!response?.data?.balances) {
-        return err(new ExternalBalanceError('Invalid response from Binance API'));
+        return err(
+          new ExternalBalanceError('Invalid response from Binance API'),
+        );
       }
 
       const balances = new Map<string, Money>();
@@ -3857,20 +4455,25 @@ export class BinanceBalanceFetcher implements ISourceBalanceFetcher {
 
       return ok(balances);
     } catch (error) {
-      return err(new ExternalBalanceError(`Binance API error: ${error.message}`));
+      return err(
+        new ExternalBalanceError(`Binance API error: ${error.message}`),
+      );
     }
   }
 
   private createSignature(queryString: string, secretKey: string): string {
     const crypto = require('crypto');
-    return crypto.createHmac('sha256', secretKey).update(queryString).digest('hex');
+    return crypto
+      .createHmac('sha256', secretKey)
+      .update(queryString)
+      .digest('hex');
   }
 }
 
 export interface ISourceBalanceFetcher {
   fetchBalances(
     credentials: DecryptedCredentials,
-    accounts: ReconciliationAccount[]
+    accounts: ReconciliationAccount[],
   ): Promise<Result<Map<string, Money>, ExternalBalanceError>>;
 }
 
@@ -3894,7 +4497,7 @@ export class CreateManualTransactionCommand {
     public readonly transactionDate: Date,
     public readonly entries: CreateManualEntryData[],
     public readonly source: string = 'manual',
-    public readonly metadata?: Record<string, unknown>
+    public readonly metadata?: Record<string, unknown>,
   ) {}
 }
 
@@ -3903,7 +4506,7 @@ export class ReverseTransactionCommand {
     public readonly userId: string,
     public readonly originalTransactionId: number,
     public readonly reverseReason: string,
-    public readonly reverseDate: Date = new Date()
+    public readonly reverseDate: Date = new Date(),
   ) {}
 }
 
@@ -3917,19 +4520,26 @@ export interface CreateManualEntryData {
 
 // Command Handlers
 @CommandHandler(CreateManualTransactionCommand)
-export class CreateManualTransactionHandler implements ICommandHandler<CreateManualTransactionCommand> {
+export class CreateManualTransactionHandler
+  implements ICommandHandler<CreateManualTransactionCommand>
+{
   constructor(
     private readonly transactionRepository: ITransactionRepository,
     private readonly accountRepository: IAccountRepository,
     private readonly transactionValidator: TransactionValidatorService,
     private readonly auditLogger: IAuditLogger,
-    private readonly eventBus: EventBus
+    private readonly eventBus: EventBus,
   ) {}
 
-  async execute(command: CreateManualTransactionCommand): Promise<ManualTransactionResult> {
+  async execute(
+    command: CreateManualTransactionCommand,
+  ): Promise<ManualTransactionResult> {
     try {
       // Validate user has access to all referenced accounts
-      const accountValidation = await this.validateAccountAccess(command.userId, command.entries);
+      const accountValidation = await this.validateAccountAccess(
+        command.userId,
+        command.entries,
+      );
       if (accountValidation.isErr()) {
         throw new ManualTransactionException(accountValidation.error.message);
       }
@@ -3946,28 +4556,38 @@ export class CreateManualTransactionHandler implements ICommandHandler<CreateMan
 
       const transactionResult = LedgerTransaction.create(transactionData);
       if (transactionResult.isErr()) {
-        throw new ManualTransactionException(`Failed to create transaction: ${transactionResult.error.message}`);
+        throw new ManualTransactionException(
+          `Failed to create transaction: ${transactionResult.error.message}`,
+        );
       }
 
       const transaction = transactionResult.value;
 
       // Perform validation
-      const validationResult = await this.transactionValidator.validateTransaction(command.userId, transaction);
+      const validationResult =
+        await this.transactionValidator.validateTransaction(
+          command.userId,
+          transaction,
+        );
       if (validationResult.isErr()) {
-        throw new ManualTransactionException(`Transaction validation failed: ${validationResult.error.message}`);
+        throw new ManualTransactionException(
+          `Transaction validation failed: ${validationResult.error.message}`,
+        );
       }
 
       const validation = validationResult.value;
       if (!validation.isValid) {
         throw new ManualTransactionException(
-          `Transaction is invalid: ${validation.errors.map(e => e.message).join(', ')}`
+          `Transaction is invalid: ${validation.errors.map((e) => e.message).join(', ')}`,
         );
       }
 
       // Save transaction
       const saveResult = await this.transactionRepository.save(transaction);
       if (saveResult.isErr()) {
-        throw new ManualTransactionException(`Failed to save transaction: ${saveResult.error.message}`);
+        throw new ManualTransactionException(
+          `Failed to save transaction: ${saveResult.error.message}`,
+        );
       }
 
       // Create audit log entry
@@ -4004,12 +4624,15 @@ export class CreateManualTransactionHandler implements ICommandHandler<CreateMan
 
   private async validateAccountAccess(
     userId: string,
-    entries: CreateManualEntryData[]
+    entries: CreateManualEntryData[],
   ): Promise<Result<void, ManualTransactionError>> {
-    const accountIds = entries.map(e => e.accountId);
+    const accountIds = entries.map((e) => e.accountId);
 
     for (const accountId of accountIds) {
-      const accountResult = await this.accountRepository.findByIdAndUserId(accountId, userId);
+      const accountResult = await this.accountRepository.findByIdAndUserId(
+        accountId,
+        userId,
+      );
       if (accountResult.isErr()) {
         return err(new AccountAccessError(accountId, userId));
       }
@@ -4018,7 +4641,10 @@ export class CreateManualTransactionHandler implements ICommandHandler<CreateMan
     return ok();
   }
 
-  private emitTransactionEvents(transaction: LedgerTransaction, userId: string): void {
+  private emitTransactionEvents(
+    transaction: LedgerTransaction,
+    userId: string,
+  ): void {
     // Emit events for asset acquisitions and disposals
     for (const entry of transaction.entries) {
       if (entry.direction === 'CREDIT' && this.isAssetAcquisition(entry)) {
@@ -4030,8 +4656,8 @@ export class CreateManualTransactionHandler implements ICommandHandler<CreateMan
             entry.amount,
             entry.amount, // For manual entries, cost basis = amount
             transaction.transactionDate,
-            'PURCHASE' // Default acquisition method for manual entries
-          )
+            'PURCHASE', // Default acquisition method for manual entries
+          ),
         );
       }
 
@@ -4043,8 +4669,8 @@ export class CreateManualTransactionHandler implements ICommandHandler<CreateMan
             entry.amount.currency,
             entry.amount,
             transaction.transactionDate,
-            'SALE' // Default disposal method for manual entries
-          )
+            'SALE', // Default disposal method for manual entries
+          ),
         );
       }
     }
@@ -4052,7 +4678,14 @@ export class CreateManualTransactionHandler implements ICommandHandler<CreateMan
 
   private isAssetAcquisition(entry: any): boolean {
     // Logic to determine if this entry represents an asset acquisition
-    return ['TRADE', 'DEPOSIT', 'REWARD', 'STAKING', 'AIRDROP', 'MINING'].includes(entry.entryType);
+    return [
+      'TRADE',
+      'DEPOSIT',
+      'REWARD',
+      'STAKING',
+      'AIRDROP',
+      'MINING',
+    ].includes(entry.entryType);
   }
 
   private isAssetDisposal(entry: any): boolean {
@@ -4062,34 +4695,43 @@ export class CreateManualTransactionHandler implements ICommandHandler<CreateMan
 }
 
 @CommandHandler(ReverseTransactionCommand)
-export class ReverseTransactionHandler implements ICommandHandler<ReverseTransactionCommand> {
+export class ReverseTransactionHandler
+  implements ICommandHandler<ReverseTransactionCommand>
+{
   constructor(
     private readonly transactionRepository: ITransactionRepository,
     private readonly auditLogger: IAuditLogger,
-    private readonly eventBus: EventBus
+    private readonly eventBus: EventBus,
   ) {}
 
-  async execute(command: ReverseTransactionCommand): Promise<TransactionReversalResult> {
+  async execute(
+    command: ReverseTransactionCommand,
+  ): Promise<TransactionReversalResult> {
     try {
       // Get the original transaction
       const originalResult = await this.transactionRepository.findByIdAndUserId(
         command.originalTransactionId,
-        command.userId
+        command.userId,
       );
 
       if (originalResult.isErr()) {
-        throw new TransactionReversalException('Original transaction not found');
+        throw new TransactionReversalException(
+          'Original transaction not found',
+        );
       }
 
       const originalTransaction = originalResult.value;
 
       // Check if transaction is already reversed
-      const existingReversalResult = await this.transactionRepository.findReversalTransaction(
-        command.originalTransactionId
-      );
+      const existingReversalResult =
+        await this.transactionRepository.findReversalTransaction(
+          command.originalTransactionId,
+        );
 
       if (existingReversalResult.isOk()) {
-        throw new TransactionReversalException('Transaction has already been reversed');
+        throw new TransactionReversalException(
+          'Transaction has already been reversed',
+        );
       }
 
       // Create reversal transaction with opposing entries
@@ -4106,19 +4748,27 @@ export class ReverseTransactionHandler implements ICommandHandler<ReverseTransac
 
       const reversalResult = LedgerTransaction.create(reversalData);
       if (reversalResult.isErr()) {
-        throw new TransactionReversalException(`Failed to create reversal: ${reversalResult.error.message}`);
+        throw new TransactionReversalException(
+          `Failed to create reversal: ${reversalResult.error.message}`,
+        );
       }
 
       const reversalTransaction = reversalResult.value;
 
       // Save reversal transaction
-      const saveResult = await this.transactionRepository.save(reversalTransaction);
+      const saveResult =
+        await this.transactionRepository.save(reversalTransaction);
       if (saveResult.isErr()) {
-        throw new TransactionReversalException(`Failed to save reversal: ${saveResult.error.message}`);
+        throw new TransactionReversalException(
+          `Failed to save reversal: ${saveResult.error.message}`,
+        );
       }
 
       // Link original and reversal transactions
-      await this.transactionRepository.linkReversalTransaction(command.originalTransactionId, reversalTransaction.id!);
+      await this.transactionRepository.linkReversalTransaction(
+        command.originalTransactionId,
+        reversalTransaction.id!,
+      );
 
       // Create audit log
       await this.auditLogger.logTransactionReversal({
@@ -4147,8 +4797,10 @@ export class ReverseTransactionHandler implements ICommandHandler<ReverseTransac
     }
   }
 
-  private createReversalEntries(originalTransaction: LedgerTransaction): CreateManualEntryData[] {
-    return originalTransaction.entries.map(entry => ({
+  private createReversalEntries(
+    originalTransaction: LedgerTransaction,
+  ): CreateManualEntryData[] {
+    return originalTransaction.entries.map((entry) => ({
       accountId: entry.accountId,
       direction: entry.direction === 'CREDIT' ? 'DEBIT' : 'CREDIT', // Flip direction
       amount: entry.amount,
@@ -4187,28 +4839,37 @@ export class DataExportService {
     private readonly accountRepository: IAccountRepository,
     private readonly taxLotRepository: ITaxLotRepository,
     private readonly reconciliationRepository: IReconciliationRepository,
-    private readonly logger: LoggerService
+    private readonly logger: LoggerService,
   ) {}
 
   /**
    * Export all user data in a structured format
    */
-  async exportUserData(userId: string, options?: DataExportOptions): Promise<Result<UserDataExport, DataExportError>> {
+  async exportUserData(
+    userId: string,
+    options?: DataExportOptions,
+  ): Promise<Result<UserDataExport, DataExportError>> {
     try {
       const startTime = Date.now();
 
       this.logger.log(`Starting data export for user ${userId}`);
 
       // Export all data categories
-      const [accounts, transactions, taxLots, reconciliations] = await Promise.all([
-        this.exportAccounts(userId),
-        this.exportTransactions(userId, options?.dateRange),
-        this.exportTaxLots(userId),
-        this.exportReconciliations(userId, options?.includePeriod),
-      ]);
+      const [accounts, transactions, taxLots, reconciliations] =
+        await Promise.all([
+          this.exportAccounts(userId),
+          this.exportTransactions(userId, options?.dateRange),
+          this.exportTaxLots(userId),
+          this.exportReconciliations(userId, options?.includePeriod),
+        ]);
 
       // Calculate export statistics
-      const statistics = this.calculateExportStatistics(accounts, transactions, taxLots, reconciliations);
+      const statistics = this.calculateExportStatistics(
+        accounts,
+        transactions,
+        taxLots,
+        reconciliations,
+      );
 
       const userDataExport: UserDataExport = {
         exportId: crypto.randomUUID(),
@@ -4223,11 +4884,17 @@ export class DataExportService {
         metadata: {
           exportDurationMs: Date.now() - startTime,
           exportOptions: options,
-          dataIntegrityHash: this.calculateDataIntegrityHash(accounts, transactions, taxLots),
+          dataIntegrityHash: this.calculateDataIntegrityHash(
+            accounts,
+            transactions,
+            taxLots,
+          ),
         },
       };
 
-      this.logger.log(`Completed data export for user ${userId} in ${Date.now() - startTime}ms`);
+      this.logger.log(
+        `Completed data export for user ${userId} in ${Date.now() - startTime}ms`,
+      );
 
       return ok(userDataExport);
     } catch (error) {
@@ -4241,7 +4908,7 @@ export class DataExportService {
   async exportUserDataAsFormat(
     userId: string,
     format: ExportFormat,
-    options?: DataExportOptions
+    options?: DataExportOptions,
   ): Promise<Result<ExportBuffer, DataExportError>> {
     const dataResult = await this.exportUserData(userId, options);
     if (dataResult.isErr()) {
@@ -4262,11 +4929,14 @@ export class DataExportService {
     }
   }
 
-  private async exportTransactions(userId: string, dateRange?: DateRange): Promise<TransactionExport[]> {
+  private async exportTransactions(
+    userId: string,
+    dateRange?: DateRange,
+  ): Promise<TransactionExport[]> {
     const transactionsResult = await this.transactionRepository.findByUserId(
       userId,
       dateRange?.startDate,
-      dateRange?.endDate
+      dateRange?.endDate,
     );
 
     if (transactionsResult.isErr()) {
@@ -4274,13 +4944,13 @@ export class DataExportService {
       return [];
     }
 
-    return transactionsResult.value.map(transaction => ({
+    return transactionsResult.value.map((transaction) => ({
       id: transaction.id!,
       externalId: transaction.externalId,
       description: transaction.description,
       transactionDate: transaction.transactionDate,
       source: transaction.source,
-      entries: transaction.entries.map(entry => ({
+      entries: transaction.entries.map((entry) => ({
         direction: entry.direction,
         amount: entry.amount.toFixedString(),
         currency: entry.amount.currency,
@@ -4299,7 +4969,7 @@ export class DataExportService {
       return [];
     }
 
-    return taxLotsResult.value.map(lot => ({
+    return taxLotsResult.value.map((lot) => ({
       id: lot.id.value,
       assetSymbol: lot.assetSymbol,
       acquisitionDate: lot.acquisitionDate,
@@ -4313,7 +4983,9 @@ export class DataExportService {
     }));
   }
 
-  private exportAsCSV(data: UserDataExport): Result<ExportBuffer, DataExportError> {
+  private exportAsCSV(
+    data: UserDataExport,
+  ): Result<ExportBuffer, DataExportError> {
     try {
       // Create multiple CSV files for different data types
       const csvFiles: { [key: string]: string } = {};
@@ -4331,8 +5003,8 @@ export class DataExportService {
         'Entry Type',
         'Account',
       ];
-      const transactionRows = data.transactions.flatMap(tx =>
-        tx.entries.map(entry => [
+      const transactionRows = data.transactions.flatMap((tx) =>
+        tx.entries.map((entry) => [
           tx.id,
           tx.externalId,
           tx.description,
@@ -4343,10 +5015,13 @@ export class DataExportService {
           entry.currency,
           entry.entryType,
           entry.accountName,
-        ])
+        ]),
       );
 
-      csvFiles['transactions.csv'] = this.arrayToCSV([transactionHeaders, ...transactionRows]);
+      csvFiles['transactions.csv'] = this.arrayToCSV([
+        transactionHeaders,
+        ...transactionRows,
+      ]);
 
       // Tax Lots CSV
       const taxLotHeaders = [
@@ -4359,7 +5034,7 @@ export class DataExportService {
         'Cost Basis',
         'Status',
       ];
-      const taxLotRows = data.taxLots.map(lot => [
+      const taxLotRows = data.taxLots.map((lot) => [
         lot.id,
         lot.assetSymbol,
         lot.acquisitionDate.toISOString(),
@@ -4370,7 +5045,10 @@ export class DataExportService {
         lot.status,
       ]);
 
-      csvFiles['tax_lots.csv'] = this.arrayToCSV([taxLotHeaders, ...taxLotRows]);
+      csvFiles['tax_lots.csv'] = this.arrayToCSV([
+        taxLotHeaders,
+        ...taxLotRows,
+      ]);
 
       // Create ZIP file containing all CSVs
       const zipBuffer = this.createZipFromFiles(csvFiles);
@@ -4385,7 +5063,9 @@ export class DataExportService {
     }
   }
 
-  private exportAsJSON(data: UserDataExport): Result<ExportBuffer, DataExportError> {
+  private exportAsJSON(
+    data: UserDataExport,
+  ): Result<ExportBuffer, DataExportError> {
     try {
       const jsonString = JSON.stringify(data, null, 2);
       const buffer = Buffer.from(jsonString, 'utf-8');
@@ -4402,10 +5082,14 @@ export class DataExportService {
 
   private arrayToCSV(array: any[][]): string {
     return array
-      .map(row =>
+      .map((row) =>
         row
-          .map(field => (typeof field === 'string' && field.includes(',') ? `"${field.replace(/"/g, '""')}"` : field))
-          .join(',')
+          .map((field) =>
+            typeof field === 'string' && field.includes(',')
+              ? `"${field.replace(/"/g, '""')}"`
+              : field,
+          )
+          .join(','),
       )
       .join('\n');
   }
@@ -4416,7 +5100,11 @@ export class DataExportService {
     return Buffer.from('ZIP file content');
   }
 
-  private calculateDataIntegrityHash(accounts: any[], transactions: any[], taxLots: any[]): string {
+  private calculateDataIntegrityHash(
+    accounts: any[],
+    transactions: any[],
+    taxLots: any[],
+  ): string {
     const crypto = require('crypto');
     const dataString = JSON.stringify({ accounts, transactions, taxLots });
     return crypto.createHash('sha256').update(dataString).digest('hex');
@@ -4483,10 +5171,12 @@ export interface ExportStatistics {
 export class AuditLoggerService implements IAuditLogger {
   constructor(
     private readonly auditRepository: IAuditRepository,
-    private readonly logger: LoggerService
+    private readonly logger: LoggerService,
   ) {}
 
-  async logManualTransaction(event: ManualTransactionAuditEvent): Promise<void> {
+  async logManualTransaction(
+    event: ManualTransactionAuditEvent,
+  ): Promise<void> {
     const auditEntry = this.createAuditEntry(
       event.userId,
       'MANUAL_TRANSACTION',
@@ -4497,13 +5187,15 @@ export class AuditLoggerService implements IAuditLogger {
         entriesCount: event.entries.length,
         totalAmount: this.calculateTotalAmount(event.entries),
       },
-      event.timestamp
+      event.timestamp,
     );
 
     await this.saveAuditEntry(auditEntry);
   }
 
-  async logTransactionReversal(event: TransactionReversalAuditEvent): Promise<void> {
+  async logTransactionReversal(
+    event: TransactionReversalAuditEvent,
+  ): Promise<void> {
     const auditEntry = this.createAuditEntry(
       event.userId,
       'TRANSACTION',
@@ -4513,7 +5205,7 @@ export class AuditLoggerService implements IAuditLogger {
         reversalTransactionId: event.reversalTransactionId,
         reason: event.reason,
       },
-      event.timestamp
+      event.timestamp,
     );
 
     await this.saveAuditEntry(auditEntry);
@@ -4530,7 +5222,7 @@ export class AuditLoggerService implements IAuditLogger {
         recordsExported: event.recordsExported,
         exportSizeBytes: event.exportSizeBytes,
       },
-      event.timestamp
+      event.timestamp,
     );
 
     await this.saveAuditEntry(auditEntry);
@@ -4547,7 +5239,7 @@ export class AuditLoggerService implements IAuditLogger {
         discrepanciesFound: event.discrepanciesFound,
         criticalIssues: event.criticalIssues,
       },
-      event.timestamp
+      event.timestamp,
     );
 
     await this.saveAuditEntry(auditEntry);
@@ -4566,18 +5258,26 @@ export class AuditLoggerService implements IAuditLogger {
         realizedGain: event.realizedGain,
         taxLotsConsumed: event.taxLotsConsumed,
       },
-      event.timestamp
+      event.timestamp,
     );
 
     await this.saveAuditEntry(auditEntry);
   }
 
-  async queryAuditLog(userId: string, filters: AuditLogFilters): Promise<Result<AuditLogEntry[], AuditLogError>> {
+  async queryAuditLog(
+    userId: string,
+    filters: AuditLogFilters,
+  ): Promise<Result<AuditLogEntry[], AuditLogError>> {
     try {
-      const entries = await this.auditRepository.findByUserAndFilters(userId, filters);
+      const entries = await this.auditRepository.findByUserAndFilters(
+        userId,
+        filters,
+      );
       return ok(entries);
     } catch (error) {
-      return err(new AuditLogError(`Failed to query audit log: ${error.message}`));
+      return err(
+        new AuditLogError(`Failed to query audit log: ${error.message}`),
+      );
     }
   }
 
@@ -4586,7 +5286,7 @@ export class AuditLoggerService implements IAuditLogger {
     entityType: string,
     action: string,
     details: Record<string, any>,
-    timestamp: Date
+    timestamp: Date,
   ): AuditLogEntry {
     return {
       id: crypto.randomUUID(),
@@ -4611,7 +5311,10 @@ export class AuditLoggerService implements IAuditLogger {
 
   private calculateTotalAmount(entries: CreateManualEntryData[]): string {
     // Calculate total absolute amount across all entries
-    const total = entries.reduce((sum, entry) => sum + Math.abs(entry.amount.toDecimal()), 0);
+    const total = entries.reduce(
+      (sum, entry) => sum + Math.abs(entry.amount.toDecimal()),
+      0,
+    );
     return total.toString();
   }
 
@@ -4694,27 +5397,35 @@ export interface AuditLogEntry {
 
 ### Success Criteria Phase 5
 
-- [ ] Reconciliation service accurately identifying balance discrepancies (>95% accuracy)
+- [ ] Reconciliation service accurately identifying balance discrepancies (>95%
+      accuracy)
 - [ ] Manual transaction system working with proper validation and audit trail
 - [ ] Transaction reversal system maintaining ledger integrity
 - [ ] Data export supporting multiple formats (JSON, CSV, Excel)
 - [ ] Comprehensive audit trail for all user actions and system changes
-- [ ] Performance benchmarks for reconciliation (complete in <30s for typical user)
+- [ ] Performance benchmarks for reconciliation (complete in <30s for typical
+      user)
 
 ### Dependencies & Blockers
 
-- **Exchange API Access**: Rate limits and API key management for balance fetching
-- **External Services**: Reliable blockchain node access for wallet balance verification
+- **Exchange API Access**: Rate limits and API key management for balance
+  fetching
+- **External Services**: Reliable blockchain node access for wallet balance
+  verification
 - **Data Privacy**: GDPR/CCPA compliance for data export and deletion
 - **Security**: Encryption for stored API keys and audit log integrity
 
 ### Risk Mitigation
 
-- **API Reliability**: Circuit breakers and fallback strategies for external services
-- **Data Integrity**: Hash verification and transaction validation for all modifications
+- **API Reliability**: Circuit breakers and fallback strategies for external
+  services
+- **Data Integrity**: Hash verification and transaction validation for all
+  modifications
 - **User Safety**: Confirmation workflows for destructive operations (reversals)
 - **Audit Compliance**: Immutable audit logs with cryptographic integrity
 
 ---
 
-_Phase 5 complete. This establishes user trust through data transparency, correction capabilities, and comprehensive audit trails while maintaining the integrity of the financial system._
+_Phase 5 complete. This establishes user trust through data transparency,
+correction capabilities, and comprehensive audit trails while maintaining the
+integrity of the financial system._

@@ -2,14 +2,21 @@
 
 ## Overview
 
-The service layer provides a clean abstraction between the data persistence layer (Drizzle ORM) and the application logic. This design ensures compatibility with both the current CLI architecture and future NestJS migration while maintaining separation of concerns.
+The service layer provides a clean abstraction between the data persistence
+layer (Drizzle ORM) and the application logic. This design ensures compatibility
+with both the current CLI architecture and future NestJS migration while
+maintaining separation of concerns.
 
 ## Design Principles
 
-1. **Dependency Injection Ready**: All services use constructor injection compatible with NestJS
-2. **Interface-Based Design**: Services depend on abstractions, not concrete implementations
-3. **Transaction Management**: Financial operations are atomic with proper rollback capabilities
-4. **Domain-Driven Design**: Services represent business capabilities, not database tables
+1. **Dependency Injection Ready**: All services use constructor injection
+   compatible with NestJS
+2. **Interface-Based Design**: Services depend on abstractions, not concrete
+   implementations
+3. **Transaction Management**: Financial operations are atomic with proper
+   rollback capabilities
+4. **Domain-Driven Design**: Services represent business capabilities, not
+   database tables
 5. **Async/Await**: All operations return Promises for consistent error handling
 
 ## Core Service Interfaces
@@ -21,14 +28,23 @@ Primary service for managing the double-entry ledger system.
 ```typescript
 export interface ILedgerService {
   // Transaction Management
-  recordTransaction(transaction: CreateLedgerTransaction): Promise<LedgerTransaction>;
+  recordTransaction(
+    transaction: CreateLedgerTransaction,
+  ): Promise<LedgerTransaction>;
   getTransaction(id: number): Promise<LedgerTransaction | null>;
-  getTransactionByExternalId(externalId: string, source: string): Promise<LedgerTransaction | null>;
+  getTransactionByExternalId(
+    externalId: string,
+    source: string,
+  ): Promise<LedgerTransaction | null>;
 
   // Account Management
   createAccount(account: CreateAccountRequest): Promise<Account>;
   getAccount(id: number): Promise<Account | null>;
-  findAccountByIdentifier(ticker: string, source: string, network?: string): Promise<Account | null>;
+  findAccountByIdentifier(
+    ticker: string,
+    source: string,
+    network?: string,
+  ): Promise<Account | null>;
   listAccounts(filters?: AccountFilters): Promise<Account[]>;
 
   // Balance Operations
@@ -37,8 +53,14 @@ export interface ILedgerService {
   getAllBalances(filters?: BalanceFilters): Promise<AccountBalance[]>;
 
   // Reporting & Analytics
-  getTransactionHistory(accountId: number, options?: HistoryOptions): Promise<TransactionHistoryEntry[]>;
-  calculateCostBasis(accountId: number, method: 'FIFO' | 'LIFO'): Promise<CostBasisResult>;
+  getTransactionHistory(
+    accountId: number,
+    options?: HistoryOptions,
+  ): Promise<TransactionHistoryEntry[]>;
+  calculateCostBasis(
+    accountId: number,
+    method: 'FIFO' | 'LIFO',
+  ): Promise<CostBasisResult>;
   generateBalanceSheet(asOfDate?: Date): Promise<BalanceSheet>;
 }
 ```
@@ -50,12 +72,21 @@ Handles the transformation of external data sources into ledger transactions.
 ```typescript
 export interface IImportService {
   // Data Transformation
-  importFromAdapter(adapterId: string, source: ImportSource): Promise<ImportResult>;
-  transformTransaction(universalTx: UniversalTransaction): Promise<CreateLedgerTransaction>;
+  importFromAdapter(
+    adapterId: string,
+    source: ImportSource,
+  ): Promise<ImportResult>;
+  transformTransaction(
+    universalTx: UniversalTransaction,
+  ): Promise<CreateLedgerTransaction>;
 
   // Validation & Deduplication
-  validateLedgerTransaction(transaction: CreateLedgerTransaction): Promise<ValidationResult>;
-  findDuplicateTransaction(transaction: CreateLedgerTransaction): Promise<LedgerTransaction | null>;
+  validateLedgerTransaction(
+    transaction: CreateLedgerTransaction,
+  ): Promise<ValidationResult>;
+  findDuplicateTransaction(
+    transaction: CreateLedgerTransaction,
+  ): Promise<LedgerTransaction | null>;
 
   // Batch Operations
   importBatch(transactions: UniversalTransaction[]): Promise<BatchImportResult>;
@@ -82,11 +113,17 @@ export interface IAccountService {
   findAccountsByPattern(pattern: AccountSearchPattern): Promise<Account[]>;
 
   // Hierarchy Management
-  createSubAccount(parentId: number, request: CreateAccountRequest): Promise<Account>;
+  createSubAccount(
+    parentId: number,
+    request: CreateAccountRequest,
+  ): Promise<Account>;
   getAccountHierarchy(rootAccountId?: number): Promise<AccountNode[]>;
 
   // Account Types & Categories
-  categorizeAccount(accountId: number, category: AccountCategory): Promise<void>;
+  categorizeAccount(
+    accountId: number,
+    category: AccountCategory,
+  ): Promise<void>;
   getAccountsByType(accountType: AccountType): Promise<Account[]>;
 }
 ```
@@ -100,27 +137,39 @@ export interface IAccountService {
 export class LedgerService implements ILedgerService {
   constructor(
     @Inject('DATABASE_CONNECTION') private db: DrizzleDB,
-    @Inject('LOGGER') private logger: ILogger
+    @Inject('LOGGER') private logger: ILogger,
   ) {}
 
-  async recordTransaction(request: CreateLedgerTransaction): Promise<LedgerTransaction> {
-    this.logger.debug('Recording transaction', { externalId: request.externalId, source: request.source });
+  async recordTransaction(
+    request: CreateLedgerTransaction,
+  ): Promise<LedgerTransaction> {
+    this.logger.debug('Recording transaction', {
+      externalId: request.externalId,
+      source: request.source,
+    });
 
     // Validate business rules
     await this.validateTransactionRules(request);
 
-    return this.db.transaction(async trx => {
+    return this.db.transaction(async (trx) => {
       // Check for duplicates
       const existing = await this.findDuplicateInTransaction(trx, request);
       if (existing) {
-        this.logger.warn('Duplicate transaction detected', { existingId: existing.id });
+        this.logger.warn('Duplicate transaction detected', {
+          existingId: existing.id,
+        });
         return existing;
       }
 
       // Validate entries balance to zero
-      const sum = request.entries.reduce((total, entry) => total + entry.amount, 0n);
+      const sum = request.entries.reduce(
+        (total, entry) => total + entry.amount,
+        0n,
+      );
       if (sum !== 0n) {
-        throw new LedgerValidationError(`Transaction entries must balance to zero, got ${sum}`);
+        throw new LedgerValidationError(
+          `Transaction entries must balance to zero, got ${sum}`,
+        );
       }
 
       // Insert transaction
@@ -143,13 +192,13 @@ export class LedgerService implements ILedgerService {
       const entryRecords = await trx
         .insert(entries)
         .values(
-          request.entries.map(entry => ({
+          request.entries.map((entry) => ({
             transactionId: transaction.id,
             accountId: entry.accountId,
             amount: entry.amount,
             direction: entry.direction,
             entryType: entry.entryType,
-          }))
+          })),
         )
         .returning();
 
@@ -161,7 +210,7 @@ export class LedgerService implements ILedgerService {
             key,
             value: JSON.stringify(value),
             dataType: typeof value,
-          }))
+          })),
         );
       }
 
@@ -199,7 +248,10 @@ export class LedgerService implements ILedgerService {
     };
   }
 
-  async calculateCostBasis(accountId: number, method: 'FIFO' | 'LIFO'): Promise<CostBasisResult> {
+  async calculateCostBasis(
+    accountId: number,
+    method: 'FIFO' | 'LIFO',
+  ): Promise<CostBasisResult> {
     // Complex query for cost basis calculation
     const query =
       method === 'FIFO'
@@ -244,27 +296,37 @@ export class LedgerService implements ILedgerService {
       method,
       totalCostBasis: BigInt(result.rows[0]?.total_cost_basis ?? 0),
       totalShares: BigInt(result.rows[0]?.total_shares ?? 0),
-      averageCostPerShare: parseFloat(result.rows[0]?.average_cost_per_share ?? '0'),
+      averageCostPerShare: parseFloat(
+        result.rows[0]?.average_cost_per_share ?? '0',
+      ),
       calculatedAt: new Date(),
     };
   }
 
-  private async validateTransactionRules(transaction: CreateLedgerTransaction): Promise<void> {
+  private async validateTransactionRules(
+    transaction: CreateLedgerTransaction,
+  ): Promise<void> {
     // Business rule validations
     if (transaction.entries.length < 2) {
-      throw new LedgerValidationError('Transaction must have at least 2 entries');
+      throw new LedgerValidationError(
+        'Transaction must have at least 2 entries',
+      );
     }
 
     // Validate all referenced accounts exist
-    const accountIds = transaction.entries.map(e => e.accountId);
+    const accountIds = transaction.entries.map((e) => e.accountId);
     const existingAccounts = await this.db
       .select({ id: accounts.id })
       .from(accounts)
       .where(inArray(accounts.id, accountIds));
 
     if (existingAccounts.length !== accountIds.length) {
-      const missing = accountIds.filter(id => !existingAccounts.some(a => a.id === id));
-      throw new LedgerValidationError(`Referenced accounts not found: ${missing.join(', ')}`);
+      const missing = accountIds.filter(
+        (id) => !existingAccounts.some((a) => a.id === id),
+      );
+      throw new LedgerValidationError(
+        `Referenced accounts not found: ${missing.join(', ')}`,
+      );
     }
 
     // Additional business rules can be added here
@@ -280,10 +342,12 @@ export class ImportService implements IImportService {
   constructor(
     private ledgerService: ILedgerService,
     private accountService: IAccountService,
-    @Inject('LOGGER') private logger: ILogger
+    @Inject('LOGGER') private logger: ILogger,
   ) {}
 
-  async transformTransaction(universalTx: UniversalTransaction): Promise<CreateLedgerTransaction> {
+  async transformTransaction(
+    universalTx: UniversalTransaction,
+  ): Promise<CreateLedgerTransaction> {
     const entries: CreateLedgerEntry[] = [];
 
     // Get or create primary account
@@ -305,13 +369,15 @@ export class ImportService implements IImportService {
         return this.transformWithdrawalTransaction(universalTx, primaryAccount);
 
       default:
-        throw new TransformationError(`Unsupported transaction type: ${universalTx.type}`);
+        throw new TransformationError(
+          `Unsupported transaction type: ${universalTx.type}`,
+        );
     }
   }
 
   private async transformTradeTransaction(
     tx: UniversalTransaction,
-    primaryAccount: Account
+    primaryAccount: Account,
   ): Promise<CreateLedgerTransaction> {
     const entries: CreateLedgerEntry[] = [];
 
@@ -332,7 +398,10 @@ export class ImportService implements IImportService {
         accountType: this.determineAccountType(tx.source),
       });
 
-      const counterAmount = this.convertToSmallestUnit(tx.amount.mul(tx.price), tx.quoteCurrency);
+      const counterAmount = this.convertToSmallestUnit(
+        tx.amount.mul(tx.price),
+        tx.quoteCurrency,
+      );
       entries.push({
         accountId: counterAccount.id,
         amount: tx.side === 'buy' ? -counterAmount : counterAmount,
@@ -361,7 +430,9 @@ export class ImportService implements IImportService {
     };
   }
 
-  async importBatch(transactions: UniversalTransaction[]): Promise<BatchImportResult> {
+  async importBatch(
+    transactions: UniversalTransaction[],
+  ): Promise<BatchImportResult> {
     const results: ImportItemResult[] = [];
     let successCount = 0;
     let errorCount = 0;
@@ -407,7 +478,8 @@ export class ImportService implements IImportService {
 
 ## Service Registration (Current Architecture)
 
-For the current CLI-based system, services can be registered using a simple dependency injection container:
+For the current CLI-based system, services can be registered using a simple
+dependency injection container:
 
 ```typescript
 // services/container.ts
@@ -449,17 +521,30 @@ export function registerServices(container: ServiceContainer): void {
   // Core services
   container.register(
     'LEDGER_SERVICE',
-    () => new LedgerService(container.get('DATABASE_CONNECTION'), container.get('LOGGER'))
+    () =>
+      new LedgerService(
+        container.get('DATABASE_CONNECTION'),
+        container.get('LOGGER'),
+      ),
   );
 
   container.register(
     'ACCOUNT_SERVICE',
-    () => new AccountService(container.get('DATABASE_CONNECTION'), container.get('LOGGER'))
+    () =>
+      new AccountService(
+        container.get('DATABASE_CONNECTION'),
+        container.get('LOGGER'),
+      ),
   );
 
   container.register(
     'IMPORT_SERVICE',
-    () => new ImportService(container.get('LEDGER_SERVICE'), container.get('ACCOUNT_SERVICE'), container.get('LOGGER'))
+    () =>
+      new ImportService(
+        container.get('LEDGER_SERVICE'),
+        container.get('ACCOUNT_SERVICE'),
+        container.get('LOGGER'),
+      ),
   );
 }
 ```
@@ -490,7 +575,7 @@ export class LedgerModule {}
 export class LedgerController {
   constructor(
     private ledgerService: LedgerService, // Same interface, no changes needed
-    private importService: ImportService
+    private importService: ImportService,
   ) {}
 
   @Post('transactions')
@@ -582,12 +667,22 @@ describe('LedgerService', () => {
         description: 'Test transaction',
         transactionDate: new Date(),
         entries: [
-          { accountId: 1, amount: 1000n, direction: 'CREDIT', entryType: 'TRADE' },
-          { accountId: 2, amount: -1000n, direction: 'DEBIT', entryType: 'TRADE' },
+          {
+            accountId: 1,
+            amount: 1000n,
+            direction: 'CREDIT',
+            entryType: 'TRADE',
+          },
+          {
+            accountId: 2,
+            amount: -1000n,
+            direction: 'DEBIT',
+            entryType: 'TRADE',
+          },
         ],
       };
 
-      mockDb.transaction.mockImplementation(async callback => {
+      mockDb.transaction.mockImplementation(async (callback) => {
         return callback(mockDb as any);
       });
 
@@ -604,12 +699,24 @@ describe('LedgerService', () => {
         description: 'Unbalanced transaction',
         transactionDate: new Date(),
         entries: [
-          { accountId: 1, amount: 1000n, direction: 'CREDIT', entryType: 'TRADE' },
-          { accountId: 2, amount: -500n, direction: 'DEBIT', entryType: 'TRADE' }, // Unbalanced!
+          {
+            accountId: 1,
+            amount: 1000n,
+            direction: 'CREDIT',
+            entryType: 'TRADE',
+          },
+          {
+            accountId: 2,
+            amount: -500n,
+            direction: 'DEBIT',
+            entryType: 'TRADE',
+          }, // Unbalanced!
         ],
       };
 
-      await expect(service.recordTransaction(request)).rejects.toThrow(LedgerValidationError);
+      await expect(service.recordTransaction(request)).rejects.toThrow(
+        LedgerValidationError,
+      );
     });
   });
 });
@@ -617,13 +724,19 @@ describe('LedgerService', () => {
 
 ## Benefits of This Architecture
 
-1. **Clean Separation**: Business logic separated from data access and presentation
+1. **Clean Separation**: Business logic separated from data access and
+   presentation
 2. **Testable**: Services can be easily unit tested with mocked dependencies
 3. **Framework Agnostic**: Works with current CLI and future NestJS migration
 4. **Type Safe**: Full TypeScript coverage with compile-time validation
-5. **Domain-Focused**: Services represent business capabilities, not technical concerns
-6. **Error Handling**: Consistent error types and handling across the application
-7. **Performance**: Direct database access when needed, with proper query optimization
+5. **Domain-Focused**: Services represent business capabilities, not technical
+   concerns
+6. **Error Handling**: Consistent error types and handling across the
+   application
+7. **Performance**: Direct database access when needed, with proper query
+   optimization
 8. **Scalable**: Service layer can be extended with caching, events, etc.
 
-This service layer design provides a solid foundation that bridges the current architecture with future NestJS migration while maintaining the flexibility needed for a complex financial system.
+This service layer design provides a solid foundation that bridges the current
+architecture with future NestJS migration while maintaining the flexibility
+needed for a complex financial system.

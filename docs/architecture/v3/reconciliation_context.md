@@ -112,23 +112,33 @@ export class Discrepancy extends Data.Class<{
   readonly isResolved: boolean;
   readonly resolution: Option.Option<Resolution>;
 }> {
-  static calculate(internal: BalanceSnapshot, external: BalanceSnapshot): Effect.Effect<Discrepancy, Error> {
+  static calculate(
+    internal: BalanceSnapshot,
+    external: BalanceSnapshot,
+  ): Effect.Effect<Discrepancy, Error> {
     if (!internal.asset.equals(external.asset)) {
       return Effect.fail(new Error('Asset mismatch in balance comparison'));
     }
 
     return pipe(
       internal.quantity.subtract(external.quantity),
-      Effect.map(diff => {
+      Effect.map((diff) => {
         const average = internal.quantity
           .add(external.quantity)
           .divide(2)
           .getOrElse(() => internal.quantity);
 
-        const percentageDiff = average.isZero() ? 0 : Math.abs((diff.toNumber() / average.toNumber()) * 100);
+        const percentageDiff = average.isZero()
+          ? 0
+          : Math.abs((diff.toNumber() / average.toNumber()) * 100);
 
         const severity = this.calculateSeverity(percentageDiff);
-        const possibleCauses = this.identifyPossibleCauses(internal, external, diff, percentageDiff);
+        const possibleCauses = this.identifyPossibleCauses(
+          internal,
+          external,
+          diff,
+          percentageDiff,
+        );
 
         return new Discrepancy({
           id: DiscrepancyId.generate(),
@@ -158,12 +168,14 @@ export class Discrepancy extends Data.Class<{
             detectedAt: new Date(),
             isResolved: false,
             resolution: Option.none(),
-          })
-      )
+          }),
+      ),
     );
   }
 
-  private static calculateSeverity(percentageDiff: number): DiscrepancySeverity {
+  private static calculateSeverity(
+    percentageDiff: number,
+  ): DiscrepancySeverity {
     if (percentageDiff < 0.001) return DiscrepancySeverity.NEGLIGIBLE;
     if (percentageDiff < 0.1) return DiscrepancySeverity.MINOR;
     if (percentageDiff < 1) return DiscrepancySeverity.WARNING;
@@ -174,7 +186,7 @@ export class Discrepancy extends Data.Class<{
     internal: BalanceSnapshot,
     external: BalanceSnapshot,
     difference: Quantity,
-    percentageDiff: number
+    percentageDiff: number,
   ): string[] {
     const causes: string[] = [];
 
@@ -184,7 +196,9 @@ export class Discrepancy extends Data.Class<{
     }
 
     // Check for pending transactions
-    const timeDiff = Math.abs(internal.timestamp.getTime() - external.timestamp.getTime());
+    const timeDiff = Math.abs(
+      internal.timestamp.getTime() - external.timestamp.getTime(),
+    );
     if (timeDiff > 60000) {
       // More than 1 minute
       causes.push('Timing difference - balances fetched at different times');
@@ -209,13 +223,17 @@ export class Discrepancy extends Data.Class<{
   }
 
   requiresManualReview(): boolean {
-    return this.severity === DiscrepancySeverity.CRITICAL || this.severity === DiscrepancySeverity.WARNING;
+    return (
+      this.severity === DiscrepancySeverity.CRITICAL ||
+      this.severity === DiscrepancySeverity.WARNING
+    );
   }
 
   canAutoResolve(): boolean {
     return (
       this.severity === DiscrepancySeverity.NEGLIGIBLE ||
-      (this.severity === DiscrepancySeverity.MINOR && this.possibleCauses.includes('Rounding error in calculations'))
+      (this.severity === DiscrepancySeverity.MINOR &&
+        this.possibleCauses.includes('Rounding error in calculations'))
     );
   }
 }
@@ -257,7 +275,7 @@ export class Adjustment extends Data.Class<{
   } | null {
     return Option.match(this.value, {
       onNone: () => null,
-      onSome: value => {
+      onSome: (value) => {
         if (this.type === 'INCREASE') {
           return {
             debit: {
@@ -302,7 +320,9 @@ export class ReconciliationSession extends Data.Class<{
 }> {
   getProgress(): number {
     if (this.totalDiscrepancies === 0) return 100;
-    return Math.round((this.resolvedDiscrepancies / this.totalDiscrepancies) * 100);
+    return Math.round(
+      (this.resolvedDiscrepancies / this.totalDiscrepancies) * 100,
+    );
   }
 
   isComplete(): boolean {
@@ -331,10 +351,16 @@ export class CorrectionRequest extends Data.Class<{
   readonly status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'APPLIED';
   readonly reviewNotes: Option.Option<string>;
 }> {
-  getTotalImpact(): Record<string, { quantity: Quantity; value: Option.Option<Money> }> {
-    const impact: Record<string, { quantity: Quantity; value: Option.Option<Money> }> = {};
+  getTotalImpact(): Record<
+    string,
+    { quantity: Quantity; value: Option.Option<Money> }
+  > {
+    const impact: Record<
+      string,
+      { quantity: Quantity; value: Option.Option<Money> }
+    > = {};
 
-    this.adjustments.forEach(adj => {
+    this.adjustments.forEach((adj) => {
       const key = adj.asset.toString();
       if (!impact[key]) {
         impact[key] = {
@@ -346,7 +372,9 @@ export class CorrectionRequest extends Data.Class<{
       if (adj.type === 'INCREASE') {
         impact[key].quantity = impact[key].quantity.add(adj.quantity);
       } else {
-        impact[key].quantity = impact[key].quantity.subtract(adj.quantity).getOrElse(() => impact[key].quantity);
+        impact[key].quantity = impact[key].quantity
+          .subtract(adj.quantity)
+          .getOrElse(() => impact[key].quantity);
       }
 
       // Aggregate values if present
@@ -356,7 +384,7 @@ export class CorrectionRequest extends Data.Class<{
         impact[key].value = Option.some(
           adj.type === 'INCREASE'
             ? currentValue.add(adjValue).getOrElse(() => currentValue)
-            : currentValue.subtract(adjValue).getOrElse(() => currentValue)
+            : currentValue.subtract(adjValue).getOrElse(() => currentValue),
         );
       } else if (Option.isSome(adj.value)) {
         impact[key].value = adj.value;
@@ -369,7 +397,12 @@ export class CorrectionRequest extends Data.Class<{
 
 // Evidence for corrections
 export class Evidence extends Data.Class<{
-  readonly type: 'SCREENSHOT' | 'CSV' | 'API_RESPONSE' | 'BLOCKCHAIN_TX' | 'DOCUMENT';
+  readonly type:
+    | 'SCREENSHOT'
+    | 'CSV'
+    | 'API_RESPONSE'
+    | 'BLOCKCHAIN_TX'
+    | 'DOCUMENT';
   readonly description: string;
   readonly url: Option.Option<string>;
   readonly hash: Option.Option<string>;
@@ -401,19 +434,27 @@ import { UserId } from '../../../../@core/domain/common-types/identifiers';
 import { v4 as uuidv4 } from 'uuid';
 
 // Reconciliation errors
-export class ReconciliationError extends Data.TaggedError('ReconciliationError')<{
+export class ReconciliationError extends Data.TaggedError(
+  'ReconciliationError',
+)<{
   readonly message: string;
 }> {}
 
-export class ReconciliationNotInProgressError extends Data.TaggedError('ReconciliationNotInProgressError')<{
+export class ReconciliationNotInProgressError extends Data.TaggedError(
+  'ReconciliationNotInProgressError',
+)<{
   readonly reconciliationId: ReconciliationId;
 }> {}
 
-export class DiscrepancyNotFoundError extends Data.TaggedError('DiscrepancyNotFoundError')<{
+export class DiscrepancyNotFoundError extends Data.TaggedError(
+  'DiscrepancyNotFoundError',
+)<{
   readonly discrepancyId: string;
 }> {}
 
-export class UnresolvedDiscrepanciesError extends Data.TaggedError('UnresolvedDiscrepanciesError')<{
+export class UnresolvedDiscrepanciesError extends Data.TaggedError(
+  'UnresolvedDiscrepanciesError',
+)<{
   readonly count: number;
 }> {}
 
@@ -427,7 +468,7 @@ export class ReconciliationInitiated extends DomainEvent {
       readonly userId: UserId;
       readonly sources: ReadonlyArray<DataSource>;
       readonly initiatedAt: Date;
-    }
+    },
   ) {
     super({
       eventId: uuidv4(),
@@ -447,7 +488,7 @@ export class BalancesFetched extends DomainEvent {
       readonly source: DataSource;
       readonly balances: ReadonlyArray<BalanceSnapshot>;
       readonly fetchedAt: Date;
-    }
+    },
   ) {
     super({
       eventId: uuidv4(),
@@ -466,7 +507,7 @@ export class DiscrepancyDetected extends DomainEvent {
       readonly reconciliationId: ReconciliationId;
       readonly discrepancy: Discrepancy;
       readonly detectedAt: Date;
-    }
+    },
   ) {
     super({
       eventId: uuidv4(),
@@ -486,7 +527,7 @@ export class DiscrepancyResolved extends DomainEvent {
       readonly discrepancyId: DiscrepancyId;
       readonly resolution: Resolution;
       readonly resolvedAt: Date;
-    }
+    },
   ) {
     super({
       eventId: uuidv4(),
@@ -505,7 +546,7 @@ export class ReconciliationCompleted extends DomainEvent {
       readonly reconciliationId: ReconciliationId;
       readonly summary: ReconciliationSession;
       readonly completedAt: Date;
-    }
+    },
   ) {
     super({
       eventId: uuidv4(),
@@ -524,7 +565,7 @@ export class ReconciliationFailed extends DomainEvent {
       readonly reconciliationId: ReconciliationId;
       readonly reason: string;
       readonly failedAt: Date;
-    }
+    },
   ) {
     super({
       eventId: uuidv4(),
@@ -642,7 +683,9 @@ export class Reconciliation extends EventSourcedAggregate {
 
       case 'DiscrepancyResolved':
         const resolutionData = (event as DiscrepancyResolved).data;
-        const discrepancyIndex = this.discrepancies.findIndex(d => d.id === resolutionData.discrepancyId);
+        const discrepancyIndex = this.discrepancies.findIndex(
+          (d) => d.id === resolutionData.discrepancyId,
+        );
 
         if (discrepancyIndex !== -1) {
           const resolvedDiscrepancy = new Discrepancy({
@@ -682,7 +725,9 @@ export class Reconciliation extends EventSourcedAggregate {
   }
 
   // Factory method for initiating - returns events, not new state
-  static initiate(command: InitiateReconciliationCommand): Effect.Effect<ReadonlyArray<DomainEvent>, never> {
+  static initiate(
+    command: InitiateReconciliationCommand,
+  ): Effect.Effect<ReadonlyArray<DomainEvent>, never> {
     return Effect.succeed(() => {
       const reconciliationId = ReconciliationId.generate();
       const event = new ReconciliationInitiated({
@@ -698,7 +743,7 @@ export class Reconciliation extends EventSourcedAggregate {
   // Record fetched balances - returns events only
   recordBalances(
     source: DataSource,
-    balances: ReadonlyArray<BalanceSnapshot>
+    balances: ReadonlyArray<BalanceSnapshot>,
   ): Effect.Effect<ReadonlyArray<DomainEvent>, never> {
     return Effect.succeed(() => {
       const reconciliationId = Option.getOrThrow(this.reconciliationId);
@@ -713,12 +758,17 @@ export class Reconciliation extends EventSourcedAggregate {
   }
 
   // Record discrepancy - returns events only
-  recordDiscrepancy(discrepancy: Discrepancy): Effect.Effect<ReadonlyArray<DomainEvent>, ReconciliationError> {
-    if (this.status !== ReconciliationStatus.COMPARING && this.status !== ReconciliationStatus.IN_PROGRESS) {
+  recordDiscrepancy(
+    discrepancy: Discrepancy,
+  ): Effect.Effect<ReadonlyArray<DomainEvent>, ReconciliationError> {
+    if (
+      this.status !== ReconciliationStatus.COMPARING &&
+      this.status !== ReconciliationStatus.IN_PROGRESS
+    ) {
       return Effect.fail(
         new ReconciliationError({
           message: 'Cannot record discrepancies in current status',
-        })
+        }),
       );
     }
 
@@ -736,15 +786,17 @@ export class Reconciliation extends EventSourcedAggregate {
   // Resolve discrepancy - returns events only
   resolveDiscrepancy(
     discrepancyId: DiscrepancyId,
-    resolution: Resolution
+    resolution: Resolution,
   ): Effect.Effect<ReadonlyArray<DomainEvent>, DiscrepancyNotFoundError> {
-    const discrepancyIndex = this.discrepancies.findIndex(d => d.id === discrepancyId);
+    const discrepancyIndex = this.discrepancies.findIndex(
+      (d) => d.id === discrepancyId,
+    );
 
     if (discrepancyIndex === -1) {
       return Effect.fail(
         new DiscrepancyNotFoundError({
           discrepancyId,
-        })
+        }),
       );
     }
 
@@ -761,14 +813,17 @@ export class Reconciliation extends EventSourcedAggregate {
   }
 
   // Auto-resolve minor discrepancies - returns events only
-  autoResolveMinorDiscrepancies(): Effect.Effect<ReadonlyArray<DomainEvent>, never> {
+  autoResolveMinorDiscrepancies(): Effect.Effect<
+    ReadonlyArray<DomainEvent>,
+    never
+  > {
     return Effect.sync(() => {
       const events: DomainEvent[] = [];
       const reconciliationId = Option.getOrThrow(this.reconciliationId);
 
       this.discrepancies
-        .filter(d => !d.isResolved && d.canAutoResolve())
-        .forEach(discrepancy => {
+        .filter((d) => !d.isResolved && d.canAutoResolve())
+        .forEach((discrepancy) => {
           const resolution = new Resolution({
             discrepancyId: discrepancy.id,
             type: ResolutionType.AUTO,
@@ -796,14 +851,19 @@ export class Reconciliation extends EventSourcedAggregate {
   }
 
   // Complete reconciliation - returns events only
-  complete(): Effect.Effect<ReadonlyArray<DomainEvent>, UnresolvedDiscrepanciesError> {
-    const unresolvedCount = this.discrepancies.filter(d => !d.isResolved).length;
+  complete(): Effect.Effect<
+    ReadonlyArray<DomainEvent>,
+    UnresolvedDiscrepanciesError
+  > {
+    const unresolvedCount = this.discrepancies.filter(
+      (d) => !d.isResolved,
+    ).length;
 
     if (unresolvedCount > 0) {
       return Effect.fail(
         new UnresolvedDiscrepanciesError({
           count: unresolvedCount,
-        })
+        }),
       );
     }
 
@@ -817,10 +877,15 @@ export class Reconciliation extends EventSourcedAggregate {
         status: ReconciliationStatus.COMPLETED,
         totalAssets: this.getUniqueAssetCount(),
         totalDiscrepancies: this.discrepancies.length,
-        resolvedDiscrepancies: this.discrepancies.filter(d => d.isResolved).length,
-        criticalCount: this.discrepancies.filter(d => d.severity === 'CRITICAL').length,
-        warningCount: this.discrepancies.filter(d => d.severity === 'WARNING').length,
-        minorCount: this.discrepancies.filter(d => d.severity === 'MINOR').length,
+        resolvedDiscrepancies: this.discrepancies.filter((d) => d.isResolved)
+          .length,
+        criticalCount: this.discrepancies.filter(
+          (d) => d.severity === 'CRITICAL',
+        ).length,
+        warningCount: this.discrepancies.filter((d) => d.severity === 'WARNING')
+          .length,
+        minorCount: this.discrepancies.filter((d) => d.severity === 'MINOR')
+          .length,
       });
 
       const event = new ReconciliationCompleted({
@@ -850,8 +915,8 @@ export class Reconciliation extends EventSourcedAggregate {
   private getUniqueAssetCount(): number {
     const assets = new Set<string>();
 
-    this.balances.forEach(snapshots => {
-      snapshots.forEach(snapshot => {
+    this.balances.forEach((snapshots) => {
+      snapshots.forEach((snapshot) => {
         assets.add(snapshot.asset.toString());
       });
     });
@@ -861,12 +926,14 @@ export class Reconciliation extends EventSourcedAggregate {
 
   getProgress(): number {
     if (this.discrepancies.length === 0) return 100;
-    const resolved = this.discrepancies.filter(d => d.isResolved).length;
+    const resolved = this.discrepancies.filter((d) => d.isResolved).length;
     return Math.round((resolved / this.discrepancies.length) * 100);
   }
 
   requiresManualReview(): boolean {
-    return this.discrepancies.some(d => !d.isResolved && d.requiresManualReview());
+    return this.discrepancies.some(
+      (d) => !d.isResolved && d.requiresManualReview(),
+    );
   }
 }
 ```
@@ -903,12 +970,16 @@ export class CorrectionError extends Data.TaggedError('CorrectionError')<{
   readonly message: string;
 }> {}
 
-export class InvalidCorrectionStatusError extends Data.TaggedError('InvalidCorrectionStatusError')<{
+export class InvalidCorrectionStatusError extends Data.TaggedError(
+  'InvalidCorrectionStatusError',
+)<{
   readonly currentStatus: CorrectionStatus;
   readonly attemptedAction: string;
 }> {}
 
-export class CorrectionNotApprovedError extends Data.TaggedError('CorrectionNotApprovedError')<{
+export class CorrectionNotApprovedError extends Data.TaggedError(
+  'CorrectionNotApprovedError',
+)<{
   readonly correctionId: CorrectionId;
 }> {}
 
@@ -925,7 +996,7 @@ export class CorrectionProposed extends DomainEvent {
       readonly reason: string;
       readonly proposedBy: UserId;
       readonly proposedAt: Date;
-    }
+    },
   ) {
     super({
       eventId: uuidv4(),
@@ -945,7 +1016,7 @@ export class CorrectionReviewed extends DomainEvent {
       readonly reviewedBy: UserId;
       readonly reviewNotes: string;
       readonly reviewedAt: Date;
-    }
+    },
   ) {
     super({
       eventId: uuidv4(),
@@ -965,7 +1036,7 @@ export class CorrectionApproved extends DomainEvent {
       readonly approvedBy: UserId;
       readonly approvalNotes: Option.Option<string>;
       readonly approvedAt: Date;
-    }
+    },
   ) {
     super({
       eventId: uuidv4(),
@@ -985,7 +1056,7 @@ export class CorrectionRejected extends DomainEvent {
       readonly rejectedBy: UserId;
       readonly rejectionReason: string;
       readonly rejectedAt: Date;
-    }
+    },
   ) {
     super({
       eventId: uuidv4(),
@@ -1004,7 +1075,7 @@ export class CorrectionApplied extends DomainEvent {
       readonly correctionId: CorrectionId;
       readonly adjustments: ReadonlyArray<Adjustment>;
       readonly appliedAt: Date;
-    }
+    },
   ) {
     super({
       eventId: uuidv4(),
@@ -1150,7 +1221,9 @@ export class Correction extends EventSourcedAggregate {
   }
 
   // Propose correction - returns events only
-  static propose(command: ProposeCorrectionCommand): Effect.Effect<ReadonlyArray<DomainEvent>, CorrectionError> {
+  static propose(
+    command: ProposeCorrectionCommand,
+  ): Effect.Effect<ReadonlyArray<DomainEvent>, CorrectionError> {
     // Validate adjustments balance (if applicable)
     if (command.type === CorrectionType.BALANCE_ADJUSTMENT) {
       const validation = this.validateBalanceAdjustments(command.adjustments);
@@ -1177,14 +1250,14 @@ export class Correction extends EventSourcedAggregate {
   // Review correction - returns events only
   review(
     reviewedBy: UserId,
-    reviewNotes: string
+    reviewNotes: string,
   ): Effect.Effect<ReadonlyArray<DomainEvent>, InvalidCorrectionStatusError> {
     if (this.status !== CorrectionStatus.PROPOSED) {
       return Effect.fail(
         new InvalidCorrectionStatusError({
           currentStatus: this.status,
           attemptedAction: 'review',
-        })
+        }),
       );
     }
 
@@ -1203,14 +1276,17 @@ export class Correction extends EventSourcedAggregate {
   // Approve correction - returns events only
   approve(
     approvedBy: UserId,
-    approvalNotes?: string
+    approvalNotes?: string,
   ): Effect.Effect<ReadonlyArray<DomainEvent>, InvalidCorrectionStatusError> {
-    if (this.status !== CorrectionStatus.PENDING_REVIEW && this.status !== CorrectionStatus.PROPOSED) {
+    if (
+      this.status !== CorrectionStatus.PENDING_REVIEW &&
+      this.status !== CorrectionStatus.PROPOSED
+    ) {
       return Effect.fail(
         new InvalidCorrectionStatusError({
           currentStatus: this.status,
           attemptedAction: 'approve',
-        })
+        }),
       );
     }
 
@@ -1229,14 +1305,17 @@ export class Correction extends EventSourcedAggregate {
   // Reject correction - returns events only
   reject(
     rejectedBy: UserId,
-    rejectionReason: string
+    rejectionReason: string,
   ): Effect.Effect<ReadonlyArray<DomainEvent>, InvalidCorrectionStatusError> {
-    if (this.status !== CorrectionStatus.PENDING_REVIEW && this.status !== CorrectionStatus.PROPOSED) {
+    if (
+      this.status !== CorrectionStatus.PENDING_REVIEW &&
+      this.status !== CorrectionStatus.PROPOSED
+    ) {
       return Effect.fail(
         new InvalidCorrectionStatusError({
           currentStatus: this.status,
           attemptedAction: 'reject',
-        })
+        }),
       );
     }
 
@@ -1253,12 +1332,15 @@ export class Correction extends EventSourcedAggregate {
   }
 
   // Apply correction - returns events only
-  applyCorrection(): Effect.Effect<ReadonlyArray<DomainEvent>, CorrectionNotApprovedError> {
+  applyCorrection(): Effect.Effect<
+    ReadonlyArray<DomainEvent>,
+    CorrectionNotApprovedError
+  > {
     if (this.status !== CorrectionStatus.APPROVED) {
       return Effect.fail(
         new CorrectionNotApprovedError({
           correctionId: Option.getOrThrow(this.correctionId),
-        })
+        }),
       );
     }
 
@@ -1275,7 +1357,7 @@ export class Correction extends EventSourcedAggregate {
 
   // Validation helpers
   private static validateBalanceAdjustments(
-    adjustments: ReadonlyArray<Adjustment>
+    adjustments: ReadonlyArray<Adjustment>,
   ): Effect.Effect<void, CorrectionError> {
     // For balance adjustments, ensure they make sense
     // This is simplified - in production, you'd have more complex validation
@@ -1284,7 +1366,7 @@ export class Correction extends EventSourcedAggregate {
       return Effect.fail(
         new CorrectionError({
           message: 'At least one adjustment is required',
-        })
+        }),
       );
     }
 
@@ -1296,7 +1378,7 @@ export class Correction extends EventSourcedAggregate {
         return Effect.fail(
           new CorrectionError({
             message: `Duplicate adjustment for asset: ${assetKey}`,
-          })
+          }),
         );
       }
       assets.add(assetKey);
@@ -1313,36 +1395,46 @@ export class Correction extends EventSourcedAggregate {
 // src/contexts/reconciliation/domain/services/discrepancy-analyzer.service.ts
 import { Effect, pipe, ReadonlyArray } from 'effect';
 import { Context, Layer } from 'effect';
-import { BalanceSnapshot, Discrepancy, DataSource } from '../value-objects/reconciliation.vo';
+import {
+  BalanceSnapshot,
+  Discrepancy,
+  DataSource,
+} from '../value-objects/reconciliation.vo';
 import { AssetId } from '../../trading/domain/value-objects/identifiers.vo';
 
 // Discrepancy analyzer interface
 export interface DiscrepancyAnalyzer {
   analyze(
     internalBalances: ReadonlyArray<BalanceSnapshot>,
-    externalBalances: ReadonlyArray<BalanceSnapshot>
+    externalBalances: ReadonlyArray<BalanceSnapshot>,
   ): Effect.Effect<ReadonlyArray<Discrepancy>, Error>;
 
   compareSnapshots(
     internal: BalanceSnapshot,
-    external: BalanceSnapshot
+    external: BalanceSnapshot,
   ): Effect.Effect<Option.Option<Discrepancy>, Error>;
 }
 
-export const DiscrepancyAnalyzer = Context.GenericTag<DiscrepancyAnalyzer>('DiscrepancyAnalyzer');
+export const DiscrepancyAnalyzer = Context.GenericTag<DiscrepancyAnalyzer>(
+  'DiscrepancyAnalyzer',
+);
 
 // Implementation
 export class StandardDiscrepancyAnalyzer implements DiscrepancyAnalyzer {
   analyze(
     internalBalances: ReadonlyArray<BalanceSnapshot>,
-    externalBalances: ReadonlyArray<BalanceSnapshot>
+    externalBalances: ReadonlyArray<BalanceSnapshot>,
   ): Effect.Effect<ReadonlyArray<Discrepancy>, Error> {
     return Effect.sync(() => {
       const discrepancies: Discrepancy[] = [];
 
       // Create maps for efficient lookup
-      const internalMap = new Map(internalBalances.map(b => [b.asset.toString(), b]));
-      const externalMap = new Map(externalBalances.map(b => [b.asset.toString(), b]));
+      const internalMap = new Map(
+        internalBalances.map((b) => [b.asset.toString(), b]),
+      );
+      const externalMap = new Map(
+        externalBalances.map((b) => [b.asset.toString(), b]),
+      );
 
       // Check all internal balances against external
       for (const [assetKey, internalBalance] of internalMap) {
@@ -1360,20 +1452,23 @@ export class StandardDiscrepancyAnalyzer implements DiscrepancyAnalyzer {
               timestamp: new Date(),
               blockHeight: Option.none(),
               metadata: {},
-            })
+            }),
           );
 
           Effect.match(discrepancy, {
             onFailure: () => {},
-            onSuccess: d => discrepancies.push(d),
+            onSuccess: (d) => discrepancies.push(d),
           });
         } else {
           // Both exist, compare them
-          const discrepancy = Discrepancy.calculate(internalBalance, externalBalance);
+          const discrepancy = Discrepancy.calculate(
+            internalBalance,
+            externalBalance,
+          );
 
           Effect.match(discrepancy, {
             onFailure: () => {},
-            onSuccess: d => {
+            onSuccess: (d) => {
               if (d.severity !== 'NEGLIGIBLE') {
                 discrepancies.push(d);
               }
@@ -1395,12 +1490,12 @@ export class StandardDiscrepancyAnalyzer implements DiscrepancyAnalyzer {
               blockHeight: Option.none(),
               metadata: {},
             }),
-            externalBalance
+            externalBalance,
           );
 
           Effect.match(discrepancy, {
             onFailure: () => {},
-            onSuccess: d => discrepancies.push(d),
+            onSuccess: (d) => discrepancies.push(d),
           });
         }
       }
@@ -1411,7 +1506,7 @@ export class StandardDiscrepancyAnalyzer implements DiscrepancyAnalyzer {
 
   compareSnapshots(
     internal: BalanceSnapshot,
-    external: BalanceSnapshot
+    external: BalanceSnapshot,
   ): Effect.Effect<Option.Option<Discrepancy>, Error> {
     if (!internal.asset.equals(external.asset)) {
       return Effect.succeed(Option.none());
@@ -1419,21 +1514,29 @@ export class StandardDiscrepancyAnalyzer implements DiscrepancyAnalyzer {
 
     return pipe(
       Discrepancy.calculate(internal, external),
-      Effect.map(d => (d.severity === 'NEGLIGIBLE' ? Option.none() : Option.some(d))),
-      Effect.orElseSucceed(() => Option.none())
+      Effect.map((d) =>
+        d.severity === 'NEGLIGIBLE' ? Option.none() : Option.some(d),
+      ),
+      Effect.orElseSucceed(() => Option.none()),
     );
   }
 }
 
 // Layer
-export const StandardDiscrepancyAnalyzerLayer = Layer.succeed(DiscrepancyAnalyzer, new StandardDiscrepancyAnalyzer());
+export const StandardDiscrepancyAnalyzerLayer = Layer.succeed(
+  DiscrepancyAnalyzer,
+  new StandardDiscrepancyAnalyzer(),
+);
 ```
 
 ```typescript
 // src/contexts/reconciliation/domain/services/balance-fetcher.service.ts
 import { Effect, pipe, ReadonlyArray } from 'effect';
 import { Context, Layer } from 'effect';
-import { BalanceSnapshot, DataSource } from '../value-objects/reconciliation.vo';
+import {
+  BalanceSnapshot,
+  DataSource,
+} from '../value-objects/reconciliation.vo';
 import { UserId } from '../../trading/domain/value-objects/identifiers.vo';
 import { Data } from 'effect';
 
@@ -1452,16 +1555,23 @@ export class ConnectionError extends Data.TaggedError('ConnectionError')<{
 export interface ExternalBalanceFetcher {
   fetchBalances(
     userId: UserId,
-    source: DataSource
-  ): Effect.Effect<ReadonlyArray<BalanceSnapshot>, ExternalFetchError | ConnectionError>;
+    source: DataSource,
+  ): Effect.Effect<
+    ReadonlyArray<BalanceSnapshot>,
+    ExternalFetchError | ConnectionError
+  >;
 
   fetchAllSources(
     userId: UserId,
-    sources: ReadonlyArray<DataSource>
-  ): Effect.Effect<Map<DataSource, ReadonlyArray<BalanceSnapshot>>, ExternalFetchError>;
+    sources: ReadonlyArray<DataSource>,
+  ): Effect.Effect<
+    Map<DataSource, ReadonlyArray<BalanceSnapshot>>,
+    ExternalFetchError
+  >;
 }
 
-export const ExternalBalanceFetcher = Context.GenericTag<ExternalBalanceFetcher>('ExternalBalanceFetcher');
+export const ExternalBalanceFetcher =
+  Context.GenericTag<ExternalBalanceFetcher>('ExternalBalanceFetcher');
 
 // Composite fetcher implementation
 export class CompositeBalanceFetcher implements ExternalBalanceFetcher {
@@ -1469,8 +1579,11 @@ export class CompositeBalanceFetcher implements ExternalBalanceFetcher {
 
   fetchBalances(
     userId: UserId,
-    source: DataSource
-  ): Effect.Effect<ReadonlyArray<BalanceSnapshot>, ExternalFetchError | ConnectionError> {
+    source: DataSource,
+  ): Effect.Effect<
+    ReadonlyArray<BalanceSnapshot>,
+    ExternalFetchError | ConnectionError
+  > {
     const fetcher = this.fetchers.get(source);
 
     if (!fetcher) {
@@ -1478,7 +1591,7 @@ export class CompositeBalanceFetcher implements ExternalBalanceFetcher {
         new ExternalFetchError({
           source,
           reason: `No fetcher configured for source: ${source}`,
-        })
+        }),
       );
     }
 
@@ -1487,24 +1600,36 @@ export class CompositeBalanceFetcher implements ExternalBalanceFetcher {
 
   fetchAllSources(
     userId: UserId,
-    sources: ReadonlyArray<DataSource>
-  ): Effect.Effect<Map<DataSource, ReadonlyArray<BalanceSnapshot>>, ExternalFetchError> {
+    sources: ReadonlyArray<DataSource>,
+  ): Effect.Effect<
+    Map<DataSource, ReadonlyArray<BalanceSnapshot>>,
+    ExternalFetchError
+  > {
     return Effect.forEach(
       sources,
-      source =>
+      (source) =>
         pipe(
           this.fetchBalances(userId, source),
-          Effect.map(balances => ({ source, balances })),
-          Effect.orElseSucceed(() => ({ source, balances: [] }))
+          Effect.map((balances) => ({ source, balances })),
+          Effect.orElseSucceed(() => ({ source, balances: [] })),
         ),
-      { concurrency: 3 } // Parallel fetching with limit
-    ).pipe(Effect.map(results => new Map(results.map(r => [r.source, r.balances]))));
+      { concurrency: 3 }, // Parallel fetching with limit
+    ).pipe(
+      Effect.map(
+        (results) => new Map(results.map((r) => [r.source, r.balances])),
+      ),
+    );
   }
 }
 
 // Source-specific fetcher interface
 interface SourceSpecificFetcher {
-  fetch(userId: UserId): Effect.Effect<ReadonlyArray<BalanceSnapshot>, ExternalFetchError | ConnectionError>;
+  fetch(
+    userId: UserId,
+  ): Effect.Effect<
+    ReadonlyArray<BalanceSnapshot>,
+    ExternalFetchError | ConnectionError
+  >;
 }
 ```
 
@@ -1515,7 +1640,10 @@ interface SourceSpecificFetcher {
 import { Injectable } from '@nestjs/common';
 import { CommandHandler, ICommandHandler, EventBus } from '@nestjs/cqrs';
 import { Effect, pipe, Exit, Data } from 'effect';
-import { Reconciliation, InitiateReconciliationCommand } from '../../domain/aggregates/reconciliation.aggregate';
+import {
+  Reconciliation,
+  InitiateReconciliationCommand,
+} from '../../domain/aggregates/reconciliation.aggregate';
 import { ReconciliationRepository } from '../../infrastructure/repositories/reconciliation.repository';
 import { ReconciliationSaga } from '../sagas/reconciliation.saga';
 
@@ -1532,11 +1660,13 @@ export class SagaError extends Data.TaggedError('SagaError')<{
 
 @Injectable()
 @CommandHandler(InitiateReconciliationCommand)
-export class InitiateReconciliationHandler implements ICommandHandler<InitiateReconciliationCommand> {
+export class InitiateReconciliationHandler
+  implements ICommandHandler<InitiateReconciliationCommand>
+{
   constructor(
     private readonly repository: ReconciliationRepository,
     private readonly eventBus: EventBus,
-    private readonly saga: ReconciliationSaga
+    private readonly saga: ReconciliationSaga,
   ) {}
 
   async execute(command: InitiateReconciliationCommand): Promise<void> {
@@ -1546,8 +1676,11 @@ export class InitiateReconciliationHandler implements ICommandHandler<InitiateRe
       Reconciliation.initiate(command),
 
       // 2. Build the initial state from the event(s)
-      Effect.map(events => {
-        const reconciliation = events.reduce((acc, event) => acc.apply(event), Reconciliation.empty());
+      Effect.map((events) => {
+        const reconciliation = events.reduce(
+          (acc, event) => acc.apply(event),
+          Reconciliation.empty(),
+        );
         return { reconciliation, events };
       }),
 
@@ -1555,25 +1688,25 @@ export class InitiateReconciliationHandler implements ICommandHandler<InitiateRe
       Effect.flatMap(({ reconciliation, events }) =>
         pipe(
           this.repository.save(reconciliation),
-          Effect.map(() => ({ reconciliation, events }))
-        )
+          Effect.map(() => ({ reconciliation, events })),
+        ),
       ),
 
       // 4. Publish events after successful save
       Effect.tap(({ events }) =>
         Effect.forEach(
           events,
-          event =>
+          (event) =>
             Effect.tryPromise({
               try: () => this.eventBus.publish(event),
-              catch: e =>
+              catch: (e) =>
                 new PublishEventError({
                   eventType: event._tag,
                   message: `Failed to publish event: ${e}`,
                 }),
             }),
-          { concurrency: 'unbounded' }
-        )
+          { concurrency: 'unbounded' },
+        ),
       ),
 
       // 5. Start saga after successful save and event publishing
@@ -1587,11 +1720,11 @@ export class InitiateReconciliationHandler implements ICommandHandler<InitiateRe
                 userId: command.userId,
                 sources: command.sources,
               }),
-            catch: e => new SagaError({ message: `${e}` }),
+            catch: (e) => new SagaError({ message: `${e}` }),
           });
         }
         return Effect.void;
-      })
+      }),
     );
 
     // Run the entire program and handle the final exit state
@@ -1599,7 +1732,10 @@ export class InitiateReconciliationHandler implements ICommandHandler<InitiateRe
 
     if (Exit.isFailure(exit)) {
       // The cause contains the specific, typed error from anywhere in the pipeline
-      const error = exit.cause._tag === 'Fail' ? exit.cause.error : new Error('Unknown error');
+      const error =
+        exit.cause._tag === 'Fail'
+          ? exit.cause.error
+          : new Error('Unknown error');
       // Re-throw the original typed error - it will be caught by the Exception Filter
       throw error;
     }
@@ -1629,21 +1765,26 @@ export class ReconciliationSaga {
     private readonly repository: ReconciliationRepository,
     private readonly externalFetcher: ExternalBalanceFetcher,
     private readonly internalBalanceService: InternalBalanceService,
-    private readonly discrepancyAnalyzer: DiscrepancyAnalyzer
+    private readonly discrepancyAnalyzer: DiscrepancyAnalyzer,
   ) {}
 
   async execute(context: ReconciliationContext): Promise<void> {
     const program = pipe(
       // Step 1: Fetch internal balances
       Effect.tryPromise({
-        try: () => this.internalBalanceService.getCurrentBalances(context.userId),
-        catch: error => new Error(`Failed to fetch internal balances: ${error}`),
+        try: () =>
+          this.internalBalanceService.getCurrentBalances(context.userId),
+        catch: (error) =>
+          new Error(`Failed to fetch internal balances: ${error}`),
       }),
-      Effect.flatMap(internalBalances => {
+      Effect.flatMap((internalBalances) => {
         // Step 2: Fetch external balances from all sources
         return pipe(
           this.externalFetcher.fetchAllSources(context.userId, context.sources),
-          Effect.map(externalBalances => ({ internalBalances, externalBalances }))
+          Effect.map((externalBalances) => ({
+            internalBalances,
+            externalBalances,
+          })),
         );
       }),
       Effect.flatMap(({ internalBalances, externalBalances }) => {
@@ -1652,21 +1793,27 @@ export class ReconciliationSaga {
 
         return Effect.forEach(
           context.sources,
-          source => {
+          (source) => {
             const sourceBalances = externalBalances.get(source) || [];
             return pipe(
-              this.discrepancyAnalyzer.analyze(internalBalances, sourceBalances),
-              Effect.tap(discrepancies => {
+              this.discrepancyAnalyzer.analyze(
+                internalBalances,
+                sourceBalances,
+              ),
+              Effect.tap((discrepancies) => {
                 allDiscrepancies.push(...discrepancies);
-              })
+              }),
             );
           },
-          { concurrency: 1 }
+          { concurrency: 1 },
         ).pipe(Effect.map(() => allDiscrepancies));
       }),
-      Effect.flatMap(discrepancies => {
+      Effect.flatMap((discrepancies) => {
         // Step 4: Record discrepancies in reconciliation
-        return this.recordDiscrepancies(context.reconciliationId, discrepancies);
+        return this.recordDiscrepancies(
+          context.reconciliationId,
+          discrepancies,
+        );
       }),
       Effect.flatMap(() => {
         // Step 5: Auto-resolve minor discrepancies
@@ -1675,7 +1822,7 @@ export class ReconciliationSaga {
       Effect.flatMap(() => {
         // Step 6: Check if manual review is needed
         return this.checkManualReviewRequired(context.reconciliationId);
-      })
+      }),
     );
 
     await Effect.runPromise(program);
@@ -1683,55 +1830,71 @@ export class ReconciliationSaga {
 
   private recordDiscrepancies(
     reconciliationId: string,
-    discrepancies: ReadonlyArray<Discrepancy>
+    discrepancies: ReadonlyArray<Discrepancy>,
   ): Effect.Effect<void, any> {
     return pipe(
       this.repository.load(reconciliationId),
-      Effect.flatMap(reconciliation =>
+      Effect.flatMap((reconciliation) =>
         Effect.forEach(
           discrepancies,
-          discrepancy =>
+          (discrepancy) =>
             pipe(
               reconciliation.recordDiscrepancy(discrepancy),
-              Effect.map(events => events.reduce((acc, event) => acc.apply(event), reconciliation)),
-              Effect.flatMap(updatedReconciliation => this.repository.save(updatedReconciliation))
+              Effect.map((events) =>
+                events.reduce((acc, event) => acc.apply(event), reconciliation),
+              ),
+              Effect.flatMap((updatedReconciliation) =>
+                this.repository.save(updatedReconciliation),
+              ),
             ),
-          { concurrency: 1 }
-        )
+          { concurrency: 1 },
+        ),
       ),
-      Effect.asVoid
+      Effect.asVoid,
     );
   }
 
   private autoResolveMinor(reconciliationId: string): Effect.Effect<void, any> {
     return pipe(
       this.repository.load(reconciliationId),
-      Effect.flatMap(reconciliation =>
+      Effect.flatMap((reconciliation) =>
         pipe(
           reconciliation.autoResolveMinorDiscrepancies(),
-          Effect.map(events => events.reduce((acc, event) => acc.apply(event), reconciliation)),
-          Effect.flatMap(updatedReconciliation => this.repository.save(updatedReconciliation))
-        )
-      )
+          Effect.map((events) =>
+            events.reduce((acc, event) => acc.apply(event), reconciliation),
+          ),
+          Effect.flatMap((updatedReconciliation) =>
+            this.repository.save(updatedReconciliation),
+          ),
+        ),
+      ),
     );
   }
 
-  private checkManualReviewRequired(reconciliationId: string): Effect.Effect<void, any> {
+  private checkManualReviewRequired(
+    reconciliationId: string,
+  ): Effect.Effect<void, any> {
     return pipe(
       this.repository.load(reconciliationId),
-      Effect.flatMap(reconciliation =>
+      Effect.flatMap((reconciliation) =>
         reconciliation.requiresManualReview()
           ? Effect.sync(() => {
               // Send notification for manual review
-              console.log(`Reconciliation ${reconciliationId} requires manual review`);
+              console.log(
+                `Reconciliation ${reconciliationId} requires manual review`,
+              );
             })
           : pipe(
               reconciliation.complete(),
-              Effect.map(events => events.reduce((acc, event) => acc.apply(event), reconciliation)),
-              Effect.flatMap(completedReconciliation => this.repository.save(completedReconciliation)),
-              Effect.orElse(() => Effect.void) // Ignore completion errors
-            )
-      )
+              Effect.map((events) =>
+                events.reduce((acc, event) => acc.apply(event), reconciliation),
+              ),
+              Effect.flatMap((completedReconciliation) =>
+                this.repository.save(completedReconciliation),
+              ),
+              Effect.orElse(() => Effect.void), // Ignore completion errors
+            ),
+      ),
     );
   }
 }
@@ -1743,19 +1906,26 @@ export class ReconciliationSaga {
 // src/contexts/reconciliation/infrastructure/repositories/reconciliation.repository.ts
 import { Injectable } from '@nestjs/common';
 import { EventStore } from '../../../../infrastructure/event-store/event-store.service';
-import { Reconciliation, ReconciliationStatus } from '../../domain/aggregates/reconciliation.aggregate';
+import {
+  Reconciliation,
+  ReconciliationStatus,
+} from '../../domain/aggregates/reconciliation.aggregate';
 import { ReconciliationId } from '../../domain/value-objects/reconciliation.vo';
 import { Option, Effect, pipe, Data } from 'effect';
 import { Knex } from 'knex';
 import { InjectConnection } from 'nest-knexjs';
 
 // Repository-specific errors
-export class LoadReconciliationError extends Data.TaggedError('LoadReconciliationError')<{
+export class LoadReconciliationError extends Data.TaggedError(
+  'LoadReconciliationError',
+)<{
   readonly reconciliationId: ReconciliationId;
   readonly message: string;
 }> {}
 
-export class SaveReconciliationError extends Data.TaggedError('SaveReconciliationError')<{
+export class SaveReconciliationError extends Data.TaggedError(
+  'SaveReconciliationError',
+)<{
   readonly reconciliationId?: ReconciliationId;
   readonly message: string;
 }> {}
@@ -1764,24 +1934,33 @@ export class SaveReconciliationError extends Data.TaggedError('SaveReconciliatio
 export class ReconciliationRepository {
   constructor(
     private readonly eventStore: EventStore,
-    @InjectConnection() private readonly knex: Knex
+    @InjectConnection() private readonly knex: Knex,
   ) {}
 
-  load(reconciliationId: ReconciliationId): Effect.Effect<Reconciliation, LoadReconciliationError> {
+  load(
+    reconciliationId: ReconciliationId,
+  ): Effect.Effect<Reconciliation, LoadReconciliationError> {
     return pipe(
       Effect.tryPromise({
         try: () => this.eventStore.readStream(reconciliationId),
-        catch: error =>
+        catch: (error) =>
           new LoadReconciliationError({
             reconciliationId,
             message: `Failed to read event stream: ${error}`,
           }),
       }),
-      Effect.map(events => events.reduce((aggregate, event) => aggregate.apply(event), Reconciliation.empty()))
+      Effect.map((events) =>
+        events.reduce(
+          (aggregate, event) => aggregate.apply(event),
+          Reconciliation.empty(),
+        ),
+      ),
     );
   }
 
-  save(reconciliation: Reconciliation): Effect.Effect<void, SaveReconciliationError> {
+  save(
+    reconciliation: Reconciliation,
+  ): Effect.Effect<void, SaveReconciliationError> {
     const uncommittedEvents = reconciliation.getUncommittedEvents();
 
     if (uncommittedEvents.length === 0) {
@@ -1794,22 +1973,29 @@ export class ReconciliationRepository {
         () =>
           new SaveReconciliationError({
             message: 'Reconciliation ID is missing for save operation',
-          })
+          }),
       ),
-      Effect.flatMap(reconciliationId =>
+      Effect.flatMap((reconciliationId) =>
         Effect.tryPromise({
-          try: () => this.eventStore.append(reconciliationId, uncommittedEvents, reconciliation.version),
-          catch: error =>
+          try: () =>
+            this.eventStore.append(
+              reconciliationId,
+              uncommittedEvents,
+              reconciliation.version,
+            ),
+          catch: (error) =>
             new SaveReconciliationError({
               reconciliationId,
               message: `Failed to save events: ${error}`,
             }),
-        })
-      )
+        }),
+      ),
     );
   }
 
-  findActiveByUser(userId: string): Effect.Effect<ReadonlyArray<Reconciliation>, LoadReconciliationError> {
+  findActiveByUser(
+    userId: string,
+  ): Effect.Effect<ReadonlyArray<Reconciliation>, LoadReconciliationError> {
     return pipe(
       Effect.tryPromise({
         try: () =>
@@ -1817,15 +2003,19 @@ export class ReconciliationRepository {
             .where('user_id', userId)
             .whereIn('status', ['INITIATED', 'IN_PROGRESS', 'PENDING_REVIEW'])
             .orderBy('started_at', 'desc'),
-        catch: error =>
+        catch: (error) =>
           new LoadReconciliationError({
             reconciliationId: '' as ReconciliationId,
             message: `Failed to query active reconciliations: ${error}`,
           }),
       }),
-      Effect.flatMap(results =>
-        Effect.forEach(results, result => this.load(result.reconciliation_id), { concurrency: 'unbounded' })
-      )
+      Effect.flatMap((results) =>
+        Effect.forEach(
+          results,
+          (result) => this.load(result.reconciliation_id),
+          { concurrency: 'unbounded' },
+        ),
+      ),
     );
   }
 }
@@ -1852,7 +2042,10 @@ import { CoinbaseFetcher } from './infrastructure/fetchers/coinbase.fetcher';
 import { EthereumFetcher } from './infrastructure/fetchers/ethereum.fetcher';
 
 // Command handlers
-const CommandHandlers = [InitiateReconciliationHandler, ProposeCorrectionHandler];
+const CommandHandlers = [
+  InitiateReconciliationHandler,
+  ProposeCorrectionHandler,
+];
 
 // Sagas
 const Sagas = [ReconciliationSaga];
@@ -1865,7 +2058,11 @@ const DomainServices = [
   },
   {
     provide: 'ExternalBalanceFetcher',
-    useFactory: (binance: BinanceFetcher, coinbase: CoinbaseFetcher, ethereum: EthereumFetcher) => {
+    useFactory: (
+      binance: BinanceFetcher,
+      coinbase: CoinbaseFetcher,
+      ethereum: EthereumFetcher,
+    ) => {
       const fetchers = new Map();
       fetchers.set('BINANCE', binance);
       fetchers.set('COINBASE', coinbase);
@@ -1877,7 +2074,12 @@ const DomainServices = [
 ];
 
 // Infrastructure services
-const InfrastructureServices = [BinanceFetcher, CoinbaseFetcher, EthereumFetcher, InternalBalanceService];
+const InfrastructureServices = [
+  BinanceFetcher,
+  CoinbaseFetcher,
+  EthereumFetcher,
+  InternalBalanceService,
+];
 
 @Module({
   imports: [CqrsModule, EventStoreModule],
@@ -2151,7 +2353,9 @@ export class GetReconciliationDetailsQuery {
 }
 
 @QueryHandler(GetReconciliationDetailsQuery)
-export class GetReconciliationDetailsHandler implements IQueryHandler<GetReconciliationDetailsQuery> {
+export class GetReconciliationDetailsHandler
+  implements IQueryHandler<GetReconciliationDetailsQuery>
+{
   constructor(@InjectConnection() private readonly knex: Knex) {}
 
   async execute(query: GetReconciliationDetailsQuery): Promise<any> {
@@ -2172,13 +2376,15 @@ export class GetReconciliationDetailsHandler implements IQueryHandler<GetReconci
     // Get resolutions
     const resolutions = await this.knex('resolution_projections').whereIn(
       'discrepancy_id',
-      discrepancies.map(d => d.discrepancy_id)
+      discrepancies.map((d) => d.discrepancy_id),
     );
 
     // Map resolutions to discrepancies
-    const resolutionMap = new Map(resolutions.map(r => [r.discrepancy_id, r]));
+    const resolutionMap = new Map(
+      resolutions.map((r) => [r.discrepancy_id, r]),
+    );
 
-    const enrichedDiscrepancies = discrepancies.map(d => ({
+    const enrichedDiscrepancies = discrepancies.map((d) => ({
       ...d,
       resolution: resolutionMap.get(d.discrepancy_id) || null,
     }));
@@ -2189,13 +2395,15 @@ export class GetReconciliationDetailsHandler implements IQueryHandler<GetReconci
       progress: this.calculateProgress(enrichedDiscrepancies),
       summary: {
         totalDiscrepancies: discrepancies.length,
-        resolved: discrepancies.filter(d => d.is_resolved).length,
-        pending: discrepancies.filter(d => !d.is_resolved).length,
+        resolved: discrepancies.filter((d) => d.is_resolved).length,
+        pending: discrepancies.filter((d) => !d.is_resolved).length,
         bySeverity: {
-          critical: discrepancies.filter(d => d.severity === 'CRITICAL').length,
-          warning: discrepancies.filter(d => d.severity === 'WARNING').length,
-          minor: discrepancies.filter(d => d.severity === 'MINOR').length,
-          negligible: discrepancies.filter(d => d.severity === 'NEGLIGIBLE').length,
+          critical: discrepancies.filter((d) => d.severity === 'CRITICAL')
+            .length,
+          warning: discrepancies.filter((d) => d.severity === 'WARNING').length,
+          minor: discrepancies.filter((d) => d.severity === 'MINOR').length,
+          negligible: discrepancies.filter((d) => d.severity === 'NEGLIGIBLE')
+            .length,
         },
       },
     };
@@ -2203,7 +2411,7 @@ export class GetReconciliationDetailsHandler implements IQueryHandler<GetReconci
 
   private calculateProgress(discrepancies: any[]): number {
     if (discrepancies.length === 0) return 100;
-    const resolved = discrepancies.filter(d => d.is_resolved).length;
+    const resolved = discrepancies.filter((d) => d.is_resolved).length;
     return Math.round((resolved / discrepancies.length) * 100);
   }
 }
@@ -2221,7 +2429,9 @@ export class GetReconciliationDashboardQuery {
 }
 
 @QueryHandler(GetReconciliationDashboardQuery)
-export class GetReconciliationDashboardHandler implements IQueryHandler<GetReconciliationDashboardQuery> {
+export class GetReconciliationDashboardHandler
+  implements IQueryHandler<GetReconciliationDashboardQuery>
+{
   constructor(@InjectConnection() private readonly knex: Knex) {}
 
   async execute(query: GetReconciliationDashboardQuery): Promise<any> {
@@ -2232,8 +2442,14 @@ export class GetReconciliationDashboardHandler implements IQueryHandler<GetRecon
       .limit(10);
 
     // Get unresolved discrepancies
-    const unresolvedDiscrepancies = await this.knex('discrepancy_projections as d')
-      .join('reconciliation_projections as r', 'd.reconciliation_id', 'r.reconciliation_id')
+    const unresolvedDiscrepancies = await this.knex(
+      'discrepancy_projections as d',
+    )
+      .join(
+        'reconciliation_projections as r',
+        'd.reconciliation_id',
+        'r.reconciliation_id',
+      )
       .where('r.user_id', query.userId)
       .where('d.is_resolved', false)
       .select('d.*', 'r.started_at as reconciliation_date')
@@ -2248,14 +2464,25 @@ export class GetReconciliationDashboardHandler implements IQueryHandler<GetRecon
 
     // Calculate statistics
     const stats = await this.knex('discrepancy_projections as d')
-      .join('reconciliation_projections as r', 'd.reconciliation_id', 'r.reconciliation_id')
+      .join(
+        'reconciliation_projections as r',
+        'd.reconciliation_id',
+        'r.reconciliation_id',
+      )
       .where('r.user_id', query.userId)
       .where('r.started_at', '>=', this.knex.raw("NOW() - INTERVAL '30 days'"))
       .select(
         this.knex.raw('COUNT(*) as total_discrepancies'),
-        this.knex.raw('COUNT(CASE WHEN d.is_resolved THEN 1 END) as resolved_count'),
-        this.knex.raw('COUNT(CASE WHEN d.severity = ? THEN 1 END) as critical_count', ['CRITICAL']),
-        this.knex.raw('AVG(CASE WHEN d.is_resolved THEN d.resolution_time_hours END) as avg_resolution_time')
+        this.knex.raw(
+          'COUNT(CASE WHEN d.is_resolved THEN 1 END) as resolved_count',
+        ),
+        this.knex.raw(
+          'COUNT(CASE WHEN d.severity = ? THEN 1 END) as critical_count',
+          ['CRITICAL'],
+        ),
+        this.knex.raw(
+          'AVG(CASE WHEN d.is_resolved THEN d.resolution_time_hours END) as avg_resolution_time',
+        ),
       )
       .first();
 
@@ -2266,21 +2493,25 @@ export class GetReconciliationDashboardHandler implements IQueryHandler<GetRecon
       .select(
         this.knex.raw('DATE(started_at) as date'),
         this.knex.raw('COUNT(*) as reconciliation_count'),
-        this.knex.raw('AVG(total_discrepancies) as avg_discrepancies')
+        this.knex.raw('AVG(total_discrepancies) as avg_discrepancies'),
       )
       .groupBy(this.knex.raw('DATE(started_at)'))
       .orderBy('date', 'asc');
 
     // Get asset health scores
     const assetHealth = await this.knex('discrepancy_projections as d')
-      .join('reconciliation_projections as r', 'd.reconciliation_id', 'r.reconciliation_id')
+      .join(
+        'reconciliation_projections as r',
+        'd.reconciliation_id',
+        'r.reconciliation_id',
+      )
       .where('r.user_id', query.userId)
       .where('r.started_at', '>=', this.knex.raw("NOW() - INTERVAL '7 days'"))
       .select(
         'd.asset_id',
         this.knex.raw('COUNT(*) as discrepancy_count'),
         this.knex.raw('AVG(d.percentage_diff) as avg_discrepancy_percentage'),
-        this.knex.raw('MAX(d.severity_order) as max_severity')
+        this.knex.raw('MAX(d.severity_order) as max_severity'),
       )
       .groupBy('d.asset_id')
       .orderBy('discrepancy_count', 'desc')
@@ -2292,11 +2523,14 @@ export class GetReconciliationDashboardHandler implements IQueryHandler<GetRecon
       pendingCorrections,
       statistics: {
         ...stats,
-        resolutionRate: stats.total_discrepancies > 0 ? (stats.resolved_count / stats.total_discrepancies) * 100 : 100,
+        resolutionRate:
+          stats.total_discrepancies > 0
+            ? (stats.resolved_count / stats.total_discrepancies) * 100
+            : 100,
         healthScore: this.calculateHealthScore(stats),
       },
       trends,
-      assetHealth: assetHealth.map(a => ({
+      assetHealth: assetHealth.map((a) => ({
         ...a,
         healthScore: this.calculateAssetHealthScore(a),
       })),
@@ -2308,7 +2542,9 @@ export class GetReconciliationDashboardHandler implements IQueryHandler<GetRecon
     let score = 100;
 
     // Deduct for unresolved discrepancies
-    const unresolvedRate = (stats.total_discrepancies - stats.resolved_count) / Math.max(stats.total_discrepancies, 1);
+    const unresolvedRate =
+      (stats.total_discrepancies - stats.resolved_count) /
+      Math.max(stats.total_discrepancies, 1);
     score -= unresolvedRate * 30;
 
     // Deduct for critical issues
@@ -2353,12 +2589,20 @@ import { Knex } from 'knex';
 
 export async function up(knex: Knex): Promise<void> {
   // Reconciliation projections table
-  await knex.schema.createTable('reconciliation_projections', table => {
+  await knex.schema.createTable('reconciliation_projections', (table) => {
     table.uuid('reconciliation_id').primary();
     table.uuid('user_id').notNullable();
     table.specificType('sources', 'text[]').notNullable();
     table
-      .enum('status', ['INITIATED', 'FETCHING', 'COMPARING', 'IN_PROGRESS', 'PENDING_REVIEW', 'COMPLETED', 'FAILED'])
+      .enum('status', [
+        'INITIATED',
+        'FETCHING',
+        'COMPARING',
+        'IN_PROGRESS',
+        'PENDING_REVIEW',
+        'COMPLETED',
+        'FAILED',
+      ])
       .notNullable();
     table.integer('total_assets').defaultTo(0);
     table.integer('total_discrepancies').defaultTo(0);
@@ -2375,7 +2619,7 @@ export async function up(knex: Knex): Promise<void> {
   });
 
   // Discrepancy projections table
-  await knex.schema.createTable('discrepancy_projections', table => {
+  await knex.schema.createTable('discrepancy_projections', (table) => {
     table.uuid('discrepancy_id').primary();
     table.uuid('reconciliation_id').notNullable();
     table.string('asset_id').notNullable();
@@ -2383,7 +2627,9 @@ export async function up(knex: Knex): Promise<void> {
     table.decimal('external_quantity', 30, 18).notNullable();
     table.decimal('difference_quantity', 30, 18).notNullable();
     table.decimal('percentage_diff', 10, 6).notNullable();
-    table.enum('severity', ['NEGLIGIBLE', 'MINOR', 'WARNING', 'CRITICAL']).notNullable();
+    table
+      .enum('severity', ['NEGLIGIBLE', 'MINOR', 'WARNING', 'CRITICAL'])
+      .notNullable();
     table.integer('severity_order').notNullable(); // For sorting
     table.specificType('possible_causes', 'text[]');
     table.boolean('is_resolved').defaultTo(false);
@@ -2398,10 +2644,22 @@ export async function up(knex: Knex): Promise<void> {
   });
 
   // Resolution projections table
-  await knex.schema.createTable('resolution_projections', table => {
-    table.uuid('resolution_id').primary().defaultTo(knex.raw('uuid_generate_v4()'));
+  await knex.schema.createTable('resolution_projections', (table) => {
+    table
+      .uuid('resolution_id')
+      .primary()
+      .defaultTo(knex.raw('uuid_generate_v4()'));
     table.uuid('discrepancy_id').notNullable();
-    table.enum('type', ['AUTO', 'MANUAL', 'ADJUST_INTERNAL', 'ADJUST_EXTERNAL', 'IGNORE', 'INVESTIGATE']).notNullable();
+    table
+      .enum('type', [
+        'AUTO',
+        'MANUAL',
+        'ADJUST_INTERNAL',
+        'ADJUST_EXTERNAL',
+        'IGNORE',
+        'INVESTIGATE',
+      ])
+      .notNullable();
     table.text('notes').notNullable();
     table.string('resolved_by').notNullable();
     table.timestamp('resolved_at').notNullable();
@@ -2414,8 +2672,11 @@ export async function up(knex: Knex): Promise<void> {
   });
 
   // Adjustment projections table
-  await knex.schema.createTable('adjustment_projections', table => {
-    table.uuid('adjustment_id').primary().defaultTo(knex.raw('uuid_generate_v4()'));
+  await knex.schema.createTable('adjustment_projections', (table) => {
+    table
+      .uuid('adjustment_id')
+      .primary()
+      .defaultTo(knex.raw('uuid_generate_v4()'));
     table.uuid('resolution_id');
     table.uuid('correction_id');
     table.enum('type', ['INCREASE', 'DECREASE']).notNullable();
@@ -2434,7 +2695,7 @@ export async function up(knex: Knex): Promise<void> {
   });
 
   // Correction projections table
-  await knex.schema.createTable('correction_projections', table => {
+  await knex.schema.createTable('correction_projections', (table) => {
     table.uuid('correction_id').primary();
     table.uuid('user_id').notNullable();
     table
@@ -2448,7 +2709,15 @@ export async function up(knex: Knex): Promise<void> {
       ])
       .notNullable();
     table.text('description').notNullable();
-    table.enum('status', ['PROPOSED', 'PENDING_REVIEW', 'APPROVED', 'REJECTED', 'APPLIED']).notNullable();
+    table
+      .enum('status', [
+        'PROPOSED',
+        'PENDING_REVIEW',
+        'APPROVED',
+        'REJECTED',
+        'APPLIED',
+      ])
+      .notNullable();
     table.string('proposed_by').notNullable();
     table.timestamp('proposed_at').notNullable();
     table.string('reviewed_by');
@@ -2466,10 +2735,21 @@ export async function up(knex: Knex): Promise<void> {
   });
 
   // Evidence table
-  await knex.schema.createTable('evidence', table => {
-    table.uuid('evidence_id').primary().defaultTo(knex.raw('uuid_generate_v4()'));
+  await knex.schema.createTable('evidence', (table) => {
+    table
+      .uuid('evidence_id')
+      .primary()
+      .defaultTo(knex.raw('uuid_generate_v4()'));
     table.uuid('correction_id').notNullable();
-    table.enum('type', ['SCREENSHOT', 'CSV', 'API_RESPONSE', 'BLOCKCHAIN_TX', 'DOCUMENT']).notNullable();
+    table
+      .enum('type', [
+        'SCREENSHOT',
+        'CSV',
+        'API_RESPONSE',
+        'BLOCKCHAIN_TX',
+        'DOCUMENT',
+      ])
+      .notNullable();
     table.text('description').notNullable();
     table.text('url');
     table.string('hash', 64);
@@ -2479,8 +2759,11 @@ export async function up(knex: Knex): Promise<void> {
   });
 
   // Balance snapshot table (for historical tracking)
-  await knex.schema.createTable('balance_snapshots', table => {
-    table.uuid('snapshot_id').primary().defaultTo(knex.raw('uuid_generate_v4()'));
+  await knex.schema.createTable('balance_snapshots', (table) => {
+    table
+      .uuid('snapshot_id')
+      .primary()
+      .defaultTo(knex.raw('uuid_generate_v4()'));
     table.uuid('reconciliation_id').notNullable();
     table.string('asset_id').notNullable();
     table.decimal('quantity', 30, 18).notNullable();
@@ -2513,11 +2796,17 @@ export async function down(knex: Knex): Promise<void> {
 // src/contexts/reconciliation/infrastructure/fetchers/binance.fetcher.ts
 import { Injectable } from '@nestjs/common';
 import { Effect, pipe, Option } from 'effect';
-import { BalanceSnapshot, DataSource } from '../../domain/value-objects/reconciliation.vo';
+import {
+  BalanceSnapshot,
+  DataSource,
+} from '../../domain/value-objects/reconciliation.vo';
 import { UserId } from '../../../trading/domain/value-objects/identifiers.vo';
 import { AssetId } from '../../../trading/domain/value-objects/identifiers.vo';
 import { Quantity } from '../../../trading/domain/value-objects/quantity.vo';
-import { ExternalFetchError, ConnectionError } from '../../domain/services/balance-fetcher.service';
+import {
+  ExternalFetchError,
+  ConnectionError,
+} from '../../domain/services/balance-fetcher.service';
 import axios from 'axios';
 import * as crypto from 'crypto';
 
@@ -2525,23 +2814,30 @@ import * as crypto from 'crypto';
 export class BinanceFetcher {
   private readonly baseUrl = 'https://api.binance.com';
 
-  fetch(userId: UserId): Effect.Effect<ReadonlyArray<BalanceSnapshot>, ExternalFetchError | ConnectionError> {
+  fetch(
+    userId: UserId,
+  ): Effect.Effect<
+    ReadonlyArray<BalanceSnapshot>,
+    ExternalFetchError | ConnectionError
+  > {
     return pipe(
       this.getApiCredentials(userId),
-      Effect.flatMap(credentials => this.fetchAccountBalances(credentials)),
-      Effect.map(balances => this.transformToSnapshots(balances)),
-      Effect.catchAll(error =>
+      Effect.flatMap((credentials) => this.fetchAccountBalances(credentials)),
+      Effect.map((balances) => this.transformToSnapshots(balances)),
+      Effect.catchAll((error) =>
         Effect.fail(
           new ExternalFetchError({
             source: DataSource.BINANCE,
             reason: error.message,
-          })
-        )
-      )
+          }),
+        ),
+      ),
     );
   }
 
-  private getApiCredentials(userId: UserId): Effect.Effect<{ apiKey: string; apiSecret: string }, Error> {
+  private getApiCredentials(
+    userId: UserId,
+  ): Effect.Effect<{ apiKey: string; apiSecret: string }, Error> {
     // In production, fetch encrypted credentials from secure storage
     return Effect.sync(() => ({
       apiKey: process.env.BINANCE_API_KEY || '',
@@ -2549,22 +2845,33 @@ export class BinanceFetcher {
     }));
   }
 
-  private fetchAccountBalances(credentials: { apiKey: string; apiSecret: string }): Effect.Effect<any, Error> {
+  private fetchAccountBalances(credentials: {
+    apiKey: string;
+    apiSecret: string;
+  }): Effect.Effect<any, Error> {
     return Effect.tryPromise({
       try: async () => {
         const timestamp = Date.now();
         const queryString = `timestamp=${timestamp}`;
-        const signature = this.generateSignature(queryString, credentials.apiSecret);
+        const signature = this.generateSignature(
+          queryString,
+          credentials.apiSecret,
+        );
 
-        const response = await axios.get(`${this.baseUrl}/api/v3/account?${queryString}&signature=${signature}`, {
-          headers: {
-            'X-MBX-APIKEY': credentials.apiKey,
+        const response = await axios.get(
+          `${this.baseUrl}/api/v3/account?${queryString}&signature=${signature}`,
+          {
+            headers: {
+              'X-MBX-APIKEY': credentials.apiKey,
+            },
           },
-        });
+        );
 
-        return response.data.balances.filter(b => parseFloat(b.free) > 0 || parseFloat(b.locked) > 0);
+        return response.data.balances.filter(
+          (b) => parseFloat(b.free) > 0 || parseFloat(b.locked) > 0,
+        );
       },
-      catch: error =>
+      catch: (error) =>
         new ConnectionError({
           source: DataSource.BINANCE,
           details: error.message,
@@ -2573,12 +2880,15 @@ export class BinanceFetcher {
   }
 
   private transformToSnapshots(balances: any[]): BalanceSnapshot[] {
-    return balances.map(balance => {
-      const totalQuantity = parseFloat(balance.free) + parseFloat(balance.locked);
+    return balances.map((balance) => {
+      const totalQuantity =
+        parseFloat(balance.free) + parseFloat(balance.locked);
 
       return new BalanceSnapshot({
         asset: AssetId.crypto(balance.asset, 'binance'),
-        quantity: Quantity.of(totalQuantity, 18).getOrElse(() => Quantity.zero()),
+        quantity: Quantity.of(totalQuantity, 18).getOrElse(() =>
+          Quantity.zero(),
+        ),
         value: Option.none(), // Price fetched separately if needed
         source: DataSource.BINANCE,
         timestamp: new Date(),
@@ -2592,7 +2902,10 @@ export class BinanceFetcher {
   }
 
   private generateSignature(queryString: string, apiSecret: string): string {
-    return crypto.createHmac('sha256', apiSecret).update(queryString).digest('hex');
+    return crypto
+      .createHmac('sha256', apiSecret)
+      .update(queryString)
+      .digest('hex');
   }
 }
 ```

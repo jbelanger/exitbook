@@ -101,7 +101,11 @@ export class BullQueueService implements OnModuleInit, OnModuleDestroy {
     this.logger.log(`Queue created: ${name}`);
   }
 
-  async addJob(queueName: string, data: JobData, options?: JobsOptions): Promise<Job> {
+  async addJob(
+    queueName: string,
+    data: JobData,
+    options?: JobsOptions,
+  ): Promise<Job> {
     const queue = this.queues.get(queueName);
     if (!queue) {
       throw new Error(`Queue ${queueName} not found`);
@@ -113,22 +117,29 @@ export class BullQueueService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  async addBulkJobs(queueName: string, jobs: Array<{ data: JobData; options?: JobsOptions }>): Promise<Job[]> {
+  async addBulkJobs(
+    queueName: string,
+    jobs: Array<{ data: JobData; options?: JobsOptions }>,
+  ): Promise<Job[]> {
     const queue = this.queues.get(queueName);
     if (!queue) {
       throw new Error(`Queue ${queueName} not found`);
     }
 
     return queue.addBulk(
-      jobs.map(job => ({
+      jobs.map((job) => ({
         name: job.data.type,
         data: job.data,
         opts: job.options,
-      }))
+      })),
     );
   }
 
-  async scheduleJob(queueName: string, data: JobData, cron: string): Promise<void> {
+  async scheduleJob(
+    queueName: string,
+    data: JobData,
+    cron: string,
+  ): Promise<void> {
     const queue = this.queues.get(queueName);
     if (!queue) {
       throw new Error(`Queue ${queueName} not found`);
@@ -140,13 +151,17 @@ export class BullQueueService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  registerWorker(queueName: string, processor: (job: Job) => Promise<any>, concurrency: number = 1): Worker {
+  registerWorker(
+    queueName: string,
+    processor: (job: Job) => Promise<any>,
+    concurrency: number = 1,
+  ): Worker {
     const worker = new Worker(queueName, processor, {
       connection: this.connection,
       concurrency,
     });
 
-    worker.on('completed', job => {
+    worker.on('completed', (job) => {
       this.logger.debug(`Job completed: ${job.id}`);
     });
 
@@ -269,7 +284,7 @@ export class AuthService {
   constructor(
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
-    private readonly cache: RedisCacheService
+    private readonly cache: RedisCacheService,
   ) {}
 
   async validateUser(email: string, password: string): Promise<any> {
@@ -317,7 +332,7 @@ export class AuthService {
         permissions: user.permissions,
         createdAt: new Date(),
       },
-      { ttl: 86400 * 7 } // 7 days
+      { ttl: 86400 * 7 }, // 7 days
     );
 
     return {
@@ -562,7 +577,9 @@ import { WsJwtGuard } from '../auth/guards/ws-jwt.guard';
   },
   namespace: 'portfolio',
 })
-export class PortfolioGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class PortfolioGateway
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer()
   server: Server;
 
@@ -611,14 +628,20 @@ export class PortfolioGateway implements OnGatewayConnection, OnGatewayDisconnec
   }
 
   @SubscribeMessage('subscribe:portfolio')
-  async subscribeToPortfolio(@ConnectedSocket() socket: Socket, @MessageBody() data: { portfolioId: string }) {
+  async subscribeToPortfolio(
+    @ConnectedSocket() socket: Socket,
+    @MessageBody() data: { portfolioId: string },
+  ) {
     socket.join(`portfolio:${data.portfolioId}`);
     return { subscribed: true, portfolioId: data.portfolioId };
   }
 
   @SubscribeMessage('subscribe:prices')
-  async subscribeToPrices(@ConnectedSocket() socket: Socket, @MessageBody() data: { assets: string[] }) {
-    data.assets.forEach(asset => {
+  async subscribeToPrices(
+    @ConnectedSocket() socket: Socket,
+    @MessageBody() data: { assets: string[] },
+  ) {
+    data.assets.forEach((asset) => {
       socket.join(`price:${asset}`);
     });
     return { subscribed: true, assets: data.assets };

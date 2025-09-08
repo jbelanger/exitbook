@@ -1,6 +1,7 @@
 ## Complete Core Entities and Aggregates for Event-Sourced Architecture
 
-Here's the comprehensive domain model with all core aggregates, entities, value objects, and their relationships:
+Here's the comprehensive domain model with all core aggregates, entities, value
+objects, and their relationships:
 
 ## 1. **Trading Context - Core Aggregates**
 
@@ -25,7 +26,9 @@ export class Transaction extends EventSourcedAggregate {
   // ======== Factory Methods ========
 
   // In the aggregate - pure domain logic only
-  static import(command: ImportTransactionCommand): Result<Transaction, TransactionError> {
+  static import(
+    command: ImportTransactionCommand,
+  ): Result<Transaction, TransactionError> {
     const transaction = new Transaction();
     const events: DomainEvent[] = [
       new TransactionImported({
@@ -43,7 +46,9 @@ export class Transaction extends EventSourcedAggregate {
     return ok(transaction);
   }
 
-  static createManual(command: CreateManualTransactionCommand): Result<Transaction, TransactionError> {
+  static createManual(
+    command: CreateManualTransactionCommand,
+  ): Result<Transaction, TransactionError> {
     const transaction = new Transaction();
 
     // Validate entries balance
@@ -69,7 +74,9 @@ export class Transaction extends EventSourcedAggregate {
 
   // ======== Commands ========
 
-  classify(classifier: TransactionClassifier): Result<DomainEvent[], TransactionError> {
+  classify(
+    classifier: TransactionClassifier,
+  ): Result<DomainEvent[], TransactionError> {
     if (this.status !== TransactionStatus.IMPORTED) {
       return err(new InvalidStateError('Transaction already classified'));
     }
@@ -87,7 +94,9 @@ export class Transaction extends EventSourcedAggregate {
     ]);
   }
 
-  recordLedgerEntries(entries: LedgerEntry[]): Result<DomainEvent[], TransactionError> {
+  recordLedgerEntries(
+    entries: LedgerEntry[],
+  ): Result<DomainEvent[], TransactionError> {
     // Validation happens HERE in the aggregate
     const validation = LedgerRules.validateBalance(entries);
     if (validation.isErr()) {
@@ -95,30 +104,37 @@ export class Transaction extends EventSourcedAggregate {
     }
 
     if (!this.classification) {
-      return err(new InvalidStateError('Transaction must be classified before recording entries'));
+      return err(
+        new InvalidStateError(
+          'Transaction must be classified before recording entries',
+        ),
+      );
     }
 
     return ok([
       new LedgerEntriesRecorded({
         transactionId: this.transactionId,
-        entries: entries.map(e => e.toDTO()),
+        entries: entries.map((e) => e.toDTO()),
         recordedAt: Clock.now(),
       }),
     ]);
   }
 
-  reverse(reason: string, reversedBy: UserId): Result<DomainEvent[], TransactionError> {
+  reverse(
+    reason: string,
+    reversedBy: UserId,
+  ): Result<DomainEvent[], TransactionError> {
     if (this.status === TransactionStatus.REVERSED) {
       return err(new AlreadyReversedError(this.transactionId));
     }
 
-    const reversalEntries = this.entries.map(entry => entry.reverse());
+    const reversalEntries = this.entries.map((entry) => entry.reverse());
 
     return ok([
       new TransactionReversed({
         transactionId: this.transactionId,
         reversalReason: reason,
-        reversalEntries: reversalEntries.map(e => e.toDTO()),
+        reversalEntries: reversalEntries.map((e) => e.toDTO()),
         reversedBy,
         reversedAt: Clock.now(),
       }),
@@ -139,13 +155,13 @@ export class Transaction extends EventSourcedAggregate {
     this.classification = new TransactionClassification(
       event.data.classification,
       event.data.confidence,
-      event.data.protocol
+      event.data.protocol,
     );
     this.status = TransactionStatus.CLASSIFIED;
   }
 
   protected applyLedgerEntriesRecorded(event: LedgerEntriesRecorded): void {
-    this.entries = event.data.entries.map(e => LedgerEntry.fromDTO(e));
+    this.entries = event.data.entries.map((e) => LedgerEntry.fromDTO(e));
     this.status = TransactionStatus.RECORDED;
   }
 
@@ -214,7 +230,10 @@ export class Account extends EventSourcedAggregate {
     const account = new Account();
 
     // Validate account type for asset class
-    const validation = AccountRules.validateAccountType(command.accountType, command.asset);
+    const validation = AccountRules.validateAccountType(
+      command.accountType,
+      command.asset,
+    );
     if (validation.isErr()) {
       return err(validation.error);
     }
@@ -250,7 +269,9 @@ export class Account extends EventSourcedAggregate {
     ]);
   }
 
-  updateMetadata(metadata: Partial<AccountMetadata>): Result<DomainEvent[], AccountError> {
+  updateMetadata(
+    metadata: Partial<AccountMetadata>,
+  ): Result<DomainEvent[], AccountError> {
     return ok([
       new AccountMetadataUpdated({
         accountId: this.accountId,
@@ -297,7 +318,11 @@ export class Position extends EventSourcedAggregate {
     return ok(position);
   }
 
-  increase(amount: Quantity, price: Money, source: AcquisitionSource): Result<DomainEvent[], PositionError> {
+  increase(
+    amount: Quantity,
+    price: Money,
+    source: AcquisitionSource,
+  ): Result<DomainEvent[], PositionError> {
     if (this.status === PositionStatus.CLOSED) {
       return err(new PositionClosedError(this.positionId));
     }
@@ -332,7 +357,7 @@ export class Position extends EventSourcedAggregate {
         removedQuantity: amount,
         newQuantity,
         decreasedAt: Clock.now(),
-      })
+      }),
     );
 
     if (newQuantity.isZero()) {
@@ -340,7 +365,7 @@ export class Position extends EventSourcedAggregate {
         new PositionClosed({
           positionId: this.positionId,
           closedAt: Clock.now(),
-        })
+        }),
       );
     }
 
@@ -360,7 +385,9 @@ export class Position extends EventSourcedAggregate {
   }
 
   getUnrealizedGain(currentPrice: Money): Result<Money, PositionError> {
-    const currentValue = currentPrice.multiply(this.quantity.toNumber()).unwrap();
+    const currentValue = currentPrice
+      .multiply(this.quantity.toNumber())
+      .unwrap();
     return currentValue.subtract(this.totalCostBasis);
   }
 
@@ -370,7 +397,9 @@ export class Position extends EventSourcedAggregate {
     this.userId = event.data.userId;
     this.asset = event.data.asset;
     this.quantity = event.data.initialQuantity;
-    this.totalCostBasis = event.data.acquisitionPrice.multiply(event.data.initialQuantity.toNumber()).unwrap();
+    this.totalCostBasis = event.data.acquisitionPrice
+      .multiply(event.data.initialQuantity.toNumber())
+      .unwrap();
     this.acquisitions.push({
       quantity: event.data.initialQuantity,
       price: event.data.acquisitionPrice,
@@ -382,7 +411,9 @@ export class Position extends EventSourcedAggregate {
 
   protected applyPositionIncreased(event: PositionIncreased): void {
     this.quantity = event.data.newQuantity;
-    const additionalCostBasis = event.data.acquisitionPrice.multiply(event.data.addedQuantity.toNumber()).unwrap();
+    const additionalCostBasis = event.data.acquisitionPrice
+      .multiply(event.data.addedQuantity.toNumber())
+      .unwrap();
     this.totalCostBasis = this.totalCostBasis.add(additionalCostBasis).unwrap();
     this.acquisitions.push({
       quantity: event.data.addedQuantity,
@@ -395,9 +426,15 @@ export class Position extends EventSourcedAggregate {
   protected applyPositionDecreased(event: PositionDecreased): void {
     this.quantity = event.data.newQuantity;
     // For cost basis reduction, use weighted average cost
-    const reductionRatio = event.data.removedQuantity.toNumber() / event.data.previousQuantity.toNumber();
-    const costBasisReduction = this.totalCostBasis.multiply(reductionRatio).unwrap();
-    this.totalCostBasis = this.totalCostBasis.subtract(costBasisReduction).unwrap();
+    const reductionRatio =
+      event.data.removedQuantity.toNumber() /
+      event.data.previousQuantity.toNumber();
+    const costBasisReduction = this.totalCostBasis
+      .multiply(reductionRatio)
+      .unwrap();
+    this.totalCostBasis = this.totalCostBasis
+      .subtract(costBasisReduction)
+      .unwrap();
   }
 
   protected applyPositionClosed(event: PositionClosed): void {
@@ -438,7 +475,10 @@ export class Portfolio extends EventSourcedAggregate {
     return ok(portfolio);
   }
 
-  calculateValuation(prices: PriceMap, baseCurrency: Currency): Result<DomainEvent[], PortfolioError> {
+  calculateValuation(
+    prices: PriceMap,
+    baseCurrency: Currency,
+  ): Result<DomainEvent[], PortfolioError> {
     const holdings: Holding[] = [];
     let totalValue = Money.zero(baseCurrency);
 
@@ -452,7 +492,12 @@ export class Portfolio extends EventSourcedAggregate {
       holdings.push(new Holding(assetId, position.quantity, price, value));
     }
 
-    const valuation = new PortfolioValuation(totalValue, holdings, baseCurrency, Clock.now());
+    const valuation = new PortfolioValuation(
+      totalValue,
+      holdings,
+      baseCurrency,
+      Clock.now(),
+    );
 
     return ok([
       new PortfolioValuated({
@@ -463,10 +508,15 @@ export class Portfolio extends EventSourcedAggregate {
     ]);
   }
 
-  rebalance(targetAllocations: AllocationMap): Result<RebalanceOrder[], PortfolioError> {
+  rebalance(
+    targetAllocations: AllocationMap,
+  ): Result<RebalanceOrder[], PortfolioError> {
     // Complex rebalancing logic
     const currentAllocations = this.calculateCurrentAllocations();
-    const orders = RebalanceCalculator.calculate(currentAllocations, targetAllocations);
+    const orders = RebalanceCalculator.calculate(
+      currentAllocations,
+      targetAllocations,
+    );
 
     return ok(orders);
   }
@@ -519,7 +569,13 @@ export class TaxLot extends EventSourcedAggregate {
     }
 
     if (disposal.quantity.isGreaterThan(this.quantity.remaining)) {
-      return err(new InsufficientLotQuantityError(this.lotId, this.quantity.remaining, disposal.quantity));
+      return err(
+        new InsufficientLotQuantityError(
+          this.lotId,
+          this.quantity.remaining,
+          disposal.quantity,
+        ),
+      );
     }
 
     // Calculate consumption
@@ -528,7 +584,10 @@ export class TaxLot extends EventSourcedAggregate {
     const consumedCostBasis = this.costBasis.multiply(consumptionRatio);
     const proceeds = disposal.quantity.multiply(disposal.price);
     const realizedGain = proceeds.subtract(consumedCostBasis);
-    const holdingPeriod = HoldingPeriod.between(this.acquisitionDate, disposal.date);
+    const holdingPeriod = HoldingPeriod.between(
+      this.acquisitionDate,
+      disposal.date,
+    );
     const newRemaining = this.quantity.remaining.subtract(consumedQuantity);
 
     const events: DomainEvent[] = [];
@@ -544,7 +603,7 @@ export class TaxLot extends EventSourcedAggregate {
           holdingPeriod: holdingPeriod.getDays(),
           isLongTerm: holdingPeriod.isLongTerm(),
           consumedAt: Clock.now(),
-        })
+        }),
       );
     } else {
       events.push(
@@ -558,7 +617,7 @@ export class TaxLot extends EventSourcedAggregate {
           holdingPeriod: holdingPeriod.getDays(),
           isLongTerm: holdingPeriod.isLongTerm(),
           consumedAt: Clock.now(),
-        })
+        }),
       );
     }
 
@@ -577,7 +636,9 @@ export class TaxReport extends EventSourcedAggregate {
   private summary: TaxSummary;
   private status: ReportStatus;
 
-  static generate(command: GenerateTaxReportCommand): Result<TaxReport, TaxReportError> {
+  static generate(
+    command: GenerateTaxReportCommand,
+  ): Result<TaxReport, TaxReportError> {
     const report = new TaxReport();
 
     // Validate tax year
@@ -599,7 +660,9 @@ export class TaxReport extends EventSourcedAggregate {
     return ok(report);
   }
 
-  addTransaction(transaction: TaxableTransaction): Result<DomainEvent[], TaxReportError> {
+  addTransaction(
+    transaction: TaxableTransaction,
+  ): Result<DomainEvent[], TaxReportError> {
     if (this.status === ReportStatus.FINALIZED) {
       return err(new ReportFinalizedError(this.reportId));
     }
@@ -644,7 +707,9 @@ export class Reconciliation extends EventSourcedAggregate {
   private discrepancies: Discrepancy[];
   private status: ReconciliationStatus;
 
-  static initiate(command: InitiateReconciliationCommand): Result<Reconciliation, ReconciliationError> {
+  static initiate(
+    command: InitiateReconciliationCommand,
+  ): Result<Reconciliation, ReconciliationError> {
     const reconciliation = new Reconciliation();
 
     const events: DomainEvent[] = [
@@ -660,7 +725,9 @@ export class Reconciliation extends EventSourcedAggregate {
     return ok(reconciliation);
   }
 
-  recordDiscrepancy(discrepancy: Discrepancy): Result<DomainEvent[], ReconciliationError> {
+  recordDiscrepancy(
+    discrepancy: Discrepancy,
+  ): Result<DomainEvent[], ReconciliationError> {
     if (this.status !== ReconciliationStatus.IN_PROGRESS) {
       return err(new ReconciliationNotInProgressError(this.reconciliationId));
     }
@@ -680,8 +747,12 @@ export class Reconciliation extends EventSourcedAggregate {
     ]);
   }
 
-  resolve(resolution: ResolutionCommand): Result<DomainEvent[], ReconciliationError> {
-    const discrepancy = this.discrepancies.find(d => d.asset === resolution.asset);
+  resolve(
+    resolution: ResolutionCommand,
+  ): Result<DomainEvent[], ReconciliationError> {
+    const discrepancy = this.discrepancies.find(
+      (d) => d.asset === resolution.asset,
+    );
     if (!discrepancy) {
       return err(new DiscrepancyNotFoundError(resolution.asset));
     }
@@ -699,7 +770,9 @@ export class Reconciliation extends EventSourcedAggregate {
   }
 
   complete(): Result<DomainEvent[], ReconciliationError> {
-    const unresolvedCount = this.discrepancies.filter(d => !d.isResolved).length;
+    const unresolvedCount = this.discrepancies.filter(
+      (d) => !d.isResolved,
+    ).length;
 
     if (unresolvedCount > 0) {
       return err(new UnresolvedDiscrepanciesError(unresolvedCount));
@@ -725,12 +798,16 @@ export class Correction extends EventSourcedAggregate {
   private adjustments: Adjustment[];
   private status: CorrectionStatus;
 
-  static propose(command: ProposeCorrectionCommand): Result<Correction, CorrectionError> {
+  static propose(
+    command: ProposeCorrectionCommand,
+  ): Result<Correction, CorrectionError> {
     const correction = new Correction();
 
     // Validate adjustments balance (if applicable)
     if (command.type === CorrectionType.BALANCE_ADJUSTMENT) {
-      const validation = CorrectionRules.validateBalanceAdjustment(command.adjustments);
+      const validation = CorrectionRules.validateBalanceAdjustment(
+        command.adjustments,
+      );
       if (validation.isErr()) {
         return err(validation.error);
       }
@@ -774,7 +851,7 @@ export class Correction extends EventSourcedAggregate {
     return ok([
       new CorrectionApplied({
         correctionId: this.correctionId,
-        adjustments: this.adjustments.map(a => a.toDTO()),
+        adjustments: this.adjustments.map((a) => a.toDTO()),
         appliedAt: Clock.now(),
       }),
     ]);
@@ -790,10 +867,13 @@ export class Money {
   private constructor(
     private readonly amount: BigNumber,
     private readonly currency: Currency,
-    private readonly scale: number
+    private readonly scale: number,
   ) {}
 
-  static of(amount: string | number, currency: Currency): Result<Money, MoneyError> {
+  static of(
+    amount: string | number,
+    currency: Currency,
+  ): Result<Money, MoneyError> {
     try {
       const bigAmount = new BigNumber(amount);
       if (!bigAmount.isFinite()) {
@@ -815,35 +895,64 @@ export class Money {
         return err(new CurrencyMismatchError(this.currency, other.currency));
       }
       // Convert other to this currency
-      const convertedResult = converter.convert(other, this.currency, Clock.now());
+      const convertedResult = converter.convert(
+        other,
+        this.currency,
+        Clock.now(),
+      );
       if (convertedResult.isErr()) {
         return err(convertedResult.error);
       }
       const converted = convertedResult.value;
-      return ok(new Money(this.amount.plus(converted.amount), this.currency, this.scale));
+      return ok(
+        new Money(
+          this.amount.plus(converted.amount),
+          this.currency,
+          this.scale,
+        ),
+      );
     }
-    return ok(new Money(this.amount.plus(other.amount), this.currency, this.scale));
+    return ok(
+      new Money(this.amount.plus(other.amount), this.currency, this.scale),
+    );
   }
 
-  subtract(other: Money, converter?: MoneyConverter): Result<Money, MoneyError> {
+  subtract(
+    other: Money,
+    converter?: MoneyConverter,
+  ): Result<Money, MoneyError> {
     if (!this.isSameCurrency(other)) {
       if (!converter) {
         return err(new CurrencyMismatchError(this.currency, other.currency));
       }
       // Convert other to this currency
-      const convertedResult = converter.convert(other, this.currency, Clock.now());
+      const convertedResult = converter.convert(
+        other,
+        this.currency,
+        Clock.now(),
+      );
       if (convertedResult.isErr()) {
         return err(convertedResult.error);
       }
       const converted = convertedResult.value;
-      return ok(new Money(this.amount.minus(converted.amount), this.currency, this.scale));
+      return ok(
+        new Money(
+          this.amount.minus(converted.amount),
+          this.currency,
+          this.scale,
+        ),
+      );
     }
-    return ok(new Money(this.amount.minus(other.amount), this.currency, this.scale));
+    return ok(
+      new Money(this.amount.minus(other.amount), this.currency, this.scale),
+    );
   }
 
   multiply(factor: string | number): Result<Money, MoneyError> {
     const bigFactor = new BigNumber(factor);
-    return ok(new Money(this.amount.multipliedBy(bigFactor), this.currency, this.scale));
+    return ok(
+      new Money(this.amount.multipliedBy(bigFactor), this.currency, this.scale),
+    );
   }
 
   divide(divisor: string | number): Result<Money, MoneyError> {
@@ -851,7 +960,9 @@ export class Money {
     if (bigDivisor.isZero()) {
       return err(new DivisionByZeroError());
     }
-    return ok(new Money(this.amount.dividedBy(bigDivisor), this.currency, this.scale));
+    return ok(
+      new Money(this.amount.dividedBy(bigDivisor), this.currency, this.scale),
+    );
   }
 
   isNegative(): boolean {
@@ -931,14 +1042,24 @@ export class Money {
 export class MoneyConverter {
   constructor(private rates: ExchangeRateProvider) {}
 
-  convert(money: Money, toCurrency: Currency, timestamp: Date): Result<Money, ConversionError> {
+  convert(
+    money: Money,
+    toCurrency: Currency,
+    timestamp: Date,
+  ): Result<Money, ConversionError> {
     if (money.currency.equals(toCurrency)) {
       return ok(money); // No conversion needed
     }
 
-    const rateResult = this.rates.getRate(money.currency, toCurrency, timestamp);
+    const rateResult = this.rates.getRate(
+      money.currency,
+      toCurrency,
+      timestamp,
+    );
     if (rateResult.isErr()) {
-      return err(new ExchangeRateNotFoundError(money.currency, toCurrency, timestamp));
+      return err(
+        new ExchangeRateNotFoundError(money.currency, toCurrency, timestamp),
+      );
     }
 
     const rate = rateResult.value;
@@ -948,7 +1069,11 @@ export class MoneyConverter {
   }
 
   // Batch conversion for efficiency
-  convertMultiple(amounts: Money[], toCurrency: Currency, timestamp: Date): Result<Money[], ConversionError> {
+  convertMultiple(
+    amounts: Money[],
+    toCurrency: Currency,
+    timestamp: Date,
+  ): Result<Money[], ConversionError> {
     const results: Money[] = [];
 
     for (const amount of amounts) {
@@ -967,10 +1092,13 @@ export class MoneyConverter {
 export class Quantity {
   private constructor(
     private readonly value: BigNumber,
-    private readonly precision: number
+    private readonly precision: number,
   ) {}
 
-  static of(value: string | number, precision: number = 18): Result<Quantity, QuantityError> {
+  static of(
+    value: string | number,
+    precision: number = 18,
+  ): Result<Quantity, QuantityError> {
     const bigValue = new BigNumber(value);
     if (!bigValue.isFinite() || bigValue.isNegative()) {
       return err(new InvalidQuantityError(value));
@@ -1080,11 +1208,20 @@ export class AssetId {
     private readonly symbol: string,
     private readonly type: AssetType,
     private readonly blockchain?: string,
-    private readonly contractAddress?: string
+    private readonly contractAddress?: string,
   ) {}
 
-  static crypto(symbol: string, blockchain: string, contractAddress?: string): AssetId {
-    return new AssetId(symbol.toUpperCase(), AssetType.CRYPTO, blockchain, contractAddress);
+  static crypto(
+    symbol: string,
+    blockchain: string,
+    contractAddress?: string,
+  ): AssetId {
+    return new AssetId(
+      symbol.toUpperCase(),
+      AssetType.CRYPTO,
+      blockchain,
+      contractAddress,
+    );
   }
 
   static fiat(symbol: string): AssetId {
@@ -1102,7 +1239,11 @@ export class AssetId {
   }
 
   equals(other: AssetId): boolean {
-    return this.symbol === other.symbol && this.type === other.type && this.blockchain === other.blockchain;
+    return (
+      this.symbol === other.symbol &&
+      this.type === other.type &&
+      this.blockchain === other.blockchain
+    );
   }
 
   toString(): string {
@@ -1118,13 +1259,19 @@ export class Discrepancy {
     readonly external: Money,
     readonly difference: Money,
     readonly percentage: number,
-    readonly isResolved: boolean = false
+    readonly isResolved: boolean = false,
   ) {}
 
-  static calculate(asset: AssetId, internal: Money, external: Money): Discrepancy {
+  static calculate(
+    asset: AssetId,
+    internal: Money,
+    external: Money,
+  ): Discrepancy {
     const difference = internal.subtract(external).unwrap();
     const average = internal.add(external).unwrap().divide(2).unwrap();
-    const percentage = average.isZero() ? 0 : Math.abs(difference.toNumber() / average.toNumber()) * 100;
+    const percentage = average.isZero()
+      ? 0
+      : Math.abs(difference.toNumber() / average.toNumber()) * 100;
 
     return new Discrepancy(asset, internal, external, difference, percentage);
   }
@@ -1136,7 +1283,14 @@ export class Discrepancy {
   }
 
   resolve(): Discrepancy {
-    return new Discrepancy(this.asset, this.internal, this.external, this.difference, this.percentage, true);
+    return new Discrepancy(
+      this.asset,
+      this.internal,
+      this.external,
+      this.difference,
+      this.percentage,
+      true,
+    );
   }
 }
 ```
@@ -1434,7 +1588,9 @@ export class LedgerRules {
     for (const entry of entries) {
       const currency = entry.amount.currency;
       const current = byCurrency.get(currency) || Money.zero(currency);
-      const updated = entry.isDebit() ? current.subtract(entry.amount) : current.add(entry.amount);
+      const updated = entry.isDebit()
+        ? current.subtract(entry.amount)
+        : current.add(entry.amount);
 
       if (updated.isErr()) return err(updated.error);
       byCurrency.set(currency, updated.value);
@@ -1450,7 +1606,9 @@ export class LedgerRules {
     return ok(undefined);
   }
 
-  static validateAccountTypes(entries: LedgerEntry[]): Result<void, LedgerError> {
+  static validateAccountTypes(
+    entries: LedgerEntry[],
+  ): Result<void, LedgerError> {
     for (const entry of entries) {
       const accountType = entry.account.type;
       const assetType = entry.amount.currency.type;
@@ -1463,7 +1621,10 @@ export class LedgerRules {
     return ok(undefined);
   }
 
-  private static isValidCombination(accountType: AccountType, assetType: AssetType): boolean {
+  private static isValidCombination(
+    accountType: AccountType,
+    assetType: AssetType,
+  ): boolean {
     // NFT accounts can only hold NFTs
     if (accountType === AccountType.NFT_WALLET) {
       return assetType === AssetType.NFT;
@@ -1475,7 +1636,10 @@ export class LedgerRules {
     }
 
     // Regular accounts cannot hold NFTs or LP tokens
-    if (accountType === AccountType.WALLET || accountType === AccountType.EXCHANGE) {
+    if (
+      accountType === AccountType.WALLET ||
+      accountType === AccountType.EXCHANGE
+    ) {
       return assetType === AssetType.CRYPTO || assetType === AssetType.FIAT;
     }
 
@@ -1522,11 +1686,18 @@ export class TaxRules {
     return holdingPeriod.getDays() >= this.LONG_TERM_DAYS;
   }
 
-  static isWashSale(disposal: DisposalEvent, reacquisition: AcquisitionEvent): boolean {
-    const daysBetween = Math.abs(disposal.date.getTime() - reacquisition.date.getTime()) / (1000 * 60 * 60 * 24);
+  static isWashSale(
+    disposal: DisposalEvent,
+    reacquisition: AcquisitionEvent,
+  ): boolean {
+    const daysBetween =
+      Math.abs(disposal.date.getTime() - reacquisition.date.getTime()) /
+      (1000 * 60 * 60 * 24);
 
     return (
-      daysBetween <= this.WASH_SALE_DAYS && disposal.asset.equals(reacquisition.asset) && disposal.resulted.isLoss()
+      daysBetween <= this.WASH_SALE_DAYS &&
+      disposal.asset.equals(reacquisition.asset) &&
+      disposal.resulted.isLoss()
     );
   }
 
@@ -1582,7 +1753,9 @@ export class ImportWorkflowSaga extends Saga {
     new ReconcileBalancesStep(),
   ];
 
-  async execute(context: ImportContext): Promise<Result<ImportResult, WorkflowError>> {
+  async execute(
+    context: ImportContext,
+  ): Promise<Result<ImportResult, WorkflowError>> {
     const workflow = new WorkflowExecution(this.steps);
 
     try {
@@ -1600,7 +1773,10 @@ export class ImportWorkflowSaga extends Saga {
     }
   }
 
-  async compensate(failedStep: WorkflowStep, context: ImportContext): Promise<void> {
+  async compensate(
+    failedStep: WorkflowStep,
+    context: ImportContext,
+  ): Promise<void> {
     // Reverse completed steps
     const completedSteps = this.steps.slice(0, this.steps.indexOf(failedStep));
 
@@ -1612,7 +1788,9 @@ export class ImportWorkflowSaga extends Saga {
 
 // ============ TAX CALCULATION SAGA ============
 export class TaxCalculationSaga extends Saga {
-  async handle(command: CalculateTaxesCommand): Promise<Result<TaxReport, TaxError>> {
+  async handle(
+    command: CalculateTaxesCommand,
+  ): Promise<Result<TaxReport, TaxError>> {
     const events: DomainEvent[] = [];
 
     try {
@@ -1620,11 +1798,18 @@ export class TaxCalculationSaga extends Saga {
       const lots = await this.loadTaxLots(command.userId, command.asset);
 
       // Step 2: Load disposals for tax year
-      const disposals = await this.loadDisposals(command.userId, command.taxYear);
+      const disposals = await this.loadDisposals(
+        command.userId,
+        command.taxYear,
+      );
 
       // Step 3: Process each disposal
       for (const disposal of disposals) {
-        const consumptionResult = await this.processDisposal(disposal, lots, command.method);
+        const consumptionResult = await this.processDisposal(
+          disposal,
+          lots,
+          command.method,
+        );
 
         if (consumptionResult.isOk()) {
           events.push(...consumptionResult.value);
@@ -1632,7 +1817,11 @@ export class TaxCalculationSaga extends Saga {
       }
 
       // Step 4: Generate report
-      const report = await this.generateReport(command.userId, command.taxYear, events);
+      const report = await this.generateReport(
+        command.userId,
+        command.taxYear,
+        events,
+      );
 
       // Step 5: Publish events
       await this.publishEvents(events);
@@ -1647,11 +1836,18 @@ export class TaxCalculationSaga extends Saga {
   private async processDisposal(
     disposal: DisposalEvent,
     availableLots: TaxLot[],
-    method: AccountingMethod
+    method: AccountingMethod,
   ): Promise<Result<DomainEvent[], TaxError>> {
-    const taxCalculator = new TaxCalculationService(this.getLotSelector(method), new GainCalculator());
+    const taxCalculator = new TaxCalculationService(
+      this.getLotSelector(method),
+      new GainCalculator(),
+    );
 
-    const gainsResult = await taxCalculator.calculateRealizedGains(disposal, availableLots, method);
+    const gainsResult = await taxCalculator.calculateRealizedGains(
+      disposal,
+      availableLots,
+      method,
+    );
 
     if (gainsResult.isErr()) {
       return err(gainsResult.error);
@@ -1671,7 +1867,7 @@ export class TaxCalculationSaga extends Saga {
           realizedGain: consumption.realizedGain,
           holdingPeriod: consumption.holdingPeriod,
           consumedAt: Clock.now(),
-        })
+        }),
       );
     }
 
@@ -1722,9 +1918,13 @@ export class PortfolioProjectionHandler {
 
     if (!holding) return;
 
-    const newQuantity = new BigNumber(holding.quantity).plus(event.addedQuantity.toString());
+    const newQuantity = new BigNumber(holding.quantity).plus(
+      event.addedQuantity.toString(),
+    );
 
-    const newCostBasis = new BigNumber(holding.costBasis).plus(event.acquisitionPrice.toString());
+    const newCostBasis = new BigNumber(holding.costBasis).plus(
+      event.acquisitionPrice.toString(),
+    );
 
     await this.projectionDb.holdings.update(
       {
@@ -1736,7 +1936,7 @@ export class PortfolioProjectionHandler {
         costBasis: newCostBasis.toString(),
         lastTransactionDate: event.increasedAt,
         totalTransactions: holding.totalTransactions + 1,
-      }
+      },
     );
   }
 
@@ -1756,7 +1956,7 @@ export class PortfolioProjectionHandler {
           unrealizedGainUsd: holding.unrealizedGain,
           roiPercentage: holding.roiPercentage,
           lastPriceTimestamp: event.valuatedAt,
-        }
+        },
       );
     }
   }
@@ -1793,7 +1993,9 @@ export class TaxLotProjectionHandler {
 
     if (!lot) return;
 
-    const newRemaining = new BigNumber(lot.remainingQuantity).minus(event.consumedQuantity.toString());
+    const newRemaining = new BigNumber(lot.remainingQuantity).minus(
+      event.consumedQuantity.toString(),
+    );
 
     const status = newRemaining.isZero() ? 'closed' : 'partial';
 
@@ -1803,9 +2005,11 @@ export class TaxLotProjectionHandler {
       },
       {
         remainingQuantity: newRemaining.toString(),
-        consumedQuantity: new BigNumber(lot.consumedQuantity).plus(event.consumedQuantity.toString()).toString(),
+        consumedQuantity: new BigNumber(lot.consumedQuantity)
+          .plus(event.consumedQuantity.toString())
+          .toString(),
         status,
-      }
+      },
     );
 
     // Record the realized gain
@@ -1835,7 +2039,8 @@ export class TaxLotProjectionHandler {
 
 ## Event Versioning Strategy
 
-All domain events include a version field for schema evolution and backward compatibility:
+All domain events include a version field for schema evolution and backward
+compatibility:
 
 ```typescript
 // ============ BASE DOMAIN EVENT ============
@@ -1867,7 +2072,11 @@ export class TransactionImported implements DomainEvent {
 export class EventMigrationService {
   private migrations = new Map<string, Map<number, EventMigration>>();
 
-  registerMigration(eventType: string, fromVersion: number, migration: EventMigration): void {
+  registerMigration(
+    eventType: string,
+    fromVersion: number,
+    migration: EventMigration,
+  ): void {
     if (!this.migrations.has(eventType)) {
       this.migrations.set(eventType, new Map());
     }
@@ -1917,11 +2126,14 @@ export class TransactionImportedV1ToV2Migration implements EventMigration {
 
 ## Key Design Principles
 
-1. **Event Sourcing at Core**: All state changes are events, providing natural audit trail
+1. **Event Sourcing at Core**: All state changes are events, providing natural
+   audit trail
 2. **Rich Domain Model**: Business logic lives in aggregates, not services
-3. **Value Objects for Type Safety**: Money, Quantity, AssetId prevent primitive obsession
+3. **Value Objects for Type Safety**: Money, Quantity, AssetId prevent primitive
+   obsession
 4. **Explicit Workflows**: Sagas orchestrate complex multi-step processes
-5. **Separated Read/Write**: Projections optimize for queries without affecting command model
+5. **Separated Read/Write**: Projections optimize for queries without affecting
+   command model
 6. **Policy Objects**: Business rules are explicit and testable
 7. **Result Types**: All operations that can fail return Result<T, E>
 8. **No Shared State**: Aggregates communicate only through events
@@ -1935,10 +2147,12 @@ export class ImportTransactionCommandHandler {
   constructor(
     private repository: TransactionRepository,
     private eventStore: EventStore,
-    private eventBus: EventBus
+    private eventBus: EventBus,
   ) {}
 
-  async handle(command: ImportTransactionCommand): Promise<Result<void, Error>> {
+  async handle(
+    command: ImportTransactionCommand,
+  ): Promise<Result<void, Error>> {
     const idempotencyKey = `${command.source}:${command.externalId}`;
 
     // Check idempotency at infrastructure level
@@ -1952,7 +2166,10 @@ export class ImportTransactionCommandHandler {
     if (result.isErr()) return err(result.error);
 
     // Save events
-    await this.eventStore.append(result.value.id, result.value.getUncommittedEvents());
+    await this.eventStore.append(
+      result.value.id,
+      result.value.getUncommittedEvents(),
+    );
 
     // Publish for projections
     await this.eventBus.publishAll(result.value.getUncommittedEvents());
@@ -1965,7 +2182,7 @@ export class ImportTransactionCommandHandler {
 export class RecordEntriesCommandHandler {
   constructor(
     private repository: TransactionRepository,
-    private eventBus: EventBus
+    private eventBus: EventBus,
   ) {}
 
   async handle(command: RecordEntriesCommand): Promise<Result<void, Error>> {
@@ -1996,10 +2213,18 @@ export class RecordEntriesCommandHandler {
 export class PostgresEventStore implements EventStore {
   constructor(private db: Database) {}
 
-  async append(streamId: string, events: DomainEvent[], expectedVersion: number): Promise<void> {
-    await this.db.transaction(async tx => {
+  async append(
+    streamId: string,
+    events: DomainEvent[],
+    expectedVersion: number,
+  ): Promise<void> {
+    await this.db.transaction(async (tx) => {
       // Optimistic concurrency check
-      const currentVersion = await tx.select('version').from('event_streams').where('stream_id', streamId).forUpdate();
+      const currentVersion = await tx
+        .select('version')
+        .from('event_streams')
+        .where('stream_id', streamId)
+        .forUpdate();
 
       if (currentVersion !== expectedVersion) {
         throw new ConcurrencyError(streamId, expectedVersion, currentVersion);
@@ -2019,11 +2244,17 @@ export class PostgresEventStore implements EventStore {
       }
 
       // Update stream version
-      await tx.update('event_streams').set({ version: currentVersion }).where('stream_id', streamId);
+      await tx
+        .update('event_streams')
+        .set({ version: currentVersion })
+        .where('stream_id', streamId);
     });
   }
 
-  async readStream(streamId: string, fromVersion: number = 0): Promise<EventStream> {
+  async readStream(
+    streamId: string,
+    fromVersion: number = 0,
+  ): Promise<EventStream> {
     const events = await this.db
       .select('*')
       .from('events')
@@ -2033,12 +2264,18 @@ export class PostgresEventStore implements EventStore {
 
     return new EventStream(
       streamId,
-      events.map(e => this.deserializeEvent(e))
+      events.map((e) => this.deserializeEvent(e)),
     );
   }
 
-  async findByIdempotencyKey(idempotencyKey: string): Promise<DomainEvent | null> {
-    const event = await this.db.select('*').from('events').where('event_data->idempotencyKey', idempotencyKey).limit(1);
+  async findByIdempotencyKey(
+    idempotencyKey: string,
+  ): Promise<DomainEvent | null> {
+    const event = await this.db
+      .select('*')
+      .from('events')
+      .where('event_data->idempotencyKey', idempotencyKey)
+      .limit(1);
 
     return event.length > 0 ? this.deserializeEvent(event[0]) : null;
   }
@@ -2102,7 +2339,7 @@ export class AggregateRepository<T extends EventSourcedAggregate> {
   constructor(
     private eventStore: EventStore,
     private snapshotStore: SnapshotStore,
-    private factory: AggregateFactory<T>
+    private factory: AggregateFactory<T>,
   ) {}
 
   async load(id: string): Promise<T> {
@@ -2135,7 +2372,11 @@ export class AggregateRepository<T extends EventSourcedAggregate> {
     const uncommittedEvents = aggregate.getUncommittedEvents();
     if (uncommittedEvents.length === 0) return;
 
-    await this.eventStore.append(aggregate.id, uncommittedEvents, aggregate.version);
+    await this.eventStore.append(
+      aggregate.id,
+      uncommittedEvents,
+      aggregate.version,
+    );
 
     aggregate.markEventsAsCommitted();
   }
@@ -2150,7 +2391,7 @@ export class ProjectionRebuilder {
   constructor(
     private eventStore: EventStore,
     private projectionHandlers: Map<string, ProjectionHandler>,
-    private checkpointStore: CheckpointStore
+    private checkpointStore: CheckpointStore,
   ) {}
 
   async rebuild(projectionName: string, fromEvent: number = 0): Promise<void> {
@@ -2188,7 +2429,9 @@ export class ProjectionRebuilder {
 
   async rebuildAll(): Promise<void> {
     // Rebuild all projections in parallel
-    const promises = Array.from(this.projectionHandlers.keys()).map(name => this.rebuild(name));
+    const promises = Array.from(this.projectionHandlers.keys()).map((name) =>
+      this.rebuild(name),
+    );
 
     await Promise.all(promises);
   }
@@ -2203,7 +2446,10 @@ export abstract class Saga {
   private completedSteps: SagaStep[] = [];
   private compensations: CompensationAction[] = [];
 
-  protected async executeStep<T>(step: SagaStep<T>, compensation?: CompensationAction): Promise<Result<T, Error>> {
+  protected async executeStep<T>(
+    step: SagaStep<T>,
+    compensation?: CompensationAction,
+  ): Promise<Result<T, Error>> {
     try {
       const result = await step.execute();
 
@@ -2235,7 +2481,9 @@ export abstract class Saga {
   }
 
   protected abstract getSteps(): SagaStep[];
-  protected abstract buildCompensationPlan(step: SagaStep): CompensationAction | undefined;
+  protected abstract buildCompensationPlan(
+    step: SagaStep,
+  ): CompensationAction | undefined;
 }
 ```
 
@@ -2425,7 +2673,11 @@ export class PostgresCheckpointStore implements CheckpointStore {
 ```typescript
 // ============ EVENT STREAM PAGINATION ============
 export class OptimizedEventStore extends PostgresEventStore {
-  async *readStream(streamId: string, fromVersion: number = 0, pageSize: number = 100): AsyncIterable<DomainEvent> {
+  async *readStream(
+    streamId: string,
+    fromVersion: number = 0,
+    pageSize: number = 100,
+  ): AsyncIterable<DomainEvent> {
     let currentVersion = fromVersion;
 
     while (true) {
@@ -2459,20 +2711,27 @@ export class BatchEventProcessor {
 
     // Process each group in parallel
     await Promise.all(
-      Array.from(grouped.entries()).map(([handler, events]) => this.processHandlerBatch(handler, events))
+      Array.from(grouped.entries()).map(([handler, events]) =>
+        this.processHandlerBatch(handler, events),
+      ),
     );
   }
 
-  private async processHandlerBatch(handler: EventHandler, events: DomainEvent[]): Promise<void> {
+  private async processHandlerBatch(
+    handler: EventHandler,
+    events: DomainEvent[],
+  ): Promise<void> {
     // Use database transactions for batch updates
-    await this.db.transaction(async tx => {
+    await this.db.transaction(async (tx) => {
       for (const event of events) {
         await handler.handle(event, tx);
       }
     });
   }
 
-  private groupByHandler(events: DomainEvent[]): Map<EventHandler, DomainEvent[]> {
+  private groupByHandler(
+    events: DomainEvent[],
+  ): Map<EventHandler, DomainEvent[]> {
     const grouped = new Map<EventHandler, DomainEvent[]>();
 
     for (const event of events) {
@@ -2557,10 +2816,15 @@ Handle failed event processing gracefully:
 export class DeadLetterHandler {
   constructor(
     private deadLetterStore: DeadLetterStore,
-    private logger: Logger
+    private logger: Logger,
   ) {}
 
-  async handleFailedEvent(event: DomainEvent, handler: string, error: Error, retryCount: number): Promise<void> {
+  async handleFailedEvent(
+    event: DomainEvent,
+    handler: string,
+    error: Error,
+    retryCount: number,
+  ): Promise<void> {
     if (retryCount >= 3) {
       await this.deadLetterStore.store({
         eventId: event.eventId,
@@ -2589,7 +2853,7 @@ Archive old events to reduce storage costs:
 export class EventArchiver {
   constructor(
     private eventStore: EventStore,
-    private archiveStorage: ArchiveStorage
+    private archiveStorage: ArchiveStorage,
   ) {}
 
   async archiveOldEvents(olderThanDays: number): Promise<void> {
@@ -2602,7 +2866,7 @@ export class EventArchiver {
     await this.archiveStorage.store(oldEvents);
 
     // Remove from hot storage
-    await this.eventStore.deleteEvents(oldEvents.map(e => e.eventId));
+    await this.eventStore.deleteEvents(oldEvents.map((e) => e.eventId));
   }
 }
 ```
@@ -2615,7 +2879,7 @@ Correlate events across service boundaries:
 export class TracingEventBus implements EventBus {
   constructor(
     private tracer: Tracer,
-    private eventBus: EventBus
+    private eventBus: EventBus,
   ) {}
 
   async publishAll(events: DomainEvent[]): Promise<void> {
@@ -2623,7 +2887,7 @@ export class TracingEventBus implements EventBus {
 
     try {
       // Add trace context to events
-      const tracedEvents = events.map(event => ({
+      const tracedEvents = events.map((event) => ({
         ...event,
         metadata: {
           ...event.metadata,

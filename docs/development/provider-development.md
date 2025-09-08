@@ -1,11 +1,16 @@
 # How to Add New Providers
 
 > **📋 Open Source Notice**  
-> This guide shows how to develop new blockchain providers for the Universal Provider Architecture. The core framework is open source, though you may integrate with third-party APIs that require commercial licenses.
+> This guide shows how to develop new blockchain providers for the Universal
+> Provider Architecture. The core framework is open source, though you may
+> integrate with third-party APIs that require commercial licenses.
 
 ## Overview
 
-Adding a new provider to the Universal Blockchain Provider Architecture is a straightforward process that follows established patterns. Whether you're adding support for a new blockchain API or creating an alternative provider for an existing blockchain, this guide will walk you through the entire process.
+Adding a new provider to the Universal Blockchain Provider Architecture is a
+straightforward process that follows established patterns. Whether you're adding
+support for a new blockchain API or creating an alternative provider for an
+existing blockchain, this guide will walk you through the entire process.
 
 ## Development Process Overview
 
@@ -59,11 +64,13 @@ Adding support for a completely new blockchain (e.g., Solana, Cardano, Polygon)
 
 #### Type 2: Alternative Provider
 
-Adding an alternative API for existing blockchain (e.g., new Bitcoin API alongside mempool.space)
+Adding an alternative API for existing blockchain (e.g., new Bitcoin API
+alongside mempool.space)
 
 #### Type 3: Specialized Provider
 
-Adding specialized capabilities (e.g., NFT transactions, DeFi protocols, staking data)
+Adding specialized capabilities (e.g., NFT transactions, DeFi protocols, staking
+data)
 
 ## Step 2: Implement the Provider Interface
 
@@ -74,13 +81,22 @@ Every provider must implement the `IBlockchainProvider` interface:
 ```typescript
 // src/providers/SolanaRPCProvider.ts
 import { BlockchainTransaction } from '../types/blockchain';
-import { IBlockchainProvider, ProviderCapabilities, ProviderOperation, RateLimitConfig } from './IBlockchainProvider';
+import {
+  IBlockchainProvider,
+  ProviderCapabilities,
+  ProviderOperation,
+  RateLimitConfig,
+} from './IBlockchainProvider';
 
 export class SolanaRPCProvider implements IBlockchainProvider<SolanaConfig> {
   readonly name = 'solana-rpc';
   readonly blockchain = 'solana';
   readonly capabilities: ProviderCapabilities = {
-    supportedOperations: ['getAddressTransactions', 'getAddressBalance', 'getTokenTransactions'],
+    supportedOperations: [
+      'getAddressTransactions',
+      'getAddressBalance',
+      'getTokenTransactions',
+    ],
     maxBatchSize: 10,
     providesHistoricalData: true,
     supportsPagination: true,
@@ -115,7 +131,10 @@ export class SolanaRPCProvider implements IBlockchainProvider<SolanaConfig> {
     }
   }
 
-  async execute<T>(operation: ProviderOperation<T>, config: SolanaConfig): Promise<T> {
+  async execute<T>(
+    operation: ProviderOperation<T>,
+    config: SolanaConfig,
+  ): Promise<T> {
     switch (operation.type) {
       case 'getAddressTransactions':
         return this.getAddressTransactions(operation.params) as T;
@@ -292,7 +311,11 @@ export interface BlockchainConfig {
 }
 
 // Add to provider config union
-export type ProviderSpecificConfig = BitcoinConfig | EthereumConfig | InjectiveConfig | SolanaConfig; // New addition
+export type ProviderSpecificConfig =
+  | BitcoinConfig
+  | EthereumConfig
+  | InjectiveConfig
+  | SolanaConfig; // New addition
 ```
 
 ### Example Configuration
@@ -441,7 +464,9 @@ describe('SolanaRPCProvider', () => {
         params: { address: 'test-address' },
       };
 
-      await expect(provider.execute(operation, config)).rejects.toThrow('rate limit');
+      await expect(provider.execute(operation, config)).rejects.toThrow(
+        'rate limit',
+      );
     });
   });
 });
@@ -456,22 +481,32 @@ describe('Solana Provider Integration', () => {
 
   beforeEach(() => {
     providerManager = new BlockchainProviderManager();
-    providerManager.registerProviders('solana', [new SolanaRPCProvider(config), new QuickNodeSolanaProvider(config)]);
+    providerManager.registerProviders('solana', [
+      new SolanaRPCProvider(config),
+      new QuickNodeSolanaProvider(config),
+    ]);
   });
 
   it('should successfully failover between Solana providers', async () => {
     // Mock first provider failure
-    jest.spyOn(SolanaRPCProvider.prototype, 'execute').mockRejectedValueOnce(new Error('Service unavailable'));
+    jest
+      .spyOn(SolanaRPCProvider.prototype, 'execute')
+      .mockRejectedValueOnce(new Error('Service unavailable'));
 
     // Mock second provider success
-    jest.spyOn(QuickNodeSolanaProvider.prototype, 'execute').mockResolvedValueOnce([{ hash: 'success-tx' }]);
+    jest
+      .spyOn(QuickNodeSolanaProvider.prototype, 'execute')
+      .mockResolvedValueOnce([{ hash: 'success-tx' }]);
 
     const operation = {
       type: 'getAddressTransactions' as const,
       params: { address: 'test-address' },
     };
 
-    const result = await providerManager.executeWithFailover('solana', operation);
+    const result = await providerManager.executeWithFailover(
+      'solana',
+      operation,
+    );
     expect(result).toEqual([{ hash: 'success-tx' }]);
   });
 
@@ -482,9 +517,9 @@ describe('Solana Provider Integration', () => {
     };
 
     // Should skip providers that don't support this operation
-    await expect(providerManager.executeWithFailover('solana', operation)).rejects.toThrow(
-      'No providers support operation'
-    );
+    await expect(
+      providerManager.executeWithFailover('solana', operation),
+    ).rejects.toThrow('No providers support operation');
   });
 });
 ```
@@ -612,7 +647,10 @@ export class AdvancedSolanaProvider implements IBlockchainProvider {
 export class CachedSolanaProvider extends SolanaRPCProvider {
   private cache = new Map<string, { data: any; expiry: number }>();
 
-  async execute<T>(operation: ProviderOperation<T>, config: SolanaConfig): Promise<T> {
+  async execute<T>(
+    operation: ProviderOperation<T>,
+    config: SolanaConfig,
+  ): Promise<T> {
     // Check cache first for expensive operations
     if (operation.getCacheKey && this.shouldCache(operation.type)) {
       const cacheKey = operation.getCacheKey(operation.params);
@@ -639,7 +677,9 @@ export class CachedSolanaProvider extends SolanaRPCProvider {
 
   private shouldCache(operationType: string): boolean {
     // Cache expensive operations
-    return ['getAddressTransactions', 'getTokenTransactions'].includes(operationType);
+    return ['getAddressTransactions', 'getTokenTransactions'].includes(
+      operationType,
+    );
   }
 
   private getCacheTTL(operationType: string): number {
@@ -749,10 +789,16 @@ describe('Provider Edge Cases', () => {
 
   it('should respect timeout settings', async () => {
     // Mock slow response
-    global.fetch = jest.fn().mockImplementation(() => new Promise(resolve => setTimeout(resolve, 10000)));
+    global.fetch = jest
+      .fn()
+      .mockImplementation(
+        () => new Promise((resolve) => setTimeout(resolve, 10000)),
+      );
 
     const configWithTimeout = { ...config, timeout: 1000 };
-    await expect(provider.execute(operation, configWithTimeout)).rejects.toThrow('timeout');
+    await expect(
+      provider.execute(operation, configWithTimeout),
+    ).rejects.toThrow('timeout');
   });
 });
 ```
@@ -790,12 +836,17 @@ class VersionAwareSolanaProvider extends SolanaRPCProvider {
 export class ResourceAwareSolanaProvider extends SolanaRPCProvider {
   private connections = new Set<AbortController>();
 
-  async execute<T>(operation: ProviderOperation<T>, config: SolanaConfig): Promise<T> {
+  async execute<T>(
+    operation: ProviderOperation<T>,
+    config: SolanaConfig,
+  ): Promise<T> {
     const controller = new AbortController();
     this.connections.add(controller);
 
     try {
-      const result = await this.makeRequest(operation, { signal: controller.signal });
+      const result = await this.makeRequest(operation, {
+        signal: controller.signal,
+      });
       return result;
     } finally {
       this.connections.delete(controller);
@@ -834,11 +885,16 @@ private transformTransaction(rawTx: any, address: string): BlockchainTransaction
 
 ## Conclusion
 
-Adding new providers to the Universal Blockchain Provider Architecture is a systematic process that ensures consistency, reliability, and maintainability. By following this guide, you can:
+Adding new providers to the Universal Blockchain Provider Architecture is a
+systematic process that ensures consistency, reliability, and maintainability.
+By following this guide, you can:
 
 **✅ Implement Robust Providers**: Using established patterns and interfaces
-**✅ Ensure Reliability**: With proper error handling and circuit breaker integration
-**✅ Maintain Quality**: Through comprehensive testing and validation
-**✅ Scale Effectively**: By following best practices for performance and resource management
+**✅ Ensure Reliability**: With proper error handling and circuit breaker
+integration **✅ Maintain Quality**: Through comprehensive testing and
+validation **✅ Scale Effectively**: By following best practices for performance
+and resource management
 
-The modular design of the provider architecture means that each new provider you add makes the entire system more resilient, providing additional failover options and reducing single points of failure across all blockchain operations.
+The modular design of the provider architecture means that each new provider you
+add makes the entire system more resilient, providing additional failover
+options and reducing single points of failure across all blockchain operations.
