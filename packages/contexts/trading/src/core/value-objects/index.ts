@@ -1,1 +1,1 @@
-export const VOs = {};
+export * from './identifiers.vo';

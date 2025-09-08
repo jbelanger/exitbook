@@ -21,7 +21,16 @@
     "dev": "tsc -b -w",
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "@exitbook/core": "workspace:*",
+    "@exitbook/platform-messaging": "workspace:*",
+    "@nestjs/common": "^10.0.0",
+    "@nestjs/cqrs": "^10.0.0",
+    "effect": "^3.17.13",
+    "uuid": "^12.0.0"
+  },
   "devDependencies": {
-    "@internal/tsconfig": "workspace:*"
+    "@internal/tsconfig": "workspace:*",
+    "@types/uuid": "^10.0.0"
   }
 }

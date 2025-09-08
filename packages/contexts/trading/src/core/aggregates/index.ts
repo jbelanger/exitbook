@@ -1,1 +1,1 @@
-export const aggregates = {};
+export * from './transaction.aggregate.js';

@@ -21,6 +21,9 @@
     "dev": "tsc -b -w",
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "@golevelup/nestjs-rabbitmq": "^6.0.2"
+  },
   "devDependencies": {
     "@internal/tsconfig": "workspace:*",
     "@types/node": "^24.3.1",
