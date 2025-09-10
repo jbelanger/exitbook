@@ -2,6 +2,14 @@ import type { Effect } from 'effect';
 import { Context, Data } from 'effect';
 
 // Message bus errors
+export class PublishError extends Data.TaggedError('PublishError')<{
+  readonly reason: string;
+}> {}
+
+export class SubscribeError extends Data.TaggedError('SubscribeError')<{
+  readonly reason: string;
+}> {}
+
 export class MessageBusError extends Data.TaggedError('MessageBusError')<{
   readonly reason: string;
 }> {}
@@ -10,12 +18,15 @@ export class MessageValidationError extends Data.TaggedError('MessageValidationE
   readonly reason: string;
 }> {}
 
-export class MessagePublishError extends Data.TaggedError('MessagePublishError')<{
-  readonly reason: string;
-}> {}
-
 // Message headers type
 export type MessageHeaders = Record<string, string>;
+
+// Publish options interface matching ADR spec
+export interface PublishOptions {
+  headers?: Record<string, string>;
+  key?: string;
+  timeoutMs?: number;
+}
 
 // Producer port (for publishing messages)
 export interface MessageBusProducer {
@@ -24,47 +35,39 @@ export interface MessageBusProducer {
   readonly publish: (
     topic: string,
     payload: unknown,
-    options?: {
-      causationId?: string;
-      correlationId?: string;
-      headers?: MessageHeaders;
-      key?: string;
-      userId?: string;
-    },
-  ) => Effect.Effect<void, MessagePublishError, never>;
+    opts?: PublishOptions,
+  ) => Effect.Effect<void, PublishError, never>;
 
   readonly publishBatch: (
     topic: string,
-    messages: readonly {
-      headers?: MessageHeaders;
-      key?: string;
-      payload: unknown;
-    }[],
-  ) => Effect.Effect<void, MessagePublishError, never>;
+    items: readonly { opts?: PublishOptions; payload: unknown }[],
+  ) => Effect.Effect<void, PublishError, never>;
 }
 
 export const MessageBusProducer = Context.GenericTag<MessageBusProducer>(
   '@platform/MessageBusProducer',
 );
 
+// Incoming message interface matching ADR spec
+export interface IncomingMessage<T = unknown> {
+  headers: Record<string, string>;
+  key?: string | undefined;
+  offset?: unknown;
+  payload: T;
+}
+
+// Subscription interface matching ADR spec
+export interface Subscription {
+  stop(): Effect.Effect<void, never>;
+}
+
 // Consumer port (for consuming messages)
 export interface MessageBusConsumer {
   readonly subscribe: (
     topic: string,
     groupId: string,
-    handler: (message: {
-      headers: MessageHeaders;
-      key?: string;
-      offset: string;
-      payload: unknown;
-      timestamp: Date;
-    }) => Effect.Effect<void, unknown>,
-  ) => Effect.Effect<void, MessageBusError, never>;
-
-  readonly unsubscribe: (
-    topic: string,
-    groupId: string,
-  ) => Effect.Effect<void, MessageBusError, never>;
+    handler: (m: IncomingMessage) => Effect.Effect<void, never>,
+  ) => Effect.Effect<Subscription, SubscribeError>;
 }
 
 export const MessageBusConsumer = Context.GenericTag<MessageBusConsumer>(
@@ -82,7 +85,7 @@ export interface MessageTransport {
       headers?: MessageHeaders;
       key?: string;
     },
-  ) => Effect.Effect<void, MessagePublishError, never>;
+  ) => Effect.Effect<void, PublishError, never>;
 
   readonly publishBatch: (
     topic: string,
@@ -91,7 +94,7 @@ export interface MessageTransport {
       key?: string;
       payload: unknown;
     }[],
-  ) => Effect.Effect<void, MessagePublishError, never>;
+  ) => Effect.Effect<void, PublishError, never>;
 
   readonly subscribe: (
     topic: string,
@@ -99,11 +102,10 @@ export interface MessageTransport {
     handler: (message: {
       headers: MessageHeaders;
       key?: string;
-      offset: string;
+      offset?: unknown;
       payload: unknown;
-      timestamp: Date;
     }) => Effect.Effect<void, unknown>,
-  ) => Effect.Effect<void, MessageBusError, never>;
+  ) => Effect.Effect<void, SubscribeError, never>;
 
   readonly unsubscribe: (
     topic: string,

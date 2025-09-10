@@ -18,38 +18,27 @@ export const makeMessageBusProducer = (
       Effect.catchAll(() => Effect.succeed(false)),
     ),
 
-  publish: (topic: string, payload: unknown, options?) => {
+  publish: (topic: string, payload: unknown, opts?) => {
     const headers: Record<string, string> = {
       'x-service': config.serviceName,
       'x-version': config.version || '1.0',
-      ...options?.headers,
+      ...opts?.headers,
     };
 
-    if (options?.correlationId) {
-      headers['x-correlation-id'] = options.correlationId;
-    }
-
-    if (options?.causationId) {
-      headers['x-causation-id'] = options.causationId;
-    }
-
-    if (options?.userId) {
-      headers['x-user-id'] = options.userId;
-    }
-
     return transport.publish(topic, payload, {
-      ...(options?.key && { key: options.key }),
+      ...(opts?.key && { key: opts.key }),
       headers,
     });
   },
 
-  publishBatch: (topic: string, messages) => {
-    const enrichedMessages = messages.map((msg) => ({
-      ...msg,
+  publishBatch: (topic: string, items) => {
+    const enrichedMessages = items.map((item) => ({
+      payload: item.payload,
+      ...(item.opts?.key && { key: item.opts.key }),
       headers: {
         'x-service': config.serviceName,
         'x-version': config.version || '1.0',
-        ...msg.headers,
+        ...item.opts?.headers,
       },
     }));
 

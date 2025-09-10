@@ -24,9 +24,8 @@ export const makeFakeMessageTransport = (): Effect.Effect<MessageTransport, neve
         handler: (message: {
           headers: MessageHeaders;
           key?: string;
-          offset: string;
+          offset?: unknown;
           payload: unknown;
-          timestamp: Date;
         }) => Effect.Effect<void, unknown>;
         topic: string;
       }[]
@@ -68,7 +67,6 @@ export const makeFakeMessageTransport = (): Effect.Effect<MessageTransport, neve
                 ...(message.key && { key: message.key }),
                 offset: message.offset,
                 payload: message.payload,
-                timestamp: message.timestamp,
               })
               .pipe(
                 Effect.catchAll(() => Effect.void), // Ignore handler errors
@@ -111,7 +109,6 @@ export const makeFakeMessageTransport = (): Effect.Effect<MessageTransport, neve
               ...(msg.key && { key: msg.key }),
               offset: msg.offset,
               payload: msg.payload,
-              timestamp: msg.timestamp,
             }).pipe(Effect.catchAll(() => Effect.void)),
           );
         }),

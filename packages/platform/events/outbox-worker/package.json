@@ -9,29 +9,21 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
-    "./port": {
-      "types": "./dist/port.d.ts",
-      "default": "./dist/port.js"
+    "./daemon": {
+      "types": "./dist/daemon.d.ts",
+      "default": "./dist/daemon.js"
+    },
+    "./outbox-processor": {
+      "types": "./dist/outbox-processor.d.ts",
+      "default": "./dist/outbox-processor.js"
     },
     "./model": {
       "types": "./dist/model.d.ts",
       "default": "./dist/model.js"
     },
-    "./registry": {
-      "types": "./dist/registry.d.ts",
-      "default": "./dist/registry.js"
-    },
     "./compose/*": {
       "types": "./dist/compose/*.d.ts",
       "default": "./dist/compose/*.js"
-    },
-    "./adapters/*": {
-      "types": "./dist/adapters/*.d.ts",
-      "default": "./dist/adapters/*.js"
-    },
-    "./impl/*": {
-      "types": "./dist/impl/*.d.ts",
-      "default": "./dist/impl/*.js"
     }
   },
   "main": "dist/index.js",
