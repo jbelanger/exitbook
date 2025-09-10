@@ -1,0 +1,59 @@
+{
+  "name": "@exitbook/platform-outbox-worker",
+  "version": "0.0.0",
+  "private": true,
+  "sideEffects": false,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./port": {
+      "types": "./dist/port.d.ts",
+      "default": "./dist/port.js"
+    },
+    "./model": {
+      "types": "./dist/model.d.ts",
+      "default": "./dist/model.js"
+    },
+    "./registry": {
+      "types": "./dist/registry.d.ts",
+      "default": "./dist/registry.js"
+    },
+    "./compose/*": {
+      "types": "./dist/compose/*.d.ts",
+      "default": "./dist/compose/*.js"
+    },
+    "./adapters/*": {
+      "types": "./dist/adapters/*.d.ts",
+      "default": "./dist/adapters/*.js"
+    },
+    "./impl/*": {
+      "types": "./dist/impl/*.d.ts",
+      "default": "./dist/impl/*.js"
+    }
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rimraf dist",
+    "dev": "tsc -b -w",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@exitbook/core": "workspace:*",
+    "@exitbook/platform-messaging": "workspace:*",
+    "bignumber.js": "^9.1.0",
+    "effect": "^3.0.0"
+  },
+  "devDependencies": {
+    "@internal/tsconfig": "workspace:*",
+    "@types/node": "^24.3.1",
+    "rimraf": "^5.0.0"
+  }
+}

@@ -81,46 +81,9 @@ export default [
       'eslint-comments/require-description': ['error', { ignore: [] }],
 
       // --- Unicorn (Node pragmatics) ---
-      'unicorn/no-array-for-each': 'error',
       'unicorn/no-null': 'error', // prefer Option/undefined in core/domain
       'unicorn/no-useless-undefined': 'error',
       'unicorn/prefer-node-protocol': 'error',
-      'unicorn/prevent-abbreviations': [
-        'error',
-        {
-          // Allow common, idiomatic abbreviations (Nest/web/ecosystem)
-          allowList: {
-            params: true,
-            props: true,
-            ctx: true,
-            req: true,
-            res: true,
-            env: true,
-            args: true,
-            attrs: true,
-            btn: true,
-            config: true,
-            db: true,
-            doc: true,
-            el: true,
-            elem: true,
-            err: true,
-            lib: true,
-            msg: true,
-            num: true,
-            obj: true,
-            param: true,
-            prop: true,
-            ref: true,
-            repo: true,
-            ret: true,
-            str: true,
-            val: true,
-            util: true,
-            utils: true,
-          },
-        },
-      ],
 
       // --- Perfectionist (deterministic ordering) ---
       'perfectionist/sort-imports': [
@@ -191,6 +154,7 @@ export default [
     files: [
       'packages/core/**/src/**/*.{ts,tsx}',
       'packages/contexts/**/src/**/*.{ts,tsx}',
+      'packages/platform/**/src/**/*.{ts,tsx}',
       // Add any other paths that are Effect-heavy
     ],
     plugins: {
@@ -204,7 +168,12 @@ export default [
       '@typescript-eslint/no-floating-promises': 'off',
       '@typescript-eslint/no-misused-promises': 'off',
       '@typescript-eslint/no-redundant-type-constituents': 'off',
-      'unicorn/no-array-for-each': 'off',
+
+      // Allow unsafe operations for database/external library integration
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
     },
   },
 

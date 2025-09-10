@@ -19,12 +19,17 @@
     "build": "tsc -b",
     "clean": "rimraf dist",
     "dev": "tsc -b -w",
-    "typecheck": "tsc --noEmit"
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "effect": "*",
+    "kysely": "^0.28.5",
+    "pg": "^8.11.0"
   },
   "devDependencies": {
     "@internal/tsconfig": "workspace:*",
     "@types/node": "^24.3.1",
-    "@types/uuid": "^9.0.0",
+    "@types/pg": "^8.11.0",
     "rimraf": "^5.0.0"
   }
 }

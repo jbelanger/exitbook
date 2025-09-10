@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Package roots
-ROOTS=("../apps" "../libs" "../libs/shared")
+ROOTS=("../apps" "../packages" "../packages/platform" "../packages/contexts")
 
 for root in "${ROOTS[@]}"; do
   for pkg in "$root"/*; do
@@ -14,6 +14,7 @@ for root in "${ROOTS[@]}"; do
 
       find "$pkg" -type f \( \( -name "*.ts" ! -name "*.test.ts" \) -o -name "*.json" \) \
         ! -path "*/node_modules/*" \
+        ! -path "*/dist/*" \
         -exec sh -c 'echo "===== {} ====="; cat "{}"' \; \
         > "$out_file"
     fi

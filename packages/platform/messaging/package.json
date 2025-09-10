@@ -22,12 +22,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@golevelup/nestjs-rabbitmq": "^6.0.2"
+    "effect": "^3.0.0"
   },
   "devDependencies": {
     "@internal/tsconfig": "workspace:*",
     "@types/node": "^24.3.1",
-    "@types/uuid": "^9.0.0",
     "rimraf": "^5.0.0"
   }
 }

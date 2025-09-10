@@ -4,3 +4,4 @@ packages:
   - 'packages/contexts/*'
   - 'packages/tooling/*'
   - 'packages/platform/*'
+  - 'packages/platform/events/*'

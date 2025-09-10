@@ -1,17 +1,29 @@
-import type { Effect } from 'effect';
-import { Data, Context } from 'effect';
+// Main exports for MessageBus platform package
+export * from './port';
+export * from './impl/make-producer';
+export * from './impl/make-consumer';
+export * from './adapters/fake-transport';
 
-// Generic event bus error
-export class EventBusError extends Data.TaggedError('EventBusError')<{
-  readonly eventType?: string;
-  readonly message: string;
-}> {}
+// Layer exports for composition
+import { Layer, Effect } from 'effect';
 
-export type EventBusErrorType = EventBusError;
+import { makeMessageBusConsumer } from './impl/make-consumer';
+import { makeMessageBusProducer } from './impl/make-producer';
+import { MessageBusProducer, MessageBusConsumer, MessageTransport, MessageBusConfig } from './port';
 
-// Generic event bus interface for cross-cutting messaging
-export interface EventBus {
-  readonly publish: (event: unknown) => Effect.Effect<void, EventBusError>;
-}
+// ✅ Live layers require dependencies at composition time and provide resolved services
+export const MessageBusProducerLive = Layer.effect(
+  MessageBusProducer,
+  Effect.all([MessageTransport, MessageBusConfig]).pipe(
+    Effect.map(([transport, config]) => makeMessageBusProducer(transport, config)),
+  ),
+);
 
-export const EventBus = Context.GenericTag<EventBus>('@platform/EventBus');
+export const MessageBusConsumerLive = Layer.effect(
+  MessageBusConsumer,
+  Effect.map(MessageTransport, makeMessageBusConsumer),
+);
+
+// Composition exports
+export * from './compose/default';
+export * from './compose/test';

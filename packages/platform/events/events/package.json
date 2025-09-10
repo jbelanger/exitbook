@@ -1,15 +1,9 @@
 {
-  "name": "@exitbook/platform-eventstore",
+  "name": "@exitbook/platform-events",
   "version": "0.0.0",
   "private": true,
   "sideEffects": false,
   "type": "module",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
-    }
-  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -21,10 +15,15 @@
     "dev": "tsc -b -w",
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "@exitbook/core": "workspace:*",
+    "@exitbook/platform-messaging": "workspace:*",
+    "bignumber.js": "^9.1.0",
+    "effect": "^3.0.0"
+  },
   "devDependencies": {
     "@internal/tsconfig": "workspace:*",
     "@types/node": "^24.3.1",
-    "@types/uuid": "^9.0.0",
     "rimraf": "^5.0.0"
   }
 }

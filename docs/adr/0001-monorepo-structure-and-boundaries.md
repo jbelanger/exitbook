@@ -129,9 +129,6 @@ No cross-context imports (e.g., trading ↔ portfolio) except via contracts/mess
   preference).
 - Runtime: Node 20+, TypeScript strict mode.
 - Observability: OpenTelemetry compatible; health endpoints exposed by shell.
-- **Live implementations**: `*.live.ts` files are **adapters** (real
-  implementations) living under `adapters/`. The `compose/default.ts` merely
-  **assembles** layers; it is not itself an adapter.
 
 ## Detailed responsibilities
 
