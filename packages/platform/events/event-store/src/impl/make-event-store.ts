@@ -41,14 +41,13 @@ export const makeEventStore = (db: EventStoreDatabase): EventStore => {
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 24); // Key expires in 24 hours
 
-    return db.insertIdempotencyKey(options.idempotencyKey, firstEventId, expiresAt).pipe(
-      Effect.mapError((error) =>
-        // PSQL unique violation code
-        error.code === '23505'
-          ? new IdempotencyError({ reason: 'Duplicate idempotency key' })
-          : new SaveEventError({ reason: error.reason }),
-      ),
-    );
+    return db
+      .insertIdempotencyKey(options.idempotencyKey, firstEventId, expiresAt)
+      .pipe(
+        Effect.mapError((error) =>
+          error instanceof IdempotencyError ? error : new SaveEventError({ reason: error.reason }),
+        ),
+      );
   };
 
   /**
@@ -114,9 +113,9 @@ export const makeEventStore = (db: EventStoreDatabase): EventStore => {
    */
   const storeEventsAndOutbox = (
     eventsToStore: readonly StoredEventData[],
-  ): Effect.Effect<void, SaveEventError> => {
+  ): Effect.Effect<readonly StoredEvent[], SaveEventError> => {
     if (eventsToStore.length === 0) {
-      return Effect.void;
+      return Effect.succeed([]);
     }
 
     const outboxEntries: readonly OutboxEntryData[] = eventsToStore.map((event) => ({
@@ -130,7 +129,9 @@ export const makeEventStore = (db: EventStoreDatabase): EventStore => {
     }));
 
     return db.insertEvents(eventsToStore).pipe(
-      Effect.flatMap(() => db.insertOutboxEntries(outboxEntries)),
+      Effect.flatMap((insertedEvents) =>
+        db.insertOutboxEntries(outboxEntries).pipe(Effect.map(() => insertedEvents)),
+      ),
       Effect.mapError((error) => new SaveEventError({ reason: error.reason })),
     );
   };
@@ -158,6 +159,7 @@ export const makeEventStore = (db: EventStoreDatabase): EventStore => {
         Effect.mapError((error) =>
           'reason' in error ? new SaveEventError({ reason: String(error.reason) }) : error,
         ),
+        Effect.asVoid,
       ),
 
     appendAndReturn: (streamName, events, expectedVersion, options) =>
@@ -172,11 +174,9 @@ export const makeEventStore = (db: EventStoreDatabase): EventStore => {
           options,
         );
 
-        yield* storeEventsAndOutbox(eventsToStore);
+        const insertedEvents = yield* storeEventsAndOutbox(eventsToStore);
 
-        // Read back the stored events to get their positions
-        const lastStoredEvent = eventsToStore[eventsToStore.length - 1];
-        if (!lastStoredEvent) {
+        if (insertedEvents.length === 0) {
           return {
             appended: [],
             lastPosition: 0n,
@@ -184,23 +184,33 @@ export const makeEventStore = (db: EventStoreDatabase): EventStore => {
           };
         }
 
-        // Convert StoredEventData to PositionedEvent format
-        const positionedEvents = yield* Effect.forEach(eventsToStore, (storedEvent, index) => {
-          // Since we don't store global_position during insert, we need to simulate it
-          // In a real implementation, this would come from the database
-          const globalPosition = BigInt(storedEvent.global_position ?? 0);
-
-          return Effect.succeed({
-            ...events[index]!,
-            position: globalPosition,
-            streamName,
-          } as PositionedEvent);
+        // Build PositionedEvent[] from the inserted StoredEvent[] results
+        const positionedEvents = yield* Effect.forEach(insertedEvents, (storedEvent) => {
+          return eventRegistry
+            .decode(String(storedEvent.event_type), storedEvent.event_data, {
+              eventId: storedEvent.event_id,
+              streamName: storedEvent.stream_name,
+              streamVersion: storedEvent.stream_version,
+              timestamp: storedEvent.created_at,
+            })
+            .pipe(
+              Effect.map(
+                (decoded) =>
+                  ({
+                    ...decoded,
+                    position: BigInt(String(storedEvent.global_position || '0')),
+                    streamName: streamName,
+                  }) as PositionedEvent,
+              ),
+              Effect.mapError((error) => new SaveEventError({ reason: String(error.reason) })),
+            );
         });
 
+        const lastInsertedEvent = insertedEvents[insertedEvents.length - 1]!;
         return {
           appended: positionedEvents,
-          lastPosition: positionedEvents[positionedEvents.length - 1]?.position ?? 0n,
-          lastVersion: lastStoredEvent.stream_version,
+          lastPosition: BigInt(String(lastInsertedEvent.global_position || '0')),
+          lastVersion: lastInsertedEvent.stream_version,
         };
       }).pipe(
         (workflow) => db.transaction(workflow),
@@ -226,7 +236,7 @@ export const makeEventStore = (db: EventStoreDatabase): EventStore => {
 
     readAll: (fromPosition: bigint, batchSize: number) =>
       pipe(
-        db.selectEventsByCategory('', Number(fromPosition), batchSize), // Empty category means all
+        db.selectAllByPosition(Number(fromPosition), batchSize),
         Effect.mapError((error) => new ReadEventError({ reason: error.reason })),
         Effect.flatMap((storedEvents) =>
           Effect.forEach(storedEvents, (stored) =>
@@ -242,7 +252,7 @@ export const makeEventStore = (db: EventStoreDatabase): EventStore => {
                   (decoded) =>
                     ({
                       ...decoded,
-                      position: BigInt(stored.global_position ?? 0),
+                      position: BigInt(String(stored.global_position || '0')),
                       streamName: stored.stream_name as StreamName,
                     }) as PositionedEvent,
                 ),
@@ -270,7 +280,7 @@ export const makeEventStore = (db: EventStoreDatabase): EventStore => {
                   (decoded) =>
                     ({
                       ...decoded,
-                      position: BigInt(stored.global_position ?? 0),
+                      position: BigInt(String(stored.global_position || '0')),
                       streamName: stored.stream_name as StreamName,
                     }) as PositionedEvent,
                 ),

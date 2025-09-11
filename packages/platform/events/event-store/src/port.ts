@@ -104,12 +104,12 @@ export interface EventStoreDatabase {
   readonly getCurrentVersion: (streamName: string) => Effect.Effect<number, { reason: string }>;
   readonly insertEvents: (
     rows: readonly StoredEventData[],
-  ) => Effect.Effect<void, { code?: string; reason: string }>;
+  ) => Effect.Effect<readonly StoredEvent[], { reason: string }>;
   readonly insertIdempotencyKey: (
     key: string,
     eventId: string,
     expiresAt: Date,
-  ) => Effect.Effect<void, { code?: string; reason: string }>;
+  ) => Effect.Effect<void, IdempotencyError | { reason: string }>;
   readonly insertOutboxEntries: (
     rows: readonly OutboxEntryData[],
   ) => Effect.Effect<void, { reason: string }>;
@@ -120,6 +120,10 @@ export interface EventStoreDatabase {
     data: unknown,
   ) => Effect.Effect<void, { reason: string }>;
   readonly ping: () => Effect.Effect<void, { reason: string }>;
+  readonly selectAllByPosition: (
+    fromPosition: number,
+    batchSize: number,
+  ) => Effect.Effect<readonly StoredEvent[], { reason: string }>;
   readonly selectEventsByCategory: (
     category: string,
     fromPosition: number,
@@ -143,7 +147,7 @@ export interface StoredEventData {
   readonly event_id: string;
   readonly event_schema_version: number;
   readonly event_type: string;
-  readonly global_position?: number;
+  readonly global_position?: string;
   readonly metadata: unknown;
   readonly stream_name: string;
   readonly stream_version: number;

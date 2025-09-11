@@ -49,10 +49,11 @@ const makeFakeEventStoreDatabase = (): Effect.Effect<EventStoreDatabase, never> 
           const storedEvents: StoredEvent[] = eventsData.map((e) => ({
             ...e,
             created_at: new Date(),
-            global_position: ++globalPos,
+            global_position: (++globalPos).toString(),
             id: idCounter++,
           }));
           yield* Ref.update(events, (existing) => [...existing, ...storedEvents]);
+          return storedEvents;
         }),
 
       insertIdempotencyKey: (key: string, _eventId: string, _expiresAt: Date) =>
@@ -84,13 +85,27 @@ const makeFakeEventStoreDatabase = (): Effect.Effect<EventStoreDatabase, never> 
 
       ping: () => Effect.void,
 
+      selectAllByPosition: (fromPosition: number, batchSize: number) =>
+        Effect.gen(function* () {
+          const allEvents = yield* Ref.get(events);
+          let filtered = allEvents.filter((e) => parseInt(e.global_position || '0') > fromPosition);
+
+          if (batchSize !== undefined) {
+            filtered = filtered.slice(0, batchSize);
+          }
+
+          return filtered.sort(
+            (a, b) => parseInt(a.global_position || '0') - parseInt(b.global_position || '0'),
+          );
+        }),
+
       selectEventsByCategory: (category: string, fromPosition?: number, batchSize?: number) =>
         Effect.gen(function* () {
           const allEvents = yield* Ref.get(events);
           let filtered = allEvents.filter((e) => e.category === category);
 
           if (fromPosition !== undefined) {
-            filtered = filtered.filter((e) => (e.global_position || 0) > fromPosition);
+            filtered = filtered.filter((e) => parseInt(e.global_position || '0') > fromPosition);
           }
 
           if (batchSize !== undefined) {

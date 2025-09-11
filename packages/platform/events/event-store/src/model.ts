@@ -19,7 +19,7 @@ export const StoredEventSchema = Schema.Struct({
   event_id: Schema.String,
   event_schema_version: Schema.Number,
   event_type: Schema.String,
-  global_position: Schema.optional(Schema.Number),
+  global_position: Schema.optional(Schema.String),
   id: Schema.Number,
   metadata: Schema.Unknown,
   stream_name: Schema.String,

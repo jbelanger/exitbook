@@ -3,6 +3,7 @@ import { Effect } from 'effect';
 import { Kysely, PostgresDialect } from 'kysely';
 
 import type { EventStoreDatabase, StoredEvent, OutboxEntryData } from '../port';
+import { IdempotencyError } from '../port';
 
 // Event store schema types
 export interface EventStoreDB {
@@ -85,9 +86,22 @@ export const makePgEventStoreDatabase = (): Effect.Effect<EventStoreDatabase, ne
                 stream_version: row.stream_version,
               })),
             )
+            .returning([
+              'id',
+              'created_at',
+              'global_position',
+              'stream_version',
+              'event_id',
+              'event_type',
+              'event_data',
+              'metadata',
+              'category',
+              'stream_name',
+              'event_schema_version',
+            ])
             .execute(),
         ).pipe(
-          Effect.asVoid,
+          Effect.map((results) => results as StoredEvent[]),
           Effect.mapError((error) => ({ reason: String(error) })),
         ),
 
@@ -99,7 +113,18 @@ export const makePgEventStoreDatabase = (): Effect.Effect<EventStoreDatabase, ne
             .execute(),
         ).pipe(
           Effect.asVoid,
-          Effect.mapError((error) => ({ reason: String(error) })),
+          Effect.mapError((error: unknown) => {
+            // Map PostgreSQL unique violation to typed IdempotencyError
+            if (
+              typeof error === 'object' &&
+              error !== null &&
+              'code' in error &&
+              error.code === '23505'
+            ) {
+              return new IdempotencyError({ reason: 'Duplicate idempotency key' });
+            }
+            return { reason: String(error) };
+          }),
         ),
 
       insertOutboxEntries: (rows: readonly OutboxEntryData[]) =>
@@ -151,6 +176,26 @@ export const makePgEventStoreDatabase = (): Effect.Effect<EventStoreDatabase, ne
           Effect.mapError((error) => ({ reason: String(error) })),
         ),
 
+      selectAllByPosition: (fromPosition: number, batchSize: number) =>
+        Effect.tryPromise(() =>
+          db
+            .selectFrom('event_store')
+            .selectAll()
+            .where('global_position', '>', fromPosition)
+            .orderBy('global_position', 'asc')
+            .limit(batchSize)
+            .execute(),
+        ).pipe(
+          Effect.map(
+            (rows) =>
+              rows.map((row) => ({
+                ...row,
+                global_position: row.global_position?.toString(),
+              })) as StoredEvent[],
+          ),
+          Effect.mapError((error) => ({ reason: String(error) })),
+        ),
+
       selectEventsByCategory: (category: string, fromPosition: number, batchSize: number) =>
         Effect.tryPromise(() =>
           db
@@ -162,7 +207,13 @@ export const makePgEventStoreDatabase = (): Effect.Effect<EventStoreDatabase, ne
             .limit(batchSize)
             .execute(),
         ).pipe(
-          Effect.map((rows) => rows as StoredEvent[]),
+          Effect.map(
+            (rows) =>
+              rows.map((row) => ({
+                ...row,
+                global_position: row.global_position?.toString(),
+              })) as StoredEvent[],
+          ),
           Effect.mapError((error) => ({ reason: String(error) })),
         ),
 
@@ -180,7 +231,13 @@ export const makePgEventStoreDatabase = (): Effect.Effect<EventStoreDatabase, ne
 
           return query.orderBy('stream_version', 'asc').execute();
         }).pipe(
-          Effect.map((rows) => rows as StoredEvent[]),
+          Effect.map(
+            (rows) =>
+              rows.map((row) => ({
+                ...row,
+                global_position: row.global_position?.toString(),
+              })) as StoredEvent[],
+          ),
           Effect.mapError((error) => ({ reason: String(error) })),
         ),
 
