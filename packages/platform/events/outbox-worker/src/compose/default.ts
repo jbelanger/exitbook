@@ -19,5 +19,12 @@ import { OutboxProcessorLive } from '../outbox-processor';
 export const OutboxWorkerDefault = OutboxProcessorLive;
 
 // Re-export for convenience
-export { OutboxProcessor, OutboxDatabase, MessagePublisher } from '../outbox-processor';
+export {
+  OutboxProcessor,
+  MessagePublisher,
+  defaultOutboxConfig,
+  makeOutboxProcessorLive,
+} from '../outbox-processor';
+export type { OutboxDatabase, OutboxConfig } from '../outbox-processor';
+export { PgOutboxDatabaseLive } from '../adapters/pg-outbox-db';
 export { runOutboxDaemon, defaultConfig } from '../daemon';

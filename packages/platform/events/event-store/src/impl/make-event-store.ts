@@ -6,6 +6,7 @@ import type {
   EventStore,
   EventStoreDatabase,
   StoredEventData,
+  StoredEvent,
   OutboxEntryData,
   PositionedEvent,
   StreamName,

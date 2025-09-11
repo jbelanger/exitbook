@@ -13,13 +13,16 @@ export interface EventStoreDB {
     idempotency_key: string;
   };
   event_outbox: {
+    attempts: number;
     category: string;
     created_at?: Date;
     event_id: string;
     event_type: string;
     id?: string;
     metadata: unknown;
+    next_attempt_at: Date;
     payload: unknown;
+    processed_at?: Date;
     status: string;
     stream_name: string;
     updated_at?: Date;
@@ -101,7 +104,13 @@ export const makePgEventStoreDatabase = (): Effect.Effect<EventStoreDatabase, ne
             ])
             .execute(),
         ).pipe(
-          Effect.map((results) => results as StoredEvent[]),
+          Effect.map(
+            (results) =>
+              results.map((row) => ({
+                ...row,
+                global_position: row.global_position?.toString(),
+              })) as StoredEvent[],
+          ),
           Effect.mapError((error) => ({ reason: String(error) })),
         ),
 
@@ -133,10 +142,12 @@ export const makePgEventStoreDatabase = (): Effect.Effect<EventStoreDatabase, ne
             .insertInto('event_outbox')
             .values(
               rows.map((row) => ({
+                attempts: 0,
                 category: row.category,
                 event_id: row.event_id,
                 event_type: row.event_type,
                 metadata: row.metadata,
+                next_attempt_at: new Date(),
                 payload: row.payload,
                 status: row.status,
                 stream_name: row.stream_name,
