@@ -24,6 +24,14 @@
     "./compose/*": {
       "types": "./dist/compose/*.d.ts",
       "default": "./dist/compose/*.js"
+    },
+    "./adapters/pg": {
+      "types": "./dist/adapters/pg-outbox-db.d.ts",
+      "default": "./dist/adapters/pg-outbox-db.js"
+    },
+    "./observability": {
+      "types": "./dist/observability.d.ts",
+      "default": "./dist/observability.js"
     }
   },
   "main": "dist/index.js",

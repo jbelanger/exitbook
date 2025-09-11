@@ -17,6 +17,7 @@ interface OutboxDB {
     category: string;
     created_at: Date;
     event_id: string;
+    event_position: string;
     event_type: string;
     id: string;
     last_error?: string;
@@ -71,6 +72,7 @@ export const makePgOutboxDatabase = Effect.gen(function* () {
           (rows) =>
             rows.map((row) => ({
               ...row,
+              event_position: BigInt(row.event_position),
               id: Number(row.id),
               metadata: row.metadata as EventMetadata,
             })) as OutboxEntry[],
@@ -108,6 +110,7 @@ export const makePgOutboxDatabase = Effect.gen(function* () {
           (rows) =>
             rows.map((row) => ({
               ...row,
+              event_position: BigInt(row.event_position),
               id: Number(row.id),
               metadata: row.metadata as EventMetadata,
             })) as OutboxEntry[],

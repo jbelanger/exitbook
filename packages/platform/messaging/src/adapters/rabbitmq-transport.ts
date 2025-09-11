@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 
 import { connect } from 'amqp-connection-manager';
-import type { AmqpConnectionManager, ChannelWrapper } from 'amqp-connection-manager';
+import type { AmqpConnectionManager, ChannelWrapper, Options } from 'amqp-connection-manager';
 import type { ConsumeMessage, ConfirmChannel, Channel } from 'amqplib';
 import { Effect, Layer, Context } from 'effect';
 
@@ -300,23 +300,43 @@ export const makeRabbitMQTransport = (
                         // Check retry count from x-death header
                         const retryCount = getRetryCount(msg.properties.headers);
 
-                        if (retryCount >= maxRetries) {
-                          // Max retries exceeded, send to DLQ
-                          console.error(`Max retries (${maxRetries}) exceeded, routing to DLQ`);
-                          channel.nack(msg, false, false); // No requeue, goes to DLQ
-                        } else {
-                          // Route to retry queue based on attempt count
-                          const retryQueue =
-                            retryCount < retryDelays.length ? `retry-${retryCount + 1}` : 'dlq';
-                          console.log(`Routing to ${retryQueue} (attempt ${retryCount + 1})`);
-                          channel.nack(msg, false, false); // No requeue, use DLX routing
-                        }
+                        const nextRoute =
+                          retryCount >= maxRetries
+                            ? 'dlq'
+                            : retryCount < retryDelays.length
+                              ? `retry-${retryCount + 1}`
+                              : 'dlq';
+                        // Republish the original content to DLX with the desired route, then ack the original
+                        channel.publish('dlx', nextRoute, msg.content, {
+                          headers: msg.properties.headers as Record<string, unknown>,
+                          persistent: true,
+                          timestamp: Math.floor(Date.now() / 1000),
+                          ...(msg.properties.messageId && { messageId: msg.properties.messageId }),
+                          appId: String(msg.properties.appId || 'unknown'),
+                          contentType: msg.properties.contentType || 'application/json',
+                        } as Options.Publish | undefined);
+                        channel.ack(msg);
                       }
                     })
                     .catch((error) => {
                       console.error('Effect runtime error:', error);
                       const retryCount = getRetryCount(msg.properties.headers);
-                      channel.nack(msg, false, retryCount < maxRetries);
+                      const nextRoute =
+                        retryCount >= maxRetries
+                          ? 'dlq'
+                          : retryCount < retryDelays.length
+                            ? `retry-${retryCount + 1}`
+                            : 'dlq';
+
+                      channel.publish('dlx', nextRoute, msg.content, {
+                        headers: msg.properties.headers as Record<string, unknown>,
+                        persistent: true,
+                        timestamp: Math.floor(Date.now() / 1000),
+                        ...(msg.properties.messageId && { messageId: msg.properties.messageId }),
+                        appId: String(msg.properties.appId || 'unknown'),
+                        contentType: msg.properties.contentType || 'application/json',
+                      } as Options.Publish | undefined);
+                      channel.ack(msg);
                     });
                 }
               },

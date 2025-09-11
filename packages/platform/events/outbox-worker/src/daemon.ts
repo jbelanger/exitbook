@@ -6,14 +6,12 @@ import { OutboxProcessor } from './outbox-processor';
 export interface OutboxDaemonConfig {
   readonly batchSize: number;
   readonly intervalMs: number;
-  readonly maxAttempts: number;
 }
 
 // Default configuration
 export const defaultConfig: OutboxDaemonConfig = {
   batchSize: 100,
-  intervalMs: 1000, // 1 second
-  maxAttempts: 10,
+  intervalMs: 1000,
 };
 
 /**

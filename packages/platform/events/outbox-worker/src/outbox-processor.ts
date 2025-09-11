@@ -1,5 +1,5 @@
-import { MessageBusProducerTag, MessageBusConfigTag } from '@exitbook/platform-messaging';
-import type { MessageBusProducer, MessageBusConfig } from '@exitbook/platform-messaging';
+import { MessageBusProducerTag, topic } from '@exitbook/platform-messaging';
+import type { MessageBusProducer } from '@exitbook/platform-messaging';
 import { Effect, Data, Context, Layer, pipe } from 'effect';
 
 import type { EventMetadata } from './model';
@@ -20,6 +20,7 @@ export interface OutboxEntry {
   readonly category: string;
   readonly created_at: Date;
   readonly event_id: string;
+  readonly event_position: bigint;
   readonly event_type: string;
   readonly id: number;
   readonly last_error?: string;
@@ -86,6 +87,7 @@ export interface OutboxConfig {
   readonly jitterMs: number;
   readonly maxAttempts: number;
   readonly maxDelayMs: number;
+  readonly publishConcurrency?: number;
 }
 
 export const defaultOutboxConfig: OutboxConfig = {
@@ -93,6 +95,7 @@ export const defaultOutboxConfig: OutboxConfig = {
   jitterMs: 250,
   maxAttempts: 7,
   maxDelayMs: 300000, // 5 minutes
+  publishConcurrency: 16,
 };
 
 // Calculate next attempt time with exponential backoff + jitter
@@ -111,7 +114,6 @@ const calculateNextAttemptAt = (attempts: number, config: OutboxConfig): Date =>
 export const makeOutboxProcessor = (
   db: OutboxDatabase,
   publisher: MessageBusProducer,
-  messagingConfig: MessageBusConfig,
   metrics: OutboxMetrics,
   config: OutboxConfig = defaultOutboxConfig,
 ): OutboxProcessor => ({
@@ -131,13 +133,13 @@ export const makeOutboxProcessor = (
           entries,
           Effect.forEach(
             (entry) => {
-              // Generate topic and key according to convention: domain.<category>.<type>.v1
-              const topic = `domain.${entry.category}.${entry.event_type}.v1`;
-              const key = entry.id.toString(); // Use outbox entry ID as key for ordering
+              // Generate topic using shared helper
+              const topicName = topic(entry.category, entry.event_type, 'v1');
+              const key = String(entry.event_position); // Use event position for stable ordering
 
               const startTime = Date.now();
               return pipe(
-                publisher.publish(topic, entry.payload, {
+                publisher.publish(topicName, entry.payload, {
                   headers: {
                     'x-message-id': entry.event_id,
                     ...(entry.metadata.causationId && {
@@ -149,9 +151,6 @@ export const makeOutboxProcessor = (
                     ...(entry.metadata.userId && { 'x-user-id': entry.metadata.userId }),
                     'x-timestamp': entry.metadata.timestamp.toISOString(),
                     ...(entry.metadata.source && { 'x-source': entry.metadata.source }),
-                    'schema-version': '1.0',
-                    'x-service': messagingConfig.serviceName,
-                    'x-service-version': messagingConfig.version || 'v1',
                   },
                   key,
                 }),
@@ -193,7 +192,7 @@ export const makeOutboxProcessor = (
                 }),
               );
             },
-            { concurrency: 'unbounded' },
+            { concurrency: config.publishConcurrency ?? 16 },
           ),
           Effect.map((results) => results.length),
         ),
@@ -204,9 +203,9 @@ export const makeOutboxProcessor = (
 // Layer factory for OutboxProcessor
 export const OutboxProcessorLive = Layer.effect(
   OutboxProcessor,
-  Effect.all([OutboxDatabase, MessageBusProducerTag, MessageBusConfigTag, OutboxMetrics]).pipe(
-    Effect.map(([db, publisher, messagingConfig, metrics]) =>
-      makeOutboxProcessor(db, publisher, messagingConfig, metrics, defaultOutboxConfig),
+  Effect.all([OutboxDatabase, MessageBusProducerTag, OutboxMetrics]).pipe(
+    Effect.map(([db, publisher, metrics]) =>
+      makeOutboxProcessor(db, publisher, metrics, defaultOutboxConfig),
     ),
   ),
 );
@@ -215,9 +214,7 @@ export const OutboxProcessorLive = Layer.effect(
 export const makeOutboxProcessorLive = (config: OutboxConfig) =>
   Layer.effect(
     OutboxProcessor,
-    Effect.all([OutboxDatabase, MessageBusProducerTag, MessageBusConfigTag, OutboxMetrics]).pipe(
-      Effect.map(([db, publisher, messagingConfig, metrics]) =>
-        makeOutboxProcessor(db, publisher, messagingConfig, metrics, config),
-      ),
+    Effect.all([OutboxDatabase, MessageBusProducerTag, OutboxMetrics]).pipe(
+      Effect.map(([db, publisher, metrics]) => makeOutboxProcessor(db, publisher, metrics, config)),
     ),
   );

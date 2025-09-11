@@ -17,7 +17,12 @@ import { Layer } from 'effect';
 
 import { PgOutboxDatabaseLive } from '../adapters/pg-outbox-db';
 import { OutboxMetricsNoOp } from '../observability';
-import { OutboxProcessorLive } from '../outbox-processor';
+import {
+  OutboxProcessorLive,
+  makeOutboxProcessorLive,
+  defaultOutboxConfig,
+} from '../outbox-processor';
+import type { OutboxConfig } from '../outbox-processor';
 
 // This is the main layer that applications should use
 // It composes the outbox processor with all its production dependencies:
@@ -29,9 +34,13 @@ export const OutboxWorkerDefault = Layer.provide(
   Layer.mergeAll(PgOutboxDatabaseLive, MessageBusDefault, OutboxMetricsNoOp),
 ) as unknown;
 
-// Re-export for convenience
+// Factory function that accepts OutboxConfig for customization
+export const makeOutboxWorkerDefault = (cfg: Partial<OutboxConfig> = {}): unknown =>
+  Layer.provide(
+    makeOutboxProcessorLive({ ...defaultOutboxConfig, ...cfg }),
+    Layer.mergeAll(PgOutboxDatabaseLive, MessageBusDefault, OutboxMetricsNoOp),
+  );
+
+// keep only the processor-related re-exports here; infra stays on subpaths
 export { OutboxProcessor, defaultOutboxConfig, makeOutboxProcessorLive } from '../outbox-processor';
 export type { OutboxDatabase, OutboxConfig } from '../outbox-processor';
-export { PgOutboxDatabaseLive } from '../adapters/pg-outbox-db';
-export { OutboxMetricsNoOp, OutboxMetricsConsole, OutboxMetrics } from '../observability';
-export { runOutboxDaemon, defaultConfig } from '../daemon';

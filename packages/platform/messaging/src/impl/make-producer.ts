@@ -13,19 +13,18 @@ const generateADRHeaders = (
   config: MessageBusConfig,
   userHeaders?: Record<string, string>,
 ): ADRHeaders => {
-  const correlationId = userHeaders?.['x-correlation-id'] || randomUUID();
-  const causationId = userHeaders?.['x-causation-id'] || randomUUID();
+  const { ['x-service']: _xs, ['x-service-version']: _xsv, ...rest } = userHeaders ?? {};
+  const correlationId = rest['x-correlation-id'] || randomUUID();
+  const causationId = rest['x-causation-id'] || randomUUID();
 
   return {
-    'schema-version': userHeaders?.['schema-version'] || '1.0.0',
+    'schema-version': rest['schema-version'] || '1.0.0',
     'x-causation-id': causationId,
     'x-correlation-id': correlationId,
     'x-service': config.serviceName,
     'x-service-version': config.version || '1.0.0',
-    // Include x-user-id if provided in user headers
-    ...(userHeaders?.['x-user-id'] && { 'x-user-id': userHeaders['x-user-id'] }),
-    // Merge any other user headers (user headers override defaults)
-    ...userHeaders,
+    ...(rest['x-user-id'] && { 'x-user-id': rest['x-user-id'] }),
+    ...rest,
   };
 };
 

@@ -14,17 +14,8 @@
 // Core outbox processing
 export * from './outbox-processor';
 
-// Database adapters
-export * from './adapters/pg-outbox-db';
-
 // Daemon runner for deployable processes
 export * from './daemon';
-
-// Shared model types
-export * from './model';
-
-// Observability and metrics
-export * from './observability';
 
 // Composition layers
 export * from './compose/default';
