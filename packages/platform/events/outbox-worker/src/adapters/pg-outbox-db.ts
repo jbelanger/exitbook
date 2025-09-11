@@ -36,6 +36,12 @@ const makeKysely = Effect.gen(function* () {
   return new Kysely<OutboxDB>({ dialect: new PostgresDialect({ pool }) });
 });
 
+// Helper to map database errors to OutboxProcessError
+const mapProcessError = (error: unknown) => new OutboxProcessError({ reason: String(error) });
+
+// Helper to create timestamp update object
+const withNow = () => ({ updated_at: sql<Date>`now()` });
+
 export const makePgOutboxDatabase = Effect.gen(function* () {
   const db = yield* makeKysely;
 
@@ -59,7 +65,7 @@ export const makePgOutboxDatabase = Effect.gen(function* () {
           .set({
             attempts: sql`attempts + 1`,
             status: 'PROCESSING',
-            updated_at: sql`now()`,
+            updated_at: sql<Date>`now()`,
           })
           .from('to_claim')
           .whereRef('event_outbox.id', '=', 'to_claim.id')
@@ -86,14 +92,11 @@ export const makePgOutboxDatabase = Effect.gen(function* () {
           .updateTable('event_outbox')
           .set({
             status: 'FAILED',
-            updated_at: sql`now()`,
+            ...withNow(),
           })
           .where('event_id', '=', eventId)
           .execute(),
-      ).pipe(
-        Effect.asVoid,
-        Effect.mapError((error) => new OutboxProcessError({ reason: String(error) })),
-      ),
+      ).pipe(Effect.asVoid, Effect.mapError(mapProcessError)),
 
     selectPendingEvents: (batchSize: number) =>
       Effect.tryPromise(() =>
@@ -123,7 +126,7 @@ export const makePgOutboxDatabase = Effect.gen(function* () {
         return await db.transaction().execute(async () => {
           return await Effect.runPromise(effect);
         });
-      }).pipe(Effect.mapError((error) => new OutboxProcessError({ reason: String(error) }))),
+      }).pipe(Effect.mapError(mapProcessError)),
 
     updateEventForRetry: (
       eventId: string,
@@ -138,15 +141,12 @@ export const makePgOutboxDatabase = Effect.gen(function* () {
             attempts,
             next_attempt_at: nextAttemptAt,
             status: 'PENDING',
-            updated_at: sql`now()`,
+            ...withNow(),
             ...(lastError && { last_error: lastError.substring(0, 2000) }), // Truncate to reasonable length
           })
           .where('event_id', '=', eventId)
           .execute(),
-      ).pipe(
-        Effect.asVoid,
-        Effect.mapError((error) => new OutboxProcessError({ reason: String(error) })),
-      ),
+      ).pipe(Effect.asVoid, Effect.mapError(mapProcessError)),
 
     updateEventStatus: (
       eventId: string,
@@ -158,15 +158,12 @@ export const makePgOutboxDatabase = Effect.gen(function* () {
           .updateTable('event_outbox')
           .set({
             status,
-            updated_at: sql`now()`,
+            ...withNow(),
             ...(processedAt && status === 'PROCESSED' && { processed_at: processedAt }),
           })
           .where('event_id', '=', eventId)
           .execute(),
-      ).pipe(
-        Effect.asVoid,
-        Effect.mapError((error) => new OutboxProcessError({ reason: String(error) })),
-      ),
+      ).pipe(Effect.asVoid, Effect.mapError(mapProcessError)),
   } satisfies OutboxDatabase;
 });
 

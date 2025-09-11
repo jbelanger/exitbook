@@ -4,7 +4,11 @@ import { makeFakeMessageTransport } from '../adapters/fake-transport';
 import { RabbitMQTransportLive, RabbitMQConfig } from '../adapters/rabbitmq-transport';
 import { MessageTransportTag, MessageBusConfigTag } from '../port';
 
-import { MessageBusProducerLive, MessageBusConsumerLive } from './default';
+import {
+  MessageBusProducerLive,
+  MessageBusConsumerLive,
+  createDefaultRabbitMQConfig,
+} from './default';
 
 // Environment-based transport selection
 export const createEnvironmentMessageBus = (env?: {
@@ -29,13 +33,8 @@ export const createEnvironmentMessageBus = (env?: {
       env?.['RABBITMQ_URL'] || process.env['RABBITMQ_URL'] || 'amqp://localhost:5672';
 
     const RabbitMQConfigLive = Layer.succeed(RabbitMQConfig, {
-      durable: true,
-      exchangeName: 'events',
-      exchangeType: 'topic',
-      maxRetries: 3,
-      publishTimeoutMs: 5000,
-      retryDelays: [5000, 30000, 120000], // 5s, 30s, 2m
-      url: rabbitmqUrl,
+      ...createDefaultRabbitMQConfig(),
+      url: rabbitmqUrl, // Override URL from environment
     });
 
     return Layer.provide(

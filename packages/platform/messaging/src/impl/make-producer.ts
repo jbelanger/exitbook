@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { Effect, pipe } from 'effect';
 
 import type { MessageBusProducer, MessageTransport, MessageBusConfig, ADRHeaders } from '../port';
+import { HeaderNames } from '../port';
 
 export interface UuidGenerator {
   readonly generate: () => Effect.Effect<string, never>;
@@ -13,17 +14,21 @@ const generateADRHeaders = (
   config: MessageBusConfig,
   userHeaders?: Record<string, string>,
 ): ADRHeaders => {
-  const { ['x-service']: _xs, ['x-service-version']: _xsv, ...rest } = userHeaders ?? {};
-  const correlationId = rest['x-correlation-id'] || randomUUID();
-  const causationId = rest['x-causation-id'] || randomUUID();
+  const {
+    [HeaderNames.X_SERVICE]: _xs,
+    [HeaderNames.X_SERVICE_VERSION]: _xsv,
+    ...rest
+  } = userHeaders ?? {};
+  const correlationId = rest[HeaderNames.X_CORRELATION_ID] || randomUUID();
+  const causationId = rest[HeaderNames.X_CAUSATION_ID] || randomUUID();
 
   return {
-    'schema-version': rest['schema-version'] || '1.0.0',
-    'x-causation-id': causationId,
-    'x-correlation-id': correlationId,
-    'x-service': config.serviceName,
-    'x-service-version': config.version || '1.0.0',
-    ...(rest['x-user-id'] && { 'x-user-id': rest['x-user-id'] }),
+    [HeaderNames.SCHEMA_VERSION]: rest[HeaderNames.SCHEMA_VERSION] || '1.0.0',
+    [HeaderNames.X_CAUSATION_ID]: causationId,
+    [HeaderNames.X_CORRELATION_ID]: correlationId,
+    [HeaderNames.X_SERVICE]: config.serviceName,
+    [HeaderNames.X_SERVICE_VERSION]: config.version || '1.0.0',
+    ...(rest[HeaderNames.X_USER_ID] && { [HeaderNames.X_USER_ID]: rest[HeaderNames.X_USER_ID] }),
     ...rest,
   };
 };
