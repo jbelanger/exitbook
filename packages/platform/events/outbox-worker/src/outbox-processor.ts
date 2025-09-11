@@ -1,6 +1,9 @@
+import { MessageBusProducerTag, MessageBusConfigTag } from '@exitbook/platform-messaging';
+import type { MessageBusProducer, MessageBusConfig } from '@exitbook/platform-messaging';
 import { Effect, Data, Context, Layer, pipe } from 'effect';
 
 import type { EventMetadata } from './model';
+import { OutboxMetrics } from './observability';
 
 // Outbox specific errors
 export class OutboxProcessError extends Data.TaggedError('OutboxProcessError')<{
@@ -19,6 +22,7 @@ export interface OutboxEntry {
   readonly event_id: string;
   readonly event_type: string;
   readonly id: number;
+  readonly last_error?: string;
   readonly metadata: EventMetadata;
   readonly next_attempt_at: Date;
   readonly payload: unknown;
@@ -64,6 +68,7 @@ export interface OutboxDatabase {
     eventId: string,
     attempts: number,
     nextAttemptAt: Date,
+    lastError?: string,
   ) => Effect.Effect<void, OutboxProcessError, never>;
 
   readonly updateEventStatus: (
@@ -74,22 +79,6 @@ export interface OutboxDatabase {
 }
 
 export const OutboxDatabase = Context.GenericTag<OutboxDatabase>('@platform/OutboxDatabase');
-
-// MessagePublisher interface for outbox processor
-export interface MessagePublisher {
-  readonly publish: (
-    topic: string,
-    key: string,
-    message: unknown,
-    options?: {
-      causationId?: string;
-      correlationId?: string;
-      userId?: string;
-    },
-  ) => Effect.Effect<void, OutboxProcessError, never>;
-}
-
-export const MessagePublisher = Context.GenericTag<MessagePublisher>('@platform/MessagePublisher');
 
 // Configuration for retry behavior
 export interface OutboxConfig {
@@ -121,7 +110,9 @@ const calculateNextAttemptAt = (attempts: number, config: OutboxConfig): Date =>
 // Pure outbox processor implementation
 export const makeOutboxProcessor = (
   db: OutboxDatabase,
-  publisher: MessagePublisher,
+  publisher: MessageBusProducer,
+  messagingConfig: MessageBusConfig,
+  metrics: OutboxMetrics,
   config: OutboxConfig = defaultOutboxConfig,
 ): OutboxProcessor => ({
   getPendingEvents: (batchSize = 100) => db.selectPendingEvents(batchSize),
@@ -134,6 +125,7 @@ export const makeOutboxProcessor = (
     pipe(
       db.claimPendingEvents(batchSize),
       Effect.mapError((error) => new OutboxProcessError({ reason: error.reason })),
+      Effect.tap((entries) => metrics.incrementClaimed(entries.length)),
       Effect.flatMap((entries) =>
         pipe(
           entries,
@@ -143,27 +135,61 @@ export const makeOutboxProcessor = (
               const topic = `domain.${entry.category}.${entry.event_type}.v1`;
               const key = entry.id.toString(); // Use outbox entry ID as key for ordering
 
+              const startTime = Date.now();
               return pipe(
-                publisher.publish(topic, key, entry.payload, {
-                  ...(entry.metadata.causationId && {
-                    causationId: entry.metadata.causationId,
-                  }),
-                  ...(entry.metadata.correlationId && {
-                    correlationId: entry.metadata.correlationId,
-                  }),
-                  ...(entry.metadata.userId && { userId: entry.metadata.userId }),
+                publisher.publish(topic, entry.payload, {
+                  headers: {
+                    'x-message-id': entry.event_id,
+                    ...(entry.metadata.causationId && {
+                      'x-causation-id': entry.metadata.causationId,
+                    }),
+                    ...(entry.metadata.correlationId && {
+                      'x-correlation-id': entry.metadata.correlationId,
+                    }),
+                    ...(entry.metadata.userId && { 'x-user-id': entry.metadata.userId }),
+                    'x-timestamp': entry.metadata.timestamp.toISOString(),
+                    ...(entry.metadata.source && { 'x-source': entry.metadata.source }),
+                    'schema-version': '1.0',
+                    'x-service': messagingConfig.serviceName,
+                    'x-service-version': messagingConfig.version || 'v1',
+                  },
+                  key,
+                }),
+                Effect.tap(() => {
+                  const latency = Date.now() - startTime;
+                  return pipe(
+                    metrics.recordPublishLatency(latency),
+                    Effect.flatMap(() => metrics.incrementPublished(1)),
+                  );
                 }),
                 Effect.flatMap(() => db.updateEventStatus(entry.event_id, 'PROCESSED', new Date())),
-                Effect.catchAll((_publishError) => {
-                  // Check if we should retry or send to DLQ
-                  if (entry.attempts >= config.maxAttempts) {
-                    // Send to DLQ (mark as FAILED)
-                    return db.markAsDLQ(entry.event_id);
-                  } else {
-                    // Schedule retry with exponential backoff
-                    const nextAttemptAt = calculateNextAttemptAt(entry.attempts, config);
-                    return db.updateEventForRetry(entry.event_id, entry.attempts, nextAttemptAt);
-                  }
+                Effect.catchAll((publishError) => {
+                  const errorMessage = publishError.reason;
+                  return pipe(
+                    metrics.logError(entry.event_id, errorMessage),
+                    Effect.flatMap(() => {
+                      // Check if we should retry or send to DLQ
+                      if (entry.attempts >= config.maxAttempts) {
+                        // Send to DLQ (mark as FAILED)
+                        return pipe(
+                          db.markAsDLQ(entry.event_id),
+                          Effect.tap(() => metrics.incrementFailed(1)),
+                        );
+                      } else {
+                        // Schedule retry with exponential backoff
+                        const nextAttemptAt = calculateNextAttemptAt(entry.attempts, config);
+                        return pipe(
+                          db.updateEventForRetry(
+                            entry.event_id,
+                            entry.attempts,
+                            nextAttemptAt,
+                            errorMessage,
+                          ),
+                          Effect.tap(() => metrics.incrementRetries(1)),
+                        );
+                      }
+                    }),
+                  );
                 }),
               );
             },
@@ -178,8 +204,10 @@ export const makeOutboxProcessor = (
 // Layer factory for OutboxProcessor
 export const OutboxProcessorLive = Layer.effect(
   OutboxProcessor,
-  Effect.all([OutboxDatabase, MessagePublisher]).pipe(
-    Effect.map(([db, publisher]) => makeOutboxProcessor(db, publisher, defaultOutboxConfig)),
+  Effect.all([OutboxDatabase, MessageBusProducerTag, MessageBusConfigTag, OutboxMetrics]).pipe(
+    Effect.map(([db, publisher, messagingConfig, metrics]) =>
+      makeOutboxProcessor(db, publisher, messagingConfig, metrics, defaultOutboxConfig),
+    ),
   ),
 );
 
@@ -187,7 +215,9 @@ export const OutboxProcessorLive = Layer.effect(
 export const makeOutboxProcessorLive = (config: OutboxConfig) =>
   Layer.effect(
     OutboxProcessor,
-    Effect.all([OutboxDatabase, MessagePublisher]).pipe(
-      Effect.map(([db, publisher]) => makeOutboxProcessor(db, publisher, config)),
+    Effect.all([OutboxDatabase, MessageBusProducerTag, MessageBusConfigTag, OutboxMetrics]).pipe(
+      Effect.map(([db, publisher, messagingConfig, metrics]) =>
+        makeOutboxProcessor(db, publisher, messagingConfig, metrics, config),
+      ),
     ),
   );

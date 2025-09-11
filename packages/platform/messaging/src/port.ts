@@ -21,6 +21,16 @@ export class MessageValidationError extends Data.TaggedError('MessageValidationE
 // Message headers type
 export type MessageHeaders = Record<string, string>;
 
+// ADR headers interface for type safety
+export interface ADRHeaders extends Record<string, string> {
+  'schema-version': string;
+  'x-causation-id': string;
+  'x-correlation-id': string;
+  'x-service': string;
+  'x-service-version': string;
+  'x-user-id'?: string;
+}
+
 // Publish options interface matching ADR spec
 export interface PublishOptions {
   headers?: Record<string, string>;
@@ -44,8 +54,21 @@ export interface MessageBusProducer {
   ) => Effect.Effect<void, PublishError, never>;
 }
 
-export const MessageBusProducer = Context.GenericTag<MessageBusProducer>(
-  '@platform/MessageBusProducer',
+// Service tags following event-store pattern
+export const MessageBusProducerTag = Context.GenericTag<MessageBusProducer>(
+  '@platform/messaging/MessageBusProducer',
+);
+
+export const MessageBusConsumerTag = Context.GenericTag<MessageBusConsumer>(
+  '@platform/messaging/MessageBusConsumer',
+);
+
+export const MessageTransportTag = Context.GenericTag<MessageTransport>(
+  '@platform/messaging/MessageTransport',
+);
+
+export const MessageBusConfigTag = Context.GenericTag<MessageBusConfig>(
+  '@platform/messaging/MessageBusConfig',
 );
 
 // Incoming message interface matching ADR spec
@@ -70,10 +93,6 @@ export interface MessageBusConsumer {
   ) => Effect.Effect<Subscription, SubscribeError>;
 }
 
-export const MessageBusConsumer = Context.GenericTag<MessageBusConsumer>(
-  '@platform/MessageBusConsumer',
-);
-
 // Transport interface that messaging adapters implement
 export interface MessageTransport {
   readonly healthCheck: () => Effect.Effect<void, MessageBusError, never>;
@@ -84,6 +103,7 @@ export interface MessageTransport {
     options?: {
       headers?: MessageHeaders;
       key?: string;
+      timeoutMs?: number;
     },
   ) => Effect.Effect<void, PublishError, never>;
 
@@ -93,6 +113,7 @@ export interface MessageTransport {
       headers?: MessageHeaders;
       key?: string;
       payload: unknown;
+      timeoutMs?: number;
     }[],
   ) => Effect.Effect<void, PublishError, never>;
 
@@ -113,12 +134,12 @@ export interface MessageTransport {
   ) => Effect.Effect<void, MessageBusError, never>;
 }
 
-export const MessageTransport = Context.GenericTag<MessageTransport>('@platform/MessageTransport');
-
 // Configuration for message bus
 export interface MessageBusConfig {
   readonly serviceName: string;
   readonly version?: string;
 }
 
-export const MessageBusConfig = Context.GenericTag<MessageBusConfig>('@platform/MessageBusConfig');
+// ADR-compliant topic helper function
+export const topic = (category: string, type: string, version = 'v1'): string =>
+  `domain.${category}.${type}.${version}`;

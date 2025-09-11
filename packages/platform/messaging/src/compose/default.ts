@@ -1,11 +1,45 @@
-import { Layer } from 'effect';
+import { Layer, Effect } from 'effect';
 
-import { MessageBusProducerLive, MessageBusConsumerLive } from '../index';
-// TODO: Import actual transport adapters like KafkaTransportLive, RabbitMQTransportLive, etc.
-// For now, this would be provided by the system that uses the messaging package
+import { RabbitMQTransportLive, RabbitMQConfig } from '../adapters/rabbitmq-transport';
+import { makeMessageBusConsumer } from '../impl/make-consumer';
+import { makeMessageBusProducer } from '../impl/make-producer';
+import {
+  MessageBusProducerTag,
+  MessageBusConsumerTag,
+  MessageTransportTag,
+  MessageBusConfigTag,
+} from '../port';
 
-// Default production composition - MessageBus layers that depend on transport
-export const MessageBusDefault = Layer.mergeAll(MessageBusProducerLive, MessageBusConsumerLive);
+// Main MessageBus layers - depend on MessageTransport
+export const MessageBusProducerLive = Layer.effect(
+  MessageBusProducerTag,
+  Effect.all([MessageTransportTag, MessageBusConfigTag]).pipe(
+    Effect.map(([transport, config]) => makeMessageBusProducer(transport, config)),
+  ),
+);
 
-// Individual exports for selective usage
-export { MessageBusProducerLive, MessageBusConsumerLive };
+export const MessageBusConsumerLive = Layer.effect(
+  MessageBusConsumerTag,
+  Effect.map(MessageTransportTag, makeMessageBusConsumer),
+);
+
+// Default production composition - MessageBus + RabbitMQ transport + default config
+export const MessageBusDefault = Layer.provide(
+  Layer.mergeAll(MessageBusProducerLive, MessageBusConsumerLive),
+  Layer.mergeAll(
+    RabbitMQTransportLive,
+    Layer.succeed(MessageBusConfigTag, {
+      serviceName: process.env['SERVICE_NAME'] || 'exitbook-platform',
+      version: process.env['SERVICE_VERSION'] || '1.0.0',
+    }),
+    Layer.succeed(RabbitMQConfig, {
+      durable: true,
+      exchangeName: 'events',
+      exchangeType: 'topic',
+      maxRetries: 3,
+      publishTimeoutMs: 5000,
+      retryDelays: [5000, 30000, 120000], // 5s, 30s, 2m
+      url: process.env['RABBITMQ_URL'] || 'amqp://localhost:5672',
+    }),
+  ),
+);

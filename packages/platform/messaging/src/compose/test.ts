@@ -1,35 +1,21 @@
 import { Layer } from 'effect';
 
 import { makeFakeMessageTransport } from '../adapters/fake-transport';
-import { MessageBusProducerLive, MessageBusConsumerLive } from '../index';
-import { MessageTransport, MessageBusConfig } from '../port';
-import type { MessageBusProducer, MessageBusConsumer } from '../port';
+import { MessageTransportTag, MessageBusConfigTag } from '../port';
+
+import { MessageBusProducerLive, MessageBusConsumerLive } from './default';
 
 // Fake transport layer for testing
-const FakeMessageTransportLive = Layer.effect(MessageTransport, makeFakeMessageTransport());
+const FakeMessageTransportLive = Layer.effect(MessageTransportTag, makeFakeMessageTransport());
 
 // Fake config layer for testing
-const FakeMessageBusConfigLive = Layer.succeed(MessageBusConfig, {
+const FakeMessageBusConfigLive = Layer.succeed(MessageBusConfigTag, {
   serviceName: 'test-service',
   version: '1.0.0',
 });
 
 // Test composition - MessageBus layers with fake dependencies
-const TestDependencies = Layer.mergeAll(FakeMessageTransportLive, FakeMessageBusConfigLive);
-
 export const MessageBusTest = Layer.provide(
   Layer.mergeAll(MessageBusProducerLive, MessageBusConsumerLive),
-  TestDependencies,
-);
-
-// Individual test exports
-
-export const MessageBusProducerTest: Layer.Layer<MessageBusProducer> = Layer.provide(
-  MessageBusProducerLive,
-  TestDependencies,
-);
-
-export const MessageBusConsumerTest: Layer.Layer<MessageBusConsumer> = Layer.provide(
-  MessageBusConsumerLive,
-  FakeMessageTransportLive,
+  Layer.mergeAll(FakeMessageTransportLive, FakeMessageBusConfigLive),
 );

@@ -23,5 +23,8 @@ export * from './daemon';
 // Shared model types
 export * from './model';
 
+// Observability and metrics
+export * from './observability';
+
 // Composition layers
 export * from './compose/default';

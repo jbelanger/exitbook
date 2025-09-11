@@ -19,6 +19,7 @@ interface OutboxDB {
     event_id: string;
     event_type: string;
     id: string;
+    last_error?: string;
     metadata: unknown;
     next_attempt_at: Date;
     payload: unknown;
@@ -121,7 +122,12 @@ export const makePgOutboxDatabase = Effect.gen(function* () {
         });
       }).pipe(Effect.mapError((error) => new OutboxProcessError({ reason: String(error) }))),
 
-    updateEventForRetry: (eventId: string, attempts: number, nextAttemptAt: Date) =>
+    updateEventForRetry: (
+      eventId: string,
+      attempts: number,
+      nextAttemptAt: Date,
+      lastError?: string,
+    ) =>
       Effect.tryPromise(() =>
         db
           .updateTable('event_outbox')
@@ -130,6 +136,7 @@ export const makePgOutboxDatabase = Effect.gen(function* () {
             next_attempt_at: nextAttemptAt,
             status: 'PENDING',
             updated_at: sql`now()`,
+            ...(lastError && { last_error: lastError.substring(0, 2000) }), // Truncate to reasonable length
           })
           .where('event_id', '=', eventId)
           .execute(),

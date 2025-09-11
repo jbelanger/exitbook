@@ -1,10 +1,33 @@
+import { randomUUID } from 'node:crypto';
+
 import { Effect, pipe } from 'effect';
 
-import type { MessageBusProducer, MessageTransport, MessageBusConfig } from '../port';
+import type { MessageBusProducer, MessageTransport, MessageBusConfig, ADRHeaders } from '../port';
 
 export interface UuidGenerator {
   readonly generate: () => Effect.Effect<string, never>;
 }
+
+// Helper to generate ADR-compliant headers
+const generateADRHeaders = (
+  config: MessageBusConfig,
+  userHeaders?: Record<string, string>,
+): ADRHeaders => {
+  const correlationId = userHeaders?.['x-correlation-id'] || randomUUID();
+  const causationId = userHeaders?.['x-causation-id'] || randomUUID();
+
+  return {
+    'schema-version': userHeaders?.['schema-version'] || '1.0.0',
+    'x-causation-id': causationId,
+    'x-correlation-id': correlationId,
+    'x-service': config.serviceName,
+    'x-service-version': config.version || '1.0.0',
+    // Include x-user-id if provided in user headers
+    ...(userHeaders?.['x-user-id'] && { 'x-user-id': userHeaders['x-user-id'] }),
+    // Merge any other user headers (user headers override defaults)
+    ...userHeaders,
+  };
+};
 
 // ✅ factory takes transport and config and closes over them
 export const makeMessageBusProducer = (
@@ -19,14 +42,11 @@ export const makeMessageBusProducer = (
     ),
 
   publish: (topic: string, payload: unknown, opts?) => {
-    const headers: Record<string, string> = {
-      'x-service': config.serviceName,
-      'x-version': config.version || '1.0',
-      ...opts?.headers,
-    };
+    const headers = generateADRHeaders(config, opts?.headers);
 
     return transport.publish(topic, payload, {
       ...(opts?.key && { key: opts.key }),
+      ...(opts?.timeoutMs && { timeoutMs: opts.timeoutMs }),
       headers,
     });
   },
@@ -35,11 +55,8 @@ export const makeMessageBusProducer = (
     const enrichedMessages = items.map((item) => ({
       payload: item.payload,
       ...(item.opts?.key && { key: item.opts.key }),
-      headers: {
-        'x-service': config.serviceName,
-        'x-version': config.version || '1.0',
-        ...item.opts?.headers,
-      },
+      ...(item.opts?.timeoutMs && { timeoutMs: item.opts.timeoutMs }),
+      headers: generateADRHeaders(config, item.opts?.headers),
     }));
 
     return transport.publishBatch(topic, enrichedMessages);

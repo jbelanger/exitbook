@@ -12,19 +12,26 @@
  * - Support horizontal scaling
  */
 
+import { MessageBusDefault } from '@exitbook/platform-messaging';
+import { Layer } from 'effect';
+
+import { PgOutboxDatabaseLive } from '../adapters/pg-outbox-db';
+import { OutboxMetricsNoOp } from '../observability';
 import { OutboxProcessorLive } from '../outbox-processor';
 
 // This is the main layer that applications should use
-// It composes the outbox processor with its dependencies
-export const OutboxWorkerDefault = OutboxProcessorLive;
+// It composes the outbox processor with all its production dependencies:
+// - PostgreSQL database adapter
+// - Messaging infrastructure (RabbitMQ)
+// - Outbox processor implementation
+export const OutboxWorkerDefault = Layer.provide(
+  OutboxProcessorLive,
+  Layer.mergeAll(PgOutboxDatabaseLive, MessageBusDefault, OutboxMetricsNoOp),
+) as unknown;
 
 // Re-export for convenience
-export {
-  OutboxProcessor,
-  MessagePublisher,
-  defaultOutboxConfig,
-  makeOutboxProcessorLive,
-} from '../outbox-processor';
+export { OutboxProcessor, defaultOutboxConfig, makeOutboxProcessorLive } from '../outbox-processor';
 export type { OutboxDatabase, OutboxConfig } from '../outbox-processor';
 export { PgOutboxDatabaseLive } from '../adapters/pg-outbox-db';
+export { OutboxMetricsNoOp, OutboxMetricsConsole, OutboxMetrics } from '../observability';
 export { runOutboxDaemon, defaultConfig } from '../daemon';

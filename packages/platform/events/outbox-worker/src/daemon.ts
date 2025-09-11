@@ -1,4 +1,4 @@
-import { Effect, Schedule, Console } from 'effect';
+import { Effect, Console } from 'effect';
 
 import { OutboxProcessor } from './outbox-processor';
 
@@ -46,12 +46,23 @@ export const runOutboxDaemon = (config: OutboxDaemonConfig = defaultConfig) =>
       ),
     );
 
-    // Run the processing loop with the configured interval
-    const schedule = Schedule.fixed(config.intervalMs);
-
     yield* Console.info(
       `Starting outbox daemon with batch size ${config.batchSize}, interval ${config.intervalMs}ms`,
     );
 
-    return yield* Effect.repeat(processOnce, schedule);
+    // Implement drain-fast scheduling: loop immediately while processing events,
+    // sleep with jitter when idle to reduce unnecessary database polling
+    return yield* Effect.gen(function* () {
+      while (true) {
+        const processedCount = yield* processOnce;
+
+        if (processedCount === 0) {
+          // No events processed - sleep with jitter to avoid thundering herd
+          const jitter = Math.floor(Math.random() * (config.intervalMs * 0.2));
+          const sleepTime = config.intervalMs + jitter;
+          yield* Effect.sleep(sleepTime);
+        }
+        // If events were processed, loop immediately to drain the backlog
+      }
+    });
   });

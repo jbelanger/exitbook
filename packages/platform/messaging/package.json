@@ -22,11 +22,14 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "effect": "^3.0.0"
+    "@types/amqplib": "^0.10.7",
+    "amqp-connection-manager": "^4.1.14",
+    "amqplib": "^0.10.9",
+    "effect": "^3.17.13"
   },
   "devDependencies": {
     "@internal/tsconfig": "workspace:*",
     "@types/node": "^24.3.1",
-    "rimraf": "^5.0.0"
+    "rimraf": "^5.0.10"
   }
 }
