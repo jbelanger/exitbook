@@ -1,5 +1,5 @@
 {
-  "name": "@exitbook/platform-events",
+  "name": "@exitbook/platform-event-bus",
   "version": "0.0.0",
   "private": true,
   "sideEffects": false,
@@ -17,10 +17,12 @@
   },
   "dependencies": {
     "@exitbook/core": "workspace:*",
-    "@exitbook/platform-event-bus": "workspace:*",
+    "@exitbook/platform-database": "workspace:*",
     "@exitbook/platform-event-store": "workspace:*",
     "@exitbook/platform-messaging": "workspace:*",
-    "effect": "^3.0.0"
+    "bignumber.js": "^9.1.0",
+    "effect": "^3.0.0",
+    "kysely": "^0.27.0"
   },
   "devDependencies": {
     "@internal/tsconfig": "workspace:*",
