@@ -25,6 +25,7 @@
     "@types/amqplib": "^0.10.7",
     "amqp-connection-manager": "^4.1.14",
     "amqplib": "^0.10.9",
+    "cloudevents": "^10.0.0",
     "effect": "^3.17.13"
   },
   "devDependencies": {

@@ -21,40 +21,14 @@ export class MessageValidationError extends Data.TaggedError('MessageValidationE
 // Message headers type
 export type MessageHeaders = Record<string, string>;
 
-// Header name constants to prevent typos
-export const HeaderNames = {
-  // ADR-compliant headers
-  SCHEMA_VERSION: 'schema-version',
-  X_CAUSATION_ID: 'x-causation-id',
-  X_CORRELATION_ID: 'x-correlation-id',
-  // Event-specific headers
-  X_MESSAGE_ID: 'x-message-id',
-  X_SERVICE: 'x-service',
-  X_SERVICE_VERSION: 'x-service-version',
-
-  X_SOURCE: 'x-source',
-  X_TIMESTAMP: 'x-timestamp',
-  X_USER_ID: 'x-user-id',
-} as const;
-
-// Header name type for type safety
-export type MessageHeaderName = (typeof HeaderNames)[keyof typeof HeaderNames];
-
-// ADR headers interface for type safety
-export interface ADRHeaders extends Record<string, string> {
-  [HeaderNames.SCHEMA_VERSION]: string;
-  [HeaderNames.X_CAUSATION_ID]: string;
-  [HeaderNames.X_CORRELATION_ID]: string;
-  [HeaderNames.X_SERVICE_VERSION]: string;
-  [HeaderNames.X_SERVICE]: string;
-  [HeaderNames.X_USER_ID]?: string;
-}
-
-// Publish options interface matching ADR spec
+// Publish options interface for CloudEvents
 export interface PublishOptions {
-  headers?: Record<string, string>;
+  causationId?: string;
+  // Keep the tracking fields we use
+  correlationId?: string;
   key?: string;
   timeoutMs?: number;
+  userId?: string;
 }
 
 // Producer port (for publishing messages)

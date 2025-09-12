@@ -12,9 +12,7 @@ export {
   type IncomingMessage,
   type Subscription,
   type MessageHeaders,
-  type MessageHeaderName,
   type PublishOptions,
-  type ADRHeaders,
 
   // Service tags
   MessageBusProducerTag,
@@ -23,7 +21,6 @@ export {
   MessageBusConfigTag,
 
   // Constants and utilities
-  HeaderNames,
   topic,
 
   // Errors
@@ -34,4 +31,12 @@ export {
 } from './port';
 
 // Utility functions
-export { headersFromMetadata, type EventMetadataForHeaders } from './util/headers-from-metadata';
+export {
+  toCloudEvent,
+  getTracking,
+  CloudEvents,
+  type CloudEventInit,
+  type DomainCloudEvent,
+  type TrackingExtensions,
+  type CloudEventOptions,
+} from './util/toCloudEvent';

@@ -1,5 +1,4 @@
 import { DatabasePool } from '@exitbook/platform-database';
-import type { EventMetadata } from '@exitbook/platform-event-store/model';
 import { Effect, Layer } from 'effect';
 import { Kysely, PostgresDialect, sql } from 'kysely';
 
@@ -81,7 +80,6 @@ export const makePgOutboxDatabase = Effect.gen(function* () {
               ...row,
               event_position: BigInt(row.event_position),
               id: Number(row.id),
-              metadata: row.metadata as EventMetadata,
             })) as OutboxEntry[],
         ),
         Effect.mapError((error) => new OutboxReadError({ reason: String(error) })),
@@ -116,7 +114,6 @@ export const makePgOutboxDatabase = Effect.gen(function* () {
               ...row,
               event_position: BigInt(row.event_position),
               id: Number(row.id),
-              metadata: row.metadata as EventMetadata,
             })) as OutboxEntry[],
         ),
         Effect.mapError((error) => new OutboxReadError({ reason: String(error) })),

@@ -21,10 +21,9 @@ const makeFakeEventStoreDatabase = (): Effect.Effect<EventStoreDatabase, never> 
     const outboxEntries = yield* Ref.make<
       {
         category: string;
+        cloudevent: unknown;
         event_id: string;
         event_type: string;
-        metadata: unknown;
-        payload: unknown;
         status: 'PENDING' | 'PROCESSED' | 'FAILED';
         stream_name: string;
       }[]

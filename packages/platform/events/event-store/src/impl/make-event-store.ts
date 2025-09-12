@@ -1,4 +1,6 @@
 import type { DomainEvent } from '@exitbook/core';
+import type { CloudEventOptions } from '@exitbook/platform-messaging';
+import { CloudEvents, topic } from '@exitbook/platform-messaging';
 import { Effect, pipe } from 'effect';
 
 import { extractCategory } from '../model';
@@ -14,18 +16,15 @@ import type {
 import { SaveEventError, ReadEventError, OptimisticLockError, IdempotencyError } from '../port';
 import { eventRegistry } from '../registry';
 
-// Options type for better readability
 interface AppendOptions {
   readonly idempotencyKey?: string;
-  readonly metadata?: Record<string, unknown>;
+  readonly metadata?: CloudEventOptions | undefined;
 }
 
 /**
  * Creates an EventStore implementation that depends on a low-level database port.
  */
 export const makeEventStore = (db: EventStoreDatabase): EventStore => {
-  // ### Refactored Helper Functions for append ###
-
   /**
    * Handles the idempotency check using the "insert-first" pattern.
    * If an idempotency key is provided, it attempts to insert it. A unique
@@ -121,18 +120,34 @@ export const makeEventStore = (db: EventStoreDatabase): EventStore => {
 
     return db.insertEvents(eventsToStore).pipe(
       Effect.flatMap((insertedEvents) => {
-        // Create outbox entries using the global_position from inserted events
-        const outboxEntries: readonly OutboxEntryData[] = insertedEvents.map((event) => ({
-          category: event.category,
-          event_id: event.event_id,
-          event_position: BigInt(event.global_position || 0), // Use global_position as event_position
-          event_schema_version: event.event_schema_version,
-          event_type: event.event_type,
-          metadata: event.metadata,
-          payload: event.event_data,
-          status: 'PENDING' as const,
-          stream_name: event.stream_name,
-        }));
+        // Create outbox entries using CloudEvents
+        const outboxEntries: readonly OutboxEntryData[] = insertedEvents.map((event) => {
+          // Extract metadata for tracking
+          const metadata = event.metadata as Record<string, unknown>;
+          const topicName = topic(
+            event.category,
+            event.event_type,
+            `v${event.event_schema_version}`,
+          );
+
+          // Create CloudEvent using convenience API with all the specific details
+          const ce = CloudEvents.create(topicName, event.event_data, {
+            ...metadata,
+            id: event.event_id,
+            time: event.created_at,
+          });
+
+          return {
+            category: event.category,
+            cloudevent: ce,
+            event_id: event.event_id,
+            event_position: BigInt(event.global_position || 0),
+            event_schema_version: event.event_schema_version,
+            event_type: event.event_type,
+            status: 'PENDING' as const,
+            stream_name: event.stream_name,
+          };
+        });
 
         return db.insertOutboxEntries(outboxEntries).pipe(Effect.map(() => insertedEvents));
       }),

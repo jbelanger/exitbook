@@ -15,15 +15,14 @@ export interface EventStoreDB {
   event_outbox: {
     attempts: number;
     category: string;
+    cloudevent: string; // JSON-stringified CloudEventRecord
     created_at?: Date;
     event_id: string;
     event_position: bigint;
     event_schema_version: number;
     event_type: string;
     id?: string;
-    metadata: unknown;
     next_attempt_at: Date;
-    payload: unknown;
     processed_at?: Date;
     status: string;
     stream_name: string;
@@ -146,13 +145,12 @@ export const makePgEventStoreDatabase = (): Effect.Effect<EventStoreDatabase, ne
               rows.map((row) => ({
                 attempts: 0,
                 category: row.category,
+                cloudevent: JSON.stringify(row.cloudevent),
                 event_id: row.event_id,
                 event_position: row.event_position,
                 event_schema_version: row.event_schema_version,
                 event_type: row.event_type,
-                metadata: row.metadata,
                 next_attempt_at: new Date(),
-                payload: row.payload,
                 status: row.status,
                 stream_name: row.stream_name,
               })),

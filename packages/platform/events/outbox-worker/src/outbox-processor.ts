@@ -1,5 +1,4 @@
-import type { EventMetadata } from '@exitbook/platform-event-store/model';
-import { MessageBusProducerTag, topic, headersFromMetadata } from '@exitbook/platform-messaging';
+import { MessageBusProducerTag, topic } from '@exitbook/platform-messaging';
 import type { MessageBusProducer } from '@exitbook/platform-messaging';
 import { Effect, Data, Context, Layer, pipe } from 'effect';
 
@@ -18,6 +17,7 @@ export class OutboxReadError extends Data.TaggedError('OutboxReadError')<{
 export interface OutboxEntry {
   readonly attempts: number;
   readonly category: string;
+  readonly cloudevent: string; // JSON-stringified CloudEvent
   readonly created_at: Date;
   readonly event_id: string;
   readonly event_position: bigint;
@@ -25,9 +25,7 @@ export interface OutboxEntry {
   readonly event_type: string;
   readonly id: number;
   readonly last_error?: string;
-  readonly metadata: EventMetadata;
   readonly next_attempt_at: Date;
-  readonly payload: unknown;
   readonly processed_at?: Date;
   readonly status: 'PENDING' | 'PROCESSING' | 'PROCESSED' | 'FAILED';
   readonly stream_name: string;
@@ -143,8 +141,7 @@ export const makeOutboxProcessor = (
 
               const startTime = Date.now();
               return pipe(
-                publisher.publish(topicName, entry.payload, {
-                  headers: headersFromMetadata(entry.metadata, entry.event_id),
+                publisher.publish(topicName, entry.cloudevent, {
                   key,
                 }),
                 Effect.tap(() => {
