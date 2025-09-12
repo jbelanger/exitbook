@@ -1,15 +1,14 @@
 import type { DomainEvent } from '@exitbook/core';
 import type { CloudEventOptions } from '@exitbook/platform-messaging';
-import { CloudEvents, topic } from '@exitbook/platform-messaging';
 import { Effect, pipe } from 'effect';
 
 import { extractCategory } from '../model';
+import { createOutboxEntries } from '../outbox/mapper';
 import type {
   EventStore,
   EventStoreDatabase,
   StoredEventData,
   StoredEvent,
-  OutboxEntryData,
   PositionedEvent,
   StreamName,
 } from '../port';
@@ -120,35 +119,8 @@ export const makeEventStore = (db: EventStoreDatabase): EventStore => {
 
     return db.insertEvents(eventsToStore).pipe(
       Effect.flatMap((insertedEvents) => {
-        // Create outbox entries using CloudEvents
-        const outboxEntries: readonly OutboxEntryData[] = insertedEvents.map((event) => {
-          // Extract metadata for tracking
-          const metadata = event.metadata as Record<string, unknown>;
-          const topicName = topic(
-            event.category,
-            event.event_type,
-            `v${event.event_schema_version}`,
-          );
-
-          // Create CloudEvent using convenience API with all the specific details
-          const ce = CloudEvents.create(topicName, event.event_data, {
-            ...metadata,
-            id: event.event_id,
-            time: event.created_at,
-          });
-
-          return {
-            category: event.category,
-            cloudevent: ce,
-            event_id: event.event_id,
-            event_position: BigInt(event.global_position || 0),
-            event_schema_version: event.event_schema_version,
-            event_type: event.event_type,
-            status: 'PENDING' as const,
-            stream_name: event.stream_name,
-          };
-        });
-
+        // Create outbox entries using the mapper
+        const outboxEntries = createOutboxEntries(insertedEvents);
         return db.insertOutboxEntries(outboxEntries).pipe(Effect.map(() => insertedEvents));
       }),
       Effect.mapError((error) => new SaveEventError({ reason: error.reason })),
@@ -255,6 +227,8 @@ export const makeEventStore = (db: EventStoreDatabase): EventStore => {
 
     readAll: (fromPosition: bigint, batchSize: number) =>
       pipe(
+        // NOTE: Converting bigint to number for database layer compatibility
+        // Consider using string-based SQL queries for truly large positions to avoid overflow
         db.selectAllByPosition(Number(fromPosition), batchSize),
         Effect.mapError((error) => new ReadEventError({ reason: error.reason })),
         Effect.flatMap((storedEvents) =>

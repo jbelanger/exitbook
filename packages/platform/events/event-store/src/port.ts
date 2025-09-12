@@ -7,6 +7,9 @@ export const EventStoreTag = Context.GenericTag<EventStore>('@exitbook/event-sto
 export const EventStoreDatabaseTag = Context.GenericTag<EventStoreDatabase>(
   '@exitbook/event-store/EventStoreDatabase',
 );
+export const OutboxDatabaseTag = Context.GenericTag<OutboxDatabase>(
+  '@exitbook/event-store/OutboxDatabase',
+);
 
 /** ── Errors ─────────────────────────────────────────────────────────────── */
 export class SaveEventError extends Data.TaggedError('SaveEventError')<{ reason: string }> {}
@@ -140,6 +143,29 @@ export interface EventStoreDatabase {
   readonly transaction: <A, E>(fa: Effect.Effect<A, E>) => Effect.Effect<A, E | { reason: string }>;
 }
 
+export interface OutboxDatabase {
+  readonly claimPendingEvents: (
+    batchSize: number,
+  ) => Effect.Effect<readonly OutboxEntry[], { reason: string }>;
+  readonly markAsDLQ: (eventId: string) => Effect.Effect<void, { reason: string }>;
+  readonly selectPendingEvents: (
+    batchSize: number,
+  ) => Effect.Effect<readonly OutboxEntry[], { reason: string }>;
+  readonly transaction: <A, E>(
+    effect: Effect.Effect<A, E, never>,
+  ) => Effect.Effect<A, E | { reason: string }>;
+  readonly updateEventForRetry: (
+    eventId: string,
+    nextAttemptAt: Date,
+    lastError?: string,
+  ) => Effect.Effect<void, { reason: string }>;
+  readonly updateEventStatus: (
+    eventId: string,
+    status: 'PROCESSED' | 'FAILED' | 'PROCESSING',
+    processedAt?: Date,
+  ) => Effect.Effect<void, { reason: string }>;
+}
+
 // Data structures for database operations
 export interface StoredEventData {
   readonly category: string;
@@ -167,4 +193,22 @@ export interface OutboxEntryData {
   readonly event_type: string;
   readonly status: 'PENDING';
   readonly stream_name: string;
+}
+
+export interface OutboxEntry {
+  readonly attempts: number;
+  readonly category: string;
+  readonly cloudevent: unknown;
+  readonly created_at: Date;
+  readonly event_id: string;
+  readonly event_position: bigint;
+  readonly event_schema_version: number;
+  readonly event_type: string;
+  readonly id: string;
+  readonly last_error?: string;
+  readonly next_attempt_at: Date;
+  readonly processed_at?: Date;
+  readonly status: 'PENDING' | 'PROCESSING' | 'PROCESSED' | 'FAILED';
+  readonly stream_name: string;
+  readonly updated_at: Date;
 }

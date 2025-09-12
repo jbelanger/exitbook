@@ -98,14 +98,12 @@ const makeFakeEventStoreDatabase = (): Effect.Effect<EventStoreDatabase, never> 
           );
         }),
 
-      selectEventsByCategory: (category: string, fromPosition?: number, batchSize?: number) =>
+      selectEventsByCategory: (category: string, fromPosition: number, batchSize: number) =>
         Effect.gen(function* () {
           const allEvents = yield* Ref.get(events);
           let filtered = allEvents.filter((e) => e.category === category);
 
-          if (fromPosition !== undefined) {
-            filtered = filtered.filter((e) => parseInt(e.global_position || '0') > fromPosition);
-          }
+          filtered = filtered.filter((e) => parseInt(e.global_position || '0') > fromPosition);
 
           if (batchSize !== undefined) {
             filtered = filtered.slice(0, batchSize);

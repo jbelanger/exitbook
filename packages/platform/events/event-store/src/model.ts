@@ -28,16 +28,21 @@ export const StoredEventSchema = Schema.Struct({
 
 // Outbox entry schema
 export const OutboxEntrySchema = Schema.Struct({
+  attempts: Schema.Number,
   category: Schema.String,
+  cloudevent: Schema.Unknown,
   created_at: Schema.Date,
   event_id: Schema.String,
+  event_position: Schema.BigInt,
+  event_schema_version: Schema.Number,
   event_type: Schema.String,
-  id: Schema.Number,
-  metadata: Schema.Unknown,
-  payload: Schema.Unknown,
+  id: Schema.String,
+  last_error: Schema.optional(Schema.String),
+  next_attempt_at: Schema.Date,
   processed_at: Schema.optional(Schema.Date),
-  status: Schema.Literal('PENDING', 'PROCESSED', 'FAILED'),
+  status: Schema.Literal('PENDING', 'PROCESSING', 'PROCESSED', 'FAILED'),
   stream_name: Schema.String,
+  updated_at: Schema.Date,
 });
 
 // Helper functions for stream naming

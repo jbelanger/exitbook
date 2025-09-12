@@ -1,9 +1,17 @@
-import { DatabasePool, type PgPool } from '@exitbook/platform-database';
 import { Effect } from 'effect';
-import { Kysely, PostgresDialect } from 'kysely';
+import type { Kysely } from 'kysely';
+import { sql } from 'kysely';
 
-import type { EventStoreDatabase, StoredEvent, OutboxEntryData } from '../port';
+import type {
+  EventStoreDatabase,
+  StoredEvent,
+  OutboxEntryData,
+  OutboxDatabase,
+  OutboxEntry,
+} from '../port';
 import { IdempotencyError } from '../port';
+
+import { KyselyTag } from './kysely';
 
 // Event store schema types
 export interface EventStoreDB {
@@ -22,6 +30,7 @@ export interface EventStoreDB {
     event_schema_version: number;
     event_type: string;
     id?: string;
+    last_error?: string;
     next_attempt_at: Date;
     processed_at?: Date;
     status: string;
@@ -51,15 +60,14 @@ export interface EventStoreDB {
   };
 }
 
-const makeKysely = Effect.gen(function* () {
-  const { pool } = yield* DatabasePool;
-  return new Kysely<EventStoreDB>({ dialect: new PostgresDialect({ pool }) });
-});
-
 // Strictly DB concerns only; no SaveEventError/ReadEventError here.
-export const makePgEventStoreDatabase = (): Effect.Effect<EventStoreDatabase, never, PgPool> =>
+export const makePgEventStoreDatabase = (): Effect.Effect<
+  EventStoreDatabase,
+  never,
+  Kysely<EventStoreDB>
+> =>
   Effect.gen(function* () {
-    const db = yield* makeKysely;
+    const db = yield* KyselyTag;
 
     return {
       getCurrentVersion: (streamName) =>
@@ -281,3 +289,136 @@ export const makePgEventStoreDatabase = (): Effect.Effect<EventStoreDatabase, ne
 export const createIndexesSql = `
 CREATE UNIQUE INDEX IF NOT EXISTS ux_event_stream_version ON event_store(stream_name, stream_version);
 `;
+
+// Outbox database implementation using the same Kysely instance
+export const makePgOutboxDatabase = (): Effect.Effect<
+  OutboxDatabase,
+  never,
+  Kysely<EventStoreDB>
+> =>
+  Effect.gen(function* () {
+    const db = yield* KyselyTag;
+
+    // Helper to create timestamp update object
+    const withNow = () => ({ updated_at: sql<Date>`now()` });
+
+    // Helper to map database errors
+    const mapError = (error: unknown) => ({ reason: String(error) });
+
+    return {
+      claimPendingEvents: (batchSize: number) =>
+        Effect.tryPromise(async () => {
+          // Use CTE with SKIP LOCKED for concurrent processing
+          const result = await db
+            .with('to_claim', (cte) =>
+              cte
+                .selectFrom('event_outbox')
+                .select('id')
+                .where('status', '=', 'PENDING')
+                .where('next_attempt_at', '<=', new Date())
+                .orderBy('id')
+                .limit(batchSize)
+                .forUpdate()
+                .skipLocked(),
+            )
+            .updateTable('event_outbox')
+            .set({
+              attempts: sql`attempts + 1`,
+              status: 'PROCESSING',
+              updated_at: sql<Date>`now()`,
+            })
+            .from('to_claim')
+            .whereRef('event_outbox.id', '=', 'to_claim.id')
+            .returningAll()
+            .execute();
+
+          return result.map((row) => ({
+            ...row,
+            cloudevent:
+              typeof row.cloudevent === 'string' ? JSON.parse(row.cloudevent) : row.cloudevent,
+            event_position:
+              typeof row.event_position === 'string'
+                ? BigInt(row.event_position)
+                : row.event_position,
+            id: row.id || '',
+          })) as OutboxEntry[];
+        }).pipe(Effect.mapError(mapError)),
+
+      markAsDLQ: (eventId: string) =>
+        Effect.tryPromise(() =>
+          db
+            .updateTable('event_outbox')
+            .set({
+              status: 'FAILED',
+              ...withNow(),
+            })
+            .where('event_id', '=', eventId)
+            .execute(),
+        ).pipe(Effect.asVoid, Effect.mapError(mapError)),
+
+      selectPendingEvents: (batchSize: number) =>
+        Effect.tryPromise(() =>
+          db
+            .selectFrom('event_outbox')
+            .selectAll()
+            .where('status', '=', 'PENDING')
+            .where('next_attempt_at', '<=', new Date())
+            .orderBy('id')
+            .limit(batchSize)
+            .execute(),
+        ).pipe(
+          Effect.map(
+            (rows) =>
+              rows.map((row) => ({
+                ...row,
+                cloudevent:
+                  typeof row.cloudevent === 'string' ? JSON.parse(row.cloudevent) : row.cloudevent,
+                event_position:
+                  typeof row.event_position === 'string'
+                    ? BigInt(row.event_position)
+                    : row.event_position,
+                id: row.id || '',
+              })) as OutboxEntry[],
+          ),
+          Effect.mapError(mapError),
+        ),
+
+      transaction: <A, E>(effect: Effect.Effect<A, E, never>) =>
+        Effect.tryPromise(async () => {
+          return await db.transaction().execute(async () => {
+            return await Effect.runPromise(effect);
+          });
+        }).pipe(Effect.mapError(mapError)),
+
+      updateEventForRetry: (eventId: string, nextAttemptAt: Date, lastError?: string) =>
+        Effect.tryPromise(() =>
+          db
+            .updateTable('event_outbox')
+            .set({
+              next_attempt_at: nextAttemptAt,
+              status: 'PENDING',
+              ...withNow(),
+              ...(lastError && { last_error: lastError.substring(0, 2000) }),
+            })
+            .where('event_id', '=', eventId)
+            .execute(),
+        ).pipe(Effect.asVoid, Effect.mapError(mapError)),
+
+      updateEventStatus: (
+        eventId: string,
+        status: 'PROCESSED' | 'FAILED' | 'PROCESSING',
+        processedAt?: Date,
+      ) =>
+        Effect.tryPromise(() =>
+          db
+            .updateTable('event_outbox')
+            .set({
+              status,
+              ...withNow(),
+              ...(processedAt && status === 'PROCESSED' && { processed_at: processedAt }),
+            })
+            .where('event_id', '=', eventId)
+            .execute(),
+        ).pipe(Effect.asVoid, Effect.mapError(mapError)),
+    } satisfies OutboxDatabase;
+  });
