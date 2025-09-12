@@ -14,16 +14,15 @@ interface OutboxDB {
   event_outbox: {
     attempts: number;
     category: string;
+    cloudevent: unknown;
     created_at: Date;
     event_id: string;
-    event_position: string;
+    event_position: bigint;
     event_schema_version: number;
     event_type: string;
     id: string;
     last_error?: string;
-    metadata: unknown;
     next_attempt_at: Date;
-    payload: unknown;
     processed_at?: Date;
     status: string;
     stream_name: string;
@@ -78,7 +77,6 @@ export const makePgOutboxDatabase = Effect.gen(function* () {
           (rows) =>
             rows.map((row) => ({
               ...row,
-              event_position: BigInt(row.event_position),
               id: Number(row.id),
             })) as OutboxEntry[],
         ),
@@ -112,7 +110,6 @@ export const makePgOutboxDatabase = Effect.gen(function* () {
           (rows) =>
             rows.map((row) => ({
               ...row,
-              event_position: BigInt(row.event_position),
               id: Number(row.id),
             })) as OutboxEntry[],
         ),

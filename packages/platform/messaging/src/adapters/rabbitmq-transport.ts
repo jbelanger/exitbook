@@ -156,7 +156,7 @@ export const makeRabbitMQTransport = (
             try: () =>
               publisherChannel.publish(exchangeName, topic, message, {
                 appId: String(headers['x-service'] ?? 'unknown'),
-                contentType: 'application/json',
+                contentType: headers['content-type'] ?? 'application/json',
                 headers,
                 persistent: true,
                 timestamp: Math.floor(Date.now() / 1000),
@@ -197,7 +197,7 @@ export const makeRabbitMQTransport = (
                 try: () =>
                   publisherChannel.publish(exchangeName, topic, message, {
                     appId: String(headers['x-service'] ?? 'unknown'),
-                    contentType: 'application/json',
+                    contentType: headers['content-type'] ?? 'application/json',
                     headers,
                     persistent: true,
                     timestamp: Math.floor(Date.now() / 1000),

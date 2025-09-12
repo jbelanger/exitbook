@@ -156,12 +156,8 @@ export const makeUnifiedEventBus = (
         options?: { correlationId?: string; userId?: string },
       ) =>
         producer.publish(topic, event, {
-          headers: {
-            'content-type': 'application/json',
-            'schema-version': '1',
-            'x-correlation-id': options?.correlationId || '',
-            'x-user-id': options?.userId || '',
-          },
+          ...(options?.correlationId && { correlationId: options.correlationId }),
+          ...(options?.userId && { userId: options.userId }),
           key: event.eventId,
         }),
 

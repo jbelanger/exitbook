@@ -4,13 +4,7 @@ import { makeFakeMessageTransport } from '../adapters/fake-transport';
 import { makeRabbitMQTransportLive } from '../adapters/rabbitmq-transport';
 import { MessageBusConsumerLive } from '../impl/make-consumer';
 import { MessageBusProducerLive } from '../impl/make-producer';
-import { MessageTransportTag, MessageBusConfigTag } from '../port';
-
-// Default configuration functions
-export const createDefaultMessageBusConfig = () => ({
-  serviceName: process.env['SERVICE_NAME'] || 'exitbook-platform',
-  version: process.env['SERVICE_VERSION'] || '1.0.0',
-});
+import { MessageTransportTag } from '../port';
 
 export const createDefaultRabbitMQConfig = () => ({
   durable: true,
@@ -26,9 +20,6 @@ export const createDefaultRabbitMQConfig = () => ({
 const createMessageBusDefault = () => {
   const transport = process.env['MESSAGING_TRANSPORT'] || 'rabbitmq';
 
-  // Config layer - always needed
-  const ConfigLive = Layer.sync(MessageBusConfigTag, createDefaultMessageBusConfig);
-
   // Transport selection based on environment
   if (transport === 'rabbitmq') {
     const rabbitmqConfig = createDefaultRabbitMQConfig();
@@ -36,7 +27,7 @@ const createMessageBusDefault = () => {
 
     return Layer.provide(
       Layer.mergeAll(MessageBusProducerLive, MessageBusConsumerLive),
-      Layer.mergeAll(RabbitMQTransportLive, ConfigLive),
+      RabbitMQTransportLive,
     );
   }
 
@@ -45,7 +36,7 @@ const createMessageBusDefault = () => {
 
   return Layer.provide(
     Layer.mergeAll(MessageBusProducerLive, MessageBusConsumerLive),
-    Layer.mergeAll(FakeTransportLive, ConfigLive),
+    FakeTransportLive,
   );
 };
 

@@ -4,6 +4,16 @@ import type { MessageBusProducer, MessageTransport } from '../port';
 import { MessageBusProducerTag, MessageTransportTag } from '../port';
 import { CloudEvents } from '../util/toCloudEvent';
 
+// Helper to detect if payload is already a CloudEvent
+const looksLikeCloudEvent = (payload: unknown): boolean => {
+  try {
+    const obj = typeof payload === 'string' ? JSON.parse(payload) : payload;
+    return obj && typeof obj === 'object' && 'type' in obj && 'specversion' in obj;
+  } catch {
+    return false;
+  }
+};
+
 // ✅ factory takes transport and config and closes over them
 export const makeMessageBusProducer = (transport: MessageTransport): MessageBusProducer => ({
   healthCheck: () =>
@@ -14,13 +24,20 @@ export const makeMessageBusProducer = (transport: MessageTransport): MessageBusP
     ),
 
   publish: (topic: string, payload: unknown, opts?) => {
-    const ce = CloudEvents.create(topic, payload, {
-      causationId: opts?.causationId,
-      correlationId: opts?.correlationId,
-      userId: opts?.userId,
-    });
+    // Skip re-wrapping if payload is already a CloudEvent
+    const payloadJson = looksLikeCloudEvent(payload)
+      ? typeof payload === 'string'
+        ? payload
+        : JSON.stringify(payload)
+      : JSON.stringify(
+          CloudEvents.create(topic, payload, {
+            causationId: opts?.causationId,
+            correlationId: opts?.correlationId,
+            userId: opts?.userId,
+          }),
+        );
 
-    return transport.publish(topic, JSON.stringify(ce), {
+    return transport.publish(topic, payloadJson, {
       ...(opts?.key && { key: opts.key }),
       headers: { 'content-type': 'application/cloudevents+json' },
       ...(opts?.timeoutMs && { timeoutMs: opts.timeoutMs }),
@@ -32,13 +49,17 @@ export const makeMessageBusProducer = (transport: MessageTransport): MessageBusP
       ...(item.opts?.key && { key: item.opts.key }),
       headers: { 'content-type': 'application/cloudevents+json' },
       ...(item.opts?.timeoutMs && { timeoutMs: item.opts.timeoutMs }),
-      payload: JSON.stringify(
-        CloudEvents.create(topic, item.payload, {
-          causationId: item.opts?.causationId,
-          correlationId: item.opts?.correlationId,
-          userId: item.opts?.userId,
-        }),
-      ),
+      payload: looksLikeCloudEvent(item.payload)
+        ? typeof item.payload === 'string'
+          ? item.payload
+          : JSON.stringify(item.payload)
+        : JSON.stringify(
+            CloudEvents.create(topic, item.payload, {
+              causationId: item.opts?.causationId,
+              correlationId: item.opts?.correlationId,
+              userId: item.opts?.userId,
+            }),
+          ),
     }));
 
     return transport.publishBatch(topic, enrichedMessages);

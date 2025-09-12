@@ -18,7 +18,6 @@ export {
   MessageBusProducerTag,
   MessageBusConsumerTag,
   MessageTransportTag,
-  MessageBusConfigTag,
 
   // Constants and utilities
   topic,
