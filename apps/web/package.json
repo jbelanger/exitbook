@@ -5,7 +5,14 @@
   "scripts": {
     "build": "echo \"(stub) add your Remix/Next build script\"",
     "dev": "echo \"(stub) add your Remix/Next dev script\"",
-    "test": "vitest run"
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "prettier": "prettier --check .",
+    "prettier:fix": "prettier --write .",
+    "start": "echo \"(stub) add your production start script\"",
+    "test": "vitest run",
+    "test:watch": "vitest --watch",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@internal/tsconfig": "workspace:*",

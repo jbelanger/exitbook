@@ -225,7 +225,7 @@ importers:
   packages/platform/database:
     dependencies:
       effect:
-        specifier: '*'
+        specifier: ^3.17.13
         version: 3.17.13
       kysely:
         specifier: ^0.28.5
@@ -262,11 +262,11 @@ importers:
         specifier: workspace:*
         version: link:../../messaging
       effect:
-        specifier: ^3.0.0
+        specifier: ^3.17.13
         version: 3.17.13
       kysely:
-        specifier: ^0.27.0
-        version: 0.27.6
+        specifier: ^0.28.5
+        version: 0.28.5
     devDependencies:
       '@internal/tsconfig':
         specifier: workspace:*
@@ -296,7 +296,7 @@ importers:
         specifier: ^9.1.0
         version: 9.3.1
       effect:
-        specifier: ^3.0.0
+        specifier: ^3.17.13
         version: 3.17.13
     devDependencies:
       '@internal/tsconfig':
@@ -330,7 +330,7 @@ importers:
         specifier: workspace:*
         version: link:../../messaging
       effect:
-        specifier: ^3.0.0
+        specifier: ^3.17.13
         version: 3.17.13
     devDependencies:
       '@internal/tsconfig':
@@ -352,7 +352,7 @@ importers:
         specifier: workspace:*
         version: link:../../messaging
       effect:
-        specifier: ^3.0.0
+        specifier: ^3.17.13
         version: 3.17.13
     devDependencies:
       '@internal/tsconfig':
@@ -1866,10 +1866,6 @@ packages:
 
   keyv@4.5.4:
     resolution: {integrity: sha512-oxVHkHR/EJf2CNXnWxRLW6mg7JyCCUcG0DtEGmL2ctUo1PNTin1PUil+r/+4r5MpVgC/fn1kjsx7mjSujKqIpw==}
-
-  kysely@0.27.6:
-    resolution: {integrity: sha512-FIyV/64EkKhJmjgC0g2hygpBv5RNWVPyNCqSAD7eTCv6eFWNIi4PN1UvdSJGicN/o35bnevgis4Y0UDC0qi8jQ==}
-    engines: {node: '>=14.0.0'}
 
   kysely@0.28.5:
     resolution: {integrity: sha512-rlB0I/c6FBDWPcQoDtkxi9zIvpmnV5xoIalfCMSMCa7nuA6VGA3F54TW9mEgX4DVf10sXAWCF5fDbamI/5ZpKA==}
@@ -4240,8 +4236,6 @@ snapshots:
   keyv@4.5.4:
     dependencies:
       json-buffer: 3.0.1
-
-  kysely@0.27.6: {}
 
   kysely@0.28.5: {}
 

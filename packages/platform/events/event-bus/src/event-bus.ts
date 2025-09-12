@@ -5,13 +5,35 @@ import { Effect, Stream, PubSub, Duration, Context, Chunk, Option } from 'effect
 
 import type { CheckpointStore } from './checkpoint-store';
 import { AppendError, SubscriptionError } from './errors';
-import { matchesPattern, type LivePattern } from './pattern';
+
+const toPositionBigInt = (position: string | bigint | number | undefined): bigint | undefined => {
+  if (position === undefined) return undefined;
+  if (typeof position === 'string') return BigInt(position);
+  if (typeof position === 'number') return BigInt(position);
+  return position;
+};
+
+export type LivePattern =
+  | string
+  | { category?: string; stream?: string; type?: DomainEvent['_tag'] };
+
+export const matchesPattern = (e: DomainEvent, pattern: LivePattern): boolean => {
+  const streamName = (e as PositionedEvent).streamName as string | undefined;
+  if (typeof pattern === 'string') {
+    if (!streamName) return e._tag === pattern; // allow type-only pattern
+    if (streamName === pattern) return true;
+    const dash = streamName.indexOf('-');
+    if (dash > 0 && streamName.slice(0, dash) === pattern) return true; // category
+    return e._tag === pattern;
+  }
+  if (pattern.stream && streamName === pattern.stream) return true;
+  if (pattern.category && streamName?.startsWith(`${pattern.category}-`)) return true;
+  if (pattern.type && e._tag === pattern.type) return true;
+  return false;
+};
 
 const DEFAULT_BATCH_SIZE = 500;
 const DEFAULT_CHECKPOINT_BATCH = 200;
-
-const toBigInt = (p: bigint | number | undefined): bigint | undefined =>
-  p === undefined ? undefined : typeof p === 'number' ? BigInt(p) : p;
 
 // Namespace keys for checkpoints following ADR specification
 const nsKeyAll = (id: string) => `all:${id}`;
@@ -94,7 +116,7 @@ export const makeUnifiedEventBus = (
                 (e) => new SubscriptionError({ reason: `Failed to load checkpoint: ${String(e)}` }),
               ),
             );
-          const fromPosition = toBigInt(savedPosition) ?? startPosition ?? 0n;
+          const fromPosition = toPositionBigInt(savedPosition) ?? startPosition ?? 0n;
           let processedCount = 0;
 
           return Stream.unfoldChunkEffect(fromPosition, (cursor) =>

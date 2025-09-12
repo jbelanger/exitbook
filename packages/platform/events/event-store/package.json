@@ -35,8 +35,13 @@
     "build": "tsc -b",
     "clean": "rimraf dist",
     "dev": "tsc -b -w",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "migrate": "node --import=tsx ./src/migrate.ts",
+    "prettier": "prettier --check .",
+    "prettier:fix": "prettier --write .",
     "test": "vitest run",
+    "test:watch": "vitest --watch",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -44,7 +49,7 @@
     "@exitbook/platform-database": "workspace:*",
     "@exitbook/platform-messaging": "workspace:*",
     "bignumber.js": "^9.1.0",
-    "effect": "^3.0.0"
+    "effect": "^3.17.13"
   },
   "devDependencies": {
     "@internal/tsconfig": "workspace:*",

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { runOutboxDaemon } from '@exitbook/platform-outbox-worker';
-import { Effect } from 'effect';
+import { Runtime } from 'effect';
 
 // One-liner outbox worker main entry point
 const main = runOutboxDaemon({
@@ -15,4 +15,4 @@ const main = runOutboxDaemon({
   publishConcurrency: Number(process.env['OUTBOX_PUBLISH_CONCURRENCY']) || 16,
 });
 
-Effect.runPromise(main).catch(console.error);
+Runtime.runFork(Runtime.defaultRuntime)(main);

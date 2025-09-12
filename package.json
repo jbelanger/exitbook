@@ -6,16 +6,21 @@
   "type": "module",
   "scripts": {
     "build": "turbo run build",
+    "clean": "turbo run clean",
     "dev": "turbo run dev --parallel",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
+    "lint": "turbo run lint",
+    "lint:fix": "turbo run lint:fix",
+    "lint:root": "eslint .",
+    "lint:root:fix": "eslint . --fix",
     "prepare": "husky",
-    "prettier": "prettier --check .",
-    "prettier:fix": "prettier --write .",
+    "prettier": "turbo run prettier",
+    "prettier:fix": "turbo run prettier:fix",
+    "prettier:root": "prettier --check .",
+    "prettier:root:fix": "prettier --write .",
     "test": "turbo run test",
     "test:ui": "vitest --ui",
-    "test:watch": "vitest --watch",
-    "typecheck": "tsc -b"
+    "test:watch": "turbo run test:watch",
+    "typecheck": "turbo run typecheck"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx,mjs}": [

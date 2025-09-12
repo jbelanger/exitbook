@@ -5,7 +5,7 @@ export type { CheckpointStore, CheckpointStore as ICheckpointStore } from './che
 
 // Errors and patterns
 export * from './errors';
-export * from './pattern';
+export { matchesPattern, type LivePattern } from './event-bus';
 
 // Compose layers (main integration points)
 export { UnifiedEventBusDefault, UnifiedEventBusLive, CheckpointStoreLive } from './compose/live';

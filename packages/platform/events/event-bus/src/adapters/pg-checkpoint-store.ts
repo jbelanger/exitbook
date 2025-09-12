@@ -1,19 +1,13 @@
-import { DatabasePool } from '@exitbook/platform-database';
-import { Context, Effect, Layer } from 'effect';
-import { Kysely, PostgresDialect } from 'kysely';
+import { makeKyselyLive } from '@exitbook/platform-database';
+import { Context, Effect } from 'effect';
+import type { Kysely } from 'kysely';
 
 import type { CheckpointStore } from '../checkpoint-store';
 import { CheckpointError } from '../errors';
 
 export const KyselyTag = Context.GenericTag<Kysely<CheckpointStoreDB>>('CheckpointStore/Kysely');
 
-export const KyselyLive = Layer.effect(
-  KyselyTag,
-  Effect.gen(function* () {
-    const { pool } = yield* DatabasePool;
-    return new Kysely<CheckpointStoreDB>({ dialect: new PostgresDialect({ pool }) });
-  }),
-);
+export const KyselyLive = makeKyselyLive<CheckpointStoreDB>('CheckpointStore/Kysely');
 
 // Checkpoint store schema types
 export interface CheckpointStoreDB {
@@ -25,6 +19,9 @@ export interface CheckpointStoreDB {
     updated_at?: Date;
   };
 }
+
+export const toPositionString = (position: bigint | number | undefined): string | undefined =>
+  position === undefined ? undefined : position.toString();
 
 export const makePgCheckpointStore = (): Effect.Effect<
   CheckpointStore,
@@ -55,13 +52,13 @@ export const makePgCheckpointStore = (): Effect.Effect<
           db
             .insertInto('subscription_checkpoints')
             .values({
-              position: position.toString(),
+              position: toPositionString(position)!,
               subscription_id: subscriptionKey,
               updated_at: new Date(),
             })
             .onConflict((oc) =>
               oc.column('subscription_id').doUpdateSet({
-                position: position.toString(),
+                position: toPositionString(position)!,
                 updated_at: new Date(),
               }),
             )
@@ -81,7 +78,7 @@ export const makePgCheckpointStore = (): Effect.Effect<
             .values({
               events_processed: BigInt(metadata.eventsProcessed),
               last_processed: metadata.lastProcessed,
-              position: position.toString(),
+              position: toPositionString(position)!,
               subscription_id: subscriptionKey,
               updated_at: new Date(),
             })
@@ -89,7 +86,7 @@ export const makePgCheckpointStore = (): Effect.Effect<
               oc.column('subscription_id').doUpdateSet((eb) => ({
                 events_processed: eb('events_processed', '+', BigInt(metadata.eventsProcessed)),
                 last_processed: metadata.lastProcessed,
-                position: position.toString(),
+                position: toPositionString(position)!,
                 updated_at: new Date(),
               })),
             )

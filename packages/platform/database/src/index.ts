@@ -1,4 +1,5 @@
 import { Layer, Effect, Context } from 'effect';
+import { Kysely, PostgresDialect } from 'kysely';
 import { Pool } from 'pg';
 
 export interface PgPool {
@@ -43,5 +44,14 @@ export const dbHealth = Effect.gen(function* () {
   yield* Effect.tryPromise(() => pool.query('SELECT 1'));
   return { latencyMs: Date.now() - started, ok: true as const };
 });
+
+export const makeKyselyLive = <DB>(name: string) =>
+  Layer.effect(
+    Context.GenericTag<Kysely<DB>>(name),
+    Effect.gen(function* () {
+      const { pool } = yield* DatabasePool;
+      return new Kysely<DB>({ dialect: new PostgresDialect({ pool }) });
+    }),
+  );
 
 export { runMigrations } from './migrate';

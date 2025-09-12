@@ -2,7 +2,7 @@
 // This follows ADR-0002 section 15.1
 
 // Re-export core event bus facade
-export { UnifiedEventBus, type IUnifiedEventBus } from '@exitbook/platform-event-bus';
+export type { UnifiedEventBus, IUnifiedEventBus } from '@exitbook/platform-event-bus';
 
 // Re-export event store types and interfaces
 export type { PositionedEvent, StreamName, EventStore } from '@exitbook/platform-event-store';
@@ -17,3 +17,6 @@ export type {
   IncomingMessage,
   PublishOptions,
 } from '@exitbook/platform-messaging';
+
+// Re-export default composition layers
+export { UnifiedEventBusDefault } from '@exitbook/platform-event-bus';

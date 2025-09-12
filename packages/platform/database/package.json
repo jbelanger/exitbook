@@ -19,11 +19,16 @@
     "build": "tsc -b",
     "clean": "rimraf dist",
     "dev": "tsc -b -w",
-    "lint": "tsc --noEmit",
-    "test": "vitest run"
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "prettier": "prettier --check .",
+    "prettier:fix": "prettier --write .",
+    "test": "vitest run",
+    "test:watch": "vitest --watch",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "effect": "*",
+    "effect": "^3.17.13",
     "kysely": "^0.28.5",
     "pg": "^8.11.0"
   },

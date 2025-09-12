@@ -19,7 +19,12 @@
     "build": "tsc -b",
     "clean": "rimraf dist",
     "dev": "tsc -b -w",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "prettier": "prettier --check .",
+    "prettier:fix": "prettier --write .",
     "test": "vitest run",
+    "test:watch": "vitest --watch",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -27,7 +32,7 @@
     "@exitbook/platform-event-bus": "workspace:*",
     "@exitbook/platform-event-store": "workspace:*",
     "@exitbook/platform-messaging": "workspace:*",
-    "effect": "^3.0.0"
+    "effect": "^3.17.13"
   },
   "devDependencies": {
     "@internal/tsconfig": "workspace:*",
