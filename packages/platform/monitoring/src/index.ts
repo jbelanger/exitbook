@@ -1,7 +1,14 @@
 import { NodeSdk } from '@effect/opentelemetry';
 import { trace, SpanKind } from '@opentelemetry/api';
 import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
-import { ParentBasedSampler, TraceIdRatioBasedSampler } from '@opentelemetry/sdk-trace-base';
+import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
+import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-grpc';
+import { PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
+import {
+  ParentBasedSampler,
+  TraceIdRatioBasedSampler,
+  BatchSpanProcessor,
+} from '@opentelemetry/sdk-trace-base';
 import {
   Layer,
   Effect,
@@ -33,11 +40,12 @@ export const TelemetryLive = Layer.unwrapEffect(
     });
 
     return NodeSdk.layer(() => ({
-      instrumentations: [
-        getNodeAutoInstrumentations({
-          '@opentelemetry/instrumentation-fs': { enabled: false },
+      metricReader: new PeriodicExportingMetricReader({
+        exporter: new OTLPMetricExporter({
+          url: cfg.otlpHttp,
         }),
-      ],
+        exportIntervalMillis: 10000,
+      }),
       resource: {
         attributes: {
           'deployment.environment': cfg.environment,
@@ -46,7 +54,23 @@ export const TelemetryLive = Layer.unwrapEffect(
         serviceName: cfg.serviceName,
         serviceVersion: cfg.serviceVersion,
       },
-      sampler,
+      spanProcessor: new BatchSpanProcessor(
+        new OTLPTraceExporter({
+          url: cfg.otlpGrpc,
+        }),
+        {
+          maxExportBatchSize: 512,
+          maxQueueSize: 2048,
+        },
+      ),
+      tracerConfig: {
+        instrumentations: [
+          getNodeAutoInstrumentations({
+            '@opentelemetry/instrumentation-fs': { enabled: false },
+          }),
+        ],
+        sampler,
+      },
     }));
   }),
 );
@@ -62,6 +86,7 @@ export const Metrics = {
   dbClientOperationDuration: Metric.histogram(
     'db.client.operation.duration',
     MetricBoundaries.exponential({ count: 15, factor: 2, start: 0.001 }),
+    'Database operation duration in seconds',
   ),
   dlqSize: Metric.gauge('dlq.size', {
     description: 'Current number of messages in dead letter queue',
@@ -70,6 +95,7 @@ export const Metrics = {
   eventstoreAppendDuration: Metric.histogram(
     'eventstore.append.duration',
     MetricBoundaries.exponential({ count: 15, factor: 2, start: 0.001 }),
+    'Event store append duration in seconds',
   ),
 
   eventstoreEventsAppended: Metric.counter('eventstore.events.appended', {
@@ -78,22 +104,26 @@ export const Metrics = {
   eventstoreReadDuration: Metric.histogram(
     'eventstore.read.duration',
     MetricBoundaries.exponential({ count: 15, factor: 2, start: 0.001 }),
+    'Event store read duration in seconds',
   ),
 
   // HTTP (semconv names)
   httpServerRequestDuration: Metric.histogram(
     'http.server.request.duration',
     MetricBoundaries.exponential({ count: 20, factor: 2, start: 0.001 }),
+    'HTTP server request duration in seconds',
   ),
   // Messaging metrics
   messagingPublishDuration: Metric.histogram(
     'messaging.publish.duration',
     MetricBoundaries.exponential({ count: 15, factor: 2, start: 0.001 }),
+    'Message publish duration in seconds',
   ),
 
   messagingReceiveDuration: Metric.histogram(
     'messaging.receive.duration',
     MetricBoundaries.exponential({ count: 15, factor: 2, start: 0.001 }),
+    'Message receive processing duration in seconds',
   ),
   // Outbox gauges
   outboxQueueDepth: Metric.gauge('outbox.queue.depth', {
@@ -256,3 +286,6 @@ export const recordDatabaseQuery = (operation: string, table: string, durationMs
 
 // Export the complete monitoring stack
 export const MonitoringDefault = Layer.mergeAll(TelemetryLive, HealthMonitorLive);
+
+// Re-export compose functionality
+export * from './compose';

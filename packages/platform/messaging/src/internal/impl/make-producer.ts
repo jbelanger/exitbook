@@ -1,3 +1,4 @@
+import { context as otelContext, propagation } from '@opentelemetry/api';
 import { Effect, pipe, Layer } from 'effect';
 
 import type { MessageBusProducer, MessageTransport } from '../../port';
@@ -24,6 +25,13 @@ export const makeMessageBusProducer = (transport: MessageTransport): MessageBusP
     ),
 
   publish: (topic: string, payload: unknown, opts?) => {
+    const headers: Record<string, string> = {
+      'content-type': 'application/cloudevents+json',
+    };
+
+    // Inject W3C trace context
+    propagation.inject(otelContext.active(), headers);
+
     // Skip re-wrapping if payload is already a CloudEvent
     const payloadJson = looksLikeCloudEvent(payload)
       ? typeof payload === 'string'
@@ -39,28 +47,37 @@ export const makeMessageBusProducer = (transport: MessageTransport): MessageBusP
 
     return transport.publish(topic, payloadJson, {
       ...(opts?.key && { key: opts.key }),
-      headers: { 'content-type': 'application/cloudevents+json' },
+      headers,
       ...(opts?.timeoutMs && { timeoutMs: opts.timeoutMs }),
     });
   },
 
   publishBatch: (topic: string, items) => {
-    const enrichedMessages = items.map((item) => ({
-      ...(item.opts?.key && { key: item.opts.key }),
-      headers: { 'content-type': 'application/cloudevents+json' },
-      ...(item.opts?.timeoutMs && { timeoutMs: item.opts.timeoutMs }),
-      payload: looksLikeCloudEvent(item.payload)
-        ? typeof item.payload === 'string'
-          ? item.payload
-          : JSON.stringify(item.payload)
-        : JSON.stringify(
-            CloudEvents.create(topic, item.payload, {
-              causationId: item.opts?.causationId,
-              correlationId: item.opts?.correlationId,
-              userId: item.opts?.userId,
-            }),
-          ),
-    }));
+    const enrichedMessages = items.map((item) => {
+      const headers: Record<string, string> = {
+        'content-type': 'application/cloudevents+json',
+      };
+
+      // Inject trace context for each message
+      propagation.inject(otelContext.active(), headers);
+
+      return {
+        ...(item.opts?.key && { key: item.opts.key }),
+        headers,
+        ...(item.opts?.timeoutMs && { timeoutMs: item.opts.timeoutMs }),
+        payload: looksLikeCloudEvent(item.payload)
+          ? typeof item.payload === 'string'
+            ? item.payload
+            : JSON.stringify(item.payload)
+          : JSON.stringify(
+              CloudEvents.create(topic, item.payload, {
+                causationId: item.opts?.causationId,
+                correlationId: item.opts?.correlationId,
+                userId: item.opts?.userId,
+              }),
+            ),
+      };
+    });
 
     return transport.publishBatch(topic, enrichedMessages);
   },

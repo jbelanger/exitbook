@@ -1,10 +1,24 @@
 import { trace, SpanKind } from '@opentelemetry/api';
-import { Effect, pipe, Metric } from 'effect';
+import { Effect, pipe, Metric, MetricBoundaries, Layer } from 'effect';
 
-import { Metrics } from './index';
+import { EventStoreTag, type EventStore } from './port';
 
-// This will be used to wrap EventStore implementations with monitoring
-// The actual EventStore interface will need to be imported when implementing
+// EventStore Metrics
+export const EventStoreMetrics = {
+  eventstoreAppendDuration: Metric.histogram(
+    'eventstore.append.duration',
+    MetricBoundaries.exponential({ count: 15, factor: 2, start: 0.001 }),
+    'Event store append duration in seconds',
+  ),
+  eventstoreEventsAppended: Metric.counter('eventstore.events.appended', {
+    description: 'Number of events appended',
+  }),
+  eventstoreReadDuration: Metric.histogram(
+    'eventstore.read.duration',
+    MetricBoundaries.exponential({ count: 15, factor: 2, start: 0.001 }),
+    'Event store read duration in seconds',
+  ),
+};
 
 // Type guard for objects with events array
 const hasEventsArray = (obj: unknown): obj is { events: unknown[] } => {
@@ -16,7 +30,7 @@ const hasEventsArray = (obj: unknown): obj is { events: unknown[] } => {
   );
 };
 
-export const createMonitoredEventStore = <T extends Record<string, unknown>>(
+export const createMonitoredEventStore = <T extends EventStore>(
   eventStore: T,
   serviceName = '@exitbook/event-store',
   serviceVersion = '1.0.0',
@@ -65,13 +79,13 @@ export const createMonitoredEventStore = <T extends Record<string, unknown>>(
             // Record metrics based on operation
             switch (operation) {
               case 'append':
-                Metric.update(Metrics.eventstoreAppendDuration, duration);
+                Metric.update(EventStoreMetrics.eventstoreAppendDuration, duration);
                 if (hasEventsArray(args[1])) {
-                  Metric.update(Metrics.eventstoreEventsAppended, args[1].events.length);
+                  Metric.update(EventStoreMetrics.eventstoreEventsAppended, args[1].events.length);
                 }
                 break;
               case 'read':
-                Metric.update(Metrics.eventstoreReadDuration, duration);
+                Metric.update(EventStoreMetrics.eventstoreReadDuration, duration);
                 break;
             }
 
@@ -110,3 +124,12 @@ export const createMonitoredEventStore = <T extends Record<string, unknown>>(
     },
   });
 };
+
+// Layer that wraps EventStore with monitoring
+export const MonitoredEventStoreLive = Layer.effect(
+  EventStoreTag,
+  Effect.gen(function* () {
+    const store = yield* EventStoreTag;
+    return createMonitoredEventStore(store);
+  }),
+);

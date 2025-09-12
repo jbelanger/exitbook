@@ -19,6 +19,7 @@ export const OutboxMetricsTag = Context.GenericTag<OutboxMetrics>(
 const publishLatency = Metric.histogram(
   'outbox.publish.duration',
   MetricBoundaries.exponential({ count: 15, factor: 2, start: 0.001 }),
+  'Outbox message publish duration in seconds',
 );
 
 const claimed = Metric.counter('outbox.messages.claimed', {
