@@ -1,3 +1,4 @@
+import { traced } from '@exitbook/platform-monitoring';
 import { context as otelContext, propagation, trace, SpanKind } from '@opentelemetry/api';
 import { CloudEvent } from 'cloudevents';
 import { Effect, Layer } from 'effect';
@@ -43,7 +44,12 @@ export const makeMessageBusConsumer = (transport: MessageTransport): MessageBusC
             payload: ce.data,
           };
 
-          return handler(incomingMessage).pipe(
+          return traced(`${topic} receive`, handler(incomingMessage), SpanKind.CONSUMER, {
+            'messaging.consumer.group.name': groupId,
+            'messaging.destination.name': topic,
+            ...(message.key && { 'messaging.message.id': message.key }),
+            'messaging.system': 'rabbitmq',
+          }).pipe(
             Effect.tapBoth({
               onFailure: (error: unknown) =>
                 Effect.sync(() => {

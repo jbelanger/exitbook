@@ -8,6 +8,7 @@ import {
   makePgOutboxDatabase,
 } from '../internal/adapters/pg-eventstore-db';
 import { makeEventStore } from '../internal/impl/make-event-store';
+import { MonitoredEventStoreLive } from '../monitoring';
 
 /**
  * Clean composition layers with proper dependency flow:
@@ -32,10 +33,13 @@ export const PgOutboxDatabaseLive = Layer.effect(OutboxDatabaseTag, makePgOutbox
 export const EventStoreKyselyLive = Layer.provide(KyselyLive, DatabaseDefault);
 
 // EventStore stack - just the core event store functionality
-export const EventStoreStack = Layer.provide(
+const EventStoreStackBase = Layer.provide(
   EventStoreLive,
   Layer.provide(PgEventStoreDatabaseLive, EventStoreKyselyLive),
 );
+
+// Monitored EventStore stack - wraps with telemetry
+export const EventStoreStack = Layer.provide(MonitoredEventStoreLive, EventStoreStackBase);
 
 // EventStore with Outbox stack - adds outbox processing capabilities
 export const EventStoreWithOutboxStack = Layer.mergeAll(

@@ -1,0 +1,47 @@
+groups:
+  - name: event_sourcing
+    interval: 30s
+    rules:
+      - alert: HighEventAppendLatency
+        expr: histogram_quantile(0.95, rate(eventstore_append_duration_bucket[5m]))
+          > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Event append p95 latency is high ({{ $value }}s)'
+
+      - alert: OutboxBacklog
+        expr: outbox_queue_depth > 10000
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Outbox queue depth is {{ $value }}'
+
+      - alert: DLQNotEmpty
+        expr: dlq_size > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'DLQ has {{ $value }} messages'
+
+  - name: infrastructure
+    interval: 30s
+    rules:
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Service {{ $labels.instance }} is down'
+
+      - alert: HighMemoryUsage
+        expr: process_resident_memory_bytes / 1024 / 1024 > 512
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'High memory usage: {{ $value }}MB'

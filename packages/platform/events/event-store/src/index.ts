@@ -11,5 +11,8 @@
 // The default, composed layer for production use (EventStore + PostgreSQL)
 export { EventStoreDefault, EventStoreWithOutboxDefault } from './compose/live';
 
+// Monitoring wrapper for EventStore
+export { MonitoredEventStoreLive } from './monitoring';
+
 // Re-exporting main interfaces and errors from the port for convenience
 export * from './port';

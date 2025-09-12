@@ -1,5 +1,6 @@
 import { EventStoreWithOutboxDefault } from '@exitbook/platform-event-store/compose/live';
 import { MessageBusDefault } from '@exitbook/platform-messaging';
+import { MonitoringDefault } from '@exitbook/platform-monitoring';
 import { Layer, Effect } from 'effect';
 
 import {
@@ -8,14 +9,15 @@ import {
   type DaemonConfig,
   defaultDaemonConfig,
 } from '../daemon';
-import { ConsoleOutboxMetricsLive } from '../metrics';
+import { OtelOutboxMetricsLive } from '../metrics';
 import { OutboxProcessorLive, defaultOutboxConfig } from '../processor';
 
-// 1) Base deps that the processor needs (DB, producer, metrics)
+// 1) Base deps that the processor needs (DB, producer, metrics, monitoring)
 const BaseDeps = Layer.mergeAll(
   EventStoreWithOutboxDefault, // provides OutboxDatabase
   MessageBusDefault, // provides MessageBusProducer
-  ConsoleOutboxMetricsLive, // provides OutboxMetrics
+  OtelOutboxMetricsLive, // provides OutboxMetrics
+  MonitoringDefault, // provides Telemetry and HealthMonitor
 );
 
 // 2) Provide deps to the processor so it can be constructed

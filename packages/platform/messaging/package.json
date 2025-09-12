@@ -32,6 +32,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@exitbook/platform-monitoring": "workspace:*",
     "@opentelemetry/api": "^1.9.0",
     "@types/amqplib": "^0.10.7",
     "amqp-connection-manager": "^4.1.14",

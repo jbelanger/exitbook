@@ -40,6 +40,11 @@ export const TelemetryLive = Layer.unwrapEffect(
     });
 
     return NodeSdk.layer(() => ({
+      instrumentations: [
+        getNodeAutoInstrumentations({
+          '@opentelemetry/instrumentation-fs': { enabled: false },
+        }),
+      ],
       metricReader: new PeriodicExportingMetricReader({
         exporter: new OTLPMetricExporter({
           url: cfg.otlpHttp,
@@ -63,14 +68,7 @@ export const TelemetryLive = Layer.unwrapEffect(
           maxQueueSize: 2048,
         },
       ),
-      tracerConfig: {
-        instrumentations: [
-          getNodeAutoInstrumentations({
-            '@opentelemetry/instrumentation-fs': { enabled: false },
-          }),
-        ],
-        sampler,
-      },
+      tracerConfig: { sampler },
     }));
   }),
 );

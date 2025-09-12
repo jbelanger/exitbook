@@ -292,6 +292,9 @@ importers:
       '@exitbook/platform-messaging':
         specifier: workspace:*
         version: link:../../messaging
+      '@opentelemetry/api':
+        specifier: ^1.9.0
+        version: 1.9.0
       bignumber.js:
         specifier: ^9.1.0
         version: 9.3.1
@@ -351,6 +354,9 @@ importers:
       '@exitbook/platform-messaging':
         specifier: workspace:*
         version: link:../../messaging
+      '@exitbook/platform-monitoring':
+        specifier: workspace:*
+        version: link:../../monitoring
       effect:
         specifier: ^3.17.13
         version: 3.17.13
@@ -389,6 +395,12 @@ importers:
 
   packages/platform/messaging:
     dependencies:
+      '@exitbook/platform-monitoring':
+        specifier: workspace:*
+        version: link:../monitoring
+      '@opentelemetry/api':
+        specifier: ^1.9.0
+        version: 1.9.0
       '@types/amqplib':
         specifier: ^0.10.7
         version: 0.10.7

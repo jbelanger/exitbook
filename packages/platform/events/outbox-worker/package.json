@@ -34,6 +34,7 @@
   "dependencies": {
     "@exitbook/platform-event-store": "workspace:*",
     "@exitbook/platform-messaging": "workspace:*",
+    "@exitbook/platform-monitoring": "workspace:*",
     "effect": "^3.17.13"
   },
   "devDependencies": {

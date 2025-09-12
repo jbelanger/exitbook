@@ -1,0 +1,82 @@
+{
+  "dashboard": {
+    "title": "Event Sourcing System",
+    "uid": "event-sourcing",
+    "panels": [
+      {
+        "title": "Event Append Rate",
+        "targets": [
+          {
+            "expr": "rate(eventstore_events_appended_total[5m])",
+            "legendFormat": "{{stream}}"
+          }
+        ],
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 }
+      },
+      {
+        "title": "Event Append Latency (p50, p95, p99)",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(eventstore_append_duration_bucket[5m]))",
+            "legendFormat": "p50"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(eventstore_append_duration_bucket[5m]))",
+            "legendFormat": "p95"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(eventstore_append_duration_bucket[5m]))",
+            "legendFormat": "p99"
+          }
+        ],
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 }
+      },
+      {
+        "title": "Outbox Queue Depth",
+        "targets": [
+          {
+            "expr": "outbox_queue_depth"
+          }
+        ],
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 }
+      },
+      {
+        "title": "Outbox Processing Rate",
+        "targets": [
+          {
+            "expr": "rate(outbox_messages_published_total[5m])",
+            "legendFormat": "Published"
+          },
+          {
+            "expr": "rate(outbox_messages_failed_total[5m])",
+            "legendFormat": "Failed"
+          },
+          {
+            "expr": "rate(outbox_messages_retried_total[5m])",
+            "legendFormat": "Retried"
+          }
+        ],
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 }
+      },
+      {
+        "title": "DLQ Size",
+        "targets": [
+          {
+            "expr": "dlq_size"
+          }
+        ],
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 }
+      },
+      {
+        "title": "HTTP Request Duration (p95)",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(http_server_request_duration_bucket[5m])) by (http_route)",
+            "legendFormat": "{{http_route}}"
+          }
+        ],
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 }
+      }
+    ]
+  }
+}
