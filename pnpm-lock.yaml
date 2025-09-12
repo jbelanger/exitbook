@@ -93,6 +93,9 @@ importers:
 
   apps/workers:
     devDependencies:
+      '@exitbook/platform-outbox-worker':
+        specifier: workspace:*
+        version: link:../../packages/platform/events/outbox-worker
       '@internal/tsconfig':
         specifier: workspace:*
         version: link:../../packages/tooling/tsconfig

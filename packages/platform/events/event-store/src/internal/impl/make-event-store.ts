@@ -2,7 +2,6 @@ import type { DomainEvent } from '@exitbook/core';
 import type { CloudEventOptions } from '@exitbook/platform-messaging';
 import { Effect, pipe } from 'effect';
 
-import { extractCategory } from '../model';
 import type {
   EventStore,
   EventStoreDatabase,
@@ -11,8 +10,9 @@ import type {
   PositionedEvent,
   StreamName,
   OutboxEntryData,
-} from '../port';
-import { SaveEventError, ReadEventError, OptimisticLockError, IdempotencyError } from '../port';
+} from '../../port';
+import { SaveEventError, ReadEventError, OptimisticLockError, IdempotencyError } from '../../port';
+import { extractCategory } from '../model';
 import { eventRegistry } from '../registry';
 
 interface AppendOptions {

@@ -18,6 +18,9 @@ export {
   MessageBusProducerTag,
   MessageBusConsumerTag,
   MessageTransportTag,
+  MessageBusError,
+  PublishError,
+  SubscribeError,
   topic,
 } from './port';
 

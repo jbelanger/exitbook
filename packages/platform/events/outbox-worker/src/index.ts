@@ -37,4 +37,4 @@ export {
 } from './status-transitions';
 
 // Composition
-export { OutboxWorkerDefault } from './compose/live';
+export { OutboxWorkerDefault, runOutboxDaemon } from './compose/live';

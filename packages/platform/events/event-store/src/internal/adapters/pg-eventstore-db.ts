@@ -9,8 +9,8 @@ import type {
   OutboxEntryData,
   OutboxDatabase,
   OutboxEntry,
-} from '../port';
-import { IdempotencyError } from '../port';
+} from '../../port';
+import { IdempotencyError } from '../../port';
 
 export const KyselyTag = Context.GenericTag<Kysely<EventStoreDB>>('EventStore/Kysely');
 

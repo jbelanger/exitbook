@@ -7,6 +7,7 @@
     "dev": "tsx watch src/index.ts"
   },
   "devDependencies": {
+    "@exitbook/platform-outbox-worker": "workspace:*",
     "@internal/tsconfig": "workspace:*",
     "tsx": "^4.20.5"
   }

@@ -6,8 +6,8 @@ import {
   KyselyLive,
   makePgEventStoreDatabase,
   makePgOutboxDatabase,
-} from '../adapters/pg-eventstore-db';
-import { makeEventStore } from '../impl/make-event-store';
+} from '../internal/adapters/pg-eventstore-db';
+import { makeEventStore } from '../internal/impl/make-event-store';
 
 /**
  * Clean composition layers with proper dependency flow:
