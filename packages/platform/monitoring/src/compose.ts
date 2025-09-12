@@ -1,9 +1,13 @@
 import { Layer } from 'effect';
 
-import { TelemetryLive, HealthMonitorLive } from './index';
+import { TelemetryLive, HealthMonitorLive, StructuredLoggerLive } from './index';
 
-// Complete monitoring stack
-export const MonitoringDefault = Layer.mergeAll(TelemetryLive, HealthMonitorLive);
+// Complete monitoring stack with structured logging
+export const MonitoringDefault = Layer.mergeAll(
+  TelemetryLive,
+  HealthMonitorLive,
+  StructuredLoggerLive,
+);
 
 // Re-export for convenience
-export { TelemetryLive, HealthMonitorLive };
+export { TelemetryLive, HealthMonitorLive, StructuredLoggerLive };

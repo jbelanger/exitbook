@@ -375,10 +375,98 @@ export const recordDatabaseQuery = (
     durationMs / 1000,
   );
 
-// Export the complete monitoring stack
+// Structured Logger with Trace Correlation
+const createStructuredLogger = () => {
+  const formatLog = (level: string, message: unknown, span?: Span): string => {
+    const timestamp = new Date().toISOString();
+
+    // Extract trace context from current span
+    const traceContext: Record<string, string> = {};
+    if (span) {
+      const spanContext = span.spanContext();
+      if (spanContext?.traceId && spanContext?.spanId) {
+        traceContext['trace_id'] = spanContext.traceId;
+        traceContext['span_id'] = spanContext.spanId;
+        traceContext['trace_flags'] =
+          spanContext.traceFlags?.toString() || '01';
+      }
+    }
+
+    const logEntry = {
+      '@timestamp': timestamp,
+      environment: process.env['NODE_ENV'] || 'development',
+      level: level.toLowerCase(),
+      message: typeof message === 'string' ? message : JSON.stringify(message),
+      service: process.env['SERVICE_NAME'] || 'exitbook',
+      ...traceContext,
+    };
+
+    return JSON.stringify(logEntry);
+  };
+
+  return Logger.make(({ logLevel, message }) => {
+    // Get current active span for trace correlation
+    const currentSpan = trace.getActiveSpan();
+    const formattedLog = formatLog(logLevel.label, message, currentSpan);
+
+    // Output to stdout/stderr based on log level
+    if (logLevel.label === 'ERROR' || logLevel.label === 'FATAL') {
+      console.error(formattedLog);
+    } else {
+      console.log(formattedLog);
+    }
+  });
+};
+
+export const StructuredLoggerLive = Logger.replace(
+  Logger.defaultLogger,
+  createStructuredLogger(),
+);
+
+// Logger utilities for common logging patterns with trace correlation
+export const logWithTrace = <R>(
+  message: string,
+  attributes?: Record<string, unknown>,
+): Effect.Effect<void, never, R> =>
+  Effect.gen(function* () {
+    const currentSpan = trace.getActiveSpan();
+    const logData = {
+      message,
+      ...(attributes && { ...attributes }),
+      ...(currentSpan && {
+        span_id: currentSpan.spanContext().spanId,
+        trace_id: currentSpan.spanContext().traceId,
+      }),
+    };
+
+    yield* Effect.log(logData);
+  });
+
+export const logInfo = (
+  message: string,
+  attributes?: Record<string, unknown>,
+) => logWithTrace(message, attributes).pipe(Effect.withLogSpan('info'));
+
+export const logError = (
+  message: string,
+  attributes?: Record<string, unknown>,
+) => logWithTrace(message, attributes).pipe(Effect.withLogSpan('error'));
+
+export const logWarning = (
+  message: string,
+  attributes?: Record<string, unknown>,
+) => logWithTrace(message, attributes).pipe(Effect.withLogSpan('warning'));
+
+export const logDebug = (
+  message: string,
+  attributes?: Record<string, unknown>,
+) => logWithTrace(message, attributes).pipe(Effect.withLogSpan('debug'));
+
+// Export the complete monitoring stack with structured logging
 export const MonitoringDefault = Layer.mergeAll(
   TelemetryLive,
   HealthMonitorLive,
+  StructuredLoggerLive,
 );
 ```
 
@@ -1305,6 +1393,129 @@ groups:
 }
 ```
 
+## Structured Logging with Trace Correlation
+
+The monitoring package now includes a structured logger that automatically
+injects trace context (trace_id, span_id) into all log entries. This enables
+seamless correlation between logs and traces in Grafana/Tempo/Loki.
+
+### Log Format
+
+All logs are output as structured JSON with the following format:
+
+```json
+{
+  "@timestamp": "2024-01-15T10:30:45.123Z",
+  "level": "info",
+  "message": "Processing HTTP request",
+  "service": "exitbook",
+  "environment": "production",
+  "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+  "span_id": "00f067aa0ba902b7",
+  "trace_flags": "01",
+  "method": "POST",
+  "route": "/api/users",
+  "user_agent": "Mozilla/5.0..."
+}
+```
+
+### Usage Examples
+
+```typescript
+import {
+  logInfo,
+  logError,
+  logWarning,
+  logDebug,
+  logWithTrace,
+} from '@exitbook/platform-monitoring';
+
+// Simple logging with automatic trace correlation
+yield * logInfo('User created successfully', { userId: user.id });
+
+// Error logging with context
+yield *
+  logError('Database connection failed', {
+    connectionString: 'postgres://...',
+    retryCount: 3,
+  });
+
+// Custom log levels
+yield *
+  logWithTrace('Custom operation completed', {
+    operationType: 'bulk-import',
+    recordsProcessed: 1500,
+  });
+```
+
+### Integration with Grafana/Loki
+
+With the structured logger in place, you can:
+
+1. **Query logs by trace ID**:
+   `{service="exitbook"} | json | trace_id="4bf92f3577b34da6a3ce929d0e0e4736"`
+2. **Pivot from traces to logs**: Click on any span in Tempo to see related logs
+3. **Pivot from logs to traces**: Click on trace_id in Loki to open the trace in
+   Tempo
+4. **Filter by log level**: `{service="exitbook"} | json | level="error"`
+5. **Search by context**: `{service="exitbook"} | json | route="/api/users"`
+
+## Monitoring Best Practices
+
+### 1. HTTP Metrics Cardinality Management
+
+**CRITICAL**: Always use route templates (`/users/:id`) instead of actual paths
+(`/users/123`) to avoid Prometheus cardinality explosion:
+
+```typescript
+// ✅ CORRECT - Uses route template
+yield * recordHttpRequest('GET', '/users/:id', 200, duration);
+
+// ❌ WRONG - Will create unlimited unique metrics
+yield * recordHttpRequest('GET', '/users/123', 200, duration);
+yield * recordHttpRequest('GET', '/users/456', 200, duration);
+```
+
+The `recordHttpRequest` helper includes validation to warn about potential
+cardinality issues.
+
+### 2. Units Consistency
+
+All latency histograms use **seconds** (OpenTelemetry semantic conventions).
+Helper functions automatically convert milliseconds:
+
+```typescript
+// All these functions convert ms to seconds internally
+recordHttpRequest(method, route, status, durationMs);
+recordDatabaseQuery(operation, table, durationMs);
+recordDurationMetric(metric, durationMs, tags);
+```
+
+Use the `msToSeconds()` utility for manual conversions:
+
+```typescript
+const durationSeconds = msToSeconds(Date.now() - started);
+```
+
+### 3. Graceful Shutdown
+
+Always call `registerGracefulShutdown()` in your main function to ensure
+telemetry data is flushed on process exit:
+
+```typescript
+import { registerGracefulShutdown } from '@exitbook/platform-monitoring';
+
+// Register once at application startup
+registerGracefulShutdown();
+```
+
+This handles:
+
+- SIGTERM/SIGINT signals
+- Uncaught exceptions
+- Unhandled promise rejections
+- Gives BatchSpanProcessor time to flush before exit
+
 ## Application Integration Example
 
 ```typescript name=apps/api/src/main.ts
@@ -1315,6 +1526,7 @@ import {
   InfrastructureHealthChecks,
   HealthMonitorTag,
   recordHttpRequest,
+  registerGracefulShutdown,
 } from '@exitbook/platform-monitoring';
 import { UnifiedEventBusDefault } from '@exitbook/platform-event-bus';
 import { DatabaseDefault } from '@exitbook/platform-database';
@@ -1330,22 +1542,53 @@ const AppLive = Layer.mergeAll(
   InfrastructureHealthChecks,
 );
 
-// Example HTTP handler with monitoring
+// Example HTTP handler with monitoring and structured logging
 const handleRequest = (req: Request) =>
   Effect.gen(function* () {
     const started = Date.now();
-    const route = extractRoute(req.url); // e.g., "/api/users/:id"
+    // IMPORTANT: Use route template, not actual path to avoid cardinality explosion
+    const routeTemplate = extractRouteTemplate(req.url); // "/api/users/:id" not "/api/users/123"
+
+    // Log the incoming request with trace correlation
+    yield* logInfo('Processing HTTP request', {
+      method: req.method,
+      route: routeTemplate,
+      user_agent: req.headers.get('user-agent'),
+    });
 
     try {
       // Your business logic here
       const result = yield* processRequest(req);
 
-      // Record metrics
-      yield* recordHttpRequest(req.method, route, 200, Date.now() - started);
+      // Record metrics with consistent units (converts ms to seconds internally)
+      yield* recordHttpRequest(
+        req.method,
+        routeTemplate,
+        200,
+        Date.now() - started,
+      );
+      yield* logInfo('HTTP request completed successfully', {
+        method: req.method,
+        route: routeTemplate,
+        duration_ms: Date.now() - started,
+        status: 200,
+      });
 
       return result;
     } catch (error) {
-      yield* recordHttpRequest(req.method, route, 500, Date.now() - started);
+      yield* recordHttpRequest(
+        req.method,
+        routeTemplate,
+        500,
+        Date.now() - started,
+      );
+      yield* logError('HTTP request failed', {
+        method: req.method,
+        route: routeTemplate,
+        duration_ms: Date.now() - started,
+        status: 500,
+        error: error instanceof Error ? error.message : String(error),
+      });
       throw error;
     }
   });
@@ -1360,7 +1603,11 @@ const healthRoutes = Effect.gen(function* () {
   };
 });
 
-// Run the application
+// Run the application with graceful shutdown
 const runtime = Runtime.make(AppLive);
+
+// Register graceful shutdown handlers for telemetry flush
+registerGracefulShutdown();
+
 Runtime.runMain(runtime)(program);
 ```
