@@ -56,7 +56,8 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('stream_name', 'text', (col) => col.notNull())
     .addColumn('category', 'text', (col) => col.notNull())
     .addColumn('event_type', 'text', (col) => col.notNull())
-    .addColumn('cloudevent', 'jsonb', (col) => col.notNull().defaultTo('{}'))
+    .addColumn('event_data', 'jsonb', (col) => col.notNull())
+    .addColumn('metadata', 'jsonb', (col) => col.notNull().defaultTo('{}'))
     .addColumn('status', 'text', (col) => col.notNull().defaultTo('PENDING'))
     .addColumn('attempts', 'integer', (col) => col.notNull().defaultTo(0))
     .addColumn('next_attempt_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
@@ -64,6 +65,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('last_error', 'text')
     .addColumn('event_position', 'bigint', (col) => col.notNull().defaultTo(0))
     .addColumn('event_schema_version', 'integer', (col) => col.notNull().defaultTo(1))
+    .addColumn('occurred_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
     .addColumn('created_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
     .addColumn('updated_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
     .execute();

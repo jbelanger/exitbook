@@ -29,13 +29,5 @@ export {
   MessageValidationError,
 } from './port';
 
-// Utility functions
-export {
-  toCloudEvent,
-  getTracking,
-  CloudEvents,
-  type CloudEventInit,
-  type DomainCloudEvent,
-  type TrackingExtensions,
-  type CloudEventOptions,
-} from './util/toCloudEvent';
+// CloudEvent utilities are internal implementation details
+// Applications should use the MessageBusProducer interface instead

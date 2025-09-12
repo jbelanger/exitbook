@@ -2,18 +2,6 @@ import { randomUUID } from 'node:crypto';
 
 import { CloudEvent } from 'cloudevents';
 
-// Our tracking extensions (standardized)
-export interface TrackingExtensions {
-  causationid?: string | undefined;
-  correlationid?: string | undefined;
-  userid?: string | undefined;
-}
-
-// Strongly typed CloudEvent for our domain
-export type DomainCloudEvent<T = unknown> = CloudEvent<T> & {
-  getExtensions(): TrackingExtensions;
-};
-
 // Unified options interface for all CloudEvent creation
 export interface CloudEventOptions {
   readonly causationId?: string | undefined;
@@ -32,17 +20,13 @@ export interface CloudEventInit<T = unknown> extends CloudEventOptions {
 }
 
 // Convenient factory function - handles all the CloudEvents complexity
-export function toCloudEvent<T>(init: CloudEventInit<T>): DomainCloudEvent<T>;
-export function toCloudEvent<T>(
-  type: string,
-  data: T,
-  options?: CloudEventOptions,
-): DomainCloudEvent<T>;
+export function toCloudEvent<T>(init: CloudEventInit<T>): CloudEvent<T>;
+export function toCloudEvent<T>(type: string, data: T, options?: CloudEventOptions): CloudEvent<T>;
 export function toCloudEvent<T>(
   initOrType: CloudEventInit<T> | string,
   data?: T,
   options?: CloudEventOptions,
-): DomainCloudEvent<T> {
+): CloudEvent<T> {
   // Normalize to single format
   const params: CloudEventInit<T> =
     typeof initOrType === 'string' ? { data: data!, type: initOrType, ...options } : initOrType;
@@ -61,54 +45,12 @@ export function toCloudEvent<T>(
     ...(params.userId && { userid: params.userId }),
   });
 
-  return ce as DomainCloudEvent<T>;
+  return ce;
 }
 
-// Helper to extract tracking info from any CloudEvent
-export function getTracking(ce: CloudEvent): TrackingExtensions {
-  const ceObj = ce as unknown as {
-    causationid?: string;
-    correlationid?: string;
-    userid?: string;
-  };
-
-  return {
-    causationid: ceObj.causationid,
-    correlationid: ceObj.correlationid,
-    userid: ceObj.userid,
-  };
-}
-
-// Convenience helpers for common patterns
+// Convenience helpers for internal use only
 export const CloudEvents = {
-  // Chain events: CloudEvents.causedBy('user.updated', userData, triggeringEvent)
-  causedBy: <T>(type: string, data: T, triggeringEvent: CloudEvent) => {
-    const tracking = getTracking(triggeringEvent);
-    return toCloudEvent(type, data, {
-      causationId: triggeringEvent.id,
-      correlationId: tracking.correlationid,
-      userId: tracking.userid,
-    });
-  },
-
-  // With correlation: CloudEvents.correlate('user.created', userData, existingCorrelationId)
-  correlate: <T>(type: string, data: T, correlationId: string) =>
-    toCloudEvent(type, data, { correlationId }),
-
-  // Ultra-simple: CloudEvents.create('user.created', userData)
+  // Simple CloudEvent creation - used by message bus producer
   create: <T>(type: string, data: T, options?: CloudEventOptions) =>
     toCloudEvent(type, data, options),
-
-  // From existing event: CloudEvents.from(existingEvent).create('derived.event', newData)
-  from: (sourceEvent: CloudEvent) => {
-    const tracking = getTracking(sourceEvent);
-    return {
-      create: <T>(type: string, data: T) =>
-        toCloudEvent(type, data, {
-          causationId: sourceEvent.id,
-          correlationId: tracking.correlationid,
-          userId: tracking.userid,
-        }),
-    };
-  },
 } as const;

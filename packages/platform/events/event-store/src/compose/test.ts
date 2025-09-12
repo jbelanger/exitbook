@@ -18,20 +18,7 @@ const makeFakeEventStoreDatabase = (): Effect.Effect<EventStoreDatabase, never> 
         version: number;
       }[]
     >([]);
-    const outboxEntries = yield* Ref.make<
-      {
-        category: string;
-        event_data: unknown;
-        event_id: string;
-        event_position: bigint;
-        event_schema_version: number;
-        event_type: string;
-        metadata: unknown;
-        occurred_at: Date;
-        status: 'PENDING' | 'PROCESSED' | 'FAILED';
-        stream_name: string;
-      }[]
-    >([]);
+    const outboxEntries = yield* Ref.make<OutboxEntryData[]>([]);
     const idempotencyKeys = yield* Ref.make<Set<string>>(new Set());
 
     let idCounter = 1;
