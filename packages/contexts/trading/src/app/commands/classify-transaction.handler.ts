@@ -1,5 +1,5 @@
-import type { EventBusError } from '@exitbook/platform-messaging';
-import { EventBus } from '@exitbook/platform-messaging';
+import { UnifiedEventBusTag } from '@exitbook/platform-event-bus';
+import type { UnifiedEventBus } from '@exitbook/platform-event-bus';
 import { Effect, pipe, Context } from 'effect';
 
 import type { ClassifyTransactionCommand, TransactionClassifier } from '../../core';
@@ -21,8 +21,8 @@ export const classifyTransaction = (
   command: ClassifyTransactionCommand,
 ): Effect.Effect<
   void,
-  LoadTransactionError | SaveTransactionError | EventBusError | InvalidStateError,
-  TransactionRepository | TransactionClassifier | EventBus
+  LoadTransactionError | SaveTransactionError | InvalidStateError | unknown,
+  TransactionRepository | TransactionClassifier | UnifiedEventBus
 > =>
   pipe(
     // 1. Load the aggregate (returns Effect with typed error)
@@ -55,8 +55,8 @@ export const classifyTransaction = (
     // 4. Publish the event after successful save
     Effect.tap((event) =>
       pipe(
-        EventBus,
-        Effect.flatMap((eventBus) => eventBus.publish(event)),
+        UnifiedEventBusTag,
+        Effect.flatMap((eventBus) => eventBus.publishExternal('trading.events', event)),
       ),
     ),
 

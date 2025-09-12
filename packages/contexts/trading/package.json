@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "@exitbook/core": "workspace:*",
-    "@exitbook/platform-messaging": "workspace:*",
+    "@exitbook/platform-event-bus": "workspace:*",
     "@nestjs/common": "^10.0.0",
     "@nestjs/cqrs": "^10.0.0",
     "effect": "^3.17.13",

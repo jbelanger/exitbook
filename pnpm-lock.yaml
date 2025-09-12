@@ -129,9 +129,9 @@ importers:
       '@exitbook/core':
         specifier: workspace:*
         version: link:../../core
-      '@exitbook/platform-messaging':
+      '@exitbook/platform-event-bus':
         specifier: workspace:*
-        version: link:../../platform/messaging
+        version: link:../../platform/events/event-bus
       '@nestjs/common':
         specifier: ^10.0.0
         version: 10.4.20(reflect-metadata@0.2.2)(rxjs@7.8.2)

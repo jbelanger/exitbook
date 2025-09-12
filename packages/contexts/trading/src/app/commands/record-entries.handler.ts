@@ -5,8 +5,8 @@ import {
   type InvalidMoneyAmountError,
   type CurrencyMismatchError,
 } from '@exitbook/core';
-import type { EventBusError } from '@exitbook/platform-messaging';
-import { EventBus } from '@exitbook/platform-messaging';
+import { UnifiedEventBusTag } from '@exitbook/platform-event-bus';
+import type { UnifiedEventBus } from '@exitbook/platform-event-bus';
 import { Effect, pipe, Context } from 'effect';
 
 import type { RecordEntriesCommand } from '../../core/aggregates/transaction.aggregate.js';
@@ -29,12 +29,12 @@ export const recordEntries = (
   void,
   | LoadTransactionError
   | SaveTransactionError
-  | EventBusError
+  | unknown
   | InvalidMoneyAmountError
   | InvalidStateError
   | UnbalancedEntriesError
   | CurrencyMismatchError,
-  TransactionRepository | EventBus
+  TransactionRepository | UnifiedEventBus
 > =>
   pipe(
     // 1. Safely parse DTO entries into domain objects first
@@ -88,8 +88,8 @@ export const recordEntries = (
         // 5. Publish the event after a successful save
         Effect.tap((event) =>
           pipe(
-            EventBus,
-            Effect.flatMap((eventBus) => eventBus.publish(event)),
+            UnifiedEventBusTag,
+            Effect.flatMap((eventBus) => eventBus.publishExternal('trading.events', event)),
           ),
         ),
 

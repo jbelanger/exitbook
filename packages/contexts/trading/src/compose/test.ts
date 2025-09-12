@@ -1,6 +1,7 @@
 import { TransactionId } from '@exitbook/core';
-import { EventBus } from '@exitbook/platform-messaging';
-import { Layer, Effect } from 'effect';
+import { UnifiedEventBusTag } from '@exitbook/platform-event-bus';
+import type { UnifiedEventBus } from '@exitbook/platform-event-bus';
+import { Layer, Effect, Stream } from 'effect';
 
 import {
   TransactionRepositoryTag,
@@ -21,7 +22,7 @@ const TransactionRepositoryTest: TransactionRepository = {
         transactionId: TransactionId.of('test'),
       }),
     ),
-  save: () => Effect.succeed(),
+  save: () => Effect.succeed(void 0),
 };
 
 const TransactionClassifierTest: TransactionClassifier = {
@@ -34,13 +35,19 @@ const TransactionClassifierTest: TransactionClassifier = {
     ),
 };
 
-const EventBusTest: EventBus = {
-  publish: () => Effect.succeed(),
+const EventBusTest: UnifiedEventBus = {
+  append: () => Effect.succeed({ appended: [], lastPosition: 0n, lastVersion: 0 }),
+  publishExternal: () => Effect.succeed(void 0),
+  read: () => Stream.empty,
+  subscribeAll: () => Stream.empty,
+  subscribeCategory: () => Stream.empty,
+  subscribeLive: () => Stream.empty,
+  subscribeStream: () => Stream.empty,
 };
 
 // Test runtime layer composition with in-memory/fake implementations
 export const TradingRuntimeTest = Layer.mergeAll(
   Layer.succeed(TransactionRepositoryTag, TransactionRepositoryTest),
   Layer.succeed(TransactionClassifierTag, TransactionClassifierTest),
-  Layer.succeed(EventBus, EventBusTest),
+  Layer.succeed(UnifiedEventBusTag, EventBusTest),
 );

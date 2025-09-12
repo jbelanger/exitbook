@@ -1,5 +1,5 @@
-import type { EventBusError } from '@exitbook/platform-messaging';
-import { EventBus } from '@exitbook/platform-messaging';
+import { UnifiedEventBusTag } from '@exitbook/platform-event-bus';
+import type { UnifiedEventBus } from '@exitbook/platform-event-bus';
 import { Effect, pipe, Context } from 'effect';
 
 import {
@@ -21,8 +21,8 @@ export const importTransaction = (
   command: ImportTransactionCommand,
 ): Effect.Effect<
   void,
-  IdempotencyCheckError | SaveTransactionError | EventBusError,
-  TransactionRepository | EventBus
+  IdempotencyCheckError | SaveTransactionError | unknown,
+  TransactionRepository | UnifiedEventBus
 > => {
   const idempotencyKey = `${command.source}:${command.externalId}`;
 
@@ -56,8 +56,8 @@ export const importTransaction = (
             // 5. Publish the event after successful save
             Effect.tap((event) =>
               pipe(
-                EventBus,
-                Effect.flatMap((eventBus) => eventBus.publish(event)),
+                UnifiedEventBusTag,
+                Effect.flatMap((eventBus) => eventBus.publishExternal('trading.events', event)),
               ),
             ),
 
