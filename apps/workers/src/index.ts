@@ -3,7 +3,7 @@
 import { runOutboxDaemon } from '@exitbook/platform-outbox-worker';
 import { Runtime } from 'effect';
 
-// One-liner outbox worker main entry point
+// One-liner outbox worker main entry point with environment configuration
 const main = runOutboxDaemon({
   baseDelayMs: Number(process.env['OUTBOX_BASE_DELAY_MS']) || 1000,
   batchSize: Number(process.env['OUTBOX_BATCH_SIZE']) || 100,
@@ -15,4 +15,4 @@ const main = runOutboxDaemon({
   publishConcurrency: Number(process.env['OUTBOX_PUBLISH_CONCURRENCY']) || 16,
 });
 
-Runtime.runFork(Runtime.defaultRuntime)(main);
+Runtime.runPromise(Runtime.defaultRuntime)(main).catch(console.error);

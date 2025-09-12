@@ -2,27 +2,54 @@ import { EventStoreWithOutboxDefault } from '@exitbook/platform-event-store/comp
 import { MessageBusDefault } from '@exitbook/platform-messaging';
 import { Layer, Effect } from 'effect';
 
-import { OutboxDaemonLive, OutboxDaemonTag, type DaemonConfig } from '../daemon';
+import {
+  OutboxDaemonLive,
+  OutboxDaemonTag,
+  type DaemonConfig,
+  defaultDaemonConfig,
+} from '../daemon';
 import { ConsoleOutboxMetricsLive } from '../metrics';
-import { OutboxProcessorLive } from '../processor';
+import { OutboxProcessorLive, defaultOutboxConfig } from '../processor';
 
-// Default outbox worker composition with all dependencies
+// 1) Base deps that the processor needs (DB, producer, metrics)
+const BaseDeps = Layer.mergeAll(
+  EventStoreWithOutboxDefault, // provides OutboxDatabase
+  MessageBusDefault, // provides MessageBusProducer
+  ConsoleOutboxMetricsLive, // provides OutboxMetrics
+);
+
+// 2) Provide deps to the processor so it can be constructed
+const ProcessorProvided = Layer.provide(OutboxProcessorLive(defaultOutboxConfig), BaseDeps);
+
+// 3) Provide the processor to the daemon
 export const OutboxWorkerDefault = Layer.provide(
-  Layer.mergeAll(OutboxProcessorLive(), OutboxDaemonLive(), ConsoleOutboxMetricsLive),
-  Layer.mergeAll(EventStoreWithOutboxDefault, MessageBusDefault),
+  OutboxDaemonLive(defaultDaemonConfig),
+  ProcessorProvided,
 );
 
 /**
- * One-liner function to run the outbox daemon with the given configuration.
- * This provides a simple entry point for worker applications.
+ * One-liner runner (keeps same API)
  */
-export const runOutboxDaemon = (_config?: Partial<DaemonConfig>) => {
+export const runOutboxDaemon = (config?: Partial<DaemonConfig>) => {
   const program = Effect.gen(function* () {
     const daemon = yield* OutboxDaemonTag;
     yield* daemon.start();
-    // Keep the process alive
     yield* Effect.never;
   });
 
+  // If config is provided, create a custom layer with the config
+  if (config) {
+    const fullConfig = { ...defaultDaemonConfig, ...config };
+
+    // Create custom layer with provided config
+    const customWorkerLayer = Layer.provide(
+      OutboxDaemonLive(fullConfig),
+      Layer.provide(OutboxProcessorLive(fullConfig), BaseDeps),
+    );
+
+    return Effect.provide(program, customWorkerLayer);
+  }
+
+  // Otherwise use the default layer
   return Effect.provide(program, OutboxWorkerDefault);
 };
