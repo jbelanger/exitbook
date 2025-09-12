@@ -21,9 +21,13 @@ const makeFakeEventStoreDatabase = (): Effect.Effect<EventStoreDatabase, never> 
     const outboxEntries = yield* Ref.make<
       {
         category: string;
-        cloudevent: unknown;
+        event_data: unknown;
         event_id: string;
+        event_position: bigint;
+        event_schema_version: number;
         event_type: string;
+        metadata: unknown;
+        occurred_at: Date;
         status: 'PENDING' | 'PROCESSED' | 'FAILED';
         stream_name: string;
       }[]
@@ -50,6 +54,7 @@ const makeFakeEventStoreDatabase = (): Effect.Effect<EventStoreDatabase, never> 
             created_at: new Date(),
             global_position: (++globalPos).toString(),
             id: idCounter++,
+            occurred_at: e.occurred_at ?? new Date(),
           }));
           yield* Ref.update(events, (existing) => [...existing, ...storedEvents]);
           return storedEvents;

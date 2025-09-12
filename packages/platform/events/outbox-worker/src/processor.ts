@@ -87,9 +87,28 @@ export const makeOutboxProcessor = (
             );
             const key = String(entry.event_position); // Use event position for stable ordering
 
+            // Extract metadata for CloudEvent options
+            const metadata = (entry.metadata as Record<string, unknown>) || {};
+            const publishOptions: {
+              causationId?: string;
+              correlationId?: string;
+              key: string;
+              userId?: string;
+            } = { key };
+
+            if (metadata['causationId'] && typeof metadata['causationId'] === 'string') {
+              publishOptions.causationId = metadata['causationId'];
+            }
+            if (metadata['correlationId'] && typeof metadata['correlationId'] === 'string') {
+              publishOptions.correlationId = metadata['correlationId'];
+            }
+            if (metadata['userId'] && typeof metadata['userId'] === 'string') {
+              publishOptions.userId = metadata['userId'];
+            }
+
             const startTime = Date.now();
             return pipe(
-              publisher.publish(topicName, entry.cloudevent, { key }),
+              publisher.publish(topicName, entry.event_data, publishOptions),
               Effect.tap(() => {
                 const latency = Date.now() - startTime;
                 return pipe(

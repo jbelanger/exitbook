@@ -1,5 +1,5 @@
 import type { DomainEvent } from '@exitbook/core';
-import { CloudEvents, topic, type CloudEventOptions } from '@exitbook/platform-messaging';
+import type { CloudEventOptions } from '@exitbook/platform-messaging';
 import { Effect, pipe } from 'effect';
 
 import { extractCategory } from '../model';
@@ -99,6 +99,7 @@ export const makeEventStore = (db: EventStoreDatabase): EventStore => {
               ...options?.metadata,
               timestamp: event.timestamp,
             },
+            occurred_at: event.timestamp,
             stream_name: streamName,
             stream_version: streamVersion,
           }),
@@ -128,33 +129,22 @@ export const makeEventStore = (db: EventStoreDatabase): EventStore => {
   };
 
   /**
-   * Creates outbox entries from stored events by converting them to CloudEvents.
-   * This separates CloudEvent formatting concerns from the core EventStore logic.
+   * Creates outbox entries from stored events with raw data and metadata.
+   * CloudEvent creation is deferred to the message bus for proper separation of concerns.
    */
   const createOutboxEntries = (events: readonly StoredEvent[]): readonly OutboxEntryData[] => {
-    return events.map((event) => {
-      // Extract metadata for tracking
-      const metadata = event.metadata as Record<string, unknown>;
-      const topicName = topic(event.category, event.event_type, `v${event.event_schema_version}`);
-
-      // Create CloudEvent using convenience API with all the specific details
-      const ce = CloudEvents.create(topicName, event.event_data, {
-        ...metadata,
-        id: event.event_id,
-        time: event.created_at,
-      });
-
-      return {
-        category: event.category,
-        cloudevent: ce,
-        event_id: event.event_id,
-        event_position: BigInt(event.global_position || 0),
-        event_schema_version: event.event_schema_version,
-        event_type: event.event_type,
-        status: 'PENDING' as const,
-        stream_name: event.stream_name,
-      };
-    });
+    return events.map((event) => ({
+      category: event.category,
+      event_data: event.event_data,
+      event_id: event.event_id,
+      event_position: BigInt(event.global_position || 0),
+      event_schema_version: event.event_schema_version,
+      event_type: event.event_type,
+      metadata: event.metadata,
+      occurred_at: event.occurred_at,
+      status: 'PENDING' as const,
+      stream_name: event.stream_name,
+    }));
   };
 
   // ### Main EventStore Implementation ###
@@ -212,7 +202,7 @@ export const makeEventStore = (db: EventStoreDatabase): EventStore => {
               eventId: storedEvent.event_id,
               streamName: storedEvent.stream_name,
               streamVersion: storedEvent.stream_version,
-              timestamp: storedEvent.created_at,
+              timestamp: storedEvent.occurred_at,
             })
             .pipe(
               Effect.map(
@@ -268,7 +258,7 @@ export const makeEventStore = (db: EventStoreDatabase): EventStore => {
                 eventId: stored.event_id,
                 streamName: stored.stream_name,
                 streamVersion: stored.stream_version,
-                timestamp: stored.created_at,
+                timestamp: stored.occurred_at,
               })
               .pipe(
                 Effect.map(
@@ -296,7 +286,7 @@ export const makeEventStore = (db: EventStoreDatabase): EventStore => {
                 eventId: stored.event_id,
                 streamName: stored.stream_name,
                 streamVersion: stored.stream_version,
-                timestamp: stored.created_at,
+                timestamp: stored.occurred_at,
               })
               .pipe(
                 Effect.map(
@@ -324,7 +314,7 @@ export const makeEventStore = (db: EventStoreDatabase): EventStore => {
                 eventId: stored.event_id,
                 streamName: stored.stream_name,
                 streamVersion: stored.stream_version,
-                timestamp: stored.created_at,
+                timestamp: stored.occurred_at,
               })
               .pipe(Effect.mapError((error) => new ReadEventError({ reason: error.reason }))),
           ),

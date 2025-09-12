@@ -1,9 +1,19 @@
-import { DatabasePool, type PgPool } from '@exitbook/platform-database';
-import { Effect } from 'effect';
+import { DatabasePool } from '@exitbook/platform-database';
+import { Context, Effect, Layer } from 'effect';
 import { Kysely, PostgresDialect } from 'kysely';
 
 import type { CheckpointStore } from '../checkpoint-store';
 import { CheckpointError } from '../errors';
+
+export const KyselyTag = Context.GenericTag<Kysely<CheckpointStoreDB>>('CheckpointStore/Kysely');
+
+export const KyselyLive = Layer.effect(
+  KyselyTag,
+  Effect.gen(function* () {
+    const { pool } = yield* DatabasePool;
+    return new Kysely<CheckpointStoreDB>({ dialect: new PostgresDialect({ pool }) });
+  }),
+);
 
 // Checkpoint store schema types
 export interface CheckpointStoreDB {
@@ -16,14 +26,13 @@ export interface CheckpointStoreDB {
   };
 }
 
-const makeKysely = Effect.gen(function* () {
-  const { pool } = yield* DatabasePool;
-  return new Kysely<CheckpointStoreDB>({ dialect: new PostgresDialect({ pool }) });
-});
-
-export const makePgCheckpointStore = (): Effect.Effect<CheckpointStore, never, PgPool> =>
+export const makePgCheckpointStore = (): Effect.Effect<
+  CheckpointStore,
+  never,
+  Kysely<CheckpointStoreDB>
+> =>
   Effect.gen(function* () {
-    const db = yield* makeKysely;
+    const db = yield* KyselyTag;
 
     return {
       load: (subscriptionKey) =>
@@ -96,14 +105,3 @@ export const makePgCheckpointStore = (): Effect.Effect<CheckpointStore, never, P
         ),
     } satisfies CheckpointStore;
   });
-
-// DDL for subscription checkpoints table
-export const createCheckpointTableSql = `
-CREATE TABLE IF NOT EXISTS subscription_checkpoints (
-  subscription_id TEXT PRIMARY KEY,
-  position TEXT NOT NULL,
-  events_processed BIGINT DEFAULT 0,
-  last_processed TIMESTAMPTZ,
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-`;

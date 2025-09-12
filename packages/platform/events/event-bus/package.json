@@ -13,6 +13,7 @@
     "build": "tsc -b",
     "clean": "rimraf dist",
     "dev": "tsc -b -w",
+    "migrate": "node --import=tsx ./src/migrate.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -20,13 +21,13 @@
     "@exitbook/platform-database": "workspace:*",
     "@exitbook/platform-event-store": "workspace:*",
     "@exitbook/platform-messaging": "workspace:*",
-    "bignumber.js": "^9.1.0",
     "effect": "^3.0.0",
     "kysely": "^0.27.0"
   },
   "devDependencies": {
     "@internal/tsconfig": "workspace:*",
     "@types/node": "^24.3.1",
-    "rimraf": "^5.0.0"
+    "rimraf": "^5.0.0",
+    "tsx": "^4.0.0"
   }
 }

@@ -175,6 +175,7 @@ export interface StoredEventData {
   readonly event_type: string;
   readonly global_position?: string;
   readonly metadata: unknown;
+  readonly occurred_at?: Date;
   readonly stream_name: string;
   readonly stream_version: number;
 }
@@ -182,15 +183,18 @@ export interface StoredEventData {
 export interface StoredEvent extends StoredEventData {
   readonly created_at: Date;
   readonly id: number;
+  readonly occurred_at: Date;
 }
 
 export interface OutboxEntryData {
   readonly category: string;
-  readonly cloudevent: unknown;
+  readonly event_data: unknown;
   readonly event_id: string;
   readonly event_position: bigint;
   readonly event_schema_version: number;
   readonly event_type: string;
+  readonly metadata: unknown;
+  readonly occurred_at: Date;
   readonly status: 'PENDING';
   readonly stream_name: string;
 }
@@ -198,15 +202,17 @@ export interface OutboxEntryData {
 export interface OutboxEntry {
   readonly attempts: number;
   readonly category: string;
-  readonly cloudevent: unknown;
   readonly created_at: Date;
+  readonly event_data: unknown;
   readonly event_id: string;
   readonly event_position: bigint;
   readonly event_schema_version: number;
   readonly event_type: string;
   readonly id: string;
   readonly last_error?: string;
+  readonly metadata: unknown;
   readonly next_attempt_at: Date;
+  readonly occurred_at: Date;
   readonly processed_at?: Date;
   readonly status: 'PENDING' | 'PROCESSING' | 'PROCESSED' | 'FAILED';
   readonly stream_name: string;

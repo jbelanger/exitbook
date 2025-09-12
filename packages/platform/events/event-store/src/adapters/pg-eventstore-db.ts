@@ -32,15 +32,17 @@ export interface EventStoreDB {
   event_outbox: {
     attempts: number;
     category: string;
-    cloudevent: string; // JSON-stringified CloudEventRecord
     created_at?: Date;
+    event_data: unknown;
     event_id: string;
     event_position: bigint;
     event_schema_version: number;
     event_type: string;
     id?: string;
     last_error?: string;
+    metadata: unknown;
     next_attempt_at: Date;
+    occurred_at?: Date;
     processed_at?: Date;
     status: string;
     stream_name: string;
@@ -103,6 +105,7 @@ export const makePgEventStoreDatabase = (): Effect.Effect<
                 event_schema_version: row.event_schema_version,
                 event_type: row.event_type,
                 metadata: row.metadata,
+                occurred_at: row.occurred_at,
                 stream_name: row.stream_name,
                 stream_version: row.stream_version,
               })),
@@ -110,6 +113,7 @@ export const makePgEventStoreDatabase = (): Effect.Effect<
             .returning([
               'id',
               'created_at',
+              'occurred_at',
               'global_position',
               'stream_version',
               'event_id',
@@ -162,12 +166,14 @@ export const makePgEventStoreDatabase = (): Effect.Effect<
               rows.map((row) => ({
                 attempts: 0,
                 category: row.category,
-                cloudevent: JSON.stringify(row.cloudevent),
+                event_data: row.event_data,
                 event_id: row.event_id,
                 event_position: row.event_position,
                 event_schema_version: row.event_schema_version,
                 event_type: row.event_type,
+                metadata: row.metadata,
                 next_attempt_at: new Date(),
+                occurred_at: row.occurred_at,
                 status: row.status,
                 stream_name: row.stream_name,
               })),
@@ -343,8 +349,6 @@ export const makePgOutboxDatabase = (): Effect.Effect<
 
           return result.map((row) => ({
             ...row,
-            cloudevent:
-              typeof row.cloudevent === 'string' ? JSON.parse(row.cloudevent) : row.cloudevent,
             event_position:
               typeof row.event_position === 'string'
                 ? BigInt(row.event_position)
@@ -380,8 +384,6 @@ export const makePgOutboxDatabase = (): Effect.Effect<
             (rows) =>
               rows.map((row) => ({
                 ...row,
-                cloudevent:
-                  typeof row.cloudevent === 'string' ? JSON.parse(row.cloudevent) : row.cloudevent,
                 event_position:
                   typeof row.event_position === 'string'
                     ? BigInt(row.event_position)
