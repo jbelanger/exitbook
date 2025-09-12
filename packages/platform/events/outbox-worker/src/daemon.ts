@@ -1,7 +1,7 @@
 import { Effect, Duration, Context, Layer, pipe, Fiber, Schedule } from 'effect';
 
-import { OutboxProcessor, defaultOutboxConfig } from './processor';
-import type { OutboxConfig } from './processor';
+import { defaultOutboxConfig } from './processor';
+import { OutboxProcessorTag, type OutboxConfig, type OutboxProcessor } from './processor';
 
 /**
  * Outbox daemon that continuously processes pending events
@@ -11,7 +11,9 @@ export interface OutboxDaemon {
   readonly stop: () => Effect.Effect<void, never, never>;
 }
 
-export const OutboxDaemon = Context.GenericTag<OutboxDaemon>('@exitbook/event-store/OutboxDaemon');
+export const OutboxDaemonTag = Context.GenericTag<OutboxDaemon>(
+  '@exitbook/outbox-worker/OutboxDaemon',
+);
 
 export interface DaemonConfig extends OutboxConfig {
   readonly batchSize: number;
@@ -30,7 +32,7 @@ export const makeOutboxDaemon = (
   config: DaemonConfig = defaultDaemonConfig,
 ): Effect.Effect<OutboxDaemon, never, OutboxProcessor> =>
   Effect.gen(function* () {
-    const processor = yield* OutboxProcessor;
+    const processor = yield* OutboxProcessorTag;
 
     // Create a schedule that polls every intervalMs, with slower backoff after maxIdleRounds empty rounds
     const pollSchedule = Schedule.addDelay(Schedule.count, (n) => {
@@ -97,4 +99,4 @@ export const makeOutboxDaemon = (
 
 // Layer factory for OutboxDaemon
 export const OutboxDaemonLive = (config?: DaemonConfig) =>
-  Layer.effect(OutboxDaemon, makeOutboxDaemon(config));
+  Layer.effect(OutboxDaemonTag, makeOutboxDaemon(config));

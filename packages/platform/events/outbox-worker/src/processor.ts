@@ -1,10 +1,10 @@
+import { OutboxDatabaseTag } from '@exitbook/platform-event-store/port';
+import type { OutboxDatabase, OutboxEntry } from '@exitbook/platform-event-store/port';
 import { MessageBusProducerTag, topic } from '@exitbook/platform-messaging';
 import type { MessageBusProducer } from '@exitbook/platform-messaging';
 import { Effect, Data, Context, Layer, pipe } from 'effect';
 
-import { OutboxDatabaseTag } from '../port';
-import type { OutboxDatabase, OutboxEntry } from '../port';
-
+import { OutboxMetricsTag, type OutboxMetrics } from './metrics';
 import { createStatusTransitions } from './status-transitions';
 
 // Outbox specific errors
@@ -31,8 +31,8 @@ export interface OutboxProcessor {
   ) => Effect.Effect<number, OutboxProcessError, never>;
 }
 
-export const OutboxProcessor = Context.GenericTag<OutboxProcessor>(
-  '@exitbook/event-store/OutboxProcessor',
+export const OutboxProcessorTag = Context.GenericTag<OutboxProcessor>(
+  '@exitbook/outbox-worker/OutboxProcessor',
 );
 
 // Configuration for retry behavior
@@ -64,20 +64,6 @@ const calculateNextAttemptAt = (attempts: number, config: OutboxConfig): Date =>
   return new Date(Date.now() + totalDelay);
 };
 
-// Simple metrics interface - can be implemented by different observability systems
-export interface OutboxMetrics {
-  incrementClaimed(count: number): Effect.Effect<void>;
-  incrementFailed(count: number): Effect.Effect<void>;
-  incrementPublished(count: number): Effect.Effect<void>;
-  incrementRetries(count: number): Effect.Effect<void>;
-  logError(eventId: string, error: string): Effect.Effect<void>;
-  recordPublishLatency(latencyMs: number): Effect.Effect<void>;
-}
-
-export const OutboxMetrics = Context.GenericTag<OutboxMetrics>(
-  '@exitbook/event-store/OutboxMetrics',
-);
-
 // Outbox processor implementation
 export const makeOutboxProcessor = (
   config: OutboxConfig = defaultOutboxConfig,
@@ -85,7 +71,7 @@ export const makeOutboxProcessor = (
   Effect.gen(function* () {
     const db = yield* OutboxDatabaseTag;
     const publisher = yield* MessageBusProducerTag;
-    const metrics = yield* OutboxMetrics;
+    const metrics = yield* OutboxMetricsTag;
     const statusTransitions = createStatusTransitions(db);
 
     const processEntries = (entries: readonly OutboxEntry[]) =>
@@ -192,4 +178,4 @@ export const makeOutboxProcessor = (
 
 // Layer factory for OutboxProcessor
 export const OutboxProcessorLive = (config?: OutboxConfig) =>
-  Layer.effect(OutboxProcessor, makeOutboxProcessor(config));
+  Layer.effect(OutboxProcessorTag, makeOutboxProcessor(config));

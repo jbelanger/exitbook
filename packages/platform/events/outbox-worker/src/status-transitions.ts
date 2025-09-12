@@ -1,6 +1,5 @@
+import type { OutboxDatabase } from '@exitbook/platform-event-store';
 import { Effect } from 'effect';
-
-import type { OutboxDatabase } from '../port';
 
 export type OutboxStatus = 'PENDING' | 'PROCESSING' | 'PROCESSED' | 'FAILED';
 

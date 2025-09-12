@@ -330,30 +330,15 @@ importers:
 
   packages/platform/events/outbox-worker:
     dependencies:
-      '@exitbook/core':
-        specifier: workspace:*
-        version: link:../../../core
-      '@exitbook/platform-database':
-        specifier: workspace:*
-        version: link:../../database
       '@exitbook/platform-event-store':
         specifier: workspace:*
         version: link:../event-store
       '@exitbook/platform-messaging':
         specifier: workspace:*
         version: link:../../messaging
-      bignumber.js:
-        specifier: ^9.1.0
-        version: 9.3.1
       effect:
         specifier: ^3.0.0
         version: 3.17.13
-      kysely:
-        specifier: ^0.27.4
-        version: 0.27.6
-      pg:
-        specifier: ^8.12.0
-        version: 8.16.3
     devDependencies:
       '@internal/tsconfig':
         specifier: workspace:*

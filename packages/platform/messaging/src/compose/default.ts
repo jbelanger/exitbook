@@ -40,4 +40,4 @@ const createMessageBusDefault = () => {
   );
 };
 
-export const MessageBusDefault = createMessageBusDefault();
+export const MessageBusDefault = Layer.suspend(createMessageBusDefault);

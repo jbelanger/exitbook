@@ -1,5 +1,5 @@
 {
-  "name": "@exitbook/platform-events",
+  "name": "@exitbook/platform-outbox-worker",
   "version": "0.0.0",
   "private": true,
   "sideEffects": false,
@@ -8,6 +8,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./compose/*": {
+      "types": "./dist/compose/*.d.ts",
+      "default": "./dist/compose/*.js"
     }
   },
   "main": "dist/index.js",
@@ -22,8 +26,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@exitbook/core": "workspace:*",
-    "@exitbook/platform-event-bus": "workspace:*",
     "@exitbook/platform-event-store": "workspace:*",
     "@exitbook/platform-messaging": "workspace:*",
     "effect": "^3.0.0"

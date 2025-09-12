@@ -4,13 +4,13 @@ import { Layer, Effect } from 'effect';
 
 import { makePgCheckpointStore } from '../adapters/pg-checkpoint-store';
 import { CheckpointStoreTag } from '../checkpoint-store';
-import { UnifiedEventBus, makeUnifiedEventBus } from '../event-bus';
+import { UnifiedEventBusTag, makeUnifiedEventBus } from '../event-bus';
 
 // CheckpointStore layer using Kysely with DatabasePool
 export const CheckpointStoreLive = Layer.effect(CheckpointStoreTag, makePgCheckpointStore());
 
 export const UnifiedEventBusLive = Layer.effect(
-  UnifiedEventBus,
+  UnifiedEventBusTag,
   Effect.gen(function* () {
     const es = yield* EventStoreTag;
     const prod = yield* MessageBusProducerTag;

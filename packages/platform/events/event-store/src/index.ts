@@ -13,8 +13,3 @@ export { EventStoreDefault, EventStoreWithOutboxDefault } from './compose/defaul
 
 // Re-exporting main interfaces and errors from the port for convenience
 export * from './port';
-
-// Outbox processing functionality - only if needed as a supported API
-export * from './outbox/processor';
-export * from './outbox/metrics';
-export * from './outbox/daemon';

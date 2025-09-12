@@ -48,7 +48,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('expires_at', 'timestamptz', (col) => col.notNull())
     .execute();
 
-  // Create event_outbox table
+  // Create event_outbox table with all final columns
   await db.schema
     .createTable('event_outbox')
     .addColumn('id', 'uuid', (col) => col.primaryKey().defaultTo(sql`gen_random_uuid()`))
@@ -56,11 +56,43 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('stream_name', 'text', (col) => col.notNull())
     .addColumn('category', 'text', (col) => col.notNull())
     .addColumn('event_type', 'text', (col) => col.notNull())
-    .addColumn('payload', 'jsonb', (col) => col.notNull())
-    .addColumn('metadata', 'jsonb', (col) => col.notNull().defaultTo('{}'))
+    .addColumn('cloudevent', 'jsonb', (col) => col.notNull().defaultTo('{}'))
     .addColumn('status', 'text', (col) => col.notNull().defaultTo('PENDING'))
+    .addColumn('attempts', 'integer', (col) => col.notNull().defaultTo(0))
+    .addColumn('next_attempt_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
+    .addColumn('processed_at', 'timestamptz')
+    .addColumn('last_error', 'text')
+    .addColumn('event_position', 'bigint', (col) => col.notNull().defaultTo(0))
+    .addColumn('event_schema_version', 'integer', (col) => col.notNull().defaultTo(1))
     .addColumn('created_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
     .addColumn('updated_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
+    .execute();
+
+  // Create indexes for event_outbox
+  await db.schema
+    .createIndex('idx_event_outbox_sched')
+    .on('event_outbox')
+    .columns(['status', 'next_attempt_at'])
+    .execute();
+
+  await db.schema
+    .createIndex('idx_event_outbox_status')
+    .on('event_outbox')
+    .column('status')
+    .execute();
+
+  await db.schema
+    .createIndex('idx_event_outbox_position')
+    .on('event_outbox')
+    .column('event_position')
+    .execute();
+
+  // Create unique constraint on event_id to prevent duplicate outbox entries
+  await db.schema
+    .createIndex('ux_outbox_event_id')
+    .unique()
+    .on('event_outbox')
+    .column('event_id')
     .execute();
 
   // Create event_snapshots table

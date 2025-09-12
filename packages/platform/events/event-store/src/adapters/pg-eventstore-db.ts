@@ -1,6 +1,7 @@
-import { Effect } from 'effect';
-import type { Kysely } from 'kysely';
-import { sql } from 'kysely';
+import { DatabasePool } from '@exitbook/platform-database';
+import { Context, Effect, Layer } from 'effect';
+import { Kysely } from 'kysely';
+import { PostgresDialect, sql } from 'kysely';
 
 import type {
   EventStoreDatabase,
@@ -11,7 +12,15 @@ import type {
 } from '../port';
 import { IdempotencyError } from '../port';
 
-import { KyselyTag } from './kysely';
+export const KyselyTag = Context.GenericTag<Kysely<EventStoreDB>>('EventStore/Kysely');
+
+export const KyselyLive = Layer.effect(
+  KyselyTag,
+  Effect.gen(function* () {
+    const { pool } = yield* DatabasePool;
+    return new Kysely<EventStoreDB>({ dialect: new PostgresDialect({ pool }) });
+  }),
+);
 
 // Event store schema types
 export interface EventStoreDB {

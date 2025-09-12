@@ -1,6 +1,18 @@
-import { Effect, Layer } from 'effect';
+import { Context, Effect, Layer } from 'effect';
 
-import { OutboxMetrics } from './processor';
+// Simple metrics interface - can be implemented by different observability systems
+export interface OutboxMetrics {
+  incrementClaimed(count: number): Effect.Effect<void>;
+  incrementFailed(count: number): Effect.Effect<void>;
+  incrementPublished(count: number): Effect.Effect<void>;
+  incrementRetries(count: number): Effect.Effect<void>;
+  logError(eventId: string, error: string): Effect.Effect<void>;
+  recordPublishLatency(latencyMs: number): Effect.Effect<void>;
+}
+
+export const OutboxMetricsTag = Context.GenericTag<OutboxMetrics>(
+  '@exitbook/outbox-worker/OutboxMetrics',
+);
 
 // Simple console-based metrics implementation
 export const makeConsoleOutboxMetrics = (): OutboxMetrics => ({
@@ -24,7 +36,7 @@ export const makeConsoleOutboxMetrics = (): OutboxMetrics => ({
 });
 
 // Layer that provides console metrics
-export const ConsoleOutboxMetricsLive = Layer.succeed(OutboxMetrics, makeConsoleOutboxMetrics());
+export const ConsoleOutboxMetricsLive = Layer.succeed(OutboxMetricsTag, makeConsoleOutboxMetrics());
 
 // No-op metrics implementation for testing
 export const makeNoOpOutboxMetrics = (): OutboxMetrics => ({
@@ -37,4 +49,4 @@ export const makeNoOpOutboxMetrics = (): OutboxMetrics => ({
 });
 
 // Layer that provides no-op metrics
-export const NoOpOutboxMetricsLive = Layer.succeed(OutboxMetrics, makeNoOpOutboxMetrics());
+export const NoOpOutboxMetricsLive = Layer.succeed(OutboxMetricsTag, makeNoOpOutboxMetrics());

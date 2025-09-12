@@ -24,14 +24,6 @@
     "./compose/*": {
       "types": "./dist/compose/*.d.ts",
       "default": "./dist/compose/*.js"
-    },
-    "./adapters/*": {
-      "types": "./dist/adapters/*.d.ts",
-      "default": "./dist/adapters/*.js"
-    },
-    "./impl/*": {
-      "types": "./dist/impl/*.d.ts",
-      "default": "./dist/impl/*.js"
     }
   },
   "main": "dist/index.js",

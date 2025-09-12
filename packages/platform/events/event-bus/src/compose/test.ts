@@ -5,7 +5,7 @@ import { Layer, Effect, Ref } from 'effect';
 
 import { CheckpointStoreTag } from '../checkpoint-store';
 import { CheckpointError } from '../errors';
-import { UnifiedEventBus, makeUnifiedEventBus } from '../event-bus';
+import { UnifiedEventBusTag, makeUnifiedEventBus } from '../event-bus';
 
 export const CheckpointStoreTest = Layer.effect(
   CheckpointStoreTag,
@@ -32,7 +32,7 @@ export const CheckpointStoreTest = Layer.effect(
 );
 
 export const UnifiedEventBusTestLive = Layer.effect(
-  UnifiedEventBus,
+  UnifiedEventBusTag,
   Effect.gen(function* () {
     const es = yield* EventStoreTag;
     const prod = yield* MessageBusProducerTag;

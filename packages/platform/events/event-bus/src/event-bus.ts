@@ -60,7 +60,7 @@ export interface UnifiedEventBus {
   ) => Stream.Stream<DomainEvent, SubscriptionError>;
 }
 
-export const UnifiedEventBus = Context.GenericTag<UnifiedEventBus>('@platform/UnifiedEventBus');
+export const UnifiedEventBusTag = Context.GenericTag<UnifiedEventBus>('@platform/UnifiedEventBus');
 
 export const makeUnifiedEventBus = (
   eventStore: EventStore,
