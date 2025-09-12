@@ -147,6 +147,8 @@ export interface OutboxDatabase {
   readonly claimPendingEvents: (
     batchSize: number,
   ) => Effect.Effect<readonly OutboxEntry[], { reason: string }>;
+  readonly getDLQSize: () => Effect.Effect<number, { reason: string }>;
+  readonly getQueueDepth: () => Effect.Effect<number, { reason: string }>;
   readonly markAsDLQ: (eventId: string) => Effect.Effect<void, { reason: string }>;
   readonly selectPendingEvents: (
     batchSize: number,

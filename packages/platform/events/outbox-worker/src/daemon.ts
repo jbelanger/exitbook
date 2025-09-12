@@ -1,5 +1,7 @@
+import { OutboxDatabaseTag, type OutboxDatabase } from '@exitbook/platform-event-store/port';
 import { Effect, Duration, Context, Layer, pipe, Fiber, Schedule } from 'effect';
 
+import { OutboxMetricsTag, type OutboxMetrics } from './metrics';
 import { defaultOutboxConfig } from './processor';
 import { OutboxProcessorTag, type OutboxConfig, type OutboxProcessor } from './processor';
 
@@ -7,7 +9,7 @@ import { OutboxProcessorTag, type OutboxConfig, type OutboxProcessor } from './p
  * Outbox daemon that continuously processes pending events
  */
 export interface OutboxDaemon {
-  readonly start: () => Effect.Effect<void, never, never>;
+  readonly start: () => Effect.Effect<void, never, unknown>;
   readonly stop: () => Effect.Effect<void, never, never>;
 }
 
@@ -30,9 +32,29 @@ export const defaultDaemonConfig: DaemonConfig = {
 
 export const makeOutboxDaemon = (
   config: DaemonConfig = defaultDaemonConfig,
-): Effect.Effect<OutboxDaemon, never, OutboxProcessor> =>
+): Effect.Effect<OutboxDaemon, never, OutboxProcessor | OutboxMetrics | OutboxDatabase> =>
   Effect.gen(function* () {
     const processor = yield* OutboxProcessorTag;
+    const metrics = yield* OutboxMetricsTag;
+    const db = yield* OutboxDatabaseTag;
+
+    // Update gauges with current queue metrics
+    const updateGauges = Effect.gen(function* () {
+      const queueDepth = yield* db.getQueueDepth();
+      const dlqSize = yield* db.getDLQSize();
+      yield* metrics.setQueueDepth(queueDepth);
+      yield* metrics.setDlqSize(dlqSize);
+    }).pipe(
+      Effect.catchAll((error) => {
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : typeof error === 'object' && error !== null && 'reason' in error
+              ? String((error as { reason: unknown }).reason)
+              : String(error);
+        return Effect.logWarning(`Failed to update queue metrics: ${errorMessage}`);
+      }),
+    );
 
     // Create a schedule that polls every intervalMs, with slower backoff after maxIdleRounds empty rounds
     const pollSchedule = Schedule.addDelay(Schedule.count, (n) => {
@@ -52,6 +74,7 @@ export const makeOutboxDaemon = (
           return Effect.logInfo(`Outbox daemon processed ${processedCount} events`);
         }
       }),
+      Effect.tap(() => updateGauges), // Update gauges after each processing round
       Effect.map((count) => count > 0), // Return true if we processed events, false if idle
     );
 

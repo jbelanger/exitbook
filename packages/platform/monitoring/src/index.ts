@@ -1,3 +1,5 @@
+import { hostname } from 'node:os';
+
 import { NodeSdk } from '@effect/opentelemetry';
 import { trace, SpanKind } from '@opentelemetry/api';
 import type { Span } from '@opentelemetry/api';
@@ -56,6 +58,7 @@ export const TelemetryLive = Layer.unwrapEffect(
       resource: {
         attributes: {
           'deployment.environment': cfg.environment,
+          'host.name': process.env['HOSTNAME'] || hostname(),
           'service.instance.id': process.env['HOSTNAME'] || `${process.pid}`,
         },
         serviceName: cfg.serviceName,

@@ -357,6 +357,31 @@ export const makePgOutboxDatabase = (): Effect.Effect<
           })) as OutboxEntry[];
         }).pipe(Effect.mapError(mapError)),
 
+      getDLQSize: () =>
+        Effect.tryPromise(() =>
+          db
+            .selectFrom('event_outbox')
+            .select((eb) => eb.fn.count('id').as('count'))
+            .where('status', '=', 'FAILED')
+            .executeTakeFirst(),
+        ).pipe(
+          Effect.map((result) => Number(result?.count ?? 0)),
+          Effect.mapError(mapError),
+        ),
+
+      getQueueDepth: () =>
+        Effect.tryPromise(() =>
+          db
+            .selectFrom('event_outbox')
+            .select((eb) => eb.fn.count('id').as('count'))
+            .where('status', '=', 'PENDING')
+            .where('next_attempt_at', '<=', new Date())
+            .executeTakeFirst(),
+        ).pipe(
+          Effect.map((result) => Number(result?.count ?? 0)),
+          Effect.mapError(mapError),
+        ),
+
       markAsDLQ: (eventId: string) =>
         Effect.tryPromise(() =>
           db
