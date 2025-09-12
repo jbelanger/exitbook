@@ -1,8 +1,13 @@
 import { CloudEvent } from 'cloudevents';
 import { Effect, Layer } from 'effect';
 
-import type { MessageBusConsumer, MessageTransport, Subscription, IncomingMessage } from '../port';
-import { MessageBusConsumerTag, MessageTransportTag } from '../port';
+import type {
+  MessageBusConsumer,
+  MessageTransport,
+  Subscription,
+  IncomingMessage,
+} from '../../port';
+import { MessageBusConsumerTag, MessageTransportTag } from '../../port';
 
 // ✅ factory takes transport and closes over it
 export const makeMessageBusConsumer = (transport: MessageTransport): MessageBusConsumer => ({

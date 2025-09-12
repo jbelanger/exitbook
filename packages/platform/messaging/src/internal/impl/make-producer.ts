@@ -1,8 +1,8 @@
 import { Effect, pipe, Layer } from 'effect';
 
-import type { MessageBusProducer, MessageTransport } from '../port';
-import { MessageBusProducerTag, MessageTransportTag } from '../port';
-import { CloudEvents } from '../util/toCloudEvent';
+import type { MessageBusProducer, MessageTransport } from '../../port';
+import { MessageBusProducerTag, MessageTransportTag } from '../../port';
+import { CloudEvents } from '../../util/toCloudEvent';
 
 // Helper to detect if payload is already a CloudEvent
 const looksLikeCloudEvent = (payload: unknown): boolean => {

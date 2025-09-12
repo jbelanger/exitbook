@@ -8,8 +8,4 @@ export * from './errors';
 export * from './pattern';
 
 // Compose layers (main integration points)
-export {
-  UnifiedEventBusDefault,
-  UnifiedEventBusLive,
-  CheckpointStoreLive,
-} from './compose/default';
+export { UnifiedEventBusDefault, UnifiedEventBusLive, CheckpointStoreLive } from './compose/live';

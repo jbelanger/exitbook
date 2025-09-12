@@ -1,33 +1,31 @@
-// Compose layers (main integration points)
-export { MessageBusDefault } from './compose/default';
+// Default composition
+export { MessageBusDefault } from './compose/live';
+
+// Test composition (needed by event-bus tests and local dev)
 export { MessageBusTest } from './compose/test';
 
-// Re-exporting main interfaces and errors from the port for convenience
+// Factories
+export { makeMessageBusProducer } from './producer';
+export { makeMessageBusConsumer } from './consumer';
+
+// Core types + tags + topic helper
 export {
-  // Core interfaces and types
   type MessageBusProducer,
   type MessageBusConsumer,
-  type MessageTransport,
-  type MessageBusConfig,
   type IncomingMessage,
-  type Subscription,
-  type MessageHeaders,
   type PublishOptions,
-
-  // Service tags
+  type MessageHeaders,
   MessageBusProducerTag,
   MessageBusConsumerTag,
   MessageTransportTag,
-
-  // Constants and utilities
   topic,
-
-  // Errors
-  PublishError,
-  SubscribeError,
-  MessageBusError,
-  MessageValidationError,
 } from './port';
 
-// CloudEvent utilities are internal implementation details
-// Applications should use the MessageBusProducer interface instead
+// CloudEvent convenience API (used by event-store outbox mapper)
+export {
+  CloudEvents,
+  getTracking,
+  type CloudEventInit,
+  type DomainCloudEvent,
+  type CloudEventOptions,
+} from './util/toCloudEvent';

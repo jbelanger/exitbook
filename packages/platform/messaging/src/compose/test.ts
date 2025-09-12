@@ -1,8 +1,8 @@
 import { Layer } from 'effect';
 
-import { makeFakeMessageTransport } from '../adapters/fake-transport';
-import { MessageBusConsumerLive } from '../impl/make-consumer';
-import { MessageBusProducerLive } from '../impl/make-producer';
+import { makeFakeMessageTransport } from '../internal/adapters/fake-transport';
+import { MessageBusConsumerLive } from '../internal/impl/make-consumer';
+import { MessageBusProducerLive } from '../internal/impl/make-producer';
 import { MessageTransportTag } from '../port';
 
 // Test composition - MessageBus layers with fake dependencies

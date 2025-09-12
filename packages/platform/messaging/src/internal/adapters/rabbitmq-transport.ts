@@ -5,8 +5,8 @@ import type { AmqpConnectionManager, ChannelWrapper, Options } from 'amqp-connec
 import type { ConsumeMessage, ConfirmChannel, Channel } from 'amqplib';
 import { Effect, Layer } from 'effect';
 
-import { MessageTransportTag, PublishError, SubscribeError, MessageBusError } from '../port';
-import type { MessageTransport, MessageHeaders } from '../port';
+import { MessageTransportTag, PublishError, SubscribeError, MessageBusError } from '../../port';
+import type { MessageTransport, MessageHeaders } from '../../port';
 
 export interface RabbitMQConfig {
   readonly durable?: boolean | undefined;

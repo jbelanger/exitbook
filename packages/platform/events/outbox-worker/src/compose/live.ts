@@ -1,4 +1,4 @@
-import { EventStoreWithOutboxDefault } from '@exitbook/platform-event-store/compose/default';
+import { EventStoreWithOutboxDefault } from '@exitbook/platform-event-store/compose/live';
 import { MessageBusDefault } from '@exitbook/platform-messaging';
 import { Layer } from 'effect';
 

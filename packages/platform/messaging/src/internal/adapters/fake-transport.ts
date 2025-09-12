@@ -1,6 +1,6 @@
 import { Effect, Ref } from 'effect';
 
-import type { MessageTransport, MessageHeaders } from '../port';
+import type { MessageTransport, MessageHeaders } from '../../port';
 
 // ✅ factory returns a resolved MessageTransport (R = never)
 export const makeFakeMessageTransport = (): Effect.Effect<MessageTransport, never, never> =>

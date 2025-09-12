@@ -4,7 +4,7 @@ import { EventStoreDatabaseTag } from '..';
 import type { EventStoreDatabase, StoredEventData, OutboxEntryData, StoredEvent } from '../port';
 import { IdempotencyError } from '../port';
 
-import { EventStoreLive } from './default';
+import { EventStoreLive } from './live';
 
 // In-memory fake EventStore database for testing
 const makeFakeEventStoreDatabase = (): Effect.Effect<EventStoreDatabase, never> =>

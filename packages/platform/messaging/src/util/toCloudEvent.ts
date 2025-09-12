@@ -48,6 +48,22 @@ export function toCloudEvent<T>(
   return ce;
 }
 
+// Domain-specific CloudEvent type
+export type DomainCloudEvent<T = unknown> = CloudEvent<T>;
+
+// Extract tracking information from CloudEvent
+export function getTracking(event: CloudEvent): {
+  causationId?: string | undefined;
+  correlationId?: string | undefined;
+  userId?: string | undefined;
+} {
+  return {
+    causationId: event['causationid'] as string | undefined,
+    correlationId: event['correlationid'] as string | undefined,
+    userId: event['userid'] as string | undefined,
+  };
+}
+
 // Convenience helpers for internal use only
 export const CloudEvents = {
   // Simple CloudEvent creation - used by message bus producer

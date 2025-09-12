@@ -8,6 +8,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./compose/*": {
+      "types": "./dist/compose/*.d.ts",
+      "default": "./dist/compose/*.js"
     }
   },
   "main": "dist/index.js",

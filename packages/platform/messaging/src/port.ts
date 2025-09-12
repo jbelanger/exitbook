@@ -21,6 +21,17 @@ export class MessageValidationError extends Data.TaggedError('MessageValidationE
 // Message headers type
 export type MessageHeaders = Record<string, string>;
 
+// CloudEvent options interface (also defined in util/toCloudEvent.ts)
+export interface CloudEventOptions {
+  readonly causationId?: string | undefined;
+  readonly correlationId?: string | undefined;
+  readonly id?: string | undefined;
+  readonly source?: string | undefined;
+  readonly subject?: string | undefined;
+  readonly time?: Date | undefined;
+  readonly userId?: string | undefined;
+}
+
 // Publish options interface for CloudEvents
 export interface PublishOptions {
   causationId?: string;
