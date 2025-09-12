@@ -33,7 +33,7 @@ export class TransactionClassified extends DomainEvent {
       readonly classification: string;
       readonly classifiedAt: Date;
       readonly confidence: number;
-      readonly protocol?: string;
+      readonly protocol?: string | undefined;
       readonly transactionId: TransactionId;
     },
   ) {

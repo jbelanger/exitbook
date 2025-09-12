@@ -10,12 +10,22 @@ import {
 } from '../events/transaction.events.js';
 import type { UnbalancedEntriesError } from '../services/ledger-rules.service.js';
 import { LedgerRules, type LedgerEntry } from '../services/ledger-rules.service.js';
-import {
-  TransactionClassifier,
-  TransactionClassification,
-} from '../services/transaction-classifier.service.js';
 import type { ExternalId } from '../value-objects/identifiers.vo.js';
 import { AccountId } from '../value-objects/identifiers.vo.js';
+
+// Pure domain value object (moved from ports to keep core pure)
+export class TransactionClassification {
+  static unknown(): TransactionClassification {
+    return new TransactionClassification(0, 'UNKNOWN');
+  }
+
+  constructor(
+    public readonly confidence: number,
+    public readonly type: string,
+    public readonly protocol?: string | undefined,
+    public readonly subType?: string | undefined,
+  ) {}
+}
 
 // Transaction errors
 export class InvalidStateError extends Data.TaggedError('InvalidStateError')<{
@@ -40,10 +50,6 @@ export interface ImportTransactionCommand {
   readonly rawData: unknown;
   readonly source: string;
   readonly userId: UserId;
-}
-
-export interface ClassifyTransactionCommand {
-  readonly transactionId: TransactionId;
 }
 
 export interface RecordEntriesCommand {
@@ -145,11 +151,11 @@ export class Transaction extends EventSourcedAggregate {
         const classifiedEvent = event as TransactionClassified;
         return this.copy({
           classification: Option.some(
-            new TransactionClassification({
-              confidence: classifiedEvent.data.confidence,
-              type: classifiedEvent.data.classification,
-              ...(classifiedEvent.data.protocol ? { protocol: classifiedEvent.data.protocol } : {}),
-            }),
+            new TransactionClassification(
+              classifiedEvent.data.confidence,
+              classifiedEvent.data.classification,
+              classifiedEvent.data.protocol,
+            ),
           ),
           events: [...this.events, event],
           status: TransactionStatus.CLASSIFIED,
@@ -176,8 +182,10 @@ export class Transaction extends EventSourcedAggregate {
     }
   }
 
-  // Classify transaction - returns event only
-  classify(): Effect.Effect<TransactionClassified, InvalidStateError, TransactionClassifier> {
+  // Apply classification result - pure domain logic that validates state and creates event
+  applyClassification(
+    classification: TransactionClassification,
+  ): Effect.Effect<TransactionClassified, InvalidStateError> {
     if (this.status !== TransactionStatus.IMPORTED) {
       return Effect.fail(
         new InvalidStateError({
@@ -195,24 +203,15 @@ export class Transaction extends EventSourcedAggregate {
           onSome: (transactionId) => Effect.succeed(transactionId),
         }),
       ),
-      Effect.flatMap((transactionId) =>
-        pipe(
-          TransactionClassifier,
-          Effect.flatMap((classifier) =>
-            // In real implementation, we'd pass the raw data here
-            classifier.classify({ source: 'binance', type: 'trade' }),
-          ),
-          Effect.map(
-            (classification) =>
-              new TransactionClassified({
-                classification: classification.type,
-                confidence: classification.confidence,
-                transactionId,
-                ...(classification.protocol ? { protocol: classification.protocol } : {}),
-                classifiedAt: new Date(),
-              }),
-          ),
-        ),
+      Effect.map(
+        (transactionId) =>
+          new TransactionClassified({
+            classification: classification.type,
+            confidence: classification.confidence,
+            transactionId,
+            ...(classification.protocol ? { protocol: classification.protocol } : {}),
+            classifiedAt: new Date(),
+          }),
       ),
     );
   }

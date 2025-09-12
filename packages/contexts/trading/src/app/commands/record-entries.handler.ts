@@ -7,20 +7,18 @@ import {
 } from '@exitbook/core';
 import { UnifiedEventBusTag } from '@exitbook/platform-event-bus';
 import type { UnifiedEventBus } from '@exitbook/platform-event-bus';
-import { Effect, pipe, Context } from 'effect';
+import { Effect, pipe } from 'effect';
 
-import type { RecordEntriesCommand } from '../../core/aggregates/transaction.aggregate.js';
 import type { InvalidStateError } from '../../core/aggregates/transaction.aggregate.js';
 import type { LedgerEntry, UnbalancedEntriesError } from '../../core/index.js';
+import { TransactionRepositoryTag } from '../../ports';
 import type {
   TransactionRepository,
-  LoadTransactionError,
   SaveTransactionError,
-} from '../../ports/transaction-repository.port.js';
+  LoadTransactionError,
+} from '../../ports';
 
-export const TransactionRepositoryTag = Context.GenericTag<TransactionRepository>(
-  '@trading/TransactionRepository',
-);
+import type { RecordEntriesCommand } from './commands.js';
 
 // Pure Effect-based command handler (framework-agnostic)
 export const recordEntries = (

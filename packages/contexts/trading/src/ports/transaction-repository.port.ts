@@ -1,6 +1,6 @@
 import type { TransactionId } from '@exitbook/core';
 import type { Effect } from 'effect';
-import { Data } from 'effect';
+import { Context, Data } from 'effect';
 
 import type { Transaction } from '../core/aggregates/transaction.aggregate.js';
 
@@ -27,3 +27,7 @@ export interface TransactionRepository {
 
   save(transaction: Transaction): Effect.Effect<void, SaveTransactionError>;
 }
+
+export const TransactionRepositoryTag = Context.GenericTag<TransactionRepository>(
+  '@trading/TransactionRepository',
+);

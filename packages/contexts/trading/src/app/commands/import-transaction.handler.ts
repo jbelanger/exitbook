@@ -1,20 +1,16 @@
 import { UnifiedEventBusTag } from '@exitbook/platform-event-bus';
 import type { UnifiedEventBus } from '@exitbook/platform-event-bus';
-import { Effect, pipe, Context } from 'effect';
+import { Effect, pipe } from 'effect';
 
-import {
-  Transaction,
-  type ImportTransactionCommand,
-} from '../../core/aggregates/transaction.aggregate.js';
+import { Transaction } from '../../core/aggregates/transaction.aggregate.js';
+import { TransactionRepositoryTag } from '../../ports';
 import type {
   TransactionRepository,
-  IdempotencyCheckError,
   SaveTransactionError,
-} from '../../ports/transaction-repository.port.js';
+  IdempotencyCheckError,
+} from '../../ports';
 
-export const TransactionRepositoryTag = Context.GenericTag<TransactionRepository>(
-  '@trading/TransactionRepository',
-);
+import type { ImportTransactionCommand } from './commands.js';
 
 // Pure Effect-based command handler (framework-agnostic)
 export const importTransaction = (

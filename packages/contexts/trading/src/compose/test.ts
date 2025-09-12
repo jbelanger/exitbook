@@ -3,14 +3,15 @@ import { UnifiedEventBusTag } from '@exitbook/platform-event-bus';
 import type { UnifiedEventBus } from '@exitbook/platform-event-bus';
 import { Layer, Effect, Stream } from 'effect';
 
+import { TransactionClassification } from '../core/aggregates/transaction.aggregate.js';
 import {
-  TransactionRepositoryTag,
   TransactionClassifierTag,
-} from '../app/commands/classify-transaction.handler';
-import type { TransactionClassifier, RawTransactionData } from '../core';
-import { TransactionClassification } from '../core';
-import type { TransactionRepository } from '../ports';
-import { LoadTransactionError } from '../ports';
+  type TransactionClassifier,
+  type RawTransactionData,
+} from '../ports/transaction-classifier.port.js';
+import { TransactionRepositoryTag } from '../ports/transaction-repository.port.js';
+import type { TransactionRepository } from '../ports/transaction-repository.port.js';
+import { LoadTransactionError } from '../ports/transaction-repository.port.js';
 
 // Test/in-memory implementations for testing
 const TransactionRepositoryTest: TransactionRepository = {
@@ -27,12 +28,7 @@ const TransactionRepositoryTest: TransactionRepository = {
 
 const TransactionClassifierTest: TransactionClassifier = {
   classify: (_rawData: RawTransactionData) =>
-    Effect.succeed(
-      new TransactionClassification({
-        confidence: 0.5,
-        type: 'TEST',
-      }),
-    ),
+    Effect.succeed(new TransactionClassification(0.5, 'TEST')),
 };
 
 const EventBusTest: UnifiedEventBus = {

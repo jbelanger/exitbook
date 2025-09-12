@@ -1,20 +1,20 @@
 import { UnifiedEventBusTag } from '@exitbook/platform-event-bus';
 import type { UnifiedEventBus } from '@exitbook/platform-event-bus';
-import { Effect, pipe, Context } from 'effect';
+import { Effect, pipe } from 'effect';
 
-import type { ClassifyTransactionCommand, TransactionClassifier } from '../../core';
 import type { InvalidStateError } from '../../core/aggregates/transaction.aggregate';
-import type {
-  TransactionRepository,
-  LoadTransactionError,
-  SaveTransactionError,
-} from '../../ports';
-export const TransactionRepositoryTag = Context.GenericTag<TransactionRepository>(
-  '@trading/TransactionRepository',
-);
-export const TransactionClassifierTag = Context.GenericTag<TransactionClassifier>(
-  '@trading/TransactionClassifier',
-);
+import {
+  TransactionClassifierTag,
+  type TransactionClassifier,
+} from '../../ports/transaction-classifier.port.js';
+import {
+  TransactionRepositoryTag,
+  type TransactionRepository,
+  type LoadTransactionError,
+  type SaveTransactionError,
+} from '../../ports/transaction-repository.port.js';
+
+import type { ClassifyTransactionCommand } from './commands.js';
 
 // Pure Effect-based command handler (framework-agnostic)
 export const classifyTransaction = (
@@ -29,20 +29,23 @@ export const classifyTransaction = (
     TransactionRepositoryTag,
     Effect.flatMap((repo) => repo.load(command.transactionId)),
 
-    // 2. Execute the domain classification logic
+    // 2. Use classifier service to get classification
     Effect.flatMap((transaction) =>
       pipe(
         TransactionClassifierTag,
         Effect.flatMap((classifier) =>
-          pipe(
-            Effect.provideService(transaction.classify(), TransactionClassifierTag, classifier),
-            Effect.map((event) => ({ event, transaction })),
-          ),
+          // In real implementation, we'd get raw data from the transaction
+          classifier.classify({ source: 'binance', type: 'trade' }),
         ),
+        Effect.flatMap((classification) =>
+          // 3. Apply classification to aggregate to get domain event
+          transaction.applyClassification(classification),
+        ),
+        Effect.map((event) => ({ event, transaction })),
       ),
     ),
 
-    // 3. Orchestrate the state change and save
+    // 4. Apply event to get updated state and save
     Effect.flatMap(({ event, transaction }) => {
       const updatedTransaction = transaction.apply(event);
       return pipe(
@@ -52,7 +55,7 @@ export const classifyTransaction = (
       );
     }),
 
-    // 4. Publish the event after successful save
+    // 5. Publish the event after successful save
     Effect.tap((event) =>
       pipe(
         UnifiedEventBusTag,
@@ -60,6 +63,6 @@ export const classifyTransaction = (
       ),
     ),
 
-    // 5. Return void as expected by the type signature
+    // 6. Return void as expected by the type signature
     Effect.asVoid,
   );

@@ -4,14 +4,9 @@ import { Injectable } from '@nestjs/common';
 import { CommandHandler, type ICommandHandler, type EventBus as NestEventBus } from '@nestjs/cqrs';
 import { Effect, Exit, Layer, Stream } from 'effect';
 
-import {
-  classifyTransaction,
-  TransactionRepositoryTag,
-  TransactionClassifierTag,
-} from '../app/commands/classify-transaction.handler';
-import type { TransactionClassifier } from '../core';
-import type { ClassifyTransactionCommand } from '../core';
-import type { TransactionRepository } from '../ports';
+import { classifyTransaction } from '../app/commands/classify-transaction.handler.js';
+import type { ClassifyTransactionCommand } from '../app/commands/commands.js';
+import { TradingRuntimeDefault } from '../compose/live.js';
 
 // NestJS adapter for UnifiedEventBus
 const createUnifiedEventBusLayer = (nestEventBus: NestEventBus): Layer.Layer<UnifiedEventBus> =>
@@ -32,22 +27,18 @@ const createUnifiedEventBusLayer = (nestEventBus: NestEventBus): Layer.Layer<Uni
 @Injectable()
 @CommandHandler('ClassifyTransactionCommand')
 export class ClassifyTransactionHandler implements ICommandHandler<ClassifyTransactionCommand> {
-  constructor(
-    private readonly repository: TransactionRepository,
-    private readonly eventBus: NestEventBus,
-    private readonly classifier: TransactionClassifier,
-  ) {}
+  constructor(private readonly eventBus: NestEventBus) {}
 
   async execute(command: ClassifyTransactionCommand): Promise<void> {
-    // Create runtime layer with NestJS-injected dependencies
-    const runtimeLayer = Layer.mergeAll(
-      Layer.succeed(TransactionRepositoryTag, this.repository),
-      Layer.succeed(TransactionClassifierTag, this.classifier),
-      createUnifiedEventBusLayer(this.eventBus),
+    // Create all layers and provide them to satisfy dependencies
+    const eventBusLayer = createUnifiedEventBusLayer(this.eventBus);
+    const fullRuntimeLayer = Layer.mergeAll(
+      eventBusLayer,
+      Layer.provide(TradingRuntimeDefault, eventBusLayer),
     );
 
     // Run the pure Effect program with the runtime layer
-    const program = Effect.provide(classifyTransaction(command), runtimeLayer);
+    const program = Effect.provide(classifyTransaction(command), fullRuntimeLayer);
 
     const exit = await Effect.runPromiseExit(program);
 

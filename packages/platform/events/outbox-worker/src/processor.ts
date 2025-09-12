@@ -7,7 +7,7 @@ import { Effect, Data, Context, Layer, pipe } from 'effect';
 import { OutboxMetricsTag, type OutboxMetrics } from './metrics';
 
 // ============================================================================
-// Status Transitions (consolidated from status-transitions.ts)
+// Status Transitions
 // ============================================================================
 
 export type OutboxStatus = 'PENDING' | 'PROCESSING' | 'PROCESSED' | 'FAILED';
