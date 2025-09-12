@@ -1,8 +1,8 @@
-import { MessageBusProducerTag, topic } from '@exitbook/platform-messaging';
+import type { EventMetadata } from '@exitbook/platform-event-store/model';
+import { MessageBusProducerTag, topic, headersFromMetadata } from '@exitbook/platform-messaging';
 import type { MessageBusProducer } from '@exitbook/platform-messaging';
 import { Effect, Data, Context, Layer, pipe } from 'effect';
 
-import type { EventMetadata } from './model';
 import { OutboxMetrics } from './observability';
 
 // Outbox specific errors
@@ -21,6 +21,7 @@ export interface OutboxEntry {
   readonly created_at: Date;
   readonly event_id: string;
   readonly event_position: bigint;
+  readonly event_schema_version: number;
   readonly event_type: string;
   readonly id: number;
   readonly last_error?: string;
@@ -67,7 +68,6 @@ export interface OutboxDatabase {
 
   readonly updateEventForRetry: (
     eventId: string,
-    attempts: number,
     nextAttemptAt: Date,
     lastError?: string,
   ) => Effect.Effect<void, OutboxProcessError, never>;
@@ -134,24 +134,17 @@ export const makeOutboxProcessor = (
           Effect.forEach(
             (entry) => {
               // Generate topic using shared helper
-              const topicName = topic(entry.category, entry.event_type, 'v1');
+              const topicName = topic(
+                entry.category,
+                entry.event_type,
+                `v${entry.event_schema_version}`,
+              );
               const key = String(entry.event_position); // Use event position for stable ordering
 
               const startTime = Date.now();
               return pipe(
                 publisher.publish(topicName, entry.payload, {
-                  headers: {
-                    'x-message-id': entry.event_id,
-                    ...(entry.metadata.causationId && {
-                      'x-causation-id': entry.metadata.causationId,
-                    }),
-                    ...(entry.metadata.correlationId && {
-                      'x-correlation-id': entry.metadata.correlationId,
-                    }),
-                    ...(entry.metadata.userId && { 'x-user-id': entry.metadata.userId }),
-                    'x-timestamp': entry.metadata.timestamp.toISOString(),
-                    ...(entry.metadata.source && { 'x-source': entry.metadata.source }),
-                  },
+                  headers: headersFromMetadata(entry.metadata, entry.event_id),
                   key,
                 }),
                 Effect.tap(() => {
@@ -178,12 +171,7 @@ export const makeOutboxProcessor = (
                         // Schedule retry with exponential backoff
                         const nextAttemptAt = calculateNextAttemptAt(entry.attempts, config);
                         return pipe(
-                          db.updateEventForRetry(
-                            entry.event_id,
-                            entry.attempts,
-                            nextAttemptAt,
-                            errorMessage,
-                          ),
+                          db.updateEventForRetry(entry.event_id, nextAttemptAt, errorMessage),
                           Effect.tap(() => metrics.incrementRetries(1)),
                         );
                       }

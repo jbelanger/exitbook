@@ -1,6 +1,7 @@
-import { Effect } from 'effect';
+import { Effect, Layer } from 'effect';
 
 import type { MessageBusConsumer, MessageTransport, Subscription, IncomingMessage } from '../port';
+import { MessageBusConsumerTag, MessageTransportTag } from '../port';
 
 // ✅ factory takes transport and closes over it
 export const makeMessageBusConsumer = (transport: MessageTransport): MessageBusConsumer => ({
@@ -21,3 +22,9 @@ export const makeMessageBusConsumer = (transport: MessageTransport): MessageBusC
       }),
     ),
 });
+
+// MessageBusConsumer layer - depends on MessageTransport
+export const MessageBusConsumerLive = Layer.effect(
+  MessageBusConsumerTag,
+  Effect.map(MessageTransportTag, makeMessageBusConsumer),
+);

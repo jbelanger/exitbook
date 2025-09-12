@@ -1,4 +1,4 @@
-import { Effect, Console } from 'effect';
+import { Effect, Console, Schedule, Duration } from 'effect';
 
 import { OutboxProcessor } from './outbox-processor';
 
@@ -48,19 +48,16 @@ export const runOutboxDaemon = (config: OutboxDaemonConfig = defaultConfig) =>
       `Starting outbox daemon with batch size ${config.batchSize}, interval ${config.intervalMs}ms`,
     );
 
-    // Implement drain-fast scheduling: loop immediately while processing events,
-    // sleep with jitter when idle to reduce unnecessary database polling
-    return yield* Effect.gen(function* () {
-      while (true) {
-        const processedCount = yield* processOnce;
+    // Implement drain-fast scheduling using Effect.repeat with conditional scheduling:
+    // - Loop immediately while processing events to drain backlog (no delay when processedCount > 0)
+    // - Sleep with jitter when idle to reduce unnecessary database polling (delay when processedCount === 0)
+    const baseSchedule = Schedule.spaced(Duration.millis(config.intervalMs));
+    const jitteredSchedule = Schedule.jittered(baseSchedule);
+    const conditionalSchedule = Schedule.whileOutput(
+      (processedCount: number) => processedCount > 0,
+    );
 
-        if (processedCount === 0) {
-          // No events processed - sleep with jitter to avoid thundering herd
-          const jitter = Math.floor(Math.random() * (config.intervalMs * 0.2));
-          const sleepTime = config.intervalMs + jitter;
-          yield* Effect.sleep(sleepTime);
-        }
-        // If events were processed, loop immediately to drain the backlog
-      }
-    });
+    const schedule = Schedule.union(conditionalSchedule, jitteredSchedule);
+
+    return yield* processOnce.pipe(Effect.repeat(schedule));
   });

@@ -1,8 +1,8 @@
 import { DatabasePool } from '@exitbook/platform-database';
+import type { EventMetadata } from '@exitbook/platform-event-store/model';
 import { Effect, Layer } from 'effect';
 import { Kysely, PostgresDialect, sql } from 'kysely';
 
-import type { EventMetadata } from '../model';
 import type { OutboxDatabase, OutboxEntry } from '../outbox-processor';
 import {
   OutboxReadError,
@@ -18,6 +18,7 @@ interface OutboxDB {
     created_at: Date;
     event_id: string;
     event_position: string;
+    event_schema_version: number;
     event_type: string;
     id: string;
     last_error?: string;
@@ -128,22 +129,17 @@ export const makePgOutboxDatabase = Effect.gen(function* () {
         });
       }).pipe(Effect.mapError(mapProcessError)),
 
-    updateEventForRetry: (
-      eventId: string,
-      attempts: number,
-      nextAttemptAt: Date,
-      lastError?: string,
-    ) =>
+    updateEventForRetry: (eventId: string, nextAttemptAt: Date, lastError?: string) =>
       Effect.tryPromise(() =>
         db
           .updateTable('event_outbox')
-          .set({
-            attempts,
+          .set((eb) => ({
+            attempts: eb('attempts', '+', 1), // Increment attempts on DB side
             next_attempt_at: nextAttemptAt,
             status: 'PENDING',
             ...withNow(),
             ...(lastError && { last_error: lastError.substring(0, 2000) }), // Truncate to reasonable length
-          })
+          }))
           .where('event_id', '=', eventId)
           .execute(),
       ).pipe(Effect.asVoid, Effect.mapError(mapProcessError)),

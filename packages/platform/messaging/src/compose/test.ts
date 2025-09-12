@@ -1,9 +1,9 @@
 import { Layer } from 'effect';
 
 import { makeFakeMessageTransport } from '../adapters/fake-transport';
+import { MessageBusConsumerLive } from '../impl/make-consumer';
+import { MessageBusProducerLive } from '../impl/make-producer';
 import { MessageTransportTag, MessageBusConfigTag } from '../port';
-
-import { MessageBusProducerLive, MessageBusConsumerLive } from './default';
 
 // Fake transport layer for testing
 const FakeMessageTransportLive = Layer.effect(MessageTransportTag, makeFakeMessageTransport());

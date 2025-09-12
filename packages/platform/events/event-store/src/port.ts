@@ -161,6 +161,8 @@ export interface StoredEvent extends StoredEventData {
 export interface OutboxEntryData {
   readonly category: string;
   readonly event_id: string;
+  readonly event_position: bigint;
+  readonly event_schema_version: number;
   readonly event_type: string;
   readonly metadata: unknown;
   readonly payload: unknown;

@@ -119,20 +119,23 @@ export const makeEventStore = (db: EventStoreDatabase): EventStore => {
       return Effect.succeed([]);
     }
 
-    const outboxEntries: readonly OutboxEntryData[] = eventsToStore.map((event) => ({
-      category: event.category,
-      event_id: event.event_id,
-      event_type: event.event_type,
-      metadata: event.metadata,
-      payload: event.event_data,
-      status: 'PENDING' as const,
-      stream_name: event.stream_name,
-    }));
-
     return db.insertEvents(eventsToStore).pipe(
-      Effect.flatMap((insertedEvents) =>
-        db.insertOutboxEntries(outboxEntries).pipe(Effect.map(() => insertedEvents)),
-      ),
+      Effect.flatMap((insertedEvents) => {
+        // Create outbox entries using the global_position from inserted events
+        const outboxEntries: readonly OutboxEntryData[] = insertedEvents.map((event) => ({
+          category: event.category,
+          event_id: event.event_id,
+          event_position: BigInt(event.global_position || 0), // Use global_position as event_position
+          event_schema_version: event.event_schema_version,
+          event_type: event.event_type,
+          metadata: event.metadata,
+          payload: event.event_data,
+          status: 'PENDING' as const,
+          stream_name: event.stream_name,
+        }));
+
+        return db.insertOutboxEntries(outboxEntries).pipe(Effect.map(() => insertedEvents));
+      }),
       Effect.mapError((error) => new SaveEventError({ reason: error.reason })),
     );
   };

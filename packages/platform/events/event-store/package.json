@@ -49,7 +49,6 @@
   "dependencies": {
     "@exitbook/core": "workspace:*",
     "@exitbook/platform-database": "workspace:*",
-    "@exitbook/platform-messaging": "workspace:*",
     "bignumber.js": "^9.1.0",
     "effect": "^3.0.0"
   },

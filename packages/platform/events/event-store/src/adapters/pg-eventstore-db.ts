@@ -17,6 +17,8 @@ export interface EventStoreDB {
     category: string;
     created_at?: Date;
     event_id: string;
+    event_position: bigint;
+    event_schema_version: number;
     event_type: string;
     id?: string;
     metadata: unknown;
@@ -145,6 +147,8 @@ export const makePgEventStoreDatabase = (): Effect.Effect<EventStoreDatabase, ne
                 attempts: 0,
                 category: row.category,
                 event_id: row.event_id,
+                event_position: row.event_position,
+                event_schema_version: row.event_schema_version,
                 event_type: row.event_type,
                 metadata: row.metadata,
                 next_attempt_at: new Date(),

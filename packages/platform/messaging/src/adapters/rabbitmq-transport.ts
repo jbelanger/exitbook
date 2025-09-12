@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { connect } from 'amqp-connection-manager';
 import type { AmqpConnectionManager, ChannelWrapper, Options } from 'amqp-connection-manager';
 import type { ConsumeMessage, ConfirmChannel, Channel } from 'amqplib';
-import { Effect, Layer, Context } from 'effect';
+import { Effect, Layer } from 'effect';
 
 import { MessageTransportTag, PublishError, SubscribeError, MessageBusError } from '../port';
 import type { MessageTransport, MessageHeaders } from '../port';
@@ -17,8 +17,6 @@ export interface RabbitMQConfig {
   readonly retryDelays?: readonly number[] | undefined;
   readonly url: string;
 }
-
-export const RabbitMQConfig = Context.GenericTag<RabbitMQConfig>('@platform/RabbitMQConfig');
 
 export const makeRabbitMQTransport = (
   config: RabbitMQConfig,
@@ -402,12 +400,13 @@ export const makeRabbitMQTransport = (
     };
   });
 
-// Layer for RabbitMQ transport with proper resource management
-export const RabbitMQTransportLive = Layer.scoped(
-  MessageTransportTag,
-  Effect.acquireRelease(Effect.flatMap(RabbitMQConfig, makeRabbitMQTransport), (transport) =>
-    Effect.tryPromise(() => transport.cleanup()).pipe(
-      Effect.catchAll(() => Effect.void), // Graceful cleanup on error
+// Layer factory for RabbitMQ transport with proper resource management
+export const makeRabbitMQTransportLive = (config: RabbitMQConfig) =>
+  Layer.scoped(
+    MessageTransportTag,
+    Effect.acquireRelease(makeRabbitMQTransport(config), (transport) =>
+      Effect.tryPromise(() => transport.cleanup()).pipe(
+        Effect.catchAll(() => Effect.void), // Graceful cleanup on error
+      ),
     ),
-  ),
-);
+  );

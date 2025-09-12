@@ -24,14 +24,6 @@
     "./compose/*": {
       "types": "./dist/compose/*.d.ts",
       "default": "./dist/compose/*.js"
-    },
-    "./adapters/pg": {
-      "types": "./dist/adapters/pg-outbox-db.d.ts",
-      "default": "./dist/adapters/pg-outbox-db.js"
-    },
-    "./observability": {
-      "types": "./dist/observability.d.ts",
-      "default": "./dist/observability.js"
     }
   },
   "main": "dist/index.js",
@@ -48,6 +40,7 @@
   "dependencies": {
     "@exitbook/core": "workspace:*",
     "@exitbook/platform-database": "workspace:*",
+    "@exitbook/platform-event-store": "workspace:*",
     "@exitbook/platform-messaging": "workspace:*",
     "bignumber.js": "^9.1.0",
     "effect": "^3.0.0",

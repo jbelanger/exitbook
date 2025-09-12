@@ -1,9 +1,14 @@
 import { randomUUID } from 'node:crypto';
 
-import { Effect, pipe } from 'effect';
+import { Effect, pipe, Layer } from 'effect';
 
 import type { MessageBusProducer, MessageTransport, MessageBusConfig, ADRHeaders } from '../port';
-import { HeaderNames } from '../port';
+import {
+  HeaderNames,
+  MessageBusProducerTag,
+  MessageTransportTag,
+  MessageBusConfigTag,
+} from '../port';
 
 export interface UuidGenerator {
   readonly generate: () => Effect.Effect<string, never>;
@@ -66,3 +71,11 @@ export const makeMessageBusProducer = (
     return transport.publishBatch(topic, enrichedMessages);
   },
 });
+
+// MessageBusProducer layer - depends on MessageTransport and MessageBusConfig
+export const MessageBusProducerLive = Layer.effect(
+  MessageBusProducerTag,
+  Effect.all([MessageTransportTag, MessageBusConfigTag]).pipe(
+    Effect.map(([transport, config]) => makeMessageBusProducer(transport, config)),
+  ),
+);

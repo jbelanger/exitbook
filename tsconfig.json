@@ -3,7 +3,10 @@
   "references": [
     { "path": "packages/core" },
     { "path": "packages/contracts" },
-    { "path": "packages/platform/event-store" },
+    { "path": "packages/platform/events/event-store" },
+    { "path": "packages/platform/events/events" },
+    { "path": "packages/platform/events/event-bus" },
+    { "path": "packages/platform/events/outbox-worker" },
     { "path": "packages/platform/database" },
     { "path": "packages/platform/cache" },
     { "path": "packages/platform/messaging" },

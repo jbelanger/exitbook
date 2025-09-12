@@ -277,9 +277,6 @@ importers:
       '@exitbook/platform-database':
         specifier: workspace:*
         version: link:../../database
-      '@exitbook/platform-messaging':
-        specifier: workspace:*
-        version: link:../../messaging
       bignumber.js:
         specifier: ^9.1.0
         version: 9.3.1
@@ -339,6 +336,9 @@ importers:
       '@exitbook/platform-database':
         specifier: workspace:*
         version: link:../../database
+      '@exitbook/platform-event-store':
+        specifier: workspace:*
+        version: link:../event-store
       '@exitbook/platform-messaging':
         specifier: workspace:*
         version: link:../../messaging
