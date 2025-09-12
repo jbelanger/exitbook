@@ -12,6 +12,8 @@ export {
   OutboxProcessError,
   OutboxReadError,
   type OutboxConfig,
+  type OutboxStatus,
+  type StatusTransitions,
   defaultOutboxConfig,
 } from './processor';
 
@@ -29,12 +31,6 @@ export {
   makeConsoleOutboxMetrics,
   makeNoOpOutboxMetrics,
 } from './metrics';
-
-export {
-  createStatusTransitions,
-  type StatusTransitions,
-  type OutboxStatus,
-} from './status-transitions';
 
 // Composition
 export { OutboxWorkerDefault, runOutboxDaemon } from './compose/live';

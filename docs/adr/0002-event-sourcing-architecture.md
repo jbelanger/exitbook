@@ -393,7 +393,7 @@ import { Layer, Effect } from 'effect';
 import {
   UnifiedEventBusDefault,
   UnifiedEventBus,
-} from '@exitbook/platform-event-bus/compose/default';
+} from '@exitbook/platform-event-bus/compose/live';
 
 const program = Effect.gen(function* () {
   const bus = yield* UnifiedEventBus;
@@ -507,7 +507,7 @@ for this ADR.
 │     │  │  │  ├─ types.ts            # DomainEvent, PositionedEvent, StreamName
 │     │  │  │  ├─ errors.ts
 │     │  │  │  ├─ adapters/postgres/  # SQL + codecs + impl
-│     │  │  │  ├─ compose/            # Layer default/test
+│     │  │  │  ├─ compose/            # Layer live/test
 │     │  │  │  └─ internal/           # non-exported impl details
 │     │  │  └─ package.json
 │     │  │
@@ -623,16 +623,16 @@ Prevent illegal couplings and keep the direction of dependencies:
 ```ts
 import { Effect } from 'effect';
 import { runOutboxDaemon } from '@exitbook/platform-outbox-worker';
-import { UnifiedEventBusDefault } from '@exitbook/platform-event-bus/compose/default';
+import { UnifiedEventBusDefault } from '@exitbook/platform-event-bus/compose/live';
 
 const program = runOutboxDaemon({ batchSize: 100, maxAttempts: 10 });
 Effect.runFork(Effect.provide(program, UnifiedEventBusDefault));
 ```
 
-**packages/platform/events/event-bus/src/compose/default.ts**
+**packages/platform/events/event-bus/src/compose/live.ts**
 
 ```ts
-export { UnifiedEventBusDefault } from './generated-default-layer';
+export { UnifiedEventBusDefault } from './generated-live-layer';
 ```
 
 **apps/api/src/main.ts**
