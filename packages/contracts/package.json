@@ -19,6 +19,7 @@
     "build": "tsc -b",
     "clean": "rimraf dist",
     "dev": "tsc -b -w",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

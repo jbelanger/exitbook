@@ -10,5 +10,8 @@
   },
   "files": [
     "tsconfig.*.json"
-  ]
+  ],
+  "scripts": {
+    "test": "vitest run"
+  }
 }

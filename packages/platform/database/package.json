@@ -19,7 +19,8 @@
     "build": "tsc -b",
     "clean": "rimraf dist",
     "dev": "tsc -b -w",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "effect": "*",
