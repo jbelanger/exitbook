@@ -15,7 +15,6 @@ const defaultClassificationRules: ClassificationRule[] = [
 // Production runtime layer composition
 // This assembles all the live implementations for production use
 export const TradingRuntimeDefault = Layer.mergeAll(
-  UnifiedEventBusDefault,
   RuleBasedTransactionClassifierLayer(defaultClassificationRules),
-  TransactionRepositoryLive,
+  Layer.provide(TransactionRepositoryLive, UnifiedEventBusDefault),
 );

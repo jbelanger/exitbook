@@ -12,7 +12,7 @@ export class ClassifyTransactionHandler implements ICommandHandler<ClassifyTrans
   async execute(command: ClassifyTransactionCommand): Promise<void> {
     // Use the real durable event bus via TradingRuntimeDefault
     // Nest EventBus is kept only for the transport layer (commands/queries)
-    const program = classifyTransaction(command).pipe(Effect.provide(TradingRuntimeDefault));
+    const program = Effect.provide(classifyTransaction(command), TradingRuntimeDefault);
 
     const exit = await Effect.runPromiseExit(program);
 
