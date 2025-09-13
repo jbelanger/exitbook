@@ -1,4 +1,4 @@
-import { DbPoolLive, DbClientLive } from '@exitbook/platform-database';
+import { DbPoolLive, DbClientWithTelemetryLive } from '@exitbook/platform-database';
 import { Layer, Effect } from 'effect';
 
 import { EventStoreDatabaseTag, EventStoreTag, OutboxDatabaseTag } from '..';
@@ -28,8 +28,8 @@ export const PgEventStoreDatabaseLive = Layer.effect(
 
 export const PgOutboxDatabaseLive = Layer.effect(OutboxDatabaseTag, makePgOutboxDatabase);
 
-// Shared Kysely layer using the new centralized client
-export const EventStoreKyselyLive = Layer.provide(DbClientLive, DbPoolLive);
+// Shared Kysely layer using the new centralized client with telemetry
+export const EventStoreKyselyLive = Layer.provide(DbClientWithTelemetryLive, DbPoolLive);
 
 // EventStore stack - just the core event store functionality
 const EventStoreStackBase = Layer.provide(

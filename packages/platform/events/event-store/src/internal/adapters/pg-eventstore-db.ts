@@ -1,6 +1,6 @@
-import { Db } from '@exitbook/platform-database';
-import { Effect } from 'effect';
+import { Context, Effect } from 'effect';
 import { sql } from 'kysely';
+import type { Kysely } from 'kysely';
 
 import type {
   EventStoreDatabase,
@@ -11,7 +11,9 @@ import type {
 } from '../../port';
 import { IdempotencyError } from '../../port';
 
-export const KyselyTag = Db.of<EventStoreDB>();
+export const KyselyTag = Context.GenericTag<Kysely<EventStoreDB>>(
+  '@exitbook/platform-event-store/EventStoreDB',
+);
 
 // Event store schema types
 export interface EventStoreDB {

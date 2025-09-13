@@ -5,8 +5,16 @@ import { installDbInstruments } from './metrics';
 
 const tracer = trace.getTracer('@exitbook/platform-database');
 
+// Symbol to mark instrumented instances
+const INSTRUMENTED_SYMBOL = Symbol('kysely-instrumented');
+
 // Simple logging-based instrumentation since Kysely plugin API is complex
 export function attachKyselyPlugin(db: Kysely<unknown>) {
+  // Guard against double instrumentation
+  if ((db as unknown as Record<symbol, boolean>)[INSTRUMENTED_SYMBOL]) {
+    return;
+  }
+
   const instruments = installDbInstruments();
 
   // Wrap the database execute method to add instrumentation
@@ -73,6 +81,9 @@ export function attachKyselyPlugin(db: Kysely<unknown>) {
       span.end();
     }
   };
+
+  // Mark as instrumented
+  (db as unknown as Record<symbol, boolean>)[INSTRUMENTED_SYMBOL] = true;
 }
 
 function extractOperationFromSQL(sql: string): string {

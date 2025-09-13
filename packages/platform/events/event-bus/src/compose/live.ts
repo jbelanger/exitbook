@@ -1,4 +1,4 @@
-import { DbPoolLive, DbClientLive } from '@exitbook/platform-database';
+import { DbPoolLive, DbClientWithTelemetryLive } from '@exitbook/platform-database';
 import { EventStoreDefault, EventStoreTag } from '@exitbook/platform-event-store';
 import { MessageBusDefault, MessageBusProducerTag } from '@exitbook/platform-messaging';
 import { Layer, Effect } from 'effect';
@@ -26,6 +26,6 @@ export const UnifiedEventBusDefault = Layer.provide(
   Layer.mergeAll(
     EventStoreDefault,
     MessageBusDefault,
-    Layer.provide(CheckpointStoreLive, Layer.provide(DbClientLive, DbPoolLive)),
+    Layer.provide(CheckpointStoreLive, Layer.provide(DbClientWithTelemetryLive, DbPoolLive)),
   ),
 );

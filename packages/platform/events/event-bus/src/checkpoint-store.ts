@@ -13,4 +13,6 @@ export interface CheckpointStore {
   ) => Effect.Effect<void, CheckpointError>;
 }
 
-export const CheckpointStoreTag = Context.GenericTag<CheckpointStore>('@platform/CheckpointStore');
+export const CheckpointStoreTag = Context.GenericTag<CheckpointStore>(
+  '@exitbook/platform-event-bus/CheckpointStore',
+);

@@ -1,4 +1,5 @@
 import type { Kysely } from 'kysely';
+import { sql } from 'kysely';
 
 export async function up(db: Kysely<unknown>): Promise<void> {
   await db.schema
@@ -8,7 +9,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('position', 'text', (col) => col.notNull())
     .addColumn('events_processed', 'bigint', (col) => col.defaultTo(0))
     .addColumn('last_processed', 'timestamptz')
-    .addColumn('updated_at', 'timestamptz', (col) => col.notNull().defaultTo('now()'))
+    .addColumn('updated_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
     .execute();
 }
 

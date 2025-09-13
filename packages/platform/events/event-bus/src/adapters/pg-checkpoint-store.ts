@@ -1,10 +1,13 @@
-import { Db } from '@exitbook/platform-database';
-import { Effect } from 'effect';
+import { Context, Effect } from 'effect';
+import type { Kysely } from 'kysely';
+import { sql } from 'kysely';
 
 import type { CheckpointStore } from '../checkpoint-store';
 import { CheckpointError } from '../errors';
 
-export const KyselyTag = Db.of<CheckpointStoreDB>();
+export const KyselyTag = Context.GenericTag<Kysely<CheckpointStoreDB>>(
+  '@exitbook/platform-event-bus/CheckpointStoreDB',
+);
 
 // Checkpoint store schema types
 export interface CheckpointStoreDB {
@@ -66,7 +69,7 @@ export const makePgCheckpointStore = Effect.gen(function* () {
         db
           .insertInto('subscription_checkpoints')
           .values({
-            events_processed: BigInt(metadata.eventsProcessed),
+            events_processed: sql<bigint>`cast(${metadata.eventsProcessed} as bigint)`,
             last_processed: metadata.lastProcessed,
             position: toPositionString(position)!,
             subscription_id: subscriptionKey,
@@ -74,7 +77,11 @@ export const makePgCheckpointStore = Effect.gen(function* () {
           })
           .onConflict((oc) =>
             oc.column('subscription_id').doUpdateSet((eb) => ({
-              events_processed: eb('events_processed', '+', BigInt(metadata.eventsProcessed)),
+              events_processed: eb(
+                'events_processed',
+                '+',
+                sql<bigint>`cast(${metadata.eventsProcessed} as bigint)`,
+              ),
               last_processed: metadata.lastProcessed,
               position: toPositionString(position)!,
               updated_at: new Date(),
