@@ -1,6 +1,17 @@
-import * as path from 'node:path';
+import { runAllMigrations, DbPoolLive, DbClientLive } from '@exitbook/platform-database';
+import { Effect, Layer } from 'effect';
 
-import { runMigrations } from '@exitbook/platform-database';
+import { eventBusMigrations } from './migrations/manifest';
 
-const migrationFolder = path.join(import.meta.dirname, 'migrations');
-runMigrations(migrationFolder);
+// Run migrations using the new centralized system with proper dependencies
+const migrationProgram = runAllMigrations([eventBusMigrations]);
+const dependencies = Layer.provide(DbClientLive, DbPoolLive);
+
+Effect.runPromise(Effect.provide(migrationProgram, dependencies))
+  .then((success) => {
+    process.exit(success ? 0 : 1);
+  })
+  .catch((error) => {
+    console.error('Migration failed:', error);
+    process.exit(1);
+  });

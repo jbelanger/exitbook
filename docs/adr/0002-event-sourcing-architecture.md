@@ -104,7 +104,7 @@ packages/platform/
 │  ├─ outbox-worker/           # worker library (daemon logic)
 │  └─ events/                  # meta-package (re-exports for app DX)
 ├─ messaging/                  # broker adapters (producer/consumer)
-├─ database/
+├─ database/                  # centralized database client with telemetry
 └─ monitoring/
 ```
 
@@ -116,13 +116,16 @@ packages/platform/
 - `@exitbook/platform-outbox-worker`
 - `@exitbook/platform-events` (meta)
 - `@exitbook/platform-messaging`
+- `@exitbook/platform-database`
 
 ### Dependency guardrails
 
+- **database** → provides centralized client, telemetry, and migration
+  coordination.
 - **event-store** → database only.
 - **outbox-worker** → event-store + messaging.
-- **event-bus** → event-store + messaging (+ checkpoint store).
-- **projections** → event-store (+ optional checkpoint store).
+- **event-bus** → event-store + messaging + database (for checkpoint store).
+- **projections** → event-store + database (for checkpoint store).
 - **messaging** → no event-store imports.
 - Meta **events** → re-export surface only.
 
@@ -384,7 +387,10 @@ load(key: string): Effect<bigint | undefined, CheckpointError>
 
 **Step 1 — Migrations**
 
-- Apply the DDLs above.
+- Use centralized migration system:
+  `runAllMigrations([eventStoreMigrations, eventBusMigrations])`
+- Each package maintains its own migration manifests with coordination via
+  `@exitbook/platform-database`
 
 **Step 2 — Wire layers (dev)**
 
@@ -550,7 +556,11 @@ for this ADR.
 │     │  └─ package.json
 │     │
 │     ├─ database/
-│     │  ├─ migrations/                # SQL migrations per package
+│     │  ├─ src/
+│     │  │  ├─ client.ts               # centralized Kysely client
+│     │  │  ├─ telemetry.ts            # metrics, tracing, slow query logging
+│     │  │  ├─ migrations/             # centralized migration runner
+│     │  │  └─ instrumentation/        # query instrumentation
 │     │  └─ package.json
 │     └─ monitoring/
 │        └─ package.json
@@ -659,8 +669,8 @@ export { UnifiedEventBusDefault } from './generated-live-layer';
 - Use `.env` per app (`apps/*/.env`) for shell concerns; platform packages read
   from effect layers/providers.
 - Secrets via your standard secret manager (not in repo).
-- DB migrations folder sits under `packages/platform/database/migrations` and is
-  referenced by `event-store` adapter.
+- Each package maintains its own migrations with manifests; database package
+  provides centralized migration coordination via `runAllMigrations()`.
 
 ---
 

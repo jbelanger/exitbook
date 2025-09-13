@@ -1,5 +1,5 @@
 {
-  "extends": "@internal/tsconfig/nest",
+  "extends": "@internal/tsconfig/node",
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "dist"

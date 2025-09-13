@@ -1,3 +1,4 @@
+import { DbPoolLive, DbClientLive } from '@exitbook/platform-database';
 import { EventStoreDefault, EventStoreTag } from '@exitbook/platform-event-store';
 import { MessageBusDefault, MessageBusProducerTag } from '@exitbook/platform-messaging';
 import { Layer, Effect } from 'effect';
@@ -6,8 +7,8 @@ import { makePgCheckpointStore } from '../adapters/pg-checkpoint-store';
 import { CheckpointStoreTag } from '../checkpoint-store';
 import { UnifiedEventBusTag, makeUnifiedEventBus } from '../event-bus';
 
-// CheckpointStore layer using Kysely with DatabasePool
-export const CheckpointStoreLive = Layer.effect(CheckpointStoreTag, makePgCheckpointStore());
+// CheckpointStore layer using the new centralized DbClient
+export const CheckpointStoreLive = Layer.effect(CheckpointStoreTag, makePgCheckpointStore);
 
 export const UnifiedEventBusLive = Layer.effect(
   UnifiedEventBusTag,
@@ -22,5 +23,9 @@ export const UnifiedEventBusLive = Layer.effect(
 
 export const UnifiedEventBusDefault = Layer.provide(
   UnifiedEventBusLive,
-  Layer.mergeAll(EventStoreDefault, MessageBusDefault, CheckpointStoreLive),
+  Layer.mergeAll(
+    EventStoreDefault,
+    MessageBusDefault,
+    Layer.provide(CheckpointStoreLive, Layer.provide(DbClientLive, DbPoolLive)),
+  ),
 );
