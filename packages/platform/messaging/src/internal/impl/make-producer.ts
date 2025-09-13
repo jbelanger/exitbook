@@ -1,4 +1,5 @@
-import { context as otelContext, propagation } from '@opentelemetry/api';
+import { traced } from '@exitbook/platform-monitoring';
+import { context as otelContext, propagation, SpanKind } from '@opentelemetry/api';
 import { Effect, pipe, Layer } from 'effect';
 
 import type { MessageBusProducer, MessageTransport } from '../../port';
@@ -45,11 +46,20 @@ export const makeMessageBusProducer = (transport: MessageTransport): MessageBusP
           }),
         );
 
-    return transport.publish(topic, payloadJson, {
-      ...(opts?.key && { key: opts.key }),
-      headers,
-      ...(opts?.timeoutMs && { timeoutMs: opts.timeoutMs }),
-    });
+    return traced(
+      `${topic} send`,
+      transport.publish(topic, payloadJson, {
+        ...(opts?.key && { key: opts.key }),
+        headers,
+        ...(opts?.timeoutMs && { timeoutMs: opts.timeoutMs }),
+      }),
+      SpanKind.PRODUCER,
+      {
+        'messaging.destination.name': topic,
+        'messaging.system': 'rabbitmq',
+        ...(opts?.key && { 'messaging.message.id': opts.key }),
+      },
+    );
   },
 
   publishBatch: (topic: string, items) => {
@@ -79,7 +89,16 @@ export const makeMessageBusProducer = (transport: MessageTransport): MessageBusP
       };
     });
 
-    return transport.publishBatch(topic, enrichedMessages);
+    return traced(
+      `${topic} send_batch`,
+      transport.publishBatch(topic, enrichedMessages),
+      SpanKind.PRODUCER,
+      {
+        'messaging.batch.size': items.length,
+        'messaging.destination.name': topic,
+        'messaging.system': 'rabbitmq',
+      },
+    );
   },
 });
 

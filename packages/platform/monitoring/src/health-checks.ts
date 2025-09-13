@@ -9,24 +9,7 @@ export const InfrastructureHealthChecks = Layer.effect(
   Effect.gen(function* () {
     const monitor = yield* HealthMonitorTag;
 
-    // Example PostgreSQL health check (commented out as we need to import the actual database layer)
-    // yield* monitor.register({
-    //   name: 'postgresql',
-    //   critical: true,
-    //   timeout: Duration.seconds(5),
-    //   check: () =>
-    //     Effect.tryPromise(() => dbPool.pool.query('SELECT 1')).pipe(
-    //       Effect.map(() => ({ status: 'healthy' as const })),
-    //       Effect.catchAll(() =>
-    //         Effect.succeed({
-    //           status: 'unhealthy' as const,
-    //           details: { error: 'Database connection failed' },
-    //         }),
-    //       ),
-    //     ),
-    // });
-
-    // Memory check
+    // Memory check - this is safe and doesn't require external dependencies
     yield* monitor.register({
       check: () =>
         Effect.sync(() => {

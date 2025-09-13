@@ -26,9 +26,9 @@ export {
 
 export {
   OutboxMetricsTag,
-  ConsoleOutboxMetricsLive,
+  OtelOutboxMetricsLive,
   NoOpOutboxMetricsLive,
-  makeConsoleOutboxMetrics,
+  makeOtelOutboxMetrics,
   makeNoOpOutboxMetrics,
 } from './metrics';
 

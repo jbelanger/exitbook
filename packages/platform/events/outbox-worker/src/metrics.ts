@@ -53,21 +53,6 @@ export const makeOtelOutboxMetrics = (): OutboxMetrics => ({
 
 export const OtelOutboxMetricsLive = Layer.succeed(OutboxMetricsTag, makeOtelOutboxMetrics());
 
-// Console metrics implementation (for development)
-export const makeConsoleOutboxMetrics = (): OutboxMetrics => ({
-  incrementClaimed: (count: number) => Effect.logInfo(`Claimed ${count} messages`),
-  incrementFailed: (count: number) => Effect.logInfo(`Failed ${count} messages`),
-  incrementPublished: (count: number) => Effect.logInfo(`Published ${count} messages`),
-  incrementRetries: (count: number) => Effect.logInfo(`Retried ${count} messages`),
-  logError: (eventId: string, error: string) =>
-    Effect.logError(`Outbox error for ${eventId}: ${error}`),
-  recordPublishLatency: (latencyMs: number) => Effect.logInfo(`Publish latency: ${latencyMs}ms`),
-  setDlqSize: (size: number) => Effect.logInfo(`DLQ size: ${size}`),
-  setQueueDepth: (depth: number) => Effect.logInfo(`Queue depth: ${depth}`),
-});
-
-export const ConsoleOutboxMetricsLive = Layer.succeed(OutboxMetricsTag, makeConsoleOutboxMetrics());
-
 // No-op metrics implementation (for production when metrics are disabled)
 export const makeNoOpOutboxMetrics = (): OutboxMetrics => ({
   incrementClaimed: () => Effect.void,
