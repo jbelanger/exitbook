@@ -9,7 +9,8 @@
 export { DbPool, DbPoolLive } from './pool';
 
 // Centralized client with instrumentation
-export { DbClient, DbClientLive, DbClientWithTelemetryLive } from './client';
+export { DbClient, DbClientLive } from './client';
+export { DbClientWithTelemetryLive } from './compose.js';
 
 // Transaction helper: Db.tx() for transactions
 export { Db } from './tx';

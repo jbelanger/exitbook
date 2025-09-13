@@ -1,5 +1,3 @@
-import { UnifiedEventBusTag } from '@exitbook/platform-event-bus';
-import type { UnifiedEventBus } from '@exitbook/platform-event-bus';
 import { Effect, pipe } from 'effect';
 
 import type { InvalidStateError } from '../../core/aggregates/transaction.aggregate';
@@ -22,7 +20,7 @@ export const classifyTransaction = (
 ): Effect.Effect<
   void,
   LoadTransactionError | SaveTransactionError | InvalidStateError | unknown,
-  TransactionRepository | TransactionClassifier | UnifiedEventBus
+  TransactionRepository | TransactionClassifier
 > =>
   pipe(
     // 1. Load the aggregate (returns Effect with typed error)
@@ -46,23 +44,12 @@ export const classifyTransaction = (
     ),
 
     // 4. Apply event to get updated state and save
+    // The append in repository.save() will automatically handle outbox publishing
     Effect.flatMap(({ event, transaction }) => {
       const updatedTransaction = transaction.apply(event);
       return pipe(
         TransactionRepositoryTag,
         Effect.flatMap((repo) => repo.save(updatedTransaction)),
-        Effect.map(() => event), // Pass the event along for the next step
       );
     }),
-
-    // 5. Publish the event after successful save
-    Effect.tap((event) =>
-      pipe(
-        UnifiedEventBusTag,
-        Effect.flatMap((eventBus) => eventBus.publishExternal('trading.events', event)),
-      ),
-    ),
-
-    // 6. Return void as expected by the type signature
-    Effect.asVoid,
   );

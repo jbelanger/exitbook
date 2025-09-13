@@ -1,8 +1,10 @@
-import type { TransactionId } from '@exitbook/core';
+import type { TransactionId, DomainEvent } from '@exitbook/core';
 import { UnifiedEventBusTag, type UnifiedEventBus } from '@exitbook/platform-event-bus';
-import { Effect, Layer, Option, pipe } from 'effect';
+import type { StreamName } from '@exitbook/platform-event-store';
+import { Effect, Layer, Option, pipe, Stream, Chunk } from 'effect';
 
 import { Transaction } from '../../core/aggregates/transaction.aggregate.js';
+import type { TransactionImported } from '../../core/events/transaction.events.js';
 import type { IdempotencyCheckError } from '../../ports/transaction-repository.port.js';
 import {
   LoadTransactionError,
@@ -21,9 +23,17 @@ const makeTransactionRepository = (eventBus: UnifiedEventBus): TransactionReposi
   },
 
   load: (transactionId: TransactionId): Effect.Effect<Transaction, LoadTransactionError> => {
-    // For now, we'll return an empty transaction as we need to implement proper event sourcing
-    // In a real implementation, this would read from an event stream
-    return Effect.succeed(Transaction.createEmpty()).pipe(
+    const stream = `${TRANSACTION_STREAM}-${transactionId}` as StreamName;
+
+    return pipe(
+      eventBus.read(stream),
+      Stream.runCollect,
+      Effect.map((events: Chunk.Chunk<DomainEvent>) =>
+        Chunk.toArray(events).reduce(
+          (transaction: Transaction, event: DomainEvent) => transaction.apply(event),
+          Transaction.createEmpty(),
+        ),
+      ),
       Effect.mapError(
         (error: unknown) =>
           new LoadTransactionError({
@@ -50,10 +60,21 @@ const makeTransactionRepository = (eventBus: UnifiedEventBus): TransactionReposi
             }),
           ),
         onSome: (transactionId: TransactionId) => {
+          const stream = `${TRANSACTION_STREAM}-${transactionId}` as StreamName;
+          const expectedVersion = transaction.version;
+          const idempotencyKey =
+            uncommittedEvents[0]?._tag === 'TransactionImported'
+              ? (uncommittedEvents[0] as TransactionImported).data.idempotencyKey
+              : undefined;
+
           return pipe(
-            Effect.forEach(uncommittedEvents, (event) =>
-              eventBus.publishExternal(`${TRANSACTION_STREAM}-${transactionId}`, event),
+            eventBus.append(
+              stream,
+              uncommittedEvents,
+              expectedVersion,
+              idempotencyKey ? { idempotencyKey } : {},
             ),
+            Effect.asVoid,
             Effect.mapError(
               (error: unknown) =>
                 new SaveTransactionError({
@@ -61,7 +82,6 @@ const makeTransactionRepository = (eventBus: UnifiedEventBus): TransactionReposi
                   transactionId,
                 }),
             ),
-            Effect.asVoid,
           );
         },
       }),

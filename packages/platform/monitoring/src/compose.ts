@@ -1,6 +1,8 @@
 import { Layer } from 'effect';
 
-import { TelemetryLive, HealthMonitorLive, StructuredLoggerLive } from './index';
+import { HealthMonitorLive } from './health-monitor';
+import { StructuredLoggerLive } from './logger';
+import { TelemetryLive } from './telemetry';
 
 // Complete monitoring stack with structured logging
 export const MonitoringDefault = Layer.mergeAll(

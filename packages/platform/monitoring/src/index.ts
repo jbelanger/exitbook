@@ -1,85 +1,18 @@
-import { hostname } from 'node:os';
-
-import { NodeSdk } from '@effect/opentelemetry';
 import { trace, SpanKind } from '@opentelemetry/api';
-import type { Span } from '@opentelemetry/api';
-import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
-import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
-import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-grpc';
-import { PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
-import {
-  ParentBasedSampler,
-  TraceIdRatioBasedSampler,
-  BatchSpanProcessor,
-} from '@opentelemetry/sdk-trace-base';
-import {
-  Layer,
-  Effect,
-  Config,
-  Metric,
-  MetricBoundaries,
-  Context,
-  Duration,
-  Ref,
-  Chunk,
-  Logger,
-} from 'effect';
+import { Effect, Metric, MetricBoundaries } from 'effect';
 
-// Configuration
-const TelemetryConfig = Config.all({
-  environment: Config.string('NODE_ENV').pipe(Config.withDefault('development')),
-  otlpGrpc: Config.string('OTLP_GRPC_ENDPOINT').pipe(Config.withDefault('http://localhost:4317')),
-  otlpHttp: Config.string('OTLP_HTTP_ENDPOINT').pipe(Config.withDefault('http://localhost:4318')),
-  sampling: Config.number('TRACE_SAMPLING_RATE').pipe(Config.withDefault(0.1)),
-  serviceName: Config.string('SERVICE_NAME').pipe(Config.withDefault('exitbook')),
-  serviceVersion: Config.string('SERVICE_VERSION').pipe(Config.withDefault('1.0.0')),
-});
-
-// Main telemetry layer
-export const TelemetryLive = Layer.unwrapEffect(
-  Effect.gen(function* () {
-    const cfg = yield* TelemetryConfig;
-
-    // Environment-based sampling: 1.0 in dev, configurable in production
-    const samplingRate = cfg.environment === 'development' ? 1.0 : cfg.sampling;
-    const sampler = new ParentBasedSampler({
-      root: new TraceIdRatioBasedSampler(samplingRate),
-    });
-
-    return NodeSdk.layer(() => ({
-      instrumentations: [
-        getNodeAutoInstrumentations({
-          '@opentelemetry/instrumentation-fs': { enabled: false },
-        }),
-      ],
-      metricReader: new PeriodicExportingMetricReader({
-        exporter: new OTLPMetricExporter({
-          url: cfg.otlpHttp,
-        }),
-        exportIntervalMillis: 10000,
-      }),
-      resource: {
-        attributes: {
-          'deployment.environment': cfg.environment,
-          'host.name': process.env['HOSTNAME'] || hostname(),
-          'service.instance.id': process.env['HOSTNAME'] || `${process.pid}`,
-        },
-        serviceName: cfg.serviceName,
-        serviceVersion: cfg.serviceVersion,
-      },
-      spanProcessor: new BatchSpanProcessor(
-        new OTLPTraceExporter({
-          url: cfg.otlpGrpc,
-        }),
-        {
-          maxExportBatchSize: 512,
-          maxQueueSize: 2048,
-        },
-      ),
-      tracerConfig: { sampler },
-    }));
-  }),
-);
+// Re-export from modules
+export { TelemetryLive } from './telemetry';
+export { HealthMonitorLive, HealthMonitorTag } from './health-monitor';
+export type { HealthCheck, HealthReport, HealthMonitor } from './health-monitor';
+export {
+  StructuredLoggerLive,
+  logWithTrace,
+  logInfo,
+  logError,
+  logWarning,
+  logDebug,
+} from './logger';
 
 // OpenTelemetry Semantic Convention Compliant Metrics
 export const Metrics = {
@@ -140,103 +73,6 @@ export const Metrics = {
   // Business metrics
   transactionAmount: Metric.counter('transaction.amount', { description: 'Transaction amounts' }),
 };
-
-// Health Check Types
-export interface HealthCheck {
-  readonly check: () => Effect.Effect<
-    { details?: unknown; status: 'healthy' | 'unhealthy' },
-    never
-  >;
-  readonly critical: boolean;
-  readonly name: string;
-  readonly timeout?: Duration.Duration;
-}
-
-export interface HealthReport {
-  readonly checks: {
-    details?: unknown;
-    name: string;
-    status: 'healthy' | 'unhealthy';
-  }[];
-  readonly status: 'healthy' | 'unhealthy';
-  readonly timestamp: string;
-}
-
-// Health Monitor Interface
-export interface HealthMonitor {
-  readonly getLiveness: () => Effect.Effect<{ body: unknown; status: number }>;
-  readonly getReadiness: () => Effect.Effect<{ body: unknown; status: number }>;
-  readonly register: (check: HealthCheck) => Effect.Effect<void>;
-}
-
-export const HealthMonitorTag = Context.GenericTag<HealthMonitor>(
-  '@exitbook/platform-monitoring/HealthMonitor',
-);
-
-// Health Monitor Implementation
-export const HealthMonitorLive = Layer.effect(
-  HealthMonitorTag,
-  Effect.gen(function* () {
-    const checks = yield* Ref.make(Chunk.empty<HealthCheck>());
-
-    const runCheck = (check: HealthCheck) =>
-      check.check().pipe(
-        Effect.timeoutTo({
-          duration: check.timeout || Duration.seconds(5),
-          onSuccess: (result) => result,
-          onTimeout: () => ({
-            details: { error: 'Health check timeout' },
-            status: 'unhealthy' as const,
-          }),
-        }),
-      );
-
-    return {
-      getLiveness: () =>
-        Effect.succeed({
-          body: {
-            service: process.env['SERVICE_NAME'] || 'exitbook',
-            status: 'alive',
-            timestamp: new Date().toISOString(),
-            version: process.env['SERVICE_VERSION'] || '1.0.0',
-          },
-          status: 200,
-        }),
-
-      getReadiness: () =>
-        Effect.gen(function* () {
-          const allChecks = yield* Ref.get(checks);
-          const criticalChecks = Chunk.filter(allChecks, (c) => c.critical);
-
-          const results = yield* Effect.forEach(
-            criticalChecks,
-            (check) =>
-              runCheck(check).pipe(
-                Effect.map((result) => ({
-                  details: result.details,
-                  name: check.name,
-                  status: result.status,
-                })),
-              ),
-            { concurrency: 'unbounded' },
-          );
-
-          const hasUnhealthy = results.some((r) => r.status === 'unhealthy');
-
-          return {
-            body: {
-              checks: results,
-              status: hasUnhealthy ? 'unhealthy' : 'healthy',
-              timestamp: new Date().toISOString(),
-            },
-            status: hasUnhealthy ? 503 : 200,
-          };
-        }),
-
-      register: (check: HealthCheck) => Ref.update(checks, (list) => Chunk.append(list, check)),
-    };
-  }),
-);
 
 // Tracing Utilities
 export const traced = <A, E, R>(
@@ -356,81 +192,6 @@ export const recordDurationMetric = (
   return Metric.update(taggedMetric, msToSeconds(durationMs));
 };
 
-// Structured Logger with Trace Correlation
-const createStructuredLogger = () => {
-  const formatLog = (level: string, message: unknown, span?: Span): string => {
-    const timestamp = new Date().toISOString();
-
-    // Extract trace context from current span
-    const traceContext: Record<string, string> = {};
-    if (span) {
-      const spanContext = span.spanContext();
-      if (spanContext?.traceId && spanContext?.spanId) {
-        traceContext['trace_id'] = spanContext.traceId;
-        traceContext['span_id'] = spanContext.spanId;
-        traceContext['trace_flags'] = spanContext.traceFlags?.toString() || '01';
-      }
-    }
-
-    const logEntry = {
-      '@timestamp': timestamp,
-      environment: process.env['NODE_ENV'] || 'development',
-      level: level.toLowerCase(),
-      message: typeof message === 'string' ? message : JSON.stringify(message),
-      service: process.env['SERVICE_NAME'] || 'exitbook',
-      ...traceContext,
-    };
-
-    return JSON.stringify(logEntry);
-  };
-
-  return Logger.make(({ logLevel, message }) => {
-    // Get current active span for trace correlation
-    const currentSpan = trace.getActiveSpan();
-    const formattedLog = formatLog(logLevel.label, message, currentSpan);
-
-    // Output to stdout/stderr based on log level
-    if (logLevel.label === 'ERROR' || logLevel.label === 'FATAL') {
-      console.error(formattedLog);
-    } else {
-      console.log(formattedLog);
-    }
-  });
-};
-
-export const StructuredLoggerLive = Logger.replace(Logger.defaultLogger, createStructuredLogger());
-
-// Logger utilities for common logging patterns with trace correlation
-export const logWithTrace = <R>(
-  message: string,
-  attributes?: Record<string, unknown>,
-): Effect.Effect<void, never, R> =>
-  Effect.gen(function* () {
-    const currentSpan = trace.getActiveSpan();
-    const logData = {
-      message,
-      ...(attributes && { ...attributes }),
-      ...(currentSpan && {
-        span_id: currentSpan.spanContext().spanId,
-        trace_id: currentSpan.spanContext().traceId,
-      }),
-    };
-
-    yield* Effect.log(logData);
-  });
-
-export const logInfo = (message: string, attributes?: Record<string, unknown>) =>
-  logWithTrace(message, attributes).pipe(Effect.withLogSpan('info'));
-
-export const logError = (message: string, attributes?: Record<string, unknown>) =>
-  logWithTrace(message, attributes).pipe(Effect.withLogSpan('error'));
-
-export const logWarning = (message: string, attributes?: Record<string, unknown>) =>
-  logWithTrace(message, attributes).pipe(Effect.withLogSpan('warning'));
-
-export const logDebug = (message: string, attributes?: Record<string, unknown>) =>
-  logWithTrace(message, attributes).pipe(Effect.withLogSpan('debug'));
-
 /**
  * Registers graceful shutdown handlers to ensure telemetry data is flushed.
  * Call this once in your application's main function.
@@ -481,4 +242,8 @@ export { MonitoringDefault } from './compose';
 export * from './compose';
 
 // Re-export health checks
-export * from './health-checks';
+export {
+  InfrastructureHealthChecks,
+  createDatabaseHealthCheck,
+  createMessageBrokerHealthCheck,
+} from './health-checks';

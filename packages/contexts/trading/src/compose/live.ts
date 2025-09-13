@@ -1,3 +1,4 @@
+import { UnifiedEventBusDefault } from '@exitbook/platform-event-bus';
 import { Layer } from 'effect';
 
 import { TransactionRepositoryLive } from '../adapters/repositories/transaction.repository.js';
@@ -14,6 +15,7 @@ const defaultClassificationRules: ClassificationRule[] = [
 // Production runtime layer composition
 // This assembles all the live implementations for production use
 export const TradingRuntimeDefault = Layer.mergeAll(
+  UnifiedEventBusDefault,
   RuleBasedTransactionClassifierLayer(defaultClassificationRules),
   TransactionRepositoryLive,
 );

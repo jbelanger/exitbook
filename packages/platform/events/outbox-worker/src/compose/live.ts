@@ -12,13 +12,18 @@ import {
 import { OtelOutboxMetricsLive } from '../metrics';
 import { OutboxProcessorLive, defaultOutboxConfig } from '../processor';
 
-// 1) Base deps that the processor needs (DB, producer, metrics, monitoring)
+// 1) Base monitoring and infra
+const MonitoringStack = Layer.provide(
+  InfrastructureHealthChecks, // depends on HealthMonitor from MonitoringDefault
+  MonitoringDefault, // provides Telemetry and HealthMonitor
+);
+
+// 2) Base deps that the processor needs (DB, producer, metrics, monitoring)
 const BaseDeps = Layer.mergeAll(
   EventStoreWithOutboxDefault, // provides OutboxDatabase
   MessageBusDefault, // provides MessageBusProducer
   OtelOutboxMetricsLive, // provides OutboxMetrics
-  MonitoringDefault, // provides Telemetry and HealthMonitor
-  InfrastructureHealthChecks, // provides basic health checks (memory, etc.)
+  MonitoringStack, // provides Telemetry, HealthMonitor, and registers health checks
 );
 
 // 2) Provide deps to the processor so it can be constructed

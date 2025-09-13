@@ -4,8 +4,7 @@ import { HealthMonitorTag } from './index';
 
 // Infrastructure Health Checks Layer
 // This layer can be composed with your application to register standard infrastructure checks
-export const InfrastructureHealthChecks = Layer.effect(
-  HealthMonitorTag,
+export const InfrastructureHealthChecks = Layer.effectDiscard(
   Effect.gen(function* () {
     const monitor = yield* HealthMonitorTag;
 
@@ -33,8 +32,6 @@ export const InfrastructureHealthChecks = Layer.effect(
       name: 'memory',
       timeout: Duration.seconds(1),
     });
-
-    return monitor;
   }),
 );
 
