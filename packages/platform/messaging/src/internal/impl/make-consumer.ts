@@ -1,7 +1,7 @@
-import { traced } from '@exitbook/platform-monitoring';
+import { traced, Metrics } from '@exitbook/platform-monitoring';
 import { context as otelContext, propagation, SpanKind } from '@opentelemetry/api';
 import { CloudEvent } from 'cloudevents';
-import { Effect, Layer } from 'effect';
+import { Effect, Layer, pipe, Metric } from 'effect';
 
 import type {
   MessageBusConsumer,
@@ -32,12 +32,26 @@ export const makeMessageBusConsumer = (transport: MessageTransport): MessageBusC
             payload: ce.data,
           };
 
-          return traced(`${topic} receive`, handler(incomingMessage), SpanKind.CONSUMER, {
-            'messaging.consumer.group.name': groupId,
-            'messaging.destination.name': topic,
-            ...(message.key && { 'messaging.message.id': message.key }),
-            'messaging.system': 'rabbitmq',
-          });
+          const started = Date.now();
+
+          return pipe(
+            traced(`${topic} receive`, handler(incomingMessage), SpanKind.CONSUMER, {
+              'messaging.consumer.group.name': groupId,
+              'messaging.destination.name': topic,
+              ...(message.key && { 'messaging.message.id': message.key }),
+              'messaging.system': 'rabbitmq',
+            }),
+            Effect.tap(() =>
+              Metric.update(
+                Metrics.messagingReceiveDuration.pipe(
+                  Metric.tagged('messaging.destination.name', topic),
+                  Metric.tagged('messaging.consumer.group.name', groupId),
+                  Metric.tagged('messaging.system', 'rabbitmq'),
+                ),
+                (Date.now() - started) / 1000,
+              ),
+            ),
+          );
         });
       }),
       (): Subscription => ({

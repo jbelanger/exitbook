@@ -1,6 +1,6 @@
-import { traced } from '@exitbook/platform-monitoring';
+import { traced, Metrics } from '@exitbook/platform-monitoring';
 import { context as otelContext, propagation, SpanKind } from '@opentelemetry/api';
-import { Effect, pipe, Layer } from 'effect';
+import { Effect, pipe, Layer, Metric } from 'effect';
 
 import type { MessageBusProducer, MessageTransport } from '../../port';
 import { MessageBusProducerTag, MessageTransportTag } from '../../port';
@@ -46,19 +46,32 @@ export const makeMessageBusProducer = (transport: MessageTransport): MessageBusP
           }),
         );
 
-    return traced(
-      `${topic} send`,
-      transport.publish(topic, payloadJson, {
-        ...(opts?.key && { key: opts.key }),
-        headers,
-        ...(opts?.timeoutMs && { timeoutMs: opts.timeoutMs }),
-      }),
-      SpanKind.PRODUCER,
-      {
-        'messaging.destination.name': topic,
-        'messaging.system': 'rabbitmq',
-        ...(opts?.key && { 'messaging.message.id': opts.key }),
-      },
+    const started = Date.now();
+
+    return pipe(
+      traced(
+        `${topic} send`,
+        transport.publish(topic, payloadJson, {
+          ...(opts?.key && { key: opts.key }),
+          headers,
+          ...(opts?.timeoutMs && { timeoutMs: opts.timeoutMs }),
+        }),
+        SpanKind.PRODUCER,
+        {
+          'messaging.destination.name': topic,
+          'messaging.system': 'rabbitmq',
+          ...(opts?.key && { 'messaging.message.id': opts.key }),
+        },
+      ),
+      Effect.tap(() =>
+        Metric.update(
+          Metrics.messagingPublishDuration.pipe(
+            Metric.tagged('messaging.destination.name', topic),
+            Metric.tagged('messaging.system', 'rabbitmq'),
+          ),
+          (Date.now() - started) / 1000,
+        ),
+      ),
     );
   },
 
@@ -89,15 +102,29 @@ export const makeMessageBusProducer = (transport: MessageTransport): MessageBusP
       };
     });
 
-    return traced(
-      `${topic} send_batch`,
-      transport.publishBatch(topic, enrichedMessages),
-      SpanKind.PRODUCER,
-      {
-        'messaging.batch.size': items.length,
-        'messaging.destination.name': topic,
-        'messaging.system': 'rabbitmq',
-      },
+    const started = Date.now();
+
+    return pipe(
+      traced(
+        `${topic} send_batch`,
+        transport.publishBatch(topic, enrichedMessages),
+        SpanKind.PRODUCER,
+        {
+          'messaging.batch.size': items.length,
+          'messaging.destination.name': topic,
+          'messaging.system': 'rabbitmq',
+        },
+      ),
+      Effect.tap(() =>
+        Metric.update(
+          Metrics.messagingPublishDuration.pipe(
+            Metric.tagged('messaging.destination.name', topic),
+            Metric.tagged('messaging.system', 'rabbitmq'),
+            Metric.tagged('messaging.batch.size', String(items.length)),
+          ),
+          (Date.now() - started) / 1000,
+        ),
+      ),
     );
   },
 });

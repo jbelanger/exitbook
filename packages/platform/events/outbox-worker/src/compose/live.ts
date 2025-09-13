@@ -1,6 +1,6 @@
 import { EventStoreWithOutboxDefault } from '@exitbook/platform-event-store/compose/live';
 import { MessageBusDefault } from '@exitbook/platform-messaging';
-import { MonitoringDefault } from '@exitbook/platform-monitoring';
+import { MonitoringDefault, InfrastructureHealthChecks } from '@exitbook/platform-monitoring';
 import { Layer, Effect } from 'effect';
 
 import {
@@ -18,6 +18,7 @@ const BaseDeps = Layer.mergeAll(
   MessageBusDefault, // provides MessageBusProducer
   OtelOutboxMetricsLive, // provides OutboxMetrics
   MonitoringDefault, // provides Telemetry and HealthMonitor
+  InfrastructureHealthChecks, // provides basic health checks (memory, etc.)
 );
 
 // 2) Provide deps to the processor so it can be constructed

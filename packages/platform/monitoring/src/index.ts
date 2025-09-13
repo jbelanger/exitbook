@@ -39,8 +39,11 @@ const TelemetryConfig = Config.all({
 export const TelemetryLive = Layer.unwrapEffect(
   Effect.gen(function* () {
     const cfg = yield* TelemetryConfig;
+
+    // Environment-based sampling: 1.0 in dev, configurable in production
+    const samplingRate = cfg.environment === 'development' ? 1.0 : cfg.sampling;
     const sampler = new ParentBasedSampler({
-      root: new TraceIdRatioBasedSampler(cfg.sampling),
+      root: new TraceIdRatioBasedSampler(samplingRate),
     });
 
     return NodeSdk.layer(() => ({
@@ -166,7 +169,9 @@ export interface HealthMonitor {
   readonly register: (check: HealthCheck) => Effect.Effect<void>;
 }
 
-export const HealthMonitorTag = Context.GenericTag<HealthMonitor>('@platform/HealthMonitor');
+export const HealthMonitorTag = Context.GenericTag<HealthMonitor>(
+  '@exitbook/platform-monitoring/HealthMonitor',
+);
 
 // Health Monitor Implementation
 export const HealthMonitorLive = Layer.effect(
@@ -471,12 +476,9 @@ export const registerGracefulShutdown = () => {
   });
 };
 
-// Export the complete monitoring stack with structured logging
-export const MonitoringDefault = Layer.mergeAll(
-  TelemetryLive,
-  HealthMonitorLive,
-  StructuredLoggerLive,
-);
-
-// Re-export compose functionality
+// Re-export compose functionality and MonitoringDefault
+export { MonitoringDefault } from './compose';
 export * from './compose';
+
+// Re-export health checks
+export * from './health-checks';
