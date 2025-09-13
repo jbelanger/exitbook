@@ -29,10 +29,10 @@ const BaseDeps = Layer.mergeAll(
 // 2) Provide deps to the processor so it can be constructed
 const ProcessorProvided = Layer.provide(OutboxProcessorLive(defaultOutboxConfig), BaseDeps);
 
-// 3) Provide the processor to the daemon
+// 3) Provide the processor and base deps to the daemon
 export const OutboxWorkerDefault = Layer.provide(
   OutboxDaemonLive(defaultDaemonConfig),
-  ProcessorProvided,
+  Layer.mergeAll(ProcessorProvided, BaseDeps),
 );
 
 /**
@@ -50,9 +50,10 @@ export const runOutboxDaemon = (config?: Partial<DaemonConfig>) => {
     const fullConfig = { ...defaultDaemonConfig, ...config };
 
     // Create custom layer with provided config
+    const customProcessorProvided = Layer.provide(OutboxProcessorLive(fullConfig), BaseDeps);
     const customWorkerLayer = Layer.provide(
       OutboxDaemonLive(fullConfig),
-      Layer.provide(OutboxProcessorLive(fullConfig), BaseDeps),
+      Layer.mergeAll(customProcessorProvided, BaseDeps),
     );
 
     return Effect.provide(program, customWorkerLayer);
