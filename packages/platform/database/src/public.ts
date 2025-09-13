@@ -11,7 +11,7 @@ export { DbPool, DbPoolLive } from './pool';
 // Centralized client with instrumentation
 export { DbClient, DbClientLive, DbClientWithTelemetryLive } from './client';
 
-// Typed helpers: Db.of<DB>() for typed views, Db.tx() for transactions
+// Transaction helper: Db.tx() for transactions
 export { Db } from './tx';
 
 // Telemetry layer with metrics, tracing, and slow query logging

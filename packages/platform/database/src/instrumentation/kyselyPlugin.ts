@@ -5,6 +5,10 @@ import { installDbInstruments } from './metrics';
 
 const tracer = trace.getTracer('@exitbook/platform-database');
 
+// Configurable thresholds for slow query logging
+const WARN_MS = Number(process.env['DB_SLOW_WARN_MS'] ?? '100');
+const ERROR_MS = Number(process.env['DB_SLOW_ERROR_MS'] ?? '1000');
+
 // Symbol to mark instrumented instances
 const INSTRUMENTED_SYMBOL = Symbol('kysely-instrumented');
 
@@ -45,9 +49,9 @@ export function attachKyselyPlugin(db: Kysely<unknown>) {
       });
 
       // Log slow queries
-      if (duration > 1000) {
+      if (duration > ERROR_MS) {
         console.error(`[SLOW QUERY] ${operation} on ${table} took ${duration}ms`);
-      } else if (duration > 100) {
+      } else if (duration > WARN_MS) {
         console.warn(`[SLOW QUERY] ${operation} on ${table} took ${duration}ms`);
       }
 
@@ -56,7 +60,7 @@ export function attachKyselyPlugin(db: Kysely<unknown>) {
         'db.rows_affected': Number(result.numAffectedRows ?? 0),
       });
 
-      span.setStatus({ code: 1 }); // OK
+      span.setStatus({ code: 1 }); // StatusCode.OK
       return result;
     } catch (error) {
       const duration = Date.now() - startTime;
@@ -70,7 +74,7 @@ export function attachKyselyPlugin(db: Kysely<unknown>) {
 
       span.recordException(error as Error);
       span.setStatus({
-        code: 2, // ERROR
+        code: 2, // StatusCode.ERROR
         message: error instanceof Error ? error.message : String(error),
       });
 
