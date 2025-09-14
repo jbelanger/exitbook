@@ -1,5 +1,4 @@
-import type { Logger } from 'pino';
-
+import type { Logger } from '../pino-logger.js';
 import { getErrorProperties, isErrorWithMessage } from '../type-guards';
 import { RateLimitError, ServiceError } from '../types';
 
