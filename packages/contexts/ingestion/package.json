@@ -30,6 +30,7 @@
   },
   "dependencies": {
     "@exitbook/platform-monitoring": "workspace:*",
+    "@exitbook/platform-networking": "workspace:*",
     "@polkadot/util-crypto": "^13.5.6",
     "@scure/bip32": "^1.7.0",
     "@types/jsonwebtoken": "^9.0.10",

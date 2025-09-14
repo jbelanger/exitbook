@@ -1,0 +1,42 @@
+{
+  "name": "@exitbook/platform-networking",
+  "version": "0.0.0",
+  "private": true,
+  "sideEffects": false,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rimraf dist",
+    "dev": "tsc -b -w",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "prettier": "prettier --check .",
+    "prettier:fix": "prettier --write .",
+    "test": "vitest run",
+    "test:watch": "vitest --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@exitbook/platform-monitoring": "workspace:*",
+    "effect": "^3.17.13",
+    "jsonwebtoken": "^9.0.0",
+    "node-fetch": "^3.3.2"
+  },
+  "devDependencies": {
+    "@internal/tsconfig": "workspace:*",
+    "@types/jsonwebtoken": "^9.0.0",
+    "@types/node": "^24.3.1",
+    "rimraf": "^5.0.0"
+  }
+}
