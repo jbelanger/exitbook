@@ -23,7 +23,11 @@ export class AuthHelpers {
     const ts = timestamp || Date.now();
     const algorithm = config.algorithm || 'sha256';
 
-    const message = `${method.toUpperCase()}${path}${body || ''}${ts}`;
+    // Use custom message builder if provided, otherwise use default
+    const message = config.messageBuilder
+      ? config.messageBuilder({ body, method: method.toUpperCase(), path, timestamp: ts })
+      : `${method.toUpperCase()}${path}${body || ''}${ts}`;
+
     const signature = crypto.createHmac(algorithm, config.secret).update(message).digest('hex');
 
     return {

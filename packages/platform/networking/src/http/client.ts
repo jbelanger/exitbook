@@ -1,5 +1,4 @@
-import { Context, Effect, Layer, Schedule } from 'effect';
-import type { BodyInit } from 'node-fetch';
+import { Context, Effect, Layer } from 'effect';
 
 import { recordHttpRequest, recordHttpError } from '../metrics/index.js';
 
@@ -18,6 +17,15 @@ export interface HttpClient {
     options?: Omit<HttpRequest, 'method' | 'endpoint'>,
   ) => Effect.Effect<T, HttpError | HttpTimeoutError, never>;
   readonly getConfig: () => Effect.Effect<HttpClientConfig, never, never>;
+  readonly head: <T = unknown>(
+    endpoint: string,
+    options?: Omit<HttpRequest, 'method' | 'endpoint'>,
+  ) => Effect.Effect<T, HttpError | HttpTimeoutError, never>;
+  readonly patch: <T = unknown>(
+    endpoint: string,
+    body?: unknown,
+    options?: Omit<HttpRequest, 'method' | 'body' | 'endpoint'>,
+  ) => Effect.Effect<T, HttpError | HttpTimeoutError, never>;
   readonly post: <T = unknown>(
     endpoint: string,
     body?: unknown,
@@ -44,6 +52,33 @@ export const HttpClientLive = (config: HttpClientConfig) => {
     } catch {
       return url;
     }
+  };
+
+  const parseRetryAfter = (retryAfter: string | null): number => {
+    if (!retryAfter) return 0;
+
+    // Try parsing as seconds (integer)
+    const seconds = parseInt(retryAfter, 10);
+    if (!isNaN(seconds)) {
+      return seconds * 1000; // convert to milliseconds
+    }
+
+    // Try parsing as HTTP date
+    const date = new Date(retryAfter);
+    if (!isNaN(date.getTime())) {
+      return Math.max(0, date.getTime() - Date.now());
+    }
+
+    return 0;
+  };
+
+  const shouldRetry = (e: unknown): boolean => {
+    if (e instanceof HttpTimeoutErrorClass) return true;
+    if (e instanceof HttpErrorClass) {
+      if (e.status === 429) return true;
+      if (e.status >= 500) return true;
+    }
+    return false;
   };
 
   const requestRaw = <T = unknown>(req: HttpRequest) =>
@@ -85,7 +120,13 @@ export const HttpClientLive = (config: HttpClientConfig) => {
 
             if (!resp.ok) {
               const text = await resp.text().catch(() => '');
-              throw new HttpErrorClass(`HTTP ${resp.status}: ${text}`, resp.status, text);
+              const retryAfter = resp.headers.get('Retry-After') || undefined;
+              throw new HttpErrorClass(
+                `HTTP ${resp.status}: ${text}`,
+                resp.status,
+                text,
+                retryAfter,
+              );
             }
 
             const responseHeaders: Record<string, string> = {};
@@ -110,9 +151,43 @@ export const HttpClientLive = (config: HttpClientConfig) => {
         },
       });
 
-      const baseRetryPolicy = Schedule.recurs(config.retries ?? 2);
+      // Custom retry logic with predicate and Retry-After handling
+      const retryWithPredicate = Effect.gen(function* () {
+        let attempt = 0;
+        const maxAttempts = (config.retries ?? 2) + 1;
 
-      const result = yield* doFetch.pipe(Effect.retry(baseRetryPolicy));
+        while (attempt < maxAttempts) {
+          const result = yield* Effect.either(doFetch);
+
+          if (result._tag === 'Right') {
+            return result.right;
+          }
+
+          attempt++;
+
+          if (attempt >= maxAttempts || !shouldRetry(result.left)) {
+            return yield* Effect.fail(result.left);
+          }
+
+          // Calculate delay with exponential backoff + jitter
+          let delayMs = 200 * Math.pow(2, attempt - 1) + Math.random() * 100;
+
+          // Honor Retry-After header if present
+          if (result.left instanceof HttpErrorClass && result.left.retryAfter) {
+            const retryAfterMs = parseRetryAfter(result.left.retryAfter);
+            if (retryAfterMs > 0) {
+              delayMs = retryAfterMs;
+            }
+          }
+
+          yield* Effect.sleep(delayMs);
+        }
+
+        // This should never be reached, but TypeScript needs it
+        return yield* Effect.die('Retry logic failed unexpectedly');
+      });
+
+      const result = yield* retryWithPredicate;
 
       const duration = Date.now() - started;
       yield* Effect.all(
@@ -125,6 +200,7 @@ export const HttpClientLive = (config: HttpClientConfig) => {
           req.method ?? 'GET',
           err instanceof Error ? err.name : String(err),
           config.providerId,
+          buildUrl(config.baseUrl, req.endpoint),
         ),
       ),
     );
@@ -137,6 +213,27 @@ export const HttpClientLive = (config: HttpClientConfig) => {
       }),
 
     getConfig: () => Effect.succeed(config),
+
+    head: <T = unknown>(endpoint: string, options?: Omit<HttpRequest, 'method' | 'endpoint'>) =>
+      Effect.gen(function* () {
+        const result = yield* requestRaw<T>({ ...options, endpoint, method: 'HEAD' });
+        return result.data;
+      }),
+
+    patch: <T = unknown>(
+      endpoint: string,
+      body?: unknown,
+      options?: Omit<HttpRequest, 'method' | 'body' | 'endpoint'>,
+    ) =>
+      Effect.gen(function* () {
+        const result = yield* requestRaw<T>({
+          ...options,
+          body: body as BodyInit | object | undefined,
+          endpoint,
+          method: 'PATCH',
+        });
+        return result.data;
+      }),
 
     post: <T = unknown>(
       endpoint: string,

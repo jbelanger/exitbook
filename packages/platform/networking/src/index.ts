@@ -19,7 +19,13 @@ export type {
 export { CircuitBreakerOpenError } from './resilience/index.js';
 
 // Auth helpers
-export type { ApiKeyAuthConfig, HmacAuthConfig, JwtAuthConfig, AuthConfig } from './auth/index.js';
+export type {
+  ApiKeyAuthConfig,
+  HmacAuthConfig,
+  JwtAuthConfig,
+  AuthConfig,
+  MessageBuilder,
+} from './auth/index.js';
 export { AuthHelpers } from './auth/index.js';
 
 // Metrics
@@ -42,3 +48,12 @@ export {
   NetworkingWithoutRateLimit,
   NetworkingMinimal,
 } from './compose/index.js';
+
+// Testing utilities
+export {
+  NetworkingTestkit,
+  TestHttpClientTag,
+  InMemoryRateLimiterLive,
+  InMemoryCircuitBreakerLive,
+} from './testing/index.js';
+export type { TestHttpClient, MockHttpResponse } from './testing/index.js';

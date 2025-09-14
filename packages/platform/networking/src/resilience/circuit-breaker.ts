@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Ref } from 'effect';
+import { Context, Effect, Layer, Ref, TSemaphore } from 'effect';
 
 import type { CircuitBreakerConfig, CircuitBreakerStats, CircuitState } from './types.js';
 import { CircuitBreakerOpenError } from './types.js';
@@ -7,6 +7,10 @@ interface CircuitBreakerState {
   failureCount: number;
   lastFailureTimestamp: number;
   lastSuccessTimestamp: number;
+}
+
+interface HalfOpenGate {
+  semaphore: TSemaphore.TSemaphore;
 }
 
 export interface CircuitBreaker {
@@ -30,6 +34,7 @@ export const CircuitBreakerLive = (config: CircuitBreakerConfig) =>
     CircuitBreakerTag,
     Effect.gen(function* () {
       const circuits = yield* Ref.make(new Map<string, CircuitBreakerState>());
+      const halfOpenGates = yield* Ref.make(new Map<string, HalfOpenGate>());
 
       const getCircuit = (key: string) =>
         Effect.gen(function* () {
@@ -48,6 +53,22 @@ export const CircuitBreakerLive = (config: CircuitBreakerConfig) =>
 
           yield* Ref.update(circuits, (map) => new Map(map).set(key, newCircuit));
           return newCircuit;
+        });
+
+      const getHalfOpenGate = (key: string) =>
+        Effect.gen(function* () {
+          const currentGates = yield* Ref.get(halfOpenGates);
+          const existing = currentGates.get(key);
+
+          if (existing) {
+            return existing;
+          }
+
+          const semaphore = yield* TSemaphore.make(1);
+          const newGate: HalfOpenGate = { semaphore };
+
+          yield* Ref.update(halfOpenGates, (map) => new Map(map).set(key, newGate));
+          return newGate;
         });
 
       const updateCircuit = (key: string, circuit: CircuitBreakerState) =>
@@ -94,8 +115,7 @@ export const CircuitBreakerLive = (config: CircuitBreakerConfig) =>
               );
             }
 
-            // Use Effect.matchEffect to properly handle typed failures
-            return yield* Effect.matchEffect(effect, {
+            const executeWithTracking = Effect.matchEffect(effect, {
               onFailure: (err) =>
                 Effect.gen(function* () {
                   // Record failure
@@ -109,7 +129,7 @@ export const CircuitBreakerLive = (config: CircuitBreakerConfig) =>
                 }),
               onSuccess: (result) =>
                 Effect.gen(function* () {
-                  // Record success
+                  // Record success - reset circuit on success
                   const successCircuit: CircuitBreakerState = {
                     failureCount: 0,
                     lastFailureTimestamp: 0,
@@ -119,6 +139,14 @@ export const CircuitBreakerLive = (config: CircuitBreakerConfig) =>
                   return result;
                 }),
             });
+
+            // If circuit is half-open, gate execution with semaphore to prevent thundering herd
+            if (state === 'half-open') {
+              const gate = yield* getHalfOpenGate(key);
+              return yield* TSemaphore.withPermit(gate.semaphore)(executeWithTracking);
+            }
+
+            return yield* executeWithTracking;
           }),
 
         getState: (key: string) =>

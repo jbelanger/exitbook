@@ -30,8 +30,7 @@
   "dependencies": {
     "@exitbook/platform-monitoring": "workspace:*",
     "effect": "^3.17.13",
-    "jsonwebtoken": "^9.0.0",
-    "node-fetch": "^3.3.2"
+    "jsonwebtoken": "^9.0.0"
   },
   "devDependencies": {
     "@internal/tsconfig": "workspace:*",

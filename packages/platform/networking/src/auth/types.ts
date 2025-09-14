@@ -4,14 +4,22 @@ export interface ApiKeyAuthConfig {
   prefix?: string | undefined; // defaults to 'Bearer'
 }
 
+export type MessageBuilder = (params: {
+  body?: string | undefined;
+  method: string;
+  path: string;
+  timestamp: number;
+}) => string;
+
 export interface HmacAuthConfig {
   algorithm?: 'sha256' | 'sha512' | undefined; // defaults to 'sha256'
   apiKey: string;
+  messageBuilder?: MessageBuilder | undefined;
   secret: string;
 }
 
 export interface JwtAuthConfig {
-  algorithm?: string | undefined; // defaults to 'HS256'
+  algorithm?: 'HS256' | 'HS384' | 'HS512' | undefined; // defaults to 'HS256'
   expiresIn?: string | undefined; // defaults to '1h'
   secret: string;
 }

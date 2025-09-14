@@ -60,42 +60,63 @@ export const recordHttpRequest = (
 ) => {
   const durationSeconds = durationMs / 1000;
 
-  const durationMetric = providerId
-    ? NetworkingMetrics.httpClientRequestDuration.pipe(
-        Metric.tagged('http.request.method', method.toUpperCase()),
-        Metric.tagged('http.response.status_code', String(statusCode)),
-        Metric.tagged('provider.id', providerId),
-      )
-    : NetworkingMetrics.httpClientRequestDuration.pipe(
-        Metric.tagged('http.request.method', method.toUpperCase()),
-        Metric.tagged('http.response.status_code', String(statusCode)),
-      );
+  // Extract host from URL for network.peer.name
+  let host: string;
+  try {
+    host = new URL(url).host;
+  } catch {
+    host = 'unknown';
+  }
 
-  const countMetric = providerId
-    ? NetworkingMetrics.httpClientRequestsTotal.pipe(
-        Metric.tagged('http.request.method', method.toUpperCase()),
-        Metric.tagged('http.response.status_code', String(statusCode)),
-        Metric.tagged('provider.id', providerId),
-      )
-    : NetworkingMetrics.httpClientRequestsTotal.pipe(
-        Metric.tagged('http.request.method', method.toUpperCase()),
-        Metric.tagged('http.response.status_code', String(statusCode)),
-      );
+  const baseTags = [
+    ['http.request.method', method.toUpperCase()],
+    ['http.response.status_code', String(statusCode)],
+    ['network.peer.name', host],
+  ] as const;
+
+  let durationMetric = NetworkingMetrics.httpClientRequestDuration;
+  let countMetric = NetworkingMetrics.httpClientRequestsTotal;
+
+  for (const [key, value] of baseTags) {
+    durationMetric = durationMetric.pipe(Metric.tagged(key, value));
+    countMetric = countMetric.pipe(Metric.tagged(key, value));
+  }
+
+  if (providerId) {
+    durationMetric = durationMetric.pipe(Metric.tagged('provider.id', providerId));
+    countMetric = countMetric.pipe(Metric.tagged('provider.id', providerId));
+  }
 
   return [Metric.update(durationMetric, durationSeconds), Metric.increment(countMetric)];
 };
 
-export const recordHttpError = (method: string, error: string, providerId?: string) => {
-  const errorMetric = providerId
-    ? NetworkingMetrics.httpClientErrorsTotal.pipe(
-        Metric.tagged('http.request.method', method.toUpperCase()),
-        Metric.tagged('error.type', error),
-        Metric.tagged('provider.id', providerId),
-      )
-    : NetworkingMetrics.httpClientErrorsTotal.pipe(
-        Metric.tagged('http.request.method', method.toUpperCase()),
-        Metric.tagged('error.type', error),
-      );
+export const recordHttpError = (
+  method: string,
+  error: string,
+  providerId?: string,
+  url?: string,
+) => {
+  let host: string | undefined;
+  if (url) {
+    try {
+      host = new URL(url).host;
+    } catch {
+      host = 'unknown';
+    }
+  }
+
+  let errorMetric = NetworkingMetrics.httpClientErrorsTotal.pipe(
+    Metric.tagged('http.request.method', method.toUpperCase()),
+    Metric.tagged('error.type', error),
+  );
+
+  if (host) {
+    errorMetric = errorMetric.pipe(Metric.tagged('network.peer.name', host));
+  }
+
+  if (providerId) {
+    errorMetric = errorMetric.pipe(Metric.tagged('provider.id', providerId));
+  }
 
   return Metric.increment(errorMetric);
 };

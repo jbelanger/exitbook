@@ -1,5 +1,3 @@
-import type { BodyInit } from 'node-fetch';
-
 export interface HttpRequest {
   body?: BodyInit | object | undefined;
   endpoint: string;
@@ -28,6 +26,7 @@ export class HttpError extends Error {
     message: string,
     public readonly status: number,
     public readonly response?: string | undefined,
+    public readonly retryAfter?: string | undefined,
   ) {
     super(message);
     this.name = 'HttpError';
