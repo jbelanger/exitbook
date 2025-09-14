@@ -36,7 +36,7 @@ same Nest modules if it boots with Nest).
 │  │  ├─ effect/                           # Effect runtime, common Layers (Clock, Config, UUID)
 │  │  └─ utils/                            # bignum/date/validation helpers
 │  ├─ contexts/                            # bounded contexts (functional core first)
-│  │  ├─ trading/                          # each context has:
+│  │  ├─ ingestion/                        # import sessions, raw capture, processing, canonicalization
 │  │  │  ├─ core/                          #   pure: VOs, events, aggregates, policies/services
 │  │  │  ├─ ports/                         #   Effect Tags (interfaces) needed by core/app
 │  │  │  ├─ adapters/                      #   impure impls: repositories, http, mq, projections
@@ -45,12 +45,14 @@ same Nest modules if it boots with Nest).
 │  │  │  │  ├─ default.ts                  #   prod runtime layers
 │  │  │  │  └─ test.ts                     #   in-memory/fake layers
 │  │  │  └─ nest/
-│  │  │     └─ trading.module.ts           #   DynamicModule factory
+│  │  │     └─ ingestion.module.ts         #   DynamicModule factory
+│  │  ├─ ledger/                           # posting entries, classification rules, reversals
+│  │  │  └─ ...same...
+│  │  ├─ reconciliation/                   # snapshots, mismatch detection, advisory
+│  │  │  └─ ...same...
 │  │  ├─ portfolio/
 │  │  │  └─ ...same...
-│  │  ├─ taxation/
-│  │  │  └─ ...same...
-│  │  └─ reconciliation/
+│  │  └─ taxation/
 │  │     └─ ...same...
 │  ├─ platform/                            # cross-cutting infra (impure, reusable)
 │  │  ├─ event-store/                      # ES + snapshots + outbox + idempotency
@@ -281,19 +283,19 @@ Export only `core/*`, `ports/*`, `compose/*`, and `nest/*`:
 
 ## Cross-Context Communication
 
-Direct imports between contexts (e.g., `trading` importing from `portfolio`) are
-strictly forbidden. Communication must occur through well-defined, decoupled
+Direct imports between contexts (e.g., `ingestion` importing from `portfolio`)
+are strictly forbidden. Communication must occur through well-defined, decoupled
 contracts:
 
 1.  **Asynchronous (Preferred):** One context publishes a domain event
-    (`TransactionCompleted`), and another context subscribes to it via the
-    message bus (`platform/messaging`). This is the default pattern for
-    inter-context workflows.
+    (`CanonicalTxAppended`, `LedgerEntriesRecorded`), and another context
+    subscribes to it via the message bus (`platform/messaging`). This is the
+    default pattern for inter-context workflows.
 2.  **Synchronous (Use Sparingly):** One context exposes a query handler
-    (`GetPortfolioValuationQuery`) that another context's _adapter_ can call.
-    This should be reserved for read-only data fetching where eventual
-    consistency is not acceptable. The dependency is still on the query
-    contract, not the internal implementation.
+    (`GetBalanceSnapshotQuery`) that another context's _adapter_ can call. This
+    should be reserved for read-only data fetching where eventual consistency is
+    not acceptable. The dependency is still on the query contract, not the
+    internal implementation.
 
 ## Configuration Management
 
@@ -379,8 +381,9 @@ platform/*       ──X (no imports from contexts)
   `packages/contexts/*/nest/*.module.ts`.
 - Create **`packages/contexts/*/compose/default.ts`** (real adapters) and
   **`compose/test.ts`** (in-memory/fakes).
-- API imports `@ctx/<ctx>/nest/<ctx>.module`.
-- CLI (plain Effect) imports `@ctx/<ctx>/compose/default` (tests import
+- API imports `@ctx/ingestion/nest/ingestion.module`,
+  `@ctx/ledger/nest/ledger.module`.
+- CLI (plain Effect) imports `@ctx/ingestion/compose/default` (tests import
   `compose/test`).
 - Extract domain logic into `packages/contexts/*/core`; define **ports** for
   I/O.
@@ -400,8 +403,8 @@ platform/*       ──X (no imports from contexts)
 
 - New contributors read `README.md` → `docs/handbook/architecture.md` →
   ADR-0001.
-- Code-along: create a “hello” command in `trading/app`, generate a repo
-  adapter, expose HTTP, add a Playwright test.
+- Code-along: create an import session command in `ingestion/app`, generate a
+  repo adapter, expose HTTP, add a Playwright test.
 
 ---
 
@@ -410,7 +413,7 @@ platform/*       ──X (no imports from contexts)
 - `pnpm install`
 - `pnpm dev` (API + Web, local Postgres/Redis via
   `infra/docker/compose.dev.yml`)
-- `pnpm gen:context trading` (scaffold, provided by `packages/tooling`)
+- `pnpm gen:context ingestion` (scaffold, provided by `packages/tooling`)
 
 **Appendix B — Golden rules (tl;dr)**
 
@@ -426,7 +429,9 @@ platform/*       ──X (no imports from contexts)
 
 ```ts
 // apps/api/src/app.module.ts
-import { TradingModule } from '@ctx/trading/nest/trading.module';
+import { IngestionModule } from '@ctx/ingestion/nest/ingestion.module';
+import { LedgerModule } from '@ctx/ledger/nest/ledger.module';
+import { ReconciliationModule } from '@ctx/reconciliation/nest/reconciliation.module';
 import { PortfolioModule } from '@ctx/portfolio/nest/portfolio.module';
 // ...
 ```
@@ -435,8 +440,9 @@ import { PortfolioModule } from '@ctx/portfolio/nest/portfolio.module';
 
 ```ts
 // apps/cli/src/main.ts
-import { TradingRuntimeDefault } from '@ctx/trading/compose/default';
+import { IngestionRuntimeDefault } from '@ctx/ingestion/compose/default';
+import { LedgerRuntimeDefault } from '@ctx/ledger/compose/default';
 await Effect.runPromise(
-  program.pipe(Effect.provideLayer(TradingRuntimeDefault)),
+  program.pipe(Effect.provideLayer(IngestionRuntimeDefault)),
 );
 ```

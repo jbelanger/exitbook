@@ -1,0 +1,156 @@
+import { type Result, err, ok } from 'neverthrow';
+
+import { createMoney } from '../../decimal-utils.js';
+import { BaseProcessor } from '../../shared/processors/base-processor.js';
+import type {
+  ApiClientRawData,
+  ImportSessionMetadata,
+} from '../../shared/processors/interfaces.js';
+
+// Import processors to trigger registration
+import './mappers/SubstrateMapper.js';
+import { TransactionMapperFactory } from '../../shared/processors/processor-registry.js';
+import type { StoredRawData, UniversalTransaction } from '../../types.js';
+
+import type { SubscanTransfer } from './types.js';
+import { derivePolkadotAddressVariants } from './utils.js';
+
+/**
+ * Polkadot transaction processor that converts raw blockchain transaction data
+ * into UniversalTransaction format. Uses ProcessorFactory to dispatch to provider-specific
+ * processors based on data provenance.
+ */
+export class PolkadotTransactionProcessor extends BaseProcessor<ApiClientRawData<SubscanTransfer>> {
+  constructor() {
+    super('polkadot');
+  }
+
+  /**
+   * Check if this processor can handle the specified source type.
+   */
+  protected canProcessSpecific(sourceType: string): boolean {
+    return sourceType === 'blockchain';
+  }
+
+  /**
+   * Enrich session context with SS58 address variants for better transaction matching.
+   * Similar to Bitcoin's derived address approach but for Substrate/Polkadot ecosystem.
+   */
+  protected enrichSessionContext(address: string): ImportSessionMetadata {
+    if (!address) {
+      throw new Error('Missing session address in metadata for Polkadot processing');
+    }
+
+    // Generate SS58 address variants for all addresses
+    const allDerivedAddresses: string[] = [];
+
+    const variants = derivePolkadotAddressVariants(address);
+    allDerivedAddresses.push(...variants);
+
+    // Remove duplicates
+    const uniqueDerivedAddresses = Array.from(new Set(allDerivedAddresses));
+
+    this.logger.info(
+      `Enriched Polkadot session context - Original address: ${address}, ` +
+        `SS58 variants generated: ${uniqueDerivedAddresses.length}`,
+    );
+
+    return {
+      address: address,
+      derivedAddresses: uniqueDerivedAddresses,
+    };
+  }
+
+  protected async processInternal(
+    rawDataItems: StoredRawData<ApiClientRawData<SubscanTransfer>>[],
+    sessionMetadata?: ImportSessionMetadata,
+  ): Promise<Result<UniversalTransaction[], string>> {
+    const transactions: UniversalTransaction[] = [];
+
+    if (!sessionMetadata?.address) {
+      throw new Error('Missing session address in metadata for Polkadot processing');
+    }
+
+    // Enrich session context with SS58 address variants
+    const sessionContext = this.enrichSessionContext(sessionMetadata.address);
+
+    for (const item of rawDataItems) {
+      const result = this.processSingle(item, sessionContext);
+      if (result.isErr()) {
+        this.logger.warn(`Failed to process transaction ${item.id}: ${result.error}`);
+        continue; // Continue processing other transactions
+      }
+
+      const transaction = result.value;
+      if (transaction) {
+        transactions.push(transaction);
+      }
+    }
+
+    return Promise.resolve(ok(transactions));
+  }
+
+  private processSingle(
+    rawDataItem: StoredRawData<ApiClientRawData<SubscanTransfer>>,
+    sessionContext: ImportSessionMetadata,
+  ): Result<UniversalTransaction | null, string> {
+    const apiClientRawData = rawDataItem.rawData;
+    const { providerId, rawData } = apiClientRawData;
+
+    // Get the appropriate processor for this provider
+    const processor = TransactionMapperFactory.create(providerId);
+    if (!processor) {
+      return err(`No processor found for provider: ${providerId}`);
+    }
+
+    // Transform using the provider-specific processor
+    const transformResult = processor.map(rawData, sessionContext);
+
+    if (transformResult.isErr()) {
+      return err(`Transform failed for ${providerId}: ${transformResult.error}`);
+    }
+
+    const blockchainTransactions = transformResult.value;
+    if (blockchainTransactions.length === 0) {
+      return err(`No transactions returned from ${providerId} processor`);
+    }
+
+    // Polkadot processors return array with single transaction
+    const blockchainTransaction = blockchainTransactions[0];
+
+    if (!blockchainTransaction) {
+      return err(`No valid transaction object returned from ${providerId} processor`);
+    }
+
+    // Determine proper transaction type based on Polkadot transaction flow
+    const transactionType = this.mapTransactionType(blockchainTransaction, sessionContext);
+
+    // Convert UniversalBlockchainTransaction to UniversalTransaction
+    const universalTransaction: UniversalTransaction = {
+      amount: createMoney(blockchainTransaction.amount, blockchainTransaction.currency),
+      datetime: new Date(blockchainTransaction.timestamp).toISOString(),
+      fee: blockchainTransaction.feeAmount
+        ? createMoney(blockchainTransaction.feeAmount, blockchainTransaction.feeCurrency || 'DOT')
+        : createMoney('0', 'DOT'),
+      from: blockchainTransaction.from,
+      id: blockchainTransaction.id,
+      metadata: {
+        blockchain: 'polkadot',
+        blockHeight: blockchainTransaction.blockHeight,
+        blockId: blockchainTransaction.blockId,
+        providerId: blockchainTransaction.providerId,
+      },
+      source: 'polkadot',
+      status: blockchainTransaction.status === 'success' ? 'ok' : 'failed',
+      symbol: blockchainTransaction.currency,
+      timestamp: blockchainTransaction.timestamp,
+      to: blockchainTransaction.to,
+      type: transactionType,
+    };
+
+    this.logger.debug(
+      `Successfully processed transaction ${universalTransaction.id} from ${providerId}`,
+    );
+    return ok(universalTransaction);
+  }
+}
