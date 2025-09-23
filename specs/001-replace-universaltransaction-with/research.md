@@ -51,13 +51,13 @@ The current `UniversalTransaction` interface combines:
 **Alternatives Considered**: BigNumber.js (rejected - not already in use)
 **Implementation**: Follow existing Money interface patterns with DecimalString serialization
 
-### Decision: Implement via Metadata-Driven Registry Pattern
+### Decision: Use Existing Metadata-Driven Registry Pattern (No Changes)
 **Rationale**:
-- Existing `@RegisterApiClient` decorator pattern already established
-- Enables automatic discovery and instantiation of processors
-- Maintains type safety with compile-time checking
-**Alternatives Considered**: Manual registration (rejected - inconsistent with current patterns)
-**Implementation**: Extend existing registry in `packages/import/src/blockchains/shared/registry/`
+- Existing `@RegisterApiClient` decorator pattern works perfectly for ProcessedTransaction
+- Current registry in `packages/import/src/blockchains/shared/registry/` supports new types
+- No architectural changes needed - only add new processor types
+**Alternatives Considered**: New registry system (rejected - unnecessary complexity)
+**Implementation**: Extend existing processors to output ProcessedTransaction instead of UniversalTransaction
 
 ## New Architecture Design Decisions
 
@@ -90,14 +90,16 @@ The current `UniversalTransaction` interface combines:
 - Simple purpose categories (rejected - insufficient granularity)
 - Open-ended string purposes (rejected - inconsistent classification)
 
-### Decision: Complete UniversalTransaction Removal
+### Decision: Time-Boxed Backward Compatibility Shims (Updated)
 **Rationale**:
-- Specification explicitly states "No rollback, we go all in"
-- Clean architecture without legacy compatibility burden
-- Forces complete migration ensuring consistent new patterns
+- FR-005 mandates backward compatibility through shims during transition
+- User clarification: "keep a time-boxed shim (1-2 sprints) to decouple provider refactors from transformer work"
+- Bridge pattern provides compile-time compatibility without permanent maintenance burden
+- Enables "all-in" commitment after transition period
 **Alternatives Considered**:
-- Compatibility shims (rejected - specification prohibits backward compatibility)
-- Gradual migration (rejected - creates dual-maintenance burden)
+- Complete replacement (conflicts with FR-005 requirement)
+- Permanent dual-path processing (rejected - adds ongoing complexity)
+**Implementation**: Shim converts UniversalTransaction → ProcessedTransaction during 1-2 sprint migration window
 
 ## Performance Considerations
 
@@ -127,15 +129,19 @@ The current `UniversalTransaction` interface combines:
 
 ## Migration Strategy
 
-### Decision: Incremental Processor Migration
+### Decision: Dual-Path Migration with Time-Boxed Shims
 **Approach**:
-1. Implement new types alongside existing ones
-2. Migrate processors one at a time (exchange → blockchain)
-3. Remove UniversalTransaction after all processors migrated
-4. Update storage layer last
+1. Implement ProcessedTransaction types and pipeline alongside existing UniversalTransaction
+2. Create backward compatibility shims (UniversalTransaction ↔ ProcessedTransaction)
+3. Migrate processors incrementally using bridge pattern for compile-time compatibility
+4. Remove shims and UniversalTransaction after 1-2 sprint time-box expires
+5. Complete transition to ProcessedTransaction-only architecture
 
-**Rationale**: Minimizes risk while maintaining development velocity during 1-2 sprint timeline
-**Testing**: Parallel validation during migration to ensure output equivalence
+**Rationale**:
+- Satisfies FR-005 backward compatibility requirement
+- Decouples provider refactors from transformer work as requested
+- Maintains "all-in" commitment with definitive end date for legacy support
+**Testing**: Parallel validation during migration with shim-based compatibility layer
 
 ## Observability Requirements
 

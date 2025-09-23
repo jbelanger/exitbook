@@ -7,7 +7,7 @@
   "properties": {
     "id": {
       "type": "string",
-      "description": "Upstream-stable identifier"
+      "description": "Unique per (source, sourceUid, id) tuple to avoid cross-account collisions at the same venue"
     },
     "source": {
       "type": "string",
@@ -67,7 +67,7 @@
         "direction": {
           "type": "string",
           "enum": ["IN", "OUT"],
-          "description": "IN (to user) or OUT (from user)"
+          "description": "Direction is relative to the user's targeted account/scope; use metadata.accountId when sessions span multiple accounts"
         },
         "purpose": {
           "$ref": "#/definitions/MovementPurpose"

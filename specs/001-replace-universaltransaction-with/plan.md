@@ -1,8 +1,8 @@
+
 # Implementation Plan: Replace UniversalTransaction with ProcessedTransaction + Purpose Classifier
 
 **Branch**: `001-replace-universaltransaction-with` | **Date**: 2025-09-23 | **Spec**: [spec.md](./spec.md)
 **Input**: Feature specification from `/specs/001-replace-universaltransaction-with/spec.md`
-**Arguments**: Original GitHub issue providing detailed model examples and pipeline architecture
 
 ## Execution Flow (/plan command scope)
 ```
@@ -31,32 +31,38 @@
 - Phase 3-4: Implementation execution (manual or via tools)
 
 ## Summary
-Replace the ambiguous `UniversalTransaction` with a clearer `ProcessedTransaction` intermediate model and introduce a Purpose Classifier stage to separate financial flow description from business purpose assignment and accounting rules. This improves processor simplicity, classification consistency, and audit trail quality across multi-provider transaction ingestion.
+Replace the ambiguous UniversalTransaction model with ProcessedTransaction + Purpose Classifier architecture to separate factual money movements from business purpose interpretations. This reduces processor complexity and improves downstream consistency by introducing a three-stage pipeline: flow description → purpose classification → accounting transformation. The implementation uses a 1-2 sprint migration approach with time-boxed backward compatibility shims (FR-005) rather than complete replacement.
 
 ## Technical Context
-**Language/Version**: TypeScript 5.9.2, Node.js >=23.0.0
-**Primary Dependencies**: Zod (validation), Decimal.js (precision), CCXT (exchanges), reflect-metadata (decorators)
-**Storage**: SQLite3 (local transactions), File-based (CSV adapters)
-**Testing**: Vitest (unit), ESLint (linting), Prettier (formatting)
-**Target Platform**: CLI/Server (monorepo pnpm workspace)
-**Project Type**: single (monorepo with packages)
-**Performance Goals**: Background batch processing (minutes for large volumes), deterministic classification (<1s per transaction)
-**Constraints**: No backward compatibility (complete replacement), deterministic classification (no I/O), audit trail preservation
-**Scale/Scope**: Multi-provider ingestion (6 blockchains, 4+ exchanges), thousands of transactions per batch, incremental migration
-**Arguments**: Original GitHub issue with detailed TypeScript model examples for ProcessedTransaction, Movement, and PurposeClassifier interfaces
+**Language/Version**: TypeScript, Node.js >=23.0.0
+**Primary Dependencies**: pnpm monorepo, Vitest, Decimal.js, Zod
+**Storage**: SQLite3 with ACID compliance, transaction deduplication
+**Testing**: Vitest unit tests (~2s), E2E tests with API keys
+**Target Platform**: CLI application with monorepo architecture
+**Project Type**: single (monorepo CLI with multiple packages)
+**Performance Goals**: Background processing acceptable (minutes for large batches)
+**Constraints**: 1-2 sprint migration timeline, time-boxed backward compatibility shim
+**Scale/Scope**: Per-user transaction reprocessing, 6 blockchain networks, 12+ providers
+
+**Arguments**: Back-compat vs "all-in" - Fix backward compatibility approach per FR-005; ID uniqueness scope clarification; Direction perspective statement for multi-account sessions
 
 ## Constitution Check
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-**Status**: PASS - Constitution is template-based, no specific principles to violate.
+**Constitution Status**: Template constitution detected - no specific constraints identified.
+**Key Principle Alignment**:
+- Maintains existing testing framework (Vitest)
+- Preserves CLI interface pattern
+- Follows library-first approach (separate packages)
+- Supports incremental migration approach
 
-**Analysis**: The feature involves complete replacement of existing transaction processing types and adding a new purpose classification stage. This is a core domain improvement that enhances separation of concerns and audit trail quality. The change maintains the existing monorepo structure and TypeScript/Zod validation patterns while completely removing backward compatibility requirements.
+**GATE STATUS**: PASS - No constitutional violations detected
 
 ## Project Structure
 
 ### Documentation (this feature)
 ```
-specs/001-replace-universaltransaction-with/
+specs/[###-feature]/
 ├── plan.md              # This file (/plan command output)
 ├── research.md          # Phase 0 output (/plan command)
 ├── data-model.md        # Phase 1 output (/plan command)
@@ -65,26 +71,21 @@ specs/001-replace-universaltransaction-with/
 └── tasks.md             # Phase 2 output (/tasks command - NOT created by /plan)
 ```
 
-### Source Code (repository root)
+### Source Code (current monorepo structure - EXACT)
 ```
-# Option 1: Single project (DEFAULT)
-packages/
-├── core/               # Domain entities & shared types
-├── import/             # Transaction import domain
-├── balance/            # Balance verification services
-├── data/               # Database, repositories & storage
-└── shared/             # Cross-cutting concerns
-
-apps/
-└── cli/                # Main CLI application
-
-tests/
-├── contract/
-├── integration/
-└── unit/
+apps/cli/                    # Main CLI application
+packages/core/               # Domain entities & shared types
+packages/import/             # Transaction import domain
+  ├── blockchains/          # Blockchain-specific implementations (6 networks)
+  ├── exchanges/            # Exchange adapters (CCXT, native, universal)
+  ├── shared/               # Provider registry & shared utilities
+  └── services/             # Import orchestration services
+packages/balance/            # Balance verification services
+packages/data/               # Database, repositories & storage
+packages/shared/             # Cross-cutting concerns (logging, utils)
 ```
 
-**Structure Decision**: Option 1 (monorepo structure already established)
+**Structure Decision**: Use EXISTING monorepo structure exactly as-is. No architectural changes.
 
 ## Phase 0: Outline & Research
 1. **Extract unknowns from Technical Context** above:
@@ -130,7 +131,7 @@ tests/
    - Quickstart test = story validation steps
 
 5. **Update agent file incrementally** (O(1) operation):
-   - Run `.specify/scripts/bash/update-agent-context.sh claude`
+   - Run `.specify/scripts/bash/update-agent-context.sh codex`
      **IMPORTANT**: Execute it exactly as specified above. Do not add or remove any arguments.
    - If exists: Add only NEW tech from current plan
    - Preserve manual additions between markers
@@ -147,12 +148,12 @@ tests/
 - Load `.specify/templates/tasks-template.md` as base
 - Generate tasks from Phase 1 design docs (contracts, data model, quickstart)
 - Each contract → contract test task [P]
-- Each entity → model creation task [P]
+- Each entity → model creation task [P] 
 - Each user story → integration test task
 - Implementation tasks to make tests pass
 
 **Ordering Strategy**:
-- TDD order: Tests before implementation
+- TDD order: Tests before implementation 
 - Dependency order: Models before services before UI
 - Mark [P] for parallel execution (independent files)
 
@@ -163,14 +164,18 @@ tests/
 ## Phase 3+: Future Implementation
 *These phases are beyond the scope of the /plan command*
 
-**Phase 3**: Task execution (/tasks command creates tasks.md)
-**Phase 4**: Implementation (execute tasks.md following constitutional principles)
+**Phase 3**: Task execution (/tasks command creates tasks.md)  
+**Phase 4**: Implementation (execute tasks.md following constitutional principles)  
 **Phase 5**: Validation (run tests, execute quickstart.md, performance validation)
 
 ## Complexity Tracking
 *Fill ONLY if Constitution Check has violations that must be justified*
 
-No constitutional violations identified. This is a standard domain model refactoring that improves separation of concerns within existing architectural patterns.
+| Violation | Why Needed | Simpler Alternative Rejected Because |
+|-----------|------------|-------------------------------------|
+| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
+| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |
+
 
 ## Progress Tracking
 *This checklist is updated during execution flow*
@@ -187,7 +192,7 @@ No constitutional violations identified. This is a standard domain model refacto
 - [x] Initial Constitution Check: PASS
 - [x] Post-Design Constitution Check: PASS
 - [x] All NEEDS CLARIFICATION resolved
-- [x] Complexity deviations documented
+- [x] Complexity deviations documented (none required)
 
 ---
 *Based on Constitution v2.1.1 - See `/memory/constitution.md`*

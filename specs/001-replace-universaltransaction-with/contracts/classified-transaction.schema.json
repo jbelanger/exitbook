@@ -1,109 +1,234 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "ClassifiedTransaction",
-  "description": "ProcessedTransaction with all movements classified",
+  "description": "ProcessedTransaction with finalized movement purposes and classification metadata",
   "type": "object",
-  "required": ["id", "source", "eventType", "timestamp", "movements", "sourceDetails", "purposeRulesetVersion"],
+  "required": [
+    "processedTransaction",
+    "movements",
+    "classifiedAt",
+    "classifierVersion",
+    "classificationInfo"
+  ],
   "properties": {
-    "id": {
-      "type": "string",
-      "description": "Upstream-stable identifier"
-    },
-    "source": {
-      "type": "string",
-      "description": "Data source identifier"
-    },
-    "sourceUid": {
-      "type": "string",
-      "description": "Account/address scope at the source"
-    },
-    "eventType": {
-      "type": "string",
-      "enum": ["trade", "transfer", "fee_only", "reward", "interest", "bridge", "lend", "borrow", "liquidation", "other"],
-      "description": "High-level event classification"
-    },
-    "description": {
-      "type": "string",
-      "description": "Human-readable description"
-    },
-    "timestamp": {
-      "type": "string",
-      "format": "date-time",
-      "description": "ISO-8601 timestamp (UTC)"
+    "processedTransaction": {
+      "$ref": "./processed-transaction.schema.json",
+      "description": "Base ProcessedTransaction"
     },
     "movements": {
       "type": "array",
       "items": {
-        "$ref": "#/definitions/MovementClassified"
+        "$ref": "#/definitions/ClassifiedMovement"
       },
       "minItems": 1,
-      "description": "Array of classified financial movements"
+      "description": "Movements with assigned purposes"
     },
-    "sourceDetails": {
-      "$ref": "./processed-transaction.schema.json#/definitions/SourceDetails"
-    },
-    "purposeRulesetVersion": {
+    "classifiedAt": {
       "type": "string",
-      "description": "Version stamp for audit trail"
+      "format": "date-time",
+      "description": "When classification was performed"
+    },
+    "classifierVersion": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+",
+      "description": "Version of classifier used"
+    },
+    "classificationInfo": {
+      "$ref": "#/definitions/ClassificationInfo"
     }
   },
   "definitions": {
-    "MovementClassified": {
+    "ClassifiedMovement": {
       "type": "object",
-      "required": ["movementId", "currency", "quantity", "direction", "purpose", "classification"],
+      "required": ["movement", "purpose", "confidence", "ruleId"],
       "properties": {
-        "movementId": {
-          "type": "string"
-        },
-        "groupId": {
-          "type": "string",
-          "description": "Clusters related movements"
-        },
-        "currency": {
-          "type": "string",
-          "description": "Asset identifier"
-        },
-        "quantity": {
-          "type": "string",
-          "pattern": "^[0-9]+(\\.[0-9]+)?$",
-          "description": "Always positive amount (Decimal.js serialized)"
-        },
-        "direction": {
-          "type": "string",
-          "enum": ["IN", "OUT"]
+        "movement": {
+          "$ref": "./processed-transaction.schema.json#/definitions/MovementUnclassified",
+          "description": "Original movement from ProcessedTransaction"
         },
         "purpose": {
-          "$ref": "./processed-transaction.schema.json#/definitions/MovementPurpose"
-        },
-        "metadata": {
-          "$ref": "./processed-transaction.schema.json#/definitions/MovementMetadata"
-        },
-        "classification": {
-          "$ref": "#/definitions/ClassificationInfo"
-        }
-      }
-    },
-    "ClassificationInfo": {
-      "type": "object",
-      "required": ["ruleId", "confidence", "reason", "version"],
-      "properties": {
-        "ruleId": {
-          "type": "string",
-          "description": "Stable rule identifier for debugging"
+          "$ref": "#/definitions/MovementPurpose"
         },
         "confidence": {
           "type": "number",
-          "minimum": 0,
-          "maximum": 1,
-          "description": "Classification confidence (0..1)"
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Classification confidence score"
+        },
+        "ruleId": {
+          "type": "string",
+          "description": "Identifier of rule used for classification"
+        },
+        "reasoning": {
+          "type": "string",
+          "description": "Human-readable explanation of classification"
+        }
+      }
+    },
+    "MovementPurpose": {
+      "type": "string",
+      "enum": [
+        "PRINCIPAL",
+        "TRADING_FEE",
+        "TRANSFER_SENT",
+        "TRANSFER_RECEIVED",
+        "TRANSFER_FEE",
+        "GAS_FEE",
+        "NETWORK_FEE",
+        "STAKING_REWARD",
+        "MINING_REWARD",
+        "INTEREST",
+        "DIVIDEND",
+        "AIRDROP",
+        "LIQUIDITY_PROVISION",
+        "LIQUIDITY_REMOVAL",
+        "LENDING",
+        "BORROWING",
+        "COLLATERAL",
+        "MARGIN_FEE",
+        "FUNDING_FEE",
+        "LIQUIDATION",
+        "DEPOSIT",
+        "WITHDRAWAL",
+        "ADJUSTMENT",
+        "DUST_CONVERSION",
+        "FORK",
+        "OTHER"
+      ],
+      "description": "Comprehensive enumeration of business purposes for movement classification"
+    },
+    "ClassificationInfo": {
+      "type": "object",
+      "required": [
+        "ruleSetVersion",
+        "appliedRules",
+        "overallConfidence"
+      ],
+      "properties": {
+        "ruleSetVersion": {
+          "type": "string",
+          "description": "Version of classification rules used"
+        },
+        "appliedRules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AppliedRule"
+          },
+          "description": "All rules evaluated during classification"
+        },
+        "overallConfidence": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Overall confidence for the transaction classification"
+        },
+        "lowConfidenceMovements": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Movement IDs with confidence below threshold"
+        },
+        "manualOverrides": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ManualOverride"
+          },
+          "description": "Any manual classification corrections"
+        },
+        "reprocessingHistory": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ReprocessingEvent"
+          },
+          "description": "Previous classification attempts"
+        }
+      }
+    },
+    "AppliedRule": {
+      "type": "object",
+      "required": ["ruleId", "ruleName", "matched", "confidence", "reasoning"],
+      "properties": {
+        "ruleId": {
+          "type": "string",
+          "description": "Unique rule identifier"
+        },
+        "ruleName": {
+          "type": "string",
+          "description": "Human-readable rule name"
+        },
+        "matched": {
+          "type": "boolean",
+          "description": "Whether rule matched the transaction"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Rule-specific confidence score"
+        },
+        "reasoning": {
+          "type": "string",
+          "description": "Explanation of why rule matched or didn't match"
+        }
+      }
+    },
+    "ManualOverride": {
+      "type": "object",
+      "required": ["movementId", "originalPurpose", "newPurpose", "reason", "timestamp"],
+      "properties": {
+        "movementId": {
+          "type": "string",
+          "description": "ID of movement that was manually overridden"
+        },
+        "originalPurpose": {
+          "$ref": "#/definitions/MovementPurpose"
+        },
+        "newPurpose": {
+          "$ref": "#/definitions/MovementPurpose"
         },
         "reason": {
           "type": "string",
-          "description": "Human-readable explanation"
+          "description": "Reason for manual override"
         },
-        "version": {
+        "timestamp": {
           "type": "string",
-          "description": "Ruleset version (e.g., '1.0.0')"
+          "format": "date-time",
+          "description": "When override was applied"
+        },
+        "userId": {
+          "type": "string",
+          "description": "User who applied the override"
+        }
+      }
+    },
+    "ReprocessingEvent": {
+      "type": "object",
+      "required": ["timestamp", "previousVersion", "newVersion", "reason"],
+      "properties": {
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When reprocessing occurred"
+        },
+        "previousVersion": {
+          "type": "string",
+          "description": "Previous classifier version"
+        },
+        "newVersion": {
+          "type": "string",
+          "description": "New classifier version"
+        },
+        "reason": {
+          "type": "string",
+          "description": "Reason for reprocessing"
+        },
+        "changedMovements": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Movement IDs that changed classification"
         }
       }
     }
