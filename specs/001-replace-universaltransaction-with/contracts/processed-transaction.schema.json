@@ -1,0 +1,194 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ProcessedTransaction",
+  "description": "Intermediate transaction representation with financial movements",
+  "type": "object",
+  "required": ["id", "source", "eventType", "timestamp", "movements", "sourceDetails"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Upstream-stable identifier"
+    },
+    "source": {
+      "type": "string",
+      "description": "Data source identifier (e.g., 'kraken', 'mempool.space')"
+    },
+    "sourceUid": {
+      "type": "string",
+      "description": "Account/address scope at the source"
+    },
+    "eventType": {
+      "type": "string",
+      "enum": ["trade", "transfer", "fee_only", "reward", "interest", "bridge", "lend", "borrow", "liquidation", "other"],
+      "description": "High-level event classification"
+    },
+    "description": {
+      "type": "string",
+      "description": "Human-readable description"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 timestamp (UTC)"
+    },
+    "movements": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/MovementUnclassified"
+      },
+      "minItems": 1,
+      "description": "Array of financial movements"
+    },
+    "sourceDetails": {
+      "$ref": "#/definitions/SourceDetails"
+    }
+  },
+  "definitions": {
+    "MovementUnclassified": {
+      "type": "object",
+      "required": ["movementId", "currency", "quantity", "direction"],
+      "properties": {
+        "movementId": {
+          "type": "string"
+        },
+        "groupId": {
+          "type": "string",
+          "description": "Clusters related movements"
+        },
+        "currency": {
+          "type": "string",
+          "description": "Asset identifier (e.g., 'BTC', 'USDT', 'ETH')"
+        },
+        "quantity": {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]+)?$",
+          "description": "Always positive amount (Decimal.js serialized)"
+        },
+        "direction": {
+          "type": "string",
+          "enum": ["IN", "OUT"],
+          "description": "IN (to user) or OUT (from user)"
+        },
+        "purpose": {
+          "$ref": "#/definitions/MovementPurpose"
+        },
+        "metadata": {
+          "$ref": "#/definitions/MovementMetadata"
+        }
+      }
+    },
+    "MovementPurpose": {
+      "type": "string",
+      "enum": [
+        "principal",
+        "fee",
+        "gas",
+        "reward",
+        "interest",
+        "collateral",
+        "funding_rate",
+        "rebate",
+        "referral_bonus",
+        "collateral_unlock",
+        "liquidation_penalty",
+        "other"
+      ]
+    },
+    "MovementMetadata": {
+      "type": "object",
+      "properties": {
+        "purposeHint": {
+          "$ref": "#/definitions/MovementPurpose"
+        },
+        "feeType": {
+          "type": "string",
+          "enum": ["trading", "withdrawal", "network", "platform"]
+        },
+        "relatedMovementId": {
+          "type": "string"
+        },
+        "accountId": {
+          "type": "string"
+        },
+        "address": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "SourceDetails": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind", "venue"],
+          "properties": {
+            "kind": {
+              "const": "exchange"
+            },
+            "venue": {
+              "type": "string"
+            },
+            "accountId": {
+              "type": "string"
+            },
+            "orderId": {
+              "type": "string"
+            },
+            "tradeId": {
+              "type": "string"
+            },
+            "symbol": {
+              "type": "string"
+            },
+            "side": {
+              "type": "string",
+              "enum": ["buy", "sell"]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["kind", "chain", "txHash"],
+          "properties": {
+            "kind": {
+              "const": "blockchain"
+            },
+            "chain": {
+              "type": "string"
+            },
+            "txHash": {
+              "type": "string"
+            },
+            "blockHeight": {
+              "type": "number"
+            },
+            "gasUsed": {
+              "type": "string",
+              "pattern": "^[0-9]+(\\.[0-9]+)?$"
+            },
+            "gasPrice": {
+              "type": "string",
+              "pattern": "^[0-9]+(\\.[0-9]+)?$"
+            },
+            "addressScope": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["kind"],
+          "properties": {
+            "kind": {
+              "const": "other"
+            },
+            "subtype": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": true
+        }
+      ]
+    }
+  }
+}
