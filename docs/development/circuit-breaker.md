@@ -1,534 +1,236 @@
-# Circuit Breaker Pattern Explanation
+# The Circuit Breaker Pattern in the Provider Architecture
 
-> **📋 Open Source Notice**  
-> This guide explains the Circuit Breaker pattern implementation in the Universal Blockchain Provider Architecture. The pattern is open source and follows industry-standard practices for building resilient distributed systems.
+## 1. What is a Circuit Breaker?
 
-## What is a Circuit Breaker?
+A **Circuit Breaker** is a design pattern that prevents our application from repeatedly attempting to call an external service that is known to be failing. Just like an electrical circuit breaker protects appliances from power surges, a software circuit breaker protects our system from the cascading failures and wasted resources that result from hammering an unresponsive API.
 
-A **Circuit Breaker** is a design pattern that prevents your application from repeatedly calling a failing service. Just like an electrical circuit breaker in your home protects against power surges, a software circuit breaker protects against cascading failures.
+### The Problem Without a Circuit Breaker
 
-### The Problem Without Circuit Breakers
-
-Imagine your application trying to fetch Bitcoin transactions from mempool.space:
+When an external API like Blockstream.info goes down, a naive system will continue to send requests, each one waiting for a long timeout before failing.
 
 ```
-App → mempool.space API (DOWN) → Wait 30 seconds → TIMEOUT
-App → mempool.space API (DOWN) → Wait 30 seconds → TIMEOUT
-App → mempool.space API (DOWN) → Wait 30 seconds → TIMEOUT
-...continues hammering the failed service...
+App → Blockstream API (DOWN) → Wait 30s → TIMEOUT
+App → Blockstream API (DOWN) → Wait 30s → TIMEOUT
+App → Blockstream API (DOWN) → Wait 30s → TIMEOUT
 ```
 
-**Problems:**
+This leads to:
+*   **Wasted Resources:** The application's threads and memory are tied up waiting for doomed requests.
+*   **Poor User Experience:** The system feels slow or unresponsive because every operation is delayed by the timeout.
+*   **Delayed Failover:** The system only tries the next provider after the full timeout period has elapsed.
+*   **Inhibited Service Recovery:** Continuous requests can overwhelm a struggling service, preventing it from recovering.
 
-- **Wasted Resources**: Your application spends time and memory on doomed requests
-- **Slow Failure**: Users wait 30+ seconds to discover the service is down
-- **Service Overload**: Your requests may prevent the failing service from recovering
-- **Cascading Failures**: Other parts of your system may timeout waiting for responses
+### The Solution: The Circuit Breaker
 
-### The Solution: Circuit Breaker Pattern
+The circuit breaker acts as a stateful proxy. After a few consecutive failures, it "trips" or "opens," causing subsequent requests to fail instantly without ever being sent.
 
 ```
-App → Circuit Breaker → mempool.space API (DOWN)
-                    ↓
-              [TRIP BREAKER]
-                    ↓
-App → Circuit Breaker → "OPEN - Skip Request" (Instant response)
-App → Circuit Breaker → "OPEN - Skip Request" (Instant response)
-App → Circuit Breaker → "OPEN - Skip Request" (Instant response)
+App → ProviderManager → Blockstream API (DOWN) → Fail (Failure 1/3)
+App → ProviderManager → Blockstream API (DOWN) → Fail (Failure 2/3)
+App → ProviderManager → Blockstream API (DOWN) → Fail (Failure 3/3) -> Circuit Opens!
+App → ProviderManager → Circuit is OPEN for Blockstream -> Fail Instantly ⚡, Try next provider (Alchemy)
+App → ProviderManager → Circuit is OPEN for Blockstream -> Fail Instantly ⚡, Try next provider (Alchemy)
 ```
 
 **Benefits:**
+*   **Fast Failure:** The system fails instantly for a known-bad provider, allowing immediate failover to a healthy alternative.
+*   **Resource Protection:** No resources are wasted on requests that are destined to fail.
+*   **Automatic Recovery:** The circuit breaker periodically allows a test request to see if the service has recovered, automatically restoring functionality.
 
-- **Fast Failure**: Instant response when service is known to be down
-- **Resource Protection**: No wasted time/memory on doomed requests
-- **Service Recovery**: Reduces load on failing service, helping it recover
-- **Automatic Testing**: Periodically tests if service has recovered
+## 2. The Three States of the Circuit Breaker
 
-## Circuit Breaker States
+Our `CircuitBreaker` class is a simple but powerful state machine with three states.
 
-The circuit breaker operates in three distinct states:
+### State 1: `CLOSED` (Normal Operation)
+*   **Behavior:** Requests are allowed to pass through to the provider. The `BlockchainProviderManager` monitors for failures.
+*   **Transition to `OPEN`:** Occurs after the failure count reaches a threshold (default: **3**).
 
-### 1. CLOSED State (Normal Operation)
+### State 2: `OPEN` (Service Failing)
+*   **Behavior:** The `BlockchainProviderManager` sees the circuit is open and will **not** send requests to this provider. It fails instantly and moves to the next provider in its priority list.
+*   **Transition to `HALF-OPEN`:** Occurs after a timeout period has elapsed (default: **5 minutes**).
 
-```
-┌─────────────┐
-│   CLOSED    │  ← All requests pass through
-│  (Normal)   │  ← Service is healthy
-└─────────────┘
-```
+### State 3: `HALF-OPEN` (Testing for Recovery)
+*   **Behavior:** The `BlockchainProviderManager` will allow a single "test" request to pass through to the provider.
+*   **Transition to `CLOSED`:** If the test request succeeds, the circuit is considered healthy, the failure count is reset, and the state becomes `CLOSED`.
+*   **Transition to `OPEN`:** If the test request fails, the circuit immediately returns to the `OPEN` state, and the recovery timer is reset.
 
-**Behavior:**
-
-- All requests pass through to the provider
-- Failures are counted but don't block requests
-- State changes to OPEN after reaching failure threshold
-
-**Example:**
-
-```typescript
-const breaker = new CircuitBreaker('mempool.space', 3, 300000); // 3 failures, 5 min timeout
-
-// Service is healthy - all requests succeed
-await breaker.execute(() => fetchTransactions()); // ✅ Success
-await breaker.execute(() => fetchTransactions()); // ✅ Success
-await breaker.execute(() => fetchTransactions()); // ✅ Success
-
-console.log(breaker.getState()); // "closed"
-```
-
-### 2. OPEN State (Service Failed)
-
-```
-┌─────────────┐
-│    OPEN     │  ← All requests are blocked
-│  (Failed)   │  ← Service is considered down
-└─────────────┘
-```
-
-**Behavior:**
-
-- All requests are immediately rejected (no API calls made)
-- Provides instant failure response
-- After timeout period, state changes to HALF-OPEN for testing
-
-**Example:**
-
-```typescript
-// Service starts failing
-await breaker.execute(() => fetchTransactions()); // ❌ Failure 1
-await breaker.execute(() => fetchTransactions()); // ❌ Failure 2
-await breaker.execute(() => fetchTransactions()); // ❌ Failure 3
-
-console.log(breaker.getState()); // "open"
-
-// Now all requests are blocked instantly
-await breaker.execute(() => fetchTransactions()); // ⚡ Instant rejection (no API call)
-await breaker.execute(() => fetchTransactions()); // ⚡ Instant rejection (no API call)
-```
-
-### 3. HALF-OPEN State (Testing Recovery)
-
-```
-┌─────────────┐
-│ HALF-OPEN   │  ← Limited requests allowed
-│ (Testing)   │  ← Testing if service recovered
-└─────────────┘
-```
-
-**Behavior:**
-
-- Single test request is allowed through
-- If successful: Circuit breaker resets to CLOSED
-- If fails: Circuit breaker returns to OPEN state
-
-**Example:**
-
-```typescript
-// Wait 5 minutes (timeout period)
-setTimeout(() => {
-  console.log(breaker.getState()); // "half-open"
-
-  // Next request is a test request
-  await breaker.execute(() => fetchTransactions()); // Test if service recovered
-
-  if (/* request succeeded */) {
-    console.log(breaker.getState()); // "closed" - service recovered!
-  } else {
-    console.log(breaker.getState()); // "open" - still failing
-  }
-}, 300000); // 5 minutes
-```
-
-## State Transition Diagram
+### State Transition Diagram
 
 ```
                     3 failures
     ┌─────────┐ ────────────────► ┌────────┐
     │ CLOSED  │                   │  OPEN  │
-    │         │ ◄──────────────── │        │
-    └─────────┘     success       └────────┘
+    │ (Normal)│ ◄──────────────── │(Failed)│
+    └─────────┘     On Success    └────────┘
          ▲                             │
-         │                             │ timeout
+         │                             │ 5-minute timeout
          │                             ▼
          │                       ┌───────────┐
-         │          success      │ HALF-OPEN │
-         └─────────────────────  │           │
+         │     On Test Success   │ HALF-OPEN │
+         └─────────────────────  │ (Testing) │
                                  └───────────┘
                                        │
-                                       │ failure
+                                       │ On Test Failure
                                        ▼
                                  ┌────────┐
                                  │  OPEN  │
-                                 │        │
                                  └────────┘
 ```
 
-## Real-World Analogy: Electrical Fuse Box
+## 3. Implementation in the Provider System
 
-Think of your home's electrical system:
+The `CircuitBreaker` is not an executor; it is a state machine managed by the `BlockchainProviderManager`.
 
-### Normal Operation (CLOSED)
+### The `CircuitBreaker` Class (`packages/import/src/shared/utils/circuit-breaker.ts`)
 
-- Electricity flows normally to all outlets
-- Occasional small power fluctuations are handled fine
-- Everything works as expected
-
-### Overload Detected (OPEN)
-
-- Electrical fuse "trips" when it detects dangerous overload
-- Power is immediately cut to protect your appliances
-- No electricity flows until the problem is resolved
-
-### Testing Recovery (HALF-OPEN)
-
-- After fixing the electrical problem, you flip the breaker back on
-- Small test load is applied to see if the system is stable
-- If stable: normal operation resumes
-- If unstable: breaker trips again immediately
-
-**The software circuit breaker works the same way but for API calls instead of electricity.**
-
-## Implementation in the Provider System
-
-### Configuration
+The class itself is simple, tracking only the state.
 
 ```typescript
-interface CircuitBreakerConfig {
-  maxFailures: number; // Default: 3 failures
-  timeoutMs: number; // Default: 5 minutes (300,000ms)
-  enabled: boolean; // Default: true
-}
-```
+export class CircuitBreaker {
+  private failureCount = 0;
+  private lastFailureTimestamp = 0;
+  private readonly maxFailures: number;
+  private readonly recoveryTimeoutMs: number;
 
-### Automatic Integration
+  constructor(providerName: string, maxFailures: number = 3, recoveryTimeoutMs: number = 300000) { /*...*/ }
 
-Every provider automatically gets circuit breaker protection:
+  // State checking methods
+  isOpen(): boolean { /*...*/ }
+  isHalfOpen(): boolean { /*...*/ }
+  isClosed(): boolean { /*...*/ }
+  getCurrentState(): 'closed' | 'open' | 'half-open' { /*...*/ }
 
-```typescript
-// Circuit breaker is created automatically for each provider
-const providerManager = new BlockchainProviderManager();
-
-providerManager.registerProviders('bitcoin', [
-  new MempoolSpaceProvider(), // Gets circuit breaker: "mempool.space"
-  new BlockstreamProvider(), // Gets circuit breaker: "blockstream.info"
-  new BlockcypherProvider(), // Gets circuit breaker: "blockcypher"
-]);
-```
-
-### Execution Flow with Circuit Breaker
-
-```typescript
-async executeWithFailover(blockchain: string, operation: ProviderOperation): Promise<any> {
-  const providers = this.getProvidersInOrder(blockchain, operation);
-
-  for (const provider of providers) {
-    const circuitBreaker = this.getCircuitBreaker(provider.name);
-
-    // Skip providers with open circuit breakers
-    if (circuitBreaker.isOpen()) {
-      console.log(`Skipping ${provider.name} - circuit breaker OPEN`);
-      continue;
-    }
-
-    try {
-      const result = await provider.execute(operation);
-      circuitBreaker.recordSuccess(); // Reset failure count
-      return result;
-    } catch (error) {
-      circuitBreaker.recordFailure(); // Increment failure count
-      console.log(`Provider ${provider.name} failed, trying next...`);
-      continue;
-    }
+  // State update methods
+  recordFailure(): void {
+    this.failureCount++;
+    this.lastFailureTimestamp = Date.now();
   }
 
-  throw new Error('All providers failed');
-}
-```
+  recordSuccess(): void {
+    this.failureCount = 0;
+  }
 
-## Circuit Breaker Benefits in Practice
-
-### Scenario: mempool.space Outage
-
-**Without Circuit Breaker:**
-
-```
-12:00:00 - Request to mempool.space → 30s timeout → Fail
-12:00:30 - Request to mempool.space → 30s timeout → Fail
-12:01:00 - Request to mempool.space → 30s timeout → Fail
-12:01:30 - Request to mempool.space → 30s timeout → Fail
-...continues for hours...
-```
-
-**With Circuit Breaker:**
-
-```
-12:00:00 - Request to mempool.space → 30s timeout → Fail (1/3)
-12:00:30 - Request to mempool.space → 30s timeout → Fail (2/3)
-12:01:00 - Request to mempool.space → 30s timeout → Fail (3/3) → CIRCUIT OPENS
-12:01:30 - Request blocked, try blockstream.info → 2s → Success ✅
-12:02:00 - Request blocked, try blockstream.info → 2s → Success ✅
-12:02:30 - Request blocked, try blockstream.info → 2s → Success ✅
-...instant failover for next 5 minutes...
-12:06:00 - Circuit HALF-OPEN, test mempool.space → Success → CIRCUIT CLOSED ✅
-```
-
-### Performance Impact
-
-| Metric               | Without Circuit Breaker      | With Circuit Breaker   |
-| -------------------- | ---------------------------- | ---------------------- |
-| **Response Time**    | 30+ seconds during outages   | 2-3 seconds (failover) |
-| **Resource Usage**   | High (waiting on timeouts)   | Low (instant failures) |
-| **User Experience**  | Very poor during outages     | Minimal impact         |
-| **Service Recovery** | Slower (continued hammering) | Faster (reduced load)  |
-
-## Advanced Circuit Breaker Features
-
-### Exponential Backoff
-
-For flaky services, you can configure exponential backoff:
-
-```typescript
-const breaker = new CircuitBreaker('flaky-service', 3, 60000); // 1 minute initial timeout
-
-// First failure: 1 minute timeout
-// Second failure: 2 minute timeout
-// Third failure: 4 minute timeout
-// Etc.
-```
-
-### Custom Failure Detection
-
-```typescript
-class SmartCircuitBreaker extends CircuitBreaker {
-  isFailure(error: Error): boolean {
-    // Don't count rate limit errors as circuit breaker failures
-    if (error instanceof RateLimitError) {
-      return false;
-    }
-
-    // Don't count authentication errors (configuration issue)
-    if (error instanceof AuthenticationError) {
-      return false;
-    }
-
-    // Only count actual service failures
-    return error instanceof ServiceUnavailableError;
+  reset(): void {
+    this.failureCount = 0;
   }
 }
 ```
 
-### Health Check Integration
+### Integration with `BlockchainProviderManager`
+
+The `BlockchainProviderManager` creates and manages a `CircuitBreaker` instance for every registered provider.
 
 ```typescript
-// Circuit breaker can integrate with health checks
-if (circuitBreaker.isHalfOpen()) {
-  // Use lighter health check instead of full operation
-  const isHealthy = await provider.isHealthy();
+// packages/import/src/blockchains/shared/blockchain-provider-manager.ts
 
-  if (isHealthy) {
-    circuitBreaker.recordSuccess();
-  } else {
-    circuitBreaker.recordFailure();
+export class BlockchainProviderManager {
+  private circuitBreakers = new Map<string, CircuitBreaker>();
+
+  // ...
+
+  private async executeWithCircuitBreaker<T>(
+    blockchain: string,
+    operation: ProviderOperation<T>
+  ): Promise<FailoverExecutionResult<T>> {
+    const providers = this.getProvidersInOrder(blockchain, operation);
+
+    for (const provider of providers) {
+      const circuitBreaker = this.getOrCreateCircuitBreaker(provider.name);
+
+      // 1. CHECK THE STATE before making a call
+      if (circuitBreaker.isOpen()) {
+        logger.debug(`Skipping ${provider.name} - circuit breaker is OPEN`);
+        continue;
+      }
+      if (circuitBreaker.isHalfOpen()) {
+        logger.debug(`Testing provider ${provider.name} in HALF-OPEN state`);
+      }
+
+      try {
+        const result = await provider.execute(operation, {});
+
+        // 2. UPDATE THE STATE on success
+        circuitBreaker.recordSuccess();
+        this.updateHealthMetrics(provider.name, true, /*...*/);
+        return { data: result, providerName: provider.name };
+
+      } catch (error) {
+        // 3. UPDATE THE STATE on failure
+        circuitBreaker.recordFailure();
+        this.updateHealthMetrics(provider.name, false, /*...*/);
+        // Continue to the next provider...
+      }
+    }
+    throw new Error('All providers failed');
   }
 }
 ```
 
-## Monitoring Circuit Breaker Status
+## 4. Practical Example: A Provider Outage
 
-### Real-time Status
+**Scenario:** The Alchemy API for Ethereum is experiencing an outage.
+
+1.  **Request 1 (12:00:00 PM):** `BlockchainProviderManager` selects Alchemy (highest priority). The request times out.
+    *   `circuitBreaker.recordFailure()` is called for Alchemy. **Failure Count: 1/3**.
+    *   The manager fails over to Moralis, which succeeds. The user gets a successful response.
+
+2.  **Request 2 (12:00:30 PM):** Another request comes in. Alchemy is still the highest priority. The request fails again.
+    *   `circuitBreaker.recordFailure()` is called. **Failure Count: 2/3**.
+    *   Failover to Moralis succeeds.
+
+3.  **Request 3 (12:01:00 PM):** A third request fails against Alchemy.
+    *   `circuitBreaker.recordFailure()` is called. **Failure Count: 3/3**.
+    *   The `CircuitBreaker` state for Alchemy now transitions to **`OPEN`**.
+    *   Failover to Moralis succeeds.
+
+4.  **Request 4 (12:01:30 PM):** A new request comes in.
+    *   `BlockchainProviderManager` checks Alchemy's circuit breaker. `circuitBreaker.isOpen()` returns `true`.
+    *   The manager **skips Alchemy instantly** without making an API call.
+    *   It immediately tries Moralis, which succeeds. The user experiences no delay.
+
+5.  **Recovery Test (12:06:00 PM):** Five minutes have passed since the last failure.
+    *   The `CircuitBreaker` state for Alchemy transitions to **`HALF-OPEN`**.
+    *   The next request comes in. The manager sees the `HALF-OPEN` state and allows this one request to go through to Alchemy.
+    *   **If the request succeeds:** `circuitBreaker.recordSuccess()` is called. The failure count resets to 0. The state becomes **`CLOSED`**. Alchemy is back in the normal rotation.
+    *   **If the request fails:** `circuitBreaker.recordFailure()` is called. The state immediately reverts to **`OPEN`**, and the 5-minute timer restarts.
+
+## 5. Monitoring and Troubleshooting
+
+The state of each circuit breaker is exposed via the `BlockchainProviderManager`'s health monitoring.
+
+### Checking Real-time Status
 
 ```typescript
-// Get current status of all circuit breakers
-const health = providerManager.getProviderHealth('bitcoin');
+// Get current status of all circuit breakers for a blockchain
+const health = providerManager.getProviderHealth('ethereum');
 
 for (const [providerName, status] of health) {
   console.log(`${providerName}: ${status.circuitState}`);
-  // Output:
-  // mempool.space: closed
-  // blockstream.info: closed
-  // blockcypher: open
 }
+// Output might be:
+// alchemy: open
+// moralis: closed
 ```
 
-### Circuit Breaker Events
+### Troubleshooting Common Issues
 
-```typescript
-// Listen for circuit breaker events
-circuitBreaker.on('open', provider => {
-  console.log(`⚠️  Circuit breaker OPENED for ${provider}`);
-  // Alert operations team
-});
+*   **Symptom: A provider is being skipped even though it's back online.**
+    *   **Cause:** The 5-minute `recoveryTimeoutMs` for the `OPEN` state has not yet elapsed.
+    *   **Solution:** Wait for the timeout to expire, or for critical situations, manually restart the application to clear the in-memory state of the circuit breakers.
 
-circuitBreaker.on('halfOpen', provider => {
-  console.log(`🔍 Circuit breaker testing recovery for ${provider}`);
-});
+*   **Symptom: A circuit breaker trips too easily on minor network glitches.**
+    *   **Cause:** The `maxFailures` threshold (default 3) might be too low.
+    *   **Solution:** While not currently configurable via the JSON file, this value could be exposed as a provider override in `blockchain-explorers.json` for fine-tuning in the future.
 
-circuitBreaker.on('close', provider => {
-  console.log(`✅ Circuit breaker CLOSED - ${provider} recovered`);
-});
-```
+*   **Symptom: A circuit breaker never opens during a clear outage.**
+    *   **Cause:** The errors being thrown by the `ApiClient` are being caught before they reach the `BlockchainProviderManager`, or they are not being re-thrown correctly.
+    *   **Solution:** Ensure that `ApiClient` implementations allow exceptions to propagate up to the manager so that `recordFailure()` can be called.
 
-### Metrics and Alerts
+## 6. Conclusion
 
-```typescript
-// Collect circuit breaker metrics
-const stats = circuitBreaker.getStats();
-// {
-//   name: 'mempool.space',
-//   state: 'open',
-//   failures: 3,
-//   lastFailureTime: 1640995200000,
-//   timeUntilRecovery: 180000 // 3 minutes remaining
-// }
+The `CircuitBreaker` is a simple but critical component of our resilient architecture. It is not an active executor but a passive state machine that provides the `BlockchainProviderManager` with the intelligence to:
 
-// Set up alerts
-if (stats.state === 'open' && stats.timeUntilRecovery > 240000) {
-  // Alert: Service has been down for more than 4 minutes
-  sendAlert(`Bitcoin provider ${stats.name} down for ${stats.timeUntilRecovery / 1000}s`);
-}
-```
-
-## Best Practices
-
-### 1. Appropriate Failure Thresholds
-
-```typescript
-// ✅ Good: Conservative thresholds
-const breaker = new CircuitBreaker('provider', 3, 300000); // 3 failures, 5 minutes
-
-// ❌ Too sensitive: Single failure trips breaker
-const breaker = new CircuitBreaker('provider', 1, 60000);
-
-// ❌ Too tolerant: Many failures before tripping
-const breaker = new CircuitBreaker('provider', 10, 300000);
-```
-
-### 2. Reasonable Timeout Periods
-
-```typescript
-// ✅ Good: Enough time for genuine service recovery
-const breaker = new CircuitBreaker('provider', 3, 300000); // 5 minutes
-
-// ❌ Too short: May not allow enough recovery time
-const breaker = new CircuitBreaker('provider', 3, 30000); // 30 seconds
-
-// ❌ Too long: Users suffer during extended outages
-const breaker = new CircuitBreaker('provider', 3, 1800000); // 30 minutes
-```
-
-### 3. Differentiate Error Types
-
-```typescript
-// ✅ Good: Only count actual service failures
-if (error instanceof ServiceUnavailableError || error instanceof TimeoutError) {
-  circuitBreaker.recordFailure();
-} else {
-  // Don't trip circuit breaker for auth/config errors
-  throw error;
-}
-```
-
-### 4. Graceful Degradation
-
-```typescript
-// ✅ Good: Fallback to other providers when circuit opens
-if (circuitBreaker.isOpen()) {
-  return await fallbackProvider.execute(operation);
-}
-
-// ❌ Bad: Complete failure when circuit opens
-if (circuitBreaker.isOpen()) {
-  throw new Error('Service unavailable');
-}
-```
-
-## Troubleshooting Circuit Breakers
-
-### Common Issues
-
-#### Circuit Breaker Stuck Open
-
-```
-Symptom: Circuit breaker remains open even though service recovered
-Cause: Timeout period too long or service still actually failing
-Solution: Check service health manually, reduce timeout, or reset circuit breaker
-```
-
-#### Circuit Breaker Too Sensitive
-
-```
-Symptom: Circuit breaker opens after single network hiccup
-Cause: Failure threshold too low
-Solution: Increase maxFailures to 3-5 for better tolerance
-```
-
-#### Circuit Breaker Never Opens
-
-```
-Symptom: Circuit breaker never opens even during clear outages
-Cause: Errors not being properly recorded as failures
-Solution: Check error handling logic and failure detection
-```
-
-### Manual Circuit Breaker Control
-
-```typescript
-// Emergency: Force circuit breaker open (maintenance mode)
-circuitBreaker.forceOpen();
-
-// Emergency: Force circuit breaker closed (override protection)
-circuitBreaker.forceClosed();
-
-// Reset circuit breaker to normal operation
-circuitBreaker.reset();
-```
-
-## Circuit Breaker vs Other Patterns
-
-### Circuit Breaker vs Retry Pattern
-
-| Pattern             | Purpose                    | When to Use                        |
-| ------------------- | -------------------------- | ---------------------------------- |
-| **Circuit Breaker** | Prevent cascading failures | Service is down/degraded           |
-| **Retry Pattern**   | Handle transient failures  | Network glitches, temporary errors |
-
-**Best Practice**: Use both together:
-
-```typescript
-// First: Try with retries for transient failures
-const result = await retryWithBackoff(() => provider.execute(operation));
-
-// Second: Circuit breaker prevents hammering if service is truly down
-if (circuitBreaker.isOpen()) {
-  throw new Error('Service unavailable');
-}
-```
-
-### Circuit Breaker vs Timeout Pattern
-
-| Pattern             | Purpose                          | Scope                    |
-| ------------------- | -------------------------------- | ------------------------ |
-| **Circuit Breaker** | Protect against failing services | Across multiple requests |
-| **Timeout Pattern** | Prevent hanging requests         | Individual request       |
-
-**Best Practice**: Use both together:
-
-```typescript
-// Individual request timeout: 10 seconds
-const result = await Promise.race([provider.execute(operation), timeout(10000)]);
-
-// Circuit breaker: Overall service health across requests
-circuitBreaker.execute(() => result);
-```
-
-## Conclusion
-
-The Circuit Breaker pattern is essential for building resilient distributed systems. In the Universal Blockchain Provider Architecture, circuit breakers:
-
-**✅ Prevent Cascading Failures**: Stop your application from hammering failed services
-**✅ Enable Fast Failures**: Provide instant feedback when services are down  
-**✅ Support Automatic Recovery**: Test and restore service connections automatically
-**✅ Improve User Experience**: Reduce response times during outages through intelligent failover
-**✅ Protect Service Recovery**: Reduce load on failing services to help them recover faster
-
-By understanding and properly configuring circuit breakers, you ensure your cryptocurrency transaction import system remains responsive and reliable even when individual blockchain APIs experience outages or degradation.
+✅ **Prevent Cascading Failures** by stopping requests to failing services.
+✅ **Enable Fast Failures** and rapid failover.
+✅ **Support Automatic Recovery** by periodically testing a service's health.
+✅ **Improve System Stability** and provide a better user experience during partial service outages.

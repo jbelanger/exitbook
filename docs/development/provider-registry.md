@@ -1,432 +1,305 @@
 # Provider Registry System
 
-This document explains the new provider registry system that eliminates the disconnect between JSON configuration and provider implementations.
+This document explains the provider registry system, a core component of the Universal Blockchain Provider & ETL Architecture. It enables a type-safe, auto-discovering, and highly extensible approach to managing blockchain API providers.
 
 ## Overview
 
-The Provider Registry system creates a **type-safe, self-documenting** approach to blockchain provider management where:
+The Provider Registry system solves the critical problem of decoupling provider *implementation* from system *configuration*. It establishes a "single source of truth" for provider capabilities, where metadata lives directly with the code that implements it.
 
-- ✅ **Provider metadata lives with the code** (rate limits, URLs, capabilities)
-- ✅ **JSON config only contains user preferences** (enabled/disabled, priorities, overrides)
-- ✅ **Strong connection** between configuration and implementation
-- ✅ **Auto-discovery** of available providers
-- ✅ **Runtime validation** of configurations
+**Key Goals Achieved:**
 
-## Architecture
+*   ✅ **Provider metadata lives with the code:** Rate limits, capabilities, and network URLs are defined in one place.
+*   ✅ **Configuration contains only user intent:** The JSON config is simplified to what's enabled, what's prioritized, and what's overridden.
+*   ✅ **Auto-discovery of providers:** New providers are automatically detected by the system once their files are created and imported.
+*   ✅ **Runtime validation:** The system validates user configuration against the registry, providing clear errors for typos or unsupported providers.
+*   ✅ **Improved Developer Experience:** The entire system is self-documenting and provides strong type safety.
 
-### Before: Disconnect Problem
+## Architecture: From Disconnected to Integrated
 
-```
-JSON Config: "etherscan"  ❌  EtherscanProvider class
-     ↓                              ↓
-Hard to connect             Metadata scattered
-No validation              Manual instantiation
-Runtime failures           No auto-discovery
-```
+### Before: The Disconnect Problem
 
-### After: Registry Solution
+The old way of managing providers led to a fragile system where a simple string in a JSON file was loosely connected to a class implementation.
 
 ```
-@RegisterProvider({...})           ProviderRegistry
-EtherscanProvider  ➜  Registration  ➜  Auto-discovery
-     ↑                              ↓
-Metadata with code            JSON validation
-Self-documenting             Type-safe creation
+JSON Config: "mempool.space"  ---(fragile link)-->  MempoolSpaceProvider class
+     │                                                     │
+     └─ No validation, prone to typos,         └─ Metadata scattered,
+        runtime failures.                           manual instantiation required.
 ```
 
-## Creating a New Provider
+### After: The Registry Solution
 
-### 1. Implement the Provider Class
+The registry acts as a central service locator, creating a robust link between configuration and implementation.
+
+```
+// 1. API Client decorated with its metadata
+@RegisterApiClient({ name: 'mempool.space', ... })
+class MempoolSpaceApiClient { ... }
+    │
+    └─(registers itself on import)─┐
+                                   ▼
+// 2. A central, in-memory registry
+ ProviderRegistry
+    ▲
+    │
+// 3. System components query the registry
+BlockchainProviderManager  ──(looks up "mempool.space")─┘
+```
+
+## Creating a New Provider (API Client)
+
+Adding a new provider is a procedural process involving two key components: the `ApiClient` and the `Mapper`.
+
+### 1. Implement the API Client Class
+
+The `ApiClient` is responsible for communicating with the external API. It extends `BaseRegistryProvider` and is decorated with its metadata.
+
+**File Location:** `packages/import/src/blockchains/<chain>/api/<ProviderName>ApiClient.ts`
 
 ```typescript
-import { IBlockchainProvider } from '../../core/types/index.js';
-import { RegisterProvider } from '../registry/index.js';
+// packages/import/src/blockchains/bitcoin/api/MyBitcoinApiClient.ts
+import { BaseRegistryProvider, RegisterApiClient } from '@crypto/import'; // Simplified import path for example
 
-@RegisterProvider({
-  name: 'my-provider',
-  blockchain: 'ethereum',
-  displayName: 'My Custom Provider',
-  description: 'A custom provider for Ethereum blockchain data',
+@RegisterApiClient({
+  // --- Core Metadata ---
+  name: 'my-btc-provider',         // Unique key used in config.json
+  blockchain: 'bitcoin',
+  displayName: 'My Custom BTC Provider',
+  description: 'A custom provider for Bitcoin blockchain data.',
+
+  // --- Configuration ---
+  type: 'rest',                    // 'rest', 'rpc', or 'websocket'
   requiresApiKey: true,
-  type: 'rest',
+  apiKeyEnvVar: 'MY_BTC_PROVIDER_API_KEY', // Recommended env var for the API key
+
+  // --- Default Settings (can be overridden in config.json) ---
   defaultConfig: {
     timeout: 15000,
     retries: 3,
     rateLimit: {
-      requestsPerSecond: 1.0,
-      requestsPerMinute: 30,
-      requestsPerHour: 100,
-      burstLimit: 2,
+      requestsPerSecond: 2.0,
+      burstLimit: 5,
     },
   },
+
+  // --- Network Endpoints ---
   networks: {
     mainnet: {
-      baseUrl: 'https://api.myprovider.com/v1',
+      baseUrl: 'https://api.myprovider.com/btc/v1',
     },
     testnet: {
-      baseUrl: 'https://testnet-api.myprovider.com/v1',
+      baseUrl: 'https://testnet-api.myprovider.com/btc/v1',
     },
   },
-})
-export class MyProvider implements IBlockchainProvider<MyProviderConfig> {
-  readonly name = 'my-provider';
-  readonly blockchain = 'ethereum';
-  readonly capabilities = {
-    supportedOperations: ['getAddressTransactions', 'getAddressBalance'],
-    maxBatchSize: 1,
-    providesHistoricalData: true,
-    supportsPagination: true,
-  };
 
-  constructor(private config: MyProviderConfig) {
-    // Provider initialization
+  // --- Capabilities ---
+  capabilities: {
+    maxBatchSize: 1,
+    supportedOperations: ['getRawAddressTransactions', 'getRawAddressBalance'],
+    supportsHistoricalData: true,
+    supportsPagination: true,
+    supportsRealTimeData: false,
+    supportsTokenData: false,
+  },
+})
+export class MyBitcoinApiClient extends BaseRegistryProvider {
+  constructor() {
+    // The base class handles initialization using the metadata above.
+    super('bitcoin', 'my-btc-provider', 'mainnet');
   }
 
+  // Implement the execute method to handle operations
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    // Implementation
+    // ... implementation for getRawAddressTransactions, etc.
+  }
+
+  // Implement the health check
+  async isHealthy(): Promise<boolean> {
+    // ... implementation for health check
   }
 }
 ```
 
-### 2. Register in Adapter
+### 2. Implement the Mapper Class
 
-Import the provider to trigger registration:
+The `Mapper` is responsible for validating and transforming the raw JSON response from your API into the system's standardized `UniversalBlockchainTransaction` format.
+
+**File Location:** `packages/import/src/blockchains/<chain>/mappers/<ProviderName>Mapper.ts`
 
 ```typescript
-// src/adapters/blockchains/ethereum-adapter.ts
-import '../../providers/ethereum/MyProvider.js';
+// packages/import/src/blockchains/bitcoin/mappers/MyBitcoinMapper.ts
+import { BaseRawDataMapper, RegisterTransactionMapper } from '@crypto/import';
+import { ZodSchema, z } from 'zod'; // For validation
 
-// This triggers @RegisterProvider
+// Define a Zod schema for the raw API response
+const MyRawTxSchema = z.object({ /* ... */ });
+
+@RegisterTransactionMapper('my-btc-provider') // Must match the ApiClient name
+export class MyBitcoinMapper extends BaseRawDataMapper<MyRawTx> {
+  protected readonly schema: ZodSchema = MyRawTxSchema;
+
+  protected mapInternal(
+    rawData: MyRawTx,
+    sessionContext: ImportSessionMetadata
+  ): Result<UniversalBlockchainTransaction[], string> {
+    // 1. Validate the rawData using this.schema (done automatically by base class).
+    // 2. Write the logic to transform the rawData into one or more
+    //    UniversalBlockchainTransaction objects.
+    // 3. Return ok([...transactions]) or err('...');
+  }
+}
 ```
 
-### 3. Add to Configuration
+### 3. Trigger Registration
+
+Import the new files in the corresponding `index.ts` files to ensure their decorators are executed at application startup.
+
+```typescript
+// packages/import/src/blockchains/bitcoin/api/index.ts
+import './MyBitcoinApiClient.ts'; // Add this line
+import './MempoolSpaceApiClient.ts';
+// ... other clients
+
+// packages/import/src/blockchains/bitcoin/mappers/index.ts
+import './MyBitcoinMapper.ts'; // Add this line
+import './MempoolSpaceMapper.ts';
+// ... other mappers
+```
+
+### 4. Update Configuration (Optional)
+
+You can now use your new provider. Run the sync script to automatically add it to your configuration.
+
+```bash
+pnpm --filter @crypto/import run providers:sync --fix
+```
+
+Your `blockchain-explorers.json` will be updated:
 
 ```json
 {
-  "ethereum": {
-    "explorers": [
-      {
-        "name": "my-provider",
-        "enabled": true,
-        "priority": 3,
+  "bitcoin": {
+    "defaultEnabled": [
+      "blockchain.com",
+      "blockstream.info",
+      "mempool.space",
+      "my-btc-provider" // Automatically added!
+    ],
+    "overrides": {
+      // You can now add overrides if needed
+      "my-btc-provider": {
+        "priority": 4,
         "timeout": 20000
       }
-    ]
+    }
   }
 }
 ```
 
-## Registry Metadata Fields
+## Registry Metadata Fields Reference
 
-### Required Fields
+All metadata is defined within the `@RegisterApiClient` decorator.
 
-| Field                      | Type            | Description                                      |
-| -------------------------- | --------------- | ------------------------------------------------ |
-| `name`                     | string          | Unique provider identifier (used in JSON config) |
-| `blockchain`               | string          | Target blockchain (ethereum, bitcoin, etc.)      |
-| `displayName`              | string          | Human-readable provider name                     |
-| `defaultConfig.timeout`    | number          | Request timeout in milliseconds                  |
-| `defaultConfig.retries`    | number          | Number of retry attempts                         |
-| `defaultConfig.rateLimit`  | RateLimitConfig | Rate limiting configuration                      |
-| `networks.mainnet.baseUrl` | string          | Mainnet API endpoint                             |
-
-### Optional Fields
-
-| Field              | Type                           | Description                                  |
-| ------------------ | ------------------------------ | -------------------------------------------- |
-| `description`      | string                         | Provider description                         |
-| `requiresApiKey`   | boolean                        | Whether API key is required (default: false) |
-| `type`             | 'rest' \| 'rpc' \| 'websocket' | API type (default: 'rest')                   |
-| `networks.testnet` | NetworkEndpoint                | Testnet configuration                        |
-| `networks.devnet`  | NetworkEndpoint                | Development network configuration            |
-
-### Rate Limit Configuration
-
-```typescript
-interface RateLimitConfig {
-  requestsPerSecond: number; // Primary rate limit
-  requestsPerMinute?: number; // Secondary rate limit
-  requestsPerHour?: number; // Tertiary rate limit
-  burstLimit?: number; // Burst capacity
-}
-```
+| Field | Type | Description |
+|---|---|---|
+| **`name`** | `string` | **Required.** The unique, machine-readable identifier for the provider. This key is used in `blockchain-explorers.json`. |
+| **`blockchain`** | `string` | **Required.** The blockchain this provider serves (e.g., "bitcoin", "ethereum"). |
+| **`displayName`** | `string` | **Required.** A human-friendly name for logging and UI purposes. |
+| `description` | `string` | Optional. A brief description of the provider and its features. |
+| `type` | `'rest' \| 'rpc'` | Optional. The type of API. Defaults to `rest`. |
+| `requiresApiKey` | `boolean` | Optional. Set to `true` if the provider needs an API key. Defaults to `false`. |
+| `apiKeyEnvVar` | `string` | Optional. The recommended environment variable name for the API key (e.g., `MEMPOOL_API_KEY`). |
+| **`defaultConfig`** | `object` | **Required.** Contains default settings for the provider. |
+| ┝ `timeout` | `number` | **Required.** Default request timeout in milliseconds. |
+| ┝ `retries` | `number` | **Required.** Default number of retry attempts on failure. |
+| ┝ `rateLimit` | `RateLimitConfig` | **Required.** The rate limiting rules for the provider. |
+| **`networks`** | `object` | **Required.** Defines the API endpoints for different networks. |
+| ┝ `mainnet` | `NetworkEndpoint` | **Required.** The configuration for the main network. |
+| ┝ `testnet` | `NetworkEndpoint` | Optional. Configuration for a test network. |
+| **`capabilities`** | `ProviderCapabilities` | **Required.** An object declaring what operations the provider supports. |
 
 ## Using the Registry System
 
-### List Available Providers
+### Command Line Tools
 
-```typescript
-import { ProviderRegistry } from './src/providers/registry/index.js';
-
-// Get all providers for Ethereum
-const ethereumProviders = ProviderRegistry.getAvailable('ethereum');
-console.log(ethereumProviders.map(p => p.name)); // ['etherscan', 'alchemy', 'moralis']
-
-// Get all providers across all blockchains
-const allProviders = ProviderRegistry.getAllProviders();
-```
-
-### Create Provider Instance
-
-```typescript
-const config = {
-  apiKey: process.env.ETHERSCAN_API_KEY,
-  network: 'mainnet',
-  timeout: 10000,
-};
-
-const provider = ProviderRegistry.createProvider('ethereum', 'etherscan', config);
-```
-
-### Validate Configuration
-
-```typescript
-const config = {
-  ethereum: {
-    explorers: [
-      { name: 'etherscan', enabled: true, priority: 1 },
-      { name: 'invalid-provider', enabled: true, priority: 2 },
-    ],
-  },
-};
-
-const validation = ProviderRegistry.validateConfig(config);
-if (!validation.valid) {
-  console.error('Configuration errors:', validation.errors);
-  // ['Unknown provider 'invalid-provider' for blockchain 'ethereum'']
-}
-```
-
-### Auto-Register from Configuration
-
-```typescript
-const manager = new BlockchainProviderManager();
-const providers = manager.autoRegisterFromConfig('ethereum', 'mainnet');
-// Automatically creates and registers all enabled providers from JSON config
-```
-
-## Command Line Tools
-
-### Provider Commands
+The monorepo includes scripts to help you manage and validate your provider ecosystem.
 
 ```bash
-# List all registered providers
-pnpm run providers:list
+# List all registered providers across all blockchains and their metadata.
+pnpm --filter @crypto/import run providers:list
 
-# Validate provider registrations
-pnpm run providers:validate
+# Validate that all provider registrations are well-formed and complete.
+pnpm --filter @crypto/import run providers:validate
+
+# Sync the blockchain-explorers.json file with the registry.
+# The --fix flag will automatically add any newly registered providers.
+pnpm --filter @crypto/import run providers:sync --fix
+
+# Validate the existing blockchain-explorers.json against the registry.
+# This will catch typos or references to providers that are no longer registered.
+pnpm --filter @crypto/import run config:validate
 ```
 
-### Configuration Commands
+### Programmatic Usage
 
-```bash
-# Generate config template from registered providers
-pnpm run config:generate
+While most interaction is automated, you can interact with the registry programmatically.
 
-# Validate existing configuration
-pnpm run config:validate
+```typescript
+import { ProviderRegistry } from '@crypto/import';
+
+// Get metadata for a specific provider
+const alchemyMeta = ProviderRegistry.getMetadata('ethereum', 'alchemy');
+
+// Check if a provider is registered
+const isRegistered = ProviderRegistry.isRegistered('solana', 'helius');
 ```
 
-## Configuration Schema
+## Configuration Schema (`blockchain-explorers.json`)
 
-### Simplified JSON Structure
-
-With the registry system, your JSON config becomes much simpler:
+The registry system allows for a clean and powerful configuration file that focuses on user intent.
 
 ```json
 {
   "ethereum": {
-    "explorers": [
-      {
-        "name": "etherscan", // Must match registered provider name
-        "enabled": true, // Enable/disable this provider
-        "priority": 1, // Lower = higher priority
-        "timeout": 20000 // Override default timeout (optional)
+    // An array of provider names to enable by default.
+    // The order does not matter here; priority is set in `overrides`.
+    "defaultEnabled": ["alchemy", "moralis"],
+
+    // An object to customize specific providers.
+    "overrides": {
+      "alchemy": {
+        "priority": 1,        // Lower is higher priority. Alchemy will be tried first.
+        "timeout": 20000,     // Override the default timeout from the decorator.
+        "rateLimit": {        // Override the default rate limit.
+          "requestsPerSecond": 10
+        }
       },
-      {
-        "name": "alchemy",
-        "enabled": false, // Disabled provider
+      "moralis": {
         "priority": 2
+      },
+      "some-other-provider": {
+        "enabled": false      // Explicitly disable a provider, even if it's registered.
       }
-    ]
+    }
   },
   "bitcoin": {
-    "explorers": [
-      {
-        "name": "mempool.space",
-        "enabled": true,
-        "priority": 1
-      }
-    ]
+    // If 'overrides' is omitted, all providers in defaultEnabled
+    // will be used with their default settings and an equal priority.
+    "defaultEnabled": ["mempool.space", "blockstream.info"]
   }
 }
 ```
-
-### Configuration Override Support
-
-You can override any provider default in the JSON config:
-
-```json
-{
-  "ethereum": {
-    "explorers": [
-      {
-        "name": "etherscan",
-        "enabled": true,
-        "priority": 1,
-        "timeout": 30000, // Override default timeout
-        "retries": 5, // Override default retries
-        "rateLimit": {
-          // Override default rate limit
-          "requestsPerSecond": 0.5
-        }
-      }
-    ]
-  }
-}
-```
-
-## Error Messages
-
-The registry provides clear error messages:
-
-### Provider Not Found
-
-```
-Provider 'invalid-provider' not found for blockchain 'ethereum'.
-Available providers: etherscan, alchemy, moralis
-```
-
-### Configuration Validation
-
-```
-Configuration errors:
-- Unknown provider 'typo-provider' for blockchain 'ethereum'. Available: etherscan, alchemy, moralis
-- Missing name for explorer in blockchain bitcoin
-```
-
-### Runtime Errors
-
-```
-No providers available for blockchain 'ethereum' and operation 'getAddressTransactions'
-All providers failed for operation 'getAddressBalance'
-```
-
-## Migration Guide
-
-### From Old System
-
-**Old approach** (hardcoded instantiation):
-
-```typescript
-// ❌ Old way - manual provider creation
-const etherscanProvider = new EtherscanProvider({
-  apiKey: process.env.ETHERSCAN_API_KEY,
-  network: 'mainnet',
-});
-```
-
-**New approach** (registry-based):
-
-```typescript
-// ✅ New way - registry creation
-const provider = ProviderRegistry.createProvider('ethereum', 'etherscan', {
-  apiKey: process.env.ETHERSCAN_API_KEY,
-  network: 'mainnet',
-});
-```
-
-### Converting Existing Providers
-
-1. **Add the `@RegisterProvider` decorator** with metadata
-2. **Import the provider file** in the adapter to trigger registration
-3. **Update JSON config** to reference by registered name
-4. **Remove manual instantiation** code
-
-## Best Practices
-
-### Provider Implementation
-
-- ✅ Use descriptive `displayName` and `description`
-- ✅ Set realistic rate limits based on API documentation
-- ✅ Include all supported networks (mainnet, testnet, devnet)
-- ✅ Use consistent naming conventions
-
-### Configuration
-
-- ✅ Enable providers in priority order (1 = highest priority)
-- ✅ Keep sensitive data in environment variables, not JSON
-- ✅ Use configuration overrides sparingly
-- ✅ Validate configuration before deployment
-
-### Registry Management
-
-- ✅ Import all provider files to trigger registration
-- ✅ Use registry validation in CI/CD pipelines
-- ✅ Generate fresh config templates after adding providers
-- ✅ Document any custom provider requirements
-
-## Benefits
-
-### For Developers
-
-- **Type Safety**: Invalid provider names caught at compile time
-- **Auto-completion**: IDE support for provider names and configuration
-- **Self-documenting**: Provider metadata embedded with implementation
-- **Centralized**: Single source of truth for provider capabilities
-
-### For Users
-
-- **Clear Errors**: Helpful error messages for configuration issues
-- **Easy Discovery**: Automatically see available providers
-- **Simple Config**: Minimal JSON configuration required
-- **Validation**: Configuration validated before runtime
-
-### For Operations
-
-- **Reliability**: Fewer runtime configuration errors
-- **Monitoring**: Provider health and performance metrics
-- **Flexibility**: Easy to enable/disable/prioritize providers
-- **Scalability**: Easy to add new providers and blockchains
 
 ## Troubleshooting
 
-### Provider Not Registered
-
-**Problem**: `Provider 'etherscan' not found for blockchain 'ethereum'`
-
-**Solutions**:
-
-1. Ensure provider file is imported: `import '../../providers/ethereum/EtherscanProvider.js';`
-2. Check `@RegisterProvider` decorator is present and correct
-3. Verify provider name matches exactly
+### Provider 'xyz' not found for blockchain 'abc'
+*   **Cause:** The provider's file was not imported, so its `@RegisterApiClient` decorator never ran.
+*   **Solution:** Ensure you have added `import './path/to/XyzApiClient.ts';` in the `api/index.ts` file for the corresponding blockchain.
 
 ### Configuration Validation Fails
+*   **Cause:** A provider name in `blockchain-explorers.json` has a typo or refers to a provider that has been removed.
+*   **Solution:** Run `pnpm run providers:list` to see the correct, available provider names. Correct the typo in the JSON file. Run `pnpm run config:validate` again to confirm.
 
-**Problem**: Configuration has unknown providers
-
-**Solutions**:
-
-1. Run `pnpm run providers:list` to see available providers
-2. Check for typos in provider names
-3. Ensure provider is properly registered
-
-### Rate Limiting Issues
-
-**Problem**: Too many API calls or slow responses
-
-**Solutions**:
-
-1. Check provider's rate limit configuration in `@RegisterProvider`
-2. Override rate limits in JSON config if needed
-3. Monitor provider health with `getProviderHealth()`
-
-### Network Configuration Missing
-
-**Problem**: Provider fails to connect to network
-
-**Solutions**:
-
-1. Verify network endpoints in `@RegisterProvider` metadata
-2. Check if custom `baseUrl` needed in JSON config
-3. Ensure API keys are properly configured
+### API Key Not Being Used
+*   **Cause:** The `requiresApiKey` flag is `false` in the decorator, or the `apiKeyEnvVar` is incorrect.
+*   **Solution:** Verify the metadata in the `@RegisterApiClient` decorator. Ensure `requiresApiKey` is `true` and the `apiKeyEnvVar` matches the variable in your `.env` file.

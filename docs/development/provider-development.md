@@ -1,844 +1,312 @@
-# How to Add New Providers
+# How to Add a New Blockchain Provider
 
-> **📋 Open Source Notice**  
-> This guide shows how to develop new blockchain providers for the Universal Provider Architecture. The core framework is open source, though you may integrate with third-party APIs that require commercial licenses.
+## 1. Overview
 
-## Overview
+This guide provides a step-by-step walkthrough for adding a new blockchain API provider to the Universal Provider Architecture. The system is designed to be highly extensible, and following these patterns will ensure your new provider integrates seamlessly, benefiting from the built-in resilience, failover, and health monitoring features.
 
-Adding a new provider to the Universal Blockchain Provider Architecture is a straightforward process that follows established patterns. Whether you're adding support for a new blockchain API or creating an alternative provider for an existing blockchain, this guide will walk you through the entire process.
+The development process is broken down into two main components:
+1.  **The `ApiClient`:** The class responsible for communicating with the external API.
+2.  **The `Mapper`:** The class responsible for transforming the API's raw data into our canonical format.
 
-## Development Process Overview
+**Total Time Investment:** Approximately 2-4 hours for a developer familiar with the target API.
 
-```
-1. Plan Provider → 2. Implement Interface → 3. Add Configuration → 4. Write Tests → 5. Deploy
-     (30 min)           (2-4 hours)            (15 min)         (1 hour)      (15 min)
-```
+## 2. Step 1: Planning and API Research
 
-**Total Time Investment**: 4-6 hours for a complete provider implementation
+Before writing code, gather the essential information about the API you're integrating.
 
-## Step 1: Plan Your Provider
+### A. Define the Provider's Scope
 
-### Define Provider Scope
+*   **Name:** A unique, machine-readable key (e.g., `blockchair`).
+*   **Blockchain:** The blockchain it serves (e.g., `bitcoin`).
+*   **Capabilities:** What operations can it perform? (`getRawAddressTransactions`, `getRawAddressBalance`, etc.).
+*   **Authentication:** Does it require an API key? What is the recommended environment variable name (e.g., `BLOCKCHAIR_API_KEY`)?
 
-Before writing code, clearly define what your provider will do:
+### B. Research the API Documentation
 
-```typescript
-// Example: New Solana provider planning
-const providerPlan = {
-  name: 'solana-rpc', // Unique identifier
-  blockchain: 'solana', // Target blockchain
-  capabilities: [
-    'getAddressTransactions', // What operations it supports
-    'getAddressBalance',
-    'getTokenTransactions',
-  ],
-  apiEndpoint: 'https://api.mainnet-beta.solana.com',
-  rateLimit: 100, // Requests per second
-  requiresApiKey: false, // Authentication requirements
-  cost: 'free', // Pricing model
-};
-```
+*   **Endpoints:** What are the base URLs for mainnet/testnet?
+*   **Rate Limits:** What are the documented requests-per-second/minute?
+*   **Data Formats:** What is the JSON structure of a successful response? What about an error response?
+*   **Pagination:** How does the API handle paginated results? (e.g., `page` parameter, cursors).
 
-### Research API Documentation
+## 3. Step 2: Implement the `ApiClient`
 
-Gather essential information about the target API:
+The `ApiClient` handles all direct communication with the external API. It extends `BaseRegistryProvider` and uses the `@RegisterApiClient` decorator to make itself discoverable to the system.
 
-- **Endpoint URLs**: Base URL and specific endpoints
-- **Authentication**: API key requirements, headers, authentication methods
-- **Rate Limits**: Requests per second/minute/hour limitations
-- **Response Format**: JSON structure, pagination, error formats
-- **Error Handling**: HTTP status codes, error message formats
+**File Location:** `packages/import/src/blockchains/<chain>/api/<ProviderName>ApiClient.ts`
 
-### Choose Provider Type
-
-Determine which type of provider you're building:
-
-#### Type 1: New Blockchain Provider
-
-Adding support for a completely new blockchain (e.g., Solana, Cardano, Polygon)
-
-#### Type 2: Alternative Provider
-
-Adding an alternative API for existing blockchain (e.g., new Bitcoin API alongside mempool.space)
-
-#### Type 3: Specialized Provider
-
-Adding specialized capabilities (e.g., NFT transactions, DeFi protocols, staking data)
-
-## Step 2: Implement the Provider Interface
-
-### Core Interface Implementation
-
-Every provider must implement the `IBlockchainProvider` interface:
+**Example: Creating a `BlockchairApiClient` for Bitcoin.**
 
 ```typescript
-// src/providers/SolanaRPCProvider.ts
-import { BlockchainTransaction } from '../types/blockchain';
-import { IBlockchainProvider, ProviderCapabilities, ProviderOperation, RateLimitConfig } from './IBlockchainProvider';
+// packages/import/src/blockchains/bitcoin/api/BlockchairApiClient.ts
 
-export class SolanaRPCProvider implements IBlockchainProvider<SolanaConfig> {
-  readonly name = 'solana-rpc';
-  readonly blockchain = 'solana';
-  readonly capabilities: ProviderCapabilities = {
-    supportedOperations: ['getAddressTransactions', 'getAddressBalance', 'getTokenTransactions'],
-    maxBatchSize: 10,
-    providesHistoricalData: true,
-    supportsPagination: true,
-    maxLookbackDays: 365,
+import { maskAddress } from '@crypto/shared-utils';
+import { BaseRegistryProvider, RegisterApiClient, ProviderOperation } from '@crypto/import';
+// Import raw response types for this specific API
+import type { BlockchairRawTransaction, BlockchairAddressInfo } from '../types';
+
+@RegisterApiClient({
+  name: 'blockchair',
+  blockchain: 'bitcoin',
+  displayName: 'Blockchair API',
+  description: 'A multi-blockchain explorer with detailed transaction data.',
+  type: 'rest',
+  requiresApiKey: true, // Let's assume it requires a key
+  apiKeyEnvVar: 'BLOCKCHAIR_API_KEY',
+  defaultConfig: {
+    timeout: 15000,
+    retries: 3,
+    rateLimit: { requestsPerSecond: 1 },
+  },
+  networks: {
+    mainnet: { baseUrl: 'https://api.blockchair.com/bitcoin' },
+  },
+  capabilities: {
+    maxBatchSize: 1,
+    supportedOperations: ['getRawAddressTransactions', 'getAddressInfo'],
+    supportsHistoricalData: true,
+    supportsPagination: false, // Assuming no pagination for simplicity
     supportsRealTimeData: true,
-    supportsTokenData: true,
-  };
-  readonly rateLimit: RateLimitConfig = {
-    requestsPerSecond: 10,
-    burstLimit: 20,
-    backoffMs: 1000,
-  };
-
-  constructor(private config: SolanaConfig) {}
-
-  async isHealthy(): Promise<boolean> {
-    try {
-      const response = await fetch(`${this.config.baseUrl}/health`);
-      return response.ok;
-    } catch {
-      return false;
-    }
+    supportsTokenData: false,
+  },
+})
+export class BlockchairApiClient extends BaseRegistryProvider {
+  constructor() {
+    super('bitcoin', 'blockchair', 'mainnet');
   }
 
-  async testConnection(): Promise<boolean> {
-    try {
-      // Test with a simple RPC call
-      const response = await this.makeRequest('getVersion', []);
-      return response.result !== undefined;
-    } catch {
-      return false;
-    }
-  }
+  // Universal execute method that routes to specific implementations
+  async execute<T>(operation: ProviderOperation<T>): Promise<T> {
+    this.validateApiKey(); // Base class helper checks if the API key is present
 
-  async execute<T>(operation: ProviderOperation<T>, config: SolanaConfig): Promise<T> {
     switch (operation.type) {
-      case 'getAddressTransactions':
-        return this.getAddressTransactions(operation.params) as T;
-      case 'getAddressBalance':
-        return this.getAddressBalance(operation.params) as T;
-      case 'getTokenTransactions':
-        return this.getTokenTransactions(operation.params) as T;
+      case 'getRawAddressTransactions':
+        return this.getRawAddressTransactions(operation.address) as Promise<T>;
+      case 'getAddressInfo':
+        return this.getAddressInfo(operation.address) as Promise<T>;
       default:
         throw new Error(`Unsupported operation: ${operation.type}`);
     }
   }
 
-  // Implementation methods below...
-}
-```
-
-### Implement Core Operations
-
-#### Get Address Transactions
-
-```typescript
-private async getAddressTransactions(params: { address: string; since?: number }): Promise<BlockchainTransaction[]> {
-  const { address, since } = params;
-
-  // Build RPC request
-  const rpcParams = {
-    method: 'getConfirmedSignaturesForAddress2',
-    params: [
-      address,
-      {
-        limit: 1000,
-        before: since ? this.timestampToSignature(since) : undefined
-      }
-    ]
-  };
-
-  const response = await this.makeRequest(rpcParams.method, rpcParams.params);
-
-  // Transform Solana response to standard format
-  return response.result.map(tx => this.transformTransaction(tx, address));
-}
-
-private transformTransaction(solanaTransaction: any, address: string): BlockchainTransaction {
-  return {
-    hash: solanaTransaction.signature,
-    blockNumber: solanaTransaction.slot,
-    timestamp: solanaTransaction.blockTime,
-    from: this.extractSender(solanaTransaction),
-    to: this.extractReceiver(solanaTransaction),
-    value: this.extractValue(solanaTransaction),
-    fee: this.extractFee(solanaTransaction),
-    status: solanaTransaction.err ? 'failed' : 'confirmed',
-    raw: solanaTransaction
-  };
-}
-```
-
-#### Get Address Balance
-
-```typescript
-private async getAddressBalance(params: { address: string; tokenAddress?: string }): Promise<{ balance: string; token: string }> {
-  const { address, tokenAddress } = params;
-
-  if (tokenAddress) {
-    // SPL Token balance
-    const response = await this.makeRequest('getTokenAccountsByOwner', [
-      address,
-      { mint: tokenAddress },
-      { encoding: 'jsonParsed' }
-    ]);
-
-    const tokenAccount = response.result.value[0];
-    return {
-      balance: tokenAccount?.account.data.parsed.info.tokenAmount.uiAmountString || '0',
-      token: tokenAddress
-    };
-  } else {
-    // SOL balance
-    const response = await this.makeRequest('getBalance', [address]);
-    return {
-      balance: (response.result.value / 1e9).toString(), // Convert lamports to SOL
-      token: 'SOL'
-    };
-  }
-}
-```
-
-### HTTP Request Handling
-
-```typescript
-private async makeRequest(method: string, params: any[]): Promise<any> {
-  const requestBody = {
-    jsonrpc: '2.0',
-    id: Date.now(),
-    method,
-    params
-  };
-
-  const response = await fetch(this.config.baseUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(this.config.apiKey && { 'Authorization': `Bearer ${this.config.apiKey}` })
-    },
-    body: JSON.stringify(requestBody)
-  });
-
-  if (!response.ok) {
-    throw new Error(`Solana RPC error: ${response.status} ${response.statusText}`);
-  }
-
-  const data = await response.json();
-
-  if (data.error) {
-    throw new Error(`Solana RPC error: ${data.error.message}`);
-  }
-
-  return data;
-}
-```
-
-### Error Handling
-
-```typescript
-import { RateLimitError, AuthenticationError, ServiceUnavailableError } from '../utils/exchange-error-handler';
-
-private handleError(error: any): never {
-  // Check for specific Solana error types
-  if (error.message?.includes('rate limit')) {
-    throw new RateLimitError('Solana RPC rate limit exceeded');
-  }
-
-  if (error.message?.includes('unauthorized') || error.message?.includes('invalid api key')) {
-    throw new AuthenticationError('Invalid Solana RPC credentials');
-  }
-
-  if (error.message?.includes('service unavailable') || error.code === 503) {
-    throw new ServiceUnavailableError('Solana RPC service unavailable');
-  }
-
-  // Generic error
-  throw new Error(`Solana RPC error: ${error.message}`);
-}
-```
-
-## Step 3: Add Configuration Support
-
-### Define Configuration Interface
-
-```typescript
-// src/types/solana.ts
-export interface SolanaConfig {
-  baseUrl: string;
-  apiKey?: string;
-  network: 'mainnet-beta' | 'testnet' | 'devnet';
-  timeout?: number;
-  retries?: number;
-}
-```
-
-### Update Configuration Schema
-
-```typescript
-// src/types/blockchain.ts
-export interface BlockchainConfig {
-  enabled: boolean;
-  options: {
-    blockchain: string;
-    providers: ProviderConfig[];
-    // Add new blockchain support
-    network?: 'mainnet' | 'testnet';
-    timeout?: number;
-  };
-}
-
-// Add to provider config union
-export type ProviderSpecificConfig = BitcoinConfig | EthereumConfig | InjectiveConfig | SolanaConfig; // New addition
-```
-
-### Example Configuration
-
-```json
-{
-  "solana": {
-    "enabled": true,
-    "options": {
-      "blockchain": "solana",
-      "network": "mainnet-beta",
-      "providers": [
-        {
-          "name": "solana-rpc",
-          "priority": 1,
-          "enabled": true,
-          "baseUrl": "https://api.mainnet-beta.solana.com",
-          "rateLimit": {
-            "requestsPerSecond": 10
-          }
-        },
-        {
-          "name": "quicknode-solana",
-          "priority": 2,
-          "enabled": true,
-          "apiKey": "env:QUICKNODE_SOLANA_API_KEY",
-          "baseUrl": "https://your-endpoint.solana.quiknode.pro",
-          "rateLimit": {
-            "requestsPerSecond": 25
-          }
-        }
-      ]
-    }
-  }
-}
-```
-
-## Step 4: Write Comprehensive Tests
-
-### Unit Tests
-
-```typescript
-// tests/providers/solana-rpc-provider.test.ts
-import { SolanaRPCProvider } from '../../src/providers/SolanaRPCProvider';
-import { SolanaConfig } from '../../src/types/solana';
-
-describe('SolanaRPCProvider', () => {
-  let provider: SolanaRPCProvider;
-  let config: SolanaConfig;
-
-  beforeEach(() => {
-    config = {
-      baseUrl: 'https://api.mainnet-beta.solana.com',
-      network: 'mainnet-beta',
-    };
-    provider = new SolanaRPCProvider(config);
-  });
-
-  describe('Health Checks', () => {
-    it('should report healthy when RPC is accessible', async () => {
-      // Mock successful RPC response
-      global.fetch = jest.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ result: { version: '1.14.0' } }),
-      });
-
-      const isHealthy = await provider.isHealthy();
-      expect(isHealthy).toBe(true);
-    });
-
-    it('should report unhealthy when RPC is down', async () => {
-      global.fetch = jest.fn().mockRejectedValue(new Error('Network error'));
-
-      const isHealthy = await provider.isHealthy();
-      expect(isHealthy).toBe(false);
-    });
-  });
-
-  describe('Address Transactions', () => {
-    it('should fetch and transform transactions correctly', async () => {
-      const mockResponse = {
-        result: [
-          {
-            signature: 'test-signature-123',
-            slot: 123456789,
-            blockTime: 1640995200,
-            err: null,
-          },
-        ],
-      };
-
-      global.fetch = jest.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(mockResponse),
-      });
-
-      const operation = {
-        type: 'getAddressTransactions' as const,
-        params: { address: 'test-address' },
-      };
-
-      const transactions = await provider.execute(operation, config);
-
-      expect(transactions).toHaveLength(1);
-      expect(transactions[0].hash).toBe('test-signature-123');
-      expect(transactions[0].status).toBe('confirmed');
-    });
-
-    it('should handle failed transactions', async () => {
-      const mockResponse = {
-        result: [
-          {
-            signature: 'failed-signature',
-            slot: 123456789,
-            blockTime: 1640995200,
-            err: { InstructionError: [0, 'Custom'] },
-          },
-        ],
-      };
-
-      global.fetch = jest.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(mockResponse),
-      });
-
-      const operation = {
-        type: 'getAddressTransactions' as const,
-        params: { address: 'test-address' },
-      };
-
-      const transactions = await provider.execute(operation, config);
-      expect(transactions[0].status).toBe('failed');
-    });
-  });
-
-  describe('Error Handling', () => {
-    it('should throw RateLimitError for rate limit responses', async () => {
-      global.fetch = jest.fn().mockResolvedValue({
-        ok: false,
-        status: 429,
-        statusText: 'Too Many Requests',
-      });
-
-      const operation = {
-        type: 'getAddressTransactions' as const,
-        params: { address: 'test-address' },
-      };
-
-      await expect(provider.execute(operation, config)).rejects.toThrow('rate limit');
-    });
-  });
-});
-```
-
-### Integration Tests
-
-```typescript
-// tests/providers/solana-integration.test.ts
-describe('Solana Provider Integration', () => {
-  let providerManager: BlockchainProviderManager;
-
-  beforeEach(() => {
-    providerManager = new BlockchainProviderManager();
-    providerManager.registerProviders('solana', [new SolanaRPCProvider(config), new QuickNodeSolanaProvider(config)]);
-  });
-
-  it('should successfully failover between Solana providers', async () => {
-    // Mock first provider failure
-    jest.spyOn(SolanaRPCProvider.prototype, 'execute').mockRejectedValueOnce(new Error('Service unavailable'));
-
-    // Mock second provider success
-    jest.spyOn(QuickNodeSolanaProvider.prototype, 'execute').mockResolvedValueOnce([{ hash: 'success-tx' }]);
-
-    const operation = {
-      type: 'getAddressTransactions' as const,
-      params: { address: 'test-address' },
-    };
-
-    const result = await providerManager.executeWithFailover('solana', operation);
-    expect(result).toEqual([{ hash: 'success-tx' }]);
-  });
-
-  it('should respect Solana provider capabilities', async () => {
-    const operation = {
-      type: 'getStakingRewards' as const, // Not supported by basic provider
-      params: { address: 'test-address' },
-    };
-
-    // Should skip providers that don't support this operation
-    await expect(providerManager.executeWithFailover('solana', operation)).rejects.toThrow(
-      'No providers support operation'
-    );
-  });
-});
-```
-
-## Step 5: Register and Deploy Provider
-
-### Register with Provider Manager
-
-```typescript
-// src/adapters/blockchain/solana-adapter.ts
-import { QuickNodeSolanaProvider } from '../../providers/QuickNodeSolanaProvider';
-import { SolanaRPCProvider } from '../../providers/SolanaRPCProvider';
-import { BaseBlockchainAdapter } from './base-blockchain-adapter';
-
-export class SolanaAdapter extends BaseBlockchainAdapter {
-  constructor(config: SolanaConfig) {
-    super(config);
-
-    // Register all Solana providers
-    this.providerManager.registerProviders('solana', [
-      new SolanaRPCProvider(config),
-      new QuickNodeSolanaProvider(config),
-      // Add more providers as needed
-    ]);
-  }
-
-  protected getBlockchain(): string {
-    return 'solana';
-  }
-}
-```
-
-### Update Adapter Factory
-
-```typescript
-// src/adapters/adapter-factory.ts
-import { SolanaAdapter } from './blockchain/solana-adapter';
-
-export function createBlockchainAdapter(options: BlockchainImportOptions): BlockchainAdapter {
-  // ... existing code ...
-
-    const blockchain = options.options.blockchain;
-
-    switch (blockchain) {
-      case 'bitcoin':
-        return new BitcoinAdapter(options.options);
-      case 'ethereum':
-        return new EthereumAdapter(options.options);
-      case 'injective':
-        return new InjectiveAdapter(options.options);
-      case 'solana':                                    // Add new case
-        return new SolanaAdapter(options.options);
-      default:
-        throw new Error(`Unsupported blockchain: ${blockchain}`);
-    }
-  }
-
-  // ... rest of factory logic ...
-}
-```
-
-### Deploy Configuration
-
-Add the new provider configuration to `config/blockchain-explorers.json`:
-
-```json
-{
-  "solana": {
-    "enabled": true,
-    "options": {
-      "blockchain": "solana",
-      "providers": [
-        {
-          "name": "solana-rpc",
-          "priority": 1,
-          "enabled": true,
-          "rateLimit": { "requestsPerSecond": 10 }
-        }
-      ]
-    }
-  }
-}
-```
-
-## Advanced Provider Features
-
-### Custom Capabilities
-
-```typescript
-export class AdvancedSolanaProvider implements IBlockchainProvider {
-  readonly capabilities: ProviderCapabilities = {
-    supportedOperations: [
-      'getAddressTransactions',
-      'getAddressBalance',
-      'getTokenTransactions',
-      'getStakingRewards', // Custom capability
-      'getNFTTransactions', // Custom capability
-    ],
-    maxBatchSize: 100,
-    providesHistoricalData: true,
-    supportsPagination: true,
-    supportsRealTimeData: true,
-    supportsTokenData: true,
-    // Custom capabilities
-    supportsStaking: true,
-    supportsNFTs: true,
-  };
-
-  async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    switch (operation.type) {
-      case 'getStakingRewards':
-        return this.getStakingRewards(operation.params) as T;
-      case 'getNFTTransactions':
-        return this.getNFTTransactions(operation.params) as T;
-      default:
-        return super.execute(operation);
-    }
-  }
-}
-```
-
-### Custom Caching Strategy
-
-```typescript
-export class CachedSolanaProvider extends SolanaRPCProvider {
-  private cache = new Map<string, { data: any; expiry: number }>();
-
-  async execute<T>(operation: ProviderOperation<T>, config: SolanaConfig): Promise<T> {
-    // Check cache first for expensive operations
-    if (operation.getCacheKey && this.shouldCache(operation.type)) {
-      const cacheKey = operation.getCacheKey(operation.params);
-      const cached = this.cache.get(cacheKey);
-
-      if (cached && cached.expiry > Date.now()) {
-        return cached.data;
-      }
-    }
-
-    const result = await super.execute(operation, config);
-
-    // Cache the result
-    if (operation.getCacheKey) {
-      const cacheKey = operation.getCacheKey(operation.params);
-      this.cache.set(cacheKey, {
-        data: result,
-        expiry: Date.now() + this.getCacheTTL(operation.type),
-      });
-    }
-
-    return result;
-  }
-
-  private shouldCache(operationType: string): boolean {
-    // Cache expensive operations
-    return ['getAddressTransactions', 'getTokenTransactions'].includes(operationType);
-  }
-
-  private getCacheTTL(operationType: string): number {
-    switch (operationType) {
-      case 'getAddressTransactions':
-        return 60000; // 1 minute
-      case 'getAddressBalance':
-        return 30000; // 30 seconds
-      default:
-        return 60000;
-    }
-  }
-}
-```
-
-## Best Practices
-
-### 1. Robust Error Handling
-
-```typescript
-// ✅ Good: Specific error types for different scenarios
-private handleError(error: any): never {
-  if (error.code === 429 || error.message?.includes('rate limit')) {
-    throw new RateLimitError('Rate limit exceeded', { retryAfter: 60 });
-  }
-
-  if (error.code === 401 || error.code === 403) {
-    throw new AuthenticationError('Invalid credentials');
-  }
-
-  if (error.code >= 500) {
-    throw new ServiceUnavailableError('Service temporarily unavailable');
-  }
-
-  throw new Error(`Provider error: ${error.message}`);
-}
-
-// ❌ Bad: Generic error handling
-private handleError(error: any): never {
-  throw new Error(error.message);
-}
-```
-
-### 2. Efficient Pagination
-
-```typescript
-// ✅ Good: Handle pagination efficiently
-async getAllTransactions(address: string): Promise<BlockchainTransaction[]> {
-  const allTransactions: BlockchainTransaction[] = [];
-  let cursor: string | undefined;
-  let hasMore = true;
-
-  while (hasMore && allTransactions.length < 10000) { // Prevent infinite loops
-    const batch = await this.getTransactionBatch(address, cursor);
-    allTransactions.push(...batch.transactions);
-
-    cursor = batch.nextCursor;
-    hasMore = batch.hasMore;
-
-    // Rate limiting
-    await this.delay(this.rateLimit.backoffMs || 100);
-  }
-
-  return allTransactions;
-}
-```
-
-### 3. Proper Rate Limiting
-
-```typescript
-// ✅ Good: Respect rate limits
-private async makeRateLimitedRequest(url: string, options: RequestInit): Promise<Response> {
-  await this.rateLimiter.wait(); // Wait for rate limit clearance
-
-  const response = await fetch(url, options);
-
-  if (response.status === 429) {
-    const retryAfter = parseInt(response.headers.get('Retry-After') || '60');
-    await this.delay(retryAfter * 1000);
-    return this.makeRateLimitedRequest(url, options); // Retry
-  }
-
-  return response;
-}
-```
-
-### 4. Comprehensive Testing
-
-```typescript
-// ✅ Good: Test all edge cases
-describe('Provider Edge Cases', () => {
-  it('should handle empty transaction lists', async () => {
-    // Mock empty response
-    const result = await provider.execute(operation, config);
-    expect(result).toEqual([]);
-  });
-
-  it('should handle malformed API responses gracefully', async () => {
-    // Mock malformed response
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ invalid: 'structure' }),
-    });
-
-    await expect(provider.execute(operation, config)).rejects.toThrow();
-  });
-
-  it('should respect timeout settings', async () => {
-    // Mock slow response
-    global.fetch = jest.fn().mockImplementation(() => new Promise(resolve => setTimeout(resolve, 10000)));
-
-    const configWithTimeout = { ...config, timeout: 1000 };
-    await expect(provider.execute(operation, configWithTimeout)).rejects.toThrow('timeout');
-  });
-});
-```
-
-## Common Pitfalls and Solutions
-
-### Pitfall 1: Not Handling API Changes
-
-```typescript
-// ✅ Solution: Version-aware API handling
-class VersionAwareSolanaProvider extends SolanaRPCProvider {
-  private apiVersion: string;
-
-  async testConnection(): Promise<boolean> {
+  // Health check implementation
+  async isHealthy(): Promise<boolean> {
     try {
-      const response = await this.makeRequest('getVersion', []);
-      this.apiVersion = response.result.version;
-      return this.isVersionSupported(this.apiVersion);
+      const response = await this.httpClient.get<{ data?: unknown }>('/stats');
+      return !!response.data;
     } catch {
       return false;
     }
   }
 
-  private isVersionSupported(version: string): boolean {
-    // Check if API version is compatible
-    return semver.gte(version, '1.10.0');
+  // --- Private Implementation Methods ---
+
+  private async getRawAddressTransactions(address: string): Promise<BlockchairRawTransaction[]> {
+    this.logger.debug(`Fetching raw transactions for ${maskAddress(address)}`);
+    // NOTE: The '?key=' part would be handled automatically if we configure the HttpClient
+    // to append the API key as a query parameter.
+    const endpoint = `/dashboards/address/${address}?transaction_details=true`;
+    const response = await this.httpClient.get<{ data: Record<string, { transactions: BlockchairRawTransaction[] }> }>(endpoint);
+
+    // Navigate the unique structure of the Blockchair response
+    return response.data[address]?.transactions || [];
+  }
+
+  private async getAddressInfo(address: string): Promise<AddressInfo> {
+    this.logger.debug(`Fetching address info for ${maskAddress(address)}`);
+    const endpoint = `/dashboards/address/${address}`;
+    const response = await this.httpClient.get<{ data: Record<string, { address: BlockchairAddressInfo }> }>(endpoint);
+    const info = response.data[address]?.address;
+
+    if (!info) {
+      throw new Error('Invalid response structure from Blockchair getAddressInfo');
+    }
+
+    return {
+      balance: (info.balance / 1e8).toString(), // Convert satoshis to BTC
+      txCount: info.transaction_count,
+    };
   }
 }
 ```
 
-### Pitfall 2: Poor Resource Management
+## 4. Step 3: Implement the `Mapper`
+
+The `Mapper` validates the raw API response and transforms it into the canonical `UniversalBlockchainTransaction` format.
+
+**File Location:** `packages/import/src/blockchains/<chain>/mappers/<ProviderName>Mapper.ts`
+
+**Example: Creating a `BlockchairMapper` for Bitcoin.**
 
 ```typescript
-// ✅ Solution: Proper cleanup and resource management
-export class ResourceAwareSolanaProvider extends SolanaRPCProvider {
-  private connections = new Set<AbortController>();
+// packages/import/src/blockchains/bitcoin/mappers/BlockchairMapper.ts
 
-  async execute<T>(operation: ProviderOperation<T>, config: SolanaConfig): Promise<T> {
-    const controller = new AbortController();
-    this.connections.add(controller);
+import { BaseRawDataMapper, RegisterTransactionMapper, UniversalBlockchainTransaction } from '@crypto/import';
+import { ZodSchema, z } from 'zod';
+import { Result, ok, err } from 'neverthrow';
 
-    try {
-      const result = await this.makeRequest(operation, { signal: controller.signal });
-      return result;
-    } finally {
-      this.connections.delete(controller);
-    }
+// 1. Define Zod schemas for the raw API response to ensure data integrity
+const BlockchairRawTxSchema = z.object({
+  hash: z.string(),
+  time: z.string(),
+  balance_change: z.number(),
+  fee: z.number(),
+  block_id: z.number(),
+  // ... other fields
+});
+
+type BlockchairRawTransaction = z.infer<typeof BlockchairRawTxSchema>;
+
+@RegisterTransactionMapper('blockchair') // Name must match the ApiClient's name
+export class BlockchairMapper extends BaseRawDataMapper<BlockchairRawTransaction> {
+  // 2. Assign the schema for automatic validation by the base class
+  protected readonly schema: ZodSchema = BlockchairRawTxSchema;
+
+  // 3. Implement the transformation logic
+  protected mapInternal(
+    rawData: BlockchairRawTransaction,
+    sessionContext: ImportSessionMetadata
+  ): Result<UniversalBlockchainTransaction[], string> {
+
+    const addresses = new Set(sessionContext.derivedAddresses || [sessionContext.address]);
+    const isOutgoing = rawData.balance_change < 0;
+
+    // This is a simplified transformation logic. A real one would determine from/to addresses.
+    const transaction: UniversalBlockchainTransaction = {
+      id: rawData.hash,
+      providerId: 'blockchair',
+      timestamp: new Date(rawData.time).getTime(),
+      blockHeight: rawData.block_id,
+      status: 'success',
+      amount: (Math.abs(rawData.balance_change) / 1e8).toString(),
+      currency: 'BTC',
+      feeAmount: (rawData.fee / 1e8).toString(),
+      feeCurrency: 'BTC',
+      from: isOutgoing ? sessionContext.address || '' : 'unknown',
+      to: isOutgoing ? 'unknown' : sessionContext.address || '',
+      type: 'transfer',
+    };
+
+    return ok([transaction]);
   }
+}```
 
-  async cleanup(): Promise<void> {
-    // Cancel all pending requests
-    for (const controller of this.connections) {
-      controller.abort();
-    }
-    this.connections.clear();
-  }
-}
-```
+## 5. Step 4: Register and Deploy
 
-### Pitfall 3: Inconsistent Data Formats
+### A. Trigger Registration
+
+To make your new components discoverable, import them into their respective `index.ts` files. This ensures their decorators run when the application starts.
 
 ```typescript
-// ✅ Solution: Standardized data transformation
-private transformTransaction(rawTx: any, address: string): BlockchainTransaction {
-  // Always return consistent format regardless of source API
-  return {
-    hash: this.normalizeHash(rawTx.signature || rawTx.txid || rawTx.hash),
-    blockNumber: this.normalizeBlockNumber(rawTx.slot || rawTx.block_height),
-    timestamp: this.normalizeTimestamp(rawTx.blockTime || rawTx.timestamp),
-    from: this.normalizeAddress(rawTx.from || rawTx.sender),
-    to: this.normalizeAddress(rawTx.to || rawTx.recipient),
-    value: this.normalizeAmount(rawTx.amount || rawTx.value),
-    fee: this.normalizeAmount(rawTx.fee || rawTx.gas_used),
-    status: this.normalizeStatus(rawTx.status || rawTx.err),
-    raw: rawTx  // Always preserve original for debugging
-  };
-}
+// packages/import/src/blockchains/bitcoin/api/index.ts
+import './BlockchairApiClient.ts'; // <-- ADD THIS LINE
+import './MempoolSpaceApiClient.ts';
+// ...
 ```
 
-## Conclusion
+```typescript
+// packages/import/src/blockchains/bitcoin/mappers/index.ts
+import './BlockchairMapper.ts'; // <-- ADD THIS LINE
+import './MempoolSpaceMapper.ts';
+// ...
+```
 
-Adding new providers to the Universal Blockchain Provider Architecture is a systematic process that ensures consistency, reliability, and maintainability. By following this guide, you can:
+### B. Sync and Configure
 
-**✅ Implement Robust Providers**: Using established patterns and interfaces
-**✅ Ensure Reliability**: With proper error handling and circuit breaker integration
-**✅ Maintain Quality**: Through comprehensive testing and validation
-**✅ Scale Effectively**: By following best practices for performance and resource management
+The system can now see your new provider.
 
-The modular design of the provider architecture means that each new provider you add makes the entire system more resilient, providing additional failover options and reducing single points of failure across all blockchain operations.
+1.  **Sync the Configuration:** Run the script to automatically add "blockchair" to your config file.
+    ```bash
+    pnpm --filter @crypto/import run providers:sync --fix
+    ```
+2.  **Set API Key:** If your provider requires an API key, add it to your `.env` file.
+    ```env
+    # .env
+    BLOCKCHAIR_API_KEY="your_api_key_here"
+    ```
+3.  **Validate:** Run the config validator to ensure everything is set up correctly.
+    ```bash
+    pnpm --filter @crypto/import run config:validate
+    ```
+
+## 6. Step 5: Write Comprehensive Tests
+
+Testing is crucial for ensuring the reliability of a new provider.
+
+### A. Unit Test the `Mapper`
+
+Focus on the transformation logic. Provide sample raw JSON data and assert that the output `UniversalBlockchainTransaction` is correct.
+
+**File Location:** `packages/import/src/blockchains/bitcoin/mappers/BlockchairMapper.test.ts`
+
+```typescript
+// Example test for the mapper
+import { BlockchairMapper } from './BlockchairMapper';
+
+describe('BlockchairMapper', () => {
+  const mapper = new BlockchairMapper();
+  const sessionContext = { address: 'user_address_1' };
+
+  it('should correctly map an outgoing transaction', () => {
+    const rawTx = { hash: 'tx1', time: '2023-01-01T12:00:00Z', balance_change: -50000, fee: 1000, block_id: 800000 };
+
+    const result = mapper.map(rawTx, sessionContext);
+
+    expect(result.isOk()).toBe(true);
+    const tx = result._unsafeUnwrap()[0];
+    expect(tx.amount).toBe('0.0005');
+    expect(tx.feeAmount).toBe('0.00001');
+    expect(tx.from).toBe('user_address_1');
+  });
+
+  it('should return an error for invalid raw data', () => {
+    const invalidRawTx = { hash: 'tx1' }; // Missing required fields
+
+    const result = mapper.map(invalidRawTx, sessionContext);
+    expect(result.isErr()).toBe(true);
+  });
+});
+```
+
+### B. Integration Test the `ApiClient`
+
+Focus on the `ApiClient`'s interaction with the `HttpClient` and its ability to handle different API responses. Use the `createHoistedHttpClientMock` to mock `fetch` requests.
+
+**File Location:** `packages/import/src/blockchains/bitcoin/api/BlockchairApiClient.test.ts`
+
+```typescript
+// Example test for the API Client
+import { createHoistedHttpClientMock } from '../../../shared/test-utils/http-client-mock';
+import { BlockchairApiClient } from './BlockchairApiClient';
+
+// Hoist mocks to the top
+const mocks = vi.hoisted(() => createHoistedHttpClientMock());
+vi.mock('@crypto/shared-utils', () => mocks.getModuleMocks()['@crypto/shared-utils']);
+vi.mock('@crypto/shared-logger', () => mocks.getModuleMocks()['@crypto/shared-logger']);
+
+describe('BlockchairApiClient', () => {
+  beforeEach(() => {
+    mocks.mockHttpClient.request.mockClear();
+  });
+
+  it('should fetch and return raw transactions', async () => {
+    // Mock a successful API response
+    const mockApiResponse = { data: { 'test-address': { transactions: [{ hash: 'tx1' }] } } };
+    mocks.mockHttpClient.request.mockResolvedValue(mockApiResponse);
+
+    const client = new BlockchairApiClient();
+    const transactions = await client.execute({ type: 'getRawAddressTransactions', address: 'test-address' });
+
+    // Assert that the correct endpoint was called
+    expect(mocks.mockHttpClient.request).toHaveBeenCalledWith(
+      expect.stringContaining('/dashboards/address/test-address'),
+      expect.anything()
+    );
+    // Assert that the data was returned correctly
+    expect(transactions).toEqual([{ hash: 'tx1' }]);
+  });
+});
+```
+
+## 7. Conclusion
+
+By adhering to this structure, you contribute a new provider that is not only functional but also inherently resilient, maintainable, and well-integrated into the platform's ecosystem. The combination of decorators for metadata, separate mappers for transformation logic, and a robust base class system makes the process of extending the platform's data capabilities both efficient and reliable.
