@@ -33,6 +33,31 @@
 - ✅ Focus on WHAT users need and WHY
 - ❌ Avoid HOW to implement (no tech stack, APIs, code structure)
 - 👥 Written for business stakeholders, not developers
+- Focus on building a MVP first, avoid scope creep, YAGNI, MoSCoW snapshot
+
+## ⚡ Quick Guidelines
+
+- ✅ Focus on WHAT users need and WHY
+- ❌ Avoid HOW to implement (no tech stack, APIs, code structure)
+- 👥 Written for business stakeholders, not developers
+- 🎯 Always declare In Scope and Out of Scope
+- 🛑 MoSCoW snapshot required (Must / Should / Could / Won’t)
+- 🚫 If requirement smells like future work → move to Follow-Up Issues
+
+## In Scope (MVP)
+
+[List the minimum viable set of changes this issue delivers. Keep it tiny and testable.]
+
+## Out of Scope (Non-Goals)
+
+[List explicitly what this issue will NOT cover, even if tempting.]
+
+## MoSCoW Priorities
+
+- Must: [core essentials]
+- Should: [nice-to-haves if easy]
+- Could: [stretch, not required]
+- Won’t: [deferred, tracked separately]
 
 ### Section Requirements
 
@@ -67,18 +92,15 @@ When creating this spec from a user prompt:
 
 ### Edge Cases
 
-- What happens when [boundary condition]?
-- How does system handle [error scenario]?
+[List tricky cases → but if not In Scope, tag as FOLLOW-UP]
 
 ## Requirements _(mandatory)_
 
-### Functional Requirements
+### Functional Requirements [Must align to In Scope]
 
 - **FR-001**: System MUST [specific capability, e.g., "allow users to create accounts"]
 - **FR-002**: System MUST [specific capability, e.g., "validate email addresses"]
 - **FR-003**: Users MUST be able to [key interaction, e.g., "reset their password"]
-- **FR-004**: System MUST [data requirement, e.g., "persist user preferences"]
-- **FR-005**: System MUST [behavior, e.g., "log all security events"]
 
 _Example of marking unclear requirements:_
 
@@ -108,7 +130,9 @@ _GATE: Automated checks run during main() execution_
 - [ ] No [NEEDS CLARIFICATION] markers remain
 - [ ] Requirements are testable and unambiguous
 - [ ] Success criteria are measurable
-- [ ] Scope is clearly bounded (no scope-creep risks)
+- [ ] Scope clearly bounded by In/Out of Scope
+- [ ] MoSCoW priorities included
+- [ ] No Out of Scope requirements slipped in
 - [ ] Dependencies and assumptions identified
 
 ---

@@ -10,7 +10,7 @@
 
 [PRINCIPLE_1_DESCRIPTION]
 
-<!-- Example: Every feature starts as a standalone library unless feature is a refactor; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
 
 ### [PRINCIPLE_2_NAME]
 
@@ -43,6 +43,22 @@
 [PRINCIPLE_5_DESCRIPTION]
 
 <!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+
+## [SECTION_2_NAME]
+
+<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+
+[SECTION_2_CONTENT]
+
+<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+
+## [SECTION_3_NAME]
+
+<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+
+[SECTION_3_CONTENT]
+
+<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
 
 ## Governance
 
