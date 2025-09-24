@@ -1,4 +1,4 @@
-import { Database } from '../storage/database.ts';
+import type { Database } from '../storage/database.ts';
 import type { ImportSession, ImportSessionQuery, UpdateImportSessionRequest } from '../types/data-types.js';
 
 export class ImportSessionRepository {
@@ -11,7 +11,7 @@ export class ImportSessionRepository {
   async create(
     sourceId: string,
     sourceType: 'exchange' | 'blockchain',
-    providerId?: string | undefined,
+    providerId?: string,
     sessionMetadata?: unknown
   ): Promise<number> {
     return this.database.createImportSession(sourceId, sourceType, providerId, sessionMetadata);
@@ -21,9 +21,9 @@ export class ImportSessionRepository {
     sessionId: number,
     status: 'completed' | 'failed' | 'cancelled',
     startTime: number,
-    transactionsImported: number = 0,
-    transactionsFailed: number = 0,
-    errorMessage?: string | undefined,
+    transactionsImported = 0,
+    transactionsFailed = 0,
+    errorMessage?: string,
     errorDetails?: unknown
   ): Promise<void> {
     return this.database.finalizeImportSession(
@@ -45,7 +45,7 @@ export class ImportSessionRepository {
     return this.database.getImportSessions(filters);
   }
 
-  async findById(sessionId: number): Promise<ImportSession | null> {
+  async findById(sessionId: number): Promise<ImportSession | undefined> {
     return this.database.getImportSession(sessionId);
   }
 
@@ -53,7 +53,7 @@ export class ImportSessionRepository {
     return this.database.getImportSessions({ limit, sourceId });
   }
 
-  async findRecent(limit: number = 10): Promise<ImportSession[]> {
+  async findRecent(limit = 10): Promise<ImportSession[]> {
     return this.database.getImportSessions({ limit });
   }
 

@@ -1,7 +1,7 @@
 // in @crypto/data/src/repositories/base-repository.ts
 import { type Logger, getLogger } from '@crypto/shared-logger';
 
-import { Database } from '../storage/database.ts';
+import type { Database } from '../storage/database.ts';
 
 export abstract class BaseRepository {
   protected database: Database;

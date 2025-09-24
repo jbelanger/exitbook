@@ -26,7 +26,7 @@ export interface LedgerLiveCsvValidationResult {
  * Batch validation result for multiple rows
  */
 export interface LedgerLiveCsvBatchValidationResult {
-  invalid: Array<{ data: unknown; errors: z.ZodError; rowIndex: number }>;
+  invalid: { data: unknown; errors: z.ZodError; rowIndex: number }[];
   totalRows: number;
   valid: ValidatedCsvLedgerLiveOperationRow[];
 }
@@ -49,7 +49,7 @@ export function validateLedgerLiveCsvRow(data: unknown): LedgerLiveCsvValidation
  */
 export function validateLedgerLiveCsvRows(data: unknown[]): LedgerLiveCsvBatchValidationResult {
   const valid: ValidatedCsvLedgerLiveOperationRow[] = [];
-  const invalid: Array<{ data: unknown; errors: z.ZodError; rowIndex: number }> = [];
+  const invalid: { data: unknown; errors: z.ZodError; rowIndex: number }[] = [];
 
   data.forEach((item, index) => {
     const result = validateLedgerLiveCsvRow(item);
@@ -78,7 +78,7 @@ export function formatLedgerLiveValidationErrors(result: LedgerLiveCsvBatchValid
   const errorSummary = result.invalid
     .slice(0, 3) // Show first 3 errors
     .map(({ errors, rowIndex }) => {
-      const fieldErrors = errors.issues.map(issue => `${issue.path.join('.')}: ${issue.message}`).join('; ');
+      const fieldErrors = errors.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; ');
       return `Row ${rowIndex + 1}: ${fieldErrors}`;
     })
     .join(' | ');
@@ -93,7 +93,7 @@ export function formatLedgerLiveValidationErrors(result: LedgerLiveCsvBatchValid
  */
 export function extractAccountsFromValidatedData(validatedRows: ValidatedCsvLedgerLiveOperationRow[]): string[] {
   const accounts = new Set<string>();
-  validatedRows.forEach(row => {
+  validatedRows.forEach((row) => {
     accounts.add(row['Account Name']);
   });
   return Array.from(accounts).sort();
@@ -104,7 +104,7 @@ export function extractAccountsFromValidatedData(validatedRows: ValidatedCsvLedg
  */
 export function extractCurrenciesFromValidatedData(validatedRows: ValidatedCsvLedgerLiveOperationRow[]): string[] {
   const currencies = new Set<string>();
-  validatedRows.forEach(row => {
+  validatedRows.forEach((row) => {
     currencies.add(row['Currency Ticker']);
   });
   return Array.from(currencies).sort();

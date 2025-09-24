@@ -2,7 +2,7 @@ import type { UniversalTransaction } from '@crypto/core';
 import type { StoredRawData } from '@crypto/data';
 import { type Result } from 'neverthrow';
 
-import type { UniversalBlockchainTransaction } from '../../blockchains/shared/types.ts';
+import type { UniversalBlockchainTransaction } from '../../blockchains/shared/types.js';
 
 export interface ProcessResult {
   errors: string[];

@@ -1,4 +1,5 @@
-import { Decimal } from 'decimal.js';
+import type { Decimal } from 'decimal.js';
+import type { Result } from 'neverthrow';
 
 // Money type for consistent amount and currency structure with high precision
 export interface Money {
@@ -208,9 +209,13 @@ export interface UniversalAdapterCapabilities {
     requestsPerSecond: number;
   };
   requiresApiKey: boolean;
-  supportedOperations: Array<
-    'fetchTransactions' | 'fetchBalances' | 'getAddressTransactions' | 'getAddressBalance' | 'getTokenTransactions'
-  >;
+  supportedOperations: (
+    | 'fetchTransactions'
+    | 'fetchBalances'
+    | 'getAddressTransactions'
+    | 'getAddressBalance'
+    | 'getTokenTransactions'
+  )[];
   supportsHistoricalData: boolean;
   supportsPagination: boolean;
 }
@@ -647,4 +652,71 @@ export interface ReprocessingEvent {
   reprocessingTimestamp: Date;
   ruleSetVersionAfter: string;
   ruleSetVersionBefore: string;
+}
+
+/**
+ * Validation codes for different types of issues
+ */
+export enum ValidationCodes {
+  // Transformer validation codes
+  BUSINESS_RULE_VIOLATION = 'BUSINESS_RULE_VIOLATION',
+  // Classifier validation codes
+  INCONSISTENT_RULE_APPLICATION = 'INCONSISTENT_RULE_APPLICATION',
+  // Processor validation codes
+  INSUFFICIENT_TRADE_MOVEMENTS = 'INSUFFICIENT_TRADE_MOVEMENTS',
+  INVALID_COST_BASIS = 'INVALID_COST_BASIS',
+
+  INVALID_FIELD_FORMAT = 'INVALID_FIELD_FORMAT',
+  INVALID_MOVEMENT_DIRECTION = 'INVALID_MOVEMENT_DIRECTION',
+  LOW_CONFIDENCE_CLASSIFICATION = 'LOW_CONFIDENCE_CLASSIFICATION',
+  MISSING_CLASSIFICATION_INFO = 'MISSING_CLASSIFICATION_INFO',
+  MISSING_REQUIRED_FIELD = 'MISSING_REQUIRED_FIELD',
+  NEGATIVE_QUANTITY = 'NEGATIVE_QUANTITY',
+
+  NON_ZERO_SUM_TRANSFER = 'NON_ZERO_SUM_TRANSFER',
+  REGULATORY_CONSTRAINT_VIOLATION = 'REGULATORY_CONSTRAINT_VIOLATION',
+  UNCLASSIFIED_MOVEMENT = 'UNCLASSIFIED_MOVEMENT',
+  VALUED_ZERO_SUM_VIOLATION = 'VALUED_ZERO_SUM_VIOLATION',
+}
+
+/**
+ * Validation issue interface for contract validation
+ */
+export interface ValidationIssue {
+  code: ValidationCodes;
+  field?: string;
+  message: string;
+  severity: 'error' | 'warn' | 'info';
+}
+
+/**
+ * Validation result interface for contract validation
+ */
+export interface ContractValidationResult<T> {
+  data?: T;
+  issues: ValidationIssue[];
+  ok: boolean;
+}
+
+/**
+ * Classifier validator interface
+ */
+export interface ClassifierValidator {
+  validate(tx: ClassifiedTransaction): Result<ContractValidationResult<ClassifiedTransaction>, string>;
+  validateBatch(txs: ClassifiedTransaction[]): Result<ContractValidationResult<ClassifiedTransaction[]>, string>;
+}
+
+/**
+ * Processor validator interface
+ */
+export interface ProcessorValidator {
+  validate(tx: ProcessedTransaction): Result<ContractValidationResult<ProcessedTransaction>, string>;
+  validateMany(txs: ProcessedTransaction[]): Result<ContractValidationResult<ProcessedTransaction>[], string>;
+}
+
+/**
+ * Transformer validator interface
+ */
+export interface TransformerValidator {
+  validate(tx: ClassifiedTransaction): Result<ContractValidationResult<ClassifiedTransaction>, string>;
 }

@@ -5,7 +5,7 @@ const DecimalStringSchema = z
   .string()
   .min(1, 'DecimalString must not be empty')
   .refine(
-    value => {
+    (value) => {
       try {
         // Validate that string can be parsed as a valid Decimal
         const num = parseFloat(value);
@@ -198,9 +198,9 @@ export const ProcessedTransactionSchema = z
   })
   .strict()
   .refine(
-    data => {
+    (data) => {
       // Validate that movement IDs are unique within the transaction
-      const movementIds = data.movements.map(m => m.movementId);
+      const movementIds = data.movements.map((m) => m.movementId);
       return new Set(movementIds).size === movementIds.length;
     },
     {
@@ -209,11 +209,11 @@ export const ProcessedTransactionSchema = z
     }
   )
   .refine(
-    data => {
+    (data) => {
       // Validate zero-sum transfers for TRANSFER events
       if (data.eventType === 'TRANSFER') {
-        const inMovements = data.movements.filter(m => m.direction === 'IN');
-        const outMovements = data.movements.filter(m => m.direction === 'OUT');
+        const inMovements = data.movements.filter((m) => m.direction === 'IN');
+        const outMovements = data.movements.filter((m) => m.direction === 'OUT');
 
         // For transfers, we should have both IN and OUT movements
         return inMovements.length > 0 && outMovements.length > 0;
@@ -303,12 +303,12 @@ export const ClassifiedTransactionSchema = z
   })
   .strict()
   .refine(
-    data => {
+    (data) => {
       // Validate that every ProcessedTransaction movement has a corresponding ClassifiedMovement
-      const processedMovements = data.processedTransaction.movements.map(m => m.movementId);
-      const classifiedMovements = data.movements.map(cm => cm.movement.movementId);
+      const processedMovements = data.processedTransaction.movements.map((m) => m.movementId);
+      const classifiedMovements = data.movements.map((cm) => cm.movement.movementId);
 
-      return processedMovements.every(id => classifiedMovements.includes(id));
+      return processedMovements.every((id) => classifiedMovements.includes(id));
     },
     {
       message: 'Every processed movement must have a corresponding classified movement',
@@ -364,11 +364,11 @@ export function validateMovement(data: unknown): ValidationResult<ValidatedMovem
 
 // Batch validation helpers
 export function validateProcessedTransactions(data: unknown[]): {
-  invalid: Array<{ data: unknown; errors: z.ZodError }>;
+  invalid: { data: unknown; errors: z.ZodError }[];
   valid: ValidatedProcessedTransaction[];
 } {
   const valid: ValidatedProcessedTransaction[] = [];
-  const invalid: Array<{ data: unknown; errors: z.ZodError }> = [];
+  const invalid: { data: unknown; errors: z.ZodError }[] = [];
 
   for (const item of data) {
     const result = validateProcessedTransaction(item);
@@ -383,11 +383,11 @@ export function validateProcessedTransactions(data: unknown[]): {
 }
 
 export function validateClassifiedTransactions(data: unknown[]): {
-  invalid: Array<{ data: unknown; errors: z.ZodError }>;
+  invalid: { data: unknown; errors: z.ZodError }[];
   valid: ValidatedClassifiedTransaction[];
 } {
   const valid: ValidatedClassifiedTransaction[] = [];
-  const invalid: Array<{ data: unknown; errors: z.ZodError }> = [];
+  const invalid: { data: unknown; errors: z.ZodError }[] = [];
 
   for (const item of data) {
     const result = validateClassifiedTransaction(item);

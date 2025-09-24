@@ -1,3 +1,3 @@
 // Import processors to trigger registration
-import './InjectiveExplorerMapper.ts';
-import './InjectiveLCDMapper.ts';
+import './InjectiveExplorerMapper.js';
+import './InjectiveLCDMapper.js';

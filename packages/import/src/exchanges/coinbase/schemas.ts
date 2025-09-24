@@ -14,7 +14,7 @@ const CoinbaseMoneySchema = z
     amount: z
       .string()
       .regex(/^-?\d+(\.\d+)?$/, 'Amount must be a valid number format')
-      .refine(val => !isNaN(parseFloat(val)), 'Amount must be parseable as number'),
+      .refine((val) => !isNaN(parseFloat(val)), 'Amount must be parseable as number'),
     currency: z.string().min(1, 'Currency must not be empty'),
   })
   .strict();
@@ -57,7 +57,7 @@ export const RawCoinbaseAccountSchema = z
       .string()
       .min(1, 'Account type must not be empty')
       .refine(
-        val => ['wallet', 'vault', 'fiat'].includes(val.toLowerCase()),
+        (val) => ['fiat', 'vault', 'wallet'].includes(val.toLowerCase()),
         'Account type must be wallet, vault, or fiat'
       ),
     updated_at: z
@@ -173,16 +173,16 @@ export const RawCoinbaseTransactionSchema = z
       .string()
       .min(1, 'Status must not be empty')
       .refine(
-        val =>
+        (val) =>
           [
-            'pending',
-            'completed',
             'canceled',
             'cancelled',
-            'failed',
+            'completed',
             'expired',
-            'waiting_for_signature',
+            'failed',
+            'pending',
             'waiting_for_clearing',
+            'waiting_for_signature',
           ].includes(val.toLowerCase()),
         'Status must be a valid Coinbase transaction status'
       ),
@@ -192,21 +192,21 @@ export const RawCoinbaseTransactionSchema = z
       .string()
       .min(1, 'Type must not be empty')
       .refine(
-        val =>
+        (val) =>
           [
-            'send',
-            'request',
-            'transfer',
             'buy',
-            'sell',
-            'fiat_deposit',
-            'fiat_withdrawal',
             'exchange_deposit',
             'exchange_withdrawal',
-            'vault_withdrawal',
+            'fiat_deposit',
+            'fiat_withdrawal',
             'pro_deposit',
             'pro_withdrawal',
+            'request',
+            'sell',
+            'send',
             'trade',
+            'transfer',
+            'vault_withdrawal',
           ].includes(val.toLowerCase()),
         'Type must be a valid Coinbase transaction type'
       ),
@@ -313,8 +313,8 @@ export const RawCoinbaseLedgerEntrySchema = z
       .string()
       .min(1, 'Ledger entry type must not be empty')
       .refine(
-        val =>
-          ['TRADE_FILL', 'DEPOSIT', 'WITHDRAWAL', 'TRANSFER', 'FEE', 'REBATE', 'CONVERSION'].includes(
+        (val) =>
+          ['CONVERSION', 'DEPOSIT', 'FEE', 'REBATE', 'TRADE_FILL', 'TRANSFER', 'WITHDRAWAL'].includes(
             val.toUpperCase()
           ),
         'Ledger entry type must be a valid type'

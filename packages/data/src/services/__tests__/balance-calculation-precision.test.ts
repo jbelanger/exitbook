@@ -1,7 +1,7 @@
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
-import { StoredTransaction } from '../../types/data-types.ts';
+import type { StoredTransaction } from '../../types/data-types.ts';
 import { BalanceCalculationService } from '../balance-calculation-service.js';
 
 describe('BalanceCalculationService Precision', () => {
@@ -41,16 +41,16 @@ describe('BalanceCalculationService Precision', () => {
   };
 
   describe('calculateExchangeBalancesWithPrecision', () => {
-    it('should preserve high precision for deposit transactions', async () => {
+    it('should preserve high precision for deposit transactions', () => {
       const transactions = [createMockTransaction('deposit', '1.123456789012345678', 'BTC')];
 
-      const balances = await service.calculateExchangeBalancesWithPrecision(transactions);
+      const balances = service.calculateExchangeBalancesWithPrecision(transactions);
 
       expect(balances['BTC']).toBeInstanceOf(Decimal);
       expect(balances['BTC'].toString()).toBe('1.123456789012345678');
     });
 
-    it('should preserve precision for complex trade calculations', async () => {
+    it('should preserve precision for complex trade calculations', () => {
       const transactions = [
         createMockTransaction(
           'trade',
@@ -62,7 +62,7 @@ describe('BalanceCalculationService Precision', () => {
         ),
       ];
 
-      const balances = await service.calculateExchangeBalancesWithPrecision(transactions);
+      const balances = service.calculateExchangeBalancesWithPrecision(transactions);
 
       expect(balances['BTC']).toBeInstanceOf(Decimal);
       expect(balances['BTC'].toString()).toBe('0.123456789012345678');
@@ -70,18 +70,18 @@ describe('BalanceCalculationService Precision', () => {
       expect(balances['USDT'].toString()).toBe('-123.456789012345678');
     });
 
-    it('should handle wei-level precision for Ethereum', async () => {
+    it('should handle wei-level precision for Ethereum', () => {
       const transactions = [
         createMockTransaction('deposit', '0.00000002', 'ETH'), // Above dust threshold (2e-8)
       ];
 
-      const balances = await service.calculateExchangeBalancesWithPrecision(transactions);
+      const balances = service.calculateExchangeBalancesWithPrecision(transactions);
 
       expect(balances['ETH']).toBeInstanceOf(Decimal);
       expect(balances['ETH'].toNumber()).toBe(0.00000002);
     });
 
-    it('should preserve precision through fee calculations', async () => {
+    it('should preserve precision through fee calculations', () => {
       const transactions = [
         createMockTransaction(
           'trade',
@@ -94,32 +94,32 @@ describe('BalanceCalculationService Precision', () => {
         ),
       ];
 
-      const balances = await service.calculateExchangeBalancesWithPrecision(transactions);
+      const balances = service.calculateExchangeBalancesWithPrecision(transactions);
 
       // Fee should be subtracted with full precision
       const expectedUsdtBalance = new Decimal('-50000.0').minus('0.123456789012345678');
       expect(balances['USDT'].toString()).toBe(expectedUsdtBalance.toString());
     });
 
-    it('should filter out dust balances correctly', async () => {
+    it('should filter out dust balances correctly', () => {
       const transactions = [
         createMockTransaction('deposit', '0.00000002', 'BTC'), // Above dust threshold
         createMockTransaction('deposit', '0.000000001', 'ETH'), // Below dust threshold (should be filtered)
       ];
 
-      const balances = await service.calculateExchangeBalancesWithPrecision(transactions);
+      const balances = service.calculateExchangeBalancesWithPrecision(transactions);
 
       expect(balances['BTC']).toBeDefined(); // Should be included (above threshold)
       expect(balances['ETH']).toBeUndefined(); // Should be filtered out (below threshold)
     });
 
-    it('should preserve true wei-level precision in calculations', async () => {
+    it('should preserve true wei-level precision in calculations', () => {
       // Test precision preservation without dust filtering by using larger amounts
       const transactions = [
         createMockTransaction('deposit', '1.000000000000000001', 'ETH'), // 1 ETH + 1 wei
       ];
 
-      const balances = await service.calculateExchangeBalancesWithPrecision(transactions);
+      const balances = service.calculateExchangeBalancesWithPrecision(transactions);
 
       expect(balances['ETH']).toBeInstanceOf(Decimal);
       expect(balances['ETH'].toString()).toBe('1.000000000000000001');
@@ -127,7 +127,7 @@ describe('BalanceCalculationService Precision', () => {
   });
 
   describe('Precision validation', () => {
-    it('should preserve high-precision values without loss', async () => {
+    it('should preserve high-precision values without loss', () => {
       const highPrecisionAmount = '1.123456789012345678901234567890';
       const transactions = [createMockTransaction('deposit', highPrecisionAmount, 'BTC')];
 
@@ -137,7 +137,7 @@ describe('BalanceCalculationService Precision', () => {
       console.warn = (message: string) => warnings.push(message);
 
       try {
-        const precisionBalances = await service.calculateExchangeBalancesWithPrecision(transactions);
+        const precisionBalances = service.calculateExchangeBalancesWithPrecision(transactions);
 
         const precisionBtc = precisionBalances['BTC'];
 
@@ -155,7 +155,7 @@ describe('BalanceCalculationService Precision', () => {
       }
     });
 
-    it('should handle large amounts that exceed safe integer limits', async () => {
+    it('should handle large amounts that exceed safe integer limits', () => {
       const largeAmount = (Number.MAX_SAFE_INTEGER + 1000).toString();
       const transactions = [
         createMockTransaction('deposit', largeAmount, 'DOGE'), // Large amount in Dogecoin
@@ -163,10 +163,12 @@ describe('BalanceCalculationService Precision', () => {
 
       // Suppress console warnings during test to reduce noise
       const originalWarn = console.warn;
-      console.warn = () => {}; // Silence warnings
+      console.warn = () => {
+        return;
+      }; // Silence warnings
 
       try {
-        const precisionBalances = await service.calculateExchangeBalancesWithPrecision(transactions);
+        const precisionBalances = service.calculateExchangeBalancesWithPrecision(transactions);
 
         expect(precisionBalances['DOGE']).toBeInstanceOf(Decimal);
         expect(precisionBalances['DOGE'].toString()).toBe(largeAmount);

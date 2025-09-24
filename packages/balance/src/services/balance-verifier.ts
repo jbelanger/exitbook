@@ -1,6 +1,6 @@
-import { BalanceService } from '@crypto/data';
+import type { BalanceService } from '@crypto/data';
 import { getLogger } from '@crypto/shared-logger';
-import { Decimal } from 'decimal.js';
+import type { Decimal } from 'decimal.js';
 
 import type {
   BalanceComparison,
@@ -16,29 +16,8 @@ export class BalanceVerifier {
     this.balanceService = balanceService;
   }
 
-  private createCalculatedOnlyComparisons(calculatedBalances: Record<string, Decimal>): BalanceComparison[] {
-    const comparisons: BalanceComparison[] = [];
-
-    for (const [currency, balance] of Object.entries(calculatedBalances)) {
-      const balanceNumber = balance.toNumber();
-      // For CSV adapters, we show calculated balance as both live and calculated
-      // since we can't fetch live balances
-      comparisons.push({
-        calculatedBalance: balanceNumber,
-        currency,
-        difference: balanceNumber, // Difference is the calculated balance itself
-        liveBalance: 0, // No live balance available
-        percentageDiff: 0,
-        status: 'warning', // Always warning since we can't verify
-        tolerance: 0,
-      });
-    }
-
-    return comparisons.sort((a, b) => Math.abs(b.calculatedBalance) - Math.abs(a.calculatedBalance));
-  }
-
   // Generate a verification report
-  async generateReport(results: BalanceVerificationResult[]): Promise<string> {
+  generateReport(results: BalanceVerificationResult[]): string {
     const timestamp = new Date().toISOString();
     let report = `# Balance Verification Report - ${timestamp}\n\n`;
 
@@ -56,7 +35,7 @@ export class BalanceVerifier {
       }
 
       // Show problematic balances
-      const issues = result.comparisons.filter(c => c.status !== 'match');
+      const issues = result.comparisons.filter((c) => c.status !== 'match');
       if (issues.length > 0) {
         report += `### Issues Found:\n`;
         for (const issue of issues) {
@@ -71,9 +50,9 @@ export class BalanceVerifier {
 
     // Overall summary
     const totalExchanges = results.length;
-    const successfulExchanges = results.filter(r => r.status === 'success').length;
-    const warningExchanges = results.filter(r => r.status === 'warning').length;
-    const errorExchanges = results.filter(r => r.status === 'error').length;
+    const successfulExchanges = results.filter((r) => r.status === 'success').length;
+    const warningExchanges = results.filter((r) => r.status === 'warning').length;
+    const errorExchanges = results.filter((r) => r.status === 'error').length;
 
     report += `## Overall Summary\n`;
     report += `- **Total Exchanges**: ${totalExchanges}\n`;
@@ -89,7 +68,7 @@ export class BalanceVerifier {
   }
 
   // Check if verification is needed (e.g., hasn't been run in X hours)
-  async shouldRunVerification(exchangeId: string, maxAgeHours: number = 24): Promise<boolean> {
+  async shouldRunVerification(exchangeId: string, maxAgeHours = 24): Promise<boolean> {
     const latestVerifications = await this.balanceService.getLatestVerifications(exchangeId);
 
     if (latestVerifications.length === 0) {
@@ -149,5 +128,25 @@ export class BalanceVerifier {
         },
       ];
     }
+  }
+  private createCalculatedOnlyComparisons(calculatedBalances: Record<string, Decimal>): BalanceComparison[] {
+    const comparisons: BalanceComparison[] = [];
+
+    for (const [currency, balance] of Object.entries(calculatedBalances)) {
+      const balanceNumber = balance.toNumber();
+      // For CSV adapters, we show calculated balance as both live and calculated
+      // since we can't fetch live balances
+      comparisons.push({
+        calculatedBalance: balanceNumber,
+        currency,
+        difference: balanceNumber, // Difference is the calculated balance itself
+        liveBalance: 0, // No live balance available
+        percentageDiff: 0,
+        status: 'warning', // Always warning since we can't verify
+        tolerance: 0,
+      });
+    }
+
+    return comparisons.sort((a, b) => Math.abs(b.calculatedBalance) - Math.abs(a.calculatedBalance));
   }
 }

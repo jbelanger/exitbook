@@ -125,11 +125,11 @@ export interface TransactionGroup {
 }
 
 export interface ClassificationResult {
-  assets: Array<{
+  assets: {
     amount: string;
     direction: 'in' | 'out';
     symbol: string;
-  }>;
+  }[];
   primaryAmount: string;
   primarySymbol: string;
   reason: string;

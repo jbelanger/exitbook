@@ -21,7 +21,7 @@ export const CsvKrakenLedgerRowSchema = z
     amount: z
       .string()
       .regex(/^-?\d+(\.\d+)?$/, 'Amount must be a valid number format')
-      .refine(val => !isNaN(parseFloat(val)), 'Amount must be parseable as number'),
+      .refine((val) => !isNaN(parseFloat(val)), 'Amount must be parseable as number'),
 
     /** Asset/currency symbol (e.g., 'XETH', 'ZUSD', 'BTC') */
     asset: z.string().min(1, 'Asset must not be empty'),
@@ -30,13 +30,13 @@ export const CsvKrakenLedgerRowSchema = z
     balance: z
       .string()
       .regex(/^-?\d+(\.\d+)?$/, 'Balance must be a valid number format')
-      .refine(val => !isNaN(parseFloat(val)), 'Balance must be parseable as number'),
+      .refine((val) => !isNaN(parseFloat(val)), 'Balance must be parseable as number'),
 
     /** Transaction fee (as string from CSV) */
     fee: z
       .string()
       .regex(/^-?\d+(\.\d+)?$/, 'Fee must be a valid number format')
-      .refine(val => !isNaN(parseFloat(val)), 'Fee must be parseable as number'),
+      .refine((val) => !isNaN(parseFloat(val)), 'Fee must be parseable as number'),
 
     /** Reference ID for the transaction */
     refid: z.string(), // Can be empty for some transaction types
@@ -58,20 +58,20 @@ export const CsvKrakenLedgerRowSchema = z
       .string()
       .min(1, 'Transaction type must not be empty')
       .refine(
-        val =>
+        (val) =>
           [
-            'trade',
-            'deposit',
-            'withdrawal',
-            'transfer',
-            'spend',
-            'receive',
-            'staking',
-            'margin',
-            'rollover',
+            'adjustment',
             'credit',
             'debit',
-            'adjustment',
+            'deposit',
+            'margin',
+            'receive',
+            'rollover',
+            'spend',
+            'staking',
+            'trade',
+            'transfer',
+            'withdrawal',
           ].includes(val.toLowerCase()),
         'Transaction type must be a valid Kraken transaction type'
       ),

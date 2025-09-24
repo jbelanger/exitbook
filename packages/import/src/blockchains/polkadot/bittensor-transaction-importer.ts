@@ -1,10 +1,11 @@
-import { BaseImporter } from '../../shared/importers/base-importer.ts';
-import type { ImportParams, ImportRunResult } from '../../shared/importers/interfaces.ts';
-import type { ApiClientRawData } from '../../shared/processors/interfaces.ts';
-import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
+import { BaseImporter } from '../../shared/importers/base-importer.js';
+import type { ImportParams, ImportRunResult } from '../../shared/importers/interfaces.js';
+import type { ApiClientRawData } from '../../shared/processors/interfaces.js';
+import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.js';
+
 // Ensure providers are registered
-import './api/index.ts';
-import type { TaostatsTransaction } from './types.ts';
+import './api/index.js';
+import type { TaostatsTransaction } from './types.js';
 
 /**
  * Bittensor transaction importer that fetches raw transaction data from Taostats API.
@@ -34,48 +35,10 @@ export class BittensorTransactionImporter extends BaseImporter<TaostatsTransacti
   }
 
   /**
-   * Validate Bittensor address format (SS58 validation for TAO network).
-   */
-  private isValidBittensorAddress(address: string): boolean {
-    // Bittensor addresses start with '5' and are typically 47-48 characters long using base58 encoding
-    return /^5[1-9A-HJ-NP-Za-km-z]{46,47}$/.test(address);
-  }
-
-  /**
    * Validate that the import source is compatible with Bittensor addresses.
    */
-  async canImport(params: ImportParams): Promise<boolean> {
-    return this.canImportSpecific(params);
-  }
-
-  /**
-   * Validate source parameters and connectivity.
-   */
-  protected async canImportSpecific(params: ImportParams): Promise<boolean> {
-    if (!params.address?.length) {
-      this.logger.error('No address provided for Bittensor import');
-      return false;
-    }
-
-    // Basic validation for Bittensor addresses (SS58 format)
-    if (!this.isValidBittensorAddress(params.address)) {
-      this.logger.error(`Invalid Bittensor address format: ${params.address}`);
-      return false;
-    }
-
-    // Test provider connectivity
-    const healthStatus = this.providerManager.getProviderHealth('bittensor');
-    const hasHealthyProvider = Array.from(healthStatus.values()).some(
-      health => health.isHealthy && health.circuitState !== 'OPEN'
-    );
-
-    if (!hasHealthyProvider) {
-      this.logger.error('No healthy Bittensor providers available');
-      return false;
-    }
-
-    this.logger.info('Bittensor source validation passed');
-    return true;
+  override async canImport(params: ImportParams): Promise<boolean> {
+    return Promise.resolve(this.canImportSpecific(params));
   }
 
   /**
@@ -102,7 +65,7 @@ export class BittensorTransactionImporter extends BaseImporter<TaostatsTransacti
     try {
       const result = await this.providerManager.executeWithFailover('bittensor', {
         address: params.address,
-        getCacheKey: cacheParams =>
+        getCacheKey: (cacheParams) =>
           `tao_raw_tx_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
         since: params.since,
         type: 'getRawAddressTransactions',
@@ -114,7 +77,7 @@ export class BittensorTransactionImporter extends BaseImporter<TaostatsTransacti
         const bittensorTxData = rawData as { data: TaostatsTransaction[] };
 
         if (Array.isArray(bittensorTxData.data)) {
-          const rawTransactions: ApiClientRawData<TaostatsTransaction>[] = bittensorTxData.data.map(transaction => ({
+          const rawTransactions: ApiClientRawData<TaostatsTransaction>[] = bittensorTxData.data.map((transaction) => ({
             providerId: result.providerName,
             rawData: transaction,
           }));
@@ -147,5 +110,43 @@ export class BittensorTransactionImporter extends BaseImporter<TaostatsTransacti
     return {
       rawData: allRawTransactions,
     };
+  }
+
+  /**
+   * Validate source parameters and connectivity.
+   */
+  protected canImportSpecific(params: ImportParams): Promise<boolean> {
+    if (!params.address?.length) {
+      this.logger.error('No address provided for Bittensor import');
+      return Promise.resolve(false);
+    }
+
+    // Basic validation for Bittensor addresses (SS58 format)
+    if (!this.isValidBittensorAddress(params.address)) {
+      this.logger.error(`Invalid Bittensor address format: ${params.address}`);
+      return Promise.resolve(false);
+    }
+
+    // Test provider connectivity
+    const healthStatus = this.providerManager.getProviderHealth('bittensor');
+    const hasHealthyProvider = Array.from(healthStatus.values()).some(
+      (health) => health.isHealthy && health.circuitState !== 'OPEN'
+    );
+
+    if (!hasHealthyProvider) {
+      this.logger.error('No healthy Bittensor providers available');
+      return Promise.resolve(false);
+    }
+
+    this.logger.info('Bittensor source validation passed');
+    return Promise.resolve(true);
+  }
+
+  /**
+   * Validate Bittensor address format (SS58 validation for TAO network).
+   */
+  private isValidBittensorAddress(address: string): boolean {
+    // Bittensor addresses start with '5' and are typically 47-48 characters long using base58 encoding
+    return /^5[1-9A-HJ-NP-Za-km-z]{46,47}$/.test(address);
   }
 }

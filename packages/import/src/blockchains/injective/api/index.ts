@@ -1,2 +1,2 @@
-export { InjectiveExplorerApiClient } from './InjectiveExplorerApiClient.ts';
-export { InjectiveLCDApiClient } from './InjectiveLCDApiClient.ts';
+export { InjectiveExplorerApiClient } from './InjectiveExplorerApiClient.js';
+export { InjectiveLCDApiClient } from './InjectiveLCDApiClient.js';

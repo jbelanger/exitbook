@@ -1,86 +1,20 @@
 import { getLogger } from '@crypto/shared-logger';
-import { maskAddress } from '@crypto/shared-utils';
+import { hasStringProperty, isErrorWithMessage, maskAddress } from '@crypto/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
-import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
-import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.ts';
-import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.ts';
-import type { UniversalBlockchainTransaction } from '../../shared/types.ts';
-import type { SolanaRPCRawTransactionData } from '../clients/SolanaRPCApiClient.ts';
-import { SolanaRPCRawTransactionDataSchema } from '../schemas.ts';
-import type { SolanaRPCTransaction } from '../types.ts';
-import { lamportsToSol } from '../utils.ts';
+import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.js';
+import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
+import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
+import type { UniversalBlockchainTransaction } from '../../shared/types.js';
+import type { SolanaRPCRawTransactionData } from '../clients/SolanaRPCApiClient.js';
+import { SolanaRPCRawTransactionDataSchema } from '../schemas.js';
+import type { SolanaRPCTransaction } from '../types.js';
+import { lamportsToSol } from '../utils.js';
 
 const logger = getLogger('SolanaRPCProcessor');
 
 @RegisterTransactionMapper('solana-rpc')
 export class SolanaRPCTransactionMapper extends BaseRawDataMapper<SolanaRPCRawTransactionData> {
-  protected readonly schema = SolanaRPCRawTransactionDataSchema;
-  private static extractTokenTransaction(
-    tx: SolanaRPCTransaction,
-    userAddress: string,
-    targetContract?: string
-  ): UniversalBlockchainTransaction | null {
-    try {
-      // Look for token balance changes in preTokenBalances and postTokenBalances
-      const preTokenBalances = tx.meta.preTokenBalances || [];
-      const postTokenBalances = tx.meta.postTokenBalances || [];
-
-      // Find changes for token accounts
-      for (const postBalance of postTokenBalances) {
-        const preBalance = preTokenBalances.find(
-          pre => pre.accountIndex === postBalance.accountIndex && pre.mint === postBalance.mint
-        );
-
-        const preAmount = preBalance ? parseFloat(preBalance.uiTokenAmount.uiAmountString || '0') : 0;
-        const postAmount = parseFloat(postBalance.uiTokenAmount.uiAmountString || '0');
-        const change = postAmount - preAmount;
-
-        // Skip if no meaningful change
-        if (Math.abs(change) < 0.000001) {
-          continue;
-        }
-
-        // If a specific contract is specified, filter by it
-        if (targetContract && postBalance.mint !== targetContract) {
-          continue;
-        }
-
-        // Log any significant token transaction
-        logger.debug(
-          `Found SPL token transaction - Signature: ${tx.transaction.signatures?.[0]}, Mint: ${postBalance.mint}, Change: ${Math.abs(change)}, Type: ${change > 0 ? 'transfer_in' : 'transfer_out'}`
-        );
-
-        // Determine transfer direction
-        const type: 'transfer_in' | 'transfer_out' = change > 0 ? 'transfer_in' : 'transfer_out';
-
-        return {
-          amount: Math.abs(change).toString(),
-          blockHeight: tx.slot,
-          currency: 'UNKNOWN', // Will be updated with proper symbol later
-          feeAmount: lamportsToSol(tx.meta.fee).toString(),
-          feeCurrency: 'SOL',
-          from: type === 'transfer_out' ? userAddress : '',
-          id: tx.transaction.signatures?.[0] || '',
-          providerId: 'solana-rpc',
-          status: tx.meta.err ? 'failed' : 'success',
-          timestamp: (tx.blockTime || 0) * 1000,
-          to: type === 'transfer_in' ? userAddress : '',
-          tokenAddress: postBalance.mint,
-          tokenSymbol: 'UNKNOWN',
-          type: 'token_transfer',
-        };
-      }
-
-      return null;
-    } catch (error) {
-      logger.debug(
-        `Failed to extract token transaction - Signature: ${tx.transaction.signatures?.[0]}, Error: ${error instanceof Error ? error.message : String(error)}`
-      );
-      return null;
-    }
-  }
-
   static processAddressTransactions(
     rawData: SolanaRPCRawTransactionData,
     userAddress: string
@@ -130,25 +64,90 @@ export class SolanaRPCTransactionMapper extends BaseRawDataMapper<SolanaRPCRawTr
     return tokenTransactions;
   }
 
+  private static extractTokenTransaction(
+    tx: SolanaRPCTransaction,
+    userAddress: string,
+    targetContract?: string
+  ): UniversalBlockchainTransaction | undefined {
+    try {
+      // Look for token balance changes in preTokenBalances and postTokenBalances
+      const preTokenBalances = tx.meta.preTokenBalances || [];
+      const postTokenBalances = tx.meta.postTokenBalances || [];
+
+      // Find changes for token accounts
+      for (const postBalance of postTokenBalances) {
+        const preBalance = preTokenBalances.find(
+          (pre) => pre.accountIndex === postBalance.accountIndex && pre.mint === postBalance.mint
+        );
+
+        const preAmount = preBalance ? parseFloat(preBalance.uiTokenAmount.uiAmountString || '0') : 0;
+        const postAmount = parseFloat(postBalance.uiTokenAmount.uiAmountString || '0');
+        const change = postAmount - preAmount;
+
+        // Skip if no meaningful change
+        if (Math.abs(change) < 0.000001) {
+          continue;
+        }
+
+        // If a specific contract is specified, filter by it
+        if (targetContract && postBalance.mint !== targetContract) {
+          continue;
+        }
+
+        // Log any significant token transaction
+        logger.debug(
+          `Found SPL token transaction - Signature: ${tx.transaction.signatures?.[0]}, Mint: ${postBalance.mint}, Change: ${Math.abs(change)}, Type: ${change > 0 ? 'transfer_in' : 'transfer_out'}`
+        );
+
+        // Determine transfer direction
+        const type: 'transfer_in' | 'transfer_out' = change > 0 ? 'transfer_in' : 'transfer_out';
+
+        return {
+          amount: Math.abs(change).toString(),
+          blockHeight: tx.slot,
+          currency: 'UNKNOWN', // Will be updated with proper symbol later
+          feeAmount: lamportsToSol(tx.meta.fee).toString(),
+          feeCurrency: 'SOL',
+          from: type === 'transfer_out' ? userAddress : '',
+          id: tx.transaction.signatures?.[0] || '',
+          providerId: 'solana-rpc',
+          status: tx.meta.err ? 'failed' : 'success',
+          timestamp: (tx.blockTime || 0) * 1000,
+          to: type === 'transfer_in' ? userAddress : '',
+          tokenAddress: postBalance.mint,
+          tokenSymbol: 'UNKNOWN',
+          type: 'token_transfer',
+        };
+      }
+
+      return undefined;
+    } catch (error) {
+      logger.debug(
+        `Failed to extract token transaction - Signature: ${tx.transaction.signatures?.[0]}, Error: ${error instanceof Error ? error.message : String(error)}`
+      );
+      return undefined;
+    }
+  }
+
   private static transformTransaction(
     tx: SolanaRPCTransaction,
     userAddress: string
-  ): UniversalBlockchainTransaction | null {
+  ): UniversalBlockchainTransaction | undefined {
     try {
       // Skip failed transactions - they shouldn't be processed
       if (tx.meta.err) {
         logger.debug(
           `Skipping failed transaction - Hash: ${tx.transaction.signatures?.[0]}, Error: ${JSON.stringify(tx.meta.err)}`
         );
-        return null;
+        return undefined;
       }
 
       const accountKeys = tx.transaction.message.accountKeys;
-      const userIndex = accountKeys.findIndex(key => key === userAddress);
+      const userIndex = accountKeys.findIndex((key) => key === userAddress);
 
       if (userIndex === -1) {
         logger.debug(`Transaction not relevant to user - Signature: ${tx.transaction.signatures?.[0]}`);
-        return null;
+        return undefined;
       }
 
       // Calculate balance change
@@ -185,10 +184,10 @@ export class SolanaRPCTransactionMapper extends BaseRawDataMapper<SolanaRPCRawTr
       logger.warn(
         `Failed to transform transaction - Signature: ${tx.transaction.signatures?.[0]}, Error: ${error instanceof Error ? error.message : String(error)}`
       );
-      return null;
+      return undefined;
     }
   }
-
+  protected readonly schema = SolanaRPCRawTransactionDataSchema;
   protected mapInternal(
     rawData: SolanaRPCRawTransactionData,
     sessionContext: ImportSessionMetadata

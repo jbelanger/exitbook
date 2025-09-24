@@ -1,17 +1,16 @@
-import { maskAddress } from '@crypto/shared-utils';
+import { hasStringProperty, isErrorWithMessage, maskAddress } from '@crypto/shared-utils';
 
-import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
-import { RegisterApiClient } from '../../shared/registry/decorators.ts';
-import type { JsonRpcResponse, ProviderOperation } from '../../shared/types.ts';
+import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.js';
+import { RegisterApiClient } from '../../shared/registry/decorators.js';
+import type { JsonRpcResponse, ProviderOperation } from '../../shared/types.js';
 import type {
   HeliusAssetResponse,
-  HeliusSignatureResponse,
   HeliusTransaction,
   SolanaAccountBalance,
   SolanaSignature,
   SolanaTokenAccountsResponse,
-} from '../types.ts';
-import { isValidSolanaAddress } from '../utils.ts';
+} from '../types.js';
+import { isValidSolanaAddress } from '../utils.js';
 
 export interface SolanaRawTransactionData {
   normal: HeliusTransaction[];
@@ -97,6 +96,125 @@ export class HeliusApiClient extends BaseRegistryProvider {
           'Content-Type': 'application/json',
         },
       });
+    }
+  }
+
+  async execute<T>(operation: ProviderOperation<T>, _config?: Record<string, unknown>): Promise<T> {
+    this.logger.debug(
+      `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
+    );
+
+    try {
+      switch (operation.type) {
+        case 'getRawAddressTransactions':
+          return (await this.getRawAddressTransactions({
+            address: operation.address,
+            since: operation.since,
+          })) as T;
+        case 'getRawAddressBalance':
+          return (await this.getRawAddressBalance({
+            address: operation.address,
+          })) as T;
+        case 'getRawTokenBalances':
+          return (await this.getRawTokenBalances({
+            address: operation.address,
+            contractAddresses: operation.contractAddresses,
+          })) as T;
+        default:
+          throw new Error(`Unsupported operation: ${operation.type}`);
+      }
+    } catch (error) {
+      this.logger.error(
+        `Operation execution failed - Type: ${operation.type}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`
+      );
+      throw error;
+    }
+  }
+
+  async getTokenSymbol(mintAddress: string): Promise<string> {
+    if (this.tokenSymbolCache.has(mintAddress)) {
+      return this.tokenSymbolCache.get(mintAddress)!;
+    }
+
+    const knownSymbol = HeliusApiClient.KNOWN_TOKENS.get(mintAddress);
+    if (knownSymbol) {
+      this.tokenSymbolCache.set(mintAddress, knownSymbol);
+      this.logger.debug(
+        `Found token symbol in static registry - Mint: ${maskAddress(mintAddress)}, Symbol: ${knownSymbol}`
+      );
+      return knownSymbol;
+    }
+
+    try {
+      const response = await this.httpClient.post<JsonRpcResponse<HeliusAssetResponse>>('/', {
+        id: 1,
+        jsonrpc: '2.0',
+        method: 'getAsset',
+        params: {
+          displayOptions: {
+            showFungible: true,
+          },
+          id: mintAddress,
+        },
+      });
+
+      if (response?.result?.content?.metadata?.symbol) {
+        const metadata = response.result.content.metadata;
+        const symbol = metadata.symbol;
+        if (symbol) {
+          this.storeTokenMetadata(mintAddress, metadata);
+          this.tokenSymbolCache.set(mintAddress, symbol);
+          return symbol;
+        }
+      }
+
+      if (response?.result?.content?.metadata?.name) {
+        const metadata = response.result.content.metadata;
+        const name = metadata.name;
+        if (name) {
+          this.storeTokenMetadata(mintAddress, metadata);
+          this.tokenSymbolCache.set(mintAddress, name);
+          return name;
+        }
+      }
+
+      throw new Error('No symbol or name found in metadata');
+    } catch (error) {
+      const fallbackSymbol = `${mintAddress.slice(0, 6)}...`;
+      this.tokenSymbolCache.set(mintAddress, fallbackSymbol);
+      this.logger.warn(
+        `Failed to fetch token symbol, using fallback - Mint: ${maskAddress(mintAddress)}, Symbol: ${fallbackSymbol}, Error: ${error instanceof Error ? error.message : String(error)}`
+      );
+      return fallbackSymbol;
+    }
+  }
+
+  async isHealthy(): Promise<boolean> {
+    try {
+      const response = await this.httpClient.post<JsonRpcResponse<string>>('/', {
+        id: 1,
+        jsonrpc: '2.0',
+        method: 'getHealth',
+      });
+      return response?.result === 'ok';
+    } catch (error) {
+      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
+      return false;
+    }
+  }
+
+  override async testConnection(): Promise<boolean> {
+    try {
+      const response = await this.httpClient.post<JsonRpcResponse<string>>('/', {
+        id: 1,
+        jsonrpc: '2.0',
+        method: 'getHealth',
+      });
+      this.logger.debug(`Connection test successful - Health: ${response?.result}`);
+      return response?.result === 'ok';
+    } catch (error) {
+      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
+      return false;
     }
   }
 
@@ -237,7 +355,7 @@ export class HeliusApiClient extends BaseRegistryProvider {
     address: string;
     contractAddresses?: string[] | undefined;
   }): Promise<SolanaRawTokenBalanceData> {
-    const { address, contractAddresses } = params;
+    const { address } = params;
 
     if (!isValidSolanaAddress(address)) {
       throw new Error(`Invalid Solana address: ${address}`);
@@ -318,7 +436,7 @@ export class HeliusApiClient extends BaseRegistryProvider {
     }
   }
 
-  private async getTokenAccountTransactions(address: string, since?: number): Promise<HeliusTransaction[]> {
+  private async getTokenAccountTransactions(address: string, _since?: number): Promise<HeliusTransaction[]> {
     try {
       this.logger.debug(`Fetching token account transactions - Address: ${maskAddress(address)}`);
 
@@ -391,131 +509,12 @@ export class HeliusApiClient extends BaseRegistryProvider {
 
   private storeTokenMetadata(mintAddress: string, metadata: Record<string, unknown>): void {
     this.tokenMetadataCache.set(mintAddress, {
-      attributes: metadata.attributes,
-      description: metadata.description,
-      external_url: metadata.external_url,
-      image: metadata.image,
-      name: metadata.name || '',
-      symbol: metadata.symbol || '',
+      attributes: metadata['attributes'],
+      description: metadata['description'],
+      external_url: metadata['external_url'],
+      image: metadata['image'],
+      name: metadata['name'] || '',
+      symbol: metadata['symbol'] || '',
     });
-  }
-
-  async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug(
-      `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
-    );
-
-    try {
-      switch (operation.type) {
-        case 'getRawAddressTransactions':
-          return this.getRawAddressTransactions({
-            address: operation.address,
-            since: operation.since,
-          }) as T;
-        case 'getRawAddressBalance':
-          return this.getRawAddressBalance({
-            address: operation.address,
-          }) as T;
-        case 'getRawTokenBalances':
-          return this.getRawTokenBalances({
-            address: operation.address,
-            contractAddresses: operation.contractAddresses,
-          }) as T;
-        default:
-          throw new Error(`Unsupported operation: ${operation.type}`);
-      }
-    } catch (error) {
-      this.logger.error(
-        `Operation execution failed - Type: ${operation.type}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`
-      );
-      throw error;
-    }
-  }
-
-  async getTokenSymbol(mintAddress: string): Promise<string> {
-    if (this.tokenSymbolCache.has(mintAddress)) {
-      return this.tokenSymbolCache.get(mintAddress)!;
-    }
-
-    const knownSymbol = HeliusApiClient.KNOWN_TOKENS.get(mintAddress);
-    if (knownSymbol) {
-      this.tokenSymbolCache.set(mintAddress, knownSymbol);
-      this.logger.debug(
-        `Found token symbol in static registry - Mint: ${maskAddress(mintAddress)}, Symbol: ${knownSymbol}`
-      );
-      return knownSymbol;
-    }
-
-    try {
-      const response = await this.httpClient.post<JsonRpcResponse<HeliusAssetResponse>>('/', {
-        id: 1,
-        jsonrpc: '2.0',
-        method: 'getAsset',
-        params: {
-          displayOptions: {
-            showFungible: true,
-          },
-          id: mintAddress,
-        },
-      });
-
-      if (response?.result?.content?.metadata?.symbol) {
-        const metadata = response.result.content.metadata;
-        const symbol = metadata.symbol;
-        if (symbol) {
-          this.storeTokenMetadata(mintAddress, metadata);
-          this.tokenSymbolCache.set(mintAddress, symbol);
-          return symbol;
-        }
-      }
-
-      if (response?.result?.content?.metadata?.name) {
-        const metadata = response.result.content.metadata;
-        const name = metadata.name;
-        if (name) {
-          this.storeTokenMetadata(mintAddress, metadata);
-          this.tokenSymbolCache.set(mintAddress, name);
-          return name;
-        }
-      }
-
-      throw new Error('No symbol or name found in metadata');
-    } catch (error) {
-      const fallbackSymbol = `${mintAddress.slice(0, 6)}...`;
-      this.tokenSymbolCache.set(mintAddress, fallbackSymbol);
-      this.logger.warn(
-        `Failed to fetch token symbol, using fallback - Mint: ${maskAddress(mintAddress)}, Symbol: ${fallbackSymbol}, Error: ${error instanceof Error ? error.message : String(error)}`
-      );
-      return fallbackSymbol;
-    }
-  }
-
-  async isHealthy(): Promise<boolean> {
-    try {
-      const response = await this.httpClient.post<JsonRpcResponse<string>>('/', {
-        id: 1,
-        jsonrpc: '2.0',
-        method: 'getHealth',
-      });
-      return response?.result === 'ok';
-    } catch (error) {
-      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
-    }
-  }
-
-  async testConnection(): Promise<boolean> {
-    try {
-      const response = await this.httpClient.post<JsonRpcResponse<string>>('/', {
-        id: 1,
-        jsonrpc: '2.0',
-        method: 'getHealth',
-      });
-      this.logger.debug(`Connection test successful - Health: ${response?.result}`);
-      return response?.result === 'ok';
-    } catch (error) {
-      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
-    }
   }
 }

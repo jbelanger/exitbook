@@ -24,13 +24,13 @@ export const CsvLedgerLiveOperationRowSchema = z
     'Countervalue at CSV Export': z
       .string()
       .regex(/^-?\d+(\.\d+)?$/, 'Countervalue at CSV Export must be a valid number format')
-      .refine(val => !isNaN(parseFloat(val)), 'Countervalue at CSV Export must be parseable as number'),
+      .refine((val) => !isNaN(parseFloat(val)), 'Countervalue at CSV Export must be parseable as number'),
 
     /** Countervalue in fiat at time of operation */
     'Countervalue at Operation Date': z
       .string()
       .regex(/^-?\d+(\.\d+)?$/, 'Countervalue at Operation Date must be a valid number format')
-      .refine(val => !isNaN(parseFloat(val)), 'Countervalue at Operation Date must be parseable as number'),
+      .refine((val) => !isNaN(parseFloat(val)), 'Countervalue at Operation Date must be parseable as number'),
 
     /** Fiat currency ticker for countervalue (e.g., 'USD', 'EUR') */
     'Countervalue Ticker': z
@@ -45,7 +45,7 @@ export const CsvLedgerLiveOperationRowSchema = z
     'Operation Amount': z
       .string()
       .regex(/^-?\d+(\.\d+)?$/, 'Operation Amount must be a valid number format')
-      .refine(val => !isNaN(parseFloat(val)), 'Operation Amount must be parseable as number'),
+      .refine((val) => !isNaN(parseFloat(val)), 'Operation Amount must be parseable as number'),
 
     /** Date and time of the operation (ISO 8601 format) */
     'Operation Date': z
@@ -59,12 +59,12 @@ export const CsvLedgerLiveOperationRowSchema = z
     /** Network fees paid for the operation */
     'Operation Fees': z
       .string()
-      .transform(val => (val === '' ? '0' : val)) // Convert empty strings to '0'
+      .transform((val) => (val === '' ? '0' : val)) // Convert empty strings to '0'
       .pipe(
         z
           .string()
           .regex(/^-?\d+(\.\d+)?$/, 'Operation Fees must be a valid number format')
-          .refine(val => !isNaN(parseFloat(val)), 'Operation Fees must be parseable as number')
+          .refine((val) => !isNaN(parseFloat(val)), 'Operation Fees must be parseable as number')
       ),
 
     /** Blockchain transaction hash */
@@ -75,18 +75,18 @@ export const CsvLedgerLiveOperationRowSchema = z
       .string()
       .min(1, 'Operation Type must not be empty')
       .refine(
-        val =>
+        (val) =>
           [
+            'DELEGATE',
+            'FEES',
             'IN',
+            'NONE',
+            'OPT_OUT',
             'OUT',
             'SELF',
-            'FEES',
-            'NONE',
             'STAKE',
-            'DELEGATE',
             'UNDELEGATE',
             'WITHDRAW_UNBONDED',
-            'OPT_OUT',
           ].includes(val.toUpperCase()),
         'Operation Type must be one of: IN, OUT, SELF, FEES, NONE, STAKE, DELEGATE, UNDELEGATE, WITHDRAW_UNBONDED, OPT_OUT'
       ),
@@ -96,7 +96,7 @@ export const CsvLedgerLiveOperationRowSchema = z
       .string()
       .min(1, 'Status must not be empty')
       .refine(
-        val => ['confirmed', 'unconfirmed', 'failed', 'pending', 'replaced'].includes(val.toLowerCase()),
+        (val) => ['confirmed', 'failed', 'pending', 'replaced', 'unconfirmed'].includes(val.toLowerCase()),
         'Status must be a valid Ledger Live operation status'
       ),
   })

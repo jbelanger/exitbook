@@ -1,9 +1,9 @@
 import { hasStringProperty, isErrorWithMessage, maskAddress } from '@crypto/shared-utils';
 
-import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
-import { RegisterApiClient } from '../../shared/registry/decorators.ts';
-import type { ProviderOperation } from '../../shared/types.ts';
-import type { AddressInfo, BlockCypherAddress, BlockCypherTransaction } from '../types.ts';
+import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.js';
+import { RegisterApiClient } from '../../shared/registry/decorators.js';
+import type { ProviderOperation } from '../../shared/types.js';
+import type { AddressInfo, BlockCypherAddress, BlockCypherTransaction } from '../types.js';
 
 @RegisterApiClient({
   apiKeyEnvVar: 'BLOCKCYPHER_API_KEY',
@@ -48,6 +48,55 @@ export class BlockCypherApiClient extends BaseRegistryProvider {
     this.logger.debug(
       `Initialized BlockCypherApiClient from registry metadata - Network: ${this.network}, BaseUrl: ${this.baseUrl}, HasApiKey: ${this.apiKey !== 'YourApiKeyToken'}`
     );
+  }
+
+  async execute<T>(operation: ProviderOperation<T>): Promise<T> {
+    this.logger.debug(
+      `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
+    );
+
+    try {
+      switch (operation.type) {
+        case 'getRawAddressTransactions':
+          return (await this.getRawAddressTransactions({
+            address: operation.address,
+            since: operation.since,
+          })) as T;
+        case 'getAddressInfo':
+          return (await this.getAddressInfo({
+            address: operation.address,
+          })) as T;
+        default:
+          throw new Error(`Unsupported operation: ${operation.type}`);
+      }
+    } catch (error) {
+      this.logger.error(
+        `Operation execution failed - Type: ${operation.type}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`
+      );
+      throw error;
+    }
+  }
+
+  async isHealthy(): Promise<boolean> {
+    try {
+      const response = await this.httpClient.get<{ name?: string }>('/');
+      return hasStringProperty(response, 'name');
+    } catch (error) {
+      this.logger.warn(`Health check failed - Error: ${isErrorWithMessage(error) ? error.message : String(error)}`);
+      return false;
+    }
+  }
+
+  override async testConnection(): Promise<boolean> {
+    try {
+      // Test with a simple endpoint that should always work
+      const chainInfo = await this.httpClient.get<{ name?: string }>('/');
+      this.logger.debug(`Connection test successful - ChainInfo: ${chainInfo?.name || 'Unknown'}`);
+      return hasStringProperty(chainInfo, 'name');
+    } catch (error) {
+      this.logger.error(`Connection test failed - Error: ${isErrorWithMessage(error) ? error.message : String(error)}`);
+      return false;
+    }
   }
 
   private buildEndpoint(endpoint: string): string {
@@ -183,7 +232,7 @@ export class BlockCypherApiClient extends BaseRegistryProvider {
       );
 
       // Extract unique transaction hashes
-      const uniqueTxHashes = Array.from(new Set(addressInfo.txrefs.map(ref => ref.tx_hash)));
+      const uniqueTxHashes = Array.from(new Set(addressInfo.txrefs.map((ref) => ref.tx_hash)));
 
       // Fetch detailed raw transaction data
       const rawTransactions: BlockCypherTransaction[] = [];
@@ -194,7 +243,7 @@ export class BlockCypherApiClient extends BaseRegistryProvider {
         const batch = uniqueTxHashes.slice(i, i + batchSize);
 
         const batchTransactions = await Promise.all(
-          batch.map(async txHash => {
+          batch.map(async (txHash) => {
             try {
               const rawTx = await this.fetchCompleteTransaction(txHash);
               return rawTx;
@@ -202,23 +251,23 @@ export class BlockCypherApiClient extends BaseRegistryProvider {
               this.logger.warn(
                 `Failed to fetch raw transaction details - TxHash: ${txHash}, Error: ${error instanceof Error ? error.message : String(error)}`
               );
-              return null;
+              return;
             }
           })
         );
 
-        rawTransactions.push(...batchTransactions.filter((tx): tx is BlockCypherTransaction => tx !== null));
+        rawTransactions.push(...batchTransactions.filter((tx): tx is BlockCypherTransaction => tx !== undefined));
 
         // Rate limiting between batches
         if (i + batchSize < uniqueTxHashes.length) {
-          await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay between batches
+          await new Promise((resolve) => setTimeout(resolve, 1000)); // 1 second delay between batches
         }
       }
 
       // Filter by timestamp if 'since' is provided
       let filteredRawTransactions = rawTransactions;
       if (since) {
-        filteredRawTransactions = rawTransactions.filter(tx => {
+        filteredRawTransactions = rawTransactions.filter((tx) => {
           const confirmedTime = tx.confirmed ? new Date(tx.confirmed).getTime() : Date.now();
           return confirmedTime >= since;
         });
@@ -244,55 +293,6 @@ export class BlockCypherApiClient extends BaseRegistryProvider {
         `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`
       );
       throw error;
-    }
-  }
-
-  async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug(
-      `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
-    );
-
-    try {
-      switch (operation.type) {
-        case 'getRawAddressTransactions':
-          return this.getRawAddressTransactions({
-            address: operation.address,
-            since: operation.since,
-          }) as T;
-        case 'getAddressInfo':
-          return this.getAddressInfo({
-            address: operation.address,
-          }) as T;
-        default:
-          throw new Error(`Unsupported operation: ${operation.type}`);
-      }
-    } catch (error) {
-      this.logger.error(
-        `Operation execution failed - Type: ${operation.type}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`
-      );
-      throw error;
-    }
-  }
-
-  async isHealthy(): Promise<boolean> {
-    try {
-      const response = await this.httpClient.get<{ name?: string }>('/');
-      return hasStringProperty(response, 'name');
-    } catch (error) {
-      this.logger.warn(`Health check failed - Error: ${isErrorWithMessage(error) ? error.message : String(error)}`);
-      return false;
-    }
-  }
-
-  async testConnection(): Promise<boolean> {
-    try {
-      // Test with a simple endpoint that should always work
-      const chainInfo = await this.httpClient.get<{ name?: string }>('/');
-      this.logger.debug(`Connection test successful - ChainInfo: ${chainInfo?.name || 'Unknown'}`);
-      return hasStringProperty(chainInfo, 'name');
-    } catch (error) {
-      this.logger.error(`Connection test failed - Error: ${isErrorWithMessage(error) ? error.message : String(error)}`);
-      return false;
     }
   }
 }

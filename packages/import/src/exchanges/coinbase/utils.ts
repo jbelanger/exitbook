@@ -6,10 +6,9 @@
  */
 import type { z } from 'zod';
 
+import type { RawCoinbaseAccountSchema, RawCoinbaseLedgerEntrySchema } from './schemas.js';
 import {
-  RawCoinbaseAccountSchema,
   RawCoinbaseAccountsResponseSchema,
-  RawCoinbaseLedgerEntrySchema,
   RawCoinbaseTransactionSchema,
   RawCoinbaseTransactionsResponseSchema,
 } from './schemas.js';
@@ -37,7 +36,7 @@ export interface CoinbaseApiValidationResult<T> {
  */
 export interface CoinbaseApiBatchValidationResult<T> {
   apiEndpoint: string;
-  invalid: Array<{ data: unknown; errors: z.ZodError; itemIndex: number }>;
+  invalid: { data: unknown; errors: z.ZodError; itemIndex: number }[];
   totalItems: number;
   valid: T[];
 }
@@ -64,7 +63,7 @@ export function validateCoinbaseTransactions(
   data: unknown[]
 ): CoinbaseApiBatchValidationResult<ValidatedRawCoinbaseTransaction> {
   const valid: ValidatedRawCoinbaseTransaction[] = [];
-  const invalid: Array<{ data: unknown; errors: z.ZodError; itemIndex: number }> = [];
+  const invalid: { data: unknown; errors: z.ZodError; itemIndex: number }[] = [];
 
   data.forEach((item, index) => {
     const result = validateCoinbaseTransaction(item);
@@ -124,7 +123,7 @@ export function formatCoinbaseValidationErrors<T>(result: CoinbaseApiBatchValida
   const errorSummary = result.invalid
     .slice(0, 3) // Show first 3 errors
     .map(({ errors, itemIndex }) => {
-      const fieldErrors = errors.issues.map(issue => `${issue.path.join('.')}: ${issue.message}`).join('; ');
+      const fieldErrors = errors.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; ');
       return `Item ${itemIndex + 1}: ${fieldErrors}`;
     })
     .join(' | ');

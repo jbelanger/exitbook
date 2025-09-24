@@ -40,7 +40,7 @@ function validateConfiguration(options: ConfigValidationOptions = {}): void {
       for (const [blockchain, providers] of providersByBlockchain.entries()) {
         console.log(`${blockchain.toUpperCase()}:`);
         console.log(`  Available providers: ${providers.length}`);
-        console.log(`  Providers: ${providers.map(p => p.name).join(', ')}`);
+        console.log(`  Providers: ${providers.map((p) => p.name).join(', ')}`);
         console.log('');
       }
 
@@ -67,13 +67,13 @@ function validateConfiguration(options: ConfigValidationOptions = {}): void {
         if (!blockchainConfig || typeof blockchainConfig !== 'object') continue;
 
         const { explorers = [] } = blockchainConfig as {
-          explorers: Array<{
+          explorers: {
             enabled: boolean;
             name: string;
             priority: number;
-          }>;
+          }[];
         };
-        const enabled = explorers.filter(e => e.enabled);
+        const enabled = explorers.filter((e) => e.enabled);
 
         console.log(`${blockchain.toUpperCase()}:`);
         console.log(`  Total providers: ${explorers.length}`);
@@ -82,17 +82,15 @@ function validateConfiguration(options: ConfigValidationOptions = {}): void {
 
         if (enabled.length > 0) {
           console.log('  Enabled providers:');
-          enabled
-            .sort((a, b) => a.priority - b.priority)
-            .forEach(provider => {
-              const metadata = ProviderRegistry.getMetadata(blockchain, provider.name);
-              const apiKeyInfo = metadata?.requiresApiKey
-                ? metadata.apiKeyEnvVar
-                  ? ` (${metadata.apiKeyEnvVar})`
-                  : ' (API key required)'
-                : '';
-              console.log(`    ${provider.priority}. ${provider.name}${apiKeyInfo}`);
-            });
+          for (const provider of enabled.sort((a, b) => a.priority - b.priority)) {
+            const metadata = ProviderRegistry.getMetadata(blockchain, provider.name);
+            const apiKeyInfo = metadata?.requiresApiKey
+              ? metadata.apiKeyEnvVar
+                ? ` (${metadata.apiKeyEnvVar})`
+                : ' (API key required)'
+              : '';
+            console.log(`    ${provider.priority}. ${provider.name}${apiKeyInfo}`);
+          }
         }
 
         console.log('');
@@ -101,9 +99,9 @@ function validateConfiguration(options: ConfigValidationOptions = {}): void {
       console.log('❌ Configuration validation failed!\n');
 
       console.log('🚨 Errors found:');
-      validation.errors.forEach((error, index) => {
+      for (const [index, error] of validation.errors.entries()) {
         console.log(`  ${index + 1}. ${error}`);
-      });
+      }
 
       console.log('\n💡 Suggestions:');
       console.log('  • Run `pnpm run providers:list` to see available providers');

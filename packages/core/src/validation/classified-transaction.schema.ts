@@ -34,7 +34,7 @@ export const ClassificationInfoSchema = z
   })
   .strict()
   .refine(
-    data => {
+    (_data) => {
       // Validate that low confidence movements reference valid movement IDs
       // This will be validated at the ClassifiedTransaction level
       return true;
@@ -60,7 +60,7 @@ export const ClassifiedMovementSchema = z
   })
   .strict()
   .refine(
-    data => {
+    (data) => {
       // Validate that confidence score aligns with movement purpose assignment
       // Very specific purposes should have high confidence
       const highConfidencePurposes = ['TRADING_FEE', 'GAS_FEE', 'NETWORK_FEE'];
@@ -93,14 +93,14 @@ export const ClassifiedTransactionSchema = z
   })
   .strict()
   .refine(
-    data => {
+    (data) => {
       // Validate that every ProcessedTransaction movement has a corresponding ClassifiedMovement
-      const processedMovements = data.processedTransaction.movements.map(m => m.movementId);
-      const classifiedMovements = data.movements.map(cm => cm.movement.movementId);
+      const processedMovements = data.processedTransaction.movements.map((m) => m.movementId);
+      const classifiedMovements = data.movements.map((cm) => cm.movement.movementId);
 
       return (
-        processedMovements.every(id => classifiedMovements.includes(id)) &&
-        classifiedMovements.every(id => processedMovements.includes(id))
+        processedMovements.every((id) => classifiedMovements.includes(id)) &&
+        classifiedMovements.every((id) => processedMovements.includes(id))
       );
     },
     {
@@ -109,10 +109,10 @@ export const ClassifiedTransactionSchema = z
     }
   )
   .refine(
-    data => {
+    (data) => {
       // Validate that low confidence movements in ClassificationInfo reference valid movement IDs
-      const movementIds = data.movements.map(cm => cm.movement.movementId);
-      return data.classificationInfo.lowConfidenceMovements.every(id => movementIds.includes(id));
+      const movementIds = data.movements.map((cm) => cm.movement.movementId);
+      return data.classificationInfo.lowConfidenceMovements.every((id) => movementIds.includes(id));
     },
     {
       message: 'Low confidence movement IDs must reference valid movements',
@@ -120,11 +120,11 @@ export const ClassifiedTransactionSchema = z
     }
   )
   .refine(
-    data => {
+    (data) => {
       // Validate that manual overrides reference valid movement IDs
       if (data.classificationInfo.manualOverrides) {
-        const movementIds = data.movements.map(cm => cm.movement.movementId);
-        return data.classificationInfo.manualOverrides.every(override => movementIds.includes(override.movementId));
+        const movementIds = data.movements.map((cm) => cm.movement.movementId);
+        return data.classificationInfo.manualOverrides.every((override) => movementIds.includes(override.movementId));
       }
       return true;
     },
@@ -134,7 +134,7 @@ export const ClassifiedTransactionSchema = z
     }
   )
   .refine(
-    data => {
+    (data) => {
       // Validate that overall confidence is consistent with individual movement confidences
       const avgConfidence = data.movements.reduce((sum, m) => sum + m.confidence, 0) / data.movements.length;
       const tolerance = 0.1; // Allow 10% tolerance
@@ -147,7 +147,7 @@ export const ClassifiedTransactionSchema = z
     }
   )
   .refine(
-    data => {
+    (data) => {
       // Validate that classifiedAt is after processedAt
       return data.classifiedAt >= data.processedTransaction.processedAt;
     },
@@ -202,11 +202,11 @@ export function validateClassificationInfo(data: unknown): ValidationResult<Vali
 
 // Batch validation helpers
 export function validateClassifiedTransactions(data: unknown[]): {
-  invalid: Array<{ data: unknown; errors: z.ZodError }>;
+  invalid: { data: unknown; errors: z.ZodError }[];
   valid: ValidatedClassifiedTransaction[];
 } {
   const valid: ValidatedClassifiedTransaction[] = [];
-  const invalid: Array<{ data: unknown; errors: z.ZodError }> = [];
+  const invalid: { data: unknown; errors: z.ZodError }[] = [];
 
   for (const item of data) {
     const result = validateClassifiedTransaction(item);

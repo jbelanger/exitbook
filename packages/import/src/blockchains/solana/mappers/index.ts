@@ -1,4 +1,4 @@
 // Import processors to trigger registration
-import './HeliusMapper.ts';
-import './SolanaRPCMapper.ts';
-import './SolscanMapper.ts';
+import './HeliusMapper.js';
+import './SolanaRPCMapper.js';
+import './SolscanMapper.js';

@@ -1,7 +1,7 @@
 import type { Logger } from '@crypto/shared-logger';
 import { getLogger } from '@crypto/shared-logger';
 
-import type { IImporter, ImportParams, ImportRunResult } from './interfaces.ts';
+import type { IImporter, ImportParams, ImportRunResult } from './interfaces.js';
 
 /**
  * Base class providing common functionality for all importers.
@@ -27,7 +27,7 @@ export abstract class BaseImporter<TRawData> implements IImporter<TRawData> {
       // Let subclasses implement specific validation
       return this.canImportSpecific(params);
     } catch (error) {
-      this.logger.error(`Import parameters validation failed for ${this.sourceId}: ${error}`);
+      this.logger.error(`Import parameters validation failed for ${this.sourceId}: ${String(error)}`);
       return false;
     }
   }

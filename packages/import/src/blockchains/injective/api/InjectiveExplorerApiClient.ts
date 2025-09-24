@@ -1,9 +1,9 @@
-import { maskAddress } from '@crypto/shared-utils';
+import { hasStringProperty, isErrorWithMessage, maskAddress } from '@crypto/shared-utils';
 
-import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
-import { RegisterApiClient } from '../../shared/registry/decorators.ts';
-import type { ProviderOperation } from '../../shared/types.ts';
-import type { InjectiveApiResponse, InjectiveTransaction } from '../types.ts';
+import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.js';
+import { RegisterApiClient } from '../../shared/registry/decorators.js';
+import type { ProviderOperation } from '../../shared/types.js';
+import type { InjectiveTransaction } from '../types.js';
 
 @RegisterApiClient({
   blockchain: 'injective',
@@ -48,55 +48,6 @@ export class InjectiveExplorerApiClient extends BaseRegistryProvider {
     );
   }
 
-  private async getRawAddressTransactions(params: {
-    address: string;
-    since?: number;
-  }): Promise<InjectiveTransaction[]> {
-    const { address, since } = params;
-
-    if (!this.validateAddress(address)) {
-      throw new Error(`Invalid Injective address: ${address}`);
-    }
-
-    this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}, Network: ${this.network}`);
-
-    try {
-      const endpoint = `/api/explorer/v1/accountTxs/${address}`;
-      const data = (await this.httpClient.get(endpoint)) as InjectiveApiResponse;
-
-      if (!data.data || !Array.isArray(data.data)) {
-        return [];
-      }
-
-      let transactions = data.data;
-
-      // Apply time filter if specified
-      if (since) {
-        transactions = transactions.filter(tx => {
-          const timestamp = new Date(tx.block_timestamp).getTime();
-          return timestamp >= since;
-        });
-      }
-
-      this.logger.debug(
-        `Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${transactions.length}, Network: ${this.network}`
-      );
-
-      return transactions;
-    } catch (error) {
-      this.logger.error(
-        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`
-      );
-      throw error;
-    }
-  }
-
-  private validateAddress(address: string): boolean {
-    // Injective addresses start with 'inj' and are bech32 encoded
-    const injectiveAddressRegex = /^inj1[a-z0-9]{38}$/;
-    return injectiveAddressRegex.test(address);
-  }
-
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
     this.logger.debug(
       `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
@@ -105,10 +56,10 @@ export class InjectiveExplorerApiClient extends BaseRegistryProvider {
     try {
       switch (operation.type) {
         case 'getRawAddressTransactions':
-          return this.getRawAddressTransactions({
+          return (await this.getRawAddressTransactions({
             address: operation.address,
             ...(operation.since !== undefined && { since: operation.since }),
-          }) as T;
+          })) as T;
         default:
           throw new Error(`Unsupported operation: ${operation.type}`);
       }
@@ -134,7 +85,7 @@ export class InjectiveExplorerApiClient extends BaseRegistryProvider {
     }
   }
 
-  async testConnection(): Promise<boolean> {
+  override async testConnection(): Promise<boolean> {
     try {
       const result = await this.isHealthy();
       this.logger.debug(`Connection test result - Healthy: ${result}`);
@@ -143,5 +94,66 @@ export class InjectiveExplorerApiClient extends BaseRegistryProvider {
       this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
       return false;
     }
+  }
+
+  private async getRawAddressTransactions(params: {
+    address: string;
+    since?: number;
+  }): Promise<InjectiveTransaction[]> {
+    const { address, since } = params;
+
+    if (!this.validateAddress(address)) {
+      throw new Error(`Invalid Injective address: ${address}`);
+    }
+
+    this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}, Network: ${this.network}`);
+
+    try {
+      const endpoint = `/api/explorer/v1/accountTxs/${address}`;
+      const data = await this.httpClient.get(endpoint);
+
+      // Assert the expected structure of the response
+      const response = data as { data?: unknown[] };
+
+      if (!response.data || !Array.isArray(response.data)) {
+        return [];
+      }
+
+      let transactions = response.data;
+
+      // Apply time filter if specified
+      if (since) {
+        transactions = transactions.filter((tx) => {
+          if (
+            typeof tx === 'object' &&
+            tx !== null &&
+            'block_timestamp' in tx &&
+            (typeof (tx as { block_timestamp?: unknown }).block_timestamp === 'string' ||
+              typeof (tx as { block_timestamp?: unknown }).block_timestamp === 'number')
+          ) {
+            const timestamp = new Date((tx as { block_timestamp: string | number }).block_timestamp).getTime();
+            return timestamp >= since;
+          }
+          return false;
+        });
+      }
+
+      this.logger.debug(
+        `Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${transactions.length}, Network: ${this.network}`
+      );
+
+      return transactions as InjectiveTransaction[];
+    } catch (error) {
+      this.logger.error(
+        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`
+      );
+      throw error;
+    }
+  }
+
+  private validateAddress(address: string): boolean {
+    // Injective addresses start with 'inj' and are bech32 encoded
+    const injectiveAddressRegex = /^inj1[a-z0-9]{38}$/;
+    return injectiveAddressRegex.test(address);
   }
 }

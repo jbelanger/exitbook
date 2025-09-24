@@ -1,11 +1,12 @@
-import { BaseImporter } from '../../shared/importers/base-importer.ts';
-import type { ImportParams, ImportRunResult } from '../../shared/importers/interfaces.ts';
-import type { ApiClientRawData } from '../../shared/processors/interfaces.ts';
-import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
-import type { SolanaRawTransactionData } from './clients/HeliusApiClient.ts';
+import { BaseImporter } from '../../shared/importers/base-importer.js';
+import type { ImportParams, ImportRunResult } from '../../shared/importers/interfaces.js';
+import type { ApiClientRawData } from '../../shared/processors/interfaces.js';
+import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.js';
+
+import type { SolanaRawTransactionData } from './clients/HeliusApiClient.js';
 // Ensure Solana providers are registered
-import './clients/index.ts';
-import { isValidSolanaAddress } from './utils.ts';
+import './clients/index.js';
+import { isValidSolanaAddress } from './utils.js';
 
 /**
  * Solana transaction importer that fetches raw transaction data from blockchain APIs.
@@ -36,74 +37,14 @@ export class SolanaTransactionImporter extends BaseImporter<SolanaRawTransaction
   }
 
   /**
-   * Fetch raw transactions for a single address with provider provenance.
-   */
-  private async fetchRawTransactionsForAddress(
-    address: string,
-    since?: number
-  ): Promise<ApiClientRawData<SolanaRawTransactionData>[]> {
-    try {
-      const result = await this.providerManager.executeWithFailover('solana', {
-        address: address,
-        getCacheKey: params =>
-          `solana:raw-txs:${params.type === 'getRawAddressTransactions' ? params.address : 'unknown'}:${params.type === 'getRawAddressTransactions' ? params.since || 'all' : 'unknown'}`,
-        since: since,
-        type: 'getRawAddressTransactions',
-      });
-
-      const rawTransactionData = result.data as SolanaRawTransactionData;
-      const providerId = result.providerName;
-
-      // Return as array with single element containing all transactions
-      return [
-        {
-          providerId,
-          rawData: rawTransactionData,
-        },
-      ];
-    } catch (error) {
-      this.logger.error(`Provider manager failed to fetch transactions for ${address}: ${error}`);
-      throw error;
-    }
-  }
-
-  /**
-   * Validate source parameters and connectivity.
-   */
-  protected async canImportSpecific(params: ImportParams): Promise<boolean> {
-    if (!params.address?.length) {
-      this.logger.error('No address provided for Solana import');
-      return false;
-    }
-
-    // Validate address formats
-    if (!isValidSolanaAddress(params.address)) {
-      this.logger.error(`Invalid Solana address format: ${params.address}`);
-      return false;
-    }
-
-    // Test provider connectivity
-    const healthStatus = this.providerManager.getProviderHealth('solana');
-    const hasHealthyProvider = Array.from(healthStatus.values()).some(
-      health => health.isHealthy && health.circuitState !== 'OPEN'
-    );
-
-    if (!hasHealthyProvider) {
-      this.logger.error('No healthy Solana providers available');
-      return false;
-    }
-
-    this.logger.info('Solana source validation passed');
-    return true;
-  }
-
-  /**
    * Get transaction ID from Solana transaction data
    */
   public getTransactionId(tx: SolanaRawTransactionData): string {
     if (tx.normal && tx.normal.length > 0) {
       const firstTx = tx.normal[0];
-      return firstTx.transaction.signatures?.[0] || firstTx.signature || 'unknown';
+      if (firstTx) {
+        return firstTx.transaction?.signatures?.[0] || firstTx.signature || 'unknown';
+      }
     }
     return 'unknown';
   }
@@ -126,11 +67,13 @@ export class SolanaTransactionImporter extends BaseImporter<SolanaRawTransaction
       const rawTransactions = await this.fetchRawTransactionsForAddress(params.address, params.since);
 
       // Add the fetching address to each raw transaction batch
-      const enhancedSourcedTransactions: ApiClientRawData<SolanaRawTransactionData>[] = rawTransactions.map(rawTx => ({
-        providerId: rawTx.providerId,
-        rawData: rawTx.rawData,
-        sourceAddress: params.address,
-      }));
+      const enhancedSourcedTransactions: ApiClientRawData<SolanaRawTransactionData>[] = rawTransactions.map(
+        (rawTx) => ({
+          providerId: rawTx.providerId,
+          rawData: rawTx.rawData,
+          sourceAddress: params.address,
+        })
+      );
 
       allSourcedTransactions.push(...enhancedSourcedTransactions);
 
@@ -147,5 +90,67 @@ export class SolanaTransactionImporter extends BaseImporter<SolanaRawTransaction
     return {
       rawData: allSourcedTransactions,
     };
+  }
+
+  /**
+   * Validate source parameters and connectivity.
+   */
+  protected canImportSpecific(params: ImportParams): Promise<boolean> {
+    if (!params.address?.length) {
+      this.logger.error('No address provided for Solana import');
+      return Promise.resolve(false);
+    }
+
+    // Validate address formats
+    if (!isValidSolanaAddress(params.address)) {
+      this.logger.error(`Invalid Solana address format: ${params.address}`);
+      return Promise.resolve(false);
+    }
+
+    // Test provider connectivity
+    const healthStatus = this.providerManager.getProviderHealth('solana');
+    const hasHealthyProvider = Array.from(healthStatus.values()).some(
+      (health) => health.isHealthy && health.circuitState !== 'OPEN'
+    );
+
+    if (!hasHealthyProvider) {
+      this.logger.error('No healthy Solana providers available');
+      return Promise.resolve(false);
+    }
+
+    this.logger.info('Solana source validation passed');
+    return Promise.resolve(true);
+  }
+
+  /**
+   * Fetch raw transactions for a single address with provider provenance.
+   */
+  private async fetchRawTransactionsForAddress(
+    address: string,
+    since?: number
+  ): Promise<ApiClientRawData<SolanaRawTransactionData>[]> {
+    try {
+      const result = await this.providerManager.executeWithFailover('solana', {
+        address: address,
+        getCacheKey: (params) =>
+          `solana:raw-txs:${params.type === 'getRawAddressTransactions' ? params.address : 'unknown'}:${params.type === 'getRawAddressTransactions' ? params.since || 'all' : 'unknown'}`,
+        since: since,
+        type: 'getRawAddressTransactions',
+      });
+
+      const rawTransactionData = result.data as SolanaRawTransactionData;
+      const providerId = result.providerName;
+
+      // Return as array with single element containing all transactions
+      return [
+        {
+          providerId,
+          rawData: rawTransactionData,
+        },
+      ];
+    } catch (error) {
+      this.logger.error(`Provider manager failed to fetch transactions for ${address}: ${String(error)}`);
+      throw error;
+    }
   }
 }

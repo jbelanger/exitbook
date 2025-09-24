@@ -1,8 +1,9 @@
+import type { HttpRequestOptions } from '@crypto/shared-utils/src/http-client.ts';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ProviderOperation } from '../../../shared/types.ts';
-import type { AddressInfo, TatumBitcoinBalance, TatumBitcoinTransaction } from '../../types.ts';
-import { TatumBitcoinApiClient } from '../TatumBitcoinApiClient.ts';
+import type { ProviderOperation } from '../../../shared/types.js';
+import type { AddressInfo, TatumBitcoinBalance, TatumBitcoinTransaction } from '../../types.js';
+import { TatumBitcoinApiClient } from '../TatumBitcoinApiClient.js';
 
 // Mock the HttpClient
 vi.mock('@crypto/shared-utils', () => ({
@@ -32,7 +33,9 @@ describe('TatumBitcoinApiClient', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     client = new TatumBitcoinApiClient();
-    mockHttpGet = vi.mocked(client['httpClient'].get);
+    mockHttpGet = vi.mocked((...args: [string, Omit<HttpRequestOptions, 'method'>?]) =>
+      client['httpClient'].get(...args)
+    );
   });
 
   describe('constructor', () => {
@@ -66,9 +69,9 @@ describe('TatumBitcoinApiClient', () => {
               address: 'bc1pws6pvj75rcsc2eglpp9k570prnjh40nfpyahlyumk8y8smjayvasyhns5c',
               coinbase: false,
               height: 910898,
-              reqSigs: null,
+              reqSigs: undefined,
               script: '51207434164bd41e2185651f084b6a79e11ce57abe69093b7f939bb1c8786e5d233b',
-              type: null,
+              type: undefined,
               value: 3586,
               version: 2,
             },
@@ -86,7 +89,7 @@ describe('TatumBitcoinApiClient', () => {
             address: 'bc1pq7qldvzhmdtg34g944z2eeufrftcuqtuls5l75t8l8st7dls4rtpquaguma',
             script: '51200781f6b057db5688d505ad44ace7891a578e017c853fea2cff3c17e6fe151ac2',
             scriptPubKey: {
-              reqSigs: null,
+              reqSigs: undefined,
               type: 'witness_v1_taproot',
             },
             value: 31958,
@@ -145,7 +148,7 @@ describe('TatumBitcoinApiClient', () => {
     });
 
     it('should return empty array when no transactions found', async () => {
-      mockHttpGet.mockResolvedValue(null);
+      mockHttpGet.mockResolvedValue([]);
 
       const result = await client.getRawAddressTransactions(mockAddress);
 

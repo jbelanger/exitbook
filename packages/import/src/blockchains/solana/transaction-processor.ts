@@ -1,15 +1,15 @@
 import type { TransactionType, UniversalTransaction } from '@crypto/core';
-// Import processors to trigger registration
 import type { StoredRawData } from '@crypto/data';
 import { createMoney } from '@crypto/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
-import { BaseProcessor } from '../../shared/processors/base-processor.ts';
-import type { ApiClientRawData, ImportSessionMetadata } from '../../shared/processors/interfaces.ts';
-import { TransactionMapperFactory } from '../../shared/processors/processor-registry.ts';
-import type { UniversalBlockchainTransaction } from '../shared/types.ts';
-import type { SolanaRawTransactionData } from './clients/HeliusApiClient.ts';
-import './mappers/index.ts';
+import { BaseProcessor } from '../../shared/processors/base-processor.js';
+import type { ApiClientRawData, ImportSessionMetadata } from '../../shared/processors/interfaces.js';
+import { TransactionMapperFactory } from '../../shared/processors/processor-registry.js';
+import type { UniversalBlockchainTransaction } from '../shared/types.js';
+
+import type { SolanaRawTransactionData } from './clients/HeliusApiClient.js';
+import './mappers/index.js';
 
 /**
  * Solana transaction processor that converts raw blockchain transaction data
@@ -19,72 +19,6 @@ import './mappers/index.ts';
 export class SolanaTransactionProcessor extends BaseProcessor<ApiClientRawData<SolanaRawTransactionData>> {
   constructor() {
     super('solana');
-  }
-
-  private processSingle(
-    rawDataItem: StoredRawData<ApiClientRawData<SolanaRawTransactionData>>,
-    sessionContext: ImportSessionMetadata
-  ): Result<UniversalTransaction[], string> {
-    const apiClientRawData = rawDataItem.rawData;
-    const { providerId, rawData } = apiClientRawData;
-
-    // Get the appropriate processor for this provider
-    const processor = TransactionMapperFactory.create(providerId);
-    if (!processor) {
-      return err(`No processor found for provider: ${providerId}`);
-    }
-
-    // Transform the full batch using the provider-specific processor
-    const transformResult = processor.map(rawData, sessionContext);
-
-    if (transformResult.isErr()) {
-      return err(`Transform failed for ${providerId}: ${transformResult.error}`);
-    }
-
-    const blockchainTransactions = transformResult.value;
-    const transactions: UniversalTransaction[] = [];
-
-    // Convert each UniversalBlockchainTransaction to UniversalTransaction
-    for (const blockchainTransaction of blockchainTransactions) {
-      // Determine proper transaction type based on Solana transaction flow
-      const transactionType = this.mapTransactionType(blockchainTransaction, sessionContext);
-
-      // Convert UniversalBlockchainTransaction to UniversalTransaction
-      const universalTransaction: UniversalTransaction = {
-        amount: createMoney(blockchainTransaction.amount, blockchainTransaction.currency),
-        datetime: new Date(blockchainTransaction.timestamp).toISOString(),
-        fee: blockchainTransaction.feeAmount
-          ? createMoney(blockchainTransaction.feeAmount, blockchainTransaction.feeCurrency || 'SOL')
-          : createMoney(0, 'SOL'),
-        from: blockchainTransaction.from,
-        id: blockchainTransaction.id,
-        metadata: {
-          blockchain: 'solana',
-          blockHeight: blockchainTransaction.blockHeight,
-          blockId: blockchainTransaction.blockId,
-          providerId: blockchainTransaction.providerId,
-          tokenAddress: blockchainTransaction.tokenAddress,
-          tokenDecimals: blockchainTransaction.tokenDecimals,
-          tokenSymbol: blockchainTransaction.tokenSymbol,
-        },
-        source: 'solana',
-        status: blockchainTransaction.status === 'success' ? 'ok' : 'failed',
-        symbol: blockchainTransaction.currency,
-        timestamp: blockchainTransaction.timestamp,
-        to: blockchainTransaction.to,
-        type: transactionType,
-      };
-
-      // Log the transaction before adding to validation
-      this.logger.debug(
-        `Created UniversalTransaction - ID: ${universalTransaction.id}, Amount: ${JSON.stringify(universalTransaction.amount)}, Timestamp: ${universalTransaction.timestamp}, Status: ${universalTransaction.status}, Type: ${universalTransaction.type}, From: ${universalTransaction.from}, To: ${universalTransaction.to}`
-      );
-
-      transactions.push(universalTransaction);
-      this.logger.debug(`Successfully processed transaction ${universalTransaction.id} from ${providerId}`);
-    }
-
-    return ok(transactions);
   }
 
   /**
@@ -98,7 +32,7 @@ export class SolanaTransactionProcessor extends BaseProcessor<ApiClientRawData<S
    * Override the base transaction type mapping to handle Solana-specific cases.
    * Specifically handles self-transfers that represent staking rewards/penalties.
    */
-  protected mapTransactionType(
+  protected override mapTransactionType(
     blockchainTransaction: UniversalBlockchainTransaction,
     sessionContext: ImportSessionMetadata
   ): TransactionType {
@@ -165,6 +99,72 @@ export class SolanaTransactionProcessor extends BaseProcessor<ApiClientRawData<S
       if (batchTransactions && batchTransactions.length > 0) {
         transactions.push(...batchTransactions);
       }
+    }
+
+    return Promise.resolve(ok(transactions));
+  }
+
+  private processSingle(
+    rawDataItem: StoredRawData<ApiClientRawData<SolanaRawTransactionData>>,
+    sessionContext: ImportSessionMetadata
+  ): Result<UniversalTransaction[], string> {
+    const apiClientRawData = rawDataItem.rawData;
+    const { providerId, rawData } = apiClientRawData;
+
+    // Get the appropriate processor for this provider
+    const processor = TransactionMapperFactory.create(providerId);
+    if (!processor) {
+      return err(`No processor found for provider: ${providerId}`);
+    }
+
+    // Transform the full batch using the provider-specific processor
+    const transformResult = processor.map(rawData, sessionContext);
+
+    if (transformResult.isErr()) {
+      return err(`Transform failed for ${providerId}: ${transformResult.error}`);
+    }
+
+    const blockchainTransactions = transformResult.value;
+    const transactions: UniversalTransaction[] = [];
+
+    // Convert each UniversalBlockchainTransaction to UniversalTransaction
+    for (const blockchainTransaction of blockchainTransactions) {
+      // Determine proper transaction type based on Solana transaction flow
+      const transactionType = this.mapTransactionType(blockchainTransaction, sessionContext);
+
+      // Convert UniversalBlockchainTransaction to UniversalTransaction
+      const universalTransaction: UniversalTransaction = {
+        amount: createMoney(blockchainTransaction.amount, blockchainTransaction.currency),
+        datetime: new Date(blockchainTransaction.timestamp).toISOString(),
+        fee: blockchainTransaction.feeAmount
+          ? createMoney(blockchainTransaction.feeAmount, blockchainTransaction.feeCurrency || 'SOL')
+          : createMoney('0', 'SOL'),
+        from: blockchainTransaction.from,
+        id: blockchainTransaction.id,
+        metadata: {
+          blockchain: 'solana',
+          blockHeight: blockchainTransaction.blockHeight,
+          blockId: blockchainTransaction.blockId,
+          providerId: blockchainTransaction.providerId,
+          tokenAddress: blockchainTransaction.tokenAddress,
+          tokenDecimals: blockchainTransaction.tokenDecimals,
+          tokenSymbol: blockchainTransaction.tokenSymbol,
+        },
+        source: 'solana',
+        status: blockchainTransaction.status === 'success' ? 'ok' : 'failed',
+        symbol: blockchainTransaction.currency,
+        timestamp: blockchainTransaction.timestamp,
+        to: blockchainTransaction.to,
+        type: transactionType,
+      };
+
+      // Log the transaction before adding to validation
+      this.logger.debug(
+        `Created UniversalTransaction - ID: ${universalTransaction.id}, Amount: ${JSON.stringify(universalTransaction.amount)}, Timestamp: ${universalTransaction.timestamp}, Status: ${universalTransaction.status}, Type: ${universalTransaction.type}, From: ${universalTransaction.from}, To: ${universalTransaction.to}`
+      );
+
+      transactions.push(universalTransaction);
+      this.logger.debug(`Successfully processed transaction ${universalTransaction.id} from ${providerId}`);
     }
 
     return ok(transactions);

@@ -1,15 +1,15 @@
 import { getLogger } from '@crypto/shared-logger';
-import { maskAddress } from '@crypto/shared-utils';
+import { hasStringProperty, isErrorWithMessage, maskAddress } from '@crypto/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
-import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
-import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.ts';
-import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.ts';
-import type { UniversalBlockchainTransaction } from '../../shared/types.ts';
-import type { SolanaRawTransactionData } from '../clients/HeliusApiClient.ts';
-import { SolanaRawTransactionDataSchema } from '../schemas.ts';
-import type { HeliusTransaction } from '../types.ts';
-import { lamportsToSol } from '../utils.ts';
+import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.js';
+import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
+import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
+import type { UniversalBlockchainTransaction } from '../../shared/types.js';
+import type { SolanaRawTransactionData } from '../clients/HeliusApiClient.js';
+import { SolanaRawTransactionDataSchema } from '../schemas.js';
+import type { HeliusTransaction } from '../types.js';
+import { lamportsToSol } from '../utils.js';
 
 @RegisterTransactionMapper('helius')
 export class HeliusTransactionMapper extends BaseRawDataMapper<SolanaRawTransactionData> {
@@ -23,12 +23,39 @@ export class HeliusTransactionMapper extends BaseRawDataMapper<SolanaRawTransact
   };
   private static logger = getLogger('HeliusProcessor');
 
-  protected readonly schema = SolanaRawTransactionDataSchema;
+  static processAddressTransactions(
+    rawData: SolanaRawTransactionData,
+    userAddress: string
+  ): UniversalBlockchainTransaction[] {
+    const transactions: UniversalBlockchainTransaction[] = [];
+
+    for (const tx of rawData.normal) {
+      try {
+        const processedTx = this.transformTransaction(tx, userAddress);
+        if (processedTx) {
+          transactions.push(processedTx);
+        }
+      } catch (error) {
+        this.logger.debug(
+          `Failed to process transaction - Signature: ${tx.transaction.signatures?.[0] || tx.signature}, Error: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+    }
+
+    // Sort by timestamp (newest first)
+    transactions.sort((a, b) => b.timestamp - a.timestamp);
+
+    this.logger.debug(
+      `Successfully processed address transactions - UserAddress: ${maskAddress(userAddress)}, ProcessedTransactions: ${transactions.length}, TotalRawTransactions: ${rawData.normal.length}`
+    );
+
+    return transactions;
+  }
 
   /**
    * Detect staking operations by examining transaction instructions
    */
-  private static detectStakingOperation(tx: HeliusTransaction): 'delegate' | 'undelegate' | null {
+  private static detectStakingOperation(tx: HeliusTransaction): 'delegate' | 'undelegate' | undefined {
     try {
       // Solana Stake Program ID
       const STAKE_PROGRAM_ID = '11111111111111111111111111111112';
@@ -50,17 +77,17 @@ export class HeliusTransactionMapper extends BaseRawDataMapper<SolanaRawTransact
         }
       }
 
-      return null;
+      return undefined;
     } catch (error) {
-      this.logger.debug(`Failed to detect staking operation: ${error}`);
-      return null;
+      this.logger.debug(`Failed to detect staking operation: ${String(error)}`);
+      return undefined;
     }
   }
 
   private static extractTokenTransaction(
     tx: HeliusTransaction,
     userAddress: string
-  ): UniversalBlockchainTransaction | null {
+  ): UniversalBlockchainTransaction | undefined {
     try {
       // Look for token balance changes in preTokenBalances and postTokenBalances
       const preTokenBalances = tx.meta.preTokenBalances || [];
@@ -74,7 +101,7 @@ export class HeliusTransactionMapper extends BaseRawDataMapper<SolanaRawTransact
         }
 
         const preBalance = preTokenBalances.find(
-          pre => pre.accountIndex === postBalance.accountIndex && pre.mint === postBalance.mint
+          (pre) => pre.accountIndex === postBalance.accountIndex && pre.mint === postBalance.mint
         );
 
         const preAmount = preBalance ? parseFloat(preBalance.uiTokenAmount.uiAmountString || '0') : 0;
@@ -114,12 +141,12 @@ export class HeliusTransactionMapper extends BaseRawDataMapper<SolanaRawTransact
         };
       }
 
-      return null;
+      return undefined;
     } catch (error) {
       this.logger.debug(
         `Failed to extract token transaction - Signature: ${tx.transaction.signatures?.[0] || tx.signature}, Error: ${error instanceof Error ? error.message : String(error)}`
       );
-      return null;
+      return undefined;
     }
   }
 
@@ -127,50 +154,21 @@ export class HeliusTransactionMapper extends BaseRawDataMapper<SolanaRawTransact
     return this.KNOWN_TOKEN_SYMBOLS[mintAddress] || `${mintAddress.slice(0, 6)}...`;
   }
 
-  static processAddressTransactions(
-    rawData: SolanaRawTransactionData,
-    userAddress: string
-  ): UniversalBlockchainTransaction[] {
-    const transactions: UniversalBlockchainTransaction[] = [];
-
-    for (const tx of rawData.normal) {
-      try {
-        const processedTx = this.transformTransaction(tx, userAddress);
-        if (processedTx) {
-          transactions.push(processedTx);
-        }
-      } catch (error) {
-        this.logger.debug(
-          `Failed to process transaction - Signature: ${tx.transaction.signatures?.[0] || tx.signature}, Error: ${error instanceof Error ? error.message : String(error)}`
-        );
-      }
-    }
-
-    // Sort by timestamp (newest first)
-    transactions.sort((a, b) => b.timestamp - a.timestamp);
-
-    this.logger.debug(
-      `Successfully processed address transactions - UserAddress: ${maskAddress(userAddress)}, ProcessedTransactions: ${transactions.length}, TotalRawTransactions: ${rawData.normal.length}`
-    );
-
-    return transactions;
-  }
-
   private static transformTransaction(
     tx: HeliusTransaction,
     userAddress: string
-  ): UniversalBlockchainTransaction | null {
+  ): UniversalBlockchainTransaction | undefined {
     try {
       // Skip failed transactions - they shouldn't be processed
       if (tx.meta.err) {
         this.logger.debug(
           `Skipping failed transaction - Hash: ${tx.transaction.signatures?.[0] || tx.signature}, Error: ${JSON.stringify(tx.meta.err)}`
         );
-        return null;
+        return undefined;
       }
 
       const accountKeys = tx.transaction.message.accountKeys;
-      const userIndex = accountKeys.findIndex(key => key === userAddress);
+      const userIndex = accountKeys.findIndex((key) => key === userAddress);
 
       // First check for token transfers - these are more important than SOL transfers
       const tokenTransaction = this.extractTokenTransaction(tx, userAddress);
@@ -257,15 +255,15 @@ export class HeliusTransactionMapper extends BaseRawDataMapper<SolanaRawTransact
       this.logger.debug(
         `Transaction not relevant to user - Signature: ${tx.transaction.signatures?.[0] || tx.signature}`
       );
-      return null;
+      return undefined;
     } catch (error) {
       this.logger.warn(
         `Failed to transform transaction - Signature: ${tx.transaction.signatures?.[0] || tx.signature}, Error: ${error instanceof Error ? error.message : String(error)}`
       );
-      return null;
+      return undefined;
     }
   }
-
+  protected readonly schema = SolanaRawTransactionDataSchema;
   protected mapInternal(
     rawData: SolanaRawTransactionData,
     sessionContext: ImportSessionMetadata

@@ -26,7 +26,7 @@ export interface KrakenCsvValidationResult {
  * Batch validation result for multiple rows
  */
 export interface KrakenCsvBatchValidationResult {
-  invalid: Array<{ data: unknown; errors: z.ZodError; rowIndex: number }>;
+  invalid: { data: unknown; errors: z.ZodError; rowIndex: number }[];
   totalRows: number;
   valid: ValidatedCsvKrakenLedgerRow[];
 }
@@ -49,7 +49,7 @@ export function validateKrakenCsvRow(data: unknown): KrakenCsvValidationResult {
  */
 export function validateKrakenCsvRows(data: unknown[]): KrakenCsvBatchValidationResult {
   const valid: ValidatedCsvKrakenLedgerRow[] = [];
-  const invalid: Array<{ data: unknown; errors: z.ZodError; rowIndex: number }> = [];
+  const invalid: { data: unknown; errors: z.ZodError; rowIndex: number }[] = [];
 
   data.forEach((item, index) => {
     const result = validateKrakenCsvRow(item);
@@ -78,7 +78,7 @@ export function formatKrakenValidationErrors(result: KrakenCsvBatchValidationRes
   const errorSummary = result.invalid
     .slice(0, 3) // Show first 3 errors
     .map(({ errors, rowIndex }) => {
-      const fieldErrors = errors.issues.map(issue => `${issue.path.join('.')}: ${issue.message}`).join('; ');
+      const fieldErrors = errors.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; ');
       return `Row ${rowIndex + 1}: ${fieldErrors}`;
     })
     .join(' | ');

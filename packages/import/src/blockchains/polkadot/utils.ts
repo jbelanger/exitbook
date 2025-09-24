@@ -31,13 +31,13 @@ export function derivePolkadotAddressVariants(primaryAddress: string): string[] 
     ];
 
     // Generate address variants for each format
-    const variants = commonFormats.map(format => encodeAddress(publicKey, format));
+    const variants = commonFormats.map((format) => encodeAddress(publicKey, format));
 
     // Remove duplicates and ensure primary address is included
     const uniqueVariants = Array.from(new Set([primaryAddress, ...variants]));
 
     return uniqueVariants;
-  } catch (error) {
+  } catch (_error) {
     // If decoding fails, return just the primary address
     // This handles invalid addresses gracefully
     return [primaryAddress];
@@ -66,7 +66,7 @@ export function isSamePolkadotAddress(address1: string, address2: string): boole
     }
 
     return true;
-  } catch (error) {
+  } catch (_error) {
     // If either address is invalid, fall back to string comparison
     return address1 === address2;
   }

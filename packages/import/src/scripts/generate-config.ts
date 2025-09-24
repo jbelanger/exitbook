@@ -2,9 +2,9 @@
 /**
  * Generate blockchain explorer configuration template from registered providers
  */
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // Import all providers to trigger registration
 import '../blockchains/registry/register-providers.ts';
@@ -36,12 +36,12 @@ function generateConfiguration(): void {
   const config: Record<
     string,
     {
-      explorers: Array<{
+      explorers: {
         enabled: boolean;
         name: string;
         networks?: Record<string, unknown>;
         priority?: number;
-      }>;
+      }[];
     }
   > = {};
 
@@ -122,7 +122,7 @@ function generateConfiguration(): void {
 
   // Write configuration file
   const configPath = path.join(__dirname, '../../config/blockchain-explorers-template.json');
-  const configJson = JSON.stringify(config, null, 2);
+  const configJson = JSON.stringify(config, undefined, 2);
 
   try {
     // Ensure config directory exists
@@ -143,7 +143,7 @@ function generateConfiguration(): void {
 
     for (const [blockchain, blockchainConfig] of Object.entries(config)) {
       const { explorers } = blockchainConfig;
-      const enabled = explorers.filter(e => e.enabled);
+      const enabled = explorers.filter((e) => e.enabled);
 
       console.log(`${blockchain.toUpperCase()}:`);
       console.log(`  Providers: ${explorers.length} (${enabled.length} enabled)`);
@@ -158,14 +158,14 @@ function generateConfiguration(): void {
     console.log('  4. Set up required API keys in environment variables:');
 
     // Show required environment variables
-    const apiKeyProviders = allProviders.filter(p => p.requiresApiKey);
+    const apiKeyProviders = allProviders.filter((p) => p.requiresApiKey);
     if (apiKeyProviders.length > 0) {
-      apiKeyProviders.forEach(provider => {
+      for (const provider of apiKeyProviders) {
         const metadata = ProviderRegistry.getMetadata(provider.blockchain, provider.name);
         if (metadata?.apiKeyEnvVar) {
           console.log(`     export ${metadata.apiKeyEnvVar}="your_${provider.name}_api_key"`);
         }
-      });
+      }
     }
 
     console.log('  5. Run `pnpm run config:validate` to verify');

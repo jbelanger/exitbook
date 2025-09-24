@@ -1,8 +1,8 @@
-import { maskAddress } from '@crypto/shared-utils';
+import { hasStringProperty, isErrorWithMessage, maskAddress } from '@crypto/shared-utils';
 
-import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
-import { RegisterApiClient } from '../../shared/registry/decorators.ts';
-import type { ProviderOperation } from '../../shared/types.ts';
+import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.js';
+import { RegisterApiClient } from '../../shared/registry/decorators.js';
+import type { ProviderOperation } from '../../shared/types.js';
 import type {
   AlchemyAssetTransfer,
   AlchemyAssetTransferParams,
@@ -11,7 +11,7 @@ import type {
   AlchemyTokenBalancesResponse,
   EtherscanBalance,
   JsonRpcResponse,
-} from '../types.ts';
+} from '../types.js';
 
 @RegisterApiClient({
   blockchain: 'ethereum',
@@ -54,6 +54,52 @@ export class AlchemyApiClient extends BaseRegistryProvider {
     this.logger.debug(
       `Initialized AlchemyApiClient from registry metadata - Network: ${this.network}, BaseUrl: ${this.baseUrl.replace(this.apiKey, 'HIDDEN')}`
     );
+  }
+
+  async execute<T>(operation: ProviderOperation<T>): Promise<T> {
+    this.logger.debug(`Executing operation: ${operation.type}`);
+
+    switch (operation.type) {
+      case 'getRawAddressTransactions': {
+        const { address, since } = operation;
+        this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
+        return this.getRawAddressTransactions(address, since) as Promise<T>;
+      }
+      case 'getRawAddressBalance': {
+        const { address } = operation;
+        this.logger.debug(`Fetching raw address balance - Address: ${maskAddress(address)}`);
+        return this.getRawAddressBalance(address) as Promise<T>;
+      }
+      case 'getTokenTransactions': {
+        const { address, contractAddress, since } = operation;
+        this.logger.debug(
+          `Fetching token transactions - Address: ${maskAddress(address)}, Contract: ${contractAddress || 'all'}`
+        );
+        return this.getTokenTransactions(address, contractAddress, since) as Promise<T>;
+      }
+      case 'getRawTokenBalances': {
+        const { address, contractAddresses } = operation;
+        this.logger.debug(`Fetching raw token balances - Address: ${maskAddress(address)}`);
+        return this.getRawTokenBalances(address, contractAddresses) as Promise<T>;
+      }
+      default:
+        throw new Error(`Unsupported operation: ${operation.type}`);
+    }
+  }
+
+  async isHealthy(): Promise<boolean> {
+    try {
+      const response = await this.httpClient.post<JsonRpcResponse<string>>(`/${this.apiKey}`, {
+        id: 1,
+        jsonrpc: '2.0',
+        method: 'eth_blockNumber',
+        params: [],
+      });
+      return response && response.result !== undefined;
+    } catch (error) {
+      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
+      return false;
+    }
   }
 
   private async getAssetTransfers(
@@ -215,52 +261,6 @@ export class AlchemyApiClient extends BaseRegistryProvider {
         `Failed to fetch raw token transactions for ${address} - Error: ${error instanceof Error ? error.message : String(error)}`
       );
       throw error;
-    }
-  }
-
-  async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug(`Executing operation: ${operation.type}`);
-
-    switch (operation.type) {
-      case 'getRawAddressTransactions': {
-        const { address, since } = operation;
-        this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
-        return this.getRawAddressTransactions(address, since) as Promise<T>;
-      }
-      case 'getRawAddressBalance': {
-        const { address } = operation;
-        this.logger.debug(`Fetching raw address balance - Address: ${maskAddress(address)}`);
-        return this.getRawAddressBalance(address) as Promise<T>;
-      }
-      case 'getTokenTransactions': {
-        const { address, contractAddress, since } = operation;
-        this.logger.debug(
-          `Fetching token transactions - Address: ${maskAddress(address)}, Contract: ${contractAddress || 'all'}`
-        );
-        return this.getTokenTransactions(address, contractAddress, since) as Promise<T>;
-      }
-      case 'getRawTokenBalances': {
-        const { address, contractAddresses } = operation;
-        this.logger.debug(`Fetching raw token balances - Address: ${maskAddress(address)}`);
-        return this.getRawTokenBalances(address, contractAddresses) as Promise<T>;
-      }
-      default:
-        throw new Error(`Unsupported operation: ${operation.type}`);
-    }
-  }
-
-  async isHealthy(): Promise<boolean> {
-    try {
-      const response = await this.httpClient.post<JsonRpcResponse<string>>(`/${this.apiKey}`, {
-        id: 1,
-        jsonrpc: '2.0',
-        method: 'eth_blockNumber',
-        params: [],
-      });
-      return response && response.result !== undefined;
-    } catch (error) {
-      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
     }
   }
 }

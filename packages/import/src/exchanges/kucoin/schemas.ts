@@ -18,13 +18,13 @@ export const CsvSpotOrderRowSchema = z
     'Avg. Filled Price': z
       .string()
       .regex(/^\d+(\.\d+)?$/, 'Average Filled Price must be a valid positive number format')
-      .refine(val => !isNaN(parseFloat(val)), 'Average Filled Price must be parseable as number'),
+      .refine((val) => !isNaN(parseFloat(val)), 'Average Filled Price must be parseable as number'),
 
     /** Trading fee */
     Fee: z
       .string()
       .regex(/^-?\d+(\.\d+)?$/, 'Fee must be a valid number format')
-      .refine(val => !isNaN(parseFloat(val)), 'Fee must be parseable as number'),
+      .refine((val) => !isNaN(parseFloat(val)), 'Fee must be parseable as number'),
 
     /** Fee currency */
     'Fee Currency': z.string().min(1, 'Fee Currency must not be empty'),
@@ -33,7 +33,7 @@ export const CsvSpotOrderRowSchema = z
     'Filled Amount': z
       .string()
       .regex(/^\d+(\.\d+)?$/, 'Filled Amount must be a valid positive number format')
-      .refine(val => !isNaN(parseFloat(val)), 'Filled Amount must be parseable as number'),
+      .refine((val) => !isNaN(parseFloat(val)), 'Filled Amount must be parseable as number'),
 
     /** When the order was filled (UTC) */
     'Filled Time(UTC)': z
@@ -45,19 +45,19 @@ export const CsvSpotOrderRowSchema = z
     'Filled Volume': z
       .string()
       .regex(/^\d+(\.\d+)?$/, 'Filled Volume must be a valid positive number format')
-      .refine(val => !isNaN(parseFloat(val)), 'Filled Volume must be parseable as number'),
+      .refine((val) => !isNaN(parseFloat(val)), 'Filled Volume must be parseable as number'),
 
     /** Filled volume in USDT equivalent */
     'Filled Volume (USDT)': z
       .string()
       .regex(/^\d+(\.\d+)?$/, 'Filled Volume (USDT) must be a valid positive number format')
-      .refine(val => !isNaN(parseFloat(val)), 'Filled Volume (USDT) must be parseable as number'),
+      .refine((val) => !isNaN(parseFloat(val)), 'Filled Volume (USDT) must be parseable as number'),
 
     /** Original order amount */
     'Order Amount': z
       .string()
       .regex(/^\d+(\.\d+)?$/, 'Order Amount must be a valid positive number format')
-      .refine(val => !isNaN(parseFloat(val)), 'Order Amount must be parseable as number'),
+      .refine((val) => !isNaN(parseFloat(val)), 'Order Amount must be parseable as number'),
 
     /** Unique order identifier */
     'Order ID': z.string().min(1, 'Order ID must not be empty'),
@@ -66,7 +66,7 @@ export const CsvSpotOrderRowSchema = z
     'Order Price': z
       .string()
       .regex(/^\d+(\.\d+)?$/, 'Order Price must be a valid positive number format')
-      .refine(val => !isNaN(parseFloat(val)), 'Order Price must be parseable as number'),
+      .refine((val) => !isNaN(parseFloat(val)), 'Order Price must be parseable as number'),
 
     /** When the order was placed (UTC) */
     'Order Time(UTC)': z
@@ -79,7 +79,7 @@ export const CsvSpotOrderRowSchema = z
       .string()
       .min(1, 'Order Type must not be empty')
       .refine(
-        val => ['limit', 'market', 'stop', 'stop_limit'].includes(val.toLowerCase()),
+        (val) => ['limit', 'market', 'stop', 'stop_limit'].includes(val.toLowerCase()),
         'Order Type must be a valid KuCoin order type'
       ),
 
@@ -87,14 +87,14 @@ export const CsvSpotOrderRowSchema = z
     Side: z
       .string()
       .min(1, 'Side must not be empty')
-      .refine(val => ['buy', 'sell'].includes(val.toLowerCase()), 'Side must be either buy or sell'),
+      .refine((val) => ['buy', 'sell'].includes(val.toLowerCase()), 'Side must be either buy or sell'),
 
     /** Order status */
     Status: z
       .string()
       .min(1, 'Status must not be empty')
       .refine(
-        val => ['filled', 'cancelled', 'partial'].includes(val.toLowerCase()),
+        (val) => ['cancelled', 'filled', 'partial'].includes(val.toLowerCase()),
         'Status must be a valid KuCoin order status'
       ),
 
@@ -105,7 +105,7 @@ export const CsvSpotOrderRowSchema = z
     Tax: z
       .string()
       .regex(/^-?\d+(\.\d+)?$/, 'Tax must be a valid number format')
-      .refine(val => !isNaN(parseFloat(val)), 'Tax must be parseable as number')
+      .refine((val) => !isNaN(parseFloat(val)), 'Tax must be parseable as number')
       .optional(),
 
     /** User ID */
@@ -125,7 +125,7 @@ export const CsvDepositWithdrawalRowSchema = z
     Amount: z
       .string()
       .regex(/^\d+(\.\d+)?$/, 'Amount must be a valid positive number format')
-      .refine(val => !isNaN(parseFloat(val)), 'Amount must be parseable as number'),
+      .refine((val) => !isNaN(parseFloat(val)), 'Amount must be parseable as number'),
 
     /** Cryptocurrency symbol */
     Coin: z.string().min(1, 'Coin must not be empty'),
@@ -137,7 +137,7 @@ export const CsvDepositWithdrawalRowSchema = z
     Fee: z
       .string()
       .regex(/^\d+(\.\d+)?$/, 'Fee must be a valid positive number format')
-      .refine(val => !isNaN(parseFloat(val)), 'Fee must be parseable as number'),
+      .refine((val) => !isNaN(parseFloat(val)), 'Fee must be parseable as number'),
 
     /** Blockchain transaction hash */
     Hash: z.string(), // Can be empty for failed transactions
@@ -150,8 +150,8 @@ export const CsvDepositWithdrawalRowSchema = z
       .string()
       .min(1, 'Status must not be empty')
       .refine(
-        val =>
-          ['success', 'processing', 'failure', 'wallet processing', 'wallet processing fail'].includes(
+        (val) =>
+          ['failure', 'processing', 'success', 'wallet processing', 'wallet processing fail'].includes(
             val.toLowerCase()
           ),
         'Status must be a valid KuCoin transaction status'
@@ -186,7 +186,7 @@ export const CsvAccountHistoryRowSchema = z
     Amount: z
       .string()
       .regex(/^-?\d+(\.\d+)?$/, 'Amount must be a valid number format')
-      .refine(val => !isNaN(parseFloat(val)), 'Amount must be parseable as number'),
+      .refine((val) => !isNaN(parseFloat(val)), 'Amount must be parseable as number'),
 
     /** Currency symbol */
     Currency: z.string().min(1, 'Currency must not be empty'),
@@ -195,7 +195,7 @@ export const CsvAccountHistoryRowSchema = z
     Fee: z
       .string()
       .regex(/^-?\d+(\.\d+)?$/, 'Fee must be a valid number format')
-      .refine(val => !isNaN(parseFloat(val)), 'Fee must be parseable as number'),
+      .refine((val) => !isNaN(parseFloat(val)), 'Fee must be parseable as number'),
 
     /** Transaction remark/description */
     Remark: z.string(),
@@ -204,7 +204,7 @@ export const CsvAccountHistoryRowSchema = z
     Side: z
       .string()
       .min(1, 'Side must not be empty')
-      .refine(val => ['in', 'out'].includes(val.toLowerCase()), 'Side must be either in or out'),
+      .refine((val) => ['in', 'out'].includes(val.toLowerCase()), 'Side must be either in or out'),
 
     /** Transaction timestamp (UTC) */
     'Time(UTC)': z
@@ -217,8 +217,8 @@ export const CsvAccountHistoryRowSchema = z
       .string()
       .min(1, 'Type must not be empty')
       .refine(
-        val =>
-          ['trade', 'deposit', 'withdrawal', 'transfer', 'airdrop', 'reward', 'rebate'].includes(val.toLowerCase()),
+        (val) =>
+          ['airdrop', 'deposit', 'rebate', 'reward', 'trade', 'transfer', 'withdrawal'].includes(val.toLowerCase()),
         'Type must be a valid KuCoin account history type'
       ),
 

@@ -5,7 +5,8 @@ import { type Result, err, ok } from 'neverthrow';
 
 import { BaseProcessor } from '../../shared/processors/base-processor.ts';
 import type { ApiClientRawData } from '../../shared/processors/interfaces.ts';
-import type { CsvAccountHistoryRow, CsvDepositWithdrawalRow, CsvKuCoinRawData, CsvSpotOrderRow } from './types.ts';
+
+import type { CsvAccountHistoryRow, CsvDepositWithdrawalRow, CsvKuCoinRawData, CsvSpotOrderRow } from './types.js';
 
 /**
  * Processor for KuCoin CSV data.
@@ -17,6 +18,31 @@ import type { CsvAccountHistoryRow, CsvDepositWithdrawalRow, CsvKuCoinRawData, C
 export class KucoinProcessor extends BaseProcessor<ApiClientRawData<CsvKuCoinRawData>> {
   constructor() {
     super('kucoin');
+  }
+
+  protected canProcessSpecific(sourceType: string): boolean {
+    return sourceType === 'exchange';
+  }
+
+  protected async processInternal(
+    rawDataItems: StoredRawData<ApiClientRawData<CsvKuCoinRawData>>[]
+  ): Promise<Result<UniversalTransaction[], string>> {
+    const allTransactions: UniversalTransaction[] = [];
+
+    for (const rawDataItem of rawDataItems) {
+      const result = this.processSingle(rawDataItem);
+      if (result.isErr()) {
+        this.logger.warn(`Failed to process KuCoin batch: ${result.error}`);
+        continue;
+      }
+
+      const transactions = result.value;
+      if (transactions) {
+        allTransactions.push(...transactions);
+      }
+    }
+
+    return Promise.resolve(ok(allTransactions));
   }
 
   private convertAccountHistoryConvertToTransaction(
@@ -37,9 +63,9 @@ export class KucoinProcessor extends BaseProcessor<ApiClientRawData<CsvKuCoinRaw
     const totalFee = withdrawalFee + depositFee;
 
     return {
-      amount: createMoney(buyAmount, buyCurrency),
+      amount: createMoney(buyAmount.toString(), buyCurrency),
       datetime: timestamp,
-      fee: totalFee > 0 ? createMoney(totalFee, sellCurrency) : createMoney(0, sellCurrency),
+      fee: totalFee > 0 ? createMoney(totalFee.toString(), sellCurrency) : createMoney('0', sellCurrency),
       id: `${withdrawal.UID}-${timestampMs}-convert-market-${sellCurrency}-${buyCurrency}`,
       metadata: {
         buyAmount,
@@ -53,7 +79,7 @@ export class KucoinProcessor extends BaseProcessor<ApiClientRawData<CsvKuCoinRaw
         withdrawalRow: withdrawal,
       },
       network: 'exchange',
-      price: createMoney(sellAmount, sellCurrency),
+      price: createMoney(sellAmount.toString(), sellCurrency),
       source: 'kucoin',
       status: this.mapStatus('success', 'deposit_withdrawal'),
       symbol: `${buyCurrency}/${sellCurrency}`,
@@ -68,9 +94,9 @@ export class KucoinProcessor extends BaseProcessor<ApiClientRawData<CsvKuCoinRaw
     const fee = row.Fee ? parseDecimal(row.Fee).toNumber() : 0;
 
     return {
-      amount: createMoney(amount, row.Coin),
+      amount: createMoney(amount.toString(), row.Coin),
       datetime: row['Time(UTC)'],
-      fee: fee > 0 ? createMoney(fee, row.Coin) : createMoney(0, row.Coin),
+      fee: fee > 0 ? createMoney(fee.toString(), row.Coin) : createMoney('0', row.Coin),
       id: row.Hash || `${row.UID}-${timestamp}-${row.Coin}-deposit-${row.Amount}`,
       metadata: {
         address: row['Deposit Address'],
@@ -95,9 +121,9 @@ export class KucoinProcessor extends BaseProcessor<ApiClientRawData<CsvKuCoinRaw
     const fee = parseDecimal(row.Fee).toNumber();
 
     return {
-      amount: createMoney(filledAmount, baseCurrency || 'unknown'),
+      amount: createMoney(filledAmount.toString(), baseCurrency || 'unknown'),
       datetime: row['Filled Time(UTC)'],
-      fee: createMoney(fee, row['Fee Currency']),
+      fee: createMoney(fee.toString(), row['Fee Currency']),
       id: row['Order ID'],
       metadata: {
         filledVolume,
@@ -110,7 +136,7 @@ export class KucoinProcessor extends BaseProcessor<ApiClientRawData<CsvKuCoinRaw
         side: row.Side.toLowerCase() as 'buy' | 'sell',
       },
       network: 'exchange',
-      price: createMoney(filledVolume, quoteCurrency || 'unknown'),
+      price: createMoney(filledVolume.toString(), quoteCurrency || 'unknown'),
       source: 'kucoin',
       status: this.mapStatus(row.Status, 'spot'),
       symbol: `${baseCurrency}/${quoteCurrency}`,
@@ -125,9 +151,9 @@ export class KucoinProcessor extends BaseProcessor<ApiClientRawData<CsvKuCoinRaw
     const fee = row.Fee ? parseDecimal(row.Fee).toNumber() : 0;
 
     return {
-      amount: createMoney(amount, row.Coin),
+      amount: createMoney(amount.toString(), row.Coin),
       datetime: row['Time(UTC)'],
-      fee: fee > 0 ? createMoney(fee, row.Coin) : createMoney(0, row.Coin),
+      fee: fee > 0 ? createMoney(fee.toString(), row.Coin) : createMoney('0', row.Coin),
       id: row.Hash || `${row.UID}-${timestamp}-${row.Coin}-withdrawal-${row.Amount}`,
       metadata: {
         address: row['Withdrawal Address/Account'],
@@ -185,7 +211,7 @@ export class KucoinProcessor extends BaseProcessor<ApiClientRawData<CsvKuCoinRaw
    */
   private processAccountHistory(filteredRows: CsvAccountHistoryRow[]): UniversalTransaction[] {
     const convertTransactions: UniversalTransaction[] = [];
-    const convertMarketRows = filteredRows.filter(row => row.Type === 'Convert Market');
+    const convertMarketRows = filteredRows.filter((row) => row.Type === 'Convert Market');
 
     // Group convert market entries by timestamp
     const convertGroups = new Map<string, CsvAccountHistoryRow[]>();
@@ -202,8 +228,8 @@ export class KucoinProcessor extends BaseProcessor<ApiClientRawData<CsvKuCoinRaw
     for (const [timestamp, group] of convertGroups) {
       if (group.length === 2) {
         // Should be one deposit and one withdrawal
-        const deposit = group.find(row => row.Side === 'Deposit');
-        const withdrawal = group.find(row => row.Side === 'Withdrawal');
+        const deposit = group.find((row) => row.Side === 'Deposit');
+        const withdrawal = group.find((row) => row.Side === 'Withdrawal');
 
         if (deposit && withdrawal) {
           const convertTx = this.convertAccountHistoryConvertToTransaction(deposit, withdrawal, timestamp);
@@ -257,30 +283,5 @@ export class KucoinProcessor extends BaseProcessor<ApiClientRawData<CsvKuCoinRaw
       const errorMessage = error instanceof Error ? error.message : String(error);
       return err(`Failed to process KuCoin batch: ${errorMessage}`);
     }
-  }
-
-  protected canProcessSpecific(sourceType: string): boolean {
-    return sourceType === 'exchange';
-  }
-
-  protected async processInternal(
-    rawDataItems: StoredRawData<ApiClientRawData<CsvKuCoinRawData>>[]
-  ): Promise<Result<UniversalTransaction[], string>> {
-    const allTransactions: UniversalTransaction[] = [];
-
-    for (const rawDataItem of rawDataItems) {
-      const result = this.processSingle(rawDataItem);
-      if (result.isErr()) {
-        this.logger.warn(`Failed to process KuCoin batch: ${result.error}`);
-        continue;
-      }
-
-      const transactions = result.value;
-      if (transactions) {
-        allTransactions.push(...transactions);
-      }
-    }
-
-    return ok(allTransactions);
   }
 }

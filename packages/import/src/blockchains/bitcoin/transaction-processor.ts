@@ -1,15 +1,15 @@
 import type { UniversalTransaction } from '@crypto/core';
-// Import processors to trigger registration
 import type { StoredRawData } from '@crypto/data';
 import { createMoney } from '@crypto/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
-import { BaseProcessor } from '../../shared/processors/base-processor.ts';
-import type { ApiClientRawData, ImportSessionMetadata } from '../../shared/processors/interfaces.ts';
-import { TransactionMapperFactory } from '../../shared/processors/processor-registry.ts';
+import { BaseProcessor } from '../../shared/processors/base-processor.js';
+import type { ApiClientRawData, ImportSessionMetadata } from '../../shared/processors/interfaces.js';
+import { TransactionMapperFactory } from '../../shared/processors/processor-registry.js';
+
 // Import processors to trigger registration
-import './mappers/index.ts';
-import type { BitcoinTransaction } from './types.ts';
+import './mappers/index.js';
+import type { BitcoinTransaction } from './types.js';
 
 /**
  * Bitcoin transaction processor that converts raw blockchain transaction data
@@ -19,93 +19,6 @@ import type { BitcoinTransaction } from './types.ts';
 export class BitcoinTransactionProcessor extends BaseProcessor<ApiClientRawData<BitcoinTransaction>> {
   constructor() {
     super('bitcoin');
-  }
-
-  /**
-   * Extract rich Bitcoin-specific session context from session metadata.
-   */
-  private createSessionContext(
-    sessionMetadata: ImportSessionMetadata,
-    rawDataItems: StoredRawData<ApiClientRawData<BitcoinTransaction>>[]
-  ): ImportSessionMetadata {
-    // Extract derived addresses from session metadata
-    const derivedAddresses: string[] = sessionMetadata.derivedAddresses ?? [];
-
-    // Collect source addresses from raw data items
-    const sourceAddresses: string[] = [];
-    for (const item of rawDataItems) {
-      const rawData = item.rawData as ApiClientRawData<BitcoinTransaction>;
-      if (rawData.sourceAddress && !sourceAddresses.includes(rawData.sourceAddress)) {
-        sourceAddresses.push(rawData.sourceAddress);
-      }
-    }
-
-    return {
-      address: sessionMetadata.address,
-      derivedAddresses,
-      ...sessionMetadata,
-    };
-  }
-
-  /**
-   * Process a single transaction with shared session context.
-   */
-  private processSingleWithContext(
-    rawDataItem: StoredRawData<ApiClientRawData<BitcoinTransaction>>,
-    sessionContext: ImportSessionMetadata
-  ): Result<UniversalTransaction | null, string> {
-    const apiClientRawData = rawDataItem.rawData;
-    const { providerId, rawData } = apiClientRawData;
-
-    // Get the appropriate processor for this provider
-    const processor = TransactionMapperFactory.create(providerId);
-    if (!processor) {
-      return err(`No processor found for provider: ${providerId}`);
-    }
-
-    // Transform using the provider-specific processor with shared session context
-    const transformResult = processor.map(rawData, sessionContext);
-
-    if (transformResult.isErr()) {
-      return err(`Transform failed for ${providerId}: ${transformResult.error}`);
-    }
-
-    const blockchainTransactions = transformResult.value;
-    if (blockchainTransactions.length === 0) {
-      return err(`No transactions returned from ${providerId} processor`);
-    }
-
-    // Bitcoin processors return array with single transaction
-    const blockchainTransaction = blockchainTransactions[0];
-
-    // Determine proper transaction type based on Bitcoin transaction flow
-    const transactionType = this.mapTransactionType(blockchainTransaction, sessionContext);
-
-    // Convert UniversalBlockchainTransaction to UniversalTransaction
-    const universalTransaction: UniversalTransaction = {
-      amount: createMoney(blockchainTransaction.amount, blockchainTransaction.currency),
-      datetime: new Date(blockchainTransaction.timestamp).toISOString(),
-      fee: blockchainTransaction.feeAmount
-        ? createMoney(blockchainTransaction.feeAmount, blockchainTransaction.feeCurrency || 'BTC')
-        : createMoney(0, 'BTC'),
-      from: blockchainTransaction.from,
-      id: blockchainTransaction.id,
-      metadata: {
-        blockchain: 'bitcoin',
-        blockHeight: blockchainTransaction.blockHeight,
-        blockId: blockchainTransaction.blockId,
-        providerId: blockchainTransaction.providerId,
-      },
-      source: 'bitcoin',
-      status: blockchainTransaction.status === 'success' ? 'ok' : 'failed',
-      symbol: blockchainTransaction.currency,
-      timestamp: blockchainTransaction.timestamp,
-      to: blockchainTransaction.to,
-      type: transactionType,
-    };
-
-    this.logger.debug(`Successfully processed transaction ${universalTransaction.id} from ${providerId}`);
-    return ok(universalTransaction);
   }
 
   /**
@@ -137,7 +50,7 @@ export class BitcoinTransactionProcessor extends BaseProcessor<ApiClientRawData<
 
     // Process all transactions with shared session context
     for (const item of rawDataItems) {
-      const typedItem = item as StoredRawData<ApiClientRawData<BitcoinTransaction>>;
+      const typedItem = item;
       const result = this.processSingleWithContext(typedItem, sessionContext);
       if (result.isErr()) {
         this.logger.warn(`Failed to process transaction ${item.id}: ${result.error}`);
@@ -151,6 +64,97 @@ export class BitcoinTransactionProcessor extends BaseProcessor<ApiClientRawData<
     }
 
     this.logger.info(`Bitcoin processing completed: ${transactions.length} transactions processed successfully`);
-    return ok(transactions);
+    return Promise.resolve(ok(transactions));
+  }
+
+  /**
+   * Extract rich Bitcoin-specific session context from session metadata.
+   */
+  private createSessionContext(
+    sessionMetadata: ImportSessionMetadata,
+    rawDataItems: StoredRawData<ApiClientRawData<BitcoinTransaction>>[]
+  ): ImportSessionMetadata {
+    // Extract derived addresses from session metadata
+    const derivedAddresses: string[] = sessionMetadata.derivedAddresses ?? [];
+
+    // Collect source addresses from raw data items
+    const sourceAddresses: string[] = [];
+    for (const item of rawDataItems) {
+      const rawData = item.rawData;
+      if (rawData.sourceAddress && !sourceAddresses.includes(rawData.sourceAddress)) {
+        sourceAddresses.push(rawData.sourceAddress);
+      }
+    }
+
+    return {
+      address: sessionMetadata.address,
+      derivedAddresses,
+      ...sessionMetadata,
+    };
+  }
+
+  /**
+   * Process a single transaction with shared session context.
+   */
+  private processSingleWithContext(
+    rawDataItem: StoredRawData<ApiClientRawData<BitcoinTransaction>>,
+    sessionContext: ImportSessionMetadata
+  ): Result<UniversalTransaction | undefined, string> {
+    const apiClientRawData = rawDataItem.rawData;
+    const { providerId, rawData } = apiClientRawData;
+
+    // Get the appropriate processor for this provider
+    const processor = TransactionMapperFactory.create(providerId);
+    if (!processor) {
+      return err(`No processor found for provider: ${providerId}`);
+    }
+
+    // Transform using the provider-specific processor with shared session context
+    const transformResult = processor.map(rawData, sessionContext);
+
+    if (transformResult.isErr()) {
+      return err(`Transform failed for ${providerId}: ${transformResult.error}`);
+    }
+
+    const blockchainTransactions = transformResult.value;
+    if (blockchainTransactions.length === 0) {
+      return err(`No transactions returned from ${providerId} processor`);
+    }
+
+    // Bitcoin processors return array with single transaction
+    const blockchainTransaction = blockchainTransactions[0];
+
+    if (!blockchainTransaction) {
+      return err(`No valid transaction object returned from ${providerId} processor`);
+    }
+
+    // Determine proper transaction type based on Bitcoin transaction flow
+    const transactionType = this.mapTransactionType(blockchainTransaction, sessionContext);
+
+    // Convert UniversalBlockchainTransaction to UniversalTransaction
+    const universalTransaction: UniversalTransaction = {
+      amount: createMoney(blockchainTransaction.amount, blockchainTransaction.currency),
+      datetime: new Date(blockchainTransaction.timestamp).toISOString(),
+      fee: blockchainTransaction.feeAmount
+        ? createMoney(blockchainTransaction.feeAmount, blockchainTransaction.feeCurrency || 'BTC')
+        : createMoney('0', 'BTC'),
+      from: blockchainTransaction.from,
+      id: blockchainTransaction.id,
+      metadata: {
+        blockchain: 'bitcoin',
+        blockHeight: blockchainTransaction.blockHeight,
+        blockId: blockchainTransaction.blockId,
+        providerId: blockchainTransaction.providerId,
+      },
+      source: 'bitcoin',
+      status: blockchainTransaction.status === 'success' ? 'ok' : 'failed',
+      symbol: blockchainTransaction.currency,
+      timestamp: blockchainTransaction.timestamp,
+      to: blockchainTransaction.to,
+      type: transactionType,
+    };
+
+    this.logger.debug(`Successfully processed transaction ${universalTransaction.id} from ${providerId}`);
+    return ok(universalTransaction);
   }
 }

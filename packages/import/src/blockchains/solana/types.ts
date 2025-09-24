@@ -1,4 +1,4 @@
-import { Decimal } from 'decimal.js';
+import type { Decimal } from 'decimal.js';
 
 /**
  * Solana transaction from Solscan API
@@ -6,21 +6,21 @@ import { Decimal } from 'decimal.js';
 export interface SolscanTransaction {
   blockTime: number;
   fee: number;
-  inputAccount: Array<{
+  inputAccount: {
     account: string;
     postBalance: number;
     preBalance: number;
     signer: boolean;
     writable: boolean;
-  }>;
+  }[];
   lamport: number;
   logMessage: string[];
-  parsedInstruction: Array<{
+  parsedInstruction: {
     params?: Record<string, unknown>;
     program: string;
     programId: string;
     type: string;
-  }>;
+  }[];
   recentBlockhash: string;
   signer: string[];
   slot: number;
@@ -71,7 +71,7 @@ export interface SolanaRPCTransaction {
     preBalances: number[];
     preTokenBalances: SolanaTokenBalance[];
     rewards: unknown[];
-    status: { Ok: null } | { Err: unknown };
+    status: { Ok: undefined } | { Err: unknown };
   };
   slot: number;
   transaction: {
@@ -82,11 +82,11 @@ export interface SolanaRPCTransaction {
         numReadonlyUnsignedAccounts: number;
         numRequiredSignatures: number;
       };
-      instructions: Array<{
+      instructions: {
         accounts: number[];
         data: string;
         programIdIndex: number;
-      }>;
+      }[];
       recentBlockhash: string;
     };
     signatures: string[];
@@ -102,11 +102,11 @@ export interface ProcessedSolanaTransaction {
   fee: number;
   from?: string;
   hash: string;
-  instructions: Array<{
+  instructions: {
     data?: unknown;
     program: string;
     type: string;
-  }>;
+  }[];
   program: string;
   slot: number;
   status: 'success' | 'failed';

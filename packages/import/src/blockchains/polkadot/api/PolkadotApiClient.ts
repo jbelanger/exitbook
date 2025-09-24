@@ -1,9 +1,8 @@
-import { maskAddress } from '@crypto/shared-utils';
+import { RegisterApiClient } from '../../shared/registry/decorators.js';
+import type { SubscanTransfersResponse } from '../types.js';
+import { SUBSTRATE_CHAINS } from '../types.js';
 
-import { RegisterApiClient } from '../../shared/registry/decorators.ts';
-import type { SubscanTransfersResponse } from '../types.ts';
-import { SUBSTRATE_CHAINS } from '../types.ts';
-import { BaseSubstrateApiClient } from './BaseSubstrateApiClient.ts';
+import { BaseSubstrateApiClient } from './BaseSubstrateApiClient.js';
 
 @RegisterApiClient({
   blockchain: 'polkadot',

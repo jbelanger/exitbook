@@ -1,4 +1,4 @@
-import type { IRawDataMapper } from './interfaces.ts';
+import type { IRawDataMapper } from './interfaces.js';
 
 const transactionMapperMap = new Map<string, new () => IRawDataMapper<unknown>>();
 

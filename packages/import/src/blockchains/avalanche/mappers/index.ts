@@ -1,2 +1,2 @@
 // Import processors to trigger registration
-import './SnowtraceMapper.ts';
+import './SnowtraceMapper.js';

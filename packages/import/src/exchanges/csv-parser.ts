@@ -1,5 +1,6 @@
+import fs from 'node:fs/promises';
+
 import { parse } from 'csv-parse/sync';
-import fs from 'fs/promises';
 
 /**
  * Generic CSV file parser with common preprocessing
@@ -34,7 +35,7 @@ export class CsvParser {
       columns: true,
       skip_empty_lines: true,
       trim: true,
-    }) as T[];
+    });
   }
 
   /**

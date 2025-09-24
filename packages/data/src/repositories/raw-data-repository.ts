@@ -38,7 +38,7 @@ export interface IRawDataRepository {
   save(
     sourceId: string,
     sourceType: string,
-    rawData: Array<{ data: unknown; id: string }>,
+    rawData: { data: unknown; id: string }[],
     options?: SaveRawDataOptions
   ): Promise<number>;
 
@@ -69,7 +69,7 @@ export class RawDataRepository implements IRawDataRepository {
       const rawData = await this.database.getRawTransactions(filters);
 
       this.logger.info(`Loaded ${rawData.length} raw data items`);
-      return rawData.map(item => ({
+      return rawData.map((item) => ({
         createdAt: item.createdAt,
         id: item.id,
         importSessionId: item.importSessionId,
@@ -83,7 +83,7 @@ export class RawDataRepository implements IRawDataRepository {
         sourceType: item.sourceType,
       }));
     } catch (error) {
-      this.logger.error(`Failed to load raw data: ${error}`);
+      this.logger.error(`Failed to load raw data: ${String(error)}`);
       throw error;
     }
   }
@@ -92,13 +92,15 @@ export class RawDataRepository implements IRawDataRepository {
     this.logger.info(`Marking ${rawTransactionIds.length} items as processed for ${sourceId}`);
 
     try {
-      const promises = rawTransactionIds.map(id => this.updateProcessingStatus(id, 'processed', undefined, providerId));
+      const promises = rawTransactionIds.map((id) =>
+        this.updateProcessingStatus(id, 'processed', undefined, providerId)
+      );
 
       await Promise.all(promises);
 
       this.logger.info(`Successfully marked ${rawTransactionIds.length} items as processed for ${sourceId}`);
     } catch (error) {
-      this.logger.error(`Failed to mark items as processed for ${sourceId}: ${error}`);
+      this.logger.error(`Failed to mark items as processed for ${sourceId}: ${String(error)}`);
       throw error;
     }
   }
@@ -106,7 +108,7 @@ export class RawDataRepository implements IRawDataRepository {
   async save(
     sourceId: string,
     sourceType: string,
-    rawData: Array<{ data: unknown }>,
+    rawData: { data: unknown }[],
     options?: SaveRawDataOptions
   ): Promise<number> {
     this.logger.info(`Saving ${rawData.length} raw data items for ${sourceId}`);
@@ -121,7 +123,7 @@ export class RawDataRepository implements IRawDataRepository {
       this.logger.info(`Successfully saved ${saved}/${rawData.length} raw data items for ${sourceId}`);
       return saved;
     } catch (error) {
-      this.logger.error(`Failed to save raw data for ${sourceId}: ${error}`);
+      this.logger.error(`Failed to save raw data for ${sourceId}: ${String(error)}`);
       throw error;
     }
   }
@@ -135,7 +137,7 @@ export class RawDataRepository implements IRawDataRepository {
     try {
       await this.database.updateRawTransactionProcessingStatus(rawTransactionId, status, error, providerId);
     } catch (error) {
-      this.logger.error(`Failed to update processing status for ${rawTransactionId}: ${error}`);
+      this.logger.error(`Failed to update processing status for ${rawTransactionId}: ${String(error)}`);
       throw error;
     }
   }

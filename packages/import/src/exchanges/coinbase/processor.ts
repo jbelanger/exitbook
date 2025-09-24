@@ -2,7 +2,7 @@ import type { UniversalTransaction } from '@crypto/core';
 import type { StoredRawData } from '@crypto/data';
 import { type Result, err, ok } from 'neverthrow';
 
-import { BaseProcessor } from '../../shared/processors/base-processor.ts';
+import { BaseProcessor } from '../../shared/processors/base-processor.js';
 
 /**
  * Processor for Coinbase transactions.
@@ -24,7 +24,34 @@ export class CoinbaseProcessor extends BaseProcessor<UniversalTransaction> {
     super('coinbase');
   }
 
-  private processSingle(rawData: StoredRawData<UniversalTransaction>): Result<UniversalTransaction | null, string> {
+  protected canProcessSpecific(sourceType: string): boolean {
+    return sourceType === 'exchange';
+  }
+
+  protected async processInternal(
+    rawDataItems: StoredRawData<UniversalTransaction>[]
+  ): Promise<Result<UniversalTransaction[], string>> {
+    const transactions: UniversalTransaction[] = [];
+
+    for (const item of rawDataItems) {
+      const result = this.processSingle(item);
+      if (result.isErr()) {
+        this.logger.warn(`Failed to process Coinbase transaction ${item.rawData.id}: ${result.error}`);
+        continue;
+      }
+
+      const transaction = result.value;
+      if (transaction) {
+        transactions.push(transaction);
+      }
+    }
+
+    return Promise.resolve(ok(transactions));
+  }
+
+  private processSingle(
+    rawData: StoredRawData<UniversalTransaction>
+  ): Result<UniversalTransaction | undefined, string> {
     const transaction = rawData.rawData;
 
     // The CoinbaseCCXTAdapter already provides transactions in UniversalTransaction format
@@ -53,30 +80,5 @@ export class CoinbaseProcessor extends BaseProcessor<UniversalTransaction> {
     };
 
     return ok(processedTransaction);
-  }
-
-  protected canProcessSpecific(sourceType: string): boolean {
-    return sourceType === 'exchange';
-  }
-
-  protected async processInternal(
-    rawDataItems: StoredRawData<UniversalTransaction>[]
-  ): Promise<Result<UniversalTransaction[], string>> {
-    const transactions: UniversalTransaction[] = [];
-
-    for (const item of rawDataItems) {
-      const result = this.processSingle(item);
-      if (result.isErr()) {
-        this.logger.warn(`Failed to process Coinbase transaction ${item.rawData.id}: ${result.error}`);
-        continue;
-      }
-
-      const transaction = result.value;
-      if (transaction) {
-        transactions.push(transaction);
-      }
-    }
-
-    return ok(transactions);
   }
 }

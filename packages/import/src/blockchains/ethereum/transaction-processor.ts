@@ -1,15 +1,15 @@
 import type { TransactionType, UniversalTransaction } from '@crypto/core';
-// Import processors to trigger registration
 import type { StoredRawData } from '@crypto/data';
 import { createMoney } from '@crypto/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
-import { BaseProcessor } from '../../shared/processors/base-processor.ts';
-import type { ApiClientRawData, ImportSessionMetadata } from '../../shared/processors/interfaces.ts';
-import { TransactionMapperFactory } from '../../shared/processors/processor-registry.ts';
+import { BaseProcessor } from '../../shared/processors/base-processor.js';
+import type { ApiClientRawData, ImportSessionMetadata } from '../../shared/processors/interfaces.js';
+import { TransactionMapperFactory } from '../../shared/processors/processor-registry.js';
+
 // Import processors to trigger registration
-import './mappers/index.ts';
-import type { EthereumRawTransactionData } from './transaction-importer.ts';
+import './mappers/index.js';
+import type { EthereumRawTransactionData } from './transaction-importer.js';
 
 /**
  * Ethereum transaction processor that converts raw blockchain transaction data
@@ -21,10 +21,43 @@ export class EthereumTransactionProcessor extends BaseProcessor<ApiClientRawData
     super('ethereum');
   }
 
+  /**
+   * Check if this processor can handle the specified source type.
+   */
+  protected canProcessSpecific(sourceType: string): boolean {
+    return sourceType === 'blockchain';
+  }
+
+  protected processInternal(
+    rawDataItems: StoredRawData<ApiClientRawData<EthereumRawTransactionData>>[],
+    sessionMetadata?: ImportSessionMetadata
+  ): Promise<Result<UniversalTransaction[], string>> {
+    const transactions: UniversalTransaction[] = [];
+
+    if (!sessionMetadata) {
+      return Promise.resolve(err('Missing session metadata'));
+    }
+
+    for (const item of rawDataItems) {
+      const result = this.processSingle(item, sessionMetadata);
+      if (result.isErr()) {
+        this.logger.warn(`Failed to process transaction ${item.id}: ${result.error}`);
+        continue; // Continue processing other transactions
+      }
+
+      const transaction = result.value;
+      if (transaction) {
+        transactions.push(transaction);
+      }
+    }
+
+    return Promise.resolve(ok(transactions));
+  }
+
   private processSingle(
     rawDataItem: StoredRawData<ApiClientRawData<EthereumRawTransactionData>>,
     sessionContext: ImportSessionMetadata
-  ): Result<UniversalTransaction | null, string> {
+  ): Result<UniversalTransaction | undefined, string> {
     const apiClientRawData = rawDataItem.rawData;
     const { providerId, rawData } = apiClientRawData;
 
@@ -50,6 +83,9 @@ export class EthereumTransactionProcessor extends BaseProcessor<ApiClientRawData
     const blockchainTransaction = blockchainTransactions[0];
 
     // Debug logging to understand what type we're getting
+    if (!blockchainTransaction) {
+      return err(`Transaction object is undefined for ${providerId}`);
+    }
     this.logger.debug(
       `Processing transaction ${blockchainTransaction.id} with type: ${blockchainTransaction.type}, currency: ${blockchainTransaction.currency}, tokenSymbol: ${blockchainTransaction.tokenSymbol}`
     );
@@ -69,7 +105,7 @@ export class EthereumTransactionProcessor extends BaseProcessor<ApiClientRawData
       datetime: new Date(blockchainTransaction.timestamp).toISOString(),
       fee: blockchainTransaction.feeAmount
         ? createMoney(blockchainTransaction.feeAmount, blockchainTransaction.feeCurrency || 'ETH')
-        : createMoney(0, 'ETH'),
+        : createMoney('0', 'ETH'),
       from: blockchainTransaction.from,
       id: blockchainTransaction.id,
       metadata: {
@@ -91,38 +127,5 @@ export class EthereumTransactionProcessor extends BaseProcessor<ApiClientRawData
 
     this.logger.debug(`Successfully processed transaction ${universalTransaction.id} from ${providerId}`);
     return ok(universalTransaction);
-  }
-
-  /**
-   * Check if this processor can handle the specified source type.
-   */
-  protected canProcessSpecific(sourceType: string): boolean {
-    return sourceType === 'blockchain';
-  }
-
-  protected async processInternal(
-    rawDataItems: StoredRawData<ApiClientRawData<EthereumRawTransactionData>>[],
-    sessionMetadata?: ImportSessionMetadata
-  ): Promise<Result<UniversalTransaction[], string>> {
-    const transactions: UniversalTransaction[] = [];
-
-    if (!sessionMetadata) {
-      return err('Missing session metadata');
-    }
-
-    for (const item of rawDataItems) {
-      const result = this.processSingle(item, sessionMetadata);
-      if (result.isErr()) {
-        this.logger.warn(`Failed to process transaction ${item.id}: ${result.error}`);
-        continue; // Continue processing other transactions
-      }
-
-      const transaction = result.value;
-      if (transaction) {
-        transactions.push(transaction);
-      }
-    }
-
-    return ok(transactions);
   }
 }

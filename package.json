@@ -1,45 +1,8 @@
 {
   "name": "crypto-tx-import",
   "version": "1.0.0",
-  "description": "Crypto transaction import and verification tool using CCXT - Monorepo",
-  "type": "module",
   "private": true,
-  "scripts": {
-    "build": "pnpm -F crypto-portfolio-cli build",
-    "clean": "pnpm -r run clean",
-    "dev": "pnpm -F crypto-portfolio-cli dev",
-    "import": "pnpm -F crypto-portfolio-cli import",
-    "import:verify": "pnpm -F crypto-portfolio-cli import:verify",
-    "verify": "pnpm -F crypto-portfolio-cli verify",
-    "status": "pnpm -F crypto-portfolio-cli status",
-    "export": "pnpm -F crypto-portfolio-cli export",
-    "test": "vitest run",
-    "test:unit": "vitest run",
-    "test:e2e": "vitest run --config vitest.e2e.config.ts",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
-    "test:ui": "vitest --ui",
-    "typecheck": "pnpm -r run typecheck",
-    "lint": "pnpm -r run lint",
-    "prettier": "pnpm -r run prettier",
-    "prettier:fix": "pnpm -r run prettier:fix",
-    "blockchain-providers:list": "pnpm -F @crypto/import blockchain-providers:list",
-    "blockchain-providers:validate": "pnpm -F @crypto/import blockchain-providers:validate",
-    "blockchain-config:generate": "pnpm -F @crypto/import blockchain-config:generate",
-    "blockchain-config:validate": "pnpm -F @crypto/import blockchain-config:validate",
-    "providers:list": "pnpm -F @crypto/import providers:list",
-    "providers:sync": "pnpm -F @crypto/import providers:sync",
-    "providers:validate": "pnpm -F @crypto/import providers:validate",
-    "config:validate": "pnpm -F @crypto/import config:validate",
-    "exchanges:list": "pnpm -F @crypto/import exchanges:list",
-    "exchanges:generate": "pnpm -F @crypto/import exchanges:generate",
-    "exchanges:validate": "pnpm -F @crypto/import exchanges:validate",
-    "exchanges:validate-config": "pnpm -F @crypto/import exchanges:validate-config",
-    "workspace:build": "pnpm -r build",
-    "workspace:clean": "pnpm -r clean",
-    "workspace:test": "pnpm -r test",
-    "prepare": "husky"
-  },
+  "description": "Crypto transaction import and verification tool using CCXT - Monorepo",
   "keywords": [
     "ccxt",
     "crypto",
@@ -47,11 +10,43 @@
     "import",
     "balance-verification"
   ],
-  "engines": {
-    "node": ">=23.0.0",
-    "pnpm": ">=10.6.2"
+  "type": "module",
+  "scripts": {
+    "blockchain-config:generate": "pnpm -F @crypto/import blockchain-config:generate",
+    "blockchain-config:validate": "pnpm -F @crypto/import blockchain-config:validate",
+    "blockchain-providers:list": "pnpm -F @crypto/import blockchain-providers:list",
+    "blockchain-providers:validate": "pnpm -F @crypto/import blockchain-providers:validate",
+    "build": "pnpm -F crypto-portfolio-cli build",
+    "clean": "pnpm -r run clean",
+    "config:validate": "pnpm -F @crypto/import config:validate",
+    "dev": "pnpm -F crypto-portfolio-cli dev",
+    "exchanges:generate": "pnpm -F @crypto/import exchanges:generate",
+    "exchanges:list": "pnpm -F @crypto/import exchanges:list",
+    "exchanges:validate": "pnpm -F @crypto/import exchanges:validate",
+    "exchanges:validate-config": "pnpm -F @crypto/import exchanges:validate-config",
+    "export": "pnpm -F crypto-portfolio-cli export",
+    "import": "pnpm -F crypto-portfolio-cli import",
+    "import:verify": "pnpm -F crypto-portfolio-cli import:verify",
+    "lint": "pnpm -r run lint",
+    "prepare": "husky",
+    "prettier": "pnpm -r run prettier",
+    "prettier:fix": "pnpm -r run prettier:fix",
+    "providers:list": "pnpm -F @crypto/import providers:list",
+    "providers:sync": "pnpm -F @crypto/import providers:sync",
+    "providers:validate": "pnpm -F @crypto/import providers:validate",
+    "status": "pnpm -F crypto-portfolio-cli status",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "vitest run --config vitest.e2e.config.ts",
+    "test:ui": "vitest --ui",
+    "test:unit": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "pnpm -r run typecheck",
+    "verify": "pnpm -F crypto-portfolio-cli verify",
+    "workspace:build": "pnpm -r build",
+    "workspace:clean": "pnpm -r clean",
+    "workspace:test": "pnpm -r test"
   },
-  "packageManager": "pnpm@10.6.2",
   "lint-staged": {
     "*.{js,ts,tsx,json,md,yaml,yml}": [
       "prettier --write"
@@ -59,6 +54,15 @@
     "*.{js,ts,tsx}": [
       "eslint --fix"
     ]
+  },
+  "dependencies": {
+    "@effect/eslint-plugin": "^0.3.2",
+    "@polkadot/util": "^13.5.6",
+    "@polkadot/util-crypto": "^13.5.6",
+    "eslint-plugin-eslint-comments": "^3.2.0",
+    "eslint-plugin-import": "^2.32.0",
+    "neverthrow": "^8.2.0",
+    "prettier-plugin-packagejson": "^2.5.19"
   },
   "devDependencies": {
     "@eslint/js": "^9.34.0",
@@ -77,9 +81,9 @@
     "typescript-eslint": "^8.40.0",
     "vitest": "^3.2.4"
   },
-  "dependencies": {
-    "@polkadot/util": "^13.5.6",
-    "@polkadot/util-crypto": "^13.5.6",
-    "neverthrow": "^8.2.0"
+  "packageManager": "pnpm@10.6.2",
+  "engines": {
+    "node": ">=23.0.0",
+    "pnpm": ">=10.6.2"
   }
 }

@@ -2,8 +2,8 @@ import { getLogger } from '@crypto/shared-logger';
 import { HDKey } from '@scure/bip32';
 import * as bitcoin from 'bitcoinjs-lib';
 
-import { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
-import type { ProviderOperationParams } from '../shared/types.ts';
+import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.js';
+
 import type {
   AddressInfo,
   AddressType,
@@ -11,7 +11,7 @@ import type {
   BitcoinWalletAddress,
   SmartDetectionResult,
   XpubType,
-} from './types.ts';
+} from './types.js';
 
 const logger = getLogger('BitcoinUtils');
 
@@ -22,21 +22,21 @@ export class BitcoinUtils {
   /**
    * Derive addresses from xpub for wallet service
    */
-  static async deriveAddressesFromXpub(
+  static deriveAddressesFromXpub(
     xpub: string,
-    gap: number = 20
+    gap = 20
   ): Promise<
-    Array<{
+    {
       address: string;
       derivationPath: string;
       type: string;
-    }>
+    }[]
   > {
-    const derivedAddresses: Array<{
+    const derivedAddresses: {
       address: string;
       derivationPath: string;
       type: string;
-    }> = [];
+    }[] = [];
 
     const xpubType = BitcoinUtils.getAddressType(xpub);
     if (xpubType === 'address') {
@@ -65,9 +65,11 @@ export class BitcoinUtils {
         }
       }
 
-      return derivedAddresses;
+      return Promise.resolve(derivedAddresses);
     } catch (error) {
-      logger.error(`Failed to derive addresses from xpub - Error: ${error}, Xpub: ${xpub.substring(0, 20) + '...'}`);
+      logger.error(
+        `Failed to derive addresses from xpub - Error: ${String(error)}, Xpub: ${xpub.substring(0, 20) + '...'}`
+      );
       throw error;
     }
   }
@@ -94,7 +96,7 @@ export class BitcoinUtils {
           return payment.address!;
         };
       default:
-        throw new Error(`Unsupported address type: ${type}`);
+        throw new Error(`Unsupported address type: ${String(type)}`);
     }
   }
 
@@ -120,7 +122,7 @@ export class BitcoinUtils {
       case 'bip84':
         return "m/84'/0'/0'";
       default:
-        throw new Error(`Unsupported BIP standard: ${bipStandard}`);
+        throw new Error(`Unsupported BIP standard: ${String(bipStandard)}`);
     }
   }
 
@@ -131,7 +133,7 @@ export class BitcoinUtils {
     walletAddress: BitcoinWalletAddress,
     network: bitcoin.Network,
     providerManager: BlockchainProviderManager,
-    addressGap: number = 20
+    addressGap = 20
   ): Promise<void> {
     try {
       // Smart detection to determine the correct account type
@@ -222,7 +224,7 @@ export class BitcoinUtils {
       try {
         const result = await providerManager.executeWithFailover('bitcoin', {
           address,
-          getCacheKey: params => `bitcoin:address-info:${(params as { address: string }).address}`,
+          getCacheKey: (params) => `bitcoin:address-info:${(params as { address: string }).address}`,
           type: 'getAddressInfo',
         });
         const addressInfo = result.data as AddressInfo;
@@ -247,7 +249,7 @@ export class BitcoinUtils {
       } catch (error) {
         // If we can't check the address, treat it as unused
         consecutiveUnusedCount++;
-        logger.warn(`Could not check activity for address ${address} - Error: ${error}`);
+        logger.warn(`Could not check activity for address ${address} - Error: ${String(error)}`);
       }
 
       // If we've found at least one used address and then hit the gap limit, we can stop.
@@ -335,7 +337,7 @@ export class BitcoinUtils {
               hdNode: legacyHdNode,
             };
           }
-        } catch (error) {
+        } catch (_error) {
           logger.debug('No activity found on Legacy path');
         }
       }
@@ -368,7 +370,7 @@ export class BitcoinUtils {
               hdNode: segwitHdNode,
             };
           }
-        } catch (error) {
+        } catch (_error) {
           logger.debug('No activity found on Native SegWit path');
         }
       }

@@ -1,7 +1,6 @@
-import { AuthenticationError, RateLimitError, ServiceError } from '@crypto/core';
+import { RateLimitError, ServiceError } from '@crypto/core';
 import type { Logger } from '@crypto/shared-logger';
 import { getErrorProperties, isErrorWithMessage } from '@crypto/shared-utils';
-import ccxt from 'ccxt';
 
 /**
  * Centralized error handling for exchange operations
@@ -22,7 +21,7 @@ export class ServiceErrorHandler {
     if (isErrorWithMessage(error)) {
       const retryMatch = error.message.match(/retry.{0,10}(\d+)/i);
       if (retryMatch) {
-        return parseInt(retryMatch[1]) * 1000; // Convert to milliseconds
+        return parseInt(retryMatch[1] ?? '2') * 1000; // Convert to milliseconds, fallback to 2 seconds
       }
     }
 
@@ -62,14 +61,6 @@ export class ServiceErrorHandler {
       );
     }
 
-    if (this.isAuthError(error)) {
-      throw new AuthenticationError(
-        `Authentication failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        exchangeId,
-        operation
-      );
-    }
-
     if (this.isNetworkError(error)) {
       throw new ServiceError(
         `Network error: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -95,7 +86,7 @@ export class ServiceErrorHandler {
     }
 
     // Re-throw if it's already one of our custom errors
-    if (error instanceof ServiceError || error instanceof RateLimitError || error instanceof AuthenticationError) {
+    if (error instanceof ServiceError || error instanceof RateLimitError) {
       throw error;
     }
 
@@ -112,10 +103,6 @@ export class ServiceErrorHandler {
    * Check if error is an authentication error
    */
   static isAuthError(error: unknown): boolean {
-    if (error instanceof ccxt.AuthenticationError) {
-      return true;
-    }
-
     if (error instanceof Error) {
       if (error.name === 'AuthenticationError') {
         return true;
@@ -139,10 +126,6 @@ export class ServiceErrorHandler {
    * Check if error is a network error
    */
   static isNetworkError(error: unknown): boolean {
-    if (error instanceof ccxt.NetworkError) {
-      return true;
-    }
-
     if (error instanceof Error) {
       if (error.name === 'NetworkError') {
         return true;
@@ -161,10 +144,6 @@ export class ServiceErrorHandler {
    * Check if error indicates operation is not supported
    */
   static isNotSupported(error: unknown): boolean {
-    if (error instanceof ccxt.NotSupported) {
-      return true;
-    }
-
     if (error instanceof Error) {
       if (error.name === 'NotSupported') {
         return true;
@@ -184,7 +163,6 @@ export class ServiceErrorHandler {
    */
   static isRateLimit(error: unknown): boolean {
     return (
-      error instanceof ccxt.RateLimitExceeded ||
       (error instanceof Error && error.name === 'RateLimitExceeded') ||
       (error instanceof Error && !!error.message && error.message.toLowerCase().includes('rate limit'))
     );

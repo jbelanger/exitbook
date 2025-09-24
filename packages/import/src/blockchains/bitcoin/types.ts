@@ -121,7 +121,7 @@ export interface BlockstreamTransaction {
   };
   txid: string;
   version: number;
-  vin: Array<{
+  vin: {
     is_coinbase: boolean;
     prevout: {
       scriptpubkey: string;
@@ -136,14 +136,14 @@ export interface BlockstreamTransaction {
     txid: string;
     vout: number;
     witness: string[];
-  }>;
-  vout: Array<{
+  }[];
+  vout: {
     scriptpubkey: string;
     scriptpubkey_address?: string;
     scriptpubkey_asm: string;
     scriptpubkey_type: string;
     value: number;
-  }>;
+  }[];
   weight: number;
 }
 
@@ -179,7 +179,7 @@ export interface BlockCypherTransaction {
   gas_price?: number;
   gas_used?: number;
   hash: string;
-  inputs: Array<{
+  inputs: {
     addresses: string[];
     age: number;
     output_index: number;
@@ -187,17 +187,17 @@ export interface BlockCypherTransaction {
     prev_hash: string;
     script_type: string;
     sequence: number;
-  }>;
+  }[];
   lock_time: number;
   // Pagination properties
   next_inputs?: string | undefined;
   next_outputs?: string | undefined;
-  outputs: Array<{
+  outputs: {
     addresses: string[];
     script: string;
     script_type: string;
     value: number;
-  }>;
+  }[];
   preference: string;
   received: string; // ISO 8601 date
   relayed_by: string;
@@ -218,7 +218,7 @@ export interface BlockCypherAddress {
   n_tx: number;
   total_received: number;
   total_sent: number;
-  txrefs?: Array<{
+  txrefs?: {
     block_height: number;
     confirmations: number;
     confirmed: string;
@@ -229,7 +229,7 @@ export interface BlockCypherAddress {
     tx_input_n: number;
     tx_output_n: number;
     value: number;
-  }>;
+  }[];
   unconfirmed_balance: number;
   unconfirmed_n_tx: number;
 }
@@ -241,7 +241,7 @@ export interface BlockchainComTransaction {
   double_spend: boolean;
   fee: number;
   hash: string;
-  inputs: Array<{
+  inputs: {
     prev_out?: {
       addr?: string;
       n: number;
@@ -252,9 +252,9 @@ export interface BlockchainComTransaction {
       value: number;
     };
     script: string;
-  }>;
+  }[];
   lock_time: number;
-  out: Array<{
+  out: {
     addr?: string;
     n: number;
     script: string;
@@ -262,7 +262,7 @@ export interface BlockchainComTransaction {
     tx_index: number;
     type: number;
     value: number;
-  }>;
+  }[];
   relayed_by: string;
   result: number;
   size: number;
@@ -283,13 +283,14 @@ export interface BlockchainComAddressResponse {
   txs: BlockchainComTransaction[];
 }
 
-export interface BlockchainComBalanceResponse {
-  [address: string]: {
+export type BlockchainComBalanceResponse = Record<
+  string,
+  {
     final_balance: number;
     n_tx: number;
     total_received: number;
-  };
-}
+  }
+>;
 
 // Tatum API response types
 export interface TatumBitcoinTransaction {
@@ -315,9 +316,9 @@ export interface TatumBitcoinInput {
     address: string;
     coinbase: boolean;
     height: number;
-    reqSigs: number | null;
+    reqSigs: number | undefined;
     script: string;
-    type: string | null;
+    type: string | undefined;
     value: number;
     version: number;
   };
@@ -333,7 +334,7 @@ export interface TatumBitcoinOutput {
   address: string;
   script: string;
   scriptPubKey: {
-    reqSigs: number | null;
+    reqSigs: number | undefined;
     type: string;
   };
   value: number;

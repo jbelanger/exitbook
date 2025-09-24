@@ -1,28 +1,16 @@
 import { parseDecimal } from '@crypto/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
-import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
-import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.ts';
-import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.ts';
-import type { UniversalBlockchainTransaction } from '../../shared/types.ts';
-import { InjectiveTransactionSchema } from '../schemas.ts';
-import type { InjectiveMessageValue, InjectiveTransaction } from '../types.ts';
+import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.js';
+import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
+import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
+import type { UniversalBlockchainTransaction } from '../../shared/types.js';
+import { InjectiveTransactionSchema } from '../schemas.js';
+import type { InjectiveMessageValue, InjectiveTransaction } from '../types.js';
 
 @RegisterTransactionMapper('injective-explorer')
 export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<InjectiveTransaction> {
   protected readonly schema = InjectiveTransactionSchema;
-
-  private formatDenom(denom: string | undefined): string {
-    if (!denom) {
-      return 'INJ';
-    }
-
-    if (denom === 'inj' || denom === 'uinj') {
-      return 'INJ';
-    }
-
-    return denom.toUpperCase();
-  }
 
   protected mapInternal(
     rawData: InjectiveTransaction,
@@ -190,5 +178,17 @@ export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<Inject
     }
 
     return ok([transaction]);
+  }
+
+  private formatDenom(denom: string | undefined): string {
+    if (!denom) {
+      return 'INJ';
+    }
+
+    if (denom === 'inj' || denom === 'uinj') {
+      return 'INJ';
+    }
+
+    return denom.toUpperCase();
   }
 }

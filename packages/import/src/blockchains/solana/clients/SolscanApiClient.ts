@@ -1,10 +1,10 @@
-import { maskAddress } from '@crypto/shared-utils';
+import { hasStringProperty, isErrorWithMessage, maskAddress } from '@crypto/shared-utils';
 
-import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
-import { RegisterApiClient } from '../../shared/registry/decorators.ts';
-import type { ProviderOperation } from '../../shared/types.ts';
-import type { SolscanResponse, SolscanTransaction } from '../types.ts';
-import { isValidSolanaAddress } from '../utils.ts';
+import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.js';
+import { RegisterApiClient } from '../../shared/registry/decorators.js';
+import type { ProviderOperation } from '../../shared/types.js';
+import type { SolscanResponse, SolscanTransaction } from '../types.js';
+import { isValidSolanaAddress } from '../utils.js';
 
 export interface SolscanRawTransactionData {
   normal: SolscanTransaction[];
@@ -74,6 +74,58 @@ export class SolscanApiClient extends BaseRegistryProvider {
     });
   }
 
+  async execute<T>(operation: ProviderOperation<T>): Promise<T> {
+    this.logger.debug(
+      `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
+    );
+
+    try {
+      switch (operation.type) {
+        case 'getRawAddressTransactions':
+          return (await this.getRawAddressTransactions({
+            address: operation.address,
+            since: operation.since,
+          })) as T;
+        case 'getRawAddressBalance':
+          return (await this.getRawAddressBalance({
+            address: operation.address,
+          })) as T;
+        default:
+          throw new Error(`Unsupported operation: ${operation.type}`);
+      }
+    } catch (error) {
+      this.logger.error(
+        `Operation execution failed - Type: ${operation.type}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`
+      );
+      throw error;
+    }
+  }
+
+  async isHealthy(): Promise<boolean> {
+    try {
+      const response = await this.httpClient.get<SolscanResponse>(
+        '/account/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
+      );
+      return response && response.success !== false;
+    } catch (error) {
+      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
+      return false;
+    }
+  }
+
+  override async testConnection(): Promise<boolean> {
+    try {
+      const response = await this.httpClient.get<SolscanResponse>(
+        '/account/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
+      );
+      this.logger.debug(`Connection test successful - HasResponse: ${!!response}`);
+      return response && response.success !== false;
+    } catch (error) {
+      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
+      return false;
+    }
+  }
+
   private async getRawAddressBalance(params: { address: string }): Promise<SolscanRawBalanceData> {
     const { address } = params;
 
@@ -132,7 +184,7 @@ export class SolscanApiClient extends BaseRegistryProvider {
       }
 
       // Filter by since if provided
-      const filteredTransactions = since ? response.data.filter(tx => tx.blockTime * 1000 >= since) : response.data;
+      const filteredTransactions = since ? response.data.filter((tx) => tx.blockTime * 1000 >= since) : response.data;
 
       this.logger.debug(
         `Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${filteredTransactions.length}, Network: ${this.network}`
@@ -144,58 +196,6 @@ export class SolscanApiClient extends BaseRegistryProvider {
         `Failed to get raw address transactions - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`
       );
       throw error;
-    }
-  }
-
-  async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug(
-      `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
-    );
-
-    try {
-      switch (operation.type) {
-        case 'getRawAddressTransactions':
-          return this.getRawAddressTransactions({
-            address: operation.address,
-            since: operation.since,
-          }) as T;
-        case 'getRawAddressBalance':
-          return this.getRawAddressBalance({
-            address: operation.address,
-          }) as T;
-        default:
-          throw new Error(`Unsupported operation: ${operation.type}`);
-      }
-    } catch (error) {
-      this.logger.error(
-        `Operation execution failed - Type: ${operation.type}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`
-      );
-      throw error;
-    }
-  }
-
-  async isHealthy(): Promise<boolean> {
-    try {
-      const response = await this.httpClient.get<SolscanResponse>(
-        '/account/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
-      );
-      return response && response.success !== false;
-    } catch (error) {
-      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
-    }
-  }
-
-  async testConnection(): Promise<boolean> {
-    try {
-      const response = await this.httpClient.get<SolscanResponse>(
-        '/account/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
-      );
-      this.logger.debug(`Connection test successful - HasResponse: ${!!response}`);
-      return response && response.success !== false;
-    } catch (error) {
-      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
     }
   }
 }

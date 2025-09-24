@@ -4,8 +4,8 @@
  * Separates processor-time validation from transformer-time validation
  * to enable early error detection and clear responsibility boundaries.
  */
-import { ClassifiedTransaction, ProcessedTransaction } from '@crypto-portfolio/core';
-import { Result } from 'neverthrow';
+import type { ProcessedTransaction, ClassifiedTransaction } from '@crypto/core';
+import type { Result } from 'neverthrow';
 
 export type Severity = 'info' | 'warn' | 'error';
 

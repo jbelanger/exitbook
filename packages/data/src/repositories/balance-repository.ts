@@ -1,6 +1,6 @@
 import type { BalanceSnapshot, BalanceVerificationRecord } from '@crypto/balance';
 
-import { Database } from '../storage/database.ts';
+import type { Database } from '../storage/database.ts';
 import type { StoredTransaction } from '../types/data-types.js';
 
 export class BalanceRepository {
@@ -17,7 +17,7 @@ export class BalanceRepository {
   async getTransactionsForCalculation(exchange: string): Promise<StoredTransaction[]> {
     return new Promise((resolve, reject) => {
       const query = `
-        SELECT 
+        SELECT
           source_id,
           symbol,
           type,
@@ -28,7 +28,7 @@ export class BalanceRepository {
           fee_cost,
           fee_currency,
           raw_data
-        FROM transactions 
+        FROM transactions
         WHERE source_id = ?
         ORDER BY timestamp ASC
       `;
@@ -37,7 +37,7 @@ export class BalanceRepository {
         if (err) {
           reject(err);
         } else {
-          resolve(rows as StoredTransaction[]);
+          resolve(rows);
         }
       });
     });

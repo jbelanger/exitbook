@@ -3,16 +3,42 @@ import { parseDecimal } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
-import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
-import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.ts';
-import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.ts';
-import type { UniversalBlockchainTransaction } from '../../shared/types.ts';
-import { AlchemyAssetTransferSchema } from '../schemas.ts';
-import type { AlchemyAssetTransfer, EtherscanBalance } from '../types.ts';
+import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.js';
+import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
+import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
+import type { UniversalBlockchainTransaction } from '../../shared/types.js';
+import { AlchemyAssetTransferSchema } from '../schemas.js';
+import type { AlchemyAssetTransfer, EtherscanBalance } from '../types.js';
 
 @RegisterTransactionMapper('alchemy')
 export class AlchemyTransactionMapper extends BaseRawDataMapper<AlchemyAssetTransfer> {
-  protected readonly schema = AlchemyAssetTransferSchema;
+  static processAddressBalance(balances: EtherscanBalance[]): Balance[] {
+    return balances.map((balance) => {
+      const ethBalanceWei = new Decimal(balance.balance);
+      const ethBalance = ethBalanceWei.dividedBy(new Decimal(10).pow(18));
+
+      return {
+        balance: ethBalance.toNumber(),
+        currency: 'ETH',
+        total: ethBalance.toNumber(),
+        used: 0,
+      };
+    });
+  }
+
+  static processAddressTransactions(
+    transfers: AlchemyAssetTransfer[],
+    userAddress: string
+  ): UniversalBlockchainTransaction[] {
+    return transfers.map((transfer) => this.convertAssetTransfer(transfer, userAddress));
+  }
+
+  static processTokenTransactions(
+    transfers: AlchemyAssetTransfer[],
+    userAddress: string
+  ): UniversalBlockchainTransaction[] {
+    return transfers.map((transfer) => this.convertAssetTransfer(transfer, userAddress));
+  }
 
   private static convertAssetTransfer(
     transfer: AlchemyAssetTransfer,
@@ -81,33 +107,7 @@ export class AlchemyTransactionMapper extends BaseRawDataMapper<AlchemyAssetTran
     return transaction;
   }
 
-  static processAddressBalance(balances: EtherscanBalance[]): Balance[] {
-    return balances.map(balance => {
-      const ethBalanceWei = new Decimal(balance.balance);
-      const ethBalance = ethBalanceWei.dividedBy(new Decimal(10).pow(18));
-
-      return {
-        balance: ethBalance.toNumber(),
-        currency: 'ETH',
-        total: ethBalance.toNumber(),
-        used: 0,
-      };
-    });
-  }
-
-  static processAddressTransactions(
-    transfers: AlchemyAssetTransfer[],
-    userAddress: string
-  ): UniversalBlockchainTransaction[] {
-    return transfers.map(transfer => this.convertAssetTransfer(transfer, userAddress));
-  }
-
-  static processTokenTransactions(
-    transfers: AlchemyAssetTransfer[],
-    userAddress: string
-  ): UniversalBlockchainTransaction[] {
-    return transfers.map(transfer => this.convertAssetTransfer(transfer, userAddress));
-  }
+  protected readonly schema = AlchemyAssetTransferSchema;
 
   protected mapInternal(
     rawData: AlchemyAssetTransfer,
@@ -141,9 +141,14 @@ export class AlchemyTransactionMapper extends BaseRawDataMapper<AlchemyAssetTran
       // For NFTs, amount is typically 1 or the specified quantity
       if (rawData.category === 'erc721') {
         amount = new Decimal(1);
-      } else if (rawData.category === 'erc1155' && rawData.erc1155Metadata && rawData.erc1155Metadata.length > 0) {
+      } else if (
+        rawData.category === 'erc1155' &&
+        Array.isArray(rawData.erc1155Metadata) &&
+        rawData.erc1155Metadata.length > 0 &&
+        rawData.erc1155Metadata[0] !== undefined
+      ) {
         // Use the first token's value for ERC-1155
-        amount = parseDecimal(rawData.erc1155Metadata[0].value || '1');
+        amount = parseDecimal(rawData.erc1155Metadata[0]?.value || '1');
       }
       // For ERC-20 tokens, use the amount as-is since Alchemy provides human-readable values
     }

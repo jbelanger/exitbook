@@ -1,13 +1,14 @@
 import * as bitcoin from 'bitcoinjs-lib';
 
-import { BaseImporter } from '../../shared/importers/base-importer.ts';
-import type { ImportParams, ImportRunResult } from '../../shared/importers/interfaces.ts';
-import type { ApiClientRawData } from '../../shared/processors/interfaces.ts';
+import { BaseImporter } from '../../shared/importers/base-importer.js';
+import type { ImportParams, ImportRunResult } from '../../shared/importers/interfaces.js';
+import type { ApiClientRawData } from '../../shared/processors/interfaces.js';
 // Ensure Bitcoin providers are registered
-import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
-import './api/index.ts';
-import type { BitcoinTransaction, BitcoinWalletAddress } from './types.ts';
-import { BitcoinUtils } from './utils.ts';
+import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.js';
+
+import './api/index.js';
+import type { BitcoinTransaction, BitcoinWalletAddress } from './types.js';
+import { BitcoinUtils } from './utils.js';
 
 /**
  * Bitcoin transaction importer that fetches raw transaction data from blockchain APIs.
@@ -39,147 +40,6 @@ export class BitcoinTransactionImporter extends BaseImporter<BitcoinTransaction>
     this.logger.info(
       `Initialized Bitcoin transaction importer - AddressGap: ${this.addressGap}, ProvidersCount: ${this.providerManager.getProviders('bitcoin').length}`
     );
-  }
-
-  /**
-   * Fetch raw transactions for a single address with provider provenance.
-   */
-  private async fetchRawTransactionsForAddress(
-    address: string,
-    since?: number
-  ): Promise<ApiClientRawData<BitcoinTransaction>[]> {
-    try {
-      const result = await this.providerManager.executeWithFailover('bitcoin', {
-        address: address,
-        getCacheKey: params =>
-          `bitcoin:raw-txs:${params.type === 'getRawAddressTransactions' ? params.address : 'unknown'}:${params.type === 'getRawAddressTransactions' ? params.since || 'all' : 'unknown'}`,
-        since: since,
-        type: 'getRawAddressTransactions',
-      });
-
-      const rawTransactions = result.data as BitcoinTransaction[];
-      const providerId = result.providerName;
-
-      // Wrap each transaction with provider provenance
-      return rawTransactions.map(rawData => ({
-        providerId,
-        rawData,
-      }));
-    } catch (error) {
-      this.logger.error(`Provider manager failed to fetch transactions for ${address}: ${error}`);
-      throw error;
-    }
-  }
-
-  /**
-   * Fetch raw transactions for derived addresses from an xpub wallet.
-   */
-  private async fetchRawTransactionsForDerivedAddresses(
-    derivedAddresses: string[],
-    since?: number
-  ): Promise<ApiClientRawData<BitcoinTransaction>[]> {
-    const uniqueTransactions = new Map<string, ApiClientRawData<BitcoinTransaction>>();
-
-    for (const address of derivedAddresses) {
-      // Check cache first to see if this address has any transactions
-      const cachedInfo = this.addressInfoCache.get(address);
-
-      // Skip addresses that we know are empty from gap scanning
-      if (cachedInfo && cachedInfo.txCount === 0) {
-        this.logger.debug(`Skipping address ${address} - no transactions in cache`);
-        continue;
-      }
-
-      try {
-        const rawTransactions = await this.fetchRawTransactionsForAddress(address, since);
-
-        // Add transactions to the unique set with address information
-        for (const rawTx of rawTransactions) {
-          const txId = this.getTransactionId(rawTx.rawData);
-
-          uniqueTransactions.set(txId, {
-            providerId: rawTx.providerId,
-            rawData: rawTx.rawData,
-            sourceAddress: address,
-          });
-        }
-
-        this.logger.debug(`Found ${rawTransactions.length} transactions for address ${address}`);
-      } catch (error) {
-        this.logger.error(`Failed to fetch raw transactions for address ${address}: ${error}`);
-      }
-    }
-
-    this.logger.info(`Found ${uniqueTransactions.size} unique raw transactions across all derived addresses`);
-    return Array.from(uniqueTransactions.values());
-  }
-
-  /**
-   * Initialize an xpub wallet using BitcoinUtils.
-   */
-  private async initializeXpubWallet(walletAddress: BitcoinWalletAddress): Promise<void> {
-    await BitcoinUtils.initializeXpubWallet(
-      walletAddress,
-      bitcoin.networks.bitcoin, // Always use mainnet
-      this.providerManager,
-      this.addressGap
-    );
-  }
-
-  /**
-   * Validate Bitcoin address format (basic validation).
-   */
-  private isValidBitcoinAddress(address: string): boolean {
-    try {
-      // Check for xpub/ypub/zpub
-      if (BitcoinUtils.isXpub(address)) {
-        return true;
-      }
-
-      // Check for regular Bitcoin address format
-      // This is a basic check - full validation would require more complex parsing
-      if (
-        (address.startsWith('1') && address.length >= 26 && address.length <= 35) || // Legacy
-        (address.startsWith('3') && address.length >= 26 && address.length <= 35) || // SegWit
-        (address.startsWith('bc1') && address.length >= 39) // Bech32
-      ) {
-        return true;
-      }
-
-      return false;
-    } catch {
-      return false;
-    }
-  }
-
-  /**
-   * Validate source parameters and connectivity.
-   */
-  protected async canImportSpecific(params: ImportParams): Promise<boolean> {
-    if (!params.address) {
-      this.logger.error('No address provided for Bitcoin import');
-      return false;
-    }
-
-    // Validate address formats
-    if (!this.isValidBitcoinAddress(params.address)) {
-      this.logger.error(`Invalid Bitcoin address format: ${params.address}`);
-      return false;
-    }
-
-    // Test provider connectivity
-    const healthStatus = this.providerManager.getProviderHealth('bitcoin');
-    const hasHealthyProvider = Array.from(healthStatus.values()).some(
-      health => health.isHealthy && health.circuitState !== 'OPEN'
-    );
-
-    if (!hasHealthyProvider) {
-      this.logger.error('No healthy Bitcoin providers available');
-      return false;
-    }
-
-    this.logger.info('Bitcoin source validation passed');
-    return true;
   }
 
   /**
@@ -238,7 +98,7 @@ export class BitcoinTransactionImporter extends BaseImporter<BitcoinTransaction>
         const rawTransactions = await this.fetchRawTransactionsForAddress(params.address, params.since);
 
         // Add the source address context to each transaction
-        const enhancedSourcedTransactions: ApiClientRawData<BitcoinTransaction>[] = rawTransactions.map(rawTx => ({
+        const enhancedSourcedTransactions: ApiClientRawData<BitcoinTransaction>[] = rawTransactions.map((rawTx) => ({
           providerId: rawTx.providerId,
           rawData: rawTx.rawData,
           sourceAddress: params.address,
@@ -259,5 +119,146 @@ export class BitcoinTransactionImporter extends BaseImporter<BitcoinTransaction>
       metadata,
       rawData: allSourcedTransactions,
     };
+  }
+
+  /**
+   * Validate source parameters and connectivity.
+   */
+  protected canImportSpecific(params: ImportParams): Promise<boolean> {
+    if (!params.address) {
+      this.logger.error('No address provided for Bitcoin import');
+      return Promise.resolve(false);
+    }
+
+    // Validate address formats
+    if (!this.isValidBitcoinAddress(params.address)) {
+      this.logger.error(`Invalid Bitcoin address format: ${params.address}`);
+      return Promise.resolve(false);
+    }
+
+    // Test provider connectivity
+    const healthStatus = this.providerManager.getProviderHealth('bitcoin');
+    const hasHealthyProvider = Array.from(healthStatus.values()).some(
+      (health) => health.isHealthy && health.circuitState !== 'OPEN'
+    );
+
+    if (!hasHealthyProvider) {
+      this.logger.error('No healthy Bitcoin providers available');
+      return Promise.resolve(false);
+    }
+
+    this.logger.info('Bitcoin source validation passed');
+    return Promise.resolve(true);
+  }
+
+  /**
+   * Fetch raw transactions for a single address with provider provenance.
+   */
+  private async fetchRawTransactionsForAddress(
+    address: string,
+    since?: number
+  ): Promise<ApiClientRawData<BitcoinTransaction>[]> {
+    try {
+      const result = await this.providerManager.executeWithFailover('bitcoin', {
+        address: address,
+        getCacheKey: (params) =>
+          `bitcoin:raw-txs:${params.type === 'getRawAddressTransactions' ? params.address : 'unknown'}:${params.type === 'getRawAddressTransactions' ? params.since || 'all' : 'unknown'}`,
+        since: since,
+        type: 'getRawAddressTransactions',
+      });
+
+      const rawTransactions = result.data as BitcoinTransaction[];
+      const providerId = result.providerName;
+
+      // Wrap each transaction with provider provenance
+      return rawTransactions.map((rawData) => ({
+        providerId,
+        rawData,
+      }));
+    } catch (error) {
+      this.logger.error(`Provider manager failed to fetch transactions for ${address}: ${String(error)}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Fetch raw transactions for derived addresses from an xpub wallet.
+   */
+  private async fetchRawTransactionsForDerivedAddresses(
+    derivedAddresses: string[],
+    since?: number
+  ): Promise<ApiClientRawData<BitcoinTransaction>[]> {
+    const uniqueTransactions = new Map<string, ApiClientRawData<BitcoinTransaction>>();
+
+    for (const address of derivedAddresses) {
+      // Check cache first to see if this address has any transactions
+      const cachedInfo = this.addressInfoCache.get(address);
+
+      // Skip addresses that we know are empty from gap scanning
+      if (cachedInfo && cachedInfo.txCount === 0) {
+        this.logger.debug(`Skipping address ${address} - no transactions in cache`);
+        continue;
+      }
+
+      try {
+        const rawTransactions = await this.fetchRawTransactionsForAddress(address, since);
+
+        // Add transactions to the unique set with address information
+        for (const rawTx of rawTransactions) {
+          const txId = this.getTransactionId(rawTx.rawData);
+
+          uniqueTransactions.set(txId, {
+            providerId: rawTx.providerId,
+            rawData: rawTx.rawData,
+            sourceAddress: address,
+          });
+        }
+
+        this.logger.debug(`Found ${rawTransactions.length} transactions for address ${address}`);
+      } catch (error) {
+        this.logger.error(`Failed to fetch raw transactions for address ${address}: ${String(error)}`);
+      }
+    }
+
+    this.logger.info(`Found ${uniqueTransactions.size} unique raw transactions across all derived addresses`);
+    return Array.from(uniqueTransactions.values());
+  }
+
+  /**
+   * Initialize an xpub wallet using BitcoinUtils.
+   */
+  private async initializeXpubWallet(walletAddress: BitcoinWalletAddress): Promise<void> {
+    await BitcoinUtils.initializeXpubWallet(
+      walletAddress,
+      bitcoin.networks.bitcoin, // Always use mainnet
+      this.providerManager,
+      this.addressGap
+    );
+  }
+
+  /**
+   * Validate Bitcoin address format (basic validation).
+   */
+  private isValidBitcoinAddress(address: string): boolean {
+    try {
+      // Check for xpub/ypub/zpub
+      if (BitcoinUtils.isXpub(address)) {
+        return true;
+      }
+
+      // Check for regular Bitcoin address format
+      // This is a basic check - full validation would require more complex parsing
+      if (
+        (address.startsWith('1') && address.length >= 26 && address.length <= 35) || // Legacy
+        (address.startsWith('3') && address.length >= 26 && address.length <= 35) || // SegWit
+        (address.startsWith('bc1') && address.length >= 39) // Bech32
+      ) {
+        return true;
+      }
+
+      return false;
+    } catch {
+      return false;
+    }
   }
 }

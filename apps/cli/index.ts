@@ -1,15 +1,59 @@
 #!/usr/bin/env node
+import path from 'node:path';
+
 import { type BalanceVerificationResult, BalanceVerifier } from '@crypto/balance';
+import 'reflect-metadata';
 import { BalanceRepository, BalanceService, Database, type StoredTransaction } from '@crypto/data';
 import { TransactionIngestionService } from '@crypto/import/src/services/ingestion-service';
 import { getLogger } from '@crypto/shared-logger';
 import { initializeDatabase, loadExplorerConfig } from '@crypto/shared-utils';
 import { Command } from 'commander';
-import path from 'path';
-import 'reflect-metadata';
 
 const logger = getLogger('CLI');
 const program = new Command();
+
+// Command option types
+interface VerifyOptions {
+  blockchain?: string;
+  exchange?: string;
+  report?: boolean;
+}
+
+interface StatusOptions {
+  clearDb?: boolean;
+  config?: string;
+}
+
+interface ExportOptions {
+  clearDb?: boolean;
+  exchange?: string;
+  format?: string;
+  output?: string;
+  since?: string;
+}
+
+interface ImportOptions {
+  address?: string;
+  blockchain?: string;
+  clearDb?: boolean;
+  config?: string;
+  csvDir?: string;
+  exchange?: string;
+  process?: boolean;
+  provider?: string;
+  since?: string;
+  until?: string;
+}
+
+interface ProcessOptions {
+  all?: boolean;
+  blockchain?: string;
+  clearDb?: boolean;
+  config?: string;
+  exchange?: string;
+  session?: string;
+  since?: string;
+}
 
 async function main() {
   program
@@ -24,7 +68,7 @@ async function main() {
     .option('--exchange <name>', 'Exchange name to verify (e.g., kraken, coinbase)')
     .option('--blockchain <name>', 'Blockchain name to verify (e.g., bitcoin, ethereum)')
     .option('--report', 'Generate detailed verification report')
-    .action(async options => {
+    .action(async (options: VerifyOptions) => {
       try {
         logger.info('Starting balance verification');
 
@@ -53,16 +97,16 @@ async function main() {
         displayVerificationResults(results);
 
         if (options.report) {
-          const report = await verifier.generateReport(results);
+          const report = verifier.generateReport(results);
           const reportPath = path.join(process.cwd(), 'data', 'verification-report.md');
-          await import('fs').then(fs => fs.promises.writeFile(reportPath, report));
+          await import('node:fs').then((fs) => fs.promises.writeFile(reportPath, report));
           logger.info(`Verification report generated: ${reportPath}`);
         }
 
         await database.close();
         process.exit(0);
       } catch (error) {
-        logger.error(`Verification failed: ${error}`);
+        logger.error(`Verification failed: ${String(error)}`);
         process.exit(1);
       }
     });
@@ -73,7 +117,7 @@ async function main() {
     .description('Show system status and recent verification results')
     .option('--config <path>', 'Path to configuration file')
     .option('--clear-db', 'Clear and reinitialize database before status')
-    .action(async options => {
+    .action(async (options: StatusOptions) => {
       try {
         const database = new Database();
         if (options.clearDb) {
@@ -104,14 +148,14 @@ async function main() {
           const groupedByExchange = latestVerifications.reduce(
             (acc, v) => {
               if (!acc[v.exchange]) acc[v.exchange] = [];
-              acc[v.exchange]!.push(v);
+              acc[v.exchange].push(v);
               return acc;
             },
             {} as Record<string, typeof latestVerifications>
           );
 
           for (const [exchange, verifications] of Object.entries(groupedByExchange)) {
-            const matches = verifications.filter(v => v.status === 'match').length;
+            const matches = verifications.filter((v) => v.status === 'match').length;
             const total = verifications.length;
             const status = matches === total ? '✅' : '⚠️';
             logger.info(`  ${status} ${exchange}: ${matches}/${total} balances match`);
@@ -121,7 +165,7 @@ async function main() {
         await database.close();
         process.exit(0);
       } catch (error) {
-        logger.error(`Status check failed: ${error}`);
+        logger.error(`Status check failed: ${String(error)}`);
         process.exit(1);
       }
     });
@@ -135,7 +179,7 @@ async function main() {
     .option('--since <date>', 'Export transactions since date (YYYY-MM-DD, timestamp, or 0 for all history)')
     .option('--output <file>', 'Output file path')
     .option('--clear-db', 'Clear and reinitialize database before export')
-    .action(async options => {
+    .action(async (options: ExportOptions) => {
       try {
         logger.info('Starting export');
 
@@ -156,14 +200,15 @@ async function main() {
 
         const transactions = await database.getTransactions(options.exchange, since);
 
-        const outputPath = options.output || path.join(process.cwd(), 'data', `transactions.${options.format}`);
+        const outputPath =
+          options.output || path.join(process.cwd(), 'data', `transactions.${options.format || 'csv'}`);
 
-        if (options.format === 'csv') {
-          const csv = await convertToCSV(transactions);
-          await import('fs').then(fs => fs.promises.writeFile(outputPath, csv));
+        if ((options.format || 'csv') === 'csv') {
+          const csv = convertToCSV(transactions);
+          await import('node:fs').then((fs) => fs.promises.writeFile(outputPath, csv));
         } else {
-          const json = await convertToJSON(transactions);
-          await import('fs').then(fs => fs.promises.writeFile(outputPath, json));
+          const json = convertToJSON(transactions);
+          await import('node:fs').then((fs) => fs.promises.writeFile(outputPath, json));
         }
 
         logger.info(`\n💾 Exported ${transactions.length} transactions to: ${outputPath}`);
@@ -171,7 +216,7 @@ async function main() {
         await database.close();
         process.exit(0);
       } catch (error) {
-        logger.error(`Export failed: ${error}`);
+        logger.error(`Export failed: ${String(error)}`);
         process.exit(1);
       }
     });
@@ -190,7 +235,7 @@ async function main() {
     .option('--process', 'Process data after import (combined import+process pipeline)')
     .option('--config <path>', 'Path to configuration file')
     .option('--clear-db', 'Clear and reinitialize database before import')
-    .action(async options => {
+    .action(async (options: ImportOptions) => {
       try {
         // Validate required parameters
         const sourceName = options.exchange || options.blockchain;
@@ -242,12 +287,12 @@ async function main() {
         try {
           // Parse options
           const since = options.since
-            ? isNaN(options.since)
+            ? isNaN(Number(options.since))
               ? new Date(options.since).getTime()
               : parseInt(options.since)
             : undefined;
           const until = options.until
-            ? isNaN(options.until)
+            ? isNaN(Number(options.until))
               ? new Date(options.until).getTime()
               : parseInt(options.until)
             : undefined;
@@ -262,7 +307,7 @@ async function main() {
 
           // Set parameters based on source type
           if (sourceType === 'exchange') {
-            importParams.csvDirectories = [options.csvDir];
+            importParams.csvDirectories = options.csvDir ? [options.csvDir] : undefined;
           } else {
             importParams.address = options.address;
             importParams.providerId = options.provider;
@@ -286,7 +331,7 @@ async function main() {
 
             if (processResult.errors.length > 0) {
               logger.error('Processing errors:');
-              processResult.errors.slice(0, 5).forEach(error => logger.error(`  ${error}`));
+              processResult.errors.slice(0, 5).forEach((error) => logger.error(`  ${error}`));
               if (processResult.errors.length > 5) {
                 logger.error(`  ... and ${processResult.errors.length - 5} more errors`);
               }
@@ -303,7 +348,7 @@ async function main() {
         // Exit successfully
         process.exit(0);
       } catch (error) {
-        logger.error(`Import failed: ${error}`);
+        logger.error(`Import failed: ${String(error)}`);
         process.exit(1);
       }
     });
@@ -319,7 +364,7 @@ async function main() {
     .option('--all', 'Process all pending raw data for this source')
     .option('--config <path>', 'Path to configuration file')
     .option('--clear-db', 'Clear and reinitialize database before processing')
-    .action(async options => {
+    .action(async (options: ProcessOptions) => {
       try {
         // Validate required parameters
         const sourceName = options.exchange || options.blockchain;
@@ -362,11 +407,13 @@ async function main() {
           const filters: { createdAfter?: number; importSessionId?: number } = {};
 
           if (options.session) {
-            filters.importSessionId = parseInt(options.session);
+            filters.importSessionId = parseInt(options.session, 10);
           }
 
           if (options.since) {
-            const sinceTimestamp = isNaN(options.since) ? new Date(options.since).getTime() : parseInt(options.since);
+            const sinceTimestamp = isNaN(Number(options.since))
+              ? new Date(options.since).getTime()
+              : parseInt(options.since);
             filters.createdAfter = Math.floor(sinceTimestamp / 1000); // Convert to seconds for database
           }
 
@@ -376,7 +423,7 @@ async function main() {
 
           if (result.errors.length > 0) {
             logger.error('Processing errors:');
-            result.errors.slice(0, 5).forEach(error => logger.error(`  ${error}`));
+            result.errors.slice(0, 5).forEach((error) => logger.error(`  ${error}`));
             if (result.errors.length > 5) {
               logger.error(`  ... and ${result.errors.length - 5} more errors`);
             }
@@ -392,7 +439,7 @@ async function main() {
         // Exit successfully
         process.exit(0);
       } catch (error) {
-        logger.error(`Processing failed: ${error}`);
+        logger.error(`Processing failed: ${String(error)}`);
         process.exit(1);
       }
     });
@@ -453,7 +500,7 @@ async function main() {
 
         process.exit(0);
       } catch (error) {
-        logger.error(`Failed to list blockchains: ${error}`);
+        logger.error(`Failed to list blockchains: ${String(error)}`);
         process.exit(1);
       }
     });
@@ -480,7 +527,7 @@ function displayVerificationResults(results: BalanceVerificationResult[]): void 
 
       // Show all non-zero calculated balances for CSV adapters
       const significantBalances = result.comparisons
-        .filter(c => Math.abs(c.calculatedBalance) > 0.00000001)
+        .filter((c) => Math.abs(c.calculatedBalance) > 0.00000001)
         .sort((a, b) => Math.abs(b.calculatedBalance) - Math.abs(a.calculatedBalance));
 
       if (significantBalances.length > 0) {
@@ -516,10 +563,10 @@ function displayVerificationResults(results: BalanceVerificationResult[]): void 
       // For blockchain verifications (status warning, live balance always 0), show all currencies with transactions
       // For exchange verifications, only show non-zero balances
       const isBlockchainVerification =
-        result.status === 'warning' && result.comparisons.every(c => c.liveBalance === 0);
+        result.status === 'warning' && result.comparisons.every((c) => c.liveBalance === 0);
       const significantBalances = result.comparisons
         .filter(
-          c =>
+          (c) =>
             isBlockchainVerification ||
             Math.abs(c.calculatedBalance) > 0.00000001 ||
             Math.abs(c.liveBalance) > 0.00000001
@@ -538,7 +585,7 @@ function displayVerificationResults(results: BalanceVerificationResult[]): void 
       }
 
       // Show top issues
-      const issues = result.comparisons.filter(c => c.status !== 'match').slice(0, 3);
+      const issues = result.comparisons.filter((c) => c.status !== 'match').slice(0, 3);
       if (issues.length > 0) {
         logger.info('  Top issues:');
         for (const issue of issues) {
@@ -549,7 +596,7 @@ function displayVerificationResults(results: BalanceVerificationResult[]): void 
   }
 }
 
-async function convertToCSV(transactions: StoredTransaction[]): Promise<string> {
+function convertToCSV(transactions: StoredTransaction[]): string {
   if (transactions.length === 0) return '';
 
   const headers = [
@@ -608,7 +655,7 @@ async function convertToCSV(transactions: StoredTransaction[]): Promise<string> 
     ];
 
     // Escape values that contain commas
-    const escapedValues = values.map(value => {
+    const escapedValues = values.map((value) => {
       const stringValue = String(value);
       return stringValue.includes(',') ? `"${stringValue}"` : stringValue;
     });
@@ -619,13 +666,13 @@ async function convertToCSV(transactions: StoredTransaction[]): Promise<string> 
   return csvLines.join('\n');
 }
 
-async function convertToJSON(transactions: StoredTransaction[]): Promise<string> {
+function convertToJSON(transactions: StoredTransaction[]): string {
   if (transactions.length === 0) return '[]';
 
   // Use normalized database columns and add calculated cost field
-  const processedTransactions = transactions.map(tx => {
+  const processedTransactions = transactions.map((tx) => {
     // Calculate cost from amount * price if available
-    let cost: number | null = null;
+    let cost: number | undefined;
     if (tx.amount && tx.price) {
       try {
         const amountNum = parseFloat(String(tx.amount));
@@ -660,23 +707,23 @@ async function convertToJSON(transactions: StoredTransaction[]): Promise<string>
     };
   });
 
-  return JSON.stringify(processedTransactions, null, 2);
+  return JSON.stringify(processedTransactions, undefined, 2);
 }
 
 // Handle unhandled rejections
-process.on('unhandledRejection', reason => {
-  logger.error(`Unhandled Rejection: ${reason}`);
+process.on('unhandledRejection', (reason) => {
+  logger.error(`Unhandled Rejection: ${String(reason)}`);
   process.exit(1);
 });
 
 // Handle uncaught exceptions
-process.on('uncaughtException', error => {
+process.on('uncaughtException', (error) => {
   logger.error(`Uncaught Exception: ${error.message}`);
   logger.error(`Stack: ${error.stack}`);
   process.exit(1);
 });
 
-main().catch(error => {
-  logger.error(`CLI failed: ${error}`);
+main().catch((error) => {
+  logger.error(`CLI failed: ${String(error)}`);
   process.exit(1);
 });

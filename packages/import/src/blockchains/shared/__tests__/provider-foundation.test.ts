@@ -2,30 +2,31 @@
  * Foundation tests for the universal blockchain provider system
  * Tests core interfaces, circuit breaker, and provider manager functionality
  */
-import { RateLimitConfig } from '@crypto/core';
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import type { RateLimitConfig } from '@crypto/core';
+import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
 
-import { CircuitBreaker } from '../../../shared/utils/circuit-breaker.ts';
+import { CircuitBreaker } from '../../../shared/utils/circuit-breaker.js';
 // Import clients to trigger registration
-import '../../ethereum/api/index.ts';
-import { BlockchainProviderManager } from '../blockchain-provider-manager.ts';
-import { ProviderInfo, ProviderRegistry } from '../registry/provider-registry.ts';
-import { IBlockchainProvider, ProviderCapabilities, ProviderOperation } from '../types.ts';
+import '../../ethereum/api/index.js';
+import { BlockchainProviderManager } from '../blockchain-provider-manager.js';
+import type { ProviderInfo } from '../registry/provider-registry.js';
+import { ProviderRegistry } from '../registry/provider-registry.js';
+import type { IBlockchainProvider, ProviderCapabilities, ProviderOperation } from '../types.js';
 
 // Mock explorer config for tests
 const mockExplorerConfig = {};
 
 // Mock provider for testing
 class MockProvider implements IBlockchainProvider {
-  private responseDelay: number = 0;
-  private shouldFail: boolean = false;
   public readonly blockchain: string;
   public readonly capabilities: ProviderCapabilities;
 
   public readonly name: string;
   public readonly rateLimit: RateLimitConfig;
+  private responseDelay = 0;
+  private shouldFail = false;
 
-  constructor(name: string, blockchain: string, shouldFail: boolean = false, responseDelay: number = 0) {
+  constructor(name: string, blockchain: string, shouldFail = false, responseDelay = 0) {
     this.name = name;
     this.blockchain = blockchain;
     this.shouldFail = shouldFail;
@@ -46,7 +47,7 @@ class MockProvider implements IBlockchainProvider {
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
     if (this.responseDelay > 0) {
-      await new Promise(resolve => setTimeout(resolve, this.responseDelay));
+      await new Promise((resolve) => setTimeout(resolve, this.responseDelay));
     }
 
     if (this.shouldFail) {
@@ -65,7 +66,7 @@ class MockProvider implements IBlockchainProvider {
   }
 
   async isHealthy(): Promise<boolean> {
-    return !this.shouldFail;
+    return Promise.resolve(!this.shouldFail);
   }
 
   setFailureMode(shouldFail: boolean): void {
@@ -73,7 +74,7 @@ class MockProvider implements IBlockchainProvider {
   }
 
   async testConnection(): Promise<boolean> {
-    return !this.shouldFail;
+    return Promise.resolve(!this.shouldFail);
   }
 }
 
@@ -239,7 +240,7 @@ describe('BlockchainProviderManager', () => {
   test('should cache results when cache key provided', async () => {
     const operation: ProviderOperation<{ balance: number; currency: string }> = {
       address: '0x123',
-      getCacheKey: params => {
+      getCacheKey: (params) => {
         return `balance-${params.type === 'getAddressBalance' ? params.address : 'unknown'}`;
       },
       type: 'getAddressBalance',
@@ -361,7 +362,7 @@ describe('BlockchainProviderManager', () => {
 
     const operation: ProviderOperation<{ balance: number; currency: string }> = {
       address: '0x123',
-      getCacheKey: params => {
+      getCacheKey: (params) => {
         return `balance-${params.type === 'getAddressBalance' ? params.address : 'unknown'}`;
       },
       type: 'getAddressBalance',
@@ -401,7 +402,7 @@ describe('ProviderRegistry', () => {
   test('should list Alchemy in available Ethereum providers', () => {
     expect(availableEthereumProviders.length).toBeGreaterThanOrEqual(1);
 
-    const alchemy = availableEthereumProviders.find(p => p.name === 'alchemy');
+    const alchemy = availableEthereumProviders.find((p) => p.name === 'alchemy');
     expect(alchemy).toBeDefined();
     expect(alchemy?.blockchain).toBe('ethereum');
     expect(alchemy?.displayName).toBe('Alchemy');
@@ -515,7 +516,7 @@ describe('ProviderRegistry', () => {
   });
 
   test('should provide provider capabilities information', () => {
-    const alchemy = availableEthereumProviders.find(p => p.name === 'alchemy');
+    const alchemy = availableEthereumProviders.find((p) => p.name === 'alchemy');
 
     expect(alchemy?.capabilities).toBeDefined();
     expect(alchemy?.capabilities.supportedOperations).toBeDefined();
@@ -525,7 +526,7 @@ describe('ProviderRegistry', () => {
   });
 
   test('should provide rate limiting information', () => {
-    const alchemy = availableEthereumProviders.find(p => p.name === 'alchemy');
+    const alchemy = availableEthereumProviders.find((p) => p.name === 'alchemy');
 
     expect(alchemy?.defaultConfig.rateLimit).toBeDefined();
     expect(alchemy?.defaultConfig.rateLimit.requestsPerSecond).toBe(5);
@@ -533,7 +534,7 @@ describe('ProviderRegistry', () => {
   });
 
   test('should provide network support information', () => {
-    const alchemy = availableEthereumProviders.find(p => p.name === 'alchemy');
+    const alchemy = availableEthereumProviders.find((p) => p.name === 'alchemy');
 
     expect(alchemy?.supportedNetworks).toBeDefined();
     expect(alchemy?.supportedNetworks).toContain('mainnet');

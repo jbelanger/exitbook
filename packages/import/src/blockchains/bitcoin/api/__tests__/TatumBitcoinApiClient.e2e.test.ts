@@ -1,13 +1,13 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import { TatumBitcoinApiClient } from '../TatumBitcoinApiClient.ts';
+import { TatumBitcoinApiClient } from '../TatumBitcoinApiClient.js';
 
 describe('TatumBitcoinApiClient E2E', () => {
   let client: TatumBitcoinApiClient;
 
   beforeAll(() => {
     // Skip if no API key is provided
-    if (!process.env.TATUM_API_KEY || process.env.TATUM_API_KEY === 'YourApiKeyToken') {
+    if (!process.env['TATUM_API_KEY'] || process.env['TATUM_API_KEY'] === 'YourApiKeyToken') {
       console.warn('Skipping Tatum E2E tests - no API key provided. Set TATUM_API_KEY environment variable.');
       return;
     }
@@ -15,7 +15,7 @@ describe('TatumBitcoinApiClient E2E', () => {
     client = new TatumBitcoinApiClient();
   });
 
-  it.skipIf(!process.env.TATUM_API_KEY || process.env.TATUM_API_KEY === 'YourApiKeyToken')(
+  it.skipIf(!process.env['TATUM_API_KEY'] || process.env['TATUM_API_KEY'] === 'YourApiKeyToken')(
     'should connect to Tatum API and test health',
     async () => {
       const isHealthy = await client.isHealthy();
@@ -24,7 +24,7 @@ describe('TatumBitcoinApiClient E2E', () => {
     30000 // 30 second timeout for network calls
   );
 
-  it.skipIf(!process.env.TATUM_API_KEY || process.env.TATUM_API_KEY === 'YourApiKeyToken')(
+  it.skipIf(!process.env['TATUM_API_KEY'] || process.env['TATUM_API_KEY'] === 'YourApiKeyToken')(
     'should test connection successfully',
     async () => {
       const connected = await client.testConnection();
@@ -33,7 +33,7 @@ describe('TatumBitcoinApiClient E2E', () => {
     30000
   );
 
-  it.skipIf(!process.env.TATUM_API_KEY || process.env.TATUM_API_KEY === 'YourApiKeyToken')(
+  it.skipIf(!process.env['TATUM_API_KEY'] || process.env['TATUM_API_KEY'] === 'YourApiKeyToken')(
     'should get balance for Genesis block address',
     async () => {
       // Genesis block address - known to have received coins but never spent
@@ -51,7 +51,7 @@ describe('TatumBitcoinApiClient E2E', () => {
     30000
   );
 
-  it.skipIf(!process.env.TATUM_API_KEY || process.env.TATUM_API_KEY === 'YourApiKeyToken')(
+  it.skipIf(!process.env['TATUM_API_KEY'] || process.env['TATUM_API_KEY'] === 'YourApiKeyToken')(
     'should get transactions for Genesis block address',
     async () => {
       // Genesis block address - known to have transactions
@@ -67,18 +67,20 @@ describe('TatumBitcoinApiClient E2E', () => {
       if (transactions.length > 0) {
         const tx = transactions[0];
         expect(tx).toBeDefined();
-        expect(tx.hash).toBeDefined();
-        expect(typeof tx.hash).toBe('string');
-        expect(tx.blockNumber).toBeDefined();
-        expect(typeof tx.blockNumber).toBe('number');
-        expect(Array.isArray(tx.inputs)).toBe(true);
-        expect(Array.isArray(tx.outputs)).toBe(true);
+        if (tx) {
+          expect(tx.hash).toBeDefined();
+          expect(typeof tx.hash).toBe('string');
+          expect(tx.blockNumber).toBeDefined();
+          expect(typeof tx.blockNumber).toBe('number');
+          expect(Array.isArray(tx.inputs)).toBe(true);
+          expect(Array.isArray(tx.outputs)).toBe(true);
+        }
       }
     },
     30000
   );
 
-  it.skipIf(!process.env.TATUM_API_KEY || process.env.TATUM_API_KEY === 'YourApiKeyToken')(
+  it.skipIf(!process.env['TATUM_API_KEY'] || process.env['TATUM_API_KEY'] === 'YourApiKeyToken')(
     'should handle pagination parameters correctly',
     async () => {
       const genesisAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa';
@@ -94,26 +96,28 @@ describe('TatumBitcoinApiClient E2E', () => {
     30000
   );
 
-  it.skipIf(!process.env.TATUM_API_KEY || process.env.TATUM_API_KEY === 'YourApiKeyToken')(
+  it.skipIf(!process.env['TATUM_API_KEY'] || process.env['TATUM_API_KEY'] === 'YourApiKeyToken')(
     'should get address info through execute method',
     async () => {
       const genesisAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa';
 
-      const addressInfo = (await client.execute({
+      const addressInfo = await client.execute({
         address: genesisAddress,
         type: 'getAddressInfo',
-      })) as { balance: string; txCount: number };
+      });
 
       expect(addressInfo).toBeDefined();
-      expect(addressInfo.balance).toBeDefined();
-      expect(typeof addressInfo.balance).toBe('string');
-      expect(addressInfo.txCount).toBeDefined();
-      expect(typeof addressInfo.txCount).toBe('number');
+      // Type assertion to avoid 'unknown' error
+      const info = addressInfo as { balance: string; txCount: number };
+      expect(info.balance).toBeDefined();
+      expect(typeof info.balance).toBe('string');
+      expect(info.txCount).toBeDefined();
+      expect(typeof info.txCount).toBe('number');
     },
     30000
   );
 
-  it.skipIf(!process.env.TATUM_API_KEY || process.env.TATUM_API_KEY === 'YourApiKeyToken')(
+  it.skipIf(!process.env['TATUM_API_KEY'] || process.env['TATUM_API_KEY'] === 'YourApiKeyToken')(
     'should handle empty address gracefully',
     async () => {
       // Use a freshly generated address that likely has no transactions
@@ -131,7 +135,7 @@ describe('TatumBitcoinApiClient E2E', () => {
     30000
   );
 
-  it.skipIf(!process.env.TATUM_API_KEY || process.env.TATUM_API_KEY === 'YourApiKeyToken')(
+  it.skipIf(!process.env['TATUM_API_KEY'] || process.env['TATUM_API_KEY'] === 'YourApiKeyToken')(
     'should respect rate limiting',
     async () => {
       const genesisAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa';
@@ -145,7 +149,7 @@ describe('TatumBitcoinApiClient E2E', () => {
 
       // All requests should succeed
       expect(results.length).toBe(3);
-      results.forEach(result => {
+      results.forEach((result) => {
         expect(result).toBeDefined();
         expect(result.incoming).toBeDefined();
         expect(result.outgoing).toBeDefined();

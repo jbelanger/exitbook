@@ -1,16 +1,17 @@
 import { getLogger } from '@crypto/shared-logger';
 import type { BlockchainExplorersConfig, ProviderOverride } from '@crypto/shared-utils';
 
-import type { FailoverExecutionResult } from '../../shared/processors/interfaces.ts';
-import { CircuitBreaker } from '../../shared/utils/circuit-breaker.ts';
-import { ProviderRegistry } from './registry/provider-registry.ts';
+import type { FailoverExecutionResult } from '../../shared/processors/interfaces.js';
+import { CircuitBreaker } from '../../shared/utils/circuit-breaker.js';
+
+import { ProviderRegistry } from './registry/provider-registry.js';
 import type {
   IBlockchainProvider,
   ProviderCapabilities,
   ProviderHealth,
   ProviderOperation,
   ProviderOperationType,
-} from './types.ts';
+} from './types.js';
 
 // Type guards no longer needed with discriminated union
 
@@ -32,12 +33,192 @@ export class BlockchainProviderManager {
   private rateLimiters = new Map<string, { lastRequest: number; tokens: number }>(); // Simple token bucket
   private requestCache = new Map<string, CacheEntry>();
 
-  constructor(private readonly explorerConfig: BlockchainExplorersConfig | null) {
+  constructor(private readonly explorerConfig: BlockchainExplorersConfig | undefined) {
     // Start periodic health checks
-    this.healthCheckTimer = setInterval(() => this.performHealthChecks(), this.healthCheckInterval);
+    this.healthCheckTimer = setInterval(() => {
+      void this.performHealthChecks().catch((error) => {
+        logger.error(`Health check failed: ${error instanceof Error ? error.message : String(error)}`);
+      });
+    }, this.healthCheckInterval);
 
     // Start cache cleanup
     this.cacheCleanupTimer = setInterval(() => this.cleanupCache(), this.cacheTimeout);
+  }
+
+  /**
+   * Auto-register providers from configuration using the registry
+   * Falls back to all registered providers when no configuration exists
+   */
+  autoRegisterFromConfig(blockchain: string, network = 'mainnet', preferredProvider?: string): IBlockchainProvider[] {
+    try {
+      // If no config file exists, use all registered providers
+      if (!this.explorerConfig) {
+        logger.info(`No configuration file found. Using all registered providers for ${blockchain}`);
+        return this.autoRegisterFromRegistry(blockchain, network, preferredProvider);
+      }
+
+      const blockchainConfig = this.explorerConfig[blockchain];
+
+      // If blockchain not in config, fall back to registry
+      if (!blockchainConfig) {
+        logger.info(`No configuration found for blockchain: ${blockchain}. Using all registered providers.`);
+        return this.autoRegisterFromRegistry(blockchain, network, preferredProvider);
+      }
+
+      // Use override-based config format
+      if (
+        typeof blockchainConfig === 'object' &&
+        blockchainConfig !== null &&
+        (blockchainConfig.defaultEnabled === undefined || Array.isArray(blockchainConfig.defaultEnabled)) &&
+        (blockchainConfig.overrides === undefined ||
+          (typeof blockchainConfig.overrides === 'object' && blockchainConfig.overrides !== null))
+      ) {
+        return this.handleOverrideConfig(
+          blockchain,
+          network,
+          preferredProvider,
+          blockchainConfig as {
+            defaultEnabled?: string[];
+            overrides?: Record<string, ProviderOverride>;
+          }
+        );
+      } else {
+        logger.error(
+          `Invalid blockchain config format for ${blockchain}. Expected an object with optional defaultEnabled (string[]) and overrides (Record<string, ProviderOverride>).`
+        );
+        return [];
+      }
+    } catch (error) {
+      logger.error(
+        `Failed to auto-register providers for ${blockchain} - Error: ${error instanceof Error ? error.message : String(error)}`
+      );
+      return [];
+    }
+  }
+
+  /**
+   * Cleanup resources and stop background tasks
+   */
+  destroy(): void {
+    if (this.healthCheckTimer) {
+      clearInterval(this.healthCheckTimer);
+      this.healthCheckTimer = undefined;
+    }
+
+    if (this.cacheCleanupTimer) {
+      clearInterval(this.cacheCleanupTimer);
+      this.cacheCleanupTimer = undefined;
+    }
+
+    // Clear all caches and state
+    this.providers.clear();
+    this.healthStatus.clear();
+    this.circuitBreakers.clear();
+    this.requestCache.clear();
+    this.rateLimiters.clear();
+  }
+
+  /**
+   * Execute operation with intelligent failover and caching
+   */
+  async executeWithFailover<T>(
+    blockchain: string,
+    operation: ProviderOperation<T>
+  ): Promise<FailoverExecutionResult<T>> {
+    // Check cache first
+    if (operation.getCacheKey) {
+      const cacheKey = operation.getCacheKey(operation);
+      const cached = this.requestCache.get(cacheKey);
+      if (cached && cached.expiry > Date.now()) {
+        const cachedResult = cached.result as FailoverExecutionResult<T>;
+        return cachedResult;
+      }
+    }
+
+    // Execute with failover logic
+    const result = await this.executeWithCircuitBreaker(blockchain, operation);
+
+    // Cache result if cacheable
+    if (operation.getCacheKey) {
+      const cacheKey = operation.getCacheKey(operation);
+      this.requestCache.set(cacheKey, {
+        expiry: Date.now() + this.cacheTimeout,
+        result,
+      });
+    }
+
+    return result;
+  }
+
+  /**
+   * Get provider health status for monitoring
+   */
+  getProviderHealth(blockchain?: string): Map<string, ProviderHealth & { circuitState: string }> {
+    const result = new Map<string, ProviderHealth & { circuitState: string }>();
+
+    const providersToCheck = blockchain
+      ? this.providers.get(blockchain) || []
+      : Array.from(this.providers.values()).flat();
+
+    for (const provider of providersToCheck) {
+      const health = this.healthStatus.get(provider.name);
+      const circuitBreaker = this.circuitBreakers.get(provider.name);
+
+      if (health && circuitBreaker) {
+        result.set(provider.name, {
+          ...health,
+          circuitState: circuitBreaker.getCurrentState(),
+        });
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Get registered providers for a blockchain
+   */
+  getProviders(blockchain: string): IBlockchainProvider[] {
+    return this.providers.get(blockchain) || [];
+  }
+
+  /**
+   * Register providers for a specific blockchain
+   */
+  registerProviders(blockchain: string, providers: IBlockchainProvider[]): void {
+    this.providers.set(blockchain, providers);
+
+    // Initialize health status and circuit breakers for each provider
+    for (const provider of providers) {
+      this.healthStatus.set(provider.name, {
+        averageResponseTime: 0,
+        consecutiveFailures: 0,
+        errorRate: 0,
+        isHealthy: true,
+        lastChecked: 0,
+        lastRateLimitTime: undefined,
+        rateLimitEvents: 0,
+        rateLimitRate: 0,
+      });
+
+      this.circuitBreakers.set(provider.name, new CircuitBreaker(provider.name));
+
+      // Initialize rate limiter
+      this.rateLimiters.set(provider.name, {
+        lastRequest: 0,
+        tokens: provider.rateLimit.burstLimit || 1,
+      });
+    }
+  }
+
+  /**
+   * Reset circuit breaker for a specific provider
+   */
+  resetCircuitBreaker(providerName: string): void {
+    const circuitBreaker = this.circuitBreakers.get(providerName);
+    if (circuitBreaker) {
+      circuitBreaker.reset();
+    }
   }
 
   /**
@@ -45,7 +226,7 @@ export class BlockchainProviderManager {
    */
   private autoRegisterFromRegistry(
     blockchain: string,
-    network: string = 'mainnet',
+    network = 'mainnet',
     preferredProvider?: string
   ): IBlockchainProvider[] {
     try {
@@ -53,12 +234,12 @@ export class BlockchainProviderManager {
 
       // If a preferred provider is specified, filter to only that provider
       if (preferredProvider) {
-        const matchingProvider = registeredProviders.find(provider => provider.name === preferredProvider);
+        const matchingProvider = registeredProviders.find((provider) => provider.name === preferredProvider);
         if (matchingProvider) {
           registeredProviders = [matchingProvider];
           logger.info(`Filtering to preferred provider: ${preferredProvider} for ${blockchain}`);
         } else {
-          const availableProviders = registeredProviders.map(p => p.name).join(', ');
+          const availableProviders = registeredProviders.map((p) => p.name).join(', ');
           const suggestions = [
             `💡 Available providers for ${blockchain}: ${availableProviders}`,
             `💡 Run 'pnpm run providers:list --blockchain ${blockchain}' to see all options`,
@@ -136,7 +317,7 @@ export class BlockchainProviderManager {
       if (providers.length > 0) {
         this.registerProviders(blockchain, providers);
         logger.info(
-          `Auto-registered ${providers.length} providers from registry for ${blockchain}: ${providers.map(p => p.name).join(', ')}`
+          `Auto-registered ${providers.length} providers from registry for ${blockchain}: ${providers.map((p) => p.name).join(', ')}`
         );
       } else {
         logger.warn(`No suitable providers found for ${blockchain} on network ${network}`);
@@ -167,7 +348,7 @@ export class BlockchainProviderManager {
    * Simple delay helper
    */
   private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**
@@ -225,7 +406,7 @@ export class BlockchainProviderManager {
       throw new Error(`No providers available for ${blockchain} operation: ${operation.type}`);
     }
 
-    let lastError: Error | null = null;
+    let lastError: Error | undefined = undefined;
     let attemptNumber = 0;
 
     for (const provider of providers) {
@@ -344,8 +525,8 @@ export class BlockchainProviderManager {
 
     // Filter by capability and health, then sort by score
     const scoredProviders = candidates
-      .filter(p => this.supportsOperation(p.capabilities, operation.type))
-      .map(p => ({
+      .filter((p) => this.supportsOperation(p.capabilities, operation.type))
+      .map((p) => ({
         health: this.healthStatus.get(p.name)!,
         provider: p,
         score: this.scoreProvider(p),
@@ -356,7 +537,7 @@ export class BlockchainProviderManager {
     if (scoredProviders.length > 1) {
       logger.debug(
         `Provider selection for ${operation.type} - Providers: ${JSON.stringify(
-          scoredProviders.map(item => ({
+          scoredProviders.map((item) => ({
             avgResponseTime: Math.round(item.health.averageResponseTime),
             consecutiveFailures: item.health.consecutiveFailures,
             errorRate: Math.round(item.health.errorRate * 100),
@@ -371,7 +552,7 @@ export class BlockchainProviderManager {
       );
     }
 
-    return scoredProviders.map(item => item.provider);
+    return scoredProviders.map((item) => item.provider);
   }
 
   /**
@@ -381,21 +562,28 @@ export class BlockchainProviderManager {
     blockchain: string,
     network: string,
     preferredProvider: string | undefined,
-    blockchainConfig: { defaultEnabled?: string[]; overrides?: { [providerName: string]: ProviderOverride } }
+    blockchainConfig: {
+      defaultEnabled?: string[];
+      overrides?: Record<string, ProviderOverride>;
+    }
   ): IBlockchainProvider[] {
     // Get all registered providers for this blockchain
     const allRegisteredProviders = ProviderRegistry.getAvailable(blockchain);
 
     // Determine which providers to enable
-    const defaultEnabled = blockchainConfig.defaultEnabled || allRegisteredProviders.map(p => p.name);
+    const defaultEnabled = blockchainConfig.defaultEnabled || allRegisteredProviders.map((p) => p.name);
     const overrides = blockchainConfig.overrides || {};
 
     // Build list of providers to create
-    const providersToCreate: Array<{ name: string; overrideConfig: ProviderOverride; priority: number }> = [];
+    const providersToCreate: {
+      name: string;
+      overrideConfig: ProviderOverride;
+      priority: number;
+    }[] = [];
 
     // If preferred provider specified, use only that one
     if (preferredProvider) {
-      if (allRegisteredProviders.some(p => p.name === preferredProvider)) {
+      if (allRegisteredProviders.some((p) => p.name === preferredProvider)) {
         const override = overrides[preferredProvider] || {};
         // Check if explicitly disabled
         if (override.enabled === false) {
@@ -408,7 +596,7 @@ export class BlockchainProviderManager {
           });
         }
       } else {
-        const registeredProviders = allRegisteredProviders.map(p => p.name).join(', ');
+        const registeredProviders = allRegisteredProviders.map((p) => p.name).join(', ');
         const suggestions = [
           `💡 Available providers for ${blockchain}: ${registeredProviders}`,
           `💡 Run 'pnpm run providers:list --blockchain ${blockchain}' to see all options`,
@@ -423,7 +611,7 @@ export class BlockchainProviderManager {
     } else {
       // Use defaultEnabled list, filtered by overrides
       for (const providerName of defaultEnabled) {
-        if (!allRegisteredProviders.some(p => p.name === providerName)) {
+        if (!allRegisteredProviders.some((p) => p.name === providerName)) {
           logger.warn(`Default provider '${providerName}' not registered for ${blockchain}. Skipping.`);
           continue;
         }
@@ -510,7 +698,7 @@ export class BlockchainProviderManager {
     if (providers.length > 0) {
       this.registerProviders(blockchain, providers);
       logger.info(
-        `Auto-registered ${providers.length} providers for ${blockchain}: ${providers.map(p => p.name).join(', ')}`
+        `Auto-registered ${providers.length} providers for ${blockchain}: ${providers.map((p) => p.name).join(', ')}`
       );
     } else {
       logger.warn(`No suitable providers found for ${blockchain} on network ${network}`);
@@ -523,7 +711,7 @@ export class BlockchainProviderManager {
    * Check if there are available providers (circuit not open)
    */
   private hasAvailableProviders(providers: IBlockchainProvider[]): boolean {
-    return providers.some(p => {
+    return providers.some((p) => {
       const circuitBreaker = this.circuitBreakers.get(p.name);
       return !circuitBreaker || !circuitBreaker.isOpen();
     });
@@ -669,165 +857,6 @@ export class BlockchainProviderManager {
     if (success) {
       const rateLimitWeight = 0; // This request was not rate limited
       health.rateLimitRate = health.rateLimitRate * 0.9 + rateLimitWeight * 0.1;
-    }
-  }
-
-  /**
-   * Auto-register providers from configuration using the registry
-   * Falls back to all registered providers when no configuration exists
-   */
-  autoRegisterFromConfig(
-    blockchain: string,
-    network: string = 'mainnet',
-    preferredProvider?: string
-  ): IBlockchainProvider[] {
-    try {
-      // If no config file exists, use all registered providers
-      if (!this.explorerConfig) {
-        logger.info(`No configuration file found. Using all registered providers for ${blockchain}`);
-        return this.autoRegisterFromRegistry(blockchain, network, preferredProvider);
-      }
-
-      const blockchainConfig = this.explorerConfig[blockchain];
-
-      // If blockchain not in config, fall back to registry
-      if (!blockchainConfig) {
-        logger.info(`No configuration found for blockchain: ${blockchain}. Using all registered providers.`);
-        return this.autoRegisterFromRegistry(blockchain, network, preferredProvider);
-      }
-
-      // Use override-based config format
-      return this.handleOverrideConfig(blockchain, network, preferredProvider, blockchainConfig);
-    } catch (error) {
-      logger.error(
-        `Failed to auto-register providers for ${blockchain} - Error: ${error instanceof Error ? error.message : String(error)}`
-      );
-      return [];
-    }
-  }
-
-  /**
-   * Cleanup resources and stop background tasks
-   */
-  destroy(): void {
-    if (this.healthCheckTimer) {
-      clearInterval(this.healthCheckTimer);
-      this.healthCheckTimer = undefined;
-    }
-
-    if (this.cacheCleanupTimer) {
-      clearInterval(this.cacheCleanupTimer);
-      this.cacheCleanupTimer = undefined;
-    }
-
-    // Clear all caches and state
-    this.providers.clear();
-    this.healthStatus.clear();
-    this.circuitBreakers.clear();
-    this.requestCache.clear();
-    this.rateLimiters.clear();
-  }
-
-  /**
-   * Execute operation with intelligent failover and caching
-   */
-  async executeWithFailover<T>(
-    blockchain: string,
-    operation: ProviderOperation<T>
-  ): Promise<FailoverExecutionResult<T>> {
-    // Check cache first
-    if (operation.getCacheKey) {
-      const cacheKey = operation.getCacheKey(operation);
-      const cached = this.requestCache.get(cacheKey);
-      if (cached && cached.expiry > Date.now()) {
-        const cachedResult = cached.result as FailoverExecutionResult<T>;
-        return cachedResult;
-      }
-    }
-
-    // Execute with failover logic
-    const result = await this.executeWithCircuitBreaker(blockchain, operation);
-
-    // Cache result if cacheable
-    if (operation.getCacheKey) {
-      const cacheKey = operation.getCacheKey(operation);
-      this.requestCache.set(cacheKey, {
-        expiry: Date.now() + this.cacheTimeout,
-        result,
-      });
-    }
-
-    return result;
-  }
-
-  /**
-   * Get provider health status for monitoring
-   */
-  getProviderHealth(blockchain?: string): Map<string, ProviderHealth & { circuitState: string }> {
-    const result = new Map<string, ProviderHealth & { circuitState: string }>();
-
-    const providersToCheck = blockchain
-      ? this.providers.get(blockchain) || []
-      : Array.from(this.providers.values()).flat();
-
-    for (const provider of providersToCheck) {
-      const health = this.healthStatus.get(provider.name);
-      const circuitBreaker = this.circuitBreakers.get(provider.name);
-
-      if (health && circuitBreaker) {
-        result.set(provider.name, {
-          ...health,
-          circuitState: circuitBreaker.getCurrentState(),
-        });
-      }
-    }
-
-    return result;
-  }
-
-  /**
-   * Get registered providers for a blockchain
-   */
-  getProviders(blockchain: string): IBlockchainProvider[] {
-    return this.providers.get(blockchain) || [];
-  }
-
-  /**
-   * Register providers for a specific blockchain
-   */
-  registerProviders(blockchain: string, providers: IBlockchainProvider[]): void {
-    this.providers.set(blockchain, providers);
-
-    // Initialize health status and circuit breakers for each provider
-    for (const provider of providers) {
-      this.healthStatus.set(provider.name, {
-        averageResponseTime: 0,
-        consecutiveFailures: 0,
-        errorRate: 0,
-        isHealthy: true,
-        lastChecked: 0,
-        lastRateLimitTime: undefined,
-        rateLimitEvents: 0,
-        rateLimitRate: 0,
-      });
-
-      this.circuitBreakers.set(provider.name, new CircuitBreaker(provider.name));
-
-      // Initialize rate limiter
-      this.rateLimiters.set(provider.name, {
-        lastRequest: 0,
-        tokens: provider.rateLimit.burstLimit || 1,
-      });
-    }
-  }
-
-  /**
-   * Reset circuit breaker for a specific provider
-   */
-  resetCircuitBreaker(providerName: string): void {
-    const circuitBreaker = this.circuitBreakers.get(providerName);
-    if (circuitBreaker) {
-      circuitBreaker.reset();
     }
   }
 }

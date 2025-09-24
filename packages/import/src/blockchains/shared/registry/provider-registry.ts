@@ -1,6 +1,6 @@
 import type { RateLimitConfig } from '@crypto/core';
 
-import type { IBlockchainProvider, ProviderCapabilities } from '../types.ts';
+import type { IBlockchainProvider, ProviderCapabilities } from '../types.js';
 
 /**
  * Network configuration for a provider
@@ -37,10 +37,10 @@ export interface ProviderMetadata {
 /**
  * Factory function to create provider instances
  */
-export type ProviderFactory = {
+export interface ProviderFactory {
   create: (config: unknown) => IBlockchainProvider;
   metadata: ProviderMetadata;
-};
+}
 
 /**
  * Information about an available provider
@@ -71,7 +71,7 @@ export class ProviderRegistry {
     const factory = this.providers.get(key);
 
     if (!factory) {
-      const available = this.getAvailable(blockchain).map(p => p.name);
+      const available = this.getAvailable(blockchain).map((p) => p.name);
       throw new Error(
         `Provider '${name}' not found for blockchain ${blockchain}.\n` +
           `💡 Available providers: ${available.join(', ')}\n` +
@@ -88,11 +88,11 @@ export class ProviderRegistry {
    * Get all registered providers
    */
   static getAllProviders(): ProviderInfo[] {
-    const blockchains = new Set(Array.from(this.providers.keys()).map(key => key.split(':')[0]));
+    const blockchains = new Set(Array.from(this.providers.keys()).map((key) => key.split(':')[0]));
 
     return Array.from(blockchains)
-      .filter(blockchain => blockchain !== undefined)
-      .flatMap(blockchain => this.getAvailable(blockchain!));
+      .filter((blockchain) => blockchain !== undefined)
+      .flatMap((blockchain) => this.getAvailable(blockchain));
   }
 
   /**
@@ -122,10 +122,10 @@ export class ProviderRegistry {
   /**
    * Get provider metadata
    */
-  static getMetadata(blockchain: string, name: string): ProviderMetadata | null {
+  static getMetadata(blockchain: string, name: string): ProviderMetadata | undefined {
     const key = `${blockchain}:${name}`;
     const factory = this.providers.get(key);
-    return factory?.metadata || null;
+    return factory?.metadata || undefined;
   }
 
   /**
@@ -170,7 +170,7 @@ export class ProviderRegistry {
       };
 
       const availableProviders = this.getAvailable(blockchain);
-      const availableNames = availableProviders.map(p => p.name);
+      const availableNames = availableProviders.map((p) => p.name);
 
       // Handle legacy format (explorers array)
       if (configObj.explorers) {

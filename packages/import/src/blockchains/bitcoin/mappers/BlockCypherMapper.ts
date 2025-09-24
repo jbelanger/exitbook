@@ -1,17 +1,17 @@
 import { getLogger } from '@crypto/shared-logger';
 import { type Result, err, ok } from 'neverthrow';
 
-import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
-import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.ts';
-import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.ts';
-import type { UniversalBlockchainTransaction } from '../../shared/types.ts';
-import { BlockCypherTransactionSchema } from '../schemas.ts';
-import type { BlockCypherTransaction } from '../types.ts';
+import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.js';
+import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
+import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
+import type { UniversalBlockchainTransaction } from '../../shared/types.js';
+import { BlockCypherTransactionSchema } from '../schemas.js';
+import type { BlockCypherTransaction } from '../types.js';
 
 @RegisterTransactionMapper('blockcypher')
 export class BlockCypherTransactionMapper extends BaseRawDataMapper<BlockCypherTransaction> {
-  private logger = getLogger('BlockCypherProcessor');
   protected readonly schema = BlockCypherTransactionSchema;
+  private logger = getLogger('BlockCypherProcessor');
 
   protected mapInternal(
     rawData: BlockCypherTransaction,
@@ -23,7 +23,7 @@ export class BlockCypherTransactionMapper extends BaseRawDataMapper<BlockCypherT
     this.logger.debug(
       `Transform called with ${addresses.length} wallet addresses: ${addresses
         .slice(0, 3)
-        .map(addr => addr.substring(0, 8) + '...')
+        .map((addr) => addr.substring(0, 8) + '...')
         .join(', ')}${addresses.length > 3 ? '...' : ''}`
     );
 
@@ -43,10 +43,8 @@ export class BlockCypherTransactionMapper extends BaseRawDataMapper<BlockCypherT
     // Check inputs - money going out of our wallet
     for (const input of rawData.inputs) {
       if (input.addresses) {
-        let hasWalletAddress = false;
         for (const address of input.addresses) {
           if (relevantAddresses.has(address)) {
-            hasWalletAddress = true;
             isOutgoing = true;
             if (input.output_value) {
               walletInputValue += input.output_value;
@@ -154,12 +152,24 @@ export class BlockCypherTransactionMapper extends BaseRawDataMapper<BlockCypherT
     }
 
     // Fallback to any address if specific logic didn't work
-    if (!fromAddress && rawData.inputs.length > 0 && rawData.inputs[0]?.addresses?.length > 0) {
-      fromAddress = rawData.inputs[0].addresses[0];
+    if (
+      !fromAddress &&
+      rawData.inputs.length > 0 &&
+      rawData.inputs[0] !== undefined &&
+      rawData.inputs[0].addresses &&
+      rawData.inputs[0].addresses.length > 0
+    ) {
+      fromAddress = rawData.inputs[0].addresses[0] ?? '';
     }
 
-    if (!toAddress && rawData.outputs.length > 0 && rawData.outputs[0]?.addresses?.length > 0) {
-      toAddress = rawData.outputs[0].addresses[0];
+    if (
+      !toAddress &&
+      rawData.outputs.length > 0 &&
+      rawData.outputs[0] !== undefined &&
+      Array.isArray(rawData.outputs[0].addresses) &&
+      rawData.outputs[0].addresses.length > 0
+    ) {
+      toAddress = rawData.outputs[0].addresses[0] ?? '';
     }
 
     const btcAmount = (totalValue / 100000000).toString();

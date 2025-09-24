@@ -1,17 +1,17 @@
-import { AuthenticationError, ServiceError } from '@crypto/core';
+import { ServiceError } from '@crypto/core';
 import { maskAddress } from '@crypto/shared-utils';
 
-import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
-import { RegisterApiClient } from '../../shared/registry/decorators.ts';
-import type { ProviderOperation } from '../../shared/types.ts';
+import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.js';
+import { RegisterApiClient } from '../../shared/registry/decorators.js';
+import type { ProviderOperation } from '../../shared/types.js';
 import type {
   SnowtraceApiResponse,
   SnowtraceBalanceResponse,
   SnowtraceInternalTransaction,
   SnowtraceTokenTransfer,
   SnowtraceTransaction,
-} from '../types.ts';
-import { isValidAvalancheAddress } from '../utils.ts';
+} from '../types.js';
+import { isValidAvalancheAddress } from '../utils.js';
 
 @RegisterApiClient({
   apiKeyEnvVar: 'SNOWTRACE_API_KEY',
@@ -58,6 +58,78 @@ export class SnowtraceApiClient extends BaseRegistryProvider {
     super('avalanche', 'snowtrace', 'mainnet');
   }
 
+  async execute<T>(operation: ProviderOperation<T>): Promise<T> {
+    this.logger.debug(
+      `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
+    );
+
+    try {
+      switch (operation.type) {
+        case 'getRawAddressTransactions':
+          return (await this.getRawAddressTransactions({
+            address: operation.address,
+            since: operation.since,
+          })) as T;
+        case 'getRawAddressBalance':
+          return (await this.getRawAddressBalance({
+            address: operation.address,
+          })) as T;
+        case 'getTokenTransactions':
+          return (await this.getTokenTransactions({
+            address: operation.address,
+            contractAddress: operation.contractAddress,
+            limit: operation.limit,
+            since: operation.since,
+            until: operation.until,
+          })) as T;
+        case 'getRawTokenBalances':
+          return (await this.getRawTokenBalances({
+            address: operation.address,
+            contractAddresses: operation.contractAddresses,
+          })) as T;
+        default:
+          throw new Error(`Unsupported operation: ${operation.type}`);
+      }
+    } catch (error) {
+      this.logger.error(
+        `Operation execution failed - Type: ${operation.type}, Error: ${error instanceof Error ? error.message : String(error)}`
+      );
+      throw error;
+    }
+  }
+
+  async isHealthy(): Promise<boolean> {
+    try {
+      const params = new URLSearchParams({
+        action: 'ethsupply',
+        module: 'stats',
+      });
+
+      if (this.apiKey && this.apiKey !== 'YourApiKeyToken') {
+        params.append('apikey', this.apiKey);
+      }
+
+      const response = await this.httpClient.get(`?${params.toString()}`);
+      return !!(response && (response as SnowtraceApiResponse<unknown>).status === '1');
+    } catch (error) {
+      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
+      return false;
+    }
+  }
+
+  override async testConnection(): Promise<boolean> {
+    try {
+      const result = await this.isHealthy();
+      if (!result) {
+        this.logger.warn(`Connection test failed - Provider unhealthy`);
+      }
+      return result;
+    } catch (error) {
+      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
+      return false;
+    }
+  }
+
   private async getInternalTransactions(address: string, since?: number): Promise<SnowtraceInternalTransaction[]> {
     const allTransactions: SnowtraceInternalTransaction[] = [];
     let page = 1;
@@ -87,20 +159,19 @@ export class SnowtraceApiClient extends BaseRegistryProvider {
       }
 
       try {
-        const response = (await this.httpClient.get(
-          `?${params.toString()}`
-        )) as SnowtraceApiResponse<SnowtraceInternalTransaction>;
-
-        if (response.status !== '1') {
+        const response = await this.httpClient.get(`?${params.toString()}`);
+        const res = response as SnowtraceApiResponse<unknown>;
+        if (res.status !== '1') {
           // If no results found or error, break the loop
-          if (response.message === 'No transactions found') {
+          if (res.message === 'No transactions found') {
             break;
           }
-          this.logger.debug(`No internal transactions found - Message: ${response.message}`);
+
+          this.logger.debug(`No internal transactions found - Message: ${res.message}`);
           break;
         }
 
-        const transactions = response.result || [];
+        const transactions = (res.result as SnowtraceInternalTransaction[]) || [];
         allTransactions.push(...transactions);
 
         // If we got less than the max offset, we've reached the end
@@ -109,7 +180,7 @@ export class SnowtraceApiClient extends BaseRegistryProvider {
         }
 
         page++;
-      } catch (error) {
+      } catch (_error) {
         this.logger.warn(`Failed to fetch internal transactions page ${page}`);
         break;
       }
@@ -146,22 +217,21 @@ export class SnowtraceApiClient extends BaseRegistryProvider {
         params.append('apikey', this.apiKey);
       }
 
-      const response = (await this.httpClient.get(
-        `?${params.toString()}`
-      )) as SnowtraceApiResponse<SnowtraceTransaction>;
+      const response = await this.httpClient.get(`?${params.toString()}`);
+      const res = response as SnowtraceApiResponse<unknown>;
 
-      if (response.status !== '1') {
-        if (response.message === 'NOTOK' && response.message.includes('Invalid API Key')) {
-          throw new AuthenticationError('Invalid Snowtrace API key', this.name, 'getNormalTransactions');
+      if (res.status !== '1') {
+        if (res.message === 'NOTOK' && res.message.includes('Invalid API Key')) {
+          throw new ServiceError('Invalid Snowtrace API key', this.name, 'getNormalTransactions');
         }
         // If no results found, break the loop
-        if (response.message === 'No transactions found') {
+        if (res.message === 'No transactions found') {
           break;
         }
-        throw new ServiceError(`Snowtrace API error: ${response.message}`, this.name, 'getNormalTransactions');
+        throw new ServiceError(`Snowtrace API error: ${res.message}`, this.name, 'getNormalTransactions');
       }
 
-      const transactions = response.result || [];
+      const transactions = (res.result as SnowtraceTransaction[]) || [];
       allTransactions.push(...transactions);
 
       // If we got less than the max offset, we've reached the end
@@ -196,15 +266,20 @@ export class SnowtraceApiClient extends BaseRegistryProvider {
         params.append('apikey', this.apiKey);
       }
 
-      const response = (await this.httpClient.get(`?${params.toString()}`)) as SnowtraceBalanceResponse;
+      const response = await this.httpClient.get(`?${params.toString()}`);
+      const res = response as SnowtraceApiResponse<unknown>;
 
-      if (response.status !== '1') {
-        throw new ServiceError(`Failed to fetch AVAX balance: ${response.message}`, this.name, 'getRawAddressBalance');
+      if (res.status !== '1') {
+        throw new ServiceError(`Failed to fetch AVAX balance: ${res.message}`, this.name, 'getRawAddressBalance');
       }
 
-      this.logger.debug(`Retrieved raw balance for ${maskAddress(address)}: ${response.result} wei`);
+      this.logger.debug(`Retrieved raw balance for ${maskAddress(address)}: ${String(res.result)} wei`);
 
-      return response;
+      return {
+        message: res.message,
+        result: typeof res.result === 'string' ? res.result : String(res.result),
+        status: res.status,
+      } as SnowtraceBalanceResponse;
     } catch (error) {
       this.logger.error(
         `Failed to get raw address balance - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`
@@ -248,13 +323,13 @@ export class SnowtraceApiClient extends BaseRegistryProvider {
     }
   }
 
-  private async getRawTokenBalances(params: {
+  private async getRawTokenBalances(_params: {
     address: string;
     contractAddresses?: string[] | undefined;
   }): Promise<[]> {
     // Snowtrace doesn't have a direct "get all token balances" endpoint
     this.logger.debug('Token balance fetching not implemented for Snowtrace - use specific contract addresses');
-    return [];
+    return Promise.resolve([]);
   }
 
   private async getTokenTransactions(params: {
@@ -305,20 +380,19 @@ export class SnowtraceApiClient extends BaseRegistryProvider {
       }
 
       try {
-        const response = (await this.httpClient.get(
-          `?${params.toString()}`
-        )) as SnowtraceApiResponse<SnowtraceTokenTransfer>;
+        const response = await this.httpClient.get(`?${params.toString()}`);
+        const res = response as SnowtraceApiResponse<unknown>;
 
-        if (response.status !== '1') {
+        if (res.status !== '1') {
           // If no results found or error, break the loop
-          if (response.message === 'No transactions found') {
+          if (res.message === 'No transactions found') {
             break;
           }
-          this.logger.debug(`No token transfers found - Message: ${response.message}`);
+          this.logger.debug(`No token transfers found - Message: ${res.message}`);
           break;
         }
 
-        const transactions = response.result || [];
+        const transactions = (res.result as SnowtraceTokenTransfer[]) || [];
         allTransactions.push(...transactions);
 
         // If we got less than the max offset, we've reached the end
@@ -327,84 +401,12 @@ export class SnowtraceApiClient extends BaseRegistryProvider {
         }
 
         page++;
-      } catch (error) {
+      } catch (_error) {
         this.logger.warn(`Failed to fetch token transfers page ${page}`);
         break;
       }
     }
 
     return allTransactions;
-  }
-
-  async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug(
-      `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
-    );
-
-    try {
-      switch (operation.type) {
-        case 'getRawAddressTransactions':
-          return this.getRawAddressTransactions({
-            address: operation.address,
-            since: operation.since,
-          }) as T;
-        case 'getRawAddressBalance':
-          return this.getRawAddressBalance({
-            address: operation.address,
-          }) as T;
-        case 'getTokenTransactions':
-          return this.getTokenTransactions({
-            address: operation.address,
-            contractAddress: operation.contractAddress,
-            limit: operation.limit,
-            since: operation.since,
-            until: operation.until,
-          }) as T;
-        case 'getRawTokenBalances':
-          return this.getRawTokenBalances({
-            address: operation.address,
-            contractAddresses: operation.contractAddresses,
-          }) as T;
-        default:
-          throw new Error(`Unsupported operation: ${operation.type}`);
-      }
-    } catch (error) {
-      this.logger.error(
-        `Operation execution failed - Type: ${operation.type}, Error: ${error instanceof Error ? error.message : String(error)}`
-      );
-      throw error;
-    }
-  }
-
-  async isHealthy(): Promise<boolean> {
-    try {
-      const params = new URLSearchParams({
-        action: 'ethsupply',
-        module: 'stats',
-      });
-
-      if (this.apiKey && this.apiKey !== 'YourApiKeyToken') {
-        params.append('apikey', this.apiKey);
-      }
-
-      const response = await this.httpClient.get(`?${params.toString()}`);
-      return !!(response && (response as SnowtraceApiResponse<unknown>).status === '1');
-    } catch (error) {
-      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
-    }
-  }
-
-  async testConnection(): Promise<boolean> {
-    try {
-      const result = await this.isHealthy();
-      if (!result) {
-        this.logger.warn(`Connection test failed - Provider unhealthy`);
-      }
-      return result;
-    } catch (error) {
-      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
-    }
   }
 }

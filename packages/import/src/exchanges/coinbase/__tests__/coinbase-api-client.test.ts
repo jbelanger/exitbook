@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ExchangeCredentials } from '../../../shared/types/types.ts';
-import { CoinbaseAPIClient } from '../coinbase-api-client.ts';
-import type { RawCoinbaseAccount, RawCoinbaseTransaction } from '../types.ts';
+import type { ExchangeCredentials } from '../../../shared/types/types.js';
+import { CoinbaseAPIClient } from '../coinbase-api-client.js';
+import type { RawCoinbaseAccount, RawCoinbaseTransaction } from '../types.js';
 
 // Use vi.hoisted to define variables accessible in vi.mock
 const mocks = vi.hoisted(() => {
@@ -102,7 +102,7 @@ describe('CoinbaseAPIClient', () => {
       // Check that HttpClient was called with sandbox URL
       const constructorCalls = mocks.MockHttpClient.mock.calls;
       const lastCall = constructorCalls[constructorCalls.length - 1];
-      expect(lastCall[0].baseUrl).toBe('https://api.sandbox.coinbase.com');
+      expect((lastCall?.[0] as { baseUrl?: string })?.baseUrl).toBe('https://api.sandbox.coinbase.com');
     });
 
     it('should initialize with production URL when sandbox is false', () => {
@@ -114,20 +114,27 @@ describe('CoinbaseAPIClient', () => {
       // Check that HttpClient was called with production URL
       const constructorCalls = mocks.MockHttpClient.mock.calls;
       const lastCall = constructorCalls[constructorCalls.length - 1];
-      expect(lastCall[0].baseUrl).toBe('https://api.coinbase.com');
+      expect((lastCall?.[0] as { baseUrl?: string })?.baseUrl).toBe('https://api.coinbase.com');
     });
 
     it('should configure appropriate rate limits', () => {
       // The HttpClient should have been called at least once
       expect(mocks.MockHttpClient).toHaveBeenCalled();
 
-      const httpClientConfig = mocks.MockHttpClient.mock.calls[0][0];
-      expect(httpClientConfig.rateLimit).toEqual({
+      const firstCall = mocks.MockHttpClient.mock.calls[0] as [Record<string, unknown>];
+      expect(firstCall).toBeDefined();
+      const httpClientConfig = firstCall[0] as {
+        baseUrl?: string;
+        providerName?: string;
+        rateLimit?: { burstLimit: number; requestsPerSecond: number };
+        timeout?: number;
+      };
+      expect(httpClientConfig?.rateLimit).toEqual({
         burstLimit: 5,
         requestsPerSecond: 3,
       });
-      expect(httpClientConfig.timeout).toBe(30000);
-      expect(httpClientConfig.providerName).toBe('coinbase-track');
+      expect(httpClientConfig?.timeout).toBe(30000);
+      expect(httpClientConfig?.providerName).toBe('coinbase-track');
     });
   });
 
@@ -149,14 +156,14 @@ describe('CoinbaseAPIClient', () => {
           headers: expect.objectContaining({
             Authorization: 'Bearer mocked-jwt-token',
             'Content-Type': 'application/json',
-          }),
+          }) as Record<string, string>,
           method: 'GET',
         })
       );
 
       // Verify JWT token was generated
-      const call = mocks.mockHttpClient.request.mock.calls[0];
-      const headers = call[1].headers;
+      const call = mocks.mockHttpClient.request.mock.calls[0] as [string, { headers?: Record<string, string> }];
+      const headers: Record<string, string> = call?.[1]?.headers ?? {};
       const authHeader = headers['Authorization'];
 
       expect(authHeader).toBe('Bearer mocked-jwt-token');
@@ -174,14 +181,14 @@ describe('CoinbaseAPIClient', () => {
           headers: expect.objectContaining({
             Authorization: 'Bearer mocked-jwt-token',
             'Content-Type': 'application/json',
-          }),
+          }) as Record<string, string>,
           method: 'GET',
         })
       );
 
       // Verify JWT token format
-      const call = mocks.mockHttpClient.request.mock.calls[0];
-      const headers = call[1].headers;
+      const call = mocks.mockHttpClient.request.mock.calls[0] as [string, { headers?: Record<string, string> }];
+      const headers: Record<string, string> = call?.[1]?.headers ?? {};
       const authHeader = headers['Authorization'];
 
       expect(authHeader).toBe('Bearer mocked-jwt-token');
@@ -193,9 +200,9 @@ describe('CoinbaseAPIClient', () => {
 
       // Test with invalid params to ensure they're filtered out
       const testParams = {
-        invalidParam: null,
+        invalidParam: undefined,
         limit: 50,
-      } as Parameters<typeof client.getAccounts>[0] & { invalidParam: null };
+      };
 
       await client.getAccounts(testParams);
 
@@ -214,11 +221,13 @@ describe('CoinbaseAPIClient', () => {
       expect(mocks.mockHttpClient.request).toHaveBeenCalledTimes(2);
 
       // Both calls should have Authorization headers with JWT tokens
-      const firstCall = mocks.mockHttpClient.request.mock.calls[0];
-      const secondCall = mocks.mockHttpClient.request.mock.calls[1];
+      const firstCall = mocks.mockHttpClient.request.mock.calls[0] as [string, { headers?: Record<string, string> }];
+      const secondCall = mocks.mockHttpClient.request.mock.calls[1] as [string, { headers?: Record<string, string> }];
 
-      const firstAuth = firstCall[1].headers['Authorization'];
-      const secondAuth = secondCall[1].headers['Authorization'];
+      const firstAuth =
+        firstCall && firstCall[1] && firstCall[1].headers ? firstCall[1].headers['Authorization'] : undefined;
+      const secondAuth =
+        secondCall && secondCall[1] && secondCall[1].headers ? secondCall[1].headers['Authorization'] : undefined;
 
       expect(firstAuth).toBe('Bearer mocked-jwt-token');
       expect(secondAuth).toBe('Bearer mocked-jwt-token');

@@ -6,8 +6,9 @@ import { type Result, err, ok } from 'neverthrow';
 
 import { BaseProcessor } from '../../shared/processors/base-processor.ts';
 import type { ApiClientRawData } from '../../shared/processors/interfaces.ts';
-import { CsvFilters } from '../csv-filters.ts';
-import type { CsvKrakenLedgerRow } from './types.ts';
+import { CsvFilters } from '../csv-filters.js';
+
+import type { CsvKrakenLedgerRow } from './types.js';
 
 /**
  * Processor for Kraken CSV ledger data.
@@ -20,6 +21,25 @@ import type { CsvKrakenLedgerRow } from './types.ts';
 export class KrakenProcessor extends BaseProcessor<ApiClientRawData<CsvKrakenLedgerRow>> {
   constructor() {
     super('kraken');
+  }
+
+  protected canProcessSpecific(sourceType: string): boolean {
+    return sourceType === 'exchange';
+  }
+
+  protected processInternal(
+    rawDataItems: StoredRawData<ApiClientRawData<CsvKrakenLedgerRow>>[]
+  ): Promise<Result<UniversalTransaction[], string>> {
+    try {
+      // Extract the raw ledger rows for batch processing
+      // Handle ApiClientRawData format: { providerId: string, rawData: CsvKrakenLedgerRow }
+      const rows = rawDataItems.map((item) => item.rawData.rawData);
+      const transactions = this.parseLedgers(rows);
+      return Promise.resolve(ok(transactions));
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return Promise.resolve(err(`Failed to process Kraken data: ${errorMessage}`));
+    }
   }
 
   private convertDepositToTransaction(row: CsvKrakenLedgerRow): UniversalTransaction {
@@ -206,8 +226,8 @@ export class KrakenProcessor extends BaseProcessor<ApiClientRawData<CsvKrakenLed
 
     for (const [refId, group] of withdrawalsByRefId) {
       if (group.length === 2) {
-        const negative = group.find(w => parseDecimal(w.amount).lt(0));
-        const positive = group.find(w => parseDecimal(w.amount).gt(0));
+        const negative = group.find((w) => parseDecimal(w.amount).lt(0));
+        const positive = group.find((w) => parseDecimal(w.amount).gt(0));
 
         if (negative && positive && this.isFailedTransactionPair(negative, positive)) {
           failedTransactionRefIds.add(refId);
@@ -237,7 +257,7 @@ export class KrakenProcessor extends BaseProcessor<ApiClientRawData<CsvKrakenLed
       const transferDate = new Date(transfer.time).toDateString();
 
       const match = transferRows.find(
-        t =>
+        (t) =>
           !processed.has(t.txid) &&
           t.txid !== transfer.txid &&
           parseDecimal(t.amount).abs().minus(amount).abs().lt(0.001) &&
@@ -300,14 +320,14 @@ export class KrakenProcessor extends BaseProcessor<ApiClientRawData<CsvKrakenLed
     const transactions: UniversalTransaction[] = [];
 
     // Separate transactions by type
-    const tradeRows = rows.filter(row => row.type === 'trade');
-    const depositRows = rows.filter(row => row.type === 'deposit');
-    const transferRows = rows.filter(row => row.type === 'transfer');
-    const spendRows = rows.filter(row => row.type === 'spend');
-    const receiveRows = rows.filter(row => row.type === 'receive');
+    const tradeRows = rows.filter((row) => row.type === 'trade');
+    const depositRows = rows.filter((row) => row.type === 'deposit');
+    const transferRows = rows.filter((row) => row.type === 'transfer');
+    const spendRows = rows.filter((row) => row.type === 'spend');
+    const receiveRows = rows.filter((row) => row.type === 'receive');
 
     // Filter out failed transactions and get valid withdrawals
-    const { validWithdrawals } = this.filterFailedTransactions(rows.filter(row => row.type === 'withdrawal'));
+    const { validWithdrawals } = this.filterFailedTransactions(rows.filter((row) => row.type === 'withdrawal'));
 
     // Process spend/receive/trade pairs by grouping by refid
     const spendReceiveRows = [...spendRows, ...receiveRows, ...tradeRows];
@@ -316,8 +336,8 @@ export class KrakenProcessor extends BaseProcessor<ApiClientRawData<CsvKrakenLed
 
     for (const [refId, group] of tradeGroups) {
       if (group.length === 2) {
-        const spend = group.find(row => parseDecimal(row.amount).lt(0) || row.type === 'spend');
-        const receive = group.find(row => parseDecimal(row.amount).gt(0) || row.type === 'receive');
+        const spend = group.find((row) => parseDecimal(row.amount).lt(0) || row.type === 'spend');
+        const receive = group.find((row) => parseDecimal(row.amount).gt(0) || row.type === 'receive');
 
         if (spend && receive) {
           const transaction = this.convertTradeToTransaction(spend, receive);
@@ -327,10 +347,10 @@ export class KrakenProcessor extends BaseProcessor<ApiClientRawData<CsvKrakenLed
       } else if (group.length > 2) {
         // Handle dustsweeping - multiple spends for one receive (small amounts)
         const receive = group.find(
-          row => parseDecimal(row.amount).gt(0) && (row.type === 'receive' || row.type === 'trade')
+          (row) => parseDecimal(row.amount).gt(0) && (row.type === 'receive' || row.type === 'trade')
         );
         const spends = group.filter(
-          row => parseDecimal(row.amount).lt(0) && (row.type === 'spend' || row.type === 'trade')
+          (row) => parseDecimal(row.amount).lt(0) && (row.type === 'spend' || row.type === 'trade')
         );
 
         if (receive && spends.length > 0) {
@@ -339,7 +359,7 @@ export class KrakenProcessor extends BaseProcessor<ApiClientRawData<CsvKrakenLed
           // Kraken dustsweeping: small amounts (< 1) get converted, creating multiple spends for one receive
           if (receiveAmountAbs.lt(1)) {
             this.logger.warn(
-              `Dustsweeping detected for refid ${refId}: ${receiveAmountAbs} ${receive.asset} with ${spends.length} spend transactions`
+              `Dustsweeping detected for refid ${refId}: ${receiveAmountAbs.toString()} ${receive.asset} with ${spends.length} spend transactions`
             );
 
             // Create deposit transaction for the received amount (net after fee deduction)
@@ -446,8 +466,8 @@ export class KrakenProcessor extends BaseProcessor<ApiClientRawData<CsvKrakenLed
 
     for (const group of transfersByDate) {
       if (group.length === 2) {
-        const negative = group.find(t => parseDecimal(t.amount).lt(0));
-        const positive = group.find(t => parseDecimal(t.amount).gt(0));
+        const negative = group.find((t) => parseDecimal(t.amount).lt(0));
+        const positive = group.find((t) => parseDecimal(t.amount).gt(0));
 
         if (negative && positive && negative.asset !== positive.asset) {
           const negativeAmount = parseDecimal(negative.amount);
@@ -458,7 +478,7 @@ export class KrakenProcessor extends BaseProcessor<ApiClientRawData<CsvKrakenLed
 
           if (relativeDiff.lt(0.001)) {
             this.logger.info(
-              `Token migration detected: ${negativeAmount} ${negative.asset} -> ${positiveAmount} ${positive.asset}`
+              `Token migration detected: ${negativeAmount.toString()} ${negative.asset} -> ${positiveAmount.toString()} ${positive.asset}`
             );
 
             const migrationTransaction = this.convertTokenMigrationToTransaction(negative, positive);
@@ -480,24 +500,5 @@ export class KrakenProcessor extends BaseProcessor<ApiClientRawData<CsvKrakenLed
     }
 
     return { processedRefIds, transactions };
-  }
-
-  protected canProcessSpecific(sourceType: string): boolean {
-    return sourceType === 'exchange';
-  }
-
-  protected async processInternal(
-    rawDataItems: StoredRawData<ApiClientRawData<CsvKrakenLedgerRow>>[]
-  ): Promise<Result<UniversalTransaction[], string>> {
-    try {
-      // Extract the raw ledger rows for batch processing
-      // Handle ApiClientRawData format: { providerId: string, rawData: CsvKrakenLedgerRow }
-      const rows = rawDataItems.map(item => item.rawData.rawData);
-      const transactions = this.parseLedgers(rows);
-      return ok(transactions);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      return err(`Failed to process Kraken data: ${errorMessage}`);
-    }
   }
 }

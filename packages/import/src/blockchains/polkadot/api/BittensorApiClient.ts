@@ -1,7 +1,8 @@
-import { RegisterApiClient } from '../../shared/registry/decorators.ts';
-import type { TaostatsTransaction } from '../types.ts';
-import { SUBSTRATE_CHAINS } from '../types.ts';
-import { BaseSubstrateApiClient } from './BaseSubstrateApiClient.ts';
+import { RegisterApiClient } from '../../shared/registry/decorators.js';
+import type { TaostatsTransaction } from '../types.js';
+import { SUBSTRATE_CHAINS } from '../types.js';
+
+import { BaseSubstrateApiClient } from './BaseSubstrateApiClient.js';
 
 @RegisterApiClient({
   apiKeyEnvVar: 'TAOSTATS_API_KEY',
@@ -65,7 +66,7 @@ export class BittensorApiClient extends BaseSubstrateApiClient {
         data: response?.data || [],
       };
     } catch (error) {
-      this.logger.debug(`Taostats API transaction fetch failed - Error: ${error}`);
+      this.logger.debug(`Taostats API transaction fetch failed - Error: ${String(error)}`);
       return { data: [] };
     }
   }

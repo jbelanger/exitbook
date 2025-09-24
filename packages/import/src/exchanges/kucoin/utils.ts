@@ -6,12 +6,8 @@
  */
 import type { z } from 'zod';
 
-import {
-  CsvAccountHistoryRowSchema,
-  CsvDepositWithdrawalRowSchema,
-  CsvKuCoinRawDataSchema,
-  CsvSpotOrderRowSchema,
-} from './schemas.js';
+import type { CsvKuCoinRawDataSchema } from './schemas.js';
+import { CsvAccountHistoryRowSchema, CsvDepositWithdrawalRowSchema, CsvSpotOrderRowSchema } from './schemas.js';
 
 /**
  * Type inference from schemas for use in application code
@@ -34,7 +30,7 @@ export interface KuCoinCsvValidationResult<T> {
  * Batch validation result for KuCoin data sections
  */
 export interface KuCoinCsvBatchValidationResult<T> {
-  invalid: Array<{ data: unknown; errors: z.ZodError; rowIndex: number }>;
+  invalid: { data: unknown; errors: z.ZodError; rowIndex: number }[];
   section: string;
   totalRows: number;
   valid: T[];
@@ -45,7 +41,7 @@ export interface KuCoinCsvBatchValidationResult<T> {
  */
 export function validateKuCoinSpotOrders(data: unknown[]): KuCoinCsvBatchValidationResult<ValidatedCsvSpotOrderRow> {
   const valid: ValidatedCsvSpotOrderRow[] = [];
-  const invalid: Array<{ data: unknown; errors: z.ZodError; rowIndex: number }> = [];
+  const invalid: { data: unknown; errors: z.ZodError; rowIndex: number }[] = [];
 
   data.forEach((item, index) => {
     const result = CsvSpotOrderRowSchema.safeParse(item);
@@ -66,7 +62,7 @@ export function validateKuCoinDepositsWithdrawals(
   data: unknown[]
 ): KuCoinCsvBatchValidationResult<ValidatedCsvDepositWithdrawalRow> {
   const valid: ValidatedCsvDepositWithdrawalRow[] = [];
-  const invalid: Array<{ data: unknown; errors: z.ZodError; rowIndex: number }> = [];
+  const invalid: { data: unknown; errors: z.ZodError; rowIndex: number }[] = [];
 
   data.forEach((item, index) => {
     const result = CsvDepositWithdrawalRowSchema.safeParse(item);
@@ -87,7 +83,7 @@ export function validateKuCoinAccountHistory(
   data: unknown[]
 ): KuCoinCsvBatchValidationResult<ValidatedCsvAccountHistoryRow> {
   const valid: ValidatedCsvAccountHistoryRow[] = [];
-  const invalid: Array<{ data: unknown; errors: z.ZodError; rowIndex: number }> = [];
+  const invalid: { data: unknown; errors: z.ZodError; rowIndex: number }[] = [];
 
   data.forEach((item, index) => {
     const result = CsvAccountHistoryRowSchema.safeParse(item);
@@ -112,7 +108,7 @@ export function formatKuCoinValidationErrors<T>(result: KuCoinCsvBatchValidation
   const errorSummary = result.invalid
     .slice(0, 3) // Show first 3 errors
     .map(({ errors, rowIndex }) => {
-      const fieldErrors = errors.issues.map(issue => `${issue.path.join('.')}: ${issue.message}`).join('; ');
+      const fieldErrors = errors.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; ');
       return `Row ${rowIndex + 1}: ${fieldErrors}`;
     })
     .join(' | ');

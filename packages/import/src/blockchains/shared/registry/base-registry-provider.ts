@@ -3,8 +3,9 @@ import type { Logger } from '@crypto/shared-logger';
 import { getLogger } from '@crypto/shared-logger';
 import { HttpClient } from '@crypto/shared-utils';
 
-import type { IBlockchainProvider, ProviderCapabilities, ProviderOperation } from '../types.ts';
-import { type ProviderMetadata, ProviderRegistry } from './provider-registry.ts';
+import type { IBlockchainProvider, ProviderCapabilities, ProviderOperation } from '../types.js';
+
+import { type ProviderMetadata, ProviderRegistry } from './provider-registry.js';
 
 /**
  * Abstract base class for registry-based providers
@@ -18,12 +19,12 @@ export abstract class BaseRegistryProvider implements IBlockchainProvider {
   protected readonly metadata: ProviderMetadata;
   protected readonly network: string;
 
-  constructor(blockchain: string, providerName: string, network: string = 'mainnet') {
+  constructor(blockchain: string, providerName: string, network = 'mainnet') {
     // Get metadata from registry
     const metadata = ProviderRegistry.getMetadata(blockchain, providerName);
     if (!metadata) {
       const available = ProviderRegistry.getAvailable(blockchain)
-        .map(p => p.name)
+        .map((p) => p.name)
         .join(', ');
       const suggestions = [
         `💡 Available providers for ${blockchain}: ${available}`,
@@ -61,6 +62,65 @@ export abstract class BaseRegistryProvider implements IBlockchainProvider {
     );
   }
 
+  get blockchain(): string {
+    return this.metadata.blockchain;
+  }
+
+  get capabilities(): ProviderCapabilities {
+    return this.metadata.capabilities;
+  }
+
+  abstract execute<T>(operation: ProviderOperation<T>, config?: Record<string, unknown>): Promise<T>;
+
+  // Abstract methods that must be implemented by concrete providers
+  abstract isHealthy(): Promise<boolean>;
+  // Provider interface properties from metadata
+  get name(): string {
+    return this.metadata.name;
+  }
+
+  get rateLimit(): RateLimitConfig {
+    return this.metadata.defaultConfig.rateLimit;
+  }
+
+  // Common provider methods
+  async testConnection(): Promise<boolean> {
+    return this.isHealthy();
+  }
+
+  /**
+   * Reinitialize HTTP client with custom configuration
+   * Useful for providers that need special URL formatting or headers
+   */
+  protected reinitializeHttpClient(config: {
+    baseUrl?: string;
+    defaultHeaders?: Record<string, string>;
+    providerName?: string;
+    rateLimit?: RateLimitConfig;
+    retries?: number;
+    timeout?: number;
+  }): void {
+    const clientConfig = {
+      baseUrl: config.baseUrl || this.baseUrl,
+      providerName: config.providerName || this.metadata.name,
+      rateLimit: config.rateLimit || this.metadata.defaultConfig.rateLimit,
+      retries: config.retries || this.metadata.defaultConfig.retries,
+      timeout: config.timeout || this.metadata.defaultConfig.timeout,
+      ...(config.defaultHeaders && { defaultHeaders: config.defaultHeaders }),
+    };
+
+    this.httpClient = new HttpClient(clientConfig);
+  }
+
+  // Common validation helper
+  protected validateApiKey(): void {
+    if (this.metadata.requiresApiKey && this.apiKey === 'YourApiKeyToken') {
+      const envVar = this.metadata.apiKeyEnvVar || `${this.metadata.name.toUpperCase()}_API_KEY`;
+      throw new Error(
+        `Valid API key required for ${this.metadata.displayName}. ` + `Set environment variable: ${envVar}`
+      );
+    }
+  }
   private getApiKey(): string {
     if (!this.metadata.requiresApiKey) {
       return '';
@@ -91,65 +151,5 @@ export abstract class BaseRegistryProvider implements IBlockchainProvider {
     }
 
     return networkConfig.baseUrl;
-  }
-
-  get blockchain(): string {
-    return this.metadata.blockchain;
-  }
-
-  get capabilities(): ProviderCapabilities {
-    return this.metadata.capabilities;
-  }
-
-  abstract execute<T>(operation: ProviderOperation<T>, config?: Record<string, unknown>): Promise<T>;
-
-  // Abstract methods that must be implemented by concrete providers
-  abstract isHealthy(): Promise<boolean>;
-  // Provider interface properties from metadata
-  get name(): string {
-    return this.metadata.name;
-  }
-
-  get rateLimit(): RateLimitConfig {
-    return this.metadata.defaultConfig.rateLimit;
-  }
-
-  /**
-   * Reinitialize HTTP client with custom configuration
-   * Useful for providers that need special URL formatting or headers
-   */
-  protected reinitializeHttpClient(config: {
-    baseUrl?: string;
-    defaultHeaders?: Record<string, string>;
-    providerName?: string;
-    rateLimit?: RateLimitConfig;
-    retries?: number;
-    timeout?: number;
-  }): void {
-    const clientConfig = {
-      baseUrl: config.baseUrl || this.baseUrl,
-      providerName: config.providerName || this.metadata.name,
-      rateLimit: config.rateLimit || this.metadata.defaultConfig.rateLimit,
-      retries: config.retries || this.metadata.defaultConfig.retries,
-      timeout: config.timeout || this.metadata.defaultConfig.timeout,
-      ...(config.defaultHeaders && { defaultHeaders: config.defaultHeaders }),
-    };
-
-    this.httpClient = new HttpClient(clientConfig);
-  }
-
-  // Common provider methods
-  async testConnection(): Promise<boolean> {
-    return this.isHealthy();
-  }
-
-  // Common validation helper
-  protected validateApiKey(): void {
-    if (this.metadata.requiresApiKey && this.apiKey === 'YourApiKeyToken') {
-      const envVar = this.metadata.apiKeyEnvVar || `${this.metadata.name.toUpperCase()}_API_KEY`;
-      throw new Error(
-        `Valid API key required for ${this.metadata.displayName}. ` + `Set environment variable: ${envVar}`
-      );
-    }
   }
 }

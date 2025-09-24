@@ -1,9 +1,10 @@
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+
 import type { BalanceSnapshot, BalanceVerificationRecord } from '@crypto/balance';
 import type { UniversalTransaction } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
-import { Decimal } from 'decimal.js';
-import * as fs from 'fs';
-import * as path from 'path';
+import type { Decimal } from 'decimal.js';
 import sqlite3Module from 'sqlite3';
 
 import type {
@@ -73,7 +74,7 @@ export class Database {
       fs.mkdirSync(dataDir, { recursive: true });
     }
 
-    this.db = new sqlite3.Database(finalPath, err => {
+    this.db = new sqlite3.Database(finalPath, (err) => {
       if (err) {
         this.logger.error(`Failed to connect to database: ${err.message} (path: ${finalPath})`);
         throw err;
@@ -89,198 +90,6 @@ export class Database {
     });
 
     this.initializeTables();
-  }
-
-  private initializeTables(clearExisting: boolean = false): void {
-    const tableQueries: string[] = [];
-
-    if (clearExisting) {
-      tableQueries.push(
-        `DROP TABLE IF EXISTS transactions`,
-        `DROP TABLE IF EXISTS external_transaction_data`,
-        `DROP TABLE IF EXISTS raw_transactions`,
-        `DROP TABLE IF EXISTS balance_snapshots`,
-        `DROP TABLE IF EXISTS balance_verifications`,
-        `DROP TABLE IF EXISTS wallet_addresses`,
-        `DROP TABLE IF EXISTS import_sessions`
-      );
-    }
-
-    tableQueries.push(
-      // Import sessions table - tracks import session metadata and execution details
-      `CREATE TABLE ${clearExisting ? '' : 'IF NOT EXISTS '}import_sessions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        source_id TEXT NOT NULL,
-        source_type TEXT NOT NULL CHECK (source_type IN ('exchange', 'blockchain')),
-        provider_id TEXT,
-        status TEXT NOT NULL DEFAULT 'started' CHECK (status IN ('started', 'completed', 'failed', 'cancelled')),
-        started_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
-        completed_at INTEGER,
-        duration_ms INTEGER,
-        error_message TEXT,
-        error_details JSON,
-        session_metadata JSON,
-        transactions_imported INTEGER DEFAULT 0,
-        transactions_failed INTEGER DEFAULT 0,
-        created_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
-        updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
-      )`,
-
-      // External transaction data table - stores unprocessed transaction data from sources
-      `CREATE TABLE ${clearExisting ? '' : 'IF NOT EXISTS '}external_transaction_data (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        source_id TEXT NOT NULL,
-        source_type TEXT NOT NULL,
-        provider_id TEXT,
-        raw_data JSON NOT NULL,
-        metadata JSON,
-        processing_status TEXT DEFAULT 'pending',
-        processing_error TEXT,
-        processed_at INTEGER,
-        created_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
-        import_session_id INTEGER,
-        UNIQUE(source_id, provider_id),
-        FOREIGN KEY (import_session_id) REFERENCES import_sessions (id)
-      )`,
-
-      // Transactions table - stores transactions from all sources with standardized structure
-      // Using TEXT for decimal values to preserve precision
-      `CREATE TABLE ${clearExisting ? '' : 'IF NOT EXISTS '}transactions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        source_id TEXT NOT NULL,
-        type TEXT NOT NULL,
-        timestamp INTEGER NOT NULL,
-        datetime TEXT,
-        symbol TEXT,
-        amount TEXT,
-        amount_currency TEXT,
-        price TEXT,
-        price_currency TEXT,
-        fee_cost TEXT,
-        fee_currency TEXT,
-        status TEXT,
-        from_address TEXT,
-        to_address TEXT,
-        wallet_id INTEGER,
-        raw_data JSON NOT NULL,
-        created_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
-        hash TEXT,
-        verified BOOLEAN DEFAULT 0,
-        note_type TEXT,
-        note_message TEXT,
-        note_severity TEXT CHECK (note_severity IN ('info', 'warning', 'error')),
-        note_metadata JSON,
-        FOREIGN KEY (wallet_id) REFERENCES wallet_addresses (id)
-      )`,
-
-      // Balance snapshots - store point-in-time balance data
-      `CREATE TABLE ${clearExisting ? '' : 'IF NOT EXISTS '}balance_snapshots (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        exchange TEXT NOT NULL,
-        currency TEXT NOT NULL,
-        balance TEXT NOT NULL,
-        timestamp INTEGER NOT NULL,
-        created_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
-      )`,
-
-      // Balance verification records - track verification results
-      `CREATE TABLE ${clearExisting ? '' : 'IF NOT EXISTS '}balance_verifications (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        exchange TEXT NOT NULL,
-        currency TEXT NOT NULL,
-        expected_balance TEXT NOT NULL,
-        actual_balance TEXT NOT NULL,
-        difference TEXT NOT NULL,
-        status TEXT NOT NULL CHECK (status IN ('match', 'mismatch', 'warning')),
-        timestamp INTEGER NOT NULL,
-        created_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
-      )`,
-
-      // Wallet addresses - store user's wallet addresses for tracking and consolidation
-      `CREATE TABLE ${clearExisting ? '' : 'IF NOT EXISTS '}wallet_addresses (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        address TEXT NOT NULL,
-        blockchain TEXT NOT NULL,
-        label TEXT,
-        address_type TEXT NOT NULL DEFAULT 'personal' CHECK (address_type IN ('personal', 'exchange', 'contract', 'unknown')),
-        is_active BOOLEAN DEFAULT 1,
-        notes TEXT,
-        created_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
-        updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
-        UNIQUE(address, blockchain)
-      )`
-    );
-
-    const indexQueries = [
-      `CREATE INDEX IF NOT EXISTS idx_transactions_source_timestamp 
-       ON transactions(source_id, timestamp)`,
-
-      `CREATE INDEX IF NOT EXISTS idx_transactions_type_timestamp 
-       ON transactions(type, timestamp)`,
-
-      `CREATE INDEX IF NOT EXISTS idx_transactions_symbol 
-       ON transactions(symbol) WHERE symbol IS NOT NULL`,
-
-      `CREATE INDEX IF NOT EXISTS idx_balance_snapshots_exchange_currency 
-       ON balance_snapshots(exchange, currency, timestamp)`,
-
-      `CREATE INDEX IF NOT EXISTS idx_balance_verifications_exchange_timestamp 
-       ON balance_verifications(exchange, timestamp)`,
-
-      // New indexes for wallet address tracking
-      `CREATE INDEX IF NOT EXISTS idx_transactions_from_address 
-       ON transactions(from_address) WHERE from_address IS NOT NULL`,
-
-      `CREATE INDEX IF NOT EXISTS idx_transactions_to_address 
-       ON transactions(to_address) WHERE to_address IS NOT NULL`,
-
-      `CREATE INDEX IF NOT EXISTS idx_transactions_wallet_id 
-       ON transactions(wallet_id) WHERE wallet_id IS NOT NULL`,
-
-      `CREATE INDEX IF NOT EXISTS idx_wallet_addresses_blockchain_address 
-       ON wallet_addresses(blockchain, address)`,
-
-      `CREATE INDEX IF NOT EXISTS idx_wallet_addresses_active 
-       ON wallet_addresses(is_active) WHERE is_active = 1`,
-
-      // Import sessions indexes
-      `CREATE INDEX IF NOT EXISTS idx_import_sessions_source 
-       ON import_sessions(source_id, started_at)`,
-
-      `CREATE INDEX IF NOT EXISTS idx_import_sessions_status 
-       ON import_sessions(status, started_at)`,
-
-      `CREATE INDEX IF NOT EXISTS idx_import_sessions_source_type 
-       ON import_sessions(source_type, started_at)`,
-
-      // External transaction data indexes
-      `CREATE INDEX IF NOT EXISTS idx_external_transaction_data_source 
-       ON external_transaction_data(source_id, created_at)`,
-
-      `CREATE INDEX IF NOT EXISTS idx_external_transaction_data_session 
-       ON external_transaction_data(import_session_id) WHERE import_session_id IS NOT NULL`,
-    ];
-
-    this.db.serialize(() => {
-      for (const query of tableQueries) {
-        this.db.run(query, err => {
-          if (err) {
-            this.logger.error(`Failed to create table: ${err.message} (query: ${query})`);
-          }
-        });
-      }
-
-      // Then create indexes after tables are complete
-      for (const query of indexQueries) {
-        this.db.run(query, err => {
-          if (err) {
-            this.logger.error(`Failed to create index: ${err.message} (query: ${query})`);
-          }
-        });
-      }
-    });
-
-    this.logger.debug('Database tables initialized');
   }
 
   async addWalletAddress(request: CreateWalletAddressRequest): Promise<WalletAddress> {
@@ -309,7 +118,7 @@ export class Database {
             // Fetch the created record
             resolve({
               address: request.address,
-              addressType: addressType as 'personal' | 'exchange' | 'contract' | 'unknown',
+              addressType: addressType,
               blockchain: request.blockchain,
               createdAt: now,
               id: this.lastID,
@@ -329,14 +138,14 @@ export class Database {
       this.logger.debug('Clearing and reinitializing database');
 
       // Close current connection
-      this.db.close(err => {
+      this.db.close((err) => {
         if (err) {
           this.logger.error(`Error closing database for reinitialization: ${err.message}`);
           return reject(err);
         }
 
         // Recreate connection and reinitialize with clear flag
-        this.db = new sqlite3.Database(this.dbPath, dbErr => {
+        this.db = new sqlite3.Database(this.dbPath, (dbErr) => {
           if (dbErr) {
             this.logger.error(`Failed to reconnect to database: ${dbErr.message}`);
             return reject(dbErr);
@@ -359,8 +168,8 @@ export class Database {
   }
 
   async close(): Promise<void> {
-    return new Promise(resolve => {
-      this.db.close(err => {
+    return new Promise((resolve) => {
+      this.db.close((err) => {
         if (err) {
           this.logger.error(`Error closing database: ${err.message}`);
         } else {
@@ -386,15 +195,15 @@ export class Database {
         db.run('BEGIN IMMEDIATE');
 
         const stmt = db.prepare(`
-          INSERT INTO import_sessions 
+          INSERT INTO import_sessions
           (source_id, source_type, provider_id, session_metadata)
           VALUES (?, ?, ?, ?)
         `);
 
-        const metadataJson = sessionMetadata ? JSON.stringify(sessionMetadata) : null;
+        const metadataJson = sessionMetadata ? JSON.stringify(sessionMetadata) : undefined;
 
-        stmt.run([sourceId, sourceType, providerId || null, metadataJson], function (err) {
-          const sessionId = this.lastID as number;
+        stmt.run([sourceId, sourceType, providerId || undefined, metadataJson], function (err) {
+          const sessionId = this.lastID;
           stmt.finalize();
 
           if (err) {
@@ -402,7 +211,7 @@ export class Database {
               reject(err);
             });
           } else {
-            db.run('COMMIT', commitErr => {
+            db.run('COMMIT', (commitErr) => {
               if (commitErr) {
                 reject(commitErr);
               } else {
@@ -433,8 +242,8 @@ export class Database {
     sessionId: number,
     status: 'completed' | 'failed' | 'cancelled',
     startTime: number,
-    transactionsImported: number = 0,
-    transactionsFailed: number = 0,
+    transactionsImported = 0,
+    transactionsFailed = 0,
     errorMessage?: string,
     errorDetails?: unknown
   ): Promise<void> {
@@ -448,7 +257,7 @@ export class Database {
       transactionsImported,
     }).then(() => {
       return new Promise<void>((resolve, reject) => {
-        this.db.run('UPDATE import_sessions SET duration_ms = ? WHERE id = ?', [durationMs, sessionId], err => {
+        this.db.run('UPDATE import_sessions SET duration_ms = ? WHERE id = ?', [durationMs, sessionId], (err) => {
           if (err) reject(err);
           else resolve();
         });
@@ -456,7 +265,7 @@ export class Database {
     });
   }
 
-  async findWalletAddressByAddress(address: string, blockchain: string): Promise<WalletAddress | null> {
+  async findWalletAddressByAddress(address: string, blockchain: string): Promise<WalletAddress | undefined> {
     return new Promise((resolve, reject) => {
       const query = 'SELECT * FROM wallet_addresses WHERE address = ? AND blockchain = ?';
 
@@ -464,7 +273,7 @@ export class Database {
         if (err) {
           reject(err);
         } else if (!row) {
-          resolve(null);
+          return;
         } else {
           resolve({
             address: row.address,
@@ -485,7 +294,7 @@ export class Database {
   async findWalletAddressByAddressNormalized(
     normalizedAddress: string,
     blockchain: string
-  ): Promise<WalletAddress | null> {
+  ): Promise<WalletAddress | undefined> {
     return new Promise((resolve, reject) => {
       // For Ethereum, do case-insensitive matching by comparing lowercase addresses
       let query: string;
@@ -499,7 +308,7 @@ export class Database {
         if (err) {
           reject(err);
         } else if (!row) {
-          resolve(null);
+          return;
         } else {
           resolve({
             address: row.address,
@@ -517,7 +326,7 @@ export class Database {
     });
   }
 
-  async getImportSession(sessionId: number): Promise<ImportSession | null> {
+  async getImportSession(sessionId: number): Promise<ImportSession | undefined> {
     return new Promise((resolve, reject) => {
       const query = 'SELECT * FROM import_sessions WHERE id = ?';
 
@@ -525,7 +334,7 @@ export class Database {
         if (err) {
           reject(err);
         } else if (!row) {
-          resolve(null);
+          return;
         } else {
           resolve(importSessionRowToImportSession(row));
         }
@@ -584,7 +393,7 @@ export class Database {
   async getImportSessionsWithRawData(filters?: ImportSessionQuery): Promise<ImportSessionWithRawData[]> {
     return new Promise((resolve, reject) => {
       let query = `
-        SELECT 
+        SELECT
           s.*,
           r.id as raw_id,
           r.provider_id,
@@ -638,19 +447,19 @@ export class Database {
           // Group results by session
           const sessionsMap = new Map<string, ImportSessionWithRawData>();
 
-          rows.forEach(row => {
+          rows.forEach((row) => {
             const dbRow = row as Record<string, unknown>;
 
             // Extract session data
             const sessionRow: ImportSessionRow = {
-              completed_at: dbRow.completed_at ? (dbRow.completed_at as number) : null,
+              completed_at: dbRow.completed_at ? (dbRow.completed_at as number) : undefined,
               created_at: dbRow.created_at as number,
-              duration_ms: dbRow.duration_ms ? (dbRow.duration_ms as number) : null,
-              error_details: dbRow.error_details ? (dbRow.error_details as string) : null,
-              error_message: dbRow.error_message ? (dbRow.error_message as string) : null,
+              duration_ms: dbRow.duration_ms ? (dbRow.duration_ms as number) : undefined,
+              error_details: dbRow.error_details ? (dbRow.error_details as string) : undefined,
+              error_message: dbRow.error_message ? (dbRow.error_message as string) : undefined,
               id: dbRow.id as number,
-              provider_id: dbRow.provider_id ? (dbRow.provider_id as string) : null,
-              session_metadata: dbRow.session_metadata ? (dbRow.session_metadata as string) : null,
+              provider_id: dbRow.provider_id ? (dbRow.provider_id as string) : undefined,
+              session_metadata: dbRow.session_metadata ? (dbRow.session_metadata as string) : undefined,
               source_id: dbRow.source_id as string,
               source_type: dbRow.source_type as 'exchange' | 'blockchain',
               started_at: dbRow.started_at as number,
@@ -676,12 +485,14 @@ export class Database {
                 createdAt: dbRow.raw_created_at as number,
                 id: dbRow.raw_id as number,
                 importSessionId: session.id,
-                metadata: dbRow.raw_metadata ? JSON.parse(dbRow.raw_metadata as string) : undefined,
+                metadata: dbRow.raw_metadata
+                  ? (JSON.parse(dbRow.raw_metadata as string) as Record<string, unknown>)
+                  : undefined,
                 processedAt: dbRow.processed_at ? (dbRow.processed_at as number) : undefined,
                 processingError: dbRow.processing_error ? (dbRow.processing_error as string) : undefined,
                 processingStatus: dbRow.processing_status as string,
                 providerId: dbRow.provider_id ? (dbRow.provider_id as string) : undefined,
-                rawData: JSON.parse(dbRow.raw_data as string),
+                rawData: JSON.parse(dbRow.raw_data as string) as Record<string, unknown>,
                 sourceId: session.sourceId,
                 sourceType: session.sourceType,
               };
@@ -700,10 +511,10 @@ export class Database {
   async getLatestBalanceVerifications(exchange?: string): Promise<BalanceVerificationRecord[]> {
     return new Promise((resolve, reject) => {
       let query = `
-        SELECT * FROM balance_verifications 
+        SELECT * FROM balance_verifications
         WHERE timestamp = (
-          SELECT MAX(timestamp) FROM balance_verifications bv2 
-          WHERE bv2.exchange = balance_verifications.exchange 
+          SELECT MAX(timestamp) FROM balance_verifications bv2
+          WHERE bv2.exchange = balance_verifications.exchange
           AND bv2.currency = balance_verifications.currency
         )
       `;
@@ -733,7 +544,7 @@ export class Database {
     since?: number | undefined;
     sourceId?: string | undefined;
   }): Promise<
-    Array<{
+    {
       createdAt: number;
       id: number;
       importSessionId?: number | undefined;
@@ -745,7 +556,7 @@ export class Database {
       rawData: unknown;
       sourceId: string;
       sourceType: string;
-    }>
+    }[]
   > {
     return new Promise((resolve, reject) => {
       let query = 'SELECT * FROM external_transaction_data';
@@ -787,18 +598,18 @@ export class Database {
         if (err) {
           reject(err);
         } else {
-          const results = rows.map(row => {
+          const results = rows.map((row) => {
             const dbRow = row as Record<string, unknown>;
             return {
               createdAt: dbRow.created_at as number,
               id: dbRow.id as number,
               importSessionId: dbRow.import_session_id ? (dbRow.import_session_id as number) : undefined,
-              metadata: dbRow.metadata ? JSON.parse(dbRow.metadata as string) : undefined,
+              metadata: dbRow.metadata ? (JSON.parse(dbRow.metadata as string) as Record<string, unknown>) : undefined,
               processedAt: dbRow.processed_at ? (dbRow.processed_at as number) : undefined,
               processingError: dbRow.processing_error ? (dbRow.processing_error as string) : undefined,
               processingStatus: dbRow.processing_status as string,
               providerId: dbRow.provider_id ? (dbRow.provider_id as string) : undefined,
-              rawData: JSON.parse(dbRow.raw_data as string),
+              rawData: JSON.parse(dbRow.raw_data as string) as Record<string, unknown>,
               sourceId: dbRow.source_id as string,
               sourceType: dbRow.source_type as string,
             };
@@ -832,37 +643,37 @@ export class Database {
       };
 
       this.db.serialize(() => {
-        this.db.get(queries[0]!, (err, row: StatRow) => {
+        this.db.get(queries[0], (err, row: StatRow) => {
           if (err) return reject(err);
           results.totalTransactions = row.total_transactions || 0;
         });
 
-        this.db.get(queries[1]!, (err, row: StatRow) => {
+        this.db.get(queries[1], (err, row: StatRow) => {
           if (err) return reject(err);
           results.totalExchanges = row.total_sources || 0;
         });
 
-        this.db.all(queries[2]!, (err, rows: Array<{ count: number; source_id: string }>) => {
+        this.db.all(queries[2], (err, rows: { count: number; source_id: string }[]) => {
           if (err) return reject(err);
-          results.transactionsByExchange = rows.map(row => ({ count: row.count, exchange: row.source_id }));
+          results.transactionsByExchange = rows.map((row) => ({ count: row.count, exchange: row.source_id }));
         });
 
-        this.db.get(queries[3]!, (err, row: StatRow) => {
+        this.db.get(queries[3], (err, row: StatRow) => {
           if (err) return reject(err);
           results.totalVerifications = row.total_verifications || 0;
         });
 
-        this.db.get(queries[4]!, (err, row: StatRow) => {
+        this.db.get(queries[4], (err, row: StatRow) => {
           if (err) return reject(err);
           results.totalSnapshots = row.total_snapshots || 0;
         });
 
-        this.db.get(queries[5]!, (err, row: StatRow) => {
+        this.db.get(queries[5], (err, row: StatRow) => {
           if (err) return reject(err);
           results.totalExternalTransactions = row.total_external_transactions || 0;
         });
 
-        this.db.get(queries[6]!, (err, row: StatRow) => {
+        this.db.get(queries[6], (err, row: StatRow) => {
           if (err) return reject(err);
           results.totalImportSessions = row.total_import_sessions || 0;
           resolve(results);
@@ -927,7 +738,7 @@ export class Database {
     });
   }
 
-  async getWalletAddress(id: number): Promise<WalletAddress | null> {
+  async getWalletAddress(id: number): Promise<WalletAddress | undefined> {
     return new Promise((resolve, reject) => {
       const query = 'SELECT * FROM wallet_addresses WHERE id = ?';
 
@@ -935,7 +746,7 @@ export class Database {
         if (err) {
           reject(err);
         } else if (!row) {
-          resolve(null);
+          return;
         } else {
           resolve({
             address: row.address,
@@ -989,7 +800,7 @@ export class Database {
         if (err) {
           reject(err);
         } else {
-          const addresses = rows.map(row => ({
+          const addresses = rows.map((row) => ({
             address: row.address,
             addressType: row.addressType,
             blockchain: row.blockchain,
@@ -1010,7 +821,7 @@ export class Database {
   async saveBalanceSnapshot(snapshot: BalanceSnapshot): Promise<void> {
     return new Promise((resolve, reject) => {
       const stmt = this.db.prepare(`
-        INSERT INTO balance_snapshots 
+        INSERT INTO balance_snapshots
         (exchange, currency, balance, timestamp)
         VALUES (?, ?, ?, ?)
       `);
@@ -1030,7 +841,7 @@ export class Database {
   async saveBalanceVerification(verification: BalanceVerificationRecord): Promise<void> {
     return new Promise((resolve, reject) => {
       const stmt = this.db.prepare(`
-        INSERT INTO balance_verifications 
+        INSERT INTO balance_verifications
         (exchange, currency, expected_balance, actual_balance, difference, status, timestamp)
         VALUES (?, ?, ?, ?, ?, ?, ?)
       `);
@@ -1071,7 +882,7 @@ export class Database {
   ): Promise<number> {
     return new Promise((resolve, reject) => {
       const stmt = this.db.prepare(`
-        INSERT INTO external_transaction_data 
+        INSERT INTO external_transaction_data
         (source_id, source_type, provider_id, raw_data, metadata, import_session_id)
         VALUES (?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(source_id, provider_id) DO UPDATE SET
@@ -1080,17 +891,17 @@ export class Database {
           import_session_id = excluded.import_session_id
       `);
 
-      const providerId = options?.providerId || null;
+      const providerId = options?.providerId || undefined;
       const rawDataJson = JSON.stringify(rawData);
-      const metadataJson = options?.metadata ? JSON.stringify(options.metadata) : null;
+      const metadataJson = options?.metadata ? JSON.stringify(options.metadata) : undefined;
 
       stmt.run(
-        [sourceId, sourceType, providerId, rawDataJson, metadataJson, options?.importSessionId || null],
+        [sourceId, sourceType, providerId, rawDataJson, metadataJson, options?.importSessionId || undefined],
         function (err) {
           if (err) {
             reject(err);
           } else {
-            resolve(this.lastID as number);
+            resolve(this.lastID);
           }
         }
       );
@@ -1102,7 +913,7 @@ export class Database {
   async saveRawTransactions(
     sourceId: string,
     sourceType: string,
-    rawTransactions: Array<{ data: unknown }>,
+    rawTransactions: { data: unknown }[],
     options?: {
       importSessionId?: number | undefined;
       metadata?: unknown;
@@ -1122,23 +933,23 @@ export class Database {
       }
 
       db.serialize(() => {
-        db.run('BEGIN TRANSACTION', err => {
+        db.run('BEGIN TRANSACTION', (err) => {
           if (err) {
             return reject(err);
           }
         });
 
         const stmt = db.prepare(`
-          INSERT OR IGNORE INTO external_transaction_data 
+          INSERT OR IGNORE INTO external_transaction_data
           (source_id, source_type, provider_id, raw_data, metadata, import_session_id)
           VALUES (?, ?, ?, ?, ?, ?)
         `);
 
         for (const rawTx of rawTransactions) {
-          const providerId = options?.providerId || null;
+          const providerId = options?.providerId || undefined;
           const rawDataJson = JSON.stringify(rawTx.data);
-          const metadataJson = options?.metadata ? JSON.stringify(options.metadata) : null;
-          const importSessionId = options?.importSessionId || null;
+          const metadataJson = options?.metadata ? JSON.stringify(options.metadata) : undefined;
+          const importSessionId = options?.importSessionId || undefined;
 
           stmt.run([sourceId, sourceType, providerId, rawDataJson, metadataJson, importSessionId], function (err) {
             completed++;
@@ -1159,7 +970,7 @@ export class Database {
             // Check if all operations are complete
             if (completed === total && !hasError) {
               stmt.finalize();
-              db.run('COMMIT', commitErr => {
+              db.run('COMMIT', (commitErr) => {
                 if (commitErr) {
                   reject(commitErr);
                 } else {
@@ -1177,7 +988,7 @@ export class Database {
   async saveTransaction(transaction: UniversalTransaction): Promise<number> {
     return new Promise((resolve, reject) => {
       const stmt = this.db.prepare(`
-        INSERT OR REPLACE INTO transactions 
+        INSERT OR REPLACE INTO transactions
         (source_id, type, timestamp, datetime, symbol, amount, amount_currency, price, price_currency, fee_cost, fee_currency, status, from_address, to_address, raw_data, hash, verified, note_type, note_message, note_severity, note_metadata)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
@@ -1185,8 +996,8 @@ export class Database {
       const rawDataJson = JSON.stringify(transaction);
 
       // Extract currencies from Money type
-      let amountCurrency: string | null = null;
-      let priceCurrency: string | null = null;
+      let amountCurrency: string | undefined;
+      let priceCurrency: string | undefined;
 
       // Primary: Extract from Money type structure
       if (transaction.amount && typeof transaction.amount === 'object' && transaction.amount.currency) {
@@ -1202,38 +1013,38 @@ export class Database {
           transaction.source,
           transaction.type || 'unknown',
           transaction.timestamp || Date.now(),
-          transaction.datetime || null,
-          transaction.symbol || null,
+          transaction.datetime || undefined,
+          transaction.symbol || undefined,
           typeof transaction.amount === 'object'
             ? moneyToDbString(transaction.amount)
             : transaction.amount
               ? String(transaction.amount)
-              : null,
+              : undefined,
           amountCurrency,
           typeof transaction.price === 'object'
             ? moneyToDbString(transaction.price)
             : transaction.price
               ? String(transaction.price)
-              : null,
+              : undefined,
           priceCurrency,
-          typeof transaction.fee === 'object' ? moneyToDbString(transaction.fee) : null,
-          typeof transaction.fee === 'object' ? transaction.fee.currency : null,
-          transaction.status || null,
-          transaction.from || null,
-          transaction.to || null,
+          typeof transaction.fee === 'object' ? moneyToDbString(transaction.fee) : undefined,
+          typeof transaction.fee === 'object' ? transaction.fee.currency : undefined,
+          transaction.status || undefined,
+          transaction.from || undefined,
+          transaction.to || undefined,
           rawDataJson,
           transaction.metadata?.hash || `${transaction.source}-${transaction.id}`,
           transaction.metadata?.verified ? 1 : 0,
-          transaction.note?.type || null,
-          transaction.note?.message || null,
-          transaction.note?.severity || null,
-          transaction.note?.metadata ? JSON.stringify(transaction.note.metadata) : null,
+          transaction.note?.type || undefined,
+          transaction.note?.message || undefined,
+          transaction.note?.severity || undefined,
+          transaction.note?.metadata ? JSON.stringify(transaction.note.metadata) : undefined,
         ],
         function (err) {
           if (err) {
             reject(err);
           } else {
-            resolve(this.lastID as number);
+            resolve(this.lastID);
           }
         }
       );
@@ -1250,7 +1061,7 @@ export class Database {
         this.db.run('BEGIN TRANSACTION');
 
         const stmt = this.db.prepare(`
-          INSERT OR IGNORE INTO transactions 
+          INSERT OR IGNORE INTO transactions
           (source_id, type, timestamp, datetime, symbol, amount, amount_currency, price, price_currency, fee_cost, fee_currency, status, from_address, to_address, wallet_id, raw_data, hash, verified, note_type, note_message, note_severity, note_metadata)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
@@ -1259,8 +1070,8 @@ export class Database {
           const rawDataJson = JSON.stringify(transaction);
 
           // Extract currencies from Money type or fallback to legacy extraction
-          let amountCurrency: string | null = null;
-          let priceCurrency: string | null = null;
+          let amountCurrency: string | undefined;
+          let priceCurrency: string | undefined;
 
           // Primary: Extract from Money type structure
           if (transaction.amount && typeof transaction.amount === 'object' && transaction.amount.currency) {
@@ -1272,40 +1083,40 @@ export class Database {
           }
 
           // wallet_id will be updated later by the linkTransactionAddresses method
-          const walletId = null;
+          const walletId = undefined;
 
           stmt.run(
             [
               transaction.source,
               transaction.type || 'unknown',
               transaction.timestamp || Date.now(),
-              transaction.datetime || null,
-              transaction.symbol || null,
+              transaction.datetime || undefined,
+              transaction.symbol || undefined,
               typeof transaction.amount === 'object'
                 ? moneyToDbString(transaction.amount)
                 : transaction.amount
                   ? String(transaction.amount)
-                  : null,
+                  : undefined,
               amountCurrency,
               typeof transaction.price === 'object'
                 ? moneyToDbString(transaction.price)
                 : transaction.price
                   ? String(transaction.price)
-                  : null,
+                  : undefined,
               priceCurrency,
-              typeof transaction.fee === 'object' ? moneyToDbString(transaction.fee) : null,
-              typeof transaction.fee === 'object' ? transaction.fee.currency : null,
-              transaction.status || null,
-              transaction.from || null,
-              transaction.to || null,
+              typeof transaction.fee === 'object' ? moneyToDbString(transaction.fee) : undefined,
+              typeof transaction.fee === 'object' ? transaction.fee.currency : undefined,
+              transaction.status || undefined,
+              transaction.from || undefined,
+              transaction.to || undefined,
               walletId,
               rawDataJson,
               transaction.metadata?.hash || `${transaction.source}-${transaction.id}`,
               transaction.metadata?.verified ? 1 : 0,
-              transaction.note?.type || null,
-              transaction.note?.message || null,
-              transaction.note?.severity || null,
-              transaction.note?.metadata ? JSON.stringify(transaction.note.metadata) : null,
+              transaction.note?.type || undefined,
+              transaction.note?.message || undefined,
+              transaction.note?.severity || undefined,
+              transaction.note?.metadata ? JSON.stringify(transaction.note.metadata) : undefined,
             ],
             function (err) {
               if (err && !err.message.includes('UNIQUE constraint failed')) {
@@ -1319,7 +1130,7 @@ export class Database {
 
         stmt.finalize();
 
-        this.db.run('COMMIT', err => {
+        this.db.run('COMMIT', (err) => {
           if (err) {
             reject(err);
           } else {
@@ -1333,7 +1144,7 @@ export class Database {
   async updateImportSession(sessionId: number, updates: UpdateImportSessionRequest): Promise<void> {
     return new Promise((resolve, reject) => {
       const setParts: string[] = [];
-      const params: (string | number | null)[] = [];
+      const params: (string | number | undefined)[] = [];
 
       if (updates.status !== undefined) {
         setParts.push('status = ?');
@@ -1352,7 +1163,7 @@ export class Database {
 
       if (updates.errorDetails !== undefined) {
         setParts.push('error_details = ?');
-        params.push(updates.errorDetails ? JSON.stringify(updates.errorDetails) : null);
+        params.push(updates.errorDetails ? JSON.stringify(updates.errorDetails) : undefined);
       }
 
       if (updates.transactionsImported !== undefined) {
@@ -1367,7 +1178,7 @@ export class Database {
 
       if (updates.sessionMetadata !== undefined) {
         setParts.push('session_metadata = ?');
-        params.push(updates.sessionMetadata ? JSON.stringify(updates.sessionMetadata) : null);
+        params.push(updates.sessionMetadata ? JSON.stringify(updates.sessionMetadata) : undefined);
       }
 
       if (setParts.length === 0) {
@@ -1381,7 +1192,7 @@ export class Database {
 
       const query = `UPDATE import_sessions SET ${setParts.join(', ')} WHERE id = ?`;
 
-      this.db.run(query, params, err => {
+      this.db.run(query, params, (err) => {
         if (err) {
           reject(err);
         } else {
@@ -1399,15 +1210,15 @@ export class Database {
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       const stmt = this.db.prepare(`
-        UPDATE external_transaction_data 
+        UPDATE external_transaction_data
         SET processing_status = ?, processing_error = ?, processed_at = ?
-        WHERE id = ? AND (provider_id = ? OR (provider_id IS NULL AND ? IS NULL))
+        WHERE id = ? AND (provider_id = ? OR (provider_id IS undefined AND ? IS undefined))
       `);
 
-      const processedAt = status === 'processed' ? Math.floor(Date.now() / 1000) : null;
+      const processedAt = status === 'processed' ? Math.floor(Date.now() / 1000) : undefined;
 
       stmt.run(
-        [status, error || null, processedAt, rawTransactionId, providerId || null, providerId || null],
+        [status, error || undefined, processedAt, rawTransactionId, providerId || undefined, providerId || undefined],
         function (err) {
           if (err) {
             reject(err);
@@ -1421,7 +1232,7 @@ export class Database {
     });
   }
 
-  async updateWalletAddress(id: number, updates: UpdateWalletAddressRequest): Promise<WalletAddress | null> {
+  async updateWalletAddress(id: number, updates: UpdateWalletAddressRequest): Promise<WalletAddress | undefined> {
     return new Promise((resolve, reject) => {
       const now = Math.floor(Date.now() / 1000);
       const setParts: string[] = [];
@@ -1455,7 +1266,7 @@ export class Database {
 
       const query = `UPDATE wallet_addresses SET ${setParts.join(', ')} WHERE id = ?`;
 
-      this.db.run(query, params, err => {
+      this.db.run(query, params, (err) => {
         if (err) {
           reject(err);
         } else {
@@ -1468,7 +1279,7 @@ export class Database {
   // Utility methods
   async vacuum(): Promise<void> {
     return new Promise((resolve, reject) => {
-      this.db.run('VACUUM', err => {
+      this.db.run('VACUUM', (err) => {
         if (err) {
           reject(err);
         } else {
@@ -1477,5 +1288,197 @@ export class Database {
         }
       });
     });
+  }
+
+  private initializeTables(clearExisting = false): void {
+    const tableQueries: string[] = [];
+
+    if (clearExisting) {
+      tableQueries.push(
+        `DROP TABLE IF EXISTS transactions`,
+        `DROP TABLE IF EXISTS external_transaction_data`,
+        `DROP TABLE IF EXISTS raw_transactions`,
+        `DROP TABLE IF EXISTS balance_snapshots`,
+        `DROP TABLE IF EXISTS balance_verifications`,
+        `DROP TABLE IF EXISTS wallet_addresses`,
+        `DROP TABLE IF EXISTS import_sessions`
+      );
+    }
+
+    tableQueries.push(
+      // Import sessions table - tracks import session metadata and execution details
+      `CREATE TABLE ${clearExisting ? '' : 'IF NOT EXISTS '}import_sessions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        source_id TEXT NOT undefined,
+        source_type TEXT NOT undefined CHECK (source_type IN ('exchange', 'blockchain')),
+        provider_id TEXT,
+        status TEXT NOT undefined DEFAULT 'started' CHECK (status IN ('started', 'completed', 'failed', 'cancelled')),
+        started_at INTEGER NOT undefined DEFAULT (strftime('%s','now')),
+        completed_at INTEGER,
+        duration_ms INTEGER,
+        error_message TEXT,
+        error_details JSON,
+        session_metadata JSON,
+        transactions_imported INTEGER DEFAULT 0,
+        transactions_failed INTEGER DEFAULT 0,
+        created_at INTEGER NOT undefined DEFAULT (strftime('%s','now')),
+        updated_at INTEGER NOT undefined DEFAULT (strftime('%s','now'))
+      )`,
+
+      // External transaction data table - stores unprocessed transaction data from sources
+      `CREATE TABLE ${clearExisting ? '' : 'IF NOT EXISTS '}external_transaction_data (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        source_id TEXT NOT undefined,
+        source_type TEXT NOT undefined,
+        provider_id TEXT,
+        raw_data JSON NOT undefined,
+        metadata JSON,
+        processing_status TEXT DEFAULT 'pending',
+        processing_error TEXT,
+        processed_at INTEGER,
+        created_at INTEGER NOT undefined DEFAULT (strftime('%s','now')),
+        import_session_id INTEGER,
+        UNIQUE(source_id, provider_id),
+        FOREIGN KEY (import_session_id) REFERENCES import_sessions (id)
+      )`,
+
+      // Transactions table - stores transactions from all sources with standardized structure
+      // Using TEXT for decimal values to preserve precision
+      `CREATE TABLE ${clearExisting ? '' : 'IF NOT EXISTS '}transactions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        source_id TEXT NOT undefined,
+        type TEXT NOT undefined,
+        timestamp INTEGER NOT undefined,
+        datetime TEXT,
+        symbol TEXT,
+        amount TEXT,
+        amount_currency TEXT,
+        price TEXT,
+        price_currency TEXT,
+        fee_cost TEXT,
+        fee_currency TEXT,
+        status TEXT,
+        from_address TEXT,
+        to_address TEXT,
+        wallet_id INTEGER,
+        raw_data JSON NOT undefined,
+        created_at INTEGER NOT undefined DEFAULT (strftime('%s','now')),
+        hash TEXT,
+        verified BOOLEAN DEFAULT 0,
+        note_type TEXT,
+        note_message TEXT,
+        note_severity TEXT CHECK (note_severity IN ('info', 'warning', 'error')),
+        note_metadata JSON,
+        FOREIGN KEY (wallet_id) REFERENCES wallet_addresses (id)
+      )`,
+
+      // Balance snapshots - store point-in-time balance data
+      `CREATE TABLE ${clearExisting ? '' : 'IF NOT EXISTS '}balance_snapshots (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        exchange TEXT NOT undefined,
+        currency TEXT NOT undefined,
+        balance TEXT NOT undefined,
+        timestamp INTEGER NOT undefined,
+        created_at INTEGER NOT undefined DEFAULT (strftime('%s','now'))
+      )`,
+
+      // Balance verification records - track verification results
+      `CREATE TABLE ${clearExisting ? '' : 'IF NOT EXISTS '}balance_verifications (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        exchange TEXT NOT undefined,
+        currency TEXT NOT undefined,
+        expected_balance TEXT NOT undefined,
+        actual_balance TEXT NOT undefined,
+        difference TEXT NOT undefined,
+        status TEXT NOT undefined CHECK (status IN ('match', 'mismatch', 'warning')),
+        timestamp INTEGER NOT undefined,
+        created_at INTEGER NOT undefined DEFAULT (strftime('%s','now'))
+      )`,
+
+      // Wallet addresses - store user's wallet addresses for tracking and consolidation
+      `CREATE TABLE ${clearExisting ? '' : 'IF NOT EXISTS '}wallet_addresses (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        address TEXT NOT undefined,
+        blockchain TEXT NOT undefined,
+        label TEXT,
+        address_type TEXT NOT undefined DEFAULT 'personal' CHECK (address_type IN ('personal', 'exchange', 'contract', 'unknown')),
+        is_active BOOLEAN DEFAULT 1,
+        notes TEXT,
+        created_at INTEGER NOT undefined DEFAULT (strftime('%s','now')),
+        updated_at INTEGER NOT undefined DEFAULT (strftime('%s','now')),
+        UNIQUE(address, blockchain)
+      )`
+    );
+
+    const indexQueries = [
+      `CREATE INDEX IF NOT EXISTS idx_transactions_source_timestamp
+       ON transactions(source_id, timestamp)`,
+
+      `CREATE INDEX IF NOT EXISTS idx_transactions_type_timestamp
+       ON transactions(type, timestamp)`,
+
+      `CREATE INDEX IF NOT EXISTS idx_transactions_symbol
+       ON transactions(symbol) WHERE symbol IS NOT undefined`,
+
+      `CREATE INDEX IF NOT EXISTS idx_balance_snapshots_exchange_currency
+       ON balance_snapshots(exchange, currency, timestamp)`,
+
+      `CREATE INDEX IF NOT EXISTS idx_balance_verifications_exchange_timestamp
+       ON balance_verifications(exchange, timestamp)`,
+
+      // New indexes for wallet address tracking
+      `CREATE INDEX IF NOT EXISTS idx_transactions_from_address
+       ON transactions(from_address) WHERE from_address IS NOT undefined`,
+
+      `CREATE INDEX IF NOT EXISTS idx_transactions_to_address
+       ON transactions(to_address) WHERE to_address IS NOT undefined`,
+
+      `CREATE INDEX IF NOT EXISTS idx_transactions_wallet_id
+       ON transactions(wallet_id) WHERE wallet_id IS NOT undefined`,
+
+      `CREATE INDEX IF NOT EXISTS idx_wallet_addresses_blockchain_address
+       ON wallet_addresses(blockchain, address)`,
+
+      `CREATE INDEX IF NOT EXISTS idx_wallet_addresses_active
+       ON wallet_addresses(is_active) WHERE is_active = 1`,
+
+      // Import sessions indexes
+      `CREATE INDEX IF NOT EXISTS idx_import_sessions_source
+       ON import_sessions(source_id, started_at)`,
+
+      `CREATE INDEX IF NOT EXISTS idx_import_sessions_status
+       ON import_sessions(status, started_at)`,
+
+      `CREATE INDEX IF NOT EXISTS idx_import_sessions_source_type
+       ON import_sessions(source_type, started_at)`,
+
+      // External transaction data indexes
+      `CREATE INDEX IF NOT EXISTS idx_external_transaction_data_source
+       ON external_transaction_data(source_id, created_at)`,
+
+      `CREATE INDEX IF NOT EXISTS idx_external_transaction_data_session
+       ON external_transaction_data(import_session_id) WHERE import_session_id IS NOT undefined`,
+    ];
+
+    this.db.serialize(() => {
+      for (const query of tableQueries) {
+        this.db.run(query, (err) => {
+          if (err) {
+            this.logger.error(`Failed to create table: ${err.message} (query: ${query})`);
+          }
+        });
+      }
+
+      // Then create indexes after tables are complete
+      for (const query of indexQueries) {
+        this.db.run(query, (err) => {
+          if (err) {
+            this.logger.error(`Failed to create index: ${err.message} (query: ${query})`);
+          }
+        });
+      }
+    });
+
+    this.logger.debug('Database tables initialized');
   }
 }

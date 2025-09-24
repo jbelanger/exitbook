@@ -1,11 +1,11 @@
 import { type Result, err, ok } from 'neverthrow';
 
-import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
-import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.ts';
-import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.ts';
-import type { UniversalBlockchainTransaction } from '../../shared/types.ts';
-import { BlockstreamTransactionSchema } from '../schemas.ts';
-import type { BlockstreamTransaction } from '../types.ts';
+import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.js';
+import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
+import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
+import type { UniversalBlockchainTransaction } from '../../shared/types.js';
+import { BlockstreamTransactionSchema } from '../schemas.js';
+import type { BlockstreamTransaction } from '../types.js';
 
 @RegisterTransactionMapper('blockstream.info')
 export class BlockstreamTransactionMapper extends BaseRawDataMapper<BlockstreamTransaction> {

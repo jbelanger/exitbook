@@ -1,15 +1,15 @@
 import type { UniversalTransaction } from '@crypto/core';
-// Import processors to trigger registration
 import type { StoredRawData } from '@crypto/data';
 import { createMoney } from '@crypto/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
-import { BaseProcessor } from '../../shared/processors/base-processor.ts';
-import type { ApiClientRawData, ImportSessionMetadata } from '../../shared/processors/interfaces.ts';
-import { TransactionMapperFactory } from '../../shared/processors/processor-registry.ts';
+import { BaseProcessor } from '../../shared/processors/base-processor.js';
+import type { ApiClientRawData, ImportSessionMetadata } from '../../shared/processors/interfaces.js';
+import { TransactionMapperFactory } from '../../shared/processors/processor-registry.js';
+
 // Import processors to trigger registration
-import './mappers/index.ts';
-import type { InjectiveTransaction } from './types.ts';
+import './mappers/index.js';
+import type { InjectiveTransaction } from './types.js';
 
 /**
  * Injective transaction processor that converts raw blockchain transaction data
@@ -21,10 +21,45 @@ export class InjectiveTransactionProcessor extends BaseProcessor<ApiClientRawDat
     super('injective');
   }
 
+  /**
+   * Check if this processor can handle the specified source type.
+   */
+  protected canProcessSpecific(sourceType: string): boolean {
+    return sourceType === 'blockchain';
+  }
+
+  protected async processInternal(
+    rawDataItems: StoredRawData<ApiClientRawData<InjectiveTransaction>>[],
+    sessionMetadata?: ImportSessionMetadata
+  ): Promise<Result<UniversalTransaction[], string>> {
+    if (!sessionMetadata) {
+      return Promise.resolve(err(`No session metadata provided`));
+    }
+
+    // Group raw data items by transaction ID to handle duplicates
+    const transactionMap = new Map<string, UniversalTransaction>();
+
+    for (const item of rawDataItems) {
+      const result = this.processSingle(item, sessionMetadata);
+      if (result.isErr()) {
+        this.logger.warn(`Failed to process transaction ${item.id}: ${result.error}`);
+        continue;
+      }
+
+      const transaction = result.value;
+      if (transaction) {
+        // Use transaction ID as key to deduplicate
+        transactionMap.set(transaction.id, transaction);
+      }
+    }
+
+    return Promise.resolve(ok(Array.from(transactionMap.values())));
+  }
+
   private processSingle(
     rawDataItem: StoredRawData<ApiClientRawData<InjectiveTransaction>>,
     sessionContext: ImportSessionMetadata
-  ): Result<UniversalTransaction | null, string> {
+  ): Result<UniversalTransaction | undefined, string> {
     const apiClientRawData = rawDataItem.rawData;
     const { providerId, rawData } = apiClientRawData;
 
@@ -49,6 +84,10 @@ export class InjectiveTransactionProcessor extends BaseProcessor<ApiClientRawDat
     // Injective processors return array with single transaction
     const blockchainTransaction = blockchainTransactions[0];
 
+    if (!blockchainTransaction) {
+      return err(`No valid blockchain transaction found for ${providerId}`);
+    }
+
     // Determine proper transaction type based on Injective transaction flow
     const transactionType = this.mapTransactionType(blockchainTransaction, sessionContext);
 
@@ -58,7 +97,7 @@ export class InjectiveTransactionProcessor extends BaseProcessor<ApiClientRawDat
       datetime: new Date(blockchainTransaction.timestamp).toISOString(),
       fee: blockchainTransaction.feeAmount
         ? createMoney(blockchainTransaction.feeAmount, blockchainTransaction.feeCurrency || 'INJ')
-        : createMoney(0, 'INJ'),
+        : createMoney('0', 'INJ'),
       from: blockchainTransaction.from,
       id: blockchainTransaction.id,
       metadata: {
@@ -77,40 +116,5 @@ export class InjectiveTransactionProcessor extends BaseProcessor<ApiClientRawDat
 
     this.logger.debug(`Successfully processed transaction ${universalTransaction.id} from ${providerId}`);
     return ok(universalTransaction);
-  }
-
-  /**
-   * Check if this processor can handle the specified source type.
-   */
-  protected canProcessSpecific(sourceType: string): boolean {
-    return sourceType === 'blockchain';
-  }
-
-  protected async processInternal(
-    rawDataItems: StoredRawData<ApiClientRawData<InjectiveTransaction>>[],
-    sessionMetadata?: ImportSessionMetadata
-  ): Promise<Result<UniversalTransaction[], string>> {
-    if (!sessionMetadata) {
-      return err(`No session metadata provided`);
-    }
-
-    // Group raw data items by transaction ID to handle duplicates
-    const transactionMap = new Map<string, UniversalTransaction>();
-
-    for (const item of rawDataItems) {
-      const result = this.processSingle(item, sessionMetadata);
-      if (result.isErr()) {
-        this.logger.warn(`Failed to process transaction ${item.id}: ${result.error}`);
-        continue;
-      }
-
-      const transaction = result.value;
-      if (transaction) {
-        // Use transaction ID as key to deduplicate
-        transactionMap.set(transaction.id, transaction);
-      }
-    }
-
-    return ok(Array.from(transactionMap.values()));
   }
 }

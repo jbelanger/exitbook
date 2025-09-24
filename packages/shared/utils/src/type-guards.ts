@@ -21,7 +21,7 @@ export function isErrorWithProperties<T extends Record<string, unknown>>(
 
   if (!properties || properties.length === 0) return true;
 
-  return properties.every(prop => prop in error && error[prop as keyof typeof error] !== undefined);
+  return properties.every((prop) => prop in error && error[prop as keyof typeof error] !== undefined);
 }
 
 /**
@@ -42,7 +42,7 @@ export function hasProperty<T extends string>(obj: unknown, prop: T): obj is Rec
  * Type guard for checking if an object has multiple properties
  */
 export function hasProperties<T extends string>(obj: unknown, props: readonly T[]): obj is Record<T, unknown> {
-  return isObject(obj) && props.every(prop => prop in obj);
+  return isObject(obj) && props.every((prop) => prop in obj);
 }
 
 /**
@@ -150,7 +150,7 @@ export function getCcxtNestedInfo(obj: unknown): Record<string, unknown> | undef
  */
 export function isApiResponse<T>(
   response: unknown,
-  dataProperty: string = 'result'
+  dataProperty = 'result'
 ): response is { [key: string]: unknown; status: string } & Record<typeof dataProperty, T> {
   return (
     hasProperty(response, 'status') && hasStringProperty(response, 'status') && hasProperty(response, dataProperty)

@@ -3,17 +3,58 @@ import { parseDecimal } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
-import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
-import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.ts';
-import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.ts';
-import type { UniversalBlockchainTransaction } from '../../shared/types.ts';
-import { MoralisTransactionSchema } from '../schemas.ts';
-import type { MoralisNativeBalance, MoralisTokenBalance, MoralisTokenTransfer, MoralisTransaction } from '../types.ts';
+import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.js';
+import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
+import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
+import type { UniversalBlockchainTransaction } from '../../shared/types.js';
+import { MoralisTransactionSchema } from '../schemas.js';
+import type { MoralisNativeBalance, MoralisTokenBalance, MoralisTokenTransfer, MoralisTransaction } from '../types.js';
 
 @RegisterTransactionMapper('moralis')
 export class MoralisTransactionMapper extends BaseRawDataMapper<MoralisTransaction> {
-  protected readonly schema = MoralisTransactionSchema;
+  static processAddressBalance(balance: MoralisNativeBalance): Balance[] {
+    const balanceWei = new Decimal(balance.balance);
+    const balanceEth = balanceWei.dividedBy(new Decimal(10).pow(18));
 
+    return [
+      {
+        balance: balanceEth.toNumber(),
+        currency: 'ETH',
+        total: balanceEth.toNumber(),
+        used: 0,
+      },
+    ];
+  }
+
+  static processAddressTransactions(transactions: MoralisTransaction[]): UniversalBlockchainTransaction[] {
+    return transactions.map((tx) => this.convertNativeTransaction(tx));
+  }
+
+  static processTokenBalances(balances: MoralisTokenBalance[]): Balance[] {
+    const processedBalances: Balance[] = [];
+
+    for (const tokenBalance of balances) {
+      if (tokenBalance.balance && tokenBalance.balance !== '0') {
+        const balance = new Decimal(tokenBalance.balance);
+        const decimals = tokenBalance.decimals || 18;
+
+        const adjustedBalance = balance.dividedBy(new Decimal(10).pow(decimals));
+
+        processedBalances.push({
+          balance: adjustedBalance.toNumber(),
+          currency: tokenBalance.symbol || 'UNKNOWN',
+          total: adjustedBalance.toNumber(),
+          used: 0,
+        });
+      }
+    }
+
+    return processedBalances;
+  }
+
+  static processTokenTransactions(transfers: MoralisTokenTransfer[]): UniversalBlockchainTransaction[] {
+    return transfers.map((tx) => this.convertTokenTransfer(tx));
+  }
   private static convertNativeTransaction(tx: MoralisTransaction): UniversalBlockchainTransaction {
     const valueWei = parseDecimal(tx.value);
     const valueEth = valueWei.dividedBy(new Decimal(10).pow(18));
@@ -65,52 +106,7 @@ export class MoralisTransactionMapper extends BaseRawDataMapper<MoralisTransacti
     };
   }
 
-  static processAddressBalance(balance: MoralisNativeBalance): Balance[] {
-    const balanceWei = new Decimal(balance.balance);
-    const balanceEth = balanceWei.dividedBy(new Decimal(10).pow(18));
-
-    return [
-      {
-        balance: balanceEth.toNumber(),
-        currency: 'ETH',
-        total: balanceEth.toNumber(),
-        used: 0,
-      },
-    ];
-  }
-
-  static processAddressTransactions(transactions: MoralisTransaction[]): UniversalBlockchainTransaction[] {
-    return transactions.map(tx => this.convertNativeTransaction(tx));
-  }
-
-  static processTokenBalances(balances: MoralisTokenBalance[]): Balance[] {
-    const processedBalances: Balance[] = [];
-
-    for (const tokenBalance of balances) {
-      if (tokenBalance.balance && tokenBalance.balance !== '0') {
-        const balance = new Decimal(tokenBalance.balance);
-        const decimals = tokenBalance.decimals || 18;
-        const symbol = tokenBalance.symbol || 'UNKNOWN';
-
-        const adjustedBalance = balance.dividedBy(new Decimal(10).pow(decimals));
-
-        processedBalances.push({
-          balance: adjustedBalance.toNumber(),
-          contractAddress: tokenBalance.token_address,
-          currency: symbol,
-          total: adjustedBalance.toNumber(),
-          used: 0,
-        });
-      }
-    }
-
-    return processedBalances;
-  }
-
-  static processTokenTransactions(transfers: MoralisTokenTransfer[]): UniversalBlockchainTransaction[] {
-    return transfers.map(tx => this.convertTokenTransfer(tx));
-  }
-
+  protected readonly schema = MoralisTransactionSchema;
   protected mapInternal(
     rawData: MoralisTransaction,
     _sessionContext: ImportSessionMetadata

@@ -1,22 +1,41 @@
-import { Result, ok } from 'neverthrow';
+import type { Result } from 'neverthrow';
+import { ok } from 'neverthrow';
 
-import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
-import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.ts';
-import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.ts';
-import type { UniversalBlockchainTransaction } from '../../shared/types.ts';
-import { SnowtraceAnyTransactionSchema } from '../schemas.ts';
-import type { SnowtraceInternalTransaction, SnowtraceTokenTransfer, SnowtraceTransaction } from '../types.ts';
+import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.js';
+import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
+import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
+import type { UniversalBlockchainTransaction } from '../../shared/types.js';
+import { SnowtraceAnyTransactionSchema } from '../schemas.js';
+import type { SnowtraceInternalTransaction, SnowtraceTokenTransfer, SnowtraceTransaction } from '../types.js';
 
-export type SnowtraceRawData = {
+export interface SnowtraceRawData {
   internal: SnowtraceInternalTransaction[];
   normal: SnowtraceTransaction[];
-};
+}
 
 @RegisterTransactionMapper('snowtrace')
 export class SnowtraceTransactionMapper extends BaseRawDataMapper<
   SnowtraceTransaction | SnowtraceInternalTransaction | SnowtraceTokenTransfer
 > {
   protected readonly schema = SnowtraceAnyTransactionSchema;
+
+  protected mapInternal(
+    rawData: SnowtraceTransaction | SnowtraceInternalTransaction | SnowtraceTokenTransfer,
+    _sessionContext: ImportSessionMetadata
+  ): Result<UniversalBlockchainTransaction[], string> {
+    // Type discrimination handled by SnowtraceAnyTransactionSchema discriminated union
+    // Token transfers have tokenSymbol, internal transactions have traceId, normal transactions have nonce
+
+    if ('tokenSymbol' in rawData) {
+      return this.transformTokenTransfer(rawData);
+    }
+
+    if ('traceId' in rawData) {
+      return this.transformInternalTransaction(rawData);
+    }
+
+    return this.transformNormalTransaction(rawData);
+  }
 
   private transformInternalTransaction(
     rawData: SnowtraceInternalTransaction
@@ -106,23 +125,5 @@ export class SnowtraceTransactionMapper extends BaseRawDataMapper<
     }
 
     return ok([transaction]);
-  }
-
-  protected mapInternal(
-    rawData: SnowtraceTransaction | SnowtraceInternalTransaction | SnowtraceTokenTransfer,
-    _sessionContext: ImportSessionMetadata
-  ): Result<UniversalBlockchainTransaction[], string> {
-    // Type discrimination handled by SnowtraceAnyTransactionSchema discriminated union
-    // Token transfers have tokenSymbol, internal transactions have traceId, normal transactions have nonce
-
-    if ('tokenSymbol' in rawData) {
-      return this.transformTokenTransfer(rawData);
-    }
-
-    if ('traceId' in rawData) {
-      return this.transformInternalTransaction(rawData);
-    }
-
-    return this.transformNormalTransaction(rawData);
   }
 }

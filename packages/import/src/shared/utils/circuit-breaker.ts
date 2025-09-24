@@ -15,7 +15,7 @@ export class CircuitBreaker {
 
   constructor(
     providerName: string,
-    maxFailures: number = 3,
+    maxFailures = 3,
     recoveryTimeoutMs: number = 5 * 60 * 1000 // Default 5 minutes
   ) {
     this.providerName = providerName;

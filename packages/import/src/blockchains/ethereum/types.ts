@@ -176,10 +176,10 @@ export interface AlchemyAssetTransfer {
   asset?: string;
   blockNum: string;
   category: string;
-  erc1155Metadata?: Array<{
+  erc1155Metadata?: {
     tokenId?: string;
     value?: string;
-  }>;
+  }[];
   from: string;
   hash: string;
   metadata?: {

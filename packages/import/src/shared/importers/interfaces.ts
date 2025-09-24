@@ -1,5 +1,5 @@
-import type { ApiClientRawData } from '../processors/interfaces.ts';
-import type { ExchangeCredentials } from '../types/types.ts';
+import type { ApiClientRawData } from '../processors/interfaces.js';
+import type { ExchangeCredentials } from '../types/types.js';
 
 export interface ImportParams {
   address?: string | undefined;

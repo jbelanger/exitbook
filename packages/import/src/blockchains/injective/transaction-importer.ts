@@ -1,10 +1,11 @@
-import { BaseImporter } from '../../shared/importers/base-importer.ts';
-import type { ImportParams, ImportRunResult } from '../../shared/importers/interfaces.ts';
-import type { ApiClientRawData } from '../../shared/processors/interfaces.ts';
-import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
+import { BaseImporter } from '../../shared/importers/base-importer.js';
+import type { ImportParams, ImportRunResult } from '../../shared/importers/interfaces.js';
+import type { ApiClientRawData } from '../../shared/processors/interfaces.js';
+import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.js';
+
 // Ensure Injective API clients are registered
-import './api/index.ts';
-import type { InjectiveTransaction } from './types.ts';
+import './api/index.js';
+import type { InjectiveTransaction } from './types.js';
 
 /**
  * Injective transaction importer that fetches raw transaction data from blockchain APIs.
@@ -33,82 +34,6 @@ export class InjectiveTransactionImporter extends BaseImporter<InjectiveTransact
     this.logger.info(
       `Initialized Injective transaction importer - ProvidersCount: ${this.providerManager.getProviders('injective').length}`
     );
-  }
-
-  /**
-   * Fetch raw transactions for a single address with provider provenance.
-   */
-  private async fetchRawTransactionsForAddress(
-    address: string,
-    since?: number
-  ): Promise<ApiClientRawData<InjectiveTransaction>[]> {
-    try {
-      const result = await this.providerManager.executeWithFailover('injective', {
-        address: address,
-        getCacheKey: params =>
-          `injective:raw-txs:${params.type === 'getRawAddressTransactions' ? params.address : 'unknown'}:${params.type === 'getRawAddressTransactions' ? params.since || 'all' : 'unknown'}`,
-        since: since,
-        type: 'getRawAddressTransactions',
-      });
-
-      const rawTransactions = result.data as InjectiveTransaction[];
-      const providerId = result.providerName;
-
-      // Wrap each transaction with provider provenance and source address context
-      return rawTransactions.map(rawData => ({
-        providerId,
-        rawData,
-        sourceAddress: address,
-      }));
-    } catch (error) {
-      this.logger.error(`Provider manager failed to fetch transactions for ${address}: ${error}`);
-      throw error;
-    }
-  }
-
-  /**
-   * Validate Injective address format.
-   */
-  private isValidInjectiveAddress(address: string): boolean {
-    try {
-      // Injective addresses start with 'inj' and are bech32 encoded (39 characters total)
-      if (!/^inj1[a-z0-9]{38}$/.test(address)) {
-        return false;
-      }
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  /**
-   * Validate source parameters and connectivity.
-   */
-  protected async canImportSpecific(params: ImportParams): Promise<boolean> {
-    if (!params.address?.length) {
-      this.logger.error('No address provided for Injective import');
-      return false;
-    }
-
-    // Validate address formats
-    if (!this.isValidInjectiveAddress(params.address)) {
-      this.logger.error(`Invalid Injective address format: ${params.address}`);
-      return false;
-    }
-
-    // Test provider connectivity
-    const healthStatus = this.providerManager.getProviderHealth('injective');
-    const hasHealthyProvider = Array.from(healthStatus.values()).some(
-      health => health.isHealthy && health.circuitState !== 'OPEN'
-    );
-
-    if (!hasHealthyProvider) {
-      this.logger.error('No healthy Injective providers available');
-      return false;
-    }
-
-    this.logger.info('Injective source validation passed');
-    return true;
   }
 
   /**
@@ -147,5 +72,81 @@ export class InjectiveTransactionImporter extends BaseImporter<InjectiveTransact
     return {
       rawData: allSourcedTransactions,
     };
+  }
+
+  /**
+   * Validate source parameters and connectivity.
+   */
+  protected async canImportSpecific(params: ImportParams): Promise<boolean> {
+    if (!params.address?.length) {
+      this.logger.error('No address provided for Injective import');
+      return false;
+    }
+
+    // Validate address formats
+    if (!this.isValidInjectiveAddress(params.address)) {
+      this.logger.error(`Invalid Injective address format: ${params.address}`);
+      return false;
+    }
+
+    // Test provider connectivity
+    const healthStatus = this.providerManager.getProviderHealth('injective');
+    const hasHealthyProvider = Array.from(healthStatus.values()).some(
+      (health) => health.isHealthy && health.circuitState !== 'OPEN'
+    );
+
+    if (!hasHealthyProvider) {
+      this.logger.error('No healthy Injective providers available');
+      return false;
+    }
+
+    this.logger.info('Injective source validation passed');
+    return Promise.resolve(true);
+  }
+
+  /**
+   * Fetch raw transactions for a single address with provider provenance.
+   */
+  private async fetchRawTransactionsForAddress(
+    address: string,
+    since?: number
+  ): Promise<ApiClientRawData<InjectiveTransaction>[]> {
+    try {
+      const result = await this.providerManager.executeWithFailover('injective', {
+        address: address,
+        getCacheKey: (params) =>
+          `injective:raw-txs:${params.type === 'getRawAddressTransactions' ? params.address : 'unknown'}:${params.type === 'getRawAddressTransactions' ? params.since || 'all' : 'unknown'}`,
+        since: since,
+        type: 'getRawAddressTransactions',
+      });
+
+      const rawTransactions = result.data as InjectiveTransaction[];
+      const providerId = result.providerName;
+
+      // Wrap each transaction with provider provenance and source address context
+      return rawTransactions.map((rawData) => ({
+        providerId,
+        rawData,
+        sourceAddress: address,
+      }));
+    } catch (error) {
+      this.logger.error(`Provider manager failed to fetch transactions for ${address}: ${String(error)}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Validate Injective address format.
+   */
+  private isValidInjectiveAddress(address: string): boolean {
+    try {
+      // Injective addresses start with 'inj' and are bech32 encoded (39 characters total)
+      if (!/^inj1[a-z0-9]{38}$/.test(address)) {
+        return false;
+      }
+      return true;
+    } catch {
+      return false;
+    }
   }
 }

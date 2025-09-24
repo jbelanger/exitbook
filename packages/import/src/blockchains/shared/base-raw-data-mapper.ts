@@ -1,8 +1,9 @@
 import { type Result, err } from 'neverthrow';
 import type { ZodSchema } from 'zod';
 
-import type { IRawDataMapper, ImportSessionMetadata } from '../../shared/processors/interfaces.ts';
-import type { UniversalBlockchainTransaction } from './types.ts';
+import type { IRawDataMapper, ImportSessionMetadata } from '../../shared/processors/interfaces.js';
+
+import type { UniversalBlockchainTransaction } from './types.js';
 
 /**
  * Abstract base class for raw data transformers that handles validation automatically.
@@ -23,7 +24,7 @@ export abstract class BaseRawDataMapper<TRawData> implements IRawDataMapper<TRaw
     // Validate input data first
     const validationResult = this.schema.safeParse(rawData);
     if (!validationResult.success) {
-      const errors = validationResult.error.issues.map(issue => {
+      const errors = validationResult.error.issues.map((issue) => {
         const path = issue.path.length > 0 ? ` at ${issue.path.join('.')}` : '';
         return `${issue.message}${path}`;
       });
@@ -31,7 +32,7 @@ export abstract class BaseRawDataMapper<TRawData> implements IRawDataMapper<TRaw
     }
 
     // Delegate to concrete implementation with validated data
-    return this.mapInternal(validationResult.data, context);
+    return this.mapInternal(validationResult.data as TRawData, context);
   }
 
   /**

@@ -1,7 +1,8 @@
 import { Decimal } from 'decimal.js';
 
-import type { UniversalBlockchainTransaction } from '../shared/types.ts';
-import type { ClassificationResult, ValueFlow } from './types.ts';
+import type { UniversalBlockchainTransaction } from '../shared/types.js';
+
+import type { ClassificationResult, ValueFlow } from './types.js';
 
 // Avalanche address validation
 export function isValidAvalancheAddress(address: string): boolean {
@@ -34,7 +35,7 @@ export class AvalancheUtils {
     const valueFlows = new Map<string, ValueFlow>();
 
     // Analyze token transfers first (highest priority)
-    const tokenTransfers = txGroup.filter(tx => tx.type === 'token_transfer');
+    const tokenTransfers = txGroup.filter((tx) => tx.type === 'token_transfer');
     if (tokenTransfers.length > 0) {
       for (const token of tokenTransfers) {
         // Only process tokens that directly involve the user
@@ -80,7 +81,7 @@ export class AvalancheUtils {
     }
 
     // Analyze internal transactions (medium priority)
-    const internalTransfers = txGroup.filter(tx => tx.type === 'internal');
+    const internalTransfers = txGroup.filter((tx) => tx.type === 'internal');
     if (internalTransfers.length) {
       for (const internal of internalTransfers) {
         if (internal.amount === '0') continue;
@@ -117,7 +118,7 @@ export class AvalancheUtils {
     }
 
     // Analyze normal transaction (lowest priority, only if no other flows)
-    const normalTx = txGroup.find(tx => tx.type === 'transfer');
+    const normalTx = txGroup.find((tx) => tx.type === 'transfer');
     if (valueFlows.size === 0 && normalTx && normalTx.amount !== '0') {
       // Only process normal transactions that directly involve the user
       const isUserSender = normalTx.from.toLowerCase() === userAddr;
@@ -164,6 +165,15 @@ export class AvalancheUtils {
     // Prefer non-AVAX tokens over AVAX (tokens are more important than gas)
     // Find the flow with the largest absolute net amount (primary asset)
     let primaryFlow = flows[0];
+    if (!primaryFlow) {
+      return {
+        assets: [],
+        primaryAmount: '0',
+        primarySymbol: 'AVAX',
+        reason: 'No primary flow available',
+        type: 'fee',
+      };
+    }
     let maxAbsFlow = new Decimal(0);
 
     // First pass: look for non-AVAX flows with significant amounts
@@ -202,7 +212,7 @@ export class AvalancheUtils {
     } else {
       // Check if there are any non-zero flows (could be a swap/exchange)
       const hasNonZeroFlows = flows.some(
-        flow => new Decimal(flow.amountIn).greaterThan(0) || new Decimal(flow.amountOut).greaterThan(0)
+        (flow) => new Decimal(flow.amountIn).greaterThan(0) || new Decimal(flow.amountOut).greaterThan(0)
       );
 
       if (hasNonZeroFlows) {
@@ -216,8 +226,8 @@ export class AvalancheUtils {
 
     // Build assets array
     const assets = flows
-      .filter(flow => new Decimal(flow.amountIn).greaterThan(0) || new Decimal(flow.amountOut).greaterThan(0))
-      .map(flow => {
+      .filter((flow) => new Decimal(flow.amountIn).greaterThan(0) || new Decimal(flow.amountOut).greaterThan(0))
+      .map((flow) => {
         const netFlow = new Decimal(flow.netFlow);
         return {
           amount: netFlow.abs().toString(),

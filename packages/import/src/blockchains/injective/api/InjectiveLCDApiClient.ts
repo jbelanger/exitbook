@@ -1,9 +1,9 @@
-import { maskAddress } from '@crypto/shared-utils';
+import { hasStringProperty, isErrorWithMessage, maskAddress } from '@crypto/shared-utils';
 
-import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
-import { RegisterApiClient } from '../../shared/registry/decorators.ts';
-import type { ProviderOperation } from '../../shared/types.ts';
-import type { InjectiveBalanceResponse } from '../types.ts';
+import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.js';
+import { RegisterApiClient } from '../../shared/registry/decorators.js';
+import type { ProviderOperation } from '../../shared/types.js';
+import type { InjectiveBalanceResponse } from '../types.js';
 
 @RegisterApiClient({
   blockchain: 'injective',
@@ -48,6 +48,63 @@ export class InjectiveLCDApiClient extends BaseRegistryProvider {
     );
   }
 
+  async execute<T>(operation: ProviderOperation<T>): Promise<T> {
+    this.logger.debug(
+      `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
+    );
+
+    try {
+      switch (operation.type) {
+        case 'getRawAddressBalance':
+          return (await this.getRawAddressBalance({
+            address: operation.address,
+          })) as T;
+        case 'getRawTokenBalances':
+          return (await this.getRawTokenBalances({
+            address: operation.address,
+            contractAddresses: operation.contractAddresses,
+          })) as T;
+        default:
+          throw new Error(`Unsupported operation: ${operation.type}`);
+      }
+    } catch (error) {
+      this.logger.error(
+        `Operation execution failed - Type: ${operation.type}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`
+      );
+      throw error;
+    }
+  }
+
+  async isHealthy(): Promise<boolean> {
+    try {
+      // Test with a simple node info call
+      const data = await this.httpClient.get<{
+        application_version?: { version?: string };
+        default_node_info?: { network?: string };
+      }>('/cosmos/base/tendermint/v1beta1/node_info');
+
+      this.logger.debug(
+        `Health check successful - Network: ${data.default_node_info?.network}, Version: ${data.application_version?.version}`
+      );
+
+      return true;
+    } catch (error) {
+      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
+      return false;
+    }
+  }
+
+  override async testConnection(): Promise<boolean> {
+    try {
+      const result = await this.isHealthy();
+      this.logger.debug(`Connection test result - Healthy: ${result}`);
+      return result;
+    } catch (error) {
+      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
+      return false;
+    }
+  }
+
   private async getRawAddressBalance(params: { address: string }): Promise<InjectiveBalanceResponse> {
     const { address } = params;
 
@@ -59,7 +116,7 @@ export class InjectiveLCDApiClient extends BaseRegistryProvider {
 
     try {
       const endpoint = `/cosmos/bank/v1beta1/balances/${address}`;
-      const data = (await this.httpClient.get(endpoint)) as InjectiveBalanceResponse;
+      const data = await this.httpClient.get<InjectiveBalanceResponse>(endpoint);
 
       this.logger.debug(
         `Successfully retrieved raw address balance - Address: ${maskAddress(address)}, BalanceCount: ${data.balances?.length || 0}, Network: ${this.network}`
@@ -101,62 +158,5 @@ export class InjectiveLCDApiClient extends BaseRegistryProvider {
     // Injective addresses start with 'inj' and are bech32 encoded
     const injectiveAddressRegex = /^inj1[a-z0-9]{38}$/;
     return injectiveAddressRegex.test(address);
-  }
-
-  async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug(
-      `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
-    );
-
-    try {
-      switch (operation.type) {
-        case 'getRawAddressBalance':
-          return this.getRawAddressBalance({
-            address: operation.address,
-          }) as T;
-        case 'getRawTokenBalances':
-          return this.getRawTokenBalances({
-            address: operation.address,
-            contractAddresses: operation.contractAddresses,
-          }) as T;
-        default:
-          throw new Error(`Unsupported operation: ${operation.type}`);
-      }
-    } catch (error) {
-      this.logger.error(
-        `Operation execution failed - Type: ${operation.type}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`
-      );
-      throw error;
-    }
-  }
-
-  async isHealthy(): Promise<boolean> {
-    try {
-      // Test with a simple node info call
-      const data = await this.httpClient.get<{
-        application_version?: { version?: string };
-        default_node_info?: { network?: string };
-      }>('/cosmos/base/tendermint/v1beta1/node_info');
-
-      this.logger.debug(
-        `Health check successful - Network: ${data.default_node_info?.network}, Version: ${data.application_version?.version}`
-      );
-
-      return true;
-    } catch (error) {
-      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
-    }
-  }
-
-  async testConnection(): Promise<boolean> {
-    try {
-      const result = await this.isHealthy();
-      this.logger.debug(`Connection test result - Healthy: ${result}`);
-      return result;
-    } catch (error) {
-      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
-    }
   }
 }

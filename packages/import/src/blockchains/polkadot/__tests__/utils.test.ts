@@ -5,7 +5,7 @@ import {
   encodeSS58Address,
   isSamePolkadotAddress,
   isValidSS58Address,
-} from '../utils.ts';
+} from '../utils.js';
 
 describe('Polkadot Utils', () => {
   // Test addresses for different SS58 formats (all represent the same public key)

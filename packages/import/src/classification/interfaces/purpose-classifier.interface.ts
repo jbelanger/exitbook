@@ -4,8 +4,9 @@
  * Provides deterministic classification of movement purposes
  * based on transaction context without external dependencies.
  */
-import { ClassifiedTransaction, MovementPurpose, ProcessedTransaction } from '@crypto-portfolio/core';
-import { Result } from 'neverthrow';
+
+import type { ProcessedTransaction, ClassifiedTransaction, MovementPurpose } from '@crypto/core';
+import type { Result } from 'neverthrow';
 
 export interface PurposeClassifier {
   /**
@@ -129,7 +130,7 @@ export class ClassificationError extends Error {
 export class ClassificationBatchError extends Error {
   constructor(
     message: string,
-    public failedTransactions: Array<{ error: ClassificationError; index: number; transactionId: string }>
+    public failedTransactions: { error: ClassificationError; index: number; transactionId: string }[]
   ) {
     super(message);
     this.name = 'ClassificationBatchError';

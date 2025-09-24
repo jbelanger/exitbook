@@ -1,12 +1,12 @@
 import type { TransactionNote } from '@crypto/core';
 
-import { TransactionNoteType } from '../types/types.ts';
+import { TransactionNoteType } from '../types/types.js';
 
 /**
  * Token metadata from DAS API for scam detection
  */
 interface TokenMetadata {
-  attributes?: Array<{ trait_type: string; value: string }>;
+  attributes?: { trait_type: string; value: string }[];
   description?: string;
   external_url?: string;
   image?: string;
@@ -25,7 +25,7 @@ export function detectScamToken(
     amount: number;
     isAirdrop: boolean;
   }
-): TransactionNote | null {
+): TransactionNote | undefined {
   const suspiciousIndicators: string[] = [];
   let riskLevel: 'warning' | 'error' = 'warning';
 
@@ -84,7 +84,7 @@ export function detectScamToken(
     };
   }
 
-  return null;
+  return undefined;
 }
 
 /**
@@ -124,7 +124,7 @@ function detectProjectImpersonation(
     }
 
     // Check if name contains project name but has suspicious additions
-    const hasProjectName = project.names.some(projName => lowerName.includes(projName));
+    const hasProjectName = project.names.some((projName) => lowerName.includes(projName));
     if (hasProjectName && (hasTimeBasedDropPattern(name) || containsGiftEmojis(name))) {
       return { isImpersonation: true, targetProject: project.project };
     }
@@ -176,7 +176,7 @@ function isSuspiciousUrl(url: string): boolean {
       /.*bonus.*\.xyz/i,
     ];
 
-    return suspiciousPatterns.some(pattern => pattern.test(hostname));
+    return suspiciousPatterns.some((pattern) => pattern.test(hostname));
   } catch {
     // Invalid URL is suspicious
     return true;
@@ -213,29 +213,4 @@ export function detectScamFromSymbol(tokenSymbol: string): {
   }
 
   return { isScam: false, reason: '' };
-}
-
-/**
- * Check if a token symbol is from a known legitimate project
- */
-function isKnownLegitimateToken(symbol: string): boolean {
-  const legitimateTokens = [
-    'SOL',
-    'USDC',
-    'USDT',
-    'BTC',
-    'ETH',
-    'RAY',
-    'SRM',
-    'ORCA',
-    'MNGO',
-    'STEP',
-    'RENDER',
-    'HNT',
-    'BONK',
-    'JTO',
-    'PYTH',
-  ];
-
-  return legitimateTokens.includes(symbol.toUpperCase());
 }

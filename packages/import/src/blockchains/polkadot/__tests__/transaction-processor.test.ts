@@ -1,9 +1,9 @@
 import type { StoredRawData } from '@crypto/data';
 import { describe, expect, it } from 'vitest';
 
-import type { ApiClientRawData, ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
-import { PolkadotTransactionProcessor } from '../transaction-processor.ts';
-import type { SubscanTransfer } from '../types.ts';
+import type { ApiClientRawData, ImportSessionMetadata } from '../../../shared/processors/interfaces.js';
+import { PolkadotTransactionProcessor } from '../transaction-processor.js';
+import type { SubscanTransfer } from '../types.js';
 
 // Type for accessing protected methods in tests
 type TestablePolkadotTransactionProcessor = PolkadotTransactionProcessor & {
@@ -206,7 +206,7 @@ describe('PolkadotTransactionProcessor Integration', () => {
   });
 
   describe('Edge Cases', () => {
-    it('should handle empty session metadata', async () => {
+    it('should handle empty session metadata', () => {
       const rawDataItems = [createMockRawDataItem(mockTransaction, polkadotAddress)];
 
       const sessionMetadata: ImportSessionMetadata = {};
@@ -220,7 +220,7 @@ describe('PolkadotTransactionProcessor Integration', () => {
       expect(enrichedContext.derivedAddresses).toContain(polkadotAddress);
     });
 
-    it('should handle empty raw data items', async () => {
+    it('should handle empty raw data items', () => {
       const rawDataItems: StoredRawData<ApiClientRawData<SubscanTransfer>>[] = [];
 
       const sessionMetadata: ImportSessionMetadata = {
@@ -236,7 +236,7 @@ describe('PolkadotTransactionProcessor Integration', () => {
       expect(enrichedContext.derivedAddresses).toContain(polkadotAddress);
     });
 
-    it('should handle missing sourceAddress in raw data', async () => {
+    it('should handle missing sourceAddress in raw data', () => {
       const rawDataItem: StoredRawData<ApiClientRawData<SubscanTransfer>> = {
         createdAt: Date.now(),
         id: 1,

@@ -1,9 +1,9 @@
-import { maskAddress } from '@crypto/shared-utils';
+import { hasStringProperty, isErrorWithMessage, maskAddress } from '@crypto/shared-utils';
 
-import { TatumApiClientBase } from '../../shared/api/TatumApiClientBase.ts';
-import { RegisterApiClient } from '../../shared/registry/decorators.ts';
-import type { ProviderOperation } from '../../shared/types.ts';
-import type { AddressInfo, TatumBitcoinBalance, TatumBitcoinTransaction } from '../types.ts';
+import { TatumApiClientBase } from '../../shared/api/TatumApiClientBase.js';
+import { RegisterApiClient } from '../../shared/registry/decorators.js';
+import type { ProviderOperation } from '../../shared/types.js';
+import type { AddressInfo, TatumBitcoinBalance, TatumBitcoinTransaction } from '../types.js';
 
 @RegisterApiClient({
   apiKeyEnvVar: 'TATUM_API_KEY',
@@ -49,44 +49,7 @@ export class TatumBitcoinApiClient extends TatumApiClientBase<TatumBitcoinTransa
     );
   }
 
-  /**
-   * Get address info for efficient gap scanning
-   * Converts raw balance to AddressInfo format
-   */
-  private async getAddressInfo(params: { address: string }): Promise<AddressInfo> {
-    const { address } = params;
-
-    this.logger.debug(`Fetching address info - Address: ${maskAddress(address)}`);
-
-    try {
-      // Get balance first
-      const balance = await this.getRawAddressBalance(address);
-
-      // Calculate net balance in BTC (incoming - outgoing, converted from satoshis)
-      const incomingSats = parseInt(balance.incoming) || 0;
-      const outgoingSats = parseInt(balance.outgoing) || 0;
-      const netBalanceSats = incomingSats - outgoingSats;
-      const balanceBTC = (netBalanceSats / 100000000).toString();
-
-      // Get transactions to count them
-      const transactions = await this.getRawAddressTransactions(address, { pageSize: 1 });
-      const txCount = Array.isArray(transactions) ? transactions.length : 0;
-
-      this.logger.debug(`Retrieved address info - Address: ${maskAddress(address)}, TxCount: ${txCount}`);
-
-      return {
-        balance: balanceBTC,
-        txCount,
-      };
-    } catch (error) {
-      this.logger.error(
-        `Failed to get address info - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`
-      );
-      throw error;
-    }
-  }
-
-  async execute<T>(operation: ProviderOperation<T>, config?: Record<string, unknown>): Promise<T> {
+  async execute<T>(operation: ProviderOperation<T>, _config?: Record<string, unknown>): Promise<T> {
     this.logger.debug(
       `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
     );
@@ -94,24 +57,24 @@ export class TatumBitcoinApiClient extends TatumApiClientBase<TatumBitcoinTransa
     try {
       switch (operation.type) {
         case 'getRawAddressTransactions':
-          return this.getRawAddressTransactions(operation.address) as T;
+          return (await this.getRawAddressTransactions(operation.address)) as T;
         case 'getAddressInfo':
-          return this.getAddressInfo({
+          return (await this.getAddressInfo({
             address: operation.address,
-          }) as T;
+          })) as T;
         case 'custom': {
           // Handle custom Tatum-specific operations with additional parameters
           const customOp = operation as Record<string, unknown>; // Cast to access custom fields
-          if (customOp.tatumOperation === 'getRawAddressTransactionsWithParams') {
-            return this.getRawAddressTransactions(customOp.address as string, {
-              blockFrom: customOp.blockFrom as number,
-              blockTo: customOp.blockTo as number,
-              offset: customOp.offset as number,
-              pageSize: customOp.pageSize as number,
-              txType: customOp.txType as 'incoming' | 'outgoing',
-            }) as T;
+          if (customOp['tatumOperation'] === 'getRawAddressTransactionsWithParams') {
+            return (await this.getRawAddressTransactions(customOp['address'] as string, {
+              blockFrom: customOp['blockFrom'] as number,
+              blockTo: customOp['blockTo'] as number,
+              offset: customOp['offset'] as number,
+              pageSize: customOp['pageSize'] as number,
+              txType: customOp['txType'] as 'incoming' | 'outgoing',
+            })) as T;
           }
-          throw new Error(`Unsupported custom operation: ${customOp.tatumOperation as string}`);
+          throw new Error(`Unsupported custom operation: ${customOp['tatumOperation'] as string}`);
         }
         default:
           throw new Error(`Unsupported operation: ${operation.type}`);
@@ -191,7 +154,7 @@ export class TatumBitcoinApiClient extends TatumApiClientBase<TatumBitcoinTransa
     }
   }
 
-  async isHealthy(): Promise<boolean> {
+  override async isHealthy(): Promise<boolean> {
     try {
       // Test with a simple endpoint - get balance for a known address
       await this.makeRequest<TatumBitcoinBalance>('/address/1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa/balance');
@@ -202,15 +165,52 @@ export class TatumBitcoinApiClient extends TatumApiClientBase<TatumBitcoinTransa
     }
   }
 
-  async testConnection(): Promise<boolean> {
+  override async testConnection(): Promise<boolean> {
     try {
       // Test connection with Genesis block address
       const balance = await this.getRawAddressBalance('1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa');
       this.logger.debug(`Connection test successful - Genesis address balance retrieved`);
-      return balance !== null;
+      return balance !== null && balance !== undefined;
     } catch (error) {
       this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
       return false;
+    }
+  }
+
+  /**
+   * Get address info for efficient gap scanning
+   * Converts raw balance to AddressInfo format
+   */
+  private async getAddressInfo(params: { address: string }): Promise<AddressInfo> {
+    const { address } = params;
+
+    this.logger.debug(`Fetching address info - Address: ${maskAddress(address)}`);
+
+    try {
+      // Get balance first
+      const balance = await this.getRawAddressBalance(address);
+
+      // Calculate net balance in BTC (incoming - outgoing, converted from satoshis)
+      const incomingSats = parseInt(balance.incoming) || 0;
+      const outgoingSats = parseInt(balance.outgoing) || 0;
+      const netBalanceSats = incomingSats - outgoingSats;
+      const balanceBTC = (netBalanceSats / 100000000).toString();
+
+      // Get transactions to count them
+      const transactions = await this.getRawAddressTransactions(address, { pageSize: 1 });
+      const txCount = Array.isArray(transactions) ? transactions.length : 0;
+
+      this.logger.debug(`Retrieved address info - Address: ${maskAddress(address)}, TxCount: ${txCount}`);
+
+      return {
+        balance: balanceBTC,
+        txCount,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Failed to get address info - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`
+      );
+      throw error;
     }
   }
 }

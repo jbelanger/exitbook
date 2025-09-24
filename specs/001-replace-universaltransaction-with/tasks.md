@@ -23,9 +23,9 @@
 
 ## Phase 3.1: Setup
 
-- [ ] T001 Create ProcessedTransaction types in packages/core/src/types.ts
-- [ ] T002 [P] Configure Zod schemas for new types in packages/core/src/validation/
-- [ ] T003 [P] Setup purpose classifier module structure in packages/import/src/classification/
+- [x] T001 Create ProcessedTransaction types in packages/core/src/types.ts
+- [x] T002 [P] Configure Zod schemas for new types in packages/core/src/validation/
+- [x] T003 [P] Setup purpose classifier module structure in packages/import/src/classification/
 
 ## Phase 3.2: Tests First (TDD) ⚠️ MUST COMPLETE BEFORE 3.3
 
@@ -33,17 +33,17 @@
 
 ### Contract Tests
 
-- [ ] T004 [P] Contract test PurposeClassifier interface in packages/import/src/classification/**tests**/purpose-classifier.contract.test.ts
-- [ ] T005 [P] Contract test ProcessorValidator interface in packages/core/src/validation/**tests**/processor-validator.contract.test.ts
-- [ ] T006 [P] Contract test ClassifierValidator interface in packages/core/src/validation/**tests**/classifier-validator.contract.test.ts
-- [ ] T007 [P] Contract test TransformerValidator interface in packages/core/src/validation/**tests**/transformer-validator.contract.test.ts
+- [x] T004 [P] Contract test PurposeClassifier interface in packages/import/src/classification/**tests**/purpose-classifier.contract.test.ts
+- [x] T005 [P] Contract test ProcessorValidator interface in packages/core/src/validation/**tests**/processor-validator.contract.test.ts
+- [x] T006 [P] Contract test ClassifierValidator interface in packages/core/src/validation/**tests**/classifier-validator.contract.test.ts
+- [x] T007 [P] Contract test TransformerValidator interface in packages/core/src/validation/**tests**/transformer-validator.contract.test.ts
 
 ### Integration Tests
 
-- [ ] T008 [P] Integration test ProcessedTransaction pipeline in packages/import/src/**tests**/processed-transaction-pipeline.test.ts
-- [ ] T009 [P] Integration test purpose classification flow in packages/import/src/**tests**/classification-flow.test.ts
-- [ ] T010 [P] Integration test backward compatibility shim in packages/import/src/**tests**/compatibility-shim.test.ts
-- [ ] T011 [P] Integration test multi-leg trade scenario in packages/import/src/**tests**/multi-leg-trade.test.ts
+- [x] T008 [P] Integration test ProcessedTransaction pipeline in packages/import/src/**tests**/processed-transaction-pipeline.test.ts
+- [x] T009 [P] Integration test purpose classification flow in packages/import/src/**tests**/classification-flow.test.ts
+- [x] T010 [P] Integration test backward compatibility shim in packages/import/src/**tests**/compatibility-shim.test.ts
+- [x] T011 [P] Integration test multi-leg trade scenario in packages/import/src/**tests**/multi-leg-trade.test.ts
 
 ## Phase 3.3: Core Implementation (ONLY after tests are failing)
 

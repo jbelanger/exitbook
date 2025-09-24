@@ -14,7 +14,7 @@ export interface HttpClientConfig {
 }
 
 export interface HttpRequestOptions {
-  body?: BodyInit | object | null;
+  body?: BodyInit | object | undefined;
   headers?: Record<string, string>;
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
   timeout?: number;
@@ -48,37 +48,6 @@ export class HttpClient {
     );
   }
 
-  private buildUrl(endpoint: string): string {
-    const baseUrl = this.config.baseUrl.endsWith('/') ? this.config.baseUrl.slice(0, -1) : this.config.baseUrl;
-
-    // If endpoint is empty or just '/', return baseUrl (for RPC endpoints with query params)
-    if (!endpoint || endpoint === '' || endpoint === '/') {
-      return baseUrl;
-    }
-
-    const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-    return `${baseUrl}${cleanEndpoint}`;
-  }
-
-  private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
-  private sanitizeUrl(url: string): string {
-    // Remove potential API keys or sensitive query parameters from logs
-    const urlObj = new URL(url);
-    if (urlObj.searchParams.has('token')) {
-      urlObj.searchParams.set('token', '***');
-    }
-    if (urlObj.searchParams.has('key')) {
-      urlObj.searchParams.set('key', '***');
-    }
-    if (urlObj.searchParams.has('apikey')) {
-      urlObj.searchParams.set('apikey', '***');
-    }
-    return urlObj.toString();
-  }
-
   /**
    * Convenience method for GET requests
    */
@@ -103,7 +72,7 @@ export class HttpClient {
   ): Promise<T> {
     return this.request<T>(endpoint, {
       ...options,
-      body: body as BodyInit | object | null,
+      body: body as BodyInit | object | undefined,
       method: 'POST',
     });
   }
@@ -145,6 +114,7 @@ export class HttpClient {
         }
 
         const response = await fetch(url, {
+          // eslint-disable-next-line unicorn/no-null -- 'fetch' requires null for empty body, not undefined
           body: body ?? null,
           headers,
           method,
@@ -158,11 +128,11 @@ export class HttpClient {
 
           if (response.status === 429) {
             const retryAfter = response.headers.get('Retry-After');
-            const rawDelay = retryAfter ? parseInt(retryAfter) : null;
+            const rawDelay = retryAfter ? parseInt(retryAfter) : undefined;
 
             let delay = 2000; // Default fallback
 
-            if (rawDelay !== null) {
+            if (rawDelay !== undefined) {
               // Auto-detect if value is in seconds or milliseconds
               // If rawDelay > 300 (5 minutes), assume it's milliseconds
               // If rawDelay <= 300, assume it's seconds (RFC standard)
@@ -240,5 +210,36 @@ export class HttpClient {
     }
 
     throw lastError!;
+  }
+
+  private buildUrl(endpoint: string): string {
+    const baseUrl = this.config.baseUrl.endsWith('/') ? this.config.baseUrl.slice(0, -1) : this.config.baseUrl;
+
+    // If endpoint is empty or just '/', return baseUrl (for RPC endpoints with query params)
+    if (!endpoint || endpoint === '' || endpoint === '/') {
+      return baseUrl;
+    }
+
+    const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    return `${baseUrl}${cleanEndpoint}`;
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  private sanitizeUrl(url: string): string {
+    // Remove potential API keys or sensitive query parameters from logs
+    const urlObj = new URL(url);
+    if (urlObj.searchParams.has('token')) {
+      urlObj.searchParams.set('token', '***');
+    }
+    if (urlObj.searchParams.has('key')) {
+      urlObj.searchParams.set('key', '***');
+    }
+    if (urlObj.searchParams.has('apikey')) {
+      urlObj.searchParams.set('apikey', '***');
+    }
+    return urlObj.toString();
   }
 }

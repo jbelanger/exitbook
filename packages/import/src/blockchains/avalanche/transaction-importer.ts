@@ -1,10 +1,11 @@
-import { BaseImporter } from '../../shared/importers/base-importer.ts';
-import type { ImportParams, ImportRunResult } from '../../shared/importers/interfaces.ts';
-import type { ApiClientRawData } from '../../shared/processors/interfaces.ts';
-import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
+import { BaseImporter } from '../../shared/importers/base-importer.js';
+import type { ImportParams, ImportRunResult } from '../../shared/importers/interfaces.js';
+import type { ApiClientRawData } from '../../shared/processors/interfaces.js';
+import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.js';
+
 // Ensure Avalanche API clients are registered
-import './api/index.ts';
-import type { SnowtraceInternalTransaction, SnowtraceTokenTransfer, SnowtraceTransaction } from './types.ts';
+import './api/index.js';
+import type { SnowtraceInternalTransaction, SnowtraceTokenTransfer, SnowtraceTransaction } from './types.js';
 
 /**
  * Combined type for all Avalanche transaction data types.
@@ -41,6 +42,62 @@ export class AvalancheTransactionImporter extends BaseImporter<AvalancheRawTrans
   }
 
   /**
+   * Import raw transaction data from Avalanche blockchain APIs.
+   */
+  async import(params: ImportParams): Promise<ImportRunResult<AvalancheRawTransactionData>> {
+    if (!params.address) {
+      throw new Error('Address is required for Avalanche import');
+    }
+
+    const allSourcedTransactions: ApiClientRawData<AvalancheRawTransactionData>[] = [];
+
+    this.logger.info(`Importing transactions for address: ${params.address.substring(0, 20)}...`);
+
+    // Validate Avalanche address
+    if (!this.validateAddress(params.address)) {
+      this.logger.warn(`Invalid Avalanche address: ${params.address}`);
+      return { rawData: [] };
+    }
+
+    const addressTransactions = await this.fetchRawTransactionsForAddress(params.address, params.since);
+    allSourcedTransactions.push(...addressTransactions);
+
+    // Sort by timestamp
+    const sortedTransactions = allSourcedTransactions.sort((a, b) => {
+      const timestampA = parseInt(a.rawData.timeStamp);
+      const timestampB = parseInt(b.rawData.timeStamp);
+      return timestampB - timestampA;
+    });
+
+    this.logger.info(`Total transactions imported: ${sortedTransactions.length}`);
+    return {
+      rawData: sortedTransactions,
+    };
+  }
+
+  /**
+   * Check if the importer can handle the specified import parameters.
+   */
+  protected async canImportSpecific(params: ImportParams): Promise<boolean> {
+    return Promise.resolve(!!params.address);
+  }
+
+  /**
+   * Extract unique transaction identifier from raw transaction data.
+   * Include provider type to prevent deduplication of different transaction types with same hash.
+   */
+  protected getTransactionId(rawData: AvalancheRawTransactionData): string {
+    // Determine transaction type based on structure to create unique keys
+    if ('tokenSymbol' in rawData) {
+      return `${rawData.hash}-token`;
+    } else if ('type' in rawData && rawData.type === 'call') {
+      return `${rawData.hash}-internal`;
+    } else {
+      return `${rawData.hash}-normal`;
+    }
+  }
+
+  /**
    * Fetch raw transactions for a single address with provider provenance.
    */
   private async fetchRawTransactionsForAddress(
@@ -53,7 +110,7 @@ export class AvalancheTransactionImporter extends BaseImporter<AvalancheRawTrans
       // Fetch normal and internal transactions
       const normalResult = await this.providerManager.executeWithFailover('avalanche', {
         address,
-        getCacheKey: params =>
+        getCacheKey: (params) =>
           `avalanche:normal-txs:${params.type === 'getRawAddressTransactions' ? params.address : 'unknown'}:${params.type === 'getRawAddressTransactions' ? params.since || 'all' : 'unknown'}`,
         since,
         type: 'getRawAddressTransactions',
@@ -92,7 +149,7 @@ export class AvalancheTransactionImporter extends BaseImporter<AvalancheRawTrans
       try {
         const tokenResult = await this.providerManager.executeWithFailover('avalanche', {
           address,
-          getCacheKey: params =>
+          getCacheKey: (params) =>
             `avalanche:token-txs:${params.type === 'getTokenTransactions' ? params.address : 'unknown'}:${params.type === 'getTokenTransactions' ? params.since || 'all' : 'unknown'}`,
           since,
           type: 'getTokenTransactions',
@@ -109,13 +166,13 @@ export class AvalancheTransactionImporter extends BaseImporter<AvalancheRawTrans
           }
         }
       } catch (error) {
-        this.logger.debug(`No token transactions available for ${address.substring(0, 20)}...: ${error}`);
+        this.logger.debug(`No token transactions available for ${address.substring(0, 20)}...: ${String(error)}`);
       }
 
       this.logger.debug(`Fetched ${rawTransactions.length} transactions for address: ${address.substring(0, 20)}...`);
       return rawTransactions;
     } catch (error) {
-      this.logger.error(`Failed to fetch transactions for address ${address}: ${error}`);
+      this.logger.error(`Failed to fetch transactions for address ${address}: ${String(error)}`);
       throw error;
     }
   }
@@ -126,61 +183,5 @@ export class AvalancheTransactionImporter extends BaseImporter<AvalancheRawTrans
   private validateAddress(address: string): boolean {
     const ethAddressRegex = /^0x[a-fA-F0-9]{40}$/;
     return ethAddressRegex.test(address);
-  }
-
-  /**
-   * Check if the importer can handle the specified import parameters.
-   */
-  protected async canImportSpecific(params: ImportParams): Promise<boolean> {
-    return !params.address;
-  }
-
-  /**
-   * Extract unique transaction identifier from raw transaction data.
-   * Include provider type to prevent deduplication of different transaction types with same hash.
-   */
-  protected getTransactionId(rawData: AvalancheRawTransactionData): string {
-    // Determine transaction type based on structure to create unique keys
-    if ('tokenSymbol' in rawData) {
-      return `${rawData.hash}-token`;
-    } else if ('type' in rawData && rawData.type === 'call') {
-      return `${rawData.hash}-internal`;
-    } else {
-      return `${rawData.hash}-normal`;
-    }
-  }
-
-  /**
-   * Import raw transaction data from Avalanche blockchain APIs.
-   */
-  async import(params: ImportParams): Promise<ImportRunResult<AvalancheRawTransactionData>> {
-    if (!params.address) {
-      throw new Error('Address is required for Avalanche import');
-    }
-
-    const allSourcedTransactions: ApiClientRawData<AvalancheRawTransactionData>[] = [];
-
-    this.logger.info(`Importing transactions for address: ${params.address.substring(0, 20)}...`);
-
-    // Validate Avalanche address
-    if (!this.validateAddress(params.address)) {
-      this.logger.warn(`Invalid Avalanche address: ${params.address}`);
-      return { rawData: [] };
-    }
-
-    const addressTransactions = await this.fetchRawTransactionsForAddress(params.address, params.since);
-    allSourcedTransactions.push(...addressTransactions);
-
-    // Sort by timestamp
-    const sortedTransactions = allSourcedTransactions.sort((a, b) => {
-      const timestampA = parseInt(a.rawData.timeStamp);
-      const timestampB = parseInt(b.rawData.timeStamp);
-      return timestampB - timestampA;
-    });
-
-    this.logger.info(`Total transactions imported: ${sortedTransactions.length}`);
-    return {
-      rawData: sortedTransactions,
-    };
   }
 }

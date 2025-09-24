@@ -1,6 +1,6 @@
 import type { Database as SQLiteDatabase } from 'sqlite3';
 
-export type SQLParam = string | number | boolean | null | Buffer;
+export type SQLParam = string | number | boolean | undefined | Buffer;
 
 export interface SQLiteError extends Error {
   code: string;
@@ -12,11 +12,9 @@ export interface DBQueryResult {
   lastID?: number;
 }
 
-export interface DatabaseResultRow {
-  [key: string]: SQLParam;
-}
+export type DatabaseResultRow = Record<string, SQLParam>;
 
-export type DatabaseCallback<T> = (err: SQLiteError | null, result: T) => void;
+export type DatabaseCallback<T> = (err: SQLiteError | undefined, result: T) => void;
 
 export interface Database {
   db: SQLiteDatabase;
@@ -29,10 +27,10 @@ export interface DatabaseStats {
   totalSnapshots: number;
   totalTransactions: number;
   totalVerifications: number;
-  transactionsByExchange: Array<{
+  transactionsByExchange: {
     count: number;
     exchange: string;
-  }>;
+  }[];
 }
 
 export interface TransactionCountRow {
@@ -50,14 +48,14 @@ export interface StatRow {
 }
 
 export interface ImportSessionRow {
-  completed_at?: number | null;
+  completed_at?: number | undefined;
   created_at: number;
-  duration_ms?: number | null;
-  error_details?: string | null; // JSON string
-  error_message?: string | null;
+  duration_ms?: number | undefined;
+  error_details?: string | undefined; // JSON string
+  error_message?: string | undefined;
   id: number;
-  provider_id?: string | null;
-  session_metadata?: string | null; // JSON string
+  provider_id?: string | undefined;
+  session_metadata?: string | undefined; // JSON string
   source_id: string;
   source_type: 'exchange' | 'blockchain';
   started_at: number;

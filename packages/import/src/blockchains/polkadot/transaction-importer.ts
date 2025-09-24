@@ -1,10 +1,11 @@
-import { BaseImporter } from '../../shared/importers/base-importer.ts';
-import type { ImportParams, ImportRunResult } from '../../shared/importers/interfaces.ts';
-import type { ApiClientRawData } from '../../shared/processors/interfaces.ts';
-import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
+import { BaseImporter } from '../../shared/importers/base-importer.js';
+import type { ImportParams, ImportRunResult } from '../../shared/importers/interfaces.js';
+import type { ApiClientRawData } from '../../shared/processors/interfaces.js';
+import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.js';
+
 // Ensure providers are registered
-import './api/index.ts';
-import type { SubscanTransfer } from './types.ts';
+import './api/index.js';
+import type { SubscanTransfer } from './types.js';
 
 /**
  * Polkadot transaction importer that fetches raw transaction data from Subscan API.
@@ -34,49 +35,10 @@ export class PolkadotTransactionImporter extends BaseImporter<SubscanTransfer> {
   }
 
   /**
-   * Validate Polkadot address format (basic SS58 validation).
-   */
-  private isValidPolkadotAddress(address: string): boolean {
-    // Polkadot addresses can start with '1' (generic SS58) or other prefixes like '5'
-    // and are typically 47-48 characters long using base58 encoding
-    return /^[1-9A-HJ-NP-Za-km-z]{47,48}$/.test(address);
-  }
-
-  /**
    * Validate that the import source is compatible with Polkadot addresses.
    */
-  async canImport(params: ImportParams): Promise<boolean> {
+  override async canImport(params: ImportParams): Promise<boolean> {
     return this.canImportSpecific(params);
-  }
-
-  /**
-   * Validate source parameters and connectivity.
-   */
-  protected async canImportSpecific(params: ImportParams): Promise<boolean> {
-    if (!params.address?.length) {
-      this.logger.error('No address provided for Polkadot import');
-      return false;
-    }
-
-    // Basic validation for Polkadot addresses (SS58 format)
-    if (!this.isValidPolkadotAddress(params.address)) {
-      this.logger.error(`Invalid Polkadot address format: ${params.address}`);
-      return false;
-    }
-
-    // Test provider connectivity
-    const healthStatus = this.providerManager.getProviderHealth('polkadot');
-    const hasHealthyProvider = Array.from(healthStatus.values()).some(
-      health => health.isHealthy && health.circuitState !== 'OPEN'
-    );
-
-    if (!hasHealthyProvider) {
-      this.logger.error('No healthy Polkadot providers available');
-      return false;
-    }
-
-    this.logger.info('Polkadot source validation passed');
-    return true;
   }
 
   /**
@@ -103,7 +65,7 @@ export class PolkadotTransactionImporter extends BaseImporter<SubscanTransfer> {
     try {
       const result = await this.providerManager.executeWithFailover('polkadot', {
         address: params.address,
-        getCacheKey: cacheParams =>
+        getCacheKey: (cacheParams) =>
           `dot_raw_tx_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
         since: params.since,
         type: 'getRawAddressTransactions',
@@ -115,7 +77,7 @@ export class PolkadotTransactionImporter extends BaseImporter<SubscanTransfer> {
         const substrateTxData = rawData as { data: SubscanTransfer[] };
 
         if (Array.isArray(substrateTxData.data)) {
-          const rawTransactions: ApiClientRawData<SubscanTransfer>[] = substrateTxData.data.map(transfer => ({
+          const rawTransactions: ApiClientRawData<SubscanTransfer>[] = substrateTxData.data.map((transfer) => ({
             providerId: result.providerName,
             rawData: transfer,
           }));
@@ -148,5 +110,43 @@ export class PolkadotTransactionImporter extends BaseImporter<SubscanTransfer> {
     return {
       rawData: allSourcedTransactions,
     };
+  }
+
+  /**
+   * Validate source parameters and connectivity.
+   */
+  protected canImportSpecific(params: ImportParams): Promise<boolean> {
+    if (!params.address?.length) {
+      this.logger.error('No address provided for Polkadot import');
+      return Promise.resolve(false);
+    }
+
+    // Basic validation for Polkadot addresses (SS58 format)
+    if (!this.isValidPolkadotAddress(params.address)) {
+      this.logger.error(`Invalid Polkadot address format: ${params.address}`);
+      return Promise.resolve(false);
+    }
+
+    // Test provider connectivity
+    const healthStatus = this.providerManager.getProviderHealth('polkadot');
+    const hasHealthyProvider = Array.from(healthStatus.values()).some(
+      (health) => health.isHealthy && health.circuitState !== 'OPEN'
+    );
+
+    if (!hasHealthyProvider) {
+      this.logger.error('No healthy Polkadot providers available');
+      return Promise.resolve(false);
+    }
+
+    this.logger.info('Polkadot source validation passed');
+    return Promise.resolve(true);
+  }
+  /**
+   * Validate Polkadot address format (basic SS58 validation).
+   */
+  private isValidPolkadotAddress(address: string): boolean {
+    // Polkadot addresses can start with '1' (generic SS58) or other prefixes like '5'
+    // and are typically 47-48 characters long using base58 encoding
+    return /^[1-9A-HJ-NP-Za-km-z]{47,48}$/.test(address);
   }
 }

@@ -15,7 +15,7 @@ export interface SubstrateChainConfig {
 }
 
 // Supported Substrate chains
-export const SUBSTRATE_CHAINS: { [key: string]: SubstrateChainConfig } = {
+export const SUBSTRATE_CHAINS: Record<string, SubstrateChainConfig> = {
   bittensor: {
     displayName: 'Bittensor Network',
     explorerApiUrl: 'https://taostats.io/api',

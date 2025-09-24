@@ -1,9 +1,9 @@
-import { maskAddress } from '@crypto/shared-utils';
+import { hasStringProperty, isErrorWithMessage, maskAddress } from '@crypto/shared-utils';
 
-import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
-import { RegisterApiClient } from '../../shared/registry/decorators.ts';
-import type { ProviderOperation } from '../../shared/types.ts';
-import type { AddressInfo, MempoolAddressInfo, MempoolTransaction } from '../types.ts';
+import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.js';
+import { RegisterApiClient } from '../../shared/registry/decorators.js';
+import type { ProviderOperation } from '../../shared/types.js';
+import type { AddressInfo, MempoolAddressInfo, MempoolTransaction } from '../types.js';
 
 @RegisterApiClient({
   blockchain: 'bitcoin',
@@ -46,6 +46,55 @@ export class MempoolSpaceApiClient extends BaseRegistryProvider {
     this.logger.debug(
       `Initialized MempoolSpaceApiClient from registry metadata - Network: ${this.network}, BaseUrl: ${this.baseUrl}`
     );
+  }
+
+  async execute<T>(operation: ProviderOperation<T>): Promise<T> {
+    this.logger.debug(
+      `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
+    );
+
+    try {
+      switch (operation.type) {
+        case 'getRawAddressTransactions':
+          return (await this.getRawAddressTransactions({
+            address: operation.address,
+            since: operation.since,
+          })) as T;
+        case 'getAddressInfo':
+          return (await this.getAddressInfo({
+            address: operation.address,
+          })) as T;
+        default:
+          throw new Error(`Unsupported operation: ${operation.type}`);
+      }
+    } catch (error) {
+      this.logger.error(
+        `Operation execution failed - Type: ${operation.type}, Params: ${JSON.stringify(operation)}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`
+      );
+      throw error;
+    }
+  }
+
+  async isHealthy(): Promise<boolean> {
+    try {
+      const response = await this.httpClient.get<number>('/blocks/tip/height');
+      return typeof response === 'number' && response > 0;
+    } catch (error) {
+      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
+      return false;
+    }
+  }
+
+  override async testConnection(): Promise<boolean> {
+    try {
+      // Test with a simple endpoint that should always work
+      const blockHeight = await this.httpClient.get<number>('/blocks/tip/height');
+      this.logger.debug(`Connection test successful - CurrentBlockHeight: ${blockHeight}`);
+      return typeof blockHeight === 'number' && blockHeight > 0;
+    } catch (error) {
+      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
+      return false;
+    }
   }
 
   /**
@@ -112,7 +161,7 @@ export class MempoolSpaceApiClient extends BaseRegistryProvider {
       // Filter by timestamp if 'since' is provided
       let filteredTransactions = rawTransactions;
       if (since) {
-        filteredTransactions = rawTransactions.filter(tx => {
+        filteredTransactions = rawTransactions.filter((tx) => {
           const timestamp = tx.status.confirmed && tx.status.block_time ? tx.status.block_time * 1000 : Date.now();
           return timestamp >= since;
         });
@@ -139,55 +188,6 @@ export class MempoolSpaceApiClient extends BaseRegistryProvider {
         `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`
       );
       throw error;
-    }
-  }
-
-  async execute<T>(operation: ProviderOperation<T>): Promise<T> {
-    this.logger.debug(
-      `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
-    );
-
-    try {
-      switch (operation.type) {
-        case 'getRawAddressTransactions':
-          return this.getRawAddressTransactions({
-            address: operation.address,
-            since: operation.since,
-          }) as T;
-        case 'getAddressInfo':
-          return this.getAddressInfo({
-            address: operation.address,
-          }) as T;
-        default:
-          throw new Error(`Unsupported operation: ${operation.type}`);
-      }
-    } catch (error) {
-      this.logger.error(
-        `Operation execution failed - Type: ${operation.type}, Params: ${JSON.stringify(operation)}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`
-      );
-      throw error;
-    }
-  }
-
-  async isHealthy(): Promise<boolean> {
-    try {
-      const response = await this.httpClient.get<number>('/blocks/tip/height');
-      return typeof response === 'number' && response > 0;
-    } catch (error) {
-      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
-    }
-  }
-
-  async testConnection(): Promise<boolean> {
-    try {
-      // Test with a simple endpoint that should always work
-      const blockHeight = await this.httpClient.get<number>('/blocks/tip/height');
-      this.logger.debug(`Connection test successful - CurrentBlockHeight: ${blockHeight}`);
-      return typeof blockHeight === 'number' && blockHeight > 0;
-    } catch (error) {
-      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
     }
   }
 }

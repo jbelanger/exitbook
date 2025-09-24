@@ -416,16 +416,3 @@ export interface CoinbaseAccountsParams extends Record<string, unknown> {
 export interface CcxtCoinbaseAdapterOptions {
   enableOnlineVerification?: boolean | undefined;
 }
-
-// CoinbaseAccount extends ccxt.Account and customizes some types for internal use (Decimal for balance)
-export interface CcxtCoinbaseAccount {
-  balance: import('decimal.js').Decimal | number;
-  code: string; // Required by ccxt.Account
-  currency: string;
-  free?: number | undefined;
-  id: string;
-  info: import('ccxt').Balance; // Required by ccxt.Account
-  total?: number | undefined;
-  type: string;
-  used?: number | undefined;
-}

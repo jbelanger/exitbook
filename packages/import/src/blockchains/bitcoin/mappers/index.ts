@@ -1,4 +1,4 @@
 // Import all Bitcoin processors to trigger their registration
-import './BlockCypherMapper.ts';
-import './BlockstreamMapper.ts';
-import './MempoolSpaceMapper.ts';
+import './BlockCypherMapper.js';
+import './BlockstreamMapper.js';
+import './MempoolSpaceMapper.js';

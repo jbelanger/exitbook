@@ -1,12 +1,13 @@
-import fs from 'fs/promises';
-import path from 'path';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 
-import { BaseImporter } from '../../shared/importers/base-importer.ts';
-import type { ImportParams, ImportRunResult } from '../../shared/importers/interfaces.ts';
-import { CsvParser } from '../csv-parser.ts';
-import { CSV_FILE_TYPES } from './constants.ts';
-import type { CsvKrakenLedgerRow } from './types.ts';
-import { formatKrakenValidationErrors, validateKrakenCsvRows } from './utils.ts';
+import { BaseImporter } from '../../shared/importers/base-importer.js';
+import type { ImportParams, ImportRunResult } from '../../shared/importers/interfaces.js';
+import { CsvParser } from '../csv-parser.js';
+
+import { CSV_FILE_TYPES } from './constants.js';
+import type { CsvKrakenLedgerRow } from './types.js';
+import { formatKrakenValidationErrors, validateKrakenCsvRows } from './utils.js';
 
 /**
  * Importer for Kraken CSV ledger files.
@@ -17,72 +18,12 @@ export class KrakenCsvImporter extends BaseImporter<CsvKrakenLedgerRow> {
     super('kraken');
   }
 
-  /**
-   * Parse a CSV file using the common parsing logic.
-   */
-  private async parseCsvFile<T>(filePath: string): Promise<T[]> {
-    try {
-      return CsvParser.parseFile<T>(filePath);
-    } catch (error) {
-      this.logger.error(`Failed to parse CSV file ${filePath}: ${error}`);
-      throw error;
-    }
-  }
-
-  /**
-   * Validate CSV headers and determine file type.
-   */
-  private async validateCSVHeaders(filePath: string): Promise<string> {
-    const expectedHeaders = CSV_FILE_TYPES;
-
-    try {
-      const fileType = await CsvParser.validateHeaders(filePath, expectedHeaders);
-
-      if (fileType === 'unknown') {
-        const headers = await CsvParser.getHeaders(filePath);
-        this.logger.warn(`Unrecognized CSV headers in ${filePath}: ${headers}`);
-      }
-
-      return fileType;
-    } catch (error) {
-      this.logger.error(`Failed to validate CSV headers for ${filePath}: ${error}`);
-      return 'unknown';
-    }
-  }
-
-  protected async canImportSpecific(params: ImportParams): Promise<boolean> {
-    if (!params.csvDirectories?.length) {
-      this.logger.error('CSV directories are required for Kraken import');
-      return false;
-    }
-
-    // Check that all directories exist and are accessible
-    for (const csvDirectory of params.csvDirectories) {
-      try {
-        const stats = await fs.stat(csvDirectory);
-        if (!stats.isDirectory()) {
-          this.logger.error(`Path is not a directory: ${csvDirectory}`);
-          return false;
-        }
-
-        // Check if directory contains CSV files
-        const files = await fs.readdir(csvDirectory);
-        const csvFiles = files.filter(f => f.endsWith('.csv'));
-
-        if (csvFiles.length === 0) {
-          this.logger.warn(`No CSV files found in directory: ${csvDirectory}`);
-        }
-      } catch (dirError) {
-        this.logger.error(`Cannot access CSV directory ${csvDirectory}: ${dirError}`);
-        return false;
-      }
-    }
-
-    return true;
-  }
-
   async import(params: ImportParams): Promise<ImportRunResult<CsvKrakenLedgerRow>> {
-    this.logger.info(`Starting Kraken CSV import from directories: ${params.csvDirectories}`);
+    this.logger.info(
+      `Starting Kraken CSV import from directories: ${
+        params.csvDirectories ? params.csvDirectories.join(', ') : 'none'
+      }`
+    );
 
     if (!params.csvDirectories?.length) {
       throw new Error('CSV directories are required for Kraken import');
@@ -97,10 +38,10 @@ export class KrakenCsvImporter extends BaseImporter<CsvKrakenLedgerRow> {
 
         try {
           const files = await fs.readdir(csvDirectory);
-          this.logger.debug(`Found files in directory ${csvDirectory}: ${files}`);
+          this.logger.debug(`Found files in directory ${csvDirectory}: ${files.join(', ')}`);
 
           // Process all CSV files with proper header validation
-          const csvFiles = files.filter(f => f.endsWith('.csv'));
+          const csvFiles = files.filter((f) => f.endsWith('.csv'));
 
           for (const file of csvFiles) {
             const filePath = path.join(csvDirectory, file);
@@ -130,7 +71,7 @@ export class KrakenCsvImporter extends BaseImporter<CsvKrakenLedgerRow> {
             }
           }
         } catch (dirError) {
-          this.logger.error(`Failed to process CSV directory ${csvDirectory}: ${dirError}`);
+          this.logger.error(`Failed to process CSV directory ${csvDirectory}: ${String(dirError)}`);
           // Continue processing other directories
           continue;
         }
@@ -144,7 +85,7 @@ export class KrakenCsvImporter extends BaseImporter<CsvKrakenLedgerRow> {
       );
 
       // Wrap raw CSV data with provider information
-      const rawData = allTransactions.map(rawData => ({
+      const rawData = allTransactions.map((rawData) => ({
         providerId: 'kraken',
         rawData,
       }));
@@ -157,6 +98,69 @@ export class KrakenCsvImporter extends BaseImporter<CsvKrakenLedgerRow> {
       return {
         rawData: [],
       };
+    }
+  }
+  protected async canImportSpecific(params: ImportParams): Promise<boolean> {
+    if (!params.csvDirectories?.length) {
+      this.logger.error('CSV directories are required for Kraken import');
+      return false;
+    }
+
+    // Check that all directories exist and are accessible
+    for (const csvDirectory of params.csvDirectories) {
+      try {
+        const stats = await fs.stat(csvDirectory);
+        if (!stats.isDirectory()) {
+          this.logger.error(`Path is not a directory: ${csvDirectory}`);
+          return false;
+        }
+
+        // Check if directory contains CSV files
+        const files = await fs.readdir(csvDirectory);
+        const csvFiles = files.filter((f) => f.endsWith('.csv'));
+
+        if (csvFiles.length === 0) {
+          this.logger.warn(`No CSV files found in directory: ${csvDirectory}`);
+        }
+      } catch (dirError) {
+        this.logger.error(`Cannot access CSV directory ${csvDirectory}: ${String(dirError)}`);
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * Parse a CSV file using the common parsing logic.
+   */
+  private async parseCsvFile<T>(filePath: string): Promise<T[]> {
+    try {
+      return CsvParser.parseFile<T>(filePath);
+    } catch (error) {
+      this.logger.error(`Failed to parse CSV file ${filePath}: ${String(error)}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Validate CSV headers and determine file type.
+   */
+  private async validateCSVHeaders(filePath: string): Promise<string> {
+    const expectedHeaders = CSV_FILE_TYPES;
+
+    try {
+      const fileType = await CsvParser.validateHeaders(filePath, expectedHeaders);
+
+      if (fileType === 'unknown') {
+        const headers = await CsvParser.getHeaders(filePath);
+        this.logger.warn(`Unrecognized CSV headers in ${filePath}: ${headers}`);
+      }
+
+      return fileType;
+    } catch (error) {
+      this.logger.error(`Failed to validate CSV headers for ${filePath}: ${String(error)}`);
+      return 'unknown';
     }
   }
 }

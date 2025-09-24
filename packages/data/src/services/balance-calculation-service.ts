@@ -5,6 +5,35 @@ import type { StoredTransaction } from '../types/data-types.js';
 
 export class BalanceCalculationService {
   /**
+   * Calculate exchange balances including zero balances (for verification purposes)
+   * Returns all currencies that have transactions, even if current balance is zero
+   */
+  calculateExchangeBalancesForVerification(transactions: StoredTransaction[]): Record<string, Decimal> {
+    const balances: Record<string, Decimal> = {};
+
+    for (const transaction of transactions) {
+      this.processTransactionForBalance(transaction, balances);
+    }
+
+    // Don't cleanup dust balances - return all currencies that had transactions
+    return balances;
+  }
+
+  /**
+   * Calculate exchange balances with full precision (recommended)
+   * Returns Decimal values to prevent precision loss in cryptocurrency amounts
+   */
+  calculateExchangeBalancesWithPrecision(transactions: StoredTransaction[]): Record<string, Decimal> {
+    const balances: Record<string, Decimal> = {};
+
+    for (const transaction of transactions) {
+      this.processTransactionForBalance(transaction, balances);
+    }
+
+    return this.cleanupDustBalancesWithPrecision(balances);
+  }
+
+  /**
    * Clean up dust balances while preserving precision (recommended)
    */
   private cleanupDustBalancesWithPrecision(balances: Record<string, Decimal>): Record<string, Decimal> {
@@ -46,8 +75,7 @@ export class BalanceCalculationService {
           // For blockchain transactions, the full amount is received (sender paid the fee)
           // For exchange transactions, the full amount is credited (fees handled separately if any)
           balances[amountCurrency] = balances[amountCurrency].plus(amount);
-        }
-        else {
+        } else {
           throw new Error(`Amount is zero for deposit transaction ID: ${transaction.id}`);
         }
         break;
@@ -61,8 +89,7 @@ export class BalanceCalculationService {
             if (!balances[feeCurrency]) balances[feeCurrency] = new Decimal(0);
             balances[feeCurrency] = balances[feeCurrency].minus(feeCost);
           }
-        }
-        else {
+        } else {
           throw new Error(`Amount is zero for withdrawal transaction ID: ${transaction.id}`);
         }
         break;
@@ -70,8 +97,7 @@ export class BalanceCalculationService {
       case 'fee':
         if (amountCurrency && balances[amountCurrency]) {
           balances[amountCurrency] = balances[amountCurrency].minus(amount);
-        }
-        else {
+        } else {
           throw new Error(`Amount is zero for fee transaction ID: ${transaction.id}`);
         }
         break;
@@ -83,20 +109,17 @@ export class BalanceCalculationService {
         // Amount currency is what we're receiving, price currency is what we're spending
         if (amountCurrency && balances[amountCurrency]) {
           balances[amountCurrency] = balances[amountCurrency].plus(amount);
-        }
-        else {
+        } else {
           throw new Error(`Amount is zero for trade transaction ID: ${transaction.id}`);
         }
 
         if (priceCurrency && !price.isZero()) {
           if (!balances[priceCurrency]) balances[priceCurrency] = new Decimal(0);
           balances[priceCurrency] = balances[priceCurrency].minus(price);
+        } else {
+          throw new Error(`Price is zero for trade transaction ID: ${transaction.id}`);
         }
-        else{
-          console.log(transaction)
-          throw new Error(`Price is zero for trade transaction ID: ${transaction}`);
-        }
-        
+
         break;
     }
 
@@ -105,34 +128,5 @@ export class BalanceCalculationService {
     //   if (!balances[feeCurrency]) balances[feeCurrency] = new Decimal(0);
     //   balances[feeCurrency] = balances[feeCurrency].minus(feeCost);
     // }
-  }
-
-  /**
-   * Calculate exchange balances including zero balances (for verification purposes)
-   * Returns all currencies that have transactions, even if current balance is zero
-   */
-  async calculateExchangeBalancesForVerification(transactions: StoredTransaction[]): Promise<Record<string, Decimal>> {
-    const balances: Record<string, Decimal> = {};
-
-    for (const transaction of transactions) {
-      this.processTransactionForBalance(transaction, balances);
-    }
-
-    // Don't cleanup dust balances - return all currencies that had transactions
-    return balances;
-  }
-
-  /**
-   * Calculate exchange balances with full precision (recommended)
-   * Returns Decimal values to prevent precision loss in cryptocurrency amounts
-   */
-  async calculateExchangeBalancesWithPrecision(transactions: StoredTransaction[]): Promise<Record<string, Decimal>> {
-    const balances: Record<string, Decimal> = {};
-
-    for (const transaction of transactions) {
-      this.processTransactionForBalance(transaction, balances);
-    }
-
-    return this.cleanupDustBalancesWithPrecision(balances);
   }
 }

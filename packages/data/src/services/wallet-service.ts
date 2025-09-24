@@ -1,6 +1,6 @@
 import { getLogger } from '@crypto/shared-logger';
 
-import { WalletRepository } from '../repositories/wallet-repository.ts';
+import type { WalletRepository } from '../repositories/wallet-repository.ts';
 import type { CreateWalletAddressRequest } from '../types/data-types.js';
 
 export class WalletService {

@@ -1,12 +1,13 @@
 import type { UniversalTransaction } from '@crypto/core';
-import { Database, ImportSessionRepository, RawDataRepository, type StoredRawData } from '@crypto/data';
+import type { Database } from '@crypto/data';
+import { ImportSessionRepository, RawDataRepository, type StoredRawData } from '@crypto/data';
 import type { LoadRawDataFilters } from '@crypto/data/src/repositories/raw-data-repository.ts';
 import type { Logger } from '@crypto/shared-logger';
 import { getLogger } from '@crypto/shared-logger';
 
-import { BlockchainProviderManager } from '../blockchains/shared/index.ts';
+import type { BlockchainProviderManager } from '../blockchains/shared/index.ts';
 import { ImporterFactory } from '../shared/importers/importer-factory.ts';
-import type { ImportParams, ImportResult } from '../shared/importers/interfaces.ts';
+import type { ImportParams as ImportParameters, ImportResult } from '../shared/importers/interfaces.ts';
 import type {
   ApiClientRawData,
   ImportSessionMetadata,
@@ -28,7 +29,7 @@ export class TransactionIngestionService {
 
   constructor(
     private database: Database,
-    providerManager?: BlockchainProviderManager | undefined
+    providerManager?: BlockchainProviderManager
   ) {
     this.logger = getLogger('TransactionIngestionService');
     this.sessionRepository = new ImportSessionRepository(this.database);
@@ -63,7 +64,7 @@ export class TransactionIngestionService {
         total: pending.length + processedItems.length + failedItems.length,
       };
     } catch (error) {
-      this.logger.error(`Failed to get processing status: ${error}`);
+      this.logger.error(`Failed to get processing status: ${String(error)}`);
       throw error;
     }
   }
@@ -74,7 +75,7 @@ export class TransactionIngestionService {
   async importAndProcess(
     sourceId: string,
     sourceType: 'exchange' | 'blockchain',
-    params: ImportParams
+    params: ImportParameters
   ): Promise<{ imported: number; processed: number }> {
     this.logger.info(`Starting full ETL pipeline for ${sourceId} (${sourceType})`);
 
@@ -96,7 +97,7 @@ export class TransactionIngestionService {
         processed: processResult.processed,
       };
     } catch (error) {
-      this.logger.error(`ETL pipeline failed for ${sourceId}: ${error}`);
+      this.logger.error(`ETL pipeline failed for ${sourceId}: ${String(error)}`);
       throw error;
     }
   }
@@ -107,7 +108,7 @@ export class TransactionIngestionService {
   async importFromSource(
     sourceId: string,
     sourceType: 'exchange' | 'blockchain',
-    params: ImportParams
+    params: ImportParameters
   ): Promise<ImportResult> {
     this.logger.info(`Starting import for ${sourceId} (${sourceType})`);
 
@@ -141,7 +142,7 @@ export class TransactionIngestionService {
       const savedCount = await this.rawDataRepository.save(
         sourceId,
         sourceType,
-        rawData.map((item, index) => ({
+        rawData.map((item, _index) => ({
           data: item,
         })),
         {
@@ -199,11 +200,11 @@ export class TransactionIngestionService {
             error instanceof Error ? { stack: error.stack } : { error: String(error) }
           );
         } catch (sessionError) {
-          this.logger.error(`Failed to update session on error: ${sessionError}`);
+          this.logger.error(`Failed to update session on error: ${String(sessionError)}`);
         }
       }
 
-      this.logger.error(`Import failed for ${sourceId}: ${error}`);
+      this.logger.error(`Import failed for ${sourceId}: ${String(error)}`);
       throw error;
     }
   }
@@ -241,9 +242,9 @@ export class TransactionIngestionService {
       });
 
       // Filter sessions to only include those with pending raw data items
-      const sessionsToProcess = sessionsWithRawData.filter(sessionData =>
+      const sessionsToProcess = sessionsWithRawData.filter((sessionData) =>
         sessionData.rawDataItems.some(
-          item =>
+          (item) =>
             item.processingStatus === 'pending' &&
             (!filters?.importSessionId || item.importSessionId === filters.importSessionId)
         )
@@ -258,7 +259,7 @@ export class TransactionIngestionService {
         const { rawDataItems: sessionRawItems, session } = sessionData;
 
         // Filter to only pending items for this session
-        const pendingItems = sessionRawItems.filter(item => item.processingStatus === 'pending');
+        const pendingItems = sessionRawItems.filter((item) => item.processingStatus === 'pending');
 
         if (pendingItems.length === 0) {
           continue;
@@ -306,10 +307,10 @@ export class TransactionIngestionService {
       }
 
       // Mark all processed raw data items as processed - both those that generated transactions and those that were skipped
-      const allProcessedItems = sessionsToProcess.flatMap(sessionData =>
-        sessionData.rawDataItems.filter(item => item.processingStatus === 'pending')
+      const allProcessedItems = sessionsToProcess.flatMap((sessionData) =>
+        sessionData.rawDataItems.filter((item) => item.processingStatus === 'pending')
       );
-      const allRawDataIds = allProcessedItems.map(item => item.id);
+      const allRawDataIds = allProcessedItems.map((item) => item.id);
       await this.rawDataRepository.markAsProcessed(sourceId, allRawDataIds, filters?.providerId);
 
       // Log the processing results
@@ -326,7 +327,7 @@ export class TransactionIngestionService {
         processed: savedCount,
       };
     } catch (error) {
-      this.logger.error(`Processing failed for ${sourceId}: ${error}`);
+      this.logger.error(`Processing failed for ${sourceId}: ${String(error)}`);
       throw error;
     }
   }

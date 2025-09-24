@@ -1,8 +1,9 @@
 import type { BalanceSnapshot, BalanceVerificationRecord } from '@crypto/balance';
 import { getLogger } from '@crypto/shared-logger';
-import { Decimal } from 'decimal.js';
+import type { Decimal } from 'decimal.js';
 
-import { BalanceRepository } from '../repositories/balance-repository.ts';
+import type { BalanceRepository } from '../repositories/balance-repository.ts';
+
 import { BalanceCalculationService } from './balance-calculation-service.ts';
 
 export class BalanceService {

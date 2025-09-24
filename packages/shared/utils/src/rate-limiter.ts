@@ -22,21 +22,6 @@ export class RateLimiter {
     );
   }
 
-  private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
-  private refillTokens(): void {
-    const now = Date.now();
-    const timePassed = (now - this.lastRefill) / 1000; // Convert to seconds
-
-    if (timePassed > 0) {
-      const tokensToAdd = timePassed * (this.config.requestsPerSecond || 1);
-      this.tokens = Math.min(this.config.burstLimit || 1, this.tokens + tokensToAdd);
-      this.lastRefill = now;
-    }
-  }
-
   /**
    * Check if a request can be made immediately without waiting
    */
@@ -83,6 +68,21 @@ export class RateLimiter {
 
     // Retry after waiting
     return this.waitForPermission();
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  private refillTokens(): void {
+    const now = Date.now();
+    const timePassed = (now - this.lastRefill) / 1000; // Convert to seconds
+
+    if (timePassed > 0) {
+      const tokensToAdd = timePassed * (this.config.requestsPerSecond || 1);
+      this.tokens = Math.min(this.config.burstLimit || 1, this.tokens + tokensToAdd);
+      this.lastRefill = now;
+    }
   }
 }
 

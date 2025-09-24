@@ -1,4 +1,4 @@
-import { Database } from '../storage/database.ts';
+import type { Database } from '../storage/database.ts';
 import type {
   CreateWalletAddressRequest,
   UpdateWalletAddressRequest,
@@ -25,19 +25,19 @@ export class WalletRepository {
     return this.database.getWalletAddresses(query);
   }
 
-  async findByAddress(address: string, blockchain: string): Promise<WalletAddress | null> {
+  async findByAddress(address: string, blockchain: string): Promise<WalletAddress | undefined> {
     return this.database.findWalletAddressByAddress(address, blockchain);
   }
 
-  async findByAddressNormalized(normalizedAddress: string, blockchain: string): Promise<WalletAddress | null> {
+  async findByAddressNormalized(normalizedAddress: string, blockchain: string): Promise<WalletAddress | undefined> {
     return this.database.findWalletAddressByAddressNormalized(normalizedAddress, blockchain);
   }
 
-  async findById(id: number): Promise<WalletAddress | null> {
+  async findById(id: number): Promise<WalletAddress | undefined> {
     return this.database.getWalletAddress(id);
   }
 
-  async update(id: number, updates: UpdateWalletAddressRequest): Promise<WalletAddress | null> {
+  async update(id: number, updates: UpdateWalletAddressRequest): Promise<WalletAddress | undefined> {
     return this.database.updateWalletAddress(id, updates);
   }
 }

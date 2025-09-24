@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import type { UniversalBlockchainTransaction } from '../../../shared/types.ts';
-import { MempoolSpaceApiClient } from '../../api/MempoolSpaceApiClient.ts';
-import type { AddressInfo, MempoolTransaction } from '../../types.ts';
+import type { UniversalBlockchainTransaction } from '../../../shared/types.js';
+import type { AddressInfo, MempoolTransaction } from '../../types.js';
+import { MempoolSpaceApiClient } from '../MempoolSpaceApiClient.js';
 
 describe('MempoolSpaceProvider Integration', () => {
   let provider: MempoolSpaceApiClient;
@@ -56,7 +56,7 @@ describe('MempoolSpaceProvider Integration', () => {
       });
 
       expect(Array.isArray(transactions)).toBe(true);
-      if (transactions.length > 0) {
+      if (transactions.length > 0 && transactions[0]) {
         expect(transactions[0]).toHaveProperty('id');
         expect(transactions[0]).toHaveProperty('timestamp');
         expect(transactions[0]).toHaveProperty('amount');

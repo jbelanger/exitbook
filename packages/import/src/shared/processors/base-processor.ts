@@ -1,13 +1,14 @@
 import type { TransactionType, UniversalTransaction } from '@crypto/core';
-import { validateUniversalTransactions } from '@crypto/core';
+import { UniversalTransactionSchema } from '@crypto/core';
 import type { StoredRawData } from '@crypto/data';
 import type { Logger } from '@crypto/shared-logger';
 import { getLogger } from '@crypto/shared-logger';
 import { type Result } from 'neverthrow';
 
-import type { UniversalBlockchainTransaction } from '../../blockchains/shared/types.ts';
-import { detectScamFromSymbol } from '../utils/scam-detection.ts';
-import type { IProcessor, ImportSessionMetadata, ProcessingImportSession } from './interfaces.ts';
+import type { UniversalBlockchainTransaction } from '../../blockchains/shared/types.js';
+import { detectScamFromSymbol } from '../utils/scam-detection.js';
+
+import type { IProcessor, ImportSessionMetadata, ProcessingImportSession } from './interfaces.js';
 
 /**
  * Base class providing common functionality for all processors.
@@ -20,12 +21,60 @@ export abstract class BaseProcessor<TRawData> implements IProcessor {
     this.logger = getLogger(`${sourceId}Processor`);
   }
 
+  canProcess(sourceId: string, sourceType: string): boolean {
+    return sourceId === this.sourceId && this.canProcessSpecific(sourceType);
+  }
+
+  async process(importSession: ProcessingImportSession): Promise<UniversalTransaction[]> {
+    this.logger.info(`Processing ${importSession.rawDataItems.length} raw data items for ${this.sourceId}`);
+
+    // Delegate to subclass for actual processing logic
+    const result = await this.processInternal(
+      importSession.rawDataItems as StoredRawData<TRawData>[],
+      importSession.sessionMetadata
+    );
+
+    if (result.isErr()) {
+      this.logger.error(`Processing failed for ${this.sourceId}: ${result.error}`);
+      return [];
+    }
+
+    const transactions = result.value;
+
+    // Validate all generated transactions using Zod schemas
+    const { invalid, valid } = validateUniversalTransactions(transactions);
+
+    // Log validation errors but continue processing with valid transactions
+    if (invalid.length > 0) {
+      this.logger.error(
+        `${invalid.length} invalid transactions from ${this.sourceId}Processor. ` +
+          `Invalid: ${invalid.length}, Valid: ${valid.length}, Total: ${transactions.length}. ` +
+          `Errors: ${invalid
+            .map(({ errors }) => {
+              // ZodError type import is not shown, so use 'any' for safe cast
+              const zodError = errors as {
+                issues: { message: string; path: (string | number)[] }[];
+              };
+              return zodError.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; ');
+            })
+            .join(' | ')}`
+      );
+    }
+
+    // Apply scam detection to valid transactions
+    const transactionsWithScamDetection = this.applyScamDetection(valid);
+
+    this.logger.info(`Processing completed for ${this.sourceId}: ${valid.length} valid, ${invalid.length} invalid`);
+
+    return transactionsWithScamDetection;
+  }
+
   /**
    * Apply scam detection to transactions using symbol-based detection.
    * Can be overridden by subclasses for more sophisticated detection.
    */
   protected applyScamDetection(transactions: UniversalTransaction[]): UniversalTransaction[] {
-    return transactions.map(transaction => {
+    return transactions.map((transaction) => {
       // Skip if transaction already has a note
       if (transaction.note) {
         return transaction;
@@ -49,10 +98,6 @@ export abstract class BaseProcessor<TRawData> implements IProcessor {
 
       return transaction;
     });
-  }
-
-  canProcess(sourceId: string, sourceType: string): boolean {
-    return sourceId === this.sourceId && this.canProcessSpecific(sourceType);
   }
 
   /**
@@ -82,7 +127,7 @@ export abstract class BaseProcessor<TRawData> implements IProcessor {
     // Convert all wallet addresses to lowercase for case-insensitive comparison
     const allWalletAddresses = new Set([
       sessionContext.address?.toLowerCase(),
-      ...(sessionContext.derivedAddresses || []).map(addr => addr.toLowerCase()),
+      ...(sessionContext.derivedAddresses || []).map((addr) => addr.toLowerCase()),
     ]);
 
     const isFromWallet = from && allWalletAddresses.has(from.toLowerCase());
@@ -116,44 +161,6 @@ export abstract class BaseProcessor<TRawData> implements IProcessor {
     }
   }
 
-  async process(importSession: ProcessingImportSession): Promise<UniversalTransaction[]> {
-    this.logger.info(`Processing ${importSession.rawDataItems.length} raw data items for ${this.sourceId}`);
-
-    // Delegate to subclass for actual processing logic
-    const result = await this.processInternal(
-      importSession.rawDataItems as StoredRawData<TRawData>[],
-      importSession.sessionMetadata
-    );
-
-    if (result.isErr()) {
-      this.logger.error(`Processing failed for ${this.sourceId}: ${result.error}`);
-      return [];
-    }
-
-    const transactions = result.value;
-
-    // Validate all generated transactions using Zod schemas
-    const { invalid, valid } = validateUniversalTransactions(transactions);
-
-    // Log validation errors but continue processing with valid transactions
-    if (invalid.length > 0) {
-      this.logger.error(
-        `${invalid.length} invalid transactions from ${this.sourceId}Processor. ` +
-          `Invalid: ${invalid.length}, Valid: ${valid.length}, Total: ${transactions.length}. ` +
-          `Errors: ${invalid
-            .map(({ errors }) => errors.issues.map(issue => `${issue.path.join('.')}: ${issue.message}`).join('; '))
-            .join(' | ')}`
-      );
-    }
-
-    // Apply scam detection to valid transactions
-    const transactionsWithScamDetection = this.applyScamDetection(valid);
-
-    this.logger.info(`Processing completed for ${this.sourceId}: ${valid.length} valid, ${invalid.length} invalid`);
-
-    return transactionsWithScamDetection;
-  }
-
   /**
    * Subclasses implement this method to provide their specific processing logic.
    * The base class handles logging, error handling, and validation.
@@ -168,9 +175,27 @@ export abstract class BaseProcessor<TRawData> implements IProcessor {
    */
   protected validateRequiredFields(rawData: Record<string, unknown>, requiredFields: string[], context: string): void {
     for (const field of requiredFields) {
-      if (rawData[field] === undefined || rawData[field] === null) {
+      if (rawData[field] === undefined || rawData[field] === undefined) {
         throw new Error(`Missing required field '${field}' in ${context}`);
       }
     }
   }
+}
+function validateUniversalTransactions(transactions: UniversalTransaction[]): {
+  invalid: { errors: unknown; transaction: UniversalTransaction }[];
+  valid: UniversalTransaction[];
+} {
+  const valid: UniversalTransaction[] = [];
+  const invalid: { errors: unknown; transaction: UniversalTransaction }[] = [];
+
+  for (const tx of transactions) {
+    const result = UniversalTransactionSchema.safeParse(tx);
+    if (result.success) {
+      valid.push(tx);
+    } else {
+      invalid.push({ errors: result.error, transaction: tx });
+    }
+  }
+
+  return { invalid, valid };
 }

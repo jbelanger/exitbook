@@ -50,7 +50,7 @@ export const UniversalBalanceSchema = z
     used: z.number().min(0, 'Used balance must be non-negative'),
   })
   .strict()
-  .refine(data => data.total >= data.free + data.used, {
+  .refine((data) => data.total >= data.free + data.used, {
     message: 'Total balance must be >= free + used',
     path: ['total'],
   });
@@ -90,11 +90,11 @@ export function validateUniversalBalance(data: unknown): ValidationResult<Valida
 
 // Batch validation helpers
 export function validateUniversalTransactions(data: unknown[]): {
-  invalid: Array<{ data: unknown; errors: z.ZodError }>;
+  invalid: { data: unknown; errors: z.ZodError }[];
   valid: ValidatedUniversalTransaction[];
 } {
   const valid: ValidatedUniversalTransaction[] = [];
-  const invalid: Array<{ data: unknown; errors: z.ZodError }> = [];
+  const invalid: { data: unknown; errors: z.ZodError }[] = [];
 
   for (const item of data) {
     const result = validateUniversalTransaction(item);
@@ -109,11 +109,11 @@ export function validateUniversalTransactions(data: unknown[]): {
 }
 
 export function validateUniversalBalances(data: unknown[]): {
-  invalid: Array<{ data: unknown; errors: z.ZodError }>;
+  invalid: { data: unknown; errors: z.ZodError }[];
   valid: ValidatedUniversalBalance[];
 } {
   const valid: ValidatedUniversalBalance[] = [];
-  const invalid: Array<{ data: unknown; errors: z.ZodError }> = [];
+  const invalid: { data: unknown; errors: z.ZodError }[] = [];
 
   for (const item of data) {
     const result = validateUniversalBalance(item);

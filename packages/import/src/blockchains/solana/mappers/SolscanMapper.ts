@@ -1,22 +1,21 @@
 import { getLogger } from '@crypto/shared-logger';
-import { maskAddress } from '@crypto/shared-utils';
+import { hasStringProperty, isErrorWithMessage, maskAddress } from '@crypto/shared-utils';
 import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
-import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.ts';
-import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.ts';
-import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.ts';
-import type { UniversalBlockchainTransaction } from '../../shared/types.ts';
-import type { SolscanRawTransactionData } from '../clients/SolscanApiClient.ts';
-import { SolscanRawTransactionDataSchema } from '../schemas.ts';
-import type { SolscanTransaction } from '../types.ts';
-import { lamportsToSol } from '../utils.ts';
+import type { ImportSessionMetadata } from '../../../shared/processors/interfaces.js';
+import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
+import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
+import type { UniversalBlockchainTransaction } from '../../shared/types.js';
+import type { SolscanRawTransactionData } from '../clients/SolscanApiClient.js';
+import { SolscanRawTransactionDataSchema } from '../schemas.js';
+import type { SolscanTransaction } from '../types.js';
+import { lamportsToSol } from '../utils.js';
 
 const logger = getLogger('SolscanProcessor');
 
 @RegisterTransactionMapper('solscan')
 export class SolscanTransactionMapper extends BaseRawDataMapper<SolscanRawTransactionData> {
-  protected readonly schema = SolscanRawTransactionDataSchema;
   static processAddressTransactions(
     rawData: SolscanRawTransactionData,
     userAddress: string
@@ -47,15 +46,15 @@ export class SolscanTransactionMapper extends BaseRawDataMapper<SolscanRawTransa
   private static transformTransaction(
     tx: SolscanTransaction,
     userAddress: string
-  ): UniversalBlockchainTransaction | null {
+  ): UniversalBlockchainTransaction | undefined {
     try {
       // Check if user is involved in the transaction
       const isUserSigner = tx.signer.includes(userAddress);
-      const userAccount = tx.inputAccount?.find(acc => acc.account === userAddress);
+      const userAccount = tx.inputAccount?.find((acc) => acc.account === userAddress);
 
       if (!isUserSigner && !userAccount) {
         logger.debug(`Transaction not relevant to user address - TxHash: ${tx.txHash}`);
-        return null;
+        return undefined;
       }
 
       // Calculate amount and determine direction
@@ -93,10 +92,10 @@ export class SolscanTransactionMapper extends BaseRawDataMapper<SolscanRawTransa
       logger.warn(
         `Failed to transform transaction - TxHash: ${tx.txHash}, Error: ${error instanceof Error ? error.message : String(error)}`
       );
-      return null;
+      return undefined;
     }
   }
-
+  protected readonly schema = SolscanRawTransactionDataSchema;
   protected mapInternal(
     rawData: SolscanRawTransactionData,
     sessionContext: ImportSessionMetadata

@@ -1,18 +1,19 @@
-import { generateJwt } from '@coinbase/cdp-sdk/auth';
+import crypto from 'node:crypto';
+
 import type { RateLimitConfig } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
 import { HttpClient } from '@crypto/shared-utils';
-import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 
-import { ExchangeCredentials } from '../../shared/types/types.ts';
+import type { ExchangeCredentials } from '../../shared/types/types.js';
+
 import type {
-  CoinbaseAccountsParams,
-  CoinbaseTransactionsParams,
+  CoinbaseAccountsParams as CoinbaseAccountsParameters,
+  CoinbaseTransactionsParams as CoinbaseTransactionsParameters,
   RawCoinbaseAccount,
   RawCoinbaseAccountsResponse,
   RawCoinbaseTransactionsResponse,
-} from './types.ts';
+} from './types.js';
 
 /**
  * Direct API client for Coinbase Track API
@@ -67,6 +68,78 @@ export class CoinbaseAPIClient {
     this.logger.info(
       `Coinbase API client initialized - BaseUrl: ${this.baseUrl}, Sandbox: ${credentials.sandbox || false}`
     );
+  }
+
+  /**
+   * Get all user accounts
+   *
+   * @param params Optional pagination and filtering parameters
+   * @returns Promise resolving to array of accounts
+   */
+  async getAccounts(params: CoinbaseAccountsParameters = {}): Promise<RawCoinbaseAccount[]> {
+    this.logger.debug(`Fetching Coinbase accounts - Params: ${JSON.stringify(params)}`);
+
+    const response = await this.authenticatedRequest<RawCoinbaseAccountsResponse>('/v2/accounts', 'GET', params);
+
+    const accounts = response.data || [];
+    this.logger.info(`Retrieved ${accounts.length} Coinbase accounts`);
+
+    return accounts;
+  }
+
+  /**
+   * Get transactions for a specific account with pagination
+   * This is the correct endpoint for Coinbase Track API transaction data
+   *
+   * @param accountId The account ID to fetch transactions for
+   * @param params Optional pagination and filtering parameters
+   * @returns Promise resolving to paginated transactions response
+   */
+  async getAccountTransactions(
+    accountId: string,
+    params: CoinbaseTransactionsParameters = {}
+  ): Promise<RawCoinbaseTransactionsResponse> {
+    this.logger.debug(`Fetching transactions for account ${accountId} - Params: ${JSON.stringify(params)}`);
+
+    const response = await this.authenticatedRequest<RawCoinbaseTransactionsResponse>(
+      `/v2/accounts/${accountId}/transactions`,
+      'GET',
+      params
+    );
+
+    const transactionsCount = response.data?.length || 0;
+    this.logger.debug(
+      `Retrieved ${transactionsCount} transactions - HasNext: ${response.pagination?.next_uri ? 'yes' : 'no'}`
+    );
+
+    return response;
+  }
+
+  /**
+   * Get rate limit status from underlying HTTP client
+   */
+  getRateLimitStatus() {
+    return this.httpClient.getRateLimitStatus();
+  }
+
+  /**
+   * Test the connection and authentication
+   *
+   * @returns Promise resolving to true if connection is successful
+   */
+  async testConnection(): Promise<boolean> {
+    try {
+      this.logger.info('Testing Coinbase API connection and authentication...');
+
+      // Simple test: fetch accounts (should work for any valid API key)
+      const accounts = await this.getAccounts({ limit: 1 });
+
+      this.logger.info(`Connection test successful - Retrieved ${accounts.length} accounts`);
+      return true;
+    } catch (error) {
+      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return false;
+    }
   }
 
   /**
@@ -128,7 +201,12 @@ export class CoinbaseAPIClient {
 
     for (const [key, value] of Object.entries(params)) {
       if (value !== undefined && value !== null && value !== '') {
-        filtered[key] = String(value);
+        filtered[key] =
+          typeof value === 'object' && value !== null
+            ? JSON.stringify(value)
+            : typeof value === 'string'
+              ? value
+              : JSON.stringify(value);
       }
     }
 
@@ -255,76 +333,51 @@ export class CoinbaseAPIClient {
       );
     }
   }
-
-  /**
-   * Get all user accounts
-   *
-   * @param params Optional pagination and filtering parameters
-   * @returns Promise resolving to array of accounts
-   */
-  async getAccounts(params: CoinbaseAccountsParams = {}): Promise<RawCoinbaseAccount[]> {
-    this.logger.debug(`Fetching Coinbase accounts - Params: ${JSON.stringify(params)}`);
-
-    const response = await this.authenticatedRequest<RawCoinbaseAccountsResponse>('/v2/accounts', 'GET', params);
-
-    const accounts = response.data || [];
-    this.logger.info(`Retrieved ${accounts.length} Coinbase accounts`);
-
-    return accounts;
+}
+/**
+ * Generates a JWT for Coinbase Track API authentication using ES256 and ECDSA keys.
+ * This mimics the behavior of the official CDP SDK.
+ */
+async function generateJwt({
+  apiKeyId,
+  apiKeySecret,
+  expiresIn,
+  requestHost,
+  requestMethod,
+  requestPath,
+}: {
+  apiKeyId: string;
+  apiKeySecret: string;
+  expiresIn: number;
+  requestHost: string;
+  requestMethod: string;
+  requestPath: string;
+}): Promise<string> {
+  // Clean up the key format
+  let keySecret = apiKeySecret.replace(/\\\\n/g, '\n').replace(/\\n/g, '\n');
+  if (keySecret.startsWith('"') && keySecret.endsWith('"')) {
+    keySecret = keySecret.slice(1, -1);
   }
 
-  /**
-   * Get transactions for a specific account with pagination
-   * This is the correct endpoint for Coinbase Track API transaction data
-   *
-   * @param accountId The account ID to fetch transactions for
-   * @param params Optional pagination and filtering parameters
-   * @returns Promise resolving to paginated transactions response
-   */
-  async getAccountTransactions(
-    accountId: string,
-    params: CoinbaseTransactionsParams = {}
-  ): Promise<RawCoinbaseTransactionsResponse> {
-    this.logger.debug(`Fetching transactions for account ${accountId} - Params: ${JSON.stringify(params)}`);
+  const algorithm = 'ES256';
+  const uri = `${requestMethod} ${requestHost}${requestPath}`;
+  const now = Math.floor(Date.now() / 1000);
 
-    const response = await this.authenticatedRequest<RawCoinbaseTransactionsResponse>(
-      `/v2/accounts/${accountId}/transactions`,
-      'GET',
-      params
-    );
+  const payload = {
+    exp: now + expiresIn,
+    iss: 'cdp',
+    nbf: now,
+    sub: apiKeyId,
+    uri,
+  };
 
-    const transactionsCount = response.data?.length || 0;
-    this.logger.debug(
-      `Retrieved ${transactionsCount} transactions - HasNext: ${response.pagination?.next_uri ? 'yes' : 'no'}`
-    );
+  const header = {
+    alg: algorithm,
+    kid: apiKeyId,
+    nonce: crypto.randomBytes(16).toString('hex'),
+  };
 
-    return response;
-  }
+  const privateKey = crypto.createPrivateKey(keySecret);
 
-  /**
-   * Get rate limit status from underlying HTTP client
-   */
-  getRateLimitStatus() {
-    return this.httpClient.getRateLimitStatus();
-  }
-
-  /**
-   * Test the connection and authentication
-   *
-   * @returns Promise resolving to true if connection is successful
-   */
-  async testConnection(): Promise<boolean> {
-    try {
-      this.logger.info('Testing Coinbase API connection and authentication...');
-
-      // Simple test: fetch accounts (should work for any valid API key)
-      const accounts = await this.getAccounts({ limit: 1 });
-
-      this.logger.info(`Connection test successful - Retrieved ${accounts.length} accounts`);
-      return true;
-    } catch (error) {
-      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      return false;
-    }
-  }
+  return Promise.resolve(jwt.sign(payload, privateKey, { algorithm, header }));
 }
