@@ -330,17 +330,17 @@ export interface ProcessedTransaction {
   // Audit and Linking
   originalData?: Record<string, unknown>; // Raw source data for auditing
   // Processing Metadata
-  processedAt: Date; // When this was created by processor
+  processedAt: string; // When this was created by processor (ISO 8601)
   processorVersion: string; // Version of processor used
 
   relatedTransactionIds?: string[]; // Links to related transactions
 
   source: TransactionSource; // Exchange, blockchain network, etc.
-  sourceSpecific: SourceDetails; // Tagged union for source-specific metadata
+  sourceDetails: SourceDetails; // Tagged union for source-specific metadata
   sourceUid: string; // User/account identifier within source
 
   // Timing and Context
-  timestamp: Date; // Transaction occurrence time
+  timestamp: string; // Transaction occurrence time (ISO 8601)
   validationStatus: ValidationStatus;
 }
 
@@ -348,18 +348,16 @@ export interface ProcessedTransaction {
  * Individual asset flow with currency, quantity, direction, and optional classification hints
  */
 export interface Movement {
-  amount: DecimalString; // Precise amount using Decimal.js serialization
   // Asset and Quantity
   currency: string; // Asset symbol (BTC, ETH, USD, etc.)
   direction: MovementDirection; // IN or OUT relative to user's account
-
   linkedMovementIds?: string[]; // Links to related movements (fee→principal)
-  metadata: MovementMetadata; // Additional context for classification
 
-  // Classification Hints (for classifier)
-  movementHint?: MovementHint; // Processor's suggestion for purpose
+  metadata: MovementMetadata; // Additional context for classification
   // Linking and Audit
   movementId: string; // Unique within transaction
+
+  quantity: DecimalString; // Precise amount using Decimal.js serialization
 }
 
 /**
@@ -371,20 +369,6 @@ export enum MovementDirection {
 }
 
 /**
- * Processor's suggestion for movement purpose (hint for classifier)
- */
-export enum MovementHint {
-  FEE_ONLY = 'FEE_ONLY',
-  INTEREST = 'INTEREST',
-  REWARD = 'REWARD',
-  TRADE_FEE = 'TRADE_FEE',
-  TRADE_PRINCIPAL = 'TRADE_PRINCIPAL',
-  TRANSFER_AMOUNT = 'TRANSFER_AMOUNT',
-  TRANSFER_FEE = 'TRANSFER_FEE',
-  UNKNOWN = 'UNKNOWN',
-}
-
-/**
  * Additional context for movement classification
  */
 export interface MovementMetadata {
@@ -393,16 +377,19 @@ export interface MovementMetadata {
 
   // Audit Trail
   blockHash?: string; // Blockchain block hash
-  confirmations?: number; // Blockchain confirmations
 
+  confirmations?: number; // Blockchain confirmations
   executionPrice?: DecimalString; // Price at which movement occurred
+
   fromAddress?: string; // Source address
   gasPrice?: DecimalString; // Gas price paid
   // Network Context (for blockchain)
   gasUsed?: number; // Gas consumed
-
   // Transaction Context
   orderType?: OrderType; // MARKET, LIMIT, STOP, etc.
+
+  // Classification Hint (unified from movementHint)
+  purposeHint?: MovementPurpose; // Processor's suggestion for movement purpose
   toAddress?: string; // Destination address
 
   tradingPair?: string; // BTC/USD, ETH/USDC, etc.
@@ -419,7 +406,7 @@ export interface ClassifiedTransaction {
   classificationInfo: ClassificationInfo;
 
   // Classification Metadata
-  classifiedAt: Date;
+  classifiedAt: string; // ISO 8601 timestamp
 
   classifierVersion: string;
   // Classifications
@@ -446,50 +433,17 @@ export interface ClassifiedMovement {
 }
 
 /**
- * Comprehensive enumeration of business purposes for movement classification
+ * Lean enumeration of movement purposes focusing on financial intent
  */
 export enum MovementPurpose {
-  ADJUSTMENT = 'ADJUSTMENT', // Exchange adjustments
-  AIRDROP = 'AIRDROP', // Token airdrops
-
-  BORROWING = 'BORROWING', // Borrowing operations
-  COLLATERAL = 'COLLATERAL', // Collateral deposits
-  // Administrative
-  DEPOSIT = 'DEPOSIT', // Fiat/crypto deposits
-
-  DIVIDEND = 'DIVIDEND', // Dividend payments
-  // Special Cases
-  DUST_CONVERSION = 'DUST_CONVERSION', // Small balance conversions
-
-  FORK = 'FORK', // Blockchain fork events
-  FUNDING_FEE = 'FUNDING_FEE', // Perpetual funding fees
-  // Network Operations
-  GAS_FEE = 'GAS_FEE', // Blockchain gas costs
-  INTEREST = 'INTEREST', // Interest payments
-  LENDING = 'LENDING', // Lending operations
-
-  LIQUIDATION = 'LIQUIDATION', // Liquidation events
-  // DeFi Operations
-  LIQUIDITY_PROVISION = 'LIQUIDITY_PROVISION', // LP token creation
-  LIQUIDITY_REMOVAL = 'LIQUIDITY_REMOVAL', // LP token burning
-  // Margin and Derivatives
-  MARGIN_FEE = 'MARGIN_FEE', // Margin trading fees
-  MINING_REWARD = 'MINING_REWARD', // Mining rewards
-
-  NETWORK_FEE = 'NETWORK_FEE', // General network fees
-  OTHER = 'OTHER', // Fallback for unclassified
-  // Trading
-  PRINCIPAL = 'PRINCIPAL', // Main trade amount
-
-  // Rewards and Staking
-  STAKING_REWARD = 'STAKING_REWARD', // Staking rewards
-  TRADING_FEE = 'TRADING_FEE', // Exchange trading fees
-  TRANSFER_FEE = 'TRANSFER_FEE', // Network/transfer fees
-
-  TRANSFER_RECEIVED = 'TRANSFER_RECEIVED', // Transfer from external account
-  // Transfers
-  TRANSFER_SENT = 'TRANSFER_SENT', // Transfer to external account
-  WITHDRAWAL = 'WITHDRAWAL', // Fiat/crypto withdrawals
+  COLLATERAL = 'COLLATERAL', // Collateral deposits or withdrawals
+  FEE = 'FEE', // Trading, network, or service fees
+  FUNDING_RATE = 'FUNDING_RATE', // Perpetual funding payments/receipts
+  GAS = 'GAS', // Blockchain gas costs
+  INTEREST = 'INTEREST', // Interest payments or earnings
+  OTHER = 'OTHER', // Fallback for unclassified movements
+  PRINCIPAL = 'PRINCIPAL', // Main transaction amount (trade principal, transfer amount)
+  REWARD = 'REWARD', // Staking rewards, mining rewards, airdrops
 }
 
 /**
@@ -540,71 +494,35 @@ export enum SourceType {
 }
 
 /**
- * Tagged union capturing source-specific metadata
+ * Lean tagged union for source-specific metadata with common fields and escape hatch
  */
-export type SourceDetails = ExchangeDetails | BlockchainDetails | CsvDetails | ManualDetails;
+export interface SourceDetails {
+  chain?: string; // blockchain network (bitcoin, ethereum, etc.)
 
-/**
- * Exchange-specific transaction details
- */
-export interface ExchangeDetails {
-  executionPrice?: DecimalString; // Execution price
-  orderId?: string; // Exchange order identifier
-  orderType?: OrderType; // Order type
-  symbol?: string; // Trading pair symbol
-  tradeId?: string; // Exchange trade identifier
-  type: 'EXCHANGE';
+  // Escape hatch for source-specific extras
+  extras?: Record<string, unknown>;
+  kind: 'exchange' | 'blockchain' | 'other';
+  orderId?: string; // Order/trade identifier for exchange sources
+  txHash?: string; // Transaction hash for blockchain sources
+
+  // Common fields across all sources
+  venue?: string; // Exchange name, DEX protocol, etc.
 }
 
 /**
- * Blockchain-specific transaction details
- */
-export interface BlockchainDetails {
-  blockNumber?: number; // Block number
-  fromAddress?: string; // Source address
-  gasPrice?: DecimalString; // Gas price
-  gasUsed?: number; // Gas consumed
-  network: string; // bitcoin, ethereum, solana, etc.
-  toAddress?: string; // Destination address
-  txHash: string; // Transaction hash
-  type: 'BLOCKCHAIN';
-}
-
-/**
- * CSV import-specific details
- */
-export interface CsvDetails {
-  fileName: string; // Source CSV file name
-  headers: string[]; // CSV headers for reference
-  rowNumber: number; // Row number in CSV
-  type: 'CSV_IMPORT';
-}
-
-/**
- * Manual entry-specific details
- */
-export interface ManualDetails {
-  enteredBy: string; // User who entered the transaction
-  entryTimestamp: Date; // When the entry was made
-  notes?: string; // Optional notes
-  type: 'MANUAL_ENTRY';
-}
-
-/**
- * Transaction event type classification
+ * Compact transaction event type classification - core business events only
  */
 export enum TransactionEventType {
-  ADJUSTMENT = 'ADJUSTMENT', // Balance adjustments
-  DEPOSIT = 'DEPOSIT', // Fiat/crypto deposits
-  FEE_PAYMENT = 'FEE_PAYMENT', // Fee-only transactions
-  LENDING = 'LENDING', // DeFi lending
+  BORROW = 'BORROW', // Borrowing operations
+  BRIDGE = 'BRIDGE', // Cross-chain bridges
+  FEE_ONLY = 'FEE_ONLY', // Fee-only transactions
+  INTEREST = 'INTEREST', // Interest payments/earnings
+  LEND = 'LEND', // Lending operations
+  LIQUIDATION = 'LIQUIDATION', // Liquidation events
   OTHER = 'OTHER', // Fallback category
   REWARD = 'REWARD', // Staking/mining rewards
-  STAKING = 'STAKING', // Staking operations
-  SWAP = 'SWAP', // Token swaps
   TRADE = 'TRADE', // Buy/sell operations
   TRANSFER = 'TRANSFER', // Asset transfers
-  WITHDRAWAL = 'WITHDRAWAL', // Fiat/crypto withdrawals
 }
 
 /**

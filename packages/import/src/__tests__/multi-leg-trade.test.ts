@@ -203,9 +203,9 @@ describe('Multi-leg Trade Scenario Integration', () => {
             // First leg: BTC → ETH
             const btcEthTrade = classifiedTrades.find(
               (t) =>
-                t.processedTransaction.sourceSpecific.type === 'EXCHANGE' &&
-                'symbol' in t.processedTransaction.sourceSpecific &&
-                t.processedTransaction.sourceSpecific.symbol === 'BTC/ETH'
+                t.processedTransaction.sourceDetails.type === 'EXCHANGE' &&
+                'symbol' in t.processedTransaction.sourceDetails &&
+                t.processedTransaction.sourceDetails.symbol === 'BTC/ETH'
             );
             expect(btcEthTrade).toBeDefined();
 
@@ -272,8 +272,8 @@ describe('Multi-leg Trade Scenario Integration', () => {
           expect(exchanges.has('binance')).toBe(true);
           expect(exchanges.has('kraken')).toBe(true);
 
-          // Verify timestamp order
-          expect(processedTrades[0].timestamp.getTime()).toBeLessThan(processedTrades[1].timestamp.getTime());
+          // Verify timestamp order (comparing ISO strings)
+          expect(processedTrades[0].timestamp < processedTrades[1].timestamp).toBe(true);
         }
       }).toThrow();
     });
@@ -319,8 +319,8 @@ describe('Multi-leg Trade Scenario Integration', () => {
 
           // Verify blockchain source
           expect(processedTrades[0].source.type).toBe(SourceType.BLOCKCHAIN);
-          if (processedTrades[0].sourceSpecific.type === 'BLOCKCHAIN') {
-            expect(processedTrades[0].sourceSpecific.network).toBe('ethereum');
+          if (processedTrades[0].sourceDetails.type === 'BLOCKCHAIN') {
+            expect(processedTrades[0].sourceDetails.network).toBe('ethereum');
           }
         }
       }).toThrow();
@@ -407,8 +407,8 @@ describe('Multi-leg Trade Scenario Integration', () => {
 
           // Verify margin-specific metadata
           for (const trade of processedTrades) {
-            if (trade.sourceSpecific.type === 'EXCHANGE' && 'venue' in trade.sourceSpecific) {
-              expect(trade.sourceSpecific.venue).toBe('bitmex');
+            if (trade.sourceDetails.type === 'EXCHANGE' && 'venue' in trade.sourceDetails) {
+              expect(trade.sourceDetails.venue).toBe('bitmex');
             }
             expect(trade.eventType).toBe(TransactionEventType.TRADE);
           }
@@ -556,8 +556,8 @@ describe('Multi-leg Trade Scenario Integration', () => {
         if (result.isOk()) {
           const processedTrades = result.value;
 
-          // Should be reordered by timestamp
-          expect(processedTrades[0].timestamp.getTime()).toBeLessThan(processedTrades[1].timestamp.getTime());
+          // Should be reordered by timestamp (comparing ISO strings)
+          expect(processedTrades[0].timestamp < processedTrades[1].timestamp).toBe(true);
         }
       }).toThrow();
     });

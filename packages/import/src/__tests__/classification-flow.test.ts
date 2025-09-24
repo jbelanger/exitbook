@@ -5,14 +5,7 @@
  * This test MUST fail until the classification pipeline is implemented.
  */
 import type { ProcessedTransaction, ClassifiedTransaction } from '@crypto/core';
-import {
-  MovementPurpose,
-  TransactionEventType,
-  MovementDirection,
-  SourceType,
-  ValidationStatus,
-  OrderType,
-} from '@crypto/core';
+import { MovementPurpose, TransactionEventType, MovementDirection, SourceType, ValidationStatus } from '@crypto/core';
 import type { Result } from 'neverthrow';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -65,7 +58,6 @@ describe('Purpose Classification Flow Integration', () => {
     id: 'kraken-order-123',
     movements: [
       {
-        amount: '0.1',
         currency: 'BTC',
         direction: MovementDirection.IN,
         metadata: {
@@ -74,9 +66,9 @@ describe('Purpose Classification Flow Integration', () => {
           tradingPair: 'BTC/USD',
         },
         movementId: 'btc_in',
+        quantity: '0.1',
       },
       {
-        amount: '4500',
         currency: 'USD',
         direction: MovementDirection.OUT,
         metadata: {
@@ -84,31 +76,32 @@ describe('Purpose Classification Flow Integration', () => {
           tradingPair: 'BTC/USD',
         },
         movementId: 'usd_out',
+        quantity: '4500',
       },
       {
-        amount: '2.25',
         currency: 'USD',
         direction: MovementDirection.OUT,
         metadata: {
           accountId: 'main',
         },
         movementId: 'fee_out',
+        quantity: '2.25',
       },
     ],
-    processedAt: new Date(),
+    processedAt: new Date().toISOString(),
     processorVersion: '1.0.0',
     source: {
       name: 'kraken',
       type: SourceType.EXCHANGE,
     },
-    sourceSpecific: {
+    sourceDetails: {
+      extras: { orderType: 'MARKET', symbol: 'BTC/USD' },
+      kind: 'exchange',
       orderId: 'O123456-TEST',
-      orderType: OrderType.MARKET,
-      symbol: 'BTC/USD',
-      type: 'EXCHANGE',
+      venue: 'kraken',
     },
     sourceUid: 'user456',
-    timestamp: new Date('2025-09-23T10:30:00Z'),
+    timestamp: '2025-09-23T10:30:00Z',
     validationStatus: ValidationStatus.VALID,
   };
 
@@ -140,7 +133,7 @@ describe('Purpose Classification Flow Integration', () => {
 
           const feeMovement = classified.movements.find((m) => m.movement.movementId === 'fee_out');
           expect(feeMovement).toBeDefined();
-          expect(feeMovement!.purpose).toBe(MovementPurpose.TRADING_FEE);
+          expect(feeMovement!.purpose).toBe(MovementPurpose.FEE);
           expect(feeMovement!.confidence).toBeGreaterThan(0.9);
         }
       }).toThrow('PurposeClassificationService.classify not implemented');
@@ -182,7 +175,6 @@ describe('Purpose Classification Flow Integration', () => {
       id: 'bitcoin-tx-789',
       movements: [
         {
-          amount: '0.5',
           currency: 'BTC',
           direction: MovementDirection.OUT,
           metadata: {
@@ -191,9 +183,9 @@ describe('Purpose Classification Flow Integration', () => {
             toAddress: 'bc1quser456',
           },
           movementId: 'btc_out',
+          quantity: '0.5',
         },
         {
-          amount: '0.4995',
           currency: 'BTC',
           direction: MovementDirection.IN,
           metadata: {
@@ -202,9 +194,9 @@ describe('Purpose Classification Flow Integration', () => {
             toAddress: 'bc1quser456',
           },
           movementId: 'btc_in',
+          quantity: '0.4995',
         },
         {
-          amount: '0.0005',
           currency: 'BTC',
           direction: MovementDirection.OUT,
           metadata: {
@@ -212,24 +204,23 @@ describe('Purpose Classification Flow Integration', () => {
             gasUsed: 225,
           },
           movementId: 'fee_out',
+          quantity: '0.0005',
         },
       ],
-      processedAt: new Date(),
+      processedAt: new Date().toISOString(),
       processorVersion: '1.0.0',
       source: {
         name: 'bitcoin',
         type: SourceType.BLOCKCHAIN,
       },
-      sourceSpecific: {
-        blockNumber: 850000,
-        fromAddress: 'bc1quser123',
-        network: 'bitcoin',
-        toAddress: 'bc1quser456',
+      sourceDetails: {
+        chain: 'bitcoin',
+        extras: { blockNumber: 850000, fromAddress: 'bc1quser123', toAddress: 'bc1quser456' },
+        kind: 'blockchain',
         txHash: 'abc123def456',
-        type: 'BLOCKCHAIN',
       },
       sourceUid: 'user456',
-      timestamp: new Date('2025-09-23T11:00:00Z'),
+      timestamp: '2025-09-23T11:00:00Z',
       validationStatus: ValidationStatus.VALID,
     };
 
@@ -245,15 +236,15 @@ describe('Purpose Classification Flow Integration', () => {
           // Verify transfer classifications
           const outMovement = classified.movements.find((m) => m.movement.movementId === 'btc_out');
           expect(outMovement).toBeDefined();
-          expect(outMovement!.purpose).toBe(MovementPurpose.TRANSFER_SENT);
+          expect(outMovement!.purpose).toBe(MovementPurpose.PRINCIPAL);
 
           const inMovement = classified.movements.find((m) => m.movement.movementId === 'btc_in');
           expect(inMovement).toBeDefined();
-          expect(inMovement!.purpose).toBe(MovementPurpose.TRANSFER_RECEIVED);
+          expect(inMovement!.purpose).toBe(MovementPurpose.PRINCIPAL);
 
           const feeMovement = classified.movements.find((m) => m.movement.movementId === 'fee_out');
           expect(feeMovement).toBeDefined();
-          expect(feeMovement!.purpose).toBe(MovementPurpose.NETWORK_FEE);
+          expect(feeMovement!.purpose).toBe(MovementPurpose.FEE);
         }
       }).toThrow();
     });
@@ -261,29 +252,28 @@ describe('Purpose Classification Flow Integration', () => {
 
   describe('Complex Multi-Movement Classification', () => {
     const complexTransaction: ProcessedTransaction = {
-      eventType: TransactionEventType.SWAP,
+      eventType: TransactionEventType.TRADE,
       id: 'complex-trade-456',
       movements: [
         {
-          amount: '1000',
           currency: 'USDC',
           direction: MovementDirection.OUT,
           metadata: {
             accountId: 'main',
           },
           movementId: 'usdc_out',
+          quantity: '1000',
         },
         {
-          amount: '0.5',
           currency: 'ETH',
           direction: MovementDirection.IN,
           metadata: {
             accountId: 'main',
           },
           movementId: 'eth_in',
+          quantity: '0.5',
         },
         {
-          amount: '0.003',
           currency: 'ETH',
           direction: MovementDirection.OUT,
           metadata: {
@@ -292,30 +282,31 @@ describe('Purpose Classification Flow Integration', () => {
             gasUsed: 150000,
           },
           movementId: 'gas_fee',
+          quantity: '0.003',
         },
         {
-          amount: '3',
           currency: 'USDC',
           direction: MovementDirection.OUT,
           metadata: {
             accountId: 'main',
           },
           movementId: 'protocol_fee',
+          quantity: '3',
         },
       ],
-      processedAt: new Date(),
+      processedAt: new Date().toISOString(),
       processorVersion: '1.0.0',
       source: {
         name: 'uniswap',
         type: SourceType.EXCHANGE,
       },
-      sourceSpecific: {
-        network: 'ethereum',
+      sourceDetails: {
+        chain: 'ethereum',
+        kind: 'blockchain',
         txHash: 'def456ghi789',
-        type: 'BLOCKCHAIN',
       },
       sourceUid: 'user789',
-      timestamp: new Date('2025-09-23T12:00:00Z'),
+      timestamp: '2025-09-23T12:00:00Z',
       validationStatus: ValidationStatus.VALID,
     };
 
@@ -337,10 +328,10 @@ describe('Purpose Classification Flow Integration', () => {
 
           // Verify fee classifications
           const gasFee = classified.movements.find((m) => m.movement.movementId === 'gas_fee');
-          expect(gasFee!.purpose).toBe(MovementPurpose.GAS_FEE);
+          expect(gasFee!.purpose).toBe(MovementPurpose.GAS);
 
           const protocolFee = classified.movements.find((m) => m.movement.movementId === 'protocol_fee');
-          expect(protocolFee!.purpose).toBe(MovementPurpose.TRADING_FEE);
+          expect(protocolFee!.purpose).toBe(MovementPurpose.FEE);
         }
       }).toThrow();
     });
@@ -452,7 +443,7 @@ describe('Purpose Classification Flow Integration', () => {
           }
 
           // Fee movements should have very high confidence
-          const feeMovements = classified.movements.filter((m) => m.purpose === MovementPurpose.TRADING_FEE);
+          const feeMovements = classified.movements.filter((m) => m.purpose === MovementPurpose.FEE);
           for (const movement of feeMovements) {
             expect(movement.confidence).toBeGreaterThan(0.9);
           }
@@ -467,11 +458,11 @@ describe('Purpose Classification Flow Integration', () => {
         eventType: TransactionEventType.OTHER,
         movements: [
           {
-            amount: '100',
             currency: 'TOKEN',
             direction: MovementDirection.IN,
             metadata: { accountId: 'main' },
             movementId: 'unknown_1',
+            quantity: '100',
           },
         ],
       };
@@ -514,11 +505,11 @@ describe('Purpose Classification Flow Integration', () => {
         ...sampleExchangeTransaction,
         movements: [
           {
-            amount: '999',
             currency: 'UNKNOWN',
             direction: MovementDirection.IN,
             metadata: {},
             movementId: 'unknown_pattern',
+            quantity: '999',
           },
         ],
       };

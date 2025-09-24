@@ -41,7 +41,6 @@ describe('ClassifierValidator Contract', () => {
     id: 'test-001',
     movements: [
       {
-        amount: '0.1',
         currency: 'BTC',
         direction: MovementDirection.IN,
         metadata: {
@@ -49,9 +48,9 @@ describe('ClassifierValidator Contract', () => {
           tradingPair: 'BTC/USD',
         },
         movementId: 'btc_in',
+        quantity: '0.1',
       },
       {
-        amount: '4500',
         currency: 'USD',
         direction: MovementDirection.OUT,
         metadata: {
@@ -59,21 +58,22 @@ describe('ClassifierValidator Contract', () => {
           tradingPair: 'BTC/USD',
         },
         movementId: 'usd_out',
+        quantity: '4500',
       },
     ],
-    processedAt: new Date(),
+    processedAt: new Date().toISOString(),
     processorVersion: '1.0.0',
     source: {
       name: 'kraken',
       type: SourceType.EXCHANGE,
     },
-    sourceSpecific: {
+    sourceDetails: {
+      kind: 'exchange',
       orderId: 'order123',
-      symbol: 'BTC/USD',
-      type: SourceType.EXCHANGE,
+      venue: 'kraken',
     },
     sourceUid: 'user123',
-    timestamp: new Date('2025-09-23T10:30:00Z'),
+    timestamp: '2025-09-23T10:30:00Z',
     validationStatus: ValidationStatus.VALID,
   };
 
@@ -92,7 +92,7 @@ describe('ClassifierValidator Contract', () => {
       overallConfidence: 0.95,
       ruleSetVersion: '1.0.0',
     },
-    classifiedAt: new Date(),
+    classifiedAt: new Date().toISOString(),
     classifierVersion: '1.0.0',
     movements: [
       {

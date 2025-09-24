@@ -40,7 +40,6 @@ describe('ProcessorValidator Contract', () => {
     id: 'test-001',
     movements: [
       {
-        amount: '0.1',
         currency: 'BTC',
         direction: MovementDirection.IN,
         metadata: {
@@ -48,9 +47,9 @@ describe('ProcessorValidator Contract', () => {
           tradingPair: 'BTC/USD',
         },
         movementId: 'btc_in',
+        quantity: '0.1',
       },
       {
-        amount: '4500',
         currency: 'USD',
         direction: MovementDirection.OUT,
         metadata: {
@@ -58,21 +57,22 @@ describe('ProcessorValidator Contract', () => {
           tradingPair: 'BTC/USD',
         },
         movementId: 'usd_out',
+        quantity: '4500',
       },
     ],
-    processedAt: new Date(),
+    processedAt: new Date().toISOString(),
     processorVersion: '1.0.0',
     source: {
       name: 'kraken',
       type: SourceType.EXCHANGE,
     },
-    sourceSpecific: {
+    sourceDetails: {
+      kind: 'exchange',
       orderId: 'order123',
-      symbol: 'BTC/USD',
-      type: SourceType.EXCHANGE,
+      venue: 'kraken',
     },
     sourceUid: 'user123',
-    timestamp: new Date('2025-09-23T10:30:00Z'),
+    timestamp: '2025-09-23T10:30:00Z',
     validationStatus: ValidationStatus.VALID,
   };
 
@@ -130,18 +130,18 @@ describe('ProcessorValidator Contract', () => {
         eventType: TransactionEventType.TRANSFER,
         movements: [
           {
-            amount: '0.1',
             currency: 'BTC',
             direction: MovementDirection.OUT,
             metadata: { accountId: 'main' },
             movementId: 'btc_out',
+            quantity: '0.1',
           },
           {
-            amount: '0.09', // Different amount - should fail zero-sum
             currency: 'BTC',
             direction: MovementDirection.IN,
             metadata: { accountId: 'main' },
             movementId: 'btc_in',
+            quantity: '0.09', // Different amount - should fail zero-sum
           },
         ],
       };
@@ -165,11 +165,11 @@ describe('ProcessorValidator Contract', () => {
         movements: [
           // Trade should have at least 2 movements with different currencies
           {
-            amount: '0.1',
             currency: 'BTC',
             direction: MovementDirection.IN,
             metadata: { accountId: 'main' },
             movementId: 'btc_only',
+            quantity: '0.1',
           },
         ],
       };
@@ -192,11 +192,11 @@ describe('ProcessorValidator Contract', () => {
         ...validTransaction,
         movements: [
           {
-            amount: '0.1',
             currency: 'BTC',
             direction: 'INVALID' as MovementDirection,
             metadata: { accountId: 'main' },
             movementId: 'invalid_direction',
+            quantity: '0.1',
           },
         ],
       };
@@ -219,11 +219,11 @@ describe('ProcessorValidator Contract', () => {
         ...validTransaction,
         movements: [
           {
-            amount: 'not-a-number',
             currency: 'BTC',
             direction: MovementDirection.IN,
             metadata: { accountId: 'main' },
             movementId: 'invalid_amount',
+            quantity: 'not-a-number',
           },
         ],
       };
@@ -246,11 +246,11 @@ describe('ProcessorValidator Contract', () => {
         ...validTransaction,
         movements: [
           {
-            amount: '-0.1',
             currency: 'BTC',
             direction: MovementDirection.IN,
             metadata: { accountId: 'main' },
             movementId: 'negative_amount',
+            quantity: '-0.1',
           },
         ],
       };

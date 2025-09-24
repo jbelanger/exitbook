@@ -19,8 +19,6 @@ export type {
   ClassifierValidator,
   TransformerValidator,
   ValidationIssue,
-  ValidationResult,
-  ValidationCode,
   ValidatorConfig,
 } from './interfaces/validation.interface.js';
 

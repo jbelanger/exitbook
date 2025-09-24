@@ -12,13 +12,13 @@ import { describe, expect, it, beforeEach } from 'vitest';
 
 // Import existing UniversalTransaction type (should exist in current codebase)
 interface UniversalTransaction {
-  amount: { amount: string; currency: string };
-  fee?: { amount: string; currency: string } | undefined;
+  fee?: { currency: string; quantity: string } | undefined;
   from?: string | undefined;
   id: string;
   metadata?: Record<string, unknown> | undefined;
   notes?: { message: string; type: string }[] | undefined;
-  price?: { amount: string; currency: string } | undefined;
+  price?: { currency: string; quantity: string } | undefined;
+  quantity: { currency: string; quantity: string };
   sourceUid: string;
   status: string;
   timestamp: Date;
@@ -88,8 +88,7 @@ describe('Backward Compatibility Shim Integration', () => {
   });
 
   const sampleUniversalTransaction: UniversalTransaction = {
-    amount: { amount: '0.1', currency: 'BTC' },
-    fee: { amount: '2.25', currency: 'USD' },
+    fee: { currency: 'USD', quantity: '2.25' },
     from: 'kraken',
     id: 'ut-123',
     metadata: {
@@ -98,7 +97,8 @@ describe('Backward Compatibility Shim Integration', () => {
       pair: 'BTC/USD',
     },
     notes: [{ message: 'Market buy order', type: 'info' }],
-    price: { amount: '45000', currency: 'USD' },
+    price: { currency: 'USD', quantity: '45000' },
+    quantity: { currency: 'BTC', quantity: '0.1' },
     sourceUid: 'user456',
     status: 'closed',
     timestamp: new Date('2025-09-23T10:30:00Z'),
@@ -131,13 +131,13 @@ describe('Backward Compatibility Shim Integration', () => {
 
           const btcMovement = processed.movements.find((m) => m.currency === 'BTC');
           expect(btcMovement).toBeDefined();
-          expect(btcMovement!.amount).toBe('0.1');
+          expect(btcMovement!.quantity).toBe('0.1');
           expect(btcMovement!.direction).toBe(MovementDirection.IN);
 
           const feeMovement = processed.movements.find((m) => m.movementId.includes('fee'));
           expect(feeMovement).toBeDefined();
           expect(feeMovement!.currency).toBe('USD');
-          expect(feeMovement!.amount).toBe('2.25');
+          expect(feeMovement!.quantity).toBe('2.25');
           expect(feeMovement!.direction).toBe(MovementDirection.OUT);
         }
       }).toThrow('UniversalTransactionShim.toProcessedTransaction not implemented');
@@ -146,9 +146,9 @@ describe('Backward Compatibility Shim Integration', () => {
     it('should handle deposit transactions', () => {
       const depositTransaction: UniversalTransaction = {
         ...sampleUniversalTransaction,
-        amount: { amount: '1000', currency: 'USD' },
         fee: undefined,
         from: 'bank_account',
+        quantity: { currency: 'USD', quantity: '1000' },
         to: 'kraken',
         type: 'deposit',
       };
@@ -159,12 +159,12 @@ describe('Backward Compatibility Shim Integration', () => {
         if (result.isOk()) {
           const processed = result.value;
 
-          expect(processed.eventType).toBe(TransactionEventType.DEPOSIT);
+          expect(processed.eventType).toBe(TransactionEventType.TRANSFER);
           expect(processed.movements.length).toBe(1); // Only deposit amount
 
           const depositMovement = processed.movements[0];
           expect(depositMovement.currency).toBe('USD');
-          expect(depositMovement.amount).toBe('1000');
+          expect(depositMovement.quantity).toBe('1000');
           expect(depositMovement.direction).toBe(MovementDirection.IN);
         }
       }).toThrow();
@@ -173,9 +173,9 @@ describe('Backward Compatibility Shim Integration', () => {
     it('should handle withdrawal transactions', () => {
       const withdrawalTransaction: UniversalTransaction = {
         ...sampleUniversalTransaction,
-        amount: { amount: '0.5', currency: 'BTC' },
-        fee: { amount: '0.0005', currency: 'BTC' },
+        fee: { currency: 'BTC', quantity: '0.0005' },
         from: 'kraken',
+        quantity: { currency: 'BTC', quantity: '0.5' },
         to: 'external_wallet',
         type: 'withdrawal',
       };
@@ -186,7 +186,7 @@ describe('Backward Compatibility Shim Integration', () => {
         if (result.isOk()) {
           const processed = result.value;
 
-          expect(processed.eventType).toBe(TransactionEventType.WITHDRAWAL);
+          expect(processed.eventType).toBe(TransactionEventType.TRANSFER);
           expect(processed.movements.length).toBe(2); // Amount + fee
 
           const withdrawalMovement = processed.movements.find((m) => !m.movementId.includes('fee'));
@@ -198,15 +198,15 @@ describe('Backward Compatibility Shim Integration', () => {
       }).toThrow();
     });
 
-    it('should preserve metadata in sourceSpecific field', () => {
+    it('should preserve metadata in sourceDetails field', () => {
       expect(() => {
         const result = shim.toProcessedTransaction(sampleUniversalTransaction);
 
         if (result.isOk()) {
           const processed = result.value;
 
-          expect(processed.sourceSpecific).toBeDefined();
-          expect(processed.sourceSpecific.type).toBe('EXCHANGE');
+          expect(processed.sourceDetails).toBeDefined();
+          expect(processed.sourceDetails.type).toBe('EXCHANGE');
 
           // Original metadata should be preserved
           if (sampleUniversalTransaction.metadata) {
@@ -223,40 +223,40 @@ describe('Backward Compatibility Shim Integration', () => {
       id: 'pt-123',
       movements: [
         {
-          amount: '0.1',
           currency: 'BTC',
           direction: MovementDirection.IN,
           metadata: { executionPrice: '45000' },
           movementId: 'btc_in',
+          quantity: '0.1',
         },
         {
-          amount: '4500',
           currency: 'USD',
           direction: MovementDirection.OUT,
           metadata: {},
           movementId: 'usd_out',
+          quantity: '4500',
         },
         {
-          amount: '2.25',
           currency: 'USD',
           direction: MovementDirection.OUT,
           metadata: {},
           movementId: 'fee_out',
+          quantity: '2.25',
         },
       ],
-      processedAt: new Date(),
+      processedAt: new Date().toISOString(),
       processorVersion: '1.0.0',
       source: {
         name: 'kraken',
         type: SourceType.EXCHANGE,
       },
-      sourceSpecific: {
-        orderId: 'O123456',
-        symbol: 'BTC/USD',
-        type: 'EXCHANGE',
+      sourceDetails: {
+        kind: 'exchange',
+        orderId: 'order123',
+        venue: 'kraken',
       },
       sourceUid: 'user456',
-      timestamp: new Date('2025-09-23T10:30:00Z'),
+      timestamp: '2025-09-23T10:30:00Z',
       validationStatus: ValidationStatus.VALID,
     };
 
@@ -276,18 +276,18 @@ describe('Backward Compatibility Shim Integration', () => {
           expect(universal.type).toBe('trade');
 
           // Verify amount mapping (should pick primary movement)
-          expect(universal.amount.currency).toBe('BTC');
-          expect(universal.amount.amount).toBe('0.1');
+          expect(universal.quantity.currency).toBe('BTC');
+          expect(universal.quantity.quantity).toBe('0.1');
 
           // Verify fee mapping
           expect(universal.fee).toBeDefined();
           expect(universal.fee!.currency).toBe('USD');
-          expect(universal.fee!.amount).toBe('2.25');
+          expect(universal.fee!.quantity).toBe('2.25');
 
           // Verify price calculation from movements
           expect(universal.price).toBeDefined();
           expect(universal.price!.currency).toBe('USD');
-          expect(universal.price!.amount).toBe('45000');
+          expect(universal.price!.quantity).toBe('45000');
         }
       }).toThrow('UniversalTransactionShim.fromProcessedTransaction not implemented');
     });
@@ -297,25 +297,25 @@ describe('Backward Compatibility Shim Integration', () => {
         ...sampleProcessedTransaction,
         movements: [
           {
-            amount: '0.1',
             currency: 'BTC',
             direction: MovementDirection.OUT,
             metadata: {},
             movementId: 'btc_out',
+            quantity: '0.1',
           },
           {
-            amount: '2.0',
             currency: 'ETH',
             direction: MovementDirection.IN,
             metadata: {},
             movementId: 'eth_in',
+            quantity: '2.0',
           },
           {
-            amount: '0.003',
             currency: 'ETH',
             direction: MovementDirection.OUT,
             metadata: {},
             movementId: 'gas_fee',
+            quantity: '0.003',
           },
         ],
       };
@@ -327,12 +327,12 @@ describe('Backward Compatibility Shim Integration', () => {
           const universal = result.value;
 
           // Should select the primary asset as amount
-          expect(['BTC', 'ETH']).toContain(universal.amount.currency);
+          expect(['BTC', 'ETH']).toContain(universal.quantity.currency);
 
           // Should map gas fee as fee
           expect(universal.fee).toBeDefined();
           expect(universal.fee!.currency).toBe('ETH');
-          expect(universal.fee!.amount).toBe('0.003');
+          expect(universal.fee!.quantity).toBe('0.003');
         }
       }).toThrow();
     });
@@ -406,11 +406,11 @@ describe('Backward Compatibility Shim Integration', () => {
             const backConverted = backResult.value;
 
             // Financial amounts should be preserved
-            expect(backConverted.amount.amount).toBe(sampleUniversalTransaction.amount.amount);
-            expect(backConverted.amount.currency).toBe(sampleUniversalTransaction.amount.currency);
+            expect(backConverted.quantity.quantity).toBe(sampleUniversalTransaction.quantity.quantity);
+            expect(backConverted.quantity.currency).toBe(sampleUniversalTransaction.quantity.currency);
 
             if (sampleUniversalTransaction.fee && backConverted.fee) {
-              expect(backConverted.fee.amount).toBe(sampleUniversalTransaction.fee.amount);
+              expect(backConverted.fee.quantity).toBe(sampleUniversalTransaction.fee.quantity);
               expect(backConverted.fee.currency).toBe(sampleUniversalTransaction.fee.currency);
             }
           }
@@ -478,7 +478,7 @@ describe('Backward Compatibility Shim Integration', () => {
     it('should validate conversion errors', () => {
       const invalidTransaction: UniversalTransaction = {
         ...sampleUniversalTransaction,
-        amount: { amount: 'invalid', currency: 'BTC' },
+        quantity: { currency: 'BTC', quantity: 'invalid' },
       };
 
       expect(() => {

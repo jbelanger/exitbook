@@ -20,43 +20,14 @@ const DecimalStringSchema = z
 // Enum schemas
 export const MovementDirectionSchema = z.enum(['IN', 'OUT']);
 
-export const MovementHintSchema = z.enum([
-  'TRADE_PRINCIPAL',
-  'TRADE_FEE',
-  'TRANSFER_AMOUNT',
-  'TRANSFER_FEE',
-  'REWARD',
-  'INTEREST',
-  'FEE_ONLY',
-  'UNKNOWN',
-]);
-
 export const MovementPurposeSchema = z.enum([
   'PRINCIPAL',
-  'TRADING_FEE',
-  'TRANSFER_SENT',
-  'TRANSFER_RECEIVED',
-  'TRANSFER_FEE',
-  'GAS_FEE',
-  'NETWORK_FEE',
-  'STAKING_REWARD',
-  'MINING_REWARD',
+  'FEE',
+  'GAS',
+  'REWARD',
   'INTEREST',
-  'DIVIDEND',
-  'AIRDROP',
-  'LIQUIDITY_PROVISION',
-  'LIQUIDITY_REMOVAL',
-  'LENDING',
-  'BORROWING',
   'COLLATERAL',
-  'MARGIN_FEE',
-  'FUNDING_FEE',
-  'LIQUIDATION',
-  'DEPOSIT',
-  'WITHDRAWAL',
-  'ADJUSTMENT',
-  'DUST_CONVERSION',
-  'FORK',
+  'FUNDING_RATE',
   'OTHER',
 ]);
 
@@ -65,14 +36,13 @@ export const SourceTypeSchema = z.enum(['EXCHANGE', 'BLOCKCHAIN', 'CSV_IMPORT', 
 export const TransactionEventTypeSchema = z.enum([
   'TRADE',
   'TRANSFER',
-  'DEPOSIT',
-  'WITHDRAWAL',
   'REWARD',
-  'FEE_PAYMENT',
-  'ADJUSTMENT',
-  'SWAP',
-  'LENDING',
-  'STAKING',
+  'FEE_ONLY',
+  'INTEREST',
+  'BRIDGE',
+  'LEND',
+  'BORROW',
+  'LIQUIDATION',
   'OTHER',
 ]);
 
@@ -81,46 +51,19 @@ export const OrderTypeSchema = z.enum(['MARKET', 'LIMIT', 'STOP', 'STOP_LIMIT', 
 export const ValidationStatusSchema = z.enum(['VALID', 'WARNING', 'ERROR', 'PENDING']);
 
 // Source details schemas (tagged union)
-export const ExchangeDetailsSchema = z.object({
-  executionPrice: DecimalStringSchema.optional(),
-  orderId: z.string().optional(),
-  orderType: OrderTypeSchema.optional(),
-  symbol: z.string().optional(),
-  tradeId: z.string().optional(),
-  type: z.literal('EXCHANGE'),
-});
 
-export const BlockchainDetailsSchema = z.object({
-  blockNumber: z.number().int().positive().optional(),
-  fromAddress: z.string().optional(),
-  gasPrice: DecimalStringSchema.optional(),
-  gasUsed: z.number().int().min(0).optional(),
-  network: z.string().min(1, 'Network must not be empty'),
-  toAddress: z.string().optional(),
-  txHash: z.string().min(1, 'Transaction hash must not be empty'),
-  type: z.literal('BLOCKCHAIN'),
-});
+export const SourceDetailsSchema = z.object({
+  chain: z.string().optional(), // blockchain network (bitcoin, ethereum, etc.)
 
-export const CsvDetailsSchema = z.object({
-  fileName: z.string().min(1, 'File name must not be empty'),
-  headers: z.array(z.string()),
-  rowNumber: z.number().int().positive('Row number must be positive'),
-  type: z.literal('CSV_IMPORT'),
-});
+  // Escape hatch for source-specific extras
+  extras: z.record(z.string(), z.unknown()).optional(),
+  kind: z.enum(['exchange', 'blockchain', 'other']),
+  orderId: z.string().optional(), // Order/trade identifier for exchange sources
+  txHash: z.string().optional(), // Transaction hash for blockchain sources
 
-export const ManualDetailsSchema = z.object({
-  enteredBy: z.string().min(1, 'EnteredBy must not be empty'),
-  entryTimestamp: z.date(),
-  notes: z.string().optional(),
-  type: z.literal('MANUAL_ENTRY'),
+  // Common fields across all sources
+  venue: z.string().optional(), // Exchange name, DEX protocol, etc.
 });
-
-export const SourceDetailsSchema = z.discriminatedUnion('type', [
-  ExchangeDetailsSchema,
-  BlockchainDetailsSchema,
-  CsvDetailsSchema,
-  ManualDetailsSchema,
-]);
 
 // TransactionSource schema
 export const TransactionSourceSchema = z.object({
@@ -133,19 +76,21 @@ export const TransactionSourceSchema = z.object({
 export const MovementMetadataSchema = z.object({
   // Account Context
   accountId: z.string().optional(),
-
   // Audit Trail
   blockHash: z.string().optional(),
-  confirmations: z.number().int().min(0).optional(),
 
+  confirmations: z.number().int().min(0).optional(),
   executionPrice: DecimalStringSchema.optional(),
+
   fromAddress: z.string().optional(),
   gasPrice: DecimalStringSchema.optional(),
   // Network Context (for blockchain)
   gasUsed: z.number().int().min(0).optional(),
-
   // Transaction Context
   orderType: OrderTypeSchema.optional(),
+
+  // Classification Hint (unified from movementHint)
+  purposeHint: MovementPurposeSchema.optional(),
   toAddress: z.string().optional(),
 
   tradingPair: z.string().optional(),
@@ -156,18 +101,17 @@ export const MovementMetadataSchema = z.object({
 
 // Movement schema
 export const MovementSchema = z.object({
-  amount: DecimalStringSchema,
   // Asset and Quantity
   currency: z.string().min(1, 'Currency must not be empty'),
   direction: MovementDirectionSchema,
-
   linkedMovementIds: z.array(z.string()).optional(),
-  metadata: MovementMetadataSchema,
 
+  metadata: MovementMetadataSchema,
   // Classification Hints (for classifier)
-  movementHint: MovementHintSchema.optional(),
   // Linking and Audit
   movementId: z.string().min(1, 'Movement ID must not be empty'),
+
+  quantity: DecimalStringSchema,
 });
 
 // ProcessedTransaction schema
@@ -183,17 +127,17 @@ export const ProcessedTransactionSchema = z
     // Audit and Linking
     originalData: z.record(z.string(), z.any()).optional(),
     // Processing Metadata
-    processedAt: z.date(),
+    processedAt: z.string().datetime(),
     processorVersion: z.string().min(1, 'Processor version must not be empty'),
 
     relatedTransactionIds: z.array(z.string()).optional(),
 
     source: TransactionSourceSchema,
-    sourceSpecific: SourceDetailsSchema,
+    sourceDetails: SourceDetailsSchema,
     sourceUid: z.string().min(1, 'Source UID must not be empty'),
 
     // Timing and Context
-    timestamp: z.date(),
+    timestamp: z.string().datetime(),
     validationStatus: ValidationStatusSchema,
   })
   .strict()
@@ -292,7 +236,7 @@ export const ClassifiedTransactionSchema = z
     classificationInfo: ClassificationInfoSchema,
 
     // Classification Metadata
-    classifiedAt: z.date(),
+    classifiedAt: z.string().datetime(),
 
     classifierVersion: z.string().min(1, 'Classifier version must not be empty'),
     // Classifications

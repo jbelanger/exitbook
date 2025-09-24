@@ -148,8 +148,8 @@ export const ClassifiedTransactionSchema = z
   )
   .refine(
     (data) => {
-      // Validate that classifiedAt is after processedAt
-      return data.classifiedAt >= data.processedTransaction.processedAt;
+      // Validate that classifiedAt is after processedAt (both are ISO strings)
+      return new Date(data.classifiedAt) >= new Date(data.processedTransaction.processedAt);
     },
     {
       message: 'Classification timestamp must be after or equal to processing timestamp',

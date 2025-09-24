@@ -36,7 +36,6 @@ describe('TransformerValidator Contract', () => {
     id: 'test-001',
     movements: [
       {
-        amount: '0.1',
         currency: 'BTC',
         direction: MovementDirection.IN,
         metadata: {
@@ -45,9 +44,9 @@ describe('TransformerValidator Contract', () => {
           tradingPair: 'BTC/USD',
         },
         movementId: 'btc_in',
+        quantity: '0.1',
       },
       {
-        amount: '4500',
         currency: 'USD',
         direction: MovementDirection.OUT,
         metadata: {
@@ -55,30 +54,31 @@ describe('TransformerValidator Contract', () => {
           tradingPair: 'BTC/USD',
         },
         movementId: 'usd_out',
+        quantity: '4500',
       },
       {
-        amount: '2.25',
         currency: 'USD',
         direction: MovementDirection.OUT,
         metadata: {
           accountId: 'main',
         },
         movementId: 'fee_out',
+        quantity: '2.25',
       },
     ],
-    processedAt: new Date(),
+    processedAt: new Date().toISOString(),
     processorVersion: '1.0.0',
     source: {
       name: 'kraken',
       type: SourceType.EXCHANGE,
     },
-    sourceSpecific: {
+    sourceDetails: {
+      kind: 'exchange',
       orderId: 'order123',
-      symbol: 'BTC/USD',
-      type: SourceType.EXCHANGE,
+      venue: 'kraken',
     },
     sourceUid: 'user123',
-    timestamp: new Date('2025-09-23T10:30:00Z'),
+    timestamp: '2025-09-23T10:30:00Z',
     validationStatus: ValidationStatus.VALID,
   };
 
@@ -104,7 +104,7 @@ describe('TransformerValidator Contract', () => {
       overallConfidence: 0.96,
       ruleSetVersion: '1.0.0',
     },
-    classifiedAt: new Date(),
+    classifiedAt: new Date().toISOString(),
     classifierVersion: '1.0.0',
     movements: [
       {
@@ -124,7 +124,7 @@ describe('TransformerValidator Contract', () => {
       {
         confidence: 0.98,
         movement: baseTransaction.movements[2],
-        purpose: MovementPurpose.TRADING_FEE,
+        purpose: MovementPurpose.FEE,
         reasoning: 'Standard exchange trading fee',
         ruleId: 'exchange_fee_standard',
       },
@@ -172,25 +172,25 @@ describe('TransformerValidator Contract', () => {
           {
             confidence: 0.95,
             movement: {
-              amount: '1.0',
               currency: 'BTC',
               direction: MovementDirection.OUT,
               metadata: { accountId: 'main', executionPrice: '45000' },
               movementId: 'btc_out',
+              quantity: '1.0',
             },
-            purpose: MovementPurpose.TRANSFER_SENT,
+            purpose: MovementPurpose.PRINCIPAL,
             ruleId: 'transfer_out_rule',
           },
           {
             confidence: 0.95,
             movement: {
-              amount: '0.9',
               currency: 'BTC',
               direction: MovementDirection.IN,
               metadata: { accountId: 'external', executionPrice: '45000' },
               movementId: 'btc_in',
+              quantity: '0.9',
             },
-            purpose: MovementPurpose.TRANSFER_RECEIVED,
+            purpose: MovementPurpose.PRINCIPAL,
             ruleId: 'transfer_in_rule',
           },
         ],
@@ -199,7 +199,6 @@ describe('TransformerValidator Contract', () => {
           eventType: TransactionEventType.TRANSFER,
           movements: [
             {
-              amount: '1.0', // $45,000 value
               currency: 'BTC',
               direction: MovementDirection.OUT,
               metadata: {
@@ -207,9 +206,9 @@ describe('TransformerValidator Contract', () => {
                 executionPrice: '45000',
               },
               movementId: 'btc_out',
+              quantity: '1.0', // $45,000 value
             },
             {
-              amount: '0.9', // $40,500 value - doesn't balance
               currency: 'BTC',
               direction: MovementDirection.IN,
               metadata: {
@@ -217,6 +216,7 @@ describe('TransformerValidator Contract', () => {
                 executionPrice: '45000',
               },
               movementId: 'btc_in',
+              quantity: '0.9', // $40,500 value - doesn't balance
             },
           ],
         },
@@ -287,7 +287,7 @@ describe('TransformerValidator Contract', () => {
                 ...baseTransaction.movements[2].metadata,
               },
             },
-            purpose: MovementPurpose.TRADING_FEE,
+            purpose: MovementPurpose.FEE,
             ruleId: 'exchange_fee_standard',
           },
         ],
@@ -314,13 +314,13 @@ describe('TransformerValidator Contract', () => {
           {
             confidence: 0.95,
             movement: {
-              amount: '15000',
               currency: 'USD',
               direction: MovementDirection.OUT,
               metadata: { accountId: 'main' },
               movementId: 'large_cash_out',
+              quantity: '15000',
             },
-            purpose: MovementPurpose.WITHDRAWAL,
+            purpose: MovementPurpose.PRINCIPAL,
             ruleId: 'withdrawal_rule',
           },
         ],
@@ -328,7 +328,6 @@ describe('TransformerValidator Contract', () => {
           ...baseTransaction,
           movements: [
             {
-              amount: '15000', // Large cash movement - may require special handling
               currency: 'USD',
               direction: MovementDirection.OUT,
               metadata: {
@@ -336,6 +335,7 @@ describe('TransformerValidator Contract', () => {
                 // Missing required regulatory metadata
               },
               movementId: 'large_cash_out',
+              quantity: '15000', // Large cash movement - may require special handling
             },
           ],
         },
@@ -364,32 +364,32 @@ describe('TransformerValidator Contract', () => {
           ...baseTransaction,
           movements: [
             {
-              amount: '0.1',
               currency: 'BTC',
               direction: MovementDirection.OUT,
               metadata: { accountId: 'main', tradingPair: 'BTC/ETH' },
               movementId: 'btc_out',
+              quantity: '0.1',
             },
             {
-              amount: '2.0',
               currency: 'ETH',
               direction: MovementDirection.IN,
               metadata: { accountId: 'main', tradingPair: 'BTC/ETH' },
               movementId: 'eth_in',
+              quantity: '2.0',
             },
             {
-              amount: '2.0',
               currency: 'ETH',
               direction: MovementDirection.OUT,
               metadata: { accountId: 'main', tradingPair: 'ETH/USD' },
               movementId: 'eth_out',
+              quantity: '2.0',
             },
             {
-              amount: '4400',
               currency: 'USD',
               direction: MovementDirection.IN,
               metadata: { accountId: 'main', tradingPair: 'ETH/USD' },
               movementId: 'usd_in',
+              quantity: '4400',
             },
           ],
         },
@@ -413,64 +413,64 @@ describe('TransformerValidator Contract', () => {
           {
             confidence: 0.9,
             movement: {
-              amount: '1000',
               currency: 'USDC',
               direction: MovementDirection.OUT,
               metadata: { accountId: 'main' },
               movementId: 'usdc_out',
+              quantity: '1000',
             },
-            purpose: MovementPurpose.LIQUIDITY_PROVISION,
+            purpose: MovementPurpose.PRINCIPAL,
             ruleId: 'defi_liquidity_rule',
           },
           {
             confidence: 0.9,
             movement: {
-              amount: '50',
               currency: 'UNI-LP',
               direction: MovementDirection.IN,
               metadata: { accountId: 'main' },
               movementId: 'lp_token_in',
+              quantity: '50',
             },
-            purpose: MovementPurpose.LIQUIDITY_PROVISION,
+            purpose: MovementPurpose.PRINCIPAL,
             ruleId: 'defi_liquidity_rule',
           },
           {
             confidence: 0.95,
             movement: {
-              amount: '0.005',
               currency: 'ETH',
               direction: MovementDirection.OUT,
               metadata: { accountId: 'main', gasUsed: 150000 },
               movementId: 'gas_fee',
+              quantity: '0.005',
             },
-            purpose: MovementPurpose.GAS_FEE,
+            purpose: MovementPurpose.GAS,
             ruleId: 'gas_fee_rule',
           },
         ],
         processedTransaction: {
           ...baseTransaction,
-          eventType: TransactionEventType.LENDING,
+          eventType: TransactionEventType.LEND,
           movements: [
             {
-              amount: '1000',
               currency: 'USDC',
               direction: MovementDirection.OUT,
               metadata: { accountId: 'main' },
               movementId: 'usdc_out',
+              quantity: '1000',
             },
             {
-              amount: '50',
               currency: 'UNI-LP',
               direction: MovementDirection.IN,
               metadata: { accountId: 'main' },
               movementId: 'lp_token_in',
+              quantity: '50',
             },
             {
-              amount: '0.005',
               currency: 'ETH',
               direction: MovementDirection.OUT,
               metadata: { accountId: 'main', gasUsed: 150000 },
               movementId: 'gas_fee',
+              quantity: '0.005',
             },
           ],
         },
@@ -509,7 +509,6 @@ describe('TransformerValidator Contract', () => {
           eventType: TransactionEventType.TRADE,
           movements: [
             {
-              amount: '1.0',
               currency: 'BTC',
               direction: MovementDirection.OUT,
               metadata: {
@@ -517,13 +516,14 @@ describe('TransformerValidator Contract', () => {
                 executionPrice: '50000',
               },
               movementId: 'btc_out',
+              quantity: '1.0',
             },
             {
-              amount: '50000',
               currency: 'USD',
               direction: MovementDirection.IN,
               metadata: { accountId: 'main' },
               movementId: 'usd_in',
+              quantity: '50000',
             },
           ],
         },
@@ -548,11 +548,11 @@ describe('TransformerValidator Contract', () => {
           ...baseTransaction,
           movements: [
             {
-              amount: '0.1',
               currency: 'BTC',
               direction: MovementDirection.IN,
               metadata: {}, // Missing critical metadata
               movementId: 'incomplete',
+              quantity: '0.1',
             },
           ],
         },

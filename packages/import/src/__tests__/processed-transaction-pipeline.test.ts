@@ -84,17 +84,17 @@ describe('ProcessedTransaction Pipeline Integration', () => {
         const btcMovement = processed.movements.find((m) => m.currency === 'BTC');
         expect(btcMovement).toBeDefined();
         expect(btcMovement!.direction).toBe(MovementDirection.IN);
-        expect(btcMovement!.amount).toBe('0.1');
+        expect(btcMovement!.quantity).toBe('0.1');
 
         const usdMovement = processed.movements.find((m) => m.currency === 'USD' && m.movementId !== 'fee');
         expect(usdMovement).toBeDefined();
         expect(usdMovement!.direction).toBe(MovementDirection.OUT);
-        expect(usdMovement!.amount).toBe('4500');
+        expect(usdMovement!.quantity).toBe('4500');
 
         const feeMovement = processed.movements.find((m) => m.movementId.includes('fee'));
         expect(feeMovement).toBeDefined();
         expect(feeMovement!.direction).toBe(MovementDirection.OUT);
-        expect(feeMovement!.amount).toBe('2.25');
+        expect(feeMovement!.quantity).toBe('2.25');
       }).toThrow('DataAdapter.adapt not implemented');
     });
 
@@ -106,10 +106,10 @@ describe('ProcessedTransaction Pipeline Integration', () => {
 
           if (processedResult.isOk()) {
             const processed = processedResult.value;
-            expect(processed.sourceSpecific.type).toBe('EXCHANGE');
-            expect(processed.sourceSpecific).toHaveProperty('orderId');
-            expect(processed.sourceSpecific).toHaveProperty('symbol');
-            expect(processed.sourceSpecific).toHaveProperty('orderType');
+            expect(processed.sourceDetails.type).toBe('EXCHANGE');
+            expect(processed.sourceDetails).toHaveProperty('orderId');
+            expect(processed.sourceDetails).toHaveProperty('symbol');
+            expect(processed.sourceDetails).toHaveProperty('orderType');
           }
         }
       }).toThrow();
@@ -199,9 +199,9 @@ describe('ProcessedTransaction Pipeline Integration', () => {
             expect(processed.movements.length).toBeGreaterThan(0);
 
             // Verify blockchain-specific metadata
-            expect(processed.sourceSpecific.type).toBe('BLOCKCHAIN');
-            expect(processed.sourceSpecific).toHaveProperty('txHash');
-            expect(processed.sourceSpecific).toHaveProperty('blockNumber');
+            expect(processed.sourceDetails.type).toBe('BLOCKCHAIN');
+            expect(processed.sourceDetails).toHaveProperty('txHash');
+            expect(processed.sourceDetails).toHaveProperty('blockNumber');
           }
         }
       }).toThrow();
