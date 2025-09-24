@@ -1,92 +1,88 @@
-# Implementation Plan: [FEATURE]
+# Implementation Plan: Replace UniversalTransaction with ProcessedTransaction + Purpose Classifier (MVP)
 
-**Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
-**Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
-
-## Resume Instructions
-
-**Last Session**: [timestamp - updated each run]
-**Current Phase**: [auto-detected from existing artifacts]
-**Next Task**: [specific next step to execute]
-**Completed Artifacts**: [list of files that exist]
+**Branch**: `003-replace-universaltransaction-with` | **Date**: 2025-09-24 | **Spec**: [spec.md](./spec.md)
+**Input**: Feature specification from `/Users/joel/Dev/crypto-portfolio-before-nestjs/specs/003-replace-universaltransaction-with/spec.md`
 
 ## Execution Flow (/plan command scope)
 
 ```
-1. If scope is not specified, STOP and ask for Phase 0, 1, 2, resume, or continue
-2. Load feature spec from Input path
+1. If scope is not specified, STOP and ask for Phase 0, 1 or 2
+1. Load feature spec from Input path
    → If not found: ERROR "No feature spec at {path}"
-3. Detect existing artifacts and determine resume point:
-   → If research.md exists: Phase 0 complete
-   → If data-model.md exists: Phase 1 step 1 complete
-   → If contracts/ exists: Phase 1 step 2 complete
-   → If quickstart.md exists: Phase 1 step 4 complete
-   → If agent file updated: Phase 1 step 5 complete
-4. Fill Technical Context (scan for NEEDS CLARIFICATION)
-   → Skip if research.md exists and no new NEEDS CLARIFICATION
-5. Fill the Constitution Check section based on the content of the constitution document
-6. Evaluate Constitution Check section below
+2. Fill Technical Context (scan for NEEDS CLARIFICATION)
+3. Fill the Constitution Check section based on the content of the constitution document.
+4. Evaluate Constitution Check section below
    → If violations exist: Document in Complexity Tracking
    → If no justification possible: ERROR "Simplify approach first"
    → Update Progress Tracking: Initial Constitution Check
-7. Execute based on scope:
-   → If scope = "Phase 0": Execute Phase 0 → research.md, and STOP
-   → If scope = "Phase 1": Execute Phase 1 → contracts, data-model.md, quickstart.md, agent file, and STOP
-   → If scope = "resume": Auto-detect current phase and continue from next incomplete step
-   → If scope = "continue": Continue from last incomplete step in current phase
-8. Phase 0 execution (if not complete):
+5. If scope = Phase 0, execute Phase 0 → research.md, and STOP
    → If NEEDS CLARIFICATION remain: ERROR "Resolve unknowns"
    → Update Progress Tracking: Phase Status
-9. Phase 1 execution (if Phase 0 complete):
-   → Check each Phase 1 artifact before creating
-   → Skip completed steps, execute remaining steps
+6. If scope = Phase 1, execute Phase 1 → contracts, data-model.md, quickstart.md, agent-specific template file (e.g., `CLAUDE.md` for Claude Code, `.github/copilot-instructions.md` for GitHub Copilot, `GEMINI.md` for Gemini CLI, `QWEN.md` for Qwen Code or `AGENTS.md` for opencode), and STOP.
    → Update Progress Tracking: Phase Status
-10. Re-evaluate Constitution Check section after Phase 1
-    → If new violations: Refactor design, return to Phase 1
-    → Update Progress Tracking: Post-Design Constitution Check
-11. Plan Phase 2 → Describe task generation approach (DO NOT create tasks.md)
-12. Update Resume Instructions section with current status
-13. STOP - Ready for /tasks command
+7. Re-evaluate Constitution Check section
+   → If new violations: Refactor design, return to Phase 1
+   → Update Progress Tracking: Post-Design Constitution Check
+8. Plan Phase 2 → Describe task generation approach (DO NOT create tasks.md)
+9. STOP - Ready for /tasks command
 ```
 
-**IMPORTANT**: The /plan command supports multiple execution modes:
+**IMPORTANT**: The /plan command STOPS at step 7 (Phase 1). Phases 2-4 are executed by other commands:
 
-**Scope Options**:
-
-- `Phase 0` - Execute research phase only, create research.md
-- `Phase 1` - Execute design phase only, create data-model.md, contracts/, quickstart.md, agent file
-- `Phase 2` - Plan task generation approach only (describe, don't create tasks.md)
-- `resume` - Auto-detect current phase from existing artifacts and continue
-- `continue` - Continue from last incomplete step within current phase
-
-**Command Flow**:
-
-- Phase 2: /tasks command creates tasks.md (not created by /plan)
+- Phase 2: /tasks command creates tasks.md
 - Phase 3-4: Implementation execution (manual or via tools)
-
-**Multi-Session Support**: Each run updates Resume Instructions section with current state for next session
 
 ## Summary
 
-[Extract from feature spec: primary requirement + technical approach from research]
+Replace the ambiguous `UniversalTransaction` with a cleaner `ProcessedTransaction` + Purpose Classifier architecture. This MVP focuses on deterministic processing of Kraken spot trades and Ethereum transfers, introducing clear separation between "what happened" (money flows) vs "why it happened" (purposes: PRINCIPAL, FEE, GAS) vs "how to book it" (accounting). The system must produce identical classification results across runs while maintaining financial precision using Decimal.js.
+
+**Arguments from user**: Think more and do Phase 0 only.
 
 ## Technical Context
 
-**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]  
-**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]  
-**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]  
-**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]  
-**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
-**Project Type**: [single/web/mobile - determines source structure]  
-**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]  
-**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
-**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
+**Language/Version**: TypeScript (Node.js 23.0.0+, existing codebase)
+**Primary Dependencies**: Decimal.js (financial precision), Zod (validation), neverthrow (Result types for error handling), Vitest (testing), existing monorepo packages
+**Storage**: SQLite3 (existing transactions.db with ACID compliance)
+**Testing**: Vitest unit tests, existing E2E test infrastructure with provider integration tests
+**Target Platform**: CLI application (existing crypto portfolio platform)
+**Project Type**: Monorepo package (extending existing packages/core, packages/import, packages/data)
+**Performance Goals**: Deterministic processing, consistent results across runs, maintain existing ~2s test execution
+**Constraints**: MVP scope covers all existing blockchains and exchanges in codebase, no legacy migration needed, preserve financial precision (18+ digits)
+**Scale/Scope**: Replace core transaction processing for all existing providers (6 blockchains, multiple exchanges), ~5-10 new types/interfaces, extend existing validation pipeline
 
 ## Constitution Check
 
 _GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 
-[Gates determined based on constitution file]
+**I. Multi-Provider Resilience Architecture**: ✅ PASS
+
+- Feature maintains existing resilience patterns through ProcessedTransaction architecture
+- No changes to circuit breaker or failover mechanisms
+- Preserves provider-agnostic data processing
+
+**II. Registry-Based Auto-Discovery**: ✅ PASS
+
+- Feature does not modify existing @RegisterApiClient decorator pattern
+- ProcessedTransaction works within existing auto-discovery framework
+- No changes to provider registration mechanisms
+
+**III. Two-Stage ETL Pipeline**: ✅ PASS
+
+- Feature enhances Stage 2 (Process) with better transaction processing
+- Raw data preservation maintained in Stage 1 (Import)
+- Clear separation between import and processing stages preserved
+
+**IV. Financial Precision and Validation**: ✅ PASS
+
+- Explicitly requires Decimal.js for all financial calculations
+- Zod schemas maintained for validation pipeline
+- Mathematical constraints enforced through ProcessedTransaction design
+
+**V. Domain-Driven Monorepo Structure**: ✅ PASS
+
+- Feature extends packages/core and packages/import appropriately
+- Dependencies flow from applications to domains
+- No cross-domain dependencies introduced
 
 ## Project Structure
 
@@ -170,24 +166,13 @@ Note: Unit tests are colocated with source files in a __tests__ folder.
 
 _Prerequisites: research.md complete_
 
-**Checkpoint Validation** (before starting Phase 1):
-
-- ✅ Check if research.md exists → Skip to Phase 1
-- ✅ Check if data-model.md exists → Skip step 1
-- ✅ Check if contracts/ directory exists → Skip steps 2-3
-- ✅ Check if quickstart.md exists → Skip step 4
-- ✅ Check if agent file recently updated → Skip step 5
-
 1. **Extract aggregates/entities/value objects from feature spec** → `data-model.md`:
-   - **Skip if**: data-model.md already exists
    - Entity name, fields, relationships
    - Use standard DDD patterns
    - Validation rules from requirements
    - State transitions if applicable
-   - **Update Progress**: Mark data-model.md creation complete
 
 2. **Generate CQRS command and query definitions**, from functional requirements:
-   - **Skip if**: contracts/ directory already exists and is populated
    - Purpose: Brief description of what the command accomplishes
    - Input Parameters
    - Validation Rules
@@ -196,22 +181,16 @@ _Prerequisites: research.md complete_
    - Use standard basic CQRS patterns
    - Use Result objects for success/failure (recommended) or Exceptions if mentioned in spec
    - Output to `/contracts/`
-   - **Update Progress**: Mark CQRS definitions complete
 
 3. **Generate contract tests** from contracts:
-   - **Skip if**: Contract tests already exist in test directories
    - One test file per contract
    - Tests must fail (no implementation yet)
-   - **Update Progress**: Mark contract tests complete
 
 4. **Extract test scenarios** from user stories:
-   - **Skip if**: quickstart.md already exists
    - Each story → integration test scenario
    - Quickstart test = story validation steps
-   - **Update Progress**: Mark quickstart.md creation complete
 
 5. **Update agent file incrementally** (O(1) operation):
-   - **Skip if**: Agent file modification timestamp is after plan.md creation
    - Run `.specify/scripts/bash/update-agent-context.sh claude`
      **IMPORTANT**: Execute it exactly as specified above. Do not add or remove any arguments.
    - If exists: Add only NEW tech from current plan
@@ -219,7 +198,6 @@ _Prerequisites: research.md complete_
    - Update recent changes (keep last 3)
    - Keep under 150 lines for token efficiency
    - Output to repository root
-   - **Update Progress**: Mark agent file update complete
 
 **Output**: data-model.md, /contracts/\*, failing tests, quickstart.md, agent-specific file
 
@@ -265,44 +243,23 @@ _Fill ONLY if Constitution Check has violations that must be justified_
 
 ## Progress Tracking
 
-_This checklist is updated during execution flow - enables resumable sessions_
+_This checklist is updated during execution flow_
 
 **Phase Status**:
 
-- [ ] Phase 0: Research complete (/plan command)
-  - [ ] Technical Context NEEDS CLARIFICATION identified
-  - [ ] Research tasks dispatched for each unknown
-  - [ ] research.md created with decisions and rationale
-  - [ ] All NEEDS CLARIFICATION resolved
+- [x] Phase 0: Research complete (/plan command)
 - [ ] Phase 1: Design complete (/plan command)
-  - [ ] data-model.md created (aggregates/entities/value objects)
-  - [ ] CQRS command and query definitions generated
-  - [ ] contracts/ directory created with contract files
-  - [ ] Contract tests generated (failing tests)
-  - [ ] Integration test scenarios extracted
-  - [ ] quickstart.md created from user stories
-  - [ ] Agent-specific file updated incrementally
 - [ ] Phase 2: Task planning complete (/plan command - describe approach only)
 - [ ] Phase 3: Tasks generated (/tasks command)
 - [ ] Phase 4: Implementation complete
 - [ ] Phase 5: Validation passed
 
-**Artifact Status** (auto-detected for resume):
-
-- [ ] `/specs/[###-feature]/research.md` exists
-- [ ] `/specs/[###-feature]/data-model.md` exists
-- [ ] `/specs/[###-feature]/contracts/` directory exists
-- [ ] `/specs/[###-feature]/quickstart.md` exists
-- [ ] Agent file (CLAUDE.md/GEMINI.md/etc.) updated
-- [ ] Contract tests created and failing
-
 **Gate Status**:
 
-- [ ] Initial Constitution Check: PASS
+- [x] Initial Constitution Check: PASS
 - [ ] Post-Design Constitution Check: PASS
-- [ ] All NEEDS CLARIFICATION resolved
-- [ ] Complexity deviations documented
-- [ ] Resume state detected and validated
+- [x] All NEEDS CLARIFICATION resolved
+- [x] Complexity deviations documented (none required)
 
 ---
 

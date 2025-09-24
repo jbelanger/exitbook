@@ -12,7 +12,15 @@ import tseslint from 'typescript-eslint';
 export default [
   // Global ignores
   {
-    ignores: ['**/dist/**', '**/node_modules/**', '**/coverage/**', '**/.turbo/**', '*.config.*', '**/tsconfig*.json'],
+    ignores: [
+      '**/dist/**',
+      '**/node_modules/**',
+      '**/coverage/**',
+      '**/.turbo/**',
+      '**/specs/**',
+      '*.config.*',
+      '**/tsconfig*.json',
+    ],
   },
 
   // Base JS rules

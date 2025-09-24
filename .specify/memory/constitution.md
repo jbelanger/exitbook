@@ -1,73 +1,82 @@
-# [PROJECT_NAME] Constitution
+<!--
+Sync Impact Report:
+- Version change: 1.0.0 (initial constitution creation)
+- New constitution based on development documentation analysis
+- Principles derived from Universal Blockchain Provider & ETL Architecture
+- Templates requiring updates: ✅ updated (first time creation)
+- Follow-up TODOs: None
+-->
 
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+# Crypto Portfolio Platform Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
+### I. Multi-Provider Resilience Architecture
 
-<!-- Example: I. Library-First -->
+Every external data source MUST have redundant providers with automatic failover. Circuit breaker patterns MUST protect against cascading failures. No single external API failure shall cause system-wide outages.
 
-[PRINCIPLE_1_DESCRIPTION]
+**Rationale:** Financial data systems require 99.8% uptime. The Universal Blockchain Provider Architecture eliminates single points of failure through intelligent provider selection, circuit breakers, and automated recovery mechanisms.
 
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### II. Registry-Based Auto-Discovery
 
-### [PRINCIPLE_2_NAME]
+All providers and mappers MUST be self-describing through decorator-based registration. The system MUST auto-discover components without manual factory updates. Configuration MUST be separated from implementation metadata.
 
-<!-- Example: II. CLI Interface -->
+**Rationale:** The `@RegisterApiClient` and `@RegisterTransactionMapper` pattern ensures providers are self-contained, reduces merge conflicts, and eliminates "forgot to register" bugs. This creates a maintainable, extensible architecture.
 
-[PRINCIPLE_2_DESCRIPTION]
+### III. Two-Stage ETL Pipeline
 
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+Transaction import MUST follow explicit Extract-Transform-Load stages: Stage 1 (Import) stores raw data; Stage 2 (Process) transforms and validates. Raw data MUST be preserved for debugging and reprocessing.
 
-### [PRINCIPLE_3_NAME]
+**Rationale:** Separation of data fetching from transformation creates durable checkpoints. If transformation fails, raw data can be reprocessed without re-hitting rate-limited APIs. This pattern is essential for financial data integrity.
 
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
+### IV. Financial Precision and Validation
 
-[PRINCIPLE_3_DESCRIPTION]
+All financial calculations MUST use Decimal.js for precision. Zod schemas MUST validate all external data inputs. Mathematical constraints MUST be enforced throughout the pipeline.
 
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+**Rationale:** JavaScript's floating-point arithmetic is unsuitable for financial calculations. Comprehensive validation at API boundaries prevents malformed data from corrupting the system and ensures audit-trail integrity.
 
-### [PRINCIPLE_4_NAME]
+### V. Domain-Driven Monorepo Structure
 
-<!-- Example: IV. Integration Testing -->
+Packages MUST represent distinct domains with clear boundaries. Dependencies MUST flow from applications to domains, never between peer domains. Public APIs MUST be explicit through index.ts exports.
 
-[PRINCIPLE_4_DESCRIPTION]
+**Rationale:** The monorepo structure separates core entities, import/ETL processes, data persistence, and balance verification into cohesive packages. This enables parallel development and maintains architectural clarity.
 
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+## Resilience Requirements
 
-### [PRINCIPLE_5_NAME]
+### Circuit Breaker Implementation
 
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
+- Three-state finite state machine (Closed/Open/Half-Open) MUST be implemented for all external providers
+- Default thresholds: 3 failures trigger Open state, 5-minute recovery timeout
+- Health monitoring MUST proactively detect provider status
+- Request-scoped caching (30-second TTL) MUST prevent duplicate API calls
 
-[PRINCIPLE_5_DESCRIPTION]
+### Provider Management Standards
 
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+- Provider metadata MUST live with implementation code through decorators
+- Configuration files MUST contain only user intent (enabled providers, priorities, overrides)
+- Failover MUST be automatic and transparent to consuming applications
+- Rate limiting MUST respect provider-specific constraints
 
-## [SECTION_2_NAME]
+## Development Workflow
 
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+### Package Development Rules
 
-[SECTION_2_CONTENT]
+- Each package MUST be independently buildable and testable
+- Internal imports MUST use public APIs only (through index.ts)
+- Deep imports into package internals are FORBIDDEN
+- Shared configurations MUST be centralized in tools/ packages
 
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### Quality Gates
 
-## [SECTION_3_NAME]
-
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
-
-[SECTION_3_CONTENT]
-
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+- TypeScript compilation MUST succeed with strict settings
+- All external data MUST pass Zod schema validation
+- Unit tests MUST achieve >90% coverage for critical financial logic
+- Provider integration tests MUST validate external API contracts
 
 ## Governance
 
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
+This constitution embodies the architectural principles learned from building production-grade cryptocurrency transaction import systems. It supersedes all other practices when conflicts arise.
 
-[GOVERNANCE_RULES]
+All code reviews MUST verify compliance with multi-provider resilience patterns. Breaking changes to provider interfaces or ETL stages require architectural review. The registry pattern MUST be extended rather than circumvented when adding new capabilities.
 
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
-
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0.0 | **Ratified**: 2025-01-26 | **Last Amended**: 2025-01-26
