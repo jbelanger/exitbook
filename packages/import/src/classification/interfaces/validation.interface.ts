@@ -3,11 +3,9 @@
  *
  * Separates processor-time validation from transformer-time validation
  * to enable early error detection and clear responsibility boundaries.
- * Uses neverthrow Result types for functional error handling.
  */
+import { ClassifiedTransaction, ProcessedTransaction } from '@crypto-portfolio/core';
 import { Result } from 'neverthrow';
-
-import { ClassifiedTransaction, ProcessedTransaction } from '../types';
 
 export type Severity = 'info' | 'warn' | 'error';
 

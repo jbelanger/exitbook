@@ -3,11 +3,9 @@
  *
  * Provides deterministic classification of movement purposes
  * based on transaction context without external dependencies.
- * Uses neverthrow Result types for functional error handling.
  */
+import { ClassifiedTransaction, MovementPurpose, ProcessedTransaction } from '@crypto-portfolio/core';
 import { Result } from 'neverthrow';
-
-import { ClassifiedTransaction, ProcessedTransaction } from '../types';
 
 export interface PurposeClassifier {
   /**

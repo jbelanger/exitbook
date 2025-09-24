@@ -187,8 +187,8 @@ export interface DataSourceCapabilities<TOperations extends string = string> {
  */
 export interface IUniversalAdapter {
   close(): Promise<void>;
-  fetchBalances(params: UniversalFetchParams): Promise<UniversalBalance[]>;
-  fetchTransactions(params: UniversalFetchParams): Promise<UniversalTransaction[]>;
+  fetchBalances(params: UniversalFetchParameters): Promise<UniversalBalance[]>;
+  fetchTransactions(params: UniversalFetchParameters): Promise<UniversalTransaction[]>;
   getInfo(): Promise<UniversalAdapterInfo>;
   testConnection(): Promise<boolean>;
 }
@@ -215,7 +215,7 @@ export interface UniversalAdapterCapabilities {
   supportsPagination: boolean;
 }
 
-export interface UniversalFetchParams {
+export interface UniversalFetchParameters {
   // Universal params
   // Optional type-specific params
   includeTokens?: boolean | undefined; // For blockchains
@@ -301,3 +301,350 @@ export interface UniversalBlockchainAdapterConfig extends BaseUniversalAdapterCo
 }
 
 export type UniversalAdapterConfig = UniversalExchangeAdapterConfig | UniversalBlockchainAdapterConfig;
+
+// ===== PROCESSED TRANSACTION TYPES =====
+
+/**
+ * DecimalString represents a Decimal.js value as a string for serialization
+ * Use Decimal.js for calculations, serialize to string for storage/transport
+ */
+export type DecimalString = string;
+
+/**
+ * ProcessedTransaction: Factual money movements with source metadata and event context,
+ * without accounting interpretations. Replaces UniversalTransaction with movement-based model.
+ */
+export interface ProcessedTransaction {
+  blockNumber?: number; // For blockchain transactions
+  eventType: TransactionEventType; // TRADE, TRANSFER, REWARD, etc.
+  // Identity and Source Tracking
+  id: string; // Unique per (source, sourceUid, id) tuple
+  // Financial Movements
+  movements: Movement[]; // Array of individual asset flows
+
+  // Audit and Linking
+  originalData?: Record<string, unknown>; // Raw source data for auditing
+  // Processing Metadata
+  processedAt: Date; // When this was created by processor
+  processorVersion: string; // Version of processor used
+
+  relatedTransactionIds?: string[]; // Links to related transactions
+
+  source: TransactionSource; // Exchange, blockchain network, etc.
+  sourceSpecific: SourceDetails; // Tagged union for source-specific metadata
+  sourceUid: string; // User/account identifier within source
+
+  // Timing and Context
+  timestamp: Date; // Transaction occurrence time
+  validationStatus: ValidationStatus;
+}
+
+/**
+ * Individual asset flow with currency, quantity, direction, and optional classification hints
+ */
+export interface Movement {
+  amount: DecimalString; // Precise amount using Decimal.js serialization
+  // Asset and Quantity
+  currency: string; // Asset symbol (BTC, ETH, USD, etc.)
+  direction: MovementDirection; // IN or OUT relative to user's account
+
+  linkedMovementIds?: string[]; // Links to related movements (fee→principal)
+  metadata: MovementMetadata; // Additional context for classification
+
+  // Classification Hints (for classifier)
+  movementHint?: MovementHint; // Processor's suggestion for purpose
+  // Linking and Audit
+  movementId: string; // Unique within transaction
+}
+
+/**
+ * Movement direction relative to user's targeted account/scope
+ */
+export enum MovementDirection {
+  IN = 'IN', // Asset flowing into user's account
+  OUT = 'OUT', // Asset flowing out of user's account
+}
+
+/**
+ * Processor's suggestion for movement purpose (hint for classifier)
+ */
+export enum MovementHint {
+  FEE_ONLY = 'FEE_ONLY',
+  INTEREST = 'INTEREST',
+  REWARD = 'REWARD',
+  TRADE_FEE = 'TRADE_FEE',
+  TRADE_PRINCIPAL = 'TRADE_PRINCIPAL',
+  TRANSFER_AMOUNT = 'TRANSFER_AMOUNT',
+  TRANSFER_FEE = 'TRANSFER_FEE',
+  UNKNOWN = 'UNKNOWN',
+}
+
+/**
+ * Additional context for movement classification
+ */
+export interface MovementMetadata {
+  // Account Context
+  accountId?: string; // Specific account for multi-account scenarios
+
+  // Audit Trail
+  blockHash?: string; // Blockchain block hash
+  confirmations?: number; // Blockchain confirmations
+
+  executionPrice?: DecimalString; // Price at which movement occurred
+  fromAddress?: string; // Source address
+  gasPrice?: DecimalString; // Gas price paid
+  // Network Context (for blockchain)
+  gasUsed?: number; // Gas consumed
+
+  // Transaction Context
+  orderType?: OrderType; // MARKET, LIMIT, STOP, etc.
+  toAddress?: string; // Destination address
+
+  tradingPair?: string; // BTC/USD, ETH/USDC, etc.
+  transactionHash?: string; // Blockchain transaction hash
+  // Classification Context
+  venue?: string; // Specific trading venue or DEX
+}
+
+/**
+ * ProcessedTransaction with finalized movement purposes and classification metadata
+ */
+export interface ClassifiedTransaction {
+  // Audit Information
+  classificationInfo: ClassificationInfo;
+
+  // Classification Metadata
+  classifiedAt: Date;
+
+  classifierVersion: string;
+  // Classifications
+  movements: ClassifiedMovement[];
+
+  // Base Transaction
+  processedTransaction: ProcessedTransaction;
+}
+
+/**
+ * Movement with assigned business purpose
+ */
+export interface ClassifiedMovement {
+  // Classification Metadata
+  confidence: number; // 0.0-1.0 confidence score
+
+  // Original Movement
+  movement: Movement;
+
+  // Assigned Purpose
+  purpose: MovementPurpose;
+  reasoning?: string; // Human-readable explanation
+  ruleId: string; // Identifier of rule used
+}
+
+/**
+ * Comprehensive enumeration of business purposes for movement classification
+ */
+export enum MovementPurpose {
+  ADJUSTMENT = 'ADJUSTMENT', // Exchange adjustments
+  AIRDROP = 'AIRDROP', // Token airdrops
+
+  BORROWING = 'BORROWING', // Borrowing operations
+  COLLATERAL = 'COLLATERAL', // Collateral deposits
+  // Administrative
+  DEPOSIT = 'DEPOSIT', // Fiat/crypto deposits
+
+  DIVIDEND = 'DIVIDEND', // Dividend payments
+  // Special Cases
+  DUST_CONVERSION = 'DUST_CONVERSION', // Small balance conversions
+
+  FORK = 'FORK', // Blockchain fork events
+  FUNDING_FEE = 'FUNDING_FEE', // Perpetual funding fees
+  // Network Operations
+  GAS_FEE = 'GAS_FEE', // Blockchain gas costs
+  INTEREST = 'INTEREST', // Interest payments
+  LENDING = 'LENDING', // Lending operations
+
+  LIQUIDATION = 'LIQUIDATION', // Liquidation events
+  // DeFi Operations
+  LIQUIDITY_PROVISION = 'LIQUIDITY_PROVISION', // LP token creation
+  LIQUIDITY_REMOVAL = 'LIQUIDITY_REMOVAL', // LP token burning
+  // Margin and Derivatives
+  MARGIN_FEE = 'MARGIN_FEE', // Margin trading fees
+  MINING_REWARD = 'MINING_REWARD', // Mining rewards
+
+  NETWORK_FEE = 'NETWORK_FEE', // General network fees
+  OTHER = 'OTHER', // Fallback for unclassified
+  // Trading
+  PRINCIPAL = 'PRINCIPAL', // Main trade amount
+
+  // Rewards and Staking
+  STAKING_REWARD = 'STAKING_REWARD', // Staking rewards
+  TRADING_FEE = 'TRADING_FEE', // Exchange trading fees
+  TRANSFER_FEE = 'TRANSFER_FEE', // Network/transfer fees
+
+  TRANSFER_RECEIVED = 'TRANSFER_RECEIVED', // Transfer from external account
+  // Transfers
+  TRANSFER_SENT = 'TRANSFER_SENT', // Transfer to external account
+  WITHDRAWAL = 'WITHDRAWAL', // Fiat/crypto withdrawals
+}
+
+/**
+ * Audit metadata for classification decisions
+ */
+export interface ClassificationInfo {
+  appliedRules: AppliedRule[]; // All rules evaluated
+  lowConfidenceMovements: string[]; // Movement IDs with low confidence
+
+  // Audit Trail
+  manualOverrides?: ManualOverride[]; // Any manual classifications
+  // Confidence Metrics
+  overallConfidence: number; // 0.0-1.0 overall confidence
+
+  reprocessingHistory?: ReprocessingEvent[]; // Previous classifications
+  // Rule Tracking
+  ruleSetVersion: string; // Version of classification rules
+}
+
+/**
+ * Record of a classification rule evaluation
+ */
+export interface AppliedRule {
+  confidence: number; // Rule-specific confidence
+  matched: boolean; // Whether rule matched
+  reasoning: string; // Why rule matched/didn't match
+  ruleId: string; // Unique rule identifier
+  ruleName: string; // Human-readable rule name
+}
+
+/**
+ * Transaction source information
+ */
+export interface TransactionSource {
+  apiVersion?: string; // Provider API version
+  name: string; // Kraken, Bitcoin, Ethereum, etc.
+  type: SourceType; // EXCHANGE, BLOCKCHAIN, CSV, etc.
+}
+
+/**
+ * Source type enumeration
+ */
+export enum SourceType {
+  BLOCKCHAIN = 'BLOCKCHAIN',
+  CSV_IMPORT = 'CSV_IMPORT',
+  EXCHANGE = 'EXCHANGE',
+  MANUAL_ENTRY = 'MANUAL_ENTRY',
+}
+
+/**
+ * Tagged union capturing source-specific metadata
+ */
+export type SourceDetails = ExchangeDetails | BlockchainDetails | CsvDetails | ManualDetails;
+
+/**
+ * Exchange-specific transaction details
+ */
+export interface ExchangeDetails {
+  executionPrice?: DecimalString; // Execution price
+  orderId?: string; // Exchange order identifier
+  orderType?: OrderType; // Order type
+  symbol?: string; // Trading pair symbol
+  tradeId?: string; // Exchange trade identifier
+  type: 'EXCHANGE';
+}
+
+/**
+ * Blockchain-specific transaction details
+ */
+export interface BlockchainDetails {
+  blockNumber?: number; // Block number
+  fromAddress?: string; // Source address
+  gasPrice?: DecimalString; // Gas price
+  gasUsed?: number; // Gas consumed
+  network: string; // bitcoin, ethereum, solana, etc.
+  toAddress?: string; // Destination address
+  txHash: string; // Transaction hash
+  type: 'BLOCKCHAIN';
+}
+
+/**
+ * CSV import-specific details
+ */
+export interface CsvDetails {
+  fileName: string; // Source CSV file name
+  headers: string[]; // CSV headers for reference
+  rowNumber: number; // Row number in CSV
+  type: 'CSV_IMPORT';
+}
+
+/**
+ * Manual entry-specific details
+ */
+export interface ManualDetails {
+  enteredBy: string; // User who entered the transaction
+  entryTimestamp: Date; // When the entry was made
+  notes?: string; // Optional notes
+  type: 'MANUAL_ENTRY';
+}
+
+/**
+ * Transaction event type classification
+ */
+export enum TransactionEventType {
+  ADJUSTMENT = 'ADJUSTMENT', // Balance adjustments
+  DEPOSIT = 'DEPOSIT', // Fiat/crypto deposits
+  FEE_PAYMENT = 'FEE_PAYMENT', // Fee-only transactions
+  LENDING = 'LENDING', // DeFi lending
+  OTHER = 'OTHER', // Fallback category
+  REWARD = 'REWARD', // Staking/mining rewards
+  STAKING = 'STAKING', // Staking operations
+  SWAP = 'SWAP', // Token swaps
+  TRADE = 'TRADE', // Buy/sell operations
+  TRANSFER = 'TRANSFER', // Asset transfers
+  WITHDRAWAL = 'WITHDRAWAL', // Fiat/crypto withdrawals
+}
+
+/**
+ * Order type enumeration
+ */
+export enum OrderType {
+  LIMIT = 'LIMIT',
+  MARKET = 'MARKET',
+  OTHER = 'OTHER',
+  STOP = 'STOP',
+  STOP_LIMIT = 'STOP_LIMIT',
+  TRAILING_STOP = 'TRAILING_STOP',
+}
+
+/**
+ * Validation status for processed transactions
+ */
+export enum ValidationStatus {
+  ERROR = 'ERROR',
+  PENDING = 'PENDING',
+  VALID = 'VALID',
+  WARNING = 'WARNING',
+}
+
+/**
+ * Manual classification override record
+ */
+export interface ManualOverride {
+  movementId: string;
+  originalPurpose: MovementPurpose;
+  overrideBy: string;
+  overridePurpose: MovementPurpose;
+  overrideReason: string;
+  overrideTimestamp: Date;
+}
+
+/**
+ * Reprocessing event record
+ */
+export interface ReprocessingEvent {
+  newClassification: MovementPurpose;
+  previousClassification: MovementPurpose;
+  reprocessingId: string;
+  reprocessingReason: string;
+  reprocessingTimestamp: Date;
+  ruleSetVersionAfter: string;
+  ruleSetVersionBefore: string;
+}
