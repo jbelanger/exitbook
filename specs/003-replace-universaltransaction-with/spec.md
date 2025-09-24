@@ -83,6 +83,13 @@ As a crypto portfolio user, I need my imported transactions to be processed cons
 - **Failed transactions**: Gas paid but transaction reverted [FOLLOW-UP: Failed transaction handling]
 - **Cross-chain operations**: Transactions spanning multiple blockchains [FOLLOW-UP: Bridge support]
 
+## Terminology
+
+- **ProcessedTransaction**: unclassified movements (output of processors)
+- **ClassifiedTransaction**: same transaction after PurposeClassifier assigns purposes; consumed by the Transformer
+
+Processors never call the classifier nor set purposes (FR-005).
+
 ## Requirements _(mandatory)_
 
 ### Functional Requirements [Must align to In Scope]
@@ -91,10 +98,27 @@ As a crypto portfolio user, I need my imported transactions to be processed cons
 - **FR-002**: System MUST process Ethereum transfers into PRINCIPAL movements and gas payments into GAS movements
 - **FR-003**: System MUST classify movements using only three supported purposes: PRINCIPAL, FEE, GAS
 - **FR-004**: System MUST produce identical classification results when processing the same input data multiple times
-- **FR-005**: System MUST prevent transaction processors from setting purpose fields except for indisputable cases (e.g., gas fees)
+- **FR-005 (Processor purpose restriction)**: Processors MUST NOT set purpose. The **only** exception is the Ethereum L1 gas leg, which MAY be pre-tagged as GAS **iff** all criteria hold:
+
+  (a) Source.kind = 'blockchain' AND chain = 'ethereum' (MVP only)
+  (b) Direction = OUT
+  (c) Currency = 'ETH' (native token)
+  (d) Amount equals `gasUsed * effectiveGasPrice` (EIP-1559) or `gasUsed * gasPrice` (legacy) when `effectiveGasPrice` unavailable
+  (e) Tolerance ≤ 1 wei when rounded to 18 decimals
+  (f) Exactly one such GAS movement per transaction
+
+  All other purposes (including all exchange fees) MUST be assigned by the PurposeClassifier
+
 - **FR-006**: System MUST include classification metadata (rule ID, version, reasoning, confidence score 0-1) with each classified movement, accepting all confidence levels
-- **FR-007**: System MUST validate that all movements balance correctly within each transaction and reject entire transaction if validation fails
+- **FR-007 (Validation & fail-fast)**: The system MUST **reject the entire transaction** if any validation rule fails:
+  1. **Balance (classified movements):** Trades: PRINCIPAL legs net to zero **by currency**; FEEs are separate OUT. Transfers: PRINCIPAL legs net to zero in the **transfer currency**; GAS may net OUT in gas currency
+  2. **Coverage:** every movement has purpose ∈ {PRINCIPAL, FEE, GAS}
+  3. **Direction:** FEE and GAS are OUT; all amounts are > 0 (DecimalString)
+  4. **Precision:** DecimalString ≤ 18 fractional digits
+  5. **Scope:** any pattern outside MVP (non-Kraken spot trade, non-ETH L1 transfer) is rejected with a specific error
+
 - **FR-010**: System MUST fail gracefully when encountering unsupported transaction types outside the MVP scope
+- **FR-011 (Legacy migration bridge)**: A UniversalTransaction → ProcessedTransaction bridge MUST exist for CSV legacy imports (Kraken, ETH L1) to reconstruct separate PRINCIPAL and FEE/GAS legs without netting
 
 ### Key Entities _(include if feature involves data)_
 
