@@ -1,4 +1,3 @@
-import type { Database } from '@crypto/data/src/storage/database.ts';
 import type { StoredRawData } from '@crypto/data/src/types/data-types.ts';
 import { getLogger } from '@crypto/shared-logger';
 
@@ -8,6 +7,8 @@ import type {
   SaveRawDataOptions,
 } from '../../app/ports/raw-data-repository.ts';
 
+import type { TransactionRepository } from './transaction-repository.ts';
+
 /**
  * Database implementation of IExternalDataStore.
  * Uses the enhanced external_transaction_data table for storing raw data.
@@ -15,13 +16,13 @@ import type {
 export class RawDataRepository implements IRawDataRepository {
   private logger = getLogger('RawDataRepository');
 
-  constructor(private database: Database) {}
+  constructor(private transactionRepository: TransactionRepository) {}
 
   async load(filters?: LoadRawDataFilters): Promise<StoredRawData[]> {
     this.logger.info(`Loading raw data with filters: ${JSON.stringify(filters)}`);
 
     try {
-      const rawData = await this.database.getRawTransactions(filters);
+      const rawData = await this.transactionRepository.getRawTransactions(filters);
 
       this.logger.info(`Loaded ${rawData.length} raw data items`);
       return rawData.map((item) => ({
@@ -69,7 +70,7 @@ export class RawDataRepository implements IRawDataRepository {
     this.logger.info(`Saving ${rawData.length} raw data items for ${sourceId}`);
 
     try {
-      const saved = await this.database.saveRawTransactions(sourceId, sourceType, rawData, {
+      const saved = await this.transactionRepository.saveRawTransactions(sourceId, sourceType, rawData, {
         importSessionId: options?.importSessionId ?? undefined,
         metadata: options?.metadata,
         providerId: options?.providerId ?? undefined,
@@ -90,7 +91,12 @@ export class RawDataRepository implements IRawDataRepository {
     providerId?: string
   ): Promise<void> {
     try {
-      await this.database.updateRawTransactionProcessingStatus(rawTransactionId, status, error, providerId);
+      await this.transactionRepository.updateRawTransactionProcessingStatus(
+        rawTransactionId,
+        status,
+        error,
+        providerId
+      );
     } catch (error) {
       this.logger.error(`Failed to update processing status for ${rawTransactionId}: ${String(error)}`);
       throw error;

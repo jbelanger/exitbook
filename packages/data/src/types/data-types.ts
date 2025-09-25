@@ -29,6 +29,20 @@ export interface StoredTransaction {
   wallet_id?: number;
 }
 
+export interface StoredRawData<TRawData = unknown> {
+  createdAt: number;
+  id: number;
+  importSessionId?: number | undefined;
+  metadata?: unknown;
+  processedAt?: number | undefined;
+  processingError?: string | undefined;
+  processingStatus: string;
+  providerId?: string | undefined;
+  rawData: TRawData;
+  sourceId: string;
+  sourceType: string;
+}
+
 // Wallet address tracking types
 export interface WalletAddress {
   address: string;
@@ -105,21 +119,6 @@ export interface ImportSessionQuery {
   sourceId?: string | undefined;
   sourceType?: 'exchange' | 'blockchain';
   status?: 'started' | 'completed' | 'failed' | 'cancelled';
-}
-
-// Raw data storage - matches external_transaction_data table structure
-export interface StoredRawData<TRawData = unknown> {
-  createdAt: number;
-  id: number;
-  importSessionId?: number | undefined;
-  metadata?: unknown;
-  processedAt?: number | undefined;
-  processingError?: string | undefined;
-  processingStatus: string;
-  providerId?: string | undefined;
-  rawData: TRawData;
-  sourceId: string;
-  sourceType: string;
 }
 
 export interface ImportSessionWithRawData {

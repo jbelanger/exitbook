@@ -7,7 +7,7 @@ import { BalanceService } from '@crypto/balance/src/app/services/balance-service
 import { BalanceRepository } from '@crypto/balance/src/infrastructure/persistence/balance-repository';
 import type { StoredTransaction } from '@crypto/data';
 import { Database } from '@crypto/data';
-import { BlockchainProviderManager, TransactionIngestionService } from '@crypto/import';
+import { BlockchainProviderManager, TransactionIngestionService, TransactionRepository } from '@crypto/import';
 import { getLogger } from '@crypto/shared-logger';
 import { initializeDatabase, loadExplorerConfig } from '@crypto/shared-utils';
 import { Command } from 'commander';
@@ -201,7 +201,8 @@ async function main() {
           }
         }
 
-        const transactions = await database.getTransactions(options.exchange, since);
+        const transactionRepository = new TransactionRepository(database['db']);
+        const transactions = await transactionRepository.getTransactions(options.exchange, since);
 
         const outputPath =
           options.output || path.join(process.cwd(), 'data', `transactions.${options.format || 'csv'}`);
@@ -286,26 +287,23 @@ async function main() {
         }
 
         // Create dependency adapters
-        const {
-          ImporterFactoryAdapter,
-          ImportSessionRepositoryAdapter,
-          ProcessorFactoryAdapter,
-          TransactionRepositoryAdapter,
-        } = await import('@crypto/import/src/infrastructure/adapters/index.ts');
+        const { ImporterFactoryAdapter, ImportSessionRepositoryAdapter, ProcessorFactoryAdapter } = await import(
+          '@crypto/import/src/infrastructure/adapters/index.ts'
+        );
         const { RawDataRepository } = await import(
           '@crypto/import/src/infrastructure/persistence/raw-data-repository.ts'
         );
 
-        const rawDataRepository = new RawDataRepository(database);
+        const transactionRepository = new TransactionRepository(database['db']);
+        const rawDataRepository = new RawDataRepository(transactionRepository);
         const sessionRepositoryAdapter = new ImportSessionRepositoryAdapter(database);
         const importerFactoryAdapter = new ImporterFactoryAdapter();
         const processorFactoryAdapter = new ProcessorFactoryAdapter();
-        const transactionRepositoryAdapter = new TransactionRepositoryAdapter(database);
 
         const ingestionService = new TransactionIngestionService(
           rawDataRepository,
           sessionRepositoryAdapter,
-          transactionRepositoryAdapter,
+          transactionRepository,
           importerFactoryAdapter,
           processorFactoryAdapter,
           providerManager
@@ -428,26 +426,23 @@ async function main() {
         }
 
         // Create dependency adapters
-        const {
-          ImporterFactoryAdapter,
-          ImportSessionRepositoryAdapter,
-          ProcessorFactoryAdapter,
-          TransactionRepositoryAdapter,
-        } = await import('@crypto/import/src/infrastructure/adapters/index.ts');
+        const { ImporterFactoryAdapter, ImportSessionRepositoryAdapter, ProcessorFactoryAdapter } = await import(
+          '@crypto/import/src/infrastructure/adapters/index.ts'
+        );
         const { RawDataRepository } = await import(
           '@crypto/import/src/infrastructure/persistence/raw-data-repository.ts'
         );
 
-        const rawDataRepository = new RawDataRepository(database);
+        const transactionRepository = new TransactionRepository(database['db']);
+        const rawDataRepository = new RawDataRepository(transactionRepository);
         const sessionRepositoryAdapter = new ImportSessionRepositoryAdapter(database);
         const importerFactoryAdapter = new ImporterFactoryAdapter();
         const processorFactoryAdapter = new ProcessorFactoryAdapter();
-        const transactionRepositoryAdapter = new TransactionRepositoryAdapter(database);
 
         const ingestionService = new TransactionIngestionService(
           rawDataRepository,
           sessionRepositoryAdapter,
-          transactionRepositoryAdapter,
+          transactionRepository,
           importerFactoryAdapter,
           processorFactoryAdapter,
           providerManager
