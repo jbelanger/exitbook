@@ -5,7 +5,7 @@ import { getLogger } from '@crypto/shared-logger';
 import { HttpClient } from '@crypto/shared-utils';
 import jwt from 'jsonwebtoken';
 
-import type { ExchangeCredentials } from '../../shared/types/types.js';
+import type { ExchangeCredentials } from '../../../app/ports/importers.ts';
 
 import type {
   CoinbaseAccountsParams as CoinbaseAccountsParameters,

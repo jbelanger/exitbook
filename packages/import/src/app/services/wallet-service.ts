@@ -1,13 +1,13 @@
 import type { CreateWalletAddressRequest } from '@crypto/data';
 import { getLogger } from '@crypto/shared-logger';
 
-import type { WalletRepository } from '../../infrastructure/persistence/wallet-repository.ts';
+import type { IWalletRepository } from '../ports/wallet-repository.ts';
 
 export class WalletService {
   private logger = getLogger('WalletService');
-  private walletRepository: WalletRepository;
+  private walletRepository: IWalletRepository;
 
-  constructor(walletRepository: WalletRepository) {
+  constructor(walletRepository: IWalletRepository) {
     this.walletRepository = walletRepository;
   }
 

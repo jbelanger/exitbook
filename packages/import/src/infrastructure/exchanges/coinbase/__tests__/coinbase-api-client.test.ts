@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ExchangeCredentials } from '../../../shared/types/types.js';
+import type { ExchangeCredentials } from '../../../../app/ports/importers.ts';
 import { CoinbaseAPIClient } from '../coinbase-api-client.js';
 import type { RawCoinbaseAccount, RawCoinbaseTransaction } from '../types.js';
 

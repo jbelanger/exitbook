@@ -6,7 +6,9 @@ import type {
   WalletAddressQuery,
 } from '@crypto/data/src/types/data-types.ts';
 
-export class WalletRepository {
+import type { IWalletRepository } from '../../app/ports/wallet-repository.ts';
+
+export class WalletRepository implements IWalletRepository {
   private database: Database;
 
   constructor(database: Database) {

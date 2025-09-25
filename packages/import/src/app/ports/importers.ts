@@ -1,4 +1,16 @@
-import type { ExchangeCredentials } from '../../infrastructure/shared/types/types.ts';
+/**
+ * Authentication configuration for Coinbase API
+ */
+export interface ExchangeCredentials {
+  /** API key */
+  apiKey: string;
+  /** Passphrase associated with API key (not required for CDP keys) */
+  passphrase?: string | undefined;
+  /** Whether to use sandbox environment */
+  sandbox?: boolean | undefined;
+  /** API secret for signing requests */
+  secret: string;
+}
 
 export interface ImportParams {
   address?: string | undefined;
