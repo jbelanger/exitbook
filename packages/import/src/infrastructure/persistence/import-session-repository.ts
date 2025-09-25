@@ -2,6 +2,7 @@ import type { Database } from '@crypto/data/src/storage/database.ts';
 import type {
   ImportSession,
   ImportSessionQuery,
+  ImportSessionWithRawData,
   UpdateImportSessionRequest,
 } from '@crypto/data/src/types/data-types.ts';
 
@@ -63,5 +64,9 @@ export class ImportSessionRepository {
 
   async update(sessionId: number, updates: UpdateImportSessionRequest): Promise<void> {
     return this.database.updateImportSession(sessionId, updates);
+  }
+
+  async findWithRawData(filters: { sourceId: string }): Promise<ImportSessionWithRawData[]> {
+    return this.database.getImportSessionsWithRawData(filters);
   }
 }

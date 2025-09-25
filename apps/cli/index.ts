@@ -7,7 +7,7 @@ import { BalanceService } from '@crypto/balance/src/app/services/balance-service
 import { BalanceRepository } from '@crypto/balance/src/infrastructure/persistence/balance-repository';
 import type { StoredTransaction } from '@crypto/data';
 import { Database } from '@crypto/data';
-import { TransactionIngestionService } from '@crypto/import';
+import { BlockchainProviderManager, TransactionIngestionService } from '@crypto/import';
 import { getLogger } from '@crypto/shared-logger';
 import { initializeDatabase, loadExplorerConfig } from '@crypto/shared-utils';
 import { Command } from 'commander';
@@ -287,32 +287,28 @@ async function main() {
 
         // Create dependency adapters
         const {
-          BlockchainProviderManagerAdapter,
-          DatabaseAdapter,
           ImporterFactoryAdapter,
           ImportSessionRepositoryAdapter,
           ProcessorFactoryAdapter,
+          TransactionRepositoryAdapter,
         } = await import('@crypto/import/src/infrastructure/adapters/index.ts');
         const { RawDataRepository } = await import(
           '@crypto/import/src/infrastructure/persistence/raw-data-repository.ts'
         );
 
-        const databaseAdapter = new DatabaseAdapter(database);
         const rawDataRepository = new RawDataRepository(database);
         const sessionRepositoryAdapter = new ImportSessionRepositoryAdapter(database);
         const importerFactoryAdapter = new ImporterFactoryAdapter();
         const processorFactoryAdapter = new ProcessorFactoryAdapter();
-        const providerManagerAdapter = providerManager
-          ? new BlockchainProviderManagerAdapter(providerManager)
-          : undefined;
+        const transactionRepositoryAdapter = new TransactionRepositoryAdapter(database);
 
         const ingestionService = new TransactionIngestionService(
-          databaseAdapter,
           rawDataRepository,
           sessionRepositoryAdapter,
+          transactionRepositoryAdapter,
           importerFactoryAdapter,
           processorFactoryAdapter,
-          providerManagerAdapter
+          providerManager
         );
 
         try {
@@ -433,32 +429,28 @@ async function main() {
 
         // Create dependency adapters
         const {
-          BlockchainProviderManagerAdapter,
-          DatabaseAdapter,
           ImporterFactoryAdapter,
           ImportSessionRepositoryAdapter,
           ProcessorFactoryAdapter,
+          TransactionRepositoryAdapter,
         } = await import('@crypto/import/src/infrastructure/adapters/index.ts');
         const { RawDataRepository } = await import(
           '@crypto/import/src/infrastructure/persistence/raw-data-repository.ts'
         );
 
-        const databaseAdapter = new DatabaseAdapter(database);
         const rawDataRepository = new RawDataRepository(database);
         const sessionRepositoryAdapter = new ImportSessionRepositoryAdapter(database);
         const importerFactoryAdapter = new ImporterFactoryAdapter();
         const processorFactoryAdapter = new ProcessorFactoryAdapter();
-        const providerManagerAdapter = providerManager
-          ? new BlockchainProviderManagerAdapter(providerManager)
-          : undefined;
+        const transactionRepositoryAdapter = new TransactionRepositoryAdapter(database);
 
         const ingestionService = new TransactionIngestionService(
-          databaseAdapter,
           rawDataRepository,
           sessionRepositoryAdapter,
+          transactionRepositoryAdapter,
           importerFactoryAdapter,
           processorFactoryAdapter,
-          providerManagerAdapter
+          providerManager
         );
 
         try {

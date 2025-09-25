@@ -1,4 +1,4 @@
-import type { Database } from '@crypto/data';
+import type { Database, ImportSessionQuery, ImportSessionWithRawData, UpdateImportSessionRequest } from '@crypto/data';
 
 import type { IImportSessionRepository } from '../../app/ports/import-session-repository.ts';
 import { ImportSessionRepository } from '../persistence/import-session-repository.ts';
@@ -48,7 +48,7 @@ export class ImportSessionRepositoryAdapter implements IImportSessionRepository 
   }
 
   async findAll(filters?: unknown) {
-    return this.repository.findAll(filters);
+    return this.repository.findAll(filters as ImportSessionQuery);
   }
 
   async findById(sessionId: number) {
@@ -64,6 +64,10 @@ export class ImportSessionRepositoryAdapter implements IImportSessionRepository 
   }
 
   async update(sessionId: number, updates: unknown): Promise<void> {
-    return this.repository.update(sessionId, updates);
+    return this.repository.update(sessionId, updates as UpdateImportSessionRequest);
+  }
+
+  async findWithRawData(filters: { sourceId: string }): Promise<ImportSessionWithRawData[]> {
+    return Promise.resolve(this.repository.findWithRawData(filters));
   }
 }

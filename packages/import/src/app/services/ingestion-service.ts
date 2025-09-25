@@ -5,13 +5,13 @@ import { getLogger } from '@crypto/shared-logger';
 
 import type { ImportResult } from '../../index.ts';
 import type { IBlockchainProviderManager } from '../ports/blockchain-provider-manager.ts';
-import type { IDatabase } from '../ports/database.ts';
 import type { IImportSessionRepository } from '../ports/import-session-repository.ts';
 import type { IImporterFactory } from '../ports/importer-factory.ts';
 import type { ApiClientRawData, ImportParams } from '../ports/importers.ts';
 import type { IProcessorFactory } from '../ports/processor-factory.ts';
 import type { ProcessResult, ProcessingImportSession, ImportSessionMetadata } from '../ports/processors.ts';
 import type { IRawDataRepository, LoadRawDataFilters } from '../ports/raw-data-repository.ts';
+import type { ITransactionRepository } from '../ports/transaction-repository.ts';
 
 /**
  * Manages the ETL pipeline for cryptocurrency transaction data.
@@ -22,9 +22,9 @@ export class TransactionIngestionService {
   private logger: Logger;
 
   constructor(
-    private database: IDatabase,
     private rawDataRepository: IRawDataRepository,
     private sessionRepository: IImportSessionRepository,
+    private transactionRepository: ITransactionRepository,
     private importerFactory: IImporterFactory,
     private processorFactory: IProcessorFactory,
     private providerManager?: IBlockchainProviderManager
@@ -232,7 +232,7 @@ export class TransactionIngestionService {
       this.logger.info(`Found ${rawDataItems.length} raw data items to process for ${sourceId}`);
 
       // Use combined query to fetch sessions with their raw data in a single JOIN
-      const sessionsWithRawData = await this.database.getImportSessionsWithRawData({
+      const sessionsWithRawData = await this.sessionRepository.findWithRawData({
         sourceId: sourceId,
       });
 
@@ -291,7 +291,7 @@ export class TransactionIngestionService {
 
       for (const transaction of transactions) {
         try {
-          await this.database.saveTransaction(transaction);
+          await this.transactionRepository.save(transaction);
           savedCount++;
         } catch (error) {
           failed++;
