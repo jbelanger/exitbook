@@ -1,6 +1,5 @@
 import { Result } from 'neverthrow';
-import { ProcessedTransaction } from '../types/ProcessedTransaction';
-import { ClassifiedTransaction } from '../types/ClassifiedTransaction';
+import { ProcessedTransaction, ClassifiedTransaction } from '@crypto/core';
 import { ClassificationError } from './DomainError';
 import { BaseEventMetadata, createEventMetadata } from './EventMetadata';
 

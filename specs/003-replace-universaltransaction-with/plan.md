@@ -5,10 +5,11 @@
 
 ## Resume Instructions
 
-**Last Session**: 2025-09-24 - Phase 1 execution completed
-**Current Phase**: Phase 1 Complete
-**Next Task**: Ready for Phase 2 task generation via `/tasks` command
-**Completed Artifacts**: research.md, data-model.md, contracts/, quickstart.md, CLAUDE.md updated
+**Last Session**: 2025-09-25 - Phase 3.1 alignment completed, ready for contract tests
+**Current Phase**: Phase 3.1 Implementation (Foundation Complete, Tests Ready)
+**Next Task**: Execute contract tests (T005-T016) - all import/interface issues resolved
+**Completed Artifacts**: research.md, data-model.md, contracts/, quickstart.md, tasks.md, CLAUDE.md updated, contracts aligned with implementation
+**Implementation Progress**: Core types (T001-T004, T017-T024), database migration, schemas, contract alignment all implemented
 
 ## Execution Flow (/plan command scope)
 
@@ -43,7 +44,19 @@
 
 Replace the ambiguous `UniversalTransaction` with a cleaner `ProcessedTransaction` + Purpose Classifier architecture. This MVP focuses on deterministic processing of Kraken spot trades and Ethereum transfers, introducing clear separation between "what happened" (money flows) vs "why it happened" (purposes: PRINCIPAL, FEE, GAS) vs "how to book it" (accounting). The system must produce identical classification results across runs while maintaining financial precision using Decimal.js.
 
-**Arguments from user**: Think more and do Phase 0 only.
+**Current Status**: Implementation phase 3.1 foundation completed with contracts successfully aligned to match actual implementation.
+
+**RESOLVED**: Contract/implementation alignment completed successfully:
+
+- ✅ Updated contracts to use `Money2` interface matching implementation
+- ✅ Fixed import paths from relative to `@crypto/core` package imports
+- ✅ Aligned data-model.md with actual type definitions and schemas
+- ✅ All interface mismatches resolved between contracts and implementation
+- ⏳ CQRS handlers still need implementation but contracts are now accurate
+
+**Next Priority**: Execute contract tests (T005-T016) to validate the aligned contracts, then implement CQRS handlers.
+
+**Arguments from user**: Successfully resolved discrepancies using Option 1 - updated contracts to match implementation.
 
 ## Technical Context
 
@@ -267,19 +280,39 @@ _This checklist is updated during execution flow_
   - [x] Integration test scenarios extracted
   - [x] quickstart.md created from user stories
   - [x] Agent-specific file updated incrementally
-- [ ] Phase 2: Task planning complete (/plan command - describe approach only)
-- [ ] Phase 3: Tasks generated (/tasks command)
-- [ ] Phase 4: Implementation complete
+- [x] Phase 2: Task planning complete (/plan command - describe approach only)
+- [x] Phase 3: Tasks generated (/tasks command)
+- [⚡] Phase 4: Implementation in progress (Phase 3.1 Foundation Complete)
+  - [x] T001-T004: Setup tasks (types, migration, schemas, golden data)
+  - [x] T017-T024: Core types and entities implemented
+  - [x] **Contract Alignment**: Fixed import paths and interface mismatches
+  - [🚀] T005-T016: Contract and integration tests (ready to execute)
+  - [ ] T025-T040: Services, handlers, repositories
+  - [ ] T041-T050: Unit tests, validation, cleanup
 - [ ] Phase 5: Validation passed
 
 **Artifact Status** (auto-detected for resume):
+
+**Planning Artifacts:**
 
 - [x] `/specs/003-replace-universaltransaction-with/research.md` exists
 - [x] `/specs/003-replace-universaltransaction-with/data-model.md` exists
 - [x] `/specs/003-replace-universaltransaction-with/contracts/` directory exists
 - [x] `/specs/003-replace-universaltransaction-with/quickstart.md` exists
+- [x] `/specs/003-replace-universaltransaction-with/tasks.md` exists
 - [x] Agent file (CLAUDE.md) updated
-- [x] Contract tests created and failing
+
+**Implementation Artifacts (Phase 3.1 - Foundation Complete):**
+
+- [x] Core types: `ProcessedTransaction`, `ClassifiedTransaction`, `Money2`, `MovementUnclassified`, `MovementClassified`, `SourceDetails`, `ClassificationInfo`, `primitives`
+- [x] Error hierarchy: `packages/core/src/errors/index.ts` with structured domain errors
+- [x] Validation schemas: `packages/core/src/schemas/processed-transaction-schemas.ts` with comprehensive Zod schemas
+- [x] Database migration: `packages/data/src/migrations/003-processed-transactions.ts` with full schema
+- [x] Utility functions: `packages/core/src/utils/zod-utils.ts`
+- [x] Golden test data files: `specs/003-replace-universaltransaction-with/golden/`
+- [x] **Contract alignment**: Updated all contracts to match implementation (`Money2`, package imports)
+- [x] **Data model sync**: Updated `data-model.md` to reflect actual implementation
+- [🚀] Contract tests: Ready to execute (T005-T016) - all import/interface issues resolved
 
 **Gate Status**:
 
@@ -288,6 +321,8 @@ _This checklist is updated during execution flow_
 - [x] All NEEDS CLARIFICATION resolved
 - [x] Complexity deviations documented (none required)
 - [x] Resume state detected and validated
+- [x] **Contract/Implementation Alignment**: RESOLVED - All import paths and interface mismatches fixed
+- [🚀] **Ready for Contract Test Execution**: Phase 3.1 foundation complete
 
 ---
 

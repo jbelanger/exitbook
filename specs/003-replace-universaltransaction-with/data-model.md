@@ -17,26 +17,30 @@ export type IsoTimestamp = string; // ISO-8601 UTC
 export type DecimalString = string; // Validated: up to 18+ decimal places
 export type ExternalId = string; // Upstream ID (venue tx id, txHash)
 export type MovementId = string;
+export type Currency = string; // Currency code
+export type MovementSequence = number; // Movement order within transaction
+export type RulesetVersion = string; // Semver for classifier rules
 
 export type MovementDirection = 'IN' | 'OUT';
 export type MovementPurpose = 'PRINCIPAL' | 'FEE' | 'GAS';
+export type MovementHint = 'FEE' | 'GAS';
 ```
 
 ### Money Value Object
 
 ```typescript
-export interface Money {
-  amount: DecimalString; // JSON-safe; parse to Decimal at the edge
-  currency: string; // 'BTC', 'ETH', 'USDT', 'CAD', etc.
+export interface Money2 {
+  readonly amount: DecimalString; // JSON-safe; parse to Decimal at the edge
+  readonly currency: Currency; // 'BTC', 'ETH', 'USDT', 'CAD', etc.
 }
 
 // Validation schema
 export const DecimalStringSchema = z
   .string()
-  .regex(/^[0-9]+(\.[0-9]{1,18})?$/, 'Must be positive decimal with max 18 places')
-  .refine((val) => !val.startsWith('0.'), 'Amount must be > 0');
+  .regex(/^(?:0|[1-9]\d*)(?:\.\d{1,18})?$/, 'Max 18 decimals, no leading zeros')
+  .refine((v) => v !== '0', 'Amount must be > 0');
 
-export const MoneySchema = z.object({
+export const MoneySchema2 = z.object({
   amount: DecimalStringSchema,
   currency: z.string().min(1, 'Currency required'),
 });
@@ -68,12 +72,12 @@ Individual money flow emitted by processors - **no purpose assigned yet**.
 
 ```typescript
 export interface MovementUnclassified {
-  id: MovementId;
-  money: Money; // Amount is always POSITIVE
-  direction: MovementDirection; // IN to user, OUT from user
-  hint?: 'FEE' | 'GAS'; // Optional hint; classifier decides purpose
-  sequence?: number; // Order within transaction
-  metadata?: Record<string, unknown>;
+  readonly id: MovementId;
+  readonly money: Money2; // Amount is always POSITIVE
+  readonly direction: MovementDirection; // IN to user, OUT from user
+  readonly hint?: MovementHint | undefined; // Optional hint; classifier decides purpose
+  readonly sequence?: MovementSequence | undefined; // Order within transaction
+  readonly metadata?: Record<string, unknown> | undefined;
 }
 ```
 
@@ -108,10 +112,10 @@ Complete financial event with **unclassified** movements from processors.
 
 ```typescript
 export interface ProcessedTransaction {
-  id: ExternalId; // Stable upstream identifier
-  timestamp: IsoTimestamp;
-  source: SourceDetails;
-  movements: MovementUnclassified[]; // Processors emit UNCLASSIFIED only
+  readonly id: ExternalId; // Stable upstream identifier
+  readonly timestamp: IsoTimestamp;
+  readonly source: SourceDetails;
+  readonly movements: MovementUnclassified[]; // Processors emit UNCLASSIFIED only
 }
 ```
 
@@ -121,8 +125,8 @@ Result of running classifier on ProcessedTransaction.
 
 ```typescript
 export interface ClassifiedTransaction extends Omit<ProcessedTransaction, 'movements'> {
-  movements: MovementClassified[];
-  purposeRulesetVersion: string;
+  readonly movements: MovementClassified[];
+  readonly purposeRulesetVersion: RulesetVersion;
 }
 ```
 

@@ -1,5 +1,5 @@
 import { Result } from 'neverthrow';
-import { ProcessedTransaction } from '../types/ProcessedTransaction';
+import { ProcessedTransaction } from '@crypto/core';
 import { ProcessingError } from './DomainError';
 import { BaseEventMetadata } from './EventMetadata';
 

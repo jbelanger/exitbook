@@ -1,6 +1,5 @@
 import { Result } from 'neverthrow';
-import { ClassifiedTransaction } from '../types/ClassifiedTransaction';
-import { RepositoryError } from './DomainError';
+import { ClassifiedTransaction, RepositoryError } from '@crypto/core';
 
 /**
  * Query: Get Classified Transaction by ID

@@ -3,6 +3,5 @@
   "compilerOptions": {
     "allowImportingTsExtensions": true,
     "noEmit": true
-  },
-  "include": ["src", "../import/src/blockchains/polkadot/utils.ts"]
+  }
 }

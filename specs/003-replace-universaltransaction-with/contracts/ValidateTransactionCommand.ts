@@ -1,6 +1,5 @@
 import { Result } from 'neverthrow';
-import { ClassifiedTransaction } from '../types/ClassifiedTransaction';
-import { ValidationFailedError } from './DomainError';
+import { ClassifiedTransaction, ValidationFailedError } from '@crypto/core';
 import { BaseEventMetadata } from './EventMetadata';
 
 /**

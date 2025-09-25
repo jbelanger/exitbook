@@ -1,5 +1,5 @@
 import { Result } from 'neverthrow';
-import { RepositoryError } from './DomainError';
+import { RepositoryError } from '@crypto/core';
 
 /**
  * Query: Get Movement Classifications by Purpose

@@ -1,0 +1,78 @@
+{
+  "id": "trade-456",
+  "timestamp": "2023-09-24T10:00:00.000Z",
+  "source": {
+    "kind": "exchange",
+    "venue": "kraken",
+    "externalId": "trade-456",
+    "importSessionId": "session-1"
+  },
+  "movements": [
+    {
+      "id": "trade-456-usd-out",
+      "money": {
+        "amount": "100.00",
+        "currency": "USD"
+      },
+      "direction": "OUT",
+      "sequence": 1,
+      "metadata": {
+        "pair": "XBTUSD",
+        "type": "buy",
+        "originalCost": "100.00"
+      },
+      "classification": {
+        "purpose": "PRINCIPAL",
+        "ruleId": "exchange.kraken.trade.principal.v1",
+        "reason": "Kraken trade principal movement",
+        "version": "1.0.0",
+        "confidence": 1.0,
+        "classifiedAt": "2023-09-24T10:05:00.000Z"
+      }
+    },
+    {
+      "id": "trade-456-btc-in",
+      "money": {
+        "amount": "0.001",
+        "currency": "BTC"
+      },
+      "direction": "IN",
+      "sequence": 2,
+      "metadata": {
+        "pair": "XBTUSD",
+        "type": "buy",
+        "originalVol": "0.001"
+      },
+      "classification": {
+        "purpose": "PRINCIPAL",
+        "ruleId": "exchange.kraken.trade.principal.v1",
+        "reason": "Kraken trade principal movement",
+        "version": "1.0.0",
+        "confidence": 1.0,
+        "classifiedAt": "2023-09-24T10:05:00.000Z"
+      }
+    },
+    {
+      "id": "trade-456-fee",
+      "money": {
+        "amount": "0.50",
+        "currency": "USD"
+      },
+      "direction": "OUT",
+      "sequence": 3,
+      "metadata": {
+        "feeType": "trading",
+        "originalFee": "0.50"
+      },
+      "classification": {
+        "purpose": "FEE",
+        "ruleId": "exchange.kraken.trade.fee.v1",
+        "reason": "Kraken trading fee",
+        "version": "1.0.0",
+        "confidence": 1.0,
+        "classifiedAt": "2023-09-24T10:05:00.000Z"
+      }
+    }
+  ],
+  "purposeRulesetVersion": "1.0.0"
+}

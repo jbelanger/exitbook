@@ -68,15 +68,15 @@
 
 ### Contract Tests (Commands)
 
-- [ ] T005 [P] Contract test ProcessTransactionCommand with idempotency (handlers replay-safe, infra dedup before execution) in packages/import/src/commands/**tests**/ProcessTransactionCommand.test.ts
-- [ ] T006 [P] Contract test ClassifyMovementsCommand (idempotency, handler injects current version when rulesetVersion absent, assert events include version) in packages/import/src/commands/**tests**/ClassifyMovementsCommand.test.ts
-- [ ] T007 [P] Contract test ValidateTransactionCommand with idempotency in packages/import/src/commands/**tests**/ValidateTransactionCommand.test.ts
+- [ ] T005 [P] Contract test ProcessTransactionCommand with idempotency (handlers replay-safe, infra dedup before execution) in packages/import/src/app/commands/**tests**/ProcessTransactionCommand.test.ts
+- [ ] T006 [P] Contract test ClassifyMovementsCommand (idempotency, handler injects current version when rulesetVersion absent, assert events include version) in packages/import/src/app/commands/**tests**/ClassifyMovementsCommand.test.ts
+- [ ] T007 [P] Contract test ValidateTransactionCommand with idempotency in packages/import/src/app/commands/**tests**/ValidateTransactionCommand.test.ts
 
 ### Contract Tests (Queries)
 
-- [ ] T008 [P] Contract test GetClassifiedTransactionQuery (NOT_FOUND returns err(RepositoryError), not ok(undefined)) in packages/data/src/queries/**tests**/GetClassifiedTransactionQuery.test.ts
-- [ ] T009 [P] Contract test GetMovementsByPurposeQuery with pagination in packages/data/src/queries/**tests**/GetMovementsByPurposeQuery.test.ts
-- [ ] T010 [P] Contract test GetTransactionsBySourceQuery with pagination in packages/data/src/queries/**tests**/GetTransactionsBySourceQuery.test.ts
+- [ ] T008 [P] Contract test GetClassifiedTransactionQuery (NOT_FOUND returns err(RepositoryError), not ok(undefined)) in packages/import/src/app/queries/**tests**/GetClassifiedTransactionQuery.test.ts
+- [ ] T009 [P] Contract test GetMovementsByPurposeQuery with pagination in packages/import/src/app/queries/**tests**/GetMovementsByPurposeQuery.test.ts
+- [ ] T010 [P] Contract test GetTransactionsBySourceQuery with pagination in packages/import/src/app/queries/**tests**/GetTransactionsBySourceQuery.test.ts
 
 ### Integration Tests
 
@@ -102,15 +102,15 @@
 
 ### CQRS Command Handlers
 
-- [ ] T025 [P] ProcessTransactionCommandHandler implementation in packages/import/src/commands/ProcessTransactionCommandHandler.ts
-- [ ] T026 [P] ClassifyMovementsCommandHandler implementation in packages/import/src/commands/ClassifyMovementsCommandHandler.ts
-- [ ] T027 [P] ValidateTransactionCommandHandler implementation in packages/import/src/commands/ValidateTransactionCommandHandler.ts
+- [ ] T025 [P] ProcessTransactionCommandHandler implementation in packages/import/src/app/commands/ProcessTransactionCommandHandler.ts
+- [ ] T026 [P] ClassifyMovementsCommandHandler implementation in packages/import/src/app/commands/ClassifyMovementsCommandHandler.ts
+- [ ] T027 [P] ValidateTransactionCommandHandler implementation in packages/import/src/app/commands/ValidateTransactionCommandHandler.ts
 
 ### CQRS Query Handlers
 
-- [ ] T028 [P] GetClassifiedTransactionQueryHandler implementation in packages/data/src/queries/GetClassifiedTransactionQueryHandler.ts
-- [ ] T029 [P] GetMovementsByPurposeQueryHandler implementation in packages/data/src/queries/GetMovementsByPurposeQueryHandler.ts
-- [ ] T030 [P] GetTransactionsBySourceQueryHandler implementation in packages/data/src/queries/GetTransactionsBySourceQueryHandler.ts
+- [ ] T028 [P] GetClassifiedTransactionQueryHandler implementation in packages/import/src/app/queries/GetClassifiedTransactionQueryHandler.ts
+- [ ] T029 [P] GetMovementsByPurposeQueryHandler implementation in packages/import/src/app/queries/GetMovementsByPurposeQueryHandler.ts
+- [ ] T030 [P] GetTransactionsBySourceQueryHandler implementation in packages/import/src/app/queries/GetTransactionsBySourceQueryHandler.ts
 
 ### Core Services
 
@@ -144,7 +144,7 @@
 - [ ] T042 [P] Unit tests for TransactionValidator rules in packages/import/src/services/**tests**/TransactionValidator.test.ts
 - [ ] T043 [P] Unit tests for Money value object operations in packages/core/src/types/**tests**/Money.test.ts
 - [ ] T044 [P] Unit tests for UniversalTransactionBridge conversions in packages/import/src/bridges/**tests**/UniversalTransactionBridge.test.ts
-- [ ] T045 [P] Unit tests for event shapes (MovementsClassifiedEvent includes ruleId, confidence for every movement) in packages/import/src/commands/**tests**/event-shapes.test.ts
+- [ ] T045 [P] Unit tests for event shapes (MovementsClassifiedEvent includes ruleId, confidence for every movement) in packages/import/src/app/commands/**tests**/event-shapes.test.ts
 
 ### Validation and Cleanup
 
@@ -182,12 +182,12 @@
 
 ```bash
 # Launch T005-T010 together (different files, no dependencies):
-Task: "Contract test ProcessTransactionCommand in packages/import/src/commands/__tests__/ProcessTransactionCommand.test.ts"
-Task: "Contract test ClassifyMovementsCommand in packages/import/src/commands/__tests__/ClassifyMovementsCommand.test.ts"
-Task: "Contract test ValidateTransactionCommand in packages/import/src/commands/__tests__/ValidateTransactionCommand.test.ts"
-Task: "Contract test GetClassifiedTransactionQuery in packages/data/src/queries/__tests__/GetClassifiedTransactionQuery.test.ts"
-Task: "Contract test GetMovementsByPurposeQuery in packages/data/src/queries/__tests__/GetMovementsByPurposeQuery.test.ts"
-Task: "Contract test GetTransactionsBySourceQuery in packages/data/src/queries/__tests__/GetTransactionsBySourceQuery.test.ts"
+Task: "Contract test ProcessTransactionCommand in packages/import/src/app/commands/__tests__/ProcessTransactionCommand.test.ts"
+Task: "Contract test ClassifyMovementsCommand in packages/import/src/app/commands/__tests__/ClassifyMovementsCommand.test.ts"
+Task: "Contract test ValidateTransactionCommand in packages/import/src/app/commands/__tests__/ValidateTransactionCommand.test.ts"
+Task: "Contract test GetClassifiedTransactionQuery in packages/import/src/app/queries/__tests__/GetClassifiedTransactionQuery.test.ts"
+Task: "Contract test GetMovementsByPurposeQuery in packages/import/src/app/queries/__tests__/GetMovementsByPurposeQuery.test.ts"
+Task: "Contract test GetTransactionsBySourceQuery in packages/import/src/app/queries/__tests__/GetTransactionsBySourceQuery.test.ts"
 ```
 
 ### Phase 3.2: Launch all integration tests together

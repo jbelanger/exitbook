@@ -1,5 +1,4 @@
 import type { Decimal } from 'decimal.js';
-import type { Result } from 'neverthrow';
 
 // Money type for consistent amount and currency structure with high precision
 export interface Money {

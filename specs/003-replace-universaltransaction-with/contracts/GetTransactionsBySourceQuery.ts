@@ -1,6 +1,5 @@
 import { Result } from 'neverthrow';
-import { ProcessedTransaction } from '../types/ProcessedTransaction';
-import { RepositoryError } from './DomainError';
+import { ProcessedTransaction, RepositoryError } from '@crypto/core';
 
 /**
  * Query: Get Processed Transactions by Source

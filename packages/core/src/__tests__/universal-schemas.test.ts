@@ -8,7 +8,7 @@ import {
   UniversalTransactionSchema,
   validateUniversalBalances,
   validateUniversalTransactions,
-} from '../validation/universal-schemas.js';
+} from '../schemas/universal-schemas.ts';
 
 describe('Universal Schemas Validation', () => {
   describe('MoneySchema', () => {

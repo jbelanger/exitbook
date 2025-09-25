@@ -170,6 +170,9 @@ importers:
       decimal.js:
         specifier: ^10.6.0
         version: 10.6.0
+      neverthrow:
+        specifier: ^8.2.0
+        version: 8.2.0
       zod:
         specifier: ^4.0.17
         version: 4.0.17

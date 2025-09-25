@@ -1,0 +1,12 @@
+{
+  "ordertxid": "bad-trade-123",
+  "time": 1695547200,
+  "type": "buy",
+  "vol": "0.002",
+  "pair": "XBTUSD",
+  "price": "100000.00",
+  "cost": "100.00",
+  "fee": "0.00",
+  "misc": "",
+  "note": "This trade is intentionally unbalanced for validation failure testing"
+}
