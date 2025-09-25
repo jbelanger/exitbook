@@ -10,7 +10,7 @@ import type { BlockchainExplorersConfig } from '@crypto/shared-utils';
 
 // Import all providers to trigger registration
 import '../blockchains/registry/register-providers.ts';
-import { ProviderRegistry } from '../blockchains/shared/registry/index.ts';
+import { ProviderRegistry } from '../infrastructure/blockchains/shared/registry/index.ts';
 
 interface SyncResult {
   blockchain: string;

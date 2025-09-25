@@ -20,9 +20,9 @@ export abstract class DomainError extends Error {
   constructor(
     message: string,
     context?: {
-      additionalContext?: Record<string, unknown>;
-      requestId?: string;
-      transactionId?: string;
+      additionalContext?: Record<string, unknown> | undefined;
+      requestId?: string | undefined;
+      transactionId?: string | undefined;
     }
   ) {
     super(message);
@@ -110,12 +110,12 @@ export class ValidationFailedError extends DomainError {
     public readonly violations: {
       message: string;
       rule: string;
-      violations?: string[];
+      violations?: string[] | undefined;
     }[],
     context?: {
-      additionalContext?: Record<string, unknown>;
-      requestId?: string;
-      transactionId?: string;
+      additionalContext?: Record<string, unknown> | undefined;
+      requestId?: string | undefined;
+      transactionId?: string | undefined;
     }
   ) {
     const message = `Validation failed: ${violations.map((v) => v.message).join('; ')}`;

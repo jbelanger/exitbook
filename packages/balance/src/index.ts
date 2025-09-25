@@ -7,4 +7,4 @@ export type {
 } from './types/balance-types.js';
 
 // Services
-export { BalanceVerifier } from './services/balance-verifier.js';
+export { BalanceVerifier } from './app/services/balance-verifier.js';

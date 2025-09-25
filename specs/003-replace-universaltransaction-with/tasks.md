@@ -42,10 +42,10 @@
 
 ## Phase 3.1: Setup (Foundation)
 
-- [ ] T001 Create TypeScript interfaces and types in packages/core/src/types/
-- [ ] T002 [P] Add database migration script for ProcessedTransaction tables in packages/data/migrations/
-- [ ] T003 [P] Configure Zod validation schemas in packages/core/src/schemas/
-- [ ] T004 [P] Set up test golden data files in specs/003-replace-universaltransaction-with/golden/
+- [x] T001 Create TypeScript interfaces and types in packages/core/src/types/
+- [x] T002 [P] Add database migration script for ProcessedTransaction tables in packages/data/migrations/
+- [x] T003 [P] Configure Zod validation schemas in packages/core/src/schemas/
+- [x] T004 [P] Set up test golden data files in specs/003-replace-universaltransaction-with/golden/
 
 ## Phase 3.2: Tests First (TDD) ⚠️ MUST COMPLETE BEFORE 3.3
 
@@ -68,43 +68,43 @@
 
 ### Contract Tests (Commands)
 
-- [ ] T005 [P] Contract test ProcessTransactionCommand with idempotency (handlers replay-safe, infra dedup before execution) in packages/import/src/app/commands/**tests**/ProcessTransactionCommand.test.ts
-- [ ] T006 [P] Contract test ClassifyMovementsCommand (idempotency, handler injects current version when rulesetVersion absent, assert events include version) in packages/import/src/app/commands/**tests**/ClassifyMovementsCommand.test.ts
-- [ ] T007 [P] Contract test ValidateTransactionCommand with idempotency in packages/import/src/app/commands/**tests**/ValidateTransactionCommand.test.ts
+- [x] T005 [P] Contract test ProcessTransactionCommand with idempotency (handlers replay-safe, infra dedup before execution) in packages/import/src/app/commands/**tests**/ProcessTransactionCommand.test.ts
+- [x] T006 [P] Contract test ClassifyMovementsCommand (idempotency, handler injects current version when rulesetVersion absent, assert events include version) in packages/import/src/app/commands/**tests**/ClassifyMovementsCommand.test.ts
+- [x] T007 [P] Contract test ValidateTransactionCommand with idempotency in packages/import/src/app/commands/**tests**/ValidateTransactionCommand.test.ts
 
 ### Contract Tests (Queries)
 
-- [ ] T008 [P] Contract test GetClassifiedTransactionQuery (NOT_FOUND returns err(RepositoryError), not ok(undefined)) in packages/import/src/app/queries/**tests**/GetClassifiedTransactionQuery.test.ts
-- [ ] T009 [P] Contract test GetMovementsByPurposeQuery with pagination in packages/import/src/app/queries/**tests**/GetMovementsByPurposeQuery.test.ts
-- [ ] T010 [P] Contract test GetTransactionsBySourceQuery with pagination in packages/import/src/app/queries/**tests**/GetTransactionsBySourceQuery.test.ts
+- [x] T008 [P] Contract test GetClassifiedTransactionQuery (NOT_FOUND returns err(RepositoryError), not ok(undefined)) in packages/import/src/app/queries/**tests**/GetClassifiedTransactionQuery.test.ts
+- [x] T009 [P] Contract test GetMovementsByPurposeQuery with pagination in packages/import/src/app/queries/**tests**/GetMovementsByPurposeQuery.test.ts
+- [x] T010 [P] Contract test GetTransactionsBySourceQuery with pagination in packages/import/src/app/queries/**tests**/GetTransactionsBySourceQuery.test.ts
 
 ### Integration Tests
 
-- [ ] T011 [P] Integration test UniversalTransaction-to-ProcessedTransaction conversion bridge for legacy CSV import compatibility in packages/import/src/**tests**/integration/universal-transaction-bridge.test.ts
-- [ ] T012 [P] Integration test Kraken trade classification with golden fixtures (byte-identical outputs) in packages/import/src/**tests**/integration/kraken-trade-classification.test.ts
-- [ ] T013 [P] Integration test Ethereum transfer classification with golden fixtures in packages/import/src/**tests**/integration/ethereum-transfer-classification.test.ts
-- [ ] T014 [P] Integration test deterministic processing (golden fixtures, byte-identical across runs) in packages/import/src/**tests**/integration/deterministic-processing.test.ts
-- [ ] T015 [P] Integration test validation failure handling (validate classified movements: trade principals balance by currency + fees OUT, transfer principals net zero + gas OUT, full tx rejection on any failure) in packages/import/src/**tests**/integration/validation-failure.test.ts
-- [ ] T016 [P] Integration test transaction query operations in packages/data/src/**tests**/integration/transaction-queries.test.ts
+- [x] T011 [P] Integration test UniversalTransaction-to-ProcessedTransaction conversion bridge for legacy CSV import compatibility in packages/import/src/**tests**/integration/universal-transaction-bridge.test.ts
+- [x] T012 [P] Integration test Kraken trade classification with golden fixtures (byte-identical outputs) in packages/import/src/**tests**/integration/kraken-trade-classification.test.ts
+- [x] T013 [P] Integration test Ethereum transfer classification with golden fixtures in packages/import/src/**tests**/integration/ethereum-transfer-classification.test.ts
+- [x] T014 [P] Integration test deterministic processing (golden fixtures, byte-identical across runs) in packages/import/src/**tests**/integration/deterministic-processing.test.ts
+- [x] T015 [P] Integration test validation failure handling (validate classified movements: trade principals balance by currency + fees OUT, transfer principals net zero + gas OUT, full tx rejection on any failure) in packages/import/src/**tests**/integration/validation-failure.test.ts
+- [x] T016 [P] Integration test transaction query operations in packages/data/src/**tests**/integration/transaction-queries.test.ts
 
 ## Phase 3.3: Core Implementation (ONLY after tests are failing)
 
 ### Core Types and Entities
 
-- [ ] T017 [P] ProcessedTransaction type in packages/core/src/types/ProcessedTransaction.ts
-- [ ] T018 [P] ClassifiedTransaction type in packages/core/src/types/ClassifiedTransaction.ts
-- [ ] T019 [P] MovementUnclassified type in packages/core/src/types/MovementUnclassified.ts
-- [ ] T020 [P] MovementClassified type in packages/core/src/types/MovementClassified.ts
-- [ ] T021 [P] Money value object in packages/core/src/types/Money.ts
-- [ ] T022 [P] SourceDetails type in packages/core/src/types/SourceDetails.ts
-- [ ] T023 [P] ClassificationInfo type in packages/core/src/types/ClassificationInfo.ts
-- [ ] T024 [P] Error types hierarchy in packages/core/src/errors/
+- [x] T017 [P] ProcessedTransaction type in packages/core/src/types/ProcessedTransaction.ts
+- [x] T018 [P] ClassifiedTransaction type in packages/core/src/types/ClassifiedTransaction.ts
+- [x] T019 [P] MovementUnclassified type in packages/core/src/types/MovementUnclassified.ts
+- [x] T020 [P] MovementClassified type in packages/core/src/types/MovementClassified.ts
+- [x] T021 [P] Money value object in packages/core/src/types/Money.ts
+- [x] T022 [P] SourceDetails type in packages/core/src/types/SourceDetails.ts
+- [x] T023 [P] ClassificationInfo type in packages/core/src/types/ClassificationInfo.ts
+- [x] T024 [P] Error types hierarchy in packages/core/src/errors/
 
 ### CQRS Command Handlers
 
-- [ ] T025 [P] ProcessTransactionCommandHandler implementation in packages/import/src/app/commands/ProcessTransactionCommandHandler.ts
-- [ ] T026 [P] ClassifyMovementsCommandHandler implementation in packages/import/src/app/commands/ClassifyMovementsCommandHandler.ts
-- [ ] T027 [P] ValidateTransactionCommandHandler implementation in packages/import/src/app/commands/ValidateTransactionCommandHandler.ts
+- [x] T025 [P] ProcessTransactionCommandHandler implementation in packages/import/src/app/commands/ProcessTransactionCommandHandler.ts
+- [x] T026 [P] ClassifyMovementsCommandHandler implementation in packages/import/src/app/commands/ClassifyMovementsCommandHandler.ts
+- [x] T027 [P] ValidateTransactionCommandHandler implementation in packages/import/src/app/commands/ValidateTransactionCommandHandler.ts
 
 ### CQRS Query Handlers
 

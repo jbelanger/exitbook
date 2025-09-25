@@ -136,6 +136,9 @@ importers:
       '@crypto/shared-logger':
         specifier: workspace:*
         version: link:../shared/logger
+      '@crypto/shared-utils':
+        specifier: workspace:*
+        version: link:../shared/utils
       decimal.js:
         specifier: ^10.6.0
         version: 10.6.0

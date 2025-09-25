@@ -113,3 +113,38 @@ export function validateClassifiedMovement(
 
   return ok(movement);
 }
+
+/**
+ * Validate all movements in a classified transaction
+ */
+export function validateAllClassifiedMovements(
+  movements: MovementClassified[]
+): Result<MovementClassified[], ValidationFailedError> {
+  const invalidMovements: string[] = [];
+  const violationMessages: string[] = [];
+
+  for (const movement of movements) {
+    const validationResult = validateClassifiedMovement(movement);
+    if (validationResult.isErr()) {
+      invalidMovements.push(movement.id);
+      if (validationResult.error instanceof ValidationFailedError) {
+        violationMessages.push(`Movement ${movement.id}: ${validationResult.error.message}`);
+      } else {
+        violationMessages.push(`Movement ${movement.id}: Schema validation failed`);
+      }
+    }
+  }
+
+  if (invalidMovements.length > 0) {
+    const violations = [
+      {
+        message: `Movement validation failed: ${violationMessages.join('; ')}`,
+        rule: 'all-classified-movements',
+        violations: invalidMovements,
+      },
+    ];
+    return err(new ValidationFailedError(violations));
+  }
+
+  return ok(movements);
+}

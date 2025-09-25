@@ -14,16 +14,6 @@ export interface ValidateTransactionCommand {
 }
 
 /**
- * Validation result for individual rules
- */
-export interface ValidationResult {
-  readonly isValid: boolean;
-  readonly rule: string;
-  readonly message: string;
-  readonly violations?: string[];
-}
-
-/**
  * Command Handler Interface
  */
 export interface ValidateTransactionCommandHandler {

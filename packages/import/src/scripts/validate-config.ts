@@ -7,7 +7,7 @@
 import { loadExplorerConfig } from '@crypto/shared-utils';
 
 import '../blockchains/registry/register-providers.ts';
-import { ProviderRegistry } from '../blockchains/shared/registry/index.ts';
+import { ProviderRegistry } from '../infrastructure/blockchains/shared/registry/index.ts';
 
 interface ConfigValidationOptions {
   fix?: boolean;

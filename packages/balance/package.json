@@ -1,9 +1,9 @@
 {
   "name": "@crypto/balance",
-  "license": "AGPL-3.0",
   "version": "0.1.0",
   "private": true,
   "description": "Balance verification and management services",
+  "license": "AGPL-3.0",
   "type": "module",
   "main": "src/index.ts",
   "types": "src/index.ts",
@@ -20,6 +20,7 @@
     "@crypto/core": "workspace:*",
     "@crypto/data": "workspace:*",
     "@crypto/shared-logger": "workspace:*",
+    "@crypto/shared-utils": "workspace:*",
     "decimal.js": "^10.6.0"
   },
   "devDependencies": {

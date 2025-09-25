@@ -105,3 +105,86 @@ export function createProcessedTransaction(
 
   return fromZod(ProcessedTransactionSchema, transaction);
 }
+
+/**
+ * Validate that transaction has movements
+ */
+export function validateTransactionHasMovements(
+  transaction: ProcessedTransaction
+): Result<void, ValidationFailedError> {
+  if (!transaction.movements || transaction.movements.length === 0) {
+    return err(
+      new ValidationFailedError(
+        [
+          {
+            message: 'Transaction must have at least one movement',
+            rule: 'transaction-has-movements',
+          },
+        ],
+        { transactionId: transaction.id }
+      )
+    );
+  }
+  return ok();
+}
+
+/**
+ * Validate that all movement amounts are valid decimal strings
+ */
+export function validateMovementAmounts(transaction: ProcessedTransaction): Result<void, ValidationFailedError> {
+  const invalidMovements: string[] = [];
+  const decimalRegex = /^(?:0|[1-9]\d*)(?:\.\d{1,18})?$/;
+
+  for (const movement of transaction.movements) {
+    const amount = movement.money.amount;
+    if (!decimalRegex.test(amount) || amount === '0') {
+      invalidMovements.push(movement.id);
+    }
+  }
+
+  if (invalidMovements.length > 0) {
+    return err(
+      new ValidationFailedError(
+        [
+          {
+            message: 'Invalid movement amounts. Must be positive DecimalString with max 18 decimal places',
+            rule: 'valid-movement-amounts',
+            violations: invalidMovements,
+          },
+        ],
+        { transactionId: transaction.id }
+      )
+    );
+  }
+
+  return ok();
+}
+
+/**
+ * Validate that transaction source is supported for MVP
+ */
+export function validateSupportedSource(source: SourceDetails): Result<void, ValidationFailedError> {
+  if (source.kind === 'exchange' && source.venue !== 'kraken') {
+    return err(
+      new ValidationFailedError([
+        {
+          message: `Unsupported exchange venue: ${source.venue}. MVP only supports: kraken`,
+          rule: 'supported-source',
+        },
+      ])
+    );
+  }
+
+  if (source.kind === 'blockchain' && source.chain !== 'ethereum') {
+    return err(
+      new ValidationFailedError([
+        {
+          message: `Unsupported blockchain: ${source.chain}. MVP only supports: ethereum`,
+          rule: 'supported-source',
+        },
+      ])
+    );
+  }
+
+  return ok();
+}

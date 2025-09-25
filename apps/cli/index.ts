@@ -3,8 +3,11 @@ import path from 'node:path';
 
 import { type BalanceVerificationResult, BalanceVerifier } from '@crypto/balance';
 import 'reflect-metadata';
-import { BalanceRepository, BalanceService, Database, type StoredTransaction } from '@crypto/data';
-import { TransactionIngestionService } from '@crypto/import/src/services/ingestion-service';
+import { BalanceService } from '@crypto/balance/src/app/services/balance-service';
+import { BalanceRepository } from '@crypto/balance/src/infrastructure/persistence/balance-repository';
+import type { StoredTransaction } from '@crypto/data';
+import { Database } from '@crypto/data';
+import { TransactionIngestionService } from '@crypto/import';
 import { getLogger } from '@crypto/shared-logger';
 import { initializeDatabase, loadExplorerConfig } from '@crypto/shared-utils';
 import { Command } from 'commander';
@@ -273,11 +276,11 @@ async function main() {
 
         // Import blockchain dependencies conditionally
         let providerManager:
-          | import('@crypto/import/src/blockchains/shared/blockchain-provider-manager.ts').BlockchainProviderManager
+          | import('@crypto/import/src/infrastructure/blockchains/shared/blockchain-provider-manager.ts').BlockchainProviderManager
           | undefined;
         if (sourceType === 'blockchain') {
           const { BlockchainProviderManager } = await import(
-            '@crypto/import/src/blockchains/shared/blockchain-provider-manager.ts'
+            '@crypto/import/src/infrastructure/blockchains/shared/blockchain-provider-manager.ts'
           );
           providerManager = new BlockchainProviderManager(explorerConfig);
         }
@@ -391,11 +394,11 @@ async function main() {
 
         // Import blockchain dependencies conditionally
         let providerManager:
-          | import('@crypto/import/src/blockchains/shared/blockchain-provider-manager.ts').BlockchainProviderManager
+          | import('@crypto/import/src/infrastructure/blockchains/shared/blockchain-provider-manager.ts').BlockchainProviderManager
           | undefined;
         if (sourceType === 'blockchain') {
           const { BlockchainProviderManager } = await import(
-            '@crypto/import/src/blockchains/shared/blockchain-provider-manager.ts'
+            '@crypto/import/src/infrastructure/blockchains/shared/blockchain-provider-manager.ts'
           );
           providerManager = new BlockchainProviderManager(explorerConfig);
         }
@@ -457,16 +460,18 @@ async function main() {
         logger.info('');
 
         // Get supported blockchains from ProcessorFactory
-        const { ProcessorFactory } = await import('@crypto/import/src/shared/processors/processor-factory.ts');
+        const { ProcessorFactory } = await import(
+          '@crypto/import/src/infrastructure/shared/processors/processor-factory.ts'
+        );
         const supportedBlockchains = ProcessorFactory.getSupportedSources('blockchain');
 
         // Also get provider information for completeness
         const { ProviderRegistry } = await import(
-          '@crypto/import/src/blockchains/shared/registry/provider-registry.ts'
+          '@crypto/import/src/infrastructure/blockchains/shared/registry/provider-registry.ts'
         );
 
         // Import all providers to ensure they're registered
-        await import('@crypto/import/src/blockchains/registry/register-providers.ts');
+        await import('@crypto/import/src/infrastructure/blockchains/registry/register-providers.ts');
 
         // Get all providers and group by blockchain
         const allProviders = ProviderRegistry.getAllProviders();

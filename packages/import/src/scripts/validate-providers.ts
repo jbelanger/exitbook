@@ -7,7 +7,7 @@ import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
 import '../blockchains/registry/register-providers.ts';
-import { ProviderRegistry } from '../blockchains/shared/registry/index.ts';
+import { ProviderRegistry } from '../infrastructure/blockchains/shared/registry/index.ts';
 
 interface ValidationError {
   message: string;
