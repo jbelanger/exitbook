@@ -1,18 +1,17 @@
 import type { UniversalTransaction } from '@crypto/core';
-import type { Database } from '@crypto/data';
 import { type StoredRawData } from '@crypto/data';
 import type { Logger } from '@crypto/shared-logger';
 import { getLogger } from '@crypto/shared-logger';
 
 import type { ImportResult } from '../../index.ts';
-import type { BlockchainProviderManager } from '../../infrastructure/blockchains/shared/blockchain-provider-manager.ts';
-import { ImportSessionRepository } from '../../infrastructure/persistence/import-session-repository.ts';
-import type { LoadRawDataFilters } from '../../infrastructure/persistence/raw-data-repository.ts';
-import { RawDataRepository } from '../../infrastructure/persistence/raw-data-repository.ts';
-import { ImporterFactory } from '../../infrastructure/shared/importers/importer-factory.ts';
-import { ProcessorFactory } from '../../infrastructure/shared/processors/processor-factory.ts';
+import type { IBlockchainProviderManager } from '../ports/blockchain-provider-manager.ts';
+import type { IDatabase } from '../ports/database.ts';
+import type { IImportSessionRepository } from '../ports/import-session-repository.ts';
+import type { IImporterFactory } from '../ports/importer-factory.ts';
 import type { ApiClientRawData, ImportParams } from '../ports/importers.ts';
+import type { IProcessorFactory } from '../ports/processor-factory.ts';
 import type { ProcessResult, ProcessingImportSession, ImportSessionMetadata } from '../ports/processors.ts';
+import type { IRawDataRepository, LoadRawDataFilters } from '../ports/raw-data-repository.ts';
 
 /**
  * Manages the ETL pipeline for cryptocurrency transaction data.
@@ -21,18 +20,16 @@ import type { ProcessResult, ProcessingImportSession, ImportSessionMetadata } fr
  */
 export class TransactionIngestionService {
   private logger: Logger;
-  private providerManager?: BlockchainProviderManager | undefined;
-  private rawDataRepository: RawDataRepository;
-  private sessionRepository: ImportSessionRepository;
 
   constructor(
-    private database: Database,
-    providerManager?: BlockchainProviderManager
+    private database: IDatabase,
+    private rawDataRepository: IRawDataRepository,
+    private sessionRepository: IImportSessionRepository,
+    private importerFactory: IImporterFactory,
+    private processorFactory: IProcessorFactory,
+    private providerManager?: IBlockchainProviderManager
   ) {
     this.logger = getLogger('TransactionIngestionService');
-    this.sessionRepository = new ImportSessionRepository(this.database);
-    this.rawDataRepository = new RawDataRepository(this.database);
-    this.providerManager = providerManager;
   }
 
   /**
@@ -124,7 +121,7 @@ export class TransactionIngestionService {
       this.logger.debug(`Created import session: ${importSessionId}`);
 
       // Create importer
-      const importer = await ImporterFactory.create(sourceId, sourceType, params.providerId, this.providerManager);
+      const importer = await this.importerFactory.create(sourceId, sourceType, params.providerId, this.providerManager);
 
       // Validate source before import
       const isValidSource = await importer.canImport(params);
@@ -264,7 +261,7 @@ export class TransactionIngestionService {
         }
 
         // Create processor with session-specific context
-        const processor = await ProcessorFactory.create(sourceId, sourceType);
+        const processor = await this.processorFactory.create(sourceId, sourceType);
 
         // Create ProcessingImportSession for this session
         const processingSession: ProcessingImportSession = {

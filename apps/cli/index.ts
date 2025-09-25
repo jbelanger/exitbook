@@ -285,7 +285,35 @@ async function main() {
           providerManager = new BlockchainProviderManager(explorerConfig);
         }
 
-        const ingestionService = new TransactionIngestionService(database, providerManager);
+        // Create dependency adapters
+        const {
+          BlockchainProviderManagerAdapter,
+          DatabaseAdapter,
+          ImporterFactoryAdapter,
+          ImportSessionRepositoryAdapter,
+          ProcessorFactoryAdapter,
+        } = await import('@crypto/import/src/infrastructure/adapters/index.ts');
+        const { RawDataRepository } = await import(
+          '@crypto/import/src/infrastructure/persistence/raw-data-repository.ts'
+        );
+
+        const databaseAdapter = new DatabaseAdapter(database);
+        const rawDataRepository = new RawDataRepository(database);
+        const sessionRepositoryAdapter = new ImportSessionRepositoryAdapter(database);
+        const importerFactoryAdapter = new ImporterFactoryAdapter();
+        const processorFactoryAdapter = new ProcessorFactoryAdapter();
+        const providerManagerAdapter = providerManager
+          ? new BlockchainProviderManagerAdapter(providerManager)
+          : undefined;
+
+        const ingestionService = new TransactionIngestionService(
+          databaseAdapter,
+          rawDataRepository,
+          sessionRepositoryAdapter,
+          importerFactoryAdapter,
+          processorFactoryAdapter,
+          providerManagerAdapter
+        );
 
         try {
           // Parse options
@@ -403,7 +431,35 @@ async function main() {
           providerManager = new BlockchainProviderManager(explorerConfig);
         }
 
-        const ingestionService = new TransactionIngestionService(database, providerManager);
+        // Create dependency adapters
+        const {
+          BlockchainProviderManagerAdapter,
+          DatabaseAdapter,
+          ImporterFactoryAdapter,
+          ImportSessionRepositoryAdapter,
+          ProcessorFactoryAdapter,
+        } = await import('@crypto/import/src/infrastructure/adapters/index.ts');
+        const { RawDataRepository } = await import(
+          '@crypto/import/src/infrastructure/persistence/raw-data-repository.ts'
+        );
+
+        const databaseAdapter = new DatabaseAdapter(database);
+        const rawDataRepository = new RawDataRepository(database);
+        const sessionRepositoryAdapter = new ImportSessionRepositoryAdapter(database);
+        const importerFactoryAdapter = new ImporterFactoryAdapter();
+        const processorFactoryAdapter = new ProcessorFactoryAdapter();
+        const providerManagerAdapter = providerManager
+          ? new BlockchainProviderManagerAdapter(providerManager)
+          : undefined;
+
+        const ingestionService = new TransactionIngestionService(
+          databaseAdapter,
+          rawDataRepository,
+          sessionRepositoryAdapter,
+          importerFactoryAdapter,
+          processorFactoryAdapter,
+          providerManagerAdapter
+        );
 
         try {
           // Parse filters

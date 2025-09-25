@@ -2,55 +2,11 @@ import type { Database } from '@crypto/data/src/storage/database.ts';
 import type { StoredRawData } from '@crypto/data/src/types/data-types.ts';
 import { getLogger } from '@crypto/shared-logger';
 
-export interface SaveRawDataOptions {
-  importSessionId?: number | undefined;
-  metadata?: unknown;
-  providerId?: string | undefined;
-}
-
-export interface LoadRawDataFilters {
-  importSessionId?: number | undefined;
-  processingStatus?: 'pending' | 'processed' | 'failed' | undefined;
-  providerId?: string | undefined;
-  since?: number | undefined;
-  sourceId?: string | undefined;
-}
-
-/**
- * Interface for storing and retrieving external data.
- * Abstracts the database operations for external transaction storage.
- */
-export interface IRawDataRepository {
-  /**
-   * Load external data from storage with optional filtering.
-   */
-  load(filters?: LoadRawDataFilters): Promise<StoredRawData[]>;
-
-  /**
-   * Mark multiple items as processed.
-   */
-  markAsProcessed(sourceId: string, sourceTransactionIds: number[], providerId?: string): Promise<void>;
-
-  /**
-   * Save external data items to storage.
-   */
-  save(
-    sourceId: string,
-    sourceType: string,
-    rawData: { data: unknown; id: string }[],
-    options?: SaveRawDataOptions
-  ): Promise<number>;
-
-  /**
-   * Update the processing status of external data items.
-   */
-  updateProcessingStatus(
-    rawTransactionId: number,
-    status: 'pending' | 'processed' | 'failed',
-    error?: string,
-    providerId?: string
-  ): Promise<void>;
-}
+import type {
+  IRawDataRepository,
+  LoadRawDataFilters,
+  SaveRawDataOptions,
+} from '../../app/ports/raw-data-repository.ts';
 
 /**
  * Database implementation of IExternalDataStore.
