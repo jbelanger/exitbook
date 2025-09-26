@@ -1,5 +1,6 @@
 import type { StoredRawData } from '@crypto/data/src/types/data-types.ts';
 import { getLogger } from '@crypto/shared-logger';
+import type sqlite3Module from 'sqlite3';
 
 import type {
   IRawDataRepository,
@@ -7,41 +8,82 @@ import type {
   SaveRawDataOptions,
 } from '../../app/ports/raw-data-repository.ts';
 
-import type { TransactionRepository } from './transaction-repository.ts';
+type SQLiteDatabase = InstanceType<typeof sqlite3Module.Database>;
 
 /**
- * Database implementation of IExternalDataStore.
- * Uses the enhanced external_transaction_data table for storing raw data.
+ * Database implementation of IRawDataRepository.
+ * Manages raw external transaction data storage and retrieval.
  */
 export class RawDataRepository implements IRawDataRepository {
   private logger = getLogger('RawDataRepository');
 
-  constructor(private transactionRepository: TransactionRepository) {}
+  constructor(private db: SQLiteDatabase) {}
 
   async load(filters?: LoadRawDataFilters): Promise<StoredRawData[]> {
     this.logger.info(`Loading raw data with filters: ${JSON.stringify(filters)}`);
 
-    try {
-      const rawData = await this.transactionRepository.getRawTransactions(filters);
+    return new Promise((resolve, reject) => {
+      let query = 'SELECT * FROM external_transaction_data';
+      const params: (string | number)[] = [];
+      const conditions: string[] = [];
 
-      this.logger.info(`Loaded ${rawData.length} raw data items`);
-      return rawData.map((item) => ({
-        createdAt: item.createdAt,
-        id: item.id,
-        importSessionId: item.importSessionId,
-        metadata: item.metadata,
-        processedAt: item.processedAt,
-        processingError: item.processingError,
-        processingStatus: item.processingStatus,
-        providerId: item.providerId,
-        rawData: item.rawData,
-        sourceId: item.sourceId,
-        sourceType: item.sourceType,
-      }));
-    } catch (error) {
-      this.logger.error(`Failed to load raw data: ${String(error)}`);
-      throw error;
-    }
+      if (filters?.sourceId) {
+        conditions.push('source_id = ?');
+        params.push(filters.sourceId);
+      }
+
+      if (filters?.importSessionId) {
+        conditions.push('import_session_id = ?');
+        params.push(filters.importSessionId);
+      }
+
+      if (filters?.providerId) {
+        conditions.push('provider_id = ?');
+        params.push(filters.providerId);
+      }
+
+      if (filters?.processingStatus) {
+        conditions.push('processing_status = ?');
+        params.push(filters.processingStatus);
+      }
+
+      if (filters?.since) {
+        conditions.push('created_at >= ?');
+        params.push(filters.since);
+      }
+
+      if (conditions.length > 0) {
+        query += ' WHERE ' + conditions.join(' AND ');
+      }
+
+      query += ' ORDER BY created_at DESC';
+
+      this.db.all(query, params, (err, rows: unknown[]) => {
+        if (err) {
+          this.logger.error(`Failed to load raw data: ${String(err)}`);
+          reject(err);
+        } else {
+          const results = rows.map((row) => {
+            const dbRow = row as Record<string, unknown>;
+            return {
+              createdAt: dbRow.created_at as number,
+              id: dbRow.id as number,
+              importSessionId: dbRow.import_session_id ? (dbRow.import_session_id as number) : undefined,
+              metadata: dbRow.metadata ? (JSON.parse(dbRow.metadata as string) as Record<string, unknown>) : undefined,
+              processedAt: dbRow.processed_at ? (dbRow.processed_at as number) : undefined,
+              processingError: dbRow.processing_error ? (dbRow.processing_error as string) : undefined,
+              processingStatus: dbRow.processing_status as string,
+              providerId: dbRow.provider_id ? (dbRow.provider_id as string) : undefined,
+              rawData: JSON.parse(dbRow.raw_data as string) as Record<string, unknown>,
+              sourceId: dbRow.source_id as string,
+              sourceType: dbRow.source_type as string,
+            };
+          });
+          this.logger.info(`Loaded ${results.length} raw data items`);
+          resolve(results);
+        }
+      });
+    });
   }
 
   async markAsProcessed(sourceId: string, rawTransactionIds: number[], providerId?: string): Promise<void> {
@@ -69,19 +111,69 @@ export class RawDataRepository implements IRawDataRepository {
   ): Promise<number> {
     this.logger.info(`Saving ${rawData.length} raw data items for ${sourceId}`);
 
-    try {
-      const saved = await this.transactionRepository.saveRawTransactions(sourceId, sourceType, rawData, {
-        importSessionId: options?.importSessionId ?? undefined,
-        metadata: options?.metadata,
-        providerId: options?.providerId ?? undefined,
-      });
+    return new Promise((resolve, reject) => {
+      let saved = 0;
+      let completed = 0;
+      const total = rawData.length;
+      let hasError = false;
+      const db = this.db;
+      const logger = this.logger;
 
-      this.logger.info(`Successfully saved ${saved}/${rawData.length} raw data items for ${sourceId}`);
-      return saved;
-    } catch (error) {
-      this.logger.error(`Failed to save raw data for ${sourceId}: ${String(error)}`);
-      throw error;
-    }
+      if (total === 0) {
+        resolve(0);
+        return;
+      }
+
+      db.serialize(() => {
+        db.run('BEGIN TRANSACTION', (err) => {
+          if (err) {
+            logger.error(`Failed to begin transaction: ${String(err)}`);
+            return reject(err);
+          }
+        });
+
+        const stmt = db.prepare(`
+          INSERT OR IGNORE INTO external_transaction_data
+          (source_id, source_type, provider_id, raw_data, metadata, import_session_id)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `);
+
+        for (const rawTx of rawData) {
+          const providerId = options?.providerId || undefined;
+          const rawDataJson = JSON.stringify(rawTx.data);
+          const metadataJson = options?.metadata ? JSON.stringify(options.metadata) : undefined;
+          const importSessionId = options?.importSessionId || undefined;
+
+          stmt.run([sourceId, sourceType, providerId, rawDataJson, metadataJson, importSessionId], function (err) {
+            completed++;
+
+            if (err && !err.message.includes('UNIQUE constraint failed')) {
+              if (!hasError) {
+                hasError = true;
+                stmt.finalize();
+                reject(err);
+              }
+              return;
+            }
+
+            if (this.changes > 0) saved++;
+
+            if (completed === total && !hasError) {
+              stmt.finalize();
+              db.run('COMMIT', (commitErr) => {
+                if (commitErr) {
+                  logger.error(`Failed to commit transaction: ${String(commitErr)}`);
+                  reject(commitErr);
+                } else {
+                  logger.info(`Successfully saved ${saved}/${rawData.length} raw data items for ${sourceId}`);
+                  resolve(saved);
+                }
+              });
+            }
+          });
+        }
+      });
+    });
   }
 
   async updateProcessingStatus(
@@ -90,16 +182,29 @@ export class RawDataRepository implements IRawDataRepository {
     error?: string,
     providerId?: string
   ): Promise<void> {
-    try {
-      await this.transactionRepository.updateRawTransactionProcessingStatus(
-        rawTransactionId,
-        status,
-        error,
-        providerId
+    return new Promise((resolve, reject) => {
+      const stmt = this.db.prepare(`
+        UPDATE external_transaction_data
+        SET processing_status = ?, processing_error = ?, processed_at = ?
+        WHERE id = ? AND (provider_id = ? OR (provider_id IS NULL AND ? IS NULL))
+      `);
+
+      const processedAt = status === 'processed' ? Math.floor(Date.now() / 1000) : undefined;
+      const logger = this.logger;
+
+      stmt.run(
+        [status, error || undefined, processedAt, rawTransactionId, providerId || undefined, providerId || undefined],
+        function (err) {
+          if (err) {
+            logger.error(`Failed to update processing status for ${rawTransactionId}: ${String(err)}`);
+            reject(err);
+          } else {
+            resolve();
+          }
+        }
       );
-    } catch (error) {
-      this.logger.error(`Failed to update processing status for ${rawTransactionId}: ${String(error)}`);
-      throw error;
-    }
+
+      stmt.finalize();
+    });
   }
 }

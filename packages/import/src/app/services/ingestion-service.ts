@@ -65,39 +65,6 @@ export class TransactionIngestionService {
   }
 
   /**
-   * Execute the full ETL pipeline: Import → Store Raw Data → Process → Load.
-   */
-  async importAndProcess(
-    sourceId: string,
-    sourceType: 'exchange' | 'blockchain',
-    params: ImportParams
-  ): Promise<{ imported: number; processed: number }> {
-    this.logger.info(`Starting full ETL pipeline for ${sourceId} (${sourceType})`);
-
-    try {
-      // Step 1: Import raw data
-      const importResult = await this.importFromSource(sourceId, sourceType, params);
-
-      // Step 2: Process and load
-      const processResult = await this.processAndStore(sourceId, sourceType, {
-        importSessionId: importResult.importSessionId,
-      });
-
-      this.logger.info(
-        `Completed full ETL pipeline for ${sourceId}: ${importResult.imported} imported, ${processResult.processed} processed`
-      );
-
-      return {
-        imported: importResult.imported,
-        processed: processResult.processed,
-      };
-    } catch (error) {
-      this.logger.error(`ETL pipeline failed for ${sourceId}: ${String(error)}`);
-      throw error;
-    }
-  }
-
-  /**
    * Import raw data from source and store it in external_transaction_data table.
    */
   async importFromSource(

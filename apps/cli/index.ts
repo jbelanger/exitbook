@@ -295,7 +295,7 @@ async function main() {
         );
 
         const transactionRepository = new TransactionRepository(database['db']);
-        const rawDataRepository = new RawDataRepository(transactionRepository);
+        const rawDataRepository = new RawDataRepository(database['db']);
         const sessionRepositoryAdapter = new ImportSessionRepositoryAdapter(database);
         const importerFactoryAdapter = new ImporterFactoryAdapter();
         const processorFactoryAdapter = new ProcessorFactoryAdapter();
@@ -434,7 +434,7 @@ async function main() {
         );
 
         const transactionRepository = new TransactionRepository(database['db']);
-        const rawDataRepository = new RawDataRepository(transactionRepository);
+        const rawDataRepository = new RawDataRepository(database['db']);
         const sessionRepositoryAdapter = new ImportSessionRepositoryAdapter(database);
         const importerFactoryAdapter = new ImporterFactoryAdapter();
         const processorFactoryAdapter = new ProcessorFactoryAdapter();
