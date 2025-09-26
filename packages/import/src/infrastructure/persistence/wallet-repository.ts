@@ -130,7 +130,7 @@ export class WalletRepository implements IWalletRepository {
         if (err) {
           reject(err);
         } else if (!row) {
-          resolve();
+          return;
         } else {
           resolve({
             address: row.address,
@@ -162,7 +162,7 @@ export class WalletRepository implements IWalletRepository {
         if (err) {
           reject(err);
         } else if (!row) {
-          resolve();
+          return;
         } else {
           resolve({
             address: row.address,
@@ -188,7 +188,7 @@ export class WalletRepository implements IWalletRepository {
         if (err) {
           reject(err);
         } else if (!row) {
-          resolve();
+          return;
         } else {
           resolve({
             address: row.address,

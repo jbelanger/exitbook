@@ -164,6 +164,13 @@ export abstract class KyselyBaseRepository {
   }
 
   /**
+   * Helper method to get current ISO datetime string for database operations
+   */
+  protected getCurrentDateTimeForDB(): string {
+    return new Date().toISOString();
+  }
+
+  /**
    * Helper method to convert Unix timestamp to Date
    */
   protected timestampToDate(timestamp: number): Date {
@@ -175,5 +182,12 @@ export abstract class KyselyBaseRepository {
    */
   protected dateToTimestamp(date: Date): number {
     return Math.floor(date.getTime() / 1000);
+  }
+
+  /**
+   * Helper method to convert Date to ISO string for database DateTime fields
+   */
+  protected dateToISO(date: Date): string {
+    return date.toISOString();
   }
 }

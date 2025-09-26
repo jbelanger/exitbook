@@ -57,11 +57,12 @@ export class KyselyTransactionRepository extends KyselyBaseRepository implements
                 ? String(transaction.amount)
                 : undefined,
           amount_currency: amountCurrency,
-          datetime: transaction.datetime || undefined,
+          created_at: this.getCurrentDateTimeForDB(),
+          external_id: (transaction.metadata?.hash ||
+            transaction.source + '-' + (transaction.id || 'unknown')) as string,
           fee_cost: typeof transaction.fee === 'object' ? moneyToDbString(transaction.fee) : undefined,
           fee_currency: typeof transaction.fee === 'object' ? transaction.fee.currency : undefined,
           from_address: transaction.from || undefined,
-          hash: (transaction.metadata?.hash || transaction.source + '-' + (transaction.id || 'unknown')) as string,
           note_message: transaction.note?.message || undefined,
           note_metadata: transaction.note?.metadata ? this.serializeToJson(transaction.note.metadata) : undefined,
           note_severity: transaction.note?.severity || undefined,
@@ -75,18 +76,22 @@ export class KyselyTransactionRepository extends KyselyBaseRepository implements
           price_currency: priceCurrency,
           raw_data: rawDataJson,
           source_id: transaction.source,
-          status: transaction.status || undefined,
+          source_type: 'exchange', // Default to exchange, can be overridden based on transaction source
           symbol: transaction.symbol || undefined,
-          timestamp: transaction.timestamp || this.getCurrentTimestamp(),
           to_address: transaction.to || undefined,
-          type: transaction.type || 'unknown',
-          verified: transaction.metadata?.verified ? 1 : 0,
+          transaction_datetime: transaction.datetime
+            ? new Date(transaction.datetime).toISOString()
+            : new Date().toISOString(),
+          transaction_status: (transaction.status as 'pending' | 'confirmed' | 'failed' | 'cancelled') || 'confirmed',
+          transaction_type:
+            (transaction.type as 'trade' | 'transfer' | 'deposit' | 'withdrawal' | 'fee' | 'reward' | 'mining') ||
+            'trade',
+          verified: Boolean(transaction.metadata?.verified),
         })
         .onConflict((oc) =>
           oc.doUpdateSet({
             amount: (eb) => eb.ref('excluded.amount'),
             amount_currency: (eb) => eb.ref('excluded.amount_currency'),
-            datetime: (eb) => eb.ref('excluded.datetime'),
             fee_cost: (eb) => eb.ref('excluded.fee_cost'),
             fee_currency: (eb) => eb.ref('excluded.fee_currency'),
             from_address: (eb) => eb.ref('excluded.from_address'),
@@ -97,11 +102,12 @@ export class KyselyTransactionRepository extends KyselyBaseRepository implements
             price: (eb) => eb.ref('excluded.price'),
             price_currency: (eb) => eb.ref('excluded.price_currency'),
             raw_data: (eb) => eb.ref('excluded.raw_data'),
-            status: (eb) => eb.ref('excluded.status'),
             symbol: (eb) => eb.ref('excluded.symbol'),
-            timestamp: (eb) => eb.ref('excluded.timestamp'),
             to_address: (eb) => eb.ref('excluded.to_address'),
-            type: (eb) => eb.ref('excluded.type'),
+            transaction_datetime: (eb) => eb.ref('excluded.transaction_datetime'),
+            transaction_status: (eb) => eb.ref('excluded.transaction_status'),
+            transaction_type: (eb) => eb.ref('excluded.transaction_type'),
+            updated_at: new Date().toISOString(),
             verified: (eb) => eb.ref('excluded.verified'),
           })
         )
@@ -158,11 +164,12 @@ export class KyselyTransactionRepository extends KyselyBaseRepository implements
                     ? String(transaction.amount)
                     : undefined,
               amount_currency: amountCurrency,
-              datetime: transaction.datetime || undefined,
+              created_at: this.getCurrentDateTimeForDB(),
+              external_id: (transaction.metadata?.hash ||
+                transaction.source + '-' + (transaction.id || 'unknown')) as string,
               fee_cost: typeof transaction.fee === 'object' ? moneyToDbString(transaction.fee) : undefined,
               fee_currency: typeof transaction.fee === 'object' ? transaction.fee.currency : undefined,
               from_address: transaction.from || undefined,
-              hash: (transaction.metadata?.hash || transaction.source + '-' + (transaction.id || 'unknown')) as string,
               note_message: transaction.note?.message || undefined,
               note_metadata: transaction.note?.metadata ? this.serializeToJson(transaction.note.metadata) : undefined,
               note_severity: transaction.note?.severity || undefined,
@@ -176,13 +183,19 @@ export class KyselyTransactionRepository extends KyselyBaseRepository implements
               price_currency: priceCurrency,
               raw_data: rawDataJson,
               source_id: transaction.source,
-              status: transaction.status || undefined,
+              source_type: 'exchange', // Default to exchange, can be overridden based on transaction source
               symbol: transaction.symbol || undefined,
-              timestamp: transaction.timestamp || this.getCurrentTimestamp(),
               to_address: transaction.to || undefined,
-              type: transaction.type || 'unknown',
-              verified: transaction.metadata?.verified ? 1 : 0,
-              wallet_id: walletId,
+              transaction_datetime: transaction.datetime
+                ? new Date(transaction.datetime).toISOString()
+                : new Date().toISOString(),
+              transaction_status:
+                (transaction.status as 'pending' | 'confirmed' | 'failed' | 'cancelled') || 'confirmed',
+              transaction_type:
+                (transaction.type as 'trade' | 'transfer' | 'deposit' | 'withdrawal' | 'fee' | 'reward' | 'mining') ||
+                'trade',
+              verified: Boolean(transaction.metadata?.verified),
+              wallet_address_id: walletId,
             })
             .onConflict((oc) => oc.doNothing()) // Equivalent to INSERT OR IGNORE
             .execute();
@@ -214,43 +227,45 @@ export class KyselyTransactionRepository extends KyselyBaseRepository implements
       }
 
       if (since) {
-        query = query.where('timestamp', '>=', since);
+        // Convert Unix timestamp to ISO string for comparison
+        const sinceDate = new Date(since * 1000).toISOString();
+        query = query.where('created_at', '>=', sinceDate as unknown as string);
       }
 
-      // Order by timestamp descending
-      query = query.orderBy('timestamp', 'desc');
+      // Order by creation time descending
+      query = query.orderBy('created_at', 'desc');
 
       const rows = await query.execute();
 
       // Convert database rows to StoredTransaction format
       const storedTransactions: StoredTransaction[] = rows.map((row) => ({
         amount: row.amount || '',
-        amount_currency: row.amount_currency,
+        amount_currency: row.amount_currency ?? undefined,
         // Add missing fields for compatibility
-        cost: row.price,
-        cost_currency: row.price_currency,
-        created_at: typeof row.created_at === 'number' ? row.created_at : Date.now() / 1000,
-        datetime: row.datetime,
-        fee_cost: row.fee_cost,
-        fee_currency: row.fee_currency,
-        from_address: row.from_address,
-        hash: row.hash || '',
+        cost: row.price ?? undefined,
+        cost_currency: row.price_currency ?? undefined,
+        created_at: new Date(row.created_at as unknown as string).getTime() / 1000, // Convert ISO string to Unix timestamp
+        datetime: row.transaction_datetime,
+        fee_cost: row.fee_cost ?? undefined,
+        fee_currency: row.fee_currency ?? undefined,
+        from_address: row.from_address ?? undefined,
+        hash: row.external_id || '',
         id: row.id,
-        note_message: row.note_message,
-        note_metadata: row.note_metadata,
-        note_severity: row.note_severity,
-        note_type: row.note_type,
-        price: row.price,
-        price_currency: row.price_currency,
+        note_message: row.note_message ?? undefined,
+        note_metadata: row.note_metadata ?? undefined,
+        note_severity: row.note_severity ?? undefined,
+        note_type: row.note_type ?? undefined,
+        price: row.price ?? undefined,
+        price_currency: row.price_currency ?? undefined,
         raw_data: row.raw_data,
         source_id: row.source_id,
-        status: row.status,
-        symbol: row.symbol,
-        timestamp: row.timestamp,
-        to_address: row.to_address,
-        type: row.type,
+        status: row.transaction_status ?? undefined,
+        symbol: row.symbol ?? undefined,
+        timestamp: new Date(row.created_at as unknown as string).getTime() / 1000, // Convert ISO string to Unix timestamp for compatibility
+        to_address: row.to_address ?? undefined,
+        type: row.transaction_type,
         verified: Boolean(row.verified),
-        wallet_id: row.wallet_id,
+        wallet_id: row.wallet_address_id ?? undefined,
       }));
 
       this.logger.debug({ since, sourceId }, `Retrieved ${storedTransactions.length} transactions`);

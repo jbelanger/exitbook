@@ -8,6 +8,8 @@ import { Kysely, SqliteDialect } from 'kysely';
 
 import type { DatabaseSchema } from '../schema/database-schema.ts';
 
+import { IsoStringToDatePlugin } from './iso-string-to-date-plugin.ts';
+
 const logger = getLogger('KyselyDatabase');
 
 /**
@@ -79,6 +81,23 @@ export const timestampTransformer = {
 };
 
 /**
+ * Custom type transformer for DateTime (ISO strings)
+ * Handles conversion between Date objects and ISO 8601 strings
+ */
+export const dateTimeTransformer = {
+  from: (value: string | undefined): Date | undefined => {
+    if (value === undefined) return undefined;
+    return new Date(value);
+  },
+  to: (value: Date | string | undefined): string | undefined => {
+    if (value === undefined) return undefined;
+    if (value instanceof Date) return value.toISOString();
+    if (typeof value === 'string') return value;
+    return undefined;
+  },
+};
+
+/**
  * Create and configure Kysely database instance
  */
 export function createKyselyDatabase(dbPath?: string): Kysely<DatabaseSchema> {
@@ -105,7 +124,7 @@ export function createKyselyDatabase(dbPath?: string): Kysely<DatabaseSchema> {
 
   logger.info(`Connected to SQLite database using Kysely: ${finalPath}`);
 
-  // Create Kysely instance with SQLite dialect
+  // Create Kysely instance with SQLite dialect and date conversion plugin
   const kysely = new Kysely<DatabaseSchema>({
     dialect: new SqliteDialect({
       database: sqliteDb,
@@ -131,7 +150,7 @@ export function createKyselyDatabase(dbPath?: string): Kysely<DatabaseSchema> {
         );
       }
     },
-  });
+  }).withPlugin(new IsoStringToDatePlugin());
 
   return kysely;
 }

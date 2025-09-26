@@ -1,50 +1,69 @@
 import type { Generated, ColumnType } from 'kysely';
 
 /**
- * Database schema definitions for Kysely
- * These interfaces represent the exact structure of the SQLite database tables
+ * Modernized database schema definitions for Kysely
+ * PostgreSQL-compatible design with proper relationships and standards compliance
  */
 
-// Custom column types for better type safety
-export type DecimalString = ColumnType<string, string, string>;
+// PostgreSQL-compatible custom column types
+export type DecimalString = ColumnType<string, string, string>; // Keep TEXT for financial precision
+export type DateTime = ColumnType<string, string | Date, string>; // ISO 8601 strings: '2024-03-15T10:30:00.000Z'
 export type JSONString = ColumnType<string, string, string>;
-export type UnixTimestamp = ColumnType<number, number, number>;
-export type BooleanInt = ColumnType<boolean, 0 | 1, 0 | 1>;
 
 /**
  * Import sessions table - tracks import session metadata and execution details
  */
 export interface ImportSessionsTable {
-  completed_at?: UnixTimestamp;
-  created_at: Generated<UnixTimestamp>;
-  duration_ms?: number;
-  error_details?: JSONString;
-  error_message?: string;
+  completed_at: DateTime | null;
+
+  // Modern datetime handling (PostgreSQL compatible)
+  created_at: DateTime;
+  duration_ms: number | null;
+  error_details: JSONString | null;
+  // Error handling
+  error_message: string | null;
+
   id: Generated<number>;
-  provider_id?: string;
-  session_metadata?: JSONString;
+  provider_id: string | null;
+  // Metadata
+  session_metadata: JSONString | null;
+
+  // Session identification
   source_id: string;
   source_type: 'exchange' | 'blockchain';
-  started_at: UnixTimestamp;
+  started_at: DateTime;
+  // Status and metrics
   status: 'started' | 'completed' | 'failed' | 'cancelled';
+
   transactions_failed: number;
   transactions_imported: number;
-  updated_at: Generated<UnixTimestamp>;
+
+  updated_at: DateTime | null;
 }
 
 /**
  * External transaction data table - stores unprocessed transaction data from sources
  */
 export interface ExternalTransactionDataTable {
-  created_at: Generated<UnixTimestamp>;
+  // Modern datetime handling
+  created_at: DateTime;
+
   id: Generated<number>;
-  import_session_id?: number;
-  metadata?: JSONString;
-  processed_at?: UnixTimestamp;
-  processing_error?: string;
-  processing_status?: string;
-  provider_id?: string;
+  // Foreign key relationship
+  import_session_id: number | null; // FK to import_sessions.id
+
+  metadata: JSONString | null;
+
+  processed_at: DateTime | null;
+  processing_error: string | null;
+  // Processing status
+  processing_status: 'pending' | 'processed' | 'failed' | 'skipped';
+
+  provider_id: string | null;
+  // Data storage
   raw_data: JSONString;
+
+  // Source information
   source_id: string;
   source_type: string;
 }
@@ -54,42 +73,64 @@ export interface ExternalTransactionDataTable {
  * Using TEXT for decimal values to preserve precision
  */
 export interface TransactionsTable {
-  amount?: DecimalString;
-  amount_currency?: string;
-  created_at: Generated<UnixTimestamp>;
-  datetime?: string;
-  fee_cost?: DecimalString;
-  fee_currency?: string;
-  from_address?: string;
-  hash?: string;
+  // Financial data (keep TEXT for precision)
+  amount: DecimalString | null;
+
+  amount_currency: string | null;
+  // Modern datetime handling (PostgreSQL compatible)
+  created_at: DateTime;
+  external_id: string | null; // hash, transaction ID, etc.
+
+  fee_cost: DecimalString | null;
+  fee_currency: string | null;
+  // Address information
+  from_address: string | null;
   id: Generated<number>;
-  note_message?: string;
-  note_metadata?: JSONString;
-  note_severity?: 'info' | 'warning' | 'error';
-  note_type?: string;
-  price?: DecimalString;
-  price_currency?: string;
-  raw_data: JSONString;
+  import_session_id: number | null; // FK to import_sessions.id
+  // Notes and metadata
+  note_message: string | null;
+
+  note_metadata: JSONString | null;
+  note_severity: 'info' | 'warning' | 'error' | null;
+
+  note_type: string | null;
+  price: DecimalString | null;
+  price_currency: string | null;
+
+  // Audit trail
+  raw_data: JSONString; // Keep for debugging/audit
+  // Core identification
   source_id: string;
-  status?: string;
-  symbol?: string;
-  timestamp: UnixTimestamp;
-  to_address?: string;
-  type: string;
-  verified?: BooleanInt;
-  wallet_id?: number;
+  source_type: 'exchange' | 'blockchain';
+
+  symbol: string | null;
+  to_address: string | null;
+
+  transaction_datetime: DateTime;
+  transaction_status: 'pending' | 'confirmed' | 'failed' | 'cancelled';
+  // Standardized enums
+  transaction_type: 'trade' | 'transfer' | 'deposit' | 'withdrawal' | 'fee' | 'reward' | 'mining';
+  updated_at: DateTime | null;
+
+  verified: boolean;
+  // Proper foreign keys
+  wallet_address_id: number | null; // FK to wallet_addresses.id
 }
 
 /**
  * Balance snapshots - store point-in-time balance data
  */
 export interface BalanceSnapshotsTable {
+  // Balance data
   balance: DecimalString;
-  created_at: Generated<UnixTimestamp>;
+
+  // Modern datetime handling
+  created_at: DateTime;
   currency: string;
+
   exchange: string;
   id: Generated<number>;
-  timestamp: UnixTimestamp;
+  snapshot_datetime: DateTime;
 }
 
 /**
@@ -97,29 +138,39 @@ export interface BalanceSnapshotsTable {
  */
 export interface BalanceVerificationsTable {
   actual_balance: DecimalString;
-  created_at: Generated<UnixTimestamp>;
+
+  // Modern datetime handling
+  created_at: DateTime;
+  // Verification data
   currency: string;
+
   difference: DecimalString;
   exchange: string;
   expected_balance: DecimalString;
   id: Generated<number>;
   status: 'match' | 'mismatch' | 'warning';
-  timestamp: UnixTimestamp;
+  verification_datetime: DateTime;
 }
 
 /**
  * Wallet addresses - store user's wallet addresses for tracking and consolidation
  */
 export interface WalletAddressesTable {
+  // Address information
   address: string;
+
   address_type: 'personal' | 'exchange' | 'contract' | 'unknown';
   blockchain: string;
-  created_at: Generated<UnixTimestamp>;
+
+  // Modern datetime handling
+  created_at: DateTime;
   id: Generated<number>;
-  is_active?: BooleanInt;
-  label?: string;
-  notes?: string;
-  updated_at: Generated<UnixTimestamp>;
+  is_active: boolean;
+
+  // User-defined metadata
+  label: string | null;
+  notes: string | null;
+  updated_at: DateTime | null;
 }
 
 /**
