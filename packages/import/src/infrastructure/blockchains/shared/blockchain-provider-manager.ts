@@ -1,7 +1,6 @@
 import { getLogger } from '@crypto/shared-logger';
 import type { BlockchainExplorersConfig, ProviderOverride } from '@crypto/shared-utils';
 
-import type { IBlockchainProviderManager } from '../../../app/ports/blockchain-provider-manager.ts';
 import type { FailoverExecutionResult } from '../../../app/ports/processors.ts';
 import { CircuitBreaker } from '../../shared/utils/circuit-breaker.js';
 
@@ -23,7 +22,7 @@ interface CacheEntry {
   result: unknown;
 }
 
-export class BlockchainProviderManager implements IBlockchainProviderManager {
+export class BlockchainProviderManager {
   private cacheCleanupTimer?: NodeJS.Timeout | undefined;
   private readonly cacheTimeout = 30000; // 30 seconds
   private circuitBreakers = new Map<string, CircuitBreaker>();

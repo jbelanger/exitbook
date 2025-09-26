@@ -78,7 +78,7 @@ async function main() {
         // Initialize database
         const database = await initializeDatabase();
 
-        const balanceRepository = new BalanceRepository(database);
+        const balanceRepository = new BalanceRepository(database['db']);
         const balanceService = new BalanceService(balanceRepository);
         const verifier = new BalanceVerifier(balanceService);
 
@@ -145,11 +145,12 @@ async function main() {
         }
 
         // Show recent verification results
-        const latestVerifications = await database.getLatestBalanceVerifications();
+        const balanceRepository = new BalanceRepository(database['db']);
+        const latestVerifications = await balanceRepository.getLatestVerifications();
         if (latestVerifications.length > 0) {
           logger.info('\n🔍 Latest Balance Verifications:');
           const groupedByExchange = latestVerifications.reduce(
-            (acc, v) => {
+            (acc: Record<string, typeof latestVerifications>, v) => {
               if (!acc[v.exchange]) acc[v.exchange] = [];
               acc[v.exchange].push(v);
               return acc;
@@ -158,8 +159,8 @@ async function main() {
           );
 
           for (const [exchange, verifications] of Object.entries(groupedByExchange)) {
-            const matches = verifications.filter((v) => v.status === 'match').length;
-            const total = verifications.length;
+            const matches = (verifications).filter((v) => v.status === 'match').length;
+            const total = (verifications).length;
             const status = matches === total ? '✅' : '⚠️';
             logger.info(`  ${status} ${exchange}: ${matches}/${total} balances match`);
           }
@@ -291,7 +292,7 @@ async function main() {
 
         const transactionRepository = new TransactionRepository(database['db']);
         const rawDataRepository = new RawDataRepository(database['db']);
-        const sessionRepository = new ImportSessionRepository(database);
+        const sessionRepository = new ImportSessionRepository(database['db']);
         const providerManager = new BlockchainProviderManager(explorerConfig);
         const importerFactory = new ImporterFactory(providerManager);
         const processorFactory = new ProcessorFactory();
@@ -423,7 +424,7 @@ async function main() {
 
         const transactionRepository = new TransactionRepository(database['db']);
         const rawDataRepository = new RawDataRepository(database['db']);
-        const sessionRepository = new ImportSessionRepository(database);
+        const sessionRepository = new ImportSessionRepository(database['db']);
         const providerManager = new BlockchainProviderManager(explorerConfig);
         const importerFactory = new ImporterFactory(providerManager);
         const processorFactory = new ProcessorFactory();
