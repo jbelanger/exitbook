@@ -83,7 +83,7 @@ export class KyselyBalanceRepository extends KyselyBaseRepository {
       query = query.where('exchange', '=', exchange);
     }
 
-    query = query.orderBy(['exchange', 'currency']);
+    query = query.orderBy('exchange').orderBy('currency');
 
     const rows = await query.execute();
     return rows.map(mapToBalanceVerificationRecord);

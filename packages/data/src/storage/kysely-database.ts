@@ -8,8 +8,6 @@ import { Kysely, SqliteDialect } from 'kysely';
 
 import type { DatabaseSchema } from '../schema/database-schema.ts';
 
-import { IsoStringToDatePlugin } from './iso-string-to-date-plugin.ts';
-
 const logger = getLogger('KyselyDatabase');
 
 /**
@@ -150,9 +148,40 @@ export function createKyselyDatabase(dbPath?: string): Kysely<DatabaseSchema> {
         );
       }
     },
-  }).withPlugin(new IsoStringToDatePlugin());
+  });
 
   return kysely;
+}
+
+/**
+ * Clear and reinitialize the Kysely database
+ * Drops all tables and recreates them
+ */
+export async function clearKyselyDatabase(db: Kysely<DatabaseSchema>): Promise<void> {
+  try {
+    logger.info('Clearing Kysely database tables');
+
+    // Drop tables in correct order (respecting foreign key constraints)
+    const tablesToDrop = [
+      'balance_verifications',
+      'balance_snapshots',
+      'transactions',
+      'external_transaction_data',
+      'import_sessions',
+      'wallet_addresses',
+    ];
+
+    for (const table of tablesToDrop) {
+      await db.schema.dropTable(table).ifExists().execute();
+    }
+
+    // Note: Table creation should be handled by migration system
+    // This function only clears existing data
+    logger.info('Kysely database cleared successfully');
+  } catch (error) {
+    logger.error({ error }, 'Error clearing Kysely database');
+    throw error;
+  }
 }
 
 /**

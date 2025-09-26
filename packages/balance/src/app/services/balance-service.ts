@@ -1,17 +1,17 @@
 import { getLogger } from '@crypto/shared-logger';
 import type { Decimal } from 'decimal.js';
 
-import type { BalanceRepository } from '../../infrastructure/persistence/balance-repository.ts';
+import type { KyselyBalanceRepository } from '../../infrastructure/persistence/kysely-balance-repository.ts';
 import type { BalanceSnapshot, BalanceVerificationRecord } from '../../types/balance-types.ts';
 
 import { BalanceCalculationService } from './balance-calculation-service.ts';
 
 export class BalanceService {
   private balanceCalculationService: BalanceCalculationService;
-  private balanceRepository: BalanceRepository;
+  private balanceRepository: KyselyBalanceRepository;
   private logger = getLogger('BalanceService');
 
-  constructor(balanceRepository: BalanceRepository) {
+  constructor(balanceRepository: KyselyBalanceRepository) {
     this.balanceRepository = balanceRepository;
     this.balanceCalculationService = new BalanceCalculationService();
   }

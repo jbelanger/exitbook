@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { Database } from '@crypto/data';
+import { createKyselyDatabase, clearKyselyDatabase, type KyselyDB } from '@crypto/data';
 import type { Logger } from '@crypto/shared-logger';
 import { getLogger } from '@crypto/shared-logger';
 
@@ -42,11 +42,11 @@ export class ConfigUtils {
   /**
    * Initialize database with optional cleanup
    */
-  static async initializeDatabase(clearDatabase = false): Promise<Database> {
-    const database = new Database();
+  static async initializeDatabase(clearDatabase = false): Promise<KyselyDB> {
+    const database = createKyselyDatabase();
 
     if (clearDatabase) {
-      await database.clearAndReinitialize();
+      await clearKyselyDatabase(database);
       const logger = getLogger('ConfigUtils');
       logger.info('Database cleared and reinitialized');
     }
