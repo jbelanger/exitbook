@@ -275,26 +275,33 @@ async function main() {
         // Load explorer config for blockchain sources
         const explorerConfig = loadExplorerConfig();
 
-        // Create dependency adapters
-        const { ImporterFactoryAdapter, ImportSessionRepositoryAdapter, ProcessorFactoryAdapter } = await import(
-          '@crypto/import/src/infrastructure/adapters/index.ts'
-        );
+        // Create dependencies directly without adapter bridges
         const { RawDataRepository } = await import(
           '@crypto/import/src/infrastructure/persistence/raw-data-repository.ts'
+        );
+        const { ImportSessionRepository } = await import(
+          '@crypto/import/src/infrastructure/persistence/import-session-repository.ts'
+        );
+        const { ImporterFactory } = await import(
+          '@crypto/import/src/infrastructure/shared/importers/importer-factory.ts'
+        );
+        const { ProcessorFactory } = await import(
+          '@crypto/import/src/infrastructure/shared/processors/processor-factory.ts'
         );
 
         const transactionRepository = new TransactionRepository(database['db']);
         const rawDataRepository = new RawDataRepository(database['db']);
-        const sessionRepositoryAdapter = new ImportSessionRepositoryAdapter(database);
-        const importerFactoryAdapter = new ImporterFactoryAdapter(explorerConfig);
-        const processorFactoryAdapter = new ProcessorFactoryAdapter();
+        const sessionRepository = new ImportSessionRepository(database);
+        const providerManager = new BlockchainProviderManager(explorerConfig);
+        const importerFactory = new ImporterFactory(providerManager);
+        const processorFactory = new ProcessorFactory();
 
         const ingestionService = new TransactionIngestionService(
           rawDataRepository,
-          sessionRepositoryAdapter,
+          sessionRepository,
           transactionRepository,
-          importerFactoryAdapter,
-          processorFactoryAdapter
+          importerFactory,
+          processorFactory
         );
 
         try {
@@ -351,8 +358,8 @@ async function main() {
             }
           }
         } finally {
-          // Cleanup importer factory resources
-          importerFactoryAdapter.destroy();
+          // Cleanup provider manager resources
+          providerManager.destroy();
           await database.close();
         }
 
@@ -400,26 +407,33 @@ async function main() {
         // Load explorer config for blockchain sources
         const explorerConfig = loadExplorerConfig();
 
-        // Create dependency adapters
-        const { ImporterFactoryAdapter, ImportSessionRepositoryAdapter, ProcessorFactoryAdapter } = await import(
-          '@crypto/import/src/infrastructure/adapters/index.ts'
-        );
+        // Create dependencies directly without adapter bridges
         const { RawDataRepository } = await import(
           '@crypto/import/src/infrastructure/persistence/raw-data-repository.ts'
+        );
+        const { ImportSessionRepository } = await import(
+          '@crypto/import/src/infrastructure/persistence/import-session-repository.ts'
+        );
+        const { ImporterFactory } = await import(
+          '@crypto/import/src/infrastructure/shared/importers/importer-factory.ts'
+        );
+        const { ProcessorFactory } = await import(
+          '@crypto/import/src/infrastructure/shared/processors/processor-factory.ts'
         );
 
         const transactionRepository = new TransactionRepository(database['db']);
         const rawDataRepository = new RawDataRepository(database['db']);
-        const sessionRepositoryAdapter = new ImportSessionRepositoryAdapter(database);
-        const importerFactoryAdapter = new ImporterFactoryAdapter(explorerConfig);
-        const processorFactoryAdapter = new ProcessorFactoryAdapter();
+        const sessionRepository = new ImportSessionRepository(database);
+        const providerManager = new BlockchainProviderManager(explorerConfig);
+        const importerFactory = new ImporterFactory(providerManager);
+        const processorFactory = new ProcessorFactory();
 
         const ingestionService = new TransactionIngestionService(
           rawDataRepository,
-          sessionRepositoryAdapter,
+          sessionRepository,
           transactionRepository,
-          importerFactoryAdapter,
-          processorFactoryAdapter
+          importerFactory,
+          processorFactory
         );
 
         try {
@@ -449,8 +463,8 @@ async function main() {
             }
           }
         } finally {
-          // Cleanup importer factory resources
-          importerFactoryAdapter.destroy();
+          // Cleanup provider manager resources
+          providerManager.destroy();
           await database.close();
         }
 
@@ -478,7 +492,9 @@ async function main() {
         const { ProcessorFactory } = await import(
           '@crypto/import/src/infrastructure/shared/processors/processor-factory.ts'
         );
-        const supportedBlockchains = ProcessorFactory.getSupportedSources('blockchain');
+        const processorFactory = new ProcessorFactory();
+
+        const supportedBlockchains = processorFactory.getSupportedSources('blockchain');
 
         // Also get provider information for completeness
         const { ProviderRegistry } = await import(
