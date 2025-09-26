@@ -204,11 +204,11 @@ export class Database {
       // Import sessions table - tracks import session metadata and execution details
       `CREATE TABLE ${clearExisting ? '' : 'IF NOT EXISTS '}import_sessions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        source_id TEXT NOT undefined,
-        source_type TEXT NOT undefined CHECK (source_type IN ('exchange', 'blockchain')),
+        source_id TEXT NOT NULL,
+        source_type TEXT NOT NULL CHECK (source_type IN ('exchange', 'blockchain')),
         provider_id TEXT,
-        status TEXT NOT undefined DEFAULT 'started' CHECK (status IN ('started', 'completed', 'failed', 'cancelled')),
-        started_at INTEGER NOT undefined DEFAULT (strftime('%s','now')),
+        status TEXT NOT NULL DEFAULT 'started' CHECK (status IN ('started', 'completed', 'failed', 'cancelled')),
+        started_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
         completed_at INTEGER,
         duration_ms INTEGER,
         error_message TEXT,
@@ -216,22 +216,22 @@ export class Database {
         session_metadata JSON,
         transactions_imported INTEGER DEFAULT 0,
         transactions_failed INTEGER DEFAULT 0,
-        created_at INTEGER NOT undefined DEFAULT (strftime('%s','now')),
-        updated_at INTEGER NOT undefined DEFAULT (strftime('%s','now'))
+        created_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
+        updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
       )`,
 
       // External transaction data table - stores unprocessed transaction data from sources
       `CREATE TABLE ${clearExisting ? '' : 'IF NOT EXISTS '}external_transaction_data (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        source_id TEXT NOT undefined,
-        source_type TEXT NOT undefined,
+        source_id TEXT NOT NULL,
+        source_type TEXT NOT NULL,
         provider_id TEXT,
-        raw_data JSON NOT undefined,
+        raw_data JSON NOT NULL,
         metadata JSON,
         processing_status TEXT DEFAULT 'pending',
         processing_error TEXT,
         processed_at INTEGER,
-        created_at INTEGER NOT undefined DEFAULT (strftime('%s','now')),
+        created_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
         import_session_id INTEGER,
         UNIQUE(source_id, provider_id),
         FOREIGN KEY (import_session_id) REFERENCES import_sessions (id)
@@ -241,9 +241,9 @@ export class Database {
       // Using TEXT for decimal values to preserve precision
       `CREATE TABLE ${clearExisting ? '' : 'IF NOT EXISTS '}transactions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        source_id TEXT NOT undefined,
-        type TEXT NOT undefined,
-        timestamp INTEGER NOT undefined,
+        source_id TEXT NOT NULL,
+        type TEXT NOT NULL,
+        timestamp INTEGER NOT NULL,
         datetime TEXT,
         symbol TEXT,
         amount TEXT,
@@ -256,8 +256,8 @@ export class Database {
         from_address TEXT,
         to_address TEXT,
         wallet_id INTEGER,
-        raw_data JSON NOT undefined,
-        created_at INTEGER NOT undefined DEFAULT (strftime('%s','now')),
+        raw_data JSON NOT NULL,
+        created_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
         hash TEXT,
         verified BOOLEAN DEFAULT 0,
         note_type TEXT,
@@ -270,37 +270,37 @@ export class Database {
       // Balance snapshots - store point-in-time balance data
       `CREATE TABLE ${clearExisting ? '' : 'IF NOT EXISTS '}balance_snapshots (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        exchange TEXT NOT undefined,
-        currency TEXT NOT undefined,
-        balance TEXT NOT undefined,
-        timestamp INTEGER NOT undefined,
-        created_at INTEGER NOT undefined DEFAULT (strftime('%s','now'))
+        exchange TEXT NOT NULL,
+        currency TEXT NOT NULL,
+        balance TEXT NOT NULL,
+        timestamp INTEGER NOT NULL,
+        created_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
       )`,
 
       // Balance verification records - track verification results
       `CREATE TABLE ${clearExisting ? '' : 'IF NOT EXISTS '}balance_verifications (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        exchange TEXT NOT undefined,
-        currency TEXT NOT undefined,
-        expected_balance TEXT NOT undefined,
-        actual_balance TEXT NOT undefined,
-        difference TEXT NOT undefined,
-        status TEXT NOT undefined CHECK (status IN ('match', 'mismatch', 'warning')),
-        timestamp INTEGER NOT undefined,
-        created_at INTEGER NOT undefined DEFAULT (strftime('%s','now'))
+        exchange TEXT NOT NULL,
+        currency TEXT NOT NULL,
+        expected_balance TEXT NOT NULL,
+        actual_balance TEXT NOT NULL,
+        difference TEXT NOT NULL,
+        status TEXT NOT NULL CHECK (status IN ('match', 'mismatch', 'warning')),
+        timestamp INTEGER NOT NULL,
+        created_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
       )`,
 
       // Wallet addresses - store user's wallet addresses for tracking and consolidation
       `CREATE TABLE ${clearExisting ? '' : 'IF NOT EXISTS '}wallet_addresses (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        address TEXT NOT undefined,
-        blockchain TEXT NOT undefined,
+        address TEXT NOT NULL,
+        blockchain TEXT NOT NULL,
         label TEXT,
-        address_type TEXT NOT undefined DEFAULT 'personal' CHECK (address_type IN ('personal', 'exchange', 'contract', 'unknown')),
+        address_type TEXT NOT NULL DEFAULT 'personal' CHECK (address_type IN ('personal', 'exchange', 'contract', 'unknown')),
         is_active BOOLEAN DEFAULT 1,
         notes TEXT,
-        created_at INTEGER NOT undefined DEFAULT (strftime('%s','now')),
-        updated_at INTEGER NOT undefined DEFAULT (strftime('%s','now')),
+        created_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
+        updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
         UNIQUE(address, blockchain)
       )`
     );
@@ -313,7 +313,7 @@ export class Database {
        ON transactions(type, timestamp)`,
 
       `CREATE INDEX IF NOT EXISTS idx_transactions_symbol
-       ON transactions(symbol) WHERE symbol IS NOT undefined`,
+       ON transactions(symbol) WHERE symbol IS NOT NULL`,
 
       `CREATE INDEX IF NOT EXISTS idx_balance_snapshots_exchange_currency
        ON balance_snapshots(exchange, currency, timestamp)`,
@@ -323,13 +323,13 @@ export class Database {
 
       // New indexes for wallet address tracking
       `CREATE INDEX IF NOT EXISTS idx_transactions_from_address
-       ON transactions(from_address) WHERE from_address IS NOT undefined`,
+       ON transactions(from_address) WHERE from_address IS NOT NULL`,
 
       `CREATE INDEX IF NOT EXISTS idx_transactions_to_address
-       ON transactions(to_address) WHERE to_address IS NOT undefined`,
+       ON transactions(to_address) WHERE to_address IS NOT NULL`,
 
       `CREATE INDEX IF NOT EXISTS idx_transactions_wallet_id
-       ON transactions(wallet_id) WHERE wallet_id IS NOT undefined`,
+       ON transactions(wallet_id) WHERE wallet_id IS NOT NULL`,
 
       `CREATE INDEX IF NOT EXISTS idx_wallet_addresses_blockchain_address
        ON wallet_addresses(blockchain, address)`,
@@ -352,7 +352,7 @@ export class Database {
        ON external_transaction_data(source_id, created_at)`,
 
       `CREATE INDEX IF NOT EXISTS idx_external_transaction_data_session
-       ON external_transaction_data(import_session_id) WHERE import_session_id IS NOT undefined`,
+       ON external_transaction_data(import_session_id) WHERE import_session_id IS NOT NULL`,
     ];
 
     this.db.serialize(() => {

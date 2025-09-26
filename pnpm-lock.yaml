@@ -207,9 +207,15 @@ importers:
       '@crypto/shared-utils':
         specifier: workspace:*
         version: link:../shared/utils
+      better-sqlite3:
+        specifier: ^12.4.1
+        version: 12.4.1
       decimal.js:
         specifier: ^10.6.0
         version: 10.6.0
+      kysely:
+        specifier: ^0.28.7
+        version: 0.28.7
       sqlite3:
         specifier: ^5.1.6
         version: 5.1.7
@@ -217,6 +223,9 @@ importers:
       '@jest/globals':
         specifier: ^30.0.5
         version: 30.0.5
+      '@types/better-sqlite3':
+        specifier: ^7.6.13
+        version: 7.6.13
       '@types/jest':
         specifier: ^30.0.0
         version: 30.0.0
@@ -1307,6 +1316,9 @@ packages:
   '@types/babel__traverse@7.28.0':
     resolution: {integrity: sha512-8PvcXf70gTDZBgt9ptxJ8elBeBjcLOAcOtoO/mPJjtji1+CdGbHgm77om1GrsPxsiE+uXIpNSK64UYaIwQXd4Q==}
 
+  '@types/better-sqlite3@7.6.13':
+    resolution: {integrity: sha512-NMv9ASNARoKksWtsq/SHakpYAYnhBrQgGD8zkLYk/jaK8jUGn08CfEdTRgYhMypUQAfzSP8W6gNLe0q19/t4VA==}
+
   '@types/bn.js@5.2.0':
     resolution: {integrity: sha512-DLbJ1BPqxvQhIGbeu8VbUC1DiAiahHtAYvA0ZEAa4P31F7IaArc8z3C3BRQdWX4mtLQuABG4yzp76ZrS02Ui1Q==}
 
@@ -1769,6 +1781,10 @@ packages:
 
   bech32@2.0.0:
     resolution: {integrity: sha512-LcknSilhIGatDAsY1ak2I8VtGaHNhgMSYVxFrGLXv+xLHytaKZKcaUJJUE7qmBr7h33o5YQwP55pMI0xmkpJwg==}
+
+  better-sqlite3@12.4.1:
+    resolution: {integrity: sha512-3yVdyZhklTiNrtg+4WqHpJpFDd+WHTg2oM7UcR80GqL05AOV0xEJzc6qNvFYoEtE+hRp1n9MpN6/+4yhlGkDXQ==}
+    engines: {node: 20.x || 22.x || 23.x || 24.x}
 
   bigint-buffer@1.1.5:
     resolution: {integrity: sha512-trfYco6AoZ+rKhKnxA0hgX0HAbVP/s808/EuDSe2JDzUnCp/xAsli35Orvk67UrTEcwuxZqYZDmfA2RXJgxVvA==}
@@ -3117,6 +3133,10 @@ packages:
 
   kuler@2.0.0:
     resolution: {integrity: sha512-Xq9nH7KlWZmXAtodXDDRE7vs6DU1gTU8zYDHDiWLSip45Egwq3plLHzPn27NgvzL2r1LMPC1vdqh98sQxtqj4A==}
+
+  kysely@0.28.7:
+    resolution: {integrity: sha512-u/cAuTL4DRIiO2/g4vNGRgklEKNIj5Q3CG7RoUB5DV5SfEC2hMvPxKi0GWPmnzwL2ryIeud2VTcEEmqzTzEPNw==}
+    engines: {node: '>=20.0.0'}
 
   leven@3.1.0:
     resolution: {integrity: sha512-qsda+H8jTaUaN/x5vzW2rzc+8Rw4TAQ/4KjB46IwK5VH+IlVeeeje/EoZRpiXvIqjFgK84QffqPztGI3VBLG1A==}
@@ -5499,6 +5519,10 @@ snapshots:
     dependencies:
       '@babel/types': 7.28.2
 
+  '@types/better-sqlite3@7.6.13':
+    dependencies:
+      '@types/node': 24.3.0
+
   '@types/bn.js@5.2.0':
     dependencies:
       '@types/node': 24.3.0
@@ -6028,6 +6052,11 @@ snapshots:
   base64-js@1.5.1: {}
 
   bech32@2.0.0: {}
+
+  better-sqlite3@12.4.1:
+    dependencies:
+      bindings: 1.5.0
+      prebuild-install: 7.1.3
 
   bigint-buffer@1.1.5:
     dependencies:
@@ -7676,6 +7705,8 @@ snapshots:
       json-buffer: 3.0.1
 
   kuler@2.0.0: {}
+
+  kysely@0.28.7: {}
 
   leven@3.1.0: {}
 

@@ -6,7 +6,7 @@ import 'reflect-metadata';
 import { BalanceService } from '@crypto/balance/src/app/services/balance-service';
 import { BalanceRepository } from '@crypto/balance/src/infrastructure/persistence/balance-repository';
 import type { StoredTransaction } from '@crypto/data';
-import { Database } from '@crypto/data';
+import { Database, useKyselyDatabase, createKyselyDatabase, closeKyselyDatabase, type KyselyDB } from '@crypto/data';
 import { BlockchainProviderManager, TransactionIngestionService, TransactionRepository } from '@crypto/import';
 import { getLogger } from '@crypto/shared-logger';
 import { initializeDatabase, loadExplorerConfig } from '@crypto/shared-utils';
@@ -122,12 +122,51 @@ async function main() {
     .option('--clear-db', 'Clear and reinitialize database before status')
     .action(async (options: StatusOptions) => {
       try {
-        const database = new Database();
-        if (options.clearDb) {
-          await database.clearAndReinitialize();
-          logger.info('Database cleared and reinitialized');
+        const isUsingKysely = useKyselyDatabase();
+        logger.info(`Database implementation: ${isUsingKysely ? 'Kysely' : 'SQLite3'}`);
+
+        let database: Database | undefined;
+        let kyselyDb: KyselyDB | undefined;
+        let rawDb: unknown;
+
+        if (isUsingKysely) {
+          // Use Kysely implementation
+          kyselyDb = createKyselyDatabase();
+          rawDb = kyselyDb; // For balance repository compatibility
+
+          if (options.clearDb) {
+            // TODO: Implement Kysely database clearing when needed
+            logger.warn('Database clearing with Kysely not yet implemented');
+          }
+        } else {
+          // Use legacy SQLite3 implementation
+          database = new Database();
+          rawDb = database['db'];
+
+          if (options.clearDb) {
+            await database.clearAndReinitialize();
+            logger.info('Database cleared and reinitialized');
+          }
         }
-        const stats = await database.getStats();
+
+        // Get stats based on implementation
+        let stats;
+        if (isUsingKysely) {
+          // For now, use a simplified stats approach with Kysely
+          // TODO: Implement proper Kysely stats queries
+          stats = {
+            totalExchanges: 0,
+            totalExternalTransactions: 0,
+            totalImportSessions: 0,
+            totalSnapshots: 0,
+            totalTransactions: 0,
+            totalVerifications: 0,
+            transactionsByExchange: [],
+          };
+          logger.info('Kysely stats queries not yet implemented - showing placeholder values');
+        } else {
+          stats = await database!.getStats();
+        }
 
         logger.info('\nSystem Status');
         logger.info('================');
@@ -145,7 +184,16 @@ async function main() {
         }
 
         // Show recent verification results
-        const balanceRepository = new BalanceRepository(database['db']);
+        // Note: BalanceRepository hasn't been migrated to Kysely yet, so we create a fallback SQLite3 instance
+        let balanceDb = rawDb;
+        let fallbackDatabase: Database | undefined;
+        if (isUsingKysely) {
+          // For now, create a separate SQLite3 connection for BalanceRepository until it's migrated
+          fallbackDatabase = new Database();
+          balanceDb = fallbackDatabase['db'];
+        }
+
+        const balanceRepository = new BalanceRepository(balanceDb as Database['db']);
         const latestVerifications = await balanceRepository.getLatestVerifications();
         if (latestVerifications.length > 0) {
           logger.info('\n🔍 Latest Balance Verifications:');
@@ -159,14 +207,23 @@ async function main() {
           );
 
           for (const [exchange, verifications] of Object.entries(groupedByExchange)) {
-            const matches = (verifications).filter((v) => v.status === 'match').length;
-            const total = (verifications).length;
+            const matches = verifications.filter((v) => v.status === 'match').length;
+            const total = verifications.length;
             const status = matches === total ? '✅' : '⚠️';
             logger.info(`  ${status} ${exchange}: ${matches}/${total} balances match`);
           }
         }
 
-        await database.close();
+        // Close database connections
+        if (isUsingKysely && kyselyDb) {
+          await closeKyselyDatabase(kyselyDb);
+          if (fallbackDatabase) {
+            await fallbackDatabase.close();
+          }
+        } else if (database) {
+          await database.close();
+        }
+
         process.exit(0);
       } catch (error) {
         logger.error(`Status check failed: ${String(error)}`);
