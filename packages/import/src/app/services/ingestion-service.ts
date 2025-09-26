@@ -4,7 +4,6 @@ import type { Logger } from '@crypto/shared-logger';
 import { getLogger } from '@crypto/shared-logger';
 
 import type { ImportResult } from '../../index.ts';
-import type { IBlockchainProviderManager } from '../ports/blockchain-provider-manager.ts';
 import type { IImportSessionRepository } from '../ports/import-session-repository.ts';
 import type { IImporterFactory } from '../ports/importer-factory.ts';
 import type { ApiClientRawData, ImportParams } from '../ports/importers.ts';
@@ -26,8 +25,7 @@ export class TransactionIngestionService {
     private sessionRepository: IImportSessionRepository,
     private transactionRepository: ITransactionRepository,
     private importerFactory: IImporterFactory,
-    private processorFactory: IProcessorFactory,
-    private providerManager?: IBlockchainProviderManager
+    private processorFactory: IProcessorFactory
   ) {
     this.logger = getLogger('TransactionIngestionService');
   }
@@ -87,8 +85,8 @@ export class TransactionIngestionService {
       sessionCreated = true;
       this.logger.debug(`Created import session: ${importSessionId}`);
 
-      // Create importer
-      const importer = await this.importerFactory.create(sourceId, sourceType, params.providerId, this.providerManager);
+      // Create importer - provider management now fully encapsulated in infrastructure
+      const importer = await this.importerFactory.create(sourceId, sourceType, params.providerId);
 
       // Validate source before import
       const isValidSource = await importer.canImport(params);

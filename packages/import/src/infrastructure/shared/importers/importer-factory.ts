@@ -42,7 +42,7 @@ export class ImporterFactory {
     sourceId: string,
     sourceType: string,
     providerId: string | undefined,
-    providerManager: BlockchainProviderManager | undefined
+    providerManager: BlockchainProviderManager
   ): Promise<IImporter<T>> {
     ImporterFactory.logger.info(`Creating importer for ${sourceId} (type: ${sourceType})`);
 
@@ -105,14 +105,10 @@ export class ImporterFactory {
    * Create a blockchain importer.
    */
   private static async createBlockchainImporter<T>(
-    providerManager: BlockchainProviderManager | undefined,
+    providerManager: BlockchainProviderManager,
     sourceId: string,
     providerId: string | undefined
   ): Promise<IImporter<T>> {
-    if (!providerManager) {
-      throw new Error(`Provider manager required for blockchain importer`);
-    }
-
     // providerId is optional - when not provided, importers will use all available providers
 
     switch (sourceId.toLowerCase()) {

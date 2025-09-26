@@ -275,17 +275,6 @@ async function main() {
         // Load explorer config for blockchain sources
         const explorerConfig = loadExplorerConfig();
 
-        // Import blockchain dependencies conditionally
-        let providerManager:
-          | import('@crypto/import/src/infrastructure/blockchains/shared/blockchain-provider-manager.ts').BlockchainProviderManager
-          | undefined;
-        if (sourceType === 'blockchain') {
-          const { BlockchainProviderManager } = await import(
-            '@crypto/import/src/infrastructure/blockchains/shared/blockchain-provider-manager.ts'
-          );
-          providerManager = new BlockchainProviderManager(explorerConfig);
-        }
-
         // Create dependency adapters
         const { ImporterFactoryAdapter, ImportSessionRepositoryAdapter, ProcessorFactoryAdapter } = await import(
           '@crypto/import/src/infrastructure/adapters/index.ts'
@@ -297,7 +286,7 @@ async function main() {
         const transactionRepository = new TransactionRepository(database['db']);
         const rawDataRepository = new RawDataRepository(database['db']);
         const sessionRepositoryAdapter = new ImportSessionRepositoryAdapter(database);
-        const importerFactoryAdapter = new ImporterFactoryAdapter();
+        const importerFactoryAdapter = new ImporterFactoryAdapter(explorerConfig);
         const processorFactoryAdapter = new ProcessorFactoryAdapter();
 
         const ingestionService = new TransactionIngestionService(
@@ -305,8 +294,7 @@ async function main() {
           sessionRepositoryAdapter,
           transactionRepository,
           importerFactoryAdapter,
-          processorFactoryAdapter,
-          providerManager
+          processorFactoryAdapter
         );
 
         try {
@@ -363,10 +351,8 @@ async function main() {
             }
           }
         } finally {
-          // Cleanup blockchain provider manager to stop background health checks
-          if (providerManager) {
-            providerManager.destroy();
-          }
+          // Cleanup importer factory resources
+          importerFactoryAdapter.destroy();
           await database.close();
         }
 
@@ -414,17 +400,6 @@ async function main() {
         // Load explorer config for blockchain sources
         const explorerConfig = loadExplorerConfig();
 
-        // Import blockchain dependencies conditionally
-        let providerManager:
-          | import('@crypto/import/src/infrastructure/blockchains/shared/blockchain-provider-manager.ts').BlockchainProviderManager
-          | undefined;
-        if (sourceType === 'blockchain') {
-          const { BlockchainProviderManager } = await import(
-            '@crypto/import/src/infrastructure/blockchains/shared/blockchain-provider-manager.ts'
-          );
-          providerManager = new BlockchainProviderManager(explorerConfig);
-        }
-
         // Create dependency adapters
         const { ImporterFactoryAdapter, ImportSessionRepositoryAdapter, ProcessorFactoryAdapter } = await import(
           '@crypto/import/src/infrastructure/adapters/index.ts'
@@ -436,7 +411,7 @@ async function main() {
         const transactionRepository = new TransactionRepository(database['db']);
         const rawDataRepository = new RawDataRepository(database['db']);
         const sessionRepositoryAdapter = new ImportSessionRepositoryAdapter(database);
-        const importerFactoryAdapter = new ImporterFactoryAdapter();
+        const importerFactoryAdapter = new ImporterFactoryAdapter(explorerConfig);
         const processorFactoryAdapter = new ProcessorFactoryAdapter();
 
         const ingestionService = new TransactionIngestionService(
@@ -444,8 +419,7 @@ async function main() {
           sessionRepositoryAdapter,
           transactionRepository,
           importerFactoryAdapter,
-          processorFactoryAdapter,
-          providerManager
+          processorFactoryAdapter
         );
 
         try {
@@ -475,10 +449,8 @@ async function main() {
             }
           }
         } finally {
-          // Cleanup blockchain provider manager to stop background health checks
-          if (providerManager) {
-            providerManager.destroy();
-          }
+          // Cleanup importer factory resources
+          importerFactoryAdapter.destroy();
           await database.close();
         }
 
