@@ -1,8 +1,8 @@
-import { KyselyBaseRepository } from '@crypto/data/src/repositories/kysely-base-repository.ts';
-import type { KyselyDB } from '@crypto/data/src/storage/kysely-database.ts';
+import { BaseRepository as BaseRepository } from '@crypto/data/src/repositories/base-repository.ts';
+import type { KyselyDB } from '@crypto/data/src/storage/database.ts';
 import type { StoredTransaction } from '@crypto/data/src/types/data-types.ts';
 
-import type { BalanceSnapshot, BalanceVerificationRecord } from '../../types/balance-types.ts';
+import type { BalanceVerificationRecord } from '../../types/balance-types.ts';
 
 /**
  * Maps database query result to BalanceVerificationRecord domain object
@@ -18,20 +18,6 @@ function mapToBalanceVerificationRecord(row: Record<string, unknown>): BalanceVe
     id: row.id as number,
     status: row.status as 'match' | 'mismatch' | 'warning',
     timestamp: new Date(row.verification_datetime as string).getTime() / 1000,
-  };
-}
-
-/**
- * Maps database query result to BalanceSnapshot domain object
- */
-function mapToBalanceSnapshot(row: Record<string, unknown>): BalanceSnapshot {
-  return {
-    balance: parseFloat(row.balance as string),
-    created_at: new Date(row.created_at as string).getTime() / 1000,
-    currency: row.currency as string,
-    exchange: row.exchange as string,
-    id: row.id as number,
-    timestamp: new Date(row.snapshot_datetime as string).getTime() / 1000,
   };
 }
 
@@ -62,9 +48,9 @@ function mapToStoredTransaction(row: Record<string, unknown>): StoredTransaction
  * Kysely-based repository for balance database operations.
  * Handles storage and retrieval of balance snapshots and verification records using type-safe queries.
  */
-export class KyselyBalanceRepository extends KyselyBaseRepository {
+export class BalanceRepository extends BaseRepository {
   constructor(db: KyselyDB) {
-    super(db, 'KyselyBalanceRepository');
+    super(db, 'BalanceRepository');
   }
 
   async getLatestVerifications(exchange?: string): Promise<BalanceVerificationRecord[]> {
@@ -109,24 +95,6 @@ export class KyselyBalanceRepository extends KyselyBaseRepository {
       .execute();
 
     return rows.map(mapToStoredTransaction);
-  }
-
-  async saveSnapshot(snapshot: BalanceSnapshot): Promise<void> {
-    await this.db
-      .insertInto('balance_snapshots')
-      .values({
-        balance: snapshot.balance.toString(),
-        created_at: this.getCurrentDateTimeForDB(),
-        currency: snapshot.currency,
-        exchange: snapshot.exchange,
-        snapshot_datetime: new Date(snapshot.timestamp * 1000).toISOString(),
-      })
-      .execute();
-
-    this.logger.debug(
-      { balance: snapshot.balance, currency: snapshot.currency, exchange: snapshot.exchange },
-      'Balance snapshot saved'
-    );
   }
 
   async saveVerification(verification: BalanceVerificationRecord): Promise<void> {

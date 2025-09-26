@@ -1,2 +1,2 @@
-export { KyselyTransactionRepository } from './kysely-transaction-repository.ts';
-export { KyselyRawDataRepository } from './kysely-raw-data-repository.ts';
+export { TransactionRepository } from './transaction-repository.ts';
+export { RawDataRepository } from './raw-data-repository.ts';

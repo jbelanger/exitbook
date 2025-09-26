@@ -1,7 +1,7 @@
 import type { UniversalTransaction } from '@crypto/core';
 import type { StoredTransaction } from '@crypto/data';
-import { KyselyBaseRepository } from '@crypto/data/src/repositories/kysely-base-repository.ts';
-import type { KyselyDB } from '@crypto/data/src/storage/kysely-database.ts';
+import { BaseRepository } from '@crypto/data/src/repositories/base-repository.ts';
+import type { KyselyDB } from '@crypto/data/src/storage/database.ts';
 import type { Decimal } from 'decimal.js';
 
 import type { ITransactionRepository } from '../../app/ports/transaction-repository.ts';
@@ -18,9 +18,9 @@ function moneyToDbString(money: { amount: Decimal | number; currency: string }):
  * Kysely-based repository for transaction database operations.
  * Handles storage and retrieval of UniversalTransaction entities using type-safe queries.
  */
-export class KyselyTransactionRepository extends KyselyBaseRepository implements ITransactionRepository {
+export class TransactionRepository extends BaseRepository implements ITransactionRepository {
   constructor(db: KyselyDB) {
-    super(db, 'KyselyTransactionRepository');
+    super(db, 'TransactionRepository');
   }
 
   async save(transaction: UniversalTransaction): Promise<number> {

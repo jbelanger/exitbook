@@ -4,13 +4,12 @@ import path from 'node:path';
 import { type BalanceVerificationResult, BalanceVerifier } from '@crypto/balance';
 import 'reflect-metadata';
 import { BalanceService } from '@crypto/balance/src/app/services/balance-service';
-import { KyselyBalanceRepository } from '@crypto/balance/src/infrastructure/persistence/kysely-balance-repository';
-import type { StoredTransaction } from '@crypto/data';
-import { createKyselyDatabase, clearKyselyDatabase, closeKyselyDatabase } from '@crypto/data';
+import { BalanceRepository } from '@crypto/balance/src/infrastructure/persistence/balance-repository';
+import { createDatabase, clearDatabase, closeDatabase, type StoredTransaction } from '@crypto/data';
 import { BlockchainProviderManager, TransactionIngestionService } from '@crypto/import';
-import { KyselyImportSessionRepository } from '@crypto/import/src/infrastructure/persistence/kysely-import-session-repository';
-import { KyselyRawDataRepository } from '@crypto/import/src/infrastructure/persistence/kysely-raw-data-repository';
-import { KyselyTransactionRepository } from '@crypto/import/src/infrastructure/persistence/kysely-transaction-repository';
+import { ImportSessionRepository } from '@crypto/import/src/infrastructure/persistence/import-session-repository';
+import { RawDataRepository } from '@crypto/import/src/infrastructure/persistence/raw-data-repository';
+import { TransactionRepository } from '@crypto/import/src/infrastructure/persistence/transaction-repository';
 import { getLogger } from '@crypto/shared-logger';
 import { initializeDatabase, loadExplorerConfig } from '@crypto/shared-utils';
 import { Command } from 'commander';
@@ -81,7 +80,7 @@ async function main() {
         // Initialize database
         const database = await initializeDatabase();
 
-        const balanceRepository = new KyselyBalanceRepository(database);
+        const balanceRepository = new BalanceRepository(database);
         const balanceService = new BalanceService(balanceRepository);
         const verifier = new BalanceVerifier(balanceService);
 
@@ -109,7 +108,7 @@ async function main() {
           logger.info(`Verification report generated: ${reportPath}`);
         }
 
-        await closeKyselyDatabase(database);
+        await closeDatabase(database);
         process.exit(0);
       } catch (error) {
         logger.error(`Verification failed: ${String(error)}`);
@@ -127,7 +126,7 @@ async function main() {
       try {
         logger.info('Database implementation: Kysely');
 
-        const kyselyDb = createKyselyDatabase();
+        const kyselyDb = createDatabase();
 
         if (options.clearDb) {
           // TODO: Implement Kysely database clearing when needed
@@ -163,7 +162,7 @@ async function main() {
         }
 
         // Show recent verification results using Kysely balance repository
-        const balanceRepository = new KyselyBalanceRepository(kyselyDb);
+        const balanceRepository = new BalanceRepository(kyselyDb);
         const latestVerifications = await balanceRepository.getLatestVerifications();
         if (latestVerifications.length > 0) {
           logger.info('\n🔍 Latest Balance Verifications:');
@@ -185,7 +184,7 @@ async function main() {
         }
 
         // Close database connections
-        await closeKyselyDatabase(kyselyDb);
+        await closeDatabase(kyselyDb);
 
         process.exit(0);
       } catch (error) {
@@ -207,9 +206,9 @@ async function main() {
       try {
         logger.info('Starting export');
 
-        const database = createKyselyDatabase();
+        const database = createDatabase();
         if (options.clearDb) {
-          await clearKyselyDatabase(database);
+          await clearDatabase(database);
           logger.info('Database cleared and reinitialized');
         }
 
@@ -222,7 +221,7 @@ async function main() {
           }
         }
 
-        const transactionRepository = new KyselyTransactionRepository(database);
+        const transactionRepository = new TransactionRepository(database);
         const transactions = await transactionRepository.getTransactions(options.exchange, since);
 
         const outputPath =
@@ -238,7 +237,7 @@ async function main() {
 
         logger.info(`\n💾 Exported ${transactions.length} transactions to: ${outputPath}`);
 
-        await closeKyselyDatabase(database);
+        await closeDatabase(database);
         process.exit(0);
       } catch (error) {
         logger.error(`Export failed: ${String(error)}`);
@@ -304,9 +303,9 @@ async function main() {
           '@crypto/import/src/infrastructure/shared/processors/processor-factory.ts'
         );
 
-        const transactionRepository = new KyselyTransactionRepository(database);
-        const rawDataRepository = new KyselyRawDataRepository(database);
-        const sessionRepository = new KyselyImportSessionRepository(database);
+        const transactionRepository = new TransactionRepository(database);
+        const rawDataRepository = new RawDataRepository(database);
+        const sessionRepository = new ImportSessionRepository(database);
         const providerManager = new BlockchainProviderManager(explorerConfig);
         const importerFactory = new ImporterFactory(providerManager);
         const processorFactory = new ProcessorFactory();
@@ -375,7 +374,7 @@ async function main() {
         } finally {
           // Cleanup provider manager resources
           providerManager.destroy();
-          await closeKyselyDatabase(database);
+          await closeDatabase(database);
         }
 
         // Exit successfully
@@ -430,9 +429,9 @@ async function main() {
           '@crypto/import/src/infrastructure/shared/processors/processor-factory.ts'
         );
 
-        const transactionRepository = new KyselyTransactionRepository(database);
-        const rawDataRepository = new KyselyRawDataRepository(database);
-        const sessionRepository = new KyselyImportSessionRepository(database);
+        const transactionRepository = new TransactionRepository(database);
+        const rawDataRepository = new RawDataRepository(database);
+        const sessionRepository = new ImportSessionRepository(database);
         const providerManager = new BlockchainProviderManager(explorerConfig);
         const importerFactory = new ImporterFactory(providerManager);
         const processorFactory = new ProcessorFactory();
@@ -474,7 +473,7 @@ async function main() {
         } finally {
           // Cleanup provider manager resources
           providerManager.destroy();
-          await closeKyselyDatabase(database);
+          await closeDatabase(database);
         }
 
         // Exit successfully

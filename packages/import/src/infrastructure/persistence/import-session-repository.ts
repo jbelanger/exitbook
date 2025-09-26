@@ -1,6 +1,5 @@
-import { KyselyBaseRepository } from '@crypto/data/src/repositories/kysely-base-repository.ts';
-import type { ImportSessionsTable, ExternalTransactionDataTable } from '@crypto/data/src/schema/database-schema.ts';
-import type { KyselyDB } from '@crypto/data/src/storage/kysely-database.ts';
+import { BaseRepository } from '@crypto/data/src/repositories/base-repository.ts';
+import type { KyselyDB } from '@crypto/data/src/storage/database.ts';
 import type {
   ImportSession,
   ImportSessionQuery,
@@ -37,9 +36,9 @@ function mapToImportSession(row: Record<string, unknown>): ImportSession {
  * Kysely-based repository for import session database operations.
  * Handles storage and retrieval of ImportSession entities using type-safe queries.
  */
-export class KyselyImportSessionRepository extends KyselyBaseRepository implements IImportSessionRepository {
+export class ImportSessionRepository extends BaseRepository implements IImportSessionRepository {
   constructor(db: KyselyDB) {
-    super(db, 'KyselyImportSessionRepository');
+    super(db, 'ImportSessionRepository');
   }
 
   async create(

@@ -96,9 +96,9 @@ export const dateTimeTransformer = {
 };
 
 /**
- * Create and configure Kysely database instance
+ * Create and configure database instance
  */
-export function createKyselyDatabase(dbPath?: string): Kysely<DatabaseSchema> {
+export function createDatabase(dbPath?: string): Kysely<DatabaseSchema> {
   const defaultPath = path.join(process.cwd(), 'data', 'transactions.db');
   const finalPath = dbPath || defaultPath;
 
@@ -157,9 +157,9 @@ export function createKyselyDatabase(dbPath?: string): Kysely<DatabaseSchema> {
  * Clear and reinitialize the Kysely database
  * Drops all tables and recreates them
  */
-export async function clearKyselyDatabase(db: Kysely<DatabaseSchema>): Promise<void> {
+export async function clearDatabase(db: Kysely<DatabaseSchema>): Promise<void> {
   try {
-    logger.info('Clearing Kysely database tables');
+    logger.info('Clearing database tables');
 
     // Drop tables in correct order (respecting foreign key constraints)
     const tablesToDrop = [
@@ -177,9 +177,9 @@ export async function clearKyselyDatabase(db: Kysely<DatabaseSchema>): Promise<v
 
     // Note: Table creation should be handled by migration system
     // This function only clears existing data
-    logger.info('Kysely database cleared successfully');
+    logger.info('Database cleared successfully');
   } catch (error) {
-    logger.error({ error }, 'Error clearing Kysely database');
+    logger.error({ error }, 'Error clearing database');
     throw error;
   }
 }
@@ -187,7 +187,7 @@ export async function clearKyselyDatabase(db: Kysely<DatabaseSchema>): Promise<v
 /**
  * Utility function to close the Kysely database connection
  */
-export async function closeKyselyDatabase(db: Kysely<DatabaseSchema>): Promise<void> {
+export async function closeDatabase(db: Kysely<DatabaseSchema>): Promise<void> {
   try {
     await db.destroy();
     logger.info('Kysely database connection closed');

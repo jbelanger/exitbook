@@ -35,12 +35,3 @@ export interface BalanceVerificationRecord {
   status: string;
   timestamp: number;
 }
-
-export interface BalanceSnapshot {
-  balance: number;
-  created_at: number;
-  currency: string;
-  exchange: string;
-  id?: number;
-  timestamp: number;
-}

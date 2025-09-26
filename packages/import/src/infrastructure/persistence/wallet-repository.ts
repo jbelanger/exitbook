@@ -1,5 +1,5 @@
-import { KyselyBaseRepository } from '@crypto/data/src/repositories/kysely-base-repository.ts';
-import type { KyselyDB } from '@crypto/data/src/storage/kysely-database.ts';
+import { BaseRepository } from '@crypto/data/src/repositories/base-repository.ts';
+import type { KyselyDB } from '@crypto/data/src/storage/database.ts';
 import type {
   CreateWalletAddressRequest,
   UpdateWalletAddressRequest,
@@ -30,9 +30,9 @@ function mapToWalletAddress(row: Record<string, unknown>): WalletAddress {
  * Kysely-based repository for wallet address database operations.
  * Handles storage and retrieval of WalletAddress entities using type-safe queries.
  */
-export class KyselyWalletRepository extends KyselyBaseRepository implements IWalletRepository {
+export class WalletRepository extends BaseRepository implements IWalletRepository {
   constructor(db: KyselyDB) {
-    super(db, 'KyselyWalletRepository');
+    super(db, 'WalletRepository');
   }
 
   async create(request: CreateWalletAddressRequest): Promise<WalletAddress> {

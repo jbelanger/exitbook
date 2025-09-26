@@ -1,7 +1,7 @@
 import type { Generated, ColumnType } from 'kysely';
 
 /**
- * Modernized database schema definitions for Kysely
+ * Database schema definitions
  * PostgreSQL-compatible design with proper relationships and standards compliance
  */
 
@@ -15,8 +15,6 @@ export type JSONString = ColumnType<string, string, string>;
  */
 export interface ImportSessionsTable {
   completed_at: DateTime | null;
-
-  // Modern datetime handling (PostgreSQL compatible)
   created_at: DateTime;
   duration_ms: number | null;
   error_details: JSONString | null;
@@ -45,7 +43,6 @@ export interface ImportSessionsTable {
  * External transaction data table - stores unprocessed transaction data from sources
  */
 export interface ExternalTransactionDataTable {
-  // Modern datetime handling
   created_at: DateTime;
 
   id: Generated<number>;
@@ -77,7 +74,6 @@ export interface TransactionsTable {
   amount: DecimalString | null;
 
   amount_currency: string | null;
-  // Modern datetime handling (PostgreSQL compatible)
   created_at: DateTime;
   external_id: string | null; // hash, transaction ID, etc.
 
@@ -118,28 +114,11 @@ export interface TransactionsTable {
 }
 
 /**
- * Balance snapshots - store point-in-time balance data
- */
-export interface BalanceSnapshotsTable {
-  // Balance data
-  balance: DecimalString;
-
-  // Modern datetime handling
-  created_at: DateTime;
-  currency: string;
-
-  exchange: string;
-  id: Generated<number>;
-  snapshot_datetime: DateTime;
-}
-
-/**
  * Balance verification records - track verification results
  */
 export interface BalanceVerificationsTable {
   actual_balance: DecimalString;
 
-  // Modern datetime handling
   created_at: DateTime;
   // Verification data
   currency: string;
@@ -162,7 +141,6 @@ export interface WalletAddressesTable {
   address_type: 'personal' | 'exchange' | 'contract' | 'unknown';
   blockchain: string;
 
-  // Modern datetime handling
   created_at: DateTime;
   id: Generated<number>;
   is_active: boolean;
@@ -177,7 +155,6 @@ export interface WalletAddressesTable {
  * Main database interface combining all tables
  */
 export interface DatabaseSchema {
-  balance_snapshots: BalanceSnapshotsTable;
   balance_verifications: BalanceVerificationsTable;
   external_transaction_data: ExternalTransactionDataTable;
   import_sessions: ImportSessionsTable;

@@ -1,5 +1,5 @@
-import { KyselyBaseRepository } from '@crypto/data/src/repositories/kysely-base-repository.ts';
-import type { KyselyDB } from '@crypto/data/src/storage/kysely-database.ts';
+import { BaseRepository } from '@crypto/data/src/repositories/base-repository.ts';
+import type { KyselyDB } from '@crypto/data/src/storage/database.ts';
 import type { StoredRawData } from '@crypto/data/src/types/data-types.ts';
 
 import type {
@@ -31,9 +31,9 @@ function mapToStoredRawData(row: Record<string, unknown>): StoredRawData {
  * Kysely-based repository for raw data database operations.
  * Handles storage and retrieval of external transaction data using type-safe queries.
  */
-export class KyselyRawDataRepository extends KyselyBaseRepository implements IRawDataRepository {
+export class RawDataRepository extends BaseRepository implements IRawDataRepository {
   constructor(db: KyselyDB) {
-    super(db, 'KyselyRawDataRepository');
+    super(db, 'RawDataRepository');
   }
 
   async load(filters?: LoadRawDataFilters): Promise<StoredRawData[]> {
