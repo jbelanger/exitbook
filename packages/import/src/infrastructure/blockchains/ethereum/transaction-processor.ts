@@ -8,6 +8,7 @@ import type { ImportSessionMetadata } from '../../../app/ports/processors.ts';
 
 // Import processors to trigger registration
 import './mappers/index.js';
+import type { UniversalBlockchainTransaction } from '../../../app/ports/raw-data-mappers.ts';
 import { BaseProcessor } from '../../shared/processors/base-processor.js';
 import { TransactionMapperFactory } from '../../shared/processors/processor-registry.js';
 
@@ -70,19 +71,19 @@ export class EthereumTransactionProcessor extends BaseProcessor<ApiClientRawData
     }
 
     // Transform using the provider-specific processor
-    const transformResult = processor.map(rawData, sessionContext);
+    const transformResult = processor.map(rawData, sessionContext) as Result<UniversalBlockchainTransaction, string>;
 
     if (transformResult.isErr()) {
       return err(`Transform failed for ${providerId}: ${transformResult.error}`);
     }
 
     const blockchainTransactions = transformResult.value;
-    if (blockchainTransactions.length === 0) {
+    if (!blockchainTransactions) {
       return err(`No transactions returned from ${providerId} processor`);
     }
 
     // Ethereum processors return array with single transaction
-    const blockchainTransaction = blockchainTransactions[0];
+    const blockchainTransaction = blockchainTransactions;
 
     // Debug logging to understand what type we're getting
     if (!blockchainTransaction) {

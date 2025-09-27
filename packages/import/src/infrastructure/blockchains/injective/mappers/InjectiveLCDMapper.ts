@@ -8,13 +8,16 @@ import { InjectiveBalanceResponseSchema } from '../schemas.js';
 import type { InjectiveBalanceResponse } from '../types.js';
 
 @RegisterTransactionMapper('injective-lcd')
-export class InjectiveLCDTransactionMapper extends BaseRawDataMapper<InjectiveBalanceResponse> {
+export class InjectiveLCDTransactionMapper extends BaseRawDataMapper<
+  InjectiveBalanceResponse,
+  UniversalBlockchainTransaction
+> {
   protected readonly schema = InjectiveBalanceResponseSchema;
 
   protected mapInternal(
     _rawData: InjectiveBalanceResponse,
     _sessionContext: ImportSessionMetadata
-  ): Result<UniversalBlockchainTransaction[], string> {
+  ): Result<UniversalBlockchainTransaction, string> {
     // LCD processor is for balance data, not transaction data
     // This processor is created for consistency but should not be used for balance operations
     return err('InjectiveLCDProcessor is designed for balance data, not transaction processing');

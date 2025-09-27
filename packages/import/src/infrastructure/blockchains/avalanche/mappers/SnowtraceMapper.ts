@@ -15,14 +15,15 @@ export interface SnowtraceRawData {
 
 @RegisterTransactionMapper('snowtrace')
 export class SnowtraceTransactionMapper extends BaseRawDataMapper<
-  SnowtraceTransaction | SnowtraceInternalTransaction | SnowtraceTokenTransfer
+  SnowtraceTransaction | SnowtraceInternalTransaction | SnowtraceTokenTransfer,
+  UniversalBlockchainTransaction
 > {
   protected readonly schema = SnowtraceAnyTransactionSchema;
 
   protected mapInternal(
     rawData: SnowtraceTransaction | SnowtraceInternalTransaction | SnowtraceTokenTransfer,
     _sessionContext: ImportSessionMetadata
-  ): Result<UniversalBlockchainTransaction[], string> {
+  ): Result<UniversalBlockchainTransaction, string> {
     // Type discrimination handled by SnowtraceAnyTransactionSchema discriminated union
     // Token transfers have tokenSymbol, internal transactions have traceId, normal transactions have nonce
 
@@ -39,26 +40,24 @@ export class SnowtraceTransactionMapper extends BaseRawDataMapper<
 
   private transformInternalTransaction(
     rawData: SnowtraceInternalTransaction
-  ): Result<UniversalBlockchainTransaction[], string> {
+  ): Result<UniversalBlockchainTransaction, string> {
     const timestamp = parseInt(rawData.timeStamp) * 1000;
 
-    return ok([
-      {
-        amount: rawData.value,
-        blockHeight: parseInt(rawData.blockNumber),
-        currency: 'AVAX',
-        from: rawData.from,
-        id: rawData.hash,
-        providerId: 'snowtrace',
-        status: rawData.isError === '0' ? 'success' : 'failed',
-        timestamp,
-        to: rawData.to,
-        type: 'internal',
-      },
-    ]);
+    return ok({
+      amount: rawData.value,
+      blockHeight: parseInt(rawData.blockNumber),
+      currency: 'AVAX',
+      from: rawData.from,
+      id: rawData.hash,
+      providerId: 'snowtrace',
+      status: rawData.isError === '0' ? 'success' : 'failed',
+      timestamp,
+      to: rawData.to,
+      type: 'internal',
+    });
   }
 
-  private transformNormalTransaction(rawData: SnowtraceTransaction): Result<UniversalBlockchainTransaction[], string> {
+  private transformNormalTransaction(rawData: SnowtraceTransaction): Result<UniversalBlockchainTransaction, string> {
     const timestamp = parseInt(rawData.timeStamp) * 1000;
 
     // Calculate fee from gas data
@@ -88,10 +87,10 @@ export class SnowtraceTransactionMapper extends BaseRawDataMapper<
       transaction.feeCurrency = 'AVAX';
     }
 
-    return ok([transaction]);
+    return ok(transaction);
   }
 
-  private transformTokenTransfer(rawData: SnowtraceTokenTransfer): Result<UniversalBlockchainTransaction[], string> {
+  private transformTokenTransfer(rawData: SnowtraceTokenTransfer): Result<UniversalBlockchainTransaction, string> {
     const timestamp = parseInt(rawData.timeStamp) * 1000;
 
     // Calculate fee from gas data
@@ -124,6 +123,6 @@ export class SnowtraceTransactionMapper extends BaseRawDataMapper<
       transaction.feeCurrency = 'AVAX';
     }
 
-    return ok([transaction]);
+    return ok(transaction);
   }
 }

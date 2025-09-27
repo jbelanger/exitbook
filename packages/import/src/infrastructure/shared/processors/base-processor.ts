@@ -27,7 +27,51 @@ export abstract class BaseProcessor<TRawData> implements IProcessor {
   async process(importSession: ProcessingImportSession): Promise<UniversalTransaction[]> {
     this.logger.info(`Processing ${importSession.rawDataItems.length} raw data items for ${this.sourceId}`);
 
-    // Delegate to subclass for actual processing logic
+    // Check if we have normalized data to process instead
+    if (importSession.rawDataItems2 && importSession.rawDataItems2.length > 0) {
+      this.logger.info(`Processing ${importSession.rawDataItems2.length} normalized items for ${this.sourceId}`);
+
+      // Use the new normalized processing method
+      const result = await this.processNormalizedInternal(importSession.rawDataItems2, importSession.sessionMetadata);
+
+      if (result.isErr()) {
+        this.logger.error(`Normalized processing failed for ${this.sourceId}: ${result.error}`);
+        return [];
+      }
+
+      const transactions = result.value;
+
+      // Validate all generated transactions using Zod schemas
+      const { invalid, valid } = validateUniversalTransactions(transactions);
+
+      // Log validation errors but continue processing with valid transactions
+      if (invalid.length > 0) {
+        this.logger.error(
+          `${invalid.length} invalid transactions from ${this.sourceId}Processor. ` +
+            `Invalid: ${invalid.length}, Valid: ${valid.length}, Total: ${transactions.length}. ` +
+            `Errors: ${invalid
+              .map(({ errors }) => {
+                // ZodError type import is not shown, so use 'any' for safe cast
+                const zodError = errors as {
+                  issues: { message: string; path: (string | number)[] }[];
+                };
+                return zodError.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; ');
+              })
+              .join(' | ')}`
+        );
+      }
+
+      // Apply scam detection to valid transactions
+      const transactionsWithScamDetection = this.applyScamDetection(valid);
+
+      this.logger.info(
+        `Normalized processing completed for ${this.sourceId}: ${valid.length} valid, ${invalid.length} invalid`
+      );
+
+      return transactionsWithScamDetection;
+    }
+
+    // Fall back to original raw data processing
     const result = await this.processInternal(
       importSession.rawDataItems as StoredRawData<TRawData>[],
       importSession.sessionMetadata
@@ -168,6 +212,36 @@ export abstract class BaseProcessor<TRawData> implements IProcessor {
     rawData: StoredRawData<TRawData>[],
     sessionMetadata?: ImportSessionMetadata
   ): Promise<Result<UniversalTransaction[], string>>;
+
+  /**
+   * Subclasses can optionally implement this method to handle normalized data.
+   * Used when the ingestion service has pre-normalized the raw data.
+   * Default implementation delegates to processInternal for backward compatibility.
+   */
+  protected async processNormalizedInternal(
+    normalizedData: unknown[],
+    sessionMetadata?: ImportSessionMetadata
+  ): Promise<Result<UniversalTransaction[], string>> {
+    // Default implementation: treat normalized data as raw data for backward compatibility
+    // Subclasses should override this to handle normalized data properly
+    this.logger.warn(`${this.sourceId} processor does not implement processNormalizedInternal, using fallback`);
+
+    // Create fake StoredRawData structure to maintain compatibility
+    const fakeRawDataItems: StoredRawData<TRawData>[] = normalizedData.map((item, index) => ({
+      createdAt: Date.now(),
+      id: index,
+      importSessionId: undefined,
+      metadata: {},
+      processingStatus: 'pending' as const,
+      providerId: undefined,
+      rawData: item as TRawData,
+      sourceId: this.sourceId,
+      sourceType: 'blockchain' as const,
+      updatedAt: Date.now(),
+    }));
+
+    return this.processInternal(fakeRawDataItems, sessionMetadata);
+  }
 
   /**
    * Helper method to validate required fields in raw data.

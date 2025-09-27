@@ -119,13 +119,13 @@ export class SolanaTransactionProcessor extends BaseProcessor<ApiClientRawData<S
     }
 
     // Transform the full batch using the provider-specific processor
-    const transformResult = processor.map(rawData, sessionContext);
+    const transformResult = processor.map(rawData, sessionContext) as Result<UniversalBlockchainTransaction, string>;
 
     if (transformResult.isErr()) {
       return err(`Transform failed for ${providerId}: ${transformResult.error}`);
     }
 
-    const blockchainTransactions = transformResult.value;
+    const blockchainTransactions = [transformResult.value]; // TODO, this is broken code. it used to be an array but its now a single object containing all the inputs and outputs
     const transactions: UniversalTransaction[] = [];
 
     // Convert each UniversalBlockchainTransaction to UniversalTransaction

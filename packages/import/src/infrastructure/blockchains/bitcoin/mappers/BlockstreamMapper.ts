@@ -8,13 +8,16 @@ import { BlockstreamTransactionSchema } from '../schemas.js';
 import type { BlockstreamTransaction } from '../types.js';
 
 @RegisterTransactionMapper('blockstream.info')
-export class BlockstreamTransactionMapper extends BaseRawDataMapper<BlockstreamTransaction> {
+export class BlockstreamTransactionMapper extends BaseRawDataMapper<
+  BlockstreamTransaction,
+  UniversalBlockchainTransaction
+> {
   protected readonly schema = BlockstreamTransactionSchema;
 
   protected mapInternal(
     rawData: BlockstreamTransaction,
     sessionContext: ImportSessionMetadata
-  ): Result<UniversalBlockchainTransaction[], string> {
+  ): Result<UniversalBlockchainTransaction, string> {
     const timestamp =
       rawData.status.confirmed && rawData.status.block_time ? rawData.status.block_time * 1000 : Date.now();
 
@@ -131,6 +134,6 @@ export class BlockstreamTransactionMapper extends BaseRawDataMapper<BlockstreamT
       transaction.feeCurrency = 'BTC';
     }
 
-    return ok([transaction]);
+    return ok(transaction);
   }
 }

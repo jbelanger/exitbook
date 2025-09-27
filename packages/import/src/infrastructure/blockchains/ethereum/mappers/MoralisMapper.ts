@@ -11,7 +11,7 @@ import { MoralisTransactionSchema } from '../schemas.js';
 import type { MoralisNativeBalance, MoralisTokenBalance, MoralisTokenTransfer, MoralisTransaction } from '../types.js';
 
 @RegisterTransactionMapper('moralis')
-export class MoralisTransactionMapper extends BaseRawDataMapper<MoralisTransaction> {
+export class MoralisTransactionMapper extends BaseRawDataMapper<MoralisTransaction, UniversalBlockchainTransaction> {
   static processAddressBalance(balance: MoralisNativeBalance): Balance[] {
     const balanceWei = new Decimal(balance.balance);
     const balanceEth = balanceWei.dividedBy(new Decimal(10).pow(18));
@@ -110,7 +110,7 @@ export class MoralisTransactionMapper extends BaseRawDataMapper<MoralisTransacti
   protected mapInternal(
     rawData: MoralisTransaction,
     _sessionContext: ImportSessionMetadata
-  ): Result<UniversalBlockchainTransaction[], string> {
+  ): Result<UniversalBlockchainTransaction, string> {
     // Determine transaction type - ETH native transfers are just transfers
     const type: UniversalBlockchainTransaction['type'] = 'transfer';
 
@@ -131,6 +131,6 @@ export class MoralisTransactionMapper extends BaseRawDataMapper<MoralisTransacti
       type,
     };
 
-    return ok([transaction]);
+    return ok(transaction);
   }
 }

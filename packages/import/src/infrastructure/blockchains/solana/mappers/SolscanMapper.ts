@@ -15,7 +15,10 @@ import { lamportsToSol } from '../utils.js';
 const logger = getLogger('SolscanProcessor');
 
 @RegisterTransactionMapper('solscan')
-export class SolscanTransactionMapper extends BaseRawDataMapper<SolscanRawTransactionData> {
+export class SolscanTransactionMapper extends BaseRawDataMapper<
+  SolscanRawTransactionData,
+  UniversalBlockchainTransaction
+> {
   static processAddressTransactions(
     rawData: SolscanRawTransactionData,
     userAddress: string
@@ -99,7 +102,7 @@ export class SolscanTransactionMapper extends BaseRawDataMapper<SolscanRawTransa
   protected mapInternal(
     rawData: SolscanRawTransactionData,
     sessionContext: ImportSessionMetadata
-  ): Result<UniversalBlockchainTransaction[], string> {
+  ): Result<UniversalBlockchainTransaction, string> {
     if (!sessionContext.address) {
       return err('No address found in session context');
     }
@@ -122,6 +125,12 @@ export class SolscanTransactionMapper extends BaseRawDataMapper<SolscanRawTransa
       transactions.push(processedTx);
     }
 
-    return ok(transactions);
+    // todo: handle multiple transactions properly
+    // For now, just return the first processed transaction for compatibility
+    // with existing interfaces
+    // if (transactions.length === 0) {
+    //   return err('No relevant transactions found for the provided address');
+    // }
+    return err('Needs to implement custom solana raw data object');
   }
 }

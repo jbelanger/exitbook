@@ -11,7 +11,7 @@ import { AlchemyAssetTransferSchema } from '../schemas.js';
 import type { AlchemyAssetTransfer, EtherscanBalance } from '../types.js';
 
 @RegisterTransactionMapper('alchemy')
-export class AlchemyTransactionMapper extends BaseRawDataMapper<AlchemyAssetTransfer> {
+export class AlchemyTransactionMapper extends BaseRawDataMapper<AlchemyAssetTransfer, UniversalBlockchainTransaction> {
   static processAddressBalance(balances: EtherscanBalance[]): Balance[] {
     return balances.map((balance) => {
       const ethBalanceWei = new Decimal(balance.balance);
@@ -112,7 +112,7 @@ export class AlchemyTransactionMapper extends BaseRawDataMapper<AlchemyAssetTran
   protected mapInternal(
     rawData: AlchemyAssetTransfer,
     _sessionContext: ImportSessionMetadata
-  ): Result<UniversalBlockchainTransaction[], string> {
+  ): Result<UniversalBlockchainTransaction, string> {
     // Determine transaction type based on Alchemy categories
     let type: UniversalBlockchainTransaction['type'];
     const isTokenTransfer =
@@ -183,6 +183,6 @@ export class AlchemyTransactionMapper extends BaseRawDataMapper<AlchemyAssetTran
       }
     }
 
-    return ok([transaction]);
+    return ok(transaction);
   }
 }

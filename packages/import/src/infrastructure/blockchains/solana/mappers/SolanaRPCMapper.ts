@@ -14,7 +14,10 @@ import { lamportsToSol } from '../utils.js';
 const logger = getLogger('SolanaRPCProcessor');
 
 @RegisterTransactionMapper('solana-rpc')
-export class SolanaRPCTransactionMapper extends BaseRawDataMapper<SolanaRPCRawTransactionData> {
+export class SolanaRPCTransactionMapper extends BaseRawDataMapper<
+  SolanaRPCRawTransactionData,
+  UniversalBlockchainTransaction
+> {
   static processAddressTransactions(
     rawData: SolanaRPCRawTransactionData,
     userAddress: string
@@ -191,7 +194,7 @@ export class SolanaRPCTransactionMapper extends BaseRawDataMapper<SolanaRPCRawTr
   protected mapInternal(
     rawData: SolanaRPCRawTransactionData,
     sessionContext: ImportSessionMetadata
-  ): Result<UniversalBlockchainTransaction[], string> {
+  ): Result<UniversalBlockchainTransaction, string> {
     if (!sessionContext.address) {
       return err('No address found in session context');
     }
@@ -214,6 +217,12 @@ export class SolanaRPCTransactionMapper extends BaseRawDataMapper<SolanaRPCRawTr
       transactions.push(processedTx);
     }
 
-    return ok(transactions);
+    // todo: handle multiple transactions properly
+    // For now, just return the first processed transaction for compatibility
+    // with existing interfaces
+    // if (transactions.length === 0) {
+    //   return err('No relevant transactions found for the provided address');
+    // }
+    return err('Needs to implement custom solana raw data object');
   }
 }

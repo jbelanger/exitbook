@@ -4,6 +4,7 @@ import type { Logger } from '@crypto/shared-logger';
 import { getLogger } from '@crypto/shared-logger';
 
 import type { ImportResult } from '../../index.ts';
+import { NormalizerFactory } from '../../infrastructure/shared/normalizers/normalizer-factory.ts';
 import type { IImportSessionRepository } from '../ports/import-session-repository.ts';
 import type { IImporterFactory } from '../ports/importer-factory.ts';
 import type { ApiClientRawData, ImportParams } from '../ports/importers.ts';
@@ -225,6 +226,31 @@ export class TransactionIngestionService {
           continue;
         }
 
+        const normalizedRawDataItems: unknown[] = [];
+        if (sourceType === 'blockchain') {
+          const normalizer = NormalizerFactory.create(sourceId);
+          if (normalizer) {
+            for (const item of pendingItems) {
+              try {
+                const result = normalizer.normalize(
+                  item.rawData,
+                  sourceId,
+                  session.sessionMetadata as ImportSessionMetadata
+                );
+                if (result) result.map((r) => normalizedRawDataItems.push(r));
+              } catch (normError) {
+                this.logger.error(
+                  `Normalization failed for raw data item ${item.id} in session ${session.id}: ${String(normError)}`
+                );
+              }
+            }
+          }
+        } else {
+          for (const item of pendingItems) {
+            normalizedRawDataItems.push(item.rawData);
+          }
+        }
+
         // Create processor with session-specific context
         const processor = await this.processorFactory.create(sourceId, sourceType);
 
@@ -232,7 +258,8 @@ export class TransactionIngestionService {
         const processingSession: ProcessingImportSession = {
           createdAt: session.createdAt,
           id: session.id,
-          rawDataItems: pendingItems as StoredRawData<ApiClientRawData<unknown>>[],
+          rawDataItems: pendingItems as StoredRawData<ApiClientRawData<unknown>>[], //fix...
+          rawDataItems2: normalizedRawDataItems,
           sessionMetadata: session.sessionMetadata as ImportSessionMetadata | undefined,
           sourceId: session.sourceId,
           sourceType: session.sourceType,

@@ -344,3 +344,47 @@ export interface TatumBitcoinBalance {
   incoming: string;
   outgoing: string;
 }
+
+/**
+ * Normalized Bitcoin transaction with structured input/output data
+ * for sophisticated fund flow analysis in the processor
+ */
+export interface NormalizedBitcoinTransaction {
+  // Block context
+  blockHeight?: number;
+  blockId?: string;
+  currency: 'BTC';
+  // Fee information
+  feeAmount?: string;
+  feeCurrency?: string;
+
+  // Core transaction data
+  id: string;
+  // Structured input/output data for fund flow analysis
+  inputs: BitcoinTransactionInput[];
+
+  outputs: BitcoinTransactionOutput[];
+  providerId: string;
+
+  status: 'success' | 'failed' | 'pending';
+  timestamp: number;
+}
+
+/**
+ * Structured Bitcoin input data
+ */
+export interface BitcoinTransactionInput {
+  address?: string; // Address that owns this input
+  txid?: string; // Previous transaction ID
+  value: string; // Value in satoshis as string
+  vout?: number; // Previous output index
+}
+
+/**
+ * Structured Bitcoin output data
+ */
+export interface BitcoinTransactionOutput {
+  address?: string; // Destination address
+  index: number; // Output index
+  value: string; // Value in satoshis as string
+}

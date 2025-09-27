@@ -1,12 +1,12 @@
 import type { IRawDataMapper } from '../../../app/ports/raw-data-mappers.ts';
 
-const transactionMapperMap = new Map<string, new () => IRawDataMapper<unknown>>();
+const transactionMapperMap = new Map<string, new () => IRawDataMapper<unknown, unknown>>();
 
 /**
  * Decorator to register a mapper with a specific provider ID
  */
 export function RegisterTransactionMapper(providerId: string) {
-  return function (constructor: new () => IRawDataMapper<unknown>) {
+  return function (constructor: new () => IRawDataMapper<unknown, unknown>) {
     if (transactionMapperMap.has(providerId)) {
       console.warn(`Mapper already registered for providerId: ${providerId}`);
     }
@@ -28,7 +28,7 @@ export class TransactionMapperFactory {
   /**
    * Create a mapper instance for the given provider ID
    */
-  static create(providerId: string): IRawDataMapper<unknown> | undefined {
+  static create(providerId: string): IRawDataMapper<unknown, unknown> | undefined {
     const MapperClass = transactionMapperMap.get(providerId);
     return MapperClass ? new MapperClass() : undefined;
   }

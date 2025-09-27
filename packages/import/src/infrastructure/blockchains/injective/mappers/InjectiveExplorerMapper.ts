@@ -9,13 +9,16 @@ import { InjectiveTransactionSchema } from '../schemas.js';
 import type { InjectiveMessageValue, InjectiveTransaction } from '../types.js';
 
 @RegisterTransactionMapper('injective-explorer')
-export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<InjectiveTransaction> {
+export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<
+  InjectiveTransaction,
+  UniversalBlockchainTransaction
+> {
   protected readonly schema = InjectiveTransactionSchema;
 
   protected mapInternal(
     rawData: InjectiveTransaction,
     sessionContext: ImportSessionMetadata
-  ): Result<UniversalBlockchainTransaction[], string> {
+  ): Result<UniversalBlockchainTransaction, string> {
     const timestamp = new Date(rawData.block_timestamp).getTime();
 
     if (!sessionContext.address) {
@@ -177,7 +180,7 @@ export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<Inject
       transaction.feeCurrency = feeCurrency;
     }
 
-    return ok([transaction]);
+    return ok(transaction);
   }
 
   private formatDenom(denom: string | undefined): string {

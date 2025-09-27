@@ -21,7 +21,7 @@ export interface SubstrateRawData {
 }
 
 @RegisterTransactionMapper('subscan')
-export class SubstrateTransactionMapper extends BaseRawDataMapper<SubscanTransfer> {
+export class SubstrateTransactionMapper extends BaseRawDataMapper<SubscanTransfer, UniversalBlockchainTransaction> {
   static processAddressBalance(rawData: SubstrateRawData): Balance[] {
     if (rawData.accountInfo) {
       // RPC-based balance
@@ -206,7 +206,7 @@ export class SubstrateTransactionMapper extends BaseRawDataMapper<SubscanTransfe
   protected mapInternal(
     rawData: SubscanTransfer,
     sessionContext: ImportSessionMetadata
-  ): Result<UniversalBlockchainTransaction[], string> {
+  ): Result<UniversalBlockchainTransaction, string> {
     // Extract addresses from rich session context (similar to Bitcoin's approach)
     // Use derivedAddresses for SS58 variants, fallback to address for backward compatibility
     const addresses = sessionContext.derivedAddresses || (sessionContext.address ? [sessionContext.address] : []);
@@ -229,6 +229,6 @@ export class SubstrateTransactionMapper extends BaseRawDataMapper<SubscanTransfe
       return err(`Failed to convert transaction for addresses: ${Array.from(relevantAddresses).join(', ')}`);
     }
 
-    return ok([transaction]);
+    return ok(transaction);
   }
 }

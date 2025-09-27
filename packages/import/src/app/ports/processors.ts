@@ -49,6 +49,7 @@ export interface ProcessingImportSession {
   id: number;
   // Raw data items for this session (from potentially multiple providers)
   rawDataItems: StoredRawData<ApiClientRawData<unknown>>[];
+  rawDataItems2: unknown[];
   // Rich session context with blockchain-specific metadata
   sessionMetadata?: ImportSessionMetadata | undefined;
   sourceId: string;

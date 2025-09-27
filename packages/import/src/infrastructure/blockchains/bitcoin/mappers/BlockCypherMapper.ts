@@ -9,14 +9,17 @@ import { BlockCypherTransactionSchema } from '../schemas.js';
 import type { BlockCypherTransaction } from '../types.js';
 
 @RegisterTransactionMapper('blockcypher')
-export class BlockCypherTransactionMapper extends BaseRawDataMapper<BlockCypherTransaction> {
+export class BlockCypherTransactionMapper extends BaseRawDataMapper<
+  BlockCypherTransaction,
+  UniversalBlockchainTransaction
+> {
   protected readonly schema = BlockCypherTransactionSchema;
   private logger = getLogger('BlockCypherProcessor');
 
   protected mapInternal(
     rawData: BlockCypherTransaction,
     sessionContext: ImportSessionMetadata
-  ): Result<UniversalBlockchainTransaction[], string> {
+  ): Result<UniversalBlockchainTransaction, string> {
     // Extract addresses from rich session context (Bitcoin uses derivedAddresses)
     const addresses = sessionContext.derivedAddresses || (sessionContext.address ? [sessionContext.address] : []);
 
@@ -199,6 +202,6 @@ export class BlockCypherTransactionMapper extends BaseRawDataMapper<BlockCypherT
       transaction.feeCurrency = 'BTC';
     }
 
-    return ok([transaction]);
+    return ok(transaction);
   }
 }

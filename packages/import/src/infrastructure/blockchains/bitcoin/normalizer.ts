@@ -1,0 +1,51 @@
+import { type Result, err, ok } from 'neverthrow';
+
+import type { ImportSessionMetadata } from '../../../app/ports/processors.ts';
+import { TransactionMapperFactory } from '../../shared/processors/processor-registry.js';
+
+import type { BitcoinTransaction, NormalizedBitcoinTransaction } from './types.js';
+
+/**
+ * BitcoinNormalizer handles pure data extraction from provider-specific JSON
+ * to normalized Bitcoin transaction format with structured input/output data.
+ *
+ * Responsibility: "What happened on-chain?" - Pure factual data transformation
+ * - Uses existing mapper factory to dispatch to provider-specific mappers
+ * - Mappers extract structured input/output data for fund flow analysis
+ * - Returns NormalizedBitcoinTransaction for processor to apply business logic
+ * - Stateless - no database access or historical context
+ */
+export class BitcoinNormalizer {
+  /**
+   * Normalize Bitcoin transaction data from any provider to NormalizedBitcoinTransaction
+   */
+  normalize(
+    rawData: BitcoinTransaction,
+    providerId: string,
+    sessionContext: ImportSessionMetadata
+  ): Result<NormalizedBitcoinTransaction, string> {
+    // Get the appropriate mapper for this provider (same as current processor)
+    const mapper = TransactionMapperFactory.create(providerId);
+    if (!mapper) {
+      return err(`No mapper found for provider: ${providerId}`);
+    }
+
+    // Transform using the provider-specific mapper
+    const transformResult = mapper.map(rawData, sessionContext);
+
+    if (transformResult.isErr()) {
+      return err(`Transform failed for ${providerId}: ${transformResult.error}`);
+    }
+
+    const blockchainTransaction = transformResult.value;
+    if (!blockchainTransaction) {
+      return err(`No transactions returned from ${providerId} mapper`);
+    }
+
+    if (!blockchainTransaction) {
+      return err(`No valid transaction object returned from ${providerId} mapper`);
+    }
+
+    return ok(blockchainTransaction as NormalizedBitcoinTransaction);
+  }
+}

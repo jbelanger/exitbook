@@ -66,7 +66,10 @@ export class AvalancheTransactionProcessor extends BaseProcessor<ApiClientRawDat
         return Promise.resolve(err(`No processor found for provider: ${apiClientRawData.providerId}`));
       }
 
-      const transformResult = processor.map(apiClientRawData.rawData, sessionMetadata);
+      const transformResult = processor.map(apiClientRawData.rawData, sessionMetadata) as Result<
+        UniversalBlockchainTransaction,
+        string
+      >;
 
       if (transformResult.isErr()) {
         this.correlationLogger.error(`Failed to transform transaction: ${transformResult.error}`);
@@ -74,13 +77,13 @@ export class AvalancheTransactionProcessor extends BaseProcessor<ApiClientRawDat
       }
 
       const blockchainTransactions = transformResult.value;
-      if (blockchainTransactions.length === 0) {
+      if (!blockchainTransactions) {
         this.correlationLogger.warn(`No transactions returned from ${apiClientRawData.providerId} processor`);
         continue;
       }
 
       // Avalanche processors return array with single transaction
-      const firstTransaction = blockchainTransactions[0];
+      const firstTransaction = blockchainTransactions;
       if (firstTransaction) {
         universalTransactions.push(firstTransaction);
       }

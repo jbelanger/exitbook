@@ -8,10 +8,11 @@ import type { ImportSessionMetadata } from '../../../app/ports/processors.ts';
 
 // Import processors to trigger registration
 import './mappers/index.js';
+import type { UniversalBlockchainTransaction } from '../../../app/ports/raw-data-mappers.ts';
 import { BaseProcessor } from '../../shared/processors/base-processor.js';
 import { TransactionMapperFactory } from '../../shared/processors/processor-registry.js';
 
-import type { BitcoinTransaction } from './types.js';
+import type { BitcoinTransaction, NormalizedBitcoinTransaction } from './types.js';
 
 /**
  * Bitcoin transaction processor that converts raw blockchain transaction data
@@ -70,6 +71,82 @@ export class BitcoinTransactionProcessor extends BaseProcessor<ApiClientRawData<
   }
 
   /**
+   * Process normalized Bitcoin transactions with enhanced fund flow analysis.
+   * Handles NormalizedBitcoinTransaction objects with structured input/output data.
+   */
+  protected async processNormalizedInternal(
+    normalizedData: unknown[],
+    sessionMetadata?: ImportSessionMetadata
+  ): Promise<Result<UniversalTransaction[], string>> {
+    if (!sessionMetadata) {
+      return err('Missing session metadata for normalized processing');
+    }
+
+    this.logger.info(`Processing ${normalizedData.length} normalized Bitcoin transactions`);
+
+    const transactions: UniversalTransaction[] = [];
+
+    for (const item of normalizedData) {
+      const normalizedTx = item as NormalizedBitcoinTransaction;
+
+      try {
+        // Perform enhanced fund flow analysis with structured input/output data
+        const fundFlowResult = await Promise.resolve(this.analyzeFundFlowFromNormalized(normalizedTx, sessionMetadata));
+
+        if (fundFlowResult.isErr()) {
+          this.logger.warn(`Fund flow analysis failed for ${normalizedTx.id}: ${fundFlowResult.error}`);
+          continue;
+        }
+
+        const fundFlow = fundFlowResult.value;
+
+        // Determine transaction type based on fund flow
+        const transactionType = this.determineTransactionTypeFromFundFlow(fundFlow, sessionMetadata);
+
+        // Convert to UniversalTransaction
+        const universalTransaction: UniversalTransaction = {
+          amount: createMoney(fundFlow.netAmount, 'BTC'),
+          datetime: new Date(normalizedTx.timestamp).toISOString(),
+          fee: normalizedTx.feeAmount
+            ? createMoney(normalizedTx.feeAmount, normalizedTx.feeCurrency || 'BTC')
+            : createMoney('0', 'BTC'),
+          from: fundFlow.fromAddress,
+          id: normalizedTx.id,
+          metadata: {
+            blockchain: 'bitcoin',
+            blockHeight: normalizedTx.blockHeight,
+            blockId: normalizedTx.blockId,
+            fundFlow: {
+              isIncoming: fundFlow.isIncoming,
+              isOutgoing: fundFlow.isOutgoing,
+              totalInput: fundFlow.totalInput,
+              totalOutput: fundFlow.totalOutput,
+              walletInput: fundFlow.walletInput,
+              walletOutput: fundFlow.walletOutput,
+            },
+            providerId: normalizedTx.providerId,
+          },
+          source: 'bitcoin',
+          status: normalizedTx.status === 'success' ? 'ok' : 'failed',
+          symbol: 'BTC',
+          timestamp: normalizedTx.timestamp,
+          to: fundFlow.toAddress,
+          type: transactionType,
+        };
+
+        transactions.push(universalTransaction);
+        this.logger.debug(`Successfully processed normalized transaction ${universalTransaction.id}`);
+      } catch (error) {
+        this.logger.error(`Failed to process normalized transaction ${normalizedTx.id}: ${String(error)}`);
+        continue;
+      }
+    }
+
+    this.logger.info(`Normalized processing completed: ${transactions.length} transactions processed successfully`);
+    return ok(transactions);
+  }
+
+  /**
    * Extract rich Bitcoin-specific session context from session metadata.
    */
   private createSessionContext(
@@ -96,6 +173,112 @@ export class BitcoinTransactionProcessor extends BaseProcessor<ApiClientRawData<
   }
 
   /**
+   * Analyze fund flow from normalized Bitcoin transaction with structured input/output data.
+   */
+  private analyzeFundFlowFromNormalized(
+    normalizedTx: NormalizedBitcoinTransaction,
+    sessionMetadata: ImportSessionMetadata
+  ): Result<BitcoinFundFlow, string> {
+    // Convert all wallet addresses to lowercase for case-insensitive comparison
+    const allWalletAddresses = new Set(
+      [
+        sessionMetadata.address?.toLowerCase(),
+        ...(sessionMetadata.derivedAddresses || []).map((addr) => addr.toLowerCase()),
+      ].filter(Boolean)
+    );
+
+    let totalInput = 0;
+    let totalOutput = 0;
+    let walletInput = 0;
+    let walletOutput = 0;
+
+    // Analyze inputs
+    for (const input of normalizedTx.inputs) {
+      const value = parseFloat(input.value);
+      totalInput += value;
+
+      if (input.address && allWalletAddresses.has(input.address.toLowerCase())) {
+        walletInput += value;
+      }
+    }
+
+    // Analyze outputs
+    for (const output of normalizedTx.outputs) {
+      const value = parseFloat(output.value);
+      totalOutput += value;
+
+      if (output.address && allWalletAddresses.has(output.address.toLowerCase())) {
+        walletOutput += value;
+      }
+    }
+
+    const netAmount = (walletOutput - walletInput) / 100000000; // Convert satoshis to BTC
+    const isIncoming = walletOutput > walletInput;
+    const isOutgoing = walletInput > walletOutput;
+
+    // Determine primary addresses for from/to fields
+    const fromAddress = isOutgoing
+      ? normalizedTx.inputs.find((input) => input.address && allWalletAddresses.has(input.address.toLowerCase()))
+          ?.address
+      : normalizedTx.inputs[0]?.address;
+
+    const toAddress = isIncoming
+      ? normalizedTx.outputs.find((output) => output.address && allWalletAddresses.has(output.address.toLowerCase()))
+          ?.address
+      : normalizedTx.outputs[0]?.address;
+
+    return ok({
+      fromAddress,
+      isIncoming,
+      isOutgoing,
+      netAmount: Math.abs(netAmount).toString(),
+      toAddress,
+      totalInput: (totalInput / 100000000).toString(), // Convert to BTC
+      totalOutput: (totalOutput / 100000000).toString(), // Convert to BTC
+      walletInput: (walletInput / 100000000).toString(), // Convert to BTC
+      walletOutput: (walletOutput / 100000000).toString(), // Convert to BTC
+    });
+  }
+
+  /**
+   * Determine transaction type from fund flow analysis.
+   */
+  private determineTransactionTypeFromFundFlow(
+    fundFlow: BitcoinFundFlow,
+    sessionMetadata: ImportSessionMetadata
+  ): 'deposit' | 'withdrawal' | 'transfer' | 'fee' {
+    const { isIncoming, isOutgoing, walletInput, walletOutput } = fundFlow;
+
+    // Check if this is a fee-only transaction
+    const walletInputNum = parseFloat(walletInput);
+    const walletOutputNum = parseFloat(walletOutput);
+    const netAmount = Math.abs(walletOutputNum - walletInputNum);
+
+    if (netAmount < 0.00001 && walletInputNum > 0) {
+      // Very small net change with wallet involvement
+      return 'fee';
+    }
+
+    // Determine transaction type based on fund flow direction
+    if (isIncoming && isOutgoing) {
+      // Both incoming and outgoing - internal transfer or self-send with change
+      return 'transfer';
+    } else if (isIncoming && !isOutgoing) {
+      // Only incoming - deposit
+      return 'deposit';
+    } else if (!isIncoming && isOutgoing) {
+      // Only outgoing - withdrawal
+      return 'withdrawal';
+    } else {
+      // Neither incoming nor outgoing - shouldn't happen but default to transfer
+      this.logger.warn(
+        `Unable to determine transaction direction for ${fundFlow.fromAddress} -> ${fundFlow.toAddress}`
+      );
+      return 'transfer';
+    }
+  }
+
+  /**
    * Process a single transaction with shared session context.
    */
   private processSingleWithContext(
@@ -112,19 +295,16 @@ export class BitcoinTransactionProcessor extends BaseProcessor<ApiClientRawData<
     }
 
     // Transform using the provider-specific processor with shared session context
-    const transformResult = processor.map(rawData, sessionContext);
+    const transformResult = processor.map(rawData, sessionContext) as Result<UniversalBlockchainTransaction, string>;
 
     if (transformResult.isErr()) {
       return err(`Transform failed for ${providerId}: ${transformResult.error}`);
     }
 
-    const blockchainTransactions = transformResult.value;
-    if (blockchainTransactions.length === 0) {
+    const blockchainTransaction = transformResult.value;
+    if (!blockchainTransaction) {
       return err(`No transactions returned from ${providerId} processor`);
     }
-
-    // Bitcoin processors return array with single transaction
-    const blockchainTransaction = blockchainTransactions[0];
 
     if (!blockchainTransaction) {
       return err(`No valid transaction object returned from ${providerId} processor`);
@@ -159,4 +339,19 @@ export class BitcoinTransactionProcessor extends BaseProcessor<ApiClientRawData<
     this.logger.debug(`Successfully processed transaction ${universalTransaction.id} from ${providerId}`);
     return ok(universalTransaction);
   }
+}
+
+/**
+ * Bitcoin fund flow analysis result
+ */
+interface BitcoinFundFlow {
+  fromAddress?: string;
+  isIncoming: boolean;
+  isOutgoing: boolean;
+  netAmount: string;
+  toAddress?: string;
+  totalInput: string;
+  totalOutput: string;
+  walletInput: string;
+  walletOutput: string;
 }

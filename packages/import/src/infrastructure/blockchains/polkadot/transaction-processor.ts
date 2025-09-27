@@ -8,6 +8,7 @@ import type { ImportSessionMetadata } from '../../../app/ports/processors.ts';
 
 // Import processors to trigger registration
 import './mappers/SubstrateMapper.js';
+import type { UniversalBlockchainTransaction } from '../../../app/ports/raw-data-mappers.ts';
 import { BaseProcessor } from '../../shared/processors/base-processor.js';
 import { TransactionMapperFactory } from '../../shared/processors/processor-registry.js';
 
@@ -103,19 +104,19 @@ export class PolkadotTransactionProcessor extends BaseProcessor<ApiClientRawData
     }
 
     // Transform using the provider-specific processor
-    const transformResult = processor.map(rawData, sessionContext);
+    const transformResult = processor.map(rawData, sessionContext) as Result<UniversalBlockchainTransaction, string>;
 
     if (transformResult.isErr()) {
       return err(`Transform failed for ${providerId}: ${transformResult.error}`);
     }
 
     const blockchainTransactions = transformResult.value;
-    if (blockchainTransactions.length === 0) {
+    if (!blockchainTransactions) {
       return err(`No transactions returned from ${providerId} processor`);
     }
 
     // Polkadot processors return array with single transaction
-    const blockchainTransaction = blockchainTransactions[0];
+    const blockchainTransaction = blockchainTransactions;
 
     if (!blockchainTransaction) {
       return err(`No valid transaction object returned from ${providerId} processor`);

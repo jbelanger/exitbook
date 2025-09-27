@@ -12,7 +12,10 @@ import type { HeliusTransaction } from '../types.js';
 import { lamportsToSol } from '../utils.js';
 
 @RegisterTransactionMapper('helius')
-export class HeliusTransactionMapper extends BaseRawDataMapper<SolanaRawTransactionData> {
+export class HeliusTransactionMapper extends BaseRawDataMapper<
+  SolanaRawTransactionData,
+  UniversalBlockchainTransaction
+> {
   // Known Solana token mint addresses to symbols mapping
   private static readonly KNOWN_TOKEN_SYMBOLS: Record<string, string> = {
     '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R': 'RAY',
@@ -267,7 +270,7 @@ export class HeliusTransactionMapper extends BaseRawDataMapper<SolanaRawTransact
   protected mapInternal(
     rawData: SolanaRawTransactionData,
     sessionContext: ImportSessionMetadata
-  ): Result<UniversalBlockchainTransaction[], string> {
+  ): Result<UniversalBlockchainTransaction, string> {
     if (!sessionContext.address) {
       return err('No address found in session context');
     }
@@ -287,6 +290,12 @@ export class HeliusTransactionMapper extends BaseRawDataMapper<SolanaRawTransact
       }
     }
 
-    return ok(transactions);
+    // todo: handle multiple transactions properly
+    // For now, just return the first processed transaction for compatibility
+    // with existing interfaces
+    // if (transactions.length === 0) {
+    //   return err('No relevant transactions found for the provided address');
+    // }
+    return err('Needs to implement custom solana raw data object');
   }
 }

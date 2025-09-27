@@ -9,7 +9,9 @@ import type { IRawDataMapper } from '../../../app/ports/raw-data-mappers.ts';
  * Abstract base class for raw data transformers that handles validation automatically.
  * Implementing classes only need to provide the schema and implement the validated transform logic.
  */
-export abstract class BaseRawDataMapper<TRawData> implements IRawDataMapper<TRawData> {
+export abstract class BaseRawDataMapper<TRawData, TNormalizedData>
+  implements IRawDataMapper<TRawData, TNormalizedData>
+{
   /**
    * Schema used to validate raw data before transformation.
    * Must be implemented by concrete processor classes.
@@ -20,7 +22,7 @@ export abstract class BaseRawDataMapper<TRawData> implements IRawDataMapper<TRaw
    * Public transform method that handles validation internally and delegates to transformValidated.
    * Returns array of UniversalBlockchainTransaction for type-safe consumption by transaction processors.
    */
-  map(rawData: TRawData, context: ImportSessionMetadata): Result<UniversalBlockchainTransaction[], string> {
+  map(rawData: TRawData, context: ImportSessionMetadata): Result<TNormalizedData, string> {
     // Validate input data first
     const validationResult = this.schema.safeParse(rawData);
     if (!validationResult.success) {
@@ -43,5 +45,5 @@ export abstract class BaseRawDataMapper<TRawData> implements IRawDataMapper<TRaw
   protected abstract mapInternal(
     rawData: TRawData,
     sessionContext: ImportSessionMetadata
-  ): Result<UniversalBlockchainTransaction[], string>;
+  ): Result<TNormalizedData, string>;
 }

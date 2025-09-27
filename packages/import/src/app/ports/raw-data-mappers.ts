@@ -49,11 +49,6 @@ export interface UniversalBlockchainTransaction {
 /**
  * Interface for provider-specific processors that handle validation and transformation
  */
-export interface IRawDataMapper<TRawData> {
-  /**
-   * Transform validated raw data into standardized blockchain transaction format.
-   * Returns array of UniversalBlockchainTransaction for type-safe consumption by transaction processors.
-   * Single transactions should return array with one element, batch responses return multiple elements.
-   */
-  map(rawData: TRawData, sessionContext: ImportSessionMetadata): Result<UniversalBlockchainTransaction[], string>;
+export interface IRawDataMapper<TRawData, TNormalizedData = UniversalBlockchainTransaction> {
+  map(rawData: TRawData, sessionContext: ImportSessionMetadata): Result<TNormalizedData, string>;
 }
