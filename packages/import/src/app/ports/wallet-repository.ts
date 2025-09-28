@@ -1,15 +1,10 @@
-import type {
-  CreateWalletAddressRequest,
-  UpdateWalletAddressRequest,
-  WalletAddress,
-} from '@crypto/data/src/types/data-types.ts';
+import type { NewWalletAddress, WalletAddressUpdate, WalletAddress } from '@crypto/data/src/types/data-types.ts';
 
 export interface IWalletRepository {
-  create(request: CreateWalletAddressRequest): Promise<WalletAddress>;
+  create(request: NewWalletAddress): Promise<void>;
   delete(id: number): Promise<boolean>;
-  findAll(): Promise<WalletAddress[]>;
   findByAddress(address: string, blockchain: string): Promise<WalletAddress | undefined>;
   findByAddressNormalized(normalizedAddress: string, blockchain: string): Promise<WalletAddress | undefined>;
   findById(id: number): Promise<WalletAddress | undefined>;
-  update(id: number, updates: Partial<UpdateWalletAddressRequest>): Promise<WalletAddress | undefined>;
+  update(id: number, updates: Partial<WalletAddressUpdate>): Promise<void>;
 }

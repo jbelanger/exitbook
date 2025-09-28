@@ -14,17 +14,17 @@ export type JSONString = ColumnType<string, string, string>;
  * Import sessions table - tracks import session metadata and execution details
  */
 export interface ImportSessionsTable {
-  completed_at: DateTime | undefined;
+  completed_at: DateTime | null;
   created_at: DateTime;
-  duration_ms: number | undefined;
-  error_details: JSONString | undefined;
+  duration_ms: number | null;
+  error_details: JSONString | null;
   // Error handling
-  error_message: string | undefined;
+  error_message: string | null;
 
   id: Generated<number>;
-  provider_id: string | undefined;
+  provider_id: string | null;
   // Metadata
-  session_metadata: JSONString | undefined;
+  session_metadata: JSONString | null;
 
   // Session identification
   source_id: string;
@@ -36,7 +36,7 @@ export interface ImportSessionsTable {
   transactions_failed: number;
   transactions_imported: number;
 
-  updated_at: DateTime | undefined;
+  updated_at: DateTime | null;
 }
 
 /**
@@ -47,16 +47,16 @@ export interface ExternalTransactionDataTable {
 
   id: Generated<number>;
   // Foreign key relationship
-  import_session_id: number | undefined; // FK to import_sessions.id
+  import_session_id: number | null; // FK to import_sessions.id
 
-  metadata: JSONString | undefined;
+  metadata: JSONString | null;
 
-  processed_at: DateTime | undefined;
-  processing_error: string | undefined;
+  processed_at: DateTime | null;
+  processing_error: string | null;
   // Processing status
   processing_status: 'pending' | 'processed' | 'failed' | 'skipped';
 
-  provider_id: string | undefined;
+  provider_id: string | null;
   // Data storage
   raw_data: JSONString;
 
@@ -71,27 +71,27 @@ export interface ExternalTransactionDataTable {
  */
 export interface TransactionsTable {
   // Financial data (keep TEXT for precision)
-  amount: DecimalString | undefined;
+  amount: DecimalString | null;
 
-  amount_currency: string | undefined;
+  amount_currency: string | null;
   created_at: DateTime;
-  external_id: string | undefined; // hash, transaction ID, etc.
+  external_id: string | null; // hash, transaction ID, etc.
 
-  fee_cost: DecimalString | undefined;
-  fee_currency: string | undefined;
+  fee_cost: DecimalString | null;
+  fee_currency: string | null;
   // Address information
-  from_address: string | undefined;
+  from_address: string | null;
   id: Generated<number>;
-  import_session_id: number | undefined; // FK to import_sessions.id
+  import_session_id: number | null; // FK to import_sessions.id
   // Notes and metadata
-  note_message: string | undefined;
+  note_message: string | null;
 
-  note_metadata: JSONString | undefined;
-  note_severity: 'info' | 'warning' | 'error' | undefined;
+  note_metadata: JSONString | null;
+  note_severity: 'info' | 'warning' | 'error' | null;
 
-  note_type: string | undefined;
-  price: DecimalString | undefined;
-  price_currency: string | undefined;
+  note_type: string | null;
+  price: DecimalString | null;
+  price_currency: string | null;
 
   // Audit trail
   raw_data: JSONString; // Keep for debugging/audit
@@ -99,18 +99,18 @@ export interface TransactionsTable {
   source_id: string;
   source_type: 'exchange' | 'blockchain';
 
-  symbol: string | undefined;
-  to_address: string | undefined;
+  symbol: string | null;
+  to_address: string | null;
 
   transaction_datetime: DateTime;
   transaction_status: 'pending' | 'confirmed' | 'failed' | 'cancelled';
   // Standardized enums
   transaction_type: 'trade' | 'transfer' | 'deposit' | 'withdrawal' | 'fee' | 'reward' | 'mining';
-  updated_at: DateTime | undefined;
+  updated_at: DateTime | null;
 
   verified: boolean;
   // Proper foreign keys
-  wallet_address_id: number | undefined; // FK to wallet_addresses.id
+  wallet_address_id: number | null; // FK to wallet_addresses.id
 }
 
 /**
@@ -128,9 +128,9 @@ export interface WalletAddressesTable {
   is_active: boolean;
 
   // User-defined metadata
-  label: string | undefined;
-  notes: string | undefined;
-  updated_at: DateTime | undefined;
+  label: string | null;
+  notes: string | null;
+  updated_at: DateTime | null;
 }
 
 /**

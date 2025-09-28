@@ -11,9 +11,4 @@ export {
 } from './storage/database.ts';
 export { BaseRepository } from './repositories/base-repository.ts';
 export type { DatabaseSchema } from './schema/database-schema.ts';
-export type {
-  StoredTransaction,
-  StoredRawData,
-  WalletAddress,
-  CreateWalletAddressRequest,
-} from './types/data-types.ts';
+export type { StoredTransaction, StoredRawData, WalletAddress } from './types/data-types.ts';

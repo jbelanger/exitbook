@@ -1,36 +1,8 @@
 import { BaseRepository } from '@crypto/data/src/repositories/base-repository.ts';
 import type { KyselyDB } from '@crypto/data/src/storage/database.ts';
-import type {
-  ImportSession,
-  ImportSessionQuery,
-  ImportSessionWithRawData,
-  UpdateImportSessionRequest,
-} from '@crypto/data/src/types/data-types.ts';
+import type { ImportSession, ImportSessionQuery, ImportSessionUpdate } from '@crypto/data/src/types/data-types.ts';
 
 import type { IImportSessionRepository } from '../../app/ports/import-session-repository.ts';
-
-/**
- * Maps database row to ImportSession domain object
- */
-function mapToImportSession(row: Record<string, unknown>): ImportSession {
-  return {
-    completedAt: row.completed_at ? new Date(row.completed_at as string).getTime() / 1000 : undefined,
-    createdAt: new Date(row.created_at as string).getTime() / 1000,
-    durationMs: row.duration_ms as number | undefined,
-    errorDetails: row.error_details ? JSON.parse(row.error_details as string) : undefined,
-    errorMessage: row.error_message as string | undefined,
-    id: row.id as number,
-    providerId: row.provider_id as string | undefined,
-    sessionMetadata: row.session_metadata ? JSON.parse(row.session_metadata as string) : undefined,
-    sourceId: row.source_id as string,
-    sourceType: row.source_type as 'exchange' | 'blockchain',
-    startedAt: new Date(row.started_at as string).getTime() / 1000,
-    status: row.status as 'started' | 'completed' | 'failed' | 'cancelled',
-    transactionsFailed: row.transactions_failed as number,
-    transactionsImported: row.transactions_imported as number,
-    updatedAt: new Date(row.updated_at as string).getTime() / 1000,
-  };
-}
 
 /**
  * Kysely-based repository for import session database operations.
@@ -135,13 +107,13 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
     }
 
     const rows = await query.execute();
-    return rows.map(mapToImportSession);
+    return rows as ImportSession[];
   }
 
   async findById(sessionId: number): Promise<ImportSession | undefined> {
     const row = await this.db.selectFrom('import_sessions').selectAll().where('id', '=', sessionId).executeTakeFirst();
 
-    return row ? mapToImportSession(row) : undefined;
+    return row ? row : undefined;
   }
 
   async findBySource(sourceId: string, limit?: number): Promise<ImportSession[]> {
@@ -152,7 +124,7 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
     return this.findAll({ limit });
   }
 
-  async update(sessionId: number, updates: UpdateImportSessionRequest): Promise<void> {
+  async update(sessionId: number, updates: ImportSessionUpdate): Promise<void> {
     const currentTimestamp = this.getCurrentDateTimeForDB();
     const updateData: Record<string, unknown> = {
       updated_at: currentTimestamp,
@@ -166,24 +138,24 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
       }
     }
 
-    if (updates.errorMessage !== undefined) {
-      updateData.error_message = updates.errorMessage;
+    if (updates.error_message !== undefined) {
+      updateData.error_message = updates.error_message;
     }
 
-    if (updates.errorDetails !== undefined) {
-      updateData.error_details = this.serializeToJson(updates.errorDetails);
+    if (updates.error_details !== undefined) {
+      updateData.error_details = this.serializeToJson(updates.error_details);
     }
 
-    if (updates.transactionsImported !== undefined) {
-      updateData.transactions_imported = updates.transactionsImported;
+    if (updates.transactions_imported !== undefined) {
+      updateData.transactions_imported = updates.transactions_imported;
     }
 
-    if (updates.transactionsFailed !== undefined) {
-      updateData.transactions_failed = updates.transactionsFailed;
+    if (updates.transactions_failed !== undefined) {
+      updateData.transactions_failed = updates.transactions_failed;
     }
 
-    if (updates.sessionMetadata !== undefined) {
-      updateData.session_metadata = this.serializeToJson(updates.sessionMetadata);
+    if (updates.session_metadata !== undefined) {
+      updateData.session_metadata = this.serializeToJson(updates.session_metadata);
     }
 
     // Only update if there are actual changes besides updated_at
@@ -192,114 +164,8 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
       return;
     }
 
-    await this.db
-      .updateTable('import_sessions')
-      .set({
-        completed_at: updateData.completed_at as string | undefined,
-        error_details: updateData.error_details as string | undefined,
-        error_message: updateData.error_message as string | undefined,
-        session_metadata: updateData.session_metadata as string | undefined,
-        status: updateData.status as 'started' | 'completed' | 'failed' | 'cancelled' | undefined,
-        transactions_failed: updateData.transactions_failed as number | undefined,
-        transactions_imported: updateData.transactions_imported as number | undefined,
-        updated_at: updateData.updated_at as string,
-      })
-      .where('id', '=', sessionId)
-      .execute();
+    await this.db.updateTable('import_sessions').set(updates).where('id', '=', sessionId).execute();
 
     this.logger.debug({ sessionId, updates: updateData }, 'Import session updated');
-  }
-
-  async findWithRawData(filters: { sourceId: string }): Promise<ImportSessionWithRawData[]> {
-    const rows = await this.db
-      .selectFrom('import_sessions as s')
-      .leftJoin('external_transaction_data as r', 's.id', 'r.import_session_id')
-      .select([
-        // Session fields
-        's.id',
-        's.source_id',
-        's.source_type',
-        's.provider_id',
-        's.session_metadata',
-        's.status',
-        's.started_at',
-        's.completed_at',
-        's.duration_ms',
-        's.transactions_imported',
-        's.transactions_failed',
-        's.error_message',
-        's.error_details',
-        's.created_at',
-        's.updated_at',
-        // Raw data fields (with alias to avoid conflicts)
-        'r.id as raw_id',
-        'r.provider_id as raw_provider_id',
-        'r.raw_data',
-        'r.metadata as raw_metadata',
-        'r.processing_status',
-        'r.processing_error',
-        'r.processed_at',
-        'r.created_at as raw_created_at',
-      ])
-      .where('s.source_id', '=', filters.sourceId)
-      .orderBy(['s.started_at desc', 'r.created_at asc'])
-      .execute();
-
-    // Group results by session
-    const sessionsMap = new Map<number, ImportSessionWithRawData>();
-
-    rows.forEach((row) => {
-      const sessionId = row.id;
-
-      if (!sessionsMap.has(sessionId)) {
-        // Create session object
-        const session = mapToImportSession({
-          completed_at: row.completed_at,
-          created_at: row.created_at,
-          duration_ms: row.duration_ms,
-          error_details: row.error_details,
-          error_message: row.error_message,
-          id: row.id,
-          provider_id: row.provider_id,
-          session_metadata: row.session_metadata,
-          source_id: row.source_id,
-          source_type: row.source_type,
-          started_at: row.started_at,
-          status: row.status,
-          transactions_failed: row.transactions_failed,
-          transactions_imported: row.transactions_imported,
-          updated_at: row.updated_at,
-        });
-
-        sessionsMap.set(sessionId, {
-          rawDataItems: [],
-          session,
-        });
-      }
-
-      // Add raw data item if present
-      if (row.raw_id) {
-        const rawDataItem = {
-          createdAt: row.raw_created_at ? new Date(row.raw_created_at as unknown as string).getTime() / 1000 : 0,
-          id: row.raw_id,
-          importSessionId: sessionId,
-          metadata: this.parseJsonField(row.raw_metadata as string | undefined, {}),
-          processedAt: row.processed_at ? new Date(row.processed_at as unknown as string).getTime() / 1000 : undefined,
-          processingError: row.processing_error ?? undefined,
-          processingStatus: row.processing_status ?? '',
-          providerId: row.raw_provider_id ?? undefined,
-          rawData: this.parseJsonField(row.raw_data as string | undefined, {}),
-          sourceId: row.source_id,
-          sourceType: row.source_type,
-        };
-
-        sessionsMap.get(sessionId)!.rawDataItems.push(rawDataItem);
-      }
-    });
-
-    const results = Array.from(sessionsMap.values());
-    this.logger.debug({ sessionsCount: results.length, sourceId: filters.sourceId }, 'Found sessions with raw data');
-
-    return results;
   }
 }

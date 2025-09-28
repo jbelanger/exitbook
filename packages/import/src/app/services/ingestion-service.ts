@@ -131,7 +131,10 @@ export class TransactionIngestionService {
             ...importResult.metadata,
           };
 
-          await this.sessionRepository.update(importSessionId, { sessionMetadata });
+          await this.sessionRepository.update(importSessionId, {
+            id: importSessionId,
+            session_metadata: JSON.stringify(sessionMetadata),
+          });
           this.logger.debug(
             `Updated session ${importSessionId} with metadata keys: ${Object.keys(importResult.metadata).join(', ')}`
           );
@@ -197,19 +200,35 @@ export class TransactionIngestionService {
 
       this.logger.info(`Found ${rawDataItems.length} raw data items to process for ${sourceId}`);
 
-      // Use combined query to fetch sessions with their raw data in a single JOIN
-      const sessionsWithRawData = await this.sessionRepository.findWithRawData({
-        sourceId: sourceId,
-      });
+      // Fetch sessions and raw data separately
+      const allSessions = await this.sessionRepository.findBySource(sourceId);
 
-      // Filter sessions to only include those with pending raw data items
-      const sessionsToProcess = sessionsWithRawData.filter((sessionData) =>
-        sessionData.rawDataItems.some(
-          (item) =>
-            item.processingStatus === 'pending' &&
-            (!filters?.importSessionId || item.importSessionId === filters.importSessionId)
-        )
-      );
+      // Get raw data items that match our filters (already loaded above)
+      const rawDataBySessionId = new Map<number, StoredRawData[]>();
+
+      // Group raw data by session ID
+      for (const rawDataItem of rawDataItems) {
+        if (rawDataItem.importSessionId) {
+          const sessionRawData = rawDataBySessionId.get(rawDataItem.importSessionId) || [];
+          sessionRawData.push(rawDataItem);
+          rawDataBySessionId.set(rawDataItem.importSessionId, sessionRawData);
+        }
+      }
+
+      // Create sessions with raw data structure, filtering to only sessions that have pending raw data
+      const sessionsToProcess = allSessions
+        .filter((session) => rawDataBySessionId.has(session.id))
+        .map((session) => ({
+          rawDataItems: rawDataBySessionId.get(session.id) || [],
+          session,
+        }))
+        .filter((sessionData) =>
+          sessionData.rawDataItems.some(
+            (item) =>
+              item.processingStatus === 'pending' &&
+              (!filters?.importSessionId || item.importSessionId === filters.importSessionId)
+          )
+        );
 
       this.logger.info(`Processing ${sessionsToProcess.length} sessions with pending raw data`);
 
@@ -235,7 +254,7 @@ export class TransactionIngestionService {
                 const result = normalizer.normalize(
                   item.rawData,
                   sourceId,
-                  session.sessionMetadata as ImportSessionMetadata
+                  session.session_metadata as ImportSessionMetadata
                 );
                 if (result) result.map((r) => normalizedRawDataItems.push(r));
               } catch (normError) {
@@ -256,13 +275,13 @@ export class TransactionIngestionService {
 
         // Create ProcessingImportSession for this session
         const processingSession: ProcessingImportSession = {
-          createdAt: session.createdAt,
+          createdAt: new Date(session.created_at).getTime(),
           id: session.id,
           rawDataItems: pendingItems as StoredRawData<ApiClientRawData<unknown>>[], //fix...
           rawDataItems2: normalizedRawDataItems,
-          sessionMetadata: session.sessionMetadata as ImportSessionMetadata | undefined,
-          sourceId: session.sourceId,
-          sourceType: session.sourceType,
+          sessionMetadata: session.session_metadata as ImportSessionMetadata | undefined,
+          sourceId: session.source_id,
+          sourceType: session.source_type,
           status: 'processing',
         };
 

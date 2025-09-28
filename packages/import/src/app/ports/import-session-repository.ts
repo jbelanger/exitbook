@@ -1,9 +1,4 @@
-import type {
-  ImportSession,
-  ImportSessionQuery,
-  ImportSessionWithRawData,
-  UpdateImportSessionRequest,
-} from '@crypto/data/src/types/data-types.ts';
+import type { ImportSession, ImportSessionQuery, ImportSessionUpdate } from '@crypto/data/src/types/data-types.ts';
 
 /**
  * Port interface for import session repository operations.
@@ -59,12 +54,7 @@ export interface IImportSessionRepository {
   findRecent(limit?: number): Promise<ImportSession[]>;
 
   /**
-   * Find import sessions with their associated raw data.
-   */
-  findWithRawData(filters: { sourceId: string }): Promise<ImportSessionWithRawData[]>;
-
-  /**
    * Update an existing import session.
    */
-  update(sessionId: number, updates: UpdateImportSessionRequest): Promise<void>;
+  update(sessionId: number, updates: ImportSessionUpdate): Promise<void>;
 }

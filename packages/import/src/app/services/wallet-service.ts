@@ -1,4 +1,4 @@
-import type { CreateWalletAddressRequest } from '@crypto/data';
+import type { NewWalletAddress } from '@crypto/data/src/types/data-types.ts';
 import { getLogger } from '@crypto/shared-logger';
 
 import type { IWalletRepository } from '../ports/wallet-repository.ts';
@@ -24,10 +24,12 @@ export class WalletService {
       const existingWallet = await this.walletRepository.findByAddress(address, blockchain);
 
       if (!existingWallet) {
-        const walletRequest: CreateWalletAddressRequest = {
+        const walletRequest: NewWalletAddress = {
           address,
-          addressType: options?.addressType || 'personal',
+          address_type: options?.addressType || 'personal',
           blockchain,
+          created_at: new Date(),
+          is_active: true,
           label: options?.label || `${blockchain} wallet`,
           notes: options?.notes || 'Added from CLI arguments',
         };
