@@ -23,15 +23,3 @@ export interface BalanceVerificationResult {
   };
   timestamp: number;
 }
-
-export interface BalanceVerificationRecord {
-  actual_balance: number;
-  created_at?: number;
-  currency: string;
-  difference: number;
-  exchange: string;
-  expected_balance: number;
-  id?: number;
-  status: string;
-  timestamp: number;
-}

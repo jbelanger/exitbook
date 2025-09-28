@@ -114,24 +114,6 @@ export interface TransactionsTable {
 }
 
 /**
- * Balance verification records - track verification results
- */
-export interface BalanceVerificationsTable {
-  actual_balance: DecimalString;
-
-  created_at: DateTime;
-  // Verification data
-  currency: string;
-
-  difference: DecimalString;
-  exchange: string;
-  expected_balance: DecimalString;
-  id: Generated<number>;
-  status: 'match' | 'mismatch' | 'warning';
-  verification_datetime: DateTime;
-}
-
-/**
  * Wallet addresses - store user's wallet addresses for tracking and consolidation
  */
 export interface WalletAddressesTable {
@@ -155,7 +137,6 @@ export interface WalletAddressesTable {
  * Main database interface combining all tables
  */
 export interface DatabaseSchema {
-  balance_verifications: BalanceVerificationsTable;
   external_transaction_data: ExternalTransactionDataTable;
   import_sessions: ImportSessionsTable;
   transactions: TransactionsTable;

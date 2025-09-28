@@ -7,7 +7,7 @@ export class BalanceCalculationService {
    * Calculate exchange balances including zero balances (for verification purposes)
    * Returns all currencies that have transactions, even if current balance is zero
    */
-  calculateExchangeBalancesForVerification(transactions: StoredTransaction[]): Record<string, Decimal> {
+  calculateBalancesForVerification(transactions: StoredTransaction[]): Record<string, Decimal> {
     const balances: Record<string, Decimal> = {};
 
     for (const transaction of transactions) {
@@ -16,33 +16,6 @@ export class BalanceCalculationService {
 
     // Don't cleanup dust balances - return all currencies that had transactions
     return balances;
-  }
-
-  /**
-   * Calculate exchange balances with full precision (recommended)
-   * Returns Decimal values to prevent precision loss in cryptocurrency amounts
-   */
-  calculateExchangeBalancesWithPrecision(transactions: StoredTransaction[]): Record<string, Decimal> {
-    const balances: Record<string, Decimal> = {};
-
-    for (const transaction of transactions) {
-      this.processTransactionForBalance(transaction, balances);
-    }
-
-    return this.cleanupDustBalancesWithPrecision(balances);
-  }
-
-  /**
-   * Clean up dust balances while preserving precision (recommended)
-   */
-  private cleanupDustBalancesWithPrecision(balances: Record<string, Decimal>): Record<string, Decimal> {
-    const cleanedBalances: Record<string, Decimal> = {};
-    for (const [currency, balance] of Object.entries(balances)) {
-      if (balance.abs().greaterThan(0.00000001)) {
-        cleanedBalances[currency] = balance;
-      }
-    }
-    return cleanedBalances;
   }
 
   /**

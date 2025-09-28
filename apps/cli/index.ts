@@ -161,28 +161,6 @@ async function main() {
           }
         }
 
-        // Show recent verification results using Kysely balance repository
-        const balanceRepository = new BalanceRepository(kyselyDb);
-        const latestVerifications = await balanceRepository.getLatestVerifications();
-        if (latestVerifications.length > 0) {
-          logger.info('\n🔍 Latest Balance Verifications:');
-          const groupedByExchange = latestVerifications.reduce(
-            (acc: Record<string, typeof latestVerifications>, v) => {
-              if (!acc[v.exchange]) acc[v.exchange] = [];
-              acc[v.exchange].push(v);
-              return acc;
-            },
-            {} as Record<string, typeof latestVerifications>
-          );
-
-          for (const [exchange, verifications] of Object.entries(groupedByExchange)) {
-            const matches = verifications.filter((v) => v.status === 'match').length;
-            const total = verifications.length;
-            const status = matches === total ? '✅' : '⚠️';
-            logger.info(`  ${status} ${exchange}: ${matches}/${total} balances match`);
-          }
-        }
-
         // Close database connections
         await closeDatabase(kyselyDb);
 

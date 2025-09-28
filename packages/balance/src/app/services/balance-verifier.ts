@@ -1,11 +1,7 @@
 import { getLogger } from '@crypto/shared-logger';
 import type { Decimal } from 'decimal.js';
 
-import type {
-  BalanceVerificationResult,
-  BalanceVerificationRecord,
-  BalanceComparison,
-} from '../../types/balance-types.ts';
+import type { BalanceVerificationResult, BalanceComparison } from '../../types/balance-types.ts';
 
 import type { BalanceService } from './balance-service.ts';
 
@@ -62,24 +58,6 @@ export class BalanceVerifier {
     report += `- **Errors**: ${errorExchanges}\n\n`;
 
     return report;
-  }
-
-  async getVerificationHistory(exchangeId?: string): Promise<BalanceVerificationRecord[]> {
-    return await this.balanceService.getLatestVerifications(exchangeId);
-  }
-
-  // Check if verification is needed (e.g., hasn't been run in X hours)
-  async shouldRunVerification(exchangeId: string, maxAgeHours = 24): Promise<boolean> {
-    const latestVerifications = await this.balanceService.getLatestVerifications(exchangeId);
-
-    if (latestVerifications.length === 0) {
-      return true; // Never verified
-    }
-
-    const latestTimestamp = Math.max(...latestVerifications.map((v: BalanceVerificationRecord) => v.timestamp));
-    const ageHours = (Date.now() - latestTimestamp) / (1000 * 60 * 60);
-
-    return ageHours >= maxAgeHours;
   }
 
   async verifyExchangeById(exchangeId: string): Promise<BalanceVerificationResult[]> {
