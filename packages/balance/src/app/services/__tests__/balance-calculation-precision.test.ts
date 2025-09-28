@@ -8,7 +8,7 @@ describe('BalanceCalculationService Precision', () => {
   const service = new BalanceCalculationService();
 
   const createMockTransaction = (
-    type: string,
+    type: 'trade' | 'transfer' | 'deposit' | 'withdrawal' | 'fee' | 'reward' | 'mining',
     amount: string,
     amountCurrency: string,
     price?: string,
@@ -18,24 +18,36 @@ describe('BalanceCalculationService Precision', () => {
   ): StoredTransaction => {
     const transaction: StoredTransaction = {
       amount,
-      created_at: Date.now(),
-      hash: 'test-hash',
+      amount_currency: amountCurrency || undefined,
+      created_at: Date.now().toString(),
+      external_id: undefined,
+      fee_cost: feeCost || undefined,
+      fee_currency: feeCurrency || undefined,
+      from_address: undefined,
       id: 1,
+      import_session_id: undefined,
+      note_message: undefined,
+      note_metadata: undefined,
+      note_severity: undefined,
+      note_type: undefined,
+      price: price || undefined,
+      price_currency: priceCurrency || undefined,
       raw_data: JSON.stringify({
         amount,
         fee_cost: feeCost,
         price,
       }),
       source_id: 'test-exchange',
-      timestamp: Date.now(),
-      type,
+      source_type: 'exchange',
+      symbol: undefined,
+      to_address: undefined,
+      transaction_datetime: Date.now().toString(),
+      transaction_status: 'confirmed',
+      transaction_type: type,
+      updated_at: undefined,
+      verified: false,
+      wallet_address_id: undefined,
     };
-
-    if (amountCurrency) transaction.amount_currency = amountCurrency;
-    if (price) transaction.price = price;
-    if (priceCurrency) transaction.price_currency = priceCurrency;
-    if (feeCost) transaction.fee_cost = feeCost;
-    if (feeCurrency) transaction.fee_currency = feeCurrency;
 
     return transaction;
   };

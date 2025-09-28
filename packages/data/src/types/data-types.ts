@@ -1,33 +1,12 @@
 // Database schema types for data persistence
+import type { Selectable, Insertable, Updateable } from 'kysely';
 
-export interface StoredTransaction {
-  amount: string;
-  amount_currency?: string;
-  cost?: string;
-  cost_currency?: string;
-  created_at: number;
-  datetime?: string;
-  fee_cost?: string;
-  fee_currency?: string;
-  from_address?: string;
-  hash: string;
-  id: number; // Auto-generated database ID
-  note_message?: string;
-  note_metadata?: string; // JSON stringified metadata
-  note_severity?: 'info' | 'warning' | 'error';
-  note_type?: string;
-  price?: string;
-  price_currency?: string;
-  raw_data: string; // JSON stringified transaction data
-  source_id: string;
-  status?: string;
-  symbol?: string;
-  timestamp: number;
-  to_address?: string;
-  type: string;
-  verified?: boolean;
-  wallet_id?: number;
-}
+import type { TransactionsTable } from '../schema/database-schema.ts';
+
+// Transaction types using Kysely schema
+export type StoredTransaction = Selectable<TransactionsTable>;
+export type NewTransaction = Insertable<TransactionsTable>;
+export type TransactionUpdate = Updateable<TransactionsTable>;
 
 export interface StoredRawData<TRawData = unknown> {
   createdAt: number;

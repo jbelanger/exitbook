@@ -56,7 +56,7 @@ export class BalanceCalculationService {
   }
 
   private processTransactionForBalance(transaction: StoredTransaction, balances: Record<string, Decimal>): void {
-    const type = transaction.type;
+    const type = transaction.transaction_type;
     const amount = stringToDecimal(String(transaction.amount));
     const amountCurrency = transaction.amount_currency;
     const price = stringToDecimal(String(transaction.price));
@@ -102,8 +102,6 @@ export class BalanceCalculationService {
         break;
 
       case 'trade':
-      case 'limit':
-      case 'market':
         // Symbol indicates what asset is being received (bought)
         // Amount currency is what we're receiving, price currency is what we're spending
         if (amountCurrency && balances[amountCurrency]) {

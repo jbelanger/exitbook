@@ -235,13 +235,11 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       // Order by creation time descending
       query = query.orderBy('created_at', 'desc');
 
-      const rows = await query.execute();
+      const transactions = await query.execute();
 
-      const storedTransactions = this.mapRowsToStoredTransactions(rows);
+      this.logger.debug({ since, sourceId }, `Retrieved ${transactions.length} transactions`);
 
-      this.logger.debug({ since, sourceId }, `Retrieved ${storedTransactions.length} transactions`);
-
-      return storedTransactions;
+      return transactions;
     } catch (error) {
       this.logger.error({ error, since, sourceId }, 'Failed to retrieve transactions');
       throw error;
@@ -250,17 +248,16 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
   async findByAddress(address: string): Promise<StoredTransaction[]> {
     try {
-      const rows = await this.db
+      const transactions = await this.db
         .selectFrom('transactions')
         .selectAll()
         .where((eb) => eb.or([eb('from_address', '=', address), eb('to_address', '=', address)]))
         .orderBy('transaction_datetime', 'desc')
         .execute();
 
-      const storedTransactions = this.mapRowsToStoredTransactions(rows);
-      this.logger.debug({ address }, `Retrieved ${storedTransactions.length} transactions by address`);
+      this.logger.debug({ address }, `Retrieved ${transactions.length} transactions by address`);
 
-      return storedTransactions;
+      return transactions;
     } catch (error) {
       this.logger.error({ address, error }, 'Failed to retrieve transactions by address');
       throw error;
@@ -269,7 +266,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
   async findRecent(address: string, limit: number): Promise<StoredTransaction[]> {
     try {
-      const rows = await this.db
+      const transactions = await this.db
         .selectFrom('transactions')
         .selectAll()
         .where((eb) => eb.or([eb('from_address', '=', address), eb('to_address', '=', address)]))
@@ -277,10 +274,9 @@ export class TransactionRepository extends BaseRepository implements ITransactio
         .limit(limit)
         .execute();
 
-      const storedTransactions = this.mapRowsToStoredTransactions(rows);
-      this.logger.debug({ address, limit }, `Retrieved ${storedTransactions.length} recent transactions`);
+      this.logger.debug({ address, limit }, `Retrieved ${transactions.length} recent transactions`);
 
-      return storedTransactions;
+      return transactions;
     } catch (error) {
       this.logger.error({ address, error, limit }, 'Failed to retrieve recent transactions by address');
       throw error;
@@ -289,7 +285,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
   async findByDateRange(address: string, from: Date, to: Date): Promise<StoredTransaction[]> {
     try {
-      const rows = await this.db
+      const transactions = await this.db
         .selectFrom('transactions')
         .selectAll()
         .where((eb) =>
@@ -302,10 +298,9 @@ export class TransactionRepository extends BaseRepository implements ITransactio
         .orderBy('transaction_datetime', 'desc')
         .execute();
 
-      const storedTransactions = this.mapRowsToStoredTransactions(rows);
-      this.logger.debug({ address, from, to }, `Retrieved ${storedTransactions.length} transactions in date range`);
+      this.logger.debug({ address, from, to }, `Retrieved ${transactions.length} transactions in date range`);
 
-      return storedTransactions;
+      return transactions;
     } catch (error) {
       this.logger.error({ address, error, from, to }, 'Failed to retrieve transactions by date range');
       throw error;
@@ -329,36 +324,5 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       this.logger.error({ error, sourceId }, 'Failed to get transaction count');
       throw error;
     }
-  }
-
-  private mapRowsToStoredTransactions(rows: Record<string, unknown>[]): StoredTransaction[] {
-    return rows.map((row) => ({
-      amount: (row.amount as string) || '',
-      amount_currency: (row.amount_currency as string | null) ?? undefined,
-      cost: (row.price as string | null) ?? undefined,
-      cost_currency: (row.price_currency as string | null) ?? undefined,
-      created_at: new Date(row.created_at as string).getTime() / 1000,
-      datetime: row.transaction_datetime as string,
-      fee_cost: (row.fee_cost as string | null) ?? undefined,
-      fee_currency: (row.fee_currency as string | null) ?? undefined,
-      from_address: (row.from_address as string | null) ?? undefined,
-      hash: (row.external_id as string) || '',
-      id: row.id as number,
-      note_message: (row.note_message as string | null) ?? undefined,
-      note_metadata: (row.note_metadata as string | null) ?? undefined,
-      note_severity: (row.note_severity as 'info' | 'warning' | 'error' | null) ?? undefined,
-      note_type: (row.note_type as string | null) ?? undefined,
-      price: (row.price as string | null) ?? undefined,
-      price_currency: (row.price_currency as string | null) ?? undefined,
-      raw_data: row.raw_data as string,
-      source_id: row.source_id as string,
-      status: (row.transaction_status as string | null) ?? undefined,
-      symbol: (row.symbol as string | null) ?? undefined,
-      timestamp: new Date(row.created_at as string).getTime() / 1000,
-      to_address: (row.to_address as string | null) ?? undefined,
-      type: row.transaction_type as string,
-      verified: Boolean(row.verified),
-      wallet_id: (row.wallet_address_id as number | null) ?? undefined,
-    }));
   }
 }

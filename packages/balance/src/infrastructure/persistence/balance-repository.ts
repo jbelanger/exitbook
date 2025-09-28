@@ -26,21 +26,39 @@ function mapToBalanceVerificationRecord(row: Record<string, unknown>): BalanceVe
  */
 function mapToStoredTransaction(row: Record<string, unknown>): StoredTransaction {
   return {
-    amount: (row.amount as string) || '',
+    amount: (row.amount as string) || undefined,
     amount_currency: row.amount_currency as string | undefined,
-    // Required fields for StoredTransaction interface
-    created_at: 0, // Not needed for balance calculations
+    created_at: '0', // Not needed for balance calculations
+    external_id: undefined,
     fee_cost: row.fee_cost as string | undefined,
     fee_currency: row.fee_currency as string | undefined,
-    hash: '', // Not needed for balance calculations
+    from_address: undefined,
     id: 0, // Not needed for balance calculations
+    import_session_id: undefined,
+    note_message: undefined,
+    note_metadata: undefined,
+    note_severity: undefined,
+    note_type: undefined,
     price: row.price as string | undefined,
     price_currency: row.price_currency as string | undefined,
     raw_data: row.raw_data as string,
     source_id: row.source_id as string,
+    source_type: 'exchange',
     symbol: row.symbol as string | undefined,
-    timestamp: 0, // Not needed for balance calculations
-    type: row.transaction_type as string,
+    to_address: undefined,
+    transaction_datetime: '0', // Not needed for balance calculations
+    transaction_status: 'confirmed',
+    transaction_type: row.transaction_type as
+      | 'trade'
+      | 'transfer'
+      | 'deposit'
+      | 'withdrawal'
+      | 'fee'
+      | 'reward'
+      | 'mining',
+    updated_at: undefined,
+    verified: false,
+    wallet_address_id: undefined,
   };
 }
 

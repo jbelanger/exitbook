@@ -679,13 +679,14 @@ function convertToCSV(transactions: StoredTransaction[]): string {
     }
 
     // Format datetime properly
-    const datetime = tx.datetime || (tx.timestamp ? new Date(tx.timestamp).toISOString() : '');
+    const datetime =
+      tx.transaction_datetime || (tx.transaction_datetime ? new Date(tx.transaction_datetime).toISOString() : '');
 
     const values = [
       tx.id || '',
       tx.source_id || '',
-      tx.type || '',
-      tx.timestamp || '',
+      tx.transaction_type || '',
+      tx.transaction_datetime || '',
       datetime,
       tx.amount || '',
       tx.amount_currency || '',
@@ -695,7 +696,7 @@ function convertToCSV(transactions: StoredTransaction[]): string {
       tx.fee_cost || '',
       tx.fee_currency || '',
       cost,
-      tx.status || '',
+      tx.transaction_status || '',
     ];
 
     // Escape values that contain commas
@@ -734,19 +735,19 @@ function convertToJSON(transactions: StoredTransaction[]): string {
       amount_currency: tx.amount_currency,
       cost: cost,
       created_at: tx.created_at,
-      datetime: tx.datetime,
+      datetime: tx.transaction_datetime,
       fee_cost: tx.fee_cost,
       fee_currency: tx.fee_currency,
-      hash: tx.hash,
+      hash: tx.external_id,
       id: tx.id,
       price: tx.price,
       price_currency: tx.price_currency,
       side: '',
       source_id: tx.source_id,
-      status: tx.status,
+      status: tx.transaction_status,
       symbol: tx.symbol,
-      timestamp: tx.timestamp,
-      type: tx.type,
+      timestamp: tx.transaction_datetime,
+      type: tx.transaction_type,
       verified: tx.verified,
     };
   });
