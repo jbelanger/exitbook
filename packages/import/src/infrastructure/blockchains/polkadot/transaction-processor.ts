@@ -20,7 +20,7 @@ import { derivePolkadotAddressVariants } from './utils.js';
  * into UniversalTransaction format. Uses ProcessorFactory to dispatch to provider-specific
  * processors based on data provenance.
  */
-export class PolkadotTransactionProcessor extends BaseProcessor<ApiClientRawData<SubscanTransfer>> {
+export class PolkadotTransactionProcessor extends BaseProcessor {
   constructor() {
     super('polkadot');
   }
@@ -62,7 +62,7 @@ export class PolkadotTransactionProcessor extends BaseProcessor<ApiClientRawData
   }
 
   protected async processInternal(
-    rawDataItems: StoredRawData<ApiClientRawData<SubscanTransfer>>[],
+    rawDataItems: StoredRawData[],
     sessionMetadata?: ImportSessionMetadata
   ): Promise<Result<UniversalTransaction[], string>> {
     const transactions: UniversalTransaction[] = [];
@@ -91,35 +91,35 @@ export class PolkadotTransactionProcessor extends BaseProcessor<ApiClientRawData
   }
 
   private processSingle(
-    rawDataItem: StoredRawData<ApiClientRawData<SubscanTransfer>>,
+    rawDataItem: StoredRawData,
     sessionContext: ImportSessionMetadata
   ): Result<UniversalTransaction | undefined, string> {
-    const apiClientRawData = rawDataItem.rawData;
-    const { providerId, rawData } = apiClientRawData;
-
     // Get the appropriate processor for this provider
-    const processor = TransactionMapperFactory.create(providerId);
+    const processor = TransactionMapperFactory.create(rawDataItem.metadata.providerId);
     if (!processor) {
-      return err(`No processor found for provider: ${providerId}`);
+      return err(`No processor found for provider: ${rawDataItem.metadata.providerId}`);
     }
 
     // Transform using the provider-specific processor
-    const transformResult = processor.map(rawData, sessionContext) as Result<UniversalBlockchainTransaction, string>;
+    const transformResult = processor.map(rawDataItem.rawData, sessionContext) as Result<
+      UniversalBlockchainTransaction,
+      string
+    >;
 
     if (transformResult.isErr()) {
-      return err(`Transform failed for ${providerId}: ${transformResult.error}`);
+      return err(`Transform failed for ${rawDataItem.metadata.providerId}: ${transformResult.error}`);
     }
 
     const blockchainTransactions = transformResult.value;
     if (!blockchainTransactions) {
-      return err(`No transactions returned from ${providerId} processor`);
+      return err(`No transactions returned from ${rawDataItem.metadata.providerId} processor`);
     }
 
     // Polkadot processors return array with single transaction
     const blockchainTransaction = blockchainTransactions;
 
     if (!blockchainTransaction) {
-      return err(`No valid transaction object returned from ${providerId} processor`);
+      return err(`No valid transaction object returned from ${rawDataItem.metadata.providerId} processor`);
     }
 
     // Determine proper transaction type based on Polkadot transaction flow
@@ -148,7 +148,9 @@ export class PolkadotTransactionProcessor extends BaseProcessor<ApiClientRawData
       type: transactionType,
     };
 
-    this.logger.debug(`Successfully processed transaction ${universalTransaction.id} from ${providerId}`);
+    this.logger.debug(
+      `Successfully processed transaction ${universalTransaction.id} from ${rawDataItem.metadata.providerId}`
+    );
     return ok(universalTransaction);
   }
 }

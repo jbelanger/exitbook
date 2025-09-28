@@ -1,7 +1,9 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-import type { ImportParams, ImportRunResult } from '../../../app/ports/importers.ts';
+import { meta } from '@effect/eslint-plugin';
+
+import type { ApiClientRawData, ImportParams, ImportRunResult } from '../../../app/ports/importers.ts';
 import { BaseImporter } from '../../shared/importers/base-importer.js';
 import { CsvParser } from '../csv-parser.js';
 
@@ -13,12 +15,12 @@ import { formatLedgerLiveValidationErrors, validateLedgerLiveCsvRows } from './u
  * Importer for Ledger Live CSV operation files.
  * Handles reading CSV files from specified directories and parsing operation data.
  */
-export class LedgerLiveCsvImporter extends BaseImporter<CsvLedgerLiveOperationRow> {
+export class LedgerLiveCsvImporter extends BaseImporter {
   constructor() {
     super('ledgerlive');
   }
 
-  async import(params: ImportParams): Promise<ImportRunResult<CsvLedgerLiveOperationRow>> {
+  async import(params: ImportParams): Promise<ImportRunResult> {
     this.logger.info(
       `Starting Ledger Live CSV import from directories: ${params.csvDirectories?.join(', ') ?? 'none'}`
     );
@@ -27,7 +29,7 @@ export class LedgerLiveCsvImporter extends BaseImporter<CsvLedgerLiveOperationRo
       throw new Error('CSV directories are required for Ledger Live import');
     }
 
-    const allTransactions: CsvLedgerLiveOperationRow[] = [];
+    const allTransactions: ApiClientRawData[] = [];
 
     try {
       // Process each directory in order
@@ -61,7 +63,9 @@ export class LedgerLiveCsvImporter extends BaseImporter<CsvLedgerLiveOperationRo
               }
 
               this.logger.info(`Parsed and validated ${validationResult.valid.length} transactions from ${file}`);
-              allTransactions.push(...validationResult.valid);
+              allTransactions.push(
+                ...validationResult.valid.map((v) => ({ metadata: { providerId: 'ledgerlive' }, rawData: v }))
+              );
             } else if (fileType === 'unknown') {
               this.logger.warn(`Skipping unrecognized CSV file: ${file}`);
             } else {
@@ -75,9 +79,6 @@ export class LedgerLiveCsvImporter extends BaseImporter<CsvLedgerLiveOperationRo
         }
       }
 
-      // Sort by timestamp
-      allTransactions.sort((a, b) => new Date(a['Operation Date']).getTime() - new Date(b['Operation Date']).getTime());
-
       this.logger.info(
         `Completed Ledger Live CSV import: ${allTransactions.length} transactions from ${params.csvDirectories.length} directories`
       );
@@ -89,7 +90,7 @@ export class LedgerLiveCsvImporter extends BaseImporter<CsvLedgerLiveOperationRo
       }));
 
       return {
-        rawData,
+        rawData: allTransactions,
       };
     } catch (error) {
       this.handleImportError(error, 'CSV file processing');

@@ -26,16 +26,20 @@ export type RawData = Selectable<ExternalTransactionDataTable>;
 export type NewRawData = Insertable<ExternalTransactionDataTable>;
 export type RawDataUpdate = Updateable<ExternalTransactionDataTable>;
 
-export interface StoredRawData<TRawData = unknown> {
+export interface StoredRawData {
   createdAt: number;
   id: number;
   importSessionId?: number | undefined;
-  metadata?: unknown;
+  metadata: {
+    providerId: string;
+    sourceAddress?: string | undefined;
+    transactionType?: string | undefined;
+  };
   processedAt?: number | undefined;
   processingError?: string | undefined;
   processingStatus: string;
   providerId?: string | undefined;
-  rawData: TRawData;
+  rawData: unknown;
   sourceId: string;
   sourceType: string;
 }

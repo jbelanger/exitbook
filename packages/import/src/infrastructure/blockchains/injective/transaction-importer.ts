@@ -10,7 +10,7 @@ import type { InjectiveTransaction } from './types.js';
  * Injective transaction importer that fetches raw transaction data from blockchain APIs.
  * Uses provider manager for failover between multiple Injective API providers (Explorer API, LCD API).
  */
-export class InjectiveTransactionImporter extends BaseImporter<InjectiveTransaction> {
+export class InjectiveTransactionImporter extends BaseImporter {
   private providerManager: BlockchainProviderManager;
 
   constructor(
@@ -38,39 +38,29 @@ export class InjectiveTransactionImporter extends BaseImporter<InjectiveTransact
   /**
    * Import raw transaction data from Injective blockchain APIs with provider provenance.
    */
-  async import(params: ImportParams): Promise<ImportRunResult<InjectiveTransaction>> {
+  async import(params: ImportParams): Promise<ImportRunResult> {
     if (!params.address?.length) {
       throw new Error('Address required for Injective transaction import');
     }
 
     this.logger.info(`Starting Injective transaction import for address: ${params.address.substring(0, 20)}...`);
 
-    const allSourcedTransactions: ApiClientRawData<InjectiveTransaction>[] = [];
-
     this.logger.info(`Importing transactions for address: ${params.address.substring(0, 20)}...`);
 
     try {
       const rawTransactions = await this.fetchRawTransactionsForAddress(params.address, params.since);
-      allSourcedTransactions.push(...rawTransactions);
 
       this.logger.info(
         `Found ${rawTransactions.length} transactions for address ${params.address.substring(0, 20)}...`
       );
+
+      this.logger.info(`Injective import completed: ${rawTransactions.length} transactions`);
+      return {
+        rawData: rawTransactions,
+      };
     } catch (error) {
       this.handleImportError(error, `fetching transactions for ${params.address}`);
     }
-
-    // Sort by block timestamp (newest first)
-    allSourcedTransactions.sort((a, b) => {
-      const timestampA = new Date(a.rawData.block_timestamp).getTime();
-      const timestampB = new Date(b.rawData.block_timestamp).getTime();
-      return timestampB - timestampA;
-    });
-
-    this.logger.info(`Injective import completed: ${allSourcedTransactions.length} transactions`);
-    return {
-      rawData: allSourcedTransactions,
-    };
   }
 
   /**
@@ -106,10 +96,7 @@ export class InjectiveTransactionImporter extends BaseImporter<InjectiveTransact
   /**
    * Fetch raw transactions for a single address with provider provenance.
    */
-  private async fetchRawTransactionsForAddress(
-    address: string,
-    since?: number
-  ): Promise<ApiClientRawData<InjectiveTransaction>[]> {
+  private async fetchRawTransactionsForAddress(address: string, since?: number): Promise<ApiClientRawData[]> {
     try {
       const result = await this.providerManager.executeWithFailover('injective', {
         address: address,
@@ -124,9 +111,8 @@ export class InjectiveTransactionImporter extends BaseImporter<InjectiveTransact
 
       // Wrap each transaction with provider provenance and source address context
       return rawTransactions.map((rawData) => ({
-        providerId,
+        metadata: { providerId, sourceAddress: address },
         rawData,
-        sourceAddress: address,
       }));
     } catch (error) {
       this.logger.error(`Provider manager failed to fetch transactions for ${address}: ${String(error)}`);

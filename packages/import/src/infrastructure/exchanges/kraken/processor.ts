@@ -18,7 +18,7 @@ import type { CsvKrakenLedgerRow } from './types.js';
  * - Token migration detection
  * - Dustsweeping handling
  */
-export class KrakenProcessor extends BaseProcessor<ApiClientRawData<CsvKrakenLedgerRow>> {
+export class KrakenProcessor extends BaseProcessor {
   constructor() {
     super('kraken');
   }
@@ -27,13 +27,11 @@ export class KrakenProcessor extends BaseProcessor<ApiClientRawData<CsvKrakenLed
     return sourceType === 'exchange';
   }
 
-  protected processInternal(
-    rawDataItems: StoredRawData<ApiClientRawData<CsvKrakenLedgerRow>>[]
-  ): Promise<Result<UniversalTransaction[], string>> {
+  protected processInternal(rawDataItems: StoredRawData[]): Promise<Result<UniversalTransaction[], string>> {
     try {
       // Extract the raw ledger rows for batch processing
       // Handle ApiClientRawData format: { providerId: string, rawData: CsvKrakenLedgerRow }
-      const rows = rawDataItems.map((item) => item.rawData.rawData);
+      const rows = rawDataItems.map((item) => item.rawData as CsvKrakenLedgerRow);
       const transactions = this.parseLedgers(rows);
       return Promise.resolve(ok(transactions));
     } catch (error) {

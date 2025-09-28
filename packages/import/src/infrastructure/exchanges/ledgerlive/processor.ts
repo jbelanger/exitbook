@@ -14,7 +14,7 @@ import type { CsvLedgerLiveOperationRow } from './types.js';
  * - Status mapping
  * - Fee handling (including empty fees)
  */
-export class LedgerLiveProcessor extends BaseProcessor<CsvLedgerLiveOperationRow> {
+export class LedgerLiveProcessor extends BaseProcessor {
   constructor() {
     super('ledgerlive');
   }
@@ -23,9 +23,7 @@ export class LedgerLiveProcessor extends BaseProcessor<CsvLedgerLiveOperationRow
     return sourceType === 'exchange';
   }
 
-  protected async processInternal(
-    rawDataItems: StoredRawData<CsvLedgerLiveOperationRow>[]
-  ): Promise<Result<UniversalTransaction[], string>> {
+  protected async processInternal(rawDataItems: StoredRawData[]): Promise<Result<UniversalTransaction[], string>> {
     const transactions: UniversalTransaction[] = [];
 
     for (const rawDataItem of rawDataItems) {
@@ -122,10 +120,8 @@ export class LedgerLiveProcessor extends BaseProcessor<CsvLedgerLiveOperationRow
     }
   }
 
-  private processSingle(
-    rawData: StoredRawData<CsvLedgerLiveOperationRow>
-  ): Result<UniversalTransaction | undefined, string> {
-    const row = rawData.rawData;
+  private processSingle(rawData: StoredRawData): Result<UniversalTransaction | undefined, string> {
+    const row = rawData.rawData as CsvLedgerLiveOperationRow;
 
     // Skip empty or invalid rows
     if (!row['Operation Date'] || !row['Currency Ticker'] || !row['Operation Amount']) {

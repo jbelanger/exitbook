@@ -39,13 +39,6 @@ export interface MempoolTransaction {
   weight: number;
 }
 
-export type BitcoinTransaction =
-  | MempoolTransaction
-  | BlockstreamTransaction
-  | BlockCypherTransaction
-  | BlockchainComTransaction
-  | TatumBitcoinTransaction;
-
 export interface MempoolInput {
   prevout?: MempoolPrevout;
   scriptsig: string;

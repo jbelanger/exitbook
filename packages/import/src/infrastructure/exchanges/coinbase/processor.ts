@@ -19,7 +19,7 @@ import { BaseProcessor } from '../../shared/processors/base-processor.js';
  * - Symbol extraction from nested structures
  * - Price calculation excluding fees
  */
-export class CoinbaseProcessor extends BaseProcessor<UniversalTransaction> {
+export class CoinbaseProcessor extends BaseProcessor {
   constructor() {
     super('coinbase');
   }
@@ -28,15 +28,15 @@ export class CoinbaseProcessor extends BaseProcessor<UniversalTransaction> {
     return sourceType === 'exchange';
   }
 
-  protected async processInternal(
-    rawDataItems: StoredRawData<UniversalTransaction>[]
-  ): Promise<Result<UniversalTransaction[], string>> {
+  protected async processInternal(rawDataItems: StoredRawData[]): Promise<Result<UniversalTransaction[], string>> {
     const transactions: UniversalTransaction[] = [];
 
     for (const item of rawDataItems) {
       const result = this.processSingle(item);
       if (result.isErr()) {
-        this.logger.warn(`Failed to process Coinbase transaction ${item.rawData.id}: ${result.error}`);
+        this.logger.warn(
+          `Failed to process Coinbase transaction ${(item.rawData as UniversalTransaction).id}: ${result.error}`
+        );
         continue;
       }
 
@@ -49,10 +49,8 @@ export class CoinbaseProcessor extends BaseProcessor<UniversalTransaction> {
     return Promise.resolve(ok(transactions));
   }
 
-  private processSingle(
-    rawData: StoredRawData<UniversalTransaction>
-  ): Result<UniversalTransaction | undefined, string> {
-    const transaction = rawData.rawData;
+  private processSingle(rawData: StoredRawData): Result<UniversalTransaction | undefined, string> {
+    const transaction = rawData.rawData as UniversalTransaction;
 
     // The CoinbaseCCXTAdapter already provides transactions in UniversalTransaction format
     // We mainly need to validate and potentially enhance the data

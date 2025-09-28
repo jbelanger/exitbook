@@ -5,6 +5,7 @@ import type { Logger } from '@crypto/shared-logger';
 import { getLogger } from '@crypto/shared-logger';
 import { type Result } from 'neverthrow';
 
+import type { ApiClientRawData } from '../../../app/ports/importers.ts';
 import type { IProcessor, ImportSessionMetadata, ProcessingImportSession } from '../../../app/ports/processors.ts';
 import type { UniversalBlockchainTransaction } from '../../../app/ports/raw-data-mappers.ts';
 import { detectScamFromSymbol } from '../utils/scam-detection.js';
@@ -13,7 +14,7 @@ import { detectScamFromSymbol } from '../utils/scam-detection.js';
  * Base class providing common functionality for all processors.
  * Implements logging, error handling, and batch processing patterns.
  */
-export abstract class BaseProcessor<TRawData> implements IProcessor {
+export abstract class BaseProcessor implements IProcessor {
   protected logger: Logger;
 
   constructor(protected sourceId: string) {
@@ -72,10 +73,7 @@ export abstract class BaseProcessor<TRawData> implements IProcessor {
     }
 
     // Fall back to original raw data processing
-    const result = await this.processInternal(
-      importSession.rawDataItems as StoredRawData<TRawData>[],
-      importSession.sessionMetadata
-    );
+    const result = await this.processInternal(importSession.rawDataItems, importSession.sessionMetadata);
 
     if (result.isErr()) {
       this.logger.error(`Processing failed for ${this.sourceId}: ${result.error}`);
@@ -151,7 +149,7 @@ export abstract class BaseProcessor<TRawData> implements IProcessor {
   /**
    * Helper method to handle processing errors consistently.
    */
-  protected handleProcessingError(error: unknown, rawData: StoredRawData<TRawData>, context: string): never {
+  protected handleProcessingError(error: unknown, rawData: StoredRawData, context: string): never {
     const errorMessage = error instanceof Error ? error.message : String(error);
     this.logger.error(`Processing failed for ${rawData.id} in ${context}: ${errorMessage}`);
     throw new Error(`${this.sourceId} processing failed: ${errorMessage}`);
@@ -209,7 +207,7 @@ export abstract class BaseProcessor<TRawData> implements IProcessor {
    * The base class handles logging, error handling, and validation.
    */
   protected abstract processInternal(
-    rawData: StoredRawData<TRawData>[],
+    rawData: StoredRawData[],
     sessionMetadata?: ImportSessionMetadata
   ): Promise<Result<UniversalTransaction[], string>>;
 
@@ -227,14 +225,13 @@ export abstract class BaseProcessor<TRawData> implements IProcessor {
     this.logger.warn(`${this.sourceId} processor does not implement processNormalizedInternal, using fallback`);
 
     // Create fake StoredRawData structure to maintain compatibility
-    const fakeRawDataItems: StoredRawData<TRawData>[] = normalizedData.map((item, index) => ({
+    const fakeRawDataItems: StoredRawData[] = normalizedData.map((item, index) => ({
       createdAt: Date.now(),
       id: index,
       importSessionId: undefined,
-      metadata: {},
+      metadata: { providerId: this.sourceId },
       processingStatus: 'pending' as const,
-      providerId: undefined,
-      rawData: item as TRawData,
+      rawData: item,
       sourceId: this.sourceId,
       sourceType: 'blockchain' as const,
       updatedAt: Date.now(),
@@ -254,6 +251,7 @@ export abstract class BaseProcessor<TRawData> implements IProcessor {
     }
   }
 }
+
 function validateUniversalTransactions(transactions: UniversalTransaction[]): {
   invalid: { errors: unknown; transaction: UniversalTransaction }[];
   valid: UniversalTransaction[];

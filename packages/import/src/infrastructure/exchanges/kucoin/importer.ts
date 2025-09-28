@@ -13,12 +13,12 @@ import { validateKuCoinAccountHistory, validateKuCoinDepositsWithdrawals, valida
  * Importer for KuCoin CSV files.
  * Handles reading CSV files from specified directories and parsing different KuCoin export formats.
  */
-export class KucoinCsvImporter extends BaseImporter<CsvKuCoinRawData> {
+export class KucoinCsvImporter extends BaseImporter {
   constructor() {
     super('kucoin');
   }
 
-  async import(params: ImportParams): Promise<ImportRunResult<CsvKuCoinRawData>> {
+  async import(params: ImportParams): Promise<ImportRunResult> {
     this.logger.info(`Starting KuCoin CSV import from directories: ${params.csvDirectories?.join(', ') ?? 'none'}`);
 
     if (!params.csvDirectories?.length) {
@@ -170,7 +170,7 @@ export class KucoinCsvImporter extends BaseImporter<CsvKuCoinRawData> {
       return {
         rawData: [
           {
-            providerId: 'kucoin',
+            metadata: { providerId: 'kucoin' },
             rawData,
           },
         ],

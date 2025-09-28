@@ -2,11 +2,12 @@ import * as bitcoin from 'bitcoinjs-lib';
 
 import type { ApiClientRawData, ImportParams, ImportRunResult } from '../../../app/ports/importers.ts';
 import { BaseImporter } from '../../shared/importers/base-importer.js';
+
+import './api/index.js';
 // Ensure Bitcoin providers are registered
 import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.js';
 
-import './api/index.js';
-import type { BitcoinTransaction, BitcoinWalletAddress } from './types.js';
+import type { BitcoinWalletAddress } from './types.js';
 import { BitcoinUtils } from './utils.js';
 
 /**
@@ -14,7 +15,7 @@ import { BitcoinUtils } from './utils.js';
  * Supports both regular Bitcoin addresses and extended public keys (xpub/ypub/zpub).
  * Uses provider manager for failover between multiple blockchain API providers.
  */
-export class BitcoinTransactionImporter extends BaseImporter<BitcoinTransaction> {
+export class BitcoinTransactionImporter extends BaseImporter {
   private addressGap: number;
   private addressInfoCache = new Map<string, { balance: string; txCount: number }>();
   private providerManager: BlockchainProviderManager;
@@ -42,29 +43,16 @@ export class BitcoinTransactionImporter extends BaseImporter<BitcoinTransaction>
   }
 
   /**
-   * Get transaction ID from any Bitcoin transaction type
-   */
-  public getTransactionId(tx: BitcoinTransaction): string {
-    // Handle different transaction formats
-    if ('txid' in tx) {
-      return tx.txid; // MempoolTransaction, BlockstreamTransaction
-    } else if ('hash' in tx) {
-      return tx.hash; // BlockCypherTransaction
-    }
-    return 'unknown';
-  }
-
-  /**
    * Import raw transaction data from Bitcoin blockchain APIs with provider provenance.
    */
-  async import(params: ImportParams): Promise<ImportRunResult<BitcoinTransaction>> {
+  async import(params: ImportParams): Promise<ImportRunResult> {
     if (!params.address) {
       throw new Error('Address required for Bitcoin transaction import');
     }
 
     this.logger.info(`Starting Bitcoin transaction import for address: ${params.address.substring(0, 20)}...`);
 
-    const allSourcedTransactions: ApiClientRawData<BitcoinTransaction>[] = [];
+    const allSourcedTransactions: ApiClientRawData[] = [];
 
     this.logger.info(`Importing transactions for address: ${params.address.substring(0, 20)}...`);
 
@@ -95,15 +83,7 @@ export class BitcoinTransactionImporter extends BaseImporter<BitcoinTransaction>
       // Regular address - fetch directly
       try {
         const rawTransactions = await this.fetchRawTransactionsForAddress(params.address, params.since);
-
-        // Add the source address context to each transaction
-        const enhancedSourcedTransactions: ApiClientRawData<BitcoinTransaction>[] = rawTransactions.map((rawTx) => ({
-          providerId: rawTx.providerId,
-          rawData: rawTx.rawData,
-          sourceAddress: params.address,
-        }));
-
-        allSourcedTransactions.push(...enhancedSourcedTransactions);
+        allSourcedTransactions.push(...rawTransactions);
       } catch (error) {
         this.handleImportError(error, `fetching transactions for ${params.address}`);
       }
@@ -153,10 +133,7 @@ export class BitcoinTransactionImporter extends BaseImporter<BitcoinTransaction>
   /**
    * Fetch raw transactions for a single address with provider provenance.
    */
-  private async fetchRawTransactionsForAddress(
-    address: string,
-    since?: number
-  ): Promise<ApiClientRawData<BitcoinTransaction>[]> {
+  private async fetchRawTransactionsForAddress(address: string, since?: number): Promise<ApiClientRawData[]> {
     try {
       const result = await this.providerManager.executeWithFailover('bitcoin', {
         address: address,
@@ -166,12 +143,15 @@ export class BitcoinTransactionImporter extends BaseImporter<BitcoinTransaction>
         type: 'getRawAddressTransactions',
       });
 
-      const rawTransactions = result.data as BitcoinTransaction[];
+      const rawTransactions = result.data as unknown[];
       const providerId = result.providerName;
 
       // Wrap each transaction with provider provenance
       return rawTransactions.map((rawData) => ({
-        providerId,
+        metadata: {
+          providerId,
+          sourceAddress: address,
+        },
         rawData,
       }));
     } catch (error) {
@@ -186,8 +166,8 @@ export class BitcoinTransactionImporter extends BaseImporter<BitcoinTransaction>
   private async fetchRawTransactionsForDerivedAddresses(
     derivedAddresses: string[],
     since?: number
-  ): Promise<ApiClientRawData<BitcoinTransaction>[]> {
-    const uniqueTransactions = new Map<string, ApiClientRawData<BitcoinTransaction>>();
+  ): Promise<ApiClientRawData[]> {
+    const uniqueTransactions = new Map<string, ApiClientRawData>();
 
     for (const address of derivedAddresses) {
       // Check cache first to see if this address has any transactions
@@ -205,12 +185,7 @@ export class BitcoinTransactionImporter extends BaseImporter<BitcoinTransaction>
         // Add transactions to the unique set with address information
         for (const rawTx of rawTransactions) {
           const txId = this.getTransactionId(rawTx.rawData);
-
-          uniqueTransactions.set(txId, {
-            providerId: rawTx.providerId,
-            rawData: rawTx.rawData,
-            sourceAddress: address,
-          });
+          uniqueTransactions.set(txId, rawTx);
         }
 
         this.logger.debug(`Found ${rawTransactions.length} transactions for address ${address}`);
@@ -259,5 +234,20 @@ export class BitcoinTransactionImporter extends BaseImporter<BitcoinTransaction>
     } catch {
       return false;
     }
+  }
+
+  /**
+   * Get transaction ID from any Bitcoin transaction type
+   */
+  private getTransactionId(tx: unknown): string {
+    // Handle different transaction formats
+    if (typeof tx === 'object' && tx !== null) {
+      if ('txid' in tx && typeof (tx as { txid?: unknown }).txid === 'string') {
+        return (tx as { txid: string }).txid; // MempoolTransaction, BlockstreamTransaction
+      } else if ('hash' in tx && typeof (tx as { hash?: unknown }).hash === 'string') {
+        return (tx as { hash: string }).hash; // BlockCypherTransaction
+      }
+    }
+    return 'unknown';
   }
 }

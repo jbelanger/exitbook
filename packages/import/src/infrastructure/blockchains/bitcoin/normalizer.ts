@@ -3,8 +3,9 @@ import { type Result, err, ok } from 'neverthrow';
 import type { ImportSessionMetadata } from '../../../app/ports/processors.ts';
 import { TransactionMapperFactory } from '../../shared/processors/processor-registry.js';
 
-import type { BitcoinTransaction, NormalizedBitcoinTransaction } from './types.js';
-
+import type { NormalizedBitcoinTransaction } from './types.js';
+// Import processors to trigger registration
+import './mappers/index.js';
 /**
  * BitcoinNormalizer handles pure data extraction from provider-specific JSON
  * to normalized Bitcoin transaction format with structured input/output data.
@@ -20,7 +21,7 @@ export class BitcoinNormalizer {
    * Normalize Bitcoin transaction data from any provider to NormalizedBitcoinTransaction
    */
   normalize(
-    rawData: BitcoinTransaction,
+    rawData: unknown,
     providerId: string,
     sessionContext: ImportSessionMetadata
   ): Result<NormalizedBitcoinTransaction, string> {

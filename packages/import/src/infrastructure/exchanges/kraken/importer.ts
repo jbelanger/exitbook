@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-import type { ImportParams, ImportRunResult } from '../../../app/ports/importers.ts';
+import type { ApiClientRawData, ImportParams, ImportRunResult } from '../../../app/ports/importers.ts';
 import { BaseImporter } from '../../shared/importers/base-importer.js';
 import { CsvParser } from '../csv-parser.js';
 
@@ -13,12 +13,12 @@ import { formatKrakenValidationErrors, validateKrakenCsvRows } from './utils.js'
  * Importer for Kraken CSV ledger files.
  * Handles reading CSV files from specified directories and parsing ledger data.
  */
-export class KrakenCsvImporter extends BaseImporter<CsvKrakenLedgerRow> {
+export class KrakenCsvImporter extends BaseImporter {
   constructor() {
     super('kraken');
   }
 
-  async import(params: ImportParams): Promise<ImportRunResult<CsvKrakenLedgerRow>> {
+  async import(params: ImportParams): Promise<ImportRunResult> {
     this.logger.info(
       `Starting Kraken CSV import from directories: ${
         params.csvDirectories ? params.csvDirectories.join(', ') : 'none'
@@ -29,7 +29,7 @@ export class KrakenCsvImporter extends BaseImporter<CsvKrakenLedgerRow> {
       throw new Error('CSV directories are required for Kraken import');
     }
 
-    const allTransactions: CsvKrakenLedgerRow[] = [];
+    const allTransactions: ApiClientRawData[] = [];
 
     try {
       // Process each directory in order
@@ -63,7 +63,9 @@ export class KrakenCsvImporter extends BaseImporter<CsvKrakenLedgerRow> {
               }
 
               this.logger.info(`Parsed and validated ${validationResult.valid.length} transactions from ${file}`);
-              allTransactions.push(...validationResult.valid);
+              allTransactions.push(
+                ...validationResult.valid.map((v) => ({ metadata: { file, providerId: 'kraken' }, rawData: v }))
+              );
             } else if (fileType === 'unknown') {
               this.logger.warn(`Skipping unrecognized CSV file: ${file}`);
             } else {
@@ -77,21 +79,12 @@ export class KrakenCsvImporter extends BaseImporter<CsvKrakenLedgerRow> {
         }
       }
 
-      // Sort by timestamp
-      allTransactions.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
-
       this.logger.info(
         `Completed Kraken CSV import: ${allTransactions.length} transactions from ${params.csvDirectories.length} directories`
       );
 
-      // Wrap raw CSV data with provider information
-      const rawData = allTransactions.map((rawData) => ({
-        providerId: 'kraken',
-        rawData,
-      }));
-
       return {
-        rawData,
+        rawData: allTransactions,
       };
     } catch (error) {
       this.handleImportError(error, 'CSV file processing');

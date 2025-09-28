@@ -10,7 +10,7 @@ import type { SubscanTransfer } from './types.js';
  * Polkadot transaction importer that fetches raw transaction data from Subscan API.
  * Uses provider manager for failover between multiple Substrate API providers.
  */
-export class PolkadotTransactionImporter extends BaseImporter<SubscanTransfer> {
+export class PolkadotTransactionImporter extends BaseImporter {
   private providerManager: BlockchainProviderManager;
 
   constructor(
@@ -50,14 +50,14 @@ export class PolkadotTransactionImporter extends BaseImporter<SubscanTransfer> {
   /**
    * Import raw transaction data from Polkadot blockchain APIs with provider provenance.
    */
-  async import(params: ImportParams): Promise<ImportRunResult<SubscanTransfer>> {
+  async import(params: ImportParams): Promise<ImportRunResult> {
     if (!params.address?.length) {
       throw new Error('Address required for Polkadot transaction import');
     }
 
     this.logger.info(`Starting Polkadot transaction import for address: ${params.address.substring(0, 20)}...`);
 
-    const allSourcedTransactions: ApiClientRawData<SubscanTransfer>[] = [];
+    const allSourcedTransactions: ApiClientRawData[] = [];
 
     this.logger.info(`Importing transactions for Polkadot address: ${params.address.substring(0, 20)}...`);
 
@@ -76,8 +76,8 @@ export class PolkadotTransactionImporter extends BaseImporter<SubscanTransfer> {
         const substrateTxData = rawData as { data: SubscanTransfer[] };
 
         if (Array.isArray(substrateTxData.data)) {
-          const rawTransactions: ApiClientRawData<SubscanTransfer>[] = substrateTxData.data.map((transfer) => ({
-            providerId: result.providerName,
+          const rawTransactions: ApiClientRawData[] = substrateTxData.data.map((transfer) => ({
+            metadata: { providerId: result.providerName },
             rawData: transfer,
           }));
 
@@ -96,13 +96,6 @@ export class PolkadotTransactionImporter extends BaseImporter<SubscanTransfer> {
       );
       // Continue with other addresses rather than failing completely
     }
-
-    // Sort by timestamp (newest first)
-    allSourcedTransactions.sort((a, b) => {
-      const timestampA = a.rawData.block_timestamp || 0;
-      const timestampB = b.rawData.block_timestamp || 0;
-      return timestampB - timestampA;
-    });
 
     this.logger.info(`Polkadot transaction import completed - Total: ${allSourcedTransactions.length}`);
 

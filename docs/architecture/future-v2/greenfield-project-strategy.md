@@ -254,13 +254,15 @@ export const accountTypeEnum = pgEnum('account_type', [
   'INCOME_AIRDROP',
   'INCOME_MINING',
   'EXPENSE_FEES_GAS',
-  'EXPENSE_FEES_TRADE'
+  'EXPENSE_FEES_TRADE',
 ]);
 
 export const accounts = pgTable('accounts', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 255 }).notNull(),
-  currencyId: integer('currency_id').references(() => currencies.id, { onDelete: 'restrict' }).notNull(),
+  currencyId: integer('currency_id')
+    .references(() => currencies.id, { onDelete: 'restrict' })
+    .notNull(),
   accountType: accountTypeEnum('account_type').notNull(),
   network: varchar('network', { length: 50 }),
   externalAddress: varchar('external_address', { length: 255 }),
@@ -277,37 +279,61 @@ import { currencies } from './currencies';
 
 export const directionEnum = pgEnum('direction', ['CREDIT', 'DEBIT']);
 export const entryTypeEnum = pgEnum('entry_type', [
-  'TRADE', 'DEPOSIT', 'WITHDRAWAL', 'FEE', 'REWARD',
-  'STAKING', 'AIRDROP', 'MINING', 'LOAN', 'REPAYMENT', 'TRANSFER', 'GAS'
+  'TRADE',
+  'DEPOSIT',
+  'WITHDRAWAL',
+  'FEE',
+  'REWARD',
+  'STAKING',
+  'AIRDROP',
+  'MINING',
+  'LOAN',
+  'REPAYMENT',
+  'TRANSFER',
+  'GAS',
 ]);
 
-export const ledgerTransactions = pgTable('ledger_transactions', {
-  id: serial('id').primaryKey(),
-  externalId: varchar('external_id', { length: 255 }).notNull(),
-  source: varchar('source', { length: 50 }).notNull(),
-  description: text('description').notNull(),
-  transactionDate: timestamp('transaction_date', { withTimezone: true }).notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-}, (table) => ({
-  // Ensures idempotency - prevents duplicate transactions from retried jobs
-  externalIdSourceIdx: uniqueIndex('external_id_source_idx').on(table.externalId, table.source),
-}));
+export const ledgerTransactions = pgTable(
+  'ledger_transactions',
+  {
+    id: serial('id').primaryKey(),
+    externalId: varchar('external_id', { length: 255 }).notNull(),
+    source: varchar('source', { length: 50 }).notNull(),
+    description: text('description').notNull(),
+    transactionDate: timestamp('transaction_date', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    // Ensures idempotency - prevents duplicate transactions from retried jobs
+    externalIdSourceIdx: uniqueIndex('external_id_source_idx').on(table.externalId, table.source),
+  })
+);
 
-export const entries = pgTable('entries', {
-  id: serial('id').primaryKey(),
-  transactionId: integer('transaction_id').references(() => ledgerTransactions.id, { onDelete: 'cascade' }).notNull(),
-  accountId: integer('account_id').references(() => accounts.id, { onDelete: 'restrict' }).notNull(),
-  currencyId: integer('currency_id').references(() => currencies.id, { onDelete: 'restrict' }).notNull(),
-  amount: bigint('amount', { mode: 'bigint' }).notNull(),
-  direction: directionEnum('direction').notNull(),
-  entryType: entryTypeEnum('entry_type').notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-}, (table) => ({
-  // Critical indexes for performance
-  accountCurrencyIdx: index('idx_entries_account_currency').on(table.accountId, table.currencyId),
-  transactionIdx: index('idx_entries_transaction').on(table.transactionId),
-  currencyIdx: index('idx_entries_currency').on(table.currencyId),
-}));
+export const entries = pgTable(
+  'entries',
+  {
+    id: serial('id').primaryKey(),
+    transactionId: integer('transaction_id')
+      .references(() => ledgerTransactions.id, { onDelete: 'cascade' })
+      .notNull(),
+    accountId: integer('account_id')
+      .references(() => accounts.id, { onDelete: 'restrict' })
+      .notNull(),
+    currencyId: integer('currency_id')
+      .references(() => currencies.id, { onDelete: 'restrict' })
+      .notNull(),
+    amount: bigint('amount', { mode: 'bigint' }).notNull(),
+    direction: directionEnum('direction').notNull(),
+    entryType: entryTypeEnum('entry_type').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    // Critical indexes for performance
+    accountCurrencyIdx: index('idx_entries_account_currency').on(table.accountId, table.currencyId),
+    transactionIdx: index('idx_entries_transaction').on(table.transactionId),
+    currencyIdx: index('idx_entries_currency').on(table.currencyId),
+  })
+);
 
 // libs/database/src/database.module.ts
 @Module({
@@ -329,8 +355,8 @@ export const entries = pgTable('entries', {
             entries,
             blockchainTransactionDetails,
             exchangeTransactionDetails,
-            transactionMetadata
-          }
+            transactionMetadata,
+          },
         });
       },
     },
@@ -343,7 +369,7 @@ export class DatabaseModule implements OnModuleInit {
   constructor(
     private currencySeeder: CurrencySeederService,
     private healthService: DatabaseHealthService,
-    private logger: Logger,
+    private logger: Logger
   ) {}
 
   async onModuleInit() {
@@ -367,7 +393,7 @@ export class DatabaseModule implements OnModuleInit {
 export class CurrencySeederService {
   constructor(
     @Inject('DATABASE_CONNECTION') private db: DrizzleDB,
-    private logger: Logger,
+    private logger: Logger
   ) {}
 
   async seedDefaultCurrencies(): Promise<void> {
@@ -376,7 +402,14 @@ export class CurrencySeederService {
     const defaultCurrencies = [
       { ticker: 'BTC', name: 'Bitcoin', decimals: 8, assetClass: 'CRYPTO', isNative: true },
       { ticker: 'ETH', name: 'Ethereum', decimals: 18, assetClass: 'CRYPTO', network: 'ethereum', isNative: true },
-      { ticker: 'USDC', name: 'USD Coin', decimals: 6, assetClass: 'CRYPTO', network: 'ethereum', contractAddress: '0xA0b86a33E6441e0fD4f5f6aF08e6E56fF29b4c3D' },
+      {
+        ticker: 'USDC',
+        name: 'USD Coin',
+        decimals: 6,
+        assetClass: 'CRYPTO',
+        network: 'ethereum',
+        contractAddress: '0xA0b86a33E6441e0fD4f5f6aF08e6E56fF29b4c3D',
+      },
       { ticker: 'SOL', name: 'Solana', decimals: 9, assetClass: 'CRYPTO', network: 'solana', isNative: true },
       { ticker: 'USD', name: 'US Dollar', decimals: 2, assetClass: 'FIAT', isNative: true },
     ];
@@ -399,7 +432,9 @@ export class CurrencySeederService {
       }
     }
 
-    this.logger.log(`Currency seeding completed. New currencies added: ${seededCount}, Total currencies: ${defaultCurrencies.length}`);
+    this.logger.log(
+      `Currency seeding completed. New currencies added: ${seededCount}, Total currencies: ${defaultCurrencies.length}`
+    );
   }
 
   async validateCurrencySeeding(): Promise<boolean> {
@@ -411,8 +446,8 @@ export class CurrencySeederService {
         .from(currencies)
         .where(sql`${currencies.ticker} = ANY(${expectedCurrencies})`);
 
-      const existingTickers = existingCurrencies.map(c => c.ticker);
-      const missingCurrencies = expectedCurrencies.filter(ticker => !existingTickers.includes(ticker));
+      const existingTickers = existingCurrencies.map((c) => c.ticker);
+      const missingCurrencies = expectedCurrencies.filter((ticker) => !existingTickers.includes(ticker));
 
       if (missingCurrencies.length > 0) {
         this.logger.error(`Missing required currencies: ${missingCurrencies.join(', ')}`);
@@ -433,19 +468,25 @@ import { ledgerTransactions } from './ledger';
 
 export const blockchainStatusEnum = pgEnum('blockchain_status', ['pending', 'confirmed', 'failed']);
 
-export const blockchainTransactionDetails = pgTable('blockchain_transaction_details', {
-  transactionId: integer('transaction_id').primaryKey().references(() => ledgerTransactions.id, { onDelete: 'cascade' }),
-  txHash: varchar('tx_hash', { length: 100 }).unique().notNull(),
-  blockHeight: integer('block_height'),
-  status: blockchainStatusEnum('status').notNull(),
-  gasUsed: integer('gas_used'),
-  gasPrice: bigint('gas_price', { mode: 'bigint' }), // Use bigint to prevent overflow with high gas prices
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-}, (table) => ({
-  txHashIdx: index('idx_blockchain_tx_hash').on(table.txHash),
-  statusIdx: index('idx_blockchain_status').on(table.status),
-  blockHeightIdx: index('idx_blockchain_block_height').on(table.blockHeight),
-}));
+export const blockchainTransactionDetails = pgTable(
+  'blockchain_transaction_details',
+  {
+    transactionId: integer('transaction_id')
+      .primaryKey()
+      .references(() => ledgerTransactions.id, { onDelete: 'cascade' }),
+    txHash: varchar('tx_hash', { length: 100 }).unique().notNull(),
+    blockHeight: integer('block_height'),
+    status: blockchainStatusEnum('status').notNull(),
+    gasUsed: integer('gas_used'),
+    gasPrice: bigint('gas_price', { mode: 'bigint' }), // Use bigint to prevent overflow with high gas prices
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    txHashIdx: index('idx_blockchain_tx_hash').on(table.txHash),
+    statusIdx: index('idx_blockchain_status').on(table.status),
+    blockHeightIdx: index('idx_blockchain_block_height').on(table.blockHeight),
+  })
+);
 
 // libs/database/src/schema/exchange-transaction-details.ts
 import { pgTable, integer, varchar, timestamp, pgEnum } from 'drizzle-orm/pg-core';
@@ -454,7 +495,9 @@ import { ledgerTransactions } from './ledger';
 export const tradeSideEnum = pgEnum('trade_side', ['buy', 'sell']);
 
 export const exchangeTransactionDetails = pgTable('exchange_transaction_details', {
-  transactionId: integer('transaction_id').primaryKey().references(() => ledgerTransactions.id, { onDelete: 'cascade' }),
+  transactionId: integer('transaction_id')
+    .primaryKey()
+    .references(() => ledgerTransactions.id, { onDelete: 'cascade' }),
   orderId: varchar('order_id', { length: 100 }),
   tradeId: varchar('trade_id', { length: 100 }),
   symbol: varchar('symbol', { length: 20 }),
@@ -468,16 +511,22 @@ import { ledgerTransactions } from './ledger';
 
 export const metadataTypeEnum = pgEnum('metadata_type', ['string', 'number', 'json', 'boolean']);
 
-export const transactionMetadata = pgTable('transaction_metadata', {
-  id: serial('id').primaryKey(),
-  transactionId: integer('transaction_id').references(() => ledgerTransactions.id, { onDelete: 'cascade' }).notNull(),
-  key: varchar('key', { length: 100 }).notNull(),
-  value: text('value').notNull(),
-  dataType: metadataTypeEnum('data_type').notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-}, (table) => ({
-  uniqueKeyPerTransaction: uniqueIndex('unique_transaction_metadata_key').on(table.transactionId, table.key),
-}));
+export const transactionMetadata = pgTable(
+  'transaction_metadata',
+  {
+    id: serial('id').primaryKey(),
+    transactionId: integer('transaction_id')
+      .references(() => ledgerTransactions.id, { onDelete: 'cascade' })
+      .notNull(),
+    key: varchar('key', { length: 100 }).notNull(),
+    value: text('value').notNull(),
+    dataType: metadataTypeEnum('data_type').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    uniqueKeyPerTransaction: uniqueIndex('unique_transaction_metadata_key').on(table.transactionId, table.key),
+  })
+);
 
 // libs/database/src/schema/index.ts
 export * from './currencies';
@@ -496,7 +545,7 @@ export * from './transaction-metadata';
 export abstract class BaseRepository<T> {
   constructor(
     @Inject('DATABASE_CONNECTION') protected db: DrizzleDB,
-    protected logger: Logger,
+    protected logger: Logger
   ) {}
 }
 
@@ -521,12 +570,14 @@ export class LedgerRepository extends BaseRepository<LedgerTransaction> {
           throw new LedgerValidationException({
             message: `Entries for currency ${currencyId} must balance to zero, got ${sum}`,
             code: 'ENTRIES_UNBALANCED',
-            unbalancedCurrencies: [{
-              currencyId,
-              delta: sum.toString(),
-              // Include currency ticker if available
-              ticker: await this.getCurrencyTicker(currencyId),
-            }],
+            unbalancedCurrencies: [
+              {
+                currencyId,
+                delta: sum.toString(),
+                // Include currency ticker if available
+                ticker: await this.getCurrencyTicker(currencyId),
+              },
+            ],
             transactionId: transaction.externalId,
             source: transaction.source,
           });
@@ -548,7 +599,7 @@ export class LedgerRepository extends BaseRepository<LedgerTransaction> {
       const dbEntries = await trx
         .insert(entries)
         .values(
-          transaction.entries.map(entry => ({
+          transaction.entries.map((entry) => ({
             transactionId: dbTransaction.id,
             accountId: entry.accountId,
             currencyId: entry.currencyId,
@@ -561,21 +612,17 @@ export class LedgerRepository extends BaseRepository<LedgerTransaction> {
 
       // Create blockchain or exchange details if provided
       if (transaction.blockchainDetails) {
-        await trx
-          .insert(blockchainTransactionDetails)
-          .values({
-            transactionId: dbTransaction.id,
-            ...transaction.blockchainDetails,
-          });
+        await trx.insert(blockchainTransactionDetails).values({
+          transactionId: dbTransaction.id,
+          ...transaction.blockchainDetails,
+        });
       }
 
       if (transaction.exchangeDetails) {
-        await trx
-          .insert(exchangeTransactionDetails)
-          .values({
-            transactionId: dbTransaction.id,
-            ...transaction.exchangeDetails,
-          });
+        await trx.insert(exchangeTransactionDetails).values({
+          transactionId: dbTransaction.id,
+          ...transaction.exchangeDetails,
+        });
       }
 
       // Create metadata entries if provided
@@ -638,7 +685,7 @@ export class LedgerRepository extends BaseRepository<LedgerTransaction> {
       .select({
         balance: sql<string>`coalesce(sum(${entries.amount}), 0)`,
         currencyTicker: currencies.ticker,
-        currencyDecimals: currencies.decimals
+        currencyDecimals: currencies.decimals,
       })
       .from(entries)
       .innerJoin(accounts, eq(entries.accountId, accounts.id))
@@ -664,7 +711,7 @@ export class LedgerRepository extends BaseRepository<LedgerTransaction> {
         accountName: accounts.name,
         balance: sql<string>`coalesce(sum(${entries.amount}), 0)`,
         currencyTicker: currencies.ticker,
-        currencyDecimals: currencies.decimals
+        currencyDecimals: currencies.decimals,
       })
       .from(entries)
       .innerJoin(accounts, eq(entries.accountId, accounts.id))
@@ -1036,7 +1083,7 @@ export class LoggingInterceptor implements NestInterceptor {
     const request = context.switchToHttp().getRequest();
     const correlationId = request.headers['x-correlation-id'] || crypto.randomUUID();
 
-    return new Observable(observer => {
+    return new Observable((observer) => {
       ContextualLoggerService.runWithContext(
         { correlationId, operation: `${context.getClass().name}.${context.getHandler().name}` },
         () => {
@@ -1069,7 +1116,7 @@ export class LedgerService {
         source: request.source,
         description: request.description,
         transactionDate: new Date(request.transactionDate),
-        entries: request.entries.map(entry => ({
+        entries: request.entries.map((entry) => ({
           accountId: entry.accountId,
           amount: BigInt(entry.amount), // DTOs use string, convert to bigint in service layer
           direction: entry.direction,
@@ -1100,9 +1147,9 @@ export class LedgerService {
 
     try {
       const accounts = await this.accountService.findAll();
-      const balances = await Promise.all(accounts.map(account => this.getAccountBalance(account.id)));
+      const balances = await Promise.all(accounts.map((account) => this.getAccountBalance(account.id)));
 
-      const nonZeroBalances = balances.filter(balance => BigInt(balance.amount) !== 0n);
+      const nonZeroBalances = balances.filter((balance) => BigInt(balance.amount) !== 0n);
 
       // Record performance metrics
       const duration = (Date.now() - startTime) / 1000;
@@ -1239,7 +1286,7 @@ export class AccountService {
    */
   async getSubAccounts(parentAccountId: number): Promise<AccountDto[]> {
     const subAccounts = await this.accountRepository.findByParentId(parentAccountId);
-    return subAccounts.map(account => this.mapToDto(account));
+    return subAccounts.map((account) => this.mapToDto(account));
   }
 
   /**
@@ -1609,7 +1656,7 @@ export class CurrencyService {
         .from(currencies);
 
       // Build both ticker -> currency and id -> currency maps
-      currencies.forEach(currency => {
+      currencies.forEach((currency) => {
         const currencyDto = this.mapToDto(currency);
         this.currencyCache.set(currency.ticker.toUpperCase(), currencyDto);
         this.currencyByIdCache.set(currency.id, currencyDto);
@@ -1768,14 +1815,14 @@ export class KrakenImporterService extends BaseImporterService<CsvKrakenLedgerRo
 
 // libs/import/src/processors/exchanges/kraken/kraken.processor.service.ts
 @Injectable()
-export class KrakenProcessorService extends BaseProcessorService<ApiClientRawData<CsvKrakenLedgerRow>> {
+export class KrakenProcessorService extends BaseProcessorService<ApiClientRawData {
   constructor(logger: Logger) {
     super('kraken', logger);
   }
 
   // Keep ALL existing business logic from KrakenProcessor
   async processInternal(
-    rawDataItems: StoredRawData<ApiClientRawData<CsvKrakenLedgerRow>>[]
+    rawDataItems: StoredRawData<ApiClientRawData[]
   ): Promise<UniversalTransaction[]> {
     // Preserve existing complex logic:
     // - Trade pairing
@@ -2086,11 +2133,7 @@ export class ImportController {
       inject: ['TYPED_CONFIG'],
     }),
   ],
-  providers: [
-    ImportCommandService,
-    BalanceCommandService,
-    StatusCommandService,
-  ],
+  providers: [ImportCommandService, BalanceCommandService, StatusCommandService],
 })
 export class CliModule {}
 
@@ -2099,7 +2142,7 @@ export class CliModule {}
 export class ImportCommandService {
   constructor(
     private importService: ImportOrchestrationService,
-    private logger: Logger,
+    private logger: Logger
   ) {}
 
   async import(options: ImportOptionsDto): Promise<void> {
@@ -2123,7 +2166,7 @@ export class ImportCommandService {
 
     if (result.balanceSnapshot.length > 0) {
       console.log('\nBalance Summary:');
-      result.balanceSnapshot.forEach(balance =>
+      result.balanceSnapshot.forEach((balance) =>
         console.log(`- ${balance.currency}: ${this.formatAmount(balance.amount)}`)
       );
     }
@@ -2139,7 +2182,7 @@ export class BalanceCommandService {
     const balances = await this.ledgerService.getAllBalances();
 
     console.log('Account Balances:');
-    balances.forEach(balance => {
+    balances.forEach((balance) => {
       console.log(`${balance.accountName}: ${this.formatAmount(balance.amount)} ${balance.currency}`);
     });
 
@@ -2680,7 +2723,7 @@ export class LedgerService {
   }
 
   async recordTransaction(request: CreateLedgerTransactionDto): Promise<LedgerTransactionDto> {
-    const entries = request.entries.map(entry => ({
+    const entries = request.entries.map((entry) => ({
       ...entry,
       amount: this.stringToBigInt(entry.amount), // DTO string -> service bigint
     }));

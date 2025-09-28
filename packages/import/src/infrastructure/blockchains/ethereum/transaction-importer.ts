@@ -4,20 +4,13 @@ import type { BlockchainProviderManager } from '../shared/blockchain-provider-ma
 
 // Ensure Ethereum API clients are registered
 import './api/index.js';
-import type { AlchemyAssetTransfer, MoralisTokenTransfer, MoralisTransaction } from './types.js';
-
-/**
- * Combined type for all Ethereum transaction data types.
- * Supports both regular transactions and token transfers from different providers.
- */
-export type EthereumRawTransactionData = AlchemyAssetTransfer | MoralisTransaction | MoralisTokenTransfer;
 
 /**
  * Ethereum transaction importer that fetches raw transaction data from blockchain APIs.
  * Supports multiple provider types (Alchemy, Moralis) with different data formats.
  * Uses provider manager for failover between multiple Ethereum API providers.
  */
-export class EthereumTransactionImporter extends BaseImporter<EthereumRawTransactionData> {
+export class EthereumTransactionImporter extends BaseImporter {
   private providerManager: BlockchainProviderManager;
 
   constructor(
@@ -40,12 +33,12 @@ export class EthereumTransactionImporter extends BaseImporter<EthereumRawTransac
     );
   }
 
-  async import(params: ImportParams): Promise<ImportRunResult<EthereumRawTransactionData>> {
+  async import(params: ImportParams): Promise<ImportRunResult> {
     if (!(await this.canImportSpecific(params))) {
       throw new Error('Cannot import - validation failed');
     }
 
-    const allRawData: ApiClientRawData<EthereumRawTransactionData>[] = [];
+    const allRawData: ApiClientRawData[] = [];
 
     if (!params.address) {
       return {
@@ -77,25 +70,6 @@ export class EthereumTransactionImporter extends BaseImporter<EthereumRawTransac
       );
       throw error;
     }
-
-    // Sort by timestamp if available (most recent first)
-    allRawData.sort((a, b) => {
-      const getTimestamp = (data: EthereumRawTransactionData): number => {
-        if ('metadata' in data && data.metadata?.blockTimestamp) {
-          return new Date(data.metadata.blockTimestamp).getTime();
-        }
-        if ('block_timestamp' in data) {
-          return new Date(data.block_timestamp).getTime();
-        }
-        if ('timeStamp' in data) {
-          const parsed = parseInt(data.timeStamp as string);
-          return isNaN(parsed) ? 0 : parsed * 1000; // Etherscan uses Unix timestamp in seconds
-        }
-        return 0;
-      };
-
-      return getTimestamp(b.rawData) - getTimestamp(a.rawData);
-    });
 
     this.logger.info(`Ethereum import completed - Raw transactions collected: ${allRawData.length}`);
 
@@ -129,10 +103,7 @@ export class EthereumTransactionImporter extends BaseImporter<EthereumRawTransac
   /**
    * Fetch regular ETH transactions for a single address with provider provenance.
    */
-  private async fetchRegularTransactions(
-    address: string,
-    since?: number
-  ): Promise<ApiClientRawData<EthereumRawTransactionData>[]> {
+  private async fetchRegularTransactions(address: string, since?: number): Promise<ApiClientRawData[]> {
     try {
       const result = await this.providerManager.executeWithFailover('ethereum', {
         address: address,
@@ -145,8 +116,8 @@ export class EthereumTransactionImporter extends BaseImporter<EthereumRawTransac
       const rawTransactions = Array.isArray(result.data) ? result.data : [result.data];
 
       // Create raw data entries with provider provenance
-      return rawTransactions.map((tx: EthereumRawTransactionData) => ({
-        providerId: result.providerName,
+      return rawTransactions.map((tx: unknown) => ({
+        metadata: { providerId: result.providerName, sourceAddress: address, transactionType: 'normal' },
         rawData: tx,
       }));
     } catch (error) {
@@ -160,10 +131,7 @@ export class EthereumTransactionImporter extends BaseImporter<EthereumRawTransac
   /**
    * Fetch ERC-20 token transactions for a single address with provider provenance.
    */
-  private async fetchTokenTransactions(
-    address: string,
-    since?: number
-  ): Promise<ApiClientRawData<EthereumRawTransactionData>[]> {
+  private async fetchTokenTransactions(address: string, since?: number): Promise<ApiClientRawData[]> {
     try {
       const result = await this.providerManager.executeWithFailover('ethereum', {
         address: address,
@@ -176,8 +144,8 @@ export class EthereumTransactionImporter extends BaseImporter<EthereumRawTransac
       const rawTokenTransactions = Array.isArray(result.data) ? result.data : [result.data];
 
       // Create raw data entries with provider provenance
-      return rawTokenTransactions.map((tx: EthereumRawTransactionData) => ({
-        providerId: result.providerName,
+      return rawTokenTransactions.map((tx: unknown) => ({
+        metadata: { providerId: result.providerName, sourceAddress: address, transactionType: 'token' },
         rawData: tx,
       }));
     } catch (error) {

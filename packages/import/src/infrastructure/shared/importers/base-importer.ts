@@ -7,7 +7,7 @@ import type { IImporter, ImportParams, ImportRunResult } from '../../../app/port
  * Base class providing common functionality for all importers.
  * Implements logging, basic validation, and error handling patterns.
  */
-export abstract class BaseImporter<TRawData> implements IImporter<TRawData> {
+export abstract class BaseImporter implements IImporter {
   protected logger: Logger;
 
   constructor(protected sourceId: string) {
@@ -53,5 +53,5 @@ export abstract class BaseImporter<TRawData> implements IImporter<TRawData> {
     throw new Error(`${this.sourceId} import failed: ${errorMessage}`);
   }
 
-  abstract import(params: ImportParams): Promise<ImportRunResult<TRawData>>;
+  abstract import(params: ImportParams): Promise<ImportRunResult>;
 }

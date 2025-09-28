@@ -7,17 +7,11 @@ import './api/index.js';
 import type { SnowtraceInternalTransaction, SnowtraceTokenTransfer, SnowtraceTransaction } from './types.js';
 
 /**
- * Combined type for all Avalanche transaction data types.
- * Supports regular transactions, internal transactions, and token transfers from Snowtrace.
- */
-export type AvalancheRawTransactionData = SnowtraceTransaction | SnowtraceInternalTransaction | SnowtraceTokenTransfer;
-
-/**
  * Avalanche transaction importer that fetches raw transaction data from blockchain APIs.
  * Supports multiple transaction types (regular, internal, token) from Snowtrace providers.
  * Uses provider manager for failover between multiple Avalanche API providers.
  */
-export class AvalancheTransactionImporter extends BaseImporter<AvalancheRawTransactionData> {
+export class AvalancheTransactionImporter extends BaseImporter {
   private providerManager: BlockchainProviderManager;
 
   constructor(
@@ -43,12 +37,10 @@ export class AvalancheTransactionImporter extends BaseImporter<AvalancheRawTrans
   /**
    * Import raw transaction data from Avalanche blockchain APIs.
    */
-  async import(params: ImportParams): Promise<ImportRunResult<AvalancheRawTransactionData>> {
+  async import(params: ImportParams): Promise<ImportRunResult> {
     if (!params.address) {
       throw new Error('Address is required for Avalanche import');
     }
-
-    const allSourcedTransactions: ApiClientRawData<AvalancheRawTransactionData>[] = [];
 
     this.logger.info(`Importing transactions for address: ${params.address.substring(0, 20)}...`);
 
@@ -59,18 +51,10 @@ export class AvalancheTransactionImporter extends BaseImporter<AvalancheRawTrans
     }
 
     const addressTransactions = await this.fetchRawTransactionsForAddress(params.address, params.since);
-    allSourcedTransactions.push(...addressTransactions);
 
-    // Sort by timestamp
-    const sortedTransactions = allSourcedTransactions.sort((a, b) => {
-      const timestampA = parseInt(a.rawData.timeStamp);
-      const timestampB = parseInt(b.rawData.timeStamp);
-      return timestampB - timestampA;
-    });
-
-    this.logger.info(`Total transactions imported: ${sortedTransactions.length}`);
+    this.logger.info(`Total transactions imported: ${addressTransactions.length}`);
     return {
-      rawData: sortedTransactions,
+      rawData: addressTransactions,
     };
   }
 
@@ -82,28 +66,10 @@ export class AvalancheTransactionImporter extends BaseImporter<AvalancheRawTrans
   }
 
   /**
-   * Extract unique transaction identifier from raw transaction data.
-   * Include provider type to prevent deduplication of different transaction types with same hash.
-   */
-  protected getTransactionId(rawData: AvalancheRawTransactionData): string {
-    // Determine transaction type based on structure to create unique keys
-    if ('tokenSymbol' in rawData) {
-      return `${rawData.hash}-token`;
-    } else if ('type' in rawData && rawData.type === 'call') {
-      return `${rawData.hash}-internal`;
-    } else {
-      return `${rawData.hash}-normal`;
-    }
-  }
-
-  /**
    * Fetch raw transactions for a single address with provider provenance.
    */
-  private async fetchRawTransactionsForAddress(
-    address: string,
-    since?: number
-  ): Promise<ApiClientRawData<AvalancheRawTransactionData>[]> {
-    const rawTransactions: ApiClientRawData<AvalancheRawTransactionData>[] = [];
+  private async fetchRawTransactionsForAddress(address: string, since?: number): Promise<ApiClientRawData[]> {
+    const rawTransactions: ApiClientRawData[] = [];
 
     try {
       // Fetch normal and internal transactions
@@ -125,9 +91,8 @@ export class AvalancheTransactionImporter extends BaseImporter<AvalancheRawTrans
         if (compositeData.normal && Array.isArray(compositeData.normal)) {
           for (const tx of compositeData.normal) {
             rawTransactions.push({
-              providerId: normalResult.providerName,
+              metadata: { providerId: normalResult.providerName, transactionType: 'normal' },
               rawData: tx,
-              transactionType: 'normal',
             });
           }
         }
@@ -136,9 +101,8 @@ export class AvalancheTransactionImporter extends BaseImporter<AvalancheRawTrans
         if (compositeData.internal && Array.isArray(compositeData.internal)) {
           for (const tx of compositeData.internal) {
             rawTransactions.push({
-              providerId: normalResult.providerName,
+              metadata: { providerId: normalResult.providerName, transactionType: 'internal' },
               rawData: tx,
-              transactionType: 'internal',
             });
           }
         }
@@ -158,9 +122,8 @@ export class AvalancheTransactionImporter extends BaseImporter<AvalancheRawTrans
           const tokenTransactions = tokenResult.data as SnowtraceTokenTransfer[];
           for (const tx of tokenTransactions) {
             rawTransactions.push({
-              providerId: tokenResult.providerName,
+              metadata: { providerId: tokenResult.providerName, transactionType: 'token' },
               rawData: tx,
-              transactionType: 'token',
             });
           }
         }

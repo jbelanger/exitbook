@@ -15,7 +15,7 @@ import type { CsvAccountHistoryRow, CsvDepositWithdrawalRow, CsvKuCoinRawData, C
  * - Deposit and withdrawal handling
  * - Convert market transaction processing from account history
  */
-export class KucoinProcessor extends BaseProcessor<ApiClientRawData<CsvKuCoinRawData>> {
+export class KucoinProcessor extends BaseProcessor {
   constructor() {
     super('kucoin');
   }
@@ -24,9 +24,7 @@ export class KucoinProcessor extends BaseProcessor<ApiClientRawData<CsvKuCoinRaw
     return sourceType === 'exchange';
   }
 
-  protected async processInternal(
-    rawDataItems: StoredRawData<ApiClientRawData<CsvKuCoinRawData>>[]
-  ): Promise<Result<UniversalTransaction[], string>> {
+  protected async processInternal(rawDataItems: StoredRawData[]): Promise<Result<UniversalTransaction[], string>> {
     const allTransactions: UniversalTransaction[] = [];
 
     for (const rawDataItem of rawDataItems) {
@@ -249,33 +247,31 @@ export class KucoinProcessor extends BaseProcessor<ApiClientRawData<CsvKuCoinRaw
     return convertTransactions;
   }
 
-  private processSingle(
-    rawDataItem: StoredRawData<ApiClientRawData<CsvKuCoinRawData>>
-  ): Result<UniversalTransaction[], string> {
+  private processSingle(rawDataItem: StoredRawData): Result<UniversalTransaction[], string> {
     try {
       const rawData = rawDataItem.rawData;
       const transactions: UniversalTransaction[] = [];
 
       // Process spot orders
-      for (const row of rawData.rawData.spotOrders) {
+      for (const row of (rawData as CsvKuCoinRawData).spotOrders) {
         const transaction = this.convertSpotOrderToTransaction(row);
         transactions.push(transaction);
       }
 
       // Process deposits
-      for (const row of rawData.rawData.deposits) {
+      for (const row of (rawData as CsvKuCoinRawData).deposits) {
         const transaction = this.convertDepositToTransaction(row);
         transactions.push(transaction);
       }
 
       // Process withdrawals
-      for (const row of rawData.rawData.withdrawals) {
+      for (const row of (rawData as CsvKuCoinRawData).withdrawals) {
         const transaction = this.convertWithdrawalToTransaction(row);
         transactions.push(transaction);
       }
 
       // Process account history (convert market transactions)
-      const convertTransactions = this.processAccountHistory(rawData.rawData.accountHistory);
+      const convertTransactions = this.processAccountHistory((rawData as CsvKuCoinRawData).accountHistory);
       transactions.push(...convertTransactions);
 
       return ok(transactions);

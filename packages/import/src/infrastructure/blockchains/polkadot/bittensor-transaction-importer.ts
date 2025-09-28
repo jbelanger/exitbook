@@ -10,7 +10,7 @@ import type { TaostatsTransaction } from './types.js';
  * Bittensor transaction importer that fetches raw transaction data from Taostats API.
  * Uses provider manager for failover between multiple Bittensor API providers.
  */
-export class BittensorTransactionImporter extends BaseImporter<TaostatsTransaction> {
+export class BittensorTransactionImporter extends BaseImporter {
   private providerManager: BlockchainProviderManager;
 
   constructor(
@@ -50,14 +50,14 @@ export class BittensorTransactionImporter extends BaseImporter<TaostatsTransacti
   /**
    * Import raw transaction data from Bittensor blockchain APIs with provider provenance.
    */
-  async import(params: ImportParams): Promise<ImportRunResult<TaostatsTransaction>> {
+  async import(params: ImportParams): Promise<ImportRunResult> {
     if (!params.address?.length) {
       throw new Error('Address required for Bittensor transaction import');
     }
 
     this.logger.info(`Starting Bittensor transaction import for address: ${params.address.substring(0, 20)}...`);
 
-    const allRawTransactions: ApiClientRawData<TaostatsTransaction>[] = [];
+    const allRawTransactions: ApiClientRawData[] = [];
 
     this.logger.info(`Importing transactions for Bittensor address: ${params.address.substring(0, 20)}...`);
 
@@ -76,8 +76,8 @@ export class BittensorTransactionImporter extends BaseImporter<TaostatsTransacti
         const bittensorTxData = rawData as { data: TaostatsTransaction[] };
 
         if (Array.isArray(bittensorTxData.data)) {
-          const rawTransactions: ApiClientRawData<TaostatsTransaction>[] = bittensorTxData.data.map((transaction) => ({
-            providerId: result.providerName,
+          const rawTransactions: ApiClientRawData[] = bittensorTxData.data.map((transaction) => ({
+            metadata: { providerId: result.providerName },
             rawData: transaction,
           }));
 
@@ -96,13 +96,6 @@ export class BittensorTransactionImporter extends BaseImporter<TaostatsTransacti
       );
       // Continue with other addresses rather than failing completely
     }
-
-    // Sort by timestamp or block number (newest first)
-    allRawTransactions.sort((a, b) => {
-      const timestampA = a.rawData.timestamp || a.rawData.block_number || 0;
-      const timestampB = b.rawData.timestamp || b.rawData.block_number || 0;
-      return timestampB - timestampA;
-    });
 
     this.logger.info(`Bittensor transaction import completed - Total: ${allRawTransactions.length}`);
 

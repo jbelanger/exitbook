@@ -7,12 +7,12 @@ import { BaseImporter } from '../../shared/importers/base-importer.js';
  * Importer for Coinbase transactions using CCXT adapter.
  * Fetches transactions directly from Coinbase's API using the specialized ledger adapter.
  */
-export class CoinbaseImporter extends BaseImporter<UniversalTransaction> {
+export class CoinbaseImporter extends BaseImporter {
   constructor() {
     super('coinbase');
   }
 
-  import(_params: ImportParams): Promise<ImportRunResult<UniversalTransaction>> {
+  import(_params: ImportParams): Promise<ImportRunResult> {
     this.logger.info('Starting Coinbase transaction import using CCXT adapter');
 
     throw new Error('CoinbaseImporter.import not yet implemented');

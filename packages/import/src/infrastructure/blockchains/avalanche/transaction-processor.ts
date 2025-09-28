@@ -14,14 +14,13 @@ import './mappers/index.js';
 import { BaseProcessor } from '../../shared/processors/base-processor.js';
 import { TransactionMapperFactory } from '../../shared/processors/processor-registry.js';
 
-import type { AvalancheRawTransactionData } from './transaction-importer.js';
 import { AvalancheUtils } from './utils.js';
 
 /**
  * Avalanche transaction processor that converts raw blockchain transaction data
  * into UniversalTransaction format using correlation system for smart classification.
  */
-export class AvalancheTransactionProcessor extends BaseProcessor<ApiClientRawData<AvalancheRawTransactionData>> {
+export class AvalancheTransactionProcessor extends BaseProcessor {
   private correlationLogger = getLogger('AvalancheCorrelation');
 
   constructor() {
@@ -39,7 +38,7 @@ export class AvalancheTransactionProcessor extends BaseProcessor<ApiClientRawDat
    * Implement the template method with integrated correlation logic
    */
   protected processInternal(
-    rawDataItems: StoredRawData<ApiClientRawData<AvalancheRawTransactionData>>[],
+    rawDataItems: StoredRawData[],
     sessionMetadata?: ImportSessionMetadata
   ): Promise<Result<UniversalTransaction[], string>> {
     if (rawDataItems.length === 0) {
@@ -52,7 +51,6 @@ export class AvalancheTransactionProcessor extends BaseProcessor<ApiClientRawDat
     const universalTransactions: UniversalBlockchainTransaction[] = [];
 
     for (const rawDataItem of rawDataItems) {
-      const apiClientRawData = rawDataItem.rawData;
       const sourceAddress = sessionMetadata?.address;
 
       if (!sourceAddress) {
@@ -61,12 +59,12 @@ export class AvalancheTransactionProcessor extends BaseProcessor<ApiClientRawDat
       }
 
       // Get the appropriate processor for this provider
-      const processor = TransactionMapperFactory.create(apiClientRawData.providerId);
+      const processor = TransactionMapperFactory.create(rawDataItem.metadata.providerId);
       if (!processor) {
-        return Promise.resolve(err(`No processor found for provider: ${apiClientRawData.providerId}`));
+        return Promise.resolve(err(`No processor found for provider: ${rawDataItem.metadata.providerId}`));
       }
 
-      const transformResult = processor.map(apiClientRawData.rawData, sessionMetadata) as Result<
+      const transformResult = processor.map(rawDataItem.rawData, sessionMetadata) as Result<
         UniversalBlockchainTransaction,
         string
       >;
@@ -78,7 +76,7 @@ export class AvalancheTransactionProcessor extends BaseProcessor<ApiClientRawDat
 
       const blockchainTransactions = transformResult.value;
       if (!blockchainTransactions) {
-        this.correlationLogger.warn(`No transactions returned from ${apiClientRawData.providerId} processor`);
+        this.correlationLogger.warn(`No transactions returned from ${rawDataItem.metadata.providerId} processor`);
         continue;
       }
 
@@ -97,8 +95,8 @@ export class AvalancheTransactionProcessor extends BaseProcessor<ApiClientRawDat
       if (!transactionGroups.has(tx.id)) {
         // Find the user address from the raw data - use the first available source address
         const userAddress =
-          rawDataItems.find((item) => item.rawData.rawData && universalTransactions.some((utx) => utx.id === tx.id))
-            ?.rawData.sourceAddress || '';
+          rawDataItems.find((item) => item.rawData && universalTransactions.some((utx) => utx.id === tx.id))?.metadata
+            .sourceAddress || '';
 
         transactionGroups.set(tx.id, { txGroup: [], userAddress });
       }

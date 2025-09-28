@@ -12,14 +12,12 @@ import './mappers/index.js';
 import { BaseProcessor } from '../../shared/processors/base-processor.js';
 import { TransactionMapperFactory } from '../../shared/processors/processor-registry.js';
 
-import type { InjectiveTransaction } from './types.js';
-
 /**
  * Injective transaction processor that converts raw blockchain transaction data
  * into UniversalTransaction format. Uses ProcessorFactory to dispatch to provider-specific
  * processors based on data provenance.
  */
-export class InjectiveTransactionProcessor extends BaseProcessor<ApiClientRawData<InjectiveTransaction>> {
+export class InjectiveTransactionProcessor extends BaseProcessor {
   constructor() {
     super('injective');
   }
@@ -32,7 +30,7 @@ export class InjectiveTransactionProcessor extends BaseProcessor<ApiClientRawDat
   }
 
   protected async processInternal(
-    rawDataItems: StoredRawData<ApiClientRawData<InjectiveTransaction>>[],
+    rawDataItems: StoredRawData[],
     sessionMetadata?: ImportSessionMetadata
   ): Promise<Result<UniversalTransaction[], string>> {
     if (!sessionMetadata) {
@@ -60,35 +58,35 @@ export class InjectiveTransactionProcessor extends BaseProcessor<ApiClientRawDat
   }
 
   private processSingle(
-    rawDataItem: StoredRawData<ApiClientRawData<InjectiveTransaction>>,
+    rawDataItem: StoredRawData,
     sessionContext: ImportSessionMetadata
   ): Result<UniversalTransaction | undefined, string> {
-    const apiClientRawData = rawDataItem.rawData;
-    const { providerId, rawData } = apiClientRawData;
-
     // Get the appropriate processor for this provider
-    const processor = TransactionMapperFactory.create(providerId);
+    const processor = TransactionMapperFactory.create(rawDataItem.metadata.providerId);
     if (!processor) {
-      return err(`No processor found for provider: ${providerId}`);
+      return err(`No processor found for provider: ${rawDataItem.metadata.providerId}`);
     }
 
     // Transform using the provider-specific processor
-    const transformResult = processor.map(rawData, sessionContext) as Result<UniversalBlockchainTransaction, string>;
+    const transformResult = processor.map(rawDataItem, sessionContext) as Result<
+      UniversalBlockchainTransaction,
+      string
+    >;
 
     if (transformResult.isErr()) {
-      return err(`Transform failed for ${providerId}: ${transformResult.error}`);
+      return err(`Transform failed for ${rawDataItem.metadata.providerId}: ${transformResult.error}`);
     }
 
     const blockchainTransactions = transformResult.value;
     if (!blockchainTransactions) {
-      return err(`No transactions returned from ${providerId} processor`);
+      return err(`No transactions returned from ${rawDataItem.metadata.providerId} processor`);
     }
 
     // Injective processors return array with single transaction
     const blockchainTransaction = blockchainTransactions;
 
     if (!blockchainTransaction) {
-      return err(`No valid blockchain transaction found for ${providerId}`);
+      return err(`No valid blockchain transaction found for ${rawDataItem.metadata.providerId}`);
     }
 
     // Determine proper transaction type based on Injective transaction flow
@@ -117,7 +115,9 @@ export class InjectiveTransactionProcessor extends BaseProcessor<ApiClientRawDat
       type: transactionType,
     };
 
-    this.logger.debug(`Successfully processed transaction ${universalTransaction.id} from ${providerId}`);
+    this.logger.debug(
+      `Successfully processed transaction ${universalTransaction.id} from ${rawDataItem.metadata.providerId}`
+    );
     return ok(universalTransaction);
   }
 }

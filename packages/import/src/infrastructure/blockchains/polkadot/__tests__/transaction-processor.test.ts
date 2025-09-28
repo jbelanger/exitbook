@@ -8,10 +8,7 @@ import type { SubscanTransfer } from '../types.js';
 
 // Type for accessing protected methods in tests
 type TestablePolkadotTransactionProcessor = PolkadotTransactionProcessor & {
-  enrichSessionContext(
-    rawDataItems: StoredRawData<ApiClientRawData<SubscanTransfer>>[],
-    sessionMetadata: ImportSessionMetadata
-  ): ImportSessionMetadata;
+  enrichSessionContext(rawDataItems: StoredRawData[], sessionMetadata: ImportSessionMetadata): ImportSessionMetadata;
 };
 
 describe('PolkadotTransactionProcessor Integration', () => {
@@ -37,12 +34,10 @@ describe('PolkadotTransactionProcessor Integration', () => {
     to: '14E5nqKAp3oAJcmzgZhUD2RcptBeUBScxKHgJKU4HPNcKVf3', // Different address
   };
 
-  const createMockRawDataItem = (
-    transaction: SubscanTransfer,
-    sourceAddress: string
-  ): StoredRawData<ApiClientRawData<SubscanTransfer>> => ({
+  const createMockRawDataItem = (transaction: SubscanTransfer, sourceAddress: string): StoredRawData => ({
     createdAt: Date.now(),
     id: 1,
+    metadata: { providerId: 'subscan', sourceAddress },
     processingStatus: 'pending',
     rawData: {
       providerId: 'subscan',
@@ -222,7 +217,7 @@ describe('PolkadotTransactionProcessor Integration', () => {
     });
 
     it('should handle empty raw data items', () => {
-      const rawDataItems: StoredRawData<ApiClientRawData<SubscanTransfer>>[] = [];
+      const rawDataItems: StoredRawData[] = [];
 
       const sessionMetadata: ImportSessionMetadata = {
         address: polkadotAddress,
@@ -238,15 +233,16 @@ describe('PolkadotTransactionProcessor Integration', () => {
     });
 
     it('should handle missing sourceAddress in raw data', () => {
-      const rawDataItem: StoredRawData<ApiClientRawData<SubscanTransfer>> = {
+      const rawDataItem: StoredRawData = {
         createdAt: Date.now(),
         id: 1,
+        metadata: { providerId: 'subscan' },
         processingStatus: 'pending',
         rawData: {
           providerId: 'subscan',
           rawData: mockTransaction,
           // sourceAddress is missing
-        } as ApiClientRawData<SubscanTransfer>,
+        },
         sourceId: 'polkadot',
         sourceType: 'blockchain',
       };

@@ -12,14 +12,12 @@ import type { UniversalBlockchainTransaction } from '../../../app/ports/raw-data
 import { BaseProcessor } from '../../shared/processors/base-processor.js';
 import { TransactionMapperFactory } from '../../shared/processors/processor-registry.js';
 
-import type { EthereumRawTransactionData } from './transaction-importer.js';
-
 /**
  * Ethereum transaction processor that converts raw blockchain transaction data
  * into UniversalTransaction format. Uses ProcessorFactory to dispatch to provider-specific
  * processors based on data provenance.
  */
-export class EthereumTransactionProcessor extends BaseProcessor<ApiClientRawData<EthereumRawTransactionData>> {
+export class EthereumTransactionProcessor extends BaseProcessor {
   constructor() {
     super('ethereum');
   }
@@ -32,7 +30,7 @@ export class EthereumTransactionProcessor extends BaseProcessor<ApiClientRawData
   }
 
   protected processInternal(
-    rawDataItems: StoredRawData<ApiClientRawData<EthereumRawTransactionData>>[],
+    rawDataItems: StoredRawData[],
     sessionMetadata?: ImportSessionMetadata
   ): Promise<Result<UniversalTransaction[], string>> {
     const transactions: UniversalTransaction[] = [];
@@ -58,28 +56,28 @@ export class EthereumTransactionProcessor extends BaseProcessor<ApiClientRawData
   }
 
   private processSingle(
-    rawDataItem: StoredRawData<ApiClientRawData<EthereumRawTransactionData>>,
+    rawDataItem: StoredRawData,
     sessionContext: ImportSessionMetadata
   ): Result<UniversalTransaction | undefined, string> {
-    const apiClientRawData = rawDataItem.rawData;
-    const { providerId, rawData } = apiClientRawData;
-
     // Get the appropriate processor for this provider
-    const processor = TransactionMapperFactory.create(providerId);
+    const processor = TransactionMapperFactory.create(rawDataItem.metadata.providerId);
     if (!processor) {
-      return err(`No processor found for provider: ${providerId}`);
+      return err(`No processor found for provider: ${rawDataItem.metadata.providerId}`);
     }
 
     // Transform using the provider-specific processor
-    const transformResult = processor.map(rawData, sessionContext) as Result<UniversalBlockchainTransaction, string>;
+    const transformResult = processor.map(rawDataItem, sessionContext) as Result<
+      UniversalBlockchainTransaction,
+      string
+    >;
 
     if (transformResult.isErr()) {
-      return err(`Transform failed for ${providerId}: ${transformResult.error}`);
+      return err(`Transform failed for ${rawDataItem.metadata.providerId}: ${transformResult.error}`);
     }
 
     const blockchainTransactions = transformResult.value;
     if (!blockchainTransactions) {
-      return err(`No transactions returned from ${providerId} processor`);
+      return err(`No transactions returned from ${rawDataItem.metadata.providerId} processor`);
     }
 
     // Ethereum processors return array with single transaction
@@ -87,7 +85,7 @@ export class EthereumTransactionProcessor extends BaseProcessor<ApiClientRawData
 
     // Debug logging to understand what type we're getting
     if (!blockchainTransaction) {
-      return err(`Transaction object is undefined for ${providerId}`);
+      return err(`Transaction object is undefined for ${rawDataItem.metadata.providerId}`);
     }
     this.logger.debug(
       `Processing transaction ${blockchainTransaction.id} with type: ${blockchainTransaction.type}, currency: ${blockchainTransaction.currency}, tokenSymbol: ${blockchainTransaction.tokenSymbol}`
@@ -128,7 +126,9 @@ export class EthereumTransactionProcessor extends BaseProcessor<ApiClientRawData
       type: transactionType,
     };
 
-    this.logger.debug(`Successfully processed transaction ${universalTransaction.id} from ${providerId}`);
+    this.logger.debug(
+      `Successfully processed transaction ${universalTransaction.id} from ${rawDataItem.metadata.providerId}`
+    );
     return ok(universalTransaction);
   }
 }

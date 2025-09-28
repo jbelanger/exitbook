@@ -17,7 +17,7 @@ import type { SolanaRawTransactionData } from './clients/HeliusApiClient.js';
  * into UniversalTransaction format. Uses ProcessorFactory to dispatch to provider-specific
  * processors (Helius, SolanaRPC, Solscan) based on data provenance.
  */
-export class SolanaTransactionProcessor extends BaseProcessor<ApiClientRawData<SolanaRawTransactionData>> {
+export class SolanaTransactionProcessor extends BaseProcessor {
   constructor() {
     super('solana');
   }
@@ -81,7 +81,7 @@ export class SolanaTransactionProcessor extends BaseProcessor<ApiClientRawData<S
   }
 
   protected async processInternal(
-    rawDataItems: StoredRawData<ApiClientRawData<SolanaRawTransactionData>>[],
+    rawDataItems: StoredRawData[],
     sessionMetadata?: ImportSessionMetadata
   ): Promise<Result<UniversalTransaction[], string>> {
     const transactions: UniversalTransaction[] = [];
@@ -106,23 +106,23 @@ export class SolanaTransactionProcessor extends BaseProcessor<ApiClientRawData<S
   }
 
   private processSingle(
-    rawDataItem: StoredRawData<ApiClientRawData<SolanaRawTransactionData>>,
+    rawDataItem: StoredRawData,
     sessionContext: ImportSessionMetadata
   ): Result<UniversalTransaction[], string> {
-    const apiClientRawData = rawDataItem.rawData;
-    const { providerId, rawData } = apiClientRawData;
-
     // Get the appropriate processor for this provider
-    const processor = TransactionMapperFactory.create(providerId);
+    const processor = TransactionMapperFactory.create(rawDataItem.metadata.providerId);
     if (!processor) {
-      return err(`No processor found for provider: ${providerId}`);
+      return err(`No processor found for provider: ${rawDataItem.metadata.providerId}`);
     }
 
     // Transform the full batch using the provider-specific processor
-    const transformResult = processor.map(rawData, sessionContext) as Result<UniversalBlockchainTransaction, string>;
+    const transformResult = processor.map(rawDataItem, sessionContext) as Result<
+      UniversalBlockchainTransaction,
+      string
+    >;
 
     if (transformResult.isErr()) {
-      return err(`Transform failed for ${providerId}: ${transformResult.error}`);
+      return err(`Transform failed for ${rawDataItem.metadata.providerId}: ${transformResult.error}`);
     }
 
     const blockchainTransactions = [transformResult.value]; // TODO, this is broken code. it used to be an array but its now a single object containing all the inputs and outputs
@@ -165,7 +165,9 @@ export class SolanaTransactionProcessor extends BaseProcessor<ApiClientRawData<S
       );
 
       transactions.push(universalTransaction);
-      this.logger.debug(`Successfully processed transaction ${universalTransaction.id} from ${providerId}`);
+      this.logger.debug(
+        `Successfully processed transaction ${universalTransaction.id} from ${rawDataItem.metadata.providerId}`
+      );
     }
 
     return ok(transactions);

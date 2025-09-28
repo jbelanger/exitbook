@@ -277,7 +277,7 @@ export class TransactionIngestionService {
         const processingSession: ProcessingImportSession = {
           createdAt: new Date(session.created_at).getTime(),
           id: session.id,
-          rawDataItems: pendingItems as StoredRawData<ApiClientRawData<unknown>>[], //fix...
+          rawDataItems: pendingItems, //fix...
           rawDataItems2: normalizedRawDataItems,
           sessionMetadata: session.session_metadata as ImportSessionMetadata | undefined,
           sourceId: session.source_id,

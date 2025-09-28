@@ -27,16 +27,18 @@ export interface ImportResult {
   providerId?: string | undefined;
 }
 
-export interface ImportRunResult<TRawData> {
+export interface ImportRunResult {
   metadata?: Record<string, unknown> | undefined;
-  rawData: ApiClientRawData<TRawData>[];
+  rawData: ApiClientRawData[];
 }
 
-export interface ApiClientRawData<TRawData> {
-  providerId: string;
-  rawData: TRawData;
-  sourceAddress?: string | undefined; // Optional address context for the data
-  transactionType?: string | undefined; // Optional transaction type for classification
+export interface ApiClientRawData {
+  metadata: {
+    providerId: string;
+    sourceAddress?: string | undefined;
+    transactionType?: string | undefined;
+  };
+  rawData: unknown;
 }
 
 /**
@@ -44,7 +46,7 @@ export interface ApiClientRawData<TRawData> {
  * Each importer is responsible for fetching data from a specific source
  * (exchange API, blockchain API, CSV files, etc.) and storing it as raw JSON.
  */
-export interface IImporter<TRawData> {
+export interface IImporter {
   /**
    * Validate that the source is accessible and parameters are correct.
    */
@@ -54,5 +56,5 @@ export interface IImporter<TRawData> {
    * Import raw data from the source and return it with API client provenance and metadata.
    * Does NOT save to database - that's handled by the ingestion service.
    */
-  import(params: ImportParams): Promise<ImportRunResult<TRawData>>;
+  import(params: ImportParams): Promise<ImportRunResult>;
 }

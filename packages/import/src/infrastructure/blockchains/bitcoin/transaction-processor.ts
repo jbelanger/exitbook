@@ -5,21 +5,18 @@ import { type Result, err, ok } from 'neverthrow';
 
 import type { ApiClientRawData } from '../../../app/ports/importers.ts';
 import type { ImportSessionMetadata } from '../../../app/ports/processors.ts';
-
-// Import processors to trigger registration
-import './mappers/index.js';
 import type { UniversalBlockchainTransaction } from '../../../app/ports/raw-data-mappers.ts';
 import { BaseProcessor } from '../../shared/processors/base-processor.js';
 import { TransactionMapperFactory } from '../../shared/processors/processor-registry.js';
 
-import type { BitcoinTransaction, NormalizedBitcoinTransaction } from './types.js';
+import type { NormalizedBitcoinTransaction } from './types.js';
 
 /**
  * Bitcoin transaction processor that converts raw blockchain transaction data
  * into UniversalTransaction format. Uses ProcessorFactory to dispatch to provider-specific
  * processors based on data provenance. Optimized for multi-address processing using session context.
  */
-export class BitcoinTransactionProcessor extends BaseProcessor<ApiClientRawData<BitcoinTransaction>> {
+export class BitcoinTransactionProcessor extends BaseProcessor {
   constructor() {
     super('bitcoin');
   }
@@ -35,7 +32,7 @@ export class BitcoinTransactionProcessor extends BaseProcessor<ApiClientRawData<
    * Process import session with optimized multi-address session context.
    */
   protected async processInternal(
-    rawDataItems: StoredRawData<ApiClientRawData<BitcoinTransaction>>[],
+    rawDataItems: StoredRawData[],
     sessionMetadata?: ImportSessionMetadata
   ): Promise<Result<UniversalTransaction[], string>> {
     if (!sessionMetadata) {
@@ -151,7 +148,7 @@ export class BitcoinTransactionProcessor extends BaseProcessor<ApiClientRawData<
    */
   private createSessionContext(
     sessionMetadata: ImportSessionMetadata,
-    rawDataItems: StoredRawData<ApiClientRawData<BitcoinTransaction>>[]
+    rawDataItems: StoredRawData[]
   ): ImportSessionMetadata {
     // Extract derived addresses from session metadata
     const derivedAddresses: string[] = sessionMetadata.derivedAddresses ?? [];
@@ -159,9 +156,9 @@ export class BitcoinTransactionProcessor extends BaseProcessor<ApiClientRawData<
     // Collect source addresses from raw data items
     const sourceAddresses: string[] = [];
     for (const item of rawDataItems) {
-      const rawData = item.rawData;
-      if (rawData.sourceAddress && !sourceAddresses.includes(rawData.sourceAddress)) {
-        sourceAddresses.push(rawData.sourceAddress);
+      const rawData = item;
+      if (rawData.metadata.sourceAddress && !sourceAddresses.includes(rawData.metadata.sourceAddress)) {
+        sourceAddresses.push(rawData.metadata.sourceAddress);
       }
     }
 
@@ -282,32 +279,32 @@ export class BitcoinTransactionProcessor extends BaseProcessor<ApiClientRawData<
    * Process a single transaction with shared session context.
    */
   private processSingleWithContext(
-    rawDataItem: StoredRawData<ApiClientRawData<BitcoinTransaction>>,
+    rawDataItem: StoredRawData,
     sessionContext: ImportSessionMetadata
   ): Result<UniversalTransaction | undefined, string> {
-    const apiClientRawData = rawDataItem.rawData;
-    const { providerId, rawData } = apiClientRawData;
-
     // Get the appropriate processor for this provider
-    const processor = TransactionMapperFactory.create(providerId);
+    const processor = TransactionMapperFactory.create(rawDataItem.metadata.providerId);
     if (!processor) {
-      return err(`No processor found for provider: ${providerId}`);
+      return err(`No processor found for provider: ${rawDataItem.metadata.providerId}`);
     }
 
     // Transform using the provider-specific processor with shared session context
-    const transformResult = processor.map(rawData, sessionContext) as Result<UniversalBlockchainTransaction, string>;
+    const transformResult = processor.map(rawDataItem, sessionContext) as Result<
+      UniversalBlockchainTransaction,
+      string
+    >;
 
     if (transformResult.isErr()) {
-      return err(`Transform failed for ${providerId}: ${transformResult.error}`);
+      return err(`Transform failed for ${rawDataItem.metadata.providerId}: ${transformResult.error}`);
     }
 
     const blockchainTransaction = transformResult.value;
     if (!blockchainTransaction) {
-      return err(`No transactions returned from ${providerId} processor`);
+      return err(`No transactions returned from ${rawDataItem.metadata.providerId} processor`);
     }
 
     if (!blockchainTransaction) {
-      return err(`No valid transaction object returned from ${providerId} processor`);
+      return err(`No valid transaction object returned from ${rawDataItem.metadata.providerId} processor`);
     }
 
     // Determine proper transaction type based on Bitcoin transaction flow
@@ -336,7 +333,9 @@ export class BitcoinTransactionProcessor extends BaseProcessor<ApiClientRawData<
       type: transactionType,
     };
 
-    this.logger.debug(`Successfully processed transaction ${universalTransaction.id} from ${providerId}`);
+    this.logger.debug(
+      `Successfully processed transaction ${universalTransaction.id} from ${rawDataItem.metadata.providerId}`
+    );
     return ok(universalTransaction);
   }
 }
