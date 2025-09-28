@@ -24,7 +24,7 @@ export class BalanceRepository extends BaseRepository {
         'price_currency',
         'fee_cost',
         'fee_currency',
-        'raw_data',
+        'raw_normalized_data',
       ])
       .where('source_id', '=', source)
       .orderBy('transaction_datetime', 'asc')

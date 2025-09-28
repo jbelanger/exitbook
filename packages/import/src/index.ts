@@ -11,5 +11,5 @@ export { BlockchainProviderManager } from './infrastructure/blockchains/shared/b
 // Infrastructure exports
 export { TransactionRepository } from './infrastructure/persistence/transaction-repository.ts';
 export { RawDataRepository } from './infrastructure/persistence/raw-data-repository.ts';
-export type { LoadRawDataFilters, SaveRawDataOptions } from './app/ports/raw-data-repository.ts';
+export type { LoadRawDataFilters } from './app/ports/raw-data-repository.ts';
 export type { IRawDataRepository } from './app/ports/raw-data-repository.ts';

@@ -1,11 +1,5 @@
 import type { StoredRawData } from '@crypto/data';
 
-export interface SaveRawDataOptions {
-  importSessionId?: number | undefined;
-  metadata?: unknown;
-  providerId?: string | undefined;
-}
-
 export interface LoadRawDataFilters {
   importSessionId?: number | undefined;
   processingStatus?: 'pending' | 'processed' | 'failed' | undefined;
@@ -35,8 +29,10 @@ export interface IRawDataRepository {
   save(
     sourceId: string,
     sourceType: string,
-    rawData: { data: unknown }[],
-    options?: SaveRawDataOptions
+    rawData: unknown,
+    importSessionId: number,
+    providerId: string,
+    metadata?: unknown
   ): Promise<number>;
 
   /**

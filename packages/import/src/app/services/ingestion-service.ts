@@ -75,7 +75,7 @@ export class TransactionIngestionService {
 
     const startTime = Date.now();
     let sessionCreated = false;
-    let importSessionId: number | undefined;
+    let importSessionId = 0;
     try {
       importSessionId = await this.sessionRepository.create(sourceId, sourceType, params.providerId, {
         address: params.address,
@@ -98,23 +98,22 @@ export class TransactionIngestionService {
       // Import raw data
       const importResult = await importer.import(params);
       const rawData = importResult.rawData;
-
-      // Save raw data to storage
-      const savedCount = await this.rawDataRepository.save(
-        sourceId,
-        sourceType,
-        rawData.map((item, _index) => ({
-          data: item,
-        })),
-        {
-          importSessionId: importSessionId ?? undefined,
-          metadata: {
+      let savedCount = 0;
+      rawData.forEach((element) => async () => {
+        // Save raw data to storage
+        await this.rawDataRepository.save(
+          sourceId,
+          sourceType,
+          element.rawData,
+          importSessionId,
+          element.metadata.providerId,
+          {
             importedAt: Date.now(),
             importParams: params,
-          },
-          providerId: params.providerId ?? undefined,
-        }
-      );
+          }
+        );
+        savedCount++;
+      });
 
       // Update session with success and metadata
       if (sessionCreated && typeof importSessionId === 'number') {
@@ -152,7 +151,7 @@ export class TransactionIngestionService {
       };
     } catch (error) {
       // Update session with error if we created it
-      if (sessionCreated && typeof importSessionId === 'number') {
+      if (sessionCreated && typeof importSessionId === 'number' && importSessionId > 0) {
         try {
           await this.sessionRepository.finalize(
             importSessionId,
@@ -232,7 +231,7 @@ export class TransactionIngestionService {
 
       this.logger.info(`Processing ${sessionsToProcess.length} sessions with pending raw data`);
 
-      const allTransactions: UniversalTransaction[] = [];
+      const allTransactions: (UniversalTransaction & { sessionId: number })[] = [];
 
       // Process each session with its raw data and metadata
       for (const sessionData of sessionsToProcess) {
@@ -287,7 +286,7 @@ export class TransactionIngestionService {
 
         // Process this session's raw data
         const sessionTransactions = await processor.process(processingSession);
-        allTransactions.push(...sessionTransactions);
+        allTransactions.push(...sessionTransactions.map((tx) => ({ ...tx, sessionId: session.id })));
 
         this.logger.debug(`Processed ${sessionTransactions.length} transactions for session ${session.id}`);
       }
@@ -302,7 +301,7 @@ export class TransactionIngestionService {
 
       for (const transaction of transactions) {
         try {
-          await this.transactionRepository.save(transaction);
+          await this.transactionRepository.save(transaction, transaction.sessionId);
           savedCount++;
         } catch (error) {
           failed++;

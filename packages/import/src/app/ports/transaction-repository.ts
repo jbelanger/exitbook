@@ -38,11 +38,11 @@ export interface ITransactionRepository {
    * Save a transaction to the database.
    * Returns the database ID of the saved transaction.
    */
-  save(transaction: UniversalTransaction): Promise<number>;
+  save(transaction: UniversalTransaction, importSessionId: number): Promise<number>;
 
   /**
    * Save multiple transactions to the database.
    * Returns the count of successfully saved transactions.
    */
-  saveBatch(transactions: UniversalTransaction[]): Promise<number>;
+  saveBatch(transactions: UniversalTransaction[], importSessionId: number): Promise<number>;
 }

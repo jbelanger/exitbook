@@ -40,8 +40,6 @@ export interface StoredRawData {
   processingStatus: string;
   providerId?: string | undefined;
   rawData: unknown;
-  sourceId: string;
-  sourceType: string;
 }
 
 export interface ImportSessionQuery {

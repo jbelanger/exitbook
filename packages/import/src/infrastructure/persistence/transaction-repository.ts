@@ -23,15 +23,15 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     super(db, 'TransactionRepository');
   }
 
-  async save(transaction: UniversalTransaction): Promise<number> {
-    return this.saveTransaction(transaction);
+  async save(transaction: UniversalTransaction, importSessionId: number): Promise<number> {
+    return this.saveTransaction(transaction, importSessionId);
   }
 
-  async saveBatch(transactions: UniversalTransaction[]): Promise<number> {
-    return this.saveTransactions(transactions);
+  async saveBatch(transactions: UniversalTransaction[], importSessionId: number): Promise<number> {
+    return this.saveTransactions(transactions, importSessionId);
   }
 
-  async saveTransaction(transaction: UniversalTransaction): Promise<number> {
+  async saveTransaction(transaction: UniversalTransaction, importSessionId: number): Promise<number> {
     try {
       const rawDataJson = this.serializeToJson(transaction) ?? '{}';
 
@@ -63,6 +63,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
           fee_cost: typeof transaction.fee === 'object' ? moneyToDbString(transaction.fee) : undefined,
           fee_currency: typeof transaction.fee === 'object' ? transaction.fee.currency : undefined,
           from_address: transaction.from || undefined,
+          import_session_id: importSessionId,
           note_message: transaction.note?.message || undefined,
           note_metadata: transaction.note?.metadata ? this.serializeToJson(transaction.note.metadata) : undefined,
           note_severity: transaction.note?.severity || undefined,
@@ -74,7 +75,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
                 ? String(transaction.price)
                 : undefined,
           price_currency: priceCurrency,
-          raw_data: rawDataJson,
+          raw_normalized_data: rawDataJson,
           source_id: transaction.source,
           source_type: 'exchange', // Default to exchange, can be overridden based on transaction source
           symbol: transaction.symbol || undefined,
@@ -101,7 +102,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
             note_type: (eb) => eb.ref('excluded.note_type'),
             price: (eb) => eb.ref('excluded.price'),
             price_currency: (eb) => eb.ref('excluded.price_currency'),
-            raw_data: (eb) => eb.ref('excluded.raw_data'),
+            raw_normalized_data: (eb) => eb.ref('excluded.raw_normalized_data'),
             symbol: (eb) => eb.ref('excluded.symbol'),
             to_address: (eb) => eb.ref('excluded.to_address'),
             transaction_datetime: (eb) => eb.ref('excluded.transaction_datetime'),
@@ -126,7 +127,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     }
   }
 
-  async saveTransactions(transactions: UniversalTransaction[]): Promise<number> {
+  async saveTransactions(transactions: UniversalTransaction[], importSessionId: number): Promise<number> {
     if (transactions.length === 0) {
       this.logger.debug('No transactions to save');
       return 0;
@@ -170,6 +171,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
               fee_cost: typeof transaction.fee === 'object' ? moneyToDbString(transaction.fee) : undefined,
               fee_currency: typeof transaction.fee === 'object' ? transaction.fee.currency : undefined,
               from_address: transaction.from || undefined,
+              import_session_id: importSessionId,
               note_message: transaction.note?.message || undefined,
               note_metadata: transaction.note?.metadata ? this.serializeToJson(transaction.note.metadata) : undefined,
               note_severity: transaction.note?.severity || undefined,
@@ -181,7 +183,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
                     ? String(transaction.price)
                     : undefined,
               price_currency: priceCurrency,
-              raw_data: rawDataJson,
+              raw_normalized_data: rawDataJson,
               source_id: transaction.source,
               source_type: 'exchange', // Default to exchange, can be overridden based on transaction source
               symbol: transaction.symbol || undefined,

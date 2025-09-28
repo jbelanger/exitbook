@@ -44,8 +44,6 @@ describe('PolkadotTransactionProcessor Integration', () => {
       rawData: transaction,
       sourceAddress,
     },
-    sourceId: 'polkadot',
-    sourceType: 'blockchain',
   });
 
   describe('SS58 Address Variant Handling', () => {
@@ -243,8 +241,6 @@ describe('PolkadotTransactionProcessor Integration', () => {
           rawData: mockTransaction,
           // sourceAddress is missing
         },
-        sourceId: 'polkadot',
-        sourceType: 'blockchain',
       };
 
       const rawDataItems = [rawDataItem];

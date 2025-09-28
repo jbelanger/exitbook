@@ -1,29 +1,27 @@
 import { BaseRepository } from '@crypto/data/src/repositories/base-repository.ts';
 import type { KyselyDB } from '@crypto/data/src/storage/database.ts';
-import type { StoredRawData } from '@crypto/data/src/types/data-types.ts';
+import type { RawData, StoredRawData } from '@crypto/data/src/types/data-types.ts';
 
-import type {
-  IRawDataRepository,
-  LoadRawDataFilters,
-  SaveRawDataOptions,
-} from '../../app/ports/raw-data-repository.ts';
+import type { IRawDataRepository, LoadRawDataFilters } from '../../app/ports/raw-data-repository.ts';
 
 /**
  * Maps database row to StoredRawData domain object
  */
-function mapToStoredRawData(row: Record<string, unknown>): StoredRawData {
+function mapToStoredRawData(row: RawData): StoredRawData {
   return {
-    createdAt: new Date(row.created_at as string).getTime() / 1000,
-    id: row.id as number,
+    createdAt: new Date(row.created_at).getTime() / 1000,
+    id: row.id,
     importSessionId: row.import_session_id as number | undefined,
-    metadata: row.metadata ? JSON.parse(row.metadata as string) : undefined,
-    processedAt: row.processed_at ? new Date(row.processed_at as string).getTime() / 1000 : undefined,
+    metadata: (row.metadata ? JSON.parse(row.metadata) : undefined) as {
+      providerId: string;
+      sourceAddress?: string | undefined;
+      transactionType?: string | undefined;
+    },
+    processedAt: row.processed_at ? new Date(row.processed_at).getTime() / 1000 : undefined,
     processingError: row.processing_error as string | undefined,
     processingStatus: (row.processing_status as string) ?? 'pending',
     providerId: row.provider_id as string | undefined,
-    rawData: JSON.parse(row.raw_data as string),
-    sourceId: row.source_id as string,
-    sourceType: row.source_type as string,
+    rawData: JSON.parse(row.raw_data),
   };
 }
 
@@ -39,7 +37,10 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
   async load(filters?: LoadRawDataFilters): Promise<StoredRawData[]> {
     this.logger.info({ filters }, 'Loading raw data with filters');
 
-    let query = this.db.selectFrom('external_transaction_data').selectAll();
+    let query = this.db
+      .selectFrom('external_transaction_data')
+      .innerJoin('import_sessions', 'external_transaction_data.import_session_id', 'import_sessions.id')
+      .selectAll('external_transaction_data');
 
     // Apply filters
     if (filters?.sourceId) {
@@ -109,7 +110,9 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     sourceId: string,
     sourceType: string,
     rawData: { data: unknown }[],
-    options?: SaveRawDataOptions
+    importSessionId: number,
+    providerId: string,
+    metadata?: unknown
   ): Promise<number> {
     this.logger.info({ count: rawData.length, sourceId }, 'Saving raw data items');
 
@@ -126,13 +129,11 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
             .insertInto('external_transaction_data')
             .values({
               created_at: this.getCurrentDateTimeForDB(),
-              import_session_id: options?.importSessionId,
-              metadata: this.serializeToJson(options?.metadata) || undefined,
+              import_session_id: importSessionId,
+              metadata: this.serializeToJson(metadata) || undefined,
               processing_status: 'pending',
-              provider_id: options?.providerId,
+              provider_id: providerId,
               raw_data: JSON.stringify(rawTx.data),
-              source_id: sourceId,
-              source_type: sourceType,
             })
             .onConflict((oc) => oc.doNothing()) // Equivalent to INSERT OR IGNORE
             .execute();

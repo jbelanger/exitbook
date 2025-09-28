@@ -47,7 +47,7 @@ export interface ExternalTransactionDataTable {
 
   id: Generated<number>;
   // Foreign key relationship
-  import_session_id: number | null; // FK to import_sessions.id
+  import_session_id: number; // FK to import_sessions.id
 
   metadata: JSONString | null;
 
@@ -59,10 +59,6 @@ export interface ExternalTransactionDataTable {
   provider_id: string | null;
   // Data storage
   raw_data: JSONString;
-
-  // Source information
-  source_id: string;
-  source_type: string;
 }
 
 /**
@@ -82,7 +78,7 @@ export interface TransactionsTable {
   // Address information
   from_address: string | null;
   id: Generated<number>;
-  import_session_id: number | null; // FK to import_sessions.id
+  import_session_id: number; // FK to import_sessions.id
   // Notes and metadata
   note_message: string | null;
 
@@ -94,7 +90,7 @@ export interface TransactionsTable {
   price_currency: string | null;
 
   // Audit trail
-  raw_data: JSONString; // Keep for debugging/audit
+  raw_normalized_data: JSONString; // Keep for debugging/audit
   // Core identification
   source_id: string;
   source_type: 'exchange' | 'blockchain';
