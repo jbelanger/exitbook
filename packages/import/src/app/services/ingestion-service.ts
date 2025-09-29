@@ -94,12 +94,6 @@ export class TransactionIngestionService {
       }
       this.logger.info(`Importer for ${sourceId} created successfully`);
 
-      // Validate source before import
-      const isValidSource = await importer.canImport(params);
-      if (!isValidSource) {
-        throw new Error(`Source validation failed for ${sourceId}`);
-      }
-
       // Import raw data
       this.logger.info('Starting raw data import...');
       const importResultWrapper = await importer.import(params);

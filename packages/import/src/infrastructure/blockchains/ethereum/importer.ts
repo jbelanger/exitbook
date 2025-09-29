@@ -33,14 +33,8 @@ export class EthereumTransactionImporter extends BaseImporter {
   }
 
   async import(params: ImportParams): Promise<Result<ImportRunResult, Error>> {
-    if (!(await this.canImportSpecific(params))) {
-      return err(new Error('Cannot import - validation failed'));
-    }
-
     if (!params.address) {
-      return ok({
-        rawData: [],
-      });
+      return err(new Error('Address required for Ethereum transaction import'));
     }
 
     const address = params.address;
@@ -58,28 +52,6 @@ export class EthereumTransactionImporter extends BaseImporter {
         this.logger.error(`Failed to import transactions for address ${address} - Error: ${error.message}`);
         return error;
       });
-  }
-
-  protected async canImportSpecific(params: ImportParams): Promise<boolean> {
-    if (!params.address || params.address?.length === 0) {
-      this.logger.debug('No address provided for Ethereum import');
-      return false;
-    }
-
-    // Validate all provided addresses
-    if (!this.isValidEthereumAddress(params.address)) {
-      this.logger.error(`Invalid Ethereum address format: ${params.address}`);
-      return false;
-    }
-
-    // Check if we have any providers available
-    const availableProviders = this.providerManager.getProviders('ethereum');
-    if (availableProviders.length === 0) {
-      this.logger.error('No Ethereum providers available');
-      return false;
-    }
-
-    return Promise.resolve(true);
   }
 
   /**
@@ -163,14 +135,5 @@ export class EthereumTransactionImporter extends BaseImporter {
         rawData: tx,
       }));
     });
-  }
-
-  /**
-   * Validate Ethereum address format.
-   */
-  private isValidEthereumAddress(address: string): boolean {
-    // Ethereum addresses are 42 characters long (including 0x prefix) and hexadecimal
-    const ethereumAddressPattern = /^0x[a-fA-F0-9]{40}$/;
-    return ethereumAddressPattern.test(address);
   }
 }

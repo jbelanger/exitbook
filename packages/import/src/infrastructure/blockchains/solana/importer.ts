@@ -5,7 +5,6 @@ import { BaseImporter } from '../../shared/importers/base-importer.js';
 import type { BlockchainProviderManager, ProviderError } from '../shared/blockchain-provider-manager.js';
 
 import type { SolanaRawTransactionData } from './helius/helius.api-client.js';
-import { isValidSolanaAddress } from './utils.js';
 
 /**
  * Solana transaction importer that fetches raw transaction data from blockchain APIs.
@@ -69,36 +68,6 @@ export class SolanaTransactionImporter extends BaseImporter {
         this.logger.error(`Failed to import transactions for address ${params.address} - Error: ${error.message}`);
         return error;
       });
-  }
-
-  /**
-   * Validate source parameters and connectivity.
-   */
-  protected canImportSpecific(params: ImportParams): Promise<boolean> {
-    if (!params.address?.length) {
-      this.logger.error('No address provided for Solana import');
-      return Promise.resolve(false);
-    }
-
-    // Validate address formats
-    if (!isValidSolanaAddress(params.address)) {
-      this.logger.error(`Invalid Solana address format: ${params.address}`);
-      return Promise.resolve(false);
-    }
-
-    // Test provider connectivity
-    const healthStatus = this.providerManager.getProviderHealth('solana');
-    const hasHealthyProvider = Array.from(healthStatus.values()).some(
-      (health) => health.isHealthy && health.circuitState !== 'OPEN'
-    );
-
-    if (!hasHealthyProvider) {
-      this.logger.error('No healthy Solana providers available');
-      return Promise.resolve(false);
-    }
-
-    this.logger.info('Solana source validation passed');
-    return Promise.resolve(true);
   }
 
   /**

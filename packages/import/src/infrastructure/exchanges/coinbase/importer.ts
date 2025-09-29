@@ -17,8 +17,4 @@ export class CoinbaseImporter extends BaseImporter {
 
     return Promise.resolve(err(new Error('CoinbaseImporter.import not yet implemented')));
   }
-
-  protected canImportSpecific(_params: ImportParams): Promise<boolean> {
-    throw new Error('CoinbaseImporter.canImportSpecific not yet implemented');
-  }
 }

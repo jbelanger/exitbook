@@ -91,37 +91,6 @@ export class LedgerLiveCsvImporter extends BaseImporter {
     }
   }
 
-  protected async canImportSpecific(params: ImportParams): Promise<boolean> {
-    if (!params.csvDirectories?.length) {
-      this.logger.error('CSV directories are required for Ledger Live import');
-      return false;
-    }
-
-    // Check that all directories exist and are accessible
-    for (const csvDirectory of params.csvDirectories) {
-      try {
-        const stats = await fs.stat(csvDirectory);
-        if (!stats.isDirectory()) {
-          this.logger.error(`Path is not a directory: ${csvDirectory}`);
-          return false;
-        }
-
-        // Check if directory contains CSV files
-        const files = await fs.readdir(csvDirectory);
-        const csvFiles = files.filter((f) => f.endsWith('.csv'));
-
-        if (csvFiles.length === 0) {
-          this.logger.warn(`No CSV files found in directory: ${csvDirectory}`);
-        }
-      } catch (dirError) {
-        this.logger.error(`Cannot access CSV directory ${csvDirectory}: ${String(dirError)}`);
-        return false;
-      }
-    }
-
-    return true;
-  }
-
   /**
    * Parse a CSV file using the common parsing logic.
    */

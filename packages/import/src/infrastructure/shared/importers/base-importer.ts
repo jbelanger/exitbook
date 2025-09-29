@@ -5,7 +5,7 @@ import type { Result } from 'neverthrow';
 
 /**
  * Base class providing common functionality for all importers.
- * Implements logging, basic validation, and error handling patterns.
+ * Implements logging and error handling patterns.
  */
 export abstract class BaseImporter implements IImporter {
   protected logger: Logger;
@@ -15,25 +15,6 @@ export abstract class BaseImporter implements IImporter {
   }
 
   abstract import(params: ImportParams): Promise<Result<ImportRunResult, Error>>;
-  protected abstract canImportSpecific(params: ImportParams): Promise<boolean>;
-
-  async canImport(params: ImportParams): Promise<boolean> {
-    this.logger.debug(`Validating import parameters for ${this.sourceId}`);
-
-    try {
-      // Basic parameter validation
-      if (!params) {
-        this.logger.error('Import parameters are required');
-        return false;
-      }
-
-      // Let subclasses implement specific validation
-      return this.canImportSpecific(params);
-    } catch (error) {
-      this.logger.error(`Import parameters validation failed for ${this.sourceId}: ${String(error)}`);
-      return false;
-    }
-  }
 
   /**
    * Helper method to generate session IDs.

@@ -43,16 +43,10 @@ export class AvalancheTransactionImporter extends BaseImporter {
    */
   async import(params: ImportParams): Promise<Result<ImportRunResult, Error>> {
     if (!params.address) {
-      return err(new Error('Address is required for Avalanche import'));
+      return err(new Error('Address required for Avalanche transaction import'));
     }
 
     this.logger.info(`Importing transactions for address: ${params.address.substring(0, 20)}...`);
-
-    // Validate Avalanche address
-    if (!this.validateAddress(params.address)) {
-      this.logger.warn(`Invalid Avalanche address: ${params.address}`);
-      return ok({ rawData: [] });
-    }
 
     const result = await this.fetchRawTransactionsForAddress(params.address, params.since);
 
@@ -65,13 +59,6 @@ export class AvalancheTransactionImporter extends BaseImporter {
         this.logger.error(`Failed to import transactions for address ${params.address} - Error: ${error.message}`);
         return error;
       });
-  }
-
-  /**
-   * Check if the importer can handle the specified import parameters.
-   */
-  protected async canImportSpecific(params: ImportParams): Promise<boolean> {
-    return Promise.resolve(!!params.address);
   }
 
   /**
@@ -164,13 +151,5 @@ export class AvalancheTransactionImporter extends BaseImporter {
       metadata: { providerId: response.providerName, transactionType: 'token' as const },
       rawData: tx,
     }));
-  }
-
-  /**
-   * Validate Avalanche C-Chain address format (Ethereum-style addresses).
-   */
-  private validateAddress(address: string): boolean {
-    const ethAddressRegex = /^0x[a-fA-F0-9]{40}$/;
-    return ethAddressRegex.test(address);
   }
 }

@@ -34,13 +34,6 @@ export class BittensorTransactionImporter extends BaseImporter {
   }
 
   /**
-   * Validate that the import source is compatible with Bittensor addresses.
-   */
-  override async canImport(params: ImportParams): Promise<boolean> {
-    return Promise.resolve(this.canImportSpecific(params));
-  }
-
-  /**
    * Get transaction ID from Taostats transaction.
    */
   public getTransactionId(transaction: TaostatsTransaction): string {
@@ -68,36 +61,6 @@ export class BittensorTransactionImporter extends BaseImporter {
         this.logger.error(`Failed to import transactions for address ${params.address} - Error: ${error.message}`);
         return error;
       });
-  }
-
-  /**
-   * Validate source parameters and connectivity.
-   */
-  protected canImportSpecific(params: ImportParams): Promise<boolean> {
-    if (!params.address?.length) {
-      this.logger.error('No address provided for Bittensor import');
-      return Promise.resolve(false);
-    }
-
-    // Basic validation for Bittensor addresses (SS58 format)
-    if (!this.isValidBittensorAddress(params.address)) {
-      this.logger.error(`Invalid Bittensor address format: ${params.address}`);
-      return Promise.resolve(false);
-    }
-
-    // Test provider connectivity
-    const healthStatus = this.providerManager.getProviderHealth('bittensor');
-    const hasHealthyProvider = Array.from(healthStatus.values()).some(
-      (health) => health.isHealthy && health.circuitState !== 'OPEN'
-    );
-
-    if (!hasHealthyProvider) {
-      this.logger.error('No healthy Bittensor providers available');
-      return Promise.resolve(false);
-    }
-
-    this.logger.info('Bittensor source validation passed');
-    return Promise.resolve(true);
   }
 
   /**

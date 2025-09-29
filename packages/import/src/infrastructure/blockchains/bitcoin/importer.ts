@@ -83,36 +83,6 @@ export class BitcoinTransactionImporter extends BaseImporter {
   }
 
   /**
-   * Validate source parameters and connectivity.
-   */
-  protected canImportSpecific(params: ImportParams): Promise<boolean> {
-    if (!params.address) {
-      this.logger.error('No address provided for Bitcoin import');
-      return Promise.resolve(false);
-    }
-
-    // Validate address formats
-    if (!this.isValidBitcoinAddress(params.address)) {
-      this.logger.error(`Invalid Bitcoin address format: ${params.address}`);
-      return Promise.resolve(false);
-    }
-
-    // Test provider connectivity
-    const healthStatus = this.providerManager.getProviderHealth('bitcoin');
-    const hasHealthyProvider = Array.from(healthStatus.values()).some(
-      (health) => health.isHealthy && health.circuitState !== 'OPEN'
-    );
-
-    if (!hasHealthyProvider) {
-      this.logger.error('No healthy Bitcoin providers available');
-      return Promise.resolve(false);
-    }
-
-    this.logger.info('Bitcoin source validation passed');
-    return Promise.resolve(true);
-  }
-
-  /**
    * Fetch transactions from xpub wallet's derived addresses.
    */
   private async fetchFromXpubWallet(

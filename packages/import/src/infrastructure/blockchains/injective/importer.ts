@@ -59,36 +59,6 @@ export class InjectiveTransactionImporter extends BaseImporter {
   }
 
   /**
-   * Validate source parameters and connectivity.
-   */
-  protected async canImportSpecific(params: ImportParams): Promise<boolean> {
-    if (!params.address?.length) {
-      this.logger.error('No address provided for Injective import');
-      return false;
-    }
-
-    // Validate address formats
-    if (!this.isValidInjectiveAddress(params.address)) {
-      this.logger.error(`Invalid Injective address format: ${params.address}`);
-      return false;
-    }
-
-    // Test provider connectivity
-    const healthStatus = this.providerManager.getProviderHealth('injective');
-    const hasHealthyProvider = Array.from(healthStatus.values()).some(
-      (health) => health.isHealthy && health.circuitState !== 'OPEN'
-    );
-
-    if (!hasHealthyProvider) {
-      this.logger.error('No healthy Injective providers available');
-      return false;
-    }
-
-    this.logger.info('Injective source validation passed');
-    return Promise.resolve(true);
-  }
-
-  /**
    * Fetch raw transactions for a single address with provider provenance.
    */
   private async fetchRawTransactionsForAddress(
@@ -113,20 +83,5 @@ export class InjectiveTransactionImporter extends BaseImporter {
         rawData,
       }));
     });
-  }
-
-  /**
-   * Validate Injective address format.
-   */
-  private isValidInjectiveAddress(address: string): boolean {
-    try {
-      // Injective addresses start with 'inj' and are bech32 encoded (39 characters total)
-      if (!/^inj1[a-z0-9]{38}$/.test(address)) {
-        return false;
-      }
-      return true;
-    } catch {
-      return false;
-    }
   }
 }

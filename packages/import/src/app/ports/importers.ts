@@ -50,11 +50,6 @@ export interface ApiClientRawData {
  */
 export interface IImporter {
   /**
-   * Validate that the source is accessible and parameters are correct.
-   */
-  canImport(params: ImportParams): Promise<boolean>;
-
-  /**
    * Import raw data from the source and return it with API client provenance and metadata.
    * Does NOT save to database - that's handled by the ingestion service.
    * Returns Result to make error handling explicit.

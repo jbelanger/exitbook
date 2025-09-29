@@ -34,13 +34,6 @@ export class PolkadotTransactionImporter extends BaseImporter {
   }
 
   /**
-   * Validate that the import source is compatible with Polkadot addresses.
-   */
-  override async canImport(params: ImportParams): Promise<boolean> {
-    return this.canImportSpecific(params);
-  }
-
-  /**
    * Get transaction ID from Subscan transfer.
    */
   public getTransactionId(transfer: SubscanTransfer): string {
@@ -70,35 +63,6 @@ export class PolkadotTransactionImporter extends BaseImporter {
       });
   }
 
-  /**
-   * Validate source parameters and connectivity.
-   */
-  protected canImportSpecific(params: ImportParams): Promise<boolean> {
-    if (!params.address?.length) {
-      this.logger.error('No address provided for Polkadot import');
-      return Promise.resolve(false);
-    }
-
-    // Basic validation for Polkadot addresses (SS58 format)
-    if (!this.isValidPolkadotAddress(params.address)) {
-      this.logger.error(`Invalid Polkadot address format: ${params.address}`);
-      return Promise.resolve(false);
-    }
-
-    // Test provider connectivity
-    const healthStatus = this.providerManager.getProviderHealth('polkadot');
-    const hasHealthyProvider = Array.from(healthStatus.values()).some(
-      (health) => health.isHealthy && health.circuitState !== 'OPEN'
-    );
-
-    if (!hasHealthyProvider) {
-      this.logger.error('No healthy Polkadot providers available');
-      return Promise.resolve(false);
-    }
-
-    this.logger.info('Polkadot source validation passed');
-    return Promise.resolve(true);
-  }
   /**
    * Fetch raw transactions for a single address with provider provenance.
    */
