@@ -24,7 +24,9 @@ export class KucoinProcessor extends BaseProcessor {
     return sourceType === 'exchange';
   }
 
-  protected async processInternal(rawDataItems: StoredRawData[]): Promise<Result<UniversalTransaction[], string>> {
+  protected async processNormalizedInternal(
+    rawDataItems: StoredRawData[]
+  ): Promise<Result<UniversalTransaction[], string>> {
     const allTransactions: UniversalTransaction[] = [];
 
     for (const rawDataItem of rawDataItems) {

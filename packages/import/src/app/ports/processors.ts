@@ -41,15 +41,14 @@ export interface ImportSessionMetadata {
 }
 
 /**
- * Complete import session with metadata and raw data items
+ * Complete import session with metadata and normalized data items
  */
 export interface ProcessingImportSession {
   createdAt: number;
   // Session metadata
   id: number;
-  // Raw data items for this session (from potentially multiple providers)
-  rawDataItems: StoredRawData[];
-  rawDataItems2: unknown[];
+  // Normalized data items for this session (from potentially multiple providers)
+  normalizedData: unknown[];
   // Rich session context with blockchain-specific metadata
   sessionMetadata?: ImportSessionMetadata | undefined;
   sourceId: string;

@@ -27,7 +27,7 @@ export class KrakenProcessor extends BaseProcessor {
     return sourceType === 'exchange';
   }
 
-  protected processInternal(rawDataItems: StoredRawData[]): Promise<Result<UniversalTransaction[], string>> {
+  protected processNormalizedInternal(rawDataItems: StoredRawData[]): Promise<Result<UniversalTransaction[], string>> {
     try {
       // Extract the raw ledger rows for batch processing
       // Handle ApiClientRawData format: { providerId: string, rawData: CsvKrakenLedgerRow }
