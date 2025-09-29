@@ -1,9 +1,9 @@
 import { getLogger } from '@crypto/shared-logger';
 import type { Decimal } from 'decimal.js';
 
-import type { BalanceVerificationResult, BalanceComparison } from '../../types/balance-types.ts';
+import type { BalanceVerificationResult, BalanceComparison } from '../../types/balance-types.js';
 
-import type { BalanceService } from './balance-service.ts';
+import type { BalanceService } from './balance-service.js';
 
 export class BalanceVerifier {
   private balanceService: BalanceService;

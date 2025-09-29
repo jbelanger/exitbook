@@ -126,7 +126,7 @@ export function getNestedProperty<T>(
  * Type guard for CCXT-style info objects (common pattern in exchange adapters)
  */
 export function isCcxtInfo(info: unknown): info is Record<string, unknown> & {
-  info?: Record<string, unknown>;
+  info?: Record<string, unknown> | undefined;
 } {
   return isObject(info);
 }
@@ -161,9 +161,9 @@ export function isApiResponse<T>(
  * Type guard for error objects with common error properties
  */
 export function isExtendedError(error: unknown): error is Error & {
-  code?: string | number;
-  retryAfter?: number;
-  status?: string | number;
+  code?: string | number | undefined;
+  retryAfter?: number | undefined;
+  status?: string | number | undefined;
 } {
   return isErrorWithMessage(error);
 }
@@ -172,10 +172,10 @@ export function isExtendedError(error: unknown): error is Error & {
  * Safe error property extractor
  */
 export function getErrorProperties(error: unknown): {
-  code?: string | number;
+  code?: string | number | undefined;
   message: string;
-  retryAfter?: number;
-  status?: string | number;
+  retryAfter?: number | undefined;
+  status?: string | number | undefined;
 } {
   if (!isErrorWithMessage(error)) {
     return { message: String(error) };

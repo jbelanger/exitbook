@@ -1,13 +1,13 @@
+import type { ApiClientRawData, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
 import * as bitcoin from 'bitcoinjs-lib';
 
-import type { ApiClientRawData, ImportParams, ImportRunResult } from '../../../app/ports/importers.ts';
-import { BaseImporter } from '../../shared/importers/base-importer.ts';
+import { BaseImporter } from '../../shared/importers/base-importer.js';
 
-import './api/index.ts';
-import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
+import './api/index.js';
+import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.js';
 
-import type { BitcoinWalletAddress } from './types.ts';
-import { BitcoinUtils } from './utils.ts';
+import type { BitcoinWalletAddress } from './types.js';
+import { BitcoinUtils } from './utils.js';
 
 /**
  * Bitcoin transaction importer that fetches raw transaction data from blockchain APIs.

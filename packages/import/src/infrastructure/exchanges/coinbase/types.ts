@@ -314,7 +314,7 @@ export interface RawCoinbaseTransactionsResponse {
  */
 export interface RawCoinbaseLedgerResponse {
   /** Pagination cursor for next page (if has_next is true) */
-  cursor?: string;
+  cursor?: string | undefined;
   /** Whether there are more entries available */
   has_next: boolean;
   /** Array of ledger entries */
@@ -359,11 +359,11 @@ export interface CoinbaseAPIError {
  */
 export interface CoinbaseAPIResponse<T> {
   /** Response data */
-  data?: T;
+  data?: T | undefined;
   /** Error information if request failed */
-  error?: CoinbaseAPIError;
+  error?: CoinbaseAPIError | undefined;
   /** Request warnings */
-  warnings?: string[];
+  warnings?: string[] | undefined;
 }
 
 /**
@@ -403,13 +403,13 @@ export interface CoinbaseLedgerParams extends Record<string, unknown> {
  */
 export interface CoinbaseAccountsParams extends Record<string, unknown> {
   /** Pagination cursor from previous response */
-  cursor?: string;
+  cursor?: string | undefined;
   /** Include all account states (experimental) */
-  include_all?: boolean;
+  include_all?: boolean | undefined;
   /** Include accounts with zero balances (experimental) */
-  include_zero_balance?: boolean;
+  include_zero_balance?: boolean | undefined;
   /** Maximum number of accounts to return */
-  limit?: number;
+  limit?: number | undefined;
 }
 
 // CCXT-specific types for Coinbase adapter

@@ -1,7 +1,7 @@
 import { getLogger } from '@crypto/shared-logger';
 import type { BlockchainExplorersConfig, ProviderOverride } from '@crypto/shared-utils';
+import type { FailoverExecutionResult } from '@exitbook/import/app/ports/processors.js';
 
-import type { FailoverExecutionResult } from '../../../app/ports/processors.ts';
 import { CircuitBreaker } from '../../shared/utils/circuit-breaker.js';
 
 import { ProviderRegistry } from './registry/provider-registry.js';
@@ -78,8 +78,8 @@ export class BlockchainProviderManager {
           network,
           preferredProvider,
           blockchainConfig as {
-            defaultEnabled?: string[];
-            overrides?: Record<string, ProviderOverride>;
+            defaultEnabled?: string[] | undefined;
+            overrides?: Record<string, ProviderOverride> | undefined;
           }
         );
       } else {
@@ -563,8 +563,8 @@ export class BlockchainProviderManager {
     network: string,
     preferredProvider: string | undefined,
     blockchainConfig: {
-      defaultEnabled?: string[];
-      overrides?: Record<string, ProviderOverride>;
+      defaultEnabled?: string[] | undefined;
+      overrides?: Record<string, ProviderOverride> | undefined;
     }
   ): IBlockchainProvider[] {
     // Get all registered providers for this blockchain

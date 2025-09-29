@@ -1,13 +1,13 @@
 // Blockchain.com API response types
 export interface BlockchainComTransaction {
-  block_height?: number;
-  block_index?: number;
+  block_height?: number | undefined;
+  block_index?: number | undefined;
   double_spend: boolean;
   fee: number;
   hash: string;
   inputs: {
     prev_out?: {
-      addr?: string;
+      addr?: string | undefined;
       n: number;
       script: string;
       spent: boolean;
@@ -19,7 +19,7 @@ export interface BlockchainComTransaction {
   }[];
   lock_time: number;
   out: {
-    addr?: string;
+    addr?: string | undefined;
     n: number;
     script: string;
     spent: boolean;

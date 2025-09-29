@@ -1,10 +1,10 @@
 import { ServiceError } from '@crypto/core';
 import { maskAddress } from '@crypto/shared-utils';
 
-import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
-import { RegisterApiClient } from '../../shared/registry/decorators.ts';
-import type { ProviderOperation } from '../../shared/types.ts';
-import { isValidAvalancheAddress } from '../utils.ts';
+import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.js';
+import { RegisterApiClient } from '../../shared/registry/decorators.js';
+import type { ProviderOperation } from '../../shared/types.js';
+import { isValidAvalancheAddress } from '../utils.js';
 
 import type {
   SnowtraceApiResponse,

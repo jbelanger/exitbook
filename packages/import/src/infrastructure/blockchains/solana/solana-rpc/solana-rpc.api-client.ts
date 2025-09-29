@@ -1,10 +1,10 @@
 import { maskAddress } from '@crypto/shared-utils';
 
-import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
-import { RegisterApiClient } from '../../shared/registry/decorators.ts';
-import type { JsonRpcResponse, ProviderOperation } from '../../shared/types.ts';
-import type { SolanaSignature, SolanaTokenAccountsResponse } from '../types.ts';
-import { isValidSolanaAddress } from '../utils.ts';
+import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.js';
+import { RegisterApiClient } from '../../shared/registry/decorators.js';
+import type { JsonRpcResponse, ProviderOperation } from '../../shared/types.js';
+import type { SolanaSignature, SolanaTokenAccountsResponse } from '../types.js';
+import { isValidSolanaAddress } from '../utils.js';
 
 import type {
   SolanaRPCRawBalanceData,

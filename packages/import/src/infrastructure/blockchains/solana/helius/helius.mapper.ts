@@ -1,15 +1,15 @@
 import { isErrorWithMessage } from '@crypto/shared-utils';
+import type { ImportSessionMetadata } from '@exitbook/import/app/ports/processors.js';
 import { type Result, err, ok } from 'neverthrow';
 
-import type { ImportSessionMetadata } from '../../../../app/ports/processors.ts';
-import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.ts';
-import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.ts';
-import type { SolanaAccountChange, SolanaTokenBalance, SolanaTokenChange, SolanaTransaction } from '../types.ts';
-import { lamportsToSol } from '../utils.ts';
+import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
+import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
+import type { SolanaAccountChange, SolanaTokenBalance, SolanaTokenChange, SolanaTransaction } from '../types.js';
+import { lamportsToSol } from '../utils.js';
 
-import type { SolanaRawTransactionData } from './helius.api-client.ts';
-import { SolanaRawTransactionDataSchema } from './helius.schemas.ts';
-import type { HeliusTransaction } from './helius.types.ts';
+import type { SolanaRawTransactionData } from './helius.api-client.js';
+import { SolanaRawTransactionDataSchema } from './helius.schemas.js';
+import type { HeliusTransaction } from './helius.types.js';
 
 @RegisterTransactionMapper('helius')
 export class HeliusTransactionMapper extends BaseRawDataMapper<SolanaRawTransactionData, SolanaTransaction> {
@@ -26,6 +26,9 @@ export class HeliusTransactionMapper extends BaseRawDataMapper<SolanaRawTransact
     // For now, process the first transaction
     // TODO: Handle multiple transactions in batch properly
     const tx = rawData.normal[0];
+    if (tx === undefined) {
+      return err('No valid transaction found in SolanaRawTransactionData');
+    }
 
     try {
       const solanaTransaction = this.transformTransaction(tx);
@@ -107,11 +110,14 @@ export class HeliusTransactionMapper extends BaseRawDataMapper<SolanaRawTransact
 
         // Only include accounts with balance changes
         if (preBalance !== postBalance) {
-          changes.push({
-            account: accountKeys[i],
-            postBalance: postBalance.toString(),
-            preBalance: preBalance.toString(),
-          });
+          const account = accountKeys[i];
+          if (account && preBalance !== undefined && postBalance !== undefined) {
+            changes.push({
+              account,
+              postBalance: postBalance.toString(),
+              preBalance: preBalance.toString(),
+            });
+          }
         }
       }
     }
@@ -206,6 +212,8 @@ export class HeliusTransactionMapper extends BaseRawDataMapper<SolanaRawTransact
     if (accountChanges.length > 1) {
       // Skip first account (fee payer) and find largest balance change
       const largestSolChange = accountChanges.slice(1).reduce((largest, change) => {
+        // If largest is undefined, use current change as initial value
+        if (!largest) return change;
         const changeAmount = Math.abs(parseFloat(change.postBalance) - parseFloat(change.preBalance));
         const largestAmount = Math.abs(parseFloat(largest.postBalance) - parseFloat(largest.preBalance));
         return changeAmount > largestAmount ? change : largest;

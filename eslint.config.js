@@ -99,10 +99,10 @@ export default [
           ],
           customGroups: {
             value: {
-              internal: ['^@core/', '^@ctx/', '^@platform/', '^@contracts/', '^@ui/'],
+              internal: ['^@app/', '^@domain/', '^@infrastructure/'],
             },
             type: {
-              internal: ['^@core/', '^@ctx/', '^@platform/', '^@contracts/', '^@ui/'],
+              internal: ['^@app/', '^@domain/', '^@infrastructure/'],
             },
           },
         },
@@ -150,8 +150,6 @@ export default [
   {
     files: [
       'packages/core/**/src/**/*.{ts,tsx}',
-      'packages/contexts/**/src/**/*.{ts,tsx}',
-      'packages/platform/**/src/**/*.{ts,tsx}',
       // Add any other paths that are Effect-heavy
     ],
     plugins: {
@@ -175,9 +173,9 @@ export default [
     },
   },
 
-  // === Layer boundaries: forbid Nest imports in pure cores ===
+  // === Layer boundaries ===
   {
-    files: ['packages/core/**/src/**/*.{ts,tsx}', 'packages/contexts/**/src/core/**/*.{ts,tsx}'],
+    files: ['packages/core/**/src/**/*.{ts,tsx}'],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -206,225 +204,22 @@ export default [
             // ===== Core purity =====
             {
               target: 'packages/core/**',
-              from: 'packages/platform/**',
-              message: 'core must not depend on platform',
-            },
-            {
-              target: 'packages/core/**',
-              from: 'packages/contexts/**',
-              message: 'core must not depend on contexts',
-            },
-            {
-              target: 'packages/core/**',
-              from: 'apps/**',
-              message: 'core must not depend on apps',
+              from: ['packages/import/**', 'packages/balance/**', 'packages/data/**', 'apps/**'],
+              message: 'core must not depend on other packages or apps',
             },
 
-            // ===== Platform never depends on contexts or apps =====
+            // ===== Import package: architectural boundaries =====
+            // Domain cannot import from app or infrastructure
             {
-              target: 'packages/platform/**',
-              from: 'packages/contexts/**',
-              message: 'platform must not depend on contexts',
+              target: 'packages/import/src/domain/**',
+              from: ['packages/import/src/app/**', 'packages/import/src/infrastructure/**'],
+              message: 'domain must not import from app or infrastructure layers',
             },
+            // App cannot import from infrastructure
             {
-              target: 'packages/platform/**',
-              from: 'apps/**',
-              message: 'platform must not depend on apps',
-            },
-
-            // ===== Contracts are universal (no server/domain deps) =====
-            {
-              target: 'packages/contracts/**',
-              from: 'packages/platform/**',
-              message: 'contracts must not depend on platform',
-            },
-            {
-              target: 'packages/contracts/**',
-              from: 'packages/contexts/**',
-              message: 'contracts must not depend on contexts',
-            },
-
-            // ===== UI (browser-only) =====
-            {
-              target: 'packages/ui/**',
-              from: 'packages/platform/**',
-              message: 'ui must not depend on platform (server-only)',
-            },
-            {
-              target: 'packages/ui/**',
-              from: 'packages/contexts/**',
-              message: 'ui must not depend on contexts',
-            },
-            { target: 'packages/ui/**', from: 'apps/**', message: 'ui must not depend on apps' },
-
-            // ===== Apps: never import adapters (use ports/compose/nest bridges) =====
-            {
-              target: 'apps/api/**',
-              from: 'packages/contexts/*/adapters/**',
-              message: 'apps must not import adapters; go through ports/compose',
-            },
-            {
-              target: 'apps/cli/**',
-              from: 'packages/contexts/*/adapters/**',
-              message: 'apps must not import adapters; go through ports/compose',
-            },
-            {
-              target: 'apps/workers/**',
-              from: 'packages/contexts/*/adapters/**',
-              message: 'apps must not import adapters; go through ports/compose',
-            },
-            {
-              target: 'apps/web/**',
-              from: 'packages/contexts/*/adapters/**',
-              message: 'apps must not import adapters; go through ports/compose',
-            },
-
-            // ===== Apps: no app→app imports =====
-            {
-              target: 'apps/api/**',
-              from: ['apps/cli/**', 'apps/web/**', 'apps/workers/**'],
-              message: 'apps must not import other apps',
-            },
-            {
-              target: 'apps/cli/**',
-              from: ['apps/api/**', 'apps/web/**', 'apps/workers/**'],
-              message: 'apps must not import other apps',
-            },
-            {
-              target: 'apps/workers/**',
-              from: ['apps/api/**', 'apps/web/**', 'apps/cli/**'],
-              message: 'apps must not import other apps',
-            },
-            {
-              target: 'apps/web/**',
-              from: ['apps/api/**', 'apps/cli/**', 'apps/workers/**'],
-              message: 'apps must not import other apps',
-            },
-
-            // ===== Web: browser-only consumption (contracts, api-client, ui, core/utils only) =====
-            {
-              target: 'apps/web/**',
-              from: 'packages/platform/**',
-              message: 'web must not import platform (server-only)',
-            },
-            {
-              target: 'apps/web/**',
-              from: 'packages/contexts/**',
-              message: 'web must not import contexts',
-            },
-            // allow only core utils from core (block other core areas)
-            {
-              target: 'apps/web/**',
-              from: 'packages/core/**',
-              except: ['packages/core/src/utils', 'packages/core/utils'],
-              message: 'web may import core/utils only',
-            },
-
-            // ===== Contexts: no cross-context imports =====
-            {
-              target: 'packages/contexts/trading/**',
-              from: [
-                'packages/contexts/portfolio/**',
-                'packages/contexts/taxation/**',
-                'packages/contexts/reconciliation/**',
-              ],
-              message: 'no cross-context imports',
-            },
-            {
-              target: 'packages/contexts/portfolio/**',
-              from: [
-                'packages/contexts/trading/**',
-                'packages/contexts/taxation/**',
-                'packages/contexts/reconciliation/**',
-              ],
-              message: 'no cross-context imports',
-            },
-            {
-              target: 'packages/contexts/taxation/**',
-              from: [
-                'packages/contexts/trading/**',
-                'packages/contexts/portfolio/**',
-                'packages/contexts/reconciliation/**',
-              ],
-              message: 'no cross-context imports',
-            },
-            {
-              target: 'packages/contexts/reconciliation/**',
-              from: ['packages/contexts/trading/**', 'packages/contexts/portfolio/**', 'packages/contexts/taxation/**'],
-              message: 'no cross-context imports',
-            },
-
-            // ===== Context internals: keep layers clean =====
-            // core: only core (shared kernel) allowed; block platform/adapters/app/contracts/ui/apps
-            {
-              target: 'packages/contexts/trading/core/**',
-              from: [
-                'packages/platform/**',
-                'packages/contexts/**/adapters/**',
-                'packages/contexts/**/app/**',
-                'packages/contracts/**',
-                'packages/ui/**',
-                'apps/**',
-              ],
-              message: 'context/core must remain pure',
-            },
-            {
-              target: 'packages/contexts/portfolio/core/**',
-              from: [
-                'packages/platform/**',
-                'packages/contexts/**/adapters/**',
-                'packages/contexts/**/app/**',
-                'packages/contracts/**',
-                'packages/ui/**',
-                'apps/**',
-              ],
-              message: 'context/core must remain pure',
-            },
-            {
-              target: 'packages/contexts/taxation/core/**',
-              from: [
-                'packages/platform/**',
-                'packages/contexts/**/adapters/**',
-                'packages/contexts/**/app/**',
-                'packages/contracts/**',
-                'packages/ui/**',
-                'apps/**',
-              ],
-              message: 'context/core must remain pure',
-            },
-            {
-              target: 'packages/contexts/reconciliation/core/**',
-              from: [
-                'packages/platform/**',
-                'packages/contexts/**/adapters/**',
-                'packages/contexts/**/app/**',
-                'packages/contracts/**',
-                'packages/ui/**',
-                'apps/**',
-              ],
-              message: 'context/core must remain pure',
-            },
-
-            // app: no direct platform or adapters (go through ports; platform comes via compose)
-            {
-              target: 'packages/contexts/trading/app/**',
-              from: ['packages/platform/**', 'packages/contexts/**/adapters/**'],
-              message: 'context/app must not import platform or adapters',
-            },
-            {
-              target: 'packages/contexts/portfolio/app/**',
-              from: ['packages/platform/**', 'packages/contexts/**/adapters/**'],
-              message: 'context/app must not import platform or adapters',
-            },
-            {
-              target: 'packages/contexts/taxation/app/**',
-              from: ['packages/platform/**', 'packages/contexts/**/adapters/**'],
-              message: 'context/app must not import platform or adapters',
-            },
-            {
-              target: 'packages/contexts/reconciliation/app/**',
-              from: ['packages/platform/**', 'packages/contexts/**/adapters/**'],
-              message: 'context/app must not import platform or adapters',
+              target: 'packages/import/src/app/**',
+              from: 'packages/import/src/infrastructure/**',
+              message: 'app layer must not import from infrastructure layer',
             },
           ],
         },
@@ -432,15 +227,9 @@ export default [
     },
   },
 
-  // === UI: browser globals ===
+  // === CLI app (CJS): relax ESM-only unicorn rules ===
   {
-    files: ['packages/ui/**/src/**/*.{ts,tsx}', 'apps/web/**/src/**/*.{ts,tsx}'],
-    languageOptions: { globals: { ...globals.browser } },
-  },
-
-  // === Nest apps (CJS): relax ESM-only unicorn rules ===
-  {
-    files: ['apps/api/**/src/**/*.{ts,tsx}', 'apps/workers/**/src/**/*.{ts,tsx}', 'apps/cli/**/src/**/*.{ts,tsx}'],
+    files: ['apps/cli/**/src/**/*.{ts,tsx}'],
     rules: {
       'unicorn/prefer-module': 'off',
       'unicorn/prefer-top-level-await': 'off',

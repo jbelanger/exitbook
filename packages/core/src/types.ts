@@ -30,8 +30,8 @@ export type TransactionStatus = 'pending' | 'open' | 'closed' | 'canceled' | 'fa
 // Transaction note interface
 export interface TransactionNote {
   message: string;
-  metadata?: Record<string, unknown>;
-  severity?: 'info' | 'warning' | 'error';
+  metadata?: Record<string, unknown> | undefined;
+  severity?: 'info' | 'warning' | 'error' | undefined;
   type: TransactionNoteType;
 }
 
@@ -42,11 +42,11 @@ export type TransactionNoteType = string;
 
 // CLI types
 export interface CLIOptions {
-  config?: string;
-  exchange?: string;
-  since?: string;
-  verbose?: boolean;
-  verify?: boolean;
+  config?: string | undefined;
+  exchange?: string | undefined;
+  since?: string | undefined;
+  verbose?: boolean | undefined;
+  verify?: boolean | undefined;
 }
 
 // ===== BLOCKCHAIN-SPECIFIC TYPES =====
@@ -66,9 +66,9 @@ export interface BlockchainCapabilities {
 }
 
 export interface TokenConfig {
-  contractAddress?: string;
+  contractAddress?: string | undefined;
   decimals: number;
-  name?: string;
+  name?: string | undefined;
   symbol: string;
 }
 
@@ -97,8 +97,8 @@ export type Balance = BlockchainBalance;
 
 // ===== API AND UTILITY TYPES =====
 export interface ApiResponse<T> {
-  data?: T;
-  error?: string;
+  data?: T | undefined;
+  error?: string | undefined;
   pagination?: {
     hasMore: boolean;
     page: number;
@@ -128,9 +128,9 @@ export class ServiceError extends Error {
 }
 
 export interface RateLimitConfig {
-  burstLimit?: number;
-  requestsPerHour?: number;
-  requestsPerMinute?: number;
+  burstLimit?: number | undefined;
+  requestsPerHour?: number | undefined;
+  requestsPerMinute?: number | undefined;
   requestsPerSecond: number;
 }
 
@@ -180,10 +180,10 @@ export interface DataSourceCapabilities<TOperations extends string = string> {
    * Allows each data source type to add custom capability flags without
    * polluting the base interface.
    */
-  extensions?: Record<string, unknown>;
+  extensions?: Record<string, unknown> | undefined;
 
   /** Maximum number of items that can be requested in a single batch operation */
-  maxBatchSize?: number;
+  maxBatchSize?: number | undefined;
 
   /** Array of operation types that this data source supports */
   supportedOperations: TOperations[];
@@ -193,62 +193,6 @@ export interface DataSourceCapabilities<TOperations extends string = string> {
 
   /** Whether the data source supports paginated requests for large datasets */
   supportsPagination: boolean;
-}
-
-// Universal Adapter System - Single unified interface for all data sources
-
-/**
- * Universal adapter interface that provides a consistent interface for all data sources
- * (exchanges, blockchains, etc.). This replaces the separate IExchangeAdapter and
- * IBlockchainAdapter interfaces with a single unified interface.
- */
-export interface IUniversalAdapter {
-  close(): Promise<void>;
-  fetchBalances(params: UniversalFetchParameters): Promise<UniversalBalance[]>;
-  fetchTransactions(params: UniversalFetchParameters): Promise<UniversalTransaction[]>;
-  getInfo(): Promise<UniversalAdapterInfo>;
-  testConnection(): Promise<boolean>;
-}
-
-export interface UniversalAdapterInfo {
-  capabilities: UniversalAdapterCapabilities;
-  id: string;
-  name: string;
-  subType?: 'ccxt' | 'csv' | 'native' | 'rpc' | 'rest';
-  type: 'exchange' | 'blockchain';
-}
-
-export interface UniversalAdapterCapabilities {
-  maxBatchSize: number;
-  rateLimit?: {
-    burstLimit: number;
-    requestsPerSecond: number;
-  };
-  requiresApiKey: boolean;
-  supportedOperations: (
-    | 'fetchTransactions'
-    | 'fetchBalances'
-    | 'getAddressTransactions'
-    | 'getAddressBalance'
-    | 'getTokenTransactions'
-  )[];
-  supportsHistoricalData: boolean;
-  supportsPagination: boolean;
-}
-
-export interface UniversalFetchParameters {
-  // Universal params
-  // Optional type-specific params
-  includeTokens?: boolean | undefined; // For blockchains
-  // Pagination
-  limit?: number | undefined;
-  offset?: number | undefined;
-
-  since?: number | undefined; // Time filter
-  symbols?: string[] | undefined; // Filter by asset symbols
-
-  transactionTypes?: TransactionType[] | undefined;
-  until?: number | undefined; // Time filter
 }
 
 export interface UniversalTransaction {
@@ -275,50 +219,3 @@ export interface UniversalTransaction {
   to?: string | undefined; // Receiver address OR exchange account
   type: TransactionType;
 }
-
-export interface UniversalBalance {
-  contractAddress?: string | undefined;
-  currency: string;
-  free: number;
-  total: number;
-  used: number;
-}
-
-/**
- * High-precision universal balance using Decimal for accurate financial calculations
- * Recommended for new code to avoid precision loss in cryptocurrency amounts
- */
-export interface PrecisionUniversalBalance {
-  contractAddress?: string | undefined;
-  currency: string;
-  free: Decimal;
-  total: Decimal;
-  used: Decimal;
-}
-
-// Universal adapter configuration
-interface BaseUniversalAdapterConfig {
-  id: string;
-  type: 'exchange' | 'blockchain';
-}
-
-export interface UniversalExchangeAdapterConfig extends BaseUniversalAdapterConfig {
-  credentials?:
-    | {
-        apiKey: string;
-        password?: string | undefined;
-        secret: string;
-      }
-    | undefined;
-  csvDirectories?: string[] | undefined;
-  subType: 'ccxt' | 'csv' | 'native';
-  type: 'exchange';
-}
-
-export interface UniversalBlockchainAdapterConfig extends BaseUniversalAdapterConfig {
-  network: string;
-  subType: 'rest' | 'rpc';
-  type: 'blockchain';
-}
-
-export type UniversalAdapterConfig = UniversalExchangeAdapterConfig | UniversalBlockchainAdapterConfig;

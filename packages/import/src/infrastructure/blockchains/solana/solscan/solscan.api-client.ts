@@ -1,11 +1,11 @@
 import { hasStringProperty, isErrorWithMessage, maskAddress } from '@crypto/shared-utils';
 
-import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
-import { RegisterApiClient } from '../../shared/registry/decorators.ts';
-import type { ProviderOperation } from '../../shared/types.ts';
-import { isValidSolanaAddress } from '../utils.ts';
+import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.js';
+import { RegisterApiClient } from '../../shared/registry/decorators.js';
+import type { ProviderOperation } from '../../shared/types.js';
+import { isValidSolanaAddress } from '../utils.js';
 
-import type { SolscanTransaction, SolscanResponse } from './solscan.types.ts';
+import type { SolscanTransaction, SolscanResponse } from './solscan.types.js';
 
 export interface SolscanRawTransactionData {
   normal: SolscanTransaction[];

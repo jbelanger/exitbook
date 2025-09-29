@@ -1,17 +1,17 @@
+import type { ImportSessionMetadata } from '@exitbook/import/app/ports/processors.js';
 import { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
-import type { ImportSessionMetadata } from '../../../../app/ports/processors.ts';
-import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.ts';
-import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.ts';
+import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
+import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
 import type {
   BitcoinTransactionInput,
   BitcoinTransactionOutput,
   BitcoinTransaction as BitcoinTransaction,
 } from '../types.ts';
 
-import { TatumBitcoinTransactionSchema } from './tatum.schemas.ts';
-import type { TatumBitcoinTransaction } from './tatum.types.ts';
+import { TatumBitcoinTransactionSchema } from './tatum.schemas.js';
+import type { TatumBitcoinTransaction } from './tatum.types.js';
 
 @RegisterTransactionMapper('tatum')
 export class TatumBitcoinTransactionMapper extends BaseRawDataMapper<TatumBitcoinTransaction, BitcoinTransaction> {

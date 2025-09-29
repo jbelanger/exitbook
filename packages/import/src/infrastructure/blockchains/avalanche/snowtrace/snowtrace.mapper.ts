@@ -1,13 +1,13 @@
+import type { ImportSessionMetadata } from '@exitbook/import/app/ports/processors.js';
 import type { Result } from 'neverthrow';
 import { ok } from 'neverthrow';
 
-import type { ImportSessionMetadata } from '../../../../app/ports/processors.ts';
-import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.ts';
-import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.ts';
-import type { AvalancheTransaction } from '../types.ts';
+import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
+import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
+import type { AvalancheTransaction } from '../types.js';
 
-import { SnowtraceAnyTransactionSchema } from './snowtrace.schemas.ts';
-import type { SnowtraceInternalTransaction, SnowtraceTransaction, SnowtraceTokenTransfer } from './snowtrace.types.ts';
+import { SnowtraceAnyTransactionSchema } from './snowtrace.schemas.js';
+import type { SnowtraceInternalTransaction, SnowtraceTransaction, SnowtraceTokenTransfer } from './snowtrace.types.js';
 
 export interface SnowtraceRawData {
   internal: SnowtraceInternalTransaction[];

@@ -1,13 +1,13 @@
+import type { ApiClientRawData, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
 import { metadata } from 'reflect-metadata/no-conflict';
 
-import type { ApiClientRawData, ImportParams, ImportRunResult } from '../../../app/ports/importers.ts';
-import { BaseImporter } from '../../shared/importers/base-importer.ts';
-import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
+import { BaseImporter } from '../../shared/importers/base-importer.js';
+import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.js';
 
-import type { SolanaRawTransactionData } from './helius/helius.api-client.ts';
+import type { SolanaRawTransactionData } from './helius/helius.api-client.js';
 // Ensure Solana providers are registered
-import './register-apis.ts';
-import { isValidSolanaAddress } from './utils.ts';
+import './register-apis.js';
+import { isValidSolanaAddress } from './utils.js';
 
 /**
  * Solana transaction importer that fetches raw transaction data from blockchain APIs.

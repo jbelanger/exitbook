@@ -1,8 +1,8 @@
 export interface InjectiveExplorerResponse {
   data: InjectiveExplorerTransaction[];
   paging?: {
-    from?: number;
-    to?: number;
+    from?: number | undefined;
+    to?: number | undefined;
     total: number;
   };
 }
@@ -10,26 +10,26 @@ export interface InjectiveExplorerResponse {
 export interface InjectiveExplorerTransaction {
   block_number: number;
   block_timestamp: string;
-  block_unix_timestamp?: number;
-  claim_id?: number[];
+  block_unix_timestamp?: number | undefined;
+  claim_id?: number[] | undefined;
   code: number;
-  codespace?: string;
-  data?: string;
-  error_log?: string;
-  extension_options?: unknown[];
+  codespace?: string | undefined;
+  data?: string | undefined;
+  error_log?: string | undefined;
+  extension_options?: unknown[] | undefined;
   gas_fee: InjectiveExplorerGasFee;
   gas_used: number;
   gas_wanted: number;
   hash: string;
-  id?: string;
-  info?: string;
-  logs?: InjectiveExplorerTransactionLog[];
-  memo?: string;
+  id?: string | undefined;
+  info?: string | undefined;
+  logs?: InjectiveExplorerTransactionLog[] | undefined;
+  memo?: string | undefined;
   messages: InjectiveExplorerMessage[];
-  non_critical_extension_options?: unknown[];
-  signatures?: unknown[];
-  timeout_height?: number;
-  tx_number?: number;
+  non_critical_extension_options?: unknown[] | undefined;
+  signatures?: unknown[] | undefined;
+  timeout_height?: number | undefined;
+  tx_number?: number | undefined;
   tx_type: string;
 }
 
@@ -39,20 +39,20 @@ export interface InjectiveExplorerMessage {
 }
 
 export interface InjectiveExplorerMessageValue {
-  amount?: InjectiveExplorerAmount[] | string;
-  ethereum_receiver?: string;
-  from_address?: string;
-  injective_receiver?: string;
-  memo?: string;
-  receiver?: string;
-  sender?: string;
-  source_channel?: string;
-  source_port?: string;
+  amount?: InjectiveExplorerAmount[] | string | undefined;
+  ethereum_receiver?: string | undefined;
+  from_address?: string | undefined;
+  injective_receiver?: string | undefined;
+  memo?: string | undefined;
+  receiver?: string | undefined;
+  sender?: string | undefined;
+  source_channel?: string | undefined;
+  source_port?: string | undefined;
   timeout_height?: unknown;
-  timeout_timestamp?: string;
-  to_address?: string;
-  token?: InjectiveExplorerAmount;
-  token_contract?: string;
+  timeout_timestamp?: string | undefined;
+  to_address?: string | undefined;
+  token?: InjectiveExplorerAmount | undefined;
+  token_contract?: string | undefined;
 }
 
 export interface InjectiveExplorerAmount {
@@ -75,24 +75,24 @@ export interface InjectiveExplorerBalance {
 export interface InjectiveExplorerBalanceResponse {
   balances: InjectiveExplorerBalance[];
   pagination: {
-    next_key?: string;
+    next_key?: string | undefined;
     total: string;
   };
 }
 
 export interface InjectiveExplorerTransactionLog {
-  events?: InjectiveExplorerEvent[];
-  msg_index?: string;
+  events?: InjectiveExplorerEvent[] | undefined;
+  msg_index?: string | undefined;
 }
 
 export interface InjectiveExplorerEvent {
-  attributes?: InjectiveExplorerEventAttribute[];
-  type?: string;
+  attributes?: InjectiveExplorerEventAttribute[] | undefined;
+  type?: string | undefined;
 }
 
 export interface InjectiveExplorerEventAttribute {
-  index?: boolean;
-  key?: string;
-  msg_index?: string;
-  value?: string;
+  index?: boolean | undefined;
+  key?: string | undefined;
+  msg_index?: string | undefined;
+  value?: string | undefined;
 }

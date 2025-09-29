@@ -9,23 +9,23 @@ import { getLogger } from '@crypto/shared-logger';
 export type BlockchainExplorersConfig = Record<
   string,
   {
-    defaultEnabled?: string[];
-    overrides?: Record<string, ProviderOverride>;
+    defaultEnabled?: string[] | undefined;
+    overrides?: Record<string, ProviderOverride> | undefined;
   }
 >;
 
 export interface ProviderOverride {
-  description?: string;
-  enabled?: boolean;
-  priority?: number;
+  description?: string | undefined;
+  enabled?: boolean | undefined;
+  priority?: number | undefined;
   rateLimit?: {
-    burstLimit?: number;
-    requestsPerHour?: number;
-    requestsPerMinute?: number;
-    requestsPerSecond?: number;
+    burstLimit?: number | undefined;
+    requestsPerHour?: number | undefined;
+    requestsPerMinute?: number | undefined;
+    requestsPerSecond?: number | undefined;
   };
-  retries?: number;
-  timeout?: number;
+  retries?: number | undefined;
+  timeout?: number | undefined;
 }
 
 /**

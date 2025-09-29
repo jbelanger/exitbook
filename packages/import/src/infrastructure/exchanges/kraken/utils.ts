@@ -17,8 +17,8 @@ export type ValidatedCsvKrakenLedgerRow = z.infer<typeof CsvKrakenLedgerRowSchem
  * Validation result for individual row validation
  */
 export interface KrakenCsvValidationResult {
-  data?: ValidatedCsvKrakenLedgerRow;
-  errors?: z.ZodError;
+  data?: ValidatedCsvKrakenLedgerRow | undefined;
+  errors?: z.ZodError | undefined;
   success: boolean;
 }
 

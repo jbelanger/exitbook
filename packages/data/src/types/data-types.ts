@@ -46,6 +46,6 @@ export interface ImportSessionQuery {
   limit?: number | undefined;
   since?: number | undefined;
   sourceId?: string | undefined;
-  sourceType?: 'exchange' | 'blockchain';
-  status?: 'started' | 'completed' | 'failed' | 'cancelled';
+  sourceType?: 'exchange' | 'blockchain' | undefined;
+  status?: 'started' | 'completed' | 'failed' | 'cancelled' | undefined;
 }

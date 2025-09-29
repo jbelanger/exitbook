@@ -1,7 +1,6 @@
 import type { Logger } from '@crypto/shared-logger';
 import { getLogger } from '@crypto/shared-logger';
-
-import type { IImporter, ImportParams, ImportRunResult } from '../../../app/ports/importers.ts';
+import type { IImporter, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
 
 /**
  * Base class providing common functionality for all importers.
@@ -13,6 +12,9 @@ export abstract class BaseImporter implements IImporter {
   constructor(protected sourceId: string) {
     this.logger = getLogger(`${sourceId}Importer`);
   }
+
+  abstract import(params: ImportParams): Promise<ImportRunResult>;
+  protected abstract canImportSpecific(params: ImportParams): Promise<boolean>;
 
   async canImport(params: ImportParams): Promise<boolean> {
     this.logger.debug(`Validating import parameters for ${this.sourceId}`);
@@ -33,11 +35,6 @@ export abstract class BaseImporter implements IImporter {
   }
 
   /**
-   * Subclasses should implement source-specific validation logic.
-   */
-  protected abstract canImportSpecific(params: ImportParams): Promise<boolean>;
-
-  /**
    * Helper method to generate session IDs.
    */
   protected generateSessionId(): string {
@@ -52,6 +49,4 @@ export abstract class BaseImporter implements IImporter {
     this.logger.error(`Import failed in ${context}: ${errorMessage}`);
     throw new Error(`${this.sourceId} import failed: ${errorMessage}`);
   }
-
-  abstract import(params: ImportParams): Promise<ImportRunResult>;
 }

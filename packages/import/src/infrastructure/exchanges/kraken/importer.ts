@@ -1,7 +1,8 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-import type { ApiClientRawData, ImportParams, ImportRunResult } from '../../../app/ports/importers.ts';
+import type { ApiClientRawData, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
+
 import { BaseImporter } from '../../shared/importers/base-importer.js';
 import { CsvParser } from '../csv-parser.js';
 

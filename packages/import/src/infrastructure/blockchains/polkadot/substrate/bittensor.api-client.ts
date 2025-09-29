@@ -1,8 +1,8 @@
-import { RegisterApiClient } from '../../shared/registry/decorators.ts';
+import { RegisterApiClient } from '../../shared/registry/decorators.js';
 
-import { BaseSubstrateApiClient } from './substrate.api-client.base.ts';
-import type { TaostatsTransaction } from './substrate.types.ts';
-import { SUBSTRATE_CHAINS } from './substrate.types.ts';
+import { BaseSubstrateApiClient } from './substrate.api-client.base.js';
+import type { TaostatsTransaction } from './substrate.types.js';
+import { SUBSTRATE_CHAINS } from './substrate.types.js';
 
 @RegisterApiClient({
   apiKeyEnvVar: 'TAOSTATS_API_KEY',
@@ -59,7 +59,7 @@ export class BittensorApiClient extends BaseSubstrateApiClient {
   protected async getTransactionsFromExplorer(address: string, _since?: number): Promise<unknown> {
     try {
       const response = await this.httpClient.get<{
-        data?: TaostatsTransaction[];
+        data?: TaostatsTransaction[] | undefined;
       }>(`/transfer/v1?network=finney&limit=50&address=${address}`);
 
       return {

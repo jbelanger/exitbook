@@ -8,9 +8,9 @@ export interface BlockCypherTransaction {
   confirmed: string; // ISO 8601 date
   double_spend: boolean;
   fees: number;
-  gas_limit?: number;
-  gas_price?: number;
-  gas_used?: number;
+  gas_limit?: number | undefined;
+  gas_price?: number | undefined;
+  gas_used?: number | undefined;
   hash: string;
   inputs: {
     addresses: string[];
@@ -44,10 +44,10 @@ export interface BlockCypherTransaction {
 export interface BlockCypherAddress {
   address: string;
   balance: number;
-  error?: string;
+  error?: string | undefined;
   final_balance: number;
   final_n_tx: number;
-  hasMore?: boolean;
+  hasMore?: boolean | undefined;
   n_tx: number;
   total_received: number;
   total_sent: number;

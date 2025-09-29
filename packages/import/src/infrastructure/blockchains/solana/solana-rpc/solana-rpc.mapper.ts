@@ -1,14 +1,14 @@
 import { isErrorWithMessage } from '@crypto/shared-utils';
+import type { ImportSessionMetadata } from '@exitbook/import/app/ports/processors.js';
 import { type Result, err, ok } from 'neverthrow';
 
-import type { ImportSessionMetadata } from '../../../../app/ports/processors.ts';
-import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.ts';
-import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.ts';
-import type { SolanaAccountChange, SolanaTokenBalance, SolanaTokenChange, SolanaTransaction } from '../types.ts';
-import { lamportsToSol } from '../utils.ts';
+import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
+import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
+import type { SolanaAccountChange, SolanaTokenBalance, SolanaTokenChange, SolanaTransaction } from '../types.js';
+import { lamportsToSol } from '../utils.js';
 
-import { SolanaRPCRawTransactionDataSchema } from './solana-rpc.schemas.ts';
-import type { SolanaRPCRawTransactionData, SolanaRPCTransaction } from './solana-rpc.types.ts';
+import { SolanaRPCRawTransactionDataSchema } from './solana-rpc.schemas.js';
+import type { SolanaRPCRawTransactionData, SolanaRPCTransaction } from './solana-rpc.types.js';
 
 @RegisterTransactionMapper('solana-rpc')
 export class SolanaRPCTransactionMapper extends BaseRawDataMapper<SolanaRPCRawTransactionData, SolanaTransaction> {
@@ -24,6 +24,9 @@ export class SolanaRPCTransactionMapper extends BaseRawDataMapper<SolanaRPCRawTr
     // For now, process the first transaction
     // TODO: Handle multiple transactions in batch properly
     const tx = rawData.normal[0];
+    if (!tx) {
+      return err('No transaction found in raw data');
+    }
 
     try {
       const solanaTransaction = this.transformTransaction(tx);
@@ -104,11 +107,14 @@ export class SolanaRPCTransactionMapper extends BaseRawDataMapper<SolanaRPCRawTr
 
         // Only include accounts with balance changes
         if (preBalance !== postBalance) {
-          changes.push({
-            account: accountKeys[i],
-            postBalance: postBalance.toString(),
-            preBalance: preBalance.toString(),
-          });
+          const account = accountKeys[i];
+          if (account && preBalance !== undefined && postBalance !== undefined) {
+            changes.push({
+              account,
+              postBalance: postBalance.toString(),
+              preBalance: preBalance.toString(),
+            });
+          }
         }
       }
     }
@@ -202,18 +208,23 @@ export class SolanaRPCTransactionMapper extends BaseRawDataMapper<SolanaRPCRawTr
     // Otherwise, find the largest SOL change (excluding fee payer)
     if (accountChanges.length > 1) {
       // Skip first account (fee payer) and find largest balance change
-      const largestSolChange = accountChanges.slice(1).reduce((largest, change) => {
-        const changeAmount = Math.abs(parseFloat(change.postBalance) - parseFloat(change.preBalance));
-        const largestAmount = Math.abs(parseFloat(largest.postBalance) - parseFloat(largest.preBalance));
-        return changeAmount > largestAmount ? change : largest;
-      }, accountChanges[1]);
+      const remainingChanges = accountChanges.slice(1);
+      if (remainingChanges.length > 0) {
+        const largestSolChange = remainingChanges.reduce((largest, change) => {
+          const changeAmount = Math.abs(parseFloat(change.postBalance) - parseFloat(change.preBalance));
+          const largestAmount = Math.abs(parseFloat(largest.postBalance) - parseFloat(largest.preBalance));
+          return changeAmount > largestAmount ? change : largest;
+        });
 
-      if (largestSolChange) {
-        const solAmount = Math.abs(parseFloat(largestSolChange.postBalance) - parseFloat(largestSolChange.preBalance));
-        return {
-          primaryAmount: solAmount.toString(),
-          primaryCurrency: 'SOL',
-        };
+        if (largestSolChange) {
+          const solAmount = Math.abs(
+            parseFloat(largestSolChange.postBalance) - parseFloat(largestSolChange.preBalance)
+          );
+          return {
+            primaryAmount: solAmount.toString(),
+            primaryCurrency: 'SOL',
+          };
+        }
       }
     }
 

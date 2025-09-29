@@ -1,6 +1,6 @@
+import type { ExchangeCredentials } from '@exitbook/import/app/ports/importers.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ExchangeCredentials } from '../../../../app/ports/importers.ts';
 import { CoinbaseAPIClient } from '../coinbase-api-client.js';
 import type { RawCoinbaseAccount, RawCoinbaseTransaction } from '../types.js';
 
@@ -124,10 +124,10 @@ describe('CoinbaseAPIClient', () => {
       const firstCall = mocks.MockHttpClient.mock.calls[0] as [Record<string, unknown>];
       expect(firstCall).toBeDefined();
       const httpClientConfig = firstCall[0] as {
-        baseUrl?: string;
-        providerName?: string;
-        rateLimit?: { burstLimit: number; requestsPerSecond: number };
-        timeout?: number;
+        baseUrl?: string | undefined;
+        providerName?: string | undefined;
+        rateLimit?: { burstLimit: number; requestsPerSecond: number } | undefined;
+        timeout?: number | undefined;
       };
       expect(httpClientConfig?.rateLimit).toEqual({
         burstLimit: 5,
@@ -162,7 +162,9 @@ describe('CoinbaseAPIClient', () => {
       );
 
       // Verify JWT token was generated
-      const call = mocks.mockHttpClient.request.mock.calls[0] as [string, { headers?: Record<string, string> }];
+      const call = mocks.mockHttpClient.request.mock.calls[0] as
+        | [string, { headers?: Record<string, string> }]
+        | undefined;
       const headers: Record<string, string> = call?.[1]?.headers ?? {};
       const authHeader = headers['Authorization'];
 
@@ -187,7 +189,9 @@ describe('CoinbaseAPIClient', () => {
       );
 
       // Verify JWT token format
-      const call = mocks.mockHttpClient.request.mock.calls[0] as [string, { headers?: Record<string, string> }];
+      const call = mocks.mockHttpClient.request.mock.calls[0] as
+        | [string, { headers?: Record<string, string> }]
+        | undefined;
       const headers: Record<string, string> = call?.[1]?.headers ?? {};
       const authHeader = headers['Authorization'];
 
@@ -221,8 +225,12 @@ describe('CoinbaseAPIClient', () => {
       expect(mocks.mockHttpClient.request).toHaveBeenCalledTimes(2);
 
       // Both calls should have Authorization headers with JWT tokens
-      const firstCall = mocks.mockHttpClient.request.mock.calls[0] as [string, { headers?: Record<string, string> }];
-      const secondCall = mocks.mockHttpClient.request.mock.calls[1] as [string, { headers?: Record<string, string> }];
+      const firstCall = mocks.mockHttpClient.request.mock.calls[0] as
+        | [string, { headers?: Record<string, string> }]
+        | undefined;
+      const secondCall = mocks.mockHttpClient.request.mock.calls[1] as
+        | [string, { headers?: Record<string, string> }]
+        | undefined;
 
       const firstAuth =
         firstCall && firstCall[1] && firstCall[1].headers ? firstCall[1].headers['Authorization'] : undefined;

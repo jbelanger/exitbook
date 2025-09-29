@@ -1,10 +1,10 @@
-import type { HttpRequestOptions } from '@crypto/shared-utils/src/http-client.ts';
+import type { HttpRequestOptions } from '@crypto/shared-utils/src/http-client.js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ProviderOperation } from '../../../shared/types.ts';
-import type { AddressInfo } from '../../types.ts';
-import { TatumBitcoinApiClient } from '../tatum-bitcoin.api-client.ts';
-import type { TatumBitcoinTransaction, TatumBitcoinBalance } from '../tatum.types.ts';
+import type { ProviderOperation } from '../../../shared/types.js';
+import type { AddressInfo } from '../../types.js';
+import { TatumBitcoinApiClient } from '../tatum-bitcoin.api-client.js';
+import type { TatumBitcoinTransaction, TatumBitcoinBalance } from '../tatum.types.js';
 
 // Mock the HttpClient
 vi.mock('@crypto/shared-utils', () => ({

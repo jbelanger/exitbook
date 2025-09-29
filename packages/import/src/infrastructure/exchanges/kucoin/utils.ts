@@ -21,8 +21,8 @@ export type ValidatedCsvKuCoinRawData = z.infer<typeof CsvKuCoinRawDataSchema>;
  * Validation results for individual sections
  */
 export interface KuCoinCsvValidationResult<T> {
-  data?: T;
-  errors?: z.ZodError;
+  data?: T | undefined;
+  errors?: z.ZodError | undefined;
   success: boolean;
 }
 

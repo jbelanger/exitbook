@@ -14,7 +14,7 @@ export interface SolscanTransaction {
   lamport: number;
   logMessage: string[];
   parsedInstruction: {
-    params?: Record<string, unknown>;
+    params?: Record<string, unknown> | undefined;
     program: string;
     programId: string;
     type: string;
@@ -40,7 +40,7 @@ export interface SolscanBalance {
 
 // Solscan provider-specific types
 export interface SolscanResponse<T = unknown> {
-  data?: T;
-  message?: string;
+  data?: T | undefined;
+  message?: string | undefined;
   success: boolean;
 }

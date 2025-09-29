@@ -1,6 +1,6 @@
 import type { Result } from 'neverthrow';
 
-import type { ImportSessionMetadata } from './processors.ts';
+import type { ImportSessionMetadata } from './processors.js';
 
 /**
  * Universal blockchain transaction structure that captures the essential

@@ -6,10 +6,10 @@ import { TransactionNoteType } from '../types/types.js';
  * Token metadata from DAS API for scam detection
  */
 interface TokenMetadata {
-  attributes?: { trait_type: string; value: string }[];
-  description?: string;
-  external_url?: string;
-  image?: string;
+  attributes?: { trait_type: string; value: string }[] | undefined;
+  description?: string | undefined;
+  external_url?: string | undefined;
+  image?: string | undefined;
   name: string;
   symbol: string;
 }

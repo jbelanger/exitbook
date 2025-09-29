@@ -1,7 +1,7 @@
-import type { NewWalletAddress } from '@crypto/data/src/types/data-types.ts';
+import type { NewWalletAddress } from '@crypto/data/src/types/data-types.js';
 import { getLogger } from '@crypto/shared-logger';
 
-import type { IWalletRepository } from '../ports/wallet-repository.ts';
+import type { IWalletRepository } from '../ports/wallet-repository.js';
 
 export class WalletService {
   private logger = getLogger('WalletService');
@@ -15,9 +15,9 @@ export class WalletService {
     address: string,
     blockchain: string,
     options?: {
-      addressType?: 'personal' | 'exchange' | 'contract' | 'unknown';
-      label?: string;
-      notes?: string;
+      addressType?: 'personal' | 'exchange' | 'contract' | 'unknown' | undefined;
+      label?: string | undefined;
+      notes?: string | undefined;
     }
   ): Promise<void> {
     try {

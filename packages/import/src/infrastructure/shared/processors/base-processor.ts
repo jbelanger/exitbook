@@ -2,9 +2,13 @@ import type { UniversalTransaction } from '@crypto/core';
 import { UniversalTransactionSchema } from '@crypto/core';
 import type { Logger } from '@crypto/shared-logger';
 import { getLogger } from '@crypto/shared-logger';
+import type {
+  IProcessor,
+  ImportSessionMetadata,
+  ProcessingImportSession,
+} from '@exitbook/import/app/ports/processors.js';
 import { type Result, ok, err } from 'neverthrow';
 
-import type { IProcessor, ImportSessionMetadata, ProcessingImportSession } from '../../../app/ports/processors.ts';
 import { detectScamFromSymbol } from '../utils/scam-detection.js';
 
 /**

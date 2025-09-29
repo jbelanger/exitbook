@@ -1,10 +1,11 @@
-import type { ApiClientRawData, ImportParams, ImportRunResult } from '../../../app/ports/importers.ts';
-import { BaseImporter } from '../../shared/importers/base-importer.ts';
-import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
+import type { ApiClientRawData, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
+
+import { BaseImporter } from '../../shared/importers/base-importer.js';
+import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.js';
 
 // Ensure providers are registered
-import './register-apis.ts';
-import type { SubscanTransfer } from './substrate/substrate.types.ts';
+import './register-apis.js';
+import type { SubscanTransfer } from './substrate/substrate.types.js';
 
 /**
  * Polkadot transaction importer that fetches raw transaction data from Subscan API.

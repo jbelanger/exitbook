@@ -1,8 +1,7 @@
-import { BaseRepository } from '@crypto/data/src/repositories/base-repository.ts';
-import type { KyselyDB } from '@crypto/data/src/storage/database.ts';
-import type { ImportSession, ImportSessionQuery, ImportSessionUpdate } from '@crypto/data/src/types/data-types.ts';
-
-import type { IImportSessionRepository } from '../../app/ports/import-session-repository.ts';
+import { BaseRepository } from '@crypto/data/src/repositories/base-repository.js';
+import type { KyselyDB } from '@crypto/data/src/storage/database.js';
+import type { ImportSession, ImportSessionQuery, ImportSessionUpdate } from '@crypto/data/src/types/data-types.js';
+import type { IImportSessionRepository } from '@exitbook/import/app/ports/import-session-repository.js';
 
 /**
  * Kysely-based repository for import session database operations.

@@ -1,11 +1,11 @@
 import { maskAddress } from '@crypto/shared-utils';
 
-import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
-import { RegisterApiClient } from '../../shared/registry/decorators.ts';
-import type { ProviderOperation } from '../../shared/types.ts';
-import type { AddressInfo } from '../types.ts';
+import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.js';
+import { RegisterApiClient } from '../../shared/registry/decorators.js';
+import type { ProviderOperation } from '../../shared/types.js';
+import type { AddressInfo } from '../types.js';
 
-import type { MempoolAddressInfo, MempoolTransaction } from './mempool-space.types.ts';
+import type { MempoolAddressInfo, MempoolTransaction } from './mempool-space.types.js';
 
 @RegisterApiClient({
   blockchain: 'bitcoin',

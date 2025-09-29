@@ -1,4 +1,4 @@
-import type { SolanaTokenAccountsResponse, SolanaTokenBalance } from '../types.ts';
+import type { SolanaTokenAccountsResponse, SolanaTokenBalance } from '../types.js';
 
 /**
  * Solana RPC transaction response

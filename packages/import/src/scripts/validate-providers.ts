@@ -6,8 +6,8 @@
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import '../blockchains/registry/register-apis.ts';
-import { ProviderRegistry } from '../infrastructure/blockchains/shared/registry/index.ts';
+import '../blockchains/registry/register-apis.js';
+import { ProviderRegistry } from '../infrastructure/blockchains/shared/registry/index.js';
 
 interface ValidationError {
   message: string;

@@ -1,7 +1,6 @@
 import { getLogger } from '@crypto/shared-logger';
-
-import type { IProcessorFactory } from '../../../app/ports/processor-factory.ts';
-import type { IProcessor } from '../../../app/ports/processors.ts';
+import type { IProcessorFactory } from '@exitbook/import/app/ports/processor-factory.js';
+import type { IProcessor } from '@exitbook/import/app/ports/processors.js';
 
 /**
  * Factory for creating processor instances.

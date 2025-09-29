@@ -1,10 +1,10 @@
 import { maskAddress } from '@crypto/shared-utils';
 
-import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
-import { RegisterApiClient } from '../../shared/registry/decorators.ts';
-import type { ProviderOperation } from '../../shared/types.ts';
+import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.js';
+import { RegisterApiClient } from '../../shared/registry/decorators.js';
+import type { ProviderOperation } from '../../shared/types.js';
 
-import type { InjectiveExplorerTransaction } from './injective-explorer.types.ts';
+import type { InjectiveExplorerTransaction } from './injective-explorer.types.js';
 
 @RegisterApiClient({
   blockchain: 'injective',
@@ -99,7 +99,7 @@ export class InjectiveExplorerApiClient extends BaseRegistryProvider {
 
   private async getRawAddressTransactions(params: {
     address: string;
-    since?: number;
+    since?: number | undefined;
   }): Promise<InjectiveExplorerTransaction[]> {
     const { address, since } = params;
 

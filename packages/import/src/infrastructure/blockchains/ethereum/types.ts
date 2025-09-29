@@ -6,37 +6,37 @@ export interface EthereumTransaction {
   // Value information
   amount: string; // Amount in wei (for ETH) or token units (for tokens)
   // Block context
-  blockHeight?: number;
-  blockId?: string;
+  blockHeight?: number | undefined;
+  blockId?: string | undefined;
   currency: string; // 'ETH' for native transfers, token symbol for token transfers
 
   // Fee information (always in ETH)
-  feeAmount?: string; // Gas fee in wei
-  feeCurrency?: string; // Always 'ETH'
+  feeAmount?: string | undefined; // Gas fee in wei
+  feeCurrency?: string | undefined; // Always 'ETH'
 
   // Transaction flow data
   from: string;
-  gasPrice?: string;
+  gasPrice?: string | undefined;
 
-  gasUsed?: string;
+  gasUsed?: string | undefined;
   // Core transaction data
   id: string;
 
-  inputData?: string; // Full input data for contract calls
+  inputData?: string | undefined; // Full input data for contract calls
   // Additional metadata for complex transactions
-  methodId?: string; // First 4 bytes of input data
+  methodId?: string | undefined; // First 4 bytes of input data
   providerId: string;
   status: 'success' | 'failed' | 'pending';
 
   timestamp: number;
   to: string;
   // Token-specific information (for ERC-20/721/1155 transfers)
-  tokenAddress?: string; // Contract address for token transfers
-  tokenDecimals?: number; // Token decimals
+  tokenAddress?: string | undefined; // Contract address for token transfers
+  tokenDecimals?: number | undefined; // Token decimals
 
-  tokenSymbol?: string; // Token symbol
+  tokenSymbol?: string | undefined; // Token symbol
 
-  tokenType?: 'erc20' | 'erc721' | 'erc1155' | 'native'; // Type of transfer
+  tokenType?: 'erc20' | 'erc721' | 'erc1155' | 'native' | undefined; // Type of transfer
   // Transaction type classification (basic, will be refined by processor)
   type: 'transfer' | 'token_transfer';
 }
@@ -48,7 +48,7 @@ export interface EthereumFundFlow {
   // Token information
   currency: string; // ETH or token symbol
   // Fee information (always in ETH)
-  feeAmount?: string;
+  feeAmount?: string | undefined;
 
   feePaidByUser: boolean; // Whether the user paid the transaction fee
   // Address information
@@ -61,8 +61,8 @@ export interface EthereumFundFlow {
   // Amount information
   netAmount: string; // Net amount change for user (positive = received, negative = sent)
   toAddress: string;
-  tokenAddress?: string;
+  tokenAddress?: string | undefined;
 
-  tokenDecimals?: number;
+  tokenDecimals?: number | undefined;
   totalAmount: string; // Total transaction amount
 }

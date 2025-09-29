@@ -1,8 +1,8 @@
 import type { Decimal } from 'decimal.js';
 
-import type { BalanceRepository } from '../../infrastructure/persistence/balance-repository.ts';
+import type { BalanceRepository } from '../../infrastructure/persistence/balance-repository.js';
 
-import { BalanceCalculationService } from './balance-calculation-service.ts';
+import { BalanceCalculationService } from './balance-calculation-service.js';
 
 export class BalanceService {
   private balanceCalculationService: BalanceCalculationService;

@@ -1,6 +1,6 @@
 import type { UniversalTransaction } from '@crypto/core';
+import type { ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
 
-import type { ImportParams, ImportRunResult } from '../../../app/ports/importers.ts';
 import { BaseImporter } from '../../shared/importers/base-importer.js';
 
 /**

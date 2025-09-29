@@ -6,19 +6,19 @@ export interface SnowtraceTransaction {
   confirmations: string;
   cumulativeGasUsed: string;
   from: string;
-  functionName?: string;
+  functionName?: string | undefined;
   gas: string;
   gasPrice: string;
   gasUsed: string;
   hash: string;
   input: string;
-  isError?: string;
-  methodId?: string;
+  isError?: string | undefined;
+  methodId?: string | undefined;
   nonce: string;
   timeStamp: string;
   to: string;
   transactionIndex: string;
-  txreceipt_status?: string;
+  txreceipt_status?: string | undefined;
   value: string;
 }
 

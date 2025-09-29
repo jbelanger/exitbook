@@ -1,6 +1,6 @@
-import { BaseRepository as BaseRepository } from '@crypto/data/src/repositories/base-repository.ts';
-import type { KyselyDB } from '@crypto/data/src/storage/database.ts';
-import type { StoredTransaction } from '@crypto/data/src/types/data-types.ts';
+import { BaseRepository as BaseRepository } from '@crypto/data/src/repositories/base-repository.js';
+import type { KyselyDB } from '@crypto/data/src/storage/database.js';
+import type { StoredTransaction } from '@crypto/data/src/types/data-types.js';
 
 /**
  * Kysely-based repository for balance database operations.

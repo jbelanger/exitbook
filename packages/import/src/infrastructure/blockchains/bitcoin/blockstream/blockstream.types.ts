@@ -3,9 +3,9 @@ export interface BlockstreamTransaction {
   locktime: number;
   size: number;
   status: {
-    block_hash?: string;
-    block_height?: number;
-    block_time?: number;
+    block_hash?: string | undefined;
+    block_height?: number | undefined;
+    block_time?: number | undefined;
     confirmed: boolean;
   };
   txid: string;
@@ -14,7 +14,7 @@ export interface BlockstreamTransaction {
     is_coinbase: boolean;
     prevout: {
       scriptpubkey: string;
-      scriptpubkey_address?: string;
+      scriptpubkey_address?: string | undefined;
       scriptpubkey_asm: string;
       scriptpubkey_type: string;
       value: number;
@@ -28,7 +28,7 @@ export interface BlockstreamTransaction {
   }[];
   vout: {
     scriptpubkey: string;
-    scriptpubkey_address?: string;
+    scriptpubkey_address?: string | undefined;
     scriptpubkey_asm: string;
     scriptpubkey_type: string;
     value: number;

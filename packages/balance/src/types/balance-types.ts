@@ -11,9 +11,9 @@ export interface BalanceComparison {
 
 export interface BalanceVerificationResult {
   comparisons: BalanceComparison[];
-  error?: string;
+  error?: string | undefined;
   exchange: string;
-  note?: string;
+  note?: string | undefined;
   status: 'success' | 'error' | 'warning';
   summary: {
     matches: number;

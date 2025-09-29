@@ -1,10 +1,10 @@
 import type { StoredRawData } from '@crypto/data';
+import type { ApiClientRawData } from '@exitbook/import/app/ports/importers.js';
+import type { ImportSessionMetadata } from '@exitbook/import/app/ports/processors.js';
 import { describe, expect, it } from 'vitest';
 
-import type { ApiClientRawData } from '../../../../app/ports/importers.ts';
-import type { ImportSessionMetadata } from '../../../../app/ports/processors.ts';
-import { PolkadotTransactionProcessor } from '../processor.ts';
-import type { SubscanTransfer } from '../substrate/substrate.types.ts';
+import { PolkadotTransactionProcessor } from '../processor.js';
+import type { SubscanTransfer } from '../substrate/substrate.types.js';
 
 // Type for accessing protected methods in tests
 type TestablePolkadotTransactionProcessor = PolkadotTransactionProcessor & {

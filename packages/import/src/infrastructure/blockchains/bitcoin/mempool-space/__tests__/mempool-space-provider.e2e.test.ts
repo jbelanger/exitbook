@@ -1,9 +1,9 @@
+import type { UniversalBlockchainTransaction } from '@exitbook/import/app/ports/raw-data-mappers.js';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import type { UniversalBlockchainTransaction } from '../../../../../app/ports/raw-data-mappers.ts';
-import type { AddressInfo } from '../../types.ts';
-import { MempoolSpaceApiClient } from '../mempool-space-api-client.ts';
-import type { MempoolTransaction } from '../mempool-space.types.ts';
+import type { AddressInfo } from '../../types.js';
+import { MempoolSpaceApiClient } from '../mempool-space-api-client.js';
+import type { MempoolTransaction } from '../mempool-space.types.js';
 
 describe('MempoolSpaceProvider Integration', () => {
   let provider: MempoolSpaceApiClient;

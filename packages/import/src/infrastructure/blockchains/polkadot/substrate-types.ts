@@ -9,8 +9,8 @@ export interface SubstrateTransaction {
   // Advanced substrate features
   args?: unknown; // Call arguments
   // Block context
-  blockHeight?: number;
-  blockId?: string;
+  blockHeight?: number | undefined;
+  blockId?: string | undefined;
 
   call?: string; // Method call within module
   // Chain identification

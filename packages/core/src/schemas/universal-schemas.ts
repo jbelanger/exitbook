@@ -80,24 +80,14 @@ export type ValidatedMoney = z.infer<typeof MoneySchema>;
 
 // Validation result types for error handling
 export interface ValidationResult<T> {
-  data?: T;
-  errors?: z.ZodError;
+  data?: T | undefined;
+  errors?: z.ZodError | undefined;
   success: boolean;
 }
 
 // Helper function to validate and return typed results
 export function validateUniversalTransaction(data: unknown): ValidationResult<ValidatedUniversalTransaction> {
   const result = UniversalTransactionSchema.safeParse(data);
-
-  if (result.success) {
-    return { data: result.data, success: true };
-  }
-
-  return { errors: result.error, success: false };
-}
-
-export function validateUniversalBalance(data: unknown): ValidationResult<ValidatedUniversalBalance> {
-  const result = UniversalBalanceSchema.safeParse(data);
 
   if (result.success) {
     return { data: result.data, success: true };
@@ -116,25 +106,6 @@ export function validateUniversalTransactions(data: unknown[]): {
 
   for (const item of data) {
     const result = validateUniversalTransaction(item);
-    if (result.success && result.data) {
-      valid.push(result.data);
-    } else if (result.errors) {
-      invalid.push({ data: item, errors: result.errors });
-    }
-  }
-
-  return { invalid, valid };
-}
-
-export function validateUniversalBalances(data: unknown[]): {
-  invalid: { data: unknown; errors: z.ZodError }[];
-  valid: ValidatedUniversalBalance[];
-} {
-  const valid: ValidatedUniversalBalance[] = [];
-  const invalid: { data: unknown; errors: z.ZodError }[] = [];
-
-  for (const item of data) {
-    const result = validateUniversalBalance(item);
     if (result.success && result.data) {
       valid.push(result.data);
     } else if (result.errors) {

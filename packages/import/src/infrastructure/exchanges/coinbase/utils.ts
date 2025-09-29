@@ -26,8 +26,8 @@ export type ValidatedRawCoinbaseLedgerEntry = z.infer<typeof RawCoinbaseLedgerEn
  * Validation results
  */
 export interface CoinbaseApiValidationResult<T> {
-  data?: T;
-  errors?: z.ZodError;
+  data?: T | undefined;
+  errors?: z.ZodError | undefined;
   success: boolean;
 }
 

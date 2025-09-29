@@ -1,6 +1,5 @@
+import type { UniversalBlockchainTransaction } from '@exitbook/import/app/ports/raw-data-mappers.js';
 import { Decimal } from 'decimal.js';
-
-import type { UniversalBlockchainTransaction } from '../../../app/ports/raw-data-mappers.ts';
 
 interface ClassificationResult {
   assets: {

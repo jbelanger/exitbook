@@ -2,22 +2,22 @@ import type { RateLimitConfig } from '@crypto/core';
 import { RateLimitError, ServiceError } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
 
-import { RateLimiterFactory } from './rate-limiter.ts';
+import { RateLimiterFactory } from './rate-limiter.js';
 
 export interface HttpClientConfig {
   baseUrl: string;
-  defaultHeaders?: Record<string, string>;
+  defaultHeaders?: Record<string, string> | undefined;
   providerName: string;
   rateLimit: RateLimitConfig;
-  retries?: number;
-  timeout?: number;
+  retries?: number | undefined;
+  timeout?: number | undefined;
 }
 
 export interface HttpRequestOptions {
-  body?: BodyInit | object | undefined;
-  headers?: Record<string, string>;
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
-  timeout?: number;
+  body?: string | Buffer | Uint8Array | object | undefined;
+  headers?: Record<string, string> | undefined;
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | undefined;
+  timeout?: number | undefined;
 }
 
 /**
@@ -72,7 +72,7 @@ export class HttpClient {
   ): Promise<T> {
     return this.request<T>(endpoint, {
       ...options,
-      body: body as BodyInit | object | undefined,
+      body: body as string | Buffer | Uint8Array | object | undefined,
       method: 'POST',
     });
   }

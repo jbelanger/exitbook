@@ -4,10 +4,5 @@
     "allowImportingTsExtensions": true,
     "noEmit": true
   },
-  "include": [
-    "src",
-    "../data/src/repositories/external-data-store.ts",
-    "../balance/src/infrastructure/persistence/balance-repository.ts",
-    "../data/src/repositories/base-repository.ts"
-  ]
+  "include": ["src"]
 }

@@ -1,4 +1,4 @@
-import type { IRawDataMapper } from '../../../app/ports/raw-data-mappers.ts';
+import type { IRawDataMapper } from '@exitbook/import/app/ports/raw-data-mappers.js';
 
 const transactionMapperMap = new Map<string, new () => IRawDataMapper<unknown, unknown>>();
 

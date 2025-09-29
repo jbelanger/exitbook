@@ -2,8 +2,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 import { meta } from '@effect/eslint-plugin';
+import type { ApiClientRawData, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
 
-import type { ApiClientRawData, ImportParams, ImportRunResult } from '../../../app/ports/importers.ts';
 import { BaseImporter } from '../../shared/importers/base-importer.js';
 import { CsvParser } from '../csv-parser.js';
 

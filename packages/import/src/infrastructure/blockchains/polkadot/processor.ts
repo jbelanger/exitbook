@@ -1,20 +1,20 @@
 import type { TransactionType, UniversalTransaction } from '@crypto/core';
 import type { StoredRawData } from '@crypto/data';
 import { createMoney } from '@crypto/shared-utils';
+import type { ImportSessionMetadata } from '@exitbook/import/app/ports/processors.js';
+import type { UniversalBlockchainTransaction } from '@exitbook/import/app/ports/raw-data-mappers.js';
+import type { ITransactionRepository } from '@exitbook/import/app/ports/transaction-repository.js';
 import { Decimal } from 'decimal.js';
-import { type Result, err, ok } from 'neverthrow';
-
-import type { ImportSessionMetadata } from '../../../app/ports/processors.ts';
-import type { UniversalBlockchainTransaction } from '../../../app/ports/raw-data-mappers.ts';
 
 // Import processors to trigger registration
-import './register-mappers.ts';
-import type { ITransactionRepository } from '../../../app/ports/transaction-repository.ts';
-import { BaseProcessor } from '../../shared/processors/base-processor.ts';
-import { TransactionMapperFactory } from '../../shared/processors/processor-registry.ts';
+import './register-mappers.js';
+import { type Result, err, ok } from 'neverthrow';
 
-import type { SubstrateFundFlow, SubstrateTransaction } from './substrate-types.ts';
-import { derivePolkadotAddressVariants } from './utils.ts';
+import { BaseProcessor } from '../../shared/processors/base-processor.js';
+import { TransactionMapperFactory } from '../../shared/processors/processor-registry.js';
+
+import type { SubstrateFundFlow, SubstrateTransaction } from './substrate-types.js';
+import { derivePolkadotAddressVariants } from './utils.js';
 
 /**
  * Substrate transaction processor that converts raw blockchain transaction data

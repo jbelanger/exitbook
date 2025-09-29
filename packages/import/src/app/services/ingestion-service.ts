@@ -2,16 +2,16 @@ import type { UniversalTransaction } from '@crypto/core';
 import { type StoredRawData } from '@crypto/data';
 import type { Logger } from '@crypto/shared-logger';
 import { getLogger } from '@crypto/shared-logger';
+import type { ImportParams } from '@exitbook/import/app/ports/importers.ts';
 
-import type { ImportResult } from '../../index.ts';
-import type { IBlockchainNormalizer } from '../ports/blockchain-normalizer.ts';
-import type { IImportSessionRepository } from '../ports/import-session-repository.ts';
-import type { IImporterFactory } from '../ports/importer-factory.ts';
-import type { ApiClientRawData, ImportParams } from '../ports/importers.ts';
-import type { IProcessorFactory } from '../ports/processor-factory.ts';
-import type { ProcessResult, ProcessingImportSession, ImportSessionMetadata } from '../ports/processors.ts';
-import type { IRawDataRepository, LoadRawDataFilters } from '../ports/raw-data-repository.ts';
-import type { ITransactionRepository } from '../ports/transaction-repository.ts';
+import type { ImportResult } from '../../index.js';
+import type { IBlockchainNormalizer } from '../ports/blockchain-normalizer.js';
+import type { IImportSessionRepository } from '../ports/import-session-repository.js';
+import type { IImporterFactory } from '../ports/importer-factory.js';
+import type { IProcessorFactory } from '../ports/processor-factory.js';
+import type { ProcessResult, ProcessingImportSession, ImportSessionMetadata } from '../ports/processors.js';
+import type { IRawDataRepository, LoadRawDataFilters } from '../ports/raw-data-repository.js';
+import type { ITransactionRepository } from '../ports/transaction-repository.js';
 
 /**
  * Manages the ETL pipeline for cryptocurrency transaction data.
@@ -89,6 +89,10 @@ export class TransactionIngestionService {
 
       // Create importer - provider management now fully encapsulated in infrastructure
       const importer = await this.importerFactory.create(sourceId, sourceType, params.providerId);
+
+      if (!importer) {
+        throw new Error(`No importer found for source ${sourceId} of type ${sourceType}`);
+      }
 
       // Validate source before import
       const isValidSource = await importer.canImport(params);

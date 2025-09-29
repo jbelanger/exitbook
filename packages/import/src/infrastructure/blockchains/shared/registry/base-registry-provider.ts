@@ -93,12 +93,12 @@ export abstract class BaseRegistryProvider implements IBlockchainProvider {
    * Useful for providers that need special URL formatting or headers
    */
   protected reinitializeHttpClient(config: {
-    baseUrl?: string;
-    defaultHeaders?: Record<string, string>;
-    providerName?: string;
-    rateLimit?: RateLimitConfig;
-    retries?: number;
-    timeout?: number;
+    baseUrl?: string | undefined;
+    defaultHeaders?: Record<string, string> | undefined;
+    providerName?: string | undefined;
+    rateLimit?: RateLimitConfig | undefined;
+    retries?: number | undefined;
+    timeout?: number | undefined;
   }): void {
     const clientConfig = {
       baseUrl: config.baseUrl || this.baseUrl,

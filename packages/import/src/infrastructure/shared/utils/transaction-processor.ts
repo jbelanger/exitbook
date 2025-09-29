@@ -6,23 +6,23 @@ import { Decimal } from 'decimal.js';
 
 // CCXT Transaction interface based on commonly used properties
 export interface CCXTTransaction {
-  amount?: number;
-  cost?: number;
-  currency?: string;
-  datetime?: string;
+  amount?: number | undefined;
+  cost?: number | undefined;
+  currency?: string | undefined;
+  datetime?: string | undefined;
   fee?: {
-    cost?: number;
-    currency?: string;
+    cost?: number | undefined;
+    currency?: string | undefined;
   };
-  id?: string;
-  info?: Record<string, unknown>;
-  price?: number;
-  side?: string;
-  status?: string;
-  symbol?: string;
-  timestamp?: number;
-  txid?: string;
-  type?: string;
+  id?: string | undefined;
+  info?: Record<string, unknown> | undefined;
+  price?: number | undefined;
+  side?: string | undefined;
+  status?: string | undefined;
+  symbol?: string | undefined;
+  timestamp?: number | undefined;
+  txid?: string | undefined;
+  type?: string | undefined;
 }
 
 /**

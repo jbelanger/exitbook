@@ -1,16 +1,16 @@
 import type { TransactionType, UniversalTransaction } from '@crypto/core';
 import type { StoredRawData } from '@crypto/data';
 import { createMoney } from '@crypto/shared-utils';
+import type { ImportSessionMetadata } from '@exitbook/import/app/ports/processors.js';
+import type { UniversalBlockchainTransaction } from '@exitbook/import/app/ports/raw-data-mappers.js';
+import type { ITransactionRepository } from '@exitbook/import/app/ports/transaction-repository.js';
 import { type Result, err, ok } from 'neverthrow';
 
-import type { ImportSessionMetadata } from '../../../app/ports/processors.ts';
-import type { UniversalBlockchainTransaction } from '../../../app/ports/raw-data-mappers.ts';
-import type { ITransactionRepository } from '../../../app/ports/transaction-repository.ts';
-import { BaseProcessor } from '../../shared/processors/base-processor.ts';
-import { TransactionMapperFactory } from '../../shared/processors/processor-registry.ts';
+import { BaseProcessor } from '../../shared/processors/base-processor.js';
+import { TransactionMapperFactory } from '../../shared/processors/processor-registry.js';
 
-import type { SolanaAccountChange, SolanaFundFlow, SolanaTokenChange, SolanaTransaction } from './types.ts';
-import './register-mappers.ts';
+import type { SolanaAccountChange, SolanaFundFlow, SolanaTokenChange, SolanaTransaction } from './types.js';
+import './register-mappers.js';
 
 /**
  * Solana transaction processor that converts raw blockchain transaction data
@@ -417,7 +417,7 @@ export class SolanaTransactionProcessor extends BaseProcessor {
       'Stake11111111111111111111111111111111111112', // Stake Program
     ];
 
-    return instructions.some((instruction) => stakingPrograms.includes(instruction.programId));
+    return instructions.some((instruction) => instruction.programId && stakingPrograms.includes(instruction.programId));
   }
 
   /**
@@ -432,7 +432,7 @@ export class SolanaTransactionProcessor extends BaseProcessor {
       '5quBtoiQqxF9Jv6KYKctB59NT3gtJD2Y65kdnB1Uev3h', // Raydium
     ];
 
-    return instructions.some((instruction) => dexPrograms.includes(instruction.programId));
+    return instructions.some((instruction) => instruction.programId && dexPrograms.includes(instruction.programId));
   }
 
   /**
@@ -446,6 +446,6 @@ export class SolanaTransactionProcessor extends BaseProcessor {
       'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb', // Token-2022 Program
     ];
 
-    return instructions.some((instruction) => tokenPrograms.includes(instruction.programId));
+    return instructions.some((instruction) => instruction.programId && tokenPrograms.includes(instruction.programId));
   }
 }

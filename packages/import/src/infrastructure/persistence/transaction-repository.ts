@@ -1,10 +1,9 @@
 import type { UniversalTransaction } from '@crypto/core';
 import type { StoredTransaction } from '@crypto/data';
-import { BaseRepository } from '@crypto/data/src/repositories/base-repository.ts';
-import type { KyselyDB } from '@crypto/data/src/storage/database.ts';
+import { BaseRepository } from '@crypto/data/src/repositories/base-repository.js';
+import type { KyselyDB } from '@crypto/data/src/storage/database.js';
+import type { ITransactionRepository } from '@exitbook/import/app/ports/transaction-repository.js';
 import type { Decimal } from 'decimal.js';
-
-import type { ITransactionRepository } from '../../app/ports/transaction-repository.ts';
 
 // Local utility function to convert Money type to database string
 function moneyToDbString(money: { amount: Decimal | number; currency: string }): string {

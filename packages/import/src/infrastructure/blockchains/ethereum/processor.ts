@@ -1,17 +1,16 @@
 import type { TransactionType, UniversalTransaction } from '@crypto/core';
 import type { StoredRawData } from '@crypto/data';
 import { createMoney } from '@crypto/shared-utils';
+import type { ImportSessionMetadata } from '@exitbook/import/app/ports/processors.js';
+import type { ITransactionRepository } from '@exitbook/import/app/ports/transaction-repository.js';
 import { type Result, err, ok } from 'neverthrow';
 
-import type { ImportSessionMetadata } from '../../../app/ports/processors.ts';
-import type { ITransactionRepository } from '../../../app/ports/transaction-repository.ts';
-
 // Import processors to trigger registration
-import './register-mappers.ts';
-import { BaseProcessor } from '../../shared/processors/base-processor.ts';
-import { TransactionMapperFactory } from '../../shared/processors/processor-registry.ts';
+import './register-mappers.js';
+import { BaseProcessor } from '../../shared/processors/base-processor.js';
+import { TransactionMapperFactory } from '../../shared/processors/processor-registry.js';
 
-import type { EthereumFundFlow, EthereumTransaction } from './types.ts';
+import type { EthereumFundFlow, EthereumTransaction } from './types.js';
 
 /**
  * Ethereum transaction processor that converts raw blockchain transaction data

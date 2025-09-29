@@ -30,7 +30,7 @@ export interface ImportSessionMetadata {
   address?: string | undefined;
 
   // Bitcoin xpub-derived addresses for multi-address wallets
-  derivedAddresses?: string[];
+  derivedAddresses?: string[] | undefined;
 }
 
 /**

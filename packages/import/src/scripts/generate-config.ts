@@ -7,8 +7,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 // Import all providers to trigger registration
-import '../blockchains/registry/register-apis.ts';
-import { ProviderRegistry } from '../infrastructure/blockchains/shared/registry/index.ts';
+import '../blockchains/registry/register-apis.js';
+import { ProviderRegistry } from '../infrastructure/blockchains/shared/registry/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -39,8 +39,8 @@ function generateConfiguration(): void {
       explorers: {
         enabled: boolean;
         name: string;
-        networks?: Record<string, unknown>;
-        priority?: number;
+        networks?: Record<string, unknown> | undefined;
+        priority?: number | undefined;
       }[];
     }
   > = {};
@@ -52,11 +52,11 @@ function generateConfiguration(): void {
 
         const explorerConfig: {
           [key: string]: unknown;
-          capabilities?: Record<string, unknown>;
+          capabilities?: Record<string, unknown> | undefined;
           enabled: boolean;
           name: string;
-          networks?: Record<string, unknown>;
-          priority?: number;
+          networks?: Record<string, unknown> | undefined;
+          priority?: number | undefined;
         } = {
           displayName: provider.displayName,
           enabled: index === 0, // Enable first provider by default
@@ -147,7 +147,7 @@ function generateConfiguration(): void {
 
       console.log(`${blockchain.toUpperCase()}:`);
       console.log(`  Providers: ${explorers.length} (${enabled.length} enabled)`);
-      console.log(`  Default: ${enabled.length > 0 ? enabled[0].name : 'none'}`);
+      console.log(`  Default: ${enabled.length > 0 && enabled[0] ? enabled[0].name : 'none'}`);
       console.log('');
     }
 

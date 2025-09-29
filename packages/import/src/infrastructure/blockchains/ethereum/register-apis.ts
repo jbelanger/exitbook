@@ -1,3 +1,3 @@
 // Import all Ethereum API clients to trigger their registration
-import './alchemy/alchemy.api-client.ts';
-import './moralis/moralis.api-client.ts';
+import './alchemy/alchemy.api-client.js';
+import './moralis/moralis.api-client.js';

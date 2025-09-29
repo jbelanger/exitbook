@@ -7,8 +7,8 @@ export interface AvalancheTransaction {
   amount: string; // Amount in wei (for AVAX) or token units (for tokens)
 
   // Block context
-  blockHeight?: number;
-  blockId?: string;
+  blockHeight?: number | undefined;
+  blockId?: string | undefined;
   currency: string; // 'AVAX' for native transfers, token symbol for token transfers
 
   // Fee information (always in AVAX)
@@ -18,9 +18,9 @@ export interface AvalancheTransaction {
   // Transaction flow data
   from: string;
   functionName?: string; // For contract calls
-  gasPrice?: string;
+  gasPrice?: string | undefined;
 
-  gasUsed?: string;
+  gasUsed?: string | undefined;
   // Core transaction data
   id: string;
 
@@ -57,7 +57,7 @@ export interface AvalancheFundFlow {
   feeCurrency: string;
 
   // Addresses involved
-  fromAddress?: string;
+  fromAddress?: string | undefined;
   hasContractInteraction: boolean;
 
   hasInternalTransactions: boolean;
@@ -70,7 +70,7 @@ export interface AvalancheFundFlow {
   // Primary transaction amount and symbol
   primaryAmount: string;
   primarySymbol: string;
-  toAddress?: string;
+  toAddress?: string | undefined;
   // Analysis metadata
   transactionCount: number; // Number of correlated transactions
 }

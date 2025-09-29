@@ -1,8 +1,8 @@
 import { type Logger, getLogger } from '@crypto/shared-logger';
 import type { Transaction } from 'kysely';
 
-import type { DatabaseSchema } from '../schema/database-schema.ts';
-import type { KyselyDB } from '../storage/database.ts';
+import type { DatabaseSchema } from '../schema/database-schema.js';
+import type { KyselyDB } from '../storage/database.js';
 
 /**
  * Base repository class for Kysely-based database operations

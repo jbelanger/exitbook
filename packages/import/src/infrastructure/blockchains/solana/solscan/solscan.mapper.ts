@@ -1,15 +1,15 @@
 import { isErrorWithMessage } from '@crypto/shared-utils';
+import type { ImportSessionMetadata } from '@exitbook/import/app/ports/processors.js';
 import { type Result, err, ok } from 'neverthrow';
 
-import type { ImportSessionMetadata } from '../../../../app/ports/processors.ts';
-import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.ts';
-import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.ts';
-import type { SolanaAccountChange, SolanaTokenChange, SolanaTransaction } from '../types.ts';
-import { lamportsToSol } from '../utils.ts';
+import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
+import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
+import type { SolanaAccountChange, SolanaTokenChange, SolanaTransaction } from '../types.js';
+import { lamportsToSol } from '../utils.js';
 
-import type { SolscanRawTransactionData } from './solscan.api-client.ts';
-import { SolscanRawTransactionDataSchema } from './solscan.schemas.ts';
-import type { SolscanTransaction } from './solscan.types.ts';
+import type { SolscanRawTransactionData } from './solscan.api-client.js';
+import { SolscanRawTransactionDataSchema } from './solscan.schemas.js';
+import type { SolscanTransaction } from './solscan.types.js';
 
 @RegisterTransactionMapper('solscan')
 export class SolscanTransactionMapper extends BaseRawDataMapper<SolscanRawTransactionData, SolanaTransaction> {
@@ -26,6 +26,10 @@ export class SolscanTransactionMapper extends BaseRawDataMapper<SolscanRawTransa
     // For now, process the first transaction
     // TODO: Handle multiple transactions in batch properly
     const tx = rawData.normal[0];
+
+    if (tx === undefined) {
+      return err('No valid transaction found in SolscanRawTransactionData');
+    }
 
     try {
       const solanaTransaction = this.transformTransaction(tx);
@@ -131,10 +135,11 @@ export class SolscanTransactionMapper extends BaseRawDataMapper<SolscanRawTransa
     if (accountChanges.length > 1) {
       // Skip first account (fee payer) and find largest balance change
       const largestSolChange = accountChanges.slice(1).reduce((largest, change) => {
+        if (!largest) return change;
         const changeAmount = Math.abs(parseFloat(change.postBalance) - parseFloat(change.preBalance));
         const largestAmount = Math.abs(parseFloat(largest.postBalance) - parseFloat(largest.preBalance));
         return changeAmount > largestAmount ? change : largest;
-      }, accountChanges[1]);
+      }, accountChanges[1] ?? accountChanges[0]);
 
       if (largestSolChange) {
         const solAmount = Math.abs(parseFloat(largestSolChange.postBalance) - parseFloat(largestSolChange.preBalance));
@@ -143,7 +148,7 @@ export class SolscanTransactionMapper extends BaseRawDataMapper<SolscanRawTransa
           primaryCurrency: 'SOL',
         };
       }
-    } else if (accountChanges.length === 1) {
+    } else if (accountChanges.length === 1 && accountChanges[0]) {
       // Only one account change (probably fee-only transaction)
       const solAmount = Math.abs(parseFloat(accountChanges[0].postBalance) - parseFloat(accountChanges[0].preBalance));
       return {

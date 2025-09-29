@@ -1,8 +1,8 @@
-import { RegisterApiClient } from '../../shared/registry/decorators.ts';
+import { RegisterApiClient } from '../../shared/registry/decorators.js';
 
-import { BaseSubstrateApiClient } from './substrate.api-client.base.ts';
-import type { SubscanTransfersResponse } from './substrate.types.ts';
-import { SUBSTRATE_CHAINS } from './substrate.types.ts';
+import { BaseSubstrateApiClient } from './substrate.api-client.base.js';
+import type { SubscanTransfersResponse } from './substrate.types.js';
+import { SUBSTRATE_CHAINS } from './substrate.types.js';
 
 @RegisterApiClient({
   blockchain: 'polkadot',

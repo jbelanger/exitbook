@@ -1,10 +1,10 @@
 import type { HttpClient } from '@crypto/shared-utils';
 import { maskAddress } from '@crypto/shared-utils';
 
-import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.ts';
-import type { JsonRpcResponse } from '../../shared/types.ts';
-import type { ProviderOperation } from '../../shared/types.ts';
-import { isValidSS58Address } from '../utils.ts';
+import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.js';
+import type { JsonRpcResponse } from '../../shared/types.js';
+import type { ProviderOperation } from '../../shared/types.js';
+import { isValidSS58Address } from '../utils.js';
 
 import type {
   SubscanAccountResponse,
@@ -19,7 +19,7 @@ import type {
  */
 export abstract class BaseSubstrateApiClient extends BaseRegistryProvider {
   protected readonly chainConfig: SubstrateChainConfig;
-  private readonly rpcClient?: HttpClient;
+  private readonly rpcClient?: HttpClient | undefined;
   constructor(blockchain: string, providerName: string, network: string, chainConfig: SubstrateChainConfig) {
     super(blockchain, providerName, network);
     this.chainConfig = chainConfig;
@@ -28,6 +28,17 @@ export abstract class BaseSubstrateApiClient extends BaseRegistryProvider {
       `Initialized ${this.constructor.name} - Network: ${network}, BaseUrl: ${this.baseUrl}, DisplayName: ${chainConfig.displayName}, TokenSymbol: ${chainConfig.tokenSymbol}, Ss58Format: ${chainConfig.ss58Format}`
     );
   }
+
+  /**
+   * Abstract method for chain-specific health check implementation.
+   */
+  protected abstract testExplorerApi(): Promise<boolean>;
+
+  /**
+   * Abstract method for chain-specific transaction fetching from explorer APIs.
+   * Each chain should implement this according to their specific API format.
+   */
+  protected abstract getTransactionsFromExplorer(address: string, since?: number): Promise<unknown> | undefined;
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
     this.logger.debug(
@@ -55,12 +66,6 @@ export abstract class BaseSubstrateApiClient extends BaseRegistryProvider {
       throw error;
     }
   }
-
-  /**
-   * Abstract method for chain-specific transaction fetching from explorer APIs.
-   * Each chain should implement this according to their specific API format.
-   */
-  protected abstract getTransactionsFromExplorer(address: string, since?: number): Promise<unknown>;
 
   async isHealthy(): Promise<boolean> {
     try {
@@ -236,9 +241,9 @@ export abstract class BaseSubstrateApiClient extends BaseRegistryProvider {
     try {
       const response = await this.rpcClient.post<
         JsonRpcResponse<{
-          ss58Format?: number;
-          tokenDecimals?: number[];
-          tokenSymbol?: string[];
+          ss58Format?: number | undefined;
+          tokenDecimals?: number[] | undefined;
+          tokenSymbol?: string[] | undefined;
         }>
       >('', {
         id: 1,
@@ -252,9 +257,4 @@ export abstract class BaseSubstrateApiClient extends BaseRegistryProvider {
       return false;
     }
   }
-
-  /**
-   * Abstract method for chain-specific health check implementation.
-   */
-  protected abstract testExplorerApi(): Promise<boolean>;
 }

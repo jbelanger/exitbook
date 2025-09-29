@@ -1,3 +1,3 @@
 // Import processors to trigger registration
-import './alchemy/alchemy.mapper.ts';
-import './moralis/moralis.mapper.ts';
+import './alchemy/alchemy.mapper.js';
+import './moralis/moralis.mapper.js';

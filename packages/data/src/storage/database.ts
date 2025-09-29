@@ -6,7 +6,7 @@ import Database from 'better-sqlite3';
 import { Decimal } from 'decimal.js';
 import { Kysely, SqliteDialect } from 'kysely';
 
-import type { DatabaseSchema } from '../schema/database-schema.ts';
+import type { DatabaseSchema } from '../schema/database-schema.js';
 
 const logger = getLogger('KyselyDatabase');
 

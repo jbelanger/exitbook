@@ -3,7 +3,7 @@ import os from 'node:os';
 
 import pino from 'pino';
 
-import { logLevelsSchema, validateLoggerEnv } from './env.schema.ts';
+import { logLevelsSchema, validateLoggerEnv } from './env.schema.js';
 
 // Validate environment variables
 const env = validateLoggerEnv(process.env);

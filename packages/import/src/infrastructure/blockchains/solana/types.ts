@@ -4,12 +4,12 @@
 export interface SolanaTokenBalance {
   accountIndex: number;
   mint: string;
-  owner?: string;
-  programId?: string;
+  owner?: string | undefined;
+  programId?: string | undefined;
   uiTokenAmount: {
     amount: string;
     decimals: number;
-    uiAmount?: number;
+    uiAmount?: number | undefined;
     uiAmountString: string;
   };
 }
@@ -19,7 +19,7 @@ export interface SolanaTokenBalance {
  */
 export interface SolanaAccountChange {
   account: string;
-  owner?: string; // Account owner
+  owner?: string | undefined; // Account owner
   postBalance: string; // Balance in lamports after transaction
   preBalance: string; // Balance in lamports before transaction
 }
@@ -31,10 +31,10 @@ export interface SolanaTokenChange {
   account: string; // Token account address
   decimals: number; // Token decimals
   mint: string; // Token mint address
-  owner?: string; // Token account owner
+  owner?: string | undefined; // Token account owner
   postAmount: string; // Token amount after transaction
   preAmount: string; // Token amount before transaction
-  symbol?: string; // Token symbol if known
+  symbol?: string | undefined; // Token symbol if known
 }
 
 /**
@@ -43,22 +43,22 @@ export interface SolanaTokenChange {
  */
 export interface SolanaTransaction {
   // Balance change data for accurate fund flow analysis
-  accountChanges?: SolanaAccountChange[]; // SOL balance changes for all accounts
+  accountChanges?: SolanaAccountChange[] | undefined; // SOL balance changes for all accounts
 
   // Value information
   amount: string; // Amount in lamports (for SOL) or token units (for SPL tokens)
 
   // Block context
-  blockHeight?: number; // For compatibility, maps to slot
-  blockId?: string;
+  blockHeight?: number | undefined; // For compatibility, maps to slot
+  blockId?: string | undefined;
 
   // Solana-specific transaction data
-  computeUnitsConsumed?: number; // Compute units used
+  computeUnitsConsumed?: number | undefined; // Compute units used
   currency: string; // 'SOL' for native transfers, token symbol for token transfers
 
   // Fee information (always in SOL)
-  feeAmount?: string; // Fee in lamports
-  feeCurrency?: string; // Always 'SOL'
+  feeAmount?: string | undefined; // Fee in lamports
+  feeCurrency?: string | undefined; // Always 'SOL'
 
   // Transaction flow data
   from: string;
@@ -67,24 +67,24 @@ export interface SolanaTransaction {
   id: string;
 
   // Instruction-level data
-  innerInstructions?: SolanaInstruction[]; // Cross-program invocations
-  instructions?: SolanaInstruction[]; // All instructions in the transaction
-  logMessages?: string[]; // Transaction log messages
+  innerInstructions?: SolanaInstruction[] | undefined; // Cross-program invocations
+  instructions?: SolanaInstruction[] | undefined; // All instructions in the transaction
+  logMessages?: string[] | undefined; // Transaction log messages
   providerId: string;
-  signature?: string; // Transaction signature
+  signature?: string | undefined; // Transaction signature
 
   // Solana uses slots instead of block numbers
-  slot?: number;
+  slot?: number | undefined;
   status: 'success' | 'failed' | 'pending';
   timestamp: number;
 
   // Token-specific information (for SPL token transfers)
   to: string;
-  tokenAccount?: string; // User's token account address
-  tokenAddress?: string; // Mint address for SPL tokens
-  tokenChanges?: SolanaTokenChange[]; // SPL token balance changes
-  tokenDecimals?: number; // Token decimals
-  tokenSymbol?: string; // Token symbol
+  tokenAccount?: string | undefined; // User's token account address
+  tokenAddress?: string | undefined; // Mint address for SPL tokens
+  tokenChanges?: SolanaTokenChange[] | undefined; // SPL token balance changes
+  tokenDecimals?: number | undefined; // Token decimals
+  tokenSymbol?: string | undefined; // Token symbol
 
   // Transaction type classification (basic, will be refined by processor)
   type: 'transfer' | 'token_transfer' | 'stake' | 'unstake' | 'swap' | 'other';
@@ -94,11 +94,11 @@ export interface SolanaTransaction {
  * Solana instruction data
  */
 export interface SolanaInstruction {
-  accounts?: string[]; // Accounts involved in the instruction
-  data?: string; // Raw instruction data
-  instructionType?: string; // Type of instruction (transfer, swap, etc.)
-  programId: string; // Program that executed the instruction
-  programName?: string; // Human-readable program name
+  accounts?: string[] | undefined; // Accounts involved in the instruction
+  data?: string | undefined; // Raw instruction data
+  instructionType?: string | undefined; // Type of instruction (transfer, swap, etc.)
+  programId: string | undefined; // Program that executed the instruction
+  programName?: string | undefined; // Human-readable program name
 }
 
 /**
@@ -106,7 +106,7 @@ export interface SolanaInstruction {
  */
 export interface SolanaFundFlow {
   // Analysis metadata
-  computeUnitsUsed?: number; // Compute units consumed
+  computeUnitsUsed?: number | undefined; // Compute units consumed
 
   // Token information
   currency: string; // SOL or SPL token symbol
@@ -117,7 +117,7 @@ export interface SolanaFundFlow {
   feePaidByUser: boolean; // Whether the user paid the transaction fee
 
   // Addresses involved
-  fromAddress?: string;
+  fromAddress?: string | undefined;
 
   // Solana-specific analysis
   hasMultipleInstructions: boolean;
@@ -136,8 +136,8 @@ export interface SolanaFundFlow {
   // Primary transaction amount and symbol
   primaryAmount: string;
   primarySymbol: string;
-  toAddress?: string;
-  tokenAccount?: string; // For SPL token transfers
+  toAddress?: string | undefined;
+  tokenAccount?: string | undefined; // For SPL token transfers
 
   // Total transaction amount
   totalAmount: string;
@@ -145,9 +145,9 @@ export interface SolanaFundFlow {
 
 // Solana RPC API response types for Helius provider
 export interface SolanaSignature {
-  blockTime?: number;
+  blockTime?: number | undefined;
   err?: unknown;
-  memo?: string;
+  memo?: string | undefined;
   signature: string;
   slot: number;
 }
@@ -166,7 +166,7 @@ export interface SolanaTokenAccount {
           tokenAmount: {
             amount: string;
             decimals: number;
-            uiAmount?: number;
+            uiAmount?: number | undefined;
             uiAmountString: string;
           };
         };

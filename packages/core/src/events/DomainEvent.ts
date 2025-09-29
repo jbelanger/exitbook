@@ -7,6 +7,6 @@
 export interface DomainEvent {
   readonly requestId: string;
   readonly timestamp: string;
-  readonly transactionId?: string;
+  readonly transactionId?: string | undefined;
   readonly type: string;
 }

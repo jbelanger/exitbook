@@ -11,18 +11,18 @@ export interface MempoolTransaction {
 }
 
 export interface MempoolInput {
-  prevout?: MempoolPrevout;
+  prevout?: MempoolPrevout | undefined;
   scriptsig: string;
   scriptsig_asm: string;
   sequence: number;
   txid: string;
   vout: number;
-  witness?: string[];
+  witness?: string[] | undefined;
 }
 
 export interface MempoolPrevout {
   scriptpubkey: string;
-  scriptpubkey_address?: string;
+  scriptpubkey_address?: string | undefined;
   scriptpubkey_asm: string;
   scriptpubkey_type: string;
   value: number;
@@ -30,16 +30,16 @@ export interface MempoolPrevout {
 
 export interface MempoolOutput {
   scriptpubkey: string;
-  scriptpubkey_address?: string;
+  scriptpubkey_address?: string | undefined;
   scriptpubkey_asm: string;
   scriptpubkey_type: string;
   value: number;
 }
 
 export interface MempoolTransactionStatus {
-  block_hash?: string;
-  block_height?: number;
-  block_time?: number;
+  block_hash?: string | undefined;
+  block_height?: number | undefined;
+  block_time?: number | undefined;
   confirmed: boolean;
 }
 

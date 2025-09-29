@@ -1,13 +1,13 @@
+import type { ImportSessionMetadata } from '@exitbook/import/app/ports/processors.js';
 import { Decimal } from 'decimal.js';
 import { ok, type Result } from 'neverthrow';
 
-import type { ImportSessionMetadata } from '../../../../app/ports/processors.ts';
-import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.ts';
-import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.ts';
-import type { BitcoinTransaction, BitcoinTransactionInput, BitcoinTransactionOutput } from '../types.ts';
+import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
+import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
+import type { BitcoinTransaction, BitcoinTransactionInput, BitcoinTransactionOutput } from '../types.js';
 
-import { BlockCypherTransactionSchema } from './blockcypher.schemas.ts';
-import type { BlockCypherTransaction } from './blockcypher.types.ts';
+import { BlockCypherTransactionSchema } from './blockcypher.schemas.js';
+import type { BlockCypherTransaction } from './blockcypher.types.js';
 
 @RegisterTransactionMapper('blockcypher')
 export class BlockCypherTransactionMapper extends BaseRawDataMapper<BlockCypherTransaction, BitcoinTransaction> {

@@ -6,12 +6,12 @@
 // Import all providers to trigger registration
 import { loadExplorerConfig } from '@crypto/shared-utils';
 
-import '../blockchains/registry/register-apis.ts';
-import { ProviderRegistry } from '../infrastructure/blockchains/shared/registry/index.ts';
+import '../blockchains/registry/register-apis.js';
+import { ProviderRegistry } from '../infrastructure/blockchains/shared/registry/index.js';
 
 interface ConfigValidationOptions {
-  fix?: boolean;
-  verbose?: boolean;
+  fix?: boolean | undefined;
+  verbose?: boolean | undefined;
 }
 
 function validateConfiguration(options: ConfigValidationOptions = {}): void {

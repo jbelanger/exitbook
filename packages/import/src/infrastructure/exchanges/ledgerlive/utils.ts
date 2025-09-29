@@ -17,8 +17,8 @@ export type ValidatedCsvLedgerLiveOperationRow = z.infer<typeof CsvLedgerLiveOpe
  * Validation result for individual row validation
  */
 export interface LedgerLiveCsvValidationResult {
-  data?: ValidatedCsvLedgerLiveOperationRow;
-  errors?: z.ZodError;
+  data?: ValidatedCsvLedgerLiveOperationRow | undefined;
+  errors?: z.ZodError | undefined;
   success: boolean;
 }
 

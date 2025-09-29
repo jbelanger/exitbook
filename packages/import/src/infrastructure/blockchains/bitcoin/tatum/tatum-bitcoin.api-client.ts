@@ -1,11 +1,11 @@
 import { maskAddress } from '@crypto/shared-utils';
 
-import { TatumApiClientBase } from '../../shared/api/TatumApiClientBase.ts';
-import { RegisterApiClient } from '../../shared/registry/decorators.ts';
-import type { ProviderOperation } from '../../shared/types.ts';
-import type { AddressInfo } from '../types.ts';
+import { TatumApiClientBase } from '../../shared/api/TatumApiClientBase.js';
+import { RegisterApiClient } from '../../shared/registry/decorators.js';
+import type { ProviderOperation } from '../../shared/types.js';
+import type { AddressInfo } from '../types.js';
 
-import type { TatumBitcoinTransaction, TatumBitcoinBalance } from './tatum.types.ts';
+import type { TatumBitcoinTransaction, TatumBitcoinBalance } from './tatum.types.js';
 
 @RegisterApiClient({
   apiKeyEnvVar: 'TATUM_API_KEY',
@@ -117,11 +117,11 @@ export class TatumBitcoinApiClient extends TatumApiClientBase<TatumBitcoinTransa
   async getRawAddressTransactions(
     address: string,
     params?: {
-      blockFrom?: number;
-      blockTo?: number;
-      offset?: number;
-      pageSize?: number;
-      txType?: 'incoming' | 'outgoing';
+      blockFrom?: number | undefined;
+      blockTo?: number | undefined;
+      offset?: number | undefined;
+      pageSize?: number | undefined;
+      txType?: 'incoming' | 'outgoing' | undefined;
     }
   ): Promise<TatumBitcoinTransaction[]> {
     this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);

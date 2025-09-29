@@ -1,1 +1,1 @@
-import './substrate/substrate.mapper.ts';
+import './substrate/substrate.mapper.js';

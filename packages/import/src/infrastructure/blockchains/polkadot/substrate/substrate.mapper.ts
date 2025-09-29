@@ -1,19 +1,19 @@
+import type { ImportSessionMetadata } from '@exitbook/import/app/ports/processors.js';
 import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
-import type { ImportSessionMetadata } from '../../../../app/ports/processors.ts';
-import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.ts';
-import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.ts';
-import type { SubstrateTransaction } from '../substrate-types.ts';
+import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
+import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
+import type { SubstrateTransaction } from '../substrate-types.js';
 
-import { SubscanTransferSchema } from './substrate.schemas.ts';
+import { SubscanTransferSchema } from './substrate.schemas.js';
+import { SUBSTRATE_CHAINS } from './substrate.types.js';
 import type {
   SubscanTransfer,
   SubstrateAccountInfo,
   SubstrateChainConfig,
   TaostatsTransaction,
 } from './substrate.types.ts';
-import { SUBSTRATE_CHAINS } from './substrate.types.ts';
 
 @RegisterTransactionMapper('subscan')
 export class SubstrateTransactionMapper extends BaseRawDataMapper<SubscanTransfer, SubstrateTransaction> {
@@ -28,6 +28,10 @@ export class SubstrateTransactionMapper extends BaseRawDataMapper<SubscanTransfe
     const addresses = sessionContext.derivedAddresses || (sessionContext.address ? [sessionContext.address] : []);
     const relevantAddresses = new Set(addresses);
     const chainConfig = SUBSTRATE_CHAINS['polkadot'];
+
+    if (!chainConfig) {
+      return err(`Unsupported Substrate chain in SubscanTransactionMapper`);
+    }
 
     // Check if transaction involves any of our addresses
     const isFromUser = relevantAddresses.has(rawData.from);

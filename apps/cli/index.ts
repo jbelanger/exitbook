@@ -3,13 +3,21 @@ import path from 'node:path';
 
 import { type BalanceVerificationResult, BalanceVerifier } from '@crypto/balance';
 import 'reflect-metadata';
-import { BalanceService } from '@crypto/balance/src/app/services/balance-service';
-import { BalanceRepository } from '@crypto/balance/src/infrastructure/persistence/balance-repository';
+import { BalanceService } from '@crypto/balance/src/app/services/balance-service.ts';
+import { BalanceRepository } from '@crypto/balance/src/infrastructure/persistence/balance-repository.ts';
 import { createDatabase, clearDatabase, closeDatabase, type StoredTransaction } from '@crypto/data';
-import { BlockchainProviderManager, DefaultNormalizer, TransactionIngestionService } from '@crypto/import';
-import { ImportSessionRepository } from '@crypto/import/src/infrastructure/persistence/import-session-repository';
-import { RawDataRepository } from '@crypto/import/src/infrastructure/persistence/raw-data-repository';
-import { TransactionRepository } from '@crypto/import/src/infrastructure/persistence/transaction-repository';
+import {
+  BlockchainProviderManager,
+  DefaultNormalizer,
+  TransactionIngestionService,
+  ImportSessionRepository,
+  RawDataRepository,
+  TransactionRepository,
+  ImporterFactory,
+  ProcessorFactory,
+  ProviderRegistry,
+  type ProviderInfo,
+} from '@crypto/import';
 import { getLogger } from '@crypto/shared-logger';
 import { initializeDatabase, loadExplorerConfig } from '@crypto/shared-utils';
 import { Command } from 'commander';
@@ -19,45 +27,45 @@ const program = new Command();
 
 // Command option types
 interface VerifyOptions {
-  blockchain?: string;
-  exchange?: string;
-  report?: boolean;
+  blockchain?: string | undefined;
+  exchange?: string | undefined;
+  report?: boolean | undefined;
 }
 
 interface StatusOptions {
-  clearDb?: boolean;
-  config?: string;
+  clearDb?: boolean | undefined;
+  config?: string | undefined;
 }
 
 interface ExportOptions {
-  clearDb?: boolean;
-  exchange?: string;
-  format?: string;
-  output?: string;
-  since?: string;
+  clearDb?: boolean | undefined;
+  exchange?: string | undefined;
+  format?: string | undefined;
+  output?: string | undefined;
+  since?: string | undefined;
 }
 
 interface ImportOptions {
-  address?: string;
-  blockchain?: string;
-  clearDb?: boolean;
-  config?: string;
-  csvDir?: string;
-  exchange?: string;
-  process?: boolean;
-  provider?: string;
-  since?: string;
-  until?: string;
+  address?: string | undefined;
+  blockchain?: string | undefined;
+  clearDb?: boolean | undefined;
+  config?: string | undefined;
+  csvDir?: string | undefined;
+  exchange?: string | undefined;
+  process?: boolean | undefined;
+  provider?: string | undefined;
+  since?: string | undefined;
+  until?: string | undefined;
 }
 
 interface ProcessOptions {
-  all?: boolean;
-  blockchain?: string;
-  clearDb?: boolean;
-  config?: string;
-  exchange?: string;
-  session?: string;
-  since?: string;
+  all?: boolean | undefined;
+  blockchain?: string | undefined;
+  clearDb?: boolean | undefined;
+  config?: string | undefined;
+  exchange?: string | undefined;
+  session?: string | undefined;
+  since?: string | undefined;
 }
 
 async function main() {
@@ -273,14 +281,6 @@ async function main() {
         // Load explorer config for blockchain sources
         const explorerConfig = loadExplorerConfig();
 
-        // Create dependencies using factory functions
-        const { ImporterFactory } = await import(
-          '@crypto/import/src/infrastructure/shared/importers/importer-factory.ts'
-        );
-        const { ProcessorFactory } = await import(
-          '@crypto/import/src/infrastructure/shared/processors/processor-factory.ts'
-        );
-
         const transactionRepository = new TransactionRepository(database);
         const rawDataRepository = new RawDataRepository(database);
         const sessionRepository = new ImportSessionRepository(database);
@@ -401,14 +401,6 @@ async function main() {
         // Load explorer config for blockchain sources
         const explorerConfig = loadExplorerConfig();
 
-        // Create dependencies using factory functions
-        const { ImporterFactory } = await import(
-          '@crypto/import/src/infrastructure/shared/importers/importer-factory.ts'
-        );
-        const { ProcessorFactory } = await import(
-          '@crypto/import/src/infrastructure/shared/processors/processor-factory.ts'
-        );
-
         const transactionRepository = new TransactionRepository(database);
         const rawDataRepository = new RawDataRepository(database);
         const sessionRepository = new ImportSessionRepository(database);
@@ -470,7 +462,7 @@ async function main() {
   program
     .command('list-blockchains')
     .description('List all available blockchains')
-    .action(async () => {
+    .action(() => {
       try {
         logger.info('Available Blockchains:');
         logger.info('=============================');
@@ -478,30 +470,18 @@ async function main() {
         logger.info('For detailed provider information, run: pnpm run blockchain-providers:list');
         logger.info('');
 
-        // Get supported blockchains from ProcessorFactory
-        const { ProcessorFactory } = await import(
-          '@crypto/import/src/infrastructure/shared/processors/processor-factory.ts'
-        );
         const processorFactory = new ProcessorFactory();
 
         const supportedBlockchains = processorFactory.getSupportedSources('blockchain');
 
-        // Also get provider information for completeness
-        const { ProviderRegistry } = await import(
-          '@crypto/import/src/infrastructure/blockchains/shared/registry/provider-registry.ts'
-        );
-
-        // Import all providers to ensure they're registered
-        await import('@crypto/import/src/infrastructure/blockchains/registry/register-apis.ts');
-
         // Get all providers and group by blockchain
         const allProviders = ProviderRegistry.getAllProviders();
         const providersByBlockchain = allProviders.reduce(
-          (acc, provider) => {
+          (acc: Record<string, string[]>, provider: ProviderInfo) => {
             if (!acc[provider.blockchain]) {
               acc[provider.blockchain] = [];
             }
-            acc[provider.blockchain].push(provider.name);
+            (acc[provider.blockchain] ??= []).push(provider.name);
             return acc;
           },
           {} as Record<string, string[]>

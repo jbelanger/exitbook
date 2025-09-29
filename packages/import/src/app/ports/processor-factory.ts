@@ -1,4 +1,4 @@
-import type { IProcessor } from './processors.ts';
+import type { IProcessor } from './processors.js';
 
 /**
  * Port interface for creating processor instances.

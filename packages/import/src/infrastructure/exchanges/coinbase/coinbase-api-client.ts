@@ -3,9 +3,8 @@ import crypto from 'node:crypto';
 import type { RateLimitConfig } from '@crypto/core';
 import { getLogger } from '@crypto/shared-logger';
 import { HttpClient } from '@crypto/shared-utils';
+import type { ExchangeCredentials } from '@exitbook/import/app/ports/importers.js';
 import jwt from 'jsonwebtoken';
-
-import type { ExchangeCredentials } from '../../../app/ports/importers.ts';
 
 import type {
   CoinbaseAccountsParams as CoinbaseAccountsParameters,

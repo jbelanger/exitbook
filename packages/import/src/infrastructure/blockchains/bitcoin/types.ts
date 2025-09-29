@@ -6,11 +6,11 @@ export type AddressType = 'legacy' | 'segwit' | 'bech32';
 
 export interface BitcoinWalletAddress {
   address: string; // Original user-provided address (xpub or regular)
-  addressGap?: number; // Address gap used for derivation
-  addressType?: AddressType; // Detected address type
-  bipStandard?: BipStandard; // Detected BIP standard
-  derivationPath?: string; // Derivation path used
-  derivedAddresses?: string[]; // Internal derived addresses (if xpub)
+  addressGap?: number | undefined; // Address gap used for derivation
+  addressType?: AddressType | undefined; // Detected address type
+  bipStandard?: BipStandard | undefined; // Detected BIP standard
+  derivationPath?: string | undefined; // Derivation path used
+  derivedAddresses?: string[] | undefined; // Internal derived addresses (if xpub)
   type: XpubType; // Type of address
 }
 
@@ -33,12 +33,12 @@ export interface AddressInfo {
  */
 export interface BitcoinTransaction {
   // Block context
-  blockHeight?: number;
-  blockId?: string;
+  blockHeight?: number | undefined;
+  blockId?: string | undefined;
   currency: 'BTC';
   // Fee information
-  feeAmount?: string;
-  feeCurrency?: string;
+  feeAmount?: string | undefined;
+  feeCurrency?: string | undefined;
 
   // Core transaction data
   id: string;
@@ -56,17 +56,17 @@ export interface BitcoinTransaction {
  * Structured Bitcoin input data
  */
 export interface BitcoinTransactionInput {
-  address?: string; // Address that owns this input
-  txid?: string; // Previous transaction ID
+  address?: string | undefined; // Address that owns this input
+  txid?: string | undefined; // Previous transaction ID
   value: string; // Value in satoshis as string
-  vout?: number; // Previous output index
+  vout?: number | undefined; // Previous output index
 }
 
 /**
  * Structured Bitcoin output data
  */
 export interface BitcoinTransactionOutput {
-  address?: string; // Destination address
+  address?: string | undefined; // Destination address
   index: number; // Output index
   value: string; // Value in satoshis as string
 }
@@ -75,11 +75,11 @@ export interface BitcoinTransactionOutput {
  * Bitcoin fund flow analysis result
  */
 export interface BitcoinFundFlow {
-  fromAddress?: string;
+  fromAddress?: string | undefined;
   isIncoming: boolean;
   isOutgoing: boolean;
   netAmount: string;
-  toAddress?: string;
+  toAddress?: string | undefined;
   totalInput: string;
   totalOutput: string;
   walletInput: string;

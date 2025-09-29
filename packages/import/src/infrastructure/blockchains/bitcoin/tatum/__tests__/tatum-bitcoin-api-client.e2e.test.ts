@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import { TatumBitcoinApiClient } from '../tatum-bitcoin.api-client.ts';
+import { TatumBitcoinApiClient } from '../tatum-bitcoin.api-client.js';
 
 describe('TatumBitcoinApiClient E2E', () => {
   let client: TatumBitcoinApiClient;

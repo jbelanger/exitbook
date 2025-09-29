@@ -1,12 +1,12 @@
 // Substrate provider-specific API response types
 // Chain-specific configurations
 export interface SubstrateChainConfig {
-  apiKey?: string;
-  chainId?: string;
+  apiKey?: string | undefined;
+  chainId?: string | undefined;
   displayName: string;
-  explorerApiUrl?: string;
+  explorerApiUrl?: string | undefined;
   explorerUrls: string[];
-  genesisHash?: string;
+  genesisHash?: string | undefined;
   name: string;
   rpcEndpoints: string[];
   ss58Format: number;
@@ -68,14 +68,14 @@ export interface SubstrateTransaction {
   blockHash: string;
   blockNumber: number;
   call: string;
-  events?: SubstrateEvent[];
+  events?: SubstrateEvent[] | undefined;
   fee: string;
   from: string;
   hash: string;
   module: string;
   success: boolean;
   timestamp: number;
-  to?: string;
+  to?: string | undefined;
 }
 
 export interface SubstrateEvent {
@@ -128,13 +128,13 @@ export interface SubstrateBlock {
 // Substrate RPC methods
 export interface SubstrateRPCMethods {
   // Chain methods
-  chain_getBlock: (blockHash?: string) => Promise<SubstrateBlock>;
-  chain_getBlockHash: (blockNumber?: number) => Promise<string>;
+  chain_getBlock: (blockHash?: string) => Promise<SubstrateBlock> | undefined;
+  chain_getBlockHash: (blockNumber?: number) => Promise<string> | undefined;
 
   chain_getFinalizedHead: () => Promise<string>;
-  state_call: (method: string, data: string, blockHash?: string) => Promise<string>;
+  state_call: (method: string, data: string, blockHash?: string) => Promise<string> | undefined;
   // State methods
-  state_getStorage: (key: string, blockHash?: string) => Promise<string>;
+  state_getStorage: (key: string, blockHash?: string) => Promise<string> | undefined;
 
   // System methods
   system_account: (address: string) => Promise<SubstrateAccountInfo>;
@@ -173,7 +173,7 @@ export interface TaostatsTransaction {
   block_hash: string;
   block_number: number;
   confirmations: number;
-  fee?: string;
+  fee?: string | undefined;
   from: string;
   hash: string;
   success: boolean;
@@ -211,7 +211,7 @@ export interface TaostatsBalanceResponse {
 export interface SubscanAccountResponse {
   code: number;
   data?: {
-    balance?: string;
-    reserved?: string;
+    balance?: string | undefined;
+    reserved?: string | undefined;
   };
 }

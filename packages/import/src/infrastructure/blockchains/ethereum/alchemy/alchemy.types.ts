@@ -1,47 +1,47 @@
 // Alchemy API response types
 export interface AlchemyAssetTransferParams {
   category: string[];
-  contractAddresses?: string[];
+  contractAddresses?: string[] | undefined;
   excludeZeroValue: boolean;
-  fromAddress?: string;
-  fromBlock?: string;
+  fromAddress?: string | undefined;
+  fromBlock?: string | undefined;
   maxCount: string;
-  order?: string;
-  pageKey?: string;
-  toAddress?: string;
-  toBlock?: string;
+  order?: string | undefined;
+  pageKey?: string | undefined;
+  toAddress?: string | undefined;
+  toBlock?: string | undefined;
   withMetadata: boolean;
 }
 
 export interface AlchemyAssetTransfer {
-  asset?: string;
+  asset?: string | undefined;
   blockNum: string;
   category: string;
   erc1155Metadata?: {
-    tokenId?: string;
-    value?: string;
+    tokenId?: string | undefined;
+    value?: string | undefined;
   }[];
   from: string;
   hash: string;
   metadata?: {
-    blockTimestamp?: string;
+    blockTimestamp?: string | undefined;
   };
   rawContract?: {
-    address?: string;
-    decimal?: string;
+    address?: string | undefined;
+    decimal?: string | undefined;
   };
   to: string;
   value: string;
 }
 
 export interface AlchemyAssetTransfersResponse {
-  pageKey?: string;
+  pageKey?: string | undefined;
   transfers: AlchemyAssetTransfer[];
 }
 
 export interface AlchemyTokenBalance {
   contractAddress: string;
-  error?: string;
+  error?: string | undefined;
   tokenBalance: string;
 }
 
@@ -52,7 +52,7 @@ export interface AlchemyTokenBalancesResponse {
 
 export interface AlchemyTokenMetadata {
   decimals: number;
-  logo?: string;
-  name?: string;
-  symbol?: string;
+  logo?: string | undefined;
+  name?: string | undefined;
+  symbol?: string | undefined;
 }

@@ -1,17 +1,17 @@
+import type { ImportSessionMetadata } from '@exitbook/import/app/ports/processors.js';
 import { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
-import type { ImportSessionMetadata } from '../../../../app/ports/processors.ts';
-import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.ts';
-import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.ts';
+import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
+import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
 import type {
   BitcoinTransactionInput,
   BitcoinTransactionOutput,
   BitcoinTransaction as BitcoinTransaction,
 } from '../types.ts';
 
-import { BlockchainComTransactionSchema } from './blockchain-com.schemas.ts';
-import type { BlockchainComTransaction } from './blockchain-com.types.ts';
+import { BlockchainComTransactionSchema } from './blockchain-com.schemas.js';
+import type { BlockchainComTransaction } from './blockchain-com.types.js';
 
 @RegisterTransactionMapper('blockchain.com')
 export class BlockchainComTransactionMapper extends BaseRawDataMapper<BlockchainComTransaction, BitcoinTransaction> {

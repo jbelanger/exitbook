@@ -1,8 +1,7 @@
-import { BaseRepository } from '@crypto/data/src/repositories/base-repository.ts';
-import type { KyselyDB } from '@crypto/data/src/storage/database.ts';
-import type { NewWalletAddress, WalletAddressUpdate, WalletAddress } from '@crypto/data/src/types/data-types.ts';
-
-import type { IWalletRepository } from '../../app/ports/wallet-repository.ts';
+import { BaseRepository } from '@crypto/data/src/repositories/base-repository.js';
+import type { KyselyDB } from '@crypto/data/src/storage/database.js';
+import type { NewWalletAddress, WalletAddressUpdate, WalletAddress } from '@crypto/data/src/types/data-types.js';
+import type { IWalletRepository } from '@exitbook/import/app/ports/wallet-repository.js';
 
 /**
  * Kysely-based repository for wallet address database operations.

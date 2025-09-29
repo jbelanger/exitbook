@@ -1,7 +1,7 @@
+import type { ImportSessionMetadata } from '@exitbook/import/app/ports/processors.js';
 import { type Result, err, ok } from 'neverthrow';
 
-import type { ImportSessionMetadata } from '../../../app/ports/processors.ts';
-import { TransactionMapperFactory } from '../processors/processor-registry.ts';
+import { TransactionMapperFactory } from '../processors/processor-registry.js';
 
 /**
  * DefaultNormalizer handles pure data extraction from provider-specific JSON

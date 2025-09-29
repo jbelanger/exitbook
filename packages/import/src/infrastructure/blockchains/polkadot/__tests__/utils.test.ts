@@ -87,7 +87,7 @@ describe('Polkadot Utils', () => {
       // In a real scenario, you'd use addresses derived from the same key
       const variants = derivePolkadotAddressVariants(polkadotMainnetAddress);
 
-      if (variants.length > 1) {
+      if (variants.length > 1 && variants[0] && variants[1]) {
         expect(isSamePolkadotAddress(variants[0], variants[1])).toBe(true);
       }
     });
@@ -124,7 +124,11 @@ describe('Polkadot Utils', () => {
       // All variants should be considered the same address
       for (let i = 0; i < variants.length - 1; i++) {
         for (let j = i + 1; j < variants.length; j++) {
-          expect(isSamePolkadotAddress(variants[i], variants[j])).toBe(true);
+          const address1 = variants[i];
+          const address2 = variants[j];
+          if (address1 && address2) {
+            expect(isSamePolkadotAddress(address1, address2)).toBe(true);
+          }
         }
       }
     });

@@ -25,7 +25,7 @@ export abstract class TatumApiClientBase<TTx, TBalance> extends BaseRegistryProv
   abstract getRawAddressBalance(address: string): Promise<TBalance>;
 
   // Abstract methods that each blockchain implementation must provide
-  abstract getRawAddressTransactions(address: string, params?: Record<string, unknown>): Promise<TTx[]>;
+  abstract getRawAddressTransactions(address: string, params?: Record<string, unknown>): Promise<TTx[]> | undefined;
   async isHealthy(): Promise<boolean> {
     try {
       // Test with a simple endpoint - each blockchain should override if needed

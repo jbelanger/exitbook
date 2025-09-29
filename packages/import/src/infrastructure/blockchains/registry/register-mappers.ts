@@ -1,9 +1,9 @@
 // Import all blockchain clients to trigger their registration
 // This must be imported before using the ProviderRegistry
 // The new processor architecture uses clients instead of providers
-import '../avalanche/register-mappers.ts';
-import '../bitcoin/register-mappers.ts';
-import '../ethereum/register-mappers.ts';
-import '../injective/register-mappers.ts';
-import '../polkadot/register-mappers.ts';
-import '../solana/register-mappers.ts';
+import '../avalanche/register-mappers.js';
+import '../bitcoin/register-mappers.js';
+import '../ethereum/register-mappers.js';
+import '../injective/register-mappers.js';
+import '../polkadot/register-mappers.js';
+import '../solana/register-mappers.js';

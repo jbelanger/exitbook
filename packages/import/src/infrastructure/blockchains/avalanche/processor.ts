@@ -2,20 +2,19 @@ import type { UniversalTransaction } from '@crypto/core';
 import type { StoredRawData } from '@crypto/data';
 import { getLogger } from '@crypto/shared-logger';
 import { createMoney } from '@crypto/shared-utils';
+import type { ImportSessionMetadata } from '@exitbook/import/app/ports/processors.js';
+import type { UniversalBlockchainTransaction } from '@exitbook/import/app/ports/raw-data-mappers.js';
+import type { ITransactionRepository } from '@exitbook/import/app/ports/transaction-repository.js';
 import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
-import type { ImportSessionMetadata } from '../../../app/ports/processors.ts';
-import type { UniversalBlockchainTransaction } from '../../../app/ports/raw-data-mappers.ts';
-import type { ITransactionRepository } from '../../../app/ports/transaction-repository.ts';
-
 // Import processors to trigger registration
-import './register-mappers.ts';
-import { BaseProcessor } from '../../shared/processors/base-processor.ts';
-import { TransactionMapperFactory } from '../../shared/processors/processor-registry.ts';
+import './register-mappers.js';
+import { BaseProcessor } from '../../shared/processors/base-processor.js';
+import { TransactionMapperFactory } from '../../shared/processors/processor-registry.js';
 
-import type { AvalancheTransaction, AvalancheFundFlow } from './types.ts';
-import { AvalancheUtils } from './utils.ts';
+import type { AvalancheTransaction, AvalancheFundFlow } from './types.js';
+import { AvalancheUtils } from './utils.js';
 
 /**
  * Avalanche transaction processor that converts raw blockchain transaction data
@@ -228,7 +227,7 @@ export class AvalancheTransactionProcessor extends BaseProcessor {
       currency,
       feeAmount,
       feeCurrency: 'AVAX',
-      fromAddress,
+      fromAddress: fromAddress ?? '',
       hasContractInteraction,
       hasInternalTransactions,
       hasTokenTransfers,
@@ -236,7 +235,7 @@ export class AvalancheTransactionProcessor extends BaseProcessor {
       isOutgoing,
       primaryAmount,
       primarySymbol,
-      toAddress,
+      toAddress: toAddress ?? '',
       transactionCount: txGroup.length,
     });
   }

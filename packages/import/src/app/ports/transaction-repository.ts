@@ -27,12 +27,12 @@ export interface ITransactionRepository {
   /**
    * Get the count of transactions, optionally filtered by source.
    */
-  getTransactionCount(sourceId?: string): Promise<number>;
+  getTransactionCount(sourceId?: string): Promise<number> | undefined;
 
   /**
    * Retrieve transactions with optional filtering.
    */
-  getTransactions(sourceId?: string, since?: number): Promise<StoredTransaction[]>;
+  getTransactions(sourceId?: string, since?: number): Promise<StoredTransaction[]> | undefined;
 
   /**
    * Save a transaction to the database.

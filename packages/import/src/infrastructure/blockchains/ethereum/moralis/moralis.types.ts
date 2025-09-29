@@ -54,7 +54,7 @@ export interface MoralisTokenTransferResponse {
 export interface MoralisTokenBalance {
   balance: string;
   decimals: number;
-  logo?: string;
+  logo?: string | undefined;
   name: string;
   symbol: string;
   token_address: string;

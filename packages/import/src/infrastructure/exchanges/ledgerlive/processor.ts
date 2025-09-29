@@ -3,7 +3,7 @@ import type { StoredRawData } from '@crypto/data';
 import { createMoney, parseDecimal } from '@crypto/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
-import { BaseProcessor } from '../../shared/processors/base-processor.ts';
+import { BaseProcessor } from '../../shared/processors/base-processor.js';
 
 import type { CsvLedgerLiveOperationRow } from './types.js';
 

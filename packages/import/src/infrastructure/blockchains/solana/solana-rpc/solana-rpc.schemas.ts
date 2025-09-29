@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { SolanaTokenBalanceSchema } from '../schemas.ts';
+import { SolanaTokenBalanceSchema } from '../schemas.js';
 
 /**
  * Schema for Solana RPC transaction header

@@ -1,14 +1,14 @@
 import type { UniversalTransaction } from '@crypto/core';
 import type { StoredRawData } from '@crypto/data';
 import { createMoney } from '@crypto/shared-utils';
+import type { ImportSessionMetadata } from '@exitbook/import/app/ports/processors.js';
+import type { UniversalBlockchainTransaction } from '@exitbook/import/app/ports/raw-data-mappers.js';
 import { type Result, err, ok } from 'neverthrow';
 
-import type { ImportSessionMetadata } from '../../../app/ports/processors.ts';
-import type { UniversalBlockchainTransaction } from '../../../app/ports/raw-data-mappers.ts';
-import { BaseProcessor } from '../../shared/processors/base-processor.ts';
-import { TransactionMapperFactory } from '../../shared/processors/processor-registry.ts';
+import { BaseProcessor } from '../../shared/processors/base-processor.js';
+import { TransactionMapperFactory } from '../../shared/processors/processor-registry.js';
 
-import type { BitcoinFundFlow, BitcoinTransaction } from './types.ts';
+import type { BitcoinFundFlow, BitcoinTransaction } from './types.js';
 
 /**
  * Bitcoin transaction processor that converts raw blockchain transaction data

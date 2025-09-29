@@ -1,15 +1,14 @@
 import type { UniversalTransaction } from '@crypto/core';
 import { createMoney } from '@crypto/shared-utils';
+import type { ImportSessionMetadata } from '@exitbook/import/app/ports/processors.js';
+import type { ITransactionRepository } from '@exitbook/import/app/ports/transaction-repository.js';
 import { type Result, err, ok } from 'neverthrow';
 
-import type { ImportSessionMetadata } from '../../../app/ports/processors.ts';
-import type { ITransactionRepository } from '../../../app/ports/transaction-repository.ts';
-
 // Import processors to trigger registration
-import './register-mappers.ts';
-import { BaseProcessor } from '../../shared/processors/base-processor.ts';
+import './register-mappers.js';
+import { BaseProcessor } from '../../shared/processors/base-processor.js';
 
-import type { InjectiveTransaction, InjectiveFundFlow } from './types.ts';
+import type { InjectiveTransaction, InjectiveFundFlow } from './types.js';
 
 /**
  * Injective transaction processor that converts raw blockchain transaction data

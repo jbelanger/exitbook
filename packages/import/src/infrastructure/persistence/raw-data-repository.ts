@@ -1,8 +1,7 @@
-import { BaseRepository } from '@crypto/data/src/repositories/base-repository.ts';
-import type { KyselyDB } from '@crypto/data/src/storage/database.ts';
-import type { RawData, StoredRawData } from '@crypto/data/src/types/data-types.ts';
-
-import type { IRawDataRepository, LoadRawDataFilters } from '../../app/ports/raw-data-repository.ts';
+import { BaseRepository } from '@crypto/data/src/repositories/base-repository.js';
+import type { KyselyDB } from '@crypto/data/src/storage/database.js';
+import type { RawData, StoredRawData } from '@crypto/data/src/types/data-types.js';
+import type { IRawDataRepository, LoadRawDataFilters } from '@exitbook/import/app/ports/raw-data-repository.js';
 
 /**
  * Maps database row to StoredRawData domain object

@@ -48,39 +48,6 @@ export abstract class DomainError extends Error {
 }
 
 /**
- * Processing-related errors
- */
-export class ProcessingError extends DomainError {
-  readonly code = 'PROCESSING_ERROR';
-  readonly severity = 'error' as const;
-}
-
-export class ValidationError extends DomainError {
-  readonly code = 'VALIDATION_ERROR';
-  readonly severity = 'error' as const;
-}
-
-/**
- * Classification-related errors
- */
-export class ClassificationError extends DomainError {
-  readonly code = 'CLASSIFICATION_ERROR';
-  readonly severity = 'error' as const;
-
-  constructor(
-    message: string,
-    public readonly failedMovements: string[],
-    context?: {
-      additionalContext?: Record<string, unknown>;
-      requestId?: string;
-      transactionId?: string;
-    }
-  ) {
-    super(message, context);
-  }
-}
-
-/**
  * Repository-related errors
  */
 export class RepositoryError extends DomainError {
@@ -90,9 +57,9 @@ export class RepositoryError extends DomainError {
     public readonly code: 'NOT_FOUND' | 'VALIDATION_FAILED' | 'CONSTRAINT_VIOLATION',
     message: string,
     context?: {
-      additionalContext?: Record<string, unknown>;
-      requestId?: string;
-      transactionId?: string;
+      additionalContext?: Record<string, unknown> | undefined;
+      requestId?: string | undefined;
+      transactionId?: string | undefined;
     }
   ) {
     super(message, context);
@@ -134,9 +101,9 @@ export class ConversionError extends DomainError {
     message: string,
     public readonly sourceData?: unknown,
     context?: {
-      additionalContext?: Record<string, unknown>;
-      requestId?: string;
-      transactionId?: string;
+      additionalContext?: Record<string, unknown> | undefined;
+      requestId?: string | undefined;
+      transactionId?: string | undefined;
     }
   ) {
     super(message, context);

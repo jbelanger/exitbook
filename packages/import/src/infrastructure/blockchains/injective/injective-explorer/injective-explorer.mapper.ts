@@ -1,12 +1,12 @@
 import { parseDecimal } from '@crypto/shared-utils';
+import type { ImportSessionMetadata } from '@exitbook/import/app/ports/processors.js';
 import { type Result, err, ok } from 'neverthrow';
 
-import type { ImportSessionMetadata } from '../../../../app/ports/processors.ts';
-import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.ts';
-import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.ts';
-import type { InjectiveTransaction } from '../types.ts';
+import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
+import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
+import type { InjectiveTransaction } from '../types.js';
 
-import { InjectiveTransactionSchema } from './injective-explorer.schemas.ts';
+import { InjectiveTransactionSchema } from './injective-explorer.schemas.js';
 import type {
   InjectiveExplorerTransaction as InjectiveApiTransaction,
   InjectiveExplorerMessageValue,
@@ -127,10 +127,10 @@ export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<
       // Handle Peggy bridge deposit messages (when funds come from Ethereum)
       else if (message.type === '/injective.peggy.v1.MsgDepositClaim') {
         const messageValue = message.value as InjectiveExplorerMessageValue & {
-          cosmos_receiver?: string;
-          ethereum_receiver?: string;
-          ethereum_sender?: string;
-          event_nonce?: string;
+          cosmos_receiver?: string | undefined;
+          ethereum_receiver?: string | undefined;
+          ethereum_sender?: string | undefined;
+          event_nonce?: string | undefined;
         };
 
         bridgeType = 'peggy';

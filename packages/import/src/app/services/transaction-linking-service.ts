@@ -1,7 +1,7 @@
 import type { WalletAddress } from '@crypto/data';
 import { getLogger } from '@crypto/shared-logger';
 
-import type { IWalletRepository } from '../ports/wallet-repository.ts';
+import type { IWalletRepository } from '../ports/wallet-repository.js';
 
 export class TransactionLinkingService {
   private logger = getLogger('TransactionLinkingService');

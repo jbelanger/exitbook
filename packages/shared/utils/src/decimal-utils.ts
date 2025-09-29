@@ -71,8 +71,8 @@ export function canSafelyConvertToNumber(decimal: Decimal): boolean {
 export function safeDecimalToNumber(
   decimal: Decimal,
   options?: {
-    allowPrecisionLoss?: boolean;
-    warningCallback?: (message: string) => void;
+    allowPrecisionLoss?: boolean | undefined;
+    warningCallback?: (message: string) => void | undefined;
   }
 ): number {
   const { allowPrecisionLoss = false, warningCallback } = options || {};

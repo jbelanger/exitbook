@@ -9,7 +9,7 @@ import { err, ok } from 'neverthrow';
  * Pure Error Objects (no classes)
  */
 export interface ProcessingError {
-  readonly additionalContext?: Record<string, unknown>;
+  readonly additionalContext?: Record<string, unknown> | undefined;
   readonly code: 'PROCESSING_ERROR';
   readonly message: string;
   readonly requestId?: string | undefined;

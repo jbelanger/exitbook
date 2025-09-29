@@ -1,4 +1,4 @@
-import type { ImportSession, ImportSessionQuery, ImportSessionUpdate } from '@crypto/data/src/types/data-types.ts';
+import type { ImportSession, ImportSessionQuery, ImportSessionUpdate } from '@crypto/data/src/types/data-types.js';
 
 /**
  * Port interface for import session repository operations.

@@ -7,14 +7,14 @@ import type { IBlockchainProvider, ProviderCapabilities } from '../types.js';
  */
 export interface NetworkEndpoint {
   baseUrl: string;
-  websocketUrl?: string;
+  websocketUrl?: string | undefined;
 }
 
 /**
  * Provider metadata that's embedded in the provider class
  */
 export interface ProviderMetadata {
-  apiKeyEnvVar?: string; // Environment variable name for API key
+  apiKeyEnvVar?: string | undefined; // Environment variable name for API key
   blockchain: string;
   capabilities: ProviderCapabilities;
   defaultConfig: {
@@ -22,16 +22,16 @@ export interface ProviderMetadata {
     retries: number;
     timeout: number;
   };
-  description?: string;
+  description?: string | undefined;
   displayName: string;
   name: string;
   networks: {
-    devnet?: NetworkEndpoint;
+    devnet?: NetworkEndpoint | undefined;
     mainnet: NetworkEndpoint;
-    testnet?: NetworkEndpoint;
+    testnet?: NetworkEndpoint | undefined;
   };
-  requiresApiKey?: boolean;
-  type?: 'rest' | 'rpc' | 'websocket';
+  requiresApiKey?: boolean | undefined;
+  type?: 'rest' | 'rpc' | 'websocket' | undefined;
 }
 
 /**
@@ -49,7 +49,7 @@ export interface ProviderInfo {
   blockchain: string;
   capabilities: ProviderCapabilities;
   defaultConfig: ProviderMetadata['defaultConfig'];
-  description?: string;
+  description?: string | undefined;
   displayName: string;
   name: string;
   requiresApiKey: boolean;

@@ -1,10 +1,10 @@
 import type { UniversalTransaction } from '@crypto/core';
 import type { StoredRawData } from '@crypto/data';
 import { createMoney, parseDecimal } from '@crypto/shared-utils';
+import type { ApiClientRawData } from '@exitbook/import/app/ports/importers.js';
 import { type Result, err, ok } from 'neverthrow';
 
-import type { ApiClientRawData } from '../../../app/ports/importers.ts';
-import { BaseProcessor } from '../../shared/processors/base-processor.ts';
+import { BaseProcessor } from '../../shared/processors/base-processor.js';
 
 import type { CsvAccountHistoryRow, CsvDepositWithdrawalRow, CsvKuCoinRawData, CsvSpotOrderRow } from './types.js';
 

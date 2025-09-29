@@ -1,10 +1,11 @@
-import type { ImportParams, ImportRunResult, ApiClientRawData } from '../../../app/ports/importers.ts';
-import { BaseImporter } from '../../shared/importers/base-importer.ts';
-import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
+import type { ImportParams, ImportRunResult, ApiClientRawData } from '@exitbook/import/app/ports/importers.js';
 
-import type { InjectiveExplorerTransaction } from './injective-explorer/injective-explorer.types.ts';
+import { BaseImporter } from '../../shared/importers/base-importer.js';
+import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.js';
+
+import type { InjectiveExplorerTransaction } from './injective-explorer/injective-explorer.types.js';
 // Ensure Injective API clients are registered
-import './register-apis.ts';
+import './register-apis.js';
 
 /**
  * Injective transaction importer that fetches raw transaction data from blockchain APIs.
