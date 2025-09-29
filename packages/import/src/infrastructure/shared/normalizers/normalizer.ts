@@ -15,7 +15,7 @@ import { TransactionMapperFactory } from '../processors/processor-registry.ts';
  */
 export class DefaultNormalizer {
   /**
-   * Normalize Bitcoin transaction data from any provider to NormalizedBitcoinTransaction
+   * Normalize blockchain transaction data from any provider to blockchain-specific transaction format
    */
   normalize(rawData: unknown, providerId: string, sessionContext: ImportSessionMetadata): Result<unknown, string> {
     // Get the appropriate mapper for this provider (same as current processor)

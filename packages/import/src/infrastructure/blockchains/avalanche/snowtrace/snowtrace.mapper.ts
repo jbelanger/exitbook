@@ -2,9 +2,9 @@ import type { Result } from 'neverthrow';
 import { ok } from 'neverthrow';
 
 import type { ImportSessionMetadata } from '../../../../app/ports/processors.ts';
-import type { UniversalBlockchainTransaction } from '../../../../app/ports/raw-data-mappers.ts';
 import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.ts';
 import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.ts';
+import type { AvalancheTransaction } from '../types.ts';
 
 import { SnowtraceAnyTransactionSchema } from './snowtrace.schemas.ts';
 import type { SnowtraceInternalTransaction, SnowtraceTransaction, SnowtraceTokenTransfer } from './snowtrace.types.ts';
@@ -17,14 +17,14 @@ export interface SnowtraceRawData {
 @RegisterTransactionMapper('snowtrace')
 export class SnowtraceTransactionMapper extends BaseRawDataMapper<
   SnowtraceTransaction | SnowtraceInternalTransaction | SnowtraceTokenTransfer,
-  UniversalBlockchainTransaction
+  AvalancheTransaction
 > {
   protected readonly schema = SnowtraceAnyTransactionSchema;
 
   protected mapInternal(
     rawData: SnowtraceTransaction | SnowtraceInternalTransaction | SnowtraceTokenTransfer,
     _sessionContext: ImportSessionMetadata
-  ): Result<UniversalBlockchainTransaction, string> {
+  ): Result<AvalancheTransaction, string> {
     // Type discrimination handled by SnowtraceAnyTransactionSchema discriminated union
     // Token transfers have tokenSymbol, internal transactions have traceId, normal transactions have nonce
 
@@ -39,9 +39,7 @@ export class SnowtraceTransactionMapper extends BaseRawDataMapper<
     return this.transformNormalTransaction(rawData);
   }
 
-  private transformInternalTransaction(
-    rawData: SnowtraceInternalTransaction
-  ): Result<UniversalBlockchainTransaction, string> {
+  private transformInternalTransaction(rawData: SnowtraceInternalTransaction): Result<AvalancheTransaction, string> {
     const timestamp = parseInt(rawData.timeStamp) * 1000;
 
     return ok({
@@ -54,27 +52,22 @@ export class SnowtraceTransactionMapper extends BaseRawDataMapper<
       status: rawData.isError === '0' ? 'success' : 'failed',
       timestamp,
       to: rawData.to,
+      traceId: rawData.traceId,
       type: 'internal',
     });
   }
 
-  private transformNormalTransaction(rawData: SnowtraceTransaction): Result<UniversalBlockchainTransaction, string> {
+  private transformNormalTransaction(rawData: SnowtraceTransaction): Result<AvalancheTransaction, string> {
     const timestamp = parseInt(rawData.timeStamp) * 1000;
 
-    // Calculate fee from gas data
-    let feeAmount: string | undefined;
-    if (rawData.gasUsed && rawData.gasPrice) {
-      const gasUsed = BigInt(rawData.gasUsed);
-      const gasPrice = BigInt(rawData.gasPrice);
-      feeAmount = (gasUsed * gasPrice).toString();
-    }
-
-    const transaction: UniversalBlockchainTransaction = {
+    const transaction: AvalancheTransaction = {
       amount: rawData.value,
       blockHeight: parseInt(rawData.blockNumber),
       blockId: rawData.blockHash,
       currency: 'AVAX',
       from: rawData.from,
+      gasPrice: rawData.gasPrice,
+      gasUsed: rawData.gasUsed,
       id: rawData.hash,
       providerId: 'snowtrace',
       status: rawData.txreceipt_status === '1' ? 'success' : 'failed',
@@ -83,31 +76,37 @@ export class SnowtraceTransactionMapper extends BaseRawDataMapper<
       type: rawData.functionName ? 'contract_call' : 'transfer',
     };
 
-    if (feeAmount) {
-      transaction.feeAmount = feeAmount;
+    // Add optional fields
+    if (rawData.functionName) {
+      transaction.functionName = rawData.functionName;
+    }
+    if (rawData.input && rawData.input.length >= 10) {
+      transaction.inputData = rawData.input;
+      transaction.methodId = rawData.input.slice(0, 10); // First 4 bytes + 0x
+    }
+
+    // Calculate gas fee
+    if (rawData.gasUsed && rawData.gasPrice) {
+      const gasUsed = BigInt(rawData.gasUsed);
+      const gasPrice = BigInt(rawData.gasPrice);
+      transaction.feeAmount = (gasUsed * gasPrice).toString();
       transaction.feeCurrency = 'AVAX';
     }
 
     return ok(transaction);
   }
 
-  private transformTokenTransfer(rawData: SnowtraceTokenTransfer): Result<UniversalBlockchainTransaction, string> {
+  private transformTokenTransfer(rawData: SnowtraceTokenTransfer): Result<AvalancheTransaction, string> {
     const timestamp = parseInt(rawData.timeStamp) * 1000;
 
-    // Calculate fee from gas data
-    let feeAmount: string | undefined;
-    if (rawData.gasUsed && rawData.gasPrice) {
-      const gasUsed = BigInt(rawData.gasUsed);
-      const gasPrice = BigInt(rawData.gasPrice);
-      feeAmount = (gasUsed * gasPrice).toString();
-    }
-
-    const transaction: UniversalBlockchainTransaction = {
+    const transaction: AvalancheTransaction = {
       amount: rawData.value,
       blockHeight: parseInt(rawData.blockNumber),
       blockId: rawData.blockHash,
       currency: rawData.tokenSymbol,
       from: rawData.from,
+      gasPrice: rawData.gasPrice,
+      gasUsed: rawData.gasUsed,
       id: rawData.hash,
       providerId: 'snowtrace',
       status: 'success',
@@ -116,11 +115,15 @@ export class SnowtraceTransactionMapper extends BaseRawDataMapper<
       tokenAddress: rawData.contractAddress,
       tokenDecimals: parseInt(rawData.tokenDecimal),
       tokenSymbol: rawData.tokenSymbol,
+      tokenType: 'erc20', // Assume ERC-20 for Snowtrace token transfers
       type: 'token_transfer',
     };
 
-    if (feeAmount) {
-      transaction.feeAmount = feeAmount;
+    // Calculate gas fee
+    if (rawData.gasUsed && rawData.gasPrice) {
+      const gasUsed = BigInt(rawData.gasUsed);
+      const gasPrice = BigInt(rawData.gasPrice);
+      transaction.feeAmount = (gasUsed * gasPrice).toString();
       transaction.feeCurrency = 'AVAX';
     }
 
