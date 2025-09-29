@@ -1,8 +1,8 @@
-import type { RateLimitConfig } from '@exitbook/core';
-import { RateLimitError, ServiceError } from '@exitbook/core';
 import { getLogger } from '@exitbook/shared-logger';
 
 import { RateLimiterFactory } from './rate-limiter.js';
+import type { RateLimitConfig } from './types.ts';
+import { RateLimitError, ServiceError } from './types.ts';
 
 export interface HttpClientConfig {
   baseUrl: string;

@@ -2,12 +2,13 @@
  * Foundation tests for the universal blockchain provider system
  * Tests core interfaces, circuit breaker, and provider manager functionality
  */
-import type { RateLimitConfig } from '@exitbook/core';
+
+import type { RateLimitConfig } from '@exitbook/shared-utils';
 import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
 
-import { CircuitBreaker } from '../../../shared/utils/circuit-breaker.js';
 // Import clients to trigger registration
 import '../../ethereum/register-apis.js';
+import { CircuitBreaker } from '../../../shared/utils/circuit-breaker.js';
 import { BlockchainProviderManager } from '../blockchain-provider-manager.js';
 import type { ProviderInfo } from '../registry/provider-registry.js';
 import { ProviderRegistry } from '../registry/provider-registry.js';

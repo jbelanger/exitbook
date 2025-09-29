@@ -332,7 +332,9 @@ async function main() {
           }
 
           // Import raw data
+          logger.info('[DEBUG] About to call importFromSource');
           const importResult = await ingestionService.importFromSource(sourceName, sourceType, importParams);
+          logger.info('[DEBUG] importFromSource returned');
 
           logger.info(`Import completed: ${importResult.imported} items imported`);
           logger.info(`Session ID: ${importResult.importSessionId}`);

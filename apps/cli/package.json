@@ -5,19 +5,19 @@
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf node_modules dist",
-    "dev": "tsx --env-file-if-exists=.env ./index.ts",
-    "export": "tsx ./index.ts export",
-    "import": "tsx ./index.ts import",
-    "import:verify": "tsx ./index.ts import --verify",
+    "dev": "tsx --env-file-if-exists=.env ./src/index.ts",
+    "export": "tsx ./src/index.ts export",
+    "import": "tsx ./src/index.ts import",
+    "import:verify": "tsx ./src/index.ts import --verify",
     "lint": "eslint \"*.ts\"",
     "prettier": "prettier --check .",
     "prettier:fix": "prettier --write .",
     "setup": "mkdir -p data/logs && pnpm run build",
     "start": "node dist/index.js",
-    "status": "tsx ./index.ts status",
+    "status": "tsx ./src/index.ts status",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "verify": "tsx ./index.ts verify"
+    "verify": "tsx ./src/index.ts verify"
   },
   "dependencies": {
     "@coinbase/cdp-sdk": "^1.36.0",

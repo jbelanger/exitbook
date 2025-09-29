@@ -1,5 +1,6 @@
-import type { RateLimitConfig } from '@exitbook/core';
 import { type Logger, getLogger } from '@exitbook/shared-logger';
+
+import type { RateLimitConfig } from './types.ts';
 
 /**
  * Token bucket rate limiter implementation

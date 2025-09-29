@@ -18,9 +18,6 @@ import type { ITransactionRepository } from '../ports/transaction-repository.js'
  * Handles the Import → Process → Load workflow with proper error handling
  * and dependency injection.
  */
-
-const logger = getLogger('TransactionIngestionService2');
-
 export class TransactionIngestionService {
   private logger: Logger;
 
@@ -75,7 +72,7 @@ export class TransactionIngestionService {
     sourceType: 'exchange' | 'blockchain',
     params: ImportParams
   ): Promise<ImportResult> {
-    logger.info(`Starting import for ${sourceId} (${sourceType})`);
+    this.logger.info(`Starting import for ${sourceId} (${sourceType})`);
 
     const startTime = Date.now();
     let sessionCreated = false;

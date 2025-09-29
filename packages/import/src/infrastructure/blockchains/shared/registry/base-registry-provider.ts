@@ -1,6 +1,6 @@
-import type { RateLimitConfig } from '@exitbook/core';
 import type { Logger } from '@exitbook/shared-logger';
 import { getLogger } from '@exitbook/shared-logger';
+import type { RateLimitConfig } from '@exitbook/shared-utils';
 import { HttpClient } from '@exitbook/shared-utils';
 
 import type { IBlockchainProvider, ProviderCapabilities, ProviderOperation } from '../types.js';

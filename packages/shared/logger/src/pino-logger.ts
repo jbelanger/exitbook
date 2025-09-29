@@ -60,14 +60,14 @@ function createRootLogger(): Logger {
     transportTargets.push({
       level: 'trace',
       options: {
-        colorize: true,
-        customColors: 'info:blue,error:red,warn:yellow,debug:green',
-        customLevels: logLevelsSchema,
+        //colorize: true,
+        //customColors: 'info:blue,error:red,warn:yellow,debug:green',
+        //   //customLevels: logLevelsSchema,
         ignore: 'pid,hostname,category,categoryLabel,service,environment,correlationId',
-        levelPadding: true,
-        messageFormat: '[{categoryLabel}]: {msg}',
-        translateTime: 'yyyy-mm-dd HH:MM:ss.l',
-        useOnlyCustomLevels: true,
+        //   levelPadding: true,
+        //   messageFormat: '[{categoryLabel}]: {msg}',
+        //   translateTime: 'yyyy-mm-dd HH:MM:ss.l',
+        //   //useOnlyCustomLevels: true,
       },
       target: 'pino-pretty',
     });
@@ -113,13 +113,9 @@ function createRootLogger(): Logger {
     useOnlyCustomLevels: true,
   };
 
-  // Only add transport configuration if we have targets
-  // In production with no targets, default to stdout JSON logging
-  if (transportTargets.length > 0) {
-    pinoConfig.transport = { targets: transportTargets };
-  }
+  pinoConfig.transport = { targets: transportTargets };
 
-  const pinoLogger = pino<'audit'>(pinoConfig);
+  const pinoLogger = pino.pino<'audit'>(pinoConfig);
 
   return pinoLogger as Logger;
 }
@@ -137,10 +133,13 @@ export const getLogger = (category: string): Logger => {
     rootLogger = createRootLogger();
   }
 
-  const categoryLogger = rootLogger.child({
-    category,
-    categoryLabel: formatLabel(category, 25),
-  }) as Logger;
+  const categoryLogger = rootLogger.child(
+    {
+      category,
+      categoryLabel: formatLabel(category, 25),
+    },
+    { level: env.LOGGER_LOG_LEVEL.toLowerCase() }
+  ) as Logger;
 
   loggerCache.set(category, categoryLogger);
 

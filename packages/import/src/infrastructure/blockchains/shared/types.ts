@@ -1,4 +1,5 @@
-import type { DataSourceCapabilities, RateLimitConfig } from '@exitbook/core';
+import type { DataSourceCapabilities } from '@exitbook/core';
+import type { RateLimitConfig } from '@exitbook/shared-utils';
 
 // Discriminated union type for all possible operation parameters
 export type ProviderOperationParams =

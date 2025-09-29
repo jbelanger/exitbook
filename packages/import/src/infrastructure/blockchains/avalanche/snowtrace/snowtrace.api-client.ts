@@ -1,5 +1,5 @@
-import { ServiceError } from '@exitbook/core';
 import { maskAddress } from '@exitbook/shared-utils';
+import { ServiceError } from '@exitbook/shared-utils';
 
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.js';
 import { RegisterApiClient } from '../../shared/registry/decorators.js';

@@ -1,6 +1,5 @@
-import { RateLimitError, ServiceError } from '@exitbook/core';
 import type { Logger } from '@exitbook/shared-logger';
-import { getErrorProperties, isErrorWithMessage } from '@exitbook/shared-utils';
+import { getErrorProperties, isErrorWithMessage, RateLimitError, ServiceError } from '@exitbook/shared-utils';
 
 /**
  * Centralized error handling for exchange operations

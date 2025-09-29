@@ -1,5 +1,6 @@
-import type { Money } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
+
+import type { Money } from '../types.ts';
 
 // Configure Decimal.js for cryptocurrency precision
 // Most cryptocurrencies use up to 18 decimal places, so we set precision high
