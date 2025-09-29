@@ -1,6 +1,12 @@
-# Cryptocurrency Transaction Import System
+# <img src="./docs/assets/images/exitbook-brand.png" alt="ExitBook" width="50" align="middle"/><span>&nbsp;&nbsp;</span>ExitBook
 
-A production-grade TypeScript monorepo for importing, processing, and verifying cryptocurrency transactions from multiple exchanges and blockchains with enterprise-level reliability patterns.
+**Track, log, and analyze your crypto journey.**
+
+_Your personal book of crypto decisions — from entry to cash-out._
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Build](https://img.shields.io/github/actions/workflow/status/your-org/exitbook/ci.yml?branch=main)](https://github.com/your-org/exitbook/actions)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D23-blue.svg)](https://nodejs.org)
 
 ## 🏗️ Architecture Highlights
 
