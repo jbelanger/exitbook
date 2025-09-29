@@ -24,45 +24,6 @@ export class EthereumTransactionProcessor extends BaseProcessor {
   }
 
   /**
-   * Check if this processor can handle the specified source type.
-   */
-  protected canProcessSpecific(sourceType: string): boolean {
-    return sourceType === 'blockchain';
-  }
-
-  protected async processInternal(
-    rawDataItems: StoredRawData[],
-    sessionMetadata?: ImportSessionMetadata
-  ): Promise<Result<UniversalTransaction[], string>> {
-    if (!sessionMetadata) {
-      return err('Missing session metadata');
-    }
-
-    this.logger.info(
-      `Processing Ethereum session with ${rawDataItems.length} transactions for address: ${sessionMetadata.address?.substring(0, 10)}...`
-    );
-
-    const transactions: UniversalTransaction[] = [];
-
-    // Process all transactions with session context
-    for (const item of rawDataItems) {
-      const result = await this.processSingleWithContext(item, sessionMetadata);
-      if (result.isErr()) {
-        this.logger.warn(`Failed to process transaction ${item.id}: ${result.error}`);
-        continue; // Continue processing other transactions
-      }
-
-      const transaction = result.value;
-      if (transaction) {
-        transactions.push(transaction);
-      }
-    }
-
-    this.logger.info(`Ethereum processing completed: ${transactions.length} transactions processed successfully`);
-    return ok(transactions);
-  }
-
-  /**
    * Process normalized Ethereum transactions with enhanced fund flow analysis.
    * Handles EthereumTransaction objects with structured transaction data.
    */
@@ -143,90 +104,6 @@ export class EthereumTransactionProcessor extends BaseProcessor {
 
     this.logger.info(`Normalized processing completed: ${transactions.length} transactions processed successfully`);
     return ok(transactions);
-  }
-
-  /**
-   * Process a single transaction with shared session context.
-   */
-  private async processSingleWithContext(
-    rawDataItem: StoredRawData,
-    sessionContext: ImportSessionMetadata
-  ): Promise<Result<UniversalTransaction | undefined, string>> {
-    // Get the appropriate mapper for this provider
-    const mapper = TransactionMapperFactory.create(rawDataItem.metadata.providerId);
-    if (!mapper) {
-      return err(`No mapper found for provider: ${rawDataItem.metadata.providerId}`);
-    }
-
-    // Transform using the provider-specific mapper
-    const transformResult = mapper.map(rawDataItem, sessionContext) as Result<EthereumTransaction, string>;
-
-    if (transformResult.isErr()) {
-      return err(`Transform failed for ${rawDataItem.metadata.providerId}: ${transformResult.error}`);
-    }
-
-    const ethereumTransaction = transformResult.value;
-    if (!ethereumTransaction) {
-      return err(`No transaction returned from ${rawDataItem.metadata.providerId} mapper`);
-    }
-
-    this.logger.debug(
-      `Processing transaction ${ethereumTransaction.id} with type: ${ethereumTransaction.type}, currency: ${ethereumTransaction.currency}`
-    );
-
-    // Perform fund flow analysis
-    const fundFlowResult = this.analyzeFundFlowFromNormalized(ethereumTransaction, sessionContext);
-    if (fundFlowResult.isErr()) {
-      return err(`Fund flow analysis failed: ${fundFlowResult.error}`);
-    }
-
-    const fundFlow = fundFlowResult.value;
-
-    // Determine transaction type with historical context
-    const transactionType = await this.determineTransactionTypeFromFundFlow(fundFlow, sessionContext);
-
-    // Convert to UniversalTransaction
-    const universalTransaction: UniversalTransaction = {
-      amount: createMoney(fundFlow.netAmount, fundFlow.currency),
-      datetime: new Date(ethereumTransaction.timestamp).toISOString(),
-      fee: ethereumTransaction.feeAmount
-        ? createMoney(ethereumTransaction.feeAmount, ethereumTransaction.feeCurrency || 'ETH')
-        : createMoney('0', 'ETH'),
-      from: fundFlow.fromAddress,
-      id: ethereumTransaction.id,
-      metadata: {
-        blockchain: 'ethereum',
-        blockHeight: ethereumTransaction.blockHeight,
-        blockId: ethereumTransaction.blockId,
-        fundFlow: {
-          currency: fundFlow.currency,
-          feePaidByUser: fundFlow.feePaidByUser,
-          isIncoming: fundFlow.isIncoming,
-          isOutgoing: fundFlow.isOutgoing,
-          netAmount: fundFlow.netAmount,
-          totalAmount: fundFlow.totalAmount,
-        },
-        gasPrice: ethereumTransaction.gasPrice,
-        gasUsed: ethereumTransaction.gasUsed,
-        methodId: ethereumTransaction.methodId,
-        providerId: ethereumTransaction.providerId,
-        tokenAddress: ethereumTransaction.tokenAddress,
-        tokenDecimals: ethereumTransaction.tokenDecimals,
-        tokenSymbol: ethereumTransaction.tokenSymbol,
-        tokenType: ethereumTransaction.tokenType,
-      },
-      source: 'ethereum',
-      status: ethereumTransaction.status === 'success' ? 'ok' : 'failed',
-      symbol: ethereumTransaction.tokenSymbol || ethereumTransaction.currency,
-      timestamp: ethereumTransaction.timestamp,
-      to: fundFlow.toAddress,
-      type: transactionType,
-    };
-
-    this.logger.debug(
-      `Successfully processed transaction ${universalTransaction.id} from ${rawDataItem.metadata.providerId}`
-    );
-    return ok(universalTransaction);
   }
 
   /**

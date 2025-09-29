@@ -285,7 +285,14 @@ export class TransactionIngestionService {
         };
 
         // Process this session's raw data
-        const sessionTransactions = await processor.process(processingSession);
+        const sessionTransactionsResult = await processor.process(processingSession);
+
+        if (sessionTransactionsResult.isErr()) {
+          this.logger.error(`Processing failed for session ${session.id}: ${sessionTransactionsResult.error}`);
+          continue;
+        }
+
+        const sessionTransactions = sessionTransactionsResult.value;
         allTransactions.push(...sessionTransactions.map((tx) => ({ ...tx, sessionId: session.id })));
 
         this.logger.debug(`Processed ${sessionTransactions.length} transactions for session ${session.id}`);

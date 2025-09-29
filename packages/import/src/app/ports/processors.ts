@@ -1,7 +1,5 @@
 import type { UniversalTransaction } from '@crypto/core';
-import type { StoredRawData } from '@crypto/data';
-
-import type { ApiClientRawData } from './importers.ts';
+import type { Result } from 'neverthrow';
 
 export interface ProcessResult {
   errors: string[];
@@ -16,14 +14,9 @@ export interface ProcessResult {
  */
 export interface IProcessor {
   /**
-   * Check if this processor can handle data from the specified adapter.
-   */
-  canProcess(sourceId: string, sourceType: string): boolean;
-
-  /**
    * Process import sessions with rich context into UniversalTransaction objects.
    */
-  process(importSession: ProcessingImportSession): Promise<UniversalTransaction[]>;
+  process(importSession: ProcessingImportSession): Promise<Result<UniversalTransaction[], string>>;
 }
 
 /**

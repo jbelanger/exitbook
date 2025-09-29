@@ -70,3 +70,18 @@ export interface BitcoinTransactionOutput {
   index: number; // Output index
   value: string; // Value in satoshis as string
 }
+
+/**
+ * Bitcoin fund flow analysis result
+ */
+export interface BitcoinFundFlow {
+  fromAddress?: string;
+  isIncoming: boolean;
+  isOutgoing: boolean;
+  netAmount: string;
+  toAddress?: string;
+  totalInput: string;
+  totalOutput: string;
+  walletInput: string;
+  walletOutput: string;
+}

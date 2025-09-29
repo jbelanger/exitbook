@@ -112,17 +112,10 @@ export class SolanaTransactionProcessor extends BaseProcessor {
   }
 
   /**
-   * Check if this processor can handle the specified source type.
-   */
-  protected canProcessSpecific(sourceType: string): boolean {
-    return sourceType === 'blockchain';
-  }
-
-  /**
    * Override the base transaction type mapping to handle Solana-specific cases.
    * Uses enhanced TransactionType enum for better classification.
    */
-  protected override mapTransactionType(
+  protected mapTransactionType(
     blockchainTransaction: UniversalBlockchainTransaction,
     sessionContext: ImportSessionMetadata
   ): TransactionType {
@@ -170,101 +163,10 @@ export class SolanaTransactionProcessor extends BaseProcessor {
       return 'internal_transfer'; // Zero or unknown self-transfer
     }
 
-    // Use base class logic for everything else
-    return super.mapTransactionType(blockchainTransaction, sessionContext);
-  }
-
-  protected async processInternal(
-    rawDataItems: StoredRawData[],
-    sessionMetadata?: ImportSessionMetadata
-  ): Promise<Result<UniversalTransaction[], string>> {
-    const transactions: UniversalTransaction[] = [];
-
-    // Use session metadata directly - no fallback logic
-    const sessionContext: ImportSessionMetadata = sessionMetadata || {};
-
-    for (const item of rawDataItems) {
-      const result = this.processSingle(item, sessionContext);
-      if (result.isErr()) {
-        this.logger.warn(`Failed to process transaction batch ${item.id}: ${result.error}`);
-        continue; // Continue processing other transaction batches
-      }
-
-      const batchTransactions = result.value;
-      if (batchTransactions && batchTransactions.length > 0) {
-        transactions.push(...batchTransactions);
-      }
-    }
-
-    return Promise.resolve(ok(transactions));
-  }
-
-  private processSingle(
-    rawDataItem: StoredRawData,
-    sessionContext: ImportSessionMetadata
-  ): Result<UniversalTransaction[], string> {
-    // Get the appropriate processor for this provider
-    const processor = TransactionMapperFactory.create(rawDataItem.metadata.providerId);
-    if (!processor) {
-      return err(`No processor found for provider: ${rawDataItem.metadata.providerId}`);
-    }
-
-    // Transform the full batch using the provider-specific processor
-    const transformResult = processor.map(rawDataItem, sessionContext) as Result<
-      UniversalBlockchainTransaction,
-      string
-    >;
-
-    if (transformResult.isErr()) {
-      return err(`Transform failed for ${rawDataItem.metadata.providerId}: ${transformResult.error}`);
-    }
-
-    const blockchainTransactions = [transformResult.value]; // TODO, this is broken code. it used to be an array but its now a single object containing all the inputs and outputs
-    const transactions: UniversalTransaction[] = [];
-
-    // Convert each UniversalBlockchainTransaction to UniversalTransaction
-    for (const blockchainTransaction of blockchainTransactions) {
-      // Determine proper transaction type based on Solana transaction flow
-      const transactionType = this.mapTransactionType(blockchainTransaction, sessionContext);
-
-      // Convert UniversalBlockchainTransaction to UniversalTransaction
-      const universalTransaction: UniversalTransaction = {
-        amount: createMoney(blockchainTransaction.amount, blockchainTransaction.currency),
-        datetime: new Date(blockchainTransaction.timestamp).toISOString(),
-        fee: blockchainTransaction.feeAmount
-          ? createMoney(blockchainTransaction.feeAmount, blockchainTransaction.feeCurrency || 'SOL')
-          : createMoney('0', 'SOL'),
-        from: blockchainTransaction.from,
-        id: blockchainTransaction.id,
-        metadata: {
-          blockchain: 'solana',
-          blockHeight: blockchainTransaction.blockHeight,
-          blockId: blockchainTransaction.blockId,
-          providerId: blockchainTransaction.providerId,
-          tokenAddress: blockchainTransaction.tokenAddress,
-          tokenDecimals: blockchainTransaction.tokenDecimals,
-          tokenSymbol: blockchainTransaction.tokenSymbol,
-        },
-        source: 'solana',
-        status: blockchainTransaction.status === 'success' ? 'ok' : 'failed',
-        symbol: blockchainTransaction.currency,
-        timestamp: blockchainTransaction.timestamp,
-        to: blockchainTransaction.to,
-        type: transactionType,
-      };
-
-      // Log the transaction before adding to validation
-      this.logger.debug(
-        `Created UniversalTransaction - ID: ${universalTransaction.id}, Amount: ${JSON.stringify(universalTransaction.amount)}, Timestamp: ${universalTransaction.timestamp}, Status: ${universalTransaction.status}, Type: ${universalTransaction.type}, From: ${universalTransaction.from}, To: ${universalTransaction.to}`
-      );
-
-      transactions.push(universalTransaction);
-      this.logger.debug(
-        `Successfully processed transaction ${universalTransaction.id} from ${rawDataItem.metadata.providerId}`
-      );
-    }
-
-    return ok(transactions);
+    this.logger.warn(
+      `Unable to determine transaction direction for ${blockchainTransaction.id}: from=${from}, to=${to}, wallet addresses: ${Array.from(allWalletAddresses).join(', ')}`
+    );
+    return 'transfer';
   }
 
   /**

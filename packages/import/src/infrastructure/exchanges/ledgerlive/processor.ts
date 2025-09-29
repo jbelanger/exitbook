@@ -19,10 +19,6 @@ export class LedgerLiveProcessor extends BaseProcessor {
     super('ledgerlive');
   }
 
-  protected canProcessSpecific(sourceType: string): boolean {
-    return sourceType === 'exchange';
-  }
-
   protected async processNormalizedInternal(
     rawDataItems: StoredRawData[]
   ): Promise<Result<UniversalTransaction[], string>> {

@@ -23,10 +23,6 @@ export class KrakenProcessor extends BaseProcessor {
     super('kraken');
   }
 
-  protected canProcessSpecific(sourceType: string): boolean {
-    return sourceType === 'exchange';
-  }
-
   protected processNormalizedInternal(rawDataItems: StoredRawData[]): Promise<Result<UniversalTransaction[], string>> {
     try {
       // Extract the raw ledger rows for batch processing

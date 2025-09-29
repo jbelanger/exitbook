@@ -8,7 +8,7 @@ import type { UniversalBlockchainTransaction } from '../../../app/ports/raw-data
 import { BaseProcessor } from '../../shared/processors/base-processor.ts';
 import { TransactionMapperFactory } from '../../shared/processors/processor-registry.ts';
 
-import type { BitcoinTransaction } from './types.ts';
+import type { BitcoinFundFlow, BitcoinTransaction } from './types.ts';
 
 /**
  * Bitcoin transaction processor that converts raw blockchain transaction data
@@ -18,52 +18,6 @@ import type { BitcoinTransaction } from './types.ts';
 export class BitcoinTransactionProcessor extends BaseProcessor {
   constructor() {
     super('bitcoin');
-  }
-
-  /**
-   * Check if this processor can handle the specified source type.
-   */
-  protected canProcessSpecific(sourceType: string): boolean {
-    return sourceType === 'blockchain';
-  }
-
-  /**
-   * Process import session with optimized multi-address session context.
-   */
-  protected async processInternal(
-    rawDataItems: StoredRawData[],
-    sessionMetadata?: ImportSessionMetadata
-  ): Promise<Result<UniversalTransaction[], string>> {
-    if (!sessionMetadata) {
-      throw new Error('Missing session metadata');
-    }
-    // Create rich session context once for the entire batch
-    const sessionContext = this.createSessionContext(sessionMetadata, rawDataItems);
-
-    this.logger.info(
-      `Processing Bitcoin session with ${rawDataItems.length} transactions, ` +
-        `${sessionContext.derivedAddresses?.length || 0} derived addresses`
-    );
-
-    const transactions: UniversalTransaction[] = [];
-
-    // Process all transactions with shared session context
-    for (const item of rawDataItems) {
-      const typedItem = item;
-      const result = this.processSingleWithContext(typedItem, sessionContext);
-      if (result.isErr()) {
-        this.logger.warn(`Failed to process transaction ${item.id}: ${result.error}`);
-        continue; // Continue processing other transactions
-      }
-
-      const transaction = result.value;
-      if (transaction) {
-        transactions.push(transaction);
-      }
-    }
-
-    this.logger.info(`Bitcoin processing completed: ${transactions.length} transactions processed successfully`);
-    return Promise.resolve(ok(transactions));
   }
 
   /**
@@ -140,32 +94,6 @@ export class BitcoinTransactionProcessor extends BaseProcessor {
 
     this.logger.info(`Normalized processing completed: ${transactions.length} transactions processed successfully`);
     return ok(transactions);
-  }
-
-  /**
-   * Extract rich Bitcoin-specific session context from session metadata.
-   */
-  private createSessionContext(
-    sessionMetadata: ImportSessionMetadata,
-    rawDataItems: StoredRawData[]
-  ): ImportSessionMetadata {
-    // Extract derived addresses from session metadata
-    const derivedAddresses: string[] = sessionMetadata.derivedAddresses ?? [];
-
-    // Collect source addresses from raw data items
-    const sourceAddresses: string[] = [];
-    for (const item of rawDataItems) {
-      const rawData = item;
-      if (rawData.metadata.sourceAddress && !sourceAddresses.includes(rawData.metadata.sourceAddress)) {
-        sourceAddresses.push(rawData.metadata.sourceAddress);
-      }
-    }
-
-    return {
-      address: sessionMetadata.address,
-      derivedAddresses,
-      ...sessionMetadata,
-    };
   }
 
   /**
@@ -273,83 +201,4 @@ export class BitcoinTransactionProcessor extends BaseProcessor {
       return 'transfer';
     }
   }
-
-  /**
-   * Process a single transaction with shared session context.
-   */
-  private processSingleWithContext(
-    rawDataItem: StoredRawData,
-    sessionContext: ImportSessionMetadata
-  ): Result<UniversalTransaction | undefined, string> {
-    // Get the appropriate processor for this provider
-    const processor = TransactionMapperFactory.create(rawDataItem.metadata.providerId);
-    if (!processor) {
-      return err(`No processor found for provider: ${rawDataItem.metadata.providerId}`);
-    }
-
-    // Transform using the provider-specific processor with shared session context
-    const transformResult = processor.map(rawDataItem, sessionContext) as Result<
-      UniversalBlockchainTransaction,
-      string
-    >;
-
-    if (transformResult.isErr()) {
-      return err(`Transform failed for ${rawDataItem.metadata.providerId}: ${transformResult.error}`);
-    }
-
-    const blockchainTransaction = transformResult.value;
-    if (!blockchainTransaction) {
-      return err(`No transactions returned from ${rawDataItem.metadata.providerId} processor`);
-    }
-
-    if (!blockchainTransaction) {
-      return err(`No valid transaction object returned from ${rawDataItem.metadata.providerId} processor`);
-    }
-
-    // Determine proper transaction type based on Bitcoin transaction flow
-    const transactionType = this.mapTransactionType(blockchainTransaction, sessionContext);
-
-    // Convert UniversalBlockchainTransaction to UniversalTransaction
-    const universalTransaction: UniversalTransaction = {
-      amount: createMoney(blockchainTransaction.amount, blockchainTransaction.currency),
-      datetime: new Date(blockchainTransaction.timestamp).toISOString(),
-      fee: blockchainTransaction.feeAmount
-        ? createMoney(blockchainTransaction.feeAmount, blockchainTransaction.feeCurrency || 'BTC')
-        : createMoney('0', 'BTC'),
-      from: blockchainTransaction.from,
-      id: blockchainTransaction.id,
-      metadata: {
-        blockchain: 'bitcoin',
-        blockHeight: blockchainTransaction.blockHeight,
-        blockId: blockchainTransaction.blockId,
-        providerId: blockchainTransaction.providerId,
-      },
-      source: 'bitcoin',
-      status: blockchainTransaction.status === 'success' ? 'ok' : 'failed',
-      symbol: blockchainTransaction.currency,
-      timestamp: blockchainTransaction.timestamp,
-      to: blockchainTransaction.to,
-      type: transactionType,
-    };
-
-    this.logger.debug(
-      `Successfully processed transaction ${universalTransaction.id} from ${rawDataItem.metadata.providerId}`
-    );
-    return ok(universalTransaction);
-  }
-}
-
-/**
- * Bitcoin fund flow analysis result
- */
-interface BitcoinFundFlow {
-  fromAddress?: string;
-  isIncoming: boolean;
-  isOutgoing: boolean;
-  netAmount: string;
-  toAddress?: string;
-  totalInput: string;
-  totalOutput: string;
-  walletInput: string;
-  walletOutput: string;
 }

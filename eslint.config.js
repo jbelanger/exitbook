@@ -131,6 +131,8 @@ export default [
             'private-instance-field',
             '#private-instance-field',
             'constructor',
+            'public-abstract-method',
+            'protected-abstract-method',
             'public-instance-method',
             'protected-instance-method',
             'private-instance-method',
