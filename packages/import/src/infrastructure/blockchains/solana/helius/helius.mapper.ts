@@ -1,11 +1,10 @@
-import { getLogger } from '@crypto/shared-logger';
-import { hasStringProperty, isErrorWithMessage, maskAddress } from '@crypto/shared-utils';
+import { isErrorWithMessage } from '@crypto/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
 import type { ImportSessionMetadata } from '../../../../app/ports/processors.ts';
-import type { UniversalBlockchainTransaction } from '../../../../app/ports/raw-data-mappers.ts';
 import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.ts';
 import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.ts';
+import type { SolanaAccountChange, SolanaTokenBalance, SolanaTokenChange, SolanaTransaction } from '../types.ts';
 import { lamportsToSol } from '../utils.ts';
 
 import type { SolanaRawTransactionData } from './helius.api-client.ts';
@@ -13,261 +12,218 @@ import { SolanaRawTransactionDataSchema } from './helius.schemas.ts';
 import type { HeliusTransaction } from './helius.types.ts';
 
 @RegisterTransactionMapper('helius')
-export class HeliusTransactionMapper extends BaseRawDataMapper<
-  SolanaRawTransactionData,
-  UniversalBlockchainTransaction
-> {
-  // Known Solana token mint addresses to symbols mapping
-  private static readonly KNOWN_TOKEN_SYMBOLS: Record<string, string> = {
-    '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R': 'RAY',
-    BvkjtktEZyjix9rSKEiA3ftMU1UCS61XEERFxtMqN1zd: 'MOBILE',
-    hntyVP6YFm1Hg25TN9WGLqM12b8TQmcknKrdu1oxWux: 'HNT',
-    rndrizKT3MK1iimdxRdWabcF7Zg7AR5T4nud4EkHBof: 'RENDER',
-    // Add more known tokens as needed
-  };
-  private static logger = getLogger('HeliusProcessor');
-
-  /**
-   * Detect staking operations by examining transaction instructions
-   */
-  private static detectStakingOperation(tx: HeliusTransaction): 'delegate' | 'undelegate' | undefined {
-    try {
-      // Solana Stake Program ID
-      const STAKE_PROGRAM_ID = '11111111111111111111111111111112';
-
-      // Look for staking-related instructions
-      const instructions = tx.transaction.message.instructions || [];
-
-      for (const instruction of instructions) {
-        if (typeof instruction === 'object' && instruction !== null && 'programIdIndex' in instruction) {
-          const programId = tx.transaction.message.accountKeys[instruction.programIdIndex as number];
-
-          // Check if this is a stake program instruction
-          if (programId === STAKE_PROGRAM_ID) {
-            // Decode instruction data to determine operation type
-            // This is simplified - in a full implementation, you'd decode the instruction data
-            // For now, we can infer from balance changes and context
-            return 'delegate'; // Could be delegate or undelegate
-          }
-        }
-      }
-
-      return undefined;
-    } catch (error) {
-      this.logger.debug(`Failed to detect staking operation: ${String(error)}`);
-      return undefined;
-    }
-  }
-
-  private static extractTokenTransaction(
-    tx: HeliusTransaction,
-    userAddress: string
-  ): UniversalBlockchainTransaction | undefined {
-    try {
-      // Look for token balance changes in preTokenBalances and postTokenBalances
-      const preTokenBalances = tx.meta.preTokenBalances || [];
-      const postTokenBalances = tx.meta.postTokenBalances || [];
-
-      // Find changes for token accounts owned by the user
-      for (const postBalance of postTokenBalances) {
-        // Check if this token account is owned by the user
-        if (postBalance.owner !== userAddress) {
-          continue;
-        }
-
-        const preBalance = preTokenBalances.find(
-          (pre) => pre.accountIndex === postBalance.accountIndex && pre.mint === postBalance.mint
-        );
-
-        const preAmount = preBalance ? parseFloat(preBalance.uiTokenAmount.uiAmountString || '0') : 0;
-        const postAmount = parseFloat(postBalance.uiTokenAmount.uiAmountString || '0');
-        const change = postAmount - preAmount;
-
-        // Skip if no meaningful change
-        if (Math.abs(change) < 0.000001) {
-          continue;
-        }
-
-        this.logger.debug(
-          `Found SPL token transaction - Signature: ${tx.transaction.signatures?.[0] || tx.signature}, Mint: ${postBalance.mint}, Owner: ${postBalance.owner}, Change: ${Math.abs(change)}, Type: ${change > 0 ? 'transfer_in' : 'transfer_out'}`
-        );
-
-        // Determine transfer direction
-        const type: 'transfer_in' | 'transfer_out' = change > 0 ? 'transfer_in' : 'transfer_out';
-
-        // Get proper token symbol from known mappings
-        const tokenSymbol = this.getTokenSymbolFromMint(postBalance.mint);
-
-        return {
-          amount: Math.abs(change).toString(),
-          blockHeight: tx.slot,
-          currency: tokenSymbol,
-          feeAmount: lamportsToSol(tx.meta.fee).toString(),
-          feeCurrency: 'SOL',
-          from: type === 'transfer_out' ? userAddress : '',
-          id: tx.transaction.signatures?.[0] || tx.signature,
-          providerId: 'helius',
-          status: tx.meta.err ? 'failed' : 'success',
-          timestamp: (tx.blockTime || 0) * 1000,
-          to: type === 'transfer_in' ? userAddress : '',
-          tokenAddress: postBalance.mint,
-          tokenSymbol,
-          type: 'token_transfer',
-        };
-      }
-
-      return undefined;
-    } catch (error) {
-      this.logger.debug(
-        `Failed to extract token transaction - Signature: ${tx.transaction.signatures?.[0] || tx.signature}, Error: ${error instanceof Error ? error.message : String(error)}`
-      );
-      return undefined;
-    }
-  }
-
-  private static getTokenSymbolFromMint(mintAddress: string): string {
-    return this.KNOWN_TOKEN_SYMBOLS[mintAddress] || `${mintAddress.slice(0, 6)}...`;
-  }
-
-  private static transformTransaction(
-    tx: HeliusTransaction,
-    userAddress: string
-  ): UniversalBlockchainTransaction | undefined {
-    try {
-      // Skip failed transactions - they shouldn't be processed
-      if (tx.meta.err) {
-        this.logger.debug(
-          `Skipping failed transaction - Hash: ${tx.transaction.signatures?.[0] || tx.signature}, Error: ${JSON.stringify(tx.meta.err)}`
-        );
-        return undefined;
-      }
-
-      const accountKeys = tx.transaction.message.accountKeys;
-      const userIndex = accountKeys.findIndex((key) => key === userAddress);
-
-      // First check for token transfers - these are more important than SOL transfers
-      const tokenTransaction = this.extractTokenTransaction(tx, userAddress);
-      if (tokenTransaction) {
-        return tokenTransaction;
-      }
-
-      // Check for staking operations
-      const stakingOperation = this.detectStakingOperation(tx);
-
-      // Fall back to SOL transfer handling
-      if (userIndex !== -1) {
-        const preBalance = tx.meta.preBalances[userIndex] || 0;
-        const postBalance = tx.meta.postBalances[userIndex] || 0;
-        const rawBalanceChange = postBalance - preBalance;
-
-        // For fee payer, add back the fee to get the actual transfer amount
-        const isFeePayerIndex = userIndex === 0;
-        const feeAdjustment = isFeePayerIndex ? tx.meta.fee : 0;
-        const balanceChange = rawBalanceChange + feeAdjustment;
-
-        const amount = lamportsToSol(Math.abs(balanceChange));
-
-        // Determine transaction type - prioritize staking operations
-        let type: 'transfer_in' | 'transfer_out' | 'delegate' | 'undelegate' =
-          balanceChange > 0 ? 'transfer_in' : 'transfer_out';
-
-        if (stakingOperation) {
-          // Use detected staking operation, but infer delegate vs undelegate from balance change
-          type = balanceChange < 0 ? 'delegate' : 'undelegate';
-          this.logger.debug(
-            `Detected staking operation - Hash: ${tx.transaction.signatures?.[0] || tx.signature}, Type: ${type}, BalanceChange: ${balanceChange}`
-          );
-        }
-
-        const fee = lamportsToSol(tx.meta.fee);
-
-        // Log transaction details for investigation
-        this.logger.debug(
-          `Processing SOL transaction - Hash: ${tx.transaction.signatures?.[0] || tx.signature}, PreBalance: ${preBalance}, PostBalance: ${postBalance}, RawChange: ${rawBalanceChange}, FeeAdjustment: ${feeAdjustment}, FinalBalanceChange: ${balanceChange}, Amount: ${amount.toNumber()}, Fee: ${fee.toNumber()}`
-        );
-
-        // For fee-only transactions (balance change is 0), still create a transaction
-        // The base class mapTransactionType will properly classify it as 'fee' type
-        const isFeeOnlyTransaction = Math.abs(balanceChange) === 0 && fee.toNumber() > 0;
-
-        if (isFeeOnlyTransaction) {
-          this.logger.debug(
-            `Processing fee-only transaction - Hash: ${tx.transaction.signatures?.[0] || tx.signature}, Amount: ${amount.toNumber()}, Fee: ${fee.toNumber()}`
-          );
-
-          return {
-            amount: fee.toString(),
-            blockHeight: tx.slot,
-            currency: 'SOL',
-            feeAmount: fee.toString(),
-            feeCurrency: 'SOL',
-            from: userAddress,
-            id: tx.transaction.signatures?.[0] || tx.signature,
-            providerId: 'helius',
-            status: 'success',
-            timestamp: (tx.blockTime || 0) * 1000,
-            to: '',
-            type: 'transfer_out',
-          };
-        }
-
-        return {
-          amount: amount.toString(),
-          blockHeight: tx.slot,
-          currency: 'SOL',
-          feeAmount: fee.toString(),
-          feeCurrency: 'SOL',
-          from: type === 'transfer_out' || type === 'delegate' ? userAddress : accountKeys?.[0] || '',
-          id: tx.transaction.signatures?.[0] || tx.signature,
-          providerId: 'helius',
-          status: tx.meta.err ? 'failed' : 'success',
-          timestamp: (tx.blockTime || 0) * 1000,
-          to: type === 'transfer_in' || type === 'undelegate' ? userAddress : '',
-          type,
-        };
-      }
-
-      this.logger.debug(
-        `Transaction not relevant to user - Signature: ${tx.transaction.signatures?.[0] || tx.signature}`
-      );
-      return undefined;
-    } catch (error) {
-      this.logger.warn(
-        `Failed to transform transaction - Signature: ${tx.transaction.signatures?.[0] || tx.signature}, Error: ${error instanceof Error ? error.message : String(error)}`
-      );
-      return undefined;
-    }
-  }
+export class HeliusTransactionMapper extends BaseRawDataMapper<SolanaRawTransactionData, SolanaTransaction> {
   protected readonly schema = SolanaRawTransactionDataSchema;
+
   protected mapInternal(
     rawData: SolanaRawTransactionData,
-    sessionContext: ImportSessionMetadata
-  ): Result<UniversalBlockchainTransaction, string> {
-    if (!sessionContext.address) {
-      return err('No address found in session context');
-    }
-
+    _sessionContext: ImportSessionMetadata
+  ): Result<SolanaTransaction, string> {
     if (!rawData.normal || rawData.normal.length === 0) {
       return err('No transactions to transform from SolanaRawTransactionData');
     }
 
-    const transactions: UniversalBlockchainTransaction[] = [];
+    // For now, process the first transaction
+    // TODO: Handle multiple transactions in batch properly
+    const tx = rawData.normal[0];
 
-    // Process ALL transactions in the batch, not just the first one
-    for (const tx of rawData.normal) {
-      const processedTx = HeliusTransactionMapper.transformTransaction(tx, sessionContext.address);
+    try {
+      const solanaTransaction = this.transformTransaction(tx);
+      return ok(solanaTransaction);
+    } catch (error) {
+      const errorMessage = isErrorWithMessage(error) ? error.message : String(error);
+      return err(`Failed to transform transaction: ${errorMessage}`);
+    }
+  }
 
-      if (processedTx) {
-        transactions.push(processedTx);
+  private transformTransaction(tx: HeliusTransaction): SolanaTransaction {
+    const signature = tx.transaction.signatures?.[0] || tx.signature;
+    const accountKeys = tx.transaction.message.accountKeys;
+    const fee = lamportsToSol(tx.meta.fee);
+
+    // Extract account balance changes for accurate fund flow analysis
+    const accountChanges = this.extractAccountChanges(tx, accountKeys);
+
+    // Extract token balance changes for SPL token analysis
+    const tokenChanges = this.extractTokenChanges(tx);
+
+    // Determine primary currency and amount from balance changes
+    const { primaryAmount, primaryCurrency } = this.determinePrimaryTransfer(accountChanges, tokenChanges);
+
+    // Extract basic transaction data (pure data extraction, no business logic)
+    return {
+      // Balance change data for accurate fund flow analysis
+      accountChanges,
+
+      // Core transaction data
+      amount: primaryAmount, // Calculated from balance changes
+      blockHeight: tx.slot,
+      blockId: signature, // Use signature as block ID for Helius
+      currency: primaryCurrency,
+
+      // Fee information
+      feeAmount: fee.toString(),
+      feeCurrency: 'SOL',
+
+      // Transaction flow (extract raw addresses, processor will determine direction)
+      from: accountKeys?.[0] || '', // First account is fee payer
+      id: signature,
+
+      // Instruction data (raw extraction)
+      instructions: (tx.transaction.message.instructions || []).map((instruction) => ({
+        accounts: [], // Will be extracted by processor if needed
+        data: JSON.stringify(instruction), // Serialize instruction as data
+        programId: '', // Will be extracted by processor if needed
+      })),
+
+      // Log messages
+      logMessages: tx.meta.logMessages || [],
+
+      providerId: 'helius',
+      signature,
+      slot: tx.slot,
+      status: tx.meta.err ? 'failed' : 'success',
+      timestamp: (tx.blockTime || 0) * 1000,
+
+      // Basic recipient (will be refined by processor)
+      to: accountKeys?.[1] || '', // Second account is often recipient
+
+      // Token balance changes for SPL token analysis
+      tokenChanges,
+      type: 'transfer', // Basic type, processor will refine
+    };
+  }
+
+  /**
+   * Extract SOL balance changes for all accounts
+   */
+  private extractAccountChanges(tx: HeliusTransaction, accountKeys: string[]): SolanaAccountChange[] {
+    const changes: SolanaAccountChange[] = [];
+
+    if (tx.meta.preBalances && tx.meta.postBalances && accountKeys) {
+      for (let i = 0; i < Math.min(accountKeys.length, tx.meta.preBalances.length, tx.meta.postBalances.length); i++) {
+        const preBalance = tx.meta.preBalances[i];
+        const postBalance = tx.meta.postBalances[i];
+
+        // Only include accounts with balance changes
+        if (preBalance !== postBalance) {
+          changes.push({
+            account: accountKeys[i],
+            postBalance: postBalance.toString(),
+            preBalance: preBalance.toString(),
+          });
+        }
       }
     }
 
-    // todo: handle multiple transactions properly
-    // For now, just return the first processed transaction for compatibility
-    // with existing interfaces
-    // if (transactions.length === 0) {
-    //   return err('No relevant transactions found for the provided address');
-    // }
-    return err('Needs to implement custom solana raw data object');
+    return changes;
+  }
+
+  /**
+   * Extract SPL token balance changes
+   */
+  private extractTokenChanges(tx: HeliusTransaction): SolanaTokenChange[] {
+    const changes: SolanaTokenChange[] = [];
+
+    // Create maps for easier lookup
+    const preTokenMap = new Map<string, SolanaTokenBalance>();
+    const postTokenMap = new Map<string, SolanaTokenBalance>();
+
+    // Build pre-token balance map
+    if (tx.meta.preTokenBalances) {
+      for (const balance of tx.meta.preTokenBalances) {
+        const key = `${balance.accountIndex}-${balance.mint}`;
+        preTokenMap.set(key, balance);
+      }
+    }
+
+    // Build post-token balance map and detect changes
+    if (tx.meta.postTokenBalances) {
+      for (const balance of tx.meta.postTokenBalances) {
+        const key = `${balance.accountIndex}-${balance.mint}`;
+        postTokenMap.set(key, balance);
+
+        const preBalance = preTokenMap.get(key);
+        const preAmount = preBalance?.uiTokenAmount.amount || '0';
+        const postAmount = balance.uiTokenAmount.amount;
+
+        // Only include tokens with balance changes
+        if (preAmount !== postAmount) {
+          changes.push({
+            account: balance.owner || '', // Token account owner
+            decimals: balance.uiTokenAmount.decimals,
+            mint: balance.mint,
+            owner: balance.owner,
+            postAmount,
+            preAmount,
+          });
+        }
+      }
+    }
+
+    // Check for tokens that existed in pre but not in post (fully spent)
+    for (const [key, preBalance] of preTokenMap.entries()) {
+      if (!postTokenMap.has(key)) {
+        changes.push({
+          account: preBalance.owner || '',
+          decimals: preBalance.uiTokenAmount.decimals,
+          mint: preBalance.mint,
+          owner: preBalance.owner,
+          postAmount: '0',
+          preAmount: preBalance.uiTokenAmount.amount,
+        });
+      }
+    }
+
+    return changes;
+  }
+
+  /**
+   * Determine the primary transfer amount and currency from balance changes
+   */
+  private determinePrimaryTransfer(
+    accountChanges: SolanaAccountChange[],
+    tokenChanges: SolanaTokenChange[]
+  ): { primaryAmount: string; primaryCurrency: string } {
+    // If there are token changes, prioritize the largest token transfer
+    if (tokenChanges.length > 0) {
+      const largestTokenChange = tokenChanges.reduce((largest, change) => {
+        const changeAmount = Math.abs(parseFloat(change.postAmount) - parseFloat(change.preAmount));
+        const largestAmount = Math.abs(parseFloat(largest.postAmount) - parseFloat(largest.preAmount));
+        return changeAmount > largestAmount ? change : largest;
+      });
+
+      const tokenAmount = Math.abs(
+        parseFloat(largestTokenChange.postAmount) - parseFloat(largestTokenChange.preAmount)
+      );
+      return {
+        primaryAmount: tokenAmount.toString(),
+        primaryCurrency: largestTokenChange.symbol || largestTokenChange.mint,
+      };
+    }
+
+    // Otherwise, find the largest SOL change (excluding fee payer)
+    if (accountChanges.length > 1) {
+      // Skip first account (fee payer) and find largest balance change
+      const largestSolChange = accountChanges.slice(1).reduce((largest, change) => {
+        const changeAmount = Math.abs(parseFloat(change.postBalance) - parseFloat(change.preBalance));
+        const largestAmount = Math.abs(parseFloat(largest.postBalance) - parseFloat(largest.preBalance));
+        return changeAmount > largestAmount ? change : largest;
+      }, accountChanges[1]);
+
+      if (largestSolChange) {
+        const solAmount = Math.abs(parseFloat(largestSolChange.postBalance) - parseFloat(largestSolChange.preBalance));
+        return {
+          primaryAmount: solAmount.toString(),
+          primaryCurrency: 'SOL',
+        };
+      }
+    }
+
+    // Default fallback
+    return {
+      primaryAmount: '0',
+      primaryCurrency: 'SOL',
+    };
   }
 }

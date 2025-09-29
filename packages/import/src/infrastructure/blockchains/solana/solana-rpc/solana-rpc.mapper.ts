@@ -1,115 +1,226 @@
-import { getLogger } from '@crypto/shared-logger';
-import { hasStringProperty, isErrorWithMessage, maskAddress } from '@crypto/shared-utils';
+import { isErrorWithMessage } from '@crypto/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
 import type { ImportSessionMetadata } from '../../../../app/ports/processors.ts';
-import type { UniversalBlockchainTransaction } from '../../../../app/ports/raw-data-mappers.ts';
 import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.ts';
 import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.ts';
+import type { SolanaAccountChange, SolanaTokenBalance, SolanaTokenChange, SolanaTransaction } from '../types.ts';
 import { lamportsToSol } from '../utils.ts';
 
 import { SolanaRPCRawTransactionDataSchema } from './solana-rpc.schemas.ts';
 import type { SolanaRPCRawTransactionData, SolanaRPCTransaction } from './solana-rpc.types.ts';
 
-const logger = getLogger('SolanaRPCProcessor');
-
 @RegisterTransactionMapper('solana-rpc')
-export class SolanaRPCTransactionMapper extends BaseRawDataMapper<
-  SolanaRPCRawTransactionData,
-  UniversalBlockchainTransaction
-> {
+export class SolanaRPCTransactionMapper extends BaseRawDataMapper<SolanaRPCRawTransactionData, SolanaTransaction> {
   protected readonly schema = SolanaRPCRawTransactionDataSchema;
   protected mapInternal(
     rawData: SolanaRPCRawTransactionData,
     sessionContext: ImportSessionMetadata
-  ): Result<UniversalBlockchainTransaction, string> {
-    if (!sessionContext.address) {
-      return err('No address found in session context');
-    }
-
+  ): Result<SolanaTransaction, string> {
     if (!rawData.normal || rawData.normal.length === 0) {
-      throw new Error('No transactions to transform from SolanaRPCRawTransactionData');
+      return err('No transactions to transform from SolanaRPCRawTransactionData');
     }
 
-    const transactions: UniversalBlockchainTransaction[] = [];
+    // For now, process the first transaction
+    // TODO: Handle multiple transactions in batch properly
+    const tx = rawData.normal[0];
 
-    // Process ALL transactions in the batch, not just the first one
-    for (const tx of rawData.normal) {
-      const processedTx = this.transformTransaction(tx, sessionContext.address);
-
-      if (!processedTx) {
-        // Transaction filtered out - continue with next
-        continue;
-      }
-
-      transactions.push(processedTx);
+    try {
+      const solanaTransaction = this.transformTransaction(tx);
+      return ok(solanaTransaction);
+    } catch (error) {
+      const errorMessage = isErrorWithMessage(error) ? error.message : String(error);
+      return err(`Failed to transform transaction: ${errorMessage}`);
     }
-
-    // todo: handle multiple transactions properly
-    // For now, just return the first processed transaction for compatibility
-    // with existing interfaces
-    // if (transactions.length === 0) {
-    //   return err('No relevant transactions found for the provided address');
-    // }
-    return err('Needs to implement custom solana raw data object');
   }
 
-  private transformTransaction(
-    tx: SolanaRPCTransaction,
-    userAddress: string
-  ): UniversalBlockchainTransaction | undefined {
-    try {
-      // Skip failed transactions - they shouldn't be processed
-      if (tx.meta.err) {
-        logger.debug(
-          `Skipping failed transaction - Hash: ${tx.transaction.signatures?.[0]}, Error: ${JSON.stringify(tx.meta.err)}`
-        );
-        return undefined;
+  private transformTransaction(tx: SolanaRPCTransaction): SolanaTransaction {
+    const accountKeys = tx.transaction.message.accountKeys;
+    const signature = tx.transaction.signatures?.[0] || '';
+    const fee = lamportsToSol(tx.meta.fee);
+
+    // Extract account balance changes for accurate fund flow analysis
+    const accountChanges = this.extractAccountChanges(tx, accountKeys);
+
+    // Extract token balance changes for SPL token analysis
+    const tokenChanges = this.extractTokenChanges(tx);
+
+    // Determine primary currency and amount from balance changes
+    const { primaryAmount, primaryCurrency } = this.determinePrimaryTransfer(accountChanges, tokenChanges);
+
+    // Extract basic transaction data (pure data extraction, no business logic)
+    return {
+      // Balance change data for accurate fund flow analysis
+      accountChanges,
+
+      // Core transaction data
+      amount: primaryAmount, // Calculated from balance changes
+      blockHeight: tx.slot,
+      blockId: signature, // Use signature as block ID for Solana
+      currency: primaryCurrency,
+
+      // Fee information
+      feeAmount: fee.toString(),
+      feeCurrency: 'SOL',
+
+      // Transaction flow (extract raw addresses, processor will determine direction)
+      from: accountKeys?.[0] || '', // First account is fee payer
+      id: signature,
+
+      // Instruction data (raw extraction)
+      instructions: tx.transaction.message.instructions.map((instruction) => ({
+        accounts: instruction.accounts.map((accountIndex) => accountKeys[accountIndex] || ''),
+        data: instruction.data,
+        programId: accountKeys[instruction.programIdIndex] || '',
+      })),
+
+      // Log messages
+      logMessages: tx.meta.logMessages || [],
+      providerId: 'solana-rpc',
+      signature,
+      slot: tx.slot,
+      status: tx.meta.err ? 'failed' : 'success',
+      timestamp: (tx.blockTime || 0) * 1000,
+
+      // Basic recipient (will be refined by processor)
+      to: accountKeys?.[1] || '', // Second account is often recipient
+
+      // Token balance changes for SPL token analysis
+      tokenChanges,
+      type: 'transfer', // Basic type, processor will refine
+    };
+  }
+
+  /**
+   * Extract SOL balance changes for all accounts
+   */
+  private extractAccountChanges(tx: SolanaRPCTransaction, accountKeys: string[]): SolanaAccountChange[] {
+    const changes: SolanaAccountChange[] = [];
+
+    if (tx.meta.preBalances && tx.meta.postBalances && accountKeys) {
+      for (let i = 0; i < Math.min(accountKeys.length, tx.meta.preBalances.length, tx.meta.postBalances.length); i++) {
+        const preBalance = tx.meta.preBalances[i];
+        const postBalance = tx.meta.postBalances[i];
+
+        // Only include accounts with balance changes
+        if (preBalance !== postBalance) {
+          changes.push({
+            account: accountKeys[i],
+            postBalance: postBalance.toString(),
+            preBalance: preBalance.toString(),
+          });
+        }
       }
-
-      const accountKeys = tx.transaction.message.accountKeys;
-      const userIndex = accountKeys.findIndex((key) => key === userAddress);
-
-      if (userIndex === -1) {
-        logger.debug(`Transaction not relevant to user - Signature: ${tx.transaction.signatures?.[0]}`);
-        return undefined;
-      }
-
-      // Calculate balance change
-      const preBalance = tx.meta.preBalances[userIndex] || 0;
-      const postBalance = tx.meta.postBalances[userIndex] || 0;
-      const rawBalanceChange = postBalance - preBalance;
-
-      // For fee payer, add back the fee to get the actual transfer amount
-      const isFeePayerIndex = userIndex === 0;
-      const feeAdjustment = isFeePayerIndex ? tx.meta.fee : 0;
-      const balanceChange = rawBalanceChange + feeAdjustment;
-
-      const amount = lamportsToSol(Math.abs(balanceChange));
-      const type: 'transfer_in' | 'transfer_out' = balanceChange > 0 ? 'transfer_in' : 'transfer_out';
-      const fee = lamportsToSol(tx.meta.fee);
-
-      // Don't skip fee-only transactions - the base class will properly classify them as 'fee' type
-
-      return {
-        amount: amount.toString(),
-        blockHeight: tx.slot,
-        currency: 'SOL',
-        feeAmount: fee.toString(),
-        feeCurrency: 'SOL',
-        from: accountKeys?.[0] || '',
-        id: tx.transaction.signatures?.[0] || '',
-        providerId: 'solana-rpc',
-        status: tx.meta.err ? 'failed' : 'success',
-        timestamp: (tx.blockTime || 0) * 1000,
-        to: '',
-        type,
-      };
-    } catch (error) {
-      logger.warn(
-        `Failed to transform transaction - Signature: ${tx.transaction.signatures?.[0]}, Error: ${error instanceof Error ? error.message : String(error)}`
-      );
-      return undefined;
     }
+
+    return changes;
+  }
+
+  /**
+   * Extract SPL token balance changes
+   */
+  private extractTokenChanges(tx: SolanaRPCTransaction): SolanaTokenChange[] {
+    const changes: SolanaTokenChange[] = [];
+
+    // Create maps for easier lookup
+    const preTokenMap = new Map<string, SolanaTokenBalance>();
+    const postTokenMap = new Map<string, SolanaTokenBalance>();
+
+    // Build pre-token balance map
+    if (tx.meta.preTokenBalances) {
+      for (const balance of tx.meta.preTokenBalances) {
+        const key = `${balance.accountIndex}-${balance.mint}`;
+        preTokenMap.set(key, balance);
+      }
+    }
+
+    // Build post-token balance map and detect changes
+    if (tx.meta.postTokenBalances) {
+      for (const balance of tx.meta.postTokenBalances) {
+        const key = `${balance.accountIndex}-${balance.mint}`;
+        postTokenMap.set(key, balance);
+
+        const preBalance = preTokenMap.get(key);
+        const preAmount = preBalance?.uiTokenAmount.amount || '0';
+        const postAmount = balance.uiTokenAmount.amount;
+
+        // Only include tokens with balance changes
+        if (preAmount !== postAmount) {
+          changes.push({
+            account: balance.owner || '', // Token account owner
+            decimals: balance.uiTokenAmount.decimals,
+            mint: balance.mint,
+            owner: balance.owner,
+            postAmount,
+            preAmount,
+          });
+        }
+      }
+    }
+
+    // Check for tokens that existed in pre but not in post (fully spent)
+    for (const [key, preBalance] of preTokenMap.entries()) {
+      if (!postTokenMap.has(key)) {
+        changes.push({
+          account: preBalance.owner || '',
+          decimals: preBalance.uiTokenAmount.decimals,
+          mint: preBalance.mint,
+          owner: preBalance.owner,
+          postAmount: '0',
+          preAmount: preBalance.uiTokenAmount.amount,
+        });
+      }
+    }
+
+    return changes;
+  }
+
+  /**
+   * Determine the primary transfer amount and currency from balance changes
+   */
+  private determinePrimaryTransfer(
+    accountChanges: SolanaAccountChange[],
+    tokenChanges: SolanaTokenChange[]
+  ): { primaryAmount: string; primaryCurrency: string } {
+    // If there are token changes, prioritize the largest token transfer
+    if (tokenChanges.length > 0) {
+      const largestTokenChange = tokenChanges.reduce((largest, change) => {
+        const changeAmount = Math.abs(parseFloat(change.postAmount) - parseFloat(change.preAmount));
+        const largestAmount = Math.abs(parseFloat(largest.postAmount) - parseFloat(largest.preAmount));
+        return changeAmount > largestAmount ? change : largest;
+      });
+
+      const tokenAmount = Math.abs(
+        parseFloat(largestTokenChange.postAmount) - parseFloat(largestTokenChange.preAmount)
+      );
+      return {
+        primaryAmount: tokenAmount.toString(),
+        primaryCurrency: largestTokenChange.symbol || largestTokenChange.mint,
+      };
+    }
+
+    // Otherwise, find the largest SOL change (excluding fee payer)
+    if (accountChanges.length > 1) {
+      // Skip first account (fee payer) and find largest balance change
+      const largestSolChange = accountChanges.slice(1).reduce((largest, change) => {
+        const changeAmount = Math.abs(parseFloat(change.postBalance) - parseFloat(change.preBalance));
+        const largestAmount = Math.abs(parseFloat(largest.postBalance) - parseFloat(largest.preBalance));
+        return changeAmount > largestAmount ? change : largest;
+      }, accountChanges[1]);
+
+      if (largestSolChange) {
+        const solAmount = Math.abs(parseFloat(largestSolChange.postBalance) - parseFloat(largestSolChange.preBalance));
+        return {
+          primaryAmount: solAmount.toString(),
+          primaryCurrency: 'SOL',
+        };
+      }
+    }
+
+    // Default fallback
+    return {
+      primaryAmount: '0',
+      primaryCurrency: 'SOL',
+    };
   }
 }

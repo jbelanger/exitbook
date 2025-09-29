@@ -1,111 +1,183 @@
-import { getLogger } from '@crypto/shared-logger';
-import { Decimal } from 'decimal.js';
+import { isErrorWithMessage } from '@crypto/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
 import type { ImportSessionMetadata } from '../../../../app/ports/processors.ts';
-import type { UniversalBlockchainTransaction } from '../../../../app/ports/raw-data-mappers.ts';
 import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.ts';
 import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.ts';
+import type { SolanaAccountChange, SolanaTokenChange, SolanaTransaction } from '../types.ts';
 import { lamportsToSol } from '../utils.ts';
 
 import type { SolscanRawTransactionData } from './solscan.api-client.ts';
 import { SolscanRawTransactionDataSchema } from './solscan.schemas.ts';
 import type { SolscanTransaction } from './solscan.types.ts';
 
-const logger = getLogger('SolscanProcessor');
-
 @RegisterTransactionMapper('solscan')
-export class SolscanTransactionMapper extends BaseRawDataMapper<
-  SolscanRawTransactionData,
-  UniversalBlockchainTransaction
-> {
+export class SolscanTransactionMapper extends BaseRawDataMapper<SolscanRawTransactionData, SolanaTransaction> {
   protected readonly schema = SolscanRawTransactionDataSchema;
 
   protected mapInternal(
     rawData: SolscanRawTransactionData,
     sessionContext: ImportSessionMetadata
-  ): Result<UniversalBlockchainTransaction, string> {
-    if (!sessionContext.address) {
-      return err('No address found in session context');
-    }
-
+  ): Result<SolanaTransaction, string> {
     if (!rawData.normal || rawData.normal.length === 0) {
       return err('No transactions to transform from SolscanRawTransactionData');
     }
 
-    const transactions: UniversalBlockchainTransaction[] = [];
+    // For now, process the first transaction
+    // TODO: Handle multiple transactions in batch properly
+    const tx = rawData.normal[0];
 
-    // Process ALL transactions in the batch, not just the first one
-    for (const tx of rawData.normal) {
-      const processedTx = this.transformTransaction(tx, sessionContext.address);
-
-      if (!processedTx) {
-        // Transaction filtered out - continue with next
-        continue;
-      }
-
-      transactions.push(processedTx);
+    try {
+      const solanaTransaction = this.transformTransaction(tx);
+      return ok(solanaTransaction);
+    } catch (error) {
+      const errorMessage = isErrorWithMessage(error) ? error.message : String(error);
+      return err(`Failed to transform transaction: ${errorMessage}`);
     }
-
-    // todo: handle multiple transactions properly
-    // For now, just return the first processed transaction for compatibility
-    // with existing interfaces
-    // if (transactions.length === 0) {
-    //   return err('No relevant transactions found for the provided address');
-    // }
-    return err('Needs to implement custom solana raw data object');
   }
 
-  private transformTransaction(
-    tx: SolscanTransaction,
-    userAddress: string
-  ): UniversalBlockchainTransaction | undefined {
-    try {
-      // Check if user is involved in the transaction
-      const isUserSigner = tx.signer.includes(userAddress);
-      const userAccount = tx.inputAccount?.find((acc) => acc.account === userAddress);
+  private transformTransaction(tx: SolscanTransaction): SolanaTransaction {
+    const fee = lamportsToSol(tx.fee);
 
-      if (!isUserSigner && !userAccount) {
-        logger.debug(`Transaction not relevant to user address - TxHash: ${tx.txHash}`);
-        return undefined;
+    // Extract account balance changes for accurate fund flow analysis
+    const accountChanges = this.extractAccountChanges(tx);
+
+    // Solscan doesn't provide detailed token balance changes, so we'll create minimal token changes
+    // The processor will handle more sophisticated token transfer detection
+    const tokenChanges: SolanaTokenChange[] = [];
+
+    // Determine primary currency and amount from balance changes
+    const { primaryAmount, primaryCurrency } = this.determinePrimaryTransfer(accountChanges, tokenChanges);
+
+    // Determine basic recipient from account changes
+    const recipient = this.determineRecipient(tx);
+
+    // Extract basic transaction data (pure data extraction, no business logic)
+    return {
+      // Balance change data for accurate fund flow analysis
+      accountChanges,
+
+      // Core transaction data
+      amount: primaryAmount, // Calculated from balance changes
+      blockHeight: tx.slot,
+      blockId: tx.txHash, // Use txHash as block ID for Solscan
+      currency: primaryCurrency,
+
+      // Fee information
+      feeAmount: fee.toString(),
+      feeCurrency: 'SOL',
+
+      // Transaction flow (extract raw addresses, processor will determine direction)
+      from: tx.signer?.[0] || '', // First signer is fee payer
+      id: tx.txHash,
+
+      // Instruction data (raw extraction from parsedInstruction)
+      instructions:
+        tx.parsedInstruction?.map((instruction) => ({
+          data: JSON.stringify(instruction.params || {}), // Serialize params as data
+          instructionType: instruction.type,
+          programId: instruction.programId,
+          programName: instruction.program,
+        })) || [],
+
+      // Log messages
+      logMessages: tx.logMessage || [],
+      providerId: 'solscan',
+      signature: tx.txHash,
+      slot: tx.slot,
+      status: tx.status === 'Success' ? 'success' : 'failed',
+      timestamp: tx.blockTime * 1000,
+
+      // Basic recipient (determined from account changes)
+      to: recipient,
+
+      // Token balance changes (minimal for Solscan)
+      tokenChanges,
+      type: 'transfer', // Basic type, processor will refine
+    };
+  }
+
+  /**
+   * Extract SOL balance changes from Solscan inputAccount data
+   */
+  private extractAccountChanges(tx: SolscanTransaction): SolanaAccountChange[] {
+    const changes: SolanaAccountChange[] = [];
+
+    if (tx.inputAccount) {
+      for (const accountData of tx.inputAccount) {
+        // Only include accounts with balance changes
+        if (accountData.preBalance !== accountData.postBalance) {
+          changes.push({
+            account: accountData.account,
+            postBalance: accountData.postBalance.toString(),
+            preBalance: accountData.preBalance.toString(),
+          });
+        }
       }
-
-      // Calculate amount and determine direction
-      let amount = new Decimal(0);
-      let type: 'transfer_in' | 'transfer_out' = 'transfer_out';
-
-      if (userAccount) {
-        const balanceChange = userAccount.postBalance - userAccount.preBalance;
-        amount = lamportsToSol(Math.abs(balanceChange));
-        type = balanceChange > 0 ? 'transfer_in' : 'transfer_out';
-      } else {
-        // Fallback to lamport field if available
-        amount = lamportsToSol(Math.abs(tx.lamport || 0));
-        type = 'transfer_out';
-      }
-
-      // Calculate fee
-      const fee = lamportsToSol(tx.fee);
-
-      return {
-        amount: amount.toString(),
-        blockHeight: tx.slot,
-        currency: 'SOL',
-        feeAmount: fee.toString(),
-        feeCurrency: 'SOL',
-        from: tx.signer?.[0] || '',
-        id: tx.txHash,
-        providerId: 'solscan',
-        status: tx.status === 'Success' ? 'success' : 'failed',
-        timestamp: tx.blockTime * 1000,
-        to: '',
-        type: type === 'transfer_out' ? 'transfer_out' : 'transfer_in',
-      };
-    } catch (error) {
-      logger.warn(
-        `Failed to transform transaction - TxHash: ${tx.txHash}, Error: ${error instanceof Error ? error.message : String(error)}`
-      );
-      return undefined;
     }
+
+    return changes;
+  }
+
+  /**
+   * Determine the primary transfer amount and currency from balance changes
+   * Solscan structure is simpler, so this focuses on SOL transfers
+   */
+  private determinePrimaryTransfer(
+    accountChanges: SolanaAccountChange[],
+    _tokenChanges: SolanaTokenChange[]
+  ): { primaryAmount: string; primaryCurrency: string } {
+    // Find the largest SOL change (excluding fee payer which is usually first signer)
+    if (accountChanges.length > 1) {
+      // Skip first account (fee payer) and find largest balance change
+      const largestSolChange = accountChanges.slice(1).reduce((largest, change) => {
+        const changeAmount = Math.abs(parseFloat(change.postBalance) - parseFloat(change.preBalance));
+        const largestAmount = Math.abs(parseFloat(largest.postBalance) - parseFloat(largest.preBalance));
+        return changeAmount > largestAmount ? change : largest;
+      }, accountChanges[1]);
+
+      if (largestSolChange) {
+        const solAmount = Math.abs(parseFloat(largestSolChange.postBalance) - parseFloat(largestSolChange.preBalance));
+        return {
+          primaryAmount: solAmount.toString(),
+          primaryCurrency: 'SOL',
+        };
+      }
+    } else if (accountChanges.length === 1) {
+      // Only one account change (probably fee-only transaction)
+      const solAmount = Math.abs(parseFloat(accountChanges[0].postBalance) - parseFloat(accountChanges[0].preBalance));
+      return {
+        primaryAmount: solAmount.toString(),
+        primaryCurrency: 'SOL',
+      };
+    }
+
+    // Default fallback
+    return {
+      primaryAmount: '0',
+      primaryCurrency: 'SOL',
+    };
+  }
+
+  /**
+   * Determine basic recipient from account changes
+   */
+  private determineRecipient(tx: SolscanTransaction): string {
+    // Try to find the account that received funds (positive balance change, not the fee payer)
+    const feePayerAccount = tx.signer?.[0] || '';
+
+    if (tx.inputAccount) {
+      const recipient = tx.inputAccount.find((account) => {
+        const balanceChange = account.postBalance - account.preBalance;
+        return balanceChange > 0 && account.account !== feePayerAccount;
+      });
+
+      if (recipient) {
+        return recipient.account;
+      }
+    }
+
+    // Fallback: return empty string, processor will determine
+    return '';
   }
 }
