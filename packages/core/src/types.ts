@@ -6,7 +6,24 @@ export interface Money {
   currency: string;
 }
 
-export type TransactionType = 'trade' | 'deposit' | 'withdrawal' | 'order' | 'ledger' | 'transfer' | 'fee';
+export type TransactionType =
+  | 'trade'
+  | 'deposit'
+  | 'withdrawal'
+  | 'order'
+  | 'ledger'
+  | 'transfer'
+  | 'fee'
+  | 'staking_deposit' // Staking funds (bonding)
+  | 'staking_withdrawal' // Unstaking funds (unbonding/withdraw)
+  | 'staking_reward' // Staking rewards received
+  | 'governance_deposit' // Governance deposits (proposals, votes)
+  | 'governance_refund' // Governance refunds
+  | 'internal_transfer' // Self-to-self transfers
+  | 'proxy' // Proxy transactions
+  | 'multisig' // Multisig transactions
+  | 'utility_batch' // Batch transactions
+  | 'unknown';
 
 export type TransactionStatus = 'pending' | 'open' | 'closed' | 'canceled' | 'failed' | 'ok';
 

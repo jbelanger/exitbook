@@ -2,9 +2,9 @@ import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
 import type { ImportSessionMetadata } from '../../../../app/ports/processors.ts';
-import type { UniversalBlockchainTransaction } from '../../../../app/ports/raw-data-mappers.ts';
 import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.ts';
 import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.ts';
+import type { SubstrateTransaction } from '../substrate-types.ts';
 
 import { SubscanTransferSchema } from './substrate.schemas.ts';
 import type {
@@ -16,13 +16,13 @@ import type {
 import { SUBSTRATE_CHAINS } from './substrate.types.ts';
 
 @RegisterTransactionMapper('subscan')
-export class SubstrateTransactionMapper extends BaseRawDataMapper<SubscanTransfer, UniversalBlockchainTransaction> {
+export class SubstrateTransactionMapper extends BaseRawDataMapper<SubscanTransfer, SubstrateTransaction> {
   protected readonly schema = SubscanTransferSchema;
 
   protected mapInternal(
     rawData: SubscanTransfer,
     sessionContext: ImportSessionMetadata
-  ): Result<UniversalBlockchainTransaction, string> {
+  ): Result<SubstrateTransaction, string> {
     // Extract addresses from rich session context (similar to Bitcoin's approach)
     // Use derivedAddresses for SS58 variants, fallback to address for backward compatibility
     const addresses = sessionContext.derivedAddresses || (sessionContext.address ? [sessionContext.address] : []);
@@ -52,7 +52,7 @@ export class SubstrateTransactionMapper extends BaseRawDataMapper<SubscanTransfe
     transfer: SubscanTransfer,
     relevantAddresses: Set<string>,
     chainConfig: SubstrateChainConfig
-  ): UniversalBlockchainTransaction | undefined {
+  ): SubstrateTransaction | undefined {
     try {
       const isFromUser = relevantAddresses.has(transfer.from);
       const isToUser = relevantAddresses.has(transfer.to);
@@ -68,22 +68,40 @@ export class SubstrateTransactionMapper extends BaseRawDataMapper<SubscanTransfe
       const fee = new Decimal(transfer.fee || '0');
       const feeInMainUnit = fee.dividedBy(divisor);
 
-      const type = isFromUser ? 'transfer_out' : 'transfer_in';
-
       return {
+        // Value information
         amount: amountInMainUnit.toString(),
+        // Block context
         blockHeight: transfer.block_num || 0,
         blockId: transfer.block_hash || '',
+        call: transfer.call,
+
+        // Chain identification
+        chainName: chainConfig.name,
         currency: chainConfig.tokenSymbol,
+
+        // Substrate-specific information
+        extrinsicIndex: transfer.extrinsic_index,
+        // Fee information
         feeAmount: feeInMainUnit.toString(),
+
         feeCurrency: chainConfig.tokenSymbol,
+        // Transaction flow data
         from: transfer.from,
+
+        // Core transaction data
         id: transfer.hash,
+        module: transfer.module,
+
         providerId: 'subscan',
+        ss58Format: chainConfig.ss58Format,
         status: transfer.success ? 'success' : 'failed',
+
         timestamp: transfer.block_timestamp * 1000, // Convert to milliseconds
+
         to: transfer.to,
-        type: type === 'transfer_out' ? 'transfer_out' : 'transfer_in',
+        // Transaction type classification
+        type: 'transfer',
       };
     } catch (error) {
       console.warn(

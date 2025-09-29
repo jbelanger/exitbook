@@ -13,7 +13,25 @@ export const MoneySchema = z.object({
 });
 
 // Transaction type schema
-export const TransactionTypeSchema = z.enum(['trade', 'deposit', 'withdrawal', 'order', 'ledger', 'transfer', 'fee']);
+export const TransactionTypeSchema = z.enum([
+  'trade',
+  'deposit',
+  'withdrawal',
+  'order',
+  'ledger',
+  'transfer',
+  'fee',
+  'staking_deposit',
+  'staking_withdrawal',
+  'staking_reward',
+  'governance_deposit',
+  'governance_refund',
+  'internal_transfer',
+  'proxy',
+  'multisig',
+  'utility_batch',
+  'unknown',
+]);
 
 // Transaction status schema
 export const TransactionStatusSchema = z.enum(['pending', 'open', 'closed', 'canceled', 'failed', 'ok']);
