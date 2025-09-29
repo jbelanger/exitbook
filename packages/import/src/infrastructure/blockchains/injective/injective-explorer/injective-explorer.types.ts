@@ -1,5 +1,5 @@
-export interface InjectiveApiResponse {
-  data: InjectiveTransaction[];
+export interface InjectiveExplorerResponse {
+  data: InjectiveExplorerTransaction[];
   paging?: {
     from?: number;
     to?: number;
@@ -7,7 +7,7 @@ export interface InjectiveApiResponse {
   };
 }
 
-export interface InjectiveTransaction {
+export interface InjectiveExplorerTransaction {
   block_number: number;
   block_timestamp: string;
   block_unix_timestamp?: number;
@@ -17,15 +17,15 @@ export interface InjectiveTransaction {
   data?: string;
   error_log?: string;
   extension_options?: unknown[];
-  gas_fee: InjectiveGasFee;
+  gas_fee: InjectiveExplorerGasFee;
   gas_used: number;
   gas_wanted: number;
   hash: string;
   id?: string;
   info?: string;
-  logs?: InjectiveTransactionLog[];
+  logs?: InjectiveExplorerTransactionLog[];
   memo?: string;
-  messages: InjectiveMessage[];
+  messages: InjectiveExplorerMessage[];
   non_critical_extension_options?: unknown[];
   signatures?: unknown[];
   timeout_height?: number;
@@ -33,13 +33,13 @@ export interface InjectiveTransaction {
   tx_type: string;
 }
 
-export interface InjectiveMessage {
+export interface InjectiveExplorerMessage {
   type: string;
-  value: InjectiveMessageValue;
+  value: InjectiveExplorerMessageValue;
 }
 
-export interface InjectiveMessageValue {
-  amount?: InjectiveAmount[] | string;
+export interface InjectiveExplorerMessageValue {
+  amount?: InjectiveExplorerAmount[] | string;
   ethereum_receiver?: string;
   from_address?: string;
   injective_receiver?: string;
@@ -51,46 +51,46 @@ export interface InjectiveMessageValue {
   timeout_height?: unknown;
   timeout_timestamp?: string;
   to_address?: string;
-  token?: InjectiveAmount;
+  token?: InjectiveExplorerAmount;
   token_contract?: string;
 }
 
-export interface InjectiveAmount {
+export interface InjectiveExplorerAmount {
   amount: string;
   denom: string;
 }
 
-export interface InjectiveGasFee {
-  amount: InjectiveAmount[];
+export interface InjectiveExplorerGasFee {
+  amount: InjectiveExplorerAmount[];
   gas_limit: number;
   granter: string;
   payer: string;
 }
 
-export interface InjectiveBalance {
+export interface InjectiveExplorerBalance {
   amount: string;
   denom: string;
 }
 
-export interface InjectiveBalanceResponse {
-  balances: InjectiveBalance[];
+export interface InjectiveExplorerBalanceResponse {
+  balances: InjectiveExplorerBalance[];
   pagination: {
     next_key?: string;
     total: string;
   };
 }
 
-export interface InjectiveTransactionLog {
-  events?: InjectiveEvent[];
+export interface InjectiveExplorerTransactionLog {
+  events?: InjectiveExplorerEvent[];
   msg_index?: string;
 }
 
-export interface InjectiveEvent {
-  attributes?: InjectiveEventAttribute[];
+export interface InjectiveExplorerEvent {
+  attributes?: InjectiveExplorerEventAttribute[];
   type?: string;
 }
 
-export interface InjectiveEventAttribute {
+export interface InjectiveExplorerEventAttribute {
   index?: boolean;
   key?: string;
   msg_index?: string;

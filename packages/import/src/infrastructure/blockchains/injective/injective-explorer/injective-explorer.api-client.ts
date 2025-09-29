@@ -4,7 +4,7 @@ import { BaseRegistryProvider } from '../../shared/registry/base-registry-provid
 import { RegisterApiClient } from '../../shared/registry/decorators.ts';
 import type { ProviderOperation } from '../../shared/types.ts';
 
-import type { InjectiveTransaction } from './injective-explorer.types.ts';
+import type { InjectiveExplorerTransaction } from './injective-explorer.types.ts';
 
 @RegisterApiClient({
   blockchain: 'injective',
@@ -100,7 +100,7 @@ export class InjectiveExplorerApiClient extends BaseRegistryProvider {
   private async getRawAddressTransactions(params: {
     address: string;
     since?: number;
-  }): Promise<InjectiveTransaction[]> {
+  }): Promise<InjectiveExplorerTransaction[]> {
     const { address, since } = params;
 
     if (!this.validateAddress(address)) {
@@ -143,7 +143,7 @@ export class InjectiveExplorerApiClient extends BaseRegistryProvider {
         `Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${transactions.length}, Network: ${this.network}`
       );
 
-      return transactions as InjectiveTransaction[];
+      return transactions as InjectiveExplorerTransaction[];
     } catch (error) {
       this.logger.error(
         `Failed to get raw address transactions - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`

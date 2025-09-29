@@ -2,24 +2,27 @@ import { parseDecimal } from '@crypto/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
 import type { ImportSessionMetadata } from '../../../../app/ports/processors.ts';
-import type { UniversalBlockchainTransaction } from '../../../../app/ports/raw-data-mappers.ts';
 import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.ts';
 import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.ts';
+import type { InjectiveTransaction } from '../types.ts';
 
 import { InjectiveTransactionSchema } from './injective-explorer.schemas.ts';
-import type { InjectiveTransaction, InjectiveMessageValue } from './injective-explorer.types.ts';
+import type {
+  InjectiveExplorerTransaction as InjectiveApiTransaction,
+  InjectiveExplorerMessageValue,
+} from './injective-explorer.types.ts';
 
 @RegisterTransactionMapper('injective-explorer')
 export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<
-  InjectiveTransaction,
-  UniversalBlockchainTransaction
+  InjectiveApiTransaction,
+  InjectiveTransaction
 > {
   protected readonly schema = InjectiveTransactionSchema;
 
   protected mapInternal(
-    rawData: InjectiveTransaction,
+    rawData: InjectiveApiTransaction,
     sessionContext: ImportSessionMetadata
-  ): Result<UniversalBlockchainTransaction, string> {
+  ): Result<InjectiveTransaction, string> {
     const timestamp = new Date(rawData.block_timestamp).getTime();
 
     if (!sessionContext.address) {
@@ -35,6 +38,19 @@ export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<
     let to = '';
     let currency = 'INJ';
     let feeCurrency = 'INJ';
+
+    // Injective-specific fields
+    let messageType: string | undefined;
+    let bridgeType: 'peggy' | 'ibc' | 'native' | undefined;
+    let eventNonce: string | undefined;
+    let sourceChannel: string | undefined;
+    let sourcePort: string | undefined;
+    let ethereumSender: string | undefined;
+    let ethereumReceiver: string | undefined;
+    let tokenAddress: string | undefined;
+    let tokenDecimals: number | undefined;
+    let tokenSymbol: string | undefined;
+    let tokenType: 'cw20' | 'native' | 'ibc' | undefined;
 
     // Parse fee from gas_fee field
     if (
@@ -52,31 +68,32 @@ export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<
 
     // Parse messages to extract transfer information and determine relevance
     let isRelevantTransaction = false;
-    let isIncoming = false;
-    let isOutgoing = false;
-    let eventNonce: string | undefined;
+    let transactionType: 'transfer' | 'bridge_deposit' | 'bridge_withdrawal' | 'ibc_transfer' = 'transfer';
 
     for (const message of rawData.messages) {
+      messageType = message.type;
+
       // Handle bank transfer messages
       if (message.type === '/cosmos.bank.v1beta1.MsgSend') {
         from = message.value.from_address || '';
         to = message.value.to_address || '';
+        bridgeType = 'native';
 
         if (message.value.amount && Array.isArray(message.value.amount) && message.value.amount.length > 0) {
           const transferAmount = message.value.amount[0];
           if (transferAmount) {
             amount = parseDecimal(transferAmount.amount).div(Math.pow(10, 18)).toString();
             currency = this.formatDenom(transferAmount.denom);
+            tokenType = 'native';
+            tokenSymbol = currency;
           }
         }
 
         // Determine if this transaction is relevant to our wallet
         if (to && relevantAddress === to && parseDecimal(amount).toNumber() > 0) {
           isRelevantTransaction = true;
-          isIncoming = true;
         } else if (from && relevantAddress === from && parseDecimal(amount).toNumber() > 0) {
           isRelevantTransaction = true;
-          isOutgoing = true;
         }
         break; // Use first transfer message
       }
@@ -85,40 +102,50 @@ export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<
       else if (message.type === '/ibc.applications.transfer.v1.MsgTransfer') {
         from = message.value.sender || '';
         to = message.value.receiver || '';
+        bridgeType = 'ibc';
+        transactionType = 'ibc_transfer';
+
+        sourceChannel = message.value.source_channel;
+        sourcePort = message.value.source_port;
 
         if (message.value.token) {
           amount = parseDecimal(message.value.token.amount).div(Math.pow(10, 18)).toString();
           currency = this.formatDenom(message.value.token.denom);
+          tokenType = 'ibc';
+          tokenSymbol = currency;
         }
 
         // Determine if this transaction is relevant to our wallet
         if (to && relevantAddress === to && parseDecimal(amount).toNumber() > 0) {
           isRelevantTransaction = true;
-          isIncoming = true;
         } else if (from && relevantAddress === from && parseDecimal(amount).toNumber() > 0) {
           isRelevantTransaction = true;
-          isOutgoing = true;
         }
         break;
       }
 
       // Handle Peggy bridge deposit messages (when funds come from Ethereum)
       else if (message.type === '/injective.peggy.v1.MsgDepositClaim') {
-        const messageValue = message.value as InjectiveMessageValue & {
+        const messageValue = message.value as InjectiveExplorerMessageValue & {
           cosmos_receiver?: string;
           ethereum_receiver?: string;
           ethereum_sender?: string;
           event_nonce?: string;
         };
 
+        bridgeType = 'peggy';
+        transactionType = 'bridge_deposit';
+        eventNonce = messageValue.event_nonce;
+        ethereumSender = messageValue.ethereum_sender;
+        ethereumReceiver = messageValue.ethereum_receiver;
+
         if (
           (messageValue.ethereum_receiver && relevantAddress === messageValue.ethereum_receiver) ||
           (messageValue.cosmos_receiver && relevantAddress === messageValue.cosmos_receiver)
         ) {
           isRelevantTransaction = true;
-          isIncoming = true;
           to = messageValue.cosmos_receiver || messageValue.ethereum_receiver || '';
-          eventNonce = messageValue.event_nonce;
+          from = messageValue.ethereum_sender || '';
 
           // Extract amount from the deposit claim if available
           if (messageValue.amount && messageValue.token_contract) {
@@ -126,6 +153,9 @@ export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<
               typeof messageValue.amount === 'string' ? messageValue.amount : messageValue.amount[0]?.amount || '0';
             amount = parseDecimal(amountValue).div(Math.pow(10, 18)).toString();
             currency = 'INJ';
+            tokenAddress = messageValue.token_contract;
+            tokenType = 'native';
+            tokenSymbol = currency;
           }
         }
       }
@@ -134,19 +164,6 @@ export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<
     // Only process transactions that are relevant to our wallet
     if (!isRelevantTransaction) {
       throw new Error('Transaction is not relevant to provided wallet address');
-    }
-
-    // Determine transaction type
-    let type: UniversalBlockchainTransaction['type'];
-
-    if (isIncoming && !isOutgoing) {
-      type = 'transfer';
-    } else if (isOutgoing && !isIncoming) {
-      type = 'transfer';
-    } else if (isIncoming && isOutgoing) {
-      type = 'transfer';
-    } else {
-      return err('Unable to determine transaction type - neither incoming nor outgoing flags set');
     }
 
     // For Peggy deposits, use event_nonce as the unique identifier to deduplicate validator consensus votes
@@ -160,26 +177,36 @@ export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<
 
     const transactionId = peggyId ? `peggy-deposit-${peggyId}` : rawData.hash;
 
-    const transaction: UniversalBlockchainTransaction = {
+    const transaction: InjectiveTransaction = {
       amount,
+      blockHeight: rawData.block_number,
+      bridgeType,
+      claimId: rawData.claim_id,
       currency,
+      ethereumReceiver,
+      ethereumSender,
+      eventNonce,
+      feeAmount: feeAmount !== '0' ? feeAmount : undefined,
+      feeCurrency: feeAmount !== '0' ? feeCurrency : undefined,
       from,
+      gasUsed: rawData.gas_used,
+      gasWanted: rawData.gas_wanted,
       id: transactionId,
+      memo: rawData.memo,
+      messageType,
       providerId: 'injective-explorer',
+      sourceChannel,
+      sourcePort,
       status: rawData.code === 0 ? 'success' : 'failed',
       timestamp,
       to,
-      type,
+      tokenAddress,
+      tokenDecimals,
+      tokenSymbol,
+      tokenType,
+      txType: rawData.tx_type,
+      type: transactionType,
     };
-
-    // Add optional fields
-    if (rawData.block_number) {
-      transaction.blockHeight = rawData.block_number;
-    }
-    if (feeAmount !== '0') {
-      transaction.feeAmount = feeAmount;
-      transaction.feeCurrency = feeCurrency;
-    }
 
     return ok(transaction);
   }

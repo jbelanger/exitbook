@@ -2,7 +2,7 @@ import type { ImportParams, ImportRunResult, ApiClientRawData } from '../../../a
 import { BaseImporter } from '../../shared/importers/base-importer.ts';
 import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
 
-import type { InjectiveTransaction } from './injective-explorer/injective-explorer.types.ts';
+import type { InjectiveExplorerTransaction } from './injective-explorer/injective-explorer.types.ts';
 // Ensure Injective API clients are registered
 import './register-apis.ts';
 
@@ -106,7 +106,7 @@ export class InjectiveTransactionImporter extends BaseImporter {
         type: 'getRawAddressTransactions',
       });
 
-      const rawTransactions = result.data as InjectiveTransaction[];
+      const rawTransactions = result.data as InjectiveExplorerTransaction[];
       const providerId = result.providerName;
 
       // Wrap each transaction with provider provenance and source address context
