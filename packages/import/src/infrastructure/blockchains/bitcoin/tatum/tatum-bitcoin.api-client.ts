@@ -167,18 +167,6 @@ export class TatumBitcoinApiClient extends TatumApiClientBase<TatumBitcoinTransa
     }
   }
 
-  override async testConnection(): Promise<boolean> {
-    try {
-      // Test connection with Genesis block address
-      const balance = await this.getRawAddressBalance('1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa');
-      this.logger.debug(`Connection test successful - Genesis address balance retrieved`);
-      return balance !== null && balance !== undefined;
-    } catch (error) {
-      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
-    }
-  }
-
   /**
    * Get address info for efficient gap scanning
    * Converts raw balance to AddressInfo format

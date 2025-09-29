@@ -122,26 +122,6 @@ export class CoinbaseAPIClient {
   }
 
   /**
-   * Test the connection and authentication
-   *
-   * @returns Promise resolving to true if connection is successful
-   */
-  async testConnection(): Promise<boolean> {
-    try {
-      this.logger.info('Testing Coinbase API connection and authentication...');
-
-      // Simple test: fetch accounts (should work for any valid API key)
-      const accounts = await this.getAccounts({ limit: 1 });
-
-      this.logger.info(`Connection test successful - Retrieved ${accounts.length} accounts`);
-      return true;
-    } catch (error) {
-      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      return false;
-    }
-  }
-
-  /**
    * Make an authenticated request to Coinbase Track API
    *
    * Uses CDP API keys with ES256 JWT authentication (same as Advanced Trade API)

@@ -99,21 +99,6 @@ export class SolanaRPCApiClient extends BaseRegistryProvider {
     }
   }
 
-  override async testConnection(): Promise<boolean> {
-    try {
-      const response = await this.httpClient.post<JsonRpcResponse<string>>('/', {
-        id: 1,
-        jsonrpc: '2.0',
-        method: 'getHealth',
-      });
-      this.logger.debug(`Connection test successful - Health: ${response?.result}`);
-      return response && response.result === 'ok';
-    } catch (error) {
-      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
-    }
-  }
-
   private async getRawAddressBalance(params: { address: string }): Promise<SolanaRPCRawBalanceData> {
     const { address } = params;
 

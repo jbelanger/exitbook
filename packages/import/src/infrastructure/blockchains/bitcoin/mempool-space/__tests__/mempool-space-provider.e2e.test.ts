@@ -40,11 +40,6 @@ describe('MempoolSpaceProvider Integration', () => {
       const isHealthy = await provider.isHealthy();
       expect(isHealthy).toBe(true);
     }, 30000);
-
-    it('should pass connection test', async () => {
-      const connectionTest = await provider.testConnection();
-      expect(connectionTest).toBe(true);
-    }, 30000);
   });
 
   describe('Address Transactions', () => {

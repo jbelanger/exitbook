@@ -83,11 +83,6 @@ export abstract class BaseRegistryProvider implements IBlockchainProvider {
     return this.metadata.defaultConfig.rateLimit;
   }
 
-  // Common provider methods
-  async testConnection(): Promise<boolean> {
-    return this.isHealthy();
-  }
-
   /**
    * Reinitialize HTTP client with custom configuration
    * Useful for providers that need special URL formatting or headers

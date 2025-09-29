@@ -86,17 +86,6 @@ export class InjectiveExplorerApiClient extends BaseRegistryProvider {
     }
   }
 
-  override async testConnection(): Promise<boolean> {
-    try {
-      const result = await this.isHealthy();
-      this.logger.debug(`Connection test result - Healthy: ${result}`);
-      return result;
-    } catch (error) {
-      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
-    }
-  }
-
   private async getRawAddressTransactions(params: {
     address: string;
     since?: number | undefined;

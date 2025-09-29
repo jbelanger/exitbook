@@ -89,18 +89,6 @@ export class BlockCypherApiClient extends BaseRegistryProvider {
     }
   }
 
-  override async testConnection(): Promise<boolean> {
-    try {
-      // Test with a simple endpoint that should always work
-      const chainInfo = await this.httpClient.get<{ name?: string }>('/');
-      this.logger.debug(`Connection test successful - ChainInfo: ${chainInfo?.name || 'Unknown'}`);
-      return hasStringProperty(chainInfo, 'name');
-    } catch (error) {
-      this.logger.error(`Connection test failed - Error: ${isErrorWithMessage(error) ? error.message : String(error)}`);
-      return false;
-    }
-  }
-
   private buildEndpoint(endpoint: string): string {
     if (this.apiKey) {
       const separator = endpoint.includes('?') ? '&' : '?';

@@ -52,8 +52,6 @@ export interface IBlockchainProvider<TConfig = Record<string, unknown>> {
 
   readonly name: string;
   readonly rateLimit: RateLimitConfig;
-
-  testConnection(): Promise<boolean>;
 }
 
 export type ProviderOperation<T> = {

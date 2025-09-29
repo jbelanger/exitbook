@@ -281,28 +281,6 @@ describe('TatumBitcoinApiClient', () => {
     });
   });
 
-  describe('testConnection', () => {
-    it('should return true when connection test passes', async () => {
-      const mockBalance: TatumBitcoinBalance = {
-        incoming: '0',
-        outgoing: '0',
-      };
-      mockHttpGet.mockResolvedValue(mockBalance);
-
-      const result = await client.testConnection();
-
-      expect(result).toBe(true);
-    });
-
-    it('should return false when connection test fails', async () => {
-      mockHttpGet.mockRejectedValue(new Error('Connection Error'));
-
-      const result = await client.testConnection();
-
-      expect(result).toBe(false);
-    });
-  });
-
   describe('capabilities', () => {
     it('should have correct capabilities', () => {
       const capabilities = client.capabilities;

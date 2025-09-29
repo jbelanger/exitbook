@@ -1,5 +1,6 @@
 // Auto-register all providers when package is imported
 import './infrastructure/blockchains/registry/register-apis.js';
+import './infrastructure/blockchains/registry/register-mappers.js';
 
 export { TransactionIngestionService } from './app/services/ingestion-service.ts';
 

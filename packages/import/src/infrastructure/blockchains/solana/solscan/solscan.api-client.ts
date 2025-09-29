@@ -114,19 +114,6 @@ export class SolscanApiClient extends BaseRegistryProvider {
     }
   }
 
-  override async testConnection(): Promise<boolean> {
-    try {
-      const response = await this.httpClient.get<SolscanResponse>(
-        '/account/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
-      );
-      this.logger.debug(`Connection test successful - HasResponse: ${!!response}`);
-      return response && response.success !== false;
-    } catch (error) {
-      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
-    }
-  }
-
   private async getRawAddressBalance(params: { address: string }): Promise<SolscanRawBalanceData> {
     const { address } = params;
 

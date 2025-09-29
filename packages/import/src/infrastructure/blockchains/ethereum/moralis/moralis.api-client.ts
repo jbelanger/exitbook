@@ -102,10 +102,6 @@ export class MoralisApiClient extends BaseRegistryProvider {
     }
   }
 
-  override async testConnection(): Promise<boolean> {
-    return this.isHealthy();
-  }
-
   private async getRawAddressBalance(address: string): Promise<MoralisNativeBalance> {
     try {
       const params = new URLSearchParams({

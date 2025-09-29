@@ -377,27 +377,6 @@ describe('CoinbaseAPIClient', () => {
     });
   });
 
-  // Note: Track API doesn't have a "getAllAccountTransactions" method
-  // Each account's transactions are fetched individually as needed by the adapter
-
-  describe('testConnection', () => {
-    it('should return true for successful connection', async () => {
-      mocks.mockHttpClient.request.mockResolvedValue({ data: [] });
-
-      const result = await client.testConnection();
-
-      expect(result).toBe(true);
-    });
-
-    it('should return false for failed connection', async () => {
-      mocks.mockHttpClient.request.mockRejectedValue(new Error('Authentication failed'));
-
-      const result = await client.testConnection();
-
-      expect(result).toBe(false);
-    });
-  });
-
   describe('error handling', () => {
     it('should handle and re-throw HTTP errors', async () => {
       const error = new Error('HTTP 401: Unauthorized');

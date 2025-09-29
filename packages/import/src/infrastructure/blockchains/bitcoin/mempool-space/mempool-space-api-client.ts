@@ -87,18 +87,6 @@ export class MempoolSpaceApiClient extends BaseRegistryProvider {
     }
   }
 
-  override async testConnection(): Promise<boolean> {
-    try {
-      // Test with a simple endpoint that should always work
-      const blockHeight = await this.httpClient.get<number>('/blocks/tip/height');
-      this.logger.debug(`Connection test successful - CurrentBlockHeight: ${blockHeight}`);
-      return typeof blockHeight === 'number' && blockHeight > 0;
-    } catch (error) {
-      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
-    }
-  }
-
   /**
    * Get raw address info for efficient gap scanning
    */

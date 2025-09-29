@@ -84,18 +84,6 @@ export class BlockchainComApiClient extends BaseRegistryProvider {
     }
   }
 
-  override async testConnection(): Promise<boolean> {
-    try {
-      // Test with a simple endpoint that should always work
-      const blockData = await this.httpClient.get<{ height: number }>('/latestblock');
-      this.logger.debug(`Connection test successful - CurrentBlockHeight: ${blockData.height}`);
-      return typeof blockData.height === 'number' && blockData.height > 0;
-    } catch (error) {
-      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
-    }
-  }
-
   /**
    * Get raw address info for efficient gap scanning
    */

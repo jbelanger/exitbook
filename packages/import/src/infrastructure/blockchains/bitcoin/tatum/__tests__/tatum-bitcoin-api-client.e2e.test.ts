@@ -25,15 +25,6 @@ describe('TatumBitcoinApiClient E2E', () => {
   );
 
   it.skipIf(!process.env['TATUM_API_KEY'] || process.env['TATUM_API_KEY'] === 'YourApiKeyToken')(
-    'should test connection successfully',
-    async () => {
-      const connected = await client.testConnection();
-      expect(connected).toBe(true);
-    },
-    30000
-  );
-
-  it.skipIf(!process.env['TATUM_API_KEY'] || process.env['TATUM_API_KEY'] === 'YourApiKeyToken')(
     'should get balance for Genesis block address',
     async () => {
       // Genesis block address - known to have received coins but never spent

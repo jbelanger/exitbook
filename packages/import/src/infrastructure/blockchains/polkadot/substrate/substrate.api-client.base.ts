@@ -90,10 +90,6 @@ export abstract class BaseSubstrateApiClient extends BaseRegistryProvider {
     }
   }
 
-  override async testConnection(): Promise<boolean> {
-    return this.isHealthy();
-  }
-
   private async getBalanceFromExplorer(address: string): Promise<unknown> {
     try {
       if (this.blockchain === 'bittensor') {

@@ -73,10 +73,6 @@ class MockProvider implements IBlockchainProvider {
   setFailureMode(shouldFail: boolean): void {
     this.shouldFail = shouldFail;
   }
-
-  async testConnection(): Promise<boolean> {
-    return Promise.resolve(!this.shouldFail);
-  }
 }
 
 describe('CircuitBreaker', () => {

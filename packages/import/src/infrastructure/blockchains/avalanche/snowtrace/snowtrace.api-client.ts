@@ -117,19 +117,6 @@ export class SnowtraceApiClient extends BaseRegistryProvider {
     }
   }
 
-  override async testConnection(): Promise<boolean> {
-    try {
-      const result = await this.isHealthy();
-      if (!result) {
-        this.logger.warn(`Connection test failed - Provider unhealthy`);
-      }
-      return result;
-    } catch (error) {
-      this.logger.error(`Connection test failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
-    }
-  }
-
   private async getInternalTransactions(address: string, since?: number): Promise<SnowtraceInternalTransaction[]> {
     const allTransactions: SnowtraceInternalTransaction[] = [];
     let page = 1;
