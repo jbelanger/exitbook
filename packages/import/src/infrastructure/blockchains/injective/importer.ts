@@ -5,8 +5,6 @@ import { BaseImporter } from '../../shared/importers/base-importer.js';
 import type { BlockchainProviderManager, ProviderError } from '../shared/blockchain-provider-manager.js';
 
 import type { InjectiveExplorerTransaction } from './injective-explorer/injective-explorer.types.js';
-// Ensure Injective API clients are registered
-import './register-apis.js';
 
 /**
  * Injective transaction importer that fetches raw transaction data from blockchain APIs.

@@ -14,31 +14,6 @@ export class ImporterFactory implements IImporterFactory {
   constructor(private providerManager: BlockchainProviderManager) {}
 
   /**
-   * Check if an importer is available for the given source.
-   */
-  isSupported(sourceId: string, sourceType: string): boolean {
-    try {
-      // Create a mock config to test support
-      // Check supported sources without creating mock config
-
-      // Try to determine if we would be able to create this importer
-      if (sourceType === 'exchange') {
-        return ['coinbase', 'kraken', 'kucoin', 'ledgerlive'].includes(sourceId.toLowerCase());
-      }
-
-      if (sourceType === 'blockchain') {
-        return ['avalanche', 'bitcoin', 'bittensor', 'ethereum', 'injective', 'polkadot', 'solana'].includes(
-          sourceId.toLowerCase()
-        );
-      }
-
-      return false;
-    } catch {
-      return false;
-    }
-  }
-
-  /**
    * Create an importer for the specified source.
    */
   async create(sourceId: string, sourceType: string, providerId?: string): Promise<IImporter> {

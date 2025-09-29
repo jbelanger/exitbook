@@ -102,12 +102,9 @@ export class ProviderRegistry {
     return Array.from(this.providers.entries())
       .filter(([key]) => key.startsWith(`${blockchain}:`))
       .map(([_, factory]) => {
-        // Create a temporary instance to get capabilities
-        const tempInstance = factory.create({});
-
         return {
           blockchain: factory.metadata.blockchain,
-          capabilities: tempInstance.capabilities,
+          capabilities: factory.metadata.capabilities,
           defaultConfig: factory.metadata.defaultConfig,
           description: factory.metadata.description || '',
           displayName: factory.metadata.displayName,

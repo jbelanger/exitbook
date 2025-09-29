@@ -5,8 +5,6 @@ import { BaseImporter } from '../../shared/importers/base-importer.js';
 import type { BlockchainProviderManager, ProviderError } from '../shared/blockchain-provider-manager.js';
 
 import type { SolanaRawTransactionData } from './helius/helius.api-client.js';
-// Ensure Solana providers are registered
-import './register-apis.js';
 import { isValidSolanaAddress } from './utils.js';
 
 /**

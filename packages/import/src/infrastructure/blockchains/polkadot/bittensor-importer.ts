@@ -4,8 +4,6 @@ import { err, type Result } from 'neverthrow';
 import { BaseImporter } from '../../shared/importers/base-importer.js';
 import type { BlockchainProviderManager, ProviderError } from '../shared/blockchain-provider-manager.js';
 
-// Ensure providers are registered
-import './register-apis.js';
 import type { TaostatsTransaction } from './substrate/substrate.types.js';
 
 /**

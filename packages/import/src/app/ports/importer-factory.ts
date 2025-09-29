@@ -10,9 +10,4 @@ export interface IImporterFactory {
    * All provider management (selection, failover, circuit breaking) is handled by the infrastructure layer.
    */
   create(sourceId: string, sourceType: string, providerId?: string): Promise<IImporter> | undefined;
-
-  /**
-   * Check if an importer is available for the given source.
-   */
-  isSupported(sourceId: string, sourceType: string): boolean;
 }
