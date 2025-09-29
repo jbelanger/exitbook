@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 
-import type { Money, TransactionStatus, TransactionType, UniversalTransaction } from '@crypto/core';
-import { createMoney } from '@crypto/shared-utils';
+import type { Money, TransactionStatus, TransactionType, UniversalTransaction } from '@exitbook/core';
+import { createMoney } from '@exitbook/shared-utils';
 import { Decimal } from 'decimal.js';
 
 // CCXT Transaction interface based on commonly used properties

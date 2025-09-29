@@ -1,7 +1,7 @@
-import type { RateLimitConfig } from '@crypto/core';
-import type { Logger } from '@crypto/shared-logger';
-import { getLogger } from '@crypto/shared-logger';
-import { HttpClient } from '@crypto/shared-utils';
+import type { RateLimitConfig } from '@exitbook/core';
+import type { Logger } from '@exitbook/shared-logger';
+import { getLogger } from '@exitbook/shared-logger';
+import { HttpClient } from '@exitbook/shared-utils';
 
 import type { IBlockchainProvider, ProviderCapabilities, ProviderOperation } from '../types.js';
 

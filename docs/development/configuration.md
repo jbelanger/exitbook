@@ -65,7 +65,7 @@ ALCHEMY_API_KEY=your_alchemy_api_key
 # HELIUS_API_KEY=your_helius_api_key (for Solana)
 ```
 
-**Note:** To find the correct environment variable name for any provider, run `pnpm --filter @crypto/import run providers:list`.
+**Note:** To find the correct environment variable name for any provider, run `pnpm --filter @exitbook/import run providers:list`.
 
 ### C. Verify Your Setup
 
@@ -73,26 +73,26 @@ Use the built-in CLI tools to validate your configuration.
 
 ```bash
 # 1. Check that all registered providers are listed in your config
-pnpm --filter @crypto/import run providers:sync
+pnpm --filter @exitbook/import run providers:sync
 
 # 2. Validate the config file for typos and correctness
-pnpm --filter @crypto/import run config:validate
+pnpm --filter @exitbook/import run config:validate
 ```
 
 ## 3. Configuration Schema Explained
 
 The `blockchain-explorers.json` file has a simple but powerful structure.
 
-| Key | Type | Description |
-|---|---|---|
-| **`<blockchain>`** | `object` | A top-level key for each blockchain (e.g., "bitcoin", "ethereum"). |
-| ┝ **`defaultEnabled`** | `string[]` | **Required.** An array of provider `name` strings. Only providers listed here will be used for this blockchain. The order in this array does **not** determine priority. |
-| ┝ **`overrides`** | `object` | Optional. An object where you can customize the settings for any provider listed in `defaultEnabled`. The keys of this object must be the provider `name`. |
-| &nbsp;&nbsp; ┝ `priority` | `number` | Optional. Sets the failover priority. **Lower numbers are tried first** (e.g., priority 1 is tried before priority 2). If omitted, priority is based on the order in `defaultEnabled`. |
-| &nbsp;&nbsp; ┝ `enabled` | `boolean` | Optional. Explicitly set to `false` to disable a provider, even if it's listed in `defaultEnabled`. |
-| &nbsp;&nbsp; ┝ `timeout` | `number` | Optional. Overrides the provider's default request timeout in milliseconds. |
-| &nbsp;&nbsp; ┝ `retries` | `number` | Optional. Overrides the provider's default number of retry attempts. |
-| &nbsp;&nbsp; ┝ `rateLimit` | `object` | Optional. Overrides the provider's default rate limit settings. You can override `requestsPerSecond`, `burstLimit`, etc. |
+| Key                        | Type       | Description                                                                                                                                                                            |
+| -------------------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`<blockchain>`**         | `object`   | A top-level key for each blockchain (e.g., "bitcoin", "ethereum").                                                                                                                     |
+| ┝ **`defaultEnabled`**     | `string[]` | **Required.** An array of provider `name` strings. Only providers listed here will be used for this blockchain. The order in this array does **not** determine priority.               |
+| ┝ **`overrides`**          | `object`   | Optional. An object where you can customize the settings for any provider listed in `defaultEnabled`. The keys of this object must be the provider `name`.                             |
+| &nbsp;&nbsp; ┝ `priority`  | `number`   | Optional. Sets the failover priority. **Lower numbers are tried first** (e.g., priority 1 is tried before priority 2). If omitted, priority is based on the order in `defaultEnabled`. |
+| &nbsp;&nbsp; ┝ `enabled`   | `boolean`  | Optional. Explicitly set to `false` to disable a provider, even if it's listed in `defaultEnabled`.                                                                                    |
+| &nbsp;&nbsp; ┝ `timeout`   | `number`   | Optional. Overrides the provider's default request timeout in milliseconds.                                                                                                            |
+| &nbsp;&nbsp; ┝ `retries`   | `number`   | Optional. Overrides the provider's default number of retry attempts.                                                                                                                   |
+| &nbsp;&nbsp; ┝ `rateLimit` | `object`   | Optional. Overrides the provider's default rate limit settings. You can override `requestsPerSecond`, `burstLimit`, etc.                                                               |
 
 ## 4. Blockchain-Specific Examples
 
@@ -143,7 +143,7 @@ This setup prioritizes a paid provider (`alchemy`) for performance and uses a fr
 
 ### Solana: Single Preferred Provider
 
-This configuration forces the system to *only* use Helius for Solana, ignoring any other registered Solana providers.
+This configuration forces the system to _only_ use Helius for Solana, ignoring any other registered Solana providers.
 
 ```json
 {
@@ -158,17 +158,19 @@ This configuration forces the system to *only* use Helius for Solana, ignoring a
 
 The system **never** stores secret API keys directly in the configuration file. It uses a reference-by-name convention.
 
-*   **How it Works:** The `ProviderRegistry` holds the recommended environment variable name for each provider (e.g., `ALCHEMY_API_KEY`). The `BaseRegistryProvider` class automatically reads `process.env[apiKeyEnvVar]` during initialization. You do not need to specify `env:VAR_NAME` in the JSON file.
-*   **Validation:** If a provider is enabled and its `requiresApiKey` flag is `true`, the system will throw an error at startup if the corresponding environment variable is not set.
+- **How it Works:** The `ProviderRegistry` holds the recommended environment variable name for each provider (e.g., `ALCHEMY_API_KEY`). The `BaseRegistryProvider` class automatically reads `process.env[apiKeyEnvVar]` during initialization. You do not need to specify `env:VAR_NAME` in the JSON file.
+- **Validation:** If a provider is enabled and its `requiresApiKey` flag is `true`, the system will throw an error at startup if the corresponding environment variable is not set.
 
 ## 6. Command-Line Tools for Configuration
 
 The `packages/import` package contains several scripts to help you manage and validate your setup.
 
 ### `pnpm run providers:list`
+
 Lists all providers that have been registered via the `@RegisterApiClient` decorator. Use this to find the correct `name` for your configuration file.
 
 **Example Output:**
+
 ```
 📋 polkadot
 ──────────────────────────────────────────────────
@@ -187,28 +189,34 @@ Lists all providers that have been registered via the `@RegisterApiClient` decor
 ```
 
 ### `pnpm run providers:sync --fix`
+
 Compares the registered providers with your `blockchain-explorers.json` file. The `--fix` flag automatically adds any missing (but registered) providers to the `defaultEnabled` array for their respective blockchain, ensuring your configuration is never stale.
 
 ### `pnpm run config:validate`
+
 Validates your `blockchain-explorers.json` file. It checks for:
-*   Typos in blockchain or provider names.
-*   References to providers that are not registered in the system.
-*   Schema correctness.
+
+- Typos in blockchain or provider names.
+- References to providers that are not registered in the system.
+- Schema correctness.
 
 ## 7. Troubleshooting Common Configuration Issues
 
 #### Issue: Provider is not being used, even though it's configured.
-*   **Cause 1:** The provider's `name` in `blockchain-explorers.json` has a typo.
-    *   **Solution:** Run `pnpm run providers:list` to get the exact name and correct the JSON file.
-*   **Cause 2:** The provider requires an API key, but the corresponding environment variable is not set in `.env`. The system will log a warning at startup and skip the provider.
-    *   **Solution:** Add the correct environment variable to your root `.env` file.
-*   **Cause 3:** The provider's circuit breaker is `OPEN` due to recent failures.
-    *   **Solution:** Check the application logs for failure messages. The circuit will reset automatically after 5 minutes. For development, restarting the application will reset the circuit breaker's state.
+
+- **Cause 1:** The provider's `name` in `blockchain-explorers.json` has a typo.
+  - **Solution:** Run `pnpm run providers:list` to get the exact name and correct the JSON file.
+- **Cause 2:** The provider requires an API key, but the corresponding environment variable is not set in `.env`. The system will log a warning at startup and skip the provider.
+  - **Solution:** Add the correct environment variable to your root `.env` file.
+- **Cause 3:** The provider's circuit breaker is `OPEN` due to recent failures.
+  - **Solution:** Check the application logs for failure messages. The circuit will reset automatically after 5 minutes. For development, restarting the application will reset the circuit breaker's state.
 
 #### Issue: `Error: Missing required environment variable: ...`
-*   **Cause:** A provider with `requiresApiKey: true` is enabled in your configuration, but the environment variable specified in its decorator (`apiKeyEnvVar`) is missing from `.env`.
-*   **Solution:** Add the required API key to your root `.env` file or disable the provider in `blockchain-explorers.json` by setting `"enabled": false` in its override or removing it from `defaultEnabled`.
+
+- **Cause:** A provider with `requiresApiKey: true` is enabled in your configuration, but the environment variable specified in its decorator (`apiKeyEnvVar`) is missing from `.env`.
+- **Solution:** Add the required API key to your root `.env` file or disable the provider in `blockchain-explorers.json` by setting `"enabled": false` in its override or removing it from `defaultEnabled`.
 
 #### Issue: "Provider 'xyz' not found for blockchain 'abc'"
-*   **Cause:** The provider's `ApiClient` file has not been imported into the application, so its `@RegisterApiClient` decorator never ran.
-*   **Solution:** Ensure the provider's file is imported in the relevant `packages/import/src/blockchains/<chain>/api/index.ts` file.
+
+- **Cause:** The provider's `ApiClient` file has not been imported into the application, so its `@RegisterApiClient` decorator never ran.
+- **Solution:** Ensure the provider's file is imported in the relevant `packages/import/src/blockchains/<chain>/api/index.ts` file.

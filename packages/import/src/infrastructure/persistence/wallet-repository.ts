@@ -1,6 +1,6 @@
-import { BaseRepository } from '@crypto/data/src/repositories/base-repository.js';
-import type { KyselyDB } from '@crypto/data/src/storage/database.js';
-import type { NewWalletAddress, WalletAddressUpdate, WalletAddress } from '@crypto/data/src/types/data-types.js';
+import type { KyselyDB } from '@exitbook/data';
+import type { NewWalletAddress, WalletAddressUpdate, WalletAddress } from '@exitbook/data';
+import { BaseRepository } from '@exitbook/data';
 import type { IWalletRepository } from '@exitbook/import/app/ports/wallet-repository.js';
 
 /**
@@ -13,8 +13,6 @@ export class WalletRepository extends BaseRepository implements IWalletRepositor
   }
 
   async create(request: NewWalletAddress): Promise<void> {
-    const now = this.getCurrentTimestamp();
-
     try {
       const result = await this.db
         .insertInto('wallet_addresses')

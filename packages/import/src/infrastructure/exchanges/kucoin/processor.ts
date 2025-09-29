@@ -1,7 +1,6 @@
-import type { UniversalTransaction } from '@crypto/core';
-import type { StoredRawData } from '@crypto/data';
-import { createMoney, parseDecimal } from '@crypto/shared-utils';
-import type { ApiClientRawData } from '@exitbook/import/app/ports/importers.js';
+import type { UniversalTransaction } from '@exitbook/core';
+import type { RawData } from '@exitbook/data';
+import { createMoney, parseDecimal } from '@exitbook/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseProcessor } from '../../shared/processors/base-processor.js';
@@ -20,9 +19,7 @@ export class KucoinProcessor extends BaseProcessor {
     super('kucoin');
   }
 
-  protected async processNormalizedInternal(
-    rawDataItems: StoredRawData[]
-  ): Promise<Result<UniversalTransaction[], string>> {
+  protected async processNormalizedInternal(rawDataItems: RawData[]): Promise<Result<UniversalTransaction[], string>> {
     const allTransactions: UniversalTransaction[] = [];
 
     for (const rawDataItem of rawDataItems) {
@@ -245,9 +242,9 @@ export class KucoinProcessor extends BaseProcessor {
     return convertTransactions;
   }
 
-  private processSingle(rawDataItem: StoredRawData): Result<UniversalTransaction[], string> {
+  private processSingle(rawDataItem: RawData): Result<UniversalTransaction[], string> {
     try {
-      const rawData = rawDataItem.rawData;
+      const rawData = rawDataItem.raw_data;
       const transactions: UniversalTransaction[] = [];
 
       // Process spot orders

@@ -1,4 +1,4 @@
-import { type Logger, getLogger } from '@crypto/shared-logger';
+import { type Logger, getLogger } from '@exitbook/shared-logger';
 import type { Transaction } from 'kysely';
 
 import type { DatabaseSchema } from '../schema/database-schema.js';

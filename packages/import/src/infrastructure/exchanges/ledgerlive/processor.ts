@@ -1,6 +1,6 @@
-import type { UniversalTransaction } from '@crypto/core';
-import type { StoredRawData } from '@crypto/data';
-import { createMoney, parseDecimal } from '@crypto/shared-utils';
+import type { UniversalTransaction } from '@exitbook/core';
+import type { RawData } from '@exitbook/data';
+import { createMoney, parseDecimal } from '@exitbook/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseProcessor } from '../../shared/processors/base-processor.js';
@@ -19,9 +19,7 @@ export class LedgerLiveProcessor extends BaseProcessor {
     super('ledgerlive');
   }
 
-  protected async processNormalizedInternal(
-    rawDataItems: StoredRawData[]
-  ): Promise<Result<UniversalTransaction[], string>> {
+  protected async processNormalizedInternal(rawDataItems: RawData[]): Promise<Result<UniversalTransaction[], string>> {
     const transactions: UniversalTransaction[] = [];
 
     for (const rawDataItem of rawDataItems) {
@@ -118,8 +116,8 @@ export class LedgerLiveProcessor extends BaseProcessor {
     }
   }
 
-  private processSingle(rawData: StoredRawData): Result<UniversalTransaction | undefined, string> {
-    const row = rawData.rawData as CsvLedgerLiveOperationRow;
+  private processSingle(rawData: RawData): Result<UniversalTransaction | undefined, string> {
+    const row = rawData.raw_data as CsvLedgerLiveOperationRow;
 
     // Skip empty or invalid rows
     if (!row['Operation Date'] || !row['Currency Ticker'] || !row['Operation Amount']) {

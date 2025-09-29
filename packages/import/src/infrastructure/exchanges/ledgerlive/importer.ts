@@ -1,7 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-import { meta } from '@effect/eslint-plugin';
 import type { ApiClientRawData, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
 
 import { BaseImporter } from '../../shared/importers/base-importer.js';
@@ -83,20 +82,11 @@ export class LedgerLiveCsvImporter extends BaseImporter {
         `Completed Ledger Live CSV import: ${allTransactions.length} transactions from ${params.csvDirectories.length} directories`
       );
 
-      // Wrap raw CSV data with provider information
-      const rawData = allTransactions.map((rawData) => ({
-        providerId: 'ledgerlive',
-        rawData,
-      }));
-
       return {
         rawData: allTransactions,
       };
     } catch (error) {
       this.handleImportError(error, 'CSV file processing');
-      return {
-        rawData: [],
-      };
     }
   }
 

@@ -1,6 +1,6 @@
-import { getLogger } from '@crypto/shared-logger';
 import type { IProcessorFactory } from '@exitbook/import/app/ports/processor-factory.js';
 import type { IProcessor } from '@exitbook/import/app/ports/processors.js';
+import { getLogger } from '@exitbook/shared-logger';
 
 /**
  * Factory for creating processor instances.
@@ -46,7 +46,7 @@ export class ProcessorFactory implements IProcessorFactory {
   /**
    * Create a processor for the specified source.
    */
-  async create<T>(sourceId: string, sourceType: string): Promise<IProcessor> {
+  async create(sourceId: string, sourceType: string): Promise<IProcessor> {
     this.logger.info(`Creating processor for ${sourceId} (type: ${sourceType})`);
 
     if (sourceType === 'exchange') {

@@ -22,25 +22,13 @@ export type NewImportSession = Insertable<ImportSessionsTable>;
 export type ImportSessionUpdate = Updateable<ImportSessionsTable>;
 
 // Raw data storage type
-export type RawData = Selectable<ExternalTransactionDataTable>;
+type ExternalTransactionSelectable = Omit<ExternalTransactionDataTable, 'metadata' | 'raw_data'> & {
+  metadata: unknown;
+  raw_data: unknown;
+};
+export type RawData = Selectable<ExternalTransactionSelectable>;
 export type NewRawData = Insertable<ExternalTransactionDataTable>;
 export type RawDataUpdate = Updateable<ExternalTransactionDataTable>;
-
-export interface StoredRawData {
-  createdAt: number;
-  id: number;
-  importSessionId?: number | undefined;
-  metadata: {
-    providerId: string;
-    sourceAddress?: string | undefined;
-    transactionType?: string | undefined;
-  };
-  processedAt?: number | undefined;
-  processingError?: string | undefined;
-  processingStatus: string;
-  providerId?: string | undefined;
-  rawData: unknown;
-}
 
 export interface ImportSessionQuery {
   limit?: number | undefined;

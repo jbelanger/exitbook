@@ -1,5 +1,5 @@
-import type { WalletAddress } from '@crypto/data';
-import { getLogger } from '@crypto/shared-logger';
+import type { WalletAddress } from '@exitbook/data';
+import { getLogger } from '@exitbook/shared-logger';
 
 import type { IWalletRepository } from '../ports/wallet-repository.js';
 

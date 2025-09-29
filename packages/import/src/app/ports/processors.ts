@@ -1,4 +1,4 @@
-import type { UniversalTransaction } from '@crypto/core';
+import type { UniversalTransaction } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 
 export interface ProcessResult {

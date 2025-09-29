@@ -81,22 +81,22 @@ importers:
       '@coinbase/cdp-sdk':
         specifier: ^1.36.0
         version: 1.38.3(bufferutil@4.0.9)(encoding@0.1.13)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.9.2)(utf-8-validate@5.0.10)
-      '@crypto/balance':
+      '@exitbook/balance':
         specifier: workspace:*
         version: link:../../packages/balance
-      '@crypto/core':
+      '@exitbook/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@crypto/data':
+      '@exitbook/data':
         specifier: workspace:*
         version: link:../../packages/data
-      '@crypto/import':
+      '@exitbook/import':
         specifier: workspace:*
         version: link:../../packages/import
-      '@crypto/shared-logger':
+      '@exitbook/shared-logger':
         specifier: workspace:*
         version: link:../../packages/shared/logger
-      '@crypto/shared-utils':
+      '@exitbook/shared-utils':
         specifier: workspace:*
         version: link:../../packages/shared/utils
       commander:
@@ -127,16 +127,16 @@ importers:
 
   packages/balance:
     dependencies:
-      '@crypto/core':
+      '@exitbook/core':
         specifier: workspace:*
         version: link:../core
-      '@crypto/data':
+      '@exitbook/data':
         specifier: workspace:*
         version: link:../data
-      '@crypto/shared-logger':
+      '@exitbook/shared-logger':
         specifier: workspace:*
         version: link:../shared/logger
-      '@crypto/shared-utils':
+      '@exitbook/shared-utils':
         specifier: workspace:*
         version: link:../shared/utils
       decimal.js:
@@ -195,16 +195,16 @@ importers:
 
   packages/data:
     dependencies:
-      '@crypto/balance':
+      '@exitbook/balance':
         specifier: workspace:*
         version: link:../balance
-      '@crypto/core':
+      '@exitbook/core':
         specifier: workspace:*
         version: link:../core
-      '@crypto/shared-logger':
+      '@exitbook/shared-logger':
         specifier: workspace:*
         version: link:../shared/logger
-      '@crypto/shared-utils':
+      '@exitbook/shared-utils':
         specifier: workspace:*
         version: link:../shared/utils
       better-sqlite3:
@@ -250,16 +250,16 @@ importers:
 
   packages/import:
     dependencies:
-      '@crypto/core':
+      '@exitbook/core':
         specifier: workspace:*
         version: link:../core
-      '@crypto/data':
+      '@exitbook/data':
         specifier: workspace:*
         version: link:../data
-      '@crypto/shared-logger':
+      '@exitbook/shared-logger':
         specifier: workspace:*
         version: link:../shared/logger
-      '@crypto/shared-utils':
+      '@exitbook/shared-utils':
         specifier: workspace:*
         version: link:../shared/utils
       '@scure/bip32':
@@ -368,13 +368,13 @@ importers:
 
   packages/shared/utils:
     dependencies:
-      '@crypto/core':
+      '@exitbook/core':
         specifier: workspace:*
         version: link:../../core
-      '@crypto/data':
+      '@exitbook/data':
         specifier: workspace:*
         version: link:../../data
-      '@crypto/shared-logger':
+      '@exitbook/shared-logger':
         specifier: workspace:*
         version: link:../logger
       ccxt:

@@ -1,6 +1,6 @@
-import { RateLimitError, ServiceError } from '@crypto/core';
-import type { Logger } from '@crypto/shared-logger';
-import { getErrorProperties, isErrorWithMessage } from '@crypto/shared-utils';
+import { RateLimitError, ServiceError } from '@exitbook/core';
+import type { Logger } from '@exitbook/shared-logger';
+import { getErrorProperties, isErrorWithMessage } from '@exitbook/shared-utils';
 
 /**
  * Centralized error handling for exchange operations

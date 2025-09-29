@@ -1,6 +1,6 @@
-import { getLogger } from '@crypto/shared-logger';
 import type { IImporterFactory } from '@exitbook/import/app/ports/importer-factory.js';
 import type { IImporter } from '@exitbook/import/app/ports/importers.js';
+import { getLogger } from '@exitbook/shared-logger';
 
 import type { BlockchainProviderManager } from '../../blockchains/shared/index.js';
 
@@ -41,15 +41,15 @@ export class ImporterFactory implements IImporterFactory {
   /**
    * Create an importer for the specified source.
    */
-  async create<T>(sourceId: string, sourceType: string, providerId?: string): Promise<IImporter> {
+  async create(sourceId: string, sourceType: string, providerId?: string): Promise<IImporter> {
     this.logger.info(`Creating importer for ${sourceId} (type: ${sourceType})`);
 
     if (sourceType === 'exchange') {
-      return await this.createExchangeImporter<T>(sourceId);
+      return await this.createExchangeImporter(sourceId);
     }
 
     if (sourceType === 'blockchain') {
-      return await this.createBlockchainImporter<T>(sourceId, providerId);
+      return await this.createBlockchainImporter(sourceId, providerId);
     }
 
     throw new Error(`Unsupported source type: ${sourceType}`);
@@ -58,7 +58,7 @@ export class ImporterFactory implements IImporterFactory {
   /**
    * Create Avalanche importer.
    */
-  private async createAvalancheImporter<T>(
+  private async createAvalancheImporter(
     blockchainProviderManager: BlockchainProviderManager,
     providerId: string | undefined
   ): Promise<IImporter> {
@@ -72,7 +72,7 @@ export class ImporterFactory implements IImporterFactory {
   /**
    * Create Bitcoin importer.
    */
-  private async createBitcoinImporter<T>(
+  private async createBitcoinImporter(
     blockchainProviderManager: BlockchainProviderManager,
     providerId: string | undefined
   ): Promise<IImporter> {
@@ -86,7 +86,7 @@ export class ImporterFactory implements IImporterFactory {
   /**
    * Create Bittensor importer.
    */
-  private async createBittensorImporter<T>(
+  private async createBittensorImporter(
     blockchainProviderManager: BlockchainProviderManager,
     providerId: string | undefined
   ): Promise<IImporter> {
@@ -100,30 +100,30 @@ export class ImporterFactory implements IImporterFactory {
   /**
    * Create a blockchain importer.
    */
-  private async createBlockchainImporter<T>(sourceId: string, providerId: string | undefined): Promise<IImporter> {
+  private async createBlockchainImporter(sourceId: string, providerId: string | undefined): Promise<IImporter> {
     // providerId is optional - when not provided, importers will use all available providers
 
     switch (sourceId.toLowerCase()) {
       case 'bitcoin':
-        return await this.createBitcoinImporter<T>(this.providerManager, providerId);
+        return await this.createBitcoinImporter(this.providerManager, providerId);
 
       case 'ethereum':
-        return await this.createEthereumImporter<T>(this.providerManager, providerId);
+        return await this.createEthereumImporter(this.providerManager, providerId);
 
       case 'injective':
-        return await this.createInjectiveImporter<T>(this.providerManager, providerId);
+        return await this.createInjectiveImporter(this.providerManager, providerId);
 
       case 'solana':
-        return await this.createSolanaImporter<T>(this.providerManager, providerId);
+        return await this.createSolanaImporter(this.providerManager, providerId);
 
       case 'avalanche':
-        return await this.createAvalancheImporter<T>(this.providerManager, providerId);
+        return await this.createAvalancheImporter(this.providerManager, providerId);
 
       case 'polkadot':
-        return await this.createPolkadotImporter<T>(this.providerManager, providerId);
+        return await this.createPolkadotImporter(this.providerManager, providerId);
 
       case 'bittensor':
-        return await this.createBittensorImporter<T>(this.providerManager, providerId);
+        return await this.createBittensorImporter(this.providerManager, providerId);
 
       default:
         throw new Error(`Unsupported blockchain importer: ${sourceId}`);
@@ -133,7 +133,7 @@ export class ImporterFactory implements IImporterFactory {
   /**
    * Create Coinbase importer.
    */
-  private async createCoinbaseImporter<T>(): Promise<IImporter> {
+  private async createCoinbaseImporter(): Promise<IImporter> {
     // Dynamic import to avoid circular dependencies
     const { CoinbaseImporter } = await import('../../exchanges/coinbase/importer.js');
     return new CoinbaseImporter() as unknown as IImporter;
@@ -142,7 +142,7 @@ export class ImporterFactory implements IImporterFactory {
   /**
    * Create Ethereum importer.
    */
-  private async createEthereumImporter<T>(
+  private async createEthereumImporter(
     blockchainProviderManager: BlockchainProviderManager,
     providerId: string | undefined
   ): Promise<IImporter> {
@@ -156,20 +156,20 @@ export class ImporterFactory implements IImporterFactory {
   /**
    * Create an exchange importer.
    */
-  private async createExchangeImporter<T>(sourceId: string): Promise<IImporter> {
+  private async createExchangeImporter(sourceId: string): Promise<IImporter> {
     switch (sourceId.toLowerCase()) {
       case 'kraken':
         // Dynamic import to avoid circular dependencies
-        return await this.createKrakenImporter<T>();
+        return await this.createKrakenImporter();
 
       case 'kucoin':
-        return await this.createKucoinImporter<T>();
+        return await this.createKucoinImporter();
 
       case 'coinbase':
-        return await this.createCoinbaseImporter<T>();
+        return await this.createCoinbaseImporter();
 
       case 'ledgerlive':
-        return await this.createLedgerLiveImporter<T>();
+        return await this.createLedgerLiveImporter();
 
       default:
         throw new Error(`Unsupported exchange importer: ${sourceId}`);
@@ -179,7 +179,7 @@ export class ImporterFactory implements IImporterFactory {
   /**
    * Create Injective importer.
    */
-  private async createInjectiveImporter<T>(
+  private async createInjectiveImporter(
     blockchainProviderManager: BlockchainProviderManager,
     providerId: string | undefined
   ): Promise<IImporter> {
@@ -193,7 +193,7 @@ export class ImporterFactory implements IImporterFactory {
   /**
    * Create Kraken CSV importer.
    */
-  private async createKrakenImporter<T>(): Promise<IImporter> {
+  private async createKrakenImporter(): Promise<IImporter> {
     // Dynamic import to avoid circular dependencies
     const { KrakenCsvImporter } = await import('../../exchanges/kraken/importer.js');
     return new KrakenCsvImporter() as unknown as IImporter;
@@ -202,7 +202,7 @@ export class ImporterFactory implements IImporterFactory {
   /**
    * Create KuCoin CSV importer.
    */
-  private async createKucoinImporter<T>(): Promise<IImporter> {
+  private async createKucoinImporter(): Promise<IImporter> {
     // Dynamic import to avoid circular dependencies
     const { KucoinCsvImporter } = await import('../../exchanges/kucoin/importer.js');
     return new KucoinCsvImporter() as unknown as IImporter;
@@ -211,7 +211,7 @@ export class ImporterFactory implements IImporterFactory {
   /**
    * Create Ledger Live CSV importer.
    */
-  private async createLedgerLiveImporter<T>(): Promise<IImporter> {
+  private async createLedgerLiveImporter(): Promise<IImporter> {
     // Dynamic import to avoid circular dependencies
     const { LedgerLiveCsvImporter } = await import('../../exchanges/ledgerlive/importer.js');
     return new LedgerLiveCsvImporter() as unknown as IImporter;
@@ -220,7 +220,7 @@ export class ImporterFactory implements IImporterFactory {
   /**
    * Create Polkadot importer.
    */
-  private async createPolkadotImporter<T>(
+  private async createPolkadotImporter(
     blockchainProviderManager: BlockchainProviderManager,
     providerId: string | undefined
   ): Promise<IImporter> {
@@ -234,7 +234,7 @@ export class ImporterFactory implements IImporterFactory {
   /**
    * Create Solana importer.
    */
-  private async createSolanaImporter<T>(
+  private async createSolanaImporter(
     blockchainProviderManager: BlockchainProviderManager,
     providerId: string | undefined
   ): Promise<IImporter> {

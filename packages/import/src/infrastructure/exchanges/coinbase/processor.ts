@@ -1,5 +1,5 @@
-import type { UniversalTransaction } from '@crypto/core';
-import type { StoredRawData } from '@crypto/data';
+import type { UniversalTransaction } from '@exitbook/core';
+import type { RawData } from '@exitbook/data';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseProcessor } from '../../shared/processors/base-processor.js';
@@ -24,16 +24,14 @@ export class CoinbaseProcessor extends BaseProcessor {
     super('coinbase');
   }
 
-  protected async processNormalizedInternal(
-    rawDataItems: StoredRawData[]
-  ): Promise<Result<UniversalTransaction[], string>> {
+  protected async processNormalizedInternal(rawDataItems: RawData[]): Promise<Result<UniversalTransaction[], string>> {
     const transactions: UniversalTransaction[] = [];
 
     for (const item of rawDataItems) {
       const result = this.processSingle(item);
       if (result.isErr()) {
         this.logger.warn(
-          `Failed to process Coinbase transaction ${(item.rawData as UniversalTransaction).id}: ${result.error}`
+          `Failed to process Coinbase transaction ${(item.raw_data as UniversalTransaction).id}: ${result.error}`
         );
         continue;
       }
@@ -47,8 +45,8 @@ export class CoinbaseProcessor extends BaseProcessor {
     return Promise.resolve(ok(transactions));
   }
 
-  private processSingle(rawData: StoredRawData): Result<UniversalTransaction | undefined, string> {
-    const transaction = rawData.rawData as UniversalTransaction;
+  private processSingle(rawData: RawData): Result<UniversalTransaction | undefined, string> {
+    const transaction = rawData.raw_data as UniversalTransaction;
 
     // The CoinbaseCCXTAdapter already provides transactions in UniversalTransaction format
     // We mainly need to validate and potentially enhance the data

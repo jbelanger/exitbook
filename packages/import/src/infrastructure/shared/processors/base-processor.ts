@@ -1,12 +1,12 @@
-import type { UniversalTransaction } from '@crypto/core';
-import { UniversalTransactionSchema } from '@crypto/core';
-import type { Logger } from '@crypto/shared-logger';
-import { getLogger } from '@crypto/shared-logger';
+import type { UniversalTransaction } from '@exitbook/core';
+import { UniversalTransactionSchema } from '@exitbook/core';
 import type {
   IProcessor,
   ImportSessionMetadata,
   ProcessingImportSession,
 } from '@exitbook/import/app/ports/processors.js';
+import type { Logger } from '@exitbook/shared-logger';
+import { getLogger } from '@exitbook/shared-logger';
 import { type Result, ok, err } from 'neverthrow';
 
 import { detectScamFromSymbol } from '../utils/scam-detection.js';

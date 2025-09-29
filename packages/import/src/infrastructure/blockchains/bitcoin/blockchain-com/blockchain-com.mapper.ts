@@ -27,7 +27,7 @@ export class BlockchainComTransactionMapper extends BaseRawDataMapper<Blockchain
     const timestamp = rawData.time * 1000; // Convert from seconds to milliseconds
 
     // Extract structured inputs with addresses and values
-    const inputs: BitcoinTransactionInput[] = rawData.inputs.map((input, index) => ({
+    const inputs: BitcoinTransactionInput[] = rawData.inputs.map((input, _index) => ({
       address: input.prev_out?.addr,
       txid: '', // Blockchain.com doesn't provide input txid in this format
       value: input.prev_out?.value ? input.prev_out.value.toString() : '0',
@@ -35,7 +35,7 @@ export class BlockchainComTransactionMapper extends BaseRawDataMapper<Blockchain
     }));
 
     // Extract structured outputs with addresses and values
-    const outputs: BitcoinTransactionOutput[] = rawData.out.map((output, index) => ({
+    const outputs: BitcoinTransactionOutput[] = rawData.out.map((output, _index) => ({
       address: output.addr,
       index: output.n,
       value: output.value.toString(),

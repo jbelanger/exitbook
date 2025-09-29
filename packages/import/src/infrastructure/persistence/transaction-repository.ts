@@ -1,7 +1,7 @@
-import type { UniversalTransaction } from '@crypto/core';
-import type { StoredTransaction } from '@crypto/data';
-import { BaseRepository } from '@crypto/data/src/repositories/base-repository.js';
-import type { KyselyDB } from '@crypto/data/src/storage/database.js';
+import type { UniversalTransaction } from '@exitbook/core';
+import type { StoredTransaction } from '@exitbook/data';
+import type { KyselyDB } from '@exitbook/data';
+import { BaseRepository } from '@exitbook/data';
 import type { ITransactionRepository } from '@exitbook/import/app/ports/transaction-repository.js';
 import type { Decimal } from 'decimal.js';
 

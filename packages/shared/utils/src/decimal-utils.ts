@@ -1,4 +1,4 @@
-import type { Money } from '@crypto/core';
+import type { Money } from '@exitbook/core';
 import { Decimal } from 'decimal.js';
 
 // Configure Decimal.js for cryptocurrency precision

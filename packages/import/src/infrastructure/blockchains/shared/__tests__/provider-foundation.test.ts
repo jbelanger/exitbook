@@ -2,7 +2,7 @@
  * Foundation tests for the universal blockchain provider system
  * Tests core interfaces, circuit breaker, and provider manager functionality
  */
-import type { RateLimitConfig } from '@crypto/core';
+import type { RateLimitConfig } from '@exitbook/core';
 import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { CircuitBreaker } from '../../../shared/utils/circuit-breaker.js';

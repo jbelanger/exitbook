@@ -1,20 +1,14 @@
-import type { UniversalTransaction } from '@crypto/core';
-import type { StoredRawData } from '@crypto/data';
-import { getLogger } from '@crypto/shared-logger';
-import { createMoney } from '@crypto/shared-utils';
+import type { UniversalTransaction } from '@exitbook/core';
 import type { ImportSessionMetadata } from '@exitbook/import/app/ports/processors.js';
-import type { UniversalBlockchainTransaction } from '@exitbook/import/app/ports/raw-data-mappers.js';
 import type { ITransactionRepository } from '@exitbook/import/app/ports/transaction-repository.js';
+import { getLogger } from '@exitbook/shared-logger';
+import { createMoney } from '@exitbook/shared-utils';
 import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
-// Import processors to trigger registration
-import './register-mappers.js';
 import { BaseProcessor } from '../../shared/processors/base-processor.js';
-import { TransactionMapperFactory } from '../../shared/processors/processor-registry.js';
 
 import type { AvalancheTransaction, AvalancheFundFlow } from './types.js';
-import { AvalancheUtils } from './utils.js';
 
 /**
  * Avalanche transaction processor that converts raw blockchain transaction data

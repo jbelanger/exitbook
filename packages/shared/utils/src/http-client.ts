@@ -1,6 +1,6 @@
-import type { RateLimitConfig } from '@crypto/core';
-import { RateLimitError, ServiceError } from '@crypto/core';
-import { getLogger } from '@crypto/shared-logger';
+import type { RateLimitConfig } from '@exitbook/core';
+import { RateLimitError, ServiceError } from '@exitbook/core';
+import { getLogger } from '@exitbook/shared-logger';
 
 import { RateLimiterFactory } from './rate-limiter.js';
 

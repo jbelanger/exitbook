@@ -1,4 +1,4 @@
-import { getLogger } from '@crypto/shared-logger';
+import { getLogger } from '@exitbook/shared-logger';
 import type { Decimal } from 'decimal.js';
 
 import type { BalanceVerificationResult, BalanceComparison } from '../../types/balance-types.js';

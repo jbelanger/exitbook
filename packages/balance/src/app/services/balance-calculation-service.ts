@@ -1,5 +1,5 @@
-import type { StoredTransaction } from '@crypto/data/src/types/data-types.js';
-import { stringToDecimal } from '@crypto/shared-utils';
+import type { StoredTransaction } from '@exitbook/data';
+import { stringToDecimal } from '@exitbook/shared-utils';
 import { Decimal } from 'decimal.js';
 
 export class BalanceCalculationService {

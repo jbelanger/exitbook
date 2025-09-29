@@ -1,5 +1,5 @@
-import type { RateLimitConfig } from '@crypto/core';
-import { type Logger, getLogger } from '@crypto/shared-logger';
+import type { RateLimitConfig } from '@exitbook/core';
+import { type Logger, getLogger } from '@exitbook/shared-logger';
 
 /**
  * Token bucket rate limiter implementation

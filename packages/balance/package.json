@@ -1,5 +1,5 @@
 {
-  "name": "@crypto/balance",
+  "name": "@exitbook/balance",
   "version": "0.1.0",
   "private": true,
   "description": "Balance verification and management services",
@@ -17,10 +17,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@crypto/core": "workspace:*",
-    "@crypto/data": "workspace:*",
-    "@crypto/shared-logger": "workspace:*",
-    "@crypto/shared-utils": "workspace:*",
+    "@exitbook/core": "workspace:*",
+    "@exitbook/data": "workspace:*",
+    "@exitbook/shared-logger": "workspace:*",
+    "@exitbook/shared-utils": "workspace:*",
     "decimal.js": "^10.6.0"
   },
   "devDependencies": {

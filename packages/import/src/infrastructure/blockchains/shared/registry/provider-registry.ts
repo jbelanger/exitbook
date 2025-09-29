@@ -1,4 +1,4 @@
-import type { RateLimitConfig } from '@crypto/core';
+import type { RateLimitConfig } from '@exitbook/core';
 
 import type { IBlockchainProvider, ProviderCapabilities } from '../types.js';
 

@@ -2,10 +2,10 @@ import { vi } from 'vitest';
 
 interface HttpClientMock {
   getModuleMocks(): {
-    '@crypto/shared-logger': {
+    '@exitbook/shared-logger': {
       getLogger: ReturnType<typeof vi.fn>;
     };
-    '@crypto/shared-utils': {
+    '@exitbook/shared-utils': {
       HttpClient: ReturnType<typeof vi.fn>;
       RateLimiterFactory: {
         getOrCreate: ReturnType<typeof vi.fn>;
@@ -35,7 +35,7 @@ interface HttpClientMock {
  * const mocks = createHttpClientMock();
  *
  * // In vi.mock:
- * vi.mock("@crypto/shared-utils", () => ({
+ * vi.mock("@exitbook/shared-utils", () => ({
  *   HttpClient: mocks.MockHttpClient,
  *   RateLimiterFactory: mocks.MockRateLimiterFactory,
  * }));
@@ -74,10 +74,10 @@ export function createHttpClientMock(): HttpClientMock {
      */
     getModuleMocks() {
       return {
-        '@crypto/shared-logger': {
+        '@exitbook/shared-logger': {
           getLogger: MockLogger,
         },
-        '@crypto/shared-utils': {
+        '@exitbook/shared-utils': {
           HttpClient: MockHttpClient,
           RateLimiterFactory: MockRateLimiterFactory,
         },
@@ -116,8 +116,8 @@ export function createHttpClientMock(): HttpClientMock {
  * ```typescript
  * const mocks = vi.hoisted(() => createHttpClientMock());
  *
- * vi.mock("@crypto/shared-utils", () => mocks.getModuleMocks()["@crypto/shared-utils"]);
- * vi.mock("@crypto/shared-logger", () => mocks.getModuleMocks()["@crypto/shared-logger"]);
+ * vi.mock("@exitbook/shared-utils", () => mocks.getModuleMocks()["@exitbook/shared-utils"]);
+ * vi.mock("@exitbook/shared-logger", () => mocks.getModuleMocks()["@exitbook/shared-logger"]);
  * ```
  */
 export function createHoistedHttpClientMock(): HttpClientMock {

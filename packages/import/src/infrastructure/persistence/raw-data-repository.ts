@@ -1,28 +1,7 @@
-import { BaseRepository } from '@crypto/data/src/repositories/base-repository.js';
-import type { KyselyDB } from '@crypto/data/src/storage/database.js';
-import type { RawData, StoredRawData } from '@crypto/data/src/types/data-types.js';
+import type { KyselyDB } from '@exitbook/data';
+import type { RawData } from '@exitbook/data';
+import { BaseRepository } from '@exitbook/data';
 import type { IRawDataRepository, LoadRawDataFilters } from '@exitbook/import/app/ports/raw-data-repository.js';
-
-/**
- * Maps database row to StoredRawData domain object
- */
-function mapToStoredRawData(row: RawData): StoredRawData {
-  return {
-    createdAt: new Date(row.created_at).getTime() / 1000,
-    id: row.id,
-    importSessionId: row.import_session_id as number | undefined,
-    metadata: (row.metadata ? JSON.parse(row.metadata) : undefined) as {
-      providerId: string;
-      sourceAddress?: string | undefined;
-      transactionType?: string | undefined;
-    },
-    processedAt: row.processed_at ? new Date(row.processed_at).getTime() / 1000 : undefined,
-    processingError: row.processing_error as string | undefined,
-    processingStatus: (row.processing_status as string) ?? 'pending',
-    providerId: row.provider_id as string | undefined,
-    rawData: JSON.parse(row.raw_data),
-  };
-}
 
 /**
  * Kysely-based repository for raw data database operations.
@@ -33,7 +12,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     super(db, 'RawDataRepository');
   }
 
-  async load(filters?: LoadRawDataFilters): Promise<StoredRawData[]> {
+  async load(filters?: LoadRawDataFilters): Promise<RawData[]> {
     this.logger.info({ filters }, 'Loading raw data with filters');
 
     let query = this.db
@@ -68,10 +47,9 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     query = query.orderBy('created_at', 'desc');
 
     const rows = await query.execute();
-    const results = rows.map(mapToStoredRawData);
 
-    this.logger.info({ count: results.length }, 'Loaded raw data items');
-    return results;
+    this.logger.info({ count: rows.length }, 'Loaded raw data items');
+    return rows;
   }
 
   async markAsProcessed(sourceId: string, rawTransactionIds: number[], providerId?: string): Promise<void> {

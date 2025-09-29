@@ -1,9 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { createDatabase, clearDatabase, type KyselyDB } from '@crypto/data';
-import type { Logger } from '@crypto/shared-logger';
-import { getLogger } from '@crypto/shared-logger';
+import { createDatabase, clearDatabase, type KyselyDB } from '@exitbook/data';
+import type { Logger } from '@exitbook/shared-logger';
+import { getLogger } from '@exitbook/shared-logger';
 
 // Configuration types
 export type BlockchainExplorersConfig = Record<

@@ -1,11 +1,9 @@
-import type { UniversalTransaction } from '@crypto/core';
-import { createMoney } from '@crypto/shared-utils';
+import type { UniversalTransaction } from '@exitbook/core';
 import type { ImportSessionMetadata } from '@exitbook/import/app/ports/processors.js';
 import type { ITransactionRepository } from '@exitbook/import/app/ports/transaction-repository.js';
+import { createMoney } from '@exitbook/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
-// Import processors to trigger registration
-import './register-mappers.js';
 import { BaseProcessor } from '../../shared/processors/base-processor.js';
 
 import type { InjectiveTransaction, InjectiveFundFlow } from './types.js';

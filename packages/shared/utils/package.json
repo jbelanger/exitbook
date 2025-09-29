@@ -1,5 +1,5 @@
 {
-  "name": "@crypto/shared-utils",
+  "name": "@exitbook/shared-utils",
   "version": "0.1.0",
   "private": true,
   "description": "Shared utilities for cryptocurrency platform",
@@ -31,8 +31,8 @@
     "typescript": "^5.9.2"
   },
   "peerDependencies": {
-    "@crypto/core": "workspace:*",
-    "@crypto/data": "workspace:*",
-    "@crypto/shared-logger": "workspace:*"
+    "@exitbook/core": "workspace:*",
+    "@exitbook/data": "workspace:*",
+    "@exitbook/shared-logger": "workspace:*"
   }
 }

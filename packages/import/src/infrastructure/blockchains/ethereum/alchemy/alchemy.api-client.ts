@@ -1,4 +1,4 @@
-import { hasStringProperty, isErrorWithMessage, maskAddress } from '@crypto/shared-utils';
+import { maskAddress } from '@exitbook/shared-utils';
 
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.js';
 import { RegisterApiClient } from '../../shared/registry/decorators.js';

@@ -1,12 +1,9 @@
-import type { UniversalTransaction } from '@crypto/core';
-import type { StoredRawData } from '@crypto/data';
-import { createMoney } from '@crypto/shared-utils';
+import type { UniversalTransaction } from '@exitbook/core';
 import type { ImportSessionMetadata } from '@exitbook/import/app/ports/processors.js';
-import type { UniversalBlockchainTransaction } from '@exitbook/import/app/ports/raw-data-mappers.js';
+import { createMoney } from '@exitbook/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseProcessor } from '../../shared/processors/base-processor.js';
-import { TransactionMapperFactory } from '../../shared/processors/processor-registry.js';
 
 import type { BitcoinFundFlow, BitcoinTransaction } from './types.js';
 

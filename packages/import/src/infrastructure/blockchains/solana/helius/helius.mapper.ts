@@ -1,5 +1,5 @@
-import { isErrorWithMessage } from '@crypto/shared-utils';
 import type { ImportSessionMetadata } from '@exitbook/import/app/ports/processors.js';
+import { isErrorWithMessage } from '@exitbook/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
 import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';

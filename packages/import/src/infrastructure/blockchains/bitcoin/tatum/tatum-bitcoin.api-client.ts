@@ -1,4 +1,4 @@
-import { maskAddress } from '@crypto/shared-utils';
+import { maskAddress } from '@exitbook/shared-utils';
 
 import { TatumApiClientBase } from '../../shared/api/TatumApiClientBase.js';
 import { RegisterApiClient } from '../../shared/registry/decorators.js';

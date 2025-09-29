@@ -62,15 +62,14 @@ export default [
         'error',
         { prefer: 'type-imports', disallowTypeAnnotations: false },
       ],
-      '@typescript-eslint/no-unused-vars': 'off',
-      // [
-      //   'error',
-      //   {
-      //     argsIgnorePattern: '^_',
-      //     varsIgnorePattern: '^_',
-      //     caughtErrorsIgnorePattern: '^_',
-      //   },
-      // ],
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
 
       // Require explanations for disables
       'eslint-comments/require-description': ['error', { ignore: [] }],
@@ -170,6 +169,25 @@ export default [
       '@typescript-eslint/no-unsafe-member-access': 'off',
       '@typescript-eslint/no-unsafe-return': 'off',
       'unicorn/no-null': 'off',
+    },
+  },
+
+  // === Enforce barrel imports ===
+  {
+    files: ['**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@exitbook/*/src/**'],
+              message:
+                'Use barrel imports instead of direct src imports. Import from @exitbook/package-name instead of @exitbook/package-name/src/...',
+            },
+          ],
+        },
+      ],
     },
   },
 

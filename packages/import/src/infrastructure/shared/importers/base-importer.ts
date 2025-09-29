@@ -1,6 +1,6 @@
-import type { Logger } from '@crypto/shared-logger';
-import { getLogger } from '@crypto/shared-logger';
 import type { IImporter, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
+import type { Logger } from '@exitbook/shared-logger';
+import { getLogger } from '@exitbook/shared-logger';
 
 /**
  * Base class providing common functionality for all importers.

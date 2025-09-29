@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-import { getLogger } from '@crypto/shared-logger';
+import { getLogger } from '@exitbook/shared-logger';
 import Database from 'better-sqlite3';
 import { Decimal } from 'decimal.js';
 import { Kysely, SqliteDialect } from 'kysely';

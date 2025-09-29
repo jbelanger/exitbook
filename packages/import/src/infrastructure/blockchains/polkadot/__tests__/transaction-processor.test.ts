@@ -1,5 +1,5 @@
-import type { StoredRawData } from '@crypto/data';
-import type { ApiClientRawData } from '@exitbook/import/app/ports/importers.js';
+/* eslint-disable unicorn/no-null -- Required for testing null values in database mocks and transaction objects */
+import type { RawData } from '@exitbook/data';
 import type { ImportSessionMetadata } from '@exitbook/import/app/ports/processors.js';
 import { describe, expect, it } from 'vitest';
 
@@ -8,7 +8,7 @@ import type { SubscanTransfer } from '../substrate/substrate.types.js';
 
 // Type for accessing protected methods in tests
 type TestablePolkadotTransactionProcessor = PolkadotTransactionProcessor & {
-  enrichSessionContext(rawDataItems: StoredRawData[], sessionMetadata: ImportSessionMetadata): ImportSessionMetadata;
+  enrichSessionContext(rawDataItems: RawData[], sessionMetadata: ImportSessionMetadata): ImportSessionMetadata;
 };
 
 describe('PolkadotTransactionProcessor Integration', () => {
@@ -34,16 +34,16 @@ describe('PolkadotTransactionProcessor Integration', () => {
     to: '14E5nqKAp3oAJcmzgZhUD2RcptBeUBScxKHgJKU4HPNcKVf3', // Different address
   };
 
-  const createMockRawDataItem = (transaction: SubscanTransfer, sourceAddress: string): StoredRawData => ({
-    createdAt: Date.now(),
+  const createMockRawDataItem = (transaction: SubscanTransfer, sourceAddress: string): RawData => ({
+    created_at: Date.now().toString(),
     id: 1,
-    metadata: { providerId: 'subscan', sourceAddress },
-    processingStatus: 'pending',
-    rawData: {
-      providerId: 'subscan',
-      rawData: transaction,
-      sourceAddress,
-    },
+    import_session_id: 1,
+    metadata: JSON.stringify({ providerId: 'subscan', sourceAddress }),
+    processed_at: null,
+    processing_error: null,
+    processing_status: 'pending',
+    provider_id: null,
+    raw_data: JSON.stringify(transaction),
   });
 
   describe('SS58 Address Variant Handling', () => {
@@ -215,7 +215,7 @@ describe('PolkadotTransactionProcessor Integration', () => {
     });
 
     it('should handle empty raw data items', () => {
-      const rawDataItems: StoredRawData[] = [];
+      const rawDataItems: RawData[] = [];
 
       const sessionMetadata: ImportSessionMetadata = {
         address: polkadotAddress,
@@ -231,16 +231,16 @@ describe('PolkadotTransactionProcessor Integration', () => {
     });
 
     it('should handle missing sourceAddress in raw data', () => {
-      const rawDataItem: StoredRawData = {
-        createdAt: Date.now(),
+      const rawDataItem: RawData = {
+        created_at: Date.now().toString(),
         id: 1,
-        metadata: { providerId: 'subscan' },
-        processingStatus: 'pending',
-        rawData: {
-          providerId: 'subscan',
-          rawData: mockTransaction,
-          // sourceAddress is missing
-        },
+        import_session_id: 1,
+        metadata: JSON.stringify({ providerId: 'subscan' }),
+        processed_at: null,
+        processing_error: null,
+        processing_status: 'pending',
+        provider_id: null,
+        raw_data: JSON.stringify(mockTransaction),
       };
 
       const rawDataItems = [rawDataItem];

@@ -1,5 +1,5 @@
-import { parseDecimal } from '@crypto/shared-utils';
 import type { ImportSessionMetadata } from '@exitbook/import/app/ports/processors.js';
+import { parseDecimal } from '@exitbook/shared-utils';
 import { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 

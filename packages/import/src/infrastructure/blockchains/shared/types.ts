@@ -1,4 +1,4 @@
-import type { DataSourceCapabilities, RateLimitConfig } from '@crypto/core';
+import type { DataSourceCapabilities, RateLimitConfig } from '@exitbook/core';
 
 // Discriminated union type for all possible operation parameters
 export type ProviderOperationParams =

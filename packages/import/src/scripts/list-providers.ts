@@ -2,7 +2,7 @@
 /**
  * List all registered providers across all blockchains
  */
-import type { RateLimitConfig } from '@crypto/core';
+import type { RateLimitConfig } from '@exitbook/core';
 
 // Import all providers to trigger registration
 import '../blockchains/registry/register-apis.js';

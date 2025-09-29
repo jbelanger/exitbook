@@ -1,8 +1,8 @@
-import type { UniversalTransaction } from '@crypto/core';
-import { type StoredRawData } from '@crypto/data';
-import type { Logger } from '@crypto/shared-logger';
-import { getLogger } from '@crypto/shared-logger';
+import type { UniversalTransaction } from '@exitbook/core';
+import type { RawData } from '@exitbook/data';
 import type { ImportParams } from '@exitbook/import/app/ports/importers.ts';
+import type { Logger } from '@exitbook/shared-logger';
+import { getLogger } from '@exitbook/shared-logger';
 
 import type { ImportResult } from '../../index.js';
 import type { IBlockchainNormalizer } from '../ports/blockchain-normalizer.js';
@@ -208,14 +208,14 @@ export class TransactionIngestionService {
       const allSessions = await this.sessionRepository.findBySource(sourceId);
 
       // Get raw data items that match our filters (already loaded above)
-      const rawDataBySessionId = new Map<number, StoredRawData[]>();
+      const rawDataBySessionId = new Map<number, RawData[]>();
 
       // Group raw data by session ID
       for (const rawDataItem of rawDataItems) {
-        if (rawDataItem.importSessionId) {
-          const sessionRawData = rawDataBySessionId.get(rawDataItem.importSessionId) || [];
+        if (rawDataItem.import_session_id) {
+          const sessionRawData = rawDataBySessionId.get(rawDataItem.import_session_id) || [];
           sessionRawData.push(rawDataItem);
-          rawDataBySessionId.set(rawDataItem.importSessionId, sessionRawData);
+          rawDataBySessionId.set(rawDataItem.import_session_id, sessionRawData);
         }
       }
 
@@ -229,8 +229,8 @@ export class TransactionIngestionService {
         .filter((sessionData) =>
           sessionData.rawDataItems.some(
             (item) =>
-              item.processingStatus === 'pending' &&
-              (!filters?.importSessionId || item.importSessionId === filters.importSessionId)
+              item.processing_status === 'pending' &&
+              (!filters?.importSessionId || item.import_session_id === filters.importSessionId)
           )
         );
 
@@ -243,7 +243,7 @@ export class TransactionIngestionService {
         const { rawDataItems: sessionRawItems, session } = sessionData;
 
         // Filter to only pending items for this session
-        const pendingItems = sessionRawItems.filter((item) => item.processingStatus === 'pending');
+        const pendingItems = sessionRawItems.filter((item) => item.processing_status === 'pending');
 
         if (pendingItems.length === 0) {
           continue;
@@ -256,7 +256,7 @@ export class TransactionIngestionService {
             for (const item of pendingItems) {
               try {
                 const result = normalizer.normalize(
-                  item.rawData,
+                  item.raw_data,
                   sourceId,
                   session.session_metadata as ImportSessionMetadata
                 );
@@ -270,7 +270,7 @@ export class TransactionIngestionService {
           }
         } else {
           for (const item of pendingItems) {
-            normalizedRawDataItems.push(item.rawData);
+            normalizedRawDataItems.push(item.raw_data);
           }
         }
 
@@ -324,7 +324,7 @@ export class TransactionIngestionService {
 
       // Mark all processed raw data items as processed - both those that generated transactions and those that were skipped
       const allProcessedItems = sessionsToProcess.flatMap((sessionData) =>
-        sessionData.rawDataItems.filter((item) => item.processingStatus === 'pending')
+        sessionData.rawDataItems.filter((item) => item.processing_status === 'pending')
       );
       const allRawDataIds = allProcessedItems.map((item) => item.id);
       await this.rawDataRepository.markAsProcessed(sourceId, allRawDataIds, filters?.providerId);

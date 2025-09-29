@@ -1,4 +1,4 @@
-import type { StoredRawData } from '@crypto/data';
+import type { RawData } from '@exitbook/data';
 
 export interface LoadRawDataFilters {
   importSessionId?: number | undefined;
@@ -16,7 +16,7 @@ export interface IRawDataRepository {
   /**
    * Load external data from storage with optional filtering.
    */
-  load(filters?: LoadRawDataFilters): Promise<StoredRawData[]>;
+  load(filters?: LoadRawDataFilters): Promise<RawData[]>;
 
   /**
    * Mark multiple items as processed.

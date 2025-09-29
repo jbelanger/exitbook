@@ -54,12 +54,12 @@ const mocks = vi.hoisted(() => {
 });
 
 // Mock modules using vi.mock
-vi.mock('@crypto/shared-utils', () => ({
+vi.mock('@exitbook/shared-utils', () => ({
   HttpClient: mocks.MockHttpClient,
   RateLimiterFactory: mocks.MockRateLimiterFactory,
 }));
 
-vi.mock('@crypto/shared-logger', () => ({
+vi.mock('@exitbook/shared-logger', () => ({
   getLogger: mocks.MockLogger,
 }));
 

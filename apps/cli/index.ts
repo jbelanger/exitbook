@@ -1,11 +1,9 @@
 #!/usr/bin/env node
 import path from 'node:path';
 
-import { type BalanceVerificationResult, BalanceVerifier } from '@crypto/balance';
+import { BalanceRepository, BalanceService, type BalanceVerificationResult, BalanceVerifier } from '@exitbook/balance';
 import 'reflect-metadata';
-import { BalanceService } from '@crypto/balance/src/app/services/balance-service.ts';
-import { BalanceRepository } from '@crypto/balance/src/infrastructure/persistence/balance-repository.ts';
-import { createDatabase, clearDatabase, closeDatabase, type StoredTransaction } from '@crypto/data';
+import { createDatabase, clearDatabase, closeDatabase, type StoredTransaction } from '@exitbook/data';
 import {
   BlockchainProviderManager,
   DefaultNormalizer,
@@ -17,9 +15,9 @@ import {
   ProcessorFactory,
   ProviderRegistry,
   type ProviderInfo,
-} from '@crypto/import';
-import { getLogger } from '@crypto/shared-logger';
-import { initializeDatabase, loadExplorerConfig } from '@crypto/shared-utils';
+} from '@exitbook/import';
+import { getLogger } from '@exitbook/shared-logger';
+import { initializeDatabase, loadExplorerConfig } from '@exitbook/shared-utils';
 import { Command } from 'commander';
 
 const logger = getLogger('CLI');
@@ -635,7 +633,7 @@ function convertToCSV(transactions: StoredTransaction[]): string {
         if (!isNaN(amountNum) && !isNaN(priceNum)) {
           cost = (amountNum * priceNum).toString();
         }
-      } catch (e) {
+      } catch (_e) {
         // Ignore calculation errors
       }
     }
@@ -687,7 +685,7 @@ function convertToJSON(transactions: StoredTransaction[]): string {
         if (!isNaN(amountNum) && !isNaN(priceNum)) {
           cost = amountNum * priceNum;
         }
-      } catch (e) {
+      } catch (_e) {
         // Ignore calculation errors
       }
     }

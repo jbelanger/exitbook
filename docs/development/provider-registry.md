@@ -4,15 +4,15 @@ This document explains the provider registry system, a core component of the Uni
 
 ## Overview
 
-The Provider Registry system solves the critical problem of decoupling provider *implementation* from system *configuration*. It establishes a "single source of truth" for provider capabilities, where metadata lives directly with the code that implements it.
+The Provider Registry system solves the critical problem of decoupling provider _implementation_ from system _configuration_. It establishes a "single source of truth" for provider capabilities, where metadata lives directly with the code that implements it.
 
 **Key Goals Achieved:**
 
-*   ✅ **Provider metadata lives with the code:** Rate limits, capabilities, and network URLs are defined in one place.
-*   ✅ **Configuration contains only user intent:** The JSON config is simplified to what's enabled, what's prioritized, and what's overridden.
-*   ✅ **Auto-discovery of providers:** New providers are automatically detected by the system once their files are created and imported.
-*   ✅ **Runtime validation:** The system validates user configuration against the registry, providing clear errors for typos or unsupported providers.
-*   ✅ **Improved Developer Experience:** The entire system is self-documenting and provides strong type safety.
+- ✅ **Provider metadata lives with the code:** Rate limits, capabilities, and network URLs are defined in one place.
+- ✅ **Configuration contains only user intent:** The JSON config is simplified to what's enabled, what's prioritized, and what's overridden.
+- ✅ **Auto-discovery of providers:** New providers are automatically detected by the system once their files are created and imported.
+- ✅ **Runtime validation:** The system validates user configuration against the registry, providing clear errors for typos or unsupported providers.
+- ✅ **Improved Developer Experience:** The entire system is self-documenting and provides strong type safety.
 
 ## Architecture: From Disconnected to Integrated
 
@@ -58,17 +58,17 @@ The `ApiClient` is responsible for communicating with the external API. It exten
 
 ```typescript
 // packages/import/src/blockchains/bitcoin/api/MyBitcoinApiClient.ts
-import { BaseRegistryProvider, RegisterApiClient } from '@crypto/import'; // Simplified import path for example
+import { BaseRegistryProvider, RegisterApiClient } from '@exitbook/import'; // Simplified import path for example
 
 @RegisterApiClient({
   // --- Core Metadata ---
-  name: 'my-btc-provider',         // Unique key used in config.json
+  name: 'my-btc-provider', // Unique key used in config.json
   blockchain: 'bitcoin',
   displayName: 'My Custom BTC Provider',
   description: 'A custom provider for Bitcoin blockchain data.',
 
   // --- Configuration ---
-  type: 'rest',                    // 'rest', 'rpc', or 'websocket'
+  type: 'rest', // 'rest', 'rpc', or 'websocket'
   requiresApiKey: true,
   apiKeyEnvVar: 'MY_BTC_PROVIDER_API_KEY', // Recommended env var for the API key
 
@@ -128,11 +128,13 @@ The `Mapper` is responsible for validating and transforming the raw JSON respons
 
 ```typescript
 // packages/import/src/blockchains/bitcoin/mappers/MyBitcoinMapper.ts
-import { BaseRawDataMapper, RegisterTransactionMapper } from '@crypto/import';
+import { BaseRawDataMapper, RegisterTransactionMapper } from '@exitbook/import';
 import { ZodSchema, z } from 'zod'; // For validation
 
 // Define a Zod schema for the raw API response
-const MyRawTxSchema = z.object({ /* ... */ });
+const MyRawTxSchema = z.object({
+  /* ... */
+});
 
 @RegisterTransactionMapper('my-btc-provider') // Must match the ApiClient name
 export class MyBitcoinMapper extends BaseRawDataMapper<MyRawTx> {
@@ -171,7 +173,7 @@ import './MempoolSpaceMapper.ts';
 You can now use your new provider. Run the sync script to automatically add it to your configuration.
 
 ```bash
-pnpm --filter @crypto/import run providers:sync --fix
+pnpm --filter @exitbook/import run providers:sync --fix
 ```
 
 Your `blockchain-explorers.json` will be updated:
@@ -200,23 +202,23 @@ Your `blockchain-explorers.json` will be updated:
 
 All metadata is defined within the `@RegisterApiClient` decorator.
 
-| Field | Type | Description |
-|---|---|---|
-| **`name`** | `string` | **Required.** The unique, machine-readable identifier for the provider. This key is used in `blockchain-explorers.json`. |
-| **`blockchain`** | `string` | **Required.** The blockchain this provider serves (e.g., "bitcoin", "ethereum"). |
-| **`displayName`** | `string` | **Required.** A human-friendly name for logging and UI purposes. |
-| `description` | `string` | Optional. A brief description of the provider and its features. |
-| `type` | `'rest' \| 'rpc'` | Optional. The type of API. Defaults to `rest`. |
-| `requiresApiKey` | `boolean` | Optional. Set to `true` if the provider needs an API key. Defaults to `false`. |
-| `apiKeyEnvVar` | `string` | Optional. The recommended environment variable name for the API key (e.g., `MEMPOOL_API_KEY`). |
-| **`defaultConfig`** | `object` | **Required.** Contains default settings for the provider. |
-| ┝ `timeout` | `number` | **Required.** Default request timeout in milliseconds. |
-| ┝ `retries` | `number` | **Required.** Default number of retry attempts on failure. |
-| ┝ `rateLimit` | `RateLimitConfig` | **Required.** The rate limiting rules for the provider. |
-| **`networks`** | `object` | **Required.** Defines the API endpoints for different networks. |
-| ┝ `mainnet` | `NetworkEndpoint` | **Required.** The configuration for the main network. |
-| ┝ `testnet` | `NetworkEndpoint` | Optional. Configuration for a test network. |
-| **`capabilities`** | `ProviderCapabilities` | **Required.** An object declaring what operations the provider supports. |
+| Field               | Type                   | Description                                                                                                              |
+| ------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| **`name`**          | `string`               | **Required.** The unique, machine-readable identifier for the provider. This key is used in `blockchain-explorers.json`. |
+| **`blockchain`**    | `string`               | **Required.** The blockchain this provider serves (e.g., "bitcoin", "ethereum").                                         |
+| **`displayName`**   | `string`               | **Required.** A human-friendly name for logging and UI purposes.                                                         |
+| `description`       | `string`               | Optional. A brief description of the provider and its features.                                                          |
+| `type`              | `'rest' \| 'rpc'`      | Optional. The type of API. Defaults to `rest`.                                                                           |
+| `requiresApiKey`    | `boolean`              | Optional. Set to `true` if the provider needs an API key. Defaults to `false`.                                           |
+| `apiKeyEnvVar`      | `string`               | Optional. The recommended environment variable name for the API key (e.g., `MEMPOOL_API_KEY`).                           |
+| **`defaultConfig`** | `object`               | **Required.** Contains default settings for the provider.                                                                |
+| ┝ `timeout`         | `number`               | **Required.** Default request timeout in milliseconds.                                                                   |
+| ┝ `retries`         | `number`               | **Required.** Default number of retry attempts on failure.                                                               |
+| ┝ `rateLimit`       | `RateLimitConfig`      | **Required.** The rate limiting rules for the provider.                                                                  |
+| **`networks`**      | `object`               | **Required.** Defines the API endpoints for different networks.                                                          |
+| ┝ `mainnet`         | `NetworkEndpoint`      | **Required.** The configuration for the main network.                                                                    |
+| ┝ `testnet`         | `NetworkEndpoint`      | Optional. Configuration for a test network.                                                                              |
+| **`capabilities`**  | `ProviderCapabilities` | **Required.** An object declaring what operations the provider supports.                                                 |
 
 ## Using the Registry System
 
@@ -226,18 +228,18 @@ The monorepo includes scripts to help you manage and validate your provider ecos
 
 ```bash
 # List all registered providers across all blockchains and their metadata.
-pnpm --filter @crypto/import run providers:list
+pnpm --filter @exitbook/import run providers:list
 
 # Validate that all provider registrations are well-formed and complete.
-pnpm --filter @crypto/import run providers:validate
+pnpm --filter @exitbook/import run providers:validate
 
 # Sync the blockchain-explorers.json file with the registry.
 # The --fix flag will automatically add any newly registered providers.
-pnpm --filter @crypto/import run providers:sync --fix
+pnpm --filter @exitbook/import run providers:sync --fix
 
 # Validate the existing blockchain-explorers.json against the registry.
 # This will catch typos or references to providers that are no longer registered.
-pnpm --filter @crypto/import run config:validate
+pnpm --filter @exitbook/import run config:validate
 ```
 
 ### Programmatic Usage
@@ -245,7 +247,7 @@ pnpm --filter @crypto/import run config:validate
 While most interaction is automated, you can interact with the registry programmatically.
 
 ```typescript
-import { ProviderRegistry } from '@crypto/import';
+import { ProviderRegistry } from '@exitbook/import';
 
 // Get metadata for a specific provider
 const alchemyMeta = ProviderRegistry.getMetadata('ethereum', 'alchemy');
@@ -268,9 +270,10 @@ The registry system allows for a clean and powerful configuration file that focu
     // An object to customize specific providers.
     "overrides": {
       "alchemy": {
-        "priority": 1,        // Lower is higher priority. Alchemy will be tried first.
-        "timeout": 20000,     // Override the default timeout from the decorator.
-        "rateLimit": {        // Override the default rate limit.
+        "priority": 1, // Lower is higher priority. Alchemy will be tried first.
+        "timeout": 20000, // Override the default timeout from the decorator.
+        "rateLimit": {
+          // Override the default rate limit.
           "requestsPerSecond": 10
         }
       },
@@ -278,7 +281,7 @@ The registry system allows for a clean and powerful configuration file that focu
         "priority": 2
       },
       "some-other-provider": {
-        "enabled": false      // Explicitly disable a provider, even if it's registered.
+        "enabled": false // Explicitly disable a provider, even if it's registered.
       }
     }
   },
@@ -293,13 +296,16 @@ The registry system allows for a clean and powerful configuration file that focu
 ## Troubleshooting
 
 ### Provider 'xyz' not found for blockchain 'abc'
-*   **Cause:** The provider's file was not imported, so its `@RegisterApiClient` decorator never ran.
-*   **Solution:** Ensure you have added `import './path/to/XyzApiClient.ts';` in the `api/index.ts` file for the corresponding blockchain.
+
+- **Cause:** The provider's file was not imported, so its `@RegisterApiClient` decorator never ran.
+- **Solution:** Ensure you have added `import './path/to/XyzApiClient.ts';` in the `api/index.ts` file for the corresponding blockchain.
 
 ### Configuration Validation Fails
-*   **Cause:** A provider name in `blockchain-explorers.json` has a typo or refers to a provider that has been removed.
-*   **Solution:** Run `pnpm run providers:list` to see the correct, available provider names. Correct the typo in the JSON file. Run `pnpm run config:validate` again to confirm.
+
+- **Cause:** A provider name in `blockchain-explorers.json` has a typo or refers to a provider that has been removed.
+- **Solution:** Run `pnpm run providers:list` to see the correct, available provider names. Correct the typo in the JSON file. Run `pnpm run config:validate` again to confirm.
 
 ### API Key Not Being Used
-*   **Cause:** The `requiresApiKey` flag is `false` in the decorator, or the `apiKeyEnvVar` is incorrect.
-*   **Solution:** Verify the metadata in the `@RegisterApiClient` decorator. Ensure `requiresApiKey` is `true` and the `apiKeyEnvVar` matches the variable in your `.env` file.
+
+- **Cause:** The `requiresApiKey` flag is `false` in the decorator, or the `apiKeyEnvVar` is incorrect.
+- **Solution:** Verify the metadata in the `@RegisterApiClient` decorator. Ensure `requiresApiKey` is `true` and the `apiKeyEnvVar` matches the variable in your `.env` file.

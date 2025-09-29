@@ -1,5 +1,4 @@
 import type { ApiClientRawData, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
-import { metadata } from 'reflect-metadata/no-conflict';
 
 import { BaseImporter } from '../../shared/importers/base-importer.js';
 import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.js';

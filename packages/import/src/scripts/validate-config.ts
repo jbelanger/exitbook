@@ -4,7 +4,7 @@
  * Enhanced with automatic fixes and detailed suggestions
  */
 // Import all providers to trigger registration
-import { loadExplorerConfig } from '@crypto/shared-utils';
+import { loadExplorerConfig } from '@exitbook/shared-utils';
 
 import '../blockchains/registry/register-apis.js';
 import { ProviderRegistry } from '../infrastructure/blockchains/shared/registry/index.js';

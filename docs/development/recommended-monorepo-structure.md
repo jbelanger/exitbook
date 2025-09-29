@@ -32,7 +32,7 @@ crypto-portfolio-platform/
 │   │   │   │   ├── transaction-linking-service.ts
 │   │   │   │   └── wallet-service.ts
 │   │   │   └── types/                # Database schema types, raw data types, import session types
-│   │   │       ├── balance-types.ts      # NOTE: These are duplicated from @crypto/balance
+│   │   │       ├── balance-types.ts      # NOTE: These are duplicated from @exitbook/balance
 │   │   │       ├── database-types.ts
 │   │   │       └── data-types.ts
 │   │   └── package.json
@@ -161,108 +161,114 @@ crypto-portfolio-platform/
 
 This section details the primary packages and their responsibilities, highlighting the refined boundaries and internal structures.
 
-### 1. **Core Domain (`@crypto/core`)**
+### 1. **Core Domain (`@exitbook/core`)**
 
 This package defines the universal language of the entire platform. It contains foundational types and interfaces that are agnostic to specific implementations, ensuring consistency across all domains.
 
-*   **Content:**
-    *   `types.ts`: Universal `Money` type (using `Decimal.js`), `TransactionType`, `TransactionStatus`, `IUniversalAdapter` (interface for all data sources), `UniversalTransaction`, `UniversalBalance`, `UniversalAdapterConfig`.
-    *   `validation/universal-schemas.ts`: Zod schemas for validating universal transaction and balance objects, critical for data integrity throughout the ETL pipeline.
-*   **Dependency Flow:** This package has **no runtime dependencies** on other internal packages. Other packages depend on `@crypto/core` to consume its types and interfaces.
+- **Content:**
+  - `types.ts`: Universal `Money` type (using `Decimal.js`), `TransactionType`, `TransactionStatus`, `IUniversalAdapter` (interface for all data sources), `UniversalTransaction`, `UniversalBalance`, `UniversalAdapterConfig`.
+  - `validation/universal-schemas.ts`: Zod schemas for validating universal transaction and balance objects, critical for data integrity throughout the ETL pipeline.
+- **Dependency Flow:** This package has **no runtime dependencies** on other internal packages. Other packages depend on `@exitbook/core` to consume its types and interfaces.
 
-### 2. **Data Persistence (`@crypto/data`)**
+### 2. **Data Persistence (`@exitbook/data`)**
 
 The data access layer, responsible for interacting with the SQLite database. It provides structured ways to store and retrieve application data.
 
-*   **Content:**
-    *   `storage/database.ts`: Handles direct SQLite operations, schema creation, migrations, and low-level queries.
-    *   `repositories/`: High-level abstractions for common data operations (e.g., `BalanceRepository`, `ImportSessionRepository`, `RawDataRepository`, `WalletRepository`). These encapsulate specific queries and table interactions.
-    *   `services/`: Data-specific business logic built on top of repositories (e.g., `BalanceCalculationService`, `TransactionLinkingService`, `WalletService`).
-    *   `types/`: Database row structures and interface definitions for stored entities.
-*   **Dependency Flow:** Depends on `@crypto/core` for universal types and `decimal.js` for precision. It has `peerDependencies` on `@crypto/balance`, `@crypto/shared-logger`, `@crypto/shared-utils` to resolve types and utilities.
+- **Content:**
+  - `storage/database.ts`: Handles direct SQLite operations, schema creation, migrations, and low-level queries.
+  - `repositories/`: High-level abstractions for common data operations (e.g., `BalanceRepository`, `ImportSessionRepository`, `RawDataRepository`, `WalletRepository`). These encapsulate specific queries and table interactions.
+  - `services/`: Data-specific business logic built on top of repositories (e.g., `BalanceCalculationService`, `TransactionLinkingService`, `WalletService`).
+  - `types/`: Database row structures and interface definitions for stored entities.
+- **Dependency Flow:** Depends on `@exitbook/core` for universal types and `decimal.js` for precision. It has `peerDependencies` on `@exitbook/balance`, `@exitbook/shared-logger`, `@exitbook/shared-utils` to resolve types and utilities.
 
-### 3. **Balance Verification (`@crypto/balance`)**
+### 3. **Balance Verification (`@exitbook/balance`)**
 
 Dedicated to the logic of verifying calculated balances against live balances or historical snapshots.
 
-*   **Content:**
-    *   `services/balance-verifier.ts`: Contains the core logic for comparing balances, generating reports, and checking verification history. It uses `@crypto/data`'s `BalanceService` to interact with stored data.
-    *   `types/balance-types.ts`: Interface definitions for balance comparisons, verification results, and snapshots.
-*   **Dependency Flow:** Depends on `@crypto/core` and `@crypto/data` (specifically `BalanceService` from `@crypto/data`).
+- **Content:**
+  - `services/balance-verifier.ts`: Contains the core logic for comparing balances, generating reports, and checking verification history. It uses `@exitbook/data`'s `BalanceService` to interact with stored data.
+  - `types/balance-types.ts`: Interface definitions for balance comparisons, verification results, and snapshots.
+- **Dependency Flow:** Depends on `@exitbook/core` and `@exitbook/data` (specifically `BalanceService` from `@exitbook/data`).
 
-### 4. **Transaction ETL Pipeline (`@crypto/import`)**
+### 4. **Transaction ETL Pipeline (`@exitbook/import`)**
 
 This is the most complex domain, encompassing the entire ETL process for fetching raw transaction data from various external sources (exchanges, blockchains) and transforming it into a canonical format.
 
-*   **Core Services (`src/services/`):**
-    *   `ingestion-service.ts`: The orchestrator of the entire ETL pipeline. It manages the two-stage process: `importFromSource` (extraction) and `processAndStore` (transformation/loading). It handles import session tracking, raw data storage, and error management.
-*   **Blockchain-Centric Structure (`src/blockchains/`):**
-    Each blockchain is a self-contained feature module with a consistent internal structure:
-    ```
-    src/blockchains/bitcoin/
-    ├── api/                      # Raw API client implementations (e.g., MempoolSpaceApiClient)
-    ├── mappers/                  # Raw data mappers (e.g., MempoolSpaceMapper)
-    ├── transaction-importer.ts   # High-level importer for Bitcoin
-    ├── transaction-processor.ts  # High-level processor for Bitcoin
-    ├── schemas.ts                # Zod schemas for raw API responses
-    ├── types.ts                  # Raw API response types
-    └── utils.ts                  # Bitcoin-specific utilities (xpub derivation, address validation)
-    ```
-    *   **API Clients (`api/`):** Implementations of `BaseRegistryProvider` that handle direct communication with a specific blockchain API (e.g., Mempool.space, Alchemy). They are registered via `@RegisterApiClient` decorators.
-    *   **Importers (`transaction-importer.ts`):** Extend `BaseImporter`. Their role is to interact with the `BlockchainProviderManager` to fetch *raw data* from the configured `API Clients`.
-    *   **Mappers (`mappers/`):** Extend `BaseRawDataMapper`. They contain the *provider-specific* logic to validate and transform raw API responses into an intermediate `UniversalBlockchainTransaction` format. They are registered via `@RegisterTransactionMapper` decorators.
-    *   **Processors (`transaction-processor.ts`):** Extend `BaseProcessor`. Their role is to load raw data, dispatch to the correct `Mapper`, and then apply *blockchain-specific* business logic (e.g., classify transaction types based on wallet ownership) to produce the final `UniversalTransaction`.
-*   **Exchange-Centric Structure (`src/exchanges/`):**
-    Similar to `blockchains/`, but tailored for exchanges (CCXT, CSV, native APIs).
-    ```
-    src/exchanges/coinbase/
-    ├── ccxt-adapter.ts           # CCXT-based adapter for Coinbase
-    ├── importer.ts               # Importer for Coinbase
-    ├── processor.ts              # Processor for Coinbase
-    ├── schemas.ts                # Zod schemas for Coinbase raw data
-    └── types.ts                  # Raw API response types
-    ```
-    *   This section also contains `BaseCCXTAdapter`, `BaseCsvAdapter`, and `ExchangeErrorHandler` for common exchange logic.
-*   **Shared Infrastructure (`src/shared/`):**
-    *   `blockchain-provider-manager.ts`: The core resilience engine.
-    *   `registry/`: Contains `ProviderRegistry` (auto-discovery) and decorators (`@RegisterApiClient`, `@RegisterTransactionMapper`).
-    *   `importers/`: `BaseImporter` and `ImporterFactory`.
-    *   `processors/`: `BaseProcessor`, `ProcessorFactory`, `BaseRawDataMapper`, `TransactionMapperFactory`.
-    *   `types/`: Common interfaces for importers and processors.
-*   **Configuration (`config/blockchain-explorers.json`):** Defines which API clients are `defaultEnabled` for each blockchain and allows for `overrides` (priority, rate limits, `enabled` status) for specific providers.
-*   **Dependency Flow:** This package depends heavily on `@crypto/core`, `@crypto/data`, `@crypto/shared-logger`, and `@crypto/shared-utils`.
+- **Core Services (`src/services/`):**
+  - `ingestion-service.ts`: The orchestrator of the entire ETL pipeline. It manages the two-stage process: `importFromSource` (extraction) and `processAndStore` (transformation/loading). It handles import session tracking, raw data storage, and error management.
+- **Blockchain-Centric Structure (`src/blockchains/`):**
+  Each blockchain is a self-contained feature module with a consistent internal structure:
 
-### 5. **Portfolio Domain (`@crypto/portfolio`)** - (Future/Conceptual)
+  ```
+  src/blockchains/bitcoin/
+  ├── api/                      # Raw API client implementations (e.g., MempoolSpaceApiClient)
+  ├── mappers/                  # Raw data mappers (e.g., MempoolSpaceMapper)
+  ├── transaction-importer.ts   # High-level importer for Bitcoin
+  ├── transaction-processor.ts  # High-level processor for Bitcoin
+  ├── schemas.ts                # Zod schemas for raw API responses
+  ├── types.ts                  # Raw API response types
+  └── utils.ts                  # Bitcoin-specific utilities (xpub derivation, address validation)
+  ```
+
+  - **API Clients (`api/`):** Implementations of `BaseRegistryProvider` that handle direct communication with a specific blockchain API (e.g., Mempool.space, Alchemy). They are registered via `@RegisterApiClient` decorators.
+  - **Importers (`transaction-importer.ts`):** Extend `BaseImporter`. Their role is to interact with the `BlockchainProviderManager` to fetch _raw data_ from the configured `API Clients`.
+  - **Mappers (`mappers/`):** Extend `BaseRawDataMapper`. They contain the _provider-specific_ logic to validate and transform raw API responses into an intermediate `UniversalBlockchainTransaction` format. They are registered via `@RegisterTransactionMapper` decorators.
+  - **Processors (`transaction-processor.ts`):** Extend `BaseProcessor`. Their role is to load raw data, dispatch to the correct `Mapper`, and then apply _blockchain-specific_ business logic (e.g., classify transaction types based on wallet ownership) to produce the final `UniversalTransaction`.
+
+- **Exchange-Centric Structure (`src/exchanges/`):**
+  Similar to `blockchains/`, but tailored for exchanges (CCXT, CSV, native APIs).
+
+  ```
+  src/exchanges/coinbase/
+  ├── ccxt-adapter.ts           # CCXT-based adapter for Coinbase
+  ├── importer.ts               # Importer for Coinbase
+  ├── processor.ts              # Processor for Coinbase
+  ├── schemas.ts                # Zod schemas for Coinbase raw data
+  └── types.ts                  # Raw API response types
+  ```
+
+  - This section also contains `BaseCCXTAdapter`, `BaseCsvAdapter`, and `ExchangeErrorHandler` for common exchange logic.
+
+- **Shared Infrastructure (`src/shared/`):**
+  - `blockchain-provider-manager.ts`: The core resilience engine.
+  - `registry/`: Contains `ProviderRegistry` (auto-discovery) and decorators (`@RegisterApiClient`, `@RegisterTransactionMapper`).
+  - `importers/`: `BaseImporter` and `ImporterFactory`.
+  - `processors/`: `BaseProcessor`, `ProcessorFactory`, `BaseRawDataMapper`, `TransactionMapperFactory`.
+  - `types/`: Common interfaces for importers and processors.
+- **Configuration (`config/blockchain-explorers.json`):** Defines which API clients are `defaultEnabled` for each blockchain and allows for `overrides` (priority, rate limits, `enabled` status) for specific providers.
+- **Dependency Flow:** This package depends heavily on `@exitbook/core`, `@exitbook/data`, `@exitbook/shared-logger`, and `@exitbook/shared-utils`.
+
+### 5. **Portfolio Domain (`@exitbook/portfolio`)** - (Future/Conceptual)
 
 Currently, this package exists as a placeholder. In a future iteration, it would house all logic related to calculating, analyzing, and reporting on a user's cryptocurrency portfolio.
 
-*   **Content (Future):**
-    *   `domain/`: Core portfolio entities and value objects.
-    *   `services/`: Business logic for portfolio calculations, performance tracking, risk analysis.
-    *   `queries/`: Optimized data retrieval specific to portfolio views.
-    *   `reports/`: Functionality for generating various financial reports.
-*   **Dependency Flow (Future):** Would depend on `@crypto/core` (for `Transaction`, `Money`), `@crypto/data` (for accessing stored transactions/balances), `@crypto/shared-logger`, `@crypto/shared-utils`.
+- **Content (Future):**
+  - `domain/`: Core portfolio entities and value objects.
+  - `services/`: Business logic for portfolio calculations, performance tracking, risk analysis.
+  - `queries/`: Optimized data retrieval specific to portfolio views.
+  - `reports/`: Functionality for generating various financial reports.
+- **Dependency Flow (Future):** Would depend on `@exitbook/core` (for `Transaction`, `Money`), `@exitbook/data` (for accessing stored transactions/balances), `@exitbook/shared-logger`, `@exitbook/shared-utils`.
 
-### 6. **Shared Logger (`@crypto/shared-logger`)**
+### 6. **Shared Logger (`@exitbook/shared-logger`)**
 
 Provides a consistent and structured logging interface across the entire monorepo.
 
-*   **Content:**
-    *   `logger.ts`: Centralized `getLogger` function for uniform log output.
-*   **Dependency Flow:** Only depends on `node:util` (built-in). All other packages depend on `shared-logger` for logging.
+- **Content:**
+  - `logger.ts`: Centralized `getLogger` function for uniform log output.
+- **Dependency Flow:** Only depends on `node:util` (built-in). All other packages depend on `shared-logger` for logging.
 
-### 7. **Shared Utilities (`@crypto/shared-utils`)**
+### 7. **Shared Utilities (`@exitbook/shared-utils`)**
 
 A collection of general-purpose utility functions and helper classes.
 
-*   **Content:**
-    *   `decimal-utils.ts`: Wraps `decimal.js` for precise financial calculations and conversions.
-    *   `http-client.ts`: A centralized HTTP client with built-in retry, timeout, and rate-limiting.
-    *   `rate-limiter.ts`: Generic token-bucket rate limiter implementation.
-    *   `config.ts`: Utilities for loading configuration files (e.g., `blockchain-explorers.json`) and initializing the database.
-    *   `type-guards.ts`: Helper functions for safe type checking.
-    *   `address-utils.ts`: Utilities for address formatting and masking.
-*   **Dependency Flow:** Depends on `@crypto/core` (for `RateLimitConfig`, `ServiceError`), `decimal.js`, and `sqlite3`. Other packages depend on `shared-utils` for common helpers.
+- **Content:**
+  - `decimal-utils.ts`: Wraps `decimal.js` for precise financial calculations and conversions.
+  - `http-client.ts`: A centralized HTTP client with built-in retry, timeout, and rate-limiting.
+  - `rate-limiter.ts`: Generic token-bucket rate limiter implementation.
+  - `config.ts`: Utilities for loading configuration files (e.g., `blockchain-explorers.json`) and initializing the database.
+  - `type-guards.ts`: Helper functions for safe type checking.
+  - `address-utils.ts`: Utilities for address formatting and masking.
+- **Dependency Flow:** Depends on `@exitbook/core` (for `RateLimitConfig`, `ServiceError`), `decimal.js`, and `sqlite3`. Other packages depend on `shared-utils` for common helpers.
 
 ---
 
@@ -272,25 +278,25 @@ A collection of general-purpose utility functions and helper classes.
 
 The primary user-facing application for interacting with the platform's core functionality.
 
-*   **Content:**
-    *   `index.ts`: The main entry point, using `commander.js` to define commands (`import`, `verify`, `status`, `export`). It directly instantiates and uses services from `@crypto/import`, `@crypto/balance`, `@crypto/data`.
-*   **Dependency Flow:** Directly depends on `@crypto/balance`, `@crypto/core`, `@crypto/data`, `@crypto/import`, `@crypto/shared-logger`, `@crypto/shared-utils`.
+- **Content:**
+  - `index.ts`: The main entry point, using `commander.js` to define commands (`import`, `verify`, `status`, `export`). It directly instantiates and uses services from `@exitbook/import`, `@exitbook/balance`, `@exitbook/data`.
+- **Dependency Flow:** Directly depends on `@exitbook/balance`, `@exitbook/core`, `@exitbook/data`, `@exitbook/import`, `@exitbook/shared-logger`, `@exitbook/shared-utils`.
 
 ### **API Server (`apps/api`)** - (Future/Conceptual)
 
 This application would expose the platform's capabilities via a RESTful API.
 
-*   **Content (Future):**
-    *   NestJS modules for `ImportModule`, `PortfolioModule`, `AuthModule`, etc., exposing endpoints that call services from `@crypto/import`, `@crypto/portfolio`, `@crypto/data`.
-*   **Dependency Flow (Future):** Would depend on `@crypto/import`, `@crypto/portfolio`, `@crypto/data`, `@crypto/shared-logger`, `@crypto/shared-utils`, `@crypto/core`.
+- **Content (Future):**
+  - NestJS modules for `ImportModule`, `PortfolioModule`, `AuthModule`, etc., exposing endpoints that call services from `@exitbook/import`, `@exitbook/portfolio`, `@exitbook/data`.
+- **Dependency Flow (Future):** Would depend on `@exitbook/import`, `@exitbook/portfolio`, `@exitbook/data`, `@exitbook/shared-logger`, `@exitbook/shared-utils`, `@exitbook/core`.
 
 ### **Web Frontend (`apps/web`)** - (Future/Conceptual)
 
 This application would provide a rich, interactive user interface for managing portfolios.
 
-*   **Content (Future):**
-    *   React/Next.js components and pages organized by feature (e.g., `features/import/`, `features/portfolio/`).
-*   **Dependency Flow (Future):** Would primarily depend on `@crypto/core` (for types) and potentially a future `@crypto/ui` package for shared UI components, consuming data via the `apps/api` endpoints.
+- **Content (Future):**
+  - React/Next.js components and pages organized by feature (e.g., `features/import/`, `features/portfolio/`).
+- **Dependency Flow (Future):** Would primarily depend on `@exitbook/core` (for types) and potentially a future `@exitbook/ui` package for shared UI components, consuming data via the `apps/api` endpoints.
 
 ---
 
@@ -300,12 +306,12 @@ This application would provide a rich, interactive user interface for managing p
 
 ```mermaid
 graph TD
-    A[apps/cli] --> B[@crypto/balance]
-    A --> C[@crypto/core]
-    A --> D[@crypto/data]
-    A --> E[@crypto/import]
-    A --> F[@crypto/shared-logger]
-    A --> G[@crypto/shared-utils]
+    A[apps/cli] --> B[@exitbook/balance]
+    A --> C[@exitbook/core]
+    A --> D[@exitbook/data]
+    A --> E[@exitbook/import]
+    A --> F[@exitbook/shared-logger]
+    A --> G[@exitbook/shared-utils]
 
     E --> C
     E --> D
@@ -338,20 +344,20 @@ graph TD
     G --> DecimalJS(decimal.js)
     G --> SQLite3(sqlite3)
 
-    Portfolio[@crypto/portfolio (Future)] --> C
+    Portfolio[@exitbook/portfolio (Future)] --> C
     Portfolio --> D
     Portfolio --> F
     Portfolio --> G
 
-    UI[@crypto/ui (Future)] --> C
+    UI[@exitbook/ui (Future)] --> C
 ```
 
 ### **Internal Import Structure (Guiding Principles)**
 
-*   **Public API (index.ts):** Each package's `src/index.ts` should be its public API, exporting only what other packages need.
-    *   `import { BalanceVerifier } from '@crypto/balance';` (Good)
-    *   `import { MempoolSpaceApiClient } from '@crypto/import/src/blockchains/bitcoin/api/MempoolSpaceApiClient.ts';` (Bad - deep import, breaks encapsulation)
-*   **Internal Cohesion:** Modules within a package should be self-contained and expose minimal interfaces to other modules within the same package.
+- **Public API (index.ts):** Each package's `src/index.ts` should be its public API, exporting only what other packages need.
+  - `import { BalanceVerifier } from '@exitbook/balance';` (Good)
+  - `import { MempoolSpaceApiClient } from '@exitbook/import/src/blockchains/bitcoin/api/MempoolSpaceApiClient.ts';` (Bad - deep import, breaks encapsulation)
+- **Internal Cohesion:** Modules within a package should be self-contained and expose minimal interfaces to other modules within the same package.
 
 ### **`package.json` Workspace Structure**
 
@@ -386,38 +392,38 @@ While direct event bus implementation wasn't explicitly present in the provided 
 
 ### **Event-Driven Patterns**
 
-*   **Events:** Define immutable event contracts in `@crypto/core` (or a dedicated `events` package).
-    ```typescript
-    // packages/core/events/domain-events.ts (Conceptual)
-    export interface TransactionImportCompleted {
-      type: 'TransactionImportCompleted';
-      importSessionId: number;
-      sourceId: string;
-      transactionCount: number;
-      timestamp: number;
-    }
-    ```
-*   **Handlers:** Domains listen for relevant events and react.
-    ```typescript
-    // packages/portfolio/src/event-handlers/import-completed.handler.ts (Conceptual)
-    // Listens for TransactionImportCompleted to trigger portfolio recalculations.
-    ```
+- **Events:** Define immutable event contracts in `@exitbook/core` (or a dedicated `events` package).
+  ```typescript
+  // packages/core/events/domain-events.ts (Conceptual)
+  export interface TransactionImportCompleted {
+    type: 'TransactionImportCompleted';
+    importSessionId: number;
+    sourceId: string;
+    transactionCount: number;
+    timestamp: number;
+  }
+  ```
+- **Handlers:** Domains listen for relevant events and react.
+  ```typescript
+  // packages/portfolio/src/event-handlers/import-completed.handler.ts (Conceptual)
+  // Listens for TransactionImportCompleted to trigger portfolio recalculations.
+  ```
 
 ### **Shared Database with Domain Boundaries**
 
 The single SQLite database serves as the persistent store, but tables logically belong to specific domains.
 
 ```sql
--- Import Domain Tables (Managed by @crypto/data via @crypto/import)
+-- Import Domain Tables (Managed by @exitbook/data via @exitbook/import)
 import_sessions             # Tracks ETL sessions
 external_transaction_data   # Raw data fetched from external sources
 transactions                # Final, universal transactions after processing
 
--- Balance Domain Tables (Managed by @crypto/data via @crypto/balance)
+-- Balance Domain Tables (Managed by @exitbook/data via @exitbook/balance)
 balance_snapshots           # Point-in-time snapshots for comparison
 balance_verifications       # Historical verification results
 
--- Wallet Domain Tables (Managed by @crypto/data)
+-- Wallet Domain Tables (Managed by @exitbook/data)
 wallet_addresses            # User-managed wallet addresses for linking transactions
 
 -- Other Shared Tables (Conceptual)
@@ -433,12 +439,12 @@ Developers can focus on specific packages without interference.
 
 ```bash
 # Work on the 'import' package
-pnpm --filter @crypto/import dev
-pnpm --filter @crypto/import test
+pnpm --filter @exitbook/import dev
+pnpm --filter @exitbook/import test
 
 # Work on the 'data' package
-pnpm --filter @crypto/data dev
-pnpm --filter @crypto/data test
+pnpm --filter @exitbook/data dev
+pnpm --filter @exitbook/data test
 ```
 
 ### **Integrated Application Development**

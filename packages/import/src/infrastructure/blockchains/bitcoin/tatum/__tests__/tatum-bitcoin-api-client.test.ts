@@ -1,4 +1,4 @@
-import type { HttpRequestOptions } from '@crypto/shared-utils/src/http-client.js';
+import type { HttpRequestOptions } from '@exitbook/shared-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ProviderOperation } from '../../../shared/types.js';
@@ -7,7 +7,7 @@ import { TatumBitcoinApiClient } from '../tatum-bitcoin.api-client.js';
 import type { TatumBitcoinTransaction, TatumBitcoinBalance } from '../tatum.types.js';
 
 // Mock the HttpClient
-vi.mock('@crypto/shared-utils', () => ({
+vi.mock('@exitbook/shared-utils', () => ({
   HttpClient: vi.fn().mockImplementation(() => ({
     get: vi.fn(),
   })),
@@ -15,7 +15,7 @@ vi.mock('@crypto/shared-utils', () => ({
 }));
 
 // Mock the logger
-vi.mock('@crypto/shared-logger', () => ({
+vi.mock('@exitbook/shared-logger', () => ({
   getLogger: vi.fn(() => ({
     debug: vi.fn(),
     error: vi.fn(),

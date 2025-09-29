@@ -1,5 +1,5 @@
-import type { HttpClient } from '@crypto/shared-utils';
-import { maskAddress } from '@crypto/shared-utils';
+import type { HttpClient } from '@exitbook/shared-utils';
+import { maskAddress } from '@exitbook/shared-utils';
 
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.js';
 import type { JsonRpcResponse } from '../../shared/types.js';

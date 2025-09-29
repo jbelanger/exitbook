@@ -27,7 +27,7 @@ export class TatumBitcoinTransactionMapper extends BaseRawDataMapper<TatumBitcoi
     const timestamp = rawData.time * 1000; // Convert from seconds to milliseconds
 
     // Extract structured inputs with addresses and values
-    const inputs: BitcoinTransactionInput[] = rawData.inputs.map((input, index) => ({
+    const inputs: BitcoinTransactionInput[] = rawData.inputs.map((input, _index) => ({
       address: input.coin.address,
       txid: input.prevout.hash,
       value: input.coin.value.toString(),

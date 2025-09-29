@@ -5,6 +5,7 @@
 This guide provides a step-by-step walkthrough for adding a new blockchain API provider to the Universal Provider Architecture. The system is designed to be highly extensible, and following these patterns will ensure your new provider integrates seamlessly, benefiting from the built-in resilience, failover, and health monitoring features.
 
 The development process is broken down into two main components:
+
 1.  **The `ApiClient`:** The class responsible for communicating with the external API.
 2.  **The `Mapper`:** The class responsible for transforming the API's raw data into our canonical format.
 
@@ -16,17 +17,17 @@ Before writing code, gather the essential information about the API you're integ
 
 ### A. Define the Provider's Scope
 
-*   **Name:** A unique, machine-readable key (e.g., `blockchair`).
-*   **Blockchain:** The blockchain it serves (e.g., `bitcoin`).
-*   **Capabilities:** What operations can it perform? (`getRawAddressTransactions`, `getRawAddressBalance`, etc.).
-*   **Authentication:** Does it require an API key? What is the recommended environment variable name (e.g., `BLOCKCHAIR_API_KEY`)?
+- **Name:** A unique, machine-readable key (e.g., `blockchair`).
+- **Blockchain:** The blockchain it serves (e.g., `bitcoin`).
+- **Capabilities:** What operations can it perform? (`getRawAddressTransactions`, `getRawAddressBalance`, etc.).
+- **Authentication:** Does it require an API key? What is the recommended environment variable name (e.g., `BLOCKCHAIR_API_KEY`)?
 
 ### B. Research the API Documentation
 
-*   **Endpoints:** What are the base URLs for mainnet/testnet?
-*   **Rate Limits:** What are the documented requests-per-second/minute?
-*   **Data Formats:** What is the JSON structure of a successful response? What about an error response?
-*   **Pagination:** How does the API handle paginated results? (e.g., `page` parameter, cursors).
+- **Endpoints:** What are the base URLs for mainnet/testnet?
+- **Rate Limits:** What are the documented requests-per-second/minute?
+- **Data Formats:** What is the JSON structure of a successful response? What about an error response?
+- **Pagination:** How does the API handle paginated results? (e.g., `page` parameter, cursors).
 
 ## 3. Step 2: Implement the `ApiClient`
 
@@ -39,8 +40,8 @@ The `ApiClient` handles all direct communication with the external API. It exten
 ```typescript
 // packages/import/src/blockchains/bitcoin/api/BlockchairApiClient.ts
 
-import { maskAddress } from '@crypto/shared-utils';
-import { BaseRegistryProvider, RegisterApiClient, ProviderOperation } from '@crypto/import';
+import { maskAddress } from '@exitbook/shared-utils';
+import { BaseRegistryProvider, RegisterApiClient, ProviderOperation } from '@exitbook/import';
 // Import raw response types for this specific API
 import type { BlockchairRawTransaction, BlockchairAddressInfo } from '../types';
 
@@ -105,7 +106,9 @@ export class BlockchairApiClient extends BaseRegistryProvider {
     // NOTE: The '?key=' part would be handled automatically if we configure the HttpClient
     // to append the API key as a query parameter.
     const endpoint = `/dashboards/address/${address}?transaction_details=true`;
-    const response = await this.httpClient.get<{ data: Record<string, { transactions: BlockchairRawTransaction[] }> }>(endpoint);
+    const response = await this.httpClient.get<{ data: Record<string, { transactions: BlockchairRawTransaction[] }> }>(
+      endpoint
+    );
 
     // Navigate the unique structure of the Blockchair response
     return response.data[address]?.transactions || [];
@@ -137,10 +140,10 @@ The `Mapper` validates the raw API response and transforms it into the canonical
 
 **Example: Creating a `BlockchairMapper` for Bitcoin.**
 
-```typescript
+````typescript
 // packages/import/src/blockchains/bitcoin/mappers/BlockchairMapper.ts
 
-import { BaseRawDataMapper, RegisterTransactionMapper, UniversalBlockchainTransaction } from '@crypto/import';
+import { BaseRawDataMapper, RegisterTransactionMapper, UniversalBlockchainTransaction } from '@exitbook/import';
 import { ZodSchema, z } from 'zod';
 import { Result, ok, err } from 'neverthrow';
 
@@ -201,7 +204,7 @@ To make your new components discoverable, import them into their respective `ind
 import './BlockchairApiClient.ts'; // <-- ADD THIS LINE
 import './MempoolSpaceApiClient.ts';
 // ...
-```
+````
 
 ```typescript
 // packages/import/src/blockchains/bitcoin/mappers/index.ts
@@ -216,7 +219,7 @@ The system can now see your new provider.
 
 1.  **Sync the Configuration:** Run the script to automatically add "blockchair" to your config file.
     ```bash
-    pnpm --filter @crypto/import run providers:sync --fix
+    pnpm --filter @exitbook/import run providers:sync --fix
     ```
 2.  **Set API Key:** If your provider requires an API key, add it to your `.env` file.
     ```env
@@ -225,7 +228,7 @@ The system can now see your new provider.
     ```
 3.  **Validate:** Run the config validator to ensure everything is set up correctly.
     ```bash
-    pnpm --filter @crypto/import run config:validate
+    pnpm --filter @exitbook/import run config:validate
     ```
 
 ## 6. Step 5: Write Comprehensive Tests
@@ -280,8 +283,8 @@ import { BlockchairApiClient } from './BlockchairApiClient';
 
 // Hoist mocks to the top
 const mocks = vi.hoisted(() => createHoistedHttpClientMock());
-vi.mock('@crypto/shared-utils', () => mocks.getModuleMocks()['@crypto/shared-utils']);
-vi.mock('@crypto/shared-logger', () => mocks.getModuleMocks()['@crypto/shared-logger']);
+vi.mock('@exitbook/shared-utils', () => mocks.getModuleMocks()['@exitbook/shared-utils']);
+vi.mock('@exitbook/shared-logger', () => mocks.getModuleMocks()['@exitbook/shared-logger']);
 
 describe('BlockchairApiClient', () => {
   beforeEach(() => {

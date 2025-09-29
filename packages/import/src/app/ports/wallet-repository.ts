@@ -1,4 +1,4 @@
-import type { NewWalletAddress, WalletAddressUpdate, WalletAddress } from '@crypto/data/src/types/data-types.js';
+import type { NewWalletAddress, WalletAddressUpdate, WalletAddress } from '@exitbook/data';
 
 export interface IWalletRepository {
   create(request: NewWalletAddress): Promise<void>;

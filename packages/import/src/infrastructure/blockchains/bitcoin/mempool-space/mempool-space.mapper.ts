@@ -28,7 +28,7 @@ export class MempoolSpaceTransactionMapper extends BaseRawDataMapper<MempoolTran
       rawData.status.confirmed && rawData.status.block_time ? rawData.status.block_time * 1000 : Date.now();
 
     // Extract structured inputs with addresses and values
-    const inputs: BitcoinTransactionInput[] = rawData.vin.map((input, index) => ({
+    const inputs: BitcoinTransactionInput[] = rawData.vin.map((input, _index) => ({
       address: input.prevout?.scriptpubkey_address,
       txid: input.txid,
       value: input.prevout?.value ? input.prevout.value.toString() : '0',

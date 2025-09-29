@@ -1,7 +1,6 @@
-import type { UniversalTransaction } from '@crypto/core';
-import type { StoredRawData } from '@crypto/data';
-import { createMoney, parseDecimal } from '@crypto/shared-utils';
-import type { ApiClientRawData } from '@exitbook/import/app/ports/importers.js';
+import type { UniversalTransaction } from '@exitbook/core';
+import type { RawData } from '@exitbook/data';
+import { createMoney, parseDecimal } from '@exitbook/shared-utils';
 import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
@@ -23,11 +22,11 @@ export class KrakenProcessor extends BaseProcessor {
     super('kraken');
   }
 
-  protected processNormalizedInternal(rawDataItems: StoredRawData[]): Promise<Result<UniversalTransaction[], string>> {
+  protected processNormalizedInternal(rawDataItems: RawData[]): Promise<Result<UniversalTransaction[], string>> {
     try {
       // Extract the raw ledger rows for batch processing
       // Handle ApiClientRawData format: { providerId: string, rawData: CsvKrakenLedgerRow }
-      const rows = rawDataItems.map((item) => item.rawData as CsvKrakenLedgerRow);
+      const rows = rawDataItems.map((item) => item.raw_data as CsvKrakenLedgerRow);
       const transactions = this.parseLedgers(rows);
       return Promise.resolve(ok(transactions));
     } catch (error) {

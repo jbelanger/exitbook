@@ -1,4 +1,4 @@
-import type { TransactionNote } from '@crypto/core';
+import type { TransactionNote } from '@exitbook/core';
 
 import { TransactionNoteType } from '../types/types.js';
 

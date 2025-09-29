@@ -1,10 +1,9 @@
-import { ServiceError } from '@crypto/core';
-import { maskAddress } from '@crypto/shared-utils';
+import { ServiceError } from '@exitbook/core';
+import { maskAddress } from '@exitbook/shared-utils';
 
 import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.js';
 import { RegisterApiClient } from '../../shared/registry/decorators.js';
 import type { ProviderOperation } from '../../shared/types.js';
-import { isValidAvalancheAddress } from '../utils.js';
 
 import type {
   SnowtraceApiResponse,
@@ -249,7 +248,7 @@ export class SnowtraceApiClient extends BaseRegistryProvider {
   private async getRawAddressBalance(params: { address: string }): Promise<SnowtraceBalanceResponse> {
     const { address } = params;
 
-    if (!isValidAvalancheAddress(address)) {
+    if (!this.isValidAvalancheAddress(address)) {
       throw new Error(`Invalid Avalanche address: ${address}`);
     }
 
@@ -295,7 +294,7 @@ export class SnowtraceApiClient extends BaseRegistryProvider {
   }> {
     const { address, since } = params;
 
-    if (!isValidAvalancheAddress(address)) {
+    if (!this.isValidAvalancheAddress(address)) {
       throw new Error(`Invalid Avalanche address: ${address}`);
     }
 
@@ -409,5 +408,12 @@ export class SnowtraceApiClient extends BaseRegistryProvider {
     }
 
     return allTransactions;
+  }
+
+  // Avalanche address validation
+  private isValidAvalancheAddress(address: string): boolean {
+    // Avalanche C-Chain uses Ethereum-style addresses but they are case-sensitive
+    const ethAddressRegex = /^0x[a-fA-F0-9]{40}$/;
+    return ethAddressRegex.test(address);
   }
 }

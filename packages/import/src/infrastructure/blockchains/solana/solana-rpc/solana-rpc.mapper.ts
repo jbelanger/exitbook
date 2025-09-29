@@ -1,5 +1,5 @@
-import { isErrorWithMessage } from '@crypto/shared-utils';
 import type { ImportSessionMetadata } from '@exitbook/import/app/ports/processors.js';
+import { isErrorWithMessage } from '@exitbook/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
 import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
@@ -15,7 +15,7 @@ export class SolanaRPCTransactionMapper extends BaseRawDataMapper<SolanaRPCRawTr
   protected readonly schema = SolanaRPCRawTransactionDataSchema;
   protected mapInternal(
     rawData: SolanaRPCRawTransactionData,
-    sessionContext: ImportSessionMetadata
+    _sessionContext: ImportSessionMetadata
   ): Result<SolanaTransaction, string> {
     if (!rawData.normal || rawData.normal.length === 0) {
       return err('No transactions to transform from SolanaRPCRawTransactionData');

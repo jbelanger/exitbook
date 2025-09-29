@@ -1,9 +1,9 @@
 import crypto from 'node:crypto';
 
-import type { RateLimitConfig } from '@crypto/core';
-import { getLogger } from '@crypto/shared-logger';
-import { HttpClient } from '@crypto/shared-utils';
+import type { RateLimitConfig } from '@exitbook/core';
 import type { ExchangeCredentials } from '@exitbook/import/app/ports/importers.js';
+import { getLogger } from '@exitbook/shared-logger';
+import { HttpClient } from '@exitbook/shared-utils';
 import jwt from 'jsonwebtoken';
 
 import type {

@@ -1,4 +1,4 @@
-import { getLogger } from '@crypto/shared-logger';
+import { getLogger } from '@exitbook/shared-logger';
 import { HDKey } from '@scure/bip32';
 import * as bitcoin from 'bitcoinjs-lib';
 

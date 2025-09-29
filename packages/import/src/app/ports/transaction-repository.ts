@@ -1,5 +1,5 @@
-import type { UniversalTransaction } from '@crypto/core';
-import type { StoredTransaction } from '@crypto/data';
+import type { UniversalTransaction } from '@exitbook/core';
+import type { StoredTransaction } from '@exitbook/data';
 
 /**
  * Port interface for transaction repository operations.

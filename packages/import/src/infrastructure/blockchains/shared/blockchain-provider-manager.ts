@@ -1,6 +1,6 @@
-import { getLogger } from '@crypto/shared-logger';
-import type { BlockchainExplorersConfig, ProviderOverride } from '@crypto/shared-utils';
 import type { FailoverExecutionResult } from '@exitbook/import/app/ports/processors.js';
+import { getLogger } from '@exitbook/shared-logger';
+import type { BlockchainExplorersConfig, ProviderOverride } from '@exitbook/shared-utils';
 
 import { CircuitBreaker } from '../../shared/utils/circuit-breaker.js';
 

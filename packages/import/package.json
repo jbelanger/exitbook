@@ -51,9 +51,9 @@
     "typescript": "^5.9.2"
   },
   "peerDependencies": {
-    "@crypto/core": "workspace:*",
-    "@crypto/data": "workspace:*",
-    "@crypto/shared-logger": "workspace:*",
-    "@crypto/shared-utils": "workspace:*"
+    "@exitbook/core": "workspace:*",
+    "@exitbook/data": "workspace:*",
+    "@exitbook/shared-logger": "workspace:*",
+    "@exitbook/shared-utils": "workspace:*"
   }
 }

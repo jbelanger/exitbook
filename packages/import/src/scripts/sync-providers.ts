@@ -6,7 +6,7 @@ import { resolve } from 'node:path';
  * Sync registered providers with blockchain configuration
  * Detects missing providers and can automatically fix config drift
  */
-import type { BlockchainExplorersConfig } from '@crypto/shared-utils';
+import type { BlockchainExplorersConfig } from '@exitbook/shared-utils';
 
 // Import all providers to trigger registration
 import '../blockchains/registry/register-apis.js';
@@ -25,7 +25,7 @@ function loadCurrentConfig(): BlockchainExplorersConfig {
   try {
     const content = readFileSync(configPath, 'utf-8');
     return JSON.parse(content) as BlockchainExplorersConfig;
-  } catch (error) {
+  } catch (_error) {
     console.log('⚠️  No existing config found, will create new one');
     return {};
   }

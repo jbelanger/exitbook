@@ -8,12 +8,7 @@ import type { SubstrateTransaction } from '../substrate-types.js';
 
 import { SubscanTransferSchema } from './substrate.schemas.js';
 import { SUBSTRATE_CHAINS } from './substrate.types.js';
-import type {
-  SubscanTransfer,
-  SubstrateAccountInfo,
-  SubstrateChainConfig,
-  TaostatsTransaction,
-} from './substrate.types.ts';
+import type { SubscanTransfer, SubstrateChainConfig } from './substrate.types.ts';
 
 @RegisterTransactionMapper('subscan')
 export class SubstrateTransactionMapper extends BaseRawDataMapper<SubscanTransfer, SubstrateTransaction> {
