@@ -78,7 +78,6 @@ export class TransactionIngestionService {
     let sessionCreated = false;
     let importSessionId = 0;
     try {
-      this.logger.info('Creating import session...');
       importSessionId = await this.sessionRepository.create(sourceId, sourceType, params.providerId, {
         address: params.address,
         csvDirectories: params.csvDirectories,
@@ -88,22 +87,18 @@ export class TransactionIngestionService {
       sessionCreated = true;
       this.logger.info(`Created import session: ${importSessionId}`);
 
-      // Create importer - provider management now fully encapsulated in infrastructure
-      this.logger.info('Creating importer...');
       const importer = await this.importerFactory.create(sourceId, sourceType, params.providerId);
 
       if (!importer) {
         throw new Error(`No importer found for source ${sourceId} of type ${sourceType}`);
       }
-      this.logger.info('Importer created successfully');
+      this.logger.info(`Importer for ${sourceId} created successfully`);
 
       // Validate source before import
-      this.logger.info('Validating source...');
       const isValidSource = await importer.canImport(params);
       if (!isValidSource) {
         throw new Error(`Source validation failed for ${sourceId}`);
       }
-      this.logger.info('Source validation passed');
 
       // Import raw data
       this.logger.info('Starting raw data import...');

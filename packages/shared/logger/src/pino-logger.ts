@@ -60,14 +60,7 @@ function createRootLogger(): Logger {
     transportTargets.push({
       level: 'trace',
       options: {
-        //colorize: true,
-        //customColors: 'info:blue,error:red,warn:yellow,debug:green',
-        //   //customLevels: logLevelsSchema,
         ignore: 'pid,hostname,category,categoryLabel,service,environment,correlationId',
-        //   levelPadding: true,
-        //   messageFormat: '[{categoryLabel}]: {msg}',
-        //   translateTime: 'yyyy-mm-dd HH:MM:ss.l',
-        //   //useOnlyCustomLevels: true,
       },
       target: 'pino-pretty',
     });

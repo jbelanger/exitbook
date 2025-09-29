@@ -127,27 +127,6 @@ export function createDatabase(dbPath?: string): Kysely<DatabaseSchema> {
     dialect: new SqliteDialect({
       database: sqliteDb,
     }),
-    log: (event) => {
-      if (event.level === 'query') {
-        logger.debug(
-          {
-            duration: event.queryDurationMillis,
-            parameters: event.query.parameters,
-            sql: event.query.sql,
-          },
-          'SQL Query'
-        );
-      } else if (event.level === 'error') {
-        logger.error(
-          {
-            error: event.error,
-            parameters: event.query?.parameters,
-            sql: event.query?.sql,
-          },
-          'SQL Error'
-        );
-      }
-    },
     plugins: [new CamelCasePlugin()],
   });
 
