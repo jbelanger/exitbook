@@ -35,19 +35,6 @@ export class SolanaTransactionImporter extends BaseImporter {
   }
 
   /**
-   * Get transaction ID from Solana transaction data
-   */
-  public getTransactionId(tx: SolanaRawTransactionData): string {
-    if (tx.normal && tx.normal.length > 0) {
-      const firstTx = tx.normal[0];
-      if (firstTx) {
-        return firstTx.transaction?.signatures?.[0] || firstTx.signature || 'unknown';
-      }
-    }
-    return 'unknown';
-  }
-
-  /**
    * Import raw transaction data from Solana blockchain APIs with provider provenance.
    */
   async import(params: ImportParams): Promise<Result<ImportRunResult, Error>> {

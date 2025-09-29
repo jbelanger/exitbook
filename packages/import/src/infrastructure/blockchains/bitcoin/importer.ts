@@ -178,32 +178,6 @@ export class BitcoinTransactionImporter extends BaseImporter {
   }
 
   /**
-   * Validate Bitcoin address format (basic validation).
-   */
-  private isValidBitcoinAddress(address: string): boolean {
-    try {
-      // Check for xpub/ypub/zpub
-      if (BitcoinUtils.isXpub(address)) {
-        return true;
-      }
-
-      // Check for regular Bitcoin address format
-      // This is a basic check - full validation would require more complex parsing
-      if (
-        (address.startsWith('1') && address.length >= 26 && address.length <= 35) || // Legacy
-        (address.startsWith('3') && address.length >= 26 && address.length <= 35) || // SegWit
-        (address.startsWith('bc1') && address.length >= 39) // Bech32
-      ) {
-        return true;
-      }
-
-      return false;
-    } catch {
-      return false;
-    }
-  }
-
-  /**
    * Get transaction ID from any Bitcoin transaction type
    */
   private getTransactionId(tx: unknown): string {

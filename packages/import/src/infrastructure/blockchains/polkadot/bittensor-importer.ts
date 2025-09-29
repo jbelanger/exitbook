@@ -34,13 +34,6 @@ export class BittensorTransactionImporter extends BaseImporter {
   }
 
   /**
-   * Get transaction ID from Taostats transaction.
-   */
-  public getTransactionId(transaction: TaostatsTransaction): string {
-    return transaction.hash || `${transaction.block_number}-${transaction.block}`;
-  }
-
-  /**
    * Import raw transaction data from Bittensor blockchain APIs with provider provenance.
    */
   async import(params: ImportParams): Promise<Result<ImportRunResult, Error>> {

@@ -34,13 +34,6 @@ export class PolkadotTransactionImporter extends BaseImporter {
   }
 
   /**
-   * Get transaction ID from Subscan transfer.
-   */
-  public getTransactionId(transfer: SubscanTransfer): string {
-    return transfer.hash;
-  }
-
-  /**
    * Import raw transaction data from Polkadot blockchain APIs with provider provenance.
    */
   async import(params: ImportParams): Promise<Result<ImportRunResult, Error>> {

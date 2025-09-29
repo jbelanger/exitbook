@@ -1,271 +1,240 @@
-# Crypto Portfolio Transaction Import Tool
+# CLAUDE.md
 
-A comprehensive TypeScript monorepo for importing and verifying cryptocurrency transactions from exchanges and blockchains using CCXT and multiple blockchain providers with multi-provider resilience.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Always reference these instructions first and fallback to search or bash commands only when you encounter unexpected information that does not match the info here.
+## Build & Test Commands
 
-## Working Effectively
+### Core Commands
 
-### Bootstrap and Setup
+- `pnpm install` - Install dependencies (~25 seconds, never cancel, set 60+ min timeout)
+- `pnpm build` - Build TypeScript (~4 seconds, validates compilation)
+- `pnpm test` - Run unit tests with Vitest
+- `pnpm test:e2e` - Run end-to-end tests (requires API keys)
+- `pnpm test:watch` - Run tests in watch mode
+- `pnpm lint` - Run ESLint
+- `pnpm prettier:fix` - Auto-fix formatting issues
 
-- Install pnpm globally: `npm install -g pnpm@10.6.2`
-- Install dependencies: `pnpm install` -- takes ~25 seconds. NEVER CANCEL. Set timeout to 60+ minutes.
-- Build the project: `pnpm build` -- takes ~4 seconds. NEVER CANCEL. Set timeout to 60+ minutes.
+### CLI Commands
 
-### Node.js Version Warning
+- `pnpm dev --help` - Show CLI help
+- `pnpm status` - Show system status (transactions, sessions, verifications)
+- `pnpm dev import --blockchain <name> --addresses <address>` - Import from blockchain
+- `pnpm dev import --exchange <name>` - Import from exchange
+- `pnpm dev verify --exchange <name>` - Verify exchange balances
+- `pnpm dev verify --blockchain <name>` - Verify blockchain balances
 
-- **Required**: Node.js >= 23.0.0 according to package.json engines
-- **Current Reality**: Runs fine on Node.js 20.19.4 with warnings
-- **Action**: Ignore the "WARN Unsupported engine" messages - the application works correctly
+### Provider Management
 
-### Essential Build and Test Commands
+- `pnpm blockchain-providers:list` - List all registered blockchain providers
+- `pnpm blockchain-providers:validate` - Validate provider registrations and configurations
 
-- `pnpm build` -- builds TypeScript CLI app (~4 seconds). NEVER CANCEL. Set timeout to 60+ minutes.
-- `pnpm test` -- runs unit tests (~2 seconds, some existing failures). NEVER CANCEL. Set timeout to 30+ minutes.
-- `pnpm typecheck` -- type checking (~12 seconds, has existing TypeScript errors). NEVER CANCEL. Set timeout to 30+ minutes.
-- `pnpm lint` -- ESLint checking (~8 seconds, has existing lint errors). NEVER CANCEL. Set timeout to 30+ minutes.
-- `pnpm prettier` -- formatting check (~1.4 seconds, has existing format issues). Set timeout to 15+ minutes.
-- `pnpm prettier:fix` -- auto-fix formatting issues. Set timeout to 15+ minutes.
-
-### Running the Application
-
-- `pnpm dev --help` -- show CLI help
-- `pnpm status` -- show system status (database, transactions, verifications)
-- `pnpm dev import --help` -- show detailed import options
-- `pnpm dev import --blockchain bitcoin --addresses <address>` -- import from Bitcoin blockchain
-- `pnpm dev verify --help` -- show balance verification options
-
-## Validation
-
-### ALWAYS Validate These Working Commands
-
-After making changes, ALWAYS test these core workflows:
-
-1. **System Status Check**: `pnpm status` should show system information
-2. **Provider Listing**: `pnpm blockchain-providers:list` should show all blockchain providers
-3. **Provider Validation**: `pnpm blockchain-providers:validate` should validate provider registrations
-4. **Help Commands**: `pnpm dev --help` and `pnpm dev import --help` should work
-5. **Database Creation**: App should create SQLite database automatically on first run
-6. **Import Workflow**: `pnpm dev import --blockchain bitcoin --addresses 1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa` should attempt import (may fail due to no API keys but should show proper workflow)
-
-### Manual Testing Scenarios
-
-ALWAYS run through at least one complete end-to-end scenario after making changes:
-
-**Basic Import Scenario:**
+### Run Single Test
 
 ```bash
-# 1. Check system status (should show 0 transactions initially)
-pnpm status
-
-# 2. Attempt a blockchain import (will show provider failures without API keys)
-pnpm dev import --blockchain bitcoin --addresses 1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa
-
-# 3. Verify database was created and app handled the failure gracefully
-pnpm status
-
-# 4. Check that logs show proper error handling
+pnpm vitest run <path/to/test-file.test.ts>
 ```
 
-### Environment Setup for Full Testing
+## Architecture
 
-To test with real API connections, set up `.env` file in `apps/cli/`:
+### Monorepo Structure
 
-```bash
-# Bitcoin providers (mempool.space is free, others may require keys)
-BLOCKCYPHER_API_KEY=your_blockcypher_token
+- **apps/cli/** - CLI application entry point using Commander
+- **packages/core/** - Domain entities, types, Zod schemas, and universal utilities
+- **packages/import/** - Transaction import domain (exchanges, blockchains, processors)
+- **packages/balance/** - Balance calculation and verification services
+- **packages/data/** - Kysely database layer, migrations, and repositories
+- **packages/shared-logger/** - Structured logging with Pino
+- **packages/shared-utils/** - Cross-cutting utilities
 
-# Ethereum providers
-ETHERSCAN_API_KEY=your_etherscan_api_key
+### Import System Architecture
 
-# Exchange API Keys
-KUCOIN_API_KEY=your_kucoin_api_key
-KUCOIN_SECRET=your_kucoin_secret
-KUCOIN_PASSPHRASE=your_kucoin_passphrase
+The import system follows a layered architecture with dependency inversion:
+
+**Importer Layer** → **Processor Layer** → **Repository Layer**
+
+1. **Importers** (`packages/import/src/infrastructure/blockchains/*/importer.ts`, `packages/import/src/infrastructure/exchanges/*/importer.ts`)
+   - Fetch raw transaction data from external APIs
+   - Return `Result<ImportRunResult, Error>` with `rawData: ApiClientRawData[]`
+   - Each importer extends `BaseImporter` and implements `IImporter` interface
+   - Handle blockchain/exchange-specific API authentication and pagination
+
+2. **Processors** (`packages/import/src/infrastructure/blockchains/*/processor.ts`, `packages/import/src/infrastructure/exchanges/*/processor.ts`)
+   - Transform raw API data into normalized `StoredTransaction` records
+   - Return `Result<StoredTransaction[], Error>` using neverthrow
+   - Map blockchain/exchange-specific fields to universal transaction format
+   - Handle data validation with Zod schemas
+
+3. **Provider System** (Blockchain only)
+   - Multi-provider failover architecture for blockchain importers
+   - Each blockchain has multiple API providers (e.g., Bitcoin: mempool.space, blockchain.com, blockcypher)
+   - Automatic provider selection and failover on errors
+   - Configuration in `apps/cli/config/blockchain-explorers.json`
+
+4. **Repository Layer**
+   - `TransactionRepository` - Store processed transactions
+   - `RawDataRepository` - Store raw API responses with provider metadata
+   - `ImportSessionRepository` - Track import sessions and errors
+
+### Result Type Pattern
+
+The codebase uses `neverthrow` for functional error handling:
+
+```typescript
+import { ok, err, type Result } from 'neverthrow';
+
+// Functions return Result<T, E> instead of throwing
+async function processData(): Promise<Result<Transaction[], Error>> {
+  if (hasError) {
+    return err(new Error('Failed to process'));
+  }
+  return ok(transactions);
+}
+
+// Chain operations with .map() and .mapErr()
+const result = await fetchData()
+  .map((data) => transform(data))
+  .mapErr((error) => new CustomError(error.message));
+
+// Check result with .isOk() / .isErr()
+if (result.isErr()) {
+  logger.error(result.error.message);
+  return err(result.error);
+}
+return ok(result.value);
 ```
 
-### Critical Validation Requirements
+### Key Domain Types
 
-- Always build and test after making changes: `pnpm build && pnpm test`
-- Always run `pnpm prettier:fix && pnpm lint` before committing (CI will fail otherwise)
-- Test the CLI commands actually work, don't just check if they compile
-- Verify database operations work by checking `pnpm status` after imports
+From `packages/core/src/types/`:
 
-## Common Tasks
-
-### Working Commands (Validated)
-
-These commands are tested and working:
-
-```bash
-# Core application
-pnpm status                           # Show system status
-pnpm dev --help                       # CLI help
-pnpm dev import --help               # Import help
-pnpm dev import --blockchain bitcoin --addresses <address>  # Bitcoin import
-
-# Provider management
-pnpm blockchain-providers:list        # List all blockchain providers
-pnpm blockchain-providers:validate    # Validate provider registrations
-
-# Development
-pnpm build                           # Build project
-pnpm test                           # Run tests
-pnpm lint                           # Lint code
-pnpm typecheck                      # Type check
-pnpm prettier                       # Check formatting
-pnpm prettier:fix                   # Fix formatting
-```
-
-### Broken Commands (Do Not Use)
-
-These commands are currently broken:
-
-```bash
-pnpm blockchain-config:validate       # Looks for config in wrong location
-pnpm exchanges:list                   # Script file missing
-pnpm exchanges:generate               # May not work
-pnpm exchanges:validate               # May not work
-pnpm exchanges:validate-config        # May not work
-```
-
-### Repository Structure
-
-```
-crypto-portfolio/
-├── apps/
-│   └── cli/                    # Main CLI application
-│       ├── config/             # Configuration files
-│       ├── data/              # SQLite database storage
-│       └── index.ts           # CLI entry point
-├── packages/
-│   ├── core/                  # Domain entities & shared types
-│   ├── import/                # Transaction import domain
-│   │   ├── blockchains/       # Blockchain-specific implementations
-│   │   ├── exchanges/         # Exchange adapters (CCXT, native)
-│   │   ├── shared/            # Provider registry & shared utilities
-│   │   └── services/          # Import orchestration services
-│   ├── balance/               # Balance verification services
-│   ├── data/                  # Database, repositories & storage
-│   └── shared/                # Cross-cutting concerns
-│       ├── logger/            # Structured logging
-│       └── utils/             # Common utilities
-```
-
-### Key Files to Know
-
-- `apps/cli/index.ts` - Main CLI entry point
-- `packages/import/src/scripts/` - Management scripts (4 working scripts)
-- `apps/cli/config/blockchain-explorers.json` - Blockchain provider configuration
-- `CLAUDE.md` - Comprehensive technical documentation
-- `apps/cli/.env.example` - Environment variable template
-
-### Configuration Files
-
-- Exchange configs: Look for in CLI config directory (may not exist yet)
-- Blockchain configs: `apps/cli/config/blockchain-explorers.json`
-- Environment variables: Use `.env` file in `apps/cli/` directory
-- Logger config: `packages/shared/logger/.env.example`
-
-## Important Implementation Notes
-
-### Code Cleanup Guidelines
-
-**Legacy AI Comments**: Remove outdated comments left by previous AI sessions that no longer provide value:
-
-- Comments like `// Parameter types removed - using discriminated union`
-- Placeholder comments that describe removed functionality
-- Implementation notes that are no longer relevant to current code structure
-- TODO comments for completed work
-
-**When cleaning up code**:
-
-- Remove comments that don't explain "why" or provide useful context
-- Keep comments that explain complex business logic or non-obvious implementation details
-- Update comments when refactoring to ensure they remain accurate
+- `Transaction` - Universal transaction model
+- `Balance` - Balance snapshot with verification metadata
+- `ImportSession` - Import run tracking with errors
 
 ### Database
 
-- Uses SQLite3 for local transaction storage
-- Database file: `apps/cli/data/transactions.db`
-- Automatic initialization on first run
-- Includes transaction deduplication
+- **ORM**: Kysely (type-safe SQL query builder)
+- **Database**: SQLite (`apps/cli/data/transactions.db`)
+- **Schema**: `packages/data/src/schema/database-schema.ts`
+- **Migrations**: `packages/data/src/migrations/`
+- Initialized automatically on first run via `initializeDatabase()`
 
-### Provider Architecture
+### Blockchain Provider System
 
-- Multi-provider resilience with automatic failover
-- Circuit breakers for provider failures
-- Rate limiting and caching
-- Registry-based provider discovery
-- 11 blockchain providers across 6 blockchains (Bitcoin, Ethereum, Solana, Avalanche, Injective, Polkadot)
+Each blockchain (Bitcoin, Ethereum, Avalanche, Solana, Injective, Polkadot) has:
 
-### Exchange Support
+- Multiple API providers for failover resilience
+- Provider-specific API client implementations
+- Shared mapper interfaces for data normalization
+- Configuration-driven provider registration
 
-- Multiple adapter types: CCXT, native, and universal
-- Supports KuCoin, Kraken, Coinbase, and other exchanges
-- Balance verification functionality
+Provider registration happens in:
 
-### Known Issues
+- `register-apis.ts` - Register API clients
+- `register-mappers.ts` - Register data mappers
+- Auto-loaded by `BlockchainProviderManager` from config
 
-- TypeScript errors exist in blockchain providers (~80+ errors in typecheck)
-- Some lint errors exist in exchange CCXT adapter (~16 errors)
-- Some test failures exist (4 failed tests in Coinbase adapter)
-- Prettier formatting issues in some packages
-- Node.js version warnings (can be ignored)
+### Exchange Integration
 
-These are existing issues not related to your changes unless you modify the affected files.
+Exchanges use three adapter patterns:
 
-### Testing Strategy
+- **CCXT Adapter** - For exchanges supported by CCXT library
+- **Native Adapter** - Direct API integration (KuCoin, Kraken, Coinbase)
+- **Universal Adapter** - CSV/Ledger Live file imports
 
-- Unit tests run fast (~2 seconds) but some fail due to existing issues
-- E2E tests exist but require API keys
-- Provider connection tests available
-- Focus on testing your specific changes, not fixing existing test failures
+## Environment Setup
 
-## Troubleshooting
+### Required for Testing
 
-### Build Issues
+Create `apps/cli/.env` with API keys:
 
-- If build fails, check TypeScript errors with `pnpm typecheck`
-- Missing dependencies: Run `pnpm install`
-- Permission issues: Check file permissions in apps/cli/data/
+```bash
+# Bitcoin providers (mempool.space is free)
+BLOCKCYPHER_API_KEY=your_key
 
-### Runtime Issues
+# Ethereum providers
+ETHERSCAN_API_KEY=your_key
+ALCHEMY_API_KEY=your_key
 
-- Database errors: Delete `apps/cli/data/transactions.db` to reset
-- API connection failures: Check API keys in `.env` file
-- Provider failures: Run `pnpm blockchain-providers:validate` to diagnose
+# Exchange APIs
+KUCOIN_API_KEY=your_key
+KUCOIN_SECRET=your_secret
+KUCOIN_PASSPHRASE=your_passphrase
+```
 
-### Debugging
+### Logger Configuration
 
-- Enable debug logging: `DEBUG=provider:* pnpm dev import`
-- Check system status: `pnpm status`
-- Validate configurations: `pnpm blockchain-config:validate`
+See `packages/shared-logger/.env.example` for logging options.
 
-## Development Workflow
+## Development Guidelines
 
-### Making Changes
+### Error Handling
 
-1. Always run `pnpm build` after code changes
-2. Test with `pnpm test` (ignore existing failures unrelated to your changes)
-3. Validate CLI functionality with manual scenarios above
-4. Run `pnpm prettier:fix && pnpm lint` before committing
-5. Test end-to-end workflows to ensure they work
+- Use `Result<T, Error>` from neverthrow, not exceptions
+- Return descriptive error messages
+- Log errors at appropriate levels (error, warn, info, debug)
 
-### Performance Expectations
+### Type Safety
 
-- Dependency install: ~25 seconds (642 packages)
-- Build: ~4 seconds (TypeScript compilation)
-- Tests: ~2 seconds (unit tests)
-- Lint: ~8 seconds
-- Typecheck: ~12 seconds
-- Provider operations: Variable based on API response times
+- All schemas defined with Zod in `*.schemas.ts` files
+- Runtime validation for external API data
+- Strict TypeScript compilation enabled
 
-### Adding New Features
+### Testing
 
-- Follow the monorepo package structure
-- Use existing patterns from `packages/import/blockchains/` for blockchain providers
-- Use registry decorators `@RegisterProvider` for new blockchain providers
-- Update configuration files in `apps/cli/config/` as needed
-- Add tests following existing patterns
-- Update documentation in CLAUDE.md for architectural changes
+- Unit tests alongside source files: `*.test.ts`
+- E2E tests in `__tests__/` directories
+- Mock external API calls in unit tests
+- Real API integration in E2E tests (requires keys)
+
+### Code Organization
+
+- Keep importers focused on data fetching
+- Keep processors focused on data transformation
+- Separate concerns: ports (interfaces) vs infrastructure (implementations)
+- Use dependency injection for testability
+
+## Common Workflows
+
+### Adding New Blockchain Provider
+
+1. Create provider directory: `packages/import/src/infrastructure/blockchains/<blockchain>/`
+2. Implement importer extending `BaseImporter`
+3. Implement processor with mapper from raw data to `StoredTransaction`
+4. Create provider API clients and schemas
+5. Register in `register-apis.ts` and `register-mappers.ts`
+6. Add configuration to `apps/cli/config/blockchain-explorers.json`
+
+### Adding New Exchange Adapter
+
+1. Create adapter directory: `packages/import/src/infrastructure/exchanges/<exchange>/`
+2. Implement importer extending `BaseImporter`
+3. Implement processor transforming raw data
+4. Create API client or CCXT adapter
+5. Add exchange configuration
+
+### Running Import Pipeline
+
+1. Importer fetches raw data from API
+2. Raw data saved to `raw_data` table with provider metadata
+3. Processor transforms raw data to normalized transactions
+4. Transactions saved to `transactions` table with deduplication
+5. Import session created in `import_sessions` table
+
+## Known Issues
+
+- Some TypeScript errors exist in older blockchain providers
+- Some lint errors exist in CCXT adapters
+- Node.js version warnings (requires v23, works on v20)
+- Ignore existing test failures unless modifying those files
+
+## Package Dependencies
+
+- `neverthrow` - Result type for error handling
+- `zod` - Runtime type validation and schemas
+- `decimal.js` - Precise financial calculations
+- `ccxt` - Exchange integration library
+- `bitcoinjs-lib` - Bitcoin address utilities
+- `commander` - CLI framework
+- `kysely` - Type-safe SQL query builder
+- `pino` - Structured logging
