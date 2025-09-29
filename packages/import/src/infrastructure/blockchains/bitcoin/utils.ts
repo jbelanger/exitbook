@@ -221,35 +221,37 @@ export class BitcoinUtils {
       if (!address) continue; // Skip invalid addresses
 
       // Fetch lightweight address info using provider manager
-      try {
-        const result = await providerManager.executeWithFailover('bitcoin', {
-          address,
-          getCacheKey: (params) => `bitcoin:address-info:${(params as { address: string }).address}`,
-          type: 'getAddressInfo',
-        });
-        const addressInfo = result.data as AddressInfo;
+      const result = await providerManager.executeWithFailover('bitcoin', {
+        address,
+        getCacheKey: (params) => `bitcoin:address-info:${(params as { address: string }).address}`,
+        type: 'getAddressInfo',
+      });
 
-        const hasActivity = addressInfo.txCount > 0;
-        if (hasActivity) {
-          // Found an active address!
-          lastUsedIndex = i;
-          consecutiveUnusedCount = 0; // Reset the counter
-          logger.debug(`Found activity at index ${i}: ${address} (${addressInfo.txCount} transactions)`);
-        } else {
-          // Unused address
-          consecutiveUnusedCount++;
-          logger.debug(`No activity at index ${i}, consecutive unused: ${consecutiveUnusedCount}`);
-
-          // Early exit if we've hit the gap limit
-          if (consecutiveUnusedCount >= GAP_LIMIT) {
-            logger.info(`Reached gap limit of ${GAP_LIMIT} unused addresses, stopping scan at index ${i}`);
-            break;
-          }
-        }
-      } catch (error) {
+      if (result.isErr()) {
         // If we can't check the address, treat it as unused
         consecutiveUnusedCount++;
-        logger.warn(`Could not check activity for address ${address} - Error: ${String(error)}`);
+        logger.warn(`Could not check activity for address ${address} - Error: ${result.error.message}`);
+        continue;
+      }
+
+      const addressInfo = result.value.data as AddressInfo;
+
+      const hasActivity = addressInfo.txCount > 0;
+      if (hasActivity) {
+        // Found an active address!
+        lastUsedIndex = i;
+        consecutiveUnusedCount = 0; // Reset the counter
+        logger.debug(`Found activity at index ${i}: ${address} (${addressInfo.txCount} transactions)`);
+      } else {
+        // Unused address
+        consecutiveUnusedCount++;
+        logger.debug(`No activity at index ${i}, consecutive unused: ${consecutiveUnusedCount}`);
+
+        // Early exit if we've hit the gap limit
+        if (consecutiveUnusedCount >= GAP_LIMIT) {
+          logger.info(`Reached gap limit of ${GAP_LIMIT} unused addresses, stopping scan at index ${i}`);
+          break;
+        }
       }
 
       // If we've found at least one used address and then hit the gap limit, we can stop.
@@ -321,12 +323,13 @@ export class BitcoinUtils {
 
         logger.debug(`Checking Legacy address for activity: ${firstLegacyAddress}`);
 
-        try {
-          const result = await providerManager.executeWithFailover('bitcoin', {
-            address: firstLegacyAddress,
-            type: 'getAddressInfo',
-          });
-          const addressInfo = result.data as AddressInfo;
+        const legacyResult = await providerManager.executeWithFailover('bitcoin', {
+          address: firstLegacyAddress,
+          type: 'getAddressInfo',
+        });
+
+        if (legacyResult.isOk()) {
+          const addressInfo = legacyResult.value.data as AddressInfo;
           const hasActivity = addressInfo.txCount > 0;
           if (hasActivity) {
             logger.info('Found activity on Legacy path (BIP44). Proceeding.');
@@ -337,7 +340,7 @@ export class BitcoinUtils {
               hdNode: legacyHdNode,
             };
           }
-        } catch (_error) {
+        } else {
           logger.debug('No activity found on Legacy path');
         }
       }
@@ -354,12 +357,13 @@ export class BitcoinUtils {
 
         logger.debug(`Checking Native SegWit address for activity: ${firstSegwitAddress}`);
 
-        try {
-          const result = await providerManager.executeWithFailover('bitcoin', {
-            address: firstSegwitAddress,
-            type: 'getAddressInfo',
-          });
-          const addressInfo = result.data as AddressInfo;
+        const segwitResult = await providerManager.executeWithFailover('bitcoin', {
+          address: firstSegwitAddress,
+          type: 'getAddressInfo',
+        });
+
+        if (segwitResult.isOk()) {
+          const addressInfo = segwitResult.value.data as AddressInfo;
           const hasActivity = addressInfo.txCount > 0;
           if (hasActivity) {
             logger.info('Found activity on Native SegWit path (BIP84). Proceeding.');
@@ -370,7 +374,7 @@ export class BitcoinUtils {
               hdNode: segwitHdNode,
             };
           }
-        } catch (_error) {
+        } else {
           logger.debug('No activity found on Native SegWit path');
         }
       }

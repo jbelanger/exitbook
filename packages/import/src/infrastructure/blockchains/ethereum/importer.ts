@@ -1,7 +1,8 @@
 import type { ApiClientRawData, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
+import { err, ok, type Result } from 'neverthrow';
 
 import { BaseImporter } from '../../shared/importers/base-importer.js';
-import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.js';
+import type { BlockchainProviderManager, ProviderError } from '../shared/blockchain-provider-manager.js';
 
 // Ensure Ethereum API clients are registered
 import './register-apis.js';
@@ -53,24 +54,25 @@ export class EthereumTransactionImporter extends BaseImporter {
 
     this.logger.info(`Fetching Ethereum transactions for address: ${address.substring(0, 20)}...`);
 
-    try {
-      // Fetch regular ETH transactions
-      const regularTxs = await this.fetchRegularTransactions(address, params.since);
-      allRawData.push(...regularTxs);
-
-      // Fetch ERC-20 token transactions (if supported by provider)
-      const tokenTxs = await this.fetchTokenTransactions(address, params.since);
-      allRawData.push(...tokenTxs);
-
-      this.logger.info(
-        `Ethereum import for ${address.substring(0, 20)}... - Regular: ${regularTxs.length}, Token: ${tokenTxs.length}, Total: ${regularTxs.length + tokenTxs.length}`
-      );
-    } catch (error) {
+    // Fetch regular ETH transactions
+    const regularTxsResult = await this.fetchRegularTransactions(address, params.since);
+    if (regularTxsResult.isErr()) {
       this.logger.error(
-        `Failed to import transactions for address ${address} - Error: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to import transactions for address ${address} - Error: ${regularTxsResult.error.message}`
       );
-      throw error;
+      throw regularTxsResult.error;
     }
+    const regularTxs = regularTxsResult.value;
+    allRawData.push(...regularTxs);
+
+    // Fetch ERC-20 token transactions (if supported by provider)
+    const tokenTxsResult = await this.fetchTokenTransactions(address, params.since);
+    const tokenTxs = tokenTxsResult.isOk() ? tokenTxsResult.value : [];
+    allRawData.push(...tokenTxs);
+
+    this.logger.info(
+      `Ethereum import for ${address.substring(0, 20)}... - Regular: ${regularTxs.length}, Token: ${tokenTxs.length}, Total: ${regularTxs.length + tokenTxs.length}`
+    );
 
     this.logger.info(`Ethereum import completed - Raw transactions collected: ${allRawData.length}`);
 
@@ -104,58 +106,66 @@ export class EthereumTransactionImporter extends BaseImporter {
   /**
    * Fetch regular ETH transactions for a single address with provider provenance.
    */
-  private async fetchRegularTransactions(address: string, since?: number): Promise<ApiClientRawData[]> {
-    try {
-      const result = await this.providerManager.executeWithFailover('ethereum', {
-        address: address,
-        getCacheKey: (params) =>
-          `ethereum:raw-txs:${params.type === 'getRawAddressTransactions' ? params.address : 'unknown'}:${params.type === 'getRawAddressTransactions' ? params.since || 'all' : 'unknown'}`,
-        since: since,
-        type: 'getRawAddressTransactions',
-      });
+  private async fetchRegularTransactions(
+    address: string,
+    since?: number
+  ): Promise<Result<ApiClientRawData[], ProviderError>> {
+    const result = await this.providerManager.executeWithFailover('ethereum', {
+      address: address,
+      getCacheKey: (params) =>
+        `ethereum:raw-txs:${params.type === 'getRawAddressTransactions' ? params.address : 'unknown'}:${params.type === 'getRawAddressTransactions' ? params.since || 'all' : 'unknown'}`,
+      since: since,
+      type: 'getRawAddressTransactions',
+    });
 
-      const rawTransactions = Array.isArray(result.data) ? result.data : [result.data];
-
-      // Create raw data entries with provider provenance
-      return rawTransactions.map((tx: unknown) => ({
-        metadata: { providerId: result.providerName, sourceAddress: address, transactionType: 'normal' },
-        rawData: tx,
-      }));
-    } catch (error) {
-      this.logger.error(
-        `Failed to fetch regular transactions for ${address} - Error: ${error instanceof Error ? error.message : String(error)}`
-      );
-      throw error;
+    if (result.isErr()) {
+      this.logger.error(`Failed to fetch regular transactions for ${address} - Error: ${result.error.message}`);
+      return err(result.error);
     }
+
+    const rawTransactions = Array.isArray(result.value.data) ? result.value.data : [result.value.data];
+
+    // Create raw data entries with provider provenance
+    return ok(
+      rawTransactions.map((tx: unknown) => ({
+        metadata: { providerId: result.value.providerName, sourceAddress: address, transactionType: 'normal' },
+        rawData: tx,
+      }))
+    );
   }
 
   /**
    * Fetch ERC-20 token transactions for a single address with provider provenance.
    */
-  private async fetchTokenTransactions(address: string, since?: number): Promise<ApiClientRawData[]> {
-    try {
-      const result = await this.providerManager.executeWithFailover('ethereum', {
-        address: address,
-        getCacheKey: (params) =>
-          `ethereum:token-txs:${params.type === 'getTokenTransactions' ? params.address : 'unknown'}:${params.type === 'getTokenTransactions' ? params.since || 'all' : 'unknown'}`,
-        since: since,
-        type: 'getTokenTransactions',
-      });
+  private async fetchTokenTransactions(
+    address: string,
+    since?: number
+  ): Promise<Result<ApiClientRawData[], ProviderError>> {
+    const result = await this.providerManager.executeWithFailover('ethereum', {
+      address: address,
+      getCacheKey: (params) =>
+        `ethereum:token-txs:${params.type === 'getTokenTransactions' ? params.address : 'unknown'}:${params.type === 'getTokenTransactions' ? params.since || 'all' : 'unknown'}`,
+      since: since,
+      type: 'getTokenTransactions',
+    });
 
-      const rawTokenTransactions = Array.isArray(result.data) ? result.data : [result.data];
-
-      // Create raw data entries with provider provenance
-      return rawTokenTransactions.map((tx: unknown) => ({
-        metadata: { providerId: result.providerName, sourceAddress: address, transactionType: 'token' },
-        rawData: tx,
-      }));
-    } catch (error) {
+    if (result.isErr()) {
       // Token transactions are optional - providers may not support them
       this.logger.debug(
-        `Token transactions not available for ${address} or provider doesn't support them - Error: ${error instanceof Error ? error.message : String(error)}`
+        `Token transactions not available for ${address} or provider doesn't support them - Error: ${result.error.message}`
       );
-      return [];
+      return err(result.error);
     }
+
+    const rawTokenTransactions = Array.isArray(result.value.data) ? result.value.data : [result.value.data];
+
+    // Create raw data entries with provider provenance
+    return ok(
+      rawTokenTransactions.map((tx: unknown) => ({
+        metadata: { providerId: result.value.providerName, sourceAddress: address, transactionType: 'token' },
+        rawData: tx,
+      }))
+    );
   }
 
   /**

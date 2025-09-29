@@ -1,6 +1,7 @@
 import type { FailoverExecutionResult } from '@exitbook/import/app/ports/processors.js';
 import { getLogger } from '@exitbook/shared-logger';
 import type { BlockchainExplorersConfig, ProviderOverride } from '@exitbook/shared-utils';
+import { err, ok, type Result } from 'neverthrow';
 
 import { CircuitBreaker } from '../../shared/utils/circuit-breaker.js';
 
@@ -13,9 +14,21 @@ import type {
   ProviderOperationType,
 } from './types.js';
 
-// Type guards no longer needed with discriminated union
-
 const logger = getLogger('BlockchainProviderManager');
+
+/**
+ * Errors that can occur during provider operations
+ */
+export class ProviderError extends Error {
+  constructor(
+    message: string,
+    public readonly code: 'NO_PROVIDERS' | 'ALL_PROVIDERS_FAILED' | 'PROVIDER_NOT_FOUND',
+    public readonly details?: { blockchain?: string; lastError?: string; operation?: string }
+  ) {
+    super(message);
+    this.name = 'ProviderError';
+  }
+}
 
 interface CacheEntry {
   expiry: number;
@@ -124,13 +137,13 @@ export class BlockchainProviderManager {
   async executeWithFailover<T>(
     blockchain: string,
     operation: ProviderOperation<T>
-  ): Promise<FailoverExecutionResult<T>> {
+  ): Promise<Result<FailoverExecutionResult<T>, ProviderError>> {
     // Check cache first
     if (operation.getCacheKey) {
       const cacheKey = operation.getCacheKey(operation);
       const cached = this.requestCache.get(cacheKey);
       if (cached && cached.expiry > Date.now()) {
-        const cachedResult = cached.result as FailoverExecutionResult<T>;
+        const cachedResult = cached.result as Result<FailoverExecutionResult<T>, ProviderError>;
         return cachedResult;
       }
     }
@@ -399,11 +412,16 @@ export class BlockchainProviderManager {
   private async executeWithCircuitBreaker<T>(
     blockchain: string,
     operation: ProviderOperation<T>
-  ): Promise<FailoverExecutionResult<T>> {
+  ): Promise<Result<FailoverExecutionResult<T>, ProviderError>> {
     const providers = this.getProvidersInOrder(blockchain, operation);
 
     if (providers.length === 0) {
-      throw new Error(`No providers available for ${blockchain} operation: ${operation.type}`);
+      return err(
+        new ProviderError(`No providers available for ${blockchain} operation: ${operation.type}`, 'NO_PROVIDERS', {
+          blockchain,
+          operation: operation.type,
+        })
+      );
     }
 
     let lastError: Error | undefined = undefined;
@@ -456,10 +474,10 @@ export class BlockchainProviderManager {
         circuitBreaker.recordSuccess();
         this.updateHealthMetrics(provider.name, true, responseTime);
 
-        return {
+        return ok({
           data: result,
           providerName: provider.name,
-        };
+        });
       } catch (error) {
         lastError = error as Error;
         const responseTime = Date.now() - startTime;
@@ -500,8 +518,16 @@ export class BlockchainProviderManager {
     }
 
     // All providers failed
-    throw new Error(
-      `All providers failed for ${blockchain} operation: ${operation.type}. Last error: ${lastError?.message}`
+    return err(
+      new ProviderError(
+        `All providers failed for ${blockchain} operation: ${operation.type}. Last error: ${lastError?.message}`,
+        'ALL_PROVIDERS_FAILED',
+        {
+          blockchain,
+          ...(lastError?.message && { lastError: lastError.message }),
+          operation: operation.type,
+        }
+      )
     );
   }
 

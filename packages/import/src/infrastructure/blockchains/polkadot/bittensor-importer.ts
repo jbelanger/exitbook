@@ -1,7 +1,8 @@
 import type { ApiClientRawData, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
+import { err, ok, type Result } from 'neverthrow';
 
 import { BaseImporter } from '../../shared/importers/base-importer.js';
-import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.js';
+import type { BlockchainProviderManager, ProviderError } from '../shared/blockchain-provider-manager.js';
 
 // Ensure providers are registered
 import './register-apis.js';
@@ -62,41 +63,15 @@ export class BittensorTransactionImporter extends BaseImporter {
 
     this.logger.info(`Importing transactions for Bittensor address: ${params.address.substring(0, 20)}...`);
 
-    try {
-      const result = await this.providerManager.executeWithFailover('bittensor', {
-        address: params.address,
-        getCacheKey: (cacheParams) =>
-          `tao_raw_tx_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
-        since: params.since,
-        type: 'getRawAddressTransactions',
-      });
+    const result = await this.fetchRawTransactionsForAddress(params.address, params.since);
 
-      // Transform raw response to individual transactions with provider provenance
-      const rawData = result.data;
-      if (rawData && typeof rawData === 'object' && 'data' in rawData) {
-        const bittensorTxData = rawData as { data: TaostatsTransaction[] };
-
-        if (Array.isArray(bittensorTxData.data)) {
-          const rawTransactions: ApiClientRawData[] = bittensorTxData.data.map((transaction) => ({
-            metadata: { providerId: result.providerName },
-            rawData: transaction,
-          }));
-
-          allRawTransactions.push(...rawTransactions);
-
-          this.logger.info(
-            `Imported ${rawTransactions.length} raw transactions for address via provider ${result.providerName}`
-          );
-        }
-      } else {
-        this.logger.warn(`Unexpected data format from provider ${result.providerName} for address ${params.address}`);
-      }
-    } catch (error) {
-      this.logger.error(
-        `Failed to import transactions for address ${params.address}: ${error instanceof Error ? error.message : String(error)}`
-      );
-      // Continue with other addresses rather than failing completely
+    if (result.isErr()) {
+      this.logger.error(`Failed to import transactions for address ${params.address} - Error: ${result.error.message}`);
+      throw result.error;
     }
+
+    const rawTransactions = result.value;
+    allRawTransactions.push(...rawTransactions);
 
     this.logger.info(`Bittensor transaction import completed - Total: ${allRawTransactions.length}`);
 
@@ -133,6 +108,49 @@ export class BittensorTransactionImporter extends BaseImporter {
 
     this.logger.info('Bittensor source validation passed');
     return Promise.resolve(true);
+  }
+
+  /**
+   * Fetch raw transactions for a single address with provider provenance.
+   */
+  private async fetchRawTransactionsForAddress(
+    address: string,
+    since?: number
+  ): Promise<Result<ApiClientRawData[], ProviderError>> {
+    const result = await this.providerManager.executeWithFailover('bittensor', {
+      address,
+      getCacheKey: (cacheParams) =>
+        `tao_raw_tx_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
+      since,
+      type: 'getRawAddressTransactions',
+    });
+
+    if (result.isErr()) {
+      this.logger.error(`Failed to fetch transactions for address ${address}: ${result.error.message}`);
+      return err(result.error);
+    }
+
+    // Transform raw response to individual transactions with provider provenance
+    const rawData = result.value.data;
+    if (rawData && typeof rawData === 'object' && 'data' in rawData) {
+      const bittensorTxData = rawData as { data: TaostatsTransaction[] };
+
+      if (Array.isArray(bittensorTxData.data)) {
+        const rawTransactions: ApiClientRawData[] = bittensorTxData.data.map((transaction) => ({
+          metadata: { providerId: result.value.providerName },
+          rawData: transaction,
+        }));
+
+        this.logger.info(
+          `Imported ${rawTransactions.length} raw transactions for address via provider ${result.value.providerName}`
+        );
+
+        return ok(rawTransactions);
+      }
+    }
+
+    this.logger.warn(`Unexpected data format from provider ${result.value.providerName} for address ${address}`);
+    return ok([]);
   }
 
   /**

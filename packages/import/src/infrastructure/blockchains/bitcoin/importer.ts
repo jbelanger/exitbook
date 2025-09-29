@@ -1,8 +1,9 @@
 import type { ApiClientRawData, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
 import * as bitcoin from 'bitcoinjs-lib';
+import { err, ok, type Result } from 'neverthrow';
 
 import { BaseImporter } from '../../shared/importers/base-importer.js';
-import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.js';
+import type { BlockchainProviderManager, ProviderError } from '../shared/blockchain-provider-manager.js';
 
 import type { BitcoinWalletAddress } from './types.js';
 import { BitcoinUtils } from './utils.js';
@@ -78,12 +79,14 @@ export class BitcoinTransactionImporter extends BaseImporter {
       allSourcedTransactions.push(...walletSourcedTransactions);
     } else {
       // Regular address - fetch directly
-      try {
-        const rawTransactions = await this.fetchRawTransactionsForAddress(params.address, params.since);
-        allSourcedTransactions.push(...rawTransactions);
-      } catch (error) {
-        this.handleImportError(error, `fetching transactions for ${params.address}`);
+      const result = await this.fetchRawTransactionsForAddress(params.address, params.since);
+      if (result.isErr()) {
+        this.logger.error(
+          `Failed to import transactions for address ${params.address} - Error: ${result.error.message}`
+        );
+        throw result.error;
       }
+      allSourcedTransactions.push(...result.value);
     }
 
     this.logger.info(`Bitcoin import completed: ${allSourcedTransactions.length} transactions`);
@@ -130,31 +133,36 @@ export class BitcoinTransactionImporter extends BaseImporter {
   /**
    * Fetch raw transactions for a single address with provider provenance.
    */
-  private async fetchRawTransactionsForAddress(address: string, since?: number): Promise<ApiClientRawData[]> {
-    try {
-      const result = await this.providerManager.executeWithFailover('bitcoin', {
-        address: address,
-        getCacheKey: (params) =>
-          `bitcoin:raw-txs:${params.type === 'getRawAddressTransactions' ? params.address : 'unknown'}:${params.type === 'getRawAddressTransactions' ? params.since || 'all' : 'unknown'}`,
-        since: since,
-        type: 'getRawAddressTransactions',
-      });
+  private async fetchRawTransactionsForAddress(
+    address: string,
+    since?: number
+  ): Promise<Result<ApiClientRawData[], ProviderError>> {
+    const result = await this.providerManager.executeWithFailover('bitcoin', {
+      address: address,
+      getCacheKey: (params) =>
+        `bitcoin:raw-txs:${params.type === 'getRawAddressTransactions' ? params.address : 'unknown'}:${params.type === 'getRawAddressTransactions' ? params.since || 'all' : 'unknown'}`,
+      since: since,
+      type: 'getRawAddressTransactions',
+    });
 
-      const rawTransactions = result.data as unknown[];
-      const providerId = result.providerName;
+    if (result.isErr()) {
+      this.logger.error(`Provider manager failed to fetch transactions for ${address}: ${result.error.message}`);
+      return err(result.error);
+    }
 
-      // Wrap each transaction with provider provenance
-      return rawTransactions.map((rawData) => ({
+    const rawTransactions = result.value.data as unknown[];
+    const providerId = result.value.providerName;
+
+    // Wrap each transaction with provider provenance
+    return ok(
+      rawTransactions.map((rawData) => ({
         metadata: {
           providerId,
           sourceAddress: address,
         },
         rawData,
-      }));
-    } catch (error) {
-      this.logger.error(`Provider manager failed to fetch transactions for ${address}: ${String(error)}`);
-      throw error;
-    }
+      }))
+    );
   }
 
   /**
@@ -176,19 +184,22 @@ export class BitcoinTransactionImporter extends BaseImporter {
         continue;
       }
 
-      try {
-        const rawTransactions = await this.fetchRawTransactionsForAddress(address, since);
+      const result = await this.fetchRawTransactionsForAddress(address, since);
 
-        // Add transactions to the unique set with address information
-        for (const rawTx of rawTransactions) {
-          const txId = this.getTransactionId(rawTx.rawData);
-          uniqueTransactions.set(txId, rawTx);
-        }
-
-        this.logger.debug(`Found ${rawTransactions.length} transactions for address ${address}`);
-      } catch (error) {
-        this.logger.error(`Failed to fetch raw transactions for address ${address}: ${String(error)}`);
+      if (result.isErr()) {
+        this.logger.error(`Failed to fetch raw transactions for address ${address}: ${result.error.message}`);
+        continue;
       }
+
+      const rawTransactions = result.value;
+
+      // Add transactions to the unique set with address information
+      for (const rawTx of rawTransactions) {
+        const txId = this.getTransactionId(rawTx.rawData);
+        uniqueTransactions.set(txId, rawTx);
+      }
+
+      this.logger.debug(`Found ${rawTransactions.length} transactions for address ${address}`);
     }
 
     this.logger.info(`Found ${uniqueTransactions.size} unique raw transactions across all derived addresses`);

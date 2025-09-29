@@ -1,7 +1,8 @@
 import type { ApiClientRawData, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
+import { err, ok, type Result } from 'neverthrow';
 
 import { BaseImporter } from '../../shared/importers/base-importer.js';
-import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.js';
+import type { BlockchainProviderManager, ProviderError } from '../shared/blockchain-provider-manager.js';
 
 import type { SolanaRawTransactionData } from './helius/helius.api-client.js';
 // Ensure Solana providers are registered
@@ -63,23 +64,24 @@ export class SolanaTransactionImporter extends BaseImporter {
 
     this.logger.info(`Importing transactions for address: ${params.address.substring(0, 20)}...`);
 
-    try {
-      const rawTransactions = await this.fetchRawTransactionsForAddress(params.address, params.since);
+    const result = await this.fetchRawTransactionsForAddress(params.address, params.since);
 
-      allSourcedTransactions.push(...rawTransactions);
-
-      this.logger.info(
-        `Found ${rawTransactions.length} transactions for address ${params.address.substring(0, 20)}...`
-      );
-
-      this.logger.info(`Solana import completed: ${rawTransactions.length} transactions`);
-
-      return {
-        rawData: allSourcedTransactions,
-      };
-    } catch (error) {
-      this.handleImportError(error, `fetching transactions for ${params.address}`);
+    if (result.isErr()) {
+      this.logger.error(`Failed to import transactions for address ${params.address} - Error: ${result.error.message}`);
+      throw result.error;
     }
+
+    const rawTransactions = result.value;
+
+    allSourcedTransactions.push(...rawTransactions);
+
+    this.logger.info(`Found ${rawTransactions.length} transactions for address ${params.address.substring(0, 20)}...`);
+
+    this.logger.info(`Solana import completed: ${rawTransactions.length} transactions`);
+
+    return {
+      rawData: allSourcedTransactions,
+    };
   }
 
   /**
@@ -115,29 +117,32 @@ export class SolanaTransactionImporter extends BaseImporter {
   /**
    * Fetch raw transactions for a single address with provider provenance.
    */
-  private async fetchRawTransactionsForAddress(address: string, since?: number): Promise<ApiClientRawData[]> {
-    try {
-      const result = await this.providerManager.executeWithFailover('solana', {
-        address: address,
-        getCacheKey: (params) =>
-          `solana:raw-txs:${params.type === 'getRawAddressTransactions' ? params.address : 'unknown'}:${params.type === 'getRawAddressTransactions' ? params.since || 'all' : 'unknown'}`,
-        since: since,
-        type: 'getRawAddressTransactions',
-      });
+  private async fetchRawTransactionsForAddress(
+    address: string,
+    since?: number
+  ): Promise<Result<ApiClientRawData[], ProviderError>> {
+    const result = await this.providerManager.executeWithFailover('solana', {
+      address: address,
+      getCacheKey: (params) =>
+        `solana:raw-txs:${params.type === 'getRawAddressTransactions' ? params.address : 'unknown'}:${params.type === 'getRawAddressTransactions' ? params.since || 'all' : 'unknown'}`,
+      since: since,
+      type: 'getRawAddressTransactions',
+    });
 
-      const rawTransactionData = result.data as SolanaRawTransactionData;
-      const providerId = result.providerName;
-
-      // Return as array with single element containing all transactions
-      return [
-        {
-          metadata: { providerId, sourceAddress: address },
-          rawData: rawTransactionData,
-        },
-      ];
-    } catch (error) {
-      this.logger.error(`Provider manager failed to fetch transactions for ${address}: ${String(error)}`);
-      throw error;
+    if (result.isErr()) {
+      this.logger.error(`Provider manager failed to fetch transactions for ${address}: ${result.error.message}`);
+      return err(result.error);
     }
+
+    const rawTransactionData = result.value.data as SolanaRawTransactionData;
+    const providerId = result.value.providerName;
+
+    // Return as array with single element containing all transactions
+    return ok([
+      {
+        metadata: { providerId, sourceAddress: address },
+        rawData: rawTransactionData,
+      },
+    ]);
   }
 }

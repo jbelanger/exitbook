@@ -9,7 +9,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vi
 // Import clients to trigger registration
 import '../../ethereum/register-apis.js';
 import { CircuitBreaker } from '../../../shared/utils/circuit-breaker.js';
-import { BlockchainProviderManager } from '../blockchain-provider-manager.js';
+import { BlockchainProviderManager, ProviderError } from '../blockchain-provider-manager.js';
 import type { ProviderInfo } from '../registry/provider-registry.js';
 import { ProviderRegistry } from '../registry/provider-registry.js';
 import type { IBlockchainProvider, ProviderCapabilities, ProviderOperation } from '../types.js';
@@ -209,8 +209,11 @@ describe('BlockchainProviderManager', () => {
     };
 
     const result = await manager.executeWithFailover('ethereum', operation);
-    expect(result.data.balance).toBe(100);
-    expect(result.data.currency).toBe('ETH');
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value.data.balance).toBe(100);
+      expect(result.value.data.currency).toBe('ETH');
+    }
   });
 
   test('should failover to secondary provider', async () => {
@@ -223,7 +226,10 @@ describe('BlockchainProviderManager', () => {
     };
 
     const result = await manager.executeWithFailover('ethereum', operation);
-    expect(result.data.balance).toBe(100); // Should get result from fallback
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value.data.balance).toBe(100); // Should get result from fallback
+    }
   });
 
   test('should fail when all providers fail', async () => {
@@ -235,7 +241,13 @@ describe('BlockchainProviderManager', () => {
       type: 'getAddressBalance',
     };
 
-    await expect(manager.executeWithFailover('ethereum', operation)).rejects.toThrow('All providers failed');
+    const result = await manager.executeWithFailover('ethereum', operation);
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error).toBeInstanceOf(ProviderError);
+      expect(result.error.code).toBe('ALL_PROVIDERS_FAILED');
+      expect(result.error.message).toContain('All providers failed');
+    }
   });
 
   test('should cache results when cache key provided', async () => {
@@ -274,7 +286,13 @@ describe('BlockchainProviderManager', () => {
       type: 'custom', // Not supported by mock providers
     };
 
-    await expect(manager.executeWithFailover('ethereum', operation)).rejects.toThrow('No providers available');
+    const result = await manager.executeWithFailover('ethereum', operation);
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error).toBeInstanceOf(ProviderError);
+      expect(result.error.code).toBe('NO_PROVIDERS');
+      expect(result.error.message).toContain('No providers available');
+    }
   });
 
   test('should respect circuit breaker state and skip dead providers', async () => {
@@ -294,21 +312,9 @@ describe('BlockchainProviderManager', () => {
       primaryProvider.setFailureMode(true);
 
       // Make enough calls to trip the breaker
-      try {
-        await manager.executeWithFailover('ethereum', operation);
-      } catch {
-        // Expected failure
-      }
-      try {
-        await manager.executeWithFailover('ethereum', operation);
-      } catch {
-        // Expected failure
-      }
-      try {
-        await manager.executeWithFailover('ethereum', operation);
-      } catch {
-        // Expected failure
-      }
+      await manager.executeWithFailover('ethereum', operation);
+      await manager.executeWithFailover('ethereum', operation);
+      await manager.executeWithFailover('ethereum', operation);
 
       // Reset spies and make primary healthy again
       executeSpyPrimary.mockClear();
@@ -318,7 +324,10 @@ describe('BlockchainProviderManager', () => {
       // Next call should skip primary (circuit breaker open) and go to fallback
       const result = await manager.executeWithFailover('ethereum', operation);
 
-      expect(result.data.balance).toBe(100);
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.data.balance).toBe(100);
+      }
       expect(executeSpyPrimary).not.toHaveBeenCalled(); // Primary skipped due to circuit breaker
       expect(executeSpyFallback).toHaveBeenCalledTimes(1); // Fallback used
     } finally {
@@ -371,7 +380,10 @@ describe('BlockchainProviderManager', () => {
 
     // First call - should cache result
     const result1 = await manager.executeWithFailover('ethereum', operation);
-    expect(result1.data.balance).toBe(100);
+    expect(result1.isOk()).toBe(true);
+    if (result1.isOk()) {
+      expect(result1.value.data.balance).toBe(100);
+    }
 
     // Advance time past cache expiry (30 seconds + buffer)
     vi.advanceTimersByTime(35000);
@@ -381,7 +393,10 @@ describe('BlockchainProviderManager', () => {
 
     // Second call - cache expired, should fail over to fallback
     const result2 = await manager.executeWithFailover('ethereum', operation);
-    expect(result2.data.balance).toBe(100); // Should get result from fallback, not stale cache
+    expect(result2.isOk()).toBe(true);
+    if (result2.isOk()) {
+      expect(result2.value.data.balance).toBe(100); // Should get result from fallback, not stale cache
+    }
 
     vi.useRealTimers();
   });
@@ -560,8 +575,11 @@ describe('Provider System Integration', () => {
       };
 
       const result = await manager.executeWithFailover('bitcoin', operation);
-      expect(result.data.transactions).toEqual([]);
-      expect(result.data.address).toBe('bc1xyz');
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.data.transactions).toEqual([]);
+        expect(result.value.data.address).toBe('bc1xyz');
+      }
 
       // Verify health status
       const health = manager.getProviderHealth('bitcoin');
