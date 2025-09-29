@@ -119,7 +119,7 @@ function createRootLogger(): Logger {
     pinoConfig.transport = { targets: transportTargets };
   }
 
-  const pinoLogger = pino.pino<'audit'>(pinoConfig);
+  const pinoLogger = pino<'audit'>(pinoConfig);
 
   return pinoLogger as Logger;
 }

@@ -1,10 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { createDatabase, clearDatabase, type KyselyDB } from '@exitbook/data';
-import type { Logger } from '@exitbook/shared-logger';
-import { getLogger } from '@exitbook/shared-logger';
-
 // Configuration types
 export type BlockchainExplorersConfig = Record<
   string,
@@ -33,28 +29,6 @@ export interface ProviderOverride {
  */
 export class ConfigUtils {
   /**
-   * Create logger instance
-   */
-  static createLogger(name: string): Logger {
-    return getLogger(name);
-  }
-
-  /**
-   * Initialize database with optional cleanup
-   */
-  static async initializeDatabase(shouldClearDatabase = false): Promise<KyselyDB> {
-    const database = createDatabase();
-
-    if (shouldClearDatabase) {
-      await clearDatabase(database);
-      const logger = getLogger('ConfigUtils');
-      logger.info('Database cleared and reinitialized');
-    }
-
-    return database;
-  }
-
-  /**
    * Load blockchain explorer configuration
    * Returns undefined if configuration file doesn't exist (for optional config)
    */
@@ -82,5 +56,3 @@ export class ConfigUtils {
 
 // Convenience exports for direct function access
 export const loadExplorerConfig = (configPath?: string) => ConfigUtils.loadExplorerConfig(configPath);
-export const initializeDatabase = (clearDatabase = false) => ConfigUtils.initializeDatabase(clearDatabase);
-export const createLogger = (name: string) => ConfigUtils.createLogger(name);

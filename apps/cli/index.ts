@@ -3,7 +3,13 @@ import path from 'node:path';
 
 import { BalanceRepository, BalanceService, type BalanceVerificationResult, BalanceVerifier } from '@exitbook/balance';
 import 'reflect-metadata';
-import { createDatabase, clearDatabase, closeDatabase, type StoredTransaction } from '@exitbook/data';
+import {
+  createDatabase,
+  clearDatabase,
+  closeDatabase,
+  initializeDatabase,
+  type StoredTransaction,
+} from '@exitbook/data';
 import {
   BlockchainProviderManager,
   DefaultNormalizer,
@@ -17,7 +23,7 @@ import {
   type ProviderInfo,
 } from '@exitbook/import';
 import { getLogger } from '@exitbook/shared-logger';
-import { initializeDatabase, loadExplorerConfig } from '@exitbook/shared-utils';
+import { loadExplorerConfig } from '@exitbook/shared-utils';
 import { Command } from 'commander';
 
 const logger = getLogger('CLI');
@@ -359,6 +365,7 @@ async function main() {
         process.exit(0);
       } catch (error) {
         logger.error(`Import failed: ${String(error)}`);
+        console.error(error);
         process.exit(1);
       }
     });

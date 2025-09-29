@@ -83,48 +83,38 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     this.logger.info({ count: rawTransactionIds.length, sourceId }, 'Successfully marked items as processed');
   }
 
-  async save(
-    sourceId: string,
-    sourceType: string,
-    rawData: { data: unknown }[],
-    importSessionId: number,
-    providerId: string,
-    metadata?: unknown
-  ): Promise<number> {
-    this.logger.info({ count: rawData.length, sourceId }, 'Saving raw data items');
+  async save(rawData: unknown, importSessionId: number, providerId: string, metadata?: unknown): Promise<number> {
+    this.logger.info('Saving raw data item');
 
-    if (rawData.length === 0) {
+    if (!rawData) {
       return 0;
     }
 
     return this.withTransaction(async (trx) => {
       let saved = 0;
+      try {
+        const result = await trx
+          .insertInto('external_transaction_data')
+          .values({
+            created_at: this.getCurrentDateTimeForDB(),
+            import_session_id: importSessionId,
+            metadata: this.serializeToJson(metadata) || undefined,
+            processing_status: 'pending',
+            provider_id: providerId,
+            raw_data: JSON.stringify(rawData),
+          })
+          .onConflict((oc) => oc.doNothing()) // Equivalent to INSERT OR IGNORE
+          .execute();
 
-      for (const rawTx of rawData) {
-        try {
-          const result = await trx
-            .insertInto('external_transaction_data')
-            .values({
-              created_at: this.getCurrentDateTimeForDB(),
-              import_session_id: importSessionId,
-              metadata: this.serializeToJson(metadata) || undefined,
-              processing_status: 'pending',
-              provider_id: providerId,
-              raw_data: JSON.stringify(rawTx.data),
-            })
-            .onConflict((oc) => oc.doNothing()) // Equivalent to INSERT OR IGNORE
-            .execute();
-
-          if (result.length > 0) {
-            saved++;
-          }
-        } catch (error) {
-          this.logger.warn({ error, rawTx, sourceId }, 'Failed to save raw data item, continuing with others');
-          // Continue with other items instead of failing the entire batch
+        if (result.length > 0) {
+          saved++;
         }
+      } catch (error) {
+        this.logger.warn({ error, rawData }, 'Failed to save raw data item, continuing with others');
+        // Continue with other items instead of failing the entire batch
       }
 
-      this.logger.info({ saved, sourceId, total: rawData.length }, 'Successfully saved raw data items');
+      this.logger.info('Successfully saved raw data items');
 
       return saved;
     });

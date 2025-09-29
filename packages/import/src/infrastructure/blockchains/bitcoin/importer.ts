@@ -2,8 +2,6 @@ import type { ApiClientRawData, ImportParams, ImportRunResult } from '@exitbook/
 import * as bitcoin from 'bitcoinjs-lib';
 
 import { BaseImporter } from '../../shared/importers/base-importer.js';
-
-import './api/index.js';
 import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.js';
 
 import type { BitcoinWalletAddress } from './types.js';

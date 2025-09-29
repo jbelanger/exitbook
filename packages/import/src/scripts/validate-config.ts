@@ -6,7 +6,7 @@
 // Import all providers to trigger registration
 import { loadExplorerConfig } from '@exitbook/shared-utils';
 
-import '../blockchains/registry/register-apis.js';
+import '../infrastructure/blockchains/registry/register-apis.js';
 import { ProviderRegistry } from '../infrastructure/blockchains/shared/registry/index.js';
 
 interface ConfigValidationOptions {

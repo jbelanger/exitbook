@@ -4,7 +4,7 @@ import * as path from 'node:path';
 import { getLogger } from '@exitbook/shared-logger';
 import Database from 'better-sqlite3';
 import { Decimal } from 'decimal.js';
-import { Kysely, SqliteDialect } from 'kysely';
+import { CamelCasePlugin, Kysely, SqliteDialect } from 'kysely';
 
 import type { DatabaseSchema } from '../schema/database-schema.js';
 
@@ -148,6 +148,7 @@ export function createDatabase(dbPath?: string): Kysely<DatabaseSchema> {
         );
       }
     },
+    plugins: [new CamelCasePlugin()],
   });
 
   return kysely;

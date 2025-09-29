@@ -5,7 +5,7 @@
 import type { RateLimitConfig } from '@exitbook/core';
 
 // Import all providers to trigger registration
-import '../blockchains/registry/register-apis.js';
+import '../infrastructure/blockchains/registry/register-apis.js';
 import { ProviderRegistry } from '../infrastructure/blockchains/shared/registry/index.js';
 import type { ProviderCapabilities } from '../infrastructure/blockchains/shared/types.js';
 

@@ -29,6 +29,21 @@
       "skipFiles": ["<node_internals>/**"],
       "resolveSourceMapLocations": ["${workspaceFolder}/**", "!**/node_modules/**"]
     },
+
+    {
+      "name": "Debug CLI Import Injective",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/apps/cli/index.ts",
+      "args": ["import", "--blockchain", "injective", "--address", "inj13f2vnh79al8wdmcswszc5977l5l38czetm6afv"],
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["--import", "tsx/esm"],
+      "cwd": "${workspaceFolder}/apps/cli",
+      "envFile": "${workspaceFolder}/apps/cli/.env",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"],
+      "resolveSourceMapLocations": ["${workspaceFolder}/**", "!**/node_modules/**"]
+    },
     {
       "name": "Debug CLI Verify",
       "type": "node",

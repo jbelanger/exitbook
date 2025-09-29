@@ -26,14 +26,7 @@ export interface IRawDataRepository {
   /**
    * Save external data items to storage.
    */
-  save(
-    sourceId: string,
-    sourceType: string,
-    rawData: unknown,
-    importSessionId: number,
-    providerId: string,
-    metadata?: unknown
-  ): Promise<number>;
+  save(rawData: unknown, importSessionId: number, providerId: string, metadata?: unknown): Promise<number>;
 
   /**
    * Update the processing status of external data items.

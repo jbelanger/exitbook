@@ -6,7 +6,7 @@
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import '../blockchains/registry/register-apis.js';
+import '../infrastructure/blockchains/registry/register-apis.js';
 import { ProviderRegistry } from '../infrastructure/blockchains/shared/registry/index.js';
 
 interface ValidationError {

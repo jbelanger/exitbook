@@ -37,7 +37,6 @@
     "typescript": "^5.9.2"
   },
   "peerDependencies": {
-    "@exitbook/balance": "workspace:*",
     "@exitbook/core": "workspace:*",
     "@exitbook/shared-logger": "workspace:*",
     "@exitbook/shared-utils": "workspace:*"

@@ -18,6 +18,9 @@ import type { ITransactionRepository } from '../ports/transaction-repository.js'
  * Handles the Import → Process → Load workflow with proper error handling
  * and dependency injection.
  */
+
+const logger = getLogger('TransactionIngestionService2');
+
 export class TransactionIngestionService {
   private logger: Logger;
 
@@ -72,12 +75,13 @@ export class TransactionIngestionService {
     sourceType: 'exchange' | 'blockchain',
     params: ImportParams
   ): Promise<ImportResult> {
-    this.logger.info(`Starting import for ${sourceId} (${sourceType})`);
+    logger.info(`Starting import for ${sourceId} (${sourceType})`);
 
     const startTime = Date.now();
     let sessionCreated = false;
     let importSessionId = 0;
     try {
+      this.logger.info('Creating import session...');
       importSessionId = await this.sessionRepository.create(sourceId, sourceType, params.providerId, {
         address: params.address,
         csvDirectories: params.csvDirectories,
@@ -85,40 +89,41 @@ export class TransactionIngestionService {
         importParams: params,
       });
       sessionCreated = true;
-      this.logger.debug(`Created import session: ${importSessionId}`);
+      this.logger.info(`Created import session: ${importSessionId}`);
 
       // Create importer - provider management now fully encapsulated in infrastructure
+      this.logger.info('Creating importer...');
       const importer = await this.importerFactory.create(sourceId, sourceType, params.providerId);
 
       if (!importer) {
         throw new Error(`No importer found for source ${sourceId} of type ${sourceType}`);
       }
+      this.logger.info('Importer created successfully');
 
       // Validate source before import
+      this.logger.info('Validating source...');
       const isValidSource = await importer.canImport(params);
       if (!isValidSource) {
         throw new Error(`Source validation failed for ${sourceId}`);
       }
+      this.logger.info('Source validation passed');
 
       // Import raw data
+      this.logger.info('Starting raw data import...');
       const importResult = await importer.import(params);
       const rawData = importResult.rawData;
       let savedCount = 0;
-      rawData.forEach((element) => async () => {
-        // Save raw data to storage
+
+      // Save each raw data item to storage
+      for (const element of rawData) {
         await this.rawDataRepository.save(
-          sourceId,
-          sourceType,
           element.rawData,
           importSessionId,
           element.metadata.providerId,
-          {
-            importedAt: Date.now(),
-            importParams: params,
-          }
+          element.metadata
         );
         savedCount++;
-      });
+      }
 
       // Update session with success and metadata
       if (sessionCreated && typeof importSessionId === 'number') {
