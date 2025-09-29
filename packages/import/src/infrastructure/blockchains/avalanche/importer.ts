@@ -92,38 +92,7 @@ export class AvalancheTransactionImporter extends BaseImporter {
       type: 'getRawAddressTransactions',
     });
 
-    const processedNormalResult = normalResult.map((response) => {
-      const rawTransactions: ApiClientRawData[] = [];
-
-      if (response.data) {
-        const compositeData = response.data as {
-          internal: SnowtraceInternalTransaction[];
-          normal: SnowtraceTransaction[];
-        };
-
-        // Process normal transactions
-        if (compositeData.normal && Array.isArray(compositeData.normal)) {
-          for (const tx of compositeData.normal) {
-            rawTransactions.push({
-              metadata: { providerId: response.providerName, transactionType: 'normal' },
-              rawData: tx,
-            });
-          }
-        }
-
-        // Process internal transactions
-        if (compositeData.internal && Array.isArray(compositeData.internal)) {
-          for (const tx of compositeData.internal) {
-            rawTransactions.push({
-              metadata: { providerId: response.providerName, transactionType: 'internal' },
-              rawData: tx,
-            });
-          }
-        }
-      }
-
-      return rawTransactions;
-    });
+    const processedNormalResult = normalResult.map((response) => this.processCompositeTransactions(response));
 
     if (processedNormalResult.isErr()) {
       return processedNormalResult;
@@ -140,17 +109,7 @@ export class AvalancheTransactionImporter extends BaseImporter {
 
     return tokenResult
       .map((response) => {
-        const allTransactions = [...processedNormalResult.value];
-
-        if (response.data && Array.isArray(response.data)) {
-          const tokenTransactions = response.data as SnowtraceTokenTransfer[];
-          for (const tx of tokenTransactions) {
-            allTransactions.push({
-              metadata: { providerId: response.providerName, transactionType: 'token' },
-              rawData: tx,
-            });
-          }
-        }
+        const allTransactions = [...processedNormalResult.value, ...this.processTokenTransactions(response)];
 
         this.logger.debug(`Fetched ${allTransactions.length} transactions for address: ${address.substring(0, 20)}...`);
         return allTransactions;
@@ -160,6 +119,53 @@ export class AvalancheTransactionImporter extends BaseImporter {
         this.logger.debug(`No token transactions available for ${address.substring(0, 20)}...: ${error.message}`);
         return ok(processedNormalResult.value);
       });
+  }
+
+  /**
+   * Process composite response containing normal and internal transactions.
+   */
+  private processCompositeTransactions(response: { data: unknown; providerName: string }): ApiClientRawData[] {
+    const rawTransactions: ApiClientRawData[] = [];
+
+    if (!response.data) return rawTransactions;
+
+    const compositeData = response.data as {
+      internal: SnowtraceInternalTransaction[];
+      normal: SnowtraceTransaction[];
+    };
+
+    if (compositeData.normal?.length) {
+      rawTransactions.push(
+        ...compositeData.normal.map((tx) => ({
+          metadata: { providerId: response.providerName, transactionType: 'normal' as const },
+          rawData: tx,
+        }))
+      );
+    }
+
+    if (compositeData.internal?.length) {
+      rawTransactions.push(
+        ...compositeData.internal.map((tx) => ({
+          metadata: { providerId: response.providerName, transactionType: 'internal' as const },
+          rawData: tx,
+        }))
+      );
+    }
+
+    return rawTransactions;
+  }
+
+  /**
+   * Process token transaction response.
+   */
+  private processTokenTransactions(response: { data: unknown; providerName: string }): ApiClientRawData[] {
+    if (!response.data || !Array.isArray(response.data)) return [];
+
+    const tokenTransactions = response.data as SnowtraceTokenTransfer[];
+    return tokenTransactions.map((tx) => ({
+      metadata: { providerId: response.providerName, transactionType: 'token' as const },
+      rawData: tx,
+    }));
   }
 
   /**

@@ -48,36 +48,19 @@ export class EthereumTransactionImporter extends BaseImporter {
 
     const address = params.address;
 
-    this.logger.info(`Starting Ethereum import for ${address}`);
-    this.logger.info(`Fetching Ethereum transactions for address: ${address.substring(0, 20)}...`);
+    this.logger.info(`Starting Ethereum import for ${address.substring(0, 20)}...`);
 
-    // Fetch regular ETH transactions (required)
-    const regularTxsResult = await this.fetchRegularTransactions(address, params.since);
-    if (regularTxsResult.isErr()) {
-      this.logger.error(
-        `Failed to import transactions for address ${address} - Error: ${regularTxsResult.error.message}`
-      );
-      return err(regularTxsResult.error);
-    }
+    const result = await this.fetchAllTransactions(address, params.since);
 
-    const regularTxs = regularTxsResult.value;
-
-    // Fetch ERC-20 token transactions (optional)
-    const tokenTxsResult = await this.fetchTokenTransactions(address, params.since);
-    const allRawData = tokenTxsResult.isOk() ? [...regularTxs, ...tokenTxsResult.value] : regularTxs;
-
-    if (tokenTxsResult.isErr()) {
-      this.logger.debug(`Token transactions not available: ${tokenTxsResult.error.message}`);
-    }
-
-    this.logger.info(
-      `Ethereum import for ${address.substring(0, 20)}... - Regular: ${regularTxs.length}, Token: ${tokenTxsResult.isOk() ? tokenTxsResult.value.length : 0}, Total: ${allRawData.length}`
-    );
-    this.logger.info(`Ethereum import completed - Raw transactions collected: ${allRawData.length}`);
-
-    return ok({
-      rawData: allRawData,
-    });
+    return result
+      .map((allRawData) => {
+        this.logger.info(`Ethereum import completed - Raw transactions collected: ${allRawData.length}`);
+        return { rawData: allRawData };
+      })
+      .mapErr((error) => {
+        this.logger.error(`Failed to import transactions for address ${address} - Error: ${error.message}`);
+        return error;
+      });
   }
 
   protected async canImportSpecific(params: ImportParams): Promise<boolean> {
@@ -100,6 +83,37 @@ export class EthereumTransactionImporter extends BaseImporter {
     }
 
     return Promise.resolve(true);
+  }
+
+  /**
+   * Fetch all transaction types (regular and token) for an address.
+   */
+  private async fetchAllTransactions(
+    address: string,
+    since?: number
+  ): Promise<Result<ApiClientRawData[], ProviderError>> {
+    // Fetch regular ETH transactions (required)
+    const regularTxsResult = await this.fetchRegularTransactions(address, since);
+
+    if (regularTxsResult.isErr()) {
+      return regularTxsResult;
+    }
+
+    // Fetch ERC-20 token transactions (optional)
+    const tokenTxsResult = await this.fetchTokenTransactions(address, since);
+
+    return tokenTxsResult
+      .map((tokenTxs) => {
+        const allRawData = [...regularTxsResult.value, ...tokenTxs];
+        this.logger.debug(
+          `Fetched ${regularTxsResult.value.length} regular and ${tokenTxs.length} token transactions for ${address.substring(0, 20)}...`
+        );
+        return allRawData;
+      })
+      .orElse((error) => {
+        this.logger.debug(`Token transactions not available for ${address.substring(0, 20)}...: ${error.message}`);
+        return ok(regularTxsResult.value);
+      });
   }
 
   /**
