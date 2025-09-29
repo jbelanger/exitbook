@@ -1,3 +1,5 @@
+import type { Result } from 'neverthrow';
+
 /**
  * Authentication configuration for Coinbase API
  */
@@ -55,6 +57,7 @@ export interface IImporter {
   /**
    * Import raw data from the source and return it with API client provenance and metadata.
    * Does NOT save to database - that's handled by the ingestion service.
+   * Returns Result to make error handling explicit.
    */
-  import(params: ImportParams): Promise<ImportRunResult>;
+  import(params: ImportParams): Promise<Result<ImportRunResult, Error>>;
 }

@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 import type { ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
+import { ok, type Result } from 'neverthrow';
 
 import { BaseImporter } from '../../shared/importers/base-importer.js';
 import { CsvParser } from '../csv-parser.js';
@@ -19,7 +20,7 @@ export class KucoinCsvImporter extends BaseImporter {
     super('kucoin');
   }
 
-  async import(params: ImportParams): Promise<ImportRunResult> {
+  async import(params: ImportParams): Promise<Result<ImportRunResult, Error>> {
     this.logger.info(`Starting KuCoin CSV import from directories: ${params.csvDirectories?.join(', ') ?? 'none'}`);
 
     if (!params.csvDirectories?.length) {
@@ -168,19 +169,16 @@ export class KucoinCsvImporter extends BaseImporter {
       );
 
       // Return as a single batch with all the parsed data
-      return {
+      return ok({
         rawData: [
           {
             metadata: { providerId: 'kucoin' },
             rawData,
           },
         ],
-      };
+      });
     } catch (error) {
       this.handleImportError(error, 'CSV file processing');
-      return {
-        rawData: [],
-      };
     }
   }
 

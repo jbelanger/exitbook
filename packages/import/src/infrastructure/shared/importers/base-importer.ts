@@ -1,6 +1,7 @@
 import type { IImporter, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
 import type { Logger } from '@exitbook/shared-logger';
 import { getLogger } from '@exitbook/shared-logger';
+import type { Result } from 'neverthrow';
 
 /**
  * Base class providing common functionality for all importers.
@@ -13,7 +14,7 @@ export abstract class BaseImporter implements IImporter {
     this.logger = getLogger(`${sourceId}Importer`);
   }
 
-  abstract import(params: ImportParams): Promise<ImportRunResult>;
+  abstract import(params: ImportParams): Promise<Result<ImportRunResult, Error>>;
   protected abstract canImportSpecific(params: ImportParams): Promise<boolean>;
 
   async canImport(params: ImportParams): Promise<boolean> {

@@ -11,13 +11,12 @@
   "main": "src/index.ts",
   "types": "src/index.ts",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc --noEmit",
     "clean": "rm -rf node_modules dist",
-    "lint": "eslint \"src/**/*.ts*\"",
+    "lint": "eslint \"src/**/*.ts\"",
     "prettier": "prettier --check .",
     "prettier:fix": "prettier --write .",
-    "test": "jest --detectOpenHandles --forceExit --passWithNoTests",
-    "typecheck": "tsc --noEmit"
+    "test": "vitest run"
   },
   "dependencies": {
     "better-sqlite3": "^12.4.1",

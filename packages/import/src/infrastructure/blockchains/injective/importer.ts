@@ -40,9 +40,9 @@ export class InjectiveTransactionImporter extends BaseImporter {
   /**
    * Import raw transaction data from Injective blockchain APIs with provider provenance.
    */
-  async import(params: ImportParams): Promise<ImportRunResult> {
+  async import(params: ImportParams): Promise<Result<ImportRunResult, Error>> {
     if (!params.address?.length) {
-      throw new Error('Address required for Injective transaction import');
+      return err(new Error('Address required for Injective transaction import'));
     }
 
     this.logger.info(`Starting Injective transaction import for address: ${params.address.substring(0, 20)}...`);
@@ -53,7 +53,7 @@ export class InjectiveTransactionImporter extends BaseImporter {
 
     if (result.isErr()) {
       this.logger.error(`Failed to import transactions for address ${params.address} - Error: ${result.error.message}`);
-      throw result.error;
+      return err(result.error);
     }
 
     const rawTransactions = result.value;
@@ -61,9 +61,9 @@ export class InjectiveTransactionImporter extends BaseImporter {
     this.logger.info(`Found ${rawTransactions.length} transactions for address ${params.address.substring(0, 20)}...`);
 
     this.logger.info(`Injective import completed: ${rawTransactions.length} transactions`);
-    return {
+    return ok({
       rawData: rawTransactions,
-    };
+    });
   }
 
   /**

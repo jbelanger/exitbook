@@ -41,7 +41,6 @@
     "test:ui": "vitest --ui",
     "test:unit": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "pnpm -r run typecheck",
     "verify": "pnpm -F exitbook-cli verify",
     "workspace:build": "pnpm -r build",
     "workspace:clean": "pnpm -r clean",

@@ -1,4 +1,5 @@
 import type { ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
+import { err, type Result } from 'neverthrow';
 
 import { BaseImporter } from '../../shared/importers/base-importer.js';
 
@@ -11,10 +12,10 @@ export class CoinbaseImporter extends BaseImporter {
     super('coinbase');
   }
 
-  import(_params: ImportParams): Promise<ImportRunResult> {
+  import(_params: ImportParams): Promise<Result<ImportRunResult, Error>> {
     this.logger.info('Starting Coinbase transaction import using CCXT adapter');
 
-    throw new Error('CoinbaseImporter.import not yet implemented');
+    return Promise.resolve(err(new Error('CoinbaseImporter.import not yet implemented')));
   }
 
   protected canImportSpecific(_params: ImportParams): Promise<boolean> {

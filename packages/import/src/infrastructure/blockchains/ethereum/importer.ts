@@ -35,17 +35,17 @@ export class EthereumTransactionImporter extends BaseImporter {
     );
   }
 
-  async import(params: ImportParams): Promise<ImportRunResult> {
+  async import(params: ImportParams): Promise<Result<ImportRunResult, Error>> {
     if (!(await this.canImportSpecific(params))) {
-      throw new Error('Cannot import - validation failed');
+      return err(new Error('Cannot import - validation failed'));
     }
 
     const allRawData: ApiClientRawData[] = [];
 
     if (!params.address) {
-      return {
+      return ok({
         rawData: [],
-      };
+      });
     }
 
     const address = params.address;
@@ -60,7 +60,7 @@ export class EthereumTransactionImporter extends BaseImporter {
       this.logger.error(
         `Failed to import transactions for address ${address} - Error: ${regularTxsResult.error.message}`
       );
-      throw regularTxsResult.error;
+      return err(regularTxsResult.error);
     }
     const regularTxs = regularTxsResult.value;
     allRawData.push(...regularTxs);
@@ -76,9 +76,9 @@ export class EthereumTransactionImporter extends BaseImporter {
 
     this.logger.info(`Ethereum import completed - Raw transactions collected: ${allRawData.length}`);
 
-    return {
+    return ok({
       rawData: allRawData,
-    };
+    });
   }
 
   protected async canImportSpecific(params: ImportParams): Promise<boolean> {

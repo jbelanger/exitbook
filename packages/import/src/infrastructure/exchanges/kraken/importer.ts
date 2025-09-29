@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 import type { ApiClientRawData, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
+import { ok, type Result } from 'neverthrow';
 
 import { BaseImporter } from '../../shared/importers/base-importer.js';
 import { CsvParser } from '../csv-parser.js';
@@ -19,7 +20,7 @@ export class KrakenCsvImporter extends BaseImporter {
     super('kraken');
   }
 
-  async import(params: ImportParams): Promise<ImportRunResult> {
+  async import(params: ImportParams): Promise<Result<ImportRunResult, Error>> {
     this.logger.info(
       `Starting Kraken CSV import from directories: ${
         params.csvDirectories ? params.csvDirectories.join(', ') : 'none'
@@ -84,14 +85,11 @@ export class KrakenCsvImporter extends BaseImporter {
         `Completed Kraken CSV import: ${allTransactions.length} transactions from ${params.csvDirectories.length} directories`
       );
 
-      return {
+      return ok({
         rawData: allTransactions,
-      };
+      });
     } catch (error) {
       this.handleImportError(error, 'CSV file processing');
-      return {
-        rawData: [],
-      };
     }
   }
   protected async canImportSpecific(params: ImportParams): Promise<boolean> {

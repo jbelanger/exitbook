@@ -43,9 +43,9 @@ export class AvalancheTransactionImporter extends BaseImporter {
   /**
    * Import raw transaction data from Avalanche blockchain APIs.
    */
-  async import(params: ImportParams): Promise<ImportRunResult> {
+  async import(params: ImportParams): Promise<Result<ImportRunResult, Error>> {
     if (!params.address) {
-      throw new Error('Address is required for Avalanche import');
+      return err(new Error('Address is required for Avalanche import'));
     }
 
     this.logger.info(`Importing transactions for address: ${params.address.substring(0, 20)}...`);
@@ -53,21 +53,21 @@ export class AvalancheTransactionImporter extends BaseImporter {
     // Validate Avalanche address
     if (!this.validateAddress(params.address)) {
       this.logger.warn(`Invalid Avalanche address: ${params.address}`);
-      return { rawData: [] };
+      return ok({ rawData: [] });
     }
 
     const result = await this.fetchRawTransactionsForAddress(params.address, params.since);
     if (result.isErr()) {
       this.logger.error(`Failed to import transactions for address ${params.address} - Error: ${result.error.message}`);
-      throw result.error;
+      return err(result.error);
     }
 
     const addressTransactions = result.value;
 
     this.logger.info(`Total transactions imported: ${addressTransactions.length}`);
-    return {
+    return ok({
       rawData: addressTransactions,
-    };
+    });
   }
 
   /**

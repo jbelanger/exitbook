@@ -52,9 +52,9 @@ export class PolkadotTransactionImporter extends BaseImporter {
   /**
    * Import raw transaction data from Polkadot blockchain APIs with provider provenance.
    */
-  async import(params: ImportParams): Promise<ImportRunResult> {
+  async import(params: ImportParams): Promise<Result<ImportRunResult, Error>> {
     if (!params.address?.length) {
-      throw new Error('Address required for Polkadot transaction import');
+      return err(new Error('Address required for Polkadot transaction import'));
     }
 
     this.logger.info(`Starting Polkadot transaction import for address: ${params.address.substring(0, 20)}...`);
@@ -67,7 +67,7 @@ export class PolkadotTransactionImporter extends BaseImporter {
 
     if (result.isErr()) {
       this.logger.error(`Failed to import transactions for address ${params.address} - Error: ${result.error.message}`);
-      throw result.error;
+      return err(result.error);
     }
 
     const rawTransactions = result.value;
@@ -75,9 +75,9 @@ export class PolkadotTransactionImporter extends BaseImporter {
 
     this.logger.info(`Polkadot transaction import completed - Total: ${allSourcedTransactions.length}`);
 
-    return {
+    return ok({
       rawData: allSourcedTransactions,
-    };
+    });
   }
 
   /**

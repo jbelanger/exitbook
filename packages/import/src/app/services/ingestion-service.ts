@@ -102,7 +102,13 @@ export class TransactionIngestionService {
 
       // Import raw data
       this.logger.info('Starting raw data import...');
-      const importResult = await importer.import(params);
+      const importResultWrapper = await importer.import(params);
+
+      if (importResultWrapper.isErr()) {
+        throw importResultWrapper.error;
+      }
+
+      const importResult = importResultWrapper.value;
       const rawData = importResult.rawData;
       let savedCount = 0;
 

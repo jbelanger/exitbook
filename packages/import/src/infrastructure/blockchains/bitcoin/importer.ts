@@ -43,9 +43,9 @@ export class BitcoinTransactionImporter extends BaseImporter {
   /**
    * Import raw transaction data from Bitcoin blockchain APIs with provider provenance.
    */
-  async import(params: ImportParams): Promise<ImportRunResult> {
+  async import(params: ImportParams): Promise<Result<ImportRunResult, Error>> {
     if (!params.address) {
-      throw new Error('Address required for Bitcoin transaction import');
+      return err(new Error('Address required for Bitcoin transaction import'));
     }
 
     this.logger.info(`Starting Bitcoin transaction import for address: ${params.address.substring(0, 20)}...`);
@@ -84,7 +84,7 @@ export class BitcoinTransactionImporter extends BaseImporter {
         this.logger.error(
           `Failed to import transactions for address ${params.address} - Error: ${result.error.message}`
         );
-        throw result.error;
+        return err(result.error);
       }
       allSourcedTransactions.push(...result.value);
     }
@@ -94,10 +94,10 @@ export class BitcoinTransactionImporter extends BaseImporter {
     // Include derived addresses in metadata if this is an xpub wallet
     const metadata = wallet.derivedAddresses ? { derivedAddresses: wallet.derivedAddresses } : undefined;
 
-    return {
+    return ok({
       metadata,
       rawData: allSourcedTransactions,
-    };
+    });
   }
 
   /**
