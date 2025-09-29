@@ -1,4 +1,4 @@
-import type { ApiClientRawData, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
+import type { ApiClientRawTransaction, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
 import { err, ok, type Result } from 'neverthrow';
 
 import { BaseImporter } from '../../shared/importers/base-importer.js';
@@ -46,7 +46,7 @@ export class EthereumTransactionImporter extends BaseImporter {
     return result
       .map((allRawData) => {
         this.logger.info(`Ethereum import completed - Raw transactions collected: ${allRawData.length}`);
-        return { rawData: allRawData };
+        return { rawTransactions: allRawData };
       })
       .mapErr((error) => {
         this.logger.error(`Failed to import transactions for address ${address} - Error: ${error.message}`);
@@ -60,7 +60,7 @@ export class EthereumTransactionImporter extends BaseImporter {
   private async fetchAllTransactions(
     address: string,
     since?: number
-  ): Promise<Result<ApiClientRawData[], ProviderError>> {
+  ): Promise<Result<ApiClientRawTransaction[], ProviderError>> {
     // Fetch regular ETH transactions (required)
     const regularTxsResult = await this.fetchRegularTransactions(address, since);
 
@@ -91,7 +91,7 @@ export class EthereumTransactionImporter extends BaseImporter {
   private async fetchRegularTransactions(
     address: string,
     since?: number
-  ): Promise<Result<ApiClientRawData[], ProviderError>> {
+  ): Promise<Result<ApiClientRawTransaction[], ProviderError>> {
     const result = await this.providerManager.executeWithFailover('ethereum', {
       address: address,
       getCacheKey: (params) =>
@@ -117,7 +117,7 @@ export class EthereumTransactionImporter extends BaseImporter {
   private async fetchTokenTransactions(
     address: string,
     since?: number
-  ): Promise<Result<ApiClientRawData[], ProviderError>> {
+  ): Promise<Result<ApiClientRawTransaction[], ProviderError>> {
     const result = await this.providerManager.executeWithFailover('ethereum', {
       address: address,
       getCacheKey: (params) =>

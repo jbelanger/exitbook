@@ -3,97 +3,11 @@ import * as path from 'node:path';
 
 import { getLogger } from '@exitbook/shared-logger';
 import Database from 'better-sqlite3';
-import { Decimal } from 'decimal.js';
 import { CamelCasePlugin, Kysely, SqliteDialect } from 'kysely';
 
 import type { DatabaseSchema } from '../schema/database-schema.js';
 
 const logger = getLogger('KyselyDatabase');
-
-/**
- * Custom type transformer for Decimal.js values
- * Stores Decimal values as TEXT in database for precision
- */
-export const decimalTransformer = {
-  from: (value: string | undefined): Decimal | undefined => {
-    if (value === undefined || value === null) return undefined;
-    return new Decimal(value);
-  },
-  to: (value: Decimal | string | number | undefined): string | undefined => {
-    if (value === undefined || value === null) return undefined;
-    if (value instanceof Decimal) return value.toString();
-    if (typeof value === 'string') return value;
-    return new Decimal(value).toString();
-  },
-};
-
-/**
- * Custom type transformer for JSON fields
- * Handles serialization/deserialization of JSON data
- */
-export const jsonTransformer = {
-  from: (value: string | undefined): unknown => {
-    if (value === undefined || value === null) return undefined;
-    try {
-      return JSON.parse(value);
-    } catch (error) {
-      logger.warn({ error, value }, 'Failed to parse JSON value');
-      return value; // Return raw string if JSON parsing fails
-    }
-  },
-  to: (value: unknown): string | undefined => {
-    if (value === undefined || value === null) return undefined;
-    return JSON.stringify(value);
-  },
-};
-
-/**
- * Custom type transformer for boolean values stored as INTEGER
- * SQLite stores booleans as 0/1 integers
- */
-export const booleanTransformer = {
-  from: (value: number | undefined): boolean | undefined => {
-    if (value === undefined) return undefined;
-    return value === 1;
-  },
-  to: (value: boolean | undefined): number | undefined => {
-    if (value === undefined) return undefined;
-    return value ? 1 : 0;
-  },
-};
-
-/**
- * Custom type transformer for Unix timestamps
- * Handles conversion between Date objects and Unix timestamps
- */
-export const timestampTransformer = {
-  from: (value: number | undefined): Date | undefined => {
-    if (value === undefined) return undefined;
-    return new Date(value * 1000);
-  },
-  to: (value: Date | number | undefined): number | undefined => {
-    if (value === undefined) return undefined;
-    if (value instanceof Date) return Math.floor(value.getTime() / 1000);
-    return value;
-  },
-};
-
-/**
- * Custom type transformer for DateTime (ISO strings)
- * Handles conversion between Date objects and ISO 8601 strings
- */
-export const dateTimeTransformer = {
-  from: (value: string | undefined): Date | undefined => {
-    if (value === undefined) return undefined;
-    return new Date(value);
-  },
-  to: (value: Date | string | undefined): string | undefined => {
-    if (value === undefined) return undefined;
-    if (value instanceof Date) return value.toISOString();
-    if (typeof value === 'string') return value;
-    return undefined;
-  },
-};
 
 /**
  * Create and configure database instance

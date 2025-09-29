@@ -1,4 +1,4 @@
-import type { ImportParams, ImportRunResult, ApiClientRawData } from '@exitbook/import/app/ports/importers.js';
+import type { ImportParams, ImportRunResult, ApiClientRawTransaction } from '@exitbook/import/app/ports/importers.js';
 import { err, type Result } from 'neverthrow';
 
 import { BaseImporter } from '../../shared/importers/base-importer.js';
@@ -50,7 +50,7 @@ export class InjectiveTransactionImporter extends BaseImporter {
     return result
       .map((rawTransactions) => {
         this.logger.info(`Injective import completed: ${rawTransactions.length} transactions`);
-        return { rawData: rawTransactions };
+        return { rawTransactions: rawTransactions };
       })
       .mapErr((error) => {
         this.logger.error(`Failed to import transactions for address ${params.address} - Error: ${error.message}`);
@@ -64,7 +64,7 @@ export class InjectiveTransactionImporter extends BaseImporter {
   private async fetchRawTransactionsForAddress(
     address: string,
     since?: number
-  ): Promise<Result<ApiClientRawData[], ProviderError>> {
+  ): Promise<Result<ApiClientRawTransaction[], ProviderError>> {
     const result = await this.providerManager.executeWithFailover('injective', {
       address: address,
       getCacheKey: (params) =>

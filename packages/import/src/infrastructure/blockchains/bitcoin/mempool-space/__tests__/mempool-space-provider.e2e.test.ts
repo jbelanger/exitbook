@@ -1,4 +1,3 @@
-import type { UniversalBlockchainTransaction } from '@exitbook/import/app/ports/raw-data-mappers.js';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { AddressInfo } from '../../types.js';
@@ -46,7 +45,7 @@ describe('MempoolSpaceProvider Integration', () => {
     const testAddress = '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'; // Known address with transactions
 
     it('should fetch address transactions successfully', async () => {
-      const transactions = await provider.execute<UniversalBlockchainTransaction[]>({
+      const transactions = await provider.execute<MempoolTransaction[]>({
         address: testAddress,
         type: 'getAddressTransactions',
       });
@@ -57,7 +56,6 @@ describe('MempoolSpaceProvider Integration', () => {
         expect(transactions[0]).toHaveProperty('timestamp');
         expect(transactions[0]).toHaveProperty('amount');
         expect(transactions[0]).toHaveProperty('currency', 'BTC');
-        expect(['transfer_in', 'transfer_out']).toContain(transactions[0].type);
         expect(['success', 'pending']).toContain(transactions[0].status);
       }
     }, 30000);
@@ -65,7 +63,7 @@ describe('MempoolSpaceProvider Integration', () => {
     it('should return empty array for unused address', async () => {
       const unusedAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa'; // Genesis block address, unlikely to have new txs
 
-      const transactions = await provider.execute<UniversalBlockchainTransaction[]>({
+      const transactions = await provider.execute<MempoolTransaction[]>({
         address: unusedAddress,
         type: 'getAddressTransactions',
       });
@@ -76,7 +74,7 @@ describe('MempoolSpaceProvider Integration', () => {
     it('should filter transactions by timestamp when since parameter is provided', async () => {
       const futureTimestamp = Date.now() + 86400000; // 24 hours from now
 
-      const transactions = await provider.execute<UniversalBlockchainTransaction[]>({
+      const transactions = await provider.execute<MempoolTransaction[]>({
         address: testAddress,
         since: futureTimestamp,
         type: 'getAddressTransactions',

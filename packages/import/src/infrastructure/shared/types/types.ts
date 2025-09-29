@@ -1,13 +1,3 @@
-// Import results types - shared by exchange and blockchain adapters
-export interface ImportResult {
-  duplicatesSkipped: number;
-  duration: number;
-  errors: string[];
-  newTransactions: number;
-  source: string; // Exchange or blockchain identifier
-  transactions: number;
-}
-
 // Transaction Note Types - Enum for standardized transaction annotations
 export enum TransactionNoteType {
   // Special Cases

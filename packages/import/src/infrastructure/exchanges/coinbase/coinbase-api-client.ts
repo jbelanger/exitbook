@@ -115,13 +115,6 @@ export class CoinbaseAPIClient {
   }
 
   /**
-   * Get rate limit status from underlying HTTP client
-   */
-  getRateLimitStatus() {
-    return this.httpClient.getRateLimitStatus();
-  }
-
-  /**
    * Make an authenticated request to Coinbase Track API
    *
    * Uses CDP API keys with ES256 JWT authentication (same as Advanced Trade API)

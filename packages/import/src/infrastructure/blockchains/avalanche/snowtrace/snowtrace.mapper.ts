@@ -9,11 +9,6 @@ import type { AvalancheTransaction } from '../types.js';
 import { SnowtraceAnyTransactionSchema } from './snowtrace.schemas.js';
 import type { SnowtraceInternalTransaction, SnowtraceTransaction, SnowtraceTokenTransfer } from './snowtrace.types.js';
 
-export interface SnowtraceRawData {
-  internal: SnowtraceInternalTransaction[];
-  normal: SnowtraceTransaction[];
-}
-
 @RegisterTransactionMapper('snowtrace')
 export class SnowtraceTransactionMapper extends BaseRawDataMapper<
   SnowtraceTransaction | SnowtraceInternalTransaction | SnowtraceTokenTransfer,

@@ -1,4 +1,4 @@
-import type { ApiClientRawData, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
+import type { ApiClientRawTransaction, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
 import { err, type Result } from 'neverthrow';
 
 import { BaseImporter } from '../../shared/importers/base-importer.js';
@@ -49,7 +49,7 @@ export class SolanaTransactionImporter extends BaseImporter {
     return result
       .map((rawTransactions) => {
         this.logger.info(`Solana import completed: ${rawTransactions.length} transactions`);
-        return { rawData: rawTransactions };
+        return { rawTransactions: rawTransactions };
       })
       .mapErr((error) => {
         this.logger.error(`Failed to import transactions for address ${params.address} - Error: ${error.message}`);
@@ -63,7 +63,7 @@ export class SolanaTransactionImporter extends BaseImporter {
   private async fetchRawTransactionsForAddress(
     address: string,
     since?: number
-  ): Promise<Result<ApiClientRawData[], ProviderError>> {
+  ): Promise<Result<ApiClientRawTransaction[], ProviderError>> {
     const result = await this.providerManager.executeWithFailover('solana', {
       address: address,
       getCacheKey: (params) =>

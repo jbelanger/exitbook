@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-import type { ApiClientRawData, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
+import type { ApiClientRawTransaction, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
 import { ok, type Result } from 'neverthrow';
 
 import { BaseImporter } from '../../shared/importers/base-importer.js';
@@ -29,7 +29,7 @@ export class LedgerLiveCsvImporter extends BaseImporter {
       throw new Error('CSV directories are required for Ledger Live import');
     }
 
-    const allTransactions: ApiClientRawData[] = [];
+    const allTransactions: ApiClientRawTransaction[] = [];
 
     try {
       // Process each directory in order
@@ -84,7 +84,7 @@ export class LedgerLiveCsvImporter extends BaseImporter {
       );
 
       return ok({
-        rawData: allTransactions,
+        rawTransactions: allTransactions,
       });
     } catch (error) {
       this.handleImportError(error, 'CSV file processing');

@@ -1,4 +1,4 @@
-import type { ApiClientRawData, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
+import type { ApiClientRawTransaction, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
 import { err, ok, type Result } from 'neverthrow';
 
 import { BaseImporter } from '../../shared/importers/base-importer.js';
@@ -53,7 +53,7 @@ export class AvalancheTransactionImporter extends BaseImporter {
     return result
       .map((addressTransactions) => {
         this.logger.info(`Total transactions imported: ${addressTransactions.length}`);
-        return { rawData: addressTransactions };
+        return { rawTransactions: addressTransactions };
       })
       .mapErr((error) => {
         this.logger.error(`Failed to import transactions for address ${params.address} - Error: ${error.message}`);
@@ -67,7 +67,7 @@ export class AvalancheTransactionImporter extends BaseImporter {
   private async fetchRawTransactionsForAddress(
     address: string,
     since?: number
-  ): Promise<Result<ApiClientRawData[], ProviderError>> {
+  ): Promise<Result<ApiClientRawTransaction[], ProviderError>> {
     // Fetch normal and internal transactions
     const normalResult = await this.providerManager.executeWithFailover('avalanche', {
       address,
@@ -109,8 +109,8 @@ export class AvalancheTransactionImporter extends BaseImporter {
   /**
    * Process composite response containing normal and internal transactions.
    */
-  private processCompositeTransactions(response: { data: unknown; providerName: string }): ApiClientRawData[] {
-    const rawTransactions: ApiClientRawData[] = [];
+  private processCompositeTransactions(response: { data: unknown; providerName: string }): ApiClientRawTransaction[] {
+    const rawTransactions: ApiClientRawTransaction[] = [];
 
     if (!response.data) return rawTransactions;
 
@@ -143,7 +143,7 @@ export class AvalancheTransactionImporter extends BaseImporter {
   /**
    * Process token transaction response.
    */
-  private processTokenTransactions(response: { data: unknown; providerName: string }): ApiClientRawData[] {
+  private processTokenTransactions(response: { data: unknown; providerName: string }): ApiClientRawTransaction[] {
     if (!response.data || !Array.isArray(response.data)) return [];
 
     const tokenTransactions = response.data as SnowtraceTokenTransfer[];

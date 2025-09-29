@@ -8,7 +8,7 @@ import type { Generated, ColumnType } from 'kysely';
 // PostgreSQL-compatible custom column types
 export type DecimalString = ColumnType<string, string, string>; // Keep TEXT for financial precision
 export type DateTime = ColumnType<string, string | Date, string>; // ISO 8601 strings: '2024-03-15T10:30:00.000Z'
-export type JSONString = ColumnType<string, string, string>;
+export type JSONString = ColumnType<unknown, string, string>;
 
 /**
  * Import sessions table - tracks import session metadata and execution details

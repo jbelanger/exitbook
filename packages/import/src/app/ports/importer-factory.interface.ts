@@ -1,4 +1,4 @@
-import type { IImporter } from './importers.js';
+import type { IImporter } from './importers.ts';
 
 /**
  * Port interface for creating importer instances.

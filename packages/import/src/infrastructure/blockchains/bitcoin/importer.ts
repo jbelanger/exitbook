@@ -1,4 +1,4 @@
-import type { ApiClientRawData, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
+import type { ApiClientRawTransaction, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
 import * as bitcoin from 'bitcoinjs-lib';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -74,7 +74,7 @@ export class BitcoinTransactionImporter extends BaseImporter {
       .map((allSourcedTransactions) => {
         this.logger.info(`Bitcoin import completed: ${allSourcedTransactions.length} transactions`);
         const metadata = wallet.derivedAddresses ? { derivedAddresses: wallet.derivedAddresses } : undefined;
-        return { metadata, rawData: allSourcedTransactions };
+        return { metadata, rawTransactions: allSourcedTransactions };
       })
       .mapErr((error) => {
         this.logger.error(`Failed to import transactions for address ${params.address} - Error: ${error.message}`);
@@ -88,7 +88,7 @@ export class BitcoinTransactionImporter extends BaseImporter {
   private async fetchFromXpubWallet(
     derivedAddresses: string[],
     since?: number
-  ): Promise<Result<ApiClientRawData[], Error>> {
+  ): Promise<Result<ApiClientRawTransaction[], Error>> {
     this.logger.info(`Fetching from ${derivedAddresses.length} derived addresses`);
     const allSourcedTransactions = await this.fetchRawTransactionsForDerivedAddresses(derivedAddresses, since);
     return ok(allSourcedTransactions);
@@ -100,7 +100,7 @@ export class BitcoinTransactionImporter extends BaseImporter {
   private async fetchRawTransactionsForAddress(
     address: string,
     since?: number
-  ): Promise<Result<ApiClientRawData[], ProviderError>> {
+  ): Promise<Result<ApiClientRawTransaction[], ProviderError>> {
     const result = await this.providerManager.executeWithFailover('bitcoin', {
       address: address,
       getCacheKey: (params) =>
@@ -130,8 +130,8 @@ export class BitcoinTransactionImporter extends BaseImporter {
   private async fetchRawTransactionsForDerivedAddresses(
     derivedAddresses: string[],
     since?: number
-  ): Promise<ApiClientRawData[]> {
-    const uniqueTransactions = new Map<string, ApiClientRawData>();
+  ): Promise<ApiClientRawTransaction[]> {
+    const uniqueTransactions = new Map<string, ApiClientRawTransaction>();
 
     for (const address of derivedAddresses) {
       // Check cache first to see if this address has any transactions

@@ -1,7 +1,7 @@
-import type { IImporterFactory } from '@exitbook/import/app/ports/importer-factory.js';
 import type { IImporter } from '@exitbook/import/app/ports/importers.js';
 import { getLogger } from '@exitbook/shared-logger';
 
+import type { IImporterFactory } from '../../../app/ports/importer-factory.interface.ts';
 import type { BlockchainProviderManager } from '../../blockchains/shared/index.js';
 
 /**

@@ -21,12 +21,7 @@ export type ImportSession = Selectable<ImportSessionsTable>;
 export type NewImportSession = Insertable<ImportSessionsTable>;
 export type ImportSessionUpdate = Updateable<ImportSessionsTable>;
 
-// Raw data storage type
-type ExternalTransactionSelectable = Omit<ExternalTransactionDataTable, 'metadata' | 'raw_data'> & {
-  metadata: unknown;
-  raw_data: unknown;
-};
-export type RawData = Selectable<ExternalTransactionSelectable>;
+export type RawData = Selectable<ExternalTransactionDataTable>;
 export type NewRawData = Insertable<ExternalTransactionDataTable>;
 export type RawDataUpdate = Updateable<ExternalTransactionDataTable>;
 

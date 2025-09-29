@@ -1,6 +1,5 @@
 import type { TransactionType, UniversalTransaction } from '@exitbook/core';
 import type { ImportSessionMetadata } from '@exitbook/import/app/ports/processors.js';
-import type { UniversalBlockchainTransaction } from '@exitbook/import/app/ports/raw-data-mappers.js';
 import type { ITransactionRepository } from '@exitbook/import/app/ports/transaction-repository.js';
 import { createMoney } from '@exitbook/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
@@ -106,64 +105,6 @@ export class SolanaTransactionProcessor extends BaseProcessor {
     }
 
     return Promise.resolve(ok(transactions));
-  }
-
-  /**
-   * Override the base transaction type mapping to handle Solana-specific cases.
-   * Uses enhanced TransactionType enum for better classification.
-   */
-  protected mapTransactionType(
-    blockchainTransaction: UniversalBlockchainTransaction,
-    sessionContext: ImportSessionMetadata
-  ): TransactionType {
-    const { amount, from, to, type } = blockchainTransaction;
-    const allWalletAddresses = new Set([sessionContext.address, ...(sessionContext.derivedAddresses || [])]);
-
-    const isFromWallet = from && allWalletAddresses.has(from);
-    const isToWallet = to && allWalletAddresses.has(to);
-
-    // Handle token transfers - they should follow standard direction logic
-    if (type === 'token_transfer') {
-      if (!isFromWallet && isToWallet) {
-        return 'deposit';
-      } else if (isFromWallet && !isToWallet) {
-        return 'withdrawal';
-      }
-      return 'transfer';
-    }
-
-    // Handle staking operations with enhanced types
-    if (type === 'delegate') {
-      return 'staking_deposit'; // Staking delegation - funds being staked
-    } else if (type === 'undelegate') {
-      return 'staking_withdrawal'; // Unstaking - funds being withdrawn from staking
-    }
-
-    // Handle directional transfers from processor
-    if (type === 'transfer_in') {
-      return 'deposit';
-    } else if (type === 'transfer_out') {
-      return 'withdrawal';
-    }
-
-    // For SOL transfers, handle self-transfers specially
-    if (isFromWallet && isToWallet && from === to) {
-      // Self-transfer: use enhanced classification
-      const transactionAmount = parseFloat(amount || '0');
-      if (transactionAmount > 0) {
-        // Positive self-transfer could be staking reward
-        return 'staking_reward';
-      } else if (transactionAmount < 0) {
-        // Negative self-transfer could be staking penalty or fee
-        return 'staking_withdrawal';
-      }
-      return 'internal_transfer'; // Zero or unknown self-transfer
-    }
-
-    this.logger.warn(
-      `Unable to determine transaction direction for ${blockchainTransaction.id}: from=${from}, to=${to}, wallet addresses: ${Array.from(allWalletAddresses).join(', ')}`
-    );
-    return 'transfer';
   }
 
   /**

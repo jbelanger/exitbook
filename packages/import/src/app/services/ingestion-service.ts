@@ -5,9 +5,9 @@ import type { Logger } from '@exitbook/shared-logger';
 import { getLogger } from '@exitbook/shared-logger';
 
 import type { ImportResult } from '../../index.js';
-import type { IBlockchainNormalizer } from '../ports/blockchain-normalizer.js';
-import type { IImportSessionRepository } from '../ports/import-session-repository.js';
-import type { IImporterFactory } from '../ports/importer-factory.js';
+import type { IBlockchainNormalizer } from '../ports/blockchain-normalizer.interface.ts';
+import type { IImportSessionRepository } from '../ports/import-session-repository.interface.ts';
+import type { IImporterFactory } from '../ports/importer-factory.interface.ts';
 import type { IProcessorFactory } from '../ports/processor-factory.js';
 import type { ProcessResult, ProcessingImportSession, ImportSessionMetadata } from '../ports/processors.js';
 import type { IRawDataRepository, LoadRawDataFilters } from '../ports/raw-data-repository.js';
@@ -103,7 +103,7 @@ export class TransactionIngestionService {
       }
 
       const importResult = importResultWrapper.value;
-      const rawData = importResult.rawData;
+      const rawData = importResult.rawTransactions;
       let savedCount = 0;
 
       // Save each raw data item to storage

@@ -170,7 +170,7 @@ export class KucoinCsvImporter extends BaseImporter {
 
       // Return as a single batch with all the parsed data
       return ok({
-        rawData: [
+        rawTransactions: [
           {
             metadata: { providerId: 'kucoin' },
             rawData,

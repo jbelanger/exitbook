@@ -31,10 +31,10 @@ export interface ImportResult {
 
 export interface ImportRunResult {
   metadata?: Record<string, unknown> | undefined;
-  rawData: ApiClientRawData[];
+  rawTransactions: ApiClientRawTransaction[];
 }
 
-export interface ApiClientRawData {
+export interface ApiClientRawTransaction {
   metadata: {
     providerId: string;
     sourceAddress?: string | undefined;

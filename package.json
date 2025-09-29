@@ -2,13 +2,10 @@
   "name": "exitbook",
   "version": "1.0.0",
   "private": true,
-  "description": "Crypto transaction import and verification tool using CCXT - Monorepo",
   "keywords": [
-    "ccxt",
     "crypto",
     "transactions",
-    "import",
-    "balance-verification"
+    "import"
   ],
   "type": "module",
   "scripts": {
@@ -16,17 +13,11 @@
     "blockchain-config:validate": "pnpm -F @exitbook/import blockchain-config:validate",
     "blockchain-providers:list": "pnpm -F @exitbook/import blockchain-providers:list",
     "blockchain-providers:validate": "pnpm -F @exitbook/import blockchain-providers:validate",
-    "build": "pnpm -F exitbook-cli build",
+    "build": "pnpm -r build",
     "clean": "pnpm -r run clean",
-    "config:validate": "pnpm -F @exitbook/import config:validate",
     "dev": "pnpm -F exitbook-cli dev",
-    "exchanges:generate": "pnpm -F @exitbook/import exchanges:generate",
-    "exchanges:list": "pnpm -F @exitbook/import exchanges:list",
-    "exchanges:validate": "pnpm -F @exitbook/import exchanges:validate",
-    "exchanges:validate-config": "pnpm -F @exitbook/import exchanges:validate-config",
     "export": "pnpm -F exitbook-cli export",
     "import": "pnpm -F exitbook-cli import",
-    "import:verify": "pnpm -F exitbook-cli import:verify",
     "lint": "pnpm -r run lint",
     "prepare": "husky",
     "prettier": "pnpm -r run prettier",
@@ -41,10 +32,7 @@
     "test:ui": "vitest --ui",
     "test:unit": "vitest run",
     "test:watch": "vitest",
-    "verify": "pnpm -F exitbook-cli verify",
-    "workspace:build": "pnpm -r build",
-    "workspace:clean": "pnpm -r clean",
-    "workspace:test": "pnpm -r test"
+    "verify": "pnpm -F exitbook-cli verify"
   },
   "lint-staged": {
     "*.{js,ts,tsx,json,md,yaml,yml}": [

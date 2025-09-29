@@ -1,4 +1,4 @@
-import type { ApiClientRawData, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
+import type { ApiClientRawTransaction, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
 import { err, type Result } from 'neverthrow';
 
 import { BaseImporter } from '../../shared/importers/base-importer.js';
@@ -48,7 +48,7 @@ export class PolkadotTransactionImporter extends BaseImporter {
     return result
       .map((rawTransactions) => {
         this.logger.info(`Polkadot transaction import completed - Total: ${rawTransactions.length}`);
-        return { rawData: rawTransactions };
+        return { rawTransactions: rawTransactions };
       })
       .mapErr((error) => {
         this.logger.error(`Failed to import transactions for address ${params.address} - Error: ${error.message}`);
@@ -62,7 +62,7 @@ export class PolkadotTransactionImporter extends BaseImporter {
   private async fetchRawTransactionsForAddress(
     address: string,
     since?: number
-  ): Promise<Result<ApiClientRawData[], ProviderError>> {
+  ): Promise<Result<ApiClientRawTransaction[], ProviderError>> {
     const result = await this.providerManager.executeWithFailover('polkadot', {
       address,
       getCacheKey: (cacheParams) =>
@@ -78,7 +78,7 @@ export class PolkadotTransactionImporter extends BaseImporter {
         const substrateTxData = rawData as { data: SubscanTransfer[] };
 
         if (Array.isArray(substrateTxData.data)) {
-          const rawTransactions: ApiClientRawData[] = substrateTxData.data.map((transfer) => ({
+          const rawTransactions: ApiClientRawTransaction[] = substrateTxData.data.map((transfer) => ({
             metadata: { providerId: response.providerName },
             rawData: transfer,
           }));

@@ -1,4 +1,4 @@
-import type { ApiClientRawData, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
+import type { ApiClientRawTransaction, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
 import { err, type Result } from 'neverthrow';
 
 import { BaseImporter } from '../../shared/importers/base-importer.js';
@@ -48,7 +48,7 @@ export class BittensorTransactionImporter extends BaseImporter {
     return result
       .map((rawTransactions) => {
         this.logger.info(`Bittensor transaction import completed - Total: ${rawTransactions.length}`);
-        return { rawData: rawTransactions };
+        return { rawTransactions: rawTransactions };
       })
       .mapErr((error) => {
         this.logger.error(`Failed to import transactions for address ${params.address} - Error: ${error.message}`);
@@ -62,7 +62,7 @@ export class BittensorTransactionImporter extends BaseImporter {
   private async fetchRawTransactionsForAddress(
     address: string,
     since?: number
-  ): Promise<Result<ApiClientRawData[], ProviderError>> {
+  ): Promise<Result<ApiClientRawTransaction[], ProviderError>> {
     const result = await this.providerManager.executeWithFailover('bittensor', {
       address,
       getCacheKey: (cacheParams) =>
@@ -78,7 +78,7 @@ export class BittensorTransactionImporter extends BaseImporter {
         const bittensorTxData = rawData as { data: TaostatsTransaction[] };
 
         if (Array.isArray(bittensorTxData.data)) {
-          const rawTransactions: ApiClientRawData[] = bittensorTxData.data.map((transaction) => ({
+          const rawTransactions: ApiClientRawTransaction[] = bittensorTxData.data.map((transaction) => ({
             metadata: { providerId: response.providerName },
             rawData: transaction,
           }));
