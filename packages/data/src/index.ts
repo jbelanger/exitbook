@@ -1,4 +1,14 @@
-export * from './storage/index.ts';
-export * from './repositories/index.ts';
-export * from './services/index.ts';
-export * from './types/data-types.js';
+// Kysely exports
+export {
+  createDatabase,
+  clearDatabase,
+  closeDatabase,
+  type KyselyDB,
+  decimalTransformer,
+  jsonTransformer,
+  booleanTransformer,
+  timestampTransformer,
+} from './storage/database.ts';
+export { BaseRepository } from './repositories/base-repository.ts';
+export type { DatabaseSchema } from './schema/database-schema.ts';
+export type { StoredTransaction, StoredRawData, WalletAddress } from './types/data-types.ts';

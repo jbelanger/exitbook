@@ -1,4 +1,4 @@
-import { Decimal } from 'decimal.js';
+import type { Decimal } from 'decimal.js';
 
 // Money type for consistent amount and currency structure with high precision
 export interface Money {
@@ -6,7 +6,24 @@ export interface Money {
   currency: string;
 }
 
-export type TransactionType = 'trade' | 'deposit' | 'withdrawal' | 'order' | 'ledger' | 'transfer' | 'fee';
+export type TransactionType =
+  | 'trade'
+  | 'deposit'
+  | 'withdrawal'
+  | 'order'
+  | 'ledger'
+  | 'transfer'
+  | 'fee'
+  | 'staking_deposit' // Staking funds (bonding)
+  | 'staking_withdrawal' // Unstaking funds (unbonding/withdraw)
+  | 'staking_reward' // Staking rewards received
+  | 'governance_deposit' // Governance deposits (proposals, votes)
+  | 'governance_refund' // Governance refunds
+  | 'internal_transfer' // Self-to-self transfers
+  | 'proxy' // Proxy transactions
+  | 'multisig' // Multisig transactions
+  | 'utility_batch' // Batch transactions
+  | 'unknown';
 
 export type TransactionStatus = 'pending' | 'open' | 'closed' | 'canceled' | 'failed' | 'ok';
 
@@ -187,8 +204,8 @@ export interface DataSourceCapabilities<TOperations extends string = string> {
  */
 export interface IUniversalAdapter {
   close(): Promise<void>;
-  fetchBalances(params: UniversalFetchParams): Promise<UniversalBalance[]>;
-  fetchTransactions(params: UniversalFetchParams): Promise<UniversalTransaction[]>;
+  fetchBalances(params: UniversalFetchParameters): Promise<UniversalBalance[]>;
+  fetchTransactions(params: UniversalFetchParameters): Promise<UniversalTransaction[]>;
   getInfo(): Promise<UniversalAdapterInfo>;
   testConnection(): Promise<boolean>;
 }
@@ -208,14 +225,18 @@ export interface UniversalAdapterCapabilities {
     requestsPerSecond: number;
   };
   requiresApiKey: boolean;
-  supportedOperations: Array<
-    'fetchTransactions' | 'fetchBalances' | 'getAddressTransactions' | 'getAddressBalance' | 'getTokenTransactions'
-  >;
+  supportedOperations: (
+    | 'fetchTransactions'
+    | 'fetchBalances'
+    | 'getAddressTransactions'
+    | 'getAddressBalance'
+    | 'getTokenTransactions'
+  )[];
   supportsHistoricalData: boolean;
   supportsPagination: boolean;
 }
 
-export interface UniversalFetchParams {
+export interface UniversalFetchParameters {
   // Universal params
   // Optional type-specific params
   includeTokens?: boolean | undefined; // For blockchains

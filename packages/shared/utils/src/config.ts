@@ -1,18 +1,18 @@
-import { Database } from '@crypto/data';
+import fs from 'node:fs';
+import path from 'node:path';
+
+import { createDatabase, clearDatabase, type KyselyDB } from '@crypto/data';
 import type { Logger } from '@crypto/shared-logger';
 import { getLogger } from '@crypto/shared-logger';
-import fs from 'fs';
-import path from 'path';
 
 // Configuration types
-export interface BlockchainExplorersConfig {
-  [blockchain: string]: {
+export type BlockchainExplorersConfig = Record<
+  string,
+  {
     defaultEnabled?: string[];
-    overrides?: {
-      [providerName: string]: ProviderOverride;
-    };
-  };
-}
+    overrides?: Record<string, ProviderOverride>;
+  }
+>;
 
 export interface ProviderOverride {
   description?: string;
@@ -42,11 +42,11 @@ export class ConfigUtils {
   /**
    * Initialize database with optional cleanup
    */
-  static async initializeDatabase(clearDatabase = false): Promise<Database> {
-    const database = new Database();
+  static async initializeDatabase(shouldClearDatabase = false): Promise<KyselyDB> {
+    const database = createDatabase();
 
-    if (clearDatabase) {
-      await database.clearAndReinitialize();
+    if (shouldClearDatabase) {
+      await clearDatabase(database);
       const logger = getLogger('ConfigUtils');
       logger.info('Database cleared and reinitialized');
     }
@@ -56,9 +56,9 @@ export class ConfigUtils {
 
   /**
    * Load blockchain explorer configuration
-   * Returns null if configuration file doesn't exist (for optional config)
+   * Returns undefined if configuration file doesn't exist (for optional config)
    */
-  static loadExplorerConfig(configPath?: string): BlockchainExplorersConfig | null {
+  static loadExplorerConfig(configPath?: string): BlockchainExplorersConfig | undefined {
     const finalPath = configPath
       ? path.resolve(process.cwd(), configPath)
       : process.env.BLOCKCHAIN_EXPLORERS_CONFIG
@@ -67,11 +67,11 @@ export class ConfigUtils {
 
     try {
       const configData = fs.readFileSync(finalPath, 'utf-8');
-      return JSON.parse(configData);
+      return JSON.parse(configData) as BlockchainExplorersConfig;
     } catch (error) {
       if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
         // File doesn't exist - this is OK, we'll use registry defaults
-        return null;
+        return undefined;
       }
       throw new Error(
         `Failed to load blockchain explorer configuration from ${finalPath}: ${error instanceof Error ? error.message : String(error)}`
@@ -81,6 +81,6 @@ export class ConfigUtils {
 }
 
 // Convenience exports for direct function access
-export const loadExplorerConfig = ConfigUtils.loadExplorerConfig;
-export const initializeDatabase = ConfigUtils.initializeDatabase;
-export const createLogger = ConfigUtils.createLogger;
+export const loadExplorerConfig = (configPath?: string) => ConfigUtils.loadExplorerConfig(configPath);
+export const initializeDatabase = (clearDatabase = false) => ConfigUtils.initializeDatabase(clearDatabase);
+export const createLogger = (name: string) => ConfigUtils.createLogger(name);

@@ -1,0 +1,79 @@
+{
+  "id": "0xabc123def456789012345678901234567890123456789012345678901234567890",
+  "timestamp": "2023-09-24T10:05:00.000Z",
+  "source": {
+    "kind": "blockchain",
+    "chain": "ethereum",
+    "txHash": "0xabc123def456789012345678901234567890123456789012345678901234567890",
+    "importSessionId": "session-2"
+  },
+  "movements": [
+    {
+      "id": "0xabc123-eth-out",
+      "money": {
+        "amount": "1.0",
+        "currency": "ETH"
+      },
+      "direction": "OUT",
+      "sequence": 1,
+      "metadata": {
+        "from": "0x1234567890123456789012345678901234567890",
+        "to": "0x5678901234567890123456789012345678901234",
+        "originalValue": "1000000000000000000"
+      },
+      "classification": {
+        "purpose": "PRINCIPAL",
+        "ruleId": "chain.eth.transfer.principal.v1",
+        "reason": "Ethereum transfer principal",
+        "version": "1.0.0",
+        "confidence": 1.0,
+        "classifiedAt": "2023-09-24T10:05:30.000Z"
+      }
+    },
+    {
+      "id": "0xabc123-eth-in",
+      "money": {
+        "amount": "1.0",
+        "currency": "ETH"
+      },
+      "direction": "IN",
+      "sequence": 2,
+      "metadata": {
+        "from": "0x1234567890123456789012345678901234567890",
+        "to": "0x5678901234567890123456789012345678901234",
+        "originalValue": "1000000000000000000"
+      },
+      "classification": {
+        "purpose": "PRINCIPAL",
+        "ruleId": "chain.eth.transfer.principal.v1",
+        "reason": "Ethereum transfer principal",
+        "version": "1.0.0",
+        "confidence": 1.0,
+        "classifiedAt": "2023-09-24T10:05:30.000Z"
+      }
+    },
+    {
+      "id": "0xabc123-gas",
+      "money": {
+        "amount": "0.00042",
+        "currency": "ETH"
+      },
+      "direction": "OUT",
+      "sequence": 3,
+      "metadata": {
+        "gasPrice": "20000000000",
+        "gasUsed": "21000",
+        "gasCost": "420000000000000"
+      },
+      "classification": {
+        "purpose": "GAS",
+        "ruleId": "chain.eth.transfer.gas.v1",
+        "reason": "Ethereum gas fee",
+        "version": "1.0.0",
+        "confidence": 1.0,
+        "classifiedAt": "2023-09-24T10:05:30.000Z"
+      }
+    }
+  ],
+  "purposeRulesetVersion": "1.0.0"
+}

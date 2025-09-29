@@ -110,7 +110,7 @@ export function moneyToNumber(money: Money | number | undefined): number {
 /**
  * Convert Decimal to string with appropriate precision for display
  */
-export function formatDecimal(decimal: Decimal, maxDecimalPlaces: number = 8): string {
+export function formatDecimal(decimal: Decimal, maxDecimalPlaces = 8): string {
   return decimal.toFixed(maxDecimalPlaces).replace(/\.?0+$/, '');
 }
 
@@ -162,15 +162,15 @@ export function isZeroMoney(money: Money | undefined): boolean {
 /**
  * Convert Decimal to string for database storage (preserves full precision)
  */
-export function decimalToString(decimal: Decimal | undefined | null): string | null {
-  if (!decimal) return null;
+export function decimalToString(decimal: Decimal | undefined): string | undefined {
+  if (!decimal) return undefined;
   return decimal.toString();
 }
 
 /**
  * Convert string from database back to Decimal
  */
-export function stringToDecimal(value: string | null | undefined): Decimal {
+export function stringToDecimal(value: string | undefined): Decimal {
   if (!value) return new Decimal(0);
   return parseDecimal(value);
 }
@@ -178,8 +178,8 @@ export function stringToDecimal(value: string | null | undefined): Decimal {
 /**
  * Convert Money object to database-compatible object with string amounts
  */
-export function moneyToDbString(money: Money | undefined): string | null {
-  if (!money) return null;
+export function moneyToDbString(money: Money | undefined): string | undefined {
+  if (!money) return undefined;
   return money.amount.toString();
 }
 

@@ -1,9 +1,9 @@
 {
   "name": "@crypto/data",
-  "license": "AGPL-3.0",
   "version": "0.1.0",
   "private": true,
   "description": "Data access layer for cryptocurrency platform",
+  "license": "AGPL-3.0",
   "type": "module",
   "main": "src/index.ts",
   "types": "src/index.ts",
@@ -17,11 +17,14 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "better-sqlite3": "^12.4.1",
     "decimal.js": "^10.6.0",
+    "kysely": "^0.28.7",
     "sqlite3": "^5.1.6"
   },
   "devDependencies": {
     "@jest/globals": "^30.0.5",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.3.0",
     "jest": "^30.0.5",
@@ -31,9 +34,9 @@
     "typescript": "^5.9.2"
   },
   "peerDependencies": {
+    "@crypto/balance": "workspace:*",
     "@crypto/core": "workspace:*",
     "@crypto/shared-logger": "workspace:*",
-    "@crypto/balance": "workspace:*",
     "@crypto/shared-utils": "workspace:*"
   }
 }

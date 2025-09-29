@@ -1,9 +1,9 @@
 {
   "name": "@crypto/core",
-  "license": "AGPL-3.0",
   "version": "0.1.0",
   "private": true,
   "description": "Core domain types and entities for cryptocurrency platform",
+  "license": "AGPL-3.0",
   "type": "module",
   "main": "src/index.ts",
   "types": "src/index.ts",
@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "decimal.js": "^10.6.0",
+    "neverthrow": "^8.2.0",
     "zod": "^4.0.17"
   },
   "devDependencies": {

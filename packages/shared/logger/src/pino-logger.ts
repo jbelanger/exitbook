@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import os from 'node:os';
+
 import pino from 'pino';
 
 import { logLevelsSchema, validateLoggerEnv } from './env.schema.ts';
@@ -26,7 +27,7 @@ export interface Logger extends pino.Logger<'audit'> {
 const loggerCache = new Map<string, Logger>();
 
 // Root logger instance
-let rootLogger: Logger | null = null;
+let rootLogger: Logger | undefined;
 
 /**
  * Ensures that the log directory exists; if not, it creates it.
@@ -45,11 +46,11 @@ function createRootLogger(): Logger {
   ensureLogDirExists(env.LOGGER_AUDIT_LOG_DIRNAME);
 
   // Define a more flexible transport target type
-  type TransportTarget = {
+  interface TransportTarget {
     level: string;
     options: Record<string, unknown>;
     target: string;
-  };
+  }
 
   // Build transport targets array
   const transportTargets: TransportTarget[] = [];

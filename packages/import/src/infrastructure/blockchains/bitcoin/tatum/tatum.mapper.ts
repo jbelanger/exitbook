@@ -1,0 +1,69 @@
+import { Decimal } from 'decimal.js';
+import { type Result, ok } from 'neverthrow';
+
+import type { ImportSessionMetadata } from '../../../../app/ports/processors.ts';
+import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.ts';
+import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.ts';
+import type {
+  BitcoinTransactionInput,
+  BitcoinTransactionOutput,
+  BitcoinTransaction as BitcoinTransaction,
+} from '../types.ts';
+
+import { TatumBitcoinTransactionSchema } from './tatum.schemas.ts';
+import type { TatumBitcoinTransaction } from './tatum.types.ts';
+
+@RegisterTransactionMapper('tatum')
+export class TatumBitcoinTransactionMapper extends BaseRawDataMapper<TatumBitcoinTransaction, BitcoinTransaction> {
+  protected readonly schema = TatumBitcoinTransactionSchema;
+
+  /**
+   * Extracts structured input/output data for sophisticated analysis
+   */
+  protected mapInternal(
+    rawData: TatumBitcoinTransaction,
+    _sessionContext: ImportSessionMetadata
+  ): Result<BitcoinTransaction, string> {
+    const timestamp = rawData.time * 1000; // Convert from seconds to milliseconds
+
+    // Extract structured inputs with addresses and values
+    const inputs: BitcoinTransactionInput[] = rawData.inputs.map((input, index) => ({
+      address: input.coin.address,
+      txid: input.prevout.hash,
+      value: input.coin.value.toString(),
+      vout: input.prevout.index,
+    }));
+
+    // Extract structured outputs with addresses and values
+    const outputs: BitcoinTransactionOutput[] = rawData.outputs.map((output, index) => ({
+      address: output.address,
+      index,
+      value: output.value.toString(),
+    }));
+
+    const normalized: BitcoinTransaction = {
+      currency: 'BTC',
+      id: rawData.hash,
+      inputs,
+      outputs,
+      providerId: 'tatum',
+      status: rawData.blockNumber ? 'success' : 'pending',
+      timestamp,
+    };
+
+    // Add optional fields
+    if (rawData.blockNumber) {
+      normalized.blockHeight = rawData.blockNumber;
+    }
+    if (rawData.block) {
+      normalized.blockId = rawData.block;
+    }
+    if (rawData.fee > 0) {
+      const btcFee = new Decimal(rawData.fee).div(100000000).toString();
+      normalized.feeAmount = btcFee;
+      normalized.feeCurrency = 'BTC';
+    }
+
+    return ok(normalized);
+  }
+}

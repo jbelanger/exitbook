@@ -3,10 +3,11 @@
  * Validate that all providers are properly registered and functional
  */
 // Import all providers to trigger registration
-import { Result, err, ok } from 'neverthrow';
+import type { Result } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 
-import '../blockchains/registry/register-providers.ts';
-import { ProviderRegistry } from '../blockchains/shared/registry/index.ts';
+import '../blockchains/registry/register-apis.ts';
+import { ProviderRegistry } from '../infrastructure/blockchains/shared/registry/index.ts';
 
 interface ValidationError {
   message: string;
@@ -86,7 +87,7 @@ function validateProvider(blockchain: string, providerName: string): ValidationR
         }
       }
     } catch (error) {
-      addError(`Provider instantiation failed: ${error instanceof Error ? error.message : error}`);
+      addError(`Provider instantiation failed: ${error instanceof Error ? error.message : String(error)}`);
     }
 
     // Warnings for best practices
@@ -98,10 +99,10 @@ function validateProvider(blockchain: string, providerName: string): ValidationR
       addWarning('API key required but no testnet configuration - consider adding for testing');
     }
   } catch (error) {
-    addError(`Validation error: ${error instanceof Error ? error.message : error}`);
+    addError(`Validation error: ${error instanceof Error ? error.message : String(error)}`);
   }
 
-  const errorMessages = errors.filter(e => e.type === 'error');
+  const errorMessages = errors.filter((e) => e.type === 'error');
   if (errorMessages.length > 0) {
     return err(errors);
   }
@@ -119,11 +120,11 @@ function validateProviders(): void {
     process.exit(1);
   }
 
-  const results: Array<{
+  const results: {
     blockchain: string;
     providerName: string;
     result: ValidationResult;
-  }> = [];
+  }[] = [];
   const allErrors: string[] = [];
   const allWarnings: string[] = [];
 
@@ -137,13 +138,13 @@ function validateProviders(): void {
     });
 
     if (result.isErr()) {
-      const errors = result.error.filter(e => e.type === 'error');
-      const warnings = result.error.filter(e => e.type === 'warning');
+      const errors = result.error.filter((e) => e.type === 'error');
+      const warnings = result.error.filter((e) => e.type === 'warning');
 
-      allErrors.push(...errors.map(err => `${provider.blockchain}:${provider.name} - ${err.message}`));
-      allWarnings.push(...warnings.map(warn => `${provider.blockchain}:${provider.name} - ${warn.message}`));
+      allErrors.push(...errors.map((err) => `${provider.blockchain}:${provider.name} - ${err.message}`));
+      allWarnings.push(...warnings.map((warn) => `${provider.blockchain}:${provider.name} - ${warn.message}`));
     } else {
-      allWarnings.push(...result.value.map(warn => `${provider.blockchain}:${provider.name} - ${warn}`));
+      allWarnings.push(...result.value.map((warn) => `${provider.blockchain}:${provider.name} - ${warn}`));
     }
   }
 
@@ -168,27 +169,27 @@ function validateProviders(): void {
       console.log(`  ${status} ${providerName}`);
 
       if (result.isErr()) {
-        const errors = result.error.filter(e => e.type === 'error');
-        const warnings = result.error.filter(e => e.type === 'warning');
+        const errors = result.error.filter((e) => e.type === 'error');
+        const warnings = result.error.filter((e) => e.type === 'warning');
 
-        errors.forEach(error => {
+        for (const error of errors) {
           console.log(`      ❌ ${error.message}`);
-        });
+        }
 
-        warnings.forEach(warning => {
+        for (const warning of warnings) {
           console.log(`      ⚠️  ${warning.message}`);
-        });
+        }
       } else {
-        result.value.forEach(warning => {
+        for (const warning of result.value) {
           console.log(`      ⚠️  ${warning}`);
-        });
+        }
       }
     }
   }
 
   // Summary
-  const validProviders = results.filter(r => r.result.isOk()).length;
-  const invalidProviders = results.filter(r => r.result.isErr()).length;
+  const validProviders = results.filter((r) => r.result.isOk()).length;
+  const invalidProviders = results.filter((r) => r.result.isErr()).length;
 
   console.log('\n📊 Summary');
   console.log('─'.repeat(20));

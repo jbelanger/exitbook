@@ -5,9 +5,9 @@
 import type { RateLimitConfig } from '@crypto/core';
 
 // Import all providers to trigger registration
-import '../blockchains/registry/register-providers.ts';
-import { ProviderRegistry } from '../blockchains/shared/registry/index.ts';
-import type { ProviderCapabilities } from '../blockchains/shared/types.ts';
+import '../blockchains/registry/register-apis.ts';
+import { ProviderRegistry } from '../infrastructure/blockchains/shared/registry/index.ts';
+import type { ProviderCapabilities } from '../infrastructure/blockchains/shared/types.ts';
 
 function formatRateLimit(rateLimit: RateLimitConfig): string {
   const parts: string[] = [];
@@ -93,7 +93,7 @@ function listProviders(): void {
   console.log(`Total Blockchains: ${providersByBlockchain.size}`);
   console.log(`Total Providers: ${allProviders.length}`);
 
-  const apiKeyRequired = allProviders.filter(p => p.requiresApiKey).length;
+  const apiKeyRequired = allProviders.filter((p) => p.requiresApiKey).length;
   console.log(`Require API Key: ${apiKeyRequired}`);
   console.log(`No API Key: ${allProviders.length - apiKeyRequired}`);
 }

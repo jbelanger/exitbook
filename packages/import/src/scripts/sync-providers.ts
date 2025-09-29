@@ -1,15 +1,16 @@
 #!/usr/bin/env tsx
+import { readFileSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
 /**
  * Sync registered providers with blockchain configuration
  * Detects missing providers and can automatically fix config drift
  */
 import type { BlockchainExplorersConfig } from '@crypto/shared-utils';
-import { readFileSync, writeFileSync } from 'fs';
-import { resolve } from 'path';
 
 // Import all providers to trigger registration
-import '../blockchains/registry/register-providers.ts';
-import { ProviderRegistry } from '../blockchains/shared/registry/index.ts';
+import '../blockchains/registry/register-apis.ts';
+import { ProviderRegistry } from '../infrastructure/blockchains/shared/registry/index.ts';
 
 interface SyncResult {
   blockchain: string;
@@ -23,7 +24,7 @@ function loadCurrentConfig(): BlockchainExplorersConfig {
   const configPath = resolve(process.cwd(), 'config/blockchain-explorers.json');
   try {
     const content = readFileSync(configPath, 'utf-8');
-    return JSON.parse(content);
+    return JSON.parse(content) as BlockchainExplorersConfig;
   } catch (error) {
     console.log('⚠️  No existing config found, will create new one');
     return {};
@@ -32,11 +33,11 @@ function loadCurrentConfig(): BlockchainExplorersConfig {
 
 function saveConfig(config: BlockchainExplorersConfig): void {
   const configPath = resolve(process.cwd(), 'config/blockchain-explorers.json');
-  const content = JSON.stringify(config, null, 2);
+  const content = JSON.stringify(config, undefined, 2);
   writeFileSync(configPath, content, 'utf-8');
 }
 
-function syncProviders(fix: boolean = false): SyncResult[] {
+function syncProviders(fix = false): SyncResult[] {
   console.log('🔄 Syncing Registered Providers with Configuration\n');
 
   const allProviders = ProviderRegistry.getAllProviders();
@@ -57,7 +58,7 @@ function syncProviders(fix: boolean = false): SyncResult[] {
   for (const [blockchain, registeredProviders] of providersByBlockchain.entries()) {
     const blockchainConfig = currentConfig[blockchain];
     const configuredProviders = blockchainConfig?.defaultEnabled || [];
-    const missingProviders = registeredProviders.filter(provider => !configuredProviders.includes(provider));
+    const missingProviders = registeredProviders.filter((provider) => !configuredProviders.includes(provider));
 
     const result: SyncResult = {
       blockchain,
@@ -79,7 +80,7 @@ function syncProviders(fix: boolean = false): SyncResult[] {
         }
 
         const newDefaultEnabled = [...configuredProviders, ...missingProviders].sort();
-        currentConfig[blockchain]!.defaultEnabled = newDefaultEnabled;
+        currentConfig[blockchain].defaultEnabled = newDefaultEnabled;
 
         console.log(`✅ Fixed ${blockchain}: Added ${missingProviders.length} missing providers`);
       }
@@ -109,9 +110,9 @@ function displaySyncResults(results: SyncResult[]): void {
 
     if (result.missingProviders.length > 0) {
       console.log(`  ❌ Missing: ${result.missingProviders.length} providers`);
-      result.missingProviders.forEach(provider => {
+      for (const provider of result.missingProviders) {
         console.log(`    - ${provider}`);
-      });
+      }
     } else {
       console.log(`  ✅ All registered providers are configured`);
     }
@@ -168,7 +169,7 @@ Examples:
     displaySyncResults(results);
 
     // Exit code for CI/automation
-    const hasIssues = results.some(r => r.hasChanges);
+    const hasIssues = results.some((r) => r.hasChanges);
     if (hasIssues && !fix) {
       process.exit(1); // Exit with error if issues found but not fixed
     }

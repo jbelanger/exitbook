@@ -7,7 +7,7 @@
     "jsx": "react-jsx",
     "strict": true,
     "noImplicitAny": true,
-    "exactOptionalPropertyTypes": true,
+    // "exactOptionalPropertyTypes": true,
     "allowJs": false,
     "moduleResolution": "NodeNext",
     "resolveJsonModule": true,

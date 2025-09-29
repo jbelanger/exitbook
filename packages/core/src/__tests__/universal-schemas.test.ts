@@ -8,7 +8,7 @@ import {
   UniversalTransactionSchema,
   validateUniversalBalances,
   validateUniversalTransactions,
-} from '../validation/universal-schemas.js';
+} from '../schemas/universal-schemas.ts';
 
 describe('Universal Schemas Validation', () => {
   describe('MoneySchema', () => {
@@ -349,17 +349,17 @@ describe('Universal Schemas Validation', () => {
     });
 
     it('should validate batch of 1000 transactions within reasonable time', () => {
-      const transactions = Array.from({ length: 1000 }, (_, i) => ({
+      const transactions = Array.from({ length: 1000 }, (_, index) => ({
         amount: {
           amount: new Decimal('100'),
           currency: 'BTC',
         },
         datetime: '2022-01-01T00:00:00.000Z',
-        id: `tx_${i}`,
+        id: `tx_${index}`,
         metadata: {},
         source: 'test',
         status: 'closed',
-        timestamp: 1640995200000 + i,
+        timestamp: 1640995200000 + index,
         type: 'trade',
       }));
 
