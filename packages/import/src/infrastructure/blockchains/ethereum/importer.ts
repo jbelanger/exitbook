@@ -1,6 +1,6 @@
 import type { ApiClientRawData, ImportParams, ImportRunResult } from '../../../app/ports/importers.ts';
-import { BaseImporter } from '../../shared/importers/base-importer.js';
-import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.js';
+import { BaseImporter } from '../../shared/importers/base-importer.ts';
+import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.ts';
 
 // Ensure Ethereum API clients are registered
 import './register-apis.ts';

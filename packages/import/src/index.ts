@@ -13,3 +13,5 @@ export { TransactionRepository } from './infrastructure/persistence/transaction-
 export { RawDataRepository } from './infrastructure/persistence/raw-data-repository.ts';
 export type { LoadRawDataFilters } from './app/ports/raw-data-repository.ts';
 export type { IRawDataRepository } from './app/ports/raw-data-repository.ts';
+
+export { DefaultNormalizer } from './infrastructure/shared/normalizers/normalizer.ts';

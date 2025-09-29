@@ -4,7 +4,7 @@ import type { Logger } from '@crypto/shared-logger';
 import { getLogger } from '@crypto/shared-logger';
 
 import type { ImportResult } from '../../index.ts';
-import { NormalizerFactory } from '../../infrastructure/shared/normalizers/normalizer-factory.ts';
+import type { IBlockchainNormalizer } from '../ports/blockchain-normalizer.ts';
 import type { IImportSessionRepository } from '../ports/import-session-repository.ts';
 import type { IImporterFactory } from '../ports/importer-factory.ts';
 import type { ApiClientRawData, ImportParams } from '../ports/importers.ts';
@@ -26,7 +26,8 @@ export class TransactionIngestionService {
     private sessionRepository: IImportSessionRepository,
     private transactionRepository: ITransactionRepository,
     private importerFactory: IImporterFactory,
-    private processorFactory: IProcessorFactory
+    private processorFactory: IProcessorFactory,
+    private blockchainNormalizer: IBlockchainNormalizer
   ) {
     this.logger = getLogger('TransactionIngestionService');
   }
@@ -246,7 +247,7 @@ export class TransactionIngestionService {
 
         const normalizedRawDataItems: unknown[] = [];
         if (sourceType === 'blockchain') {
-          const normalizer = NormalizerFactory.create(sourceId);
+          const normalizer = this.blockchainNormalizer;
           if (normalizer) {
             for (const item of pendingItems) {
               try {

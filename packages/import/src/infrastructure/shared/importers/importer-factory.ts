@@ -147,7 +147,7 @@ export class ImporterFactory implements IImporterFactory {
     providerId: string | undefined
   ): Promise<IImporter> {
     // Dynamic import to avoid circular dependencies
-    const { EthereumTransactionImporter } = await import('../../blockchains/ethereum/transaction-importer.js');
+    const { EthereumTransactionImporter } = await import('../../blockchains/ethereum/importer.ts');
     return new EthereumTransactionImporter(blockchainProviderManager, {
       preferredProvider: providerId,
     }) as unknown as IImporter;

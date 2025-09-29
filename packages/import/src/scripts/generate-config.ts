@@ -7,7 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 // Import all providers to trigger registration
-import '../blockchains/registry/register-providers.ts';
+import '../blockchains/registry/register-apis.ts';
 import { ProviderRegistry } from '../infrastructure/blockchains/shared/registry/index.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

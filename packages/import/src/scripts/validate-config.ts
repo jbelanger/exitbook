@@ -6,7 +6,7 @@
 // Import all providers to trigger registration
 import { loadExplorerConfig } from '@crypto/shared-utils';
 
-import '../blockchains/registry/register-providers.ts';
+import '../blockchains/registry/register-apis.ts';
 import { ProviderRegistry } from '../infrastructure/blockchains/shared/registry/index.ts';
 
 interface ConfigValidationOptions {

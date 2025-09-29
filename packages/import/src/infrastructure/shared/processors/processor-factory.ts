@@ -121,7 +121,7 @@ export class ProcessorFactory implements IProcessorFactory {
    */
   private async createEthereumProcessor(): Promise<IProcessor> {
     // Dynamic import to avoid circular dependencies
-    const { EthereumTransactionProcessor } = await import('../../blockchains/ethereum/transaction-processor.js');
+    const { EthereumTransactionProcessor } = await import('../../blockchains/ethereum/processor.ts');
     return new EthereumTransactionProcessor();
   }
 

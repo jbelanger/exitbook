@@ -9,8 +9,8 @@ import type { ImportSessionMetadata } from '../../../app/ports/processors.ts';
 // Import processors to trigger registration
 import './register-mappers.ts';
 import type { UniversalBlockchainTransaction } from '../../../app/ports/raw-data-mappers.ts';
-import { BaseProcessor } from '../../shared/processors/base-processor.js';
-import { TransactionMapperFactory } from '../../shared/processors/processor-registry.js';
+import { BaseProcessor } from '../../shared/processors/base-processor.ts';
+import { TransactionMapperFactory } from '../../shared/processors/processor-registry.ts';
 
 /**
  * Ethereum transaction processor that converts raw blockchain transaction data

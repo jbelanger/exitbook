@@ -6,7 +6,7 @@ import 'reflect-metadata';
 import { BalanceService } from '@crypto/balance/src/app/services/balance-service';
 import { BalanceRepository } from '@crypto/balance/src/infrastructure/persistence/balance-repository';
 import { createDatabase, clearDatabase, closeDatabase, type StoredTransaction } from '@crypto/data';
-import { BlockchainProviderManager, TransactionIngestionService } from '@crypto/import';
+import { BlockchainProviderManager, DefaultNormalizer, TransactionIngestionService } from '@crypto/import';
 import { ImportSessionRepository } from '@crypto/import/src/infrastructure/persistence/import-session-repository';
 import { RawDataRepository } from '@crypto/import/src/infrastructure/persistence/raw-data-repository';
 import { TransactionRepository } from '@crypto/import/src/infrastructure/persistence/transaction-repository';
@@ -287,13 +287,15 @@ async function main() {
         const providerManager = new BlockchainProviderManager(explorerConfig);
         const importerFactory = new ImporterFactory(providerManager);
         const processorFactory = new ProcessorFactory();
+        const normalizer = new DefaultNormalizer();
 
         const ingestionService = new TransactionIngestionService(
           rawDataRepository,
           sessionRepository,
           transactionRepository,
           importerFactory,
-          processorFactory
+          processorFactory,
+          normalizer
         );
 
         try {
@@ -413,13 +415,15 @@ async function main() {
         const providerManager = new BlockchainProviderManager(explorerConfig);
         const importerFactory = new ImporterFactory(providerManager);
         const processorFactory = new ProcessorFactory();
+        const normalizer = new DefaultNormalizer();
 
         const ingestionService = new TransactionIngestionService(
           rawDataRepository,
           sessionRepository,
           transactionRepository,
           importerFactory,
-          processorFactory
+          processorFactory,
+          normalizer
         );
 
         try {
@@ -488,7 +492,7 @@ async function main() {
         );
 
         // Import all providers to ensure they're registered
-        await import('@crypto/import/src/infrastructure/blockchains/registry/register-providers.ts');
+        await import('@crypto/import/src/infrastructure/blockchains/registry/register-apis.ts');
 
         // Get all providers and group by blockchain
         const allProviders = ProviderRegistry.getAllProviders();

@@ -5,7 +5,7 @@
 import type { RateLimitConfig } from '@crypto/core';
 
 // Import all providers to trigger registration
-import '../blockchains/registry/register-providers.ts';
+import '../blockchains/registry/register-apis.ts';
 import { ProviderRegistry } from '../infrastructure/blockchains/shared/registry/index.ts';
 import type { ProviderCapabilities } from '../infrastructure/blockchains/shared/types.ts';
 

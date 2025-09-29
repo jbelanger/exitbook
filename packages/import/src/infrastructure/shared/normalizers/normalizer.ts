@@ -1,30 +1,23 @@
 import { type Result, err, ok } from 'neverthrow';
 
 import type { ImportSessionMetadata } from '../../../app/ports/processors.ts';
-import { TransactionMapperFactory } from '../../shared/processors/processor-registry.js';
+import { TransactionMapperFactory } from '../processors/processor-registry.ts';
 
-import type { BitcoinTransaction } from './types.js';
-// Import processors to trigger registration
-import './mappers/index.js';
 /**
- * BitcoinNormalizer handles pure data extraction from provider-specific JSON
- * to normalized Bitcoin transaction format with structured input/output data.
+ * DefaultNormalizer handles pure data extraction from provider-specific JSON
+ * to normalized blockchain transaction format with structured input/output data.
  *
  * Responsibility: "What happened on-chain?" - Pure factual data transformation
  * - Uses existing mapper factory to dispatch to provider-specific mappers
  * - Mappers extract structured input/output data for fund flow analysis
- * - Returns NormalizedBitcoinTransaction for processor to apply business logic
+ * - Returns normalized blockchain transactions for processor to apply business logic
  * - Stateless - no database access or historical context
  */
-export class BitcoinNormalizer {
+export class DefaultNormalizer {
   /**
    * Normalize Bitcoin transaction data from any provider to NormalizedBitcoinTransaction
    */
-  normalize(
-    rawData: unknown,
-    providerId: string,
-    sessionContext: ImportSessionMetadata
-  ): Result<BitcoinTransaction, string> {
+  normalize(rawData: unknown, providerId: string, sessionContext: ImportSessionMetadata): Result<unknown, string> {
     // Get the appropriate mapper for this provider (same as current processor)
     const mapper = TransactionMapperFactory.create(providerId);
     if (!mapper) {
@@ -47,6 +40,6 @@ export class BitcoinNormalizer {
       return err(`No valid transaction object returned from ${providerId} mapper`);
     }
 
-    return ok(blockchainTransaction as BitcoinTransaction);
+    return ok(blockchainTransaction);
   }
 }

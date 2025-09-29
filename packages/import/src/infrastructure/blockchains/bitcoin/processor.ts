@@ -241,7 +241,7 @@ export class BitcoinTransactionProcessor extends BaseProcessor {
    */
   private determineTransactionTypeFromFundFlow(
     fundFlow: BitcoinFundFlow,
-    sessionMetadata: ImportSessionMetadata
+    _sessionMetadata: ImportSessionMetadata
   ): 'deposit' | 'withdrawal' | 'transfer' | 'fee' {
     const { isIncoming, isOutgoing, walletInput, walletOutput } = fundFlow;
 

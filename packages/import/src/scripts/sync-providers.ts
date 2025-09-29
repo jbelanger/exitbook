@@ -9,7 +9,7 @@ import { resolve } from 'node:path';
 import type { BlockchainExplorersConfig } from '@crypto/shared-utils';
 
 // Import all providers to trigger registration
-import '../blockchains/registry/register-providers.ts';
+import '../blockchains/registry/register-apis.ts';
 import { ProviderRegistry } from '../infrastructure/blockchains/shared/registry/index.ts';
 
 interface SyncResult {
