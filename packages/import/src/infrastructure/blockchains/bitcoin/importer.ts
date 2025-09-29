@@ -50,10 +50,6 @@ export class BitcoinTransactionImporter extends BaseImporter {
 
     this.logger.info(`Starting Bitcoin transaction import for address: ${params.address.substring(0, 20)}...`);
 
-    const allSourcedTransactions: ApiClientRawData[] = [];
-
-    this.logger.info(`Importing transactions for address: ${params.address.substring(0, 20)}...`);
-
     // Initialize wallet for this address (handles both xpub and regular addresses)
     const wallet: BitcoinWalletAddress = {
       address: params.address,
@@ -69,35 +65,21 @@ export class BitcoinTransactionImporter extends BaseImporter {
 
     this.walletAddresses.push(wallet);
 
-    if (wallet.derivedAddresses) {
-      // Xpub wallet - fetch from all derived addresses
-      this.logger.info(`Fetching from ${wallet.derivedAddresses.length} derived addresses`);
-      const walletSourcedTransactions = await this.fetchRawTransactionsForDerivedAddresses(
-        wallet.derivedAddresses,
-        params.since
-      );
-      allSourcedTransactions.push(...walletSourcedTransactions);
-    } else {
-      // Regular address - fetch directly
-      const result = await this.fetchRawTransactionsForAddress(params.address, params.since);
-      if (result.isErr()) {
-        this.logger.error(
-          `Failed to import transactions for address ${params.address} - Error: ${result.error.message}`
-        );
-        return err(result.error);
-      }
-      allSourcedTransactions.push(...result.value);
-    }
+    // Fetch transactions based on wallet type
+    const result = wallet.derivedAddresses
+      ? await this.fetchFromXpubWallet(wallet.derivedAddresses, params.since)
+      : await this.fetchRawTransactionsForAddress(params.address, params.since);
 
-    this.logger.info(`Bitcoin import completed: ${allSourcedTransactions.length} transactions`);
-
-    // Include derived addresses in metadata if this is an xpub wallet
-    const metadata = wallet.derivedAddresses ? { derivedAddresses: wallet.derivedAddresses } : undefined;
-
-    return ok({
-      metadata,
-      rawData: allSourcedTransactions,
-    });
+    return result
+      .map((allSourcedTransactions) => {
+        this.logger.info(`Bitcoin import completed: ${allSourcedTransactions.length} transactions`);
+        const metadata = wallet.derivedAddresses ? { derivedAddresses: wallet.derivedAddresses } : undefined;
+        return { metadata, rawData: allSourcedTransactions };
+      })
+      .mapErr((error) => {
+        this.logger.error(`Failed to import transactions for address ${params.address} - Error: ${error.message}`);
+        return error;
+      });
   }
 
   /**
@@ -131,6 +113,18 @@ export class BitcoinTransactionImporter extends BaseImporter {
   }
 
   /**
+   * Fetch transactions from xpub wallet's derived addresses.
+   */
+  private async fetchFromXpubWallet(
+    derivedAddresses: string[],
+    since?: number
+  ): Promise<Result<ApiClientRawData[], Error>> {
+    this.logger.info(`Fetching from ${derivedAddresses.length} derived addresses`);
+    const allSourcedTransactions = await this.fetchRawTransactionsForDerivedAddresses(derivedAddresses, since);
+    return ok(allSourcedTransactions);
+  }
+
+  /**
    * Fetch raw transactions for a single address with provider provenance.
    */
   private async fetchRawTransactionsForAddress(
@@ -145,24 +139,19 @@ export class BitcoinTransactionImporter extends BaseImporter {
       type: 'getRawAddressTransactions',
     });
 
-    if (result.isErr()) {
-      this.logger.error(`Provider manager failed to fetch transactions for ${address}: ${result.error.message}`);
-      return err(result.error);
-    }
+    return result.map((response) => {
+      const rawTransactions = response.data as unknown[];
+      const providerId = response.providerName;
 
-    const rawTransactions = result.value.data as unknown[];
-    const providerId = result.value.providerName;
-
-    // Wrap each transaction with provider provenance
-    return ok(
-      rawTransactions.map((rawData) => ({
+      // Wrap each transaction with provider provenance
+      return rawTransactions.map((rawData) => ({
         metadata: {
           providerId,
           sourceAddress: address,
         },
         rawData,
-      }))
-    );
+      }));
+    });
   }
 
   /**

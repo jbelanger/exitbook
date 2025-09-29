@@ -1,5 +1,5 @@
 import type { ApiClientRawData, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
-import { err, ok, type Result } from 'neverthrow';
+import { err, type Result } from 'neverthrow';
 
 import { BaseImporter } from '../../shared/importers/base-importer.js';
 import type { BlockchainProviderManager, ProviderError } from '../shared/blockchain-provider-manager.js';
@@ -59,25 +59,17 @@ export class PolkadotTransactionImporter extends BaseImporter {
 
     this.logger.info(`Starting Polkadot transaction import for address: ${params.address.substring(0, 20)}...`);
 
-    const allSourcedTransactions: ApiClientRawData[] = [];
-
-    this.logger.info(`Importing transactions for Polkadot address: ${params.address.substring(0, 20)}...`);
-
     const result = await this.fetchRawTransactionsForAddress(params.address, params.since);
 
-    if (result.isErr()) {
-      this.logger.error(`Failed to import transactions for address ${params.address} - Error: ${result.error.message}`);
-      return err(result.error);
-    }
-
-    const rawTransactions = result.value;
-    allSourcedTransactions.push(...rawTransactions);
-
-    this.logger.info(`Polkadot transaction import completed - Total: ${allSourcedTransactions.length}`);
-
-    return ok({
-      rawData: allSourcedTransactions,
-    });
+    return result
+      .map((rawTransactions) => {
+        this.logger.info(`Polkadot transaction import completed - Total: ${rawTransactions.length}`);
+        return { rawData: rawTransactions };
+      })
+      .mapErr((error) => {
+        this.logger.error(`Failed to import transactions for address ${params.address} - Error: ${error.message}`);
+        return error;
+      });
   }
 
   /**
@@ -124,32 +116,29 @@ export class PolkadotTransactionImporter extends BaseImporter {
       type: 'getRawAddressTransactions',
     });
 
-    if (result.isErr()) {
-      this.logger.error(`Failed to fetch transactions for address ${address}: ${result.error.message}`);
-      return err(result.error);
-    }
+    return result.map((response) => {
+      // Transform raw response to individual transactions with provider provenance
+      const rawData = response.data;
+      if (rawData && typeof rawData === 'object' && 'data' in rawData) {
+        const substrateTxData = rawData as { data: SubscanTransfer[] };
 
-    // Transform raw response to individual transactions with provider provenance
-    const rawData = result.value.data;
-    if (rawData && typeof rawData === 'object' && 'data' in rawData) {
-      const substrateTxData = rawData as { data: SubscanTransfer[] };
+        if (Array.isArray(substrateTxData.data)) {
+          const rawTransactions: ApiClientRawData[] = substrateTxData.data.map((transfer) => ({
+            metadata: { providerId: response.providerName },
+            rawData: transfer,
+          }));
 
-      if (Array.isArray(substrateTxData.data)) {
-        const rawTransactions: ApiClientRawData[] = substrateTxData.data.map((transfer) => ({
-          metadata: { providerId: result.value.providerName },
-          rawData: transfer,
-        }));
+          this.logger.debug(
+            `Imported ${rawTransactions.length} raw transactions for address via provider ${response.providerName}`
+          );
 
-        this.logger.info(
-          `Imported ${rawTransactions.length} raw transactions for address via provider ${result.value.providerName}`
-        );
-
-        return ok(rawTransactions);
+          return rawTransactions;
+        }
       }
-    }
 
-    this.logger.warn(`Unexpected data format from provider ${result.value.providerName} for address ${address}`);
-    return ok([]);
+      this.logger.warn(`Unexpected data format from provider ${response.providerName} for address ${address}`);
+      return [];
+    });
   }
 
   /**

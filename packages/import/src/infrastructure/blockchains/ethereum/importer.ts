@@ -40,8 +40,6 @@ export class EthereumTransactionImporter extends BaseImporter {
       return err(new Error('Cannot import - validation failed'));
     }
 
-    const allRawData: ApiClientRawData[] = [];
-
     if (!params.address) {
       return ok({
         rawData: [],
@@ -51,10 +49,9 @@ export class EthereumTransactionImporter extends BaseImporter {
     const address = params.address;
 
     this.logger.info(`Starting Ethereum import for ${address}`);
-
     this.logger.info(`Fetching Ethereum transactions for address: ${address.substring(0, 20)}...`);
 
-    // Fetch regular ETH transactions
+    // Fetch regular ETH transactions (required)
     const regularTxsResult = await this.fetchRegularTransactions(address, params.since);
     if (regularTxsResult.isErr()) {
       this.logger.error(
@@ -62,18 +59,20 @@ export class EthereumTransactionImporter extends BaseImporter {
       );
       return err(regularTxsResult.error);
     }
-    const regularTxs = regularTxsResult.value;
-    allRawData.push(...regularTxs);
 
-    // Fetch ERC-20 token transactions (if supported by provider)
+    const regularTxs = regularTxsResult.value;
+
+    // Fetch ERC-20 token transactions (optional)
     const tokenTxsResult = await this.fetchTokenTransactions(address, params.since);
-    const tokenTxs = tokenTxsResult.isOk() ? tokenTxsResult.value : [];
-    allRawData.push(...tokenTxs);
+    const allRawData = tokenTxsResult.isOk() ? [...regularTxs, ...tokenTxsResult.value] : regularTxs;
+
+    if (tokenTxsResult.isErr()) {
+      this.logger.debug(`Token transactions not available: ${tokenTxsResult.error.message}`);
+    }
 
     this.logger.info(
-      `Ethereum import for ${address.substring(0, 20)}... - Regular: ${regularTxs.length}, Token: ${tokenTxs.length}, Total: ${regularTxs.length + tokenTxs.length}`
+      `Ethereum import for ${address.substring(0, 20)}... - Regular: ${regularTxs.length}, Token: ${tokenTxsResult.isOk() ? tokenTxsResult.value.length : 0}, Total: ${allRawData.length}`
     );
-
     this.logger.info(`Ethereum import completed - Raw transactions collected: ${allRawData.length}`);
 
     return ok({
@@ -118,20 +117,15 @@ export class EthereumTransactionImporter extends BaseImporter {
       type: 'getRawAddressTransactions',
     });
 
-    if (result.isErr()) {
-      this.logger.error(`Failed to fetch regular transactions for ${address} - Error: ${result.error.message}`);
-      return err(result.error);
-    }
+    return result.map((response) => {
+      const rawTransactions = Array.isArray(response.data) ? response.data : [response.data];
 
-    const rawTransactions = Array.isArray(result.value.data) ? result.value.data : [result.value.data];
-
-    // Create raw data entries with provider provenance
-    return ok(
-      rawTransactions.map((tx: unknown) => ({
-        metadata: { providerId: result.value.providerName, sourceAddress: address, transactionType: 'normal' },
+      // Create raw data entries with provider provenance
+      return rawTransactions.map((tx: unknown) => ({
+        metadata: { providerId: response.providerName, sourceAddress: address, transactionType: 'normal' },
         rawData: tx,
-      }))
-    );
+      }));
+    });
   }
 
   /**
@@ -149,23 +143,15 @@ export class EthereumTransactionImporter extends BaseImporter {
       type: 'getTokenTransactions',
     });
 
-    if (result.isErr()) {
-      // Token transactions are optional - providers may not support them
-      this.logger.debug(
-        `Token transactions not available for ${address} or provider doesn't support them - Error: ${result.error.message}`
-      );
-      return err(result.error);
-    }
+    return result.map((response) => {
+      const rawTokenTransactions = Array.isArray(response.data) ? response.data : [response.data];
 
-    const rawTokenTransactions = Array.isArray(result.value.data) ? result.value.data : [result.value.data];
-
-    // Create raw data entries with provider provenance
-    return ok(
-      rawTokenTransactions.map((tx: unknown) => ({
-        metadata: { providerId: result.value.providerName, sourceAddress: address, transactionType: 'token' },
+      // Create raw data entries with provider provenance
+      return rawTokenTransactions.map((tx: unknown) => ({
+        metadata: { providerId: response.providerName, sourceAddress: address, transactionType: 'token' },
         rawData: tx,
-      }))
-    );
+      }));
+    });
   }
 
   /**

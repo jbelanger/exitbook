@@ -57,17 +57,16 @@ export class AvalancheTransactionImporter extends BaseImporter {
     }
 
     const result = await this.fetchRawTransactionsForAddress(params.address, params.since);
-    if (result.isErr()) {
-      this.logger.error(`Failed to import transactions for address ${params.address} - Error: ${result.error.message}`);
-      return err(result.error);
-    }
 
-    const addressTransactions = result.value;
-
-    this.logger.info(`Total transactions imported: ${addressTransactions.length}`);
-    return ok({
-      rawData: addressTransactions,
-    });
+    return result
+      .map((addressTransactions) => {
+        this.logger.info(`Total transactions imported: ${addressTransactions.length}`);
+        return { rawData: addressTransactions };
+      })
+      .mapErr((error) => {
+        this.logger.error(`Failed to import transactions for address ${params.address} - Error: ${error.message}`);
+        return error;
+      });
   }
 
   /**
@@ -84,8 +83,6 @@ export class AvalancheTransactionImporter extends BaseImporter {
     address: string,
     since?: number
   ): Promise<Result<ApiClientRawData[], ProviderError>> {
-    const rawTransactions: ApiClientRawData[] = [];
-
     // Fetch normal and internal transactions
     const normalResult = await this.providerManager.executeWithFailover('avalanche', {
       address,
@@ -95,36 +92,41 @@ export class AvalancheTransactionImporter extends BaseImporter {
       type: 'getRawAddressTransactions',
     });
 
-    if (normalResult.isErr()) {
-      this.logger.error(`Failed to fetch normal transactions for address ${address}: ${normalResult.error.message}`);
-      return err(normalResult.error);
-    }
+    const processedNormalResult = normalResult.map((response) => {
+      const rawTransactions: ApiClientRawData[] = [];
 
-    if (normalResult.value.data) {
-      const compositeData = normalResult.value.data as {
-        internal: SnowtraceInternalTransaction[];
-        normal: SnowtraceTransaction[];
-      };
+      if (response.data) {
+        const compositeData = response.data as {
+          internal: SnowtraceInternalTransaction[];
+          normal: SnowtraceTransaction[];
+        };
 
-      // Process normal transactions
-      if (compositeData.normal && Array.isArray(compositeData.normal)) {
-        for (const tx of compositeData.normal) {
-          rawTransactions.push({
-            metadata: { providerId: normalResult.value.providerName, transactionType: 'normal' },
-            rawData: tx,
-          });
+        // Process normal transactions
+        if (compositeData.normal && Array.isArray(compositeData.normal)) {
+          for (const tx of compositeData.normal) {
+            rawTransactions.push({
+              metadata: { providerId: response.providerName, transactionType: 'normal' },
+              rawData: tx,
+            });
+          }
+        }
+
+        // Process internal transactions
+        if (compositeData.internal && Array.isArray(compositeData.internal)) {
+          for (const tx of compositeData.internal) {
+            rawTransactions.push({
+              metadata: { providerId: response.providerName, transactionType: 'internal' },
+              rawData: tx,
+            });
+          }
         }
       }
 
-      // Process internal transactions
-      if (compositeData.internal && Array.isArray(compositeData.internal)) {
-        for (const tx of compositeData.internal) {
-          rawTransactions.push({
-            metadata: { providerId: normalResult.value.providerName, transactionType: 'internal' },
-            rawData: tx,
-          });
-        }
-      }
+      return rawTransactions;
+    });
+
+    if (processedNormalResult.isErr()) {
+      return processedNormalResult;
     }
 
     // Fetch token transactions separately
@@ -136,22 +138,28 @@ export class AvalancheTransactionImporter extends BaseImporter {
       type: 'getTokenTransactions',
     });
 
-    if (tokenResult.isErr()) {
-      this.logger.debug(
-        `No token transactions available for ${address.substring(0, 20)}...: ${tokenResult.error.message}`
-      );
-    } else if (tokenResult.value.data && Array.isArray(tokenResult.value.data)) {
-      const tokenTransactions = tokenResult.value.data as SnowtraceTokenTransfer[];
-      for (const tx of tokenTransactions) {
-        rawTransactions.push({
-          metadata: { providerId: tokenResult.value.providerName, transactionType: 'token' },
-          rawData: tx,
-        });
-      }
-    }
+    return tokenResult
+      .map((response) => {
+        const allTransactions = [...processedNormalResult.value];
 
-    this.logger.debug(`Fetched ${rawTransactions.length} transactions for address: ${address.substring(0, 20)}...`);
-    return ok(rawTransactions);
+        if (response.data && Array.isArray(response.data)) {
+          const tokenTransactions = response.data as SnowtraceTokenTransfer[];
+          for (const tx of tokenTransactions) {
+            allTransactions.push({
+              metadata: { providerId: response.providerName, transactionType: 'token' },
+              rawData: tx,
+            });
+          }
+        }
+
+        this.logger.debug(`Fetched ${allTransactions.length} transactions for address: ${address.substring(0, 20)}...`);
+        return allTransactions;
+      })
+      .orElse((error) => {
+        // Token transactions are optional, so if they fail, just return normal transactions
+        this.logger.debug(`No token transactions available for ${address.substring(0, 20)}...: ${error.message}`);
+        return ok(processedNormalResult.value);
+      });
   }
 
   /**

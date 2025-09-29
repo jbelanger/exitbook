@@ -1,5 +1,5 @@
 import type { ApiClientRawData, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
-import { err, ok, type Result } from 'neverthrow';
+import { err, type Result } from 'neverthrow';
 
 import { BaseImporter } from '../../shared/importers/base-importer.js';
 import type { BlockchainProviderManager, ProviderError } from '../shared/blockchain-provider-manager.js';
@@ -60,28 +60,17 @@ export class SolanaTransactionImporter extends BaseImporter {
 
     this.logger.info(`Starting Solana transaction import for address: ${params.address.substring(0, 20)}...`);
 
-    const allSourcedTransactions: ApiClientRawData[] = [];
-
-    this.logger.info(`Importing transactions for address: ${params.address.substring(0, 20)}...`);
-
     const result = await this.fetchRawTransactionsForAddress(params.address, params.since);
 
-    if (result.isErr()) {
-      this.logger.error(`Failed to import transactions for address ${params.address} - Error: ${result.error.message}`);
-      return err(result.error);
-    }
-
-    const rawTransactions = result.value;
-
-    allSourcedTransactions.push(...rawTransactions);
-
-    this.logger.info(`Found ${rawTransactions.length} transactions for address ${params.address.substring(0, 20)}...`);
-
-    this.logger.info(`Solana import completed: ${rawTransactions.length} transactions`);
-
-    return ok({
-      rawData: allSourcedTransactions,
-    });
+    return result
+      .map((rawTransactions) => {
+        this.logger.info(`Solana import completed: ${rawTransactions.length} transactions`);
+        return { rawData: rawTransactions };
+      })
+      .mapErr((error) => {
+        this.logger.error(`Failed to import transactions for address ${params.address} - Error: ${error.message}`);
+        return error;
+      });
   }
 
   /**
@@ -129,20 +118,17 @@ export class SolanaTransactionImporter extends BaseImporter {
       type: 'getRawAddressTransactions',
     });
 
-    if (result.isErr()) {
-      this.logger.error(`Provider manager failed to fetch transactions for ${address}: ${result.error.message}`);
-      return err(result.error);
-    }
+    return result.map((response) => {
+      const rawTransactionData = response.data as SolanaRawTransactionData;
+      const providerId = response.providerName;
 
-    const rawTransactionData = result.value.data as SolanaRawTransactionData;
-    const providerId = result.value.providerName;
-
-    // Return as array with single element containing all transactions
-    return ok([
-      {
-        metadata: { providerId, sourceAddress: address },
-        rawData: rawTransactionData,
-      },
-    ]);
+      // Return as array with single element containing all transactions
+      return [
+        {
+          metadata: { providerId, sourceAddress: address },
+          rawData: rawTransactionData,
+        },
+      ];
+    });
   }
 }

@@ -1,5 +1,5 @@
 import type { ImportParams, ImportRunResult, ApiClientRawData } from '@exitbook/import/app/ports/importers.js';
-import { err, ok, type Result } from 'neverthrow';
+import { err, type Result } from 'neverthrow';
 
 import { BaseImporter } from '../../shared/importers/base-importer.js';
 import type { BlockchainProviderManager, ProviderError } from '../shared/blockchain-provider-manager.js';
@@ -47,23 +47,17 @@ export class InjectiveTransactionImporter extends BaseImporter {
 
     this.logger.info(`Starting Injective transaction import for address: ${params.address.substring(0, 20)}...`);
 
-    this.logger.info(`Importing transactions for address: ${params.address.substring(0, 20)}...`);
-
     const result = await this.fetchRawTransactionsForAddress(params.address, params.since);
 
-    if (result.isErr()) {
-      this.logger.error(`Failed to import transactions for address ${params.address} - Error: ${result.error.message}`);
-      return err(result.error);
-    }
-
-    const rawTransactions = result.value;
-
-    this.logger.info(`Found ${rawTransactions.length} transactions for address ${params.address.substring(0, 20)}...`);
-
-    this.logger.info(`Injective import completed: ${rawTransactions.length} transactions`);
-    return ok({
-      rawData: rawTransactions,
-    });
+    return result
+      .map((rawTransactions) => {
+        this.logger.info(`Injective import completed: ${rawTransactions.length} transactions`);
+        return { rawData: rawTransactions };
+      })
+      .mapErr((error) => {
+        this.logger.error(`Failed to import transactions for address ${params.address} - Error: ${error.message}`);
+        return error;
+      });
   }
 
   /**
@@ -111,21 +105,16 @@ export class InjectiveTransactionImporter extends BaseImporter {
       type: 'getRawAddressTransactions',
     });
 
-    if (result.isErr()) {
-      this.logger.error(`Provider manager failed to fetch transactions for ${address}: ${result.error.message}`);
-      return err(result.error);
-    }
+    return result.map((response) => {
+      const rawTransactions = response.data as InjectiveExplorerTransaction[];
+      const providerId = response.providerName;
 
-    const rawTransactions = result.value.data as InjectiveExplorerTransaction[];
-    const providerId = result.value.providerName;
-
-    // Wrap each transaction with provider provenance and source address context
-    return ok(
-      rawTransactions.map((rawData) => ({
+      // Wrap each transaction with provider provenance and source address context
+      return rawTransactions.map((rawData) => ({
         metadata: { providerId, sourceAddress: address },
         rawData,
-      }))
-    );
+      }));
+    });
   }
 
   /**

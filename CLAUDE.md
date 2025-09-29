@@ -2,189 +2,239 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Commands
+## Build & Test Commands
 
-### Core Development Commands
+### Core Commands
 
-- `pnpm build` - Build the TypeScript CLI application (~4 seconds)
-- `pnpm dev` - Run the CLI in development mode with hot reload
-- `pnpm test` - Run unit tests (~2 seconds, Vitest)
-- `pnpm test:watch` - Run tests in watch mode
-- `pnpm test:coverage` - Run tests with coverage report
+- `pnpm install` - Install dependencies (~25 seconds, never cancel, set 60+ min timeout)
+- `pnpm build` - Build TypeScript (~4 seconds, validates compilation)
+- `pnpm test` - Run unit tests with Vitest
 - `pnpm test:e2e` - Run end-to-end tests (requires API keys)
-- `pnpm typecheck` - TypeScript type checking (~12 seconds)
-- `pnpm lint` - ESLint checking (~8 seconds)
-- `pnpm prettier` - Check code formatting
+- `pnpm test:watch` - Run tests in watch mode
+- `pnpm lint` - Run ESLint
 - `pnpm prettier:fix` - Auto-fix formatting issues
 
-### Application Commands
+### CLI Commands
 
-- `pnpm status` - Show system status (database, transactions, verifications)
 - `pnpm dev --help` - Show CLI help
-- `pnpm dev import --help` - Show detailed import options
-- `pnpm dev import --blockchain bitcoin --addresses <address>` - Import from Bitcoin blockchain
-- `pnpm dev verify --help` - Show balance verification options
+- `pnpm status` - Show system status (transactions, sessions, verifications)
+- `pnpm dev import --blockchain <name> --addresses <address>` - Import from blockchain
+- `pnpm dev import --exchange <name>` - Import from exchange
+- `pnpm dev verify --exchange <name>` - Verify exchange balances
+- `pnpm dev verify --blockchain <name>` - Verify blockchain balances
 
-### Provider Management Commands
+### Provider Management
 
 - `pnpm blockchain-providers:list` - List all registered blockchain providers
-- `pnpm blockchain-providers:validate` - Validate provider registrations
-- `pnpm providers:list` - List providers from import package
-- `pnpm providers:sync` - Sync provider configurations
-- `pnpm providers:validate` - Validate provider implementations
+- `pnpm blockchain-providers:validate` - Validate provider registrations and configurations
 
-### Testing a Single Test File
+### Run Single Test
 
 ```bash
-# Run specific test file
-vitest run packages/import/src/blockchains/bitcoin/api/__tests__/TatumBitcoinApiClient.test.ts
-
-# Run specific test pattern
-vitest run --grep "Bitcoin API"
+pnpm vitest run <path/to/test-file.test.ts>
 ```
 
 ## Architecture
 
 ### Monorepo Structure
 
-```
-apps/cli/                    # Main CLI application
-packages/core/               # Domain entities & shared types
-packages/import/             # Transaction import domain
-  ├── blockchains/          # Blockchain-specific implementations (6 networks)
-  ├── exchanges/            # Exchange adapters (CCXT, native, universal)
-  ├── shared/               # Provider registry & shared utilities
-  └── services/             # Import orchestration services
-packages/balance/            # Balance verification services
-packages/data/               # Database, repositories & storage
-packages/shared/             # Cross-cutting concerns (logging, utils)
-```
+- **apps/cli/** - CLI application entry point using Commander
+- **packages/core/** - Domain entities, types, Zod schemas, and universal utilities
+- **packages/import/** - Transaction import domain (exchanges, blockchains, processors)
+- **packages/balance/** - Balance calculation and verification services
+- **packages/data/** - Kysely database layer, migrations, and repositories
+- **packages/shared-logger/** - Structured logging with Pino
+- **packages/shared-utils/** - Cross-cutting utilities
 
-### Provider Registry System
+### Import System Architecture
 
-The system uses a decorator-based provider registration pattern:
+The import system follows a layered architecture with dependency inversion:
 
-- **`@RegisterApiClient`** decorator in `packages/import/src/blockchains/shared/registry/decorators.ts`
-- **Provider Registry** in `packages/import/src/blockchains/shared/registry/provider-registry.ts`
-- **Auto-discovery** of providers through metadata-driven instantiation
-- **Type-safe configuration** with compile-time checking
+**Importer Layer** → **Processor Layer** → **Repository Layer**
 
-Example provider registration:
+1. **Importers** (`packages/import/src/infrastructure/blockchains/*/importer.ts`, `packages/import/src/infrastructure/exchanges/*/importer.ts`)
+   - Fetch raw transaction data from external APIs
+   - Return `Result<ImportRunResult, Error>` with `rawData: ApiClientRawData[]`
+   - Each importer extends `BaseImporter` and implements `IImporter` interface
+   - Handle blockchain/exchange-specific API authentication and pagination
+
+2. **Processors** (`packages/import/src/infrastructure/blockchains/*/processor.ts`, `packages/import/src/infrastructure/exchanges/*/processor.ts`)
+   - Transform raw API data into normalized `StoredTransaction` records
+   - Return `Result<StoredTransaction[], Error>` using neverthrow
+   - Map blockchain/exchange-specific fields to universal transaction format
+   - Handle data validation with Zod schemas
+
+3. **Provider System** (Blockchain only)
+   - Multi-provider failover architecture for blockchain importers
+   - Each blockchain has multiple API providers (e.g., Bitcoin: mempool.space, blockchain.com, blockcypher)
+   - Automatic provider selection and failover on errors
+   - Configuration in `apps/cli/config/blockchain-explorers.json`
+
+4. **Repository Layer**
+   - `TransactionRepository` - Store processed transactions
+   - `RawDataRepository` - Store raw API responses with provider metadata
+   - `ImportSessionRepository` - Track import sessions and errors
+
+### Result Type Pattern
+
+The codebase uses `neverthrow` for functional error handling:
 
 ```typescript
-@RegisterApiClient({
-  blockchain: 'bitcoin',
-  provider: 'mempool.space',
-  // ... other metadata
-})
-export class MempoolSpaceApiClient implements IBlockchainProvider {
-  // Implementation
+import { ok, err, type Result } from 'neverthrow';
+
+// Functions return Result<T, E> instead of throwing
+async function processData(): Promise<Result<Transaction[], Error>> {
+  if (hasError) {
+    return err(new Error('Failed to process'));
+  }
+  return ok(transactions);
 }
+
+// Chain operations with .map() and .mapErr()
+const result = await fetchData()
+  .map((data) => transform(data))
+  .mapErr((error) => new CustomError(error.message));
+
+// Check result with .isOk() / .isErr()
+if (result.isErr()) {
+  logger.error(result.error.message);
+  return err(result.error);
+}
+return ok(result.value);
 ```
 
-### Multi-Provider Resilience Architecture
+### Key Domain Types
 
-- **Circuit Breaker Pattern**: Three-state finite state machine (Closed/Open/Half-Open)
-- **Automatic Failover**: 12+ blockchain data providers across 6 networks
-- **Rate Limiting**: Intelligent request spacing and circuit protection
-- **Health Monitoring**: Real-time provider performance tracking
-- **Request Caching**: Optimized failover response times
+From `packages/core/src/types/`:
 
-### Blockchain Provider Structure
+- `Transaction` - Universal transaction model
+- `Balance` - Balance snapshot with verification metadata
+- `ImportSession` - Import run tracking with errors
 
-Each blockchain follows a consistent pattern:
+### Database
 
-```
-packages/import/src/blockchains/{blockchain}/
-├── api/                    # API client implementations
-├── mappers/               # Data transformation mappers
-├── schemas.ts             # Zod validation schemas
-├── transaction-importer.ts # Import orchestration
-├── transaction-processor.ts # Transaction processing logic
-├── types.ts               # TypeScript type definitions
-└── utils.ts               # Blockchain-specific utilities
-```
+- **ORM**: Kysely (type-safe SQL query builder)
+- **Database**: SQLite (`apps/cli/data/transactions.db`)
+- **Schema**: `packages/data/src/schema/database-schema.ts`
+- **Migrations**: `packages/data/src/migrations/`
+- Initialized automatically on first run via `initializeDatabase()`
 
-### Exchange Adapter Types
+### Blockchain Provider System
 
-- **CCXT Adapter**: Uses CCXT library for standardized exchange APIs
-- **Native Adapter**: Direct API implementations for specific exchanges
-- **Universal Adapter**: Flexible adapter supporting multiple data sources
+Each blockchain (Bitcoin, Ethereum, Avalanche, Solana, Injective, Polkadot) has:
 
-### Data Validation Pipeline
+- Multiple API providers for failover resilience
+- Provider-specific API client implementations
+- Shared mapper interfaces for data normalization
+- Configuration-driven provider registration
 
-- **Zod Schemas**: Runtime type validation and schema enforcement
-- **Log-and-Filter Strategy**: Maintains data integrity while logging issues
-- **Mathematical Constraints**: Financial data validation with Decimal.js precision
-- **Anomaly Detection**: Automatic detection and reporting of data irregularities
+Provider registration happens in:
 
-## Configuration
+- `register-apis.ts` - Register API clients
+- `register-mappers.ts` - Register data mappers
+- Auto-loaded by `BlockchainProviderManager` from config
 
-### Environment Setup
+### Exchange Integration
 
-Create `.env` file in `apps/cli/` for API keys:
+Exchanges use three adapter patterns:
+
+- **CCXT Adapter** - For exchanges supported by CCXT library
+- **Native Adapter** - Direct API integration (KuCoin, Kraken, Coinbase)
+- **Universal Adapter** - CSV/Ledger Live file imports
+
+## Environment Setup
+
+### Required for Testing
+
+Create `apps/cli/.env` with API keys:
 
 ```bash
-# Bitcoin providers
-BLOCKCYPHER_API_KEY=your_blockcypher_token
+# Bitcoin providers (mempool.space is free)
+BLOCKCYPHER_API_KEY=your_key
 
 # Ethereum providers
-ETHERSCAN_API_KEY=your_etherscan_api_key
+ETHERSCAN_API_KEY=your_key
+ALCHEMY_API_KEY=your_key
 
-# Exchange API Keys
-KUCOIN_API_KEY=your_kucoin_api_key
-KUCOIN_SECRET=your_kucoin_secret
-KUCOIN_PASSPHRASE=your_kucoin_passphrase
+# Exchange APIs
+KUCOIN_API_KEY=your_key
+KUCOIN_SECRET=your_secret
+KUCOIN_PASSPHRASE=your_passphrase
 ```
 
-### Key Configuration Files
+### Logger Configuration
 
-- **Blockchain Providers**: `apps/cli/config/blockchain-explorers.json`
-- **Database**: SQLite at `apps/cli/data/transactions.db` (auto-created)
-- **Logger Config**: `packages/shared/logger/.env.example`
+See `packages/shared-logger/.env.example` for logging options.
 
-## Database
+## Development Guidelines
 
-- **SQLite3** for local transaction storage with ACID compliance
-- **Automatic initialization** on first run
-- **Transaction deduplication** with hash-based and fuzzy matching
-- **Balance verification** cross-validation between calculated and live balances
+### Error Handling
 
-## Development Notes
+- Use `Result<T, Error>` from neverthrow, not exceptions
+- Return descriptive error messages
+- Log errors at appropriate levels (error, warn, info, debug)
 
-### Requirements
+### Type Safety
 
-- **Node.js**: >= 23.0.0 (runs on 20.19.4 with warnings)
-- **pnpm**: >= 10.6.2 package manager
+- All schemas defined with Zod in `*.schemas.ts` files
+- Runtime validation for external API data
+- Strict TypeScript compilation enabled
 
-### Adding New Blockchain Providers
+### Testing
 
-1. Create new directory in `packages/import/src/blockchains/{blockchain}/`
-2. Implement API clients in `api/` directory
-3. Use `@RegisterApiClient` decorator for auto-discovery
-4. Follow existing patterns from Bitcoin/Ethereum implementations
-5. Add configuration to `apps/cli/config/blockchain-explorers.json`
-6. Update provider validation scripts
+- Unit tests alongside source files: `*.test.ts`
+- E2E tests in `__tests__/` directories
+- Mock external API calls in unit tests
+- Real API integration in E2E tests (requires keys)
 
-### Financial Precision
+### Code Organization
 
-- **Decimal.js**: All financial calculations use Decimal.js for precision
-- **No floating point**: Avoid JavaScript number type for financial data
-- **Validation**: Mathematical constraints ensure data integrity
+- Keep importers focused on data fetching
+- Keep processors focused on data transformation
+- Separate concerns: ports (interfaces) vs infrastructure (implementations)
+- Use dependency injection for testability
 
-### Testing Strategy
+## Common Workflows
 
-- **Unit Tests**: Fast execution (~2 seconds) with Vitest
-- **E2E Tests**: Require API keys, test actual provider connections
-- **Provider Tests**: Validate blockchain provider implementations
-- **Focus**: Test your changes, not existing failures
+### Adding New Blockchain Provider
 
-## Validation Workflow
+1. Create provider directory: `packages/import/src/infrastructure/blockchains/<blockchain>/`
+2. Implement importer extending `BaseImporter`
+3. Implement processor with mapper from raw data to `StoredTransaction`
+4. Create provider API clients and schemas
+5. Register in `register-apis.ts` and `register-mappers.ts`
+6. Add configuration to `apps/cli/config/blockchain-explorers.json`
 
-After making changes, always run:
+### Adding New Exchange Adapter
 
-1. `pnpm build` - Ensure compilation succeeds
-2. `pnpm test` - Verify unit tests pass (ignore existing failures)
-3. `pnpm status` - Validate CLI functionality
-4. `pnpm blockchain-providers:validate` - Check provider registrations
-5. `pnpm prettier:fix && pnpm lint` - Format and lint before committing
+1. Create adapter directory: `packages/import/src/infrastructure/exchanges/<exchange>/`
+2. Implement importer extending `BaseImporter`
+3. Implement processor transforming raw data
+4. Create API client or CCXT adapter
+5. Add exchange configuration
+
+### Running Import Pipeline
+
+1. Importer fetches raw data from API
+2. Raw data saved to `raw_data` table with provider metadata
+3. Processor transforms raw data to normalized transactions
+4. Transactions saved to `transactions` table with deduplication
+5. Import session created in `import_sessions` table
+
+## Known Issues
+
+- Some TypeScript errors exist in older blockchain providers
+- Some lint errors exist in CCXT adapters
+- Node.js version warnings (requires v23, works on v20)
+- Ignore existing test failures unless modifying those files
+
+## Package Dependencies
+
+- `neverthrow` - Result type for error handling
+- `zod` - Runtime type validation and schemas
+- `decimal.js` - Precise financial calculations
+- `ccxt` - Exchange integration library
+- `bitcoinjs-lib` - Bitcoin address utilities
+- `commander` - CLI framework
+- `kysely` - Type-safe SQL query builder
+- `pino` - Structured logging
