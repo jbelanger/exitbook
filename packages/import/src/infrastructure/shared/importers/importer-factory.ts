@@ -63,7 +63,7 @@ export class ImporterFactory implements IImporterFactory {
     providerId: string | undefined
   ): Promise<IImporter> {
     // Dynamic import to avoid circular dependencies
-    const { AvalancheTransactionImporter } = await import('../../blockchains/avalanche/transaction-importer.js');
+    const { AvalancheTransactionImporter } = await import('../../blockchains/avalanche/importer.ts');
     return new AvalancheTransactionImporter(blockchainProviderManager, {
       preferredProvider: providerId,
     }) as unknown as IImporter;
@@ -77,7 +77,7 @@ export class ImporterFactory implements IImporterFactory {
     providerId: string | undefined
   ): Promise<IImporter> {
     // Dynamic import to avoid circular dependencies
-    const { BitcoinTransactionImporter } = await import('../../blockchains/bitcoin/transaction-importer.js');
+    const { BitcoinTransactionImporter } = await import('../../blockchains/bitcoin/importer.ts');
     return new BitcoinTransactionImporter(blockchainProviderManager, {
       preferredProvider: providerId,
     }) as unknown as IImporter;
@@ -91,9 +91,7 @@ export class ImporterFactory implements IImporterFactory {
     providerId: string | undefined
   ): Promise<IImporter> {
     // Dynamic import to avoid circular dependencies
-    const { BittensorTransactionImporter } = await import(
-      '../../blockchains/polkadot/bittensor-transaction-importer.js'
-    );
+    const { BittensorTransactionImporter } = await import('../../blockchains/polkadot/bittensor-importer.ts');
     return new BittensorTransactionImporter(blockchainProviderManager, {
       preferredProvider: providerId,
     }) as unknown as IImporter;
@@ -186,7 +184,7 @@ export class ImporterFactory implements IImporterFactory {
     providerId: string | undefined
   ): Promise<IImporter> {
     // Dynamic import to avoid circular dependencies
-    const { InjectiveTransactionImporter } = await import('../../blockchains/injective/transaction-importer.js');
+    const { InjectiveTransactionImporter } = await import('../../blockchains/injective/importer.ts');
     return new InjectiveTransactionImporter(blockchainProviderManager, {
       preferredProvider: providerId,
     }) as unknown as IImporter;
@@ -227,7 +225,7 @@ export class ImporterFactory implements IImporterFactory {
     providerId: string | undefined
   ): Promise<IImporter> {
     // Dynamic import to avoid circular dependencies
-    const { PolkadotTransactionImporter } = await import('../../blockchains/polkadot/transaction-importer.js');
+    const { PolkadotTransactionImporter } = await import('../../blockchains/polkadot/polkadot-importer.ts');
     return new PolkadotTransactionImporter(blockchainProviderManager, {
       preferredProvider: providerId,
     }) as unknown as IImporter;
@@ -241,7 +239,7 @@ export class ImporterFactory implements IImporterFactory {
     providerId: string | undefined
   ): Promise<IImporter> {
     // Dynamic import to avoid circular dependencies
-    const { SolanaTransactionImporter } = await import('../../blockchains/solana/transaction-importer.js');
+    const { SolanaTransactionImporter } = await import('../../blockchains/solana/importer.ts');
     return new SolanaTransactionImporter(blockchainProviderManager, {
       preferredProvider: providerId,
     }) as unknown as IImporter;

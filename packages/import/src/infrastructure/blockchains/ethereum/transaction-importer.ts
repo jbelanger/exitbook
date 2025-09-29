@@ -3,7 +3,7 @@ import { BaseImporter } from '../../shared/importers/base-importer.js';
 import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.js';
 
 // Ensure Ethereum API clients are registered
-import './api/index.js';
+import './register-apis.ts';
 
 /**
  * Ethereum transaction importer that fetches raw transaction data from blockchain APIs.

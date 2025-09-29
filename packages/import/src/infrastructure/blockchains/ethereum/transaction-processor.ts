@@ -7,7 +7,7 @@ import type { ApiClientRawData } from '../../../app/ports/importers.ts';
 import type { ImportSessionMetadata } from '../../../app/ports/processors.ts';
 
 // Import processors to trigger registration
-import './mappers/index.js';
+import './register-mappers.ts';
 import type { UniversalBlockchainTransaction } from '../../../app/ports/raw-data-mappers.ts';
 import { BaseProcessor } from '../../shared/processors/base-processor.js';
 import { TransactionMapperFactory } from '../../shared/processors/processor-registry.js';

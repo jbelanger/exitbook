@@ -5,7 +5,6 @@ import type { Logger } from '@crypto/shared-logger';
 import { getLogger } from '@crypto/shared-logger';
 import { type Result } from 'neverthrow';
 
-import type { ApiClientRawData } from '../../../app/ports/importers.ts';
 import type { IProcessor, ImportSessionMetadata, ProcessingImportSession } from '../../../app/ports/processors.ts';
 import type { UniversalBlockchainTransaction } from '../../../app/ports/raw-data-mappers.ts';
 import { detectScamFromSymbol } from '../utils/scam-detection.js';

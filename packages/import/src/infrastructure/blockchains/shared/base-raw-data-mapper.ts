@@ -2,7 +2,6 @@ import { type Result, err } from 'neverthrow';
 import type { ZodSchema } from 'zod';
 
 import type { ImportSessionMetadata } from '../../../app/ports/processors.ts';
-import type { UniversalBlockchainTransaction } from '../../../app/ports/raw-data-mappers.ts';
 import type { IRawDataMapper } from '../../../app/ports/raw-data-mappers.ts';
 
 /**

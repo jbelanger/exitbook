@@ -3,7 +3,7 @@ import { type Result, err, ok } from 'neverthrow';
 import type { ImportSessionMetadata } from '../../../app/ports/processors.ts';
 import { TransactionMapperFactory } from '../../shared/processors/processor-registry.js';
 
-import type { NormalizedBitcoinTransaction } from './types.js';
+import type { BitcoinTransaction } from './types.js';
 // Import processors to trigger registration
 import './mappers/index.js';
 /**
@@ -24,7 +24,7 @@ export class BitcoinNormalizer {
     rawData: unknown,
     providerId: string,
     sessionContext: ImportSessionMetadata
-  ): Result<NormalizedBitcoinTransaction, string> {
+  ): Result<BitcoinTransaction, string> {
     // Get the appropriate mapper for this provider (same as current processor)
     const mapper = TransactionMapperFactory.create(providerId);
     if (!mapper) {
@@ -47,6 +47,6 @@ export class BitcoinNormalizer {
       return err(`No valid transaction object returned from ${providerId} mapper`);
     }
 
-    return ok(blockchainTransaction as NormalizedBitcoinTransaction);
+    return ok(blockchainTransaction as BitcoinTransaction);
   }
 }

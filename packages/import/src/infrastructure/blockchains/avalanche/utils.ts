@@ -2,7 +2,24 @@ import { Decimal } from 'decimal.js';
 
 import type { UniversalBlockchainTransaction } from '../../../app/ports/raw-data-mappers.ts';
 
-import type { ClassificationResult, ValueFlow } from './types.js';
+interface ClassificationResult {
+  assets: {
+    amount: string;
+    direction: 'in' | 'out';
+    symbol: string;
+  }[];
+  primaryAmount: string;
+  primarySymbol: string;
+  reason: string;
+  type: 'deposit' | 'withdrawal' | 'trade' | 'fee';
+}
+
+interface ValueFlow {
+  amountIn: string;
+  amountOut: string;
+  netFlow: string;
+  symbol: string;
+}
 
 // Avalanche address validation
 export function isValidAvalancheAddress(address: string): boolean {

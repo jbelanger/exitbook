@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 
 import type { ApiClientRawData } from '../../../../app/ports/importers.ts';
 import type { ImportSessionMetadata } from '../../../../app/ports/processors.ts';
-import { PolkadotTransactionProcessor } from '../transaction-processor.js';
-import type { SubscanTransfer } from '../types.js';
+import { PolkadotTransactionProcessor } from '../processor.ts';
+import type { SubscanTransfer } from '../substrate/substrate.types.ts';
 
 // Type for accessing protected methods in tests
 type TestablePolkadotTransactionProcessor = PolkadotTransactionProcessor & {

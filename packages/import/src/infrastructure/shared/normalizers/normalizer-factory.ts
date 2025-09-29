@@ -1,6 +1,6 @@
 import type { IBlockchainNormalizer } from '../../../app/ports/blockchain-normalizers.ts';
 import { BitcoinNormalizer } from '../../blockchains/bitcoin/normalizer.js';
-import type { NormalizedBitcoinTransaction } from '../../blockchains/bitcoin/types.js';
+import type { BitcoinTransaction } from '../../blockchains/bitcoin/types.js';
 
 /**
  * Factory for creating blockchain-specific normalizers
@@ -9,7 +9,7 @@ export class NormalizerFactory {
   /**
    * Create a normalizer for the specified blockchain
    */
-  static createBitcoinNormalizer(): IBlockchainNormalizer<NormalizedBitcoinTransaction> {
+  static createBitcoinNormalizer(): IBlockchainNormalizer<BitcoinTransaction> {
     return new BitcoinNormalizer();
   }
 

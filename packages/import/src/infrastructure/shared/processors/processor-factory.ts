@@ -66,7 +66,7 @@ export class ProcessorFactory implements IProcessorFactory {
    */
   private async createAvalancheProcessor(): Promise<IProcessor> {
     // Dynamic import to avoid circular dependencies
-    const { AvalancheTransactionProcessor } = await import('../../blockchains/avalanche/transaction-processor.js');
+    const { AvalancheTransactionProcessor } = await import('../../blockchains/avalanche/processor.ts');
     return new AvalancheTransactionProcessor();
   }
 
@@ -75,7 +75,7 @@ export class ProcessorFactory implements IProcessorFactory {
    */
   private async createBitcoinProcessor(): Promise<IProcessor> {
     // Dynamic import to avoid circular dependencies
-    const { BitcoinTransactionProcessor } = await import('../../blockchains/bitcoin/transaction-processor.js');
+    const { BitcoinTransactionProcessor } = await import('../../blockchains/bitcoin/processor.ts');
     return new BitcoinTransactionProcessor();
   }
 
@@ -152,7 +152,7 @@ export class ProcessorFactory implements IProcessorFactory {
    */
   private async createInjectiveProcessor(): Promise<IProcessor> {
     // Dynamic import to avoid circular dependencies
-    const { InjectiveTransactionProcessor } = await import('../../blockchains/injective/transaction-processor.js');
+    const { InjectiveTransactionProcessor } = await import('../../blockchains/injective/processor.ts');
     return new InjectiveTransactionProcessor();
   }
 
@@ -188,7 +188,7 @@ export class ProcessorFactory implements IProcessorFactory {
    */
   private async createPolkadotProcessor(): Promise<IProcessor> {
     // Dynamic import to avoid circular dependencies
-    const { PolkadotTransactionProcessor } = await import('../../blockchains/polkadot/transaction-processor.js');
+    const { PolkadotTransactionProcessor } = await import('../../blockchains/polkadot/processor.ts');
     return new PolkadotTransactionProcessor();
   }
 
@@ -197,7 +197,7 @@ export class ProcessorFactory implements IProcessorFactory {
    */
   private async createSolanaProcessor(): Promise<IProcessor> {
     // Dynamic import to avoid circular dependencies
-    const { SolanaTransactionProcessor } = await import('../../blockchains/solana/transaction-processor.js');
+    const { SolanaTransactionProcessor } = await import('../../blockchains/solana/processor.ts');
     return new SolanaTransactionProcessor();
   }
 }
