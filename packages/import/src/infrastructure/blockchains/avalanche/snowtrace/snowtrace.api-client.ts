@@ -31,10 +31,10 @@ import type {
   },
   defaultConfig: {
     rateLimit: {
-      burstLimit: 3,
-      requestsPerHour: 100,
-      requestsPerMinute: 30,
-      requestsPerSecond: 1,
+      burstLimit: 8,
+      requestsPerHour: 12960,
+      requestsPerMinute: 216,
+      requestsPerSecond: 5,
     },
     retries: 3,
     timeout: 10000,

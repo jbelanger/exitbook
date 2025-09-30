@@ -23,9 +23,7 @@ export function createDatabase(dbPath?: string): Kysely<DatabaseSchema> {
   }
 
   // Create better-sqlite3 database instance
-  const sqliteDb = new Database(finalPath, {
-    verbose: (message) => logger.debug(message),
-  });
+  const sqliteDb = new Database(finalPath);
 
   // Configure SQLite pragmas for optimal performance and data integrity
   sqliteDb.pragma('foreign_keys = ON');

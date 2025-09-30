@@ -1,6 +1,7 @@
 import type { KyselyDB } from '@exitbook/data';
 import type { RawData } from '@exitbook/data';
 import { BaseRepository } from '@exitbook/data';
+import type { RawTransactionMetadata } from '@exitbook/import/app/ports/importers.js';
 import type { IRawDataRepository, LoadRawDataFilters } from '@exitbook/import/app/ports/raw-data-repository.js';
 
 /**
@@ -83,7 +84,12 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     this.logger.info({ count: rawTransactionIds.length, sourceId }, 'Successfully marked items as processed');
   }
 
-  async save(rawData: unknown, importSessionId: number, providerId: string, metadata?: unknown): Promise<number> {
+  async save(
+    rawData: unknown,
+    importSessionId: number,
+    providerId: string,
+    metadata?: RawTransactionMetadata
+  ): Promise<number> {
     this.logger.info('Saving raw data item');
 
     if (!rawData) {
@@ -115,6 +121,53 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
       }
 
       this.logger.info('Successfully saved raw data items');
+
+      return saved;
+    });
+  }
+
+  async saveBatch(
+    items: { metadata?: RawTransactionMetadata; providerId: string; rawData: unknown }[],
+    importSessionId: number
+  ): Promise<number> {
+    this.logger.info({ count: items.length }, 'Saving raw data batch');
+
+    if (items.length === 0) {
+      return 0;
+    }
+
+    return this.withTransaction(async (trx) => {
+      let saved = 0;
+      const createdAt = this.getCurrentDateTimeForDB();
+
+      for (const item of items) {
+        if (!item.rawData) {
+          continue;
+        }
+
+        try {
+          const result = await trx
+            .insertInto('external_transaction_data')
+            .values({
+              created_at: createdAt,
+              import_session_id: importSessionId,
+              metadata: this.serializeToJson(item.metadata) || undefined,
+              processing_status: 'pending',
+              provider_id: item.providerId,
+              raw_data: JSON.stringify(item.rawData),
+            })
+            .onConflict((oc) => oc.doNothing())
+            .execute();
+
+          if (result.length > 0) {
+            saved++;
+          }
+        } catch (error) {
+          this.logger.warn({ error, item }, 'Failed to save raw data item, continuing with others');
+        }
+      }
+
+      this.logger.info({ saved, total: items.length }, 'Successfully saved raw data batch');
 
       return saved;
     });

@@ -108,18 +108,16 @@ export class TransactionIngestionService {
 
       const importResult = importResultWrapper.value;
       const rawData = importResult.rawTransactions;
-      let savedCount = 0;
 
-      // Save each raw data item to storage
-      for (const element of rawData) {
-        await this.rawDataRepository.save(
-          element.rawData,
-          importSessionId,
-          element.metadata.providerId,
-          element.metadata
-        );
-        savedCount++;
-      }
+      // Save all raw data items to storage in a single transaction
+      const savedCount = await this.rawDataRepository.saveBatch(
+        rawData.map((element) => ({
+          metadata: element.metadata,
+          providerId: element.metadata.providerId,
+          rawData: element.rawData,
+        })),
+        importSessionId
+      );
 
       // Update session with success and metadata
       if (sessionCreated && typeof importSessionId === 'number') {

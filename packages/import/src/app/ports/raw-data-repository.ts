@@ -1,5 +1,7 @@
 import type { RawData } from '@exitbook/data';
 
+import type { RawTransactionMetadata } from './importers.js';
+
 export interface LoadRawDataFilters {
   importSessionId?: number | undefined;
   processingStatus?: 'pending' | 'processed' | 'failed' | undefined;
@@ -26,5 +28,18 @@ export interface IRawDataRepository {
   /**
    * Save external data items to storage.
    */
-  save(rawData: unknown, importSessionId: number, providerId: string, metadata?: unknown): Promise<number>;
+  save(
+    rawData: unknown,
+    importSessionId: number,
+    providerId: string,
+    metadata?: RawTransactionMetadata
+  ): Promise<number>;
+
+  /**
+   * Save multiple external data items to storage in a single transaction.
+   */
+  saveBatch(
+    items: { metadata?: RawTransactionMetadata; providerId: string; rawData: unknown }[],
+    importSessionId: number
+  ): Promise<number>;
 }
