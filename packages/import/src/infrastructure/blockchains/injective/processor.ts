@@ -1,10 +1,10 @@
-import type { UniversalTransaction } from '@exitbook/core';
-import type { ImportSessionMetadata } from '@exitbook/import/app/ports/processors.js';
 import type { ITransactionRepository } from '@exitbook/import/app/ports/transaction-repository.js';
+import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
 import { createMoney } from '@exitbook/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
-import { BaseProcessor } from '../../shared/processors/base-processor.js';
+import type { ImportSessionMetadata } from '../../../app/ports/transaction-processor.interface.ts';
+import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
 
 import type { InjectiveTransaction, InjectiveFundFlow } from './types.js';
 
@@ -13,7 +13,7 @@ import type { InjectiveTransaction, InjectiveFundFlow } from './types.js';
  * into UniversalTransaction format. Uses ProcessorFactory to dispatch to provider-specific
  * processors based on data provenance. Enhanced with sophisticated fund flow analysis.
  */
-export class InjectiveTransactionProcessor extends BaseProcessor {
+export class InjectiveTransactionProcessor extends BaseTransactionProcessor {
   constructor(private _transactionRepository?: ITransactionRepository) {
     super('injective');
   }

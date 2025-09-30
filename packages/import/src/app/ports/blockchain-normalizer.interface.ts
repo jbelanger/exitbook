@@ -1,6 +1,6 @@
 import type { Result } from 'neverthrow';
 
-import type { ImportSessionMetadata } from './processors.ts';
+import type { ImportSessionMetadata } from './transaction-processor.interface.ts';
 
 /**
  * Interface for blockchain-specific normalizers that coordinate

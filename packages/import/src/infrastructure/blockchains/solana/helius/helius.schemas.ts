@@ -41,11 +41,9 @@ export const HeliusTransactionSchema = z.object({
 });
 
 /**
- * Schema for Solana raw transaction data (Helius format)
+ * Schema for Solana raw transaction data (Helius format - single transaction)
  */
-export const SolanaRawTransactionDataSchema = z.object({
-  normal: z.array(HeliusTransactionSchema),
-});
+export const SolanaRawTransactionDataSchema = HeliusTransactionSchema;
 
 /**
  * Schema for Helius asset response

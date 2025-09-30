@@ -1,5 +1,5 @@
 import type {
-  ApiClientRawTransaction,
+  RawTransactionWithMetadata,
   IImporter,
   ImportParams,
   ImportRunResult,
@@ -94,7 +94,7 @@ export class BitcoinTransactionImporter implements IImporter {
   private async fetchFromXpubWallet(
     derivedAddresses: string[],
     since?: number
-  ): Promise<Result<ApiClientRawTransaction[], Error>> {
+  ): Promise<Result<RawTransactionWithMetadata[], Error>> {
     this.logger.info(`Fetching from ${derivedAddresses.length} derived addresses`);
     const allSourcedTransactions = await this.fetchRawTransactionsForDerivedAddresses(derivedAddresses, since);
     return ok(allSourcedTransactions);
@@ -106,7 +106,7 @@ export class BitcoinTransactionImporter implements IImporter {
   private async fetchRawTransactionsForAddress(
     address: string,
     since?: number
-  ): Promise<Result<ApiClientRawTransaction[], ProviderError>> {
+  ): Promise<Result<RawTransactionWithMetadata[], ProviderError>> {
     const result = await this.providerManager.executeWithFailover('bitcoin', {
       address: address,
       getCacheKey: (params) =>
@@ -136,8 +136,8 @@ export class BitcoinTransactionImporter implements IImporter {
   private async fetchRawTransactionsForDerivedAddresses(
     derivedAddresses: string[],
     since?: number
-  ): Promise<ApiClientRawTransaction[]> {
-    const uniqueTransactions = new Map<string, ApiClientRawTransaction>();
+  ): Promise<RawTransactionWithMetadata[]> {
+    const uniqueTransactions = new Map<string, RawTransactionWithMetadata>();
 
     for (const address of derivedAddresses) {
       // Check cache first to see if this address has any transactions

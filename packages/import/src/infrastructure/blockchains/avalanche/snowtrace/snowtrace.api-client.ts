@@ -1,7 +1,7 @@
 import { maskAddress } from '@exitbook/shared-utils';
 import { ServiceError } from '@exitbook/shared-utils';
 
-import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.js';
+import { BlockchainApiClient } from '../../shared/api/blockchain-api-client.ts';
 import { RegisterApiClient } from '../../shared/registry/decorators.js';
 import type { ProviderOperation } from '../../shared/types.js';
 
@@ -53,7 +53,7 @@ import type {
   requiresApiKey: false,
   type: 'rest',
 })
-export class SnowtraceApiClient extends BaseRegistryProvider {
+export class SnowtraceApiClient extends BlockchainApiClient {
   constructor() {
     super('avalanche', 'snowtrace', 'mainnet');
   }

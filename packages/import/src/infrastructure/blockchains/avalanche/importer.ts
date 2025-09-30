@@ -1,5 +1,5 @@
 import type {
-  ApiClientRawTransaction,
+  RawTransactionWithMetadata,
   IImporter,
   ImportParams,
   ImportRunResult,
@@ -73,7 +73,7 @@ export class AvalancheTransactionImporter implements IImporter {
   private async fetchRawTransactionsForAddress(
     address: string,
     since?: number
-  ): Promise<Result<ApiClientRawTransaction[], ProviderError>> {
+  ): Promise<Result<RawTransactionWithMetadata[], ProviderError>> {
     // Fetch normal and internal transactions
     const normalResult = await this.providerManager.executeWithFailover('avalanche', {
       address,
@@ -115,8 +115,11 @@ export class AvalancheTransactionImporter implements IImporter {
   /**
    * Process composite response containing normal and internal transactions.
    */
-  private processCompositeTransactions(response: { data: unknown; providerName: string }): ApiClientRawTransaction[] {
-    const rawTransactions: ApiClientRawTransaction[] = [];
+  private processCompositeTransactions(response: {
+    data: unknown;
+    providerName: string;
+  }): RawTransactionWithMetadata[] {
+    const rawTransactions: RawTransactionWithMetadata[] = [];
 
     if (!response.data) return rawTransactions;
 
@@ -149,7 +152,7 @@ export class AvalancheTransactionImporter implements IImporter {
   /**
    * Process token transaction response.
    */
-  private processTokenTransactions(response: { data: unknown; providerName: string }): ApiClientRawTransaction[] {
+  private processTokenTransactions(response: { data: unknown; providerName: string }): RawTransactionWithMetadata[] {
     if (!response.data || !Array.isArray(response.data)) return [];
 
     const tokenTransactions = response.data as SnowtraceTokenTransfer[];

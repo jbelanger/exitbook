@@ -1,10 +1,10 @@
-import type { TransactionType, UniversalTransaction } from '@exitbook/core';
-import type { ImportSessionMetadata } from '@exitbook/import/app/ports/processors.js';
 import type { ITransactionRepository } from '@exitbook/import/app/ports/transaction-repository.js';
+import type { TransactionType, UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
 import { createMoney } from '@exitbook/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
-import { BaseProcessor } from '../../shared/processors/base-processor.js';
+import type { ImportSessionMetadata } from '../../../app/ports/transaction-processor.interface.ts';
+import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
 
 import type { EthereumFundFlow, EthereumTransaction } from './types.js';
 
@@ -13,7 +13,7 @@ import type { EthereumFundFlow, EthereumTransaction } from './types.js';
  * into UniversalTransaction format. Features sophisticated fund flow analysis
  * and historical context for accurate transaction classification.
  */
-export class EthereumTransactionProcessor extends BaseProcessor {
+export class EthereumTransactionProcessor extends BaseTransactionProcessor {
   constructor(private transactionRepository?: ITransactionRepository) {
     super('ethereum');
   }

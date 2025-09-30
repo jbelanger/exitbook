@@ -1,12 +1,12 @@
-import type { UniversalTransaction } from '@exitbook/core';
-import type { ImportSessionMetadata } from '@exitbook/import/app/ports/processors.js';
 import type { ITransactionRepository } from '@exitbook/import/app/ports/transaction-repository.js';
+import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
 import { getLogger } from '@exitbook/shared-logger';
 import { createMoney } from '@exitbook/shared-utils';
 import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
-import { BaseProcessor } from '../../shared/processors/base-processor.js';
+import type { ImportSessionMetadata } from '../../../app/ports/transaction-processor.interface.ts';
+import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
 
 import type { AvalancheTransaction, AvalancheFundFlow } from './types.js';
 
@@ -14,7 +14,7 @@ import type { AvalancheTransaction, AvalancheFundFlow } from './types.js';
  * Avalanche transaction processor that converts raw blockchain transaction data
  * into UniversalTransaction format using correlation system for smart classification.
  */
-export class AvalancheTransactionProcessor extends BaseProcessor {
+export class AvalancheTransactionProcessor extends BaseTransactionProcessor {
   private correlationLogger = getLogger('AvalancheCorrelation');
 
   constructor(private readonly transactionRepository?: ITransactionRepository) {

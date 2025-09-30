@@ -1,6 +1,7 @@
 import type { IProcessorFactory } from '@exitbook/import/app/ports/processor-factory.js';
-import type { IProcessor } from '@exitbook/import/app/ports/processors.js';
 import { getLogger } from '@exitbook/shared-logger';
+
+import type { ITransactionProcessor } from '../../../app/ports/transaction-processor.interface.ts';
 
 /**
  * Factory for creating processor instances.
@@ -46,7 +47,7 @@ export class ProcessorFactory implements IProcessorFactory {
   /**
    * Create a processor for the specified source.
    */
-  async create(sourceId: string, sourceType: string): Promise<IProcessor> {
+  async create(sourceId: string, sourceType: string): Promise<ITransactionProcessor> {
     this.logger.info(`Creating processor for ${sourceId} (type: ${sourceType})`);
 
     if (sourceType === 'exchange') {
@@ -63,7 +64,7 @@ export class ProcessorFactory implements IProcessorFactory {
   /**
    * Create Avalanche processor.
    */
-  private async createAvalancheProcessor(): Promise<IProcessor> {
+  private async createAvalancheProcessor(): Promise<ITransactionProcessor> {
     // Dynamic import to avoid circular dependencies
     const { AvalancheTransactionProcessor } = await import('../../blockchains/avalanche/processor.ts');
     return new AvalancheTransactionProcessor();
@@ -72,7 +73,7 @@ export class ProcessorFactory implements IProcessorFactory {
   /**
    * Create Bitcoin processor.
    */
-  private async createBitcoinProcessor(): Promise<IProcessor> {
+  private async createBitcoinProcessor(): Promise<ITransactionProcessor> {
     // Dynamic import to avoid circular dependencies
     const { BitcoinTransactionProcessor } = await import('../../blockchains/bitcoin/processor.ts');
     return new BitcoinTransactionProcessor();
@@ -81,7 +82,7 @@ export class ProcessorFactory implements IProcessorFactory {
   /**
    * Create a blockchain processor.
    */
-  private async createBlockchainProcessor(sourceId: string): Promise<IProcessor> {
+  private async createBlockchainProcessor(sourceId: string): Promise<ITransactionProcessor> {
     switch (sourceId.toLowerCase()) {
       case 'bitcoin':
         return await this.createBitcoinProcessor();
@@ -109,7 +110,7 @@ export class ProcessorFactory implements IProcessorFactory {
   /**
    * Create Coinbase processor.
    */
-  private async createCoinbaseProcessor(): Promise<IProcessor> {
+  private async createCoinbaseProcessor(): Promise<ITransactionProcessor> {
     // Dynamic import to avoid circular dependencies
     const { CoinbaseProcessor } = await import('../../exchanges/coinbase/processor.js');
     return new CoinbaseProcessor();
@@ -118,7 +119,7 @@ export class ProcessorFactory implements IProcessorFactory {
   /**
    * Create Ethereum processor.
    */
-  private async createEthereumProcessor(): Promise<IProcessor> {
+  private async createEthereumProcessor(): Promise<ITransactionProcessor> {
     // Dynamic import to avoid circular dependencies
     const { EthereumTransactionProcessor } = await import('../../blockchains/ethereum/processor.ts');
     return new EthereumTransactionProcessor();
@@ -127,7 +128,7 @@ export class ProcessorFactory implements IProcessorFactory {
   /**
    * Create an exchange processor.
    */
-  private async createExchangeProcessor(sourceId: string): Promise<IProcessor> {
+  private async createExchangeProcessor(sourceId: string): Promise<ITransactionProcessor> {
     switch (sourceId.toLowerCase()) {
       case 'kraken':
         return await this.createKrakenProcessor();
@@ -149,7 +150,7 @@ export class ProcessorFactory implements IProcessorFactory {
   /**
    * Create Injective processor.
    */
-  private async createInjectiveProcessor(): Promise<IProcessor> {
+  private async createInjectiveProcessor(): Promise<ITransactionProcessor> {
     // Dynamic import to avoid circular dependencies
     const { InjectiveTransactionProcessor } = await import('../../blockchains/injective/processor.ts');
     return new InjectiveTransactionProcessor();
@@ -158,7 +159,7 @@ export class ProcessorFactory implements IProcessorFactory {
   /**
    * Create Kraken processor.
    */
-  private async createKrakenProcessor(): Promise<IProcessor> {
+  private async createKrakenProcessor(): Promise<ITransactionProcessor> {
     // Dynamic import to avoid circular dependencies
     const { KrakenProcessor } = await import('../../exchanges/kraken/processor.js');
     return new KrakenProcessor();
@@ -167,7 +168,7 @@ export class ProcessorFactory implements IProcessorFactory {
   /**
    * Create KuCoin processor.
    */
-  private async createKucoinProcessor(): Promise<IProcessor> {
+  private async createKucoinProcessor(): Promise<ITransactionProcessor> {
     // Dynamic import to avoid circular dependencies
     const { KucoinProcessor } = await import('../../exchanges/kucoin/processor.js');
     return new KucoinProcessor();
@@ -176,7 +177,7 @@ export class ProcessorFactory implements IProcessorFactory {
   /**
    * Create Ledger Live processor.
    */
-  private async createLedgerLiveProcessor(): Promise<IProcessor> {
+  private async createLedgerLiveProcessor(): Promise<ITransactionProcessor> {
     // Dynamic import to avoid circular dependencies
     const { LedgerLiveProcessor } = await import('../../exchanges/ledgerlive/processor.js');
     return new LedgerLiveProcessor();
@@ -185,7 +186,7 @@ export class ProcessorFactory implements IProcessorFactory {
   /**
    * Create Polkadot processor.
    */
-  private async createPolkadotProcessor(): Promise<IProcessor> {
+  private async createPolkadotProcessor(): Promise<ITransactionProcessor> {
     // Dynamic import to avoid circular dependencies
     const { PolkadotTransactionProcessor } = await import('../../blockchains/polkadot/processor.ts');
     return new PolkadotTransactionProcessor();
@@ -194,7 +195,7 @@ export class ProcessorFactory implements IProcessorFactory {
   /**
    * Create Solana processor.
    */
-  private async createSolanaProcessor(): Promise<IProcessor> {
+  private async createSolanaProcessor(): Promise<ITransactionProcessor> {
     // Dynamic import to avoid circular dependencies
     const { SolanaTransactionProcessor } = await import('../../blockchains/solana/processor.ts');
     return new SolanaTransactionProcessor();

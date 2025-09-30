@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 import type {
-  ApiClientRawTransaction,
+  RawTransactionWithMetadata,
   IImporter,
   ImportParams,
   ImportRunResult,
@@ -37,7 +37,7 @@ export class LedgerLiveCsvImporter implements IImporter {
       return err(new Error('CSV directories are required for Ledger Live import'));
     }
 
-    const allTransactions: ApiClientRawTransaction[] = [];
+    const allTransactions: RawTransactionWithMetadata[] = [];
 
     try {
       // Process each directory in order

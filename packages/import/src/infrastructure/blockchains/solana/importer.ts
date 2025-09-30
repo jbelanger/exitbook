@@ -1,5 +1,5 @@
 import type {
-  ApiClientRawTransaction,
+  RawTransactionWithMetadata,
   IImporter,
   ImportParams,
   ImportRunResult,
@@ -8,8 +8,6 @@ import { getLogger, type Logger } from '@exitbook/shared-logger';
 import { err, type Result } from 'neverthrow';
 
 import type { BlockchainProviderManager, ProviderError } from '../shared/blockchain-provider-manager.js';
-
-import type { SolanaRawTransactionData } from './helius/helius.api-client.js';
 
 /**
  * Solana transaction importer that fetches raw transaction data from blockchain APIs.
@@ -69,7 +67,7 @@ export class SolanaTransactionImporter implements IImporter {
   private async fetchRawTransactionsForAddress(
     address: string,
     since?: number
-  ): Promise<Result<ApiClientRawTransaction[], ProviderError>> {
+  ): Promise<Result<RawTransactionWithMetadata[], ProviderError>> {
     const result = await this.providerManager.executeWithFailover('solana', {
       address: address,
       getCacheKey: (params) =>
@@ -79,16 +77,13 @@ export class SolanaTransactionImporter implements IImporter {
     });
 
     return result.map((response) => {
-      const rawTransactionData = response.data as SolanaRawTransactionData;
+      const rawTransactions = response.data as unknown[];
       const providerId = response.providerName;
 
-      // Return as array with single element containing all transactions
-      return [
-        {
-          metadata: { providerId, sourceAddress: address },
-          rawData: rawTransactionData,
-        },
-      ];
+      return rawTransactions.map((rawData) => ({
+        metadata: { providerId, sourceAddress: address },
+        rawData,
+      }));
     });
   }
 }

@@ -1,15 +1,13 @@
 import type {
   ImportParams,
   ImportRunResult,
-  ApiClientRawTransaction,
+  RawTransactionWithMetadata,
   IImporter,
 } from '@exitbook/import/app/ports/importers.js';
 import { getLogger, type Logger } from '@exitbook/shared-logger';
 import { err, type Result } from 'neverthrow';
 
 import type { BlockchainProviderManager, ProviderError } from '../shared/blockchain-provider-manager.js';
-
-import type { InjectiveExplorerTransaction } from './injective-explorer/injective-explorer.types.js';
 
 /**
  * Injective transaction importer that fetches raw transaction data from blockchain APIs.
@@ -70,7 +68,7 @@ export class InjectiveTransactionImporter implements IImporter {
   private async fetchRawTransactionsForAddress(
     address: string,
     since?: number
-  ): Promise<Result<ApiClientRawTransaction[], ProviderError>> {
+  ): Promise<Result<RawTransactionWithMetadata[], ProviderError>> {
     const result = await this.providerManager.executeWithFailover('injective', {
       address: address,
       getCacheKey: (params) =>
@@ -80,7 +78,7 @@ export class InjectiveTransactionImporter implements IImporter {
     });
 
     return result.map((response) => {
-      const rawTransactions = response.data as InjectiveExplorerTransaction[];
+      const rawTransactions = response.data as unknown[];
       const providerId = response.providerName;
 
       // Wrap each transaction with provider provenance and source address context

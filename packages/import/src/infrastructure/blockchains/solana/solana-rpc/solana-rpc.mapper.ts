@@ -1,35 +1,24 @@
-import type { ImportSessionMetadata } from '@exitbook/import/app/ports/processors.js';
 import { isErrorWithMessage } from '@exitbook/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
+import type { ImportSessionMetadata } from '../../../../app/ports/transaction-processor.interface.ts';
 import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
 import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
 import type { SolanaAccountChange, SolanaTokenBalance, SolanaTokenChange, SolanaTransaction } from '../types.js';
 import { lamportsToSol } from '../utils.js';
 
 import { SolanaRPCRawTransactionDataSchema } from './solana-rpc.schemas.js';
-import type { SolanaRPCRawTransactionData, SolanaRPCTransaction } from './solana-rpc.types.js';
+import type { SolanaRPCTransaction } from './solana-rpc.types.js';
 
 @RegisterTransactionMapper('solana-rpc')
-export class SolanaRPCTransactionMapper extends BaseRawDataMapper<SolanaRPCRawTransactionData, SolanaTransaction> {
+export class SolanaRPCTransactionMapper extends BaseRawDataMapper<SolanaRPCTransaction, SolanaTransaction> {
   protected readonly schema = SolanaRPCRawTransactionDataSchema;
   protected mapInternal(
-    rawData: SolanaRPCRawTransactionData,
+    rawData: SolanaRPCTransaction,
     _sessionContext: ImportSessionMetadata
   ): Result<SolanaTransaction, string> {
-    if (!rawData.normal || rawData.normal.length === 0) {
-      return err('No transactions to transform from SolanaRPCRawTransactionData');
-    }
-
-    // For now, process the first transaction
-    // TODO: Handle multiple transactions in batch properly
-    const tx = rawData.normal[0];
-    if (!tx) {
-      return err('No transaction found in raw data');
-    }
-
     try {
-      const solanaTransaction = this.transformTransaction(tx);
+      const solanaTransaction = this.transformTransaction(rawData);
       return ok(solanaTransaction);
     } catch (error) {
       const errorMessage = isErrorWithMessage(error) ? error.message : String(error);

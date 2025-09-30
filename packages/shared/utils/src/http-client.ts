@@ -33,7 +33,7 @@ export class HttpClient {
     this.config = {
       defaultHeaders: {
         Accept: 'application/json',
-        'User-Agent': 'ccxt-crypto-tx-import/1.0.0',
+        'User-Agent': 'exitbook/1.0.0',
       },
       retries: 3,
       timeout: 10000,

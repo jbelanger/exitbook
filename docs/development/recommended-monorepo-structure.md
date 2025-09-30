@@ -195,7 +195,7 @@ Dedicated to the logic of verifying calculated balances against live balances or
 This is the most complex domain, encompassing the entire ETL process for fetching raw transaction data from various external sources (exchanges, blockchains) and transforming it into a canonical format.
 
 - **Core Services (`src/services/`):**
-  - `ingestion-service.ts`: The orchestrator of the entire ETL pipeline. It manages the two-stage process: `importFromSource` (extraction) and `processAndStore` (transformation/loading). It handles import session tracking, raw data storage, and error management.
+  - `ingestion-service.ts`: The orchestrator of the entire ETL pipeline. It manages the two-stage process: `importFromSource` (extraction) and `processRawDataToTransactions` (transformation/loading). It handles import session tracking, raw data storage, and error management.
 - **Blockchain-Centric Structure (`src/blockchains/`):**
   Each blockchain is a self-contained feature module with a consistent internal structure:
 

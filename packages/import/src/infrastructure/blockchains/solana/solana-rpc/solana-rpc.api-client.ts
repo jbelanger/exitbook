@@ -1,6 +1,6 @@
 import { maskAddress } from '@exitbook/shared-utils';
 
-import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.js';
+import { BlockchainApiClient } from '../../shared/api/blockchain-api-client.ts';
 import { RegisterApiClient } from '../../shared/registry/decorators.js';
 import type { JsonRpcResponse, ProviderOperation } from '../../shared/types.js';
 import type { SolanaSignature, SolanaTokenAccountsResponse } from '../types.js';
@@ -9,7 +9,6 @@ import { isValidSolanaAddress } from '../utils.js';
 import type {
   SolanaRPCRawBalanceData,
   SolanaRPCRawTokenBalanceData,
-  SolanaRPCRawTransactionData,
   SolanaRPCTransaction,
 } from './solana-rpc.types.ts';
 
@@ -48,7 +47,7 @@ import type {
   requiresApiKey: false,
   type: 'rpc',
 })
-export class SolanaRPCApiClient extends BaseRegistryProvider {
+export class SolanaRPCApiClient extends BlockchainApiClient {
   constructor() {
     super('solana', 'solana-rpc', 'mainnet');
   }
@@ -136,7 +135,7 @@ export class SolanaRPCApiClient extends BaseRegistryProvider {
   private async getRawAddressTransactions(params: {
     address: string;
     since?: number | undefined;
-  }): Promise<SolanaRPCRawTransactionData> {
+  }): Promise<SolanaRPCTransaction[]> {
     const { address, since } = params;
 
     if (!isValidSolanaAddress(address)) {
@@ -161,7 +160,7 @@ export class SolanaRPCApiClient extends BaseRegistryProvider {
 
       if (!signaturesResponse?.result) {
         this.logger.debug(`No signatures found - Address: ${maskAddress(address)}`);
-        return { normal: [] };
+        return [];
       }
 
       const transactions: SolanaRPCTransaction[] = [];
@@ -202,7 +201,7 @@ export class SolanaRPCApiClient extends BaseRegistryProvider {
         `Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${transactions.length}, Network: ${this.network}`
       );
 
-      return { normal: transactions };
+      return transactions;
     } catch (error) {
       this.logger.error(
         `Failed to get raw address transactions - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`

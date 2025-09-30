@@ -1,6 +1,6 @@
 import { maskAddress } from '@exitbook/shared-utils';
 
-import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.js';
+import { BlockchainApiClient } from '../../shared/api/blockchain-api-client.ts';
 import { RegisterApiClient } from '../../shared/registry/decorators.js';
 import type { JsonRpcResponse, ProviderOperation } from '../../shared/types.js';
 
@@ -41,7 +41,7 @@ import type {
   requiresApiKey: true,
   type: 'rest',
 })
-export class AlchemyApiClient extends BaseRegistryProvider {
+export class AlchemyApiClient extends BlockchainApiClient {
   constructor() {
     super('ethereum', 'alchemy', 'mainnet');
 

@@ -1,5 +1,44 @@
-import type { DataSourceCapabilities } from '@exitbook/core';
 import type { RateLimitConfig } from '@exitbook/shared-utils';
+
+/**
+ * Generic data source capabilities interface that provides a unified model
+ * for describing the capabilities of any data source (exchanges, blockchain providers, etc.).
+ *
+ * @template TOperations - The specific operation types supported by this data source
+ *
+ * @example
+ * // For blockchain providers
+ * type BlockchainOperations = 'getAddressTransactions' | 'getAddressBalance' | 'getTokenTransactions';
+ * interface ProviderCapabilities extends DataSourceCapabilities<BlockchainOperations> {
+ *   supportsTokenData: boolean;
+ * }
+ *
+ * // For exchange adapters
+ * type ExchangeOperations = 'fetchTrades' | 'fetchDeposits' | 'fetchWithdrawals';
+ * interface ExchangeCapabilities extends DataSourceCapabilities<ExchangeOperations> {
+ *   requiresApiKey: boolean;
+ * }
+ */
+export interface DataSourceCapabilities<TOperations extends string = string> {
+  /**
+   * Extension point for data source specific capabilities.
+   * Allows each data source type to add custom capability flags without
+   * polluting the base interface.
+   */
+  extensions?: Record<string, unknown> | undefined;
+
+  /** Maximum number of items that can be requested in a single batch operation */
+  maxBatchSize?: number | undefined;
+
+  /** Array of operation types that this data source supports */
+  supportedOperations: TOperations[];
+
+  /** Whether the data source provides access to historical data */
+  supportsHistoricalData: boolean;
+
+  /** Whether the data source supports paginated requests for large datasets */
+  supportsPagination: boolean;
+}
 
 // Discriminated union type for all possible operation parameters
 export type ProviderOperationParams =

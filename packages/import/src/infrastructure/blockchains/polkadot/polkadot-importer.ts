@@ -1,5 +1,5 @@
 import type {
-  ApiClientRawTransaction,
+  RawTransactionWithMetadata,
   IImporter,
   ImportParams,
   ImportRunResult,
@@ -68,7 +68,7 @@ export class PolkadotTransactionImporter implements IImporter {
   private async fetchRawTransactionsForAddress(
     address: string,
     since?: number
-  ): Promise<Result<ApiClientRawTransaction[], ProviderError>> {
+  ): Promise<Result<RawTransactionWithMetadata[], ProviderError>> {
     const result = await this.providerManager.executeWithFailover('polkadot', {
       address,
       getCacheKey: (cacheParams) =>
@@ -84,7 +84,7 @@ export class PolkadotTransactionImporter implements IImporter {
         const substrateTxData = rawData as { data: SubscanTransfer[] };
 
         if (Array.isArray(substrateTxData.data)) {
-          const rawTransactions: ApiClientRawTransaction[] = substrateTxData.data.map((transfer) => ({
+          const rawTransactions: RawTransactionWithMetadata[] = substrateTxData.data.map((transfer) => ({
             metadata: { providerId: response.providerName },
             rawData: transfer,
           }));

@@ -19,7 +19,7 @@ export class BalanceVerifier {
     let report = `# Balance Verification Report - ${timestamp}\n\n`;
 
     for (const result of results) {
-      report += `## ${result.exchange}\n`;
+      report += `## ${result.source}\n`;
       report += `- **Status**: ${result.status.toUpperCase()}\n`;
       report += `- **Total Currencies**: ${result.summary.totalCurrencies}\n`;
       report += `- **Matches**: ${result.summary.matches}\n`;
@@ -46,31 +46,31 @@ export class BalanceVerifier {
     }
 
     // Overall summary
-    const totalExchanges = results.length;
-    const successfulExchanges = results.filter((r) => r.status === 'success').length;
-    const warningExchanges = results.filter((r) => r.status === 'warning').length;
-    const errorExchanges = results.filter((r) => r.status === 'error').length;
+    const totalSources = results.length;
+    const successfulSources = results.filter((r) => r.status === 'success').length;
+    const warningSources = results.filter((r) => r.status === 'warning').length;
+    const errorSources = results.filter((r) => r.status === 'error').length;
 
     report += `## Overall Summary\n`;
-    report += `- **Total Exchanges**: ${totalExchanges}\n`;
-    report += `- **Successful**: ${successfulExchanges}\n`;
-    report += `- **Warnings**: ${warningExchanges}\n`;
-    report += `- **Errors**: ${errorExchanges}\n\n`;
+    report += `- **Total Sources**: ${totalSources}\n`;
+    report += `- **Successful**: ${successfulSources}\n`;
+    report += `- **Warnings**: ${warningSources}\n`;
+    report += `- **Errors**: ${errorSources}\n\n`;
 
     return report;
   }
 
-  async verifyExchangeById(exchangeId: string): Promise<BalanceVerificationResult[]> {
-    this.logger.info(`Starting balance verification for ${exchangeId}`);
+  async verifyBalancesForSource(sourceId: string): Promise<BalanceVerificationResult[]> {
+    this.logger.info(`Starting balance verification for ${sourceId}`);
 
     try {
-      const calculatedBalances = await this.balanceService.calculateBalancesForVerification(exchangeId);
+      const calculatedBalances = await this.balanceService.calculateBalancesForVerification(sourceId);
       const comparisons = this.createCalculatedOnlyComparisons(calculatedBalances);
 
       const result: BalanceVerificationResult = {
         comparisons,
-        exchange: exchangeId,
-        note: `${exchangeId} - showing calculated balances from processed transactions`,
+        note: `${sourceId} - showing calculated balances from processed transactions`,
+        source: sourceId,
         status: 'warning',
         summary: {
           matches: 0,
@@ -82,20 +82,20 @@ export class BalanceVerifier {
       };
 
       this.logger.info(
-        `Balance calculation completed for ${exchangeId} - TotalCurrencies: ${result.summary.totalCurrencies}`
+        `Balance calculation completed for ${sourceId} - TotalCurrencies: ${result.summary.totalCurrencies}`
       );
 
       return [result];
     } catch (error) {
       this.logger.error(
-        `Balance verification failed for ${exchangeId}: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Balance verification failed for ${sourceId}: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
 
       return [
         {
           comparisons: [],
           error: error instanceof Error ? error.message : 'Unknown error',
-          exchange: exchangeId,
+          source: sourceId,
           status: 'error',
           summary: {
             matches: 0,

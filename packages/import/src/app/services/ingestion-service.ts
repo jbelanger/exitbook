@@ -1,6 +1,6 @@
-import type { UniversalTransaction } from '@exitbook/core';
 import type { RawData } from '@exitbook/data';
 import type { ImportParams } from '@exitbook/import/app/ports/importers.ts';
+import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
 import type { Logger } from '@exitbook/shared-logger';
 import { getLogger } from '@exitbook/shared-logger';
 
@@ -9,8 +9,12 @@ import type { IBlockchainNormalizer } from '../ports/blockchain-normalizer.inter
 import type { IImportSessionRepository } from '../ports/import-session-repository.interface.ts';
 import type { IImporterFactory } from '../ports/importer-factory.interface.ts';
 import type { IProcessorFactory } from '../ports/processor-factory.js';
-import type { ProcessResult, ProcessingImportSession, ImportSessionMetadata } from '../ports/processors.js';
 import type { IRawDataRepository, LoadRawDataFilters } from '../ports/raw-data-repository.js';
+import type {
+  ProcessResult,
+  ProcessingImportSession,
+  ImportSessionMetadata,
+} from '../ports/transaction-processor.interface.ts';
 import type { ITransactionRepository } from '../ports/transaction-repository.js';
 
 /**
@@ -177,7 +181,7 @@ export class TransactionIngestionService {
   /**
    * Process raw data from storage into UniversalTransaction format and save to database.
    */
-  async processAndStore(
+  async processRawDataToTransactions(
     sourceId: string,
     sourceType: 'exchange' | 'blockchain',
     filters?: LoadRawDataFilters

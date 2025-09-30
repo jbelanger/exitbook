@@ -1,6 +1,6 @@
 import { maskAddress } from '@exitbook/shared-utils';
 
-import { TatumApiClientBase } from '../../shared/api/TatumApiClientBase.js';
+import { TatumApiClientBase } from '../../shared/api/tatum-api-client-base.ts';
 import { RegisterApiClient } from '../../shared/registry/decorators.js';
 import type { ProviderOperation } from '../../shared/types.js';
 import type { AddressInfo } from '../types.js';

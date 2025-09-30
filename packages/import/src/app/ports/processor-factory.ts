@@ -1,4 +1,4 @@
-import type { IProcessor } from './processors.js';
+import type { ITransactionProcessor } from './transaction-processor.interface.ts';
 
 /**
  * Port interface for creating processor instances.
@@ -8,5 +8,5 @@ export interface IProcessorFactory {
   /**
    * Create a processor for the specified source.
    */
-  create(sourceId: string, sourceType: string): Promise<IProcessor>;
+  create(sourceId: string, sourceType: string): Promise<ITransactionProcessor>;
 }

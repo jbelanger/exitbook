@@ -1,9 +1,9 @@
-import type { UniversalTransaction } from '@exitbook/core';
 import type { RawData } from '@exitbook/data';
+import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
 import { createMoney, parseDecimal } from '@exitbook/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
-import { BaseProcessor } from '../../shared/processors/base-processor.js';
+import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
 
 import type { CsvAccountHistoryRow, CsvDepositWithdrawalRow, CsvKuCoinRawData, CsvSpotOrderRow } from './types.js';
 
@@ -14,7 +14,7 @@ import type { CsvAccountHistoryRow, CsvDepositWithdrawalRow, CsvKuCoinRawData, C
  * - Deposit and withdrawal handling
  * - Convert market transaction processing from account history
  */
-export class KucoinProcessor extends BaseProcessor {
+export class KucoinProcessor extends BaseTransactionProcessor {
   constructor() {
     super('kucoin');
   }

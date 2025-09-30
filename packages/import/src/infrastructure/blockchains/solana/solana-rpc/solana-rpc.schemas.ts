@@ -60,8 +60,6 @@ export const SolanaRPCTransactionSchema = z.object({
 });
 
 /**
- * Schema for Solana RPC raw transaction data
+ * Schema for Solana RPC raw transaction data (single transaction)
  */
-export const SolanaRPCRawTransactionDataSchema = z.object({
-  normal: z.array(SolanaRPCTransactionSchema),
-});
+export const SolanaRPCRawTransactionDataSchema = SolanaRPCTransactionSchema;

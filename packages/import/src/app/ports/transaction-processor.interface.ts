@@ -1,4 +1,4 @@
-import type { UniversalTransaction } from '@exitbook/core';
+import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
 import type { Result } from 'neverthrow';
 
 export interface ProcessResult {
@@ -12,7 +12,7 @@ export interface ProcessResult {
  * Each processor is responsible for converting source-specific raw data
  * into the standardized UniversalTransaction format.
  */
-export interface IProcessor {
+export interface ITransactionProcessor {
   /**
    * Process import sessions with rich context into UniversalTransaction objects.
    */

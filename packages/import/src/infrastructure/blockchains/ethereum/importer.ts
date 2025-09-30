@@ -1,5 +1,5 @@
 import type {
-  ApiClientRawTransaction,
+  RawTransactionWithMetadata,
   IImporter,
   ImportParams,
   ImportRunResult,
@@ -66,7 +66,7 @@ export class EthereumTransactionImporter implements IImporter {
   private async fetchAllTransactions(
     address: string,
     since?: number
-  ): Promise<Result<ApiClientRawTransaction[], ProviderError>> {
+  ): Promise<Result<RawTransactionWithMetadata[], ProviderError>> {
     // Fetch regular ETH transactions (required)
     const regularTxsResult = await this.fetchRegularTransactions(address, since);
 
@@ -97,7 +97,7 @@ export class EthereumTransactionImporter implements IImporter {
   private async fetchRegularTransactions(
     address: string,
     since?: number
-  ): Promise<Result<ApiClientRawTransaction[], ProviderError>> {
+  ): Promise<Result<RawTransactionWithMetadata[], ProviderError>> {
     const result = await this.providerManager.executeWithFailover('ethereum', {
       address: address,
       getCacheKey: (params) =>
@@ -123,7 +123,7 @@ export class EthereumTransactionImporter implements IImporter {
   private async fetchTokenTransactions(
     address: string,
     since?: number
-  ): Promise<Result<ApiClientRawTransaction[], ProviderError>> {
+  ): Promise<Result<RawTransactionWithMetadata[], ProviderError>> {
     const result = await this.providerManager.executeWithFailover('ethereum', {
       address: address,
       getCacheKey: (params) =>

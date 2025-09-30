@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 import type {
-  ApiClientRawTransaction,
+  RawTransactionWithMetadata,
   IImporter,
   ImportParams,
   ImportRunResult,
@@ -39,7 +39,7 @@ export class KrakenCsvImporter implements IImporter {
       return err(new Error('CSV directories are required for Kraken import'));
     }
 
-    const allTransactions: ApiClientRawTransaction[] = [];
+    const allTransactions: RawTransactionWithMetadata[] = [];
 
     try {
       // Process each directory in order

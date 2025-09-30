@@ -1,16 +1,12 @@
 import { maskAddress } from '@exitbook/shared-utils';
 
-import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.js';
+import { BlockchainApiClient } from '../../shared/api/blockchain-api-client.ts';
 import { RegisterApiClient } from '../../shared/registry/decorators.js';
 import type { JsonRpcResponse, ProviderOperation } from '../../shared/types.js';
 import type { SolanaAccountBalance, SolanaSignature, SolanaTokenAccountsResponse } from '../types.js';
 import { isValidSolanaAddress } from '../utils.js';
 
 import type { HeliusAssetResponse, HeliusTransaction } from './helius.types.js';
-
-export interface SolanaRawTransactionData {
-  normal: HeliusTransaction[];
-}
 
 export interface SolanaRawBalanceData {
   lamports: number;
@@ -58,7 +54,7 @@ export interface SolanaRawTokenBalanceData {
   requiresApiKey: true,
   type: 'rpc',
 })
-export class HeliusApiClient extends BaseRegistryProvider {
+export class HeliusApiClient extends BlockchainApiClient {
   /**
    * Static token registry for common Solana tokens
    */
@@ -303,7 +299,7 @@ export class HeliusApiClient extends BaseRegistryProvider {
   private async getRawAddressTransactions(params: {
     address: string;
     since?: number | undefined;
-  }): Promise<SolanaRawTransactionData> {
+  }): Promise<HeliusTransaction[]> {
     const { address, since } = params;
 
     if (!isValidSolanaAddress(address)) {
@@ -323,7 +319,7 @@ export class HeliusApiClient extends BaseRegistryProvider {
         `Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, DirectTransactions: ${directTransactions.length}, TokenAccountTransactions: ${tokenAccountTransactions.length}, TotalUniqueTransactions: ${allTransactions.length}, Network: ${this.network}`
       );
 
-      return { normal: allTransactions };
+      return allTransactions;
     } catch (error) {
       this.logger.error(
         `Failed to get raw address transactions - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`

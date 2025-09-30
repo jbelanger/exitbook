@@ -18,16 +18,6 @@ export class BalanceCalculationService {
     return balances;
   }
 
-  /**
-   * Check if a transaction is from a blockchain source (vs exchange)
-   */
-  private isBlockchainTransaction(exchange: string | null | undefined): boolean {
-    if (!exchange) return false;
-    // Known blockchain identifiers - add more as needed
-    const blockchainIdentifiers = ['bitcoin', 'ethereum', 'solana', 'injective', 'avalanche', 'polkadot'];
-    return blockchainIdentifiers.includes(exchange.toLowerCase());
-  }
-
   private processTransactionForBalance(transaction: StoredTransaction, balances: Record<string, Decimal>): void {
     const type = transaction.transaction_type;
     const amount = stringToDecimal(String(transaction.amount));
@@ -36,7 +26,6 @@ export class BalanceCalculationService {
     const priceCurrency = transaction.price_currency;
     const feeCost = stringToDecimal(String(transaction.fee_cost));
     const feeCurrency = transaction.fee_currency;
-    const exchange = transaction.source_id;
 
     if (amountCurrency && !balances[amountCurrency]) balances[amountCurrency] = new Decimal(0);
     if (priceCurrency && !balances[priceCurrency]) balances[priceCurrency] = new Decimal(0);
@@ -44,8 +33,6 @@ export class BalanceCalculationService {
     switch (type) {
       case 'deposit':
         if (amountCurrency && balances[amountCurrency]) {
-          // For blockchain transactions, the full amount is received (sender paid the fee)
-          // For exchange transactions, the full amount is credited (fees handled separately if any)
           balances[amountCurrency] = balances[amountCurrency].plus(amount);
         } else {
           throw new Error(`Amount is zero for deposit transaction ID: ${transaction.id}`);
@@ -54,10 +41,8 @@ export class BalanceCalculationService {
 
       case 'withdrawal':
         if (amountCurrency && balances[amountCurrency]) {
-          // For blockchain transactions, amount already represents the net withdrawal (fees included)
-          // For exchange transactions, amount is the withdrawal and fees are handled separately
           balances[amountCurrency] = balances[amountCurrency].minus(amount);
-          if (!feeCost.isZero() && feeCurrency && !this.isBlockchainTransaction(exchange)) {
+          if (!feeCost.isZero() && feeCurrency) {
             if (!balances[feeCurrency]) balances[feeCurrency] = new Decimal(0);
             balances[feeCurrency] = balances[feeCurrency].minus(feeCost);
           }

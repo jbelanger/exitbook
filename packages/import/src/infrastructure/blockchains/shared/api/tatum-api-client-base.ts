@@ -1,10 +1,10 @@
-import { BaseRegistryProvider } from '../registry/base-registry-provider.js';
+import { BlockchainApiClient } from './blockchain-api-client.ts';
 
 /**
  * Abstract base class for Tatum multi-blockchain API clients
  * Handles common Tatum-specific logic including authentication, rate limiting, and error handling
  */
-export abstract class TatumApiClientBase<TTx, TBalance> extends BaseRegistryProvider {
+export abstract class TatumApiClientBase<TTx, TBalance> extends BlockchainApiClient {
   constructor(blockchain: string, providerName: string, network = 'mainnet') {
     super(blockchain, providerName, network);
 

@@ -1,6 +1,6 @@
 import type { Result } from 'neverthrow';
 
-import type { ImportSessionMetadata } from './processors.js';
+import type { ImportSessionMetadata } from './transaction-processor.interface.ts';
 
 /**
  * Interface for provider-specific processors that handle validation and transformation

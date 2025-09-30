@@ -1,8 +1,8 @@
-import type { UniversalTransaction } from '@exitbook/core';
 import type { StoredTransaction } from '@exitbook/data';
 import type { KyselyDB } from '@exitbook/data';
 import { BaseRepository } from '@exitbook/data';
 import type { ITransactionRepository } from '@exitbook/import/app/ports/transaction-repository.js';
+import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
 import type { Decimal } from 'decimal.js';
 
 // Local utility function to convert Money type to database string
@@ -24,10 +24,6 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
   async save(transaction: UniversalTransaction, importSessionId: number): Promise<number> {
     return this.saveTransaction(transaction, importSessionId);
-  }
-
-  async saveBatch(transactions: UniversalTransaction[], importSessionId: number): Promise<number> {
-    return this.saveTransactions(transactions, importSessionId);
   }
 
   async saveTransaction(transaction: UniversalTransaction, importSessionId: number): Promise<number> {
@@ -124,98 +120,6 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       );
       throw error;
     }
-  }
-
-  async saveTransactions(transactions: UniversalTransaction[], importSessionId: number): Promise<number> {
-    if (transactions.length === 0) {
-      this.logger.debug('No transactions to save');
-      return 0;
-    }
-
-    return this.withTransaction(async (trx) => {
-      let saved = 0;
-
-      for (const transaction of transactions) {
-        try {
-          const rawDataJson = this.serializeToJson(transaction) ?? '{}';
-
-          // Extract currencies from Money type
-          let amountCurrency: string | undefined;
-          let priceCurrency: string | undefined;
-
-          if (transaction.amount && typeof transaction.amount === 'object' && transaction.amount.currency) {
-            amountCurrency = transaction.amount.currency;
-          }
-
-          if (transaction.price && typeof transaction.price === 'object' && transaction.price.currency) {
-            priceCurrency = transaction.price.currency;
-          }
-
-          // wallet_id will be updated later by the linkTransactionAddresses method
-          const walletId = undefined;
-
-          const result = await trx
-            .insertInto('transactions')
-            .values({
-              amount:
-                typeof transaction.amount === 'object'
-                  ? moneyToDbString(transaction.amount)
-                  : transaction.amount
-                    ? String(transaction.amount)
-                    : undefined,
-              amount_currency: amountCurrency,
-              created_at: this.getCurrentDateTimeForDB(),
-              external_id: (transaction.metadata?.hash ||
-                transaction.source + '-' + (transaction.id || 'unknown')) as string,
-              fee_cost: typeof transaction.fee === 'object' ? moneyToDbString(transaction.fee) : undefined,
-              fee_currency: typeof transaction.fee === 'object' ? transaction.fee.currency : undefined,
-              from_address: transaction.from || undefined,
-              import_session_id: importSessionId,
-              note_message: transaction.note?.message || undefined,
-              note_metadata: transaction.note?.metadata ? this.serializeToJson(transaction.note.metadata) : undefined,
-              note_severity: transaction.note?.severity || undefined,
-              note_type: transaction.note?.type || undefined,
-              price:
-                typeof transaction.price === 'object'
-                  ? moneyToDbString(transaction.price)
-                  : transaction.price
-                    ? String(transaction.price)
-                    : undefined,
-              price_currency: priceCurrency,
-              raw_normalized_data: rawDataJson,
-              source_id: transaction.source,
-              source_type: 'exchange', // Default to exchange, can be overridden based on transaction source
-              symbol: transaction.symbol || undefined,
-              to_address: transaction.to || undefined,
-              transaction_datetime: transaction.datetime
-                ? new Date(transaction.datetime).toISOString()
-                : new Date().toISOString(),
-              transaction_status:
-                (transaction.status as 'pending' | 'confirmed' | 'failed' | 'cancelled') || 'confirmed',
-              transaction_type:
-                (transaction.type as 'trade' | 'transfer' | 'deposit' | 'withdrawal' | 'fee' | 'reward' | 'mining') ||
-                'trade',
-              verified: Boolean(transaction.metadata?.verified),
-              wallet_address_id: walletId,
-            })
-            .onConflict((oc) => oc.doNothing()) // Equivalent to INSERT OR IGNORE
-            .execute();
-
-          if (result.length > 0) {
-            saved++;
-          }
-        } catch (error) {
-          // Log error but continue with other transactions
-          this.logger.warn(
-            { error, transaction: { source: transaction.source, type: transaction.type } },
-            'Failed to save individual transaction in batch'
-          );
-        }
-      }
-
-      this.logger.debug(`Batch transaction save completed: ${saved}/${transactions.length} transactions saved`);
-      return saved;
-    });
   }
 
   async getTransactions(sourceId?: string, since?: number): Promise<StoredTransaction[]> {

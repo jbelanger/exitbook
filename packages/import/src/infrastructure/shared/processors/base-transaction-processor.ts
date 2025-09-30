@@ -1,20 +1,20 @@
-import type { UniversalTransaction } from '@exitbook/core';
-import { UniversalTransactionSchema } from '@exitbook/core';
-import type {
-  IProcessor,
-  ImportSessionMetadata,
-  ProcessingImportSession,
-} from '@exitbook/import/app/ports/processors.js';
+import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
 import type { Logger } from '@exitbook/shared-logger';
 import { getLogger } from '@exitbook/shared-logger';
 import { type Result, ok, err } from 'neverthrow';
 
-import { detectScamFromSymbol } from '../utils/scam-detection.js';
+import type {
+  ITransactionProcessor,
+  ImportSessionMetadata,
+  ProcessingImportSession,
+} from '../../../app/ports/transaction-processor.interface.ts';
+import { UniversalTransactionSchema } from '../../blockchains/shared/schemas.ts';
+import { detectScamFromSymbol } from '../utils/scam-detection.ts';
 
 /**
  * Base class providing common functionality for all processors.
  */
-export abstract class BaseProcessor implements IProcessor {
+export abstract class BaseTransactionProcessor implements ITransactionProcessor {
   protected logger: Logger;
 
   constructor(protected sourceId: string) {

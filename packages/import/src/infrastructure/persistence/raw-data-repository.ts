@@ -119,34 +119,4 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
       return saved;
     });
   }
-
-  async updateProcessingStatus(
-    rawTransactionId: number,
-    status: 'pending' | 'processed' | 'failed',
-    error?: string,
-    providerId?: string
-  ): Promise<void> {
-    const processedAt = status === 'processed' ? this.getCurrentDateTimeForDB() : undefined;
-
-    let updateQuery = this.db
-      .updateTable('external_transaction_data')
-      .set({
-        processed_at: processedAt,
-        processing_error: error,
-        processing_status: status,
-      })
-      .where('id', '=', rawTransactionId);
-
-    // Apply provider condition (handles both specified provider and null provider)
-    if (providerId) {
-      updateQuery = updateQuery.where('provider_id', '=', providerId);
-    } else {
-      // eslint-disable-next-line unicorn/no-null -- We want to check for NULL in the database
-      updateQuery = updateQuery.where('provider_id', 'is', null);
-    }
-
-    await updateQuery.execute();
-
-    this.logger.debug({ providerId, rawTransactionId, status }, 'Updated processing status for raw data item');
-  }
 }

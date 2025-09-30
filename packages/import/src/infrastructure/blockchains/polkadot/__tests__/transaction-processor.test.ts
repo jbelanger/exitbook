@@ -1,8 +1,8 @@
 /* eslint-disable unicorn/no-null -- Required for testing null values in database mocks and transaction objects */
 import type { RawData } from '@exitbook/data';
-import type { ImportSessionMetadata } from '@exitbook/import/app/ports/processors.js';
 import { describe, expect, it } from 'vitest';
 
+import type { ImportSessionMetadata } from '../../../../app/ports/transaction-processor.interface.ts';
 import { PolkadotTransactionProcessor } from '../processor.js';
 import type { SubscanTransfer } from '../substrate/substrate.types.js';
 

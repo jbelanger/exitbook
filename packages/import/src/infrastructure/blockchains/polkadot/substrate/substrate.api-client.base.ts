@@ -1,7 +1,7 @@
 import type { HttpClient } from '@exitbook/shared-utils';
 import { maskAddress } from '@exitbook/shared-utils';
 
-import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.js';
+import { BlockchainApiClient } from '../../shared/api/blockchain-api-client.ts';
 import type { JsonRpcResponse } from '../../shared/types.js';
 import type { ProviderOperation } from '../../shared/types.js';
 import { isValidSS58Address } from '../utils.js';
@@ -17,7 +17,7 @@ import type {
  * Base class for Substrate-based blockchain API clients.
  * Provides common functionality for all Substrate chains.
  */
-export abstract class BaseSubstrateApiClient extends BaseRegistryProvider {
+export abstract class BaseSubstrateApiClient extends BlockchainApiClient {
   protected readonly chainConfig: SubstrateChainConfig;
   private readonly rpcClient?: HttpClient | undefined;
   constructor(blockchain: string, providerName: string, network: string, chainConfig: SubstrateChainConfig) {

@@ -1,6 +1,6 @@
 import { maskAddress } from '@exitbook/shared-utils';
 
-import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.js';
+import { BlockchainApiClient } from '../../shared/api/blockchain-api-client.ts';
 import { RegisterApiClient } from '../../shared/registry/decorators.js';
 import type { ProviderOperation } from '../../shared/types.js';
 
@@ -40,7 +40,7 @@ import type { InjectiveExplorerTransaction } from './injective-explorer.types.js
   requiresApiKey: false,
   type: 'rest',
 })
-export class InjectiveExplorerApiClient extends BaseRegistryProvider {
+export class InjectiveExplorerApiClient extends BlockchainApiClient {
   constructor() {
     super('injective', 'injective-explorer', 'mainnet');
 

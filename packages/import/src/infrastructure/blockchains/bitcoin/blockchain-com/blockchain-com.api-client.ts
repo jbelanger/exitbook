@@ -1,6 +1,6 @@
 import { maskAddress } from '@exitbook/shared-utils';
 
-import { BaseRegistryProvider } from '../../shared/registry/base-registry-provider.js';
+import { BlockchainApiClient } from '../../shared/api/blockchain-api-client.ts';
 import { RegisterApiClient } from '../../shared/registry/decorators.js';
 import type { ProviderOperation } from '../../shared/types.js';
 import type { AddressInfo } from '../types.js';
@@ -38,7 +38,7 @@ import type { BlockchainComAddressResponse, BlockchainComTransaction } from './b
   requiresApiKey: false,
   type: 'rest',
 })
-export class BlockchainComApiClient extends BaseRegistryProvider {
+export class BlockchainComApiClient extends BlockchainApiClient {
   constructor() {
     super('bitcoin', 'blockchain.com', 'mainnet');
 

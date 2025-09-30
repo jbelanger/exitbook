@@ -1,10 +1,10 @@
-import type { UniversalTransaction } from '@exitbook/core';
 import type { RawData } from '@exitbook/data';
+import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
 import { createMoney, parseDecimal } from '@exitbook/shared-utils';
 import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
-import { BaseProcessor } from '../../shared/processors/base-processor.js';
+import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
 import { CsvFilters } from '../csv-filters.js';
 
 import type { CsvKrakenLedgerRow } from './types.js';
@@ -17,7 +17,7 @@ import type { CsvKrakenLedgerRow } from './types.js';
  * - Token migration detection
  * - Dustsweeping handling
  */
-export class KrakenProcessor extends BaseProcessor {
+export class KrakenProcessor extends BaseTransactionProcessor {
   constructor() {
     super('kraken');
   }

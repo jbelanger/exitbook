@@ -3,15 +3,14 @@ import { getLogger } from '@exitbook/shared-logger';
 import type { RateLimitConfig } from '@exitbook/shared-utils';
 import { HttpClient } from '@exitbook/shared-utils';
 
-import type { IBlockchainProvider, ProviderCapabilities, ProviderOperation } from '../types.js';
-
-import { type ProviderMetadata, ProviderRegistry } from './provider-registry.js';
+import { type ProviderMetadata, ProviderRegistry } from '../registry/provider-registry.ts';
+import type { IBlockchainProvider, ProviderCapabilities, ProviderOperation } from '../types.ts';
 
 /**
  * Abstract base class for registry-based providers
  * Handles all common provider functionality using registry metadata
  */
-export abstract class BaseRegistryProvider implements IBlockchainProvider {
+export abstract class BlockchainApiClient implements IBlockchainProvider {
   protected readonly apiKey: string;
   protected readonly baseUrl: string;
   protected httpClient: HttpClient;

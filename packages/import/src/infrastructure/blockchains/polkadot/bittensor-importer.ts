@@ -1,5 +1,5 @@
 import type {
-  ApiClientRawTransaction,
+  RawTransactionWithMetadata,
   IImporter,
   ImportParams,
   ImportRunResult,
@@ -68,7 +68,7 @@ export class BittensorTransactionImporter implements IImporter {
   private async fetchRawTransactionsForAddress(
     address: string,
     since?: number
-  ): Promise<Result<ApiClientRawTransaction[], ProviderError>> {
+  ): Promise<Result<RawTransactionWithMetadata[], ProviderError>> {
     const result = await this.providerManager.executeWithFailover('bittensor', {
       address,
       getCacheKey: (cacheParams) =>
@@ -84,7 +84,7 @@ export class BittensorTransactionImporter implements IImporter {
         const bittensorTxData = rawData as { data: TaostatsTransaction[] };
 
         if (Array.isArray(bittensorTxData.data)) {
-          const rawTransactions: ApiClientRawTransaction[] = bittensorTxData.data.map((transaction) => ({
+          const rawTransactions: RawTransactionWithMetadata[] = bittensorTxData.data.map((transaction) => ({
             metadata: { providerId: response.providerName },
             rawData: transaction,
           }));

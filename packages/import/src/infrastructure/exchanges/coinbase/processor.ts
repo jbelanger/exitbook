@@ -1,8 +1,8 @@
-import type { UniversalTransaction } from '@exitbook/core';
 import type { RawData } from '@exitbook/data';
+import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
 import { type Result, err, ok } from 'neverthrow';
 
-import { BaseProcessor } from '../../shared/processors/base-processor.js';
+import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
 
 /**
  * Processor for Coinbase transactions.
@@ -19,7 +19,7 @@ import { BaseProcessor } from '../../shared/processors/base-processor.js';
  * - Symbol extraction from nested structures
  * - Price calculation excluding fees
  */
-export class CoinbaseProcessor extends BaseProcessor {
+export class CoinbaseProcessor extends BaseTransactionProcessor {
   constructor() {
     super('coinbase');
   }

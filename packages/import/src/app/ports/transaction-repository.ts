@@ -1,5 +1,5 @@
-import type { UniversalTransaction } from '@exitbook/core';
 import type { StoredTransaction } from '@exitbook/data';
+import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
 
 /**
  * Port interface for transaction repository operations.
@@ -32,17 +32,11 @@ export interface ITransactionRepository {
   /**
    * Retrieve transactions with optional filtering.
    */
-  getTransactions(sourceId?: string, since?: number): Promise<StoredTransaction[]> | undefined;
+  getTransactions(sourceId?: string, since?: number): Promise<StoredTransaction[]>;
 
   /**
    * Save a transaction to the database.
    * Returns the database ID of the saved transaction.
    */
   save(transaction: UniversalTransaction, importSessionId: number): Promise<number>;
-
-  /**
-   * Save multiple transactions to the database.
-   * Returns the count of successfully saved transactions.
-   */
-  saveBatch(transactions: UniversalTransaction[], importSessionId: number): Promise<number>;
 }

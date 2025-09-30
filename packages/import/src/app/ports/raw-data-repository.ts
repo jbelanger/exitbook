@@ -27,14 +27,4 @@ export interface IRawDataRepository {
    * Save external data items to storage.
    */
   save(rawData: unknown, importSessionId: number, providerId: string, metadata?: unknown): Promise<number>;
-
-  /**
-   * Update the processing status of external data items.
-   */
-  updateProcessingStatus(
-    rawTransactionId: number,
-    status: 'pending' | 'processed' | 'failed',
-    error?: string,
-    providerId?: string
-  ): Promise<void>;
 }

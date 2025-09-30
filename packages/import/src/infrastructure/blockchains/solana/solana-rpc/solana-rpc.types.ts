@@ -37,10 +37,6 @@ export interface SolanaRPCTransaction {
   };
 }
 
-export interface SolanaRPCRawTransactionData {
-  normal: SolanaRPCTransaction[];
-}
-
 export interface SolanaRPCRawBalanceData {
   lamports: number;
 }

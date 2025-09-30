@@ -1,38 +1,25 @@
-import type { ImportSessionMetadata } from '@exitbook/import/app/ports/processors.js';
 import { isErrorWithMessage } from '@exitbook/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
+import type { ImportSessionMetadata } from '../../../../app/ports/transaction-processor.interface.ts';
 import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
 import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
 import type { SolanaAccountChange, SolanaTokenChange, SolanaTransaction } from '../types.js';
 import { lamportsToSol } from '../utils.js';
 
-import type { SolscanRawTransactionData } from './solscan.api-client.js';
 import { SolscanRawTransactionDataSchema } from './solscan.schemas.js';
 import type { SolscanTransaction } from './solscan.types.js';
 
 @RegisterTransactionMapper('solscan')
-export class SolscanTransactionMapper extends BaseRawDataMapper<SolscanRawTransactionData, SolanaTransaction> {
+export class SolscanTransactionMapper extends BaseRawDataMapper<SolscanTransaction, SolanaTransaction> {
   protected readonly schema = SolscanRawTransactionDataSchema;
 
   protected mapInternal(
-    rawData: SolscanRawTransactionData,
+    rawData: SolscanTransaction,
     _sessionContext: ImportSessionMetadata
   ): Result<SolanaTransaction, string> {
-    if (!rawData.normal || rawData.normal.length === 0) {
-      return err('No transactions to transform from SolscanRawTransactionData');
-    }
-
-    // For now, process the first transaction
-    // TODO: Handle multiple transactions in batch properly
-    const tx = rawData.normal[0];
-
-    if (tx === undefined) {
-      return err('No valid transaction found in SolscanRawTransactionData');
-    }
-
     try {
-      const solanaTransaction = this.transformTransaction(tx);
+      const solanaTransaction = this.transformTransaction(rawData);
       return ok(solanaTransaction);
     } catch (error) {
       const errorMessage = isErrorWithMessage(error) ? error.message : String(error);

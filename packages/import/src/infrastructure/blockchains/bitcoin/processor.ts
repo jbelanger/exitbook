@@ -1,9 +1,9 @@
-import type { UniversalTransaction } from '@exitbook/core';
-import type { ImportSessionMetadata } from '@exitbook/import/app/ports/processors.js';
+import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
 import { createMoney } from '@exitbook/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
-import { BaseProcessor } from '../../shared/processors/base-processor.js';
+import type { ImportSessionMetadata } from '../../../app/ports/transaction-processor.interface.ts';
+import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
 
 import type { BitcoinFundFlow, BitcoinTransaction } from './types.js';
 
@@ -12,7 +12,7 @@ import type { BitcoinFundFlow, BitcoinTransaction } from './types.js';
  * into UniversalTransaction format. Uses ProcessorFactory to dispatch to provider-specific
  * processors based on data provenance. Optimized for multi-address processing using session context.
  */
-export class BitcoinTransactionProcessor extends BaseProcessor {
+export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
   constructor() {
     super('bitcoin');
   }

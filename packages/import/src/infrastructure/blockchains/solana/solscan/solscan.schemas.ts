@@ -51,11 +51,9 @@ export const SolscanBalanceSchema = z.object({
 });
 
 /**
- * Schema for Solscan raw transaction data
+ * Schema for Solscan raw transaction data (single transaction)
  */
-export const SolscanRawTransactionDataSchema = z.object({
-  normal: z.array(SolscanTransactionSchema),
-});
+export const SolscanRawTransactionDataSchema = SolscanTransactionSchema;
 
 /**
  * Schema for Solscan API response wrapper

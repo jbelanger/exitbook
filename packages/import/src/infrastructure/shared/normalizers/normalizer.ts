@@ -1,6 +1,6 @@
-import type { ImportSessionMetadata } from '@exitbook/import/app/ports/processors.js';
 import { type Result, err, ok } from 'neverthrow';
 
+import type { ImportSessionMetadata } from '../../../app/ports/transaction-processor.interface.ts';
 import { TransactionMapperFactory } from '../processors/processor-registry.js';
 
 /**

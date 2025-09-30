@@ -38,7 +38,6 @@ interface VerifyOptions {
 
 interface StatusOptions {
   clearDb?: boolean | undefined;
-  config?: string | undefined;
 }
 
 interface ExportOptions {
@@ -53,7 +52,6 @@ interface ImportOptions {
   address?: string | undefined;
   blockchain?: string | undefined;
   clearDb?: boolean | undefined;
-  config?: string | undefined;
   csvDir?: string | undefined;
   exchange?: string | undefined;
   process?: boolean | undefined;
@@ -66,7 +64,6 @@ interface ProcessOptions {
   all?: boolean | undefined;
   blockchain?: string | undefined;
   clearDb?: boolean | undefined;
-  config?: string | undefined;
   exchange?: string | undefined;
   session?: string | undefined;
   since?: string | undefined;
@@ -109,7 +106,7 @@ async function main() {
           process.exit(1);
         }
 
-        const results = await verifier.verifyExchangeById(sourceName);
+        const results = await verifier.verifyBalancesForSource(sourceName);
 
         displayVerificationResults(results);
 
@@ -132,7 +129,6 @@ async function main() {
   program
     .command('status')
     .description('Show system status and recent verification results')
-    .option('--config <path>', 'Path to configuration file')
     .option('--clear-db', 'Clear and reinitialize database before status')
     .action(async (options: StatusOptions) => {
       try {
@@ -247,7 +243,6 @@ async function main() {
     .option('--since <date>', 'Import data since date (YYYY-MM-DD, timestamp, or 0 for all history)')
     .option('--until <date>', 'Import data until date (YYYY-MM-DD or timestamp)')
     .option('--process', 'Process data after import (combined import+process pipeline)')
-    .option('--config <path>', 'Path to configuration file')
     .option('--clear-db', 'Clear and reinitialize database before import')
     .action(async (options: ImportOptions) => {
       try {
@@ -343,7 +338,7 @@ async function main() {
           if (options.process) {
             logger.info('Processing imported data to universal format');
 
-            const processResult = await ingestionService.processAndStore(sourceName, sourceType, {
+            const processResult = await ingestionService.processRawDataToTransactions(sourceName, sourceType, {
               importSessionId: importResult.importSessionId,
             });
 
@@ -381,7 +376,6 @@ async function main() {
     .option('--session <id>', 'Import session ID to process')
     .option('--since <date>', 'Process data since date (YYYY-MM-DD or timestamp)')
     .option('--all', 'Process all pending raw data for this source')
-    .option('--config <path>', 'Path to configuration file')
     .option('--clear-db', 'Clear and reinitialize database before processing')
     .action(async (options: ProcessOptions) => {
       try {
@@ -440,7 +434,7 @@ async function main() {
             filters.createdAfter = Math.floor(sinceTimestamp / 1000); // Convert to seconds for database
           }
 
-          const result = await ingestionService.processAndStore(sourceName, sourceType, filters);
+          const result = await ingestionService.processRawDataToTransactions(sourceName, sourceType, filters);
 
           logger.info(`Processing completed: ${result.processed} processed, ${result.failed} failed`);
 
@@ -527,7 +521,7 @@ function displayVerificationResults(results: BalanceVerificationResult[]): void 
   logger.info('================================');
 
   for (const result of results) {
-    logger.info(`\n${result.exchange} - ${result.status.toUpperCase()}`);
+    logger.info(`\n${result.source} - ${result.status.toUpperCase()}`);
 
     if (result.error) {
       logger.error(`  Error: ${result.error}`);

@@ -1,9 +1,9 @@
-import type { UniversalTransaction } from '@exitbook/core';
 import type { RawData } from '@exitbook/data';
+import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
 import { createMoney, parseDecimal } from '@exitbook/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
-import { BaseProcessor } from '../../shared/processors/base-processor.js';
+import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
 
 import type { CsvLedgerLiveOperationRow } from './types.js';
 
@@ -14,7 +14,7 @@ import type { CsvLedgerLiveOperationRow } from './types.js';
  * - Status mapping
  * - Fee handling (including empty fees)
  */
-export class LedgerLiveProcessor extends BaseProcessor {
+export class LedgerLiveProcessor extends BaseTransactionProcessor {
   constructor() {
     super('ledgerlive');
   }
