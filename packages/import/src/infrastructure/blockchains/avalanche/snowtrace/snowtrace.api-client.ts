@@ -46,7 +46,6 @@ import type {
     },
   },
   requiresApiKey: false,
-  type: 'rest',
 })
 export class SnowtraceApiClient extends BlockchainApiClient {
   constructor() {

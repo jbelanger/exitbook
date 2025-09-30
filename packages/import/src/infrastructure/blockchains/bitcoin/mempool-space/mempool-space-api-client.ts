@@ -34,7 +34,6 @@ import type { MempoolAddressInfo, MempoolTransaction } from './mempool-space.typ
     },
   },
   requiresApiKey: false,
-  type: 'rest',
 })
 export class MempoolSpaceApiClient extends BlockchainApiClient {
   constructor() {

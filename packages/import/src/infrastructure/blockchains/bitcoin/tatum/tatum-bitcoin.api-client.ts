@@ -35,7 +35,6 @@ import type { TatumBitcoinTransaction, TatumBitcoinBalance } from './tatum.types
     },
   },
   requiresApiKey: true,
-  type: 'rest',
 })
 export class TatumBitcoinApiClient extends TatumApiClientBase<TatumBitcoinTransaction, TatumBitcoinBalance> {
   constructor() {

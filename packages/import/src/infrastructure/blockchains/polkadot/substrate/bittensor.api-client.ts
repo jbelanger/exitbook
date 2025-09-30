@@ -29,7 +29,6 @@ import { SUBSTRATE_CHAINS } from './substrate.types.js';
     },
   },
   requiresApiKey: true,
-  type: 'rest',
 })
 export class BittensorApiClient extends BaseSubstrateApiClient {
   constructor() {

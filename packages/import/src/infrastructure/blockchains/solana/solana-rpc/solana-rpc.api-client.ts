@@ -40,7 +40,6 @@ import type {
     },
   },
   requiresApiKey: false,
-  type: 'rpc',
 })
 export class SolanaRPCApiClient extends BlockchainApiClient {
   constructor() {

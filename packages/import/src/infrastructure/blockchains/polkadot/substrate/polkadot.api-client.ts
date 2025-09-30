@@ -31,7 +31,6 @@ import { SUBSTRATE_CHAINS } from './substrate.types.js';
     },
   },
   requiresApiKey: false,
-  type: 'rest',
 })
 export class PolkadotApiClient extends BaseSubstrateApiClient {
   constructor() {

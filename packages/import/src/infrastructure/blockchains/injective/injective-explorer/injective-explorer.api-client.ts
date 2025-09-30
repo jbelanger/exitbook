@@ -33,7 +33,6 @@ import type { InjectiveExplorerTransaction } from './injective-explorer.types.js
     },
   },
   requiresApiKey: false,
-  type: 'rest',
 })
 export class InjectiveExplorerApiClient extends BlockchainApiClient {
   constructor() {

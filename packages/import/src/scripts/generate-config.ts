@@ -62,7 +62,6 @@ function generateConfiguration(): void {
           enabled: index === 0, // Enable first provider by default
           name: provider.name,
           priority: index + 1,
-          type: provider.type,
           ...(metadata?.requiresApiKey && {
             requiresApiKey: true,
             ...(metadata.apiKeyEnvVar && {

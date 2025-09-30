@@ -35,7 +35,6 @@ import type { BlockstreamAddressInfo, BlockstreamTransaction } from './blockstre
     },
   },
   requiresApiKey: false,
-  type: 'rest',
 })
 export class BlockstreamApiClient extends BlockchainApiClient {
   constructor() {

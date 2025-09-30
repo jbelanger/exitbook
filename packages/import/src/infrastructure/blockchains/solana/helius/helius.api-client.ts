@@ -47,7 +47,6 @@ export interface SolanaRawTokenBalanceData {
     },
   },
   requiresApiKey: true,
-  type: 'rpc',
 })
 export class HeliusApiClient extends BlockchainApiClient {
   /**

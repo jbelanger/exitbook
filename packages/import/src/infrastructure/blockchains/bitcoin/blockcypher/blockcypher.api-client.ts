@@ -51,7 +51,6 @@ import type { BlockCypherTransaction, BlockCypherAddress } from './blockcypher.t
     },
   },
   requiresApiKey: false,
-  type: 'rest',
 })
 export class BlockCypherApiClient extends BlockchainApiClient {
   constructor() {

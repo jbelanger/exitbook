@@ -40,7 +40,6 @@ export interface SolscanRawBalanceData {
     },
   },
   requiresApiKey: false,
-  type: 'rest',
 })
 export class SolscanApiClient extends BlockchainApiClient {
   constructor() {

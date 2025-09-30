@@ -32,7 +32,6 @@ import type { BlockchainComAddressResponse, BlockchainComTransaction } from './b
     },
   },
   requiresApiKey: false,
-  type: 'rest',
 })
 export class BlockchainComApiClient extends BlockchainApiClient {
   constructor() {

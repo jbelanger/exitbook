@@ -440,7 +440,6 @@ describe('ProviderRegistry', () => {
     expect(metadata?.blockchain).toBe('ethereum');
     expect(metadata?.displayName).toBe('Alchemy');
     expect(metadata?.requiresApiKey).toBe(true);
-    expect(metadata?.type).toBe('rest');
     expect(metadata?.defaultConfig).toBeDefined();
     expect(metadata?.networks.mainnet).toBeDefined();
     expect(metadata?.networks.mainnet.baseUrl).toBe('https://eth-mainnet.g.alchemy.com/v2');

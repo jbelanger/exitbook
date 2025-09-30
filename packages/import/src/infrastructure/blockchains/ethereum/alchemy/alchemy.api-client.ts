@@ -34,7 +34,6 @@ import type {
     mainnet: { baseUrl: 'https://eth-mainnet.g.alchemy.com/v2' },
   },
   requiresApiKey: true,
-  type: 'rest',
 })
 export class AlchemyApiClient extends BlockchainApiClient {
   constructor() {

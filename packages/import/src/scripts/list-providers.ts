@@ -60,7 +60,6 @@ function listProviders(): void {
     for (const provider of providers) {
       console.log(`  ✓ ${provider.name}`);
       console.log(`    Name: ${provider.displayName}`);
-      console.log(`    Type: ${provider.type}`);
       console.log(`    API Key Required: ${provider.requiresApiKey ? 'Yes' : 'No'}`);
 
       // Show API key environment variable if available

@@ -31,7 +31,6 @@ export interface ProviderMetadata {
     testnet?: NetworkEndpoint | undefined;
   };
   requiresApiKey?: boolean | undefined;
-  type?: 'rest' | 'rpc' | 'websocket' | undefined;
 }
 
 /**
@@ -54,7 +53,6 @@ export interface ProviderInfo {
   name: string;
   requiresApiKey: boolean;
   supportedNetworks: string[];
-  type: string;
 }
 
 /**
@@ -111,7 +109,6 @@ export class ProviderRegistry {
           name: factory.metadata.name,
           requiresApiKey: factory.metadata.requiresApiKey || false,
           supportedNetworks: Object.keys(factory.metadata.networks),
-          type: factory.metadata.type || 'rest',
         };
       });
   }

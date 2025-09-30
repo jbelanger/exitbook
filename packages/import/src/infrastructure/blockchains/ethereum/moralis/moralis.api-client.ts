@@ -40,7 +40,6 @@ import type {
     mainnet: { baseUrl: 'https://deep-index.moralis.io/api/v2' },
   },
   requiresApiKey: true,
-  type: 'rest',
 })
 export class MoralisApiClient extends BlockchainApiClient {
   protected override network: string;
