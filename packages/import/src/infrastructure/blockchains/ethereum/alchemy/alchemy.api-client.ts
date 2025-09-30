@@ -76,19 +76,21 @@ export class AlchemyApiClient extends BlockchainApiClient {
     }
   }
 
-  async isHealthy(): Promise<boolean> {
-    try {
-      const response = await this.httpClient.post<JsonRpcResponse<string>>(`/${this.apiKey}`, {
+  getHealthCheckConfig() {
+    return {
+      body: {
         id: 1,
         jsonrpc: '2.0',
         method: 'eth_blockNumber',
         params: [],
-      });
-      return response && response.result !== undefined;
-    } catch (error) {
-      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
-    }
+      },
+      endpoint: `/${this.apiKey}`,
+      method: 'POST' as const,
+      validate: (response: unknown) => {
+        const data = response as JsonRpcResponse<string>;
+        return data && data.result !== undefined;
+      },
+    };
   }
 
   private async getAssetTransfers(

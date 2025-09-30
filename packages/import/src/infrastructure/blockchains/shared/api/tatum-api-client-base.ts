@@ -26,15 +26,13 @@ export abstract class TatumApiClientBase<TTx, TBalance> extends BlockchainApiCli
 
   // Abstract methods that each blockchain implementation must provide
   abstract getRawAddressTransactions(address: string, params?: Record<string, unknown>): Promise<TTx[]> | undefined;
-  async isHealthy(): Promise<boolean> {
-    try {
-      // Test with a simple endpoint - each blockchain should override if needed
-      await this.httpClient.get('/');
-      return true;
-    } catch (error) {
-      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
-    }
+  getHealthCheckConfig() {
+    return {
+      endpoint: '/',
+      validate: (response: unknown) => {
+        return response !== null && response !== undefined;
+      },
+    };
   }
 
   /**

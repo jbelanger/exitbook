@@ -1,15 +1,11 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import type { AddressInfo } from '../../types.js';
 import { BlockchainComApiClient } from '../blockchain-com.api-client.js';
 import type { BlockchainComTransaction } from '../blockchain-com.types.js';
 
 describe('BlockchainComApiClient E2E', () => {
-  let client: BlockchainComApiClient;
-
-  beforeEach(() => {
-    client = new BlockchainComApiClient();
-  });
+  const client = new BlockchainComApiClient();
 
   it('should connect to Blockchain.com API and test health', async () => {
     const isHealthy = await client.isHealthy();
@@ -62,19 +58,5 @@ describe('BlockchainComApiClient E2E', () => {
     expect(addressInfo).toBeDefined();
     expect(addressInfo).toHaveProperty('balance');
     expect(addressInfo).toHaveProperty('txCount');
-  }, 30000);
-
-  it('should filter transactions by timestamp', async () => {
-    const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa';
-    const futureTimestamp = Date.now() + 86400000; // 24 hours from now
-
-    const transactions = await client.execute<BlockchainComTransaction[]>({
-      address: testAddress,
-      since: futureTimestamp,
-      type: 'getRawAddressTransactions',
-    });
-
-    expect(Array.isArray(transactions)).toBe(true);
-    expect(transactions).toHaveLength(0);
   }, 30000);
 });

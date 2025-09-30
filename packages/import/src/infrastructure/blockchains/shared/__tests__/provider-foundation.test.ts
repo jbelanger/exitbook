@@ -4,6 +4,7 @@
  */
 
 import type { RateLimitConfig } from '@exitbook/shared-utils';
+import { err, ok, type Result } from 'neverthrow';
 import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
 
 // Import clients to trigger registration
@@ -66,8 +67,24 @@ class MockProvider implements IBlockchainProvider {
     }
   }
 
-  async isHealthy(): Promise<boolean> {
-    return Promise.resolve(!this.shouldFail);
+  async isHealthy(): Promise<Result<boolean, Error>> {
+    if (this.shouldFail) {
+      return err(new Error('Mock provider is unhealthy'));
+    }
+    return Promise.resolve(ok(true));
+  }
+
+  async benchmarkRateLimit(): Promise<{
+    burstLimits?: { limit: number; success: boolean }[];
+    maxSafeRate: number;
+    recommended: RateLimitConfig;
+    testResults: { rate: number; responseTimeMs?: number; success: boolean }[];
+  }> {
+    return Promise.resolve({
+      maxSafeRate: 1,
+      recommended: { requestsPerSecond: 1 },
+      testResults: [{ rate: 1, success: true }],
+    });
   }
 
   setFailureMode(shouldFail: boolean): void {

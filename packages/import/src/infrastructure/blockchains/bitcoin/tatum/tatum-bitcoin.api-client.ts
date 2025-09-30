@@ -156,15 +156,13 @@ export class TatumBitcoinApiClient extends TatumApiClientBase<TatumBitcoinTransa
     }
   }
 
-  override async isHealthy(): Promise<boolean> {
-    try {
-      // Test with a simple endpoint - get balance for a known address
-      await this.makeRequest<TatumBitcoinBalance>('/address/1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa/balance');
-      return true;
-    } catch (error) {
-      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
-    }
+  override getHealthCheckConfig() {
+    return {
+      endpoint: '/address/1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa/balance',
+      validate: (response: unknown) => {
+        return response !== null && response !== undefined;
+      },
+    };
   }
 
   /**

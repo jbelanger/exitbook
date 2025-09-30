@@ -90,16 +90,14 @@ export class MoralisApiClient extends BlockchainApiClient {
     }
   }
 
-  async isHealthy(): Promise<boolean> {
-    try {
-      const response = await this.httpClient.get<{ block: number }>(
-        '/dateToBlock?chain=eth&date=2023-01-01T00:00:00.000Z'
-      );
-      return response && typeof response.block === 'number';
-    } catch (error) {
-      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
-    }
+  getHealthCheckConfig() {
+    return {
+      endpoint: '/dateToBlock?chain=eth&date=2023-01-01T00:00:00.000Z',
+      validate: (response: unknown) => {
+        const data = response as { block: number };
+        return data && typeof data.block === 'number';
+      },
+    };
   }
 
   private async getRawAddressBalance(address: string): Promise<MoralisNativeBalance> {

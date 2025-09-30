@@ -181,18 +181,20 @@ export class HeliusApiClient extends BlockchainApiClient {
     }
   }
 
-  async isHealthy(): Promise<boolean> {
-    try {
-      const response = await this.httpClient.post<JsonRpcResponse<string>>('/', {
+  getHealthCheckConfig() {
+    return {
+      body: {
         id: 1,
         jsonrpc: '2.0',
         method: 'getHealth',
-      });
-      return response?.result === 'ok';
-    } catch (error) {
-      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
-    }
+      },
+      endpoint: '/',
+      method: 'POST' as const,
+      validate: (response: unknown) => {
+        const data = response as JsonRpcResponse<string>;
+        return data?.result === 'ok';
+      },
+    };
   }
 
   private deduplicateTransactions(transactions: HeliusTransaction[]): HeliusTransaction[] {

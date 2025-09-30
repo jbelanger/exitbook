@@ -149,7 +149,7 @@ export class HttpClient {
 
             let delay = 2000; // Default fallback
 
-            if (rawDelay !== undefined) {
+            if (rawDelay !== undefined && rawDelay > 0) {
               // Auto-detect if value is in seconds or milliseconds
               // If rawDelay > 300 (5 minutes), assume it's milliseconds
               // If rawDelay <= 300, assume it's seconds (RFC standard)
@@ -162,13 +162,18 @@ export class HttpClient {
                 delay = Math.min(rawDelay * 1000, 30000);
                 this.logger.debug(`Detected Retry-After as seconds: ${rawDelay}s`);
               }
+            } else if (rawDelay === 0) {
+              // Retry-After: 0 is invalid/misconfigured, enforce minimum delay
+              delay = 1000;
+              this.logger.warn(`Invalid Retry-After: 0 received, using minimum delay of ${delay}ms`);
             }
 
+            const willRetry = attempt < this.config.retries!;
             this.logger.warn(
-              `Rate limit 429 response received from API, waiting before retry - RawRetryAfter: ${rawDelay}, Delay: ${delay}ms, Attempt: ${attempt}/${this.config.retries}`
+              `Rate limit 429 response received from API${willRetry ? ', waiting before retry' : ', no retries remaining'} - RawRetryAfter: ${rawDelay}, Delay: ${delay}ms, Attempt: ${attempt}/${this.config.retries}`
             );
 
-            if (attempt < this.config.retries!) {
+            if (willRetry) {
               await this.delay(delay);
               continue;
             } else {

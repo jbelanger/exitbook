@@ -98,16 +98,14 @@ export class SolscanApiClient extends BlockchainApiClient {
     }
   }
 
-  async isHealthy(): Promise<boolean> {
-    try {
-      const response = await this.httpClient.get<SolscanResponse>(
-        '/account/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
-      );
-      return response && response.success !== false;
-    } catch (error) {
-      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
-    }
+  getHealthCheckConfig() {
+    return {
+      endpoint: '/account/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+      validate: (response: unknown) => {
+        const data = response as SolscanResponse;
+        return data && data.success !== false;
+      },
+    };
   }
 
   private async getRawAddressBalance(params: { address: string }): Promise<SolscanRawBalanceData> {

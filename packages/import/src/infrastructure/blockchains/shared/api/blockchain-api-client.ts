@@ -1,7 +1,8 @@
 import type { Logger } from '@exitbook/shared-logger';
 import { getLogger } from '@exitbook/shared-logger';
 import type { RateLimitConfig } from '@exitbook/shared-utils';
-import { HttpClient } from '@exitbook/shared-utils';
+import { HttpClient, RateLimitError } from '@exitbook/shared-utils';
+import { err, ok, type Result } from 'neverthrow';
 
 import { type ProviderMetadata, ProviderRegistry } from '../registry/provider-registry.ts';
 import type { IBlockchainProvider, ProviderCapabilities, ProviderOperation } from '../types.ts';
@@ -71,8 +72,36 @@ export abstract class BlockchainApiClient implements IBlockchainProvider {
 
   abstract execute<T>(operation: ProviderOperation<T>, config?: Record<string, unknown>): Promise<T>;
 
-  // Abstract methods that must be implemented by concrete providers
-  abstract isHealthy(): Promise<boolean>;
+  /**
+   * Provide health check configuration for this provider
+   * Derived classes must specify endpoint, validation logic, and optionally POST details
+   */
+  abstract getHealthCheckConfig(): {
+    body?: unknown;
+    endpoint: string;
+    method?: 'GET' | 'POST';
+    validate: (response: unknown) => boolean;
+  };
+
+  /**
+   * Check if the provider's API is healthy and responding correctly
+   * Returns Result to allow special handling of RateLimitError in benchmarks
+   */
+  async isHealthy(): Promise<Result<boolean, Error>> {
+    try {
+      const config = this.getHealthCheckConfig();
+      const method = config.method || 'GET';
+
+      const response =
+        method === 'POST'
+          ? await this.httpClient.post(config.endpoint, config.body)
+          : await this.httpClient.get(config.endpoint);
+
+      return ok(config.validate(response));
+    } catch (error) {
+      return err(error instanceof Error ? error : new Error(String(error)));
+    }
+  }
 
   /**
    * Benchmark API to find optimal rate limits
@@ -104,7 +133,7 @@ export abstract class BlockchainApiClient implements IBlockchainProvider {
         requestsPerMinute: 10000,
         requestsPerSecond: 1000,
       },
-      retries: 1, // No retries - timeouts/failures are immediate signals
+      retries: 1, // 1 attempt = no retries, failures (including 429) fail immediately
       timeout: 5000, // Shorter timeout for faster failure detection
     });
 
@@ -147,23 +176,29 @@ export abstract class BlockchainApiClient implements IBlockchainProvider {
 
             for (let i = batchStart; i < batchEnd; i++) {
               const promise = (async () => {
-                try {
-                  const start = Date.now();
-                  await this.isHealthy();
-                  const responseTime = Date.now() - start;
-                  return responseTime;
-                } catch (error) {
-                  if (
-                    error instanceof Error &&
-                    (error.message.includes('429') ||
-                      error.message.includes('rate limit') ||
-                      error.message.includes('timeout'))
-                  ) {
+                const start = Date.now();
+                const result = await this.isHealthy();
+
+                if (result.isErr()) {
+                  // Check if it's a RateLimitError - this is a hard failure
+                  if (result.error instanceof RateLimitError) {
                     failedOnRequest = i + 1;
-                    throw error;
+                    throw result.error;
                   }
-                  throw error;
+                  // Other errors (timeout, network) also fail the test
+                  if (result.error.message.includes('timeout') || result.error.message.includes('network')) {
+                    failedOnRequest = i + 1;
+                    throw result.error;
+                  }
+                  throw result.error;
                 }
+
+                if (!result.value) {
+                  throw new Error('Health check returned false');
+                }
+
+                const responseTime = Date.now() - start;
+                return responseTime;
               })();
               batchPromises.push(promise);
             }
@@ -172,12 +207,8 @@ export abstract class BlockchainApiClient implements IBlockchainProvider {
               const batchResults = await Promise.all(batchPromises);
               burstResponseTimes.push(...batchResults);
             } catch (error) {
-              if (
-                error instanceof Error &&
-                (error.message.includes('429') ||
-                  error.message.includes('rate limit') ||
-                  error.message.includes('timeout'))
-              ) {
+              // RateLimitError or timeout means we hit the burst limit
+              if (error instanceof RateLimitError || (error instanceof Error && error.message.includes('timeout'))) {
                 this.logger.warn(
                   `Burst limit hit at ${burstLimit} req/min on request #${failedOnRequest}/${burstLimit}`
                 );
@@ -257,18 +288,12 @@ export abstract class BlockchainApiClient implements IBlockchainProvider {
         // Make 5 requests at this rate
         for (let i = 0; i < 5; i++) {
           totalRequests++;
-          try {
-            const start = Date.now();
-            await this.isHealthy();
-            const responseTime = Date.now() - start;
-            responseTimes.push(responseTime);
+          const start = Date.now();
+          const result = await this.isHealthy();
 
-            if (i < 4) {
-              // Wait between requests (except after last one)
-              await new Promise((resolve) => setTimeout(resolve, delayMs));
-            }
-          } catch (error) {
-            if (error instanceof Error && (error.message.includes('429') || error.message.includes('rate limit'))) {
+          if (result.isErr()) {
+            // Check for RateLimitError - hard failure
+            if (result.error instanceof RateLimitError) {
               this.logger.warn(
                 `Hit explicit 429 rate limit at ${rate} req/sec on request #${i + 1}/5 (total: ${totalRequests})`
               );
@@ -276,7 +301,8 @@ export abstract class BlockchainApiClient implements IBlockchainProvider {
               success = false;
               break;
             }
-            if (error instanceof Error && error.message.includes('timeout')) {
+            // Check for timeout - soft rate limiting indicator
+            if (result.error.message.includes('timeout')) {
               this.logger.warn(
                 `Request timeout at ${rate} req/sec on request #${i + 1}/5 (total: ${totalRequests}) - possible soft rate limiting`
               );
@@ -284,8 +310,19 @@ export abstract class BlockchainApiClient implements IBlockchainProvider {
               hadTimeout = true;
               // Continue to collect more data points, but flag this rate
             } else {
-              throw error; // Re-throw non-rate-limit errors
+              throw result.error; // Re-throw non-rate-limit errors
             }
+          } else {
+            if (!result.value) {
+              throw new Error('Health check returned false');
+            }
+            const responseTime = Date.now() - start;
+            responseTimes.push(responseTime);
+          }
+
+          if (i < 4) {
+            // Wait between requests (except after last one)
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
           }
         }
 

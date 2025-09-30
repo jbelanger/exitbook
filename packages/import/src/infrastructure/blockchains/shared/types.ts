@@ -1,4 +1,5 @@
 import type { RateLimitConfig } from '@exitbook/shared-utils';
+import type { Result } from 'neverthrow';
 
 /**
  * Generic data source capabilities interface that provides a unified model
@@ -97,8 +98,8 @@ export interface IBlockchainProvider<TConfig = Record<string, unknown>> {
   readonly capabilities: ProviderCapabilities;
   // Universal execution method - all operations go through this
   execute<T>(operation: ProviderOperation<T>, config: TConfig): Promise<T>;
-  // Health and connectivity
-  isHealthy(): Promise<boolean>;
+  // Health and connectivity - returns Result to allow special error handling (e.g., RateLimitError)
+  isHealthy(): Promise<Result<boolean, Error>>;
 
   readonly name: string;
   readonly rateLimit: RateLimitConfig;

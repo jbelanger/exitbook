@@ -72,18 +72,14 @@ export class InjectiveExplorerApiClient extends BlockchainApiClient {
     }
   }
 
-  async isHealthy(): Promise<boolean> {
-    try {
-      // Test with a known address to check if the API is responsive
-      const testAddress = 'inj1qq6hgelyft8z5fnm6vyyn3ge3w2nway4ykdf6a'; // Injective Foundation address
-      const endpoint = `/api/explorer/v1/accountTxs/${testAddress}`;
-
-      const response = await this.httpClient.get<unknown>(endpoint);
-      return Boolean(response && typeof response === 'object');
-    } catch (error) {
-      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
-    }
+  getHealthCheckConfig() {
+    const testAddress = 'inj1qq6hgelyft8z5fnm6vyyn3ge3w2nway4ykdf6a';
+    return {
+      endpoint: `/api/explorer/v1/accountTxs/${testAddress}`,
+      validate: (response: unknown) => {
+        return Boolean(response && typeof response === 'object');
+      },
+    };
   }
 
   private async getRawAddressTransactions(params: {

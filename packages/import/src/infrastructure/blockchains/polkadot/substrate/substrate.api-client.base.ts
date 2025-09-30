@@ -1,5 +1,6 @@
 import type { HttpClient } from '@exitbook/shared-utils';
 import { maskAddress } from '@exitbook/shared-utils';
+import { err, ok, type Result } from 'neverthrow';
 
 import { BlockchainApiClient } from '../../shared/api/blockchain-api-client.ts';
 import type { JsonRpcResponse } from '../../shared/types.js';
@@ -67,27 +68,33 @@ export abstract class BaseSubstrateApiClient extends BlockchainApiClient {
     }
   }
 
-  async isHealthy(): Promise<boolean> {
+  // Substrate has complex health check logic - keeping override
+  async isHealthy(): Promise<Result<boolean, Error>> {
     try {
       // Try explorer API first if available
       if (this.httpClient) {
         const response = await this.testExplorerApi();
-        if (response) return true;
+        if (response) return ok(true);
       }
 
       // Fallback to RPC if available
       if (this.rpcClient) {
         const response = await this.testRpcConnection();
-        if (response) return true;
+        if (response) return ok(true);
       }
 
-      return false;
+      return ok(false);
     } catch (error) {
-      this.logger.warn(
-        `Health check failed - Chain: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`
-      );
-      return false;
+      return err(error instanceof Error ? error : new Error(String(error)));
     }
+  }
+
+  // Required abstract method - not used due to isHealthy() override
+  getHealthCheckConfig() {
+    return {
+      endpoint: '/api/v1/balances',
+      validate: () => true,
+    };
   }
 
   private async getBalanceFromExplorer(address: string): Promise<unknown> {

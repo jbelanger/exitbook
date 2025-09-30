@@ -1,4 +1,4 @@
-import { hasStringProperty, isErrorWithMessage, maskAddress } from '@exitbook/shared-utils';
+import { hasStringProperty, maskAddress } from '@exitbook/shared-utils';
 
 import { BlockchainApiClient } from '../../shared/api/blockchain-api-client.ts';
 import { RegisterApiClient } from '../../shared/registry/decorators.js';
@@ -79,14 +79,14 @@ export class BlockCypherApiClient extends BlockchainApiClient {
     }
   }
 
-  async isHealthy(): Promise<boolean> {
-    try {
-      const response = await this.httpClient.get<{ name?: string }>('/');
-      return hasStringProperty(response, 'name');
-    } catch (error) {
-      this.logger.warn(`Health check failed - Error: ${isErrorWithMessage(error) ? error.message : String(error)}`);
-      return false;
-    }
+  getHealthCheckConfig() {
+    return {
+      endpoint: '/',
+      validate: (response: unknown) => {
+        const data = response as { name?: string };
+        return hasStringProperty(data, 'name');
+      },
+    };
   }
 
   private buildEndpoint(endpoint: string): string {

@@ -98,23 +98,23 @@ export class SnowtraceApiClient extends BlockchainApiClient {
     }
   }
 
-  async isHealthy(): Promise<boolean> {
-    try {
-      const params = new URLSearchParams({
-        action: 'ethsupply',
-        module: 'stats',
-      });
+  getHealthCheckConfig() {
+    const params = new URLSearchParams({
+      action: 'ethsupply',
+      module: 'stats',
+    });
 
-      if (this.apiKey && this.apiKey !== 'YourApiKeyToken') {
-        params.append('apikey', this.apiKey);
-      }
-
-      const response = await this.httpClient.get(`?${params.toString()}`);
-      return !!(response && (response as SnowtraceApiResponse<unknown>).status === '1');
-    } catch (error) {
-      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
+    if (this.apiKey && this.apiKey !== 'YourApiKeyToken') {
+      params.append('apikey', this.apiKey);
     }
+
+    return {
+      endpoint: `?${params.toString()}`,
+      validate: (response: unknown) => {
+        const data = response as SnowtraceApiResponse<unknown>;
+        return !!(data && data.status === '1');
+      },
+    };
   }
 
   private async getInternalTransactions(address: string, since?: number): Promise<SnowtraceInternalTransaction[]> {

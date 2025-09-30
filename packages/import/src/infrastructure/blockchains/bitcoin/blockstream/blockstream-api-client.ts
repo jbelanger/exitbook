@@ -78,14 +78,13 @@ export class BlockstreamApiClient extends BlockchainApiClient {
     }
   }
 
-  async isHealthy(): Promise<boolean> {
-    try {
-      const response = await this.httpClient.get<number>('/blocks/tip/height');
-      return typeof response === 'number' && response > 0;
-    } catch (error) {
-      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
-    }
+  getHealthCheckConfig() {
+    return {
+      endpoint: '/blocks/tip/height',
+      validate: (response: unknown) => {
+        return typeof response === 'number' && response > 0;
+      },
+    };
   }
 
   /**

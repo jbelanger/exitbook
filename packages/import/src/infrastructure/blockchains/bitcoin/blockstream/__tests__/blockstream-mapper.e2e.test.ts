@@ -2,20 +2,20 @@ import { beforeAll, describe, expect, it } from 'vitest';
 
 import type { RawTransactionMetadata } from '../../../../../app/ports/importers.js';
 import type { ImportSessionMetadata } from '../../../../../app/ports/transaction-processor.interface.js';
-import { BlockchainComApiClient } from '../blockchain-com.api-client.js';
-import { BlockchainComTransactionMapper } from '../blockchain-com.mapper.js';
-import type { BlockchainComTransaction } from '../blockchain-com.types.js';
+import { BlockstreamApiClient } from '../blockstream-api-client.js';
+import { BlockstreamTransactionMapper } from '../blockstream.mapper.js';
+import type { BlockstreamTransaction } from '../blockstream.types.js';
 
-describe('BlockchainComTransactionMapper E2E', () => {
-  const mapper = new BlockchainComTransactionMapper();
-  const apiClient = new BlockchainComApiClient();
+describe('BlockstreamTransactionMapper E2E', () => {
+  const mapper = new BlockstreamTransactionMapper();
+  const apiClient = new BlockstreamApiClient();
   const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa'; // Genesis block address
 
-  let cachedTransactions: BlockchainComTransaction[];
+  let cachedTransactions: BlockstreamTransaction[];
 
   beforeAll(async () => {
     // Fetch data once to avoid hammering the API
-    cachedTransactions = await apiClient.execute<BlockchainComTransaction[]>({
+    cachedTransactions = await apiClient.execute<BlockstreamTransaction[]>({
       address: testAddress,
       type: 'getRawAddressTransactions',
     });
@@ -26,7 +26,7 @@ describe('BlockchainComTransactionMapper E2E', () => {
 
     const rawTx = cachedTransactions[0]!;
     const metadata: RawTransactionMetadata = {
-      providerId: 'blockchain.com',
+      providerId: 'blockstream.info',
     };
     const sessionContext: ImportSessionMetadata = {
       address: testAddress,
@@ -37,9 +37,9 @@ describe('BlockchainComTransactionMapper E2E', () => {
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       const normalized = result.value;
-      expect(normalized.id).toBe(rawTx.hash);
+      expect(normalized.id).toBe(rawTx.txid);
       expect(normalized.currency).toBe('BTC');
-      expect(normalized.providerId).toBe('blockchain.com');
+      expect(normalized.providerId).toBe('blockstream.info');
       expect(normalized.status).toMatch(/success|pending/);
       expect(Array.isArray(normalized.inputs)).toBe(true);
       expect(Array.isArray(normalized.outputs)).toBe(true);
@@ -48,14 +48,14 @@ describe('BlockchainComTransactionMapper E2E', () => {
   });
 
   it('should handle confirmed transactions correctly', () => {
-    const confirmedTx = cachedTransactions.find((tx) => tx.block_height && tx.block_height > 0);
+    const confirmedTx = cachedTransactions.find((tx) => tx.status.confirmed && tx.status.block_height);
     if (!confirmedTx) {
       console.warn('No confirmed transactions found, skipping test');
       return;
     }
 
     const metadata: RawTransactionMetadata = {
-      providerId: 'blockchain.com',
+      providerId: 'blockstream.info',
     };
     const sessionContext: ImportSessionMetadata = {
       address: testAddress,
@@ -69,6 +69,7 @@ describe('BlockchainComTransactionMapper E2E', () => {
       expect(normalized.status).toBe('success');
       expect(normalized.blockHeight).toBeDefined();
       expect(normalized.blockHeight).toBeGreaterThan(0);
+      expect(normalized.blockId).toBeDefined();
     }
   });
 
@@ -80,7 +81,7 @@ describe('BlockchainComTransactionMapper E2E', () => {
     }
 
     const metadata: RawTransactionMetadata = {
-      providerId: 'blockchain.com',
+      providerId: 'blockstream.info',
     };
     const sessionContext: ImportSessionMetadata = {
       address: testAddress,
@@ -100,7 +101,7 @@ describe('BlockchainComTransactionMapper E2E', () => {
   it('should map inputs and outputs with addresses', () => {
     const rawTx = cachedTransactions[0]!;
     const metadata: RawTransactionMetadata = {
-      providerId: 'blockchain.com',
+      providerId: 'blockstream.info',
     };
     const sessionContext: ImportSessionMetadata = {
       address: testAddress,
@@ -113,7 +114,7 @@ describe('BlockchainComTransactionMapper E2E', () => {
       const normalized = result.value;
 
       // Check inputs
-      expect(normalized.inputs.length).toBe(rawTx.inputs.length);
+      expect(normalized.inputs.length).toBe(rawTx.vin.length);
       normalized.inputs.forEach((input) => {
         expect(input).toHaveProperty('txid');
         expect(input).toHaveProperty('value');
@@ -121,10 +122,10 @@ describe('BlockchainComTransactionMapper E2E', () => {
       });
 
       // Check outputs
-      expect(normalized.outputs.length).toBe(rawTx.out.length);
+      expect(normalized.outputs.length).toBe(rawTx.vout.length);
       normalized.outputs.forEach((output, index) => {
         expect(output).toHaveProperty('value');
-        expect(output.index).toBe(rawTx.out[index]!.n);
+        expect(output.index).toBe(index);
       });
     }
   });

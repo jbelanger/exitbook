@@ -20,10 +20,10 @@ import type { BlockchainComAddressResponse, BlockchainComTransaction } from './b
   },
   defaultConfig: {
     rateLimit: {
-      burstLimit: 1,
-      requestsPerHour: 300,
-      requestsPerMinute: 10,
-      requestsPerSecond: 0.17, // Conservative: 1 request per 6 seconds
+      burstLimit: 15,
+      requestsPerHour: 12960,
+      requestsPerMinute: 216,
+      requestsPerSecond: 5,
     },
     retries: 3,
     timeout: 15000,
@@ -75,14 +75,14 @@ export class BlockchainComApiClient extends BlockchainApiClient {
     }
   }
 
-  async isHealthy(): Promise<boolean> {
-    try {
-      const response = await this.httpClient.get<{ height: number }>('/latestblock');
-      return typeof response.height === 'number' && response.height > 0;
-    } catch (error) {
-      this.logger.warn(`Health check failed - Error: ${error instanceof Error ? error.message : String(error)}`);
-      return false;
-    }
+  getHealthCheckConfig() {
+    return {
+      endpoint: '/latestblock',
+      validate: (response: unknown) => {
+        const data = response as { height?: number };
+        return typeof data.height === 'number' && data.height > 0;
+      },
+    };
   }
 
   /**

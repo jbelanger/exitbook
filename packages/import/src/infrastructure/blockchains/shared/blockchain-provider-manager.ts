@@ -758,10 +758,14 @@ export class BlockchainProviderManager {
       for (const provider of providers) {
         try {
           const startTime = Date.now();
-          const isHealthy = await provider.isHealthy();
+          const result = await provider.isHealthy();
           const responseTime = Date.now() - startTime;
 
-          this.updateHealthMetrics(provider.name, isHealthy, responseTime);
+          if (result.isErr()) {
+            this.updateHealthMetrics(provider.name, false, responseTime, result.error.message);
+          } else {
+            this.updateHealthMetrics(provider.name, result.value, responseTime);
+          }
         } catch (error) {
           this.updateHealthMetrics(
             provider.name,

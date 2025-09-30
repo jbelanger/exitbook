@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 import type { RawTransactionMetadata } from '../../../../../app/ports/importers.js';
 import type { ImportSessionMetadata } from '../../../../../app/ports/transaction-processor.interface.js';
@@ -7,25 +7,24 @@ import { MempoolSpaceTransactionMapper } from '../mempool-space.mapper.js';
 import type { MempoolTransaction } from '../mempool-space.types.js';
 
 describe('MempoolSpaceTransactionMapper E2E', () => {
-  let mapper: MempoolSpaceTransactionMapper;
-  let apiClient: MempoolSpaceApiClient;
+  const mapper = new MempoolSpaceTransactionMapper();
+  const apiClient = new MempoolSpaceApiClient();
+  const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa'; // Genesis block address
 
-  beforeEach(() => {
-    mapper = new MempoolSpaceTransactionMapper();
-    apiClient = new MempoolSpaceApiClient();
-  });
+  let cachedTransactions: MempoolTransaction[];
 
-  it('should map real transaction data from API', async () => {
-    const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa'; // Genesis block address
-
-    const rawTransactions = await apiClient.execute<MempoolTransaction[]>({
+  beforeAll(async () => {
+    // Fetch data once to avoid hammering the API
+    cachedTransactions = await apiClient.execute<MempoolTransaction[]>({
       address: testAddress,
       type: 'getRawAddressTransactions',
     });
+  }, 60000);
 
-    expect(rawTransactions.length).toBeGreaterThan(0);
+  it('should map real transaction data from API', () => {
+    expect(cachedTransactions.length).toBeGreaterThan(0);
 
-    const rawTx = rawTransactions[0]!;
+    const rawTx = cachedTransactions[0]!;
     const metadata: RawTransactionMetadata = {
       providerId: 'mempool.space',
     };
@@ -46,17 +45,10 @@ describe('MempoolSpaceTransactionMapper E2E', () => {
       expect(Array.isArray(normalized.outputs)).toBe(true);
       expect(normalized.timestamp).toBeGreaterThan(0);
     }
-  }, 30000);
+  });
 
-  it('should handle confirmed transactions correctly', async () => {
-    const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa';
-
-    const rawTransactions = await apiClient.execute<MempoolTransaction[]>({
-      address: testAddress,
-      type: 'getRawAddressTransactions',
-    });
-
-    const confirmedTx = rawTransactions.find((tx) => tx.status.confirmed);
+  it('should handle confirmed transactions correctly', () => {
+    const confirmedTx = cachedTransactions.find((tx) => tx.status.confirmed);
     if (!confirmedTx) {
       console.warn('No confirmed transactions found, skipping test');
       return;
@@ -78,17 +70,10 @@ describe('MempoolSpaceTransactionMapper E2E', () => {
       expect(normalized.blockHeight).toBeDefined();
       expect(normalized.blockId).toBeDefined();
     }
-  }, 30000);
+  });
 
-  it('should map transaction fees correctly', async () => {
-    const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa';
-
-    const rawTransactions = await apiClient.execute<MempoolTransaction[]>({
-      address: testAddress,
-      type: 'getRawAddressTransactions',
-    });
-
-    const txWithFee = rawTransactions.find((tx) => tx.fee > 0);
+  it('should map transaction fees correctly', () => {
+    const txWithFee = cachedTransactions.find((tx) => tx.fee > 0);
     if (!txWithFee) {
       console.warn('No transactions with fees found, skipping test');
       return;
@@ -110,17 +95,10 @@ describe('MempoolSpaceTransactionMapper E2E', () => {
       expect(normalized.feeCurrency).toBe('BTC');
       expect(parseFloat(normalized.feeAmount!)).toBeGreaterThan(0);
     }
-  }, 30000);
+  });
 
-  it('should map inputs and outputs with addresses', async () => {
-    const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa';
-
-    const rawTransactions = await apiClient.execute<MempoolTransaction[]>({
-      address: testAddress,
-      type: 'getRawAddressTransactions',
-    });
-
-    const rawTx = rawTransactions[0]!;
+  it('should map inputs and outputs with addresses', () => {
+    const rawTx = cachedTransactions[0]!;
     const metadata: RawTransactionMetadata = {
       providerId: 'mempool.space',
     };
@@ -149,5 +127,5 @@ describe('MempoolSpaceTransactionMapper E2E', () => {
         expect(output.index).toBe(index);
       });
     }
-  }, 30000);
+  });
 });

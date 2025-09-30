@@ -8,7 +8,8 @@ import type { BlockCypherTransaction } from '../blockcypher.types.js';
 
 describe('BlockCypherTransactionMapper E2E', () => {
   let mapper: BlockCypherTransactionMapper;
-  let apiClient: BlockCypherApiClient;
+  // Reuse same client across tests to share rate limiter
+  const client = new BlockCypherApiClient();
 
   beforeAll(() => {
     if (!process.env['BLOCKCYPHER_API_KEY'] || process.env['BLOCKCYPHER_API_KEY'] === 'YourApiKeyToken') {
@@ -19,7 +20,6 @@ describe('BlockCypherTransactionMapper E2E', () => {
     }
 
     mapper = new BlockCypherTransactionMapper();
-    apiClient = new BlockCypherApiClient();
   });
 
   it.skipIf(!process.env['BLOCKCYPHER_API_KEY'] || process.env['BLOCKCYPHER_API_KEY'] === 'YourApiKeyToken')(
@@ -27,7 +27,7 @@ describe('BlockCypherTransactionMapper E2E', () => {
     async () => {
       const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa'; // Genesis block address
 
-      const rawTransactions = await apiClient.execute<BlockCypherTransaction[]>({
+      const rawTransactions = await client.execute<BlockCypherTransaction[]>({
         address: testAddress,
         type: 'getRawAddressTransactions',
       });
@@ -64,7 +64,7 @@ describe('BlockCypherTransactionMapper E2E', () => {
     async () => {
       const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa';
 
-      const rawTransactions = await apiClient.execute<BlockCypherTransaction[]>({
+      const rawTransactions = await client.execute<BlockCypherTransaction[]>({
         address: testAddress,
         type: 'getRawAddressTransactions',
       });
@@ -100,7 +100,7 @@ describe('BlockCypherTransactionMapper E2E', () => {
     async () => {
       const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa';
 
-      const rawTransactions = await apiClient.execute<BlockCypherTransaction[]>({
+      const rawTransactions = await client.execute<BlockCypherTransaction[]>({
         address: testAddress,
         type: 'getRawAddressTransactions',
       });
@@ -136,7 +136,7 @@ describe('BlockCypherTransactionMapper E2E', () => {
     async () => {
       const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa';
 
-      const rawTransactions = await apiClient.execute<BlockCypherTransaction[]>({
+      const rawTransactions = await client.execute<BlockCypherTransaction[]>({
         address: testAddress,
         type: 'getRawAddressTransactions',
       });
