@@ -27,6 +27,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - `pnpm blockchain-providers:list` - List all registered blockchain providers
 - `pnpm blockchain-providers:validate` - Validate provider registrations and configurations
+- `pnpm dev benchmark-rate-limit --blockchain <name> --provider <name> [--max-rate <number>] [--rates <rates>] [--skip-burst]` - Benchmark API rate limits for a provider
 
 ### Run Single Test
 

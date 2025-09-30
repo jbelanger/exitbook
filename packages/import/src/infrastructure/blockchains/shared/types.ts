@@ -82,6 +82,17 @@ export interface JsonRpcResponse<T = unknown> {
 }
 
 export interface IBlockchainProvider<TConfig = Record<string, unknown>> {
+  // Rate limit benchmarking
+  benchmarkRateLimit(
+    maxRequestsPerSecond?: number,
+    testBurstLimits?: boolean,
+    customRates?: number[]
+  ): Promise<{
+    burstLimits?: { limit: number; success: boolean }[];
+    maxSafeRate: number;
+    recommended: RateLimitConfig;
+    testResults: { rate: number; responseTimeMs?: number; success: boolean }[];
+  }>;
   readonly blockchain: string;
   readonly capabilities: ProviderCapabilities;
   // Universal execution method - all operations go through this

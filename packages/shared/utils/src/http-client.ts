@@ -63,6 +63,23 @@ export class HttpClient {
   }
 
   /**
+   * Temporarily update rate limit settings
+   * @param rateLimit New rate limit configuration
+   * @returns Function to restore original rate limits
+   */
+  withRateLimit(rateLimit: RateLimitConfig): () => void {
+    const originalRateLimiter = this.rateLimiter;
+    // @ts-expect-error - We're intentionally replacing the rate limiter
+    this.rateLimiter = RateLimiterFactory.getOrCreate(`${this.config.providerName}-temp-${Date.now()}`, rateLimit);
+
+    // Return cleanup function to restore original
+    return () => {
+      // @ts-expect-error - We're intentionally replacing the rate limiter
+      this.rateLimiter = originalRateLimiter;
+    };
+  }
+
+  /**
    * Convenience method for POST requests
    */
   async post<T = unknown>(
@@ -148,7 +165,7 @@ export class HttpClient {
             }
 
             this.logger.warn(
-              `Rate limit exceeded by server, waiting before retry - RawRetryAfter: ${rawDelay}, Delay: ${delay}ms, Attempt: ${attempt}/${this.config.retries}`
+              `Rate limit 429 response received from API, waiting before retry - RawRetryAfter: ${rawDelay}, Delay: ${delay}ms, Attempt: ${attempt}/${this.config.retries}`
             );
 
             if (attempt < this.config.retries!) {

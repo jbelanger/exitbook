@@ -81,7 +81,7 @@ export class RateLimiter {
     }
 
     this.logger.debug(
-      `Rate limit reached, waiting - WaitTimeMs: ${waitTimeMs}, TokensAvailable: ${this.tokens}, Status: ${JSON.stringify(this.getStatus())}`
+      `Rate limit enforced, waiting before sending request - WaitTimeMs: ${waitTimeMs}, TokensAvailable: ${this.tokens}, Status: ${JSON.stringify(this.getStatus())}`
     );
 
     await this.delay(waitTimeMs);

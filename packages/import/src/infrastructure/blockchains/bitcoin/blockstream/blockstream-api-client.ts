@@ -19,10 +19,10 @@ import type { BlockstreamAddressInfo, BlockstreamTransaction } from './blockstre
   },
   defaultConfig: {
     rateLimit: {
-      burstLimit: 5,
-      requestsPerHour: 3600,
-      requestsPerMinute: 60,
-      requestsPerSecond: 1.0, // More generous than mempool.space
+      burstLimit: 15,
+      requestsPerHour: 12960,
+      requestsPerMinute: 216,
+      requestsPerSecond: 4,
     },
     retries: 3,
     timeout: 10000,
