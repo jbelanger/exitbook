@@ -1,7 +1,8 @@
+import type { RawTransactionMetadata } from '@exitbook/import/app/ports/importers.ts';
+import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transaction-processor.interface.ts';
 import { isErrorWithMessage } from '@exitbook/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
-import type { ImportSessionMetadata } from '../../../../app/ports/transaction-processor.interface.ts';
 import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
 import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
 import type { SolanaAccountChange, SolanaTokenChange, SolanaTransaction } from '../types.js';
@@ -16,6 +17,7 @@ export class SolscanTransactionMapper extends BaseRawDataMapper<SolscanTransacti
 
   protected mapInternal(
     rawData: SolscanTransaction,
+    _metadata: RawTransactionMetadata,
     _sessionContext: ImportSessionMetadata
   ): Result<SolanaTransaction, string> {
     try {

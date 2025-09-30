@@ -1,6 +1,5 @@
 import type { ITransactionRepository } from '@exitbook/import/app/ports/transaction-repository.js';
 import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
-import { getLogger } from '@exitbook/shared-logger';
 import { createMoney } from '@exitbook/shared-utils';
 import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
@@ -15,8 +14,6 @@ import type { AvalancheTransaction, AvalancheFundFlow } from './types.js';
  * into UniversalTransaction format using correlation system for smart classification.
  */
 export class AvalancheTransactionProcessor extends BaseTransactionProcessor {
-  private correlationLogger = getLogger('AvalancheCorrelation');
-
   constructor(private readonly transactionRepository?: ITransactionRepository) {
     super('avalanche');
     // transactionRepository will be used for historical context analysis in future enhancements
@@ -26,7 +23,7 @@ export class AvalancheTransactionProcessor extends BaseTransactionProcessor {
    * Process normalized Avalanche transactions with enhanced fund flow analysis.
    * Handles AvalancheTransaction objects with structured data.
    */
-  protected async processNormalizedInternal(
+  protected async processInternal(
     normalizedData: unknown[],
     sessionMetadata?: ImportSessionMetadata
   ): Promise<Result<UniversalTransaction[], string>> {

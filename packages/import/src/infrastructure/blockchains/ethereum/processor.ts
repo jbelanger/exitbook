@@ -22,7 +22,7 @@ export class EthereumTransactionProcessor extends BaseTransactionProcessor {
    * Process normalized Ethereum transactions with enhanced fund flow analysis.
    * Handles EthereumTransaction objects with structured transaction data.
    */
-  protected async processNormalizedInternal(
+  protected async processInternal(
     normalizedData: unknown[],
     sessionMetadata?: ImportSessionMetadata
   ): Promise<Result<UniversalTransaction[], string>> {

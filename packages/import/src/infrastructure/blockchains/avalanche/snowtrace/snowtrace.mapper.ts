@@ -1,6 +1,7 @@
 import type { Result } from 'neverthrow';
 import { ok } from 'neverthrow';
 
+import type { RawTransactionMetadata } from '../../../../app/ports/importers.ts';
 import type { ImportSessionMetadata } from '../../../../app/ports/transaction-processor.interface.ts';
 import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
 import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
@@ -18,6 +19,7 @@ export class SnowtraceTransactionMapper extends BaseRawDataMapper<
 
   protected mapInternal(
     rawData: SnowtraceTransaction | SnowtraceInternalTransaction | SnowtraceTokenTransfer,
+    _metadata: RawTransactionMetadata,
     _sessionContext: ImportSessionMetadata
   ): Result<AvalancheTransaction, string> {
     // Type discrimination handled by SnowtraceAnyTransactionSchema discriminated union

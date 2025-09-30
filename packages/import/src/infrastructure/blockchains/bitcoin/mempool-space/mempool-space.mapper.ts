@@ -1,6 +1,7 @@
 import { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
+import type { RawTransactionMetadata } from '../../../../app/ports/importers.ts';
 import type { ImportSessionMetadata } from '../../../../app/ports/transaction-processor.interface.ts';
 import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
 import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
@@ -22,6 +23,7 @@ export class MempoolSpaceTransactionMapper extends BaseRawDataMapper<MempoolTran
    */
   protected mapInternal(
     rawData: MempoolTransaction,
+    _metadata: RawTransactionMetadata,
     _sessionContext: ImportSessionMetadata
   ): Result<BitcoinTransaction, string> {
     const timestamp =

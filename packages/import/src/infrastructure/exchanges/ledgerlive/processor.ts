@@ -19,7 +19,7 @@ export class LedgerLiveProcessor extends BaseTransactionProcessor {
     super('ledgerlive');
   }
 
-  protected async processNormalizedInternal(rawDataItems: RawData[]): Promise<Result<UniversalTransaction[], string>> {
+  protected async processInternal(rawDataItems: RawData[]): Promise<Result<UniversalTransaction[], string>> {
     const transactions: UniversalTransaction[] = [];
 
     for (const rawDataItem of rawDataItems) {

@@ -1,6 +1,7 @@
 import { parseDecimal } from '@exitbook/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
+import type { RawTransactionMetadata } from '../../../../app/ports/importers.ts';
 import type { ImportSessionMetadata } from '../../../../app/ports/transaction-processor.interface.ts';
 import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
 import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
@@ -21,6 +22,7 @@ export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<
 
   protected mapInternal(
     rawData: InjectiveApiTransaction,
+    _metadata: RawTransactionMetadata,
     sessionContext: ImportSessionMetadata
   ): Result<InjectiveTransaction, string> {
     const timestamp = new Date(rawData.block_timestamp).getTime();

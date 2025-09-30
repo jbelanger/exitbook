@@ -1,6 +1,7 @@
 import { isErrorWithMessage } from '@exitbook/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
+import type { RawTransactionMetadata } from '../../../../app/ports/importers.ts';
 import type { ImportSessionMetadata } from '../../../../app/ports/transaction-processor.interface.ts';
 import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
 import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
@@ -15,6 +16,7 @@ export class SolanaRPCTransactionMapper extends BaseRawDataMapper<SolanaRPCTrans
   protected readonly schema = SolanaRPCRawTransactionDataSchema;
   protected mapInternal(
     rawData: SolanaRPCTransaction,
+    _metadata: RawTransactionMetadata,
     _sessionContext: ImportSessionMetadata
   ): Result<SolanaTransaction, string> {
     try {

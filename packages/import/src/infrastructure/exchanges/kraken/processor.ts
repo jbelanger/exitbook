@@ -22,7 +22,7 @@ export class KrakenProcessor extends BaseTransactionProcessor {
     super('kraken');
   }
 
-  protected processNormalizedInternal(rawDataItems: RawData[]): Promise<Result<UniversalTransaction[], string>> {
+  protected processInternal(rawDataItems: RawData[]): Promise<Result<UniversalTransaction[], string>> {
     try {
       // Extract the raw ledger rows for batch processing
       // Handle ApiClientRawData format: { providerId: string, rawData: CsvKrakenLedgerRow }

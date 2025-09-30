@@ -35,14 +35,15 @@ export interface ImportRunResult {
 }
 
 export interface RawTransactionWithMetadata {
-  metadata: {
-    providerId: string;
-    sourceAddress?: string | undefined;
-    transactionType?: string | undefined;
-  };
+  metadata: RawTransactionMetadata;
   rawData: unknown;
 }
 
+export interface RawTransactionMetadata {
+  providerId: string;
+  sourceAddress?: string | undefined;
+  transactionType?: string | undefined;
+}
 /**
  * Interface for importing raw data from external sources.
  * Each importer is responsible for fetching data from a specific source

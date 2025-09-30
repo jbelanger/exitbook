@@ -21,7 +21,7 @@ export class InjectiveTransactionProcessor extends BaseTransactionProcessor {
   /**
    * Process normalized InjectiveTransaction data with sophisticated fund flow analysis
    */
-  protected async processNormalizedInternal(
+  protected async processInternal(
     normalizedData: unknown[],
     sessionMetadata?: ImportSessionMetadata
   ): Promise<Result<UniversalTransaction[], string>> {

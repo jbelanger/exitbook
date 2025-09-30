@@ -1,5 +1,5 @@
 import type { RawData } from '@exitbook/data';
-import type { ImportParams } from '@exitbook/import/app/ports/importers.ts';
+import type { ImportParams, RawTransactionMetadata } from '@exitbook/import/app/ports/importers.ts';
 import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
 import type { Logger } from '@exitbook/shared-logger';
 import { getLogger } from '@exitbook/shared-logger';
@@ -258,7 +258,7 @@ export class TransactionIngestionService {
               try {
                 const result = normalizer.normalize(
                   item.raw_data,
-                  sourceId,
+                  item.metadata as RawTransactionMetadata,
                   session.session_metadata as ImportSessionMetadata
                 );
                 if (result) result.map((r) => normalizedRawDataItems.push(r));

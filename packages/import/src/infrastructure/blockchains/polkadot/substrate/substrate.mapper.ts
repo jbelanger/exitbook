@@ -1,7 +1,8 @@
+import type { RawTransactionMetadata } from '@exitbook/import/app/ports/importers.ts';
+import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transaction-processor.interface.ts';
 import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
-import type { ImportSessionMetadata } from '../../../../app/ports/transaction-processor.interface.ts';
 import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
 import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
 import type { SubstrateTransaction } from '../substrate-types.js';
@@ -16,6 +17,7 @@ export class SubstrateTransactionMapper extends BaseRawDataMapper<SubscanTransfe
 
   protected mapInternal(
     rawData: SubscanTransfer,
+    _metadata: RawTransactionMetadata,
     sessionContext: ImportSessionMetadata
   ): Result<SubstrateTransaction, string> {
     // Extract addresses from rich session context (similar to Bitcoin's approach)

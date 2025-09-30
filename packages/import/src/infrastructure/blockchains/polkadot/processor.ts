@@ -24,7 +24,7 @@ export class PolkadotTransactionProcessor extends BaseTransactionProcessor {
   /**
    * Process normalized SubstrateTransaction data with sophisticated fund flow analysis
    */
-  protected async processNormalizedInternal(
+  protected async processInternal(
     normalizedData: unknown[],
     sessionMetadata?: ImportSessionMetadata
   ): Promise<Result<UniversalTransaction[], string>> {

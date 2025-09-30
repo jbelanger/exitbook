@@ -24,7 +24,7 @@ export class CoinbaseProcessor extends BaseTransactionProcessor {
     super('coinbase');
   }
 
-  protected async processNormalizedInternal(rawDataItems: RawData[]): Promise<Result<UniversalTransaction[], string>> {
+  protected async processInternal(rawDataItems: RawData[]): Promise<Result<UniversalTransaction[], string>> {
     const transactions: UniversalTransaction[] = [];
 
     for (const item of rawDataItems) {

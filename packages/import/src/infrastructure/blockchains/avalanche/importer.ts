@@ -9,12 +9,6 @@ import { err, ok, type Result } from 'neverthrow';
 
 import type { BlockchainProviderManager, ProviderError } from '../shared/blockchain-provider-manager.js';
 
-import type {
-  SnowtraceInternalTransaction,
-  SnowtraceTransaction,
-  SnowtraceTokenTransfer,
-} from './snowtrace/snowtrace.types.ts';
-
 /**
  * Avalanche transaction importer that fetches raw transaction data from blockchain APIs.
  * Supports multiple transaction types (regular, internal, token) from Snowtrace providers.
@@ -124,8 +118,8 @@ export class AvalancheTransactionImporter implements IImporter {
     if (!response.data) return rawTransactions;
 
     const compositeData = response.data as {
-      internal: SnowtraceInternalTransaction[];
-      normal: SnowtraceTransaction[];
+      internal: unknown[];
+      normal: unknown[];
     };
 
     if (compositeData.normal?.length) {
@@ -155,7 +149,7 @@ export class AvalancheTransactionImporter implements IImporter {
   private processTokenTransactions(response: { data: unknown; providerName: string }): RawTransactionWithMetadata[] {
     if (!response.data || !Array.isArray(response.data)) return [];
 
-    const tokenTransactions = response.data as SnowtraceTokenTransfer[];
+    const tokenTransactions = response.data as unknown[];
     return tokenTransactions.map((tx) => ({
       metadata: { providerId: response.providerName, transactionType: 'token' as const },
       rawData: tx,

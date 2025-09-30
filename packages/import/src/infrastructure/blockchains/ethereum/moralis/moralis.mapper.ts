@@ -2,6 +2,7 @@ import { parseDecimal } from '@exitbook/shared-utils';
 import { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
+import type { RawTransactionMetadata } from '../../../../app/ports/importers.ts';
 import type { ImportSessionMetadata } from '../../../../app/ports/transaction-processor.interface.ts';
 import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
 import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
@@ -16,6 +17,7 @@ export class MoralisTransactionMapper extends BaseRawDataMapper<MoralisTransacti
 
   protected mapInternal(
     rawData: MoralisTransaction,
+    _metadata: RawTransactionMetadata,
     _sessionContext: ImportSessionMetadata
   ): Result<EthereumTransaction, string> {
     const valueWei = parseDecimal(rawData.value);

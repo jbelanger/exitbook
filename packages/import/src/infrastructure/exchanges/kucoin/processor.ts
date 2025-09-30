@@ -19,7 +19,7 @@ export class KucoinProcessor extends BaseTransactionProcessor {
     super('kucoin');
   }
 
-  protected async processNormalizedInternal(rawDataItems: RawData[]): Promise<Result<UniversalTransaction[], string>> {
+  protected async processInternal(rawDataItems: RawData[]): Promise<Result<UniversalTransaction[], string>> {
     const allTransactions: UniversalTransaction[] = [];
 
     for (const rawDataItem of rawDataItems) {

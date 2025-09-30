@@ -1,7 +1,7 @@
 import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
 import type { Logger } from '@exitbook/shared-logger';
 import { getLogger } from '@exitbook/shared-logger';
-import { type Result, ok, err } from 'neverthrow';
+import { type Result, ok } from 'neverthrow';
 
 import type {
   ITransactionProcessor,
@@ -26,7 +26,7 @@ export abstract class BaseTransactionProcessor implements ITransactionProcessor 
    * This is the primary processing method that converts normalized blockchain/exchange data
    * into UniversalTransaction objects.
    */
-  protected abstract processNormalizedInternal(
+  protected abstract processInternal(
     normalizedData: unknown[],
     sessionMetadata?: ImportSessionMetadata
   ): Promise<Result<UniversalTransaction[], string>>;
@@ -34,15 +34,7 @@ export abstract class BaseTransactionProcessor implements ITransactionProcessor 
   async process(importSession: ProcessingImportSession): Promise<Result<UniversalTransaction[], string>> {
     this.logger.info(`Processing ${importSession.normalizedData.length} normalized items for ${this.sourceId}`);
 
-    const canProcessResult = this.canProcess(importSession.sourceId);
-    if (canProcessResult.isErr()) {
-      this.logger.warn(
-        `Skipping processing for ${importSession.sourceId} of type ${importSession.sourceType} in ${this.sourceId}Processor`
-      );
-      return ok([]); // Return empty array for skipped processing
-    }
-
-    return (await this.processNormalizedInternal(importSession.normalizedData, importSession.sessionMetadata))
+    return (await this.processInternal(importSession.normalizedData, importSession.sessionMetadata))
       .mapErr((error) => {
         this.logger.error(`Processing failed for ${this.sourceId}: ${error}`);
         return error;
@@ -79,12 +71,6 @@ export abstract class BaseTransactionProcessor implements ITransactionProcessor 
 
       return transaction;
     });
-  }
-
-  private canProcess(sourceId: string): Result<void, string> {
-    return sourceId === this.sourceId
-      ? ok()
-      : err(`Cannot process sourceId ${sourceId} with processor for ${this.sourceId}`);
   }
 
   /**

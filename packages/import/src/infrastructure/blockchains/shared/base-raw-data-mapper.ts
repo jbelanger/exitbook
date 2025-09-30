@@ -2,6 +2,7 @@ import type { IRawDataMapper } from '@exitbook/import/app/ports/raw-data-mappers
 import { type Result, err } from 'neverthrow';
 import type { ZodSchema } from 'zod';
 
+import type { RawTransactionMetadata } from '../../../app/ports/importers.ts';
 import type { ImportSessionMetadata } from '../../../app/ports/transaction-processor.interface.ts';
 
 /**
@@ -24,6 +25,7 @@ export abstract class BaseRawDataMapper<TRawData, TNormalizedData>
    */
   protected abstract mapInternal(
     rawData: TRawData,
+    metadata: RawTransactionMetadata,
     sessionContext: ImportSessionMetadata
   ): Result<TNormalizedData, string>;
 
@@ -31,7 +33,11 @@ export abstract class BaseRawDataMapper<TRawData, TNormalizedData>
    * Public transform method that handles validation internally and delegates to transformValidated.
    * Returns array of UniversalBlockchainTransaction for type-safe consumption by transaction processors.
    */
-  map(rawData: TRawData, context: ImportSessionMetadata): Result<TNormalizedData, string> {
+  map(
+    rawData: TRawData,
+    metadata: RawTransactionMetadata,
+    context: ImportSessionMetadata
+  ): Result<TNormalizedData, string> {
     // Validate input data first
     const validationResult = this.schema.safeParse(rawData);
     if (!validationResult.success) {
@@ -43,6 +49,6 @@ export abstract class BaseRawDataMapper<TRawData, TNormalizedData>
     }
 
     // Delegate to concrete implementation with validated data
-    return this.mapInternal(validationResult.data as TRawData, context);
+    return this.mapInternal(validationResult.data as TRawData, metadata, context);
   }
 }

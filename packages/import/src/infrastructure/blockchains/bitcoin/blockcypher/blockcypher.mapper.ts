@@ -1,6 +1,7 @@
 import { Decimal } from 'decimal.js';
 import { ok, type Result } from 'neverthrow';
 
+import type { RawTransactionMetadata } from '../../../../app/ports/importers.ts';
 import type { ImportSessionMetadata } from '../../../../app/ports/transaction-processor.interface.ts';
 import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
 import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
@@ -18,6 +19,7 @@ export class BlockCypherTransactionMapper extends BaseRawDataMapper<BlockCypherT
    */
   protected mapInternal(
     rawData: BlockCypherTransaction,
+    _metadata: RawTransactionMetadata,
     _sessionContext: ImportSessionMetadata
   ): Result<BitcoinTransaction, string> {
     const timestamp = rawData.confirmed ? new Date(rawData.confirmed).getTime() : Date.now();
