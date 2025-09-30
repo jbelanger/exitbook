@@ -7,7 +7,7 @@
   "scripts": {
     "build": "tsc --noEmit",
     "clean": "rm -rf node_modules dist",
-    "dev": "tsx --env-file-if-exists=.env ./src/index.ts",
+    "dev": "tsx --env-file-if-exists=../../.env ./src/index.ts",
     "export": "tsx ./src/index.ts export",
     "import": "tsx ./src/index.ts import",
     "lint": "eslint \"src/**/*.ts\"",

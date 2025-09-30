@@ -20,16 +20,16 @@ import type { BlockCypherTransaction, BlockCypherAddress } from './blockcypher.t
   },
   defaultConfig: {
     rateLimit: {
-      burstLimit: 5,
-      requestsPerHour: 10800,
-      requestsPerMinute: 180,
-      requestsPerSecond: 3.0, // API key dependent - 3 req/sec for free tier
+      burstLimit: 5, // Allow short bursts
+      requestsPerHour: 100, // Hard limit per BlockCypher docs
+      requestsPerMinute: 10, // Spread out to ~600/hour equivalent, but capped by hourly limit
+      requestsPerSecond: 2.0, // Conservative rate for sustained usage
     },
     retries: 3,
     timeout: 15000, // Longer timeout for BlockCypher
   },
   description:
-    'Bitcoin blockchain API with high-performance transaction data and balance queries (requires API key for full functionality)',
+    'Bitcoin blockchain API with high-performance transaction data and balance queries (API key optional for GET requests)',
   displayName: 'BlockCypher API',
   name: 'blockcypher',
   networks: {
@@ -40,7 +40,7 @@ import type { BlockCypherTransaction, BlockCypherAddress } from './blockcypher.t
       baseUrl: 'https://api.blockcypher.com/v1/btc/test3',
     },
   },
-  requiresApiKey: true,
+  requiresApiKey: false,
   type: 'rest',
 })
 export class BlockCypherApiClient extends BlockchainApiClient {

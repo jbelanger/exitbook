@@ -116,7 +116,8 @@ export abstract class BlockchainApiClient implements IBlockchainProvider {
     }
   }
   private getApiKey(): string {
-    if (!this.metadata.requiresApiKey) {
+    // If no API key support at all (not required and no env var specified), return empty
+    if (!this.metadata.requiresApiKey && !this.metadata.apiKeyEnvVar) {
       return '';
     }
 
@@ -124,8 +125,13 @@ export abstract class BlockchainApiClient implements IBlockchainProvider {
     const apiKey = process.env[envVar];
 
     if (!apiKey || apiKey === 'YourApiKeyToken') {
-      this.logger.warn(`No API key found for ${this.metadata.displayName}. ` + `Set environment variable: ${envVar}`);
-      return 'YourApiKeyToken';
+      // Only warn/return placeholder if API key is required
+      if (this.metadata.requiresApiKey) {
+        this.logger.warn(`No API key found for ${this.metadata.displayName}. ` + `Set environment variable: ${envVar}`);
+        return 'YourApiKeyToken';
+      }
+      // For optional API keys, silently return empty string
+      return '';
     }
 
     return apiKey;

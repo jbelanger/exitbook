@@ -11,6 +11,7 @@ describe('BlockchainComTransactionMapper E2E', () => {
   let apiClient: BlockchainComApiClient;
 
   beforeAll(() => {
+    console.log('BLOCKCHAIN_COM_API_KEY:', process.env.BLOCKCHAIN_COM_API_KEY ? 'Found' : 'Not found');
     mapper = new BlockchainComTransactionMapper();
     apiClient = new BlockchainComApiClient();
   });

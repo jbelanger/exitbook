@@ -8,6 +8,7 @@ import type { AddressInfo } from '../types.js';
 import type { BlockchainComAddressResponse, BlockchainComTransaction } from './blockchain-com.types.js';
 
 @RegisterApiClient({
+  apiKeyEnvVar: 'BLOCKCHAIN_COM_API_KEY',
   blockchain: 'bitcoin',
   capabilities: {
     maxBatchSize: 1,
