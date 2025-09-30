@@ -50,7 +50,6 @@ export class BlockchainProviderManager {
   private healthCheckTimer?: NodeJS.Timeout | undefined;
   private healthStatus = new Map<string, ProviderHealth>();
   private providers = new Map<string, IBlockchainProvider[]>();
-  private rateLimiters = new Map<string, { lastRequest: number; tokens: number }>(); // Simple token bucket
   private requestCache = new Map<string, CacheEntry>();
 
   constructor(private readonly explorerConfig: BlockchainExplorersConfig | undefined) {
@@ -135,7 +134,6 @@ export class BlockchainProviderManager {
     this.healthStatus.clear();
     this.circuitBreakers.clear();
     this.requestCache.clear();
-    this.rateLimiters.clear();
   }
 
   /**
@@ -216,18 +214,9 @@ export class BlockchainProviderManager {
         errorRate: 0,
         isHealthy: true,
         lastChecked: 0,
-        lastRateLimitTime: undefined,
-        rateLimitEvents: 0,
-        rateLimitRate: 0,
       });
 
       this.circuitBreakers.set(provider.name, new CircuitBreaker(provider.name));
-
-      // Initialize rate limiter
-      this.rateLimiters.set(provider.name, {
-        lastRequest: 0,
-        tokens: provider.rateLimit.burstLimit || 1,
-      });
     }
   }
 
@@ -365,55 +354,6 @@ export class BlockchainProviderManager {
   }
 
   /**
-   * Simple delay helper
-   */
-  private delay(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
-  /**
-   * Enforce rate limiting using token bucket algorithm
-   * @returns The delay time in milliseconds if rate limited
-   */
-  private async enforceRateLimit(provider: IBlockchainProvider): Promise<number> {
-    const rateLimiter = this.rateLimiters.get(provider.name);
-    if (!rateLimiter) {
-      return 0; // No rate limiting data
-    }
-
-    const now = Date.now();
-    const { burstLimit, requestsPerSecond } = provider.rateLimit;
-    const maxTokens = burstLimit || 1;
-    const refillRate = requestsPerSecond; // tokens per second
-
-    // Calculate how many tokens to add based on time elapsed
-    const timeSinceLastRequest = (now - rateLimiter.lastRequest) / 1000; // in seconds
-    const tokensToAdd = timeSinceLastRequest * refillRate;
-
-    // Update token count (don't exceed max)
-    rateLimiter.tokens = Math.min(maxTokens, rateLimiter.tokens + tokensToAdd);
-    rateLimiter.lastRequest = now;
-
-    // If we don't have enough tokens, wait
-    if (rateLimiter.tokens < 1) {
-      const waitTime = ((1 - rateLimiter.tokens) / refillRate) * 1000; // convert to ms
-      await this.delay(waitTime);
-
-      // After waiting, we should have at least 1 token
-      rateLimiter.tokens = 1;
-      rateLimiter.lastRequest = Date.now();
-
-      // Consume one token
-      rateLimiter.tokens -= 1;
-      return waitTime;
-    }
-
-    // Consume one token
-    rateLimiter.tokens -= 1;
-    return 0;
-  }
-
-  /**
    * Execute with circuit breaker protection and automatic failover
    */
   private async executeWithCircuitBreaker<T>(
@@ -460,20 +400,9 @@ export class BlockchainProviderManager {
         logger.debug(`Testing provider ${provider.name} in half-open state`);
       }
 
-      // Enforce rate limiting before execution
-      const rateLimitDelay = await this.enforceRateLimit(provider);
-      if (rateLimitDelay > 0) {
-        // Track rate limit event
-        this.recordRateLimitEvent(provider.name, rateLimitDelay);
-
-        if (rateLimitDelay > 500) {
-          // Only log significant delays
-          logger.debug(`Rate limited ${provider.name} for ${Math.round(rateLimitDelay)}ms before ${operation.type}`);
-        }
-      }
-
       const startTime = Date.now();
       try {
+        // Execute operation - rate limiting handled by provider's HttpClient
         const result = await provider.execute(operation, {});
         const responseTime = Date.now() - startTime;
 
@@ -576,9 +505,7 @@ export class BlockchainProviderManager {
             errorRate: Math.round(item.health.errorRate * 100),
             isHealthy: item.health.isHealthy,
             name: item.provider.name,
-            rateLimitEvents: item.health.rateLimitEvents,
             rateLimitPerSec: item.provider.rateLimit.requestsPerSecond,
-            rateLimitRate: Math.round(item.health.rateLimitRate * 100),
             score: item.score,
           }))
         )}`
@@ -779,26 +706,6 @@ export class BlockchainProviderManager {
   }
 
   /**
-   * Record a rate limit event for scoring purposes
-   */
-  private recordRateLimitEvent(providerName: string, delayMs: number): void {
-    const health = this.healthStatus.get(providerName);
-    if (!health) return;
-
-    health.rateLimitEvents++;
-    health.lastRateLimitTime = Date.now();
-
-    // Update rate limit rate (exponential moving average)
-    // Each request either was rate limited (1) or not (0)
-    const rateLimitWeight = 1; // This request was rate limited
-    health.rateLimitRate = health.rateLimitRate * 0.9 + rateLimitWeight * 0.1;
-
-    logger.debug(
-      `Recorded rate limit event for ${providerName} - TotalEvents: ${health.rateLimitEvents}, RateLimitRate: ${Math.round(health.rateLimitRate * 100)}%, DelayMs: ${delayMs}`
-    );
-  }
-
-  /**
    * Score a provider based on health, performance, and availability
    */
   private scoreProvider(provider: IBlockchainProvider): number {
@@ -823,16 +730,6 @@ export class BlockchainProviderManager {
     else if (rateLimit <= 1.0)
       score -= 20; // Moderately restrictive
     else if (rateLimit >= 3.0) score += 10; // Generous rate limits get bonus
-
-    // Dynamic rate limit penalties based on actual events
-    const rateLimitPercentage = health.rateLimitRate * 100;
-    if (rateLimitPercentage > 50)
-      score -= 60; // Very frequently rate limited (>50% of requests)
-    else if (rateLimitPercentage > 25)
-      score -= 40; // Frequently rate limited (>25% of requests)
-    else if (rateLimitPercentage > 10)
-      score -= 20; // Occasionally rate limited (>10% of requests)
-    else if (rateLimitPercentage < 1) score += 5; // Rarely rate limited bonus
 
     // Performance bonuses/penalties
     if (health.averageResponseTime < 1000) score += 20; // Fast response bonus
@@ -889,11 +786,5 @@ export class BlockchainProviderManager {
     // Update error rate (simplified - could use sliding window)
     const errorWeight = success ? 0 : 1;
     health.errorRate = health.errorRate * 0.9 + errorWeight * 0.1;
-
-    // Update rate limit rate for successful requests (they weren't rate limited)
-    if (success) {
-      const rateLimitWeight = 0; // This request was not rate limited
-      health.rateLimitRate = health.rateLimitRate * 0.9 + rateLimitWeight * 0.1;
-    }
   }
 }

@@ -134,7 +134,4 @@ export interface ProviderHealth {
   isHealthy: boolean;
   lastChecked: number;
   lastError?: string | undefined;
-  lastRateLimitTime?: number | undefined; // Timestamp of last rate limit event
-  rateLimitEvents: number; // Total rate limit events encountered
-  rateLimitRate: number; // Percentage of requests that were rate limited (0-1)
 }
