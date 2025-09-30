@@ -96,7 +96,7 @@ export class TatumBitcoinApiClient extends TatumApiClientBase<TatumBitcoinTransa
     this.logger.debug(`Fetching raw address balance - Address: ${maskAddress(address)}`);
 
     try {
-      const balance = await this.makeRequest<TatumBitcoinBalance>(`/address/${address}/balance`);
+      const balance = await this.makeRequest<TatumBitcoinBalance>(`/address/balance/${address}`);
 
       this.logger.debug(
         `Retrieved raw balance - Address: ${maskAddress(address)}, Incoming: ${balance.incoming}, Outgoing: ${balance.outgoing}`
@@ -158,7 +158,7 @@ export class TatumBitcoinApiClient extends TatumApiClientBase<TatumBitcoinTransa
 
   override getHealthCheckConfig() {
     return {
-      endpoint: '/address/1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa/balance',
+      endpoint: '/address/balance/1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa',
       validate: (response: unknown) => {
         return response !== null && response !== undefined;
       },

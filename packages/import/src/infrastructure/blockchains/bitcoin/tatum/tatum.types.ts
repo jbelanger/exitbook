@@ -22,9 +22,9 @@ export interface TatumBitcoinInput {
     address: string;
     coinbase: boolean;
     height: number;
-    reqSigs: number | undefined;
+    reqSigs?: number | undefined;
     script: string;
-    type: string | undefined;
+    type?: string | undefined;
     value: number;
     version: number;
   };
@@ -37,10 +37,10 @@ export interface TatumBitcoinInput {
 }
 
 export interface TatumBitcoinOutput {
-  address: string;
+  address?: string | undefined;
   script: string;
   scriptPubKey: {
-    reqSigs: number | undefined;
+    reqSigs?: number | undefined;
     type: string;
   };
   value: number;

@@ -76,7 +76,18 @@ export abstract class TatumApiClientBase<TTx, TBalance> extends BlockchainApiCli
     this.validateApiKey();
 
     try {
-      const response = await this.httpClient.get<T>(endpoint, params);
+      // Build URL with query parameters
+      let url = endpoint;
+      if (params && Object.keys(params).length > 0) {
+        const queryString = new URLSearchParams(
+          Object.entries(params)
+            .filter(([, value]) => value !== undefined && value !== null)
+            .map(([key, value]) => [key, String(value)])
+        ).toString();
+        url = `${endpoint}?${queryString}`;
+      }
+
+      const response = await this.httpClient.get<T>(url);
       return response;
     } catch (error) {
       this.logger.error(
