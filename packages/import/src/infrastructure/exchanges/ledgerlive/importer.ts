@@ -1,10 +1,15 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-import type { ApiClientRawTransaction, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
-import { ok, type Result } from 'neverthrow';
+import type {
+  ApiClientRawTransaction,
+  IImporter,
+  ImportParams,
+  ImportRunResult,
+} from '@exitbook/import/app/ports/importers.js';
+import { getLogger, type Logger } from '@exitbook/shared-logger';
+import { err, ok, type Result } from 'neverthrow';
 
-import { BaseImporter } from '../../shared/importers/base-importer.js';
 import { CsvParser } from '../csv-parser.js';
 
 import { CSV_FILE_TYPES } from './constants.js';
@@ -15,9 +20,12 @@ import { formatLedgerLiveValidationErrors, validateLedgerLiveCsvRows } from './u
  * Importer for Ledger Live CSV operation files.
  * Handles reading CSV files from specified directories and parsing operation data.
  */
-export class LedgerLiveCsvImporter extends BaseImporter {
+export class LedgerLiveCsvImporter implements IImporter {
+  private readonly logger: Logger;
+  private readonly sourceId = 'ledgerlive';
+
   constructor() {
-    super('ledgerlive');
+    this.logger = getLogger('ledgerliveImporter');
   }
 
   async import(params: ImportParams): Promise<Result<ImportRunResult, Error>> {
@@ -26,7 +34,7 @@ export class LedgerLiveCsvImporter extends BaseImporter {
     );
 
     if (!params.csvDirectories?.length) {
-      throw new Error('CSV directories are required for Ledger Live import');
+      return err(new Error('CSV directories are required for Ledger Live import'));
     }
 
     const allTransactions: ApiClientRawTransaction[] = [];
@@ -87,7 +95,9 @@ export class LedgerLiveCsvImporter extends BaseImporter {
         rawTransactions: allTransactions,
       });
     } catch (error) {
-      this.handleImportError(error, 'CSV file processing');
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Import failed in CSV file processing: ${errorMessage}`);
+      return err(new Error(`${this.sourceId} import failed: ${errorMessage}`));
     }
   }
 

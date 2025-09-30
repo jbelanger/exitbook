@@ -1,7 +1,12 @@
-import type { ApiClientRawTransaction, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
+import type {
+  ApiClientRawTransaction,
+  IImporter,
+  ImportParams,
+  ImportRunResult,
+} from '@exitbook/import/app/ports/importers.js';
+import { getLogger, type Logger } from '@exitbook/shared-logger';
 import { err, ok, type Result } from 'neverthrow';
 
-import { BaseImporter } from '../../shared/importers/base-importer.js';
 import type { BlockchainProviderManager, ProviderError } from '../shared/blockchain-provider-manager.js';
 
 /**
@@ -9,14 +14,15 @@ import type { BlockchainProviderManager, ProviderError } from '../shared/blockch
  * Supports multiple provider types (Alchemy, Moralis) with different data formats.
  * Uses provider manager for failover between multiple Ethereum API providers.
  */
-export class EthereumTransactionImporter extends BaseImporter {
+export class EthereumTransactionImporter implements IImporter {
+  private readonly logger: Logger;
   private providerManager: BlockchainProviderManager;
 
   constructor(
     blockchainProviderManager: BlockchainProviderManager,
     options?: { preferredProvider?: string | undefined }
   ) {
-    super('ethereum');
+    this.logger = getLogger('ethereumImporter');
 
     if (!blockchainProviderManager) {
       throw new Error('Provider manager required for Ethereum importer');

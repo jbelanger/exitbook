@@ -1,7 +1,12 @@
-import type { ApiClientRawTransaction, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
+import type {
+  ApiClientRawTransaction,
+  IImporter,
+  ImportParams,
+  ImportRunResult,
+} from '@exitbook/import/app/ports/importers.js';
+import { getLogger, type Logger } from '@exitbook/shared-logger';
 import { err, type Result } from 'neverthrow';
 
-import { BaseImporter } from '../../shared/importers/base-importer.js';
 import type { BlockchainProviderManager, ProviderError } from '../shared/blockchain-provider-manager.js';
 
 import type { SolanaRawTransactionData } from './helius/helius.api-client.js';
@@ -11,14 +16,15 @@ import type { SolanaRawTransactionData } from './helius/helius.api-client.js';
  * Supports Solana addresses using multiple providers (Helius, Solscan, SolanaRPC).
  * Uses provider manager for failover between multiple blockchain API providers.
  */
-export class SolanaTransactionImporter extends BaseImporter {
+export class SolanaTransactionImporter implements IImporter {
+  private readonly logger: Logger;
   private providerManager: BlockchainProviderManager;
 
   constructor(
     blockchainProviderManager: BlockchainProviderManager,
     options?: { preferredProvider?: string | undefined }
   ) {
-    super('solana');
+    this.logger = getLogger('solanaImporter');
 
     this.providerManager = blockchainProviderManager;
 

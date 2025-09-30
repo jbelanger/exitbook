@@ -1,10 +1,10 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-import type { ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
-import { ok, type Result } from 'neverthrow';
+import type { IImporter, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
+import { getLogger, type Logger } from '@exitbook/shared-logger';
+import { err, ok, type Result } from 'neverthrow';
 
-import { BaseImporter } from '../../shared/importers/base-importer.js';
 import { CsvParser } from '../csv-parser.js';
 
 import { CSV_FILE_TYPES } from './constants.js';
@@ -15,16 +15,19 @@ import { validateKuCoinAccountHistory, validateKuCoinDepositsWithdrawals, valida
  * Importer for KuCoin CSV files.
  * Handles reading CSV files from specified directories and parsing different KuCoin export formats.
  */
-export class KucoinCsvImporter extends BaseImporter {
+export class KucoinCsvImporter implements IImporter {
+  private readonly logger: Logger;
+  private readonly sourceId = 'kucoin';
+
   constructor() {
-    super('kucoin');
+    this.logger = getLogger('kucoinImporter');
   }
 
   async import(params: ImportParams): Promise<Result<ImportRunResult, Error>> {
     this.logger.info(`Starting KuCoin CSV import from directories: ${params.csvDirectories?.join(', ') ?? 'none'}`);
 
     if (!params.csvDirectories?.length) {
-      throw new Error('CSV directories are required for KuCoin import');
+      return err(new Error('CSV directories are required for KuCoin import'));
     }
 
     const rawData: CsvKuCoinRawData = {
@@ -178,7 +181,9 @@ export class KucoinCsvImporter extends BaseImporter {
         ],
       });
     } catch (error) {
-      this.handleImportError(error, 'CSV file processing');
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Import failed in CSV file processing: ${errorMessage}`);
+      return err(new Error(`${this.sourceId} import failed: ${errorMessage}`));
     }
   }
 

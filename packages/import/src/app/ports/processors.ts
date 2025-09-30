@@ -50,11 +50,3 @@ export interface ProcessingImportSession {
 
   status: string;
 }
-
-/**
- * Result from failover execution that includes provenance
- */
-export interface FailoverExecutionResult<T> {
-  data: T;
-  providerName: string;
-}

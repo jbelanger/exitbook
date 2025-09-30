@@ -1,7 +1,12 @@
-import type { ImportParams, ImportRunResult, ApiClientRawTransaction } from '@exitbook/import/app/ports/importers.js';
+import type {
+  ImportParams,
+  ImportRunResult,
+  ApiClientRawTransaction,
+  IImporter,
+} from '@exitbook/import/app/ports/importers.js';
+import { getLogger, type Logger } from '@exitbook/shared-logger';
 import { err, type Result } from 'neverthrow';
 
-import { BaseImporter } from '../../shared/importers/base-importer.js';
 import type { BlockchainProviderManager, ProviderError } from '../shared/blockchain-provider-manager.js';
 
 import type { InjectiveExplorerTransaction } from './injective-explorer/injective-explorer.types.js';
@@ -10,14 +15,15 @@ import type { InjectiveExplorerTransaction } from './injective-explorer/injectiv
  * Injective transaction importer that fetches raw transaction data from blockchain APIs.
  * Uses provider manager for failover between multiple Injective API providers (Explorer API, LCD API).
  */
-export class InjectiveTransactionImporter extends BaseImporter {
+export class InjectiveTransactionImporter implements IImporter {
+  private readonly logger: Logger;
   private providerManager: BlockchainProviderManager;
 
   constructor(
     blockchainProviderManager: BlockchainProviderManager,
     options?: { preferredProvider?: string | undefined }
   ) {
-    super('injective');
+    this.logger = getLogger('injectiveImporter');
 
     this.providerManager = blockchainProviderManager;
 

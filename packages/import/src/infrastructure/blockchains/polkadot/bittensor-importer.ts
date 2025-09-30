@@ -1,7 +1,12 @@
-import type { ApiClientRawTransaction, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
+import type {
+  ApiClientRawTransaction,
+  IImporter,
+  ImportParams,
+  ImportRunResult,
+} from '@exitbook/import/app/ports/importers.js';
+import { getLogger, type Logger } from '@exitbook/shared-logger';
 import { err, type Result } from 'neverthrow';
 
-import { BaseImporter } from '../../shared/importers/base-importer.js';
 import type { BlockchainProviderManager, ProviderError } from '../shared/blockchain-provider-manager.js';
 
 import type { TaostatsTransaction } from './substrate/substrate.types.js';
@@ -10,14 +15,15 @@ import type { TaostatsTransaction } from './substrate/substrate.types.js';
  * Bittensor transaction importer that fetches raw transaction data from Taostats API.
  * Uses provider manager for failover between multiple Bittensor API providers.
  */
-export class BittensorTransactionImporter extends BaseImporter {
+export class BittensorTransactionImporter implements IImporter {
+  private readonly logger: Logger;
   private providerManager: BlockchainProviderManager;
 
   constructor(
     blockchainProviderManager: BlockchainProviderManager,
     options?: { preferredProvider?: string | undefined }
   ) {
-    super('bittensor');
+    this.logger = getLogger('bittensorImporter');
 
     if (!blockchainProviderManager) {
       throw new Error('Provider manager required for Bittensor importer');

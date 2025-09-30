@@ -1,8 +1,13 @@
-import type { ApiClientRawTransaction, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
+import type {
+  ApiClientRawTransaction,
+  IImporter,
+  ImportParams,
+  ImportRunResult,
+} from '@exitbook/import/app/ports/importers.js';
+import { getLogger, type Logger } from '@exitbook/shared-logger';
 import * as bitcoin from 'bitcoinjs-lib';
 import { err, ok, type Result } from 'neverthrow';
 
-import { BaseImporter } from '../../shared/importers/base-importer.js';
 import type { BlockchainProviderManager, ProviderError } from '../shared/blockchain-provider-manager.js';
 
 import type { BitcoinWalletAddress } from './types.js';
@@ -13,7 +18,8 @@ import { BitcoinUtils } from './utils.js';
  * Supports both regular Bitcoin addresses and extended public keys (xpub/ypub/zpub).
  * Uses provider manager for failover between multiple blockchain API providers.
  */
-export class BitcoinTransactionImporter extends BaseImporter {
+export class BitcoinTransactionImporter implements IImporter {
+  private readonly logger: Logger;
   private addressGap: number;
   private addressInfoCache = new Map<string, { balance: string; txCount: number }>();
   private providerManager: BlockchainProviderManager;
@@ -23,7 +29,7 @@ export class BitcoinTransactionImporter extends BaseImporter {
     blockchainProviderManager: BlockchainProviderManager,
     options?: { addressGap?: number; preferredProvider?: string | undefined }
   ) {
-    super('bitcoin');
+    this.logger = getLogger('bitcoinImporter');
 
     if (!blockchainProviderManager) {
       throw new Error('Provider manager required for Bitcoin importer');

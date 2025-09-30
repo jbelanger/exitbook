@@ -1,4 +1,3 @@
-import type { FailoverExecutionResult } from '@exitbook/import/app/ports/processors.js';
 import { getLogger } from '@exitbook/shared-logger';
 import type { BlockchainExplorersConfig, ProviderOverride } from '@exitbook/shared-utils';
 import { err, ok, type Result } from 'neverthrow';
@@ -15,6 +14,14 @@ import type {
 } from './types.js';
 
 const logger = getLogger('BlockchainProviderManager');
+
+/**
+ * Result from failover execution that includes provenance
+ */
+export interface FailoverExecutionResult<T> {
+  data: T;
+  providerName: string;
+}
 
 /**
  * Errors that can occur during provider operations

@@ -1,7 +1,12 @@
-import type { ApiClientRawTransaction, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
+import type {
+  ApiClientRawTransaction,
+  IImporter,
+  ImportParams,
+  ImportRunResult,
+} from '@exitbook/import/app/ports/importers.js';
+import { getLogger, type Logger } from '@exitbook/shared-logger';
 import { err, type Result } from 'neverthrow';
 
-import { BaseImporter } from '../../shared/importers/base-importer.js';
 import type { BlockchainProviderManager, ProviderError } from '../shared/blockchain-provider-manager.js';
 
 import type { SubscanTransfer } from './substrate/substrate.types.js';
@@ -10,14 +15,15 @@ import type { SubscanTransfer } from './substrate/substrate.types.js';
  * Polkadot transaction importer that fetches raw transaction data from Subscan API.
  * Uses provider manager for failover between multiple Substrate API providers.
  */
-export class PolkadotTransactionImporter extends BaseImporter {
+export class PolkadotTransactionImporter implements IImporter {
+  private readonly logger: Logger;
   private providerManager: BlockchainProviderManager;
 
   constructor(
     blockchainProviderManager: BlockchainProviderManager,
     options?: { preferredProvider?: string | undefined }
   ) {
-    super('polkadot');
+    this.logger = getLogger('polkadotImporter');
 
     this.providerManager = blockchainProviderManager;
 

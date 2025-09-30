@@ -1,15 +1,16 @@
-import type { ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
+import type { IImporter, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
+import { getLogger, type Logger } from '@exitbook/shared-logger';
 import { err, type Result } from 'neverthrow';
-
-import { BaseImporter } from '../../shared/importers/base-importer.js';
 
 /**
  * Importer for Coinbase transactions using CCXT adapter.
  * Fetches transactions directly from Coinbase's API using the specialized ledger adapter.
  */
-export class CoinbaseImporter extends BaseImporter {
+export class CoinbaseImporter implements IImporter {
+  private readonly logger: Logger;
+
   constructor() {
-    super('coinbase');
+    this.logger = getLogger('coinbaseImporter');
   }
 
   import(_params: ImportParams): Promise<Result<ImportRunResult, Error>> {
