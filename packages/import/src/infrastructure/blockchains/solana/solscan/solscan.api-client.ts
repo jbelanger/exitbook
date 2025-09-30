@@ -15,7 +15,6 @@ export interface SolscanRawBalanceData {
   apiKeyEnvVar: 'SOLSCAN_API_KEY',
   blockchain: 'solana',
   capabilities: {
-    maxBatchSize: 1,
     supportedOperations: ['getRawAddressTransactions', 'getRawAddressBalance'],
     supportsHistoricalData: true,
     supportsPagination: true,

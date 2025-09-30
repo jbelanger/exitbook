@@ -33,7 +33,6 @@ function formatCapabilities(capabilities: ProviderCapabilities): string {
   if (capabilities.supportsRealTimeData) features.push('Real-time');
   if (capabilities.supportsTokenData) features.push('Tokens');
   if (capabilities.supportsPagination) features.push('Pagination');
-  if (capabilities.maxBatchSize && capabilities.maxBatchSize > 1) features.push(`Batch:${capabilities.maxBatchSize}`);
   return features.join(', ') || 'Basic';
 }
 

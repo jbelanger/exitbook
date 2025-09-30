@@ -26,7 +26,6 @@ import type { BlockCypherTransaction, BlockCypherAddress } from './blockcypher.t
   apiKeyEnvVar: 'BLOCKCYPHER_API_KEY',
   blockchain: 'bitcoin',
   capabilities: {
-    maxBatchSize: 50,
     supportedOperations: ['getRawAddressTransactions', 'getAddressInfo'],
     supportsHistoricalData: true,
     supportsPagination: true,
@@ -239,33 +238,18 @@ export class BlockCypherApiClient extends BlockchainApiClient {
       // Extract unique transaction hashes
       const uniqueTxHashes = Array.from(new Set(addressInfo.txrefs.map((ref) => ref.tx_hash)));
 
-      // Fetch detailed raw transaction data
+      // Fetch detailed raw transaction data sequentially
+      // Rate limiting is handled by the provider manager's rate limiter
       const rawTransactions: BlockCypherTransaction[] = [];
 
-      // Process transactions in batches to respect rate limits
-      const batchSize = this.capabilities.maxBatchSize!;
-      for (let i = 0; i < uniqueTxHashes.length; i += batchSize) {
-        const batch = uniqueTxHashes.slice(i, i + batchSize);
-
-        const batchTransactions = await Promise.all(
-          batch.map(async (txHash) => {
-            try {
-              const rawTx = await this.fetchCompleteTransaction(txHash);
-              return rawTx;
-            } catch (error) {
-              this.logger.warn(
-                `Failed to fetch raw transaction details - TxHash: ${txHash}, Error: ${error instanceof Error ? error.message : String(error)}`
-              );
-              return;
-            }
-          })
-        );
-
-        rawTransactions.push(...batchTransactions.filter((tx): tx is BlockCypherTransaction => tx !== undefined));
-
-        // Rate limiting between batches
-        if (i + batchSize < uniqueTxHashes.length) {
-          await new Promise((resolve) => setTimeout(resolve, 1000)); // 1 second delay between batches
+      for (const txHash of uniqueTxHashes) {
+        try {
+          const rawTx = await this.fetchCompleteTransaction(txHash);
+          rawTransactions.push(rawTx);
+        } catch (error) {
+          this.logger.warn(
+            `Failed to fetch raw transaction details - TxHash: ${txHash}, Error: ${error instanceof Error ? error.message : String(error)}`
+          );
         }
       }
 

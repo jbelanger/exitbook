@@ -10,7 +10,6 @@ import type { MempoolAddressInfo, MempoolTransaction } from './mempool-space.typ
 @RegisterApiClient({
   blockchain: 'bitcoin',
   capabilities: {
-    maxBatchSize: 25,
     supportedOperations: ['getRawAddressTransactions', 'getAddressInfo'],
     supportsHistoricalData: true,
     supportsPagination: true,

@@ -7,7 +7,6 @@ import { SUBSTRATE_CHAINS } from './substrate.types.js';
 @RegisterApiClient({
   blockchain: 'polkadot',
   capabilities: {
-    maxBatchSize: 1,
     supportedOperations: ['getRawAddressTransactions', 'getRawAddressBalance'],
     supportsHistoricalData: true,
     supportsPagination: true,

@@ -94,7 +94,6 @@ import { BaseRegistryProvider, RegisterApiClient } from '@exitbook/import'; // S
 
   // --- Capabilities ---
   capabilities: {
-    maxBatchSize: 1,
     supportedOperations: ['getRawAddressTransactions', 'getRawAddressBalance'],
     supportsHistoricalData: true,
     supportsPagination: true,

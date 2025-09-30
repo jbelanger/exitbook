@@ -11,7 +11,6 @@ import type { TatumBitcoinTransaction, TatumBitcoinBalance } from './tatum.types
   apiKeyEnvVar: 'TATUM_API_KEY',
   blockchain: 'bitcoin',
   capabilities: {
-    maxBatchSize: 50,
     supportedOperations: ['getRawAddressTransactions', 'getAddressInfo'],
     supportsHistoricalData: true,
     supportsPagination: true,

@@ -62,7 +62,6 @@ import type { BlockchairRawTransaction, BlockchairAddressInfo } from '../types';
     mainnet: { baseUrl: 'https://api.blockchair.com/bitcoin' },
   },
   capabilities: {
-    maxBatchSize: 1,
     supportedOperations: ['getRawAddressTransactions', 'getAddressInfo'],
     supportsHistoricalData: true,
     supportsPagination: false, // Assuming no pagination for simplicity

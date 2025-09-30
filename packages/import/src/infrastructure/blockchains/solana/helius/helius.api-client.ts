@@ -20,7 +20,6 @@ export interface SolanaRawTokenBalanceData {
   apiKeyEnvVar: 'SOLANA_HELIUS_API_KEY',
   blockchain: 'solana',
   capabilities: {
-    maxBatchSize: 1,
     supportedOperations: ['getRawAddressTransactions', 'getRawAddressBalance', 'getRawTokenBalances'],
     supportsHistoricalData: true,
     supportsPagination: true,

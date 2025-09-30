@@ -17,7 +17,6 @@ import type {
   apiKeyEnvVar: 'SNOWTRACE_API_KEY',
   blockchain: 'avalanche',
   capabilities: {
-    maxBatchSize: 1,
     supportedOperations: [
       'getRawAddressTransactions',
       'getRawAddressBalance',

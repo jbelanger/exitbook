@@ -10,7 +10,6 @@ import type { BlockstreamAddressInfo, BlockstreamTransaction } from './blockstre
 @RegisterApiClient({
   blockchain: 'bitcoin',
   capabilities: {
-    maxBatchSize: 25,
     supportedOperations: ['getRawAddressTransactions', 'getAddressInfo'],
     supportsHistoricalData: true,
     supportsPagination: true,

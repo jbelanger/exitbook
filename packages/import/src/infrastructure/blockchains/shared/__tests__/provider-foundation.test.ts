@@ -549,7 +549,6 @@ describe('ProviderRegistry', () => {
 
     expect(alchemy?.capabilities).toBeDefined();
     expect(alchemy?.capabilities.supportedOperations).toBeDefined();
-    expect(alchemy?.capabilities.maxBatchSize).toBe(100);
     expect(alchemy?.capabilities.supportsHistoricalData).toBe(true);
     expect(alchemy?.capabilities.supportsPagination).toBe(true);
   });

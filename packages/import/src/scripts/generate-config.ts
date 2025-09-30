@@ -73,7 +73,6 @@ function generateConfiguration(): void {
             description: metadata.description,
           }),
           capabilities: {
-            maxBatchSize: provider.capabilities.maxBatchSize,
             supportedOperations: provider.capabilities.supportedOperations,
             supportsHistoricalData: provider.capabilities.supportsHistoricalData,
             supportsPagination: provider.capabilities.supportsPagination,

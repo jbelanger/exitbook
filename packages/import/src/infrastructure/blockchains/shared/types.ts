@@ -28,9 +28,6 @@ export interface DataSourceCapabilities<TOperations extends string = string> {
    */
   extensions?: Record<string, unknown> | undefined;
 
-  /** Maximum number of items that can be requested in a single batch operation */
-  maxBatchSize?: number | undefined;
-
   /** Array of operation types that this data source supports */
   supportedOperations: TOperations[];
 

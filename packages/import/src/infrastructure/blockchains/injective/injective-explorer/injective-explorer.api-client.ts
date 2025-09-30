@@ -9,7 +9,6 @@ import type { InjectiveExplorerTransaction } from './injective-explorer.types.js
 @RegisterApiClient({
   blockchain: 'injective',
   capabilities: {
-    maxBatchSize: 1,
     supportedOperations: ['getRawAddressTransactions'],
     supportsHistoricalData: true,
     supportsPagination: true,

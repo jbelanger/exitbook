@@ -16,7 +16,6 @@ import type {
 @RegisterApiClient({
   blockchain: 'ethereum',
   capabilities: {
-    maxBatchSize: 1,
     supportedOperations: [
       'getRawAddressTransactions',
       'getRawAddressBalance',

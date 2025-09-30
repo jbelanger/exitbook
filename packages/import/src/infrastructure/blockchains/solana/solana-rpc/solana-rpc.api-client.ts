@@ -15,7 +15,6 @@ import type {
 @RegisterApiClient({
   blockchain: 'solana',
   capabilities: {
-    maxBatchSize: 1,
     supportedOperations: ['getRawAddressTransactions', 'getRawAddressBalance', 'getRawTokenBalances'],
     supportsHistoricalData: true,
     supportsPagination: true,

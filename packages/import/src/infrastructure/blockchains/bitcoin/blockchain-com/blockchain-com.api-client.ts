@@ -11,7 +11,6 @@ import type { BlockchainComAddressResponse, BlockchainComTransaction } from './b
   apiKeyEnvVar: 'BLOCKCHAIN_COM_API_KEY',
   blockchain: 'bitcoin',
   capabilities: {
-    maxBatchSize: 1,
     supportedOperations: ['getRawAddressTransactions', 'getAddressInfo'],
     supportsHistoricalData: true,
     supportsPagination: true,

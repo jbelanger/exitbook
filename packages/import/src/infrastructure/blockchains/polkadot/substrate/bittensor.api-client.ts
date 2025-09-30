@@ -8,7 +8,6 @@ import { SUBSTRATE_CHAINS } from './substrate.types.js';
   apiKeyEnvVar: 'TAOSTATS_API_KEY',
   blockchain: 'bittensor',
   capabilities: {
-    maxBatchSize: 1,
     supportedOperations: ['getRawAddressTransactions', 'getRawAddressBalance'],
     supportsHistoricalData: true,
     supportsPagination: true,

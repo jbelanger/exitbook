@@ -288,7 +288,6 @@ describe('TatumBitcoinApiClient', () => {
     it('should have correct capabilities', () => {
       const capabilities = client.capabilities;
 
-      expect(capabilities.maxBatchSize).toBe(50);
       expect(capabilities.supportedOperations).toContain('getRawAddressTransactions');
       expect(capabilities.supportedOperations).toContain('getAddressInfo');
       expect(capabilities.supportsHistoricalData).toBe(true);
