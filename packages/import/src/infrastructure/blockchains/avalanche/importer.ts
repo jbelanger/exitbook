@@ -125,7 +125,7 @@ export class AvalancheTransactionImporter implements IImporter {
     if (compositeData.normal?.length) {
       rawTransactions.push(
         ...compositeData.normal.map((tx) => ({
-          metadata: { providerId: response.providerName, transactionType: 'normal' as const },
+          metadata: { providerId: response.providerName, transactionType: 'normal' },
           rawData: tx,
         }))
       );
@@ -134,7 +134,7 @@ export class AvalancheTransactionImporter implements IImporter {
     if (compositeData.internal?.length) {
       rawTransactions.push(
         ...compositeData.internal.map((tx) => ({
-          metadata: { providerId: response.providerName, transactionType: 'internal' as const },
+          metadata: { providerId: response.providerName, transactionType: 'internal' },
           rawData: tx,
         }))
       );
@@ -151,7 +151,7 @@ export class AvalancheTransactionImporter implements IImporter {
 
     const tokenTransactions = response.data as unknown[];
     return tokenTransactions.map((tx) => ({
-      metadata: { providerId: response.providerName, transactionType: 'token' as const },
+      metadata: { providerId: response.providerName, transactionType: 'token' },
       rawData: tx,
     }));
   }
