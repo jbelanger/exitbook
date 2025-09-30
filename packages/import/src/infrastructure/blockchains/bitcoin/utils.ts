@@ -1,6 +1,7 @@
 import { getLogger } from '@exitbook/shared-logger';
 import { HDKey } from '@scure/bip32';
 import * as bitcoin from 'bitcoinjs-lib';
+import { err, ok, type Result } from 'neverthrow';
 
 import type { BlockchainProviderManager } from '../shared/blockchain-provider-manager.js';
 
@@ -134,7 +135,7 @@ export class BitcoinUtils {
     network: bitcoin.Network,
     providerManager: BlockchainProviderManager,
     addressGap = 20
-  ): Promise<void> {
+  ): Promise<Result<void, Error>> {
     try {
       // Smart detection to determine the correct account type
       const { addressFunction, addressType, bipStandard, hdNode } = await this.smartDetectAccountType(
@@ -177,12 +178,18 @@ export class BitcoinUtils {
       );
 
       // Perform BIP44-compliant intelligent gap scanning
-      await this.performAddressGapScanning(walletAddress, providerManager);
+      const scanResult = await this.performAddressGapScanning(walletAddress, providerManager);
+      if (scanResult.isErr()) {
+        return err(scanResult.error);
+      }
+
+      return ok();
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.error(
-        `Failed to initialize xpub wallet - Error: ${error instanceof Error ? error.message : 'Unknown error'}, Xpub: ${walletAddress.address.substring(0, 20) + '...'}`
+        `Failed to initialize xpub wallet - Error: ${errorMessage}, Xpub: ${walletAddress.address.substring(0, 20) + '...'}`
       );
-      throw error;
+      return err(error instanceof Error ? error : new Error(errorMessage));
     }
   }
 
@@ -206,15 +213,17 @@ export class BitcoinUtils {
   static async performAddressGapScanning(
     walletAddress: BitcoinWalletAddress,
     providerManager: BlockchainProviderManager
-  ): Promise<void> {
+  ): Promise<Result<void, Error>> {
     const allDerived = walletAddress.derivedAddresses || [];
-    if (allDerived.length === 0) return;
+    if (allDerived.length === 0) return ok();
 
     logger.info(`Performing intelligent gap scan for ${walletAddress.address.substring(0, 20)}...`);
 
     let lastUsedIndex = -1;
     let consecutiveUnusedCount = 0;
     const GAP_LIMIT = 10; // Reduced gap limit to minimize API calls
+    let errorCount = 0;
+    const MAX_ERRORS = 3; // Fail if we can't check multiple addresses
 
     for (let i = 0; i < allDerived.length; i++) {
       const address = allDerived[i];
@@ -228,11 +237,20 @@ export class BitcoinUtils {
       });
 
       if (result.isErr()) {
-        // If we can't check the address, treat it as unused
-        consecutiveUnusedCount++;
+        errorCount++;
         logger.warn(`Could not check activity for address ${address} - Error: ${result.error.message}`);
+
+        // If we hit too many consecutive API errors, fail the scan
+        if (errorCount >= MAX_ERRORS) {
+          return err(new Error(`Failed to scan addresses: ${result.error.message}`));
+        }
+
+        consecutiveUnusedCount++;
         continue;
       }
+
+      // Reset error count on successful API call
+      errorCount = 0;
 
       const addressInfo = result.value.data as AddressInfo;
 
@@ -276,6 +294,7 @@ export class BitcoinUtils {
     walletAddress.derivedAddresses = allDerived.slice(0, finalAddressCount);
 
     logger.info(`Optimized address set: ${walletAddress.derivedAddresses.length} addresses (was ${allDerived.length})`);
+    return ok();
   }
 
   /**
@@ -328,21 +347,24 @@ export class BitcoinUtils {
           type: 'getAddressInfo',
         });
 
-        if (legacyResult.isOk()) {
-          const addressInfo = legacyResult.value.data as AddressInfo;
-          const hasActivity = addressInfo.txCount > 0;
-          if (hasActivity) {
-            logger.info('Found activity on Legacy path (BIP44). Proceeding.');
-            return {
-              addressFunction: legacyAddressGen,
-              addressType: 'legacy',
-              bipStandard: 'bip44',
-              hdNode: legacyHdNode,
-            };
-          }
-        } else {
-          logger.debug('No activity found on Legacy path');
+        if (legacyResult.isErr()) {
+          // API error - cannot determine activity, propagate error
+          throw legacyResult.error;
         }
+
+        const legacyAddressInfo = legacyResult.value.data as AddressInfo;
+        const hasLegacyActivity = legacyAddressInfo.txCount > 0;
+        if (hasLegacyActivity) {
+          logger.info('Found activity on Legacy path (BIP44). Proceeding.');
+          return {
+            addressFunction: legacyAddressGen,
+            addressType: 'legacy',
+            bipStandard: 'bip44',
+            hdNode: legacyHdNode,
+          };
+        }
+
+        logger.debug('No activity found on Legacy path');
       }
 
       // Test BIP84 (Ledger-style Native SegWit)
@@ -362,21 +384,24 @@ export class BitcoinUtils {
           type: 'getAddressInfo',
         });
 
-        if (segwitResult.isOk()) {
-          const addressInfo = segwitResult.value.data as AddressInfo;
-          const hasActivity = addressInfo.txCount > 0;
-          if (hasActivity) {
-            logger.info('Found activity on Native SegWit path (BIP84). Proceeding.');
-            return {
-              addressFunction: segwitAddressGen,
-              addressType: 'bech32',
-              bipStandard: 'bip84',
-              hdNode: segwitHdNode,
-            };
-          }
-        } else {
-          logger.debug('No activity found on Native SegWit path');
+        if (segwitResult.isErr()) {
+          // API error - cannot determine activity, propagate error
+          throw segwitResult.error;
         }
+
+        const segwitAddressInfo = segwitResult.value.data as AddressInfo;
+        const hasSegwitActivity = segwitAddressInfo.txCount > 0;
+        if (hasSegwitActivity) {
+          logger.info('Found activity on Native SegWit path (BIP84). Proceeding.');
+          return {
+            addressFunction: segwitAddressGen,
+            addressType: 'bech32',
+            bipStandard: 'bip84',
+            hdNode: segwitHdNode,
+          };
+        }
+
+        logger.debug('No activity found on Native SegWit path');
       }
 
       // Fallback to Legacy

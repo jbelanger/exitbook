@@ -19,10 +19,10 @@ import type { MempoolAddressInfo, MempoolTransaction } from './mempool-space.typ
   },
   defaultConfig: {
     rateLimit: {
-      burstLimit: 1,
-      requestsPerHour: 600,
-      requestsPerMinute: 15,
-      requestsPerSecond: 0.25, // Conservative: 1 request per 4 seconds
+      burstLimit: 8,
+      requestsPerHour: 12960,
+      requestsPerMinute: 120,
+      requestsPerSecond: 0.4,
     },
     retries: 3,
     timeout: 10000,

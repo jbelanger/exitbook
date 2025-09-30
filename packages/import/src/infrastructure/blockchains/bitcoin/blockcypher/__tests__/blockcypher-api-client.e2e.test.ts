@@ -35,7 +35,7 @@ describe('BlockCypherApiClient E2E', () => {
       expect(typeof addressInfo.txCount).toBe('number');
       expect(addressInfo.txCount).toBeGreaterThan(0);
     },
-    30000
+    60000
   );
 
   it.skipIf(!process.env['BLOCKCYPHER_API_KEY'] || process.env['BLOCKCYPHER_API_KEY'] === 'YourApiKeyToken')(
@@ -56,6 +56,6 @@ describe('BlockCypherApiClient E2E', () => {
         expect(Array.isArray(tx.outputs)).toBe(true);
       }
     },
-    45000
+    90000
   );
 });

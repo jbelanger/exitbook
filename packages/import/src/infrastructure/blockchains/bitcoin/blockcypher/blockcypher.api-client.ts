@@ -1,3 +1,18 @@
+/**
+ * BlockCypher Bitcoin API Client
+ *
+ * ⚠️ PERFORMANCE WARNING: This provider should be LOWER PRIORITY in the failover chain.
+ *
+ * BlockCypher's API design is inefficient for fetching address transactions:
+ * - Initial call returns only transaction references (hashes)
+ * - Requires separate API call for EACH transaction's full details
+ * - Example: Genesis address with 50 transactions = 51 API requests (1 + 50)
+ * - With 100 requests/hour limit, can only process ~2 high-transaction addresses per hour
+ *
+ * Prioritize mempool.space or blockchain.com which may offer more efficient batch endpoints.
+ * Use BlockCypher as emergency fallback or for addresses with few transactions only.
+ */
+
 import { hasStringProperty, maskAddress } from '@exitbook/shared-utils';
 
 import { BlockchainApiClient } from '../../shared/api/blockchain-api-client.ts';
@@ -22,8 +37,8 @@ import type { BlockCypherTransaction, BlockCypherAddress } from './blockcypher.t
     rateLimit: {
       burstLimit: 5, // Allow short bursts
       requestsPerHour: 100, // Hard limit per BlockCypher docs
-      requestsPerMinute: 10, // Spread out to ~600/hour equivalent, but capped by hourly limit
-      requestsPerSecond: 2.0, // Conservative rate for sustained usage
+      requestsPerMinute: 100, // Spread out to ~600/hour equivalent, but capped by hourly limit
+      requestsPerSecond: 3, // Conservative rate for sustained usage
     },
     retries: 3,
     timeout: 15000, // Longer timeout for BlockCypher

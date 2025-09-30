@@ -144,33 +144,16 @@ export class HttpClient {
           const errorText = await response.text().catch(() => 'Unknown error');
 
           if (response.status === 429) {
-            const retryAfter = response.headers.get('Retry-After');
-            const rawDelay = retryAfter ? parseInt(retryAfter) : undefined;
+            const retryDelayInfo = this.parseRateLimitHeaders(response.headers);
+            const baseDelay = retryDelayInfo.delayMs || 2000; // Default fallback
+            const headerSource = retryDelayInfo.source;
 
-            let delay = 2000; // Default fallback
-
-            if (rawDelay !== undefined && rawDelay > 0) {
-              // Auto-detect if value is in seconds or milliseconds
-              // If rawDelay > 300 (5 minutes), assume it's milliseconds
-              // If rawDelay <= 300, assume it's seconds (RFC standard)
-              if (rawDelay > 300) {
-                // Likely already in milliseconds, cap at 30 seconds
-                delay = Math.min(rawDelay, 30000);
-                this.logger.debug(`Detected Retry-After as milliseconds: ${rawDelay}ms`);
-              } else {
-                // Likely in seconds per RFC, convert and cap at 30 seconds
-                delay = Math.min(rawDelay * 1000, 30000);
-                this.logger.debug(`Detected Retry-After as seconds: ${rawDelay}s`);
-              }
-            } else if (rawDelay === 0) {
-              // Retry-After: 0 is invalid/misconfigured, enforce minimum delay
-              delay = 1000;
-              this.logger.warn(`Invalid Retry-After: 0 received, using minimum delay of ${delay}ms`);
-            }
+            // Apply exponential backoff for consecutive 429 responses
+            const delay = Math.min(baseDelay * Math.pow(2, attempt - 1), 60000);
 
             const willRetry = attempt < this.config.retries!;
             this.logger.warn(
-              `Rate limit 429 response received from API${willRetry ? ', waiting before retry' : ', no retries remaining'} - RawRetryAfter: ${rawDelay}, Delay: ${delay}ms, Attempt: ${attempt}/${this.config.retries}`
+              `Rate limit 429 response received from API${willRetry ? ', waiting before retry' : ', no retries remaining'} - Source: ${headerSource}, BaseDelay: ${baseDelay}ms, ActualDelay: ${delay}ms, Attempt: ${attempt}/${this.config.retries}`
             );
 
             if (willRetry) {
@@ -248,6 +231,122 @@ export class HttpClient {
 
   private delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Parse rate limit headers to determine retry delay
+   * Checks multiple header formats in order of preference:
+   * 1. Retry-After (seconds or HTTP-date)
+   * 2. X-RateLimit-Reset (Unix timestamp)
+   * 3. X-Rate-Limit-Reset (Unix timestamp)
+   * 4. RateLimit-Reset (delta-seconds)
+   */
+  private parseRateLimitHeaders(headers: Headers): { delayMs?: number | undefined; source: string } {
+    // Try Retry-After first (RFC standard)
+    const retryAfter = headers.get('Retry-After');
+    if (retryAfter) {
+      const parsed = this.parseRetryAfter(retryAfter);
+      if (parsed !== null) {
+        return { delayMs: parsed, source: 'Retry-After' };
+      }
+    }
+
+    // Try X-RateLimit-Reset (Unix timestamp in seconds)
+    const xRateLimitReset = headers.get('X-RateLimit-Reset');
+    if (xRateLimitReset) {
+      const delayMs = this.parseUnixTimestamp(xRateLimitReset);
+      if (delayMs !== null) {
+        return { delayMs, source: 'X-RateLimit-Reset' };
+      }
+    }
+
+    // Try X-Rate-Limit-Reset (variant spelling)
+    const xRateLimitResetVariant = headers.get('X-Rate-Limit-Reset');
+    if (xRateLimitResetVariant) {
+      const delayMs = this.parseUnixTimestamp(xRateLimitResetVariant);
+      if (delayMs !== null) {
+        return { delayMs, source: 'X-Rate-Limit-Reset' };
+      }
+    }
+
+    // Try RateLimit-Reset (IETF draft standard - delta-seconds)
+    const rateLimitReset = headers.get('RateLimit-Reset');
+    if (rateLimitReset) {
+      const seconds = parseInt(rateLimitReset);
+      if (!isNaN(seconds) && seconds >= 0) {
+        const delayMs = Math.min(seconds * 1000, 30000);
+        return { delayMs, source: 'RateLimit-Reset' };
+      }
+    }
+
+    // No valid headers found
+    return { source: 'default' };
+  }
+
+  /**
+   * Parse Retry-After header value
+   * Supports both delay-seconds and HTTP-date formats
+   */
+  private parseRetryAfter(value: string): number | undefined {
+    // Try parsing as integer (delay-seconds)
+    const seconds = parseInt(value);
+    if (!isNaN(seconds)) {
+      if (seconds === 0) {
+        this.logger.warn(`Invalid Retry-After: 0 received, using minimum delay of 1000ms`);
+        return 1000;
+      }
+
+      if (seconds > 0) {
+        // Auto-detect if value is in seconds or milliseconds
+        // If seconds > 300 (5 minutes), assume it's milliseconds
+        // If seconds <= 300, assume it's seconds (RFC standard)
+        if (seconds > 300) {
+          // Likely already in milliseconds, cap at 30 seconds
+          const delayMs = Math.min(seconds, 30000);
+          this.logger.debug(`Detected Retry-After as milliseconds: ${seconds}ms`);
+          return delayMs;
+        } else {
+          // Likely in seconds per RFC, convert and cap at 30 seconds
+          const delayMs = Math.min(seconds * 1000, 30000);
+          this.logger.debug(`Detected Retry-After as seconds: ${seconds}s`);
+          return delayMs;
+        }
+      }
+    }
+
+    // Try parsing as HTTP-date
+    const date = new Date(value);
+    if (!isNaN(date.getTime())) {
+      const now = Date.now();
+      const delayMs = Math.max(0, date.getTime() - now);
+      if (delayMs > 0) {
+        const cappedDelay = Math.min(delayMs, 30000);
+        this.logger.debug(`Parsed Retry-After as HTTP-date: ${value}, delay: ${cappedDelay}ms`);
+        return cappedDelay;
+      }
+    }
+
+    return;
+  }
+
+  /**
+   * Parse Unix timestamp and calculate delay in milliseconds
+   */
+  private parseUnixTimestamp(value: string): number | undefined {
+    const timestamp = parseInt(value);
+    if (isNaN(timestamp) || timestamp <= 0) {
+      return undefined;
+    }
+
+    const now = Math.floor(Date.now() / 1000); // Current time in seconds
+    const delaySeconds = Math.max(0, timestamp - now);
+    if (delaySeconds > 0) {
+      const delayMs = Math.min(delaySeconds * 1000, 30000); // Cap at 30 seconds
+      this.logger.debug(`Parsed Unix timestamp: ${timestamp}, delay: ${delayMs}ms`);
+      return delayMs;
+    }
+
+    return undefined;
   }
 
   private sanitizeUrl(url: string): string {

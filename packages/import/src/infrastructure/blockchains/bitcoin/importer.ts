@@ -64,7 +64,10 @@ export class BitcoinTransactionImporter implements IImporter {
 
     if (BitcoinUtils.isXpub(params.address)) {
       this.logger.info(`Processing xpub: ${params.address.substring(0, 20)}...`);
-      await this.initializeXpubWallet(wallet);
+      const initResult = await this.initializeXpubWallet(wallet);
+      if (initResult.isErr()) {
+        return err(initResult.error);
+      }
     } else {
       this.logger.info(`Processing regular address: ${params.address}`);
     }
@@ -174,8 +177,8 @@ export class BitcoinTransactionImporter implements IImporter {
   /**
    * Initialize an xpub wallet using BitcoinUtils.
    */
-  private async initializeXpubWallet(walletAddress: BitcoinWalletAddress): Promise<void> {
-    await BitcoinUtils.initializeXpubWallet(
+  private async initializeXpubWallet(walletAddress: BitcoinWalletAddress): Promise<Result<void, Error>> {
+    return BitcoinUtils.initializeXpubWallet(
       walletAddress,
       bitcoin.networks.bitcoin, // Always use mainnet
       this.providerManager,

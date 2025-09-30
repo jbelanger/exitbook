@@ -20,13 +20,13 @@ import type { BlockchainComAddressResponse, BlockchainComTransaction } from './b
   },
   defaultConfig: {
     rateLimit: {
-      burstLimit: 15,
+      burstLimit: 8,
       requestsPerHour: 12960,
-      requestsPerMinute: 216,
-      requestsPerSecond: 5,
+      requestsPerMinute: 120,
+      requestsPerSecond: 0.4,
     },
     retries: 3,
-    timeout: 15000,
+    timeout: 10000,
   },
   description: 'Blockchain.com Bitcoin explorer API with transaction and balance data (no API key required)',
   displayName: 'Blockchain.com API',
