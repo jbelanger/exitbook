@@ -6,6 +6,7 @@ import type { RawTransactionMetadata } from '../../../../app/ports/importers.ts'
 import type { ImportSessionMetadata } from '../../../../app/ports/transaction-processor.interface.ts';
 import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
 import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
+import { EthereumTransactionSchema } from '../schemas.js';
 import type { EthereumTransaction } from '../types.js';
 
 import { AlchemyAssetTransferSchema } from './alchemy.schemas.js';
@@ -13,7 +14,8 @@ import type { AlchemyAssetTransfer } from './alchemy.types.js';
 
 @RegisterTransactionMapper('alchemy')
 export class AlchemyTransactionMapper extends BaseRawDataMapper<AlchemyAssetTransfer, EthereumTransaction> {
-  protected readonly schema = AlchemyAssetTransferSchema;
+  protected readonly inputSchema = AlchemyAssetTransferSchema;
+  protected readonly outputSchema = EthereumTransactionSchema;
 
   protected mapInternal(
     rawData: AlchemyAssetTransfer,

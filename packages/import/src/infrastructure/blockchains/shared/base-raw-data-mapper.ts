@@ -7,7 +7,7 @@ import type { ImportSessionMetadata } from '../../../app/ports/transaction-proce
 
 /**
  * Abstract base class for raw data transformers that handles validation automatically.
- * Implementing classes only need to provide the schema and implement the validated transform logic.
+ * Implementing classes only need to provide the schemas and implement the validated transform logic.
  */
 export abstract class BaseRawDataMapper<TRawData, TNormalizedData>
   implements IRawDataMapper<TRawData, TNormalizedData>
@@ -16,7 +16,13 @@ export abstract class BaseRawDataMapper<TRawData, TNormalizedData>
    * Schema used to validate raw data before transformation.
    * Must be implemented by concrete processor classes.
    */
-  protected abstract readonly schema: ZodSchema;
+  protected abstract readonly inputSchema: ZodSchema;
+
+  /**
+   * Schema used to validate normalized data after transformation.
+   * Must be implemented by concrete processor classes.
+   */
+  protected abstract readonly outputSchema: ZodSchema;
 
   /**
    * Transform raw data after validation has passed.
@@ -39,16 +45,32 @@ export abstract class BaseRawDataMapper<TRawData, TNormalizedData>
     context: ImportSessionMetadata
   ): Result<TNormalizedData, string> {
     // Validate input data first
-    const validationResult = this.schema.safeParse(rawData);
-    if (!validationResult.success) {
-      const errors = validationResult.error.issues.map((issue) => {
+    const inputValidationResult = this.inputSchema.safeParse(rawData);
+    if (!inputValidationResult.success) {
+      const errors = inputValidationResult.error.issues.map((issue) => {
         const path = issue.path.length > 0 ? ` at ${issue.path.join('.')}` : '';
         return `${issue.message}${path}`;
       });
-      return err(`Invalid ${this.constructor.name} data: ${errors.join(', ')}`);
+      return err(`Invalid ${this.constructor.name} input data: ${errors.join(', ')}`);
     }
 
     // Delegate to concrete implementation with validated data
-    return this.mapInternal(validationResult.data as TRawData, metadata, context);
+    const transformResult = this.mapInternal(inputValidationResult.data as TRawData, metadata, context);
+
+    if (transformResult.isErr()) {
+      return transformResult;
+    }
+
+    // Validate output data
+    const outputValidationResult = this.outputSchema.safeParse(transformResult.value);
+    if (!outputValidationResult.success) {
+      const errors = outputValidationResult.error.issues.map((issue) => {
+        const path = issue.path.length > 0 ? ` at ${issue.path.join('.')}` : '';
+        return `${issue.message}${path}`;
+      });
+      return err(`Invalid ${this.constructor.name} output data: ${errors.join(', ')}`);
+    }
+
+    return transformResult;
   }
 }

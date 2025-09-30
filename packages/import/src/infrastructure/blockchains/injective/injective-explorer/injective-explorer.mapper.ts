@@ -5,9 +5,10 @@ import type { RawTransactionMetadata } from '../../../../app/ports/importers.ts'
 import type { ImportSessionMetadata } from '../../../../app/ports/transaction-processor.interface.ts';
 import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
 import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
+import { InjectiveTransactionSchema } from '../schemas.js';
 import type { InjectiveTransaction } from '../types.js';
 
-import { InjectiveTransactionSchema } from './injective-explorer.schemas.js';
+import { InjectiveTransactionSchema as InjectiveExplorerTransactionSchema } from './injective-explorer.schemas.js';
 import type {
   InjectiveExplorerTransaction as InjectiveApiTransaction,
   InjectiveExplorerMessageValue,
@@ -18,7 +19,8 @@ export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<
   InjectiveApiTransaction,
   InjectiveTransaction
 > {
-  protected readonly schema = InjectiveTransactionSchema;
+  protected readonly inputSchema = InjectiveExplorerTransactionSchema;
+  protected readonly outputSchema = InjectiveTransactionSchema;
 
   protected mapInternal(
     rawData: InjectiveApiTransaction,

@@ -5,6 +5,7 @@ import { type Result, err, ok } from 'neverthrow';
 
 import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
 import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
+import { SubstrateTransactionSchema } from '../schemas.js';
 import type { SubstrateTransaction } from '../substrate-types.js';
 
 import { SubscanTransferSchema } from './substrate.schemas.js';
@@ -13,7 +14,8 @@ import type { SubscanTransfer, SubstrateChainConfig } from './substrate.types.ts
 
 @RegisterTransactionMapper('subscan')
 export class SubstrateTransactionMapper extends BaseRawDataMapper<SubscanTransfer, SubstrateTransaction> {
-  protected readonly schema = SubscanTransferSchema;
+  protected readonly inputSchema = SubscanTransferSchema;
+  protected readonly outputSchema = SubstrateTransactionSchema;
 
   protected mapInternal(
     rawData: SubscanTransfer,

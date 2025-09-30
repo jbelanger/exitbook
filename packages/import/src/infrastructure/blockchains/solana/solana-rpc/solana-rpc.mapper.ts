@@ -5,6 +5,7 @@ import type { RawTransactionMetadata } from '../../../../app/ports/importers.ts'
 import type { ImportSessionMetadata } from '../../../../app/ports/transaction-processor.interface.ts';
 import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
 import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
+import { SolanaTransactionSchema } from '../schemas.js';
 import type { SolanaAccountChange, SolanaTokenBalance, SolanaTokenChange, SolanaTransaction } from '../types.js';
 import { lamportsToSol } from '../utils.js';
 
@@ -13,7 +14,8 @@ import type { SolanaRPCTransaction } from './solana-rpc.types.js';
 
 @RegisterTransactionMapper('solana-rpc')
 export class SolanaRPCTransactionMapper extends BaseRawDataMapper<SolanaRPCTransaction, SolanaTransaction> {
-  protected readonly schema = SolanaRPCRawTransactionDataSchema;
+  protected readonly inputSchema = SolanaRPCRawTransactionDataSchema;
+  protected readonly outputSchema = SolanaTransactionSchema;
   protected mapInternal(
     rawData: SolanaRPCTransaction,
     _metadata: RawTransactionMetadata,

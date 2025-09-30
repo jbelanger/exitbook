@@ -5,6 +5,7 @@ import type { RawTransactionMetadata } from '../../../../app/ports/importers.ts'
 import type { ImportSessionMetadata } from '../../../../app/ports/transaction-processor.interface.ts';
 import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
 import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
+import { BitcoinTransactionSchema } from '../schemas.js';
 import type {
   BitcoinTransactionInput,
   BitcoinTransactionOutput,
@@ -16,7 +17,8 @@ import type { BlockchainComTransaction } from './blockchain-com.types.js';
 
 @RegisterTransactionMapper('blockchain.com')
 export class BlockchainComTransactionMapper extends BaseRawDataMapper<BlockchainComTransaction, BitcoinTransaction> {
-  protected readonly schema = BlockchainComTransactionSchema;
+  protected readonly inputSchema = BlockchainComTransactionSchema;
+  protected readonly outputSchema = BitcoinTransactionSchema;
 
   /**
    * Extracts structured input/output data for sophisticated analysis

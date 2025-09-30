@@ -82,7 +82,7 @@ export abstract class TatumApiClientBase<TTx, TBalance> extends BlockchainApiCli
         const queryString = new URLSearchParams(
           Object.entries(params)
             .filter(([, value]) => value !== undefined && value !== null)
-            .map(([key, value]) => [key, String(value)])
+            .map(([key, value]) => [key, String(value)] as [string, string])
         ).toString();
         url = `${endpoint}?${queryString}`;
       }

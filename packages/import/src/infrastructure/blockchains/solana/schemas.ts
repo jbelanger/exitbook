@@ -80,3 +80,75 @@ export const SolanaTokenAccountSchema = z.object({
   }),
   pubkey: z.string().min(1, 'Pubkey must not be empty'),
 });
+
+/**
+ * Numeric string validator for amounts/values
+ */
+const numericString = z
+  .string()
+  .refine((val) => !isNaN(parseFloat(val)) && isFinite(parseFloat(val)), { message: 'Must be a valid numeric string' });
+
+/**
+ * Schema for Solana account change
+ */
+export const SolanaAccountChangeSchema = z.object({
+  account: z.string().min(1),
+  owner: z.string().optional(),
+  postBalance: numericString,
+  preBalance: numericString,
+});
+
+/**
+ * Schema for Solana token change
+ */
+export const SolanaTokenChangeSchema = z.object({
+  account: z.string().min(1),
+  decimals: z.number().nonnegative(),
+  mint: z.string().min(1),
+  owner: z.string().optional(),
+  postAmount: numericString,
+  preAmount: numericString,
+  symbol: z.string().optional(),
+});
+
+/**
+ * Schema for Solana instruction
+ */
+export const SolanaInstructionSchema = z.object({
+  accounts: z.array(z.string()).optional(),
+  data: z.string().optional(),
+  instructionType: z.string().optional(),
+  programId: z.string().optional(),
+  programName: z.string().optional(),
+});
+
+/**
+ * Schema for normalized Solana transaction
+ */
+export const SolanaTransactionSchema = z.object({
+  accountChanges: z.array(SolanaAccountChangeSchema).optional(),
+  amount: numericString,
+  blockHeight: z.number().optional(),
+  blockId: z.string().optional(),
+  computeUnitsConsumed: z.number().nonnegative().optional(),
+  currency: z.string().min(1, 'Currency must not be empty'),
+  feeAmount: numericString.optional(),
+  feeCurrency: z.string().optional(),
+  from: z.string().min(1, 'From address must not be empty'),
+  id: z.string().min(1, 'Transaction ID must not be empty'),
+  innerInstructions: z.array(SolanaInstructionSchema).optional(),
+  instructions: z.array(SolanaInstructionSchema).optional(),
+  logMessages: z.array(z.string()).optional(),
+  providerId: z.string().min(1, 'Provider ID must not be empty'),
+  signature: z.string().optional(),
+  slot: z.number().nonnegative().optional(),
+  status: z.enum(['success', 'failed', 'pending']),
+  timestamp: z.number().positive('Timestamp must be positive'),
+  to: z.string().min(1, 'To address must not be empty'),
+  tokenAccount: z.string().optional(),
+  tokenAddress: z.string().optional(),
+  tokenChanges: z.array(SolanaTokenChangeSchema).optional(),
+  tokenDecimals: z.number().nonnegative().optional(),
+  tokenSymbol: z.string().optional(),
+  type: z.enum(['transfer', 'token_transfer', 'stake', 'unstake', 'swap', 'other']),
+});

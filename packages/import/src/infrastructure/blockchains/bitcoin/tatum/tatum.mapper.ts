@@ -5,6 +5,7 @@ import type { RawTransactionMetadata } from '../../../../app/ports/importers.ts'
 import type { ImportSessionMetadata } from '../../../../app/ports/transaction-processor.interface.ts';
 import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
 import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
+import { BitcoinTransactionSchema } from '../schemas.js';
 import type {
   BitcoinTransactionInput,
   BitcoinTransactionOutput,
@@ -16,7 +17,8 @@ import type { TatumBitcoinTransaction } from './tatum.types.js';
 
 @RegisterTransactionMapper('tatum')
 export class TatumBitcoinTransactionMapper extends BaseRawDataMapper<TatumBitcoinTransaction, BitcoinTransaction> {
-  protected readonly schema = TatumBitcoinTransactionSchema;
+  protected readonly inputSchema = TatumBitcoinTransactionSchema;
+  protected readonly outputSchema = BitcoinTransactionSchema;
 
   /**
    * Extracts structured input/output data for sophisticated analysis

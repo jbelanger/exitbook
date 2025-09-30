@@ -6,6 +6,7 @@ import type { RawTransactionMetadata } from '../../../../app/ports/importers.ts'
 import type { ImportSessionMetadata } from '../../../../app/ports/transaction-processor.interface.ts';
 import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
 import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
+import { EthereumTransactionSchema } from '../schemas.js';
 import type { EthereumTransaction } from '../types.js';
 
 import { MoralisTransactionSchema } from './moralis.schemas.js';
@@ -13,7 +14,8 @@ import type { MoralisTransaction } from './moralis.types.js';
 
 @RegisterTransactionMapper('moralis')
 export class MoralisTransactionMapper extends BaseRawDataMapper<MoralisTransaction, EthereumTransaction> {
-  protected readonly schema = MoralisTransactionSchema;
+  protected readonly inputSchema = MoralisTransactionSchema;
+  protected readonly outputSchema = EthereumTransactionSchema;
 
   protected mapInternal(
     rawData: MoralisTransaction,

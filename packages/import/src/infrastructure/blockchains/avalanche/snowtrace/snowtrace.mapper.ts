@@ -5,6 +5,7 @@ import type { RawTransactionMetadata } from '../../../../app/ports/importers.ts'
 import type { ImportSessionMetadata } from '../../../../app/ports/transaction-processor.interface.ts';
 import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
 import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
+import { AvalancheTransactionSchema } from '../schemas.js';
 import type { AvalancheTransaction } from '../types.js';
 
 import { SnowtraceAnyTransactionSchema } from './snowtrace.schemas.js';
@@ -15,7 +16,8 @@ export class SnowtraceTransactionMapper extends BaseRawDataMapper<
   SnowtraceTransaction | SnowtraceInternalTransaction | SnowtraceTokenTransfer,
   AvalancheTransaction
 > {
-  protected readonly schema = SnowtraceAnyTransactionSchema;
+  protected readonly inputSchema = SnowtraceAnyTransactionSchema;
+  protected readonly outputSchema = AvalancheTransactionSchema;
 
   protected mapInternal(
     rawData: SnowtraceTransaction | SnowtraceInternalTransaction | SnowtraceTokenTransfer,

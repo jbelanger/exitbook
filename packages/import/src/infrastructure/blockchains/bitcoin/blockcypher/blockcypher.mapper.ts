@@ -5,6 +5,7 @@ import type { RawTransactionMetadata } from '../../../../app/ports/importers.ts'
 import type { ImportSessionMetadata } from '../../../../app/ports/transaction-processor.interface.ts';
 import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
 import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
+import { BitcoinTransactionSchema } from '../schemas.js';
 import type { BitcoinTransaction, BitcoinTransactionInput, BitcoinTransactionOutput } from '../types.js';
 
 import { BlockCypherTransactionSchema } from './blockcypher.schemas.js';
@@ -12,7 +13,8 @@ import type { BlockCypherTransaction } from './blockcypher.types.js';
 
 @RegisterTransactionMapper('blockcypher')
 export class BlockCypherTransactionMapper extends BaseRawDataMapper<BlockCypherTransaction, BitcoinTransaction> {
-  protected readonly schema = BlockCypherTransactionSchema;
+  protected readonly inputSchema = BlockCypherTransactionSchema;
+  protected readonly outputSchema = BitcoinTransactionSchema;
 
   /**
    * Extracts structured input/output data for sophisticated analysis

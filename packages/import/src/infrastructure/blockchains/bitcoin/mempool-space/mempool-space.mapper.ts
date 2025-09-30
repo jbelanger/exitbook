@@ -5,6 +5,7 @@ import type { RawTransactionMetadata } from '../../../../app/ports/importers.ts'
 import type { ImportSessionMetadata } from '../../../../app/ports/transaction-processor.interface.ts';
 import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
 import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
+import { BitcoinTransactionSchema } from '../schemas.js';
 import type {
   BitcoinTransactionInput,
   BitcoinTransactionOutput,
@@ -16,7 +17,8 @@ import type { MempoolTransaction } from './mempool-space.types.js';
 
 @RegisterTransactionMapper('mempool.space')
 export class MempoolSpaceTransactionMapper extends BaseRawDataMapper<MempoolTransaction, BitcoinTransaction> {
-  protected readonly schema = MempoolTransactionSchema;
+  protected readonly inputSchema = MempoolTransactionSchema;
+  protected readonly outputSchema = BitcoinTransactionSchema;
 
   /**
    * Extracts structured input/output data for sophisticated analysis

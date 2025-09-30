@@ -5,6 +5,7 @@ import { type Result, err, ok } from 'neverthrow';
 
 import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
 import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
+import { SolanaTransactionSchema } from '../schemas.js';
 import type { SolanaAccountChange, SolanaTokenChange, SolanaTransaction } from '../types.js';
 import { lamportsToSol } from '../utils.js';
 
@@ -13,7 +14,8 @@ import type { SolscanTransaction } from './solscan.types.js';
 
 @RegisterTransactionMapper('solscan')
 export class SolscanTransactionMapper extends BaseRawDataMapper<SolscanTransaction, SolanaTransaction> {
-  protected readonly schema = SolscanRawTransactionDataSchema;
+  protected readonly inputSchema = SolscanRawTransactionDataSchema;
+  protected readonly outputSchema = SolanaTransactionSchema;
 
   protected mapInternal(
     rawData: SolscanTransaction,
