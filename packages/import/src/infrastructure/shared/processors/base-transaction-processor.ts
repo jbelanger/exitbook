@@ -1,13 +1,13 @@
+import type {
+  ITransactionProcessor,
+  ImportSessionMetadata,
+  ProcessingImportSession,
+} from '@exitbook/import/app/ports/transaction-processor.interface.ts';
 import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
 import type { Logger } from '@exitbook/shared-logger';
 import { getLogger } from '@exitbook/shared-logger';
 import { type Result, ok } from 'neverthrow';
 
-import type {
-  ITransactionProcessor,
-  ImportSessionMetadata,
-  ProcessingImportSession,
-} from '../../../app/ports/transaction-processor.interface.ts';
 import { UniversalTransactionSchema } from '../../blockchains/shared/schemas.ts';
 import { detectScamFromSymbol } from '../utils/scam-detection.ts';
 

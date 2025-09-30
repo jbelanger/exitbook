@@ -1,7 +1,7 @@
+import type { RawTransactionMetadata } from '@exitbook/import/app/ports/importers.js';
+import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transaction-processor.interface.js';
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import type { RawTransactionMetadata } from '../../../../../app/ports/importers.js';
-import type { ImportSessionMetadata } from '../../../../../app/ports/transaction-processor.interface.js';
 import { MempoolSpaceApiClient } from '../mempool-space-api-client.js';
 import { MempoolSpaceTransactionMapper } from '../mempool-space.mapper.js';
 import type { MempoolTransaction } from '../mempool-space.types.js';

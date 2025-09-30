@@ -1,7 +1,7 @@
+import type { RawTransactionMetadata } from '@exitbook/import/app/ports/importers.js';
+import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transaction-processor.interface.js';
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import type { RawTransactionMetadata } from '../../../../../app/ports/importers.js';
-import type { ImportSessionMetadata } from '../../../../../app/ports/transaction-processor.interface.js';
 import { TatumBitcoinApiClient } from '../tatum-bitcoin.api-client.js';
 import { TatumBitcoinTransactionMapper } from '../tatum.mapper.js';
 import type { TatumBitcoinTransaction } from '../tatum.types.js';

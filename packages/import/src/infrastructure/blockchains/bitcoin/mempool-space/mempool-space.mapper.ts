@@ -1,8 +1,8 @@
+import type { RawTransactionMetadata } from '@exitbook/import/app/ports/importers.ts';
+import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transaction-processor.interface.ts';
 import { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
-import type { RawTransactionMetadata } from '../../../../app/ports/importers.ts';
-import type { ImportSessionMetadata } from '../../../../app/ports/transaction-processor.interface.ts';
 import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
 import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
 import { BitcoinTransactionSchema } from '../schemas.js';

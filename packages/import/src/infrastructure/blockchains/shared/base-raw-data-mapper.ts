@@ -1,9 +1,8 @@
+import type { RawTransactionMetadata } from '@exitbook/import/app/ports/importers.ts';
 import type { IRawDataMapper } from '@exitbook/import/app/ports/raw-data-mappers.js';
+import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transaction-processor.interface.ts';
 import { type Result, err } from 'neverthrow';
 import type { ZodSchema } from 'zod';
-
-import type { RawTransactionMetadata } from '../../../app/ports/importers.ts';
-import type { ImportSessionMetadata } from '../../../app/ports/transaction-processor.interface.ts';
 
 /**
  * Abstract base class for raw data transformers that handles validation automatically.

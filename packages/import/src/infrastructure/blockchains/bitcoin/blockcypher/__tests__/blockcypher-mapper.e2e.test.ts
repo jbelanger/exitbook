@@ -1,7 +1,7 @@
+import type { RawTransactionMetadata } from '@exitbook/import/app/ports/importers.js';
+import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transaction-processor.interface.js';
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import type { RawTransactionMetadata } from '../../../../../app/ports/importers.js';
-import type { ImportSessionMetadata } from '../../../../../app/ports/transaction-processor.interface.js';
 import { BlockCypherApiClient } from '../blockcypher.api-client.js';
 import { BlockCypherTransactionMapper } from '../blockcypher.mapper.js';
 import type { BlockCypherTransaction } from '../blockcypher.types.js';

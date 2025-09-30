@@ -1,7 +1,7 @@
+import type { RawTransactionMetadata } from '@exitbook/import/app/ports/importers.js';
+import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transaction-processor.interface.js';
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import type { RawTransactionMetadata } from '../../../../../app/ports/importers.js';
-import type { ImportSessionMetadata } from '../../../../../app/ports/transaction-processor.interface.js';
 import { BlockchainComApiClient } from '../blockchain-com.api-client.js';
 import { BlockchainComTransactionMapper } from '../blockchain-com.mapper.js';
 import type { BlockchainComTransaction } from '../blockchain-com.types.js';

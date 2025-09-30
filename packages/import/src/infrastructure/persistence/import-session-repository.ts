@@ -1,8 +1,7 @@
 import type { KyselyDB } from '@exitbook/data';
 import type { ImportSession, ImportSessionQuery, ImportSessionUpdate } from '@exitbook/data';
 import { BaseRepository } from '@exitbook/data';
-
-import type { IImportSessionRepository } from '../../app/ports/import-session-repository.interface.ts';
+import type { IImportSessionRepository } from '@exitbook/import/app/ports/import-session-repository.interface.ts';
 
 /**
  * Kysely-based repository for import session database operations.

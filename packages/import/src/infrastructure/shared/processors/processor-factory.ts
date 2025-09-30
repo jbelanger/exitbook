@@ -1,7 +1,6 @@
 import type { IProcessorFactory } from '@exitbook/import/app/ports/processor-factory.js';
+import type { ITransactionProcessor } from '@exitbook/import/app/ports/transaction-processor.interface.ts';
 import { getLogger } from '@exitbook/shared-logger';
-
-import type { ITransactionProcessor } from '../../../app/ports/transaction-processor.interface.ts';
 
 /**
  * Factory for creating processor instances.
