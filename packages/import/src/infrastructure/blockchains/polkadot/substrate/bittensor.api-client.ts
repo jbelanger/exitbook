@@ -9,10 +9,6 @@ import { SUBSTRATE_CHAINS } from './substrate.types.js';
   blockchain: 'bittensor',
   capabilities: {
     supportedOperations: ['getRawAddressTransactions', 'getRawAddressBalance'],
-    supportsHistoricalData: true,
-    supportsPagination: true,
-    supportsRealTimeData: true,
-    supportsTokenData: false,
   },
   defaultConfig: {
     rateLimit: {

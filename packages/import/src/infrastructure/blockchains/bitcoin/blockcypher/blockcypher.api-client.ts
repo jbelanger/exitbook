@@ -27,10 +27,6 @@ import type { BlockCypherTransaction, BlockCypherAddress } from './blockcypher.t
   blockchain: 'bitcoin',
   capabilities: {
     supportedOperations: ['getRawAddressTransactions', 'getAddressInfo'],
-    supportsHistoricalData: true,
-    supportsPagination: true,
-    supportsRealTimeData: true,
-    supportsTokenData: false,
   },
   defaultConfig: {
     rateLimit: {

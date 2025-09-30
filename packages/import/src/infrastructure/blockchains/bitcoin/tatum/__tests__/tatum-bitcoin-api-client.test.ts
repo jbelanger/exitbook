@@ -290,10 +290,6 @@ describe('TatumBitcoinApiClient', () => {
 
       expect(capabilities.supportedOperations).toContain('getRawAddressTransactions');
       expect(capabilities.supportedOperations).toContain('getAddressInfo');
-      expect(capabilities.supportsHistoricalData).toBe(true);
-      expect(capabilities.supportsPagination).toBe(true);
-      expect(capabilities.supportsRealTimeData).toBe(true);
-      expect(capabilities.supportsTokenData).toBe(false);
     });
   });
 });

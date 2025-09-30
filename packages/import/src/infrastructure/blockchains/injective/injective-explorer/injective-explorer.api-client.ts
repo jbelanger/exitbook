@@ -10,10 +10,6 @@ import type { InjectiveExplorerTransaction } from './injective-explorer.types.js
   blockchain: 'injective',
   capabilities: {
     supportedOperations: ['getRawAddressTransactions'],
-    supportsHistoricalData: true,
-    supportsPagination: true,
-    supportsRealTimeData: true,
-    supportsTokenData: true,
   },
   defaultConfig: {
     rateLimit: {

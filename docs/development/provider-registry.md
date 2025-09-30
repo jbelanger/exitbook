@@ -95,10 +95,6 @@ import { BaseRegistryProvider, RegisterApiClient } from '@exitbook/import'; // S
   // --- Capabilities ---
   capabilities: {
     supportedOperations: ['getRawAddressTransactions', 'getRawAddressBalance'],
-    supportsHistoricalData: true,
-    supportsPagination: true,
-    supportsRealTimeData: false,
-    supportsTokenData: false,
   },
 })
 export class MyBitcoinApiClient extends BaseRegistryProvider {

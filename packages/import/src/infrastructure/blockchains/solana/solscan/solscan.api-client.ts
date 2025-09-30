@@ -16,10 +16,6 @@ export interface SolscanRawBalanceData {
   blockchain: 'solana',
   capabilities: {
     supportedOperations: ['getRawAddressTransactions', 'getRawAddressBalance'],
-    supportsHistoricalData: true,
-    supportsPagination: true,
-    supportsRealTimeData: true,
-    supportsTokenData: true,
   },
   defaultConfig: {
     rateLimit: {

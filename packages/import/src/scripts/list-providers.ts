@@ -27,12 +27,8 @@ function formatRateLimit(rateLimit: RateLimitConfig): string {
   return parts.join(', ');
 }
 
-function formatCapabilities(capabilities: ProviderCapabilities): string {
+function formatCapabilities(_capabilities: ProviderCapabilities): string {
   const features: string[] = [];
-  if (capabilities.supportsHistoricalData) features.push('Historical');
-  if (capabilities.supportsRealTimeData) features.push('Real-time');
-  if (capabilities.supportsTokenData) features.push('Tokens');
-  if (capabilities.supportsPagination) features.push('Pagination');
   return features.join(', ') || 'Basic';
 }
 

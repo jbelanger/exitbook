@@ -63,10 +63,6 @@ import type { BlockchairRawTransaction, BlockchairAddressInfo } from '../types';
   },
   capabilities: {
     supportedOperations: ['getRawAddressTransactions', 'getAddressInfo'],
-    supportsHistoricalData: true,
-    supportsPagination: false, // Assuming no pagination for simplicity
-    supportsRealTimeData: true,
-    supportsTokenData: false,
   },
 })
 export class BlockchairApiClient extends BaseRegistryProvider {

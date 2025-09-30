@@ -36,10 +36,6 @@ class MockProvider implements IBlockchainProvider {
 
     this.capabilities = {
       supportedOperations: ['getAddressTransactions', 'getAddressBalance'],
-      supportsHistoricalData: true,
-      supportsPagination: true,
-      supportsRealTimeData: false,
-      supportsTokenData: false,
     };
 
     this.rateLimit = {
@@ -353,11 +349,9 @@ describe('BlockchainProviderManager', () => {
     // Create providers with different capabilities
     const tokenProvider = new MockProvider('token-specialist', 'ethereum');
     tokenProvider.capabilities.supportedOperations = ['getTokenTransactions', 'getTokenBalances'];
-    tokenProvider.capabilities.supportsTokenData = true;
 
     const basicProvider = new MockProvider('basic-provider', 'ethereum');
     basicProvider.capabilities.supportedOperations = ['getAddressTransactions', 'getAddressBalance'];
-    basicProvider.capabilities.supportsTokenData = false;
 
     manager.registerProviders('ethereum', [basicProvider, tokenProvider]);
 
@@ -549,8 +543,6 @@ describe('ProviderRegistry', () => {
 
     expect(alchemy?.capabilities).toBeDefined();
     expect(alchemy?.capabilities.supportedOperations).toBeDefined();
-    expect(alchemy?.capabilities.supportsHistoricalData).toBe(true);
-    expect(alchemy?.capabilities.supportsPagination).toBe(true);
   });
 
   test('should provide rate limiting information', () => {

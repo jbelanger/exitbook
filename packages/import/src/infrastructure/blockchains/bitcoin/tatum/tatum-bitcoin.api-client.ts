@@ -12,10 +12,6 @@ import type { TatumBitcoinTransaction, TatumBitcoinBalance } from './tatum.types
   blockchain: 'bitcoin',
   capabilities: {
     supportedOperations: ['getRawAddressTransactions', 'getAddressInfo'],
-    supportsHistoricalData: true,
-    supportsPagination: true,
-    supportsRealTimeData: true,
-    supportsTokenData: false,
   },
   defaultConfig: {
     rateLimit: {

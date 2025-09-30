@@ -16,10 +16,6 @@ import type {
   blockchain: 'ethereum',
   capabilities: {
     supportedOperations: ['getRawAddressTransactions', 'getTokenTransactions', 'getRawTokenBalances'],
-    supportsHistoricalData: true,
-    supportsPagination: true,
-    supportsRealTimeData: true,
-    supportsTokenData: true,
   },
   defaultConfig: {
     rateLimit: {

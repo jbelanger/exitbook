@@ -11,10 +11,6 @@ import type { BlockstreamAddressInfo, BlockstreamTransaction } from './blockstre
   blockchain: 'bitcoin',
   capabilities: {
     supportedOperations: ['getRawAddressTransactions', 'getAddressInfo'],
-    supportsHistoricalData: true,
-    supportsPagination: true,
-    supportsRealTimeData: true,
-    supportsTokenData: false,
   },
   defaultConfig: {
     rateLimit: {

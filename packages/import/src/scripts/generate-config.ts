@@ -74,10 +74,6 @@ function generateConfiguration(): void {
           }),
           capabilities: {
             supportedOperations: provider.capabilities.supportedOperations,
-            supportsHistoricalData: provider.capabilities.supportsHistoricalData,
-            supportsPagination: provider.capabilities.supportsPagination,
-            supportsRealTimeData: provider.capabilities.supportsRealTimeData,
-            supportsTokenData: provider.capabilities.supportsTokenData,
           },
           defaultConfig: {
             rateLimit: {

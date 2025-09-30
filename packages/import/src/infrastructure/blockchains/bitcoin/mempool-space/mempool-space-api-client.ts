@@ -11,10 +11,6 @@ import type { MempoolAddressInfo, MempoolTransaction } from './mempool-space.typ
   blockchain: 'bitcoin',
   capabilities: {
     supportedOperations: ['getRawAddressTransactions', 'getAddressInfo'],
-    supportsHistoricalData: true,
-    supportsPagination: true,
-    supportsRealTimeData: true,
-    supportsTokenData: false,
   },
   defaultConfig: {
     rateLimit: {
