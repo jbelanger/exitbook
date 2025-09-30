@@ -8,8 +8,11 @@ describe('BlockchainComApiClient E2E', () => {
   const client = new BlockchainComApiClient();
 
   it('should connect to Blockchain.com API and test health', async () => {
-    const isHealthy = await client.isHealthy();
-    expect(isHealthy).toBe(true);
+    const result = await client.isHealthy();
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value).toBe(true);
+    }
   }, 30000);
 
   it('should get address info for known address', async () => {

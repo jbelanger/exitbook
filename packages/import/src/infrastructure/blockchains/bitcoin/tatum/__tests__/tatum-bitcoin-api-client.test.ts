@@ -268,7 +268,10 @@ describe('TatumBitcoinApiClient', () => {
 
       const result = await client.isHealthy();
 
-      expect(result).toBe(true);
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value).toBe(true);
+      }
       expect(mockHttpGet).toHaveBeenCalledWith('/address/1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa/balance', undefined);
     });
 
@@ -277,7 +280,7 @@ describe('TatumBitcoinApiClient', () => {
 
       const result = await client.isHealthy();
 
-      expect(result).toBe(false);
+      expect(result.isErr()).toBe(true);
     });
   });
 

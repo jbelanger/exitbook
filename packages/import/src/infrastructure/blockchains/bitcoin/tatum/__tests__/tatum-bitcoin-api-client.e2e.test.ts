@@ -18,8 +18,11 @@ describe('TatumBitcoinApiClient E2E', () => {
   it.skipIf(!process.env['TATUM_API_KEY'] || process.env['TATUM_API_KEY'] === 'YourApiKeyToken')(
     'should connect to Tatum API and test health',
     async () => {
-      const isHealthy = await client.isHealthy();
-      expect(isHealthy).toBe(true);
+      const result = await client.isHealthy();
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value).toBe(true);
+      }
     },
     30000 // 30 second timeout for network calls
   );

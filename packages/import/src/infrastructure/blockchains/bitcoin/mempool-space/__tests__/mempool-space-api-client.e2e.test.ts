@@ -33,8 +33,11 @@ describe('MempoolSpaceProvider Integration', () => {
 
   describe('Health Checks', () => {
     it('should report healthy when API is accessible', async () => {
-      const isHealthy = await provider.isHealthy();
-      expect(isHealthy).toBe(true);
+      const result = await provider.isHealthy();
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value).toBe(true);
+      }
     }, 30000);
   });
 

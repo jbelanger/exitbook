@@ -9,8 +9,11 @@ describe('BlockstreamApiClient E2E', () => {
   const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa'; // Genesis block address
 
   it('should connect to Blockstream API and test health', async () => {
-    const isHealthy = await client.isHealthy();
-    expect(isHealthy).toBe(true);
+    const result = await client.isHealthy();
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value).toBe(true);
+    }
   }, 60000);
 
   it('should get address info for known address', async () => {
