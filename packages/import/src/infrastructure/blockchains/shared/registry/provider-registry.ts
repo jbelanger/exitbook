@@ -24,7 +24,7 @@ export interface ProviderConfig {
  */
 export interface ProviderMetadata {
   apiKeyEnvVar?: string | undefined; // Environment variable name for API key
-  baseUrl: string;
+  baseUrl: string; // Default base URL (used if no chain-specific override)
   blockchain: string; // Primary blockchain (for backward compatibility)
   capabilities: ProviderCapabilities;
   defaultConfig: {
@@ -36,7 +36,12 @@ export interface ProviderMetadata {
   displayName: string;
   name: string;
   requiresApiKey?: boolean | undefined;
-  supportedChains?: string[] | undefined; // For multi-chain providers (EVM chains)
+  /**
+   * Supported blockchains for multi-chain providers
+   * - String array: ['ethereum', 'avalanche'] - uses baseUrl for all chains
+   * - Object: { ethereum: { baseUrl: '...' }, avalanche: { baseUrl: '...' } } - per-chain config
+   */
+  supportedChains?: string[] | Record<string, { baseUrl: string }> | undefined;
 }
 
 /**
@@ -78,7 +83,7 @@ export class ProviderRegistry {
     // If not found, search for multi-chain provider that supports this blockchain
     if (!factory) {
       factory = Array.from(this.providers.values()).find((f) => {
-        const chains = f.metadata.supportedChains || [f.metadata.blockchain];
+        const chains = this.getSupportedChains(f.metadata);
         return f.metadata.name === name && chains.includes(blockchain);
       });
     }
@@ -115,8 +120,7 @@ export class ProviderRegistry {
   static getAvailable(blockchain: string): ProviderInfo[] {
     return Array.from(this.providers.values())
       .filter((factory) => {
-        // Check if provider supports this blockchain
-        const chains = factory.metadata.supportedChains || [factory.metadata.blockchain];
+        const chains = this.getSupportedChains(factory.metadata);
         return chains.includes(blockchain);
       })
       .map((factory) => {
@@ -144,7 +148,7 @@ export class ProviderRegistry {
     // If not found, search for multi-chain provider
     if (!factory) {
       factory = Array.from(this.providers.values()).find((f) => {
-        const chains = f.metadata.supportedChains || [f.metadata.blockchain];
+        const chains = this.getSupportedChains(f.metadata);
         return f.metadata.name === name && chains.includes(blockchain);
       });
     }
@@ -165,7 +169,7 @@ export class ProviderRegistry {
 
     // Check if any multi-chain provider supports this blockchain
     return Array.from(this.providers.values()).some((factory) => {
-      const chains = factory.metadata.supportedChains || [factory.metadata.blockchain];
+      const chains = this.getSupportedChains(factory.metadata);
       return factory.metadata.name === name && chains.includes(blockchain);
     });
   }
@@ -186,6 +190,7 @@ export class ProviderRegistry {
   /**
    * Create a default ProviderConfig from metadata
    * Useful for tests and manual provider instantiation
+   * Automatically applies chain-specific baseUrl from supportedChains object format
    */
   static createDefaultConfig(blockchain: string, name: string): ProviderConfig {
     const metadata = this.getMetadata(blockchain, name);
@@ -193,8 +198,19 @@ export class ProviderRegistry {
       throw new Error(`Provider '${name}' not found for blockchain '${blockchain}'`);
     }
 
+    // Determine baseUrl: use chain-specific if available, otherwise use default
+    let baseUrl = metadata.baseUrl;
+
+    // If supportedChains is an object format, extract chain-specific baseUrl
+    if (metadata.supportedChains && !Array.isArray(metadata.supportedChains)) {
+      const chainConfig = metadata.supportedChains[blockchain];
+      if (chainConfig?.baseUrl) {
+        baseUrl = chainConfig.baseUrl;
+      }
+    }
+
     return {
-      baseUrl: metadata.baseUrl,
+      baseUrl,
       blockchain,
       displayName: metadata.displayName,
       enabled: true,
@@ -278,5 +294,22 @@ export class ProviderRegistry {
       errors,
       valid: errors.length === 0,
     };
+  }
+
+  /**
+   * Helper to get supported chains from metadata (handles both string[] and object formats)
+   */
+  private static getSupportedChains(metadata: ProviderMetadata): string[] {
+    const { supportedChains, blockchain } = metadata;
+
+    if (!supportedChains) {
+      return [blockchain]; // Default to primary blockchain
+    }
+
+    if (Array.isArray(supportedChains)) {
+      return supportedChains; // String array format
+    }
+
+    return Object.keys(supportedChains); // Object format with baseUrls
   }
 }
