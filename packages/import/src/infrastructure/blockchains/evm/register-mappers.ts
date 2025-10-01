@@ -2,3 +2,4 @@
 
 import './providers/alchemy/alchemy.mapper.js';
 import './providers/moralis/moralis.mapper.js';
+import './providers/snowtrace/snowtrace.mapper.js';

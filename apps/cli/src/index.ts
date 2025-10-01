@@ -338,10 +338,16 @@ async function main() {
           if (options.process) {
             logger.info('Processing imported data to universal format');
 
-            const processResult = await ingestionService.processRawDataToTransactions(sourceName, sourceType, {
+            const processResultOrError = await ingestionService.processRawDataToTransactions(sourceName, sourceType, {
               importSessionId: importResult.importSessionId,
             });
 
+            if (processResultOrError.isErr()) {
+              logger.error(`Processing failed: ${processResultOrError.error.message}`);
+              throw processResultOrError.error;
+            }
+
+            const processResult = processResultOrError.value;
             logger.info(`Processing completed: ${processResult.processed} processed, ${processResult.failed} failed`);
 
             if (processResult.errors.length > 0) {
@@ -434,8 +440,14 @@ async function main() {
             filters.createdAfter = Math.floor(sinceTimestamp / 1000); // Convert to seconds for database
           }
 
-          const result = await ingestionService.processRawDataToTransactions(sourceName, sourceType, filters);
+          const resultOrError = await ingestionService.processRawDataToTransactions(sourceName, sourceType, filters);
 
+          if (resultOrError.isErr()) {
+            logger.error(`Processing failed: ${resultOrError.error.message}`);
+            throw resultOrError.error;
+          }
+
+          const result = resultOrError.value;
           logger.info(`Processing completed: ${result.processed} processed, ${result.failed} failed`);
 
           if (result.errors.length > 0) {

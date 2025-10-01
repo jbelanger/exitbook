@@ -3,6 +3,7 @@ import type { ImportParams, RawTransactionMetadata } from '@exitbook/import/app/
 import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
 import type { Logger } from '@exitbook/shared-logger';
 import { getLogger } from '@exitbook/shared-logger';
+import { err, ok, type Result } from 'neverthrow';
 
 import type { ImportResult } from '../../index.js';
 import type { IBlockchainNormalizer } from '../ports/blockchain-normalizer.interface.ts';
@@ -183,7 +184,7 @@ export class TransactionIngestionService {
     sourceId: string,
     sourceType: 'exchange' | 'blockchain',
     filters?: LoadRawDataFilters
-  ): Promise<ProcessResult> {
+  ): Promise<Result<ProcessResult, Error>> {
     this.logger.info(`Starting processing for ${sourceId} (${sourceType})`);
 
     try {
@@ -198,7 +199,7 @@ export class TransactionIngestionService {
 
       if (rawDataItems.length === 0) {
         this.logger.warn(`No pending raw data found for processing: ${sourceId}`);
-        return { errors: [], failed: 0, processed: 0 };
+        return ok({ errors: [], failed: 0, processed: 0 });
       }
 
       this.logger.info(`Found ${rawDataItems.length} raw data items to process for ${sourceId}`);
@@ -249,6 +250,8 @@ export class TransactionIngestionService {
         }
 
         const normalizedRawDataItems: unknown[] = [];
+        const normalizationErrors: { error: string; itemId: number }[] = [];
+
         if (sourceType === 'blockchain') {
           const normalizer = this.blockchainNormalizer;
           if (normalizer) {
@@ -259,11 +262,18 @@ export class TransactionIngestionService {
                   item.metadata as RawTransactionMetadata,
                   session.session_metadata as ImportSessionMetadata
                 );
-                if (result) result.map((r) => normalizedRawDataItems.push(r));
+
+                if (result.isOk()) {
+                  normalizedRawDataItems.push(result.value);
+                } else {
+                  const errorMsg = `Normalization failed: ${result.error}`;
+                  normalizationErrors.push({ error: errorMsg, itemId: item.id });
+                  this.logger.error(`${errorMsg} for raw data item ${item.id} in session ${session.id}`);
+                }
               } catch (normError) {
-                this.logger.error(
-                  `Normalization failed for raw data item ${item.id} in session ${session.id}: ${String(normError)}`
-                );
+                const errorMsg = `Normalization threw exception: ${String(normError)}`;
+                normalizationErrors.push({ error: errorMsg, itemId: item.id });
+                this.logger.error(`${errorMsg} for raw data item ${item.id} in session ${session.id}`);
               }
             }
           }
@@ -271,6 +281,20 @@ export class TransactionIngestionService {
           for (const item of pendingItems) {
             normalizedRawDataItems.push(item.raw_data);
           }
+        }
+
+        // STRICT MODE: Fail if any raw data items could not be normalized
+        if (normalizationErrors.length > 0) {
+          this.logger.error(
+            `CRITICAL: ${normalizationErrors.length}/${pendingItems.length} items failed normalization in session ${session.id}:\n${normalizationErrors.map((e, i) => `  ${i + 1}. Item ${e.itemId}: ${e.error}`).join('\n')}`
+          );
+
+          return err(
+            new Error(
+              `Cannot proceed: ${normalizationErrors.length}/${pendingItems.length} raw data items failed normalization in session ${session.id}. ` +
+                `This would corrupt portfolio calculations. Errors: ${normalizationErrors.map((e) => `Item ${e.itemId}: ${e.error}`).join('; ')}`
+            )
+          );
         }
 
         // Create processor with session-specific context
@@ -291,8 +315,15 @@ export class TransactionIngestionService {
         const sessionTransactionsResult = await processor.process(processingSession);
 
         if (sessionTransactionsResult.isErr()) {
-          this.logger.error(`Processing failed for session ${session.id}: ${sessionTransactionsResult.error}`);
-          continue;
+          this.logger.error(
+            `CRITICAL: Processing failed for session ${session.id} - ${sessionTransactionsResult.error}`
+          );
+          return err(
+            new Error(
+              `Cannot proceed: Session ${session.id} processing failed. ${sessionTransactionsResult.error}. ` +
+                `This would corrupt portfolio calculations by losing transactions from this import session.`
+            )
+          );
         }
 
         const sessionTransactions = sessionTransactionsResult.value;
@@ -317,8 +348,21 @@ export class TransactionIngestionService {
           failed++;
           const errorMessage = error instanceof Error ? error.message : String(error);
           errors.push(`Failed to save transaction ${transaction.id}: ${errorMessage}`);
-          this.logger.error(`Failed to save transaction ${transaction.id}: ${errorMessage}`);
+          this.logger.error(`CRITICAL: Failed to save transaction ${transaction.id}: ${errorMessage}`);
         }
+      }
+
+      // STRICT MODE: Fail if ANY transactions could not be saved
+      if (failed > 0) {
+        this.logger.error(
+          `CRITICAL: ${failed}/${transactions.length} transactions failed to save. This would corrupt portfolio calculations.`
+        );
+        return err(
+          new Error(
+            `Cannot proceed: ${failed}/${transactions.length} transactions failed to save to database. ` +
+              `This would corrupt portfolio calculations. Errors: ${errors.join('; ')}`
+          )
+        );
       }
 
       // Mark all processed raw data items as processed - both those that generated transactions and those that were skipped
@@ -334,16 +378,17 @@ export class TransactionIngestionService {
         this.logger.info(`${skippedCount} items were processed but skipped (likely non-standard operation types)`);
       }
 
-      this.logger.info(`Processing completed for ${sourceId}: ${savedCount} processed, ${failed} failed`);
+      this.logger.info(`Processing completed for ${sourceId}: ${savedCount} processed successfully`);
 
-      return {
-        errors,
-        failed,
+      return ok({
+        errors: [],
+        failed: 0,
         processed: savedCount,
-      };
+      });
     } catch (error) {
-      this.logger.error(`Processing failed for ${sourceId}: ${String(error)}`);
-      throw error;
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`CRITICAL: Unexpected processing failure for ${sourceId}: ${errorMessage}`);
+      return err(new Error(`Unexpected processing failure for ${sourceId}: ${errorMessage}`));
     }
   }
 }

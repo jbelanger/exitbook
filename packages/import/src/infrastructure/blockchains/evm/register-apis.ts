@@ -3,3 +3,4 @@
 
 import './providers/alchemy/alchemy.api-client.js';
 import './providers/moralis/moralis.api-client.js';
+import './providers/snowtrace/snowtrace.api-client.js';
