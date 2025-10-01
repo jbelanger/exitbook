@@ -9,10 +9,10 @@ export interface MoralisTransaction {
   hash: string;
   input: string;
   nonce: string;
-  receipt_contract_address: string | null;
+  receipt_contract_address?: string | undefined;
   receipt_cumulative_gas_used: string;
   receipt_gas_used: string;
-  receipt_root: string;
+  receipt_root?: string | undefined;
   receipt_status: string;
   to_address: string;
   transaction_index: string;
@@ -44,10 +44,16 @@ export interface MoralisDateToBlockResponse {
 }
 
 export interface MoralisTransactionResponse {
+  cursor?: string | null;
+  page: number;
+  page_size: number;
   result: MoralisTransaction[];
 }
 
 export interface MoralisTokenTransferResponse {
+  cursor?: string | null;
+  page: number;
+  page_size: number;
   result: MoralisTokenTransfer[];
 }
 

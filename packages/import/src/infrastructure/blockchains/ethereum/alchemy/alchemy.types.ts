@@ -21,6 +21,7 @@ export interface AlchemyAssetTransfer {
     tokenId?: string | undefined;
     value?: string | undefined;
   }[];
+  erc721TokenId?: string | undefined;
   from: string;
   hash: string;
   metadata?: {
@@ -28,10 +29,13 @@ export interface AlchemyAssetTransfer {
   };
   rawContract?: {
     address?: string | undefined;
-    decimal?: string | undefined;
+    decimal?: string | number | undefined;
+    value?: string | number | undefined;
   };
   to: string;
-  value: string;
+  tokenId?: string | undefined;
+  uniqueId?: string | undefined;
+  value?: string | number | undefined;
 }
 
 export interface AlchemyAssetTransfersResponse {

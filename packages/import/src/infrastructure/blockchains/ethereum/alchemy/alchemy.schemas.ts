@@ -6,6 +6,7 @@ import { z } from 'zod';
 export const AlchemyRawContractSchema = z.object({
   address: z.union([z.string(), z.null()]).optional(),
   decimal: z.union([z.string(), z.number(), z.null()]).optional(),
+  value: z.union([z.string(), z.number(), z.null()]).optional(),
 });
 
 /**
@@ -19,14 +20,28 @@ export const AlchemyMetadataSchema = z.object({
  * Schema for Alchemy asset transfer structure
  */
 export const AlchemyAssetTransferSchema = z.object({
-  asset: z.string().optional(),
+  asset: z.union([z.string(), z.null()]).optional(),
   blockNum: z.string().min(1, 'Block number must not be empty'),
   category: z.string().min(1, 'Category must not be empty'),
+  erc1155Metadata: z
+    .union([
+      z.array(
+        z.object({
+          tokenId: z.string().optional(),
+          value: z.string().optional(),
+        })
+      ),
+      z.null(),
+    ])
+    .optional(),
+  erc721TokenId: z.union([z.string(), z.null()]).optional(),
   from: z.string().min(1, 'From address must not be empty'),
   hash: z.string().min(1, 'Transaction hash must not be empty'),
   metadata: AlchemyMetadataSchema.optional(),
   rawContract: AlchemyRawContractSchema.optional(),
   to: z.string().min(1, 'To address must not be empty'),
+  tokenId: z.union([z.string(), z.null()]).optional(),
+  uniqueId: z.string().optional(),
   value: z.union([z.string(), z.number(), z.null()]).optional(),
 });
 

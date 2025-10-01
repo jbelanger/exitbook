@@ -1,11 +1,19 @@
+import { tryParseDecimal } from '@exitbook/core';
 import { z } from 'zod';
 
 /**
  * Numeric string validator for amounts/values
+ * Uses Decimal.js for precision-safe validation
  */
-const numericString = z
-  .string()
-  .refine((val) => !isNaN(parseFloat(val)) && isFinite(parseFloat(val)), { message: 'Must be a valid numeric string' });
+const numericString = z.string().refine(
+  (val) => {
+    if (val === '') return false;
+    return tryParseDecimal(val);
+  },
+  {
+    message: 'Must be a valid numeric string',
+  }
+);
 
 /**
  * Schema for normalized Ethereum transaction

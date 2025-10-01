@@ -5,8 +5,7 @@ import type { SnowtraceBalanceResponse } from '../snowtrace.types.ts';
 
 describe('SnowtraceApiClient Integration', () => {
   const provider = new SnowtraceApiClient();
-  // AVAX Foundation address - known to have transactions
-  const testAddress = '0x8EB8a3b98659Cce290402893d0123abb75E3ab28';
+  const testAddress = '0x70c68a08d8c1C1Fa1CD5E5533e85a77c4Ac07022';
 
   describe('Health Checks', () => {
     it('should report healthy when API is accessible', async () => {

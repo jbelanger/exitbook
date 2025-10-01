@@ -4,7 +4,7 @@ import { RegisterApiClient } from '../../shared/registry/decorators.js';
 @RegisterApiClient({
   apiKeyEnvVar: 'MORALIS_API_KEY',
   baseUrl: 'https://deep-index.moralis.io/api/v2',
-  blockchain: 'ethereum',
+  blockchain: 'avalanche',
   capabilities: {
     supportedOperations: [
       'getRawAddressTransactions',
@@ -23,15 +23,15 @@ import { RegisterApiClient } from '../../shared/registry/decorators.js';
     retries: 3,
     timeout: 10000,
   },
-  description: 'Moralis Ethereum API with comprehensive Web3 data and multi-chain support',
+  description: 'Moralis Avalanche API with comprehensive Web3 data and multi-chain support',
   displayName: 'Moralis',
   name: 'moralis',
   requiresApiKey: true,
 })
 export class MoralisApiClient extends MoralisEvmApiClientBase {
   constructor() {
-    super('ethereum', 'moralis', 'mainnet', {
-      chainId: 'eth',
+    super('avalanche', 'moralis', 'mainnet', {
+      chainId: 'avalanche',
       tokenStandard: 'erc20',
     });
   }

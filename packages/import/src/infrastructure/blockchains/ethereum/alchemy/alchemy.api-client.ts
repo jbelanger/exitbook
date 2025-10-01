@@ -13,6 +13,7 @@ import type {
 } from './alchemy.types.ts';
 
 @RegisterApiClient({
+  apiKeyEnvVar: 'ALCHEMY_API_KEY',
   baseUrl: 'https://eth-mainnet.g.alchemy.com/v2',
   blockchain: 'ethereum',
   capabilities: {

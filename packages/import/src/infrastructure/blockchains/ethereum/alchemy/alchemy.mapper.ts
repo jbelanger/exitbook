@@ -31,10 +31,20 @@ export class AlchemyTransactionMapper extends BaseRawDataMapper<AlchemyAssetTran
 
     // Extract basic transaction data
     let currency = 'ETH';
-    let amount = parseDecimal(String(rawData.value || 0));
+    let amount: Decimal;
     let tokenType: EthereumTransaction['tokenType'] = 'native';
 
     if (isTokenTransfer) {
+      // For token transfers, use rawContract.value if available
+      const rawValue = rawData.rawContract?.value || rawData.value;
+
+      // Handle hex string values (common for ERC20 transfers)
+      if (typeof rawValue === 'string' && rawValue.startsWith('0x')) {
+        amount = new Decimal(BigInt(rawValue).toString());
+      } else {
+        amount = parseDecimal(String(rawValue || 0));
+      }
+
       currency = rawData.asset || 'UNKNOWN';
       tokenType = rawData.category as EthereumTransaction['tokenType'];
 
@@ -49,6 +59,9 @@ export class AlchemyTransactionMapper extends BaseRawDataMapper<AlchemyAssetTran
       ) {
         amount = parseDecimal(rawData.erc1155Metadata[0]?.value || '1');
       }
+    } else {
+      // For native ETH transfers
+      amount = parseDecimal(String(rawData.value || 0));
     }
 
     const timestamp = rawData.metadata?.blockTimestamp

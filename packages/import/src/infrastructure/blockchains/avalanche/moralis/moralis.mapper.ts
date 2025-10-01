@@ -8,36 +8,36 @@ import { RegisterTransactionMapper } from '../../../shared/processors/processor-
 import { MoralisTransactionSchema } from '../../shared/api/moralis-evm/moralis.schemas.js';
 import type { MoralisTransaction } from '../../shared/api/moralis-evm/moralis.types.js';
 import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
-import { EthereumTransactionSchema } from '../schemas.js';
-import type { EthereumTransaction } from '../types.js';
+import { AvalancheTransactionSchema } from '../schemas.js';
+import type { AvalancheTransaction } from '../types.js';
 
 @RegisterTransactionMapper('moralis')
-export class MoralisTransactionMapper extends BaseRawDataMapper<MoralisTransaction, EthereumTransaction> {
+export class MoralisTransactionMapper extends BaseRawDataMapper<MoralisTransaction, AvalancheTransaction> {
   protected readonly inputSchema = MoralisTransactionSchema;
-  protected readonly outputSchema = EthereumTransactionSchema;
+  protected readonly outputSchema = AvalancheTransactionSchema;
 
   protected mapInternal(
     rawData: MoralisTransaction,
     _metadata: RawTransactionMetadata,
     _sessionContext: ImportSessionMetadata
-  ): Result<EthereumTransaction, string> {
+  ): Result<AvalancheTransaction, string> {
     const valueWei = parseDecimal(rawData.value);
-    const valueEth = valueWei.dividedBy(new Decimal(10).pow(18));
+    const valueAvax = valueWei.dividedBy(new Decimal(10).pow(18));
     const timestamp = new Date(rawData.block_timestamp).getTime();
 
     // Calculate gas fee
     const gasUsed = parseDecimal(rawData.receipt_gas_used || '0');
     const gasPrice = parseDecimal(rawData.gas_price || '0');
     const feeWei = gasUsed.mul(gasPrice);
-    const feeEth = feeWei.dividedBy(new Decimal(10).pow(18));
+    const feeAvax = feeWei.dividedBy(new Decimal(10).pow(18));
 
-    const transaction: EthereumTransaction = {
-      amount: valueEth.toString(),
+    const transaction: AvalancheTransaction = {
+      amount: valueAvax.toString(),
       blockHeight: parseInt(rawData.block_number),
       blockId: rawData.block_hash,
-      currency: 'ETH',
-      feeAmount: feeEth.toString(),
-      feeCurrency: 'ETH',
+      currency: 'AVAX',
+      feeAmount: feeAvax.toString(),
+      feeCurrency: 'AVAX',
       from: rawData.from_address,
       gasPrice: rawData.gas_price && rawData.gas_price !== '' ? rawData.gas_price : undefined,
       gasUsed: rawData.receipt_gas_used && rawData.receipt_gas_used !== '' ? rawData.receipt_gas_used : undefined,
