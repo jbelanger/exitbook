@@ -40,9 +40,14 @@ export class TransactionIngestionService {
   /**
    * Get processing status summary for a source.
    */
-  async getProcessingStatus(sourceId: string) {
+  async getProcessingStatus(sourceId: string): Promise<{
+    failed: number;
+    pending: number;
+    processed: number;
+    total: number;
+  }> {
     try {
-      const [pending, processedItems, failedItems] = await Promise.all([
+      const [pendingResult, processedItemsResult, failedItemsResult] = await Promise.all([
         this.rawDataRepository.load({
           processingStatus: 'pending',
           sourceId: sourceId,
@@ -56,6 +61,25 @@ export class TransactionIngestionService {
           sourceId: sourceId,
         }),
       ]);
+
+      // Handle Result types - fail fast if any loading fails
+      const pending = pendingResult.isErr()
+        ? (() => {
+            throw pendingResult.error;
+          })()
+        : pendingResult.value;
+
+      const processedItems = processedItemsResult.isErr()
+        ? (() => {
+            throw processedItemsResult.error;
+          })()
+        : processedItemsResult.value;
+
+      const failedItems = failedItemsResult.isErr()
+        ? (() => {
+            throw failedItemsResult.error;
+          })()
+        : failedItemsResult.value;
 
       return {
         failed: failedItems.length,
@@ -111,7 +135,7 @@ export class TransactionIngestionService {
       const rawData = importResult.rawTransactions;
 
       // Save all raw data items to storage in a single transaction
-      const savedCount = await this.rawDataRepository.saveBatch(
+      const savedCountResult = await this.rawDataRepository.saveBatch(
         rawData.map((element) => ({
           metadata: element.metadata,
           providerId: element.metadata.providerId,
@@ -119,6 +143,12 @@ export class TransactionIngestionService {
         })),
         importSessionId
       );
+
+      // Handle Result type - fail fast if save fails
+      if (savedCountResult.isErr()) {
+        throw savedCountResult.error;
+      }
+      const savedCount = savedCountResult.value;
 
       // Update session with success and metadata
       if (sessionCreated && typeof importSessionId === 'number') {
@@ -195,7 +225,13 @@ export class TransactionIngestionService {
         ...filters,
       };
 
-      const rawDataItems = await this.rawDataRepository.load(loadFilters);
+      const rawDataItemsResult = await this.rawDataRepository.load(loadFilters);
+
+      // Handle Result type - fail fast if loading fails
+      if (rawDataItemsResult.isErr()) {
+        return err(rawDataItemsResult.error);
+      }
+      const rawDataItems = rawDataItemsResult.value;
 
       if (rawDataItems.length === 0) {
         this.logger.warn(`No pending raw data found for processing: ${sourceId}`);
@@ -370,7 +406,17 @@ export class TransactionIngestionService {
         sessionData.rawDataItems.filter((item) => item.processing_status === 'pending')
       );
       const allRawDataIds = allProcessedItems.map((item) => item.id);
-      await this.rawDataRepository.markAsProcessed(sourceId, allRawDataIds, filters?.providerId);
+
+      const markAsProcessedResult = await this.rawDataRepository.markAsProcessed(
+        sourceId,
+        allRawDataIds,
+        filters?.providerId
+      );
+
+      // Handle Result type - fail fast if marking fails
+      if (markAsProcessedResult.isErr()) {
+        return err(markAsProcessedResult.error);
+      }
 
       // Log the processing results
       const skippedCount = allProcessedItems.length - transactions.length;
