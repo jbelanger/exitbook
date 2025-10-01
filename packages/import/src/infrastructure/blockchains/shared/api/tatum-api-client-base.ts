@@ -5,8 +5,8 @@ import { BlockchainApiClient } from './blockchain-api-client.ts';
  * Handles common Tatum-specific logic including authentication, rate limiting, and error handling
  */
 export abstract class TatumApiClientBase<TTx, TBalance> extends BlockchainApiClient {
-  constructor(blockchain: string, providerName: string, network = 'mainnet') {
-    super(blockchain, providerName, network);
+  constructor(blockchain: string, providerName: string) {
+    super(blockchain, providerName);
 
     // Reinitialize HTTP client with Tatum-specific headers
     this.reinitializeHttpClient({
@@ -18,7 +18,7 @@ export abstract class TatumApiClientBase<TTx, TBalance> extends BlockchainApiCli
     });
 
     this.logger.debug(
-      `Initialized ${this.metadata.displayName} for ${blockchain} - Network: ${this.network}, HasApiKey: ${this.apiKey !== 'YourApiKeyToken'}`
+      `Initialized ${this.metadata.displayName} for ${blockchain} - HasApiKey: ${this.apiKey !== 'YourApiKeyToken'}`
     );
   }
 

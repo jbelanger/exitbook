@@ -100,7 +100,7 @@ import { BaseRegistryProvider, RegisterApiClient } from '@exitbook/import'; // S
 export class MyBitcoinApiClient extends BaseRegistryProvider {
   constructor() {
     // The base class handles initialization using the metadata above.
-    super('bitcoin', 'my-btc-provider', 'mainnet');
+    super('bitcoin', 'my-btc-provider');
   }
 
   // Implement the execute method to handle operations

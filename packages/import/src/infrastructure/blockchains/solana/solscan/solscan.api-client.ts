@@ -33,7 +33,7 @@ export interface SolscanRawBalanceData {
 })
 export class SolscanApiClient extends BlockchainApiClient {
   constructor() {
-    super('solana', 'solscan', 'mainnet');
+    super('solana', 'solscan');
 
     // Override HTTP client to add browser-like headers for Solscan
     this.reinitializeHttpClient({
@@ -99,7 +99,7 @@ export class SolscanApiClient extends BlockchainApiClient {
       throw new Error(`Invalid Solana address: ${address}`);
     }
 
-    this.logger.debug(`Fetching raw address balance - Address: ${maskAddress(address)}, Network: ${this.network}`);
+    this.logger.debug(`Fetching raw address balance - Address: ${maskAddress(address)}`);
 
     try {
       const response = await this.httpClient.get<SolscanResponse<{ lamports: string }>>(`/account/${address}`);
@@ -109,13 +109,13 @@ export class SolscanApiClient extends BlockchainApiClient {
       }
 
       this.logger.debug(
-        `Successfully retrieved raw address balance - Address: ${maskAddress(address)}, Lamports: ${response.data.lamports}, Network: ${this.network}`
+        `Successfully retrieved raw address balance - Address: ${maskAddress(address)}, Lamports: ${response.data.lamports}`
       );
 
       return { lamports: response.data.lamports || '0' };
     } catch (error) {
       this.logger.error(
-        `Failed to get raw address balance - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to get raw address balance - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`
       );
       throw error;
     }
@@ -131,9 +131,7 @@ export class SolscanApiClient extends BlockchainApiClient {
       throw new Error(`Invalid Solana address: ${address}`);
     }
 
-    this.logger.debug(
-      `Fetching raw address transactions - Address: ${maskAddress(address)}, Since: ${since}, Network: ${this.network}`
-    );
+    this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}, Since: ${since}`);
 
     try {
       const response = await this.httpClient.get<SolscanResponse<SolscanTransaction[]>>(
@@ -153,13 +151,13 @@ export class SolscanApiClient extends BlockchainApiClient {
       const filteredTransactions = since ? response.data.filter((tx) => tx.blockTime * 1000 >= since) : response.data;
 
       this.logger.debug(
-        `Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${filteredTransactions.length}, Network: ${this.network}`
+        `Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${filteredTransactions.length}`
       );
 
       return filteredTransactions;
     } catch (error) {
       this.logger.error(
-        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`
       );
       throw error;
     }

@@ -32,7 +32,7 @@ export class BittensorApiClient extends BaseSubstrateApiClient {
     if (!chainConfig) {
       throw new Error('Bittensor chain configuration not found');
     }
-    super('bittensor', 'taostats', 'mainnet', chainConfig);
+    super('bittensor', 'taostats', chainConfig);
 
     // Override HTTP client to use correct authorization format for Taostats (no "Bearer" prefix)
     this.reinitializeHttpClient({

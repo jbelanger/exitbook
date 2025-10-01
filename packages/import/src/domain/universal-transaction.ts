@@ -45,7 +45,6 @@ export interface UniversalTransaction {
   id: string;
 
   metadata: Record<string, unknown>;
-  network?: string | undefined; // e.g., 'mainnet'
   note?: TransactionNote | undefined; // Scam detection, warnings, classification
   price?: Money | undefined;
 

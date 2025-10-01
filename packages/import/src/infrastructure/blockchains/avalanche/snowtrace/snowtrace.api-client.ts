@@ -42,7 +42,7 @@ import type {
 })
 export class SnowtraceApiClient extends BlockchainApiClient {
   constructor() {
-    super('avalanche', 'snowtrace', 'mainnet');
+    super('avalanche', 'snowtrace');
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
@@ -226,7 +226,7 @@ export class SnowtraceApiClient extends BlockchainApiClient {
       throw new Error(`Invalid Avalanche address: ${address}`);
     }
 
-    this.logger.debug(`Fetching raw address balance - Address: ${maskAddress(address)}, Network: ${this.network}`);
+    this.logger.debug(`Fetching raw address balance - Address: ${maskAddress(address)}`);
 
     try {
       const params = new URLSearchParams({
@@ -256,7 +256,7 @@ export class SnowtraceApiClient extends BlockchainApiClient {
       } as SnowtraceBalanceResponse;
     } catch (error) {
       this.logger.error(
-        `Failed to get raw address balance - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to get raw address balance - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`
       );
       throw error;
     }
@@ -272,7 +272,7 @@ export class SnowtraceApiClient extends BlockchainApiClient {
       throw new Error(`Invalid Avalanche address: ${address}`);
     }
 
-    this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}, Network: ${this.network}`);
+    this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
 
     try {
       // Get normal transactions
@@ -291,7 +291,7 @@ export class SnowtraceApiClient extends BlockchainApiClient {
       };
     } catch (error) {
       this.logger.error(
-        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`
       );
       throw error;
     }

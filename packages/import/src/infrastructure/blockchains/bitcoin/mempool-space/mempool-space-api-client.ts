@@ -30,11 +30,9 @@ import type { MempoolAddressInfo, MempoolTransaction } from './mempool-space.typ
 })
 export class MempoolSpaceApiClient extends BlockchainApiClient {
   constructor() {
-    super('bitcoin', 'mempool.space', 'mainnet');
+    super('bitcoin', 'mempool.space');
 
-    this.logger.debug(
-      `Initialized MempoolSpaceApiClient from registry metadata - Network: ${this.network}, BaseUrl: ${this.baseUrl}`
-    );
+    this.logger.debug(`Initialized MempoolSpaceApiClient from registry metadata - BaseUrl: ${this.baseUrl}`);
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {

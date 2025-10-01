@@ -31,7 +31,7 @@ export class PolkadotApiClient extends BaseSubstrateApiClient {
     if (!chainConfig) {
       throw new Error('Polkadot chain configuration not found');
     }
-    super('polkadot', 'subscan', 'mainnet', chainConfig);
+    super('polkadot', 'subscan', chainConfig);
   }
 
   protected async getTransactionsFromExplorer(address: string, _since?: number): Promise<unknown> {
@@ -60,7 +60,7 @@ export class PolkadotApiClient extends BaseSubstrateApiClient {
       return response && response.code === 0;
     } catch (error) {
       this.logger.debug(
-        `Explorer API health check failed - Chain: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`
+        `Explorer API health check failed - Chain: ${this.blockchain}, Error: ${error instanceof Error ? error.message : String(error)}`
       );
       return false;
     }

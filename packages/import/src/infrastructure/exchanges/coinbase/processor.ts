@@ -69,7 +69,6 @@ export class CoinbaseProcessor extends BaseTransactionProcessor {
         processedBy: 'CoinbaseProcessor',
         processingTimestamp: Date.now(),
       },
-      network: 'exchange',
       source: 'coinbase',
     };
 

@@ -26,8 +26,8 @@ export interface MoralisChainConfig {
 export abstract class MoralisEvmApiClientBase extends BlockchainApiClient {
   protected readonly chainConfig: MoralisChainConfig;
 
-  constructor(blockchain: string, providerName: string, networkType: string, chainConfig: MoralisChainConfig) {
-    super(blockchain, providerName, networkType);
+  constructor(blockchain: string, providerName: string, chainConfig: MoralisChainConfig) {
+    super(blockchain, providerName);
     this.chainConfig = chainConfig;
 
     // Moralis requires API key in x-api-key header

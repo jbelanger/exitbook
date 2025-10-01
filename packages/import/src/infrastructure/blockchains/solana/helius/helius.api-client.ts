@@ -62,7 +62,7 @@ export class HeliusApiClient extends BlockchainApiClient {
   private tokenSymbolCache = new Map<string, string>();
 
   constructor() {
-    super('solana', 'helius', 'mainnet');
+    super('solana', 'helius');
 
     if (this.apiKey && this.apiKey !== 'YourApiKeyToken') {
       const heliusUrl = `${this.baseUrl}/?api-key=${this.apiKey}`;
@@ -255,7 +255,7 @@ export class HeliusApiClient extends BlockchainApiClient {
       throw new Error(`Invalid Solana address: ${address}`);
     }
 
-    this.logger.debug(`Fetching raw address balance - Address: ${maskAddress(address)}, Network: ${this.network}`);
+    this.logger.debug(`Fetching raw address balance - Address: ${maskAddress(address)}`);
 
     try {
       const response = await this.httpClient.post<JsonRpcResponse<SolanaAccountBalance>>('/', {
@@ -270,13 +270,13 @@ export class HeliusApiClient extends BlockchainApiClient {
       }
 
       this.logger.debug(
-        `Successfully retrieved raw address balance - Address: ${maskAddress(address)}, Lamports: ${response.result.value}, Network: ${this.network}`
+        `Successfully retrieved raw address balance - Address: ${maskAddress(address)}, Lamports: ${response.result.value}`
       );
 
       return { lamports: response.result.value };
     } catch (error) {
       this.logger.error(
-        `Failed to get raw address balance - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to get raw address balance - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`
       );
       throw error;
     }
@@ -292,7 +292,7 @@ export class HeliusApiClient extends BlockchainApiClient {
       throw new Error(`Invalid Solana address: ${address}`);
     }
 
-    this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}, Network: ${this.network}`);
+    this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
 
     try {
       const directTransactions = await this.getDirectAddressTransactions(address, since);
@@ -302,13 +302,13 @@ export class HeliusApiClient extends BlockchainApiClient {
       allTransactions.sort((a, b) => b.blockTime! - a.blockTime!);
 
       this.logger.debug(
-        `Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, DirectTransactions: ${directTransactions.length}, TokenAccountTransactions: ${tokenAccountTransactions.length}, TotalUniqueTransactions: ${allTransactions.length}, Network: ${this.network}`
+        `Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, DirectTransactions: ${directTransactions.length}, TokenAccountTransactions: ${tokenAccountTransactions.length}, TotalUniqueTransactions: ${allTransactions.length}`
       );
 
       return allTransactions;
     } catch (error) {
       this.logger.error(
-        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`
       );
       throw error;
     }
@@ -324,7 +324,7 @@ export class HeliusApiClient extends BlockchainApiClient {
       throw new Error(`Invalid Solana address: ${address}`);
     }
 
-    this.logger.debug(`Fetching raw token balances - Address: ${maskAddress(address)}, Network: ${this.network}`);
+    this.logger.debug(`Fetching raw token balances - Address: ${maskAddress(address)}`);
 
     try {
       const tokenAccountsResponse = await this.httpClient.post<JsonRpcResponse<SolanaTokenAccountsResponse>>('/', {
@@ -348,13 +348,13 @@ export class HeliusApiClient extends BlockchainApiClient {
       }
 
       this.logger.debug(
-        `Successfully retrieved raw token balances - Address: ${maskAddress(address)}, TokenAccountCount: ${tokenAccountsResponse.result.value.length}, Network: ${this.network}`
+        `Successfully retrieved raw token balances - Address: ${maskAddress(address)}, TokenAccountCount: ${tokenAccountsResponse.result.value.length}`
       );
 
       return { tokenAccounts: tokenAccountsResponse.result };
     } catch (error) {
       this.logger.error(
-        `Failed to get raw token balances - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to get raw token balances - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`
       );
       throw error;
     }

@@ -31,10 +31,10 @@ import type { TatumBitcoinTransaction, TatumBitcoinBalance } from './tatum.types
 })
 export class TatumBitcoinApiClient extends TatumApiClientBase<TatumBitcoinTransaction, TatumBitcoinBalance> {
   constructor() {
-    super('bitcoin', 'tatum', 'mainnet');
+    super('bitcoin', 'tatum');
 
     this.logger.debug(
-      `Initialized TatumBitcoinApiClient - Network: ${this.network}, BaseUrl: ${this.baseUrl}, HasApiKey: ${this.apiKey !== 'YourApiKeyToken'}`
+      `Initialized TatumBitcoinApiClient - BaseUrl: ${this.baseUrl}, HasApiKey: ${this.apiKey !== 'YourApiKeyToken'}`
     );
   }
 

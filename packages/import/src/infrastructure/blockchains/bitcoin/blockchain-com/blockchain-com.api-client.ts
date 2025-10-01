@@ -31,11 +31,9 @@ import type { BlockchainComAddressResponse, BlockchainComTransaction } from './b
 })
 export class BlockchainComApiClient extends BlockchainApiClient {
   constructor() {
-    super('bitcoin', 'blockchain.com', 'mainnet');
+    super('bitcoin', 'blockchain.com');
 
-    this.logger.debug(
-      `Initialized BlockchainComApiClient from registry metadata - Network: ${this.network}, BaseUrl: ${this.baseUrl}`
-    );
+    this.logger.debug(`Initialized BlockchainComApiClient from registry metadata - BaseUrl: ${this.baseUrl}`);
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {

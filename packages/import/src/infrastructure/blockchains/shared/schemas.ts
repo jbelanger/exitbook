@@ -47,7 +47,6 @@ export const UniversalTransactionSchema = z
     // Required universal fields
     id: z.string().min(1, 'Transaction ID must not be empty'),
     metadata: z.record(z.string(), z.any()).default({}),
-    network: z.string().optional(),
     price: MoneySchema.optional(),
     source: z.string().min(1, 'Source must not be empty'),
     status: TransactionStatusSchema,

@@ -4,7 +4,7 @@ import type { RateLimitConfig } from '@exitbook/shared-utils';
 import { HttpClient, RateLimitError } from '@exitbook/shared-utils';
 import { err, ok, type Result } from 'neverthrow';
 
-import { type ProviderMetadata, ProviderRegistry } from '../registry/provider-registry.ts';
+import { type ProviderConfig, type ProviderMetadata, ProviderRegistry } from '../registry/provider-registry.ts';
 import type { IBlockchainProvider, ProviderCapabilities, ProviderOperation } from '../types.ts';
 
 /**
@@ -17,11 +17,26 @@ export abstract class BlockchainApiClient implements IBlockchainProvider {
   protected httpClient: HttpClient;
   protected readonly logger: Logger;
   protected readonly metadata: ProviderMetadata;
-  protected readonly network: string;
 
-  constructor(blockchain: string, providerName: string, network = 'mainnet') {
+  constructor(configOrBlockchain: ProviderConfig | string, providerName?: string) {
+    // Support both old (blockchain, providerName) and new (ProviderConfig) patterns
+    let blockchain: string;
+    let actualProviderName: string;
+    let config: ProviderConfig | undefined;
+
+    if (typeof configOrBlockchain === 'string') {
+      // Old pattern: constructor('ethereum', 'alchemy')
+      blockchain = configOrBlockchain;
+      actualProviderName = providerName!;
+    } else {
+      // New pattern: constructor(config)
+      config = configOrBlockchain;
+      blockchain = config.blockchain;
+      actualProviderName = config.name;
+    }
+
     // Get metadata from registry
-    const metadata = ProviderRegistry.getMetadata(blockchain, providerName);
+    const metadata = ProviderRegistry.getMetadata(blockchain, actualProviderName);
     if (!metadata) {
       const available = ProviderRegistry.getAvailable(blockchain)
         .map((p) => p.name)
@@ -40,25 +55,24 @@ export abstract class BlockchainApiClient implements IBlockchainProvider {
     this.metadata = metadata;
 
     this.logger = getLogger(`${this.metadata.displayName.replace(/\s+/g, '')}`);
-    this.network = network;
 
-    // Get base URL for the specified network
-    this.baseUrl = metadata.baseUrl;
+    // Get base URL - use config if provided, otherwise use metadata default
+    this.baseUrl = config?.baseUrl || metadata.baseUrl;
 
     // Get API key from environment if required
     this.apiKey = this.getApiKey();
 
-    // Initialize HTTP client with registry metadata
+    // Initialize HTTP client - use config if provided, otherwise use metadata defaults
     this.httpClient = new HttpClient({
       baseUrl: this.baseUrl,
       providerName: this.metadata.name,
-      rateLimit: this.metadata.defaultConfig.rateLimit,
-      retries: this.metadata.defaultConfig.retries,
-      timeout: this.metadata.defaultConfig.timeout,
+      rateLimit: config?.rateLimit || this.metadata.defaultConfig.rateLimit,
+      retries: config?.retries || this.metadata.defaultConfig.retries,
+      timeout: config?.timeout || this.metadata.defaultConfig.timeout,
     });
 
     this.logger.debug(
-      `Initialized ${this.metadata.displayName} - Network: ${this.network}, BaseUrl: ${this.baseUrl}, HasApiKey: ${this.apiKey !== 'YourApiKeyToken'}`
+      `Initialized ${this.metadata.displayName} - BaseUrl: ${this.baseUrl}, HasApiKey: ${this.apiKey !== 'YourApiKeyToken'}`
     );
   }
 

@@ -69,7 +69,6 @@ function listProviders(): void {
       }
 
       console.log(`    Rate Limits: ${formatRateLimit(provider.defaultConfig.rateLimit)}`);
-      console.log(`    Networks: ${provider.supportedNetworks.join(', ')}`);
       console.log(`    Operations: ${provider.capabilities.supportedOperations.join(', ')}`);
       console.log(`    Features: ${formatCapabilities(provider.capabilities)}`);
       console.log(`    Timeout: ${provider.defaultConfig.timeout}ms, Retries: ${provider.defaultConfig.retries}`);

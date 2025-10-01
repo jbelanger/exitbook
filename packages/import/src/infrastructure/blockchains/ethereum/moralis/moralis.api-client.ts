@@ -30,7 +30,7 @@ import { RegisterApiClient } from '../../shared/registry/decorators.js';
 })
 export class MoralisApiClient extends MoralisEvmApiClientBase {
   constructor() {
-    super('ethereum', 'moralis', 'mainnet', {
+    super('ethereum', 'moralis', {
       chainId: 'eth',
       tokenStandard: 'erc20',
     });

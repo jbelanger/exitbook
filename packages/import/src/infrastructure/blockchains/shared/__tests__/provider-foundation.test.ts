@@ -445,10 +445,16 @@ describe('ProviderRegistry', () => {
   });
 
   test('should create provider instances from registry', () => {
+    // Get metadata to build a proper ProviderConfig
+    const metadata = ProviderRegistry.getMetadata('ethereum', 'alchemy')!;
+
     const config = {
-      apiKey: 'test-key',
-      network: 'mainnet',
-      timeout: 10000,
+      ...metadata.defaultConfig,
+      baseUrl: metadata.baseUrl,
+      blockchain: 'ethereum',
+      displayName: metadata.displayName,
+      name: metadata.name,
+      requiresApiKey: metadata.requiresApiKey,
     };
 
     const provider = ProviderRegistry.createProvider('ethereum', 'alchemy', config);
@@ -514,13 +520,24 @@ describe('ProviderRegistry', () => {
   });
 
   test('should throw error with helpful suggestions for non-existent providers', () => {
+    // Create a minimal config for error testing
+    const minimalConfig = {
+      baseUrl: 'https://test.com',
+      blockchain: 'ethereum',
+      displayName: 'Test',
+      name: 'non-existent',
+      rateLimit: { requestsPerSecond: 1 },
+      retries: 3,
+      timeout: 10000,
+    };
+
     expect(() => {
-      ProviderRegistry.createProvider('ethereum', 'non-existent', {});
+      ProviderRegistry.createProvider('ethereum', 'non-existent', minimalConfig);
     }).toThrow(/Provider 'non-existent' not found for blockchain ethereum/);
 
     // Should contain helpful suggestions
     try {
-      ProviderRegistry.createProvider('ethereum', 'non-existent', {});
+      ProviderRegistry.createProvider('ethereum', 'non-existent', minimalConfig);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       expect(message).toContain('💡 Available providers');
@@ -549,13 +566,6 @@ describe('ProviderRegistry', () => {
     expect(alchemy?.defaultConfig.rateLimit).toBeDefined();
     expect(alchemy?.defaultConfig.rateLimit.requestsPerSecond).toBe(5);
     expect(alchemy?.defaultConfig.rateLimit.burstLimit).toBe(10);
-  });
-
-  test('should provide network support information', () => {
-    const alchemy = availableEthereumProviders.find((p) => p.name === 'alchemy');
-
-    expect(alchemy?.supportedNetworks).toBeDefined();
-    expect(alchemy?.supportedNetworks).toContain('mainnet');
   });
 });
 
@@ -599,10 +609,15 @@ describe('Provider System Integration', () => {
     try {
       // For this test, we'll manually create a provider since the config loading
       // uses import.meta.url which doesn't work well in Jest environment
+      const metadata = ProviderRegistry.getMetadata('ethereum', 'alchemy')!;
+
       const testConfig = {
-        apiKey: 'test-key',
-        network: 'mainnet',
-        timeout: 10000,
+        ...metadata.defaultConfig,
+        baseUrl: metadata.baseUrl,
+        blockchain: 'ethereum',
+        displayName: metadata.displayName,
+        name: metadata.name,
+        requiresApiKey: metadata.requiresApiKey,
       };
 
       const provider = ProviderRegistry.createProvider('ethereum', 'alchemy', testConfig);

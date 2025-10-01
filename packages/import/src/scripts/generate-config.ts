@@ -39,7 +39,6 @@ function generateConfiguration(): void {
       explorers: {
         enabled: boolean;
         name: string;
-        networks?: Record<string, unknown> | undefined;
         priority?: number | undefined;
       }[];
     }
@@ -55,7 +54,6 @@ function generateConfiguration(): void {
           capabilities?: Record<string, unknown> | undefined;
           enabled: boolean;
           name: string;
-          networks?: Record<string, unknown> | undefined;
           priority?: number | undefined;
         } = {
           displayName: provider.displayName,

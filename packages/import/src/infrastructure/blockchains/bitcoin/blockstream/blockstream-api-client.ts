@@ -31,11 +31,9 @@ import type { BlockstreamAddressInfo, BlockstreamTransaction } from './blockstre
 })
 export class BlockstreamApiClient extends BlockchainApiClient {
   constructor() {
-    super('bitcoin', 'blockstream.info', 'mainnet');
+    super('bitcoin', 'blockstream.info');
 
-    this.logger.debug(
-      `Initialized BlockstreamApiClient from registry metadata - Network: ${this.network}, BaseUrl: ${this.baseUrl}`
-    );
+    this.logger.debug(`Initialized BlockstreamApiClient from registry metadata - BaseUrl: ${this.baseUrl}`);
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {

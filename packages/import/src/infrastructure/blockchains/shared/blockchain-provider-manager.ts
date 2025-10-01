@@ -4,7 +4,7 @@ import { err, ok, type Result } from 'neverthrow';
 
 import { CircuitBreaker } from '../../shared/utils/circuit-breaker.js';
 
-import { ProviderRegistry } from './registry/provider-registry.js';
+import { type ProviderConfig, ProviderRegistry } from './registry/provider-registry.js';
 import type {
   IBlockchainProvider,
   ProviderCapabilities,
@@ -283,14 +283,13 @@ export class BlockchainProviderManager {
           }
 
           // Build provider config using registry defaults
-          const providerConfig = {
+          const providerConfig: ProviderConfig = {
             ...metadata.defaultConfig,
             baseUrl: metadata.baseUrl,
+            blockchain, // Add blockchain for multi-chain support
             displayName: metadata.displayName,
-            // Add basic config properties for compatibility
             enabled: true,
             name: metadata.name,
-            network: 'mainnet',
             priority: priority++,
             requiresApiKey: metadata.requiresApiKey,
           };
@@ -316,7 +315,7 @@ export class BlockchainProviderManager {
           `Auto-registered ${providers.length} providers from registry for ${blockchain}: ${providers.map((p) => p.name).join(', ')}`
         );
       } else {
-        logger.warn(`No suitable providers found for ${blockchain} on network mainnet`);
+        logger.warn(`No suitable providers found for ${blockchain}`);
       }
 
       return providers;
@@ -606,15 +605,26 @@ export class BlockchainProviderManager {
         }
 
         // Build provider config by merging registry defaults with overrides
-        const providerConfig = {
-          ...metadata.defaultConfig,
-          ...providerInfo.overrideConfig,
+        // Properly merge rateLimit to ensure required fields are present
+        const overrideRateLimit = providerInfo.overrideConfig.rateLimit;
+        const providerConfig: ProviderConfig = {
           baseUrl: metadata.baseUrl,
+          blockchain, // Add blockchain for multi-chain support
           displayName: metadata.displayName,
           enabled: true,
           name: metadata.name,
           priority: providerInfo.priority,
+          rateLimit: {
+            burstLimit: overrideRateLimit?.burstLimit ?? metadata.defaultConfig.rateLimit.burstLimit,
+            requestsPerHour: overrideRateLimit?.requestsPerHour ?? metadata.defaultConfig.rateLimit.requestsPerHour,
+            requestsPerMinute:
+              overrideRateLimit?.requestsPerMinute ?? metadata.defaultConfig.rateLimit.requestsPerMinute,
+            requestsPerSecond:
+              overrideRateLimit?.requestsPerSecond ?? metadata.defaultConfig.rateLimit.requestsPerSecond,
+          },
           requiresApiKey: metadata.requiresApiKey,
+          retries: providerInfo.overrideConfig.retries ?? metadata.defaultConfig.retries,
+          timeout: providerInfo.overrideConfig.timeout ?? metadata.defaultConfig.timeout,
         };
 
         // Create provider instance

@@ -3,11 +3,20 @@ import type { RateLimitConfig } from '@exitbook/shared-utils';
 import type { IBlockchainProvider, ProviderCapabilities } from '../types.js';
 
 /**
- * Network configuration for a provider
+ * Configuration passed to provider constructor
+ * Built from metadata + runtime overrides
  */
-export interface NetworkEndpoint {
+export interface ProviderConfig {
   baseUrl: string;
-  websocketUrl?: string | undefined;
+  blockchain: string;
+  displayName: string;
+  enabled?: boolean | undefined;
+  name: string;
+  priority?: number | undefined;
+  rateLimit: RateLimitConfig;
+  requiresApiKey?: boolean | undefined;
+  retries: number;
+  timeout: number;
 }
 
 /**
@@ -34,7 +43,7 @@ export interface ProviderMetadata {
  * Factory function to create provider instances
  */
 export interface ProviderFactory {
-  create: (config: unknown) => IBlockchainProvider;
+  create: (config: ProviderConfig) => IBlockchainProvider;
   metadata: ProviderMetadata;
 }
 
@@ -49,7 +58,6 @@ export interface ProviderInfo {
   displayName: string;
   name: string;
   requiresApiKey: boolean;
-  supportedNetworks: string[];
 }
 
 /**
@@ -61,7 +69,7 @@ export class ProviderRegistry {
   /**
    * Create a provider instance
    */
-  static createProvider(blockchain: string, name: string, config: unknown): IBlockchainProvider {
+  static createProvider(blockchain: string, name: string, config: ProviderConfig): IBlockchainProvider {
     const key = `${blockchain}:${name}`;
     const factory = this.providers.get(key);
 
@@ -105,7 +113,6 @@ export class ProviderRegistry {
           displayName: factory.metadata.displayName,
           name: factory.metadata.name,
           requiresApiKey: factory.metadata.requiresApiKey || false,
-          supportedNetworks: ['mainnet'],
         };
       });
   }

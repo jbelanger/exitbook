@@ -1,6 +1,11 @@
 import type { IBlockchainProvider } from '../types.js';
 
-import { type ProviderFactory, type ProviderMetadata, ProviderRegistry } from './provider-registry.js';
+import {
+  type ProviderConfig,
+  type ProviderFactory,
+  type ProviderMetadata,
+  ProviderRegistry,
+} from './provider-registry.js';
 
 /**
  * Decorator to register an API client class with the registry
@@ -26,7 +31,14 @@ export function RegisterApiClient(
     // Register the provider for each supported chain
     for (const chain of chains) {
       const factory: ProviderFactory = {
-        create: (config: unknown) => new constructor(config),
+        create: (config: ProviderConfig) => {
+          // Ensure blockchain is set to the correct chain for this registration
+          const configWithChain: ProviderConfig = {
+            ...config,
+            blockchain: chain,
+          };
+          return new constructor(configWithChain);
+        },
         metadata: {
           ...metadata,
           blockchain: chain, // Set the current chain

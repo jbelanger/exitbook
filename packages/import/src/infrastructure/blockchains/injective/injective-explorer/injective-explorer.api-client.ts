@@ -29,11 +29,9 @@ import type { InjectiveExplorerTransaction } from './injective-explorer.types.js
 })
 export class InjectiveExplorerApiClient extends BlockchainApiClient {
   constructor() {
-    super('injective', 'injective-explorer', 'mainnet');
+    super('injective', 'injective-explorer');
 
-    this.logger.debug(
-      `Initialized InjectiveExplorerApiClient from registry metadata - Network: ${this.network}, BaseUrl: ${this.baseUrl}`
-    );
+    this.logger.debug(`Initialized InjectiveExplorerApiClient from registry metadata - BaseUrl: ${this.baseUrl}`);
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
@@ -79,7 +77,7 @@ export class InjectiveExplorerApiClient extends BlockchainApiClient {
       throw new Error(`Invalid Injective address: ${address}`);
     }
 
-    this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}, Network: ${this.network}`);
+    this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
 
     try {
       const endpoint = `/api/explorer/v1/accountTxs/${address}`;
@@ -112,13 +110,13 @@ export class InjectiveExplorerApiClient extends BlockchainApiClient {
       }
 
       this.logger.debug(
-        `Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${transactions.length}, Network: ${this.network}`
+        `Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${transactions.length}`
       );
 
       return transactions as InjectiveExplorerTransaction[];
     } catch (error) {
       this.logger.error(
-        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`
       );
       throw error;
     }

@@ -36,10 +36,10 @@ import type {
 })
 export class AlchemyApiClient extends BlockchainApiClient {
   constructor() {
-    super('ethereum', 'alchemy', 'mainnet');
+    super('ethereum', 'alchemy');
 
     this.logger.debug(
-      `Initialized AlchemyApiClient from registry metadata - Network: ${this.network}, BaseUrl: ${this.baseUrl.replace(this.apiKey, 'HIDDEN')}`
+      `Initialized AlchemyApiClient from registry metadata - BaseUrl: ${this.baseUrl.replace(this.apiKey, 'HIDDEN')}`
     );
   }
 

@@ -21,12 +21,12 @@ import type {
 export abstract class BaseSubstrateApiClient extends BlockchainApiClient {
   protected readonly chainConfig: SubstrateChainConfig;
   private readonly rpcClient?: HttpClient | undefined;
-  constructor(blockchain: string, providerName: string, network: string, chainConfig: SubstrateChainConfig) {
-    super(blockchain, providerName, network);
+  constructor(blockchain: string, providerName: string, chainConfig: SubstrateChainConfig) {
+    super(blockchain, providerName);
     this.chainConfig = chainConfig;
 
     this.logger.debug(
-      `Initialized ${this.constructor.name} - Network: ${network}, BaseUrl: ${this.baseUrl}, DisplayName: ${chainConfig.displayName}, TokenSymbol: ${chainConfig.tokenSymbol}, Ss58Format: ${chainConfig.ss58Format}`
+      `Initialized ${this.constructor.name} - BaseUrl: ${this.baseUrl}, DisplayName: ${chainConfig.displayName}, TokenSymbol: ${chainConfig.tokenSymbol}, Ss58Format: ${chainConfig.ss58Format}`
     );
   }
 
@@ -164,7 +164,7 @@ export abstract class BaseSubstrateApiClient extends BlockchainApiClient {
     }
 
     try {
-      this.logger.debug(`Fetching balance for ${this.network} address: ${maskAddress(address)}`);
+      this.logger.debug(`Fetching balance for address: ${maskAddress(address)}`);
 
       // Try RPC first for most accurate balance
       if (this.rpcClient) {
@@ -190,7 +190,7 @@ export abstract class BaseSubstrateApiClient extends BlockchainApiClient {
       return [];
     } catch (error) {
       this.logger.error(
-        `Failed to fetch balance for ${this.network} address - Address: ${maskAddress(address)}, Error: ${String(error)}`
+        `Failed to fetch balance for address - Address: ${maskAddress(address)}, Error: ${String(error)}`
       );
       throw error;
     }
@@ -203,7 +203,7 @@ export abstract class BaseSubstrateApiClient extends BlockchainApiClient {
     }
 
     try {
-      this.logger.debug(`Fetching transactions for ${this.network} address: ${maskAddress(address)}`);
+      this.logger.debug(`Fetching transactions for address: ${maskAddress(address)}`);
 
       // Try explorer API first
       if (this.httpClient) {
@@ -224,7 +224,7 @@ export abstract class BaseSubstrateApiClient extends BlockchainApiClient {
       return [];
     } catch (error) {
       this.logger.error(
-        `Failed to fetch transactions for ${this.network} address - Address: ${maskAddress(address)}, Error: ${String(error)}`
+        `Failed to fetch transactions for address - Address: ${maskAddress(address)}, Error: ${String(error)}`
       );
       throw error;
     }

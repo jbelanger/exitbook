@@ -33,7 +33,7 @@ import type {
 })
 export class SolanaRPCApiClient extends BlockchainApiClient {
   constructor() {
-    super('solana', 'solana-rpc', 'mainnet');
+    super('solana', 'solana-rpc');
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {
@@ -91,7 +91,7 @@ export class SolanaRPCApiClient extends BlockchainApiClient {
       throw new Error(`Invalid Solana address: ${address}`);
     }
 
-    this.logger.debug(`Fetching raw address balance - Address: ${maskAddress(address)}, Network: ${this.network}`);
+    this.logger.debug(`Fetching raw address balance - Address: ${maskAddress(address)}`);
 
     try {
       const response = await this.httpClient.post<JsonRpcResponse<{ value: number }>>('/', {
@@ -106,13 +106,13 @@ export class SolanaRPCApiClient extends BlockchainApiClient {
       }
 
       this.logger.debug(
-        `Successfully retrieved raw address balance - Address: ${maskAddress(address)}, Lamports: ${response.result.value}, Network: ${this.network}`
+        `Successfully retrieved raw address balance - Address: ${maskAddress(address)}, Lamports: ${response.result.value}`
       );
 
       return { lamports: response.result.value };
     } catch (error) {
       this.logger.error(
-        `Failed to get raw address balance - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to get raw address balance - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`
       );
       throw error;
     }
@@ -128,7 +128,7 @@ export class SolanaRPCApiClient extends BlockchainApiClient {
       throw new Error(`Invalid Solana address: ${address}`);
     }
 
-    this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}, Network: ${this.network}`);
+    this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
 
     try {
       // Get signatures for address
@@ -184,13 +184,13 @@ export class SolanaRPCApiClient extends BlockchainApiClient {
       transactions.sort((a, b) => (b.blockTime || 0) - (a.blockTime || 0));
 
       this.logger.debug(
-        `Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${transactions.length}, Network: ${this.network}`
+        `Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${transactions.length}`
       );
 
       return transactions;
     } catch (error) {
       this.logger.error(
-        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`
       );
       throw error;
     }
@@ -206,7 +206,7 @@ export class SolanaRPCApiClient extends BlockchainApiClient {
       throw new Error(`Invalid Solana address: ${address}`);
     }
 
-    this.logger.debug(`Fetching raw token balances - Address: ${maskAddress(address)}, Network: ${this.network}`);
+    this.logger.debug(`Fetching raw token balances - Address: ${maskAddress(address)}`);
 
     try {
       // Get all token accounts owned by the address
@@ -231,13 +231,13 @@ export class SolanaRPCApiClient extends BlockchainApiClient {
       }
 
       this.logger.debug(
-        `Successfully retrieved raw token balances - Address: ${maskAddress(address)}, TokenAccountCount: ${tokenAccountsResponse.result.value.length}, Network: ${this.network}`
+        `Successfully retrieved raw token balances - Address: ${maskAddress(address)}, TokenAccountCount: ${tokenAccountsResponse.result.value.length}`
       );
 
       return { tokenAccounts: tokenAccountsResponse.result };
     } catch (error) {
       this.logger.error(
-        `Failed to get raw token balances - Address: ${maskAddress(address)}, Network: ${this.network}, Error: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to get raw token balances - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`
       );
       throw error;
     }

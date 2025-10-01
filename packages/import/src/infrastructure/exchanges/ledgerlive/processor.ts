@@ -74,7 +74,6 @@ export class LedgerLiveProcessor extends BaseTransactionProcessor {
         operationType: row['Operation Type'],
         originalRow: row,
       },
-      network: 'exchange',
       price: undefined,
       source: 'ledgerlive',
       status,

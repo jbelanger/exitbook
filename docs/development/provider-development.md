@@ -58,16 +58,14 @@ import type { BlockchairRawTransaction, BlockchairAddressInfo } from '../types';
     retries: 3,
     rateLimit: { requestsPerSecond: 1 },
   },
-  networks: {
-    mainnet: { baseUrl: 'https://api.blockchair.com/bitcoin' },
-  },
+  baseUrl: 'https://api.blockchair.com/bitcoin',
   capabilities: {
     supportedOperations: ['getRawAddressTransactions', 'getAddressInfo'],
   },
 })
 export class BlockchairApiClient extends BaseRegistryProvider {
   constructor() {
-    super('bitcoin', 'blockchair', 'mainnet');
+    super('bitcoin', 'blockchair');
   }
 
   // Universal execute method that routes to specific implementations

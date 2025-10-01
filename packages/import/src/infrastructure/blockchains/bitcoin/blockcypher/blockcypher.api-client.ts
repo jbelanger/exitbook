@@ -47,10 +47,10 @@ import type { BlockCypherTransaction, BlockCypherAddress } from './blockcypher.t
 })
 export class BlockCypherApiClient extends BlockchainApiClient {
   constructor() {
-    super('bitcoin', 'blockcypher', 'mainnet');
+    super('bitcoin', 'blockcypher');
 
     this.logger.debug(
-      `Initialized BlockCypherApiClient from registry metadata - Network: ${this.network}, BaseUrl: ${this.baseUrl}, HasApiKey: ${this.apiKey !== 'YourApiKeyToken'}`
+      `Initialized BlockCypherApiClient from registry metadata - BaseUrl: ${this.baseUrl}, HasApiKey: ${this.apiKey !== 'YourApiKeyToken'}`
     );
   }
 

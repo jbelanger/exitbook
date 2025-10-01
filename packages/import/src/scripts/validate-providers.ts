@@ -68,7 +68,17 @@ function validateProvider(blockchain: string, providerName: string): ValidationR
 
     // Test provider instantiation
     try {
-      const provider = ProviderRegistry.createProvider(blockchain, providerName, {});
+      // Build proper ProviderConfig from metadata
+      const config = {
+        ...metadata.defaultConfig,
+        baseUrl: metadata.baseUrl,
+        blockchain,
+        displayName: metadata.displayName,
+        name: metadata.name,
+        requiresApiKey: metadata.requiresApiKey,
+      };
+
+      const provider = ProviderRegistry.createProvider(blockchain, providerName, config);
 
       // Check provider properties
       if (provider.name !== providerName) {
