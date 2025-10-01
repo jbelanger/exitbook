@@ -40,57 +40,55 @@ export class TransactionIngestionService {
   /**
    * Get processing status summary for a source.
    */
-  async getProcessingStatus(sourceId: string): Promise<{
-    failed: number;
-    pending: number;
-    processed: number;
-    total: number;
-  }> {
-    try {
-      const [pendingResult, processedItemsResult, failedItemsResult] = await Promise.all([
-        this.rawDataRepository.load({
-          processingStatus: 'pending',
-          sourceId: sourceId,
-        }),
-        this.rawDataRepository.load({
-          processingStatus: 'processed',
-          sourceId: sourceId,
-        }),
-        this.rawDataRepository.load({
-          processingStatus: 'failed',
-          sourceId: sourceId,
-        }),
-      ]);
+  async getProcessingStatus(sourceId: string): Promise<
+    Result<
+      {
+        failed: number;
+        pending: number;
+        processed: number;
+        total: number;
+      },
+      Error
+    >
+  > {
+    const [pendingResult, processedItemsResult, failedItemsResult] = await Promise.all([
+      this.rawDataRepository.load({
+        processingStatus: 'pending',
+        sourceId: sourceId,
+      }),
+      this.rawDataRepository.load({
+        processingStatus: 'processed',
+        sourceId: sourceId,
+      }),
+      this.rawDataRepository.load({
+        processingStatus: 'failed',
+        sourceId: sourceId,
+      }),
+    ]);
 
-      // Handle Result types - fail fast if any loading fails
-      const pending = pendingResult.isErr()
-        ? (() => {
-            throw pendingResult.error;
-          })()
-        : pendingResult.value;
-
-      const processedItems = processedItemsResult.isErr()
-        ? (() => {
-            throw processedItemsResult.error;
-          })()
-        : processedItemsResult.value;
-
-      const failedItems = failedItemsResult.isErr()
-        ? (() => {
-            throw failedItemsResult.error;
-          })()
-        : failedItemsResult.value;
-
-      return {
-        failed: failedItems.length,
-        pending: pending.length,
-        processed: processedItems.length,
-        total: pending.length + processedItems.length + failedItems.length,
-      };
-    } catch (error) {
-      this.logger.error(`Failed to get processing status: ${String(error)}`);
-      throw error;
+    // Handle Result types - fail fast if any loading fails
+    if (pendingResult.isErr()) {
+      return err(pendingResult.error);
     }
+
+    if (processedItemsResult.isErr()) {
+      return err(processedItemsResult.error);
+    }
+
+    if (failedItemsResult.isErr()) {
+      return err(failedItemsResult.error);
+    }
+
+    const pending = pendingResult.value;
+    const processedItems = processedItemsResult.value;
+    const failedItems = failedItemsResult.value;
+
+    return ok({
+      failed: failedItems.length,
+      pending: pending.length,
+      processed: processedItems.length,
+      total: pending.length + processedItems.length + failedItems.length,
+    });
   }
 
   /**
@@ -100,26 +98,32 @@ export class TransactionIngestionService {
     sourceId: string,
     sourceType: 'exchange' | 'blockchain',
     params: ImportParams
-  ): Promise<ImportResult> {
+  ): Promise<Result<ImportResult, Error>> {
     this.logger.info(`Starting import for ${sourceId} (${sourceType})`);
 
     const startTime = Date.now();
     let sessionCreated = false;
     let importSessionId = 0;
     try {
-      importSessionId = await this.sessionRepository.create(sourceId, sourceType, params.providerId, {
+      const sessionIdResult = await this.sessionRepository.create(sourceId, sourceType, params.providerId, {
         address: params.address,
         csvDirectories: params.csvDirectories,
         importedAt: Date.now(),
         importParams: params,
       });
+
+      if (sessionIdResult.isErr()) {
+        return err(sessionIdResult.error);
+      }
+
+      importSessionId = sessionIdResult.value;
       sessionCreated = true;
       this.logger.info(`Created import session: ${importSessionId}`);
 
       const importer = await this.importerFactory.create(sourceId, sourceType, params.providerId);
 
       if (!importer) {
-        throw new Error(`No importer found for source ${sourceId} of type ${sourceType}`);
+        return err(new Error(`No importer found for source ${sourceId} of type ${sourceType}`));
       }
       this.logger.info(`Importer for ${sourceId} created successfully`);
 
@@ -128,7 +132,7 @@ export class TransactionIngestionService {
       const importResultWrapper = await importer.import(params);
 
       if (importResultWrapper.isErr()) {
-        throw importResultWrapper.error;
+        return err(importResultWrapper.error);
       }
 
       const importResult = importResultWrapper.value;
@@ -146,14 +150,25 @@ export class TransactionIngestionService {
 
       // Handle Result type - fail fast if save fails
       if (savedCountResult.isErr()) {
-        throw savedCountResult.error;
+        return err(savedCountResult.error);
       }
       const savedCount = savedCountResult.value;
 
       // Update session with success and metadata
       if (sessionCreated && typeof importSessionId === 'number') {
         this.logger.debug(`Finalizing session ${importSessionId} with ${savedCount} transactions`);
-        await this.sessionRepository.finalize(importSessionId, 'completed', startTime, savedCount, 0);
+        const finalizeResult = await this.sessionRepository.finalize(
+          importSessionId,
+          'completed',
+          startTime,
+          savedCount,
+          0
+        );
+
+        if (finalizeResult.isErr()) {
+          this.logger.error(`Failed to finalize session ${importSessionId}: ${finalizeResult.error.message}`);
+          // Continue - don't fail the import if session finalization fails
+        }
 
         // Update session with import metadata if available
         if (importResult.metadata) {
@@ -165,13 +180,19 @@ export class TransactionIngestionService {
             ...importResult.metadata,
           };
 
-          await this.sessionRepository.update(importSessionId, {
+          const updateResult = await this.sessionRepository.update(importSessionId, {
             id: importSessionId,
             session_metadata: JSON.stringify(sessionMetadata),
           });
-          this.logger.debug(
-            `Updated session ${importSessionId} with metadata keys: ${Object.keys(importResult.metadata).join(', ')}`
-          );
+
+          if (updateResult.isErr()) {
+            this.logger.error(`Failed to update session ${importSessionId} metadata: ${updateResult.error.message}`);
+            // Continue - don't fail the import if session update fails
+          } else {
+            this.logger.debug(
+              `Updated session ${importSessionId} with metadata keys: ${Object.keys(importResult.metadata).join(', ')}`
+            );
+          }
         }
 
         this.logger.debug(`Successfully finalized session ${importSessionId}`);
@@ -179,31 +200,31 @@ export class TransactionIngestionService {
 
       this.logger.info(`Import completed for ${sourceId}: ${savedCount} items saved`);
 
-      return {
+      return ok({
         imported: savedCount,
         importSessionId,
         providerId: params.providerId ?? undefined,
-      };
+      });
     } catch (error) {
       // Update session with error if we created it
       if (sessionCreated && typeof importSessionId === 'number' && importSessionId > 0) {
-        try {
-          await this.sessionRepository.finalize(
-            importSessionId,
-            'failed',
-            startTime,
-            0,
-            0,
-            error instanceof Error ? error.message : String(error),
-            error instanceof Error ? { stack: error.stack } : { error: String(error) }
-          );
-        } catch (sessionError) {
-          this.logger.error(`Failed to update session on error: ${String(sessionError)}`);
+        const finalizeResult = await this.sessionRepository.finalize(
+          importSessionId,
+          'failed',
+          startTime,
+          0,
+          0,
+          error instanceof Error ? error.message : String(error),
+          error instanceof Error ? { stack: error.stack } : { error: String(error) }
+        );
+
+        if (finalizeResult.isErr()) {
+          this.logger.error(`Failed to update session on error: ${finalizeResult.error.message}`);
         }
       }
 
       this.logger.error(`Import failed for ${sourceId}: ${String(error)}`);
-      throw error;
+      return err(error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -241,7 +262,12 @@ export class TransactionIngestionService {
       this.logger.info(`Found ${rawDataItems.length} raw data items to process for ${sourceId}`);
 
       // Fetch sessions and raw data separately
-      const allSessions = await this.sessionRepository.findBySource(sourceId);
+      const allSessionsResult = await this.sessionRepository.findBySource(sourceId);
+
+      if (allSessionsResult.isErr()) {
+        return err(allSessionsResult.error);
+      }
+      const allSessions = allSessionsResult.value;
 
       // Get raw data items that match our filters (already loaded above)
       const rawDataBySessionId = new Map<number, RawData[]>();
@@ -292,22 +318,16 @@ export class TransactionIngestionService {
           const normalizer = this.blockchainNormalizer;
           if (normalizer) {
             for (const item of pendingItems) {
-              try {
-                const result = normalizer.normalize(
-                  item.raw_data,
-                  item.metadata as RawTransactionMetadata,
-                  session.session_metadata as ImportSessionMetadata
-                );
+              const result = normalizer.normalize(
+                item.raw_data,
+                item.metadata as RawTransactionMetadata,
+                session.session_metadata as ImportSessionMetadata
+              );
 
-                if (result.isOk()) {
-                  normalizedRawDataItems.push(result.value);
-                } else {
-                  const errorMsg = `Normalization failed: ${result.error}`;
-                  normalizationErrors.push({ error: errorMsg, itemId: item.id });
-                  this.logger.error(`${errorMsg} for raw data item ${item.id} in session ${session.id}`);
-                }
-              } catch (normError) {
-                const errorMsg = `Normalization threw exception: ${String(normError)}`;
+              if (result.isOk()) {
+                normalizedRawDataItems.push(result.value);
+              } else {
+                const errorMsg = `Normalization failed: ${result.error}`;
                 normalizationErrors.push({ error: errorMsg, itemId: item.id });
                 this.logger.error(`${errorMsg} for raw data item ${item.id} in session ${session.id}`);
               }
@@ -322,13 +342,17 @@ export class TransactionIngestionService {
         // STRICT MODE: Fail if any raw data items could not be normalized
         if (normalizationErrors.length > 0) {
           this.logger.error(
-            `CRITICAL: ${normalizationErrors.length}/${pendingItems.length} items failed normalization in session ${session.id}:\n${normalizationErrors.map((e, i) => `  ${i + 1}. Item ${e.itemId}: ${e.error}`).join('\n')}`
+            `CRITICAL: ${normalizationErrors.length}/${pendingItems.length} items failed normalization in session ${session.id}:\n${normalizationErrors
+              .map((e, i) => `  ${i + 1}. Item ${e.itemId}: ${e.error}`)
+              .join('\n')}`
           );
 
           return err(
             new Error(
               `Cannot proceed: ${normalizationErrors.length}/${pendingItems.length} raw data items failed normalization in session ${session.id}. ` +
-                `This would corrupt portfolio calculations. Errors: ${normalizationErrors.map((e) => `Item ${e.itemId}: ${e.error}`).join('; ')}`
+                `This would corrupt portfolio calculations. Errors: ${normalizationErrors
+                  .map((e) => `Item ${e.itemId}: ${e.error}`)
+                  .join('; ')}`
             )
           );
         }
@@ -372,21 +396,27 @@ export class TransactionIngestionService {
 
       // Save processed transactions to database
       // Note: This would typically use a transaction service, but for now we'll use the database directly
-      let savedCount = 0;
-      let failed = 0;
-      const errors: string[] = [];
+      const saveResults = await Promise.all(
+        transactions.map(async (transaction) => {
+          const result = await this.transactionRepository.save(transaction, transaction.sessionId);
+          return result;
+        })
+      );
 
-      for (const transaction of transactions) {
-        try {
-          await this.transactionRepository.save(transaction, transaction.sessionId);
-          savedCount++;
-        } catch (error) {
-          failed++;
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          errors.push(`Failed to save transaction ${transaction.id}: ${errorMessage}`);
-          this.logger.error(`CRITICAL: Failed to save transaction ${transaction.id}: ${errorMessage}`);
+      const errors: string[] = [];
+      const failed = saveResults.filter((result, index) => {
+        if (result.isErr()) {
+          const transaction = transactions[index];
+          const txId = transaction?.id ?? `index-${index}`;
+          const errorMessage = result.error.message;
+          errors.push(`Failed to save transaction ${txId}: ${errorMessage}`);
+          this.logger.error(`CRITICAL: Failed to save transaction ${txId}: ${errorMessage}`);
+          return true;
         }
-      }
+        return false;
+      }).length;
+
+      const savedCount = saveResults.length - failed;
 
       // STRICT MODE: Fail if ANY transactions could not be saved
       if (failed > 0) {

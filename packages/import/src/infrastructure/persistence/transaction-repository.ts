@@ -1,9 +1,10 @@
-import type { StoredTransaction } from '@exitbook/data';
+import type { StoredTransaction as _StoredTransaction } from '@exitbook/data';
 import type { KyselyDB } from '@exitbook/data';
 import { BaseRepository } from '@exitbook/data';
 import type { ITransactionRepository } from '@exitbook/import/app/ports/transaction-repository.js';
 import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
 import type { Decimal } from 'decimal.js';
+import { err, ok } from 'neverthrow';
 
 // Local utility function to convert Money type to database string
 function moneyToDbString(money: { amount: Decimal | number; currency: string }): string {
@@ -22,11 +23,11 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     super(db, 'TransactionRepository');
   }
 
-  async save(transaction: UniversalTransaction, importSessionId: number): Promise<number> {
+  async save(transaction: UniversalTransaction, importSessionId: number) {
     return this.saveTransaction(transaction, importSessionId);
   }
 
-  async saveTransaction(transaction: UniversalTransaction, importSessionId: number): Promise<number> {
+  async saveTransaction(transaction: UniversalTransaction, importSessionId: number) {
     try {
       const rawDataJson = this.serializeToJson(transaction) ?? '{}';
 
@@ -112,17 +113,17 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
       this.logger.debug({ source: transaction.source, transactionId: result.id }, 'Transaction saved successfully');
 
-      return result.id;
+      return ok(result.id);
     } catch (error) {
       this.logger.error(
         { error, transaction: { source: transaction.source, type: transaction.type } },
         'Failed to save transaction'
       );
-      throw error;
+      return err(error instanceof Error ? error : new Error(String(error)));
     }
   }
 
-  async getTransactions(sourceId?: string, since?: number): Promise<StoredTransaction[]> {
+  async getTransactions(sourceId?: string, since?: number) {
     try {
       let query = this.db.selectFrom('transactions').selectAll();
 
@@ -144,14 +145,14 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
       this.logger.debug({ since, sourceId }, `Retrieved ${transactions.length} transactions`);
 
-      return transactions;
+      return ok(transactions);
     } catch (error) {
       this.logger.error({ error, since, sourceId }, 'Failed to retrieve transactions');
-      throw error;
+      return err(error instanceof Error ? error : new Error(String(error)));
     }
   }
 
-  async findByAddress(address: string): Promise<StoredTransaction[]> {
+  async findByAddress(address: string) {
     try {
       const transactions = await this.db
         .selectFrom('transactions')
@@ -162,14 +163,14 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
       this.logger.debug({ address }, `Retrieved ${transactions.length} transactions by address`);
 
-      return transactions;
+      return ok(transactions);
     } catch (error) {
       this.logger.error({ address, error }, 'Failed to retrieve transactions by address');
-      throw error;
+      return err(error instanceof Error ? error : new Error(String(error)));
     }
   }
 
-  async findRecent(address: string, limit: number): Promise<StoredTransaction[]> {
+  async findRecent(address: string, limit: number) {
     try {
       const transactions = await this.db
         .selectFrom('transactions')
@@ -181,14 +182,14 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
       this.logger.debug({ address, limit }, `Retrieved ${transactions.length} recent transactions`);
 
-      return transactions;
+      return ok(transactions);
     } catch (error) {
       this.logger.error({ address, error, limit }, 'Failed to retrieve recent transactions by address');
-      throw error;
+      return err(error instanceof Error ? error : new Error(String(error)));
     }
   }
 
-  async findByDateRange(address: string, from: Date, to: Date): Promise<StoredTransaction[]> {
+  async findByDateRange(address: string, from: Date, to: Date) {
     try {
       const transactions = await this.db
         .selectFrom('transactions')
@@ -205,14 +206,14 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
       this.logger.debug({ address, from, to }, `Retrieved ${transactions.length} transactions in date range`);
 
-      return transactions;
+      return ok(transactions);
     } catch (error) {
       this.logger.error({ address, error, from, to }, 'Failed to retrieve transactions by date range');
-      throw error;
+      return err(error instanceof Error ? error : new Error(String(error)));
     }
   }
 
-  async getTransactionCount(sourceId?: string): Promise<number> {
+  async getTransactionCount(sourceId?: string) {
     try {
       let query = this.db.selectFrom('transactions').select((eb) => eb.fn.count<number>('id').as('count'));
 
@@ -224,10 +225,10 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
       this.logger.debug({ sourceId }, `Transaction count retrieved: ${result.count}`);
 
-      return result.count;
+      return ok(result.count);
     } catch (error) {
       this.logger.error({ error, sourceId }, 'Failed to get transaction count');
-      throw error;
+      return err(error instanceof Error ? error : new Error(String(error)));
     }
   }
 }

@@ -208,7 +208,14 @@ async function main() {
         }
 
         const transactionRepository = new TransactionRepository(database);
-        const transactions = await transactionRepository.getTransactions(options.exchange, since);
+        const transactionsResult = await transactionRepository.getTransactions(options.exchange, since);
+
+        if (transactionsResult.isErr()) {
+          logger.error(`Failed to retrieve transactions: ${transactionsResult.error.message}`);
+          throw transactionsResult.error;
+        }
+
+        const transactions = transactionsResult.value;
 
         const outputPath =
           options.output || path.join(process.cwd(), 'data', `transactions.${options.format || 'csv'}`);
@@ -331,15 +338,21 @@ async function main() {
           const importResult = await ingestionService.importFromSource(sourceName, sourceType, importParams);
           logger.info('[DEBUG] importFromSource returned');
 
-          logger.info(`Import completed: ${importResult.imported} items imported`);
-          logger.info(`Session ID: ${importResult.importSessionId}`);
+          if (importResult.isErr()) {
+            logger.error(`Import failed: ${importResult.error.message}`);
+            throw importResult.error;
+          }
+
+          const importData = importResult.value;
+          logger.info(`Import completed: ${importData.imported} items imported`);
+          logger.info(`Session ID: ${importData.importSessionId}`);
 
           // Process data if --process flag is provided
           if (options.process) {
             logger.info('Processing imported data to universal format');
 
             const processResultOrError = await ingestionService.processRawDataToTransactions(sourceName, sourceType, {
-              importSessionId: importResult.importSessionId,
+              importSessionId: importData.importSessionId,
             });
 
             if (processResultOrError.isErr()) {

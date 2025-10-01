@@ -41,6 +41,7 @@
     "decimal.js": "^10.6.0",
     "jose": "^6.0.13",
     "jsonwebtoken": "^9.0.2",
+    "neverthrow": "^8.2.0",
     "reflect-metadata": "^0.2.2"
   },
   "devDependencies": {

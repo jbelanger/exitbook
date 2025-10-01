@@ -1,4 +1,5 @@
 import type { ImportSession, ImportSessionQuery, ImportSessionUpdate } from '@exitbook/data';
+import type { Result } from 'neverthrow';
 
 /**
  * Port interface for import session repository operations.
@@ -13,7 +14,7 @@ export interface IImportSessionRepository {
     sourceType: 'exchange' | 'blockchain',
     providerId?: string,
     sessionMetadata?: unknown
-  ): Promise<number>;
+  ): Promise<Result<number, Error>>;
 
   /**
    * Finalize an import session with results and status.
@@ -26,35 +27,35 @@ export interface IImportSessionRepository {
     transactionsFailed?: number,
     errorMessage?: string,
     errorDetails?: unknown
-  ): Promise<void>;
+  ): Promise<Result<void, Error>>;
 
   /**
    * Find active import sessions.
    */
-  findActive(): Promise<ImportSession[]>;
+  findActive(): Promise<Result<ImportSession[], Error>>;
 
   /**
    * Find all import sessions with optional filtering.
    */
-  findAll(filters?: ImportSessionQuery): Promise<ImportSession[]>;
+  findAll(filters?: ImportSessionQuery): Promise<Result<ImportSession[], Error>>;
 
   /**
    * Find import session by ID.
    */
-  findById(sessionId: number): Promise<ImportSession | undefined>;
+  findById(sessionId: number): Promise<Result<ImportSession | undefined, Error>>;
 
   /**
    * Find import sessions by source ID.
    */
-  findBySource(sourceId: string, limit?: number): Promise<ImportSession[]>;
+  findBySource(sourceId: string, limit?: number): Promise<Result<ImportSession[], Error>>;
 
   /**
    * Find recent import sessions.
    */
-  findRecent(limit?: number): Promise<ImportSession[]>;
+  findRecent(limit?: number): Promise<Result<ImportSession[], Error>>;
 
   /**
    * Update an existing import session.
    */
-  update(sessionId: number, updates: ImportSessionUpdate): Promise<void>;
+  update(sessionId: number, updates: ImportSessionUpdate): Promise<Result<void, Error>>;
 }
