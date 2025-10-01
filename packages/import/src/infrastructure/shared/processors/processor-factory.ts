@@ -65,8 +65,9 @@ export class ProcessorFactory implements IProcessorFactory {
    */
   private async createAvalancheProcessor(): Promise<ITransactionProcessor> {
     // Dynamic import to avoid circular dependencies
-    const { AvalancheTransactionProcessor } = await import('../../blockchains/avalanche/processor.ts');
-    return new AvalancheTransactionProcessor();
+    const { EvmTransactionProcessor } = await import('../../blockchains/evm/processor.ts');
+    const { EVM_CHAINS } = await import('../../blockchains/evm/chain-registry.ts');
+    return new EvmTransactionProcessor(EVM_CHAINS.avalanche);
   }
 
   /**
@@ -120,8 +121,9 @@ export class ProcessorFactory implements IProcessorFactory {
    */
   private async createEthereumProcessor(): Promise<ITransactionProcessor> {
     // Dynamic import to avoid circular dependencies
-    const { EthereumTransactionProcessor } = await import('../../blockchains/ethereum/processor.ts');
-    return new EthereumTransactionProcessor();
+    const { EvmTransactionProcessor } = await import('../../blockchains/evm/processor.ts');
+    const { EVM_CHAINS } = await import('../../blockchains/evm/chain-registry.ts');
+    return new EvmTransactionProcessor(EVM_CHAINS.ethereum);
   }
 
   /**

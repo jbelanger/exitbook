@@ -38,8 +38,9 @@ export class ImporterFactory implements IImporterFactory {
     providerId: string | undefined
   ): Promise<IImporter> {
     // Dynamic import to avoid circular dependencies
-    const { AvalancheTransactionImporter } = await import('../../blockchains/avalanche/importer.ts');
-    return new AvalancheTransactionImporter(blockchainProviderManager, {
+    const { EvmImporter } = await import('../../blockchains/evm/importer.ts');
+    const { EVM_CHAINS } = await import('../../blockchains/evm/chain-registry.ts');
+    return new EvmImporter(EVM_CHAINS.avalanche, blockchainProviderManager, {
       preferredProvider: providerId,
     }) as unknown as IImporter;
   }
@@ -122,8 +123,9 @@ export class ImporterFactory implements IImporterFactory {
     providerId: string | undefined
   ): Promise<IImporter> {
     // Dynamic import to avoid circular dependencies
-    const { EthereumTransactionImporter } = await import('../../blockchains/ethereum/importer.ts');
-    return new EthereumTransactionImporter(blockchainProviderManager, {
+    const { EvmImporter } = await import('../../blockchains/evm/importer.ts');
+    const { EVM_CHAINS } = await import('../../blockchains/evm/chain-registry.ts');
+    return new EvmImporter(EVM_CHAINS.ethereum, blockchainProviderManager, {
       preferredProvider: providerId,
     }) as unknown as IImporter;
   }

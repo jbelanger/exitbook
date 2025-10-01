@@ -167,8 +167,6 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
         }
       }
 
-      this.logger.info({ saved, total: items.length }, 'Successfully saved raw data batch');
-
       return saved;
     });
   }
