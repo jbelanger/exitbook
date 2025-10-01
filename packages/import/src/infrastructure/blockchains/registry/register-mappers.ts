@@ -4,6 +4,7 @@
 import '../avalanche/register-mappers.js';
 import '../bitcoin/register-mappers.js';
 import '../ethereum/register-mappers.js';
+import '../evm/register-mappers.js'; // Shared EVM mappers (Alchemy, Moralis)
 import '../injective/register-mappers.js';
 import '../polkadot/register-mappers.js';
 import '../solana/register-mappers.js';
