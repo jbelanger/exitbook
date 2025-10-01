@@ -110,10 +110,12 @@ export abstract class BlockchainApiClient implements IBlockchainProvider {
    * @param maxRequestsPerSecond - Maximum sustained rate to test (default: 5)
    * @param testBurstLimits - Whether to test per-minute burst limits (default: true)
    * @param customRates - Optional custom rates to test instead of default progression
+   * @param numRequestsPerTest - Number of requests to send per rate test (default: 10)
    * @returns Recommended rate limit config
    */
   async benchmarkRateLimit(
     maxRequestsPerSecond = 5,
+    numRequestsPerTest = 10,
     testBurstLimits = true,
     customRates?: number[]
   ): Promise<{
@@ -286,8 +288,8 @@ export abstract class BlockchainApiClient implements IBlockchainProvider {
         let hadTimeout = false;
         let failedOnRequestNumber: number | undefined;
 
-        // Make 5 requests at this rate
-        for (let i = 0; i < 5; i++) {
+        // Make requests at this rate
+        for (let i = 0; i < numRequestsPerTest; i++) {
           totalRequests++;
           const start = Date.now();
           const result = await this.isHealthy();
@@ -296,7 +298,7 @@ export abstract class BlockchainApiClient implements IBlockchainProvider {
             // Check for RateLimitError - hard failure
             if (result.error instanceof RateLimitError) {
               this.logger.warn(
-                `Hit explicit 429 rate limit at ${rate} req/sec on request #${i + 1}/5 (total: ${totalRequests})`
+                `Hit explicit 429 rate limit at ${rate} req/sec on request #${i + 1}/${numRequestsPerTest} (total: ${totalRequests})`
               );
               failedOnRequestNumber = i + 1;
               success = false;
@@ -305,7 +307,7 @@ export abstract class BlockchainApiClient implements IBlockchainProvider {
             // Check for timeout - soft rate limiting indicator
             if (result.error.message.includes('timeout')) {
               this.logger.warn(
-                `Request timeout at ${rate} req/sec on request #${i + 1}/5 (total: ${totalRequests}) - possible soft rate limiting`
+                `Request timeout at ${rate} req/sec on request #${i + 1}/${numRequestsPerTest} (total: ${totalRequests}) - possible soft rate limiting`
               );
               failedOnRequestNumber = i + 1;
               hadTimeout = true;
@@ -321,7 +323,7 @@ export abstract class BlockchainApiClient implements IBlockchainProvider {
             responseTimes.push(responseTime);
           }
 
-          if (i < 4) {
+          if (i < numRequestsPerTest - 1) {
             // Wait between requests (except after last one)
             await new Promise((resolve) => setTimeout(resolve, delayMs));
           }

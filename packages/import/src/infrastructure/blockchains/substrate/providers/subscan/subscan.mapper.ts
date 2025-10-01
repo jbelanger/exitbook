@@ -3,22 +3,22 @@ import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transacti
 import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
-import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
-import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
-import { SubstrateTransactionSchema } from '../schemas.js';
-import type { SubstrateTransaction } from '../substrate-types.js';
+import { RegisterTransactionMapper } from '../../../../shared/processors/processor-registry.ts';
+import { BaseRawDataMapper } from '../../../shared/base-raw-data-mapper.js';
+import { SUBSTRATE_CHAINS } from '../../chain-registry.js';
+import { SubstrateTransactionSchema } from '../../schemas.js';
+import type { SubstrateTransaction } from '../../types.js';
 
-import { SubscanTransferSchema } from './substrate.schemas.js';
-import { SUBSTRATE_CHAINS } from './substrate.types.js';
-import type { SubscanTransfer, SubstrateChainConfig } from './substrate.types.ts';
+import { SubscanTransferSchema } from './subscan.schemas.js';
+import type { SubscanTransferAugmented } from './subscan.types.js';
 
 @RegisterTransactionMapper('subscan')
-export class SubstrateTransactionMapper extends BaseRawDataMapper<SubscanTransfer, SubstrateTransaction> {
+export class SubscanTransactionMapper extends BaseRawDataMapper<SubscanTransferAugmented, SubstrateTransaction> {
   protected readonly inputSchema = SubscanTransferSchema;
   protected readonly outputSchema = SubstrateTransactionSchema;
 
   protected mapInternal(
-    rawData: SubscanTransfer,
+    rawData: SubscanTransferAugmented,
     _metadata: RawTransactionMetadata,
     sessionContext: ImportSessionMetadata
   ): Result<SubstrateTransaction, string> {
@@ -26,10 +26,22 @@ export class SubstrateTransactionMapper extends BaseRawDataMapper<SubscanTransfe
     // Use derivedAddresses for SS58 variants, fallback to address for backward compatibility
     const addresses = sessionContext.derivedAddresses || (sessionContext.address ? [sessionContext.address] : []);
     const relevantAddresses = new Set(addresses);
-    const chainConfig = SUBSTRATE_CHAINS['polkadot'];
 
+    // Get chain-specific info from augmented fields
+    const nativeCurrency = rawData._nativeCurrency;
+    const nativeDecimals = rawData._nativeDecimals;
+
+    // Determine chain from native currency
+    // DOT = polkadot, KSM = kusama (when kusama config is added)
+    const chainKey = nativeCurrency === 'DOT' ? 'polkadot' : nativeCurrency === 'KSM' ? 'kusama' : undefined;
+
+    if (!chainKey) {
+      return err(`Unable to determine chain from currency: ${nativeCurrency}`);
+    }
+
+    const chainConfig = SUBSTRATE_CHAINS[chainKey as keyof typeof SUBSTRATE_CHAINS];
     if (!chainConfig) {
-      return err(`Unsupported Substrate chain in SubscanTransactionMapper`);
+      return err(`Unsupported Substrate chain in SubscanTransactionMapper: ${chainKey} (currency: ${nativeCurrency})`);
     }
 
     // Check if transaction involves any of our addresses
@@ -40,9 +52,14 @@ export class SubstrateTransactionMapper extends BaseRawDataMapper<SubscanTransfe
       return err(`Transaction not relevant to user addresses: ${Array.from(relevantAddresses).join(', ')}`);
     }
 
-    // Convert single SubscanTransfer directly to UniversalBlockchainTransaction
-    // Pass all relevant addresses for proper matching
-    const transaction = this.convertSubscanTransaction(rawData, relevantAddresses, chainConfig);
+    // Convert single SubscanTransfer directly to SubstrateTransaction
+    const transaction = this.convertSubscanTransaction(
+      rawData,
+      relevantAddresses,
+      chainConfig,
+      nativeCurrency,
+      nativeDecimals
+    );
 
     if (!transaction) {
       return err(`Failed to convert transaction for addresses: ${Array.from(relevantAddresses).join(', ')}`);
@@ -52,9 +69,11 @@ export class SubstrateTransactionMapper extends BaseRawDataMapper<SubscanTransfe
   }
 
   private convertSubscanTransaction(
-    transfer: SubscanTransfer,
+    transfer: SubscanTransferAugmented,
     relevantAddresses: Set<string>,
-    chainConfig: SubstrateChainConfig
+    chainConfig: (typeof SUBSTRATE_CHAINS)[keyof typeof SUBSTRATE_CHAINS],
+    nativeCurrency: string,
+    nativeDecimals: number
   ): SubstrateTransaction | undefined {
     try {
       const isFromUser = relevantAddresses.has(transfer.from);
@@ -65,7 +84,7 @@ export class SubstrateTransactionMapper extends BaseRawDataMapper<SubscanTransfe
       }
 
       const amount = new Decimal(transfer.amount || '0');
-      const divisor = new Decimal(10).pow(chainConfig.tokenDecimals);
+      const divisor = new Decimal(10).pow(nativeDecimals);
       const amountInMainUnit = amount.dividedBy(divisor);
 
       const fee = new Decimal(transfer.fee || '0');
@@ -75,20 +94,19 @@ export class SubstrateTransactionMapper extends BaseRawDataMapper<SubscanTransfe
         // Value information
         amount: amountInMainUnit.toString(),
         // Block context
-        blockHeight: transfer.block_num || 0,
-        blockId: transfer.block_hash || '',
-        call: transfer.call,
+        blockHeight: transfer.block_num,
+        blockId: transfer.hash, // Use transaction hash as block identifier
 
         // Chain identification
-        chainName: chainConfig.name,
-        currency: chainConfig.tokenSymbol,
+        chainName: chainConfig.chainName,
+        currency: nativeCurrency,
 
         // Substrate-specific information
         extrinsicIndex: transfer.extrinsic_index,
         // Fee information
         feeAmount: feeInMainUnit.toString(),
 
-        feeCurrency: chainConfig.tokenSymbol,
+        feeCurrency: nativeCurrency,
         // Transaction flow data
         from: transfer.from,
 

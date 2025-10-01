@@ -249,6 +249,14 @@ export class TransactionIngestionService {
 
       this.logger.info(`Found ${rawDataItems.length} raw data items to process for ${sourceId}`);
 
+      // Debug: Check sample raw data item structure
+      if (rawDataItems.length > 0) {
+        const sampleItem = rawDataItems[0];
+        this.logger.debug(
+          `Sample raw data item - ID: ${sampleItem?.id}, SessionID: ${sampleItem?.import_session_id}, Status: ${sampleItem?.processing_status}`
+        );
+      }
+
       // Fetch sessions and raw data separately
       const allSessionsResult = await this.sessionRepository.findBySource(sourceId);
 
@@ -256,6 +264,10 @@ export class TransactionIngestionService {
         return err(allSessionsResult.error);
       }
       const allSessions = allSessionsResult.value;
+
+      this.logger.debug(
+        `Found ${allSessions.length} total sessions for source: ${allSessions.map((s) => s.id).join(', ')}`
+      );
 
       // Get raw data items that match our filters (already loaded above)
       const rawDataBySessionId = new Map<number, RawData[]>();
@@ -268,6 +280,12 @@ export class TransactionIngestionService {
           rawDataBySessionId.set(rawDataItem.import_session_id, sessionRawData);
         }
       }
+
+      this.logger.debug(
+        `Grouped raw data by session: ${Array.from(rawDataBySessionId.entries())
+          .map(([sessionId, items]) => `Session ${sessionId}: ${items.length} items`)
+          .join(', ')}`
+      );
 
       // Create sessions with raw data structure, filtering to only sessions that have pending raw data
       const sessionsToProcess = allSessions
@@ -283,6 +301,10 @@ export class TransactionIngestionService {
               (!filters?.importSessionId || item.import_session_id === filters.importSessionId)
           )
         );
+
+      this.logger.debug(
+        `Sessions after filtering: ${sessionsToProcess.map((s) => `Session ${s.session.id} (${s.rawDataItems.length} items)`).join(', ')}`
+      );
 
       this.logger.info(`Processing ${sessionsToProcess.length} sessions with pending raw data`);
 
@@ -306,11 +328,19 @@ export class TransactionIngestionService {
           const normalizer = this.blockchainNormalizer;
           if (normalizer) {
             for (const item of pendingItems) {
-              const result = normalizer.normalize(
-                item.raw_data,
-                item.metadata as RawTransactionMetadata,
-                session.session_metadata as ImportSessionMetadata
-              );
+              // Parse JSON strings from database
+              const parsedMetadata: RawTransactionMetadata =
+                typeof item.metadata === 'string'
+                  ? (JSON.parse(item.metadata) as RawTransactionMetadata)
+                  : (item.metadata as RawTransactionMetadata);
+              const parsedRawData: unknown =
+                typeof item.raw_data === 'string' ? JSON.parse(item.raw_data) : item.raw_data;
+              const parsedSessionMetadata: ImportSessionMetadata =
+                typeof session.session_metadata === 'string'
+                  ? (JSON.parse(session.session_metadata) as ImportSessionMetadata)
+                  : (session.session_metadata as ImportSessionMetadata);
+
+              const result = normalizer.normalize(parsedRawData, parsedMetadata, parsedSessionMetadata);
 
               if (result.isOk()) {
                 normalizedRawDataItems.push(result.value);
@@ -323,7 +353,9 @@ export class TransactionIngestionService {
           }
         } else {
           for (const item of pendingItems) {
-            normalizedRawDataItems.push(item.raw_data);
+            // raw_data is a JSON string that needs parsing
+            const parsedData: unknown = typeof item.raw_data === 'string' ? JSON.parse(item.raw_data) : item.raw_data;
+            normalizedRawDataItems.push(parsedData);
           }
         }
 
@@ -349,11 +381,16 @@ export class TransactionIngestionService {
         const processor = await this.processorFactory.create(sourceId, sourceType);
 
         // Create ProcessingImportSession for this session
+        const parsedSessionMetadata: ImportSessionMetadata | undefined =
+          typeof session.session_metadata === 'string'
+            ? (JSON.parse(session.session_metadata) as ImportSessionMetadata)
+            : (session.session_metadata as ImportSessionMetadata | undefined);
+
         const processingSession: ProcessingImportSession = {
           createdAt: new Date(session.created_at).getTime(),
           id: session.id,
           normalizedData: normalizedRawDataItems,
-          sessionMetadata: session.session_metadata as ImportSessionMetadata | undefined,
+          sessionMetadata: parsedSessionMetadata,
           sourceId: session.source_id,
           sourceType: session.source_type,
           status: 'processing',

@@ -86,7 +86,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
           if (providerId) {
             updateQuery = updateQuery.where('provider_id', '=', providerId);
           } else {
-            // eslint-disable-next-line unicorn/no-null -- We want to check for NULL in the database
+            // eslint-disable-next-line unicorn/no-null -- Checking for NULL in database
             updateQuery = updateQuery.where('provider_id', 'is', null);
           }
 
@@ -122,7 +122,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
           .values({
             created_at: this.getCurrentDateTimeForDB(),
             import_session_id: importSessionId,
-            metadata: this.serializeToJson(metadata) || undefined,
+            metadata: this.serializeToJson(metadata),
             processing_status: 'pending',
             provider_id: providerId,
             raw_data: JSON.stringify(rawData),
@@ -170,7 +170,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
             .values({
               created_at: createdAt,
               import_session_id: importSessionId,
-              metadata: this.serializeToJson(item.metadata) || undefined,
+              metadata: this.serializeToJson(item.metadata),
               processing_status: 'pending',
               provider_id: item.providerId,
               raw_data: JSON.stringify(item.rawData),

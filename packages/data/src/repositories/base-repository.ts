@@ -122,12 +122,28 @@ export abstract class BaseRepository {
 
   /**
    * Helper method to serialize data to JSON string safely
+   * Handles Decimal objects by converting them to strings
    */
   protected serializeToJson(data: unknown): string | undefined {
     if (data === undefined || data === null) return undefined;
 
     try {
-      return JSON.stringify(data);
+      return JSON.stringify(data, (key, value: unknown) => {
+        // Convert Decimal objects to strings for proper serialization
+        if (
+          value &&
+          typeof value === 'object' &&
+          'd' in value &&
+          'e' in value &&
+          's' in value &&
+          'toString' in value &&
+          typeof value.toString === 'function'
+        ) {
+          // This is likely a Decimal.js object (has d, e, s properties and toString method)
+          return (value as { toString: () => string }).toString();
+        }
+        return value as string | number | boolean | null | object;
+      });
     } catch (error) {
       this.logger.warn({ data, error }, 'Failed to serialize data to JSON');
       return undefined;

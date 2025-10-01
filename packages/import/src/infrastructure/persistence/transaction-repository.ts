@@ -58,12 +58,12 @@ export class TransactionRepository extends BaseRepository implements ITransactio
             transaction.source + '-' + (transaction.id || 'unknown')) as string,
           fee_cost: typeof transaction.fee === 'object' ? moneyToDbString(transaction.fee) : undefined,
           fee_currency: typeof transaction.fee === 'object' ? transaction.fee.currency : undefined,
-          from_address: transaction.from || undefined,
+          from_address: transaction.from,
           import_session_id: importSessionId,
-          note_message: transaction.note?.message || undefined,
+          note_message: transaction.note?.message,
           note_metadata: transaction.note?.metadata ? this.serializeToJson(transaction.note.metadata) : undefined,
-          note_severity: transaction.note?.severity || undefined,
-          note_type: transaction.note?.type || undefined,
+          note_severity: transaction.note?.severity,
+          note_type: transaction.note?.type,
           price:
             typeof transaction.price === 'object'
               ? moneyToDbString(transaction.price)
@@ -74,8 +74,8 @@ export class TransactionRepository extends BaseRepository implements ITransactio
           raw_normalized_data: rawDataJson,
           source_id: transaction.source,
           source_type: 'exchange', // Default to exchange, can be overridden based on transaction source
-          symbol: transaction.symbol || undefined,
-          to_address: transaction.to || undefined,
+          symbol: transaction.symbol,
+          to_address: transaction.to,
           transaction_datetime: transaction.datetime
             ? new Date(transaction.datetime).toISOString()
             : new Date().toISOString(),

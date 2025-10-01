@@ -26,7 +26,7 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
         .values({
           created_at: this.getCurrentDateTimeForDB(),
           provider_id: providerId,
-          session_metadata: this.serializeToJson(sessionMetadata) || undefined,
+          session_metadata: this.serializeToJson(sessionMetadata),
           source_id: sourceId,
           source_type: sourceType,
           started_at: this.getCurrentDateTimeForDB(),
@@ -64,7 +64,7 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
         .set({
           completed_at: currentTimestamp as unknown as string,
           duration_ms: durationMs,
-          error_details: this.serializeToJson(errorDetails) || undefined,
+          error_details: this.serializeToJson(errorDetails),
           error_message: errorMessage,
           status,
           transactions_failed: transactionsFailed,

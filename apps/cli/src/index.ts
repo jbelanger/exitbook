@@ -492,11 +492,13 @@ async function main() {
     .requiredOption('--provider <name>', 'Provider to test (e.g., blockstream.info, etherscan)')
     .option('--max-rate <number>', 'Maximum rate to test in req/sec (default: 5)', '5')
     .option('--rates <rates>', 'Custom rates to test (comma-separated, e.g. "0.5,1,2,5")')
+    .option('--num-requests <number>', 'Number of requests to send per rate test (default: 10)', '10')
     .option('--skip-burst', 'Skip burst limit testing (only test sustained rates)', false)
     .action(
       async (options: {
         blockchain: string;
         maxRate: string;
+        numRequests?: string;
         provider: string;
         rates?: string;
         skipBurst: boolean;
@@ -516,6 +518,12 @@ async function main() {
           const maxRate = parseFloat(options.maxRate);
           if (isNaN(maxRate) || maxRate <= 0) {
             logger.error('Invalid max-rate value. Must be a positive number.');
+            process.exit(1);
+          }
+
+          const numRequests = options.numRequests ? parseInt(options.numRequests, 10) : 10;
+          if (isNaN(numRequests) || numRequests <= 0) {
+            logger.error('Invalid num-requests value. Must be a positive integer.');
             process.exit(1);
           }
 
@@ -547,9 +555,10 @@ async function main() {
           const provider = providers[0]!;
           logger.info(`Testing provider: ${provider.name}`);
           logger.info(`Current rate limit: ${JSON.stringify(provider.rateLimit)}`);
+          logger.info(`Requests per test: ${numRequests}`);
           logger.info(`Burst testing: ${options.skipBurst ? 'disabled' : 'enabled'}\n`);
 
-          const result = await provider.benchmarkRateLimit(maxRate, !options.skipBurst, customRates);
+          const result = await provider.benchmarkRateLimit(maxRate, numRequests, !options.skipBurst, customRates);
 
           logger.info('\n=============================');
           logger.info('Benchmark Results');

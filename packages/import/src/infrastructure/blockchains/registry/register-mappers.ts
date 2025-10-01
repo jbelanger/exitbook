@@ -3,5 +3,5 @@
 import '../bitcoin/register-mappers.js';
 import '../evm/register-mappers.js';
 import '../injective/register-mappers.js';
-import '../polkadot/register-mappers.js';
+import '../substrate/register-mappers.js';
 import '../solana/register-mappers.js';

@@ -18,7 +18,7 @@ export interface EvmChainConfig {
   /**
    * Optional array of block explorer URLs for this chain
    */
-  explorerUrls?: string[];
+  explorerUrls?: string[] | undefined;
 
   /**
    * Symbol for the native currency (e.g., 'ETH', 'AVAX')

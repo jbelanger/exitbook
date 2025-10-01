@@ -18,7 +18,7 @@ export class ProcessorFactory implements IProcessorFactory {
     }
 
     if (sourceType === 'blockchain') {
-      return ['bitcoin', 'ethereum', 'injective', 'solana', 'avalanche', 'polkadot'];
+      return ['bitcoin', 'ethereum', 'injective', 'solana', 'avalanche', 'polkadot', 'bittensor'];
     }
 
     return [];
@@ -34,7 +34,9 @@ export class ProcessorFactory implements IProcessorFactory {
       }
 
       if (sourceType === 'blockchain') {
-        return ['avalanche', 'bitcoin', 'ethereum', 'injective', 'solana'].includes(sourceId.toLowerCase());
+        return ['avalanche', 'bitcoin', 'bittensor', 'ethereum', 'injective', 'polkadot', 'solana'].includes(
+          sourceId.toLowerCase()
+        );
       }
 
       return false;
@@ -101,6 +103,9 @@ export class ProcessorFactory implements IProcessorFactory {
 
       case 'polkadot':
         return await this.createPolkadotProcessor();
+
+      case 'bittensor':
+        return await this.createBittensorProcessor();
 
       default:
         throw new Error(`Unsupported blockchain processor: ${sourceId}`);
@@ -189,8 +194,19 @@ export class ProcessorFactory implements IProcessorFactory {
    */
   private async createPolkadotProcessor(): Promise<ITransactionProcessor> {
     // Dynamic import to avoid circular dependencies
-    const { PolkadotTransactionProcessor } = await import('../../blockchains/polkadot/processor.ts');
-    return new PolkadotTransactionProcessor();
+    const { SubstrateProcessor } = await import('../../blockchains/substrate/processor.ts');
+    const { SUBSTRATE_CHAINS } = await import('../../blockchains/substrate/chain-registry.ts');
+    return new SubstrateProcessor(SUBSTRATE_CHAINS.polkadot);
+  }
+
+  /**
+   * Create Bittensor processor.
+   */
+  private async createBittensorProcessor(): Promise<ITransactionProcessor> {
+    // Dynamic import to avoid circular dependencies
+    const { SubstrateProcessor } = await import('../../blockchains/substrate/processor.ts');
+    const { SUBSTRATE_CHAINS } = await import('../../blockchains/substrate/chain-registry.ts');
+    return new SubstrateProcessor(SUBSTRATE_CHAINS.bittensor);
   }
 
   /**

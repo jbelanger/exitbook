@@ -7,18 +7,25 @@ import { type Result, err, ok } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
 
-import type { SubstrateFundFlow, SubstrateTransaction } from './substrate-types.js';
+import type { SubstrateChainConfig } from './chain-config.interface.js';
+import type { SubstrateFundFlow, SubstrateTransaction } from './types.js';
 import { derivePolkadotAddressVariants } from './utils.js';
 
 /**
- * Substrate transaction processor that converts raw blockchain transaction data
+ * Generic Substrate transaction processor that converts raw blockchain transaction data
  * into UniversalTransaction format. Supports Polkadot, Kusama, Bittensor, and other
  * Substrate-based chains. Uses ProcessorFactory to dispatch to provider-specific
  * processors based on data provenance.
  */
-export class PolkadotTransactionProcessor extends BaseTransactionProcessor {
-  constructor(private _transactionRepository?: ITransactionRepository) {
-    super('polkadot');
+export class SubstrateProcessor extends BaseTransactionProcessor {
+  private chainConfig: SubstrateChainConfig;
+
+  constructor(
+    chainConfig: SubstrateChainConfig,
+    private _transactionRepository?: ITransactionRepository
+  ) {
+    super(chainConfig.chainName);
+    this.chainConfig = chainConfig;
   }
 
   /**
@@ -41,10 +48,14 @@ export class PolkadotTransactionProcessor extends BaseTransactionProcessor {
         const fundFlow = this.analyzeFundFlowFromNormalized(normalizedTx, sessionContext);
         const transactionType = this.determineTransactionTypeFromFundFlow(fundFlow, normalizedTx);
 
+        // Normalize amounts using chain-specific decimals
+        const normalizedAmount = this.normalizeAmount(fundFlow.totalAmount);
+        const normalizedFee = this.normalizeAmount(fundFlow.feeAmount);
+
         const universalTransaction: UniversalTransaction = {
-          amount: createMoney(fundFlow.totalAmount, fundFlow.currency),
+          amount: createMoney(normalizedAmount, fundFlow.currency),
           datetime: new Date(normalizedTx.timestamp).toISOString(),
-          fee: createMoney(fundFlow.feeAmount, fundFlow.feeCurrency),
+          fee: createMoney(normalizedFee, fundFlow.feeCurrency),
           from: fundFlow.fromAddress,
           id: normalizedTx.id,
           metadata: {
@@ -184,8 +195,8 @@ export class PolkadotTransactionProcessor extends BaseTransactionProcessor {
       hasProxy: hasProxy || false,
       hasStaking: hasStaking || false,
       hasUtilityBatch: hasUtilityBatch || false,
-      isIncoming: isToUser && !isFromUser,
-      isOutgoing: isFromUser && !isToUser,
+      isIncoming: isToUser,
+      isOutgoing: isFromUser,
       module: transaction.module || 'unknown',
       netAmount,
       toAddress: transaction.to,
@@ -200,16 +211,19 @@ export class PolkadotTransactionProcessor extends BaseTransactionProcessor {
     fundFlow: SubstrateFundFlow,
     transaction: SubstrateTransaction
   ): TransactionType {
-    // Staking operations
+    // Staking operations - check call names first for unbond/withdraw
     if (fundFlow.hasStaking) {
-      if (transaction.call?.includes('bond')) {
-        return fundFlow.isOutgoing ? 'staking_deposit' : 'staking_reward';
-      }
+      // Unbond and withdraw are always withdrawals, regardless of flow direction
       if (transaction.call?.includes('unbond') || transaction.call?.includes('withdraw')) {
         return 'staking_withdrawal';
       }
+      // Bond operations depend on flow direction
+      if (transaction.call?.includes('bond')) {
+        return fundFlow.isOutgoing ? 'staking_deposit' : 'staking_reward';
+      }
+      // Nominate and chill are staking deposits
       if (transaction.call?.includes('nominate') || transaction.call?.includes('chill')) {
-        return 'staking_deposit'; // These usually involve staking
+        return 'staking_deposit';
       }
       // Default staking behavior based on fund flow
       return fundFlow.isOutgoing ? 'staking_deposit' : 'staking_reward';
@@ -235,6 +249,18 @@ export class PolkadotTransactionProcessor extends BaseTransactionProcessor {
       return 'multisig';
     }
 
+    // Fee-only transactions (check BEFORE self-transfer check)
+    const netAmount = new Decimal(fundFlow.netAmount);
+    const feeAmount = new Decimal(fundFlow.feeAmount);
+    if (netAmount.abs().equals(feeAmount) && new Decimal(fundFlow.totalAmount).isZero()) {
+      return 'fee';
+    }
+
+    // Self-transfers (both incoming and outgoing)
+    if (fundFlow.isIncoming && fundFlow.isOutgoing) {
+      return 'internal_transfer';
+    }
+
     // Basic transfers
     if (fundFlow.isIncoming && !fundFlow.isOutgoing) {
       return 'deposit';
@@ -244,17 +270,23 @@ export class PolkadotTransactionProcessor extends BaseTransactionProcessor {
       return 'withdrawal';
     }
 
-    if (fundFlow.isIncoming && fundFlow.isOutgoing) {
-      return 'internal_transfer';
-    }
-
-    // Fee-only transactions
-    const netAmount = new Decimal(fundFlow.netAmount);
-    const feeAmount = new Decimal(fundFlow.feeAmount);
-    if (netAmount.abs().equals(feeAmount)) {
-      return 'fee';
-    }
-
     return 'unknown';
+  }
+
+  /**
+   * Normalize amount from planck (or smallest unit) to token units using chain-specific decimals
+   * Similar to EVM's wei-to-ETH normalization
+   */
+  private normalizeAmount(amountPlanck: string | undefined): string {
+    if (!amountPlanck || amountPlanck === '0') {
+      return '0';
+    }
+
+    try {
+      return new Decimal(amountPlanck).dividedBy(new Decimal(10).pow(this.chainConfig.nativeDecimals)).toString();
+    } catch (error) {
+      this.logger.warn(`Unable to normalize amount: ${String(error)}`);
+      return '0';
+    }
   }
 }

@@ -67,8 +67,9 @@ export class ImporterFactory implements IImporterFactory {
     providerId: string | undefined
   ): Promise<IImporter> {
     // Dynamic import to avoid circular dependencies
-    const { BittensorTransactionImporter } = await import('../../blockchains/polkadot/bittensor-importer.ts');
-    return new BittensorTransactionImporter(blockchainProviderManager, {
+    const { SubstrateImporter } = await import('../../blockchains/substrate/importer.ts');
+    const { SUBSTRATE_CHAINS } = await import('../../blockchains/substrate/chain-registry.ts');
+    return new SubstrateImporter(SUBSTRATE_CHAINS.bittensor, blockchainProviderManager, {
       preferredProvider: providerId,
     }) as unknown as IImporter;
   }
@@ -202,8 +203,9 @@ export class ImporterFactory implements IImporterFactory {
     providerId: string | undefined
   ): Promise<IImporter> {
     // Dynamic import to avoid circular dependencies
-    const { PolkadotTransactionImporter } = await import('../../blockchains/polkadot/polkadot-importer.ts');
-    return new PolkadotTransactionImporter(blockchainProviderManager, {
+    const { SubstrateImporter } = await import('../../blockchains/substrate/importer.ts');
+    const { SUBSTRATE_CHAINS } = await import('../../blockchains/substrate/chain-registry.ts');
+    return new SubstrateImporter(SUBSTRATE_CHAINS.polkadot, blockchainProviderManager, {
       preferredProvider: providerId,
     }) as unknown as IImporter;
   }

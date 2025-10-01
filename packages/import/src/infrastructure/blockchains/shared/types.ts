@@ -52,7 +52,8 @@ export interface JsonRpcResponse<T = unknown> {
 export interface IBlockchainProvider<TConfig = Record<string, unknown>> {
   // Rate limit benchmarking
   benchmarkRateLimit(
-    maxRequestsPerSecond?: number,
+    maxRequestsPerSecond: number,
+    numRequestsPerTest: number,
     testBurstLimits?: boolean,
     customRates?: number[]
   ): Promise<{
