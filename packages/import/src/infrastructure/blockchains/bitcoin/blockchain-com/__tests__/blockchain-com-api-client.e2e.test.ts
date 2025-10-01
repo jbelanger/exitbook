@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
+import { ProviderRegistry } from '../../../shared/index.ts';
 import type { AddressInfo } from '../../types.js';
 import { BlockchainComApiClient } from '../blockchain-com.api-client.js';
 import type { BlockchainComTransaction } from '../blockchain-com.types.js';
 
 describe('BlockchainComApiClient E2E', () => {
-  const client = new BlockchainComApiClient();
+  const config = ProviderRegistry.createDefaultConfig('bitcoin', 'blockchain-com');
+  const client = new BlockchainComApiClient(config);
 
   it('should connect to Blockchain.com API and test health', async () => {
     const result = await client.isHealthy();

@@ -3,12 +3,14 @@ import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transacti
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import type { MoralisTransaction } from '../../../shared/api/moralis-evm/moralis.types.ts';
+import { ProviderRegistry } from '../../../shared/registry/provider-registry.ts';
 import { MoralisApiClient } from '../moralis.api-client.js';
 import { MoralisTransactionMapper } from '../moralis.mapper.js';
 
 describe('MoralisTransactionMapper E2E', () => {
   const mapper = new MoralisTransactionMapper();
-  const apiClient = new MoralisApiClient();
+  const config = ProviderRegistry.createDefaultConfig('avalanche', 'moralis');
+  const apiClient = new MoralisApiClient(config);
   const testAddress = '0x70c68a08d8c1C1Fa1CD5E5533e85a77c4Ac07022';
 
   let cachedTransactions: MoralisTransaction[];

@@ -5,10 +5,13 @@ import type {
   MoralisTransaction,
   MoralisTokenBalance,
 } from '../../../shared/api/moralis-evm/moralis.types.ts';
+import { ProviderRegistry } from '../../../shared/index.ts';
 import { MoralisApiClient } from '../moralis.api-client.ts';
 
 describe('MoralisApiClient Integration', () => {
-  const provider = new MoralisApiClient();
+  const config = ProviderRegistry.createDefaultConfig('avalanche', 'moralis');
+  const provider = new MoralisApiClient(config);
+
   const testAddress = '0x70c68a08d8c1C1Fa1CD5E5533e85a77c4Ac07022';
 
   describe('Health Checks', () => {

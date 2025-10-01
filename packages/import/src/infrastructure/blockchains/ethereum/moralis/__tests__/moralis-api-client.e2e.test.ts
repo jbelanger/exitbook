@@ -5,10 +5,13 @@ import type {
   MoralisTokenBalance,
   MoralisTransaction,
 } from '../../../shared/api/moralis-evm/moralis.types.ts';
+import { ProviderRegistry } from '../../../shared/index.ts';
 import { MoralisApiClient } from '../moralis.api-client.ts';
 
 describe('MoralisApiClient Integration', () => {
-  const provider = new MoralisApiClient();
+  const config = ProviderRegistry.createDefaultConfig('ethereum', 'moralis');
+
+  const provider = new MoralisApiClient(config);
   const testAddress = '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045'; // Vitalik's address
 
   describe('Health Checks', () => {

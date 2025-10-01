@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
+import { ProviderRegistry } from '../../../shared/index.ts';
 import type { AddressInfo } from '../../types.ts';
 import { MempoolSpaceApiClient } from '../mempool-space-api-client.ts';
 import type { MempoolTransaction } from '../mempool-space.types.ts';
 
 describe('MempoolSpaceProvider Integration', () => {
-  const provider = new MempoolSpaceApiClient();
+  const config = ProviderRegistry.createDefaultConfig('bitcoin', 'mempool-space');
+  const provider = new MempoolSpaceApiClient(config);
   const testAddress = '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2';
 
   describe('Health Checks', () => {

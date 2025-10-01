@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
+import { ProviderRegistry } from '../../../shared/index.ts';
 import type { AddressInfo } from '../../types.js';
 import { BlockCypherApiClient } from '../blockcypher.api-client.js';
 import type { BlockCypherTransaction } from '../blockcypher.types.js';
 
 describe('BlockCypherApiClient E2E', () => {
-  const client = new BlockCypherApiClient();
+  const config = ProviderRegistry.createDefaultConfig('bitcoin', 'blockcypher');
+  const client = new BlockCypherApiClient(config);
   const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa'; // Genesis block address
 
   it.skipIf(!process.env['BLOCKCYPHER_API_KEY'] || process.env['BLOCKCYPHER_API_KEY'] === 'YourApiKeyToken')(

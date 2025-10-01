@@ -1,6 +1,7 @@
 import { maskAddress } from '@exitbook/shared-utils';
 
 import { BlockchainApiClient } from '../../shared/api/blockchain-api-client.ts';
+import type { ProviderConfig } from '../../shared/index.ts';
 import { RegisterApiClient } from '../../shared/registry/decorators.js';
 import type { ProviderOperation } from '../../shared/types.js';
 import { isValidSolanaAddress } from '../utils.js';
@@ -32,8 +33,8 @@ export interface SolscanRawBalanceData {
   requiresApiKey: false,
 })
 export class SolscanApiClient extends BlockchainApiClient {
-  constructor() {
-    super('solana', 'solscan');
+  constructor(config: ProviderConfig) {
+    super(config);
 
     // Override HTTP client to add browser-like headers for Solscan
     this.reinitializeHttpClient({

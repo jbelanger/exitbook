@@ -1,3 +1,5 @@
+import type { ProviderConfig } from '../../shared/index.ts';
+
 import { BlockchainApiClient } from './blockchain-api-client.ts';
 
 /**
@@ -5,8 +7,8 @@ import { BlockchainApiClient } from './blockchain-api-client.ts';
  * Handles common Tatum-specific logic including authentication, rate limiting, and error handling
  */
 export abstract class TatumApiClientBase<TTx, TBalance> extends BlockchainApiClient {
-  constructor(blockchain: string, providerName: string) {
-    super(blockchain, providerName);
+  constructor(config: ProviderConfig) {
+    super(config);
 
     // Reinitialize HTTP client with Tatum-specific headers
     this.reinitializeHttpClient({
@@ -18,7 +20,7 @@ export abstract class TatumApiClientBase<TTx, TBalance> extends BlockchainApiCli
     });
 
     this.logger.debug(
-      `Initialized ${this.metadata.displayName} for ${blockchain} - HasApiKey: ${this.apiKey !== 'YourApiKeyToken'}`
+      `Initialized ${this.metadata.displayName} for ${config.blockchain} - HasApiKey: ${this.apiKey !== 'YourApiKeyToken'}`
     );
   }
 

@@ -1,6 +1,7 @@
 import { maskAddress } from '@exitbook/shared-utils';
 
 import type { ProviderOperation } from '../../../shared/types.js';
+import type { ProviderConfig } from '../../registry/provider-registry.js';
 import { BlockchainApiClient } from '../blockchain-api-client.ts';
 
 import type {
@@ -26,8 +27,8 @@ export interface MoralisChainConfig {
 export abstract class MoralisEvmApiClientBase extends BlockchainApiClient {
   protected readonly chainConfig: MoralisChainConfig;
 
-  constructor(blockchain: string, providerName: string, chainConfig: MoralisChainConfig) {
-    super(blockchain, providerName);
+  constructor(config: ProviderConfig, chainConfig: MoralisChainConfig) {
+    super(config);
     this.chainConfig = chainConfig;
 
     // Moralis requires API key in x-api-key header
@@ -38,7 +39,7 @@ export abstract class MoralisEvmApiClientBase extends BlockchainApiClient {
     });
 
     this.logger.debug(
-      `Initialized MoralisEvmApiClientBase for ${blockchain} - Chain: ${chainConfig.chainId}, BaseUrl: ${this.baseUrl}`
+      `Initialized MoralisEvmApiClientBase for ${config.blockchain} - Chain: ${chainConfig.chainId}, BaseUrl: ${this.baseUrl}`
     );
   }
 

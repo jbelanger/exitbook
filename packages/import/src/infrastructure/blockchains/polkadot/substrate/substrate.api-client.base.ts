@@ -3,6 +3,7 @@ import { maskAddress } from '@exitbook/shared-utils';
 import { err, ok, type Result } from 'neverthrow';
 
 import { BlockchainApiClient } from '../../shared/api/blockchain-api-client.ts';
+import type { ProviderConfig } from '../../shared/index.ts';
 import type { JsonRpcResponse } from '../../shared/types.js';
 import type { ProviderOperation } from '../../shared/types.js';
 import { isValidSS58Address } from '../utils.js';
@@ -21,8 +22,8 @@ import type {
 export abstract class BaseSubstrateApiClient extends BlockchainApiClient {
   protected readonly chainConfig: SubstrateChainConfig;
   private readonly rpcClient?: HttpClient | undefined;
-  constructor(blockchain: string, providerName: string, chainConfig: SubstrateChainConfig) {
-    super(blockchain, providerName);
+  constructor(config: ProviderConfig, chainConfig: SubstrateChainConfig) {
+    super(config);
     this.chainConfig = chainConfig;
 
     this.logger.debug(

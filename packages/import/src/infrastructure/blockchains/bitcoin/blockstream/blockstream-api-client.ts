@@ -1,6 +1,7 @@
 import { maskAddress } from '@exitbook/shared-utils';
 
 import { BlockchainApiClient } from '../../shared/api/blockchain-api-client.ts';
+import type { ProviderConfig } from '../../shared/index.ts';
 import { RegisterApiClient } from '../../shared/registry/decorators.js';
 import type { ProviderOperation } from '../../shared/types.js';
 import type { AddressInfo } from '../types.js';
@@ -30,8 +31,8 @@ import type { BlockstreamAddressInfo, BlockstreamTransaction } from './blockstre
   requiresApiKey: false,
 })
 export class BlockstreamApiClient extends BlockchainApiClient {
-  constructor() {
-    super('bitcoin', 'blockstream.info');
+  constructor(config: ProviderConfig) {
+    super(config);
 
     this.logger.debug(`Initialized BlockstreamApiClient from registry metadata - BaseUrl: ${this.baseUrl}`);
   }

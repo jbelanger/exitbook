@@ -2,13 +2,15 @@ import type { RawTransactionMetadata } from '@exitbook/import/app/ports/importer
 import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transaction-processor.interface.js';
 import { beforeAll, describe, expect, it } from 'vitest';
 
+import { ProviderRegistry } from '../../../shared/index.ts';
 import { AlchemyApiClient } from '../alchemy.api-client.js';
 import { AlchemyTransactionMapper } from '../alchemy.mapper.js';
 import type { AlchemyAssetTransfer } from '../alchemy.types.js';
 
 describe('AlchemyTransactionMapper E2E', () => {
   const mapper = new AlchemyTransactionMapper();
-  const apiClient = new AlchemyApiClient();
+  const config = ProviderRegistry.createDefaultConfig('ethereum', 'alchemy');
+  const apiClient = new AlchemyApiClient(config);
   const testAddress = '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045'; // Vitalik's address
 
   let cachedTransactions: AlchemyAssetTransfer[];

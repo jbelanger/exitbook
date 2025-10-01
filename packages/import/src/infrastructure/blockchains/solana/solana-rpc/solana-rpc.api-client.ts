@@ -1,6 +1,7 @@
 import { maskAddress } from '@exitbook/shared-utils';
 
 import { BlockchainApiClient } from '../../shared/api/blockchain-api-client.ts';
+import type { ProviderConfig } from '../../shared/index.ts';
 import { RegisterApiClient } from '../../shared/registry/decorators.js';
 import type { JsonRpcResponse, ProviderOperation } from '../../shared/types.js';
 import type { SolanaSignature, SolanaTokenAccountsResponse } from '../types.js';
@@ -32,8 +33,8 @@ import type {
   requiresApiKey: false,
 })
 export class SolanaRPCApiClient extends BlockchainApiClient {
-  constructor() {
-    super('solana', 'solana-rpc');
+  constructor(config: ProviderConfig) {
+    super(config);
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {

@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
+import { ProviderRegistry } from '../../../shared/index.ts';
 import type { AddressInfo } from '../../types.ts';
 import { TatumBitcoinApiClient } from '../tatum-bitcoin.api-client.ts';
 import type { TatumBitcoinTransaction } from '../tatum.types.ts';
 
 describe('TatumBitcoinApiClient E2E', () => {
-  const provider = new TatumBitcoinApiClient();
+  const config = ProviderRegistry.createDefaultConfig('bitcoin', 'tatum');
+  const provider = new TatumBitcoinApiClient(config);
   const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa'; // Genesis block address
 
   it.skipIf(!process.env['TATUM_API_KEY'] || process.env['TATUM_API_KEY'] === 'YourApiKeyToken')(

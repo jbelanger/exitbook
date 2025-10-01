@@ -14,70 +14,57 @@ import type { IBlockchainProvider, ProviderCapabilities, ProviderOperation } fro
 export abstract class BlockchainApiClient implements IBlockchainProvider {
   protected readonly apiKey: string;
   protected readonly baseUrl: string;
+  protected readonly config: ProviderConfig;
   protected httpClient: HttpClient;
   protected readonly logger: Logger;
   protected readonly metadata: ProviderMetadata;
 
-  constructor(configOrBlockchain: ProviderConfig | string, providerName?: string) {
-    // Support both old (blockchain, providerName) and new (ProviderConfig) patterns
-    let blockchain: string;
-    let actualProviderName: string;
-    let config: ProviderConfig | undefined;
-
-    if (typeof configOrBlockchain === 'string') {
-      // Old pattern: constructor('ethereum', 'alchemy')
-      blockchain = configOrBlockchain;
-      actualProviderName = providerName!;
-    } else {
-      // New pattern: constructor(config)
-      config = configOrBlockchain;
-      blockchain = config.blockchain;
-      actualProviderName = config.name;
-    }
+  constructor(config: ProviderConfig) {
+    this.config = config;
 
     // Get metadata from registry
-    const metadata = ProviderRegistry.getMetadata(blockchain, actualProviderName);
+    const metadata = ProviderRegistry.getMetadata(config.blockchain, config.name);
     if (!metadata) {
-      const available = ProviderRegistry.getAvailable(blockchain)
+      const available = ProviderRegistry.getAvailable(config.blockchain)
         .map((p) => p.name)
         .join(', ');
       const suggestions = [
-        `💡 Available providers for ${blockchain}: ${available}`,
-        `💡 Run 'pnpm run providers:list --blockchain ${blockchain}' to see all options`,
-        `💡 Check for typos in provider name: '${providerName}'`,
+        `💡 Available providers for ${config.blockchain}: ${available}`,
+        `💡 Run 'pnpm run providers:list --blockchain ${config.blockchain}' to see all options`,
+        `💡 Check for typos in provider name: '${config.name}'`,
         `💡 Use 'pnpm run providers:sync --fix' to sync configuration`,
       ];
 
       throw new Error(
-        `Provider '${providerName}' not found in registry for blockchain '${blockchain}'.\n${suggestions.join('\n')}`
+        `Provider '${config.name}' not found in registry for blockchain '${config.blockchain}'.\n${suggestions.join('\n')}`
       );
     }
     this.metadata = metadata;
 
     this.logger = getLogger(`${this.metadata.displayName.replace(/\s+/g, '')}`);
 
-    // Get base URL - use config if provided, otherwise use metadata default
-    this.baseUrl = config?.baseUrl || metadata.baseUrl;
+    // Use config values (which may override metadata defaults)
+    this.baseUrl = config.baseUrl;
 
     // Get API key from environment if required
     this.apiKey = this.getApiKey();
 
-    // Initialize HTTP client - use config if provided, otherwise use metadata defaults
+    // Initialize HTTP client
     this.httpClient = new HttpClient({
       baseUrl: this.baseUrl,
       providerName: this.metadata.name,
-      rateLimit: config?.rateLimit || this.metadata.defaultConfig.rateLimit,
-      retries: config?.retries || this.metadata.defaultConfig.retries,
-      timeout: config?.timeout || this.metadata.defaultConfig.timeout,
+      rateLimit: config.rateLimit,
+      retries: config.retries,
+      timeout: config.timeout,
     });
 
     this.logger.debug(
-      `Initialized ${this.metadata.displayName} - BaseUrl: ${this.baseUrl}, HasApiKey: ${this.apiKey !== 'YourApiKeyToken'}`
+      `Initialized ${this.metadata.displayName} for ${config.blockchain} - BaseUrl: ${this.baseUrl}, HasApiKey: ${this.apiKey !== 'YourApiKeyToken'}`
     );
   }
 
   get blockchain(): string {
-    return this.metadata.blockchain;
+    return this.config.blockchain;
   }
 
   get capabilities(): ProviderCapabilities {

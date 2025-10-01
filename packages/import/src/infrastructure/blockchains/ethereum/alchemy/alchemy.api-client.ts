@@ -2,6 +2,7 @@ import { maskAddress } from '@exitbook/shared-utils';
 
 import { BlockchainApiClient } from '../../shared/api/blockchain-api-client.ts';
 import { RegisterApiClient } from '../../shared/registry/decorators.js';
+import type { ProviderConfig } from '../../shared/registry/provider-registry.js';
 import type { JsonRpcResponse, ProviderOperation } from '../../shared/types.js';
 
 import type {
@@ -35,12 +36,8 @@ import type {
   requiresApiKey: true,
 })
 export class AlchemyApiClient extends BlockchainApiClient {
-  constructor() {
-    super('ethereum', 'alchemy');
-
-    this.logger.debug(
-      `Initialized AlchemyApiClient from registry metadata - BaseUrl: ${this.baseUrl.replace(this.apiKey, 'HIDDEN')}`
-    );
+  constructor(config: ProviderConfig) {
+    super(config);
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {

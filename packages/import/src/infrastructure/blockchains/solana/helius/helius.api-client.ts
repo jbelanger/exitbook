@@ -1,6 +1,7 @@
 import { maskAddress } from '@exitbook/shared-utils';
 
 import { BlockchainApiClient } from '../../shared/api/blockchain-api-client.ts';
+import type { ProviderConfig } from '../../shared/index.ts';
 import { RegisterApiClient } from '../../shared/registry/decorators.js';
 import type { JsonRpcResponse, ProviderOperation } from '../../shared/types.js';
 import type { SolanaAccountBalance, SolanaSignature, SolanaTokenAccountsResponse } from '../types.js';
@@ -61,8 +62,8 @@ export class HeliusApiClient extends BlockchainApiClient {
   private tokenMetadataCache = new Map<string, Record<string, unknown>>();
   private tokenSymbolCache = new Map<string, string>();
 
-  constructor() {
-    super('solana', 'helius');
+  constructor(config: ProviderConfig) {
+    super(config);
 
     if (this.apiKey && this.apiKey !== 'YourApiKeyToken') {
       const heliusUrl = `${this.baseUrl}/?api-key=${this.apiKey}`;

@@ -1,6 +1,7 @@
 import { maskAddress } from '@exitbook/shared-utils';
 
 import { BlockchainApiClient } from '../../shared/api/blockchain-api-client.ts';
+import type { ProviderConfig } from '../../shared/index.ts';
 import { RegisterApiClient } from '../../shared/registry/decorators.js';
 import type { ProviderOperation } from '../../shared/types.js';
 import type { AddressInfo } from '../types.js';
@@ -29,8 +30,8 @@ import type { MempoolAddressInfo, MempoolTransaction } from './mempool-space.typ
   requiresApiKey: false,
 })
 export class MempoolSpaceApiClient extends BlockchainApiClient {
-  constructor() {
-    super('bitcoin', 'mempool.space');
+  constructor(config: ProviderConfig) {
+    super(config);
 
     this.logger.debug(`Initialized MempoolSpaceApiClient from registry metadata - BaseUrl: ${this.baseUrl}`);
   }

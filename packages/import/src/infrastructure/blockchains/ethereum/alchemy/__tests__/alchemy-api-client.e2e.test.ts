@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
+import { ProviderRegistry } from '../../../shared/index.ts';
 import { AlchemyApiClient } from '../alchemy.api-client.ts';
 import type { AlchemyAssetTransfer, AlchemyTokenBalance } from '../alchemy.types.ts';
 
 describe('AlchemyApiClient Integration', () => {
-  const provider = new AlchemyApiClient();
+  const config = ProviderRegistry.createDefaultConfig('ethereum', 'alchemy');
+  const provider = new AlchemyApiClient(config);
   const testAddress = '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045'; // Vitalik's address
 
   describe('Health Checks', () => {

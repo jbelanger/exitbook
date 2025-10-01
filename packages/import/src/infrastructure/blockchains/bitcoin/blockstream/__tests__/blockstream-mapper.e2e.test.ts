@@ -2,13 +2,15 @@ import type { RawTransactionMetadata } from '@exitbook/import/app/ports/importer
 import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transaction-processor.interface.js';
 import { beforeAll, describe, expect, it } from 'vitest';
 
+import { ProviderRegistry } from '../../../shared/index.ts';
 import { BlockstreamApiClient } from '../blockstream-api-client.js';
 import { BlockstreamTransactionMapper } from '../blockstream.mapper.js';
 import type { BlockstreamTransaction } from '../blockstream.types.js';
 
 describe('BlockstreamTransactionMapper E2E', () => {
   const mapper = new BlockstreamTransactionMapper();
-  const apiClient = new BlockstreamApiClient();
+  const config = ProviderRegistry.createDefaultConfig('bitcoin', 'blockstream');
+  const apiClient = new BlockstreamApiClient(config);
   const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa'; // Genesis block address
 
   let cachedTransactions: BlockstreamTransaction[];

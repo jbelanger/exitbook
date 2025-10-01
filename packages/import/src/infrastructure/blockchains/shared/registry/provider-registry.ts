@@ -68,10 +68,20 @@ export class ProviderRegistry {
 
   /**
    * Create a provider instance
+   * Supports multi-chain providers via supportedChains metadata
    */
   static createProvider(blockchain: string, name: string, config: ProviderConfig): IBlockchainProvider {
-    const key = `${blockchain}:${name}`;
-    const factory = this.providers.get(key);
+    // Try exact match first (primary blockchain)
+    const exactKey = `${blockchain}:${name}`;
+    let factory = this.providers.get(exactKey);
+
+    // If not found, search for multi-chain provider that supports this blockchain
+    if (!factory) {
+      factory = Array.from(this.providers.values()).find((f) => {
+        const chains = f.metadata.supportedChains || [f.metadata.blockchain];
+        return f.metadata.name === name && chains.includes(blockchain);
+      });
+    }
 
     if (!factory) {
       const available = this.getAvailable(blockchain).map((p) => p.name);
@@ -100,11 +110,16 @@ export class ProviderRegistry {
 
   /**
    * Get all available providers for a blockchain
+   * Supports multi-chain providers via supportedChains metadata
    */
   static getAvailable(blockchain: string): ProviderInfo[] {
-    return Array.from(this.providers.entries())
-      .filter(([key]) => key.startsWith(`${blockchain}:`))
-      .map(([_, factory]) => {
+    return Array.from(this.providers.values())
+      .filter((factory) => {
+        // Check if provider supports this blockchain
+        const chains = factory.metadata.supportedChains || [factory.metadata.blockchain];
+        return chains.includes(blockchain);
+      })
+      .map((factory) => {
         return {
           blockchain: factory.metadata.blockchain,
           capabilities: factory.metadata.capabilities,
@@ -119,18 +134,40 @@ export class ProviderRegistry {
 
   /**
    * Get provider metadata
+   * Supports multi-chain providers via supportedChains metadata
    */
   static getMetadata(blockchain: string, name: string): ProviderMetadata | undefined {
-    const key = `${blockchain}:${name}`;
-    const factory = this.providers.get(key);
+    // Try exact match first
+    const exactKey = `${blockchain}:${name}`;
+    let factory = this.providers.get(exactKey);
+
+    // If not found, search for multi-chain provider
+    if (!factory) {
+      factory = Array.from(this.providers.values()).find((f) => {
+        const chains = f.metadata.supportedChains || [f.metadata.blockchain];
+        return f.metadata.name === name && chains.includes(blockchain);
+      });
+    }
+
     return factory?.metadata || undefined;
   }
 
   /**
    * Check if a provider is registered
+   * Supports multi-chain providers via supportedChains metadata
    */
   static isRegistered(blockchain: string, name: string): boolean {
-    return this.providers.has(`${blockchain}:${name}`);
+    // Try exact match first
+    const exactKey = `${blockchain}:${name}`;
+    if (this.providers.has(exactKey)) {
+      return true;
+    }
+
+    // Check if any multi-chain provider supports this blockchain
+    return Array.from(this.providers.values()).some((factory) => {
+      const chains = factory.metadata.supportedChains || [factory.metadata.blockchain];
+      return factory.metadata.name === name && chains.includes(blockchain);
+    });
   }
 
   /**
@@ -144,6 +181,30 @@ export class ProviderRegistry {
     }
 
     this.providers.set(key, factory);
+  }
+
+  /**
+   * Create a default ProviderConfig from metadata
+   * Useful for tests and manual provider instantiation
+   */
+  static createDefaultConfig(blockchain: string, name: string): ProviderConfig {
+    const metadata = this.getMetadata(blockchain, name);
+    if (!metadata) {
+      throw new Error(`Provider '${name}' not found for blockchain '${blockchain}'`);
+    }
+
+    return {
+      baseUrl: metadata.baseUrl,
+      blockchain,
+      displayName: metadata.displayName,
+      enabled: true,
+      name: metadata.name,
+      priority: 1,
+      rateLimit: metadata.defaultConfig.rateLimit,
+      requiresApiKey: metadata.requiresApiKey,
+      retries: metadata.defaultConfig.retries,
+      timeout: metadata.defaultConfig.timeout,
+    };
   }
 
   /**

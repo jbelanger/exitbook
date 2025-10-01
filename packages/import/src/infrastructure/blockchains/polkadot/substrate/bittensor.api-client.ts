@@ -1,3 +1,4 @@
+import type { ProviderConfig } from '../../shared/index.ts';
 import { RegisterApiClient } from '../../shared/registry/decorators.js';
 
 import { BaseSubstrateApiClient } from './substrate.api-client.base.js';
@@ -27,12 +28,12 @@ import { SUBSTRATE_CHAINS } from './substrate.types.js';
   requiresApiKey: true,
 })
 export class BittensorApiClient extends BaseSubstrateApiClient {
-  constructor() {
+  constructor(config: ProviderConfig) {
     const chainConfig = SUBSTRATE_CHAINS['bittensor'];
     if (!chainConfig) {
       throw new Error('Bittensor chain configuration not found');
     }
-    super('bittensor', 'taostats', chainConfig);
+    super(config, chainConfig);
 
     // Override HTTP client to use correct authorization format for Taostats (no "Bearer" prefix)
     this.reinitializeHttpClient({

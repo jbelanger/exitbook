@@ -2,6 +2,7 @@ import { maskAddress } from '@exitbook/shared-utils';
 import { ServiceError } from '@exitbook/shared-utils';
 
 import { BlockchainApiClient } from '../../shared/api/blockchain-api-client.ts';
+import type { ProviderConfig } from '../../shared/index.ts';
 import { RegisterApiClient } from '../../shared/registry/decorators.js';
 import type { ProviderOperation } from '../../shared/types.js';
 
@@ -41,8 +42,8 @@ import type {
   requiresApiKey: false,
 })
 export class SnowtraceApiClient extends BlockchainApiClient {
-  constructor() {
-    super('avalanche', 'snowtrace');
+  constructor(config: ProviderConfig) {
+    super(config);
   }
 
   async execute<T>(operation: ProviderOperation<T>): Promise<T> {

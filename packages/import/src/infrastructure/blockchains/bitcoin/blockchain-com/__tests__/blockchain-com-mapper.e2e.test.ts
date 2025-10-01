@@ -2,13 +2,15 @@ import type { RawTransactionMetadata } from '@exitbook/import/app/ports/importer
 import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transaction-processor.interface.js';
 import { beforeAll, describe, expect, it } from 'vitest';
 
+import { ProviderRegistry } from '../../../shared/index.ts';
 import { BlockchainComApiClient } from '../blockchain-com.api-client.js';
 import { BlockchainComTransactionMapper } from '../blockchain-com.mapper.js';
 import type { BlockchainComTransaction } from '../blockchain-com.types.js';
 
 describe('BlockchainComTransactionMapper E2E', () => {
   const mapper = new BlockchainComTransactionMapper();
-  const apiClient = new BlockchainComApiClient();
+  const config = ProviderRegistry.createDefaultConfig('bitcoin', 'blockchain-com');
+  const apiClient = new BlockchainComApiClient(config);
   const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa'; // Genesis block address
 
   let cachedTransactions: BlockchainComTransaction[];

@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
+import { ProviderRegistry } from '../../../shared/index.ts';
 import { SnowtraceApiClient } from '../snowtrace.api-client.ts';
 import type { SnowtraceBalanceResponse } from '../snowtrace.types.ts';
 
 describe('SnowtraceApiClient Integration', () => {
-  const provider = new SnowtraceApiClient();
+  const config = ProviderRegistry.createDefaultConfig('avalanche', 'snowtrace');
+  const provider = new SnowtraceApiClient(config);
+
   const testAddress = '0x70c68a08d8c1C1Fa1CD5E5533e85a77c4Ac07022';
 
   describe('Health Checks', () => {

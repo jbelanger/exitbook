@@ -2,6 +2,7 @@ import type { RawTransactionMetadata } from '@exitbook/import/app/ports/importer
 import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transaction-processor.interface.js';
 import { beforeAll, describe, expect, it } from 'vitest';
 
+import { ProviderRegistry } from '../../../shared/index.ts';
 import { BlockCypherApiClient } from '../blockcypher.api-client.js';
 import { BlockCypherTransactionMapper } from '../blockcypher.mapper.js';
 import type { BlockCypherTransaction } from '../blockcypher.types.js';
@@ -9,7 +10,8 @@ import type { BlockCypherTransaction } from '../blockcypher.types.js';
 describe('BlockCypherTransactionMapper E2E', () => {
   let mapper: BlockCypherTransactionMapper;
   // Reuse same client across tests to share rate limiter
-  const client = new BlockCypherApiClient();
+  const config = ProviderRegistry.createDefaultConfig('bitcoin', 'blockcypher');
+  const client = new BlockCypherApiClient(config);
 
   beforeAll(() => {
     if (!process.env['BLOCKCYPHER_API_KEY'] || process.env['BLOCKCYPHER_API_KEY'] === 'YourApiKeyToken') {

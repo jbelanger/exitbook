@@ -23,31 +23,15 @@ import {
  */
 export function RegisterApiClient(
   metadata: ProviderMetadata
-): <T extends new (...args: unknown[]) => IBlockchainProvider>(constructor: T) => T {
-  return function <T extends new (...args: unknown[]) => IBlockchainProvider>(constructor: T): T {
-    // Determine which chains to register for
-    const chains = metadata.supportedChains || [metadata.blockchain];
+): <T extends new (config: ProviderConfig) => IBlockchainProvider>(constructor: T) => T {
+  return function <T extends new (config: ProviderConfig) => IBlockchainProvider>(constructor: T): T {
+    const factory: ProviderFactory = {
+      create: (config: ProviderConfig) => new constructor(config),
+      metadata, // Store metadata as-is (preserves supportedChains)
+    };
 
-    // Register the provider for each supported chain
-    for (const chain of chains) {
-      const factory: ProviderFactory = {
-        create: (config: ProviderConfig) => {
-          // Ensure blockchain is set to the correct chain for this registration
-          const configWithChain: ProviderConfig = {
-            ...config,
-            blockchain: chain,
-          };
-          return new constructor(configWithChain);
-        },
-        metadata: {
-          ...metadata,
-          blockchain: chain, // Set the current chain
-        },
-      };
-
-      // Register the factory for this chain
-      ProviderRegistry.register(factory);
-    }
+    // Register once with primary blockchain as key
+    ProviderRegistry.register(factory);
 
     return constructor;
   };

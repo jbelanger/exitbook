@@ -1,6 +1,7 @@
 import { maskAddress } from '@exitbook/shared-utils';
 
 import { TatumApiClientBase } from '../../shared/api/tatum-api-client-base.ts';
+import type { ProviderConfig } from '../../shared/index.ts';
 import { RegisterApiClient } from '../../shared/registry/decorators.js';
 import type { ProviderOperation } from '../../shared/types.js';
 import type { AddressInfo } from '../types.js';
@@ -30,8 +31,8 @@ import type { TatumBitcoinTransaction, TatumBitcoinBalance } from './tatum.types
   requiresApiKey: true,
 })
 export class TatumBitcoinApiClient extends TatumApiClientBase<TatumBitcoinTransaction, TatumBitcoinBalance> {
-  constructor() {
-    super('bitcoin', 'tatum');
+  constructor(config: ProviderConfig) {
+    super(config);
 
     this.logger.debug(
       `Initialized TatumBitcoinApiClient - BaseUrl: ${this.baseUrl}, HasApiKey: ${this.apiKey !== 'YourApiKeyToken'}`

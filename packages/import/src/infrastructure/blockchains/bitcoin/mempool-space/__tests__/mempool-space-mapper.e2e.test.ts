@@ -2,13 +2,15 @@ import type { RawTransactionMetadata } from '@exitbook/import/app/ports/importer
 import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transaction-processor.interface.js';
 import { beforeAll, describe, expect, it } from 'vitest';
 
+import { ProviderRegistry } from '../../../shared/index.ts';
 import { MempoolSpaceApiClient } from '../mempool-space-api-client.js';
 import { MempoolSpaceTransactionMapper } from '../mempool-space.mapper.js';
 import type { MempoolTransaction } from '../mempool-space.types.js';
 
 describe('MempoolSpaceTransactionMapper E2E', () => {
   const mapper = new MempoolSpaceTransactionMapper();
-  const apiClient = new MempoolSpaceApiClient();
+  const config = ProviderRegistry.createDefaultConfig('bitcoin', 'mempool-space');
+  const apiClient = new MempoolSpaceApiClient(config);
   const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa'; // Genesis block address
 
   let cachedTransactions: MempoolTransaction[];

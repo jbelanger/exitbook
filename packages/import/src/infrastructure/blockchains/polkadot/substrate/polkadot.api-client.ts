@@ -1,3 +1,4 @@
+import type { ProviderConfig } from '../../shared/index.ts';
 import { RegisterApiClient } from '../../shared/registry/decorators.js';
 
 import { BaseSubstrateApiClient } from './substrate.api-client.base.js';
@@ -26,12 +27,12 @@ import { SUBSTRATE_CHAINS } from './substrate.types.js';
   requiresApiKey: false,
 })
 export class PolkadotApiClient extends BaseSubstrateApiClient {
-  constructor() {
+  constructor(config: ProviderConfig) {
     const chainConfig = SUBSTRATE_CHAINS['polkadot'];
     if (!chainConfig) {
       throw new Error('Polkadot chain configuration not found');
     }
-    super('polkadot', 'subscan', chainConfig);
+    super(config, chainConfig);
   }
 
   protected async getTransactionsFromExplorer(address: string, _since?: number): Promise<unknown> {

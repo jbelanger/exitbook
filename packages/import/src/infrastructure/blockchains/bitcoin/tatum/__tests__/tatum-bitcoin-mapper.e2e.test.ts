@@ -2,6 +2,7 @@ import type { RawTransactionMetadata } from '@exitbook/import/app/ports/importer
 import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transaction-processor.interface.js';
 import { beforeAll, describe, expect, it } from 'vitest';
 
+import { ProviderRegistry } from '../../../shared/index.ts';
 import { TatumBitcoinApiClient } from '../tatum-bitcoin.api-client.js';
 import { TatumBitcoinTransactionMapper } from '../tatum.mapper.js';
 import type { TatumBitcoinTransaction } from '../tatum.types.js';
@@ -9,7 +10,9 @@ import type { TatumBitcoinTransaction } from '../tatum.types.js';
 describe('TatumBitcoinTransactionMapper E2E', () => {
   let mapper: TatumBitcoinTransactionMapper;
   // Reuse same client across tests to share rate limiter
-  const client = new TatumBitcoinApiClient();
+
+  const config = ProviderRegistry.createDefaultConfig('bitcoin', 'tatum');
+  const client = new TatumBitcoinApiClient(config);
 
   beforeAll(() => {
     if (!process.env['TATUM_API_KEY'] || process.env['TATUM_API_KEY'] === 'YourApiKeyToken') {

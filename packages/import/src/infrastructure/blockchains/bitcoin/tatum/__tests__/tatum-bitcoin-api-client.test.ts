@@ -1,6 +1,7 @@
 import type { HttpRequestOptions } from '@exitbook/shared-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { ProviderRegistry } from '../../../shared/index.ts';
 import type { ProviderOperation } from '../../../shared/types.js';
 import type { AddressInfo } from '../../types.js';
 import { TatumBitcoinApiClient } from '../tatum-bitcoin.api-client.js';
@@ -33,7 +34,8 @@ describe('TatumBitcoinApiClient', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    client = new TatumBitcoinApiClient();
+    const config = ProviderRegistry.createDefaultConfig('bitcoin', 'tatum');
+    client = new TatumBitcoinApiClient(config);
     mockHttpGet = vi.mocked((...args: [string, Omit<HttpRequestOptions, 'method'>?]) =>
       client['httpClient'].get(...args)
     );

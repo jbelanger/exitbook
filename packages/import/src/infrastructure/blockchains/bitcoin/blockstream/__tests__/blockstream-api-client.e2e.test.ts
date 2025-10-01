@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
+import { ProviderRegistry } from '../../../shared/index.ts';
 import type { AddressInfo } from '../../types.js';
 import { BlockstreamApiClient } from '../blockstream-api-client.js';
 import type { BlockstreamTransaction } from '../blockstream.types.js';
 
 describe('BlockstreamApiClient E2E', () => {
-  const client = new BlockstreamApiClient();
+  const config = ProviderRegistry.createDefaultConfig('bitcoin', 'blockstream');
+  const client = new BlockstreamApiClient(config);
   const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa'; // Genesis block address
 
   it('should connect to Blockstream API and test health', async () => {

@@ -2,13 +2,15 @@ import type { RawTransactionMetadata } from '@exitbook/import/app/ports/importer
 import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transaction-processor.interface.js';
 import { beforeAll, describe, expect, it } from 'vitest';
 
+import { ProviderRegistry } from '../../../shared/index.ts';
 import { SnowtraceApiClient } from '../snowtrace.api-client.js';
 import { SnowtraceTransactionMapper } from '../snowtrace.mapper.js';
 import type { SnowtraceInternalTransaction, SnowtraceTokenTransfer, SnowtraceTransaction } from '../snowtrace.types.js';
 
 describe('SnowtraceTransactionMapper E2E', () => {
   const mapper = new SnowtraceTransactionMapper();
-  const apiClient = new SnowtraceApiClient();
+  const config = ProviderRegistry.createDefaultConfig('avalanche', 'snowtrace');
+  const apiClient = new SnowtraceApiClient(config);
   // AVAX address with ~964 transactions for testing
   const testAddress = '0x70c68a08d8c1C1Fa1CD5E5533e85a77c4Ac07022';
 
