@@ -3,7 +3,7 @@ import type { ImportParams, RawTransactionMetadata } from '@exitbook/import/app/
 import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
 import type { Logger } from '@exitbook/shared-logger';
 import { getLogger } from '@exitbook/shared-logger';
-import { err, ok, type Result } from 'neverthrow';
+import { err, ok, Result } from 'neverthrow';
 
 import type { ImportResult } from '../../index.js';
 import type { IBlockchainNormalizer } from '../ports/blockchain-normalizer.interface.ts';
@@ -51,7 +51,7 @@ export class TransactionIngestionService {
       Error
     >
   > {
-    const [pendingResult, processedItemsResult, failedItemsResult] = await Promise.all([
+    const results = await Promise.all([
       this.rawDataRepository.load({
         processingStatus: 'pending',
         sourceId: sourceId,
@@ -66,29 +66,12 @@ export class TransactionIngestionService {
       }),
     ]);
 
-    // Handle Result types - fail fast if any loading fails
-    if (pendingResult.isErr()) {
-      return err(pendingResult.error);
-    }
-
-    if (processedItemsResult.isErr()) {
-      return err(processedItemsResult.error);
-    }
-
-    if (failedItemsResult.isErr()) {
-      return err(failedItemsResult.error);
-    }
-
-    const pending = pendingResult.value;
-    const processedItems = processedItemsResult.value;
-    const failedItems = failedItemsResult.value;
-
-    return ok({
+    return Result.combine(results).map(([pending, processedItems, failedItems]) => ({
       failed: failedItems.length,
       pending: pending.length,
       processed: processedItems.length,
       total: pending.length + processedItems.length + failedItems.length,
-    });
+    }));
   }
 
   /**
@@ -166,8 +149,7 @@ export class TransactionIngestionService {
         );
 
         if (finalizeResult.isErr()) {
-          this.logger.error(`Failed to finalize session ${importSessionId}: ${finalizeResult.error.message}`);
-          // Continue - don't fail the import if session finalization fails
+          return err(finalizeResult.error);
         }
 
         // Update session with import metadata if available
@@ -186,13 +168,12 @@ export class TransactionIngestionService {
           });
 
           if (updateResult.isErr()) {
-            this.logger.error(`Failed to update session ${importSessionId} metadata: ${updateResult.error.message}`);
-            // Continue - don't fail the import if session update fails
-          } else {
-            this.logger.debug(
-              `Updated session ${importSessionId} with metadata keys: ${Object.keys(importResult.metadata).join(', ')}`
-            );
+            return err(updateResult.error);
           }
+
+          this.logger.debug(
+            `Updated session ${importSessionId} with metadata keys: ${Object.keys(importResult.metadata).join(', ')}`
+          );
         }
 
         this.logger.debug(`Successfully finalized session ${importSessionId}`);
@@ -206,6 +187,8 @@ export class TransactionIngestionService {
         providerId: params.providerId ?? undefined,
       });
     } catch (error) {
+      const originalError = error instanceof Error ? error : new Error(String(error));
+
       // Update session with error if we created it
       if (sessionCreated && typeof importSessionId === 'number' && importSessionId > 0) {
         const finalizeResult = await this.sessionRepository.finalize(
@@ -214,17 +197,22 @@ export class TransactionIngestionService {
           startTime,
           0,
           0,
-          error instanceof Error ? error.message : String(error),
+          originalError.message,
           error instanceof Error ? { stack: error.stack } : { error: String(error) }
         );
 
         if (finalizeResult.isErr()) {
           this.logger.error(`Failed to update session on error: ${finalizeResult.error.message}`);
+          return err(
+            new Error(
+              `Import failed: ${originalError.message}. Additionally, failed to update session: ${finalizeResult.error.message}`
+            )
+          );
         }
       }
 
-      this.logger.error(`Import failed for ${sourceId}: ${String(error)}`);
-      return err(error instanceof Error ? error : new Error(String(error)));
+      this.logger.error(`Import failed for ${sourceId}: ${originalError.message}`);
+      return err(originalError);
     }
   }
 
@@ -395,41 +383,33 @@ export class TransactionIngestionService {
       const transactions = allTransactions;
 
       // Save processed transactions to database
-      // Note: This would typically use a transaction service, but for now we'll use the database directly
       const saveResults = await Promise.all(
-        transactions.map(async (transaction) => {
-          const result = await this.transactionRepository.save(transaction, transaction.sessionId);
-          return result;
-        })
+        transactions.map((transaction) => this.transactionRepository.save(transaction, transaction.sessionId))
       );
 
-      const errors: string[] = [];
-      const failed = saveResults.filter((result, index) => {
-        if (result.isErr()) {
+      const combinedResult = Result.combineWithAllErrors(saveResults);
+      if (combinedResult.isErr()) {
+        const errors = combinedResult.error;
+        const failed = errors.length;
+        const errorMessages = errors.map((err, index) => {
           const transaction = transactions[index];
           const txId = transaction?.id ?? `index-${index}`;
-          const errorMessage = result.error.message;
-          errors.push(`Failed to save transaction ${txId}: ${errorMessage}`);
-          this.logger.error(`CRITICAL: Failed to save transaction ${txId}: ${errorMessage}`);
-          return true;
-        }
-        return false;
-      }).length;
+          return `Transaction ${txId}: ${err.message}`;
+        });
 
-      const savedCount = saveResults.length - failed;
-
-      // STRICT MODE: Fail if ANY transactions could not be saved
-      if (failed > 0) {
         this.logger.error(
-          `CRITICAL: ${failed}/${transactions.length} transactions failed to save. This would corrupt portfolio calculations.`
+          `CRITICAL: ${failed}/${transactions.length} transactions failed to save:\n${errorMessages.map((msg, i) => `  ${i + 1}. ${msg}`).join('\n')}`
         );
+
         return err(
           new Error(
             `Cannot proceed: ${failed}/${transactions.length} transactions failed to save to database. ` +
-              `This would corrupt portfolio calculations. Errors: ${errors.join('; ')}`
+              `This would corrupt portfolio calculations. Errors: ${errorMessages.join('; ')}`
           )
         );
       }
+
+      const savedCount = combinedResult.value.length;
 
       // Mark all processed raw data items as processed - both those that generated transactions and those that were skipped
       const allProcessedItems = sessionsToProcess.flatMap((sessionData) =>
