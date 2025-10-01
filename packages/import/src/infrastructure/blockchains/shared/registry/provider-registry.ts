@@ -16,7 +16,7 @@ export interface NetworkEndpoint {
 export interface ProviderMetadata {
   apiKeyEnvVar?: string | undefined; // Environment variable name for API key
   baseUrl: string;
-  blockchain: string;
+  blockchain: string; // Primary blockchain (for backward compatibility)
   capabilities: ProviderCapabilities;
   defaultConfig: {
     rateLimit: RateLimitConfig;
@@ -27,6 +27,7 @@ export interface ProviderMetadata {
   displayName: string;
   name: string;
   requiresApiKey?: boolean | undefined;
+  supportedChains?: string[] | undefined; // For multi-chain providers (EVM chains)
 }
 
 /**

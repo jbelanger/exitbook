@@ -108,9 +108,9 @@ export default [
       ],
       'perfectionist/sort-array-includes': ['error', { type: 'alphabetical', order: 'asc' }],
       'perfectionist/sort-enums': ['error', { type: 'alphabetical', order: 'asc' }],
-      'perfectionist/sort-interfaces': ['error', { type: 'alphabetical', order: 'asc' }],
+      //'perfectionist/sort-interfaces': ['error', { type: 'alphabetical', order: 'asc' }],
       'perfectionist/sort-object-types': ['error', { type: 'alphabetical', order: 'asc' }],
-      'perfectionist/sort-objects': ['error', { type: 'alphabetical', order: 'asc' }],
+      //'perfectionist/sort-objects': ['error', { type: 'alphabetical', order: 'asc' }],
 
       // Logical class member ordering
       '@typescript-eslint/member-ordering': [

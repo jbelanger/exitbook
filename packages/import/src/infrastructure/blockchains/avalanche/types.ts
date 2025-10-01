@@ -12,35 +12,35 @@ export interface AvalancheTransaction {
   currency: string; // 'AVAX' for native transfers, token symbol for token transfers
 
   // Fee information (always in AVAX)
-  feeAmount?: string; // Gas fee in wei
-  feeCurrency?: string; // Always 'AVAX'
+  feeAmount?: string | undefined; // Gas fee in wei
+  feeCurrency?: string | undefined; // Always 'AVAX'
 
   // Transaction flow data
   from: string;
-  functionName?: string; // For contract calls
+  functionName?: string | undefined; // For contract calls
   gasPrice?: string | undefined;
 
   gasUsed?: string | undefined;
   // Core transaction data
   id: string;
 
-  inputData?: string; // Full input data for contract calls
+  inputData?: string | undefined; // Full input data for contract calls
   // Additional metadata for complex transactions
-  methodId?: string; // First 4 bytes of input data
+  methodId?: string | undefined; // First 4 bytes of input data
   providerId: string;
   status: 'success' | 'failed' | 'pending';
   timestamp: number;
 
   to: string;
   // Token-specific information (for ERC-20/721/1155 transfers)
-  tokenAddress?: string; // Contract address for token transfers
-  tokenDecimals?: number; // Token decimals
-  tokenSymbol?: string; // Token symbol
+  tokenAddress?: string | undefined; // Contract address for token transfers
+  tokenDecimals?: number | undefined; // Token decimals
+  tokenSymbol?: string | undefined; // Token symbol
 
-  tokenType?: 'erc20' | 'erc721' | 'erc1155' | 'native'; // Type of transfer
+  tokenType?: 'erc20' | 'erc721' | 'erc1155' | 'native' | undefined; // Type of transfer
 
   // Avalanche-specific data
-  traceId?: string; // For internal transactions
+  traceId?: string | undefined; // For internal transactions
   // Transaction type classification (basic, will be refined by processor)
   type: 'transfer' | 'token_transfer' | 'internal' | 'contract_call';
 }

@@ -17,6 +17,13 @@ export type ProviderOperationParams =
       type: 'getRawAddressTransactions';
       until?: number | undefined;
     }
+  | {
+      address: string;
+      limit?: number | undefined;
+      since?: number | undefined;
+      type: 'getRawAddressInternalTransactions';
+      until?: number | undefined;
+    }
   | { address: string; contractAddresses?: string[] | undefined; type: 'getAddressBalance' }
   | {
       address: string;
@@ -77,6 +84,7 @@ export type ProviderOperationType =
   | 'getTokenTransactions'
   | 'getTokenBalances'
   | 'getRawAddressTransactions'
+  | 'getRawAddressInternalTransactions'
   | 'getRawAddressBalance'
   | 'getRawTokenBalances'
   | 'getAddressInfo'
