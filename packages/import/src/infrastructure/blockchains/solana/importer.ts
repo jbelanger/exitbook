@@ -30,8 +30,8 @@ export class SolanaTransactionImporter implements IImporter {
       throw new Error('Provider manager required for Solana importer');
     }
 
-    // Auto-register providers for solana mainnet
-    this.providerManager.autoRegisterFromConfig('solana', 'mainnet', options?.preferredProvider);
+    // Auto-register providers for solana
+    this.providerManager.autoRegisterFromConfig('solana', options?.preferredProvider);
 
     this.logger.info(
       `Initialized Solana transaction importer - ProvidersCount: ${this.providerManager.getProviders('solana').length}`

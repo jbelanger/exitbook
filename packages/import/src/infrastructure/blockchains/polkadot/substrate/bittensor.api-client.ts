@@ -6,6 +6,7 @@ import { SUBSTRATE_CHAINS } from './substrate.types.js';
 
 @RegisterApiClient({
   apiKeyEnvVar: 'TAOSTATS_API_KEY',
+  baseUrl: 'https://api.taostats.io/api',
   blockchain: 'bittensor',
   capabilities: {
     supportedOperations: ['getRawAddressTransactions', 'getRawAddressBalance'],
@@ -23,11 +24,6 @@ import { SUBSTRATE_CHAINS } from './substrate.types.js';
   description: 'Bittensor network provider with Taostats API integration',
   displayName: 'Bittensor Network Provider',
   name: 'taostats',
-  networks: {
-    mainnet: {
-      baseUrl: 'https://api.taostats.io/api',
-    },
-  },
   requiresApiKey: true,
 })
 export class BittensorApiClient extends BaseSubstrateApiClient {

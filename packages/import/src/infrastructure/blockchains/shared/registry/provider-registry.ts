@@ -15,6 +15,7 @@ export interface NetworkEndpoint {
  */
 export interface ProviderMetadata {
   apiKeyEnvVar?: string | undefined; // Environment variable name for API key
+  baseUrl: string;
   blockchain: string;
   capabilities: ProviderCapabilities;
   defaultConfig: {
@@ -25,11 +26,6 @@ export interface ProviderMetadata {
   description?: string | undefined;
   displayName: string;
   name: string;
-  networks: {
-    devnet?: NetworkEndpoint | undefined;
-    mainnet: NetworkEndpoint;
-    testnet?: NetworkEndpoint | undefined;
-  };
   requiresApiKey?: boolean | undefined;
 }
 
@@ -108,7 +104,7 @@ export class ProviderRegistry {
           displayName: factory.metadata.displayName,
           name: factory.metadata.name,
           requiresApiKey: factory.metadata.requiresApiKey || false,
-          supportedNetworks: Object.keys(factory.metadata.networks),
+          supportedNetworks: ['mainnet'],
         };
       });
   }

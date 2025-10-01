@@ -31,8 +31,8 @@ export class PolkadotTransactionImporter implements IImporter {
       throw new Error('Provider manager required for Polkadot importer');
     }
 
-    // Auto-register providers for polkadot mainnet
-    this.providerManager.autoRegisterFromConfig('polkadot', 'mainnet', options?.preferredProvider);
+    // Auto-register providers for polkadot
+    this.providerManager.autoRegisterFromConfig('polkadot', options?.preferredProvider);
 
     this.logger.info(
       `Initialized Polkadot transaction importer - ProvidersCount: ${this.providerManager.getProviders('polkadot').length}`

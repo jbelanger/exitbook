@@ -24,6 +24,7 @@ import type { BlockCypherTransaction, BlockCypherAddress } from './blockcypher.t
 
 @RegisterApiClient({
   apiKeyEnvVar: 'BLOCKCYPHER_API_KEY',
+  baseUrl: 'https://api.blockcypher.com/v1/btc/main',
   blockchain: 'bitcoin',
   capabilities: {
     supportedOperations: ['getRawAddressTransactions', 'getAddressInfo'],
@@ -42,14 +43,6 @@ import type { BlockCypherTransaction, BlockCypherAddress } from './blockcypher.t
     'Bitcoin blockchain API with high-performance transaction data and balance queries (API key optional for GET requests)',
   displayName: 'BlockCypher API',
   name: 'blockcypher',
-  networks: {
-    mainnet: {
-      baseUrl: 'https://api.blockcypher.com/v1/btc/main',
-    },
-    testnet: {
-      baseUrl: 'https://api.blockcypher.com/v1/btc/test3',
-    },
-  },
   requiresApiKey: false,
 })
 export class BlockCypherApiClient extends BlockchainApiClient {

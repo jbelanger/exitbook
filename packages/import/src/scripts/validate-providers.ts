@@ -46,8 +46,8 @@ function validateProvider(blockchain: string, providerName: string): ValidationR
       addError('Missing displayName in metadata');
     }
 
-    if (!metadata.networks?.mainnet?.baseUrl) {
-      addError('Missing mainnet baseUrl in metadata');
+    if (!metadata.baseUrl) {
+      addError('Missing baseUrl in metadata');
     }
 
     if (!metadata.defaultConfig?.rateLimit?.requestsPerSecond) {
@@ -93,10 +93,6 @@ function validateProvider(blockchain: string, providerName: string): ValidationR
     // Warnings for best practices
     if (!metadata.description) {
       addWarning('Missing description - consider adding for better documentation');
-    }
-
-    if (metadata.requiresApiKey && !metadata.networks?.testnet) {
-      addWarning('API key required but no testnet configuration - consider adding for testing');
     }
   } catch (error) {
     addError(`Validation error: ${error instanceof Error ? error.message : String(error)}`);

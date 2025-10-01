@@ -13,6 +13,7 @@ import type {
 } from './alchemy.types.ts';
 
 @RegisterApiClient({
+  baseUrl: 'https://eth-mainnet.g.alchemy.com/v2',
   blockchain: 'ethereum',
   capabilities: {
     supportedOperations: ['getRawAddressTransactions', 'getTokenTransactions', 'getRawTokenBalances'],
@@ -30,9 +31,6 @@ import type {
   description: 'Alchemy Ethereum API with enhanced features for transactions and token data',
   displayName: 'Alchemy',
   name: 'alchemy',
-  networks: {
-    mainnet: { baseUrl: 'https://eth-mainnet.g.alchemy.com/v2' },
-  },
   requiresApiKey: true,
 })
 export class AlchemyApiClient extends BlockchainApiClient {

@@ -38,8 +38,8 @@ export class BitcoinTransactionImporter implements IImporter {
     this.providerManager = blockchainProviderManager;
     this.addressGap = options?.addressGap || 20;
 
-    // Auto-register providers for bitcoin mainnet
-    this.providerManager.autoRegisterFromConfig('bitcoin', 'mainnet', options?.preferredProvider);
+    // Auto-register providers for bitcoin
+    this.providerManager.autoRegisterFromConfig('bitcoin', options?.preferredProvider);
 
     this.logger.info(
       `Initialized Bitcoin transaction importer - AddressGap: ${this.addressGap}, ProvidersCount: ${this.providerManager.getProviders('bitcoin').length}`

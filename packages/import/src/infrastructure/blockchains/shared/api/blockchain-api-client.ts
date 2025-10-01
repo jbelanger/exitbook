@@ -43,7 +43,7 @@ export abstract class BlockchainApiClient implements IBlockchainProvider {
     this.network = network;
 
     // Get base URL for the specified network
-    this.baseUrl = this.getNetworkBaseUrl(network);
+    this.baseUrl = metadata.baseUrl;
 
     // Get API key from environment if required
     this.apiKey = this.getApiKey();
@@ -469,21 +469,5 @@ export abstract class BlockchainApiClient implements IBlockchainProvider {
     }
 
     return apiKey;
-  }
-
-  // Helper methods
-  private getNetworkBaseUrl(network: string): string {
-    const networks = this.metadata.networks as Record<string, { baseUrl: string; websocketUrl?: string }>;
-    const networkConfig = networks[network];
-
-    if (!networkConfig?.baseUrl) {
-      const availableNetworks = Object.keys(this.metadata.networks);
-      throw new Error(
-        `Network '${network}' not supported by ${this.metadata.displayName}. ` +
-          `Available networks: ${availableNetworks.join(', ')}`
-      );
-    }
-
-    return networkConfig.baseUrl;
   }
 }

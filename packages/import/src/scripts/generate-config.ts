@@ -71,6 +71,7 @@ function generateConfiguration(): void {
           ...(metadata?.description && {
             description: metadata.description,
           }),
+          baseUrl: metadata?.baseUrl,
           capabilities: {
             supportedOperations: provider.capabilities.supportedOperations,
           },
@@ -89,23 +90,6 @@ function generateConfiguration(): void {
             },
             retries: metadata?.defaultConfig.retries,
             timeout: metadata?.defaultConfig.timeout,
-          },
-          networks: {
-            ...(metadata?.networks.mainnet && {
-              mainnet: {
-                baseUrl: metadata.networks.mainnet.baseUrl,
-              },
-            }),
-            ...(metadata?.networks.testnet && {
-              testnet: {
-                baseUrl: metadata.networks.testnet.baseUrl,
-              },
-            }),
-            ...(metadata?.networks.devnet && {
-              devnet: {
-                baseUrl: metadata.networks.devnet.baseUrl,
-              },
-            }),
           },
         };
 

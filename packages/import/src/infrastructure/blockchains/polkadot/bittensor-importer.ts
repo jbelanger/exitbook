@@ -31,8 +31,8 @@ export class BittensorTransactionImporter implements IImporter {
 
     this.providerManager = blockchainProviderManager;
 
-    // Auto-register providers for bittensor mainnet
-    this.providerManager.autoRegisterFromConfig('bittensor', 'mainnet', options?.preferredProvider);
+    // Auto-register providers for bittensor
+    this.providerManager.autoRegisterFromConfig('bittensor', options?.preferredProvider);
 
     this.logger.info(
       `Initialized Bittensor transaction importer - ProvidersCount: ${this.providerManager.getProviders('bittensor').length}`

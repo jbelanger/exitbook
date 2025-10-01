@@ -8,6 +8,7 @@ import type { AddressInfo } from '../types.js';
 import type { BlockstreamAddressInfo, BlockstreamTransaction } from './blockstream.types.js';
 
 @RegisterApiClient({
+  baseUrl: 'https://blockstream.info/api',
   blockchain: 'bitcoin',
   capabilities: {
     supportedOperations: ['getRawAddressTransactions', 'getAddressInfo'],
@@ -26,14 +27,6 @@ import type { BlockstreamAddressInfo, BlockstreamTransaction } from './blockstre
     'Bitcoin blockchain explorer API with comprehensive transaction data and pagination support (no API key required)',
   displayName: 'Blockstream.info API',
   name: 'blockstream.info',
-  networks: {
-    mainnet: {
-      baseUrl: 'https://blockstream.info/api',
-    },
-    testnet: {
-      baseUrl: 'https://blockstream.info/testnet/api',
-    },
-  },
   requiresApiKey: false,
 })
 export class BlockstreamApiClient extends BlockchainApiClient {

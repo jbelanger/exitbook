@@ -30,8 +30,8 @@ export class AvalancheTransactionImporter implements IImporter {
 
     this.providerManager = blockchainProviderManager;
 
-    // Auto-register providers for avalanche mainnet
-    this.providerManager.autoRegisterFromConfig('avalanche', 'mainnet', options?.preferredProvider);
+    // Auto-register providers for avalanche
+    this.providerManager.autoRegisterFromConfig('avalanche', options?.preferredProvider);
 
     this.logger.info(
       `Initialized Avalanche transaction importer - ProvidersCount: ${this.providerManager.getProviders('avalanche').length}`

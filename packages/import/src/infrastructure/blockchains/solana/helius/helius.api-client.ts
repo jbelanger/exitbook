@@ -18,6 +18,7 @@ export interface SolanaRawTokenBalanceData {
 
 @RegisterApiClient({
   apiKeyEnvVar: 'SOLANA_HELIUS_API_KEY',
+  baseUrl: 'https://rpc.helius.xyz',
   blockchain: 'solana',
   capabilities: {
     supportedOperations: ['getRawAddressTransactions', 'getRawAddressBalance', 'getRawTokenBalances'],
@@ -35,17 +36,6 @@ export interface SolanaRawTokenBalanceData {
   description: 'High-performance Solana RPC API with comprehensive transaction data and token support',
   displayName: 'Helius RPC API',
   name: 'helius',
-  networks: {
-    devnet: {
-      baseUrl: 'https://devnet.helius-rpc.com',
-    },
-    mainnet: {
-      baseUrl: 'https://rpc.helius.xyz',
-    },
-    testnet: {
-      baseUrl: 'https://rpc.helius.xyz',
-    },
-  },
   requiresApiKey: true,
 })
 export class HeliusApiClient extends BlockchainApiClient {

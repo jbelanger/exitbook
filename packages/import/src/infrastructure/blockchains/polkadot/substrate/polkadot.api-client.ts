@@ -5,6 +5,7 @@ import type { SubscanTransfersResponse } from './substrate.types.js';
 import { SUBSTRATE_CHAINS } from './substrate.types.js';
 
 @RegisterApiClient({
+  baseUrl: 'https://polkadot.api.subscan.io',
   blockchain: 'polkadot',
   capabilities: {
     supportedOperations: ['getRawAddressTransactions', 'getRawAddressBalance'],
@@ -22,14 +23,6 @@ import { SUBSTRATE_CHAINS } from './substrate.types.js';
   description: 'Polkadot and Kusama networks provider with Subscan API integration',
   displayName: 'Polkadot Networks Provider',
   name: 'subscan',
-  networks: {
-    mainnet: {
-      baseUrl: 'https://polkadot.api.subscan.io',
-    },
-    testnet: {
-      baseUrl: 'https://westend.api.subscan.io',
-    },
-  },
   requiresApiKey: false,
 })
 export class PolkadotApiClient extends BaseSubstrateApiClient {

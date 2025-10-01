@@ -13,6 +13,7 @@ export interface SolscanRawBalanceData {
 
 @RegisterApiClient({
   apiKeyEnvVar: 'SOLSCAN_API_KEY',
+  baseUrl: 'https://public-api.solscan.io',
   blockchain: 'solana',
   capabilities: {
     supportedOperations: ['getRawAddressTransactions', 'getRawAddressBalance'],
@@ -28,17 +29,6 @@ export interface SolscanRawBalanceData {
   description: 'Solana blockchain explorer API with transaction and account data access',
   displayName: 'Solscan API',
   name: 'solscan',
-  networks: {
-    devnet: {
-      baseUrl: 'https://api.solscan.io',
-    },
-    mainnet: {
-      baseUrl: 'https://public-api.solscan.io',
-    },
-    testnet: {
-      baseUrl: 'https://api.solscan.io',
-    },
-  },
   requiresApiKey: false,
 })
 export class SolscanApiClient extends BlockchainApiClient {

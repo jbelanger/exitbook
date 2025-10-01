@@ -15,6 +15,7 @@ import type {
 
 @RegisterApiClient({
   apiKeyEnvVar: 'SNOWTRACE_API_KEY',
+  baseUrl: 'https://api.routescan.io/v2/network/mainnet/evm/43114/etherscan/api',
   blockchain: 'avalanche',
   capabilities: {
     supportedOperations: [
@@ -37,14 +38,6 @@ import type {
   description: 'Avalanche blockchain explorer API with comprehensive transaction and balance data',
   displayName: 'Snowtrace API',
   name: 'snowtrace',
-  networks: {
-    mainnet: {
-      baseUrl: 'https://api.routescan.io/v2/network/mainnet/evm/43114/etherscan/api',
-    },
-    testnet: {
-      baseUrl: 'https://api.routescan.io/v2/network/testnet/evm/43113/etherscan/api',
-    },
-  },
   requiresApiKey: false,
 })
 export class SnowtraceApiClient extends BlockchainApiClient {

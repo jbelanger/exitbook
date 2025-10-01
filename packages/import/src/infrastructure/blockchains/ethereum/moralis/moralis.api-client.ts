@@ -14,6 +14,7 @@ import type {
 } from './moralis.types.ts';
 
 @RegisterApiClient({
+  baseUrl: 'https://deep-index.moralis.io/api/v2',
   blockchain: 'ethereum',
   capabilities: {
     supportedOperations: [
@@ -36,9 +37,6 @@ import type {
   description: 'Moralis Ethereum API with comprehensive Web3 data and multi-chain support',
   displayName: 'Moralis',
   name: 'moralis',
-  networks: {
-    mainnet: { baseUrl: 'https://deep-index.moralis.io/api/v2' },
-  },
   requiresApiKey: true,
 })
 export class MoralisApiClient extends BlockchainApiClient {

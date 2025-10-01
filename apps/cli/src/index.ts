@@ -501,7 +501,7 @@ async function main() {
           const providerManager = new BlockchainProviderManager(explorerConfig);
 
           // Auto-register providers
-          const providers = providerManager.autoRegisterFromConfig(options.blockchain, 'mainnet', options.provider);
+          const providers = providerManager.autoRegisterFromConfig(options.blockchain, options.provider);
 
           if (providers.length === 0) {
             logger.error(`Provider '${options.provider}' not found for blockchain: ${options.blockchain}`);

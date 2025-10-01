@@ -9,6 +9,7 @@ import type { TatumBitcoinTransaction, TatumBitcoinBalance } from './tatum.types
 
 @RegisterApiClient({
   apiKeyEnvVar: 'TATUM_API_KEY',
+  baseUrl: 'https://api.tatum.io/v3/bitcoin',
   blockchain: 'bitcoin',
   capabilities: {
     supportedOperations: ['getRawAddressTransactions', 'getAddressInfo'],
@@ -26,14 +27,6 @@ import type { TatumBitcoinTransaction, TatumBitcoinBalance } from './tatum.types
   description: 'Multi-blockchain API provider supporting Bitcoin via unified Tatum API',
   displayName: 'Tatum Bitcoin API',
   name: 'tatum',
-  networks: {
-    mainnet: {
-      baseUrl: 'https://api.tatum.io/v3/bitcoin',
-    },
-    testnet: {
-      baseUrl: 'https://api.tatum.io/v3/bitcoin-testnet',
-    },
-  },
   requiresApiKey: true,
 })
 export class TatumBitcoinApiClient extends TatumApiClientBase<TatumBitcoinTransaction, TatumBitcoinBalance> {

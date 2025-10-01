@@ -9,6 +9,7 @@ import type { BlockchainComAddressResponse, BlockchainComTransaction } from './b
 
 @RegisterApiClient({
   apiKeyEnvVar: 'BLOCKCHAIN_COM_API_KEY',
+  baseUrl: 'https://blockchain.info',
   blockchain: 'bitcoin',
   capabilities: {
     supportedOperations: ['getRawAddressTransactions', 'getAddressInfo'],
@@ -26,11 +27,6 @@ import type { BlockchainComAddressResponse, BlockchainComTransaction } from './b
   description: 'Blockchain.com Bitcoin explorer API with transaction and balance data (no API key required)',
   displayName: 'Blockchain.com API',
   name: 'blockchain.com',
-  networks: {
-    mainnet: {
-      baseUrl: 'https://blockchain.info',
-    },
-  },
   requiresApiKey: false,
 })
 export class BlockchainComApiClient extends BlockchainApiClient {

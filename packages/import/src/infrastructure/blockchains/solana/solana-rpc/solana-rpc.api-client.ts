@@ -13,6 +13,7 @@ import type {
 } from './solana-rpc.types.ts';
 
 @RegisterApiClient({
+  baseUrl: 'https://api.mainnet-beta.solana.com',
   blockchain: 'solana',
   capabilities: {
     supportedOperations: ['getRawAddressTransactions', 'getRawAddressBalance', 'getRawTokenBalances'],
@@ -28,17 +29,6 @@ import type {
   description: 'Direct connection to Solana mainnet RPC endpoints with basic transaction data',
   displayName: 'Solana RPC',
   name: 'solana-rpc',
-  networks: {
-    devnet: {
-      baseUrl: 'https://api.devnet.solana.com',
-    },
-    mainnet: {
-      baseUrl: 'https://api.mainnet-beta.solana.com',
-    },
-    testnet: {
-      baseUrl: 'https://api.testnet.solana.com',
-    },
-  },
   requiresApiKey: false,
 })
 export class SolanaRPCApiClient extends BlockchainApiClient {

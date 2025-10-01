@@ -30,8 +30,8 @@ export class EthereumTransactionImporter implements IImporter {
 
     this.providerManager = blockchainProviderManager;
 
-    // Auto-register providers for ethereum mainnet
-    this.providerManager.autoRegisterFromConfig('ethereum', 'mainnet', options?.preferredProvider);
+    // Auto-register providers for ethereum
+    this.providerManager.autoRegisterFromConfig('ethereum', options?.preferredProvider);
 
     this.logger.info(
       `Initialized Ethereum transaction importer - ProvidersCount: ${this.providerManager.getProviders('ethereum').length}`

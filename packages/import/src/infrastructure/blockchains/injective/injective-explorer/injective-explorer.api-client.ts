@@ -7,6 +7,7 @@ import type { ProviderOperation } from '../../shared/types.js';
 import type { InjectiveExplorerTransaction } from './injective-explorer.types.js';
 
 @RegisterApiClient({
+  baseUrl: 'https://sentry.exchange.grpc-web.injective.network',
   blockchain: 'injective',
   capabilities: {
     supportedOperations: ['getRawAddressTransactions'],
@@ -24,14 +25,6 @@ import type { InjectiveExplorerTransaction } from './injective-explorer.types.js
   description: 'Direct connection to Injective Protocol blockchain explorer with comprehensive transaction data',
   displayName: 'Injective Explorer API',
   name: 'injective-explorer',
-  networks: {
-    mainnet: {
-      baseUrl: 'https://sentry.exchange.grpc-web.injective.network',
-    },
-    testnet: {
-      baseUrl: 'https://k8s.testnet.tm.injective.network',
-    },
-  },
   requiresApiKey: false,
 })
 export class InjectiveExplorerApiClient extends BlockchainApiClient {

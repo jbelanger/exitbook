@@ -31,8 +31,8 @@ export class InjectiveTransactionImporter implements IImporter {
 
     this.providerManager = blockchainProviderManager;
 
-    // Auto-register providers for injective mainnet
-    this.providerManager.autoRegisterFromConfig('injective', 'mainnet', options?.preferredProvider);
+    // Auto-register providers for injective
+    this.providerManager.autoRegisterFromConfig('injective', options?.preferredProvider);
 
     this.logger.info(
       `Initialized Injective transaction importer - ProvidersCount: ${this.providerManager.getProviders('injective').length}`

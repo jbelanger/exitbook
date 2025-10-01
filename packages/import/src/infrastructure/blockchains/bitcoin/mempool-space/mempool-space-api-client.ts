@@ -8,6 +8,7 @@ import type { AddressInfo } from '../types.js';
 import type { MempoolAddressInfo, MempoolTransaction } from './mempool-space.types.js';
 
 @RegisterApiClient({
+  baseUrl: 'https://mempool.space/api',
   blockchain: 'bitcoin',
   capabilities: {
     supportedOperations: ['getRawAddressTransactions', 'getAddressInfo'],
@@ -25,14 +26,6 @@ import type { MempoolAddressInfo, MempoolTransaction } from './mempool-space.typ
   description: 'Bitcoin blockchain explorer API with comprehensive transaction and balance data (no API key required)',
   displayName: 'Mempool.space API',
   name: 'mempool.space',
-  networks: {
-    mainnet: {
-      baseUrl: 'https://mempool.space/api',
-    },
-    testnet: {
-      baseUrl: 'https://mempool.space/testnet/api',
-    },
-  },
   requiresApiKey: false,
 })
 export class MempoolSpaceApiClient extends BlockchainApiClient {
