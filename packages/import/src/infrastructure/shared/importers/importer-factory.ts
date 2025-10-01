@@ -31,16 +31,22 @@ export class ImporterFactory implements IImporterFactory {
   }
 
   /**
-   * Create Avalanche importer.
+   * Create EVM-compatible chain importer (Ethereum, Avalanche, Polygon, etc.).
+   * Looks up chain config from evm-chains.json registry.
    */
-  private async createAvalancheImporter(
+  private async createEvmImporter(
+    chainName: string,
     blockchainProviderManager: BlockchainProviderManager,
     providerId: string | undefined
   ): Promise<IImporter> {
     // Dynamic import to avoid circular dependencies
     const { EvmImporter } = await import('../../blockchains/evm/importer.ts');
-    const { EVM_CHAINS } = await import('../../blockchains/evm/chain-registry.ts');
-    return new EvmImporter(EVM_CHAINS.avalanche, blockchainProviderManager, {
+    const { getEvmChainConfig } = await import('../../blockchains/evm/chain-registry.ts');
+    const config = getEvmChainConfig(chainName);
+    if (!config) {
+      throw new Error(`EVM chain config not found: ${chainName}`);
+    }
+    return new EvmImporter(config, blockchainProviderManager, {
       preferredProvider: providerId,
     }) as unknown as IImporter;
   }
@@ -80,21 +86,24 @@ export class ImporterFactory implements IImporterFactory {
   private async createBlockchainImporter(sourceId: string, providerId: string | undefined): Promise<IImporter> {
     // providerId is optional - when not provided, importers will use all available providers
 
-    switch (sourceId.toLowerCase()) {
+    const chainName = sourceId.toLowerCase();
+
+    // Try EVM chains first (dynamically loaded from evm-chains.json)
+    const { getEvmChainConfig } = await import('../../blockchains/evm/chain-registry.ts');
+    if (getEvmChainConfig(chainName)) {
+      return await this.createEvmImporter(chainName, this.providerManager, providerId);
+    }
+
+    // Non-EVM chains
+    switch (chainName) {
       case 'bitcoin':
         return await this.createBitcoinImporter(this.providerManager, providerId);
-
-      case 'ethereum':
-        return await this.createEthereumImporter(this.providerManager, providerId);
 
       case 'injective':
         return await this.createInjectiveImporter(this.providerManager, providerId);
 
       case 'solana':
         return await this.createSolanaImporter(this.providerManager, providerId);
-
-      case 'avalanche':
-        return await this.createAvalancheImporter(this.providerManager, providerId);
 
       case 'polkadot':
         return await this.createPolkadotImporter(this.providerManager, providerId);
@@ -114,21 +123,6 @@ export class ImporterFactory implements IImporterFactory {
     // Dynamic import to avoid circular dependencies
     const { CoinbaseImporter } = await import('../../exchanges/coinbase/importer.js');
     return new CoinbaseImporter() as unknown as IImporter;
-  }
-
-  /**
-   * Create Ethereum importer.
-   */
-  private async createEthereumImporter(
-    blockchainProviderManager: BlockchainProviderManager,
-    providerId: string | undefined
-  ): Promise<IImporter> {
-    // Dynamic import to avoid circular dependencies
-    const { EvmImporter } = await import('../../blockchains/evm/importer.ts');
-    const { EVM_CHAINS } = await import('../../blockchains/evm/chain-registry.ts');
-    return new EvmImporter(EVM_CHAINS.ethereum, blockchainProviderManager, {
-      preferredProvider: providerId,
-    }) as unknown as IImporter;
   }
 
   /**

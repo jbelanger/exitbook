@@ -1,0 +1,289 @@
+{
+  "ethereum": {
+    "chainId": 1,
+    "chainName": "ethereum",
+    "nativeCurrency": "ETH",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://etherscan.io"]
+  },
+  "polygon": {
+    "chainId": 137,
+    "chainName": "polygon",
+    "nativeCurrency": "MATIC",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://polygonscan.com"]
+  },
+  "optimism": {
+    "chainId": 10,
+    "chainName": "optimism",
+    "nativeCurrency": "ETH",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://optimistic.etherscan.io"]
+  },
+  "arbitrum": {
+    "chainId": 42161,
+    "chainName": "arbitrum",
+    "nativeCurrency": "ETH",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://arbiscan.io"]
+  },
+  "base": {
+    "chainId": 8453,
+    "chainName": "base",
+    "nativeCurrency": "ETH",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://basescan.org"]
+  },
+  "avalanche": {
+    "chainId": 43114,
+    "chainName": "avalanche",
+    "nativeCurrency": "AVAX",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://snowtrace.io"]
+  },
+  "bsc": {
+    "chainId": 56,
+    "chainName": "bsc",
+    "nativeCurrency": "BNB",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://bscscan.com"]
+  },
+  "zksync": {
+    "chainId": 324,
+    "chainName": "zksync",
+    "nativeCurrency": "ETH",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://explorer.zksync.io"]
+  },
+  "polygon-zkevm": {
+    "chainId": 1101,
+    "chainName": "polygon-zkevm",
+    "nativeCurrency": "ETH",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://zkevm.polygonscan.com"]
+  },
+  "linea": {
+    "chainId": 59144,
+    "chainName": "linea",
+    "nativeCurrency": "ETH",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://lineascan.build"]
+  },
+  "scroll": {
+    "chainId": 534352,
+    "chainName": "scroll",
+    "nativeCurrency": "ETH",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://scrollscan.com"]
+  },
+  "mantle": {
+    "chainId": 5000,
+    "chainName": "mantle",
+    "nativeCurrency": "MNT",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://explorer.mantle.xyz"]
+  },
+  "blast": {
+    "chainId": 81457,
+    "chainName": "blast",
+    "nativeCurrency": "ETH",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://blastscan.io"]
+  },
+  "sonic": {
+    "chainId": 146,
+    "chainName": "sonic",
+    "nativeCurrency": "S",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://sonicscan.org"]
+  },
+  "zetachain": {
+    "chainId": 7000,
+    "chainName": "zetachain",
+    "nativeCurrency": "ZETA",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://explorer.zetachain.com"]
+  },
+  "arbitrum-nova": {
+    "chainId": 42170,
+    "chainName": "arbitrum-nova",
+    "nativeCurrency": "ETH",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://nova.arbiscan.io"]
+  },
+  "celo": {
+    "chainId": 42220,
+    "chainName": "celo",
+    "nativeCurrency": "CELO",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://celoscan.io"]
+  },
+  "gnosis": {
+    "chainId": 100,
+    "chainName": "gnosis",
+    "nativeCurrency": "xDAI",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://gnosisscan.io"]
+  },
+  "opbnb": {
+    "chainId": 204,
+    "chainName": "opbnb",
+    "nativeCurrency": "BNB",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://opbnbscan.com"]
+  },
+  "metis": {
+    "chainId": 1088,
+    "chainName": "metis",
+    "nativeCurrency": "METIS",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://andromeda-explorer.metis.io"]
+  },
+  "astar": {
+    "chainId": 592,
+    "chainName": "astar",
+    "nativeCurrency": "ASTR",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://astar.blockscout.com"]
+  },
+  "sei": {
+    "chainId": 1329,
+    "chainName": "sei",
+    "nativeCurrency": "SEI",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://seitrace.com"]
+  },
+  "berachain": {
+    "chainId": 80084,
+    "chainName": "berachain",
+    "nativeCurrency": "BERA",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://bartio.beratrail.io"]
+  },
+  "monad": {
+    "chainId": 41454,
+    "chainName": "monad",
+    "nativeCurrency": "MON",
+    "nativeDecimals": 18,
+    "explorerUrls": []
+  },
+  "world-chain": {
+    "chainId": 480,
+    "chainName": "world-chain",
+    "nativeCurrency": "ETH",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://worldchain-mainnet.explorer.alchemy.com"]
+  },
+  "rootstock": {
+    "chainId": 30,
+    "chainName": "rootstock",
+    "nativeCurrency": "RBTC",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://explorer.rsk.co"]
+  },
+  "shape": {
+    "chainId": 360,
+    "chainName": "shape",
+    "nativeCurrency": "ETH",
+    "nativeDecimals": 18,
+    "explorerUrls": []
+  },
+  "unichain": {
+    "chainId": 1301,
+    "chainName": "unichain",
+    "nativeCurrency": "ETH",
+    "nativeDecimals": 18,
+    "explorerUrls": []
+  },
+  "apechain": {
+    "chainId": 33139,
+    "chainName": "apechain",
+    "nativeCurrency": "APE",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://apescan.io"]
+  },
+  "soneium": {
+    "chainId": 1946,
+    "chainName": "soneium",
+    "nativeCurrency": "ETH",
+    "nativeDecimals": 18,
+    "explorerUrls": []
+  },
+  "crossfi": {
+    "chainId": 4158,
+    "chainName": "crossfi",
+    "nativeCurrency": "XFI",
+    "nativeDecimals": 18,
+    "explorerUrls": []
+  },
+  "geist": {
+    "chainId": 63157,
+    "chainName": "geist",
+    "nativeCurrency": "ETH",
+    "nativeDecimals": 18,
+    "explorerUrls": []
+  },
+  "lens": {
+    "chainId": 37111,
+    "chainName": "lens",
+    "nativeCurrency": "GRASS",
+    "nativeDecimals": 18,
+    "explorerUrls": []
+  },
+  "abstract": {
+    "chainId": 2741,
+    "chainName": "abstract",
+    "nativeCurrency": "ETH",
+    "nativeDecimals": 18,
+    "explorerUrls": []
+  },
+  "lumia": {
+    "chainId": 994873017,
+    "chainName": "lumia",
+    "nativeCurrency": "LUMIA",
+    "nativeDecimals": 18,
+    "explorerUrls": []
+  },
+  "ink": {
+    "chainId": 57073,
+    "chainName": "ink",
+    "nativeCurrency": "ETH",
+    "nativeDecimals": 18,
+    "explorerUrls": []
+  },
+  "superseed": {
+    "chainId": 5330,
+    "chainName": "superseed",
+    "nativeCurrency": "ETH",
+    "nativeDecimals": 18,
+    "explorerUrls": []
+  },
+  "story": {
+    "chainId": 1513,
+    "chainName": "story",
+    "nativeCurrency": "IP",
+    "nativeDecimals": 18,
+    "explorerUrls": []
+  },
+  "anime": {
+    "chainId": 8654,
+    "chainName": "anime",
+    "nativeCurrency": "ANIME",
+    "nativeDecimals": 18,
+    "explorerUrls": []
+  },
+  "hyperevm": {
+    "chainId": 998,
+    "chainName": "hyperevm",
+    "nativeCurrency": "ETH",
+    "nativeDecimals": 18,
+    "explorerUrls": []
+  },
+  "theta": {
+    "chainId": 361,
+    "chainName": "theta",
+    "nativeCurrency": "TFUEL",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://explorer.thetatoken.org"]
+  }
+}

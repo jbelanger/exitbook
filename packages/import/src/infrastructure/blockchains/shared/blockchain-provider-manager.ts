@@ -282,10 +282,21 @@ export class BlockchainProviderManager {
             }
           }
 
+          // Determine baseUrl: use chain-specific if available, otherwise use default
+          let baseUrl = metadata.baseUrl;
+
+          // If supportedChains is an object format, extract chain-specific baseUrl
+          if (metadata.supportedChains && !Array.isArray(metadata.supportedChains)) {
+            const chainConfig = metadata.supportedChains[blockchain];
+            if (chainConfig?.baseUrl) {
+              baseUrl = chainConfig.baseUrl;
+            }
+          }
+
           // Build provider config using registry defaults
           const providerConfig: ProviderConfig = {
             ...metadata.defaultConfig,
-            baseUrl: metadata.baseUrl,
+            baseUrl,
             blockchain, // Add blockchain for multi-chain support
             displayName: metadata.displayName,
             enabled: true,
@@ -604,11 +615,22 @@ export class BlockchainProviderManager {
           }
         }
 
+        // Determine baseUrl: use chain-specific if available, otherwise use default
+        let baseUrl = metadata.baseUrl;
+
+        // If supportedChains is an object format, extract chain-specific baseUrl
+        if (metadata.supportedChains && !Array.isArray(metadata.supportedChains)) {
+          const chainConfig = metadata.supportedChains[blockchain];
+          if (chainConfig?.baseUrl) {
+            baseUrl = chainConfig.baseUrl;
+          }
+        }
+
         // Build provider config by merging registry defaults with overrides
         // Properly merge rateLimit to ensure required fields are present
         const overrideRateLimit = providerInfo.overrideConfig.rateLimit;
         const providerConfig: ProviderConfig = {
-          baseUrl: metadata.baseUrl,
+          baseUrl,
           blockchain, // Add blockchain for multi-chain support
           displayName: metadata.displayName,
           enabled: true,

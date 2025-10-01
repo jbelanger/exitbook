@@ -22,10 +22,14 @@
     }
   },
   "ethereum": {
-    "defaultEnabled": ["alchemy", "moralis"],
+    "defaultEnabled": ["alchemy", "moralis", "evm-rpc"],
     "overrides": {
       "alchemy": {
         "priority": 1
+      },
+      "evm-rpc": {
+        "priority": 10,
+        "description": "Free public RPC endpoint - lower priority fallback"
       }
     }
   },
@@ -48,5 +52,8 @@
   },
   "polkadot": {
     "defaultEnabled": ["subscan"]
+  },
+  "theta": {
+    "defaultEnabled": ["thetascan"]
   }
 }

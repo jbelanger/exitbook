@@ -63,13 +63,18 @@ export class ProcessorFactory implements IProcessorFactory {
   }
 
   /**
-   * Create Avalanche processor.
+   * Create EVM-compatible chain processor (Ethereum, Avalanche, Polygon, etc.).
+   * Looks up chain config from evm-chains.json registry.
    */
-  private async createAvalancheProcessor(): Promise<ITransactionProcessor> {
+  private async createEvmProcessor(chainName: string): Promise<ITransactionProcessor> {
     // Dynamic import to avoid circular dependencies
     const { EvmTransactionProcessor } = await import('../../blockchains/evm/processor.ts');
-    const { EVM_CHAINS } = await import('../../blockchains/evm/chain-registry.ts');
-    return new EvmTransactionProcessor(EVM_CHAINS.avalanche);
+    const { getEvmChainConfig } = await import('../../blockchains/evm/chain-registry.ts');
+    const config = getEvmChainConfig(chainName);
+    if (!config) {
+      throw new Error(`EVM chain config not found: ${chainName}`);
+    }
+    return new EvmTransactionProcessor(config);
   }
 
   /**
@@ -85,21 +90,24 @@ export class ProcessorFactory implements IProcessorFactory {
    * Create a blockchain processor.
    */
   private async createBlockchainProcessor(sourceId: string): Promise<ITransactionProcessor> {
-    switch (sourceId.toLowerCase()) {
+    const chainName = sourceId.toLowerCase();
+
+    // Try EVM chains first (dynamically loaded from evm-chains.json)
+    const { getEvmChainConfig } = await import('../../blockchains/evm/chain-registry.ts');
+    if (getEvmChainConfig(chainName)) {
+      return await this.createEvmProcessor(chainName);
+    }
+
+    // Non-EVM chains
+    switch (chainName) {
       case 'bitcoin':
         return await this.createBitcoinProcessor();
-
-      case 'ethereum':
-        return await this.createEthereumProcessor();
 
       case 'injective':
         return await this.createInjectiveProcessor();
 
       case 'solana':
         return await this.createSolanaProcessor();
-
-      case 'avalanche':
-        return await this.createAvalancheProcessor();
 
       case 'polkadot':
         return await this.createPolkadotProcessor();
@@ -119,16 +127,6 @@ export class ProcessorFactory implements IProcessorFactory {
     // Dynamic import to avoid circular dependencies
     const { CoinbaseProcessor } = await import('../../exchanges/coinbase/processor.js');
     return new CoinbaseProcessor();
-  }
-
-  /**
-   * Create Ethereum processor.
-   */
-  private async createEthereumProcessor(): Promise<ITransactionProcessor> {
-    // Dynamic import to avoid circular dependencies
-    const { EvmTransactionProcessor } = await import('../../blockchains/evm/processor.ts');
-    const { EVM_CHAINS } = await import('../../blockchains/evm/chain-registry.ts');
-    return new EvmTransactionProcessor(EVM_CHAINS.ethereum);
   }
 
   /**
