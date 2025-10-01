@@ -1,31 +1,29 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- Monorepo managed by `pnpm`; workspace packages live under `apps/*`, `packages/*`, and `packages/shared/*` per `pnpm-workspace.yaml`.
-- `apps/cli` exposes the transaction CLI entry point, while domain logic is split across `packages/core`, `packages/import`, `packages/data`, `packages/balance`, and shared utilities in `packages/shared/utils`.
-- Tests sit beside source in `__tests__` folders (for example `packages/import/src/blockchains/bitcoin/api/__tests__`). Reference architecture notes in `docs/` and migration specs in `specs/` before large changes.
+
+Exitbook is a pnpm-managed monorepo. Workspace packages live under `apps/*`, `packages/*`, and `packages/shared/*` as defined in `pnpm-workspace.yaml`. The CLI entry point sits in `apps/cli`, while reusable domain services are split across `packages/core`, `packages/import`, `packages/data`, and `packages/balance`. Shared helpers are under `packages/shared/utils`. Source directories keep their tests close by in `__tests__`. Use `docs/` for architecture references and `specs/` for migrations before starting large changes.
 
 ## Build, Test, and Development Commands
-- `pnpm install` – install workspace dependencies (Node 23+ and pnpm 10+ required).
-- `pnpm dev -- <subcommand>` – run the CLI in watch mode (`pnpm dev import --exchange kucoin`).
-- `pnpm build` – build the CLI package; `pnpm workspace:build` builds every package.
-- `pnpm lint`, `pnpm typecheck` – run ESLint + Perfectionist rules and TypeScript in project references.
-- `pnpm test` for unit suites, `pnpm test:e2e` for slow integration cases, `pnpm test:coverage` to enforce coverage locally.
+
+- `pnpm install` — install dependencies (Node 23+ and pnpm 10+ required).
+- `pnpm dev -- <subcommand>` — run the CLI in watch mode, e.g. `pnpm dev import --exchange kucoin`.
+- `pnpm build` — build the CLI package; `pnpm workspace:build` compiles every workspace.
+- `pnpm lint` / `pnpm typecheck` — run ESLint with Perfectionist ordering and TypeScript project references.
+- `pnpm test`, `pnpm test:e2e`, `pnpm test:coverage` — run unit suites, slow integration cases, and enforce coverage locally.
 
 ## Coding Style & Naming Conventions
-- TypeScript with ESM modules, 2-space indentation, and Prettier formatting. Run `pnpm prettier:fix` before committing.
-- Follow ESLint defaults plus Perfectionist ordering; keep exports, object keys, and class members alphabetized.
-- Use descriptive file and symbol names (`ProviderRegistryService`, `tatumBitcoinApiClient`). Prefer imperative function names and noun-based DTOs ending in `Dto` or `Schema`.
+
+Code is TypeScript with ESM modules, 2-space indentation, and Prettier formatting. Run `pnpm prettier:fix` before commits. ESLint rules (with Perfectionist) require alphabetized imports, exports, and object keys. Use descriptive names such as `ProviderRegistryService` or `tatumBitcoinApiClient`, and suffix DTOs or schema objects with `Dto`/`Schema`. Favor imperative verbs for functions.
 
 ## Testing Guidelines
-- Write new cases in Vitest using `*.test.ts`; end-to-end scenarios live in `*.e2e.test.ts`. Mirror the source directory when creating tests.
-- Target >80% statement coverage for new modules and validate with `pnpm test:coverage`.
-- Mock network providers unless explicitly exercising failover paths; document fixtures under `packages/*/__tests__/fixtures` when added.
+
+Vitest powers unit and e2e suites. Place tests next to source files named `*.test.ts` or `*.e2e.test.ts`. Target at least 80% statement coverage for new modules and verify with `pnpm test:coverage`. Mock external providers unless you are testing failover paths; record fixtures under `packages/*/__tests__/fixtures`.
 
 ## Commit & Pull Request Guidelines
-- Favor Conventional Commits (`feat:`, `fix:`, `refactor:`). Recent history (`git log`) shows `feat: Add templates…`; match that tone and keep subjects imperative and ≤72 chars.
-- Each PR should describe scope, link relevant specs or issues, note breaking changes, and list tests run. Include CLI output or screenshots when behavior changes.
+
+Follow Conventional Commits (`feat:`, `fix:`, `refactor:`) with subjects under 72 characters. PRs should describe scope, link specs or issues, note breaking changes, and list tests or CLI output when behavior changes. Include screenshots for UI-related updates, even though most work is CLI-level.
 
 ## Security & Configuration Tips
-- Secrets (API keys, exchange credentials) must be injected via environment variables referenced by decorators (e.g., `TATUM_API_KEY`). Never commit `.env` files.
-- Validate provider configs with `pnpm providers:validate` or `pnpm blockchain-config:validate` before merging infrastructure updates.
+
+Never commit secrets or `.env` files. Inject credentials via environment variables such as `TATUM_API_KEY`. Validate provider configuration before merging with `pnpm providers:validate` or `pnpm blockchain-config:validate`. Commit only configuration updates that pass these checks.

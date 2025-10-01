@@ -19,10 +19,11 @@ import type {
   blockchain: 'avalanche',
   capabilities: {
     supportedOperations: [
-      'getRawAddressTransactions',
       'getRawAddressBalance',
-      'getTokenTransactions',
+      'getRawAddressInternalTransactions',
+      'getRawAddressTransactions',
       'getRawTokenBalances',
+      'getTokenTransactions',
     ],
   },
   defaultConfig: {
@@ -39,9 +40,7 @@ import type {
   displayName: 'Snowtrace API',
   name: 'snowtrace',
   requiresApiKey: false,
-  supportedChains: {
-    avalanche: { baseUrl: 'https://api.routescan.io/v2/network/mainnet/evm/43114/etherscan/api' },
-  },
+  supportedChains: ['avalanche'],
 })
 export class SnowtraceApiClient extends BlockchainApiClient {
   constructor(config: ProviderConfig) {
@@ -57,6 +56,11 @@ export class SnowtraceApiClient extends BlockchainApiClient {
       switch (operation.type) {
         case 'getRawAddressTransactions':
           return (await this.getRawAddressTransactions({
+            address: operation.address,
+            since: operation.since,
+          })) as T;
+        case 'getRawAddressInternalTransactions':
+          return (await this.getRawAddressInternalTransactions({
             address: operation.address,
             since: operation.since,
           })) as T;
@@ -265,10 +269,10 @@ export class SnowtraceApiClient extends BlockchainApiClient {
     }
   }
 
-  private async getRawAddressTransactions(params: { address: string; since?: number | undefined }): Promise<{
-    internal: SnowtraceInternalTransaction[];
-    normal: SnowtraceTransaction[];
-  }> {
+  private async getRawAddressTransactions(params: {
+    address: string;
+    since?: number | undefined;
+  }): Promise<SnowtraceTransaction[]> {
     const { address, since } = params;
 
     if (!this.isValidAvalancheAddress(address)) {
@@ -278,23 +282,44 @@ export class SnowtraceApiClient extends BlockchainApiClient {
     this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
 
     try {
-      // Get normal transactions
       const normalTransactions = await this.getNormalTransactions(address, since);
 
-      // Get internal transactions
-      const internalTransactions = await this.getInternalTransactions(address, since);
+      this.logger.debug(`Retrieved ${normalTransactions.length} raw transactions for ${maskAddress(address)}`);
 
-      this.logger.debug(
-        `Retrieved ${normalTransactions.length + internalTransactions.length} raw transactions for ${maskAddress(address)}`
-      );
-
-      return {
-        internal: internalTransactions,
-        normal: normalTransactions,
-      };
+      return normalTransactions;
     } catch (error) {
       this.logger.error(
         `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`
+      );
+      throw error;
+    }
+  }
+
+  private async getRawAddressInternalTransactions(params: {
+    address: string;
+    since?: number | undefined;
+  }): Promise<SnowtraceInternalTransaction[]> {
+    const { address, since } = params;
+
+    if (!this.isValidAvalancheAddress(address)) {
+      throw new Error(`Invalid Avalanche address: ${address}`);
+    }
+
+    this.logger.debug(`Fetching raw address internal transactions - Address: ${maskAddress(address)}`);
+
+    try {
+      const internalTransactions = await this.getInternalTransactions(address, since);
+
+      this.logger.debug(
+        `Retrieved ${internalTransactions.length} raw internal transactions for ${maskAddress(address)}`
+      );
+
+      return internalTransactions;
+    } catch (error) {
+      this.logger.error(
+        `Failed to get raw address internal transactions - Address: ${maskAddress(address)}, Error: ${
+          error instanceof Error ? error.message : String(error)
+        }`
       );
       throw error;
     }

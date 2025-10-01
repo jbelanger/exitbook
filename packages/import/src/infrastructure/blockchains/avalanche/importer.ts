@@ -68,90 +68,91 @@ export class AvalancheTransactionImporter implements IImporter {
     address: string,
     since?: number
   ): Promise<Result<RawTransactionWithMetadata[], ProviderError>> {
-    // Fetch normal and internal transactions
-    const normalResult = await this.providerManager.executeWithFailover('avalanche', {
-      address,
-      getCacheKey: (params) =>
-        `avalanche:normal-txs:${params.type === 'getRawAddressTransactions' ? params.address : 'unknown'}:${params.type === 'getRawAddressTransactions' ? params.since || 'all' : 'unknown'}`,
-      since,
-      type: 'getRawAddressTransactions',
-    });
+    const [normalResult, internalResult, tokenResult] = await Promise.all([
+      this.providerManager.executeWithFailover('avalanche', {
+        address,
+        getCacheKey: (params) =>
+          `avalanche:normal-txs:${params.type === 'getRawAddressTransactions' ? params.address : 'unknown'}:${
+            params.type === 'getRawAddressTransactions' ? params.since || 'all' : 'unknown'
+          }`,
+        since,
+        type: 'getRawAddressTransactions',
+      }),
+      this.providerManager.executeWithFailover('avalanche', {
+        address,
+        getCacheKey: (params) =>
+          `avalanche:internal-txs:${params.type === 'getRawAddressInternalTransactions' ? params.address : 'unknown'}:${
+            params.type === 'getRawAddressInternalTransactions' ? params.since || 'all' : 'unknown'
+          }`,
+        since,
+        type: 'getRawAddressInternalTransactions',
+      }),
+      this.providerManager.executeWithFailover('avalanche', {
+        address,
+        getCacheKey: (params) =>
+          `avalanche:token-txs:${params.type === 'getTokenTransactions' ? params.address : 'unknown'}:${
+            params.type === 'getTokenTransactions' ? params.since || 'all' : 'unknown'
+          }`,
+        since,
+        type: 'getTokenTransactions',
+      }),
+    ]);
 
-    const processedNormalResult = normalResult.map((response) => this.processCompositeTransactions(response));
-
-    if (processedNormalResult.isErr()) {
-      return processedNormalResult;
+    if (normalResult.isErr()) {
+      return err(normalResult.error);
     }
 
-    // Fetch token transactions separately
-    const tokenResult = await this.providerManager.executeWithFailover('avalanche', {
-      address,
-      getCacheKey: (params) =>
-        `avalanche:token-txs:${params.type === 'getTokenTransactions' ? params.address : 'unknown'}:${params.type === 'getTokenTransactions' ? params.since || 'all' : 'unknown'}`,
-      since,
-      type: 'getTokenTransactions',
-    });
+    const allTransactions: RawTransactionWithMetadata[] = this.mapTransactions(normalResult.value, address, 'normal');
 
-    return tokenResult
-      .map((response) => {
-        const allTransactions = [...processedNormalResult.value, ...this.processTokenTransactions(response)];
-
-        this.logger.debug(`Fetched ${allTransactions.length} transactions for address: ${address.substring(0, 20)}...`);
-        return allTransactions;
-      })
-      .orElse((error) => {
-        // Token transactions are optional, so if they fail, just return normal transactions
-        this.logger.debug(`No token transactions available for ${address.substring(0, 20)}...: ${error.message}`);
-        return ok(processedNormalResult.value);
-      });
-  }
-
-  /**
-   * Process composite response containing normal and internal transactions.
-   */
-  private processCompositeTransactions(response: {
-    data: unknown;
-    providerName: string;
-  }): RawTransactionWithMetadata[] {
-    const rawTransactions: RawTransactionWithMetadata[] = [];
-
-    if (!response.data) return rawTransactions;
-
-    const compositeData = response.data as {
-      internal: unknown[];
-      normal: unknown[];
-    };
-
-    if (compositeData.normal?.length) {
-      rawTransactions.push(
-        ...compositeData.normal.map((tx) => ({
-          metadata: { providerId: response.providerName, transactionType: 'normal' },
-          rawData: tx,
-        }))
+    if (internalResult.isOk()) {
+      const internalTransactions = this.mapTransactions(internalResult.value, address, 'internal');
+      allTransactions.push(...internalTransactions);
+      this.logger.debug(
+        `Fetched ${internalTransactions.length} internal transactions for ${address.substring(0, 20)}...`
+      );
+    } else {
+      this.logger.debug(
+        `No internal transactions available for ${address.substring(0, 20)}...: ${internalResult.error.message}`
       );
     }
 
-    if (compositeData.internal?.length) {
-      rawTransactions.push(
-        ...compositeData.internal.map((tx) => ({
-          metadata: { providerId: response.providerName, transactionType: 'internal' },
-          rawData: tx,
-        }))
+    if (tokenResult.isOk()) {
+      const tokenTransactions = this.mapTransactions(tokenResult.value, address, 'token');
+      allTransactions.push(...tokenTransactions);
+      this.logger.debug(`Fetched ${tokenTransactions.length} token transactions for ${address.substring(0, 20)}...`);
+    } else {
+      this.logger.debug(
+        `No token transactions available for ${address.substring(0, 20)}...: ${tokenResult.error.message}`
       );
     }
 
-    return rawTransactions;
+    this.logger.debug(
+      `Fetched ${allTransactions.length} total transactions for address: ${address.substring(0, 20)}...`
+    );
+
+    return ok(allTransactions);
   }
 
   /**
-   * Process token transaction response.
+   * Normalize provider response to RawTransactionWithMetadata entries.
    */
-  private processTokenTransactions(response: { data: unknown; providerName: string }): RawTransactionWithMetadata[] {
-    if (!response.data || !Array.isArray(response.data)) return [];
+  private mapTransactions(
+    response: { data: unknown; providerName: string },
+    address: string,
+    transactionType: 'internal' | 'normal' | 'token'
+  ): RawTransactionWithMetadata[] {
+    if (!response.data) {
+      return [];
+    }
 
-    const tokenTransactions = response.data as unknown[];
-    return tokenTransactions.map((tx) => ({
-      metadata: { providerId: response.providerName, transactionType: 'token' },
+    const rawEntries = Array.isArray(response.data) ? response.data : [response.data];
+
+    return rawEntries.map((tx: unknown) => ({
+      metadata: {
+        providerId: response.providerName,
+        sourceAddress: address,
+        transactionType,
+      },
       rawData: tx,
     }));
   }
