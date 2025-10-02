@@ -42,22 +42,50 @@ export class KrakenProcessor extends BaseTransactionProcessor {
 
     // For Kraken deposits: amount is gross, user actually receives amount - fee
     const netAmount = String(parseDecimal(grossAmount).minus(fee));
+    const platformFee = createMoney(fee, row.asset);
 
     return {
-      amount: createMoney(netAmount, row.asset),
-      datetime: row.time,
-      fee: createMoney(fee, row.asset),
+      // Core fields
       id: row.txid,
-      metadata: {
-        originalRow: row,
-        txHash: undefined,
-        wallet: row.wallet,
-      },
+      datetime: row.time,
+      timestamp,
       source: 'kraken',
       status: this.mapStatus(),
-      symbol: row.asset,
-      timestamp,
-      type: 'deposit' as const,
+
+      // Structured movements - deposit means we gained assets
+      movements: {
+        inflows: [
+          {
+            asset: row.asset,
+            amount: createMoney(netAmount, row.asset),
+          },
+        ],
+        outflows: [], // No outflows for deposit
+        primary: {
+          asset: row.asset,
+          amount: createMoney(netAmount, row.asset),
+          direction: 'in' as const,
+        },
+      },
+
+      // Structured fees - exchange deposits have platform fees
+      fees: {
+        network: undefined, // No network fee for exchange deposits
+        platform: platformFee,
+        total: platformFee,
+      },
+
+      // Operation classification - 10/10 confidence: deposit is transfer/deposit
+      operation: {
+        category: 'transfer',
+        type: 'deposit',
+      },
+
+      // Minimal metadata
+      metadata: {
+        wallet: row.wallet,
+        originalRow: row,
+      },
     };
   }
 
@@ -65,20 +93,65 @@ export class KrakenProcessor extends BaseTransactionProcessor {
     const timestamp = new Date(trade.time).getTime();
     const amount = trade.amount;
     const fee = trade.fee || '0';
+    const platformFee = createMoney(fee, trade.asset);
+    const isIncoming = parseDecimal(amount).isPositive();
 
+    // Single trade row means we only have one side - classify conservatively
     return {
-      amount: createMoney(amount, trade.asset),
-      datetime: trade.time,
-      fee: createMoney(fee, trade.asset),
+      // Core fields
       id: trade.txid,
+      datetime: trade.time,
+      timestamp,
+      source: 'kraken',
+      status: this.mapStatus(),
+
+      // Structured movements
+      movements: {
+        inflows: isIncoming
+          ? [
+              {
+                asset: trade.asset,
+                amount: createMoney(amount, trade.asset),
+              },
+            ]
+          : [],
+        outflows: !isIncoming
+          ? [
+              {
+                asset: trade.asset,
+                amount: createMoney(Math.abs(parseFloat(amount)).toString(), trade.asset),
+              },
+            ]
+          : [],
+        primary: {
+          asset: trade.asset,
+          amount: createMoney(amount, trade.asset),
+          direction: isIncoming ? ('in' as const) : ('out' as const),
+        },
+      },
+
+      // Structured fees
+      fees: {
+        network: undefined,
+        platform: platformFee,
+        total: platformFee,
+      },
+
+      // Operation classification - 7/10 confidence: single trade row is ambiguous
+      operation: {
+        category: 'trade',
+        type: isIncoming ? 'buy' : 'sell',
+      },
+      note: {
+        type: 'classification_uncertainty',
+        severity: 'info',
+        message: 'Single trade row without paired transaction - classification may be incomplete',
+      },
+
+      // Minimal metadata
       metadata: {
         originalRow: trade,
       },
-      source: 'kraken',
-      status: this.mapStatus(),
-      symbol: trade.asset,
-      timestamp,
-      type: 'trade' as const,
     };
   }
 
@@ -90,25 +163,57 @@ export class KrakenProcessor extends BaseTransactionProcessor {
     const sentAmount = negative.amount;
     const receivedAmount = positive.amount;
 
+    // Token migration: swapping one asset for another (e.g., token rebrand)
     return {
-      amount: createMoney(receivedAmount, positive.asset),
-      datetime: negative.time,
-      fee: createMoney('0', positive.asset),
+      // Core fields
       id: `${negative.txid}_${positive.txid}`,
-      metadata: {
-        fromAsset: negative.asset,
-        fromTransaction: negative,
-        originalRows: { negative, positive },
-        toAsset: positive.asset,
-        tokenMigration: true,
-        toTransaction: positive,
-      },
-      price: createMoney(sentAmount, negative.asset),
+      datetime: negative.time,
+      timestamp,
       source: 'kraken',
       status: this.mapStatus(),
-      symbol: `${positive.asset}/${negative.asset}`,
-      timestamp,
-      type: 'trade' as const,
+
+      // Structured movements - token migration is a swap
+      movements: {
+        outflows: [
+          {
+            asset: negative.asset,
+            amount: createMoney(Math.abs(parseFloat(sentAmount)).toString(), negative.asset),
+          },
+        ],
+        inflows: [
+          {
+            asset: positive.asset,
+            amount: createMoney(receivedAmount, positive.asset),
+          },
+        ],
+        primary: {
+          asset: positive.asset, // What we received is primary
+          amount: createMoney(receivedAmount, positive.asset),
+          direction: 'in' as const,
+        },
+      },
+
+      // Structured fees - no fees for token migrations
+      fees: {
+        network: undefined,
+        platform: createMoney('0', positive.asset),
+        total: createMoney('0', positive.asset),
+      },
+
+      // Operation classification - 10/10 confidence: token migration is a swap
+      operation: {
+        category: 'trade',
+        type: 'swap',
+      },
+
+      // Minimal metadata
+      metadata: {
+        tokenMigration: true,
+        fromAsset: negative.asset,
+        toAsset: positive.asset,
+        originalRows: { negative, positive },
+      },
+      price: createMoney(sentAmount, negative.asset),
     };
   }
 
@@ -135,70 +240,171 @@ export class KrakenProcessor extends BaseTransactionProcessor {
 
     // For Kraken: fee is always additional to the shown amounts
     // Receive amount is always the net amount (no adjustment needed)
-    //const finalReceiveAmount = receiveAmount;
     const isReceiveFee = receive.asset === feeAsset && !parseDecimal(receiveFee).isZero();
     const finalReceiveAmount = isReceiveFee ? String(parseDecimal(receiveAmount).minus(totalFee)) : receiveAmount;
 
+    const platformFee = createMoney(totalFee, feeAsset);
+
+    // Paired spend/receive is a trade: spent X, received Y
     return {
-      amount: createMoney(finalReceiveAmount, receive.asset),
-      datetime: spend.time,
-      fee: createMoney(totalFee, feeAsset),
+      // Core fields
       id: spend.txid,
-      metadata: {
-        originalRows: { receive, spend },
-        receive,
-        spend,
-      },
-      price: createMoney(spendAmount, spend.asset),
+      datetime: spend.time,
+      timestamp,
       source: 'kraken',
       status: this.mapStatus(),
-      symbol: receive.asset,
-      timestamp,
-      type: 'trade' as const,
+
+      // Structured movements - trade has both outflow (spend) and inflow (receive)
+      movements: {
+        outflows: [
+          {
+            asset: spend.asset,
+            amount: createMoney(Math.abs(parseFloat(spendAmount)).toString(), spend.asset),
+          },
+        ],
+        inflows: [
+          {
+            asset: receive.asset,
+            amount: createMoney(finalReceiveAmount, receive.asset),
+          },
+        ],
+        primary: {
+          asset: receive.asset, // What we received is primary
+          amount: createMoney(finalReceiveAmount, receive.asset),
+          direction: 'in' as const,
+        },
+      },
+
+      // Structured fees
+      fees: {
+        network: undefined,
+        platform: platformFee,
+        total: platformFee,
+      },
+
+      // Operation classification - 10/10 confidence: paired spend/receive is a trade
+      operation: {
+        category: 'trade',
+        type: 'swap', // Generic swap since we don't know if it's buy/sell
+      },
+
+      // Minimal metadata
+      metadata: {
+        originalRows: { spend, receive },
+      },
+      price: createMoney(spendAmount, spend.asset),
     };
   }
 
   private convertTransferToTransaction(transfer: CsvKrakenLedgerRow): UniversalTransaction {
     const timestamp = new Date(transfer.time).getTime();
     const isIncoming = parseDecimal(transfer.amount).isPositive();
+    const platformFee = createMoney(transfer.fee || '0', transfer.asset);
+    const absAmount = Math.abs(parseFloat(transfer.amount)).toString();
 
     return {
-      amount: createMoney(transfer.amount, transfer.asset),
-      datetime: transfer.time,
-      fee: createMoney(transfer.fee || '0', transfer.asset),
+      // Core fields
       id: transfer.txid,
-      metadata: {
-        isTransfer: true,
-        originalRow: transfer,
-        transferType: transfer.subtype,
-        wallet: transfer.wallet,
-      },
+      datetime: transfer.time,
+      timestamp,
       source: 'kraken',
       status: this.mapStatus(),
-      symbol: transfer.asset,
-      timestamp,
-      type: isIncoming ? ('deposit' as const) : ('withdrawal' as const),
+
+      // Structured movements
+      movements: {
+        inflows: isIncoming
+          ? [
+              {
+                asset: transfer.asset,
+                amount: createMoney(absAmount, transfer.asset),
+              },
+            ]
+          : [],
+        outflows: !isIncoming
+          ? [
+              {
+                asset: transfer.asset,
+                amount: createMoney(absAmount, transfer.asset),
+              },
+            ]
+          : [],
+        primary: {
+          asset: transfer.asset,
+          amount: createMoney(transfer.amount, transfer.asset),
+          direction: isIncoming ? ('in' as const) : ('out' as const),
+        },
+      },
+
+      // Structured fees
+      fees: {
+        network: undefined,
+        platform: platformFee,
+        total: platformFee,
+      },
+
+      // Operation classification - 9/10 confidence: transfer type is reliable
+      operation: {
+        category: 'transfer',
+        type: isIncoming ? 'deposit' : 'withdrawal',
+      },
+
+      // Minimal metadata
+      metadata: {
+        isTransfer: true,
+        transferType: transfer.subtype,
+        wallet: transfer.wallet,
+        originalRow: transfer,
+      },
     };
   }
 
   private convertWithdrawalToTransaction(row: CsvKrakenLedgerRow): UniversalTransaction {
     const timestamp = new Date(row.time).getTime();
+    const platformFee = createMoney(row.fee, row.asset);
+    const absAmount = Math.abs(parseFloat(row.amount)).toString();
 
     return {
-      amount: createMoney(row.amount, row.asset),
-      datetime: row.time,
-      fee: createMoney(row.fee, row.asset),
+      // Core fields
       id: row.txid,
-      metadata: {
-        originalRow: row,
-        txHash: undefined,
-        wallet: row.wallet,
-      },
+      datetime: row.time,
+      timestamp,
       source: 'kraken',
       status: this.mapStatus(),
-      symbol: row.asset,
-      timestamp,
-      type: 'withdrawal' as const,
+
+      // Structured movements - withdrawal means we lost assets
+      movements: {
+        inflows: [],
+        outflows: [
+          {
+            asset: row.asset,
+            amount: createMoney(absAmount, row.asset),
+          },
+        ],
+        primary: {
+          asset: row.asset,
+          amount: createMoney(row.amount, row.asset),
+          direction: 'out' as const,
+        },
+      },
+
+      // Structured fees
+      fees: {
+        network: undefined,
+        platform: platformFee,
+        total: platformFee,
+      },
+
+      // Operation classification - 10/10 confidence: withdrawal is transfer/withdrawal
+      operation: {
+        category: 'transfer',
+        type: 'withdrawal',
+      },
+
+      // Minimal metadata
+      metadata: {
+        wallet: row.wallet,
+        originalRow: row,
+      },
     };
   }
 
@@ -353,24 +559,57 @@ export class KrakenProcessor extends BaseTransactionProcessor {
             const receiveAmount = receive.amount;
             const receiveFee = receive.fee || '0';
             const netReceiveAmount = String(parseDecimal(receiveAmount).minus(receiveFee));
+            const receivePlatformFee = createMoney(receiveFee, receive.asset);
 
             const depositTransaction: UniversalTransaction = {
-              amount: createMoney(netReceiveAmount, receive.asset),
-              datetime: receive.time,
-              fee: createMoney(receiveFee, receive.asset),
+              // Core fields
               id: receive.txid,
-              metadata: {
-                dustsweeping: true,
-                originalRow: receive,
-                relatedRefId: refId,
-                txHash: undefined,
-                wallet: receive.wallet,
-              },
+              datetime: receive.time,
+              timestamp: new Date(receive.time).getTime(),
               source: 'kraken',
               status: this.mapStatus(),
-              symbol: receive.asset,
-              timestamp: new Date(receive.time).getTime(),
-              type: 'deposit' as const,
+
+              // Structured movements - dustsweeping deposit
+              movements: {
+                inflows: [
+                  {
+                    asset: receive.asset,
+                    amount: createMoney(netReceiveAmount, receive.asset),
+                  },
+                ],
+                outflows: [],
+                primary: {
+                  asset: receive.asset,
+                  amount: createMoney(netReceiveAmount, receive.asset),
+                  direction: 'in' as const,
+                },
+              },
+
+              // Structured fees
+              fees: {
+                network: undefined,
+                platform: receivePlatformFee,
+                total: receivePlatformFee,
+              },
+
+              // Operation classification - 9/10 confidence: dustsweeping is a deposit
+              operation: {
+                category: 'transfer',
+                type: 'deposit',
+              },
+              note: {
+                type: 'dustsweeping',
+                severity: 'info',
+                message: `Dustsweeping: multiple small amounts consolidated into ${netReceiveAmount} ${receive.asset}`,
+              },
+
+              // Minimal metadata
+              metadata: {
+                dustsweeping: true,
+                relatedRefId: refId,
+                wallet: receive.wallet,
+                originalRow: receive,
+              },
             };
             transactions.push(depositTransaction);
 
@@ -378,24 +617,58 @@ export class KrakenProcessor extends BaseTransactionProcessor {
             for (const spend of spends) {
               const spendAmount = parseDecimal(spend.amount);
               const spendFee = parseDecimal(spend.fee || '0');
+              const spendPlatformFee = createMoney(spendFee, spend.asset);
+              const absSpendAmount = spendAmount.abs().toString();
 
               const withdrawalTransaction: UniversalTransaction = {
-                amount: createMoney(spendAmount, spend.asset),
-                datetime: spend.time,
-                fee: createMoney(spendFee, spend.asset),
+                // Core fields
                 id: spend.txid,
-                metadata: {
-                  dustsweeping: true,
-                  originalRow: spend,
-                  relatedRefId: refId,
-                  txHash: undefined,
-                  wallet: spend.wallet,
-                },
+                datetime: spend.time,
+                timestamp: new Date(spend.time).getTime(),
                 source: 'kraken',
                 status: this.mapStatus(),
-                symbol: spend.asset,
-                timestamp: new Date(spend.time).getTime(),
-                type: 'withdrawal' as const,
+
+                // Structured movements - dustsweeping withdrawal
+                movements: {
+                  inflows: [],
+                  outflows: [
+                    {
+                      asset: spend.asset,
+                      amount: createMoney(absSpendAmount, spend.asset),
+                    },
+                  ],
+                  primary: {
+                    asset: spend.asset,
+                    amount: createMoney(spendAmount, spend.asset),
+                    direction: 'out' as const,
+                  },
+                },
+
+                // Structured fees
+                fees: {
+                  network: undefined,
+                  platform: spendPlatformFee,
+                  total: spendPlatformFee,
+                },
+
+                // Operation classification - 9/10 confidence: dustsweeping is a withdrawal
+                operation: {
+                  category: 'transfer',
+                  type: 'withdrawal',
+                },
+                note: {
+                  type: 'dustsweeping',
+                  severity: 'info',
+                  message: `Dustsweeping: small amount ${absSpendAmount} ${spend.asset} consolidated with others`,
+                },
+
+                // Minimal metadata
+                metadata: {
+                  dustsweeping: true,
+                  relatedRefId: refId,
+                  wallet: spend.wallet,
+                  originalRow: spend,
+                },
               };
               transactions.push(withdrawalTransaction);
             }
