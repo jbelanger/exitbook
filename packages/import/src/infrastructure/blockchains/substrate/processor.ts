@@ -46,52 +46,77 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
       const normalizedTx = item as SubstrateTransaction;
       try {
         const fundFlow = this.analyzeFundFlowFromNormalized(normalizedTx, sessionContext);
-        const transactionType = this.determineTransactionTypeFromFundFlow(fundFlow, normalizedTx);
+        const classification = this.determineOperationFromFundFlow(fundFlow, normalizedTx);
 
-        // Normalize amounts using chain-specific decimals
-        const normalizedAmount = this.normalizeAmount(fundFlow.totalAmount);
-        const normalizedFee = this.normalizeAmount(fundFlow.feeAmount);
+        // Calculate direction for primary asset
+        const hasInflow = fundFlow.inflows.some((i) => i.asset === fundFlow.primary.asset);
+        const hasOutflow = fundFlow.outflows.some((o) => o.asset === fundFlow.primary.asset);
+        const direction: 'in' | 'out' | 'neutral' =
+          hasInflow && hasOutflow ? 'neutral' : hasInflow ? 'in' : hasOutflow ? 'out' : 'neutral';
 
         const universalTransaction: UniversalTransaction = {
-          amount: createMoney(normalizedAmount, fundFlow.currency),
-          datetime: new Date(normalizedTx.timestamp).toISOString(),
-          fee: createMoney(normalizedFee, fundFlow.feeCurrency),
-          from: fundFlow.fromAddress,
+          // NEW: Structured fields
+          movements: {
+            inflows: fundFlow.inflows.map((i) => ({
+              amount: createMoney(i.amount, i.asset),
+              asset: i.asset,
+            })),
+            outflows: fundFlow.outflows.map((o) => ({
+              amount: createMoney(o.amount, o.asset),
+              asset: o.asset,
+            })),
+            primary: {
+              amount: createMoney(fundFlow.primary.amount, fundFlow.primary.asset),
+              asset: fundFlow.primary.asset,
+              direction,
+            },
+          },
+          fees: {
+            network: createMoney(fundFlow.feeAmount, fundFlow.feeCurrency),
+            platform: undefined,
+            total: createMoney(fundFlow.feeAmount, fundFlow.feeCurrency),
+          },
+          operation: classification.operation,
+          blockchain: {
+            name: fundFlow.chainName,
+            block_height: normalizedTx.blockHeight,
+            transaction_hash: normalizedTx.id,
+            is_confirmed: normalizedTx.status === 'success',
+          },
+          note: classification.note,
+
+          // Core fields
           id: normalizedTx.id,
+          datetime: new Date(normalizedTx.timestamp).toISOString(),
+          timestamp: normalizedTx.timestamp,
+          source: 'substrate',
+          status: normalizedTx.status === 'success' ? 'ok' : 'failed',
+          from: fundFlow.fromAddress,
+          to: fundFlow.toAddress,
+
+          // Backward compatibility (deprecated)
+          amount: createMoney(fundFlow.primary.amount, fundFlow.primary.asset),
+          fee: createMoney(fundFlow.feeAmount, fundFlow.feeCurrency),
+          type: classification.legacyType,
+          symbol: fundFlow.primary.asset,
           metadata: {
             blockchain: 'substrate',
             blockHeight: normalizedTx.blockHeight,
             blockId: normalizedTx.blockId,
             call: fundFlow.call,
             chainName: fundFlow.chainName,
-            fundFlow: {
-              eventCount: fundFlow.eventCount,
-              extrinsicCount: fundFlow.extrinsicCount,
-              hasGovernance: fundFlow.hasGovernance,
-              hasMultisig: fundFlow.hasMultisig,
-              hasProxy: fundFlow.hasProxy,
-              hasStaking: fundFlow.hasStaking,
-              hasUtilityBatch: fundFlow.hasUtilityBatch,
-              isIncoming: fundFlow.isIncoming,
-              isOutgoing: fundFlow.isOutgoing,
-              netAmount: fundFlow.netAmount,
-            },
             module: fundFlow.module,
             providerId: normalizedTx.providerId,
           },
-          source: 'substrate',
-          status: normalizedTx.status === 'success' ? 'ok' : 'failed',
-          symbol: fundFlow.currency,
-          timestamp: normalizedTx.timestamp,
-          to: fundFlow.toAddress,
-          type: transactionType,
         };
 
         transactions.push(universalTransaction);
 
         this.logger.debug(
-          `Processed normalized Substrate transaction ${normalizedTx.id} - Type: ${transactionType}, ` +
-            `Net: ${fundFlow.netAmount} ${fundFlow.currency}, Chain: ${fundFlow.chainName}`
+          `Processed Substrate transaction ${normalizedTx.id} - ` +
+            `Operation: ${classification.operation.category}/${classification.operation.type}, ` +
+            `Primary: ${fundFlow.primary.amount} ${fundFlow.primary.asset} (${direction}), ` +
+            `Chain: ${fundFlow.chainName}`
         );
       } catch (error) {
         this.logger.warn(`Failed to process normalized transaction ${normalizedTx.id}: ${String(error)}`);
@@ -133,6 +158,7 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
 
   /**
    * Analyze fund flow from normalized Substrate transaction data
+   * Following EVM's comprehensive asset collection approach
    */
   private analyzeFundFlowFromNormalized(
     transaction: SubstrateTransaction,
@@ -161,116 +187,357 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
     const hasProxy = transaction.module === 'proxy';
     const hasMultisig = transaction.module === 'multisig';
 
-    // Calculate flow amounts
-    const amount = new Decimal(transaction.amount);
-    const fee = new Decimal(transaction.feeAmount || '0');
+    // Collect ALL asset movements (most Substrate transactions are single-asset, but support multi-asset)
+    const inflows: { amount: string; asset: string }[] = [];
+    const outflows: { amount: string; asset: string }[] = [];
 
-    let netAmount: string;
-    if (isFromUser && !isToUser) {
-      // User is sending
-      netAmount = amount.plus(fee).negated().toString();
-    } else if (!isFromUser && isToUser) {
-      // User is receiving
-      netAmount = amount.toString();
-    } else if (isFromUser && isToUser) {
-      // Self-transaction, user only pays fee
-      netAmount = fee.negated().toString();
+    const amount = new Decimal(transaction.amount);
+    const normalizedAmount = this.normalizeAmount(transaction.amount);
+    const currency = transaction.currency;
+
+    // Skip zero amounts (but NOT fees)
+    const isZeroAmount = amount.isZero();
+
+    // Collect movements based on fund flow direction
+    if (isFromUser && isToUser) {
+      // Self-transfer: same asset in and out (net zero for asset, only fee affects balance)
+      if (!isZeroAmount) {
+        inflows.push({ amount: normalizedAmount, asset: currency });
+        outflows.push({ amount: normalizedAmount, asset: currency });
+      }
+    } else if (isToUser && !isZeroAmount) {
+      // User received funds
+      inflows.push({ amount: normalizedAmount, asset: currency });
+    } else if (isFromUser && !isZeroAmount) {
+      // User sent funds
+      outflows.push({ amount: normalizedAmount, asset: currency });
+    }
+
+    // Determine primary asset (for backward compatibility)
+    let primaryAmount: string;
+    let primaryAsset: string;
+
+    if (outflows.length > 0) {
+      // Primary is what user sent
+      primaryAmount = outflows[0]!.amount;
+      primaryAsset = outflows[0]!.asset;
+    } else if (inflows.length > 0) {
+      // Primary is what user received
+      primaryAmount = inflows[0]!.amount;
+      primaryAsset = inflows[0]!.asset;
     } else {
-      // Shouldn't happen in practice
-      netAmount = '0';
+      // No movements (fee-only transaction)
+      primaryAmount = '0';
+      primaryAsset = currency;
+    }
+
+    // Track uncertainty for complex transactions
+    let classificationUncertainty: string | undefined;
+    if (hasUtilityBatch && transaction.events && transaction.events.length > 5) {
+      classificationUncertainty = `Utility batch with ${transaction.events.length} events. May contain multiple operations that need separate accounting.`;
     }
 
     return {
       call: transaction.call || 'unknown',
       chainName: transaction.chainName || 'unknown',
-      currency: transaction.currency,
+      classificationUncertainty,
       eventCount: transaction.events?.length || 0,
       extrinsicCount: hasUtilityBatch ? 1 : 1, // TODO: Parse batch details if needed
-      feeAmount: transaction.feeAmount || '0',
+      feeAmount: this.normalizeAmount(transaction.feeAmount),
       feeCurrency: transaction.feeCurrency || transaction.currency,
-      feePaidByUser: isFromUser,
       fromAddress: transaction.from,
       hasGovernance: hasGovernance || false,
       hasMultisig: hasMultisig || false,
       hasProxy: hasProxy || false,
       hasStaking: hasStaking || false,
       hasUtilityBatch: hasUtilityBatch || false,
-      isIncoming: isToUser,
-      isOutgoing: isFromUser,
+      inflows,
       module: transaction.module || 'unknown',
-      netAmount,
+      outflows,
+      primary: {
+        amount: primaryAmount,
+        asset: primaryAsset,
+      },
       toAddress: transaction.to,
-      totalAmount: transaction.amount,
     };
   }
 
   /**
-   * Determine transaction type based on fund flow analysis and historical patterns
+   * Conservative operation classification with uncertainty tracking.
+   * Following EVM's 9/10 confidence approach, with Substrate-specific patterns first.
    */
-  private determineTransactionTypeFromFundFlow(
+  private determineOperationFromFundFlow(
     fundFlow: SubstrateFundFlow,
     transaction: SubstrateTransaction
-  ): TransactionType {
-    // Staking operations - check call names first for unbond/withdraw
+  ): {
+    legacyType: TransactionType;
+    note?:
+      | { message: string; metadata?: Record<string, unknown> | undefined; severity: 'info' | 'warning'; type: string }
+      | undefined;
+    operation: {
+      category: 'staking' | 'governance' | 'transfer' | 'fee';
+      type:
+        | 'stake'
+        | 'unstake'
+        | 'reward'
+        | 'vote'
+        | 'proposal'
+        | 'refund'
+        | 'deposit'
+        | 'withdrawal'
+        | 'transfer'
+        | 'fee';
+    };
+  } {
+    const { inflows, outflows } = fundFlow;
+    const amount = new Decimal(fundFlow.primary.amount || '0').abs();
+    const isZeroAmount = amount.isZero();
+
+    // Pattern 1: Staking operations (9/10 confident)
     if (fundFlow.hasStaking) {
       // Unbond and withdraw are always withdrawals, regardless of flow direction
       if (transaction.call?.includes('unbond') || transaction.call?.includes('withdraw')) {
-        return 'staking_withdrawal';
+        return {
+          legacyType: 'staking_withdrawal',
+          operation: {
+            category: 'staking',
+            type: 'unstake',
+          },
+        };
       }
-      // Bond operations depend on flow direction
+
+      // Bond operations - check flow direction
       if (transaction.call?.includes('bond')) {
-        return fundFlow.isOutgoing ? 'staking_deposit' : 'staking_reward';
+        if (outflows.length > 0) {
+          return {
+            legacyType: 'staking_deposit',
+            operation: {
+              category: 'staking',
+              type: 'stake',
+            },
+          };
+        } else {
+          // Incoming bond (reward)
+          return {
+            legacyType: 'staking_reward',
+            operation: {
+              category: 'staking',
+              type: 'reward',
+            },
+          };
+        }
       }
-      // Nominate and chill are staking deposits
+
+      // Nominate and chill are staking operations (no funds move)
       if (transaction.call?.includes('nominate') || transaction.call?.includes('chill')) {
-        return 'staking_deposit';
+        return {
+          legacyType: 'staking_deposit',
+          note: {
+            message: `Staking operation (${transaction.call}) with no fund movement. Changes validator selection but doesn't affect balance.`,
+            metadata: {
+              call: transaction.call,
+              module: fundFlow.module,
+            },
+            severity: 'info',
+            type: 'staking_operation',
+          },
+          operation: {
+            category: 'staking',
+            type: 'stake',
+          },
+        };
       }
+
       // Default staking behavior based on fund flow
-      return fundFlow.isOutgoing ? 'staking_deposit' : 'staking_reward';
+      if (outflows.length > 0) {
+        return {
+          legacyType: 'staking_deposit',
+          operation: {
+            category: 'staking',
+            type: 'stake',
+          },
+        };
+      } else if (inflows.length > 0) {
+        return {
+          legacyType: 'staking_reward',
+          operation: {
+            category: 'staking',
+            type: 'reward',
+          },
+        };
+      }
+
+      // Staking transaction with no movements (fee-only)
+      return {
+        legacyType: 'staking_deposit',
+        note: {
+          message: `Staking transaction with no asset movement. Fee-only staking operation.`,
+          metadata: {
+            feeAmount: fundFlow.feeAmount,
+            feeCurrency: fundFlow.feeCurrency,
+          },
+          severity: 'info',
+          type: 'fee_only_staking',
+        },
+        operation: {
+          category: 'staking',
+          type: 'stake',
+        },
+      };
     }
 
-    // Governance operations
+    // Pattern 2: Governance operations (9/10 confident)
     if (fundFlow.hasGovernance) {
-      return fundFlow.isOutgoing ? 'governance_deposit' : 'governance_refund';
+      if (outflows.length > 0) {
+        return {
+          legacyType: 'governance_deposit',
+          operation: {
+            category: 'governance',
+            type: transaction.call?.includes('propose') ? 'proposal' : 'vote',
+          },
+        };
+      } else if (inflows.length > 0) {
+        return {
+          legacyType: 'governance_refund',
+          operation: {
+            category: 'governance',
+            type: 'refund',
+          },
+        };
+      }
     }
 
-    // Utility operations
+    // Pattern 3: Utility batch (complex - add uncertainty note)
     if (fundFlow.hasUtilityBatch) {
-      return 'utility_batch';
+      return {
+        legacyType: 'utility_batch',
+        note: {
+          message:
+            fundFlow.classificationUncertainty ||
+            `Utility batch transaction with ${fundFlow.eventCount} events. May contain multiple operations.`,
+          metadata: {
+            eventCount: fundFlow.eventCount,
+            inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
+            outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+          },
+          severity: 'warning',
+          type: 'utility_batch',
+        },
+        operation: {
+          category: 'transfer',
+          type: 'transfer',
+        },
+      };
     }
 
-    // Proxy operations
+    // Pattern 4: Proxy operations (add note)
     if (fundFlow.hasProxy) {
-      return 'proxy';
+      return {
+        legacyType: 'proxy',
+        note: {
+          message: `Proxy transaction. User authorized another account to perform operations.`,
+          metadata: {
+            call: fundFlow.call,
+            module: fundFlow.module,
+          },
+          severity: 'info',
+          type: 'proxy_operation',
+        },
+        operation: {
+          category: 'transfer',
+          type: 'transfer',
+        },
+      };
     }
 
-    // Multisig operations
+    // Pattern 5: Multisig operations (add note)
     if (fundFlow.hasMultisig) {
-      return 'multisig';
+      return {
+        legacyType: 'multisig',
+        note: {
+          message: `Multisig transaction. Requires multiple signatures to execute.`,
+          metadata: {
+            call: fundFlow.call,
+            module: fundFlow.module,
+          },
+          severity: 'info',
+          type: 'multisig_operation',
+        },
+        operation: {
+          category: 'transfer',
+          type: 'transfer',
+        },
+      };
     }
 
-    // Fee-only transactions (check BEFORE self-transfer check)
-    const netAmount = new Decimal(fundFlow.netAmount);
-    const feeAmount = new Decimal(fundFlow.feeAmount);
-    if (netAmount.abs().equals(feeAmount) && new Decimal(fundFlow.totalAmount).isZero()) {
-      return 'fee';
+    // Pattern 6: Fee-only transaction (no asset movements)
+    if (isZeroAmount && inflows.length === 0 && outflows.length === 0) {
+      return {
+        legacyType: 'fee',
+        operation: {
+          category: 'fee',
+          type: 'fee',
+        },
+      };
     }
 
-    // Self-transfers (both incoming and outgoing)
-    if (fundFlow.isIncoming && fundFlow.isOutgoing) {
-      return 'internal_transfer';
+    // Pattern 7: Simple deposit (only inflows)
+    if (outflows.length === 0 && inflows.length >= 1) {
+      return {
+        legacyType: 'deposit',
+        operation: {
+          category: 'transfer',
+          type: 'deposit',
+        },
+      };
     }
 
-    // Basic transfers
-    if (fundFlow.isIncoming && !fundFlow.isOutgoing) {
-      return 'deposit';
+    // Pattern 8: Simple withdrawal (only outflows)
+    if (outflows.length >= 1 && inflows.length === 0) {
+      return {
+        legacyType: 'withdrawal',
+        operation: {
+          category: 'transfer',
+          type: 'withdrawal',
+        },
+      };
     }
 
-    if (fundFlow.isOutgoing && !fundFlow.isIncoming) {
-      return 'withdrawal';
+    // Pattern 9: Self-transfer (same asset in and out)
+    if (outflows.length === 1 && inflows.length === 1) {
+      const outAsset = outflows[0]?.asset;
+      const inAsset = inflows[0]?.asset;
+
+      if (outAsset === inAsset) {
+        return {
+          legacyType: 'internal_transfer',
+          operation: {
+            category: 'transfer',
+            type: 'transfer',
+          },
+        };
+      }
     }
 
-    return 'unknown';
+    // Pattern 10: Unknown/complex transaction
+    return {
+      legacyType: 'unknown',
+      note: {
+        message: `Unable to classify transaction with confidence. Module: ${fundFlow.module}, Call: ${fundFlow.call}`,
+        metadata: {
+          call: fundFlow.call,
+          inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
+          module: fundFlow.module,
+          outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+        },
+        severity: 'warning',
+        type: 'classification_failed',
+      },
+      operation: {
+        category: 'transfer',
+        type: 'transfer',
+      },
+    };
   }
 
   /**

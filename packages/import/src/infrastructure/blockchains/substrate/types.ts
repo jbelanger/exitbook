@@ -59,39 +59,49 @@ export interface SubstrateEventData {
 /**
  * Substrate fund flow analysis result
  * Works for Polkadot, Kusama, Bittensor, and other Substrate chains
+ * Following EVM's multi-asset tracking approach
  */
 export interface SubstrateFundFlow {
-  call: string; // Primary call method
-  // Chain context
-  chainName: string; // polkadot, kusama, bittensor
+  // All assets that flowed in/out (supports multi-asset operations)
+  inflows: {
+    amount: string; // Normalized amount
+    asset: string; // Symbol (DOT, KSM, TAO, etc.)
+  }[];
+  outflows: {
+    amount: string; // Normalized amount
+    asset: string; // Symbol (DOT, KSM, TAO, etc.)
+  }[];
 
-  currency: string; // DOT, KSM, TAO, etc.
-  // Transaction complexity
-  eventCount: number; // Number of events generated
-  extrinsicCount: number; // Number of extrinsics in batch (for utility.batch)
+  // Primary asset (for backward compatibility and simple display)
+  primary: {
+    amount: string; // Absolute amount of primary asset
+    asset: string; // Symbol of primary asset
+  };
 
   // Fee information (always in native currency)
   feeAmount: string;
   feeCurrency: string;
-  feePaidByUser: boolean; // Whether the user paid the transaction fee
 
   // Address information
   fromAddress: string;
-  hasGovernance: boolean; // Transaction involves democracy/council
+  toAddress: string;
 
-  hasMultisig: boolean; // Transaction involves multisig
-  hasProxy: boolean; // Transaction uses proxy
+  // Substrate-specific transaction characteristics
+  module: string; // Primary module (balances, staking, etc.)
+  call: string; // Primary call method
+  chainName: string; // polkadot, kusama, bittensor
+
   // Substrate-specific analysis
   hasStaking: boolean; // Transaction involves staking operations
+  hasGovernance: boolean; // Transaction involves democracy/council
   hasUtilityBatch: boolean; // Transaction uses utility.batch
-  // Flow direction
-  isIncoming: boolean; // User is receiving funds
+  hasProxy: boolean; // Transaction uses proxy
+  hasMultisig: boolean; // Transaction involves multisig
 
-  isOutgoing: boolean; // User is sending funds
-  module: string; // Primary module (balances, staking, etc.)
+  // Transaction complexity
+  eventCount: number; // Number of events generated
+  extrinsicCount: number; // Number of extrinsics in batch (for utility.batch)
 
-  netAmount: string; // Net amount change for user (positive = received, negative = sent)
-  toAddress: string;
-  // Amount information
-  totalAmount: string; // Total transaction amount
+  // Classification uncertainty tracking
+  classificationUncertainty?: string | undefined; // Reason why classification is uncertain
 }
