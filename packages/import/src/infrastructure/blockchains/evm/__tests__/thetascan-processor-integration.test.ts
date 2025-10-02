@@ -46,10 +46,43 @@ describe('Theta Processor Integration', () => {
 
         const tx = transactions[0];
         expect(tx).toBeDefined();
-        expect(tx!.symbol).toBe('THETA');
-        expect(tx!.amount.currency).toBe('THETA');
-        expect(tx!.amount.amount.toString()).toBe('420.3337');
-        expect(tx!.type).toBe('withdrawal');
+        if (!tx) return;
+
+        // Verify new structured movements
+        expect(tx.movements.outflows).toHaveLength(1);
+        expect(tx.movements.outflows[0]?.asset).toBe('THETA');
+        expect(tx.movements.outflows[0]?.amount.amount.toString()).toBe('420.3337');
+        expect(tx.movements.inflows).toHaveLength(0);
+        expect(tx.movements.primary.asset).toBe('THETA');
+        expect(tx.movements.primary.amount.amount.toString()).toBe('420.3337');
+        expect(tx.movements.primary.direction).toBe('out');
+
+        // Verify new structured fees
+        expect(tx.fees.network).toBeDefined();
+        expect(tx.fees.network?.currency).toBe('TFUEL');
+        expect(tx.fees.network?.amount.toString()).toBe('0');
+        expect(tx.fees.platform).toBeUndefined();
+        expect(tx.fees.total.currency).toBe('TFUEL');
+        expect(tx.fees.total.amount.toString()).toBe('0');
+
+        // Verify new operation classification
+        expect(tx.operation.category).toBe('transfer');
+        expect(tx.operation.type).toBe('withdrawal');
+
+        // Verify blockchain metadata
+        expect(tx.blockchain).toBeDefined();
+        expect(tx.blockchain?.name).toBe('theta');
+        expect(tx.blockchain?.block_height).toBe(30599571);
+        expect(tx.blockchain?.transaction_hash).toBe(
+          '0xa8e2051371ac9307a54e5290ec522d679bd7ecde13b86fd85a5d6acbe3257a3a'
+        );
+        expect(tx.blockchain?.is_confirmed).toBe(true);
+
+        // Verify backward compatibility (deprecated fields)
+        expect(tx.symbol).toBe('THETA');
+        expect(tx.amount?.currency).toBe('THETA');
+        expect(tx.amount?.amount.toString()).toBe('420.3337');
+        expect(tx.type).toBe('withdrawal');
       }
     });
 
@@ -82,17 +115,50 @@ describe('Theta Processor Integration', () => {
 
         const tx = transactions[0];
         expect(tx).toBeDefined();
-        expect(tx!.symbol).toBe('TFUEL');
-        expect(tx!.amount.currency).toBe('TFUEL');
-        expect(tx!.amount.amount.toString()).toBe('7614.4125');
-        expect(tx!.type).toBe('withdrawal');
+        if (!tx) return;
+
+        // Verify new structured movements
+        expect(tx.movements.outflows).toHaveLength(1);
+        expect(tx.movements.outflows[0]?.asset).toBe('TFUEL');
+        expect(tx.movements.outflows[0]?.amount.amount.toString()).toBe('7614.4125');
+        expect(tx.movements.inflows).toHaveLength(0);
+        expect(tx.movements.primary.asset).toBe('TFUEL');
+        expect(tx.movements.primary.amount.amount.toString()).toBe('7614.4125');
+        expect(tx.movements.primary.direction).toBe('out');
+
+        // Verify new structured fees
+        expect(tx.fees.network).toBeDefined();
+        expect(tx.fees.network?.currency).toBe('TFUEL');
+        expect(tx.fees.network?.amount.toString()).toBe('0');
+        expect(tx.fees.platform).toBeUndefined();
+        expect(tx.fees.total.currency).toBe('TFUEL');
+        expect(tx.fees.total.amount.toString()).toBe('0');
+
+        // Verify new operation classification
+        expect(tx.operation.category).toBe('transfer');
+        expect(tx.operation.type).toBe('withdrawal');
+
+        // Verify blockchain metadata
+        expect(tx.blockchain).toBeDefined();
+        expect(tx.blockchain?.name).toBe('theta');
+        expect(tx.blockchain?.block_height).toBe(30599639);
+        expect(tx.blockchain?.transaction_hash).toBe(
+          '0x9312f29a4a4e6478b4f6e30d91d7407067d6350578a25669d1272f4624e8cc01'
+        );
+        expect(tx.blockchain?.is_confirmed).toBe(true);
+
+        // Verify backward compatibility (deprecated fields)
+        expect(tx.symbol).toBe('TFUEL');
+        expect(tx.amount?.currency).toBe('TFUEL');
+        expect(tx.amount?.amount.toString()).toBe('7614.4125');
+        expect(tx.type).toBe('withdrawal');
       }
     });
 
     it('should handle mixed THETA and TFUEL transactions in same session', async () => {
       const normalizedTransactions: EvmTransaction[] = [
         {
-          amount: '7614.4125',
+          amount: '7614412500000000000000', // Wei amount
           blockHeight: 30599639,
           currency: 'TFUEL',
           feeAmount: '0',
@@ -105,7 +171,7 @@ describe('Theta Processor Integration', () => {
           to: '0x3b2cf117129bb01c47d51557e6efdbe3ae3637c4',
           tokenSymbol: 'TFUEL',
           tokenType: 'native',
-          type: 'token_transfer',
+          type: 'transfer', // TFUEL uses 'transfer', not 'token_transfer'
         },
         {
           amount: '420.3337',
@@ -153,13 +219,56 @@ describe('Theta Processor Integration', () => {
         const thetaTxs = transactions.filter((tx) => tx.symbol === 'THETA');
 
         expect(tfuelTx).toBeDefined();
-        expect(tfuelTx!.amount.currency).toBe('TFUEL');
-        expect(tfuelTx!.amount.amount.toString()).toBe('7614.4125');
+        if (tfuelTx) {
+          // Verify new structured movements for TFUEL transaction
+          expect(tfuelTx.movements.outflows).toHaveLength(1);
+          expect(tfuelTx.movements.outflows[0]?.asset).toBe('TFUEL');
+          expect(tfuelTx.movements.outflows[0]?.amount.amount.toString()).toBe('7614.4125');
+          expect(tfuelTx.movements.inflows).toHaveLength(0);
+          expect(tfuelTx.movements.primary.asset).toBe('TFUEL');
+          expect(tfuelTx.movements.primary.direction).toBe('out');
+
+          // Verify operation classification
+          expect(tfuelTx.operation.category).toBe('transfer');
+          expect(tfuelTx.operation.type).toBe('withdrawal');
+
+          // Verify blockchain metadata
+          expect(tfuelTx.blockchain).toBeDefined();
+          expect(tfuelTx.blockchain?.name).toBe('theta');
+
+          // Verify backward compatibility
+          expect(tfuelTx.amount?.currency).toBe('TFUEL');
+          expect(tfuelTx.amount?.amount.toString()).toBe('7614.4125');
+        }
 
         expect(thetaTxs).toHaveLength(2);
         thetaTxs.forEach((tx) => {
-          expect(tx.amount.currency).toBe('THETA');
-          expect(['420.3337', '280.2629']).toContain(tx.amount.amount.toString());
+          // Verify new structured movements for THETA transactions
+          const hasInflow = tx.movements.inflows.length > 0;
+          const hasOutflow = tx.movements.outflows.length > 0;
+
+          expect(tx.movements.primary.asset).toBe('THETA');
+          expect(['420.3337', '280.2629']).toContain(tx.movements.primary.amount.amount.toString());
+
+          // Verify correct direction based on from/to address
+          if (hasInflow) {
+            expect(tx.movements.primary.direction).toBe('in');
+            expect(tx.operation.type).toBe('deposit');
+          } else if (hasOutflow) {
+            expect(tx.movements.primary.direction).toBe('out');
+            expect(tx.operation.type).toBe('withdrawal');
+          }
+
+          // Verify operation classification
+          expect(tx.operation.category).toBe('transfer');
+
+          // Verify blockchain metadata
+          expect(tx.blockchain).toBeDefined();
+          expect(tx.blockchain?.name).toBe('theta');
+
+          // Verify backward compatibility
+          expect(tx.amount?.currency).toBe('THETA');
+          expect(['420.3337', '280.2629']).toContain(tx.amount?.amount.toString());
         });
       }
     });
@@ -193,11 +302,41 @@ describe('Theta Processor Integration', () => {
 
         const tx = transactions[0];
         expect(tx).toBeDefined();
-        expect(tx!.symbol).toBe('THETA');
-        expect(tx!.amount.currency).toBe('THETA');
-        expect(tx!.fee).toBeDefined();
-        expect(tx!.fee?.currency).toBe('TFUEL');
-        expect(tx!.fee?.amount.toString()).toBe('0.1');
+        if (!tx) return;
+
+        // Verify new structured movements
+        expect(tx.movements.outflows).toHaveLength(1);
+        expect(tx.movements.outflows[0]?.asset).toBe('THETA');
+        expect(tx.movements.primary.asset).toBe('THETA');
+        expect(tx.movements.primary.direction).toBe('out');
+
+        // Verify new structured fees - TFUEL is used for gas fees regardless of transaction currency
+        expect(tx.fees.network).toBeDefined();
+        expect(tx.fees.network?.currency).toBe('TFUEL');
+        expect(tx.fees.network?.amount.toString()).toBe('0.1');
+        expect(tx.fees.platform).toBeUndefined();
+        expect(tx.fees.total.currency).toBe('TFUEL');
+        expect(tx.fees.total.amount.toString()).toBe('0.1');
+
+        // Verify new operation classification
+        expect(tx.operation.category).toBe('transfer');
+        expect(tx.operation.type).toBe('withdrawal');
+
+        // Verify blockchain metadata
+        expect(tx.blockchain).toBeDefined();
+        expect(tx.blockchain?.name).toBe('theta');
+        expect(tx.blockchain?.block_height).toBe(30599571);
+        expect(tx.blockchain?.transaction_hash).toBe(
+          '0xa8e2051371ac9307a54e5290ec522d679bd7ecde13b86fd85a5d6acbe3257a3a'
+        );
+        expect(tx.blockchain?.is_confirmed).toBe(true);
+
+        // Verify backward compatibility (deprecated fields)
+        expect(tx.symbol).toBe('THETA');
+        expect(tx.amount?.currency).toBe('THETA');
+        expect(tx.fee).toBeDefined();
+        expect(tx.fee?.currency).toBe('TFUEL');
+        expect(tx.fee?.amount.toString()).toBe('0.1');
       }
     });
   });

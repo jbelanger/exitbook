@@ -764,11 +764,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
 
   private isNativeMovement(tx: EvmTransaction): boolean {
     const native = this.chainConfig.nativeCurrency.toLowerCase();
-    return (
-      (tx.tokenType === 'native' && !!tx.amount) ||
-      tx.currency.toLowerCase() === native ||
-      (tx.tokenSymbol ? tx.tokenSymbol.toLowerCase() === native : false)
-    );
+    return tx.currency.toLowerCase() === native || (tx.tokenSymbol ? tx.tokenSymbol.toLowerCase() === native : false);
   }
 
   private normalizeNativeAmount(amountWei: string | undefined): string {
