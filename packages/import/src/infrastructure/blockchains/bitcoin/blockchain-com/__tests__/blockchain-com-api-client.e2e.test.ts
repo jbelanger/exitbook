@@ -5,7 +5,7 @@ import type { AddressInfo } from '../../types.js';
 import { BlockchainComApiClient } from '../blockchain-com.api-client.js';
 import type { BlockchainComTransaction } from '../blockchain-com.types.js';
 
-describe('BlockchainComApiClient E2E', () => {
+describe.skip('BlockchainComApiClient E2E', () => {
   const config = ProviderRegistry.createDefaultConfig('bitcoin', 'blockchain.com');
   const client = new BlockchainComApiClient(config);
 

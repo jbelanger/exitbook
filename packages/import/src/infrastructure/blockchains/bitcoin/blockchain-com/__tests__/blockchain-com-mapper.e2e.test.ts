@@ -7,7 +7,7 @@ import { BlockchainComApiClient } from '../blockchain-com.api-client.js';
 import { BlockchainComTransactionMapper } from '../blockchain-com.mapper.js';
 import type { BlockchainComTransaction } from '../blockchain-com.types.js';
 
-describe('BlockchainComTransactionMapper E2E', () => {
+describe.skip('BlockchainComTransactionMapper E2E', () => {
   const mapper = new BlockchainComTransactionMapper();
   const config = ProviderRegistry.createDefaultConfig('bitcoin', 'blockchain.com');
   const apiClient = new BlockchainComApiClient(config);

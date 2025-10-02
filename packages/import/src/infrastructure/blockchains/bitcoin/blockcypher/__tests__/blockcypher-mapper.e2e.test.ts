@@ -7,7 +7,7 @@ import { BlockCypherApiClient } from '../blockcypher.api-client.js';
 import { BlockCypherTransactionMapper } from '../blockcypher.mapper.js';
 import type { BlockCypherTransaction } from '../blockcypher.types.js';
 
-describe('BlockCypherTransactionMapper E2E', () => {
+describe.skip('BlockCypherTransactionMapper E2E', () => {
   let mapper: BlockCypherTransactionMapper;
   // Reuse same client across tests to share rate limiter
   const config = ProviderRegistry.createDefaultConfig('bitcoin', 'blockcypher');

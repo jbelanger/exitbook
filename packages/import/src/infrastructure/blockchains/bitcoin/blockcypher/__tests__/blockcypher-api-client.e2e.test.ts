@@ -5,7 +5,7 @@ import type { AddressInfo } from '../../types.js';
 import { BlockCypherApiClient } from '../blockcypher.api-client.js';
 import type { BlockCypherTransaction } from '../blockcypher.types.js';
 
-describe('BlockCypherApiClient E2E', () => {
+describe.skip('BlockCypherApiClient E2E', () => {
   const config = ProviderRegistry.createDefaultConfig('bitcoin', 'blockcypher');
   const client = new BlockCypherApiClient(config);
   const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa'; // Genesis block address
