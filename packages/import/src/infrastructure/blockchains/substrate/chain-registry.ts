@@ -1,10 +1,11 @@
-import { BITTENSOR_CONFIG } from '../bittensor/config.js';
-import { POLKADOT_CONFIG } from '../polkadot/config.js';
-
 import type { SubstrateChainConfig } from './chain-config.interface.js';
+import substrateChainsData from './substrate-chains.json' with { type: 'json' };
 
 /**
  * Registry of all supported Substrate-based chains
+ *
+ * Loaded from substrate-chains.json for easy configuration management.
+ * To add a new Substrate chain, simply add its configuration to the JSON file.
  *
  * Usage:
  * ```typescript
@@ -12,10 +13,7 @@ import type { SubstrateChainConfig } from './chain-config.interface.js';
  * const processor = new SubstrateProcessor(SUBSTRATE_CHAINS.bittensor);
  * ```
  */
-export const SUBSTRATE_CHAINS = {
-  bittensor: BITTENSOR_CONFIG,
-  polkadot: POLKADOT_CONFIG,
-} as const satisfies Record<string, SubstrateChainConfig>;
+export const SUBSTRATE_CHAINS = substrateChainsData as Record<string, SubstrateChainConfig>;
 
 /**
  * Type-safe chain names
@@ -26,5 +24,5 @@ export type SubstrateChainName = keyof typeof SUBSTRATE_CHAINS;
  * Helper to get chain config by name
  */
 export function getSubstrateChainConfig(chainName: string): SubstrateChainConfig | undefined {
-  return SUBSTRATE_CHAINS[chainName as SubstrateChainName];
+  return SUBSTRATE_CHAINS[chainName];
 }

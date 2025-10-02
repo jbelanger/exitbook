@@ -1,8 +1,7 @@
 import type { ProcessingImportSession } from '@exitbook/import/app/ports/transaction-processor.interface.ts';
 import { describe, expect, test } from 'vitest';
 
-import { BITTENSOR_CONFIG } from '../../bittensor/config.js';
-import { POLKADOT_CONFIG } from '../../polkadot/config.js';
+import { SUBSTRATE_CHAINS } from '../chain-registry.js';
 import { SubstrateProcessor } from '../processor.js';
 import type { SubstrateTransaction } from '../types.js';
 
@@ -28,11 +27,11 @@ function buildSession(
 }
 
 function createPolkadotProcessor() {
-  return new SubstrateProcessor(POLKADOT_CONFIG);
+  return new SubstrateProcessor(SUBSTRATE_CHAINS.polkadot!);
 }
 
 function createBittensorProcessor() {
-  return new SubstrateProcessor(BITTENSOR_CONFIG);
+  return new SubstrateProcessor(SUBSTRATE_CHAINS.bittensor!);
 }
 
 describe('SubstrateProcessor - Fund Flow Direction', () => {

@@ -1,0 +1,92 @@
+{
+  "polkadot": {
+    "chainName": "polkadot",
+    "displayName": "Polkadot Relay Chain",
+    "explorerUrls": ["https://polkadot.subscan.io", "https://polkadot.js.org/apps"],
+    "genesisHash": "0x91b171bb158e2d3848fa23a9f1c25182fb8e20313b2c1eb49219da7a70ce90c3",
+    "nativeCurrency": "DOT",
+    "nativeDecimals": 10,
+    "ss58Format": 0
+  },
+  "bittensor": {
+    "chainName": "bittensor",
+    "displayName": "Bittensor Network",
+    "explorerUrls": ["https://taostats.io", "https://bittensor.com/scan"],
+    "genesisHash": "0x5c0d1176a568c1f92944340dbfed9e9c530ebca703c85910e7164cb7d1c9e47b",
+    "nativeCurrency": "TAO",
+    "nativeDecimals": 9,
+    "ss58Format": 42
+  },
+  "kusama": {
+    "chainName": "kusama",
+    "displayName": "Kusama Relay Chain",
+    "explorerUrls": ["https://kusama.subscan.io", "https://kusama.polkadot.io/apps"],
+    "genesisHash": "0xb0a8d493285c2df73290dfb7e61f870f17b41801197a149ca93654499ea3dafe",
+    "nativeCurrency": "KSM",
+    "nativeDecimals": 12,
+    "ss58Format": 2
+  },
+  "westend": {
+    "chainName": "westend",
+    "displayName": "Westend Testnet",
+    "explorerUrls": ["https://westend.subscan.io", "https://westend.polkadot.io/apps"],
+    "genesisHash": "0xe143f23803ac50e8f6f8e62695d1ce9e4e1d68aa36c1cd2cfd15340213f3423e",
+    "nativeCurrency": "WND",
+    "nativeDecimals": 12,
+    "ss58Format": 42
+  },
+  "acala": {
+    "chainName": "acala",
+    "displayName": "Acala Network",
+    "explorerUrls": ["https://acala.subscan.io"],
+    "genesisHash": "0xfc41b9bd8ef8fe53d58c7ea67c794c7ec9a73daf05e6d54b14ff6342c99ba64c",
+    "nativeCurrency": "ACA",
+    "nativeDecimals": 12,
+    "ss58Format": 10
+  },
+  "moonbeam": {
+    "chainName": "moonbeam",
+    "displayName": "Moonbeam Network",
+    "explorerUrls": ["https://moonbeam.subscan.io", "https://moonbeam.moonscan.io"],
+    "genesisHash": "0xfe58ea77779b7abda7da4ec526d14db9b1e9cd40a217c34892af80a9b332b76d",
+    "nativeCurrency": "GLMR",
+    "nativeDecimals": 18,
+    "ss58Format": 1284
+  },
+  "astar": {
+    "chainName": "astar",
+    "displayName": "Astar Network",
+    "explorerUrls": ["https://astar.subscan.io"],
+    "genesisHash": "0x9eb76c5184c4ab8679d2d5d819fdf90b9c001403e9e17da2e14b6d8aec4029c6",
+    "nativeCurrency": "ASTR",
+    "nativeDecimals": 18,
+    "ss58Format": 5
+  },
+  "phala": {
+    "chainName": "phala",
+    "displayName": "Phala Network",
+    "explorerUrls": ["https://phala.subscan.io"],
+    "genesisHash": "0x1bb969d85965e4bb5a651abbedf21a54b6b31a21f66b5401cc3f1e286268d736",
+    "nativeCurrency": "PHA",
+    "nativeDecimals": 12,
+    "ss58Format": 30
+  },
+  "statemint": {
+    "chainName": "statemint",
+    "displayName": "Statemint (Asset Hub Polkadot)",
+    "explorerUrls": ["https://statemint.subscan.io"],
+    "genesisHash": "0x68d56f15f85d3136970ec16946040bc1752654e906147f7e43e9d539d7c3de2f",
+    "nativeCurrency": "DOT",
+    "nativeDecimals": 10,
+    "ss58Format": 0
+  },
+  "statemine": {
+    "chainName": "statemine",
+    "displayName": "Statemine (Asset Hub Kusama)",
+    "explorerUrls": ["https://statemine.subscan.io"],
+    "genesisHash": "0x48239ef607d7928874027a43a67689209727dfb3d3dc5e5b03a39bdc2eda771a",
+    "nativeCurrency": "KSM",
+    "nativeDecimals": 12,
+    "ss58Format": 2
+  }
+}

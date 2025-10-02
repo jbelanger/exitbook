@@ -615,7 +615,7 @@ async function main() {
   program
     .command('list-blockchains')
     .description('List all available blockchains')
-    .action(() => {
+    .action(async () => {
       try {
         logger.info('Available Blockchains:');
         logger.info('=============================');
@@ -625,7 +625,7 @@ async function main() {
 
         const processorFactory = new ProcessorFactory();
 
-        const supportedBlockchains = processorFactory.getSupportedSources('blockchain');
+        const supportedBlockchains = await processorFactory.getSupportedSources('blockchain');
 
         // Get all providers and group by blockchain
         const allProviders = ProviderRegistry.getAllProviders();

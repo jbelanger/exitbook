@@ -12,13 +12,21 @@ export class ProcessorFactory implements IProcessorFactory {
   /**
    * Get all supported sources for a given type.
    */
-  getSupportedSources(sourceType: 'exchange' | 'blockchain'): string[] {
+  async getSupportedSources(sourceType: 'exchange' | 'blockchain'): Promise<string[]> {
     if (sourceType === 'exchange') {
       return ['kraken', 'kucoin', 'coinbase', 'ledgerlive'];
     }
 
     if (sourceType === 'blockchain') {
-      return ['bitcoin', 'ethereum', 'injective', 'solana', 'avalanche', 'polkadot', 'bittensor'];
+      // Load dynamic chains
+      const { EVM_CHAINS } = await import('../../blockchains/evm/chain-registry.ts');
+      const { SUBSTRATE_CHAINS } = await import('../../blockchains/substrate/chain-registry.ts');
+
+      const evmChains = Object.keys(EVM_CHAINS);
+      const substrateChains = Object.keys(SUBSTRATE_CHAINS);
+      const nonEvmChains = ['bitcoin', 'injective', 'solana'];
+
+      return [...evmChains, ...substrateChains, ...nonEvmChains];
     }
 
     return [];
@@ -27,16 +35,15 @@ export class ProcessorFactory implements IProcessorFactory {
   /**
    * Check if a processor is available for the given source.
    */
-  isSupported(sourceId: string, sourceType: string): boolean {
+  async isSupported(sourceId: string, sourceType: string): Promise<boolean> {
     try {
       if (sourceType === 'exchange') {
         return ['coinbase', 'kraken', 'kucoin', 'ledgerlive'].includes(sourceId.toLowerCase());
       }
 
       if (sourceType === 'blockchain') {
-        return ['avalanche', 'bitcoin', 'bittensor', 'ethereum', 'injective', 'polkadot', 'solana'].includes(
-          sourceId.toLowerCase()
-        );
+        const supportedChains = await this.getSupportedSources('blockchain');
+        return supportedChains.includes(sourceId.toLowerCase());
       }
 
       return false;
@@ -98,7 +105,13 @@ export class ProcessorFactory implements IProcessorFactory {
       return await this.createEvmProcessor(chainName);
     }
 
-    // Non-EVM chains
+    // Try Substrate chains (dynamically loaded from substrate-chains.json)
+    const { getSubstrateChainConfig } = await import('../../blockchains/substrate/chain-registry.ts');
+    if (getSubstrateChainConfig(chainName)) {
+      return await this.createSubstrateProcessor(chainName);
+    }
+
+    // Non-EVM, non-Substrate chains
     switch (chainName) {
       case 'bitcoin':
         return await this.createBitcoinProcessor();
@@ -108,12 +121,6 @@ export class ProcessorFactory implements IProcessorFactory {
 
       case 'solana':
         return await this.createSolanaProcessor();
-
-      case 'polkadot':
-        return await this.createPolkadotProcessor();
-
-      case 'bittensor':
-        return await this.createBittensorProcessor();
 
       default:
         throw new Error(`Unsupported blockchain processor: ${sourceId}`);
@@ -188,23 +195,18 @@ export class ProcessorFactory implements IProcessorFactory {
   }
 
   /**
-   * Create Polkadot processor.
+   * Create Substrate-based chain processor (Polkadot, Bittensor, Kusama, etc.).
+   * Looks up chain config from substrate-chains.json registry.
    */
-  private async createPolkadotProcessor(): Promise<ITransactionProcessor> {
+  private async createSubstrateProcessor(chainName: string): Promise<ITransactionProcessor> {
     // Dynamic import to avoid circular dependencies
     const { SubstrateProcessor } = await import('../../blockchains/substrate/processor.ts');
-    const { SUBSTRATE_CHAINS } = await import('../../blockchains/substrate/chain-registry.ts');
-    return new SubstrateProcessor(SUBSTRATE_CHAINS.polkadot);
-  }
-
-  /**
-   * Create Bittensor processor.
-   */
-  private async createBittensorProcessor(): Promise<ITransactionProcessor> {
-    // Dynamic import to avoid circular dependencies
-    const { SubstrateProcessor } = await import('../../blockchains/substrate/processor.ts');
-    const { SUBSTRATE_CHAINS } = await import('../../blockchains/substrate/chain-registry.ts');
-    return new SubstrateProcessor(SUBSTRATE_CHAINS.bittensor);
+    const { getSubstrateChainConfig } = await import('../../blockchains/substrate/chain-registry.ts');
+    const config = getSubstrateChainConfig(chainName);
+    if (!config) {
+      throw new Error(`Substrate chain config not found: ${chainName}`);
+    }
+    return new SubstrateProcessor(config);
   }
 
   /**

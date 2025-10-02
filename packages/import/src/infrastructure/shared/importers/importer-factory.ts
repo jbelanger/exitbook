@@ -66,16 +66,22 @@ export class ImporterFactory implements IImporterFactory {
   }
 
   /**
-   * Create Bittensor importer.
+   * Create Substrate-based chain importer (Polkadot, Bittensor, Kusama, etc.).
+   * Looks up chain config from substrate-chains.json registry.
    */
-  private async createBittensorImporter(
+  private async createSubstrateImporter(
+    chainName: string,
     blockchainProviderManager: BlockchainProviderManager,
     providerId: string | undefined
   ): Promise<IImporter> {
     // Dynamic import to avoid circular dependencies
     const { SubstrateImporter } = await import('../../blockchains/substrate/importer.ts');
-    const { SUBSTRATE_CHAINS } = await import('../../blockchains/substrate/chain-registry.ts');
-    return new SubstrateImporter(SUBSTRATE_CHAINS.bittensor, blockchainProviderManager, {
+    const { getSubstrateChainConfig } = await import('../../blockchains/substrate/chain-registry.ts');
+    const config = getSubstrateChainConfig(chainName);
+    if (!config) {
+      throw new Error(`Substrate chain config not found: ${chainName}`);
+    }
+    return new SubstrateImporter(config, blockchainProviderManager, {
       preferredProvider: providerId,
     }) as unknown as IImporter;
   }
@@ -94,7 +100,13 @@ export class ImporterFactory implements IImporterFactory {
       return await this.createEvmImporter(chainName, this.providerManager, providerId);
     }
 
-    // Non-EVM chains
+    // Try Substrate chains (dynamically loaded from substrate-chains.json)
+    const { getSubstrateChainConfig } = await import('../../blockchains/substrate/chain-registry.ts');
+    if (getSubstrateChainConfig(chainName)) {
+      return await this.createSubstrateImporter(chainName, this.providerManager, providerId);
+    }
+
+    // Non-EVM, non-Substrate chains
     switch (chainName) {
       case 'bitcoin':
         return await this.createBitcoinImporter(this.providerManager, providerId);
@@ -104,12 +116,6 @@ export class ImporterFactory implements IImporterFactory {
 
       case 'solana':
         return await this.createSolanaImporter(this.providerManager, providerId);
-
-      case 'polkadot':
-        return await this.createPolkadotImporter(this.providerManager, providerId);
-
-      case 'bittensor':
-        return await this.createBittensorImporter(this.providerManager, providerId);
 
       default:
         throw new Error(`Unsupported blockchain importer: ${sourceId}`);
@@ -187,21 +193,6 @@ export class ImporterFactory implements IImporterFactory {
     // Dynamic import to avoid circular dependencies
     const { LedgerLiveCsvImporter } = await import('../../exchanges/ledgerlive/importer.js');
     return new LedgerLiveCsvImporter() as unknown as IImporter;
-  }
-
-  /**
-   * Create Polkadot importer.
-   */
-  private async createPolkadotImporter(
-    blockchainProviderManager: BlockchainProviderManager,
-    providerId: string | undefined
-  ): Promise<IImporter> {
-    // Dynamic import to avoid circular dependencies
-    const { SubstrateImporter } = await import('../../blockchains/substrate/importer.ts');
-    const { SUBSTRATE_CHAINS } = await import('../../blockchains/substrate/chain-registry.ts');
-    return new SubstrateImporter(SUBSTRATE_CHAINS.polkadot, blockchainProviderManager, {
-      preferredProvider: providerId,
-    }) as unknown as IImporter;
   }
 
   /**
