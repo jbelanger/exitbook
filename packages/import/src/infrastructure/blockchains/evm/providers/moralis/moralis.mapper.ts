@@ -1,9 +1,9 @@
-import { tryParseDecimal } from '@exitbook/core';
 import type { RawTransactionMetadata } from '@exitbook/import/app/ports/importers.ts';
 import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transaction-processor.interface.ts';
 import { Decimal } from 'decimal.js';
-import { type Result, ok, err } from 'neverthrow';
+import { type Result, ok } from 'neverthrow';
 
+import type { NormalizationError } from '../../../../../app/ports/blockchain-normalizer.interface.ts';
 import { RegisterTransactionMapper } from '../../../../shared/processors/processor-registry.js';
 import { BaseRawDataMapper } from '../../../shared/base-raw-data-mapper.js';
 import { EvmTransactionSchema } from '../../schemas.ts';
@@ -21,34 +21,23 @@ export class MoralisTransactionMapper extends BaseRawDataMapper<MoralisTransacti
     rawData: MoralisTransaction,
     _metadata: RawTransactionMetadata,
     _sessionContext: ImportSessionMetadata
-  ): Result<EvmTransaction, string> {
+  ): Result<EvmTransaction, NormalizationError> {
     // Get chain-specific info from augmented fields
     const nativeCurrency = rawData._nativeCurrency || 'UNKNOWN';
     const nativeDecimals = rawData._nativeDecimals || 18;
 
-    // Parse value using tryParseDecimal (from @exitbook/core)
-    const valueWeiOut = { value: new Decimal(0) };
-    if (!tryParseDecimal(rawData.value, valueWeiOut)) {
-      return err(`Invalid value: ${rawData.value}`);
-    }
-    const valueWei = valueWeiOut.value;
+    // Parse value - Zod already validated it's numeric
+    const valueWei = new Decimal(rawData.value);
 
     // Convert to native currency units
     const valueNative = valueWei.dividedBy(new Decimal(10).pow(nativeDecimals));
     const timestamp = new Date(rawData.block_timestamp).getTime();
 
-    // Calculate gas fee
-    const gasUsedOut = { value: new Decimal(0) };
-    const gasPriceOut = { value: new Decimal(0) };
+    // Calculate gas fee - Zod already validated they're numeric
+    const gasUsed = new Decimal(rawData.receipt_gas_used || '0');
+    const gasPrice = new Decimal(rawData.gas_price || '0');
 
-    if (!tryParseDecimal(rawData.receipt_gas_used || '0', gasUsedOut)) {
-      return err(`Invalid gas used: ${rawData.receipt_gas_used}`);
-    }
-    if (!tryParseDecimal(rawData.gas_price || '0', gasPriceOut)) {
-      return err(`Invalid gas price: ${rawData.gas_price}`);
-    }
-
-    const feeWei = gasUsedOut.value.mul(gasPriceOut.value);
+    const feeWei = gasUsed.mul(gasPrice);
     const feeNative = feeWei.dividedBy(new Decimal(10).pow(nativeDecimals));
 
     const transaction: EvmTransaction = {

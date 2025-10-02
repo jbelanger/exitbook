@@ -3,6 +3,7 @@ import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transacti
 import type { Result } from 'neverthrow';
 import { ok } from 'neverthrow';
 
+import type { NormalizationError } from '../../../../../app/ports/blockchain-normalizer.interface.ts';
 import { RegisterTransactionMapper } from '../../../../shared/processors/processor-registry.js';
 import { BaseRawDataMapper } from '../../../shared/base-raw-data-mapper.js';
 import { EvmTransactionSchema } from '../../schemas.js';
@@ -23,7 +24,7 @@ export class SnowtraceTransactionMapper extends BaseRawDataMapper<
     rawData: SnowtraceTransaction | SnowtraceInternalTransaction | SnowtraceTokenTransfer,
     _metadata: RawTransactionMetadata,
     _sessionContext: ImportSessionMetadata
-  ): Result<EvmTransaction, string> {
+  ): Result<EvmTransaction, NormalizationError> {
     // Type discrimination handled by SnowtraceAnyTransactionSchema discriminated union
     // Token transfers have tokenSymbol, internal transactions have traceId, normal transactions have nonce
 
@@ -38,7 +39,9 @@ export class SnowtraceTransactionMapper extends BaseRawDataMapper<
     return this.transformNormalTransaction(rawData);
   }
 
-  private transformInternalTransaction(rawData: SnowtraceInternalTransaction): Result<EvmTransaction, string> {
+  private transformInternalTransaction(
+    rawData: SnowtraceInternalTransaction
+  ): Result<EvmTransaction, NormalizationError> {
     const timestamp = parseInt(rawData.timeStamp) * 1000;
 
     return ok({
@@ -56,7 +59,7 @@ export class SnowtraceTransactionMapper extends BaseRawDataMapper<
     });
   }
 
-  private transformNormalTransaction(rawData: SnowtraceTransaction): Result<EvmTransaction, string> {
+  private transformNormalTransaction(rawData: SnowtraceTransaction): Result<EvmTransaction, NormalizationError> {
     const timestamp = parseInt(rawData.timeStamp) * 1000;
 
     const transaction: EvmTransaction = {
@@ -95,7 +98,7 @@ export class SnowtraceTransactionMapper extends BaseRawDataMapper<
     return ok(transaction);
   }
 
-  private transformTokenTransfer(rawData: SnowtraceTokenTransfer): Result<EvmTransaction, string> {
+  private transformTokenTransfer(rawData: SnowtraceTokenTransfer): Result<EvmTransaction, NormalizationError> {
     const timestamp = parseInt(rawData.timeStamp) * 1000;
 
     const transaction: EvmTransaction = {

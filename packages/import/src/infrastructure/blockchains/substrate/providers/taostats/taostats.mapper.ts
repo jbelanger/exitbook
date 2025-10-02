@@ -1,9 +1,9 @@
-import { tryParseDecimal } from '@exitbook/core';
 import type { RawTransactionMetadata } from '@exitbook/import/app/ports/importers.ts';
 import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transaction-processor.interface.ts';
 import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
+import type { NormalizationError } from '../../../../../app/ports/blockchain-normalizer.interface.ts';
 import { RegisterTransactionMapper } from '../../../../shared/processors/processor-registry.ts';
 import { BaseRawDataMapper } from '../../../shared/base-raw-data-mapper.ts';
 import { SUBSTRATE_CHAINS } from '../../chain-registry.js';
@@ -22,7 +22,7 @@ export class TaostatsTransactionMapper extends BaseRawDataMapper<TaostatsTransac
     rawData: TaostatsTransactionAugmented,
     _metadata: RawTransactionMetadata,
     sessionContext: ImportSessionMetadata
-  ): Result<SubstrateTransaction, string> {
+  ): Result<SubstrateTransaction, NormalizationError> {
     // Extract SS58 addresses from address objects
     const fromAddress = rawData.from.ss58;
     const toAddress = rawData.to.ss58;
@@ -36,7 +36,10 @@ export class TaostatsTransactionMapper extends BaseRawDataMapper<TaostatsTransac
     const isToUser = relevantAddresses.has(toAddress);
 
     if (!isFromUser && !isToUser) {
-      return err(`Transaction not relevant to user addresses: ${Array.from(relevantAddresses).join(', ')}`);
+      return err({
+        message: `Transaction not relevant to user addresses: ${Array.from(relevantAddresses).join(', ')}`,
+        type: 'error',
+      });
     }
 
     // Get chain-specific info from augmented fields
@@ -46,31 +49,23 @@ export class TaostatsTransactionMapper extends BaseRawDataMapper<TaostatsTransac
     // Get Bittensor chain config for ss58Format
     const chainConfig = SUBSTRATE_CHAINS.bittensor;
     if (!chainConfig) {
-      return err('Bittensor chain configuration not found');
+      return err({
+        message: 'Bittensor chain configuration not found',
+        type: 'error',
+      });
     }
 
-    // Parse amount (in rao, smallest unit) using tryParseDecimal for safety
-    const amountRaoOut = { value: new Decimal(0) };
-    if (!tryParseDecimal(rawData.amount, amountRaoOut)) {
-      return err(`Invalid amount: ${rawData.amount}`);
-    }
-    const amountRao = amountRaoOut.value;
+    // Parse amount (in rao, smallest unit) - Zod already validated it's numeric
+    const amountRao = new Decimal(rawData.amount);
     const divisor = new Decimal(10).pow(nativeDecimals);
     const amountTao = amountRao.dividedBy(divisor);
 
-    // Parse fee if available
-    const feeRaoOut = { value: new Decimal(0) };
-    const feeString = rawData.fee || '0';
-    if (!tryParseDecimal(feeString, feeRaoOut)) {
-      return err(`Invalid fee: ${rawData.fee}`);
-    }
-    const feeTao = feeRaoOut.value.dividedBy(divisor);
+    // Parse fee if available - Zod already validated it's numeric
+    const feeRao = new Decimal(rawData.fee || '0');
+    const feeTao = feeRao.dividedBy(divisor);
 
-    // Parse timestamp (ISO string to milliseconds)
+    // Parse timestamp (ISO string to milliseconds) - Zod already validated format
     const timestamp = new Date(rawData.timestamp).getTime();
-    if (isNaN(timestamp)) {
-      return err(`Invalid timestamp: ${rawData.timestamp}`);
-    }
 
     // Build the normalized SubstrateTransaction
     // Note: Taostats only provides basic transfer data, no module/call/events information

@@ -4,6 +4,7 @@ import { parseDecimal } from '@exitbook/shared-utils';
 import { Decimal } from 'decimal.js';
 import { type Result, ok, err } from 'neverthrow';
 
+import type { NormalizationError } from '../../../../../app/ports/blockchain-normalizer.interface.ts';
 import { RegisterTransactionMapper } from '../../../../shared/processors/processor-registry.ts';
 import { BaseRawDataMapper } from '../../../shared/base-raw-data-mapper.ts';
 import { EvmTransactionSchema } from '../../schemas.js';
@@ -21,7 +22,7 @@ export class ThetaExplorerTransactionMapper extends BaseRawDataMapper<ThetaTrans
     rawData: ThetaTransaction,
     _metadata: RawTransactionMetadata,
     _sessionContext: ImportSessionMetadata
-  ): Result<EvmTransaction, string> {
+  ): Result<EvmTransaction, NormalizationError> {
     // Extract transaction details based on type
     let from: string;
     let to: string;
@@ -91,7 +92,7 @@ export class ThetaExplorerTransactionMapper extends BaseRawDataMapper<ThetaTrans
     }
     // Other transaction types - skip for now
     else {
-      return err(`Unsupported transaction type: ${rawData.type}`);
+      return err({ message: `Unsupported transaction type: ${rawData.type}`, type: 'error' });
     }
 
     // Convert timestamp (already in unix seconds)

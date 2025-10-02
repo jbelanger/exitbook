@@ -39,7 +39,7 @@ export interface InjectiveExplorerMessage {
 }
 
 export interface InjectiveExplorerMessageValue {
-  amount?: InjectiveExplorerAmount[] | string | undefined;
+  amount?: InjectiveExplorerAmount[] | string | InjectiveExplorerAmount | undefined;
   ethereum_receiver?: string | undefined;
   from_address?: string | undefined;
   injective_receiver?: string | undefined;
@@ -53,6 +53,13 @@ export interface InjectiveExplorerMessageValue {
   to_address?: string | undefined;
   token?: InjectiveExplorerAmount | undefined;
   token_contract?: string | undefined;
+  // CosmWasm contract execution fields
+  contract?: string | undefined;
+  msg?: unknown; // Can be object or JSON string
+  funds?: InjectiveExplorerAmount[] | string | undefined; // Array for MsgExecuteContract, string for MsgExecuteContractCompat
+  // Peggy bridge withdrawal fields
+  eth_dest?: string | undefined;
+  bridge_fee?: InjectiveExplorerAmount | undefined;
 }
 
 export interface InjectiveExplorerAmount {

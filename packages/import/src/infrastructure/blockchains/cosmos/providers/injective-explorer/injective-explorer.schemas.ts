@@ -30,7 +30,7 @@ export const InjectiveGasFeeSchema = z.object({
  */
 export const InjectiveMessageValueSchema = z.object({
   // Common fields across message types
-  amount: z.union([z.array(InjectiveAmountSchema), z.string()]).optional(),
+  amount: z.union([z.array(InjectiveAmountSchema), z.string(), InjectiveAmountSchema]).optional(),
   block_height: z.string().optional(),
   cosmos_receiver: z.string().optional(),
   data: z.string().optional(),
@@ -50,6 +50,13 @@ export const InjectiveMessageValueSchema = z.object({
   to_address: z.string().optional(),
   token: InjectiveAmountSchema.optional(),
   token_contract: z.string().optional(),
+  // CosmWasm contract execution fields
+  contract: z.string().optional(),
+  msg: z.any().optional(), // Can be object or JSON string
+  funds: z.union([z.array(InjectiveAmountSchema), z.string()]).optional(), // Array for MsgExecuteContract, string for MsgExecuteContractCompat
+  // Peggy bridge withdrawal fields
+  eth_dest: z.string().optional(),
+  bridge_fee: InjectiveAmountSchema.optional(),
 });
 
 /**
@@ -90,7 +97,7 @@ export const InjectiveTransactionSchema = z.object({
   claim_id: z.array(z.number()).optional(),
   code: z.number().nonnegative('Transaction code must be non-negative'),
   codespace: z.string().optional(),
-  data: z.string().optional(),
+  data: z.string().nullable().optional(),
   error_log: z.string().optional(),
   extension_options: z.array(z.unknown()).optional(),
   gas_fee: InjectiveGasFeeSchema,

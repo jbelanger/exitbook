@@ -1,3 +1,4 @@
+import type { NormalizationError } from '@exitbook/import/app/ports/blockchain-normalizer.interface.ts';
 import type { RawTransactionMetadata } from '@exitbook/import/app/ports/importers.ts';
 import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transaction-processor.interface.ts';
 import { type Result, err, ok } from 'neverthrow';
@@ -22,27 +23,24 @@ export class DefaultNormalizer {
     rawData: unknown,
     metadata: RawTransactionMetadata,
     sessionContext: ImportSessionMetadata
-  ): Result<unknown, string> {
+  ): Result<unknown, NormalizationError> {
     // Get the appropriate mapper for this provider (same as current processor)
     const mapper = TransactionMapperFactory.create(metadata.providerId);
     if (!mapper) {
-      return err(`No mapper found for provider: ${metadata.providerId}`);
+      return err({ message: `No mapper found for provider: ${metadata.providerId}`, type: 'error' });
     }
 
     // Transform using the provider-specific mapper
     const transformResult = mapper.map(rawData, metadata, sessionContext);
 
     if (transformResult.isErr()) {
-      return err(`Transform failed for ${metadata.providerId}: ${transformResult.error}`);
+      // Pass through the error - it's already a NormalizationError with proper type discrimination
+      return transformResult;
     }
 
     const blockchainTransaction = transformResult.value;
     if (!blockchainTransaction) {
-      return err(`No transactions returned from ${metadata.providerId} mapper`);
-    }
-
-    if (!blockchainTransaction) {
-      return err(`No valid transaction object returned from ${metadata.providerId} mapper`);
+      return err({ message: `No transactions returned from ${metadata.providerId} mapper`, type: 'error' });
     }
 
     return ok(blockchainTransaction);

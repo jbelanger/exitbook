@@ -1,5 +1,6 @@
 import type { Result } from 'neverthrow';
 
+import type { NormalizationError } from './blockchain-normalizer.interface.ts';
 import type { RawTransactionMetadata } from './importers.ts';
 import type { ImportSessionMetadata } from './transaction-processor.interface.ts';
 
@@ -11,5 +12,5 @@ export interface IRawDataMapper<TRawData, TNormalizedData> {
     rawData: TRawData,
     metadata: RawTransactionMetadata,
     sessionContext: ImportSessionMetadata
-  ): Result<TNormalizedData, string>;
+  ): Result<TNormalizedData, NormalizationError>;
 }

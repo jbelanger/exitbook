@@ -3,6 +3,7 @@ import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transacti
 import { Decimal } from 'decimal.js';
 import { ok, type Result } from 'neverthrow';
 
+import type { NormalizationError } from '../../../../app/ports/blockchain-normalizer.interface.ts';
 import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
 import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
 import { BitcoinTransactionSchema } from '../schemas.js';
@@ -23,7 +24,7 @@ export class BlockCypherTransactionMapper extends BaseRawDataMapper<BlockCypherT
     rawData: BlockCypherTransaction,
     _metadata: RawTransactionMetadata,
     _sessionContext: ImportSessionMetadata
-  ): Result<BitcoinTransaction, string> {
+  ): Result<BitcoinTransaction, NormalizationError> {
     const timestamp = rawData.confirmed ? new Date(rawData.confirmed).getTime() : Date.now();
 
     // Extract structured inputs with addresses and values

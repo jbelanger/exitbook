@@ -5,15 +5,19 @@ import { z } from 'zod';
  */
 export const AlchemyRawContractSchema = z.object({
   address: z.union([z.string(), z.null()]).optional(),
-  decimal: z.union([z.string(), z.number(), z.null()]).optional(),
-  value: z.union([z.string(), z.number(), z.null()]).optional(),
+  decimal: z
+    .union([z.string().regex(/^\d+$/, 'Decimal must be numeric'), z.number().nonnegative(), z.null()])
+    .optional(),
+  value: z
+    .union([z.string().regex(/^(0x[\da-fA-F]+|\d+)$/, 'Value must be hex or numeric'), z.number(), z.null()])
+    .optional(),
 });
 
 /**
  * Schema for Alchemy metadata structure
  */
 export const AlchemyMetadataSchema = z.object({
-  blockTimestamp: z.string().optional(),
+  blockTimestamp: z.string().datetime('Block timestamp must be valid ISO 8601 format').optional(),
 });
 
 /**
@@ -21,14 +25,14 @@ export const AlchemyMetadataSchema = z.object({
  */
 export const AlchemyAssetTransferSchema = z.object({
   asset: z.union([z.string(), z.null()]).optional(),
-  blockNum: z.string().min(1, 'Block number must not be empty'),
+  blockNum: z.string().regex(/^0x[\da-fA-F]+$/, 'Block number must be hex string'),
   category: z.string().min(1, 'Category must not be empty'),
   erc1155Metadata: z
     .union([
       z.array(
         z.object({
           tokenId: z.string().optional(),
-          value: z.string().optional(),
+          value: z.string().regex(/^\d+$/, 'ERC1155 value must be numeric').optional(),
         })
       ),
       z.null(),
@@ -42,7 +46,9 @@ export const AlchemyAssetTransferSchema = z.object({
   to: z.string().min(1, 'To address must not be empty'),
   tokenId: z.union([z.string(), z.null()]).optional(),
   uniqueId: z.string().optional(),
-  value: z.union([z.string(), z.number(), z.null()]).optional(),
+  value: z
+    .union([z.string().regex(/^(0x[\da-fA-F]+|\d+)$/, 'Value must be hex or numeric'), z.number(), z.null()])
+    .optional(),
 });
 
 /**

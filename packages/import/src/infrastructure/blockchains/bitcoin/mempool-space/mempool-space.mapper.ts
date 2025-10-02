@@ -3,6 +3,7 @@ import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transacti
 import { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
+import type { NormalizationError } from '../../../../app/ports/blockchain-normalizer.interface.ts';
 import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
 import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
 import { BitcoinTransactionSchema } from '../schemas.js';
@@ -27,7 +28,7 @@ export class MempoolSpaceTransactionMapper extends BaseRawDataMapper<MempoolTran
     rawData: MempoolTransaction,
     _metadata: RawTransactionMetadata,
     _sessionContext: ImportSessionMetadata
-  ): Result<BitcoinTransaction, string> {
+  ): Result<BitcoinTransaction, NormalizationError> {
     const timestamp =
       rawData.status.confirmed && rawData.status.block_time ? rawData.status.block_time * 1000 : Date.now();
 

@@ -1,5 +1,7 @@
+import type { NormalizationError } from '@exitbook/import/app/ports/blockchain-normalizer.interface.ts';
 import type { RawTransactionMetadata } from '@exitbook/import/app/ports/importers.ts';
 import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transaction-processor.interface.ts';
+import { getLogger } from '@exitbook/shared-logger';
 import { parseDecimal } from '@exitbook/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
@@ -12,22 +14,24 @@ import { InjectiveTransactionSchema as InjectiveExplorerTransactionSchema } from
 import type {
   InjectiveExplorerTransaction as InjectiveApiTransaction,
   InjectiveExplorerMessageValue,
+  InjectiveExplorerAmount,
 } from './injective-explorer.types.ts';
 
 @RegisterTransactionMapper('injective-explorer')
 export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<InjectiveApiTransaction, CosmosTransaction> {
   protected readonly inputSchema = InjectiveExplorerTransactionSchema;
   protected readonly outputSchema = CosmosTransactionSchema;
+  private readonly logger = getLogger('InjectiveExplorerMapper');
 
   protected mapInternal(
     rawData: InjectiveApiTransaction,
     _metadata: RawTransactionMetadata,
     sessionContext: ImportSessionMetadata
-  ): Result<CosmosTransaction, string> {
+  ): Result<CosmosTransaction, NormalizationError> {
     const timestamp = new Date(rawData.block_timestamp).getTime();
 
     if (!sessionContext.address) {
-      return err('Invalid address');
+      return err({ message: 'Invalid address', type: 'error' });
     }
 
     // Extract address from rich session context
@@ -74,6 +78,37 @@ export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<Inject
 
     for (const message of rawData.messages) {
       messageType = message.type;
+
+      // Skip Injective-specific non-asset operations
+      if (message.type.startsWith('/injective.exchange.')) {
+        this.logger.debug(`Skipping Injective DEX operation: ${message.type} in tx ${rawData.hash}`);
+        return err({
+          reason: `Injective DEX operation ${message.type} - not an asset transfer`,
+          type: 'skip',
+        });
+      }
+      if (message.type.startsWith('/injective.oracle.')) {
+        this.logger.debug(`Skipping Injective oracle operation: ${message.type} in tx ${rawData.hash}`);
+        return err({
+          reason: `Injective oracle operation ${message.type} - not an asset transfer`,
+          type: 'skip',
+        });
+      }
+
+      // Skip Cosmos governance and authz non-transfer operations
+      if (
+        message.type === '/cosmos.gov.v1beta1.MsgVote' ||
+        message.type === '/cosmos.gov.v1beta1.MsgVoteWeighted' ||
+        message.type === '/cosmos.authz.v1beta1.MsgGrant' ||
+        message.type === '/cosmos.authz.v1beta1.MsgRevoke' ||
+        message.type === '/cosmos.slashing.v1beta1.MsgUnjail'
+      ) {
+        this.logger.debug(`Skipping governance/authz operation: ${message.type} in tx ${rawData.hash}`);
+        return err({
+          reason: `Governance/authz operation ${message.type} - not an asset transfer`,
+          type: 'skip',
+        });
+      }
 
       // Handle bank transfer messages
       if (message.type === '/cosmos.bank.v1beta1.MsgSend') {
@@ -126,6 +161,83 @@ export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<Inject
         break;
       }
 
+      // Handle CosmWasm contract execution (standard)
+      else if (message.type === '/cosmwasm.wasm.v1.MsgExecuteContract') {
+        transactionType = 'contract_execution';
+        from = message.value.sender || '';
+        to = message.value.contract || '';
+
+        // Check if this is relevant to our wallet (user is the sender)
+        if (from && relevantAddress === from) {
+          isRelevantTransaction = true;
+
+          // Extract funds sent with the contract call (not internal transfers)
+          if (message.value.funds && Array.isArray(message.value.funds) && message.value.funds.length > 0) {
+            const fund = message.value.funds[0];
+            if (fund && fund.amount && fund.denom) {
+              amount = parseDecimal(fund.amount).div(Math.pow(10, 18)).toString();
+              currency = this.formatDenom(fund.denom);
+              tokenType = 'native';
+              tokenSymbol = currency;
+            }
+          }
+        }
+        break;
+      }
+
+      // Handle Injective-specific contract execution (wasmx)
+      else if (message.type === '/injective.wasmx.v1.MsgExecuteContractCompat') {
+        transactionType = 'contract_execution';
+        from = message.value.sender || '';
+        to = message.value.contract || '';
+
+        // Check if this is relevant to our wallet (user is the sender)
+        if (from && relevantAddress === from) {
+          isRelevantTransaction = true;
+
+          // Extract funds sent with the contract call (string format in wasmx)
+          if (message.value.funds && typeof message.value.funds === 'string') {
+            const fundsValue = parseDecimal(message.value.funds);
+            if (fundsValue.toNumber() > 0) {
+              amount = fundsValue.div(Math.pow(10, 18)).toString();
+              currency = 'INJ'; // Default to INJ for wasmx
+              tokenType = 'native';
+              tokenSymbol = currency;
+            }
+          }
+        }
+        break;
+      }
+
+      // Handle Peggy bridge withdrawal messages (sending funds to Ethereum)
+      else if (message.type === '/injective.peggy.v1.MsgSendToEth') {
+        const messageValue = message.value as InjectiveExplorerMessageValue & {
+          amount?: InjectiveExplorerAmount | undefined;
+          bridge_fee?: InjectiveExplorerAmount | undefined;
+          eth_dest?: string | undefined;
+        };
+
+        bridgeType = 'peggy';
+        transactionType = 'bridge_withdrawal';
+        from = messageValue.sender || '';
+        to = messageValue.eth_dest || '';
+        ethereumReceiver = messageValue.eth_dest;
+
+        // Check if this is relevant to our wallet (user is the sender)
+        if (from && relevantAddress === from) {
+          isRelevantTransaction = true;
+
+          // Extract amount from the withdrawal
+          if (messageValue.amount && messageValue.amount.amount && messageValue.amount.denom) {
+            amount = parseDecimal(messageValue.amount.amount).div(Math.pow(10, 18)).toString();
+            currency = this.formatDenom(messageValue.amount.denom);
+            tokenType = 'native';
+            tokenSymbol = currency;
+          }
+        }
+        break;
+      }
+
       // Handle Peggy bridge deposit messages (when funds come from Ethereum)
       else if (message.type === '/injective.peggy.v1.MsgDepositClaim') {
         const messageValue = message.value as InjectiveExplorerMessageValue & {
@@ -151,8 +263,18 @@ export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<Inject
 
           // Extract amount from the deposit claim if available
           if (messageValue.amount && messageValue.token_contract) {
-            const amountValue =
-              typeof messageValue.amount === 'string' ? messageValue.amount : messageValue.amount[0]?.amount || '0';
+            let amountValue = '0';
+            if (typeof messageValue.amount === 'string') {
+              amountValue = messageValue.amount;
+            } else if (
+              Array.isArray(messageValue.amount) &&
+              messageValue.amount.length > 0 &&
+              typeof messageValue.amount[0]?.amount === 'string'
+            ) {
+              amountValue = messageValue.amount[0].amount;
+            } else if (typeof (messageValue.amount as InjectiveExplorerAmount)?.amount === 'string') {
+              amountValue = (messageValue.amount as InjectiveExplorerAmount).amount;
+            }
             amount = parseDecimal(amountValue).div(Math.pow(10, 18)).toString();
             currency = 'INJ';
             tokenAddress = messageValue.token_contract;
@@ -161,11 +283,25 @@ export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<Inject
           }
         }
       }
+
+      // Unhandled message type - log and skip
+      else {
+        this.logger.debug(`Skipping unsupported message type "${message.type}" in transaction ${rawData.hash}.`);
+        return err({
+          reason: `Unsupported message type ${message.type}`,
+          type: 'skip',
+        });
+      }
     }
 
     // Only process transactions that are relevant to our wallet
     if (!isRelevantTransaction) {
-      throw new Error('Transaction is not relevant to provided wallet address');
+      return err({
+        reason:
+          `Transaction not relevant to wallet. ` +
+          `MessageType="${messageType}", relevantAddress="${relevantAddress}", from="${from}", to="${to}"`,
+        type: 'skip',
+      });
     }
 
     // For Peggy deposits, use event_nonce as the unique identifier to deduplicate validator consensus votes

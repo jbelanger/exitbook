@@ -3,6 +3,7 @@ import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transacti
 import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
+import type { NormalizationError } from '../../../../../app/ports/blockchain-normalizer.interface.ts';
 import { RegisterTransactionMapper } from '../../../../shared/processors/processor-registry.ts';
 import { BaseRawDataMapper } from '../../../shared/base-raw-data-mapper.js';
 import { SUBSTRATE_CHAINS } from '../../chain-registry.js';
@@ -21,7 +22,7 @@ export class SubscanTransactionMapper extends BaseRawDataMapper<SubscanTransferA
     rawData: SubscanTransferAugmented,
     _metadata: RawTransactionMetadata,
     sessionContext: ImportSessionMetadata
-  ): Result<SubstrateTransaction, string> {
+  ): Result<SubstrateTransaction, NormalizationError> {
     // Extract addresses from rich session context (similar to Bitcoin's approach)
     // Use derivedAddresses for SS58 variants, fallback to address for backward compatibility
     const addresses = sessionContext.derivedAddresses || (sessionContext.address ? [sessionContext.address] : []);
@@ -36,12 +37,15 @@ export class SubscanTransactionMapper extends BaseRawDataMapper<SubscanTransferA
     const chainKey = nativeCurrency === 'DOT' ? 'polkadot' : nativeCurrency === 'KSM' ? 'kusama' : undefined;
 
     if (!chainKey) {
-      return err(`Unable to determine chain from currency: ${nativeCurrency}`);
+      return err({ message: `Unable to determine chain from currency: ${nativeCurrency}`, type: 'error' });
     }
 
     const chainConfig = SUBSTRATE_CHAINS[chainKey as keyof typeof SUBSTRATE_CHAINS];
     if (!chainConfig) {
-      return err(`Unsupported Substrate chain in SubscanTransactionMapper: ${chainKey} (currency: ${nativeCurrency})`);
+      return err({
+        message: `Unsupported Substrate chain in SubscanTransactionMapper: ${chainKey} (currency: ${nativeCurrency})`,
+        type: 'error',
+      });
     }
 
     // Check if transaction involves any of our addresses
@@ -49,7 +53,10 @@ export class SubscanTransactionMapper extends BaseRawDataMapper<SubscanTransferA
     const isToUser = relevantAddresses.has(rawData.to);
 
     if (!isFromUser && !isToUser) {
-      return err(`Transaction not relevant to user addresses: ${Array.from(relevantAddresses).join(', ')}`);
+      return err({
+        message: `Transaction not relevant to user addresses: ${Array.from(relevantAddresses).join(', ')}`,
+        type: 'error',
+      });
     }
 
     // Convert single SubscanTransfer directly to SubstrateTransaction
@@ -62,7 +69,10 @@ export class SubscanTransactionMapper extends BaseRawDataMapper<SubscanTransferA
     );
 
     if (!transaction) {
-      return err(`Failed to convert transaction for addresses: ${Array.from(relevantAddresses).join(', ')}`);
+      return err({
+        message: `Failed to convert transaction for addresses: ${Array.from(relevantAddresses).join(', ')}`,
+        type: 'error',
+      });
     }
 
     return ok(transaction);

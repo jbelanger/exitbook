@@ -3,6 +3,7 @@ import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transacti
 import { parseDecimal } from '@exitbook/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
+import type { NormalizationError } from '../../../../app/ports/blockchain-normalizer.interface.ts';
 import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
 import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
 import { InjectiveTransactionSchema } from '../schemas.js';
@@ -26,11 +27,11 @@ export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<
     rawData: InjectiveApiTransaction,
     _metadata: RawTransactionMetadata,
     sessionContext: ImportSessionMetadata
-  ): Result<InjectiveTransaction, string> {
+  ): Result<InjectiveTransaction, NormalizationError> {
     const timestamp = new Date(rawData.block_timestamp).getTime();
 
     if (!sessionContext.address) {
-      return err('Invalid address');
+      return err({ message: 'Invalid address', type: 'error' });
     }
 
     // Extract address from rich session context

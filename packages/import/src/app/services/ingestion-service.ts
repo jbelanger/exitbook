@@ -315,6 +315,7 @@ export class TransactionIngestionService {
 
         const normalizedRawDataItems: unknown[] = [];
         const normalizationErrors: { error: string; itemId: number }[] = [];
+        const skippedItems: { itemId: number; reason: string }[] = [];
 
         if (sourceType === 'blockchain') {
           const normalizer = this.blockchainNormalizer;
@@ -337,9 +338,17 @@ export class TransactionIngestionService {
               if (result.isOk()) {
                 normalizedRawDataItems.push(result.value);
               } else {
-                const errorMsg = `Normalization failed: ${result.error}`;
-                normalizationErrors.push({ error: errorMsg, itemId: item.id });
-                this.logger.error(`${errorMsg} for raw data item ${item.id} in session ${session.id}`);
+                const error = result.error;
+                if (error.type === 'skip') {
+                  // Safe skip - transaction is not an asset transfer or not relevant
+                  skippedItems.push({ itemId: item.id, reason: error.reason });
+                  this.logger.debug(`Skipped item ${item.id}: ${error.reason}`);
+                } else {
+                  // Actual error - normalization failed
+                  const errorMsg = `Normalization failed: ${error.message}`;
+                  normalizationErrors.push({ error: errorMsg, itemId: item.id });
+                  this.logger.error(`${errorMsg} for raw data item ${item.id} in session ${session.id}`);
+                }
               }
             }
           }
@@ -351,7 +360,7 @@ export class TransactionIngestionService {
           }
         }
 
-        // STRICT MODE: Fail if any raw data items could not be normalized
+        // STRICT MODE: Fail if any raw data items could not be normalized (but skips are OK)
         if (normalizationErrors.length > 0) {
           this.logger.error(
             `CRITICAL: ${normalizationErrors.length}/${pendingItems.length} items failed normalization in session ${session.id}:\n${normalizationErrors
@@ -366,6 +375,13 @@ export class TransactionIngestionService {
                   .map((e) => `Item ${e.itemId}: ${e.error}`)
                   .join('; ')}`
             )
+          );
+        }
+
+        // Log summary of skipped items if any
+        if (skippedItems.length > 0) {
+          this.logger.info(
+            `Skipped ${skippedItems.length}/${pendingItems.length} items in session ${session.id} (non-asset operations or irrelevant transactions)`
           );
         }
 

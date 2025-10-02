@@ -4,6 +4,7 @@ import { parseDecimal } from '@exitbook/shared-utils';
 import { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
+import type { NormalizationError } from '../../../../../app/ports/blockchain-normalizer.interface.ts';
 import { RegisterTransactionMapper } from '../../../../shared/processors/processor-registry.ts';
 import { BaseRawDataMapper } from '../../../shared/base-raw-data-mapper.ts';
 import { EvmTransactionSchema } from '../../schemas.js';
@@ -21,7 +22,7 @@ export class AlchemyTransactionMapper extends BaseRawDataMapper<AlchemyAssetTran
     rawData: AlchemyAssetTransfer,
     _metadata: RawTransactionMetadata,
     _sessionContext: ImportSessionMetadata
-  ): Result<EvmTransaction, string> {
+  ): Result<EvmTransaction, NormalizationError> {
     // Determine if this is a token transfer
     const isTokenTransfer =
       rawData.category === 'token' ||

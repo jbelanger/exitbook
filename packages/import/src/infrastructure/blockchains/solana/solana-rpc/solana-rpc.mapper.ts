@@ -3,6 +3,7 @@ import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transacti
 import { isErrorWithMessage } from '@exitbook/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
+import type { NormalizationError } from '../../../../app/ports/blockchain-normalizer.interface.ts';
 import { RegisterTransactionMapper } from '../../../shared/processors/processor-registry.js';
 import { BaseRawDataMapper } from '../../shared/base-raw-data-mapper.js';
 import { SolanaTransactionSchema } from '../schemas.js';
@@ -20,13 +21,13 @@ export class SolanaRPCTransactionMapper extends BaseRawDataMapper<SolanaRPCTrans
     rawData: SolanaRPCTransaction,
     _metadata: RawTransactionMetadata,
     _sessionContext: ImportSessionMetadata
-  ): Result<SolanaTransaction, string> {
+  ): Result<SolanaTransaction, NormalizationError> {
     try {
       const solanaTransaction = this.transformTransaction(rawData);
       return ok(solanaTransaction);
     } catch (error) {
       const errorMessage = isErrorWithMessage(error) ? error.message : String(error);
-      return err(`Failed to transform transaction: ${errorMessage}`);
+      return err({ message: `Failed to transform transaction: ${errorMessage}`, type: 'error' });
     }
   }
 

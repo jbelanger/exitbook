@@ -1,3 +1,4 @@
+import type { NormalizationError } from '@exitbook/import/app/ports/blockchain-normalizer.interface.ts';
 import type { RawTransactionMetadata } from '@exitbook/import/app/ports/importers.ts';
 import type { IRawDataMapper } from '@exitbook/import/app/ports/raw-data-mappers.js';
 import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transaction-processor.interface.ts';
@@ -32,7 +33,7 @@ export abstract class BaseRawDataMapper<TRawData, TNormalizedData>
     rawData: TRawData,
     metadata: RawTransactionMetadata,
     sessionContext: ImportSessionMetadata
-  ): Result<TNormalizedData, string>;
+  ): Result<TNormalizedData, NormalizationError>;
 
   /**
    * Public transform method that handles validation internally and delegates to transformValidated.
@@ -42,7 +43,7 @@ export abstract class BaseRawDataMapper<TRawData, TNormalizedData>
     rawData: TRawData,
     metadata: RawTransactionMetadata,
     context: ImportSessionMetadata
-  ): Result<TNormalizedData, string> {
+  ): Result<TNormalizedData, NormalizationError> {
     // Validate input data first
     const inputValidationResult = this.inputSchema.safeParse(rawData);
     if (!inputValidationResult.success) {
@@ -50,7 +51,10 @@ export abstract class BaseRawDataMapper<TRawData, TNormalizedData>
         const path = issue.path.length > 0 ? ` at ${issue.path.join('.')}` : '';
         return `${issue.message}${path}`;
       });
-      return err(`Invalid ${this.constructor.name} input data: ${errors.join(', ')}`);
+      return err({
+        message: `Invalid ${this.constructor.name} input data: ${errors.join(', ')}`,
+        type: 'error',
+      });
     }
 
     // Delegate to concrete implementation with validated data
@@ -67,7 +71,10 @@ export abstract class BaseRawDataMapper<TRawData, TNormalizedData>
         const path = issue.path.length > 0 ? ` at ${issue.path.join('.')}` : '';
         return `${issue.message}${path}`;
       });
-      return err(`Invalid ${this.constructor.name} output data: ${errors.join(', ')}`);
+      return err({
+        message: `Invalid ${this.constructor.name} output data: ${errors.join(', ')}`,
+        type: 'error',
+      });
     }
 
     return transformResult;

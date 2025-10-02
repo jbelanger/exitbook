@@ -15,14 +15,14 @@ export const TaostatsAddressSchema = z.object({
  * Schema for raw Taostats transaction structure (actual API response)
  */
 export const TaostatsTransactionRawSchema = z.object({
-  amount: z.string().min(1, 'Amount must not be empty'),
+  amount: z.string().regex(/^\d+$/, 'Amount must be a numeric string'),
   block_number: z.number().nonnegative('Block number must be non-negative'),
   extrinsic_id: z.string().min(1, 'Extrinsic ID must not be empty'),
-  fee: z.string().optional(),
+  fee: z.string().regex(/^\d+$/, 'Fee must be a numeric string').optional(),
   from: TaostatsAddressSchema,
   id: z.string().min(1, 'ID must not be empty'),
   network: z.string().min(1, 'Network must not be empty'),
-  timestamp: z.string().min(1, 'Timestamp must not be empty'),
+  timestamp: z.string().datetime('Timestamp must be valid ISO 8601 format'),
   to: TaostatsAddressSchema,
   transaction_hash: z.string().min(1, 'Transaction hash must not be empty'),
   // Augmented fields added by API client
