@@ -36,6 +36,7 @@
   "dependencies": {
     "@scure/bip32": "^1.7.0",
     "@types/jsonwebtoken": "^9.0.10",
+    "bech32": "^2.0.0",
     "bitcoinjs-lib": "^6.1.7",
     "csv-parse": "^6.1.0",
     "decimal.js": "^10.6.0",
