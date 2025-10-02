@@ -57,35 +57,47 @@ export interface InjectiveTransaction {
 }
 
 /**
- * Injective fund flow analysis result
+ * Injective fund flow analysis result - multi-asset tracking
  */
 export interface InjectiveFundFlow {
+  // Multi-asset tracking (following EVM pattern)
+  inflows: {
+    amount: string;
+    asset: string;
+    tokenAddress?: string;
+    tokenDecimals?: number;
+  }[];
+  outflows: {
+    amount: string;
+    asset: string;
+    tokenAddress?: string;
+    tokenDecimals?: number;
+  }[];
+  primary: {
+    amount: string;
+    asset: string;
+    tokenAddress?: string;
+    tokenDecimals?: number;
+  };
+
   // Bridge/IBC specific
   bridgeType?: 'peggy' | 'ibc' | 'native' | undefined;
-  // Token information
-  currency: string; // INJ or token symbol
-
   destinationChain?: string | undefined; // For IBC transfers
-  // Fee information (always in INJ)
-  feeAmount?: string | undefined;
+  sourceChain?: string | undefined; // For IBC transfers
 
-  feePaidByUser: boolean; // Whether the user paid the transaction fee
+  // Fee information (always in INJ)
+  feeAmount: string;
+  feeCurrency: string;
+
   // Address information
   fromAddress: string;
-
-  // Flow direction
-  isIncoming: boolean; // User is receiving funds
-  isOutgoing: boolean; // User is sending funds
-  netAmount: string; // Net amount change for user (positive = received, negative = sent)
-
-  sourceChain?: string | undefined; // For IBC transfers
   toAddress: string;
 
-  tokenAddress?: string | undefined;
+  // Transaction context
+  hasContractInteraction: boolean;
+  hasBridgeTransfer: boolean;
+  hasIbcTransfer: boolean;
 
-  tokenDecimals?: number | undefined;
-  // Amount information
-  totalAmount: string; // Total transaction amount
-  // Transaction classification
-  transactionType: 'deposit' | 'withdrawal' | 'internal_transfer' | 'bridge' | 'ibc';
+  // Classification uncertainty tracking
+  classificationUncertainty?: string;
 }

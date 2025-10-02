@@ -2,6 +2,7 @@ import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transacti
 import type { ITransactionRepository } from '@exitbook/import/app/ports/transaction-repository.js';
 import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
 import { createMoney } from '@exitbook/shared-utils';
+import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
@@ -14,6 +15,9 @@ import type { InjectiveTransaction, InjectiveFundFlow } from './types.js';
  * processors based on data provenance. Enhanced with sophisticated fund flow analysis.
  */
 export class InjectiveTransactionProcessor extends BaseTransactionProcessor {
+  /** Minimum amount threshold below which transactions are classified as 'fee' type */
+  private static readonly DUST_THRESHOLD = '0.00001';
+
   constructor(private _transactionRepository?: ITransactionRepository) {
     super('injective');
   }
@@ -37,10 +41,10 @@ export class InjectiveTransactionProcessor extends BaseTransactionProcessor {
         // Analyze fund flow for sophisticated transaction classification
         const fundFlow = this.analyzeFundFlowFromNormalized(normalizedTx, sessionMetadata.address);
 
-        // Determine transaction type based on fund flow analysis
-        const transactionType = this.determineTransactionTypeFromFundFlow(fundFlow);
+        // Determine operation classification based on fund flow
+        const classification = this.determineOperationFromFundFlow(fundFlow);
 
-        const networkFee = fundFlow.feeAmount ? createMoney(fundFlow.feeAmount, 'INJ') : createMoney('0', 'INJ');
+        const networkFee = createMoney(fundFlow.feeAmount, fundFlow.feeCurrency);
 
         // Convert to UniversalTransaction with enhanced metadata
         const universalTransaction: UniversalTransaction = {
@@ -55,26 +59,27 @@ export class InjectiveTransactionProcessor extends BaseTransactionProcessor {
 
           // Structured movements from fund flow analysis
           movements: {
-            outflows: fundFlow.isOutgoing
-              ? [
-                  {
-                    amount: createMoney(fundFlow.totalAmount, fundFlow.currency),
-                    asset: fundFlow.currency,
-                  },
-                ]
-              : [],
-            inflows: fundFlow.isIncoming
-              ? [
-                  {
-                    amount: createMoney(fundFlow.totalAmount, fundFlow.currency),
-                    asset: fundFlow.currency,
-                  },
-                ]
-              : [],
+            inflows: fundFlow.inflows.map((inflow) => ({
+              amount: createMoney(inflow.amount, inflow.asset),
+              asset: inflow.asset,
+            })),
+            outflows: fundFlow.outflows.map((outflow) => ({
+              amount: createMoney(outflow.amount, outflow.asset),
+              asset: outflow.asset,
+            })),
             primary: {
-              amount: createMoney(fundFlow.netAmount, fundFlow.currency),
-              asset: fundFlow.currency,
-              direction: fundFlow.isIncoming ? 'in' : fundFlow.isOutgoing ? 'out' : 'neutral',
+              amount: createMoney(fundFlow.primary.amount, fundFlow.primary.asset),
+              asset: fundFlow.primary.asset,
+              direction: (() => {
+                const hasInflow = fundFlow.inflows.some((i) => i.asset === fundFlow.primary.asset);
+                const hasOutflow = fundFlow.outflows.some((o) => o.asset === fundFlow.primary.asset);
+
+                // Self-transfer (same asset in and out) = net zero = neutral
+                if (hasInflow && hasOutflow) return 'neutral';
+                if (hasInflow) return 'in';
+                if (hasOutflow) return 'out';
+                return 'neutral'; // No movement = neutral
+              })(),
             },
           },
 
@@ -86,17 +91,10 @@ export class InjectiveTransactionProcessor extends BaseTransactionProcessor {
           },
 
           // Enhanced classification
-          operation: {
-            category: fundFlow.isIncoming && fundFlow.isOutgoing ? 'fee' : 'transfer',
-            type:
-              fundFlow.isIncoming && fundFlow.isOutgoing
-                ? 'fee'
-                : fundFlow.isIncoming
-                  ? 'deposit'
-                  : fundFlow.isOutgoing
-                    ? 'withdrawal'
-                    : 'transfer',
-          },
+          operation: classification.operation,
+
+          // Classification uncertainty notes
+          note: classification.note,
 
           // Blockchain metadata
           blockchain: {
@@ -110,22 +108,25 @@ export class InjectiveTransactionProcessor extends BaseTransactionProcessor {
           metadata: {
             providerId: normalizedTx.providerId,
             blockId: normalizedTx.blockId,
-            bridgeType: normalizedTx.bridgeType,
+            bridgeType: fundFlow.bridgeType,
             messageType: normalizedTx.messageType,
             ethereumSender: normalizedTx.ethereumSender,
             ethereumReceiver: normalizedTx.ethereumReceiver,
             eventNonce: normalizedTx.eventNonce,
             sourceChannel: normalizedTx.sourceChannel,
             sourcePort: normalizedTx.sourcePort,
-            tokenAddress: normalizedTx.tokenAddress,
+            tokenAddress: fundFlow.primary.tokenAddress,
             tokenType: normalizedTx.tokenType,
+            hasBridgeTransfer: fundFlow.hasBridgeTransfer,
+            hasIbcTransfer: fundFlow.hasIbcTransfer,
+            hasContractInteraction: fundFlow.hasContractInteraction,
           },
 
           // Backward compatibility (deprecated)
-          amount: createMoney(fundFlow.totalAmount, fundFlow.currency),
+          amount: createMoney(fundFlow.primary.amount, fundFlow.primary.asset),
           fee: networkFee,
-          type: transactionType,
-          symbol: fundFlow.currency,
+          type: classification.legacyType,
+          symbol: fundFlow.primary.asset,
         };
 
         universalTransactions.push(universalTransaction);
@@ -140,95 +141,385 @@ export class InjectiveTransactionProcessor extends BaseTransactionProcessor {
 
   /**
    * Analyze fund flow from normalized InjectiveTransaction data
+   * Collects ALL assets that move in/out (following EVM pattern)
    */
   private analyzeFundFlowFromNormalized(transaction: InjectiveTransaction, userAddress: string): InjectiveFundFlow {
     const userAddressLower = userAddress.toLowerCase();
     const fromAddressLower = transaction.from.toLowerCase();
     const toAddressLower = transaction.to.toLowerCase();
 
+    // Analyze transaction type context
+    const hasBridgeTransfer = transaction.bridgeType === 'peggy' || transaction.bridgeType === 'ibc';
+    const hasIbcTransfer = transaction.bridgeType === 'ibc';
+    const hasContractInteraction = Boolean(
+      transaction.tokenAddress ||
+        transaction.messageType?.includes('wasm') ||
+        transaction.messageType?.includes('contract')
+    );
+
+    // Collect ALL assets that flow in/out
+    const inflows: {
+      amount: string;
+      asset: string;
+      tokenAddress?: string;
+      tokenDecimals?: number;
+    }[] = [];
+    const outflows: {
+      amount: string;
+      asset: string;
+      tokenAddress?: string;
+      tokenDecimals?: number;
+    }[] = [];
+
     // Determine flow direction
     const isIncoming = toAddressLower === userAddressLower;
     const isOutgoing = fromAddressLower === userAddressLower;
 
-    // Calculate amounts
-    const totalAmount = transaction.amount;
-    let netAmount = totalAmount;
+    // Skip zero amounts
+    const amount = transaction.amount;
+    const isZero = this.isZero(amount);
 
-    // For outgoing transactions, net amount is negative
-    if (isOutgoing && !isIncoming) {
-      netAmount = `-${totalAmount}`;
+    if (!isZero) {
+      const asset = transaction.currency || 'INJ';
+      const movement: {
+        amount: string;
+        asset: string;
+        tokenAddress?: string;
+        tokenDecimals?: number;
+      } = {
+        amount,
+        asset,
+      };
+
+      // Only add optional fields if they have values
+      if (transaction.tokenAddress !== undefined) {
+        movement.tokenAddress = transaction.tokenAddress;
+      }
+      if (transaction.tokenDecimals !== undefined) {
+        movement.tokenDecimals = transaction.tokenDecimals;
+      }
+
+      // For self-transfers (user -> user), track both inflow and outflow
+      if (isIncoming && isOutgoing) {
+        inflows.push({ ...movement });
+        outflows.push({ ...movement });
+      } else {
+        if (isIncoming) {
+          inflows.push(movement);
+        }
+        if (isOutgoing) {
+          outflows.push(movement);
+        }
+      }
     }
 
-    // For internal transfers (self-sends), net amount is 0
-    if (isIncoming && isOutgoing) {
-      netAmount = '0';
+    // Select primary asset (for backward compatibility and simple display)
+    // Use the transferred asset as primary
+    const primary: {
+      amount: string;
+      asset: string;
+      tokenAddress?: string;
+      tokenDecimals?: number;
+    } = {
+      amount: transaction.amount,
+      asset: transaction.currency || 'INJ',
+    };
+
+    // Only add optional fields if they have values
+    if (transaction.tokenAddress !== undefined) {
+      primary.tokenAddress = transaction.tokenAddress;
+    }
+    if (transaction.tokenDecimals !== undefined) {
+      primary.tokenDecimals = transaction.tokenDecimals;
     }
 
-    // Determine transaction classification
-    let transactionType: InjectiveFundFlow['transactionType'] = 'internal_transfer';
+    // Fee information (always in INJ for Injective)
+    const feeAmount = transaction.feeAmount || '0';
+    const feeCurrency = transaction.feeCurrency || 'INJ';
 
-    if (transaction.bridgeType === 'peggy') {
-      transactionType = isIncoming ? 'bridge' : 'bridge';
-    } else if (transaction.bridgeType === 'ibc') {
-      transactionType = 'ibc';
-    } else if (isIncoming && !isOutgoing) {
-      transactionType = 'deposit';
-    } else if (isOutgoing && !isIncoming) {
-      transactionType = 'withdrawal';
+    // Track uncertainty for complex transactions
+    let classificationUncertainty: string | undefined;
+    if (inflows.length > 1 || outflows.length > 1) {
+      classificationUncertainty = `Complex transaction with ${outflows.length} outflow(s) and ${inflows.length} inflow(s). May be multi-asset operation.`;
     }
 
-    // Fee analysis
-    const feePaidByUser = isOutgoing; // User pays fees when sending transactions
-    const feeAmount = feePaidByUser ? transaction.feeAmount : undefined;
-
-    return {
+    const result: InjectiveFundFlow = {
       bridgeType: transaction.bridgeType,
-      currency: transaction.currency,
       destinationChain: transaction.sourceChannel ? 'injective' : undefined,
       feeAmount,
-      feePaidByUser,
+      feeCurrency,
       fromAddress: transaction.from,
-      isIncoming,
-      isOutgoing,
-      netAmount,
+      hasBridgeTransfer,
+      hasContractInteraction,
+      hasIbcTransfer,
+      inflows,
+      outflows,
+      primary,
       sourceChain: transaction.sourceChannel ? 'ibc' : undefined,
       toAddress: transaction.to,
-      tokenAddress: transaction.tokenAddress,
-      tokenDecimals: transaction.tokenDecimals,
-      totalAmount,
-      transactionType,
     };
+
+    // Only add classificationUncertainty if it has a value
+    if (classificationUncertainty !== undefined) {
+      result.classificationUncertainty = classificationUncertainty;
+    }
+
+    return result;
   }
 
   /**
-   * Determine UniversalTransaction type based on fund flow analysis
+   * Conservative operation classification with uncertainty tracking.
+   * Only classifies patterns we're confident about (9/10 confidence). Complex cases get notes.
    */
-  private determineTransactionTypeFromFundFlow(fundFlow: InjectiveFundFlow): UniversalTransaction['type'] {
-    // Bridge transactions
-    if (fundFlow.bridgeType === 'peggy') {
-      return fundFlow.isIncoming ? 'deposit' : 'withdrawal';
+  private determineOperationFromFundFlow(fundFlow: InjectiveFundFlow): {
+    legacyType: 'deposit' | 'withdrawal' | 'transfer' | 'fee';
+    note?:
+      | { message: string; metadata?: Record<string, unknown> | undefined; severity: 'info' | 'warning'; type: string }
+      | undefined;
+    operation: {
+      category: 'trade' | 'transfer' | 'staking' | 'defi' | 'fee';
+      type: 'buy' | 'sell' | 'deposit' | 'withdrawal' | 'stake' | 'unstake' | 'reward' | 'swap' | 'fee' | 'transfer';
+    };
+  } {
+    const { inflows, outflows } = fundFlow;
+    const amount = this.toDecimal(fundFlow.primary.amount).abs();
+    const isDustOrZero = amount.isZero() || amount.lessThan(InjectiveTransactionProcessor.DUST_THRESHOLD);
+
+    // Pattern 1: Contract interaction with zero/dust value
+    // Classified as transfer with note (contract call, approval, etc.)
+    if (isDustOrZero && fundFlow.hasContractInteraction) {
+      return {
+        legacyType: 'transfer',
+        note: {
+          message: `Contract interaction with zero/dust value (${fundFlow.primary.amount} ${fundFlow.primary.asset}). May be approval, delegation, or other state change.`,
+          metadata: {
+            hasContractInteraction: fundFlow.hasContractInteraction,
+          },
+          severity: 'info',
+          type: 'classification_uncertain',
+        },
+        operation: {
+          category: 'transfer',
+          type: 'transfer',
+        },
+      };
     }
 
-    // IBC transfers
-    if (fundFlow.bridgeType === 'ibc') {
-      return fundFlow.isIncoming ? 'deposit' : 'withdrawal';
+    // Pattern 2: Fee-only transaction
+    // Zero/dust amount with NO movements at all
+    if (isDustOrZero && inflows.length === 0 && outflows.length === 0) {
+      return {
+        legacyType: 'fee',
+        operation: {
+          category: 'fee',
+          type: 'fee',
+        },
+      };
     }
 
-    // Internal transfers (self-sends)
-    if (fundFlow.isIncoming && fundFlow.isOutgoing) {
-      return 'fee';
+    // Pattern 2b: Dust-amount deposit/withdrawal (still meaningful for accounting)
+    if (isDustOrZero) {
+      if (outflows.length === 0 && inflows.length >= 1) {
+        return {
+          legacyType: 'deposit',
+          note: {
+            message: `Dust deposit (${fundFlow.primary.amount} ${fundFlow.primary.asset}). Amount below ${InjectiveTransactionProcessor.DUST_THRESHOLD} threshold but still affects balance.`,
+            metadata: {
+              dustThreshold: InjectiveTransactionProcessor.DUST_THRESHOLD,
+              inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
+            },
+            severity: 'info',
+            type: 'dust_amount',
+          },
+          operation: {
+            category: 'transfer',
+            type: 'deposit',
+          },
+        };
+      }
+
+      if (outflows.length >= 1 && inflows.length === 0) {
+        return {
+          legacyType: 'withdrawal',
+          note: {
+            message: `Dust withdrawal (${fundFlow.primary.amount} ${fundFlow.primary.asset}). Amount below ${InjectiveTransactionProcessor.DUST_THRESHOLD} threshold but still affects balance.`,
+            metadata: {
+              dustThreshold: InjectiveTransactionProcessor.DUST_THRESHOLD,
+              outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+            },
+            severity: 'info',
+            type: 'dust_amount',
+          },
+          operation: {
+            category: 'transfer',
+            type: 'withdrawal',
+          },
+        };
+      }
     }
 
-    // Regular transfers
-    if (fundFlow.isIncoming) {
-      return 'deposit';
+    // Pattern 3: Bridge deposit (Peggy or IBC)
+    // Receiving funds from another chain
+    if (fundFlow.hasBridgeTransfer && outflows.length === 0 && inflows.length >= 1) {
+      const bridgeInfo =
+        fundFlow.bridgeType === 'peggy' ? 'Peggy bridge from Ethereum' : 'IBC transfer from another chain';
+      return {
+        legacyType: 'deposit',
+        note: {
+          message: `Bridge deposit via ${bridgeInfo}.`,
+          metadata: {
+            bridgeType: fundFlow.bridgeType,
+            destinationChain: fundFlow.destinationChain,
+            sourceChain: fundFlow.sourceChain,
+          },
+          severity: 'info',
+          type: 'bridge_transfer',
+        },
+        operation: {
+          category: 'transfer',
+          type: 'deposit',
+        },
+      };
     }
 
-    if (fundFlow.isOutgoing) {
-      return 'withdrawal';
+    // Pattern 4: Bridge withdrawal (Peggy or IBC)
+    // Sending funds to another chain
+    if (fundFlow.hasBridgeTransfer && outflows.length >= 1 && inflows.length === 0) {
+      const bridgeInfo = fundFlow.bridgeType === 'peggy' ? 'Peggy bridge to Ethereum' : 'IBC transfer to another chain';
+      return {
+        legacyType: 'withdrawal',
+        note: {
+          message: `Bridge withdrawal via ${bridgeInfo}.`,
+          metadata: {
+            bridgeType: fundFlow.bridgeType,
+            destinationChain: fundFlow.destinationChain,
+            sourceChain: fundFlow.sourceChain,
+          },
+          severity: 'info',
+          type: 'bridge_transfer',
+        },
+        operation: {
+          category: 'transfer',
+          type: 'withdrawal',
+        },
+      };
     }
 
-    // Fallback to transfer for any unhandled cases
-    return 'transfer';
+    // Pattern 5: Single asset swap
+    // One asset out, different asset in (DeFi swap)
+    if (outflows.length === 1 && inflows.length === 1) {
+      const outAsset = outflows[0]?.asset;
+      const inAsset = inflows[0]?.asset;
+
+      if (outAsset !== inAsset) {
+        return {
+          legacyType: 'transfer',
+          note: {
+            message: `Asset swap: ${outAsset} → ${inAsset}.`,
+            metadata: {
+              inAsset,
+              outAsset,
+            },
+            severity: 'info',
+            type: 'swap',
+          },
+          operation: {
+            category: 'trade',
+            type: 'swap',
+          },
+        };
+      }
+    }
+
+    // Pattern 6: Simple deposit
+    // Only inflows, no outflows
+    if (outflows.length === 0 && inflows.length >= 1) {
+      return {
+        legacyType: 'deposit',
+        operation: {
+          category: 'transfer',
+          type: 'deposit',
+        },
+      };
+    }
+
+    // Pattern 7: Simple withdrawal
+    // Only outflows, no inflows
+    if (outflows.length >= 1 && inflows.length === 0) {
+      return {
+        legacyType: 'withdrawal',
+        operation: {
+          category: 'transfer',
+          type: 'withdrawal',
+        },
+      };
+    }
+
+    // Pattern 8: Self-transfer
+    // Same asset in and out
+    if (outflows.length === 1 && inflows.length === 1) {
+      const outAsset = outflows[0]?.asset;
+      const inAsset = inflows[0]?.asset;
+
+      if (outAsset === inAsset) {
+        return {
+          legacyType: 'transfer',
+          operation: {
+            category: 'transfer',
+            type: 'transfer',
+          },
+        };
+      }
+    }
+
+    // Pattern 9: Complex multi-asset transaction (UNCERTAIN - add note)
+    if (fundFlow.classificationUncertainty) {
+      return {
+        legacyType: 'transfer',
+        note: {
+          message: fundFlow.classificationUncertainty,
+          metadata: {
+            inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
+            outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+          },
+          severity: 'info',
+          type: 'classification_uncertain',
+        },
+        operation: {
+          category: 'transfer',
+          type: 'transfer',
+        },
+      };
+    }
+
+    // Ultimate fallback: Couldn't match any confident pattern
+    return {
+      legacyType: 'transfer',
+      note: {
+        message: 'Unable to determine transaction classification using confident patterns.',
+        metadata: {
+          inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
+          outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+        },
+        severity: 'warning',
+        type: 'classification_failed',
+      },
+      operation: {
+        category: 'transfer',
+        type: 'transfer',
+      },
+    };
+  }
+
+  private isZero(value: string): boolean {
+    try {
+      return new Decimal(value || '0').isZero();
+    } catch {
+      return true;
+    }
+  }
+
+  private toDecimal(value: string): Decimal {
+    return new Decimal(value || '0');
   }
 }
