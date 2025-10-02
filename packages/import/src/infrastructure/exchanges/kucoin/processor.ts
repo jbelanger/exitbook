@@ -54,53 +54,118 @@ export class KucoinProcessor extends BaseTransactionProcessor {
     const withdrawalFee = withdrawal.Fee ? parseDecimal(withdrawal.Fee).toNumber() : 0;
     const depositFee = deposit.Fee ? parseDecimal(deposit.Fee).toNumber() : 0;
     const totalFee = withdrawalFee + depositFee;
+    const platformFee = createMoney(totalFee.toString(), sellCurrency);
 
     return {
-      amount: createMoney(buyAmount.toString(), buyCurrency),
-      datetime: timestamp,
-      fee: totalFee > 0 ? createMoney(totalFee.toString(), sellCurrency) : createMoney('0', sellCurrency),
+      // Core fields
       id: `${withdrawal.UID}-${timestampMs}-convert-market-${sellCurrency}-${buyCurrency}`,
-      metadata: {
-        buyAmount,
-        buyCurrency,
-        depositFee,
-        depositRow: deposit,
-        sellAmount,
-        sellCurrency,
-        type: 'convert_market',
-        withdrawalFee,
-        withdrawalRow: withdrawal,
-      },
-      price: createMoney(sellAmount.toString(), sellCurrency),
+      datetime: timestamp,
+      timestamp: timestampMs,
       source: 'kucoin',
       status: this.mapStatus('success', 'deposit_withdrawal'),
-      symbol: `${buyCurrency}/${sellCurrency}`,
-      timestamp: timestampMs,
-      type: 'trade' as const,
+
+      // Structured movements - convert market is a swap (sold X, bought Y)
+      movements: {
+        outflows: [
+          {
+            asset: sellCurrency,
+            amount: createMoney(sellAmount.toString(), sellCurrency),
+          },
+        ],
+        inflows: [
+          {
+            asset: buyCurrency,
+            amount: createMoney(buyAmount.toString(), buyCurrency),
+          },
+        ],
+        primary: {
+          asset: buyCurrency, // What we bought is primary
+          amount: createMoney(buyAmount.toString(), buyCurrency),
+          direction: 'in' as const,
+        },
+      },
+
+      // Structured fees - convert market has platform fees
+      fees: {
+        network: undefined, // No network fee for exchange conversions
+        platform: platformFee,
+        total: platformFee,
+      },
+
+      // Operation classification - 10/10 confidence: convert market is a swap
+      operation: {
+        category: 'trade',
+        type: 'swap',
+      },
+
+      // Price information
+      price: createMoney(sellAmount.toString(), sellCurrency),
+
+      // Minimal metadata
+      metadata: {
+        type: 'convert_market',
+        depositFee,
+        withdrawalFee,
+        depositRow: deposit,
+        withdrawalRow: withdrawal,
+      },
     };
   }
 
   private convertDepositToTransaction(row: CsvDepositWithdrawalRow): UniversalTransaction {
     const timestamp = new Date(row['Time(UTC)']).getTime();
-    const amount = parseDecimal(row.Amount).toNumber();
+    const grossAmount = parseDecimal(row.Amount).toNumber();
     const fee = row.Fee ? parseDecimal(row.Fee).toNumber() : 0;
 
+    // For KuCoin deposits: amount is gross, user actually receives amount - fee
+    const netAmount = grossAmount - fee;
+    const platformFee = createMoney(fee.toString(), row.Coin);
+
     return {
-      amount: createMoney(amount.toString(), row.Coin),
-      datetime: row['Time(UTC)'],
-      fee: fee > 0 ? createMoney(fee.toString(), row.Coin) : createMoney('0', row.Coin),
+      // Core fields
       id: row.Hash || `${row.UID}-${timestamp}-${row.Coin}-deposit-${row.Amount}`,
+      datetime: row['Time(UTC)'],
+      timestamp,
+      source: 'kucoin',
+      status: this.mapStatus(row.Status, 'deposit_withdrawal'),
+
+      // Structured movements - deposit means we gained assets
+      movements: {
+        inflows: [
+          {
+            asset: row.Coin,
+            amount: createMoney(netAmount.toString(), row.Coin),
+          },
+        ],
+        outflows: [], // No outflows for deposit
+        primary: {
+          asset: row.Coin,
+          amount: createMoney(netAmount.toString(), row.Coin),
+          direction: 'in' as const,
+        },
+      },
+
+      // Structured fees - exchange deposits have platform fees
+      fees: {
+        network: undefined, // No network fee for exchange deposits
+        platform: platformFee,
+        total: platformFee,
+      },
+
+      // Operation classification - 10/10 confidence: deposit is transfer/deposit
+      operation: {
+        category: 'transfer',
+        type: 'deposit',
+      },
+
+      // Minimal metadata
       metadata: {
         address: row['Deposit Address'],
         hash: row.Hash,
-        originalRow: row,
         remarks: row.Remarks,
         transferNetwork: row['Transfer Network'],
+        originalRow: row,
       },
-      source: 'kucoin',
-      status: this.mapStatus(row.Status, 'deposit_withdrawal'),
-      timestamp,
-      type: 'deposit' as const,
     };
   }
 
@@ -110,52 +175,129 @@ export class KucoinProcessor extends BaseTransactionProcessor {
     const filledAmount = parseDecimal(row['Filled Amount']).toNumber();
     const filledVolume = parseDecimal(row['Filled Volume']).toNumber();
     const fee = parseDecimal(row.Fee).toNumber();
+    const platformFee = createMoney(fee.toString(), row['Fee Currency']);
+    const side = row.Side.toLowerCase() as 'buy' | 'sell';
+
+    // For spot orders:
+    // - Buy: spent quoteCurrency (filledVolume), received baseCurrency (filledAmount)
+    // - Sell: spent baseCurrency (filledAmount), received quoteCurrency (filledVolume)
+    const isBuy = side === 'buy';
 
     return {
-      amount: createMoney(filledAmount.toString(), baseCurrency || 'unknown'),
-      datetime: row['Filled Time(UTC)'],
-      fee: createMoney(fee.toString(), row['Fee Currency']),
+      // Core fields
       id: row['Order ID'],
-      metadata: {
-        filledVolume,
-        filledVolumeUSDT: parseDecimal(row['Filled Volume (USDT)']).toNumber(),
-        orderAmount: parseDecimal(row['Order Amount']).toNumber(),
-        orderPrice: parseDecimal(row['Order Price']).toNumber(),
-        orderTime: row['Order Time(UTC)'],
-        orderType: row['Order Type'],
-        originalRow: row,
-        side: row.Side.toLowerCase() as 'buy' | 'sell',
-      },
-      price: createMoney(filledVolume.toString(), quoteCurrency || 'unknown'),
+      datetime: row['Filled Time(UTC)'],
+      timestamp,
       source: 'kucoin',
       status: this.mapStatus(row.Status, 'spot'),
-      symbol: `${baseCurrency}/${quoteCurrency}`,
-      timestamp,
-      type: 'trade' as const,
+
+      // Structured movements - trade has both outflow and inflow
+      movements: {
+        outflows: [
+          {
+            asset: isBuy ? quoteCurrency || 'unknown' : baseCurrency || 'unknown',
+            amount: createMoney(
+              isBuy ? filledVolume.toString() : filledAmount.toString(),
+              isBuy ? quoteCurrency || 'unknown' : baseCurrency || 'unknown'
+            ),
+          },
+        ],
+        inflows: [
+          {
+            asset: isBuy ? baseCurrency || 'unknown' : quoteCurrency || 'unknown',
+            amount: createMoney(
+              isBuy ? filledAmount.toString() : filledVolume.toString(),
+              isBuy ? baseCurrency || 'unknown' : quoteCurrency || 'unknown'
+            ),
+          },
+        ],
+        primary: {
+          asset: baseCurrency || 'unknown', // Base currency is always primary
+          amount: createMoney(isBuy ? filledAmount.toString() : (-filledAmount).toString(), baseCurrency || 'unknown'),
+          direction: isBuy ? ('in' as const) : ('out' as const),
+        },
+      },
+
+      // Structured fees - exchange trades have platform fees
+      fees: {
+        network: undefined, // No network fee for exchange trades
+        platform: platformFee,
+        total: platformFee,
+      },
+
+      // Operation classification - 10/10 confidence: spot order is trade/buy or trade/sell
+      operation: {
+        category: 'trade',
+        type: side, // 'buy' or 'sell'
+      },
+
+      // Price information
+      price: createMoney(filledVolume.toString(), quoteCurrency || 'unknown'),
+
+      // Minimal metadata
+      metadata: {
+        side,
+        orderType: row['Order Type'],
+        orderTime: row['Order Time(UTC)'],
+        orderAmount: parseDecimal(row['Order Amount']).toNumber(),
+        orderPrice: parseDecimal(row['Order Price']).toNumber(),
+        filledVolumeUSDT: parseDecimal(row['Filled Volume (USDT)']).toNumber(),
+        originalRow: row,
+      },
     };
   }
 
   private convertWithdrawalToTransaction(row: CsvDepositWithdrawalRow): UniversalTransaction {
     const timestamp = new Date(row['Time(UTC)']).getTime();
-    const amount = parseDecimal(row.Amount).toNumber();
+    const absAmount = Math.abs(parseDecimal(row.Amount).toNumber());
     const fee = row.Fee ? parseDecimal(row.Fee).toNumber() : 0;
+    const platformFee = createMoney(fee.toString(), row.Coin);
 
     return {
-      amount: createMoney(amount.toString(), row.Coin),
-      datetime: row['Time(UTC)'],
-      fee: fee > 0 ? createMoney(fee.toString(), row.Coin) : createMoney('0', row.Coin),
+      // Core fields
       id: row.Hash || `${row.UID}-${timestamp}-${row.Coin}-withdrawal-${row.Amount}`,
+      datetime: row['Time(UTC)'],
+      timestamp,
+      source: 'kucoin',
+      status: this.mapStatus(row.Status, 'deposit_withdrawal'),
+
+      // Structured movements - withdrawal means we lost assets
+      movements: {
+        inflows: [],
+        outflows: [
+          {
+            asset: row.Coin,
+            amount: createMoney(absAmount.toString(), row.Coin),
+          },
+        ],
+        primary: {
+          asset: row.Coin,
+          amount: createMoney((-absAmount).toString(), row.Coin), // Negative for outflow
+          direction: 'out' as const,
+        },
+      },
+
+      // Structured fees - exchange withdrawals have platform fees
+      fees: {
+        network: undefined, // No network fee for exchange withdrawals
+        platform: platformFee,
+        total: platformFee,
+      },
+
+      // Operation classification - 10/10 confidence: withdrawal is transfer/withdrawal
+      operation: {
+        category: 'transfer',
+        type: 'withdrawal',
+      },
+
+      // Minimal metadata
       metadata: {
         address: row['Withdrawal Address/Account'],
         hash: row.Hash,
-        originalRow: row,
         remarks: row.Remarks,
         transferNetwork: row['Transfer Network'],
+        originalRow: row,
       },
-      source: 'kucoin',
-      status: this.mapStatus(row.Status, 'deposit_withdrawal'),
-      timestamp,
-      type: 'withdrawal' as const,
     };
   }
 
