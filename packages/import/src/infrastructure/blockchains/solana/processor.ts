@@ -1,6 +1,6 @@
 import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transaction-processor.interface.ts';
 import type { ITransactionRepository } from '@exitbook/import/app/ports/transaction-repository.js';
-import type { TransactionType, UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
+import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
 import { createMoney } from '@exitbook/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
@@ -133,7 +133,7 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
         transactions.push(universalTransaction);
 
         this.logger.debug(
-          `Successfully processed transaction ${universalTransaction.id} - Type: ${classification.legacyType}, Category: ${classification.operation.category}, Amount: ${fundFlow.primary.amount} ${fundFlow.primary.asset}`
+          `Successfully processed transaction ${universalTransaction.id} - Category: ${classification.operation.category}, Type: ${classification.operation.type}, Amount: ${fundFlow.primary.amount} ${fundFlow.primary.asset}`
         );
       } catch (error) {
         this.logger.error(`Error processing normalized transaction ${normalizedTx.id}: ${String(error)}`);
@@ -413,7 +413,6 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
    * Only classifies patterns we're confident about. Complex cases get notes.
    */
   private determineOperationFromFundFlow(fundFlow: SolanaFundFlow): {
-    legacyType: TransactionType;
     note?:
       | { message: string; metadata?: Record<string, unknown> | undefined; severity: 'info' | 'warning'; type: string }
       | undefined;
@@ -431,7 +430,6 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
     if (fundFlow.hasStaking) {
       if (outflows.length > 0 && inflows.length === 0) {
         return {
-          legacyType: 'staking_deposit',
           operation: {
             category: 'staking',
             type: 'stake',
@@ -443,7 +441,6 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
         // Check if reward or withdrawal based on amount
         const isReward = primaryAmount > 0 && primaryAmount < 1; // Rewards are typically small
         return {
-          legacyType: isReward ? 'staking_reward' : 'staking_withdrawal',
           operation: {
             category: 'staking',
             type: isReward ? 'reward' : 'unstake',
@@ -453,7 +450,6 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
 
       // Complex staking with both inflows and outflows
       return {
-        legacyType: 'transfer',
         note: {
           message: 'Complex staking operation with both inflows and outflows. Manual review recommended.',
           metadata: {
@@ -474,7 +470,6 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
     // Pattern 2: Fee-only transaction (no movements)
     if (isDustOrZero && inflows.length === 0 && outflows.length === 0) {
       return {
-        legacyType: 'fee',
         operation: {
           category: 'fee',
           type: 'fee',
@@ -486,7 +481,6 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
     if (isDustOrZero) {
       if (outflows.length === 0 && inflows.length >= 1) {
         return {
-          legacyType: 'deposit',
           note: {
             message: `Dust deposit (${fundFlow.primary.amount} ${fundFlow.primary.asset}). Amount below ${DUST_THRESHOLD} threshold but still affects balance.`,
             metadata: {
@@ -505,7 +499,6 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
 
       if (outflows.length >= 1 && inflows.length === 0) {
         return {
-          legacyType: 'withdrawal',
           note: {
             message: `Dust withdrawal (${fundFlow.primary.amount} ${fundFlow.primary.asset}). Amount below ${DUST_THRESHOLD} threshold but still affects balance.`,
             metadata: {
@@ -530,7 +523,6 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
 
       if (outAsset !== inAsset) {
         return {
-          legacyType: 'trade',
           operation: {
             category: 'trade',
             type: 'swap',
@@ -542,7 +534,6 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
     // Pattern 5: DEX swap detected by program (less confident than single-asset swap)
     if (fundFlow.hasSwaps) {
       return {
-        legacyType: 'trade',
         note: {
           message: 'DEX program detected. Classified as swap based on program analysis.',
           metadata: {
@@ -563,7 +554,6 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
     // Pattern 6: Simple deposit (only inflows)
     if (outflows.length === 0 && inflows.length >= 1) {
       return {
-        legacyType: 'deposit',
         operation: {
           category: 'transfer',
           type: 'deposit',
@@ -574,7 +564,6 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
     // Pattern 7: Simple withdrawal (only outflows)
     if (outflows.length >= 1 && inflows.length === 0) {
       return {
-        legacyType: 'withdrawal',
         operation: {
           category: 'transfer',
           type: 'withdrawal',
@@ -589,7 +578,6 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
 
       if (outAsset === inAsset) {
         return {
-          legacyType: 'internal_transfer',
           operation: {
             category: 'transfer',
             type: 'transfer',
@@ -601,7 +589,6 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
     // Pattern 9: Complex multi-asset transaction (UNCERTAIN - add note)
     if (fundFlow.classificationUncertainty) {
       return {
-        legacyType: 'transfer',
         note: {
           message: fundFlow.classificationUncertainty,
           metadata: {
@@ -621,7 +608,6 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
     // Pattern 10: Batch operations (multiple instructions)
     if (fundFlow.hasMultipleInstructions && fundFlow.instructionCount > 3) {
       return {
-        legacyType: 'utility_batch',
         note: {
           message: `Batch transaction with ${fundFlow.instructionCount} instructions. May contain multiple operations.`,
           metadata: {
@@ -642,7 +628,6 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
 
     // Ultimate fallback: Couldn't match any confident pattern
     return {
-      legacyType: 'transfer',
       note: {
         message: 'Unable to determine transaction classification using confident patterns.',
         metadata: {

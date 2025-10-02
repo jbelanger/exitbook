@@ -544,7 +544,6 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
    * Only classifies patterns we're confident about. Complex cases get notes.
    */
   private determineOperationFromFundFlow(fundFlow: EvmFundFlow): {
-    legacyType: 'deposit' | 'withdrawal' | 'transfer' | 'fee';
     note?:
       | { message: string; metadata?: Record<string, unknown> | undefined; severity: 'info' | 'warning'; type: string }
       | undefined;
@@ -559,7 +558,6 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
     // Check this BEFORE other patterns since contract interactions are special
     if (isDustOrZero && (fundFlow.hasContractInteraction || fundFlow.hasTokenTransfers)) {
       return {
-        legacyType: 'transfer',
         note: {
           message: `Contract interaction with zero/dust value (${fundFlow.primary.amount} ${fundFlow.primary.asset}). May be approval, staking, or other state change.`,
           metadata: {
@@ -580,7 +578,6 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
     // Zero/dust amount with NO movements at all (not even dust deposits)
     if (isDustOrZero && inflows.length === 0 && outflows.length === 0) {
       return {
-        legacyType: 'fee',
         operation: {
           category: 'fee',
           type: 'fee',
@@ -593,7 +590,6 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
     if (isDustOrZero) {
       if (outflows.length === 0 && inflows.length >= 1) {
         return {
-          legacyType: 'deposit',
           note: {
             message: `Dust deposit (${fundFlow.primary.amount} ${fundFlow.primary.asset}). Amount below ${EvmTransactionProcessor.DUST_THRESHOLD} threshold but still affects balance.`,
             metadata: {
@@ -612,7 +608,6 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
 
       if (outflows.length >= 1 && inflows.length === 0) {
         return {
-          legacyType: 'withdrawal',
           note: {
             message: `Dust withdrawal (${fundFlow.primary.amount} ${fundFlow.primary.asset}). Amount below ${EvmTransactionProcessor.DUST_THRESHOLD} threshold but still affects balance.`,
             metadata: {
@@ -638,7 +633,6 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
 
       if (outAsset !== inAsset) {
         return {
-          legacyType: 'transfer',
           operation: {
             category: 'trade',
             type: 'swap',
@@ -651,7 +645,6 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
     // Only inflows, no outflows (can be multiple assets)
     if (outflows.length === 0 && inflows.length >= 1) {
       return {
-        legacyType: 'deposit',
         operation: {
           category: 'transfer',
           type: 'deposit',
@@ -663,7 +656,6 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
     // Only outflows, no inflows (can be multiple assets)
     if (outflows.length >= 1 && inflows.length === 0) {
       return {
-        legacyType: 'withdrawal',
         operation: {
           category: 'transfer',
           type: 'withdrawal',
@@ -679,7 +671,6 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
 
       if (outAsset === inAsset) {
         return {
-          legacyType: 'transfer',
           operation: {
             category: 'transfer',
             type: 'transfer',
@@ -692,7 +683,6 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
     // Multiple inflows or outflows - could be LP, batch, multi-swap
     if (fundFlow.classificationUncertainty) {
       return {
-        legacyType: 'transfer',
         note: {
           message: fundFlow.classificationUncertainty,
           metadata: {
@@ -711,7 +701,6 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
 
     // Ultimate fallback: Couldn't match any confident pattern
     return {
-      legacyType: 'transfer',
       note: {
         message: 'Unable to determine transaction classification using confident patterns.',
         metadata: {

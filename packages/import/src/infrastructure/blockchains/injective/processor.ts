@@ -266,7 +266,6 @@ export class InjectiveTransactionProcessor extends BaseTransactionProcessor {
    * Only classifies patterns we're confident about (9/10 confidence). Complex cases get notes.
    */
   private determineOperationFromFundFlow(fundFlow: InjectiveFundFlow): {
-    legacyType: 'deposit' | 'withdrawal' | 'transfer' | 'fee';
     note?:
       | { message: string; metadata?: Record<string, unknown> | undefined; severity: 'info' | 'warning'; type: string }
       | undefined;
@@ -283,7 +282,6 @@ export class InjectiveTransactionProcessor extends BaseTransactionProcessor {
     // Classified as transfer with note (contract call, approval, etc.)
     if (isDustOrZero && fundFlow.hasContractInteraction) {
       return {
-        legacyType: 'transfer',
         note: {
           message: `Contract interaction with zero/dust value (${fundFlow.primary.amount} ${fundFlow.primary.asset}). May be approval, delegation, or other state change.`,
           metadata: {
@@ -303,7 +301,6 @@ export class InjectiveTransactionProcessor extends BaseTransactionProcessor {
     // Zero/dust amount with NO movements at all
     if (isDustOrZero && inflows.length === 0 && outflows.length === 0) {
       return {
-        legacyType: 'fee',
         operation: {
           category: 'fee',
           type: 'fee',
@@ -315,7 +312,6 @@ export class InjectiveTransactionProcessor extends BaseTransactionProcessor {
     if (isDustOrZero) {
       if (outflows.length === 0 && inflows.length >= 1) {
         return {
-          legacyType: 'deposit',
           note: {
             message: `Dust deposit (${fundFlow.primary.amount} ${fundFlow.primary.asset}). Amount below ${InjectiveTransactionProcessor.DUST_THRESHOLD} threshold but still affects balance.`,
             metadata: {
@@ -334,7 +330,6 @@ export class InjectiveTransactionProcessor extends BaseTransactionProcessor {
 
       if (outflows.length >= 1 && inflows.length === 0) {
         return {
-          legacyType: 'withdrawal',
           note: {
             message: `Dust withdrawal (${fundFlow.primary.amount} ${fundFlow.primary.asset}). Amount below ${InjectiveTransactionProcessor.DUST_THRESHOLD} threshold but still affects balance.`,
             metadata: {
@@ -358,7 +353,6 @@ export class InjectiveTransactionProcessor extends BaseTransactionProcessor {
       const bridgeInfo =
         fundFlow.bridgeType === 'peggy' ? 'Peggy bridge from Ethereum' : 'IBC transfer from another chain';
       return {
-        legacyType: 'deposit',
         note: {
           message: `Bridge deposit via ${bridgeInfo}.`,
           metadata: {
@@ -381,7 +375,6 @@ export class InjectiveTransactionProcessor extends BaseTransactionProcessor {
     if (fundFlow.hasBridgeTransfer && outflows.length >= 1 && inflows.length === 0) {
       const bridgeInfo = fundFlow.bridgeType === 'peggy' ? 'Peggy bridge to Ethereum' : 'IBC transfer to another chain';
       return {
-        legacyType: 'withdrawal',
         note: {
           message: `Bridge withdrawal via ${bridgeInfo}.`,
           metadata: {
@@ -407,7 +400,6 @@ export class InjectiveTransactionProcessor extends BaseTransactionProcessor {
 
       if (outAsset !== inAsset) {
         return {
-          legacyType: 'transfer',
           note: {
             message: `Asset swap: ${outAsset} → ${inAsset}.`,
             metadata: {
@@ -429,7 +421,6 @@ export class InjectiveTransactionProcessor extends BaseTransactionProcessor {
     // Only inflows, no outflows
     if (outflows.length === 0 && inflows.length >= 1) {
       return {
-        legacyType: 'deposit',
         operation: {
           category: 'transfer',
           type: 'deposit',
@@ -441,7 +432,6 @@ export class InjectiveTransactionProcessor extends BaseTransactionProcessor {
     // Only outflows, no inflows
     if (outflows.length >= 1 && inflows.length === 0) {
       return {
-        legacyType: 'withdrawal',
         operation: {
           category: 'transfer',
           type: 'withdrawal',
@@ -457,7 +447,6 @@ export class InjectiveTransactionProcessor extends BaseTransactionProcessor {
 
       if (outAsset === inAsset) {
         return {
-          legacyType: 'transfer',
           operation: {
             category: 'transfer',
             type: 'transfer',
@@ -469,7 +458,6 @@ export class InjectiveTransactionProcessor extends BaseTransactionProcessor {
     // Pattern 9: Complex multi-asset transaction (UNCERTAIN - add note)
     if (fundFlow.classificationUncertainty) {
       return {
-        legacyType: 'transfer',
         note: {
           message: fundFlow.classificationUncertainty,
           metadata: {
@@ -488,7 +476,6 @@ export class InjectiveTransactionProcessor extends BaseTransactionProcessor {
 
     // Ultimate fallback: Couldn't match any confident pattern
     return {
-      legacyType: 'transfer',
       note: {
         message: 'Unable to determine transaction classification using confident patterns.',
         metadata: {

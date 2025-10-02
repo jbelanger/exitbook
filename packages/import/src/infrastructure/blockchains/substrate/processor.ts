@@ -1,6 +1,6 @@
 import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transaction-processor.interface.ts';
 import type { ITransactionRepository } from '@exitbook/import/app/ports/transaction-repository.js';
-import type { TransactionType, UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
+import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
 import { createMoney } from '@exitbook/shared-utils';
 import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
@@ -265,7 +265,6 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
     fundFlow: SubstrateFundFlow,
     transaction: SubstrateTransaction
   ): {
-    legacyType: TransactionType;
     note?:
       | { message: string; metadata?: Record<string, unknown> | undefined; severity: 'info' | 'warning'; type: string }
       | undefined;
@@ -293,7 +292,6 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
       // Unbond and withdraw are always withdrawals, regardless of flow direction
       if (transaction.call?.includes('unbond') || transaction.call?.includes('withdraw')) {
         return {
-          legacyType: 'staking_withdrawal',
           operation: {
             category: 'staking',
             type: 'unstake',
@@ -305,7 +303,6 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
       if (transaction.call?.includes('bond')) {
         if (outflows.length > 0) {
           return {
-            legacyType: 'staking_deposit',
             operation: {
               category: 'staking',
               type: 'stake',
@@ -314,7 +311,6 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
         } else {
           // Incoming bond (reward)
           return {
-            legacyType: 'staking_reward',
             operation: {
               category: 'staking',
               type: 'reward',
@@ -326,7 +322,6 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
       // Nominate and chill are staking operations (no funds move)
       if (transaction.call?.includes('nominate') || transaction.call?.includes('chill')) {
         return {
-          legacyType: 'staking_deposit',
           note: {
             message: `Staking operation (${transaction.call}) with no fund movement. Changes validator selection but doesn't affect balance.`,
             metadata: {
@@ -346,7 +341,6 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
       // Default staking behavior based on fund flow
       if (outflows.length > 0) {
         return {
-          legacyType: 'staking_deposit',
           operation: {
             category: 'staking',
             type: 'stake',
@@ -354,7 +348,6 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
         };
       } else if (inflows.length > 0) {
         return {
-          legacyType: 'staking_reward',
           operation: {
             category: 'staking',
             type: 'reward',
@@ -364,7 +357,6 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
 
       // Staking transaction with no movements (fee-only)
       return {
-        legacyType: 'staking_deposit',
         note: {
           message: `Staking transaction with no asset movement. Fee-only staking operation.`,
           metadata: {
@@ -385,7 +377,6 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
     if (fundFlow.hasGovernance) {
       if (outflows.length > 0) {
         return {
-          legacyType: 'governance_deposit',
           operation: {
             category: 'governance',
             type: transaction.call?.includes('propose') ? 'proposal' : 'vote',
@@ -393,7 +384,6 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
         };
       } else if (inflows.length > 0) {
         return {
-          legacyType: 'governance_refund',
           operation: {
             category: 'governance',
             type: 'refund',
@@ -405,7 +395,6 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
     // Pattern 3: Utility batch (complex - add uncertainty note)
     if (fundFlow.hasUtilityBatch) {
       return {
-        legacyType: 'utility_batch',
         note: {
           message:
             fundFlow.classificationUncertainty ||
@@ -428,7 +417,6 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
     // Pattern 4: Proxy operations (add note)
     if (fundFlow.hasProxy) {
       return {
-        legacyType: 'proxy',
         note: {
           message: `Proxy transaction. User authorized another account to perform operations.`,
           metadata: {
@@ -448,7 +436,6 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
     // Pattern 5: Multisig operations (add note)
     if (fundFlow.hasMultisig) {
       return {
-        legacyType: 'multisig',
         note: {
           message: `Multisig transaction. Requires multiple signatures to execute.`,
           metadata: {
@@ -468,7 +455,6 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
     // Pattern 6: Fee-only transaction (no asset movements)
     if (isZeroAmount && inflows.length === 0 && outflows.length === 0) {
       return {
-        legacyType: 'fee',
         operation: {
           category: 'fee',
           type: 'fee',
@@ -479,7 +465,6 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
     // Pattern 7: Simple deposit (only inflows)
     if (outflows.length === 0 && inflows.length >= 1) {
       return {
-        legacyType: 'deposit',
         operation: {
           category: 'transfer',
           type: 'deposit',
@@ -490,7 +475,6 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
     // Pattern 8: Simple withdrawal (only outflows)
     if (outflows.length >= 1 && inflows.length === 0) {
       return {
-        legacyType: 'withdrawal',
         operation: {
           category: 'transfer',
           type: 'withdrawal',
@@ -505,7 +489,6 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
 
       if (outAsset === inAsset) {
         return {
-          legacyType: 'internal_transfer',
           operation: {
             category: 'transfer',
             type: 'transfer',
@@ -516,7 +499,6 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
 
     // Pattern 10: Unknown/complex transaction
     return {
-      legacyType: 'unknown',
       note: {
         message: `Unable to classify transaction with confidence. Module: ${fundFlow.module}, Call: ${fundFlow.call}`,
         metadata: {
