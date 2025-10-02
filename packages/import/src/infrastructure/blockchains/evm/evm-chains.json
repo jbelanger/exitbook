@@ -285,5 +285,250 @@
     "nativeCurrency": "TFUEL",
     "nativeDecimals": 18,
     "explorerUrls": ["https://explorer.thetatoken.org"]
+  },
+  "fantom": {
+    "chainId": 250,
+    "chainName": "fantom",
+    "nativeCurrency": "FTM",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://ftmscan.com"]
+  },
+  "cronos": {
+    "chainId": 25,
+    "chainName": "cronos",
+    "nativeCurrency": "CRO",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://cronoscan.com"]
+  },
+  "aurora": {
+    "chainId": 1313161554,
+    "chainName": "aurora",
+    "nativeCurrency": "ETH",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://aurorascan.dev"]
+  },
+  "kava": {
+    "chainId": 2222,
+    "chainName": "kava",
+    "nativeCurrency": "KAVA",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://kavascan.com"]
+  },
+  "conflux": {
+    "chainId": 1030,
+    "chainName": "conflux",
+    "nativeCurrency": "CFX",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://evm.confluxscan.io"]
+  },
+  "klaytn": {
+    "chainId": 8217,
+    "chainName": "klaytn",
+    "nativeCurrency": "KLAY",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://scope.klaytn.com"]
+  },
+  "manta": {
+    "chainId": 169,
+    "chainName": "manta",
+    "nativeCurrency": "ETH",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://pacific-explorer.manta.network"]
+  },
+  "taiko": {
+    "chainId": 167000,
+    "chainName": "taiko",
+    "nativeCurrency": "ETH",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://taikoscan.io"]
+  },
+  "mode": {
+    "chainId": 34443,
+    "chainName": "mode",
+    "nativeCurrency": "ETH",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://explorer.mode.network"]
+  },
+  "fraxtal": {
+    "chainId": 252,
+    "chainName": "fraxtal",
+    "nativeCurrency": "frxETH",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://fraxscan.com"]
+  },
+  "zora": {
+    "chainId": 7777777,
+    "chainName": "zora",
+    "nativeCurrency": "ETH",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://explorer.zora.energy"]
+  },
+  "redstone": {
+    "chainId": 690,
+    "chainName": "redstone",
+    "nativeCurrency": "ETH",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://explorer.redstone.xyz"]
+  },
+  "bob": {
+    "chainId": 60808,
+    "chainName": "bob",
+    "nativeCurrency": "ETH",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://explorer.gobob.xyz"]
+  },
+  "kroma": {
+    "chainId": 255,
+    "chainName": "kroma",
+    "nativeCurrency": "ETH",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://kromascan.com"]
+  },
+  "pgn": {
+    "chainId": 424,
+    "chainName": "pgn",
+    "nativeCurrency": "ETH",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://explorer.publicgoods.network"]
+  },
+  "core": {
+    "chainId": 1116,
+    "chainName": "core",
+    "nativeCurrency": "CORE",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://scan.coredao.org"]
+  },
+  "fuse": {
+    "chainId": 122,
+    "chainName": "fuse",
+    "nativeCurrency": "FUSE",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://explorer.fuse.io"]
+  },
+  "viction": {
+    "chainId": 88,
+    "chainName": "viction",
+    "nativeCurrency": "VIC",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://www.vicscan.xyz"]
+  },
+  "oasys": {
+    "chainId": 248,
+    "chainName": "oasys",
+    "nativeCurrency": "OAS",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://explorer.oasys.games"]
+  },
+  "moonbeam-evm": {
+    "chainId": 1284,
+    "chainName": "moonbeam-evm",
+    "nativeCurrency": "GLMR",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://moonbeam.moonscan.io"]
+  },
+  "moonriver-evm": {
+    "chainId": 1285,
+    "chainName": "moonriver-evm",
+    "nativeCurrency": "MOVR",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://moonriver.moonscan.io"]
+  },
+  "neon": {
+    "chainId": 245022934,
+    "chainName": "neon",
+    "nativeCurrency": "NEON",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://neonscan.org"]
+  },
+  "telos": {
+    "chainId": 40,
+    "chainName": "telos",
+    "nativeCurrency": "TLOS",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://teloscan.io"]
+  },
+  "harmony": {
+    "chainId": 1666600000,
+    "chainName": "harmony",
+    "nativeCurrency": "ONE",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://explorer.harmony.one"]
+  },
+  "evmos-evm": {
+    "chainId": 9001,
+    "chainName": "evmos-evm",
+    "nativeCurrency": "EVMOS",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://escan.live"]
+  },
+  "boba": {
+    "chainId": 288,
+    "chainName": "boba",
+    "nativeCurrency": "ETH",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://bobascan.com"]
+  },
+  "syscoin": {
+    "chainId": 57,
+    "chainName": "syscoin",
+    "nativeCurrency": "SYS",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://explorer.syscoin.org"]
+  },
+  "canto": {
+    "chainId": 7700,
+    "chainName": "canto",
+    "nativeCurrency": "CANTO",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://tuber.build"]
+  },
+  "dogechain": {
+    "chainId": 2000,
+    "chainName": "dogechain",
+    "nativeCurrency": "DOGE",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://explorer.dogechain.dog"]
+  },
+  "shimmer": {
+    "chainId": 148,
+    "chainName": "shimmer",
+    "nativeCurrency": "SMR",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://explorer.evm.shimmer.network"]
+  },
+  "lukso": {
+    "chainId": 42,
+    "chainName": "lukso",
+    "nativeCurrency": "LYX",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://explorer.lukso.network"]
+  },
+  "flare": {
+    "chainId": 14,
+    "chainName": "flare",
+    "nativeCurrency": "FLR",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://flare-explorer.flare.network"]
+  },
+  "songbird": {
+    "chainId": 19,
+    "chainName": "songbird",
+    "nativeCurrency": "SGB",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://songbird-explorer.flare.network"]
+  },
+  "wemix": {
+    "chainId": 1111,
+    "chainName": "wemix",
+    "nativeCurrency": "WEMIX",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://explorer.wemix.com"]
+  },
+  "kcc": {
+    "chainId": 321,
+    "chainName": "kcc",
+    "nativeCurrency": "KCS",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://explorer.kcc.io"]
   }
 }

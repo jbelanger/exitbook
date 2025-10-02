@@ -548,5 +548,137 @@
     "explorerUrls": ["https://blockscan.ixo.world"],
     "rpcEndpoints": ["https://rpc-impacthub.keplr.app"],
     "restEndpoints": ["https://lcd-impacthub.keplr.app"]
+  },
+  "dydx": {
+    "chainId": "dydx-mainnet-1",
+    "chainName": "dydx",
+    "displayName": "dYdX",
+    "nativeCurrency": "DYDX",
+    "nativeDecimals": 18,
+    "bech32Prefix": "dydx",
+    "explorerUrls": ["https://www.mintscan.io/dydx"],
+    "rpcEndpoints": ["https://dydx-rpc.polkachu.com"],
+    "restEndpoints": ["https://dydx-api.polkachu.com"]
+  },
+  "sei": {
+    "chainId": "pacific-1",
+    "chainName": "sei",
+    "displayName": "Sei",
+    "nativeCurrency": "SEI",
+    "nativeDecimals": 6,
+    "bech32Prefix": "sei",
+    "explorerUrls": ["https://www.seiscan.app"],
+    "rpcEndpoints": ["https://rpc.sei-apis.com"],
+    "restEndpoints": ["https://rest.sei-apis.com"]
+  },
+  "nibiru": {
+    "chainId": "cataclysm-1",
+    "chainName": "nibiru",
+    "displayName": "Nibiru",
+    "nativeCurrency": "NIBI",
+    "nativeDecimals": 6,
+    "bech32Prefix": "nibi",
+    "explorerUrls": ["https://explorer.nibiru.fi"],
+    "rpcEndpoints": ["https://rpc.nibiru.fi"],
+    "restEndpoints": ["https://lcd.nibiru.fi"]
+  },
+  "dymension": {
+    "chainId": "dymension_1100-1",
+    "chainName": "dymension",
+    "displayName": "Dymension",
+    "nativeCurrency": "DYM",
+    "nativeDecimals": 18,
+    "bech32Prefix": "dym",
+    "explorerUrls": ["https://www.mintscan.io/dymension"],
+    "rpcEndpoints": ["https://dymension-rpc.polkachu.com"],
+    "restEndpoints": ["https://dymension-api.polkachu.com"]
+  },
+  "nolus": {
+    "chainId": "pirin-1",
+    "chainName": "nolus",
+    "displayName": "Nolus",
+    "nativeCurrency": "NLS",
+    "nativeDecimals": 6,
+    "bech32Prefix": "nolus",
+    "explorerUrls": ["https://explorer.nolus.io"],
+    "rpcEndpoints": ["https://pirin-cl.nolus.network:26657"],
+    "restEndpoints": ["https://pirin-cl.nolus.network:1317"]
+  },
+  "composable": {
+    "chainId": "centauri-1",
+    "chainName": "composable",
+    "displayName": "Composable Finance",
+    "nativeCurrency": "PICA",
+    "nativeDecimals": 12,
+    "bech32Prefix": "centauri",
+    "explorerUrls": ["https://www.mintscan.io/composable"],
+    "rpcEndpoints": ["https://rpc-composable-ia.cosmosia.notional.ventures"],
+    "restEndpoints": ["https://api-composable-ia.cosmosia.notional.ventures"]
+  },
+  "xpla": {
+    "chainId": "dimension_37-1",
+    "chainName": "xpla",
+    "displayName": "XPLA",
+    "nativeCurrency": "XPLA",
+    "nativeDecimals": 18,
+    "bech32Prefix": "xpla",
+    "explorerUrls": ["https://explorer.xpla.io"],
+    "rpcEndpoints": ["https://dimension-rpc.xpla.dev"],
+    "restEndpoints": ["https://dimension-lcd.xpla.dev"]
+  },
+  "coreum": {
+    "chainId": "coreum-mainnet-1",
+    "chainName": "coreum",
+    "displayName": "Coreum",
+    "nativeCurrency": "CORE",
+    "nativeDecimals": 6,
+    "bech32Prefix": "core",
+    "explorerUrls": ["https://explorer.coreum.com"],
+    "rpcEndpoints": ["https://full-node.mainnet-1.coreum.dev:26657"],
+    "restEndpoints": ["https://full-node.mainnet-1.coreum.dev:1317"]
+  },
+  "jackal": {
+    "chainId": "jackal-1",
+    "chainName": "jackal",
+    "displayName": "Jackal",
+    "nativeCurrency": "JKL",
+    "nativeDecimals": 6,
+    "bech32Prefix": "jkl",
+    "explorerUrls": ["https://www.mintscan.io/jackal"],
+    "rpcEndpoints": ["https://rpc.jackalprotocol.com"],
+    "restEndpoints": ["https://api.jackalprotocol.com"]
+  },
+  "planq": {
+    "chainId": "planq_7070-2",
+    "chainName": "planq",
+    "displayName": "Planq",
+    "nativeCurrency": "PLQ",
+    "nativeDecimals": 18,
+    "bech32Prefix": "plq",
+    "explorerUrls": ["https://explorer.planq.network"],
+    "rpcEndpoints": ["https://rpc.planq.network"],
+    "restEndpoints": ["https://rest.planq.network"]
+  },
+  "mars": {
+    "chainId": "mars-1",
+    "chainName": "mars",
+    "displayName": "Mars Protocol",
+    "nativeCurrency": "MARS",
+    "nativeDecimals": 6,
+    "bech32Prefix": "mars",
+    "explorerUrls": ["https://www.mintscan.io/mars-protocol"],
+    "rpcEndpoints": ["https://rpc.marsprotocol.io"],
+    "restEndpoints": ["https://rest.marsprotocol.io"]
+  },
+  "lambda": {
+    "chainId": "lambda_92000-1",
+    "chainName": "lambda",
+    "displayName": "Lambda",
+    "nativeCurrency": "LAMB",
+    "nativeDecimals": 18,
+    "bech32Prefix": "lambda",
+    "explorerUrls": ["https://explorer.lambda.im"],
+    "rpcEndpoints": ["https://rpc.lambda.im"],
+    "restEndpoints": ["https://rest.lambda.im"]
   }
 }

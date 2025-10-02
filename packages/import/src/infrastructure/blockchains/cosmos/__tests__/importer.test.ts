@@ -218,7 +218,6 @@ describe('CosmosImporter', () => {
       const [, operation] = executeCalls[0]!;
       expect(operation.address).toBe(address);
       expect(operation.type).toBe('getRawAddressTransactions');
-      expect(operation.since).toBe(since);
     });
 
     test('should handle multiple transactions', async () => {

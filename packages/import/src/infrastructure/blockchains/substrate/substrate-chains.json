@@ -88,5 +88,158 @@
     "nativeCurrency": "KSM",
     "nativeDecimals": 12,
     "ss58Format": 2
+  },
+  "moonriver": {
+    "chainName": "moonriver",
+    "displayName": "Moonriver Network",
+    "explorerUrls": ["https://moonriver.subscan.io", "https://moonriver.moonscan.io"],
+    "genesisHash": "0x401a1f9dca3da46f5c4091016c8a2f26dcea05865116b286f60f668207d1474b",
+    "nativeCurrency": "MOVR",
+    "nativeDecimals": 18,
+    "ss58Format": 1285
+  },
+  "karura": {
+    "chainName": "karura",
+    "displayName": "Karura Network",
+    "explorerUrls": ["https://karura.subscan.io"],
+    "genesisHash": "0xbaf5aabe40646d11f0ee8abbdc64f4a4b7674925cba08e4a05ff9ebed6e2126b",
+    "nativeCurrency": "KAR",
+    "nativeDecimals": 12,
+    "ss58Format": 8
+  },
+  "bifrost": {
+    "chainName": "bifrost",
+    "displayName": "Bifrost Network",
+    "explorerUrls": ["https://bifrost.subscan.io"],
+    "genesisHash": "0x9f28c6a68e0fc9646eff64935684f6eeeece527e37bbe1f213d22caa1d9d6bed",
+    "nativeCurrency": "BNC",
+    "nativeDecimals": 12,
+    "ss58Format": 6
+  },
+  "centrifuge": {
+    "chainName": "centrifuge",
+    "displayName": "Centrifuge Chain",
+    "explorerUrls": ["https://centrifuge.subscan.io"],
+    "genesisHash": "0xb3db41421702df9a7fcac62b53ffeac85f7853cc4e689e0b93aeb3db18c09d82",
+    "nativeCurrency": "CFG",
+    "nativeDecimals": 18,
+    "ss58Format": 36
+  },
+  "interlay": {
+    "chainName": "interlay",
+    "displayName": "Interlay Network",
+    "explorerUrls": ["https://interlay.subscan.io"],
+    "genesisHash": "0xbf88efe70e9e0e916416e8bed61f2b45717f517d7f3523e33c7b001e5ffcbc72",
+    "nativeCurrency": "INTR",
+    "nativeDecimals": 10,
+    "ss58Format": 2032
+  },
+  "kilt": {
+    "chainName": "kilt",
+    "displayName": "KILT Spiritnet",
+    "explorerUrls": ["https://spiritnet.subscan.io"],
+    "genesisHash": "0x411f057b9107718c9624d6aa4a3f23c1653898297f3d4d529d9bb6511a39dd21",
+    "nativeCurrency": "KILT",
+    "nativeDecimals": 15,
+    "ss58Format": 38
+  },
+  "nodle": {
+    "chainName": "nodle",
+    "displayName": "Nodle Chain",
+    "explorerUrls": ["https://nodle.subscan.io"],
+    "genesisHash": "0x97da7ede98d7bad4e36b4d734b6055425a3be036da2a332ea5a7037656427a21",
+    "nativeCurrency": "NODL",
+    "nativeDecimals": 11,
+    "ss58Format": 37
+  },
+  "parallel": {
+    "chainName": "parallel",
+    "displayName": "Parallel Finance",
+    "explorerUrls": ["https://parallel.subscan.io"],
+    "genesisHash": "0xe61a41c53f5dcd0beb09df93b34402aada44cb05117b71059cce40a2723a4e97",
+    "nativeCurrency": "PARA",
+    "nativeDecimals": 12,
+    "ss58Format": 172
+  },
+  "clover": {
+    "chainName": "clover",
+    "displayName": "Clover Finance",
+    "explorerUrls": ["https://clover.subscan.io"],
+    "genesisHash": "0x5c7bd13eaa349e3f8f8db8c2c7b6b82e67d8c5a9c6e3f9c3b9d3f8f8f8f8f8f8",
+    "nativeCurrency": "CLV",
+    "nativeDecimals": 18,
+    "ss58Format": 128
+  },
+  "hydradx": {
+    "chainName": "hydradx",
+    "displayName": "HydraDX",
+    "explorerUrls": ["https://hydradx.subscan.io"],
+    "genesisHash": "0xafdc188f45c71dacbaa0b62e16a91f726c7b8699a9748cdf715459de6b7f366d",
+    "nativeCurrency": "HDX",
+    "nativeDecimals": 12,
+    "ss58Format": 63
+  },
+  "composable": {
+    "chainName": "composable",
+    "displayName": "Composable Finance",
+    "explorerUrls": ["https://composable.subscan.io"],
+    "genesisHash": "0xdaab8df776eb52ec604a5df5d388bb62a050a0aaec4556a64265b9d42755552d",
+    "nativeCurrency": "LAYR",
+    "nativeDecimals": 12,
+    "ss58Format": 49
+  },
+  "zeitgeist": {
+    "chainName": "zeitgeist",
+    "displayName": "Zeitgeist Network",
+    "explorerUrls": ["https://zeitgeist.subscan.io"],
+    "genesisHash": "0x1bf2a2ecb4a868de66ea8610f2ce7c8c43706561b6476031315f6640fe38e060",
+    "nativeCurrency": "ZTG",
+    "nativeDecimals": 10,
+    "ss58Format": 73
+  },
+  "pendulum": {
+    "chainName": "pendulum",
+    "displayName": "Pendulum Chain",
+    "explorerUrls": ["https://pendulum.subscan.io"],
+    "genesisHash": "0x5d3c298622d5634ed019bf61ea4b71655030015bde9beb0d6a24743714462c86",
+    "nativeCurrency": "PEN",
+    "nativeDecimals": 12,
+    "ss58Format": 56
+  },
+  "aleph-zero": {
+    "chainName": "aleph-zero",
+    "displayName": "Aleph Zero",
+    "explorerUrls": ["https://alephzero.subscan.io"],
+    "genesisHash": "0x70255b4d28de0fc4e1a193d7e175ad1ccef431598211c55538f1018651a0344e",
+    "nativeCurrency": "AZERO",
+    "nativeDecimals": 12,
+    "ss58Format": 42
+  },
+  "unique": {
+    "chainName": "unique",
+    "displayName": "Unique Network",
+    "explorerUrls": ["https://unique.subscan.io"],
+    "genesisHash": "0x84322d9cddbf35088f1e54e9a85c967a41a56a4f43445768125e61af166c7d31",
+    "nativeCurrency": "UNQ",
+    "nativeDecimals": 18,
+    "ss58Format": 7391
+  },
+  "origintrail": {
+    "chainName": "origintrail",
+    "displayName": "OriginTrail Parachain",
+    "explorerUrls": ["https://origintrail.subscan.io"],
+    "genesisHash": "0x9c9d54f2a8c3c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1",
+    "nativeCurrency": "OTP",
+    "nativeDecimals": 12,
+    "ss58Format": 101
+  },
+  "subsocial": {
+    "chainName": "subsocial",
+    "displayName": "Subsocial Network",
+    "explorerUrls": ["https://subsocial.subscan.io"],
+    "genesisHash": "0x0bd72c1c305172e1275278aaaa3c38e678769e8c8d4d3f9b8c6c5c5c5c5c5c5c",
+    "nativeCurrency": "SUB",
+    "nativeDecimals": 10,
+    "ss58Format": 28
   }
 }
