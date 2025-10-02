@@ -61,17 +61,10 @@ export class ThetaExplorerApiClient extends BlockchainApiClient {
     try {
       const allTransactions: ThetaTransaction[] = [];
 
-      // Fetch Type 2 (send) transactions
-      const sendTxs = await this.getTransactionsByType(address, 2);
-      allTransactions.push(...sendTxs);
+      const allTypeTxs = await this.getTransactions(address);
+      allTransactions.push(...allTypeTxs);
 
-      // Fetch Type 7 (smart contract) transactions
-      const contractTxs = await this.getTransactionsByType(address, 7);
-      allTransactions.push(...contractTxs);
-
-      this.logger.debug(
-        `Found ${allTransactions.length} total transactions for ${address} (${sendTxs.length} send + ${contractTxs.length} contract)`
-      );
+      this.logger.debug(`Found ${allTransactions.length} total transactions for ${address} (${allTypeTxs.length})`);
       return allTransactions;
     } catch (error) {
       this.logger.error(
@@ -81,18 +74,17 @@ export class ThetaExplorerApiClient extends BlockchainApiClient {
     }
   }
 
-  private async getTransactionsByType(address: string, type: number): Promise<ThetaTransaction[]> {
+  private async getTransactions(address: string): Promise<ThetaTransaction[]> {
     const transactions: ThetaTransaction[] = [];
     let currentPage = 1;
-    const limitPerPage = 50;
+    const limitPerPage = 100;
     let hasMorePages = true;
 
     while (hasMorePages) {
       const params = new URLSearchParams({
-        isEqualType: 'true',
+        isEqualType: 'false',
         limitNumber: limitPerPage.toString(),
         pageNumber: currentPage.toString(),
-        type: type.toString(),
       });
 
       try {
@@ -103,9 +95,7 @@ export class ThetaExplorerApiClient extends BlockchainApiClient {
         const pageTxs = response.body || [];
         transactions.push(...pageTxs);
 
-        this.logger.debug(
-          `Fetched type ${type} page ${currentPage}/${response.totalPageNumber}: ${pageTxs.length} transactions`
-        );
+        this.logger.debug(`Fetched page ${currentPage}/${response.totalPageNumber}: ${pageTxs.length} transactions`);
 
         hasMorePages = currentPage < response.totalPageNumber;
         currentPage++;
@@ -117,7 +107,7 @@ export class ThetaExplorerApiClient extends BlockchainApiClient {
       } catch (error) {
         // Theta Explorer returns 404 when no transactions are found for a type
         if (error instanceof Error && error.message.includes('HTTP 404')) {
-          this.logger.debug(`No type ${type} transactions found for ${maskAddress(address)}`);
+          this.logger.debug(`No transactions found for ${maskAddress(address)}`);
           break;
         }
         throw error;

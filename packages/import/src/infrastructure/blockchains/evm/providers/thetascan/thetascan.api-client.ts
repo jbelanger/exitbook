@@ -4,24 +4,14 @@ import type { ProviderConfig } from '../../../shared/index.ts';
 import { RegisterApiClient, BlockchainApiClient } from '../../../shared/index.ts';
 import type { ProviderOperation } from '../../../shared/types.ts';
 
-import type {
-  ThetaScanTransaction,
-  ThetaScanTokenTransfer,
-  ThetaScanBalanceResponse,
-  ThetaScanTokenBalance,
-} from './thetascan.types.ts';
+import type { ThetaScanTransaction, ThetaScanBalanceResponse, ThetaScanTokenBalance } from './thetascan.types.ts';
 
 @RegisterApiClient({
   apiKeyEnvVar: undefined,
   baseUrl: 'http://www.thetascan.io/api',
   blockchain: 'theta',
   capabilities: {
-    supportedOperations: [
-      'getRawAddressBalance',
-      'getRawAddressTransactions',
-      'getTokenTransactions',
-      'getRawTokenBalances',
-    ],
+    supportedOperations: ['getRawAddressBalance', 'getRawAddressTransactions', 'getRawTokenBalances'],
   },
   defaultConfig: {
     rateLimit: {
@@ -59,14 +49,6 @@ export class ThetaScanApiClient extends BlockchainApiClient {
         case 'getRawAddressBalance':
           return (await this.getRawAddressBalance({
             address: operation.address,
-          })) as T;
-        case 'getTokenTransactions':
-          return (await this.getTokenTransactions({
-            address: operation.address,
-            contractAddress: operation.contractAddress,
-            limit: operation.limit,
-            since: operation.since,
-            until: operation.until,
           })) as T;
         case 'getRawTokenBalances':
           return (await this.getRawTokenBalances({
@@ -118,11 +100,6 @@ export class ThetaScanApiClient extends BlockchainApiClient {
 
       this.logger.info(`Fetched ${Array.isArray(transactions) ? transactions.length : 0} transactions from ThetaScan`);
 
-      // Log first transaction if available
-      if (Array.isArray(transactions) && transactions.length > 0) {
-        this.logger.info('First transaction sample: ' + JSON.stringify(transactions[0], undefined, 2));
-      }
-
       return Array.isArray(transactions) ? transactions : [];
     } catch (error) {
       this.logger.error(
@@ -146,7 +123,7 @@ export class ThetaScanApiClient extends BlockchainApiClient {
         address: address,
       });
 
-      const response = await this.httpClient.get(`/account/?${params.toString()}`);
+      const response = await this.httpClient.get(`/balance/?${params.toString()}`);
 
       // Assuming ThetaScan returns balance in a format similar to their docs
       const balanceData = response as ThetaScanBalanceResponse;
@@ -236,44 +213,6 @@ export class ThetaScanApiClient extends BlockchainApiClient {
     } catch (error) {
       this.logger.error(
         `Failed to get token balances - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`
-      );
-      throw error;
-    }
-  }
-
-  private async getTokenTransactions(params: {
-    address: string;
-    contractAddress?: string | undefined;
-    limit?: number | undefined;
-    since?: number | undefined;
-    until?: number | undefined;
-  }): Promise<ThetaScanTokenTransfer[]> {
-    const { address, contractAddress, since } = params;
-
-    if (!this.isValidEthAddress(address)) {
-      throw new Error(`Invalid Theta address: ${address}`);
-    }
-
-    this.logger.debug(
-      `Fetching token transactions - Address: ${maskAddress(address)}, Contract: ${contractAddress || 'all'}`
-    );
-
-    // ThetaScan may not have a dedicated token transaction endpoint
-    // This would need to be verified with actual API testing
-    this.logger.warn('Token transaction fetching may not be fully supported by ThetaScan API');
-
-    try {
-      // Attempt to fetch transactions and filter for token transfers if needed
-      const _transactions = await this.getNormalTransactions(address, since);
-
-      // Filter for token transfers if contract address is specified
-      // This is a placeholder - actual implementation depends on ThetaScan's response format
-      this.logger.debug(`Retrieved transactions, filtering for token transfers`);
-
-      return [];
-    } catch (error) {
-      this.logger.error(
-        `Failed to get token transactions - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`
       );
       throw error;
     }

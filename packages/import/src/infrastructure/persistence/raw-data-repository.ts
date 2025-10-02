@@ -16,8 +16,6 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
   }
 
   async load(filters?: LoadRawDataFilters): Promise<Result<RawData[], Error>> {
-    this.logger.info({ filters }, 'Loading raw data with filters');
-
     try {
       let query = this.db
         .selectFrom('external_transaction_data')
@@ -52,7 +50,6 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
 
       const rows = await query.execute();
 
-      this.logger.info({ count: rows.length }, 'Loaded raw data items');
       return ok(rows);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -66,8 +63,6 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     rawTransactionIds: number[],
     providerId?: string
   ): Promise<Result<void, Error>> {
-    this.logger.info({ count: rawTransactionIds.length, providerId, sourceId }, 'Marking items as processed');
-
     try {
       await this.withTransaction(async (trx) => {
         const processedAt = this.getCurrentDateTimeForDB();
@@ -94,7 +89,6 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
         }
       });
 
-      this.logger.info({ count: rawTransactionIds.length, sourceId }, 'Successfully marked items as processed');
       return ok();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -109,8 +103,6 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     providerId: string,
     metadata?: RawTransactionMetadata
   ): Promise<Result<number, Error>> {
-    this.logger.info('Saving raw data item');
-
     if (!rawData) {
       return err(new Error('Raw data cannot be null or undefined'));
     }
@@ -133,7 +125,6 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
         return insertResult.length > 0 ? 1 : 0;
       });
 
-      this.logger.info('Successfully saved raw data item');
       return ok(result);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -146,8 +137,6 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     items: { metadata?: RawTransactionMetadata; providerId: string; rawData: unknown }[],
     importSessionId: number
   ): Promise<Result<number, Error>> {
-    this.logger.info({ count: items.length }, 'Saving raw data batch');
-
     if (items.length === 0) {
       return ok(0);
     }
@@ -186,7 +175,6 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
         return saved;
       });
 
-      this.logger.info({ count: result, totalItems: items.length }, 'Successfully saved raw data batch');
       return ok(result);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);

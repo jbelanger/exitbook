@@ -44,18 +44,27 @@ export class ThetaScanTransactionMapper extends BaseRawDataMapper<ThetaScanTrans
       amount = new Decimal(0);
     }
 
-    // Convert amount to wei (18 decimals for Theta network)
-    const THETA_DECIMALS = 18;
-    const amountInWei = amount.mul(new Decimal(10).pow(THETA_DECIMALS));
+    // Theta blockchain has TWO native currencies: THETA and TFUEL
+    // The processor expects nativeCurrency to be TFUEL (for fees), so we map THETA
+    // transfers as token_transfer to preserve the correct symbol
+    const isThetaTransfer = currency === 'THETA';
 
     // Convert timestamp (Unix timestamp in seconds) to milliseconds
     const timestamp = rawData.timestamp * 1000;
 
     // Calculate fee in wei
+    const THETA_DECIMALS = 18;
     const feeInWei = new Decimal(rawData.fee_tfuel).mul(new Decimal(10).pow(THETA_DECIMALS));
 
+    // Amount handling:
+    // - THETA transfers are mapped as token_transfer, so amounts should be normalized (not wei)
+    // - TFUEL transfers are mapped as native transfer, so amounts should be in wei
+    const amountFormatted = isThetaTransfer
+      ? amount.toString()
+      : amount.mul(new Decimal(10).pow(THETA_DECIMALS)).toFixed(0);
+
     const transaction: EvmTransaction = {
-      amount: amountInWei.toFixed(0),
+      amount: amountFormatted,
       blockHeight: parseInt(rawData.block),
       currency,
       feeAmount: feeInWei.toFixed(0),
@@ -66,8 +75,9 @@ export class ThetaScanTransactionMapper extends BaseRawDataMapper<ThetaScanTrans
       status: 'success', // ThetaScan only returns successful transactions
       timestamp,
       to: rawData.recieving_address,
+      tokenSymbol: isThetaTransfer ? 'THETA' : 'TFUEL',
       tokenType: 'native',
-      type: 'transfer',
+      type: isThetaTransfer ? 'token_transfer' : 'transfer',
     };
 
     return ok(transaction);
