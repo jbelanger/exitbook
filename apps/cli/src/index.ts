@@ -3,13 +3,7 @@ import path from 'node:path';
 
 import { BalanceRepository, BalanceService, type BalanceVerificationResult, BalanceVerifier } from '@exitbook/balance';
 import 'reflect-metadata';
-import {
-  createDatabase,
-  clearDatabase,
-  closeDatabase,
-  initializeDatabase,
-  type StoredTransaction,
-} from '@exitbook/data';
+import { closeDatabase, initializeDatabase, type StoredTransaction } from '@exitbook/data';
 import {
   BlockchainProviderManager,
   DefaultNormalizer,
@@ -32,6 +26,7 @@ const program = new Command();
 // Command option types
 interface VerifyOptions {
   blockchain?: string | undefined;
+  clearDb?: boolean | undefined;
   exchange?: string | undefined;
   report?: boolean | undefined;
 }
@@ -82,12 +77,13 @@ async function main() {
     .option('--exchange <name>', 'Exchange name to verify (e.g., kraken, coinbase)')
     .option('--blockchain <name>', 'Blockchain name to verify (e.g., bitcoin, ethereum)')
     .option('--report', 'Generate detailed verification report')
+    .option('--clear-db', 'Clear and reinitialize database before verification')
     .action(async (options: VerifyOptions) => {
       try {
         logger.info('Starting balance verification');
 
         // Initialize database
-        const database = await initializeDatabase();
+        const database = await initializeDatabase(options.clearDb);
 
         const balanceRepository = new BalanceRepository(database);
         const balanceService = new BalanceService(balanceRepository);
@@ -134,38 +130,29 @@ async function main() {
       try {
         logger.info('Database implementation: Kysely');
 
-        const kyselyDb = createDatabase();
-
-        if (options.clearDb) {
-          // TODO: Implement Kysely database clearing when needed
-          logger.warn('Database clearing with Kysely not yet implemented');
-        }
+        const kyselyDb = await initializeDatabase(options.clearDb);
 
         // For now, use a simplified stats approach with Kysely
         // TODO: Implement proper Kysely stats queries
         const stats = {
-          totalExchanges: 0,
+          totalSources: 0,
           totalExternalTransactions: 0,
           totalImportSessions: 0,
-          totalSnapshots: 0,
           totalTransactions: 0,
-          totalVerifications: 0,
-          transactionsByExchange: [],
+          transactionsBySource: [],
         };
         logger.info('Kysely stats queries not yet implemented - showing placeholder values');
 
         logger.info('\nSystem Status');
         logger.info('================');
         logger.info(`Total transactions: ${stats.totalTransactions}`);
-        logger.info(`Total exchanges: ${stats.totalExchanges}`);
+        logger.info(`Total sources: ${stats.totalSources}`);
         logger.info(`Total import sessions: ${stats.totalImportSessions}`);
-        logger.info(`Total verifications: ${stats.totalVerifications}`);
-        logger.info(`Total snapshots: ${stats.totalSnapshots}`);
 
-        if (stats.transactionsByExchange.length > 0) {
-          logger.info('\n📈 Transactions by Exchange:');
-          for (const { count, exchange } of stats.transactionsByExchange) {
-            logger.info(`  ${String(exchange)}: ${String(count)}`);
+        if (stats.transactionsBySource.length > 0) {
+          logger.info('\n📈 Transactions by Source:');
+          for (const { count, source } of stats.transactionsBySource) {
+            logger.info(`  ${String(source)}: ${String(count)}`);
           }
         }
 
@@ -192,11 +179,7 @@ async function main() {
       try {
         logger.info('Starting export');
 
-        const database = createDatabase();
-        if (options.clearDb) {
-          await clearDatabase(database);
-          logger.info('Database cleared and reinitialized');
-        }
+        const database = await initializeDatabase(options.clearDb);
 
         let since: number | undefined;
         if (options.since) {
@@ -334,9 +317,7 @@ async function main() {
           }
 
           // Import raw data
-          logger.info('[DEBUG] About to call importFromSource');
           const importResult = await ingestionService.importFromSource(sourceName, sourceType, importParams);
-          logger.info('[DEBUG] importFromSource returned');
 
           if (importResult.isErr()) {
             logger.error(`Import failed: ${importResult.error.message}`);
