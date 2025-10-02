@@ -174,12 +174,10 @@ describe('SubstrateImporter', () => {
       const importer = createImporter();
       const address = '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg';
 
-      // Mock API call to succeed with nested data structure
+      // Mock API call to succeed - provider returns raw array
       mockProviderManager.executeWithFailover.mockResolvedValueOnce(
         ok({
-          data: {
-            data: [mockSubstrateTx1, mockSubstrateTx2],
-          },
+          data: [mockSubstrateTx1, mockSubstrateTx2],
           providerName: 'subscan',
         } as FailoverExecutionResult<unknown>)
       );
@@ -227,9 +225,7 @@ describe('SubstrateImporter', () => {
       // Mock API call to succeed with empty array
       mockProviderManager.executeWithFailover.mockResolvedValueOnce(
         ok({
-          data: {
-            data: [],
-          },
+          data: [],
           providerName: 'subscan',
         } as FailoverExecutionResult<unknown>)
       );
@@ -249,9 +245,7 @@ describe('SubstrateImporter', () => {
       // Mock API call to succeed with single transaction
       mockProviderManager.executeWithFailover.mockResolvedValueOnce(
         ok({
-          data: {
-            data: [mockSubstrateTx1],
-          },
+          data: [mockSubstrateTx1],
           providerName: 'subscan',
         } as FailoverExecutionResult<unknown>)
       );
@@ -273,9 +267,7 @@ describe('SubstrateImporter', () => {
       // Mock API call to succeed
       mockProviderManager.executeWithFailover.mockResolvedValue(
         ok({
-          data: {
-            data: [],
-          },
+          data: [],
           providerName: 'subscan',
         } as FailoverExecutionResult<unknown>)
       );
@@ -298,10 +290,10 @@ describe('SubstrateImporter', () => {
       const importer = createImporter();
       const address = '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg';
 
-      // Mock API call with unexpected format (no nested data property)
+      // Mock API call with unexpected format (non-array)
       mockProviderManager.executeWithFailover.mockResolvedValueOnce(
         ok({
-          data: [mockSubstrateTx1], // Direct array instead of { data: [...] }
+          data: { notAnArray: 'unexpected' },
           providerName: 'subscan',
         } as FailoverExecutionResult<unknown>)
       );
@@ -310,8 +302,8 @@ describe('SubstrateImporter', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        // Should return empty array when data format is unexpected
-        expect(result.value.rawTransactions).toHaveLength(0);
+        // Should wrap non-array data in array
+        expect(result.value.rawTransactions).toHaveLength(1);
       }
     });
 
@@ -322,9 +314,7 @@ describe('SubstrateImporter', () => {
       // Mock API call with non-array data
       mockProviderManager.executeWithFailover.mockResolvedValueOnce(
         ok({
-          data: {
-            data: 'not-an-array',
-          },
+          data: 'not-an-array',
           providerName: 'subscan',
         } as FailoverExecutionResult<unknown>)
       );
@@ -333,7 +323,7 @@ describe('SubstrateImporter', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value.rawTransactions).toHaveLength(0);
+        expect(result.value.rawTransactions).toHaveLength(1);
       }
     });
 
@@ -350,9 +340,7 @@ describe('SubstrateImporter', () => {
 
       mockProviderManager.executeWithFailover.mockResolvedValueOnce(
         ok({
-          data: {
-            data: largeBatch,
-          },
+          data: largeBatch,
           providerName: 'subscan',
         } as FailoverExecutionResult<unknown>)
       );
@@ -466,9 +454,7 @@ describe('SubstrateImporter', () => {
 
       mockProviderManager.executeWithFailover.mockResolvedValue(
         ok({
-          data: {
-            data: [bittensorTx],
-          },
+          data: [bittensorTx],
           providerName: 'taostats',
         } as FailoverExecutionResult<unknown>)
       );
@@ -506,9 +492,7 @@ describe('SubstrateImporter', () => {
 
       mockProviderManager.executeWithFailover.mockResolvedValue(
         ok({
-          data: {
-            data: [kusamaTx],
-          },
+          data: [kusamaTx],
           providerName: 'subscan',
         } as FailoverExecutionResult<unknown>)
       );
@@ -538,9 +522,7 @@ describe('SubstrateImporter', () => {
       // Mock Polkadot success
       mockProviderManager.executeWithFailover.mockResolvedValueOnce(
         ok({
-          data: {
-            data: [{ ...mockSubstrateTx1, chainName: 'polkadot' }],
-          },
+          data: [{ ...mockSubstrateTx1, chainName: 'polkadot' }],
           providerName: 'subscan',
         } as FailoverExecutionResult<unknown>)
       );
@@ -548,9 +530,7 @@ describe('SubstrateImporter', () => {
       // Mock Bittensor success
       mockProviderManager.executeWithFailover.mockResolvedValueOnce(
         ok({
-          data: {
-            data: [{ ...mockSubstrateTx1, chainName: 'bittensor', currency: 'TAO' }],
-          },
+          data: [{ ...mockSubstrateTx1, chainName: 'bittensor', currency: 'TAO' }],
           providerName: 'taostats',
         } as FailoverExecutionResult<unknown>)
       );
@@ -576,9 +556,7 @@ describe('SubstrateImporter', () => {
 
       mockProviderManager.executeWithFailover.mockResolvedValue(
         ok({
-          data: {
-            data: [],
-          },
+          data: [],
           providerName: 'subscan',
         } as FailoverExecutionResult<unknown>)
       );

@@ -8,7 +8,7 @@ import { err, ok, type Result } from 'neverthrow';
 import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
 
 // Import clients to trigger registration
-import '../../ethereum/register-apis.js';
+import '../../evm/register-apis.js';
 import { CircuitBreaker } from '../../../shared/utils/circuit-breaker.js';
 import { BlockchainProviderManager, ProviderError } from '../blockchain-provider-manager.js';
 import type { ProviderInfo } from '../registry/provider-registry.js';
@@ -464,7 +464,7 @@ describe('ProviderRegistry', () => {
     expect(provider.blockchain).toBe('ethereum');
     expect(provider.capabilities).toBeDefined();
     expect(provider.capabilities.supportedOperations).toContain('getRawAddressTransactions');
-    expect(provider.capabilities.supportedOperations).toContain('getRawAddressBalance');
+    expect(provider.capabilities.supportedOperations).toContain('getRawAddressInternalTransactions');
   });
 
   test('should validate legacy configuration correctly', () => {

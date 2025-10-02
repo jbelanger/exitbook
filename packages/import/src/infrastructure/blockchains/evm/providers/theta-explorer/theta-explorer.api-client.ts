@@ -95,23 +95,32 @@ export class ThetaExplorerApiClient extends BlockchainApiClient {
         type: type.toString(),
       });
 
-      const response = await this.httpClient.get<ThetaAccountTxResponse>(
-        `/accounttx/${address.toLowerCase()}?${params.toString()}`
-      );
+      try {
+        const response = await this.httpClient.get<ThetaAccountTxResponse>(
+          `/accounttx/${address.toLowerCase()}?${params.toString()}`
+        );
 
-      const pageTxs = response.body || [];
-      transactions.push(...pageTxs);
+        const pageTxs = response.body || [];
+        transactions.push(...pageTxs);
 
-      this.logger.debug(
-        `Fetched type ${type} page ${currentPage}/${response.totalPageNumber}: ${pageTxs.length} transactions`
-      );
+        this.logger.debug(
+          `Fetched type ${type} page ${currentPage}/${response.totalPageNumber}: ${pageTxs.length} transactions`
+        );
 
-      hasMorePages = currentPage < response.totalPageNumber;
-      currentPage++;
+        hasMorePages = currentPage < response.totalPageNumber;
+        currentPage++;
 
-      if (currentPage > 100) {
-        this.logger.warn('Reached maximum page limit (100), stopping pagination');
-        break;
+        if (currentPage > 100) {
+          this.logger.warn('Reached maximum page limit (100), stopping pagination');
+          break;
+        }
+      } catch (error) {
+        // Theta Explorer returns 404 when no transactions are found for a type
+        if (error instanceof Error && error.message.includes('HTTP 404')) {
+          this.logger.debug(`No type ${type} transactions found for ${maskAddress(address)}`);
+          break;
+        }
+        throw error;
       }
     }
 
