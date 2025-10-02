@@ -51,9 +51,27 @@ export interface EvmTransaction {
  * (normal, internal, token transfers) by hash for comprehensive analysis.
  */
 export interface EvmFundFlow {
-  // Primary amount and currency (the main asset being transferred)
-  primaryAmount: string; // Absolute amount of primary asset
-  primarySymbol: string; // Symbol of primary asset (ETH, AVAX, or token symbol)
+  // All assets that flowed in/out (supports swaps, LP, complex DeFi)
+  inflows: {
+    amount: string; // Normalized amount
+    asset: string; // Symbol (ETH, USDC, etc.)
+    tokenAddress?: string | undefined; // Contract address for tokens
+    tokenDecimals?: number | undefined; // Decimals for tokens
+  }[];
+  outflows: {
+    amount: string; // Normalized amount
+    asset: string; // Symbol (ETH, USDC, etc.)
+    tokenAddress?: string | undefined; // Contract address for tokens
+    tokenDecimals?: number | undefined; // Decimals for tokens
+  }[];
+
+  // Primary asset (for backward compatibility and simple display)
+  primary: {
+    amount: string; // Absolute amount of primary asset
+    asset: string; // Symbol of primary asset (ETH, AVAX, or token symbol)
+    tokenAddress?: string | undefined;
+    tokenDecimals?: number | undefined;
+  };
 
   // Fee information (always in native currency)
   feeAmount: string; // Total fee in native currency
@@ -63,10 +81,6 @@ export interface EvmFundFlow {
   fromAddress: string;
   toAddress: string;
 
-  // Fund flow direction from user's perspective
-  isIncoming: boolean; // User is receiving funds
-  isOutgoing: boolean; // User is sending funds
-
   // Transaction correlation and complexity analysis
   // Essential for proper EVM transaction processing across all chains
   transactionCount: number; // Number of correlated transactions (1 for simple, >1 for complex)
@@ -74,7 +88,6 @@ export interface EvmFundFlow {
   hasInternalTransactions: boolean; // Has internal/trace transactions
   hasTokenTransfers: boolean; // Has ERC-20/721/1155 transfers
 
-  // Token information (when transferring tokens)
-  tokenAddress?: string | undefined;
-  tokenDecimals?: number | undefined;
+  // Classification uncertainty tracking
+  classificationUncertainty?: string | undefined; // Reason why classification is uncertain
 }

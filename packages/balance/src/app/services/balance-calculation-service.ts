@@ -4,7 +4,7 @@ import { Decimal } from 'decimal.js';
 
 export class BalanceCalculationService {
   /**
-   * Calculate exchange balances including zero balances (for verification purposes)
+   * Calculate balances including zero balances (for verification purposes)
    * Returns all currencies that have transactions, even if current balance is zero
    */
   calculateBalancesForVerification(transactions: StoredTransaction[]): Record<string, Decimal> {
@@ -18,70 +18,65 @@ export class BalanceCalculationService {
     return balances;
   }
 
+  /**
+   * Process transaction using structured movements and fees.
+   * Clean, simple logic - no switch statements or special cases.
+   */
   private processTransactionForBalance(transaction: StoredTransaction, balances: Record<string, Decimal>): void {
-    const type = transaction.transaction_type;
-    const amount = stringToDecimal(String(transaction.amount));
-    const amountCurrency = transaction.amount_currency;
-    const price = stringToDecimal(String(transaction.price));
-    const priceCurrency = transaction.price_currency;
-    const feeCost = stringToDecimal(String(transaction.fee_cost));
-    const feeCurrency = transaction.fee_currency;
+    // Initialize balance for any assets we encounter
+    const ensureBalance = (asset: string) => {
+      if (!balances[asset]) {
+        balances[asset] = new Decimal(0);
+      }
+    };
 
-    if (amountCurrency && !balances[amountCurrency]) balances[amountCurrency] = new Decimal(0);
-    if (priceCurrency && !balances[priceCurrency]) balances[priceCurrency] = new Decimal(0);
+    // Helper to parse JSON strings from database
+    const parseJSON = <T>(jsonString: unknown): T | undefined => {
+      if (!jsonString || typeof jsonString !== 'string') return undefined;
+      try {
+        return JSON.parse(jsonString) as T;
+      } catch {
+        return undefined;
+      }
+    };
 
-    switch (type) {
-      case 'deposit':
-        if (amountCurrency && balances[amountCurrency]) {
-          balances[amountCurrency] = balances[amountCurrency].plus(amount);
-        } else {
-          throw new Error(`Amount is zero for deposit transaction ID: ${transaction.id}`);
-        }
-        break;
-
-      case 'withdrawal':
-        if (amountCurrency && balances[amountCurrency]) {
-          balances[amountCurrency] = balances[amountCurrency].minus(amount);
-          if (!feeCost.isZero() && feeCurrency) {
-            if (!balances[feeCurrency]) balances[feeCurrency] = new Decimal(0);
-            balances[feeCurrency] = balances[feeCurrency].minus(feeCost);
-          }
-        } else {
-          throw new Error(`Amount is zero for withdrawal transaction ID: ${transaction.id}`);
-        }
-        break;
-
-      case 'fee':
-        if (amountCurrency && balances[amountCurrency]) {
-          balances[amountCurrency] = balances[amountCurrency].minus(amount);
-        } else {
-          throw new Error(`Amount is zero for fee transaction ID: ${transaction.id}`);
-        }
-        break;
-
-      case 'trade':
-        // Symbol indicates what asset is being received (bought)
-        // Amount currency is what we're receiving, price currency is what we're spending
-        if (amountCurrency && balances[amountCurrency]) {
-          balances[amountCurrency] = balances[amountCurrency].plus(amount);
-        } else {
-          throw new Error(`Amount is zero for trade transaction ID: ${transaction.id}`);
-        }
-
-        if (priceCurrency && !price.isZero()) {
-          if (!balances[priceCurrency]) balances[priceCurrency] = new Decimal(0);
-          balances[priceCurrency] = balances[priceCurrency].minus(price);
-        } else {
-          throw new Error(`Price is zero for trade transaction ID: ${transaction.id}`);
-        }
-
-        break;
+    // Process inflows (what user gained)
+    const inflows = parseJSON<{ amount: { currency: string; value: string }; asset: string }[]>(
+      transaction.movements_inflows
+    );
+    if (inflows) {
+      for (const inflow of inflows) {
+        ensureBalance(inflow.asset);
+        const amount = stringToDecimal(inflow.amount.value);
+        balances[inflow.asset] = balances[inflow.asset]!.plus(amount);
+      }
     }
 
-    // Only subtract fees separately for exchange transactions, not blockchain transactions
-    // if (!feeCost.isZero() && feeCurrency && !this.isBlockchainTransaction(exchange)) {
-    //   if (!balances[feeCurrency]) balances[feeCurrency] = new Decimal(0);
-    //   balances[feeCurrency] = balances[feeCurrency].minus(feeCost);
-    // }
+    // Process outflows (what user lost)
+    const outflows = parseJSON<{ amount: { currency: string; value: string }; asset: string }[]>(
+      transaction.movements_outflows
+    );
+    if (outflows) {
+      for (const outflow of outflows) {
+        ensureBalance(outflow.asset);
+        const amount = stringToDecimal(outflow.amount.value);
+        balances[outflow.asset] = balances[outflow.asset]!.minus(amount);
+      }
+    }
+
+    // Process fees (always a cost)
+    const networkFee = parseJSON<{ currency: string; value: string }>(transaction.fees_network);
+    if (networkFee) {
+      ensureBalance(networkFee.currency);
+      const amount = stringToDecimal(networkFee.value);
+      balances[networkFee.currency] = balances[networkFee.currency]!.minus(amount);
+    }
+
+    const platformFee = parseJSON<{ currency: string; value: string }>(transaction.fees_platform);
+    if (platformFee) {
+      ensureBalance(platformFee.currency);
+      const amount = stringToDecimal(platformFee.value);
+      balances[platformFee.currency] = balances[platformFee.currency]!.minus(amount);
+    }
   }
 }

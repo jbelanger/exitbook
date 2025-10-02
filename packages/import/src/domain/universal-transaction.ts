@@ -34,26 +34,96 @@ export interface TransactionNote {
 // or imported type from the import package if that package becomes a dependency.
 export type TransactionNoteType = string;
 
+// Operation categories for high-level classification
+export type OperationCategory = 'trade' | 'transfer' | 'staking' | 'defi' | 'fee' | 'governance';
+
+// Specific operation types
+export type OperationType =
+  | 'buy'
+  | 'sell'
+  | 'deposit'
+  | 'withdrawal'
+  | 'stake'
+  | 'unstake'
+  | 'reward'
+  | 'swap'
+  | 'fee'
+  | 'batch'
+  | 'transfer'
+  | 'refund'
+  | 'vote'
+  | 'proposal';
+
+// Direction of primary movement
+export type MovementDirection = 'in' | 'out' | 'neutral';
+
 export interface UniversalTransaction {
-  // Amounts
-  amount: Money;
-  datetime: string;
-  fee?: Money | undefined;
-  // Parties (works for both)
-  from?: string | undefined; // Sender address OR exchange account
   // Universal fields
   id: string;
-
-  metadata: Record<string, unknown>;
-  note?: TransactionNote | undefined; // Scam detection, warnings, classification
-  price?: Money | undefined;
-
-  // Metadata
+  datetime: string;
+  timestamp: number;
   source: string; // e.g., 'coinbase', 'bitcoin'
   status: TransactionStatus;
-  symbol?: string | undefined; // Add symbol for trades
 
-  timestamp: number;
+  // Parties
+  from?: string | undefined; // Sender address OR exchange account
   to?: string | undefined; // Receiver address OR exchange account
-  type: TransactionType;
+
+  // Structured asset movements
+  movements: {
+    // What user gained
+    inflows: {
+      amount: Money;
+      asset: string;
+    }[];
+    // What user lost
+    outflows: {
+      amount: Money;
+      asset: string;
+    }[];
+    // Primary movement summary
+    primary: {
+      amount: Money; // Positive = gained, negative = lost
+      asset: string;
+      direction: MovementDirection;
+    };
+  };
+
+  // Structured fee breakdown
+  fees: {
+    network?: Money | undefined; // Gas/blockchain fees
+    platform?: Money | undefined; // Exchange/service fees
+    total: Money; // Sum of all fees
+  };
+
+  // Enhanced operation classification
+  operation: {
+    category: OperationCategory;
+    type: OperationType;
+  };
+
+  // Blockchain-specific data (undefined for exchange transactions)
+  blockchain?:
+    | {
+        block_height?: number | undefined;
+        is_confirmed: boolean;
+        name: string;
+        transaction_hash: string;
+      }
+    | undefined;
+
+  // Optional fields
+  note?: TransactionNote | undefined; // Scam detection, warnings, classification
+  price?: Money | undefined; // For trades
+  metadata?: Record<string, unknown> | undefined; // Minimal provider-specific data
+
+  // Backward compatibility (deprecated - map to new fields)
+  /** @deprecated Use movements.primary.amount */
+  amount?: Money | undefined;
+  /** @deprecated Use fees.total */
+  fee?: Money | undefined;
+  /** @deprecated Use operation.type */
+  type?: TransactionType | undefined;
+  /** @deprecated Use movements.primary.asset */
+  symbol?: string | undefined;
 }

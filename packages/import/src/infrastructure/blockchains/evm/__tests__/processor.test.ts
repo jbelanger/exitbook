@@ -109,18 +109,33 @@ describe('EvmTransactionProcessor - Transaction Correlation', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
     expect(transaction.id).toBe('0xhash1');
-    expect(transaction.type).toBe('deposit');
-    expect(transaction.symbol).toBe('USDC'); // Prefers token over native
-    expect(transaction.amount.currency).toBe('USDC');
-    expect(transaction.amount.amount.toString()).toBe('2500000');
-    expect(transaction.fee?.amount.toString()).toBe('0.000021');
+    expect(transaction.metadata).toBeDefined();
+    if (!transaction.metadata) return;
     expect(transaction.metadata.correlatedTxCount).toBe(3);
 
-    const fundFlow = transaction.metadata.fundFlow as Record<string, unknown>;
-    expect(fundFlow.hasTokenTransfers).toBe(true);
-    expect(fundFlow.hasInternalTransactions).toBe(true);
-    expect(fundFlow.hasContractInteraction).toBe(false);
-    expect(fundFlow.transactionCount).toBe(3);
+    // Check structured fields
+    expect(transaction.movements.primary.asset).toBe('USDC'); // Prefers token over native
+    expect(transaction.movements.primary.amount.currency).toBe('USDC');
+    expect(transaction.movements.primary.amount.amount.toString()).toBe('2500000');
+    expect(transaction.movements.primary.direction).toBe('in');
+
+    // NEW: Should track ALL assets (ETH and USDC), consolidated
+    expect(transaction.movements.inflows).toHaveLength(2);
+    const usdcInflow = transaction.movements.inflows.find((i) => i.asset === 'USDC');
+    const ethInflow = transaction.movements.inflows.find((i) => i.asset === 'ETH');
+    expect(usdcInflow?.amount.amount.toString()).toBe('2500000');
+    expect(ethInflow?.amount.amount.toString()).toBe('1.5'); // 1 ETH + 0.5 ETH consolidated
+    expect(transaction.movements.outflows).toHaveLength(0);
+    expect(transaction.fees.network?.amount.toString()).toBe('0.000021');
+    expect(transaction.fees.network?.currency).toBe('ETH');
+    expect(transaction.fees.total.amount.toString()).toBe('0.000021');
+    expect(transaction.operation.category).toBe('transfer');
+    expect(transaction.operation.type).toBe('deposit');
+    expect(transaction.blockchain?.name).toBe('ethereum');
+    expect(transaction.blockchain?.is_confirmed).toBe(true);
+    expect(transaction.metadata.hasTokenTransfers).toBe(true);
+    expect(transaction.metadata.hasInternalTransactions).toBe(true);
+    expect(transaction.metadata.hasContractInteraction).toBe(false);
   });
 
   test('processes multiple transaction groups independently', async () => {
@@ -164,10 +179,10 @@ describe('EvmTransactionProcessor - Transaction Correlation', () => {
     expect(result.value).toHaveLength(2);
     expect(result.value[0]).toBeDefined();
     expect(result.value[0]?.id).toBe('0xhash1');
-    expect(result.value[0]?.type).toBe('deposit');
+    expect(result.value[0]?.operation.type).toBe('deposit');
     expect(result.value[1]).toBeDefined();
     expect(result.value[1]?.id).toBe('0xhash2');
-    expect(result.value[1]?.type).toBe('withdrawal');
+    expect(result.value[1]?.operation.type).toBe('withdrawal');
   });
 
   test('sums fees across all correlated transactions', async () => {
@@ -212,7 +227,8 @@ describe('EvmTransactionProcessor - Transaction Correlation', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
     // Total fee should be 0.000021 + 0.000015 = 0.000036 ETH
-    expect(transaction.fee?.amount.toString()).toBe('0.000036');
+    expect(transaction.fees.total.amount.toString()).toBe('0.000036');
+    expect(transaction.fees.network?.amount.toString()).toBe('0.000036');
   });
 });
 
@@ -245,15 +261,19 @@ describe('EvmTransactionProcessor - Fund Flow Direction', () => {
     const [transaction] = result.value;
     expect(transaction).toBeDefined();
     if (!transaction) return;
-    expect(transaction.type).toBe('deposit');
-    expect(transaction.amount.amount.toString()).toBe('1.5');
-    expect(transaction.symbol).toBe('ETH');
     expect(transaction.from).toBe(EXTERNAL_ADDRESS);
     expect(transaction.to).toBe(USER_ADDRESS);
 
-    const fundFlow = transaction.metadata.fundFlow as Record<string, unknown>;
-    expect(fundFlow.isIncoming).toBe(true);
-    expect(fundFlow.isOutgoing).toBe(false);
+    // Check structured fields
+    expect(transaction.movements.primary.asset).toBe('ETH');
+    expect(transaction.movements.primary.amount.amount.toString()).toBe('1.5');
+    expect(transaction.movements.primary.direction).toBe('in');
+    expect(transaction.movements.inflows).toHaveLength(1);
+    expect(transaction.movements.inflows[0]?.asset).toBe('ETH');
+    expect(transaction.movements.inflows[0]?.amount.amount.toString()).toBe('1.5');
+    expect(transaction.movements.outflows).toHaveLength(0);
+    expect(transaction.operation.category).toBe('transfer');
+    expect(transaction.operation.type).toBe('deposit');
   });
 
   test('classifies outgoing native transfer as withdrawal', async () => {
@@ -284,14 +304,19 @@ describe('EvmTransactionProcessor - Fund Flow Direction', () => {
     const [transaction] = result.value;
     expect(transaction).toBeDefined();
     if (!transaction) return;
-    expect(transaction.type).toBe('withdrawal');
-    expect(transaction.amount.amount.toString()).toBe('2');
     expect(transaction.from).toBe(USER_ADDRESS);
     expect(transaction.to).toBe(EXTERNAL_ADDRESS);
 
-    const fundFlow = transaction.metadata.fundFlow as Record<string, unknown>;
-    expect(fundFlow.isOutgoing).toBe(true);
-    expect(fundFlow.isIncoming).toBe(false);
+    // Check structured fields
+    expect(transaction.movements.primary.asset).toBe('ETH');
+    expect(transaction.movements.primary.amount.amount.toString()).toBe('2');
+    expect(transaction.movements.primary.direction).toBe('out');
+    expect(transaction.movements.inflows).toHaveLength(0);
+    expect(transaction.movements.outflows).toHaveLength(1);
+    expect(transaction.movements.outflows[0]?.asset).toBe('ETH');
+    expect(transaction.movements.outflows[0]?.amount.amount.toString()).toBe('2');
+    expect(transaction.operation.category).toBe('transfer');
+    expect(transaction.operation.type).toBe('withdrawal');
   });
 
   test('classifies self-transfer (incoming and outgoing) as transfer', async () => {
@@ -322,13 +347,17 @@ describe('EvmTransactionProcessor - Fund Flow Direction', () => {
     const [transaction] = result.value;
     expect(transaction).toBeDefined();
     if (!transaction) return;
-    expect(transaction.type).toBe('transfer');
     expect(transaction.from).toBe(USER_ADDRESS);
     expect(transaction.to).toBe(USER_ADDRESS);
 
-    const fundFlow = transaction.metadata.fundFlow as Record<string, unknown>;
-    expect(fundFlow.isIncoming).toBe(true);
-    expect(fundFlow.isOutgoing).toBe(true);
+    // Check structured fields - self-transfer shows both in and out
+    expect(transaction.movements.primary.asset).toBe('ETH');
+    expect(transaction.movements.primary.amount.amount.toString()).toBe('0.5');
+    expect(transaction.movements.primary.direction).toBe('neutral'); // Net zero for same asset
+    expect(transaction.movements.inflows).toHaveLength(1);
+    expect(transaction.movements.outflows).toHaveLength(1);
+    expect(transaction.operation.category).toBe('transfer');
+    expect(transaction.operation.type).toBe('transfer');
   });
 
   test('classifies incoming token transfer as deposit', async () => {
@@ -361,10 +390,13 @@ describe('EvmTransactionProcessor - Fund Flow Direction', () => {
     const [transaction] = result.value;
     expect(transaction).toBeDefined();
     if (!transaction) return;
-    expect(transaction.type).toBe('deposit');
-    expect(transaction.amount.amount.toString()).toBe('1000000000');
-    expect(transaction.symbol).toBe('USDC');
-    expect(transaction.metadata.tokenAddress).toBe('0xusdc000000000000000000000000000000000000');
+
+    // Check structured fields
+    expect(transaction.movements.primary.asset).toBe('USDC');
+    expect(transaction.movements.primary.amount.amount.toString()).toBe('1000000000');
+    expect(transaction.movements.primary.direction).toBe('in');
+    expect(transaction.operation.type).toBe('deposit');
+    expect(transaction.metadata?.tokenAddress).toBe('0xusdc000000000000000000000000000000000000');
   });
 
   test('classifies outgoing token transfer as withdrawal', async () => {
@@ -397,9 +429,12 @@ describe('EvmTransactionProcessor - Fund Flow Direction', () => {
     const [transaction] = result.value;
     expect(transaction).toBeDefined();
     if (!transaction) return;
-    expect(transaction.type).toBe('withdrawal');
-    expect(transaction.amount.amount.toString()).toBe('5000000000');
-    expect(transaction.symbol).toBe('USDC');
+
+    // Check structured fields
+    expect(transaction.movements.primary.asset).toBe('USDC');
+    expect(transaction.movements.primary.amount.amount.toString()).toBe('5000000000');
+    expect(transaction.movements.primary.direction).toBe('out');
+    expect(transaction.operation.type).toBe('withdrawal');
   });
 });
 
@@ -432,15 +467,16 @@ describe('EvmTransactionProcessor - Transaction Type Classification', () => {
     const [transaction] = result.value;
     expect(transaction).toBeDefined();
     if (!transaction) return;
-    expect(transaction.type).toBe('fee');
-    expect(transaction.amount.amount.toString()).toBe('0');
 
-    const fundFlow = transaction.metadata.fundFlow as Record<string, unknown>;
-    expect(fundFlow.hasContractInteraction).toBe(false);
-    expect(fundFlow.primaryAmount).toBe('0');
+    // Check structured fields
+    expect(transaction.movements.primary.amount.amount.toString()).toBe('0');
+    expect(transaction.movements.primary.direction).toBe('neutral');
+    expect(transaction.operation.category).toBe('fee');
+    expect(transaction.operation.type).toBe('fee');
+    expect(transaction.metadata?.hasContractInteraction).toBe(false);
   });
 
-  test('marks dust-amount transactions (below threshold) as fee', async () => {
+  test('classifies dust-amount deposit correctly (below threshold but still a deposit)', async () => {
     const processor = createEthereumProcessor();
 
     const normalizedData: EvmTransaction[] = [
@@ -468,7 +504,13 @@ describe('EvmTransactionProcessor - Transaction Type Classification', () => {
     const [transaction] = result.value;
     expect(transaction).toBeDefined();
     if (!transaction) return;
-    expect(transaction.type).toBe('fee');
+
+    // Dust deposits are still deposits (affect balance), but flagged with note
+    expect(transaction.operation.category).toBe('transfer');
+    expect(transaction.operation.type).toBe('deposit');
+    expect(transaction.note).toBeDefined();
+    expect(transaction.note?.type).toBe('dust_amount');
+    expect(transaction.note?.message).toContain('Dust deposit');
   });
 
   test('classifies contract interaction without fund movement as transfer', async () => {
@@ -500,11 +542,11 @@ describe('EvmTransactionProcessor - Transaction Type Classification', () => {
     const [transaction] = result.value;
     expect(transaction).toBeDefined();
     if (!transaction) return;
-    // Zero amount + contract interaction → fallback to 'transfer' (line 296 of processor)
-    expect(transaction.type).toBe('transfer');
 
-    const fundFlow = transaction.metadata.fundFlow as Record<string, unknown>;
-    expect(fundFlow.hasContractInteraction).toBe(true);
+    // Check structured fields - zero amount + contract interaction → 'transfer'
+    expect(transaction.metadata?.hasContractInteraction).toBe(true);
+    expect(transaction.operation.category).toBe('transfer');
+    expect(transaction.operation.type).toBe('transfer');
   });
 
   test('handles failed transactions', async () => {
@@ -535,8 +577,11 @@ describe('EvmTransactionProcessor - Transaction Type Classification', () => {
     const [transaction] = result.value;
     expect(transaction).toBeDefined();
     if (!transaction) return;
+
+    // Check structured fields - failed transactions still classified by direction
     expect(transaction.status).toBe('failed');
-    expect(transaction.type).toBe('withdrawal'); // Still classified by direction
+    expect(transaction.blockchain?.is_confirmed).toBe(false);
+    expect(transaction.operation.type).toBe('withdrawal');
   });
 });
 
@@ -568,8 +613,7 @@ describe('EvmTransactionProcessor - Contract Interaction Detection', () => {
     const transaction = result.value[0];
     expect(transaction).toBeDefined();
     if (!transaction) return;
-    const fundFlow = transaction.metadata.fundFlow as Record<string, unknown>;
-    expect(fundFlow.hasContractInteraction).toBe(true);
+    expect(transaction.metadata?.hasContractInteraction).toBe(true);
   });
 
   test('detects contract interaction via methodId', async () => {
@@ -600,8 +644,7 @@ describe('EvmTransactionProcessor - Contract Interaction Detection', () => {
     const transaction = result.value[0];
     expect(transaction).toBeDefined();
     if (!transaction) return;
-    const fundFlow = transaction.metadata.fundFlow as Record<string, unknown>;
-    expect(fundFlow.hasContractInteraction).toBe(true);
+    expect(transaction.metadata?.hasContractInteraction).toBe(true);
   });
 
   test('detects contract interaction via functionName', async () => {
@@ -632,8 +675,7 @@ describe('EvmTransactionProcessor - Contract Interaction Detection', () => {
     const transaction = result.value[0];
     expect(transaction).toBeDefined();
     if (!transaction) return;
-    const fundFlow = transaction.metadata.fundFlow as Record<string, unknown>;
-    expect(fundFlow.hasContractInteraction).toBe(true);
+    expect(transaction.metadata?.hasContractInteraction).toBe(true);
   });
 });
 
@@ -666,9 +708,11 @@ describe('EvmTransactionProcessor - Multi-Chain Support', () => {
     const [transaction] = result.value;
     expect(transaction).toBeDefined();
     if (!transaction) return;
-    expect(transaction.symbol).toBe('ETH');
-    expect(transaction.metadata.nativeCurrency).toBe('ETH');
-    expect(transaction.fee?.currency).toBe('ETH');
+
+    // Check structured fields
+    expect(transaction.movements.primary.asset).toBe('ETH');
+    expect(transaction.blockchain?.name).toBe('ethereum');
+    expect(transaction.fees.total.currency).toBe('ETH');
   });
 
   test('uses chain-specific native currency for Avalanche', async () => {
@@ -699,11 +743,12 @@ describe('EvmTransactionProcessor - Multi-Chain Support', () => {
     const [transaction] = result.value;
     expect(transaction).toBeDefined();
     if (!transaction) return;
-    expect(transaction.symbol).toBe('AVAX');
-    expect(transaction.metadata.nativeCurrency).toBe('AVAX');
-    expect(transaction.metadata.blockchain).toBe('avalanche');
-    expect(transaction.metadata.chainId).toBe(43114);
-    expect(transaction.fee?.currency).toBe('AVAX');
+
+    // Check structured fields
+    expect(transaction.movements.primary.asset).toBe('AVAX');
+    expect(transaction.blockchain?.name).toBe('avalanche');
+    expect(transaction.metadata?.chainId).toBe(43114);
+    expect(transaction.fees.total.currency).toBe('AVAX');
   });
 
   test('normalizes native amounts using chain-specific decimals', async () => {
@@ -733,7 +778,9 @@ describe('EvmTransactionProcessor - Multi-Chain Support', () => {
     const [transaction] = result.value;
     expect(transaction).toBeDefined();
     if (!transaction) return;
-    expect(transaction.amount.amount.toString()).toBe('0.123456789012345678');
+
+    // Check structured fields
+    expect(transaction.movements.primary.amount.amount.toString()).toBe('0.123456789012345678');
   });
 });
 
@@ -795,10 +842,11 @@ describe('EvmTransactionProcessor - Edge Cases', () => {
     const [transaction] = result.value;
     expect(transaction).toBeDefined();
     if (!transaction) return;
-    expect(transaction.type).toBe('deposit'); // Should match despite case difference
 
-    const fundFlow = transaction.metadata.fundFlow as Record<string, unknown>;
-    expect(fundFlow.isIncoming).toBe(true);
+    // Check structured fields - should match despite case difference
+    expect(transaction.movements.primary.direction).toBe('in');
+    expect(transaction.movements.inflows).toHaveLength(1);
+    expect(transaction.operation.type).toBe('deposit');
   });
 
   test('handles missing fee data gracefully', async () => {
@@ -829,7 +877,10 @@ describe('EvmTransactionProcessor - Edge Cases', () => {
     const [transaction] = result.value;
     expect(transaction).toBeDefined();
     if (!transaction) return;
-    expect(transaction.fee?.amount.toString()).toBe('0');
+
+    // Check structured fields
+    expect(transaction.fees.total.amount.toString()).toBe('0');
+    expect(transaction.fees.network?.amount.toString()).toBe('0');
   });
 
   test('handles transactions with missing optional fields', async () => {
@@ -859,7 +910,9 @@ describe('EvmTransactionProcessor - Edge Cases', () => {
     expect(result.value).toHaveLength(1);
     expect(result.value[0]).toBeDefined();
     if (!result.value[0]) return;
-    expect(result.value[0].type).toBe('deposit');
+
+    // Check structured fields
+    expect(result.value[0].operation.type).toBe('deposit');
   });
 
   test('skips transactions without valid id', async () => {
@@ -932,9 +985,10 @@ describe('EvmTransactionProcessor - Primary Transaction Selection', () => {
     const [transaction] = result.value;
     expect(transaction).toBeDefined();
     if (!transaction) return;
-    // Should use token_transfer as primary
-    expect(transaction.symbol).toBe('USDC');
-    expect(transaction.amount.amount.toString()).toBe('2500000');
+
+    // Check structured fields - should use token_transfer as primary
+    expect(transaction.movements.primary.asset).toBe('USDC');
+    expect(transaction.movements.primary.amount.amount.toString()).toBe('2500000');
   });
 
   test('uses internal transaction when no token transfer exists', async () => {
@@ -976,12 +1030,243 @@ describe('EvmTransactionProcessor - Primary Transaction Selection', () => {
     const [transaction] = result.value;
     expect(transaction).toBeDefined();
     if (!transaction) return;
-    // Should use internal transaction for fund flow
-    expect(transaction.symbol).toBe('ETH');
-    expect(transaction.amount.amount.toString()).toBe('0.5');
-    expect(transaction.type).toBe('deposit');
 
-    const fundFlow = transaction.metadata.fundFlow as Record<string, unknown>;
-    expect(fundFlow.hasInternalTransactions).toBe(true);
+    // Check structured fields - should use internal transaction for fund flow
+    expect(transaction.movements.primary.asset).toBe('ETH');
+    expect(transaction.movements.primary.amount.amount.toString()).toBe('0.5');
+    expect(transaction.movements.primary.direction).toBe('in');
+    expect(transaction.operation.type).toBe('deposit');
+    expect(transaction.metadata?.hasInternalTransactions).toBe(true);
+  });
+});
+
+describe('EvmTransactionProcessor - Swap Detection', () => {
+  test('detects single-asset swap (ETH -> USDC)', async () => {
+    const processor = createEthereumProcessor();
+
+    const normalizedData: EvmTransaction[] = [
+      {
+        amount: '500000000000000000', // 0.5 ETH sent
+        currency: 'ETH',
+        feeAmount: '150000000000000',
+        from: USER_ADDRESS,
+        id: '0xswap1',
+        providerId: 'alchemy',
+        status: 'success',
+        timestamp: Date.now(),
+        to: CONTRACT_ADDRESS,
+        tokenType: 'native',
+        type: 'transfer',
+      },
+      {
+        amount: '1000000000', // 1000 USDC received (pre-normalized)
+        currency: 'USDC',
+        from: CONTRACT_ADDRESS,
+        id: '0xswap1',
+        providerId: 'alchemy',
+        status: 'success',
+        timestamp: Date.now(),
+        to: USER_ADDRESS,
+        tokenAddress: '0xusdc000000000000000000000000000000000000',
+        tokenDecimals: 6,
+        tokenSymbol: 'USDC',
+        tokenType: 'erc20',
+        type: 'token_transfer',
+      },
+    ];
+
+    const session = buildSession(normalizedData);
+    const result = await processor.process(session);
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+
+    // Verify swap classification
+    expect(transaction.operation.category).toBe('trade');
+    expect(transaction.operation.type).toBe('swap');
+
+    // Verify both assets tracked
+    expect(transaction.movements.inflows).toHaveLength(1);
+    expect(transaction.movements.inflows[0]?.asset).toBe('USDC');
+    expect(transaction.movements.inflows[0]?.amount.amount.toString()).toBe('1000000000');
+
+    expect(transaction.movements.outflows).toHaveLength(1);
+    expect(transaction.movements.outflows[0]?.asset).toBe('ETH');
+    expect(transaction.movements.outflows[0]?.amount.amount.toString()).toBe('0.5');
+
+    // Primary should be largest (USDC)
+    expect(transaction.movements.primary.asset).toBe('USDC');
+  });
+
+  test('detects reverse swap (USDC -> ETH)', async () => {
+    const processor = createEthereumProcessor();
+
+    const normalizedData: EvmTransaction[] = [
+      {
+        amount: '2000000000', // 2000 USDC sent
+        currency: 'USDC',
+        from: USER_ADDRESS,
+        id: '0xswap2',
+        providerId: 'alchemy',
+        status: 'success',
+        timestamp: Date.now(),
+        to: CONTRACT_ADDRESS,
+        tokenAddress: '0xusdc000000000000000000000000000000000000',
+        tokenDecimals: 6,
+        tokenSymbol: 'USDC',
+        tokenType: 'erc20',
+        type: 'token_transfer',
+      },
+      {
+        amount: '1000000000000000000', // 1 ETH received
+        currency: 'ETH',
+        feeAmount: '150000000000000',
+        from: CONTRACT_ADDRESS,
+        id: '0xswap2',
+        providerId: 'alchemy',
+        status: 'success',
+        timestamp: Date.now(),
+        to: USER_ADDRESS,
+        tokenType: 'native',
+        type: 'internal',
+      },
+    ];
+
+    const session = buildSession(normalizedData);
+    const result = await processor.process(session);
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+
+    // Verify swap classification
+    expect(transaction.operation.category).toBe('trade');
+    expect(transaction.operation.type).toBe('swap');
+  });
+});
+
+describe('EvmTransactionProcessor - Classification Uncertainty', () => {
+  test('adds note for complex multi-asset transaction', async () => {
+    const processor = createEthereumProcessor();
+
+    const normalizedData: EvmTransaction[] = [
+      {
+        amount: '500000000000000000', // 0.5 ETH sent
+        currency: 'ETH',
+        feeAmount: '150000000000000',
+        from: USER_ADDRESS,
+        id: '0xcomplex1',
+        providerId: 'alchemy',
+        status: 'success',
+        timestamp: Date.now(),
+        to: CONTRACT_ADDRESS,
+        tokenType: 'native',
+        type: 'transfer',
+      },
+      {
+        amount: '1000000000', // 1000 USDC sent
+        currency: 'USDC',
+        from: USER_ADDRESS,
+        id: '0xcomplex1',
+        providerId: 'alchemy',
+        status: 'success',
+        timestamp: Date.now(),
+        to: CONTRACT_ADDRESS,
+        tokenAddress: '0xusdc000000000000000000000000000000000000',
+        tokenDecimals: 6,
+        tokenSymbol: 'USDC',
+        tokenType: 'erc20',
+        type: 'token_transfer',
+      },
+      {
+        amount: '5000000000', // 5000 DAI received
+        currency: 'DAI',
+        from: CONTRACT_ADDRESS,
+        id: '0xcomplex1',
+        providerId: 'alchemy',
+        status: 'success',
+        timestamp: Date.now(),
+        to: USER_ADDRESS,
+        tokenAddress: '0xdai0000000000000000000000000000000000000',
+        tokenDecimals: 18,
+        tokenSymbol: 'DAI',
+        tokenType: 'erc20',
+        type: 'token_transfer',
+      },
+    ];
+
+    const session = buildSession(normalizedData);
+    const result = await processor.process(session);
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+
+    // Should have uncertainty note
+    expect(transaction.note).toBeDefined();
+    expect(transaction.note?.type).toBe('classification_uncertain');
+    expect(transaction.note?.severity).toBe('info');
+    expect(transaction.note?.message).toContain('Complex transaction');
+    expect(transaction.note?.message).toContain('2 outflow(s)');
+    expect(transaction.note?.message).toContain('1 inflow(s)');
+
+    // Still classified as transfer (conservative)
+    expect(transaction.operation.category).toBe('transfer');
+    expect(transaction.operation.type).toBe('transfer');
+
+    // Should track all assets
+    expect(transaction.movements.outflows).toHaveLength(2);
+    expect(transaction.movements.inflows).toHaveLength(1);
+  });
+
+  test('adds note for contract interaction with zero value', async () => {
+    const processor = createEthereumProcessor();
+
+    const normalizedData: EvmTransaction[] = [
+      {
+        amount: '0',
+        currency: 'ETH',
+        feeAmount: '100000000000000',
+        from: USER_ADDRESS,
+        functionName: 'approve',
+        id: '0xapprove1',
+        methodId: '0x095ea7b3',
+        providerId: 'alchemy',
+        status: 'success',
+        timestamp: Date.now(),
+        to: CONTRACT_ADDRESS,
+        type: 'contract_call',
+      },
+    ];
+
+    const session = buildSession(normalizedData);
+    const result = await processor.process(session);
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+
+    // Should have uncertainty note
+    expect(transaction.note).toBeDefined();
+    expect(transaction.note?.type).toBe('classification_uncertain');
+    expect(transaction.note?.message).toContain('Contract interaction');
+    expect(transaction.note?.message).toContain('zero/dust value');
+
+    // Still classified as transfer
+    expect(transaction.operation.category).toBe('transfer');
+    expect(transaction.operation.type).toBe('transfer');
   });
 });

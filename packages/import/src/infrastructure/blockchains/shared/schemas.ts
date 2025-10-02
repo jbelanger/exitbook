@@ -36,26 +36,100 @@ export const TransactionTypeSchema = z.enum([
 // Transaction status schema
 export const TransactionStatusSchema = z.enum(['pending', 'open', 'closed', 'canceled', 'failed', 'ok']);
 
-// Universal Transaction schema
-export const UniversalTransactionSchema = z
-  .object({
-    amount: MoneySchema,
-    datetime: z.string().min(1, 'Datetime string must not be empty'),
-    // Optional fields
-    fee: MoneySchema.optional(),
-    from: z.string().optional(),
-    // Required universal fields
-    id: z.string().min(1, 'Transaction ID must not be empty'),
-    metadata: z.record(z.string(), z.any()).default({}),
-    price: MoneySchema.optional(),
-    source: z.string().min(1, 'Source must not be empty'),
-    status: TransactionStatusSchema,
-    symbol: z.string().optional(),
-    timestamp: z.number().int().positive('Timestamp must be a positive integer'),
-    to: z.string().optional(),
-    type: TransactionTypeSchema,
-  })
-  .strict(); // Reject unknown properties
+// Operation category schema
+export const OperationCategorySchema = z.enum(['trade', 'transfer', 'staking', 'defi', 'fee', 'governance']);
+
+// Operation type schema
+export const OperationTypeSchema = z.enum([
+  'buy',
+  'sell',
+  'deposit',
+  'withdrawal',
+  'stake',
+  'unstake',
+  'reward',
+  'swap',
+  'fee',
+  'batch',
+  'transfer',
+  'refund',
+  'vote',
+  'proposal',
+]);
+
+// Movement direction schema
+export const MovementDirectionSchema = z.enum(['in', 'out', 'neutral']);
+
+// Asset movement schema
+export const AssetMovementSchema = z.object({
+  asset: z.string().min(1, 'Asset must not be empty'),
+  amount: MoneySchema,
+});
+
+// Transaction note schema
+export const TransactionNoteSchema = z.object({
+  type: z.string(),
+  message: z.string(),
+  severity: z.enum(['info', 'warning', 'error']).optional(),
+  metadata: z.record(z.string(), z.any()).optional(),
+});
+
+// Universal Transaction schema (new structure)
+export const UniversalTransactionSchema = z.object({
+  // Core fields
+  id: z.string().min(1, 'Transaction ID must not be empty'),
+  datetime: z.string().min(1, 'Datetime string must not be empty'),
+  timestamp: z.number().int().positive('Timestamp must be a positive integer'),
+  source: z.string().min(1, 'Source must not be empty'),
+  status: TransactionStatusSchema,
+  from: z.string().optional(),
+  to: z.string().optional(),
+
+  // Structured movements
+  movements: z.object({
+    inflows: z.array(AssetMovementSchema),
+    outflows: z.array(AssetMovementSchema),
+    primary: z.object({
+      asset: z.string().min(1, 'Primary asset must not be empty'),
+      amount: MoneySchema,
+      direction: MovementDirectionSchema,
+    }),
+  }),
+
+  // Structured fees
+  fees: z.object({
+    network: MoneySchema.optional(),
+    platform: MoneySchema.optional(),
+    total: MoneySchema,
+  }),
+
+  // Enhanced operation classification
+  operation: z.object({
+    category: OperationCategorySchema,
+    type: OperationTypeSchema,
+  }),
+
+  // Blockchain metadata (optional - only for blockchain transactions)
+  blockchain: z
+    .object({
+      name: z.string().min(1, 'Blockchain name must not be empty'),
+      block_height: z.number().int().positive().optional(),
+      transaction_hash: z.string().min(1, 'Transaction hash must not be empty'),
+      is_confirmed: z.boolean(),
+    })
+    .optional(),
+
+  // Optional fields
+  note: TransactionNoteSchema.optional(),
+  price: MoneySchema.optional(),
+  metadata: z.record(z.string(), z.any()).optional(),
+
+  // Deprecated fields (kept for backward compatibility)
+  amount: MoneySchema.optional(),
+  fee: MoneySchema.optional(),
+  type: TransactionTypeSchema.optional(),
+  symbol: z.string().optional(),
+});
 
 // Universal Balance schema
 export const UniversalBalanceSchema = z

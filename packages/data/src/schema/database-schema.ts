@@ -107,6 +107,44 @@ export interface TransactionsTable {
   verified: boolean;
   // Proper foreign keys
   wallet_address_id: number | null; // FK to wallet_addresses.id
+
+  // Structured movements (new architecture)
+  movements_inflows: JSONString | null; // Array<{asset: string, amount: Money}>
+  movements_outflows: JSONString | null; // Array<{asset: string, amount: Money}>
+  movements_primary_asset: string | null;
+  movements_primary_amount: DecimalString | null;
+  movements_primary_currency: string | null;
+  movements_primary_direction: 'in' | 'out' | 'neutral' | null;
+
+  // Structured fees (new architecture)
+  fees_network: JSONString | null; // Money type
+  fees_platform: JSONString | null; // Money type
+  fees_total: JSONString | null; // Money type
+
+  // Enhanced operation classification (new architecture)
+  operation_category: 'trade' | 'transfer' | 'staking' | 'defi' | 'fee' | 'governance' | null;
+  operation_type:
+    | 'buy'
+    | 'sell'
+    | 'deposit'
+    | 'withdrawal'
+    | 'stake'
+    | 'unstake'
+    | 'reward'
+    | 'swap'
+    | 'fee'
+    | 'batch'
+    | 'transfer'
+    | 'refund'
+    | 'vote'
+    | 'proposal'
+    | null;
+
+  // Blockchain metadata (new architecture)
+  blockchain_name: string | null;
+  blockchain_block_height: number | null;
+  blockchain_transaction_hash: string | null;
+  blockchain_is_confirmed: boolean | null;
 }
 
 /**

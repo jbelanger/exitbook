@@ -50,35 +50,77 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
         // Determine transaction type based on fund flow
         const transactionType = this.determineTransactionTypeFromFundFlow(fundFlow, sessionMetadata);
 
-        // Convert to UniversalTransaction
+        // Convert to UniversalTransaction with structured fields
+        const networkFee = normalizedTx.feeAmount
+          ? createMoney(normalizedTx.feeAmount, normalizedTx.feeCurrency || 'BTC')
+          : createMoney('0', 'BTC');
+
         const universalTransaction: UniversalTransaction = {
-          amount: createMoney(fundFlow.netAmount, 'BTC'),
-          datetime: new Date(normalizedTx.timestamp).toISOString(),
-          fee: normalizedTx.feeAmount
-            ? createMoney(normalizedTx.feeAmount, normalizedTx.feeCurrency || 'BTC')
-            : createMoney('0', 'BTC'),
-          from: fundFlow.fromAddress,
+          // Core fields
           id: normalizedTx.id,
-          metadata: {
-            blockchain: 'bitcoin',
-            blockHeight: normalizedTx.blockHeight,
-            blockId: normalizedTx.blockId,
-            fundFlow: {
-              isIncoming: fundFlow.isIncoming,
-              isOutgoing: fundFlow.isOutgoing,
-              totalInput: fundFlow.totalInput,
-              totalOutput: fundFlow.totalOutput,
-              walletInput: fundFlow.walletInput,
-              walletOutput: fundFlow.walletOutput,
-            },
-            providerId: normalizedTx.providerId,
-          },
+          datetime: new Date(normalizedTx.timestamp).toISOString(),
+          timestamp: normalizedTx.timestamp,
           source: 'bitcoin',
           status: normalizedTx.status === 'success' ? 'ok' : 'failed',
-          symbol: 'BTC',
-          timestamp: normalizedTx.timestamp,
+          from: fundFlow.fromAddress,
           to: fundFlow.toAddress,
+
+          // Structured movements from UTXO analysis
+          movements: {
+            outflows: fundFlow.isOutgoing
+              ? [
+                  {
+                    asset: 'BTC',
+                    amount: createMoney(fundFlow.walletInput, 'BTC'),
+                  },
+                ]
+              : [],
+            inflows: fundFlow.isIncoming
+              ? [
+                  {
+                    asset: 'BTC',
+                    amount: createMoney(fundFlow.walletOutput, 'BTC'),
+                  },
+                ]
+              : [],
+            primary: {
+              asset: 'BTC',
+              amount: createMoney(fundFlow.netAmount, 'BTC'),
+              direction: fundFlow.isIncoming ? 'in' : fundFlow.isOutgoing ? 'out' : 'neutral',
+            },
+          },
+
+          // Structured fees
+          fees: {
+            network: networkFee,
+            platform: undefined, // Bitcoin has no platform fees
+            total: networkFee,
+          },
+
+          // Enhanced classification
+          operation: {
+            category: 'transfer',
+            type: transactionType,
+          },
+
+          // Blockchain metadata
+          blockchain: {
+            name: 'bitcoin',
+            block_height: normalizedTx.blockHeight,
+            transaction_hash: normalizedTx.id,
+            is_confirmed: normalizedTx.status === 'success',
+          },
+
+          // Minimal metadata
+          metadata: {
+            providerId: normalizedTx.providerId,
+          },
+
+          // Backward compatibility (deprecated)
+          amount: createMoney(fundFlow.netAmount, 'BTC'),
+          fee: networkFee,
           type: transactionType,
+          symbol: 'BTC',
         };
 
         transactions.push(universalTransaction);

@@ -40,41 +40,92 @@ export class InjectiveTransactionProcessor extends BaseTransactionProcessor {
         // Determine transaction type based on fund flow analysis
         const transactionType = this.determineTransactionTypeFromFundFlow(fundFlow);
 
+        const networkFee = fundFlow.feeAmount ? createMoney(fundFlow.feeAmount, 'INJ') : createMoney('0', 'INJ');
+
         // Convert to UniversalTransaction with enhanced metadata
         const universalTransaction: UniversalTransaction = {
-          amount: createMoney(fundFlow.totalAmount, fundFlow.currency),
-          datetime: new Date(normalizedTx.timestamp).toISOString(),
-          fee: fundFlow.feeAmount ? createMoney(fundFlow.feeAmount, 'INJ') : createMoney('0', 'INJ'),
-          from: fundFlow.fromAddress,
+          // Core fields
           id: normalizedTx.id,
+          datetime: new Date(normalizedTx.timestamp).toISOString(),
+          timestamp: normalizedTx.timestamp,
+          source: 'injective',
+          status: normalizedTx.status === 'success' ? 'ok' : 'failed',
+          from: fundFlow.fromAddress,
+          to: fundFlow.toAddress,
+
+          // Structured movements from fund flow analysis
+          movements: {
+            outflows: fundFlow.isOutgoing
+              ? [
+                  {
+                    amount: createMoney(fundFlow.totalAmount, fundFlow.currency),
+                    asset: fundFlow.currency,
+                  },
+                ]
+              : [],
+            inflows: fundFlow.isIncoming
+              ? [
+                  {
+                    amount: createMoney(fundFlow.totalAmount, fundFlow.currency),
+                    asset: fundFlow.currency,
+                  },
+                ]
+              : [],
+            primary: {
+              amount: createMoney(fundFlow.netAmount, fundFlow.currency),
+              asset: fundFlow.currency,
+              direction: fundFlow.isIncoming ? 'in' : fundFlow.isOutgoing ? 'out' : 'neutral',
+            },
+          },
+
+          // Structured fees
+          fees: {
+            network: networkFee,
+            platform: undefined, // Injective has no platform fees
+            total: networkFee,
+          },
+
+          // Enhanced classification
+          operation: {
+            category: fundFlow.isIncoming && fundFlow.isOutgoing ? 'fee' : 'transfer',
+            type:
+              fundFlow.isIncoming && fundFlow.isOutgoing
+                ? 'fee'
+                : fundFlow.isIncoming
+                  ? 'deposit'
+                  : fundFlow.isOutgoing
+                    ? 'withdrawal'
+                    : 'transfer',
+          },
+
+          // Blockchain metadata
+          blockchain: {
+            name: 'injective',
+            block_height: normalizedTx.blockHeight,
+            transaction_hash: normalizedTx.id,
+            is_confirmed: normalizedTx.status === 'success',
+          },
+
+          // Minimal metadata - only Injective-specific data
           metadata: {
-            blockchain: 'injective',
-            blockHeight: normalizedTx.blockHeight,
+            providerId: normalizedTx.providerId,
             blockId: normalizedTx.blockId,
             bridgeType: normalizedTx.bridgeType,
-            ethereumReceiver: normalizedTx.ethereumReceiver,
-            ethereumSender: normalizedTx.ethereumSender,
-            eventNonce: normalizedTx.eventNonce,
-            fundFlow: {
-              feePaidByUser: fundFlow.feePaidByUser,
-              isIncoming: fundFlow.isIncoming,
-              isOutgoing: fundFlow.isOutgoing,
-              netAmount: fundFlow.netAmount,
-              transactionType: fundFlow.transactionType,
-            },
             messageType: normalizedTx.messageType,
-            providerId: normalizedTx.providerId,
+            ethereumSender: normalizedTx.ethereumSender,
+            ethereumReceiver: normalizedTx.ethereumReceiver,
+            eventNonce: normalizedTx.eventNonce,
             sourceChannel: normalizedTx.sourceChannel,
             sourcePort: normalizedTx.sourcePort,
             tokenAddress: normalizedTx.tokenAddress,
             tokenType: normalizedTx.tokenType,
           },
-          source: 'injective',
-          status: normalizedTx.status === 'success' ? 'ok' : 'failed',
-          symbol: fundFlow.currency,
-          timestamp: normalizedTx.timestamp,
-          to: fundFlow.toAddress,
+
+          // Backward compatibility (deprecated)
+          amount: createMoney(fundFlow.totalAmount, fundFlow.currency),
+          fee: networkFee,
           type: transactionType,
+          symbol: fundFlow.currency,
         };
 
         universalTransactions.push(universalTransaction);

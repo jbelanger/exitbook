@@ -73,7 +73,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
           price_currency: priceCurrency,
           raw_normalized_data: rawDataJson,
           source_id: transaction.source,
-          source_type: 'exchange', // Default to exchange, can be overridden based on transaction source
+          source_type: transaction.blockchain ? 'blockchain' : 'exchange',
           symbol: transaction.symbol,
           to_address: transaction.to,
           transaction_datetime: transaction.datetime
@@ -84,6 +84,35 @@ export class TransactionRepository extends BaseRepository implements ITransactio
             (transaction.type as 'trade' | 'transfer' | 'deposit' | 'withdrawal' | 'fee' | 'reward' | 'mining') ||
             'trade',
           verified: Boolean(transaction.metadata?.verified),
+
+          // Structured movements
+          movements_inflows: transaction.movements?.inflows
+            ? this.serializeToJson(transaction.movements.inflows)
+            : undefined,
+          movements_outflows: transaction.movements?.outflows
+            ? this.serializeToJson(transaction.movements.outflows)
+            : undefined,
+          movements_primary_asset: transaction.movements?.primary.asset,
+          movements_primary_amount: transaction.movements?.primary.amount
+            ? moneyToDbString(transaction.movements.primary.amount)
+            : undefined,
+          movements_primary_currency: transaction.movements?.primary.amount?.currency,
+          movements_primary_direction: transaction.movements?.primary.direction,
+
+          // Structured fees
+          fees_network: transaction.fees?.network ? this.serializeToJson(transaction.fees.network) : undefined,
+          fees_platform: transaction.fees?.platform ? this.serializeToJson(transaction.fees.platform) : undefined,
+          fees_total: transaction.fees?.total ? this.serializeToJson(transaction.fees.total) : undefined,
+
+          // Enhanced operation classification
+          operation_category: transaction.operation?.category,
+          operation_type: transaction.operation?.type,
+
+          // Blockchain metadata
+          blockchain_name: transaction.blockchain?.name,
+          blockchain_block_height: transaction.blockchain?.block_height,
+          blockchain_transaction_hash: transaction.blockchain?.transaction_hash,
+          blockchain_is_confirmed: transaction.blockchain?.is_confirmed,
         })
         .onConflict((oc) =>
           oc.doUpdateSet({
@@ -106,6 +135,29 @@ export class TransactionRepository extends BaseRepository implements ITransactio
             transaction_type: (eb) => eb.ref('excluded.transaction_type'),
             updated_at: new Date().toISOString(),
             verified: (eb) => eb.ref('excluded.verified'),
+
+            // Structured movements
+            movements_inflows: (eb) => eb.ref('excluded.movements_inflows'),
+            movements_outflows: (eb) => eb.ref('excluded.movements_outflows'),
+            movements_primary_asset: (eb) => eb.ref('excluded.movements_primary_asset'),
+            movements_primary_amount: (eb) => eb.ref('excluded.movements_primary_amount'),
+            movements_primary_currency: (eb) => eb.ref('excluded.movements_primary_currency'),
+            movements_primary_direction: (eb) => eb.ref('excluded.movements_primary_direction'),
+
+            // Structured fees
+            fees_network: (eb) => eb.ref('excluded.fees_network'),
+            fees_platform: (eb) => eb.ref('excluded.fees_platform'),
+            fees_total: (eb) => eb.ref('excluded.fees_total'),
+
+            // Enhanced operation classification
+            operation_category: (eb) => eb.ref('excluded.operation_category'),
+            operation_type: (eb) => eb.ref('excluded.operation_type'),
+
+            // Blockchain metadata
+            blockchain_name: (eb) => eb.ref('excluded.blockchain_name'),
+            blockchain_block_height: (eb) => eb.ref('excluded.blockchain_block_height'),
+            blockchain_transaction_hash: (eb) => eb.ref('excluded.blockchain_transaction_hash'),
+            blockchain_is_confirmed: (eb) => eb.ref('excluded.blockchain_is_confirmed'),
           })
         )
         .returning('id')
