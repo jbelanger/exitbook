@@ -361,7 +361,6 @@ async function main() {
             }
 
             const processResult = processResultOrError.value;
-            logger.info(`Processing completed: ${processResult.processed} processed, ${processResult.failed} failed`);
 
             if (processResult.errors.length > 0) {
               logger.error('Processing errors:');
@@ -461,7 +460,6 @@ async function main() {
           }
 
           const result = resultOrError.value;
-          logger.info(`Processing completed: ${result.processed} processed, ${result.failed} failed`);
 
           if (result.errors.length > 0) {
             logger.error('Processing errors:');

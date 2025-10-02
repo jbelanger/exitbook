@@ -37,7 +37,6 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
         .returning('id')
         .executeTakeFirstOrThrow();
 
-      this.logger.debug({ sessionId: result.id, sourceId, sourceType }, 'Import session created');
       return ok(result.id);
     } catch (error) {
       const errValue = error instanceof Error ? error : new Error(String(error));
@@ -73,11 +72,6 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
         })
         .where('id', '=', sessionId)
         .execute();
-
-      this.logger.debug(
-        { durationMs, sessionId, status, transactionsFailed, transactionsImported },
-        'Import session finalized'
-      );
       return ok();
     } catch (error) {
       const errValue = error instanceof Error ? error : new Error(String(error));
@@ -197,7 +191,6 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
 
       await this.db.updateTable('import_sessions').set(updates).where('id', '=', sessionId).execute();
 
-      this.logger.debug({ sessionId, updates: updateData }, 'Import session updated');
       return ok();
     } catch (error) {
       const errValue = error instanceof Error ? error : new Error(String(error));

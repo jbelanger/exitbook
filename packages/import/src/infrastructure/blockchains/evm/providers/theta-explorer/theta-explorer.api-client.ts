@@ -82,7 +82,6 @@ export class ThetaExplorerApiClient extends BlockchainApiClient {
 
     while (hasMorePages) {
       const params = new URLSearchParams({
-        isEqualType: 'false',
         limitNumber: limitPerPage.toString(),
         pageNumber: currentPage.toString(),
       });

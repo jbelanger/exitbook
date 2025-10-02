@@ -1,9 +1,9 @@
 import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transaction-processor.interface.js';
 import { describe, expect, it } from 'vitest';
 
-import { EVM_CHAINS } from '../../../chain-registry.js';
-import { EvmTransactionProcessor } from '../../../processor.js';
-import type { EvmTransaction } from '../../../types.js';
+import { EVM_CHAINS } from '../chain-registry.ts';
+import { EvmTransactionProcessor } from '../processor.ts';
+import type { EvmTransaction } from '../types.ts';
 
 describe('Theta Processor Integration', () => {
   const thetaChainConfig = EVM_CHAINS['theta'];

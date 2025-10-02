@@ -249,14 +249,6 @@ export class TransactionIngestionService {
 
       this.logger.info(`Found ${rawDataItems.length} raw data items to process for ${sourceId}`);
 
-      // Debug: Check sample raw data item structure
-      if (rawDataItems.length > 0) {
-        const sampleItem = rawDataItems[0];
-        this.logger.debug(
-          `Sample raw data item - ID: ${sampleItem?.id}, SessionID: ${sampleItem?.import_session_id}, Status: ${sampleItem?.processing_status}`
-        );
-      }
-
       // Fetch sessions and raw data separately
       const allSessionsResult = await this.sessionRepository.findBySource(sourceId);
 

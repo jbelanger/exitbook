@@ -111,8 +111,6 @@ export class TransactionRepository extends BaseRepository implements ITransactio
         .returning('id')
         .executeTakeFirstOrThrow();
 
-      this.logger.debug({ source: transaction.source, transactionId: result.id }, 'Transaction saved successfully');
-
       return ok(result.id);
     } catch (error) {
       this.logger.error(
@@ -143,8 +141,6 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
       const transactions = await query.execute();
 
-      this.logger.debug({ since, sourceId }, `Retrieved ${transactions.length} transactions`);
-
       return ok(transactions);
     } catch (error) {
       this.logger.error({ error, since, sourceId }, 'Failed to retrieve transactions');
@@ -160,8 +156,6 @@ export class TransactionRepository extends BaseRepository implements ITransactio
         .where((eb) => eb.or([eb('from_address', '=', address), eb('to_address', '=', address)]))
         .orderBy('transaction_datetime', 'desc')
         .execute();
-
-      this.logger.debug({ address }, `Retrieved ${transactions.length} transactions by address`);
 
       return ok(transactions);
     } catch (error) {
@@ -179,8 +173,6 @@ export class TransactionRepository extends BaseRepository implements ITransactio
         .orderBy('transaction_datetime', 'desc')
         .limit(limit)
         .execute();
-
-      this.logger.debug({ address, limit }, `Retrieved ${transactions.length} recent transactions`);
 
       return ok(transactions);
     } catch (error) {
@@ -204,8 +196,6 @@ export class TransactionRepository extends BaseRepository implements ITransactio
         .orderBy('transaction_datetime', 'desc')
         .execute();
 
-      this.logger.debug({ address, from, to }, `Retrieved ${transactions.length} transactions in date range`);
-
       return ok(transactions);
     } catch (error) {
       this.logger.error({ address, error, from, to }, 'Failed to retrieve transactions by date range');
@@ -222,8 +212,6 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       }
 
       const result = await query.executeTakeFirstOrThrow();
-
-      this.logger.debug({ sourceId }, `Transaction count retrieved: ${result.count}`);
 
       return ok(result.count);
     } catch (error) {
