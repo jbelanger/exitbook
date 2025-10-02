@@ -86,7 +86,6 @@ export class TaostatsTransactionMapper extends BaseRawDataMapper<TaostatsTransac
       status: 'success', // Taostats only returns successful transactions
       timestamp,
       to: toAddress,
-      type: 'transfer', // Basic classification, processor will refine if needed
     };
 
     return ok(transaction);

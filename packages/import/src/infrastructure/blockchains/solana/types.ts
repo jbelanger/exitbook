@@ -85,9 +85,6 @@ export interface SolanaTransaction {
   tokenChanges?: SolanaTokenChange[] | undefined; // SPL token balance changes
   tokenDecimals?: number | undefined; // Token decimals
   tokenSymbol?: string | undefined; // Token symbol
-
-  // Transaction type classification (basic, will be refined by processor)
-  type: 'transfer' | 'token_transfer' | 'stake' | 'unstake' | 'swap' | 'other';
 }
 
 /**

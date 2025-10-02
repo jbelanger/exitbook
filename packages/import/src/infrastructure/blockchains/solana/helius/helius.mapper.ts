@@ -86,7 +86,6 @@ export class HeliusTransactionMapper extends BaseRawDataMapper<HeliusTransaction
 
       // Token balance changes for SPL token analysis
       tokenChanges,
-      type: 'transfer', // Basic type, processor will refine
     };
   }
 

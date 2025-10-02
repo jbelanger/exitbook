@@ -89,7 +89,6 @@ export class SolscanTransactionMapper extends BaseRawDataMapper<SolscanTransacti
 
       // Token balance changes (minimal for Solscan)
       tokenChanges,
-      type: 'transfer', // Basic type, processor will refine
     };
   }
 

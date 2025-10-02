@@ -84,7 +84,6 @@ export class SolanaRPCTransactionMapper extends BaseRawDataMapper<SolanaRPCTrans
 
       // Token balance changes for SPL token analysis
       tokenChanges,
-      type: 'transfer', // Basic type, processor will refine
     };
   }
 

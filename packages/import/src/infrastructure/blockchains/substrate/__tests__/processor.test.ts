@@ -55,7 +55,6 @@ describe('SubstrateProcessor - Fund Flow Direction', () => {
         status: 'success',
         timestamp: Date.now(),
         to: USER_ADDRESS,
-        type: 'transfer',
       },
     ];
 
@@ -104,7 +103,6 @@ describe('SubstrateProcessor - Fund Flow Direction', () => {
         status: 'success',
         timestamp: Date.now(),
         to: EXTERNAL_ADDRESS,
-        type: 'transfer',
       },
     ];
 
@@ -150,7 +148,6 @@ describe('SubstrateProcessor - Fund Flow Direction', () => {
         status: 'success',
         timestamp: Date.now(),
         to: USER_ADDRESS,
-        type: 'transfer',
       },
     ];
 
@@ -197,7 +194,6 @@ describe('SubstrateProcessor - Staking Operations', () => {
         status: 'success',
         timestamp: Date.now(),
         to: VALIDATOR_ADDRESS,
-        type: 'staking',
       },
     ];
 
@@ -241,7 +237,6 @@ describe('SubstrateProcessor - Staking Operations', () => {
         status: 'success',
         timestamp: Date.now(),
         to: USER_ADDRESS,
-        type: 'staking',
       },
     ];
 
@@ -282,7 +277,6 @@ describe('SubstrateProcessor - Staking Operations', () => {
         status: 'success',
         timestamp: Date.now(),
         to: USER_ADDRESS,
-        type: 'staking',
       },
     ];
 
@@ -319,7 +313,6 @@ describe('SubstrateProcessor - Staking Operations', () => {
         status: 'success',
         timestamp: Date.now(),
         to: VALIDATOR_ADDRESS,
-        type: 'staking',
       },
     ];
 
@@ -359,7 +352,6 @@ describe('SubstrateProcessor - Staking Operations', () => {
         status: 'success',
         timestamp: Date.now(),
         to: USER_ADDRESS,
-        type: 'staking',
       },
     ];
 
@@ -402,7 +394,6 @@ describe('SubstrateProcessor - Governance Operations', () => {
         status: 'success',
         timestamp: Date.now(),
         to: EXTERNAL_ADDRESS,
-        type: 'democracy',
       },
     ];
 
@@ -442,7 +433,6 @@ describe('SubstrateProcessor - Governance Operations', () => {
         status: 'success',
         timestamp: Date.now(),
         to: USER_ADDRESS,
-        type: 'democracy',
       },
     ];
 
@@ -483,7 +473,6 @@ describe('SubstrateProcessor - Governance Operations', () => {
         status: 'success',
         timestamp: Date.now(),
         to: EXTERNAL_ADDRESS,
-        type: 'council',
       },
     ];
 
@@ -527,7 +516,6 @@ describe('SubstrateProcessor - Utility Operations', () => {
         status: 'success',
         timestamp: Date.now(),
         to: EXTERNAL_ADDRESS,
-        type: 'utility',
       },
     ];
 
@@ -573,7 +561,6 @@ describe('SubstrateProcessor - Utility Operations', () => {
         status: 'success',
         timestamp: Date.now(),
         to: EXTERNAL_ADDRESS,
-        type: 'utility',
       },
     ];
 
@@ -616,7 +603,6 @@ describe('SubstrateProcessor - Proxy Operations', () => {
         status: 'success',
         timestamp: Date.now(),
         to: EXTERNAL_ADDRESS,
-        type: 'proxy',
       },
     ];
 
@@ -663,7 +649,6 @@ describe('SubstrateProcessor - Multisig Operations', () => {
         status: 'success',
         timestamp: Date.now(),
         to: EXTERNAL_ADDRESS,
-        type: 'multisig',
       },
     ];
 
@@ -710,7 +695,6 @@ describe('SubstrateProcessor - Multi-Chain Support', () => {
         status: 'success',
         timestamp: Date.now(),
         to: USER_ADDRESS,
-        type: 'transfer',
       },
     ];
 
@@ -752,7 +736,6 @@ describe('SubstrateProcessor - Multi-Chain Support', () => {
         status: 'success',
         timestamp: Date.now(),
         to: USER_ADDRESS,
-        type: 'transfer',
       },
     ];
 
@@ -794,7 +777,6 @@ describe('SubstrateProcessor - Multi-Chain Support', () => {
         status: 'success',
         timestamp: Date.now(),
         to: USER_ADDRESS,
-        type: 'transfer',
       },
     ];
 
@@ -833,7 +815,6 @@ describe('SubstrateProcessor - Transaction Type Classification', () => {
         status: 'success',
         timestamp: Date.now(),
         to: USER_ADDRESS,
-        type: 'custom',
       },
     ];
 
@@ -874,7 +855,6 @@ describe('SubstrateProcessor - Transaction Type Classification', () => {
         status: 'failed',
         timestamp: Date.now(),
         to: EXTERNAL_ADDRESS,
-        type: 'transfer',
       },
     ];
 
@@ -919,7 +899,6 @@ describe('SubstrateProcessor - Event Tracking', () => {
         status: 'success',
         timestamp: Date.now(),
         to: USER_ADDRESS,
-        type: 'transfer',
       },
     ];
 
@@ -960,7 +939,6 @@ describe('SubstrateProcessor - Edge Cases', () => {
         status: 'success',
         timestamp: Date.now(),
         to: USER_ADDRESS,
-        type: 'transfer',
       },
     ];
 
@@ -990,7 +968,6 @@ describe('SubstrateProcessor - Edge Cases', () => {
         status: 'success',
         timestamp: Date.now(),
         to: USER_ADDRESS,
-        type: 'transfer',
         // No feeAmount field
       },
     ];
@@ -1022,7 +999,6 @@ describe('SubstrateProcessor - Edge Cases', () => {
         status: 'success',
         timestamp: Date.now(),
         to: USER_ADDRESS,
-        type: 'transfer',
         // Missing: blockHeight, blockId, module, call, chainName, etc.
       },
     ];
@@ -1062,7 +1038,6 @@ describe('SubstrateProcessor - Edge Cases', () => {
         status: 'success',
         timestamp: Date.now(),
         to: USER_ADDRESS,
-        type: 'transfer',
       },
       {
         amount: '20000000000',
@@ -1077,7 +1052,6 @@ describe('SubstrateProcessor - Edge Cases', () => {
         status: 'success',
         timestamp: Date.now() + 1000,
         to: EXTERNAL_ADDRESS,
-        type: 'transfer',
       },
       {
         amount: '100000000000',
@@ -1092,7 +1066,6 @@ describe('SubstrateProcessor - Edge Cases', () => {
         status: 'success',
         timestamp: Date.now() + 2000,
         to: VALIDATOR_ADDRESS,
-        type: 'staking',
       },
     ];
 
@@ -1142,7 +1115,6 @@ describe('SubstrateProcessor - Complex Scenarios', () => {
         status: 'success',
         timestamp: Date.now(),
         to: VALIDATOR_ADDRESS,
-        type: 'staking',
       },
       {
         amount: '0', // Nominate (no transfer)
@@ -1159,7 +1131,6 @@ describe('SubstrateProcessor - Complex Scenarios', () => {
         status: 'success',
         timestamp: Date.now() + 1000,
         to: VALIDATOR_ADDRESS,
-        type: 'staking',
       },
       {
         amount: '5000000000', // 0.5 DOT reward
@@ -1177,7 +1148,6 @@ describe('SubstrateProcessor - Complex Scenarios', () => {
         status: 'success',
         timestamp: Date.now() + 2000,
         to: USER_ADDRESS,
-        type: 'staking',
       },
     ];
 
@@ -1235,7 +1205,6 @@ describe('SubstrateProcessor - Complex Scenarios', () => {
         status: 'success',
         timestamp: Date.now(),
         to: EXTERNAL_ADDRESS,
-        type: 'utility',
       },
     ];
 

@@ -77,7 +77,6 @@ describe('SubscanTransactionMapper E2E - Polkadot', () => {
       if (result.isOk()) {
         const normalized = result.value;
         expect(normalized.currency).toBe('DOT');
-        expect(normalized.type).toBe('transfer');
         expect(normalized.amount).toBeDefined();
         expect(parseFloat(normalized.amount)).toBeGreaterThanOrEqual(0);
         expect(normalized.module).toBe(nativeTransfer.module);

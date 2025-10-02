@@ -43,8 +43,6 @@ export interface SubstrateTransaction {
 
   tip?: string; // Optional tip amount
   to: string;
-  // Transaction type classification (basic, will be refined by processor)
-  type: 'transfer' | 'staking' | 'democracy' | 'council' | 'utility' | 'proxy' | 'multisig' | 'custom';
 }
 
 /**

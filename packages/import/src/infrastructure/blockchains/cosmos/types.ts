@@ -36,9 +36,6 @@ export interface CosmosTransaction {
   memo?: string | undefined;
   txType?: string | undefined;
 
-  // Transaction type classification (basic, will be refined by processor)
-  type: 'transfer' | 'bridge_deposit' | 'bridge_withdrawal' | 'ibc_transfer' | 'contract_execution';
-
   // Gas information
   gasUsed?: number | undefined;
   gasWanted?: number | undefined;

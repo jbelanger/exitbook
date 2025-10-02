@@ -77,7 +77,6 @@ describe('TaostatsTransactionMapper E2E - Bittensor', () => {
       if (result.isOk()) {
         const normalized = result.value;
         expect(normalized.currency).toBe('TAO');
-        expect(normalized.type).toBe('transfer');
         expect(normalized.amount).toBeDefined();
         expect(parseFloat(normalized.amount)).toBeGreaterThanOrEqual(0);
         expect(normalized.module).toBe('balances');

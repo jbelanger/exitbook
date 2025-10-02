@@ -73,8 +73,6 @@ export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<Inject
 
     // Parse messages to extract transfer information and determine relevance
     let isRelevantTransaction = false;
-    let transactionType: 'transfer' | 'bridge_deposit' | 'bridge_withdrawal' | 'ibc_transfer' | 'contract_execution' =
-      'transfer';
 
     for (const message of rawData.messages) {
       messageType = message.type;
@@ -140,7 +138,6 @@ export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<Inject
         from = message.value.sender || '';
         to = message.value.receiver || '';
         bridgeType = 'ibc';
-        transactionType = 'ibc_transfer';
 
         sourceChannel = message.value.source_channel;
         sourcePort = message.value.source_port;
@@ -163,7 +160,6 @@ export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<Inject
 
       // Handle CosmWasm contract execution (standard)
       else if (message.type === '/cosmwasm.wasm.v1.MsgExecuteContract') {
-        transactionType = 'contract_execution';
         from = message.value.sender || '';
         to = message.value.contract || '';
 
@@ -187,7 +183,6 @@ export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<Inject
 
       // Handle Injective-specific contract execution (wasmx)
       else if (message.type === '/injective.wasmx.v1.MsgExecuteContractCompat') {
-        transactionType = 'contract_execution';
         from = message.value.sender || '';
         to = message.value.contract || '';
 
@@ -218,7 +213,6 @@ export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<Inject
         };
 
         bridgeType = 'peggy';
-        transactionType = 'bridge_withdrawal';
         from = messageValue.sender || '';
         to = messageValue.eth_dest || '';
         ethereumReceiver = messageValue.eth_dest;
@@ -248,7 +242,6 @@ export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<Inject
         };
 
         bridgeType = 'peggy';
-        transactionType = 'bridge_deposit';
         eventNonce = messageValue.event_nonce;
         ethereumSender = messageValue.ethereum_sender;
         ethereumReceiver = messageValue.ethereum_receiver;
@@ -343,7 +336,6 @@ export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<Inject
       tokenSymbol,
       tokenType,
       txType: rawData.tx_type,
-      type: transactionType,
     };
 
     return ok(transaction);

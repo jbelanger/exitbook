@@ -131,8 +131,6 @@ export class SubscanTransactionMapper extends BaseRawDataMapper<SubscanTransferA
         timestamp: transfer.block_timestamp * 1000, // Convert to milliseconds
 
         to: transfer.to,
-        // Transaction type classification
-        type: 'transfer',
       };
     } catch (error) {
       console.warn(
