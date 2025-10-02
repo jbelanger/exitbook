@@ -43,7 +43,7 @@ export abstract class BaseTransactionProcessor implements ITransactionProcessor 
   }
 
   /**
-   * Apply scam detection to transactions using symbol-based detection.
+   * Apply scam detection to transactions using asset-based detection.
    * Can be overridden by subclasses for more sophisticated detection.
    */
   protected applyScamDetection(transactions: UniversalTransaction[]): UniversalTransaction[] {
@@ -53,9 +53,10 @@ export abstract class BaseTransactionProcessor implements ITransactionProcessor 
         return transaction;
       }
 
-      // Apply scam detection based on symbol
-      if (transaction.symbol) {
-        const scamResult = detectScamFromSymbol(transaction.symbol);
+      // Apply scam detection based on primary asset
+      const primaryAsset = transaction.movements?.primary?.asset;
+      if (primaryAsset) {
+        const scamResult = detectScamFromSymbol(primaryAsset);
         if (scamResult.isScam) {
           return {
             ...transaction,

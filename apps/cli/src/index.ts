@@ -739,39 +739,22 @@ function convertToCSV(transactions: StoredTransaction[]): string {
 
   const headers = [
     'id',
-    'exchange',
-    'type',
+    'source',
+    'operation_category',
+    'operation_type',
     'timestamp',
     'datetime',
-    'amount',
-    'amount_currency',
-    'side',
+    'primary_asset',
+    'primary_amount',
+    'primary_direction',
+    'total_fee',
     'price',
     'price_currency',
-    'fee_cost',
-    'fee_currency',
-    'cost',
     'status',
   ];
   const csvLines = [headers.join(',')];
 
   for (const tx of transactions) {
-    // Use normalized database columns instead of parsing raw_data
-
-    // Calculate cost from amount * price if available
-    let cost = '';
-    if (tx.amount && tx.price) {
-      try {
-        const amountNum = parseFloat(String(tx.amount));
-        const priceNum = parseFloat(String(tx.price));
-        if (!isNaN(amountNum) && !isNaN(priceNum)) {
-          cost = (amountNum * priceNum).toString();
-        }
-      } catch (_e) {
-        // Ignore calculation errors
-      }
-    }
-
     // Format datetime properly
     const datetime =
       tx.transaction_datetime || (tx.transaction_datetime ? new Date(tx.transaction_datetime).toISOString() : '');
@@ -779,23 +762,23 @@ function convertToCSV(transactions: StoredTransaction[]): string {
     const values = [
       tx.id || '',
       tx.source_id || '',
-      tx.transaction_type || '',
+      tx.operation_category || '',
+      tx.operation_type || '',
       tx.transaction_datetime || '',
       datetime,
-      tx.amount || '',
-      tx.amount_currency || '',
-      '',
+      tx.movements_primary_asset || '',
+      tx.movements_primary_amount || '',
+      tx.movements_primary_direction || '',
+      tx.fees_total || '',
       tx.price || '',
       tx.price_currency || '',
-      tx.fee_cost || '',
-      tx.fee_currency || '',
-      cost,
       tx.transaction_status || '',
     ];
 
     // Escape values that contain commas
     const escapedValues = values.map((value) => {
-      const stringValue = String(value);
+      // eslint-disable-next-line @typescript-eslint/no-base-to-string -- Proper check done
+      const stringValue = typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value);
       return stringValue.includes(',') ? `"${stringValue}"` : stringValue;
     });
 
@@ -808,41 +791,40 @@ function convertToCSV(transactions: StoredTransaction[]): string {
 function convertToJSON(transactions: StoredTransaction[]): string {
   if (transactions.length === 0) return '[]';
 
-  // Use normalized database columns and add calculated cost field
   const processedTransactions = transactions.map((tx) => {
-    // Calculate cost from amount * price if available
-    let cost: number | undefined;
-    if (tx.amount && tx.price) {
-      try {
-        const amountNum = parseFloat(String(tx.amount));
-        const priceNum = parseFloat(String(tx.price));
-        if (!isNaN(amountNum) && !isNaN(priceNum)) {
-          cost = amountNum * priceNum;
-        }
-      } catch (_e) {
-        // Ignore calculation errors
-      }
-    }
-
     return {
-      amount: tx.amount,
-      amount_currency: tx.amount_currency,
-      cost: cost,
-      created_at: tx.created_at,
-      datetime: tx.transaction_datetime,
-      fee_cost: tx.fee_cost,
-      fee_currency: tx.fee_currency,
-      hash: tx.external_id,
       id: tx.id,
+      source_id: tx.source_id,
+      datetime: tx.transaction_datetime,
+      status: tx.transaction_status,
+      operation: {
+        category: tx.operation_category,
+        type: tx.operation_type,
+      },
+      movements: {
+        primary: {
+          asset: tx.movements_primary_asset,
+          amount: tx.movements_primary_amount,
+          direction: tx.movements_primary_direction,
+        },
+        inflows: tx.movements_inflows,
+        outflows: tx.movements_outflows,
+      },
+      fees: {
+        total: tx.fees_total,
+        network: tx.fees_network,
+        platform: tx.fees_platform,
+      },
       price: tx.price,
       price_currency: tx.price_currency,
-      side: '',
-      source_id: tx.source_id,
-      status: tx.transaction_status,
-      symbol: tx.symbol,
-      timestamp: tx.transaction_datetime,
-      type: tx.transaction_type,
+      blockchain: {
+        name: tx.blockchain_name,
+        block_height: tx.blockchain_block_height,
+        transaction_hash: tx.blockchain_transaction_hash,
+        is_confirmed: tx.blockchain_is_confirmed,
+      },
       verified: tx.verified,
+      created_at: tx.created_at,
     };
   });
 

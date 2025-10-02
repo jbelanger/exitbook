@@ -115,12 +115,6 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
           metadata: {
             providerId: normalizedTx.providerId,
           },
-
-          // Backward compatibility (deprecated)
-          amount: createMoney(fundFlow.netAmount, 'BTC'),
-          fee: networkFee,
-          type: transactionType,
-          symbol: 'BTC',
         };
 
         transactions.push(universalTransaction);

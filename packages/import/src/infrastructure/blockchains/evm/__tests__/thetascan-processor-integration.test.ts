@@ -77,12 +77,6 @@ describe('Theta Processor Integration', () => {
           '0xa8e2051371ac9307a54e5290ec522d679bd7ecde13b86fd85a5d6acbe3257a3a'
         );
         expect(tx.blockchain?.is_confirmed).toBe(true);
-
-        // Verify backward compatibility (deprecated fields)
-        expect(tx.symbol).toBe('THETA');
-        expect(tx.amount?.currency).toBe('THETA');
-        expect(tx.amount?.amount.toString()).toBe('420.3337');
-        expect(tx.type).toBe('withdrawal');
       }
     });
 
@@ -146,12 +140,6 @@ describe('Theta Processor Integration', () => {
           '0x9312f29a4a4e6478b4f6e30d91d7407067d6350578a25669d1272f4624e8cc01'
         );
         expect(tx.blockchain?.is_confirmed).toBe(true);
-
-        // Verify backward compatibility (deprecated fields)
-        expect(tx.symbol).toBe('TFUEL');
-        expect(tx.amount?.currency).toBe('TFUEL');
-        expect(tx.amount?.amount.toString()).toBe('7614.4125');
-        expect(tx.type).toBe('withdrawal');
       }
     });
 
@@ -215,8 +203,8 @@ describe('Theta Processor Integration', () => {
         expect(transactions).toHaveLength(3);
 
         // Verify each transaction has the correct currency
-        const tfuelTx = transactions.find((tx) => tx.symbol === 'TFUEL');
-        const thetaTxs = transactions.filter((tx) => tx.symbol === 'THETA');
+        const tfuelTx = transactions.find((tx) => tx.movements.primary.asset === 'TFUEL');
+        const thetaTxs = transactions.filter((tx) => tx.movements.primary.asset === 'THETA');
 
         expect(tfuelTx).toBeDefined();
         if (tfuelTx) {
@@ -235,10 +223,6 @@ describe('Theta Processor Integration', () => {
           // Verify blockchain metadata
           expect(tfuelTx.blockchain).toBeDefined();
           expect(tfuelTx.blockchain?.name).toBe('theta');
-
-          // Verify backward compatibility
-          expect(tfuelTx.amount?.currency).toBe('TFUEL');
-          expect(tfuelTx.amount?.amount.toString()).toBe('7614.4125');
         }
 
         expect(thetaTxs).toHaveLength(2);
@@ -265,10 +249,6 @@ describe('Theta Processor Integration', () => {
           // Verify blockchain metadata
           expect(tx.blockchain).toBeDefined();
           expect(tx.blockchain?.name).toBe('theta');
-
-          // Verify backward compatibility
-          expect(tx.amount?.currency).toBe('THETA');
-          expect(['420.3337', '280.2629']).toContain(tx.amount?.amount.toString());
         });
       }
     });
@@ -330,13 +310,6 @@ describe('Theta Processor Integration', () => {
           '0xa8e2051371ac9307a54e5290ec522d679bd7ecde13b86fd85a5d6acbe3257a3a'
         );
         expect(tx.blockchain?.is_confirmed).toBe(true);
-
-        // Verify backward compatibility (deprecated fields)
-        expect(tx.symbol).toBe('THETA');
-        expect(tx.amount?.currency).toBe('THETA');
-        expect(tx.fee).toBeDefined();
-        expect(tx.fee?.currency).toBe('TFUEL');
-        expect(tx.fee?.amount.toString()).toBe('0.1');
       }
     });
   });

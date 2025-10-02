@@ -32,12 +32,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       const rawDataJson = this.serializeToJson(transaction) ?? '{}';
 
       // Extract currencies from Money type
-      let amountCurrency: string | undefined;
       let priceCurrency: string | undefined;
-
-      if (transaction.amount && typeof transaction.amount === 'object' && transaction.amount.currency) {
-        amountCurrency = transaction.amount.currency;
-      }
 
       if (transaction.price && typeof transaction.price === 'object' && transaction.price.currency) {
         priceCurrency = transaction.price.currency;
@@ -46,18 +41,9 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       const result = await this.db
         .insertInto('transactions')
         .values({
-          amount:
-            typeof transaction.amount === 'object'
-              ? moneyToDbString(transaction.amount)
-              : transaction.amount
-                ? String(transaction.amount)
-                : undefined,
-          amount_currency: amountCurrency,
           created_at: this.getCurrentDateTimeForDB(),
           external_id: (transaction.metadata?.hash ||
             transaction.source + '-' + (transaction.id || 'unknown')) as string,
-          fee_cost: typeof transaction.fee === 'object' ? moneyToDbString(transaction.fee) : undefined,
-          fee_currency: typeof transaction.fee === 'object' ? transaction.fee.currency : undefined,
           from_address: transaction.from,
           import_session_id: importSessionId,
           note_message: transaction.note?.message,
@@ -74,15 +60,11 @@ export class TransactionRepository extends BaseRepository implements ITransactio
           raw_normalized_data: rawDataJson,
           source_id: transaction.source,
           source_type: transaction.blockchain ? 'blockchain' : 'exchange',
-          symbol: transaction.symbol,
           to_address: transaction.to,
           transaction_datetime: transaction.datetime
             ? new Date(transaction.datetime).toISOString()
             : new Date().toISOString(),
           transaction_status: (transaction.status as 'pending' | 'confirmed' | 'failed' | 'cancelled') || 'confirmed',
-          transaction_type:
-            (transaction.type as 'trade' | 'transfer' | 'deposit' | 'withdrawal' | 'fee' | 'reward' | 'mining') ||
-            'trade',
           verified: Boolean(transaction.metadata?.verified),
 
           // Structured movements
@@ -116,10 +98,6 @@ export class TransactionRepository extends BaseRepository implements ITransactio
         })
         .onConflict((oc) =>
           oc.doUpdateSet({
-            amount: (eb) => eb.ref('excluded.amount'),
-            amount_currency: (eb) => eb.ref('excluded.amount_currency'),
-            fee_cost: (eb) => eb.ref('excluded.fee_cost'),
-            fee_currency: (eb) => eb.ref('excluded.fee_currency'),
             from_address: (eb) => eb.ref('excluded.from_address'),
             note_message: (eb) => eb.ref('excluded.note_message'),
             note_metadata: (eb) => eb.ref('excluded.note_metadata'),
@@ -128,11 +106,9 @@ export class TransactionRepository extends BaseRepository implements ITransactio
             price: (eb) => eb.ref('excluded.price'),
             price_currency: (eb) => eb.ref('excluded.price_currency'),
             raw_normalized_data: (eb) => eb.ref('excluded.raw_normalized_data'),
-            symbol: (eb) => eb.ref('excluded.symbol'),
             to_address: (eb) => eb.ref('excluded.to_address'),
             transaction_datetime: (eb) => eb.ref('excluded.transaction_datetime'),
             transaction_status: (eb) => eb.ref('excluded.transaction_status'),
-            transaction_type: (eb) => eb.ref('excluded.transaction_type'),
             updated_at: new Date().toISOString(),
             verified: (eb) => eb.ref('excluded.verified'),
 
@@ -166,7 +142,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       return ok(result.id);
     } catch (error) {
       this.logger.error(
-        { error, transaction: { source: transaction.source, type: transaction.type } },
+        { error, transaction: { source: transaction.source, operation: transaction.operation } },
         'Failed to save transaction'
       );
       return err(error instanceof Error ? error : new Error(String(error)));

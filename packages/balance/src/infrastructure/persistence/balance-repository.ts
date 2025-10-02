@@ -16,15 +16,17 @@ export class BalanceRepository extends BaseRepository {
       .selectFrom('transactions')
       .select([
         'source_id',
-        'symbol',
-        'transaction_type',
-        'amount',
-        'amount_currency',
-        'price',
-        'price_currency',
-        'fee_cost',
-        'fee_currency',
-        'raw_normalized_data',
+        'movements_inflows',
+        'movements_outflows',
+        'movements_primary_asset',
+        'movements_primary_amount',
+        'movements_primary_currency',
+        'movements_primary_direction',
+        'fees_network',
+        'fees_platform',
+        'fees_total',
+        'operation_category',
+        'operation_type',
       ])
       .where('source_id', '=', source)
       .orderBy('transaction_datetime', 'asc')

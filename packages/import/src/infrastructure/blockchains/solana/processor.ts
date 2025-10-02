@@ -128,12 +128,6 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
             tokenAddress: fundFlow.primary.tokenAddress,
             tokenDecimals: fundFlow.primary.decimals,
           },
-
-          // Backward compatibility (deprecated)
-          amount: createMoney(fundFlow.primary.amount, fundFlow.primary.asset),
-          fee: networkFee,
-          symbol: fundFlow.primary.asset,
-          type: classification.legacyType,
         };
 
         transactions.push(universalTransaction);

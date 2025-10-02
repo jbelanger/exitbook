@@ -51,14 +51,14 @@ export class CoinbaseProcessor extends BaseTransactionProcessor {
     // The CoinbaseCCXTAdapter already provides transactions in UniversalTransaction format
     // We mainly need to validate and potentially enhance the data
 
-    if (!transaction.id || !transaction.type || !transaction.amount) {
+    if (!transaction.id || !transaction.operation || !transaction.movements) {
       return err(`Invalid transaction data: missing required fields for transaction ${transaction.id || 'unknown'}`);
     }
 
-    // Validate transaction type
-    const validTypes = ['trade', 'deposit', 'withdrawal', 'transfer', 'fee', 'income', 'other'];
-    if (!validTypes.includes(transaction.type)) {
-      return err(`Invalid transaction type: ${transaction.type} for transaction ${transaction.id}`);
+    // Validate operation category
+    const validCategories = ['trade', 'transfer', 'fee', 'staking', 'defi', 'governance'];
+    if (!validCategories.includes(transaction.operation.category)) {
+      return err(`Invalid operation category: ${transaction.operation.category} for transaction ${transaction.id}`);
     }
 
     // Ensure the transaction has proper metadata

@@ -66,49 +66,35 @@ export interface ExternalTransactionDataTable {
  * Using TEXT for decimal values to preserve precision
  */
 export interface TransactionsTable {
-  // Financial data (keep TEXT for precision)
-  amount: DecimalString | null;
-
-  amount_currency: string | null;
-  created_at: DateTime;
-  external_id: string | null; // hash, transaction ID, etc.
-
-  fee_cost: DecimalString | null;
-  fee_currency: string | null;
-  // Address information
-  from_address: string | null;
+  // Core identification
   id: Generated<number>;
   import_session_id: number; // FK to import_sessions.id
-  // Notes and metadata
-  note_message: string | null;
+  wallet_address_id: number | null; // FK to wallet_addresses.id
+  source_id: string;
+  source_type: 'exchange' | 'blockchain';
+  external_id: string | null; // hash, transaction ID, etc.
 
-  note_metadata: JSONString | null;
-  note_severity: 'info' | 'warning' | 'error' | null;
+  // Transaction metadata
+  transaction_status: 'pending' | 'confirmed' | 'failed' | 'cancelled';
+  transaction_datetime: DateTime;
+  from_address: string | null;
+  to_address: string | null;
+  verified: boolean;
 
-  note_type: string | null;
+  // Optional price data (for trades)
   price: DecimalString | null;
   price_currency: string | null;
 
+  // Notes and metadata
+  note_type: string | null;
+  note_severity: 'info' | 'warning' | 'error' | null;
+  note_message: string | null;
+  note_metadata: JSONString | null;
+
   // Audit trail
   raw_normalized_data: JSONString; // Keep for debugging/audit
-  // Core identification
-  source_id: string;
-  source_type: 'exchange' | 'blockchain';
 
-  symbol: string | null;
-  to_address: string | null;
-
-  transaction_datetime: DateTime;
-  transaction_status: 'pending' | 'confirmed' | 'failed' | 'cancelled';
-  // Standardized enums
-  transaction_type: 'trade' | 'transfer' | 'deposit' | 'withdrawal' | 'fee' | 'reward' | 'mining';
-  updated_at: DateTime | null;
-
-  verified: boolean;
-  // Proper foreign keys
-  wallet_address_id: number | null; // FK to wallet_addresses.id
-
-  // Structured movements (new architecture)
+  // Structured movements
   movements_inflows: JSONString | null; // Array<{asset: string, amount: Money}>
   movements_outflows: JSONString | null; // Array<{asset: string, amount: Money}>
   movements_primary_asset: string | null;
@@ -116,12 +102,12 @@ export interface TransactionsTable {
   movements_primary_currency: string | null;
   movements_primary_direction: 'in' | 'out' | 'neutral' | null;
 
-  // Structured fees (new architecture)
+  // Structured fees
   fees_network: JSONString | null; // Money type
   fees_platform: JSONString | null; // Money type
   fees_total: JSONString | null; // Money type
 
-  // Enhanced operation classification (new architecture)
+  // Enhanced operation classification
   operation_category: 'trade' | 'transfer' | 'staking' | 'defi' | 'fee' | 'governance' | null;
   operation_type:
     | 'buy'
@@ -140,11 +126,15 @@ export interface TransactionsTable {
     | 'proposal'
     | null;
 
-  // Blockchain metadata (new architecture)
+  // Blockchain metadata
   blockchain_name: string | null;
   blockchain_block_height: number | null;
   blockchain_transaction_hash: string | null;
   blockchain_is_confirmed: boolean | null;
+
+  // Timestamps
+  created_at: DateTime;
+  updated_at: DateTime | null;
 }
 
 /**

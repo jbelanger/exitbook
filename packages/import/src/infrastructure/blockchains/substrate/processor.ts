@@ -94,11 +94,6 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
           from: fundFlow.fromAddress,
           to: fundFlow.toAddress,
 
-          // Backward compatibility (deprecated)
-          amount: createMoney(fundFlow.primary.amount, fundFlow.primary.asset),
-          fee: createMoney(fundFlow.feeAmount, fundFlow.feeCurrency),
-          type: classification.legacyType,
-          symbol: fundFlow.primary.asset,
           metadata: {
             blockchain: 'substrate',
             blockHeight: normalizedTx.blockHeight,

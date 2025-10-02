@@ -116,14 +116,4 @@ export interface UniversalTransaction {
   note?: TransactionNote | undefined; // Scam detection, warnings, classification
   price?: Money | undefined; // For trades
   metadata?: Record<string, unknown> | undefined; // Minimal provider-specific data
-
-  // Backward compatibility (deprecated - map to new fields)
-  /** @deprecated Use movements.primary.amount */
-  amount?: Money | undefined;
-  /** @deprecated Use fees.total */
-  fee?: Money | undefined;
-  /** @deprecated Use operation.type */
-  type?: TransactionType | undefined;
-  /** @deprecated Use movements.primary.asset */
-  symbol?: string | undefined;
 }

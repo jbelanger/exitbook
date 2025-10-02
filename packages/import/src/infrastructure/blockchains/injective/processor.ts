@@ -121,12 +121,6 @@ export class InjectiveTransactionProcessor extends BaseTransactionProcessor {
             hasIbcTransfer: fundFlow.hasIbcTransfer,
             hasContractInteraction: fundFlow.hasContractInteraction,
           },
-
-          // Backward compatibility (deprecated)
-          amount: createMoney(fundFlow.primary.amount, fundFlow.primary.asset),
-          fee: networkFee,
-          type: classification.legacyType,
-          symbol: fundFlow.primary.asset,
         };
 
         universalTransactions.push(universalTransaction);
