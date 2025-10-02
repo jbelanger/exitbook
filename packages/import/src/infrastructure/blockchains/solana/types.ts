@@ -102,14 +102,33 @@ export interface SolanaInstruction {
 }
 
 /**
- * Solana fund flow analysis result
+ * Solana fund flow analysis result - structured for multi-asset tracking
  */
 export interface SolanaFundFlow {
   // Analysis metadata
   computeUnitsUsed?: number | undefined; // Compute units consumed
 
-  // Token information
-  currency: string; // SOL or SPL token symbol
+  // Structured asset movements (NEW)
+  inflows: {
+    amount: string;
+    asset: string;
+    decimals?: number | undefined;
+    tokenAddress?: string | undefined; // Mint address for SPL tokens
+  }[];
+  outflows: {
+    amount: string;
+    asset: string;
+    decimals?: number | undefined;
+    tokenAddress?: string | undefined; // Mint address for SPL tokens
+  }[];
+
+  // Primary asset for backward compatibility
+  primary: {
+    amount: string;
+    asset: string;
+    decimals?: number | undefined;
+    tokenAddress?: string | undefined;
+  };
 
   // Fee information (always in SOL)
   feeAmount: string;
@@ -118,6 +137,7 @@ export interface SolanaFundFlow {
 
   // Addresses involved
   fromAddress?: string | undefined;
+  toAddress?: string | undefined;
 
   // Solana-specific analysis
   hasMultipleInstructions: boolean;
@@ -125,22 +145,28 @@ export interface SolanaFundFlow {
   hasSwaps: boolean;
   hasTokenTransfers: boolean;
   instructionCount: number; // Number of instructions in transaction
+  transactionCount: number; // For compatibility (always 1 for Solana)
 
-  // Fund flow direction
-  isIncoming: boolean; // User is receiving funds
-  isOutgoing: boolean; // User is sending funds
+  // Classification uncertainty tracking
+  classificationUncertainty?: string | undefined;
 
-  // Amount information
-  netAmount: string; // Net amount change for user (positive = received, negative = sent)
-
-  // Primary transaction amount and symbol
-  primaryAmount: string;
-  primarySymbol: string;
-  toAddress?: string | undefined;
-  tokenAccount?: string | undefined; // For SPL token transfers
-
-  // Total transaction amount
-  totalAmount: string;
+  // Deprecated fields (for migration)
+  /** @deprecated Use inflows/outflows instead */
+  isIncoming?: boolean;
+  /** @deprecated Use inflows/outflows instead */
+  isOutgoing?: boolean;
+  /** @deprecated Use primary.amount instead */
+  netAmount?: string;
+  /** @deprecated Use primary.amount instead */
+  primaryAmount?: string;
+  /** @deprecated Use primary.asset instead */
+  primarySymbol?: string;
+  /** @deprecated Use primary.asset instead */
+  currency?: string;
+  /** @deprecated */
+  tokenAccount?: string | undefined;
+  /** @deprecated */
+  totalAmount?: string;
 }
 
 // Solana RPC API response types for Helius provider

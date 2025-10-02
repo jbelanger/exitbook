@@ -6,7 +6,7 @@ import { type Result, err, ok } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
 
-import type { SolanaAccountChange, SolanaFundFlow, SolanaTokenChange, SolanaTransaction } from './types.js';
+import type { SolanaFundFlow, SolanaTransaction } from './types.js';
 
 /**
  * Solana transaction processor that converts raw blockchain transaction data
@@ -48,55 +48,98 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
 
         const fundFlow = fundFlowResult.value;
 
-        // Determine transaction type based on fund flow with enhanced classification
-        const transactionType = this.determineTransactionTypeFromFundFlow(fundFlow, sessionMetadata);
+        // Determine transaction type and operation classification based on fund flow
+        const classification = this.determineOperationFromFundFlow(fundFlow);
 
-        // Convert to UniversalTransaction
+        const networkFee = normalizedTx.feeAmount
+          ? createMoney(normalizedTx.feeAmount, normalizedTx.feeCurrency || 'SOL')
+          : createMoney('0', 'SOL');
+
+        // Convert to UniversalTransaction with structured fields
         const universalTransaction: UniversalTransaction = {
-          amount: createMoney(fundFlow.netAmount, fundFlow.currency),
-          datetime: new Date(normalizedTx.timestamp).toISOString(),
-          fee: normalizedTx.feeAmount
-            ? createMoney(normalizedTx.feeAmount, normalizedTx.feeCurrency || 'SOL')
-            : createMoney('0', 'SOL'),
-          from: fundFlow.fromAddress,
+          // Core fields
           id: normalizedTx.id,
-          metadata: {
-            blockchain: 'solana',
-            blockHeight: normalizedTx.blockHeight || normalizedTx.slot,
-            blockId: normalizedTx.blockId,
-            fundFlow: {
-              computeUnitsUsed: fundFlow.computeUnitsUsed,
-              currency: fundFlow.currency,
-              feePaidByUser: fundFlow.feePaidByUser,
-              hasMultipleInstructions: fundFlow.hasMultipleInstructions,
-              hasStaking: fundFlow.hasStaking,
-              hasSwaps: fundFlow.hasSwaps,
-              hasTokenTransfers: fundFlow.hasTokenTransfers,
-              instructionCount: fundFlow.instructionCount,
-              isIncoming: fundFlow.isIncoming,
-              isOutgoing: fundFlow.isOutgoing,
-              netAmount: fundFlow.netAmount,
-              totalAmount: fundFlow.totalAmount,
+          datetime: new Date(normalizedTx.timestamp).toISOString(),
+          timestamp: normalizedTx.timestamp,
+          source: 'solana',
+          status: normalizedTx.status === 'success' ? 'ok' : 'failed',
+          from: fundFlow.fromAddress,
+          to: fundFlow.toAddress,
+
+          // Structured movements from fund flow analysis
+          movements: {
+            inflows: fundFlow.inflows.map((inflow) => ({
+              amount: createMoney(inflow.amount, inflow.asset),
+              asset: inflow.asset,
+            })),
+            outflows: fundFlow.outflows.map((outflow) => ({
+              amount: createMoney(outflow.amount, outflow.asset),
+              asset: outflow.asset,
+            })),
+            primary: {
+              amount: createMoney(fundFlow.primary.amount, fundFlow.primary.asset),
+              asset: fundFlow.primary.asset,
+              direction: (() => {
+                const hasInflow = fundFlow.inflows.some((i) => i.asset === fundFlow.primary.asset);
+                const hasOutflow = fundFlow.outflows.some((o) => o.asset === fundFlow.primary.asset);
+
+                // Self-transfer (same asset in and out) = net zero = neutral
+                if (hasInflow && hasOutflow) return 'neutral';
+                if (hasInflow) return 'in';
+                if (hasOutflow) return 'out';
+                return 'neutral'; // No movement = neutral
+              })(),
             },
+          },
+
+          // Structured fees
+          fees: {
+            network: networkFee,
+            platform: undefined, // Solana has no platform fees
+            total: networkFee,
+          },
+
+          // Enhanced classification
+          operation: classification.operation,
+
+          // Classification uncertainty notes
+          note: classification.note,
+
+          // Blockchain metadata
+          blockchain: {
+            name: 'solana',
+            block_height: normalizedTx.blockHeight || normalizedTx.slot,
+            transaction_hash: normalizedTx.id,
+            is_confirmed: normalizedTx.status === 'success',
+          },
+
+          // Minimal metadata - only Solana-specific data
+          metadata: {
+            blockId: normalizedTx.blockId,
+            computeUnitsUsed: fundFlow.computeUnitsUsed,
+            hasMultipleInstructions: fundFlow.hasMultipleInstructions,
+            hasStaking: fundFlow.hasStaking,
+            hasSwaps: fundFlow.hasSwaps,
+            hasTokenTransfers: fundFlow.hasTokenTransfers,
+            instructionCount: fundFlow.instructionCount,
             providerId: normalizedTx.providerId,
             signature: normalizedTx.signature,
             slot: normalizedTx.slot,
-            tokenAddress: normalizedTx.tokenAddress,
-            tokenDecimals: normalizedTx.tokenDecimals,
-            tokenSymbol: normalizedTx.tokenSymbol,
+            tokenAddress: fundFlow.primary.tokenAddress,
+            tokenDecimals: fundFlow.primary.decimals,
           },
-          source: 'solana',
-          status: normalizedTx.status === 'success' ? 'ok' : 'failed',
-          symbol: fundFlow.currency,
-          timestamp: normalizedTx.timestamp,
-          to: fundFlow.toAddress,
-          type: transactionType,
+
+          // Backward compatibility (deprecated)
+          amount: createMoney(fundFlow.primary.amount, fundFlow.primary.asset),
+          fee: networkFee,
+          symbol: fundFlow.primary.asset,
+          type: classification.legacyType,
         };
 
         transactions.push(universalTransaction);
 
         this.logger.debug(
-          `Successfully processed normalized transaction ${universalTransaction.id} - Type: ${transactionType}, Amount: ${fundFlow.netAmount} ${fundFlow.currency}`
+          `Successfully processed transaction ${universalTransaction.id} - Type: ${classification.legacyType}, Category: ${classification.operation.category}, Amount: ${fundFlow.primary.amount} ${fundFlow.primary.asset}`
         );
       } catch (error) {
         this.logger.error(`Error processing normalized transaction ${normalizedTx.id}: ${String(error)}`);
@@ -135,213 +178,491 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
 
     const fundFlow: SolanaFundFlow = {
       computeUnitsUsed: tx.computeUnitsConsumed,
-      currency: flowAnalysis.currency,
       feeAmount: tx.feeAmount || '0',
       feeCurrency: tx.feeCurrency || 'SOL',
       feePaidByUser: flowAnalysis.feePaidByUser,
       fromAddress: flowAnalysis.fromAddress,
+      toAddress: flowAnalysis.toAddress,
       hasMultipleInstructions,
       hasStaking,
       hasSwaps,
       hasTokenTransfers,
       instructionCount,
-      isIncoming: flowAnalysis.isIncoming,
-      isOutgoing: flowAnalysis.isOutgoing,
-      netAmount: flowAnalysis.netAmount,
-      primaryAmount: flowAnalysis.primaryAmount,
-      primarySymbol: flowAnalysis.currency,
-      toAddress: flowAnalysis.toAddress,
+      transactionCount: 1, // Always 1 for Solana (no correlation like EVM)
+
+      // Structured movements
+      inflows: flowAnalysis.inflows,
+      outflows: flowAnalysis.outflows,
+      primary: flowAnalysis.primary,
+
+      // Classification uncertainty
+      classificationUncertainty: flowAnalysis.classificationUncertainty,
+
+      // Deprecated fields for backward compatibility
+      currency: flowAnalysis.primary.asset,
+      isIncoming: flowAnalysis.inflows.length > 0 && flowAnalysis.outflows.length === 0,
+      isOutgoing: flowAnalysis.outflows.length > 0 && flowAnalysis.inflows.length === 0,
+      netAmount: flowAnalysis.primary.amount,
+      primaryAmount: flowAnalysis.primary.amount,
+      primarySymbol: flowAnalysis.primary.asset,
       tokenAccount: tx.tokenAccount,
-      totalAmount: flowAnalysis.totalAmount,
+      totalAmount: flowAnalysis.primary.amount,
     };
 
     return ok(fundFlow);
   }
 
   /**
-   * Analyze balance changes to determine accurate fund flow
+   * Analyze balance changes to collect ALL asset movements (multi-asset tracking)
    */
   private analyzeBalanceChanges(
     tx: SolanaTransaction,
     allWalletAddresses: Set<string>
   ): {
-    currency: string;
+    classificationUncertainty?: string | undefined;
     feePaidByUser: boolean;
     fromAddress: string;
-    isIncoming: boolean;
-    isOutgoing: boolean;
-    netAmount: string;
-    primaryAmount: string;
+    inflows: { amount: string; asset: string; decimals?: number | undefined; tokenAddress?: string | undefined }[];
+    outflows: { amount: string; asset: string; decimals?: number | undefined; tokenAddress?: string | undefined }[];
+    primary: { amount: string; asset: string; decimals?: number | undefined; tokenAddress?: string | undefined };
     toAddress: string;
-    totalAmount: string;
   } {
-    // Start with defaults from the transaction
-    let currency = tx.currency;
-    let primaryAmount = tx.amount || '0';
+    const inflows: { amount: string; asset: string; decimals?: number; tokenAddress?: string }[] = [];
+    const outflows: { amount: string; asset: string; decimals?: number; tokenAddress?: string }[] = [];
     let fromAddress = tx.from;
     let toAddress = tx.to;
-    let isIncoming = false;
-    let isOutgoing = false;
-    let netAmount = '0';
 
-    // Prioritize token changes over SOL changes
+    // Collect ALL token balance changes involving the user
     if (tx.tokenChanges && tx.tokenChanges.length > 0) {
-      // Find the largest token transfer involving user addresses
-      const userTokenChange = this.findUserTokenChange(tx.tokenChanges, allWalletAddresses);
+      for (const change of tx.tokenChanges) {
+        const isUserAccount =
+          allWalletAddresses.has(change.account) || (change.owner && allWalletAddresses.has(change.owner));
 
-      if (userTokenChange) {
-        const tokenAmount = parseFloat(userTokenChange.postAmount) - parseFloat(userTokenChange.preAmount);
-        currency = userTokenChange.symbol || userTokenChange.mint;
-        primaryAmount = Math.abs(tokenAmount).toString();
-        netAmount = tokenAmount.toString();
-        isIncoming = tokenAmount > 0;
-        isOutgoing = tokenAmount < 0;
+        if (!isUserAccount) continue;
 
-        // Try to find corresponding sender/receiver
-        if (isIncoming) {
-          toAddress = userTokenChange.account;
-        } else if (isOutgoing) {
-          fromAddress = userTokenChange.account;
+        const tokenAmount = parseFloat(change.postAmount) - parseFloat(change.preAmount);
+        if (tokenAmount === 0) continue; // Skip zero changes
+
+        const movement: { amount: string; asset: string; decimals?: number; tokenAddress?: string } = {
+          amount: Math.abs(tokenAmount).toString(),
+          asset: change.symbol || change.mint,
+        };
+
+        if (change.decimals !== undefined) {
+          movement.decimals = change.decimals;
         }
-      }
-    } else if (tx.accountChanges && tx.accountChanges.length > 0) {
-      // Analyze SOL balance changes for user accounts
-      const userSolChange = this.findUserSolChange(tx.accountChanges, allWalletAddresses);
+        if (change.mint) {
+          movement.tokenAddress = change.mint;
+        }
 
-      if (userSolChange) {
-        const solAmount = parseFloat(userSolChange.postBalance) - parseFloat(userSolChange.preBalance);
-        currency = 'SOL';
-        primaryAmount = Math.abs(solAmount).toString();
-        netAmount = solAmount.toString();
-        isIncoming = solAmount > 0;
-        isOutgoing = solAmount < 0;
-
-        // Set addresses based on direction
-        if (isIncoming) {
-          toAddress = userSolChange.account;
-        } else if (isOutgoing) {
-          fromAddress = userSolChange.account;
+        // Self-transfer: same token both in and out
+        if (tokenAmount > 0 && tokenAmount < 0) {
+          const inflowMovement: { amount: string; asset: string; decimals?: number; tokenAddress?: string } = {
+            amount: movement.amount,
+            asset: movement.asset,
+          };
+          const outflowMovement: { amount: string; asset: string; decimals?: number; tokenAddress?: string } = {
+            amount: movement.amount,
+            asset: movement.asset,
+          };
+          if (movement.decimals !== undefined) {
+            inflowMovement.decimals = movement.decimals;
+            outflowMovement.decimals = movement.decimals;
+          }
+          if (movement.tokenAddress !== undefined) {
+            inflowMovement.tokenAddress = movement.tokenAddress;
+            outflowMovement.tokenAddress = movement.tokenAddress;
+          }
+          inflows.push(inflowMovement);
+          outflows.push(outflowMovement);
+        } else if (tokenAmount > 0) {
+          inflows.push(movement);
+          toAddress = change.account;
+        } else {
+          outflows.push(movement);
+          fromAddress = change.account;
         }
       }
     }
 
-    // Determine fee payer (usually the first signer or sender)
+    // Collect ALL SOL balance changes involving the user (excluding fee-only changes)
+    if (tx.accountChanges && tx.accountChanges.length > 0) {
+      for (const change of tx.accountChanges) {
+        const isUserAccount = allWalletAddresses.has(change.account);
+        if (!isUserAccount) continue;
+
+        const solAmount = parseFloat(change.postBalance) - parseFloat(change.preBalance);
+        if (solAmount === 0) continue; // Skip zero changes
+
+        // Convert lamports to SOL
+        const solAmountConverted = solAmount / 1_000_000_000;
+        const movement = {
+          amount: Math.abs(solAmountConverted).toString(),
+          asset: 'SOL',
+        };
+
+        // Self-transfer: same asset both in and out
+        // This shouldn't happen for SOL in Solana, but handle it anyway
+        if (solAmount > 0 && solAmount < 0) {
+          const inflowMovement: { amount: string; asset: string } = {
+            amount: movement.amount,
+            asset: movement.asset,
+          };
+          const outflowMovement: { amount: string; asset: string } = {
+            amount: movement.amount,
+            asset: movement.asset,
+          };
+          inflows.push(inflowMovement);
+          outflows.push(outflowMovement);
+        } else if (solAmount > 0) {
+          inflows.push(movement);
+          toAddress = change.account;
+        } else {
+          outflows.push(movement);
+          fromAddress = change.account;
+        }
+      }
+    }
+
+    // Consolidate duplicate assets (sum amounts for same asset)
+    const consolidateMovements = (
+      movements: { amount: string; asset: string; decimals?: number | undefined; tokenAddress?: string | undefined }[]
+    ): { amount: string; asset: string; decimals?: number | undefined; tokenAddress?: string | undefined }[] => {
+      const assetMap = new Map<
+        string,
+        { amount: number; decimals?: number | undefined; tokenAddress?: string | undefined }
+      >();
+
+      for (const movement of movements) {
+        const existing = assetMap.get(movement.asset);
+        if (existing) {
+          existing.amount += parseFloat(movement.amount);
+        } else {
+          const entry: { amount: number; decimals?: number; tokenAddress?: string } = {
+            amount: parseFloat(movement.amount),
+          };
+          if (movement.decimals !== undefined) {
+            entry.decimals = movement.decimals;
+          }
+          if (movement.tokenAddress !== undefined) {
+            entry.tokenAddress = movement.tokenAddress;
+          }
+          assetMap.set(movement.asset, entry);
+        }
+      }
+
+      return Array.from(assetMap.entries()).map(([asset, data]) => {
+        const result: { amount: string; asset: string; decimals?: number; tokenAddress?: string } = {
+          amount: data.amount.toString(),
+          asset,
+        };
+        if (data.decimals !== undefined) {
+          result.decimals = data.decimals;
+        }
+        if (data.tokenAddress !== undefined) {
+          result.tokenAddress = data.tokenAddress;
+        }
+        return result;
+      });
+    };
+
+    const consolidatedInflows = consolidateMovements(inflows);
+    const consolidatedOutflows = consolidateMovements(outflows);
+
+    // Select primary asset for backward compatibility
+    // Priority: largest token transfer > largest SOL transfer
+    let primary: { amount: string; asset: string; decimals?: number | undefined; tokenAddress?: string | undefined } = {
+      amount: '0',
+      asset: 'SOL',
+    };
+
+    // Use largest inflow as primary (prefer tokens with more decimals)
+    const largestInflow = consolidatedInflows
+      .sort((a, b) => parseFloat(b.amount) - parseFloat(a.amount))
+      .find((inflow) => parseFloat(inflow.amount) !== 0);
+
+    if (largestInflow) {
+      primary = { ...largestInflow };
+    } else {
+      // If no inflows, use largest outflow
+      const largestOutflow = consolidatedOutflows
+        .sort((a, b) => parseFloat(b.amount) - parseFloat(a.amount))
+        .find((outflow) => parseFloat(outflow.amount) !== 0);
+
+      if (largestOutflow) {
+        primary = { ...largestOutflow };
+      }
+    }
+
+    // Track uncertainty for complex transactions
+    let classificationUncertainty: string | undefined;
+    if (consolidatedInflows.length > 1 || consolidatedOutflows.length > 1) {
+      classificationUncertainty = `Complex transaction with ${consolidatedOutflows.length} outflow(s) and ${consolidatedInflows.length} inflow(s). May be liquidity provision, batch operation, or multi-asset swap.`;
+    }
+
+    // Determine fee payer
     const feePaidByUser = allWalletAddresses.has(tx.from) || allWalletAddresses.has(fromAddress);
 
-    // If still no direction determined, fall back to original logic
-    if (!isIncoming && !isOutgoing) {
-      const isFromWallet = allWalletAddresses.has(tx.from);
-      const isToWallet = allWalletAddresses.has(tx.to);
-      isIncoming = !isFromWallet && isToWallet;
-      isOutgoing = isFromWallet && !isToWallet;
-      netAmount = isOutgoing ? `-${primaryAmount}` : primaryAmount;
-    }
-
     return {
-      currency,
+      classificationUncertainty,
       feePaidByUser,
       fromAddress,
-      isIncoming,
-      isOutgoing,
-      netAmount,
-      primaryAmount,
+      inflows: consolidatedInflows,
+      outflows: consolidatedOutflows,
+      primary,
       toAddress,
-      totalAmount: primaryAmount,
     };
   }
 
   /**
-   * Find the most significant token change involving user addresses
+   * Conservative operation classification with 9/10 confidence requirement.
+   * Only classifies patterns we're confident about. Complex cases get notes.
    */
-  private findUserTokenChange(
-    tokenChanges: SolanaTokenChange[],
-    allWalletAddresses: Set<string>
-  ): SolanaTokenChange | undefined {
-    const userTokenChanges = tokenChanges.filter(
-      (change) => allWalletAddresses.has(change.account) || (change.owner && allWalletAddresses.has(change.owner))
-    );
+  private determineOperationFromFundFlow(fundFlow: SolanaFundFlow): {
+    legacyType: TransactionType;
+    note?:
+      | { message: string; metadata?: Record<string, unknown> | undefined; severity: 'info' | 'warning'; type: string }
+      | undefined;
+    operation: {
+      category: 'trade' | 'transfer' | 'staking' | 'defi' | 'fee';
+      type: 'buy' | 'sell' | 'deposit' | 'withdrawal' | 'stake' | 'unstake' | 'reward' | 'swap' | 'fee' | 'transfer';
+    };
+  } {
+    const { inflows, outflows } = fundFlow;
+    const primaryAmount = parseFloat(fundFlow.primary.amount || '0');
+    const DUST_THRESHOLD = 0.00001;
+    const isDustOrZero = primaryAmount === 0 || primaryAmount < DUST_THRESHOLD;
 
-    if (userTokenChanges.length === 0) {
-      return undefined;
-    }
-
-    // Return the token change with the largest absolute amount change
-    return userTokenChanges.reduce((largest, change) => {
-      const changeAmount = Math.abs(parseFloat(change.postAmount) - parseFloat(change.preAmount));
-      const largestAmount = Math.abs(parseFloat(largest.postAmount) - parseFloat(largest.preAmount));
-      return changeAmount > largestAmount ? change : largest;
-    });
-  }
-
-  /**
-   * Find the most significant SOL balance change involving user addresses
-   */
-  private findUserSolChange(
-    accountChanges: SolanaAccountChange[],
-    allWalletAddresses: Set<string>
-  ): SolanaAccountChange | undefined {
-    const userAccountChanges = accountChanges.filter((change) => allWalletAddresses.has(change.account));
-
-    if (userAccountChanges.length === 0) {
-      return undefined;
-    }
-
-    // Return the account change with the largest absolute balance change
-    return userAccountChanges.reduce((largest, change) => {
-      const changeAmount = Math.abs(parseFloat(change.postBalance) - parseFloat(change.preBalance));
-      const largestAmount = Math.abs(parseFloat(largest.postBalance) - parseFloat(largest.preBalance));
-      return changeAmount > largestAmount ? change : largest;
-    });
-  }
-
-  /**
-   * Determine transaction type from fund flow with enhanced Solana-specific classification
-   */
-  private determineTransactionTypeFromFundFlow(
-    fundFlow: SolanaFundFlow,
-    _sessionMetadata: ImportSessionMetadata
-  ): TransactionType {
-    // Enhanced classification using new TransactionType enum
+    // Pattern 1: Staking operations (high confidence based on program detection)
     if (fundFlow.hasStaking) {
-      // Use specific staking transaction types
-      if (fundFlow.isOutgoing) {
-        return 'staking_deposit'; // Staking funds (bonding)
-      } else {
-        // Check if this is a reward or withdrawal
-        const netAmount = parseFloat(fundFlow.netAmount);
-        return netAmount > 0 ? 'staking_reward' : 'staking_withdrawal';
+      if (outflows.length > 0 && inflows.length === 0) {
+        return {
+          legacyType: 'staking_deposit',
+          operation: {
+            category: 'staking',
+            type: 'stake',
+          },
+        };
+      }
+
+      if (inflows.length > 0 && outflows.length === 0) {
+        // Check if reward or withdrawal based on amount
+        const isReward = primaryAmount > 0 && primaryAmount < 1; // Rewards are typically small
+        return {
+          legacyType: isReward ? 'staking_reward' : 'staking_withdrawal',
+          operation: {
+            category: 'staking',
+            type: isReward ? 'reward' : 'unstake',
+          },
+        };
+      }
+
+      // Complex staking with both inflows and outflows
+      return {
+        legacyType: 'transfer',
+        note: {
+          message: 'Complex staking operation with both inflows and outflows. Manual review recommended.',
+          metadata: {
+            hasStaking: true,
+            inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
+            outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+          },
+          severity: 'info',
+          type: 'classification_uncertain',
+        },
+        operation: {
+          category: 'staking',
+          type: 'stake',
+        },
+      };
+    }
+
+    // Pattern 2: Fee-only transaction (no movements)
+    if (isDustOrZero && inflows.length === 0 && outflows.length === 0) {
+      return {
+        legacyType: 'fee',
+        operation: {
+          category: 'fee',
+          type: 'fee',
+        },
+      };
+    }
+
+    // Pattern 3: Dust-amount deposit/withdrawal (still meaningful for accounting)
+    if (isDustOrZero) {
+      if (outflows.length === 0 && inflows.length >= 1) {
+        return {
+          legacyType: 'deposit',
+          note: {
+            message: `Dust deposit (${fundFlow.primary.amount} ${fundFlow.primary.asset}). Amount below ${DUST_THRESHOLD} threshold but still affects balance.`,
+            metadata: {
+              dustThreshold: DUST_THRESHOLD,
+              inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
+            },
+            severity: 'info',
+            type: 'dust_amount',
+          },
+          operation: {
+            category: 'transfer',
+            type: 'deposit',
+          },
+        };
+      }
+
+      if (outflows.length >= 1 && inflows.length === 0) {
+        return {
+          legacyType: 'withdrawal',
+          note: {
+            message: `Dust withdrawal (${fundFlow.primary.amount} ${fundFlow.primary.asset}). Amount below ${DUST_THRESHOLD} threshold but still affects balance.`,
+            metadata: {
+              dustThreshold: DUST_THRESHOLD,
+              outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+            },
+            severity: 'info',
+            type: 'dust_amount',
+          },
+          operation: {
+            category: 'transfer',
+            type: 'withdrawal',
+          },
+        };
       }
     }
 
+    // Pattern 4: Single-asset swap (9/10 confident)
+    if (outflows.length === 1 && inflows.length === 1) {
+      const outAsset = outflows[0]?.asset;
+      const inAsset = inflows[0]?.asset;
+
+      if (outAsset !== inAsset) {
+        return {
+          legacyType: 'trade',
+          operation: {
+            category: 'trade',
+            type: 'swap',
+          },
+        };
+      }
+    }
+
+    // Pattern 5: DEX swap detected by program (less confident than single-asset swap)
     if (fundFlow.hasSwaps) {
-      return 'trade'; // DEX swaps
+      return {
+        legacyType: 'trade',
+        note: {
+          message: 'DEX program detected. Classified as swap based on program analysis.',
+          metadata: {
+            hasSwaps: true,
+            inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
+            outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+          },
+          severity: 'info',
+          type: 'program_based_classification',
+        },
+        operation: {
+          category: 'trade',
+          type: 'swap',
+        },
+      };
     }
 
-    // Check for batch transactions (multiple instructions)
+    // Pattern 6: Simple deposit (only inflows)
+    if (outflows.length === 0 && inflows.length >= 1) {
+      return {
+        legacyType: 'deposit',
+        operation: {
+          category: 'transfer',
+          type: 'deposit',
+        },
+      };
+    }
+
+    // Pattern 7: Simple withdrawal (only outflows)
+    if (outflows.length >= 1 && inflows.length === 0) {
+      return {
+        legacyType: 'withdrawal',
+        operation: {
+          category: 'transfer',
+          type: 'withdrawal',
+        },
+      };
+    }
+
+    // Pattern 8: Self-transfer (same asset in and out)
+    if (outflows.length === 1 && inflows.length === 1) {
+      const outAsset = outflows[0]?.asset;
+      const inAsset = inflows[0]?.asset;
+
+      if (outAsset === inAsset) {
+        return {
+          legacyType: 'internal_transfer',
+          operation: {
+            category: 'transfer',
+            type: 'transfer',
+          },
+        };
+      }
+    }
+
+    // Pattern 9: Complex multi-asset transaction (UNCERTAIN - add note)
+    if (fundFlow.classificationUncertainty) {
+      return {
+        legacyType: 'transfer',
+        note: {
+          message: fundFlow.classificationUncertainty,
+          metadata: {
+            inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
+            outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+          },
+          severity: 'info',
+          type: 'classification_uncertain',
+        },
+        operation: {
+          category: 'transfer',
+          type: 'transfer',
+        },
+      };
+    }
+
+    // Pattern 10: Batch operations (multiple instructions)
     if (fundFlow.hasMultipleInstructions && fundFlow.instructionCount > 3) {
-      return 'utility_batch'; // Complex batch operations
+      return {
+        legacyType: 'utility_batch',
+        note: {
+          message: `Batch transaction with ${fundFlow.instructionCount} instructions. May contain multiple operations.`,
+          metadata: {
+            hasMultipleInstructions: true,
+            inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
+            instructionCount: fundFlow.instructionCount,
+            outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+          },
+          severity: 'info',
+          type: 'batch_operation',
+        },
+        operation: {
+          category: 'transfer',
+          type: 'transfer',
+        },
+      };
     }
 
-    // Self-transfers (same from/to address)
-    if (fundFlow.fromAddress === fundFlow.toAddress) {
-      return 'internal_transfer'; // Self-to-self transfers
-    }
-
-    if (fundFlow.hasTokenTransfers) {
-      // Token transfers follow standard direction logic
-      if (fundFlow.isIncoming) return 'deposit';
-      if (fundFlow.isOutgoing) return 'withdrawal';
-      return 'transfer';
-    }
-
-    // SOL transfers
-    if (fundFlow.isIncoming) return 'deposit';
-    if (fundFlow.isOutgoing) return 'withdrawal';
-
-    // Fee-only transactions
-    if (parseFloat(fundFlow.netAmount) === 0) return 'fee';
-
-    return 'transfer';
+    // Ultimate fallback: Couldn't match any confident pattern
+    return {
+      legacyType: 'transfer',
+      note: {
+        message: 'Unable to determine transaction classification using confident patterns.',
+        metadata: {
+          inflows: inflows.map((i) => ({ amount: i.amount, asset: i.asset })),
+          outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
+        },
+        severity: 'warning',
+        type: 'classification_failed',
+      },
+      operation: {
+        category: 'transfer',
+        type: 'transfer',
+      },
+    };
   }
 
   /**
