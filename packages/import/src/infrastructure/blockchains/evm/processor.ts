@@ -450,8 +450,8 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
     const consolidatedInflows = consolidateMovements(inflows);
     const consolidatedOutflows = consolidateMovements(outflows);
 
-    // Select primary asset for backward compatibility and simple display
-    // Priority: largest token transfer > largest native transfer
+    // Select primary asset for simplified consumption and single-asset display
+    // Prioritizes largest movement to provide a meaningful summary of complex multi-asset transactions
     let primary = {
       asset: this.chainConfig.nativeCurrency,
       amount: '0',

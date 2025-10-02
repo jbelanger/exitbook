@@ -208,7 +208,7 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
       outflows.push({ amount: normalizedAmount, asset: currency });
     }
 
-    // Determine primary asset (for backward compatibility)
+    // Determine primary asset (for simplified consumption and single-asset display)
     let primaryAmount: string;
     let primaryAsset: string;
 

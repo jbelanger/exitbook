@@ -363,8 +363,8 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
     const consolidatedInflows = consolidateMovements(inflows);
     const consolidatedOutflows = consolidateMovements(outflows);
 
-    // Select primary asset for backward compatibility
-    // Priority: largest token transfer > largest SOL transfer
+    // Select primary asset for simplified consumption and single-asset display
+    // Prioritizes largest movement to provide a meaningful summary of complex multi-asset transactions
     let primary: { amount: string; asset: string; decimals?: number | undefined; tokenAddress?: string | undefined } = {
       amount: '0',
       asset: 'SOL',

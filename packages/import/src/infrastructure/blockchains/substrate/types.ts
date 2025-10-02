@@ -72,7 +72,7 @@ export interface SubstrateFundFlow {
     asset: string; // Symbol (DOT, KSM, TAO, etc.)
   }[];
 
-  // Primary asset (for backward compatibility and simple display)
+  // Primary asset (for simplified consumption and single-asset display)
   primary: {
     amount: string; // Absolute amount of primary asset
     asset: string; // Symbol of primary asset

@@ -122,7 +122,7 @@ export interface SolanaFundFlow {
     tokenAddress?: string | undefined; // Mint address for SPL tokens
   }[];
 
-  // Primary asset for backward compatibility
+  // Primary asset (for simplified consumption and single-asset display)
   primary: {
     amount: string;
     asset: string;

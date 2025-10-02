@@ -207,7 +207,7 @@ export class InjectiveTransactionProcessor extends BaseTransactionProcessor {
       }
     }
 
-    // Select primary asset (for backward compatibility and simple display)
+    // Select primary asset (for simplified consumption and single-asset display)
     // Use the transferred asset as primary
     const primary: {
       amount: string;
