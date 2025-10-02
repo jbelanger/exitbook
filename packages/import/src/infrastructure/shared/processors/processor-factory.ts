@@ -21,12 +21,14 @@ export class ProcessorFactory implements IProcessorFactory {
       // Load dynamic chains
       const { EVM_CHAINS } = await import('../../blockchains/evm/chain-registry.ts');
       const { SUBSTRATE_CHAINS } = await import('../../blockchains/substrate/chain-registry.ts');
+      const { COSMOS_CHAINS } = await import('../../blockchains/cosmos/chain-registry.ts');
 
       const evmChains = Object.keys(EVM_CHAINS);
       const substrateChains = Object.keys(SUBSTRATE_CHAINS);
-      const nonEvmChains = ['bitcoin', 'injective', 'solana'];
+      const cosmosChains = Object.keys(COSMOS_CHAINS);
+      const nonEvmChains = ['bitcoin', 'solana'];
 
-      return [...evmChains, ...substrateChains, ...nonEvmChains];
+      return [...evmChains, ...substrateChains, ...cosmosChains, ...nonEvmChains];
     }
 
     return [];
@@ -111,13 +113,16 @@ export class ProcessorFactory implements IProcessorFactory {
       return await this.createSubstrateProcessor(chainName);
     }
 
-    // Non-EVM, non-Substrate chains
+    // Try Cosmos SDK chains (dynamically loaded from cosmos-chains.json)
+    const { getCosmosChainConfig } = await import('../../blockchains/cosmos/chain-registry.ts');
+    if (getCosmosChainConfig(chainName)) {
+      return await this.createCosmosProcessor(chainName);
+    }
+
+    // Non-EVM, non-Substrate, non-Cosmos chains
     switch (chainName) {
       case 'bitcoin':
         return await this.createBitcoinProcessor();
-
-      case 'injective':
-        return await this.createInjectiveProcessor();
 
       case 'solana':
         return await this.createSolanaProcessor();
@@ -159,12 +164,18 @@ export class ProcessorFactory implements IProcessorFactory {
   }
 
   /**
-   * Create Injective processor.
+   * Create Cosmos SDK chain processor (Injective, Osmosis, Cosmos Hub, etc.).
+   * Looks up chain config from cosmos-chains.json registry.
    */
-  private async createInjectiveProcessor(): Promise<ITransactionProcessor> {
+  private async createCosmosProcessor(chainName: string): Promise<ITransactionProcessor> {
     // Dynamic import to avoid circular dependencies
-    const { InjectiveTransactionProcessor } = await import('../../blockchains/injective/processor.ts');
-    return new InjectiveTransactionProcessor();
+    const { CosmosProcessor } = await import('../../blockchains/cosmos/processor.ts');
+    const { getCosmosChainConfig } = await import('../../blockchains/cosmos/chain-registry.ts');
+    const config = getCosmosChainConfig(chainName);
+    if (!config) {
+      throw new Error(`Cosmos chain config not found: ${chainName}`);
+    }
+    return new CosmosProcessor(config);
   }
 
   /**

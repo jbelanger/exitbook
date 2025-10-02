@@ -106,13 +106,16 @@ export class ImporterFactory implements IImporterFactory {
       return await this.createSubstrateImporter(chainName, this.providerManager, providerId);
     }
 
-    // Non-EVM, non-Substrate chains
+    // Try Cosmos SDK chains (dynamically loaded from cosmos-chains.json)
+    const { getCosmosChainConfig } = await import('../../blockchains/cosmos/chain-registry.ts');
+    if (getCosmosChainConfig(chainName)) {
+      return await this.createCosmosImporter(chainName, this.providerManager, providerId);
+    }
+
+    // Non-EVM, non-Substrate, non-Cosmos chains
     switch (chainName) {
       case 'bitcoin':
         return await this.createBitcoinImporter(this.providerManager, providerId);
-
-      case 'injective':
-        return await this.createInjectiveImporter(this.providerManager, providerId);
 
       case 'solana':
         return await this.createSolanaImporter(this.providerManager, providerId);
@@ -155,15 +158,22 @@ export class ImporterFactory implements IImporterFactory {
   }
 
   /**
-   * Create Injective importer.
+   * Create Cosmos SDK chain importer (Injective, Osmosis, Cosmos Hub, etc.).
+   * Looks up chain config from cosmos-chains.json registry.
    */
-  private async createInjectiveImporter(
+  private async createCosmosImporter(
+    chainName: string,
     blockchainProviderManager: BlockchainProviderManager,
     providerId: string | undefined
   ): Promise<IImporter> {
     // Dynamic import to avoid circular dependencies
-    const { InjectiveTransactionImporter } = await import('../../blockchains/injective/importer.ts');
-    return new InjectiveTransactionImporter(blockchainProviderManager, {
+    const { CosmosImporter } = await import('../../blockchains/cosmos/importer.ts');
+    const { getCosmosChainConfig } = await import('../../blockchains/cosmos/chain-registry.ts');
+    const config = getCosmosChainConfig(chainName);
+    if (!config) {
+      throw new Error(`Cosmos chain config not found: ${chainName}`);
+    }
+    return new CosmosImporter(config, blockchainProviderManager, {
       preferredProvider: providerId,
     }) as unknown as IImporter;
   }
