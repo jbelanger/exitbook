@@ -171,7 +171,8 @@ describe('SubscanTransactionMapper E2E - Polkadot', () => {
       // Should return error because transaction doesn't involve the specified address
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.error).toContain('Transaction not relevant to user addresses');
+        const errorMessage = result.error.type === 'error' ? result.error.message : result.error.reason;
+        expect(errorMessage).toContain('Transaction not relevant to user addresses');
       }
     });
 

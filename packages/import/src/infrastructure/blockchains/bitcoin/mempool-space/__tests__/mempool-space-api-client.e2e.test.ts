@@ -6,7 +6,7 @@ import { MempoolSpaceApiClient } from '../mempool-space-api-client.ts';
 import type { MempoolTransaction } from '../mempool-space.types.ts';
 
 describe('MempoolSpaceProvider Integration', () => {
-  const config = ProviderRegistry.createDefaultConfig('bitcoin', 'mempool-space');
+  const config = ProviderRegistry.createDefaultConfig('bitcoin', 'mempool.space');
   const provider = new MempoolSpaceApiClient(config);
   const testAddress = '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2';
 

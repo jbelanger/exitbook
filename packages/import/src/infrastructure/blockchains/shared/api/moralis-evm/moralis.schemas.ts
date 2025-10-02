@@ -6,22 +6,22 @@ import { z } from 'zod';
 export const MoralisTransactionSchema = z
   .object({
     block_hash: z.string().min(1, 'Block hash must not be empty'),
-    block_number: z.string().min(1, 'Block number must not be empty'),
-    block_timestamp: z.string().min(1, 'Block timestamp must not be empty'),
+    block_number: z.string().regex(/^\d+$/, 'Block number must be numeric string'),
+    block_timestamp: z.string().datetime('Block timestamp must be valid ISO 8601 format'),
     from_address: z.string().min(1, 'From address must not be empty'),
-    gas: z.string(), // Can be numeric string or empty
-    gas_price: z.string(), // Can be numeric string or empty, mapper provides fallback
+    gas: z.string().regex(/^\d*$/, 'Gas must be numeric string or empty'), // Can be empty
+    gas_price: z.string().regex(/^\d*$/, 'Gas price must be numeric string or empty'), // Can be empty
     hash: z.string().min(1, 'Transaction hash must not be empty'),
     input: z.string(), // Can be empty string (e.g., "0x")
     nonce: z.string(),
     receipt_contract_address: z.string().nullish(), // Null when no contract created
-    receipt_cumulative_gas_used: z.string(),
-    receipt_gas_used: z.string(), // Can be empty, mapper provides fallback
+    receipt_cumulative_gas_used: z.string().regex(/^\d*$/, 'Receipt cumulative gas used must be numeric or empty'),
+    receipt_gas_used: z.string().regex(/^\d*$/, 'Receipt gas used must be numeric string or empty'),
     receipt_root: z.string().nullish(), // Null for post-Byzantium transactions
-    receipt_status: z.string().min(1, 'Receipt status must not be empty'),
+    receipt_status: z.string().regex(/^[01]$/, 'Receipt status must be 0 or 1'),
     to_address: z.string().min(1, 'To address must not be empty'),
     transaction_index: z.string(),
-    value: z.string(), // Numeric string, can be "0"
+    value: z.string().regex(/^\d+$/, 'Value must be numeric string'),
   })
   .passthrough(); // Allow additional fields from API
 
@@ -46,17 +46,17 @@ export const MoralisTransactionResponseSchema = z.object({
 export const MoralisTokenTransferSchema = z.object({
   address: z.string().min(1, 'Address must not be empty'),
   block_hash: z.string().min(1, 'Block hash must not be empty'),
-  block_number: z.string().min(1, 'Block number must not be empty'),
-  block_timestamp: z.string().min(1, 'Block timestamp must not be empty'),
+  block_number: z.string().regex(/^\d+$/, 'Block number must be numeric string'),
+  block_timestamp: z.string().datetime('Block timestamp must be valid ISO 8601 format'),
   contract_type: z.string().min(1, 'Contract type must not be empty'),
   from_address: z.string().min(1, 'From address must not be empty'),
   to_address: z.string().min(1, 'To address must not be empty'),
-  token_decimals: z.string().min(1, 'Token decimals must not be empty'),
+  token_decimals: z.string().regex(/^\d+$/, 'Token decimals must be numeric string'),
   token_logo: z.string(),
   token_name: z.string().min(1, 'Token name must not be empty'),
   token_symbol: z.string().min(1, 'Token symbol must not be empty'),
   transaction_hash: z.string().min(1, 'Transaction hash must not be empty'),
-  value: z.string().min(1, 'Value must not be empty'),
+  value: z.string().regex(/^\d+$/, 'Value must be numeric string'),
 });
 
 /**
@@ -73,7 +73,7 @@ export const MoralisTokenTransferResponseSchema = z.object({
  * Schema for Moralis token balance
  */
 export const MoralisTokenBalanceSchema = z.object({
-  balance: z.string().min(1, 'Balance must not be empty'),
+  balance: z.string().regex(/^\d+$/, 'Balance must be numeric string'),
   decimals: z.number().min(0, 'Decimals must be non-negative'),
   logo: z.string().optional(),
   name: z.string().min(1, 'Name must not be empty'),
@@ -85,5 +85,5 @@ export const MoralisTokenBalanceSchema = z.object({
  * Schema for Moralis native balance
  */
 export const MoralisNativeBalanceSchema = z.object({
-  balance: z.string().min(1, 'Balance must not be empty'),
+  balance: z.string().regex(/^\d+$/, 'Balance must be numeric string'),
 });

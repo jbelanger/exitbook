@@ -173,6 +173,9 @@ export class MoralisApiClient extends BlockchainApiClient {
           params.append('cursor', cursor);
         }
 
+        // Include internal transactions in the same call for efficiency
+        params.append('include', 'internal_transactions');
+
         const endpoint = `/${address}?${params.toString()}`;
         const response = await this.httpClient.get<MoralisTransactionResponse>(endpoint);
 
@@ -210,64 +213,14 @@ export class MoralisApiClient extends BlockchainApiClient {
     }
   }
 
-  private async getRawAddressInternalTransactions(address: string, since?: number): Promise<MoralisTransaction[]> {
-    try {
-      const transactions: MoralisTransaction[] = [];
-      let cursor: string | null | undefined;
-      let pageCount = 0;
-      const maxPages = 100; // Safety limit to prevent infinite loops
-
-      do {
-        const params = new URLSearchParams({
-          chain: this.moralisChainId,
-          limit: '100',
-        });
-
-        if (since) {
-          const sinceDate = new Date(since).toISOString();
-          params.append('from_date', sinceDate);
-        }
-
-        if (cursor) {
-          params.append('cursor', cursor);
-        }
-
-        // Use Moralis internal transactions endpoint
-        const endpoint = `/${address}/internal-transactions?${params.toString()}`;
-        const response = await this.httpClient.get<MoralisTransactionResponse>(endpoint);
-
-        const pageTransactions = response.result || [];
-
-        // Augment transactions with native currency from chain config
-        const augmentedTransactions = pageTransactions.map((tx) => ({
-          ...tx,
-          _nativeCurrency: this.chainConfig.nativeCurrency,
-          _nativeDecimals: this.chainConfig.nativeDecimals,
-        })) as MoralisTransaction[];
-
-        transactions.push(...augmentedTransactions);
-        cursor = response.cursor;
-        pageCount++;
-
-        this.logger.debug(
-          `Fetched page ${pageCount}: ${pageTransactions.length} internal transactions${cursor ? ' (more pages available)' : ' (last page)'}`
-        );
-
-        // Safety check to prevent infinite pagination
-        if (pageCount >= maxPages) {
-          this.logger.warn(`Reached maximum page limit (${maxPages}), stopping pagination`);
-          break;
-        }
-      } while (cursor);
-
-      this.logger.debug(`Found ${transactions.length} total raw internal transactions for ${address}`);
-      return transactions;
-    } catch (error) {
-      this.logger.error(
-        `Failed to fetch raw internal transactions for ${address} - Error: ${error instanceof Error ? error.message : String(error)}`
-      );
-      throw error;
-    }
+  private getRawAddressInternalTransactions(address: string, _since?: number): Promise<MoralisTransaction[]> {
+    // Moralis includes internal transactions automatically when fetching regular transactions
+    // with the 'include=internal_transactions' parameter. To avoid duplicate API calls,
+    // internal transactions should be fetched via getRawAddressTransactions instead.
+    this.logger.info(
+      `Moralis internal transactions are included in getRawAddressTransactions call - returning empty array to avoid duplicate fetching for ${maskAddress(address)}`
+    );
+    return Promise.resolve([]);
   }
 
   private async getRawTokenBalances(address: string, contractAddresses?: string[]): Promise<MoralisTokenBalance[]> {

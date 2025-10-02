@@ -13,16 +13,22 @@ describe('MoralisTransactionMapper E2E - Multi-Chain', () => {
   describe('Ethereum', () => {
     const config = ProviderRegistry.createDefaultConfig('ethereum', 'moralis');
     const apiClient = new MoralisApiClient(config);
-    const testAddress = '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045'; // Vitalik's address
+    const testAddress = '0xE472E43C3417cd0E39F7289B2bC836C08F529CA7'; // Vitalik's address
 
     let cachedTransactions: MoralisTransaction[];
 
     beforeAll(async () => {
       // Fetch data once to avoid hammering the API
-      cachedTransactions = await apiClient.execute<MoralisTransaction[]>({
-        address: testAddress,
-        type: 'getRawAddressTransactions',
-      });
+      try {
+        cachedTransactions = await apiClient.execute<MoralisTransaction[]>({
+          address: testAddress,
+          type: 'getRawAddressTransactions',
+        });
+        console.log(`Fetched ${cachedTransactions.length} Ethereum transactions for testing`);
+      } catch (error) {
+        console.error('Failed to fetch Ethereum transactions:', error);
+        throw error;
+      }
     }, 60000);
 
     it('should map real Ethereum transaction data from API', () => {
@@ -38,6 +44,10 @@ describe('MoralisTransactionMapper E2E - Multi-Chain', () => {
 
       const result = mapper.map(rawTx, metadata, sessionContext);
 
+      if (result.isErr()) {
+        console.error('Mapper error:', result.error);
+        console.error('Raw transaction data:', JSON.stringify(rawTx, undefined, 2));
+      }
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         const normalized = result.value;
@@ -91,10 +101,16 @@ describe('MoralisTransactionMapper E2E - Multi-Chain', () => {
 
     beforeAll(async () => {
       // Fetch data once to avoid hammering the API
-      cachedTransactions = await apiClient.execute<MoralisTransaction[]>({
-        address: testAddress,
-        type: 'getRawAddressTransactions',
-      });
+      try {
+        cachedTransactions = await apiClient.execute<MoralisTransaction[]>({
+          address: testAddress,
+          type: 'getRawAddressTransactions',
+        });
+        console.log(`Fetched ${cachedTransactions.length} Avalanche transactions for testing`);
+      } catch (error) {
+        console.error('Failed to fetch Avalanche transactions:', error);
+        throw error;
+      }
     }, 60000);
 
     it('should map real Avalanche transaction data from API', () => {
@@ -110,6 +126,10 @@ describe('MoralisTransactionMapper E2E - Multi-Chain', () => {
 
       const result = mapper.map(rawTx, metadata, sessionContext);
 
+      if (result.isErr()) {
+        console.error('Mapper error:', result.error);
+        console.error('Raw transaction data:', JSON.stringify(rawTx, undefined, 2));
+      }
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         const normalized = result.value;

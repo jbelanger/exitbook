@@ -9,7 +9,7 @@ import type { BlockstreamTransaction } from '../blockstream.types.js';
 
 describe('BlockstreamTransactionMapper E2E', () => {
   const mapper = new BlockstreamTransactionMapper();
-  const config = ProviderRegistry.createDefaultConfig('bitcoin', 'blockstream');
+  const config = ProviderRegistry.createDefaultConfig('bitcoin', 'blockstream.info');
   const apiClient = new BlockstreamApiClient(config);
   const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa'; // Genesis block address
 

@@ -11,7 +11,7 @@ import { z } from 'zod';
  * Schema for Injective amount (denom and amount pair)
  */
 export const InjectiveAmountSchema = z.object({
-  amount: z.string().min(1, 'Amount must not be empty'),
+  amount: z.string().regex(/^\d+$/, 'Amount must be numeric string'),
   denom: z.string().min(1, 'Denom must not be empty'),
 });
 
@@ -92,7 +92,7 @@ export const InjectiveTransactionLogSchema = z.object({
  */
 export const InjectiveTransactionSchema = z.object({
   block_number: z.number().nonnegative('Block number must be non-negative'),
-  block_timestamp: z.string().min(1, 'Block timestamp must not be empty'),
+  block_timestamp: z.string().datetime('Block timestamp must be valid ISO 8601 format'),
   block_unix_timestamp: z.number().optional(),
   claim_id: z.array(z.number()).optional(),
   code: z.number().nonnegative('Transaction code must be non-negative'),
@@ -120,7 +120,7 @@ export const InjectiveTransactionSchema = z.object({
  * Schema for Injective balance structure
  */
 export const InjectiveBalanceSchema = z.object({
-  amount: z.string().min(1, 'Balance amount must not be empty'),
+  amount: z.string().regex(/^\d+$/, 'Balance amount must be numeric string'),
   denom: z.string().min(1, 'Balance denom must not be empty'),
 });
 
@@ -131,7 +131,7 @@ export const InjectiveBalanceResponseSchema = z.object({
   balances: z.array(InjectiveBalanceSchema),
   pagination: z.object({
     next_key: z.string().optional(),
-    total: z.string().min(1, 'Pagination total must not be empty'),
+    total: z.string().regex(/^\d+$/, 'Pagination total must be numeric string'),
   }),
 });
 

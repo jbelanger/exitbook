@@ -9,7 +9,7 @@ import type { BlockchainComTransaction } from '../blockchain-com.types.js';
 
 describe('BlockchainComTransactionMapper E2E', () => {
   const mapper = new BlockchainComTransactionMapper();
-  const config = ProviderRegistry.createDefaultConfig('bitcoin', 'blockchain-com');
+  const config = ProviderRegistry.createDefaultConfig('bitcoin', 'blockchain.com');
   const apiClient = new BlockchainComApiClient(config);
   const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa'; // Genesis block address
 

@@ -9,7 +9,7 @@ import type { MempoolTransaction } from '../mempool-space.types.js';
 
 describe('MempoolSpaceTransactionMapper E2E', () => {
   const mapper = new MempoolSpaceTransactionMapper();
-  const config = ProviderRegistry.createDefaultConfig('bitcoin', 'mempool-space');
+  const config = ProviderRegistry.createDefaultConfig('bitcoin', 'mempool.space');
   const apiClient = new MempoolSpaceApiClient(config);
   const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa'; // Genesis block address
 

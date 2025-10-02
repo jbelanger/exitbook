@@ -19,17 +19,17 @@ describe('SnowtraceTransactionMapper E2E', () => {
   let cachedTokenTransfers: SnowtraceTokenTransfer[];
 
   beforeAll(async () => {
-    // Fetch normal and internal transactions
-    const transactions = await apiClient.execute<{
-      internal: SnowtraceInternalTransaction[];
-      normal: SnowtraceTransaction[];
-    }>({
+    // Fetch normal transactions
+    cachedNormalTransactions = await apiClient.execute<SnowtraceTransaction[]>({
       address: testAddress,
       type: 'getRawAddressTransactions',
     });
 
-    cachedNormalTransactions = transactions.normal;
-    cachedInternalTransactions = transactions.internal;
+    // Fetch internal transactions
+    cachedInternalTransactions = await apiClient.execute<SnowtraceInternalTransaction[]>({
+      address: testAddress,
+      type: 'getRawAddressInternalTransactions',
+    });
 
     // Fetch token transfers
     cachedTokenTransfers = await apiClient.execute<SnowtraceTokenTransfer[]>({

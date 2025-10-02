@@ -37,47 +37,54 @@ describe('SnowtraceApiClient Integration', () => {
 
   describe('Raw Address Transactions', () => {
     it('should fetch raw address transactions successfully', async () => {
-      const transactions = await provider.execute<{
-        internal: {
+      const transactions = await provider.execute<
+        {
           blockNumber: string;
           from: string;
           hash: string;
           timeStamp: string;
           to: string;
           value: string;
-        }[];
-        normal: {
-          blockNumber: string;
-          from: string;
-          hash: string;
-          timeStamp: string;
-          to: string;
-          value: string;
-        }[];
-      }>({
+        }[]
+      >({
         address: testAddress,
         type: 'getRawAddressTransactions',
       });
 
-      expect(transactions).toHaveProperty('normal');
-      expect(transactions).toHaveProperty('internal');
-      expect(Array.isArray(transactions.normal)).toBe(true);
-      expect(Array.isArray(transactions.internal)).toBe(true);
+      expect(Array.isArray(transactions)).toBe(true);
 
-      if (transactions.normal.length > 0) {
-        expect(transactions.normal[0]).toHaveProperty('hash');
-        expect(transactions.normal[0]).toHaveProperty('from');
-        expect(transactions.normal[0]).toHaveProperty('to');
-        expect(transactions.normal[0]).toHaveProperty('value');
-        expect(transactions.normal[0]).toHaveProperty('timeStamp');
+      if (transactions.length > 0) {
+        expect(transactions[0]).toHaveProperty('hash');
+        expect(transactions[0]).toHaveProperty('from');
+        expect(transactions[0]).toHaveProperty('to');
+        expect(transactions[0]).toHaveProperty('value');
+        expect(transactions[0]).toHaveProperty('timeStamp');
       }
+    }, 30000);
 
-      if (transactions.internal.length > 0) {
-        expect(transactions.internal[0]).toHaveProperty('hash');
-        expect(transactions.internal[0]).toHaveProperty('from');
-        expect(transactions.internal[0]).toHaveProperty('to');
-        expect(transactions.internal[0]).toHaveProperty('value');
-        expect(transactions.internal[0]).toHaveProperty('timeStamp');
+    it('should fetch raw address internal transactions successfully', async () => {
+      const transactions = await provider.execute<
+        {
+          blockNumber: string;
+          from: string;
+          hash: string;
+          timeStamp: string;
+          to: string;
+          value: string;
+        }[]
+      >({
+        address: testAddress,
+        type: 'getRawAddressInternalTransactions',
+      });
+
+      expect(Array.isArray(transactions)).toBe(true);
+
+      if (transactions.length > 0) {
+        expect(transactions[0]).toHaveProperty('hash');
+        expect(transactions[0]).toHaveProperty('from');
+        expect(transactions[0]).toHaveProperty('to');
+        expect(transactions[0]).toHaveProperty('value');
+        expect(transactions[0]).toHaveProperty('timeStamp');
       }
     }, 30000);
   });

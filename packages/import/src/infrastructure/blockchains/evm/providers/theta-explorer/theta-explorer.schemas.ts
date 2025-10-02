@@ -4,8 +4,8 @@ import { z } from 'zod';
  * Schema for Theta blockchain coin balances
  */
 export const ThetaCoinsSchema = z.object({
-  tfuelwei: z.string(),
-  thetawei: z.string(),
+  tfuelwei: z.string().regex(/^\d+$/, 'TFuel wei must be numeric string'),
+  thetawei: z.string().regex(/^\d+$/, 'Theta wei must be numeric string'),
 });
 
 /**
@@ -34,8 +34,8 @@ export const ThetaSendTransactionDataSchema = z.object({
  */
 export const ThetaSmartContractDataSchema = z.object({
   from: ThetaAccountSchema,
-  gas_limit: z.string(),
-  gas_price: z.string(),
+  gas_limit: z.string().regex(/^\d+$/, 'Gas limit must be numeric string'),
+  gas_price: z.string().regex(/^\d+$/, 'Gas price must be numeric string'),
   to: ThetaAccountSchema,
 });
 
@@ -44,11 +44,11 @@ export const ThetaSmartContractDataSchema = z.object({
  * Note: data field is permissive to handle various transaction types
  */
 export const ThetaTransactionSchema = z.object({
-  block_height: z.string().min(1, 'Block height must not be empty'),
+  block_height: z.string().regex(/^\d+$/, 'Block height must be numeric string'),
   data: z.record(z.unknown()),
   hash: z.string().min(1, 'Transaction hash must not be empty'),
   number: z.number().optional(),
-  timestamp: z.string().min(1, 'Timestamp must not be empty'),
+  timestamp: z.string().regex(/^\d+$/, 'Timestamp must be numeric string'),
   type: z.number().int().min(0).max(9),
 });
 

@@ -6,7 +6,7 @@ import { BlockstreamApiClient } from '../blockstream-api-client.js';
 import type { BlockstreamTransaction } from '../blockstream.types.js';
 
 describe('BlockstreamApiClient E2E', () => {
-  const config = ProviderRegistry.createDefaultConfig('bitcoin', 'blockstream');
+  const config = ProviderRegistry.createDefaultConfig('bitcoin', 'blockstream.info');
   const client = new BlockstreamApiClient(config);
   const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa'; // Genesis block address
 

@@ -8,7 +8,7 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
   describe('Ethereum', () => {
     const config = ProviderRegistry.createDefaultConfig('ethereum', 'moralis');
     const provider = new MoralisApiClient(config);
-    const testAddress = '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045'; // Vitalik's address
+    const testAddress = '0xE472E43C3417cd0E39F7289B2bC836C08F529CA7'; // Vitalik's address
 
     describe('Health Checks', () => {
       it('should report healthy when API is accessible', async () => {
@@ -95,7 +95,7 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
   describe('Avalanche', () => {
     const config = ProviderRegistry.createDefaultConfig('avalanche', 'moralis');
     const provider = new MoralisApiClient(config);
-    const testAddress = '0x9f8c163cBA728e99993ABe7495F06c0A3c8Ac8b9'; // Avalanche Foundation address
+    const testAddress = '0x70c68a08d8c1C1Fa1CD5E5533e85a77c4Ac07022';
 
     describe('Health Checks', () => {
       it('should report healthy when API is accessible', async () => {

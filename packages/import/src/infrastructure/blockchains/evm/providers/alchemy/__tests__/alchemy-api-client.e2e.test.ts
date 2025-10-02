@@ -7,7 +7,7 @@ import type { AlchemyAssetTransfer, AlchemyTokenBalance } from '../alchemy.types
 describe('AlchemyApiClient Integration', () => {
   const config = ProviderRegistry.createDefaultConfig('ethereum', 'alchemy');
   const provider = new AlchemyApiClient(config);
-  const testAddress = '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045'; // Vitalik's address
+  const testAddress = '0xE472E43C3417cd0E39F7289B2bC836C08F529CA7'; // Vitalik's address
 
   describe('Health Checks', () => {
     it('should report healthy when API is accessible', async () => {

@@ -6,7 +6,7 @@ import { BlockchainComApiClient } from '../blockchain-com.api-client.js';
 import type { BlockchainComTransaction } from '../blockchain-com.types.js';
 
 describe('BlockchainComApiClient E2E', () => {
-  const config = ProviderRegistry.createDefaultConfig('bitcoin', 'blockchain-com');
+  const config = ProviderRegistry.createDefaultConfig('bitcoin', 'blockchain.com');
   const client = new BlockchainComApiClient(config);
 
   it('should connect to Blockchain.com API and test health', async () => {
