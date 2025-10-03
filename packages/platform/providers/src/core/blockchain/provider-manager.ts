@@ -1,5 +1,5 @@
+import { CircuitBreaker } from '@exitbook/platform-http';
 import { getLogger } from '@exitbook/shared-logger';
-import type { BlockchainExplorersConfig, ProviderOverride } from '@exitbook/shared-utils';
 import { err, ok, type Result } from 'neverthrow';
 
 import { ProviderRegistry } from './registry/provider-registry.ts';
@@ -13,7 +13,7 @@ import type {
   ProviderOperation,
   ProviderOperationType,
 } from './types/index.ts';
-import { CircuitBreaker } from './utils/circuit-breaker.ts';
+import type { BlockchainExplorersConfig, ProviderOverride } from './utils/config-utils.ts';
 
 const logger = getLogger('BlockchainProviderManager');
 

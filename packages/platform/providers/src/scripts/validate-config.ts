@@ -3,9 +3,9 @@
  * Validate blockchain explorer configuration against registered providers
  * Enhanced with automatic fixes and detailed suggestions
  */
-import { loadExplorerConfig } from '@exitbook/shared-utils';
 
 import { ProviderRegistry } from '../core/blockchain/index.ts';
+import { loadExplorerConfig } from '../core/blockchain/utils/config-utils.ts';
 import { initializeProviders } from '../initialize.js';
 
 // Initialize all providers

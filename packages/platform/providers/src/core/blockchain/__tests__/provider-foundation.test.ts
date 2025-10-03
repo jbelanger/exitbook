@@ -3,7 +3,7 @@
  * Tests core interfaces, circuit breaker, and provider manager functionality
  */
 
-import type { RateLimitConfig } from '@exitbook/platform-http';
+import { CircuitBreaker, type RateLimitConfig } from '@exitbook/platform-http';
 import { err, ok, type Result } from 'neverthrow';
 
 // Import clients to trigger registration
@@ -19,7 +19,6 @@ import {
   type ProviderCapabilities,
   type ProviderOperation,
 } from '../types/index.js';
-import { CircuitBreaker } from '../utils/circuit-breaker.ts';
 
 // Mock explorer config for tests
 const mockExplorerConfig = {};

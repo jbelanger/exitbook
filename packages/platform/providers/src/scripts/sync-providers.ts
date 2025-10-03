@@ -6,9 +6,8 @@ import { resolve } from 'node:path';
  * Sync registered providers with blockchain configuration
  * Detects missing providers and can automatically fix config drift
  */
-import type { BlockchainExplorersConfig } from '@exitbook/shared-utils';
-
 import { ProviderRegistry } from '../core/blockchain/index.ts';
+import type { BlockchainExplorersConfig } from '../core/blockchain/utils/config-utils.ts';
 import { initializeProviders } from '../initialize.js';
 
 // Initialize all providers

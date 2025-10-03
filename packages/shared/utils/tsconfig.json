@@ -4,5 +4,5 @@
     "allowImportingTsExtensions": true,
     "noEmit": true
   },
-  "include": ["src"]
+  "include": ["src", "../../platform/providers/src/core/blockchain/utils/config-utils.ts"]
 }
