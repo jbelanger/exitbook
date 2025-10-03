@@ -2,134 +2,218 @@
 
 **Track, log, and analyze your crypto journey.**
 
-_Your personal book of crypto decisions — from entry to cash-out._
+ExitBook is a pnpm-managed TypeScript monorepo that provides a CLI for importing, normalizing, and verifying cryptocurrency activity. The tool ingests exchange CSV exports and blockchain explorer APIs, persists raw data in SQLite via Kysely, and materializes a universal transaction schema for downstream analysis.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Build](https://img.shields.io/github/actions/workflow/status/your-org/exitbook/ci.yml?branch=main)](https://github.com/your-org/exitbook/actions)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D23-blue.svg)](https://nodejs.org)
 
-## 🏗️ Architecture Highlights
+## Overview
 
-- **Multi-Provider Resilience**: Circuit breaker patterns with automatic failover across 12+ blockchain data providers
-- **Registry-Based Provider Management**: Self-documenting provider system with decorator-based registration
-- **Monorepo Structure**: Clean separation of concerns across core, import, data, and CLI packages
-- **Financial Precision**: Decimal.js integration for accurate cryptocurrency amount handling
-- **Production Patterns**: Comprehensive error handling, rate limiting, and health monitoring
+- Import raw exchange exports or blockchain explorer responses into `external_transaction_data`.
+- Transform raw records into a normalized transaction model and store them in `transactions`.
+- Verify calculated balances and export curated transaction sets.
+- Share infrastructure across packages such as `@exitbook/import`, `@exitbook/data`, `@exitbook/balance`, and the CLI in `apps/cli`.
 
-## 🚀 Key Features
+## Repository Layout
 
-### Exchange Integration
+- `apps/cli` – Commander-based CLI entry point (`crypto-import`).
+- `packages/import` – Importers, blockchain provider registry, processors, and ingestion services.
+- `packages/data` – SQLite/Kysely storage layer, migrations, and repositories.
+- `packages/balance` – Balance aggregation and verification services.
+- `packages/core` – Shared domain primitives.
+- `packages/shared/{logger,utils}` – Reusable logging, HTTP, config, and utility helpers.
 
-- **Multi-Exchange Support**: Import from KuCoin, Kraken, Coinbase, and others
-- **Adapter Pattern**: CCXT, native API, and CSV import adapters
-- **Intelligent Deduplication**: Hash-based and fuzzy matching algorithms
-- **Balance Verification**: Cross-validation between calculated and live balances
+## Requirements
 
-### Blockchain Integration
+- Node.js ≥ 23 (Node 24 is tested).
+- pnpm ≥ 10 (workspace root declares `pnpm@10.6.2` via `packageManager`).
+- SQLite (bundled through `better-sqlite3`).
 
-- **6 Blockchain Networks**: Bitcoin, Ethereum, Avalanche, Solana, Injective, Polkadot
-- **12 Data Providers**: Multiple providers per blockchain for maximum uptime
-- **Automatic Failover**: 99.8% uptime through provider redundancy
-- **Rate Limit Optimization**: Intelligent request spacing and circuit protection
-
-### Reliability Engineering
-
-- **Circuit Breaker Pattern**: Prevents cascading failures with automatic recovery
-- **Health Monitoring**: Real-time provider performance tracking
-- **Exponential Backoff**: Smart retry logic with progressive delays
-- **Request Caching**: 93% faster failover response times
-
-## 🛠️ Technology Stack
-
-- **TypeScript**: Full type safety with strict compilation
-- **Node.js 23+**: Modern JavaScript runtime with ESM modules
-- **SQLite**: Local transaction storage with ACID compliance
-- **Zod**: Runtime type validation and schema enforcement
-- **CCXT**: Cryptocurrency exchange integration library
-- **Decimal.js**: High-precision financial calculations
-- **Pino**: Structured logging with performance optimization
-
-## ⚙️ Quick Start
+## Installation
 
 ```bash
-# Install dependencies
 pnpm install
-
-# Build the project
-pnpm build
-
-# Import from exchanges
-pnpm dev import --exchange kucoin
-
-# Import from blockchains
-pnpm dev import --blockchain bitcoin --addresses <address>
-
-# Process and verify
-pnpm dev process --exchange kucoin --all
-pnpm dev verify --exchange kucoin
 ```
 
-## 📊 Performance Metrics
+The CLI stores data under `./data`. Run `pnpm --filter exitbook-cli run setup` once if you want the folder created ahead of time.
 
-- **Transaction Processing**: 10,000+ transactions/minute in batch mode
-- **Provider Failover**: 98% faster recovery (2.5 hours → 3 minutes)
-- **Import Success Rate**: 97% improvement (8.3% → 0.2% failure rate)
-- **Response Time**: 15% faster with intelligent caching
-- **System Uptime**: 99.8% with multi-provider architecture
-
-## 🏛️ Enterprise Patterns
-
-### Provider Registry System
-
-- Decorator-based provider registration (`@RegisterProvider`)
-- Auto-discovery and validation of available providers
-- Type-safe configuration with compile-time checking
-- Metadata-driven provider instantiation
-
-### Circuit Breaker Implementation
-
-- Three-state finite state machine (Closed/Open/Half-Open)
-- Configurable failure thresholds and recovery timeouts
-- Exponential backoff with jitter for optimal recovery
-- Health metrics integration for operational visibility
-
-### Data Validation Pipeline
-
-- Comprehensive Zod schema validation
-- Log-and-filter strategy for data integrity
-- Automatic anomaly detection and reporting
-- Mathematical constraints for financial data
-
-## 🔧 Development
+## Quick Start
 
 ```bash
-# Run tests
-pnpm test
+# Import Kraken CSV exports and immediately process them
+pnpm dev -- import --exchange kraken --csv-dir ./exports/kraken --process
 
-# Type checking
-pnpm typecheck
+# Process additional raw data (e.g. after adding more CSVs)
+pnpm dev -- process --exchange kraken
 
-# Linting
-pnpm lint
+# Summarise calculated balances (no live balance lookups yet)
+pnpm dev -- verify --exchange kraken --report
 
-# Development mode with hot reload
-pnpm dev
+# Export processed transactions to CSV
+pnpm dev -- export --exchange kraken --format csv --output ./reports/kraken.csv
 ```
 
-## 📈 Use Cases
+`pnpm dev -- <command>` proxies to `tsx` for fast feedback. You can also call dedicated scripts such as `pnpm --filter exitbook-cli run import -- --exchange kraken ...` when you prefer a single command per sub-task.
 
-- **Portfolio Management**: Aggregate transactions across multiple platforms
-- **Tax Compliance**: Accurate historical transaction records with verification
-- **Trading Analysis**: Comprehensive transaction data with fee tracking
-- **Balance Reconciliation**: Automated verification against live exchange data
+## CLI Commands
 
-## 🏗️ Architecture
+### `import`
 
-The system follows a clean architecture pattern with distinct layers:
+```
+pnpm dev -- import --exchange <name> --csv-dir <path> [options]
+pnpm dev -- import --blockchain <chain> --address <wallet> [--provider <id>] [options]
+```
 
-- **Adapters**: Exchange and blockchain data acquisition
-- **Services**: Business logic and transaction processing
-- **Infrastructure**: Database, logging, and external integrations
-- **CLI**: User interface and command orchestration
+- Exchange sources (`kraken`, `kucoin`, `ledgerlive`) require `--csv-dir` pointing to one or more directories of CSV exports.
+- Blockchain sources use explorer providers registered in `packages/import` and require a wallet `--address`. Set `--provider` to pin a specific explorer.
+- Shared options include `--since`, `--until` (ISO date, timestamp, or `0`), `--clear-db`, and `--process` to immediately normalize the imported batch.
 
-Built for reliability, maintainability, and extensibility with production-grade patterns throughout.
+### `process`
+
+```
+pnpm dev -- process --exchange <name> [options]
+pnpm dev -- process --blockchain <chain> [options]
+```
+
+Transforms pending raw data into universal transactions.
+
+- Use `--session <id>` to target a specific import session.
+- `--since` accepts an ISO date or timestamp to filter raw records by creation time.
+- The `--all` flag is currently a no-op and reserved for future use.
+
+### `verify`
+
+```
+pnpm dev -- verify --exchange <name> [--report]
+pnpm dev -- verify --blockchain <chain> [--report]
+```
+
+Calculates balances from stored transactions and highlights discrepancies. At present the verifier does **not** fetch live balances; it reiterates calculated holdings and writes an optional report to `data/verification-report.md`.
+
+### `export`
+
+```
+pnpm dev -- export [--exchange <name>] [--format csv|json] [--since <date>] [--output <path>]
+```
+
+Exports processed transactions to CSV (default) or JSON. The command reads from the `transactions` table; use `--exchange` to filter and `--since` to limit by creation date.
+
+### `status`
+
+```
+pnpm dev -- status
+```
+
+Initial scaffolding for system health metrics. The command currently returns placeholder counts while the Kysely analytics queries are implemented.
+
+### `benchmark-rate-limit`
+
+```
+pnpm dev -- benchmark-rate-limit --blockchain <chain> --provider <name> [--max-rate <req/sec>] [--rates <list>] [--num-requests <n>] [--skip-burst]
+```
+
+Exercises a blockchain provider to estimate safe sustained and burst rates. Results help you maintain overrides in `config/blockchain-explorers.json`.
+
+### `list-blockchains`
+
+```
+pnpm dev -- list-blockchains
+```
+
+Lists blockchains that have a processor and at least one registered provider. Combine with `pnpm run blockchain-providers:list` for provider-level detail.
+
+## Supported Sources
+
+### Exchanges (CSV importers)
+
+| Source       | Status | Notes                                                                                                             |
+| ------------ | ------ | ----------------------------------------------------------------------------------------------------------------- |
+| `kraken`     | ✅     | Parses ledger exports, validates rows with Zod, transforms via `KrakenProcessor`.                                 |
+| `kucoin`     | ✅     | Handles trading/deposit/withdrawal/account-history CSV sets.                                                      |
+| `ledgerlive` | ✅     | Imports Ledger Live operation exports and maps staking/governance flows.                                          |
+| `coinbase`   | ⚠️     | Processor and API client exist, but the importer currently returns `CoinbaseImporter.import not yet implemented`. |
+
+Each importer stores raw rows in `external_transaction_data` before processing, allowing retries without re-reading CSVs.
+
+### Blockchains
+
+- **Bitcoin** – Blockstream, Mempool.space, and Tatum providers (BlockCypher/Blockchain.com clients are present but disabled in the registry).
+- **EVM chains** – Extensive coverage defined in `packages/import/src/infrastructure/blockchains/evm/evm-chains.json` (Ethereum, Polygon, Base, Arbitrum, Optimism, Avalanche, BSC, zkSync, Linea, Scroll, Mantle, Blast, Theta, and more). Providers include Alchemy, Moralis, Snowtrace, Theta Explorer, and ThetaScan.
+- **Solana** – Helius, Solana RPC, and Solscan clients with normalized token support.
+- **Substrate ecosystem** – Chains from `substrate-chains.json` (Polkadot, Kusama, Bittensor, Moonbeam, Astar, Karura, etc.) using Subscan and Taostats providers.
+- **Cosmos SDK** – Currently Injective via the Injective Explorer client (additional providers are scaffolded but not yet wired up).
+
+Run `pnpm dev -- list-blockchains` to inspect the active list after any configuration overrides.
+
+## Provider Infrastructure
+
+`@exitbook/import` centralizes blockchain access through:
+
+- **Provider Registry** (`packages/import/src/infrastructure/blockchains/shared/registry`) that auto-registers clients via decorators and exposes metadata such as required capabilities and API keys.
+- **BlockchainProviderManager** with intelligent failover, per-provider circuit breakers, periodic health checks, and short-term request caching.
+- Optional per-chain overrides via `config/blockchain-explorers.json` to adjust enabled providers, priorities, rate limits, retries, and timeouts.
+- Benchmarks and validation scripts (`pnpm run providers:list`, `pnpm run providers:validate`, `pnpm run providers:sync`) to keep configuration aligned with registered providers.
+
+## Configuration
+
+### Explorer Overrides
+
+Create `config/blockchain-explorers.json` when you need custom priorities or rate limits (or set `BLOCKCHAIN_EXPLORERS_CONFIG=<path>` to load from an alternate location):
+
+```jsonc
+{
+  "bitcoin": {
+    "defaultEnabled": ["blockstream.info", "mempool.space"],
+    "overrides": {
+      "tatum-bitcoin": {
+        "enabled": false,
+        "description": "Disable until API key is configured.",
+      },
+    },
+  },
+}
+```
+
+If the file is absent, the manager uses the defaults embedded in each provider's metadata.
+
+### Environment Variables
+
+Some providers require API keys. Set them in your shell or `.env`:
+
+- `ALCHEMY_API_KEY`
+- `MORALIS_API_KEY`
+- `SNOWTRACE_API_KEY`
+- `SOLANA_HELIUS_API_KEY`
+- `SOLSCAN_API_KEY`
+- `TATUM_API_KEY`
+- `TAOSTATS_API_KEY`
+
+Refer to individual provider classes for additional keys when enabling currently-disabled clients.
+
+## Data & Storage
+
+- SQLite database at `data/transactions.db` (auto-created). Schema defined in `packages/data/src/migrations/001_initial_schema.ts`.
+  - `import_sessions` tracks every import run, associated provider, status, and metadata.
+  - `external_transaction_data` stores raw payloads and processing status.
+  - `transactions` keeps normalized universal transactions with detailed movement, fee, and blockchain metadata.
+- Exports default to `data/transactions.csv` or `data/transactions.json` unless you supply `--output`.
+- Verification reports are written to `data/verification-report.md`.
+
+Use `--clear-db` on CLI commands when you need a clean slate; this drops and recreates tables via Kysely.
+
+## Development & Testing
+
+- `pnpm lint` – ESLint with perfectionist rules.
+- `pnpm typecheck` – TypeScript project references.
+- `pnpm test` – Vitest unit suite (see `**/__tests__` near their sources).
+- `pnpm test:e2e` – End-to-end workflows.
+- `pnpm workspace:build` – Run build commands across all packages (individual builds often rely on `tsc --noEmit`).
+
+The CLI scripts rely on `tsx`; if your environment blocks IPC sockets (e.g. restricted sandbox), use the per-command scripts instead of the watch mode.
+
+## Known Limitations
+
+- Coinbase importer is stubbed and will exit with `CoinbaseImporter.import not yet implemented`.
+- The `status` command prints placeholder values until Kysely metrics are implemented.
+- `process --all` is reserved and currently ignored.
+- Balance verification compares calculated balances only; live exchange or chain balances are not fetched yet.
+- Cosmos support is limited to Injective until more providers are wired up.
