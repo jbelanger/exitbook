@@ -4,12 +4,9 @@ import type {
   ImportParams,
   ImportRunResult,
 } from '@exitbook/import/app/ports/importers.js';
+import type { BlockchainProviderManager, EvmChainConfig, ProviderError } from '@exitbook/providers';
 import { getLogger, type Logger } from '@exitbook/shared-logger';
 import { err, ok, type Result } from 'neverthrow';
-
-import type { BlockchainProviderManager, ProviderError } from '../shared/blockchain-provider-manager.js';
-
-import type { EvmChainConfig } from './chain-config.interface.js';
 
 /**
  * Generic EVM transaction importer that fetches raw transaction data from blockchain APIs.

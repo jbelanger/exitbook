@@ -1,9 +1,8 @@
 import type { ProcessingImportSession } from '@exitbook/import/app/ports/transaction-processor.interface.ts';
+import { SUBSTRATE_CHAINS, type SubstrateTransaction } from '@exitbook/providers';
 import { describe, expect, test } from 'vitest';
 
-import { SUBSTRATE_CHAINS } from '../chain-registry.js';
-import { SubstrateProcessor } from '../processor.js';
-import type { SubstrateTransaction } from '../types.js';
+import { SubstrateProcessor } from '../processor.ts';
 
 const USER_ADDRESS = '1exampleUserAddress1234567890abcdefghijklmn';
 const EXTERNAL_ADDRESS = '1externalAddress1234567890abcdefghijklmnop';

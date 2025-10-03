@@ -1,12 +1,13 @@
+import { createMoney } from '@exitbook/core';
 import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transaction-processor.interface.ts';
 import type { ITransactionRepository } from '@exitbook/import/app/ports/transaction-repository.js';
 import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
-import { createMoney } from '@exitbook/shared-utils';
+import type { SolanaTransaction } from '@exitbook/providers';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
 
-import type { SolanaFundFlow, SolanaTransaction } from './types.js';
+import type { SolanaFundFlow } from './types.js';
 
 /**
  * Solana transaction processor that converts raw blockchain transaction data

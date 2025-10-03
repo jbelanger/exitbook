@@ -1,8 +1,8 @@
 import type { ProcessingImportSession } from '@exitbook/import/app/ports/transaction-processor.interface.ts';
+import type { SolanaTransaction } from '@exitbook/providers';
 import { describe, expect, test } from 'vitest';
 
 import { SolanaTransactionProcessor } from '../processor.ts';
-import type { SolanaTransaction } from '../types.js';
 
 const USER_ADDRESS = 'user1111111111111111111111111111111111111111';
 const EXTERNAL_ADDRESS = 'external222222222222222222222222222222222222';

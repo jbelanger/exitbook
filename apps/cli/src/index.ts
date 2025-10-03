@@ -5,7 +5,6 @@ import { BalanceRepository, BalanceService, type BalanceVerificationResult, Bala
 import 'reflect-metadata';
 import { closeDatabase, initializeDatabase, type StoredTransaction } from '@exitbook/data';
 import {
-  BlockchainProviderManager,
   DefaultNormalizer,
   TransactionIngestionService,
   ImportSessionRepository,
@@ -13,12 +12,15 @@ import {
   TransactionRepository,
   ImporterFactory,
   ProcessorFactory,
-  ProviderRegistry,
-  type ProviderInfo,
 } from '@exitbook/import';
+import type { ProviderInfo } from '@exitbook/providers';
+import { initializeProviders, BlockchainProviderManager, ProviderRegistry } from '@exitbook/providers';
 import { getLogger } from '@exitbook/shared-logger';
 import { loadExplorerConfig } from '@exitbook/shared-utils';
 import { Command } from 'commander';
+
+// Initialize all providers at startup
+initializeProviders();
 
 const logger = getLogger('CLI');
 const program = new Command();

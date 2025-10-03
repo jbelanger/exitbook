@@ -1,0 +1,30 @@
+{
+  "name": "@exitbook/platform-http",
+  "version": "0.1.0",
+  "private": true,
+  "description": "HTTP client utilities with rate limiting, circuit breakers, and resilience patterns",
+  "license": "AGPL-3.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "clean": "rm -rf node_modules dist",
+    "lint": "eslint \"src/**/*.ts\"",
+    "prettier": "prettier --check .",
+    "prettier:fix": "prettier --write .",
+    "test": "vitest run"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "tsconfig": "workspace:*",
+    "typescript": "^5.9.2"
+  },
+  "peerDependencies": {
+    "@exitbook/shared-logger": "workspace:*"
+  }
+}

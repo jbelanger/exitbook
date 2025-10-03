@@ -3,12 +3,11 @@
  * Tests the three-method fetch pattern (normal, internal, token) across multiple chains
  */
 
+import type { FailoverExecutionResult } from '@exitbook/providers';
+import { type EvmChainConfig, type BlockchainProviderManager, ProviderError } from '@exitbook/providers';
 import { err, ok } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
 
-import type { BlockchainProviderManager, FailoverExecutionResult } from '../../shared/blockchain-provider-manager.js';
-import { ProviderError } from '../../shared/blockchain-provider-manager.js';
-import type { EvmChainConfig } from '../chain-config.interface.js';
 import { EvmImporter } from '../importer.js';
 
 // Mock chain configs

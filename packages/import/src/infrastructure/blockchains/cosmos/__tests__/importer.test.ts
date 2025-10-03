@@ -3,12 +3,11 @@
  * Tests the import pattern across multiple Cosmos SDK chains
  */
 
+import type { FailoverExecutionResult } from '@exitbook/providers';
+import { type CosmosChainConfig, type BlockchainProviderManager, ProviderError } from '@exitbook/providers';
 import { err, ok } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
 
-import type { BlockchainProviderManager, FailoverExecutionResult } from '../../shared/blockchain-provider-manager.js';
-import { ProviderError } from '../../shared/blockchain-provider-manager.js';
-import type { CosmosChainConfig } from '../chain-config.interface.js';
 import { CosmosImporter } from '../importer.js';
 
 // Mock chain configs

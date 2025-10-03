@@ -1,14 +1,14 @@
+import { createMoney } from '@exitbook/core';
 import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transaction-processor.interface.ts';
 import type { ITransactionRepository } from '@exitbook/import/app/ports/transaction-repository.js';
 import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
-import { createMoney } from '@exitbook/shared-utils';
+import type { EvmChainConfig, EvmTransaction } from '@exitbook/providers';
 import { Decimal } from 'decimal.js';
 import { err, ok, type Result } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
 
-import type { EvmChainConfig } from './chain-config.interface.js';
-import type { EvmFundFlow, EvmTransaction } from './types.js';
+import type { EvmFundFlow } from './types.ts';
 
 /**
  * Unified EVM transaction processor that applies Avalanche-style transaction correlation

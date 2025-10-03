@@ -1,9 +1,8 @@
 import type { ProcessingImportSession } from '@exitbook/import/app/ports/transaction-processor.interface.ts';
+import type { CosmosChainConfig, CosmosTransaction } from '@exitbook/providers';
 import { describe, expect, test } from 'vitest';
 
-import type { CosmosChainConfig } from '../chain-config.interface.js';
 import { CosmosProcessor } from '../processor.ts';
-import type { CosmosTransaction } from '../types.js';
 
 const INJECTIVE_CONFIG: CosmosChainConfig = {
   bech32Prefix: 'inj',

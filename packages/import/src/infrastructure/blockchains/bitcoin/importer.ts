@@ -4,14 +4,11 @@ import type {
   ImportParams,
   ImportRunResult,
 } from '@exitbook/import/app/ports/importers.js';
+import type { BitcoinWalletAddress, BlockchainProviderManager, ProviderError } from '@exitbook/providers';
+import { BitcoinUtils } from '@exitbook/providers';
 import { getLogger, type Logger } from '@exitbook/shared-logger';
 import * as bitcoin from 'bitcoinjs-lib';
 import { err, ok, type Result } from 'neverthrow';
-
-import type { BlockchainProviderManager, ProviderError } from '../shared/blockchain-provider-manager.js';
-
-import type { BitcoinWalletAddress } from './types.js';
-import { BitcoinUtils } from './utils.js';
 
 /**
  * Bitcoin transaction importer that fetches raw transaction data from blockchain APIs.

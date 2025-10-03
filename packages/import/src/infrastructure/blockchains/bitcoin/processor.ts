@@ -1,11 +1,12 @@
+import { createMoney } from '@exitbook/core';
 import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transaction-processor.interface.ts';
 import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
-import { createMoney } from '@exitbook/shared-utils';
+import type { BitcoinTransaction } from '@exitbook/providers';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
 
-import type { BitcoinFundFlow, BitcoinTransaction } from './types.js';
+import type { BitcoinFundFlow } from './types.ts';
 
 /**
  * Bitcoin transaction processor that converts raw blockchain transaction data

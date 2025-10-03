@@ -1,14 +1,14 @@
+import { createMoney } from '@exitbook/core';
 import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transaction-processor.interface.ts';
 import type { ITransactionRepository } from '@exitbook/import/app/ports/transaction-repository.js';
 import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
-import { createMoney } from '@exitbook/shared-utils';
+import type { CosmosChainConfig, CosmosTransaction } from '@exitbook/providers';
 import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
 
-import type { CosmosChainConfig } from './chain-config.interface.js';
-import type { CosmosFundFlow, CosmosTransaction } from './types.js';
+import type { CosmosFundFlow } from './types.ts';
 
 /**
  * Generic Cosmos SDK transaction processor that converts raw blockchain transaction data
