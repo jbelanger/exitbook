@@ -51,9 +51,6 @@ export const CosmosTransactionSchema = z.object({
   memo: z.string().optional(),
   txType: z.string().optional(),
 
-  // Transaction type classification
-  type: z.enum(['transfer', 'bridge_deposit', 'bridge_withdrawal', 'ibc_transfer', 'contract_execution']),
-
   // Gas information
   gasUsed: z.number().nonnegative().optional(),
   gasWanted: z.number().nonnegative().optional(),

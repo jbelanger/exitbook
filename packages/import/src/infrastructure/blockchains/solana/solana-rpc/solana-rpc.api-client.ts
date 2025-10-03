@@ -21,8 +21,9 @@ import type {
   },
   defaultConfig: {
     rateLimit: {
-      burstLimit: 2,
-      requestsPerSecond: 1, // Conservative for public RPC
+      burstLimit: 1,
+      requestsPerMinute: 12, // Conservative for public RPC
+      requestsPerSecond: 0.2, // Conservative for public RPC
     },
     retries: 3,
     timeout: 30000,

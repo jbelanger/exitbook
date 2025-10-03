@@ -150,5 +150,4 @@ export const SolanaTransactionSchema = z.object({
   tokenChanges: z.array(SolanaTokenChangeSchema).optional(),
   tokenDecimals: z.number().nonnegative().optional(),
   tokenSymbol: z.string().optional(),
-  type: z.enum(['transfer', 'token_transfer', 'stake', 'unstake', 'swap', 'other']),
 });

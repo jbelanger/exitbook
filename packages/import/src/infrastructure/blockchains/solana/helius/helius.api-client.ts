@@ -26,7 +26,7 @@ export interface SolanaRawTokenBalanceData {
   },
   defaultConfig: {
     rateLimit: {
-      burstLimit: 1,
+      burstLimit: 10,
       requestsPerHour: 5000,
       requestsPerMinute: 500,
       requestsPerSecond: 5,

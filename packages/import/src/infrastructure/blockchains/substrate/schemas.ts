@@ -43,5 +43,4 @@ export const SubstrateTransactionSchema = z.object({
   timestamp: z.number().positive('Timestamp must be positive'),
   tip: numericString.optional(),
   to: z.string().min(1, 'To address must not be empty'),
-  type: z.enum(['transfer', 'staking', 'democracy', 'council', 'utility', 'proxy', 'multisig', 'custom']),
 });
