@@ -1,15 +1,13 @@
 import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transaction-processor.interface.ts';
 import type { ITransactionRepository } from '@exitbook/import/app/ports/transaction-repository.js';
 import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
+import type { SubstrateTransaction, SubstrateFundFlow, SubstrateChainConfig } from '@exitbook/providers';
+import { derivePolkadotAddressVariants } from '@exitbook/providers';
 import { createMoney } from '@exitbook/shared-utils';
 import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
-
-import type { SubstrateChainConfig } from './chain-config.interface.js';
-import type { SubstrateFundFlow, SubstrateTransaction } from './types.js';
-import { derivePolkadotAddressVariants } from './utils.js';
 
 /**
  * Generic Substrate transaction processor that converts raw blockchain transaction data

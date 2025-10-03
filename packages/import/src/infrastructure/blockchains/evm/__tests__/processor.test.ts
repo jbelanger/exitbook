@@ -1,9 +1,8 @@
 import type { ProcessingImportSession } from '@exitbook/import/app/ports/transaction-processor.interface.ts';
+import type { EvmChainConfig, EvmTransaction } from '@exitbook/providers';
 import { describe, expect, test } from 'vitest';
 
-import type { EvmChainConfig } from '../chain-config.interface.js';
 import { EvmTransactionProcessor } from '../processor.ts';
-import type { EvmTransaction } from '../types.js';
 
 const ETHEREUM_CONFIG: EvmChainConfig = {
   chainId: 1,

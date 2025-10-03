@@ -87,6 +87,9 @@ importers:
       '@exitbook/import':
         specifier: workspace:*
         version: link:../../packages/import
+      '@exitbook/providers':
+        specifier: workspace:*
+        version: link:../../packages/platform/providers
       '@exitbook/shared-logger':
         specifier: workspace:*
         version: link:../../packages/shared/logger

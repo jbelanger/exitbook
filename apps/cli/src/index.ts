@@ -5,7 +5,6 @@ import { BalanceRepository, BalanceService, type BalanceVerificationResult, Bala
 import 'reflect-metadata';
 import { closeDatabase, initializeDatabase, type StoredTransaction } from '@exitbook/data';
 import {
-  BlockchainProviderManager,
   DefaultNormalizer,
   TransactionIngestionService,
   ImportSessionRepository,
@@ -13,12 +12,16 @@ import {
   TransactionRepository,
   ImporterFactory,
   ProcessorFactory,
-  ProviderRegistry,
-  type ProviderInfo,
 } from '@exitbook/import';
+// Import providers package to trigger auto-registration
+import '@exitbook/providers';
 import { getLogger } from '@exitbook/shared-logger';
 import { loadExplorerConfig } from '@exitbook/shared-utils';
 import { Command } from 'commander';
+
+import { BlockchainProviderManager } from '../../../packages/platform/providers/src/core/blockchain/blockchain-provider-manager.ts';
+import type { ProviderInfo } from '../../../packages/platform/providers/src/core/blockchain/registry/provider-registry.ts';
+import { ProviderRegistry } from '../../../packages/platform/providers/src/core/blockchain/registry/provider-registry.ts';
 
 const logger = getLogger('CLI');
 const program = new Command();

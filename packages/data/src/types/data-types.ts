@@ -32,3 +32,28 @@ export interface ImportSessionQuery {
   sourceType?: 'exchange' | 'blockchain' | undefined;
   status?: 'started' | 'completed' | 'failed' | 'cancelled' | undefined;
 }
+
+/**
+ * Raw data tagged with the API client that fetched it
+ */
+/**
+ * Rich session metadata providing blockchain-specific address context
+ */
+export interface ImportSessionMetadata {
+  // User-provided address
+  address?: string | undefined;
+
+  // Bitcoin xpub-derived addresses for multi-address wallets
+  derivedAddresses?: string[] | undefined;
+}
+
+export interface RawTransactionWithMetadata {
+  metadata: RawTransactionMetadata;
+  rawData: unknown;
+}
+
+export interface RawTransactionMetadata {
+  providerId: string;
+  sourceAddress?: string | undefined;
+  transactionType?: string | undefined;
+}

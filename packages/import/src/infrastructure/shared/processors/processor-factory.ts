@@ -1,5 +1,13 @@
 import type { IProcessorFactory } from '@exitbook/import/app/ports/processor-factory.js';
 import type { ITransactionProcessor } from '@exitbook/import/app/ports/transaction-processor.interface.ts';
+import {
+  EVM_CHAINS,
+  SUBSTRATE_CHAINS,
+  COSMOS_CHAINS,
+  getEvmChainConfig,
+  getSubstrateChainConfig,
+  getCosmosChainConfig,
+} from '@exitbook/providers';
 import { getLogger } from '@exitbook/shared-logger';
 
 /**
@@ -19,9 +27,6 @@ export class ProcessorFactory implements IProcessorFactory {
 
     if (sourceType === 'blockchain') {
       // Load dynamic chains
-      const { EVM_CHAINS } = await import('../../blockchains/evm/chain-registry.ts');
-      const { SUBSTRATE_CHAINS } = await import('../../blockchains/substrate/chain-registry.ts');
-      const { COSMOS_CHAINS } = await import('../../blockchains/cosmos/chain-registry.ts');
 
       const evmChains = Object.keys(EVM_CHAINS);
       const substrateChains = Object.keys(SUBSTRATE_CHAINS);
@@ -31,7 +36,7 @@ export class ProcessorFactory implements IProcessorFactory {
       return [...evmChains, ...substrateChains, ...cosmosChains, ...nonEvmChains];
     }
 
-    return [];
+    return Promise.resolve([]);
   }
 
   /**
@@ -78,7 +83,6 @@ export class ProcessorFactory implements IProcessorFactory {
   private async createEvmProcessor(chainName: string): Promise<ITransactionProcessor> {
     // Dynamic import to avoid circular dependencies
     const { EvmTransactionProcessor } = await import('../../blockchains/evm/processor.ts');
-    const { getEvmChainConfig } = await import('../../blockchains/evm/chain-registry.ts');
     const config = getEvmChainConfig(chainName);
     if (!config) {
       throw new Error(`EVM chain config not found: ${chainName}`);
@@ -102,19 +106,16 @@ export class ProcessorFactory implements IProcessorFactory {
     const chainName = sourceId.toLowerCase();
 
     // Try EVM chains first (dynamically loaded from evm-chains.json)
-    const { getEvmChainConfig } = await import('../../blockchains/evm/chain-registry.ts');
     if (getEvmChainConfig(chainName)) {
       return await this.createEvmProcessor(chainName);
     }
 
     // Try Substrate chains (dynamically loaded from substrate-chains.json)
-    const { getSubstrateChainConfig } = await import('../../blockchains/substrate/chain-registry.ts');
     if (getSubstrateChainConfig(chainName)) {
       return await this.createSubstrateProcessor(chainName);
     }
 
     // Try Cosmos SDK chains (dynamically loaded from cosmos-chains.json)
-    const { getCosmosChainConfig } = await import('../../blockchains/cosmos/chain-registry.ts');
     if (getCosmosChainConfig(chainName)) {
       return await this.createCosmosProcessor(chainName);
     }
@@ -161,7 +162,6 @@ export class ProcessorFactory implements IProcessorFactory {
   private async createCosmosProcessor(chainName: string): Promise<ITransactionProcessor> {
     // Dynamic import to avoid circular dependencies
     const { CosmosProcessor } = await import('../../blockchains/cosmos/processor.ts');
-    const { getCosmosChainConfig } = await import('../../blockchains/cosmos/chain-registry.ts');
     const config = getCosmosChainConfig(chainName);
     if (!config) {
       throw new Error(`Cosmos chain config not found: ${chainName}`);
@@ -203,7 +203,6 @@ export class ProcessorFactory implements IProcessorFactory {
   private async createSubstrateProcessor(chainName: string): Promise<ITransactionProcessor> {
     // Dynamic import to avoid circular dependencies
     const { SubstrateProcessor } = await import('../../blockchains/substrate/processor.ts');
-    const { getSubstrateChainConfig } = await import('../../blockchains/substrate/chain-registry.ts');
     const config = getSubstrateChainConfig(chainName);
     if (!config) {
       throw new Error(`Substrate chain config not found: ${chainName}`);

@@ -24,6 +24,7 @@
     "@exitbook/core": "workspace:*",
     "@exitbook/data": "workspace:*",
     "@exitbook/import": "workspace:*",
+    "@exitbook/providers": "workspace:*",
     "@exitbook/shared-logger": "workspace:*",
     "@exitbook/shared-utils": "workspace:*",
     "commander": "^14.0.0",

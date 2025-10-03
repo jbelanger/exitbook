@@ -3,11 +3,11 @@
  * Tests transaction fetching with provider failover
  */
 
+import type { BlockchainProviderManager, FailoverExecutionResult } from '@exitbook/providers';
+import { ProviderError } from '@exitbook/providers';
 import { err, ok } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from 'vitest';
 
-import type { BlockchainProviderManager, FailoverExecutionResult } from '../../shared/blockchain-provider-manager.js';
-import { ProviderError } from '../../shared/blockchain-provider-manager.js';
 import { SolanaTransactionImporter } from '../importer.js';
 
 // Mock transaction data

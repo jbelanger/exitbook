@@ -1,0 +1,53 @@
+import type { IRawDataMapper } from '../../../ports/raw-data-mappers.ts';
+import type { IBlockchainProvider } from '../types.js';
+
+import {
+  type ProviderConfig,
+  type ProviderFactory,
+  type ProviderMetadata,
+  ProviderRegistry,
+} from './provider-registry.js';
+
+const transactionMapperMap = new Map<string, new () => IRawDataMapper<unknown, unknown>>();
+
+/**
+ * Decorator to register an API client class with the registry
+ *
+ * For multi-chain providers (like EVM providers), use supportedChains:
+ * @example
+ * ```typescript
+ * @RegisterApiClient({
+ *   name: 'alchemy',
+ *   blockchain: 'ethereum', // primary chain
+ *   supportedChains: ['ethereum', 'avalanche', 'polygon'],
+ *   ...
+ * })
+ * ```
+ */
+export function RegisterApiClient(
+  metadata: ProviderMetadata
+): <T extends new (config: ProviderConfig) => IBlockchainProvider>(constructor: T) => T {
+  return function <T extends new (config: ProviderConfig) => IBlockchainProvider>(constructor: T): T {
+    const factory: ProviderFactory = {
+      create: (config: ProviderConfig) => new constructor(config),
+      metadata, // Store metadata as-is (preserves supportedChains)
+    };
+
+    // Register once with primary blockchain as key
+    ProviderRegistry.register(factory);
+
+    return constructor;
+  };
+}
+
+/**
+ * Decorator to register a mapper with a specific provider ID
+ */
+export function RegisterTransactionMapper(providerId: string) {
+  return function (constructor: new () => IRawDataMapper<unknown, unknown>) {
+    if (transactionMapperMap.has(providerId)) {
+      console.warn(`Mapper already registered for providerId: ${providerId}`);
+    }
+    transactionMapperMap.set(providerId, constructor);
+  };
+}

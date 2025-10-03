@@ -1,8 +1,8 @@
 import type { IImporterFactory } from '@exitbook/import/app/ports/importer-factory.interface.ts';
 import type { IImporter } from '@exitbook/import/app/ports/importers.js';
+import type { BlockchainProviderManager } from '@exitbook/providers';
+import { getCosmosChainConfig, getEvmChainConfig, getSubstrateChainConfig } from '@exitbook/providers';
 import { getLogger } from '@exitbook/shared-logger';
-
-import type { BlockchainProviderManager } from '../../blockchains/shared/index.js';
 
 /**
  * Factory for creating importer instances.
@@ -41,7 +41,6 @@ export class ImporterFactory implements IImporterFactory {
   ): Promise<IImporter> {
     // Dynamic import to avoid circular dependencies
     const { EvmImporter } = await import('../../blockchains/evm/importer.ts');
-    const { getEvmChainConfig } = await import('../../blockchains/evm/chain-registry.ts');
     const config = getEvmChainConfig(chainName);
     if (!config) {
       throw new Error(`EVM chain config not found: ${chainName}`);
@@ -76,7 +75,7 @@ export class ImporterFactory implements IImporterFactory {
   ): Promise<IImporter> {
     // Dynamic import to avoid circular dependencies
     const { SubstrateImporter } = await import('../../blockchains/substrate/importer.ts');
-    const { getSubstrateChainConfig } = await import('../../blockchains/substrate/chain-registry.ts');
+
     const config = getSubstrateChainConfig(chainName);
     if (!config) {
       throw new Error(`Substrate chain config not found: ${chainName}`);
@@ -95,19 +94,16 @@ export class ImporterFactory implements IImporterFactory {
     const chainName = sourceId.toLowerCase();
 
     // Try EVM chains first (dynamically loaded from evm-chains.json)
-    const { getEvmChainConfig } = await import('../../blockchains/evm/chain-registry.ts');
     if (getEvmChainConfig(chainName)) {
       return await this.createEvmImporter(chainName, this.providerManager, providerId);
     }
 
     // Try Substrate chains (dynamically loaded from substrate-chains.json)
-    const { getSubstrateChainConfig } = await import('../../blockchains/substrate/chain-registry.ts');
     if (getSubstrateChainConfig(chainName)) {
       return await this.createSubstrateImporter(chainName, this.providerManager, providerId);
     }
 
     // Try Cosmos SDK chains (dynamically loaded from cosmos-chains.json)
-    const { getCosmosChainConfig } = await import('../../blockchains/cosmos/chain-registry.ts');
     if (getCosmosChainConfig(chainName)) {
       return await this.createCosmosImporter(chainName, this.providerManager, providerId);
     }
@@ -159,7 +155,6 @@ export class ImporterFactory implements IImporterFactory {
   ): Promise<IImporter> {
     // Dynamic import to avoid circular dependencies
     const { CosmosImporter } = await import('../../blockchains/cosmos/importer.ts');
-    const { getCosmosChainConfig } = await import('../../blockchains/cosmos/chain-registry.ts');
     const config = getCosmosChainConfig(chainName);
     if (!config) {
       throw new Error(`Cosmos chain config not found: ${chainName}`);
