@@ -2,6 +2,7 @@ packages:
   - apps/*
   - packages/*
   - packages/shared/*
+  - packages/platform/*
 onlyBuiltDependencies:
   - better-sqlite3
   - bufferutil
@@ -9,6 +10,3 @@ onlyBuiltDependencies:
   - esbuild
   - sqlite3
   - utf-8-validate
-ignoredBuiltDependencies:
-  - bigint-buffer
-  - unrs-resolver
