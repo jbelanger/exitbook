@@ -3,8 +3,8 @@ import { isErrorWithMessage } from '@exitbook/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../core/blockchain/base-raw-data-mapper.ts';
+import type { NormalizationError } from '../../../core/blockchain/blockchain-normalizer.interface.ts';
 import { RegisterTransactionMapper } from '../../../core/blockchain/index.ts';
-import type { NormalizationError } from '../../../ports/blockchain-normalizer.interface.ts';
 import { SolanaTransactionSchema } from '../schemas.js';
 import type { SolanaAccountChange, SolanaTokenBalance, SolanaTokenChange, SolanaTransaction } from '../types.js';
 import { lamportsToSol } from '../utils.js';

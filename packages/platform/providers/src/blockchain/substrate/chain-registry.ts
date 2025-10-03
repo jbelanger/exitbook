@@ -22,6 +22,8 @@ export type SubstrateChainName = keyof typeof SUBSTRATE_CHAINS;
 
 /**
  * Helper to get chain config by name
+ *
+ * @public
  */
 export function getSubstrateChainConfig(chainName: string): SubstrateChainConfig | undefined {
   return SUBSTRATE_CHAINS[chainName];

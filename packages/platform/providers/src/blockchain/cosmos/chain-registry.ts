@@ -23,6 +23,8 @@ export type CosmosChainName = keyof typeof COSMOS_CHAINS;
  *
  * @param chainName - The chain identifier (e.g., 'injective', 'osmosis', 'cosmoshub')
  * @returns The chain configuration or undefined if not found
+ *
+ * @public
  */
 export function getCosmosChainConfig(chainName: string): CosmosChainConfig | undefined {
   return COSMOS_CHAINS[chainName];
@@ -32,6 +34,8 @@ export function getCosmosChainConfig(chainName: string): CosmosChainConfig | und
  * Get all supported Cosmos chain names
  *
  * @returns Array of all registered chain names
+ *
+ * @public
  */
 export function getAllCosmosChainNames(): string[] {
   return Object.keys(COSMOS_CHAINS);
@@ -42,6 +46,8 @@ export function getAllCosmosChainNames(): string[] {
  *
  * @param chainName - The chain identifier to check
  * @returns True if the chain is registered
+ *
+ * @public
  */
 export function isCosmosChainSupported(chainName: string): boolean {
   return chainName in COSMOS_CHAINS;

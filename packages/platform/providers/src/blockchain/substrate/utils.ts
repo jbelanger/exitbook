@@ -1,11 +1,19 @@
 import { decodeAddress, encodeAddress, isAddress } from '@polkadot/util-crypto';
 
-// Address validation for SS58 format
+/**
+ * Address validation for SS58 format
+ *
+ * @public
+ */
 export function isValidSS58Address(address: string, ss58Format?: number): boolean {
   return isAddress(address, false, ss58Format);
 }
 
-// Convert between different SS58 formats if needed
+/**
+ * Convert between different SS58 formats if needed
+ *
+ * @public
+ */
 export function encodeSS58Address(publicKey: Uint8Array, ss58Format: number): string {
   return encodeAddress(publicKey, ss58Format);
 }
@@ -13,6 +21,8 @@ export function encodeSS58Address(publicKey: Uint8Array, ss58Format: number): st
 /**
  * Derive common SS58 address variants for the same public key
  * Similar to Bitcoin's address derivation but for Substrate/Polkadot ecosystems
+ *
+ * @public
  */
 export function derivePolkadotAddressVariants(primaryAddress: string): string[] {
   try {
@@ -47,6 +57,8 @@ export function derivePolkadotAddressVariants(primaryAddress: string): string[] 
 /**
  * Check if two SS58 addresses represent the same public key
  * Accounts for different network format encodings
+ *
+ * @public
  */
 export function isSamePolkadotAddress(address1: string, address2: string): boolean {
   try {
@@ -72,7 +84,11 @@ export function isSamePolkadotAddress(address1: string, address2: string): boole
   }
 }
 
-// Parse Substrate method to transaction type
+/**
+ * Parse Substrate method to transaction type
+ *
+ * @public
+ */
 export function parseSubstrateTransactionType(
   module: string,
   method: string

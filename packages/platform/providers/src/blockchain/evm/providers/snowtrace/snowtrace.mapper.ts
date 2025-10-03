@@ -3,8 +3,8 @@ import type { Result } from 'neverthrow';
 import { ok } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../../core/blockchain/base-raw-data-mapper.ts';
+import type { NormalizationError } from '../../../../core/blockchain/blockchain-normalizer.interface.ts';
 import { RegisterTransactionMapper } from '../../../../core/blockchain/index.ts';
-import type { NormalizationError } from '../../../../ports/blockchain-normalizer.interface.ts';
 import { EvmTransactionSchema } from '../../schemas.js';
 import type { EvmTransaction } from '../../types.js';
 

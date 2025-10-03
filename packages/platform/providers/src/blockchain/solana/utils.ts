@@ -18,6 +18,8 @@ export function lamportsToSol(lamports: number | string): Decimal {
 
 /**
  * Convert SOL to lamports
+ *
+ * @public
  */
 export function solToLamports(sol: number | string): Decimal {
   return new Decimal(sol).mul(new Decimal(10).pow(9));
@@ -25,6 +27,8 @@ export function solToLamports(sol: number | string): Decimal {
 
 /**
  * Parse Solana transaction type from instructions
+ *
+ * @public
  */
 export function parseSolanaTransactionType(
   instructions: unknown[],

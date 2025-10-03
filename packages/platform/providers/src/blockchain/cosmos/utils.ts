@@ -32,8 +32,9 @@ export function validateBech32Address(address: string, expectedPrefix?: string):
  *
  * @param address - The Bech32 address to decode
  * @returns Object containing prefix and raw bytes, or undefined if invalid
+ * @internal
  */
-export function decodeBech32(address: string): { data: Uint8Array; prefix: string } | undefined {
+function decodeBech32(address: string): { data: Uint8Array; prefix: string } | undefined {
   try {
     const decoded = bech32.decode(address);
     const data = bech32.fromWords(decoded.words);
@@ -52,8 +53,9 @@ export function decodeBech32(address: string): { data: Uint8Array; prefix: strin
  * @param data - The raw bytes to encode
  * @param prefix - The Bech32 prefix (e.g., 'inj', 'osmo', 'cosmos')
  * @returns The encoded Bech32 address
+ * @internal
  */
-export function encodeBech32(data: Uint8Array, prefix: string): string {
+function encodeBech32(data: Uint8Array, prefix: string): string {
   const words = bech32.toWords(data);
   return bech32.encode(prefix, words);
 }
@@ -75,6 +77,8 @@ export function encodeBech32(data: Uint8Array, prefix: string): string {
  * @example
  * const variants = deriveBech32AddressVariants('inj1abc...', ['inj', 'osmo', 'cosmos']);
  * // Returns: ['inj1abc...', 'osmo1abc...', 'cosmos1abc...']
+ *
+ * @public
  */
 export function deriveBech32AddressVariants(primaryAddress: string, prefixes: string[]): string[] {
   try {
@@ -108,6 +112,8 @@ export function deriveBech32AddressVariants(primaryAddress: string, prefixes: st
  * @example
  * isSameBech32Address('inj1abc...', 'osmo1abc...') // true if same pubkey
  * isSameBech32Address('inj1abc...', 'inj1xyz...') // false
+ *
+ * @public
  */
 export function isSameBech32Address(address1: string, address2: string): boolean {
   try {
@@ -142,6 +148,8 @@ export function isSameBech32Address(address1: string, address2: string): boolean
  * Used for address variant derivation
  *
  * @returns Array of common Bech32 prefixes
+ *
+ * @public
  */
 export function getCommonCosmosPrefixes(): string[] {
   return [
@@ -175,6 +183,8 @@ export function getCommonCosmosPrefixes(): string[] {
  *
  * @example
  * convertBech32Prefix('inj1abc...', 'osmo') // Returns 'osmo1abc...'
+ *
+ * @public
  */
 export function convertBech32Prefix(address: string, targetPrefix: string): string | undefined {
   try {
@@ -194,6 +204,8 @@ export function convertBech32Prefix(address: string, targetPrefix: string): stri
  *
  * @param messageType - The Cosmos SDK message type (e.g., '/cosmos.bank.v1beta1.MsgSend')
  * @returns Transaction type classification
+ *
+ * @public
  */
 export function parseCosmosMessageType(
   messageType: string

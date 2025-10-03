@@ -1,4 +1,4 @@
-import type { IRawDataMapper } from '../../../ports/raw-data-mappers.ts';
+import type { IRawDataMapper } from '../raw-data-mappers.ts';
 import type { IBlockchainProvider } from '../types.js';
 
 import {

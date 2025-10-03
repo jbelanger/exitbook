@@ -2,8 +2,8 @@ import type { ImportSessionMetadata, RawTransactionMetadata } from '@exitbook/da
 import { type Result, err } from 'neverthrow';
 import type { ZodSchema } from 'zod';
 
-import type { NormalizationError } from '../../ports/blockchain-normalizer.interface.ts';
-import type { IRawDataMapper } from '../../ports/raw-data-mappers.ts';
+import type { NormalizationError } from './blockchain-normalizer.interface.ts';
+import type { IRawDataMapper } from './raw-data-mappers.ts';
 
 /**
  * Abstract base class for raw data transformers that handles validation automatically.

@@ -1,8 +1,7 @@
 import type { ImportSessionMetadata, RawTransactionMetadata } from '@exitbook/data';
 import { type Result, err, ok } from 'neverthrow';
 
-import type { NormalizationError } from '../../ports/blockchain-normalizer.interface.js';
-
+import type { NormalizationError } from './blockchain-normalizer.interface.ts';
 import { TransactionMapperFactory } from './registry/decorators.js';
 
 /**

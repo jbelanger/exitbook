@@ -20,6 +20,8 @@ export type EvmChainName = keyof typeof EVM_CHAINS;
 
 /**
  * Helper to get chain config by name
+ *
+ * @public
  */
 export function getEvmChainConfig(chainName: string): EvmChainConfig | undefined {
   return EVM_CHAINS[chainName];

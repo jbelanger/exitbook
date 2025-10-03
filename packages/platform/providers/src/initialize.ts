@@ -37,18 +37,3 @@ export function initializeProviders(): void {
   // This function just marks initialization as complete
   initialized = true;
 }
-
-/**
- * Check if providers have been initialized.
- */
-export function isInitialized(): boolean {
-  return initialized;
-}
-
-/**
- * Reset initialization state (primarily for testing).
- * @internal
- */
-export function resetInitialization(): void {
-  initialized = false;
-}
