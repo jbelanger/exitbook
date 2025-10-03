@@ -33,6 +33,7 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
     this.logger.info(`Processing ${normalizedData.length} normalized Solana transactions`);
 
     const transactions: UniversalTransaction[] = [];
+    const processingErrors: { error: string; signature: string }[] = [];
 
     for (const item of normalizedData) {
       const normalizedTx = item as SolanaTransaction;
@@ -42,7 +43,9 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
         const fundFlowResult = this.analyzeFundFlowFromNormalized(normalizedTx, sessionMetadata);
 
         if (fundFlowResult.isErr()) {
-          this.logger.warn(`Fund flow analysis failed for ${normalizedTx.id}: ${fundFlowResult.error}`);
+          const errorMsg = `Fund flow analysis failed: ${fundFlowResult.error}`;
+          processingErrors.push({ error: errorMsg, signature: normalizedTx.id });
+          this.logger.error(`${errorMsg} for Solana transaction ${normalizedTx.id} - THIS TRANSACTION WILL BE LOST`);
           continue;
         }
 
@@ -136,9 +139,36 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
           `Successfully processed transaction ${universalTransaction.id} - Category: ${classification.operation.category}, Type: ${classification.operation.type}, Amount: ${fundFlow.primary.amount} ${fundFlow.primary.asset}`
         );
       } catch (error) {
-        this.logger.error(`Error processing normalized transaction ${normalizedTx.id}: ${String(error)}`);
+        const errorMsg = `Error processing normalized transaction: ${String(error)}`;
+        processingErrors.push({ error: errorMsg, signature: normalizedTx.id });
+        this.logger.error(`${errorMsg} for ${normalizedTx.id} - THIS TRANSACTION WILL BE LOST`);
         continue;
       }
+    }
+
+    // Log processing summary
+    const totalInputTransactions = normalizedData.length;
+    const successfulTransactions = transactions.length;
+    const failedTransactions = processingErrors.length;
+
+    this.logger.info(
+      `Processing completed for Solana: ${successfulTransactions} transactions processed, ${failedTransactions} failed (${failedTransactions}/${totalInputTransactions} transactions lost)`
+    );
+
+    // STRICT MODE: Fail if ANY transactions could not be processed
+    // This is critical for portfolio accuracy - we cannot afford to silently drop transactions
+    if (processingErrors.length > 0) {
+      this.logger.error(
+        `CRITICAL PROCESSING FAILURE for Solana:\n${processingErrors
+          .map((e, i) => `  ${i + 1}. [${e.signature.substring(0, 10)}...] ${e.error}`)
+          .join('\n')}`
+      );
+
+      return err(
+        `Cannot proceed: ${failedTransactions}/${totalInputTransactions} transactions failed to process. ` +
+          `Lost ${failedTransactions} transactions which would corrupt portfolio calculations. ` +
+          `Errors: ${processingErrors.map((e) => `[${e.signature.substring(0, 10)}...]: ${e.error}`).join('; ')}`
+      );
     }
 
     return Promise.resolve(ok(transactions));
@@ -249,27 +279,7 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
           movement.tokenAddress = change.mint;
         }
 
-        // Self-transfer: same token both in and out
-        if (tokenAmount > 0 && tokenAmount < 0) {
-          const inflowMovement: { amount: string; asset: string; decimals?: number; tokenAddress?: string } = {
-            amount: movement.amount,
-            asset: movement.asset,
-          };
-          const outflowMovement: { amount: string; asset: string; decimals?: number; tokenAddress?: string } = {
-            amount: movement.amount,
-            asset: movement.asset,
-          };
-          if (movement.decimals !== undefined) {
-            inflowMovement.decimals = movement.decimals;
-            outflowMovement.decimals = movement.decimals;
-          }
-          if (movement.tokenAddress !== undefined) {
-            inflowMovement.tokenAddress = movement.tokenAddress;
-            outflowMovement.tokenAddress = movement.tokenAddress;
-          }
-          inflows.push(inflowMovement);
-          outflows.push(outflowMovement);
-        } else if (tokenAmount > 0) {
+        if (tokenAmount > 0) {
           inflows.push(movement);
           toAddress = change.account;
         } else {
@@ -295,20 +305,7 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
           asset: 'SOL',
         };
 
-        // Self-transfer: same asset both in and out
-        // This shouldn't happen for SOL in Solana, but handle it anyway
-        if (solAmount > 0 && solAmount < 0) {
-          const inflowMovement: { amount: string; asset: string } = {
-            amount: movement.amount,
-            asset: movement.asset,
-          };
-          const outflowMovement: { amount: string; asset: string } = {
-            amount: movement.amount,
-            asset: movement.asset,
-          };
-          inflows.push(inflowMovement);
-          outflows.push(outflowMovement);
-        } else if (solAmount > 0) {
+        if (solAmount > 0) {
           inflows.push(movement);
           toAddress = change.account;
         } else {
@@ -653,6 +650,12 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
     const stakingPrograms = [
       '11111111111111111111111111111112', // System Program (stake account creation)
       'Stake11111111111111111111111111111111111112', // Stake Program
+      'MarBmsSgKXdrN1egZf5sqe1TMai9K1rChYNDJgjq7aD', // Marinade Finance
+      'CREAMfFfjMFogWFdFhLpAiRX8qC3BkyPUz7gW9DDfnMv', // Marinade MNDE staking
+      'CgBg8TebSu4JbGQHRw6W7XvMc2UbNm8PXqEf9YUq4d7w', // Lido (Solido)
+      'SoL1dMULNATED9WvXZVZoLTM1PnJqHQCkfkxLx7dWMk', // Solido Staking
+      'J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn', // Jito Staking
+      'SP12tWFxD9oJsVWNavTTBZvMbA6gkAmxtVgxsgqyXsT', // Sanctum SPL Stake Pool
     ];
 
     return instructions.some((instruction) => instruction.programId && stakingPrograms.includes(instruction.programId));
@@ -665,9 +668,25 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
     if (!instructions) return false;
 
     const dexPrograms = [
-      '9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM', // Serum DEX
-      'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4', // Jupiter
-      '5quBtoiQqxF9Jv6KYKctB59NT3gtJD2Y65kdnB1Uev3h', // Raydium
+      // Aggregators
+      'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4', // Jupiter v6
+      'JUP4Fb2cqiRUcaTHdrPC8h2gNsA2ETXiPDD33WcGuJB', // Jupiter v4
+      'JUP2jxvXaqu7NQY1GmNF4m1vodw12LVXYxbFL2uJvfo', // Jupiter v2
+
+      // DEXs
+      '9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM', // Serum DEX v3
+      '675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8', // Raydium AMM v4
+      '5quBtoiQqxF9Jv6KYKctB59NT3gtJD2Y65kdnB1Uev3h', // Raydium AMM v3
+      'whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc', // Orca Whirlpools
+      '9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin', // Serum DEX v2
+      'DjVE6JNiYqPL2QXyCUUh8rNjHrbz9hXHNYt99MQ59qw1', // Orca v1
+      'PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY', // Phoenix
+      'LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo', // Meteora DLMM
+      'Eo7WjKq67rjJQSZxS6z3YkapzY3eMj6Xy8X5EQVn5UaB', // Meteora Pools
+      '2wT8Yq49kHgDzXuPxZSaeLaH1qbmGXtEyPy64bL7aD3c', // Lifinity v2
+      'EewxydAPCCVuNEyrVN68PuSYdQ7wKn27V9Gjeoi8dy3S', // Lifinity v1
+      'SSwpkEEcbUqx4vtoEByFjSkhKdCT862DNVb52nZg1UZ', // Saber Stable Swap
+      'MERLuDFBMmsHnsBPZw2sDQZHvXFMwp8EdjudcU2HKky', // Mercurial Stable Swap
     ];
 
     return instructions.some((instruction) => instruction.programId && dexPrograms.includes(instruction.programId));
@@ -685,5 +704,33 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
     ];
 
     return instructions.some((instruction) => instruction.programId && tokenPrograms.includes(instruction.programId));
+  }
+
+  /**
+   * Detect NFT-related instructions (for future use)
+   * Can be used to improve classification of NFT mints, transfers, and marketplace transactions
+   */
+  private detectNFTInstructions(instructions: SolanaTransaction['instructions']): boolean {
+    if (!instructions) return false;
+
+    const nftPrograms = [
+      // Metaplex
+      'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s', // Token Metadata Program
+      'p1exdMJcjVao65QdewkaZRUnU6VPSXhus9n2GzWfh98', // Token Metadata (old)
+      'cndy3Z4yapfJBmL3ShUp5exZKqR3z33thTzeNMm2gRZ', // Candy Machine v3
+      'cndyAnrLdpjq1Ssp1z8xxDsB8dxe7u4HL5Nxi2K5WXZ', // Candy Machine v2
+      'CJsLwbP1iu5DuUikHEJnLfANgKy6stB2uFgvBBHoyxwz', // Candy Guard
+      'BGUMAp9Gq7iTEuizy4pqaxsTyUCBK68MDfK752saRPUY', // Bubblegum (cNFTs)
+
+      // Marketplaces
+      'M2mx93ekt1fmXSVkTrUL9xVFHkmME8HTUi5Cyc5aF7K', // Magic Eden v2
+      'MEisE1HzehtrDpAAT8PnLHjpSSkRYakotTuJRPjTpo8', // Magic Eden
+      'TSWAPaqyCSx2KABk68Shruf4rp7CxcNi8hAsbdwmHbN', // Tensor Swap
+      'TCMPhJdwDryooaGtiocG1u3xcYbRpiJzb283XfCZsDp', // Tensor cNFT
+      'hadeK9DLv9eA7ya5KCTqSvSvRZeJC3JgD5a9Y3CNbvu', // Hadeswap
+      'CJsLwbP1iu5DuUikHEJnLfANgKy6stB2uFgvBBHoyxwz', // Coral Cube
+    ];
+
+    return instructions.some((instruction) => instruction.programId && nftPrograms.includes(instruction.programId));
   }
 }
