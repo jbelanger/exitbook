@@ -258,7 +258,12 @@ describe('ThetaExplorerTransactionMapper', () => {
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.error.message).toContain('Unsupported transaction type: 5');
+        const error = result.error;
+        if (error.type === 'error') {
+          expect(error.message).toContain('Unsupported transaction type: 5');
+        } else {
+          expect(error.reason).toContain('Unsupported transaction type: 5');
+        }
       }
     });
   });

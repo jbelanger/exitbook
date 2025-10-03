@@ -45,7 +45,7 @@ export const ThetaSmartContractDataSchema = z.object({
  */
 export const ThetaTransactionSchema = z.object({
   block_height: z.string().regex(/^\d+$/, 'Block height must be numeric string'),
-  data: z.record(z.unknown()),
+  data: z.record(z.string(), z.unknown()),
   hash: z.string().min(1, 'Transaction hash must not be empty'),
   number: z.number().optional(),
   timestamp: z.string().regex(/^\d+$/, 'Timestamp must be numeric string'),

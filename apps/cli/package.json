@@ -19,7 +19,6 @@
     "verify": "tsx ./src/index.ts verify"
   },
   "dependencies": {
-    "@coinbase/cdp-sdk": "^1.36.0",
     "@exitbook/balance": "workspace:*",
     "@exitbook/core": "workspace:*",
     "@exitbook/data": "workspace:*",

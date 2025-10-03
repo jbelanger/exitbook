@@ -130,6 +130,7 @@ export const SubscanTransfersResponseSchema = z.object({
       count: z.number().optional(),
       total: z
         .record(
+          z.string(),
           z.object({
             received: z.string().optional(),
             sent: z.string().optional(),
