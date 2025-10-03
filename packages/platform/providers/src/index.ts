@@ -1,12 +1,31 @@
-// Trigger provider registration before any exports
-// This ensures all providers are registered when the package is imported
-import './core/blockchain/registry/register-apis.js';
-import './core/blockchain/registry/register-mappers.js';
+/**
+ * @exitbook/providers
+ *
+ * Unified package for blockchain and exchange API providers.
+ *
+ * IMPORTANT: Call `initializeProviders()` once at application startup
+ * to register all providers before using them.
+ *
+ * @example
+ * ```typescript
+ * import { initializeProviders } from '@exitbook/providers';
+ *
+ * // Initialize once at startup
+ * initializeProviders();
+ * ```
+ */
 
+// Re-export initialization utilities
+export { initializeProviders, isInitialized } from './initialize.js';
+
+// Re-export core blockchain infrastructure
+export * from './core/blockchain/blockchain-provider-manager.ts';
+export * from './core/blockchain/normalizer.ts';
+export * from './core/blockchain/registry/index.ts';
+
+// Re-export blockchain providers
 export * from './blockchain/bitcoin/index.ts';
 export * from './blockchain/cosmos/index.ts';
 export * from './blockchain/evm/index.ts';
 export * from './blockchain/solana/index.ts';
 export * from './blockchain/substrate/index.ts';
-
-export * from './core/blockchain/blockchain-provider-manager.ts';

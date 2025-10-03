@@ -2,13 +2,14 @@
 /**
  * List all registered providers across all blockchains
  */
-
-// Import all providers to trigger registration
 import type { RateLimitConfig } from '@exitbook/shared-utils';
 
-import '../infrastructure/blockchains/registry/register-apis.js';
 import { ProviderRegistry } from '../core/blockchain/index.ts';
 import type { ProviderCapabilities } from '../core/blockchain/types.ts';
+import { initializeProviders } from '../initialize.js';
+
+// Initialize all providers
+initializeProviders();
 
 function formatRateLimit(rateLimit: RateLimitConfig): string {
   const parts: string[] = [];

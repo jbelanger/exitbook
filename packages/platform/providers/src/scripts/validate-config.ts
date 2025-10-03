@@ -3,11 +3,13 @@
  * Validate blockchain explorer configuration against registered providers
  * Enhanced with automatic fixes and detailed suggestions
  */
-// Import all providers to trigger registration
 import { loadExplorerConfig } from '@exitbook/shared-utils';
 
-import '../infrastructure/blockchains/registry/register-apis.js';
 import { ProviderRegistry } from '../core/blockchain/index.ts';
+import { initializeProviders } from '../initialize.js';
+
+// Initialize all providers
+initializeProviders();
 
 interface ConfigValidationOptions {
   fix?: boolean | undefined;

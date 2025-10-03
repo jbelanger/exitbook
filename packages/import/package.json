@@ -14,13 +14,8 @@
   "main": "src/index.ts",
   "types": "src/index.ts",
   "scripts": {
-    "blockchain-config:generate": "tsx src/scripts/generate-config.ts",
-    "blockchain-config:validate": "tsx src/scripts/validate-config.ts",
-    "blockchain-providers:list": "tsx src/scripts/list-providers.ts",
-    "blockchain-providers:validate": "tsx src/scripts/validate-providers.ts",
     "build": "tsc --noEmit",
     "clean": "rm -rf node_modules dist",
-    "config:validate": "tsx src/scripts/validate-config.ts",
     "exchanges:generate": "tsx src/scripts/generate-exchange-config.ts",
     "exchanges:list": "tsx src/scripts/list-exchange-adapters.ts",
     "exchanges:validate": "tsx src/scripts/validate-exchange-registry.ts",
@@ -28,9 +23,6 @@
     "lint": "eslint \"src/**/*.ts\"",
     "prettier": "prettier --check .",
     "prettier:fix": "prettier --write .",
-    "providers:list": "tsx src/scripts/list-providers.ts",
-    "providers:sync": "tsx src/scripts/sync-providers.ts",
-    "providers:validate": "tsx src/scripts/validate-providers.ts",
     "test": "vitest run"
   },
   "dependencies": {

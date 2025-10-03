@@ -1,9 +1,9 @@
-import type { NormalizationError } from '@exitbook/import/app/ports/blockchain-normalizer.interface.ts';
-import type { RawTransactionMetadata } from '@exitbook/import/app/ports/importers.ts';
-import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transaction-processor.interface.ts';
+import type { ImportSessionMetadata, RawTransactionMetadata } from '@exitbook/data';
 import { type Result, err, ok } from 'neverthrow';
 
-import { TransactionMapperFactory } from '../processors/processor-registry.js';
+import type { NormalizationError } from '../../ports/blockchain-normalizer.interface.js';
+
+import { TransactionMapperFactory } from './registry/decorators.js';
 
 /**
  * DefaultNormalizer handles pure data extraction from provider-specific JSON

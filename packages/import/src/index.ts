@@ -11,6 +11,6 @@ export { TransactionRepository } from './infrastructure/persistence/transaction-
 export { RawDataRepository } from './infrastructure/persistence/raw-data-repository.ts';
 export { ImportSessionRepository } from './infrastructure/persistence/import-session-repository.ts';
 
-export { DefaultNormalizer } from './infrastructure/shared/normalizers/normalizer.ts';
+export { DefaultNormalizer } from '@exitbook/providers';
 export { ImporterFactory } from './infrastructure/shared/importers/importer-factory.ts';
 export { ProcessorFactory } from './infrastructure/shared/processors/processor-factory.ts';

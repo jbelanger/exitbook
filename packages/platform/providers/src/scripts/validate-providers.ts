@@ -2,12 +2,14 @@
 /**
  * Validate that all providers are properly registered and functional
  */
-// Import all providers to trigger registration
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import '../infrastructure/blockchains/registry/register-apis.js';
 import { ProviderRegistry } from '../core/blockchain/index.ts';
+import { initializeProviders } from '../initialize.js';
+
+// Initialize all providers
+initializeProviders();
 
 interface ValidationError {
   message: string;

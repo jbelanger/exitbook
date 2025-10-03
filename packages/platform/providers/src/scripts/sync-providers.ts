@@ -8,9 +8,11 @@ import { resolve } from 'node:path';
  */
 import type { BlockchainExplorersConfig } from '@exitbook/shared-utils';
 
-// Import all providers to trigger registration
-import '../infrastructure/blockchains/registry/register-apis.js';
 import { ProviderRegistry } from '../core/blockchain/index.ts';
+import { initializeProviders } from '../initialize.js';
+
+// Initialize all providers
+initializeProviders();
 
 interface SyncResult {
   blockchain: string;

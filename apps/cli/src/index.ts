@@ -13,15 +13,18 @@ import {
   ImporterFactory,
   ProcessorFactory,
 } from '@exitbook/import';
-// Import providers package to trigger auto-registration
-import '@exitbook/providers';
+import {
+  initializeProviders,
+  BlockchainProviderManager,
+  type ProviderInfo,
+  ProviderRegistry,
+} from '@exitbook/providers';
 import { getLogger } from '@exitbook/shared-logger';
 import { loadExplorerConfig } from '@exitbook/shared-utils';
 import { Command } from 'commander';
 
-import { BlockchainProviderManager } from '../../../packages/platform/providers/src/core/blockchain/blockchain-provider-manager.ts';
-import type { ProviderInfo } from '../../../packages/platform/providers/src/core/blockchain/registry/provider-registry.ts';
-import { ProviderRegistry } from '../../../packages/platform/providers/src/core/blockchain/registry/provider-registry.ts';
+// Initialize all providers at startup
+initializeProviders();
 
 const logger = getLogger('CLI');
 const program = new Command();
