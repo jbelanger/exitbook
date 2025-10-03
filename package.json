@@ -7,6 +7,7 @@
     "transactions",
     "import"
   ],
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "blockchain-config:generate": "pnpm -F @exitbook/import blockchain-config:generate",
@@ -27,6 +28,7 @@
     "providers:validate": "pnpm -F @exitbook/import providers:validate",
     "status": "pnpm -F exitbook-cli status",
     "test": "pnpm -r run test",
+    "test:coverage": "node --env-file-if-exists .env node_modules/vitest/vitest.mjs run --coverage",
     "test:e2e": "node --env-file-if-exists .env node_modules/vitest/vitest.mjs run --config vitest.e2e.config.ts",
     "verify": "pnpm -F exitbook-cli verify"
   },

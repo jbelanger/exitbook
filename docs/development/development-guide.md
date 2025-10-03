@@ -167,7 +167,7 @@ The import pipeline works out of the box: if `packages/import/config/blockchain-
 
 ### Environment Variables
 
-Provider metadata declares the recommended API-key env var (e.g., `SOLANA_HELIUS_API_KEY`). The client reads it automatically; never embed secrets in JSON. Configure keys in the repo-root `.env` used by pnpm scripts.
+Provider metadata declares the recommended API-key env var (e.g., `HELIUS_API_KEY`). The client reads it automatically; never embed secrets in JSON. Configure keys in the repo-root `.env` used by pnpm scripts.
 
 ### Tooling
 

@@ -18,7 +18,7 @@ export interface SolanaRawTokenBalanceData {
 }
 
 @RegisterApiClient({
-  apiKeyEnvVar: 'SOLANA_HELIUS_API_KEY',
+  apiKeyEnvVar: 'HELIUS_API_KEY',
   baseUrl: 'https://rpc.helius.xyz',
   blockchain: 'solana',
   capabilities: {

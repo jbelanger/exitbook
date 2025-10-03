@@ -4,7 +4,12 @@
 
 ExitBook is a pnpm-managed TypeScript monorepo that provides a CLI for importing, normalizing, and verifying cryptocurrency activity. The tool ingests exchange CSV exports and blockchain explorer APIs, persists raw data in SQLite via Kysely, and materializes a universal transaction schema for downstream analysis.
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D23-blue.svg)](https://nodejs.org)
+[![pnpm](https://img.shields.io/badge/pnpm-%3E%3D10.6.2-orange.svg)](https://pnpm.io)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org/)
+[![Test Suite](https://github.com/jbelanger/exitbook/actions/workflows/test.yml/badge.svg)](https://github.com/jbelanger/exitbook/actions/workflows/test.yml)
+[![codecov](https://codecov.io/gh/jbelanger/exitbook/branch/main/graph/badge.svg)](https://codecov.io/gh/jbelanger/exitbook)
 
 ## Overview
 
@@ -105,7 +110,7 @@ Each run stores the raw rows inside `external_transaction_data` tagged with the 
 
 #### Blockchain workflow
 
-1. Ensure any required API keys are exported (e.g. `ALCHEMY_API_KEY`, `SOLANA_HELIUS_API_KEY`).
+1. Ensure any required API keys are exported (e.g. `ALCHEMY_API_KEY`, `HELIUS_API_KEY`).
 2. Optionally prepare `config/blockchain-explorers.json` to pin providers or rate limits.
 3. Execute the import with your wallet address. Examples:
 
@@ -324,7 +329,7 @@ Some providers require API keys. Set them in your shell or `.env`:
 - `ALCHEMY_API_KEY`
 - `MORALIS_API_KEY`
 - `SNOWTRACE_API_KEY`
-- `SOLANA_HELIUS_API_KEY`
+- `HELIUS_API_KEY`
 - `SOLSCAN_API_KEY`
 - `TATUM_API_KEY`
 - `TAOSTATS_API_KEY`

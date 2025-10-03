@@ -9,6 +9,7 @@ import type { AddressInfo } from '../types.js';
 import type { BlockstreamAddressInfo, BlockstreamTransaction } from './blockstream.types.js';
 
 @RegisterApiClient({
+  apiKeyEnvVar: 'BLOCKSTREAM_API_KEY',
   baseUrl: 'https://blockstream.info/api',
   blockchain: 'bitcoin',
   capabilities: {
