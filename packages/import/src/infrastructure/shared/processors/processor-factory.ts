@@ -14,7 +14,7 @@ export class ProcessorFactory implements IProcessorFactory {
    */
   async getSupportedSources(sourceType: 'exchange' | 'blockchain'): Promise<string[]> {
     if (sourceType === 'exchange') {
-      return ['kraken', 'kucoin', 'coinbase', 'ledgerlive'];
+      return ['kraken', 'kucoin', 'ledgerlive'];
     }
 
     if (sourceType === 'blockchain') {
@@ -40,7 +40,7 @@ export class ProcessorFactory implements IProcessorFactory {
   async isSupported(sourceId: string, sourceType: string): Promise<boolean> {
     try {
       if (sourceType === 'exchange') {
-        return ['coinbase', 'kraken', 'kucoin', 'ledgerlive'].includes(sourceId.toLowerCase());
+        return ['kraken', 'kucoin', 'ledgerlive'].includes(sourceId.toLowerCase());
       }
 
       if (sourceType === 'blockchain') {
@@ -135,12 +135,6 @@ export class ProcessorFactory implements IProcessorFactory {
   /**
    * Create Coinbase processor.
    */
-  private async createCoinbaseProcessor(): Promise<ITransactionProcessor> {
-    // Dynamic import to avoid circular dependencies
-    const { CoinbaseProcessor } = await import('../../exchanges/coinbase/processor.js');
-    return new CoinbaseProcessor();
-  }
-
   /**
    * Create an exchange processor.
    */
@@ -151,9 +145,6 @@ export class ProcessorFactory implements IProcessorFactory {
 
       case 'kucoin':
         return await this.createKucoinProcessor();
-
-      case 'coinbase':
-        return await this.createCoinbaseProcessor();
 
       case 'ledgerlive':
         return await this.createLedgerLiveProcessor();

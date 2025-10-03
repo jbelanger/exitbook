@@ -128,12 +128,6 @@ export class ImporterFactory implements IImporterFactory {
   /**
    * Create Coinbase importer.
    */
-  private async createCoinbaseImporter(): Promise<IImporter> {
-    // Dynamic import to avoid circular dependencies
-    const { CoinbaseImporter } = await import('../../exchanges/coinbase/importer.js');
-    return new CoinbaseImporter() as unknown as IImporter;
-  }
-
   /**
    * Create an exchange importer.
    */
@@ -145,9 +139,6 @@ export class ImporterFactory implements IImporterFactory {
 
       case 'kucoin':
         return await this.createKucoinImporter();
-
-      case 'coinbase':
-        return await this.createCoinbaseImporter();
 
       case 'ledgerlive':
         return await this.createLedgerLiveImporter();

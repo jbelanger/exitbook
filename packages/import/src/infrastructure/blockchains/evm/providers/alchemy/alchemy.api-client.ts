@@ -137,10 +137,6 @@ export class AlchemyApiClient extends BlockchainApiClient {
 
     allTransfers.push(...fromTransfers, ...toTransfers);
 
-    // TEMPORARILY DISABLE deduplication
-    this.logger.debug(
-      `Total transfers WITHOUT deduplication: ${allTransfers.length} (from ${fromTransfers.length} outgoing + ${toTransfers.length} incoming)`
-    );
     return allTransfers;
   }
 

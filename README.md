@@ -268,12 +268,11 @@ Lists blockchains that have a processor and at least one registered provider. Co
 
 ### Exchanges (CSV importers)
 
-| Source       | Status | Notes                                                                                                             |
-| ------------ | ------ | ----------------------------------------------------------------------------------------------------------------- |
-| `kraken`     | ✅     | Parses ledger exports, validates rows with Zod, transforms via `KrakenProcessor`.                                 |
-| `kucoin`     | ✅     | Handles trading/deposit/withdrawal/account-history CSV sets.                                                      |
-| `ledgerlive` | ✅     | Imports Ledger Live operation exports and maps staking/governance flows.                                          |
-| `coinbase`   | ⚠️     | Processor and API client exist, but the importer currently returns `CoinbaseImporter.import not yet implemented`. |
+| Source       | Status | Notes                                                                             |
+| ------------ | ------ | --------------------------------------------------------------------------------- |
+| `kraken`     | ✅     | Parses ledger exports, validates rows with Zod, transforms via `KrakenProcessor`. |
+| `kucoin`     | ✅     | Handles trading/deposit/withdrawal/account-history CSV sets.                      |
+| `ledgerlive` | ✅     | Imports Ledger Live operation exports and maps staking/governance flows.          |
 
 Each importer stores raw rows in `external_transaction_data` before processing, allowing retries without re-reading CSVs.
 

@@ -74,7 +74,7 @@ async function main() {
   program
     .command('verify')
     .description('Verify calculated balances from imported transaction data')
-    .option('--exchange <name>', 'Exchange name to verify (e.g., kraken, coinbase)')
+    .option('--exchange <name>', 'Exchange name to verify (e.g., kraken, kucoin)')
     .option('--blockchain <name>', 'Blockchain name to verify (e.g., bitcoin, ethereum)')
     .option('--report', 'Generate detailed verification report')
     .option('--clear-db', 'Clear and reinitialize database before verification')
@@ -225,7 +225,7 @@ async function main() {
   program
     .command('import')
     .description('Import raw data from external sources (blockchain or exchange)')
-    .option('--exchange <name>', 'Exchange name (e.g., kraken, coinbase, kucoin)')
+    .option('--exchange <name>', 'Exchange name (e.g., kraken, kucoin, ledgerlive)')
     .option('--blockchain <name>', 'Blockchain name (e.g., bitcoin, ethereum, polkadot, bittensor)')
     .option('--csv-dir <path>', 'CSV directory for exchange sources')
     .option('--address <address>', 'Wallet address for blockchain source')
@@ -370,7 +370,7 @@ async function main() {
   program
     .command('process')
     .description('Transform raw imported data to universal transaction format')
-    .option('--exchange <name>', 'Exchange name (e.g., kraken, coinbase, kucoin)')
+    .option('--exchange <name>', 'Exchange name (e.g., kraken, kucoin, ledgerlive)')
     .option('--blockchain <name>', 'Blockchain name (e.g., bitcoin, ethereum, polkadot, bittensor)')
     .option('--session <id>', 'Import session ID to process')
     .option('--since <date>', 'Process data since date (YYYY-MM-DD or timestamp)')
