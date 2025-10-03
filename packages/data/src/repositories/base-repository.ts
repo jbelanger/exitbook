@@ -128,7 +128,7 @@ export abstract class BaseRepository {
     if (data === undefined || data === null) return undefined;
 
     try {
-      return JSON.stringify(data, (key, value: unknown) => {
+      return JSON.stringify(data, (_key, value: unknown) => {
         // Convert Decimal objects to strings for proper serialization
         if (
           value &&
