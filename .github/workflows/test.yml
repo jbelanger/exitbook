@@ -1,5 +1,8 @@
 name: Test Suite
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: [ main, develop ]
@@ -45,6 +48,9 @@ jobs:
         file: ./coverage/lcov.info
 
   e2e-tests:
+    permissions:
+      contents: read
+      issues: write
     runs-on: ubuntu-latest
     # Only run E2E tests if we have secrets (not on forks)
     if: github.repository_owner == 'your-username' && (github.event_name == 'schedule' || github.event_name == 'push')
