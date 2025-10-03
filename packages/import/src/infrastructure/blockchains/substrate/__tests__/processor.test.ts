@@ -538,7 +538,7 @@ describe('SubstrateProcessor - Utility Operations', () => {
     expect(transaction.movements.inflows.length).toBe(0);
     expect(transaction.fees.network?.amount.toString()).toBe('0.0256');
     expect(transaction.note).toBeDefined();
-    expect(transaction.note?.type).toBe('utility_batch');
+    expect(transaction.note?.type).toBe('batch_operation');
     expect(transaction.metadata?.module).toBe('utility');
     expect(transaction.metadata?.call).toBe('batch');
   });
@@ -579,7 +579,7 @@ describe('SubstrateProcessor - Utility Operations', () => {
     expect(transaction.operation.type).toBe('transfer');
     expect(transaction.movements.primary.direction).toBe('out');
     expect(transaction.note).toBeDefined();
-    expect(transaction.note?.type).toBe('utility_batch');
+    expect(transaction.note?.type).toBe('batch_operation');
     expect(transaction.metadata?.call).toBe('batch_all');
   });
 });

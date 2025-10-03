@@ -102,6 +102,7 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
             chainName: fundFlow.chainName,
             module: fundFlow.module,
             providerId: normalizedTx.providerId,
+            events: normalizedTx.events ?? [],
           },
         };
 
@@ -405,7 +406,7 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
             outflows: outflows.map((o) => ({ amount: o.amount, asset: o.asset })),
           },
           severity: 'warning',
-          type: 'utility_batch',
+          type: 'batch_operation',
         },
         operation: {
           category: 'transfer',

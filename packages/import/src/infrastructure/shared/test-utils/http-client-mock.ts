@@ -46,6 +46,7 @@ interface HttpClientMock {
  */
 export function createHttpClientMock(): HttpClientMock {
   const mockHttpClient = {
+    get: vi.fn(),
     getRateLimitStatus: vi.fn(() => ({
       remainingRequests: 10,
       resetTime: Date.now() + 60000,

@@ -1,4 +1,3 @@
-import type { HttpRequestOptions } from '@exitbook/shared-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ProviderRegistry } from '../../../shared/index.ts';
@@ -7,15 +6,20 @@ import type { AddressInfo } from '../../types.js';
 import { TatumBitcoinApiClient } from '../tatum-bitcoin.api-client.js';
 import type { TatumBitcoinTransaction, TatumBitcoinBalance } from '../tatum.types.js';
 
-// Mock the HttpClient
-vi.mock('@exitbook/shared-utils', () => ({
-  HttpClient: vi.fn().mockImplementation(() => ({
-    get: vi.fn(),
+const mockHttpClient = {
+  get: vi.fn(),
+  getRateLimitStatus: vi.fn(() => ({
+    remainingRequests: 10,
+    resetTime: Date.now() + 60000,
   })),
+  request: vi.fn(),
+};
+
+vi.mock('@exitbook/shared-utils', () => ({
+  HttpClient: vi.fn(() => mockHttpClient),
   maskAddress: (address: string) => `${address.slice(0, 4)}...${address.slice(-4)}`,
 }));
 
-// Mock the logger
 vi.mock('@exitbook/shared-logger', () => ({
   getLogger: vi.fn(() => ({
     debug: vi.fn(),
@@ -34,11 +38,20 @@ describe('TatumBitcoinApiClient', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockHttpClient.get = vi.fn();
+    mockHttpClient.request = vi.fn();
+    mockHttpClient.getRateLimitStatus = vi.fn(() => ({
+      remainingRequests: 10,
+      resetTime: Date.now() + 60000,
+    }));
     const config = ProviderRegistry.createDefaultConfig('bitcoin', 'tatum');
     client = new TatumBitcoinApiClient(config);
-    mockHttpGet = vi.mocked((...args: [string, Omit<HttpRequestOptions, 'method'>?]) =>
-      client['httpClient'].get(...args)
-    );
+    Object.defineProperty(client, 'httpClient', {
+      configurable: true,
+      value: mockHttpClient,
+      writable: true,
+    });
+    mockHttpGet = mockHttpClient.get;
   });
 
   describe('constructor', () => {
@@ -112,10 +125,7 @@ describe('TatumBitcoinApiClient', () => {
 
       const result = await client.getRawAddressTransactions(mockAddress);
 
-      expect(mockHttpGet).toHaveBeenCalledWith(`/transaction/address/${mockAddress}`, {
-        offset: 0,
-        pageSize: 50,
-      });
+      expect(mockHttpGet).toHaveBeenCalledWith(`/transaction/address/${mockAddress}?offset=0&pageSize=50`);
       expect(result).toEqual(mockTransactions);
     });
 
@@ -130,13 +140,9 @@ describe('TatumBitcoinApiClient', () => {
         txType: 'incoming',
       });
 
-      expect(mockHttpGet).toHaveBeenCalledWith(`/transaction/address/${mockAddress}`, {
-        blockFrom: 100,
-        blockTo: 200,
-        offset: 10,
-        pageSize: 25,
-        txType: 'incoming',
-      });
+      expect(mockHttpGet).toHaveBeenCalledWith(
+        `/transaction/address/${mockAddress}?offset=10&pageSize=25&blockFrom=100&blockTo=200&txType=incoming`
+      );
     });
 
     it('should limit pageSize to 50 max', async () => {
@@ -144,10 +150,7 @@ describe('TatumBitcoinApiClient', () => {
 
       await client.getRawAddressTransactions(mockAddress, { pageSize: 100 });
 
-      expect(mockHttpGet).toHaveBeenCalledWith(`/transaction/address/${mockAddress}`, {
-        offset: 0,
-        pageSize: 50, // Should be capped at 50
-      });
+      expect(mockHttpGet).toHaveBeenCalledWith(`/transaction/address/${mockAddress}?offset=0&pageSize=50`);
     });
 
     it('should return empty array when no transactions found', async () => {
@@ -178,7 +181,7 @@ describe('TatumBitcoinApiClient', () => {
 
       const result = await client.getRawAddressBalance(mockAddress);
 
-      expect(mockHttpGet).toHaveBeenCalledWith(`/address/${mockAddress}/balance`, undefined);
+      expect(mockHttpGet).toHaveBeenCalledWith(`/address/balance/${mockAddress}`);
       expect(result).toEqual(mockBalance);
     });
 
@@ -274,7 +277,7 @@ describe('TatumBitcoinApiClient', () => {
       if (result.isOk()) {
         expect(result.value).toBe(true);
       }
-      expect(mockHttpGet).toHaveBeenCalledWith('/address/1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa/balance', undefined);
+      expect(mockHttpGet).toHaveBeenCalledWith('/address/balance/1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa');
     });
 
     it('should return false when API is unhealthy', async () => {
