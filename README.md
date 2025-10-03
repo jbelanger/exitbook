@@ -4,7 +4,7 @@
 
 ExitBook is a pnpm-managed TypeScript monorepo that provides a CLI for importing, normalizing, and verifying cryptocurrency activity. The tool ingests exchange CSV exports and blockchain explorer APIs, persists raw data in SQLite via Kysely, and materializes a universal transaction schema for downstream analysis.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D23-blue.svg)](https://nodejs.org)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D10.6.2-orange.svg)](https://pnpm.io)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org/)

@@ -7,7 +7,7 @@
     "transactions",
     "import"
   ],
-  "license": "MIT",
+  "license": "AGPL-3.0",
   "type": "module",
   "scripts": {
     "blockchain-config:generate": "pnpm -F @exitbook/import blockchain-config:generate",

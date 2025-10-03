@@ -1,0 +1,60 @@
+{
+  "name": "@exitbook/providers",
+  "version": "0.1.0",
+  "private": true,
+  "description": "",
+  "license": "AGPL-3.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./app/*": "./src/app/*",
+    "./domain/*": "./src/domain/*",
+    "./infrastructure/*": "./src/infrastructure/*"
+  },
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "blockchain-config:generate": "tsx src/scripts/generate-config.ts",
+    "blockchain-config:validate": "tsx src/scripts/validate-config.ts",
+    "blockchain-providers:list": "tsx src/scripts/list-providers.ts",
+    "blockchain-providers:validate": "tsx src/scripts/validate-providers.ts",
+    "build": "tsc --noEmit",
+    "clean": "rm -rf node_modules dist",
+    "config:validate": "tsx src/scripts/validate-config.ts",
+    "exchanges:generate": "tsx src/scripts/generate-exchange-config.ts",
+    "exchanges:list": "tsx src/scripts/list-exchange-adapters.ts",
+    "exchanges:validate": "tsx src/scripts/validate-exchange-registry.ts",
+    "exchanges:validate-config": "tsx src/scripts/validate-exchange-config.ts",
+    "lint": "eslint \"src/**/*.ts\"",
+    "prettier": "prettier --check .",
+    "prettier:fix": "prettier --write .",
+    "providers:list": "tsx src/scripts/list-providers.ts",
+    "providers:sync": "tsx src/scripts/sync-providers.ts",
+    "providers:validate": "tsx src/scripts/validate-providers.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@scure/bip32": "^1.7.0",
+    "@types/jsonwebtoken": "^9.0.10",
+    "bech32": "^2.0.0",
+    "bitcoinjs-lib": "^6.1.7",
+    "csv-parse": "^6.1.0",
+    "decimal.js": "^10.6.0",
+    "jose": "^6.0.13",
+    "jsonwebtoken": "^9.0.2",
+    "neverthrow": "^8.2.0",
+    "reflect-metadata": "^0.2.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "tsconfig": "workspace:*",
+    "tsx": "^4.20.4",
+    "typescript": "^5.9.2"
+  },
+  "peerDependencies": {
+    "@exitbook/core": "workspace:*",
+    "@exitbook/data": "workspace:*",
+    "@exitbook/shared-logger": "workspace:*",
+    "@exitbook/shared-utils": "workspace:*"
+  }
+}
