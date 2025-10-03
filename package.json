@@ -26,12 +26,8 @@
     "providers:sync": "pnpm -F @exitbook/import providers:sync",
     "providers:validate": "pnpm -F @exitbook/import providers:validate",
     "status": "pnpm -F exitbook-cli status",
-    "test": "vitest run",
-    "test:coverage": "vitest run --coverage",
+    "test": "pnpm -r run test",
     "test:e2e": "node --env-file-if-exists .env node_modules/vitest/vitest.mjs run --config vitest.e2e.config.ts",
-    "test:ui": "vitest --ui",
-    "test:unit": "vitest run",
-    "test:watch": "vitest",
     "verify": "pnpm -F exitbook-cli verify"
   },
   "lint-staged": {
