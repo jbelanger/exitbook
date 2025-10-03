@@ -1,6 +1,6 @@
+import { parseDecimal, createMoney } from '@exitbook/core';
 import type { RawData } from '@exitbook/data';
 import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
-import { createMoney, parseDecimal } from '@exitbook/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';

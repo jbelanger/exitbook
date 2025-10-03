@@ -1,8 +1,6 @@
-import { maskAddress } from '@exitbook/shared-utils';
-
-import { BaseApiClient } from '../../../../core/blockchain/base/api-client.ts';
 import type { ProviderConfig, ProviderOperation } from '../../../../core/blockchain/index.ts';
-import { RegisterApiClient } from '../../../../core/blockchain/index.ts';
+import { BaseApiClient, RegisterApiClient } from '../../../../core/blockchain/index.ts';
+import { maskAddress } from '../../../../core/blockchain/utils/address-utils.ts';
 import type { SubstrateChainConfig } from '../../chain-config.interface.ts';
 import { getSubstrateChainConfig } from '../../chain-registry.ts';
 import { isValidSS58Address } from '../../utils.ts';

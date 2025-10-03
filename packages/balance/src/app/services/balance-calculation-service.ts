@@ -1,5 +1,5 @@
+import { stringToDecimal } from '@exitbook/core';
 import type { StoredTransaction } from '@exitbook/data';
-import { stringToDecimal } from '@exitbook/shared-utils';
 import { Decimal } from 'decimal.js';
 
 export class BalanceCalculationService {

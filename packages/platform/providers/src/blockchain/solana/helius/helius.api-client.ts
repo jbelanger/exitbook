@@ -1,8 +1,7 @@
-import { maskAddress } from '@exitbook/shared-utils';
-
 import { BaseApiClient } from '../../../core/blockchain/base/api-client.ts';
 import type { JsonRpcResponse, ProviderConfig, ProviderOperation } from '../../../core/blockchain/index.ts';
 import { RegisterApiClient } from '../../../core/blockchain/index.ts';
+import { maskAddress } from '../../../core/blockchain/utils/address-utils.ts';
 import type { SolanaAccountBalance, SolanaSignature, SolanaTokenAccountsResponse } from '../types.js';
 import { isValidSolanaAddress } from '../utils.js';
 

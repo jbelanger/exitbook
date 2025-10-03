@@ -1,9 +1,7 @@
-import { maskAddress } from '@exitbook/shared-utils';
-
-import { BaseApiClient } from '../../../../core/blockchain/base/api-client.ts';
 import type { ProviderConfig } from '../../../../core/blockchain/index.ts';
-import { RegisterApiClient } from '../../../../core/blockchain/index.ts';
+import { BaseApiClient, RegisterApiClient } from '../../../../core/blockchain/index.ts';
 import type { ProviderOperation, JsonRpcResponse } from '../../../../core/blockchain/types/index.ts';
+import { maskAddress } from '../../../../core/blockchain/utils/address-utils.ts';
 
 import type {
   AlchemyAssetTransfer,

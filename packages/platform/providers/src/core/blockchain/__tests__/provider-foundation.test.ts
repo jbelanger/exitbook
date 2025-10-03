@@ -3,12 +3,13 @@
  * Tests core interfaces, circuit breaker, and provider manager functionality
  */
 
-import type { RateLimitConfig } from '@exitbook/shared-utils';
+import type { RateLimitConfig } from '@exitbook/platform-http';
 import { err, ok, type Result } from 'neverthrow';
-import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
 
 // Import clients to trigger registration
 import '../../../blockchain/evm/register-apis.js';
+import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
+
 import { BlockchainProviderManager } from '../provider-manager.ts';
 import { ProviderRegistry } from '../registry/provider-registry.js';
 import type { ProviderInfo } from '../types/index.js';

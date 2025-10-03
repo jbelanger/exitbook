@@ -1,4 +1,4 @@
-import type { RateLimitConfig } from '@exitbook/shared-utils';
+import type { RateLimitConfig } from '@exitbook/platform-http';
 
 import type { IBlockchainProvider, ProviderCapabilities } from './provider.ts';
 

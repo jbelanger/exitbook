@@ -13,11 +13,12 @@
  * Use BlockCypher as emergency fallback or for addresses with few transactions only.
  */
 
-import { hasStringProperty, maskAddress } from '@exitbook/shared-utils';
+import { hasStringProperty } from '@exitbook/shared-utils';
 
 import { BaseApiClient } from '../../../core/blockchain/base/api-client.ts';
 import type { ProviderConfig, ProviderOperation } from '../../../core/blockchain/index.ts';
 import { RegisterApiClient } from '../../../core/blockchain/index.ts';
+import { maskAddress } from '../../../core/blockchain/utils/address-utils.ts';
 import type { AddressInfo } from '../types.js';
 
 import type { BlockCypherTransaction, BlockCypherAddress } from './blockcypher.types.js';

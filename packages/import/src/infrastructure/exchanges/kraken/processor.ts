@@ -1,6 +1,6 @@
+import { createMoney, parseDecimal } from '@exitbook/core';
 import type { RawData } from '@exitbook/data';
 import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
-import { createMoney, parseDecimal } from '@exitbook/shared-utils';
 import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 

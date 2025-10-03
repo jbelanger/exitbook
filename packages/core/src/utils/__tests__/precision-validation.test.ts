@@ -1,7 +1,7 @@
 import { Decimal } from 'decimal.js';
 import { describe, expect, it, vi } from 'vitest';
 
-import { canSafelyConvertToNumber, safeDecimalToNumber } from '../../../../core/src/utils/decimal-utils.ts';
+import { canSafelyConvertToNumber, safeDecimalToNumber } from '../decimal-utils.ts';
 
 describe('Precision Validation', () => {
   describe('canSafelyConvertToNumber', () => {

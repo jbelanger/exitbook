@@ -2,7 +2,8 @@
 /**
  * List all registered providers across all blockchains
  */
-import type { RateLimitConfig } from '@exitbook/shared-utils';
+
+import type { RateLimitConfig } from '@exitbook/platform-http';
 
 import { ProviderRegistry } from '../core/blockchain/index.ts';
 import type { ProviderCapabilities } from '../core/blockchain/types/index.ts';

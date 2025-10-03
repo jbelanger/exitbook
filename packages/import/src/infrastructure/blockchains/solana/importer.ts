@@ -4,11 +4,9 @@ import type {
   ImportParams,
   ImportRunResult,
 } from '@exitbook/import/app/ports/importers.js';
-import type { BlockchainProviderManager } from '@exitbook/providers';
+import type { BlockchainProviderManager, ProviderError } from '@exitbook/providers';
 import { getLogger, type Logger } from '@exitbook/shared-logger';
 import { err, type Result } from 'neverthrow';
-
-import type { ProviderError } from '../../../../../platform/providers/src/core/blockchain/index.ts';
 
 /**
  * Solana transaction importer that fetches raw transaction data from blockchain APIs.

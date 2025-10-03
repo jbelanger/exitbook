@@ -1,9 +1,8 @@
-import { maskAddress } from '@exitbook/shared-utils';
-
 import { BaseApiClient } from '../../../core/blockchain/base/api-client.ts';
 import type { ProviderConfig } from '../../../core/blockchain/index.ts';
 import { RegisterApiClient } from '../../../core/blockchain/index.ts';
 import type { ProviderOperation } from '../../../core/blockchain/types/index.ts';
+import { maskAddress } from '../../../core/blockchain/utils/address-utils.ts';
 import type { AddressInfo } from '../types.js';
 
 import type { BlockstreamAddressInfo, BlockstreamTransaction } from './blockstream.types.js';

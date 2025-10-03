@@ -1,9 +1,9 @@
-import { maskAddress } from '@exitbook/shared-utils';
-import { ServiceError } from '@exitbook/shared-utils';
+import { ServiceError } from '@exitbook/platform-http';
 
 import { BaseApiClient } from '../../../../core/blockchain/base/api-client.ts';
 import type { ProviderConfig, ProviderOperation } from '../../../../core/blockchain/index.ts';
 import { RegisterApiClient } from '../../../../core/blockchain/index.ts';
+import { maskAddress } from '../../../../core/blockchain/utils/address-utils.ts';
 
 import type {
   SnowtraceApiResponse,

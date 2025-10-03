@@ -1,6 +1,6 @@
+import { parseDecimal } from '@exitbook/core';
 import type { RawTransactionMetadata, ImportSessionMetadata } from '@exitbook/data';
 import { getLogger } from '@exitbook/shared-logger';
-import { parseDecimal } from '@exitbook/shared-utils';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../../core/blockchain/base/mapper.ts';

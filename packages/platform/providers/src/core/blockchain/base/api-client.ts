@@ -1,7 +1,7 @@
+import type { RateLimitConfig } from '@exitbook/platform-http';
+import { HttpClient, RateLimitError } from '@exitbook/platform-http';
 import type { Logger } from '@exitbook/shared-logger';
 import { getLogger } from '@exitbook/shared-logger';
-import type { RateLimitConfig } from '@exitbook/shared-utils';
-import { HttpClient, RateLimitError } from '@exitbook/shared-utils';
 import { err, ok, type Result } from 'neverthrow';
 
 import { ProviderRegistry } from '../registry/provider-registry.ts';

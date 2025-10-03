@@ -1,5 +1,5 @@
+import { parseDecimal } from '@exitbook/core';
 import type { RawTransactionMetadata, ImportSessionMetadata } from '@exitbook/data';
-import { parseDecimal } from '@exitbook/shared-utils';
 import { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
