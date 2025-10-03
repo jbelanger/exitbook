@@ -4,9 +4,11 @@ import type {
   ImportRunResult,
   RawTransactionWithMetadata,
 } from '@exitbook/import/app/ports/importers.js';
-import type { BlockchainProviderManager, CosmosChainConfig, ProviderError } from '@exitbook/providers';
+import type { BlockchainProviderManager, CosmosChainConfig } from '@exitbook/providers';
 import { getLogger, type Logger } from '@exitbook/shared-logger';
 import { err, type Result } from 'neverthrow';
+
+import type { ProviderError } from '../../../../../platform/providers/src/core/blockchain/index.ts';
 
 /**
  * Generic Cosmos SDK transaction importer that fetches raw transaction data from blockchain APIs.

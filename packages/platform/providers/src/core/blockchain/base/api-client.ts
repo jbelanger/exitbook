@@ -4,14 +4,20 @@ import type { RateLimitConfig } from '@exitbook/shared-utils';
 import { HttpClient, RateLimitError } from '@exitbook/shared-utils';
 import { err, ok, type Result } from 'neverthrow';
 
-import { type ProviderConfig, type ProviderMetadata, ProviderRegistry } from '../registry/provider-registry.ts';
-import type { IBlockchainProvider, ProviderCapabilities, ProviderOperation } from '../types.ts';
+import { ProviderRegistry } from '../registry/provider-registry.ts';
+import type {
+  IBlockchainProvider,
+  ProviderCapabilities,
+  ProviderConfig,
+  ProviderMetadata,
+  ProviderOperation,
+} from '../types/index.ts';
 
 /**
  * Abstract base class for registry-based providers
  * Handles all common provider functionality using registry metadata
  */
-export abstract class BlockchainApiClient implements IBlockchainProvider {
+export abstract class BaseApiClient implements IBlockchainProvider {
   protected readonly apiKey: string;
   protected readonly baseUrl: string;
   protected readonly config: ProviderConfig;

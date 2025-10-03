@@ -1,8 +1,9 @@
 import type { ImportSessionMetadata, RawTransactionMetadata } from '@exitbook/data';
-import { type Result, err, ok } from 'neverthrow';
+import { err, ok } from 'neverthrow';
+import type { Result } from 'neverthrow';
 
-import type { NormalizationError } from './blockchain-normalizer.interface.ts';
 import { TransactionMapperFactory } from './registry/decorators.js';
+import type { IBlockchainNormalizer, NormalizationError } from './types/index.js';
 
 /**
  * DefaultNormalizer handles pure data extraction from provider-specific JSON
@@ -14,7 +15,7 @@ import { TransactionMapperFactory } from './registry/decorators.js';
  * - Returns normalized blockchain transactions for processor to apply business logic
  * - Stateless - no database access or historical context
  */
-export class DefaultNormalizer {
+export class DefaultNormalizer implements IBlockchainNormalizer {
   /**
    * Normalize blockchain transaction data from any provider to blockchain-specific transaction format
    */

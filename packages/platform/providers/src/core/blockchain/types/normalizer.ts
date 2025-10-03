@@ -1,19 +1,7 @@
-import type { RawTransactionMetadata, ImportSessionMetadata } from '@exitbook/data';
+import type { ImportSessionMetadata, RawTransactionMetadata } from '@exitbook/data';
 import type { Result } from 'neverthrow';
 
-/**
- * Error type for normalization failures.
- * Discriminated union to distinguish between safe skips and actual errors.
- */
-export type NormalizationError =
-  | {
-      reason: string;
-      type: 'skip';
-    }
-  | {
-      message: string;
-      type: 'error';
-    };
+import type { NormalizationError } from './errors.ts';
 
 /**
  * Interface for blockchain-specific normalizers that coordinate

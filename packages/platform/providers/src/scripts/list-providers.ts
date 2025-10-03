@@ -5,7 +5,7 @@
 import type { RateLimitConfig } from '@exitbook/shared-utils';
 
 import { ProviderRegistry } from '../core/blockchain/index.ts';
-import type { ProviderCapabilities } from '../core/blockchain/types.ts';
+import type { ProviderCapabilities } from '../core/blockchain/types/index.ts';
 import { initializeProviders } from '../initialize.js';
 
 // Initialize all providers

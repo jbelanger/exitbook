@@ -1,9 +1,8 @@
 import { maskAddress } from '@exitbook/shared-utils';
 
-import { BlockchainApiClient } from '../../../../core/blockchain/api/blockchain-api-client.ts';
-import type { ProviderConfig } from '../../../../core/blockchain/index.ts';
+import { BaseApiClient } from '../../../../core/blockchain/base/api-client.ts';
+import type { ProviderConfig, ProviderOperation } from '../../../../core/blockchain/index.ts';
 import { RegisterApiClient } from '../../../../core/blockchain/index.ts';
-import type { ProviderOperation } from '../../../../core/blockchain/types.ts';
 import type { SubstrateChainConfig } from '../../chain-config.interface.ts';
 import { getSubstrateChainConfig } from '../../chain-registry.ts';
 import { isValidSS58Address } from '../../utils.ts';
@@ -40,7 +39,7 @@ const CHAIN_SUBDOMAIN_MAP: Record<string, string> = {
   requiresApiKey: false,
   supportedChains: ['polkadot', 'kusama'],
 })
-export class SubscanApiClient extends BlockchainApiClient {
+export class SubscanApiClient extends BaseApiClient {
   private readonly chainConfig: SubstrateChainConfig;
   private readonly subscanSubdomain: string;
 

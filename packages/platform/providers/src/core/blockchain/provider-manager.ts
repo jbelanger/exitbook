@@ -2,40 +2,20 @@ import { getLogger } from '@exitbook/shared-logger';
 import type { BlockchainExplorersConfig, ProviderOverride } from '@exitbook/shared-utils';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { ProviderConfig } from './registry/provider-registry.ts';
 import { ProviderRegistry } from './registry/provider-registry.ts';
+import { ProviderError } from './types/errors.ts';
 import type {
-  ProviderHealth,
+  FailoverExecutionResult,
   IBlockchainProvider,
-  ProviderOperation,
   ProviderCapabilities,
+  ProviderConfig,
+  ProviderHealth,
+  ProviderOperation,
   ProviderOperationType,
-} from './types.ts';
+} from './types/index.ts';
 import { CircuitBreaker } from './utils/circuit-breaker.ts';
 
 const logger = getLogger('BlockchainProviderManager');
-
-/**
- * Result from failover execution that includes provenance
- */
-export interface FailoverExecutionResult<T> {
-  data: T;
-  providerName: string;
-}
-
-/**
- * Errors that can occur during provider operations
- */
-export class ProviderError extends Error {
-  constructor(
-    message: string,
-    public readonly code: 'NO_PROVIDERS' | 'ALL_PROVIDERS_FAILED' | 'PROVIDER_NOT_FOUND',
-    public readonly details?: { blockchain?: string; lastError?: string; operation?: string }
-  ) {
-    super(message);
-    this.name = 'ProviderError';
-  }
-}
 
 interface CacheEntry {
   expiry: number;

@@ -1,14 +1,9 @@
-import type { IRawDataMapper } from '../raw-data-mappers.ts';
-import type { IBlockchainProvider } from '../types.js';
+import type { BaseRawDataMapper } from '../base/mapper.ts';
+import type { IBlockchainProvider, ProviderConfig, ProviderFactory, ProviderMetadata } from '../types/index.js';
 
-import {
-  type ProviderConfig,
-  type ProviderFactory,
-  type ProviderMetadata,
-  ProviderRegistry,
-} from './provider-registry.js';
+import { ProviderRegistry } from './provider-registry.ts';
 
-const transactionMapperMap = new Map<string, new () => IRawDataMapper<unknown, unknown>>();
+const transactionMapperMap = new Map<string, new () => BaseRawDataMapper<unknown, unknown>>();
 
 /**
  * Decorator to register an API client class with the registry
@@ -44,7 +39,7 @@ export function RegisterApiClient(
  * Decorator to register a mapper with a specific provider ID
  */
 export function RegisterTransactionMapper(providerId: string) {
-  return function (constructor: new () => IRawDataMapper<unknown, unknown>) {
+  return function (constructor: new () => BaseRawDataMapper<unknown, unknown>) {
     if (transactionMapperMap.has(providerId)) {
       console.warn(`Mapper already registered for providerId: ${providerId}`);
     }
@@ -66,7 +61,7 @@ export class TransactionMapperFactory {
   /**
    * Create a mapper instance for the given provider ID
    */
-  static create(providerId: string): IRawDataMapper<unknown, unknown> | undefined {
+  static create(providerId: string): BaseRawDataMapper<unknown, unknown> | undefined {
     const MapperClass = transactionMapperMap.get(providerId);
     return MapperClass ? new MapperClass() : undefined;
   }

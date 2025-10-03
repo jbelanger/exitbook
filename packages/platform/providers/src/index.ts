@@ -19,10 +19,7 @@
 export { initializeProviders } from './initialize.js';
 
 // Re-export core blockchain infrastructure
-export * from './core/blockchain/blockchain-provider-manager.ts';
-export * from './core/blockchain/normalizer.ts';
-export * from './core/blockchain/registry/index.ts';
-export * from './core/blockchain/blockchain-normalizer.interface.ts';
+export * from './core/blockchain/index.ts';
 
 // Re-export blockchain providers
 export * from './blockchain/bitcoin/index.ts';

@@ -1,17 +1,14 @@
-import type { ImportSessionMetadata, RawTransactionMetadata } from '@exitbook/data';
+import type { RawTransactionMetadata, ImportSessionMetadata } from '@exitbook/data';
 import { type Result, err } from 'neverthrow';
 import type { ZodSchema } from 'zod';
 
-import type { NormalizationError } from './blockchain-normalizer.interface.ts';
-import type { IRawDataMapper } from './raw-data-mappers.ts';
+import type { NormalizationError } from '../types/errors.ts';
 
 /**
  * Abstract base class for raw data transformers that handles validation automatically.
  * Implementing classes only need to provide the schemas and implement the validated transform logic.
  */
-export abstract class BaseRawDataMapper<TRawData, TNormalizedData>
-  implements IRawDataMapper<TRawData, TNormalizedData>
-{
+export abstract class BaseRawDataMapper<TRawData, TNormalizedData> {
   /**
    * Schema used to validate raw data before transformation.
    * Must be implemented by concrete processor classes.

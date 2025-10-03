@@ -1,9 +1,8 @@
 import { maskAddress } from '@exitbook/shared-utils';
 
-import { BlockchainApiClient } from '../../../../core/blockchain/api/blockchain-api-client.ts';
-import type { ProviderConfig } from '../../../../core/blockchain/index.ts';
+import { BaseApiClient } from '../../../../core/blockchain/base/api-client.ts';
+import type { ProviderConfig, ProviderOperation } from '../../../../core/blockchain/index.ts';
 import { RegisterApiClient } from '../../../../core/blockchain/index.ts';
-import type { ProviderOperation } from '../../../../core/blockchain/types.ts';
 import type { EvmChainConfig } from '../../chain-config.interface.ts';
 import { getEvmChainConfig } from '../../chain-registry.ts';
 
@@ -54,7 +53,7 @@ const CHAIN_ID_MAP: Record<string, string> = {
   requiresApiKey: true,
   supportedChains: ['ethereum', 'avalanche', 'polygon'],
 })
-export class MoralisApiClient extends BlockchainApiClient {
+export class MoralisApiClient extends BaseApiClient {
   private readonly chainConfig: EvmChainConfig;
   private readonly moralisChainId: string;
 

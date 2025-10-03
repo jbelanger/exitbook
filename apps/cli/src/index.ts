@@ -13,12 +13,8 @@ import {
   ImporterFactory,
   ProcessorFactory,
 } from '@exitbook/import';
-import {
-  initializeProviders,
-  BlockchainProviderManager,
-  type ProviderInfo,
-  ProviderRegistry,
-} from '@exitbook/providers';
+import type { ProviderInfo } from '@exitbook/providers';
+import { initializeProviders, BlockchainProviderManager, ProviderRegistry } from '@exitbook/providers';
 import { getLogger } from '@exitbook/shared-logger';
 import { loadExplorerConfig } from '@exitbook/shared-utils';
 import { Command } from 'commander';

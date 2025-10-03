@@ -15,10 +15,9 @@
 
 import { hasStringProperty, maskAddress } from '@exitbook/shared-utils';
 
-import { BlockchainApiClient } from '../../../core/blockchain/api/blockchain-api-client.ts';
-import type { ProviderConfig } from '../../../core/blockchain/index.ts';
+import { BaseApiClient } from '../../../core/blockchain/base/api-client.ts';
+import type { ProviderConfig, ProviderOperation } from '../../../core/blockchain/index.ts';
 import { RegisterApiClient } from '../../../core/blockchain/index.ts';
-import type { ProviderOperation } from '../../../core/blockchain/types.ts';
 import type { AddressInfo } from '../types.js';
 
 import type { BlockCypherTransaction, BlockCypherAddress } from './blockcypher.types.js';
@@ -46,7 +45,7 @@ import type { BlockCypherTransaction, BlockCypherAddress } from './blockcypher.t
   name: 'blockcypher',
   requiresApiKey: false,
 })
-export class BlockCypherApiClient extends BlockchainApiClient {
+export class BlockCypherApiClient extends BaseApiClient {
   constructor(config: ProviderConfig) {
     super(config);
 

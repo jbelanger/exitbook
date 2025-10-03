@@ -1,69 +1,10 @@
-import type { RateLimitConfig } from '@exitbook/shared-utils';
-
-import type { IBlockchainProvider, ProviderCapabilities } from '../types.js';
-
-/**
- * Configuration passed to provider constructor
- * Built from metadata + runtime overrides
- */
-export interface ProviderConfig {
-  baseUrl: string;
-  blockchain: string;
-  displayName: string;
-  enabled?: boolean | undefined;
-  name: string;
-  priority?: number | undefined;
-  rateLimit: RateLimitConfig;
-  requiresApiKey?: boolean | undefined;
-  retries: number;
-  timeout: number;
-}
-
-/**
- * Provider metadata that's embedded in the provider class
- */
-export interface ProviderMetadata {
-  apiKeyEnvVar?: string | undefined; // Environment variable name for API key
-  baseUrl: string; // Default base URL (used if no chain-specific override)
-  blockchain: string; // Primary blockchain (for backward compatibility)
-  capabilities: ProviderCapabilities;
-  defaultConfig: {
-    rateLimit: RateLimitConfig;
-    retries: number;
-    timeout: number;
-  };
-  description?: string | undefined;
-  displayName: string;
-  name: string;
-  requiresApiKey?: boolean | undefined;
-  /**
-   * Supported blockchains for multi-chain providers
-   * - String array: ['ethereum', 'avalanche'] - uses baseUrl for all chains
-   * - Object: { ethereum: { baseUrl: '...' }, avalanche: { baseUrl: '...' } } - per-chain config
-   */
-  supportedChains?: string[] | Record<string, { baseUrl: string }> | undefined;
-}
-
-/**
- * Factory function to create provider instances
- */
-export interface ProviderFactory {
-  create: (config: ProviderConfig) => IBlockchainProvider;
-  metadata: ProviderMetadata;
-}
-
-/**
- * Information about an available provider
- */
-export interface ProviderInfo {
-  blockchain: string;
-  capabilities: ProviderCapabilities;
-  defaultConfig: ProviderMetadata['defaultConfig'];
-  description?: string | undefined;
-  displayName: string;
-  name: string;
-  requiresApiKey: boolean;
-}
+import type {
+  IBlockchainProvider,
+  ProviderConfig,
+  ProviderFactory,
+  ProviderInfo,
+  ProviderMetadata,
+} from '../types/index.js';
 
 /**
  * Central registry for blockchain providers

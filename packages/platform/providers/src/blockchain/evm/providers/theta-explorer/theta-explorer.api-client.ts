@@ -1,9 +1,8 @@
 import { maskAddress } from '@exitbook/shared-utils';
 
-import { BlockchainApiClient } from '../../../../core/blockchain/api/blockchain-api-client.ts';
-import type { ProviderConfig } from '../../../../core/blockchain/index.ts';
+import { BaseApiClient } from '../../../../core/blockchain/base/api-client.ts';
+import type { ProviderConfig, ProviderOperation } from '../../../../core/blockchain/index.ts';
 import { RegisterApiClient } from '../../../../core/blockchain/index.ts';
-import type { ProviderOperation } from '../../../../core/blockchain/types.ts';
 
 import type { ThetaTransaction, ThetaAccountTxResponse } from './theta-explorer.types.ts';
 
@@ -28,7 +27,7 @@ import type { ThetaTransaction, ThetaAccountTxResponse } from './theta-explorer.
   name: 'theta-explorer',
   requiresApiKey: false,
 })
-export class ThetaExplorerApiClient extends BlockchainApiClient {
+export class ThetaExplorerApiClient extends BaseApiClient {
   constructor(config: ProviderConfig) {
     super(config);
   }

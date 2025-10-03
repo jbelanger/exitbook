@@ -1,10 +1,9 @@
 import { maskAddress } from '@exitbook/shared-utils';
 import { ServiceError } from '@exitbook/shared-utils';
 
-import { BlockchainApiClient } from '../../../../core/blockchain/api/blockchain-api-client.ts';
-import type { ProviderConfig } from '../../../../core/blockchain/index.ts';
+import { BaseApiClient } from '../../../../core/blockchain/base/api-client.ts';
+import type { ProviderConfig, ProviderOperation } from '../../../../core/blockchain/index.ts';
 import { RegisterApiClient } from '../../../../core/blockchain/index.ts';
-import type { ProviderOperation } from '../../../../core/blockchain/types.ts';
 
 import type {
   SnowtraceApiResponse,
@@ -43,7 +42,7 @@ import type {
   requiresApiKey: false,
   supportedChains: ['avalanche'],
 })
-export class SnowtraceApiClient extends BlockchainApiClient {
+export class SnowtraceApiClient extends BaseApiClient {
   constructor(config: ProviderConfig) {
     super(config);
   }

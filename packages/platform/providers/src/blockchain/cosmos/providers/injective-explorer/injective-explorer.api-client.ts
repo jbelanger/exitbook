@@ -1,9 +1,8 @@
 import { maskAddress } from '@exitbook/shared-utils';
 
-import { BlockchainApiClient } from '../../../../core/blockchain/api/blockchain-api-client.ts';
-import type { ProviderConfig } from '../../../../core/blockchain/index.ts';
+import { BaseApiClient } from '../../../../core/blockchain/base/api-client.ts';
+import type { ProviderConfig, ProviderOperation } from '../../../../core/blockchain/index.ts';
 import { RegisterApiClient } from '../../../../core/blockchain/index.ts';
-import type { ProviderOperation } from '../../../../core/blockchain/types.ts';
 import type { CosmosChainConfig } from '../../chain-config.interface.js';
 
 import type { InjectiveExplorerTransaction } from './injective-explorer.types.js';
@@ -30,7 +29,7 @@ import type { InjectiveExplorerTransaction } from './injective-explorer.types.js
   requiresApiKey: false,
   supportedChains: ['injective'],
 })
-export class InjectiveExplorerApiClient extends BlockchainApiClient {
+export class InjectiveExplorerApiClient extends BaseApiClient {
   private chainConfig: CosmosChainConfig;
 
   constructor(config: ProviderConfig, chainConfig?: CosmosChainConfig) {

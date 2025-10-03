@@ -1,6 +1,3 @@
-import type { RateLimitConfig } from '@exitbook/shared-utils';
-import type { Result } from 'neverthrow';
-
 // Discriminated union type for all possible operation parameters
 export type ProviderOperationParams =
   | {
@@ -41,38 +38,6 @@ export type ProviderOperationParams =
 
 // Discriminated union provides automatic type narrowing
 
-// Common JSON-RPC response interface for blockchain providers
-export interface JsonRpcResponse<T = unknown> {
-  error?: { code: number; message: string };
-  id?: number | string;
-  jsonrpc?: string;
-  result: T;
-}
-
-export interface IBlockchainProvider<TConfig = Record<string, unknown>> {
-  // Rate limit benchmarking
-  benchmarkRateLimit(
-    maxRequestsPerSecond: number,
-    numRequestsPerTest: number,
-    testBurstLimits?: boolean,
-    customRates?: number[]
-  ): Promise<{
-    burstLimits?: { limit: number; success: boolean }[];
-    maxSafeRate: number;
-    recommended: RateLimitConfig;
-    testResults: { rate: number; responseTimeMs?: number; success: boolean }[];
-  }>;
-  readonly blockchain: string;
-  readonly capabilities: ProviderCapabilities;
-  // Universal execution method - all operations go through this
-  execute<T>(operation: ProviderOperation<T>, config: TConfig): Promise<T>;
-  // Health and connectivity - returns Result to allow special error handling (e.g., RateLimitError)
-  isHealthy(): Promise<Result<boolean, Error>>;
-
-  readonly name: string;
-  readonly rateLimit: RateLimitConfig;
-}
-
 export type ProviderOperation<T> = {
   getCacheKey?: (params: ProviderOperationParams) => string;
   transform?: (response: unknown) => T;
@@ -91,16 +56,10 @@ export type ProviderOperationType =
   | 'getAddressInfo'
   | 'custom';
 
-export interface ProviderCapabilities {
-  /** Array of operation types that this data source supports */
-  supportedOperations: ProviderOperationType[];
-}
-
-export interface ProviderHealth {
-  averageResponseTime: number;
-  consecutiveFailures: number;
-  errorRate: number;
-  isHealthy: boolean;
-  lastChecked: number;
-  lastError?: string | undefined;
+/**
+ * Result from failover execution that includes provenance
+ */
+export interface FailoverExecutionResult<T> {
+  data: T;
+  providerName: string;
 }

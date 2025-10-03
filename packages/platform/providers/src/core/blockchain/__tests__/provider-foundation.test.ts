@@ -9,10 +9,15 @@ import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vi
 
 // Import clients to trigger registration
 import '../../../blockchain/evm/register-apis.js';
-import { BlockchainProviderManager, ProviderError } from '../blockchain-provider-manager.js';
-import type { ProviderInfo } from '../registry/provider-registry.js';
+import { BlockchainProviderManager } from '../provider-manager.ts';
 import { ProviderRegistry } from '../registry/provider-registry.js';
-import type { IBlockchainProvider, ProviderCapabilities, ProviderOperation } from '../types.js';
+import type { ProviderInfo } from '../types/index.js';
+import {
+  ProviderError,
+  type IBlockchainProvider,
+  type ProviderCapabilities,
+  type ProviderOperation,
+} from '../types/index.js';
 import { CircuitBreaker } from '../utils/circuit-breaker.ts';
 
 // Mock explorer config for tests

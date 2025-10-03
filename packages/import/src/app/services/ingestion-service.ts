@@ -1,11 +1,11 @@
 import type { RawData } from '@exitbook/data';
 import type { ImportParams, RawTransactionMetadata } from '@exitbook/import/app/ports/importers.ts';
 import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
-import type { IBlockchainNormalizer } from '@exitbook/providers';
 import type { Logger } from '@exitbook/shared-logger';
 import { getLogger } from '@exitbook/shared-logger';
 import { err, ok, Result } from 'neverthrow';
 
+import type { IBlockchainNormalizer } from '../../../../platform/providers/src/core/blockchain/index.ts';
 import type { ImportResult } from '../../index.js';
 import type { IImportSessionRepository } from '../ports/import-session-repository.interface.ts';
 import type { IImporterFactory } from '../ports/importer-factory.interface.ts';

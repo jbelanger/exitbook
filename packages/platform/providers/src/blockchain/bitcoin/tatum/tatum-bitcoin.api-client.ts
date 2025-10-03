@@ -1,9 +1,9 @@
 import { maskAddress } from '@exitbook/shared-utils';
 
-import { TatumApiClientBase } from '../../../core/blockchain/api/tatum-api-client-base.ts';
+import { BaseApiClient } from '../../../core/blockchain/base/api-client.ts';
 import type { ProviderConfig } from '../../../core/blockchain/index.ts';
 import { RegisterApiClient } from '../../../core/blockchain/index.ts';
-import type { ProviderOperation } from '../../../core/blockchain/types.ts';
+import type { ProviderOperation } from '../../../core/blockchain/types/index.ts';
 import type { AddressInfo } from '../types.js';
 
 import type { TatumBitcoinTransaction, TatumBitcoinBalance } from './tatum.types.js';
@@ -30,9 +30,18 @@ import type { TatumBitcoinTransaction, TatumBitcoinBalance } from './tatum.types
   name: 'tatum',
   requiresApiKey: true,
 })
-export class TatumBitcoinApiClient extends TatumApiClientBase<TatumBitcoinTransaction, TatumBitcoinBalance> {
+export class TatumBitcoinApiClient extends BaseApiClient {
   constructor(config: ProviderConfig) {
     super(config);
+
+    // Reinitialize HTTP client with Tatum-specific headers
+    this.reinitializeHttpClient({
+      baseUrl: `https://api.tatum.io/v3/${this.blockchain}`,
+      defaultHeaders: {
+        accept: 'application/json',
+        'x-api-key': this.apiKey,
+      },
+    });
 
     this.logger.debug(
       `Initialized TatumBitcoinApiClient - BaseUrl: ${this.baseUrl}, HasApiKey: ${this.apiKey !== 'YourApiKeyToken'}`
@@ -151,6 +160,34 @@ export class TatumBitcoinApiClient extends TatumApiClientBase<TatumBitcoinTransa
         return response !== null && response !== undefined;
       },
     };
+  }
+
+  /**
+   * Make a request to the Tatum API with common error handling
+   */
+  private async makeRequest<T>(endpoint: string, params?: Record<string, unknown>): Promise<T> {
+    this.validateApiKey();
+
+    try {
+      // Build URL with query parameters
+      let url = endpoint;
+      if (params && Object.keys(params).length > 0) {
+        const queryString = new URLSearchParams(
+          Object.entries(params)
+            .filter(([, value]) => value !== undefined && value !== null)
+            .map(([key, value]) => [key, String(value)] as [string, string])
+        ).toString();
+        url = `${endpoint}?${queryString}`;
+      }
+
+      const response = await this.httpClient.get<T>(url);
+      return response;
+    } catch (error) {
+      this.logger.error(
+        `Tatum API request failed - Blockchain: ${this.blockchain}, Endpoint: ${endpoint}, Error: ${error instanceof Error ? error.message : String(error)}`
+      );
+      throw error;
+    }
   }
 
   /**

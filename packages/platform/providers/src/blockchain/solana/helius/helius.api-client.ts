@@ -1,9 +1,8 @@
 import { maskAddress } from '@exitbook/shared-utils';
 
-import { BlockchainApiClient } from '../../../core/blockchain/api/blockchain-api-client.ts';
-import type { ProviderConfig } from '../../../core/blockchain/index.ts';
+import { BaseApiClient } from '../../../core/blockchain/base/api-client.ts';
+import type { JsonRpcResponse, ProviderConfig, ProviderOperation } from '../../../core/blockchain/index.ts';
 import { RegisterApiClient } from '../../../core/blockchain/index.ts';
-import type { ProviderOperation, JsonRpcResponse } from '../../../core/blockchain/types.ts';
 import type { SolanaAccountBalance, SolanaSignature, SolanaTokenAccountsResponse } from '../types.js';
 import { isValidSolanaAddress } from '../utils.js';
 
@@ -39,7 +38,7 @@ export interface SolanaRawTokenBalanceData {
   name: 'helius',
   requiresApiKey: true,
 })
-export class HeliusApiClient extends BlockchainApiClient {
+export class HeliusApiClient extends BaseApiClient {
   /**
    * Static token registry for common Solana tokens
    */

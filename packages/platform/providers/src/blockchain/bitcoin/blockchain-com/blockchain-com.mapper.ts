@@ -2,8 +2,8 @@ import type { RawTransactionMetadata, ImportSessionMetadata } from '@exitbook/da
 import { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
-import { BaseRawDataMapper } from '../../../core/blockchain/base-raw-data-mapper.ts';
-import type { NormalizationError } from '../../../core/blockchain/blockchain-normalizer.interface.ts';
+import { BaseRawDataMapper } from '../../../core/blockchain/base/mapper.ts';
+import type { NormalizationError } from '../../../core/blockchain/index.ts';
 import { RegisterTransactionMapper } from '../../../core/blockchain/index.ts';
 import { BitcoinTransactionSchema } from '../schemas.js';
 import type {
