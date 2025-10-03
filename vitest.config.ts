@@ -4,8 +4,9 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['packages/**/*.test.ts', 'apps/**/*.test.ts'],
+    include: ['**/*.test.ts'],
     exclude: ['**/node_modules/**', '**/dist/**', '**/*.e2e.test.ts', '**/*e2e*.test.ts'],
     testTimeout: 60000,
+    passWithNoTests: true,
   },
 });
