@@ -51,6 +51,15 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
         const direction: 'in' | 'out' | 'neutral' =
           hasInflow && hasOutflow ? 'neutral' : hasInflow ? 'in' : hasOutflow ? 'out' : 'neutral';
 
+        // Only include fees if user was the signer/broadcaster (they paid the fee)
+        // For incoming transactions (deposits, received transfers), the sender/protocol paid the fee
+        const userAddress = sessionMetadata.address;
+        const userPaidFee = this.didUserPayFee(normalizedTx, fundFlow, userAddress);
+
+        const networkFee = userPaidFee
+          ? createMoney(fundFlow.feeAmount, fundFlow.feeCurrency)
+          : createMoney('0', fundFlow.feeCurrency);
+
         const universalTransaction: UniversalTransaction = {
           // NEW: Structured fields
           movements: {
@@ -69,9 +78,9 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
             },
           },
           fees: {
-            network: createMoney(fundFlow.feeAmount, fundFlow.feeCurrency),
+            network: networkFee,
             platform: undefined,
-            total: createMoney(fundFlow.feeAmount, fundFlow.feeCurrency),
+            total: networkFee,
           },
           operation: classification.operation,
           blockchain: {
@@ -533,5 +542,49 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
       this.logger.warn(`Unable to normalize amount: ${String(error)}`);
       return '0';
     }
+  }
+
+  /**
+   * Determine if the user paid the transaction fee based on transaction characteristics.
+   *
+   * In Substrate chains, the transaction signer/broadcaster pays the fee. This method infers
+   * who signed the transaction based on available data.
+   *
+   * Rules (high confidence):
+   * 1. If user has ANY outflows -> user initiated and paid fee
+   * 2. User-initiated staking operations (unbond, withdraw, nominate, chill) -> user paid fee
+   * 3. If from == userAddress and not a staking reward -> user paid fee
+   *
+   * @param transaction - The normalized Substrate transaction
+   * @param fundFlow - The analyzed fund flow
+   * @param userAddress - The user's address
+   * @returns true if user paid the fee, false otherwise
+   */
+  private didUserPayFee(transaction: SubstrateTransaction, fundFlow: SubstrateFundFlow, userAddress: string): boolean {
+    // Rule 1: User has outflows -> user initiated transaction and paid fee
+    if (fundFlow.outflows.length > 0) {
+      return true;
+    }
+
+    // Rule 2: User-initiated staking operations (user pays even when receiving funds)
+    if (transaction.module === 'staking') {
+      // Unbond/withdraw: user requests unstaking -> user pays fee
+      if (transaction.call?.includes('unbond') || transaction.call?.includes('withdraw')) {
+        return true;
+      }
+      // Nominate/chill: user manages validators -> user pays fee
+      if (transaction.call?.includes('nominate') || transaction.call?.includes('chill')) {
+        return true;
+      }
+      // Bond with outflows already handled by Rule 1
+      // Incoming bond (reward) falls through to Rule 3
+    }
+
+    // Rule 3: Check if from address matches user (for regular transfers)
+    // Note: This may not be accurate for all staking rewards, but handles most cases
+    const userAddressLower = userAddress.toLowerCase();
+    const fromAddressLower = transaction.from.toLowerCase();
+
+    return fromAddressLower === userAddressLower;
   }
 }

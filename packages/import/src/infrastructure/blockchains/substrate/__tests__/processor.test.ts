@@ -57,7 +57,7 @@ describe('SubstrateProcessor - Fund Flow Direction', () => {
     expect(transaction.movements.inflows.length).toBe(1);
     expect(transaction.movements.inflows[0]?.amount.amount.toString()).toBe('1.5');
     expect(transaction.movements.outflows.length).toBe(0);
-    expect(transaction.fees.network?.amount.toString()).toBe('0.0156');
+    expect(transaction.fees.network?.amount.toString()).toBe('0'); // User received, sender paid fee
     expect(transaction.blockchain?.name).toBe('polkadot');
     expect(transaction.from).toBe(EXTERNAL_ADDRESS);
     expect(transaction.to).toBe(USER_ADDRESS);
@@ -676,7 +676,7 @@ describe('SubstrateProcessor - Multi-Chain Support', () => {
     expect(transaction.movements.primary.amount.amount.toString()).toBe('1');
     expect(transaction.movements.inflows[0]?.asset).toBe('DOT');
     expect(transaction.fees.network?.currency).toBe('DOT');
-    expect(transaction.fees.network?.amount.toString()).toBe('0.0156');
+    expect(transaction.fees.network?.amount.toString()).toBe('0'); // User received, sender paid fee
     expect(transaction.blockchain?.name).toBe('polkadot');
     expect(transaction.metadata?.chainName).toBe('polkadot');
   });
@@ -716,7 +716,7 @@ describe('SubstrateProcessor - Multi-Chain Support', () => {
     expect(transaction.movements.primary.amount.amount.toString()).toBe('1');
     expect(transaction.movements.inflows[0]?.asset).toBe('TAO');
     expect(transaction.fees.network?.currency).toBe('TAO');
-    expect(transaction.fees.network?.amount.toString()).toBe('0.1');
+    expect(transaction.fees.network?.amount.toString()).toBe('0'); // User received, sender paid fee
     expect(transaction.blockchain?.name).toBe('bittensor');
     expect(transaction.metadata?.chainName).toBe('bittensor');
   });
@@ -753,7 +753,7 @@ describe('SubstrateProcessor - Multi-Chain Support', () => {
 
     // Structured fields
     expect(transaction.movements.primary.amount.amount.toString()).toBe('12.3456789012');
-    expect(transaction.fees.network?.amount.toString()).toBe('0.0156789012');
+    expect(transaction.fees.network?.amount.toString()).toBe('0'); // User received, sender paid fee
   });
 });
 
