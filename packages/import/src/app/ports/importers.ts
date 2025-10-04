@@ -27,7 +27,6 @@ export interface ImportResult {
   imported: number;
   importSessionId: number;
   metadata?: Record<string, unknown> | undefined;
-  providerId?: string | undefined;
 }
 
 export interface ImportRunResult {

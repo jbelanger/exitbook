@@ -218,7 +218,6 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
     params: {
       address?: string;
       csvDirectories?: string[];
-      providerId?: string;
       since?: number;
     }
   ): Promise<Result<ImportSession | undefined, Error>> {
@@ -245,14 +244,13 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
 
         // Compare relevant parameters
         const addressMatches = params.address === storedParams.address;
-        const providerMatches = params.providerId === storedParams.providerId;
         const sinceMatches = params.since === storedParams.since;
 
         // Compare CSV directories (arrays need deep comparison)
         const csvDirsMatch =
           JSON.stringify(params.csvDirectories?.sort()) === JSON.stringify(storedParams.csvDirectories?.sort());
 
-        if (addressMatches && providerMatches && sinceMatches && csvDirsMatch) {
+        if (addressMatches && sinceMatches && csvDirsMatch) {
           return ok(session);
         }
       }

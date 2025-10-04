@@ -113,7 +113,6 @@ export class TransactionIngestionService {
       return ok({
         imported: rawDataCount,
         importSessionId: existingSession.id,
-        providerId: params.providerId ?? undefined,
       });
     }
 
@@ -140,13 +139,13 @@ export class TransactionIngestionService {
 
       // Import raw data
       this.logger.info('Starting raw data import...');
-      const importResultWrapper = await importer.import(params);
+      const importResultOrError = await importer.import(params);
 
-      if (importResultWrapper.isErr()) {
-        return err(importResultWrapper.error);
+      if (importResultOrError.isErr()) {
+        return err(importResultOrError.error);
       }
 
-      const importResult = importResultWrapper.value;
+      const importResult = importResultOrError.value;
       const rawData = importResult.rawTransactions;
 
       // Save all raw data items to storage in a single transaction
@@ -191,7 +190,6 @@ export class TransactionIngestionService {
       return ok({
         imported: savedCount,
         importSessionId,
-        providerId: params.providerId ?? undefined,
       });
     } catch (error) {
       const originalError = error instanceof Error ? error : new Error(String(error));
