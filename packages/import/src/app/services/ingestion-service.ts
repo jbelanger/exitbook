@@ -150,12 +150,11 @@ export class TransactionIngestionService {
 
       // Save all raw data items to storage in a single transaction
       const savedCountResult = await this.rawDataRepository.saveBatch(
+        importSessionId,
         rawData.map((element) => ({
           metadata: element.metadata,
-          providerId: element.metadata.providerId,
           rawData: element.rawData,
-        })),
-        importSessionId
+        }))
       );
 
       // Handle Result type - fail fast if save fails
@@ -331,6 +330,12 @@ export class TransactionIngestionService {
             ? (JSON.parse(session.import_result_metadata) as Record<string, unknown>)
             : (session.import_result_metadata as Record<string, unknown>);
 
+        // Combine import params and result metadata into session metadata format
+        const parsedSessionMetadata: ImportSessionMetadata = {
+          ...parsedImportParams,
+          ...parsedResultMetadata,
+        };
+
         if (sourceType === 'blockchain') {
           const normalizer = this.blockchainNormalizer;
           if (normalizer) {
@@ -342,12 +347,6 @@ export class TransactionIngestionService {
                   : (item.metadata as RawTransactionMetadata);
               const parsedRawData: unknown =
                 typeof item.raw_data === 'string' ? JSON.parse(item.raw_data) : item.raw_data;
-
-              // Combine import params and result metadata into session metadata format
-              const parsedSessionMetadata: ImportSessionMetadata = {
-                ...parsedImportParams,
-                ...parsedResultMetadata,
-              };
 
               const result = normalizer.normalize(parsedRawData, parsedMetadata, parsedSessionMetadata);
 
@@ -405,7 +404,7 @@ export class TransactionIngestionService {
         const processor = await this.processorFactory.create(sourceId, sourceType);
 
         // Process this session's raw data
-        const sessionTransactionsResult = await processor.process(normalizedRawDataItems, parsedResultMetadata);
+        const sessionTransactionsResult = await processor.process(normalizedRawDataItems, parsedSessionMetadata);
 
         if (sessionTransactionsResult.isErr()) {
           this.logger.error(

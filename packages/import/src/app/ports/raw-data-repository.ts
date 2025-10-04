@@ -1,4 +1,4 @@
-import type { RawData, RawTransactionMetadata } from '@exitbook/data';
+import type { RawData, RawTransactionWithMetadata } from '@exitbook/data';
 import type { Result } from 'neverthrow';
 
 export interface LoadRawDataFilters {
@@ -28,18 +28,10 @@ export interface IRawDataRepository {
   /**
    * Save external data items to storage.
    */
-  save(
-    rawData: unknown,
-    importSessionId: number,
-    providerId: string,
-    metadata?: RawTransactionMetadata
-  ): Promise<Result<number, Error>>;
+  save(importSessionId: number, item: RawTransactionWithMetadata): Promise<Result<number, Error>>;
 
   /**
    * Save multiple external data items to storage in a single transaction.
    */
-  saveBatch(
-    items: { metadata?: RawTransactionMetadata; providerId: string; rawData: unknown }[],
-    importSessionId: number
-  ): Promise<Result<number, Error>>;
+  saveBatch(importSessionId: number, items: RawTransactionWithMetadata[]): Promise<Result<number, Error>>;
 }

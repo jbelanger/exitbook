@@ -41,41 +41,41 @@ export class BalanceCalculationService {
     };
 
     // Process inflows (what user gained)
-    const inflows = parseJSON<{ amount: { currency: string; value: string }; asset: string }[]>(
+    const inflows = parseJSON<{ amount: { amount: string; currency: string }; asset: string }[]>(
       transaction.movements_inflows
     );
     if (inflows) {
       for (const inflow of inflows) {
         ensureBalance(inflow.asset);
-        const amount = stringToDecimal(inflow.amount.value);
+        const amount = stringToDecimal(inflow.amount.amount);
         balances[inflow.asset] = balances[inflow.asset]!.plus(amount);
       }
     }
 
     // Process outflows (what user lost)
-    const outflows = parseJSON<{ amount: { currency: string; value: string }; asset: string }[]>(
+    const outflows = parseJSON<{ amount: { amount: string; currency: string }; asset: string }[]>(
       transaction.movements_outflows
     );
     if (outflows) {
       for (const outflow of outflows) {
         ensureBalance(outflow.asset);
-        const amount = stringToDecimal(outflow.amount.value);
+        const amount = stringToDecimal(outflow.amount.amount);
         balances[outflow.asset] = balances[outflow.asset]!.minus(amount);
       }
     }
 
     // Process fees (always a cost)
-    const networkFee = parseJSON<{ currency: string; value: string }>(transaction.fees_network);
+    const networkFee = parseJSON<{ amount: string; currency: string }>(transaction.fees_network);
     if (networkFee) {
       ensureBalance(networkFee.currency);
-      const amount = stringToDecimal(networkFee.value);
+      const amount = stringToDecimal(networkFee.amount);
       balances[networkFee.currency] = balances[networkFee.currency]!.minus(amount);
     }
 
-    const platformFee = parseJSON<{ currency: string; value: string }>(transaction.fees_platform);
+    const platformFee = parseJSON<{ amount: string; currency: string }>(transaction.fees_platform);
     if (platformFee) {
       ensureBalance(platformFee.currency);
-      const amount = stringToDecimal(platformFee.value);
+      const amount = stringToDecimal(platformFee.amount);
       balances[platformFee.currency] = balances[platformFee.currency]!.minus(amount);
     }
   }

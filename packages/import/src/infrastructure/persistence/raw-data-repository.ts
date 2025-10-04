@@ -1,4 +1,4 @@
-import type { KyselyDB, RawTransactionMetadata } from '@exitbook/data';
+import type { KyselyDB, RawTransactionWithMetadata } from '@exitbook/data';
 import type { RawData } from '@exitbook/data';
 import { BaseRepository } from '@exitbook/data';
 import type { IRawDataRepository, LoadRawDataFilters } from '@exitbook/import/app/ports/raw-data-repository.js';
@@ -96,13 +96,8 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     }
   }
 
-  async save(
-    rawData: unknown,
-    importSessionId: number,
-    providerId: string,
-    metadata?: RawTransactionMetadata
-  ): Promise<Result<number, Error>> {
-    if (!rawData) {
+  async save(importSessionId: number, item?: RawTransactionWithMetadata): Promise<Result<number, Error>> {
+    if (!item) {
       return err(new Error('Raw data cannot be null or undefined'));
     }
 
@@ -113,10 +108,10 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
           .values({
             created_at: this.getCurrentDateTimeForDB(),
             import_session_id: importSessionId,
-            metadata: this.serializeToJson(metadata),
+            metadata: this.serializeToJson(item.metadata),
             processing_status: 'pending',
-            provider_id: providerId,
-            raw_data: JSON.stringify(rawData),
+            provider_id: item.metadata.providerId,
+            raw_data: JSON.stringify(item.rawData),
           })
           .onConflict((oc) => oc.doNothing()) // Equivalent to INSERT OR IGNORE
           .execute();
@@ -127,15 +122,12 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
       return ok(result);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger.error({ error, rawData, importSessionId, providerId }, 'Failed to save raw data item');
+      this.logger.error({ error, item, importSessionId }, 'Failed to save raw data item');
       return err(new Error(`Failed to save raw data item: ${errorMessage}`));
     }
   }
 
-  async saveBatch(
-    items: { metadata?: RawTransactionMetadata; providerId: string; rawData: unknown }[],
-    importSessionId: number
-  ): Promise<Result<number, Error>> {
+  async saveBatch(importSessionId: number, items: RawTransactionWithMetadata[]): Promise<Result<number, Error>> {
     if (items.length === 0) {
       return ok(0);
     }
@@ -160,7 +152,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
               import_session_id: importSessionId,
               metadata: this.serializeToJson(item.metadata),
               processing_status: 'pending',
-              provider_id: item.providerId,
+              provider_id: item.metadata.providerId,
               raw_data: JSON.stringify(item.rawData),
             })
             .onConflict((oc) => oc.doNothing())
