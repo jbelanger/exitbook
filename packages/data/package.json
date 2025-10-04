@@ -36,7 +36,6 @@
   },
   "peerDependencies": {
     "@exitbook/core": "workspace:*",
-    "@exitbook/shared-logger": "workspace:*",
-    "@exitbook/shared-utils": "workspace:*"
+    "@exitbook/shared-logger": "workspace:*"
   }
 }

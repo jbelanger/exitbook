@@ -19,7 +19,7 @@ export class ProviderError extends Error {
   constructor(
     message: string,
     public readonly code: 'NO_PROVIDERS' | 'ALL_PROVIDERS_FAILED' | 'PROVIDER_NOT_FOUND',
-    public readonly details?: { blockchain?: string; lastError?: string; operation?: string; }
+    public readonly details?: { blockchain?: string; lastError?: string; operation?: string }
   ) {
     super(message);
     this.name = 'ProviderError';

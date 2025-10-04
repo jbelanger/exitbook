@@ -26,7 +26,6 @@
     "@exitbook/import": "workspace:*",
     "@exitbook/providers": "workspace:*",
     "@exitbook/shared-logger": "workspace:*",
-    "@exitbook/shared-utils": "workspace:*",
     "commander": "^14.0.0",
     "jose": "^6.0.13",
     "reflect-metadata": "^0.2.2"

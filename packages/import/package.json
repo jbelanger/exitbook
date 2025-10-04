@@ -47,7 +47,6 @@
     "@exitbook/core": "workspace:*",
     "@exitbook/data": "workspace:*",
     "@exitbook/providers": "workspace:*",
-    "@exitbook/shared-logger": "workspace:*",
-    "@exitbook/shared-utils": "workspace:*"
+    "@exitbook/shared-logger": "workspace:*"
   }
 }

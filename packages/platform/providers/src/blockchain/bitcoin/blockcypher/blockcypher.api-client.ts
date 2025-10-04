@@ -13,11 +13,9 @@
  * Use BlockCypher as emergency fallback or for addresses with few transactions only.
  */
 
-import { hasStringProperty } from '@exitbook/shared-utils';
-
 import { BaseApiClient } from '../../../core/blockchain/base/api-client.ts';
 import type { ProviderConfig, ProviderOperation } from '../../../core/blockchain/index.ts';
-import { RegisterApiClient } from '../../../core/blockchain/index.ts';
+import { hasStringProperty, RegisterApiClient } from '../../../core/blockchain/index.ts';
 import { maskAddress } from '../../../core/blockchain/utils/address-utils.ts';
 import type { AddressInfo } from '../types.js';
 

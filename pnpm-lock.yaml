@@ -93,9 +93,6 @@ importers:
       '@exitbook/shared-logger':
         specifier: workspace:*
         version: link:../../packages/platform/logger
-      '@exitbook/shared-utils':
-        specifier: workspace:*
-        version: link:../../packages/shared/utils
       commander:
         specifier: ^14.0.0
         version: 14.0.1
@@ -130,9 +127,6 @@ importers:
       '@exitbook/shared-logger':
         specifier: workspace:*
         version: link:../platform/logger
-      '@exitbook/shared-utils':
-        specifier: workspace:*
-        version: link:../shared/utils
       decimal.js:
         specifier: ^10.6.0
         version: 10.6.0
@@ -195,9 +189,6 @@ importers:
       '@exitbook/shared-logger':
         specifier: workspace:*
         version: link:../platform/logger
-      '@exitbook/shared-utils':
-        specifier: workspace:*
-        version: link:../shared/utils
       better-sqlite3:
         specifier: ^12.4.1
         version: 12.4.1
@@ -250,9 +241,6 @@ importers:
       '@exitbook/shared-logger':
         specifier: workspace:*
         version: link:../platform/logger
-      '@exitbook/shared-utils':
-        specifier: workspace:*
-        version: link:../shared/utils
       '@scure/bip32':
         specifier: ^1.7.0
         version: 1.7.0
@@ -382,9 +370,6 @@ importers:
       '@exitbook/shared-logger':
         specifier: workspace:*
         version: link:../logger
-      '@exitbook/shared-utils':
-        specifier: workspace:*
-        version: link:../../shared/utils
       '@scure/bip32':
         specifier: ^1.7.0
         version: 1.7.0
@@ -430,43 +415,6 @@ importers:
         version: 5.9.2
 
   packages/shared/tsconfig: {}
-
-  packages/shared/utils:
-    dependencies:
-      '@exitbook/shared-logger':
-        specifier: workspace:*
-        version: link:../../platform/logger
-      ccxt:
-        specifier: ^4.5.1
-        version: 4.5.6(bufferutil@4.0.9)(utf-8-validate@5.0.10)
-      decimal.js:
-        specifier: ^10.6.0
-        version: 10.6.0
-    devDependencies:
-      '@jest/globals':
-        specifier: ^30.0.5
-        version: 30.2.0
-      '@types/jest':
-        specifier: ^30.0.0
-        version: 30.0.0
-      '@types/node':
-        specifier: ^24.3.0
-        version: 24.5.2
-      jest:
-        specifier: ^30.0.5
-        version: 30.2.0(@types/node@24.5.2)
-      ts-jest:
-        specifier: ^29.4.1
-        version: 29.4.4(@babel/core@7.28.4)(@jest/transform@30.2.0)(@jest/types@30.2.0)(babel-jest@30.2.0(@babel/core@7.28.4))(jest-util@30.2.0)(jest@30.2.0(@types/node@24.5.2))(typescript@5.9.2)
-      tsconfig:
-        specifier: workspace:*
-        version: link:../tsconfig
-      tsx:
-        specifier: ^4.20.4
-        version: 4.20.6
-      typescript:
-        specifier: ^5.9.2
-        version: 5.9.2
 
 packages:
 
@@ -1868,10 +1816,6 @@ packages:
   buffer@5.7.1:
     resolution: {integrity: sha512-EHcyIPBQ4BSGlvjB16k5KgAJ27CIsHY/2JBmCRReo48y9rQ3MaUzWX3KVlBa4U7MyX02HdVj0K7C3WaB3ju7FQ==}
 
-  bufferutil@4.0.9:
-    resolution: {integrity: sha512-WDtdLmJvAuNNPzByAYpRo2rF1Mmradw6gvWsQKf63476DDXmomT9zUiGypLcG4ibIM67vhAj8jJRdbmEws2Aqw==}
-    engines: {node: '>=6.14.2'}
-
   builtin-modules@5.0.0:
     resolution: {integrity: sha512-bkXY9WsVpY7CvMhKSR6pZilZu9Ln5WDrKVBUXf2S443etkmEO4V58heTecXcUIsNsi4Rx8JUO4NfX1IcQl4deg==}
     engines: {node: '>=18.20'}
@@ -1906,10 +1850,6 @@ packages:
 
   caniuse-lite@1.0.30001747:
     resolution: {integrity: sha512-mzFa2DGIhuc5490Nd/G31xN1pnBnYMadtkyTjefPI7wzypqgCEpeWu9bJr0OnDsyKrW75zA9ZAt7pbQFmwLsQg==}
-
-  ccxt@4.5.6:
-    resolution: {integrity: sha512-amRu2SRHd3/sklF6BJAWuCp17OL7QmCIZTJyIzp+6HLFDJIzzNsPEoVn8LGvEFuI91779qM6n+22JTxeBLC0RA==}
-    engines: {node: '>=15.0.0'}
 
   chai@5.3.3:
     resolution: {integrity: sha512-4zNhdJD/iOjSH0A05ea+Ke6MU5mmpQcbQsSOkgdaUMJ9zTlDTD/GYlwohmIE2u0gaxHYiVHEn1Fw9mZ/ktJWgw==}
@@ -3137,10 +3077,6 @@ packages:
     resolution: {integrity: sha512-DSmt0OEcLoK4i3NuscSbGjOf3bqiDEutejqENSplMSFA/gmB8mkED9G4pKWnPl7MDU4rSHebKPHeitpDfyH0cQ==}
     engines: {node: '>=10'}
 
-  node-gyp-build@4.8.4:
-    resolution: {integrity: sha512-LA4ZjwlnUblHVgq0oBF3Jl/6h/Nvs5fzBLwdEF4nuxnFdsfajde4WfxtJr3CaiH+F6ewcIB/q4jQ4UzPyid+CQ==}
-    hasBin: true
-
   node-int64@0.4.0:
     resolution: {integrity: sha512-O5lz91xSOeoXP6DulyHfllpq+Eg00MWitZIbtPfoSEvqIHdl5gfcY6hYzDWnj0qD5tz52PI08u9qUvSVeUBeHw==}
 
@@ -3853,10 +3789,6 @@ packages:
   uri-js@4.4.1:
     resolution: {integrity: sha512-7rKUyy33Q1yc98pQ1DAmLtwX109F7TIfWlW1Ydo8Wl1ii1SeHieeh0HHfPeL2fMXK6z0s8ecKs9frCuLJvndBg==}
 
-  utf-8-validate@5.0.10:
-    resolution: {integrity: sha512-Z6czzLq4u8fPOyx7TU6X3dvUZVvoJmxSQ+IcrlmagKhilxlhZgxPK6C5Jqbkw1IDUmFTM+cz9QDnnLTwDz/2gQ==}
-    engines: {node: '>=6.14.2'}
-
   util-deprecate@1.0.2:
     resolution: {integrity: sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw==}
 
@@ -3994,18 +3926,6 @@ packages:
   write-file-atomic@5.0.1:
     resolution: {integrity: sha512-+QU2zd6OTD8XWIJCbffaiQeH9U73qIqafo1x6V1snCWYGJf6cVE0cDR4D8xRzcEnfI21IFrUPzPGtcPf8AC+Rw==}
     engines: {node: ^14.17.0 || ^16.13.0 || >=18.0.0}
-
-  ws@8.18.3:
-    resolution: {integrity: sha512-PEIGCY5tSlUt50cqyMXfCzX+oOPqN0vuGqWzbcJ2xvnkzkq46oOpz7dQaTDBdfICb4N14+GARUDw2XV2N4tvzg==}
-    engines: {node: '>=10.0.0'}
-    peerDependencies:
-      bufferutil: ^4.0.1
-      utf-8-validate: '>=5.0.2'
-    peerDependenciesMeta:
-      bufferutil:
-        optional: true
-      utf-8-validate:
-        optional: true
 
   y18n@5.0.8:
     resolution: {integrity: sha512-0pfFzegeDWJHJIAmTLRP2DwHjdF5s7jo9tuztdQxAhINCdvS+3nGINqPd00AphqJR/0LhANUS6/+7SCb98YOfA==}
@@ -5481,11 +5401,6 @@ snapshots:
       base64-js: 1.5.1
       ieee754: 1.2.1
 
-  bufferutil@4.0.9:
-    dependencies:
-      node-gyp-build: 4.8.4
-    optional: true
-
   builtin-modules@5.0.0: {}
 
   cac@6.7.14: {}
@@ -5514,13 +5429,6 @@ snapshots:
   camelcase@6.3.0: {}
 
   caniuse-lite@1.0.30001747: {}
-
-  ccxt@4.5.6(bufferutil@4.0.9)(utf-8-validate@5.0.10):
-    dependencies:
-      ws: 8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10)
-    transitivePeerDependencies:
-      - bufferutil
-      - utf-8-validate
 
   chai@5.3.3:
     dependencies:
@@ -7076,9 +6984,6 @@ snapshots:
     dependencies:
       semver: 7.7.2
 
-  node-gyp-build@4.8.4:
-    optional: true
-
   node-int64@0.4.0: {}
 
   node-releases@2.0.21: {}
@@ -7880,11 +7785,6 @@ snapshots:
     dependencies:
       punycode: 2.3.1
 
-  utf-8-validate@5.0.10:
-    dependencies:
-      node-gyp-build: 4.8.4
-    optional: true
-
   util-deprecate@1.0.2: {}
 
   v8-to-istanbul@9.3.0:
@@ -8056,11 +7956,6 @@ snapshots:
     dependencies:
       imurmurhash: 0.1.4
       signal-exit: 4.1.0
-
-  ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10):
-    optionalDependencies:
-      bufferutil: 4.0.9
-      utf-8-validate: 5.0.10
 
   y18n@5.0.8: {}
 
