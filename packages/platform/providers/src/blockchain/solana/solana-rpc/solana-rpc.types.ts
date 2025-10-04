@@ -4,7 +4,7 @@ import type { SolanaTokenAccountsResponse, SolanaTokenBalance } from '../types.j
  * Solana RPC transaction response
  */
 export interface SolanaRPCTransaction {
-  blockTime: number;
+  blockTime: Date;
   meta: {
     err: unknown;
     fee: number;

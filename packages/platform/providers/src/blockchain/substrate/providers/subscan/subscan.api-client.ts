@@ -201,10 +201,9 @@ export class SubscanApiClient extends BaseApiClient {
       // (API doesn't support server-side timestamp filtering)
       let filteredTransfers = transfers;
       if (since) {
-        const sinceSeconds = Math.floor(since / 1000);
-        filteredTransfers = transfers.filter((tx) => tx.block_timestamp >= sinceSeconds);
+        filteredTransfers = transfers.filter((tx) => tx.block_timestamp.getTime() >= since);
         this.logger.debug(
-          `Filtered ${filteredTransfers.length}/${transfers.length} transactions after timestamp ${sinceSeconds}`
+          `Filtered ${filteredTransfers.length}/${transfers.length} transactions after timestamp ${since}`
         );
       }
 

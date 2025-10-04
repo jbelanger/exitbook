@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { timestampToDate } from '../../../core/blockchain/utils/zod-utils.js';
 import { SolanaTokenBalanceSchema } from '../schemas.js';
 
 /**
@@ -50,7 +51,7 @@ export const SolanaRPCMetaSchema = z.object({
  * Schema for Solana RPC transaction structure
  */
 export const SolanaRPCTransactionSchema = z.object({
-  blockTime: z.number().nonnegative('Block time must be non-negative'),
+  blockTime: timestampToDate,
   meta: SolanaRPCMetaSchema,
   slot: z.number().nonnegative('Slot must be non-negative'),
   transaction: z.object({

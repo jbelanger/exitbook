@@ -7,6 +7,8 @@
  */
 import { z } from 'zod';
 
+import { timestampToDate } from '../../../../core/blockchain/utils/zod-utils.js';
+
 /**
  * Schema for Injective amount (denom and amount pair)
  */
@@ -92,7 +94,7 @@ export const InjectiveTransactionLogSchema = z.object({
  */
 export const InjectiveTransactionSchema = z.object({
   block_number: z.number().nonnegative('Block number must be non-negative'),
-  block_timestamp: z.string().datetime('Block timestamp must be valid ISO 8601 format'),
+  block_timestamp: timestampToDate,
   block_unix_timestamp: z.number().optional(),
   claim_id: z.array(z.number()).optional(),
   code: z.number().nonnegative('Transaction code must be non-negative'),

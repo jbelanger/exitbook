@@ -83,7 +83,7 @@ importers:
         version: link:../../packages/core
       '@exitbook/data':
         specifier: workspace:*
-        version: link:../../packages/data
+        version: link:../../packages/platform/data
       '@exitbook/import':
         specifier: workspace:*
         version: link:../../packages/import
@@ -123,7 +123,7 @@ importers:
         version: link:../core
       '@exitbook/data':
         specifier: workspace:*
-        version: link:../data
+        version: link:../platform/data
       '@exitbook/shared-logger':
         specifier: workspace:*
         version: link:../platform/logger
@@ -181,52 +181,6 @@ importers:
         specifier: ^5.9.2
         version: 5.9.2
 
-  packages/data:
-    dependencies:
-      '@exitbook/core':
-        specifier: workspace:*
-        version: link:../core
-      '@exitbook/shared-logger':
-        specifier: workspace:*
-        version: link:../platform/logger
-      better-sqlite3:
-        specifier: ^12.4.1
-        version: 12.4.1
-      decimal.js:
-        specifier: ^10.6.0
-        version: 10.6.0
-      kysely:
-        specifier: ^0.28.7
-        version: 0.28.7
-    devDependencies:
-      '@jest/globals':
-        specifier: ^30.0.5
-        version: 30.2.0
-      '@types/better-sqlite3':
-        specifier: ^7.6.13
-        version: 7.6.13
-      '@types/jest':
-        specifier: ^30.0.0
-        version: 30.0.0
-      '@types/node':
-        specifier: ^24.3.0
-        version: 24.5.2
-      jest:
-        specifier: ^30.0.5
-        version: 30.2.0(@types/node@24.5.2)
-      ts-jest:
-        specifier: ^29.4.1
-        version: 29.4.4(@babel/core@7.28.4)(@jest/transform@30.2.0)(@jest/types@30.2.0)(babel-jest@30.2.0(@babel/core@7.28.4))(jest-util@30.2.0)(jest@30.2.0(@types/node@24.5.2))(typescript@5.9.2)
-      tsconfig:
-        specifier: workspace:*
-        version: link:../shared/tsconfig
-      tsx:
-        specifier: ^4.20.4
-        version: 4.20.6
-      typescript:
-        specifier: ^5.9.2
-        version: 5.9.2
-
   packages/import:
     dependencies:
       '@exitbook/core':
@@ -234,7 +188,7 @@ importers:
         version: link:../core
       '@exitbook/data':
         specifier: workspace:*
-        version: link:../data
+        version: link:../platform/data
       '@exitbook/providers':
         specifier: workspace:*
         version: link:../platform/providers
@@ -278,6 +232,52 @@ importers:
       tsconfig:
         specifier: workspace:*
         version: link:../shared/tsconfig
+      tsx:
+        specifier: ^4.20.4
+        version: 4.20.6
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.2
+
+  packages/platform/data:
+    dependencies:
+      '@exitbook/core':
+        specifier: workspace:*
+        version: link:../../core
+      '@exitbook/shared-logger':
+        specifier: workspace:*
+        version: link:../logger
+      better-sqlite3:
+        specifier: ^12.4.1
+        version: 12.4.1
+      decimal.js:
+        specifier: ^10.6.0
+        version: 10.6.0
+      kysely:
+        specifier: ^0.28.7
+        version: 0.28.7
+    devDependencies:
+      '@jest/globals':
+        specifier: ^30.0.5
+        version: 30.2.0
+      '@types/better-sqlite3':
+        specifier: ^7.6.13
+        version: 7.6.13
+      '@types/jest':
+        specifier: ^30.0.0
+        version: 30.0.0
+      '@types/node':
+        specifier: ^24.3.0
+        version: 24.6.2
+      jest:
+        specifier: ^30.0.5
+        version: 30.2.0(@types/node@24.6.2)
+      ts-jest:
+        specifier: ^29.4.1
+        version: 29.4.4(@babel/core@7.28.4)(@jest/transform@30.2.0)(@jest/types@30.2.0)(babel-jest@30.2.0(@babel/core@7.28.4))(jest-util@30.2.0)(jest@30.2.0(@types/node@24.6.2))(typescript@5.9.2)
+      tsconfig:
+        specifier: workspace:*
+        version: link:../../shared/tsconfig
       tsx:
         specifier: ^4.20.4
         version: 4.20.6
@@ -363,7 +363,7 @@ importers:
         version: link:../../core
       '@exitbook/data':
         specifier: workspace:*
-        version: link:../../data
+        version: link:../data
       '@exitbook/platform-http':
         specifier: workspace:*
         version: link:../http
@@ -4870,7 +4870,7 @@ snapshots:
 
   '@types/better-sqlite3@7.6.13':
     dependencies:
-      '@types/node': 24.5.2
+      '@types/node': 24.6.2
 
   '@types/bn.js@5.2.0':
     dependencies:
@@ -7643,6 +7643,26 @@ snapshots:
       fast-json-stable-stringify: 2.1.0
       handlebars: 4.7.8
       jest: 30.2.0(@types/node@24.5.2)
+      json5: 2.2.3
+      lodash.memoize: 4.1.2
+      make-error: 1.3.6
+      semver: 7.7.2
+      type-fest: 4.41.0
+      typescript: 5.9.2
+      yargs-parser: 21.1.1
+    optionalDependencies:
+      '@babel/core': 7.28.4
+      '@jest/transform': 30.2.0
+      '@jest/types': 30.2.0
+      babel-jest: 30.2.0(@babel/core@7.28.4)
+      jest-util: 30.2.0
+
+  ts-jest@29.4.4(@babel/core@7.28.4)(@jest/transform@30.2.0)(@jest/types@30.2.0)(babel-jest@30.2.0(@babel/core@7.28.4))(jest-util@30.2.0)(jest@30.2.0(@types/node@24.6.2))(typescript@5.9.2):
+    dependencies:
+      bs-logger: 0.2.6
+      fast-json-stable-stringify: 2.1.0
+      handlebars: 4.7.8
+      jest: 30.2.0(@types/node@24.6.2)
       json5: 2.2.3
       lodash.memoize: 4.1.2
       make-error: 1.3.6

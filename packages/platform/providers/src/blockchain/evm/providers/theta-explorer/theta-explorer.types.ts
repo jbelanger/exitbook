@@ -62,7 +62,7 @@ export interface ThetaTransaction {
   data: ThetaSendTransactionData | ThetaSmartContractData | Record<string, unknown>;
   hash: string;
   number?: number;
-  timestamp: string;
+  timestamp: Date;
   type: ThetaTransactionType;
 }
 

@@ -29,7 +29,7 @@ export class BlockstreamTransactionMapper extends BaseRawDataMapper<BlockstreamT
     _sessionContext: ImportSessionMetadata
   ): Result<BitcoinTransaction, NormalizationError> {
     const timestamp =
-      rawData.status.confirmed && rawData.status.block_time ? rawData.status.block_time * 1000 : Date.now();
+      rawData.status.confirmed && rawData.status.block_time ? rawData.status.block_time.getTime() : Date.now();
 
     // Extract structured inputs with addresses and values
     const inputs: BitcoinTransactionInput[] = rawData.vin.map((input) => ({

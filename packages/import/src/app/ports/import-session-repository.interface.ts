@@ -58,4 +58,18 @@ export interface IImportSessionRepository {
    * Update an existing import session.
    */
   update(sessionId: number, updates: ImportSessionUpdate): Promise<Result<void, Error>>;
+
+  /**
+   * Find a completed import session with matching parameters.
+   */
+  findCompletedWithMatchingParams(
+    sourceId: string,
+    sourceType: 'exchange' | 'blockchain',
+    params: {
+      address?: string | undefined;
+      csvDirectories?: string[] | undefined;
+      providerId?: string | undefined;
+      since?: number | undefined;
+    }
+  ): Promise<Result<ImportSession | undefined, Error>>;
 }

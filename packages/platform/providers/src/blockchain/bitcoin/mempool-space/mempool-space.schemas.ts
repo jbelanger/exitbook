@@ -1,12 +1,14 @@
 import { z } from 'zod';
 
+import { timestampToDate } from '../../../core/blockchain/utils/zod-utils.js';
+
 /**
  * Schema for Mempool.space transaction status
  */
 export const MempoolTransactionStatusSchema = z.object({
   block_hash: z.string().optional(),
   block_height: z.number().optional(),
-  block_time: z.number().optional(),
+  block_time: timestampToDate.optional(),
   confirmed: z.boolean(),
 });
 

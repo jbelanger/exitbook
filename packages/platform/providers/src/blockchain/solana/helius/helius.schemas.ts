@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { timestampToDate } from '../../../core/blockchain/utils/zod-utils.js';
 import { SolanaTokenBalanceSchema } from '../schemas.js';
 
 /**
@@ -28,7 +29,7 @@ export const HeliusTransactionMessageSchema = z.object({
  * Schema for Helius transaction structure
  */
 export const HeliusTransactionSchema = z.object({
-  blockTime: z.number().optional(),
+  blockTime: timestampToDate.optional(),
   err: z.unknown().nullable(),
   meta: HeliusTransactionMetaSchema,
   signature: z.string().min(1, 'Signature must not be empty').optional(),
@@ -62,7 +63,7 @@ export const HeliusAssetResponseSchema = z.object({
  * Schema for Helius signature response
  */
 export const HeliusSignatureResponseSchema = z.object({
-  blockTime: z.number().optional(),
+  blockTime: timestampToDate.optional(),
   err: z.unknown().nullable(),
   memo: z.string(),
   signature: z.string().min(1, 'Signature must not be empty'),

@@ -3,6 +3,8 @@
  */
 import { z } from 'zod';
 
+import { timestampToDate } from '../../../../core/blockchain/utils/zod-utils.js';
+
 /**
  * Schema for Taostats address structure
  */
@@ -22,7 +24,7 @@ export const TaostatsTransactionRawSchema = z.object({
   from: TaostatsAddressSchema,
   id: z.string().min(1, 'ID must not be empty'),
   network: z.string().min(1, 'Network must not be empty'),
-  timestamp: z.string().datetime('Timestamp must be valid ISO 8601 format'),
+  timestamp: timestampToDate,
   to: TaostatsAddressSchema,
   transaction_hash: z.string().min(1, 'Transaction hash must not be empty'),
   // Augmented fields added by API client

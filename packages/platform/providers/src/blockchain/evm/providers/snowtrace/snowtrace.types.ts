@@ -15,7 +15,7 @@ export interface SnowtraceTransaction {
   isError?: string | undefined;
   methodId?: string | undefined;
   nonce: string;
-  timeStamp: string;
+  timeStamp: Date;
   to: string;
   transactionIndex: string;
   txreceipt_status?: string | undefined;
@@ -32,7 +32,7 @@ export interface SnowtraceInternalTransaction {
   hash: string;
   input: string;
   isError: string;
-  timeStamp: string;
+  timeStamp: Date;
   to: string;
   traceId: string;
   type: string;
@@ -52,7 +52,7 @@ export interface SnowtraceTokenTransfer {
   hash: string;
   input: string;
   nonce: string;
-  timeStamp: string;
+  timeStamp: Date;
   to: string;
   tokenDecimal: string;
   tokenName: string;

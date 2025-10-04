@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { timestampToDate } from '../../../core/blockchain/utils/zod-utils.js';
+
 /**
  * Schema for Solscan input account structure
  */
@@ -25,7 +27,7 @@ export const SolscanParsedInstructionSchema = z.object({
  * Schema for Solscan transaction structure
  */
 export const SolscanTransactionSchema = z.object({
-  blockTime: z.number().nonnegative('Block time must be non-negative'),
+  blockTime: timestampToDate,
   fee: z.number().nonnegative('Fee must be non-negative'),
   inputAccount: z.array(SolscanInputAccountSchema),
   lamport: z.number(),

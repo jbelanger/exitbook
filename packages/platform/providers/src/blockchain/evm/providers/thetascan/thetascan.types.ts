@@ -6,7 +6,7 @@ export interface ThetaScanTransaction {
   recieving_address: string;
   theta: string;
   tfuel: string;
-  timestamp: number;
+  timestamp: Date;
   block: string;
   fee_tfuel: number;
   type?: string;

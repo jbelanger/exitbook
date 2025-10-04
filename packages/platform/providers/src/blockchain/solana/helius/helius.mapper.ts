@@ -77,7 +77,7 @@ export class HeliusTransactionMapper extends BaseRawDataMapper<HeliusTransaction
       signature,
       slot: tx.slot,
       status: tx.meta.err ? 'failed' : 'success',
-      timestamp: (tx.blockTime || 0) * 1000,
+      timestamp: tx.blockTime?.getTime() ?? 0,
 
       // Basic recipient (will be refined by processor)
       to: accountKeys?.[1] || '', // Second account is often recipient

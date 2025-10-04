@@ -2,7 +2,7 @@
  * Solana transaction from Solscan API
  */
 export interface SolscanTransaction {
-  blockTime: number;
+  blockTime: Date;
   fee: number;
   inputAccount: {
     account: string;

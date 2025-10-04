@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { hexOrNumericToNumeric } from '../../../../core/blockchain/utils/zod-utils.ts';
+import { hexOrNumericToNumeric, timestampToDate } from '../../../../core/blockchain/utils/zod-utils.ts';
 
 /**
  * Schema for Alchemy raw contract structure
@@ -15,7 +15,7 @@ export const AlchemyRawContractSchema = z.object({
  * Schema for Alchemy metadata structure
  */
 export const AlchemyMetadataSchema = z.object({
-  blockTimestamp: z.string().datetime('Block timestamp must be valid ISO 8601 format').optional(),
+  blockTimestamp: timestampToDate.optional(),
 });
 
 /**

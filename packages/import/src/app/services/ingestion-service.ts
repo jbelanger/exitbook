@@ -84,6 +84,43 @@ export class TransactionIngestionService {
   ): Promise<Result<ImportResult, Error>> {
     this.logger.info(`Starting import for ${sourceId} (${sourceType})`);
 
+    // Check for existing completed session with matching parameters
+    const existingSessionResult = await this.sessionRepository.findCompletedWithMatchingParams(sourceId, sourceType, {
+      address: params.address,
+      csvDirectories: params.csvDirectories,
+      providerId: params.providerId,
+      since: params.since,
+    });
+
+    if (existingSessionResult.isErr()) {
+      return err(existingSessionResult.error);
+    }
+
+    const existingSession = existingSessionResult.value;
+
+    if (existingSession) {
+      this.logger.info(
+        `Found existing completed import session ${existingSession.id} with matching parameters - reusing data`
+      );
+
+      // Load raw data count from existing session
+      const rawDataResult = await this.rawDataRepository.load({
+        importSessionId: existingSession.id,
+      });
+
+      if (rawDataResult.isErr()) {
+        return err(rawDataResult.error);
+      }
+
+      const rawDataCount = rawDataResult.value.length;
+
+      return ok({
+        imported: rawDataCount,
+        importSessionId: existingSession.id,
+        providerId: params.providerId ?? undefined,
+      });
+    }
+
     const startTime = Date.now();
     let sessionCreated = false;
     let importSessionId = 0;

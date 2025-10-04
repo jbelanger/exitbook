@@ -166,7 +166,7 @@ export class BlockstreamApiClient extends BaseApiClient {
       let filteredRawTransactions = allRawTransactions;
       if (since) {
         filteredRawTransactions = allRawTransactions.filter(
-          (tx) => (tx.status.block_time || Math.floor(Date.now() / 1000)) >= since
+          (tx) => (tx.status.block_time?.getTime() || Date.now()) >= since
         );
         this.logger.debug(
           `Filtered raw transactions by timestamp - OriginalCount: ${allRawTransactions.length}, FilteredCount: ${filteredRawTransactions.length}, Since: ${since}`
@@ -175,8 +175,8 @@ export class BlockstreamApiClient extends BaseApiClient {
 
       // Sort by timestamp (newest first)
       filteredRawTransactions.sort((a, b) => {
-        const aTime = a.status.block_time || 0;
-        const bTime = b.status.block_time || 0;
+        const aTime = a.status.block_time?.getTime() || 0;
+        const bTime = b.status.block_time?.getTime() || 0;
         return bTime - aTime;
       });
 

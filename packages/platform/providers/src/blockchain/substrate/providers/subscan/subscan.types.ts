@@ -67,7 +67,7 @@ export interface SubscanTransfer {
   asset_type?: string;
   asset_unique_id?: string;
   block_num: number;
-  block_timestamp: number;
+  block_timestamp: Date;
   currency_amount?: string;
   current_currency_amount?: string;
   event_idx?: number;

@@ -25,7 +25,7 @@ export interface AlchemyAssetTransfer {
   from: string;
   hash: string;
   metadata?: {
-    blockTimestamp?: string | undefined;
+    blockTimestamp?: Date | undefined;
   };
   rawContract?: {
     address?: string | undefined;

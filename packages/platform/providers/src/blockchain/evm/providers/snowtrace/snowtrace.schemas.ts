@@ -6,6 +6,8 @@
  */
 import { z } from 'zod';
 
+import { timestampToDate } from '../../../../core/blockchain/utils/zod-utils.js';
+
 /**
  * Schema for Snowtrace normal transaction structure
  */
@@ -24,7 +26,7 @@ export const SnowtraceTransactionSchema = z.object({
   isError: z.string().optional(),
   methodId: z.string().optional(),
   nonce: z.string().regex(/^\d+$/, 'Nonce must be numeric string'),
-  timeStamp: z.string().regex(/^\d+$/, 'Timestamp must be numeric string (Unix seconds)'),
+  timeStamp: timestampToDate,
   to: z.string().min(1, 'To address must not be empty'),
   transactionIndex: z.string().regex(/^\d+$/, 'Transaction index must be numeric string'),
   txreceipt_status: z.string().optional(),
@@ -44,7 +46,7 @@ export const SnowtraceInternalTransactionSchema = z.object({
   hash: z.string().min(1, 'Transaction hash must not be empty'),
   input: z.string(),
   isError: z.string().min(1, 'IsError must not be empty'),
-  timeStamp: z.string().regex(/^\d+$/, 'Timestamp must be numeric string (Unix seconds)'),
+  timeStamp: timestampToDate,
   to: z.string().min(1, 'To address must not be empty'),
   traceId: z.string().min(1, 'Trace ID must not be empty'),
   type: z.string().min(1, 'Type must not be empty'),
@@ -67,7 +69,7 @@ export const SnowtraceTokenTransferSchema = z.object({
   hash: z.string().min(1, 'Transaction hash must not be empty'),
   input: z.string(),
   nonce: z.string().regex(/^\d+$/, 'Nonce must be numeric string'),
-  timeStamp: z.string().regex(/^\d+$/, 'Timestamp must be numeric string (Unix seconds)'),
+  timeStamp: timestampToDate,
   to: z.string().min(1, 'To address must not be empty'),
   tokenDecimal: z.string().regex(/^\d+$/, 'Token decimal must be numeric string'),
   tokenName: z.string().min(1, 'Token name must not be empty'),
@@ -126,7 +128,7 @@ export const AtomicTransactionSchema = z.object({
   status: z.enum(['accepted', 'processing', 'rejected'], {
     message: 'Status must be accepted, processing, or rejected',
   }),
-  timestamp: z.string().regex(/^\d+$/, 'Timestamp must be numeric string (Unix seconds)'),
+  timestamp: timestampToDate,
   type: z.enum(['import', 'export'], { message: 'Type must be import or export' }),
 });
 

@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { timestampToDate } from '../../../../core/blockchain/utils/zod-utils.js';
+
 /**
  * Schema for Theta blockchain coin balances
  */
@@ -48,7 +50,7 @@ export const ThetaTransactionSchema = z.object({
   data: z.record(z.string(), z.unknown()),
   hash: z.string().min(1, 'Transaction hash must not be empty'),
   number: z.number().optional(),
-  timestamp: z.string().regex(/^\d+$/, 'Timestamp must be numeric string'),
+  timestamp: timestampToDate,
   type: z.number().int().min(0).max(9),
 });
 

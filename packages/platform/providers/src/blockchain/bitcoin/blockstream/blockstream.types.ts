@@ -5,7 +5,7 @@ export interface BlockstreamTransaction {
   status: {
     block_hash?: string | undefined;
     block_height?: number | undefined;
-    block_time?: number | undefined;
+    block_time?: Date | undefined;
     confirmed: boolean;
   };
   txid: string;

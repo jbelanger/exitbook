@@ -27,7 +27,7 @@ export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<Inject
     _metadata: RawTransactionMetadata,
     sessionContext: ImportSessionMetadata
   ): Result<CosmosTransaction, NormalizationError> {
-    const timestamp = new Date(rawData.block_timestamp).getTime();
+    const timestamp = rawData.block_timestamp.getTime();
 
     if (!sessionContext.address) {
       return err({ message: 'Invalid address', type: 'error' });

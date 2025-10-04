@@ -32,7 +32,7 @@ describe('ThetaExplorerTransactionMapper', () => {
           ],
         } as ThetaSendTransactionData,
         hash: '0xa8e2051371ac9307a54e5290ec522d679bd7ecde13b86fd85a5d6acbe3257a3a',
-        timestamp: '1752686427',
+        timestamp: new Date(1752686427 * 1000),
         type: 2,
       };
 
@@ -68,7 +68,7 @@ describe('ThetaExplorerTransactionMapper', () => {
           ],
         } as ThetaSendTransactionData,
         hash: '0x9312f29a4a4e6478b4f6e30d91d7407067d6350578a25669d1272f4624e8cc01',
-        timestamp: '1752686906',
+        timestamp: new Date(1752686906 * 1000),
         type: 2,
       };
 
@@ -104,7 +104,7 @@ describe('ThetaExplorerTransactionMapper', () => {
           ],
         } as ThetaSendTransactionData,
         hash: '0x171980dbb42e7c3ac5ae1df6dd2240523d751d82ac1bf6f338a4edb83e856eb1',
-        timestamp: '1715285402',
+        timestamp: new Date(1715285402 * 1000),
         type: 2,
       };
 
@@ -135,7 +135,7 @@ describe('ThetaExplorerTransactionMapper', () => {
           },
         } as ThetaSendTransactionData,
         hash: '0xa8e2051371ac9307a54e5290ec522d679bd7ecde13b86fd85a5d6acbe3257a3a',
-        timestamp: '1752686427',
+        timestamp: new Date(1752686427 * 1000),
         type: 2,
       };
 
@@ -165,7 +165,7 @@ describe('ThetaExplorerTransactionMapper', () => {
           ],
         } as ThetaSendTransactionData,
         hash: '0xabc',
-        timestamp: '1752686427',
+        timestamp: new Date(1752686427 * 1000),
         type: 2,
       };
 
@@ -190,7 +190,7 @@ describe('ThetaExplorerTransactionMapper', () => {
           ],
         } as ThetaSendTransactionData,
         hash: '0xabc',
-        timestamp: '1752686427',
+        timestamp: new Date(1752686427 * 1000),
         type: 2,
       };
 
@@ -223,7 +223,7 @@ describe('ThetaExplorerTransactionMapper', () => {
           ],
         } as ThetaSendTransactionData,
         hash: '0xa8e2051371ac9307a54e5290ec522d679bd7ecde13b86fd85a5d6acbe3257a3a',
-        timestamp: '1752686427',
+        timestamp: new Date(1752686427 * 1000),
         type: 2,
       };
 
@@ -249,7 +249,7 @@ describe('ThetaExplorerTransactionMapper', () => {
         block_height: '30599571',
         data: {},
         hash: '0xabc',
-        timestamp: '1752686427',
+        timestamp: new Date(1752686427 * 1000),
         type: 5, // Reserve fund transaction - not supported
       };
 

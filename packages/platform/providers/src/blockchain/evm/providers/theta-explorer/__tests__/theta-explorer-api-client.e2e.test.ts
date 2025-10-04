@@ -69,8 +69,9 @@ describe('ThetaExplorerApiClient Integration', () => {
         // Check block height is numeric string
         expect(parseInt(tx.block_height)).toBeGreaterThan(0);
 
-        // Check timestamp is numeric string
-        expect(parseInt(tx.timestamp)).toBeGreaterThan(0);
+        // Check timestamp is a Date
+        expect(tx.timestamp).toBeInstanceOf(Date);
+        expect(tx.timestamp.getTime()).toBeGreaterThan(0);
 
         // Check type is valid
         expect([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]).toContain(tx.type);

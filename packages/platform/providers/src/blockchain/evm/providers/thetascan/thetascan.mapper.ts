@@ -49,8 +49,8 @@ export class ThetaScanTransactionMapper extends BaseRawDataMapper<ThetaScanTrans
     // transfers as token_transfer to preserve the correct symbol
     const isThetaTransfer = currency === 'THETA';
 
-    // Convert timestamp (Unix timestamp in seconds) to milliseconds
-    const timestamp = rawData.timestamp * 1000;
+    // Convert timestamp to milliseconds
+    const timestamp = rawData.timestamp.getTime();
 
     // Calculate fee in wei
     const THETA_DECIMALS = 18;

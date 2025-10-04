@@ -3,6 +3,8 @@
  */
 import { z } from 'zod';
 
+import { timestampToDate } from '../../../../core/blockchain/utils/zod-utils.js';
+
 /**
  * Schema for account display metadata
  */
@@ -96,7 +98,7 @@ export const SubscanTransferSchema = z.object({
   asset_type: z.string().nullish(),
   asset_unique_id: z.string().nullish(),
   block_num: z.number().nonnegative('Block number must be non-negative'),
-  block_timestamp: z.number().nonnegative('Block timestamp must be non-negative'),
+  block_timestamp: timestampToDate,
   currency_amount: z.string().nullish(),
   current_currency_amount: z.string().nullish(),
   event_idx: z.number().nullish(),

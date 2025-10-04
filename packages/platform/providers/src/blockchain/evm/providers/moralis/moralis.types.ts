@@ -2,7 +2,7 @@
 export interface MoralisTransaction {
   block_hash: string;
   block_number: string;
-  block_timestamp: string;
+  block_timestamp: Date;
   from_address: string;
   gas: string;
   gas_price: string;
@@ -27,7 +27,7 @@ export interface MoralisTokenTransfer {
   address: string;
   block_hash: string;
   block_number: string;
-  block_timestamp: string;
+  block_timestamp: Date;
   contract_type: string;
   from_address: string;
   to_address: string;

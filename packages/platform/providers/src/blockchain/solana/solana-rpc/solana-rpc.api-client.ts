@@ -170,7 +170,10 @@ export class SolanaRPCApiClient extends BaseApiClient {
             ],
           });
 
-          if (txResponse?.result && (!since || (txResponse.result.blockTime && txResponse.result.blockTime >= since))) {
+          if (
+            txResponse?.result &&
+            (!since || (txResponse.result.blockTime && txResponse.result.blockTime.getTime() >= since))
+          ) {
             transactions.push(txResponse.result);
           }
         } catch (error) {
@@ -181,7 +184,7 @@ export class SolanaRPCApiClient extends BaseApiClient {
       }
 
       // Sort by timestamp (newest first)
-      transactions.sort((a, b) => (b.blockTime || 0) - (a.blockTime || 0));
+      transactions.sort((a, b) => b.blockTime.getTime() - a.blockTime.getTime());
 
       this.logger.debug(
         `Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${transactions.length}`

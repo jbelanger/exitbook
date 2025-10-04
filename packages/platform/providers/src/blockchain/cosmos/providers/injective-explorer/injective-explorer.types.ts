@@ -9,7 +9,7 @@ export interface InjectiveExplorerResponse {
 
 export interface InjectiveExplorerTransaction {
   block_number: number;
-  block_timestamp: string;
+  block_timestamp: Date;
   block_unix_timestamp?: number | undefined;
   claim_id?: number[] | undefined;
   code: number;

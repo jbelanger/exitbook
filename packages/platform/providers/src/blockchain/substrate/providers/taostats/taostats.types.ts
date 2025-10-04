@@ -15,7 +15,7 @@ export interface TaostatsTransactionRaw {
   from: TaostatsAddress;
   id: string;
   network: string;
-  timestamp: string; // ISO string format
+  timestamp: Date;
   to: TaostatsAddress;
   transaction_hash: string;
 }

@@ -1,12 +1,14 @@
 import { z } from 'zod';
 
+import { timestampToDate } from '../../../core/blockchain/utils/zod-utils.js';
+
 /**
  * Schema for Blockstream.info transaction status
  */
 export const BlockstreamTransactionStatusSchema = z.object({
   block_hash: z.string().optional(),
   block_height: z.number().optional(),
-  block_time: z.number().optional(),
+  block_time: timestampToDate.optional(),
   confirmed: z.boolean(),
 });
 

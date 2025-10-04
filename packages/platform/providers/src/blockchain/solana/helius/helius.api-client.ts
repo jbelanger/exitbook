@@ -234,7 +234,10 @@ export class HeliusApiClient extends BaseApiClient {
           ],
         });
 
-        if (txResponse?.result && (!since || (txResponse.result.blockTime && txResponse.result.blockTime >= since))) {
+        if (
+          txResponse?.result &&
+          (!since || (txResponse.result.blockTime && txResponse.result.blockTime.getTime() >= since))
+        ) {
           transactions.push(txResponse.result);
         }
       } catch (error) {
@@ -298,7 +301,7 @@ export class HeliusApiClient extends BaseApiClient {
       const tokenAccountTransactions = await this.getTokenAccountTransactions(address, since);
 
       const allTransactions = this.deduplicateTransactions([...directTransactions, ...tokenAccountTransactions]);
-      allTransactions.sort((a, b) => b.blockTime! - a.blockTime!);
+      allTransactions.sort((a, b) => (b.blockTime?.getTime() || 0) - (a.blockTime?.getTime() || 0));
 
       this.logger.debug(
         `Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, DirectTransactions: ${directTransactions.length}, TokenAccountTransactions: ${tokenAccountTransactions.length}, TotalUniqueTransactions: ${allTransactions.length}`

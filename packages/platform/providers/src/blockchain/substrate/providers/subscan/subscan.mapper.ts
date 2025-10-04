@@ -127,7 +127,7 @@ export class SubscanTransactionMapper extends BaseRawDataMapper<SubscanTransferA
         ss58Format: chainConfig.ss58Format,
         status: transfer.success ? 'success' : 'failed',
 
-        timestamp: transfer.block_timestamp * 1000, // Convert to milliseconds
+        timestamp: transfer.block_timestamp.getTime(),
 
         to: transfer.to,
       };

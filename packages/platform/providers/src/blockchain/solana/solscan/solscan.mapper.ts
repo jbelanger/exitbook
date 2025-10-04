@@ -80,7 +80,7 @@ export class SolscanTransactionMapper extends BaseRawDataMapper<SolscanTransacti
       signature: tx.txHash,
       slot: tx.slot,
       status: tx.status === 'Success' ? 'success' : 'failed',
-      timestamp: tx.blockTime * 1000,
+      timestamp: tx.blockTime?.getTime() ?? 0,
 
       // Basic recipient (determined from account changes)
       to: recipient,

@@ -5,6 +5,18 @@ import type { IImportSessionRepository } from '@exitbook/import/app/ports/import
 import type { Result } from 'neverthrow';
 import { ok, err } from 'neverthrow';
 
+interface SessionMetadata {
+  address?: string;
+  csvDirectories?: string[];
+  importedAt?: number;
+  importParams?: {
+    address?: string;
+    csvDirectories?: string[];
+    providerId?: string;
+    since?: number;
+  };
+}
+
 /**
  * Kysely-based repository for import session database operations.
  * Handles storage and retrieval of ImportSession entities using type-safe queries.
@@ -195,6 +207,66 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
     } catch (error) {
       const errValue = error instanceof Error ? error : new Error(String(error));
       this.logger.error({ error: errValue, sessionId, updates }, 'Failed to update import session');
+      return err(errValue);
+    }
+  }
+
+  async findCompletedWithMatchingParams(
+    sourceId: string,
+    sourceType: 'exchange' | 'blockchain',
+    params: {
+      address?: string;
+      csvDirectories?: string[];
+      providerId?: string;
+      since?: number;
+    }
+  ): Promise<Result<ImportSession | undefined, Error>> {
+    try {
+      // Find all completed sessions for this source
+      const sessionsResult = await this.findAll({
+        sourceId,
+        sourceType,
+        status: 'completed',
+      });
+
+      if (sessionsResult.isErr()) {
+        return err(sessionsResult.error);
+      }
+
+      const sessions = sessionsResult.value;
+
+      // Find a session with matching import parameters
+      for (const session of sessions) {
+        const metadata: SessionMetadata = session.session_metadata
+          ? typeof session.session_metadata === 'string'
+            ? (JSON.parse(session.session_metadata) as SessionMetadata)
+            : (session.session_metadata as SessionMetadata)
+          : {};
+
+        const storedParams = metadata.importParams ?? {};
+
+        // Compare relevant parameters
+        const addressMatches = params.address === storedParams.address;
+        const providerMatches = params.providerId === storedParams.providerId;
+        const sinceMatches = params.since === storedParams.since;
+
+        // Compare CSV directories (arrays need deep comparison)
+        const csvDirsMatch =
+          JSON.stringify(params.csvDirectories?.sort()) === JSON.stringify(storedParams.csvDirectories?.sort());
+
+        if (addressMatches && providerMatches && sinceMatches && csvDirsMatch) {
+          return ok(session);
+        }
+      }
+
+      // eslint-disable-next-line unicorn/no-useless-undefined -- Explicitly return undefined when no match found
+      return ok(undefined);
+    } catch (error) {
+      const errValue = error instanceof Error ? error : new Error(String(error));
+      this.logger.error(
+        { error: errValue, sourceId, sourceType, params },
+        'Failed to find completed session with matching params'
+      );
       return err(errValue);
     }
   }

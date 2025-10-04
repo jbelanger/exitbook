@@ -89,7 +89,7 @@ describe('SubscanApiClient Integration', () => {
 
       // All transactions should be after the since timestamp (client-side filtered)
       transactions.forEach((tx) => {
-        expect(tx.block_timestamp * 1000).toBeGreaterThanOrEqual(july2023);
+        expect(tx.block_timestamp.getTime()).toBeGreaterThanOrEqual(july2023);
       });
     }, 30000);
   });

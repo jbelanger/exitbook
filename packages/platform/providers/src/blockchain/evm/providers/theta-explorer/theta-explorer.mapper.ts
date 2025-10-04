@@ -94,8 +94,8 @@ export class ThetaExplorerTransactionMapper extends BaseRawDataMapper<ThetaTrans
       return err({ message: `Unsupported transaction type: ${rawData.type}`, type: 'error' });
     }
 
-    // Convert timestamp (already in unix seconds)
-    const timestamp = parseInt(rawData.timestamp) * 1000; // Convert to milliseconds
+    // Convert timestamp to milliseconds
+    const timestamp = rawData.timestamp.getTime();
 
     // Convert block height to number
     const blockHeight = parseInt(rawData.block_height);

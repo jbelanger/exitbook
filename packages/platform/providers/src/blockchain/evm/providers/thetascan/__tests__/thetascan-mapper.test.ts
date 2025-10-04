@@ -23,7 +23,7 @@ describe('ThetaScanTransactionMapper', () => {
         sending_address: '0x6d882a1ae65377c12e8c1ad5a8b5cfa329edeb07',
         tfuel: '0.000000',
         theta: '420.333700',
-        timestamp: 1752686427,
+        timestamp: new Date(1752686427 * 1000),
       };
 
       const result = mapper.map(rawTx, metadata, sessionContext);
@@ -49,7 +49,7 @@ describe('ThetaScanTransactionMapper', () => {
         sending_address: '0x6d882a1ae65377c12e8c1ad5a8b5cfa329edeb07',
         tfuel: '7,614.412500',
         theta: '0.000000',
-        timestamp: 1752686906,
+        timestamp: new Date(1752686906 * 1000),
       };
 
       const result = mapper.map(rawTx, metadata, sessionContext);
@@ -75,7 +75,7 @@ describe('ThetaScanTransactionMapper', () => {
         sending_address: '0x5a722d3c43e5e5cec5dd91391594309829ae0a24',
         tfuel: '100.000000',
         theta: '50.000000',
-        timestamp: 1715285402,
+        timestamp: new Date(1715285402 * 1000),
       };
 
       const result = mapper.map(rawTx, metadata, sessionContext);
@@ -100,7 +100,7 @@ describe('ThetaScanTransactionMapper', () => {
         sending_address: '0x5a722d3c43e5e5cec5dd91391594309829ae0a24',
         tfuel: '0.000000',
         theta: '0.000000',
-        timestamp: 1715285402,
+        timestamp: new Date(1715285402 * 1000),
       };
 
       const result = mapper.map(rawTx, metadata, sessionContext);
@@ -126,7 +126,7 @@ describe('ThetaScanTransactionMapper', () => {
         sending_address: '0x6d882a1ae65377c12e8c1ad5a8b5cfa329edeb07',
         tfuel: '1,234,567.890000',
         theta: '0.000000',
-        timestamp: 1752686427,
+        timestamp: new Date(1752686427 * 1000),
       };
 
       const result = mapper.map(rawTx, metadata, sessionContext);
@@ -148,7 +148,7 @@ describe('ThetaScanTransactionMapper', () => {
         sending_address: '0x6d882a1ae65377c12e8c1ad5a8b5cfa329edeb07',
         tfuel: '0.000000',
         theta: '123.456789',
-        timestamp: 1752686427,
+        timestamp: new Date(1752686427 * 1000),
       };
 
       const result = mapper.map(rawTx, metadata, sessionContext);
@@ -170,7 +170,7 @@ describe('ThetaScanTransactionMapper', () => {
         sending_address: '0x6d882a1ae65377c12e8c1ad5a8b5cfa329edeb07',
         tfuel: '1.000000',
         theta: '0.000000',
-        timestamp: 1752686427,
+        timestamp: new Date(1752686427 * 1000),
       };
 
       const result = mapper.map(rawTx, metadata, sessionContext);
@@ -193,7 +193,7 @@ describe('ThetaScanTransactionMapper', () => {
         sending_address: '0x6d882a1ae65377c12e8c1ad5a8b5cfa329edeb07',
         tfuel: '0.000000',
         theta: '420.333700',
-        timestamp: 1752686427,
+        timestamp: new Date(1752686427 * 1000),
       };
 
       const result = mapper.map(rawTx, metadata, sessionContext);
@@ -215,7 +215,7 @@ describe('ThetaScanTransactionMapper', () => {
         sending_address: '0x6d882a1ae65377c12e8c1ad5a8b5cfa329edeb07',
         tfuel: '100.000000',
         theta: '0.000000',
-        timestamp: 1752686427,
+        timestamp: new Date(1752686427 * 1000),
       };
 
       const result = mapper.map(rawTx, metadata, sessionContext);
@@ -239,7 +239,7 @@ describe('ThetaScanTransactionMapper', () => {
         sending_address: '0x6d882a1ae65377c12e8c1ad5a8b5cfa329edeb07',
         tfuel: '0.000000',
         theta: '420.333700',
-        timestamp: 1752686427,
+        timestamp: new Date(1752686427 * 1000),
       };
 
       const result = mapper.map(rawTx, metadata, sessionContext);

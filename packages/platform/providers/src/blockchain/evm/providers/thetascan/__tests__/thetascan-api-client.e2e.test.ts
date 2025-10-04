@@ -51,7 +51,7 @@ describe('ThetaScanApiClient Integration', () => {
       // All transactions should be after the since date
       if (transactions.length > 0) {
         transactions.forEach((tx) => {
-          const txTimestamp = tx.timestamp * 1000; // Convert to milliseconds
+          const txTimestamp = tx.timestamp.getTime(); // Get timestamp in milliseconds
           expect(txTimestamp).toBeGreaterThanOrEqual(oneYearAgo);
         });
       }

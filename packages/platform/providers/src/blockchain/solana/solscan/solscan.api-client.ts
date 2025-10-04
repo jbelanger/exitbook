@@ -198,7 +198,7 @@ export class SolscanApiClient extends BaseApiClient {
       }
 
       // Filter by since if provided
-      const filteredTransactions = since ? transactions.filter((tx) => tx.blockTime * 1000 >= since) : transactions;
+      const filteredTransactions = since ? transactions.filter((tx) => tx.blockTime.getTime() >= since) : transactions;
 
       this.logger.debug(
         `Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${filteredTransactions.length}`

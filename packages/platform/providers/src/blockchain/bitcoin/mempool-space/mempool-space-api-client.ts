@@ -136,7 +136,7 @@ export class MempoolSpaceApiClient extends BaseApiClient {
       let filteredTransactions = rawTransactions;
       if (since) {
         filteredTransactions = rawTransactions.filter((tx) => {
-          const timestamp = tx.status.confirmed && tx.status.block_time ? tx.status.block_time * 1000 : Date.now();
+          const timestamp = tx.status.confirmed && tx.status.block_time ? tx.status.block_time.getTime() : Date.now();
           return timestamp >= since;
         });
 
@@ -147,8 +147,8 @@ export class MempoolSpaceApiClient extends BaseApiClient {
 
       // Sort by timestamp (newest first)
       filteredTransactions.sort((a, b) => {
-        const timestampA = a.status.confirmed && a.status.block_time ? a.status.block_time : 0;
-        const timestampB = b.status.confirmed && b.status.block_time ? b.status.block_time : 0;
+        const timestampA = a.status.confirmed && a.status.block_time ? a.status.block_time.getTime() : 0;
+        const timestampB = b.status.confirmed && b.status.block_time ? b.status.block_time.getTime() : 0;
         return timestampB - timestampA;
       });
 

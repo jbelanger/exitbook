@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { timestampToDate } from '../../../../core/blockchain/index.ts';
+
 /**
  * Schema for Moralis transaction structure
  */
@@ -7,7 +9,7 @@ export const MoralisTransactionSchema = z
   .object({
     block_hash: z.string().min(1, 'Block hash must not be empty'),
     block_number: z.string().regex(/^\d+$/, 'Block number must be numeric string'),
-    block_timestamp: z.string().datetime('Block timestamp must be valid ISO 8601 format'),
+    block_timestamp: timestampToDate,
     from_address: z.string().min(1, 'From address must not be empty'),
     gas: z.string().regex(/^\d*$/, 'Gas must be numeric string or empty'), // Can be empty
     gas_price: z.string().regex(/^\d*$/, 'Gas price must be numeric string or empty'), // Can be empty
@@ -51,7 +53,7 @@ export const MoralisTokenTransferSchema = z.object({
   address: z.string().min(1, 'Address must not be empty'),
   block_hash: z.string().min(1, 'Block hash must not be empty'),
   block_number: z.string().regex(/^\d+$/, 'Block number must be numeric string'),
-  block_timestamp: z.string().datetime('Block timestamp must be valid ISO 8601 format'),
+  block_timestamp: timestampToDate,
   contract_type: z.string().min(1, 'Contract type must not be empty'),
   from_address: z.string().min(1, 'From address must not be empty'),
   to_address: z.string().min(1, 'To address must not be empty'),

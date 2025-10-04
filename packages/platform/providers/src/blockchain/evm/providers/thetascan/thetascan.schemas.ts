@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { timestampToDate } from '../../../../core/blockchain/utils/zod-utils.js';
+
 /**
  * Schema for ThetaScan transaction structure
  */
@@ -11,7 +13,7 @@ export const ThetaScanTransactionSchema = z.object({
   sending_address: z.string().min(1, 'Sending address must not be empty'),
   tfuel: z.string().regex(/^-?\d{1,3}(,\d{3})*(\.\d+)?$/, 'TFuel must be numeric string with optional commas'),
   theta: z.string().regex(/^-?\d{1,3}(,\d{3})*(\.\d+)?$/, 'Theta must be numeric string with optional commas'),
-  timestamp: z.number(),
+  timestamp: timestampToDate,
   // Optional fields for token transfers
   contract_address: z.string().optional(),
   token_name: z.string().optional(),

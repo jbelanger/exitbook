@@ -41,7 +41,7 @@ export class SnowtraceTransactionMapper extends BaseRawDataMapper<
   private transformInternalTransaction(
     rawData: SnowtraceInternalTransaction
   ): Result<EvmTransaction, NormalizationError> {
-    const timestamp = parseInt(rawData.timeStamp) * 1000;
+    const timestamp = rawData.timeStamp.getTime();
 
     return ok({
       amount: rawData.value,
@@ -59,7 +59,7 @@ export class SnowtraceTransactionMapper extends BaseRawDataMapper<
   }
 
   private transformNormalTransaction(rawData: SnowtraceTransaction): Result<EvmTransaction, NormalizationError> {
-    const timestamp = parseInt(rawData.timeStamp) * 1000;
+    const timestamp = rawData.timeStamp.getTime();
 
     const transaction: EvmTransaction = {
       amount: rawData.value,
@@ -98,7 +98,7 @@ export class SnowtraceTransactionMapper extends BaseRawDataMapper<
   }
 
   private transformTokenTransfer(rawData: SnowtraceTokenTransfer): Result<EvmTransaction, NormalizationError> {
-    const timestamp = parseInt(rawData.timeStamp) * 1000;
+    const timestamp = rawData.timeStamp.getTime();
 
     const transaction: EvmTransaction = {
       amount: rawData.value,
