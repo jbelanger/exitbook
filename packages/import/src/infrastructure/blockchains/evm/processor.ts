@@ -1,5 +1,4 @@
 import { createMoney } from '@exitbook/core';
-import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transaction-processor.interface.ts';
 import type { ITransactionRepository } from '@exitbook/import/app/ports/transaction-repository.js';
 import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
 import type { EvmChainConfig, EvmTransaction } from '@exitbook/providers';
@@ -27,14 +26,14 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
 
   protected async processInternal(
     normalizedData: unknown[],
-    sessionMetadata?: ImportSessionMetadata
+    sessionMetadata?: Record<string, unknown>
   ): Promise<Result<UniversalTransaction[], string>> {
     if (!sessionMetadata) {
       return err('Missing session metadata for normalized processing');
     }
 
     const userAddress = sessionMetadata.address;
-    if (!userAddress) {
+    if (!userAddress || typeof userAddress !== 'string') {
       return err('Missing user address in session metadata');
     }
 
@@ -205,16 +204,17 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
 
   private analyzeFundFlowFromNormalized(
     txGroup: EvmTransaction[],
-    sessionMetadata: ImportSessionMetadata
+    sessionMetadata: Record<string, unknown>
   ): Result<EvmFundFlow, string> {
     if (txGroup.length === 0) {
       return err('Empty transaction group');
     }
 
-    const userAddress = sessionMetadata.address?.toLowerCase();
-    if (!userAddress) {
+    if (!sessionMetadata.address || typeof sessionMetadata.address !== 'string') {
       return err('Missing user address in session metadata');
     }
+
+    const userAddress = sessionMetadata.address.toLowerCase();
 
     // Analyze transaction group complexity - essential for proper EVM classification
     const hasTokenTransfers = txGroup.some((tx) => tx.type === 'token_transfer');

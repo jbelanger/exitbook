@@ -1,3 +1,4 @@
+import type { RawTransactionWithMetadata } from '@exitbook/data';
 import type { Result } from 'neverthrow';
 
 /**
@@ -25,24 +26,13 @@ export interface ImportParams {
 export interface ImportResult {
   imported: number;
   importSessionId: number;
-  metadata?: unknown;
+  metadata?: Record<string, unknown> | undefined;
   providerId?: string | undefined;
 }
 
 export interface ImportRunResult {
   metadata?: Record<string, unknown> | undefined;
   rawTransactions: RawTransactionWithMetadata[];
-}
-
-export interface RawTransactionWithMetadata {
-  metadata: RawTransactionMetadata;
-  rawData: unknown;
-}
-
-export interface RawTransactionMetadata {
-  providerId: string;
-  sourceAddress?: string | undefined;
-  transactionType?: string | undefined;
 }
 /**
  * Interface for importing raw data from external sources.

@@ -1,5 +1,4 @@
 import { createMoney } from '@exitbook/core';
-import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transaction-processor.interface.ts';
 import type { ITransactionRepository } from '@exitbook/import/app/ports/transaction-repository.js';
 import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
 import type { SolanaTransaction } from '@exitbook/providers';
@@ -25,7 +24,7 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
    */
   protected async processInternal(
     normalizedData: unknown[],
-    sessionMetadata?: ImportSessionMetadata
+    sessionMetadata?: Record<string, unknown>
   ): Promise<Result<UniversalTransaction[], string>> {
     if (!sessionMetadata) {
       return err('Missing session metadata for normalized processing');
@@ -180,14 +179,17 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
    */
   private analyzeFundFlowFromNormalized(
     tx: SolanaTransaction,
-    sessionMetadata: ImportSessionMetadata
+    sessionMetadata: Record<string, unknown>
   ): Result<SolanaFundFlow, string> {
-    if (!sessionMetadata.address) {
+    if (!sessionMetadata.address || typeof sessionMetadata.address !== 'string') {
       return err('Missing user address in session metadata');
     }
 
     const userAddress = sessionMetadata.address;
-    const allWalletAddresses = new Set([userAddress, ...(sessionMetadata.derivedAddresses || [])]);
+    const derivedAddresses = Array.isArray(sessionMetadata.derivedAddresses)
+      ? sessionMetadata.derivedAddresses.filter((addr): addr is string => typeof addr === 'string')
+      : [];
+    const allWalletAddresses = new Set<string>([userAddress, ...derivedAddresses]);
 
     // Analyze instruction complexity
     const instructionCount = tx.instructions?.length || 0;

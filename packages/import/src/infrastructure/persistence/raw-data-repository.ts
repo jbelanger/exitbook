@@ -1,7 +1,6 @@
-import type { KyselyDB } from '@exitbook/data';
+import type { KyselyDB, RawTransactionMetadata } from '@exitbook/data';
 import type { RawData } from '@exitbook/data';
 import { BaseRepository } from '@exitbook/data';
-import type { RawTransactionMetadata } from '@exitbook/import/app/ports/importers.js';
 import type { IRawDataRepository, LoadRawDataFilters } from '@exitbook/import/app/ports/raw-data-repository.js';
 import { err, ok, type Result } from 'neverthrow';
 

@@ -1,4 +1,4 @@
-import type { ImportSession, ImportSessionQuery, ImportSessionUpdate } from '@exitbook/data';
+import type { ImportSession, ImportSessionQuery, ImportSessionUpdate, StoredImportParams } from '@exitbook/data';
 import type { Result } from 'neverthrow';
 
 /**
@@ -13,7 +13,7 @@ export interface IImportSessionRepository {
     sourceId: string,
     sourceType: 'exchange' | 'blockchain',
     providerId?: string,
-    sessionMetadata?: unknown
+    importParams?: StoredImportParams
   ): Promise<Result<number, Error>>;
 
   /**
@@ -26,7 +26,8 @@ export interface IImportSessionRepository {
     transactionsImported?: number,
     transactionsFailed?: number,
     errorMessage?: string,
-    errorDetails?: unknown
+    errorDetails?: unknown,
+    importResultMetadata?: Record<string, unknown>
   ): Promise<Result<void, Error>>;
 
   /**

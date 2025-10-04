@@ -1,5 +1,4 @@
 import { createMoney } from '@exitbook/core';
-import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transaction-processor.interface.ts';
 import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
 import type { BitcoinTransaction } from '@exitbook/providers';
 import { type Result, err, ok } from 'neverthrow';
@@ -24,7 +23,7 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
    */
   protected async processInternal(
     normalizedData: unknown[],
-    sessionMetadata?: ImportSessionMetadata
+    sessionMetadata?: Record<string, unknown>
   ): Promise<Result<UniversalTransaction[], string>> {
     if (!sessionMetadata) {
       return err('Missing session metadata for normalized processing');
@@ -135,13 +134,16 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
    */
   private analyzeFundFlowFromNormalized(
     normalizedTx: BitcoinTransaction,
-    sessionMetadata: ImportSessionMetadata
+    sessionMetadata: Record<string, unknown>
   ): Result<BitcoinFundFlow, string> {
     // Convert all wallet addresses to lowercase for case-insensitive comparison
     const allWalletAddresses = new Set(
       [
-        sessionMetadata.address?.toLowerCase(),
-        ...(sessionMetadata.derivedAddresses || []).map((addr) => addr.toLowerCase()),
+        typeof sessionMetadata.address === 'string' ? sessionMetadata.address.toLowerCase() : undefined,
+        ...(Array.isArray(sessionMetadata.derivedAddresses)
+          ? sessionMetadata.derivedAddresses.filter((addr): addr is string => typeof addr === 'string')
+          : []
+        ).map((addr) => addr.toLowerCase()),
       ].filter(Boolean)
     );
 
@@ -203,7 +205,7 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
    */
   private determineTransactionTypeFromFundFlow(
     fundFlow: BitcoinFundFlow,
-    _sessionMetadata: ImportSessionMetadata
+    _sessionMetadata: Record<string, unknown>
   ): 'deposit' | 'withdrawal' | 'transfer' | 'fee' {
     const { isIncoming, isOutgoing, walletInput, walletOutput } = fundFlow;
 

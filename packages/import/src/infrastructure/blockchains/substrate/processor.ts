@@ -1,5 +1,4 @@
 import { createMoney } from '@exitbook/core';
-import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transaction-processor.interface.ts';
 import type { ITransactionRepository } from '@exitbook/import/app/ports/transaction-repository.js';
 import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
 import type { SubstrateTransaction, SubstrateFundFlow, SubstrateChainConfig } from '@exitbook/providers';
@@ -31,9 +30,9 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
    */
   protected async processInternal(
     normalizedData: unknown[],
-    sessionMetadata?: ImportSessionMetadata
+    sessionMetadata?: Record<string, unknown>
   ): Promise<Result<UniversalTransaction[], string>> {
-    if (!sessionMetadata?.address) {
+    if (!sessionMetadata?.address || typeof sessionMetadata.address !== 'string') {
       return err('Missing session address in metadata for Substrate processing');
     }
 
@@ -125,7 +124,7 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
    * Enrich session context with SS58 address variants for better transaction matching.
    * Similar to Bitcoin's derived address approach but for Substrate/Polkadot ecosystem.
    */
-  protected enrichSessionContext(address: string): ImportSessionMetadata {
+  protected enrichSessionContext(address: string): Record<string, unknown> {
     if (!address) {
       throw new Error('Missing session address in metadata for Polkadot processing');
     }
@@ -156,9 +155,12 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
    */
   private analyzeFundFlowFromNormalized(
     transaction: SubstrateTransaction,
-    sessionContext: ImportSessionMetadata
+    sessionContext: Record<string, unknown>
   ): SubstrateFundFlow {
-    const userAddresses = new Set(sessionContext.derivedAddresses || [sessionContext.address]);
+    const derivedAddresses = Array.isArray(sessionContext.derivedAddresses)
+      ? sessionContext.derivedAddresses
+      : [sessionContext.address];
+    const userAddresses = new Set(derivedAddresses);
 
     const isFromUser = userAddresses.has(transaction.from);
     const isToUser = userAddresses.has(transaction.to);

@@ -1,9 +1,5 @@
-import type {
-  RawTransactionWithMetadata,
-  IImporter,
-  ImportParams,
-  ImportRunResult,
-} from '@exitbook/import/app/ports/importers.js';
+import type { RawTransactionWithMetadata } from '@exitbook/data';
+import type { IImporter, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
 import type { BlockchainProviderManager, EvmChainConfig, ProviderError } from '@exitbook/providers';
 import { getLogger, type Logger } from '@exitbook/shared-logger';
 import { err, ok, type Result } from 'neverthrow';

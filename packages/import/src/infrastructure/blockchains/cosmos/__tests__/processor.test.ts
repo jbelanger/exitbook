@@ -1,4 +1,3 @@
-import type { ProcessingImportSession } from '@exitbook/import/app/ports/transaction-processor.interface.ts';
 import type { CosmosChainConfig, CosmosTransaction } from '@exitbook/providers';
 import { describe, expect, test } from 'vitest';
 
@@ -25,23 +24,6 @@ const OSMOSIS_CONFIG: CosmosChainConfig = {
 const USER_ADDRESS = 'inj1user000000000000000000000000000000000';
 const EXTERNAL_ADDRESS = 'inj1external0000000000000000000000000000';
 const CONTRACT_ADDRESS = 'inj1contract0000000000000000000000000000';
-
-function buildSession(
-  normalizedData: CosmosTransaction[],
-  userAddress: string = USER_ADDRESS
-): ProcessingImportSession {
-  return {
-    createdAt: Date.now(),
-    id: 1,
-    normalizedData,
-    sessionMetadata: {
-      address: userAddress,
-    },
-    sourceId: 'test-blockchain',
-    sourceType: 'blockchain',
-    status: 'running',
-  };
-}
 
 function createInjectiveProcessor() {
   return new CosmosProcessor(INJECTIVE_CONFIG);
@@ -73,8 +55,7 @@ describe('CosmosProcessor - Fund Flow Direction', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -118,8 +99,7 @@ describe('CosmosProcessor - Fund Flow Direction', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -163,8 +143,7 @@ describe('CosmosProcessor - Fund Flow Direction', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -209,8 +188,7 @@ describe('CosmosProcessor - Fund Flow Direction', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -251,8 +229,7 @@ describe('CosmosProcessor - Fund Flow Direction', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -291,8 +268,7 @@ describe('CosmosProcessor - Transaction Type Classification', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -330,9 +306,7 @@ describe('CosmosProcessor - Transaction Type Classification', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
-
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
 
@@ -369,8 +343,7 @@ describe('CosmosProcessor - Transaction Type Classification', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -406,8 +379,7 @@ describe('CosmosProcessor - Transaction Type Classification', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -449,8 +421,7 @@ describe('CosmosProcessor - Bridge and IBC Transfers', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -494,8 +465,7 @@ describe('CosmosProcessor - Bridge and IBC Transfers', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -538,8 +508,7 @@ describe('CosmosProcessor - Bridge and IBC Transfers', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -584,8 +553,7 @@ describe('CosmosProcessor - Bridge and IBC Transfers', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -627,9 +595,7 @@ describe('CosmosProcessor - Multi-Chain Support', () => {
         tokenType: 'native',
       },
     ];
-
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -665,8 +631,7 @@ describe('CosmosProcessor - Multi-Chain Support', () => {
       },
     ];
 
-    const session = buildSession(normalizedData, 'osmo1user000000000000000000000000000000000');
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: 'osmo1user000000000000000000000000000000000' });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -702,9 +667,7 @@ describe('CosmosProcessor - Edge Cases', () => {
       },
     ];
 
-    const session = buildSession(normalizedData, '');
-
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: '' });
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
@@ -733,8 +696,7 @@ describe('CosmosProcessor - Edge Cases', () => {
       },
     ];
 
-    const session = buildSession(normalizedData, USER_ADDRESS);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -769,8 +731,7 @@ describe('CosmosProcessor - Edge Cases', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -801,8 +762,7 @@ describe('CosmosProcessor - Edge Cases', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -838,8 +798,7 @@ describe('CosmosProcessor - Classification Uncertainty', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -877,9 +836,7 @@ describe('CosmosProcessor - Classification Uncertainty', () => {
         tokenAddress: 'inj1contract0000000000000000000000000000',
       },
     ];
-
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;

@@ -1,4 +1,3 @@
-import type { ProcessingImportSession } from '@exitbook/import/app/ports/transaction-processor.interface.ts';
 import type { EvmChainConfig, EvmTransaction } from '@exitbook/providers';
 import { describe, expect, test } from 'vitest';
 
@@ -21,20 +20,6 @@ const AVALANCHE_CONFIG: EvmChainConfig = {
 const USER_ADDRESS = '0xuser00000000000000000000000000000000000000';
 const EXTERNAL_ADDRESS = '0xexternal000000000000000000000000000000000';
 const CONTRACT_ADDRESS = '0xcontract00000000000000000000000000000000';
-
-function buildSession(normalizedData: EvmTransaction[], userAddress: string = USER_ADDRESS): ProcessingImportSession {
-  return {
-    createdAt: Date.now(),
-    id: 1,
-    normalizedData,
-    sessionMetadata: {
-      address: userAddress,
-    },
-    sourceId: 'test-blockchain',
-    sourceType: 'blockchain',
-    status: 'running',
-  };
-}
 
 function createEthereumProcessor() {
   return new EvmTransactionProcessor(ETHEREUM_CONFIG);
@@ -97,8 +82,7 @@ describe('EvmTransactionProcessor - Transaction Correlation', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -169,8 +153,7 @@ describe('EvmTransactionProcessor - Transaction Correlation', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -216,8 +199,7 @@ describe('EvmTransactionProcessor - Transaction Correlation', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -251,8 +233,7 @@ describe('EvmTransactionProcessor - Fund Flow Direction', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -294,8 +275,7 @@ describe('EvmTransactionProcessor - Fund Flow Direction', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -336,9 +316,7 @@ describe('EvmTransactionProcessor - Fund Flow Direction', () => {
         type: 'transfer',
       },
     ];
-
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -380,8 +358,7 @@ describe('EvmTransactionProcessor - Fund Flow Direction', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -419,8 +396,7 @@ describe('EvmTransactionProcessor - Fund Flow Direction', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -457,8 +433,7 @@ describe('EvmTransactionProcessor - Transaction Type Classification', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -494,8 +469,7 @@ describe('EvmTransactionProcessor - Transaction Type Classification', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -532,8 +506,7 @@ describe('EvmTransactionProcessor - Transaction Type Classification', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -567,8 +540,7 @@ describe('EvmTransactionProcessor - Transaction Type Classification', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -603,8 +575,7 @@ describe('EvmTransactionProcessor - Contract Interaction Detection', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -634,8 +605,7 @@ describe('EvmTransactionProcessor - Contract Interaction Detection', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -664,9 +634,7 @@ describe('EvmTransactionProcessor - Contract Interaction Detection', () => {
         type: 'transfer',
       },
     ];
-
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -698,8 +666,7 @@ describe('EvmTransactionProcessor - Multi-Chain Support', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -733,8 +700,7 @@ describe('EvmTransactionProcessor - Multi-Chain Support', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -768,8 +734,7 @@ describe('EvmTransactionProcessor - Multi-Chain Support', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -802,9 +767,7 @@ describe('EvmTransactionProcessor - Edge Cases', () => {
       },
     ];
 
-    const session = buildSession(normalizedData, '');
-
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: '' });
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
@@ -832,8 +795,7 @@ describe('EvmTransactionProcessor - Edge Cases', () => {
       },
     ];
 
-    const session = buildSession(normalizedData, USER_ADDRESS);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -867,8 +829,7 @@ describe('EvmTransactionProcessor - Edge Cases', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -900,8 +861,7 @@ describe('EvmTransactionProcessor - Edge Cases', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -931,8 +891,7 @@ describe('EvmTransactionProcessor - Edge Cases', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -974,9 +933,7 @@ describe('EvmTransactionProcessor - Primary Transaction Selection', () => {
         type: 'token_transfer',
       },
     ];
-
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -1020,8 +977,7 @@ describe('EvmTransactionProcessor - Primary Transaction Selection', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -1074,9 +1030,7 @@ describe('EvmTransactionProcessor - Swap Detection', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
-
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
 
@@ -1135,8 +1089,7 @@ describe('EvmTransactionProcessor - Swap Detection', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -1201,8 +1154,7 @@ describe('EvmTransactionProcessor - Classification Uncertainty', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -1247,9 +1199,7 @@ describe('EvmTransactionProcessor - Classification Uncertainty', () => {
         type: 'contract_call',
       },
     ];
-
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;

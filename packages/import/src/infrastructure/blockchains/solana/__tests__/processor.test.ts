@@ -1,4 +1,3 @@
-import type { ProcessingImportSession } from '@exitbook/import/app/ports/transaction-processor.interface.ts';
 import type { SolanaTransaction } from '@exitbook/providers';
 import { describe, expect, test } from 'vitest';
 
@@ -8,23 +7,6 @@ const USER_ADDRESS = 'user1111111111111111111111111111111111111111';
 const EXTERNAL_ADDRESS = 'external222222222222222222222222222222222222';
 const CONTRACT_ADDRESS = 'contract333333333333333333333333333333333333';
 const TOKEN_ACCOUNT = 'token4444444444444444444444444444444444444444';
-
-function buildSession(
-  normalizedData: SolanaTransaction[],
-  userAddress: string = USER_ADDRESS
-): ProcessingImportSession {
-  return {
-    createdAt: Date.now(),
-    id: 1,
-    normalizedData,
-    sessionMetadata: {
-      address: userAddress,
-    },
-    sourceId: 'test-blockchain',
-    sourceType: 'blockchain',
-    status: 'running',
-  };
-}
 
 function createProcessor() {
   return new SolanaTransactionProcessor();
@@ -57,8 +39,7 @@ describe('SolanaTransactionProcessor - Fund Flow Direction', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -105,8 +86,7 @@ describe('SolanaTransactionProcessor - Fund Flow Direction', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -153,8 +133,7 @@ describe('SolanaTransactionProcessor - Fund Flow Direction', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -205,8 +184,7 @@ describe('SolanaTransactionProcessor - Fund Flow Direction', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -259,8 +237,7 @@ describe('SolanaTransactionProcessor - Fund Flow Direction', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -300,8 +277,7 @@ describe('SolanaTransactionProcessor - Transaction Type Classification', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -343,8 +319,7 @@ describe('SolanaTransactionProcessor - Transaction Type Classification', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -381,8 +356,7 @@ describe('SolanaTransactionProcessor - Transaction Type Classification', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -440,8 +414,7 @@ describe('SolanaTransactionProcessor - Swap Detection', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -509,8 +482,7 @@ describe('SolanaTransactionProcessor - Swap Detection', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -564,8 +536,7 @@ describe('SolanaTransactionProcessor - Staking Detection', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -611,8 +582,7 @@ describe('SolanaTransactionProcessor - Staking Detection', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -658,8 +628,7 @@ describe('SolanaTransactionProcessor - Staking Detection', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -722,8 +691,7 @@ describe('SolanaTransactionProcessor - Multi-Asset Tracking', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -797,8 +765,7 @@ describe('SolanaTransactionProcessor - Multi-Asset Tracking', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -838,9 +805,7 @@ describe('SolanaTransactionProcessor - Edge Cases', () => {
       },
     ];
 
-    const session = buildSession(normalizedData, '');
-
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: '' });
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
@@ -872,8 +837,7 @@ describe('SolanaTransactionProcessor - Edge Cases', () => {
       },
     ];
 
-    const session = buildSession(normalizedData, USER_ADDRESS);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -913,8 +877,7 @@ describe('SolanaTransactionProcessor - Edge Cases', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -952,8 +915,7 @@ describe('SolanaTransactionProcessor - Edge Cases', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -1010,8 +972,7 @@ describe('SolanaTransactionProcessor - Edge Cases', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -1073,8 +1034,7 @@ describe('SolanaTransactionProcessor - Classification Uncertainty', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -1119,9 +1079,7 @@ describe('SolanaTransactionProcessor - Classification Uncertainty', () => {
         to: CONTRACT_ADDRESS,
       },
     ];
-
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -1170,8 +1128,7 @@ describe('SolanaTransactionProcessor - Blockchain Metadata', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;

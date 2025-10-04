@@ -32,7 +32,8 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('transactions_failed', 'integer', (col) => col.notNull().defaultTo(0))
     .addColumn('error_message', 'text')
     .addColumn('error_details', 'text')
-    .addColumn('session_metadata', 'text')
+    .addColumn('import_params', 'text', (col) => col.notNull().defaultTo('{}'))
+    .addColumn('import_result_metadata', 'text', (col) => col.notNull().defaultTo('{}'))
     .addColumn('created_at', 'text', (col) => col.notNull().defaultTo('datetime("now")'))
     .addColumn('updated_at', 'text')
     .execute();

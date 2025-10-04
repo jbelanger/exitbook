@@ -22,9 +22,10 @@ export interface ImportSessionsTable {
   error_message: string | null;
 
   id: Generated<number>;
+  // Import parameters and results
+  import_params: JSONString;
+  import_result_metadata: JSONString;
   provider_id: string | null;
-  // Metadata
-  session_metadata: JSONString | null;
 
   // Session identification
   source_id: string;

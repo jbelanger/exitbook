@@ -1,21 +1,9 @@
 import type { KyselyDB } from '@exitbook/data';
-import type { ImportSession, ImportSessionQuery, ImportSessionUpdate } from '@exitbook/data';
+import type { ImportSession, ImportSessionQuery, ImportSessionUpdate, StoredImportParams } from '@exitbook/data';
 import { BaseRepository } from '@exitbook/data';
 import type { IImportSessionRepository } from '@exitbook/import/app/ports/import-session-repository.interface.ts';
 import type { Result } from 'neverthrow';
 import { ok, err } from 'neverthrow';
-
-interface SessionMetadata {
-  address?: string;
-  csvDirectories?: string[];
-  importedAt?: number;
-  importParams?: {
-    address?: string;
-    csvDirectories?: string[];
-    providerId?: string;
-    since?: number;
-  };
-}
 
 /**
  * Kysely-based repository for import session database operations.
@@ -30,15 +18,16 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
     sourceId: string,
     sourceType: 'exchange' | 'blockchain',
     providerId?: string,
-    sessionMetadata?: unknown
+    importParams?: StoredImportParams
   ): Promise<Result<number, Error>> {
     try {
       const result = await this.db
         .insertInto('import_sessions')
         .values({
           created_at: this.getCurrentDateTimeForDB(),
+          import_params: this.serializeToJson(importParams ?? {}) ?? '{}',
+          import_result_metadata: this.serializeToJson({}) ?? '{}',
           provider_id: providerId,
-          session_metadata: this.serializeToJson(sessionMetadata),
           source_id: sourceId,
           source_type: sourceType,
           started_at: this.getCurrentDateTimeForDB(),
@@ -64,7 +53,8 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
     transactionsImported = 0,
     transactionsFailed = 0,
     errorMessage?: string,
-    errorDetails?: unknown
+    errorDetails?: unknown,
+    importResultMetadata?: Record<string, unknown>
   ): Promise<Result<void, Error>> {
     try {
       const durationMs = Date.now() - startTime;
@@ -77,6 +67,7 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
           duration_ms: durationMs,
           error_details: this.serializeToJson(errorDetails),
           error_message: errorMessage,
+          import_result_metadata: this.serializeToJson(importResultMetadata ?? {}),
           status,
           transactions_failed: transactionsFailed,
           transactions_imported: transactionsImported,
@@ -191,8 +182,18 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
         updateData.transactions_failed = updates.transactions_failed;
       }
 
-      if (updates.session_metadata !== undefined) {
-        updateData.session_metadata = this.serializeToJson(updates.session_metadata);
+      if (updates.import_params !== undefined) {
+        updateData.import_params =
+          typeof updates.import_params === 'string'
+            ? updates.import_params
+            : this.serializeToJson(updates.import_params);
+      }
+
+      if (updates.import_result_metadata !== undefined) {
+        updateData.import_result_metadata =
+          typeof updates.import_result_metadata === 'string'
+            ? updates.import_result_metadata
+            : this.serializeToJson(updates.import_result_metadata);
       }
 
       // Only update if there are actual changes besides updated_at
@@ -237,13 +238,10 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
 
       // Find a session with matching import parameters
       for (const session of sessions) {
-        const metadata: SessionMetadata = session.session_metadata
-          ? typeof session.session_metadata === 'string'
-            ? (JSON.parse(session.session_metadata) as SessionMetadata)
-            : (session.session_metadata as SessionMetadata)
-          : {};
-
-        const storedParams = metadata.importParams ?? {};
+        const storedParams: StoredImportParams =
+          typeof session.import_params === 'string'
+            ? (JSON.parse(session.import_params) as StoredImportParams)
+            : (session.import_params as StoredImportParams);
 
         // Compare relevant parameters
         const addressMatches = params.address === storedParams.address;

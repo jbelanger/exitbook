@@ -37,14 +37,37 @@ export interface ImportSessionQuery {
  * Raw data tagged with the API client that fetched it
  */
 /**
+ * Import parameters that can be stored in session metadata
+ */
+export interface StoredImportParams {
+  address?: string | undefined;
+  csvDirectories?: string[] | undefined;
+  exchangeCredentials?: Record<string, unknown> | undefined;
+  providerId?: string | undefined;
+  since?: number | undefined;
+}
+
+/**
  * Rich session metadata providing blockchain-specific address context
  */
 export interface ImportSessionMetadata {
   // User-provided address
   address?: string | undefined;
 
+  // CSV import directories for exchange imports
+  csvDirectories?: string[] | undefined;
+
   // Bitcoin xpub-derived addresses for multi-address wallets
   derivedAddresses?: string[] | undefined;
+
+  // Import timestamp
+  importedAt?: number | undefined;
+
+  // Import parameters used for this session
+  importParams?: StoredImportParams | undefined;
+
+  // Additional provider-specific metadata
+  [key: string]: unknown;
 }
 
 export interface RawTransactionWithMetadata {

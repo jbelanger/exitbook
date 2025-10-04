@@ -1,8 +1,4 @@
-import type {
-  ITransactionProcessor,
-  ImportSessionMetadata,
-  ProcessingImportSession,
-} from '@exitbook/import/app/ports/transaction-processor.interface.ts';
+import type { ITransactionProcessor } from '@exitbook/import/app/ports/transaction-processor.interface.ts';
 import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
 import type { Logger } from '@exitbook/shared-logger';
 import { getLogger } from '@exitbook/shared-logger';
@@ -28,13 +24,16 @@ export abstract class BaseTransactionProcessor implements ITransactionProcessor 
    */
   protected abstract processInternal(
     normalizedData: unknown[],
-    sessionMetadata?: ImportSessionMetadata
+    sessionMetadata?: Record<string, unknown>
   ): Promise<Result<UniversalTransaction[], string>>;
 
-  async process(importSession: ProcessingImportSession): Promise<Result<UniversalTransaction[], string>> {
-    this.logger.info(`Processing ${importSession.normalizedData.length} normalized items for ${this.sourceId}`);
+  async process(
+    normalizedData: unknown[],
+    sessionMetadata?: Record<string, unknown>
+  ): Promise<Result<UniversalTransaction[], string>> {
+    this.logger.info(`Processing ${normalizedData.length} normalized items for ${this.sourceId}`);
 
-    return (await this.processInternal(importSession.normalizedData, importSession.sessionMetadata))
+    return (await this.processInternal(normalizedData, sessionMetadata))
       .mapErr((error) => {
         this.logger.error(`Processing failed for ${this.sourceId}: ${error}`);
         return error;

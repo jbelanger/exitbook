@@ -1,5 +1,4 @@
 import { createMoney } from '@exitbook/core';
-import type { ImportSessionMetadata } from '@exitbook/import/app/ports/transaction-processor.interface.ts';
 import type { ITransactionRepository } from '@exitbook/import/app/ports/transaction-repository.js';
 import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
 import type { CosmosChainConfig, CosmosTransaction } from '@exitbook/providers';
@@ -32,19 +31,20 @@ export class CosmosProcessor extends BaseTransactionProcessor {
    */
   protected async processInternal(
     normalizedData: unknown[],
-    sessionMetadata?: ImportSessionMetadata
+    sessionMetadata?: Record<string, unknown>
   ): Promise<Result<UniversalTransaction[], string>> {
-    if (!sessionMetadata?.address) {
+    if (!sessionMetadata?.address || typeof sessionMetadata.address !== 'string') {
       return err('No address provided in session metadata');
     }
 
+    const userAddress = sessionMetadata.address;
     const universalTransactions: UniversalTransaction[] = [];
 
     for (const transaction of normalizedData) {
       const normalizedTx = transaction as CosmosTransaction;
       try {
         // Analyze fund flow for sophisticated transaction classification
-        const fundFlow = this.analyzeFundFlowFromNormalized(normalizedTx, sessionMetadata.address);
+        const fundFlow = this.analyzeFundFlowFromNormalized(normalizedTx, userAddress);
 
         // Determine operation classification based on fund flow
         const classification = this.determineOperationFromFundFlow(fundFlow);

@@ -1,7 +1,5 @@
-import type { RawData } from '@exitbook/data';
+import type { RawData, RawTransactionMetadata } from '@exitbook/data';
 import type { Result } from 'neverthrow';
-
-import type { RawTransactionMetadata } from './importers.js';
 
 export interface LoadRawDataFilters {
   importSessionId?: number | undefined;

@@ -1,4 +1,3 @@
-import type { ProcessingImportSession } from '@exitbook/import/app/ports/transaction-processor.interface.ts';
 import { SUBSTRATE_CHAINS, type SubstrateTransaction } from '@exitbook/providers';
 import { describe, expect, test } from 'vitest';
 
@@ -7,23 +6,6 @@ import { SubstrateProcessor } from '../processor.ts';
 const USER_ADDRESS = '1exampleUserAddress1234567890abcdefghijklmn';
 const EXTERNAL_ADDRESS = '1externalAddress1234567890abcdefghijklmnop';
 const VALIDATOR_ADDRESS = '1validatorAddress1234567890abcdefghijklmn';
-
-function buildSession(
-  normalizedData: SubstrateTransaction[],
-  userAddress: string = USER_ADDRESS
-): ProcessingImportSession {
-  return {
-    createdAt: Date.now(),
-    id: 1,
-    normalizedData,
-    sessionMetadata: {
-      address: userAddress,
-    },
-    sourceId: 'test-blockchain',
-    sourceType: 'blockchain',
-    status: 'running',
-  };
-}
 
 function createPolkadotProcessor() {
   return new SubstrateProcessor(SUBSTRATE_CHAINS.polkadot!);
@@ -57,8 +39,7 @@ describe('SubstrateProcessor - Fund Flow Direction', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -105,8 +86,7 @@ describe('SubstrateProcessor - Fund Flow Direction', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -150,8 +130,7 @@ describe('SubstrateProcessor - Fund Flow Direction', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -196,8 +175,7 @@ describe('SubstrateProcessor - Staking Operations', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -239,8 +217,7 @@ describe('SubstrateProcessor - Staking Operations', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -279,9 +256,7 @@ describe('SubstrateProcessor - Staking Operations', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
-
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
 
@@ -315,8 +290,7 @@ describe('SubstrateProcessor - Staking Operations', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -354,8 +328,7 @@ describe('SubstrateProcessor - Staking Operations', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -396,8 +369,7 @@ describe('SubstrateProcessor - Governance Operations', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -435,8 +407,7 @@ describe('SubstrateProcessor - Governance Operations', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -475,8 +446,7 @@ describe('SubstrateProcessor - Governance Operations', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -518,8 +488,7 @@ describe('SubstrateProcessor - Utility Operations', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -563,8 +532,7 @@ describe('SubstrateProcessor - Utility Operations', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -604,9 +572,7 @@ describe('SubstrateProcessor - Proxy Operations', () => {
         to: EXTERNAL_ADDRESS,
       },
     ];
-
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -651,8 +617,7 @@ describe('SubstrateProcessor - Multisig Operations', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -697,8 +662,7 @@ describe('SubstrateProcessor - Multi-Chain Support', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -738,8 +702,7 @@ describe('SubstrateProcessor - Multi-Chain Support', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -779,8 +742,7 @@ describe('SubstrateProcessor - Multi-Chain Support', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -817,8 +779,7 @@ describe('SubstrateProcessor - Transaction Type Classification', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -857,8 +818,7 @@ describe('SubstrateProcessor - Transaction Type Classification', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -901,8 +861,7 @@ describe('SubstrateProcessor - Event Tracking', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -941,9 +900,7 @@ describe('SubstrateProcessor - Edge Cases', () => {
       },
     ];
 
-    const session = buildSession(normalizedData, '');
-
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: '' });
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
@@ -971,8 +928,7 @@ describe('SubstrateProcessor - Edge Cases', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -1002,8 +958,7 @@ describe('SubstrateProcessor - Edge Cases', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -1068,8 +1023,7 @@ describe('SubstrateProcessor - Edge Cases', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -1150,8 +1104,7 @@ describe('SubstrateProcessor - Complex Scenarios', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
@@ -1207,8 +1160,7 @@ describe('SubstrateProcessor - Complex Scenarios', () => {
       },
     ];
 
-    const session = buildSession(normalizedData);
-    const result = await processor.process(session);
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
 
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;

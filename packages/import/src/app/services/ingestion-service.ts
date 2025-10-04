@@ -1,5 +1,5 @@
-import type { RawData } from '@exitbook/data';
-import type { ImportParams, RawTransactionMetadata } from '@exitbook/import/app/ports/importers.ts';
+import type { RawData, ImportSessionMetadata, RawTransactionMetadata, StoredImportParams } from '@exitbook/data';
+import type { ImportParams } from '@exitbook/import/app/ports/importers.ts';
 import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
 import type { IBlockchainNormalizer } from '@exitbook/providers';
 import type { Logger } from '@exitbook/shared-logger';
@@ -11,11 +11,7 @@ import type { IImportSessionRepository } from '../ports/import-session-repositor
 import type { IImporterFactory } from '../ports/importer-factory.interface.ts';
 import type { IProcessorFactory } from '../ports/processor-factory.js';
 import type { IRawDataRepository, LoadRawDataFilters } from '../ports/raw-data-repository.js';
-import type {
-  ProcessResult,
-  ProcessingImportSession,
-  ImportSessionMetadata,
-} from '../ports/transaction-processor.interface.ts';
+import type { ProcessResult } from '../ports/transaction-processor.interface.ts';
 import type { ITransactionRepository } from '../ports/transaction-repository.js';
 
 /**
@@ -125,12 +121,7 @@ export class TransactionIngestionService {
     let sessionCreated = false;
     let importSessionId = 0;
     try {
-      const sessionIdResult = await this.sessionRepository.create(sourceId, sourceType, params.providerId, {
-        address: params.address,
-        csvDirectories: params.csvDirectories,
-        importedAt: Date.now(),
-        importParams: params,
-      });
+      const sessionIdResult = await this.sessionRepository.create(sourceId, sourceType, params.providerId, params);
 
       if (sessionIdResult.isErr()) {
         return err(sessionIdResult.error);
@@ -174,7 +165,7 @@ export class TransactionIngestionService {
       }
       const savedCount = savedCountResult.value;
 
-      // Update session with success and metadata
+      // Finalize session with success and import result metadata
       if (sessionCreated && typeof importSessionId === 'number') {
         this.logger.debug(`Finalizing session ${importSessionId} with ${savedCount} transactions`);
         const finalizeResult = await this.sessionRepository.finalize(
@@ -182,35 +173,14 @@ export class TransactionIngestionService {
           'completed',
           startTime,
           savedCount,
-          0
+          0,
+          undefined,
+          undefined,
+          importResult.metadata
         );
 
         if (finalizeResult.isErr()) {
           return err(finalizeResult.error);
-        }
-
-        // Update session with import metadata if available
-        if (importResult.metadata) {
-          const sessionMetadata = {
-            address: params.address,
-            csvDirectories: params.csvDirectories,
-            importedAt: Date.now(),
-            importParams: params,
-            ...importResult.metadata,
-          };
-
-          const updateResult = await this.sessionRepository.update(importSessionId, {
-            id: importSessionId,
-            session_metadata: JSON.stringify(sessionMetadata),
-          });
-
-          if (updateResult.isErr()) {
-            return err(updateResult.error);
-          }
-
-          this.logger.debug(
-            `Updated session ${importSessionId} with metadata keys: ${Object.keys(importResult.metadata).join(', ')}`
-          );
         }
 
         this.logger.debug(`Successfully finalized session ${importSessionId}`);
@@ -354,6 +324,15 @@ export class TransactionIngestionService {
         const normalizationErrors: { error: string; itemId: number }[] = [];
         const skippedItems: { itemId: number; reason: string }[] = [];
 
+        const parsedImportParams =
+          typeof session.import_params === 'string'
+            ? (JSON.parse(session.import_params) as StoredImportParams)
+            : (session.import_params as StoredImportParams);
+        const parsedResultMetadata =
+          typeof session.import_result_metadata === 'string'
+            ? (JSON.parse(session.import_result_metadata) as Record<string, unknown>)
+            : (session.import_result_metadata as Record<string, unknown>);
+
         if (sourceType === 'blockchain') {
           const normalizer = this.blockchainNormalizer;
           if (normalizer) {
@@ -365,10 +344,12 @@ export class TransactionIngestionService {
                   : (item.metadata as RawTransactionMetadata);
               const parsedRawData: unknown =
                 typeof item.raw_data === 'string' ? JSON.parse(item.raw_data) : item.raw_data;
-              const parsedSessionMetadata: ImportSessionMetadata =
-                typeof session.session_metadata === 'string'
-                  ? (JSON.parse(session.session_metadata) as ImportSessionMetadata)
-                  : (session.session_metadata as ImportSessionMetadata);
+
+              // Combine import params and result metadata into session metadata format
+              const parsedSessionMetadata: ImportSessionMetadata = {
+                ...parsedImportParams,
+                ...parsedResultMetadata,
+              };
 
               const result = normalizer.normalize(parsedRawData, parsedMetadata, parsedSessionMetadata);
 
@@ -425,24 +406,8 @@ export class TransactionIngestionService {
         // Create processor with session-specific context
         const processor = await this.processorFactory.create(sourceId, sourceType);
 
-        // Create ProcessingImportSession for this session
-        const parsedSessionMetadata: ImportSessionMetadata | undefined =
-          typeof session.session_metadata === 'string'
-            ? (JSON.parse(session.session_metadata) as ImportSessionMetadata)
-            : (session.session_metadata as ImportSessionMetadata | undefined);
-
-        const processingSession: ProcessingImportSession = {
-          createdAt: new Date(session.created_at).getTime(),
-          id: session.id,
-          normalizedData: normalizedRawDataItems,
-          sessionMetadata: parsedSessionMetadata,
-          sourceId: session.source_id,
-          sourceType: session.source_type,
-          status: 'processing',
-        };
-
         // Process this session's raw data
-        const sessionTransactionsResult = await processor.process(processingSession);
+        const sessionTransactionsResult = await processor.process(normalizedRawDataItems, parsedResultMetadata);
 
         if (sessionTransactionsResult.isErr()) {
           this.logger.error(
