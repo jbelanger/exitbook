@@ -109,9 +109,10 @@ describe('EvmTransactionProcessor - Transaction Correlation', () => {
     expect(usdcInflow?.amount.amount.toString()).toBe('2500000');
     expect(ethInflow?.amount.amount.toString()).toBe('1.5'); // 1 ETH + 0.5 ETH consolidated
     expect(transaction.movements.outflows).toHaveLength(0);
-    expect(transaction.fees.network?.amount.toString()).toBe('0.000021');
+    // User received all funds (no outflows), so they didn't pay the fee
+    expect(transaction.fees.network?.amount.toString()).toBe('0');
     expect(transaction.fees.network?.currency).toBe('ETH');
-    expect(transaction.fees.total.amount.toString()).toBe('0.000021');
+    expect(transaction.fees.total.amount.toString()).toBe('0');
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('deposit');
     expect(transaction.blockchain?.name).toBe('ethereum');
@@ -207,9 +208,302 @@ describe('EvmTransactionProcessor - Transaction Correlation', () => {
     const [transaction] = result.value;
     expect(transaction).toBeDefined();
     if (!transaction) return;
-    // Total fee should be 0.000021 + 0.000015 = 0.000036 ETH
-    expect(transaction.fees.total.amount.toString()).toBe('0.000036');
-    expect(transaction.fees.network?.amount.toString()).toBe('0.000036');
+    // Total fee should be 0 because user received (didn't send)
+    expect(transaction.fees.total.amount.toString()).toBe('0');
+    expect(transaction.fees.network?.amount.toString()).toBe('0');
+  });
+});
+
+describe('EvmTransactionProcessor - Fee Accounting', () => {
+  test('deducts fee when user sends tokens (outgoing transfer)', async () => {
+    const processor = createEthereumProcessor();
+
+    const normalizedData: EvmTransaction[] = [
+      {
+        amount: '1000000000000000000', // 1 ETH sent
+        currency: 'ETH',
+        feeAmount: '21000000000000', // 0.000021 ETH fee
+        from: USER_ADDRESS, // User is sender
+        id: '0xhash1',
+        providerId: 'alchemy',
+        status: 'success',
+        timestamp: Date.now(),
+        to: EXTERNAL_ADDRESS,
+        tokenType: 'native',
+        type: 'transfer',
+      },
+    ];
+
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+
+    // User paid the fee, so it should be deducted
+    expect(transaction.fees.network?.amount.toString()).toBe('0.000021');
+    expect(transaction.fees.total.amount.toString()).toBe('0.000021');
+    expect(transaction.operation.type).toBe('withdrawal');
+  });
+
+  test('does NOT deduct fee when user receives tokens (incoming transfer)', async () => {
+    const processor = createEthereumProcessor();
+
+    const normalizedData: EvmTransaction[] = [
+      {
+        amount: '1000000000000000000', // 1 ETH received
+        currency: 'ETH',
+        feeAmount: '21000000000000', // 0.000021 ETH fee (paid by sender)
+        from: EXTERNAL_ADDRESS, // External sender (not user)
+        id: '0xhash2',
+        providerId: 'alchemy',
+        status: 'success',
+        timestamp: Date.now(),
+        to: USER_ADDRESS, // User is recipient
+        tokenType: 'native',
+        type: 'transfer',
+      },
+    ];
+
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+
+    // User did NOT pay the fee (sender did), so fee should be 0
+    expect(transaction.fees.network?.amount.toString()).toBe('0');
+    expect(transaction.fees.total.amount.toString()).toBe('0');
+    expect(transaction.operation.type).toBe('deposit');
+  });
+
+  test('deducts fee for self-transfers (user is both sender and recipient)', async () => {
+    const processor = createEthereumProcessor();
+
+    const normalizedData: EvmTransaction[] = [
+      {
+        amount: '500000000000000000', // 0.5 ETH self-transfer
+        currency: 'ETH',
+        feeAmount: '21000000000000', // 0.000021 ETH fee
+        from: USER_ADDRESS, // User is sender
+        id: '0xhash3',
+        providerId: 'alchemy',
+        status: 'success',
+        timestamp: Date.now(),
+        to: USER_ADDRESS, // User is also recipient
+        tokenType: 'native',
+        type: 'transfer',
+      },
+    ];
+
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+
+    // User initiated the self-transfer, so they paid the fee
+    expect(transaction.fees.network?.amount.toString()).toBe('0.000021');
+    expect(transaction.fees.total.amount.toString()).toBe('0.000021');
+    expect(transaction.operation.type).toBe('transfer');
+  });
+
+  test('deducts fee for contract interactions (user initiates)', async () => {
+    const processor = createEthereumProcessor();
+
+    const normalizedData: EvmTransaction[] = [
+      {
+        amount: '0',
+        currency: 'ETH',
+        feeAmount: '150000000000000', // 0.00015 ETH fee
+        from: USER_ADDRESS, // User initiates contract call
+        functionName: 'approve',
+        id: '0xhash4',
+        methodId: '0x095ea7b3',
+        providerId: 'alchemy',
+        status: 'success',
+        timestamp: Date.now(),
+        to: CONTRACT_ADDRESS,
+        type: 'contract_call',
+      },
+    ];
+
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+
+    // User initiated contract interaction, so they paid the fee
+    expect(transaction.fees.network?.amount.toString()).toBe('0.00015');
+    expect(transaction.fees.total.amount.toString()).toBe('0.00015');
+  });
+
+  test('does NOT deduct fee for incoming token transfers (airdrop/mint scenario)', async () => {
+    const processor = createEthereumProcessor();
+
+    const normalizedData: EvmTransaction[] = [
+      {
+        amount: '1000000000', // 1000 USDC received
+        currency: 'USDC',
+        feeAmount: '50000000000000', // 0.00005 ETH fee (paid by sender/minter)
+        from: CONTRACT_ADDRESS, // Contract/minter is sender
+        id: '0xhash5',
+        providerId: 'alchemy',
+        status: 'success',
+        timestamp: Date.now(),
+        to: USER_ADDRESS, // User receives tokens
+        tokenAddress: '0xusdc000000000000000000000000000000000000',
+        tokenDecimals: 6,
+        tokenSymbol: 'USDC',
+        tokenType: 'erc20',
+        type: 'token_transfer',
+      },
+    ];
+
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+
+    // User did NOT pay the fee (contract/minter did), so fee should be 0
+    expect(transaction.fees.network?.amount.toString()).toBe('0');
+    expect(transaction.fees.total.amount.toString()).toBe('0');
+    expect(transaction.operation.type).toBe('deposit');
+  });
+
+  test('deducts fee for failed transactions when user was sender', async () => {
+    const processor = createEthereumProcessor();
+
+    const normalizedData: EvmTransaction[] = [
+      {
+        amount: '2000000000000000000', // 2 ETH (failed send)
+        currency: 'ETH',
+        feeAmount: '100000000000000', // 0.0001 ETH fee (still consumed on failure)
+        from: USER_ADDRESS, // User initiated transaction
+        id: '0xhash6',
+        providerId: 'alchemy',
+        status: 'failed',
+        timestamp: Date.now(),
+        to: EXTERNAL_ADDRESS,
+        tokenType: 'native',
+        type: 'transfer',
+      },
+    ];
+
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+
+    // User initiated failed transaction, so they still paid the gas fee
+    expect(transaction.fees.network?.amount.toString()).toBe('0.0001');
+    expect(transaction.fees.total.amount.toString()).toBe('0.0001');
+    expect(transaction.status).toBe('failed');
+  });
+
+  test('deducts fee for swaps (user initiates)', async () => {
+    const processor = createEthereumProcessor();
+
+    const normalizedData: EvmTransaction[] = [
+      {
+        amount: '500000000000000000', // 0.5 ETH sent
+        currency: 'ETH',
+        feeAmount: '150000000000000', // 0.00015 ETH fee
+        from: USER_ADDRESS, // User initiates swap
+        id: '0xswap1',
+        providerId: 'alchemy',
+        status: 'success',
+        timestamp: Date.now(),
+        to: CONTRACT_ADDRESS,
+        tokenType: 'native',
+        type: 'transfer',
+      },
+      {
+        amount: '1000000000', // 1000 USDC received
+        currency: 'USDC',
+        from: CONTRACT_ADDRESS,
+        id: '0xswap1',
+        providerId: 'alchemy',
+        status: 'success',
+        timestamp: Date.now(),
+        to: USER_ADDRESS,
+        tokenAddress: '0xusdc000000000000000000000000000000000000',
+        tokenDecimals: 6,
+        tokenSymbol: 'USDC',
+        tokenType: 'erc20',
+        type: 'token_transfer',
+      },
+    ];
+
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+
+    // User initiated swap, so they paid the fee
+    expect(transaction.fees.network?.amount.toString()).toBe('0.00015');
+    expect(transaction.fees.total.amount.toString()).toBe('0.00015');
+    expect(transaction.operation.type).toBe('swap');
+  });
+
+  test('handles case-insensitive address comparison for fee logic', async () => {
+    const processor = createEthereumProcessor();
+
+    const mixedCaseUser = '0xUsEr00000000000000000000000000000000000000';
+
+    const normalizedData: EvmTransaction[] = [
+      {
+        amount: '1000000000000000000',
+        currency: 'ETH',
+        feeAmount: '21000000000000',
+        from: mixedCaseUser.toUpperCase(), // Different case but same address
+        id: '0xhash7',
+        providerId: 'alchemy',
+        status: 'success',
+        timestamp: Date.now(),
+        to: EXTERNAL_ADDRESS,
+        tokenType: 'native',
+        type: 'transfer',
+      },
+    ];
+
+    const result = await processor.process(normalizedData, { address: USER_ADDRESS });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const [transaction] = result.value;
+    expect(transaction).toBeDefined();
+    if (!transaction) return;
+
+    // Should correctly identify user as sender despite case difference
+    expect(transaction.fees.network?.amount.toString()).toBe('0.000021');
+    expect(transaction.fees.total.amount.toString()).toBe('0.000021');
   });
 });
 

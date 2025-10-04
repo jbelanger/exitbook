@@ -38,10 +38,20 @@ export class CosmosProcessor extends BaseTransactionProcessor {
     }
 
     const userAddress = sessionMetadata.address;
+
+    // Deduplicate by transaction ID (handles cases like Peggy deposits where multiple validators
+    // submit the same deposit claim with different tx hashes but same event_nonce-based ID)
+    const deduplicatedData = this.deduplicateByTransactionId(normalizedData as CosmosTransaction[]);
+    if (deduplicatedData.length < normalizedData.length) {
+      this.logger.info(
+        `Deduplicated ${normalizedData.length - deduplicatedData.length} transactions by ID (${normalizedData.length} → ${deduplicatedData.length})`
+      );
+    }
+
     const universalTransactions: UniversalTransaction[] = [];
 
-    for (const transaction of normalizedData) {
-      const normalizedTx = transaction as CosmosTransaction;
+    for (const transaction of deduplicatedData) {
+      const normalizedTx = transaction;
       try {
         // Analyze fund flow for sophisticated transaction classification
         const fundFlow = this.analyzeFundFlowFromNormalized(normalizedTx, userAddress);
@@ -49,7 +59,15 @@ export class CosmosProcessor extends BaseTransactionProcessor {
         // Determine operation classification based on fund flow
         const classification = this.determineOperationFromFundFlow(fundFlow);
 
-        const networkFee = createMoney(fundFlow.feeAmount, fundFlow.feeCurrency);
+        // Only include fees if user was the sender (they paid the fee)
+        // For incoming transactions (deposits, received transfers), the sender/validator paid the fee
+        const userAddressLower = userAddress.toLowerCase();
+        const fromAddressLower = normalizedTx.from.toLowerCase();
+        const userPaidFee = fromAddressLower === userAddressLower;
+
+        const networkFee = userPaidFee
+          ? createMoney(fundFlow.feeAmount, fundFlow.feeCurrency)
+          : createMoney('0', fundFlow.feeCurrency);
 
         // Convert to UniversalTransaction with enhanced metadata
         const universalTransaction: UniversalTransaction = {
@@ -88,7 +106,7 @@ export class CosmosProcessor extends BaseTransactionProcessor {
             },
           },
 
-          // Structured fees
+          // Structured fees - only deduct from balance if user paid them
           fees: {
             network: networkFee,
             platform: undefined, // Cosmos SDK chains have no platform fees
@@ -516,5 +534,24 @@ export class CosmosProcessor extends BaseTransactionProcessor {
 
   private toDecimal(value: string): Decimal {
     return new Decimal(value || '0');
+  }
+
+  /**
+   * Deduplicate transactions by ID, keeping the first occurrence.
+   * This handles validator consensus transactions (e.g., Peggy deposits) where multiple
+   * validators submit the same claim as separate blockchain transactions.
+   */
+  private deduplicateByTransactionId(transactions: CosmosTransaction[]): CosmosTransaction[] {
+    const seen = new Set<string>();
+    const deduplicated: CosmosTransaction[] = [];
+
+    for (const tx of transactions) {
+      if (!seen.has(tx.id)) {
+        seen.add(tx.id);
+        deduplicated.push(tx);
+      }
+    }
+
+    return deduplicated;
   }
 }

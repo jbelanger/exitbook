@@ -297,6 +297,7 @@ export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<Inject
     }
 
     // For Peggy deposits, use event_nonce as the unique identifier to deduplicate validator consensus votes
+    // Multiple validators submit the same deposit claim (same event_nonce) as separate blockchain transactions
     // Fall back to claim_id from transaction level if event_nonce is not available
     let peggyId: string | undefined;
     if (eventNonce) {

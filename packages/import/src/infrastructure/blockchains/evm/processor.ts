@@ -75,7 +75,19 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
         continue;
       }
 
-      const networkFee = createMoney(fundFlow.feeAmount, fundFlow.feeCurrency);
+      // Only include fees if user initiated the transaction (they paid the fee)
+      // For incoming-only transactions (deposits, received transfers), the sender paid the fee
+      // User paid fee if:
+      // 1. They have ANY outflows (sent funds, swapped, etc.) OR
+      // 2. They initiated a contract interaction with no outflows (approval, state change, etc.)
+      const userAddressLower = userAddress.toLowerCase();
+      const fromAddressLower = (fundFlow.fromAddress || '').toLowerCase();
+      const userInitiatedTransaction = fromAddressLower === userAddressLower;
+      const userPaidFee = fundFlow.outflows.length > 0 || userInitiatedTransaction;
+
+      const networkFee = userPaidFee
+        ? createMoney(fundFlow.feeAmount, fundFlow.feeCurrency)
+        : createMoney('0', fundFlow.feeCurrency);
 
       const universalTransaction: UniversalTransaction = {
         // Core fields

@@ -54,8 +54,18 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
         // Determine transaction type and operation classification based on fund flow
         const classification = this.determineOperationFromFundFlow(fundFlow);
 
-        const networkFee = normalizedTx.feeAmount
-          ? createMoney(normalizedTx.feeAmount, normalizedTx.feeCurrency || 'SOL')
+        // Only include fees if user was the signer/broadcaster (they paid the fee)
+        // For incoming transactions (deposits, airdrops, received transfers), the sender/protocol paid the fee
+        // User paid fee if:
+        // 1. They have ANY outflows (sent funds, swapped, staked, etc.) OR
+        // 2. They initiated a transaction with no outflows (contract interactions, approvals, account creation)
+        const userAddress = sessionMetadata.address as string;
+        const userAddressLower = userAddress.toLowerCase();
+        const txFromLower = normalizedTx.from.toLowerCase();
+        const userPaidFee = fundFlow.outflows.length > 0 || txFromLower === userAddressLower;
+
+        const networkFee = userPaidFee
+          ? createMoney(normalizedTx.feeAmount || '0', normalizedTx.feeCurrency || 'SOL')
           : createMoney('0', 'SOL');
 
         // Convert to UniversalTransaction with structured fields
