@@ -137,7 +137,7 @@ export class SubscanApiClient extends BaseApiClient {
     }
   }
 
-  private async getRawAddressTransactions(address: string, since?: number): Promise<SubscanTransferAugmented[]> {
+  private async getRawAddressTransactions(address: string, _since?: number): Promise<SubscanTransferAugmented[]> {
     // Validate address format
     if (!isValidSS58Address(address)) {
       throw new Error(`Invalid SS58 address for ${this.blockchain}: ${address}`);
@@ -197,18 +197,8 @@ export class SubscanApiClient extends BaseApiClient {
         }
       } while (hasMorePages);
 
-      // Client-side filtering by timestamp if 'since' parameter provided
-      // (API doesn't support server-side timestamp filtering)
-      let filteredTransfers = transfers;
-      if (since) {
-        filteredTransfers = transfers.filter((tx) => tx.block_timestamp.getTime() >= since);
-        this.logger.debug(
-          `Filtered ${filteredTransfers.length}/${transfers.length} transactions after timestamp ${since}`
-        );
-      }
-
-      this.logger.debug(`Found ${filteredTransfers.length} total raw address transactions for ${maskAddress(address)}`);
-      return filteredTransfers;
+      this.logger.debug(`Found ${transfers.length} total raw address transactions for ${maskAddress(address)}`);
+      return transfers;
     } catch (error) {
       this.logger.error(
         `Failed to fetch raw address transactions for ${maskAddress(address)} - Error: ${error instanceof Error ? error.message : String(error)}`

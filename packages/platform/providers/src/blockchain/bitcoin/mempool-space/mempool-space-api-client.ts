@@ -5,7 +5,7 @@ import type { ProviderOperation } from '../../../core/blockchain/types/index.ts'
 import { maskAddress } from '../../../core/blockchain/utils/address-utils.ts';
 import type { AddressInfo } from '../types.js';
 
-import type { MempoolAddressInfo, MempoolTransaction } from './mempool-space.types.js';
+import type { MempoolAddressInfo } from './mempool-space.types.js';
 
 @RegisterApiClient({
   baseUrl: 'https://mempool.space/api',
@@ -110,18 +110,15 @@ export class MempoolSpaceApiClient extends BaseApiClient {
   /**
    * Get raw transaction data without transformation for wallet-aware parsing
    */
-  private async getRawAddressTransactions(params: {
-    address: string;
-    since?: number | undefined;
-  }): Promise<MempoolTransaction[]> {
-    const { address, since } = params;
+  private async getRawAddressTransactions(params: { address: string; since?: number | undefined }): Promise<unknown[]> {
+    const { address } = params;
 
     this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
 
     try {
       // Get raw transaction list directly - mempool.space returns full transaction objects
       // No need to check address info first as empty addresses will just return empty array
-      const rawTransactions = await this.httpClient.get<MempoolTransaction[]>(`/address/${address}/txs`);
+      const rawTransactions = await this.httpClient.get<unknown[]>(`/address/${address}/txs`);
 
       if (!Array.isArray(rawTransactions) || rawTransactions.length === 0) {
         this.logger.debug(`No raw transactions found - Address: ${maskAddress(address)}`);
@@ -132,31 +129,7 @@ export class MempoolSpaceApiClient extends BaseApiClient {
         `Retrieved raw transactions - Address: ${maskAddress(address)}, Count: ${rawTransactions.length}`
       );
 
-      // Filter by timestamp if 'since' is provided
-      let filteredTransactions = rawTransactions;
-      if (since) {
-        filteredTransactions = rawTransactions.filter((tx) => {
-          const timestamp = tx.status.confirmed && tx.status.block_time ? tx.status.block_time.getTime() : Date.now();
-          return timestamp >= since;
-        });
-
-        this.logger.debug(
-          `Filtered raw transactions by timestamp - OriginalCount: ${rawTransactions.length}, FilteredCount: ${filteredTransactions.length}`
-        );
-      }
-
-      // Sort by timestamp (newest first)
-      filteredTransactions.sort((a, b) => {
-        const timestampA = a.status.confirmed && a.status.block_time ? a.status.block_time.getTime() : 0;
-        const timestampB = b.status.confirmed && b.status.block_time ? b.status.block_time.getTime() : 0;
-        return timestampB - timestampA;
-      });
-
-      this.logger.debug(
-        `Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${filteredTransactions.length}`
-      );
-
-      return filteredTransactions;
+      return rawTransactions;
     } catch (error) {
       this.logger.error(
         `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`

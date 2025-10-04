@@ -162,29 +162,11 @@ export class BlockstreamApiClient extends BaseApiClient {
         batchCount++;
       }
 
-      // Filter by timestamp if 'since' is provided
-      let filteredRawTransactions = allRawTransactions;
-      if (since) {
-        filteredRawTransactions = allRawTransactions.filter(
-          (tx) => (tx.status.block_time?.getTime() || Date.now()) >= since
-        );
-        this.logger.debug(
-          `Filtered raw transactions by timestamp - OriginalCount: ${allRawTransactions.length}, FilteredCount: ${filteredRawTransactions.length}, Since: ${since}`
-        );
-      }
-
-      // Sort by timestamp (newest first)
-      filteredRawTransactions.sort((a, b) => {
-        const aTime = a.status.block_time?.getTime() || 0;
-        const bTime = b.status.block_time?.getTime() || 0;
-        return bTime - aTime;
-      });
-
       this.logger.debug(
-        `Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, TotalRawTransactions: ${filteredRawTransactions.length}, BatchesProcessed: ${batchCount}`
+        `Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, TotalRawTransactions: ${allRawTransactions.length}, BatchesProcessed: ${batchCount}`
       );
 
-      return filteredRawTransactions;
+      return allRawTransactions;
     } catch (error) {
       this.logger.error(
         `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`

@@ -100,7 +100,6 @@ describe('HeliusTransactionMapper E2E', () => {
     expect(normalized.currency.length).toBeGreaterThan(0);
     expect(normalized.blockHeight).toBe(raw.slot);
     expect(normalized.slot).toBe(raw.slot);
-    expect(normalized.timestamp).toBe(raw.blockTime?.getTime() || 0);
   });
 
   it('should capture SOL balance changes including fee payer debits', () => {

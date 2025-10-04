@@ -67,10 +67,16 @@ export const hexOrNumericToNumericRequired = z
  * - "1609459200" -> Date (Unix timestamp string)
  * - "2021-01-01T00:00:00.000Z" -> Date (ISO 8601 string)
  * - "2021-01-01 00:00:00.000 +0000 UTC" -> Date (UTC string format)
+ * - Date object -> Date (returned as-is)
  *
  * This is useful for blockchain APIs that return timestamps in different formats.
  */
-export const timestampToDate = z.union([z.number().nonnegative(), z.string()]).transform((val) => {
+export const timestampToDate = z.union([z.number().nonnegative(), z.string(), z.date()]).transform((val) => {
+  // Date object: Return as-is
+  if (val instanceof Date) {
+    return val;
+  }
+
   // Number: Unix timestamp
   if (typeof val === 'number') {
     const isMilliseconds = val > 10000000000;

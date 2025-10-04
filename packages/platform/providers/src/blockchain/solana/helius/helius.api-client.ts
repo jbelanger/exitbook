@@ -180,22 +180,6 @@ export class HeliusApiClient extends BaseApiClient {
     };
   }
 
-  private deduplicateTransactions(transactions: HeliusTransaction[]): HeliusTransaction[] {
-    const seen = new Set<string>();
-    const unique: HeliusTransaction[] = [];
-
-    for (const tx of transactions) {
-      const signature = tx.transaction.signatures?.[0] || tx.signature || '';
-      if (signature && !seen.has(signature)) {
-        seen.add(signature);
-        unique.push(tx);
-      }
-    }
-
-    this.logger.debug(`Deduplicated transactions - Original: ${transactions.length}, Unique: ${unique.length}`);
-    return unique;
-  }
-
   private async getDirectAddressTransactions(address: string, since?: number): Promise<HeliusTransaction[]> {
     const signaturesResponse = await this.httpClient.post<JsonRpcResponse<SolanaSignature[]>>('/', {
       id: 1,
@@ -300,8 +284,7 @@ export class HeliusApiClient extends BaseApiClient {
       const directTransactions = await this.getDirectAddressTransactions(address, since);
       const tokenAccountTransactions = await this.getTokenAccountTransactions(address, since);
 
-      const allTransactions = this.deduplicateTransactions([...directTransactions, ...tokenAccountTransactions]);
-      allTransactions.sort((a, b) => (b.blockTime?.getTime() || 0) - (a.blockTime?.getTime() || 0));
+      const allTransactions = [...directTransactions, ...tokenAccountTransactions];
 
       this.logger.debug(
         `Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, DirectTransactions: ${directTransactions.length}, TokenAccountTransactions: ${tokenAccountTransactions.length}, TotalUniqueTransactions: ${allTransactions.length}`

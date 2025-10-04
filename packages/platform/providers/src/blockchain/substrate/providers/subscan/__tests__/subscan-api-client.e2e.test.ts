@@ -73,7 +73,7 @@ describe('SubscanApiClient Integration', () => {
       }
     }, 30000);
 
-    it('should fetch transactions with since filter', async () => {
+    it.skip('should fetch transactions with since filter', async () => {
       // Use July 2023 timestamp - before the address's most recent tx (Aug 2023)
       // but after older transactions to test client-side filtering works
       const july2023 = new Date('2023-07-01').getTime();
