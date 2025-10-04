@@ -1,5 +1,6 @@
 import type { RateLimitConfig } from '@exitbook/platform-http';
-import { HttpClient, RateLimitError } from '@exitbook/platform-http';
+import { HttpClient } from '@exitbook/platform-http';
+import { RateLimitError } from '@exitbook/platform-http';
 import type { Logger } from '@exitbook/shared-logger';
 import { getLogger } from '@exitbook/shared-logger';
 import { err, ok, type Result } from 'neverthrow';

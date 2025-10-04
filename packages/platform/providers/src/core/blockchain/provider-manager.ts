@@ -1,4 +1,13 @@
-import { CircuitBreaker } from '@exitbook/platform-http';
+import {
+  createInitialCircuitState,
+  getCircuitStatus,
+  isCircuitHalfOpen,
+  isCircuitOpen,
+  recordFailure,
+  recordSuccess,
+  resetCircuit,
+  type CircuitState,
+} from '@exitbook/platform-http';
 import { getLogger } from '@exitbook/shared-logger';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -25,7 +34,7 @@ interface CacheEntry {
 export class BlockchainProviderManager {
   private cacheCleanupTimer?: NodeJS.Timeout | undefined;
   private readonly cacheTimeout = 30000; // 30 seconds
-  private circuitBreakers = new Map<string, CircuitBreaker>();
+  private circuitStates = new Map<string, CircuitState>();
   private readonly healthCheckInterval = 60000; // 1 minute
   private healthCheckTimer?: NodeJS.Timeout | undefined;
   private healthStatus = new Map<string, ProviderHealth>();
@@ -113,7 +122,7 @@ export class BlockchainProviderManager {
     // Clear all caches and state
     this.providers.clear();
     this.healthStatus.clear();
-    this.circuitBreakers.clear();
+    this.circuitStates.clear();
     this.requestCache.clear();
   }
 
@@ -159,14 +168,15 @@ export class BlockchainProviderManager {
       ? this.providers.get(blockchain) || []
       : Array.from(this.providers.values()).flat();
 
+    const now = Date.now();
     for (const provider of providersToCheck) {
       const health = this.healthStatus.get(provider.name);
-      const circuitBreaker = this.circuitBreakers.get(provider.name);
+      const circuitState = this.circuitStates.get(provider.name);
 
-      if (health && circuitBreaker) {
+      if (health && circuitState) {
         result.set(provider.name, {
           ...health,
-          circuitState: circuitBreaker.getCurrentState(),
+          circuitState: getCircuitStatus(circuitState, now),
         });
       }
     }
@@ -187,7 +197,7 @@ export class BlockchainProviderManager {
   registerProviders(blockchain: string, providers: IBlockchainProvider[]): void {
     this.providers.set(blockchain, providers);
 
-    // Initialize health status and circuit breakers for each provider
+    // Initialize health status and circuit breaker state for each provider
     for (const provider of providers) {
       this.healthStatus.set(provider.name, {
         averageResponseTime: 0,
@@ -197,7 +207,7 @@ export class BlockchainProviderManager {
         lastChecked: 0,
       });
 
-      this.circuitBreakers.set(provider.name, new CircuitBreaker(provider.name));
+      this.circuitStates.set(provider.name, createInitialCircuitState());
     }
   }
 
@@ -205,9 +215,9 @@ export class BlockchainProviderManager {
    * Reset circuit breaker for a specific provider
    */
   resetCircuitBreaker(providerName: string): void {
-    const circuitBreaker = this.circuitBreakers.get(providerName);
-    if (circuitBreaker) {
-      circuitBreaker.reset();
+    const circuitState = this.circuitStates.get(providerName);
+    if (circuitState) {
+      this.circuitStates.set(providerName, resetCircuit(circuitState));
     }
   }
 
@@ -352,10 +362,11 @@ export class BlockchainProviderManager {
 
     let lastError: Error | undefined = undefined;
     let attemptNumber = 0;
+    const now = Date.now();
 
     for (const provider of providers) {
       attemptNumber++;
-      const circuitBreaker = this.getOrCreateCircuitBreaker(provider.name);
+      const circuitState = this.getOrCreateCircuitState(provider.name);
 
       // Log provider attempt with reason
       if (attemptNumber === 1) {
@@ -366,16 +377,19 @@ export class BlockchainProviderManager {
         );
       }
 
+      const circuitIsOpen = isCircuitOpen(circuitState, now);
+      const circuitIsHalfOpen = isCircuitHalfOpen(circuitState, now);
+
       // Skip providers with open circuit breakers (unless all are open)
-      if (circuitBreaker.isOpen() && this.hasAvailableProviders(providers)) {
+      if (circuitIsOpen && this.hasAvailableProviders(providers)) {
         logger.debug(`Skipping provider ${provider.name} - circuit breaker is open`);
         continue;
       }
 
       // Log when using a provider with open circuit breaker (all providers are failing)
-      if (circuitBreaker.isOpen()) {
+      if (circuitIsOpen) {
         logger.warn(`Using provider ${provider.name} despite open circuit breaker - all providers unavailable`);
-      } else if (circuitBreaker.isHalfOpen()) {
+      } else if (circuitIsHalfOpen) {
         logger.debug(`Testing provider ${provider.name} in half-open state`);
       }
 
@@ -385,8 +399,9 @@ export class BlockchainProviderManager {
         const result = await provider.execute(operation, {});
         const responseTime = Date.now() - startTime;
 
-        // Record success
-        circuitBreaker.recordSuccess();
+        // Record success - update circuit state
+        const newCircuitState = recordSuccess(circuitState, Date.now());
+        this.circuitStates.set(provider.name, newCircuitState);
         this.updateHealthMetrics(provider.name, true, responseTime);
 
         return ok({
@@ -423,8 +438,9 @@ export class BlockchainProviderManager {
           logger.error(`All providers failed for ${operation.type}: ${logData.error}`);
         }
 
-        // Record failure
-        circuitBreaker.recordFailure();
+        // Record failure - update circuit state
+        const newCircuitState = recordFailure(circuitState, Date.now());
+        this.circuitStates.set(provider.name, newCircuitState);
         this.updateHealthMetrics(provider.name, false, responseTime, lastError.message);
 
         // Continue to next provider
@@ -447,15 +463,15 @@ export class BlockchainProviderManager {
   }
 
   /**
-   * Get or create circuit breaker for provider
+   * Get or create circuit breaker state for provider
    */
-  private getOrCreateCircuitBreaker(providerName: string): CircuitBreaker {
-    let circuitBreaker = this.circuitBreakers.get(providerName);
-    if (!circuitBreaker) {
-      circuitBreaker = new CircuitBreaker(providerName);
-      this.circuitBreakers.set(providerName, circuitBreaker);
+  private getOrCreateCircuitState(providerName: string): CircuitState {
+    let circuitState = this.circuitStates.get(providerName);
+    if (!circuitState) {
+      circuitState = createInitialCircuitState();
+      this.circuitStates.set(providerName, circuitState);
     }
-    return circuitBreaker;
+    return circuitState;
   }
 
   /**
@@ -662,9 +678,10 @@ export class BlockchainProviderManager {
    * Check if there are available providers (circuit not open)
    */
   private hasAvailableProviders(providers: IBlockchainProvider[]): boolean {
+    const now = Date.now();
     return providers.some((p) => {
-      const circuitBreaker = this.circuitBreakers.get(p.name);
-      return !circuitBreaker || !circuitBreaker.isOpen();
+      const circuitState = this.circuitStates.get(p.name);
+      return !circuitState || !isCircuitOpen(circuitState, now);
     });
   }
 
@@ -701,18 +718,19 @@ export class BlockchainProviderManager {
    */
   private scoreProvider(provider: IBlockchainProvider): number {
     const health = this.healthStatus.get(provider.name);
-    const circuitBreaker = this.circuitBreakers.get(provider.name);
+    const circuitState = this.circuitStates.get(provider.name);
 
-    if (!health || !circuitBreaker) {
+    if (!health || !circuitState) {
       return 0;
     }
 
+    const now = Date.now();
     let score = 100; // Base score
 
     // Health penalties
     if (!health.isHealthy) score -= 50;
-    if (circuitBreaker.isOpen()) score -= 100; // Severe penalty for open circuit
-    if (circuitBreaker.isHalfOpen()) score -= 25; // Moderate penalty for half-open
+    if (isCircuitOpen(circuitState, now)) score -= 100; // Severe penalty for open circuit
+    if (isCircuitHalfOpen(circuitState, now)) score -= 25; // Moderate penalty for half-open
 
     // Rate limit penalties - both configured limits and actual rate limiting events
     const rateLimit = provider.rateLimit.requestsPerSecond;

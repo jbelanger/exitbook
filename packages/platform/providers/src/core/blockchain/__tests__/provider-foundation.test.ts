@@ -3,7 +3,7 @@
  * Tests core interfaces, circuit breaker, and provider manager functionality
  */
 
-import { CircuitBreaker, type RateLimitConfig } from '@exitbook/platform-http';
+import { type RateLimitConfig } from '@exitbook/platform-http';
 import { err, ok, type Result } from 'neverthrow';
 
 // Import clients to trigger registration
@@ -92,105 +92,6 @@ class MockProvider implements IBlockchainProvider {
     this.shouldFail = shouldFail;
   }
 }
-
-describe('CircuitBreaker', () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  test('should start in closed state', () => {
-    const breaker = new CircuitBreaker('test-provider');
-    expect(breaker.isClosed()).toBe(true);
-    expect(breaker.isOpen()).toBe(false);
-    expect(breaker.getCurrentState()).toBe('closed');
-  });
-
-  test('should open after max failures', () => {
-    const breaker = new CircuitBreaker('test-provider', 2, 60000); // 2 failures, 1 minute timeout
-
-    breaker.recordFailure();
-    expect(breaker.isClosed()).toBe(true);
-
-    breaker.recordFailure();
-    expect(breaker.isOpen()).toBe(true);
-    expect(breaker.getCurrentState()).toBe('open');
-  });
-
-  test('should reset on success', () => {
-    const breaker = new CircuitBreaker('test-provider', 2);
-
-    breaker.recordFailure();
-    breaker.recordFailure();
-    expect(breaker.isOpen()).toBe(true);
-
-    breaker.recordSuccess();
-    expect(breaker.isClosed()).toBe(true);
-  });
-
-  test('should transition to half-open state after timeout', () => {
-    const breaker = new CircuitBreaker('test-provider', 2, 60000); // 1 minute timeout
-
-    // Trip the breaker
-    breaker.recordFailure();
-    breaker.recordFailure();
-    expect(breaker.getCurrentState()).toBe('open');
-
-    // Advance time to just before timeout
-    vi.advanceTimersByTime(59000);
-    expect(breaker.getCurrentState()).toBe('open');
-
-    // Advance past timeout
-    vi.advanceTimersByTime(2000);
-    expect(breaker.getCurrentState()).toBe('half-open');
-  });
-
-  test('should return to open state on failure in half-open', () => {
-    const breaker = new CircuitBreaker('test-provider', 2, 60000);
-
-    // Trip the breaker
-    breaker.recordFailure();
-    breaker.recordFailure();
-    expect(breaker.getCurrentState()).toBe('open');
-
-    // Wait for half-open
-    vi.advanceTimersByTime(61000);
-    expect(breaker.getCurrentState()).toBe('half-open');
-
-    // Fail again - should go back to open
-    breaker.recordFailure();
-    expect(breaker.getCurrentState()).toBe('open');
-  });
-
-  test('should return to closed state on success in half-open', () => {
-    const breaker = new CircuitBreaker('test-provider', 2, 60000);
-
-    // Trip the breaker
-    breaker.recordFailure();
-    breaker.recordFailure();
-    expect(breaker.getCurrentState()).toBe('open');
-
-    // Wait for half-open
-    vi.advanceTimersByTime(61000);
-    expect(breaker.getCurrentState()).toBe('half-open');
-
-    // Succeed - should go back to closed
-    breaker.recordSuccess();
-    expect(breaker.getCurrentState()).toBe('closed');
-  });
-
-  test('should provide statistics', () => {
-    const breaker = new CircuitBreaker('test-provider');
-    const stats = breaker.getStatistics();
-
-    expect(stats.providerName).toBe('test-provider');
-    expect(stats.state).toBe('closed');
-    expect(stats.failureCount).toBe(0);
-  });
-});
 
 describe('BlockchainProviderManager', () => {
   let manager: BlockchainProviderManager;

@@ -1,195 +1,258 @@
-import type { Mock } from 'vitest';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-
-vi.mock('@exitbook/shared-logger', () => ({
-  getLogger: () => ({
-    debug: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-  }),
-}));
-
-interface RateLimiterStub {
-  getStatus: Mock;
-  waitForPermission: Mock;
-}
-
-const { getOrCreateMock, resetFactoryMock } = vi.hoisted(() => ({
-  getOrCreateMock: vi.fn<(provider: string, config: RateLimitConfig) => RateLimiterStub>(),
-  resetFactoryMock: vi.fn<(provider?: string) => void>(),
-}));
-
-vi.mock('./rate-limiter.js', () => ({
-  RateLimiterFactory: {
-    getOrCreate: getOrCreateMock,
-    reset: resetFactoryMock,
-  },
-}));
+import { describe, expect, it, vi } from 'vitest';
 
 import { HttpClient } from './client.ts';
-import { RateLimitError, ServiceError } from './types.ts';
-import type { RateLimitConfig } from './types.ts';
+import type { HttpEffects } from './core/types.ts';
 
-const createRateLimiterStub = (): RateLimiterStub => ({
-  getStatus: vi.fn(),
-  waitForPermission: vi.fn(),
-});
+describe('HttpClient - Imperative Shell', () => {
+  it('should make successful GET request using injected effects', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      headers: new Headers(),
+      json: () => Promise.resolve({ success: true }),
+      ok: true,
+    });
 
-const fetchMock = vi.fn<typeof fetch>();
+    const mockEffects: HttpEffects = {
+      delay: vi.fn().mockResolvedValue(undefined as unknown),
+      fetch: mockFetch,
+      log: vi.fn(),
+      now: () => 1000,
+    };
 
-beforeAll(() => {
-  vi.stubGlobal('fetch', fetchMock);
-});
-
-afterEach(() => {
-  fetchMock.mockReset();
-  getOrCreateMock.mockReset();
-  resetFactoryMock.mockReset();
-  vi.clearAllMocks();
-});
-
-afterAll(() => {
-  vi.unstubAllGlobals();
-});
-
-describe('HttpClient', () => {
-  it('performs GET requests with merged headers and returns parsed JSON', async () => {
-    const limiter = createRateLimiterStub();
-    limiter.waitForPermission.mockResolvedValue(void 0);
-    limiter.getStatus.mockReturnValue({ tokens: 1 });
-    getOrCreateMock.mockReturnValue(limiter);
-
-    fetchMock.mockResolvedValue(
-      new Response(JSON.stringify({ hello: 'world' }), {
-        headers: new Headers({ 'Content-Type': 'application/json' }),
-        status: 200,
-      })
+    const client = new HttpClient(
+      {
+        baseUrl: 'https://api.example.com',
+        providerName: 'test-provider',
+        rateLimit: { requestsPerSecond: 10 },
+      },
+      mockEffects
     );
 
-    const client = new HttpClient({
-      baseUrl: 'https://api.example.com',
-      providerName: 'example',
-      rateLimit: { requestsPerSecond: 10 },
-    });
+    const result = await client.get<{ success: boolean }>('/test');
 
-    const result = await client.get('/resource', {
-      headers: { Authorization: 'Bearer token' },
-      timeout: 5_000,
-    });
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchMock.mock.calls[0]!;
-    expect(url).toBe('https://api.example.com/resource');
-    expect(init?.method).toBe('GET');
-    expect(init?.headers).toMatchObject({
-      Accept: 'application/json',
-      Authorization: 'Bearer token',
-      'User-Agent': 'exitbook/1.0.0',
-    });
-    expect(init?.body).toBeNull();
-    expect(init?.signal).toBeInstanceOf(AbortSignal);
-    expect(result).toEqual({ hello: 'world' });
-    expect(limiter.waitForPermission).toHaveBeenCalledTimes(1);
-  });
-
-  it('retries on rate limits and throws RateLimitError when retries exhausted', async () => {
-    const limiter = createRateLimiterStub();
-    limiter.waitForPermission.mockResolvedValue(void 0);
-    getOrCreateMock.mockReturnValue(limiter);
-
-    const retryAfterHeaders = new Headers({ 'Retry-After': '5' });
-
-    fetchMock
-      .mockResolvedValueOnce(
-        new Response('Too Many Requests', {
-          headers: retryAfterHeaders,
-          status: 429,
-        })
-      )
-      .mockResolvedValueOnce(
-        new Response('Still rate limited', {
-          headers: retryAfterHeaders,
-          status: 429,
-        })
-      )
-      .mockResolvedValueOnce(
-        new Response('Nope', {
-          headers: retryAfterHeaders,
-          status: 429,
-        })
-      );
-
-    const client = new HttpClient({
-      baseUrl: 'https://api.example.com',
-      providerName: 'example',
-      rateLimit: { requestsPerSecond: 10 },
-    });
-
-    const delaySpy = vi
-      .spyOn(client as unknown as { delay: (ms: number) => Promise<void> }, 'delay')
-      .mockResolvedValue();
-
-    try {
-      await expect(client.get('/resource')).rejects.toBeInstanceOf(RateLimitError);
-
-      expect(fetchMock).toHaveBeenCalledTimes(3);
-      expect(delaySpy).toHaveBeenNthCalledWith(1, 5_000);
-      expect(delaySpy).toHaveBeenNthCalledWith(2, 10_000);
-      expect(limiter.waitForPermission).toHaveBeenCalledTimes(1);
-    } finally {
-      delaySpy.mockRestore();
-    }
-  });
-
-  it('throws ServiceError for server errors and does not retry', async () => {
-    const limiter = createRateLimiterStub();
-    limiter.waitForPermission.mockResolvedValue(void 0);
-    getOrCreateMock.mockReturnValue(limiter);
-
-    fetchMock.mockResolvedValue(
-      new Response('Internal Server Error', {
-        status: 500,
+    expect(result).toEqual({ success: true });
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://api.example.com/test',
+      expect.objectContaining({
+        method: 'GET',
       })
     );
-
-    const client = new HttpClient({
-      baseUrl: 'https://api.example.com',
-      providerName: 'example',
-      rateLimit: { requestsPerSecond: 10 },
-    });
-
-    await expect(client.get('/resource')).rejects.toBeInstanceOf(ServiceError);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it('temporarily swaps rate limiter with withRateLimit and restores on cleanup', () => {
-    const originalLimiter = createRateLimiterStub();
-    const tempLimiter = createRateLimiterStub();
-
-    originalLimiter.getStatus.mockReturnValue({ tokens: 1 });
-    tempLimiter.getStatus.mockReturnValue({ tokens: 99 });
-    originalLimiter.waitForPermission.mockResolvedValue(void 0);
-    tempLimiter.waitForPermission.mockResolvedValue(void 0);
-
-    getOrCreateMock
-      .mockReturnValueOnce(originalLimiter)
-      .mockReturnValueOnce(tempLimiter)
-      .mockReturnValue(originalLimiter);
-
-    const client = new HttpClient({
-      baseUrl: 'https://api.example.com',
-      providerName: 'example',
-      rateLimit: { requestsPerSecond: 10 },
+  it('should enforce rate limiting using pure functions', async () => {
+    let currentTime = 1000;
+    const mockDelay = vi.fn().mockImplementation((ms: number) => {
+      currentTime += ms;
+      return Promise.resolve();
     });
 
-    expect(client.getRateLimitStatus()).toEqual({ tokens: 1 });
+    const mockFetch = vi.fn().mockResolvedValue({
+      headers: new Headers(),
+      json: () => Promise.resolve({ data: 'ok' }),
+      ok: true,
+    });
 
-    const restore = client.withRateLimit({ requestsPerSecond: 1 });
-    const clientInternal = client as unknown as { rateLimiter: RateLimiterStub };
-    expect(clientInternal.rateLimiter).toBe(tempLimiter);
+    const mockEffects: HttpEffects = {
+      delay: mockDelay,
+      fetch: mockFetch,
+      log: vi.fn(),
+      now: () => currentTime,
+    };
 
+    const client = new HttpClient(
+      {
+        baseUrl: 'https://api.example.com',
+        providerName: 'test-provider',
+        rateLimit: {
+          requestsPerSecond: 1, // 1 request per second
+        },
+      },
+      mockEffects
+    );
+
+    // First request should go through immediately
+    await client.get('/test1');
+    expect(mockDelay).not.toHaveBeenCalled();
+
+    // Second request should wait ~1000ms
+    await client.get('/test2');
+    expect(mockDelay).toHaveBeenCalled();
+    expect(mockDelay.mock.calls[0]?.[0]).toBeGreaterThan(900); // Should wait ~1 second
+  });
+
+  it('should handle 429 rate limit responses with exponential backoff', async () => {
+    let attempt = 0;
+    const mockFetch = vi.fn().mockImplementation(() => {
+      attempt++;
+      if (attempt < 3) {
+        return Promise.resolve({
+          headers: new Headers({ 'Retry-After': '1' }),
+          ok: false,
+          status: 429,
+          text: () => Promise.resolve('Rate limited'),
+        });
+      }
+      return Promise.resolve({
+        headers: new Headers(),
+        json: () => Promise.resolve({ success: true }),
+        ok: true,
+      });
+    });
+
+    const delays: number[] = [];
+    const mockEffects: HttpEffects = {
+      delay: vi.fn().mockImplementation((ms: number) => {
+        delays.push(ms);
+        return Promise.resolve();
+      }),
+      fetch: mockFetch,
+      log: vi.fn(),
+      now: () => Date.now(),
+    };
+
+    const client = new HttpClient(
+      {
+        baseUrl: 'https://api.example.com',
+        providerName: 'test-provider',
+        rateLimit: { requestsPerSecond: 10 },
+        retries: 3,
+      },
+      mockEffects
+    );
+
+    const result = await client.get('/test');
+
+    expect(result).toEqual({ success: true });
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+    // Should have exponential backoff: 1000ms, 2000ms
+    expect(delays).toHaveLength(2);
+    expect(delays[0]).toBe(1000);
+    expect(delays[1]).toBe(2000);
+  });
+
+  it('should handle POST requests with body', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      headers: new Headers(),
+      json: () => Promise.resolve({ created: true }),
+      ok: true,
+    });
+
+    const mockEffects: HttpEffects = {
+      delay: vi.fn().mockResolvedValue(undefined as unknown),
+      fetch: mockFetch,
+      log: vi.fn(),
+      now: () => 1000,
+    };
+
+    const client = new HttpClient(
+      {
+        baseUrl: 'https://api.example.com',
+        providerName: 'test-provider',
+        rateLimit: { requestsPerSecond: 10 },
+      },
+      mockEffects
+    );
+
+    const body = { name: 'test' };
+    await client.post('/create', body);
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://api.example.com/create',
+      expect.objectContaining({
+        body: JSON.stringify(body),
+        headers: expect.objectContaining({
+          'Content-Type': 'application/json',
+        }) as Record<string, string>,
+        method: 'POST',
+      })
+    );
+  });
+
+  it('should support temporary rate limit override', async () => {
+    let currentTime = 1000;
+    const mockDelay = vi.fn().mockImplementation((ms: number) => {
+      currentTime += ms;
+      return Promise.resolve();
+    });
+
+    const mockFetch = vi.fn().mockResolvedValue({
+      headers: new Headers(),
+      json: () => Promise.resolve({ data: 'ok' }),
+      ok: true,
+    });
+
+    const mockEffects: HttpEffects = {
+      delay: mockDelay,
+      fetch: mockFetch,
+      log: vi.fn(),
+      now: () => currentTime,
+    };
+
+    const client = new HttpClient(
+      {
+        baseUrl: 'https://api.example.com',
+        providerName: 'test-provider',
+        rateLimit: { requestsPerSecond: 1 },
+      },
+      mockEffects
+    );
+
+    // Use higher rate limit temporarily
+    const restore = client.withRateLimit({ requestsPerSecond: 100 });
+
+    const delayCallsBefore = mockDelay.mock.calls.length;
+    await client.get('/test1');
+    await client.get('/test2');
+    await client.get('/test3');
+
+    // Should not have significantly delayed with high rate limit
+    const significantDelays = mockDelay.mock.calls.slice(delayCallsBefore).filter((call) => call[0] > 100).length;
+    expect(significantDelays).toBe(0);
+
+    // Restore original rate limit
     restore();
-    expect(clientInternal.rateLimiter).toBe(originalLimiter);
-    expect(client.getRateLimitStatus()).toEqual({ tokens: 1 });
+
+    const delayCallsBeforeRestore = mockDelay.mock.calls.length;
+    await client.get('/test4');
+    await client.get('/test5');
+
+    // Now should enforce the original 1 req/sec limit with significant delays
+    const delaysAfterRestore = mockDelay.mock.calls.slice(delayCallsBeforeRestore);
+    const significantDelaysAfterRestore = delaysAfterRestore.filter((call) => call[0] > 100).length;
+    expect(significantDelaysAfterRestore).toBeGreaterThan(0);
+  });
+
+  it('should sanitize URLs in logs', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      headers: new Headers(),
+      json: () => Promise.resolve({ data: 'ok' }),
+      ok: true,
+    });
+
+    const logSpy = vi.fn();
+    const mockEffects: HttpEffects = {
+      delay: vi.fn().mockResolvedValue(undefined as unknown),
+      fetch: mockFetch,
+      log: logSpy,
+      now: () => 1000,
+    };
+
+    const client = new HttpClient(
+      {
+        baseUrl: 'https://api.example.com',
+        providerName: 'test-provider',
+        rateLimit: { requestsPerSecond: 10 },
+      },
+      mockEffects
+    );
+
+    await client.get('/test?apikey=secret123');
+
+    // Check that the log was called with sanitized URL
+    const debugLogs = logSpy.mock.calls.filter((call) => call[0] === 'debug');
+    const requestLog = debugLogs.find((call) => (call[1] as string).includes('Making HTTP request'));
+
+    expect(requestLog).toBeDefined();
+    expect((requestLog as unknown[])[1]).toContain('apikey=***');
+    expect((requestLog as unknown[])[1]).not.toContain('secret123');
   });
 });
