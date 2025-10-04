@@ -50,9 +50,14 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
         // Determine transaction type based on fund flow
         const transactionType = this.determineTransactionTypeFromFundFlow(fundFlow, sessionMetadata);
 
-        // Convert to UniversalTransaction with structured fields
-        const networkFee = normalizedTx.feeAmount
-          ? createMoney(normalizedTx.feeAmount, normalizedTx.feeCurrency || 'BTC')
+        // Only include fees if user initiated the transaction (they paid the fee)
+        // For incoming-only transactions (deposits, received transfers), the sender paid the fee
+        // User paid fee if they have ANY outflows (spent UTXOs from their wallet)
+        // In Bitcoin's UTXO model, you only pay fees when spending your own inputs
+        const userPaidFee = fundFlow.isOutgoing && parseFloat(fundFlow.walletInput) > 0;
+
+        const networkFee = userPaidFee
+          ? createMoney(normalizedTx.feeAmount || '0', normalizedTx.feeCurrency || 'BTC')
           : createMoney('0', 'BTC');
 
         const universalTransaction: UniversalTransaction = {
