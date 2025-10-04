@@ -13,7 +13,7 @@ export function isErrorWithMessage(error: unknown): error is Error & { message: 
 /**
  * Type guard for checking if an object has a property with a specific type
  */
-export function hasPropertyOfType<T extends string, V>(
+function hasPropertyOfType<T extends string, V>(
   obj: unknown,
   prop: T,
   typeCheck: (value: unknown) => value is V
