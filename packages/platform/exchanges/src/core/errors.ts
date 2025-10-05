@@ -12,6 +12,6 @@ export class PartialImportError extends Error {
     public readonly lastSuccessfulTimestamp?: Date
   ) {
     super(message);
-    this.name = 'PartialValidationError';
+    this.name = 'PartialImportError';
   }
 }

@@ -40,7 +40,7 @@ export interface IExchangeClient<TParsedData = unknown> {
   /**
    * Fetch all transaction data (trades, deposits, withdrawals, orders, etc.)
    * Validates data and returns transactions ready for storage.
-   * May return partial results via PartialValidationError if validation fails partway through.
+   * May return partial results via PartialImportError if validation fails partway through.
    */
   fetchTransactionData(params?: FetchParams): Promise<Result<RawTransactionWithMetadata[], Error>>;
 

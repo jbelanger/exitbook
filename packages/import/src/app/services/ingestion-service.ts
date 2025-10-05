@@ -1,5 +1,5 @@
 import type { RawData, ImportSessionMetadata, RawTransactionMetadata, StoredImportParams } from '@exitbook/data';
-import { PartialValidationError } from '@exitbook/exchanges';
+import { PartialImportError } from '@exitbook/exchanges';
 import type { ImportParams } from '@exitbook/import/app/ports/importers.ts';
 import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
 import type { IBlockchainNormalizer } from '@exitbook/providers';
@@ -565,8 +565,8 @@ export class TransactionIngestionService {
       if (importResultOrError.isErr()) {
         const error = importResultOrError.error;
 
-        // Check if this is a PartialValidationError with successful items
-        if (error instanceof PartialValidationError) {
+        // Check if this is a PartialImportError with successful items
+        if (error instanceof PartialImportError) {
           this.logger.warn(
             `Validation failed after ${error.successfulItems.length} successful items: ${error.message}`
           );

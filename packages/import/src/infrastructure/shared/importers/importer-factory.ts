@@ -20,7 +20,7 @@ export class ImporterFactory implements IImporterFactory {
     this.logger.info(`Creating importer for ${sourceId} (type: ${sourceType})`);
 
     if (sourceType === 'exchange') {
-      return await this.createExchangeImporter(sourceId, params);
+      return await this.createExchangeImporter(sourceId);
     }
 
     if (sourceType === 'blockchain') {
@@ -128,11 +128,11 @@ export class ImporterFactory implements IImporterFactory {
    * Create an exchange importer.
    * Decides between CSV or API importer based on ImportParams.
    */
-  private async createExchangeImporter(sourceId: string, params?: ImportParams): Promise<IImporter> {
+  private async createExchangeImporter(sourceId: string): Promise<IImporter> {
     switch (sourceId.toLowerCase()) {
       case 'kraken':
         // Dynamic import to avoid circular dependencies
-        return await this.createKrakenImporter(params);
+        return await this.createKrakenImporter();
 
       case 'kucoin':
         return await this.createKucoinImporter();
@@ -168,16 +168,9 @@ export class ImporterFactory implements IImporterFactory {
   /**
    * Create Kraken importer (CSV or API based on params).
    */
-  private async createKrakenImporter(params?: ImportParams): Promise<IImporter> {
-    // If credentials are provided, use API importer
-    if (params?.credentials) {
-      const { KrakenApiImporter } = await import('../../exchanges/kraken/api-importer.js');
-      return new KrakenApiImporter() as unknown as IImporter;
-    }
-
-    // Otherwise, use CSV importer
-    const { KrakenCsvImporter } = await import('../../exchanges/kraken/importer.js');
-    return new KrakenCsvImporter() as unknown as IImporter;
+  private async createKrakenImporter(): Promise<IImporter> {
+    const { KrakenApiImporter } = await import('../../exchanges/kraken/api-importer.js');
+    return new KrakenApiImporter() as unknown as IImporter;
   }
 
   /**

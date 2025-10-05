@@ -34,7 +34,7 @@ export class KrakenApiImporter implements IImporter {
       });
 
       if (fetchResult.isErr()) {
-        // Pass through the error (including PartialValidationError with successful items)
+        // Pass through the error (including PartialImportError with successful items)
         // The ingestion service will handle saving successful items and recording errors
         return err(fetchResult.error);
       }
