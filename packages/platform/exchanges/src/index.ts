@@ -13,7 +13,7 @@ export type {
   RawExchangeData,
   RawTransactionWithMetadata as ExchangeRawTransaction,
 } from './core/types.ts';
-export { PartialValidationError } from './core/errors.ts';
+export { PartialImportError as PartialValidationError } from './core/errors.ts';
 
 // Kraken
 export { KrakenClient } from './kraken/client.ts';

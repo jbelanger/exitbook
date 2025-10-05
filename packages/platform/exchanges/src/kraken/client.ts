@@ -2,7 +2,7 @@ import * as ccxt from 'ccxt';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import { PartialValidationError } from '../core/errors.ts';
+import { PartialImportError } from '../core/errors.ts';
 import type { FetchParams, IExchangeClient, RawTransactionWithMetadata } from '../core/types.ts';
 import type { ExchangeCredentials } from '../types/credentials.ts';
 
@@ -75,7 +75,7 @@ export class KrakenClient implements IExchangeClient<ParsedKrakenData> {
     type: 'trade' | 'deposit' | 'withdrawal' | 'order',
     transactions: RawTransactionWithMetadata[],
     lastTimestamp: Date | undefined
-  ): Result<Date | undefined, PartialValidationError> {
+  ): Result<Date | undefined, PartialImportError> {
     let lastSuccessfulTimestamp = lastTimestamp;
 
     for (const item of items) {
@@ -85,7 +85,7 @@ export class KrakenClient implements IExchangeClient<ParsedKrakenData> {
 
       if (validationResult.isErr()) {
         return err(
-          new PartialValidationError(
+          new PartialImportError(
             `Validation failed for ${type}: ${validationResult.error.message}`,
             transactions,
             rawItem,
@@ -100,7 +100,7 @@ export class KrakenClient implements IExchangeClient<ParsedKrakenData> {
       const timestampResult = this.extractTimestamp(parsedData);
       if (timestampResult.isErr()) {
         return err(
-          new PartialValidationError(
+          new PartialImportError(
             `Failed to extract timestamp for ${type}: ${timestampResult.error.message}`,
             transactions,
             parsedData,
@@ -114,7 +114,7 @@ export class KrakenClient implements IExchangeClient<ParsedKrakenData> {
       const externalIdResult = this.extractExternalId(parsedData);
       if (externalIdResult.isErr()) {
         return err(
-          new PartialValidationError(
+          new PartialImportError(
             `Failed to extract external ID for ${type}: ${externalIdResult.error.message}`,
             transactions,
             parsedData,
