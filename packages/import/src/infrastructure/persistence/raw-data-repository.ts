@@ -1,3 +1,4 @@
+/* eslint-disable unicorn/no-null -- db requires null handling */
 import type { KyselyDB, RawTransactionWithMetadata } from '@exitbook/data';
 import type { RawData } from '@exitbook/data';
 import { BaseRepository } from '@exitbook/data';
@@ -94,11 +95,14 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
           .insertInto('external_transaction_data')
           .values({
             created_at: this.getCurrentDateTimeForDB(),
+            external_id: item.externalId ?? null,
             import_session_id: importSessionId,
             metadata: this.serializeToJson(item.metadata),
+            parsed_data: item.parsedData ? JSON.stringify(item.parsedData) : null,
             processing_status: 'pending',
             provider_id: item.metadata.providerId,
             raw_data: JSON.stringify(item.rawData),
+            timestamp: item.timestamp ? item.timestamp.toISOString() : null,
           })
           .onConflict((oc) => oc.doNothing()) // Equivalent to INSERT OR IGNORE
           .execute();
@@ -109,7 +113,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
       return ok(result);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger.error({ error, item, importSessionId }, 'Failed to save raw data item');
+      this.logger.error({ error, importSessionId }, 'Failed to save raw data item');
       return err(new Error(`Failed to save raw data item: ${errorMessage}`));
     }
   }
@@ -136,11 +140,14 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
             .insertInto('external_transaction_data')
             .values({
               created_at: createdAt,
+              external_id: item.externalId ?? null,
               import_session_id: importSessionId,
               metadata: this.serializeToJson(item.metadata),
+              parsed_data: item.parsedData ? JSON.stringify(item.parsedData) : null,
               processing_status: 'pending',
               provider_id: item.metadata.providerId,
               raw_data: JSON.stringify(item.rawData),
+              timestamp: item.timestamp ? item.timestamp.toISOString() : null,
             })
             .onConflict((oc) => oc.doNothing())
             .execute();
@@ -156,8 +163,84 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
       return ok(result);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger.error({ error, items, importSessionId }, 'Failed to save raw data batch');
+      this.logger.error({ error, importSessionId }, 'Failed to save raw data batch');
       return err(new Error(`Failed to save raw data batch: ${errorMessage}`));
+    }
+  }
+
+  async getLatestTimestamp(importSessionId: number): Promise<Result<Date | null, Error>> {
+    try {
+      const result = await this.db
+        .selectFrom('external_transaction_data')
+        .select('timestamp')
+        .where('import_session_id', '=', importSessionId)
+        .where('timestamp', 'is not', null)
+        .orderBy('timestamp', 'desc')
+        .limit(1)
+        .executeTakeFirst();
+
+      if (!result?.timestamp) {
+        return ok(null);
+      }
+
+      return ok(new Date(result.timestamp));
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error({ error, importSessionId }, 'Failed to get latest timestamp');
+      return err(new Error(`Failed to get latest timestamp: ${errorMessage}`));
+    }
+  }
+
+  async getRecordsNeedingValidation(importSessionId: number): Promise<Result<RawData[], Error>> {
+    try {
+      const rows = await this.db
+        .selectFrom('external_transaction_data')
+        .selectAll()
+        .where('import_session_id', '=', importSessionId)
+        .where('parsed_data', 'is', null)
+        .execute();
+
+      return ok(rows);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error({ error, importSessionId }, 'Failed to get records needing validation');
+      return err(new Error(`Failed to get records needing validation: ${errorMessage}`));
+    }
+  }
+
+  async getValidRecords(importSessionId: number): Promise<Result<RawData[], Error>> {
+    try {
+      const rows = await this.db
+        .selectFrom('external_transaction_data')
+        .selectAll()
+        .where('import_session_id', '=', importSessionId)
+        .where('parsed_data', 'is not', null)
+        .where('processing_status', '=', 'pending')
+        .execute();
+
+      return ok(rows);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error({ error, importSessionId }, 'Failed to get valid records');
+      return err(new Error(`Failed to get valid records: ${errorMessage}`));
+    }
+  }
+
+  async updateParsedData(id: number, parsedData: unknown): Promise<Result<void, Error>> {
+    try {
+      await this.db
+        .updateTable('external_transaction_data')
+        .set({
+          parsed_data: JSON.stringify(parsedData),
+        })
+        .where('id', '=', id)
+        .execute();
+
+      return ok();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error({ error, id }, 'Failed to update parsed data');
+      return err(new Error(`Failed to update parsed data: ${errorMessage}`));
     }
   }
 }

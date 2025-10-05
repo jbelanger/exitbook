@@ -227,6 +227,8 @@ logger.debug({ metadata }, 'debug message');
 ## Code Requirements
 
 - Use `exactOptionalPropertyTypes` - add `| undefined` to optional properties
+- Add new tables/fields to initial migration (`001_initial_schema.ts`) - database is dropped during development, not versioned incrementally
+- Remove all legacy code paths and backward compatibility when refactoring - clean breaks only
 
 ## Environment Variables
 

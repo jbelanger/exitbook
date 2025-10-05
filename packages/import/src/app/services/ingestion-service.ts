@@ -1,4 +1,5 @@
 import type { RawData, ImportSessionMetadata, RawTransactionMetadata, StoredImportParams } from '@exitbook/data';
+import { PartialValidationError } from '@exitbook/exchanges';
 import type { ImportParams } from '@exitbook/import/app/ports/importers.ts';
 import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
 import type { IBlockchainNormalizer } from '@exitbook/providers';
@@ -7,6 +8,7 @@ import { getLogger } from '@exitbook/shared-logger';
 import { err, ok, Result } from 'neverthrow';
 
 import type { ImportResult } from '../../index.js';
+import type { IImportSessionErrorRepository } from '../ports/import-session-error-repository.interface.ts';
 import type { IImportSessionRepository } from '../ports/import-session-repository.interface.ts';
 import type { IImporterFactory } from '../ports/importer-factory.interface.ts';
 import type { IProcessorFactory } from '../ports/processor-factory.js';
@@ -25,6 +27,7 @@ export class TransactionIngestionService {
   constructor(
     private rawDataRepository: IRawDataRepository,
     private sessionRepository: IImportSessionRepository,
+    private sessionErrorRepository: IImportSessionErrorRepository,
     private transactionRepository: ITransactionRepository,
     private importerFactory: IImporterFactory,
     private processorFactory: IProcessorFactory,
@@ -72,151 +75,17 @@ export class TransactionIngestionService {
 
   /**
    * Import raw data from source and store it in external_transaction_data table.
+   * Delegates to exchange or blockchain specific import logic.
    */
   async importFromSource(
     sourceId: string,
     sourceType: 'exchange' | 'blockchain',
     params: ImportParams
   ): Promise<Result<ImportResult, Error>> {
-    this.logger.info(`Starting import for ${sourceId} (${sourceType})`);
-
-    // Check for existing completed session with matching parameters
-    const existingSessionResult = await this.sessionRepository.findCompletedWithMatchingParams(sourceId, sourceType, {
-      address: params.address,
-      csvDirectories: params.csvDirectories,
-      providerId: params.providerId,
-      since: params.since,
-    });
-
-    if (existingSessionResult.isErr()) {
-      return err(existingSessionResult.error);
-    }
-
-    const existingSession = existingSessionResult.value;
-
-    if (existingSession) {
-      this.logger.info(
-        `Found existing completed import session ${existingSession.id} with matching parameters - reusing data`
-      );
-
-      // Load raw data count from existing session
-      const rawDataResult = await this.rawDataRepository.load({
-        importSessionId: existingSession.id,
-      });
-
-      if (rawDataResult.isErr()) {
-        return err(rawDataResult.error);
-      }
-
-      const rawDataCount = rawDataResult.value.length;
-
-      return ok({
-        imported: rawDataCount,
-        importSessionId: existingSession.id,
-      });
-    }
-
-    const startTime = Date.now();
-    let sessionCreated = false;
-    let importSessionId = 0;
-    try {
-      const sessionIdResult = await this.sessionRepository.create(sourceId, sourceType, params.providerId, params);
-
-      if (sessionIdResult.isErr()) {
-        return err(sessionIdResult.error);
-      }
-
-      importSessionId = sessionIdResult.value;
-      sessionCreated = true;
-      this.logger.info(`Created import session: ${importSessionId}`);
-
-      const importer = await this.importerFactory.create(sourceId, sourceType, params);
-
-      if (!importer) {
-        return err(new Error(`No importer found for source ${sourceId} of type ${sourceType}`));
-      }
-      this.logger.info(`Importer for ${sourceId} created successfully`);
-
-      // Import raw data
-      this.logger.info('Starting raw data import...');
-      const importResultOrError = await importer.import(params);
-
-      if (importResultOrError.isErr()) {
-        return err(importResultOrError.error);
-      }
-
-      const importResult = importResultOrError.value;
-      const rawData = importResult.rawTransactions;
-
-      // Save all raw data items to storage in a single transaction
-      const savedCountResult = await this.rawDataRepository.saveBatch(
-        importSessionId,
-        rawData.map((element) => ({
-          metadata: element.metadata,
-          rawData: element.rawData,
-        }))
-      );
-
-      // Handle Result type - fail fast if save fails
-      if (savedCountResult.isErr()) {
-        return err(savedCountResult.error);
-      }
-      const savedCount = savedCountResult.value;
-
-      // Finalize session with success and import result metadata
-      if (sessionCreated && typeof importSessionId === 'number') {
-        this.logger.debug(`Finalizing session ${importSessionId} with ${savedCount} transactions`);
-        const finalizeResult = await this.sessionRepository.finalize(
-          importSessionId,
-          'completed',
-          startTime,
-          savedCount,
-          0,
-          undefined,
-          undefined,
-          importResult.metadata
-        );
-
-        if (finalizeResult.isErr()) {
-          return err(finalizeResult.error);
-        }
-
-        this.logger.debug(`Successfully finalized session ${importSessionId}`);
-      }
-
-      this.logger.info(`Import completed for ${sourceId}: ${savedCount} items saved`);
-
-      return ok({
-        imported: savedCount,
-        importSessionId,
-      });
-    } catch (error) {
-      const originalError = error instanceof Error ? error : new Error(String(error));
-
-      // Update session with error if we created it
-      if (sessionCreated && typeof importSessionId === 'number' && importSessionId > 0) {
-        const finalizeResult = await this.sessionRepository.finalize(
-          importSessionId,
-          'failed',
-          startTime,
-          0,
-          0,
-          originalError.message,
-          error instanceof Error ? { stack: error.stack } : { error: String(error) }
-        );
-
-        if (finalizeResult.isErr()) {
-          this.logger.error(`Failed to update session on error: ${finalizeResult.error.message}`);
-          return err(
-            new Error(
-              `Import failed: ${originalError.message}. Additionally, failed to update session: ${finalizeResult.error.message}`
-            )
-          );
-        }
-      }
-
-      this.logger.error(`Import failed for ${sourceId}: ${originalError.message}`);
-      return err(originalError);
+    if (sourceType === 'exchange') {
+      return this.importFromExchange(sourceId, params);
+    } else {
+      return this.importFromBlockchain(sourceId, params);
     }
   }
 
@@ -485,6 +354,343 @@ export class TransactionIngestionService {
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.logger.error(`CRITICAL: Unexpected processing failure for ${sourceId}: ${errorMessage}`);
       return err(new Error(`Unexpected processing failure for ${sourceId}: ${errorMessage}`));
+    }
+  }
+
+  /**
+   * Import raw data from blockchain and store it in external_transaction_data table.
+   */
+  private async importFromBlockchain(sourceId: string, params: ImportParams): Promise<Result<ImportResult, Error>> {
+    const sourceType = 'blockchain';
+    this.logger.info(`Starting blockchain import for ${sourceId}`);
+
+    // Check for existing completed session with matching parameters
+    const existingSessionResult = await this.sessionRepository.findCompletedWithMatchingParams(sourceId, sourceType, {
+      address: params.address,
+      csvDirectories: params.csvDirectories,
+      providerId: params.providerId,
+      since: params.since,
+    });
+
+    if (existingSessionResult.isErr()) {
+      return err(existingSessionResult.error);
+    }
+
+    const existingSession = existingSessionResult.value;
+
+    if (existingSession) {
+      this.logger.info(
+        `Found existing completed import session ${existingSession.id} with matching parameters - reusing data`
+      );
+
+      // Load raw data count from existing session
+      const rawDataResult = await this.rawDataRepository.load({
+        importSessionId: existingSession.id,
+      });
+
+      if (rawDataResult.isErr()) {
+        return err(rawDataResult.error);
+      }
+
+      const rawDataCount = rawDataResult.value.length;
+
+      return ok({
+        imported: rawDataCount,
+        importSessionId: existingSession.id,
+      });
+    }
+
+    const startTime = Date.now();
+    let sessionCreated = false;
+    let importSessionId = 0;
+    try {
+      const sessionIdResult = await this.sessionRepository.create(sourceId, sourceType, params.providerId, params);
+
+      if (sessionIdResult.isErr()) {
+        return err(sessionIdResult.error);
+      }
+
+      importSessionId = sessionIdResult.value;
+      sessionCreated = true;
+      this.logger.info(`Created import session: ${importSessionId}`);
+
+      const importer = await this.importerFactory.create(sourceId, sourceType, params);
+
+      if (!importer) {
+        return err(new Error(`No importer found for blockchain ${sourceId}`));
+      }
+      this.logger.info(`Importer for ${sourceId} created successfully`);
+
+      // Import raw data
+      this.logger.info('Starting raw data import...');
+      const importResultOrError = await importer.import(params);
+
+      if (importResultOrError.isErr()) {
+        return err(importResultOrError.error);
+      }
+
+      const importResult = importResultOrError.value;
+      const rawData = importResult.rawTransactions;
+
+      // Save all raw data items to storage in a single transaction
+      const savedCountResult = await this.rawDataRepository.saveBatch(
+        importSessionId,
+        rawData.map((element) => ({
+          metadata: element.metadata,
+          rawData: element.rawData,
+        }))
+      );
+
+      // Handle Result type - fail fast if save fails
+      if (savedCountResult.isErr()) {
+        return err(savedCountResult.error);
+      }
+      const savedCount = savedCountResult.value;
+
+      // Finalize session with success and import result metadata
+      if (sessionCreated && typeof importSessionId === 'number') {
+        this.logger.debug(`Finalizing session ${importSessionId} with ${savedCount} transactions`);
+        const finalizeResult = await this.sessionRepository.finalize(
+          importSessionId,
+          'completed',
+          startTime,
+          savedCount,
+          0,
+          undefined,
+          undefined,
+          importResult.metadata
+        );
+
+        if (finalizeResult.isErr()) {
+          return err(finalizeResult.error);
+        }
+
+        this.logger.debug(`Successfully finalized session ${importSessionId}`);
+      }
+
+      this.logger.info(`Import completed for ${sourceId}: ${savedCount} items saved`);
+
+      return ok({
+        imported: savedCount,
+        importSessionId,
+      });
+    } catch (error) {
+      const originalError = error instanceof Error ? error : new Error(String(error));
+
+      // Update session with error if we created it
+      if (sessionCreated && typeof importSessionId === 'number' && importSessionId > 0) {
+        const finalizeResult = await this.sessionRepository.finalize(
+          importSessionId,
+          'failed',
+          startTime,
+          0,
+          0,
+          originalError.message,
+          error instanceof Error ? { stack: error.stack } : { error: String(error) }
+        );
+
+        if (finalizeResult.isErr()) {
+          this.logger.error(`Failed to update session on error: ${finalizeResult.error.message}`);
+          return err(
+            new Error(
+              `Import failed: ${originalError.message}. Additionally, failed to update session: ${finalizeResult.error.message}`
+            )
+          );
+        }
+      }
+
+      this.logger.error(`Import failed for ${sourceId}: ${originalError.message}`);
+      return err(originalError);
+    }
+  }
+
+  /**
+   * Import raw data from exchange and store it in external_transaction_data table.
+   * Handles validation errors by saving successful items and recording errors.
+   * Supports resumption from last successful timestamp.
+   */
+  private async importFromExchange(sourceId: string, params: ImportParams): Promise<Result<ImportResult, Error>> {
+    const sourceType = 'exchange';
+    this.logger.info(`Starting exchange import for ${sourceId}`);
+
+    // Look for any existing session for this exchange (simple sourceId + sourceType lookup)
+    const existingSessionsResult = await this.sessionRepository.findBySource(sourceId, 1);
+
+    if (existingSessionsResult.isErr()) {
+      return err(existingSessionsResult.error);
+    }
+
+    const existingSession = existingSessionsResult.value[0]; // Most recent session
+
+    const startTime = Date.now();
+    let sessionCreated = false;
+    let importSessionId: number;
+
+    // Reuse existing session if it exists, otherwise create a new one
+    if (existingSession) {
+      importSessionId = existingSession.id;
+      this.logger.info(`Resuming existing import session: ${importSessionId}`);
+
+      // Get latest timestamp from this session for resumption
+      const latestTimestampResult = await this.rawDataRepository.getLatestTimestamp(importSessionId);
+      if (latestTimestampResult.isOk() && latestTimestampResult.value) {
+        const latestTimestamp = latestTimestampResult.value;
+        params.since = Math.floor(latestTimestamp.getTime());
+        this.logger.info(`Resuming from last successful timestamp: ${latestTimestamp.toISOString()}`);
+      }
+    } else {
+      const sessionIdResult = await this.sessionRepository.create(sourceId, sourceType, params.providerId, params);
+
+      if (sessionIdResult.isErr()) {
+        return err(sessionIdResult.error);
+      }
+
+      importSessionId = sessionIdResult.value;
+      sessionCreated = true;
+      this.logger.info(`Created new import session: ${importSessionId}`);
+    }
+
+    try {
+      const importer = await this.importerFactory.create(sourceId, sourceType, params);
+
+      if (!importer) {
+        return err(new Error(`No importer found for exchange ${sourceId}`));
+      }
+      this.logger.info(`Importer for ${sourceId} created successfully`);
+
+      // Import raw data
+      this.logger.info('Starting raw data import...');
+      const importResultOrError = await importer.import(params);
+
+      if (importResultOrError.isErr()) {
+        const error = importResultOrError.error;
+
+        // Check if this is a PartialValidationError with successful items
+        if (error instanceof PartialValidationError) {
+          this.logger.warn(
+            `Validation failed after ${error.successfulItems.length} successful items: ${error.message}`
+          );
+
+          // Save successful items to database
+          let savedCount = 0;
+          if (error.successfulItems.length > 0) {
+            const saveResult = await this.rawDataRepository.saveBatch(importSessionId, error.successfulItems);
+
+            if (saveResult.isErr()) {
+              this.logger.error(`Failed to save successful items: ${saveResult.error.message}`);
+            } else {
+              savedCount = saveResult.value;
+              this.logger.info(`Saved ${savedCount} successful items before validation error`);
+            }
+          }
+
+          // Record the validation error to import_session_errors table
+          const errorRecordResult = await this.sessionErrorRepository.create({
+            errorDetails: {
+              lastSuccessfulTimestamp: error.lastSuccessfulTimestamp?.toISOString(),
+              successfulItemsCount: error.successfulItems.length,
+            },
+            errorMessage: error.message,
+            errorType: 'validation',
+            failedItemData: error.failedItem,
+            importSessionId,
+          });
+
+          if (errorRecordResult.isErr()) {
+            this.logger.error(`Failed to record validation error: ${errorRecordResult.error.message}`);
+          }
+
+          // Mark session as failed with partial success info
+          const finalizeResult = await this.sessionRepository.finalize(
+            importSessionId,
+            'failed',
+            startTime,
+            savedCount,
+            1, // One item failed validation
+            error.message,
+            {
+              failedItem: error.failedItem,
+              lastSuccessfulTimestamp: error.lastSuccessfulTimestamp?.toISOString(),
+            }
+          );
+
+          if (finalizeResult.isErr()) {
+            this.logger.error(`Failed to finalize session: ${finalizeResult.error.message}`);
+          }
+
+          return err(
+            new Error(
+              `Validation failed after ${savedCount} successful items: ${error.message}. ` +
+                `Please fix the code to handle this data format, then re-import to resume from the last successful transaction.`
+            )
+          );
+        }
+
+        // Other errors (network, auth, etc.)
+        return err(error);
+      }
+
+      const importResult = importResultOrError.value;
+      const rawData = importResult.rawTransactions;
+
+      // Save all raw data items to storage in a single transaction
+      const savedCountResult = await this.rawDataRepository.saveBatch(importSessionId, rawData);
+
+      // Handle Result type - fail fast if save fails
+      if (savedCountResult.isErr()) {
+        return err(savedCountResult.error);
+      }
+      const savedCount = savedCountResult.value;
+
+      // Finalize session with success and import result metadata
+      const finalizeResult = await this.sessionRepository.finalize(
+        importSessionId,
+        'completed',
+        startTime,
+        savedCount,
+        0,
+        undefined,
+        undefined,
+        importResult.metadata
+      );
+
+      if (finalizeResult.isErr()) {
+        return err(finalizeResult.error);
+      }
+
+      this.logger.info(`Import completed for ${sourceId}: ${savedCount} items saved`);
+
+      return ok({
+        imported: savedCount,
+        importSessionId,
+      });
+    } catch (error) {
+      const originalError = error instanceof Error ? error : new Error(String(error));
+
+      // Update session with error if we created it
+      if (sessionCreated && typeof importSessionId === 'number' && importSessionId > 0) {
+        const finalizeResult = await this.sessionRepository.finalize(
+          importSessionId,
+          'failed',
+          startTime,
+          0,
+          0,
+          originalError.message,
+          error instanceof Error ? { stack: error.stack } : { error: String(error) }
+        );
+
+        if (finalizeResult.isErr()) {
+          this.logger.error(`Failed to update session on error: ${finalizeResult.error.message}`);
+          return err(
+            new Error(
+              `Import failed: ${originalError.message}. Additionally, failed to update session: ${finalizeResult.error.message}`
+            )
+          );
+        }
+      }
+
+      this.logger.error(`Import failed for ${sourceId}: ${originalError.message}`);
+      return err(originalError);
     }
   }
 }

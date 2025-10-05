@@ -8,6 +8,7 @@ import {
   DefaultNormalizer,
   TransactionIngestionService,
   ImportSessionRepository,
+  ImportSessionErrorRepository,
   RawDataRepository,
   TransactionRepository,
   ImporterFactory,
@@ -292,6 +293,7 @@ async function main() {
         const transactionRepository = new TransactionRepository(database);
         const rawDataRepository = new RawDataRepository(database);
         const sessionRepository = new ImportSessionRepository(database);
+        const sessionErrorRepository = new ImportSessionErrorRepository(database);
         const providerManager = new BlockchainProviderManager(explorerConfig);
         const importerFactory = new ImporterFactory(providerManager);
         const processorFactory = new ProcessorFactory();
@@ -300,6 +302,7 @@ async function main() {
         const ingestionService = new TransactionIngestionService(
           rawDataRepository,
           sessionRepository,
+          sessionErrorRepository,
           transactionRepository,
           importerFactory,
           processorFactory,
@@ -436,6 +439,7 @@ async function main() {
         const transactionRepository = new TransactionRepository(database);
         const rawDataRepository = new RawDataRepository(database);
         const sessionRepository = new ImportSessionRepository(database);
+        const sessionErrorRepository = new ImportSessionErrorRepository(database);
         const providerManager = new BlockchainProviderManager(explorerConfig);
         const importerFactory = new ImporterFactory(providerManager);
         const processorFactory = new ProcessorFactory();
@@ -444,6 +448,7 @@ async function main() {
         const ingestionService = new TransactionIngestionService(
           rawDataRepository,
           sessionRepository,
+          sessionErrorRepository,
           transactionRepository,
           importerFactory,
           processorFactory,

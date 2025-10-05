@@ -50,16 +50,22 @@ export interface ExternalTransactionDataTable {
   // Foreign key relationship
   import_session_id: number; // FK to import_sessions.id
 
-  metadata: JSONString | null;
+  provider_id: string | null;
 
-  processed_at: DateTime | null;
-  processing_error: string | null;
+  // Transaction identification and timestamp (for auto-incremental imports)
+  external_id: string | null; // Unique transaction ID from exchange/blockchain
+  timestamp: DateTime | null; // Transaction timestamp for determining last import
+
+  // Data storage
+  raw_data: JSONString; // Raw data from source
+  parsed_data: JSONString | null; // Validated data (only stored if validation passed)
+
   // Processing status
   processing_status: 'pending' | 'processed' | 'failed' | 'skipped';
+  processed_at: DateTime | null;
+  processing_error: string | null;
 
-  provider_id: string | null;
-  // Data storage
-  raw_data: JSONString;
+  metadata: JSONString | null;
 }
 
 /**
@@ -159,10 +165,30 @@ export interface WalletAddressesTable {
 }
 
 /**
+ * Import session errors - tracks validation and processing errors
+ */
+export interface ImportSessionErrorsTable {
+  created_at: DateTime;
+  error_details: JSONString | null;
+  // Error information
+  error_message: string;
+  error_type: 'validation' | 'fetch' | 'processing';
+  // Failed item data
+  failed_item_data: JSONString | null;
+
+  id: Generated<number>;
+  // Foreign key relationship
+  import_session_id: number; // FK to import_sessions.id
+
+  occurred_at: DateTime;
+}
+
+/**
  * Main database interface combining all tables
  */
 export interface DatabaseSchema {
   external_transaction_data: ExternalTransactionDataTable;
+  import_session_errors: ImportSessionErrorsTable;
   import_sessions: ImportSessionsTable;
   transactions: TransactionsTable;
   wallet_addresses: WalletAddressesTable;

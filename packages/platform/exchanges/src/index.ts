@@ -7,7 +7,13 @@
 
 // Core types
 export type { ExchangeCredentials } from './types/credentials.ts';
-export type { IExchangeClient, FetchParams, RawExchangeData } from './core/types.ts';
+export type {
+  IExchangeClient,
+  FetchParams,
+  RawExchangeData,
+  RawTransactionWithMetadata as ExchangeRawTransaction,
+} from './core/types.ts';
+export { PartialValidationError } from './core/errors.ts';
 
 // Kraken
 export { KrakenClient } from './kraken/client.ts';

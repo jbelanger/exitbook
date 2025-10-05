@@ -44,12 +44,43 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
     .addColumn('import_session_id', 'integer', (col) => col.notNull().references('import_sessions.id'))
     .addColumn('provider_id', 'text')
+    .addColumn('external_id', 'text')
+    .addColumn('timestamp', 'text')
     .addColumn('raw_data', 'text', (col) => col.notNull())
+    .addColumn('parsed_data', 'text')
     .addColumn('processing_status', 'text', (col) => col.notNull().defaultTo('pending'))
     .addColumn('processed_at', 'text')
     .addColumn('processing_error', 'text')
     .addColumn('metadata', 'text')
     .addColumn('created_at', 'text', (col) => col.notNull().defaultTo('datetime("now")'))
+    .execute();
+
+  // Create unique index on (import_session_id, external_id) to prevent duplicates
+  await db.schema
+    .createIndex('idx_external_tx_session_external_id')
+    .on('external_transaction_data')
+    .columns(['import_session_id', 'external_id'])
+    .unique()
+    .execute();
+
+  // Create import_session_errors table
+  await db.schema
+    .createTable('import_session_errors')
+    .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+    .addColumn('import_session_id', 'integer', (col) => col.notNull().references('import_sessions.id'))
+    .addColumn('error_type', 'text', (col) => col.notNull())
+    .addColumn('error_message', 'text', (col) => col.notNull())
+    .addColumn('error_details', 'text')
+    .addColumn('failed_item_data', 'text')
+    .addColumn('occurred_at', 'text', (col) => col.notNull())
+    .addColumn('created_at', 'text', (col) => col.notNull().defaultTo('datetime("now")'))
+    .execute();
+
+  // Create index on import_session_id for faster lookups
+  await db.schema
+    .createIndex('idx_import_session_errors_session_id')
+    .on('import_session_errors')
+    .column('import_session_id')
     .execute();
 
   // Create transactions table
@@ -99,6 +130,7 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
 
 export async function down(db: Kysely<unknown>): Promise<void> {
   await db.schema.dropTable('transactions').execute();
+  await db.schema.dropTable('import_session_errors').execute();
   await db.schema.dropTable('external_transaction_data').execute();
   await db.schema.dropTable('import_sessions').execute();
   await db.schema.dropTable('wallet_addresses').execute();

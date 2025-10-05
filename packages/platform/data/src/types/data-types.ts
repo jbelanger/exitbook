@@ -3,6 +3,7 @@ import type { Selectable, Insertable, Updateable } from 'kysely';
 
 import type {
   ExternalTransactionDataTable,
+  ImportSessionErrorsTable,
   ImportSessionsTable,
   TransactionsTable,
   WalletAddressesTable,
@@ -24,6 +25,10 @@ export type ImportSessionUpdate = Updateable<ImportSessionsTable>;
 export type RawData = Selectable<ExternalTransactionDataTable>;
 export type NewRawData = Insertable<ExternalTransactionDataTable>;
 export type RawDataUpdate = Updateable<ExternalTransactionDataTable>;
+
+export type ImportSessionError = Selectable<ImportSessionErrorsTable>;
+export type NewImportSessionError = Insertable<ImportSessionErrorsTable>;
+export type ImportSessionErrorUpdate = Updateable<ImportSessionErrorsTable>;
 
 export interface ImportSessionQuery {
   limit?: number | undefined;
@@ -73,6 +78,10 @@ export interface ImportSessionMetadata {
 export interface RawTransactionWithMetadata {
   metadata: RawTransactionMetadata;
   rawData: unknown;
+  // New fields for exchange validation and auto-incremental imports
+  externalId?: string | undefined; // Unique transaction ID from source
+  timestamp?: Date | undefined; // Transaction timestamp
+  parsedData?: unknown; // Validated data (only set if validation passed)
 }
 
 export interface RawTransactionMetadata {

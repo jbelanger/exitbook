@@ -1,4 +1,3 @@
-import type { RawTransactionWithMetadata } from '@exitbook/data';
 import { KrakenClient } from '@exitbook/exchanges';
 import type { IImporter, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
 import { getLogger, type Logger } from '@exitbook/shared-logger';
@@ -6,11 +5,11 @@ import { err, ok, type Result } from 'neverthrow';
 
 /**
  * API-based importer for Kraken exchange.
- * Uses KrakenClient from @exitbook/exchanges to fetch transaction data via ccxt.
+ * Uses KrakenClient from @exitbook/exchanges to fetch and validate transaction data.
+ * The client handles validation, timestamp extraction, and external ID extraction.
  */
 export class KrakenApiImporter implements IImporter {
   private readonly logger: Logger;
-  private readonly sourceId = 'kraken';
 
   constructor() {
     this.logger = getLogger('krakenApiImporter');
@@ -27,41 +26,34 @@ export class KrakenApiImporter implements IImporter {
       // Initialize Kraken client with credentials
       const client = new KrakenClient(params.credentials);
 
-      // Fetch transaction data
+      // Fetch and validate transaction data
+      // Client returns RawTransactionWithMetadata[] with all fields populated
       const fetchResult = await client.fetchTransactionData({
         since: params.since,
         until: params.until,
       });
 
       if (fetchResult.isErr()) {
-        this.logger.error(`Failed to fetch Kraken data: ${fetchResult.error.message}`);
+        // Pass through the error (including PartialValidationError with successful items)
+        // The ingestion service will handle saving successful items and recording errors
         return err(fetchResult.error);
       }
 
-      const rawData = fetchResult.value;
+      const transactions = fetchResult.value;
 
-      // Transform to RawTransactionWithMetadata
-      const transactions: RawTransactionWithMetadata[] = rawData.map((item) => ({
-        metadata: {
-          providerId: this.sourceId,
-          source: 'api',
-        },
-        rawData: item.data,
-      }));
-
-      this.logger.info(`Completed Kraken API import: ${transactions.length} transactions fetched`);
+      this.logger.info(`Completed Kraken API import: ${transactions.length} transactions validated`);
 
       return ok({
-        rawTransactions: transactions,
         metadata: {
           importMethod: 'api',
           recordCount: transactions.length,
         },
+        rawTransactions: transactions,
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.logger.error(`Kraken API import failed: ${errorMessage}`);
-      return err(new Error(`${this.sourceId} API import failed: ${errorMessage}`));
+      return err(new Error(`Kraken API import failed: ${errorMessage}`));
     }
   }
 }
