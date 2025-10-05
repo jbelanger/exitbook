@@ -8,7 +8,7 @@ import type { ExchangeCredentials } from '../types/credentials.ts';
 
 import { KrakenCredentialsSchema, KrakenTransactionSchema, type ParsedKrakenData } from './schemas.ts';
 
-export class KrakenClient implements IExchangeClient<ParsedKrakenData> {
+export class KrakenClient implements IExchangeClient {
   readonly exchangeId = 'kraken';
   private exchange: ccxt.kraken;
 
@@ -33,7 +33,7 @@ export class KrakenClient implements IExchangeClient<ParsedKrakenData> {
 
     // Fetch ledger entries - this includes ALL balance changes:
     // deposits, withdrawals, trades, conversions, fees, etc.
-    const since = currentCursor.ledger || params?.since;
+    const since = currentCursor.ledger;
 
     // Kraken uses 'ofs' parameter for offset - resume from cursor if available
     let ofs = currentCursor.offset || 0;
@@ -77,7 +77,7 @@ export class KrakenClient implements IExchangeClient<ParsedKrakenData> {
     }
   }
 
-  validate(rawData: unknown): Result<ParsedKrakenData, Error> {
+  private validate(rawData: unknown): Result<ParsedKrakenData, Error> {
     try {
       const parsed = KrakenTransactionSchema.parse(rawData);
       return ok(parsed);

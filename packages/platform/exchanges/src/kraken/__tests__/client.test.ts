@@ -48,83 +48,6 @@ describe('KrakenClient - Constructor', () => {
   });
 });
 
-describe('KrakenClient - validate', () => {
-  let client: KrakenClient;
-
-  beforeEach(() => {
-    client = new KrakenClient({
-      apiKey: 'test-api-key',
-      secret: 'test-secret',
-    });
-  });
-
-  test('validates valid ledger entry', () => {
-    const validEntry = {
-      id: 'LEDGER1',
-      refid: 'REF001',
-      time: 1704067200,
-      type: 'deposit',
-      aclass: 'currency',
-      asset: 'ZCAD',
-      amount: '700.00',
-      fee: '3.49',
-      balance: '696.51',
-    };
-
-    const result = client.validate(validEntry);
-
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      expect(result.value.id).toBe('LEDGER1');
-      expect(result.value.refid).toBe('REF001');
-      expect(result.value.type).toBe('deposit');
-    }
-  });
-
-  test('rejects entry with missing required field', () => {
-    const invalidEntry = {
-      id: 'LEDGER1',
-      // missing refid
-      time: 1704067200,
-      type: 'deposit',
-      aclass: 'currency',
-      asset: 'ZCAD',
-      amount: '700.00',
-      fee: '3.49',
-      balance: '696.51',
-    };
-
-    const result = client.validate(invalidEntry);
-
-    expect(result.isErr()).toBe(true);
-    if (result.isErr()) {
-      expect(result.error.message).toContain('Kraken validation failed');
-    }
-  });
-
-  test('validates entry with optional subtype', () => {
-    const entryWithSubtype = {
-      id: 'LEDGER1',
-      refid: 'REF001',
-      time: 1704067200,
-      type: 'trade',
-      subtype: 'tradespot',
-      aclass: 'currency',
-      asset: 'XXBT',
-      amount: '0.1',
-      fee: '0.0001',
-      balance: '0.0999',
-    };
-
-    const result = client.validate(entryWithSubtype);
-
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      expect(result.value.subtype).toBe('tradespot');
-    }
-  });
-});
-
 describe('KrakenClient - fetchTransactionData', () => {
   let client: KrakenClient;
   let mockFetchLedger: ReturnType<typeof vi.fn>;
@@ -323,16 +246,6 @@ describe('KrakenClient - fetchTransactionData', () => {
 
     // Should resume from offset 100
     expect(mockFetchLedger).toHaveBeenCalledWith(undefined, 1704067200000, 50, { ofs: 100 });
-  });
-
-  test('uses since parameter when provided', async () => {
-    const params = { since: 1704067100000 };
-
-    mockFetchLedger.mockResolvedValueOnce([]);
-
-    await client.fetchTransactionData(params);
-
-    expect(mockFetchLedger).toHaveBeenCalledWith(undefined, 1704067100000, 50, { ofs: 0 });
   });
 
   test('handles network errors gracefully', async () => {

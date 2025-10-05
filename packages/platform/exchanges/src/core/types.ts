@@ -26,16 +26,12 @@ export interface RawExchangeData<T = unknown> {
  */
 export interface FetchParams {
   cursor?: Record<string, number> | undefined;
-  limit?: number | undefined;
-  since?: number | undefined;
-  until?: number | undefined;
 }
 
 /**
  * Base interface for exchange clients
- * @template TParsedData - The parsed and validated transaction data type (should be a discriminated union)
  */
-export interface IExchangeClient<TParsedData = unknown> {
+export interface IExchangeClient {
   readonly exchangeId: string;
 
   /**
@@ -44,11 +40,4 @@ export interface IExchangeClient<TParsedData = unknown> {
    * May return partial results via PartialImportError if validation fails partway through.
    */
   fetchTransactionData(params?: FetchParams): Promise<Result<RawTransactionWithMetadata[], Error>>;
-
-  /**
-   * Validate and parse raw exchange data
-   * @param rawData - Untyped data from API
-   * @returns Result with parsed data or validation error
-   */
-  validate(rawData: unknown): Result<TParsedData, Error>;
 }
