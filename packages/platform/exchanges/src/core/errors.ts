@@ -9,7 +9,7 @@ export class PartialImportError extends Error {
     message: string,
     public readonly successfulItems: RawTransactionWithMetadata[],
     public readonly failedItem: unknown,
-    public readonly lastSuccessfulTimestamp?: Date
+    public readonly lastSuccessfulCursor?: Record<string, number>
   ) {
     super(message);
     this.name = 'PartialImportError';

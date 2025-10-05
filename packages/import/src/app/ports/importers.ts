@@ -6,7 +6,15 @@ export interface ImportParams {
   address?: string | undefined;
   credentials?: ExchangeCredentials | undefined;
   csvDirectories?: string[] | undefined;
+  cursor?: Record<string, number> | undefined;
   providerId?: string | undefined;
+}
+
+/**
+ * Extended params for blockchain imports that still use since/until.
+ * TODO: Refactor blockchain importers to use cursor-based pagination.
+ */
+export interface BlockchainImportParams extends ImportParams {
   since?: number | undefined;
   until?: number | undefined;
 }
@@ -22,10 +30,6 @@ export interface ImportRunResult {
   rawTransactions: RawTransactionWithMetadata[];
   // Metadata about the import run (e.g., total fetched, date ranges)
   metadata?: Record<string, unknown> | undefined;
-  // If import ended due to validation error, this contains the error details
-  validationError?: { failedItem: unknown; message: string } | undefined;
-  // Timestamp of last successfully validated transaction (for resumption)
-  lastSuccessfulTimestamp?: Date | undefined;
 }
 /**
  * Interface for importing raw data from external sources.

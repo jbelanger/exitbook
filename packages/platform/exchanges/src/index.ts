@@ -14,6 +14,8 @@ export type {
   RawTransactionWithMetadata as ExchangeRawTransaction,
 } from './core/types.ts';
 export { PartialImportError as PartialImportError } from './core/errors.ts';
+export type { ExchangeCursor } from './core/cursor.ts';
+export { updateCursor, getCursorTimestamp, createEmptyCursor } from './core/cursor.ts';
 
 // Kraken
 export { KrakenClient } from './kraken/client.ts';

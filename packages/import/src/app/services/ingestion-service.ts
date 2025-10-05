@@ -85,7 +85,8 @@ export class TransactionIngestionService {
     if (sourceType === 'exchange') {
       return this.importFromExchange(sourceId, params);
     } else {
-      return this.importFromBlockchain(sourceId, params);
+      // Cast to BlockchainImportParams for blockchain imports
+      return this.importFromBlockchain(sourceId, params as ImportParams & { since?: number; until?: number });
     }
   }
 
@@ -360,7 +361,10 @@ export class TransactionIngestionService {
   /**
    * Import raw data from blockchain and store it in external_transaction_data table.
    */
-  private async importFromBlockchain(sourceId: string, params: ImportParams): Promise<Result<ImportResult, Error>> {
+  private async importFromBlockchain(
+    sourceId: string,
+    params: ImportParams & { since?: number; until?: number }
+  ): Promise<Result<ImportResult, Error>> {
     const sourceType = 'blockchain';
     this.logger.info(`Starting blockchain import for ${sourceId}`);
 
@@ -369,7 +373,6 @@ export class TransactionIngestionService {
       address: params.address,
       csvDirectories: params.csvDirectories,
       providerId: params.providerId,
-      since: params.since,
     });
 
     if (existingSessionResult.isErr()) {
@@ -507,7 +510,7 @@ export class TransactionIngestionService {
   /**
    * Import raw data from exchange and store it in external_transaction_data table.
    * Handles validation errors by saving successful items and recording errors.
-   * Supports resumption from last successful timestamp.
+   * Supports resumption using per-operation-type cursors.
    */
   private async importFromExchange(sourceId: string, params: ImportParams): Promise<Result<ImportResult, Error>> {
     const sourceType = 'exchange';
@@ -531,12 +534,12 @@ export class TransactionIngestionService {
       importSessionId = existingSession.id;
       this.logger.info(`Resuming existing import session: ${importSessionId}`);
 
-      // Get latest timestamp from this session for resumption
-      const latestTimestampResult = await this.rawDataRepository.getLatestTimestamp(importSessionId);
-      if (latestTimestampResult.isOk() && latestTimestampResult.value) {
-        const latestTimestamp = latestTimestampResult.value;
-        params.since = Math.floor(latestTimestamp.getTime());
-        this.logger.info(`Resuming from last successful timestamp: ${latestTimestamp.toISOString()}`);
+      // Get latest cursor from this session for resumption
+      const latestCursorResult = await this.rawDataRepository.getLatestCursor(importSessionId);
+      if (latestCursorResult.isOk() && latestCursorResult.value) {
+        const latestCursor = latestCursorResult.value;
+        params.cursor = latestCursor;
+        this.logger.info(`Resuming from cursor: ${JSON.stringify(latestCursor)}`);
       }
     } else {
       const sessionIdResult = await this.sessionRepository.create(sourceId, sourceType, params.providerId, params);
@@ -587,7 +590,7 @@ export class TransactionIngestionService {
           // Record the validation error to import_session_errors table
           const errorRecordResult = await this.sessionErrorRepository.create({
             errorDetails: {
-              lastSuccessfulTimestamp: error.lastSuccessfulTimestamp?.toISOString(),
+              lastSuccessfulCursor: error.lastSuccessfulCursor,
               successfulItemsCount: error.successfulItems.length,
             },
             errorMessage: error.message,
@@ -610,7 +613,7 @@ export class TransactionIngestionService {
             error.message,
             {
               failedItem: error.failedItem,
-              lastSuccessfulTimestamp: error.lastSuccessfulTimestamp?.toISOString(),
+              lastSuccessfulCursor: error.lastSuccessfulCursor,
             }
           );
 

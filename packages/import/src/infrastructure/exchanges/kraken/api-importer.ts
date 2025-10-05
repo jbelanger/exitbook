@@ -28,9 +28,9 @@ export class KrakenApiImporter implements IImporter {
 
       // Fetch and validate transaction data
       // Client returns RawTransactionWithMetadata[] with all fields populated
+      // The client handles translating cursor to API-specific parameters (since/until/limit)
       const fetchResult = await client.fetchTransactionData({
-        since: params.since,
-        until: params.until,
+        cursor: params.cursor,
       });
 
       if (fetchResult.isErr()) {

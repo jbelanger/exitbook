@@ -30,29 +30,30 @@ export class KrakenClient implements IExchangeClient<ParsedKrakenData> {
   async fetchTransactionData(params?: FetchParams): Promise<Result<RawTransactionWithMetadata[], Error>> {
     try {
       const transactions: RawTransactionWithMetadata[] = [];
-      let lastSuccessfulTimestamp: Date | undefined;
+      const cursor = params?.cursor || {};
 
       // Fetch and validate trades
-      const trades = await this.exchange.fetchMyTrades(undefined, params?.since, params?.limit);
-      const tradesResult = this.processItems(trades, 'trade', transactions, lastSuccessfulTimestamp);
+      const tradeSince = cursor.trade || params?.since;
+      const trades = await this.exchange.fetchMyTrades(undefined, tradeSince, params?.limit);
+      const tradesResult = this.processItems(trades, 'trade', transactions, cursor);
       if (tradesResult.isErr()) return err(tradesResult.error);
-      lastSuccessfulTimestamp = tradesResult.value;
 
       // Fetch and validate deposits
-      const deposits = await this.exchange.fetchDeposits(undefined, params?.since, params?.limit);
-      const depositsResult = this.processItems(deposits, 'deposit', transactions, lastSuccessfulTimestamp);
+      const depositSince = cursor.deposit || params?.since;
+      const deposits = await this.exchange.fetchDeposits(undefined, depositSince, params?.limit);
+      const depositsResult = this.processItems(deposits, 'deposit', transactions, cursor);
       if (depositsResult.isErr()) return err(depositsResult.error);
-      lastSuccessfulTimestamp = depositsResult.value;
 
       // Fetch and validate withdrawals
-      const withdrawals = await this.exchange.fetchWithdrawals(undefined, params?.since, params?.limit);
-      const withdrawalsResult = this.processItems(withdrawals, 'withdrawal', transactions, lastSuccessfulTimestamp);
+      const withdrawalSince = cursor.withdrawal || params?.since;
+      const withdrawals = await this.exchange.fetchWithdrawals(undefined, withdrawalSince, params?.limit);
+      const withdrawalsResult = this.processItems(withdrawals, 'withdrawal', transactions, cursor);
       if (withdrawalsResult.isErr()) return err(withdrawalsResult.error);
-      lastSuccessfulTimestamp = withdrawalsResult.value;
 
       // Fetch and validate orders
-      const orders = await this.exchange.fetchClosedOrders(undefined, params?.since, params?.limit);
-      const ordersResult = this.processItems(orders, 'order', transactions, lastSuccessfulTimestamp);
+      const orderSince = cursor.order || params?.since;
+      const orders = await this.exchange.fetchClosedOrders(undefined, orderSince, params?.limit);
+      const ordersResult = this.processItems(orders, 'order', transactions, cursor);
       if (ordersResult.isErr()) return err(ordersResult.error);
 
       return ok(transactions);
@@ -74,9 +75,9 @@ export class KrakenClient implements IExchangeClient<ParsedKrakenData> {
     items: ccxt.Trade[] | ccxt.Transaction[] | ccxt.Order[],
     type: 'trade' | 'deposit' | 'withdrawal' | 'order',
     transactions: RawTransactionWithMetadata[],
-    lastTimestamp: Date | undefined
-  ): Result<Date | undefined, PartialImportError> {
-    let lastSuccessfulTimestamp = lastTimestamp;
+    currentCursor: Record<string, number>
+  ): Result<void, PartialImportError> {
+    const lastSuccessfulCursor = { ...currentCursor };
 
     for (const item of items) {
       const rawItem = { __type: type, ...(item.info as Record<string, unknown>) };
@@ -89,7 +90,7 @@ export class KrakenClient implements IExchangeClient<ParsedKrakenData> {
             `Validation failed for ${type}: ${validationResult.error.message}`,
             transactions,
             rawItem,
-            lastSuccessfulTimestamp
+            lastSuccessfulCursor
           )
         );
       }
@@ -104,11 +105,12 @@ export class KrakenClient implements IExchangeClient<ParsedKrakenData> {
             `Failed to extract timestamp for ${type}: ${timestampResult.error.message}`,
             transactions,
             parsedData,
-            lastSuccessfulTimestamp
+            lastSuccessfulCursor
           )
         );
       }
       const timestamp = timestampResult.value;
+      const timestampMs = timestamp.getTime();
 
       // Extract external ID - required for deduplication
       const externalIdResult = this.extractExternalId(parsedData);
@@ -118,25 +120,30 @@ export class KrakenClient implements IExchangeClient<ParsedKrakenData> {
             `Failed to extract external ID for ${type}: ${externalIdResult.error.message}`,
             transactions,
             parsedData,
-            lastSuccessfulTimestamp
+            lastSuccessfulCursor
           )
         );
       }
       const externalId = externalIdResult.value;
 
+      // Create cursor for this item (operation type + timestamp)
+      const itemCursor = { [type]: timestampMs };
+
       transactions.push({
+        cursor: itemCursor,
         externalId,
         metadata: {
           providerId: this.exchangeId,
           source: 'api',
         },
         rawData: parsedData,
-        timestamp,
       });
-      lastSuccessfulTimestamp = timestamp;
+
+      // Update cursor - track latest timestamp for this operation type
+      lastSuccessfulCursor[type] = timestampMs;
     }
 
-    return ok(lastSuccessfulTimestamp);
+    return ok();
   }
 
   private extractTimestamp(parsedData: ParsedKrakenData): Result<Date, Error> {

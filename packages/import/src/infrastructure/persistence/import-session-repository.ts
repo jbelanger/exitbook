@@ -244,13 +244,12 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
 
         // Compare relevant parameters
         const addressMatches = params.address === storedParams.address;
-        const sinceMatches = params.since === storedParams.since;
 
         // Compare CSV directories (arrays need deep comparison)
         const csvDirsMatch =
           JSON.stringify(params.csvDirectories?.sort()) === JSON.stringify(storedParams.csvDirectories?.sort());
 
-        if (addressMatches && sinceMatches && csvDirsMatch) {
+        if (addressMatches && csvDirsMatch) {
           return ok(session);
         }
       }

@@ -52,9 +52,9 @@ export interface ExternalTransactionDataTable {
 
   provider_id: string | null;
 
-  // Transaction identification and timestamp (for auto-incremental imports)
+  // Transaction identification and cursor (for auto-incremental imports)
   external_id: string | null; // Unique transaction ID from exchange/blockchain
-  timestamp: DateTime | null; // Transaction timestamp for determining last import
+  cursor: JSONString | null; // Cursor for resuming imports (ExchangeCursor with per-operation timestamps)
 
   // Data storage
   raw_data: JSONString; // Raw data from source

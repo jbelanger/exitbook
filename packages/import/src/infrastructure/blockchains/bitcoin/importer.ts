@@ -1,5 +1,5 @@
 import type { RawTransactionWithMetadata } from '@exitbook/data';
-import type { IImporter, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
+import type { BlockchainImportParams, IImporter, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
 import type { BitcoinWalletAddress, BlockchainProviderManager, ProviderError } from '@exitbook/providers';
 import { BitcoinUtils } from '@exitbook/providers';
 import { getLogger, type Logger } from '@exitbook/shared-logger';
@@ -42,7 +42,7 @@ export class BitcoinTransactionImporter implements IImporter {
   /**
    * Import raw transaction data from Bitcoin blockchain APIs with provider provenance.
    */
-  async import(params: ImportParams): Promise<Result<ImportRunResult, Error>> {
+  async import(params: BlockchainImportParams): Promise<Result<ImportRunResult, Error>> {
     if (!params.address) {
       return err(new Error('Address required for Bitcoin transaction import'));
     }

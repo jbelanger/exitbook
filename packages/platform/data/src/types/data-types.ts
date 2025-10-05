@@ -49,7 +49,6 @@ export interface StoredImportParams {
   csvDirectories?: string[] | undefined;
   exchangeCredentials?: Record<string, unknown> | undefined;
   providerId?: string | undefined;
-  since?: number | undefined;
 }
 
 /**
@@ -80,7 +79,7 @@ export interface RawTransactionWithMetadata {
   rawData: unknown;
   // New fields for exchange validation and auto-incremental imports
   externalId?: string | undefined; // Unique transaction ID from source
-  timestamp?: Date | undefined; // Transaction timestamp
+  cursor?: Record<string, number> | undefined; // Cursor for resuming imports (e.g., { trade: 1704067200000 })
   parsedData?: unknown; // Validated data (only set if validation passed)
 }
 

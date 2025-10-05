@@ -1,5 +1,5 @@
 import type { RawTransactionWithMetadata } from '@exitbook/data';
-import type { IImporter, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
+import type { BlockchainImportParams, IImporter, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
 import type { BlockchainProviderManager, EvmChainConfig, ProviderError } from '@exitbook/providers';
 import { getLogger, type Logger } from '@exitbook/shared-logger';
 import { err, ok, type Result } from 'neverthrow';
@@ -42,7 +42,7 @@ export class EvmImporter implements IImporter {
     );
   }
 
-  async import(params: ImportParams): Promise<Result<ImportRunResult, Error>> {
+  async import(params: BlockchainImportParams): Promise<Result<ImportRunResult, Error>> {
     if (!params.address) {
       return err(new Error(`Address required for ${this.chainConfig.chainName} transaction import`));
     }

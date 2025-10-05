@@ -36,10 +36,10 @@ export interface IRawDataRepository {
   saveBatch(importSessionId: number, items: RawTransactionWithMetadata[]): Promise<Result<number, Error>>;
 
   /**
-   * Get the latest transaction timestamp for auto-incremental imports.
-   * Used to determine the `since` parameter for the next import run.
+   * Get the latest cursor for resuming imports.
+   * Returns a cursor object with per-operation timestamps for exchanges.
    */
-  getLatestTimestamp(importSessionId: number): Promise<Result<Date | null, Error>>;
+  getLatestCursor(importSessionId: number): Promise<Result<Record<string, number> | null, Error>>;
 
   /**
    * Get records that need validation (where parsed_data is null).

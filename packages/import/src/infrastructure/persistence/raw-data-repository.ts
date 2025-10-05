@@ -95,6 +95,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
           .insertInto('external_transaction_data')
           .values({
             created_at: this.getCurrentDateTimeForDB(),
+            cursor: item.cursor ? JSON.stringify(item.cursor) : null,
             external_id: item.externalId ?? null,
             import_session_id: importSessionId,
             metadata: this.serializeToJson(item.metadata),
@@ -102,7 +103,6 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
             processing_status: 'pending',
             provider_id: item.metadata.providerId,
             raw_data: JSON.stringify(item.rawData),
-            timestamp: item.timestamp ? item.timestamp.toISOString() : null,
           })
           .onConflict((oc) => oc.doNothing()) // Equivalent to INSERT OR IGNORE
           .execute();
@@ -140,6 +140,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
             .insertInto('external_transaction_data')
             .values({
               created_at: createdAt,
+              cursor: item.cursor ? JSON.stringify(item.cursor) : null,
               external_id: item.externalId ?? null,
               import_session_id: importSessionId,
               metadata: this.serializeToJson(item.metadata),
@@ -147,7 +148,6 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
               processing_status: 'pending',
               provider_id: item.metadata.providerId,
               raw_data: JSON.stringify(item.rawData),
-              timestamp: item.timestamp ? item.timestamp.toISOString() : null,
             })
             .onConflict((oc) => oc.doNothing())
             .execute();
@@ -168,26 +168,44 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     }
   }
 
-  async getLatestTimestamp(importSessionId: number): Promise<Result<Date | null, Error>> {
+  async getLatestCursor(importSessionId: number): Promise<Result<Record<string, number> | null, Error>> {
     try {
-      const result = await this.db
+      const rows = await this.db
         .selectFrom('external_transaction_data')
-        .select('timestamp')
+        .select('cursor')
         .where('import_session_id', '=', importSessionId)
-        .where('timestamp', 'is not', null)
-        .orderBy('timestamp', 'desc')
-        .limit(1)
-        .executeTakeFirst();
+        .where('cursor', 'is not', null)
+        .execute();
 
-      if (!result?.timestamp) {
+      if (rows.length === 0) {
         return ok(null);
       }
 
-      return ok(new Date(result.timestamp));
+      // Merge all cursors by taking the maximum timestamp for each operation type
+      const mergedCursor: Record<string, number> = {};
+
+      for (const row of rows) {
+        if (!row.cursor) continue;
+
+        const cursor: Record<string, unknown> =
+          typeof row.cursor === 'string'
+            ? (JSON.parse(row.cursor) as Record<string, unknown>)
+            : ((row.cursor as Record<string, unknown>) ?? ({} as Record<string, unknown>));
+
+        if (typeof cursor === 'object' && cursor !== null) {
+          for (const [operationType, timestamp] of Object.entries(cursor)) {
+            if (typeof timestamp === 'number') {
+              mergedCursor[operationType] = Math.max(mergedCursor[operationType] || 0, timestamp);
+            }
+          }
+        }
+      }
+
+      return ok(Object.keys(mergedCursor).length > 0 ? mergedCursor : null);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger.error({ error, importSessionId }, 'Failed to get latest timestamp');
-      return err(new Error(`Failed to get latest timestamp: ${errorMessage}`));
+      this.logger.error({ error, importSessionId }, 'Failed to get latest cursor');
+      return err(new Error(`Failed to get latest cursor: ${errorMessage}`));
     }
   }
 

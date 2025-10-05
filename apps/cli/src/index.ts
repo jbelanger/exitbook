@@ -14,6 +14,7 @@ import {
   ImporterFactory,
   ProcessorFactory,
 } from '@exitbook/import';
+import type { ImportParams } from '@exitbook/import/app/ports/importers.js';
 import type { ProviderInfo } from '@exitbook/providers';
 import {
   initializeProviders,
@@ -61,8 +62,6 @@ interface ImportOptions {
   exchange?: string | undefined;
   process?: boolean | undefined;
   provider?: string | undefined;
-  since?: string | undefined;
-  until?: string | undefined;
 }
 
 interface ProcessOptions {
@@ -310,27 +309,7 @@ async function main() {
         );
 
         try {
-          // Parse options
-          const since = options.since
-            ? isNaN(Number(options.since))
-              ? new Date(options.since).getTime()
-              : parseInt(options.since)
-            : undefined;
-          const until = options.until
-            ? isNaN(Number(options.until))
-              ? new Date(options.until).getTime()
-              : parseInt(options.until)
-            : undefined;
-
-          const importParams: {
-            address?: string | undefined;
-            credentials?: Record<string, string> | undefined;
-            csvDirectories?: string[] | undefined;
-            providerId?: string | undefined;
-            since?: number | undefined;
-            until?: number | undefined;
-          } = { since, until };
-
+          const importParams: ImportParams = {};
           // Set parameters based on source type
           if (sourceType === 'exchange') {
             if (options.csvDir) {

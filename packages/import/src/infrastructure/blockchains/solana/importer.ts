@@ -1,5 +1,5 @@
 import type { RawTransactionWithMetadata } from '@exitbook/data';
-import type { IImporter, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
+import type { BlockchainImportParams, IImporter, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
 import type { BlockchainProviderManager, ProviderError } from '@exitbook/providers';
 import { getLogger, type Logger } from '@exitbook/shared-logger';
 import { err, type Result } from 'neverthrow';
@@ -36,7 +36,7 @@ export class SolanaTransactionImporter implements IImporter {
   /**
    * Import raw transaction data from Solana blockchain APIs with provider provenance.
    */
-  async import(params: ImportParams): Promise<Result<ImportRunResult, Error>> {
+  async import(params: BlockchainImportParams): Promise<Result<ImportRunResult, Error>> {
     if (!params.address) {
       return err(new Error('Address required for Solana transaction import'));
     }

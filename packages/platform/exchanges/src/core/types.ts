@@ -4,6 +4,7 @@ import type { Result } from 'neverthrow';
  * Transaction with metadata ready for storage
  */
 export interface RawTransactionWithMetadata {
+  cursor?: Record<string, number> | undefined;
   externalId?: string | undefined;
   metadata: {
     [key: string]: unknown;
@@ -11,7 +12,6 @@ export interface RawTransactionWithMetadata {
     source?: string | undefined;
   };
   rawData: unknown;
-  timestamp?: Date | undefined;
 }
 
 /**
@@ -25,6 +25,7 @@ export interface RawExchangeData<T = unknown> {
  * Parameters for fetching exchange data
  */
 export interface FetchParams {
+  cursor?: Record<string, number> | undefined;
   limit?: number | undefined;
   since?: number | undefined;
   until?: number | undefined;
