@@ -131,7 +131,7 @@ export class BlockchainProviderManager {
    */
   async executeWithFailover<T>(
     blockchain: string,
-    operation: ProviderOperation<T>
+    operation: ProviderOperation
   ): Promise<Result<FailoverExecutionResult<T>, ProviderError>> {
     // Check cache first
     if (operation.getCacheKey) {
@@ -144,7 +144,10 @@ export class BlockchainProviderManager {
     }
 
     // Execute with failover logic
-    const result = await this.executeWithCircuitBreaker(blockchain, operation);
+    const result = (await this.executeWithCircuitBreaker(blockchain, operation)) as unknown as Result<
+      FailoverExecutionResult<T>,
+      ProviderError
+    >;
 
     // Cache result if cacheable
     if (operation.getCacheKey) {
@@ -347,7 +350,7 @@ export class BlockchainProviderManager {
    */
   private async executeWithCircuitBreaker<T>(
     blockchain: string,
-    operation: ProviderOperation<T>
+    operation: ProviderOperation
   ): Promise<Result<FailoverExecutionResult<T>, ProviderError>> {
     const providers = this.getProvidersInOrder(blockchain, operation);
 
@@ -405,7 +408,7 @@ export class BlockchainProviderManager {
         this.updateHealthMetrics(provider.name, true, responseTime);
 
         return ok({
-          data: result,
+          data: result as T,
           providerName: provider.name,
         });
       } catch (error) {
@@ -477,7 +480,7 @@ export class BlockchainProviderManager {
   /**
    * Get providers ordered by preference for the given operation
    */
-  private getProvidersInOrder<T>(blockchain: string, operation: ProviderOperation<T>): IBlockchainProvider[] {
+  private getProvidersInOrder(blockchain: string, operation: ProviderOperation): IBlockchainProvider[] {
     const candidates = this.providers.get(blockchain) || [];
 
     // Filter by capability and health, then sort by score

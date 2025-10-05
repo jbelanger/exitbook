@@ -48,7 +48,7 @@ class MockProvider implements IBlockchainProvider {
     };
   }
 
-  async execute<T>(operation: ProviderOperation<T>): Promise<T> {
+  async execute<T>(operation: ProviderOperation): Promise<T> {
     if (this.responseDelay > 0) {
       await new Promise((resolve) => setTimeout(resolve, this.responseDelay));
     }
@@ -118,12 +118,12 @@ describe('BlockchainProviderManager', () => {
   });
 
   test('should execute operations with primary provider', async () => {
-    const operation: ProviderOperation<{ balance: number; currency: string }> = {
+    const operation: ProviderOperation = {
       address: '0x123',
       type: 'getAddressBalance',
     };
 
-    const result = await manager.executeWithFailover('ethereum', operation);
+    const result = await manager.executeWithFailover<{ balance: number; currency: string }>('ethereum', operation);
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       expect(result.value.data.balance).toBe(100);
@@ -135,12 +135,12 @@ describe('BlockchainProviderManager', () => {
     // Make primary provider fail
     primaryProvider.setFailureMode(true);
 
-    const operation: ProviderOperation<{ balance: number; currency: string }> = {
+    const operation: ProviderOperation = {
       address: '0x123',
       type: 'getAddressBalance',
     };
 
-    const result = await manager.executeWithFailover('ethereum', operation);
+    const result = await manager.executeWithFailover<{ balance: number; currency: string }>('ethereum', operation);
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       expect(result.value.data.balance).toBe(100); // Should get result from fallback
@@ -151,12 +151,12 @@ describe('BlockchainProviderManager', () => {
     primaryProvider.setFailureMode(true);
     fallbackProvider.setFailureMode(true);
 
-    const operation: ProviderOperation<{ balance: number; currency: string }> = {
+    const operation: ProviderOperation = {
       address: '0x123',
       type: 'getAddressBalance',
     };
 
-    const result = await manager.executeWithFailover('ethereum', operation);
+    const result = await manager.executeWithFailover<{ balance: number; currency: string }>('ethereum', operation);
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
       expect(result.error).toBeInstanceOf(ProviderError);
@@ -166,7 +166,7 @@ describe('BlockchainProviderManager', () => {
   });
 
   test('should cache results when cache key provided', async () => {
-    const operation: ProviderOperation<{ balance: number; currency: string }> = {
+    const operation: ProviderOperation = {
       address: '0x123',
       getCacheKey: (params) => {
         return `balance-${params.type === 'getAddressBalance' ? params.address : 'unknown'}`;
@@ -175,13 +175,13 @@ describe('BlockchainProviderManager', () => {
     };
 
     // First call
-    const result1 = await manager.executeWithFailover('ethereum', operation);
+    const result1 = await manager.executeWithFailover<{ balance: number; currency: string }>('ethereum', operation);
 
     // Make provider fail - should still get cached result
     primaryProvider.setFailureMode(true);
     fallbackProvider.setFailureMode(true);
 
-    const result2 = await manager.executeWithFailover('ethereum', operation);
+    const result2 = await manager.executeWithFailover<{ balance: number; currency: string }>('ethereum', operation);
     expect(result2).toEqual(result1);
   });
 
@@ -197,11 +197,11 @@ describe('BlockchainProviderManager', () => {
   });
 
   test('should handle unsupported operations', async () => {
-    const operation: ProviderOperation<{ success: boolean }> = {
+    const operation: ProviderOperation = {
       type: 'custom', // Not supported by mock providers
     };
 
-    const result = await manager.executeWithFailover('ethereum', operation);
+    const result = await manager.executeWithFailover<{ success: boolean }>('ethereum', operation);
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
       expect(result.error).toBeInstanceOf(ProviderError);
@@ -215,10 +215,7 @@ describe('BlockchainProviderManager', () => {
     const executeSpyFallback = vi.spyOn(fallbackProvider, 'execute');
 
     try {
-      const operation: ProviderOperation<{
-        balance: number;
-        currency: string;
-      }> = {
+      const operation: ProviderOperation = {
         address: '0x123',
         type: 'getAddressBalance',
       };
@@ -227,9 +224,18 @@ describe('BlockchainProviderManager', () => {
       primaryProvider.setFailureMode(true);
 
       // Make enough calls to trip the breaker
-      await manager.executeWithFailover('ethereum', operation);
-      await manager.executeWithFailover('ethereum', operation);
-      await manager.executeWithFailover('ethereum', operation);
+      await manager.executeWithFailover<{
+        balance: number;
+        currency: string;
+      }>('ethereum', operation);
+      await manager.executeWithFailover<{
+        balance: number;
+        currency: string;
+      }>('ethereum', operation);
+      await manager.executeWithFailover<{
+        balance: number;
+        currency: string;
+      }>('ethereum', operation);
 
       // Reset spies and make primary healthy again
       executeSpyPrimary.mockClear();
@@ -237,7 +243,10 @@ describe('BlockchainProviderManager', () => {
       primaryProvider.setFailureMode(false);
 
       // Next call should skip primary (circuit breaker open) and go to fallback
-      const result = await manager.executeWithFailover('ethereum', operation);
+      const result = await manager.executeWithFailover<{
+        balance: number;
+        currency: string;
+      }>('ethereum', operation);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -265,7 +274,7 @@ describe('BlockchainProviderManager', () => {
     const basicExecuteSpy = vi.spyOn(basicProvider, 'execute');
 
     // Execute token operation - should only use token provider
-    const tokenOperation: ProviderOperation<{ success: boolean }> = {
+    const tokenOperation: ProviderOperation = {
       address: '0x123',
       contractAddress: '0xabc',
       type: 'getTokenTransactions',
@@ -283,7 +292,7 @@ describe('BlockchainProviderManager', () => {
   test('should handle cache expiration correctly', async () => {
     vi.useFakeTimers();
 
-    const operation: ProviderOperation<{ balance: number; currency: string }> = {
+    const operation: ProviderOperation = {
       address: '0x123',
       getCacheKey: (params) => {
         return `balance-${params.type === 'getAddressBalance' ? params.address : 'unknown'}`;
@@ -292,7 +301,7 @@ describe('BlockchainProviderManager', () => {
     };
 
     // First call - should cache result
-    const result1 = await manager.executeWithFailover('ethereum', operation);
+    const result1 = await manager.executeWithFailover<{ balance: number; currency: string }>('ethereum', operation);
     expect(result1.isOk()).toBe(true);
     if (result1.isOk()) {
       expect(result1.value.data.balance).toBe(100);
@@ -305,7 +314,7 @@ describe('BlockchainProviderManager', () => {
     primaryProvider.setFailureMode(true);
 
     // Second call - cache expired, should fail over to fallback
-    const result2 = await manager.executeWithFailover('ethereum', operation);
+    const result2 = await manager.executeWithFailover<{ balance: number; currency: string }>('ethereum', operation);
     expect(result2.isOk()).toBe(true);
     if (result2.isOk()) {
       expect(result2.value.data.balance).toBe(100); // Should get result from fallback, not stale cache
@@ -484,15 +493,15 @@ describe('Provider System Integration', () => {
       manager.registerProviders('bitcoin', [provider]);
 
       // Test successful operation
-      const operation: ProviderOperation<{
-        address: string;
-        transactions: unknown[];
-      }> = {
+      const operation: ProviderOperation = {
         address: 'bc1xyz',
         type: 'getAddressTransactions',
       };
 
-      const result = await manager.executeWithFailover('bitcoin', operation);
+      const result = await manager.executeWithFailover<{
+        address: string;
+        transactions: unknown[];
+      }>('bitcoin', operation);
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.data.transactions).toEqual([]);

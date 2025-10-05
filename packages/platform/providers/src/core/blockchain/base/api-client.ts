@@ -78,7 +78,7 @@ export abstract class BaseApiClient implements IBlockchainProvider {
     return this.metadata.capabilities;
   }
 
-  abstract execute<T>(operation: ProviderOperation<T>, config?: Record<string, unknown>): Promise<T>;
+  abstract execute<T>(operation: ProviderOperation, config?: Record<string, unknown>): Promise<T>;
 
   /**
    * Provide health check configuration for this provider

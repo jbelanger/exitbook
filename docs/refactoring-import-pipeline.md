@@ -684,7 +684,7 @@ export interface PaginatedProviderResponse<T> {
  */
 async executeWithFailover<T>(
   blockchain: string,
-  operation: ProviderOperation<T>
+  operation: ProviderOperation
 ): Promise<Result<FailoverExecutionResult<T>, ProviderError>> {
 
   const providers = this.getProviders(blockchain);

@@ -24,7 +24,7 @@ export interface IBlockchainProvider<TConfig = Record<string, unknown>> {
   readonly blockchain: string;
   readonly capabilities: ProviderCapabilities;
   // Universal execution method - all operations go through this
-  execute<T>(operation: ProviderOperation<T>, config: TConfig): Promise<T>;
+  execute<T>(operation: ProviderOperation, config: TConfig): Promise<T>;
   // Health and connectivity - returns Result to allow special error handling (e.g., RateLimitError)
   isHealthy(): Promise<Result<boolean, Error>>;
 

@@ -74,7 +74,7 @@ export class HeliusApiClient extends BaseApiClient {
     }
   }
 
-  async execute<T>(operation: ProviderOperation<T>, _config?: Record<string, unknown>): Promise<T> {
+  async execute<T>(operation: ProviderOperation, _config?: Record<string, unknown>): Promise<T> {
     this.logger.debug(
       `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
     );

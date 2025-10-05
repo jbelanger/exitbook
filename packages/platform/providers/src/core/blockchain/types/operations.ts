@@ -38,9 +38,8 @@ export type ProviderOperationParams =
 
 // Discriminated union provides automatic type narrowing
 
-export type ProviderOperation<T> = {
+export type ProviderOperation = {
   getCacheKey?: (params: ProviderOperationParams) => string;
-  transform?: (response: unknown) => T;
 } & ProviderOperationParams;
 
 // Provider-specific operation types for capabilities

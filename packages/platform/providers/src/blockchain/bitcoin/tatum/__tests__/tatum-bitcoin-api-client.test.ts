@@ -224,7 +224,7 @@ describe('TatumBitcoinApiClient', () => {
         tatumOperation: 'getRawAddressTransactionsWithParams',
         txType: 'incoming',
         type: 'custom',
-      } as unknown as ProviderOperation<TatumBitcoinTransaction[]>);
+      } as unknown as ProviderOperation);
 
       expect(result).toEqual(mockTransactions);
     });
@@ -258,7 +258,7 @@ describe('TatumBitcoinApiClient', () => {
         client.execute({
           address: mockAddress,
           type: 'unsupportedOperation' as const,
-        } as unknown as ProviderOperation<unknown>)
+        } as unknown as ProviderOperation)
       ).rejects.toThrow('Unsupported operation: unsupportedOperation');
     });
   });

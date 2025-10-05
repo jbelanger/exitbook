@@ -53,7 +53,7 @@ export class BlockCypherApiClient extends BaseApiClient {
     );
   }
 
-  async execute<T>(operation: ProviderOperation<T>): Promise<T> {
+  async execute<T>(operation: ProviderOperation): Promise<T> {
     this.logger.debug(
       `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
     );

@@ -48,7 +48,7 @@ export class AlchemyApiClient extends BaseApiClient {
     super(config);
   }
 
-  async execute<T>(operation: ProviderOperation<T>): Promise<T> {
+  async execute<T>(operation: ProviderOperation): Promise<T> {
     this.logger.debug(`Executing operation: ${operation.type}`);
 
     switch (operation.type) {

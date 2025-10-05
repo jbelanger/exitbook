@@ -37,7 +37,7 @@ export class BlockstreamApiClient extends BaseApiClient {
     this.logger.debug(`Initialized BlockstreamApiClient from registry metadata - BaseUrl: ${this.baseUrl}`);
   }
 
-  async execute<T>(operation: ProviderOperation<T>): Promise<T> {
+  async execute<T>(operation: ProviderOperation): Promise<T> {
     this.logger.debug(
       `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
     );
