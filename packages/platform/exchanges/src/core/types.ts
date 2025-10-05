@@ -15,18 +15,23 @@ export interface RawTransactionWithMetadata {
 }
 
 /**
- * Generic raw data response from exchange APIs
- */
-export interface RawExchangeData<T = unknown> {
-  data: T;
-}
-
-/**
  * Parameters for fetching exchange data
  */
 export interface FetchParams {
   cursor?: Record<string, number> | undefined;
 }
+
+/**
+ * Generic exchange credentials type
+ * Each exchange validates its own required fields via Zod schemas
+ */
+export type ExchangeCredentials = Record<string, string>;
+
+/**
+ * Exchange cursor for tracking progress per operation type.
+ * Each operation type (trade, deposit, withdrawal, order) maintains its own timestamp.
+ */
+export type ExchangeCursor = Record<string, number>;
 
 /**
  * Base interface for exchange clients

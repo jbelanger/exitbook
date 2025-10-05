@@ -2,7 +2,8 @@ import * as ccxt from 'ccxt';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { PartialImportError } from '../../core/errors.ts';
-import { KrakenClient } from '../client.ts';
+import type { IExchangeClient } from '../../core/types.ts';
+import { createKrakenClient } from '../client.ts';
 
 // Mock ccxt
 vi.mock('ccxt', () => {
@@ -12,44 +13,57 @@ vi.mock('ccxt', () => {
   };
 });
 
-describe('KrakenClient - Constructor', () => {
+describe('createKrakenClient - Factory', () => {
   test('creates client with valid credentials', () => {
     const credentials = {
       apiKey: 'test-api-key',
       secret: 'test-secret',
     };
 
-    expect(() => new KrakenClient(credentials)).not.toThrow();
+    const result = createKrakenClient(credentials);
+    expect(result.isOk()).toBe(true);
   });
 
-  test('throws error with missing apiKey', () => {
+  test('returns error with missing apiKey', () => {
     const credentials = {
       secret: 'test-secret',
     };
 
-    expect(() => new KrakenClient(credentials)).toThrow('Invalid Kraken credentials');
+    const result = createKrakenClient(credentials);
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('Invalid kraken credentials');
+    }
   });
 
-  test('throws error with missing secret', () => {
+  test('returns error with missing secret', () => {
     const credentials = {
       apiKey: 'test-api-key',
     };
 
-    expect(() => new KrakenClient(credentials)).toThrow('Invalid Kraken credentials');
+    const result = createKrakenClient(credentials);
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('Invalid kraken credentials');
+    }
   });
 
-  test('throws error with empty apiKey', () => {
+  test('returns error with empty apiKey', () => {
     const credentials = {
       apiKey: '',
       secret: 'test-secret',
     };
 
-    expect(() => new KrakenClient(credentials)).toThrow('Invalid Kraken credentials');
+    const result = createKrakenClient(credentials);
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('Invalid kraken credentials');
+    }
   });
 });
 
-describe('KrakenClient - fetchTransactionData', () => {
-  let client: KrakenClient;
+describe('createKrakenClient - fetchTransactionData', () => {
+  let client: IExchangeClient;
   let mockFetchLedger: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -60,10 +74,16 @@ describe('KrakenClient - fetchTransactionData', () => {
       fetchLedger: mockFetchLedger,
     }));
 
-    client = new KrakenClient({
+    const result = createKrakenClient({
       apiKey: 'test-api-key',
       secret: 'test-secret',
     });
+
+    if (result.isErr()) {
+      throw new Error('Failed to create client in test setup');
+    }
+
+    client = result.value;
   });
 
   test('fetches single page of ledger entries', async () => {
@@ -367,7 +387,7 @@ describe('KrakenClient - fetchTransactionData', () => {
     if (result.isErr()) {
       expect(result.error).toBeInstanceOf(PartialImportError);
       const partialError = result.error as PartialImportError;
-      expect(partialError.message).toContain('Validation failed for ledger entry');
+      expect(partialError.message).toContain('Validation failed for item');
       expect(partialError.successfulItems).toHaveLength(1);
       expect(partialError.successfulItems[0]?.externalId).toBe('LEDGER1');
       expect(partialError.failedItem).toBeDefined();
@@ -465,7 +485,7 @@ describe('KrakenClient - fetchTransactionData', () => {
     if (result.isErr()) {
       expect(result.error).toBeInstanceOf(PartialImportError);
       const partialError = result.error as PartialImportError;
-      expect(partialError.message).toContain('Validation failed for ledger entry');
+      expect(partialError.message).toContain('Validation failed for item');
       // Should have 50 from first page + 1 from second page before failure
       expect(partialError.successfulItems).toHaveLength(51);
       expect(partialError.successfulItems[0]?.externalId).toBe('LEDGER1');
@@ -633,93 +653,5 @@ describe('KrakenClient - fetchTransactionData', () => {
     expect(mockFetchLedger).toHaveBeenNthCalledWith(1, undefined, undefined, 50, { ofs: 0 });
     expect(mockFetchLedger).toHaveBeenNthCalledWith(2, undefined, undefined, 50, { ofs: 50 });
     expect(mockFetchLedger).toHaveBeenNthCalledWith(3, undefined, undefined, 50, { ofs: 100 });
-  });
-});
-
-describe('KrakenClient - extractTimestamp', () => {
-  let client: KrakenClient;
-
-  beforeEach(() => {
-    client = new KrakenClient({
-      apiKey: 'test-api-key',
-      secret: 'test-secret',
-    });
-  });
-
-  test('extracts timestamp from ledger entry', () => {
-    const ledgerEntry = {
-      id: 'LEDGER1',
-      refid: 'REF001',
-      time: 1704067200, // Unix timestamp in seconds
-      type: 'deposit',
-      aclass: 'currency',
-      asset: 'ZUSD',
-      amount: '100.00',
-      fee: '0.00',
-      balance: '100.00',
-    };
-
-    // @ts-expect-error - accessing private method for testing
-    const result = client.extractTimestamp(ledgerEntry);
-
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      expect(result.value.getTime()).toBe(1704067200000); // Milliseconds
-    }
-  });
-
-  test('handles decimal timestamp', () => {
-    const ledgerEntry = {
-      id: 'LEDGER1',
-      refid: 'REF001',
-      time: 1704067200.5, // With decimal
-      type: 'deposit',
-      aclass: 'currency',
-      asset: 'ZUSD',
-      amount: '100.00',
-      fee: '0.00',
-      balance: '100.00',
-    };
-
-    // @ts-expect-error - accessing private method for testing
-    const result = client.extractTimestamp(ledgerEntry);
-
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      expect(result.value.getTime()).toBe(1704067200500); // With milliseconds
-    }
-  });
-});
-
-describe('KrakenClient - extractExternalId', () => {
-  let client: KrakenClient;
-
-  beforeEach(() => {
-    client = new KrakenClient({
-      apiKey: 'test-api-key',
-      secret: 'test-secret',
-    });
-  });
-
-  test('extracts external ID from ledger entry', () => {
-    const ledgerEntry = {
-      id: 'LEDGER123',
-      refid: 'REF001',
-      time: 1704067200,
-      type: 'deposit',
-      aclass: 'currency',
-      asset: 'ZUSD',
-      amount: '100.00',
-      fee: '0.00',
-      balance: '100.00',
-    };
-
-    // @ts-expect-error - accessing private method for testing
-    const result = client.extractExternalId(ledgerEntry);
-
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      expect(result.value).toBe('LEDGER123');
-    }
   });
 });

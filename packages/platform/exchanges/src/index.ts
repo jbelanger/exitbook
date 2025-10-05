@@ -5,18 +5,9 @@
  * ccxt is used only for HTTP client connectivity, not for parsed data.
  */
 
-// Core types
-export type { ExchangeCredentials } from './types/credentials.ts';
-export type {
-  IExchangeClient,
-  FetchParams,
-  RawExchangeData,
-  RawTransactionWithMetadata as ExchangeRawTransaction,
-} from './core/types.ts';
-export { PartialImportError as PartialImportError } from './core/errors.ts';
-export type { ExchangeCursor } from './core/cursor.ts';
-export { updateCursor, getCursorTimestamp, createEmptyCursor } from './core/cursor.ts';
+// Core
+export { PartialImportError } from './core/errors.ts';
+export type { ExchangeCredentials } from './core/types.ts';
 
 // Kraken
-export { KrakenClient } from './kraken/client.ts';
-export * from './kraken/schemas.ts';
+export { createKrakenClient, type KrakenLedgerEntry } from './kraken/client.ts';
