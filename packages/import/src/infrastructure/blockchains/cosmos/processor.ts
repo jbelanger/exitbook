@@ -61,9 +61,13 @@ export class CosmosProcessor extends BaseTransactionProcessor {
 
         // Only include fees if user was the sender (they paid the fee)
         // For incoming transactions (deposits, received transfers), the sender/validator paid the fee
+        // User paid fee if:
+        // 1. They have ANY outflows (sent funds, delegated, swapped, etc.) OR
+        // 2. They initiated a transaction with no outflows (governance votes, contract calls, etc.)
         const userAddressLower = userAddress.toLowerCase();
         const fromAddressLower = normalizedTx.from.toLowerCase();
-        const userPaidFee = fromAddressLower === userAddressLower;
+        const userInitiatedTransaction = fromAddressLower === userAddressLower;
+        const userPaidFee = fundFlow.outflows.length > 0 || userInitiatedTransaction;
 
         const networkFee = userPaidFee
           ? createMoney(fundFlow.feeAmount, fundFlow.feeCurrency)
