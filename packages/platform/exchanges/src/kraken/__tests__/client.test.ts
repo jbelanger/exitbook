@@ -313,6 +313,18 @@ describe('KrakenClient - fetchTransactionData', () => {
     expect(mockFetchLedger).toHaveBeenCalledWith(undefined, 1704067200000, 50, { ofs: 0 });
   });
 
+  test('resumes from cursor with offset', async () => {
+    const cursor = { ledger: 1704067200000, offset: 100 };
+    const params = { cursor };
+
+    mockFetchLedger.mockResolvedValueOnce([]);
+
+    await client.fetchTransactionData(params);
+
+    // Should resume from offset 100
+    expect(mockFetchLedger).toHaveBeenCalledWith(undefined, 1704067200000, 50, { ofs: 100 });
+  });
+
   test('uses since parameter when provided', async () => {
     const params = { since: 1704067100000 };
 
@@ -331,6 +343,53 @@ describe('KrakenClient - fetchTransactionData', () => {
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
       expect(result.error.message).toBe('Network timeout');
+    }
+  });
+
+  test('returns partial results when network error occurs mid-pagination', async () => {
+    // First page succeeds with 50 entries
+    const firstPageEntries: ccxt.LedgerEntry[] = Array.from({ length: 50 }, (_, i) => ({
+      id: `LEDGER${i + 1}`,
+      account: 'test-account',
+      amount: 100,
+      before: 0,
+      after: 100,
+      currency: 'USD',
+      direction: 'in',
+      fee: { cost: 0, currency: 'USD' },
+      status: 'ok',
+      timestamp: 1704067200000 + i * 1000,
+      datetime: new Date(1704067200000 + i * 1000).toISOString(),
+      type: 'deposit',
+      info: {
+        id: `LEDGER${i + 1}`,
+        refid: `REF${String(i + 1).padStart(3, '0')}`,
+        time: 1704067200 + i,
+        type: 'deposit',
+        aclass: 'currency',
+        asset: 'ZUSD',
+        amount: '100.00',
+        fee: '0.00',
+        balance: `${(i + 1) * 100}.00`,
+      },
+    }));
+
+    mockFetchLedger
+      .mockResolvedValueOnce(firstPageEntries) // First page succeeds
+      .mockRejectedValueOnce(new Error('Network timeout')); // Second page fails
+
+    const result = await client.fetchTransactionData();
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error).toBeInstanceOf(PartialImportError);
+      const partialError = result.error as PartialImportError;
+      expect(partialError.message).toContain('Fetch failed after processing 50 transactions');
+      expect(partialError.successfulItems).toHaveLength(50);
+      expect(partialError.successfulItems[0]?.externalId).toBe('LEDGER1');
+      expect(partialError.successfulItems[49]?.externalId).toBe('LEDGER50');
+      // Verify cursor includes offset for resumption
+      expect(partialError.lastSuccessfulCursor?.offset).toBe(50);
     }
   });
 
@@ -399,6 +458,108 @@ describe('KrakenClient - fetchTransactionData', () => {
       expect(partialError.successfulItems).toHaveLength(1);
       expect(partialError.successfulItems[0]?.externalId).toBe('LEDGER1');
       expect(partialError.failedItem).toBeDefined();
+    }
+  });
+
+  test('returns partial results when validation error occurs mid-pagination', async () => {
+    // First page: 50 valid entries
+    const firstPageEntries: ccxt.LedgerEntry[] = Array.from({ length: 50 }, (_, i) => ({
+      id: `LEDGER${i + 1}`,
+      account: 'test-account',
+      amount: 100,
+      before: 0,
+      after: 100,
+      currency: 'USD',
+      direction: 'in',
+      fee: { cost: 0, currency: 'USD' },
+      status: 'ok',
+      timestamp: 1704067200000 + i * 1000,
+      datetime: new Date(1704067200000 + i * 1000).toISOString(),
+      type: 'deposit',
+      info: {
+        id: `LEDGER${i + 1}`,
+        refid: `REF${String(i + 1).padStart(3, '0')}`,
+        time: 1704067200 + i,
+        type: 'deposit',
+        aclass: 'currency',
+        asset: 'ZUSD',
+        amount: '100.00',
+        fee: '0.00',
+        balance: `${(i + 1) * 100}.00`,
+      },
+    }));
+
+    // Second page: starts with valid entry, then has invalid entry
+    const validEntry: ccxt.LedgerEntry = {
+      id: 'LEDGER51',
+      account: 'test-account',
+      amount: 100,
+      before: 0,
+      after: 100,
+      currency: 'USD',
+      direction: 'in',
+      fee: { cost: 0, currency: 'USD' },
+      status: 'ok',
+      timestamp: 1704067250000,
+      datetime: '2024-01-01T00:00:50.000Z',
+      type: 'deposit',
+      info: {
+        id: 'LEDGER51',
+        refid: 'REF051',
+        time: 1704067250,
+        type: 'deposit',
+        aclass: 'currency',
+        asset: 'ZUSD',
+        amount: '100.00',
+        fee: '0.00',
+        balance: '5100.00',
+      },
+    };
+
+    const invalidEntry: ccxt.LedgerEntry = {
+      id: 'LEDGER52',
+      account: 'test-account',
+      amount: 100,
+      before: 0,
+      after: 100,
+      currency: 'USD',
+      direction: 'in',
+      fee: { cost: 0, currency: 'USD' },
+      status: 'ok',
+      timestamp: 1704067251000,
+      datetime: '2024-01-01T00:00:51.000Z',
+      type: 'deposit',
+      info: {
+        id: 'LEDGER52',
+        // missing refid - will fail validation
+        time: 1704067251,
+        type: 'deposit',
+        aclass: 'currency',
+        asset: 'ZUSD',
+        amount: '100.00',
+        fee: '0.00',
+        balance: '5200.00',
+      },
+    };
+
+    mockFetchLedger
+      .mockResolvedValueOnce(firstPageEntries) // First page: all valid
+      .mockResolvedValueOnce([validEntry, invalidEntry]); // Second page: has invalid entry
+
+    const result = await client.fetchTransactionData();
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error).toBeInstanceOf(PartialImportError);
+      const partialError = result.error as PartialImportError;
+      expect(partialError.message).toContain('Validation failed for ledger entry');
+      // Should have 50 from first page + 1 from second page before failure
+      expect(partialError.successfulItems).toHaveLength(51);
+      expect(partialError.successfulItems[0]?.externalId).toBe('LEDGER1');
+      expect(partialError.successfulItems[50]?.externalId).toBe('LEDGER51');
+      // Verify cursor is set for resumption
+      expect(partialError.lastSuccessfulCursor?.ledger).toBe(1704067250000);
+      expect(partialError.lastSuccessfulCursor?.offset).toBe(50);
     }
   });
 

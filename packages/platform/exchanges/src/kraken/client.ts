@@ -28,40 +28,51 @@ export class KrakenClient implements IExchangeClient<ParsedKrakenData> {
   }
 
   async fetchTransactionData(params?: FetchParams): Promise<Result<RawTransactionWithMetadata[], Error>> {
+    const transactions: RawTransactionWithMetadata[] = [];
+    const currentCursor = { ...(params?.cursor || {}) };
+
+    // Fetch ledger entries - this includes ALL balance changes:
+    // deposits, withdrawals, trades, conversions, fees, etc.
+    const since = currentCursor.ledger || params?.since;
+
+    // Kraken uses 'ofs' parameter for offset - resume from cursor if available
+    let ofs = currentCursor.offset || 0;
+    const limit = 50; // Kraken's default/max per request
+
     try {
-      const transactions: RawTransactionWithMetadata[] = [];
-      const cursor = params?.cursor || {};
-
-      // Fetch ledger entries - this includes ALL balance changes:
-      // deposits, withdrawals, trades, conversions, fees, etc.
-      // Kraken supports fetching all entries - use high limit or undefined to get everything
-      const since = cursor.ledger || params?.since;
-
-      // Fetch all ledger entries in a loop until no more results
-      // Kraken uses 'ofs' parameter for offset - start with 0
-      let allEntries: ccxt.LedgerEntry[] = [];
-      let ofs = 0;
-      const limit = 50; // Kraken's default/max per request
-
       while (true) {
         const ledgerEntries = await this.exchange.fetchLedger(undefined, since, limit, { ofs });
 
         if (ledgerEntries.length === 0) break;
 
-        allEntries = allEntries.concat(ledgerEntries);
+        // Process this page immediately
+        const processResult = this.processLedgerItems(ledgerEntries, transactions, currentCursor);
+        if (processResult.isErr()) {
+          // Return partial results with resumption cursor
+          return err(processResult.error);
+        }
 
         // If we got less than the limit, we've reached the end
         if (ledgerEntries.length < limit) break;
 
-        // Kraken expects ofs to be incremented by the number of entries received
+        // Update offset for next page
         ofs += ledgerEntries.length;
+        currentCursor.offset = ofs;
       }
-
-      const ledgerResult = this.processLedgerItems(allEntries, transactions, cursor);
-      if (ledgerResult.isErr()) return err(ledgerResult.error);
 
       return ok(transactions);
     } catch (error) {
+      // Network/API error during fetch - return partial results if we have any
+      if (transactions.length > 0) {
+        return err(
+          new PartialImportError(
+            `Fetch failed after processing ${transactions.length} transactions: ${error instanceof Error ? error.message : String(error)}`,
+            transactions,
+            { ofs, since },
+            currentCursor
+          )
+        );
+      }
       return err(error instanceof Error ? error : new Error(String(error)));
     }
   }
@@ -71,7 +82,8 @@ export class KrakenClient implements IExchangeClient<ParsedKrakenData> {
       const parsed = KrakenTransactionSchema.parse(rawData);
       return ok(parsed);
     } catch (error) {
-      return err(error instanceof Error ? error : new Error(`Kraken validation failed: ${String(error)}`));
+      const message = error instanceof Error ? error.message : String(error);
+      return err(new Error(`Kraken validation failed: ${message}`));
     }
   }
 
