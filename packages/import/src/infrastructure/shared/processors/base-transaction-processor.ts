@@ -2,7 +2,7 @@ import type { ITransactionProcessor } from '@exitbook/import/app/ports/transacti
 import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
 import type { Logger } from '@exitbook/shared-logger';
 import { getLogger } from '@exitbook/shared-logger';
-import { type Result, ok } from 'neverthrow';
+import { type Result, err, ok } from 'neverthrow';
 
 import { UniversalTransactionSchema } from '../../blockchains/shared/schemas.ts';
 import { detectScamFromSymbol } from '../utils/scam-detection.ts';
@@ -33,12 +33,21 @@ export abstract class BaseTransactionProcessor implements ITransactionProcessor 
   ): Promise<Result<UniversalTransaction[], string>> {
     this.logger.info(`Processing ${normalizedData.length} normalized items for ${this.sourceId}`);
 
-    return (await this.processInternal(normalizedData, sessionMetadata))
-      .mapErr((error) => {
-        this.logger.error(`Processing failed for ${this.sourceId}: ${error}`);
-        return error;
-      })
-      .map((transactions) => this.postProcessTransactions(transactions));
+    const result = await this.processInternal(normalizedData, sessionMetadata);
+
+    if (result.isErr()) {
+      this.logger.error(`Processing failed for ${this.sourceId}: ${result.error}`);
+      return result;
+    }
+
+    const postProcessResult = this.postProcessTransactions(result.value);
+
+    if (postProcessResult.isErr()) {
+      this.logger.error(`Post-processing failed for ${this.sourceId}: ${postProcessResult.error}`);
+      return postProcessResult;
+    }
+
+    return ok(postProcessResult.value);
   }
 
   /**
@@ -75,19 +84,34 @@ export abstract class BaseTransactionProcessor implements ITransactionProcessor 
 
   /**
    * Apply common post-processing to transactions including validation and scam detection.
+   * Fails if any transactions are invalid to ensure atomicity.
    */
-  private postProcessTransactions(transactions: UniversalTransaction[]): UniversalTransaction[] {
+  private postProcessTransactions(transactions: UniversalTransaction[]): Result<UniversalTransaction[], string> {
     const { invalid, valid } = validateUniversalTransactions(transactions).unwrapOr({ invalid: [], valid: [] });
 
-    this.logValidationResults(valid, invalid, transactions.length);
+    // STRICT MODE: Fail if any transactions are invalid
+    if (invalid.length > 0) {
+      const errorSummary = invalid.map(({ errors }) => this.formatZodErrors(errors)).join(' | ');
+
+      this.logger.error(
+        `CRITICAL: ${invalid.length} invalid transactions from ${this.sourceId}Processor. ` +
+          `Invalid: ${invalid.length}, Valid: ${valid.length}, Total: ${transactions.length}. ` +
+          `Errors: ${errorSummary}`
+      );
+
+      return err(
+        `${invalid.length}/${transactions.length} transactions failed validation. ` +
+          `This would corrupt portfolio calculations. Errors: ${errorSummary}`
+      );
+    }
 
     const processedTransactions = this.applyScamDetection(valid);
 
     this.logger.info(
-      `Processing completed for ${this.sourceId}: ${processedTransactions.length} valid, ${invalid.length} invalid`
+      `Processing completed for ${this.sourceId}: ${processedTransactions.length} transactions validated`
     );
 
-    return processedTransactions;
+    return ok(processedTransactions);
   }
 
   private logValidationResults(

@@ -174,7 +174,7 @@ export class ProcessorFactory implements IProcessorFactory {
    */
   private async createKrakenProcessor(): Promise<ITransactionProcessor> {
     // Dynamic import to avoid circular dependencies
-    const { KrakenProcessor } = await import('../../exchanges/kraken/processor.js');
+    const { KrakenProcessor } = await import('../../exchanges/kraken/processor.ts');
     return new KrakenProcessor();
   }
 

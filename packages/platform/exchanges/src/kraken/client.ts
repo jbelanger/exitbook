@@ -32,29 +32,33 @@ export class KrakenClient implements IExchangeClient<ParsedKrakenData> {
       const transactions: RawTransactionWithMetadata[] = [];
       const cursor = params?.cursor || {};
 
-      // Fetch and validate trades
-      const tradeSince = cursor.trade || params?.since;
-      const trades = await this.exchange.fetchMyTrades(undefined, tradeSince, params?.limit);
-      const tradesResult = this.processItems(trades, 'trade', transactions, cursor);
-      if (tradesResult.isErr()) return err(tradesResult.error);
+      // Fetch ledger entries - this includes ALL balance changes:
+      // deposits, withdrawals, trades, conversions, fees, etc.
+      // Kraken supports fetching all entries - use high limit or undefined to get everything
+      const since = cursor.ledger || params?.since;
 
-      // Fetch and validate deposits
-      const depositSince = cursor.deposit || params?.since;
-      const deposits = await this.exchange.fetchDeposits(undefined, depositSince, params?.limit);
-      const depositsResult = this.processItems(deposits, 'deposit', transactions, cursor);
-      if (depositsResult.isErr()) return err(depositsResult.error);
+      // Fetch all ledger entries in a loop until no more results
+      // Kraken uses 'ofs' parameter for offset - start with 0
+      let allEntries: ccxt.LedgerEntry[] = [];
+      let ofs = 0;
+      const limit = 50; // Kraken's default/max per request
 
-      // Fetch and validate withdrawals
-      const withdrawalSince = cursor.withdrawal || params?.since;
-      const withdrawals = await this.exchange.fetchWithdrawals(undefined, withdrawalSince, params?.limit);
-      const withdrawalsResult = this.processItems(withdrawals, 'withdrawal', transactions, cursor);
-      if (withdrawalsResult.isErr()) return err(withdrawalsResult.error);
+      while (true) {
+        const ledgerEntries = await this.exchange.fetchLedger(undefined, since, limit, { ofs });
 
-      // Fetch and validate orders
-      const orderSince = cursor.order || params?.since;
-      const orders = await this.exchange.fetchClosedOrders(undefined, orderSince, params?.limit);
-      const ordersResult = this.processItems(orders, 'order', transactions, cursor);
-      if (ordersResult.isErr()) return err(ordersResult.error);
+        if (ledgerEntries.length === 0) break;
+
+        allEntries = allEntries.concat(ledgerEntries);
+
+        // If we got less than the limit, we've reached the end
+        if (ledgerEntries.length < limit) break;
+
+        // Kraken expects ofs to be incremented by the number of entries received
+        ofs += ledgerEntries.length;
+      }
+
+      const ledgerResult = this.processLedgerItems(allEntries, transactions, cursor);
+      if (ledgerResult.isErr()) return err(ledgerResult.error);
 
       return ok(transactions);
     } catch (error) {
@@ -71,23 +75,23 @@ export class KrakenClient implements IExchangeClient<ParsedKrakenData> {
     }
   }
 
-  private processItems(
-    items: ccxt.Trade[] | ccxt.Transaction[] | ccxt.Order[],
-    type: 'trade' | 'deposit' | 'withdrawal' | 'order',
+  private processLedgerItems(
+    items: ccxt.LedgerEntry[],
     transactions: RawTransactionWithMetadata[],
     currentCursor: Record<string, number>
   ): Result<void, PartialImportError> {
     const lastSuccessfulCursor = { ...currentCursor };
 
     for (const item of items) {
-      const rawItem = { __type: type, ...(item.info as Record<string, unknown>) };
+      // Ledger entries come with type already in item.info
+      const rawItem = { ...(item.info as Record<string, unknown>) };
 
       const validationResult = this.validate(rawItem);
 
       if (validationResult.isErr()) {
         return err(
           new PartialImportError(
-            `Validation failed for ${type}: ${validationResult.error.message}`,
+            `Validation failed for ledger entry: ${validationResult.error.message}`,
             transactions,
             rawItem,
             lastSuccessfulCursor
@@ -102,7 +106,7 @@ export class KrakenClient implements IExchangeClient<ParsedKrakenData> {
       if (timestampResult.isErr()) {
         return err(
           new PartialImportError(
-            `Failed to extract timestamp for ${type}: ${timestampResult.error.message}`,
+            `Failed to extract timestamp for ledger entry: ${timestampResult.error.message}`,
             transactions,
             parsedData,
             lastSuccessfulCursor
@@ -117,7 +121,7 @@ export class KrakenClient implements IExchangeClient<ParsedKrakenData> {
       if (externalIdResult.isErr()) {
         return err(
           new PartialImportError(
-            `Failed to extract external ID for ${type}: ${externalIdResult.error.message}`,
+            `Failed to extract external ID for ledger entry: ${externalIdResult.error.message}`,
             transactions,
             parsedData,
             lastSuccessfulCursor
@@ -126,8 +130,8 @@ export class KrakenClient implements IExchangeClient<ParsedKrakenData> {
       }
       const externalId = externalIdResult.value;
 
-      // Create cursor for this item (operation type + timestamp)
-      const itemCursor = { [type]: timestampMs };
+      // Create cursor for this item
+      const itemCursor = { ledger: timestampMs };
 
       transactions.push({
         cursor: itemCursor,
@@ -139,37 +143,18 @@ export class KrakenClient implements IExchangeClient<ParsedKrakenData> {
         rawData: parsedData,
       });
 
-      // Update cursor - track latest timestamp for this operation type
-      lastSuccessfulCursor[type] = timestampMs;
+      // Update cursor - track latest timestamp
+      lastSuccessfulCursor.ledger = timestampMs;
     }
 
     return ok();
   }
 
   private extractTimestamp(parsedData: ParsedKrakenData): Result<Date, Error> {
-    switch (parsedData.__type) {
-      case 'trade':
-      case 'deposit':
-      case 'withdrawal':
-        return ok(new Date(parsedData.time * 1000));
-      case 'order':
-        return ok(new Date(parsedData.opentm * 1000));
-      default:
-        return err(new Error('Unknown transaction type'));
-    }
+    return ok(new Date(parsedData.time * 1000));
   }
 
   private extractExternalId(parsedData: ParsedKrakenData): Result<string, Error> {
-    switch (parsedData.__type) {
-      case 'trade':
-        return ok(parsedData.ordertxid);
-      case 'deposit':
-      case 'withdrawal':
-        return ok(parsedData.refid);
-      case 'order':
-        return ok(parsedData.id);
-      default:
-        return err(new Error('Unknown transaction type'));
-    }
+    return ok(parsedData.id);
   }
 }

@@ -169,7 +169,7 @@ export class ImporterFactory implements IImporterFactory {
    * Create Kraken importer (CSV or API based on params).
    */
   private async createKrakenImporter(): Promise<IImporter> {
-    const { KrakenApiImporter } = await import('../../exchanges/kraken/api-importer.js');
+    const { KrakenApiImporter } = await import('../../exchanges/kraken/importer.ts');
     return new KrakenApiImporter() as unknown as IImporter;
   }
 
