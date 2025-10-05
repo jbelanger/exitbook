@@ -51,6 +51,9 @@ interface ExportOptions {
 
 interface ImportOptions {
   address?: string | undefined;
+  apiKey?: string | undefined;
+  apiPassphrase?: string | undefined;
+  apiSecret?: string | undefined;
   blockchain?: string | undefined;
   clearDb?: boolean | undefined;
   csvDir?: string | undefined;
@@ -236,6 +239,9 @@ async function main() {
     .option('--csv-dir <path>', 'CSV directory for exchange sources')
     .option('--address <address>', 'Wallet address for blockchain source')
     .option('--provider <name>', 'Blockchain provider for blockchain sources')
+    .option('--api-key <key>', 'API key for exchange API access')
+    .option('--api-secret <secret>', 'API secret for exchange API access')
+    .option('--api-passphrase <passphrase>', 'API passphrase for exchange API access (if required)')
     .option('--since <date>', 'Import data since date (YYYY-MM-DD, timestamp, or 0 for all history)')
     .option('--until <date>', 'Import data until date (YYYY-MM-DD or timestamp)')
     .option('--process', 'Process data after import (combined import+process pipeline)')
@@ -260,8 +266,15 @@ async function main() {
         logger.info(`Starting data import from ${sourceName} (${sourceType})`);
 
         // Validate parameters based on source type
-        if (sourceType === 'exchange' && !options.csvDir) {
-          logger.error('--csv-dir is required for exchange sources');
+        if (sourceType === 'exchange' && !options.csvDir && !options.apiKey) {
+          logger.error(
+            'Either --csv-dir or API credentials (--api-key, --api-secret) are required for exchange sources'
+          );
+          process.exit(1);
+        }
+
+        if (sourceType === 'exchange' && options.csvDir && options.apiKey) {
+          logger.error('Cannot specify both --csv-dir and API credentials. Choose one import method.');
           process.exit(1);
         }
 
@@ -308,6 +321,7 @@ async function main() {
 
           const importParams: {
             address?: string | undefined;
+            credentials?: Record<string, string> | undefined;
             csvDirectories?: string[] | undefined;
             providerId?: string | undefined;
             since?: number | undefined;
@@ -316,7 +330,19 @@ async function main() {
 
           // Set parameters based on source type
           if (sourceType === 'exchange') {
-            importParams.csvDirectories = options.csvDir ? [options.csvDir] : undefined;
+            if (options.csvDir) {
+              importParams.csvDirectories = [options.csvDir];
+            } else if (options.apiKey && options.apiSecret) {
+              // Build credentials object
+              const credentials: Record<string, string> = {
+                apiKey: options.apiKey,
+                secret: options.apiSecret,
+              };
+              if (options.apiPassphrase) {
+                credentials.passphrase = options.apiPassphrase;
+              }
+              importParams.credentials = credentials;
+            }
           } else {
             importParams.address = options.address;
             importParams.providerId = options.provider;

@@ -46,6 +46,7 @@
   "peerDependencies": {
     "@exitbook/core": "workspace:*",
     "@exitbook/data": "workspace:*",
+    "@exitbook/exchanges": "workspace:*",
     "@exitbook/providers": "workspace:*",
     "@exitbook/shared-logger": "workspace:*"
   }

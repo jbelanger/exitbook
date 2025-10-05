@@ -130,7 +130,7 @@ export class TransactionIngestionService {
       sessionCreated = true;
       this.logger.info(`Created import session: ${importSessionId}`);
 
-      const importer = await this.importerFactory.create(sourceId, sourceType, params.providerId);
+      const importer = await this.importerFactory.create(sourceId, sourceType, params);
 
       if (!importer) {
         return err(new Error(`No importer found for source ${sourceId} of type ${sourceType}`));

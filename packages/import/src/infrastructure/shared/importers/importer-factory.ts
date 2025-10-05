@@ -1,5 +1,5 @@
 import type { IImporterFactory } from '@exitbook/import/app/ports/importer-factory.interface.ts';
-import type { IImporter } from '@exitbook/import/app/ports/importers.js';
+import type { IImporter, ImportParams } from '@exitbook/import/app/ports/importers.js';
 import type { BlockchainProviderManager } from '@exitbook/providers';
 import { getCosmosChainConfig, getEvmChainConfig, getSubstrateChainConfig } from '@exitbook/providers';
 import { getLogger } from '@exitbook/shared-logger';
@@ -16,15 +16,15 @@ export class ImporterFactory implements IImporterFactory {
   /**
    * Create an importer for the specified source.
    */
-  async create(sourceId: string, sourceType: string, providerId?: string): Promise<IImporter> {
+  async create(sourceId: string, sourceType: string, params?: ImportParams): Promise<IImporter> {
     this.logger.info(`Creating importer for ${sourceId} (type: ${sourceType})`);
 
     if (sourceType === 'exchange') {
-      return await this.createExchangeImporter(sourceId);
+      return await this.createExchangeImporter(sourceId, params);
     }
 
     if (sourceType === 'blockchain') {
-      return await this.createBlockchainImporter(sourceId, providerId);
+      return await this.createBlockchainImporter(sourceId, params?.providerId);
     }
 
     throw new Error(`Unsupported source type: ${sourceType}`);
@@ -126,12 +126,13 @@ export class ImporterFactory implements IImporterFactory {
    */
   /**
    * Create an exchange importer.
+   * Decides between CSV or API importer based on ImportParams.
    */
-  private async createExchangeImporter(sourceId: string): Promise<IImporter> {
+  private async createExchangeImporter(sourceId: string, params?: ImportParams): Promise<IImporter> {
     switch (sourceId.toLowerCase()) {
       case 'kraken':
         // Dynamic import to avoid circular dependencies
-        return await this.createKrakenImporter();
+        return await this.createKrakenImporter(params);
 
       case 'kucoin':
         return await this.createKucoinImporter();
@@ -165,10 +166,16 @@ export class ImporterFactory implements IImporterFactory {
   }
 
   /**
-   * Create Kraken CSV importer.
+   * Create Kraken importer (CSV or API based on params).
    */
-  private async createKrakenImporter(): Promise<IImporter> {
-    // Dynamic import to avoid circular dependencies
+  private async createKrakenImporter(params?: ImportParams): Promise<IImporter> {
+    // If credentials are provided, use API importer
+    if (params?.credentials) {
+      const { KrakenApiImporter } = await import('../../exchanges/kraken/api-importer.js');
+      return new KrakenApiImporter() as unknown as IImporter;
+    }
+
+    // Otherwise, use CSV importer
     const { KrakenCsvImporter } = await import('../../exchanges/kraken/importer.js');
     return new KrakenCsvImporter() as unknown as IImporter;
   }

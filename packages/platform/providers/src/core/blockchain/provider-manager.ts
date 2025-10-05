@@ -399,7 +399,7 @@ export class BlockchainProviderManager {
       const startTime = Date.now();
       try {
         // Execute operation - rate limiting handled by provider's HttpClient
-        const result = await provider.execute(operation, {});
+        const result = await provider.execute<T>(operation, {});
         const responseTime = Date.now() - startTime;
 
         // Record success - update circuit state

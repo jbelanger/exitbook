@@ -1,4 +1,4 @@
-import type { IImporter } from './importers.ts';
+import type { IImporter, ImportParams } from './importers.ts';
 
 /**
  * Port interface for creating importer instances.
@@ -9,5 +9,5 @@ export interface IImporterFactory {
    * Create an importer for the specified source.
    * All provider management (selection, failover, circuit breaking) is handled by the infrastructure layer.
    */
-  create(sourceId: string, sourceType: string, providerId?: string): Promise<IImporter> | undefined;
+  create(sourceId: string, sourceType: string, params?: ImportParams): Promise<IImporter> | undefined;
 }

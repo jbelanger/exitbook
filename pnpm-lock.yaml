@@ -189,6 +189,9 @@ importers:
       '@exitbook/data':
         specifier: workspace:*
         version: link:../platform/data
+      '@exitbook/exchanges':
+        specifier: workspace:*
+        version: link:../platform/exchanges
       '@exitbook/providers':
         specifier: workspace:*
         version: link:../platform/providers
@@ -281,6 +284,37 @@ importers:
       tsx:
         specifier: ^4.20.4
         version: 4.20.6
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.2
+
+  packages/platform/exchanges:
+    dependencies:
+      '@exitbook/core':
+        specifier: workspace:*
+        version: link:../../core
+      '@exitbook/platform-http':
+        specifier: workspace:*
+        version: link:../http
+      '@exitbook/shared-logger':
+        specifier: workspace:*
+        version: link:../logger
+      ccxt:
+        specifier: ^4.4.48
+        version: 4.5.7
+      neverthrow:
+        specifier: ^8.2.0
+        version: 8.2.0
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^24.3.0
+        version: 24.6.2
+      tsconfig:
+        specifier: workspace:*
+        version: link:../../shared/tsconfig
       typescript:
         specifier: ^5.9.2
         version: 5.9.2
@@ -1850,6 +1884,10 @@ packages:
 
   caniuse-lite@1.0.30001747:
     resolution: {integrity: sha512-mzFa2DGIhuc5490Nd/G31xN1pnBnYMadtkyTjefPI7wzypqgCEpeWu9bJr0OnDsyKrW75zA9ZAt7pbQFmwLsQg==}
+
+  ccxt@4.5.7:
+    resolution: {integrity: sha512-7OeJLN+Aj5nLB3gQnXpLwTVGRw2HzfmJIcZhmJ6kvb7w8QmzGn6w7QF8pDYWeN1IsQyHX4itfkioUcsxZwBhNQ==}
+    engines: {node: '>=15.0.0'}
 
   chai@5.3.3:
     resolution: {integrity: sha512-4zNhdJD/iOjSH0A05ea+Ke6MU5mmpQcbQsSOkgdaUMJ9zTlDTD/GYlwohmIE2u0gaxHYiVHEn1Fw9mZ/ktJWgw==}
@@ -3927,6 +3965,18 @@ packages:
     resolution: {integrity: sha512-+QU2zd6OTD8XWIJCbffaiQeH9U73qIqafo1x6V1snCWYGJf6cVE0cDR4D8xRzcEnfI21IFrUPzPGtcPf8AC+Rw==}
     engines: {node: ^14.17.0 || ^16.13.0 || >=18.0.0}
 
+  ws@8.18.3:
+    resolution: {integrity: sha512-PEIGCY5tSlUt50cqyMXfCzX+oOPqN0vuGqWzbcJ2xvnkzkq46oOpz7dQaTDBdfICb4N14+GARUDw2XV2N4tvzg==}
+    engines: {node: '>=10.0.0'}
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: '>=5.0.2'
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
+
   y18n@5.0.8:
     resolution: {integrity: sha512-0pfFzegeDWJHJIAmTLRP2DwHjdF5s7jo9tuztdQxAhINCdvS+3nGINqPd00AphqJR/0LhANUS6/+7SCb98YOfA==}
     engines: {node: '>=10'}
@@ -3950,6 +4000,9 @@ packages:
   yocto-queue@0.1.0:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
     engines: {node: '>=10'}
+
+  zod@3.25.76:
+    resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
   zod@4.1.11:
     resolution: {integrity: sha512-WPsqwxITS2tzx1bzhIKsEs19ABD5vmCVa4xBo2tq/SrV4RNZtfws1EnCWQXM6yh8bD08a1idvkB5MZSBiZsjwg==}
@@ -5429,6 +5482,13 @@ snapshots:
   camelcase@6.3.0: {}
 
   caniuse-lite@1.0.30001747: {}
+
+  ccxt@4.5.7:
+    dependencies:
+      ws: 8.18.3
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
 
   chai@5.3.3:
     dependencies:
@@ -7977,6 +8037,8 @@ snapshots:
       imurmurhash: 0.1.4
       signal-exit: 4.1.0
 
+  ws@8.18.3: {}
+
   y18n@5.0.8: {}
 
   yallist@3.1.1: {}
@@ -7996,5 +8058,7 @@ snapshots:
       yargs-parser: 21.1.1
 
   yocto-queue@0.1.0: {}
+
+  zod@3.25.76: {}
 
   zod@4.1.11: {}

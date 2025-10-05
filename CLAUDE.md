@@ -25,26 +25,29 @@ pnpm vitest run --config vitest.e2e.config.ts <path/to/test.e2e.test.ts>
 
 ### CLI Usage (via apps/cli)
 
-All CLI commands use `pnpm dev --` which proxies to `tsx` with `.env` loading:
+All CLI commands use `pnpm run dev` which proxies to `tsx` with `.env` loading:
 
 ```bash
 # Import from exchange CSVs
-pnpm dev -- import --exchange kraken --csv-dir ./exports/kraken --process
+pnpm run dev import --exchange kraken --csv-dir ./exports/kraken --process
+
+# Import from exchange API (requires API credentials in .env)
+pnpm run dev import --exchange kraken --api-key YOUR_KEY --api-secret YOUR_SECRET --process
 
 # Import from blockchain
-pnpm dev -- import --blockchain bitcoin --address bc1q... --since 2023-01-01 --process
+pnpm run dev import --blockchain bitcoin --address bc1q... --since 2023-01-01 --process
 
 # Process raw data into normalized transactions
-pnpm dev -- process --exchange kraken --session <id>
+pnpm run dev process --exchange kraken --session <id>
 
 # Verify balances
-pnpm dev -- verify --exchange kraken --report
+pnpm run dev verify --exchange kraken --report
 
 # Export transactions
-pnpm dev -- export --exchange kraken --format csv --output ./reports/kraken.csv
+pnpm run dev export --exchange kraken --format csv --output ./reports/kraken.csv
 
 # List available blockchains
-pnpm dev -- list-blockchains
+pnpm run dev list-blockchains
 ```
 
 ### Provider Management
@@ -122,18 +125,34 @@ Multi-provider architecture with intelligent failover:
 
 ### Exchange Integration
 
-**Supported Exchanges** (CSV importers):
+**Exchange Package** (`packages/platform/exchanges/`)
 
-- **Kraken** - Parses `ledgers.csv` export
-- **KuCoin** - Handles multiple CSVs (account history, trading, deposits, withdrawals)
-- **Ledger Live** - Imports `operations.csv` from desktop app
+- Generic exchange client architecture using ccxt for API connectivity
+- `IExchangeClient` interface with `fetchTransactionData()` method
+- Generic `ExchangeCredentials = Record<string, string>` type
+- Each exchange validates credentials via Zod schemas
+- Returns validated raw data as `RawExchangeData[]`
+
+**Supported Exchanges:**
+
+- **Kraken** - CSV importer (parses `ledgers.csv` export) OR API importer (via KrakenClient)
+- **KuCoin** - CSV importer (handles multiple CSVs: account history, trading, deposits, withdrawals)
+- **Ledger Live** - CSV importer (imports `operations.csv` from desktop app)
 - **Coinbase** - Stubbed (not yet implemented)
 
-Each exchange has:
+**Each exchange has:**
 
-- Importer in `packages/import/src/infrastructure/exchanges/<exchange>/importer.ts`
-- Processor in `packages/import/src/infrastructure/exchanges/<exchange>/processor.ts`
-- Zod schemas for validation
+- CSV Importer: `packages/import/src/infrastructure/exchanges/<exchange>/importer.ts`
+- API Importer (if supported): `packages/import/src/infrastructure/exchanges/<exchange>/api-importer.ts`
+- API Client (if supported): `packages/platform/exchanges/src/<exchange>/client.ts`
+- Processor: `packages/import/src/infrastructure/exchanges/<exchange>/processor.ts`
+- Zod schemas: For both CSV validation and API response validation
+
+**Import Methods:**
+
+- CSV import requires `--csv-dir` flag
+- API import requires `--api-key` and `--api-secret` flags (some exchanges may also need `--api-passphrase`)
+- ImporterFactory automatically selects CSV or API importer based on provided parameters
 
 ### Database Layer
 
@@ -205,6 +224,10 @@ logger.error({ error }, 'error message');
 logger.debug({ metadata }, 'debug message');
 ```
 
+## Code Requirements
+
+- Use `exactOptionalPropertyTypes` - add `| undefined` to optional properties
+
 ## Environment Variables
 
 Create `.env` in project root with API keys (loaded via `tsx --env-file-if-exists`):
@@ -258,7 +281,7 @@ pnpm vitest run packages/import/src/infrastructure/blockchains/bitcoin
 pnpm test
 
 # Test CLI command
-pnpm dev -- import --exchange kraken --csv-dir ./test-data --process
+pnpm run dev import --exchange kraken --csv-dir ./test-data --process
 ```
 
 ## Project Context

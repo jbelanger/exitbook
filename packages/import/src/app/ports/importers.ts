@@ -1,26 +1,14 @@
 import type { RawTransactionWithMetadata } from '@exitbook/data';
+import type { ExchangeCredentials } from '@exitbook/exchanges';
 import type { Result } from 'neverthrow';
-
-/**
- * Authentication configuration for Coinbase API
- */
-export interface ExchangeCredentials {
-  /** API key */
-  apiKey: string;
-  /** Passphrase associated with API key (not required for CDP keys) */
-  passphrase?: string | undefined;
-  /** Whether to use sandbox environment */
-  sandbox?: boolean | undefined;
-  /** API secret for signing requests */
-  secret: string;
-}
 
 export interface ImportParams {
   address?: string | undefined;
+  credentials?: ExchangeCredentials | undefined;
   csvDirectories?: string[] | undefined;
-  exchangeCredentials?: Partial<ExchangeCredentials> | undefined;
   providerId?: string | undefined;
   since?: number | undefined;
+  until?: number | undefined;
 }
 
 export interface ImportResult {
