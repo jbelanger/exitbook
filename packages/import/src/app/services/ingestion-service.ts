@@ -461,11 +461,7 @@ export class TransactionIngestionService {
       );
       const allRawDataIds = allProcessedItems.map((item) => item.id);
 
-      const markAsProcessedResult = await this.rawDataRepository.markAsProcessed(
-        sourceId,
-        allRawDataIds,
-        filters?.providerId
-      );
+      const markAsProcessedResult = await this.rawDataRepository.markAsProcessed(sourceId, allRawDataIds);
 
       // Handle Result type - fail fast if marking fails
       if (markAsProcessedResult.isErr()) {

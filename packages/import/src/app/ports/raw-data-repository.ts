@@ -23,7 +23,7 @@ export interface IRawDataRepository {
   /**
    * Mark multiple items as processed.
    */
-  markAsProcessed(sourceId: string, sourceTransactionIds: number[], providerId?: string): Promise<Result<void, Error>>;
+  markAsProcessed(sourceId: string, sourceTransactionIds: number[]): Promise<Result<void, Error>>;
 
   /**
    * Save external data items to storage.

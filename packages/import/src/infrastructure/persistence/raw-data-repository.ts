@@ -57,34 +57,21 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
     }
   }
 
-  async markAsProcessed(
-    sourceId: string,
-    rawTransactionIds: number[],
-    providerId?: string
-  ): Promise<Result<void, Error>> {
+  async markAsProcessed(sourceId: string, rawTransactionIds: number[]): Promise<Result<void, Error>> {
     try {
       await this.withTransaction(async (trx) => {
         const processedAt = this.getCurrentDateTimeForDB();
 
         for (const id of rawTransactionIds) {
-          let updateQuery = trx
+          await trx
             .updateTable('external_transaction_data')
             .set({
               processed_at: processedAt,
               processing_error: undefined,
               processing_status: 'processed',
             })
-            .where('id', '=', id);
-
-          // Apply provider filter if specified
-          if (providerId) {
-            updateQuery = updateQuery.where('provider_id', '=', providerId);
-          } else {
-            // eslint-disable-next-line unicorn/no-null -- Checking for NULL in database
-            updateQuery = updateQuery.where('provider_id', 'is', null);
-          }
-
-          await updateQuery.execute();
+            .where('id', '=', id)
+            .execute();
         }
       });
 
