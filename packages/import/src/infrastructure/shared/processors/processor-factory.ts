@@ -141,12 +141,6 @@ export class ProcessorFactory implements IProcessorFactory {
       case 'kraken':
         return await this.createKrakenProcessor();
 
-      case 'kucoin':
-        return await this.createKucoinProcessor();
-
-      case 'ledgerlive':
-        return await this.createLedgerLiveProcessor();
-
       case 'coinbase':
         return await this.createCoinbaseProcessor();
 
@@ -176,24 +170,6 @@ export class ProcessorFactory implements IProcessorFactory {
     // Dynamic import to avoid circular dependencies
     const { KrakenProcessor } = await import('../../exchanges/kraken/processor.ts');
     return new KrakenProcessor();
-  }
-
-  /**
-   * Create KuCoin processor.
-   */
-  private async createKucoinProcessor(): Promise<ITransactionProcessor> {
-    // Dynamic import to avoid circular dependencies
-    const { KucoinProcessor } = await import('../../exchanges/kucoin/processor.js');
-    return new KucoinProcessor();
-  }
-
-  /**
-   * Create Ledger Live processor.
-   */
-  private async createLedgerLiveProcessor(): Promise<ITransactionProcessor> {
-    // Dynamic import to avoid circular dependencies
-    const { LedgerLiveProcessor } = await import('../../exchanges/ledgerlive/processor.js');
-    return new LedgerLiveProcessor();
   }
 
   /**

@@ -134,14 +134,7 @@ export class ImporterFactory implements IImporterFactory {
         return await this.createCoinbaseImporter();
 
       case 'kraken':
-        // Dynamic import to avoid circular dependencies
         return await this.createKrakenImporter();
-
-      case 'kucoin':
-        return await this.createKucoinImporter();
-
-      case 'ledgerlive':
-        return await this.createLedgerLiveImporter();
 
       default:
         throw new Error(`Unsupported exchange importer: ${sourceId}`);
@@ -182,24 +175,6 @@ export class ImporterFactory implements IImporterFactory {
   private async createCoinbaseImporter(): Promise<IImporter> {
     const { CoinbaseApiImporter } = await import('../../exchanges/coinbase/importer.ts');
     return new CoinbaseApiImporter() as unknown as IImporter;
-  }
-
-  /**
-   * Create KuCoin CSV importer.
-   */
-  private async createKucoinImporter(): Promise<IImporter> {
-    // Dynamic import to avoid circular dependencies
-    const { KucoinCsvImporter } = await import('../../exchanges/kucoin/importer.js');
-    return new KucoinCsvImporter() as unknown as IImporter;
-  }
-
-  /**
-   * Create Ledger Live CSV importer.
-   */
-  private async createLedgerLiveImporter(): Promise<IImporter> {
-    // Dynamic import to avoid circular dependencies
-    const { LedgerLiveCsvImporter } = await import('../../exchanges/ledgerlive/importer.js');
-    return new LedgerLiveCsvImporter() as unknown as IImporter;
   }
 
   /**
