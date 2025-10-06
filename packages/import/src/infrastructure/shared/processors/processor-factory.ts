@@ -22,7 +22,7 @@ export class ProcessorFactory implements IProcessorFactory {
    */
   async getSupportedSources(sourceType: 'exchange' | 'blockchain'): Promise<string[]> {
     if (sourceType === 'exchange') {
-      return ['kraken', 'kucoin', 'ledgerlive'];
+      return ['kraken', 'kucoin', 'ledgerlive', 'coinbase'];
     }
 
     if (sourceType === 'blockchain') {
@@ -45,7 +45,7 @@ export class ProcessorFactory implements IProcessorFactory {
   async isSupported(sourceId: string, sourceType: string): Promise<boolean> {
     try {
       if (sourceType === 'exchange') {
-        return ['kraken', 'kucoin', 'ledgerlive'].includes(sourceId.toLowerCase());
+        return ['coinbase', 'kraken', 'kucoin', 'ledgerlive'].includes(sourceId.toLowerCase());
       }
 
       if (sourceType === 'blockchain') {
@@ -134,9 +134,6 @@ export class ProcessorFactory implements IProcessorFactory {
   }
 
   /**
-   * Create Coinbase processor.
-   */
-  /**
    * Create an exchange processor.
    */
   private async createExchangeProcessor(sourceId: string): Promise<ITransactionProcessor> {
@@ -149,6 +146,9 @@ export class ProcessorFactory implements IProcessorFactory {
 
       case 'ledgerlive':
         return await this.createLedgerLiveProcessor();
+
+      case 'coinbase':
+        return await this.createCoinbaseProcessor();
 
       default:
         throw new Error(`Unsupported exchange processor: ${sourceId}`);
@@ -194,6 +194,15 @@ export class ProcessorFactory implements IProcessorFactory {
     // Dynamic import to avoid circular dependencies
     const { LedgerLiveProcessor } = await import('../../exchanges/ledgerlive/processor.js');
     return new LedgerLiveProcessor();
+  }
+
+  /**
+   * Create Coinbase processor.
+   */
+  private async createCoinbaseProcessor(): Promise<ITransactionProcessor> {
+    // Dynamic import to avoid circular dependencies
+    const { CoinbaseProcessor } = await import('../../exchanges/coinbase/processor.ts');
+    return new CoinbaseProcessor();
   }
 
   /**

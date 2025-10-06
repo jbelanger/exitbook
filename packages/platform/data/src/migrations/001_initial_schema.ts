@@ -126,6 +126,14 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('created_at', 'text', (col) => col.notNull().defaultTo('datetime("now")'))
     .addColumn('updated_at', 'text')
     .execute();
+
+  // Create unique index on (source_id, external_id) to prevent duplicate transactions
+  await db.schema
+    .createIndex('idx_transactions_source_external_id')
+    .on('transactions')
+    .columns(['source_id', 'external_id'])
+    .unique()
+    .execute();
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {

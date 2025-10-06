@@ -13,6 +13,53 @@ import { CoinbaseCredentialsSchema, CoinbaseLedgerEntrySchema } from './schemas.
 export type CoinbaseLedgerEntry = z.infer<typeof CoinbaseLedgerEntrySchema>;
 
 /**
+ * Validate Coinbase credentials format and provide helpful error messages
+ */
+function validateCoinbaseCredentials(apiKey: string, secret: string): Result<void, Error> {
+  // Validate API key format
+  if (!apiKey.includes('/apiKeys/')) {
+    return err(
+      new Error(
+        `Invalid Coinbase API key format. Expected: organizations/{org_id}/apiKeys/{key_id}, got: ${apiKey}\n\n` +
+          `To create a valid Coinbase API key:\n` +
+          `   1. Go to https://portal.cdp.coinbase.com/access/api\n` +
+          `   2. Select 'Secret API Keys' tab\n` +
+          `   3. Click 'Create API key'\n` +
+          `   4. CRITICAL: Select 'ECDSA' as signature algorithm (NOT Ed25519)\n` +
+          `   5. Use the full API key path: organizations/YOUR_ORG_ID/apiKeys/YOUR_KEY_ID`
+      )
+    );
+  }
+
+  // Validate private key format (check for PEM header, allowing for escaped newlines)
+  if (!secret.includes('-----BEGIN EC PRIVATE KEY-----')) {
+    return err(
+      new Error(
+        `Invalid Coinbase private key format. Expected ECDSA PEM key, got: ${secret.substring(0, 50)}...\n\n` +
+          `Requirements:\n` +
+          `   • Must be ECDSA key (NOT Ed25519)\n` +
+          `   • Must be in PEM format: -----BEGIN EC PRIVATE KEY-----\\n...\\n-----END EC PRIVATE KEY-----\n` +
+          `   • When passing via CLI, use escaped newlines: "-----BEGIN EC PRIVATE KEY-----\\n..."\n\n` +
+          `Example CLI format:\n` +
+          `   --api-secret "-----BEGIN EC PRIVATE KEY-----\\nMHcCAQEE...\\n-----END EC PRIVATE KEY-----"`
+      )
+    );
+  }
+
+  return ok();
+}
+
+/**
+ * Normalize PEM private key by converting escaped newlines to actual newlines
+ * Handles multiple levels of escaping that can occur through CLI argument parsing
+ */
+function normalizePemKey(secret: string): string {
+  // Replace literal \n (backslash-n) with actual newlines
+  // This handles keys passed via CLI like: "-----BEGIN EC PRIVATE KEY-----\n..."
+  return secret.replace(/\\n/g, '\n');
+}
+
+/**
  * Factory function that creates a Coinbase exchange client
  * Returns a Result containing an object that implements IExchangeClient interface
  *
@@ -21,16 +68,26 @@ export type CoinbaseLedgerEntry = z.infer<typeof CoinbaseLedgerEntrySchema>;
  */
 export function createCoinbaseClient(credentials: ExchangeCredentials): Result<IExchangeClient, Error> {
   // Validate credentials using pure function
-  return ExchangeUtils.validateCredentials(CoinbaseCredentialsSchema, credentials, 'coinbase').map(
+  return ExchangeUtils.validateCredentials(CoinbaseCredentialsSchema, credentials, 'coinbase').andThen(
     ({ apiKey, secret }) => {
+      // Additional Coinbase-specific validation
+      const validationResult = validateCoinbaseCredentials(apiKey, secret);
+      if (validationResult.isErr()) {
+        return err(validationResult.error);
+      }
+
+      // Normalize PEM-formatted private key by replacing literal \n with actual newlines
+      const normalizedSecret = normalizePemKey(secret);
+
       // Create ccxt instance - side effect captured in closure
-      const exchange = new ccxt.coinbase({
+      const exchange = new ccxt.coinbaseadvanced({
         apiKey,
-        secret,
+        password: '',
+        secret: normalizedSecret,
       });
 
       // Return object with methods that close over the exchange instance
-      return {
+      return ok({
         exchangeId: 'coinbase',
 
         async fetchTransactionData(params?: FetchParams): Promise<Result<RawTransactionWithMetadata[], Error>> {
@@ -39,69 +96,88 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
 
           // Fetch ledger entries - this includes ALL balance changes:
           // deposits, withdrawals, trades, fees, rebates, etc.
-          // Coinbase uses pagination via 'since' parameter
+          // Coinbase Advanced Trade API requires fetching accounts first,
+          // then fetching ledger entries for each account
           const limit = 100; // Coinbase default limit
 
           try {
-            while (true) {
-              // Side effect: Fetch from API (uses exchange from closure)
-              // Use currentCursor.ledger directly to support pagination
-              const ledgerEntries = await exchange.fetchLedger(undefined, currentCursor.ledger, limit);
+            // Step 1: Fetch all accounts
+            const accounts = await exchange.fetchAccounts();
+            if (accounts.length === 0) {
+              return ok([]); // No accounts, no transactions
+            }
 
-              if (ledgerEntries.length === 0) break;
+            // Step 2: Fetch ledger entries for each account
+            for (const account of accounts) {
+              const accountId = account.id;
+              if (!accountId) continue;
 
-              // Delegate to pure function for processing
-              const processResult = ExchangeUtils.processItems(
-                ledgerEntries,
-                // Extractor: Get raw data from ccxt item
-                (item) => ({ ...item }),
-                // Validator: Validate using Zod schema
-                (rawItem) => ExchangeUtils.validateRawData(CoinbaseLedgerEntrySchema, rawItem, 'coinbase'),
-                // Metadata mapper: Extract cursor, externalId, and rawData
-                (parsedData: CoinbaseLedgerEntry) => {
-                  return {
-                    cursor: { ledger: parsedData.timestamp },
-                    externalId: parsedData.id,
-                    rawData: parsedData,
-                  };
-                },
-                'coinbase',
-                currentCursor
-              );
+              let accountCursor = currentCursor[accountId];
 
-              if (processResult.isErr()) {
-                // Validation failed - merge accumulated transactions with batch's successful items
-                const partialError = processResult.error;
-                allTransactions.push(...partialError.successfulItems);
+              while (true) {
+                // Side effect: Fetch from API (uses exchange from closure)
+                // Pass account_id in params to specify which account to query
+                const ledgerEntries = await exchange.fetchLedger(undefined, accountCursor, limit, {
+                  account_id: accountId,
+                });
 
-                // Return new PartialImportError with all accumulated transactions
-                return err(
-                  new PartialImportError(
-                    partialError.message,
-                    allTransactions,
-                    partialError.failedItem,
-                    partialError.lastSuccessfulCursor
-                  )
+                if (ledgerEntries.length === 0) break;
+
+                // Delegate to pure function for processing
+                const processResult = ExchangeUtils.processItems(
+                  ledgerEntries,
+                  // Extractor: Get raw data from ccxt item
+                  (item) => ({ ...item }),
+                  // Validator: Validate using Zod schema
+                  (rawItem) => ExchangeUtils.validateRawData(CoinbaseLedgerEntrySchema, rawItem, 'coinbase'),
+                  // Metadata mapper: Extract cursor, externalId, and rawData
+                  (parsedData: CoinbaseLedgerEntry) => {
+                    return {
+                      cursor: { [accountId]: parsedData.timestamp },
+                      externalId: parsedData.id,
+                      rawData: parsedData,
+                    };
+                  },
+                  'coinbase',
+                  currentCursor
                 );
-              }
 
-              // Accumulate successful results
-              allTransactions.push(...processResult.value);
+                if (processResult.isErr()) {
+                  // Validation failed - merge accumulated transactions with batch's successful items
+                  const partialError = processResult.error;
+                  allTransactions.push(...partialError.successfulItems);
 
-              // Update cursor with latest timestamp from this batch
-              if (processResult.value.length > 0) {
-                const lastItem = processResult.value[processResult.value.length - 1];
-                if (lastItem?.cursor) {
-                  Object.assign(currentCursor, lastItem.cursor);
+                  // Return new PartialImportError with all accumulated transactions
+                  return err(
+                    new PartialImportError(
+                      partialError.message,
+                      allTransactions,
+                      partialError.failedItem,
+                      partialError.lastSuccessfulCursor
+                    )
+                  );
                 }
-              }
 
-              // If we got less than the limit, we've reached the end
-              if (ledgerEntries.length < limit) break;
+                // Accumulate successful results
+                allTransactions.push(...processResult.value);
 
-              // Update since timestamp for next page (add 1ms to avoid duplicate)
-              if (currentCursor.ledger) {
-                currentCursor.ledger = currentCursor.ledger + 1;
+                // Update cursor with latest timestamp from this batch for this account
+                if (processResult.value.length > 0) {
+                  const lastItem = processResult.value[processResult.value.length - 1];
+                  if (lastItem?.cursor && lastItem.cursor[accountId]) {
+                    currentCursor[accountId] = lastItem.cursor[accountId];
+                    accountCursor = currentCursor[accountId];
+                  }
+                }
+
+                // If we got less than the limit, we've reached the end for this account
+                if (ledgerEntries.length < limit) break;
+
+                // Update since timestamp for next page (add 1ms to avoid duplicate)
+                if (accountCursor) {
+                  accountCursor = accountCursor + 1;
+                  currentCursor[accountId] = accountCursor;
+                }
               }
             }
 
@@ -113,7 +189,7 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                 new PartialImportError(
                   `Fetch failed after processing ${allTransactions.length} transactions: ${error instanceof Error ? error.message : String(error)}`,
                   allTransactions,
-                  { ledger: currentCursor.ledger },
+                  undefined,
                   currentCursor
                 )
               );
@@ -121,7 +197,7 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
             return err(error instanceof Error ? error : new Error(String(error)));
           }
         },
-      };
+      });
     }
   );
 }

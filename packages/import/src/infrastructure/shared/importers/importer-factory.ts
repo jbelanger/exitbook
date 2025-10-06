@@ -130,6 +130,9 @@ export class ImporterFactory implements IImporterFactory {
    */
   private async createExchangeImporter(sourceId: string): Promise<IImporter> {
     switch (sourceId.toLowerCase()) {
+      case 'coinbase':
+        return await this.createCoinbaseImporter();
+
       case 'kraken':
         // Dynamic import to avoid circular dependencies
         return await this.createKrakenImporter();
@@ -171,6 +174,14 @@ export class ImporterFactory implements IImporterFactory {
   private async createKrakenImporter(): Promise<IImporter> {
     const { KrakenApiImporter } = await import('../../exchanges/kraken/importer.ts');
     return new KrakenApiImporter() as unknown as IImporter;
+  }
+
+  /**
+   * Create Kraken importer (CSV or API based on params).
+   */
+  private async createCoinbaseImporter(): Promise<IImporter> {
+    const { CoinbaseApiImporter } = await import('../../exchanges/coinbase/importer.ts');
+    return new CoinbaseApiImporter() as unknown as IImporter;
   }
 
   /**
