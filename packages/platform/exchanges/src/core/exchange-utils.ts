@@ -57,7 +57,6 @@ export function processItems<TRaw, TParsed>(
     externalId: string;
     rawData: TParsed;
   },
-  exchangeId: string,
   currentCursor: Record<string, number>
 ): Result<RawTransactionWithMetadata[], PartialImportError> {
   const transactions: RawTransactionWithMetadata[] = [];
@@ -84,10 +83,6 @@ export function processItems<TRaw, TParsed>(
     transactions.push({
       cursor,
       externalId,
-      metadata: {
-        providerId: exchangeId,
-        source: 'api',
-      },
       rawData,
     });
 

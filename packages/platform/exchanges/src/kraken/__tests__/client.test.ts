@@ -152,8 +152,6 @@ describe('createKrakenClient - fetchTransactionData', () => {
     expect(transactions).toHaveLength(2);
     expect(transactions[0]?.externalId).toBe('LEDGER1');
     expect(transactions[1]?.externalId).toBe('LEDGER2');
-    expect(transactions[0]?.metadata?.providerId).toBe('kraken');
-    expect(transactions[0]?.metadata?.source).toBe('api');
 
     // Verify fetchLedger was called once
     expect(mockFetchLedger).toHaveBeenCalledTimes(1);

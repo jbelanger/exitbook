@@ -66,7 +66,6 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
                   rawData: parsedData,
                 };
               },
-              'kraken',
               currentCursor
             );
 

@@ -6,11 +6,6 @@ import type { Result } from 'neverthrow';
 export interface RawTransactionWithMetadata {
   cursor?: Record<string, number> | undefined;
   externalId?: string | undefined;
-  metadata: {
-    [key: string]: unknown;
-    providerId: string;
-    source?: string | undefined;
-  };
   rawData: unknown;
 }
 
