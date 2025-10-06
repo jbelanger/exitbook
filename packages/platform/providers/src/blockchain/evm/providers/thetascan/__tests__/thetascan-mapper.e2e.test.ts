@@ -1,4 +1,5 @@
-import type { RawTransactionMetadata, ImportSessionMetadata } from '@exitbook/data';
+import type { RawTransactionMetadata } from '@exitbook/core';
+import type { ImportSessionMetadata } from '@exitbook/data';
 
 import { ProviderRegistry } from '../../../../../core/blockchain/index.ts';
 import { ThetaScanApiClient } from '../thetascan.api-client.js';

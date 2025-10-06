@@ -15,7 +15,5 @@ export type {
   ImportSessionUpdate,
   ImportSessionMetadata,
   StoredImportParams,
-  RawTransactionWithMetadata,
-  RawTransactionMetadata,
   ImportSessionError,
 } from './types/data-types.ts';

@@ -1,4 +1,5 @@
-import type { RawData, RawTransactionWithMetadata } from '@exitbook/data';
+import type { RawTransactionWithMetadata } from '@exitbook/core';
+import type { RawData } from '@exitbook/data';
 import type { Result } from 'neverthrow';
 
 export interface LoadRawDataFilters {

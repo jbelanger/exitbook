@@ -1,12 +1,12 @@
 // Pure exchange utility functions
 // All functions are pure - no side effects
 
+import type { RawTransactionWithMetadata } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 import type { ZodSchema } from 'zod';
 
 import { PartialImportError } from './errors.ts';
-import type { RawTransactionWithMetadata } from './types.ts';
 
 /**
  * Validate credentials against a Zod schema
@@ -57,6 +57,7 @@ export function processItems<TRaw, TParsed>(
     externalId: string;
     rawData: TParsed;
   },
+  exchangeId: string,
   currentCursor: Record<string, number>
 ): Result<RawTransactionWithMetadata[], PartialImportError> {
   const transactions: RawTransactionWithMetadata[] = [];
@@ -83,6 +84,9 @@ export function processItems<TRaw, TParsed>(
     transactions.push({
       cursor,
       externalId,
+      metadata: {
+        providerId: exchangeId,
+      },
       rawData,
     });
 

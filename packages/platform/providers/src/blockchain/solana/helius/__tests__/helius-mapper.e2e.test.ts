@@ -1,4 +1,5 @@
-import type { RawTransactionMetadata, ImportSessionMetadata } from '@exitbook/data';
+import type { RawTransactionMetadata } from '@exitbook/core';
+import type { ImportSessionMetadata } from '@exitbook/data';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { ProviderRegistry } from '../../../../core/blockchain/index.ts';

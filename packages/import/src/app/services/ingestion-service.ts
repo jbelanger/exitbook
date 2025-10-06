@@ -1,4 +1,5 @@
-import type { RawData, ImportSessionMetadata, RawTransactionMetadata, StoredImportParams } from '@exitbook/data';
+import type { RawTransactionMetadata } from '@exitbook/core';
+import type { RawData, ImportSessionMetadata, StoredImportParams } from '@exitbook/data';
 import { PartialImportError } from '@exitbook/exchanges';
 import type { ImportParams } from '@exitbook/import/app/ports/importers.ts';
 import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';

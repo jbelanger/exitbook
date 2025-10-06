@@ -1,4 +1,5 @@
-import type { ImportSessionMetadata, RawTransactionMetadata } from '@exitbook/data';
+import type { RawTransactionMetadata } from '@exitbook/core';
+import type { ImportSessionMetadata } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 

@@ -44,16 +44,12 @@ export class KrakenApiImporter implements IImporter {
       return err(fetchResult.error);
     }
 
-    const transactions = fetchResult.value;
+    const exchangeData = fetchResult.value;
 
-    this.logger.info(`Completed Kraken API import: ${transactions.length} transactions validated`);
+    this.logger.info(`Completed Kraken API import: ${exchangeData.length} transactions validated`);
 
     return ok({
-      metadata: {
-        importMethod: 'api',
-        recordCount: transactions.length,
-      },
-      rawTransactions: transactions,
+      rawTransactions: fetchResult.value,
     });
   }
 }

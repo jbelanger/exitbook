@@ -1,4 +1,4 @@
-import type { RawTransactionWithMetadata } from '@exitbook/data';
+import type { RawTransactionWithMetadata } from '@exitbook/core';
 import type { ExchangeCredentials } from '@exitbook/exchanges';
 import type { Result } from 'neverthrow';
 

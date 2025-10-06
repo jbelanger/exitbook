@@ -1,4 +1,4 @@
-import type { RawTransactionWithMetadata } from './types.ts';
+import type { RawTransactionWithMetadata } from '@exitbook/core';
 
 /**
  * Error thrown when validation fails partway through fetching data.

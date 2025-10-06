@@ -1,4 +1,4 @@
-import type { RawTransactionWithMetadata } from '@exitbook/data';
+import type { RawTransactionWithMetadata } from '@exitbook/core';
 import type { BlockchainImportParams, IImporter, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
 import type { BitcoinWalletAddress, BlockchainProviderManager, ProviderError } from '@exitbook/providers';
 import { BitcoinUtils } from '@exitbook/providers';

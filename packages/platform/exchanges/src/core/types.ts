@@ -1,13 +1,5 @@
+import type { RawTransactionWithMetadata } from '@exitbook/core';
 import type { Result } from 'neverthrow';
-
-/**
- * Transaction with metadata ready for storage
- */
-export interface RawTransactionWithMetadata {
-  cursor?: Record<string, number> | undefined;
-  externalId?: string | undefined;
-  rawData: unknown;
-}
 
 /**
  * Parameters for fetching exchange data

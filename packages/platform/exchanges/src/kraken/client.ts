@@ -1,3 +1,4 @@
+import type { RawTransactionWithMetadata } from '@exitbook/core';
 import * as ccxt from 'ccxt';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -5,7 +6,7 @@ import type z from 'zod';
 
 import { PartialImportError } from '../core/errors.ts';
 import * as ExchangeUtils from '../core/exchange-utils.ts';
-import type { ExchangeCredentials, FetchParams, IExchangeClient, RawTransactionWithMetadata } from '../core/types.ts';
+import type { ExchangeCredentials, FetchParams, IExchangeClient } from '../core/types.ts';
 
 import { KrakenCredentialsSchema, KrakenLedgerEntrySchema } from './schemas.ts';
 
@@ -66,6 +67,7 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
                   rawData: parsedData,
                 };
               },
+              'kraken',
               currentCursor
             );
 

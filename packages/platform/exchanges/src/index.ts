@@ -9,5 +9,8 @@
 export { PartialImportError } from './core/errors.ts';
 export type { ExchangeCredentials } from './core/types.ts';
 
+// Coinbase
+export { createCoinbaseClient, type CoinbaseLedgerEntry } from './coinbase/client.ts';
+
 // Kraken
 export { createKrakenClient, type KrakenLedgerEntry } from './kraken/client.ts';

@@ -1,4 +1,5 @@
-import type { RawTransactionMetadata, ImportSessionMetadata } from '@exitbook/data';
+import type { RawTransactionMetadata } from '@exitbook/core';
+import type { ImportSessionMetadata } from '@exitbook/data';
 import { describe, expect, it } from 'vitest';
 
 import { ThetaScanTransactionMapper } from '../thetascan.mapper.js';

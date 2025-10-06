@@ -1,4 +1,5 @@
-import type { ImportSessionMetadata, RawTransactionMetadata } from '@exitbook/data';
+import type { RawTransactionMetadata } from '@exitbook/core';
+import type { ImportSessionMetadata } from '@exitbook/data';
 import { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
