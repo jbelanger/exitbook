@@ -7,17 +7,17 @@ import { createCoinbaseClient } from '../client.ts';
 
 // Mock ccxt
 vi.mock('ccxt', () => {
-  const mockCoinbase = vi.fn();
+  const mockCoinbaseAdvanced = vi.fn();
   return {
-    coinbase: mockCoinbase,
+    coinbaseadvanced: mockCoinbaseAdvanced,
   };
 });
 
 describe('createCoinbaseClient - Factory', () => {
   test('creates client with valid credentials', () => {
     const credentials = {
-      apiKey: 'test-api-key',
-      secret: 'test-secret',
+      apiKey: 'organizations/test-org/apiKeys/test-key',
+      secret: '-----BEGIN EC PRIVATE KEY-----\nMHcCAQEEITest123\n-----END EC PRIVATE KEY-----',
     };
 
     const result = createCoinbaseClient(credentials);
@@ -65,18 +65,21 @@ describe('createCoinbaseClient - Factory', () => {
 describe('createCoinbaseClient - fetchTransactionData', () => {
   let client: IExchangeClient;
   let mockFetchLedger: ReturnType<typeof vi.fn>;
+  let mockFetchAccounts: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     mockFetchLedger = vi.fn();
+    mockFetchAccounts = vi.fn();
 
-    // Reset the ccxt.coinbase mock
-    (ccxt.coinbase as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+    // Reset the ccxt.coinbaseadvanced mock
+    (ccxt.coinbaseadvanced as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => ({
       fetchLedger: mockFetchLedger,
+      fetchAccounts: mockFetchAccounts,
     }));
 
     const result = createCoinbaseClient({
-      apiKey: 'test-api-key',
-      secret: 'test-secret',
+      apiKey: 'organizations/test-org/apiKeys/test-key',
+      secret: '-----BEGIN EC PRIVATE KEY-----\nMHcCAQEEITest123\n-----END EC PRIVATE KEY-----',
     });
 
     if (result.isErr()) {
@@ -87,10 +90,13 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
   });
 
   test('fetches single page of ledger entries', async () => {
+    // Mock accounts - Coinbase fetches accounts first
+    mockFetchAccounts.mockResolvedValueOnce([{ id: 'account1', currency: 'USD' }]);
+
     const mockLedgerEntries: ccxt.LedgerEntry[] = [
       {
         id: 'LEDGER1',
-        account: 'test-account',
+        account: 'account1',
         amount: 100,
         before: 0,
         after: 100,
@@ -100,12 +106,12 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
         status: 'ok',
         timestamp: 1704067200000,
         datetime: '2024-01-01T00:00:00.000Z',
-        type: 'deposit',
+        type: 'transaction',
         info: {},
       },
       {
         id: 'LEDGER2',
-        account: 'test-account',
+        account: 'account1',
         amount: -50,
         before: 100,
         after: 50,
@@ -115,7 +121,7 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
         status: 'ok',
         timestamp: 1704067201000,
         datetime: '2024-01-01T00:00:01.000Z',
-        type: 'withdrawal',
+        type: 'transaction',
         info: {},
       },
     ];
@@ -133,16 +139,21 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
     expect(transactions[0]?.externalId).toBe('LEDGER1');
     expect(transactions[1]?.externalId).toBe('LEDGER2');
 
-    // Verify fetchLedger was called once
+    // Verify fetchAccounts was called
+    expect(mockFetchAccounts).toHaveBeenCalledTimes(1);
+    // Verify fetchLedger was called once with account_id parameter
     expect(mockFetchLedger).toHaveBeenCalledTimes(1);
-    expect(mockFetchLedger).toHaveBeenCalledWith(undefined, undefined, 100);
+    expect(mockFetchLedger).toHaveBeenCalledWith(undefined, undefined, 100, { account_id: 'account1' });
   });
 
   test('handles pagination with multiple pages', async () => {
+    // Mock accounts - Coinbase fetches accounts first
+    mockFetchAccounts.mockResolvedValueOnce([{ id: 'account1', currency: 'USD' }]);
+
     // Create 100 entries for first page (full page)
     const firstPageEntries: ccxt.LedgerEntry[] = Array.from({ length: 100 }, (_, i) => ({
       id: `LEDGER${i + 1}`,
-      account: 'test-account',
+      account: 'account1',
       amount: 100,
       before: 0,
       after: 100,
@@ -152,14 +163,14 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
       status: 'ok',
       timestamp: 1704067200000 + i * 1000,
       datetime: new Date(1704067200000 + i * 1000).toISOString(),
-      type: 'deposit',
+      type: 'transaction',
       info: {},
     }));
 
     // Create 25 entries for second page (partial page)
     const secondPageEntries: ccxt.LedgerEntry[] = Array.from({ length: 25 }, (_, i) => ({
       id: `LEDGER${i + 101}`,
-      account: 'test-account',
+      account: 'account1',
       amount: 100,
       before: 0,
       after: 100,
@@ -169,7 +180,7 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
       status: 'ok',
       timestamp: 1704067200000 + (i + 100) * 1000,
       datetime: new Date(1704067200000 + (i + 100) * 1000).toISOString(),
-      type: 'deposit',
+      type: 'transaction',
       info: {},
     }));
 
@@ -185,14 +196,18 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
     const transactions = result.value;
     expect(transactions).toHaveLength(125);
 
-    // Verify fetchLedger was called twice
+    // Verify fetchLedger was called twice with account_id
     expect(mockFetchLedger).toHaveBeenCalledTimes(2);
-    expect(mockFetchLedger).toHaveBeenNthCalledWith(1, undefined, undefined, 100);
+    expect(mockFetchLedger).toHaveBeenNthCalledWith(1, undefined, undefined, 100, { account_id: 'account1' });
     // Second call uses timestamp from last item + 1ms
-    expect(mockFetchLedger).toHaveBeenNthCalledWith(2, undefined, 1704067200000 + 99 * 1000 + 1, 100);
+    expect(mockFetchLedger).toHaveBeenNthCalledWith(2, undefined, 1704067200000 + 99 * 1000 + 1, 100, {
+      account_id: 'account1',
+    });
   });
 
   test('handles empty results', async () => {
+    // Mock accounts - Coinbase fetches accounts first
+    mockFetchAccounts.mockResolvedValueOnce([{ id: 'account1', currency: 'USD' }]);
     mockFetchLedger.mockResolvedValueOnce([]);
 
     const result = await client.fetchTransactionData();
@@ -205,18 +220,21 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
   });
 
   test('uses cursor to resume from last position', async () => {
-    const cursor = { ledger: 1704067200000 };
+    // Mock accounts - Coinbase fetches accounts first
+    mockFetchAccounts.mockResolvedValueOnce([{ id: 'account1', currency: 'USD' }]);
+
+    const cursor = { account1: 1704067200000 };
     const params = { cursor };
 
     mockFetchLedger.mockResolvedValueOnce([]);
 
     await client.fetchTransactionData(params);
 
-    expect(mockFetchLedger).toHaveBeenCalledWith(undefined, 1704067200000, 100);
+    expect(mockFetchLedger).toHaveBeenCalledWith(undefined, 1704067200000, 100, { account_id: 'account1' });
   });
 
   test('handles network errors gracefully', async () => {
-    mockFetchLedger.mockRejectedValueOnce(new Error('Network timeout'));
+    mockFetchAccounts.mockRejectedValueOnce(new Error('Network timeout'));
 
     const result = await client.fetchTransactionData();
 
@@ -227,10 +245,13 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
   });
 
   test('returns partial results when network error occurs mid-pagination', async () => {
+    // Mock accounts - Coinbase fetches accounts first
+    mockFetchAccounts.mockResolvedValueOnce([{ id: 'account1', currency: 'USD' }]);
+
     // First page succeeds with 100 entries
     const firstPageEntries: ccxt.LedgerEntry[] = Array.from({ length: 100 }, (_, i) => ({
       id: `LEDGER${i + 1}`,
-      account: 'test-account',
+      account: 'account1',
       amount: 100,
       before: 0,
       after: 100,
@@ -240,7 +261,7 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
       status: 'ok',
       timestamp: 1704067200000 + i * 1000,
       datetime: new Date(1704067200000 + i * 1000).toISOString(),
-      type: 'deposit',
+      type: 'transaction',
       info: {},
     }));
 
@@ -258,15 +279,18 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
       expect(partialError.successfulItems).toHaveLength(100);
       expect(partialError.successfulItems[0]?.externalId).toBe('LEDGER1');
       expect(partialError.successfulItems[99]?.externalId).toBe('LEDGER100');
-      // Verify cursor for resumption
-      expect(partialError.lastSuccessfulCursor?.ledger).toBe(1704067200000 + 99 * 1000 + 1);
+      // Verify cursor for resumption (per account)
+      expect(partialError.lastSuccessfulCursor?.account1).toBe(1704067200000 + 99 * 1000 + 1);
     }
   });
 
   test('handles validation errors with PartialImportError', async () => {
+    // Mock accounts - Coinbase fetches accounts first
+    mockFetchAccounts.mockResolvedValueOnce([{ id: 'account1', currency: 'USD' }]);
+
     const validEntry: ccxt.LedgerEntry = {
       id: 'LEDGER1',
-      account: 'test-account',
+      account: 'account1',
       amount: 100,
       before: 0,
       after: 100,
@@ -276,13 +300,13 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
       status: 'ok',
       timestamp: 1704067200000,
       datetime: '2024-01-01T00:00:00.000Z',
-      type: 'deposit',
+      type: 'transaction',
       info: {},
     };
 
     const invalidEntry: ccxt.LedgerEntry = {
       id: 'LEDGER2',
-      account: 'test-account',
+      account: 'account1',
       amount: 100,
       before: 0,
       after: 100,
@@ -292,7 +316,7 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
       status: 'ok',
       timestamp: 1704067201000,
       datetime: '2024-01-01T00:00:01.000Z',
-      type: 'deposit',
+      type: 'transaction',
       info: {},
     };
 
@@ -312,10 +336,13 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
   });
 
   test('returns partial results when validation error occurs mid-pagination', async () => {
+    // Mock accounts - Coinbase fetches accounts first
+    mockFetchAccounts.mockResolvedValueOnce([{ id: 'account1', currency: 'USD' }]);
+
     // First page: 100 valid entries
     const firstPageEntries: ccxt.LedgerEntry[] = Array.from({ length: 100 }, (_, i) => ({
       id: `LEDGER${i + 1}`,
-      account: 'test-account',
+      account: 'account1',
       amount: 100,
       before: 0,
       after: 100,
@@ -325,14 +352,14 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
       status: 'ok',
       timestamp: 1704067200000 + i * 1000,
       datetime: new Date(1704067200000 + i * 1000).toISOString(),
-      type: 'deposit',
+      type: 'transaction',
       info: {},
     }));
 
     // Second page: starts with valid entry, then has invalid entry
     const validEntry: ccxt.LedgerEntry = {
       id: 'LEDGER101',
-      account: 'test-account',
+      account: 'account1',
       amount: 100,
       before: 0,
       after: 100,
@@ -342,13 +369,13 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
       status: 'ok',
       timestamp: 1704067300000,
       datetime: '2024-01-01T00:01:40.000Z',
-      type: 'deposit',
+      type: 'transaction',
       info: {},
     };
 
     const invalidEntry: ccxt.LedgerEntry = {
       id: 'LEDGER102',
-      account: 'test-account',
+      account: 'account1',
       amount: 100,
       before: 0,
       after: 100,
@@ -358,7 +385,7 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
       status: 'ok',
       timestamp: 1704067301000,
       datetime: '2024-01-01T00:01:41.000Z',
-      type: 'deposit',
+      type: 'transaction',
       info: {},
     };
 
@@ -377,16 +404,19 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
       expect(partialError.successfulItems).toHaveLength(101);
       expect(partialError.successfulItems[0]?.externalId).toBe('LEDGER1');
       expect(partialError.successfulItems[100]?.externalId).toBe('LEDGER101');
-      // Verify cursor is set for resumption
-      expect(partialError.lastSuccessfulCursor?.ledger).toBe(1704067300000);
+      // Verify cursor is set for resumption (per account)
+      expect(partialError.lastSuccessfulCursor?.account1).toBe(1704067300000);
     }
   });
 
   test('updates cursor with latest timestamp', async () => {
+    // Mock accounts - Coinbase fetches accounts first
+    mockFetchAccounts.mockResolvedValueOnce([{ id: 'account1', currency: 'USD' }]);
+
     const mockLedgerEntries: ccxt.LedgerEntry[] = [
       {
         id: 'LEDGER1',
-        account: 'test-account',
+        account: 'account1',
         amount: 100,
         before: 0,
         after: 100,
@@ -396,12 +426,12 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
         status: 'ok',
         timestamp: 1704067200000,
         datetime: '2024-01-01T00:00:00.000Z',
-        type: 'deposit',
+        type: 'transaction',
         info: {},
       },
       {
         id: 'LEDGER2',
-        account: 'test-account',
+        account: 'account1',
         amount: 100,
         before: 100,
         after: 200,
@@ -411,7 +441,7 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
         status: 'ok',
         timestamp: 1704067300000,
         datetime: '2024-01-01T00:01:40.000Z',
-        type: 'deposit',
+        type: 'transaction',
         info: {},
       },
     ];
@@ -424,14 +454,17 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
     if (!result.isOk()) return;
 
     const transactions = result.value;
-    // Latest cursor should be from LEDGER2
-    expect(transactions[1]?.cursor?.ledger).toBe(1704067300000);
+    // Latest cursor should be from LEDGER2 (per account)
+    expect(transactions[1]?.cursor?.account1).toBe(1704067300000);
   });
 
   test('handles three-page pagination correctly', async () => {
+    // Mock accounts - Coinbase fetches accounts first
+    mockFetchAccounts.mockResolvedValueOnce([{ id: 'account1', currency: 'USD' }]);
+
     const page1 = Array.from({ length: 100 }, (_, i) => ({
       id: `LEDGER${i + 1}`,
-      account: 'test-account',
+      account: 'account1',
       amount: 100,
       before: 0,
       after: 100,
@@ -441,13 +474,13 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
       status: 'ok' as const,
       timestamp: 1704067200000 + i * 1000,
       datetime: new Date(1704067200000 + i * 1000).toISOString(),
-      type: 'deposit' as const,
+      type: 'transaction' as const,
       info: {},
     }));
 
     const page2 = Array.from({ length: 100 }, (_, i) => ({
       id: `LEDGER${i + 101}`,
-      account: 'test-account',
+      account: 'account1',
       amount: 100,
       before: 0,
       after: 100,
@@ -457,13 +490,13 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
       status: 'ok' as const,
       timestamp: 1704067200000 + (i + 100) * 1000,
       datetime: new Date(1704067200000 + (i + 100) * 1000).toISOString(),
-      type: 'deposit' as const,
+      type: 'transaction' as const,
       info: {},
     }));
 
     const page3 = Array.from({ length: 10 }, (_, i) => ({
       id: `LEDGER${i + 201}`,
-      account: 'test-account',
+      account: 'account1',
       amount: 100,
       before: 0,
       after: 100,
@@ -473,7 +506,7 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
       status: 'ok' as const,
       timestamp: 1704067200000 + (i + 200) * 1000,
       datetime: new Date(1704067200000 + (i + 200) * 1000).toISOString(),
-      type: 'deposit' as const,
+      type: 'transaction' as const,
       info: {},
     }));
 
@@ -486,8 +519,12 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
 
     expect(result.value).toHaveLength(210);
     expect(mockFetchLedger).toHaveBeenCalledTimes(3);
-    expect(mockFetchLedger).toHaveBeenNthCalledWith(1, undefined, undefined, 100);
-    expect(mockFetchLedger).toHaveBeenNthCalledWith(2, undefined, 1704067200000 + 99 * 1000 + 1, 100);
-    expect(mockFetchLedger).toHaveBeenNthCalledWith(3, undefined, 1704067200000 + 199 * 1000 + 1, 100);
+    expect(mockFetchLedger).toHaveBeenNthCalledWith(1, undefined, undefined, 100, { account_id: 'account1' });
+    expect(mockFetchLedger).toHaveBeenNthCalledWith(2, undefined, 1704067200000 + 99 * 1000 + 1, 100, {
+      account_id: 'account1',
+    });
+    expect(mockFetchLedger).toHaveBeenNthCalledWith(3, undefined, 1704067200000 + 199 * 1000 + 1, 100, {
+      account_id: 'account1',
+    });
   });
 });
