@@ -28,10 +28,7 @@ pnpm vitest run --config vitest.e2e.config.ts <path/to/test.e2e.test.ts>
 All CLI commands use `pnpm run dev` which proxies to `tsx` with `.env` loading:
 
 ```bash
-# Import from exchange CSVs
-pnpm run dev import --exchange kraken --csv-dir ./exports/kraken --process
-
-# Import from exchange API (requires API credentials in .env)
+# Import from exchange API (requires API credentials)
 pnpm run dev import --exchange kraken --api-key YOUR_KEY --api-secret YOUR_SECRET --process
 
 # Import from blockchain
@@ -76,7 +73,7 @@ The system follows a three-phase data flow:
 
 - Importers (`infrastructure/blockchains/*/importer.ts` or `infrastructure/exchanges/*/importer.ts`)
 - Extend `BaseImporter`, implement `IImporter` interface
-- Fetch data from APIs or parse CSVs
+- Fetch data from exchange/blockchain APIs
 - Return `Result<ImportRunResult, Error>` with `rawData: ApiClientRawData[]`
 - Store in `external_transaction_data` table with `processing_status = 'pending'`
 
@@ -135,24 +132,20 @@ Multi-provider architecture with intelligent failover:
 
 **Supported Exchanges:**
 
-- **Kraken** - CSV importer (parses `ledgers.csv` export) OR API importer (via KrakenClient)
-- **KuCoin** - CSV importer (handles multiple CSVs: account history, trading, deposits, withdrawals)
-- **Ledger Live** - CSV importer (imports `operations.csv` from desktop app)
-- **Coinbase** - Stubbed (not yet implemented)
+- **Kraken** - API importer (via KrakenClient using ccxt)
+- **Coinbase** - API importer (via CoinbaseClient using ccxt)
 
 **Each exchange has:**
 
-- CSV Importer: `packages/import/src/infrastructure/exchanges/<exchange>/importer.ts`
-- API Importer (if supported): `packages/import/src/infrastructure/exchanges/<exchange>/api-importer.ts`
-- API Client (if supported): `packages/platform/exchanges/src/<exchange>/client.ts`
+- API Importer: `packages/import/src/infrastructure/exchanges/<exchange>/importer.ts`
+- API Client: `packages/platform/exchanges/src/<exchange>/client.ts`
 - Processor: `packages/import/src/infrastructure/exchanges/<exchange>/processor.ts`
-- Zod schemas: For both CSV validation and API response validation
+- Zod schemas: For API response validation
 
-**Import Methods:**
+**Import Requirements:**
 
-- CSV import requires `--csv-dir` flag
 - API import requires `--api-key` and `--api-secret` flags (some exchanges may also need `--api-passphrase`)
-- ImporterFactory automatically selects CSV or API importer based on provided parameters
+- All exchange credentials should be stored in `.env` file for security
 
 ### Database Layer
 
@@ -163,7 +156,7 @@ Multi-provider architecture with intelligent failover:
 **Key Tables:**
 
 - `import_sessions` - Tracks each import run with provider, status, metadata
-- `external_transaction_data` - Stores raw API/CSV payloads with `processing_status`
+- `external_transaction_data` - Stores raw API responses with `processing_status`
 - `transactions` - Normalized universal transaction records
 
 **Repositories:**
@@ -205,7 +198,7 @@ return ok(result.value);
 
 ### Zod Schemas
 
-Runtime validation for all external data (API responses, CSV rows):
+Runtime validation for all external data (API responses):
 
 - Schemas defined in `*.schemas.ts` files
 - Used in importers and processors for validation
@@ -244,10 +237,11 @@ SOLSCAN_API_KEY=...
 TATUM_API_KEY=...
 TAOSTATS_API_KEY=...
 
-# Exchanges (for direct API import, not CSV)
-KUCOIN_API_KEY=...
-KUCOIN_SECRET=...
-KUCOIN_PASSPHRASE=...
+# Exchanges
+KRAKEN_API_KEY=...
+KRAKEN_SECRET=...
+COINBASE_API_KEY=...
+COINBASE_SECRET=...
 ```
 
 ## Common Development Workflows
@@ -265,10 +259,11 @@ KUCOIN_PASSPHRASE=...
 ### Adding a New Exchange Adapter
 
 1. Create directory: `packages/import/src/infrastructure/exchanges/<exchange>/`
-2. Implement importer extending `BaseImporter` (parse CSV or call API)
-3. Implement processor transforming raw data to `StoredTransaction`
-4. Create Zod schemas for validation
-5. Register in exchange registry
+2. Implement API client in `packages/platform/exchanges/src/<exchange>/client.ts` using ccxt
+3. Implement importer extending `BaseImporter` to call the API client
+4. Implement processor transforming raw API data to `StoredTransaction`
+5. Create Zod schemas for API response validation
+6. Register in exchange registry (ImporterFactory)
 
 ### Testing Changes
 
@@ -283,12 +278,12 @@ pnpm vitest run packages/import/src/infrastructure/blockchains/bitcoin
 pnpm test
 
 # Test CLI command
-pnpm run dev import --exchange kraken --csv-dir ./test-data --process
+pnpm run dev import --exchange kraken --api-key YOUR_KEY --api-secret YOUR_SECRET --process
 ```
 
 ## Project Context
 
-**Purpose:** Track, log, and analyze cryptocurrency activity across exchanges and blockchains. Import raw data from CSVs and APIs, normalize into a universal transaction schema, and verify balances.
+**Purpose:** Track, log, and analyze cryptocurrency activity across exchanges and blockchains. Import raw data from exchange and blockchain APIs, normalize into a universal transaction schema, and verify balances.
 
 **Requirements:**
 

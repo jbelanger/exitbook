@@ -372,7 +372,6 @@ export class TransactionIngestionService {
     // Check for existing completed session with matching parameters
     const existingSessionResult = await this.sessionRepository.findCompletedWithMatchingParams(sourceId, sourceType, {
       address: params.address,
-      csvDirectories: params.csvDirectories,
       providerId: params.providerId,
     });
 

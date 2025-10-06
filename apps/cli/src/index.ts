@@ -58,7 +58,6 @@ interface ImportOptions {
   apiSecret?: string | undefined;
   blockchain?: string | undefined;
   clearDb?: boolean | undefined;
-  csvDir?: string | undefined;
   exchange?: string | undefined;
   process?: boolean | undefined;
   provider?: string | undefined;
@@ -234,9 +233,8 @@ async function main() {
   program
     .command('import')
     .description('Import raw data from external sources (blockchain or exchange)')
-    .option('--exchange <name>', 'Exchange name (e.g., kraken, kucoin, ledgerlive)')
+    .option('--exchange <name>', 'Exchange name (e.g., kraken, coinbase)')
     .option('--blockchain <name>', 'Blockchain name (e.g., bitcoin, ethereum, polkadot, bittensor)')
-    .option('--csv-dir <path>', 'CSV directory for exchange sources')
     .option('--address <address>', 'Wallet address for blockchain source')
     .option('--provider <name>', 'Blockchain provider for blockchain sources')
     .option('--api-key <key>', 'API key for exchange API access')
@@ -266,15 +264,8 @@ async function main() {
         logger.info(`Starting data import from ${sourceName} (${sourceType})`);
 
         // Validate parameters based on source type
-        if (sourceType === 'exchange' && !options.csvDir && !options.apiKey) {
-          logger.error(
-            'Either --csv-dir or API credentials (--api-key, --api-secret) are required for exchange sources'
-          );
-          process.exit(1);
-        }
-
-        if (sourceType === 'exchange' && options.csvDir && options.apiKey) {
-          logger.error('Cannot specify both --csv-dir and API credentials. Choose one import method.');
+        if (sourceType === 'exchange' && !options.apiKey) {
+          logger.error('API credentials (--api-key, --api-secret) are required for exchange sources');
           process.exit(1);
         }
 
@@ -312,19 +303,15 @@ async function main() {
           const importParams: ImportParams = {};
           // Set parameters based on source type
           if (sourceType === 'exchange') {
-            if (options.csvDir) {
-              importParams.csvDirectories = [options.csvDir];
-            } else if (options.apiKey && options.apiSecret) {
-              // Build credentials object
-              const credentials: Record<string, string> = {
-                apiKey: options.apiKey,
-                secret: options.apiSecret,
-              };
-              if (options.apiPassphrase) {
-                credentials.passphrase = options.apiPassphrase;
-              }
-              importParams.credentials = credentials;
+            // Build credentials object
+            const credentials: Record<string, string> = {
+              apiKey: options.apiKey!,
+              secret: options.apiSecret!,
+            };
+            if (options.apiPassphrase) {
+              credentials.passphrase = options.apiPassphrase;
             }
+            importParams.credentials = credentials;
           } else {
             importParams.address = options.address;
             importParams.providerId = options.provider;

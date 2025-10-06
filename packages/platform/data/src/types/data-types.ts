@@ -46,7 +46,6 @@ export interface ImportSessionQuery {
  */
 export interface StoredImportParams {
   address?: string | undefined;
-  csvDirectories?: string[] | undefined;
   exchangeCredentials?: Record<string, unknown> | undefined;
   providerId?: string | undefined;
 }
@@ -57,9 +56,6 @@ export interface StoredImportParams {
 export interface ImportSessionMetadata {
   // User-provided address
   address?: string | undefined;
-
-  // CSV import directories for exchange imports
-  csvDirectories?: string[] | undefined;
 
   // Bitcoin xpub-derived addresses for multi-address wallets
   derivedAddresses?: string[] | undefined;

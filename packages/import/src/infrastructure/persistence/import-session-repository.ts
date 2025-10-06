@@ -217,7 +217,7 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
     sourceType: 'exchange' | 'blockchain',
     params: {
       address?: string;
-      csvDirectories?: string[];
+      providerId?: string;
       since?: number;
     }
   ): Promise<Result<ImportSession | undefined, Error>> {
@@ -245,11 +245,7 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
         // Compare relevant parameters
         const addressMatches = params.address === storedParams.address;
 
-        // Compare CSV directories (arrays need deep comparison)
-        const csvDirsMatch =
-          JSON.stringify(params.csvDirectories?.sort()) === JSON.stringify(storedParams.csvDirectories?.sort());
-
-        if (addressMatches && csvDirsMatch) {
+        if (addressMatches) {
           return ok(session);
         }
       }

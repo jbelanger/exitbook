@@ -68,7 +68,6 @@ export interface IImportSessionRepository {
     sourceType: 'exchange' | 'blockchain',
     params: {
       address?: string | undefined;
-      csvDirectories?: string[] | undefined;
       providerId?: string | undefined;
       since?: number | undefined;
     }
