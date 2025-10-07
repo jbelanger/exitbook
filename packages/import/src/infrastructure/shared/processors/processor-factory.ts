@@ -144,6 +144,9 @@ export class ProcessorFactory implements IProcessorFactory {
       case 'coinbase':
         return await this.createCoinbaseProcessor();
 
+      case 'kucoin':
+        return await this.createKuCoinProcessor();
+
       default:
         throw new Error(`Unsupported exchange processor: ${sourceId}`);
     }
@@ -179,6 +182,15 @@ export class ProcessorFactory implements IProcessorFactory {
     // Dynamic import to avoid circular dependencies
     const { CoinbaseProcessor } = await import('../../exchanges/coinbase/processor.ts');
     return new CoinbaseProcessor();
+  }
+
+  /**
+   * Create KuCoin processor.
+   */
+  private async createKuCoinProcessor(): Promise<ITransactionProcessor> {
+    // Dynamic import to avoid circular dependencies
+    const { KuCoinProcessor } = await import('../../exchanges/kucoin/processor.ts');
+    return new KuCoinProcessor();
   }
 
   /**

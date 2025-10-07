@@ -136,6 +136,9 @@ export class ImporterFactory implements IImporterFactory {
       case 'kraken':
         return await this.createKrakenImporter();
 
+      case 'kucoin':
+        return await this.createKuCoinImporter();
+
       default:
         throw new Error(`Unsupported exchange importer: ${sourceId}`);
     }
@@ -170,11 +173,19 @@ export class ImporterFactory implements IImporterFactory {
   }
 
   /**
-   * Create Kraken importer (CSV or API based on params).
+   * Create Coinbase importer.
    */
   private async createCoinbaseImporter(): Promise<IImporter> {
     const { CoinbaseApiImporter } = await import('../../exchanges/coinbase/importer.ts');
     return new CoinbaseApiImporter() as unknown as IImporter;
+  }
+
+  /**
+   * Create KuCoin importer.
+   */
+  private async createKuCoinImporter(): Promise<IImporter> {
+    const { KuCoinApiImporter } = await import('../../exchanges/kucoin/importer.ts');
+    return new KuCoinApiImporter() as unknown as IImporter;
   }
 
   /**

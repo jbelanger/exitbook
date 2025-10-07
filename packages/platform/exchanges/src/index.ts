@@ -14,3 +14,6 @@ export { createCoinbaseClient, type CoinbaseLedgerEntry } from './coinbase/clien
 
 // Kraken
 export { createKrakenClient, type KrakenLedgerEntry } from './kraken/client.ts';
+
+// KuCoin
+export { createKuCoinClient, type KuCoinLedgerEntry } from './kucoin/client.ts';
