@@ -12,6 +12,7 @@ import {
   CsvDepositWithdrawalRowSchema,
   CsvOrderSplittingRowSchema,
   CsvSpotOrderRowSchema,
+  CsvTradingBotRowSchema,
 } from './schemas.js';
 
 /**
@@ -21,6 +22,7 @@ export type ValidatedCsvSpotOrderRow = z.infer<typeof CsvSpotOrderRowSchema>;
 export type ValidatedCsvDepositWithdrawalRow = z.infer<typeof CsvDepositWithdrawalRowSchema>;
 export type ValidatedCsvAccountHistoryRow = z.infer<typeof CsvAccountHistoryRowSchema>;
 export type ValidatedCsvOrderSplittingRow = z.infer<typeof CsvOrderSplittingRowSchema>;
+export type ValidatedCsvTradingBotRow = z.infer<typeof CsvTradingBotRowSchema>;
 export type ValidatedCsvKuCoinRawData = z.infer<typeof CsvKuCoinRawDataSchema>;
 
 /**
@@ -122,6 +124,25 @@ export function validateKuCoinOrderSplitting(
   });
 
   return { invalid, section: 'order-splitting', totalRows: data.length, valid };
+}
+
+/**
+ * Validate KuCoin trading bot rows
+ */
+export function validateKuCoinTradingBot(data: unknown[]): KuCoinCsvBatchValidationResult<ValidatedCsvTradingBotRow> {
+  const valid: ValidatedCsvTradingBotRow[] = [];
+  const invalid: { data: unknown; errors: z.ZodError; rowIndex: number }[] = [];
+
+  data.forEach((item, index) => {
+    const result = CsvTradingBotRowSchema.safeParse(item);
+    if (result.success) {
+      valid.push(result.data);
+    } else {
+      invalid.push({ data: item, errors: result.error, rowIndex: index });
+    }
+  });
+
+  return { invalid, section: 'trading-bot', totalRows: data.length, valid };
 }
 
 /**

@@ -71,11 +71,29 @@ export interface CsvOrderSplittingRow {
   UID: string;
 }
 
+export interface CsvTradingBotRow {
+  'Account Type': string;
+  Fee: string;
+  'Fee Currency': string;
+  'Filled Amount': string;
+  'Filled Price': string;
+  'Filled Volume': string;
+  'Filled Volume (USDT)': string;
+  'Order ID': string;
+  'Order Type': string;
+  Side: string;
+  Symbol: string;
+  Tax?: string | undefined;
+  'Time Filled(UTC)': string;
+  UID: string;
+}
+
 // Structured raw data type for better flow
 export interface CsvKuCoinRawData {
   accountHistory: CsvAccountHistoryRow[];
   deposits: CsvDepositWithdrawalRow[];
   orderSplitting: CsvOrderSplittingRow[];
   spotOrders: CsvSpotOrderRow[];
+  tradingBot: CsvTradingBotRow[];
   withdrawals: CsvDepositWithdrawalRow[];
 }

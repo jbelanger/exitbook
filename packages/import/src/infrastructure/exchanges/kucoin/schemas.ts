@@ -221,9 +221,19 @@ export const CsvAccountHistoryRowSchema = z
       .min(1, 'Type must not be empty')
       .refine(
         (val) =>
-          ['airdrop', 'deposit', 'rebate', 'reward', 'spot', 'trade', 'trading fee', 'transfer', 'withdrawal'].includes(
-            val.toLowerCase()
-          ),
+          [
+            'airdrop',
+            'convert market',
+            'deposit',
+            'rebate',
+            'reward',
+            'spot',
+            'trade',
+            'trading fee',
+            'transfer',
+            'withdraw',
+            'withdrawal',
+          ].includes(val.toLowerCase()),
         'Type must be a valid KuCoin account history type'
       ),
 
@@ -320,6 +330,87 @@ export const CsvOrderSplittingRowSchema = z
   .strict();
 
 /**
+ * Schema for validating KuCoin Trading Bot order-splitting (trade fills) row data
+ * Similar to regular order-splitting but with slightly different field names and no Maker/Taker
+ */
+export const CsvTradingBotRowSchema = z
+  .object({
+    /** User ID */
+    UID: z.string().min(1, 'UID must not be empty'),
+
+    /** Account type (e.g., 'main', 'trade', 'subAccount') */
+    'Account Type': z.string().min(1, 'Account Type must not be empty'),
+
+    /** Unique order identifier */
+    'Order ID': z.string().min(1, 'Order ID must not be empty'),
+
+    /** Trading pair symbol */
+    Symbol: z.string().min(1, 'Symbol must not be empty'),
+
+    /** Buy or sell side */
+    Side: z
+      .string()
+      .min(1, 'Side must not be empty')
+      .refine((val) => ['buy', 'sell'].includes(val.toLowerCase()), 'Side must be either buy or sell'),
+
+    /** Order type (e.g., 'limit', 'market') */
+    'Order Type': z
+      .string()
+      .min(1, 'Order Type must not be empty')
+      .refine(
+        (val) => ['limit', 'market', 'stop', 'stop_limit'].includes(val.toLowerCase()),
+        'Order Type must be a valid KuCoin order type'
+      ),
+
+    /** Price for this specific fill */
+    'Filled Price': z
+      .string()
+      .regex(/^\d+(\.\d+)?$/, 'Filled Price must be a valid positive number format')
+      .refine((val) => !isNaN(parseFloat(val)), 'Filled Price must be parseable as number'),
+
+    /** Amount that was filled in this transaction */
+    'Filled Amount': z
+      .string()
+      .regex(/^\d+(\.\d+)?$/, 'Filled Amount must be a valid positive number format')
+      .refine((val) => !isNaN(parseFloat(val)), 'Filled Amount must be parseable as number'),
+
+    /** Volume of the filled transaction */
+    'Filled Volume': z
+      .string()
+      .regex(/^\d+(\.\d+)?$/, 'Filled Volume must be a valid positive number format')
+      .refine((val) => !isNaN(parseFloat(val)), 'Filled Volume must be parseable as number'),
+
+    /** Filled volume in USDT equivalent */
+    'Filled Volume (USDT)': z
+      .string()
+      .regex(/^\d+(\.\d+)?$/, 'Filled Volume (USDT) must be a valid positive number format')
+      .refine((val) => !isNaN(parseFloat(val)), 'Filled Volume (USDT) must be parseable as number'),
+
+    /** When the fill occurred (UTC) */
+    'Time Filled(UTC)': z
+      .string()
+      .min(1, 'Time Filled must not be empty')
+      .regex(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/, 'Time Filled must be in YYYY-MM-DD HH:mm:ss format'),
+
+    /** Trading fee for this fill */
+    Fee: z
+      .string()
+      .regex(/^-?\d+(\.\d+)?$/, 'Fee must be a valid number format')
+      .refine((val) => !isNaN(parseFloat(val)), 'Fee must be parseable as number'),
+
+    /** Fee currency */
+    'Fee Currency': z.string().min(1, 'Fee Currency must not be empty'),
+
+    /** Tax amount (optional field) */
+    Tax: z
+      .string()
+      .refine((val) => val === '' || /^-?\d+(\.\d+)?$/.test(val), 'Tax must be a valid number format or empty string')
+      .transform((val) => (val === '' ? undefined : val))
+      .optional(),
+  })
+  .strict();
+
+/**
  * Schema for combined raw data from all KuCoin CSV sources
  */
 export const CsvKuCoinRawDataSchema = z
@@ -328,6 +419,7 @@ export const CsvKuCoinRawDataSchema = z
     deposits: z.array(CsvDepositWithdrawalRowSchema),
     orderSplitting: z.array(CsvOrderSplittingRowSchema),
     spotOrders: z.array(CsvSpotOrderRowSchema),
+    tradingBot: z.array(CsvTradingBotRowSchema),
     withdrawals: z.array(CsvDepositWithdrawalRowSchema),
   })
   .strict();

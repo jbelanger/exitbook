@@ -4,7 +4,13 @@ import { type Result, ok } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';
 
-import type { CsvAccountHistoryRow, CsvDepositWithdrawalRow, CsvOrderSplittingRow, CsvSpotOrderRow } from './types.js';
+import type {
+  CsvAccountHistoryRow,
+  CsvDepositWithdrawalRow,
+  CsvOrderSplittingRow,
+  CsvSpotOrderRow,
+  CsvTradingBotRow,
+} from './types.js';
 
 /**
  * Processor for KuCoin CSV data.
@@ -50,6 +56,11 @@ export class KucoinProcessor extends BaseTransactionProcessor {
           case 'account_history': {
             // Collect account history rows for batch processing (convert market grouping)
             accountHistoryRows.push(row as CsvAccountHistoryRow);
+            break;
+          }
+          case 'trading_bot': {
+            const transaction = this.convertTradingBotToTransaction(row as CsvTradingBotRow);
+            allTransactions.push(transaction);
             break;
           }
           default:
@@ -278,6 +289,86 @@ export class KucoinProcessor extends BaseTransactionProcessor {
         filledVolumeUSDT: parseDecimal(row['Filled Volume (USDT)']).toNumber(),
         orderId: row['Order ID'],
         fillType: 'order-splitting',
+        originalRow: row,
+      },
+    };
+  }
+
+  private convertTradingBotToTransaction(row: CsvTradingBotRow): UniversalTransaction {
+    const timestamp = new Date(row['Time Filled(UTC)']).getTime();
+    const [baseCurrency, quoteCurrency] = row.Symbol.split('-');
+    const filledAmount = parseDecimal(row['Filled Amount']).toNumber();
+    const filledVolume = parseDecimal(row['Filled Volume']).toNumber();
+    const fee = parseDecimal(row.Fee).toNumber();
+    const platformFee = createMoney(fee.toString(), row['Fee Currency']);
+    const side = row.Side.toLowerCase() as 'buy' | 'sell';
+
+    // For trading bot fills (similar to order-splitting):
+    // - Buy: spent quoteCurrency (filledVolume), received baseCurrency (filledAmount)
+    // - Sell: spent baseCurrency (filledAmount), received quoteCurrency (filledVolume)
+    const isBuy = side === 'buy';
+
+    // Generate unique ID using order ID + timestamp + filled amount to handle multiple fills
+    const uniqueId = `${row['Order ID']}-${timestamp}-${filledAmount}`;
+
+    return {
+      // Core fields
+      id: uniqueId,
+      datetime: row['Time Filled(UTC)'],
+      timestamp,
+      source: 'kucoin',
+      status: 'closed', // Trading bot data only shows completed fills
+
+      // Structured movements - trade has both outflow and inflow
+      movements: {
+        outflows: [
+          {
+            asset: isBuy ? quoteCurrency || 'unknown' : baseCurrency || 'unknown',
+            amount: createMoney(
+              isBuy ? filledVolume.toString() : filledAmount.toString(),
+              isBuy ? quoteCurrency || 'unknown' : baseCurrency || 'unknown'
+            ),
+          },
+        ],
+        inflows: [
+          {
+            asset: isBuy ? baseCurrency || 'unknown' : quoteCurrency || 'unknown',
+            amount: createMoney(
+              isBuy ? filledAmount.toString() : filledVolume.toString(),
+              isBuy ? baseCurrency || 'unknown' : quoteCurrency || 'unknown'
+            ),
+          },
+        ],
+        primary: {
+          asset: baseCurrency || 'unknown', // Base currency is always primary
+          amount: createMoney(isBuy ? filledAmount.toString() : (-filledAmount).toString(), baseCurrency || 'unknown'),
+          direction: isBuy ? ('in' as const) : ('out' as const),
+        },
+      },
+
+      // Structured fees - exchange trades have platform fees
+      fees: {
+        network: undefined, // No network fee for exchange trades
+        platform: platformFee,
+        total: platformFee,
+      },
+
+      // Operation classification - 10/10 confidence: trading bot is trade/buy or trade/sell
+      operation: {
+        category: 'trade',
+        type: side, // 'buy' or 'sell'
+      },
+
+      // Price information
+      price: createMoney(filledVolume.toString(), quoteCurrency || 'unknown'),
+
+      // Minimal metadata
+      metadata: {
+        side,
+        orderType: row['Order Type'],
+        filledVolumeUSDT: parseDecimal(row['Filled Volume (USDT)']).toNumber(),
+        orderId: row['Order ID'],
+        fillType: 'trading-bot',
         originalRow: row,
       },
     };

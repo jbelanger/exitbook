@@ -10,12 +10,19 @@ import { err, ok, type Result } from 'neverthrow';
 import { CsvParser } from '../csv-parser.js';
 
 import { CSV_FILE_TYPES } from './constants.js';
-import type { CsvAccountHistoryRow, CsvDepositWithdrawalRow, CsvOrderSplittingRow, CsvSpotOrderRow } from './types.js';
+import type {
+  CsvAccountHistoryRow,
+  CsvDepositWithdrawalRow,
+  CsvOrderSplittingRow,
+  CsvSpotOrderRow,
+  CsvTradingBotRow,
+} from './types.js';
 import {
   validateKuCoinAccountHistory,
   validateKuCoinDepositsWithdrawals,
   validateKuCoinOrderSplitting,
   validateKuCoinSpotOrders,
+  validateKuCoinTradingBot,
 } from './utils.js';
 
 /**
@@ -241,9 +248,116 @@ export class KucoinCsvImporter implements IImporter {
                 }
                 break;
               }
+              case 'trading_bot': {
+                this.logger.info(`Processing trading bot CSV file: ${file}`);
+                const rawRows = await this.parseCsvFile<CsvTradingBotRow>(filePath);
+
+                // Validate CSV data using Zod schemas
+                const validationResult = validateKuCoinTradingBot(rawRows);
+
+                if (validationResult.invalid.length > 0) {
+                  this.logger.error(
+                    `${validationResult.invalid.length} invalid trading bot rows in ${file}. ` +
+                      `Invalid: ${validationResult.invalid.length}, Valid: ${validationResult.valid.length}, Total: ${rawRows.length}`
+                  );
+                  // Log first few validation errors for debugging
+                  validationResult.invalid.slice(0, 3).forEach(({ errors, rowIndex }) => {
+                    const fieldErrors = errors.issues
+                      .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+                      .join('; ');
+                    this.logger.debug(`Row ${rowIndex + 1} validation errors: ${fieldErrors}`);
+                  });
+                }
+
+                this.logger.info(
+                  `Parsed and validated ${validationResult.valid.length} trading bot transactions from ${file}`
+                );
+
+                // Convert each row to a RawTransactionWithMetadata
+                for (const row of validationResult.valid) {
+                  // Use Order ID + Time Filled as external ID since there can be multiple fills per order
+                  const externalId = `${row['Order ID']}-${row['Time Filled(UTC)']}`;
+                  rawTransactions.push({
+                    metadata: { providerId: 'kucoin', transactionType: 'trading_bot' },
+                    rawData: { _rowType: 'trading_bot', ...row },
+                    externalId,
+                  });
+                }
+                break;
+              }
               case 'convert':
                 this.logger.warn(`Skipping convert orders CSV file - using account history instead: ${file}`);
                 break;
+              case 'not_implemented_futures_orders':
+              case 'not_implemented_futures_pnl': {
+                const recordCount = await this.countCsvRecords(filePath);
+                if (recordCount > 0) {
+                  this.logger.warn(
+                    `Skipping ${recordCount} futures trading transaction${recordCount === 1 ? '' : 's'} (not yet implemented): ${file}. Futures trading support coming soon.`
+                  );
+                } else {
+                  this.logger.info(`No records found in futures trading file: ${file}`);
+                }
+                break;
+              }
+              case 'not_implemented_margin_borrowings':
+              case 'not_implemented_margin_orders':
+              case 'not_implemented_margin_lending': {
+                const recordCount = await this.countCsvRecords(filePath);
+                if (recordCount > 0) {
+                  this.logger.warn(
+                    `Skipping ${recordCount} margin trading transaction${recordCount === 1 ? '' : 's'} (not yet implemented): ${file}. Margin trading support coming soon.`
+                  );
+                } else {
+                  this.logger.info(`No records found in margin trading file: ${file}`);
+                }
+                break;
+              }
+              case 'not_implemented_fiat_trading':
+              case 'not_implemented_fiat_deposits':
+              case 'not_implemented_fiat_withdrawals':
+              case 'not_implemented_fiat_p2p':
+              case 'not_implemented_fiat_third_party': {
+                const recordCount = await this.countCsvRecords(filePath);
+                if (recordCount > 0) {
+                  this.logger.warn(
+                    `Skipping ${recordCount} fiat transaction${recordCount === 1 ? '' : 's'} (not yet implemented): ${file}. Fiat transaction support coming soon.`
+                  );
+                } else {
+                  this.logger.info(`No records found in fiat transaction file: ${file}`);
+                }
+                break;
+              }
+              case 'not_implemented_earn_profit':
+              case 'not_implemented_earn_staking': {
+                const recordCount = await this.countCsvRecords(filePath);
+                if (recordCount > 0) {
+                  this.logger.warn(
+                    `Skipping ${recordCount} earn/staking transaction${recordCount === 1 ? '' : 's'} (not yet implemented): ${file}. Staking rewards support coming soon.`
+                  );
+                } else {
+                  this.logger.info(`No records found in earn/staking file: ${file}`);
+                }
+                break;
+              }
+              case 'not_implemented_trading_bot': {
+                const recordCount = await this.countCsvRecords(filePath);
+                if (recordCount > 0) {
+                  this.logger.warn(
+                    `Skipping ${recordCount} trading bot transaction${recordCount === 1 ? '' : 's'} (not yet implemented): ${file}. Trading bot transaction support coming soon.`
+                  );
+                } else {
+                  this.logger.info(`No records found in trading bot file: ${file}`);
+                }
+                break;
+              }
+              case 'not_implemented_snapshots': {
+                const recordCount = await this.countCsvRecords(filePath);
+                this.logger.info(
+                  `Skipping asset snapshots file (${recordCount} snapshot${recordCount === 1 ? '' : 's'}): ${file}. Snapshots are informational only and not imported.`
+                );
+                break;
+              }
               case 'unknown':
                 this.logger.warn(`Skipping unrecognized CSV file: ${file}`);
                 break;
@@ -293,6 +407,21 @@ export class KucoinCsvImporter implements IImporter {
   }
 
   /**
+   * Count the number of data records in a CSV file (excluding header).
+   */
+  private async countCsvRecords(filePath: string): Promise<number> {
+    try {
+      const content = await fs.readFile(filePath, 'utf-8');
+      const lines = content.trim().split('\n');
+      // Subtract 1 for header row, return 0 if only header or empty
+      return Math.max(0, lines.length - 1);
+    } catch (error) {
+      this.logger.error(`Failed to count records in ${filePath}: ${String(error)}`);
+      return 0;
+    }
+  }
+
+  /**
    * Validate CSV headers and determine file type.
    */
   private async validateCSVHeaders(filePath: string): Promise<string> {
@@ -300,12 +429,6 @@ export class KucoinCsvImporter implements IImporter {
 
     try {
       const fileType = await CsvParser.validateHeaders(filePath, expectedHeaders);
-
-      if (fileType === 'unknown') {
-        const headers = await CsvParser.getHeaders(filePath);
-        this.logger.warn(`Unrecognized CSV headers in ${filePath}: ${headers}`);
-      }
-
       return fileType;
     } catch (error) {
       this.logger.error(`Failed to validate CSV headers for ${filePath}: ${String(error)}`);
