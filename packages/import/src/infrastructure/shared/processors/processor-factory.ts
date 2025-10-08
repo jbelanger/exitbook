@@ -62,11 +62,15 @@ export class ProcessorFactory implements IProcessorFactory {
   /**
    * Create a processor for the specified source.
    */
-  async create(sourceId: string, sourceType: string): Promise<ITransactionProcessor> {
+  async create(
+    sourceId: string,
+    sourceType: string,
+    metadata?: Record<string, unknown>
+  ): Promise<ITransactionProcessor> {
     this.logger.info(`Creating processor for ${sourceId} (type: ${sourceType})`);
 
     if (sourceType === 'exchange') {
-      return await this.createExchangeProcessor(sourceId);
+      return await this.createExchangeProcessor(sourceId, metadata);
     }
 
     if (sourceType === 'blockchain') {
@@ -136,7 +140,10 @@ export class ProcessorFactory implements IProcessorFactory {
   /**
    * Create an exchange processor.
    */
-  private async createExchangeProcessor(sourceId: string): Promise<ITransactionProcessor> {
+  private async createExchangeProcessor(
+    sourceId: string,
+    metadata?: Record<string, unknown>
+  ): Promise<ITransactionProcessor> {
     switch (sourceId.toLowerCase()) {
       case 'kraken':
         return await this.createKrakenProcessor();
@@ -145,7 +152,7 @@ export class ProcessorFactory implements IProcessorFactory {
         return await this.createCoinbaseProcessor();
 
       case 'kucoin':
-        return await this.createKuCoinProcessor();
+        return await this.createKuCoinProcessor(metadata);
 
       default:
         throw new Error(`Unsupported exchange processor: ${sourceId}`);
@@ -185,10 +192,19 @@ export class ProcessorFactory implements IProcessorFactory {
   }
 
   /**
-   * Create KuCoin processor.
+   * Create KuCoin processor (CSV or API based on metadata).
    */
-  private async createKuCoinProcessor(): Promise<ITransactionProcessor> {
-    // Dynamic import to avoid circular dependencies
+  private async createKuCoinProcessor(metadata?: Record<string, unknown>): Promise<ITransactionProcessor> {
+    // Check if this is a CSV import by looking at import metadata
+    const importMethod = metadata?.importMethod as string | undefined;
+
+    if (importMethod === 'csv') {
+      // Use CSV processor
+      const { KucoinProcessor } = await import('../../exchanges/kucoin/processor-csv.ts');
+      return new KucoinProcessor();
+    }
+
+    // Otherwise, use API processor
     const { KuCoinProcessor } = await import('../../exchanges/kucoin/processor.ts');
     return new KuCoinProcessor();
   }

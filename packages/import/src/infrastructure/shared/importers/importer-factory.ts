@@ -20,7 +20,7 @@ export class ImporterFactory implements IImporterFactory {
     this.logger.info(`Creating importer for ${sourceId} (type: ${sourceType})`);
 
     if (sourceType === 'exchange') {
-      return await this.createExchangeImporter(sourceId);
+      return await this.createExchangeImporter(sourceId, params);
     }
 
     if (sourceType === 'blockchain') {
@@ -128,7 +128,7 @@ export class ImporterFactory implements IImporterFactory {
    * Create an exchange importer.
    * Decides between CSV or API importer based on ImportParams.
    */
-  private async createExchangeImporter(sourceId: string): Promise<IImporter> {
+  private async createExchangeImporter(sourceId: string, params?: ImportParams): Promise<IImporter> {
     switch (sourceId.toLowerCase()) {
       case 'coinbase':
         return await this.createCoinbaseImporter();
@@ -137,7 +137,7 @@ export class ImporterFactory implements IImporterFactory {
         return await this.createKrakenImporter();
 
       case 'kucoin':
-        return await this.createKuCoinImporter();
+        return await this.createKuCoinImporter(params);
 
       default:
         throw new Error(`Unsupported exchange importer: ${sourceId}`);
@@ -181,9 +181,16 @@ export class ImporterFactory implements IImporterFactory {
   }
 
   /**
-   * Create KuCoin importer.
+   * Create KuCoin importer (CSV or API based on params).
    */
-  private async createKuCoinImporter(): Promise<IImporter> {
+  private async createKuCoinImporter(params?: ImportParams): Promise<IImporter> {
+    // If CSV directories are provided, use CSV importer
+    if (params && params.csvDirectories && Array.isArray(params.csvDirectories) && params.csvDirectories.length > 0) {
+      const { KucoinCsvImporter } = await import('../../exchanges/kucoin/importer-csv.ts');
+      return new KucoinCsvImporter() as unknown as IImporter;
+    }
+
+    // Otherwise, use API importer
     const { KuCoinApiImporter } = await import('../../exchanges/kucoin/importer.ts');
     return new KuCoinApiImporter() as unknown as IImporter;
   }

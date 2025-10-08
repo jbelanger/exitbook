@@ -8,5 +8,5 @@ export interface IProcessorFactory {
   /**
    * Create a processor for the specified source.
    */
-  create(sourceId: string, sourceType: string): Promise<ITransactionProcessor>;
+  create(sourceId: string, sourceType: string, metadata?: Record<string, unknown>): Promise<ITransactionProcessor>;
 }

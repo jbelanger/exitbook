@@ -272,7 +272,7 @@ export class TransactionIngestionService {
         }
 
         // Create processor with session-specific context
-        const processor = await this.processorFactory.create(sourceId, sourceType);
+        const processor = await this.processorFactory.create(sourceId, sourceType, parsedSessionMetadata);
 
         // Process this session's raw data
         const sessionTransactionsResult = await processor.process(normalizedRawDataItems, parsedSessionMetadata);
@@ -372,6 +372,7 @@ export class TransactionIngestionService {
     // Check for existing completed session with matching parameters
     const existingSessionResult = await this.sessionRepository.findCompletedWithMatchingParams(sourceId, sourceType, {
       address: params.address,
+      csvDirectories: params.csvDirectories,
       providerId: params.providerId,
     });
 

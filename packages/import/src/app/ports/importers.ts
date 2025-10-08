@@ -5,6 +5,7 @@ import type { Result } from 'neverthrow';
 export interface ImportParams {
   address?: string | undefined;
   credentials?: ExchangeCredentials | undefined;
+  csvDirectories?: string[] | undefined;
   cursor?: Record<string, number> | undefined;
   providerId?: string | undefined;
 }

@@ -1,0 +1,345 @@
+import crypto from 'node:crypto';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+
+import type { RawTransactionWithMetadata } from '@exitbook/core';
+import type { IImporter, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
+import { getLogger, type Logger } from '@exitbook/shared-logger';
+import { err, ok, type Result } from 'neverthrow';
+
+import { CsvParser } from '../csv-parser.js';
+
+import { CSV_FILE_TYPES } from './constants.js';
+import type { CsvAccountHistoryRow, CsvDepositWithdrawalRow, CsvOrderSplittingRow, CsvSpotOrderRow } from './types.js';
+import {
+  validateKuCoinAccountHistory,
+  validateKuCoinDepositsWithdrawals,
+  validateKuCoinOrderSplitting,
+  validateKuCoinSpotOrders,
+} from './utils.js';
+
+/**
+ * Importer for KuCoin CSV files.
+ * Handles reading CSV files from specified directories and parsing different KuCoin export formats.
+ */
+export class KucoinCsvImporter implements IImporter {
+  private readonly logger: Logger;
+  private readonly sourceId = 'kucoin';
+
+  constructor() {
+    this.logger = getLogger('kucoinImporter');
+  }
+
+  async import(params: ImportParams): Promise<Result<ImportRunResult, Error>> {
+    this.logger.info(`Starting KuCoin CSV import from directories: ${params.csvDirectories?.join(', ') ?? 'none'}`);
+
+    if (!params.csvDirectories?.length) {
+      return err(new Error('CSV directories are required for KuCoin import'));
+    }
+
+    const rawTransactions: RawTransactionWithMetadata[] = [];
+
+    try {
+      // Process each directory in order
+      for (const csvDirectory of params.csvDirectories) {
+        this.logger.info(`Processing CSV directory: ${csvDirectory}`);
+
+        try {
+          const files = await fs.readdir(csvDirectory);
+          this.logger.debug(`Found files in directory ${csvDirectory}: ${files.join(', ')}`);
+
+          // Process all CSV files with proper header validation
+          const csvFiles = files.filter((f) => f.endsWith('.csv'));
+
+          for (const file of csvFiles) {
+            const filePath = path.join(csvDirectory, file);
+            const fileType = await this.validateCSVHeaders(filePath);
+
+            switch (fileType) {
+              case 'trading': {
+                this.logger.info(`Processing trading CSV file: ${file}`);
+                const rawRows = await this.parseCsvFile<CsvSpotOrderRow>(filePath);
+
+                // Validate CSV data using Zod schemas
+                const validationResult = validateKuCoinSpotOrders(rawRows);
+
+                if (validationResult.invalid.length > 0) {
+                  this.logger.error(
+                    `${validationResult.invalid.length} invalid trading rows in ${file}. ` +
+                      `Invalid: ${validationResult.invalid.length}, Valid: ${validationResult.valid.length}, Total: ${rawRows.length}`
+                  );
+                  // Log first few validation errors for debugging
+                  validationResult.invalid.slice(0, 3).forEach(({ errors, rowIndex }) => {
+                    const fieldErrors = errors.issues
+                      .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+                      .join('; ');
+                    this.logger.debug(`Row ${rowIndex + 1} validation errors: ${fieldErrors}`);
+                  });
+                }
+
+                this.logger.info(
+                  `Parsed and validated ${validationResult.valid.length} trading transactions from ${file}`
+                );
+
+                // Convert each row to a RawTransactionWithMetadata
+                for (const row of validationResult.valid) {
+                  rawTransactions.push({
+                    metadata: { providerId: 'kucoin', transactionType: 'spot_order' },
+                    rawData: { _rowType: 'spot_order', ...row },
+                    externalId: row['Order ID'],
+                  });
+                }
+                break;
+              }
+              case 'deposit': {
+                this.logger.info(`Processing deposit CSV file: ${file}`);
+                const rawRows = await this.parseCsvFile<CsvDepositWithdrawalRow>(filePath);
+
+                // Validate CSV data using Zod schemas
+                const validationResult = validateKuCoinDepositsWithdrawals(rawRows);
+
+                if (validationResult.invalid.length > 0) {
+                  this.logger.error(
+                    `${validationResult.invalid.length} invalid deposit rows in ${file}. ` +
+                      `Invalid: ${validationResult.invalid.length}, Valid: ${validationResult.valid.length}, Total: ${rawRows.length}`
+                  );
+                  // Log first few validation errors for debugging
+                  validationResult.invalid.slice(0, 3).forEach(({ errors, rowIndex }) => {
+                    const fieldErrors = errors.issues
+                      .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+                      .join('; ');
+                    this.logger.debug(`Row ${rowIndex + 1} validation errors: ${fieldErrors}`);
+                  });
+                }
+
+                this.logger.info(
+                  `Parsed and validated ${validationResult.valid.length} deposit transactions from ${file}`
+                );
+
+                // Convert each row to a RawTransactionWithMetadata
+                for (const row of validationResult.valid) {
+                  // Use hash as external ID, or generate one if hash is empty
+                  const externalId =
+                    row.Hash || this.generateExternalId('deposit', row['Time(UTC)'], row.Coin, row.Amount);
+                  rawTransactions.push({
+                    metadata: { providerId: 'kucoin', transactionType: 'deposit' },
+                    rawData: { _rowType: 'deposit', ...row },
+                    externalId,
+                  });
+                }
+                break;
+              }
+              case 'withdrawal': {
+                this.logger.info(`Processing withdrawal CSV file: ${file}`);
+                const rawRows = await this.parseCsvFile<CsvDepositWithdrawalRow>(filePath);
+
+                // Validate CSV data using Zod schemas
+                const validationResult = validateKuCoinDepositsWithdrawals(rawRows);
+
+                if (validationResult.invalid.length > 0) {
+                  this.logger.error(
+                    `${validationResult.invalid.length} invalid withdrawal rows in ${file}. ` +
+                      `Invalid: ${validationResult.invalid.length}, Valid: ${validationResult.valid.length}, Total: ${rawRows.length}`
+                  );
+                  // Log first few validation errors for debugging
+                  validationResult.invalid.slice(0, 3).forEach(({ errors, rowIndex }) => {
+                    const fieldErrors = errors.issues
+                      .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+                      .join('; ');
+                    this.logger.debug(`Row ${rowIndex + 1} validation errors: ${fieldErrors}`);
+                  });
+                }
+
+                this.logger.info(
+                  `Parsed and validated ${validationResult.valid.length} withdrawal transactions from ${file}`
+                );
+
+                // Convert each row to a RawTransactionWithMetadata
+                for (const row of validationResult.valid) {
+                  // Use hash as external ID, or generate one if hash is empty
+                  const externalId =
+                    row.Hash || this.generateExternalId('withdrawal', row['Time(UTC)'], row.Coin, row.Amount);
+                  rawTransactions.push({
+                    metadata: { providerId: 'kucoin', transactionType: 'withdrawal' },
+                    rawData: { _rowType: 'withdrawal', ...row },
+                    externalId,
+                  });
+                }
+                break;
+              }
+              case 'account_history': {
+                this.logger.info(`Processing account history CSV file: ${file}`);
+                const rawRows = await this.parseCsvFile<CsvAccountHistoryRow>(filePath);
+
+                // Validate CSV data using Zod schemas
+                const validationResult = validateKuCoinAccountHistory(rawRows);
+
+                if (validationResult.invalid.length > 0) {
+                  this.logger.error(
+                    `${validationResult.invalid.length} invalid account history rows in ${file}. ` +
+                      `Invalid: ${validationResult.invalid.length}, Valid: ${validationResult.valid.length}, Total: ${rawRows.length}`
+                  );
+                  // Log first few validation errors for debugging
+                  validationResult.invalid.slice(0, 3).forEach(({ errors, rowIndex }) => {
+                    const fieldErrors = errors.issues
+                      .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+                      .join('; ');
+                    this.logger.debug(`Row ${rowIndex + 1} validation errors: ${fieldErrors}`);
+                  });
+                }
+
+                this.logger.info(
+                  `Parsed and validated ${validationResult.valid.length} account history entries from ${file}`
+                );
+
+                // Convert each row to a RawTransactionWithMetadata
+                for (const row of validationResult.valid) {
+                  // Generate external ID from timestamp, type, currency, and amount
+                  const externalId = this.generateExternalId(row.Type, row['Time(UTC)'], row.Currency, row.Amount);
+                  rawTransactions.push({
+                    metadata: { providerId: 'kucoin', transactionType: 'account_history' },
+                    rawData: { _rowType: 'account_history', ...row },
+                    externalId,
+                  });
+                }
+                break;
+              }
+              case 'order_splitting': {
+                this.logger.info(`Processing order-splitting CSV file: ${file}`);
+                const rawRows = await this.parseCsvFile<CsvOrderSplittingRow>(filePath);
+
+                // Validate CSV data using Zod schemas
+                const validationResult = validateKuCoinOrderSplitting(rawRows);
+
+                if (validationResult.invalid.length > 0) {
+                  this.logger.error(
+                    `${validationResult.invalid.length} invalid order-splitting rows in ${file}. ` +
+                      `Invalid: ${validationResult.invalid.length}, Valid: ${validationResult.valid.length}, Total: ${rawRows.length}`
+                  );
+                  // Log first few validation errors for debugging
+                  validationResult.invalid.slice(0, 3).forEach(({ errors, rowIndex }) => {
+                    const fieldErrors = errors.issues
+                      .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+                      .join('; ');
+                    this.logger.debug(`Row ${rowIndex + 1} validation errors: ${fieldErrors}`);
+                  });
+                }
+
+                this.logger.info(
+                  `Parsed and validated ${validationResult.valid.length} order-splitting transactions from ${file}`
+                );
+
+                // Convert each row to a RawTransactionWithMetadata
+                for (const row of validationResult.valid) {
+                  // Use Order ID + Filled Time as external ID since there can be multiple fills per order
+                  const externalId = `${row['Order ID']}-${row['Filled Time(UTC)']}`;
+                  rawTransactions.push({
+                    metadata: { providerId: 'kucoin', transactionType: 'order_splitting' },
+                    rawData: { _rowType: 'order_splitting', ...row },
+                    externalId,
+                  });
+                }
+                break;
+              }
+              case 'convert':
+                this.logger.warn(`Skipping convert orders CSV file - using account history instead: ${file}`);
+                break;
+              case 'unknown':
+                this.logger.warn(`Skipping unrecognized CSV file: ${file}`);
+                break;
+              default:
+                this.logger.warn(`No handler for file type: ${fileType} in file: ${file}`);
+            }
+          }
+        } catch (dirError) {
+          this.logger.error(`Failed to process CSV directory ${csvDirectory}: ${String(dirError)}`);
+          // Continue processing other directories
+          continue;
+        }
+      }
+
+      // Sort all transactions by timestamp
+      rawTransactions.sort((a, b) => {
+        const timeA = this.extractTimestamp(a.rawData);
+        const timeB = this.extractTimestamp(b.rawData);
+        return timeA - timeB;
+      });
+
+      this.logger.info(
+        `Completed KuCoin CSV import: ${rawTransactions.length} total transactions from ${params.csvDirectories.length} directories`
+      );
+
+      return ok({
+        rawTransactions,
+        metadata: { importMethod: 'csv' },
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Import failed in CSV file processing: ${errorMessage}`);
+      return err(new Error(`${this.sourceId} import failed: ${errorMessage}`));
+    }
+  }
+
+  /**
+   * Parse a CSV file using the common parsing logic.
+   */
+  private async parseCsvFile<T>(filePath: string): Promise<T[]> {
+    try {
+      return CsvParser.parseFile<T>(filePath);
+    } catch (error) {
+      this.logger.error(`Failed to parse CSV file ${filePath}: ${String(error)}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Validate CSV headers and determine file type.
+   */
+  private async validateCSVHeaders(filePath: string): Promise<string> {
+    const expectedHeaders = CSV_FILE_TYPES;
+
+    try {
+      const fileType = await CsvParser.validateHeaders(filePath, expectedHeaders);
+
+      if (fileType === 'unknown') {
+        const headers = await CsvParser.getHeaders(filePath);
+        this.logger.warn(`Unrecognized CSV headers in ${filePath}: ${headers}`);
+      }
+
+      return fileType;
+    } catch (error) {
+      this.logger.error(`Failed to validate CSV headers for ${filePath}: ${String(error)}`);
+      return 'unknown';
+    }
+  }
+
+  /**
+   * Generate a deterministic external ID from row fields.
+   * Used when CSV rows don't have a natural unique identifier.
+   */
+  private generateExternalId(type: string, timestamp: string, currency: string, amount: string): string {
+    const data = `${type}-${timestamp}-${currency}-${amount}`;
+    return crypto.createHash('sha256').update(data).digest('hex').substring(0, 16);
+  }
+
+  /**
+   * Extract timestamp from raw data based on transaction type.
+   */
+  private extractTimestamp(rawData: unknown): number {
+    if (typeof rawData !== 'object' || rawData === null) {
+      return 0;
+    }
+
+    const data = rawData as Record<string, unknown>;
+
+    // Try different timestamp field names
+    if ('Filled Time(UTC)' in data && typeof data['Filled Time(UTC)'] === 'string') {
+      return new Date(data['Filled Time(UTC)']).getTime();
+    }
+    if ('Time(UTC)' in data && typeof data['Time(UTC)'] === 'string') {
+      return new Date(data['Time(UTC)']).getTime();
+    }
+
+    return 0;
+  }
+}
