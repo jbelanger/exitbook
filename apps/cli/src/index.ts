@@ -14,7 +14,6 @@ import {
   ImporterFactory,
   ProcessorFactory,
 } from '@exitbook/import';
-import type { ImportParams } from '@exitbook/import/app/ports/importers.js';
 import type { ProviderInfo } from '@exitbook/providers';
 import {
   initializeProviders,
@@ -24,6 +23,8 @@ import {
 } from '@exitbook/providers';
 import { getLogger } from '@exitbook/shared-logger';
 import { Command } from 'commander';
+
+import { registerImportCommand } from './commands/import.js';
 
 // Initialize all providers at startup
 initializeProviders();
@@ -49,19 +50,6 @@ interface ExportOptions {
   format?: string | undefined;
   output?: string | undefined;
   since?: string | undefined;
-}
-
-interface ImportOptions {
-  address?: string | undefined;
-  apiKey?: string | undefined;
-  apiPassphrase?: string | undefined;
-  apiSecret?: string | undefined;
-  blockchain?: string | undefined;
-  clearDb?: boolean | undefined;
-  csvDir?: string | undefined;
-  exchange?: string | undefined;
-  process?: boolean | undefined;
-  provider?: string | undefined;
 }
 
 interface ProcessOptions {
@@ -230,155 +218,8 @@ async function main() {
       }
     });
 
-  // Import command - new ETL workflow
-  program
-    .command('import')
-    .description('Import raw data from external sources (blockchain or exchange)')
-    .option('--exchange <name>', 'Exchange name (e.g., kraken, kucoin, ledgerlive)')
-    .option('--blockchain <name>', 'Blockchain name (e.g., bitcoin, ethereum, polkadot, bittensor)')
-    .option('--csv-dir <path>', 'CSV directory for exchange sources')
-    .option('--address <address>', 'Wallet address for blockchain source')
-    .option('--provider <name>', 'Blockchain provider for blockchain sources')
-    .option('--api-key <key>', 'API key for exchange API access')
-    .option('--api-secret <secret>', 'API secret for exchange API access')
-    .option('--api-passphrase <passphrase>', 'API passphrase for exchange API access (if required)')
-    .option('--since <date>', 'Import data since date (YYYY-MM-DD, timestamp, or 0 for all history)')
-    .option('--until <date>', 'Import data until date (YYYY-MM-DD or timestamp)')
-    .option('--process', 'Process data after import (combined import+process pipeline)')
-    .option('--clear-db', 'Clear and reinitialize database before import')
-    .action(async (options: ImportOptions) => {
-      try {
-        // Validate required parameters
-        const sourceName = options.exchange || options.blockchain;
-        if (!sourceName) {
-          logger.error(
-            'Either --exchange or --blockchain is required. Examples: --exchange kraken, --blockchain bitcoin'
-          );
-          process.exit(1);
-        }
-
-        if (options.exchange && options.blockchain) {
-          logger.error('Cannot specify both --exchange and --blockchain. Choose one.');
-          process.exit(1);
-        }
-
-        const sourceType = options.exchange ? 'exchange' : 'blockchain';
-        logger.info(`Starting data import from ${sourceName} (${sourceType})`);
-
-        // Validate parameters based on source type
-        if (sourceType === 'exchange' && !options.csvDir && !options.apiKey) {
-          logger.error(
-            'Either --csv-dir or API credentials (--api-key, --api-secret) are required for exchange sources'
-          );
-          process.exit(1);
-        }
-
-        if (sourceType === 'exchange' && options.csvDir && options.apiKey) {
-          logger.error('Cannot specify both --csv-dir and API credentials. Choose one import method.');
-          process.exit(1);
-        }
-
-        if (sourceType === 'blockchain' && !options.address) {
-          logger.error('--address is required for blockchain sources');
-          process.exit(1);
-        }
-
-        // Initialize database
-        const database = await initializeDatabase(options.clearDb);
-
-        // Load explorer config for blockchain sources
-        const explorerConfig = loadExplorerConfig();
-
-        const transactionRepository = new TransactionRepository(database);
-        const rawDataRepository = new RawDataRepository(database);
-        const sessionRepository = new ImportSessionRepository(database);
-        const sessionErrorRepository = new ImportSessionErrorRepository(database);
-        const providerManager = new BlockchainProviderManager(explorerConfig);
-        const importerFactory = new ImporterFactory(providerManager);
-        const processorFactory = new ProcessorFactory();
-        const normalizer = new DefaultNormalizer();
-
-        const ingestionService = new TransactionIngestionService(
-          rawDataRepository,
-          sessionRepository,
-          sessionErrorRepository,
-          transactionRepository,
-          importerFactory,
-          processorFactory,
-          normalizer
-        );
-
-        try {
-          const importParams: ImportParams = {};
-          // Set parameters based on source type
-          if (sourceType === 'exchange') {
-            if (options.csvDir) {
-              importParams.csvDirectories = [options.csvDir];
-            } else if (options.apiKey && options.apiSecret) {
-              // Build credentials object
-              const credentials: Record<string, string> = {
-                apiKey: options.apiKey,
-                secret: options.apiSecret,
-              };
-              if (options.apiPassphrase) {
-                credentials.passphrase = options.apiPassphrase;
-              }
-              importParams.credentials = credentials;
-            }
-          } else {
-            importParams.address = options.address;
-            importParams.providerId = options.provider;
-          }
-
-          // Import raw data
-          const importResult = await ingestionService.importFromSource(sourceName, sourceType, importParams);
-
-          if (importResult.isErr()) {
-            logger.error(`Import failed: ${importResult.error.message}`);
-            throw importResult.error;
-          }
-
-          const importData = importResult.value;
-          logger.info(`Import completed: ${importData.imported} items imported`);
-          logger.info(`Session ID: ${importData.importSessionId}`);
-
-          // Process data if --process flag is provided
-          if (options.process) {
-            logger.info('Processing imported data to universal format');
-
-            const processResultOrError = await ingestionService.processRawDataToTransactions(sourceName, sourceType, {
-              importSessionId: importData.importSessionId,
-            });
-
-            if (processResultOrError.isErr()) {
-              logger.error(`Processing failed: ${processResultOrError.error.message}`);
-              throw processResultOrError.error;
-            }
-
-            const processResult = processResultOrError.value;
-
-            if (processResult.errors.length > 0) {
-              logger.error('Processing errors:');
-              processResult.errors.slice(0, 5).forEach((error) => logger.error(`  ${error}`));
-              if (processResult.errors.length > 5) {
-                logger.error(`  ... and ${processResult.errors.length - 5} more errors`);
-              }
-            }
-          }
-        } finally {
-          // Cleanup provider manager resources
-          providerManager.destroy();
-          await closeDatabase(database);
-        }
-
-        // Exit successfully
-        process.exit(0);
-      } catch (error) {
-        logger.error(`Import failed: ${String(error)}`);
-        console.error(error);
-        process.exit(1);
-      }
-    });
+  // Import command - refactored with @clack/prompts (Phase 2)
+  registerImportCommand(program);
 
   // Process command - new ETL workflow
   program
