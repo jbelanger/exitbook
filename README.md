@@ -2,7 +2,7 @@
 
 **Track, log, and analyze your crypto journey.**
 
-ExitBook is a pnpm-managed TypeScript monorepo that provides a CLI for importing, normalizing, and verifying cryptocurrency activity. The tool ingests exchange CSV exports and blockchain explorer APIs, persists raw data in SQLite via Kysely, and materializes a universal transaction schema for downstream analysis.
+ExitBook is a pnpm-managed TypeScript monorepo that provides a CLI for importing, normalizing, and verifying cryptocurrency activity. The tool ingests exchange CSV exports and blockchain explorer APIs, persists raw data, and materializes a universal transaction schema for downstream analysis.
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D23-blue.svg)](https://nodejs.org)
@@ -22,7 +22,7 @@ ExitBook is a pnpm-managed TypeScript monorepo that provides a CLI for importing
 
 - `apps/cli` – Commander-based CLI entry point (`crypto-import`).
 - `packages/import` – Importers, blockchain provider registry, processors, and ingestion services.
-- `packages/data` – SQLite/Kysely storage layer, migrations, and repositories.
+- `packages/data` – Kysely storage layer, migrations, and repositories.
 - `packages/balance` – Balance aggregation and verification services.
 - `packages/core` – Shared domain primitives.
 - `packages/shared/{logger,utils}` – Reusable logging, HTTP, config, and utility helpers.
@@ -70,7 +70,7 @@ pnpm dev -- import --blockchain <chain> --address <wallet> [--provider <id>] [op
 
 **What it does**
 
-- Boots the SQLite database at `data/transactions.db` (dropping and recreating tables when `--clear-db` is used).
+- Boots the database at `data/transactions.db` (dropping and recreating tables when `--clear-db` is used).
 - Creates an `import_sessions` row that captures the source, provider, and raw parameters.
 - Invokes the selected importer to pull data (reading CSV rows or calling blockchain providers) and writes each payload into `external_transaction_data`.
 - Prints the number of raw records saved plus the session ID. When `--process` is supplied, the command immediately normalizes the new raw data into the universal schema and persists it to `transactions`.
@@ -338,7 +338,7 @@ Refer to individual provider classes for additional keys when enabling currently
 
 ## Data & Storage
 
-- SQLite database at `data/transactions.db` (auto-created). Schema defined in `packages/data/src/migrations/001_initial_schema.ts`.
+- Database at `data/transactions.db` (auto-created). Schema defined in `packages/data/src/migrations/001_initial_schema.ts`.
   - `import_sessions` tracks every import run, associated provider, status, and metadata.
   - `external_transaction_data` stores raw payloads and processing status.
   - `transactions` keeps normalized universal transactions with detailed movement, fee, and blockchain metadata.

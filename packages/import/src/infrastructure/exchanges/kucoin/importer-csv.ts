@@ -212,6 +212,17 @@ export class KucoinCsvImporter implements IImporter {
                 break;
               }
               case 'order_splitting': {
+                // Skip Spot order-splitting files to avoid duplicates with regular Spot Orders
+                // Spot orders are already imported from "Spot Orders_Filled Orders.csv"
+                // Only import Margin and Futures order-splitting files when those are implemented
+                if (file.includes('Spot Orders_')) {
+                  const recordCount = await this.countCsvRecords(filePath);
+                  this.logger.info(
+                    `Skipping ${recordCount} spot order-splitting transaction${recordCount === 1 ? '' : 's'}: ${file}. Using Spot Orders_Filled Orders.csv instead to avoid duplicates.`
+                  );
+                  break;
+                }
+
                 this.logger.info(`Processing order-splitting CSV file: ${file}`);
                 const rawRows = await this.parseCsvFile<CsvOrderSplittingRow>(filePath);
 
