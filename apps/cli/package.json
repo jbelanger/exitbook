@@ -20,6 +20,7 @@
     "verify": "tsx ./src/index.ts verify"
   },
   "dependencies": {
+    "@clack/prompts": "^0.8.2",
     "@exitbook/balance": "workspace:*",
     "@exitbook/core": "workspace:*",
     "@exitbook/data": "workspace:*",
@@ -27,7 +28,10 @@
     "@exitbook/providers": "workspace:*",
     "@exitbook/shared-logger": "workspace:*",
     "commander": "^14.0.0",
+    "cosmiconfig": "^9.0.0",
+    "detect-package-manager": "^3.0.2",
     "jose": "^6.0.13",
+    "picocolors": "^1.1.1",
     "reflect-metadata": "^0.2.2"
   },
   "devDependencies": {
