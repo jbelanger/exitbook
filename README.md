@@ -1,8 +1,8 @@
 # <img src="./docs/assets/images/exitbook-brand.png" alt="ExitBook" width="50" align="middle"/><span>&nbsp;&nbsp;</span>ExitBook
 
-**Track, log, and analyze your crypto journey.**
+**Transform your crypto transactions into a universal accounting format.**
 
-ExitBook is a pnpm-managed TypeScript monorepo that provides a CLI for importing, normalizing, and verifying cryptocurrency activity. The tool ingests exchange CSV exports and blockchain explorer APIs, persists raw data, and materializes a universal transaction schema for downstream analysis.
+ExitBook transforms cryptocurrency transactions from diverse sources into a standardized accounting format. The CLI ingests data from exchange CSV exports and blockchain APIs, normalizes them through a three-phase pipeline (Import → Process → Verify), and produces universal transaction records ready for tax reporting, portfolio analysis, and reconciliation.
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D23-blue.svg)](https://nodejs.org)
@@ -11,12 +11,37 @@ ExitBook is a pnpm-managed TypeScript monorepo that provides a CLI for importing
 [![Test Suite](https://github.com/jbelanger/exitbook/actions/workflows/test.yml/badge.svg)](https://github.com/jbelanger/exitbook/actions/workflows/test.yml)
 [![codecov](https://codecov.io/gh/jbelanger/exitbook/branch/main/graph/badge.svg)](https://codecov.io/gh/jbelanger/exitbook)
 
+## Why ExitBook?
+
+Every exchange and blockchain represents transaction data differently:
+
+- Kraken uses ledgers with fees bundled into movements
+- KuCoin splits data across trading, deposits, and withdrawals
+- Blockchain explorers return raw protocol events in chain-specific formats
+
+ExitBook solves this by:
+
+1. **Importing** raw data from any source (CSV files or APIs)
+2. **Processing** into a universal schema with consistent fields (timestamp, currency, amount, fees, type)
+3. **Verifying** balances to ensure data integrity
+
+The result: a single source of truth for all your crypto accounting needs.
+
 ## Overview
 
-- Import raw exchange exports or blockchain explorer responses into `external_transaction_data`.
-- Transform raw records into a normalized transaction model and store them in `transactions`.
-- Verify calculated balances and export curated transaction sets.
-- Share infrastructure across packages such as `@exitbook/import`, `@exitbook/data`, `@exitbook/balance`, and the CLI in `apps/cli`.
+ExitBook provides a complete pipeline for crypto accounting:
+
+- **Universal Schema** – All transactions normalized into consistent fields regardless of source
+- **Multi-Source Import** – CSV files from exchanges, API data from 50+ blockchains
+- **Accounting-Ready Output** – Export to CSV/JSON with standardized transaction types (trade, deposit, withdrawal, fee, etc.)
+- **Balance Verification** – Reconcile calculated balances against actual holdings
+
+Technical flow:
+
+- Import raw exchange exports or blockchain responses → `external_transaction_data`
+- Transform into normalized transactions → `transactions` table
+- Verify, analyze, and export unified accounting records
+- Share infrastructure across packages: `@exitbook/import`, `@exitbook/data`, `@exitbook/balance`, and the CLI in `apps/cli`
 
 ## Repository Layout
 
