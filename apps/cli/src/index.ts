@@ -1,8 +1,6 @@
 #!/usr/bin/env node
 import 'reflect-metadata';
 import { closeDatabase, initializeDatabase } from '@exitbook/data';
-import { ProcessorFactory } from '@exitbook/import';
-import type { ProviderInfo } from '@exitbook/providers';
 import {
   initializeProviders,
   BlockchainProviderManager,
@@ -14,6 +12,7 @@ import { Command } from 'commander';
 
 import { registerExportCommand } from './features/export/export.ts';
 import { registerImportCommand } from './features/import/import.ts';
+import { registerListBlockchainsCommand } from './features/list-blockchains/list-blockchains.ts';
 import { registerProcessCommand } from './features/process/process.ts';
 import { registerVerifyCommand } from './features/verify/verify.ts';
 
@@ -45,6 +44,9 @@ async function main() {
 
   // Export command - refactored with @clack/prompts (Phase 3)
   registerExportCommand(program);
+
+  // List blockchains command - refactored with @clack/prompts (Phase 3)
+  registerListBlockchainsCommand(program);
 
   // Status command
   program
@@ -217,59 +219,6 @@ async function main() {
         }
       }
     );
-
-  // List blockchains command
-  program
-    .command('list-blockchains')
-    .description('List all available blockchains')
-    .action(async () => {
-      try {
-        logger.info('Available Blockchains:');
-        logger.info('=============================');
-        logger.info('');
-        logger.info('For detailed provider information, run: pnpm run blockchain-providers:list');
-        logger.info('');
-
-        const processorFactory = new ProcessorFactory();
-
-        const supportedBlockchains = await processorFactory.getSupportedSources('blockchain');
-
-        // Get all providers and group by blockchain
-        const allProviders = ProviderRegistry.getAllProviders();
-        const providersByBlockchain = allProviders.reduce(
-          (acc: Record<string, string[]>, provider: ProviderInfo) => {
-            if (!acc[provider.blockchain]) {
-              acc[provider.blockchain] = [];
-            }
-            (acc[provider.blockchain] ??= []).push(provider.name);
-            return acc;
-          },
-          {} as Record<string, string[]>
-        );
-
-        for (const blockchainName of supportedBlockchains) {
-          logger.info(`⛓️  ${blockchainName.toUpperCase()}`);
-          const providers = providersByBlockchain[blockchainName] || [];
-          if (providers.length > 0) {
-            logger.info(`   Providers: ${providers.join(', ')}`);
-          } else {
-            logger.info('   Providers: (none registered)');
-          }
-          logger.info('');
-        }
-
-        logger.info(`Total blockchains: ${supportedBlockchains.length}`);
-        logger.info('');
-        logger.info('Usage examples:');
-        logger.info('  crypto-import import --blockchain bitcoin --address 1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa');
-        logger.info('  crypto-import import --blockchain ethereum --address 0x742d35Cc...');
-
-        process.exit(0);
-      } catch (error) {
-        logger.error(`Failed to list blockchains: ${String(error)}`);
-        process.exit(1);
-      }
-    });
 
   await program.parseAsync();
 }

@@ -229,6 +229,8 @@ logger.debug({ metadata }, 'debug message');
 - Use `exactOptionalPropertyTypes` - add `| undefined` to optional properties
 - Add new tables/fields to initial migration (`001_initial_schema.ts`) - database is dropped during development, not versioned incrementally
 - Remove all legacy code paths and backward compatibility when refactoring - clean breaks only
+- **Vertical Slices Over Technical Layers:** Organize code by feature/functionality (e.g., `exchanges/kraken/`) rather than by technical layer (e.g., `importers/`, `processors/`, `clients/`). Keep related code together - each feature directory should contain its importer, processor, schemas, and tests
+- **Dynamic Over Hardcoded:** Avoid hardcoding lists, enums, or configuration that can be derived dynamically. Use registries, metadata, and runtime discovery instead. The system should automatically discover available blockchains, exchanges, and providers from their registrations rather than maintaining hardcoded lists
 - **Functional Core, Imperative Shell:** Extract business logic (validation, transformations) into pure functions in `*-utils.ts` modules. Use classes for resource management (DB, API clients). Use factory functions for stateless API wrappers. See `apps/cli/src/lib/import-utils.ts` (pure functions) and `apps/cli/src/handlers/import-handler.ts` (class managing resources)
 - **Testing:** Test pure functions in `*-utils.test.ts` without mocks. Test classes/handlers with mocked dependencies.
 

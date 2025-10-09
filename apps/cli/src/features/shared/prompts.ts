@@ -232,7 +232,7 @@ function getExchangeHint(name: string): string {
 /**
  * Format blockchain name for display.
  */
-function formatBlockchainName(name: string): string {
+export function formatBlockchainName(name: string): string {
   const names: Record<string, string> = {
     bitcoin: 'Bitcoin',
     ethereum: 'Ethereum',
@@ -262,7 +262,7 @@ function formatBlockchainName(name: string): string {
 /**
  * Get blockchain category hint.
  */
-function getBlockchainHint(name: string): string {
+export function getBlockchainHint(name: string): string {
   // EVM chains
   if (
     [
@@ -308,7 +308,7 @@ function getBlockchainHint(name: string): string {
 /**
  * Sort blockchains by category and popularity.
  */
-function sortBlockchainsByCategory(blockchains: string[]): string[] {
+export function sortBlockchainsByCategory(blockchains: string[]): string[] {
   const order = [
     // Popular Layer 1s first
     'bitcoin',
@@ -346,7 +346,7 @@ function sortBlockchainsByCategory(blockchains: string[]): string[] {
 /**
  * Get address placeholder for blockchain.
  */
-function getAddressPlaceholder(blockchain: string): string {
+export function getAddressPlaceholder(blockchain: string): string {
   if (blockchain === 'bitcoin') return 'bc1q...';
   if (blockchain === 'ethereum' || blockchain.includes('evm')) return '0x742d35Cc...';
   if (blockchain === 'solana') return 'DYw8jCTfwHNRJhhmFcbXvVDTqWMEVFBX6ZKUmG5CNSKK';
