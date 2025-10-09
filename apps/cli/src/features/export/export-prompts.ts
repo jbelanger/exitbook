@@ -3,10 +3,16 @@
 
 import * as p from '@clack/prompts';
 
-import type { ExportHandlerParams } from '../lib/export-utils.js';
-import { EXPORT_FORMATS } from '../lib/export-utils.js';
+import {
+  isCancelled,
+  handleCancellation,
+  promptSourceType,
+  promptExchange,
+  promptBlockchain,
+} from '../shared/prompts.ts';
 
-import { handleCancellation, isCancelled, promptBlockchain, promptExchange, promptSourceType } from './prompts.js';
+import type { ExportHandlerParams } from './export-utils.ts';
+import { EXPORT_FORMATS } from './export-utils.ts';
 
 /**
  * Interactive prompt flow for export parameters.

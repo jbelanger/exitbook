@@ -19,7 +19,7 @@ import {
 import { getLogger } from '@exitbook/shared-logger';
 import { err, ok, type Result } from 'neverthrow';
 
-import { validateImportParams } from '../lib/import-utils.js';
+import { validateImportParams } from './import-utils.ts';
 
 // Initialize all providers at startup
 initializeProviders();

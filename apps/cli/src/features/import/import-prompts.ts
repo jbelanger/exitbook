@@ -1,20 +1,20 @@
 // Import prompt orchestration
 // Separates interactive prompt flow from command logic
 
-import type { ImportHandlerParams } from '../handlers/import-handler.js';
-
 import {
-  handleCancellation,
-  isCancelled,
-  promptBlockchain,
-  promptConfirm,
-  promptCsvDirectory,
+  promptSourceType,
   promptExchange,
   promptImportMethod,
-  promptProvider,
-  promptSourceType,
+  promptCsvDirectory,
+  promptConfirm,
+  promptBlockchain,
   promptWalletAddress,
-} from './prompts.js';
+  promptProvider,
+  isCancelled,
+  handleCancellation,
+} from '../shared/prompts.ts';
+
+import type { ImportHandlerParams } from './import-handler.ts';
 
 /**
  * Interactive prompt flow for import parameters.

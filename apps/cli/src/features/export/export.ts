@@ -2,12 +2,14 @@ import { closeDatabase, initializeDatabase } from '@exitbook/data';
 import { getLogger } from '@exitbook/shared-logger';
 import type { Command } from 'commander';
 
-import { ExportHandler, type ExportHandlerParams } from '../handlers/export-handler.js';
-import { ExitCodes } from '../lib/exit-codes.js';
-import { promptForExportParams } from '../lib/export-prompts.js';
-import { buildExportParamsFromFlags, type ExportCommandOptions } from '../lib/export-utils.js';
-import { OutputManager } from '../lib/output.js';
-import { handleCancellation, promptConfirm } from '../lib/prompts.js';
+import { ExitCodes } from '../shared/exit-codes.ts';
+import { OutputManager } from '../shared/output.ts';
+import { promptConfirm, handleCancellation } from '../shared/prompts.ts';
+
+import { ExportHandler } from './export-handler.ts';
+import { promptForExportParams } from './export-prompts.ts';
+import type { ExportCommandOptions, ExportHandlerParams } from './export-utils.ts';
+import { buildExportParamsFromFlags } from './export-utils.ts';
 
 const logger = getLogger('ExportCommand');
 

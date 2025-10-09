@@ -3,16 +3,16 @@
 
 import * as p from '@clack/prompts';
 
-import type { ProcessHandlerParams } from '../handlers/process-handler.js';
-
 import {
-  handleCancellation,
-  isCancelled,
+  promptSourceType,
+  promptExchange,
   promptBlockchain,
   promptConfirm,
-  promptExchange,
-  promptSourceType,
-} from './prompts.js';
+  isCancelled,
+  handleCancellation,
+} from '../shared/prompts.ts';
+
+import type { ProcessHandlerParams } from './process-utils.ts';
 
 /**
  * Interactive prompt flow for process parameters.

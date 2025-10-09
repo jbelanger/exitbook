@@ -3,7 +3,8 @@ import type { KyselyDB, StoredTransaction } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 
-import { ExportHandler, type ExportHandlerParams } from './export-handler.js';
+import { ExportHandler } from '../export-handler.ts';
+import type { ExportHandlerParams } from '../export-utils.ts';
 
 // Mock dependencies
 vi.mock('@exitbook/import', () => ({

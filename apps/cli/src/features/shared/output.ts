@@ -2,9 +2,8 @@ import * as p from '@clack/prompts';
 import { getLogger } from '@exitbook/shared-logger';
 import pc from 'picocolors';
 
-import type { CLIResponse } from '../types/cli-response.js';
-import { createErrorResponse, createSuccessResponse, exitCodeToErrorCode } from '../types/cli-response.js';
-
+import type { CLIResponse } from './cli-response.ts';
+import { createErrorResponse, createSuccessResponse, exitCodeToErrorCode } from './cli-response.ts';
 import { ExitCodes, type ExitCode } from './exit-codes.js';
 
 const logger = getLogger('OutputManager');

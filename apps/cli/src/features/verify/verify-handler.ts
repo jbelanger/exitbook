@@ -4,7 +4,8 @@ import type { KyselyDB } from '@exitbook/data';
 import { getLogger } from '@exitbook/shared-logger';
 import { err, ok, type Result } from 'neverthrow';
 
-import { validateVerifyParams, type VerifyHandlerParams } from '../lib/verify-utils.js';
+import type { VerifyHandlerParams } from './verify-utils.ts';
+import { validateVerifyParams } from './verify-utils.ts';
 
 // Re-export for convenience
 export type { VerifyHandlerParams };

@@ -1,12 +1,14 @@
 import { closeDatabase, initializeDatabase } from '@exitbook/data';
 import type { Command } from 'commander';
 
-import { ProcessHandler, type ProcessHandlerParams } from '../handlers/process-handler.js';
-import { ExitCodes } from '../lib/exit-codes.js';
-import { OutputManager } from '../lib/output.js';
-import { promptForProcessParams } from '../lib/process-prompts.js';
-import { buildProcessParamsFromFlags, type ProcessCommandOptions } from '../lib/process-utils.js';
-import { handleCancellation, promptConfirm } from '../lib/prompts.js';
+import { ExitCodes } from '../shared/exit-codes.ts';
+import { OutputManager } from '../shared/output.ts';
+import { promptConfirm, handleCancellation } from '../shared/prompts.ts';
+
+import { ProcessHandler } from './process-handler.ts';
+import { promptForProcessParams } from './process-prompts.ts';
+import type { ProcessCommandOptions, ProcessHandlerParams } from './process-utils.ts';
+import { buildProcessParamsFromFlags } from './process-utils.ts';
 
 /**
  * Extended process command options (adds CLI-specific flags not needed by handler).

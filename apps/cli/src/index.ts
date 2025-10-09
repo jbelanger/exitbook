@@ -12,10 +12,10 @@ import {
 import { getLogger } from '@exitbook/shared-logger';
 import { Command } from 'commander';
 
-import { registerExportCommand } from './commands/export.js';
-import { registerImportCommand } from './commands/import.js';
-import { registerProcessCommand } from './commands/process.js';
-import { registerVerifyCommand } from './commands/verify.js';
+import { registerExportCommand } from './features/export/export.ts';
+import { registerImportCommand } from './features/import/import.ts';
+import { registerProcessCommand } from './features/process/process.ts';
+import { registerVerifyCommand } from './features/verify/verify.ts';
 
 // Initialize all providers at startup
 initializeProviders();

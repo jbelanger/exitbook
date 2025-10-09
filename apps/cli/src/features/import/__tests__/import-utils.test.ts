@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ImportHandlerParams } from '../../handlers/import-handler.ts';
+import type { ImportHandlerParams } from '../import-handler.ts';
 import { buildImportParamsFromFlags, validateImportParams, type ImportCommandOptions } from '../import-utils.ts';
 
 describe('validateImportParams', () => {

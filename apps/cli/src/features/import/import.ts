@@ -1,12 +1,14 @@
 import { closeDatabase, initializeDatabase } from '@exitbook/data';
 import type { Command } from 'commander';
 
-import { ImportHandler, type ImportHandlerParams } from '../handlers/import-handler.js';
-import { ExitCodes } from '../lib/exit-codes.js';
-import { promptForImportParams } from '../lib/import-prompts.js';
-import { buildImportParamsFromFlags, type ImportCommandOptions } from '../lib/import-utils.js';
-import { OutputManager } from '../lib/output.js';
-import { handleCancellation, promptConfirm } from '../lib/prompts.js';
+import { ExitCodes } from '../shared/exit-codes.ts';
+import { OutputManager } from '../shared/output.ts';
+import { promptConfirm, handleCancellation } from '../shared/prompts.ts';
+
+import type { ImportHandlerParams } from './import-handler.ts';
+import { ImportHandler } from './import-handler.ts';
+import { promptForImportParams } from './import-prompts.ts';
+import { buildImportParamsFromFlags, type ImportCommandOptions } from './import-utils.ts';
 
 /**
  * Extended import command options (adds CLI-specific flags not needed by handler).

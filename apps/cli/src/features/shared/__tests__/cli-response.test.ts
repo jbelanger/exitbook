@@ -1,8 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ExitCodes, type ExitCode } from '../lib/exit-codes.js';
-
-import { createErrorResponse, createSuccessResponse, exitCodeToErrorCode } from './cli-response.js';
+import { createErrorResponse, createSuccessResponse, exitCodeToErrorCode } from '../cli-response.ts';
+import { ExitCodes, type ExitCode } from '../exit-codes.ts';
 
 describe('cli-response', () => {
   beforeEach(() => {

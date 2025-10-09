@@ -3,7 +3,8 @@ import type { TransactionIngestionService } from '@exitbook/import';
 import { err, ok } from 'neverthrow';
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 
-import { ImportHandler, type ImportHandlerParams } from './import-handler.js';
+import type { ImportHandlerParams } from '../import-handler.ts';
+import { ImportHandler } from '../import-handler.ts';
 
 // Mock dependencies
 vi.mock('@exitbook/providers', () => ({

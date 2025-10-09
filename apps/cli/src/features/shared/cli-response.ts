@@ -1,4 +1,4 @@
-import type { ExitCode } from '../lib/exit-codes.js';
+import type { ExitCode } from './exit-codes.ts';
 
 /**
  * Standardized CLI response format.

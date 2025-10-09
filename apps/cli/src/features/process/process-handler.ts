@@ -18,7 +18,8 @@ import {
 import { getLogger } from '@exitbook/shared-logger';
 import { err, ok, type Result } from 'neverthrow';
 
-import { validateProcessParams, type ProcessHandlerParams } from '../lib/process-utils.js';
+import type { ProcessHandlerParams } from './process-utils.ts';
+import { validateProcessParams } from './process-utils.ts';
 
 // Re-export for convenience
 export type { ProcessHandlerParams };

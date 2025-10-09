@@ -1,9 +1,9 @@
 // Verify prompt orchestration
 // Separates interactive prompt flow from command logic
 
-import type { VerifyHandlerParams } from '../handlers/verify-handler.js';
+import { promptSourceType, promptExchange, promptBlockchain, promptConfirm } from '../shared/prompts.ts';
 
-import { promptBlockchain, promptConfirm, promptExchange, promptSourceType } from './prompts.js';
+import type { VerifyHandlerParams } from './verify-utils.ts';
 
 /**
  * Interactive prompt flow for verify parameters.

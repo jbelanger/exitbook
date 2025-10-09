@@ -5,12 +5,14 @@ import { closeDatabase, initializeDatabase } from '@exitbook/data';
 import { getLogger } from '@exitbook/shared-logger';
 import type { Command } from 'commander';
 
-import { VerifyHandler, type VerifyHandlerParams } from '../handlers/verify-handler.js';
-import { ExitCodes } from '../lib/exit-codes.js';
-import { OutputManager } from '../lib/output.js';
-import { handleCancellation, promptConfirm } from '../lib/prompts.js';
-import { promptForVerifyParams } from '../lib/verify-prompts.js';
-import { buildVerifyParamsFromFlags, type VerifyCommandOptions } from '../lib/verify-utils.js';
+import { ExitCodes } from '../shared/exit-codes.ts';
+import { OutputManager } from '../shared/output.ts';
+import { promptConfirm, handleCancellation } from '../shared/prompts.ts';
+
+import { VerifyHandler } from './verify-handler.ts';
+import { promptForVerifyParams } from './verify-prompts.ts';
+import type { VerifyCommandOptions, VerifyHandlerParams } from './verify-utils.ts';
+import { buildVerifyParamsFromFlags } from './verify-utils.ts';
 
 const logger = getLogger('VerifyCommand');
 

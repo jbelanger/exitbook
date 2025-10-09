@@ -4,7 +4,7 @@
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import type { ImportHandlerParams } from '../handlers/import-handler.js';
+import type { ImportHandlerParams } from './import-handler.ts';
 
 /**
  * CLI options structure for building import parameters.

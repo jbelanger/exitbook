@@ -3,7 +3,8 @@ import { TransactionRepository } from '@exitbook/import';
 import { getLogger } from '@exitbook/shared-logger';
 import { err, ok, type Result } from 'neverthrow';
 
-import { convertToCSV, convertToJSON, validateExportParams, type ExportHandlerParams } from '../lib/export-utils.js';
+import type { ExportHandlerParams } from './export-utils.ts';
+import { validateExportParams, convertToCSV, convertToJSON } from './export-utils.ts';
 
 // Re-export for convenience
 export type { ExportHandlerParams };
