@@ -1,4 +1,5 @@
 import { closeDatabase, initializeDatabase } from '@exitbook/data';
+import { configureLogger, resetLoggerContext } from '@exitbook/shared-logger';
 import type { Command } from 'commander';
 
 import { ExitCodes } from '../shared/exit-codes.ts';
@@ -86,11 +87,21 @@ async function executeProcessCommand(options: ExtendedProcessCommandOptions): Pr
         spinner.start('Processing data...');
       }
 
+      // Configure logger to route logs to spinner
+      configureLogger({
+        spinner: spinner || undefined,
+        mode: options.json ? 'json' : 'text',
+        verbose: false, // TODO: Add --verbose flag support
+      });
+
       const result = await handler.execute(params);
 
       if (spinner) {
         spinner.stop(result.isOk() ? 'Processing complete' : 'Processing failed');
       }
+
+      // Reset logger context after command completes
+      resetLoggerContext();
 
       if (result.isErr()) {
         await closeDatabase(database);
@@ -125,11 +136,13 @@ async function executeProcessCommand(options: ExtendedProcessCommandOptions): Pr
       handler.destroy();
       process.exit(0);
     } catch (error) {
+      resetLoggerContext(); // Clean up logger context on error
       handler.destroy();
       await closeDatabase(database);
       throw error;
     }
   } catch (error) {
+    resetLoggerContext(); // Clean up logger context on error
     output.error('process', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
   }
 }

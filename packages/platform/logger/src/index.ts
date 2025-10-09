@@ -1,11 +1,12 @@
-/**
- * Using Pino to avoid Winston's DailyRotateFile transport event listener limits when audit logging is enabled.
- * Also provides correlation ID tracking for request tracing.
- */
-import { type Logger, getLogger } from './pino-logger.js';
+export {
+  configureLogger,
+  getLogger,
+  getLoggerContext,
+  resetLoggerContext,
+  type Logger,
+  type LoggerContext,
+  type Spinner,
+} from './logger-factory.js';
 
-// Export logger functionality
-export { getLogger, type Logger };
-
-// Export envvironment schema
+// Export environment schema
 export { loggerEnvSchema } from './env.schema.ts';

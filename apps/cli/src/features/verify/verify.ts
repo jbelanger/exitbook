@@ -2,7 +2,7 @@ import path from 'node:path';
 
 import type { BalanceVerificationResult } from '@exitbook/balance';
 import { closeDatabase, initializeDatabase } from '@exitbook/data';
-import { getLogger } from '@exitbook/shared-logger';
+import { configureLogger, getLogger, resetLoggerContext } from '@exitbook/shared-logger';
 import type { Command } from 'commander';
 
 import { ExitCodes } from '../shared/exit-codes.ts';
@@ -98,11 +98,21 @@ async function executeVerifyCommand(options: ExtendedVerifyCommandOptions): Prom
         spinner.start('Verifying balances...');
       }
 
+      // Configure logger to route logs to spinner
+      configureLogger({
+        spinner: spinner || undefined,
+        mode: options.json ? 'json' : 'text',
+        verbose: false, // TODO: Add --verbose flag support
+      });
+
       const result = await handler.execute(params);
 
       if (spinner) {
         spinner.stop(result.isOk() ? 'Verification complete' : 'Verification failed');
       }
+
+      // Reset logger context after command completes
+      resetLoggerContext();
 
       if (result.isErr()) {
         await closeDatabase(database);
@@ -157,11 +167,13 @@ async function executeVerifyCommand(options: ExtendedVerifyCommandOptions): Prom
       handler.destroy();
       process.exit(0);
     } catch (error) {
+      resetLoggerContext(); // Clean up logger context on error
       handler.destroy();
       await closeDatabase(database);
       throw error;
     }
   } catch (error) {
+    resetLoggerContext(); // Clean up logger context on error
     output.error('verify', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
   }
 }
