@@ -20,7 +20,7 @@
     "verify": "tsx ./src/index.ts verify"
   },
   "dependencies": {
-    "@clack/prompts": "^0.8.2",
+    "@clack/prompts": "^0.11.0",
     "@exitbook/balance": "workspace:*",
     "@exitbook/core": "workspace:*",
     "@exitbook/data": "workspace:*",
