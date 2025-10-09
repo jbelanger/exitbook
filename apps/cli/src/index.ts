@@ -1,9 +1,7 @@
 #!/usr/bin/env node
-import path from 'node:path';
-
 import 'reflect-metadata';
-import { closeDatabase, initializeDatabase, type StoredTransaction } from '@exitbook/data';
-import { ProcessorFactory, TransactionRepository } from '@exitbook/import';
+import { closeDatabase, initializeDatabase } from '@exitbook/data';
+import { ProcessorFactory } from '@exitbook/import';
 import type { ProviderInfo } from '@exitbook/providers';
 import {
   initializeProviders,
@@ -14,6 +12,7 @@ import {
 import { getLogger } from '@exitbook/shared-logger';
 import { Command } from 'commander';
 
+import { registerExportCommand } from './commands/export.js';
 import { registerImportCommand } from './commands/import.js';
 import { registerProcessCommand } from './commands/process.js';
 import { registerVerifyCommand } from './commands/verify.js';
@@ -27,14 +26,6 @@ const program = new Command();
 // Command option types
 interface StatusOptions {
   clearDb?: boolean | undefined;
-}
-
-interface ExportOptions {
-  clearDb?: boolean | undefined;
-  exchange?: string | undefined;
-  format?: string | undefined;
-  output?: string | undefined;
-  since?: string | undefined;
 }
 
 async function main() {
@@ -51,6 +42,9 @@ async function main() {
 
   // Verify command - refactored with @clack/prompts (Phase 3)
   registerVerifyCommand(program);
+
+  // Export command - refactored with @clack/prompts (Phase 3)
+  registerExportCommand(program);
 
   // Status command
   program
@@ -93,61 +87,6 @@ async function main() {
         process.exit(0);
       } catch (error) {
         logger.error(`Status check failed: ${String(error)}`);
-        process.exit(1);
-      }
-    });
-
-  // Export command
-  program
-    .command('export')
-    .description('Export transactions to CSV or JSON')
-    .option('--format <type>', 'Export format (csv|json)', 'csv')
-    .option('--exchange <name>', 'Export from specific exchange only')
-    .option('--since <date>', 'Export transactions since date (YYYY-MM-DD, timestamp, or 0 for all history)')
-    .option('--output <file>', 'Output file path')
-    .option('--clear-db', 'Clear and reinitialize database before export')
-    .action(async (options: ExportOptions) => {
-      try {
-        logger.info('Starting export');
-
-        const database = await initializeDatabase(options.clearDb);
-
-        let since: number | undefined;
-        if (options.since) {
-          since = new Date(options.since).getTime();
-          if (isNaN(since)) {
-            logger.error('Invalid date format. Use YYYY-MM-DD');
-            process.exit(1);
-          }
-        }
-
-        const transactionRepository = new TransactionRepository(database);
-        const transactionsResult = await transactionRepository.getTransactions(options.exchange, since);
-
-        if (transactionsResult.isErr()) {
-          logger.error(`Failed to retrieve transactions: ${transactionsResult.error.message}`);
-          throw transactionsResult.error;
-        }
-
-        const transactions = transactionsResult.value;
-
-        const outputPath =
-          options.output || path.join(process.cwd(), 'data', `transactions.${options.format || 'csv'}`);
-
-        if ((options.format || 'csv') === 'csv') {
-          const csv = convertToCSV(transactions);
-          await import('node:fs').then((fs) => fs.promises.writeFile(outputPath, csv));
-        } else {
-          const json = convertToJSON(transactions);
-          await import('node:fs').then((fs) => fs.promises.writeFile(outputPath, json));
-        }
-
-        logger.info(`\n💾 Exported ${transactions.length} transactions to: ${outputPath}`);
-
-        await closeDatabase(database);
-        process.exit(0);
-      } catch (error) {
-        logger.error(`Export failed: ${String(error)}`);
         process.exit(1);
       }
     });
@@ -333,103 +272,6 @@ async function main() {
     });
 
   await program.parseAsync();
-}
-
-function convertToCSV(transactions: StoredTransaction[]): string {
-  if (transactions.length === 0) return '';
-
-  const headers = [
-    'id',
-    'source',
-    'operation_category',
-    'operation_type',
-    'timestamp',
-    'datetime',
-    'primary_asset',
-    'primary_amount',
-    'primary_direction',
-    'total_fee',
-    'price',
-    'price_currency',
-    'status',
-  ];
-  const csvLines = [headers.join(',')];
-
-  for (const tx of transactions) {
-    // Format datetime properly
-    const datetime =
-      tx.transaction_datetime || (tx.transaction_datetime ? new Date(tx.transaction_datetime).toISOString() : '');
-
-    const values = [
-      tx.id || '',
-      tx.source_id || '',
-      tx.operation_category || '',
-      tx.operation_type || '',
-      tx.transaction_datetime || '',
-      datetime,
-      tx.movements_primary_asset || '',
-      tx.movements_primary_amount || '',
-      tx.movements_primary_direction || '',
-      tx.fees_total || '',
-      tx.price || '',
-      tx.price_currency || '',
-      tx.transaction_status || '',
-    ];
-
-    // Escape values that contain commas
-    const escapedValues = values.map((value) => {
-      // eslint-disable-next-line @typescript-eslint/no-base-to-string -- Proper check done
-      const stringValue = typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value);
-      return stringValue.includes(',') ? `"${stringValue}"` : stringValue;
-    });
-
-    csvLines.push(escapedValues.join(','));
-  }
-
-  return csvLines.join('\n');
-}
-
-function convertToJSON(transactions: StoredTransaction[]): string {
-  if (transactions.length === 0) return '[]';
-
-  const processedTransactions = transactions.map((tx) => {
-    return {
-      id: tx.id,
-      source_id: tx.source_id,
-      datetime: tx.transaction_datetime,
-      status: tx.transaction_status,
-      operation: {
-        category: tx.operation_category,
-        type: tx.operation_type,
-      },
-      movements: {
-        primary: {
-          asset: tx.movements_primary_asset,
-          amount: tx.movements_primary_amount,
-          direction: tx.movements_primary_direction,
-        },
-        inflows: tx.movements_inflows,
-        outflows: tx.movements_outflows,
-      },
-      fees: {
-        total: tx.fees_total,
-        network: tx.fees_network,
-        platform: tx.fees_platform,
-      },
-      price: tx.price,
-      price_currency: tx.price_currency,
-      blockchain: {
-        name: tx.blockchain_name,
-        block_height: tx.blockchain_block_height,
-        transaction_hash: tx.blockchain_transaction_hash,
-        is_confirmed: tx.blockchain_is_confirmed,
-      },
-      verified: tx.verified,
-      created_at: tx.created_at,
-    };
-  });
-
-  return JSON.stringify(processedTransactions, undefined, 2);
 }
 
 // Handle unhandled rejections
