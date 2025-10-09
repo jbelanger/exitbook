@@ -22,7 +22,7 @@ export interface ImportCommandOptions {
 }
 
 /**
- * Validate import parameters (pure function).
+ * Validate import parameters .
  * Returns Result<void, Error> to indicate validation success or failure.
  */
 export function validateImportParams(params: ImportHandlerParams): Result<void, Error> {
@@ -47,7 +47,7 @@ export function validateImportParams(params: ImportHandlerParams): Result<void, 
 }
 
 /**
- * Build import parameters from CLI flags (pure function).
+ * Build import parameters from CLI flags .
  * Validates inputs and constructs ImportHandlerParams.
  */
 export function buildImportParamsFromFlags(options: ImportCommandOptions): Result<ImportHandlerParams, Error> {

@@ -156,7 +156,7 @@ async function executeImportCommand(options: ExtendedImportCommandOptions): Prom
 }
 
 /**
- * Build import parameters from CLI flags using pure function.
+ * Build import parameters from CLI flags.
  * Throws error for commander to handle.
  */
 function buildParamsFromFlags(options: ExtendedImportCommandOptions): ImportHandlerParams {

@@ -38,7 +38,7 @@ describe('HttpClient - Imperative Shell', () => {
     );
   });
 
-  it('should enforce rate limiting using pure functions', async () => {
+  it('should enforce rate limitings', async () => {
     let currentTime = 1000;
     const mockDelay = vi.fn().mockImplementation((ms: number) => {
       currentTime += ms;

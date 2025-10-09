@@ -1,19 +1,9 @@
 #!/usr/bin/env node
 import path from 'node:path';
 
-import { BalanceRepository, BalanceService, type BalanceVerificationResult, BalanceVerifier } from '@exitbook/balance';
 import 'reflect-metadata';
 import { closeDatabase, initializeDatabase, type StoredTransaction } from '@exitbook/data';
-import {
-  DefaultNormalizer,
-  TransactionIngestionService,
-  ImportSessionRepository,
-  ImportSessionErrorRepository,
-  RawDataRepository,
-  TransactionRepository,
-  ImporterFactory,
-  ProcessorFactory,
-} from '@exitbook/import';
+import { ProcessorFactory, TransactionRepository } from '@exitbook/import';
 import type { ProviderInfo } from '@exitbook/providers';
 import {
   initializeProviders,
@@ -25,6 +15,8 @@ import { getLogger } from '@exitbook/shared-logger';
 import { Command } from 'commander';
 
 import { registerImportCommand } from './commands/import.js';
+import { registerProcessCommand } from './commands/process.js';
+import { registerVerifyCommand } from './commands/verify.js';
 
 // Initialize all providers at startup
 initializeProviders();
@@ -33,13 +25,6 @@ const logger = getLogger('CLI');
 const program = new Command();
 
 // Command option types
-interface VerifyOptions {
-  blockchain?: string | undefined;
-  clearDb?: boolean | undefined;
-  exchange?: string | undefined;
-  report?: boolean | undefined;
-}
-
 interface StatusOptions {
   clearDb?: boolean | undefined;
 }
@@ -52,71 +37,20 @@ interface ExportOptions {
   since?: string | undefined;
 }
 
-interface ProcessOptions {
-  all?: boolean | undefined;
-  blockchain?: string | undefined;
-  clearDb?: boolean | undefined;
-  exchange?: string | undefined;
-  session?: string | undefined;
-  since?: string | undefined;
-}
-
 async function main() {
   program
     .name('crypto-import')
     .description('Crypto transaction import and verification tool using CCXT')
     .version('1.0.0');
 
-  // Verify command
-  program
-    .command('verify')
-    .description('Verify calculated balances from imported transaction data')
-    .option('--exchange <name>', 'Exchange name to verify (e.g., kraken, kucoin)')
-    .option('--blockchain <name>', 'Blockchain name to verify (e.g., bitcoin, ethereum)')
-    .option('--report', 'Generate detailed verification report')
-    .option('--clear-db', 'Clear and reinitialize database before verification')
-    .action(async (options: VerifyOptions) => {
-      try {
-        logger.info('Starting balance verification');
+  // Import command - refactored with @clack/prompts (Phase 2)
+  registerImportCommand(program);
 
-        // Initialize database
-        const database = await initializeDatabase(options.clearDb);
+  // Process command - refactored with @clack/prompts (Phase 3)
+  registerProcessCommand(program);
 
-        const balanceRepository = new BalanceRepository(database);
-        const balanceService = new BalanceService(balanceRepository);
-        const verifier = new BalanceVerifier(balanceService);
-
-        const sourceName = options.exchange || options.blockchain;
-        if (!sourceName) {
-          logger.error(
-            'Either --exchange or --blockchain is required. Examples: --exchange kraken, --blockchain bitcoin'
-          );
-          process.exit(1);
-        }
-
-        if (options.exchange && options.blockchain) {
-          logger.error('Cannot specify both --exchange and --blockchain. Choose one.');
-          process.exit(1);
-        }
-
-        const results = await verifier.verifyBalancesForSource(sourceName);
-
-        displayVerificationResults(results);
-
-        if (options.report) {
-          const report = verifier.generateReport(results);
-          const reportPath = path.join(process.cwd(), 'data', 'verification-report.md');
-          await import('node:fs').then((fs) => fs.promises.writeFile(reportPath, report));
-          logger.info(`Verification report generated: ${reportPath}`);
-        }
-
-        await closeDatabase(database);
-        process.exit(0);
-      } catch (error) {
-        logger.error(`Verification failed: ${String(error)}`);
-        process.exit(1);
-      }
-    });
+  // Verify command - refactored with @clack/prompts (Phase 3)
+  registerVerifyCommand(program);
 
   // Status command
   program
@@ -214,108 +148,6 @@ async function main() {
         process.exit(0);
       } catch (error) {
         logger.error(`Export failed: ${String(error)}`);
-        process.exit(1);
-      }
-    });
-
-  // Import command - refactored with @clack/prompts (Phase 2)
-  registerImportCommand(program);
-
-  // Process command - new ETL workflow
-  program
-    .command('process')
-    .description('Transform raw imported data to universal transaction format')
-    .option('--exchange <name>', 'Exchange name (e.g., kraken, kucoin, ledgerlive)')
-    .option('--blockchain <name>', 'Blockchain name (e.g., bitcoin, ethereum, polkadot, bittensor)')
-    .option('--session <id>', 'Import session ID to process')
-    .option('--since <date>', 'Process data since date (YYYY-MM-DD or timestamp)')
-    .option('--all', 'Process all pending raw data for this source')
-    .option('--clear-db', 'Clear and reinitialize database before processing')
-    .action(async (options: ProcessOptions) => {
-      try {
-        // Validate required parameters
-        const sourceName = options.exchange || options.blockchain;
-        if (!sourceName) {
-          logger.error(
-            'Either --exchange or --blockchain is required. Examples: --exchange kraken, --blockchain bitcoin'
-          );
-          process.exit(1);
-        }
-
-        if (options.exchange && options.blockchain) {
-          logger.error('Cannot specify both --exchange and --blockchain. Choose one.');
-          process.exit(1);
-        }
-
-        const sourceType = options.exchange ? 'exchange' : 'blockchain';
-        logger.info(`Starting data processing from ${sourceName} (${sourceType}) to universal format`);
-
-        // Initialize database
-        const database = await initializeDatabase(options.clearDb);
-
-        // Load explorer config for blockchain sources
-        const explorerConfig = loadExplorerConfig();
-
-        const transactionRepository = new TransactionRepository(database);
-        const rawDataRepository = new RawDataRepository(database);
-        const sessionRepository = new ImportSessionRepository(database);
-        const sessionErrorRepository = new ImportSessionErrorRepository(database);
-        const providerManager = new BlockchainProviderManager(explorerConfig);
-        const importerFactory = new ImporterFactory(providerManager);
-        const processorFactory = new ProcessorFactory();
-        const normalizer = new DefaultNormalizer();
-
-        const ingestionService = new TransactionIngestionService(
-          rawDataRepository,
-          sessionRepository,
-          sessionErrorRepository,
-          transactionRepository,
-          importerFactory,
-          processorFactory,
-          normalizer
-        );
-
-        try {
-          // Parse filters
-          const filters: { createdAfter?: number; importSessionId?: number } = {};
-
-          if (options.session) {
-            filters.importSessionId = parseInt(options.session, 10);
-          }
-
-          if (options.since) {
-            const sinceTimestamp = isNaN(Number(options.since))
-              ? new Date(options.since).getTime()
-              : parseInt(options.since);
-            filters.createdAfter = Math.floor(sinceTimestamp / 1000); // Convert to seconds for database
-          }
-
-          const resultOrError = await ingestionService.processRawDataToTransactions(sourceName, sourceType, filters);
-
-          if (resultOrError.isErr()) {
-            logger.error(`Processing failed: ${resultOrError.error.message}`);
-            throw resultOrError.error;
-          }
-
-          const result = resultOrError.value;
-
-          if (result.errors.length > 0) {
-            logger.error('Processing errors:');
-            result.errors.slice(0, 5).forEach((error) => logger.error(`  ${error}`));
-            if (result.errors.length > 5) {
-              logger.error(`  ... and ${result.errors.length - 5} more errors`);
-            }
-          }
-        } finally {
-          // Cleanup provider manager resources
-          providerManager.destroy();
-          await closeDatabase(database);
-        }
-
-        // Exit successfully
-        process.exit(0);
-      } catch (error) {
-        logger.error(`Processing failed: ${String(error)}`);
         process.exit(1);
       }
     });
@@ -501,94 +333,6 @@ async function main() {
     });
 
   await program.parseAsync();
-}
-
-function displayVerificationResults(results: BalanceVerificationResult[]): void {
-  const logger = getLogger('CLI');
-  logger.info('\nBalance Verification Results');
-  logger.info('================================');
-
-  for (const result of results) {
-    logger.info(`\n${result.source} - ${result.status.toUpperCase()}`);
-
-    if (result.error) {
-      logger.error(`  Error: ${result.error}`);
-      continue;
-    }
-
-    // Special handling for CSV adapters (indicated by note about CSV adapter)
-    if (result.note && result.note.includes('CSV adapter')) {
-      logger.info(`  Calculated Balances Summary (${result.summary.totalCurrencies} currencies)`);
-
-      // Show all non-zero calculated balances for CSV adapters
-      const significantBalances = result.comparisons
-        .filter((c) => Math.abs(c.calculatedBalance) > 0.00000001)
-        .sort((a, b) => Math.abs(b.calculatedBalance) - Math.abs(a.calculatedBalance));
-
-      if (significantBalances.length > 0) {
-        logger.info('  Current balances:');
-        for (const balance of significantBalances.slice(0, 25)) {
-          // Show top 25
-          const formattedBalance = balance.calculatedBalance.toFixed(8).replace(/\.?0+$/, '');
-          logger.info(`    ${balance.currency}: ${formattedBalance}`);
-        }
-
-        if (significantBalances.length > 25) {
-          logger.info(`    ... and ${significantBalances.length - 25} more currencies`);
-        }
-
-        // Show zero balances count if any
-        const zeroBalances = result.comparisons.length - significantBalances.length;
-        if (zeroBalances > 0) {
-          logger.info(`  Zero balances: ${zeroBalances} currencies`);
-        }
-      } else {
-        logger.info('  No significant balances found');
-      }
-
-      logger.info(`  Note: ${result.note}`);
-    } else {
-      // Standard live balance verification display
-      logger.info(`  Currencies: ${result.summary.totalCurrencies}`);
-      logger.info(`  Matches: ${result.summary.matches}`);
-      logger.info(`  Warnings: ${result.summary.warnings}`);
-      logger.info(`  Mismatches: ${result.summary.mismatches}`);
-
-      // Show calculated balances for significant currencies
-      // For blockchain verifications (status warning, live balance always 0), show all currencies with transactions
-      // For exchange verifications, only show non-zero balances
-      const isBlockchainVerification =
-        result.status === 'warning' && result.comparisons.every((c) => c.liveBalance === 0);
-      const significantBalances = result.comparisons
-        .filter(
-          (c) =>
-            isBlockchainVerification ||
-            Math.abs(c.calculatedBalance) > 0.00000001 ||
-            Math.abs(c.liveBalance) > 0.00000001
-        )
-        .sort((a, b) => Math.abs(b.calculatedBalance) - Math.abs(a.calculatedBalance))
-        .slice(0, 10); // Show top 10
-
-      if (significantBalances.length > 0) {
-        logger.info('  Calculated vs Live Balances:');
-        for (const balance of significantBalances) {
-          const calc = balance.calculatedBalance.toFixed(8).replace(/\.?0+$/, '');
-          const live = balance.liveBalance.toFixed(8).replace(/\.?0+$/, '');
-          const status = balance.status === 'match' ? '✓' : balance.status === 'warning' ? '⚠' : '✗';
-          logger.info(`    ${balance.currency}: ${calc} (calc) | ${live} (live) ${status}`);
-        }
-      }
-
-      // Show top issues
-      const issues = result.comparisons.filter((c) => c.status !== 'match').slice(0, 3);
-      if (issues.length > 0) {
-        logger.info('  Top issues:');
-        for (const issue of issues) {
-          logger.info(`    ${issue.currency}: ${issue.difference.toFixed(8)} (${issue.percentageDiff.toFixed(2)}%)`);
-        }
-      }
-    }
-  }
 }
 
 function convertToCSV(transactions: StoredTransaction[]): string {

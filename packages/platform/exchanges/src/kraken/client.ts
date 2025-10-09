@@ -20,7 +20,7 @@ export type KrakenLedgerEntry = z.infer<typeof KrakenLedgerEntrySchema>;
  * and delegates business logic to pure functions
  */
 export function createKrakenClient(credentials: ExchangeCredentials): Result<IExchangeClient, Error> {
-  // Validate credentials using pure function
+  // Validate credentials
   return ExchangeUtils.validateCredentials(KrakenCredentialsSchema, credentials, 'kraken').map(({ apiKey, secret }) => {
     // Create ccxt instance - side effect captured in closure
     const exchange = new ccxt.kraken({

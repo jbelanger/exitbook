@@ -22,7 +22,7 @@ interface ProviderInfo {
   priority: number;
 }
 
-// Pure function: Select capable providers for operation
+// Select capable providers for operation
 export const selectCapableProviders = (providers: ProviderInfo[], operation: ProviderOperation): ProviderInfo[] => {
   return providers.filter((provider) => {
     const { supportedOperations } = provider.capabilities;
@@ -30,7 +30,7 @@ export const selectCapableProviders = (providers: ProviderInfo[], operation: Pro
   });
 };
 
-// Pure function: Filter out providers with open circuits
+// Filter out providers with open circuits
 export const filterByCircuitState = <T extends { name: string }>(
   providers: T[],
   circuitStates: Map<string, CircuitState>,
@@ -44,12 +44,12 @@ export const filterByCircuitState = <T extends { name: string }>(
   });
 };
 
-// Pure function: Sort providers by priority
+// Sort providers by priority
 export const sortByPriority = <T extends { priority: number }>(providers: T[]): T[] => {
   return [...providers].sort((a, b) => a.priority - b.priority);
 };
 
-// Pure function: Get failover sequence
+// Get failover sequence
 export const getFailoverSequence = (
   providers: ProviderInfo[],
   operation: ProviderOperation,
@@ -61,7 +61,7 @@ export const getFailoverSequence = (
   return sortByPriority(available);
 };
 
-// Pure function: Generate cache key
+// Generate cache key
 export const generateCacheKey = (blockchain: string, operation: ProviderOperation): string | undefined => {
   if (!operation.getCacheKey) {
     return;

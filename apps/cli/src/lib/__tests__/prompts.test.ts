@@ -1,7 +1,7 @@
 import * as p from '@clack/prompts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { handleCancellation, isCancelled } from './prompts.js';
+import { handleCancellation, isCancelled } from '../prompts.ts';
 
 // Mock @clack/prompts
 vi.mock('@clack/prompts', () => ({

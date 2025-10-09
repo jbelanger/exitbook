@@ -67,7 +67,7 @@ function normalizePemKey(secret: string): string {
  * and delegates business logic to pure functions
  */
 export function createCoinbaseClient(credentials: ExchangeCredentials): Result<IExchangeClient, Error> {
-  // Validate credentials using pure function
+  // Validate credentials
   return ExchangeUtils.validateCredentials(CoinbaseCredentialsSchema, credentials, 'coinbase').andThen(
     ({ apiKey, secret }) => {
       // Additional Coinbase-specific validation

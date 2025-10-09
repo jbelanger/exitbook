@@ -23,7 +23,7 @@ export type KuCoinLedgerEntry = z.infer<typeof KuCoinLedgerEntrySchema>;
 export function createKuCoinClient(credentials: ExchangeCredentials): Result<IExchangeClient, Error> {
   const logger = getLogger('KuCoinClient');
 
-  // Validate credentials using pure function
+  // Validate credentials
   return ExchangeUtils.validateCredentials(KuCoinCredentialsSchema, credentials, 'kucoin').map(
     ({ apiKey, secret, passphrase }) => {
       // Create ccxt instance - side effect captured in closure

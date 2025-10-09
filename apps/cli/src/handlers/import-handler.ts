@@ -119,7 +119,7 @@ export class ImportHandler {
    */
   async execute(params: ImportHandlerParams): Promise<Result<ImportResult, Error>> {
     try {
-      // Validate parameters using pure function
+      // Validate parameters
       const validation = validateImportParams(params);
       if (validation.isErr()) {
         return err(validation.error);
