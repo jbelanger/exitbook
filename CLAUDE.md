@@ -254,6 +254,12 @@ KUCOIN_PASSPHRASE=...
 
 ## Common Development Workflows
 
+### Issue Tracking
+
+- Track implementations and progress via GitHub issues using `gh` CLI tool
+- Use `gh issue list`, `gh issue view <number> --comments`, `gh issue create` for workflow management
+- Always load comments when viewing issues to get full context
+
 ### Adding a New Blockchain Provider
 
 1. Create directory: `packages/import/src/infrastructure/blockchains/<blockchain>/`

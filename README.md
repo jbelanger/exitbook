@@ -2,7 +2,7 @@
 
 **Transform your crypto transactions into a universal accounting format.**
 
-ExitBook transforms cryptocurrency transactions from diverse sources into a standardized accounting format. The CLI ingests data from exchange CSV exports and blockchain APIs, normalizes them through a three-phase pipeline (Import → Process → Verify), and produces universal transaction records ready for tax reporting, portfolio analysis, and reconciliation.
+ExitBook transforms cryptocurrency transactions from diverse sources into a standardized accounting format. The CLI ingests data from exchange CSV exports and blockchain APIs, normalizes them through a three-phase pipeline (Import → Process → Verify), and produces universal transaction records ready for tax reporting, P&L calculations, and portfolio reconciliation.
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D23-blue.svg)](https://nodejs.org)
@@ -23,9 +23,9 @@ ExitBook solves this by:
 
 1. **Importing** raw data from any source (CSV files or APIs)
 2. **Processing** into a universal schema with consistent fields (timestamp, currency, amount, fees, type)
-3. **Verifying** balances to ensure data integrity
+3. **Verifying** balances against your actual account holdings to ensure data integrity
 
-The result: a single source of truth for all your crypto accounting needs.
+The result: a single source of truth for tax reporting, P&L calculations, and accounting compliance.
 
 ## Overview
 
@@ -33,8 +33,8 @@ ExitBook provides a complete pipeline for crypto accounting:
 
 - **Universal Schema** – All transactions normalized into consistent fields regardless of source
 - **Multi-Source Import** – CSV files from exchanges, API data from 50+ blockchains
-- **Accounting-Ready Output** – Export to CSV/JSON with standardized transaction types (trade, deposit, withdrawal, fee, etc.)
-- **Balance Verification** – Reconcile calculated balances against actual holdings
+- **Accounting-Ready Output** – Export to CSV/JSON with standardized transaction types for tax reporting and P&L calculations
+- **Balance Verification** – Calculate balances from transaction history and compare against your actual account holdings to catch discrepancies
 
 Technical flow:
 
