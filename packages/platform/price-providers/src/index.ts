@@ -15,13 +15,16 @@ export type {
 
 // Provider manager
 export { PriceProviderManager } from './shared/provider-manager.js';
+export type { ProviderManagerConfig } from './shared/types/index.js';
 
-// CoinGecko provider
+// Shared factory - recommended way to create providers
+export { createPriceProviders, createPriceProviderByName, getAvailableProviderNames } from './shared/factory.js';
+export type { ProviderFactoryConfig } from './shared/factory.js';
+
+// CoinGecko provider (individual factory for advanced usage)
 export { CoinGeckoProvider } from './coingecko/provider.js';
-export type { CoinGeckoConfig } from './coingecko/provider.js';
-
-// Factory for creating providers
-export { createCoinGeckoProvider } from './coingecko/factory.js';
+export type { CoinGeckoProviderConfig } from './coingecko/provider.js';
+export { createCoinGeckoProvider } from './coingecko/provider.js';
 
 // Database and repositories (for advanced usage)
 export { createPricesDatabase, initializePricesDatabase } from './pricing/database.js';
