@@ -1,5 +1,4 @@
 import { closeDatabase, initializeDatabase } from '@exitbook/data';
-import { configureLogger, getLogger, resetLoggerContext } from '@exitbook/shared-logger';
 import type { Command } from 'commander';
 
 import { ExitCodes } from '../shared/exit-codes.ts';
@@ -10,8 +9,6 @@ import { ExportHandler } from './export-handler.ts';
 import { promptForExportParams } from './export-prompts.ts';
 import type { ExportCommandOptions, ExportHandlerParams } from './export-utils.ts';
 import { buildExportParamsFromFlags } from './export-utils.ts';
-
-const logger = getLogger('ExportCommand');
 
 /**
  * Extended export command options (adds CLI-specific flags not needed by handler).
@@ -78,34 +75,28 @@ async function executeExportCommand(options: ExtendedExportCommandOptions): Prom
       params = buildParamsFromFlags(options);
     }
 
-    // Initialize database
-    const database = await initializeDatabase(options.clearDb);
+    // Show spinner in text mode (auto-configures logger)
+    const spinner = output.spinner();
+    if (spinner) {
+      spinner.start('Exporting transactions...');
+    }
 
-    // Create handler and execute
-    const handler = new ExportHandler(database);
+    let database;
+    let handler;
 
     try {
-      // Show spinner in text mode
-      const spinner = output.spinner();
-      if (spinner) {
-        spinner.start('Exporting transactions...');
-      }
+      // Initialize database (logs will now go through spinner)
+      database = await initializeDatabase(options.clearDb);
 
-      // Configure logger to route logs to spinner
-      configureLogger({
-        spinner: spinner || undefined,
-        mode: options.json ? 'json' : 'text',
-        verbose: false, // TODO: Add --verbose flag support
-      });
+      // Create handler and execute
+      handler = new ExportHandler(database);
 
       const result = await handler.execute(params);
 
+      // Stop spinner (auto-resets logger context)
       if (spinner) {
-        spinner.stop(result.isOk() ? 'Export complete' : 'Export failed');
+        spinner.stop();
       }
-
-      // Reset logger context after command completes
-      resetLoggerContext();
 
       if (result.isErr()) {
         await closeDatabase(database);
@@ -116,16 +107,24 @@ async function executeExportCommand(options: ExtendedExportCommandOptions): Prom
 
       const exportResult = result.value;
 
+      // Check if there are any transactions to export
+      if (exportResult.transactionCount === 0) {
+        await closeDatabase(database);
+        handler.destroy();
+
+        const sourceInfo = exportResult.sourceName ? ` from ${exportResult.sourceName}` : '';
+        const message = `No transactions found${sourceInfo} to export`;
+
+        if (output.isTextMode()) {
+          output.outro('⚠️  No data to export');
+        }
+
+        output.warn(message);
+        return;
+      }
+
       // Write file
       await import('node:fs').then((fs) => fs.promises.writeFile(exportResult.outputPath, exportResult.content));
-
-      // Display results in text mode
-      if (output.isTextMode()) {
-        const sourceInfo = exportResult.sourceName ? ` from ${exportResult.sourceName}` : '';
-        logger.info(
-          `\n💾 Exported ${exportResult.transactionCount} transactions${sourceInfo} to: ${exportResult.outputPath}`
-        );
-      }
 
       // Prepare result data for JSON mode
       const resultData: ExportCommandResult = {
@@ -140,7 +139,11 @@ async function executeExportCommand(options: ExtendedExportCommandOptions): Prom
 
       // Output success
       if (output.isTextMode()) {
-        output.outro(`✨ Export complete!`);
+        output.outro('✨ Export complete!');
+        const sourceInfo = exportResult.sourceName ? ` from ${exportResult.sourceName}` : '';
+        console.log(
+          `\n💾 Exported ${exportResult.transactionCount} transactions${sourceInfo} to: ${exportResult.outputPath}`
+        );
       }
 
       output.success('export', resultData);
@@ -149,13 +152,11 @@ async function executeExportCommand(options: ExtendedExportCommandOptions): Prom
       handler.destroy();
       process.exit(0);
     } catch (error) {
-      resetLoggerContext(); // Clean up logger context on error
-      handler.destroy();
-      await closeDatabase(database);
+      if (handler) handler.destroy();
+      if (database) await closeDatabase(database);
       throw error;
     }
   } catch (error) {
-    resetLoggerContext(); // Clean up logger context on error
     output.error('export', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
   }
 }

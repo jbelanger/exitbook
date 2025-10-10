@@ -2,7 +2,7 @@ import path from 'node:path';
 
 import type { BalanceVerificationResult } from '@exitbook/balance';
 import { closeDatabase, initializeDatabase } from '@exitbook/data';
-import { configureLogger, getLogger, resetLoggerContext } from '@exitbook/shared-logger';
+import { getLogger } from '@exitbook/shared-logger';
 import type { Command } from 'commander';
 
 import { ExitCodes } from '../shared/exit-codes.ts';
@@ -85,34 +85,28 @@ async function executeVerifyCommand(options: ExtendedVerifyCommandOptions): Prom
       params = buildParamsFromFlags(options);
     }
 
-    // Initialize database
-    const database = await initializeDatabase(options.clearDb);
+    // Show spinner in text mode (auto-configures logger)
+    const spinner = output.spinner();
+    if (spinner) {
+      spinner.start('Verifying balances...');
+    }
 
-    // Create handler and execute
-    const handler = new VerifyHandler(database);
+    let database;
+    let handler;
 
     try {
-      // Show spinner in text mode
-      const spinner = output.spinner();
-      if (spinner) {
-        spinner.start('Verifying balances...');
-      }
+      // Initialize database (logs will now go through spinner)
+      database = await initializeDatabase(options.clearDb);
 
-      // Configure logger to route logs to spinner
-      configureLogger({
-        spinner: spinner || undefined,
-        mode: options.json ? 'json' : 'text',
-        verbose: false, // TODO: Add --verbose flag support
-      });
+      // Create handler and execute
+      handler = new VerifyHandler(database);
 
       const result = await handler.execute(params);
 
+      // Stop spinner (auto-resets logger context)
       if (spinner) {
-        spinner.stop(result.isOk() ? 'Verification complete' : 'Verification failed');
+        spinner.stop();
       }
-
-      // Reset logger context after command completes
-      resetLoggerContext();
 
       if (result.isErr()) {
         await closeDatabase(database);
@@ -125,6 +119,8 @@ async function executeVerifyCommand(options: ExtendedVerifyCommandOptions): Prom
 
       // Display results in text mode
       if (output.isTextMode()) {
+        output.outro('✨ Verification complete!');
+        console.log(''); // Add spacing before results
         displayVerificationResults(verifyResult.results);
       }
 
@@ -135,7 +131,7 @@ async function executeVerifyCommand(options: ExtendedVerifyCommandOptions): Prom
         await import('node:fs').then((fs) => fs.promises.writeFile(reportPath!, verifyResult.report!));
 
         if (output.isTextMode()) {
-          output.log(`\n📄 Verification report saved: ${reportPath}`);
+          console.log(`\n📄 Verification report saved: ${reportPath}`);
         }
       }
 
@@ -156,24 +152,17 @@ async function executeVerifyCommand(options: ExtendedVerifyCommandOptions): Prom
         resultData.reportPath = reportPath;
       }
 
-      // Output success
-      if (output.isTextMode()) {
-        output.outro(`✨ Verification complete!`);
-      }
-
       output.success('verify', resultData);
 
       await closeDatabase(database);
       handler.destroy();
       process.exit(0);
     } catch (error) {
-      resetLoggerContext(); // Clean up logger context on error
-      handler.destroy();
-      await closeDatabase(database);
+      if (handler) handler.destroy();
+      if (database) await closeDatabase(database);
       throw error;
     }
   } catch (error) {
-    resetLoggerContext(); // Clean up logger context on error
     output.error('verify', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
   }
 }

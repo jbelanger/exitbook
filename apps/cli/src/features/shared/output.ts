@@ -1,5 +1,5 @@
 import * as p from '@clack/prompts';
-import { getLogger } from '@exitbook/shared-logger';
+import { configureLogger, getLogger, resetLoggerContext } from '@exitbook/shared-logger';
 import pc from 'picocolors';
 
 import type { CLIResponse } from './cli-response.ts';
@@ -68,13 +68,37 @@ export class OutputManager {
 
   /**
    * Display a spinner (only in text mode).
-   * Uses clack's spinner for visual consistency.
+   * Automatically configures logger to route logs through spinner.
    */
   spinner(): ReturnType<typeof p.spinner> | undefined {
     if (this.format === 'json') {
       return undefined;
     }
-    return p.spinner();
+
+    const clackSpinner = p.spinner();
+
+    // Wrap start() to configure logger and show header
+    clackSpinner.start = (msg?: string) => {
+      // Show spinner header with message (don't use clack animation)
+      if (msg) {
+        console.log(`◆  ${msg}`);
+      }
+
+      // Configure logger to route logs through this spinner
+      configureLogger({
+        spinner: clackSpinner,
+        mode: 'text',
+        verbose: false, // TODO: Add --verbose flag support
+      });
+    };
+
+    // Wrap stop() to reset logger context
+    clackSpinner.stop = (_msg?: string, _code?: number) => {
+      // Reset logger context after spinner stops
+      resetLoggerContext();
+    };
+
+    return clackSpinner;
   }
 
   /**
@@ -91,7 +115,8 @@ export class OutputManager {
    */
   outro(message: string): void {
     if (this.format === 'text') {
-      p.outro(pc.green(message));
+      // Custom outro that continues the tree structure
+      console.log(`└  ${pc.green(message)}`);
     }
   }
 

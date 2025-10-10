@@ -61,7 +61,8 @@ export function parseNumRequests(numRequests?: string): Result<number, Error> {
  */
 export function parseCustomRates(rates?: string): Result<number[] | undefined, Error> {
   if (!rates) {
-    return ok();
+    // eslint-disable-next-line unicorn/no-useless-undefined -- explicit undefined for clarity
+    return ok(undefined);
   }
 
   const parsed = rates.split(',').map((r) => parseFloat(r.trim()));
@@ -118,7 +119,7 @@ export function buildBenchmarkParams(options: BenchmarkRateLimitCommandOptions):
 /**
  * Format rate limit configuration for display.
  */
-export function formatRateLimit(rateLimit: { burstLimit?: number; requestsPerSecond: number; }): string {
+export function formatRateLimit(rateLimit: { burstLimit?: number; requestsPerSecond: number }): string {
   if (rateLimit.burstLimit) {
     return `${rateLimit.requestsPerSecond} req/sec, burst: ${rateLimit.burstLimit}`;
   }
@@ -128,19 +129,25 @@ export function formatRateLimit(rateLimit: { burstLimit?: number; requestsPerSec
 /**
  * Build JSON-friendly config override example.
  */
-export type ConfigOverride = Record<string, {
-    overrides: Record<string, {
+export type ConfigOverride = Record<
+  string,
+  {
+    overrides: Record<
+      string,
+      {
         rateLimit: {
           burstLimit?: number | undefined;
           requestsPerSecond: number;
         };
-      }>;
-  }>;
+      }
+    >;
+  }
+>;
 
 export function buildConfigOverride(
   blockchain: string,
   provider: string,
-  recommended: { burstLimit?: number | undefined; requestsPerSecond: number; }
+  recommended: { burstLimit?: number | undefined; requestsPerSecond: number }
 ): ConfigOverride {
   return {
     [blockchain]: {

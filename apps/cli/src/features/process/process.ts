@@ -1,5 +1,4 @@
 import { closeDatabase, initializeDatabase } from '@exitbook/data';
-import { configureLogger, resetLoggerContext } from '@exitbook/shared-logger';
 import type { Command } from 'commander';
 
 import { ExitCodes } from '../shared/exit-codes.ts';
@@ -74,34 +73,28 @@ async function executeProcessCommand(options: ExtendedProcessCommandOptions): Pr
       params = buildParamsFromFlags(options);
     }
 
-    // Initialize database
-    const database = await initializeDatabase(options.clearDb);
+    // Show spinner in text mode (auto-configures logger)
+    const spinner = output.spinner();
+    if (spinner) {
+      spinner.start('Processing data...');
+    }
 
-    // Create handler and execute
-    const handler = new ProcessHandler(database);
+    let database;
+    let handler;
 
     try {
-      // Show spinner in text mode
-      const spinner = output.spinner();
-      if (spinner) {
-        spinner.start('Processing data...');
-      }
+      // Initialize database (logs will now go through spinner)
+      database = await initializeDatabase(options.clearDb);
 
-      // Configure logger to route logs to spinner
-      configureLogger({
-        spinner: spinner || undefined,
-        mode: options.json ? 'json' : 'text',
-        verbose: false, // TODO: Add --verbose flag support
-      });
+      // Create handler and execute
+      handler = new ProcessHandler(database);
 
       const result = await handler.execute(params);
 
+      // Stop spinner (auto-resets logger context)
       if (spinner) {
-        spinner.stop(result.isOk() ? 'Processing complete' : 'Processing failed');
+        spinner.stop();
       }
-
-      // Reset logger context after command completes
-      resetLoggerContext();
 
       if (result.isErr()) {
         await closeDatabase(database);
@@ -120,12 +113,12 @@ async function executeProcessCommand(options: ExtendedProcessCommandOptions): Pr
 
       // Output success
       if (output.isTextMode()) {
-        // Display friendly message in text mode
-        output.outro(`✨ Processing complete!`);
-        output.log(`\n✅ Processed: ${processResult.processed} transactions`);
+        // Display friendly outro and stats
+        output.outro('✨ Processing complete!');
+        console.log(`\n✅ Processed: ${processResult.processed} transactions`);
 
         if (processResult.errors.length > 0) {
-          output.warn(`\n⚠️  Processing errors: ${processResult.errors.length}`);
+          console.log(`\n⚠️  Processing errors: ${processResult.errors.length}`);
           output.note(processResult.errors.slice(0, 5).join('\n'), 'First 5 errors');
         }
       }
@@ -136,13 +129,11 @@ async function executeProcessCommand(options: ExtendedProcessCommandOptions): Pr
       handler.destroy();
       process.exit(0);
     } catch (error) {
-      resetLoggerContext(); // Clean up logger context on error
-      handler.destroy();
-      await closeDatabase(database);
+      if (handler) handler.destroy();
+      if (database) await closeDatabase(database);
       throw error;
     }
   } catch (error) {
-    resetLoggerContext(); // Clean up logger context on error
     output.error('process', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
   }
 }

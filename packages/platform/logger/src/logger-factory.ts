@@ -121,7 +121,8 @@ function createSpinnerAwareLogger(pinoLogger: Logger): Logger {
             const message = typeof msgOrObj === 'string' ? msgOrObj : msg || '';
             if (message) {
               process.stderr.write('\r\x1b[K');
-              process.stderr.write(`\x1b[2m│  ⚠️  ${message}\x1b[0m\n`);
+              // Yellow color for warnings (overrides dim)
+              process.stderr.write(`\x1b[33m│  ⚠️  ${message}\x1b[0m\n`);
             }
           }
           // Otherwise suppress
@@ -137,7 +138,8 @@ function createSpinnerAwareLogger(pinoLogger: Logger): Logger {
             const message = typeof msgOrObj === 'string' ? msgOrObj : msg || '';
             if (message) {
               process.stderr.write('\r\x1b[K');
-              process.stderr.write(`\x1b[2m│  ❌ ${message}\x1b[0m\n`);
+              // Red color for errors (overrides dim)
+              process.stderr.write(`\x1b[31m│  ❌ ${message}\x1b[0m\n`);
             }
           }
           // Otherwise suppress
