@@ -1,9 +1,9 @@
-import type { RawTransactionMetadata } from '@exitbook/core';
+import { isErrorWithMessage, type RawTransactionMetadata } from '@exitbook/core';
 import type { ImportSessionMetadata } from '@exitbook/data';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../core/blockchain/base/mapper.ts';
-import { isErrorWithMessage, RegisterTransactionMapper } from '../../../core/blockchain/index.ts';
+import { RegisterTransactionMapper } from '../../../core/blockchain/index.ts';
 import type { NormalizationError } from '../../../core/blockchain/index.ts';
 import { SolanaTransactionSchema } from '../schemas.js';
 import type { SolanaAccountChange, SolanaTokenChange, SolanaTransaction } from '../types.js';
