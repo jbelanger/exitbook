@@ -84,36 +84,43 @@ async function executeImportCommand(options: ExtendedImportCommandOptions): Prom
       params = buildParamsFromFlags(options);
     }
 
-    // Initialize database
+    // Show starting message and spinner in text mode
+    if (output.isTextMode()) {
+      if (!isInteractiveMode) {
+        // Flag mode: show simple message
+        console.error(`Importing from ${params.sourceName}...`);
+      }
+      // Interactive mode: already within clack flow, no extra message needed
+    }
+
+    const spinner = output.spinner();
+    if (spinner) {
+      spinner.start('Importing data...');
+    }
+
+    // Configure logger to route logs to spinner
+    configureLogger({
+      spinner: spinner || undefined,
+      mode: options.json ? 'json' : 'text',
+      verbose: false, // TODO: Add --verbose flag support
+    });
+
+    // Initialize database (after spinner starts so logs appear indented)
     const database = await initializeDatabase(options.clearDb);
 
     // Create handler and execute
     const handler = new ImportHandler(database);
 
     try {
-      // Show spinner in text mode
-      const spinner = output.spinner();
-      if (spinner) {
-        spinner.start('Importing data...');
-      }
-
-      // Configure logger to route logs to spinner
-      configureLogger({
-        spinner: spinner || undefined,
-        mode: options.json ? 'json' : 'text',
-        verbose: false, // TODO: Add --verbose flag support
-      });
-
       const result = await handler.execute(params);
-
-      if (spinner) {
-        spinner.stop(result.isOk() ? 'Import complete' : 'Import failed');
-      }
 
       // Reset logger context after command completes
       resetLoggerContext();
 
       if (result.isErr()) {
+        if (spinner) {
+          spinner.stop('Import failed');
+        }
         await closeDatabase(database);
         handler.destroy();
         output.error('import', result.error, ExitCodes.GENERAL_ERROR);
@@ -136,20 +143,30 @@ async function executeImportCommand(options: ExtendedImportCommandOptions): Prom
         resultData.processingErrors = importResult.processingErrors.slice(0, 5); // First 5 errors
       }
 
+      // Build completion message
+      const parts: string[] = [`${importResult.imported} items`];
+      if (importResult.processed !== undefined) {
+        parts.push(`${importResult.processed} processed`);
+      }
+      parts.push(`session: ${importResult.importSessionId}`);
+      const completionMessage = `Import complete - ${parts.join(', ')}`;
+
+      // Stop spinner with completion message
+      if (spinner) {
+        spinner.stop(completionMessage);
+      }
+
       // Output success
       if (output.isTextMode()) {
-        // Display friendly message in text mode
-        output.outro(`✨ Import complete!`);
-        output.log(`\n📊 Imported: ${importResult.imported} items`);
-        output.log(`🔑 Session ID: ${importResult.importSessionId}`);
-
-        if (importResult.processed !== undefined) {
-          output.log(`✅ Processed: ${importResult.processed} transactions`);
+        // In interactive mode, spinner.stop() already showed the message with ◇
+        // In flag mode, spinner.stop() also showed the message
+        // Just show outro in interactive mode for visual closure
+        if (isInteractiveMode) {
+          output.outro(`✨ Done!`);
         }
 
         if (importResult.processingErrors && importResult.processingErrors.length > 0) {
-          output.warn(`\n⚠️  Processing errors: ${importResult.processingErrors.length}`);
-          output.note(importResult.processingErrors.slice(0, 5).join('\n'), 'First 5 errors');
+          console.error(`⚠️  ${importResult.processingErrors.length} processing errors`);
         }
       }
 
@@ -157,7 +174,8 @@ async function executeImportCommand(options: ExtendedImportCommandOptions): Prom
 
       await closeDatabase(database);
       handler.destroy();
-      process.exit(0);
+      // Don't call process.exit(0) - it triggers clack's cancellation handler
+      // The process will exit naturally
     } catch (error) {
       resetLoggerContext(); // Clean up logger context on error
       handler.destroy();

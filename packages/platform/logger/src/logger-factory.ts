@@ -71,99 +71,93 @@ export function getLoggerContext(): Readonly<LoggerContext> {
  * Enhanced getLogger that respects global context.
  * Drop-in replacement for the existing getLogger from pino-logger.
  *
- * When a spinner is active in text mode, logs are routed to the spinner.
+ * When a spinner is active in text mode, logs are shown as indented/dimmed text.
  * Otherwise, logs go to pino as normal.
+ *
+ * IMPORTANT: Always wraps the logger so context changes are respected at log time,
+ * not at logger creation time.
  */
 export function getLogger(category: string): Logger {
   const pinoLogger = getPinoLogger(category);
 
-  // If we have a spinner in text mode, wrap the logger
-  if (globalContext.spinner && globalContext.mode === 'text') {
-    return createSpinnerAwareLogger(pinoLogger, globalContext);
-  }
-
-  return pinoLogger;
+  // Always wrap the logger - context is checked at log time
+  return createSpinnerAwareLogger(pinoLogger);
 }
 
 /**
- * Wraps a pino logger to route output to spinner when appropriate.
+ * Wraps a pino logger to display logs as indented, dimmed text when spinner is active.
  * Uses Proxy to intercept logging method calls.
+ * Checks global context at log time for dynamic behavior.
+ *
+ * When spinner is NOT active, logs are suppressed (progressive disclosure pattern).
  */
-function createSpinnerAwareLogger(pinoLogger: Logger, context: LoggerContext): Logger {
-  const spinner = context.spinner!;
-  const verbose = context.verbose || false;
-
+function createSpinnerAwareLogger(pinoLogger: Logger): Logger {
   return new Proxy(pinoLogger, {
     get: (target, prop: string) => {
       // Intercept info() calls
       if (prop === 'info') {
         return (msgOrObj: object | string, msg?: string) => {
-          // Always log to pino (for files, audit)
-          // Call with correct signature based on arguments
-          if (typeof msgOrObj === 'string') {
-            target.info(msgOrObj);
-          } else {
-            target.info(msgOrObj, msg);
-          }
+          const isSpinnerActive = globalContext.spinner && globalContext.mode === 'text';
 
-          // Extract message
-          const message = typeof msgOrObj === 'string' ? msgOrObj : msg || '';
-
-          // Update spinner
-          if (message) {
-            spinner.message(message);
+          // Only show logs when spinner is active
+          if (isSpinnerActive) {
+            const message = typeof msgOrObj === 'string' ? msgOrObj : msg || '';
+            if (message) {
+              // Clear spinner line, write log with clack box prefix
+              process.stderr.write('\r\x1b[K');
+              process.stderr.write(`\x1b[2m│  ${message}\x1b[0m\n`);
+            }
           }
+          // Otherwise suppress (no output)
         };
       }
 
       // Intercept warn() calls
       if (prop === 'warn') {
         return (msgOrObj: object | string, msg?: string) => {
-          if (typeof msgOrObj === 'string') {
-            target.warn(msgOrObj);
-          } else {
-            target.warn(msgOrObj, msg);
-          }
+          const isSpinnerActive = globalContext.spinner && globalContext.mode === 'text';
 
-          const message = typeof msgOrObj === 'string' ? msgOrObj : msg || '';
-          if (message) {
-            spinner.message(`⚠️  ${message}`);
+          if (isSpinnerActive) {
+            const message = typeof msgOrObj === 'string' ? msgOrObj : msg || '';
+            if (message) {
+              process.stderr.write('\r\x1b[K');
+              process.stderr.write(`\x1b[2m│  ⚠️  ${message}\x1b[0m\n`);
+            }
           }
+          // Otherwise suppress
         };
       }
 
       // Intercept error() calls
       if (prop === 'error') {
         return (msgOrObj: object | string, msg?: string) => {
-          if (typeof msgOrObj === 'string') {
-            target.error(msgOrObj);
-          } else {
-            target.error(msgOrObj, msg);
-          }
+          const isSpinnerActive = globalContext.spinner && globalContext.mode === 'text';
 
-          const message = typeof msgOrObj === 'string' ? msgOrObj : msg || '';
-          if (message) {
-            spinner.message(`❌ ${message}`);
+          if (isSpinnerActive) {
+            const message = typeof msgOrObj === 'string' ? msgOrObj : msg || '';
+            if (message) {
+              process.stderr.write('\r\x1b[K');
+              process.stderr.write(`\x1b[2m│  ❌ ${message}\x1b[0m\n`);
+            }
           }
+          // Otherwise suppress
         };
       }
 
       // Intercept debug() calls
       if (prop === 'debug') {
         return (msgOrObj: object | string, msg?: string) => {
-          if (typeof msgOrObj === 'string') {
-            target.debug(msgOrObj);
-          } else {
-            target.debug(msgOrObj, msg);
-          }
+          const isSpinnerActive = globalContext.spinner && globalContext.mode === 'text';
 
-          // Only show debug on spinner in verbose mode
-          if (verbose) {
+          // Only show debug in verbose mode when spinner is active
+          if (isSpinnerActive && globalContext.verbose) {
             const message = typeof msgOrObj === 'string' ? msgOrObj : msg || '';
             if (message) {
-              spinner.message(`[DEBUG] ${message}`);
+              process.stderr.write('\r\x1b[K');
+              process.stderr.write(`\x1b[2m│  [DEBUG] ${message}\x1b[0m\n`);
             }
           }
+          // Otherwise suppress
         };
       }
 
@@ -171,8 +165,8 @@ function createSpinnerAwareLogger(pinoLogger: Logger, context: LoggerContext): L
       if (prop === 'child') {
         return (bindings: object, options?: object) => {
           const childLogger = target.child(bindings, options);
-          // Wrap child logger with same context
-          return createSpinnerAwareLogger(childLogger, context);
+          // Wrap child logger too
+          return createSpinnerAwareLogger(childLogger);
         };
       }
 

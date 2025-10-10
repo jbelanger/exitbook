@@ -68,6 +68,7 @@ export class OutputManager {
 
   /**
    * Display a spinner (only in text mode).
+   * Uses clack's spinner for visual consistency.
    */
   spinner(): ReturnType<typeof p.spinner> | undefined {
     if (this.format === 'json') {
