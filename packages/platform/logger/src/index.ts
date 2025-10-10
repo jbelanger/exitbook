@@ -6,7 +6,7 @@ export {
   type Logger,
   type LoggerContext,
   type Spinner,
-} from './logger-factory.js';
+} from './clack-logger.ts';
 
 // Export environment schema
 export { loggerEnvSchema } from './env.schema.ts';

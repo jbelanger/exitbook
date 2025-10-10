@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/unbound-method -- Acceptable in tests */
 import type { KyselyDB } from '@exitbook/data';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
@@ -79,8 +80,7 @@ describe('command-execution', () => {
     });
 
     it('should create handler with database and execute with params', async () => {
-      // eslint-disable-next-line unicorn/no-useless-undefined -- undefined is returned
-      const executeMock = mockHandler.execute.bind(undefined) as Mock;
+      const executeMock = mockHandler.execute as Mock;
       executeMock.mockResolvedValue(ok('result'));
 
       await withDatabaseAndHandler({ clearDb: false }, MockHandlerClass, 'test-params');
@@ -91,9 +91,8 @@ describe('command-execution', () => {
 
     it('should return successful result and cleanup resources', async () => {
       const expectedResult = ok('success');
-      // eslint-disable-next-line unicorn/no-useless-undefined -- undefined is returned
-      const executeMock = mockHandler.execute.bind(undefined) as Mock;
-      const destroyMock = mockHandler.destroy.bind(mockHandler) as Mock;
+      const executeMock = mockHandler.execute as Mock;
+      const destroyMock = mockHandler.destroy as Mock;
       executeMock.mockResolvedValue(expectedResult);
 
       const result = await withDatabaseAndHandler({ clearDb: false }, MockHandlerClass, 'params');
@@ -105,9 +104,8 @@ describe('command-execution', () => {
 
     it('should return error result and cleanup resources', async () => {
       const expectedError = err(new Error('Handler error'));
-      // eslint-disable-next-line unicorn/no-useless-undefined -- undefined is returned
-      const executeMock = mockHandler.execute.bind(undefined) as Mock;
-      const destroyMock = mockHandler.destroy.bind(mockHandler) as Mock;
+      const executeMock = mockHandler.execute as Mock;
+      const destroyMock = mockHandler.destroy as Mock;
       executeMock.mockResolvedValue(expectedError);
 
       const result = await withDatabaseAndHandler({ clearDb: false }, MockHandlerClass, 'params');
@@ -119,9 +117,8 @@ describe('command-execution', () => {
 
     it('should cleanup resources when handler throws', async () => {
       const error = new Error('Handler threw');
-      // eslint-disable-next-line unicorn/no-useless-undefined -- undefined is returned
-      const executeMock = mockHandler.execute.bind(undefined) as Mock;
-      const destroyMock = mockHandler.destroy.bind(mockHandler) as Mock;
+      const executeMock = mockHandler.execute as Mock;
+      const destroyMock = mockHandler.destroy as Mock;
       executeMock.mockRejectedValue(error);
 
       await expect(withDatabaseAndHandler({ clearDb: false }, MockHandlerClass, 'params')).rejects.toThrow(error);
@@ -132,9 +129,8 @@ describe('command-execution', () => {
 
     it('should cleanup resources in correct order on success', async () => {
       const callOrder: string[] = [];
-      // eslint-disable-next-line unicorn/no-useless-undefined -- undefined is returned
-      const executeMock = mockHandler.execute.bind(undefined) as Mock;
-      const destroyMock = mockHandler.destroy.bind(mockHandler) as Mock;
+      const executeMock = mockHandler.execute as Mock;
+      const destroyMock = mockHandler.destroy as Mock;
 
       executeMock.mockResolvedValue(ok('result'));
       destroyMock.mockImplementation(() => {
@@ -152,9 +148,8 @@ describe('command-execution', () => {
 
     it('should cleanup resources in correct order on error', async () => {
       const callOrder: string[] = [];
-      // eslint-disable-next-line unicorn/no-useless-undefined -- undefined is returned
-      const executeMock = mockHandler.execute.bind(undefined) as Mock;
-      const destroyMock = mockHandler.destroy.bind(mockHandler) as Mock;
+      const executeMock = mockHandler.execute as Mock;
+      const destroyMock = mockHandler.destroy as Mock;
 
       executeMock.mockRejectedValue(new Error('Test error'));
       destroyMock.mockImplementation(() => {

@@ -1,8 +1,9 @@
+import type { MockInstance } from 'vitest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { Logger } from '../logger-factory.js';
-import { configureLogger, getLogger, getLoggerContext, resetLoggerContext, type Spinner } from '../logger-factory.js';
-import * as pinoLoggerModule from '../pino-logger.js';
+import type { Logger } from '../clack-logger.ts';
+import { configureLogger, getLogger, getLoggerContext, resetLoggerContext, type Spinner } from '../clack-logger.ts';
+import * as pinoLoggerModule from '../pino-logger.ts';
 
 interface MockLogger extends Logger {
   info: ReturnType<typeof vi.fn>;
@@ -16,6 +17,7 @@ interface MockLogger extends Logger {
 describe('logger-factory', () => {
   let mockSpinner: Spinner;
   let mockPinoLogger: MockLogger;
+  let stderrWriteSpy: MockInstance<(str: string | Uint8Array, ...args: unknown[]) => boolean>;
 
   beforeEach(() => {
     // Reset logger context before each test
@@ -37,6 +39,9 @@ describe('logger-factory', () => {
 
     // Mock the pino getLogger to always return our mock
     vi.spyOn(pinoLoggerModule, 'getLogger').mockReturnValue(mockPinoLogger as Logger);
+
+    // Mock process.stderr.write to capture direct writes
+    stderrWriteSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 
     // Create mock spinner
     mockSpinner = {
@@ -116,29 +121,29 @@ describe('logger-factory', () => {
   });
 
   describe('getLogger without spinner context', () => {
-    it('should return unwrapped pino logger when no context is set', () => {
+    it('should suppress logs when no context is set (progressive disclosure)', () => {
       const logger = getLogger('test');
 
       logger.info('test message');
 
-      expect(mockPinoLogger.info).toHaveBeenCalledWith('test message');
-      expect(mockSpinner.message).not.toHaveBeenCalled();
+      // Logs are suppressed when no spinner is active
+      expect(stderrWriteSpy).not.toHaveBeenCalled();
     });
 
-    it('should return unwrapped logger in json mode', () => {
+    it('should suppress logs in json mode', () => {
       configureLogger({
         spinner: mockSpinner,
-        mode: 'json', // JSON mode disables spinner
+        mode: 'json', // JSON mode disables spinner integration
       });
 
       const logger = getLogger('test');
       logger.info('test message');
 
-      expect(mockPinoLogger.info).toHaveBeenCalledWith('test message');
-      expect(mockSpinner.message).not.toHaveBeenCalled();
+      // Logs are suppressed in JSON mode
+      expect(stderrWriteSpy).not.toHaveBeenCalled();
     });
 
-    it('should return unwrapped logger when spinner is not set', () => {
+    it('should suppress logs when spinner is not set', () => {
       configureLogger({
         mode: 'text',
         // spinner not provided
@@ -147,8 +152,8 @@ describe('logger-factory', () => {
       const logger = getLogger('test');
       logger.info('test message');
 
-      expect(mockPinoLogger.info).toHaveBeenCalledWith('test message');
-      expect(mockSpinner.message).not.toHaveBeenCalled();
+      // Logs are suppressed when spinner is not active
+      expect(stderrWriteSpy).not.toHaveBeenCalled();
     });
   });
 
@@ -162,62 +167,62 @@ describe('logger-factory', () => {
     });
 
     describe('info logging', () => {
-      it('should route info messages to spinner', () => {
+      it('should write info messages to stderr with clack formatting', () => {
         const logger = getLogger('test');
         logger.info('test info message');
 
-        // Should call pino logger (for files/audit)
-        expect(mockPinoLogger.info).toHaveBeenCalledWith('test info message');
-
-        // Should also update spinner
-        expect(mockSpinner.message).toHaveBeenCalledWith('test info message');
+        // Should write to stderr with clack box-drawing format
+        // Format: clear line + dimmed box char + message + reset
+        expect(stderrWriteSpy).toHaveBeenCalledWith('\r\x1b[K');
+        expect(stderrWriteSpy).toHaveBeenCalledWith('\x1b[2m│  test info message\x1b[0m\n');
       });
 
       it('should handle pino-style info with metadata object', () => {
         const logger = getLogger('test');
         logger.info({ metadata: 'value' }, 'test message');
 
-        // Should call pino logger with both args
-        expect(mockPinoLogger.info).toHaveBeenCalledWith({ metadata: 'value' }, 'test message');
-
-        // Should update spinner with message
-        expect(mockSpinner.message).toHaveBeenCalledWith('test message');
+        // Should write to stderr with message only (metadata ignored for display)
+        expect(stderrWriteSpy).toHaveBeenCalledWith('\r\x1b[K');
+        expect(stderrWriteSpy).toHaveBeenCalledWith('\x1b[2m│  test message\x1b[0m\n');
       });
 
-      it('should not update spinner when message is empty', () => {
+      it('should not write to stderr when message is empty', () => {
         const logger = getLogger('test');
         logger.info({ metadata: 'value' });
 
-        expect(mockPinoLogger.info).toHaveBeenCalled();
-        expect(mockSpinner.message).not.toHaveBeenCalled();
+        // Should not write when no message provided
+        expect(stderrWriteSpy).not.toHaveBeenCalled();
       });
     });
 
     describe('warn logging', () => {
-      it('should route warn messages to spinner with warning icon', () => {
+      it('should write warn messages to stderr with warning icon and yellow color', () => {
         const logger = getLogger('test');
         logger.warn('test warning');
 
-        expect(mockPinoLogger.warn).toHaveBeenCalledWith('test warning');
-        expect(mockSpinner.message).toHaveBeenCalledWith('⚠️  test warning');
+        // Should write with yellow color and warning icon
+        expect(stderrWriteSpy).toHaveBeenCalledWith('\r\x1b[K');
+        expect(stderrWriteSpy).toHaveBeenCalledWith('\x1b[33m│  ⚠️  test warning\x1b[0m\n');
       });
 
       it('should handle pino-style warn with metadata', () => {
         const logger = getLogger('test');
         logger.warn({ code: 'WARN' }, 'warning message');
 
-        expect(mockPinoLogger.warn).toHaveBeenCalledWith({ code: 'WARN' }, 'warning message');
-        expect(mockSpinner.message).toHaveBeenCalledWith('⚠️  warning message');
+        // Should write with yellow color and warning icon
+        expect(stderrWriteSpy).toHaveBeenCalledWith('\r\x1b[K');
+        expect(stderrWriteSpy).toHaveBeenCalledWith('\x1b[33m│  ⚠️  warning message\x1b[0m\n');
       });
     });
 
     describe('error logging', () => {
-      it('should route error messages to spinner with error icon', () => {
+      it('should write error messages to stderr with error icon and red color', () => {
         const logger = getLogger('test');
         logger.error('test error');
 
-        expect(mockPinoLogger.error).toHaveBeenCalledWith('test error');
-        expect(mockSpinner.message).toHaveBeenCalledWith('❌ test error');
+        // Should write with red color and error icon
+        expect(stderrWriteSpy).toHaveBeenCalledWith('\r\x1b[K');
+        expect(stderrWriteSpy).toHaveBeenCalledWith('\x1b[31m│  ❌ test error\x1b[0m\n');
       });
 
       it('should handle pino-style error with error object', () => {
@@ -225,24 +230,22 @@ describe('logger-factory', () => {
         const error = new Error('test error');
         logger.error({ error }, 'error message');
 
-        expect(mockPinoLogger.error).toHaveBeenCalledWith({ error }, 'error message');
-        expect(mockSpinner.message).toHaveBeenCalledWith('❌ error message');
+        // Should write with red color and error icon
+        expect(stderrWriteSpy).toHaveBeenCalledWith('\r\x1b[K');
+        expect(stderrWriteSpy).toHaveBeenCalledWith('\x1b[31m│  ❌ error message\x1b[0m\n');
       });
     });
 
     describe('debug logging', () => {
-      it('should not show debug messages on spinner by default', () => {
+      it('should suppress debug messages by default (verbose is false)', () => {
         const logger = getLogger('test');
         logger.debug('debug message');
 
-        // Should still log to pino
-        expect(mockPinoLogger.debug).toHaveBeenCalledWith('debug message');
-
-        // Should NOT update spinner (verbose is false)
-        expect(mockSpinner.message).not.toHaveBeenCalled();
+        // Should NOT write to stderr when verbose is false
+        expect(stderrWriteSpy).not.toHaveBeenCalled();
       });
 
-      it('should show debug messages on spinner when verbose is true', () => {
+      it('should write debug messages to stderr when verbose is true', () => {
         resetLoggerContext();
         configureLogger({
           spinner: mockSpinner,
@@ -253,8 +256,9 @@ describe('logger-factory', () => {
         const logger = getLogger('test');
         logger.debug('debug message');
 
-        expect(mockPinoLogger.debug).toHaveBeenCalledWith('debug message');
-        expect(mockSpinner.message).toHaveBeenCalledWith('[DEBUG] debug message');
+        // Should write with dimmed color and [DEBUG] prefix
+        expect(stderrWriteSpy).toHaveBeenCalledWith('\r\x1b[K');
+        expect(stderrWriteSpy).toHaveBeenCalledWith('\x1b[2m│  [DEBUG] debug message\x1b[0m\n');
       });
 
       it('should handle pino-style debug with metadata in verbose mode', () => {
@@ -268,20 +272,22 @@ describe('logger-factory', () => {
         const logger = getLogger('test');
         logger.debug({ data: 'value' }, 'debug message');
 
-        expect(mockPinoLogger.debug).toHaveBeenCalledWith({ data: 'value' }, 'debug message');
-        expect(mockSpinner.message).toHaveBeenCalledWith('[DEBUG] debug message');
+        // Should write with dimmed color and [DEBUG] prefix
+        expect(stderrWriteSpy).toHaveBeenCalledWith('\r\x1b[K');
+        expect(stderrWriteSpy).toHaveBeenCalledWith('\x1b[2m│  [DEBUG] debug message\x1b[0m\n');
       });
     });
 
     describe('child logger', () => {
-      it('should wrap child loggers with spinner awareness', () => {
+      it('should wrap child loggers with clack integration', () => {
         const logger = getLogger('parent');
         const childLogger = logger.child({ subsystem: 'child' });
 
         childLogger.info('child message');
 
-        // Child logger should also route to spinner
-        expect(mockSpinner.message).toHaveBeenCalledWith('child message');
+        // Child logger should also write to stderr with clack formatting
+        expect(stderrWriteSpy).toHaveBeenCalledWith('\r\x1b[K');
+        expect(stderrWriteSpy).toHaveBeenCalledWith('\x1b[2m│  child message\x1b[0m\n');
       });
     });
 
@@ -313,19 +319,22 @@ describe('logger-factory', () => {
       logger.info('Starting import');
       logger.info('Importing 100 items');
 
-      expect(mockSpinner.message).toHaveBeenCalledTimes(2);
-      expect(mockSpinner.message).toHaveBeenNthCalledWith(1, 'Starting import');
-      expect(mockSpinner.message).toHaveBeenNthCalledWith(2, 'Importing 100 items');
+      // Should write to stderr 4 times (2 clear + 2 messages)
+      expect(stderrWriteSpy).toHaveBeenCalledTimes(4);
+      expect(stderrWriteSpy).toHaveBeenNthCalledWith(1, '\r\x1b[K');
+      expect(stderrWriteSpy).toHaveBeenNthCalledWith(2, '\x1b[2m│  Starting import\x1b[0m\n');
+      expect(stderrWriteSpy).toHaveBeenNthCalledWith(3, '\r\x1b[K');
+      expect(stderrWriteSpy).toHaveBeenNthCalledWith(4, '\x1b[2m│  Importing 100 items\x1b[0m\n');
 
       // End of command
       resetLoggerContext();
 
-      // Subsequent logs should not use spinner
-      vi.clearAllMocks();
+      // Subsequent logs should be suppressed (no spinner active)
+      stderrWriteSpy.mockClear();
       const logger2 = getLogger('import');
       logger2.info('Post-command log');
 
-      expect(mockSpinner.message).not.toHaveBeenCalled();
+      expect(stderrWriteSpy).not.toHaveBeenCalled();
     });
 
     it('should handle error path cleanup', () => {
@@ -337,7 +346,9 @@ describe('logger-factory', () => {
       const logger = getLogger('import');
       logger.error('Import failed');
 
-      expect(mockSpinner.message).toHaveBeenCalledWith('❌ Import failed');
+      // Should write error with red color
+      expect(stderrWriteSpy).toHaveBeenCalledWith('\r\x1b[K');
+      expect(stderrWriteSpy).toHaveBeenCalledWith('\x1b[31m│  ❌ Import failed\x1b[0m\n');
 
       // Clean up on error
       resetLoggerContext();
@@ -359,9 +370,12 @@ describe('logger-factory', () => {
       logger1.info('Importer message');
       logger2.info('Processor message');
 
-      expect(mockSpinner.message).toHaveBeenCalledTimes(2);
-      expect(mockSpinner.message).toHaveBeenNthCalledWith(1, 'Importer message');
-      expect(mockSpinner.message).toHaveBeenNthCalledWith(2, 'Processor message');
+      // Should write to stderr 4 times (2 clear + 2 messages)
+      expect(stderrWriteSpy).toHaveBeenCalledTimes(4);
+      expect(stderrWriteSpy).toHaveBeenNthCalledWith(1, '\r\x1b[K');
+      expect(stderrWriteSpy).toHaveBeenNthCalledWith(2, '\x1b[2m│  Importer message\x1b[0m\n');
+      expect(stderrWriteSpy).toHaveBeenNthCalledWith(3, '\r\x1b[K');
+      expect(stderrWriteSpy).toHaveBeenNthCalledWith(4, '\x1b[2m│  Processor message\x1b[0m\n');
     });
   });
 });
