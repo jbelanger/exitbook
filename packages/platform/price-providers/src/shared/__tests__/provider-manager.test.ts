@@ -11,8 +11,8 @@ import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { PriceProviderManager } from './provider-manager.js';
-import type { IPriceProvider, PriceData, PriceQuery } from './types/index.js';
+import { PriceProviderManager } from '../provider-manager.ts';
+import type { IPriceProvider, PriceData, PriceQuery } from '../types/index.ts';
 
 // Mock logger
 vi.mock('@exitbook/shared-logger', () => ({

@@ -4,33 +4,47 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createPriceProviderByName, createPriceProviders, getAvailableProviderNames } from './factory.js';
+import { createPriceProviderByName, createPriceProviders, getAvailableProviderNames } from '../factory.ts';
 
-// Mock CoinGecko provider creation
-vi.mock('../coingecko/provider.js', () => ({
-  createCoinGeckoProvider: vi.fn(() =>
+// Mock database initialization
+vi.mock('../../pricing/database.js', () => ({
+  createPricesDatabase: vi.fn(() => ({
+    isErr: () => false,
+    isOk: () => true,
+    value: {} as unknown, // Mock database instance
+  })),
+  initializePricesDatabase: vi.fn(() =>
     Promise.resolve({
       isErr: () => false,
       isOk: () => true,
-      value: {
-        getMetadata: () => ({
-          capabilities: {
-            supportedCurrencies: ['USD'],
-            supportedOperations: ['fetchPrice', 'fetchBatch'],
-          },
-          displayName: 'CoinGecko',
-          name: 'coingecko',
-          priority: 1,
-          requiresApiKey: false,
-        }),
-      },
     })
   ),
+}));
+
+// Mock CoinGecko provider creation
+vi.mock('../../coingecko/provider.js', () => ({
+  createCoinGeckoProvider: vi.fn(() => ({
+    isErr: () => false,
+    isOk: () => true,
+    value: {
+      getMetadata: () => ({
+        capabilities: {
+          supportedCurrencies: ['USD'],
+          supportedOperations: ['fetchPrice', 'fetchBatch'],
+        },
+        displayName: 'CoinGecko',
+        name: 'coingecko',
+        priority: 1,
+        requiresApiKey: false,
+      }),
+    },
+  })),
 }));
 
 vi.mock('@exitbook/shared-logger', () => ({
   getLogger: () => ({
     debug: vi.fn(),
+    error: vi.fn(),
     info: vi.fn(),
     warn: vi.fn(),
   }),
@@ -58,10 +72,11 @@ describe('createPriceProviders', () => {
   it('should use environment variable for API key', async () => {
     process.env.COINGECKO_API_KEY = 'env-key';
 
-    const { createCoinGeckoProvider } = await import('../coingecko/provider.js');
+    const { createCoinGeckoProvider } = await import('../../coingecko/provider.ts');
     await createPriceProviders();
 
     expect(createCoinGeckoProvider).toHaveBeenCalledWith(
+      expect.anything(), // db parameter
       expect.objectContaining({
         apiKey: 'env-key',
       })
@@ -71,12 +86,13 @@ describe('createPriceProviders', () => {
   it('should prefer config over env vars', async () => {
     process.env.COINGECKO_API_KEY = 'env-key';
 
-    const { createCoinGeckoProvider } = await import('../coingecko/provider.js');
+    const { createCoinGeckoProvider } = await import('../../coingecko/provider.ts');
     await createPriceProviders({
       coingecko: { apiKey: 'config-key' },
     });
 
     expect(createCoinGeckoProvider).toHaveBeenCalledWith(
+      expect.anything(), // db parameter
       expect.objectContaining({
         apiKey: 'config-key',
       })

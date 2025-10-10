@@ -2,12 +2,13 @@
  * CoinGecko price provider implementation
  */
 
+import { getErrorMessage } from '@exitbook/core';
 import { HttpClient } from '@exitbook/platform-http';
 import { getLogger } from '@exitbook/shared-logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import { createPricesDatabase, initializePricesDatabase } from '../pricing/database.ts';
+import type { PricesDB } from '../pricing/database.ts';
 import { PriceRepository } from '../pricing/repositories/price-repository.js';
 import { ProviderRepository } from '../pricing/repositories/provider-repository.js';
 import { BasePriceProvider } from '../shared/base-provider.js';
@@ -36,22 +37,23 @@ export interface CoinGeckoProviderConfig {
   apiKey?: string | undefined;
   /** Use Pro API endpoint (requires API key) */
   useProApi?: boolean | undefined;
-  /** Path to prices database file (defaults to ./data/prices.db) */
-  databasePath?: string | undefined;
 }
 
 /**
  * Create a fully configured CoinGecko provider
  *
  * This factory handles:
- * - Database initialization
  * - Repository creation
  * - HTTP client configuration
  * - Provider instantiation
+ *
+ * @param db - Initialized prices database instance
+ * @param config - Provider configuration (API key, Pro API flag)
  */
-export async function createCoinGeckoProvider(
+export function createCoinGeckoProvider(
+  db: PricesDB,
   config: CoinGeckoProviderConfig = {}
-): Promise<Result<CoinGeckoProvider, Error>> {
+): Result<CoinGeckoProvider, Error> {
   try {
     // Determine base URL based on API type
     const baseUrl = config.useProApi ? 'https://pro-api.coingecko.com/api/v3' : 'https://api.coingecko.com/api/v3';
@@ -75,22 +77,6 @@ export async function createCoinGeckoProvider(
       timeout: 10000,
     });
 
-    // Create database
-    const dbPath = config.databasePath || './data/prices.db';
-    const dbResult = createPricesDatabase(dbPath);
-
-    if (dbResult.isErr()) {
-      return err(new Error(`Failed to create prices database: ${dbResult.error.message}`));
-    }
-
-    const db = dbResult.value;
-
-    // Run migrations
-    const migrationResult = await initializePricesDatabase(db);
-    if (migrationResult.isErr()) {
-      return err(new Error(`Failed to run migrations: ${migrationResult.error.message}`));
-    }
-
     // Create repositories
     const providerRepo = new ProviderRepository(db);
     const priceRepo = new PriceRepository(db);
@@ -106,7 +92,7 @@ export async function createCoinGeckoProvider(
 
     return ok(provider);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = getErrorMessage(error);
     return err(new Error(`Failed to create CoinGecko provider: ${message}`));
   }
 }
@@ -189,7 +175,7 @@ export class CoinGeckoProvider extends BasePriceProvider {
 
       return ok(results);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = getErrorMessage(error);
       return err(new Error(`Batch fetch failed: ${message}`));
     }
   }
@@ -260,7 +246,7 @@ export class CoinGeckoProvider extends BasePriceProvider {
       this.logger.info({ count: mappings.length }, 'Coin list synced successfully');
       return ok(mappings.length);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = getErrorMessage(error);
       return err(new Error(`Coin list sync failed: ${message}`));
     }
   }
@@ -318,7 +304,7 @@ export class CoinGeckoProvider extends BasePriceProvider {
 
       return ok(priceData.value);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = getErrorMessage(error);
       return err(new Error(`CoinGecko fetch failed: ${message}`));
     }
   }
@@ -394,7 +380,7 @@ export class CoinGeckoProvider extends BasePriceProvider {
       const priceData = transformHistoricalResponse(parseResult.data, asset, timestamp, currency, now);
       return ok(priceData);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = getErrorMessage(error);
       return err(new Error(`API fetch failed: ${message}`));
     }
   }
@@ -476,7 +462,7 @@ export class CoinGeckoProvider extends BasePriceProvider {
 
       return ok(results);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = getErrorMessage(error);
       return err(new Error(`Batch simple price fetch failed: ${message}`));
     }
   }

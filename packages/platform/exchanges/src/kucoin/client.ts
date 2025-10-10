@@ -1,4 +1,4 @@
-import type { RawTransactionWithMetadata } from '@exitbook/core';
+import { getErrorMessage, type RawTransactionWithMetadata } from '@exitbook/core';
 import { getLogger } from '@exitbook/shared-logger';
 import * as ccxt from 'ccxt';
 import type { Result } from 'neverthrow';
@@ -222,7 +222,7 @@ export function createKuCoinClient(credentials: ExchangeCredentials): Result<IEx
               logger.warn(`Returning partial results: ${allTransactions.length} transactions before error`);
               return err(
                 new PartialImportError(
-                  `Fetch failed after processing ${allTransactions.length} transactions: ${error instanceof Error ? error.message : String(error)}`,
+                  `Fetch failed after processing ${allTransactions.length} transactions: ${getErrorMessage(error)}`,
                   allTransactions,
                   { startTime: currentStartTime, limit },
                   currentCursor

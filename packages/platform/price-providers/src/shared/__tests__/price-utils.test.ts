@@ -12,8 +12,8 @@ import {
   sortByTimestamp,
   validatePriceData,
   validateQueryTimeRange,
-} from './price-utils.js';
-import type { PriceData, PriceQuery } from './types/index.js';
+} from '../price-utils.ts';
+import type { PriceData, PriceQuery } from '../types/index.ts';
 
 describe('normalizeAssetSymbol', () => {
   it('should convert to uppercase', () => {

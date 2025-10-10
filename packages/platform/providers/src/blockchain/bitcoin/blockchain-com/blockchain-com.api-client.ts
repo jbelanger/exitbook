@@ -1,3 +1,5 @@
+import { getErrorMessage } from '@exitbook/core';
+
 import { BaseApiClient } from '../../../core/blockchain/base/api-client.ts';
 import type { ProviderConfig, ProviderOperation } from '../../../core/blockchain/index.ts';
 import { RegisterApiClient } from '../../../core/blockchain/index.ts';
@@ -56,7 +58,7 @@ export class BlockchainComApiClient extends BaseApiClient {
       }
     } catch (error) {
       this.logger.error(
-        `Operation execution failed - Type: ${operation.type}, Params: ${JSON.stringify(operation)}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`
+        `Operation execution failed - Type: ${operation.type}, Params: ${JSON.stringify(operation)}, Error: ${getErrorMessage(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`
       );
       throw error;
     }
@@ -94,7 +96,7 @@ export class BlockchainComApiClient extends BaseApiClient {
       };
     } catch (error) {
       this.logger.error(
-        `Failed to get raw address info - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to get raw address info - Address: ${maskAddress(address)}, Error: ${getErrorMessage(error)}`
       );
       throw error;
     }
@@ -144,7 +146,7 @@ export class BlockchainComApiClient extends BaseApiClient {
       return filteredTransactions;
     } catch (error) {
       this.logger.error(
-        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(error)}`
       );
       throw error;
     }

@@ -2,10 +2,11 @@
  * Provider repository - manages provider metadata and coin mappings
  */
 
+import { wrapError } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import type { PricesDB } from '../database.js';
+import type { PricesDB } from '../database.ts';
 
 export interface ProviderRecord {
   id: number;
@@ -69,8 +70,7 @@ export class ProviderRepository {
 
       return ok(result);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      return err(new Error(`Failed to upsert provider: ${message}`));
+      return wrapError(error, `Failed to upsert provider`);
     }
   }
 
@@ -83,8 +83,7 @@ export class ProviderRepository {
 
       return ok(provider);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      return err(new Error(`Failed to get provider: ${message}`));
+      return wrapError(error, `Failed to get provider`);
     }
   }
 
@@ -105,8 +104,7 @@ export class ProviderRepository {
 
       return ok();
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      return err(new Error(`Failed to update provider sync: ${message}`));
+      return wrapError(error, `Failed to update provider sync`);
     }
   }
 
@@ -139,8 +137,7 @@ export class ProviderRepository {
 
       return ok();
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      return err(new Error(`Failed to upsert coin mappings: ${message}`));
+      return wrapError(error, `Failed to upsert coin mappings`);
     }
   }
 
@@ -159,8 +156,7 @@ export class ProviderRepository {
 
       return ok(mapping?.coin_id);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      return err(new Error(`Failed to get coin ID: ${message}`));
+      return wrapError(error, `Failed to get coin ID`);
     }
   }
 
@@ -177,8 +173,7 @@ export class ProviderRepository {
 
       return ok(mappings);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      return err(new Error(`Failed to get coin mappings: ${message}`));
+      return wrapError(error, `Failed to get coin mappings`);
     }
   }
 
@@ -210,8 +205,7 @@ export class ProviderRepository {
 
       return ok(daysSinceSync > 7);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      return err(new Error(`Failed to check sync status: ${message}`));
+      return wrapError(error, `Failed to check sync status`);
     }
   }
 }

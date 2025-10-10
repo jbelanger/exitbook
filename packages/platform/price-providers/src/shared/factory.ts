@@ -6,8 +6,10 @@
 
 import { getLogger } from '@exitbook/shared-logger';
 import type { Result } from 'neverthrow';
+import { err } from 'neverthrow';
 
 import { createCoinGeckoProvider } from '../coingecko/provider.ts';
+import { createPricesDatabase, initializePricesDatabase } from '../pricing/database.ts';
 
 import type { IPriceProvider } from './types/index.js';
 
@@ -17,9 +19,10 @@ const logger = getLogger('PriceProviderFactory');
  * Configuration for individual providers
  */
 export interface ProviderFactoryConfig {
+  /** Path to prices database file (defaults to ./data/prices.db) */
+  databasePath?: string | undefined;
   coingecko?: {
     apiKey?: string | undefined;
-    databasePath?: string | undefined;
     enabled?: boolean | undefined;
     useProApi?: boolean | undefined;
   };
@@ -42,6 +45,7 @@ export interface ProviderFactoryConfig {
  *
  * // Override with config
  * const providers = await createPriceProviders({
+ *   databasePath: './custom/prices.db',
  *   coingecko: { apiKey: 'my-key', useProApi: true }
  * });
  *
@@ -54,16 +58,34 @@ export interface ProviderFactoryConfig {
 export async function createPriceProviders(config: ProviderFactoryConfig = {}): Promise<IPriceProvider[]> {
   const providers: IPriceProvider[] = [];
 
+  // Initialize database (shared by all providers)
+  const dbPath = config.databasePath || './data/prices.db';
+  const dbResult = createPricesDatabase(dbPath);
+
+  if (dbResult.isErr()) {
+    logger.error(`Failed to create prices database: ${dbResult.error.message}`);
+    return providers;
+  }
+
+  const db = dbResult.value;
+
+  // Run migrations
+  const migrationResult = await initializePricesDatabase(db);
+  if (migrationResult.isErr()) {
+    logger.error(`Failed to run database migrations: ${migrationResult.error.message}`);
+    return providers;
+  }
+
+  logger.debug({ databasePath: dbPath }, 'Prices database initialized');
+
   // CoinGecko Provider
   const coingeckoConfig = config.coingecko;
   if (coingeckoConfig?.enabled !== false) {
     const apiKey = coingeckoConfig?.apiKey || process.env.COINGECKO_API_KEY;
     const useProApi = coingeckoConfig?.useProApi || process.env.COINGECKO_USE_PRO_API === 'true';
-    const databasePath = coingeckoConfig?.databasePath;
 
-    const result = await createCoinGeckoProvider({
+    const result = createCoinGeckoProvider(db, {
       apiKey,
-      databasePath,
       useProApi,
     });
 
@@ -102,24 +124,48 @@ export async function createPriceProviders(config: ProviderFactoryConfig = {}): 
  * Create a single provider by name
  *
  * Useful for dynamic provider selection or testing
+ *
+ * @param name - Provider name (e.g., 'coingecko')
+ * @param config - Combined config including database path and provider-specific settings
  */
 export async function createPriceProviderByName(
   name: string,
-  config: Record<string, unknown> = {}
+  config: ProviderFactoryConfig = {}
 ): Promise<Result<IPriceProvider, Error>> {
+  // Initialize database
+  const dbPath = config.databasePath || './data/prices.db';
+  const dbResult = createPricesDatabase(dbPath);
+
+  if (dbResult.isErr()) {
+    return err(new Error(`Failed to create prices database: ${dbResult.error.message}`));
+  }
+
+  const db = dbResult.value;
+
+  // Run migrations
+  const migrationResult = await initializePricesDatabase(db);
+  if (migrationResult.isErr()) {
+    return err(new Error(`Failed to run database migrations: ${migrationResult.error.message}`));
+  }
+
   switch (name.toLowerCase()) {
-    case 'coingecko':
-      return createCoinGeckoProvider(config as Parameters<typeof createCoinGeckoProvider>[0]);
+    case 'coingecko': {
+      const coingeckoConfig = config.coingecko || {};
+      const apiKey = coingeckoConfig.apiKey || process.env.COINGECKO_API_KEY;
+      const useProApi = coingeckoConfig.useProApi || process.env.COINGECKO_USE_PRO_API === 'true';
+
+      return createCoinGeckoProvider(db, {
+        apiKey,
+        useProApi,
+      });
+    }
 
     // Future providers:
     // case 'coinmarketcap':
-    //   return createCoinMarketCapProvider(config);
+    //   return createCoinMarketCapProvider(db, config.coinmarketcap || {});
 
     default:
-      return {
-        isErr: () => true,
-        isOk: () => false,
-      } as Result<IPriceProvider, Error>;
+      return err(new Error(`Unknown provider: ${name}`));
   }
 }
 

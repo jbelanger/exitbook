@@ -9,7 +9,7 @@ import { createInitialCircuitState } from '@exitbook/platform-http';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
-import * as ProviderManagerUtils from './provider-manager-utils.js';
+import * as ProviderManagerUtils from '../provider-manager-utils.ts';
 import type {
   IPriceProvider,
   ProviderHealth,
@@ -17,7 +17,7 @@ import type {
   PriceQuery,
   PriceData,
   PriceProviderOperation,
-} from './types/index.js';
+} from '../types/index.ts';
 
 describe('createCacheKey', () => {
   it('should create cache key from query with default currency', () => {

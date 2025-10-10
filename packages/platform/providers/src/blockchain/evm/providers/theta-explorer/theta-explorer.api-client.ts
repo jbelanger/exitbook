@@ -1,3 +1,5 @@
+import { getErrorMessage } from '@exitbook/core';
+
 import type { ProviderConfig, ProviderOperation } from '../../../../core/blockchain/index.ts';
 import { BaseApiClient, RegisterApiClient } from '../../../../core/blockchain/index.ts';
 import { maskAddress } from '../../../../core/blockchain/utils/address-utils.ts';
@@ -65,9 +67,7 @@ export class ThetaExplorerApiClient extends BaseApiClient {
       this.logger.debug(`Found ${allTransactions.length} total transactions for ${address} (${allTypeTxs.length})`);
       return allTransactions;
     } catch (error) {
-      this.logger.error(
-        `Failed to fetch raw address transactions for ${address} - Error: ${error instanceof Error ? error.message : String(error)}`
-      );
+      this.logger.error(`Failed to fetch raw address transactions for ${address} - Error: ${getErrorMessage(error)}`);
       throw error;
     }
   }

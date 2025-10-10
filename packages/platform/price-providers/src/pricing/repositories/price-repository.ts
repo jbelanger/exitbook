@@ -2,8 +2,9 @@
  * Price repository - manages cached price data
  */
 
+import { wrapError } from '@exitbook/core';
 import type { Result } from 'neverthrow';
-import { err, ok } from 'neverthrow';
+import { ok } from 'neverthrow';
 
 import { roundToDay } from '../../shared/price-utils.js';
 import type { PriceData } from '../../shared/types/index.js';
@@ -60,8 +61,7 @@ export class PriceRepository {
 
       return ok(priceData);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      return err(new Error(`Failed to get price: ${message}`));
+      return wrapError(error, `Failed to get price`);
     }
   }
 
@@ -97,8 +97,7 @@ export class PriceRepository {
 
       return ok();
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      return err(new Error(`Failed to save price: ${message}`));
+      return wrapError(error, `Failed to save price`);
     }
   }
 
@@ -124,8 +123,7 @@ export class PriceRepository {
 
       return ok();
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      return err(new Error(`Failed to save prices: ${message}`));
+      return wrapError(error, `Failed to save prices`);
     }
   }
 
@@ -163,8 +161,7 @@ export class PriceRepository {
 
       return ok(prices);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      return err(new Error(`Failed to get price range: ${message}`));
+      return wrapError(error, `Failed to get price range`);
     }
   }
 
@@ -186,8 +183,7 @@ export class PriceRepository {
 
       return ok(Number(count?.count ?? 0) > 0);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      return err(new Error(`Failed to check price existence: ${message}`));
+      return wrapError(error, `Failed to check price existence`);
     }
   }
 }

@@ -1,4 +1,5 @@
 #!/usr/bin/env tsx
+import { getErrorMessage } from '@exitbook/core';
 /**
  * Validate that all providers are properly registered and functional
  */
@@ -99,7 +100,7 @@ function validateProvider(blockchain: string, providerName: string): ValidationR
         }
       }
     } catch (error) {
-      addError(`Provider instantiation failed: ${error instanceof Error ? error.message : String(error)}`);
+      addError(`Provider instantiation failed: ${getErrorMessage(error)}`);
     }
 
     // Warnings for best practices
@@ -107,7 +108,7 @@ function validateProvider(blockchain: string, providerName: string): ValidationR
       addWarning('Missing description - consider adding for better documentation');
     }
   } catch (error) {
-    addError(`Validation error: ${error instanceof Error ? error.message : String(error)}`);
+    addError(`Validation error: ${getErrorMessage(error)}`);
   }
 
   const errorMessages = errors.filter((e) => e.type === 'error');
@@ -223,7 +224,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   try {
     validateProviders();
   } catch (error) {
-    console.error('❌ Failed to validate providers:', error instanceof Error ? error.message : error);
+    console.error('❌ Failed to validate providers:', getErrorMessage(error));
     process.exit(1);
   }
 }

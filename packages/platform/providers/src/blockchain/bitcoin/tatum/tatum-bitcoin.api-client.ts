@@ -1,3 +1,5 @@
+import { getErrorMessage } from '@exitbook/core';
+
 import { BaseApiClient } from '../../../core/blockchain/base/api-client.ts';
 import type { ProviderConfig } from '../../../core/blockchain/index.ts';
 import { RegisterApiClient } from '../../../core/blockchain/index.ts';
@@ -79,7 +81,7 @@ export class TatumBitcoinApiClient extends BaseApiClient {
       }
     } catch (error) {
       this.logger.error(
-        `Operation execution failed - Type: ${operation.type}, Params: ${JSON.stringify(operation)}, Error: ${error instanceof Error ? error.message : String(error)}`
+        `Operation execution failed - Type: ${operation.type}, Params: ${JSON.stringify(operation)}, Error: ${getErrorMessage(error)}`
       );
       throw error;
     }
@@ -101,7 +103,7 @@ export class TatumBitcoinApiClient extends BaseApiClient {
       return balance;
     } catch (error) {
       this.logger.error(
-        `Failed to get raw address balance - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to get raw address balance - Address: ${maskAddress(address)}, Error: ${getErrorMessage(error)}`
       );
       throw error;
     }
@@ -146,7 +148,7 @@ export class TatumBitcoinApiClient extends BaseApiClient {
       return transactions;
     } catch (error) {
       this.logger.error(
-        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(error)}`
       );
       throw error;
     }
@@ -183,7 +185,7 @@ export class TatumBitcoinApiClient extends BaseApiClient {
       return response;
     } catch (error) {
       this.logger.error(
-        `Tatum API request failed - Blockchain: ${this.blockchain}, Endpoint: ${endpoint}, Error: ${error instanceof Error ? error.message : String(error)}`
+        `Tatum API request failed - Blockchain: ${this.blockchain}, Endpoint: ${endpoint}, Error: ${getErrorMessage(error)}`
       );
       throw error;
     }
@@ -220,7 +222,7 @@ export class TatumBitcoinApiClient extends BaseApiClient {
       };
     } catch (error) {
       this.logger.error(
-        `Failed to get address info - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to get address info - Address: ${maskAddress(address)}, Error: ${getErrorMessage(error)}`
       );
       throw error;
     }

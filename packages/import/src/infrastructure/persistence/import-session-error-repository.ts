@@ -1,4 +1,5 @@
 /* eslint-disable unicorn/no-null -- db requires null handling */
+import { getErrorMessage } from '@exitbook/core';
 import type { KyselyDB } from '@exitbook/data';
 import type { ImportSessionError } from '@exitbook/data';
 import { BaseRepository } from '@exitbook/data';
@@ -38,7 +39,7 @@ export class ImportSessionErrorRepository extends BaseRepository implements IImp
 
       return ok(result.id);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = getErrorMessage(error);
       this.logger.error({ error, params }, 'Failed to create import session error');
       return err(new Error(`Failed to create import session error: ${errorMessage}`));
     }
@@ -55,7 +56,7 @@ export class ImportSessionErrorRepository extends BaseRepository implements IImp
 
       return ok(errors);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = getErrorMessage(error);
       this.logger.error({ error, sessionId }, 'Failed to find import session errors');
       return err(new Error(`Failed to find import session errors: ${errorMessage}`));
     }
@@ -76,7 +77,7 @@ export class ImportSessionErrorRepository extends BaseRepository implements IImp
 
       return ok(errors);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = getErrorMessage(error);
       this.logger.error({ error, sessionId, errorType }, 'Failed to find import session errors by type');
       return err(new Error(`Failed to find import session errors by type: ${errorMessage}`));
     }
@@ -92,7 +93,7 @@ export class ImportSessionErrorRepository extends BaseRepository implements IImp
 
       return ok(result?.count ?? 0);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = getErrorMessage(error);
       this.logger.error({ error, sessionId }, 'Failed to get error count');
       return err(new Error(`Failed to get error count: ${errorMessage}`));
     }

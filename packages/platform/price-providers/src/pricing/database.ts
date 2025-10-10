@@ -8,7 +8,7 @@ import * as fs from 'node:fs';
 import { promises as fsPromises } from 'node:fs';
 import * as path from 'node:path';
 
-import { isErrorWithMessage } from '@exitbook/core';
+import { isErrorWithMessage, wrapError } from '@exitbook/core';
 import { getLogger } from '@exitbook/shared-logger';
 import Database from 'better-sqlite3';
 import { Kysely, Migrator, SqliteDialect, FileMigrationProvider } from 'kysely';
@@ -55,7 +55,7 @@ export function createPricesDatabase(dbPath?: string): Result<Kysely<PricesDatab
     return ok(kysely);
   } catch (error) {
     logger.error({ error }, 'Error creating prices database');
-    return err(error instanceof Error ? error : new Error(String(error)));
+    return wrapError(error, 'Failed to create prices database');
   }
 }
 
@@ -106,7 +106,7 @@ export async function initializePricesDatabase(
     return ok();
   } catch (error) {
     logger.error({ error }, 'Error initializing prices database');
-    return err(error instanceof Error ? error : new Error(String(error)));
+    return wrapError(error, 'Failed to initialize prices database');
   }
 }
 
@@ -120,7 +120,7 @@ export async function closePricesDatabase(db: Kysely<PricesDatabase>): Promise<R
     return ok();
   } catch (error) {
     logger.error({ error }, 'Error closing prices database');
-    return err(error instanceof Error ? error : new Error(String(error)));
+    return wrapError(error, 'Failed to close prices database');
   }
 }
 
@@ -141,7 +141,7 @@ export async function clearPricesDatabase(db: Kysely<PricesDatabase>): Promise<R
     return ok();
   } catch (error) {
     logger.error({ error }, 'Error clearing prices database');
-    return err(error instanceof Error ? error : new Error(String(error)));
+    return wrapError(error, 'Failed to clear prices database');
   }
 }
 
