@@ -1,7 +1,5 @@
 /**
  * Price repository - manages cached price data
- *
- * Imperative shell managing database operations
  */
 
 import type { Result } from 'neverthrow';

@@ -1,8 +1,6 @@
 /**
  * Base provider class with common functionality
  *
- * This is part of the imperative shell - subclasses manage HTTP clients
- * and other resources. Pure transformation logic should be in utils.
  */
 
 import type { Result } from 'neverthrow';
@@ -28,7 +26,7 @@ export abstract class BasePriceProvider implements IPriceProvider {
    * Public API - validates query and delegates to implementation
    */
   async fetchPrice(query: PriceQuery): Promise<Result<PriceData, Error>> {
-    // Side effect: get current time (happens in imperative shell)
+    // Side effect: get current time
     const now = new Date();
 
     // Validate time range (pure function - pass now explicitly)

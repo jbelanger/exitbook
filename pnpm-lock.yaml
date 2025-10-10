@@ -407,6 +407,9 @@ importers:
       '@exitbook/core':
         specifier: workspace:*
         version: link:../../core
+      '@exitbook/platform-http':
+        specifier: workspace:*
+        version: link:../http
       '@exitbook/shared-logger':
         specifier: workspace:*
         version: link:../logger

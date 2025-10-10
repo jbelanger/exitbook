@@ -1,7 +1,5 @@
 /**
  * Provider repository - manages provider metadata and coin mappings
- *
- * Imperative shell managing database operations
  */
 
 import type { Result } from 'neverthrow';
