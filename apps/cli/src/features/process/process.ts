@@ -1,13 +1,13 @@
-import { closeDatabase, initializeDatabase } from '@exitbook/data';
 import type { Command } from 'commander';
 
+import { resolveCommandParams, unwrapResult, withDatabaseAndHandler } from '../shared/command-execution.ts';
 import { ExitCodes } from '../shared/exit-codes.ts';
 import { OutputManager } from '../shared/output.ts';
-import { promptConfirm, handleCancellation } from '../shared/prompts.ts';
 
+import type { ProcessResult } from './process-handler.ts';
 import { ProcessHandler } from './process-handler.ts';
 import { promptForProcessParams } from './process-prompts.ts';
-import type { ProcessCommandOptions, ProcessHandlerParams } from './process-utils.ts';
+import type { ProcessCommandOptions } from './process-utils.ts';
 import { buildProcessParamsFromFlags } from './process-utils.ts';
 
 /**
@@ -52,100 +52,56 @@ async function executeProcessCommand(options: ExtendedProcessCommandOptions): Pr
   const output = new OutputManager(options.json ? 'json' : 'text');
 
   try {
-    // Detect mode: interactive vs flag
-    const isInteractiveMode = !options.exchange && !options.blockchain && !options.json;
+    const params = await resolveCommandParams({
+      isInteractive: !options.exchange && !options.blockchain && !options.json,
+      output,
+      commandName: 'process',
+      promptFn: promptForProcessParams,
+      buildFromFlags: () => unwrapResult(buildProcessParamsFromFlags(options)),
+      confirmMessage: 'Start processing?',
+      cancelMessage: 'Processing cancelled',
+    });
 
-    let params: ProcessHandlerParams;
-
-    if (isInteractiveMode) {
-      // Interactive mode - use @clack/prompts
-      output.intro('exitbook process');
-
-      params = await promptForProcessParams();
-
-      // Confirm before proceeding
-      const shouldProceed = await promptConfirm('Start processing?', true);
-      if (!shouldProceed) {
-        handleCancellation('Processing cancelled');
-      }
-    } else {
-      // Flag mode or JSON mode - use provided options
-      params = buildParamsFromFlags(options);
-    }
-
-    // Show spinner in text mode (auto-configures logger)
     const spinner = output.spinner();
-    if (spinner) {
-      spinner.start('Processing data...');
+    spinner?.start('Processing data...');
+
+    const result = await withDatabaseAndHandler({ clearDb: options.clearDb }, ProcessHandler, params);
+
+    spinner?.stop();
+
+    if (result.isErr()) {
+      output.error('process', result.error, ExitCodes.GENERAL_ERROR);
+      return; // TypeScript needs this even though output.error never returns
     }
 
-    let database;
-    let handler;
-
-    try {
-      // Initialize database (logs will now go through spinner)
-      database = await initializeDatabase(options.clearDb);
-
-      // Create handler and execute
-      handler = new ProcessHandler(database);
-
-      const result = await handler.execute(params);
-
-      // Stop spinner (auto-resets logger context)
-      if (spinner) {
-        spinner.stop();
-      }
-
-      if (result.isErr()) {
-        await closeDatabase(database);
-        handler.destroy();
-        output.error('process', result.error, ExitCodes.GENERAL_ERROR);
-        return; // TypeScript doesn't know output.error never returns, so add explicit return
-      }
-
-      const processResult = result.value;
-
-      // Prepare result data
-      const resultData: ProcessCommandResult = {
-        processed: processResult.processed,
-        errors: processResult.errors.slice(0, 5), // First 5 errors
-      };
-
-      // Output success
-      if (output.isTextMode()) {
-        // Display friendly outro and stats
-        output.outro('✨ Processing complete!');
-        console.log(`\n✅ Processed: ${processResult.processed} transactions`);
-
-        if (processResult.errors.length > 0) {
-          console.log(`\n⚠️  Processing errors: ${processResult.errors.length}`);
-          output.note(processResult.errors.slice(0, 5).join('\n'), 'First 5 errors');
-        }
-      }
-
-      output.success('process', resultData);
-
-      await closeDatabase(database);
-      handler.destroy();
-      process.exit(0);
-    } catch (error) {
-      if (handler) handler.destroy();
-      if (database) await closeDatabase(database);
-      throw error;
-    }
+    handleProcessSuccess(output, result.value);
   } catch (error) {
     output.error('process', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
   }
 }
 
 /**
- * Build process parameters from CLI flags.
- * Throws error for commander to handle.
+ * Handle successful processing.
  */
-function buildParamsFromFlags(options: ExtendedProcessCommandOptions): ProcessHandlerParams {
-  const result = buildProcessParamsFromFlags(options);
-  if (result.isErr()) {
-    throw result.error; // Convert Result to throw for commander error handling
+function handleProcessSuccess(output: OutputManager, processResult: ProcessResult): void {
+  // Prepare result data
+  const resultData: ProcessCommandResult = {
+    processed: processResult.processed,
+    errors: processResult.errors.slice(0, 5), // First 5 errors
+  };
+
+  // Output success
+  if (output.isTextMode()) {
+    // Display friendly outro and stats
+    output.outro('✨ Processing complete!');
+    console.log(`\n✅ Processed: ${processResult.processed} transactions`);
+
+    if (processResult.errors.length > 0) {
+      console.log(`\n⚠️  Processing errors: ${processResult.errors.length}`);
+      output.note(processResult.errors.slice(0, 5).join('\n'), 'First 5 errors');
+    }
   }
-  return result.value;
+
+  output.success('process', resultData);
+  process.exit(0);
 }

@@ -261,18 +261,19 @@ describe('OutputManager', () => {
   });
 
   describe('outro', () => {
-    it('should call p.outro in text mode', () => {
+    it('should display custom outro in text mode', () => {
       const output = new OutputManager('text');
       output.outro('Test Message');
 
-      expect(p.outro).toHaveBeenCalled();
+      // Outro uses custom tree structure with console.log
+      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Test Message'));
     });
 
-    it('should not call p.outro in json mode', () => {
+    it('should not display outro in json mode', () => {
       const output = new OutputManager('json');
       output.outro('Test Message');
 
-      expect(p.outro).not.toHaveBeenCalled();
+      expect(consoleLogSpy).not.toHaveBeenCalled();
     });
   });
 

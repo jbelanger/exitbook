@@ -1,17 +1,17 @@
 import path from 'node:path';
 
 import type { BalanceVerificationResult } from '@exitbook/balance';
-import { closeDatabase, initializeDatabase } from '@exitbook/data';
 import { getLogger } from '@exitbook/shared-logger';
 import type { Command } from 'commander';
 
+import { resolveCommandParams, unwrapResult, withDatabaseAndHandler } from '../shared/command-execution.ts';
 import { ExitCodes } from '../shared/exit-codes.ts';
 import { OutputManager } from '../shared/output.ts';
-import { promptConfirm, handleCancellation } from '../shared/prompts.ts';
 
+import type { VerifyResult } from './verify-handler.ts';
 import { VerifyHandler } from './verify-handler.ts';
 import { promptForVerifyParams } from './verify-prompts.ts';
-import type { VerifyCommandOptions, VerifyHandlerParams } from './verify-utils.ts';
+import type { VerifyCommandOptions } from './verify-utils.ts';
 import { buildVerifyParamsFromFlags } from './verify-utils.ts';
 
 const logger = getLogger('VerifyCommand');
@@ -64,119 +64,75 @@ async function executeVerifyCommand(options: ExtendedVerifyCommandOptions): Prom
   const output = new OutputManager(options.json ? 'json' : 'text');
 
   try {
-    // Detect mode: interactive vs flag
-    const isInteractiveMode = !options.exchange && !options.blockchain && !options.json;
+    const params = await resolveCommandParams({
+      buildFromFlags: () => unwrapResult(buildVerifyParamsFromFlags(options)),
+      cancelMessage: 'Verification cancelled',
+      commandName: 'verify',
+      confirmMessage: 'Start verification?',
+      isInteractive: !options.exchange && !options.blockchain && !options.json,
+      output,
+      promptFn: promptForVerifyParams,
+    });
 
-    let params: VerifyHandlerParams;
-
-    if (isInteractiveMode) {
-      // Interactive mode - use @clack/prompts
-      output.intro('exitbook verify');
-
-      params = await promptForVerifyParams();
-
-      // Confirm before proceeding
-      const shouldProceed = await promptConfirm('Start verification?', true);
-      if (!shouldProceed) {
-        handleCancellation('Verification cancelled');
-      }
-    } else {
-      // Flag mode or JSON mode - use provided options
-      params = buildParamsFromFlags(options);
-    }
-
-    // Show spinner in text mode (auto-configures logger)
     const spinner = output.spinner();
-    if (spinner) {
-      spinner.start('Verifying balances...');
+    spinner?.start('Verifying balances...');
+
+    const result = await withDatabaseAndHandler({ clearDb: options.clearDb }, VerifyHandler, params);
+
+    spinner?.stop();
+
+    if (result.isErr()) {
+      output.error('verify', result.error, ExitCodes.GENERAL_ERROR);
+      return; // TypeScript needs this even though output.error never returns
     }
 
-    let database;
-    let handler;
-
-    try {
-      // Initialize database (logs will now go through spinner)
-      database = await initializeDatabase(options.clearDb);
-
-      // Create handler and execute
-      handler = new VerifyHandler(database);
-
-      const result = await handler.execute(params);
-
-      // Stop spinner (auto-resets logger context)
-      if (spinner) {
-        spinner.stop();
-      }
-
-      if (result.isErr()) {
-        await closeDatabase(database);
-        handler.destroy();
-        output.error('verify', result.error, ExitCodes.GENERAL_ERROR);
-        return; // TypeScript doesn't know output.error never returns, so add explicit return
-      }
-
-      const verifyResult = result.value;
-
-      // Display results in text mode
-      if (output.isTextMode()) {
-        output.outro('✨ Verification complete!');
-        console.log(''); // Add spacing before results
-        displayVerificationResults(verifyResult.results);
-      }
-
-      // Save report to file if generated
-      let reportPath: string | undefined;
-      if (verifyResult.report) {
-        reportPath = path.join(process.cwd(), 'data', 'verification-report.md');
-        await import('node:fs').then((fs) => fs.promises.writeFile(reportPath!, verifyResult.report!));
-
-        if (output.isTextMode()) {
-          console.log(`\n📄 Verification report saved: ${reportPath}`);
-        }
-      }
-
-      // Prepare result data for JSON mode
-      const resultData: VerifyCommandResult = {
-        results: verifyResult.results.map((r) => ({
-          source: r.source,
-          status: r.status,
-          totalCurrencies: r.summary.totalCurrencies,
-          matches: r.summary.matches,
-          warnings: r.summary.warnings,
-          mismatches: r.summary.mismatches,
-          comparisons: r.comparisons.length,
-        })),
-      };
-
-      if (reportPath) {
-        resultData.reportPath = reportPath;
-      }
-
-      output.success('verify', resultData);
-
-      await closeDatabase(database);
-      handler.destroy();
-      process.exit(0);
-    } catch (error) {
-      if (handler) handler.destroy();
-      if (database) await closeDatabase(database);
-      throw error;
-    }
+    await handleVerifySuccess(output, result.value);
   } catch (error) {
     output.error('verify', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
   }
 }
 
 /**
- * Build verify parameters from CLI flags.
- * Throws error for commander to handle.
+ * Handle successful verification.
  */
-function buildParamsFromFlags(options: ExtendedVerifyCommandOptions): VerifyHandlerParams {
-  const result = buildVerifyParamsFromFlags(options);
-  if (result.isErr()) {
-    throw result.error; // Convert Result to throw for commander error handling
+async function handleVerifySuccess(output: OutputManager, verifyResult: VerifyResult): Promise<void> {
+  // Display results in text mode
+  if (output.isTextMode()) {
+    output.outro('✨ Verification complete!');
+    console.log(''); // Add spacing before results
+    displayVerificationResults(verifyResult.results);
   }
-  return result.value;
+
+  // Save report to file if generated
+  let reportPath: string | undefined;
+  if (verifyResult.report) {
+    reportPath = path.join(process.cwd(), 'data', 'verification-report.md');
+    await import('node:fs').then((fs) => fs.promises.writeFile(reportPath!, verifyResult.report!));
+
+    if (output.isTextMode()) {
+      console.log(`\n📄 Verification report saved: ${reportPath}`);
+    }
+  }
+
+  // Prepare result data for JSON mode
+  const resultData: VerifyCommandResult = {
+    results: verifyResult.results.map((r) => ({
+      comparisons: r.comparisons.length,
+      matches: r.summary.matches,
+      mismatches: r.summary.mismatches,
+      source: r.source,
+      status: r.status,
+      totalCurrencies: r.summary.totalCurrencies,
+      warnings: r.summary.warnings,
+    })),
+  };
+
+  if (reportPath) {
+    resultData.reportPath = reportPath;
+  }
+
+  output.success('verify', resultData);
+  process.exit(0);
 }
 
 /**

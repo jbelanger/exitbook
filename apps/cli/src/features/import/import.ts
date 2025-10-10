@@ -1,12 +1,11 @@
-import { closeDatabase, initializeDatabase } from '@exitbook/data';
 import { configureLogger, resetLoggerContext } from '@exitbook/shared-logger';
 import type { Command } from 'commander';
 
+import { resolveCommandParams, unwrapResult, withDatabaseAndHandler } from '../shared/command-execution.ts';
 import { ExitCodes } from '../shared/exit-codes.ts';
 import { OutputManager } from '../shared/output.ts';
-import { promptConfirm, handleCancellation } from '../shared/prompts.ts';
 
-import type { ImportHandlerParams } from './import-handler.ts';
+import type { ImportResult } from './import-handler.ts';
 import { ImportHandler } from './import-handler.ts';
 import { promptForImportParams } from './import-prompts.ts';
 import { buildImportParamsFromFlags, type ImportCommandOptions } from './import-utils.ts';
@@ -63,125 +62,45 @@ async function executeImportCommand(options: ExtendedImportCommandOptions): Prom
   const output = new OutputManager(options.json ? 'json' : 'text');
 
   try {
-    // Detect mode: interactive vs flag
-    const isInteractiveMode = !options.exchange && !options.blockchain && !options.json;
+    const isInteractive = !options.exchange && !options.blockchain && !options.json;
 
-    let params: ImportHandlerParams;
+    const params = await resolveCommandParams({
+      buildFromFlags: () => unwrapResult(buildImportParamsFromFlags(options)),
+      cancelMessage: 'Import cancelled',
+      commandName: 'import',
+      confirmMessage: 'Start import?',
+      isInteractive,
+      output,
+      promptFn: promptForImportParams,
+    });
 
-    if (isInteractiveMode) {
-      // Interactive mode - use @clack/prompts
-      output.intro('exitbook import');
-
-      params = await promptForImportParams();
-
-      // Confirm before proceeding
-      const shouldProceed = await promptConfirm('Start import?', true);
-      if (!shouldProceed) {
-        handleCancellation('Import cancelled');
-      }
-    } else {
-      // Flag mode or JSON mode - use provided options
-      params = buildParamsFromFlags(options);
-    }
-
-    // Show starting message and spinner in text mode
-    if (output.isTextMode()) {
-      if (!isInteractiveMode) {
-        // Flag mode: show simple message
-        console.error(`Importing from ${params.sourceName}...`);
-      }
-      // Interactive mode: already within clack flow, no extra message needed
+    // Show starting message in flag mode
+    if (output.isTextMode() && !isInteractive) {
+      console.error(`Importing from ${params.sourceName}...`);
     }
 
     const spinner = output.spinner();
-    if (spinner) {
-      spinner.start('Importing data...');
-    }
+    spinner?.start('Importing data...');
 
     // Configure logger to route logs to spinner
     configureLogger({
-      spinner: spinner || undefined,
       mode: options.json ? 'json' : 'text',
+      spinner: spinner || undefined,
       verbose: false, // TODO: Add --verbose flag support
     });
 
-    // Initialize database (after spinner starts so logs appear indented)
-    const database = await initializeDatabase(options.clearDb);
+    const result = await withDatabaseAndHandler({ clearDb: options.clearDb }, ImportHandler, params);
 
-    // Create handler and execute
-    const handler = new ImportHandler(database);
+    // Reset logger context after command completes
+    resetLoggerContext();
 
-    try {
-      const result = await handler.execute(params);
-
-      // Reset logger context after command completes
-      resetLoggerContext();
-
-      if (result.isErr()) {
-        if (spinner) {
-          spinner.stop('Import failed');
-        }
-        await closeDatabase(database);
-        handler.destroy();
-        output.error('import', result.error, ExitCodes.GENERAL_ERROR);
-        return; // TypeScript doesn't know output.error never returns, so add explicit return
-      }
-
-      const importResult = result.value;
-
-      // Prepare result data
-      const resultData: ImportCommandResult = {
-        importSessionId: importResult.importSessionId,
-        imported: importResult.imported,
-      };
-
-      if (importResult.processed !== undefined) {
-        resultData.processed = importResult.processed;
-      }
-
-      if (importResult.processingErrors && importResult.processingErrors.length > 0) {
-        resultData.processingErrors = importResult.processingErrors.slice(0, 5); // First 5 errors
-      }
-
-      // Build completion message
-      const parts: string[] = [`${importResult.imported} items`];
-      if (importResult.processed !== undefined) {
-        parts.push(`${importResult.processed} processed`);
-      }
-      parts.push(`session: ${importResult.importSessionId}`);
-      const completionMessage = `Import complete - ${parts.join(', ')}`;
-
-      // Stop spinner with completion message
-      if (spinner) {
-        spinner.stop(completionMessage);
-      }
-
-      // Output success
-      if (output.isTextMode()) {
-        // In interactive mode, spinner.stop() already showed the message with ◇
-        // In flag mode, spinner.stop() also showed the message
-        // Just show outro in interactive mode for visual closure
-        if (isInteractiveMode) {
-          output.outro(`✨ Done!`);
-        }
-
-        if (importResult.processingErrors && importResult.processingErrors.length > 0) {
-          console.error(`⚠️  ${importResult.processingErrors.length} processing errors`);
-        }
-      }
-
-      output.success('import', resultData);
-
-      await closeDatabase(database);
-      handler.destroy();
-      // Don't call process.exit(0) - it triggers clack's cancellation handler
-      // The process will exit naturally
-    } catch (error) {
-      resetLoggerContext(); // Clean up logger context on error
-      handler.destroy();
-      await closeDatabase(database);
-      throw error;
+    if (result.isErr()) {
+      spinner?.stop('Import failed');
+      output.error('import', result.error, ExitCodes.GENERAL_ERROR);
+      return; // TypeScript needs this even though output.error never returns
     }
+
+    handleImportSuccess(output, result.value, isInteractive, spinner);
   } catch (error) {
     resetLoggerContext(); // Clean up logger context on error
     output.error('import', error instanceof Error ? error : new Error(String(error)), ExitCodes.GENERAL_ERROR);
@@ -189,13 +108,53 @@ async function executeImportCommand(options: ExtendedImportCommandOptions): Prom
 }
 
 /**
- * Build import parameters from CLI flags.
- * Throws error for commander to handle.
+ * Handle successful import.
  */
-function buildParamsFromFlags(options: ExtendedImportCommandOptions): ImportHandlerParams {
-  const result = buildImportParamsFromFlags(options);
-  if (result.isErr()) {
-    throw result.error; // Convert Result to throw for commander error handling
+function handleImportSuccess(
+  output: OutputManager,
+  importResult: ImportResult,
+  isInteractive: boolean,
+  spinner: ReturnType<OutputManager['spinner']>
+): void {
+  // Prepare result data
+  const resultData: ImportCommandResult = {
+    importSessionId: importResult.importSessionId,
+    imported: importResult.imported,
+  };
+
+  if (importResult.processed !== undefined) {
+    resultData.processed = importResult.processed;
   }
-  return result.value;
+
+  if (importResult.processingErrors && importResult.processingErrors.length > 0) {
+    resultData.processingErrors = importResult.processingErrors.slice(0, 5); // First 5 errors
+  }
+
+  // Build completion message
+  const parts: string[] = [`${importResult.imported} items`];
+  if (importResult.processed !== undefined) {
+    parts.push(`${importResult.processed} processed`);
+  }
+  parts.push(`session: ${importResult.importSessionId}`);
+  const completionMessage = `Import complete - ${parts.join(', ')}`;
+
+  // Stop spinner with completion message
+  spinner?.stop(completionMessage);
+
+  // Output success
+  if (output.isTextMode()) {
+    // In interactive mode, show outro for visual closure
+    if (isInteractive) {
+      output.outro(`✨ Done!`);
+    }
+
+    if (importResult.processingErrors && importResult.processingErrors.length > 0) {
+      console.error(`⚠️  ${importResult.processingErrors.length} processing errors`);
+    }
+  }
+
+  output.success('import', resultData);
+
+  // Don't call process.exit(0) - it triggers clack's cancellation handler
+  // The process will exit naturally
 }
