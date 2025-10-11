@@ -28,7 +28,7 @@ export interface PriceData {
 /**
  * Provider operation types
  */
-export type PriceProviderOperation = 'fetchPrice' | 'fetchBatch' | 'fetchHistoricalRange';
+export type PriceProviderOperation = 'fetchPrice' | 'fetchHistoricalRange';
 
 /**
  * Provider capabilities metadata
@@ -36,8 +36,6 @@ export type PriceProviderOperation = 'fetchPrice' | 'fetchBatch' | 'fetchHistori
 export interface ProviderCapabilities {
   /** Operations supported by this provider */
   supportedOperations: PriceProviderOperation[];
-  /** Maximum batch size for fetchBatch */
-  maxBatchSize?: number | undefined;
   /** Supported currencies */
   supportedCurrencies: string[];
   /** Rate limit info */
@@ -56,7 +54,6 @@ export interface ProviderMetadata {
   name: string;
   displayName: string;
   capabilities: ProviderCapabilities;
-  priority: number; // Lower = higher priority
   requiresApiKey: boolean;
 }
 
@@ -80,11 +77,6 @@ export interface IPriceProvider {
    * Fetch price for a single asset at a specific timestamp
    */
   fetchPrice(query: PriceQuery): Promise<Result<PriceData, Error>>;
-
-  /**
-   * Fetch prices for multiple queries in batch
-   */
-  fetchBatch(queries: PriceQuery[]): Promise<Result<PriceData[], Error>>;
 
   /**
    * Get provider metadata

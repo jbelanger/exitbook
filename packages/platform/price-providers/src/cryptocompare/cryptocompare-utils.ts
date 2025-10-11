@@ -8,12 +8,7 @@ import type { Currency } from '@exitbook/core';
 
 import type { PriceData } from '../shared/types/index.js';
 
-import type {
-  CryptoCompareHistoricalResponse,
-  CryptoCompareOHLCV,
-  CryptoComparePriceMultiResponse,
-  CryptoComparePriceResponse,
-} from './schemas.js';
+import type { CryptoCompareHistoricalResponse, CryptoCompareOHLCV, CryptoComparePriceResponse } from './schemas.js';
 
 /**
  * Transform CryptoCompare price response to PriceData
@@ -31,38 +26,6 @@ export function transformPriceResponse(
 
   if (price === undefined) {
     throw new Error(`Currency ${currency.toString()} not found in response`);
-  }
-
-  return {
-    asset,
-    timestamp,
-    price,
-    currency,
-    source: 'cryptocompare',
-    fetchedAt,
-  };
-}
-
-/**
- * Transform CryptoCompare multi-symbol price response to PriceData
- *
- * Pure function - takes all inputs as parameters
- */
-export function transformPriceMultiResponse(
-  response: CryptoComparePriceMultiResponse,
-  asset: Currency,
-  timestamp: Date,
-  currency: Currency,
-  fetchedAt: Date
-): PriceData {
-  const assetData = response[asset.toString()];
-  if (!assetData) {
-    throw new Error(`Asset ${asset.toString()} not found in response`);
-  }
-
-  const price = assetData[currency.toString()];
-  if (price === undefined) {
-    throw new Error(`Currency ${currency.toString()} not found for ${asset.toString()}`);
   }
 
   return {

@@ -49,7 +49,6 @@ describe('scoreProvider', () => {
     },
     displayName: 'Test Provider',
     name: 'test',
-    priority: 1,
     requiresApiKey: false,
     ...overrides,
   });
@@ -167,39 +166,6 @@ describe('scoreProvider', () => {
     // Base 100 - failures (30) + fast bonus (20) + priority (45) = 135
     expect(score).toBe(135);
   });
-
-  it('should bonus for higher priority (lower number)', () => {
-    const highPriority = createMockMetadata({ priority: 1 });
-    const lowPriority = createMockMetadata({ priority: 5 });
-    const health = createMockHealth({ averageResponseTime: 1500 });
-    const circuit = createInitialCircuitState();
-    const now = Date.now();
-
-    const highScore = ProviderManagerUtils.scoreProvider(highPriority, health, circuit, now);
-    const lowScore = ProviderManagerUtils.scoreProvider(lowPriority, health, circuit, now);
-
-    expect(highScore).toBeGreaterThan(lowScore);
-  });
-
-  it('should never return negative score', () => {
-    const metadata = createMockMetadata({ priority: 10 });
-    const health = createMockHealth({
-      averageResponseTime: 10000,
-      consecutiveFailures: 10,
-      errorRate: 1.0,
-      isHealthy: false,
-    });
-    const circuit = {
-      ...createInitialCircuitState(),
-      state: 'open' as const,
-      openedAt: Date.now() - 1000,
-    };
-    const now = Date.now();
-
-    const score = ProviderManagerUtils.scoreProvider(metadata, health, circuit, now);
-
-    expect(score).toBe(0);
-  });
 });
 
 describe('supportsOperation', () => {
@@ -207,11 +173,10 @@ describe('supportsOperation', () => {
     const metadata: ProviderMetadata = {
       capabilities: {
         supportedCurrencies: ['USD'],
-        supportedOperations: ['fetchPrice', 'fetchBatch'],
+        supportedOperations: ['fetchPrice'],
       },
       displayName: 'Test',
       name: 'test',
-      priority: 1,
       requiresApiKey: false,
     };
 
@@ -227,7 +192,6 @@ describe('supportsOperation', () => {
       },
       displayName: 'Test',
       name: 'test',
-      priority: 1,
       requiresApiKey: false,
     };
 
@@ -237,7 +201,6 @@ describe('supportsOperation', () => {
 
 describe('selectProvidersForOperation', () => {
   const createMockProvider = (name: string, operations: string[]): IPriceProvider => ({
-    fetchBatch: async () => Promise.resolve({ isErr: () => true, isOk: () => false } as Result<PriceData[], Error>),
     fetchPrice: async () => Promise.resolve({ isErr: () => true, isOk: () => false } as Result<PriceData, Error>),
     getMetadata: () => ({
       capabilities: {
@@ -327,7 +290,6 @@ describe('selectProvidersForOperation', () => {
 
 describe('hasAvailableProviders', () => {
   const createMockProvider = (name: string): IPriceProvider => ({
-    fetchBatch: async () => Promise.resolve({ isErr: () => true, isOk: () => false } as Result<PriceData[], Error>),
     fetchPrice: async () => Promise.resolve({ isErr: () => true, isOk: () => false } as Result<PriceData, Error>),
     getMetadata: () => ({
       capabilities: { supportedCurrencies: ['USD'], supportedOperations: ['fetchPrice'] },

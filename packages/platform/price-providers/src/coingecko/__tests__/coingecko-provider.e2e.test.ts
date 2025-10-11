@@ -193,36 +193,6 @@ describe('CoinGecko Provider E2E', () => {
     }
   }, 180000);
 
-  it('should batch fetch multiple current prices', async () => {
-    const now = new Date();
-    const result = await provider.fetchBatch([
-      { asset: Currency.create('BTC'), currency: Currency.create('USD'), timestamp: now },
-      { asset: Currency.create('ETH'), currency: Currency.create('USD'), timestamp: now },
-      { asset: Currency.create('BNB'), currency: Currency.create('USD'), timestamp: now },
-    ]);
-
-    expect(result.isOk()).toBe(true);
-
-    if (result.isOk()) {
-      const prices = result.value;
-      expect(prices.length).toBeGreaterThan(0);
-
-      // Check BTC price if present
-      const btcPrice = prices.find((p) => p.asset.toString() === 'BTC');
-      if (btcPrice) {
-        expect(btcPrice.currency.toString()).toBe('USD');
-        expect(btcPrice.price).toBeGreaterThan(0);
-      }
-
-      // Check ETH price if present
-      const ethPrice = prices.find((p) => p.asset.toString() === 'ETH');
-      if (ethPrice) {
-        expect(ethPrice.currency.toString()).toBe('USD');
-        expect(ethPrice.price).toBeGreaterThan(0);
-      }
-    }
-  }, 180000);
-
   it('should return error for unknown asset', async () => {
     const result = await provider.fetchPrice({
       asset: Currency.create('NOTAREALCOIN123'),

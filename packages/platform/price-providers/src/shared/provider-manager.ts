@@ -64,7 +64,7 @@ export class PriceProviderManager {
    */
   registerProviders(providers: IPriceProvider[]): void {
     // Sort by priority (pure operation)
-    this.providers = providers.sort((a, b) => a.getMetadata().priority - b.getMetadata().priority);
+    this.providers = providers;
 
     // Initialize health status and circuit breaker for each provider
     for (const provider of providers) {
@@ -98,13 +98,6 @@ export class PriceProviderManager {
 
     // Execute with failover
     return this.executeWithFailover(async (provider) => provider.fetchPrice(query), 'fetchPrice', query);
-  }
-
-  /**
-   * Fetch batch prices with automatic failover
-   */
-  async fetchBatch(queries: PriceQuery[]): Promise<Result<FailoverResult<PriceData[]>, Error>> {
-    return this.executeWithFailover(async (provider) => provider.fetchBatch(queries), 'fetchBatch', queries);
   }
 
   /**

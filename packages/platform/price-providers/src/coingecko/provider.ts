@@ -15,7 +15,6 @@ import { BasePriceProvider } from '../shared/base-provider.js';
 import type { PriceData, PriceQuery, ProviderMetadata } from '../shared/types/index.js';
 
 import {
-  buildBatchSimplePriceParams,
   canUseSimplePrice,
   formatCoinGeckoDate,
   transformHistoricalResponse,
@@ -134,74 +133,13 @@ export class CoinGeckoProvider extends BasePriceProvider {
     // Provider metadata
     this.metadata = {
       capabilities: {
-        maxBatchSize: 100,
         supportedCurrencies: ['USD', 'EUR', 'GBP', 'JPY', 'BTC', 'ETH'],
-        supportedOperations: ['fetchPrice', 'fetchBatch'],
+        supportedOperations: ['fetchPrice'],
       },
       displayName: 'CoinGecko',
       name: 'coingecko',
-      priority: 1,
       requiresApiKey: false,
     };
-  }
-
-  /**
-   * Optimized batch fetching
-   */
-  async fetchBatch(queries: PriceQuery[]): Promise<Result<PriceData[], Error>> {
-    try {
-      this.logger.info(
-        {
-          queryCount: queries.length,
-          queries: queries.map((q) => ({
-            asset: q.asset.toString(),
-            currency: q.currency?.toString() || 'USD',
-            timestamp: q.timestamp.toISOString(),
-          })),
-        },
-        'fetchBatch called'
-      );
-
-      // Group queries by whether they can use simple price API
-      const recentQueries = queries.filter((q) => canUseSimplePrice(q.timestamp));
-      const historicalQueries = queries.filter((q) => !canUseSimplePrice(q.timestamp));
-
-      this.logger.info(
-        { recentCount: recentQueries.length, historicalCount: historicalQueries.length },
-        'Queries grouped'
-      );
-
-      const results: PriceData[] = [];
-
-      // Fetch recent prices in batch
-      if (recentQueries.length > 0) {
-        this.logger.info(`Fetching ${recentQueries.length} recent prices via batch API`);
-        const batchResult = await this.fetchBatchSimplePrice(recentQueries);
-        if (batchResult.isOk()) {
-          results.push(...batchResult.value);
-          this.logger.info(`Batch API returned ${batchResult.value.length} prices`);
-        } else {
-          this.logger.error({ error: batchResult.error.message }, 'Batch API failed');
-        }
-      }
-
-      // Fetch historical prices individually (can't batch)
-      for (const query of historicalQueries) {
-        const result = await this.fetchPrice(query);
-        if (result.isOk()) {
-          results.push(result.value);
-        }
-      }
-
-      if (results.length === 0) {
-        return err(new Error('All batch queries failed'));
-      }
-
-      return ok(results);
-    } catch (error) {
-      const message = getErrorMessage(error);
-      return err(new Error(`Batch fetch failed: ${message}`));
-    }
   }
 
   /**
@@ -315,7 +253,7 @@ export class CoinGeckoProvider extends BasePriceProvider {
   /**
    * Fetch single price (implements BasePriceProvider)
    */
-  protected async fetchPriceImpl(query: PriceQuery): Promise<Result<PriceData, Error>> {
+  protected async fetchPriceInternal(query: PriceQuery): Promise<Result<PriceData, Error>> {
     try {
       const currency = query.currency || Currency.create('USD');
 
@@ -453,102 +391,6 @@ export class CoinGeckoProvider extends BasePriceProvider {
     } catch (error) {
       const message = getErrorMessage(error);
       return err(new Error(`API fetch failed: ${message}`));
-    }
-  }
-
-  /**
-   * Fetch multiple prices using simple price API (batch)
-   */
-  private async fetchBatchSimplePrice(queries: PriceQuery[]): Promise<Result<PriceData[], Error>> {
-    try {
-      const providerId = await this.ensureProviderRegistered();
-      if (providerId.isErr()) {
-        return err(providerId.error);
-      }
-
-      // Get coin IDs for all symbols
-      const coinIds: string[] = [];
-      const queryMap = new Map<string, PriceQuery[]>();
-
-      for (const query of queries) {
-        const coinIdResult = await this.providerRepo.getCoinIdForSymbol(providerId.value, query.asset);
-
-        if (coinIdResult.isOk() && coinIdResult.value) {
-          coinIds.push(coinIdResult.value);
-
-          if (!queryMap.has(coinIdResult.value)) {
-            queryMap.set(coinIdResult.value, []);
-          }
-          queryMap.get(coinIdResult.value)!.push(query);
-        } else {
-          this.logger.warn(
-            { asset: query.asset.toString(), error: coinIdResult.isErr() ? coinIdResult.error.message : 'No coin ID' },
-            'Failed to get coin ID for asset'
-          );
-        }
-      }
-
-      if (coinIds.length === 0) {
-        this.logger.error(
-          { queriedAssets: queries.map((q) => q.asset.toString()) },
-          'No valid coin IDs found for any assets'
-        );
-        return err(new Error('No valid coin IDs found for batch queries'));
-      }
-
-      this.logger.info(
-        { coinIds: [...new Set(coinIds)], queryCurrency: queries[0]?.currency?.toString() || 'USD' },
-        'Mapped assets to coin IDs'
-      );
-
-      // Build params using pure function
-      const currency = queries[0]?.currency || Currency.create('USD');
-      const params = buildBatchSimplePriceParams(coinIds, currency);
-
-      // Convert params to URLSearchParams
-      const searchParams = new URLSearchParams(params);
-
-      // Fetch batch
-      const rawResponse = await this.httpClient.get<unknown>(`/simple/price?${searchParams.toString()}`, {
-        headers: {
-          'x-cg-demo-api-key': this.config.apiKey || '',
-        },
-      });
-
-      const parseResult = CoinGeckoSimplePriceResponseSchema.safeParse(rawResponse);
-      if (!parseResult.success) {
-        return err(new Error(`Invalid simple price response: ${parseResult.error.message}`));
-      }
-
-      // Transform responses
-      const now = new Date();
-      const results: PriceData[] = [];
-
-      for (const [coinId, relatedQueries] of queryMap.entries()) {
-        for (const query of relatedQueries) {
-          try {
-            const priceData = transformSimplePriceResponse(
-              parseResult.data,
-              coinId,
-              query.asset,
-              query.timestamp,
-              currency,
-              now
-            );
-            results.push(priceData);
-
-            // Cache the result
-            await this.priceRepo.savePrice(priceData, coinId);
-          } catch (error) {
-            this.logger.warn({ error, coinId }, 'Failed to transform price for coin');
-          }
-        }
-      }
-
-      return ok(results);
-    } catch (error) {
-      const message = getErrorMessage(error);
-      return err(new Error(`Batch simple price fetch failed: ${message}`));
     }
   }
 }

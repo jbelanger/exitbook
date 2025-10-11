@@ -45,9 +45,6 @@ export function scoreProvider(
   // Consecutive failure penalties
   score -= health.consecutiveFailures * 10;
 
-  // Priority bonus (lower priority number = higher score)
-  score += (10 - metadata.priority) * 5;
-
   return Math.max(0, score);
 }
 
@@ -55,9 +52,7 @@ export function scoreProvider(
  * Check if provider supports the requested operation
  */
 export function supportsOperation(metadata: ProviderMetadata, operationType: string): boolean {
-  return metadata.capabilities.supportedOperations.includes(
-    operationType as 'fetchPrice' | 'fetchBatch' | 'fetchHistoricalRange'
-  );
+  return metadata.capabilities.supportedOperations.includes(operationType as 'fetchPrice' | 'fetchHistoricalRange');
 }
 
 /**
@@ -229,7 +224,6 @@ export function buildProviderSelectionDebugInfo(
     errorRate: Math.round(item.health.errorRate * 100),
     isHealthy: item.health.isHealthy,
     name: item.metadata.name,
-    priority: item.metadata.priority,
     score: item.score,
   }));
 

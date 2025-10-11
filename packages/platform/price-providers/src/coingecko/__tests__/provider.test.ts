@@ -1,11 +1,10 @@
 import type { HttpClient } from '@exitbook/platform-http';
-import type { Result } from 'neverthrow';
-import { err, ok } from 'neverthrow';
+import { ok } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PriceRepository } from '../../pricing/repositories/price-repository.js';
 import type { ProviderRepository } from '../../pricing/repositories/provider-repository.js';
-import type { PriceData, PriceQuery } from '../../shared/types/index.js';
+import type { PriceData } from '../../shared/types/index.js';
 
 const { mockCanUseSimplePrice, mockTransformSimplePriceResponse, mockTransformHistoricalResponse } = vi.hoisted(() => ({
   mockCanUseSimplePrice: vi.fn<(timestamp: Date) => boolean>(),
@@ -231,76 +230,5 @@ describe('CoinGeckoProvider', () => {
       expect(result.error).toEqual(new Error('No CoinGecko coin ID found for symbol: UNKNOWN'));
     }
     expect(httpClientGet).not.toHaveBeenCalled();
-  });
-
-  it('merges batch results from recent and historical queries', async () => {
-    const recentTimestamp = new Date('2024-01-10T00:00:00Z');
-    const oldTimestamp = new Date('2023-01-01T00:00:00Z');
-
-    mockCanUseSimplePrice.mockImplementation((timestamp: Date) => timestamp.getTime() === recentTimestamp.getTime());
-
-    const batchPrice: PriceData = {
-      asset: Currency.create('BTC'),
-      currency: Currency.create('USD'),
-      price: 40000,
-      timestamp: recentTimestamp,
-      source: 'coingecko',
-      fetchedAt: new Date('2024-01-10T01:00:00Z'),
-    };
-    const historicalPrice: PriceData = {
-      asset: Currency.create('ETH'),
-      currency: Currency.create('USD'),
-      price: 1500,
-      timestamp: oldTimestamp,
-      source: 'coingecko',
-      fetchedAt: new Date('2023-01-01T01:00:00Z'),
-    };
-
-    const batchSpy = vi
-      .spyOn(
-        provider as unknown as {
-          fetchBatchSimplePrice: (queries: PriceQuery[]) => Promise<Result<PriceData[], Error>>;
-        },
-        'fetchBatchSimplePrice'
-      )
-      .mockResolvedValue(ok([batchPrice]));
-    const fetchPriceSpy = vi.spyOn(provider, 'fetchPrice').mockResolvedValue(ok(historicalPrice));
-
-    const result = await provider.fetchBatch([
-      { asset: Currency.create('btc'), currency: Currency.create('usd'), timestamp: recentTimestamp },
-      { asset: Currency.create('eth'), currency: Currency.create('usd'), timestamp: oldTimestamp },
-    ]);
-
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      expect(result.value).toEqual([batchPrice, historicalPrice]);
-    }
-
-    expect(batchSpy).toHaveBeenCalledWith([
-      { asset: Currency.create('btc'), currency: Currency.create('usd'), timestamp: recentTimestamp },
-    ]);
-    expect(fetchPriceSpy).toHaveBeenCalledWith({
-      asset: Currency.create('eth'),
-      currency: Currency.create('usd'),
-      timestamp: oldTimestamp,
-    });
-  });
-
-  it('fails when all batch queries fail', async () => {
-    mockCanUseSimplePrice.mockReturnValue(true);
-
-    vi.spyOn(
-      provider as unknown as { fetchBatchSimplePrice: (queries: PriceQuery[]) => Promise<Result<PriceData[], Error>> },
-      'fetchBatchSimplePrice'
-    ).mockResolvedValue(err(new Error('batch failure')));
-
-    const result = await provider.fetchBatch([
-      { asset: Currency.create('btc'), currency: Currency.create('usd'), timestamp: defaultTimestamp },
-    ]);
-
-    expect(result.isErr()).toBe(true);
-    if (result.isErr()) {
-      expect(result.error.message).toBe('All batch queries failed');
-    }
   });
 });

@@ -45,7 +45,6 @@ describe('PriceProviderManager', () => {
   function createMockProvider(
     name: string,
     options: {
-      fetchBatchResult?: Result<PriceData[], Error>;
       fetchPriceResult?: Result<PriceData, Error>;
       operations?: string[];
       priority?: number;
@@ -61,20 +60,13 @@ describe('PriceProviderManager', () => {
     };
 
     return {
-      fetchBatch: vi.fn(async () =>
-        Promise.resolve(options.fetchBatchResult || (ok([defaultPrice]) as Result<PriceData[], Error>))
-      ),
       fetchPrice: vi.fn(async () =>
         Promise.resolve(options.fetchPriceResult || (ok(defaultPrice) as Result<PriceData, Error>))
       ),
       getMetadata: () => ({
         capabilities: {
           supportedCurrencies: ['USD'],
-          supportedOperations: (options.operations || ['fetchPrice', 'fetchBatch']) as (
-            | 'fetchPrice'
-            | 'fetchBatch'
-            | 'fetchHistoricalRange'
-          )[],
+          supportedOperations: (options.operations || ['fetchPrice']) as ('fetchPrice' | 'fetchHistoricalRange')[],
         },
         displayName: name,
         name,

@@ -50,14 +50,6 @@ export const CryptoComparePriceResponseSchema = z.record(z.number());
 export type CryptoComparePriceResponse = z.infer<typeof CryptoComparePriceResponseSchema>;
 
 /**
- * CryptoCompare multi-symbol price response
- * Endpoint: /data/pricemulti
- */
-export const CryptoComparePriceMultiResponseSchema = z.record(z.record(z.number()));
-
-export type CryptoComparePriceMultiResponse = z.infer<typeof CryptoComparePriceMultiResponseSchema>;
-
-/**
  * CryptoCompare error response
  */
 export const CryptoCompareErrorResponseSchema = z.object({

@@ -21,11 +21,6 @@ export type { ProviderManagerConfig } from './shared/types/index.js';
 export { createPriceProviders, createPriceProviderByName, getAvailableProviderNames } from './shared/factory.js';
 export type { ProviderFactoryConfig } from './shared/factory.js';
 
-// CoinGecko provider (individual factory for advanced usage)
-// export { CoinGeckoProvider } from './coingecko/provider.js';
-// export type { CoinGeckoProviderConfig } from './coingecko/provider.js';
-// export { createCoinGeckoProvider } from './coingecko/provider.js';
-
 // Database and repositories (for advanced usage)
 export { createPricesDatabase, initializePricesDatabase } from './pricing/database.js';
 export { ProviderRepository } from './pricing/repositories/provider-repository.js';

@@ -228,42 +228,6 @@ describe('CryptoCompare Provider E2E', () => {
     }
   }, 30000);
 
-  it('should batch fetch multiple current prices', async () => {
-    const now = new Date();
-    const result = await provider.fetchBatch([
-      { asset: Currency.create('BTC'), currency: Currency.create('USD'), timestamp: now },
-      { asset: Currency.create('ETH'), currency: Currency.create('USD'), timestamp: now },
-      { asset: Currency.create('BNB'), currency: Currency.create('USD'), timestamp: now },
-    ]);
-
-    if (result.isErr()) {
-      console.log('Batch fetch error:', result.error);
-    }
-
-    expect(result.isOk()).toBe(true);
-
-    if (result.isOk()) {
-      const prices = result.value;
-      expect(prices.length).toBeGreaterThan(0);
-
-      // Check BTC price if present
-      const btcPrice = prices.find((p) => p.asset.toString() === 'BTC');
-      if (btcPrice) {
-        expect(btcPrice.currency.toString()).toBe('USD');
-        expect(btcPrice.price).toBeGreaterThan(0);
-        expect(btcPrice.source).toBe('cryptocompare');
-      }
-
-      // Check ETH price if present
-      const ethPrice = prices.find((p) => p.asset.toString() === 'ETH');
-      if (ethPrice) {
-        expect(ethPrice.currency.toString()).toBe('USD');
-        expect(ethPrice.price).toBeGreaterThan(0);
-        expect(ethPrice.source).toBe('cryptocompare');
-      }
-    }
-  }, 30000);
-
   it('should fetch prices for multiple popular cryptocurrencies', async () => {
     const now = new Date();
     const currencies = ['BTC', 'ETH', 'SOL', 'ADA', 'DOT', 'MATIC'];
@@ -288,33 +252,6 @@ describe('CryptoCompare Provider E2E', () => {
 
       // Small delay to avoid rate limiting
       await new Promise((resolve) => setTimeout(resolve, 200));
-    }
-  }, 60000);
-
-  it('should handle mixed batch with recent and historical prices', async () => {
-    const now = new Date();
-    const historical = new Date();
-    historical.setDate(historical.getDate() - 5);
-
-    const result = await provider.fetchBatch([
-      { asset: Currency.create('BTC'), currency: Currency.create('USD'), timestamp: now },
-      { asset: Currency.create('ETH'), currency: Currency.create('USD'), timestamp: historical },
-    ]);
-
-    if (result.isErr()) {
-      console.log('Mixed batch error:', result.error);
-    }
-
-    expect(result.isOk()).toBe(true);
-
-    if (result.isOk()) {
-      const prices = result.value;
-      expect(prices.length).toBeGreaterThan(0);
-
-      // Should have at least one price
-      expect(prices[0]).toBeDefined();
-      expect(prices[0]?.price).toBeGreaterThan(0);
-      expect(prices[0]?.source).toBe('cryptocompare');
     }
   }, 60000);
 });

@@ -15,19 +15,13 @@ import type { PriceData, PriceQuery, ProviderMetadata } from '../shared/types/in
 
 import {
   buildHistoricalParams,
-  buildPriceMultiParams,
   buildPriceParams,
   canUseCurrentPrice,
   getHistoricalGranularity,
   transformHistoricalResponse,
-  transformPriceMultiResponse,
   transformPriceResponse,
 } from './cryptocompare-utils.js';
-import {
-  CryptoCompareHistoricalResponseSchema,
-  CryptoComparePriceMultiResponseSchema,
-  CryptoComparePriceResponseSchema,
-} from './schemas.js';
+import { CryptoCompareHistoricalResponseSchema, CryptoComparePriceResponseSchema } from './schemas.js';
 
 /**
  * Configuration for CryptoCompare provider factory
@@ -117,80 +111,19 @@ export class CryptoCompareProvider extends BasePriceProvider {
     // Provider metadata
     this.metadata = {
       capabilities: {
-        maxBatchSize: 50,
-        supportedCurrencies: ['USD', 'EUR', 'GBP', 'JPY', 'BTC', 'ETH', 'BNB', 'XRP', 'ADA', 'SOL', 'DOT', 'MATIC'],
-        supportedOperations: ['fetchPrice', 'fetchBatch'],
+        supportedCurrencies: ['USD', 'EUR', 'GBP', 'JPY'],
+        supportedOperations: ['fetchPrice'],
       },
       displayName: 'CryptoCompare',
       name: 'cryptocompare',
-      priority: 2, // Lower priority than CoinGecko by default
       requiresApiKey: false,
     };
   }
 
   /**
-   * Optimized batch fetching
-   */
-  async fetchBatch(queries: PriceQuery[]): Promise<Result<PriceData[], Error>> {
-    try {
-      this.logger.info(
-        {
-          queryCount: queries.length,
-          queries: queries.map((q) => ({
-            asset: q.asset.toString(),
-            currency: q.currency?.toString() || 'USD',
-            timestamp: q.timestamp.toISOString(),
-          })),
-        },
-        'fetchBatch called'
-      );
-
-      // Group queries by whether they can use current price API
-      const recentQueries = queries.filter((q) => canUseCurrentPrice(q.timestamp));
-      const historicalQueries = queries.filter((q) => !canUseCurrentPrice(q.timestamp));
-
-      this.logger.info(
-        { recentCount: recentQueries.length, historicalCount: historicalQueries.length },
-        'Queries grouped'
-      );
-
-      const results: PriceData[] = [];
-
-      // Fetch recent prices in batch
-      if (recentQueries.length > 0) {
-        this.logger.info(`Fetching ${recentQueries.length} recent prices via batch API`);
-        const batchResult = await this.fetchBatchCurrentPrice(recentQueries);
-        if (batchResult.isOk()) {
-          results.push(...batchResult.value);
-          this.logger.info(`Batch API returned ${batchResult.value.length} prices`);
-        } else {
-          this.logger.error({ error: batchResult.error.message }, 'Batch API failed');
-        }
-      }
-
-      // Fetch historical prices individually (can't batch efficiently)
-      for (const query of historicalQueries) {
-        const result = await this.fetchPrice(query);
-        if (result.isOk()) {
-          results.push(result.value);
-        }
-      }
-
-      if (results.length === 0) {
-        return err(new Error('All batch queries failed'));
-      }
-
-      return ok(results);
-    } catch (error) {
-      const message = getErrorMessage(error);
-      return err(new Error(`Batch fetch failed: ${message}`));
-    }
-  }
-
-  /**
    * Fetch single price (implements BasePriceProvider)
    */
-  protected async fetchPriceImpl(query: PriceQuery): Promise<Result<PriceData, Error>> {
+  protected async fetchPriceInternal(query: PriceQuery): Promise<Result<PriceData, Error>> {
     try {
       const currency = query.currency || Currency.create('USD');
 
@@ -276,50 +209,6 @@ export class CryptoCompareProvider extends BasePriceProvider {
     } catch (error) {
       const message = getErrorMessage(error);
       return err(new Error(`API fetch failed: ${message}`));
-    }
-  }
-
-  /**
-   * Fetch multiple prices using pricemulti API (batch current prices)
-   */
-  private async fetchBatchCurrentPrice(queries: PriceQuery[]): Promise<Result<PriceData[], Error>> {
-    try {
-      // Extract unique assets
-      const assets = [...new Set(queries.map((q) => q.asset))];
-      const currency = queries[0]?.currency || Currency.create('USD');
-
-      // Build params using pure function
-      const params = buildPriceMultiParams(assets, currency, this.config.apiKey);
-      const searchParams = new URLSearchParams(params);
-
-      // Fetch batch
-      const rawResponse = await this.httpClient.get<unknown>(`/data/pricemulti?${searchParams.toString()}`);
-
-      const parseResult = CryptoComparePriceMultiResponseSchema.safeParse(rawResponse);
-      if (!parseResult.success) {
-        return err(new Error(`Invalid price multi response: ${parseResult.error.message}`));
-      }
-
-      // Transform responses
-      const now = new Date();
-      const results: PriceData[] = [];
-
-      for (const query of queries) {
-        try {
-          const priceData = transformPriceMultiResponse(parseResult.data, query.asset, query.timestamp, currency, now);
-          results.push(priceData);
-
-          // Cache the result
-          await this.priceRepo.savePrice(priceData, query.asset.toString());
-        } catch (error) {
-          this.logger.warn({ error, asset: query.asset.toString() }, 'Failed to transform price for asset');
-        }
-      }
-
-      return ok(results);
-    } catch (error) {
-      const message = getErrorMessage(error);
-      return err(new Error(`Batch current price fetch failed: ${message}`));
     }
   }
 }
