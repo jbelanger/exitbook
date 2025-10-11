@@ -61,10 +61,10 @@ describe('CoinGecko Provider E2E', () => {
 
     provider = providerResult.value;
 
-    // Sync coin list ONCE for all tests to avoid rate limiting
-    const syncResult = await provider.syncCoinList();
-    if (syncResult.isErr()) {
-      throw syncResult.error;
+    // Initialize provider ONCE for all tests to avoid rate limiting
+    const initResult = await provider.initialize();
+    if (initResult.isErr()) {
+      throw initResult.error;
     }
   }, 180000);
 
@@ -207,16 +207,11 @@ describe('CoinGecko Provider E2E', () => {
     }
   }, 180000);
 
-  it('should skip sync when already synced recently', async () => {
-    // Sync was already done in beforeAll
-    // Calling sync again should skip (within 7-day sync window)
-    const result = await provider.syncCoinList();
+  it('should skip sync when already initialized recently', async () => {
+    // Initialize was already done in beforeAll
+    // Calling initialize again should skip sync (within 7-day sync window) and succeed quickly
+    const result = await provider.initialize();
     expect(result.isOk()).toBe(true);
-
-    // Should return 0 (no new mappings added, already synced)
-    if (result.isOk()) {
-      expect(result.value).toBe(0);
-    }
 
     // Should still be able to fetch prices
     const priceResult = await provider.fetchPrice({

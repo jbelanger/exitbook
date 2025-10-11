@@ -12,8 +12,6 @@ import { err, ok, type Result } from 'neverthrow';
 export interface PricesFetchCommandOptions {
   /** Optional asset filter (e.g., 'BTC', 'ETH') */
   asset?: string | string[] | undefined;
-  /** Process in batches */
-  batchSize?: number | undefined;
 }
 
 /**
@@ -90,17 +88,6 @@ export function transactionToPriceQuery(
 }
 
 /**
- * Create batches from an array
- */
-export function createBatches<T>(items: T[], batchSize: number): T[][] {
-  const batches: T[][] = [];
-  for (let i = 0; i < items.length; i += batchSize) {
-    batches.push(items.slice(i, i + batchSize));
-  }
-  return batches;
-}
-
-/**
  * Initialize empty stats
  */
 export function initializeStats(): PriceFetchStats {
@@ -110,21 +97,5 @@ export function initializeStats(): PriceFetchStats {
     pricesUpdated: 0,
     failures: 0,
     skipped: 0,
-  };
-}
-
-/**
- * Update stats with batch results
- */
-export function updateStats(
-  stats: PriceFetchStats,
-  batchResults: { failed: number; fetched: number; skipped: number; updated: number }
-): PriceFetchStats {
-  return {
-    ...stats,
-    pricesFetched: stats.pricesFetched + batchResults.fetched,
-    pricesUpdated: stats.pricesUpdated + batchResults.updated,
-    failures: stats.failures + batchResults.failed,
-    skipped: stats.skipped + batchResults.skipped,
   };
 }

@@ -47,7 +47,6 @@ describe('PriceProviderManager', () => {
     options: {
       fetchPriceResult?: Result<PriceData, Error>;
       operations?: string[];
-      priority?: number;
     } = {}
   ): IPriceProvider {
     const defaultPrice: PriceData = {
@@ -70,7 +69,6 @@ describe('PriceProviderManager', () => {
         },
         displayName: name,
         name,
-        priority: options.priority ?? 1,
         requiresApiKey: false,
       }),
     };
@@ -89,17 +87,18 @@ describe('PriceProviderManager', () => {
       expect(health.get('provider2')).toBeDefined();
     });
 
-    it('should sort providers by priority', async () => {
-      const lowPriority = createMockProvider('low', { priority: 5 });
-      const highPriority = createMockProvider('high', { priority: 1 });
+    it('should use first successful provider based on health scoring', async () => {
+      const provider1 = createMockProvider('provider1');
+      const provider2 = createMockProvider('provider2');
 
-      manager.registerProviders([lowPriority, highPriority]);
+      manager.registerProviders([provider1, provider2]);
 
       const query: PriceQuery = { asset: Currency.create('BTC'), timestamp: new Date() };
       await manager.fetchPrice(query);
 
-      expect(highPriority.fetchPrice).toHaveBeenCalled();
-      expect(lowPriority.fetchPrice).not.toHaveBeenCalled();
+      // First provider succeeds, so second is not called
+      expect(provider1.fetchPrice).toHaveBeenCalled();
+      expect(provider2.fetchPrice).not.toHaveBeenCalled();
     });
   });
 
@@ -157,9 +156,8 @@ describe('PriceProviderManager', () => {
     it('should failover to next provider on error', async () => {
       const failing = createMockProvider('failing', {
         fetchPriceResult: err(new Error('Failed')),
-        priority: 1,
       });
-      const working = createMockProvider('working', { priority: 2 });
+      const working = createMockProvider('working');
 
       manager.registerProviders([failing, working]);
 
@@ -176,11 +174,9 @@ describe('PriceProviderManager', () => {
     it('should try all providers before failing', async () => {
       const p1 = createMockProvider('p1', {
         fetchPriceResult: err(new Error('Error 1')),
-        priority: 1,
       });
       const p2 = createMockProvider('p2', {
         fetchPriceResult: err(new Error('Error 2')),
-        priority: 2,
       });
 
       manager.registerProviders([p1, p2]);
@@ -200,9 +196,8 @@ describe('PriceProviderManager', () => {
     it('should skip provider with open circuit', async () => {
       const p1 = createMockProvider('p1', {
         fetchPriceResult: err(new Error('Always fails')),
-        priority: 1,
       });
-      const p2 = createMockProvider('p2', { priority: 2 });
+      const p2 = createMockProvider('p2');
 
       manager.registerProviders([p1, p2]);
 

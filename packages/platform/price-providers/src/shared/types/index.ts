@@ -82,6 +82,12 @@ export interface IPriceProvider {
    * Get provider metadata
    */
   getMetadata(): ProviderMetadata;
+
+  /**
+   * Optional initialization hook called after provider creation
+   * Used for setup tasks like syncing coin lists, warming caches, etc.
+   */
+  initialize?(): Promise<Result<void, Error>>;
 }
 
 /**

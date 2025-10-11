@@ -143,12 +143,83 @@ export class CoinGeckoProvider extends BasePriceProvider {
   }
 
   /**
+   * Initialize provider (implements IPriceProvider lifecycle hook)
+   * Syncs coin list on startup
+   */
+  async initialize(): Promise<Result<void, Error>> {
+    const result = await this.syncCoinList();
+    if (result.isErr()) {
+      return err(result.error);
+    }
+    return ok();
+  }
+
+  /**
+   * Fetch single price (implements BasePriceProvider)
+   */
+  protected async fetchPriceInternal(query: PriceQuery): Promise<Result<PriceData, Error>> {
+    try {
+      const currency = query.currency || Currency.create('USD');
+
+      // 1. Check cache first
+      const cachedResult = await this.priceRepo.getPrice(query.asset, currency, query.timestamp);
+
+      if (cachedResult.isErr()) {
+        return err(cachedResult.error);
+      }
+
+      if (cachedResult.value) {
+        this.logger.debug(
+          { asset: query.asset, currency: query.currency, timestamp: query.timestamp },
+          'Price found in cache'
+        );
+        return ok(cachedResult.value);
+      }
+
+      // 2. Ensure provider is registered and synced
+      const providerIdResult = await this.ensureProviderRegistered();
+      if (providerIdResult.isErr()) {
+        return err(providerIdResult.error);
+      }
+      const providerId = providerIdResult.value;
+
+      // 3. Get coin ID for symbol
+      const coinIdResult = await this.providerRepo.getCoinIdForSymbol(providerId, query.asset);
+      if (coinIdResult.isErr()) {
+        return err(coinIdResult.error);
+      }
+
+      const coinId = coinIdResult.value;
+      if (!coinId) {
+        return err(new Error(`No CoinGecko coin ID found for symbol: ${query.asset.toString()}`));
+      }
+
+      // 4. Fetch from API
+      const priceData = await this.fetchFromApi(coinId, query.asset, query.timestamp, currency);
+      if (priceData.isErr()) {
+        return err(priceData.error);
+      }
+
+      // 5. Cache the result
+      const cacheResult = await this.priceRepo.savePrice(priceData.value, coinId);
+      if (cacheResult.isErr()) {
+        this.logger.warn({ error: cacheResult.error }, 'Failed to cache price');
+        // Don't fail the request if caching fails
+      }
+
+      return ok(priceData.value);
+    } catch (error) {
+      return wrapError(error, 'Failed to fetch price');
+    }
+  }
+
+  /**
    * Sync coin list from CoinGecko API
    *
    * Fetches top coins by market cap to ensure correct coin ID mapping
    * for symbols with multiple entries (e.g., BTC maps to Bitcoin, not batcat)
    */
-  async syncCoinList(): Promise<Result<number, Error>> {
+  private async syncCoinList(): Promise<Result<number, Error>> {
     try {
       this.logger.info('Syncing coin list from CoinGecko');
 
@@ -247,65 +318,6 @@ export class CoinGeckoProvider extends BasePriceProvider {
     } catch (error) {
       const message = getErrorMessage(error);
       return err(new Error(`Coin list sync failed: ${message}`));
-    }
-  }
-
-  /**
-   * Fetch single price (implements BasePriceProvider)
-   */
-  protected async fetchPriceInternal(query: PriceQuery): Promise<Result<PriceData, Error>> {
-    try {
-      const currency = query.currency || Currency.create('USD');
-
-      // 1. Check cache first
-      const cachedResult = await this.priceRepo.getPrice(query.asset, currency, query.timestamp);
-
-      if (cachedResult.isErr()) {
-        return err(cachedResult.error);
-      }
-
-      if (cachedResult.value) {
-        this.logger.debug(
-          { asset: query.asset, currency: query.currency, timestamp: query.timestamp },
-          'Price found in cache'
-        );
-        return ok(cachedResult.value);
-      }
-
-      // 2. Ensure provider is registered and synced
-      const providerIdResult = await this.ensureProviderRegistered();
-      if (providerIdResult.isErr()) {
-        return err(providerIdResult.error);
-      }
-      const providerId = providerIdResult.value;
-
-      // 3. Get coin ID for symbol
-      const coinIdResult = await this.providerRepo.getCoinIdForSymbol(providerId, query.asset);
-      if (coinIdResult.isErr()) {
-        return err(coinIdResult.error);
-      }
-
-      const coinId = coinIdResult.value;
-      if (!coinId) {
-        return err(new Error(`No CoinGecko coin ID found for symbol: ${query.asset.toString()}`));
-      }
-
-      // 4. Fetch from API
-      const priceData = await this.fetchFromApi(coinId, query.asset, query.timestamp, currency);
-      if (priceData.isErr()) {
-        return err(priceData.error);
-      }
-
-      // 5. Cache the result
-      const cacheResult = await this.priceRepo.savePrice(priceData.value, coinId);
-      if (cacheResult.isErr()) {
-        this.logger.warn({ error: cacheResult.error }, 'Failed to cache price');
-        // Don't fail the request if caching fails
-      }
-
-      return ok(priceData.value);
-    } catch (error) {
-      return wrapError(error, 'Failed to fetch price');
     }
   }
 

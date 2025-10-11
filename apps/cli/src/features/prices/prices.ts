@@ -44,7 +44,6 @@ export function registerPricesCommand(program: Command): void {
     .command('fetch')
     .description('Fetch prices for transactions missing price data')
     .option('--asset <currency>', 'Filter by asset (e.g., BTC, ETH). Can be specified multiple times.', collect, [])
-    .option('--batch-size <number>', 'Number of transactions to process in each batch', parseInt, 50)
     .option('--clear-db', 'Clear and reinitialize database before fetching')
     .option('--json', 'Output results in JSON format (for AI/MCP tools)')
     .action(async (options: ExtendedPricesFetchCommandOptions) => {
@@ -69,7 +68,6 @@ async function executePricesFetchCommand(options: ExtendedPricesFetchCommandOpti
     // Build params from options
     const params: PricesFetchCommandOptions = {
       asset: options.asset,
-      batchSize: options.batchSize,
     };
 
     const spinner = output.spinner();

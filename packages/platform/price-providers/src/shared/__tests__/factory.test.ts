@@ -4,7 +4,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createPriceProviderByName, createPriceProviders, getAvailableProviderNames } from '../factory.ts';
+import { createPriceProviders, getAvailableProviderNames } from '../factory.ts';
 
 // Mock database initialization
 vi.mock('../../pricing/database.js', () => ({
@@ -30,18 +30,17 @@ vi.mock('../../coingecko/provider.js', () => ({
       getMetadata: () => ({
         capabilities: {
           supportedCurrencies: ['USD'],
-          supportedOperations: ['fetchPrice', 'fetchBatch'],
+          supportedOperations: ['fetchPrice'],
         },
         displayName: 'CoinGecko',
         name: 'coingecko',
-        priority: 1,
         requiresApiKey: false,
       }),
-      syncCoinList: vi.fn(() =>
+      initialize: vi.fn(() =>
         Promise.resolve({
           isErr: () => false,
           isOk: () => true,
-          value: 100, // Number of synced coins
+          value: undefined,
         })
       ),
     },
@@ -57,11 +56,10 @@ vi.mock('../../cryptocompare/provider.js', () => ({
       getMetadata: () => ({
         capabilities: {
           supportedCurrencies: ['USD'],
-          supportedOperations: ['fetchPrice', 'fetchBatch'],
+          supportedOperations: ['fetchPrice'],
         },
         displayName: 'CryptoCompare',
         name: 'cryptocompare',
-        priority: 2,
         requiresApiKey: false,
       }),
     },
@@ -89,26 +87,27 @@ describe('createPriceProviders', () => {
     process.env = originalEnv;
   });
 
-  it('should create CoinGecko provider by default', async () => {
-    const providers = await createPriceProviders();
+  it('should create both providers by default', async () => {
+    const result = await createPriceProviders();
 
-    // Both CoinGecko and CryptoCompare are enabled by default
-    expect(providers).toHaveLength(2);
-    expect(providers[0]?.getMetadata().name).toBe('coingecko');
-    expect(providers[1]?.getMetadata().name).toBe('cryptocompare');
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      const providers = result.value;
+      // Both CoinGecko and CryptoCompare are enabled by default
+      expect(providers).toHaveLength(2);
+      expect(providers[0]?.getMetadata().name).toBe('coingecko');
+      expect(providers[1]?.getMetadata().name).toBe('cryptocompare');
+    }
   });
 
-  it('should use environment variable for API key', async () => {
-    process.env.COINGECKO_API_KEY = 'env-key';
-
+  it('should pass empty config when no config provided', async () => {
     const { createCoinGeckoProvider } = await import('../../coingecko/provider.ts');
     await createPriceProviders();
 
+    // Factory passes empty config, individual providers read from process.env
     expect(createCoinGeckoProvider).toHaveBeenCalledWith(
       expect.anything(), // db parameter
-      expect.objectContaining({
-        apiKey: 'env-key',
-      })
+      {} // Empty config - provider reads process.env itself
     );
   });
 
@@ -129,30 +128,86 @@ describe('createPriceProviders', () => {
   });
 
   it('should respect enabled: false', async () => {
-    const providers = await createPriceProviders({
+    const result = await createPriceProviders({
       coingecko: { enabled: false },
       cryptocompare: { enabled: false },
     });
 
-    expect(providers).toHaveLength(0);
-  });
-});
-
-describe('createPriceProviderByName', () => {
-  it('should create provider by name', async () => {
-    const result = await createPriceProviderByName('coingecko');
-    expect(result.isOk()).toBe(true);
+    // Should return error when no providers are enabled
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('No price providers were successfully created');
+    }
   });
 
-  it('should be case-insensitive', async () => {
-    const result = await createPriceProviderByName('CoinGecko');
+  it('should call initialize() hook if provider implements it', async () => {
+    const result = await createPriceProviders();
+
     expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      const providers = result.value;
+      const coinGeckoProvider = providers[0];
+
+      // CoinGecko provider has initialize() hook
+      // eslint-disable-next-line @typescript-eslint/unbound-method -- Extracting method for vitest mock assertion
+      const initializeMethod = coinGeckoProvider?.initialize;
+      expect(initializeMethod).toBeDefined();
+      expect(initializeMethod).toHaveBeenCalled();
+    }
+  });
+
+  it('should skip provider if initialization fails', async () => {
+    // Mock CoinGecko to fail initialization
+    const { createCoinGeckoProvider } = await import('../../coingecko/provider.ts');
+    const { ok, err } = await import('neverthrow');
+    // Provide all required properties for CoinGeckoProvider mock
+    vi.mocked(createCoinGeckoProvider).mockReturnValueOnce(
+      ok({
+        metadata: {
+          capabilities: {
+            supportedCurrencies: ['USD'],
+            supportedOperations: ['fetchPrice'],
+          },
+          displayName: 'CoinGecko',
+          name: 'coingecko',
+          requiresApiKey: false,
+        },
+        logger: { info: vi.fn(), error: vi.fn(), debug: vi.fn(), warn: vi.fn() },
+        httpClient: {},
+        providerRepo: {},
+        getMetadata: () => ({
+          capabilities: {
+            supportedCurrencies: ['USD'],
+            supportedOperations: ['fetchPrice'],
+          },
+          displayName: 'CoinGecko',
+          name: 'coingecko',
+          requiresApiKey: false,
+        }),
+        initialize: vi.fn(() => Promise.resolve(err(new Error('Init failed')))),
+        fetchPrice: vi.fn(),
+        fetchHistoricalPrice: vi.fn(),
+        close: vi.fn(),
+      } as unknown as import('../../coingecko/provider.ts').CoinGeckoProvider)
+    );
+
+    const result = await createPriceProviders();
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      const providers = result.value;
+      // Only CryptoCompare should succeed
+      expect(providers).toHaveLength(1);
+      expect(providers[0]?.getMetadata().name).toBe('cryptocompare');
+    }
   });
 });
 
 describe('getAvailableProviderNames', () => {
-  it('should return available providers', () => {
+  it('should return available providers dynamically', () => {
     const names = getAvailableProviderNames();
     expect(names).toContain('coingecko');
+    expect(names).toContain('cryptocompare');
+    expect(names).toHaveLength(2);
   });
 });

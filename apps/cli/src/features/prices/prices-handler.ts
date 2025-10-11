@@ -1,7 +1,6 @@
 // Imperative shell for prices command
 // Manages resources (database, price providers) and orchestrates business logic
 
-import type { TransactionNeedingPrice } from '@exitbook/data';
 import { TransactionRepository } from '@exitbook/data';
 import type { KyselyDB } from '@exitbook/data';
 import { createPriceProviders, PriceProviderManager } from '@exitbook/platform-price-providers';
@@ -10,7 +9,7 @@ import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
 import type { PricesFetchCommandOptions, PricesFetchResult } from './prices-utils.ts';
-import { validateAssetFilter, transactionToPriceQuery, createBatches, initializeStats } from './prices-utils.ts';
+import { validateAssetFilter, transactionToPriceQuery, initializeStats } from './prices-utils.ts';
 
 const logger = getLogger('PricesHandler');
 
@@ -33,7 +32,7 @@ export class PricesFetchHandler {
     // Initialize price providers
     // Note: API keys are read from process.env by the factory
     // We explicitly pass them here to ensure they're available even if env loading has issues
-    const providers = await createPriceProviders({
+    const providersResult = await createPriceProviders({
       databasePath: './data/prices.db',
       coingecko: {
         enabled: true,
@@ -46,9 +45,11 @@ export class PricesFetchHandler {
       },
     });
 
-    if (providers.length === 0) {
-      return err(new Error('No price providers available'));
+    if (providersResult.isErr()) {
+      return err(providersResult.error);
     }
+
+    const providers = providersResult.value;
 
     // Create price manager
     this.priceManager = new PriceProviderManager({
@@ -83,76 +84,32 @@ export class PricesFetchHandler {
 
     logger.info(`Found ${transactions.length} transactions needing prices`);
 
-    // Process in batches
-    const batchSize = options.batchSize || 50;
-    const batches = createBatches(transactions, batchSize);
-
-    for (let i = 0; i < batches.length; i++) {
-      const batch = batches[i];
-      if (batch) {
-        logger.debug(`Processing batch ${i + 1}/${batches.length} (${batch.length} transactions)`);
-      } else {
-        logger.warn(`Batch ${i + 1} is undefined`);
-        continue;
-      }
-
-      const batchResult = await this.processBatch(batch);
-      if (batchResult.isErr()) {
-        // Log error but continue with next batch
-        const errorMsg = `Batch ${i + 1} failed: ${batchResult.error.message}`;
-        logger.error(errorMsg);
-        this.errors.push(errorMsg);
-        stats.failures += batch.length;
-        continue;
-      }
-
-      // Update stats
-      const batchStats = batchResult.value;
-      stats.pricesFetched += batchStats.fetched;
-      stats.pricesUpdated += batchStats.updated;
-      stats.failures += batchStats.failed;
-      stats.skipped += batchStats.skipped;
-    }
-
-    return ok({ stats, errors: this.errors });
-  }
-
-  /**
-   * Cleanup resources
-   */
-  destroy(): void {
-    // Price manager cleanup if needed
-  }
-
-  /**
-   * Process a batch of transactions
-   */
-  private async processBatch(
-    transactions: TransactionNeedingPrice[]
-  ): Promise<Result<{ failed: number; fetched: number; skipped: number; updated: number }, Error>> {
-    if (!this.priceManager) {
-      return err(new Error('Price manager not initialized'));
-    }
-
-    let fetched = 0;
-    let updated = 0;
-    let failed = 0;
-    let skipped = 0;
+    // Process transactions with progress reporting
+    const progressInterval = 50;
     let consecutiveFailures = 0;
-    const maxConsecutiveFailures = 5; // Stop after 5 consecutive failures
+    const maxConsecutiveFailures = 5;
+    let processed = 0;
 
-    // Process each transaction individually - fetch and update immediately
     for (const tx of transactions) {
+      // Progress reporting
+      if (processed > 0 && processed % progressInterval === 0) {
+        logger.info(
+          `Progress: ${processed}/${transactions.length} transactions processed ` +
+            `(${stats.pricesUpdated} updated, ${stats.failures} failures)`
+        );
+      }
+
+      processed++;
+
       // Stop early if all providers are consistently failing
       if (consecutiveFailures >= maxConsecutiveFailures) {
         logger.warn(
-          `Stopping batch processing after ${consecutiveFailures} consecutive failures. ` +
+          `Stopping after ${consecutiveFailures} consecutive failures. ` +
             `This likely indicates all providers are unavailable or data is outside allowed range.`
         );
-        // Mark remaining transactions as failed
-        const remaining = transactions.length - (fetched + failed + skipped);
-        failed += remaining;
-        this.errors.push(`Batch stopped early: ${remaining} transactions not processed due to provider unavailability`);
+        const remaining = transactions.length - processed;
+        stats.failures += remaining;
+        this.errors.push(`Stopped early: ${remaining} transactions not processed due to provider unavailability`);
         break;
       }
 
@@ -161,17 +118,21 @@ export class PricesFetchHandler {
       if (queryResult.isErr()) {
         logger.warn(`Skipping transaction ${tx.id}: ${queryResult.error.message}`);
         this.errors.push(`Transaction ${tx.id}: ${queryResult.error.message}`);
-        skipped++;
+        stats.skipped++;
         continue;
       }
 
       // Fetch price for this transaction
+      if (!this.priceManager) {
+        return err(new Error('Price manager not initialized'));
+      }
+
       const priceResult = await this.priceManager.fetchPrice(queryResult.value);
 
       if (priceResult.isErr()) {
         logger.warn(`Failed to fetch price for transaction ${tx.id}: ${priceResult.error.message}`);
         this.errors.push(`Transaction ${tx.id}: ${priceResult.error.message}`);
-        failed++;
+        stats.failures++;
         consecutiveFailures++;
         continue;
       }
@@ -180,7 +141,7 @@ export class PricesFetchHandler {
       consecutiveFailures = 0;
 
       const priceData = priceResult.value.data;
-      fetched++;
+      stats.pricesFetched++;
 
       // Update transaction using repository
       const updateResult = await this.transactionRepo.updateTransactionPrice(tx.id, {
@@ -193,12 +154,19 @@ export class PricesFetchHandler {
       if (updateResult.isErr()) {
         logger.error(`Failed to update transaction ${tx.id}: ${updateResult.error.message}`);
         this.errors.push(`Transaction ${tx.id}: ${updateResult.error.message}`);
-        failed++;
+        stats.failures++;
       } else {
-        updated++;
+        stats.pricesUpdated++;
       }
     }
 
-    return ok({ fetched, updated, failed, skipped });
+    return ok({ stats, errors: this.errors });
+  }
+
+  /**
+   * Cleanup resources
+   */
+  destroy(): void {
+    // Price manager cleanup if needed
   }
 }

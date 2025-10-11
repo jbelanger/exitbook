@@ -70,8 +70,8 @@ describe('scoreProvider', () => {
 
     const score = ProviderManagerUtils.scoreProvider(metadata, health, circuit, now);
 
-    // Base 100 + fast response bonus (20) + priority bonus (45)
-    expect(score).toBe(165);
+    // Base 100 + fast response bonus (20) = 120
+    expect(score).toBe(120);
   });
 
   it('should penalize open circuit breaker', () => {
@@ -86,8 +86,8 @@ describe('scoreProvider', () => {
 
     const score = ProviderManagerUtils.scoreProvider(metadata, health, circuit, now);
 
-    // Base 100 - open circuit (100) + fast bonus (20) + priority (45) = 65
-    expect(score).toBe(65);
+    // Base 100 - open circuit (100) + fast bonus (20) = 20
+    expect(score).toBe(20);
   });
 
   it('should penalize half-open circuit breaker', () => {
@@ -103,8 +103,8 @@ describe('scoreProvider', () => {
 
     const score = ProviderManagerUtils.scoreProvider(metadata, health, circuit, now);
 
-    // Base 100 - half-open (25) + fast bonus (20) + priority (45) = 140
-    expect(score).toBe(140);
+    // Base 100 - half-open (25) + fast bonus (20) = 95
+    expect(score).toBe(95);
   });
 
   it('should penalize unhealthy provider', () => {
@@ -115,8 +115,8 @@ describe('scoreProvider', () => {
 
     const score = ProviderManagerUtils.scoreProvider(metadata, health, circuit, now);
 
-    // Base 100 - unhealthy (50) + fast bonus (20) + priority (45) = 115
-    expect(score).toBe(115);
+    // Base 100 - unhealthy (50) + fast bonus (20) = 70
+    expect(score).toBe(70);
   });
 
   it('should bonus for fast response time', () => {
@@ -139,8 +139,8 @@ describe('scoreProvider', () => {
 
     const score = ProviderManagerUtils.scoreProvider(metadata, health, circuit, now);
 
-    // Base 100 - slow penalty (30) + priority (45) = 115
-    expect(score).toBe(115);
+    // Base 100 - slow penalty (30) = 70
+    expect(score).toBe(70);
   });
 
   it('should penalize based on error rate', () => {
@@ -151,8 +151,8 @@ describe('scoreProvider', () => {
 
     const score = ProviderManagerUtils.scoreProvider(metadata, health, circuit, now);
 
-    // Base 100 - error rate penalty (25) + priority (45) = 120
-    expect(score).toBe(120);
+    // Base 100 - error rate penalty (25) = 75
+    expect(score).toBe(75);
   });
 
   it('should penalize consecutive failures', () => {
@@ -163,8 +163,8 @@ describe('scoreProvider', () => {
 
     const score = ProviderManagerUtils.scoreProvider(metadata, health, circuit, now);
 
-    // Base 100 - failures (30) + fast bonus (20) + priority (45) = 135
-    expect(score).toBe(135);
+    // Base 100 - failures (30) + fast bonus (20) = 90
+    expect(score).toBe(90);
   });
 });
 
@@ -181,7 +181,6 @@ describe('supportsOperation', () => {
     };
 
     expect(ProviderManagerUtils.supportsOperation(metadata, 'fetchPrice')).toBe(true);
-    expect(ProviderManagerUtils.supportsOperation(metadata, 'fetchBatch')).toBe(true);
   });
 
   it('should return false when operation is not supported', () => {
@@ -209,7 +208,6 @@ describe('selectProvidersForOperation', () => {
       },
       displayName: name,
       name,
-      priority: 1,
       requiresApiKey: false,
     }),
   });
@@ -295,7 +293,6 @@ describe('hasAvailableProviders', () => {
       capabilities: { supportedCurrencies: ['USD'], supportedOperations: ['fetchPrice'] },
       displayName: name,
       name,
-      priority: 1,
       requiresApiKey: false,
     }),
   });
@@ -507,7 +504,6 @@ describe('buildProviderSelectionDebugInfo', () => {
           },
           displayName: 'Test',
           name: 'test',
-          priority: 1,
           requiresApiKey: false,
         },
         provider: {} as IPriceProvider,
@@ -523,7 +519,6 @@ describe('buildProviderSelectionDebugInfo', () => {
       errorRate: number;
       isHealthy: boolean;
       name: string;
-      priority: number;
       score: number;
     }[];
     expect(parsed).toHaveLength(1);
@@ -533,7 +528,6 @@ describe('buildProviderSelectionDebugInfo', () => {
       errorRate: 12,
       isHealthy: true,
       name: 'test',
-      priority: 1,
       score: 150,
     });
   });
