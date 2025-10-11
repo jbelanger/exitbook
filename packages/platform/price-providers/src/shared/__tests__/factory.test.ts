@@ -37,6 +37,33 @@ vi.mock('../../coingecko/provider.js', () => ({
         priority: 1,
         requiresApiKey: false,
       }),
+      syncCoinList: vi.fn(() =>
+        Promise.resolve({
+          isErr: () => false,
+          isOk: () => true,
+          value: 100, // Number of synced coins
+        })
+      ),
+    },
+  })),
+}));
+
+// Mock CryptoCompare provider creation
+vi.mock('../../cryptocompare/provider.js', () => ({
+  createCryptoCompareProvider: vi.fn(() => ({
+    isErr: () => false,
+    isOk: () => true,
+    value: {
+      getMetadata: () => ({
+        capabilities: {
+          supportedCurrencies: ['USD'],
+          supportedOperations: ['fetchPrice', 'fetchBatch'],
+        },
+        displayName: 'CryptoCompare',
+        name: 'cryptocompare',
+        priority: 2,
+        requiresApiKey: false,
+      }),
     },
   })),
 }));
@@ -65,8 +92,10 @@ describe('createPriceProviders', () => {
   it('should create CoinGecko provider by default', async () => {
     const providers = await createPriceProviders();
 
-    expect(providers).toHaveLength(1);
+    // Both CoinGecko and CryptoCompare are enabled by default
+    expect(providers).toHaveLength(2);
     expect(providers[0]?.getMetadata().name).toBe('coingecko');
+    expect(providers[1]?.getMetadata().name).toBe('cryptocompare');
   });
 
   it('should use environment variable for API key', async () => {
@@ -102,6 +131,7 @@ describe('createPriceProviders', () => {
   it('should respect enabled: false', async () => {
     const providers = await createPriceProviders({
       coingecko: { enabled: false },
+      cryptocompare: { enabled: false },
     });
 
     expect(providers).toHaveLength(0);
