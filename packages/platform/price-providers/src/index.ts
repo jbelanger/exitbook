@@ -22,9 +22,9 @@ export { createPriceProviders, createPriceProviderByName, getAvailableProviderNa
 export type { ProviderFactoryConfig } from './shared/factory.js';
 
 // CoinGecko provider (individual factory for advanced usage)
-export { CoinGeckoProvider } from './coingecko/provider.js';
-export type { CoinGeckoProviderConfig } from './coingecko/provider.js';
-export { createCoinGeckoProvider } from './coingecko/provider.js';
+// export { CoinGeckoProvider } from './coingecko/provider.js';
+// export type { CoinGeckoProviderConfig } from './coingecko/provider.js';
+// export { createCoinGeckoProvider } from './coingecko/provider.js';
 
 // Database and repositories (for advanced usage)
 export { createPricesDatabase, initializePricesDatabase } from './pricing/database.js';

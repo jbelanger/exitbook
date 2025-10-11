@@ -123,7 +123,7 @@ describe('PriceProviderManager', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value.data.asset).toBe('BTC');
+        expect(result.value.data.asset.toString()).toBe('BTC');
         expect(result.value.providerName).toBe('test');
       }
     });

@@ -64,10 +64,10 @@ describe('transformHistoricalResponse', () => {
     );
 
     expect(priceData).toEqual({
-      asset: 'BTC',
+      asset: Currency.create('BTC'),
       timestamp,
       price: 30123.45,
-      currency: 'USD',
+      currency: Currency.create('USD'),
       source: 'coingecko',
       fetchedAt,
     });
@@ -112,10 +112,10 @@ describe('transformSimplePriceResponse', () => {
     );
 
     expect(priceData).toEqual({
-      asset: 'BTC',
+      asset: Currency.create('BTC'),
       timestamp,
       price: 30123.45,
-      currency: 'USD',
+      currency: Currency.create('USD'),
       source: 'coingecko',
       fetchedAt,
     });
@@ -131,7 +131,7 @@ describe('transformSimplePriceResponse', () => {
         Currency.create('USD'),
         new Date()
       )
-    ).toThrow('Coin ID bitcoin for asset btc not found in response');
+    ).toThrow('Coin ID bitcoin for asset BTC not found in response');
   });
 
   it('throws when the desired currency is missing for the coin', () => {
@@ -150,7 +150,7 @@ describe('transformSimplePriceResponse', () => {
         Currency.create('USD'),
         new Date()
       )
-    ).toThrow('Currency USD not found for btc');
+    ).toThrow('Currency USD not found for BTC');
   });
 });
 

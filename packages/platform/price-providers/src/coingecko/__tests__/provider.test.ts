@@ -146,7 +146,7 @@ describe('CoinGeckoProvider', () => {
       expect(result.value).toEqual(expectedPrice);
     }
 
-    expect(httpClientGet).toHaveBeenCalledWith('/simple/price', {
+    expect(httpClientGet).toHaveBeenCalledWith('/simple/price?ids=bitcoin&vs_currencies=usd', {
       headers: {
         'x-cg-demo-api-key': '',
       },
@@ -154,9 +154,9 @@ describe('CoinGeckoProvider', () => {
     expect(mockTransformSimplePriceResponse).toHaveBeenCalledWith(
       apiResponse,
       'bitcoin',
-      'BTC',
+      Currency.create('BTC'),
       defaultTimestamp,
-      'USD',
+      Currency.create('USD'),
       expect.any(Date)
     );
     expect(priceRepoMocks.savePrice).toHaveBeenCalledWith(expectedPrice, 'bitcoin');
@@ -200,18 +200,16 @@ describe('CoinGeckoProvider', () => {
       expect(result.value).toEqual(expectedPrice);
     }
 
-    expect(httpClientGet).toHaveBeenCalledWith('/coins/bitcoin/history', {
-      headers: expect.objectContaining({
-        date: '21-05-2020',
-        localization: 'false',
+    expect(httpClientGet).toHaveBeenCalledWith('/coins/bitcoin/history?date=21-05-2020&localization=false', {
+      headers: {
         'x-cg-demo-api-key': '',
-      }) as Record<string, string>,
+      },
     });
     expect(mockTransformHistoricalResponse).toHaveBeenCalledWith(
       apiResponse,
-      'BTC',
+      Currency.create('BTC'),
       historicalTimestamp,
-      'USD',
+      Currency.create('USD'),
       expect.any(Date)
     );
     expect(priceRepoMocks.savePrice).toHaveBeenCalledWith(expectedPrice, 'bitcoin');
@@ -278,8 +276,14 @@ describe('CoinGeckoProvider', () => {
       expect(result.value).toEqual([batchPrice, historicalPrice]);
     }
 
-    expect(batchSpy).toHaveBeenCalledWith([{ asset: 'btc', currency: 'usd', timestamp: recentTimestamp }]);
-    expect(fetchPriceSpy).toHaveBeenCalledWith({ asset: 'eth', currency: 'usd', timestamp: oldTimestamp });
+    expect(batchSpy).toHaveBeenCalledWith([
+      { asset: Currency.create('btc'), currency: Currency.create('usd'), timestamp: recentTimestamp },
+    ]);
+    expect(fetchPriceSpy).toHaveBeenCalledWith({
+      asset: Currency.create('eth'),
+      currency: Currency.create('usd'),
+      timestamp: oldTimestamp,
+    });
   });
 
   it('fails when all batch queries fail', async () => {

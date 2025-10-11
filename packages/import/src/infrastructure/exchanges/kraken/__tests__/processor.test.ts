@@ -397,7 +397,7 @@ describe('KrakenProcessor - Trade/Conversion Handling', () => {
 
     // Fee is stored separately
     expect(transaction.fees.platform?.amount.toString()).toBe('0.0001');
-    expect(transaction.fees.platform?.currency).toBe('BTC');
+    expect(transaction.fees.platform?.currency.toString()).toBe('BTC');
   });
 });
 
@@ -658,9 +658,9 @@ describe('KrakenProcessor - Fee Handling', () => {
     if (!transaction) return;
 
     // Fee should be in same currency as the ledger entry
-    expect(transaction.fees.platform?.currency).toBe('BTC');
+    expect(transaction.fees.platform?.currency.toString()).toBe('BTC');
     expect(transaction.fees.platform?.amount.toString()).toBe('0.0005');
-    expect(transaction.fees.total?.currency).toBe('BTC');
+    expect(transaction.fees.total?.currency.toString()).toBe('BTC');
   });
 
   test('handles negative fees (refunds)', async () => {
