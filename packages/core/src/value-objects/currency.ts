@@ -9,15 +9,6 @@
 
 export class Currency {
   /**
-   * Common currencies as constants for convenience
-   */
-  static readonly USD = Currency.create('USD');
-  static readonly EUR = Currency.create('EUR');
-  static readonly GBP = Currency.create('GBP');
-  static readonly BTC = Currency.create('BTC');
-  static readonly ETH = Currency.create('ETH');
-
-  /**
    * Create a Currency from a raw string
    * Normalizes to uppercase and trims whitespace
    */
