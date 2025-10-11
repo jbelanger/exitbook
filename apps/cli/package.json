@@ -25,6 +25,7 @@
     "@exitbook/core": "workspace:*",
     "@exitbook/data": "workspace:*",
     "@exitbook/import": "workspace:*",
+    "@exitbook/platform-price-providers": "workspace:*",
     "@exitbook/providers": "workspace:*",
     "@exitbook/shared-logger": "workspace:*",
     "commander": "^14.0.0",

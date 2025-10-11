@@ -2,6 +2,8 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
+import { getErrorMessage } from '@exitbook/core';
+
 /**
  * Sync registered providers with blockchain configuration
  * Detects missing providers and can automatically fix config drift
@@ -175,7 +177,7 @@ Examples:
       process.exit(1); // Exit with error if issues found but not fixed
     }
   } catch (error) {
-    console.error('❌ Failed to sync providers:', error instanceof Error ? error.message : error);
+    console.error('❌ Failed to sync providers:', getErrorMessage(error));
     process.exit(1);
   }
 }

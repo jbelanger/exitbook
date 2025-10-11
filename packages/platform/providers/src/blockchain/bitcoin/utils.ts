@@ -1,3 +1,4 @@
+import { getErrorMessage } from '@exitbook/core';
 import { getLogger } from '@exitbook/shared-logger';
 import { HDKey } from '@scure/bip32';
 import * as bitcoin from 'bitcoinjs-lib';
@@ -185,7 +186,7 @@ export class BitcoinUtils {
 
       return ok();
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage = getErrorMessage(error, 'Unknown error');
       logger.error(
         `Failed to initialize xpub wallet - Error: ${errorMessage}, Xpub: ${walletAddress.address.substring(0, 20) + '...'}`
       );

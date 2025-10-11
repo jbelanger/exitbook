@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-import type { RawTransactionWithMetadata } from '@exitbook/core';
+import { getErrorMessage, type RawTransactionWithMetadata } from '@exitbook/core';
 import type { IImporter, ImportParams, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
 import { getLogger, type Logger } from '@exitbook/shared-logger';
 import { err, ok, type Result } from 'neverthrow';
@@ -399,7 +399,7 @@ export class KucoinCsvImporter implements IImporter {
         metadata: { importMethod: 'csv' },
       });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = getErrorMessage(error);
       this.logger.error(`Import failed in CSV file processing: ${errorMessage}`);
       return err(new Error(`${this.sourceId} import failed: ${errorMessage}`));
     }

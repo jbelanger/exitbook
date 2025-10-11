@@ -1,3 +1,4 @@
+import { wrapError } from '@exitbook/core';
 import type { KyselyDB } from '@exitbook/data';
 import type { ImportSession, ImportSessionQuery, ImportSessionUpdate, StoredImportParams } from '@exitbook/data';
 import { BaseRepository } from '@exitbook/data';
@@ -40,9 +41,7 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
 
       return ok(result.id);
     } catch (error) {
-      const errValue = error instanceof Error ? error : new Error(String(error));
-      this.logger.error({ error: errValue, sourceId, sourceType }, 'Failed to create import session');
-      return err(errValue);
+      return wrapError(error, 'Failed to create import session');
     }
   }
 
@@ -77,9 +76,7 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
         .execute();
       return ok();
     } catch (error) {
-      const errValue = error instanceof Error ? error : new Error(String(error));
-      this.logger.error({ error: errValue, sessionId, status }, 'Failed to finalize import session');
-      return err(errValue);
+      return wrapError(error, 'Failed to finalize import session');
     }
   }
 
@@ -121,9 +118,7 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
       const rows = await query.execute();
       return ok(rows as ImportSession[]);
     } catch (error) {
-      const errValue = error instanceof Error ? error : new Error(String(error));
-      this.logger.error({ error: errValue, filters }, 'Failed to find import sessions');
-      return err(errValue);
+      return wrapError(error, 'Failed to find import sessions');
     }
   }
 
@@ -137,9 +132,7 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
 
       return ok(row ? row : undefined);
     } catch (error) {
-      const errValue = error instanceof Error ? error : new Error(String(error));
-      this.logger.error({ error: errValue, sessionId }, 'Failed to find import session by ID');
-      return err(errValue);
+      return wrapError(error, 'Failed to find import session by ID');
     }
   }
 
@@ -206,9 +199,7 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
 
       return ok();
     } catch (error) {
-      const errValue = error instanceof Error ? error : new Error(String(error));
-      this.logger.error({ error: errValue, sessionId, updates }, 'Failed to update import session');
-      return err(errValue);
+      return wrapError(error, 'Failed to update import session');
     }
   }
 
@@ -258,12 +249,7 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
       // eslint-disable-next-line unicorn/no-useless-undefined -- Explicitly return undefined when no match found
       return ok(undefined);
     } catch (error) {
-      const errValue = error instanceof Error ? error : new Error(String(error));
-      this.logger.error(
-        { error: errValue, sourceId, sourceType, params },
-        'Failed to find completed session with matching params'
-      );
-      return err(errValue);
+      return wrapError(error, 'Failed to find completed session with matching params');
     }
   }
 }

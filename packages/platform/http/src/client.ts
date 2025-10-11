@@ -23,10 +23,6 @@ export interface HttpRequestOptions {
   timeout?: number | undefined;
 }
 
-/**
- * Imperative shell wrapper for pure HTTP core functions
- * Maintains backward compatibility while using functional core
- */
 export class HttpClient {
   private readonly config: HttpClientConfig;
   private readonly logger: ReturnType<typeof getLogger>;

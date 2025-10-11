@@ -9,6 +9,7 @@ import { registerBenchmarkRateLimitCommand } from './features/benchmark-rate-lim
 import { registerExportCommand } from './features/export/export.ts';
 import { registerImportCommand } from './features/import/import.ts';
 import { registerListBlockchainsCommand } from './features/list-blockchains/list-blockchains.ts';
+import { registerPricesCommand } from './features/prices/prices.ts';
 import { registerProcessCommand } from './features/process/process.ts';
 import { registerVerifyCommand } from './features/verify/verify.ts';
 
@@ -46,6 +47,9 @@ async function main() {
 
   // Benchmark rate limit command - refactored with @clack/prompts (Phase 3)
   registerBenchmarkRateLimitCommand(program);
+
+  // Prices command
+  registerPricesCommand(program);
 
   // Status command
   program

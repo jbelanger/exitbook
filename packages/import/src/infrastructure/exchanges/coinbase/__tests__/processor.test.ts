@@ -187,7 +187,7 @@ describe('CoinbaseProcessor - Trade Handling', () => {
 
     // Verify fee
     expect(transaction.fees.platform?.amount.toString()).toBe('1.5');
-    expect(transaction.fees.platform?.currency).toBe('USD');
+    expect(transaction.fees.platform?.currency.toString()).toBe('USD');
   });
 
   test('processes sell trade (trade type with direction out)', async () => {

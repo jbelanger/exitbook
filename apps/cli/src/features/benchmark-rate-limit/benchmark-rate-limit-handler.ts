@@ -1,6 +1,3 @@
-// Imperative shell for benchmark-rate-limit command
-// Manages resources and orchestrates business logic
-
 import type { BlockchainProviderManager } from '@exitbook/providers';
 import { loadExplorerConfig, ProviderRegistry } from '@exitbook/providers';
 import type { Result } from 'neverthrow';

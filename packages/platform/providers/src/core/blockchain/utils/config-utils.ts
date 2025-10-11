@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { getErrorMessage } from '@exitbook/core';
+
 // Configuration types
 export type BlockchainExplorersConfig = Record<
   string,
@@ -47,9 +49,7 @@ export class ConfigUtils {
         // File doesn't exist - this is OK, we'll use registry defaults
         return undefined;
       }
-      throw new Error(
-        `Failed to load blockchain explorer configuration from ${finalPath}: ${error instanceof Error ? error.message : String(error)}`
-      );
+      throw new Error(`Failed to load blockchain explorer configuration from ${finalPath}: ${getErrorMessage(error)}`);
     }
   }
 }

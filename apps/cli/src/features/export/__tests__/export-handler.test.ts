@@ -72,6 +72,10 @@ describe('ExportHandler', () => {
     verified: false,
     created_at: '2024-01-01T12:00:00Z',
     updated_at: '2024-01-01T12:00:00Z',
+    price_at_tx_time: null,
+    price_at_tx_time_currency: null,
+    price_at_tx_time_source: null,
+    price_at_tx_time_fetched_at: null,
   });
 
   describe('execute', () => {

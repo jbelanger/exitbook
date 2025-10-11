@@ -1,4 +1,4 @@
-import { createMoney, parseDecimal } from '@exitbook/core';
+import { createMoney, getErrorMessage, parseDecimal } from '@exitbook/core';
 import type { CoinbaseLedgerEntry } from '@exitbook/exchanges';
 import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
 import { type Result, ok } from 'neverthrow';
@@ -35,7 +35,7 @@ export class CoinbaseProcessor extends BaseTransactionProcessor {
           allTransactions.push(transaction);
         }
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorMessage = getErrorMessage(error);
         this.logger.warn(`Failed to process Coinbase ledger entry: ${errorMessage}`);
         continue;
       }

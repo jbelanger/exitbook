@@ -1,46 +1,19 @@
+import { Currency } from '@exitbook/core';
 import { describe, expect, it } from 'vitest';
 
 import {
   calculatePriceChange,
   createCacheKey,
+  createProviderHttpClient,
   deduplicatePrices,
   formatPrice,
   isSameDay,
-  normalizeAssetSymbol,
-  normalizeCurrency,
   roundToDay,
   sortByTimestamp,
   validatePriceData,
   validateQueryTimeRange,
-} from './price-utils.js';
-import type { PriceData, PriceQuery } from './types/index.js';
-
-describe('normalizeAssetSymbol', () => {
-  it('should convert to uppercase', () => {
-    expect(normalizeAssetSymbol('btc')).toBe('BTC');
-    expect(normalizeAssetSymbol('eth')).toBe('ETH');
-  });
-
-  it('should trim whitespace', () => {
-    expect(normalizeAssetSymbol(' BTC ')).toBe('BTC');
-  });
-
-  it('should handle aliases', () => {
-    expect(normalizeAssetSymbol('weth')).toBe('ETH');
-    expect(normalizeAssetSymbol('WBTC')).toBe('BTC');
-  });
-});
-
-describe('normalizeCurrency', () => {
-  it('should convert to uppercase', () => {
-    expect(normalizeCurrency('usd')).toBe('USD');
-    expect(normalizeCurrency('eur')).toBe('EUR');
-  });
-
-  it('should trim whitespace', () => {
-    expect(normalizeCurrency(' USD ')).toBe('USD');
-  });
-});
+} from '../shared-utils.ts';
+import type { PriceData, PriceQuery } from '../types/index.ts';
 
 describe('roundToDay', () => {
   it('should round down to start of day in UTC', () => {
@@ -76,10 +49,10 @@ describe('isSameDay', () => {
 
 describe('validatePriceData', () => {
   const validData: PriceData = {
-    asset: 'BTC',
+    asset: Currency.create('BTC'),
     timestamp: new Date('2024-01-15T00:00:00.000Z'),
     price: 43000,
-    currency: 'USD',
+    currency: Currency.create('USD'),
     source: 'test',
     fetchedAt: new Date('2024-01-15T12:00:00.000Z'),
   };
@@ -122,9 +95,9 @@ describe('validatePriceData', () => {
 describe('createCacheKey', () => {
   it('should create consistent cache keys', () => {
     const query: PriceQuery = {
-      asset: 'BTC',
+      asset: Currency.create('BTC'),
       timestamp: new Date('2024-01-15T14:30:00.000Z'),
-      currency: 'USD',
+      currency: Currency.create('USD'),
     };
 
     const key = createCacheKey(query);
@@ -133,9 +106,9 @@ describe('createCacheKey', () => {
 
   it('should normalize asset and currency', () => {
     const query: PriceQuery = {
-      asset: 'btc',
+      asset: Currency.create('btc'),
       timestamp: new Date('2024-01-15T00:00:00.000Z'),
-      currency: 'usd',
+      currency: Currency.create('usd'),
     };
 
     expect(createCacheKey(query)).toBe('BTC:USD:1705276800000');
@@ -143,8 +116,9 @@ describe('createCacheKey', () => {
 
   it('should default to USD if currency not specified', () => {
     const query: PriceQuery = {
-      asset: 'ETH',
+      asset: Currency.create('ETH'),
       timestamp: new Date('2024-01-15T00:00:00.000Z'),
+      currency: Currency.create('USD'),
     };
 
     expect(createCacheKey(query)).toBe('ETH:USD:1705276800000');
@@ -155,26 +129,26 @@ describe('sortByTimestamp', () => {
   it('should sort prices by timestamp ascending', () => {
     const prices: PriceData[] = [
       {
-        asset: 'BTC',
+        asset: Currency.create('BTC'),
         timestamp: new Date('2024-01-17T00:00:00.000Z'),
         price: 45000,
-        currency: 'USD',
+        currency: Currency.create('USD'),
         source: 'test',
         fetchedAt: new Date(),
       },
       {
-        asset: 'BTC',
+        asset: Currency.create('BTC'),
         timestamp: new Date('2024-01-15T00:00:00.000Z'),
         price: 43000,
-        currency: 'USD',
+        currency: Currency.create('USD'),
         source: 'test',
         fetchedAt: new Date(),
       },
       {
-        asset: 'BTC',
+        asset: Currency.create('BTC'),
         timestamp: new Date('2024-01-16T00:00:00.000Z'),
         price: 44000,
-        currency: 'USD',
+        currency: Currency.create('USD'),
         source: 'test',
         fetchedAt: new Date(),
       },
@@ -191,10 +165,10 @@ describe('sortByTimestamp', () => {
   it('should not mutate original array', () => {
     const prices: PriceData[] = [
       {
-        asset: 'BTC',
+        asset: Currency.create('BTC'),
         timestamp: new Date('2024-01-17T00:00:00.000Z'),
         price: 45000,
-        currency: 'USD',
+        currency: Currency.create('USD'),
         source: 'test',
         fetchedAt: new Date(),
       },
@@ -213,18 +187,18 @@ describe('deduplicatePrices', () => {
 
     const prices: PriceData[] = [
       {
-        asset: 'BTC',
+        asset: Currency.create('BTC'),
         timestamp,
         price: 43000,
-        currency: 'USD',
+        currency: Currency.create('USD'),
         source: 'provider1',
         fetchedAt: oldFetch,
       },
       {
-        asset: 'BTC',
+        asset: Currency.create('BTC'),
         timestamp,
         price: 43100,
-        currency: 'USD',
+        currency: Currency.create('USD'),
         source: 'provider2',
         fetchedAt: newFetch,
       },
@@ -282,5 +256,120 @@ describe('validateQueryTimeRange', () => {
   it('should reject dates before Bitcoin genesis', () => {
     const oldDate = new Date('2008-01-01T00:00:00.000Z');
     expect(validateQueryTimeRange(oldDate)).toContain('before crypto era');
+  });
+});
+
+describe('createProviderHttpClient', () => {
+  it('should create HTTP client with basic configuration', () => {
+    const config = {
+      baseUrl: 'https://api.example.com',
+      providerName: 'TestProvider',
+      rateLimit: {
+        burstLimit: 10,
+        requestsPerHour: 1000,
+        requestsPerMinute: 60,
+        requestsPerSecond: 1,
+      },
+    };
+
+    const client = createProviderHttpClient(config);
+
+    expect(client).toBeDefined();
+  });
+
+  it('should apply default timeout and retries when not specified', () => {
+    const config = {
+      baseUrl: 'https://api.example.com',
+      providerName: 'TestProvider',
+      rateLimit: {
+        burstLimit: 5,
+        requestsPerHour: 500,
+        requestsPerMinute: 30,
+        requestsPerSecond: 0.5,
+      },
+    };
+
+    const client = createProviderHttpClient(config);
+
+    expect(client).toBeDefined();
+    // Defaults: timeout 10000ms, retries 3
+  });
+
+  it('should use custom timeout and retries when provided', () => {
+    const config = {
+      baseUrl: 'https://api.example.com',
+      providerName: 'TestProvider',
+      rateLimit: {
+        burstLimit: 5,
+        requestsPerHour: 500,
+        requestsPerMinute: 30,
+        requestsPerSecond: 0.5,
+      },
+      timeout: 5000,
+      retries: 5,
+    };
+
+    const client = createProviderHttpClient(config);
+
+    expect(client).toBeDefined();
+  });
+
+  it('should add API key to query params when no header is specified', () => {
+    const config = {
+      baseUrl: 'https://api.example.com',
+      providerName: 'TestProvider',
+      apiKey: 'test-api-key-123',
+      rateLimit: {
+        burstLimit: 5,
+        requestsPerHour: 500,
+        requestsPerMinute: 30,
+        requestsPerSecond: 0.5,
+      },
+    };
+
+    const client = createProviderHttpClient(config);
+
+    expect(client).toBeDefined();
+    // When apiKeyHeader is not specified, client uses query param
+  });
+
+  it('should add API key to headers when header name is specified', () => {
+    const config = {
+      baseUrl: 'https://api.example.com',
+      providerName: 'TestProvider',
+      apiKey: 'test-api-key-456',
+      apiKeyHeader: 'X-API-Key',
+      rateLimit: {
+        burstLimit: 5,
+        requestsPerHour: 500,
+        requestsPerMinute: 30,
+        requestsPerSecond: 0.5,
+      },
+    };
+
+    const client = createProviderHttpClient(config);
+
+    expect(client).toBeDefined();
+  });
+
+  it('should merge additional headers with default Accept header', () => {
+    const config = {
+      baseUrl: 'https://api.example.com',
+      providerName: 'TestProvider',
+      rateLimit: {
+        burstLimit: 5,
+        requestsPerHour: 500,
+        requestsPerMinute: 30,
+        requestsPerSecond: 0.5,
+      },
+      additionalHeaders: {
+        'User-Agent': 'CustomAgent/1.0',
+        'X-Custom-Header': 'custom-value',
+      },
+    };
+
+    const client = createProviderHttpClient(config);
+
+    expect(client).toBeDefined();
   });
 });

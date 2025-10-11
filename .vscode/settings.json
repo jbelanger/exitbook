@@ -16,5 +16,8 @@
     ["cva\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"],
     ["cn\\(([^)]*)\\)"],
     ["clsx\\(([^)]*)\\)"]
-  ]
+  ],
+
+  // cSpell custom words
+  "cSpell.words": ["batcat", "sparkline"]
 }

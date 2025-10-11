@@ -1,5 +1,6 @@
 import { Decimal } from 'decimal.js';
 
+import { Currency } from '../index.ts';
 import type { Money } from '../value-objects/money.ts';
 
 // Configure Decimal.js for cryptocurrency precision
@@ -47,7 +48,7 @@ export function parseDecimal(value: string | Decimal | undefined | null): Decima
 export function createMoney(amount: string | Decimal | undefined | null, currency: string): Money {
   return {
     amount: parseDecimal(amount),
-    currency: currency || 'unknown',
+    currency: Currency.create(currency || 'unknown'),
   };
 }
 
@@ -120,7 +121,7 @@ export function formatDecimal(decimal: Decimal, maxDecimalPlaces = 8): string {
  */
 export function addMoney(a: Money, b: Money): Money {
   if (a.currency !== b.currency) {
-    throw new Error(`Cannot add different currencies: ${a.currency} and ${b.currency}`);
+    throw new Error(`Cannot add different currencies: ${a.currency.toString()} and ${b.currency.toString()}`);
   }
 
   return {
@@ -134,7 +135,7 @@ export function addMoney(a: Money, b: Money): Money {
  */
 export function subtractMoney(a: Money, b: Money): Money {
   if (a.currency !== b.currency) {
-    throw new Error(`Cannot subtract different currencies: ${a.currency} and ${b.currency}`);
+    throw new Error(`Cannot subtract different currencies: ${a.currency.toString()} and ${b.currency.toString()}`);
   }
 
   return {
@@ -191,6 +192,6 @@ export function dbStringToMoney(amount: string | null, currency: string | null):
   if (!amount || !currency) return undefined;
   return {
     amount: stringToDecimal(amount),
-    currency,
+    currency: Currency.create(currency),
   };
 }

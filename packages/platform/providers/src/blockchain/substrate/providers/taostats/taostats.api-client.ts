@@ -1,3 +1,5 @@
+import { getErrorMessage } from '@exitbook/core';
+
 import type { ProviderConfig, ProviderOperation } from '../../../../core/blockchain/index.ts';
 import { BaseApiClient, RegisterApiClient } from '../../../../core/blockchain/index.ts';
 import { maskAddress } from '../../../../core/blockchain/utils/address-utils.ts';
@@ -108,7 +110,7 @@ export class TaostatsApiClient extends BaseApiClient {
       return response;
     } catch (error) {
       this.logger.error(
-        `Failed to fetch raw address balance for ${maskAddress(address)} - Error: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to fetch raw address balance for ${maskAddress(address)} - Error: ${getErrorMessage(error)}`
       );
       throw error;
     }
@@ -176,7 +178,7 @@ export class TaostatsApiClient extends BaseApiClient {
       return transactions;
     } catch (error) {
       this.logger.error(
-        `Failed to fetch raw address transactions for ${maskAddress(address)} - Error: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to fetch raw address transactions for ${maskAddress(address)} - Error: ${getErrorMessage(error)}`
       );
       throw error;
     }

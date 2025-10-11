@@ -4,6 +4,8 @@
  * Enhanced with automatic fixes and detailed suggestions
  */
 
+import { getErrorMessage } from '@exitbook/core';
+
 import { ProviderRegistry } from '../core/blockchain/index.ts';
 import { loadExplorerConfig } from '../core/blockchain/utils/config-utils.ts';
 import { initializeProviders } from '../initialize.js';
@@ -123,7 +125,7 @@ function validateConfiguration(options: ConfigValidationOptions = {}): void {
     }
   } catch (error) {
     console.error('❌ Failed to load or validate configuration:');
-    console.error(error instanceof Error ? error.message : error);
+    console.error(getErrorMessage(error));
     console.log('\n💡 Suggestions:');
     console.log('  • Ensure config/blockchain-explorers.json exists');
     console.log('  • Check JSON syntax is valid');
@@ -172,7 +174,7 @@ Examples:
   try {
     validateConfiguration({ fix, verbose });
   } catch (error) {
-    console.error('❌ Validation failed:', error instanceof Error ? error.message : error);
+    console.error('❌ Validation failed:', getErrorMessage(error));
     process.exit(1);
   }
 }

@@ -3,11 +3,12 @@
  * Tests core interfaces, circuit breaker, and provider manager functionality
  */
 
+import { getErrorMessage } from '@exitbook/core';
 import { type RateLimitConfig } from '@exitbook/platform-http';
-import { err, ok, type Result } from 'neverthrow';
 
 // Import clients to trigger registration
 import '../../../blockchain/evm/register-apis.js';
+import { err, ok, type Result } from 'neverthrow';
 import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { BlockchainProviderManager } from '../provider-manager.ts';
@@ -454,7 +455,7 @@ describe('ProviderRegistry', () => {
     try {
       ProviderRegistry.createProvider('ethereum', 'non-existent', minimalConfig);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = getErrorMessage(error);
       expect(message).toContain('💡 Available providers');
       expect(message).toContain('💡 Run');
       expect(message).toContain('providers:list');

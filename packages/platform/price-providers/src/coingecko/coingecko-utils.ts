@@ -4,6 +4,8 @@
  * Stateless transformations and mappings for CoinGecko data
  */
 
+import { Currency } from '@exitbook/core';
+
 import type { PriceData } from '../shared/types/index.js';
 
 import type {
@@ -21,7 +23,7 @@ export function buildSymbolToCoinIdMap(coinList: CoinGeckoCoinListItem[]): Map<s
   const map = new Map<string, string>();
 
   for (const coin of coinList) {
-    const symbol = coin.symbol.toUpperCase();
+    const symbol = Currency.create(coin.symbol).toString();
 
     // If symbol already exists, prefer coins with shorter/simpler IDs
     // (usually the more popular coin)
@@ -56,23 +58,22 @@ export function formatCoinGeckoDate(date: Date): string {
  */
 export function transformHistoricalResponse(
   response: CoinGeckoHistoricalPriceResponse,
-  asset: string,
+  asset: Currency,
   timestamp: Date,
-  currency: string,
+  currency: Currency,
   fetchedAt: Date
 ): PriceData {
-  const currencyLower = currency.toLowerCase();
-  const price = response.market_data.current_price[currencyLower];
+  const price = response.market_data.current_price[currency.toLowerCase()];
 
   if (price === undefined) {
-    throw new Error(`Currency ${currency} not found in response`);
+    throw new Error(`Currency ${currency.toString()} not found in response`);
   }
 
   return {
-    asset: asset.toUpperCase(),
+    asset: asset,
     timestamp,
     price,
-    currency: currency.toUpperCase(),
+    currency: currency,
     source: 'coingecko',
     fetchedAt,
   };
@@ -86,28 +87,26 @@ export function transformHistoricalResponse(
 export function transformSimplePriceResponse(
   response: CoinGeckoSimplePriceResponse,
   coinId: string,
-  asset: string,
+  asset: Currency,
   timestamp: Date,
-  currency: string,
+  currency: Currency,
   fetchedAt: Date
 ): PriceData {
-  const currencyLower = currency.toLowerCase();
-
   const coinData = response[coinId];
   if (!coinData) {
-    throw new Error(`Coin ID ${coinId} for asset ${asset} not found in response`);
+    throw new Error(`Coin ID ${coinId} for asset ${asset.toString()} not found in response`);
   }
 
-  const price = coinData[currencyLower];
+  const price = coinData[currency.toLowerCase()];
   if (price === undefined) {
-    throw new Error(`Currency ${currency} not found for ${asset}`);
+    throw new Error(`Currency ${currency.toString()} not found for ${asset.toString()}`);
   }
 
   return {
-    asset: asset.toUpperCase(),
+    asset: asset,
     timestamp,
     price,
-    currency: currency.toUpperCase(),
+    currency: currency,
     source: 'coingecko',
     fetchedAt,
   };
@@ -129,7 +128,7 @@ export function canUseSimplePrice(timestamp: Date): boolean {
 /**
  * Build query params for batch simple price request
  */
-export function buildBatchSimplePriceParams(coinIds: string[], currency: string): Record<string, string> {
+export function buildBatchSimplePriceParams(coinIds: string[], currency: Currency): Record<string, string> {
   return {
     ids: coinIds.join(','),
     vs_currencies: currency.toLowerCase(),

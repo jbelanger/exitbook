@@ -683,7 +683,7 @@ describe('SubstrateProcessor - Fee Accounting', () => {
 
       // User sent TAO -> user pays fee
       expect(transaction.fees.network?.amount.toString()).toBe('0.1');
-      expect(transaction.fees.network?.currency).toBe('TAO');
+      expect(transaction.fees.network?.currency.toString()).toBe('TAO');
     });
   });
 

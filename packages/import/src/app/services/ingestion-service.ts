@@ -1,4 +1,4 @@
-import type { RawTransactionMetadata } from '@exitbook/core';
+import { getErrorMessage, type RawTransactionMetadata } from '@exitbook/core';
 import type { RawData, ImportSessionMetadata, StoredImportParams } from '@exitbook/data';
 import { PartialImportError } from '@exitbook/exchanges';
 import type { ImportParams } from '@exitbook/import/app/ports/importers.ts';
@@ -353,7 +353,7 @@ export class TransactionIngestionService {
         processed: savedCount,
       });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = getErrorMessage(error);
       this.logger.error(`CRITICAL: Unexpected processing failure for ${sourceId}: ${errorMessage}`);
       return err(new Error(`Unexpected processing failure for ${sourceId}: ${errorMessage}`));
     }

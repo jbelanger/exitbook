@@ -1,7 +1,7 @@
 // Pure exchange utility functions
 // All functions are pure - no side effects
 
-import type { RawTransactionWithMetadata } from '@exitbook/core';
+import { wrapError, type RawTransactionWithMetadata } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 import type { ZodSchema } from 'zod';
@@ -31,8 +31,7 @@ export function validateRawData<T>(schema: ZodSchema<T>, rawData: unknown, excha
     const parsed = schema.parse(rawData);
     return ok(parsed);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return err(new Error(`${exchangeId} validation failed: ${message}`));
+    return wrapError(error, `${exchangeId} data validation failed`);
   }
 }
 

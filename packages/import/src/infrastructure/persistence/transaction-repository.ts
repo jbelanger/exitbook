@@ -1,13 +1,15 @@
+import type { Currency } from '@exitbook/core';
+import { wrapError } from '@exitbook/core';
 import type { StoredTransaction as _StoredTransaction } from '@exitbook/data';
 import type { KyselyDB } from '@exitbook/data';
 import { BaseRepository } from '@exitbook/data';
 import type { ITransactionRepository } from '@exitbook/import/app/ports/transaction-repository.js';
 import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
 import type { Decimal } from 'decimal.js';
-import { err, ok } from 'neverthrow';
+import { ok } from 'neverthrow';
 
 // Local utility function to convert Money type to database string
-function moneyToDbString(money: { amount: Decimal | number; currency: string }): string {
+function moneyToDbString(money: { amount: Decimal | number; currency: Currency }): string {
   if (typeof money.amount === 'number') {
     return String(money.amount);
   }
@@ -32,7 +34,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       const rawDataJson = this.serializeToJson(transaction) ?? '{}';
 
       // Extract currencies from Money type
-      let priceCurrency: string | undefined;
+      let priceCurrency: Currency | undefined;
 
       if (transaction.price && typeof transaction.price === 'object' && transaction.price.currency) {
         priceCurrency = transaction.price.currency;
@@ -56,7 +58,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
               : transaction.price
                 ? String(transaction.price)
                 : undefined,
-          price_currency: priceCurrency,
+          price_currency: priceCurrency?.toString(),
           raw_normalized_data: rawDataJson,
           source_id: transaction.source,
           source_type: transaction.blockchain ? 'blockchain' : 'exchange',
@@ -78,7 +80,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
           movements_primary_amount: transaction.movements?.primary.amount
             ? moneyToDbString(transaction.movements.primary.amount)
             : undefined,
-          movements_primary_currency: transaction.movements?.primary.amount?.currency,
+          movements_primary_currency: transaction.movements?.primary.amount?.currency.toString(),
           movements_primary_direction: transaction.movements?.primary.direction,
 
           // Structured fees
@@ -141,11 +143,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
       return ok(result.id);
     } catch (error) {
-      this.logger.error(
-        { error, transaction: { source: transaction.source, operation: transaction.operation } },
-        'Failed to save transaction'
-      );
-      return err(error instanceof Error ? error : new Error(String(error)));
+      return wrapError(error, 'Failed to save transaction');
     }
   }
 
@@ -171,8 +169,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
       return ok(transactions);
     } catch (error) {
-      this.logger.error({ error, since, sourceId }, 'Failed to retrieve transactions');
-      return err(error instanceof Error ? error : new Error(String(error)));
+      return wrapError(error, 'Failed to retrieve transactions');
     }
   }
 
@@ -187,8 +184,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
       return ok(transactions);
     } catch (error) {
-      this.logger.error({ address, error }, 'Failed to retrieve transactions by address');
-      return err(error instanceof Error ? error : new Error(String(error)));
+      return wrapError(error, 'Failed to retrieve transactions by address');
     }
   }
 
@@ -204,8 +200,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
       return ok(transactions);
     } catch (error) {
-      this.logger.error({ address, error, limit }, 'Failed to retrieve recent transactions by address');
-      return err(error instanceof Error ? error : new Error(String(error)));
+      return wrapError(error, 'Failed to retrieve recent transactions by address');
     }
   }
 
@@ -226,8 +221,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
       return ok(transactions);
     } catch (error) {
-      this.logger.error({ address, error, from, to }, 'Failed to retrieve transactions by date range');
-      return err(error instanceof Error ? error : new Error(String(error)));
+      return wrapError(error, 'Failed to retrieve transactions by date range');
     }
   }
 
@@ -243,8 +237,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
 
       return ok(result.count);
     } catch (error) {
-      this.logger.error({ error, sourceId }, 'Failed to get transaction count');
-      return err(error instanceof Error ? error : new Error(String(error)));
+      return wrapError(error, 'Failed to get transaction count');
     }
   }
 }

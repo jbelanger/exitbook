@@ -1,3 +1,5 @@
+import { getErrorMessage } from '@exitbook/core';
+
 import type { ProviderConfig, ProviderOperation } from '../../../../core/blockchain/index.ts';
 import { BaseApiClient, RegisterApiClient } from '../../../../core/blockchain/index.ts';
 import { maskAddress } from '../../../../core/blockchain/utils/address-utils.ts';
@@ -57,9 +59,7 @@ export class ThetaScanApiClient extends BaseApiClient {
           throw new Error(`Unsupported operation: ${operation.type}`);
       }
     } catch (error) {
-      this.logger.error(
-        `Operation execution failed - Type: ${operation.type}, Error: ${error instanceof Error ? error.message : String(error)}`
-      );
+      this.logger.error(`Operation execution failed - Type: ${operation.type}, Error: ${getErrorMessage(error)}`);
       throw error;
     }
   }
@@ -101,7 +101,7 @@ export class ThetaScanApiClient extends BaseApiClient {
       return Array.isArray(transactions) ? transactions : [];
     } catch (error) {
       this.logger.error(
-        `Failed to fetch transactions - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to fetch transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(error)}`
       );
       throw error;
     }
@@ -131,7 +131,7 @@ export class ThetaScanApiClient extends BaseApiClient {
       return balanceData;
     } catch (error) {
       this.logger.error(
-        `Failed to get raw address balance - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to get raw address balance - Address: ${maskAddress(address)}, Error: ${getErrorMessage(error)}`
       );
       throw error;
     }
@@ -157,7 +157,7 @@ export class ThetaScanApiClient extends BaseApiClient {
       return normalTransactions;
     } catch (error) {
       this.logger.error(
-        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(error)}`
       );
       throw error;
     }
@@ -200,7 +200,7 @@ export class ThetaScanApiClient extends BaseApiClient {
           }
         } catch (error) {
           this.logger.warn(
-            `Failed to fetch balance for contract ${contractAddress} - Error: ${error instanceof Error ? error.message : String(error)}`
+            `Failed to fetch balance for contract ${contractAddress} - Error: ${getErrorMessage(error)}`
           );
           // Continue with other contracts
         }
@@ -210,7 +210,7 @@ export class ThetaScanApiClient extends BaseApiClient {
       return balances;
     } catch (error) {
       this.logger.error(
-        `Failed to get token balances - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to get token balances - Address: ${maskAddress(address)}, Error: ${getErrorMessage(error)}`
       );
       throw error;
     }

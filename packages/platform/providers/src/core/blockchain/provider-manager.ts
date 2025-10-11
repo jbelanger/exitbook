@@ -1,3 +1,4 @@
+import { getErrorMessage } from '@exitbook/core';
 import {
   createInitialCircuitState,
   getCircuitStatus,
@@ -47,7 +48,7 @@ export class BlockchainProviderManager {
     // Start periodic health checks
     this.healthCheckTimer = setInterval(() => {
       void this.performHealthChecks().catch((error) => {
-        logger.error(`Health check failed: ${error instanceof Error ? error.message : String(error)}`);
+        logger.error(`Health check failed: ${getErrorMessage(error)}`);
       });
     }, this.healthCheckInterval);
 
@@ -98,9 +99,7 @@ export class BlockchainProviderManager {
         return [];
       }
     } catch (error) {
-      logger.error(
-        `Failed to auto-register providers for ${blockchain} - Error: ${error instanceof Error ? error.message : String(error)}`
-      );
+      logger.error(`Failed to auto-register providers for ${blockchain} - Error: ${getErrorMessage(error)}`);
       return [];
     }
   }
@@ -309,7 +308,7 @@ export class BlockchainProviderManager {
           );
         } catch (error) {
           logger.error(
-            `Failed to create provider ${providerInfo.name} for ${blockchain} - Error: ${error instanceof Error ? error.message : String(error)}`
+            `Failed to create provider ${providerInfo.name} for ${blockchain} - Error: ${getErrorMessage(error)}`
           );
         }
       }
@@ -327,7 +326,7 @@ export class BlockchainProviderManager {
       return providers;
     } catch (error) {
       logger.error(
-        `Failed to auto-register providers from registry for ${blockchain} - Error: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to auto-register providers from registry for ${blockchain} - Error: ${getErrorMessage(error)}`
       );
       return [];
     }
@@ -425,7 +424,7 @@ export class BlockchainProviderManager {
           willRetry: boolean;
         } = {
           attemptNumber,
-          error: error instanceof Error ? error.message : String(error),
+          error: getErrorMessage(error),
           operation: operation.type,
           provider: provider.name,
           willRetry: attemptNumber < providers.length,
@@ -659,7 +658,7 @@ export class BlockchainProviderManager {
         );
       } catch (error) {
         logger.error(
-          `Failed to create provider ${providerInfo.name} for ${blockchain} - Error: ${error instanceof Error ? error.message : String(error)}`
+          `Failed to create provider ${providerInfo.name} for ${blockchain} - Error: ${getErrorMessage(error)}`
         );
       }
     }
@@ -705,12 +704,7 @@ export class BlockchainProviderManager {
             this.updateHealthMetrics(provider.name, result.value, responseTime);
           }
         } catch (error) {
-          this.updateHealthMetrics(
-            provider.name,
-            false,
-            0,
-            error instanceof Error ? error.message : 'Health check failed'
-          );
+          this.updateHealthMetrics(provider.name, false, 0, getErrorMessage(error, 'Health check failed'));
         }
       }
     }
