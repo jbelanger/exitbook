@@ -4,8 +4,8 @@ import Database from 'better-sqlite3';
 import { Kysely, SqliteDialect } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { initializePricesDatabase, type PricesDB } from '../../pricing/database.js';
-import type { PricesDatabase } from '../../pricing/schema.js';
+import { initializePricesDatabase, type PricesDB } from '../../persistence/database.js';
+import type { PricesDatabase } from '../../persistence/schema.js';
 import { createCoinGeckoProvider, type CoinGeckoProvider } from '../provider.js';
 
 /**

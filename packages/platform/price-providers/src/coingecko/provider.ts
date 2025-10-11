@@ -7,9 +7,9 @@ import type { HttpClient } from '@exitbook/platform-http';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import type { PricesDB } from '../pricing/database.ts';
-import { PriceRepository } from '../pricing/repositories/price-repository.js';
-import { ProviderRepository } from '../pricing/repositories/provider-repository.js';
+import type { PricesDB } from '../persistence/database.ts';
+import { PriceRepository } from '../persistence/repositories/price-repository.js';
+import { ProviderRepository } from '../persistence/repositories/provider-repository.js';
 import { BasePriceProvider } from '../shared/base-provider.js';
 import { createProviderHttpClient, type ProviderRateLimitConfig } from '../shared/shared-utils.js';
 import type { PriceData, PriceQuery, ProviderMetadata } from '../shared/types/index.js';

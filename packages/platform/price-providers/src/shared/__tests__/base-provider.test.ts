@@ -3,7 +3,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { PriceRepository } from '../../pricing/repositories/price-repository.js';
+import type { PriceRepository } from '../../persistence/repositories/price-repository.js';
 import { BasePriceProvider } from '../base-provider.ts';
 import type { PriceData, PriceQuery, ProviderMetadata } from '../types/index.js';
 

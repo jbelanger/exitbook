@@ -2,8 +2,8 @@ import type { HttpClient } from '@exitbook/platform-http';
 import { ok } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { PriceRepository } from '../../pricing/repositories/price-repository.js';
-import type { ProviderRepository } from '../../pricing/repositories/provider-repository.js';
+import type { PriceRepository } from '../../persistence/repositories/price-repository.js';
+import type { ProviderRepository } from '../../persistence/repositories/provider-repository.js';
 import type { PriceData } from '../../shared/types/index.js';
 
 const { mockCanUseSimplePrice, mockTransformSimplePriceResponse, mockTransformHistoricalResponse } = vi.hoisted(() => ({

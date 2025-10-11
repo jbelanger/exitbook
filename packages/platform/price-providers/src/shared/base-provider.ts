@@ -8,7 +8,7 @@ import { getLogger } from '@exitbook/shared-logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import type { PriceRepository } from '../pricing/repositories/price-repository.js';
+import type { PriceRepository } from '../persistence/repositories/price-repository.js';
 
 import { validatePriceData, validateQueryTimeRange } from './shared-utils.ts';
 import type { IPriceProvider, PriceData, PriceQuery, ProviderMetadata } from './types/index.js';

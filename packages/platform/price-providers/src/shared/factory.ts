@@ -10,8 +10,8 @@ import { err, ok } from 'neverthrow';
 
 import { createCoinGeckoProvider } from '../coingecko/provider.ts';
 import { createCryptoCompareProvider } from '../cryptocompare/provider.ts';
-import type { PricesDB } from '../pricing/database.ts';
-import { createPricesDatabase, initializePricesDatabase } from '../pricing/database.ts';
+import type { PricesDB } from '../persistence/database.ts';
+import { createPricesDatabase, initializePricesDatabase } from '../persistence/database.ts';
 
 import { PriceProviderManager } from './provider-manager.js';
 import type { IPriceProvider, ProviderManagerConfig } from './types/index.js';
