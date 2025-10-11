@@ -117,6 +117,7 @@ describe('createCacheKey', () => {
     const query: PriceQuery = {
       asset: Currency.create('ETH'),
       timestamp: new Date('2024-01-15T00:00:00.000Z'),
+      currency: Currency.create('USD'),
     };
 
     expect(createCacheKey(query)).toBe('ETH:USD:1705276800000');

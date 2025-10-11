@@ -3,7 +3,7 @@
 
 import { TransactionRepository } from '@exitbook/data';
 import type { KyselyDB } from '@exitbook/data';
-import { createPriceProviders, PriceProviderManager } from '@exitbook/platform-price-providers';
+import { createPriceProviderManager, type PriceProviderManager } from '@exitbook/platform-price-providers';
 import { getLogger } from '@exitbook/shared-logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -29,36 +29,34 @@ export class PricesFetchHandler {
    * Execute prices fetch command
    */
   async execute(options: PricesFetchCommandOptions): Promise<Result<PricesFetchResult, Error>> {
-    // Initialize price providers
+    // Initialize price provider manager with combined factory
     // Note: API keys are read from process.env by the factory
     // We explicitly pass them here to ensure they're available even if env loading has issues
-    const providersResult = await createPriceProviders({
-      databasePath: './data/prices.db',
-      coingecko: {
-        enabled: true,
-        apiKey: process.env.COINGECKO_API_KEY,
-        useProApi: process.env.COINGECKO_USE_PRO_API === 'true',
+    const managerResult = await createPriceProviderManager({
+      providers: {
+        databasePath: './data/prices.db',
+        coingecko: {
+          enabled: true,
+          apiKey: process.env.COINGECKO_API_KEY,
+          useProApi: process.env.COINGECKO_USE_PRO_API === 'true',
+        },
+        cryptocompare: {
+          enabled: true,
+          apiKey: process.env.CRYPTOCOMPARE_API_KEY,
+        },
       },
-      cryptocompare: {
-        enabled: true,
-        apiKey: process.env.CRYPTOCOMPARE_API_KEY,
+      manager: {
+        defaultCurrency: 'USD',
+        maxConsecutiveFailures: 3,
+        cacheTtlSeconds: 3600,
       },
     });
 
-    if (providersResult.isErr()) {
-      return err(providersResult.error);
+    if (managerResult.isErr()) {
+      return err(managerResult.error);
     }
 
-    const providers = providersResult.value;
-
-    // Create price manager
-    this.priceManager = new PriceProviderManager({
-      defaultCurrency: 'USD',
-      maxConsecutiveFailures: 3,
-      cacheTtlSeconds: 3600,
-    });
-
-    this.priceManager.registerProviders(providers);
+    this.priceManager = managerResult.value;
 
     // Validate asset filter
     const assetFilterResult = validateAssetFilter(options.asset);

@@ -58,6 +58,13 @@ describe('PriceProviderManager', () => {
       timestamp: new Date('2024-01-15T12:00:00Z'),
     };
 
+    const mockRateLimit = {
+      burstLimit: 1,
+      requestsPerHour: 600,
+      requestsPerMinute: 10,
+      requestsPerSecond: 0.17,
+    };
+
     return {
       fetchPrice: vi.fn(async () =>
         Promise.resolve(options.fetchPriceResult || (ok(defaultPrice) as Result<PriceData, Error>))
@@ -66,6 +73,7 @@ describe('PriceProviderManager', () => {
         capabilities: {
           supportedCurrencies: ['USD'],
           supportedOperations: (options.operations || ['fetchPrice']) as ('fetchPrice' | 'fetchHistoricalRange')[],
+          rateLimit: mockRateLimit,
         },
         displayName: name,
         name,
@@ -93,7 +101,11 @@ describe('PriceProviderManager', () => {
 
       manager.registerProviders([provider1, provider2]);
 
-      const query: PriceQuery = { asset: Currency.create('BTC'), timestamp: new Date() };
+      const query: PriceQuery = {
+        asset: Currency.create('BTC'),
+        timestamp: new Date(),
+        currency: Currency.create('USD'),
+      };
       await manager.fetchPrice(query);
 
       // First provider succeeds, so second is not called
@@ -110,6 +122,7 @@ describe('PriceProviderManager', () => {
       const result = await manager.fetchPrice({
         asset: Currency.create('BTC'),
         timestamp: new Date('2024-01-15T12:00:00Z'),
+        currency: Currency.create('USD'),
       });
 
       expect(result.isOk()).toBe(true);
@@ -126,6 +139,7 @@ describe('PriceProviderManager', () => {
       const query: PriceQuery = {
         asset: Currency.create('BTC'),
         timestamp: new Date('2024-01-15T12:00:00Z'),
+        currency: Currency.create('USD'),
       };
 
       await manager.fetchPrice(query);
@@ -142,6 +156,7 @@ describe('PriceProviderManager', () => {
       const query: PriceQuery = {
         asset: Currency.create('BTC'),
         timestamp: new Date('2024-01-15T12:00:00Z'),
+        currency: Currency.create('USD'),
       };
 
       await manager.fetchPrice(query);
@@ -164,6 +179,7 @@ describe('PriceProviderManager', () => {
       const result = await manager.fetchPrice({
         asset: Currency.create('BTC'),
         timestamp: new Date(),
+        currency: Currency.create('USD'),
       });
 
       expect(result.isOk()).toBe(true);
@@ -184,6 +200,7 @@ describe('PriceProviderManager', () => {
       const result = await manager.fetchPrice({
         asset: Currency.create('BTC'),
         timestamp: new Date(),
+        currency: Currency.create('USD'),
       });
 
       expect(result.isErr()).toBe(true);
@@ -206,6 +223,7 @@ describe('PriceProviderManager', () => {
         const query: PriceQuery = {
           asset: Currency.create('BTC'),
           timestamp: new Date(2024, 0, i + 1),
+          currency: Currency.create('USD'),
         };
         await manager.fetchPrice(query);
       }
@@ -217,6 +235,7 @@ describe('PriceProviderManager', () => {
       const result = await manager.fetchPrice({
         asset: Currency.create('BTC'),
         timestamp: new Date(2024, 0, 10),
+        currency: Currency.create('USD'),
       });
 
       expect(result.isOk()).toBe(true);
@@ -230,7 +249,11 @@ describe('PriceProviderManager', () => {
       const provider = createMockProvider('test');
       manager.registerProviders([provider]);
 
-      await manager.fetchPrice({ asset: Currency.create('BTC'), timestamp: new Date() });
+      await manager.fetchPrice({
+        asset: Currency.create('BTC'),
+        timestamp: new Date(),
+        currency: Currency.create('USD'),
+      });
 
       const health = manager.getProviderHealth();
       const testHealth = health.get('test');
@@ -245,7 +268,11 @@ describe('PriceProviderManager', () => {
       });
       manager.registerProviders([provider]);
 
-      await manager.fetchPrice({ asset: Currency.create('BTC'), timestamp: new Date() });
+      await manager.fetchPrice({
+        asset: Currency.create('BTC'),
+        timestamp: new Date(),
+        currency: Currency.create('USD'),
+      });
 
       const health = manager.getProviderHealth();
       expect(health.get('test')?.isHealthy).toBe(false);

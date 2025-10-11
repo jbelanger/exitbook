@@ -62,7 +62,14 @@ describe('CryptoCompareProvider', () => {
     };
     priceRepo = priceRepoMocks as unknown as PriceRepository;
 
-    provider = new CryptoCompareProvider(httpClient, priceRepo, {});
+    const mockRateLimit = {
+      burstLimit: 5,
+      requestsPerHour: 139,
+      requestsPerMinute: 2,
+      requestsPerSecond: 0.04,
+    };
+
+    provider = new CryptoCompareProvider(httpClient, priceRepo, {}, mockRateLimit);
   });
 
   afterEach(() => {
@@ -225,6 +232,7 @@ describe('CryptoCompareProvider', () => {
       const result = await provider.fetchPrice({
         asset: Currency.create('btc'),
         timestamp: defaultTimestamp,
+        currency: Currency.create('USD'),
       });
 
       expect(result.isOk()).toBe(true);

@@ -10,7 +10,7 @@ export interface PriceQuery {
   /** Timestamp for price lookup */
   timestamp: Date;
   /** Target currency (default: 'USD') */
-  currency?: Currency | undefined;
+  currency: Currency;
 }
 
 /**
@@ -31,6 +31,20 @@ export interface PriceData {
 export type PriceProviderOperation = 'fetchPrice' | 'fetchHistoricalRange';
 
 /**
+ * Rate limit information for a provider
+ */
+export interface ProviderRateLimit {
+  /** Maximum burst requests allowed */
+  burstLimit: number;
+  /** Requests per hour limit */
+  requestsPerHour: number;
+  /** Requests per minute limit */
+  requestsPerMinute: number;
+  /** Requests per second limit */
+  requestsPerSecond: number;
+}
+
+/**
  * Provider capabilities metadata
  */
 export interface ProviderCapabilities {
@@ -38,13 +52,8 @@ export interface ProviderCapabilities {
   supportedOperations: PriceProviderOperation[];
   /** Supported currencies */
   supportedCurrencies: string[];
-  /** Rate limit info */
-  rateLimit?:
-    | {
-        per: 'second' | 'minute' | 'hour';
-        requests: number;
-      }
-    | undefined;
+  /** Rate limit configuration */
+  rateLimit: ProviderRateLimit;
 }
 
 /**

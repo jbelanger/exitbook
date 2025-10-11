@@ -80,7 +80,14 @@ describe('CoinGeckoProvider', () => {
     };
     priceRepo = priceRepoMocks as unknown as PriceRepository;
 
-    provider = new CoinGeckoProvider(httpClient, providerRepo, priceRepo, {});
+    const mockRateLimit = {
+      burstLimit: 1,
+      requestsPerHour: 600,
+      requestsPerMinute: 10,
+      requestsPerSecond: 0.17,
+    };
+
+    provider = new CoinGeckoProvider(httpClient, priceRepo, providerRepo, {}, mockRateLimit);
   });
 
   afterEach(() => {

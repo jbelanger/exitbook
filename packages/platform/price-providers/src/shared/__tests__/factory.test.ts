@@ -4,7 +4,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createPriceProviders, getAvailableProviderNames } from '../factory.ts';
+import { createPriceProviders, getAvailableProviderNames, createPriceProviderManager } from '../factory.ts';
 
 // Mock database initialization
 vi.mock('../../pricing/database.js', () => ({
@@ -31,6 +31,12 @@ vi.mock('../../coingecko/provider.js', () => ({
         capabilities: {
           supportedCurrencies: ['USD'],
           supportedOperations: ['fetchPrice'],
+          rateLimit: {
+            burstLimit: 1,
+            requestsPerHour: 600,
+            requestsPerMinute: 10,
+            requestsPerSecond: 0.17,
+          },
         },
         displayName: 'CoinGecko',
         name: 'coingecko',
@@ -57,6 +63,12 @@ vi.mock('../../cryptocompare/provider.js', () => ({
         capabilities: {
           supportedCurrencies: ['USD'],
           supportedOperations: ['fetchPrice'],
+          rateLimit: {
+            burstLimit: 5,
+            requestsPerHour: 139,
+            requestsPerMinute: 2,
+            requestsPerSecond: 0.04,
+          },
         },
         displayName: 'CryptoCompare',
         name: 'cryptocompare',
@@ -97,6 +109,24 @@ describe('createPriceProviders', () => {
       expect(providers).toHaveLength(2);
       expect(providers[0]?.getMetadata().name).toBe('coingecko');
       expect(providers[1]?.getMetadata().name).toBe('cryptocompare');
+    }
+  });
+
+  it('should expose rate limits in provider metadata', async () => {
+    const result = await createPriceProviders();
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      const providers = result.value;
+
+      for (const provider of providers) {
+        const metadata = provider.getMetadata();
+        expect(metadata.capabilities.rateLimit).toBeDefined();
+        expect(metadata.capabilities.rateLimit.burstLimit).toBeGreaterThan(0);
+        expect(metadata.capabilities.rateLimit.requestsPerHour).toBeGreaterThan(0);
+        expect(metadata.capabilities.rateLimit.requestsPerMinute).toBeGreaterThan(0);
+        expect(metadata.capabilities.rateLimit.requestsPerSecond).toBeGreaterThan(0);
+      }
     }
   });
 
@@ -167,6 +197,12 @@ describe('createPriceProviders', () => {
           capabilities: {
             supportedCurrencies: ['USD'],
             supportedOperations: ['fetchPrice'],
+            rateLimit: {
+              burstLimit: 1,
+              requestsPerHour: 600,
+              requestsPerMinute: 10,
+              requestsPerSecond: 0.17,
+            },
           },
           displayName: 'CoinGecko',
           name: 'coingecko',
@@ -179,6 +215,12 @@ describe('createPriceProviders', () => {
           capabilities: {
             supportedCurrencies: ['USD'],
             supportedOperations: ['fetchPrice'],
+            rateLimit: {
+              burstLimit: 1,
+              requestsPerHour: 600,
+              requestsPerMinute: 10,
+              requestsPerSecond: 0.17,
+            },
           },
           displayName: 'CoinGecko',
           name: 'coingecko',
@@ -209,5 +251,79 @@ describe('getAvailableProviderNames', () => {
     expect(names).toContain('coingecko');
     expect(names).toContain('cryptocompare');
     expect(names).toHaveLength(2);
+  });
+});
+
+describe('createPriceProviderManager', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env = { ...process.env };
+  });
+
+  it('should create manager with providers registered', async () => {
+    const result = await createPriceProviderManager();
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      const manager = result.value;
+      expect(manager).toBeDefined();
+      // Manager should have providers registered
+      const health = manager.getProviderHealth();
+      expect(health.size).toBeGreaterThan(0);
+    }
+  });
+
+  it('should use default manager config when not provided', async () => {
+    const result = await createPriceProviderManager({
+      providers: {
+        coingecko: { apiKey: 'test-key' },
+      },
+    });
+
+    expect(result.isOk()).toBe(true);
+    // Defaults: defaultCurrency='USD', maxConsecutiveFailures=5, cacheTtlSeconds=300
+  });
+
+  it('should override manager config when provided', async () => {
+    const result = await createPriceProviderManager({
+      manager: {
+        defaultCurrency: 'EUR',
+        cacheTtlSeconds: 600,
+      },
+    });
+
+    expect(result.isOk()).toBe(true);
+  });
+
+  it('should pass provider config to createPriceProviders', async () => {
+    const { createCoinGeckoProvider } = await import('../../coingecko/provider.ts');
+
+    await createPriceProviderManager({
+      providers: {
+        coingecko: { apiKey: 'manager-key', useProApi: true },
+      },
+    });
+
+    expect(createCoinGeckoProvider).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        apiKey: 'manager-key',
+        useProApi: true,
+      })
+    );
+  });
+
+  it('should return error if provider creation fails', async () => {
+    const result = await createPriceProviderManager({
+      providers: {
+        coingecko: { enabled: false },
+        cryptocompare: { enabled: false },
+      },
+    });
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('No price providers were successfully created');
+    }
   });
 });

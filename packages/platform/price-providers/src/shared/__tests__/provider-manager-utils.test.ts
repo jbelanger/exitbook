@@ -42,10 +42,18 @@ describe('isCacheValid', () => {
 });
 
 describe('scoreProvider', () => {
+  const mockRateLimit = {
+    burstLimit: 1,
+    requestsPerHour: 600,
+    requestsPerMinute: 10,
+    requestsPerSecond: 0.17,
+  };
+
   const createMockMetadata = (overrides?: Partial<ProviderMetadata>): ProviderMetadata => ({
     capabilities: {
       supportedCurrencies: ['USD'],
       supportedOperations: ['fetchPrice'],
+      rateLimit: mockRateLimit,
     },
     displayName: 'Test Provider',
     name: 'test',
@@ -169,11 +177,19 @@ describe('scoreProvider', () => {
 });
 
 describe('supportsOperation', () => {
+  const mockRateLimit = {
+    burstLimit: 1,
+    requestsPerHour: 600,
+    requestsPerMinute: 10,
+    requestsPerSecond: 0.17,
+  };
+
   it('should return true when operation is supported', () => {
     const metadata: ProviderMetadata = {
       capabilities: {
         supportedCurrencies: ['USD'],
         supportedOperations: ['fetchPrice'],
+        rateLimit: mockRateLimit,
       },
       displayName: 'Test',
       name: 'test',
@@ -188,6 +204,7 @@ describe('supportsOperation', () => {
       capabilities: {
         supportedCurrencies: ['USD'],
         supportedOperations: ['fetchPrice'],
+        rateLimit: mockRateLimit,
       },
       displayName: 'Test',
       name: 'test',
@@ -199,12 +216,20 @@ describe('supportsOperation', () => {
 });
 
 describe('selectProvidersForOperation', () => {
+  const mockRateLimit = {
+    burstLimit: 1,
+    requestsPerHour: 600,
+    requestsPerMinute: 10,
+    requestsPerSecond: 0.17,
+  };
+
   const createMockProvider = (name: string, operations: string[]): IPriceProvider => ({
     fetchPrice: async () => Promise.resolve({ isErr: () => true, isOk: () => false } as Result<PriceData, Error>),
     getMetadata: () => ({
       capabilities: {
         supportedCurrencies: ['USD'],
         supportedOperations: operations as PriceProviderOperation[],
+        rateLimit: mockRateLimit,
       },
       displayName: name,
       name,
@@ -287,10 +312,21 @@ describe('selectProvidersForOperation', () => {
 });
 
 describe('hasAvailableProviders', () => {
+  const mockRateLimit = {
+    burstLimit: 1,
+    requestsPerHour: 600,
+    requestsPerMinute: 10,
+    requestsPerSecond: 0.17,
+  };
+
   const createMockProvider = (name: string): IPriceProvider => ({
     fetchPrice: async () => Promise.resolve({ isErr: () => true, isOk: () => false } as Result<PriceData, Error>),
     getMetadata: () => ({
-      capabilities: { supportedCurrencies: ['USD'], supportedOperations: ['fetchPrice'] },
+      capabilities: {
+        supportedCurrencies: ['USD'],
+        supportedOperations: ['fetchPrice'],
+        rateLimit: mockRateLimit,
+      },
       displayName: name,
       name,
       requiresApiKey: false,
@@ -488,6 +524,13 @@ describe('shouldBlockDueToCircuit', () => {
 
 describe('buildProviderSelectionDebugInfo', () => {
   it('should build JSON debug string from scored providers', () => {
+    const mockRateLimit = {
+      burstLimit: 1,
+      requestsPerHour: 600,
+      requestsPerMinute: 10,
+      requestsPerSecond: 0.17,
+    };
+
     const scoredProviders = [
       {
         health: {
@@ -501,6 +544,7 @@ describe('buildProviderSelectionDebugInfo', () => {
           capabilities: {
             supportedCurrencies: ['USD'],
             supportedOperations: ['fetchPrice'] as PriceProviderOperation[],
+            rateLimit: mockRateLimit,
           },
           displayName: 'Test',
           name: 'test',

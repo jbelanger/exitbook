@@ -13,7 +13,8 @@ import { createCryptoCompareProvider } from '../cryptocompare/provider.ts';
 import type { PricesDB } from '../pricing/database.ts';
 import { createPricesDatabase, initializePricesDatabase } from '../pricing/database.ts';
 
-import type { IPriceProvider } from './types/index.js';
+import { PriceProviderManager } from './provider-manager.js';
+import type { IPriceProvider, ProviderManagerConfig } from './types/index.js';
 
 const logger = getLogger('PriceProviderFactory');
 
@@ -162,4 +163,74 @@ export async function createPriceProviders(
  */
 export function getAvailableProviderNames(): ProviderName[] {
   return Object.keys(PROVIDER_FACTORIES) as ProviderName[];
+}
+
+/**
+ * Combined configuration for provider manager creation
+ */
+export interface PriceProviderManagerFactoryConfig {
+  /** Provider-specific configuration */
+  providers?: ProviderFactoryConfig | undefined;
+  /** Manager-specific configuration */
+  manager?: Partial<ProviderManagerConfig> | undefined;
+}
+
+/**
+ * Create a fully configured PriceProviderManager with providers registered
+ *
+ * This is a convenience function that combines provider creation and manager setup
+ * in a single step, simplifying the initialization process.
+ *
+ * Example usage:
+ * ```typescript
+ * // Use environment variables
+ * const manager = await createPriceProviderManager();
+ *
+ * // Override with config
+ * const manager = await createPriceProviderManager({
+ *   providers: {
+ *     databasePath: './custom/prices.db',
+ *     coingecko: { apiKey: 'my-key', useProApi: true },
+ *     cryptocompare: { enabled: false }
+ *   },
+ *   manager: {
+ *     defaultCurrency: 'EUR',
+ *     cacheTtlSeconds: 600
+ *   }
+ * });
+ *
+ * // Use the manager
+ * const result = await manager.fetchPrice({
+ *   asset: Currency.create('BTC'),
+ *   timestamp: new Date(),
+ *   currency: Currency.create('USD')
+ * });
+ * ```
+ */
+export async function createPriceProviderManager(
+  config: PriceProviderManagerFactoryConfig = {}
+): Promise<Result<PriceProviderManager, Error>> {
+  // Create providers
+  const providersResult = await createPriceProviders(config.providers ?? {});
+
+  if (providersResult.isErr()) {
+    return err(providersResult.error);
+  }
+
+  const providers = providersResult.value;
+
+  // Create manager with config
+  const manager = new PriceProviderManager({
+    defaultCurrency: 'USD',
+    maxConsecutiveFailures: 5,
+    cacheTtlSeconds: 300,
+    ...config.manager,
+  });
+
+  // Register providers
+  manager.registerProviders(providers);
+
+  logger.info('PriceProviderManager created and initialized successfully');
+
+  return ok(manager);
 }

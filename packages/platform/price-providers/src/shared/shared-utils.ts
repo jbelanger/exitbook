@@ -5,6 +5,8 @@
  * without mocks. They handle the "functional core" of price data processing.
  */
 
+import { HttpClient } from '@exitbook/platform-http';
+
 import type { PriceData, PriceQuery } from './types/index.ts';
 
 /**
@@ -127,4 +129,71 @@ export function validateQueryTimeRange(timestamp: Date, now: Date = new Date()):
   }
 
   return undefined;
+}
+
+/**
+ * HTTP Client Factory Functions
+ * Shared configuration to avoid duplication across providers
+ */
+
+/**
+ * Rate limit configuration for a provider
+ */
+export interface ProviderRateLimitConfig {
+  /** Maximum burst requests allowed */
+  burstLimit: number;
+  /** Requests per hour limit */
+  requestsPerHour: number;
+  /** Requests per minute limit */
+  requestsPerMinute: number;
+  /** Requests per second limit */
+  requestsPerSecond: number;
+}
+
+/**
+ * Configuration for creating a provider HTTP client
+ */
+export interface ProviderHttpClientConfig {
+  /** Base URL for the provider API */
+  baseUrl: string;
+  /** Provider name for logging */
+  providerName: string;
+  /** Optional API key for authentication */
+  apiKey?: string | undefined;
+  /** API key header name (defaults to 'api_key' query param if not specified) */
+  apiKeyHeader?: string | undefined;
+  /** Rate limit configuration */
+  rateLimit: ProviderRateLimitConfig;
+  /** Request timeout in milliseconds (default: 10000) */
+  timeout?: number | undefined;
+  /** Number of retries on failure (default: 3) */
+  retries?: number | undefined;
+  /** Additional default headers */
+  additionalHeaders?: Record<string, string> | undefined;
+}
+
+/**
+ * Create an HTTP client configured for a price provider
+ *
+ * Provides common defaults and consistent configuration across all providers
+ */
+export function createProviderHttpClient(config: ProviderHttpClientConfig): HttpClient {
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    ...config.additionalHeaders,
+  };
+
+  // Add API key to headers if header name is specified
+  if (config.apiKey && config.apiKeyHeader) {
+    headers[config.apiKeyHeader] = config.apiKey;
+  }
+
+  return new HttpClient({
+    baseUrl: config.baseUrl,
+    defaultHeaders: headers,
+    providerName: config.providerName,
+    rateLimit: config.rateLimit,
+    retries: config.retries ?? 3,
+    timeout: config.timeout ?? 10000,
+  });
 }

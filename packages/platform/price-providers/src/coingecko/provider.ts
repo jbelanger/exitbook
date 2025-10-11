@@ -3,8 +3,7 @@
  */
 
 import { Currency, getErrorMessage, wrapError } from '@exitbook/core';
-import { HttpClient } from '@exitbook/platform-http';
-import { getLogger } from '@exitbook/shared-logger';
+import type { HttpClient } from '@exitbook/platform-http';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
@@ -12,6 +11,7 @@ import type { PricesDB } from '../pricing/database.ts';
 import { PriceRepository } from '../pricing/repositories/price-repository.js';
 import { ProviderRepository } from '../pricing/repositories/provider-repository.js';
 import { BasePriceProvider } from '../shared/base-provider.js';
+import { createProviderHttpClient, type ProviderRateLimitConfig } from '../shared/shared-utils.js';
 import type { PriceData, PriceQuery, ProviderMetadata } from '../shared/types/index.js';
 
 import {
@@ -27,6 +27,36 @@ import {
 } from './schemas.js';
 
 /**
+ * CoinGecko API rate limits by tier
+ * Based on official API documentation
+ */
+const COINGECKO_RATE_LIMITS = {
+  /** Free tier (no API key): 10-50 calls/minute */
+  free: {
+    burstLimit: 1,
+    requestsPerHour: 600, // 10 req/min conservative
+    requestsPerMinute: 10,
+    requestsPerSecond: 0.17, // ~10 per minute
+  } satisfies ProviderRateLimitConfig,
+
+  /** Demo tier (API key, non-Pro): 30 calls/minute */
+  demo: {
+    burstLimit: 5,
+    requestsPerHour: 1800, // 30 req/min
+    requestsPerMinute: 30,
+    requestsPerSecond: 0.5,
+  } satisfies ProviderRateLimitConfig,
+
+  /** Pro tier (Pro API key): 500 calls/minute */
+  pro: {
+    burstLimit: 50,
+    requestsPerHour: 30000, // 500 req/min
+    requestsPerMinute: 500,
+    requestsPerSecond: 8.33,
+  } satisfies ProviderRateLimitConfig,
+} as const;
+
+/**
  * Configuration for CoinGecko provider factory
  */
 export interface CoinGeckoProviderConfig {
@@ -39,11 +69,6 @@ export interface CoinGeckoProviderConfig {
 /**
  * Create a fully configured CoinGecko provider
  *
- * This factory handles:
- * - Repository creation
- * - HTTP client configuration
- * - Provider instantiation
- *
  * @param db - Initialized prices database instance
  * @param config - Provider configuration (API key, Pro API flag)
  */
@@ -52,50 +77,41 @@ export function createCoinGeckoProvider(
   config: CoinGeckoProviderConfig = {}
 ): Result<CoinGeckoProvider, Error> {
   try {
-    // Read from environment if not provided in config (similar to blockchain providers)
-    // This allows direct provider creation (e.g., in tests) to automatically pick up env vars
+    // Read from environment if not provided in config
     const apiKey = config.apiKey ?? process.env.COINGECKO_API_KEY;
     const useProApi = config.useProApi ?? process.env.COINGECKO_USE_PRO_API === 'true';
 
     // Determine base URL based on API type
     const baseUrl = useProApi ? 'https://pro-api.coingecko.com/api/v3' : 'https://api.coingecko.com/api/v3';
 
-    // Create HTTP client with CoinGecko-specific configuration
-    const httpClient = new HttpClient({
+    // Determine rate limits based on tier
+    const rateLimit = useProApi
+      ? COINGECKO_RATE_LIMITS.pro // Pro API with API key
+      : apiKey
+        ? COINGECKO_RATE_LIMITS.demo // Standard API with API key
+        : COINGECKO_RATE_LIMITS.free; // No API key (free tier)
+
+    // Create HTTP client
+    const httpClient = createProviderHttpClient({
       baseUrl,
-      defaultHeaders: {
-        Accept: 'application/json',
-        ...(apiKey && { 'x-cg-demo-api-key': apiKey }),
-      },
       providerName: 'CoinGecko',
-      rateLimit: {
-        // Free tier: 10-50 calls/minute, Pro: higher limits
-        burstLimit: useProApi ? 100 : apiKey ? 10 : 1, // Allow 10 burst requests for free tier
-        requestsPerHour: useProApi ? 500 : 500,
-        requestsPerMinute: useProApi ? 50 : 10, // 30 calls/minute for free tier
-        requestsPerSecond: useProApi ? 1.0 : apiKey ? 0.5 : 0.1, // Allow higher burst rate
-      },
-      retries: 3,
-      timeout: 10000,
+      apiKey,
+      apiKeyHeader: 'x-cg-demo-api-key',
+      rateLimit,
     });
 
     // Create repositories
-    const providerRepo = new ProviderRepository(db);
     const priceRepo = new PriceRepository(db);
+    const providerRepo = new ProviderRepository(db);
 
-    // Create provider config
-    const providerConfig: CoinGeckoProviderConfig = {
-      apiKey,
-      useProApi,
-    };
-
-    // Instantiate provider
-    const provider = new CoinGeckoProvider(httpClient, providerRepo, priceRepo, providerConfig);
+    // Create provider
+    const provider = new CoinGeckoProvider(httpClient, priceRepo, providerRepo, { apiKey, useProApi }, rateLimit);
 
     return ok(provider);
   } catch (error) {
-    const message = getErrorMessage(error);
-    return err(new Error(`Failed to create CoinGecko provider: ${message}`));
+    return err(
+      new Error(`Failed to create CoinGecko provider: ${error instanceof Error ? error.message : String(error)}`)
+    );
   }
 }
 
@@ -108,10 +124,8 @@ export function createCoinGeckoProvider(
  */
 export class CoinGeckoProvider extends BasePriceProvider {
   protected metadata: ProviderMetadata;
-  private readonly logger = getLogger('CoinGeckoProvider');
   private readonly httpClient: HttpClient;
   private readonly providerRepo: ProviderRepository;
-  private readonly priceRepo: PriceRepository;
   private readonly config: CoinGeckoProviderConfig;
 
   // Cache provider ID after first lookup
@@ -119,15 +133,16 @@ export class CoinGeckoProvider extends BasePriceProvider {
 
   constructor(
     httpClient: HttpClient,
-    providerRepo: ProviderRepository,
     priceRepo: PriceRepository,
-    config: CoinGeckoProviderConfig = {}
+    providerRepo: ProviderRepository,
+    config: CoinGeckoProviderConfig = {},
+    rateLimit: ProviderRateLimitConfig
   ) {
     super();
 
     this.httpClient = httpClient;
-    this.providerRepo = providerRepo;
     this.priceRepo = priceRepo;
+    this.providerRepo = providerRepo;
     this.config = config;
 
     // Provider metadata
@@ -135,6 +150,12 @@ export class CoinGeckoProvider extends BasePriceProvider {
       capabilities: {
         supportedCurrencies: ['USD', 'EUR', 'GBP', 'JPY', 'BTC', 'ETH'],
         supportedOperations: ['fetchPrice'],
+        rateLimit: {
+          burstLimit: rateLimit.burstLimit,
+          requestsPerHour: rateLimit.requestsPerHour,
+          requestsPerMinute: rateLimit.requestsPerMinute,
+          requestsPerSecond: rateLimit.requestsPerSecond,
+        },
       },
       displayName: 'CoinGecko',
       name: 'coingecko',
@@ -156,23 +177,19 @@ export class CoinGeckoProvider extends BasePriceProvider {
 
   /**
    * Fetch single price (implements BasePriceProvider)
+   * Query is already validated and currency is normalized by BasePriceProvider
    */
   protected async fetchPriceInternal(query: PriceQuery): Promise<Result<PriceData, Error>> {
     try {
-      const currency = query.currency || Currency.create('USD');
+      // Currency is guaranteed to be set by BasePriceProvider
+      const currency = query.currency;
 
-      // 1. Check cache first
-      const cachedResult = await this.priceRepo.getPrice(query.asset, currency, query.timestamp);
-
+      // 1. Check cache using shared helper
+      const cachedResult = await this.checkCache(query, currency);
       if (cachedResult.isErr()) {
         return err(cachedResult.error);
       }
-
       if (cachedResult.value) {
-        this.logger.debug(
-          { asset: query.asset, currency: query.currency, timestamp: query.timestamp },
-          'Price found in cache'
-        );
         return ok(cachedResult.value);
       }
 
@@ -200,12 +217,8 @@ export class CoinGeckoProvider extends BasePriceProvider {
         return err(priceData.error);
       }
 
-      // 5. Cache the result
-      const cacheResult = await this.priceRepo.savePrice(priceData.value, coinId);
-      if (cacheResult.isErr()) {
-        this.logger.warn({ error: cacheResult.error }, 'Failed to cache price');
-        // Don't fail the request if caching fails
-      }
+      // 5. Cache the result using shared helper
+      await this.saveToCache(priceData.value, coinId);
 
       return ok(priceData.value);
     } catch (error) {
