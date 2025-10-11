@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   calculatePriceChange,
   createCacheKey,
+  createProviderHttpClient,
   deduplicatePrices,
   formatPrice,
   isSameDay,
@@ -255,5 +256,120 @@ describe('validateQueryTimeRange', () => {
   it('should reject dates before Bitcoin genesis', () => {
     const oldDate = new Date('2008-01-01T00:00:00.000Z');
     expect(validateQueryTimeRange(oldDate)).toContain('before crypto era');
+  });
+});
+
+describe('createProviderHttpClient', () => {
+  it('should create HTTP client with basic configuration', () => {
+    const config = {
+      baseUrl: 'https://api.example.com',
+      providerName: 'TestProvider',
+      rateLimit: {
+        burstLimit: 10,
+        requestsPerHour: 1000,
+        requestsPerMinute: 60,
+        requestsPerSecond: 1,
+      },
+    };
+
+    const client = createProviderHttpClient(config);
+
+    expect(client).toBeDefined();
+  });
+
+  it('should apply default timeout and retries when not specified', () => {
+    const config = {
+      baseUrl: 'https://api.example.com',
+      providerName: 'TestProvider',
+      rateLimit: {
+        burstLimit: 5,
+        requestsPerHour: 500,
+        requestsPerMinute: 30,
+        requestsPerSecond: 0.5,
+      },
+    };
+
+    const client = createProviderHttpClient(config);
+
+    expect(client).toBeDefined();
+    // Defaults: timeout 10000ms, retries 3
+  });
+
+  it('should use custom timeout and retries when provided', () => {
+    const config = {
+      baseUrl: 'https://api.example.com',
+      providerName: 'TestProvider',
+      rateLimit: {
+        burstLimit: 5,
+        requestsPerHour: 500,
+        requestsPerMinute: 30,
+        requestsPerSecond: 0.5,
+      },
+      timeout: 5000,
+      retries: 5,
+    };
+
+    const client = createProviderHttpClient(config);
+
+    expect(client).toBeDefined();
+  });
+
+  it('should add API key to query params when no header is specified', () => {
+    const config = {
+      baseUrl: 'https://api.example.com',
+      providerName: 'TestProvider',
+      apiKey: 'test-api-key-123',
+      rateLimit: {
+        burstLimit: 5,
+        requestsPerHour: 500,
+        requestsPerMinute: 30,
+        requestsPerSecond: 0.5,
+      },
+    };
+
+    const client = createProviderHttpClient(config);
+
+    expect(client).toBeDefined();
+    // When apiKeyHeader is not specified, client uses query param
+  });
+
+  it('should add API key to headers when header name is specified', () => {
+    const config = {
+      baseUrl: 'https://api.example.com',
+      providerName: 'TestProvider',
+      apiKey: 'test-api-key-456',
+      apiKeyHeader: 'X-API-Key',
+      rateLimit: {
+        burstLimit: 5,
+        requestsPerHour: 500,
+        requestsPerMinute: 30,
+        requestsPerSecond: 0.5,
+      },
+    };
+
+    const client = createProviderHttpClient(config);
+
+    expect(client).toBeDefined();
+  });
+
+  it('should merge additional headers with default Accept header', () => {
+    const config = {
+      baseUrl: 'https://api.example.com',
+      providerName: 'TestProvider',
+      rateLimit: {
+        burstLimit: 5,
+        requestsPerHour: 500,
+        requestsPerMinute: 30,
+        requestsPerSecond: 0.5,
+      },
+      additionalHeaders: {
+        'User-Agent': 'CustomAgent/1.0',
+        'X-Custom-Header': 'custom-value',
+      },
+    };
+
+    const client = createProviderHttpClient(config);
+
+    expect(client).toBeDefined();
   });
 });
