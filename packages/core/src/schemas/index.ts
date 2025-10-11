@@ -10,13 +10,10 @@ export const DecimalSchema = z.instanceof(Decimal, {
 
 // Currency schema - transforms string to Currency instance
 export const CurrencySchema = z
-  .union([z.string().min(1, 'Currency must not be empty'), z.instanceof(Currency)])
-  .transform((val) => {
-    if (val instanceof Currency) {
-      return val;
-    }
-    return Currency.create(val);
-  });
+  .string()
+  .min(1, 'Currency must not be empty')
+  .transform((val) => Currency.create(val))
+  .or(z.custom<Currency>((val) => val instanceof Currency, { message: 'Expected Currency instance' }));
 
 // Money schema for consistent amount and currency structure
 export const MoneySchema = z.object({

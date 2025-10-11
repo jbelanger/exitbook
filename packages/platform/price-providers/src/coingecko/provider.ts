@@ -150,17 +150,38 @@ export class CoinGeckoProvider extends BasePriceProvider {
    */
   async fetchBatch(queries: PriceQuery[]): Promise<Result<PriceData[], Error>> {
     try {
+      this.logger.info(
+        {
+          queryCount: queries.length,
+          queries: queries.map((q) => ({
+            asset: q.asset.toString(),
+            currency: q.currency?.toString() || 'USD',
+            timestamp: q.timestamp.toISOString(),
+          })),
+        },
+        'fetchBatch called'
+      );
+
       // Group queries by whether they can use simple price API
       const recentQueries = queries.filter((q) => canUseSimplePrice(q.timestamp));
       const historicalQueries = queries.filter((q) => !canUseSimplePrice(q.timestamp));
+
+      this.logger.info(
+        { recentCount: recentQueries.length, historicalCount: historicalQueries.length },
+        'Queries grouped'
+      );
 
       const results: PriceData[] = [];
 
       // Fetch recent prices in batch
       if (recentQueries.length > 0) {
+        this.logger.info(`Fetching ${recentQueries.length} recent prices via batch API`);
         const batchResult = await this.fetchBatchSimplePrice(recentQueries);
         if (batchResult.isOk()) {
           results.push(...batchResult.value);
+          this.logger.info(`Batch API returned ${batchResult.value.length} prices`);
+        } else {
+          this.logger.error({ error: batchResult.error.message }, 'Batch API failed');
         }
       }
 
@@ -459,12 +480,26 @@ export class CoinGeckoProvider extends BasePriceProvider {
             queryMap.set(coinIdResult.value, []);
           }
           queryMap.get(coinIdResult.value)!.push(query);
+        } else {
+          this.logger.warn(
+            { asset: query.asset.toString(), error: coinIdResult.isErr() ? coinIdResult.error.message : 'No coin ID' },
+            'Failed to get coin ID for asset'
+          );
         }
       }
 
       if (coinIds.length === 0) {
+        this.logger.error(
+          { queriedAssets: queries.map((q) => q.asset.toString()) },
+          'No valid coin IDs found for any assets'
+        );
         return err(new Error('No valid coin IDs found for batch queries'));
       }
+
+      this.logger.info(
+        { coinIds: [...new Set(coinIds)], queryCurrency: queries[0]?.currency?.toString() || 'USD' },
+        'Mapped assets to coin IDs'
+      );
 
       // Build params using pure function
       const currency = queries[0]?.currency || Currency.create('USD');

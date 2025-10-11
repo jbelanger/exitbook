@@ -7,6 +7,7 @@
 import * as fs from 'node:fs';
 import { promises as fsPromises } from 'node:fs';
 import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { isErrorWithMessage, wrapError } from '@exitbook/core';
 import { getLogger } from '@exitbook/shared-logger';
@@ -18,6 +19,10 @@ import { err, ok } from 'neverthrow';
 import type { PricesDatabase } from './schema.js';
 
 const logger = getLogger('PricesDatabase');
+
+// ES module equivalent of __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * Create and configure prices database instance

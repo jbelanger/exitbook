@@ -90,6 +90,9 @@ importers:
       '@exitbook/import':
         specifier: workspace:*
         version: link:../../packages/import
+      '@exitbook/platform-price-providers':
+        specifier: workspace:*
+        version: link:../../packages/platform/price-providers
       '@exitbook/providers':
         specifier: workspace:*
         version: link:../../packages/platform/providers
