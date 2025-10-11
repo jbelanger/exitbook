@@ -33,6 +33,8 @@ vi.mock('../coingecko-utils.js', async () => {
   };
 });
 
+import { Currency } from '@exitbook/core';
+
 // Import after mocks so they receive mocked dependencies
 import { CoinGeckoProvider } from '../provider.ts';
 
@@ -88,8 +90,8 @@ describe('CoinGeckoProvider', () => {
 
   it('returns cached price without hitting the API', async () => {
     const cachedPrice: PriceData = {
-      asset: 'BTC',
-      currency: 'USD',
+      asset: Currency.create('BTC'),
+      currency: Currency.create('USD'),
       price: 30123.45,
       timestamp: defaultTimestamp,
       source: 'coingecko',
@@ -98,7 +100,11 @@ describe('CoinGeckoProvider', () => {
 
     priceRepoMocks.getPrice.mockResolvedValueOnce(ok(cachedPrice));
 
-    const result = await provider.fetchPrice({ asset: 'btc', currency: 'usd', timestamp: defaultTimestamp });
+    const result = await provider.fetchPrice({
+      asset: Currency.create('btc'),
+      currency: Currency.create('usd'),
+      timestamp: defaultTimestamp,
+    });
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
@@ -118,8 +124,8 @@ describe('CoinGeckoProvider', () => {
     };
 
     const expectedPrice: PriceData = {
-      asset: 'BTC',
-      currency: 'USD',
+      asset: Currency.create('BTC'),
+      currency: Currency.create('USD'),
       price: 30200,
       timestamp: defaultTimestamp,
       source: 'coingecko',
@@ -129,7 +135,11 @@ describe('CoinGeckoProvider', () => {
     httpClientGet.mockResolvedValueOnce(apiResponse);
     mockTransformSimplePriceResponse.mockReturnValueOnce(expectedPrice);
 
-    const result = await provider.fetchPrice({ asset: 'btc', currency: 'usd', timestamp: defaultTimestamp });
+    const result = await provider.fetchPrice({
+      asset: Currency.create('btc'),
+      currency: Currency.create('usd'),
+      timestamp: defaultTimestamp,
+    });
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
@@ -168,8 +178,8 @@ describe('CoinGeckoProvider', () => {
     };
 
     const expectedPrice: PriceData = {
-      asset: 'BTC',
-      currency: 'USD',
+      asset: Currency.create('BTC'),
+      currency: Currency.create('USD'),
       price: 9000,
       timestamp: historicalTimestamp,
       source: 'coingecko',
@@ -179,7 +189,11 @@ describe('CoinGeckoProvider', () => {
     httpClientGet.mockResolvedValueOnce(apiResponse);
     mockTransformHistoricalResponse.mockReturnValueOnce(expectedPrice);
 
-    const result = await provider.fetchPrice({ asset: 'btc', currency: 'usd', timestamp: historicalTimestamp });
+    const result = await provider.fetchPrice({
+      asset: Currency.create('btc'),
+      currency: Currency.create('usd'),
+      timestamp: historicalTimestamp,
+    });
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
@@ -208,7 +222,11 @@ describe('CoinGeckoProvider', () => {
     providerRepoMocks.getCoinIdForSymbol.mockResolvedValueOnce(ok());
     mockCanUseSimplePrice.mockReturnValue(true);
 
-    const result = await provider.fetchPrice({ asset: 'unknown', currency: 'usd', timestamp: defaultTimestamp });
+    const result = await provider.fetchPrice({
+      asset: Currency.create('unknown'),
+      currency: Currency.create('usd'),
+      timestamp: defaultTimestamp,
+    });
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
@@ -224,16 +242,16 @@ describe('CoinGeckoProvider', () => {
     mockCanUseSimplePrice.mockImplementation((timestamp: Date) => timestamp.getTime() === recentTimestamp.getTime());
 
     const batchPrice: PriceData = {
-      asset: 'BTC',
-      currency: 'USD',
+      asset: Currency.create('BTC'),
+      currency: Currency.create('USD'),
       price: 40000,
       timestamp: recentTimestamp,
       source: 'coingecko',
       fetchedAt: new Date('2024-01-10T01:00:00Z'),
     };
     const historicalPrice: PriceData = {
-      asset: 'ETH',
-      currency: 'USD',
+      asset: Currency.create('ETH'),
+      currency: Currency.create('USD'),
       price: 1500,
       timestamp: oldTimestamp,
       source: 'coingecko',
@@ -251,8 +269,8 @@ describe('CoinGeckoProvider', () => {
     const fetchPriceSpy = vi.spyOn(provider, 'fetchPrice').mockResolvedValue(ok(historicalPrice));
 
     const result = await provider.fetchBatch([
-      { asset: 'btc', currency: 'usd', timestamp: recentTimestamp },
-      { asset: 'eth', currency: 'usd', timestamp: oldTimestamp },
+      { asset: Currency.create('btc'), currency: Currency.create('usd'), timestamp: recentTimestamp },
+      { asset: Currency.create('eth'), currency: Currency.create('usd'), timestamp: oldTimestamp },
     ]);
 
     expect(result.isOk()).toBe(true);
@@ -272,7 +290,9 @@ describe('CoinGeckoProvider', () => {
       'fetchBatchSimplePrice'
     ).mockResolvedValue(err(new Error('batch failure')));
 
-    const result = await provider.fetchBatch([{ asset: 'btc', currency: 'usd', timestamp: defaultTimestamp }]);
+    const result = await provider.fetchBatch([
+      { asset: Currency.create('btc'), currency: Currency.create('usd'), timestamp: defaultTimestamp },
+    ]);
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {

@@ -2,11 +2,12 @@
  * Price repository - manages cached price data
  */
 
+import { Currency } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import { ok } from 'neverthrow';
 
-import { roundToDay } from '../../shared/price-utils.js';
+import { roundToDay } from '../../shared/shared-utils.ts';
 import type { PriceData } from '../../shared/types/index.js';
 import type { PricesDB } from '../database.js';
 
@@ -32,7 +33,7 @@ export class PriceRepository {
   /**
    * Get cached price for asset/currency/timestamp
    */
-  async getPrice(asset: string, currency: string, timestamp: Date): Promise<Result<PriceData | undefined, Error>> {
+  async getPrice(asset: Currency, currency: Currency, timestamp: Date): Promise<Result<PriceData | undefined, Error>> {
     try {
       const roundedDate = roundToDay(timestamp);
       const timestampStr = roundedDate.toISOString();
@@ -40,8 +41,8 @@ export class PriceRepository {
       const record = await this.db
         .selectFrom('prices')
         .selectAll()
-        .where('asset_symbol', '=', asset.toUpperCase())
-        .where('currency', '=', currency.toUpperCase())
+        .where('asset_symbol', '=', asset.toString())
+        .where('currency', '=', currency.toString())
         .where('timestamp', '=', timestampStr)
         .executeTakeFirst();
 
@@ -50,14 +51,7 @@ export class PriceRepository {
         return ok(undefined);
       }
 
-      const priceData: PriceData = {
-        asset: record.asset_symbol,
-        currency: record.currency,
-        timestamp: new Date(record.timestamp),
-        price: parseFloat(record.price),
-        source: record.source_provider,
-        fetchedAt: new Date(record.fetched_at),
-      };
+      const priceData: PriceData = this.recordToPriceData(record);
 
       return ok(priceData);
     } catch (error) {
@@ -76,8 +70,8 @@ export class PriceRepository {
       await this.db
         .insertInto('prices')
         .values({
-          asset_symbol: priceData.asset.toUpperCase(),
-          currency: priceData.currency.toUpperCase(),
+          asset_symbol: priceData.asset.toString(),
+          currency: priceData.currency.toString(),
           timestamp: timestampStr,
           price: priceData.price.toString(),
           source_provider: priceData.source,
@@ -112,7 +106,7 @@ export class PriceRepository {
         const batch = prices.slice(i, i + batchSize);
 
         for (const priceData of batch) {
-          const coinId = providerCoinIds?.get(priceData.asset.toUpperCase());
+          const coinId = providerCoinIds?.get(priceData.asset.toString());
           const result = await this.savePrice(priceData, coinId);
 
           if (result.isErr()) {
@@ -150,14 +144,7 @@ export class PriceRepository {
         .orderBy('timestamp', 'asc')
         .execute();
 
-      const prices: PriceData[] = records.map((record) => ({
-        asset: record.asset_symbol,
-        currency: record.currency,
-        timestamp: new Date(record.timestamp),
-        price: parseFloat(record.price),
-        source: record.source_provider,
-        fetchedAt: new Date(record.fetched_at),
-      }));
+      const prices: PriceData[] = records.map((record) => this.recordToPriceData(record));
 
       return ok(prices);
     } catch (error) {
@@ -185,5 +172,16 @@ export class PriceRepository {
     } catch (error) {
       return wrapError(error, `Failed to check price existence`);
     }
+  }
+
+  private recordToPriceData(record: PriceRecord): PriceData {
+    return {
+      asset: Currency.create(record.asset_symbol),
+      currency: Currency.create(record.currency),
+      timestamp: new Date(record.timestamp),
+      price: parseFloat(record.price),
+      source: record.source_provider,
+      fetchedAt: new Date(record.fetched_at),
+    };
   }
 }

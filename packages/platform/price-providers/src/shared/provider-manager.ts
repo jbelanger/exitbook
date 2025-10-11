@@ -15,6 +15,7 @@ import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
 import * as ProviderManagerUtils from './provider-manager-utils.js';
+import { createCacheKey } from './shared-utils.ts';
 import type { IPriceProvider, PriceData, PriceQuery, ProviderHealth, ProviderManagerConfig } from './types/index.js';
 
 const logger = getLogger('PriceProviderManager');
@@ -84,7 +85,7 @@ export class PriceProviderManager {
     const now = Date.now();
 
     // Check cache first (uses pure function for key generation)
-    const cacheKey = ProviderManagerUtils.createCacheKey(query, this.config.defaultCurrency);
+    const cacheKey = createCacheKey(query, this.config.defaultCurrency);
     const cached = this.requestCache.get(cacheKey);
 
     if (cached && ProviderManagerUtils.isCacheValid(cached.expiry, now)) {
@@ -242,7 +243,7 @@ export class PriceProviderManager {
 
         // Cache single query results
         if (!Array.isArray(queryOrQueries) && !Array.isArray(result.value)) {
-          const cacheKey = ProviderManagerUtils.createCacheKey(queryOrQueries, this.config.defaultCurrency);
+          const cacheKey = createCacheKey(queryOrQueries, this.config.defaultCurrency);
           this.requestCache.set(cacheKey, {
             data: result.value as PriceData,
             expiry: Date.now() + this.config.cacheTtlSeconds * 1000,

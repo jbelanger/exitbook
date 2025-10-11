@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/no-null -- db requires null handling */
-import { getErrorMessage } from '@exitbook/core';
+import { wrapError } from '@exitbook/core';
 import type { KyselyDB } from '@exitbook/data';
 import type { ImportSessionError } from '@exitbook/data';
 import { BaseRepository } from '@exitbook/data';
@@ -8,7 +8,7 @@ import type {
   IImportSessionErrorRepository,
 } from '@exitbook/import/app/ports/import-session-error-repository.interface.ts';
 import type { Result } from 'neverthrow';
-import { err, ok } from 'neverthrow';
+import { ok } from 'neverthrow';
 
 /**
  * Kysely-based repository for import session error database operations.
@@ -39,9 +39,7 @@ export class ImportSessionErrorRepository extends BaseRepository implements IImp
 
       return ok(result.id);
     } catch (error) {
-      const errorMessage = getErrorMessage(error);
-      this.logger.error({ error, params }, 'Failed to create import session error');
-      return err(new Error(`Failed to create import session error: ${errorMessage}`));
+      return wrapError(error, 'Failed to create import session error');
     }
   }
 
@@ -56,9 +54,7 @@ export class ImportSessionErrorRepository extends BaseRepository implements IImp
 
       return ok(errors);
     } catch (error) {
-      const errorMessage = getErrorMessage(error);
-      this.logger.error({ error, sessionId }, 'Failed to find import session errors');
-      return err(new Error(`Failed to find import session errors: ${errorMessage}`));
+      return wrapError(error, 'Failed to find import session errors');
     }
   }
 
@@ -77,9 +73,7 @@ export class ImportSessionErrorRepository extends BaseRepository implements IImp
 
       return ok(errors);
     } catch (error) {
-      const errorMessage = getErrorMessage(error);
-      this.logger.error({ error, sessionId, errorType }, 'Failed to find import session errors by type');
-      return err(new Error(`Failed to find import session errors by type: ${errorMessage}`));
+      return wrapError(error, 'Failed to find import session errors by type');
     }
   }
 
@@ -93,9 +87,7 @@ export class ImportSessionErrorRepository extends BaseRepository implements IImp
 
       return ok(result?.count ?? 0);
     } catch (error) {
-      const errorMessage = getErrorMessage(error);
-      this.logger.error({ error, sessionId }, 'Failed to get error count');
-      return err(new Error(`Failed to get error count: ${errorMessage}`));
+      return wrapError(error, 'Failed to get error count');
     }
   }
 }

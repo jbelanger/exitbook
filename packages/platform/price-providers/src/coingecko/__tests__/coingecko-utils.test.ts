@@ -1,3 +1,4 @@
+import { Currency } from '@exitbook/core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -54,7 +55,13 @@ describe('transformHistoricalResponse', () => {
     const timestamp = new Date('2024-01-01T00:00:00Z');
     const fetchedAt = new Date('2024-01-01T00:05:00Z');
 
-    const priceData = transformHistoricalResponse(response, 'btc', timestamp, 'USD', fetchedAt);
+    const priceData = transformHistoricalResponse(
+      response,
+      Currency.create('btc'),
+      timestamp,
+      Currency.create('USD'),
+      fetchedAt
+    );
 
     expect(priceData).toEqual({
       asset: 'BTC',
@@ -78,9 +85,9 @@ describe('transformHistoricalResponse', () => {
       },
     };
 
-    expect(() => transformHistoricalResponse(response, 'btc', new Date(), 'USD', new Date())).toThrow(
-      'Currency USD not found in response'
-    );
+    expect(() =>
+      transformHistoricalResponse(response, Currency.create('btc'), new Date(), Currency.create('USD'), new Date())
+    ).toThrow('Currency USD not found in response');
   });
 });
 
@@ -95,7 +102,14 @@ describe('transformSimplePriceResponse', () => {
     const timestamp = new Date('2024-01-01T00:00:00Z');
     const fetchedAt = new Date('2024-01-01T00:05:00Z');
 
-    const priceData = transformSimplePriceResponse(response, 'bitcoin', 'btc', timestamp, 'USD', fetchedAt);
+    const priceData = transformSimplePriceResponse(
+      response,
+      'bitcoin',
+      Currency.create('btc'),
+      timestamp,
+      Currency.create('USD'),
+      fetchedAt
+    );
 
     expect(priceData).toEqual({
       asset: 'BTC',
@@ -108,9 +122,16 @@ describe('transformSimplePriceResponse', () => {
   });
 
   it('throws when the target coin ID is missing', () => {
-    expect(() => transformSimplePriceResponse({}, 'bitcoin', 'btc', new Date(), 'USD', new Date())).toThrow(
-      'Coin ID bitcoin for asset btc not found in response'
-    );
+    expect(() =>
+      transformSimplePriceResponse(
+        {},
+        'bitcoin',
+        Currency.create('btc'),
+        new Date(),
+        Currency.create('USD'),
+        new Date()
+      )
+    ).toThrow('Coin ID bitcoin for asset btc not found in response');
   });
 
   it('throws when the desired currency is missing for the coin', () => {
@@ -120,9 +141,16 @@ describe('transformSimplePriceResponse', () => {
       },
     };
 
-    expect(() => transformSimplePriceResponse(response, 'bitcoin', 'btc', new Date(), 'USD', new Date())).toThrow(
-      'Currency USD not found for btc'
-    );
+    expect(() =>
+      transformSimplePriceResponse(
+        response,
+        'bitcoin',
+        Currency.create('btc'),
+        new Date(),
+        Currency.create('USD'),
+        new Date()
+      )
+    ).toThrow('Currency USD not found for btc');
   });
 });
 
@@ -154,7 +182,7 @@ describe('canUseSimplePrice', () => {
 
 describe('buildBatchSimplePriceParams', () => {
   it('constructs the expected query parameter object', () => {
-    const params = buildBatchSimplePriceParams(['bitcoin', 'ethereum'], 'USD');
+    const params = buildBatchSimplePriceParams(['bitcoin', 'ethereum'], Currency.create('USD'));
 
     expect(params).toEqual({
       ids: 'bitcoin,ethereum',

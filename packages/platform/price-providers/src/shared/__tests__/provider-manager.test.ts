@@ -7,6 +7,7 @@
 
 /* eslint-disable @typescript-eslint/unbound-method -- Acceptable for tests */
 
+import { Currency } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -51,8 +52,8 @@ describe('PriceProviderManager', () => {
     } = {}
   ): IPriceProvider {
     const defaultPrice: PriceData = {
-      asset: 'BTC',
-      currency: 'USD',
+      asset: Currency.create('BTC'),
+      currency: Currency.create('USD'),
       fetchedAt: new Date('2024-01-15T12:00:00Z'),
       price: 50000,
       source: name,
@@ -102,7 +103,7 @@ describe('PriceProviderManager', () => {
 
       manager.registerProviders([lowPriority, highPriority]);
 
-      const query: PriceQuery = { asset: 'BTC', timestamp: new Date() };
+      const query: PriceQuery = { asset: Currency.create('BTC'), timestamp: new Date() };
       await manager.fetchPrice(query);
 
       expect(highPriority.fetchPrice).toHaveBeenCalled();
@@ -116,7 +117,7 @@ describe('PriceProviderManager', () => {
       manager.registerProviders([provider]);
 
       const result = await manager.fetchPrice({
-        asset: 'BTC',
+        asset: Currency.create('BTC'),
         timestamp: new Date('2024-01-15T12:00:00Z'),
       });
 
@@ -132,7 +133,7 @@ describe('PriceProviderManager', () => {
       manager.registerProviders([provider]);
 
       const query: PriceQuery = {
-        asset: 'BTC',
+        asset: Currency.create('BTC'),
         timestamp: new Date('2024-01-15T12:00:00Z'),
       };
 
@@ -148,7 +149,7 @@ describe('PriceProviderManager', () => {
       manager.registerProviders([provider]);
 
       const query: PriceQuery = {
-        asset: 'BTC',
+        asset: Currency.create('BTC'),
         timestamp: new Date('2024-01-15T12:00:00Z'),
       };
 
@@ -171,7 +172,7 @@ describe('PriceProviderManager', () => {
       manager.registerProviders([failing, working]);
 
       const result = await manager.fetchPrice({
-        asset: 'BTC',
+        asset: Currency.create('BTC'),
         timestamp: new Date(),
       });
 
@@ -193,7 +194,7 @@ describe('PriceProviderManager', () => {
       manager.registerProviders([p1, p2]);
 
       const result = await manager.fetchPrice({
-        asset: 'BTC',
+        asset: Currency.create('BTC'),
         timestamp: new Date(),
       });
 
@@ -216,7 +217,7 @@ describe('PriceProviderManager', () => {
       // Fail p1 multiple times with different timestamps to avoid caching
       for (let i = 0; i < 5; i++) {
         const query: PriceQuery = {
-          asset: 'BTC',
+          asset: Currency.create('BTC'),
           timestamp: new Date(2024, 0, i + 1),
         };
         await manager.fetchPrice(query);
@@ -227,7 +228,7 @@ describe('PriceProviderManager', () => {
 
       // Next request should skip p1 (open circuit) and use p2
       const result = await manager.fetchPrice({
-        asset: 'BTC',
+        asset: Currency.create('BTC'),
         timestamp: new Date(2024, 0, 10),
       });
 
@@ -242,7 +243,7 @@ describe('PriceProviderManager', () => {
       const provider = createMockProvider('test');
       manager.registerProviders([provider]);
 
-      await manager.fetchPrice({ asset: 'BTC', timestamp: new Date() });
+      await manager.fetchPrice({ asset: Currency.create('BTC'), timestamp: new Date() });
 
       const health = manager.getProviderHealth();
       const testHealth = health.get('test');
@@ -257,7 +258,7 @@ describe('PriceProviderManager', () => {
       });
       manager.registerProviders([provider]);
 
-      await manager.fetchPrice({ asset: 'BTC', timestamp: new Date() });
+      await manager.fetchPrice({ asset: Currency.create('BTC'), timestamp: new Date() });
 
       const health = manager.getProviderHealth();
       expect(health.get('test')?.isHealthy).toBe(false);

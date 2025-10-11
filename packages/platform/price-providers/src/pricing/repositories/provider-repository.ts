@@ -2,6 +2,7 @@
  * Provider repository - manages provider metadata and coin mappings
  */
 
+import type { Currency } from '@exitbook/core';
 import { wrapError } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -144,13 +145,13 @@ export class ProviderRepository {
   /**
    * Get coin ID for a symbol from a provider
    */
-  async getCoinIdForSymbol(providerId: number, symbol: string): Promise<Result<string | undefined, Error>> {
+  async getCoinIdForSymbol(providerId: number, symbol: Currency): Promise<Result<string | undefined, Error>> {
     try {
       const mapping = await this.db
         .selectFrom('provider_coin_mappings')
         .select('coin_id')
         .where('provider_id', '=', providerId)
-        .where('symbol', '=', symbol.toUpperCase())
+        .where('symbol', '=', symbol.toString())
         .orderBy('priority', 'asc')
         .executeTakeFirst();
 

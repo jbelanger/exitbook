@@ -7,17 +7,7 @@
 import type { CircuitState } from '@exitbook/platform-http';
 import { getCircuitStatus, isCircuitHalfOpen, isCircuitOpen } from '@exitbook/platform-http';
 
-import type { IPriceProvider, PriceQuery, ProviderHealth, ProviderMetadata } from './types/index.js';
-
-/**
- * Create cache key for a price query
- * Pure function - deterministic output from inputs
- */
-export function createCacheKey(query: PriceQuery, defaultCurrency: string): string {
-  const currency = query.currency || defaultCurrency;
-  const timestamp = Math.floor(query.timestamp.getTime() / 1000);
-  return `${query.asset.toUpperCase()}_${currency.toUpperCase()}_${timestamp}`;
-}
+import type { IPriceProvider, ProviderHealth, ProviderMetadata } from './types/index.js';
 
 /**
  * Check if cache entry is still valid

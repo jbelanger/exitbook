@@ -6,7 +6,7 @@
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import { createCacheKey, validatePriceData, validateQueryTimeRange } from './price-utils.js';
+import { createCacheKey, validatePriceData, validateQueryTimeRange } from './shared-utils.ts';
 import type { IPriceProvider, PriceData, PriceQuery, ProviderMetadata } from './types/index.js';
 
 /**

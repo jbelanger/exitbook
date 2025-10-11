@@ -5,31 +5,7 @@
  * without mocks. They handle the "functional core" of price data processing.
  */
 
-import type { PriceData, PriceQuery } from './types/index.js';
-
-/**
- * Normalize asset symbol to standard format
- * - Convert to uppercase
- * - Handle common aliases
- */
-export function normalizeAssetSymbol(symbol: string): string {
-  const normalized = symbol.toUpperCase().trim();
-
-  // Handle common aliases
-  const aliases: Record<string, string> = {
-    WETH: 'ETH',
-    WBTC: 'BTC',
-  };
-
-  return aliases[normalized] ?? normalized;
-}
-
-/**
- * Normalize currency code to standard format
- */
-export function normalizeCurrency(currency: string): string {
-  return currency.toUpperCase().trim();
-}
+import type { PriceData, PriceQuery } from './types/index.ts';
 
 /**
  * Round timestamp to nearest day (for daily price lookups)
@@ -79,13 +55,15 @@ export function validatePriceData(data: PriceData, now: Date = new Date()): stri
 
 /**
  * Create a cache key for a price query
+ *
+ * @param query - Price query to create cache key for
+ * @param defaultCurrency - Default currency to use if query.currency is not provided (defaults to 'USD')
  */
-export function createCacheKey(query: PriceQuery): string {
+export function createCacheKey(query: PriceQuery, defaultCurrency = 'USD'): string {
   const roundedDate = roundToDay(query.timestamp);
-  const normalizedAsset = normalizeAssetSymbol(query.asset);
-  const currency = normalizeCurrency(query.currency ?? 'USD');
+  const currency = query.currency ?? defaultCurrency;
 
-  return `${normalizedAsset}:${currency}:${roundedDate.getTime()}`;
+  return `${query.asset.toString()}:${currency.toString()}:${roundedDate.getTime()}`;
 }
 
 /**
@@ -102,7 +80,7 @@ export function deduplicatePrices(prices: PriceData[]): PriceData[] {
   const map = new Map<string, PriceData>();
 
   for (const price of prices) {
-    const key = `${price.asset}:${price.currency}:${price.timestamp.getTime()}`;
+    const key = `${price.asset.toString()}:${price.currency.toString()}:${price.timestamp.getTime()}`;
     const existing = map.get(key);
 
     if (!existing || price.fetchedAt > existing.fetchedAt) {

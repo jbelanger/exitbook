@@ -2,7 +2,7 @@
  * CoinGecko price provider implementation
  */
 
-import { getErrorMessage } from '@exitbook/core';
+import { Currency, getErrorMessage } from '@exitbook/core';
 import { HttpClient } from '@exitbook/platform-http';
 import { getLogger } from '@exitbook/shared-logger';
 import type { Result } from 'neverthrow';
@@ -12,7 +12,6 @@ import type { PricesDB } from '../pricing/database.ts';
 import { PriceRepository } from '../pricing/repositories/price-repository.js';
 import { ProviderRepository } from '../pricing/repositories/provider-repository.js';
 import { BasePriceProvider } from '../shared/base-provider.js';
-import { normalizeAssetSymbol, normalizeCurrency } from '../shared/price-utils.js';
 import type { PriceData, PriceQuery, ProviderMetadata } from '../shared/types/index.js';
 
 import {
@@ -256,18 +255,20 @@ export class CoinGeckoProvider extends BasePriceProvider {
    */
   protected async fetchPriceImpl(query: PriceQuery): Promise<Result<PriceData, Error>> {
     try {
-      const asset = normalizeAssetSymbol(query.asset);
-      const currency = normalizeCurrency(query.currency || 'USD');
+      const currency = query.currency || Currency.create('USD');
 
       // 1. Check cache first
-      const cachedResult = await this.priceRepo.getPrice(asset, currency, query.timestamp);
+      const cachedResult = await this.priceRepo.getPrice(query.asset, currency, query.timestamp);
 
       if (cachedResult.isErr()) {
         return err(cachedResult.error);
       }
 
       if (cachedResult.value) {
-        this.logger.debug({ asset, currency, timestamp: query.timestamp }, 'Price found in cache');
+        this.logger.debug(
+          { asset: query.asset, currency: query.currency, timestamp: query.timestamp },
+          'Price found in cache'
+        );
         return ok(cachedResult.value);
       }
 
@@ -279,18 +280,18 @@ export class CoinGeckoProvider extends BasePriceProvider {
       const providerId = providerIdResult.value;
 
       // 3. Get coin ID for symbol
-      const coinIdResult = await this.providerRepo.getCoinIdForSymbol(providerId, asset);
+      const coinIdResult = await this.providerRepo.getCoinIdForSymbol(providerId, query.asset);
       if (coinIdResult.isErr()) {
         return err(coinIdResult.error);
       }
 
       const coinId = coinIdResult.value;
       if (!coinId) {
-        return err(new Error(`No CoinGecko coin ID found for symbol: ${asset}`));
+        return err(new Error(`No CoinGecko coin ID found for symbol: ${query.asset.toString()}`));
       }
 
       // 4. Fetch from API
-      const priceData = await this.fetchFromApi(coinId, asset, query.timestamp, currency);
+      const priceData = await this.fetchFromApi(coinId, query.asset, query.timestamp, currency);
       if (priceData.isErr()) {
         return err(priceData.error);
       }
@@ -332,9 +333,9 @@ export class CoinGeckoProvider extends BasePriceProvider {
    */
   private async fetchFromApi(
     coinId: string,
-    asset: string,
+    asset: Currency,
     timestamp: Date,
-    currency: string
+    currency: Currency
   ): Promise<Result<PriceData, Error>> {
     try {
       const now = new Date();
@@ -400,8 +401,7 @@ export class CoinGeckoProvider extends BasePriceProvider {
       const queryMap = new Map<string, PriceQuery[]>();
 
       for (const query of queries) {
-        const asset = normalizeAssetSymbol(query.asset);
-        const coinIdResult = await this.providerRepo.getCoinIdForSymbol(providerId.value, asset);
+        const coinIdResult = await this.providerRepo.getCoinIdForSymbol(providerId.value, query.asset);
 
         if (coinIdResult.isOk() && coinIdResult.value) {
           coinIds.push(coinIdResult.value);
@@ -418,7 +418,7 @@ export class CoinGeckoProvider extends BasePriceProvider {
       }
 
       // Build params using pure function
-      const currency = normalizeCurrency(queries[0]?.currency || 'USD');
+      const currency = queries[0]?.currency || Currency.create('USD');
       const params = buildBatchSimplePriceParams(coinIds, currency);
 
       // Fetch batch
@@ -441,11 +441,10 @@ export class CoinGeckoProvider extends BasePriceProvider {
       for (const [coinId, relatedQueries] of queryMap.entries()) {
         for (const query of relatedQueries) {
           try {
-            const asset = normalizeAssetSymbol(query.asset);
             const priceData = transformSimplePriceResponse(
               parseResult.data,
               coinId,
-              asset,
+              query.asset,
               query.timestamp,
               currency,
               now

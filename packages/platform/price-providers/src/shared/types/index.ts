@@ -1,3 +1,4 @@
+import type { Currency } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 
 /**
@@ -5,21 +6,21 @@ import type { Result } from 'neverthrow';
  */
 export interface PriceQuery {
   /** Asset symbol (e.g., 'BTC', 'ETH') */
-  asset: string;
+  asset: Currency;
   /** Timestamp for price lookup */
   timestamp: Date;
   /** Target currency (default: 'USD') */
-  currency?: string | undefined;
+  currency?: Currency | undefined;
 }
 
 /**
  * Normalized price data from any provider
  */
 export interface PriceData {
-  asset: string;
+  asset: Currency;
   timestamp: Date;
   price: number;
-  currency: string;
+  currency: Currency;
   source: string; // Provider name
   fetchedAt: Date;
 }

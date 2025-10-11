@@ -14,59 +14,9 @@ import type {
   IPriceProvider,
   ProviderHealth,
   ProviderMetadata,
-  PriceQuery,
   PriceData,
   PriceProviderOperation,
 } from '../types/index.ts';
-
-describe('createCacheKey', () => {
-  it('should create cache key from query with default currency', () => {
-    const query: PriceQuery = {
-      asset: 'btc',
-      timestamp: new Date('2024-01-15T12:00:00Z'),
-    };
-
-    const key = ProviderManagerUtils.createCacheKey(query, 'USD');
-
-    expect(key).toBe('BTC_USD_1705320000');
-  });
-
-  it('should use query currency when provided', () => {
-    const query: PriceQuery = {
-      asset: 'eth',
-      currency: 'EUR',
-      timestamp: new Date('2024-01-15T12:00:00Z'),
-    };
-
-    const key = ProviderManagerUtils.createCacheKey(query, 'USD');
-
-    expect(key).toBe('ETH_EUR_1705320000');
-  });
-
-  it('should normalize asset and currency to uppercase', () => {
-    const query: PriceQuery = {
-      asset: 'btc',
-      currency: 'usd',
-      timestamp: new Date('2024-01-15T12:00:00Z'),
-    };
-
-    const key = ProviderManagerUtils.createCacheKey(query, 'EUR');
-
-    expect(key).toBe('BTC_USD_1705320000');
-  });
-
-  it('should use timestamp in seconds', () => {
-    const query: PriceQuery = {
-      asset: 'BTC',
-      timestamp: new Date('2024-01-15T12:34:56.789Z'),
-    };
-
-    const key = ProviderManagerUtils.createCacheKey(query, 'USD');
-
-    // Should floor to seconds
-    expect(key).toBe('BTC_USD_1705322096');
-  });
-});
 
 describe('isCacheValid', () => {
   it('should return true when cache has not expired', () => {
