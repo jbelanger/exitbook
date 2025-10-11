@@ -19,6 +19,22 @@ export type CoinGeckoCoinListItem = z.infer<typeof CoinGeckoCoinListItemSchema>;
 export const CoinGeckoCoinListSchema = z.array(CoinGeckoCoinListItemSchema);
 
 /**
+ * CoinGecko markets response (sorted by market cap)
+ * Endpoint: /coins/markets
+ */
+export const CoinGeckoMarketItemSchema = z.object({
+  id: z.string(),
+  symbol: z.string(),
+  name: z.string(),
+  market_cap_rank: z.number().nullable(),
+  market_cap: z.number().nullable(),
+});
+
+export type CoinGeckoMarketItem = z.infer<typeof CoinGeckoMarketItemSchema>;
+
+export const CoinGeckoMarketsSchema = z.array(CoinGeckoMarketItemSchema);
+
+/**
  * CoinGecko historical price response
  * Endpoint: /coins/{id}/history
  */

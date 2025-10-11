@@ -5,31 +5,9 @@
  * without mocks. They handle the "functional core" of price data processing.
  */
 
-import type { PriceData, PriceQuery } from './types/index.js';
+import { HttpClient } from '@exitbook/platform-http';
 
-/**
- * Normalize asset symbol to standard format
- * - Convert to uppercase
- * - Handle common aliases
- */
-export function normalizeAssetSymbol(symbol: string): string {
-  const normalized = symbol.toUpperCase().trim();
-
-  // Handle common aliases
-  const aliases: Record<string, string> = {
-    WETH: 'ETH',
-    WBTC: 'BTC',
-  };
-
-  return aliases[normalized] ?? normalized;
-}
-
-/**
- * Normalize currency code to standard format
- */
-export function normalizeCurrency(currency: string): string {
-  return currency.toUpperCase().trim();
-}
+import type { PriceData, PriceQuery } from './types/index.ts';
 
 /**
  * Round timestamp to nearest day (for daily price lookups)
@@ -79,13 +57,15 @@ export function validatePriceData(data: PriceData, now: Date = new Date()): stri
 
 /**
  * Create a cache key for a price query
+ *
+ * @param query - Price query to create cache key for
+ * @param defaultCurrency - Default currency to use if query.currency is not provided (defaults to 'USD')
  */
-export function createCacheKey(query: PriceQuery): string {
+export function createCacheKey(query: PriceQuery, defaultCurrency = 'USD'): string {
   const roundedDate = roundToDay(query.timestamp);
-  const normalizedAsset = normalizeAssetSymbol(query.asset);
-  const currency = normalizeCurrency(query.currency ?? 'USD');
+  const currency = query.currency ?? defaultCurrency;
 
-  return `${normalizedAsset}:${currency}:${roundedDate.getTime()}`;
+  return `${query.asset.toString()}:${currency.toString()}:${roundedDate.getTime()}`;
 }
 
 /**
@@ -102,7 +82,7 @@ export function deduplicatePrices(prices: PriceData[]): PriceData[] {
   const map = new Map<string, PriceData>();
 
   for (const price of prices) {
-    const key = `${price.asset}:${price.currency}:${price.timestamp.getTime()}`;
+    const key = `${price.asset.toString()}:${price.currency.toString()}:${price.timestamp.getTime()}`;
     const existing = map.get(key);
 
     if (!existing || price.fetchedAt > existing.fetchedAt) {
@@ -149,4 +129,71 @@ export function validateQueryTimeRange(timestamp: Date, now: Date = new Date()):
   }
 
   return undefined;
+}
+
+/**
+ * HTTP Client Factory Functions
+ * Shared configuration to avoid duplication across providers
+ */
+
+/**
+ * Rate limit configuration for a provider
+ */
+export interface ProviderRateLimitConfig {
+  /** Maximum burst requests allowed */
+  burstLimit: number;
+  /** Requests per hour limit */
+  requestsPerHour: number;
+  /** Requests per minute limit */
+  requestsPerMinute: number;
+  /** Requests per second limit */
+  requestsPerSecond: number;
+}
+
+/**
+ * Configuration for creating a provider HTTP client
+ */
+export interface ProviderHttpClientConfig {
+  /** Base URL for the provider API */
+  baseUrl: string;
+  /** Provider name for logging */
+  providerName: string;
+  /** Optional API key for authentication */
+  apiKey?: string | undefined;
+  /** API key header name (defaults to 'api_key' query param if not specified) */
+  apiKeyHeader?: string | undefined;
+  /** Rate limit configuration */
+  rateLimit: ProviderRateLimitConfig;
+  /** Request timeout in milliseconds (default: 10000) */
+  timeout?: number | undefined;
+  /** Number of retries on failure (default: 3) */
+  retries?: number | undefined;
+  /** Additional default headers */
+  additionalHeaders?: Record<string, string> | undefined;
+}
+
+/**
+ * Create an HTTP client configured for a price provider
+ *
+ * Provides common defaults and consistent configuration across all providers
+ */
+export function createProviderHttpClient(config: ProviderHttpClientConfig): HttpClient {
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    ...config.additionalHeaders,
+  };
+
+  // Add API key to headers if header name is specified
+  if (config.apiKey && config.apiKeyHeader) {
+    headers[config.apiKeyHeader] = config.apiKey;
+  }
+
+  return new HttpClient({
+    baseUrl: config.baseUrl,
+    defaultHeaders: headers,
+    providerName: config.providerName,
+    rateLimit: config.rateLimit,
+    retries: config.retries ?? 3,
+    timeout: config.timeout ?? 10000,
+  });
 }

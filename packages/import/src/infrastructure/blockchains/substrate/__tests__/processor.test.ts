@@ -675,7 +675,7 @@ describe('SubstrateProcessor - Multi-Chain Support', () => {
     expect(transaction.movements.primary.asset).toBe('DOT');
     expect(transaction.movements.primary.amount.amount.toString()).toBe('1');
     expect(transaction.movements.inflows[0]?.asset).toBe('DOT');
-    expect(transaction.fees.network?.currency).toBe('DOT');
+    expect(transaction.fees.network?.currency.toString()).toBe('DOT');
     expect(transaction.fees.network?.amount.toString()).toBe('0'); // User received, sender paid fee
     expect(transaction.blockchain?.name).toBe('polkadot');
     expect(transaction.metadata?.chainName).toBe('polkadot');
@@ -715,7 +715,7 @@ describe('SubstrateProcessor - Multi-Chain Support', () => {
     expect(transaction.movements.primary.asset).toBe('TAO');
     expect(transaction.movements.primary.amount.amount.toString()).toBe('1');
     expect(transaction.movements.inflows[0]?.asset).toBe('TAO');
-    expect(transaction.fees.network?.currency).toBe('TAO');
+    expect(transaction.fees.network?.currency.toString()).toBe('TAO');
     expect(transaction.fees.network?.amount.toString()).toBe('0'); // User received, sender paid fee
     expect(transaction.blockchain?.name).toBe('bittensor');
     expect(transaction.metadata?.chainName).toBe('bittensor');

@@ -1,3 +1,5 @@
+import { getErrorMessage } from '@exitbook/core';
+
 import type { ProviderConfig, ProviderOperation } from '../../../../core/blockchain/index.ts';
 import { BaseApiClient, RegisterApiClient } from '../../../../core/blockchain/index.ts';
 import { maskAddress } from '../../../../core/blockchain/utils/address-utils.ts';
@@ -68,7 +70,7 @@ export class InjectiveExplorerApiClient extends BaseApiClient {
       }
     } catch (error) {
       this.logger.error(
-        `Operation execution failed - Type: ${operation.type}, Error: ${error instanceof Error ? error.message : String(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`
+        `Operation execution failed - Type: ${operation.type}, Error: ${getErrorMessage(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`
       );
       throw error;
     }
@@ -133,7 +135,7 @@ export class InjectiveExplorerApiClient extends BaseApiClient {
       return transactions as InjectiveExplorerTransaction[];
     } catch (error) {
       this.logger.error(
-        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(error)}`
       );
       throw error;
     }

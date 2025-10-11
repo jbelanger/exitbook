@@ -1,5 +1,5 @@
 /* eslint-disable unicorn/no-null -- db requires null handling */
-import type { RawTransactionWithMetadata } from '@exitbook/core';
+import { wrapError, type RawTransactionWithMetadata } from '@exitbook/core';
 import type { KyselyDB } from '@exitbook/data';
 import type { RawData } from '@exitbook/data';
 import { BaseRepository } from '@exitbook/data';
@@ -53,9 +53,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
 
       return ok(rows);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger.error({ error, filters }, 'Failed to load raw data');
-      return err(new Error(`Failed to load raw data: ${errorMessage}`));
+      return wrapError(error, 'Failed to load raw data');
     }
   }
 
@@ -79,9 +77,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
 
       return ok();
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger.error({ error, sourceId, rawTransactionIds }, 'Failed to mark items as processed');
-      return err(new Error(`Failed to mark items as processed: ${errorMessage}`));
+      return wrapError(error, 'Failed to mark items as processed');
     }
   }
 
@@ -113,9 +109,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
 
       return ok(result);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger.error({ error, importSessionId }, 'Failed to save raw data item');
-      return err(new Error(`Failed to save raw data item: ${errorMessage}`));
+      return wrapError(error, 'Failed to save raw data item');
     }
   }
 
@@ -163,9 +157,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
 
       return ok(result);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger.error({ error, importSessionId }, 'Failed to save raw data batch');
-      return err(new Error(`Failed to save raw data batch: ${errorMessage}`));
+      return wrapError(error, 'Failed to save raw data batch');
     }
   }
 
@@ -204,9 +196,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
 
       return ok(Object.keys(mergedCursor).length > 0 ? mergedCursor : null);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger.error({ error, importSessionId }, 'Failed to get latest cursor');
-      return err(new Error(`Failed to get latest cursor: ${errorMessage}`));
+      return wrapError(error, 'Failed to get latest cursor');
     }
   }
 
@@ -221,9 +211,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
 
       return ok(rows);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger.error({ error, importSessionId }, 'Failed to get records needing validation');
-      return err(new Error(`Failed to get records needing validation: ${errorMessage}`));
+      return wrapError(error, 'Failed to get records needing validation');
     }
   }
 
@@ -239,9 +227,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
 
       return ok(rows);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger.error({ error, importSessionId }, 'Failed to get valid records');
-      return err(new Error(`Failed to get valid records: ${errorMessage}`));
+      return wrapError(error, 'Failed to get valid records');
     }
   }
 
@@ -257,9 +243,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
 
       return ok();
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger.error({ error, id }, 'Failed to update parsed data');
-      return err(new Error(`Failed to update parsed data: ${errorMessage}`));
+      return wrapError(error, 'Failed to update parsed data');
     }
   }
 }

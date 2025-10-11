@@ -1,3 +1,4 @@
+import { getErrorMessage } from '@exitbook/core';
 import { getLogger } from '@exitbook/shared-logger';
 import type { Decimal } from 'decimal.js';
 
@@ -87,14 +88,12 @@ export class BalanceVerifier {
 
       return [result];
     } catch (error) {
-      this.logger.error(
-        `Balance verification failed for ${sourceId}: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
+      this.logger.error(`Balance verification failed for ${sourceId}: ${getErrorMessage(error, 'Unknown error')}`);
 
       return [
         {
           comparisons: [],
-          error: error instanceof Error ? error.message : 'Unknown error',
+          error: getErrorMessage(error, 'Unknown error'),
           source: sourceId,
           status: 'error',
           summary: {

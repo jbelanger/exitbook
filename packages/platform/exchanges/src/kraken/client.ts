@@ -1,4 +1,4 @@
-import type { RawTransactionWithMetadata } from '@exitbook/core';
+import { getErrorMessage, type RawTransactionWithMetadata } from '@exitbook/core';
 import * as ccxt from 'ccxt';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -112,7 +112,7 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
           if (allTransactions.length > 0) {
             return err(
               new PartialImportError(
-                `Fetch failed after processing ${allTransactions.length} transactions: ${error instanceof Error ? error.message : String(error)}`,
+                `Fetch failed after processing ${allTransactions.length} transactions: ${getErrorMessage(error)}`,
                 allTransactions,
                 { ofs, since },
                 currentCursor

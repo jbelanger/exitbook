@@ -1,3 +1,5 @@
+import { getErrorMessage } from '@exitbook/core';
+
 import type { ProviderConfig } from '../../../../core/blockchain/index.ts';
 import { BaseApiClient, RegisterApiClient } from '../../../../core/blockchain/index.ts';
 import type { ProviderOperation, JsonRpcResponse } from '../../../../core/blockchain/types/index.ts';
@@ -184,9 +186,7 @@ export class AlchemyApiClient extends BaseApiClient {
       this.logger.debug(`Found ${transfers.length} raw internal transactions for ${address}`);
       return transfers;
     } catch (error) {
-      this.logger.error(
-        `Failed to fetch raw internal transactions for ${address} - Error: ${error instanceof Error ? error.message : String(error)}`
-      );
+      this.logger.error(`Failed to fetch raw internal transactions for ${address} - Error: ${getErrorMessage(error)}`);
       throw error;
     }
   }
@@ -197,9 +197,7 @@ export class AlchemyApiClient extends BaseApiClient {
       this.logger.debug(`Found ${transfers.length} raw address transactions for ${address}`);
       return transfers;
     } catch (error) {
-      this.logger.error(
-        `Failed to fetch raw address transactions for ${address} - Error: ${error instanceof Error ? error.message : String(error)}`
-      );
+      this.logger.error(`Failed to fetch raw address transactions for ${address} - Error: ${getErrorMessage(error)}`);
       throw error;
     }
   }
@@ -217,9 +215,7 @@ export class AlchemyApiClient extends BaseApiClient {
       this.logger.debug(`Found ${tokenBalances.length} raw token balances for ${address}`);
       return tokenBalances;
     } catch (error) {
-      this.logger.error(
-        `Failed to fetch raw token balances for ${address} - Error: ${error instanceof Error ? error.message : String(error)}`
-      );
+      this.logger.error(`Failed to fetch raw token balances for ${address} - Error: ${getErrorMessage(error)}`);
       throw error;
     }
   }
@@ -234,9 +230,7 @@ export class AlchemyApiClient extends BaseApiClient {
       this.logger.debug(`Found ${transfers.length} raw token transactions for ${address}`);
       return transfers;
     } catch (error) {
-      this.logger.error(
-        `Failed to fetch raw token transactions for ${address} - Error: ${error instanceof Error ? error.message : String(error)}`
-      );
+      this.logger.error(`Failed to fetch raw token transactions for ${address} - Error: ${getErrorMessage(error)}`);
       throw error;
     }
   }

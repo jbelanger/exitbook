@@ -1,4 +1,4 @@
-import { parseDecimal, createMoney } from '@exitbook/core';
+import { parseDecimal, createMoney, getErrorMessage } from '@exitbook/core';
 import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
 import { type Result, ok } from 'neverthrow';
 
@@ -67,7 +67,7 @@ export class KucoinProcessor extends BaseTransactionProcessor {
             this.logger.warn(`Unknown row type: ${row._rowType}`);
         }
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorMessage = getErrorMessage(error);
         this.logger.warn(`Failed to process KuCoin row: ${errorMessage}`);
         continue;
       }

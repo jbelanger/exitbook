@@ -3,11 +3,36 @@
  * Centralizes type safety patterns found throughout the codebase
  */
 
+import type { Result } from 'neverthrow';
+import { err } from 'neverthrow';
+
 /**
  * Type guard for checking if a value is an Error instance with a message
  */
 export function isErrorWithMessage(error: unknown): error is Error & { message: string } {
   return error instanceof Error && typeof error.message === 'string';
+}
+
+/**
+ * Extract error message from unknown error value
+ * Uses type guard to safely extract message
+ */
+export function getErrorMessage(error: unknown, defaultMessage?: string): string {
+  if (isErrorWithMessage(error)) {
+    return error.message;
+  }
+  return defaultMessage || String(error);
+}
+
+/**
+ * Wrap an unknown error with context message
+ * Returns a Result.err with contextualized error
+ *
+ * Uses core getErrorMessage utility for safe error extraction
+ */
+export function wrapError<T = never>(error: unknown, context: string): Result<T, Error> {
+  const message = getErrorMessage(error);
+  return err(new Error(`${context}: ${message}`));
 }
 
 /**

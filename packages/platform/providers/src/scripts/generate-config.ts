@@ -6,6 +6,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { getErrorMessage } from '@exitbook/core';
+
 import { ProviderRegistry } from '../core/blockchain/index.ts';
 import { initializeProviders } from '../initialize.js';
 
@@ -149,7 +151,7 @@ function generateConfiguration(): void {
     console.log('  5. Run `pnpm run config:validate` to verify');
   } catch (error) {
     console.error('❌ Failed to write configuration file:');
-    console.error(error instanceof Error ? error.message : error);
+    console.error(getErrorMessage(error));
     process.exit(1);
   }
 }
@@ -159,7 +161,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   try {
     generateConfiguration();
   } catch (error) {
-    console.error('❌ Failed to generate configuration:', error instanceof Error ? error.message : error);
+    console.error('❌ Failed to generate configuration:', getErrorMessage(error));
     process.exit(1);
   }
 }

@@ -3,6 +3,7 @@
  * List all registered providers across all blockchains
  */
 
+import { getErrorMessage } from '@exitbook/core';
 import type { RateLimitConfig } from '@exitbook/platform-http';
 
 import { ProviderRegistry } from '../core/blockchain/index.ts';
@@ -99,7 +100,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   try {
     listProviders();
   } catch (error) {
-    console.error('❌ Failed to list providers:', error instanceof Error ? error.message : error);
+    console.error('❌ Failed to list providers:', getErrorMessage(error));
     process.exit(1);
   }
 }

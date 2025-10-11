@@ -607,7 +607,7 @@ describe('CosmosProcessor - Multi-Chain Support', () => {
     // Check structured fields
     expect(transaction.movements.primary.asset).toBe('INJ');
     expect(transaction.blockchain?.name).toBe('injective');
-    expect(transaction.fees.total.currency).toBe('INJ');
+    expect(transaction.fees.total.currency.toString()).toBe('INJ');
   });
 
   test('uses chain-specific native currency for Osmosis', async () => {
@@ -643,7 +643,7 @@ describe('CosmosProcessor - Multi-Chain Support', () => {
     // Check structured fields
     expect(transaction.movements.primary.asset).toBe('OSMO');
     expect(transaction.blockchain?.name).toBe('osmosis');
-    expect(transaction.fees.total.currency).toBe('OSMO');
+    expect(transaction.fees.total.currency.toString()).toBe('OSMO');
   });
 });
 

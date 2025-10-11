@@ -1,3 +1,4 @@
+import { getErrorMessage } from '@exitbook/core';
 import { ServiceError } from '@exitbook/platform-http';
 
 import { BaseApiClient } from '../../../../core/blockchain/base/api-client.ts';
@@ -85,9 +86,7 @@ export class SnowtraceApiClient extends BaseApiClient {
           throw new Error(`Unsupported operation: ${operation.type}`);
       }
     } catch (error) {
-      this.logger.error(
-        `Operation execution failed - Type: ${operation.type}, Error: ${error instanceof Error ? error.message : String(error)}`
-      );
+      this.logger.error(`Operation execution failed - Type: ${operation.type}, Error: ${getErrorMessage(error)}`);
       throw error;
     }
   }
@@ -263,7 +262,7 @@ export class SnowtraceApiClient extends BaseApiClient {
       } as SnowtraceBalanceResponse;
     } catch (error) {
       this.logger.error(
-        `Failed to get raw address balance - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to get raw address balance - Address: ${maskAddress(address)}, Error: ${getErrorMessage(error)}`
       );
       throw error;
     }
@@ -289,7 +288,7 @@ export class SnowtraceApiClient extends BaseApiClient {
       return normalTransactions;
     } catch (error) {
       this.logger.error(
-        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(error)}`
       );
       throw error;
     }
@@ -317,9 +316,9 @@ export class SnowtraceApiClient extends BaseApiClient {
       return internalTransactions;
     } catch (error) {
       this.logger.error(
-        `Failed to get raw address internal transactions - Address: ${maskAddress(address)}, Error: ${
-          error instanceof Error ? error.message : String(error)
-        }`
+        `Failed to get raw address internal transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(
+          error
+        )}`
       );
       throw error;
     }
