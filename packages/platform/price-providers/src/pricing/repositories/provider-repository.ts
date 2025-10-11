@@ -63,7 +63,7 @@ export class ProviderRepository {
         .values({
           name,
           display_name: displayName,
-          is_active: true,
+          is_active: 1 as unknown as boolean, // SQLite uses integers for booleans
           metadata: '{}',
         })
         .returningAll()

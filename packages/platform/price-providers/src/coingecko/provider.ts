@@ -2,7 +2,7 @@
  * CoinGecko price provider implementation
  */
 
-import { Currency, getErrorMessage } from '@exitbook/core';
+import { Currency, getErrorMessage, wrapError } from '@exitbook/core';
 import { HttpClient } from '@exitbook/platform-http';
 import { getLogger } from '@exitbook/shared-logger';
 import type { Result } from 'neverthrow';
@@ -16,15 +16,14 @@ import type { PriceData, PriceQuery, ProviderMetadata } from '../shared/types/in
 
 import {
   buildBatchSimplePriceParams,
-  buildSymbolToCoinIdMap,
   canUseSimplePrice,
   formatCoinGeckoDate,
   transformHistoricalResponse,
   transformSimplePriceResponse,
 } from './coingecko-utils.js';
 import {
-  CoinGeckoCoinListSchema,
   CoinGeckoHistoricalPriceResponseSchema,
+  CoinGeckoMarketsSchema,
   CoinGeckoSimplePriceResponseSchema,
 } from './schemas.js';
 
@@ -54,23 +53,28 @@ export function createCoinGeckoProvider(
   config: CoinGeckoProviderConfig = {}
 ): Result<CoinGeckoProvider, Error> {
   try {
+    // Read from environment if not provided in config (similar to blockchain providers)
+    // This allows direct provider creation (e.g., in tests) to automatically pick up env vars
+    const apiKey = config.apiKey ?? process.env.COINGECKO_API_KEY;
+    const useProApi = config.useProApi ?? process.env.COINGECKO_USE_PRO_API === 'true';
+
     // Determine base URL based on API type
-    const baseUrl = config.useProApi ? 'https://pro-api.coingecko.com/api/v3' : 'https://api.coingecko.com/api/v3';
+    const baseUrl = useProApi ? 'https://pro-api.coingecko.com/api/v3' : 'https://api.coingecko.com/api/v3';
 
     // Create HTTP client with CoinGecko-specific configuration
     const httpClient = new HttpClient({
       baseUrl,
       defaultHeaders: {
         Accept: 'application/json',
-        ...(config.apiKey && { 'x-cg-demo-api-key': config.apiKey }),
+        ...(apiKey && { 'x-cg-demo-api-key': apiKey }),
       },
       providerName: 'CoinGecko',
       rateLimit: {
         // Free tier: 10-50 calls/minute, Pro: higher limits
-        burstLimit: config.useProApi ? 100 : 30,
-        requestsPerHour: config.useProApi ? 500 : 500,
-        requestsPerMinute: config.useProApi ? 50 : 30,
-        requestsPerSecond: config.useProApi ? 1.0 : 0.5,
+        burstLimit: useProApi ? 100 : apiKey ? 10 : 1, // Allow 10 burst requests for free tier
+        requestsPerHour: useProApi ? 500 : 500,
+        requestsPerMinute: useProApi ? 50 : 10, // 30 calls/minute for free tier
+        requestsPerSecond: useProApi ? 1.0 : apiKey ? 0.5 : 0.1, // Allow higher burst rate
       },
       retries: 3,
       timeout: 10000,
@@ -82,8 +86,8 @@ export function createCoinGeckoProvider(
 
     // Create provider config
     const providerConfig: CoinGeckoProviderConfig = {
-      apiKey: config.apiKey,
-      useProApi: config.useProApi,
+      apiKey,
+      useProApi,
     };
 
     // Instantiate provider
@@ -181,6 +185,9 @@ export class CoinGeckoProvider extends BasePriceProvider {
 
   /**
    * Sync coin list from CoinGecko API
+   *
+   * Fetches top coins by market cap to ensure correct coin ID mapping
+   * for symbols with multiple entries (e.g., BTC maps to Bitcoin, not batcat)
    */
   async syncCoinList(): Promise<Result<number, Error>> {
     try {
@@ -204,39 +211,73 @@ export class CoinGeckoProvider extends BasePriceProvider {
         return ok(0);
       }
 
-      // 3. Fetch coin list from API
-      this.logger.debug('Fetching coin list from CoinGecko API');
-      const rawResponse = await this.httpClient.get<unknown>('/coins/list');
+      // 3. Fetch top coins by market cap (this gives us the correct priorities)
+      // Markets endpoint returns coins sorted by market cap
+      this.logger.debug('Fetching top coins by market cap from CoinGecko API');
+      const allMarketCoins = [];
 
-      // 4. Validate response
-      const parseResult = CoinGeckoCoinListSchema.safeParse(rawResponse);
-      if (!parseResult.success) {
-        return err(new Error(`Invalid coin list response: ${parseResult.error.message}`));
+      // Fetch multiple pages to get top coins by market cap
+      // Reduce to 2 pages (500 coins) to avoid rate limiting on free tier
+      for (let page = 1; page <= 2; page++) {
+        const params = new URLSearchParams({
+          vs_currency: 'usd',
+          order: 'market_cap_desc',
+          per_page: '250',
+          page: page.toString(),
+          sparkline: 'false',
+        });
+
+        const rawMarketResponse = await this.httpClient.get<unknown>(`/coins/markets?${params.toString()}`, {
+          headers: {
+            'x-cg-demo-api-key': this.config.apiKey || '',
+          },
+        });
+
+        const marketParseResult = CoinGeckoMarketsSchema.safeParse(rawMarketResponse);
+        if (!marketParseResult.success) {
+          this.logger.warn({ page, error: marketParseResult.error }, 'Failed to parse markets page');
+          break; // Stop on error but keep what we have
+        }
+
+        allMarketCoins.push(...marketParseResult.data);
+        this.logger.debug({ page, count: marketParseResult.data.length }, 'Fetched markets page');
       }
 
-      const coinList = parseResult.data;
-      this.logger.debug({ count: coinList.length }, 'Coin list fetched successfully');
+      this.logger.debug({ count: allMarketCoins.length }, 'Market coins fetched successfully');
 
-      // 5. Build mappings using pure function
-      const symbolMap = buildSymbolToCoinIdMap(coinList);
+      // 4. Build mappings prioritizing by market cap rank
+      const symbolMap = new Map<string, { coinId: string; marketCapRank: number; name: string }>();
 
-      // 6. Convert Map to array for DB storage
-      const mappings = Array.from(symbolMap.entries()).map(([symbol, coinId]) => {
-        const coin = coinList.find((c) => c.id === coinId)!;
-        return {
-          coin_id: coinId,
-          coin_name: coin.name,
-          symbol,
-        };
-      });
+      for (const coin of allMarketCoins) {
+        const symbol = Currency.create(coin.symbol).toString();
+        const marketCapRank = coin.market_cap_rank || 999999;
 
-      // 7. Store mappings in DB
+        // If symbol exists, keep the one with better (lower) market cap rank
+        if (symbolMap.has(symbol)) {
+          const existing = symbolMap.get(symbol)!;
+          if (marketCapRank < existing.marketCapRank) {
+            symbolMap.set(symbol, { coinId: coin.id, name: coin.name, marketCapRank });
+          }
+        } else {
+          symbolMap.set(symbol, { coinId: coin.id, name: coin.name, marketCapRank });
+        }
+      }
+
+      // 5. Convert Map to array for DB storage
+      const mappings = Array.from(symbolMap.entries()).map(([symbol, data]) => ({
+        coin_id: data.coinId,
+        coin_name: data.name,
+        symbol,
+        priority: data.marketCapRank,
+      }));
+
+      // 6. Store mappings in DB
       const upsertResult = await this.providerRepo.upsertCoinMappings(providerId, mappings);
       if (upsertResult.isErr()) {
         return err(upsertResult.error);
       }
 
-      // 8. Update sync timestamp
+      // 7. Update sync timestamp
       const updateResult = await this.providerRepo.updateProviderSync(providerId, mappings.length);
       if (updateResult.isErr()) {
         return err(updateResult.error);
@@ -305,8 +346,7 @@ export class CoinGeckoProvider extends BasePriceProvider {
 
       return ok(priceData.value);
     } catch (error) {
-      const message = getErrorMessage(error);
-      return err(new Error(`CoinGecko fetch failed: ${message}`));
+      return wrapError(error, 'Failed to fetch price');
     }
   }
 
@@ -344,7 +384,13 @@ export class CoinGeckoProvider extends BasePriceProvider {
       if (canUseSimplePrice(timestamp)) {
         this.logger.debug({ coinId, asset }, 'Using simple price API');
 
-        const rawResponse = await this.httpClient.get<unknown>('/simple/price', {
+        // Build query params
+        const params = new URLSearchParams({
+          ids: coinId,
+          vs_currencies: currency.toLowerCase(),
+        });
+
+        const rawResponse = await this.httpClient.get<unknown>(`/simple/price?${params.toString()}`, {
           headers: {
             'x-cg-demo-api-key': this.config.apiKey || '',
           },
@@ -364,10 +410,13 @@ export class CoinGeckoProvider extends BasePriceProvider {
       this.logger.debug({ coinId, asset, timestamp }, 'Using historical price API');
 
       const date = formatCoinGeckoDate(timestamp);
-      const rawResponse = await this.httpClient.get<unknown>(`/coins/${coinId}/history`, {
+      const params = new URLSearchParams({
+        date,
+        localization: 'false',
+      });
+
+      const rawResponse = await this.httpClient.get<unknown>(`/coins/${coinId}/history?${params.toString()}`, {
         headers: {
-          date,
-          localization: 'false',
           'x-cg-demo-api-key': this.config.apiKey || '',
         },
       });
@@ -421,10 +470,12 @@ export class CoinGeckoProvider extends BasePriceProvider {
       const currency = queries[0]?.currency || Currency.create('USD');
       const params = buildBatchSimplePriceParams(coinIds, currency);
 
+      // Convert params to URLSearchParams
+      const searchParams = new URLSearchParams(params);
+
       // Fetch batch
-      const rawResponse = await this.httpClient.get<unknown>('/simple/price', {
+      const rawResponse = await this.httpClient.get<unknown>(`/simple/price?${searchParams.toString()}`, {
         headers: {
-          ...params,
           'x-cg-demo-api-key': this.config.apiKey || '',
         },
       });
