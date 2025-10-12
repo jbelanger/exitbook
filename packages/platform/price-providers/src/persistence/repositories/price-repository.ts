@@ -18,8 +18,8 @@ export interface PriceRecord {
   price: string;
   source_provider: string;
   provider_coin_id: string | null;
+  granularity: string | undefined;
   fetched_at: string;
-  created_at: string;
   updated_at: string | null;
 }
 
@@ -99,14 +99,15 @@ export class PriceRepository {
           price: priceData.price.toString(),
           source_provider: priceData.source,
           provider_coin_id: providerCoinId ?? undefined,
+          granularity: priceData.granularity ?? undefined,
           fetched_at: priceData.fetchedAt.toISOString(),
-          created_at: this.getCurrentDateTimeForDB(),
         })
         .onConflict((oc) =>
           oc.columns(['asset_symbol', 'currency', 'timestamp']).doUpdateSet({
             price: priceData.price.toString(),
             source_provider: priceData.source,
             provider_coin_id: providerCoinId ?? undefined,
+            granularity: priceData.granularity ?? undefined,
             fetched_at: priceData.fetchedAt.toISOString(),
             updated_at: this.getCurrentDateTimeForDB(),
           })
@@ -215,6 +216,7 @@ export class PriceRepository {
       price: parseFloat(record.price),
       source: record.source_provider,
       fetchedAt: new Date(record.fetched_at),
+      granularity: record.granularity as 'minute' | 'hour' | 'day' | undefined,
     };
   }
 }

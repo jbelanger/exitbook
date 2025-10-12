@@ -192,7 +192,7 @@ describe('transformSimplePriceResponse', () => {
         currency: Currency.create('USD'),
         source: 'coingecko',
         fetchedAt,
-        granularity: 'current',
+        granularity: undefined,
       });
     }
   });

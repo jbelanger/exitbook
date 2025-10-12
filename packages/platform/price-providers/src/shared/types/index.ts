@@ -16,7 +16,7 @@ export interface PriceQuery {
 /**
  * Price data granularity levels
  */
-export type PriceGranularity = 'minute' | 'hour' | 'day' | 'current';
+export type PriceGranularity = 'minute' | 'hour' | 'day';
 
 /**
  * Normalized price data from any provider

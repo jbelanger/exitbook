@@ -28,7 +28,6 @@ export interface PriceFetchStats {
   manualEntries: number;
   /** Granularity breakdown */
   granularity: {
-    current: number; // Real-time current prices
     day: number; // Daily only
     hour: number; // Hourly intraday
     minute: number; // Minute-level intraday
@@ -131,7 +130,6 @@ export function initializeStats(): PriceFetchStats {
     skipped: 0,
     manualEntries: 0,
     granularity: {
-      current: 0,
       day: 0,
       hour: 0,
       minute: 0,

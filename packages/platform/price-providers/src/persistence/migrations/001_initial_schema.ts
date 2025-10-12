@@ -55,8 +55,8 @@ export async function up(db: Kysely<PricesDatabase>): Promise<void> {
     .addColumn('price', 'text', (col) => col.notNull())
     .addColumn('source_provider', 'text', (col) => col.notNull())
     .addColumn('provider_coin_id', 'text')
+    .addColumn('granularity', 'text')
     .addColumn('fetched_at', 'text', (col) => col.notNull())
-    .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
     .addColumn('updated_at', 'text')
     .execute();
 

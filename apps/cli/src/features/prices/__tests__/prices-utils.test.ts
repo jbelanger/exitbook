@@ -335,6 +335,11 @@ describe('initializeStats', () => {
       failures: 0,
       skipped: 0,
       manualEntries: 0,
+      granularity: {
+        day: 0,
+        hour: 0,
+        minute: 0,
+      },
     });
   });
 
@@ -369,5 +374,6 @@ describe('initializeStats', () => {
     expect(stats).toHaveProperty('failures');
     expect(stats).toHaveProperty('skipped');
     expect(stats).toHaveProperty('manualEntries');
+    expect(stats).toHaveProperty('granularity');
   });
 });

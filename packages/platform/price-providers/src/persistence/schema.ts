@@ -47,8 +47,8 @@ export interface PricesTable {
   price: string; // Decimal as string
   source_provider: string; // Provider name
   provider_coin_id: string | null; // The coin ID used for this lookup
+  granularity: string | undefined; // 'minute' | 'hour' | 'day'
   fetched_at: string;
-  created_at: string; // ISO 8601 timestamp
   updated_at: string | null;
 }
 

@@ -38,7 +38,7 @@ describe('transformPriceResponse', () => {
         currency,
         source: 'cryptocompare',
         fetchedAt,
-        granularity: 'current',
+        granularity: undefined,
       });
     }
   });

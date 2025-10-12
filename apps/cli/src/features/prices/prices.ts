@@ -132,9 +132,6 @@ function handlePricesFetchSuccess(
     if (stats.pricesFetched > 0) {
       console.log('');
       console.log('Price Granularity:');
-      if (stats.granularity.current > 0) {
-        console.log(`  Current (real-time): ${stats.granularity.current}`);
-      }
       if (stats.granularity.minute > 0) {
         console.log(`  Minute-level: ${stats.granularity.minute}`);
       }
@@ -146,7 +143,7 @@ function handlePricesFetchSuccess(
       }
 
       // Warn if intraday requests returned only daily data
-      const totalIntraday = stats.granularity.current + stats.granularity.minute + stats.granularity.hour;
+      const totalIntraday = stats.granularity.minute + stats.granularity.hour;
       if (stats.granularity.day > 0 && totalIntraday > 0) {
         console.log('');
         console.warn(`⚠️  ${stats.granularity.day} prices fetched at daily granularity (intraday not available)`);

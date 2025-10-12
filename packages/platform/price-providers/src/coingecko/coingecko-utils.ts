@@ -119,7 +119,7 @@ export function transformSimplePriceResponse(
     currency: currency,
     source: 'coingecko',
     fetchedAt,
-    granularity: 'current',
+    granularity: undefined,
   });
 }
 
