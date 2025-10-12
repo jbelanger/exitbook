@@ -17,10 +17,10 @@ export function isCacheValid(expiry: number, now: number): boolean {
 }
 
 /**
- * Calculate granularity bonus for a provider based on timestamp
- * Pure function - returns bonus score based on provider's intraday capabilities
+ * Calculate granularity bonus for a provider based on timestamp and capabilities
+ * Pure function - returns bonus score based on provider's declared granularity support
  */
-export function calculateGranularityBonus(providerName: string, timestamp: Date, now: number): number {
+export function calculateGranularityBonus(metadata: ProviderMetadata, timestamp: Date, now: number): number {
   const diffMs = now - timestamp.getTime();
   const diffDays = diffMs / (1000 * 60 * 60 * 24);
 
@@ -32,26 +32,45 @@ export function calculateGranularityBonus(providerName: string, timestamp: Date,
     return 0; // No bonus for daily requests
   }
 
-  // CryptoCompare has excellent intraday support
-  if (providerName === 'cryptocompare') {
-    if (diffDays < 7) {
-      return 30; // Minute-level data available - highest priority
-    }
-    if (diffDays < 90) {
-      return 20; // Hourly data available - high priority
-    }
-  }
-
-  // CoinGecko only has daily historical data (current price for <24h)
-  if (providerName === 'coingecko') {
-    if (diffDays < 1) {
-      return 10; // Current price available - some priority
-    }
-    // For older intraday requests, CoinGecko can only provide daily data
+  // Provider must declare granularity support
+  if (!metadata.capabilities.granularitySupport || metadata.capabilities.granularitySupport.length === 0) {
+    // Default to assuming only daily data available
     return -10; // Penalty for not supporting intraday
   }
 
-  return 0;
+  // Find best available granularity for this timestamp age
+  let bestGranularity: 'minute' | 'hour' | 'day' | undefined;
+  let bestBonus = 0;
+
+  for (const support of metadata.capabilities.granularitySupport) {
+    // Check if this granularity is available for the requested timestamp age
+    const isAvailable = support.maxHistoryDays === undefined || diffDays <= support.maxHistoryDays;
+
+    if (isAvailable) {
+      // Assign bonus based on granularity level
+      let bonus = 0;
+      if (support.granularity === 'minute') {
+        bonus = 30; // Highest priority for minute data
+      } else if (support.granularity === 'hour') {
+        bonus = 20; // High priority for hourly data
+      } else if (support.granularity === 'day') {
+        bonus = 0; // No bonus for daily (baseline)
+      }
+
+      // Track the best (highest bonus) available granularity
+      if (bonus > bestBonus) {
+        bestBonus = bonus;
+        bestGranularity = support.granularity;
+      }
+    }
+  }
+
+  // If only daily data available for intraday request, penalize
+  if (bestGranularity === 'day' || bestGranularity === undefined) {
+    return -10; // Penalty for not supporting intraday when needed
+  }
+
+  return bestBonus;
 }
 
 /**
@@ -86,7 +105,7 @@ export function scoreProvider(
 
   // Granularity bonus (if timestamp provided)
   if (timestamp) {
-    score += calculateGranularityBonus(metadata.name, timestamp, now);
+    score += calculateGranularityBonus(metadata, timestamp, now);
   }
 
   return Math.max(0, score);

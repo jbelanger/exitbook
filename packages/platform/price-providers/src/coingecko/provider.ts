@@ -157,6 +157,13 @@ export class CoinGeckoProvider extends BasePriceProvider {
           requestsPerMinute: rateLimit.requestsPerMinute,
           requestsPerSecond: rateLimit.requestsPerSecond,
         },
+        granularitySupport: [
+          {
+            granularity: 'day',
+            maxHistoryDays: undefined, // Unlimited historical daily data
+            limitation: 'CoinGecko only provides daily historical snapshots',
+          },
+        ],
       },
       displayName: 'CoinGecko',
       name: 'coingecko',

@@ -129,6 +129,22 @@ export class CryptoCompareProvider extends BasePriceProvider {
           requestsPerMinute: rateLimit.requestsPerMinute,
           requestsPerSecond: rateLimit.requestsPerSecond,
         },
+        granularitySupport: [
+          {
+            granularity: 'minute',
+            maxHistoryDays: 7,
+            limitation: 'Free tier - 7 days of minute data',
+          },
+          {
+            granularity: 'hour',
+            maxHistoryDays: 90,
+            limitation: 'Free tier - 90 days of hourly data',
+          },
+          {
+            granularity: 'day',
+            maxHistoryDays: undefined, // Unlimited
+          },
+        ],
       },
       displayName: 'CryptoCompare',
       name: 'cryptocompare',
