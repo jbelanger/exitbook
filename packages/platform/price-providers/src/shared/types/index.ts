@@ -14,6 +14,11 @@ export interface PriceQuery {
 }
 
 /**
+ * Price data granularity levels
+ */
+export type PriceGranularity = 'minute' | 'hour' | 'day';
+
+/**
  * Normalized price data from any provider
  */
 export interface PriceData {
@@ -23,6 +28,8 @@ export interface PriceData {
   currency: Currency;
   source: string; // Provider name
   fetchedAt: Date;
+  /** Granularity of the price data - indicates precision of timestamp */
+  granularity?: PriceGranularity | undefined;
 }
 
 /**
@@ -45,6 +52,19 @@ export interface ProviderRateLimit {
 }
 
 /**
+ * Granularity support configuration for a provider
+ * Defines what historical data granularity levels are available and for how long
+ */
+export interface GranularitySupport {
+  /** Granularity level (minute, hour, day) */
+  granularity: PriceGranularity;
+  /** Maximum days back this granularity is available (undefined = unlimited) */
+  maxHistoryDays: number | undefined;
+  /** Description of the limitation (e.g., "Free tier limit", "API restriction") */
+  limitation?: string | undefined;
+}
+
+/**
  * Provider capabilities metadata
  */
 export interface ProviderCapabilities {
@@ -54,6 +74,8 @@ export interface ProviderCapabilities {
   supportedCurrencies: string[];
   /** Rate limit configuration */
   rateLimit: ProviderRateLimit;
+  /** Granularity support - defines what historical data precision is available */
+  granularitySupport?: GranularitySupport[] | undefined;
 }
 
 /**

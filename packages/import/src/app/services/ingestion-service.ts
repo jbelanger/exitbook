@@ -1,8 +1,8 @@
 import { getErrorMessage, type RawTransactionMetadata } from '@exitbook/core';
-import type { RawData, ImportSessionMetadata, StoredImportParams } from '@exitbook/data';
+import type { UniversalTransaction } from '@exitbook/core';
+import type { RawData, ImportSessionMetadata, StoredImportParams, ITransactionRepository } from '@exitbook/data';
 import { PartialImportError } from '@exitbook/exchanges';
 import type { ImportParams } from '@exitbook/import/app/ports/importers.ts';
-import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
 import type { IBlockchainNormalizer } from '@exitbook/providers';
 import type { Logger } from '@exitbook/shared-logger';
 import { getLogger } from '@exitbook/shared-logger';
@@ -15,7 +15,6 @@ import type { IImporterFactory } from '../ports/importer-factory.interface.ts';
 import type { IProcessorFactory } from '../ports/processor-factory.js';
 import type { IRawDataRepository, LoadRawDataFilters } from '../ports/raw-data-repository.js';
 import type { ProcessResult } from '../ports/transaction-processor.interface.ts';
-import type { ITransactionRepository } from '../ports/transaction-repository.js';
 
 /**
  * Manages the ETL pipeline for cryptocurrency transaction data.

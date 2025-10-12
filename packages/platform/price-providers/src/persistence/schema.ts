@@ -18,7 +18,7 @@ export interface ProvidersTable {
   coin_list_count: ColumnType<number, number | undefined, number>;
   is_active: ColumnType<boolean, boolean | undefined, boolean>;
   metadata: ColumnType<string, string | undefined, string>;
-  created_at: ColumnType<string, never, never>;
+  created_at: string; // ISO 8601 timestamp
   updated_at: string | null;
 }
 
@@ -32,7 +32,7 @@ export interface ProviderCoinMappingsTable {
   coin_id: string; // e.g., 'bitcoin' (provider-specific ID)
   coin_name: string; // e.g., 'Bitcoin'
   priority: ColumnType<number, number | undefined, number>;
-  created_at: ColumnType<string, never, never>;
+  created_at: string; // ISO 8601 timestamp
   updated_at: string | null;
 }
 
@@ -47,8 +47,8 @@ export interface PricesTable {
   price: string; // Decimal as string
   source_provider: string; // Provider name
   provider_coin_id: string | null; // The coin ID used for this lookup
+  granularity: string | undefined; // 'minute' | 'hour' | 'day'
   fetched_at: string;
-  created_at: ColumnType<string, never, never>;
   updated_at: string | null;
 }
 

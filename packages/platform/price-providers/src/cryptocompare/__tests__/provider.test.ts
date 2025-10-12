@@ -120,7 +120,7 @@ describe('CryptoCompareProvider', () => {
       };
 
       httpClientGet.mockResolvedValueOnce(apiResponse);
-      mockTransformPriceResponse.mockReturnValueOnce(expectedPrice);
+      mockTransformPriceResponse.mockReturnValueOnce(ok(expectedPrice));
 
       const result = await provider.fetchPrice({
         asset: Currency.create('btc'),
@@ -183,7 +183,7 @@ describe('CryptoCompareProvider', () => {
       };
 
       httpClientGet.mockResolvedValueOnce(apiResponse);
-      mockTransformHistoricalResponse.mockReturnValueOnce(expectedPrice);
+      mockTransformHistoricalResponse.mockReturnValueOnce(ok(expectedPrice));
 
       const result = await provider.fetchPrice({
         asset: Currency.create('btc'),
@@ -205,7 +205,8 @@ describe('CryptoCompareProvider', () => {
         Currency.create('BTC'),
         historicalTimestamp,
         Currency.create('USD'),
-        expect.any(Date)
+        expect.any(Date),
+        'day' // Old timestamp uses day granularity
       );
       expect(priceRepoMocks.savePrice).toHaveBeenCalledWith(expectedPrice, 'BTC');
     });
@@ -227,7 +228,7 @@ describe('CryptoCompareProvider', () => {
       };
 
       httpClientGet.mockResolvedValueOnce(apiResponse);
-      mockTransformPriceResponse.mockReturnValueOnce(expectedPrice);
+      mockTransformPriceResponse.mockReturnValueOnce(ok(expectedPrice));
 
       const result = await provider.fetchPrice({
         asset: Currency.create('btc'),

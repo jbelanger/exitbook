@@ -175,6 +175,7 @@ describe('Database', () => {
           display_name: 'Test',
           is_active: 1 as unknown as boolean,
           metadata: '{}',
+          created_at: new Date().toISOString(),
         })
         .execute();
 
@@ -235,6 +236,7 @@ describe('Database', () => {
           display_name: 'CoinGecko',
           is_active: 1 as unknown as boolean,
           metadata: '{}',
+          created_at: new Date().toISOString(),
         })
         .execute();
 
@@ -273,6 +275,7 @@ describe('Database', () => {
             display_name: 'Provider 1',
             is_active: 1 as unknown as boolean,
             metadata: '{}',
+            created_at: new Date().toISOString(),
           })
           .execute();
 
@@ -284,6 +287,7 @@ describe('Database', () => {
             display_name: 'Provider 2',
             is_active: 1 as unknown as boolean,
             metadata: '{}',
+            created_at: new Date().toISOString(),
           })
           .execute();
 

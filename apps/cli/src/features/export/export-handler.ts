@@ -1,5 +1,5 @@
 import type { KyselyDB } from '@exitbook/data';
-import { TransactionRepository } from '@exitbook/import';
+import { TransactionRepository } from '@exitbook/data';
 import { getLogger } from '@exitbook/shared-logger';
 import { err, ok, type Result } from 'neverthrow';
 

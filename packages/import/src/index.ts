@@ -2,13 +2,11 @@ export { TransactionIngestionService } from './app/services/ingestion-service.ts
 
 // Port interfaces
 export type { ImportResult } from './app/ports/importers.ts';
-export type { ITransactionRepository } from './app/ports/transaction-repository.ts';
 export type { LoadRawDataFilters } from './app/ports/raw-data-repository.ts';
 export type { IRawDataRepository } from './app/ports/raw-data-repository.ts';
 export type { IImportSessionErrorRepository } from './app/ports/import-session-error-repository.interface.ts';
 
 // Infrastructure exports
-export { TransactionRepository } from './infrastructure/persistence/transaction-repository.ts';
 export { RawDataRepository } from './infrastructure/persistence/raw-data-repository.ts';
 export { ImportSessionRepository } from './infrastructure/persistence/import-session-repository.ts';
 export { ImportSessionErrorRepository } from './infrastructure/persistence/import-session-error-repository.ts';

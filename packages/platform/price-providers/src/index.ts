@@ -21,3 +21,6 @@ export type { ProviderManagerConfig } from './shared/types/index.js';
 // Shared factory - recommended way to create providers
 export { createPriceProviders, getAvailableProviderNames, createPriceProviderManager } from './shared/factory.js';
 export type { ProviderFactoryConfig, ProviderName, PriceProviderManagerFactoryConfig } from './shared/factory.js';
+
+// Error types
+export { CoinNotFoundError } from './shared/errors.js';

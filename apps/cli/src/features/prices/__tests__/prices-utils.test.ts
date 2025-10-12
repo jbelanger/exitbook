@@ -1,7 +1,8 @@
+import { Currency, parseDecimal } from '@exitbook/core';
 import type { TransactionNeedingPrice } from '@exitbook/data';
 import { describe, expect, it } from 'vitest';
 
-import { initializeStats, transactionToPriceQuery, validateAssetFilter } from '../prices-utils.ts';
+import { initializeStats, extractAssetsNeedingPrices, createPriceQuery, validateAssetFilter } from '../prices-utils.ts';
 
 describe('validateAssetFilter', () => {
   it('should return empty array when asset is undefined', () => {
@@ -110,16 +111,145 @@ describe('validateAssetFilter', () => {
   });
 });
 
-describe('transactionToPriceQuery', () => {
-  const validTransaction: TransactionNeedingPrice = {
-    id: 1,
-    movementsPrimaryAsset: 'BTC',
-    movementsPrimaryCurrency: 'USD',
-    transactionDatetime: '2024-01-15T12:00:00.000Z',
-  };
+describe('extractAssetsNeedingPrices', () => {
+  it('should extract unique assets from movements and filter out fiat currencies', () => {
+    const tx: TransactionNeedingPrice = {
+      id: 1,
+      transactionDatetime: '2024-01-15T12:00:00.000Z',
+      movementsInflows: [{ asset: 'BTC', amount: { amount: parseDecimal('1'), currency: Currency.create('BTC') } }],
+      movementsOutflows: [
+        { asset: 'USD', amount: { amount: parseDecimal('50000'), currency: Currency.create('USD') } },
+      ],
+    };
 
-  it('should convert valid transaction to price query', () => {
-    const result = transactionToPriceQuery(validTransaction);
+    const result = extractAssetsNeedingPrices(tx);
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value).toHaveLength(1);
+      expect(result.value).toContain('BTC');
+      expect(result.value).not.toContain('USD'); // USD is fiat and should be filtered out
+    }
+  });
+
+  it('should return only assets without prices', () => {
+    const tx: TransactionNeedingPrice = {
+      id: 1,
+      transactionDatetime: '2024-01-15T12:00:00.000Z',
+      movementsInflows: [
+        {
+          asset: 'BTC',
+          amount: { amount: parseDecimal('1'), currency: Currency.create('BTC') },
+          priceAtTxTime: {
+            price: { amount: parseDecimal('50000'), currency: Currency.create('USD') },
+            source: 'coingecko',
+            fetchedAt: new Date(),
+          },
+        },
+      ],
+      movementsOutflows: [{ asset: 'ETH', amount: { amount: parseDecimal('10'), currency: Currency.create('ETH') } }],
+    };
+
+    const result = extractAssetsNeedingPrices(tx);
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value).toHaveLength(1);
+      expect(result.value).toContain('ETH');
+      expect(result.value).not.toContain('BTC');
+    }
+  });
+
+  it('should reject transaction with no movements', () => {
+    const tx: TransactionNeedingPrice = {
+      id: 1,
+      transactionDatetime: '2024-01-15T12:00:00.000Z',
+      movementsInflows: [],
+      movementsOutflows: [],
+    };
+
+    const result = extractAssetsNeedingPrices(tx);
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('has no movements');
+    }
+  });
+
+  it('should deduplicate assets across inflows and outflows', () => {
+    const tx: TransactionNeedingPrice = {
+      id: 1,
+      transactionDatetime: '2024-01-15T12:00:00.000Z',
+      movementsInflows: [{ asset: 'BTC', amount: { amount: parseDecimal('1'), currency: Currency.create('BTC') } }],
+      movementsOutflows: [{ asset: 'BTC', amount: { amount: parseDecimal('0.5'), currency: Currency.create('BTC') } }],
+    };
+
+    const result = extractAssetsNeedingPrices(tx);
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value).toHaveLength(1);
+      expect(result.value).toContain('BTC');
+    }
+  });
+
+  it('should filter out all common fiat currencies', () => {
+    const tx: TransactionNeedingPrice = {
+      id: 1,
+      transactionDatetime: '2024-01-15T12:00:00.000Z',
+      movementsInflows: [
+        { asset: 'BTC', amount: { amount: parseDecimal('1'), currency: Currency.create('BTC') } },
+        { asset: 'ETH', amount: { amount: parseDecimal('10'), currency: Currency.create('ETH') } },
+      ],
+      movementsOutflows: [
+        { asset: 'USD', amount: { amount: parseDecimal('50000'), currency: Currency.create('USD') } },
+        { asset: 'EUR', amount: { amount: parseDecimal('45000'), currency: Currency.create('EUR') } },
+        { asset: 'CAD', amount: { amount: parseDecimal('65000'), currency: Currency.create('CAD') } },
+        { asset: 'GBP', amount: { amount: parseDecimal('40000'), currency: Currency.create('GBP') } },
+      ],
+    };
+
+    const result = extractAssetsNeedingPrices(tx);
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value).toHaveLength(2);
+      expect(result.value).toContain('BTC');
+      expect(result.value).toContain('ETH');
+      expect(result.value).not.toContain('USD');
+      expect(result.value).not.toContain('EUR');
+      expect(result.value).not.toContain('CAD');
+      expect(result.value).not.toContain('GBP');
+    }
+  });
+
+  it('should return empty array when only fiat currencies need prices', () => {
+    const tx: TransactionNeedingPrice = {
+      id: 1,
+      transactionDatetime: '2024-01-15T12:00:00.000Z',
+      movementsInflows: [{ asset: 'USD', amount: { amount: parseDecimal('1000'), currency: Currency.create('USD') } }],
+      movementsOutflows: [{ asset: 'EUR', amount: { amount: parseDecimal('900'), currency: Currency.create('EUR') } }],
+    };
+
+    const result = extractAssetsNeedingPrices(tx);
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value).toHaveLength(0);
+    }
+  });
+});
+
+describe('createPriceQuery', () => {
+  it('should create price query for asset', () => {
+    const tx: TransactionNeedingPrice = {
+      id: 1,
+      transactionDatetime: '2024-01-15T12:00:00.000Z',
+      movementsInflows: [],
+      movementsOutflows: [],
+    };
+
+    const result = createPriceQuery(tx, 'BTC');
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
@@ -130,7 +260,14 @@ describe('transactionToPriceQuery', () => {
   });
 
   it('should use default USD currency', () => {
-    const result = transactionToPriceQuery(validTransaction);
+    const tx: TransactionNeedingPrice = {
+      id: 1,
+      transactionDatetime: '2024-01-15T12:00:00.000Z',
+      movementsInflows: [],
+      movementsOutflows: [],
+    };
+
+    const result = createPriceQuery(tx, 'ETH');
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
@@ -139,7 +276,14 @@ describe('transactionToPriceQuery', () => {
   });
 
   it('should accept custom target currency', () => {
-    const result = transactionToPriceQuery(validTransaction, 'EUR');
+    const tx: TransactionNeedingPrice = {
+      id: 1,
+      transactionDatetime: '2024-01-15T12:00:00.000Z',
+      movementsInflows: [],
+      movementsOutflows: [],
+    };
+
+    const result = createPriceQuery(tx, 'BTC', 'EUR');
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
@@ -147,27 +291,15 @@ describe('transactionToPriceQuery', () => {
     }
   });
 
-  it('should reject transaction without primary asset', () => {
-    const tx = {
-      ...validTransaction,
-      movementsPrimaryAsset: '',
-    };
-
-    const result = transactionToPriceQuery(tx as TransactionNeedingPrice);
-
-    expect(result.isErr()).toBe(true);
-    if (result.isErr()) {
-      expect(result.error.message).toContain('no primary asset');
-    }
-  });
-
   it('should reject transaction without datetime', () => {
-    const tx = {
-      ...validTransaction,
+    const tx: TransactionNeedingPrice = {
+      id: 1,
       transactionDatetime: '',
+      movementsInflows: [],
+      movementsOutflows: [],
     };
 
-    const result = transactionToPriceQuery(tx as TransactionNeedingPrice);
+    const result = createPriceQuery(tx, 'BTC');
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
@@ -177,104 +309,17 @@ describe('transactionToPriceQuery', () => {
 
   it('should reject transaction with invalid datetime', () => {
     const tx: TransactionNeedingPrice = {
-      ...validTransaction,
+      id: 1,
       transactionDatetime: 'invalid-date',
+      movementsInflows: [],
+      movementsOutflows: [],
     };
 
-    const result = transactionToPriceQuery(tx);
+    const result = createPriceQuery(tx, 'BTC');
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
       expect(result.error.message).toContain('invalid datetime');
-    }
-  });
-
-  it('should handle ISO datetime strings', () => {
-    const tx: TransactionNeedingPrice = {
-      ...validTransaction,
-      transactionDatetime: '2024-01-15T14:30:45.123Z',
-    };
-
-    const result = transactionToPriceQuery(tx);
-
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      expect(result.value.timestamp.toISOString()).toBe('2024-01-15T14:30:45.123Z');
-    }
-  });
-
-  it('should handle different date formats', () => {
-    const tx: TransactionNeedingPrice = {
-      ...validTransaction,
-      transactionDatetime: '2024-01-15',
-    };
-
-    const result = transactionToPriceQuery(tx);
-
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      expect(result.value.timestamp).toEqual(new Date('2024-01-15'));
-    }
-  });
-
-  it('should normalize asset to uppercase via Currency', () => {
-    const tx: TransactionNeedingPrice = {
-      ...validTransaction,
-      movementsPrimaryAsset: 'btc',
-    };
-
-    const result = transactionToPriceQuery(tx);
-
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      expect(result.value.asset.toString()).toBe('BTC');
-    }
-  });
-
-  it('should include transaction ID in error messages', () => {
-    const tx = {
-      id: 42,
-      movementsPrimaryAsset: '',
-      movementsPrimaryCurrency: 'USD',
-      transactionDatetime: '2024-01-15T12:00:00.000Z',
-    };
-
-    const result = transactionToPriceQuery(tx as TransactionNeedingPrice);
-
-    expect(result.isErr()).toBe(true);
-    if (result.isErr()) {
-      expect(result.error.message).toContain('Transaction 42');
-    }
-  });
-
-  it('should handle numeric transaction IDs', () => {
-    const tx: TransactionNeedingPrice = {
-      id: 12345,
-      movementsPrimaryAsset: 'ETH',
-      movementsPrimaryCurrency: 'USD',
-      transactionDatetime: '2024-01-15T12:00:00.000Z',
-    };
-
-    const result = transactionToPriceQuery(tx);
-
-    expect(result.isOk()).toBe(true);
-  });
-
-  it('should handle various crypto assets', () => {
-    const assets = ['BTC', 'ETH', 'SOL', 'USDT', 'MATIC', '1INCH'];
-
-    for (const asset of assets) {
-      const tx: TransactionNeedingPrice = {
-        ...validTransaction,
-        movementsPrimaryAsset: asset,
-      };
-
-      const result = transactionToPriceQuery(tx);
-
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.asset.toString()).toBe(asset.toUpperCase());
-      }
     }
   });
 });
@@ -286,9 +331,15 @@ describe('initializeStats', () => {
     expect(stats).toEqual({
       transactionsFound: 0,
       pricesFetched: 0,
-      pricesUpdated: 0,
+      movementsUpdated: 0,
       failures: 0,
       skipped: 0,
+      manualEntries: 0,
+      granularity: {
+        day: 0,
+        hour: 0,
+        minute: 0,
+      },
     });
   });
 
@@ -306,10 +357,12 @@ describe('initializeStats', () => {
     stats.transactionsFound = 10;
     stats.pricesFetched = 8;
     stats.failures = 2;
+    stats.manualEntries = 1;
 
     expect(stats.transactionsFound).toBe(10);
     expect(stats.pricesFetched).toBe(8);
     expect(stats.failures).toBe(2);
+    expect(stats.manualEntries).toBe(1);
   });
 
   it('should have all required fields', () => {
@@ -317,8 +370,10 @@ describe('initializeStats', () => {
 
     expect(stats).toHaveProperty('transactionsFound');
     expect(stats).toHaveProperty('pricesFetched');
-    expect(stats).toHaveProperty('pricesUpdated');
+    expect(stats).toHaveProperty('movementsUpdated');
     expect(stats).toHaveProperty('failures');
     expect(stats).toHaveProperty('skipped');
+    expect(stats).toHaveProperty('manualEntries');
+    expect(stats).toHaveProperty('granularity');
   });
 });

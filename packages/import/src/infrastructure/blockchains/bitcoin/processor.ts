@@ -1,5 +1,5 @@
 import { createMoney } from '@exitbook/core';
-import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
+import type { UniversalTransaction } from '@exitbook/core';
 import type { BitcoinTransaction } from '@exitbook/providers';
 import { type Result, err, ok } from 'neverthrow';
 

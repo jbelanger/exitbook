@@ -8,6 +8,7 @@ import { getLogger } from '@exitbook/shared-logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
+import { createBinanceProvider } from '../binance/provider.ts';
 import { createCoinGeckoProvider } from '../coingecko/provider.ts';
 import { createCryptoCompareProvider } from '../cryptocompare/provider.ts';
 import type { PricesDB } from '../persistence/database.ts';
@@ -28,6 +29,8 @@ const logger = getLogger('PriceProviderFactory');
  * Type-safe: All factories must match the expected signature
  */
 const PROVIDER_FACTORIES = {
+  binance: (db: PricesDB, config: unknown) =>
+    createBinanceProvider(db, config as Parameters<typeof createBinanceProvider>[1]),
   coingecko: (db: PricesDB, config: unknown) =>
     createCoinGeckoProvider(db, config as Parameters<typeof createCoinGeckoProvider>[1]),
   cryptocompare: (db: PricesDB, config: unknown) =>
@@ -44,6 +47,9 @@ export type ProviderName = keyof typeof PROVIDER_FACTORIES;
 export interface ProviderFactoryConfig {
   /** Path to prices database file (defaults to ./data/prices.db) */
   databasePath?: string | undefined;
+  binance?: {
+    enabled?: boolean | undefined;
+  };
   coingecko?: {
     apiKey?: string | undefined;
     enabled?: boolean | undefined;
@@ -55,7 +61,6 @@ export interface ProviderFactoryConfig {
   };
   // Future providers:
   // coinmarketcap?: { ... };
-  // binance?: { ... };
 }
 
 /**

@@ -32,7 +32,7 @@ export function getErrorMessage(error: unknown, defaultMessage?: string): string
  */
 export function wrapError<T = never>(error: unknown, context: string): Result<T, Error> {
   const message = getErrorMessage(error);
-  return err(new Error(`${context}: ${message}`));
+  return err(error instanceof Error ? error : new Error(`${context}: ${message}`));
 }
 
 /**

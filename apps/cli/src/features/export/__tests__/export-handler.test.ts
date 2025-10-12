@@ -7,9 +7,13 @@ import { ExportHandler } from '../export-handler.ts';
 import type { ExportHandlerParams } from '../export-utils.ts';
 
 // Mock dependencies
-vi.mock('@exitbook/import', () => ({
-  TransactionRepository: vi.fn(),
-}));
+vi.mock('@exitbook/data', async () => {
+  const actual = await vi.importActual<typeof import('@exitbook/data')>('@exitbook/data');
+  return {
+    ...actual,
+    TransactionRepository: vi.fn(),
+  };
+});
 
 describe('ExportHandler', () => {
   let mockDatabase: KyselyDB;
@@ -30,7 +34,7 @@ describe('ExportHandler', () => {
     };
 
     // Setup TransactionRepository mock
-    const { TransactionRepository } = await import('@exitbook/import');
+    const { TransactionRepository } = await import('@exitbook/data');
     (TransactionRepository as unknown as Mock).mockImplementation(() => mockTransactionRepository);
 
     handler = new ExportHandler(mockDatabase);
@@ -72,10 +76,6 @@ describe('ExportHandler', () => {
     verified: false,
     created_at: '2024-01-01T12:00:00Z',
     updated_at: '2024-01-01T12:00:00Z',
-    price_at_tx_time: null,
-    price_at_tx_time_currency: null,
-    price_at_tx_time_source: null,
-    price_at_tx_time_fetched_at: null,
   });
 
   describe('execute', () => {

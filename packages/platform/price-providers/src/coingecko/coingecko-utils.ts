@@ -5,7 +5,9 @@
  */
 
 import { Currency } from '@exitbook/core';
+import { err, ok, type Result } from 'neverthrow';
 
+import { roundTimestampByGranularity, validateRawPrice } from '../shared/shared-utils.js';
 import type { PriceData } from '../shared/types/index.js';
 
 import type {
@@ -62,21 +64,28 @@ export function transformHistoricalResponse(
   timestamp: Date,
   currency: Currency,
   fetchedAt: Date
-): PriceData {
-  const price = response.market_data.current_price[currency.toLowerCase()];
+): Result<PriceData, Error> {
+  const rawPrice = response.market_data.current_price[currency.toLowerCase()];
 
-  if (price === undefined) {
-    throw new Error(`Currency ${currency.toString()} not found in response`);
+  // Validate price using shared helper
+  const context = `CoinGecko (coin: ${response.id}) on ${timestamp.toISOString().split('T')[0]}`;
+  const priceResult = validateRawPrice(rawPrice, asset, context);
+  if (priceResult.isErr()) {
+    return err(priceResult.error);
   }
 
-  return {
+  const granularity = 'day';
+  const roundedTimestamp = roundTimestampByGranularity(timestamp, granularity);
+
+  return ok({
     asset: asset,
-    timestamp,
-    price,
+    timestamp: roundedTimestamp,
+    price: priceResult.value,
     currency: currency,
     source: 'coingecko',
     fetchedAt,
-  };
+    granularity,
+  });
 }
 
 /**
@@ -91,25 +100,33 @@ export function transformSimplePriceResponse(
   timestamp: Date,
   currency: Currency,
   fetchedAt: Date
-): PriceData {
+): Result<PriceData, Error> {
   const coinData = response[coinId];
   if (!coinData) {
-    throw new Error(`Coin ID ${coinId} for asset ${asset.toString()} not found in response`);
+    return err(new Error(`Coin ID ${coinId} for asset ${asset.toString()} not found in response`));
   }
 
-  const price = coinData[currency.toLowerCase()];
-  if (price === undefined) {
-    throw new Error(`Currency ${currency.toString()} not found for ${asset.toString()}`);
+  const rawPrice = coinData[currency.toLowerCase()];
+
+  // Validate price using shared helper
+  const context = `CoinGecko (coin: ${coinId})`;
+  const priceResult = validateRawPrice(rawPrice, asset, context);
+  if (priceResult.isErr()) {
+    return err(priceResult.error);
   }
 
-  return {
+  const granularity = undefined;
+  const roundedTimestamp = roundTimestampByGranularity(timestamp, granularity);
+
+  return ok({
     asset: asset,
-    timestamp,
-    price,
+    timestamp: roundedTimestamp,
+    price: priceResult.value,
     currency: currency,
     source: 'coingecko',
     fetchedAt,
-  };
+    granularity,
+  });
 }
 
 /**

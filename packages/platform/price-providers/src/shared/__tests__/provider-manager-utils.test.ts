@@ -176,6 +176,203 @@ describe('scoreProvider', () => {
   });
 });
 
+describe('calculateGranularityBonus', () => {
+  const mockRateLimit = {
+    burstLimit: 1,
+    requestsPerHour: 600,
+    requestsPerMinute: 10,
+    requestsPerSecond: 0.17,
+  };
+
+  const createMetadataWithGranularity = (
+    granularitySupport?: { granularity: 'minute' | 'hour' | 'day'; maxHistoryDays: number | undefined }[]
+  ): ProviderMetadata => ({
+    capabilities: {
+      granularitySupport,
+      rateLimit: mockRateLimit,
+      supportedCurrencies: ['USD'],
+      supportedOperations: ['fetchPrice'],
+    },
+    displayName: 'Test',
+    name: 'test',
+    requiresApiKey: false,
+  });
+
+  describe('daily (midnight UTC) requests', () => {
+    it('should return 0 for midnight UTC timestamp (no intraday needed)', () => {
+      const metadata = createMetadataWithGranularity([{ granularity: 'minute', maxHistoryDays: 7 }]);
+      const midnightUTC = new Date('2024-01-15T00:00:00Z');
+      const now = Date.now();
+
+      const bonus = ProviderManagerUtils.calculateGranularityBonus(metadata, midnightUTC, now);
+
+      expect(bonus).toBe(0);
+    });
+
+    it('should return 0 for midnight UTC even without granularitySupport', () => {
+      const metadata = createMetadataWithGranularity();
+      const midnightUTC = new Date('2024-01-15T00:00:00Z');
+      const now = Date.now();
+
+      const bonus = ProviderManagerUtils.calculateGranularityBonus(metadata, midnightUTC, now);
+
+      expect(bonus).toBe(0);
+    });
+  });
+
+  describe('provider without granularitySupport metadata', () => {
+    it('should return -10 for intraday request when no granularitySupport declared', () => {
+      const metadata = createMetadataWithGranularity();
+      const intradayTime = new Date('2024-01-15T14:30:00Z');
+      const now = Date.now();
+
+      const bonus = ProviderManagerUtils.calculateGranularityBonus(metadata, intradayTime, now);
+
+      expect(bonus).toBe(-10);
+    });
+
+    it('should return -10 for intraday request when granularitySupport is empty array', () => {
+      const metadata = createMetadataWithGranularity([]);
+      const intradayTime = new Date('2024-01-15T14:30:00Z');
+      const now = Date.now();
+
+      const bonus = ProviderManagerUtils.calculateGranularityBonus(metadata, intradayTime, now);
+
+      expect(bonus).toBe(-10);
+    });
+  });
+
+  describe('minute-level granularity', () => {
+    it('should return +30 when minute data is available within range', () => {
+      const metadata = createMetadataWithGranularity([{ granularity: 'minute', maxHistoryDays: 7 }]);
+      const now = Date.now();
+      const fiveDaysAgo = new Date(now - 5 * 24 * 60 * 60 * 1000);
+      fiveDaysAgo.setUTCHours(14, 30, 0, 0); // 2:30pm
+
+      const bonus = ProviderManagerUtils.calculateGranularityBonus(metadata, fiveDaysAgo, now);
+
+      expect(bonus).toBe(30);
+    });
+
+    it('should return -10 when minute data is out of range', () => {
+      const metadata = createMetadataWithGranularity([{ granularity: 'minute', maxHistoryDays: 7 }]);
+      const now = Date.now();
+      const tenDaysAgo = new Date(now - 10 * 24 * 60 * 60 * 1000);
+      tenDaysAgo.setUTCHours(14, 30, 0, 0);
+
+      const bonus = ProviderManagerUtils.calculateGranularityBonus(metadata, tenDaysAgo, now);
+
+      expect(bonus).toBe(-10);
+    });
+
+    it('should return +30 when minute data has unlimited history', () => {
+      const metadata = createMetadataWithGranularity([{ granularity: 'minute', maxHistoryDays: undefined }]);
+      const now = Date.now();
+      const oneYearAgo = new Date(now - 365 * 24 * 60 * 60 * 1000);
+      oneYearAgo.setUTCHours(14, 30, 0, 0);
+
+      const bonus = ProviderManagerUtils.calculateGranularityBonus(metadata, oneYearAgo, now);
+
+      expect(bonus).toBe(30);
+    });
+  });
+
+  describe('hourly granularity', () => {
+    it('should return +20 when hourly data is available within range', () => {
+      const metadata = createMetadataWithGranularity([{ granularity: 'hour', maxHistoryDays: 90 }]);
+      const now = Date.now();
+      const thirtyDaysAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
+      thirtyDaysAgo.setUTCHours(14, 30, 0, 0);
+
+      const bonus = ProviderManagerUtils.calculateGranularityBonus(metadata, thirtyDaysAgo, now);
+
+      expect(bonus).toBe(20);
+    });
+
+    it('should return -10 when hourly data is out of range', () => {
+      const metadata = createMetadataWithGranularity([{ granularity: 'hour', maxHistoryDays: 90 }]);
+      const now = Date.now();
+      const oneHundredDaysAgo = new Date(now - 100 * 24 * 60 * 60 * 1000);
+      oneHundredDaysAgo.setUTCHours(14, 30, 0, 0);
+
+      const bonus = ProviderManagerUtils.calculateGranularityBonus(metadata, oneHundredDaysAgo, now);
+
+      expect(bonus).toBe(-10);
+    });
+  });
+
+  describe('daily-only granularity', () => {
+    it('should return -10 when only daily data available for intraday request', () => {
+      const metadata = createMetadataWithGranularity([{ granularity: 'day', maxHistoryDays: undefined }]);
+      const now = Date.now();
+      const yesterday = new Date(now - 1 * 24 * 60 * 60 * 1000);
+      yesterday.setUTCHours(14, 30, 0, 0);
+
+      const bonus = ProviderManagerUtils.calculateGranularityBonus(metadata, yesterday, now);
+
+      expect(bonus).toBe(-10);
+    });
+  });
+
+  describe('multiple granularities (cascading)', () => {
+    it('should select best available granularity for the timestamp age', () => {
+      // CryptoCompare-like: minute (7d), hour (90d), day (unlimited)
+      const metadata = createMetadataWithGranularity([
+        { granularity: 'minute', maxHistoryDays: 7 },
+        { granularity: 'hour', maxHistoryDays: 90 },
+        { granularity: 'day', maxHistoryDays: undefined },
+      ]);
+      const now = Date.now();
+
+      // 5 days ago - should get minute data (+30)
+      const fiveDaysAgo = new Date(now - 5 * 24 * 60 * 60 * 1000);
+      fiveDaysAgo.setUTCHours(14, 30, 0, 0);
+      expect(ProviderManagerUtils.calculateGranularityBonus(metadata, fiveDaysAgo, now)).toBe(30);
+
+      // 30 days ago - should get hourly data (+20)
+      const thirtyDaysAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
+      thirtyDaysAgo.setUTCHours(14, 30, 0, 0);
+      expect(ProviderManagerUtils.calculateGranularityBonus(metadata, thirtyDaysAgo, now)).toBe(20);
+
+      // 200 days ago - should get daily data only (-10 penalty for intraday)
+      const twoHundredDaysAgo = new Date(now - 200 * 24 * 60 * 60 * 1000);
+      twoHundredDaysAgo.setUTCHours(14, 30, 0, 0);
+      expect(ProviderManagerUtils.calculateGranularityBonus(metadata, twoHundredDaysAgo, now)).toBe(-10);
+    });
+  });
+
+  describe('boundary conditions', () => {
+    it('should handle exactly at maxHistoryDays boundary', () => {
+      const metadata = createMetadataWithGranularity([{ granularity: 'minute', maxHistoryDays: 7 }]);
+
+      // Create a fixed "now" time and exactly 7 days before it (at same time)
+      const now = new Date('2024-01-22T14:30:00Z').getTime();
+      const exactlySevenDaysAgo = new Date('2024-01-15T14:30:00Z');
+
+      const bonus = ProviderManagerUtils.calculateGranularityBonus(metadata, exactlySevenDaysAgo, now);
+
+      // Should be available (diffDays <= maxHistoryDays, 7.0 <= 7)
+      expect(bonus).toBe(30);
+    });
+
+    it('should handle just past maxHistoryDays boundary', () => {
+      const metadata = createMetadataWithGranularity([
+        { granularity: 'minute', maxHistoryDays: 7 },
+        { granularity: 'day', maxHistoryDays: undefined },
+      ]);
+
+      // Create timestamps: now and 7.1 days ago
+      const now = new Date('2024-01-22T14:30:00Z').getTime();
+      const slightlyPastSeven = new Date('2024-01-15T12:00:00Z'); // 7 days + 2.5 hours ago
+
+      const bonus = ProviderManagerUtils.calculateGranularityBonus(metadata, slightlyPastSeven, now);
+
+      // Should fall back to daily (-10 penalty for intraday request)
+      expect(bonus).toBe(-10);
+    });
+  });
+});
+
 describe('supportsOperation', () => {
   const mockRateLimit = {
     burstLimit: 1,
@@ -223,13 +420,18 @@ describe('selectProvidersForOperation', () => {
     requestsPerSecond: 0.17,
   };
 
-  const createMockProvider = (name: string, operations: string[]): IPriceProvider => ({
+  const createMockProvider = (
+    name: string,
+    operations: string[],
+    granularitySupport?: { granularity: 'minute' | 'hour' | 'day'; maxHistoryDays: number | undefined }[]
+  ): IPriceProvider => ({
     fetchPrice: async () => Promise.resolve({ isErr: () => true, isOk: () => false } as Result<PriceData, Error>),
     getMetadata: () => ({
       capabilities: {
+        granularitySupport,
+        rateLimit: mockRateLimit,
         supportedCurrencies: ['USD'],
         supportedOperations: operations as PriceProviderOperation[],
-        rateLimit: mockRateLimit,
       },
       displayName: name,
       name,
@@ -308,6 +510,258 @@ describe('selectProvidersForOperation', () => {
     );
 
     expect(selected).toHaveLength(0);
+  });
+
+  describe('granularity-based selection (integration)', () => {
+    it('should prefer provider with minute data for 5-day old intraday request', () => {
+      // CryptoCompare-like: minute (7d), hour (90d), day (unlimited)
+      const cryptoCompare = createMockProvider(
+        'cryptocompare',
+        ['fetchPrice'],
+        [
+          { granularity: 'minute', maxHistoryDays: 7 },
+          { granularity: 'hour', maxHistoryDays: 90 },
+          { granularity: 'day', maxHistoryDays: undefined },
+        ]
+      );
+
+      // CoinGecko-like: daily only
+      const coinGecko = createMockProvider(
+        'coingecko',
+        ['fetchPrice'],
+        [{ granularity: 'day', maxHistoryDays: undefined }]
+      );
+
+      const providers = [coinGecko, cryptoCompare]; // Order shouldn't matter
+
+      const healthMap = new Map<string, ProviderHealth>([
+        ['cryptocompare', ProviderManagerUtils.createInitialHealth()],
+        ['coingecko', ProviderManagerUtils.createInitialHealth()],
+      ]);
+
+      const circuitMap = new Map([
+        ['cryptocompare', createInitialCircuitState()],
+        ['coingecko', createInitialCircuitState()],
+      ]);
+
+      const now = new Date('2024-01-22T14:30:00Z').getTime();
+      const fiveDaysAgo = new Date('2024-01-17T14:30:00Z'); // 5 days ago, intraday
+
+      const selected = ProviderManagerUtils.selectProvidersForOperation(
+        providers,
+        healthMap,
+        circuitMap,
+        'fetchPrice',
+        now,
+        fiveDaysAgo
+      );
+
+      expect(selected).toHaveLength(2);
+      // CryptoCompare should win: 100 (base) + 20 (fast) + 30 (minute) = 150
+      // CoinGecko should lose: 100 (base) + 20 (fast) - 10 (daily only) = 110
+      expect(selected[0]?.metadata.name).toBe('cryptocompare');
+      expect(selected[1]?.metadata.name).toBe('coingecko');
+      expect(selected[0]?.score).toBeGreaterThan(selected[1]?.score ?? 0);
+    });
+
+    it('should prefer provider with hourly data for 30-day old intraday request', () => {
+      // CryptoCompare-like: minute (7d), hour (90d), day (unlimited)
+      const cryptoCompare = createMockProvider(
+        'cryptocompare',
+        ['fetchPrice'],
+        [
+          { granularity: 'minute', maxHistoryDays: 7 },
+          { granularity: 'hour', maxHistoryDays: 90 },
+          { granularity: 'day', maxHistoryDays: undefined },
+        ]
+      );
+
+      // CoinGecko-like: daily only
+      const coinGecko = createMockProvider(
+        'coingecko',
+        ['fetchPrice'],
+        [{ granularity: 'day', maxHistoryDays: undefined }]
+      );
+
+      const providers = [coinGecko, cryptoCompare];
+
+      const healthMap = new Map<string, ProviderHealth>([
+        ['cryptocompare', ProviderManagerUtils.createInitialHealth()],
+        ['coingecko', ProviderManagerUtils.createInitialHealth()],
+      ]);
+
+      const circuitMap = new Map([
+        ['cryptocompare', createInitialCircuitState()],
+        ['coingecko', createInitialCircuitState()],
+      ]);
+
+      const now = new Date('2024-01-22T14:30:00Z').getTime();
+      const thirtyDaysAgo = new Date('2023-12-23T14:30:00Z'); // 30 days ago, intraday
+
+      const selected = ProviderManagerUtils.selectProvidersForOperation(
+        providers,
+        healthMap,
+        circuitMap,
+        'fetchPrice',
+        now,
+        thirtyDaysAgo
+      );
+
+      expect(selected).toHaveLength(2);
+      // CryptoCompare should win: 100 + 20 + 20 (hourly) = 140
+      // CoinGecko should lose: 100 + 20 - 10 = 110
+      expect(selected[0]?.metadata.name).toBe('cryptocompare');
+      expect(selected[0]?.score).toBeGreaterThan(selected[1]?.score ?? 0);
+    });
+
+    it('should prefer provider with minute data over hourly when both available', () => {
+      // Binance-like: minute (365d), day (unlimited)
+      const binance = createMockProvider(
+        'binance',
+        ['fetchPrice'],
+        [
+          { granularity: 'minute', maxHistoryDays: 365 },
+          { granularity: 'day', maxHistoryDays: undefined },
+        ]
+      );
+
+      // CryptoCompare-like: minute (7d), hour (90d), day (unlimited)
+      const cryptoCompare = createMockProvider(
+        'cryptocompare',
+        ['fetchPrice'],
+        [
+          { granularity: 'minute', maxHistoryDays: 7 },
+          { granularity: 'hour', maxHistoryDays: 90 },
+          { granularity: 'day', maxHistoryDays: undefined },
+        ]
+      );
+
+      const providers = [cryptoCompare, binance];
+
+      const healthMap = new Map<string, ProviderHealth>([
+        ['binance', ProviderManagerUtils.createInitialHealth()],
+        ['cryptocompare', ProviderManagerUtils.createInitialHealth()],
+      ]);
+
+      const circuitMap = new Map([
+        ['binance', createInitialCircuitState()],
+        ['cryptocompare', createInitialCircuitState()],
+      ]);
+
+      const now = new Date('2024-01-22T14:30:00Z').getTime();
+      const thirtyDaysAgo = new Date('2023-12-23T14:30:00Z'); // 30 days ago
+
+      const selected = ProviderManagerUtils.selectProvidersForOperation(
+        providers,
+        healthMap,
+        circuitMap,
+        'fetchPrice',
+        now,
+        thirtyDaysAgo
+      );
+
+      expect(selected).toHaveLength(2);
+      // Binance should win: 100 + 20 + 30 (minute) = 150
+      // CryptoCompare: 100 + 20 + 20 (hourly) = 140
+      expect(selected[0]?.metadata.name).toBe('binance');
+      expect(selected[1]?.metadata.name).toBe('cryptocompare');
+    });
+
+    it('should not apply granularity bonus for midnight UTC requests', () => {
+      // CryptoCompare with intraday support
+      const cryptoCompare = createMockProvider(
+        'cryptocompare',
+        ['fetchPrice'],
+        [{ granularity: 'minute', maxHistoryDays: 7 }]
+      );
+
+      // CoinGecko with daily only
+      const coinGecko = createMockProvider(
+        'coingecko',
+        ['fetchPrice'],
+        [{ granularity: 'day', maxHistoryDays: undefined }]
+      );
+
+      const providers = [coinGecko, cryptoCompare];
+
+      const healthMap = new Map<string, ProviderHealth>([
+        ['cryptocompare', ProviderManagerUtils.createInitialHealth()],
+        ['coingecko', ProviderManagerUtils.createInitialHealth()],
+      ]);
+
+      const circuitMap = new Map([
+        ['cryptocompare', createInitialCircuitState()],
+        ['coingecko', createInitialCircuitState()],
+      ]);
+
+      const now = new Date('2024-01-22T00:00:00Z').getTime();
+      const fiveDaysAgoMidnight = new Date('2024-01-17T00:00:00Z'); // Midnight UTC
+
+      const selected = ProviderManagerUtils.selectProvidersForOperation(
+        providers,
+        healthMap,
+        circuitMap,
+        'fetchPrice',
+        now,
+        fiveDaysAgoMidnight
+      );
+
+      expect(selected).toHaveLength(2);
+      // Both should have same score: 100 + 20 + 0 (no granularity bonus for daily) = 120
+      expect(selected[0]?.score).toBe(120);
+      expect(selected[1]?.score).toBe(120);
+    });
+
+    it('should fall back to daily when intraday data unavailable for old requests', () => {
+      // CryptoCompare-like: minute (7d), hour (90d), day (unlimited)
+      const cryptoCompare = createMockProvider(
+        'cryptocompare',
+        ['fetchPrice'],
+        [
+          { granularity: 'minute', maxHistoryDays: 7 },
+          { granularity: 'hour', maxHistoryDays: 90 },
+          { granularity: 'day', maxHistoryDays: undefined },
+        ]
+      );
+
+      // CoinGecko-like: daily only
+      const coinGecko = createMockProvider(
+        'coingecko',
+        ['fetchPrice'],
+        [{ granularity: 'day', maxHistoryDays: undefined }]
+      );
+
+      const providers = [cryptoCompare, coinGecko];
+
+      const healthMap = new Map<string, ProviderHealth>([
+        ['cryptocompare', ProviderManagerUtils.createInitialHealth()],
+        ['coingecko', ProviderManagerUtils.createInitialHealth()],
+      ]);
+
+      const circuitMap = new Map([
+        ['cryptocompare', createInitialCircuitState()],
+        ['coingecko', createInitialCircuitState()],
+      ]);
+
+      const now = new Date('2024-01-22T14:30:00Z').getTime();
+      const twoHundredDaysAgo = new Date('2023-07-06T14:30:00Z'); // 200 days ago, intraday
+
+      const selected = ProviderManagerUtils.selectProvidersForOperation(
+        providers,
+        healthMap,
+        circuitMap,
+        'fetchPrice',
+        now,
+        twoHundredDaysAgo
+      );
+
+      expect(selected).toHaveLength(2);
+      // Both should have same penalty for intraday without support
+      // CryptoCompare: 100 + 20 - 10 = 110
+      // CoinGecko: 100 + 20 - 10 = 110
+      expect(selected[0]?.score).toBe(110);
+      expect(selected[1]?.score).toBe(110);
+    });
   });
 });
 

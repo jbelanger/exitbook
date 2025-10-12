@@ -17,6 +17,63 @@ export function isCacheValid(expiry: number, now: number): boolean {
 }
 
 /**
+ * Calculate granularity bonus for a provider based on timestamp and capabilities
+ * Pure function - returns bonus score based on provider's declared granularity support
+ */
+export function calculateGranularityBonus(metadata: ProviderMetadata, timestamp: Date, now: number): number {
+  const diffMs = now - timestamp.getTime();
+  const diffDays = diffMs / (1000 * 60 * 60 * 24);
+
+  // Check if this is an intraday request (not midnight UTC)
+  const isIntradayRequest =
+    timestamp.getUTCHours() !== 0 || timestamp.getUTCMinutes() !== 0 || timestamp.getUTCSeconds() !== 0;
+
+  if (!isIntradayRequest) {
+    return 0; // No bonus for daily requests
+  }
+
+  // Provider must declare granularity support
+  if (!metadata.capabilities.granularitySupport || metadata.capabilities.granularitySupport.length === 0) {
+    // Default to assuming only daily data available
+    return -10; // Penalty for not supporting intraday
+  }
+
+  // Find best available granularity for this timestamp age
+  let bestGranularity: 'minute' | 'hour' | 'day' | undefined;
+  let bestBonus = 0;
+
+  for (const support of metadata.capabilities.granularitySupport) {
+    // Check if this granularity is available for the requested timestamp age
+    const isAvailable = support.maxHistoryDays === undefined || diffDays <= support.maxHistoryDays;
+
+    if (isAvailable) {
+      // Assign bonus based on granularity level
+      let bonus = 0;
+      if (support.granularity === 'minute') {
+        bonus = 30; // Highest priority for minute data
+      } else if (support.granularity === 'hour') {
+        bonus = 20; // High priority for hourly data
+      } else if (support.granularity === 'day') {
+        bonus = 0; // No bonus for daily (baseline)
+      }
+
+      // Track the best (highest bonus) available granularity
+      if (bonus > bestBonus) {
+        bestBonus = bonus;
+        bestGranularity = support.granularity;
+      }
+    }
+  }
+
+  // If only daily data available for intraday request, penalize
+  if (bestGranularity === 'day' || bestGranularity === undefined) {
+    return -10; // Penalty for not supporting intraday when needed
+  }
+
+  return bestBonus;
+}
+
+/**
  * Score a provider based on health, performance, and priority
  * Pure function - takes all context as parameters
  */
@@ -24,7 +81,8 @@ export function scoreProvider(
   metadata: ProviderMetadata,
   health: ProviderHealth,
   circuitState: CircuitState,
-  now: number
+  now: number,
+  timestamp?: Date
 ): number {
   let score = 100; // Base score
 
@@ -45,6 +103,11 @@ export function scoreProvider(
   // Consecutive failure penalties
   score -= health.consecutiveFailures * 10;
 
+  // Granularity bonus (if timestamp provided)
+  if (timestamp) {
+    score += calculateGranularityBonus(metadata, timestamp, now);
+  }
+
   return Math.max(0, score);
 }
 
@@ -64,7 +127,8 @@ export function selectProvidersForOperation(
   healthMap: Map<string, ProviderHealth>,
   circuitMap: Map<string, CircuitState>,
   operationType: string,
-  now: number
+  now: number,
+  timestamp?: Date
 ): {
   health: ProviderHealth;
   metadata: ProviderMetadata;
@@ -91,7 +155,7 @@ export function selectProvidersForOperation(
         health,
         metadata,
         provider,
-        score: scoreProvider(metadata, health, circuitState, now),
+        score: scoreProvider(metadata, health, circuitState, now, timestamp),
       };
     })
     .filter((item): item is NonNullable<typeof item> => item !== undefined)

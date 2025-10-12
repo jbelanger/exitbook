@@ -78,6 +78,31 @@ vi.mock('../../cryptocompare/provider.js', () => ({
   })),
 }));
 
+// Mock Binance provider creation
+vi.mock('../../binance/provider.js', () => ({
+  createBinanceProvider: vi.fn(() => ({
+    isErr: () => false,
+    isOk: () => true,
+    value: {
+      getMetadata: () => ({
+        capabilities: {
+          supportedCurrencies: ['USD', 'USDT', 'BUSD'],
+          supportedOperations: ['fetchPrice'],
+          rateLimit: {
+            burstLimit: 50,
+            requestsPerHour: 6000,
+            requestsPerMinute: 1200,
+            requestsPerSecond: 20,
+          },
+        },
+        displayName: 'Binance',
+        name: 'binance',
+        requiresApiKey: false,
+      }),
+    },
+  })),
+}));
+
 vi.mock('@exitbook/shared-logger', () => ({
   getLogger: () => ({
     debug: vi.fn(),
@@ -99,16 +124,17 @@ describe('createPriceProviders', () => {
     process.env = originalEnv;
   });
 
-  it('should create both providers by default', async () => {
+  it('should create all providers by default', async () => {
     const result = await createPriceProviders();
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       const providers = result.value;
-      // Both CoinGecko and CryptoCompare are enabled by default
-      expect(providers).toHaveLength(2);
-      expect(providers[0]?.getMetadata().name).toBe('coingecko');
-      expect(providers[1]?.getMetadata().name).toBe('cryptocompare');
+      // All providers (Binance, CoinGecko, CryptoCompare) are enabled by default
+      expect(providers).toHaveLength(3);
+      expect(providers[0]?.getMetadata().name).toBe('binance');
+      expect(providers[1]?.getMetadata().name).toBe('coingecko');
+      expect(providers[2]?.getMetadata().name).toBe('cryptocompare');
     }
   });
 
@@ -159,6 +185,7 @@ describe('createPriceProviders', () => {
 
   it('should respect enabled: false', async () => {
     const result = await createPriceProviders({
+      binance: { enabled: false },
       coingecko: { enabled: false },
       cryptocompare: { enabled: false },
     });
@@ -176,7 +203,8 @@ describe('createPriceProviders', () => {
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       const providers = result.value;
-      const coinGeckoProvider = providers[0];
+      // CoinGecko is at index 1 (after Binance)
+      const coinGeckoProvider = providers[1];
 
       // CoinGecko provider has initialize() hook
       // eslint-disable-next-line @typescript-eslint/unbound-method -- Extracting method for vitest mock assertion
@@ -238,9 +266,10 @@ describe('createPriceProviders', () => {
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       const providers = result.value;
-      // Only CryptoCompare should succeed
-      expect(providers).toHaveLength(1);
-      expect(providers[0]?.getMetadata().name).toBe('cryptocompare');
+      // Binance and CryptoCompare should succeed (CoinGecko failed initialization)
+      expect(providers).toHaveLength(2);
+      expect(providers[0]?.getMetadata().name).toBe('binance');
+      expect(providers[1]?.getMetadata().name).toBe('cryptocompare');
     }
   });
 });
@@ -248,9 +277,10 @@ describe('createPriceProviders', () => {
 describe('getAvailableProviderNames', () => {
   it('should return available providers dynamically', () => {
     const names = getAvailableProviderNames();
+    expect(names).toContain('binance');
     expect(names).toContain('coingecko');
     expect(names).toContain('cryptocompare');
-    expect(names).toHaveLength(2);
+    expect(names).toHaveLength(3);
   });
 });
 
@@ -316,6 +346,7 @@ describe('createPriceProviderManager', () => {
   it('should return error if provider creation fails', async () => {
     const result = await createPriceProviderManager({
       providers: {
+        binance: { enabled: false },
         coingecko: { enabled: false },
         cryptocompare: { enabled: false },
       },

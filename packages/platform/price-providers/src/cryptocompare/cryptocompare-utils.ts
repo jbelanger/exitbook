@@ -5,7 +5,9 @@
  */
 
 import type { Currency } from '@exitbook/core';
+import { err, ok, type Result } from 'neverthrow';
 
+import { roundTimestampByGranularity, validateRawPrice } from '../shared/shared-utils.js';
 import type { PriceData } from '../shared/types/index.js';
 
 import type { CryptoCompareHistoricalResponse, CryptoCompareOHLCV, CryptoComparePriceResponse } from './schemas.js';
@@ -21,21 +23,27 @@ export function transformPriceResponse(
   timestamp: Date,
   currency: Currency,
   fetchedAt: Date
-): PriceData {
-  const price = response[currency.toString()];
+): Result<PriceData, Error> {
+  const rawPrice = response[currency.toString()];
 
-  if (price === undefined) {
-    throw new Error(`Currency ${currency.toString()} not found in response`);
+  // Validate price using shared helper
+  const priceResult = validateRawPrice(rawPrice, asset, 'CryptoCompare');
+  if (priceResult.isErr()) {
+    return err(priceResult.error);
   }
 
-  return {
+  const granularity = undefined;
+  const roundedTimestamp = roundTimestampByGranularity(timestamp, granularity);
+
+  return ok({
     asset,
-    timestamp,
-    price,
+    timestamp: roundedTimestamp,
+    price: priceResult.value,
     currency,
     source: 'cryptocompare',
     fetchedAt,
-  };
+    granularity,
+  });
 }
 
 /**
@@ -83,28 +91,55 @@ export function transformHistoricalResponse(
   asset: Currency,
   timestamp: Date,
   currency: Currency,
-  fetchedAt: Date
-): PriceData {
+  fetchedAt: Date,
+  granularity: 'minute' | 'hour' | 'day'
+): Result<PriceData, Error> {
   if (response.Response !== 'Success') {
-    throw new Error(`CryptoCompare API error: ${response.Message || 'Unknown error'}`);
+    return err(new Error(`CryptoCompare API error: ${response.Message || 'Unknown error'}`));
+  }
+
+  // Check if Data structure exists
+  if (!response.Data || !response.Data.Data || response.Data.Data.length === 0) {
+    return err(
+      new Error(
+        `CryptoCompare has no historical data for ${asset.toString()}. ` +
+          `Asset may not be listed on CryptoCompare. ${response.Message ? `Message: ${response.Message}` : ''}`
+      )
+    );
   }
 
   const targetTimestamp = Math.floor(timestamp.getTime() / 1000);
   const dataPoint = findClosestDataPoint(response.Data.Data, targetTimestamp);
 
   if (!dataPoint) {
-    throw new Error(`No historical data found for timestamp ${timestamp.toISOString()}`);
+    return err(
+      new Error(`CryptoCompare: no data found for ${asset.toString()} at ${timestamp.toISOString().split('T')[0]}`)
+    );
   }
 
-  // Use close price as the price for this timestamp
-  return {
+  // Validate close price using shared helper
+  const priceResult = validateRawPrice(
+    dataPoint.close,
     asset,
-    timestamp,
-    price: dataPoint.close,
+    `CryptoCompare at ${timestamp.toISOString().split('T')[0]}`
+  );
+  if (priceResult.isErr()) {
+    return err(priceResult.error);
+  }
+
+  // Round timestamp to granularity bucket
+  const roundedTimestamp = roundTimestampByGranularity(timestamp, granularity);
+
+  // Use close price as the price for this timestamp
+  return ok({
+    asset,
+    timestamp: roundedTimestamp,
+    price: priceResult.value,
     currency,
     source: 'cryptocompare',
     fetchedAt,
-  };
+    granularity,
+  });
 }
 
 /**

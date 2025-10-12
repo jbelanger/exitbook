@@ -1,6 +1,6 @@
+import type { UniversalTransaction } from '@exitbook/core';
 import { createMoney } from '@exitbook/core';
-import type { ITransactionRepository } from '@exitbook/import/app/ports/transaction-repository.js';
-import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
+import type { ITransactionRepository } from '@exitbook/data';
 import type { CosmosChainConfig, CosmosTransaction } from '@exitbook/providers';
 import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';

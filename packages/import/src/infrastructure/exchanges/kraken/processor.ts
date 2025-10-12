@@ -1,6 +1,6 @@
 import { createMoney, getErrorMessage, parseDecimal } from '@exitbook/core';
+import type { UniversalTransaction } from '@exitbook/core';
 import type { KrakenLedgerEntry } from '@exitbook/exchanges';
-import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
 import { type Result, ok } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';

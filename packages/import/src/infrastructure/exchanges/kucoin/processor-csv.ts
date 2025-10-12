@@ -1,5 +1,5 @@
 import { parseDecimal, createMoney, getErrorMessage } from '@exitbook/core';
-import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
+import type { UniversalTransaction } from '@exitbook/core';
 import { type Result, ok } from 'neverthrow';
 
 import { BaseTransactionProcessor } from '../../shared/processors/base-transaction-processor.ts';

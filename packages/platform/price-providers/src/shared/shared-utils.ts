@@ -5,9 +5,28 @@
  * without mocks. They handle the "functional core" of price data processing.
  */
 
+import type { Currency } from '@exitbook/core';
 import { HttpClient } from '@exitbook/platform-http';
+import type { Result } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 
 import type { PriceData, PriceQuery } from './types/index.ts';
+
+/**
+ * Validate a raw price value from an API response
+ *
+ * @param price - Raw price value (may be undefined or invalid)
+ * @param asset - Asset being priced
+ * @param context - Context for error message (e.g., provider name, coin ID)
+ * @returns Ok with price if valid, Err if invalid
+ */
+export function validateRawPrice(price: number | undefined, asset: Currency, context: string): Result<number, Error> {
+  if (price === undefined || price <= 0) {
+    const reason = price === undefined ? 'not found' : `invalid (${price}, must be positive)`;
+    return err(new Error(`${context} price for ${asset.toString()}: ${reason}`));
+  }
+  return ok(price);
+}
 
 /**
  * Round timestamp to nearest day (for daily price lookups)
@@ -16,6 +35,42 @@ export function roundToDay(date: Date): Date {
   const rounded = new Date(date);
   rounded.setUTCHours(0, 0, 0, 0);
   return rounded;
+}
+
+/**
+ * Round timestamp to nearest hour (for hourly price lookups)
+ */
+export function roundToHour(date: Date): Date {
+  const rounded = new Date(date);
+  rounded.setUTCMinutes(0, 0, 0);
+  return rounded;
+}
+
+/**
+ * Round timestamp to nearest minute (for minute-level price lookups)
+ */
+export function roundToMinute(date: Date): Date {
+  const rounded = new Date(date);
+  rounded.setUTCSeconds(0, 0);
+  return rounded;
+}
+
+/**
+ * Round timestamp based on granularity
+ * For undefined granularity (spot prices), returns original timestamp
+ */
+export function roundTimestampByGranularity(date: Date, granularity: 'minute' | 'hour' | 'day' | undefined): Date {
+  if (granularity === 'day') {
+    return roundToDay(date);
+  }
+  if (granularity === 'hour') {
+    return roundToHour(date);
+  }
+  if (granularity === 'minute') {
+    return roundToMinute(date);
+  }
+  // Undefined granularity (spot price) - keep exact timestamp
+  return date;
 }
 
 /**

@@ -1,0 +1,28 @@
+{
+  "name": "@exitbook/accounting",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest"
+  },
+  "dependencies": {
+    "decimal.js": "^10.4.3",
+    "neverthrow": "^8.2.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "typescript": "~5.7.3",
+    "vitest": "^3.0.5"
+  },
+  "peerDependencies": {
+    "@exitbook/core": "workspace:*",
+    "@exitbook/data": "workspace:*",
+    "@exitbook/platform-http": "workspace:*",
+    "@exitbook/shared-logger": "workspace:*"
+  }
+}

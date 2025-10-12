@@ -1,4 +1,4 @@
-import type { Kysely } from 'kysely';
+import { sql, type Kysely } from 'kysely';
 
 import type { PricesDatabase } from '../schema.js';
 
@@ -13,7 +13,7 @@ export async function up(db: Kysely<PricesDatabase>): Promise<void> {
     .addColumn('coin_list_count', 'integer', (col) => col.notNull().defaultTo(0))
     .addColumn('is_active', 'boolean', (col) => col.notNull().defaultTo(true))
     .addColumn('metadata', 'text', (col) => col.notNull().defaultTo('{}'))
-    .addColumn('created_at', 'text', (col) => col.notNull().defaultTo('datetime("now")'))
+    .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
     .addColumn('updated_at', 'text')
     .execute();
 
@@ -26,7 +26,7 @@ export async function up(db: Kysely<PricesDatabase>): Promise<void> {
     .addColumn('coin_id', 'text', (col) => col.notNull())
     .addColumn('coin_name', 'text', (col) => col.notNull())
     .addColumn('priority', 'integer', (col) => col.notNull().defaultTo(0))
-    .addColumn('created_at', 'text', (col) => col.notNull().defaultTo('datetime("now")'))
+    .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
     .addColumn('updated_at', 'text')
     .execute();
 
@@ -55,8 +55,8 @@ export async function up(db: Kysely<PricesDatabase>): Promise<void> {
     .addColumn('price', 'text', (col) => col.notNull())
     .addColumn('source_provider', 'text', (col) => col.notNull())
     .addColumn('provider_coin_id', 'text')
+    .addColumn('granularity', 'text')
     .addColumn('fetched_at', 'text', (col) => col.notNull())
-    .addColumn('created_at', 'text', (col) => col.notNull().defaultTo('datetime("now")'))
     .addColumn('updated_at', 'text')
     .execute();
 

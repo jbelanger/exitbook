@@ -7,7 +7,7 @@ import { wrapError } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import { ok } from 'neverthrow';
 
-import { roundToDay } from '../../shared/shared-utils.ts';
+import { roundToDay, roundToHour, roundToMinute } from '../../shared/shared-utils.js';
 import type { PriceData } from '../../shared/types/index.js';
 import type { PricesDB } from '../database.js';
 
@@ -19,8 +19,8 @@ export interface PriceRecord {
   price: string;
   source_provider: string;
   provider_coin_id: string | null;
+  granularity: string | undefined;
   fetched_at: string;
-  created_at: string;
   updated_at: string | null;
 }
 
@@ -32,28 +32,67 @@ export class PriceRepository {
 
   /**
    * Get cached price for asset/currency/timestamp
+   * Tries multiple granularity levels: minute, hour, day
+   * Returns the most precise match available
    */
   async getPrice(asset: Currency, currency: Currency, timestamp: Date): Promise<Result<PriceData | undefined, Error>> {
     try {
-      const roundedDate = roundToDay(timestamp);
-      const timestampStr = roundedDate.toISOString();
+      // Try to find exact matches at different granularities (most precise first)
+      const minuteBucket = roundToMinute(timestamp);
+      const hourBucket = roundToHour(timestamp);
+      const dayBucket = roundToDay(timestamp);
 
-      const record = await this.db
+      // Query for any prices on the same day (covers all granularities)
+      const startOfDay = new Date(dayBucket);
+      const endOfDay = new Date(dayBucket);
+      endOfDay.setUTCHours(23, 59, 59, 999);
+
+      const records = await this.db
         .selectFrom('prices')
         .selectAll()
         .where('asset_symbol', '=', asset.toString())
         .where('currency', '=', currency.toString())
-        .where('timestamp', '=', timestampStr)
-        .executeTakeFirst();
+        .where('timestamp', '>=', startOfDay.toISOString())
+        .where('timestamp', '<=', endOfDay.toISOString())
+        .execute();
 
-      if (!record) {
+      if (records.length === 0) {
         // eslint-disable-next-line unicorn/no-useless-undefined -- explicit undefined for clarity
         return ok(undefined);
       }
 
-      const priceData: PriceData = this.recordToPriceData(record);
+      // Prefer exact granularity matches
+      // 1. Try minute bucket
+      const minuteMatch = records.find((r) => r.timestamp === minuteBucket.toISOString());
+      if (minuteMatch) {
+        return ok(this.recordToPriceData(minuteMatch));
+      }
 
-      return ok(priceData);
+      // 2. Try hour bucket
+      const hourMatch = records.find((r) => r.timestamp === hourBucket.toISOString());
+      if (hourMatch) {
+        return ok(this.recordToPriceData(hourMatch));
+      }
+
+      // 3. Try day bucket
+      const dayMatch = records.find((r) => r.timestamp === dayBucket.toISOString());
+      if (dayMatch) {
+        return ok(this.recordToPriceData(dayMatch));
+      }
+
+      // 4. No exact bucket match - find closest timestamp
+      let closestRecord = records[0]!;
+      let smallestDiff = Math.abs(new Date(closestRecord.timestamp).getTime() - timestamp.getTime());
+
+      for (const record of records.slice(1)) {
+        const diff = Math.abs(new Date(record.timestamp).getTime() - timestamp.getTime());
+        if (diff < smallestDiff) {
+          smallestDiff = diff;
+          closestRecord = record;
+        }
+      }
+
+      return ok(this.recordToPriceData(closestRecord));
     } catch (error) {
       return wrapError(error, `Failed to get price`);
     }
@@ -64,8 +103,7 @@ export class PriceRepository {
    */
   async savePrice(priceData: PriceData, providerCoinId?: string): Promise<Result<void, Error>> {
     try {
-      const roundedDate = roundToDay(priceData.timestamp);
-      const timestampStr = roundedDate.toISOString();
+      const timestampStr = priceData.timestamp.toISOString();
 
       await this.db
         .insertInto('prices')
@@ -76,6 +114,7 @@ export class PriceRepository {
           price: priceData.price.toString(),
           source_provider: priceData.source,
           provider_coin_id: providerCoinId ?? undefined,
+          granularity: priceData.granularity ?? undefined,
           fetched_at: priceData.fetchedAt.toISOString(),
         })
         .onConflict((oc) =>
@@ -83,8 +122,9 @@ export class PriceRepository {
             price: priceData.price.toString(),
             source_provider: priceData.source,
             provider_coin_id: providerCoinId ?? undefined,
+            granularity: priceData.granularity ?? undefined,
             fetched_at: priceData.fetchedAt.toISOString(),
-            updated_at: new Date().toISOString(),
+            updated_at: this.getCurrentDateTimeForDB(),
           })
         )
         .execute();
@@ -131,8 +171,8 @@ export class PriceRepository {
     endDate: Date
   ): Promise<Result<PriceData[], Error>> {
     try {
-      const startStr = roundToDay(startDate).toISOString();
-      const endStr = roundToDay(endDate).toISOString();
+      const startStr = startDate.toISOString();
+      const endStr = endDate.toISOString();
 
       const records = await this.db
         .selectFrom('prices')
@@ -153,25 +193,34 @@ export class PriceRepository {
   }
 
   /**
-   * Check if price exists in cache
+   * Check if price exists in cache for the given day
    */
   async hasPrice(asset: string, currency: string, timestamp: Date): Promise<Result<boolean, Error>> {
     try {
-      const roundedDate = roundToDay(timestamp);
-      const timestampStr = roundedDate.toISOString();
+      // Look for prices on the same day
+      const startOfDay = new Date(timestamp);
+      startOfDay.setUTCHours(0, 0, 0, 0);
+
+      const endOfDay = new Date(timestamp);
+      endOfDay.setUTCHours(23, 59, 59, 999);
 
       const count = await this.db
         .selectFrom('prices')
         .select((eb) => eb.fn.countAll().as('count'))
         .where('asset_symbol', '=', asset.toUpperCase())
         .where('currency', '=', currency.toUpperCase())
-        .where('timestamp', '=', timestampStr)
+        .where('timestamp', '>=', startOfDay.toISOString())
+        .where('timestamp', '<=', endOfDay.toISOString())
         .executeTakeFirst();
 
       return ok(Number(count?.count ?? 0) > 0);
     } catch (error) {
       return wrapError(error, `Failed to check price existence`);
     }
+  }
+
+  private getCurrentDateTimeForDB(): string {
+    return new Date().toISOString();
   }
 
   private recordToPriceData(record: PriceRecord): PriceData {
@@ -182,6 +231,7 @@ export class PriceRepository {
       price: parseFloat(record.price),
       source: record.source_provider,
       fetchedAt: new Date(record.fetched_at),
+      granularity: record.granularity as 'minute' | 'hour' | 'day' | undefined,
     };
   }
 }
