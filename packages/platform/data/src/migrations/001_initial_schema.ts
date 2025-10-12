@@ -139,9 +139,91 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .columns(['source_id', 'external_id'])
     .unique()
     .execute();
+
+  // Create cost_basis_calculations table
+  await db.schema
+    .createTable('cost_basis_calculations')
+    .addColumn('id', 'text', (col) => col.primaryKey())
+    .addColumn('calculation_date', 'integer', (col) => col.notNull())
+    .addColumn('config_json', 'text', (col) => col.notNull())
+    .addColumn('start_date', 'integer')
+    .addColumn('end_date', 'integer')
+    .addColumn('total_proceeds', 'text', (col) => col.notNull())
+    .addColumn('total_cost_basis', 'text', (col) => col.notNull())
+    .addColumn('total_gain_loss', 'text', (col) => col.notNull())
+    .addColumn('total_taxable_gain_loss', 'text', (col) => col.notNull())
+    .addColumn('assets_processed', 'text', (col) => col.notNull())
+    .addColumn('transactions_processed', 'integer', (col) => col.notNull())
+    .addColumn('lots_created', 'integer', (col) => col.notNull())
+    .addColumn('disposals_processed', 'integer', (col) => col.notNull())
+    .addColumn('status', 'text', (col) => col.notNull())
+    .addColumn('error_message', 'text')
+    .addColumn('created_at', 'integer', (col) => col.notNull())
+    .addColumn('completed_at', 'integer')
+    .addColumn('metadata_json', 'text')
+    .execute();
+
+  // Create acquisition_lots table
+  await db.schema
+    .createTable('acquisition_lots')
+    .addColumn('id', 'text', (col) => col.primaryKey())
+    .addColumn('calculation_id', 'text', (col) => col.notNull().references('cost_basis_calculations.id'))
+    .addColumn('acquisition_transaction_id', 'integer', (col) => col.notNull().references('transactions.id'))
+    .addColumn('asset', 'text', (col) => col.notNull())
+    .addColumn('quantity', 'text', (col) => col.notNull())
+    .addColumn('cost_basis_per_unit', 'text', (col) => col.notNull())
+    .addColumn('total_cost_basis', 'text', (col) => col.notNull())
+    .addColumn('acquisition_date', 'integer', (col) => col.notNull())
+    .addColumn('method', 'text', (col) => col.notNull())
+    .addColumn('remaining_quantity', 'text', (col) => col.notNull())
+    .addColumn('status', 'text', (col) => col.notNull())
+    .addColumn('created_at', 'integer', (col) => col.notNull())
+    .addColumn('updated_at', 'integer', (col) => col.notNull())
+    .addColumn('metadata_json', 'text')
+    .execute();
+
+  // Create indexes for acquisition_lots
+  await db.schema.createIndex('idx_lots_asset').on('acquisition_lots').column('asset').execute();
+
+  await db.schema.createIndex('idx_lots_calc_id').on('acquisition_lots').column('calculation_id').execute();
+
+  await db.schema.createIndex('idx_lots_status').on('acquisition_lots').column('status').execute();
+
+  // Create lot_disposals table
+  await db.schema
+    .createTable('lot_disposals')
+    .addColumn('id', 'text', (col) => col.primaryKey())
+    .addColumn('lot_id', 'text', (col) => col.notNull().references('acquisition_lots.id'))
+    .addColumn('disposal_transaction_id', 'integer', (col) => col.notNull().references('transactions.id'))
+    .addColumn('quantity_disposed', 'text', (col) => col.notNull())
+    .addColumn('proceeds_per_unit', 'text', (col) => col.notNull())
+    .addColumn('total_proceeds', 'text', (col) => col.notNull())
+    .addColumn('cost_basis_per_unit', 'text', (col) => col.notNull())
+    .addColumn('total_cost_basis', 'text', (col) => col.notNull())
+    .addColumn('gain_loss', 'text', (col) => col.notNull())
+    .addColumn('disposal_date', 'integer', (col) => col.notNull())
+    .addColumn('holding_period_days', 'integer', (col) => col.notNull())
+    .addColumn('tax_treatment_category', 'text')
+    .addColumn('created_at', 'integer', (col) => col.notNull())
+    .addColumn('metadata_json', 'text')
+    .execute();
+
+  // Create indexes for lot_disposals
+  await db.schema.createIndex('idx_disposals_lot_id').on('lot_disposals').column('lot_id').execute();
+
+  await db.schema
+    .createIndex('idx_disposals_transaction_id')
+    .on('lot_disposals')
+    .column('disposal_transaction_id')
+    .execute();
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {
+  // Drop accounting tables first (due to foreign keys)
+  await db.schema.dropTable('lot_disposals').execute();
+  await db.schema.dropTable('acquisition_lots').execute();
+  await db.schema.dropTable('cost_basis_calculations').execute();
+  // Drop transaction-related tables
   await db.schema.dropTable('transactions').execute();
   await db.schema.dropTable('import_session_errors').execute();
   await db.schema.dropTable('external_transaction_data').execute();

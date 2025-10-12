@@ -190,12 +190,79 @@ export interface ImportSessionErrorsTable {
 }
 
 /**
+ * Cost basis calculations - tracks calculation runs and summary results
+ */
+export interface CostBasisCalculationsTable {
+  id: string; // UUID
+  calculation_date: number; // Unix timestamp
+  config_json: JSONString; // CostBasisConfig
+  start_date: number | null; // Unix timestamp
+  end_date: number | null; // Unix timestamp
+  total_proceeds: DecimalString;
+  total_cost_basis: DecimalString;
+  total_gain_loss: DecimalString;
+  total_taxable_gain_loss: DecimalString; // After jurisdiction rules (e.g., 50% for Canada)
+  assets_processed: JSONString; // Array of asset symbols
+  transactions_processed: number;
+  lots_created: number;
+  disposals_processed: number;
+  status: 'pending' | 'completed' | 'failed';
+  error_message: string | null;
+  created_at: number; // Unix timestamp
+  completed_at: number | null; // Unix timestamp
+  metadata_json: JSONString | null;
+}
+
+/**
+ * Acquisition lots - tracks acquisition transactions for cost basis matching
+ */
+export interface AcquisitionLotsTable {
+  id: string; // UUID
+  calculation_id: string; // FK to cost_basis_calculations.id
+  acquisition_transaction_id: number; // FK to transactions.id
+  asset: string; // BTC, ETH, etc.
+  quantity: DecimalString;
+  cost_basis_per_unit: DecimalString;
+  total_cost_basis: DecimalString;
+  acquisition_date: number; // Unix timestamp
+  method: 'fifo' | 'lifo' | 'specific-id' | 'average-cost';
+  remaining_quantity: DecimalString;
+  status: 'open' | 'partially_disposed' | 'fully_disposed';
+  created_at: number; // Unix timestamp
+  updated_at: number; // Unix timestamp
+  metadata_json: JSONString | null;
+}
+
+/**
+ * Lot disposals - tracks disposal matches and capital gains/losses
+ */
+export interface LotDisposalsTable {
+  id: string; // UUID
+  lot_id: string; // FK to acquisition_lots.id
+  disposal_transaction_id: number; // FK to transactions.id
+  quantity_disposed: DecimalString;
+  proceeds_per_unit: DecimalString;
+  total_proceeds: DecimalString;
+  cost_basis_per_unit: DecimalString;
+  total_cost_basis: DecimalString;
+  gain_loss: DecimalString;
+  disposal_date: number; // Unix timestamp
+  holding_period_days: number;
+  tax_treatment_category: string | null; // null (Canada), 'short_term'/'long_term' (US)
+  created_at: number; // Unix timestamp
+  metadata_json: JSONString | null;
+}
+
+/**
  * Main database interface combining all tables
  */
 export interface DatabaseSchema {
+  acquisition_lots: AcquisitionLotsTable;
+  cost_basis_calculations: CostBasisCalculationsTable;
   external_transaction_data: ExternalTransactionDataTable;
   import_session_errors: ImportSessionErrorsTable;
   import_sessions: ImportSessionsTable;
+  lot_disposals: LotDisposalsTable;
   transactions: TransactionsTable;
   wallet_addresses: WalletAddressesTable;
 }
