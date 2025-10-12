@@ -124,7 +124,19 @@ export function transformBinanceKlineResponse(
  */
 export function buildBinanceKlinesParams(symbol: string, interval: string, timestamp: Date): Record<string, string> {
   // Binance expects timestamps in milliseconds
-  const startTime = timestamp.getTime();
+  let startTime = timestamp.getTime();
+
+  // For minute-level data, ensure we're not requesting an incomplete candle
+  // Binance may not have data for the current/most recent minute since it's still in progress
+  // If the timestamp is within the last 2 minutes, go back to ensure a completed candle
+  if (interval === '1m') {
+    const now = Date.now();
+    const twoMinutesAgo = now - 2 * 60 * 1000;
+
+    if (startTime > twoMinutesAgo) {
+      startTime = twoMinutesAgo;
+    }
+  }
 
   return {
     symbol,

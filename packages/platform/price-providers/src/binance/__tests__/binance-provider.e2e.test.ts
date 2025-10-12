@@ -182,7 +182,8 @@ describe('Binance Provider E2E', () => {
     expect(result.isErr()).toBe(true);
 
     if (result.isErr()) {
-      expect(result.error.message).toMatch(/Binance does not have data|returned no data/i);
+      // Binance returns "Invalid symbol" error for unknown coins
+      expect(result.error.message).toMatch(/Binance does not have data|Invalid symbol/i);
     }
   }, 30000);
 
@@ -207,7 +208,7 @@ describe('Binance Provider E2E', () => {
 
   it('should fetch price for altcoin with lower market cap', async () => {
     const result = await provider.fetchPrice({
-      asset: Currency.create('MATIC'),
+      asset: Currency.create('POL'), // POL (Polygon) - replaced MATIC which was rebranded
       currency: Currency.create('USDT'),
       timestamp: new Date(),
     });
@@ -216,7 +217,7 @@ describe('Binance Provider E2E', () => {
 
     if (result.isOk()) {
       const priceData = result.value;
-      expect(priceData.asset.toString()).toBe('MATIC');
+      expect(priceData.asset.toString()).toBe('POL');
       expect(priceData.currency.toString()).toBe('USDT');
       expect(priceData.price).toBeGreaterThan(0);
       expect(priceData.source).toBe('binance');
