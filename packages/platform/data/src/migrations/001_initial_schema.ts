@@ -1,4 +1,4 @@
-import type { Kysely } from 'kysely';
+import { sql, type Kysely } from 'kysely';
 
 import type { KyselyDB } from '../storage/database.ts';
 
@@ -13,7 +13,7 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('label', 'text')
     .addColumn('notes', 'text')
     .addColumn('is_active', 'boolean', (col) => col.notNull().defaultTo(true))
-    .addColumn('created_at', 'text', (col) => col.notNull().defaultTo('datetime("now")'))
+    .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
     .addColumn('updated_at', 'text')
     .execute();
 
@@ -34,7 +34,7 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('error_details', 'text')
     .addColumn('import_params', 'text', (col) => col.notNull().defaultTo('{}'))
     .addColumn('import_result_metadata', 'text', (col) => col.notNull().defaultTo('{}'))
-    .addColumn('created_at', 'text', (col) => col.notNull().defaultTo('datetime("now")'))
+    .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
     .addColumn('updated_at', 'text')
     .execute();
 
@@ -52,7 +52,7 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('processed_at', 'text')
     .addColumn('processing_error', 'text')
     .addColumn('metadata', 'text')
-    .addColumn('created_at', 'text', (col) => col.notNull().defaultTo('datetime("now")'))
+    .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
     .execute();
 
   // Create unique index on (import_session_id, external_id) to prevent duplicates
@@ -73,7 +73,7 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('error_details', 'text')
     .addColumn('failed_item_data', 'text')
     .addColumn('occurred_at', 'text', (col) => col.notNull())
-    .addColumn('created_at', 'text', (col) => col.notNull().defaultTo('datetime("now")'))
+    .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
     .execute();
 
   // Create index on import_session_id for faster lookups
@@ -123,7 +123,7 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .addColumn('blockchain_block_height', 'integer')
     .addColumn('blockchain_transaction_hash', 'text')
     .addColumn('blockchain_is_confirmed', 'boolean')
-    .addColumn('created_at', 'text', (col) => col.notNull().defaultTo('datetime("now")'))
+    .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`(datetime('now'))`))
     .addColumn('updated_at', 'text')
     .execute();
 

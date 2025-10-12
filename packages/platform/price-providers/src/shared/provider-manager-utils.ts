@@ -17,6 +17,44 @@ export function isCacheValid(expiry: number, now: number): boolean {
 }
 
 /**
+ * Calculate granularity bonus for a provider based on timestamp
+ * Pure function - returns bonus score based on provider's intraday capabilities
+ */
+export function calculateGranularityBonus(providerName: string, timestamp: Date, now: number): number {
+  const diffMs = now - timestamp.getTime();
+  const diffDays = diffMs / (1000 * 60 * 60 * 24);
+
+  // Check if this is an intraday request (not midnight UTC)
+  const isIntradayRequest =
+    timestamp.getUTCHours() !== 0 || timestamp.getUTCMinutes() !== 0 || timestamp.getUTCSeconds() !== 0;
+
+  if (!isIntradayRequest) {
+    return 0; // No bonus for daily requests
+  }
+
+  // CryptoCompare has excellent intraday support
+  if (providerName === 'cryptocompare') {
+    if (diffDays < 7) {
+      return 30; // Minute-level data available - highest priority
+    }
+    if (diffDays < 90) {
+      return 20; // Hourly data available - high priority
+    }
+  }
+
+  // CoinGecko only has daily historical data (current price for <24h)
+  if (providerName === 'coingecko') {
+    if (diffDays < 1) {
+      return 10; // Current price available - some priority
+    }
+    // For older intraday requests, CoinGecko can only provide daily data
+    return -10; // Penalty for not supporting intraday
+  }
+
+  return 0;
+}
+
+/**
  * Score a provider based on health, performance, and priority
  * Pure function - takes all context as parameters
  */
@@ -24,7 +62,8 @@ export function scoreProvider(
   metadata: ProviderMetadata,
   health: ProviderHealth,
   circuitState: CircuitState,
-  now: number
+  now: number,
+  timestamp?: Date
 ): number {
   let score = 100; // Base score
 
@@ -45,6 +84,11 @@ export function scoreProvider(
   // Consecutive failure penalties
   score -= health.consecutiveFailures * 10;
 
+  // Granularity bonus (if timestamp provided)
+  if (timestamp) {
+    score += calculateGranularityBonus(metadata.name, timestamp, now);
+  }
+
   return Math.max(0, score);
 }
 
@@ -64,7 +108,8 @@ export function selectProvidersForOperation(
   healthMap: Map<string, ProviderHealth>,
   circuitMap: Map<string, CircuitState>,
   operationType: string,
-  now: number
+  now: number,
+  timestamp?: Date
 ): {
   health: ProviderHealth;
   metadata: ProviderMetadata;
@@ -91,7 +136,7 @@ export function selectProvidersForOperation(
         health,
         metadata,
         provider,
-        score: scoreProvider(metadata, health, circuitState, now),
+        score: scoreProvider(metadata, health, circuitState, now, timestamp),
       };
     })
     .filter((item): item is NonNullable<typeof item> => item !== undefined)

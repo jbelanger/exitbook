@@ -139,7 +139,7 @@ describe('CoinGeckoProvider', () => {
     };
 
     httpClientGet.mockResolvedValueOnce(apiResponse);
-    mockTransformSimplePriceResponse.mockReturnValueOnce(expectedPrice);
+    mockTransformSimplePriceResponse.mockReturnValueOnce(ok(expectedPrice));
 
     const result = await provider.fetchPrice({
       asset: Currency.create('btc'),
@@ -193,7 +193,7 @@ describe('CoinGeckoProvider', () => {
     };
 
     httpClientGet.mockResolvedValueOnce(apiResponse);
-    mockTransformHistoricalResponse.mockReturnValueOnce(expectedPrice);
+    mockTransformHistoricalResponse.mockReturnValueOnce(ok(expectedPrice));
 
     const result = await provider.fetchPrice({
       asset: Currency.create('btc'),
@@ -234,7 +234,7 @@ describe('CoinGeckoProvider', () => {
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
-      expect(result.error).toEqual(new Error('No CoinGecko coin ID found for symbol: UNKNOWN'));
+      expect(result.error.message).toContain('No CoinGecko coin ID found for symbol: UNKNOWN');
     }
     expect(httpClientGet).not.toHaveBeenCalled();
   });

@@ -14,6 +14,11 @@ export interface PriceQuery {
 }
 
 /**
+ * Price data granularity levels
+ */
+export type PriceGranularity = 'minute' | 'hour' | 'day' | 'current';
+
+/**
  * Normalized price data from any provider
  */
 export interface PriceData {
@@ -23,6 +28,8 @@ export interface PriceData {
   currency: Currency;
   source: string; // Provider name
   fetchedAt: Date;
+  /** Granularity of the price data - indicates precision of timestamp */
+  granularity?: PriceGranularity | undefined;
 }
 
 /**

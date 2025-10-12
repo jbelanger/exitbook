@@ -72,7 +72,7 @@ export function createDatabase(dbPath?: string): Kysely<DatabaseSchema> {
   sqliteDb.pragma('cache_size = 10000');
   sqliteDb.pragma('temp_store = memory');
 
-  logger.info(`Connected to SQLite database using Kysely: ${finalPath}`);
+  logger.info(`Connected to SQLite database: ${finalPath}`);
 
   // Wrap better-sqlite3 database to auto-convert types
   const wrappedDb = wrapSqliteDatabase(sqliteDb);

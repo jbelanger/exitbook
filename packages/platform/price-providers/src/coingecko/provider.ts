@@ -11,6 +11,7 @@ import type { PricesDB } from '../persistence/database.ts';
 import { PriceRepository } from '../persistence/repositories/price-repository.js';
 import { ProviderRepository } from '../persistence/repositories/provider-repository.js';
 import { BasePriceProvider } from '../shared/base-provider.js';
+import { CoinNotFoundError } from '../shared/errors.js';
 import { createProviderHttpClient, type ProviderRateLimitConfig } from '../shared/shared-utils.js';
 import type { PriceData, PriceQuery, ProviderMetadata } from '../shared/types/index.js';
 
@@ -209,10 +210,16 @@ export class CoinGeckoProvider extends BasePriceProvider {
       const coinId = coinIdResult.value;
       if (!coinId) {
         return err(
-          new Error(
+          new CoinNotFoundError(
             `No CoinGecko coin ID found for symbol: ${query.asset.toString()}. ` +
-              `The asset may not be in the top 5000 coins by market cap, or the coin list may need to be synced. ` +
-              `Try deleting ./data/prices.db to force a fresh sync.`
+              `The asset may not be in the top 5000 coins by market cap, or the coin list may need to be synced.`,
+            query.asset.toString(),
+            'coingecko',
+            {
+              suggestion: 'Try deleting ./data/prices.db to force a fresh sync, or provide the price manually.',
+              timestamp: query.timestamp,
+              currency: query.currency.toString(),
+            }
           )
         );
       }
@@ -398,12 +405,25 @@ export class CoinGeckoProvider extends BasePriceProvider {
         }
 
         // Transform using pure function
-        const priceData = transformSimplePriceResponse(parseResult.data, coinId, asset, timestamp, currency, now);
-        return ok(priceData);
+        const priceDataResult = transformSimplePriceResponse(parseResult.data, coinId, asset, timestamp, currency, now);
+        if (priceDataResult.isErr()) {
+          return err(priceDataResult.error);
+        }
+        return ok(priceDataResult.value);
       }
 
       // Use historical API for older data
       this.logger.debug({ coinId, asset, timestamp }, 'Using historical price API');
+
+      // Check if this is an intraday request (has specific time, not midnight UTC)
+      const isIntradayRequest =
+        timestamp.getUTCHours() !== 0 || timestamp.getUTCMinutes() !== 0 || timestamp.getUTCSeconds() !== 0;
+      if (isIntradayRequest) {
+        this.logger.warn(
+          { asset: asset.toString(), timestamp },
+          'CoinGecko historical API only provides daily prices - intraday granularity not available'
+        );
+      }
 
       const date = formatCoinGeckoDate(timestamp);
       const params = new URLSearchParams({
@@ -423,8 +443,11 @@ export class CoinGeckoProvider extends BasePriceProvider {
       }
 
       // Transform using pure function
-      const priceData = transformHistoricalResponse(parseResult.data, asset, timestamp, currency, now);
-      return ok(priceData);
+      const priceDataResult = transformHistoricalResponse(parseResult.data, asset, timestamp, currency, now);
+      if (priceDataResult.isErr()) {
+        return err(priceDataResult.error);
+      }
+      return ok(priceDataResult.value);
     } catch (error) {
       const message = getErrorMessage(error);
       return err(new Error(`API fetch failed: ${message}`));

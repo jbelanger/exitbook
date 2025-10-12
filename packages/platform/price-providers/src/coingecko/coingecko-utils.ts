@@ -5,7 +5,9 @@
  */
 
 import { Currency } from '@exitbook/core';
+import { err, ok, type Result } from 'neverthrow';
 
+import { validateRawPrice } from '../shared/shared-utils.js';
 import type { PriceData } from '../shared/types/index.js';
 
 import type {
@@ -62,28 +64,25 @@ export function transformHistoricalResponse(
   timestamp: Date,
   currency: Currency,
   fetchedAt: Date
-): PriceData {
-  const price = response.market_data.current_price[currency.toLowerCase()];
+): Result<PriceData, Error> {
+  const rawPrice = response.market_data.current_price[currency.toLowerCase()];
 
-  if (price === undefined) {
-    throw new Error(`Currency ${currency.toString()} not found in response`);
+  // Validate price using shared helper
+  const context = `CoinGecko (coin: ${response.id}) on ${timestamp.toISOString().split('T')[0]}`;
+  const priceResult = validateRawPrice(rawPrice, asset, context);
+  if (priceResult.isErr()) {
+    return err(priceResult.error);
   }
 
-  // Validate price is positive (CoinGecko sometimes returns 0 for delisted/unknown assets)
-  if (price <= 0) {
-    throw new Error(
-      `CoinGecko returned invalid price ${price} for ${asset.toString()} (coin: ${response.id}) on ${timestamp.toISOString().split('T')[0]}. Asset may be delisted or have no historical data.`
-    );
-  }
-
-  return {
+  return ok({
     asset: asset,
     timestamp,
-    price,
+    price: priceResult.value,
     currency: currency,
     source: 'coingecko',
     fetchedAt,
-  };
+    granularity: 'day',
+  });
 }
 
 /**
@@ -98,32 +97,30 @@ export function transformSimplePriceResponse(
   timestamp: Date,
   currency: Currency,
   fetchedAt: Date
-): PriceData {
+): Result<PriceData, Error> {
   const coinData = response[coinId];
   if (!coinData) {
-    throw new Error(`Coin ID ${coinId} for asset ${asset.toString()} not found in response`);
+    return err(new Error(`Coin ID ${coinId} for asset ${asset.toString()} not found in response`));
   }
 
-  const price = coinData[currency.toLowerCase()];
-  if (price === undefined) {
-    throw new Error(`Currency ${currency.toString()} not found for ${asset.toString()}`);
+  const rawPrice = coinData[currency.toLowerCase()];
+
+  // Validate price using shared helper
+  const context = `CoinGecko (coin: ${coinId})`;
+  const priceResult = validateRawPrice(rawPrice, asset, context);
+  if (priceResult.isErr()) {
+    return err(priceResult.error);
   }
 
-  // Validate price is positive (CoinGecko sometimes returns 0 for delisted/unknown assets)
-  if (price <= 0) {
-    throw new Error(
-      `CoinGecko returned invalid price ${price} for ${asset.toString()} (coin: ${coinId}). Asset may be delisted or unavailable.`
-    );
-  }
-
-  return {
+  return ok({
     asset: asset,
     timestamp,
-    price,
+    price: priceResult.value,
     currency: currency,
     source: 'coingecko',
     fetchedAt,
-  };
+    granularity: 'current',
+  });
 }
 
 /**

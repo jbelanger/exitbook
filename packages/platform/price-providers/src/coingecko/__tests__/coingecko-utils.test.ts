@@ -55,7 +55,7 @@ describe('transformHistoricalResponse', () => {
     const timestamp = new Date('2024-01-01T00:00:00Z');
     const fetchedAt = new Date('2024-01-01T00:05:00Z');
 
-    const priceData = transformHistoricalResponse(
+    const result = transformHistoricalResponse(
       response,
       Currency.create('btc'),
       timestamp,
@@ -63,17 +63,21 @@ describe('transformHistoricalResponse', () => {
       fetchedAt
     );
 
-    expect(priceData).toEqual({
-      asset: Currency.create('BTC'),
-      timestamp,
-      price: 30123.45,
-      currency: Currency.create('USD'),
-      source: 'coingecko',
-      fetchedAt,
-    });
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value).toEqual({
+        asset: Currency.create('BTC'),
+        timestamp,
+        price: 30123.45,
+        currency: Currency.create('USD'),
+        source: 'coingecko',
+        fetchedAt,
+        granularity: 'day',
+      });
+    }
   });
 
-  it('throws when the desired currency is absent in the response', () => {
+  it('returns error when the desired currency is absent in the response', () => {
     const response = {
       id: 'bitcoin',
       symbol: 'btc',
@@ -85,12 +89,22 @@ describe('transformHistoricalResponse', () => {
       },
     };
 
-    expect(() =>
-      transformHistoricalResponse(response, Currency.create('btc'), new Date(), Currency.create('USD'), new Date())
-    ).toThrow('Currency USD not found in response');
+    const result = transformHistoricalResponse(
+      response,
+      Currency.create('btc'),
+      new Date(),
+      Currency.create('USD'),
+      new Date()
+    );
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('price for');
+      expect(result.error.message).toContain('not found');
+    }
   });
 
-  it('throws when price is zero (delisted or unavailable asset)', () => {
+  it('returns error when price is zero (delisted or unavailable asset)', () => {
     const response = {
       id: 'delisted-coin',
       symbol: 'del',
@@ -104,12 +118,23 @@ describe('transformHistoricalResponse', () => {
 
     const timestamp = new Date('2024-01-01T00:00:00Z');
 
-    expect(() =>
-      transformHistoricalResponse(response, Currency.create('DEL'), timestamp, Currency.create('USD'), new Date())
-    ).toThrow('CoinGecko returned invalid price 0 for DEL (coin: delisted-coin) on 2024-01-01');
+    const result = transformHistoricalResponse(
+      response,
+      Currency.create('DEL'),
+      timestamp,
+      Currency.create('USD'),
+      new Date()
+    );
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('price for DEL');
+      expect(result.error.message).toContain('invalid');
+      expect(result.error.message).toContain('must be positive');
+    }
   });
 
-  it('throws when price is negative', () => {
+  it('returns error when price is negative', () => {
     const response = {
       id: 'bitcoin',
       symbol: 'btc',
@@ -121,9 +146,20 @@ describe('transformHistoricalResponse', () => {
       },
     };
 
-    expect(() =>
-      transformHistoricalResponse(response, Currency.create('BTC'), new Date(), Currency.create('USD'), new Date())
-    ).toThrow('CoinGecko returned invalid price -100 for BTC');
+    const result = transformHistoricalResponse(
+      response,
+      Currency.create('BTC'),
+      new Date(),
+      Currency.create('USD'),
+      new Date()
+    );
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('price for BTC');
+      expect(result.error.message).toContain('invalid');
+      expect(result.error.message).toContain('must be positive');
+    }
   });
 });
 
@@ -138,7 +174,7 @@ describe('transformSimplePriceResponse', () => {
     const timestamp = new Date('2024-01-01T00:00:00Z');
     const fetchedAt = new Date('2024-01-01T00:05:00Z');
 
-    const priceData = transformSimplePriceResponse(
+    const result = transformSimplePriceResponse(
       response,
       'bitcoin',
       Currency.create('btc'),
@@ -147,84 +183,105 @@ describe('transformSimplePriceResponse', () => {
       fetchedAt
     );
 
-    expect(priceData).toEqual({
-      asset: Currency.create('BTC'),
-      timestamp,
-      price: 30123.45,
-      currency: Currency.create('USD'),
-      source: 'coingecko',
-      fetchedAt,
-    });
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value).toEqual({
+        asset: Currency.create('BTC'),
+        timestamp,
+        price: 30123.45,
+        currency: Currency.create('USD'),
+        source: 'coingecko',
+        fetchedAt,
+        granularity: 'current',
+      });
+    }
   });
 
-  it('throws when the target coin ID is missing', () => {
-    expect(() =>
-      transformSimplePriceResponse(
-        {},
-        'bitcoin',
-        Currency.create('btc'),
-        new Date(),
-        Currency.create('USD'),
-        new Date()
-      )
-    ).toThrow('Coin ID bitcoin for asset BTC not found in response');
+  it('returns error when the target coin ID is missing', () => {
+    const result = transformSimplePriceResponse(
+      {},
+      'bitcoin',
+      Currency.create('btc'),
+      new Date(),
+      Currency.create('USD'),
+      new Date()
+    );
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('Coin ID bitcoin for asset BTC not found in response');
+    }
   });
 
-  it('throws when the desired currency is missing for the coin', () => {
+  it('returns error when the desired currency is missing for the coin', () => {
     const response = {
       bitcoin: {
         eur: 28000,
       },
     };
 
-    expect(() =>
-      transformSimplePriceResponse(
-        response,
-        'bitcoin',
-        Currency.create('btc'),
-        new Date(),
-        Currency.create('USD'),
-        new Date()
-      )
-    ).toThrow('Currency USD not found for BTC');
+    const result = transformSimplePriceResponse(
+      response,
+      'bitcoin',
+      Currency.create('btc'),
+      new Date(),
+      Currency.create('USD'),
+      new Date()
+    );
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('price for');
+      expect(result.error.message).toContain('not found');
+    }
   });
 
-  it('throws when price is zero (delisted or unavailable asset)', () => {
+  it('returns error when price is zero (delisted or unavailable asset)', () => {
     const response = {
       'delisted-coin': {
         usd: 0,
       },
     };
 
-    expect(() =>
-      transformSimplePriceResponse(
-        response,
-        'delisted-coin',
-        Currency.create('DEL'),
-        new Date(),
-        Currency.create('USD'),
-        new Date()
-      )
-    ).toThrow('CoinGecko returned invalid price 0 for DEL (coin: delisted-coin)');
+    const result = transformSimplePriceResponse(
+      response,
+      'delisted-coin',
+      Currency.create('DEL'),
+      new Date(),
+      Currency.create('USD'),
+      new Date()
+    );
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('price for DEL');
+      expect(result.error.message).toContain('invalid');
+      expect(result.error.message).toContain('must be positive');
+    }
   });
 
-  it('throws when price is negative', () => {
+  it('returns error when price is negative', () => {
     const response = {
       bitcoin: {
         usd: -100,
       },
     };
 
-    expect(() =>
-      transformSimplePriceResponse(
-        response,
-        'bitcoin',
-        Currency.create('BTC'),
-        new Date(),
-        Currency.create('USD'),
-        new Date()
-      )
-    ).toThrow('CoinGecko returned invalid price -100 for BTC');
+    const result = transformSimplePriceResponse(
+      response,
+      'bitcoin',
+      Currency.create('BTC'),
+      new Date(),
+      Currency.create('USD'),
+      new Date()
+    );
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('price for BTC');
+      expect(result.error.message).toContain('invalid');
+      expect(result.error.message).toContain('must be positive');
+    }
   });
 });
 

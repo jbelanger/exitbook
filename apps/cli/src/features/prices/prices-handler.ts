@@ -1,14 +1,19 @@
 // Imperative shell for prices command
 // Manages resources (database, price providers) and orchestrates business logic
 
-import { parseDecimal } from '@exitbook/core';
+import { Currency, parseDecimal } from '@exitbook/core';
 import { TransactionRepository } from '@exitbook/data';
 import type { KyselyDB } from '@exitbook/data';
-import { createPriceProviderManager, type PriceProviderManager } from '@exitbook/platform-price-providers';
+import {
+  CoinNotFoundError,
+  createPriceProviderManager,
+  type PriceProviderManager,
+} from '@exitbook/platform-price-providers';
 import { getLogger } from '@exitbook/shared-logger';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
+import { promptManualPrice } from './prices-prompts.ts';
 import type { PricesFetchCommandOptions, PricesFetchResult } from './prices-utils.ts';
 import { validateAssetFilter, extractAssetsNeedingPrices, createPriceQuery, initializeStats } from './prices-utils.ts';
 
@@ -154,10 +159,29 @@ export class PricesFetchHandler {
         const priceResult = await this.priceManager.fetchPrice(queryResult.value);
 
         if (priceResult.isErr()) {
-          logger.warn(`Failed to fetch price for ${asset} in transaction ${tx.id}: ${priceResult.error.message}`);
-          this.errors.push(`Transaction ${tx.id}, asset ${asset}: ${priceResult.error.message}`);
-          consecutiveFailures++;
-          txHadFailure = true;
+          // Handle error with optional interactive prompt
+          const errorResult = await this.handlePriceFetchError(
+            priceResult.error,
+            asset,
+            tx.id,
+            queryResult.value,
+            options
+          );
+
+          if (errorResult.success && errorResult.fetchedPrice) {
+            // Manual price entered successfully - treat as SUCCESS
+            consecutiveFailures = 0;
+            stats.manualEntries++;
+            fetchedPrices.push(errorResult.fetchedPrice);
+          } else {
+            // Error not resolved - treat as FAILURE
+            if (errorResult.errorMessage) {
+              this.errors.push(errorResult.errorMessage);
+            }
+            consecutiveFailures++;
+            txHadFailure = true;
+          }
+
           continue;
         }
 
@@ -166,6 +190,11 @@ export class PricesFetchHandler {
 
         const priceData = priceResult.value.data;
         stats.pricesFetched++;
+
+        // Track granularity
+        if (priceData.granularity) {
+          stats.granularity[priceData.granularity]++;
+        }
 
         fetchedPrices.push({
           asset,
@@ -204,5 +233,82 @@ export class PricesFetchHandler {
    */
   destroy(): void {
     // Price manager cleanup if needed
+  }
+
+  /**
+   * Handle price fetch error with optional interactive prompt
+   *
+   * Pure-ish function - performs logging and I/O but doesn't mutate instance state.
+   * Caller is responsible for adding errorMessage to this.errors if present.
+   *
+   * @returns Result indicating success, optional fetched price, and optional error message
+   */
+  private async handlePriceFetchError(
+    error: Error,
+    asset: string,
+    txId: number,
+    query: import('@exitbook/platform-price-providers').PriceQuery,
+    options: PricesFetchCommandOptions
+  ): Promise<{
+    errorMessage?: string;
+    fetchedPrice?: {
+      asset: string;
+      fetchedAt: Date;
+      price: { amount: import('decimal.js').Decimal; currency: Currency };
+      source: string;
+    };
+    success: boolean;
+  }> {
+    // Debug logging
+    logger.debug(
+      {
+        errorType: error.constructor.name,
+        isCoinNotFoundError: error instanceof CoinNotFoundError,
+        interactiveMode: options.interactive,
+        errorMessage: error.message,
+      },
+      'Price fetch error details'
+    );
+
+    // Check if this is a CoinNotFoundError and interactive mode is enabled
+    if (error instanceof CoinNotFoundError && options.interactive) {
+      logger.info(`Coin not found: ${asset}. Prompting for manual price entry...`);
+
+      const manualPrice = await promptManualPrice(asset, query.timestamp, query.currency.toString());
+
+      if (manualPrice) {
+        // User provided manual price - treat as SUCCESS
+        logger.info(`Manual price recorded for ${asset}: ${manualPrice.price.toString()} ${manualPrice.currency}`);
+
+        return {
+          success: true,
+          fetchedPrice: {
+            asset,
+            price: {
+              amount: manualPrice.price,
+              currency: Currency.create(manualPrice.currency),
+            },
+            source: manualPrice.source,
+            fetchedAt: new Date(),
+          },
+        };
+      } else {
+        // User skipped - treat as FAILURE
+        logger.info(`Manual price entry skipped for ${asset}`);
+
+        return {
+          success: false,
+          errorMessage: `Transaction ${txId}, asset ${asset}: ${error.message} (manual entry skipped)`,
+        };
+      }
+    }
+
+    // Regular error (not CoinNotFoundError or not in interactive mode)
+    logger.warn(`Failed to fetch price for ${asset} in transaction ${txId}: ${error.message}`);
+
+    return {
+      success: false,
+      errorMessage: `Transaction ${txId}, asset ${asset}: ${error.message}`,
+    };
   }
 }

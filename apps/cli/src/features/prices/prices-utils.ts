@@ -12,6 +12,8 @@ import { err, ok, type Result } from 'neverthrow';
 export interface PricesFetchCommandOptions {
   /** Optional asset filter (e.g., 'BTC', 'ETH') */
   asset?: string | string[] | undefined;
+  /** Enable interactive mode for manual price entry */
+  interactive?: boolean | undefined;
 }
 
 /**
@@ -23,6 +25,14 @@ export interface PriceFetchStats {
   movementsUpdated: number;
   failures: number;
   skipped: number;
+  manualEntries: number;
+  /** Granularity breakdown */
+  granularity: {
+    current: number; // Real-time current prices
+    day: number; // Daily only
+    hour: number; // Hourly intraday
+    minute: number; // Minute-level intraday
+  };
 }
 
 /**
@@ -119,5 +129,12 @@ export function initializeStats(): PriceFetchStats {
     movementsUpdated: 0,
     failures: 0,
     skipped: 0,
+    manualEntries: 0,
+    granularity: {
+      current: 0,
+      day: 0,
+      hour: 0,
+      minute: 0,
+    },
   };
 }

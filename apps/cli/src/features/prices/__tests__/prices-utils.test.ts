@@ -334,6 +334,7 @@ describe('initializeStats', () => {
       movementsUpdated: 0,
       failures: 0,
       skipped: 0,
+      manualEntries: 0,
     });
   });
 
@@ -351,10 +352,12 @@ describe('initializeStats', () => {
     stats.transactionsFound = 10;
     stats.pricesFetched = 8;
     stats.failures = 2;
+    stats.manualEntries = 1;
 
     expect(stats.transactionsFound).toBe(10);
     expect(stats.pricesFetched).toBe(8);
     expect(stats.failures).toBe(2);
+    expect(stats.manualEntries).toBe(1);
   });
 
   it('should have all required fields', () => {
@@ -365,5 +368,6 @@ describe('initializeStats', () => {
     expect(stats).toHaveProperty('movementsUpdated');
     expect(stats).toHaveProperty('failures');
     expect(stats).toHaveProperty('skipped');
+    expect(stats).toHaveProperty('manualEntries');
   });
 });

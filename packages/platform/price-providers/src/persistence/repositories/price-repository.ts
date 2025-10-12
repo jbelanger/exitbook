@@ -7,7 +7,6 @@ import { wrapError } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import { ok } from 'neverthrow';
 
-import { roundToDay } from '../../shared/shared-utils.ts';
 import type { PriceData } from '../../shared/types/index.js';
 import type { PricesDB } from '../database.js';
 
@@ -32,26 +31,51 @@ export class PriceRepository {
 
   /**
    * Get cached price for asset/currency/timestamp
+   * Looks for prices on the same day and returns the closest match
    */
   async getPrice(asset: Currency, currency: Currency, timestamp: Date): Promise<Result<PriceData | undefined, Error>> {
     try {
-      const roundedDate = roundToDay(timestamp);
-      const timestampStr = roundedDate.toISOString();
+      // Look for prices on the same day
+      const startOfDay = new Date(timestamp);
+      startOfDay.setUTCHours(0, 0, 0, 0);
 
-      const record = await this.db
+      const endOfDay = new Date(timestamp);
+      endOfDay.setUTCHours(23, 59, 59, 999);
+
+      const records = await this.db
         .selectFrom('prices')
         .selectAll()
         .where('asset_symbol', '=', asset.toString())
         .where('currency', '=', currency.toString())
-        .where('timestamp', '=', timestampStr)
-        .executeTakeFirst();
+        .where('timestamp', '>=', startOfDay.toISOString())
+        .where('timestamp', '<=', endOfDay.toISOString())
+        .execute();
 
-      if (!record) {
+      if (records.length === 0) {
         // eslint-disable-next-line unicorn/no-useless-undefined -- explicit undefined for clarity
         return ok(undefined);
       }
 
-      const priceData: PriceData = this.recordToPriceData(record);
+      // If only one price on same day, use it
+      if (records.length === 1) {
+        const priceData: PriceData = this.recordToPriceData(records[0]!);
+        return ok(priceData);
+      }
+
+      // If multiple prices on same day, find the closest one to requested timestamp
+
+      let closestRecord = records[0]!;
+      let smallestDiff = Math.abs(new Date(closestRecord.timestamp).getTime() - timestamp.getTime());
+
+      for (const record of records.slice(1)) {
+        const diff = Math.abs(new Date(record.timestamp).getTime() - timestamp.getTime());
+        if (diff < smallestDiff) {
+          smallestDiff = diff;
+          closestRecord = record;
+        }
+      }
+
+      const priceData: PriceData = this.recordToPriceData(closestRecord);
 
       return ok(priceData);
     } catch (error) {
@@ -64,8 +88,7 @@ export class PriceRepository {
    */
   async savePrice(priceData: PriceData, providerCoinId?: string): Promise<Result<void, Error>> {
     try {
-      const roundedDate = roundToDay(priceData.timestamp);
-      const timestampStr = roundedDate.toISOString();
+      const timestampStr = priceData.timestamp.toISOString();
 
       await this.db
         .insertInto('prices')
@@ -77,6 +100,7 @@ export class PriceRepository {
           source_provider: priceData.source,
           provider_coin_id: providerCoinId ?? undefined,
           fetched_at: priceData.fetchedAt.toISOString(),
+          created_at: this.getCurrentDateTimeForDB(),
         })
         .onConflict((oc) =>
           oc.columns(['asset_symbol', 'currency', 'timestamp']).doUpdateSet({
@@ -84,7 +108,7 @@ export class PriceRepository {
             source_provider: priceData.source,
             provider_coin_id: providerCoinId ?? undefined,
             fetched_at: priceData.fetchedAt.toISOString(),
-            updated_at: new Date().toISOString(),
+            updated_at: this.getCurrentDateTimeForDB(),
           })
         )
         .execute();
@@ -131,8 +155,8 @@ export class PriceRepository {
     endDate: Date
   ): Promise<Result<PriceData[], Error>> {
     try {
-      const startStr = roundToDay(startDate).toISOString();
-      const endStr = roundToDay(endDate).toISOString();
+      const startStr = startDate.toISOString();
+      const endStr = endDate.toISOString();
 
       const records = await this.db
         .selectFrom('prices')
@@ -153,25 +177,34 @@ export class PriceRepository {
   }
 
   /**
-   * Check if price exists in cache
+   * Check if price exists in cache for the given day
    */
   async hasPrice(asset: string, currency: string, timestamp: Date): Promise<Result<boolean, Error>> {
     try {
-      const roundedDate = roundToDay(timestamp);
-      const timestampStr = roundedDate.toISOString();
+      // Look for prices on the same day
+      const startOfDay = new Date(timestamp);
+      startOfDay.setUTCHours(0, 0, 0, 0);
+
+      const endOfDay = new Date(timestamp);
+      endOfDay.setUTCHours(23, 59, 59, 999);
 
       const count = await this.db
         .selectFrom('prices')
         .select((eb) => eb.fn.countAll().as('count'))
         .where('asset_symbol', '=', asset.toUpperCase())
         .where('currency', '=', currency.toUpperCase())
-        .where('timestamp', '=', timestampStr)
+        .where('timestamp', '>=', startOfDay.toISOString())
+        .where('timestamp', '<=', endOfDay.toISOString())
         .executeTakeFirst();
 
       return ok(Number(count?.count ?? 0) > 0);
     } catch (error) {
       return wrapError(error, `Failed to check price existence`);
     }
+  }
+
+  private getCurrentDateTimeForDB(): string {
+    return new Date().toISOString();
   }
 
   private recordToPriceData(record: PriceRecord): PriceData {

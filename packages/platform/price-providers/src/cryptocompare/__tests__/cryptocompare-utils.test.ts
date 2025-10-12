@@ -29,50 +29,68 @@ describe('transformPriceResponse', () => {
 
     const result = transformPriceResponse(response, asset, timestamp, currency, fetchedAt);
 
-    expect(result).toEqual({
-      asset,
-      timestamp,
-      price: 30000,
-      currency,
-      source: 'cryptocompare',
-      fetchedAt,
-    });
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value).toEqual({
+        asset,
+        timestamp,
+        price: 30000,
+        currency,
+        source: 'cryptocompare',
+        fetchedAt,
+        granularity: 'current',
+      });
+    }
   });
 
-  it('throws error when currency not found in response', () => {
+  it('returns error when currency not found in response', () => {
     const response = { EUR: 27000 };
     const asset = Currency.create('BTC');
     const timestamp = new Date('2024-01-01T00:00:00Z');
     const currency = Currency.create('USD');
     const fetchedAt = new Date('2024-01-01T01:00:00Z');
 
-    expect(() => transformPriceResponse(response, asset, timestamp, currency, fetchedAt)).toThrow(
-      'Currency USD not found in response'
-    );
+    const result = transformPriceResponse(response, asset, timestamp, currency, fetchedAt);
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('CryptoCompare price for BTC');
+      expect(result.error.message).toContain('not found');
+    }
   });
 
-  it('throws error when price is zero', () => {
+  it('returns error when price is zero', () => {
     const response = { USD: 0 };
     const asset = Currency.create('CFG');
     const timestamp = new Date('2024-01-01T00:00:00Z');
     const currency = Currency.create('USD');
     const fetchedAt = new Date('2024-01-01T01:00:00Z');
 
-    expect(() => transformPriceResponse(response, asset, timestamp, currency, fetchedAt)).toThrow(
-      'CryptoCompare returned invalid price 0 for CFG'
-    );
+    const result = transformPriceResponse(response, asset, timestamp, currency, fetchedAt);
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('CryptoCompare price for CFG');
+      expect(result.error.message).toContain('invalid');
+      expect(result.error.message).toContain('must be positive');
+    }
   });
 
-  it('throws error when price is negative', () => {
+  it('returns error when price is negative', () => {
     const response = { USD: -100 };
     const asset = Currency.create('BTC');
     const timestamp = new Date('2024-01-01T00:00:00Z');
     const currency = Currency.create('USD');
     const fetchedAt = new Date('2024-01-01T01:00:00Z');
 
-    expect(() => transformPriceResponse(response, asset, timestamp, currency, fetchedAt)).toThrow(
-      'CryptoCompare returned invalid price -100 for BTC'
-    );
+    const result = transformPriceResponse(response, asset, timestamp, currency, fetchedAt);
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('CryptoCompare price for BTC');
+      expect(result.error.message).toContain('invalid');
+      expect(result.error.message).toContain('must be positive');
+    }
   });
 });
 
@@ -191,19 +209,23 @@ describe('transformHistoricalResponse', () => {
     const currency = Currency.create('USD');
     const fetchedAt = new Date('2024-01-01T01:00:00Z');
 
-    const result = transformHistoricalResponse(response, asset, timestamp, currency, fetchedAt);
+    const result = transformHistoricalResponse(response, asset, timestamp, currency, fetchedAt, 'minute');
 
-    expect(result).toEqual({
-      asset,
-      timestamp,
-      price: 108, // close price at time 2000
-      currency,
-      source: 'cryptocompare',
-      fetchedAt,
-    });
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value).toEqual({
+        asset,
+        timestamp,
+        price: 108, // close price at time 2000
+        currency,
+        source: 'cryptocompare',
+        fetchedAt,
+        granularity: 'minute',
+      });
+    }
   });
 
-  it('throws error when API returns error response', () => {
+  it('returns error when API returns error response', () => {
     const response: CryptoCompareHistoricalResponse = {
       Response: 'Error',
       Message: 'Invalid symbol',
@@ -222,12 +244,15 @@ describe('transformHistoricalResponse', () => {
     const currency = Currency.create('USD');
     const fetchedAt = new Date('2024-01-01T01:00:00Z');
 
-    expect(() => transformHistoricalResponse(response, asset, timestamp, currency, fetchedAt)).toThrow(
-      'CryptoCompare API error: Invalid symbol'
-    );
+    const result = transformHistoricalResponse(response, asset, timestamp, currency, fetchedAt, 'minute');
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('CryptoCompare API error: Invalid symbol');
+    }
   });
 
-  it('throws error when no data found for timestamp', () => {
+  it('returns error when no data found for timestamp', () => {
     const response: CryptoCompareHistoricalResponse = {
       Response: 'Success',
       Message: '',
@@ -246,12 +271,15 @@ describe('transformHistoricalResponse', () => {
     const currency = Currency.create('USD');
     const fetchedAt = new Date('2024-01-01T01:00:00Z');
 
-    expect(() => transformHistoricalResponse(response, asset, timestamp, currency, fetchedAt)).toThrow(
-      'CryptoCompare has no historical data for BTC'
-    );
+    const result = transformHistoricalResponse(response, asset, timestamp, currency, fetchedAt, 'day');
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('CryptoCompare has no historical data for BTC');
+    }
   });
 
-  it('throws error when Data structure is missing', () => {
+  it('returns error when Data structure is missing', () => {
     const response: CryptoCompareHistoricalResponse = {
       Response: 'Success',
       Message: 'Pair not trading',
@@ -265,12 +293,15 @@ describe('transformHistoricalResponse', () => {
     const currency = Currency.create('USD');
     const fetchedAt = new Date('2024-01-01T01:00:00Z');
 
-    expect(() => transformHistoricalResponse(response, asset, timestamp, currency, fetchedAt)).toThrow(
-      'CryptoCompare has no historical data for CFG'
-    );
+    const result = transformHistoricalResponse(response, asset, timestamp, currency, fetchedAt, 'hour');
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('CryptoCompare has no historical data for CFG');
+    }
   });
 
-  it('throws error when close price is zero', () => {
+  it('returns error when close price is zero', () => {
     const response: CryptoCompareHistoricalResponse = {
       Response: 'Success',
       Message: '',
@@ -301,12 +332,17 @@ describe('transformHistoricalResponse', () => {
     const currency = Currency.create('USD');
     const fetchedAt = new Date('2024-01-01T01:00:00Z');
 
-    expect(() => transformHistoricalResponse(response, asset, timestamp, currency, fetchedAt)).toThrow(
-      'CryptoCompare returned invalid close price 0 for BTC'
-    );
+    const result = transformHistoricalResponse(response, asset, timestamp, currency, fetchedAt, 'hour');
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('price for BTC');
+      expect(result.error.message).toContain('invalid');
+      expect(result.error.message).toContain('must be positive');
+    }
   });
 
-  it('throws error when close price is negative', () => {
+  it('returns error when close price is negative', () => {
     const response: CryptoCompareHistoricalResponse = {
       Response: 'Success',
       Message: '',
@@ -337,9 +373,14 @@ describe('transformHistoricalResponse', () => {
     const currency = Currency.create('USD');
     const fetchedAt = new Date('2024-01-01T01:00:00Z');
 
-    expect(() => transformHistoricalResponse(response, asset, timestamp, currency, fetchedAt)).toThrow(
-      'CryptoCompare returned invalid close price -10 for BTC'
-    );
+    const result = transformHistoricalResponse(response, asset, timestamp, currency, fetchedAt, 'day');
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('price for BTC');
+      expect(result.error.message).toContain('invalid');
+      expect(result.error.message).toContain('must be positive');
+    }
   });
 });
 

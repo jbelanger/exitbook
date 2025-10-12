@@ -5,9 +5,28 @@
  * without mocks. They handle the "functional core" of price data processing.
  */
 
+import type { Currency } from '@exitbook/core';
 import { HttpClient } from '@exitbook/platform-http';
+import type { Result } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 
 import type { PriceData, PriceQuery } from './types/index.ts';
+
+/**
+ * Validate a raw price value from an API response
+ *
+ * @param price - Raw price value (may be undefined or invalid)
+ * @param asset - Asset being priced
+ * @param context - Context for error message (e.g., provider name, coin ID)
+ * @returns Ok with price if valid, Err if invalid
+ */
+export function validateRawPrice(price: number | undefined, asset: Currency, context: string): Result<number, Error> {
+  if (price === undefined || price <= 0) {
+    const reason = price === undefined ? 'not found' : `invalid (${price}, must be positive)`;
+    return err(new Error(`${context} price for ${asset.toString()}: ${reason}`));
+  }
+  return ok(price);
+}
 
 /**
  * Round timestamp to nearest day (for daily price lookups)

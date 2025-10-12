@@ -159,13 +159,17 @@ export class PriceProviderManager {
   ): Promise<Result<FailoverResult<T>, Error>> {
     const now = Date.now();
 
+    // Extract timestamp from query for granularity-based provider selection
+    const timestamp = Array.isArray(queryOrQueries) ? undefined : queryOrQueries.timestamp;
+
     // Select providers using pure function
     const scoredProviders = ProviderManagerUtils.selectProvidersForOperation(
       this.providers,
       this.healthStatus,
       this.circuitStates,
       operationType,
-      now
+      now,
+      timestamp
     );
 
     if (scoredProviders.length === 0) {
@@ -268,10 +272,8 @@ export class PriceProviderManager {
       }
     }
 
-    // All providers failed
-    return err(
-      new Error(`All price providers failed for ${operationType}. Last error: ${lastError?.message || 'Unknown error'}`)
-    );
+    // All providers failed - return the last error encountered
+    return err(lastError || new Error(`All price providers failed for ${operationType}`));
   }
 
   /**

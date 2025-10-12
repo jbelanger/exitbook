@@ -5,7 +5,9 @@
  */
 
 import type { Currency } from '@exitbook/core';
+import { err, ok, type Result } from 'neverthrow';
 
+import { validateRawPrice } from '../shared/shared-utils.js';
 import type { PriceData } from '../shared/types/index.js';
 
 import type { CryptoCompareHistoricalResponse, CryptoCompareOHLCV, CryptoComparePriceResponse } from './schemas.js';
@@ -21,28 +23,24 @@ export function transformPriceResponse(
   timestamp: Date,
   currency: Currency,
   fetchedAt: Date
-): PriceData {
-  const price = response[currency.toString()];
+): Result<PriceData, Error> {
+  const rawPrice = response[currency.toString()];
 
-  if (price === undefined) {
-    throw new Error(`Currency ${currency.toString()} not found in response`);
+  // Validate price using shared helper
+  const priceResult = validateRawPrice(rawPrice, asset, 'CryptoCompare');
+  if (priceResult.isErr()) {
+    return err(priceResult.error);
   }
 
-  // Validate price is positive (CryptoCompare sometimes returns 0 for unlisted/unknown assets)
-  if (price <= 0) {
-    throw new Error(
-      `CryptoCompare returned invalid price ${price} for ${asset.toString()}. Asset may not be listed or available.`
-    );
-  }
-
-  return {
+  return ok({
     asset,
     timestamp,
-    price,
+    price: priceResult.value,
     currency,
     source: 'cryptocompare',
     fetchedAt,
-  };
+    granularity: 'current',
+  });
 }
 
 /**
@@ -90,17 +88,20 @@ export function transformHistoricalResponse(
   asset: Currency,
   timestamp: Date,
   currency: Currency,
-  fetchedAt: Date
-): PriceData {
+  fetchedAt: Date,
+  granularity: 'minute' | 'hour' | 'day'
+): Result<PriceData, Error> {
   if (response.Response !== 'Success') {
-    throw new Error(`CryptoCompare API error: ${response.Message || 'Unknown error'}`);
+    return err(new Error(`CryptoCompare API error: ${response.Message || 'Unknown error'}`));
   }
 
   // Check if Data structure exists
   if (!response.Data || !response.Data.Data || response.Data.Data.length === 0) {
-    throw new Error(
-      `CryptoCompare has no historical data for ${asset.toString()}. ` +
-        `Asset may not be listed on CryptoCompare. ${response.Message ? `Message: ${response.Message}` : ''}`
+    return err(
+      new Error(
+        `CryptoCompare has no historical data for ${asset.toString()}. ` +
+          `Asset may not be listed on CryptoCompare. ${response.Message ? `Message: ${response.Message}` : ''}`
+      )
     );
   }
 
@@ -108,26 +109,31 @@ export function transformHistoricalResponse(
   const dataPoint = findClosestDataPoint(response.Data.Data, targetTimestamp);
 
   if (!dataPoint) {
-    throw new Error(`No historical data found for timestamp ${timestamp.toISOString()}`);
-  }
-
-  // Validate price is positive (CryptoCompare sometimes returns 0 for days with no trading activity)
-  if (dataPoint.close <= 0) {
-    throw new Error(
-      `CryptoCompare returned invalid close price ${dataPoint.close} for ${asset.toString()} on ${timestamp.toISOString().split('T')[0]}. ` +
-        `Asset may have no trading activity or may not be listed.`
+    return err(
+      new Error(`CryptoCompare: no data found for ${asset.toString()} at ${timestamp.toISOString().split('T')[0]}`)
     );
   }
 
+  // Validate close price using shared helper
+  const priceResult = validateRawPrice(
+    dataPoint.close,
+    asset,
+    `CryptoCompare at ${timestamp.toISOString().split('T')[0]}`
+  );
+  if (priceResult.isErr()) {
+    return err(priceResult.error);
+  }
+
   // Use close price as the price for this timestamp
-  return {
+  return ok({
     asset,
     timestamp,
-    price: dataPoint.close,
+    price: priceResult.value,
     currency,
     source: 'cryptocompare',
     fetchedAt,
-  };
+    granularity,
+  });
 }
 
 /**

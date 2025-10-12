@@ -17,6 +17,7 @@ import type { PricesFetchCommandOptions, PricesFetchResult } from './prices-util
 export interface ExtendedPricesFetchCommandOptions extends PricesFetchCommandOptions {
   json?: boolean | undefined;
   clearDb?: boolean | undefined;
+  interactive?: boolean | undefined;
 }
 
 /**
@@ -25,6 +26,7 @@ export interface ExtendedPricesFetchCommandOptions extends PricesFetchCommandOpt
 interface PricesFetchCommandResult {
   stats: {
     failures: number;
+    manualEntries: number;
     movementsUpdated: number;
     pricesFetched: number;
     skipped: number;
@@ -44,6 +46,7 @@ export function registerPricesCommand(program: Command): void {
     .command('fetch')
     .description('Fetch prices for transactions missing price data')
     .option('--asset <currency>', 'Filter by asset (e.g., BTC, ETH). Can be specified multiple times.', collect, [])
+    .option('--interactive', 'Enable interactive mode for manual price entry when coins are not found')
     .option('--clear-db', 'Clear and reinitialize database before fetching')
     .option('--json', 'Output results in JSON format (for AI/MCP tools)')
     .action(async (options: ExtendedPricesFetchCommandOptions) => {
@@ -68,9 +71,11 @@ async function executePricesFetchCommand(options: ExtendedPricesFetchCommandOpti
     // Build params from options
     const params: PricesFetchCommandOptions = {
       asset: options.asset,
+      interactive: options.interactive,
     };
 
-    const spinner = output.spinner();
+    // Don't use spinner in interactive mode (conflicts with prompts)
+    const spinner = options.interactive ? undefined : output.spinner();
     spinner?.start('Fetching prices...');
 
     // Configure logger to route logs to spinner
@@ -118,9 +123,35 @@ function handlePricesFetchSuccess(
     console.log('=============================');
     console.log(`Transactions found: ${stats.transactionsFound}`);
     console.log(`Prices fetched: ${stats.pricesFetched}`);
+    console.log(`Manual entries: ${stats.manualEntries}`);
     console.log(`Movements updated: ${stats.movementsUpdated}`);
     console.log(`Skipped: ${stats.skipped}`);
     console.log(`Failures: ${stats.failures}`);
+
+    // Show granularity breakdown if any prices were fetched
+    if (stats.pricesFetched > 0) {
+      console.log('');
+      console.log('Price Granularity:');
+      if (stats.granularity.current > 0) {
+        console.log(`  Current (real-time): ${stats.granularity.current}`);
+      }
+      if (stats.granularity.minute > 0) {
+        console.log(`  Minute-level: ${stats.granularity.minute}`);
+      }
+      if (stats.granularity.hour > 0) {
+        console.log(`  Hourly: ${stats.granularity.hour}`);
+      }
+      if (stats.granularity.day > 0) {
+        console.log(`  Daily: ${stats.granularity.day}`);
+      }
+
+      // Warn if intraday requests returned only daily data
+      const totalIntraday = stats.granularity.current + stats.granularity.minute + stats.granularity.hour;
+      if (stats.granularity.day > 0 && totalIntraday > 0) {
+        console.log('');
+        console.warn(`⚠️  ${stats.granularity.day} prices fetched at daily granularity (intraday not available)`);
+      }
+    }
 
     if (errors.length > 0) {
       console.log('');
