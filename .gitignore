@@ -159,3 +159,4 @@ out/
 *.sqlite3
 commands.txt
 *files*.txt
+!prices.db

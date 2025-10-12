@@ -1,5 +1,5 @@
+import type { UniversalTransaction } from '@exitbook/core';
 import type { ITransactionProcessor } from '@exitbook/import/app/ports/transaction-processor.interface.ts';
-import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
 import type { Logger } from '@exitbook/shared-logger';
 import { getLogger } from '@exitbook/shared-logger';
 import { type Result, err, ok } from 'neverthrow';

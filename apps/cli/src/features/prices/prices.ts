@@ -25,8 +25,8 @@ export interface ExtendedPricesFetchCommandOptions extends PricesFetchCommandOpt
 interface PricesFetchCommandResult {
   stats: {
     failures: number;
+    movementsUpdated: number;
     pricesFetched: number;
-    pricesUpdated: number;
     skipped: number;
     transactionsFound: number;
   };
@@ -108,7 +108,7 @@ function handlePricesFetchSuccess(
   const { stats, errors } = result;
 
   // Stop spinner with completion message
-  const completionMessage = `Price fetch complete - ${stats.pricesUpdated} transactions updated, ${stats.failures} failures`;
+  const completionMessage = `Price fetch complete - ${stats.movementsUpdated} movements updated, ${stats.failures} failures`;
   spinner?.stop(completionMessage);
 
   // Display text output
@@ -118,7 +118,7 @@ function handlePricesFetchSuccess(
     console.log('=============================');
     console.log(`Transactions found: ${stats.transactionsFound}`);
     console.log(`Prices fetched: ${stats.pricesFetched}`);
-    console.log(`Transactions updated: ${stats.pricesUpdated}`);
+    console.log(`Movements updated: ${stats.movementsUpdated}`);
     console.log(`Skipped: ${stats.skipped}`);
     console.log(`Failures: ${stats.failures}`);
 

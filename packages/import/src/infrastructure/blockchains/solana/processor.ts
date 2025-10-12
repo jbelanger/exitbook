@@ -1,6 +1,6 @@
 import { createMoney } from '@exitbook/core';
-import type { ITransactionRepository } from '@exitbook/import/app/ports/transaction-repository.js';
-import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
+import type { UniversalTransaction } from '@exitbook/core';
+import type { ITransactionRepository } from '@exitbook/data';
 import type { SolanaTransaction } from '@exitbook/providers';
 import { type Result, err, ok } from 'neverthrow';
 

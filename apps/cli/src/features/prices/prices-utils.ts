@@ -1,7 +1,7 @@
 // Pure business logic for prices command
 // All functions are pure and testable
 
-import { Currency } from '@exitbook/core';
+import { Currency, type AssetMovement } from '@exitbook/core';
 import type { TransactionNeedingPrice } from '@exitbook/data';
 import type { PriceQuery } from '@exitbook/platform-price-providers';
 import { err, ok, type Result } from 'neverthrow';
@@ -20,7 +20,7 @@ export interface PricesFetchCommandOptions {
 export interface PriceFetchStats {
   transactionsFound: number;
   pricesFetched: number;
-  pricesUpdated: number;
+  movementsUpdated: number;
   failures: number;
   skipped: number;
 }
@@ -58,18 +58,40 @@ export function validateAssetFilter(asset: string | string[] | undefined): Resul
 }
 
 /**
- * Convert database transaction to PriceQuery
- * Always fetches prices in USD regardless of transaction currency
+ * Extract unique assets from a transaction's movements that need prices
+ * Filters out fiat currencies as they don't need price fetching
  */
-export function transactionToPriceQuery(
-  tx: TransactionNeedingPrice,
-  targetCurrency = 'USD'
-): Result<PriceQuery, Error> {
-  // Validate required fields
-  if (!tx.movementsPrimaryAsset) {
-    return err(new Error(`Transaction ${tx.id} has no primary asset`));
+export function extractAssetsNeedingPrices(tx: TransactionNeedingPrice): Result<string[], Error> {
+  const allMovements: AssetMovement[] = [...(tx.movementsInflows ?? []), ...(tx.movementsOutflows ?? [])];
+
+  if (allMovements.length === 0) {
+    return err(new Error(`Transaction ${tx.id} has no movements`));
   }
 
+  // Get unique assets that don't already have prices
+  const assetsNeedingPrices = new Set<string>();
+  for (const movement of allMovements) {
+    if (!movement.priceAtTxTime) {
+      // Skip fiat currencies - they don't need price fetching
+      const currency = Currency.create(movement.asset);
+      if (!currency.isFiat()) {
+        assetsNeedingPrices.add(movement.asset);
+      }
+    }
+  }
+
+  return ok([...assetsNeedingPrices]);
+}
+
+/**
+ * Convert transaction and asset to PriceQuery
+ * Always fetches prices in USD regardless of transaction currency
+ */
+export function createPriceQuery(
+  tx: TransactionNeedingPrice,
+  asset: string,
+  targetCurrency = 'USD'
+): Result<PriceQuery, Error> {
   if (!tx.transactionDatetime) {
     return err(new Error(`Transaction ${tx.id} has no transaction datetime`));
   }
@@ -81,9 +103,9 @@ export function transactionToPriceQuery(
   }
 
   return ok({
-    asset: Currency.create(tx.movementsPrimaryAsset),
+    asset: Currency.create(asset),
     timestamp,
-    currency: Currency.create(targetCurrency), // Always use target currency (default USD)
+    currency: Currency.create(targetCurrency),
   });
 }
 
@@ -94,7 +116,7 @@ export function initializeStats(): PriceFetchStats {
   return {
     transactionsFound: 0,
     pricesFetched: 0,
-    pricesUpdated: 0,
+    movementsUpdated: 0,
     failures: 0,
     skipped: 0,
   };

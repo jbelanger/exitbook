@@ -69,6 +69,13 @@ export function transformHistoricalResponse(
     throw new Error(`Currency ${currency.toString()} not found in response`);
   }
 
+  // Validate price is positive (CoinGecko sometimes returns 0 for delisted/unknown assets)
+  if (price <= 0) {
+    throw new Error(
+      `CoinGecko returned invalid price ${price} for ${asset.toString()} (coin: ${response.id}) on ${timestamp.toISOString().split('T')[0]}. Asset may be delisted or have no historical data.`
+    );
+  }
+
   return {
     asset: asset,
     timestamp,
@@ -100,6 +107,13 @@ export function transformSimplePriceResponse(
   const price = coinData[currency.toLowerCase()];
   if (price === undefined) {
     throw new Error(`Currency ${currency.toString()} not found for ${asset.toString()}`);
+  }
+
+  // Validate price is positive (CoinGecko sometimes returns 0 for delisted/unknown assets)
+  if (price <= 0) {
+    throw new Error(
+      `CoinGecko returned invalid price ${price} for ${asset.toString()} (coin: ${coinId}). Asset may be delisted or unavailable.`
+    );
   }
 
   return {

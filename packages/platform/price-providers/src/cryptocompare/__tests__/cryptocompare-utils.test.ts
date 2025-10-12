@@ -50,6 +50,30 @@ describe('transformPriceResponse', () => {
       'Currency USD not found in response'
     );
   });
+
+  it('throws error when price is zero', () => {
+    const response = { USD: 0 };
+    const asset = Currency.create('CFG');
+    const timestamp = new Date('2024-01-01T00:00:00Z');
+    const currency = Currency.create('USD');
+    const fetchedAt = new Date('2024-01-01T01:00:00Z');
+
+    expect(() => transformPriceResponse(response, asset, timestamp, currency, fetchedAt)).toThrow(
+      'CryptoCompare returned invalid price 0 for CFG'
+    );
+  });
+
+  it('throws error when price is negative', () => {
+    const response = { USD: -100 };
+    const asset = Currency.create('BTC');
+    const timestamp = new Date('2024-01-01T00:00:00Z');
+    const currency = Currency.create('USD');
+    const fetchedAt = new Date('2024-01-01T01:00:00Z');
+
+    expect(() => transformPriceResponse(response, asset, timestamp, currency, fetchedAt)).toThrow(
+      'CryptoCompare returned invalid price -100 for BTC'
+    );
+  });
 });
 
 describe('findClosestDataPoint', () => {
@@ -223,7 +247,98 @@ describe('transformHistoricalResponse', () => {
     const fetchedAt = new Date('2024-01-01T01:00:00Z');
 
     expect(() => transformHistoricalResponse(response, asset, timestamp, currency, fetchedAt)).toThrow(
-      'No historical data found for timestamp'
+      'CryptoCompare has no historical data for BTC'
+    );
+  });
+
+  it('throws error when Data structure is missing', () => {
+    const response: CryptoCompareHistoricalResponse = {
+      Response: 'Success',
+      Message: 'Pair not trading',
+      HasWarning: false,
+      Type: 100,
+      Data: undefined,
+    };
+
+    const asset = Currency.create('CFG');
+    const timestamp = new Date(2000 * 1000);
+    const currency = Currency.create('USD');
+    const fetchedAt = new Date('2024-01-01T01:00:00Z');
+
+    expect(() => transformHistoricalResponse(response, asset, timestamp, currency, fetchedAt)).toThrow(
+      'CryptoCompare has no historical data for CFG'
+    );
+  });
+
+  it('throws error when close price is zero', () => {
+    const response: CryptoCompareHistoricalResponse = {
+      Response: 'Success',
+      Message: '',
+      HasWarning: false,
+      Type: 100,
+      Data: {
+        Aggregated: false,
+        TimeFrom: 1000,
+        TimeTo: 2000,
+        Data: [
+          {
+            time: 2000,
+            high: 0,
+            low: 0,
+            open: 0,
+            close: 0,
+            volumefrom: 0,
+            volumeto: 0,
+            conversionType: 'direct',
+            conversionSymbol: '',
+          },
+        ],
+      },
+    };
+
+    const asset = Currency.create('BTC');
+    const timestamp = new Date(2000 * 1000);
+    const currency = Currency.create('USD');
+    const fetchedAt = new Date('2024-01-01T01:00:00Z');
+
+    expect(() => transformHistoricalResponse(response, asset, timestamp, currency, fetchedAt)).toThrow(
+      'CryptoCompare returned invalid close price 0 for BTC'
+    );
+  });
+
+  it('throws error when close price is negative', () => {
+    const response: CryptoCompareHistoricalResponse = {
+      Response: 'Success',
+      Message: '',
+      HasWarning: false,
+      Type: 100,
+      Data: {
+        Aggregated: false,
+        TimeFrom: 1000,
+        TimeTo: 2000,
+        Data: [
+          {
+            time: 2000,
+            high: 100,
+            low: 90,
+            open: 95,
+            close: -10,
+            volumefrom: 1,
+            volumeto: 100,
+            conversionType: 'direct',
+            conversionSymbol: '',
+          },
+        ],
+      },
+    };
+
+    const asset = Currency.create('BTC');
+    const timestamp = new Date(2000 * 1000);
+    const currency = Currency.create('USD');
+    const fetchedAt = new Date('2024-01-01T01:00:00Z');
+
+    expect(() => transformHistoricalResponse(response, asset, timestamp, currency, fetchedAt)).toThrow(
+      'CryptoCompare returned invalid close price -10 for BTC'
     );
   });
 });

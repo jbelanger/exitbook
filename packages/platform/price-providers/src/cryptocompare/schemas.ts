@@ -31,12 +31,14 @@ export const CryptoCompareHistoricalResponseSchema = z.object({
   HasWarning: z.boolean(),
   Type: z.number(),
   RateLimit: z.object({}).passthrough().optional(),
-  Data: z.object({
-    Aggregated: z.boolean(),
-    TimeFrom: z.number(),
-    TimeTo: z.number(),
-    Data: z.array(CryptoCompareOHLCVSchema),
-  }),
+  Data: z
+    .object({
+      Aggregated: z.boolean().optional(),
+      TimeFrom: z.number().optional(),
+      TimeTo: z.number().optional(),
+      Data: z.array(CryptoCompareOHLCVSchema).optional(),
+    })
+    .optional(),
 });
 
 export type CryptoCompareHistoricalResponse = z.infer<typeof CryptoCompareHistoricalResponseSchema>;

@@ -1,4 +1,4 @@
-import type { KyselyDB } from '@exitbook/data';
+import { TransactionRepository, type KyselyDB } from '@exitbook/data';
 import {
   DefaultNormalizer,
   ImporterFactory,
@@ -7,7 +7,6 @@ import {
   ProcessorFactory,
   RawDataRepository,
   TransactionIngestionService,
-  TransactionRepository,
 } from '@exitbook/import';
 import {
   BlockchainProviderManager,

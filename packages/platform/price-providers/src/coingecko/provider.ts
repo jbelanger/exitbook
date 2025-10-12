@@ -208,7 +208,13 @@ export class CoinGeckoProvider extends BasePriceProvider {
 
       const coinId = coinIdResult.value;
       if (!coinId) {
-        return err(new Error(`No CoinGecko coin ID found for symbol: ${query.asset.toString()}`));
+        return err(
+          new Error(
+            `No CoinGecko coin ID found for symbol: ${query.asset.toString()}. ` +
+              `The asset may not be in the top 5000 coins by market cap, or the coin list may need to be synced. ` +
+              `Try deleting ./data/prices.db to force a fresh sync.`
+          )
+        );
       }
 
       // 4. Fetch from API
@@ -260,8 +266,10 @@ export class CoinGeckoProvider extends BasePriceProvider {
       const allMarketCoins = [];
 
       // Fetch multiple pages to get top coins by market cap
-      // Reduce to 2 pages (500 coins) to avoid rate limiting on free tier
-      for (let page = 1; page <= 2; page++) {
+      // Fetch 20 pages (5000 coins) to cover most assets users will encounter
+      // This uses about 20 API calls but only happens once per day
+      const maxPages = 20;
+      for (let page = 1; page <= maxPages; page++) {
         const params = new URLSearchParams({
           vs_currency: 'usd',
           order: 'market_cap_desc',
@@ -283,10 +291,14 @@ export class CoinGeckoProvider extends BasePriceProvider {
         }
 
         allMarketCoins.push(...marketParseResult.data);
-        this.logger.debug({ page, count: marketParseResult.data.length }, 'Fetched markets page');
+
+        // Log progress every 5 pages
+        if (page % 5 === 0 || page === maxPages) {
+          this.logger.info({ page, totalPages: maxPages, totalCoins: allMarketCoins.length }, 'Coin sync progress');
+        }
       }
 
-      this.logger.debug({ count: allMarketCoins.length }, 'Market coins fetched successfully');
+      this.logger.info({ count: allMarketCoins.length }, 'Market coins fetched successfully');
 
       // 4. Build mappings prioritizing by market cap rank
       const symbolMap = new Map<string, { coinId: string; marketCapRank: number; name: string }>();

@@ -1,4 +1,4 @@
-import type { Money } from '@exitbook/core';
+import type { Money } from '../value-objects/money.ts';
 
 export type TransactionStatus = 'pending' | 'open' | 'closed' | 'canceled' | 'failed' | 'ok';
 
@@ -38,6 +38,48 @@ export type OperationType =
 // Direction of primary movement
 export type MovementDirection = 'in' | 'out' | 'neutral';
 
+/**
+ * Price information for a movement at transaction time
+ * Used for cost basis calculations and accounting
+ */
+export interface PriceAtTxTime {
+  /**
+   * Market price of the asset in the accounting currency at transaction time
+   * e.g., if asset is BTC and accounting currency is USD, this is BTC/USD price
+   */
+  price: Money;
+
+  /**
+   * Source of the price data (e.g., 'coingecko', 'binance', 'manual')
+   */
+  source: string;
+
+  /**
+   * When the price was fetched/recorded
+   */
+  fetchedAt: Date;
+}
+
+/**
+ * Asset movement with optional price information
+ */
+export interface AssetMovement {
+  /**
+   * Asset symbol (e.g., 'BTC', 'ETH', 'USD')
+   */
+  asset: string;
+
+  /**
+   * Amount of the asset moved
+   */
+  amount: Money;
+
+  /**
+   * Price of the asset at transaction time (optional, populated by price providers)
+   */
+  priceAtTxTime?: PriceAtTxTime | undefined;
+}
+
 export interface UniversalTransaction {
   // Universal fields
   id: string;
@@ -53,19 +95,11 @@ export interface UniversalTransaction {
   // Structured asset movements
   movements: {
     // What user gained
-    inflows: {
-      amount: Money;
-      asset: string;
-    }[];
+    inflows: AssetMovement[];
     // What user lost
-    outflows: {
-      amount: Money;
-      asset: string;
-    }[];
+    outflows: AssetMovement[];
     // Primary movement summary
-    primary: {
-      amount: Money; // Positive = gained, negative = lost
-      asset: string;
+    primary: AssetMovement & {
       direction: MovementDirection;
     };
   };

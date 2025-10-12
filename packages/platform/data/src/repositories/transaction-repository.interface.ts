@@ -1,5 +1,5 @@
+import type { UniversalTransaction } from '@exitbook/core';
 import type { StoredTransaction } from '@exitbook/data';
-import type { UniversalTransaction } from '@exitbook/import/domain/universal-transaction.ts';
 import type { Result } from 'neverthrow';
 
 /**

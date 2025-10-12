@@ -1,6 +1,7 @@
 // Imperative shell for prices command
 // Manages resources (database, price providers) and orchestrates business logic
 
+import { parseDecimal } from '@exitbook/core';
 import { TransactionRepository } from '@exitbook/data';
 import type { KyselyDB } from '@exitbook/data';
 import { createPriceProviderManager, type PriceProviderManager } from '@exitbook/platform-price-providers';
@@ -9,7 +10,7 @@ import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
 import type { PricesFetchCommandOptions, PricesFetchResult } from './prices-utils.ts';
-import { validateAssetFilter, transactionToPriceQuery, initializeStats } from './prices-utils.ts';
+import { validateAssetFilter, extractAssetsNeedingPrices, createPriceQuery, initializeStats } from './prices-utils.ts';
 
 const logger = getLogger('PricesHandler');
 
@@ -63,7 +64,7 @@ export class PricesFetchHandler {
     if (assetFilterResult.isErr()) {
       return err(assetFilterResult.error);
     }
-    const assetFilter = assetFilterResult.value;
+    const assetFilter = assetFilterResult.value?.map((c) => c.toString());
 
     // Query transactions needing prices using repository
     const transactionsResult = await this.transactionRepo.findTransactionsNeedingPrices(assetFilter);
@@ -93,7 +94,7 @@ export class PricesFetchHandler {
       if (processed > 0 && processed % progressInterval === 0) {
         logger.info(
           `Progress: ${processed}/${transactions.length} transactions processed ` +
-            `(${stats.pricesUpdated} updated, ${stats.failures} failures)`
+            `(${stats.movementsUpdated} movements updated, ${stats.failures} failures)`
         );
       }
 
@@ -111,50 +112,87 @@ export class PricesFetchHandler {
         break;
       }
 
-      // Convert transaction to price query
-      const queryResult = transactionToPriceQuery(tx);
-      if (queryResult.isErr()) {
-        logger.warn(`Skipping transaction ${tx.id}: ${queryResult.error.message}`);
-        this.errors.push(`Transaction ${tx.id}: ${queryResult.error.message}`);
+      // Extract unique assets from transaction movements
+      const assetsResult = extractAssetsNeedingPrices(tx);
+      if (assetsResult.isErr()) {
+        logger.warn(`Skipping transaction ${tx.id}: ${assetsResult.error.message}`);
+        this.errors.push(`Transaction ${tx.id}: ${assetsResult.error.message}`);
         stats.skipped++;
         continue;
       }
 
-      // Fetch price for this transaction
+      const assetsNeedingPrices = assetsResult.value;
+      if (assetsNeedingPrices.length === 0) {
+        // All movements already have prices
+        stats.skipped++;
+        continue;
+      }
+
       if (!this.priceManager) {
         return err(new Error('Price manager not initialized'));
       }
 
-      const priceResult = await this.priceManager.fetchPrice(queryResult.value);
+      // Fetch prices for each asset in this transaction
+      const fetchedPrices: {
+        asset: string;
+        fetchedAt: Date;
+        price: { amount: import('decimal.js').Decimal; currency: import('@exitbook/core').Currency };
+        source: string;
+      }[] = [];
 
-      if (priceResult.isErr()) {
-        logger.warn(`Failed to fetch price for transaction ${tx.id}: ${priceResult.error.message}`);
-        this.errors.push(`Transaction ${tx.id}: ${priceResult.error.message}`);
-        stats.failures++;
-        consecutiveFailures++;
-        continue;
+      let txHadFailure = false;
+
+      for (const asset of assetsNeedingPrices) {
+        const queryResult = createPriceQuery(tx, asset);
+        if (queryResult.isErr()) {
+          logger.warn(`Skipping asset ${asset} for transaction ${tx.id}: ${queryResult.error.message}`);
+          this.errors.push(`Transaction ${tx.id}, asset ${asset}: ${queryResult.error.message}`);
+          txHadFailure = true;
+          continue;
+        }
+
+        const priceResult = await this.priceManager.fetchPrice(queryResult.value);
+
+        if (priceResult.isErr()) {
+          logger.warn(`Failed to fetch price for ${asset} in transaction ${tx.id}: ${priceResult.error.message}`);
+          this.errors.push(`Transaction ${tx.id}, asset ${asset}: ${priceResult.error.message}`);
+          consecutiveFailures++;
+          txHadFailure = true;
+          continue;
+        }
+
+        // Reset consecutive failures on success
+        consecutiveFailures = 0;
+
+        const priceData = priceResult.value.data;
+        stats.pricesFetched++;
+
+        fetchedPrices.push({
+          asset,
+          price: {
+            amount: parseDecimal(priceData.price.toString()),
+            currency: priceData.currency,
+          },
+          source: priceData.source,
+          fetchedAt: priceData.fetchedAt,
+        });
       }
 
-      // Reset consecutive failures on success
-      consecutiveFailures = 0;
+      // Update transaction movements with all fetched prices
+      if (fetchedPrices.length > 0) {
+        const updateResult = await this.transactionRepo.updateMovementsWithPrices(tx.id, fetchedPrices);
 
-      const priceData = priceResult.value.data;
-      stats.pricesFetched++;
+        if (updateResult.isErr()) {
+          logger.error(`Failed to update movements for transaction ${tx.id}: ${updateResult.error.message}`);
+          this.errors.push(`Transaction ${tx.id}: ${updateResult.error.message}`);
+          stats.failures++;
+        } else {
+          stats.movementsUpdated += fetchedPrices.length;
+        }
+      }
 
-      // Update transaction using repository
-      const updateResult = await this.transactionRepo.updateTransactionPrice(tx.id, {
-        priceAtTxTime: priceData.price.toString(),
-        priceAtTxTimeCurrency: priceData.currency,
-        priceAtTxTimeSource: priceData.source,
-        priceAtTxTimeFetchedAt: priceData.fetchedAt.toISOString(),
-      });
-
-      if (updateResult.isErr()) {
-        logger.error(`Failed to update transaction ${tx.id}: ${updateResult.error.message}`);
-        this.errors.push(`Transaction ${tx.id}: ${updateResult.error.message}`);
+      if (txHadFailure) {
         stats.failures++;
-      } else {
-        stats.pricesUpdated++;
       }
     }
 

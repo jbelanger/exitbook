@@ -97,6 +97,16 @@ export abstract class BasePriceProvider implements IPriceProvider {
    * Shared cache-saving logic used by all providers (addresses recommendation #1)
    */
   protected async saveToCache(priceData: PriceData, identifier: string): Promise<void> {
+    // Validate price data before caching to prevent invalid data from being stored
+    const validationError = validatePriceData(priceData, new Date());
+    if (validationError) {
+      this.logger.warn(
+        { error: validationError, asset: priceData.asset.toString(), price: priceData.price },
+        'Refusing to cache invalid price data'
+      );
+      return;
+    }
+
     const cacheResult = await this.priceRepo.savePrice(priceData, identifier);
     if (cacheResult.isErr()) {
       this.logger.warn({ error: cacheResult.error.message }, 'Failed to cache price');

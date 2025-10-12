@@ -1,4 +1,4 @@
-import type { TransactionNote } from '@exitbook/import/domain/universal-transaction.ts';
+import type { TransactionNote } from '@exitbook/core';
 
 import { TransactionNoteType } from '../types/types.js';
 

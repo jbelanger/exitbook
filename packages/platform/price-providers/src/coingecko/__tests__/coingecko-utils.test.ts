@@ -89,6 +89,42 @@ describe('transformHistoricalResponse', () => {
       transformHistoricalResponse(response, Currency.create('btc'), new Date(), Currency.create('USD'), new Date())
     ).toThrow('Currency USD not found in response');
   });
+
+  it('throws when price is zero (delisted or unavailable asset)', () => {
+    const response = {
+      id: 'delisted-coin',
+      symbol: 'del',
+      name: 'Delisted Coin',
+      market_data: {
+        current_price: {
+          usd: 0,
+        },
+      },
+    };
+
+    const timestamp = new Date('2024-01-01T00:00:00Z');
+
+    expect(() =>
+      transformHistoricalResponse(response, Currency.create('DEL'), timestamp, Currency.create('USD'), new Date())
+    ).toThrow('CoinGecko returned invalid price 0 for DEL (coin: delisted-coin) on 2024-01-01');
+  });
+
+  it('throws when price is negative', () => {
+    const response = {
+      id: 'bitcoin',
+      symbol: 'btc',
+      name: 'Bitcoin',
+      market_data: {
+        current_price: {
+          usd: -100,
+        },
+      },
+    };
+
+    expect(() =>
+      transformHistoricalResponse(response, Currency.create('BTC'), new Date(), Currency.create('USD'), new Date())
+    ).toThrow('CoinGecko returned invalid price -100 for BTC');
+  });
 });
 
 describe('transformSimplePriceResponse', () => {
@@ -151,6 +187,44 @@ describe('transformSimplePriceResponse', () => {
         new Date()
       )
     ).toThrow('Currency USD not found for BTC');
+  });
+
+  it('throws when price is zero (delisted or unavailable asset)', () => {
+    const response = {
+      'delisted-coin': {
+        usd: 0,
+      },
+    };
+
+    expect(() =>
+      transformSimplePriceResponse(
+        response,
+        'delisted-coin',
+        Currency.create('DEL'),
+        new Date(),
+        Currency.create('USD'),
+        new Date()
+      )
+    ).toThrow('CoinGecko returned invalid price 0 for DEL (coin: delisted-coin)');
+  });
+
+  it('throws when price is negative', () => {
+    const response = {
+      bitcoin: {
+        usd: -100,
+      },
+    };
+
+    expect(() =>
+      transformSimplePriceResponse(
+        response,
+        'bitcoin',
+        Currency.create('BTC'),
+        new Date(),
+        Currency.create('USD'),
+        new Date()
+      )
+    ).toThrow('CoinGecko returned invalid price -100 for BTC');
   });
 });
 

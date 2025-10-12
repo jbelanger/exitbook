@@ -92,12 +92,6 @@ export interface TransactionsTable {
   price: DecimalString | null;
   price_currency: string | null;
 
-  // Historical market price at transaction time (from price providers)
-  price_at_tx_time: DecimalString | null;
-  price_at_tx_time_currency: string | null;
-  price_at_tx_time_source: string | null;
-  price_at_tx_time_fetched_at: DateTime | null;
-
   // Notes and metadata
   note_type: string | null;
   note_severity: 'info' | 'warning' | 'error' | null;
