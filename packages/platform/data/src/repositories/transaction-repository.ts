@@ -314,6 +314,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
     priceData: {
       asset: string;
       fetchedAt: Date;
+      granularity?: 'exact' | 'minute' | 'hour' | 'day' | undefined;
       price: { amount: Decimal; currency: Currency };
       source: string;
     }[]
@@ -340,6 +341,7 @@ export class TransactionRepository extends BaseRepository implements ITransactio
           p.asset,
           {
             fetchedAt: p.fetchedAt,
+            granularity: p.granularity,
             price: {
               amount: p.price.amount,
               currency: p.price.currency,

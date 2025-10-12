@@ -54,7 +54,7 @@ export function buildBinanceSymbol(asset: Currency, quoteAsset: string): string 
  *
  * Binance provides ~1 year of minute data, then falls back to daily
  */
-export function selectBinanceInterval(timestamp: Date): { granularity: PriceGranularity; interval: string } {
+export function selectBinanceInterval(timestamp: Date): { granularity: 'minute' | 'day'; interval: string } {
   const now = new Date();
   const ageInDays = (now.getTime() - timestamp.getTime()) / (1000 * 60 * 60 * 24);
 

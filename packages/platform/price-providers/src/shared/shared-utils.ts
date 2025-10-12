@@ -57,9 +57,16 @@ export function roundToMinute(date: Date): Date {
 
 /**
  * Round timestamp based on granularity
- * For undefined granularity (spot prices), returns original timestamp
+ * For undefined granularity (spot prices) or 'exact', returns original timestamp
  */
-export function roundTimestampByGranularity(date: Date, granularity: 'minute' | 'hour' | 'day' | undefined): Date {
+export function roundTimestampByGranularity(
+  date: Date,
+  granularity: 'exact' | 'minute' | 'hour' | 'day' | undefined
+): Date {
+  if (granularity === 'exact') {
+    // Exact prices keep precise timestamp
+    return date;
+  }
   if (granularity === 'day') {
     return roundToDay(date);
   }

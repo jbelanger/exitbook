@@ -329,17 +329,18 @@ describe('initializeStats', () => {
     const stats = initializeStats();
 
     expect(stats).toEqual({
-      transactionsFound: 0,
-      pricesFetched: 0,
-      movementsUpdated: 0,
       failures: 0,
-      skipped: 0,
-      manualEntries: 0,
       granularity: {
         day: 0,
+        exact: 0,
         hour: 0,
         minute: 0,
       },
+      manualEntries: 0,
+      movementsUpdated: 0,
+      pricesFetched: 0,
+      skipped: 0,
+      transactionsFound: 0,
     });
   });
 

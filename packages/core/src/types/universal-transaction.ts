@@ -58,6 +58,15 @@ export interface PriceAtTxTime {
    * When the price was fetched/recorded
    */
   fetchedAt: Date;
+
+  /**
+   * Granularity of the price data - indicates precision and reliability
+   * - exact: Precise price at exact timestamp (manual entry, trade execution)
+   * - minute: Minute-level aggregated data
+   * - hour: Hourly aggregated data
+   * - day: Daily aggregated data (typically midnight UTC)
+   */
+  granularity?: 'exact' | 'minute' | 'hour' | 'day' | undefined;
 }
 
 /**

@@ -29,6 +29,7 @@ export interface PriceFetchStats {
   /** Granularity breakdown */
   granularity: {
     day: number; // Daily only
+    exact: number; // Exact price at timestamp (manual, trade execution)
     hour: number; // Hourly intraday
     minute: number; // Minute-level intraday
   };
@@ -123,16 +124,17 @@ export function createPriceQuery(
  */
 export function initializeStats(): PriceFetchStats {
   return {
-    transactionsFound: 0,
-    pricesFetched: 0,
-    movementsUpdated: 0,
     failures: 0,
-    skipped: 0,
-    manualEntries: 0,
     granularity: {
       day: 0,
+      exact: 0,
       hour: 0,
       minute: 0,
     },
+    manualEntries: 0,
+    movementsUpdated: 0,
+    pricesFetched: 0,
+    skipped: 0,
+    transactionsFound: 0,
   };
 }

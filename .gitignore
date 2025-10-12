@@ -160,3 +160,6 @@ out/
 commands.txt
 *files*.txt
 !prices.db
+# SQLite WAL files (Write-Ahead Logging)
+*.db-shm
+*.db-wal

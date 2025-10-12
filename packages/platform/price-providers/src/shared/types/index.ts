@@ -14,9 +14,19 @@ export interface PriceQuery {
 }
 
 /**
- * Price data granularity levels
+ * Historical data granularity levels for provider capabilities
+ * These represent the precision of historical data that a provider can supply
  */
-export type PriceGranularity = 'minute' | 'hour' | 'day';
+export type HistoricalGranularity = 'minute' | 'hour' | 'day';
+
+/**
+ * Price data granularity levels
+ * - exact: Precise price at exact timestamp (manual entry, trade execution)
+ * - minute: Minute-level aggregated data
+ * - hour: Hourly aggregated data
+ * - day: Daily aggregated data (typically midnight UTC)
+ */
+export type PriceGranularity = 'exact' | HistoricalGranularity;
 
 /**
  * Normalized price data from any provider
@@ -56,8 +66,8 @@ export interface ProviderRateLimit {
  * Defines what historical data granularity levels are available and for how long
  */
 export interface GranularitySupport {
-  /** Granularity level (minute, hour, day) */
-  granularity: PriceGranularity;
+  /** Granularity level for historical data (minute, hour, day) */
+  granularity: HistoricalGranularity;
   /** Maximum days back this granularity is available (undefined = unlimited) */
   maxHistoryDays: number | undefined;
   /** Description of the limitation (e.g., "Free tier limit", "API restriction") */

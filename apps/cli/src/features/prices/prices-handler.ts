@@ -141,6 +141,7 @@ export class PricesFetchHandler {
       const fetchedPrices: {
         asset: string;
         fetchedAt: Date;
+        granularity?: 'exact' | 'minute' | 'hour' | 'day' | undefined;
         price: { amount: import('decimal.js').Decimal; currency: import('@exitbook/core').Currency };
         source: string;
       }[] = [];
@@ -172,6 +173,12 @@ export class PricesFetchHandler {
             // Manual price entered successfully - treat as SUCCESS
             consecutiveFailures = 0;
             stats.manualEntries++;
+
+            // Track granularity for manual entries (always 'exact')
+            if (errorResult.fetchedPrice.granularity) {
+              stats.granularity[errorResult.fetchedPrice.granularity]++;
+            }
+
             fetchedPrices.push(errorResult.fetchedPrice);
           } else {
             // Error not resolved - treat as FAILURE
@@ -198,12 +205,13 @@ export class PricesFetchHandler {
 
         fetchedPrices.push({
           asset,
+          fetchedAt: priceData.fetchedAt,
+          granularity: priceData.granularity,
           price: {
             amount: parseDecimal(priceData.price.toString()),
             currency: priceData.currency,
           },
           source: priceData.source,
-          fetchedAt: priceData.fetchedAt,
         });
       }
 
@@ -254,6 +262,7 @@ export class PricesFetchHandler {
     fetchedPrice?: {
       asset: string;
       fetchedAt: Date;
+      granularity?: 'exact' | 'minute' | 'hour' | 'day' | undefined;
       price: { amount: import('decimal.js').Decimal; currency: Currency };
       source: string;
     };
@@ -281,16 +290,17 @@ export class PricesFetchHandler {
         logger.info(`Manual price recorded for ${asset}: ${manualPrice.price.toString()} ${manualPrice.currency}`);
 
         return {
-          success: true,
           fetchedPrice: {
             asset,
+            fetchedAt: new Date(),
+            granularity: 'exact', // Manual entries are exact prices
             price: {
               amount: manualPrice.price,
               currency: Currency.create(manualPrice.currency),
             },
             source: manualPrice.source,
-            fetchedAt: new Date(),
           },
+          success: true,
         };
       } else {
         // User skipped - treat as FAILURE
