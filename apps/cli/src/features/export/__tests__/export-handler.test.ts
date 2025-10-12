@@ -7,9 +7,13 @@ import { ExportHandler } from '../export-handler.ts';
 import type { ExportHandlerParams } from '../export-utils.ts';
 
 // Mock dependencies
-vi.mock('@exitbook/import', () => ({
-  TransactionRepository: vi.fn(),
-}));
+vi.mock('@exitbook/data', async () => {
+  const actual = await vi.importActual<typeof import('@exitbook/data')>('@exitbook/data');
+  return {
+    ...actual,
+    TransactionRepository: vi.fn(),
+  };
+});
 
 describe('ExportHandler', () => {
   let mockDatabase: KyselyDB;

@@ -7,7 +7,7 @@
 import type { Currency } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
-import { validateRawPrice } from '../shared/shared-utils.js';
+import { roundTimestampByGranularity, validateRawPrice } from '../shared/shared-utils.js';
 import type { PriceData } from '../shared/types/index.js';
 
 import type { CryptoCompareHistoricalResponse, CryptoCompareOHLCV, CryptoComparePriceResponse } from './schemas.js';
@@ -32,14 +32,17 @@ export function transformPriceResponse(
     return err(priceResult.error);
   }
 
+  const granularity = undefined;
+  const roundedTimestamp = roundTimestampByGranularity(timestamp, granularity);
+
   return ok({
     asset,
-    timestamp,
+    timestamp: roundedTimestamp,
     price: priceResult.value,
     currency,
     source: 'cryptocompare',
     fetchedAt,
-    granularity: undefined,
+    granularity,
   });
 }
 
@@ -124,10 +127,13 @@ export function transformHistoricalResponse(
     return err(priceResult.error);
   }
 
+  // Round timestamp to granularity bucket
+  const roundedTimestamp = roundTimestampByGranularity(timestamp, granularity);
+
   // Use close price as the price for this timestamp
   return ok({
     asset,
-    timestamp,
+    timestamp: roundedTimestamp,
     price: priceResult.value,
     currency,
     source: 'cryptocompare',

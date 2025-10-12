@@ -7,7 +7,7 @@
 import { Currency } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
-import { validateRawPrice } from '../shared/shared-utils.js';
+import { roundTimestampByGranularity, validateRawPrice } from '../shared/shared-utils.js';
 import type { PriceData } from '../shared/types/index.js';
 
 import type {
@@ -74,14 +74,17 @@ export function transformHistoricalResponse(
     return err(priceResult.error);
   }
 
+  const granularity = 'day';
+  const roundedTimestamp = roundTimestampByGranularity(timestamp, granularity);
+
   return ok({
     asset: asset,
-    timestamp,
+    timestamp: roundedTimestamp,
     price: priceResult.value,
     currency: currency,
     source: 'coingecko',
     fetchedAt,
-    granularity: 'day',
+    granularity,
   });
 }
 
@@ -112,14 +115,17 @@ export function transformSimplePriceResponse(
     return err(priceResult.error);
   }
 
+  const granularity = undefined;
+  const roundedTimestamp = roundTimestampByGranularity(timestamp, granularity);
+
   return ok({
     asset: asset,
-    timestamp,
+    timestamp: roundedTimestamp,
     price: priceResult.value,
     currency: currency,
     source: 'coingecko',
     fetchedAt,
-    granularity: undefined,
+    granularity,
   });
 }
 

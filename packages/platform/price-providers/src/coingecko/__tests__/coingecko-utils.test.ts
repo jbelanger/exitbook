@@ -52,8 +52,8 @@ describe('transformHistoricalResponse', () => {
       },
     };
 
-    const timestamp = new Date('2024-01-01T00:00:00Z');
-    const fetchedAt = new Date('2024-01-01T00:05:00Z');
+    const timestamp = new Date('2024-01-01T14:30:00Z');
+    const fetchedAt = new Date('2024-01-01T15:05:00Z');
 
     const result = transformHistoricalResponse(
       response,
@@ -67,7 +67,7 @@ describe('transformHistoricalResponse', () => {
     if (result.isOk()) {
       expect(result.value).toEqual({
         asset: Currency.create('BTC'),
-        timestamp,
+        timestamp: new Date('2024-01-01T00:00:00Z'), // Rounded to day
         price: 30123.45,
         currency: Currency.create('USD'),
         source: 'coingecko',

@@ -7,6 +7,7 @@ import { wrapError } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import { ok } from 'neverthrow';
 
+import { roundToDay, roundToHour, roundToMinute } from '../../shared/shared-utils.js';
 import type { PriceData } from '../../shared/types/index.js';
 import type { PricesDB } from '../database.js';
 
@@ -31,15 +32,19 @@ export class PriceRepository {
 
   /**
    * Get cached price for asset/currency/timestamp
-   * Looks for prices on the same day and returns the closest match
+   * Tries multiple granularity levels: minute, hour, day
+   * Returns the most precise match available
    */
   async getPrice(asset: Currency, currency: Currency, timestamp: Date): Promise<Result<PriceData | undefined, Error>> {
     try {
-      // Look for prices on the same day
-      const startOfDay = new Date(timestamp);
-      startOfDay.setUTCHours(0, 0, 0, 0);
+      // Try to find exact matches at different granularities (most precise first)
+      const minuteBucket = roundToMinute(timestamp);
+      const hourBucket = roundToHour(timestamp);
+      const dayBucket = roundToDay(timestamp);
 
-      const endOfDay = new Date(timestamp);
+      // Query for any prices on the same day (covers all granularities)
+      const startOfDay = new Date(dayBucket);
+      const endOfDay = new Date(dayBucket);
       endOfDay.setUTCHours(23, 59, 59, 999);
 
       const records = await this.db
@@ -56,14 +61,26 @@ export class PriceRepository {
         return ok(undefined);
       }
 
-      // If only one price on same day, use it
-      if (records.length === 1) {
-        const priceData: PriceData = this.recordToPriceData(records[0]!);
-        return ok(priceData);
+      // Prefer exact granularity matches
+      // 1. Try minute bucket
+      const minuteMatch = records.find((r) => r.timestamp === minuteBucket.toISOString());
+      if (minuteMatch) {
+        return ok(this.recordToPriceData(minuteMatch));
       }
 
-      // If multiple prices on same day, find the closest one to requested timestamp
+      // 2. Try hour bucket
+      const hourMatch = records.find((r) => r.timestamp === hourBucket.toISOString());
+      if (hourMatch) {
+        return ok(this.recordToPriceData(hourMatch));
+      }
 
+      // 3. Try day bucket
+      const dayMatch = records.find((r) => r.timestamp === dayBucket.toISOString());
+      if (dayMatch) {
+        return ok(this.recordToPriceData(dayMatch));
+      }
+
+      // 4. No exact bucket match - find closest timestamp
       let closestRecord = records[0]!;
       let smallestDiff = Math.abs(new Date(closestRecord.timestamp).getTime() - timestamp.getTime());
 
@@ -75,9 +92,7 @@ export class PriceRepository {
         }
       }
 
-      const priceData: PriceData = this.recordToPriceData(closestRecord);
-
-      return ok(priceData);
+      return ok(this.recordToPriceData(closestRecord));
     } catch (error) {
       return wrapError(error, `Failed to get price`);
     }

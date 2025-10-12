@@ -38,6 +38,42 @@ export function roundToDay(date: Date): Date {
 }
 
 /**
+ * Round timestamp to nearest hour (for hourly price lookups)
+ */
+export function roundToHour(date: Date): Date {
+  const rounded = new Date(date);
+  rounded.setUTCMinutes(0, 0, 0);
+  return rounded;
+}
+
+/**
+ * Round timestamp to nearest minute (for minute-level price lookups)
+ */
+export function roundToMinute(date: Date): Date {
+  const rounded = new Date(date);
+  rounded.setUTCSeconds(0, 0);
+  return rounded;
+}
+
+/**
+ * Round timestamp based on granularity
+ * For undefined granularity (spot prices), returns original timestamp
+ */
+export function roundTimestampByGranularity(date: Date, granularity: 'minute' | 'hour' | 'day' | undefined): Date {
+  if (granularity === 'day') {
+    return roundToDay(date);
+  }
+  if (granularity === 'hour') {
+    return roundToHour(date);
+  }
+  if (granularity === 'minute') {
+    return roundToMinute(date);
+  }
+  // Undefined granularity (spot price) - keep exact timestamp
+  return date;
+}
+
+/**
  * Check if two timestamps are on the same day
  */
 export function isSameDay(date1: Date, date2: Date): boolean {

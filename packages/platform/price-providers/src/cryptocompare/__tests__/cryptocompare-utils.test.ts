@@ -205,7 +205,7 @@ describe('transformHistoricalResponse', () => {
     };
 
     const asset = Currency.create('BTC');
-    const timestamp = new Date(2000 * 1000); // Unix timestamp 2000
+    const timestamp = new Date(2000 * 1000); // Unix timestamp 2000 (1970-01-01T00:33:20Z)
     const currency = Currency.create('USD');
     const fetchedAt = new Date('2024-01-01T01:00:00Z');
 
@@ -215,7 +215,7 @@ describe('transformHistoricalResponse', () => {
     if (result.isOk()) {
       expect(result.value).toEqual({
         asset,
-        timestamp,
+        timestamp: new Date(2000 * 1000 - 20 * 1000), // Rounded to minute (1970-01-01T00:33:00Z)
         price: 108, // close price at time 2000
         currency,
         source: 'cryptocompare',
