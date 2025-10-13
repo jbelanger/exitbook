@@ -59,6 +59,50 @@ const FIAT_CURRENCIES = new Set([
   'UAH', // Ukrainian Hryvnia
   'KES', // Kenyan Shilling
   'PEN', // Peruvian Sol
+  'BDT', // Bangladeshi Taka
+  'LKR', // Sri Lankan Rupee
+  'QAR', // Qatari Riyal
+  'KWD', // Kuwaiti Dinar
+  'BHD', // Bahraini Dinar
+  'OMR', // Omani Rial
+  'JOD', // Jordanian Dinar
+  'IRR', // Iranian Rial
+  'UYU', // Uruguayan Peso
+  'VES', // Venezuelan Bolívar
+  'GHS', // Ghanaian Cedi
+  'TZS', // Tanzanian Shilling
+  'UGX', // Ugandan Shilling
+  'MAD', // Moroccan Dirham
+  'TND', // Tunisian Dinar
+  'GEL', // Georgian Lari
+  'KZT', // Kazakhstani Tenge
+  'UZS', // Uzbekistani Som
+  'AZN', // Azerbaijani Manat
+]);
+
+/**
+ * USD-pegged stablecoins
+ * Used for deriving prices from exchange trade data
+ */
+const STABLECOINS = new Set([
+  'USDT', // Tether
+  'USDC', // USD Coin
+  'BUSD', // Binance USD
+  'DAI', // MakerDAO
+  'TUSD', // TrueUSD
+  'USDP', // Pax Dollar
+  'GUSD', // Gemini Dollar
+  'FRAX', // Frax
+  'LUSD', // Liquity USD
+  'USDD', // Decentralized USD
+  'USDJ', // JUST Stablecoin
+  'USDN', // Neutrino USD
+  'UST', // TerraUSD (historical)
+  'USTC', // Terra Classic USD
+  'FDUSD', // First Digital USD
+  'PYUSD', // PayPal USD
+  'USDE', // Ethena USDe
+  'USDS', // USDS (Spark Protocol)
 ]);
 
 export class Currency {
@@ -108,6 +152,21 @@ export class Currency {
    */
   isFiat(): boolean {
     return FIAT_CURRENCIES.has(this.code);
+  }
+
+  /**
+   * Check if this currency is a stablecoin
+   */
+  isStablecoin(): boolean {
+    return STABLECOINS.has(this.code);
+  }
+
+  /**
+   * Check if this currency is either fiat or a stablecoin
+   * Useful for determining if a price can be derived from trade data
+   */
+  isFiatOrStablecoin(): boolean {
+    return this.isFiat() || this.isStablecoin();
   }
 
   /**
