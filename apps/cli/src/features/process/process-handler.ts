@@ -4,6 +4,7 @@ import {
   ImporterFactory,
   ImportSessionErrorRepository,
   ImportSessionRepository,
+  PriceEnrichmentService,
   ProcessorFactory,
   RawDataRepository,
   TransactionIngestionService,
@@ -35,6 +36,9 @@ export interface ProcessResult {
   /** Number of transactions processed */
   processed: number;
 
+  /** Number of transactions enriched with prices */
+  pricesEnriched: number;
+
   /** Processing errors if any */
   errors: string[];
 }
@@ -46,6 +50,7 @@ export interface ProcessResult {
 export class ProcessHandler {
   private providerManager: BlockchainProviderManager;
   private ingestionService: TransactionIngestionService;
+  private priceEnrichmentService: PriceEnrichmentService;
 
   constructor(
     private database: KyselyDB,
@@ -73,6 +78,8 @@ export class ProcessHandler {
       processorFactory,
       normalizer
     );
+
+    this.priceEnrichmentService = new PriceEnrichmentService(transactionRepository);
   }
 
   /**
@@ -109,8 +116,21 @@ export class ProcessHandler {
         logger.info(`Processing completed: ${result.processed} transactions processed`);
       }
 
+      // Enrich prices from transaction data (before calling external price providers)
+      logger.info('Enriching prices from transaction data');
+      const enrichmentResult = await this.priceEnrichmentService.enrichPrices();
+
+      let pricesEnriched = 0;
+      if (enrichmentResult.isErr()) {
+        logger.warn(`Price enrichment failed: ${enrichmentResult.error.message}`);
+      } else {
+        pricesEnriched = enrichmentResult.value.transactionsUpdated;
+        logger.info(`Price enrichment completed: ${pricesEnriched} transactions enriched`);
+      }
+
       return ok({
         processed: result.processed,
+        pricesEnriched,
         errors: result.errors,
       });
     } catch (error) {

@@ -7,7 +7,7 @@ import type { IImporter, ImportParams, ImportRunResult } from '@exitbook/import/
 import { getLogger, type Logger } from '@exitbook/shared-logger';
 import { err, ok, type Result } from 'neverthrow';
 
-import { CsvParser } from '../csv-parser.js';
+import { CsvParser } from '../shared/csv-parser.ts';
 
 import { CSV_FILE_TYPES } from './constants.js';
 import type {
