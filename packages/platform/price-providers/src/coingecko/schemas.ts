@@ -43,7 +43,7 @@ export const CoinGeckoHistoricalPriceResponseSchema = z.object({
   symbol: z.string(),
   name: z.string(),
   market_data: z.object({
-    current_price: z.record(z.number()),
+    current_price: z.record(z.string(), z.number()),
   }),
 });
 
@@ -53,7 +53,7 @@ export type CoinGeckoHistoricalPriceResponse = z.infer<typeof CoinGeckoHistorica
  * CoinGecko simple price response
  * Endpoint: /simple/price
  */
-export const CoinGeckoSimplePriceResponseSchema = z.record(z.record(z.number()));
+export const CoinGeckoSimplePriceResponseSchema = z.record(z.string(), z.record(z.string(), z.number()));
 
 export type CoinGeckoSimplePriceResponse = z.infer<typeof CoinGeckoSimplePriceResponseSchema>;
 
