@@ -26,11 +26,10 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@scure/bip32": "^2.0.0",
-    "@solana/web3.js": "^1.98.0",
-    "@substrate/txwrapper-polkadot": "^7.5.3",
-    "bitcoinjs-lib": "^7.0.0",
-    "decimal.js": "^10.4.3"
+    "csv-parse": "^6.1.0",
+    "decimal.js": "^10.4.3",
+    "neverthrow": "^8.2.0",
+    "zod": "^4.1.12"
   },
   "devDependencies": {
     "@types/node": "^24.7.2",

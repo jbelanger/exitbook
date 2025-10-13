@@ -42,11 +42,6 @@
   },
   "dependencies": {
     "@effect/eslint-plugin": "^0.3.2",
-    "@polkadot/util": "^13.5.7",
-    "@polkadot/util-crypto": "^13.5.7",
-    "eslint-plugin-eslint-comments": "^3.2.0",
-    "eslint-plugin-import": "^2.32.0",
-    "neverthrow": "^8.2.0",
     "prettier-plugin-packagejson": "^2.5.19"
   },
   "devDependencies": {

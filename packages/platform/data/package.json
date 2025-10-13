@@ -21,15 +21,12 @@
   "dependencies": {
     "better-sqlite3": "^12.4.1",
     "decimal.js": "^10.6.0",
-    "kysely": "^0.28.8"
+    "kysely": "^0.28.8",
+    "neverthrow": "^8.2.0"
   },
   "devDependencies": {
-    "@jest/globals": "^30.0.5",
     "@types/better-sqlite3": "^7.6.13",
-    "@types/jest": "^30.0.0",
     "@types/node": "^24.7.2",
-    "jest": "^30.0.5",
-    "ts-jest": "^29.4.5",
     "tsconfig": "workspace:*",
     "tsx": "^4.20.4",
     "typescript": "^5.9.3"
