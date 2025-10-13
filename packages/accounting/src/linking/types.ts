@@ -36,8 +36,8 @@ export interface TransactionLink {
   confidenceScore: Decimal; // 0-1, higher is more confident
   matchCriteria: MatchCriteria;
   status: LinkStatus;
-  reviewedBy: string | undefined; // User who confirmed/rejected
-  reviewedAt: Date | undefined;
+  reviewedBy?: string | undefined; // User who confirmed/rejected
+  reviewedAt?: Date | undefined;
   createdAt: Date;
   updatedAt: Date;
   metadata?: Record<string, unknown> | undefined;

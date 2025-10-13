@@ -1,21 +1,23 @@
 /* eslint-disable unicorn/no-null -- null needed by Kysely */
-import type { Decimal } from 'decimal.js';
+import type { KyselyDB, TransactionLinksTable } from '@exitbook/data';
+import { getLogger, type Logger } from '@exitbook/shared-logger';
 import type { Selectable } from 'kysely';
 import { err, ok, type Result } from 'neverthrow';
 
-import type { TransactionLinksTable } from '../schema/database-schema.js';
-import type { KyselyDB } from '../storage/database.js';
-
-import { BaseRepository } from './base-repository.js';
+import type { TransactionLink } from '../linking/types.js';
 
 export type StoredTransactionLink = Selectable<TransactionLinksTable>;
 
 /**
  * Repository for transaction link operations
  */
-export class TransactionLinkRepository extends BaseRepository {
+export class TransactionLinkRepository {
+  private readonly db: KyselyDB;
+  private readonly logger: Logger;
+
   constructor(db: KyselyDB) {
-    super(db, 'TransactionLinkRepository');
+    this.db = db;
+    this.logger = getLogger('TransactionLinkRepository');
   }
 
   /**
@@ -24,26 +26,7 @@ export class TransactionLinkRepository extends BaseRepository {
    * @param link - Link data to insert
    * @returns Result with the created link ID
    */
-  async create(link: {
-    confidenceScore: Decimal;
-    createdAt: Date;
-    id: string;
-    linkType: 'exchange_to_blockchain' | 'blockchain_to_blockchain' | 'exchange_to_exchange';
-    matchCriteria: {
-      addressMatch?: boolean | undefined;
-      amountSimilarity: Decimal;
-      assetMatch: boolean;
-      timingHours: number;
-      timingValid: boolean;
-    };
-    metadata?: Record<string, unknown> | undefined;
-    reviewedAt?: Date | undefined;
-    reviewedBy?: string | undefined;
-    sourceTransactionId: number;
-    status: 'suggested' | 'confirmed' | 'rejected';
-    targetTransactionId: number;
-    updatedAt: Date;
-  }): Promise<Result<string, Error>> {
+  async create(link: TransactionLink): Promise<Result<string, Error>> {
     try {
       await this.db
         .insertInto('transaction_links')
@@ -78,28 +61,7 @@ export class TransactionLinkRepository extends BaseRepository {
    * @param links - Array of links to create
    * @returns Result with count of created links
    */
-  async createBulk(
-    links: {
-      confidenceScore: Decimal;
-      createdAt: Date;
-      id: string;
-      linkType: 'exchange_to_blockchain' | 'blockchain_to_blockchain' | 'exchange_to_exchange';
-      matchCriteria: {
-        addressMatch?: boolean | undefined;
-        amountSimilarity: Decimal;
-        assetMatch: boolean;
-        timingHours: number;
-        timingValid: boolean;
-      };
-      metadata?: Record<string, unknown> | undefined;
-      reviewedAt?: Date | undefined;
-      reviewedBy?: string | undefined;
-      sourceTransactionId: number;
-      status: 'suggested' | 'confirmed' | 'rejected';
-      targetTransactionId: number;
-      updatedAt: Date;
-    }[]
-  ): Promise<Result<number, Error>> {
+  async createBulk(links: TransactionLink[]): Promise<Result<number, Error>> {
     try {
       if (links.length === 0) {
         return ok(0);
@@ -294,5 +256,42 @@ export class TransactionLinkRepository extends BaseRepository {
       this.logger.error({ error, sourceTransactionId }, 'Failed to delete links by source transaction');
       return err(new Error(`Failed to delete links by source transaction: ${message}`));
     }
+  }
+
+  /**
+   * Helper method to serialize data to JSON string safely
+   * Handles Decimal objects by converting them to strings
+   */
+  private serializeToJson(data: unknown): string | undefined {
+    if (data === undefined || data === null) return undefined;
+
+    try {
+      return JSON.stringify(data, (_key, value: unknown) => {
+        // Convert Decimal objects to strings for proper serialization
+        if (
+          value &&
+          typeof value === 'object' &&
+          'd' in value &&
+          'e' in value &&
+          's' in value &&
+          'toString' in value &&
+          typeof value.toString === 'function'
+        ) {
+          // This is likely a Decimal.js object (has d, e, s properties and toString method)
+          return (value as { toString: () => string }).toString();
+        }
+        return value as string | number | boolean | null | object;
+      });
+    } catch (error) {
+      this.logger.warn({ data, error }, 'Failed to serialize data to JSON');
+      return undefined;
+    }
+  }
+
+  /**
+   * Helper method to convert Date to Unix timestamp
+   */
+  private dateToTimestamp(date: Date): number {
+    return Math.floor(date.getTime() / 1000);
   }
 }

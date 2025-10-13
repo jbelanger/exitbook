@@ -45,7 +45,7 @@ export const TransactionLinkSchema = z.object({
   reviewedAt: z.date().optional(),
   createdAt: z.date(),
   updatedAt: z.date(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 /**
@@ -55,14 +55,13 @@ export const TransactionCandidateSchema = z.object({
   id: z.number(),
   sourceId: z.string(),
   sourceType: z.enum(['exchange', 'blockchain']),
-  externalId: z.string().nullable(),
+  externalId: z.string().optional(),
   timestamp: z.date(),
   asset: z.string(),
   amount: DecimalSchema,
   direction: z.enum(['in', 'out', 'neutral']),
-  fromAddress: z.string().nullable(),
-  toAddress: z.string().nullable(),
-  costBasisPerUnit: DecimalSchema.optional(),
+  fromAddress: z.string().optional(),
+  toAddress: z.string().optional(),
 });
 
 /**
