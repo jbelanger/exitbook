@@ -223,6 +223,17 @@ export function findPotentialMatches(
     // Build criteria
     const criteria = buildMatchCriteria(source, target, config);
 
+    // Enforce timing validity as a hard threshold
+    // Target must come after source and be within the time window
+    if (!criteria.timingValid) {
+      continue;
+    }
+
+    // Enforce minimum amount similarity as a hard threshold
+    if (criteria.amountSimilarity.lessThan(config.minAmountSimilarity)) {
+      continue;
+    }
+
     // Calculate confidence
     const confidenceScore = calculateConfidenceScore(criteria);
 

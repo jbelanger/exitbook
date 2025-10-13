@@ -145,7 +145,7 @@ describe('TransactionLinkingService', () => {
           note_message: null,
           note_metadata: null,
           movements_primary_asset: 'BTC',
-          movements_primary_amount: '0.9', // 10% fee (lower amount)
+          movements_primary_amount: '0.96', // 4% fee (96% similarity, just above minAmountSimilarity threshold)
           movements_primary_direction: 'in',
           movements_secondary_asset: null,
           movements_secondary_amount: null,
@@ -575,14 +575,14 @@ describe('TransactionLinkingService', () => {
         const {
           totalSourceTransactions,
           totalTargetTransactions,
-          matchedCount,
+          matchedTransactionCount,
           unmatchedSourceCount,
           unmatchedTargetCount,
         } = result.value;
 
         expect(totalSourceTransactions).toBe(2); // BTC and ETH withdrawals
         expect(totalTargetTransactions).toBe(2); // BTC and USDT deposits
-        expect(matchedCount).toBe(2); // 1 source + 1 target matched
+        expect(matchedTransactionCount).toBe(2); // 1 source + 1 target = 2 transactions involved
         expect(unmatchedSourceCount).toBe(1); // ETH withdrawal unmatched
         expect(unmatchedTargetCount).toBe(1); // USDT deposit unmatched
       }
@@ -780,6 +780,123 @@ describe('TransactionLinkingService', () => {
   });
 
   describe('deduplication', () => {
+    it('should prevent one source from matching multiple targets', () => {
+      const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
+
+      const transactions: StoredTransaction[] = [
+        // Source (single withdrawal)
+        {
+          id: 1,
+          import_session_id: 1,
+          wallet_address_id: null,
+          source_id: 'kraken',
+          source_type: 'exchange',
+          external_id: 'W123',
+          transaction_status: 'confirmed',
+          transaction_datetime: '2024-01-01T12:00:00.000Z',
+          from_address: null,
+          to_address: null,
+          verified: true,
+          price: null,
+          price_currency: null,
+          note_type: null,
+          note_severity: null,
+          note_message: null,
+          note_metadata: null,
+          movements_primary_asset: 'BTC',
+          movements_primary_amount: '1.0',
+          movements_primary_direction: 'out',
+          movements_secondary_asset: null,
+          movements_secondary_amount: null,
+          movements_secondary_direction: null,
+          movements_fee_asset: null,
+          movements_fee_amount: null,
+          created_at: '2024-01-01T12:00:00.000Z',
+        } as unknown as StoredTransaction,
+        // Target 1 (first deposit - closer in time, higher confidence)
+        {
+          id: 2,
+          import_session_id: 2,
+          wallet_address_id: null,
+          source_id: 'bitcoin',
+          source_type: 'blockchain',
+          external_id: 'txabc123',
+          transaction_status: 'confirmed',
+          transaction_datetime: '2024-01-01T13:00:00.000Z', // 1 hour later
+          from_address: null,
+          to_address: null,
+          verified: true,
+          price: null,
+          price_currency: null,
+          note_type: null,
+          note_severity: null,
+          note_message: null,
+          note_metadata: null,
+          movements_primary_asset: 'BTC',
+          movements_primary_amount: '1.0',
+          movements_primary_direction: 'in',
+          movements_secondary_asset: null,
+          movements_secondary_amount: null,
+          movements_secondary_direction: null,
+          movements_fee_asset: null,
+          movements_fee_amount: null,
+          created_at: '2024-01-01T13:00:00.000Z',
+        } as unknown as StoredTransaction,
+        // Target 2 (second deposit - farther in time, lower confidence)
+        {
+          id: 3,
+          import_session_id: 2,
+          wallet_address_id: null,
+          source_id: 'bitcoin',
+          source_type: 'blockchain',
+          external_id: 'txdef456',
+          transaction_status: 'confirmed',
+          transaction_datetime: '2024-01-01T18:00:00.000Z', // 6 hours later
+          from_address: null,
+          to_address: null,
+          verified: true,
+          price: null,
+          price_currency: null,
+          note_type: null,
+          note_severity: null,
+          note_message: null,
+          note_metadata: null,
+          movements_primary_asset: 'BTC',
+          movements_primary_amount: '1.0',
+          movements_primary_direction: 'in',
+          movements_secondary_asset: null,
+          movements_secondary_amount: null,
+          movements_secondary_direction: null,
+          movements_fee_asset: null,
+          movements_fee_amount: null,
+          created_at: '2024-01-01T18:00:00.000Z',
+        } as unknown as StoredTransaction,
+      ];
+
+      const result = service.linkTransactions(transactions);
+
+      expect(result.isOk()).toBe(true);
+
+      if (result.isOk()) {
+        const { confirmedLinks, suggestedLinks } = result.value;
+        const allLinks = [...confirmedLinks, ...suggestedLinks];
+
+        // Should only have one link (source can only match one target)
+        expect(allLinks).toHaveLength(1);
+
+        // Should match to the higher confidence target (closer in time)
+        const link = allLinks[0];
+        if (!link) {
+          throw new Error('Expected a link but found undefined');
+        }
+        if ('targetTransactionId' in link) {
+          expect(link.targetTransactionId).toBe(2); // The closer deposit
+        } else {
+          expect(link.targetTransaction.id).toBe(2); // The closer deposit
+        }
+      }
+    });
+
     it('should keep only highest confidence match per target', () => {
       const service = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
 

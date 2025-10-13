@@ -107,7 +107,7 @@ export interface LinkingResult {
   confirmedLinks: TransactionLink[];
   totalSourceTransactions: number;
   totalTargetTransactions: number;
-  matchedCount: number;
+  matchedTransactionCount: number; // Total unique transactions involved in links (sources + targets)
   unmatchedSourceCount: number;
   unmatchedTargetCount: number;
 }

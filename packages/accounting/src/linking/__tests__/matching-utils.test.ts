@@ -524,4 +524,149 @@ describe('matching-utils', () => {
       expect(shouldConfirm).toBe(false);
     });
   });
+
+  describe('timing threshold enforcement', () => {
+    it('should reject matches where deposit comes before withdrawal', () => {
+      const source: TransactionCandidate = {
+        id: 1,
+        sourceId: 'kraken',
+        sourceType: 'exchange',
+        externalId: 'W123',
+        timestamp: new Date('2024-01-01T14:00:00Z'), // Withdrawal at 14:00
+        asset: 'BTC',
+        amount: new Decimal('1.0'),
+        direction: 'out',
+        fromAddress: undefined,
+        toAddress: undefined,
+      };
+
+      const targets: TransactionCandidate[] = [
+        {
+          id: 2,
+          sourceId: 'bitcoin',
+          sourceType: 'blockchain',
+          externalId: 'txabc',
+          timestamp: new Date('2024-01-01T12:00:00Z'), // Deposit at 12:00 (BEFORE withdrawal)
+          asset: 'BTC',
+          amount: new Decimal('1.0'), // Perfect amount match
+          direction: 'in',
+          fromAddress: undefined,
+          toAddress: undefined,
+        },
+      ];
+
+      const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+
+      // Should find no matches due to invalid timing
+      expect(matches).toHaveLength(0);
+    });
+
+    it('should reject matches outside the time window', () => {
+      const source: TransactionCandidate = {
+        id: 1,
+        sourceId: 'kraken',
+        sourceType: 'exchange',
+        externalId: 'W123',
+        timestamp: new Date('2024-01-01T12:00:00Z'),
+        asset: 'BTC',
+        amount: new Decimal('1.0'),
+        direction: 'out',
+        fromAddress: undefined,
+        toAddress: undefined,
+      };
+
+      const targets: TransactionCandidate[] = [
+        {
+          id: 2,
+          sourceId: 'bitcoin',
+          sourceType: 'blockchain',
+          externalId: 'txabc',
+          timestamp: new Date('2024-01-04T12:00:00Z'), // 72 hours later (outside 48h window)
+          asset: 'BTC',
+          amount: new Decimal('1.0'),
+          direction: 'in',
+          fromAddress: undefined,
+          toAddress: undefined,
+        },
+      ];
+
+      const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+
+      // Should find no matches due to timing outside window
+      expect(matches).toHaveLength(0);
+    });
+  });
+
+  describe('amount similarity threshold enforcement', () => {
+    it('should reject matches below minAmountSimilarity threshold', () => {
+      const source: TransactionCandidate = {
+        id: 1,
+        sourceId: 'kraken',
+        sourceType: 'exchange',
+        externalId: 'W123',
+        timestamp: new Date('2024-01-01T12:00:00Z'),
+        asset: 'BTC',
+        amount: new Decimal('1.0'),
+        direction: 'out',
+        fromAddress: undefined,
+        toAddress: undefined,
+      };
+
+      const targets: TransactionCandidate[] = [
+        {
+          id: 2,
+          sourceId: 'bitcoin',
+          sourceType: 'blockchain',
+          externalId: 'txabc',
+          timestamp: new Date('2024-01-01T13:00:00Z'),
+          asset: 'BTC',
+          amount: new Decimal('0.90'), // 90% similarity (below 95% threshold)
+          direction: 'in',
+          fromAddress: undefined,
+          toAddress: undefined,
+        },
+      ];
+
+      const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+
+      // Should find no matches due to amount similarity below threshold
+      expect(matches).toHaveLength(0);
+    });
+
+    it('should accept matches at or above minAmountSimilarity threshold', () => {
+      const source: TransactionCandidate = {
+        id: 1,
+        sourceId: 'kraken',
+        sourceType: 'exchange',
+        externalId: 'W123',
+        timestamp: new Date('2024-01-01T12:00:00Z'),
+        asset: 'BTC',
+        amount: new Decimal('1.0'),
+        direction: 'out',
+        fromAddress: undefined,
+        toAddress: undefined,
+      };
+
+      const targets: TransactionCandidate[] = [
+        {
+          id: 2,
+          sourceId: 'bitcoin',
+          sourceType: 'blockchain',
+          externalId: 'txabc',
+          timestamp: new Date('2024-01-01T13:00:00Z'),
+          asset: 'BTC',
+          amount: new Decimal('0.95'), // Exactly 95% (meets threshold)
+          direction: 'in',
+          fromAddress: undefined,
+          toAddress: undefined,
+        },
+      ];
+
+      const matches = findPotentialMatches(source, targets, DEFAULT_MATCHING_CONFIG);
+
+      // Should find match since amount similarity meets threshold
+      expect(matches).toHaveLength(1);
+      expect(matches[0]?.targetTransaction.id).toBe(2);
+    });
+  });
 });

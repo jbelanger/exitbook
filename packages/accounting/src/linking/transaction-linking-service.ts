@@ -51,15 +51,16 @@ export class TransactionLinkingService {
       const suggestedLinks = suggested; // Keep as PotentialMatch for now
 
       // Calculate statistics
-      const matchedSourceIds = new Set([...confirmed, ...suggested].map((m) => m.sourceTransaction.id));
-      const matchedTargetIds = new Set([...confirmed, ...suggested].map((m) => m.targetTransaction.id));
+      const linkedMatches = [...confirmed, ...suggested];
+      const matchedSourceIds = new Set(linkedMatches.map((match) => match.sourceTransaction.id));
+      const matchedTargetIds = new Set(linkedMatches.map((match) => match.targetTransaction.id));
 
       const result: LinkingResult = {
         suggestedLinks,
         confirmedLinks,
         totalSourceTransactions: sources.length,
         totalTargetTransactions: targets.length,
-        matchedCount: matchedSourceIds.size + matchedTargetIds.size,
+        matchedTransactionCount: matchedSourceIds.size + matchedTargetIds.size,
         unmatchedSourceCount: sources.length - matchedSourceIds.size,
         unmatchedTargetCount: targets.length - matchedTargetIds.size,
       };
@@ -140,40 +141,45 @@ export class TransactionLinkingService {
   /**
    * Deduplicate matches and separate into confirmed vs suggested
    * - One target can only match one source (highest confidence wins)
+   * - One source can only match one target (highest confidence wins)
    * - Auto-confirm matches above threshold
    */
   private deduplicateAndConfirm(matches: PotentialMatch[]): {
     confirmed: PotentialMatch[];
     suggested: PotentialMatch[];
   } {
-    // Group matches by target transaction ID
-    const matchesByTarget = new Map<number, PotentialMatch[]>();
+    // Sort all matches by confidence (highest first)
+    const sortedMatches = [...matches].sort((a, b) => b.confidenceScore.comparedTo(a.confidenceScore));
 
-    for (const match of matches) {
+    const usedSources = new Set<number>();
+    const usedTargets = new Set<number>();
+    const deduplicatedMatches: PotentialMatch[] = [];
+
+    // Greedily select matches, ensuring each source and target is used at most once
+    for (const match of sortedMatches) {
+      const sourceId = match.sourceTransaction.id;
       const targetId = match.targetTransaction.id;
-      if (!matchesByTarget.has(targetId)) {
-        matchesByTarget.set(targetId, []);
+
+      // Skip if either source or target is already used
+      if (usedSources.has(sourceId) || usedTargets.has(targetId)) {
+        continue;
       }
-      matchesByTarget.get(targetId)!.push(match);
+
+      // Accept this match
+      deduplicatedMatches.push(match);
+      usedSources.add(sourceId);
+      usedTargets.add(targetId);
     }
 
     const suggested: PotentialMatch[] = [];
     const confirmed: PotentialMatch[] = [];
 
-    // For each target, keep only the highest confidence match
-    for (const targetMatches of matchesByTarget.values()) {
-      // Sort by confidence (highest first)
-      targetMatches.sort((a, b) => b.confidenceScore.comparedTo(a.confidenceScore));
-
-      // Take the best match
-      const bestMatch = targetMatches[0];
-
-      if (bestMatch) {
-        if (shouldAutoConfirm(bestMatch, this.config)) {
-          confirmed.push(bestMatch);
-        } else {
-          suggested.push(bestMatch);
-        }
+    // Separate into confirmed vs suggested based on confidence threshold
+    for (const match of deduplicatedMatches) {
+      if (shouldAutoConfirm(match, this.config)) {
+        confirmed.push(match);
+      } else {
+        suggested.push(match);
       }
     }
 

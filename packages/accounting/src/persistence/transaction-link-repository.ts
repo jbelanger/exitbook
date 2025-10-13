@@ -203,9 +203,9 @@ export class TransactionLinkRepository {
           updated_at: now,
         })
         .where('id', '=', id)
-        .execute();
+        .executeTakeFirst();
 
-      const updated = result.length > 0;
+      const updated = result !== undefined && Number(result.numUpdatedRows ?? 0) > 0;
       this.logger.debug({ linkId: id, status, updated }, 'Updated transaction link status');
       return ok(updated);
     } catch (error) {
@@ -223,9 +223,9 @@ export class TransactionLinkRepository {
    */
   async delete(id: string): Promise<Result<boolean, Error>> {
     try {
-      const result = await this.db.deleteFrom('transaction_links').where('id', '=', id).execute();
+      const result = await this.db.deleteFrom('transaction_links').where('id', '=', id).executeTakeFirst();
 
-      const deleted = result.length > 0;
+      const deleted = result !== undefined && Number(result.numDeletedRows ?? 0) > 0;
       this.logger.debug({ linkId: id, deleted }, 'Deleted transaction link');
       return ok(deleted);
     } catch (error) {
@@ -246,9 +246,9 @@ export class TransactionLinkRepository {
       const result = await this.db
         .deleteFrom('transaction_links')
         .where('source_transaction_id', '=', sourceTransactionId)
-        .execute();
+        .executeTakeFirst();
 
-      const count = result.length;
+      const count = Number(result.numDeletedRows ?? 0);
       this.logger.debug({ sourceTransactionId, count }, 'Deleted transaction links by source transaction');
       return ok(count);
     } catch (error) {
