@@ -93,7 +93,7 @@ export const LinkingResultSchema = z.object({
   confirmedLinks: z.array(TransactionLinkSchema),
   totalSourceTransactions: z.number(),
   totalTargetTransactions: z.number(),
-  matchedCount: z.number(),
+  matchedTransactionCount: z.number(),
   unmatchedSourceCount: z.number(),
   unmatchedTargetCount: z.number(),
 });
