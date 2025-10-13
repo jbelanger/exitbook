@@ -6,6 +6,7 @@ import type z from 'zod';
 
 import { PartialImportError } from '../core/errors.ts';
 import * as ExchangeUtils from '../core/exchange-utils.ts';
+import type { ExchangeLedgerEntry } from '../core/schemas.ts';
 import type { ExchangeCredentials, FetchParams, IExchangeClient } from '../core/types.ts';
 
 import { CoinbaseCredentialsSchema, CoinbaseLedgerEntrySchema } from './schemas.ts';
@@ -57,6 +58,29 @@ function normalizePemKey(secret: string): string {
   // Replace literal \n (backslash-n) with actual newlines
   // This handles keys passed via CLI like: "-----BEGIN EC PRIVATE KEY-----\n..."
   return secret.replace(/\\n/g, '\n');
+}
+
+/**
+ * Map Coinbase status to universal status format
+ */
+function mapCoinbaseStatus(status: string | undefined): 'pending' | 'ok' | 'canceled' | 'failed' {
+  if (!status) return 'ok';
+
+  switch (status.toLowerCase()) {
+    case 'pending':
+      return 'pending';
+    case 'ok':
+    case 'completed':
+    case 'success':
+      return 'ok';
+    case 'canceled':
+    case 'cancelled':
+      return 'canceled';
+    case 'failed':
+      return 'failed';
+    default:
+      return 'ok';
+  }
 }
 
 /**
@@ -130,12 +154,28 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                   (item) => ({ ...item }),
                   // Validator: Validate using Zod schema
                   (rawItem) => ExchangeUtils.validateRawData(CoinbaseLedgerEntrySchema, rawItem, 'coinbase'),
-                  // Metadata mapper: Extract cursor, externalId, and rawData
-                  (parsedData: CoinbaseLedgerEntry) => {
+                  // Metadata mapper: Extract cursor, externalId, and normalizedData
+                  (validatedData: CoinbaseLedgerEntry) => {
+                    const timestamp = Math.floor(validatedData.timestamp); // Ensure integer
+
+                    // Map CoinbaseLedgerEntry to ExchangeLedgerEntry with Coinbase-specific normalization
+                    // Additional Coinbase-specific fields (direction, account, referenceAccount, before, after) remain in rawData only
+                    const normalizedData: ExchangeLedgerEntry = {
+                      id: validatedData.id,
+                      correlationId: validatedData.referenceId || validatedData.id,
+                      timestamp,
+                      type: validatedData.type,
+                      asset: validatedData.currency,
+                      amount: validatedData.amount.toString(),
+                      fee: validatedData.fee?.cost.toString(),
+                      feeCurrency: validatedData.fee?.currency,
+                      status: mapCoinbaseStatus(validatedData.status),
+                    };
+
                     return {
-                      cursor: { [accountId]: parsedData.timestamp },
-                      externalId: parsedData.id,
-                      rawData: parsedData,
+                      cursor: { [accountId]: timestamp },
+                      externalId: validatedData.id,
+                      normalizedData,
                     };
                   },
                   'coinbase',

@@ -21,8 +21,8 @@ describe('ProcessorFactory - KuCoin Processor Selection', () => {
     const processor = await factory.create('kucoin', 'exchange', metadata);
 
     expect(processor).toBeDefined();
-    // The API processor is named 'KuCoinProcessor' (note the capital C)
-    expect(processor.constructor.name).toBe('KuCoinProcessor');
+    // KuCoin API uses DefaultExchangeProcessor (ledger entry model)
+    expect(processor.constructor.name).toBe('DefaultExchangeProcessor');
   });
 
   test('creates API processor when no metadata provided', async () => {
@@ -31,8 +31,8 @@ describe('ProcessorFactory - KuCoin Processor Selection', () => {
     const processor = await factory.create('kucoin', 'exchange');
 
     expect(processor).toBeDefined();
-    // Default to API processor
-    expect(processor.constructor.name).toBe('KuCoinProcessor');
+    // Default to API processor (DefaultExchangeProcessor)
+    expect(processor.constructor.name).toBe('DefaultExchangeProcessor');
   });
 
   test('creates API processor when metadata is empty', async () => {
@@ -41,8 +41,8 @@ describe('ProcessorFactory - KuCoin Processor Selection', () => {
     const processor = await factory.create('kucoin', 'exchange', {});
 
     expect(processor).toBeDefined();
-    // Default to API processor
-    expect(processor.constructor.name).toBe('KuCoinProcessor');
+    // Default to API processor (DefaultExchangeProcessor)
+    expect(processor.constructor.name).toBe('DefaultExchangeProcessor');
   });
 });
 

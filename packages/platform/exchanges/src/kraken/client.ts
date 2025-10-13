@@ -6,6 +6,7 @@ import type z from 'zod';
 
 import { PartialImportError } from '../core/errors.ts';
 import * as ExchangeUtils from '../core/exchange-utils.ts';
+import type { ExchangeLedgerEntry } from '../core/schemas.ts';
 import type { ExchangeCredentials, FetchParams, IExchangeClient } from '../core/types.ts';
 
 import { KrakenCredentialsSchema, KrakenLedgerEntrySchema } from './schemas.ts';
@@ -13,16 +14,58 @@ import { KrakenCredentialsSchema, KrakenLedgerEntrySchema } from './schemas.ts';
 export type KrakenLedgerEntry = z.infer<typeof KrakenLedgerEntrySchema>;
 
 /**
+ * Normalize Kraken asset symbols by removing X/Z prefixes.
+ * Kraken uses X prefix for crypto (XXBT, XETH) and Z prefix for fiat (ZUSD, ZEUR).
+ */
+function normalizeKrakenAsset(asset: string): string {
+  const assetMappings: Record<string, string> = {
+    XXBT: 'BTC',
+    XBT: 'BTC',
+    XETH: 'ETH',
+    XXRP: 'XRP',
+    XLTC: 'LTC',
+    XXLM: 'XLM',
+    XXMR: 'XMR',
+    XZEC: 'ZEC',
+    XXDG: 'DOGE',
+    ZUSD: 'USD',
+    ZEUR: 'EUR',
+    ZCAD: 'CAD',
+    ZGBP: 'GBP',
+    ZJPY: 'JPY',
+    ZCHF: 'CHF',
+    ZAUD: 'AUD',
+  };
+
+  // Check exact match first
+  if (assetMappings[asset]) {
+    return assetMappings[asset];
+  }
+
+  // Remove X/Z prefix if present
+  if (asset.startsWith('X') || asset.startsWith('Z')) {
+    const withoutPrefix = asset.substring(1);
+    // Check if the result is in mappings
+    if (assetMappings[withoutPrefix]) {
+      return assetMappings[withoutPrefix];
+    }
+    // Return without prefix if it looks reasonable (3+ chars)
+    if (withoutPrefix.length >= 3) {
+      return withoutPrefix;
+    }
+  }
+
+  return asset;
+}
+
+/**
  * Factory function that creates a Kraken exchange client
  * Returns a Result containing an object that implements IExchangeClient interface
- *
- * Imperative shell pattern: manages side effects (ccxt API calls)
- * and delegates business logic to pure functions
  */
 export function createKrakenClient(credentials: ExchangeCredentials): Result<IExchangeClient, Error> {
   // Validate credentials
   return ExchangeUtils.validateCredentials(KrakenCredentialsSchema, credentials, 'kraken').map(({ apiKey, secret }) => {
-    // Create ccxt instance - side effect captured in closure
+    // Create ccxt instance
     const exchange = new ccxt.kraken({
       apiKey,
       secret,
@@ -58,13 +101,29 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
               (item) => ({ ...(item.info as Record<string, unknown>) }),
               // Validator: Validate using Zod schema
               (rawItem) => ExchangeUtils.validateRawData(KrakenLedgerEntrySchema, rawItem, 'kraken'),
-              // Metadata mapper: Extract cursor, externalId, and rawData
-              (parsedData: KrakenLedgerEntry) => {
-                const timestamp = new Date(parsedData.time * 1000);
+              // Metadata mapper: Extract cursor, externalId, and normalizedData
+              (validatedData: KrakenLedgerEntry) => {
+                const timestamp = new Date(validatedData.time * 1000);
+                const normalizedAsset = normalizeKrakenAsset(validatedData.asset);
+
+                // Map KrakenLedgerEntry to ExchangeLedgerEntry with Kraken-specific normalization
+                // Additional Kraken-specific fields (subtype, aclass, balance) remain in rawData only
+                const normalizedData: ExchangeLedgerEntry = {
+                  id: validatedData.id,
+                  correlationId: validatedData.refid,
+                  timestamp: Math.floor(validatedData.time * 1000), // Convert to milliseconds and ensure integer
+                  type: validatedData.type,
+                  asset: normalizedAsset,
+                  amount: validatedData.amount,
+                  fee: validatedData.fee,
+                  feeCurrency: normalizedAsset, // Kraken fees are in the same currency as the asset
+                  status: 'ok', // Kraken ledger entries don't have explicit status - they're all completed
+                };
+
                 return {
                   cursor: { ledger: timestamp.getTime() },
-                  externalId: parsedData.id,
-                  rawData: parsedData,
+                  externalId: validatedData.id,
+                  normalizedData,
                 };
               },
               'kraken',

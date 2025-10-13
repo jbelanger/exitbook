@@ -96,7 +96,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
             external_id: item.externalId ?? null,
             import_session_id: importSessionId,
             metadata: this.serializeToJson(item.metadata),
-            parsed_data: item.parsedData ? JSON.stringify(item.parsedData) : null,
+            normalized_data: JSON.stringify(item.normalizedData),
             processing_status: 'pending',
             provider_id: item.metadata.providerId,
             raw_data: JSON.stringify(item.rawData),
@@ -139,7 +139,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
               external_id: item.externalId ?? null,
               import_session_id: importSessionId,
               metadata: this.serializeToJson(item.metadata),
-              parsed_data: item.parsedData ? JSON.stringify(item.parsedData) : null,
+              normalized_data: JSON.stringify(item.normalizedData),
               processing_status: 'pending',
               provider_id: item.metadata.providerId,
               raw_data: JSON.stringify(item.rawData),
@@ -206,7 +206,7 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
         .selectFrom('external_transaction_data')
         .selectAll()
         .where('import_session_id', '=', importSessionId)
-        .where('parsed_data', 'is', null)
+        .where('normalized_data', 'is', null)
         .execute();
 
       return ok(rows);
@@ -221,29 +221,13 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
         .selectFrom('external_transaction_data')
         .selectAll()
         .where('import_session_id', '=', importSessionId)
-        .where('parsed_data', 'is not', null)
+        .where('normalized_data', 'is not', null)
         .where('processing_status', '=', 'pending')
         .execute();
 
       return ok(rows);
     } catch (error) {
       return wrapError(error, 'Failed to get valid records');
-    }
-  }
-
-  async updateParsedData(id: number, parsedData: unknown): Promise<Result<void, Error>> {
-    try {
-      await this.db
-        .updateTable('external_transaction_data')
-        .set({
-          parsed_data: JSON.stringify(parsedData),
-        })
-        .where('id', '=', id)
-        .execute();
-
-      return ok();
-    } catch (error) {
-      return wrapError(error, 'Failed to update parsed data');
     }
   }
 }

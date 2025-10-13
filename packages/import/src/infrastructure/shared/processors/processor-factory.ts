@@ -146,10 +146,8 @@ export class ProcessorFactory implements IProcessorFactory {
   ): Promise<ITransactionProcessor> {
     switch (sourceId.toLowerCase()) {
       case 'kraken':
-        return await this.createKrakenProcessor();
-
       case 'coinbase':
-        return await this.createCoinbaseProcessor();
+        return await this.createDefaultExchangeProcessor(sourceId);
 
       case 'kucoin':
         return await this.createKuCoinProcessor(metadata);
@@ -174,39 +172,55 @@ export class ProcessorFactory implements IProcessorFactory {
   }
 
   /**
-   * Create Kraken processor.
+   * Create default exchange processor for exchanges where all normalization
+   * is handled in the client layer.
    */
-  private async createKrakenProcessor(): Promise<ITransactionProcessor> {
+  private async createDefaultExchangeProcessor(sourceId: string): Promise<ITransactionProcessor> {
     // Dynamic import to avoid circular dependencies
-    const { KrakenProcessor } = await import('../../exchanges/kraken/processor.ts');
-    return new KrakenProcessor();
-  }
-
-  /**
-   * Create Coinbase processor.
-   */
-  private async createCoinbaseProcessor(): Promise<ITransactionProcessor> {
-    // Dynamic import to avoid circular dependencies
-    const { CoinbaseProcessor } = await import('../../exchanges/coinbase/processor.ts');
-    return new CoinbaseProcessor();
+    const { DefaultExchangeProcessor } = await import('../../exchanges/shared/default-exchange-processor.ts');
+    return new DefaultExchangeProcessor(sourceId);
   }
 
   /**
    * Create KuCoin processor (CSV or API based on metadata).
+   *
+   * KuCoin CSV requires a specialized processor because CSV data has a fundamentally
+   * different structure than API ledger data:
+   *
+   * - API ledger format: Each row is a SINGLE balance change (double-entry bookkeeping).
+   *   For a trade, you get TWO separate ledger entries (one per asset). The API has already
+   *   decomposed transactions into atomic balance changes with correlation IDs.
+   *   Example: Buy BTC with USDT creates two entries:
+   *     1. {asset: "BTC", amount: "+0.1", correlationId: "abc"}
+   *     2. {asset: "USDT", amount: "-5000", correlationId: "abc"}
+   *
+   * - KuCoin CSV format: Each row is a COMPLETE transaction with BOTH sides included.
+   *   A trade CSV row contains BOTH "Filled Amount" (base) AND "Filled Volume" (quote).
+   *   Example: Buy BTC with USDT is ONE row:
+   *     {Symbol: "BTC-USDT", FilledAmount: "0.1", FilledVolume: "5000", Side: "buy"}
+   *
+   * The CSV processor does additional work:
+   * - Extracts BOTH sides of trades from composite CSV rows
+   * - Handles special grouping (e.g., Convert Market pairs)
+   * - Maps KuCoin-specific statuses and transaction types
+   * - Creates complete UniversalTransaction objects directly from rich CSV data
+   *
+   * The API processor (DefaultExchangeProcessor) expects pre-normalized ExchangeLedgerEntry
+   * objects and performs correlation-based grouping and fund flow analysis.
    */
   private async createKuCoinProcessor(metadata?: Record<string, unknown>): Promise<ITransactionProcessor> {
     // Check if this is a CSV import by looking at import metadata
     const importMethod = metadata?.importMethod as string | undefined;
 
     if (importMethod === 'csv') {
-      // Use CSV processor
+      // Use CSV processor - handles composite transaction rows
       const { KucoinProcessor } = await import('../../exchanges/kucoin/processor-csv.ts');
       return new KucoinProcessor();
     }
 
-    // Otherwise, use API processor
-    const { KuCoinProcessor } = await import('../../exchanges/kucoin/processor.ts');
-    return new KuCoinProcessor();
+    // Use default processor - handles pre-normalized ledger entries
+    const { DefaultExchangeProcessor } = await import('../../exchanges/shared/default-exchange-processor.ts');
+    return new DefaultExchangeProcessor('kucoin');
   }
 
   /**

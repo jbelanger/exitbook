@@ -43,19 +43,14 @@ export interface IRawDataRepository {
   getLatestCursor(importSessionId: number): Promise<Result<Record<string, number> | null, Error>>;
 
   /**
-   * Get records that need validation (where parsed_data is null).
+   * Get records that need validation (where normalized_data is null).
    * Used for revalidation on each import run.
    */
   getRecordsNeedingValidation(importSessionId: number): Promise<Result<RawData[], Error>>;
 
   /**
-   * Get records with valid parsed data (where parsed_data is not null).
+   * Get records with valid normalized data (where normalized_data is not null).
    * Used during processing step.
    */
   getValidRecords(importSessionId: number): Promise<Result<RawData[], Error>>;
-
-  /**
-   * Update parsed data and clear validation error after successful revalidation.
-   */
-  updateParsedData(id: number, parsedData: unknown): Promise<Result<void, Error>>;
 }

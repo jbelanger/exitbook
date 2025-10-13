@@ -7,13 +7,15 @@
 
 // Core
 export { PartialImportError } from './core/errors.ts';
+export { ExchangeLedgerEntrySchema } from './core/schemas.ts';
+export type { ExchangeLedgerEntry } from './core/schemas.ts';
 export type { ExchangeCredentials } from './core/types.ts';
 
 // Coinbase
-export { createCoinbaseClient, type CoinbaseLedgerEntry } from './coinbase/client.ts';
+export { createCoinbaseClient } from './coinbase/client.ts';
 
 // Kraken
-export { createKrakenClient, type KrakenLedgerEntry } from './kraken/client.ts';
+export { createKrakenClient } from './kraken/client.ts';
 
 // KuCoin
-export { createKuCoinClient, type KuCoinLedgerEntry } from './kucoin/client.ts';
+export { createKuCoinClient } from './kucoin/client.ts';
