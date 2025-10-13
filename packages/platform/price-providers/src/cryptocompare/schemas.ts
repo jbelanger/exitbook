@@ -47,7 +47,7 @@ export type CryptoCompareHistoricalResponse = z.infer<typeof CryptoCompareHistor
  * CryptoCompare single price response (current price)
  * Endpoint: /data/price
  */
-export const CryptoComparePriceResponseSchema = z.record(z.number());
+export const CryptoComparePriceResponseSchema = z.record(z.string(), z.number());
 
 export type CryptoComparePriceResponse = z.infer<typeof CryptoComparePriceResponseSchema>;
 

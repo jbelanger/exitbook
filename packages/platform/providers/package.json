@@ -34,10 +34,10 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@scure/bip32": "^1.7.0",
+    "@scure/bip32": "^2.0.0",
     "@types/jsonwebtoken": "^9.0.10",
     "bech32": "^2.0.0",
-    "bitcoinjs-lib": "^6.1.7",
+    "bitcoinjs-lib": "^7.0.0",
     "csv-parse": "^6.1.0",
     "decimal.js": "^10.6.0",
     "jose": "^6.0.13",
@@ -46,10 +46,10 @@
     "reflect-metadata": "^0.2.2"
   },
   "devDependencies": {
-    "@types/node": "^24.3.0",
+    "@types/node": "^24.7.2",
     "tsconfig": "workspace:*",
     "tsx": "^4.20.4",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.3"
   },
   "peerDependencies": {
     "@exitbook/core": "workspace:*",

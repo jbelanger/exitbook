@@ -19,12 +19,12 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "ccxt": "^4.5.7",
+    "ccxt": "^4.5.10",
     "neverthrow": "^8.2.0",
-    "zod": "^4.1.11"
+    "zod": "^4.1.12"
   },
   "devDependencies": {
-    "@types/node": "^24.6.2",
+    "@types/node": "^24.7.2",
     "tsconfig": "workspace:*",
     "typescript": "^5.9.3"
   },
