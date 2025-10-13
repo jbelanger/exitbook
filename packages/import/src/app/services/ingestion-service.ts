@@ -239,9 +239,13 @@ export class TransactionIngestionService {
           }
         } else {
           for (const item of pendingItems) {
-            // raw_data is a JSON string that needs parsing
-            const parsedData: unknown = typeof item.raw_data === 'string' ? JSON.parse(item.raw_data) : item.raw_data;
-            normalizedRawDataItems.push(parsedData);
+            // raw_data and normalized_data are JSON strings that need parsing
+            let normalized_data: unknown =
+              typeof item.normalized_data === 'string' ? JSON.parse(item.normalized_data) : item.normalized_data;
+            if (!normalized_data || Object.keys(normalized_data as Record<string, never>).length === 0) {
+              normalized_data = typeof item.raw_data === 'string' ? JSON.parse(item.raw_data) : item.raw_data;
+            }
+            normalizedRawDataItems.push(normalized_data);
           }
         }
 
@@ -436,13 +440,7 @@ export class TransactionIngestionService {
       const rawData = importResult.rawTransactions;
 
       // Save all raw data items to storage in a single transaction
-      const savedCountResult = await this.rawDataRepository.saveBatch(
-        importSessionId,
-        rawData.map((element) => ({
-          metadata: element.metadata,
-          rawData: element.rawData,
-        }))
-      );
+      const savedCountResult = await this.rawDataRepository.saveBatch(importSessionId, rawData);
 
       // Handle Result type - fail fast if save fails
       if (savedCountResult.isErr()) {

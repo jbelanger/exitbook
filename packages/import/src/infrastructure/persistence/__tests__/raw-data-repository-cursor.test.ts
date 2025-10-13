@@ -55,6 +55,7 @@ describe('RawDataRepository - Cursor Management', () => {
           import_session_id: 1,
           processing_status: 'pending',
           raw_data: '{}',
+          normalized_data: '{}',
         })
         .execute();
 
@@ -77,6 +78,7 @@ describe('RawDataRepository - Cursor Management', () => {
             import_session_id: 1,
             processing_status: 'pending',
             raw_data: '{}',
+            normalized_data: '{}',
           },
           {
             created_at: new Date().toISOString(),
@@ -85,6 +87,7 @@ describe('RawDataRepository - Cursor Management', () => {
             import_session_id: 1,
             processing_status: 'pending',
             raw_data: '{}',
+            normalized_data: '{}',
           },
           {
             created_at: new Date().toISOString(),
@@ -93,6 +96,7 @@ describe('RawDataRepository - Cursor Management', () => {
             import_session_id: 1,
             processing_status: 'pending',
             raw_data: '{}',
+            normalized_data: '{}',
           },
         ])
         .execute();
@@ -117,6 +121,7 @@ describe('RawDataRepository - Cursor Management', () => {
             import_session_id: 1,
             processing_status: 'pending',
             raw_data: '{}',
+            normalized_data: '{}',
           },
           {
             created_at: new Date().toISOString(),
@@ -125,6 +130,7 @@ describe('RawDataRepository - Cursor Management', () => {
             import_session_id: 1,
             processing_status: 'pending',
             raw_data: '{}',
+            normalized_data: '{}',
           },
           {
             created_at: new Date().toISOString(),
@@ -133,6 +139,7 @@ describe('RawDataRepository - Cursor Management', () => {
             import_session_id: 1,
             processing_status: 'pending',
             raw_data: '{}',
+            normalized_data: '{}',
           },
           {
             created_at: new Date().toISOString(),
@@ -141,6 +148,7 @@ describe('RawDataRepository - Cursor Management', () => {
             import_session_id: 1,
             processing_status: 'pending',
             raw_data: '{}',
+            normalized_data: '{}',
           },
         ])
         .execute();
@@ -167,6 +175,7 @@ describe('RawDataRepository - Cursor Management', () => {
             import_session_id: 1,
             processing_status: 'pending',
             raw_data: '{}',
+            normalized_data: '{}',
           },
           {
             created_at: new Date().toISOString(),
@@ -175,6 +184,7 @@ describe('RawDataRepository - Cursor Management', () => {
             import_session_id: 1,
             processing_status: 'pending',
             raw_data: '{}',
+            normalized_data: '{}',
           },
           {
             created_at: new Date().toISOString(),
@@ -183,6 +193,7 @@ describe('RawDataRepository - Cursor Management', () => {
             import_session_id: 1,
             processing_status: 'pending',
             raw_data: '{}',
+            normalized_data: '{}',
           },
           {
             created_at: new Date().toISOString(),
@@ -191,6 +202,7 @@ describe('RawDataRepository - Cursor Management', () => {
             import_session_id: 1,
             processing_status: 'pending',
             raw_data: '{}',
+            normalized_data: '{}',
           },
         ])
         .execute();
@@ -217,6 +229,7 @@ describe('RawDataRepository - Cursor Management', () => {
             import_session_id: 1,
             processing_status: 'pending',
             raw_data: '{}',
+            normalized_data: '{}',
           },
           {
             created_at: new Date().toISOString(),
@@ -225,6 +238,7 @@ describe('RawDataRepository - Cursor Management', () => {
             import_session_id: 1,
             processing_status: 'pending',
             raw_data: '{}',
+            normalized_data: '{}',
           },
           {
             created_at: new Date().toISOString(),
@@ -233,6 +247,7 @@ describe('RawDataRepository - Cursor Management', () => {
             import_session_id: 1,
             processing_status: 'pending',
             raw_data: '{}',
+            normalized_data: '{}',
           },
         ])
         .execute();
@@ -273,6 +288,7 @@ describe('RawDataRepository - Cursor Management', () => {
             import_session_id: 1,
             processing_status: 'pending',
             raw_data: '{}',
+            normalized_data: '{}',
           },
           {
             created_at: new Date().toISOString(),
@@ -281,6 +297,7 @@ describe('RawDataRepository - Cursor Management', () => {
             import_session_id: 2,
             processing_status: 'pending',
             raw_data: '{}',
+            normalized_data: '{}',
           },
         ])
         .execute();
@@ -305,6 +322,7 @@ describe('RawDataRepository - Cursor Management', () => {
             import_session_id: 1,
             processing_status: 'pending',
             raw_data: '{}',
+            normalized_data: '{}',
           },
           {
             created_at: new Date().toISOString(),
@@ -313,6 +331,7 @@ describe('RawDataRepository - Cursor Management', () => {
             import_session_id: 1,
             processing_status: 'pending',
             raw_data: '{}',
+            normalized_data: '{}',
           },
         ])
         .execute();

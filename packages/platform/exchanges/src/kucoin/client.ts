@@ -7,11 +7,35 @@ import type z from 'zod';
 
 import { PartialImportError } from '../core/errors.ts';
 import * as ExchangeUtils from '../core/exchange-utils.ts';
+import type { ExchangeLedgerEntry } from '../core/schemas.ts';
 import type { ExchangeCredentials, FetchParams, IExchangeClient } from '../core/types.ts';
 
 import { KuCoinCredentialsSchema, KuCoinLedgerEntrySchema } from './schemas.ts';
 
 export type KuCoinLedgerEntry = z.infer<typeof KuCoinLedgerEntrySchema>;
+
+/**
+ * Map KuCoin status to universal status format
+ */
+function mapKuCoinStatus(status: string | undefined): 'pending' | 'ok' | 'canceled' | 'failed' {
+  if (!status) return 'ok';
+
+  switch (status.toLowerCase()) {
+    case 'pending':
+      return 'pending';
+    case 'ok':
+    case 'completed':
+    case 'success':
+      return 'ok';
+    case 'canceled':
+    case 'cancelled':
+      return 'canceled';
+    case 'failed':
+      return 'failed';
+    default:
+      return 'ok';
+  }
+}
 
 /**
  * Factory function that creates a KuCoin exchange client
@@ -137,12 +161,28 @@ export function createKuCoinClient(credentials: ExchangeCredentials): Result<IEx
                   (item) => ({ ...item }),
                   // Validator: Validate using Zod schema
                   (rawItem) => ExchangeUtils.validateRawData(KuCoinLedgerEntrySchema, rawItem, 'kucoin'),
-                  // Metadata mapper: Extract cursor, externalId, and rawData
-                  (parsedData: KuCoinLedgerEntry) => {
+                  // Metadata mapper: Extract cursor, externalId, and normalizedData
+                  (validatedData: KuCoinLedgerEntry) => {
+                    const timestamp = Math.floor(validatedData.timestamp); // Ensure integer
+
+                    // Map KuCoinLedgerEntry to ExchangeLedgerEntry with KuCoin-specific normalization
+                    // Additional KuCoin-specific fields (direction, account, referenceAccount, before, after) remain in rawData only
+                    const normalizedData: ExchangeLedgerEntry = {
+                      id: validatedData.id,
+                      correlationId: validatedData.referenceId || validatedData.id,
+                      timestamp,
+                      type: validatedData.type,
+                      asset: validatedData.currency,
+                      amount: validatedData.amount.toString(),
+                      fee: validatedData.fee?.cost.toString(),
+                      feeCurrency: validatedData.fee?.currency,
+                      status: mapKuCoinStatus(validatedData.status),
+                    };
+
                     return {
-                      cursor: { ledger: parsedData.timestamp },
-                      externalId: parsedData.id,
-                      rawData: parsedData,
+                      cursor: { ledger: timestamp },
+                      externalId: validatedData.id,
+                      normalizedData,
                     };
                   },
                   'kucoin',

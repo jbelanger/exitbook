@@ -4,9 +4,10 @@
 import { wrapError, type RawTransactionWithMetadata } from '@exitbook/core';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
-import type { ZodSchema } from 'zod';
+import { type ZodSchema } from 'zod';
 
 import { PartialImportError } from './errors.ts';
+import { ExchangeLedgerEntrySchema, type ExchangeLedgerEntry } from './schemas.ts';
 
 /**
  * Validate credentials against a Zod schema
@@ -47,14 +48,14 @@ export function validateRawData<T>(schema: ZodSchema<T>, rawData: unknown, excha
  * @param currentCursor - Current cursor state for resumption
  * @returns Result with array of processed transactions or PartialImportError
  */
-export function processItems<TRaw, TParsed>(
+export function processItems<TRaw, TValidated>(
   items: TRaw[],
   extractor: (item: TRaw) => unknown,
-  validator: (raw: unknown) => Result<TParsed, Error>,
-  metadataMapper: (parsed: TParsed) => {
+  validator: (raw: unknown) => Result<TValidated, Error>,
+  metadataMapper: (parsed: TValidated) => {
     cursor: Record<string, number>;
     externalId: string;
-    rawData: TParsed;
+    normalizedData: ExchangeLedgerEntry;
   },
   exchangeId: string,
   currentCursor: Record<string, number>
@@ -77,8 +78,21 @@ export function processItems<TRaw, TParsed>(
       );
     }
 
-    const parsedData = validationResult.value;
-    const { cursor, externalId, rawData } = metadataMapper(parsedData);
+    const validatedData = validationResult.value;
+    const { cursor, externalId, normalizedData } = metadataMapper(validatedData);
+
+    // Validate normalized data conforms to ExchangeLedgerEntry schema
+    const normalizedValidation = ExchangeLedgerEntrySchema.safeParse(normalizedData);
+    if (!normalizedValidation.success) {
+      return err(
+        new PartialImportError(
+          `Normalized data validation failed: ${normalizedValidation.error.message}`,
+          transactions,
+          normalizedData,
+          lastSuccessfulCursor
+        )
+      );
+    }
 
     transactions.push({
       cursor,
@@ -86,7 +100,8 @@ export function processItems<TRaw, TParsed>(
       metadata: {
         providerId: exchangeId,
       },
-      rawData,
+      rawData: validatedData as unknown,
+      normalizedData: normalizedValidation.data as unknown,
     });
 
     // Update last successful cursor

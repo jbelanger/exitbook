@@ -58,7 +58,7 @@ export interface ExternalTransactionDataTable {
 
   // Data storage
   raw_data: JSONString; // Raw data from source
-  parsed_data: JSONString | null; // Validated data (only stored if validation passed)
+  normalized_data: JSONString; // Normalized data
 
   // Processing status
   processing_status: 'pending' | 'processed' | 'failed' | 'skipped';
