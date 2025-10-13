@@ -1,0 +1,203 @@
+import type { StoredTransaction } from '@exitbook/data';
+import type { getLogger } from '@exitbook/shared-logger';
+import { Decimal } from 'decimal.js';
+import { err, ok, type Result } from 'neverthrow';
+import { v4 as uuidv4 } from 'uuid';
+
+import { DEFAULT_MATCHING_CONFIG, findPotentialMatches, shouldAutoConfirm } from './matching-utils.js';
+import type { LinkingResult, MatchingConfig, PotentialMatch, TransactionCandidate, TransactionLink } from './types.js';
+
+/**
+ * Service for linking related transactions (e.g., exchange withdrawals → blockchain deposits)
+ */
+export class TransactionLinkingService {
+  constructor(
+    private readonly logger: ReturnType<typeof getLogger>,
+    private readonly config: MatchingConfig = DEFAULT_MATCHING_CONFIG
+  ) {}
+
+  /**
+   * Link transactions by finding matches between withdrawals and deposits
+   *
+   * @param transactions - All transactions to analyze
+   * @returns Linking result with suggested and confirmed links
+   */
+  linkTransactions(transactions: StoredTransaction[]): Result<LinkingResult, Error> {
+    try {
+      this.logger.info({ transactionCount: transactions.length }, 'Starting transaction linking process');
+
+      // Convert to candidates
+      const candidates = this.convertToCandidates(transactions);
+      this.logger.debug({ candidateCount: candidates.length }, 'Converted transactions to candidates');
+
+      // Separate into sources (withdrawals) and targets (deposits)
+      const { sources, targets } = this.separateSourcesAndTargets(candidates);
+      this.logger.info({ sourceCount: sources.length, targetCount: targets.length }, 'Separated sources and targets');
+
+      // Find matches
+      const allMatches: PotentialMatch[] = [];
+      for (const source of sources) {
+        const matches = findPotentialMatches(source, targets, this.config);
+        allMatches.push(...matches);
+      }
+
+      this.logger.info({ matchCount: allMatches.length }, 'Found potential matches');
+
+      // Deduplicate matches (one target can only match one source)
+      const { suggested, confirmed } = this.deduplicateAndConfirm(allMatches);
+
+      // Convert to TransactionLink objects
+      const confirmedLinks = confirmed.map((match) => this.createTransactionLink(match, 'confirmed'));
+      const suggestedLinks = suggested; // Keep as PotentialMatch for now
+
+      // Calculate statistics
+      const matchedSourceIds = new Set([...confirmed, ...suggested].map((m) => m.sourceTransaction.id));
+      const matchedTargetIds = new Set([...confirmed, ...suggested].map((m) => m.targetTransaction.id));
+
+      const result: LinkingResult = {
+        suggestedLinks,
+        confirmedLinks,
+        totalSourceTransactions: sources.length,
+        totalTargetTransactions: targets.length,
+        matchedCount: matchedSourceIds.size + matchedTargetIds.size,
+        unmatchedSourceCount: sources.length - matchedSourceIds.size,
+        unmatchedTargetCount: targets.length - matchedTargetIds.size,
+      };
+
+      this.logger.info(
+        {
+          suggested: suggestedLinks.length,
+          confirmed: confirmedLinks.length,
+          unmatched: result.unmatchedSourceCount + result.unmatchedTargetCount,
+        },
+        'Transaction linking completed'
+      );
+
+      return ok(result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error({ error }, 'Failed to link transactions');
+      return err(new Error(`Transaction linking failed: ${message}`));
+    }
+  }
+
+  /**
+   * Convert stored transactions to transaction candidates for matching
+   */
+  private convertToCandidates(transactions: StoredTransaction[]): TransactionCandidate[] {
+    const candidates: TransactionCandidate[] = [];
+
+    for (const tx of transactions) {
+      // Skip if no primary movement data
+      if (!tx.movements_primary_asset || !tx.movements_primary_amount || !tx.movements_primary_direction) {
+        continue;
+      }
+
+      const candidate: TransactionCandidate = {
+        id: tx.id,
+        sourceId: tx.source_id,
+        sourceType: tx.source_type,
+        externalId: tx.external_id ?? undefined,
+        timestamp: new Date(tx.transaction_datetime),
+        asset: tx.movements_primary_asset,
+        amount: new Decimal(tx.movements_primary_amount),
+        direction: tx.movements_primary_direction,
+        fromAddress: tx.from_address ?? undefined,
+        toAddress: tx.to_address ?? undefined,
+      };
+
+      candidates.push(candidate);
+    }
+
+    return candidates;
+  }
+
+  /**
+   * Separate candidates into sources (outflows) and targets (inflows)
+   */
+  private separateSourcesAndTargets(candidates: TransactionCandidate[]): {
+    sources: TransactionCandidate[];
+    targets: TransactionCandidate[];
+  } {
+    const sources: TransactionCandidate[] = [];
+    const targets: TransactionCandidate[] = [];
+
+    for (const candidate of candidates) {
+      // Only consider specific operation types for linking
+      // Sources: withdrawals, sends
+      // Targets: deposits, receives
+
+      if (candidate.direction === 'out') {
+        sources.push(candidate);
+      } else if (candidate.direction === 'in') {
+        targets.push(candidate);
+      }
+    }
+
+    return { sources, targets };
+  }
+
+  /**
+   * Deduplicate matches and separate into confirmed vs suggested
+   * - One target can only match one source (highest confidence wins)
+   * - Auto-confirm matches above threshold
+   */
+  private deduplicateAndConfirm(matches: PotentialMatch[]): {
+    confirmed: PotentialMatch[];
+    suggested: PotentialMatch[];
+  } {
+    // Group matches by target transaction ID
+    const matchesByTarget = new Map<number, PotentialMatch[]>();
+
+    for (const match of matches) {
+      const targetId = match.targetTransaction.id;
+      if (!matchesByTarget.has(targetId)) {
+        matchesByTarget.set(targetId, []);
+      }
+      matchesByTarget.get(targetId)!.push(match);
+    }
+
+    const suggested: PotentialMatch[] = [];
+    const confirmed: PotentialMatch[] = [];
+
+    // For each target, keep only the highest confidence match
+    for (const targetMatches of matchesByTarget.values()) {
+      // Sort by confidence (highest first)
+      targetMatches.sort((a, b) => b.confidenceScore.comparedTo(a.confidenceScore));
+
+      // Take the best match
+      const bestMatch = targetMatches[0];
+
+      if (bestMatch) {
+        if (shouldAutoConfirm(bestMatch, this.config)) {
+          confirmed.push(bestMatch);
+        } else {
+          suggested.push(bestMatch);
+        }
+      }
+    }
+
+    return { suggested, confirmed };
+  }
+
+  /**
+   * Create a TransactionLink object from a potential match
+   */
+  private createTransactionLink(match: PotentialMatch, status: 'suggested' | 'confirmed'): TransactionLink {
+    const now = new Date();
+
+    return {
+      id: uuidv4(),
+      sourceTransactionId: match.sourceTransaction.id,
+      targetTransactionId: match.targetTransaction.id,
+      linkType: match.linkType,
+      confidenceScore: match.confidenceScore,
+      matchCriteria: match.matchCriteria,
+      status,
+      reviewedBy: status === 'confirmed' ? 'auto' : undefined,
+      reviewedAt: status === 'confirmed' ? now : undefined,
+      createdAt: now,
+      updatedAt: now,
+    };
+  }
+}

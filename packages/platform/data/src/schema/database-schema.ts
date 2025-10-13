@@ -248,6 +248,25 @@ export interface LotDisposalsTable {
 }
 
 /**
+ * Transaction links - tracks connections between related transactions
+ * Used to propagate cost basis from exchanges to blockchain wallets
+ */
+export interface TransactionLinksTable {
+  id: string; // UUID
+  source_transaction_id: number; // FK to transactions.id (withdrawal/send)
+  target_transaction_id: number; // FK to transactions.id (deposit/receive)
+  link_type: 'exchange_to_blockchain' | 'blockchain_to_blockchain' | 'exchange_to_exchange';
+  confidence_score: DecimalString; // 0-1
+  match_criteria_json: JSONString; // MatchCriteria
+  status: 'suggested' | 'confirmed' | 'rejected';
+  reviewed_by: string | null;
+  reviewed_at: number | null; // Unix timestamp
+  created_at: number; // Unix timestamp
+  updated_at: number; // Unix timestamp
+  metadata_json: JSONString | null;
+}
+
+/**
  * Main database interface combining all tables
  */
 export interface DatabaseSchema {
@@ -257,6 +276,7 @@ export interface DatabaseSchema {
   import_session_errors: ImportSessionErrorsTable;
   import_sessions: ImportSessionsTable;
   lot_disposals: LotDisposalsTable;
+  transaction_links: TransactionLinksTable;
   transactions: TransactionsTable;
   wallet_addresses: WalletAddressesTable;
 }

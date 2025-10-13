@@ -6,6 +6,8 @@ export { BaseRepository } from './repositories/base-repository.ts';
 export { TransactionRepository } from './repositories/transaction-repository.ts';
 export type { ITransactionRepository } from './repositories/transaction-repository.interface.ts';
 export type { TransactionNeedingPrice } from './repositories/transaction-repository.ts';
+export { TransactionLinkRepository } from './repositories/transaction-link-repository.ts';
+export type { StoredTransactionLink } from './repositories/transaction-link-repository.ts';
 export type { DatabaseSchema } from './schema/database-schema.ts';
 export type {
   RawData,
