@@ -71,19 +71,19 @@ describe('command-execution', () => {
       closeDatabase.mockResolvedValue(void 0);
     });
 
-    it('should initialize database with clearDb option', async () => {
+    it('should initialize database', async () => {
       (mockHandler.execute as Mock).mockResolvedValue(ok('result'));
 
-      await withDatabaseAndHandler({ clearDb: true }, MockHandlerClass, 'params');
+      await withDatabaseAndHandler(MockHandlerClass, 'params');
 
-      expect(initializeDatabase).toHaveBeenCalledWith(true);
+      expect(initializeDatabase).toHaveBeenCalledWith();
     });
 
     it('should create handler with database and execute with params', async () => {
       const executeMock = mockHandler.execute as Mock;
       executeMock.mockResolvedValue(ok('result'));
 
-      await withDatabaseAndHandler({ clearDb: false }, MockHandlerClass, 'test-params');
+      await withDatabaseAndHandler(MockHandlerClass, 'test-params');
 
       expect(MockHandlerClass).toHaveBeenCalledWith(mockDatabase);
       expect(executeMock).toHaveBeenCalledWith('test-params');
@@ -95,7 +95,7 @@ describe('command-execution', () => {
       const destroyMock = mockHandler.destroy as Mock;
       executeMock.mockResolvedValue(expectedResult);
 
-      const result = await withDatabaseAndHandler({ clearDb: false }, MockHandlerClass, 'params');
+      const result = await withDatabaseAndHandler(MockHandlerClass, 'params');
 
       expect(result).toBe(expectedResult);
       expect(destroyMock).toHaveBeenCalled();
@@ -108,7 +108,7 @@ describe('command-execution', () => {
       const destroyMock = mockHandler.destroy as Mock;
       executeMock.mockResolvedValue(expectedError);
 
-      const result = await withDatabaseAndHandler({ clearDb: false }, MockHandlerClass, 'params');
+      const result = await withDatabaseAndHandler(MockHandlerClass, 'params');
 
       expect(result).toBe(expectedError);
       expect(destroyMock).toHaveBeenCalled();
@@ -121,7 +121,7 @@ describe('command-execution', () => {
       const destroyMock = mockHandler.destroy as Mock;
       executeMock.mockRejectedValue(error);
 
-      await expect(withDatabaseAndHandler({ clearDb: false }, MockHandlerClass, 'params')).rejects.toThrow(error);
+      await expect(withDatabaseAndHandler(MockHandlerClass, 'params')).rejects.toThrow(error);
 
       expect(destroyMock).toHaveBeenCalled();
       expect(closeDatabase).toHaveBeenCalledWith(mockDatabase);
@@ -141,7 +141,7 @@ describe('command-execution', () => {
         return Promise.resolve(void 0);
       });
 
-      await withDatabaseAndHandler({ clearDb: false }, MockHandlerClass, 'params');
+      await withDatabaseAndHandler(MockHandlerClass, 'params');
 
       expect(callOrder).toEqual(['destroy', 'closeDatabase']);
     });
@@ -160,7 +160,7 @@ describe('command-execution', () => {
         return Promise.resolve(void 0);
       });
 
-      await expect(withDatabaseAndHandler({ clearDb: false }, MockHandlerClass, 'params')).rejects.toThrow();
+      await expect(withDatabaseAndHandler(MockHandlerClass, 'params')).rejects.toThrow();
 
       expect(callOrder).toEqual(['destroy', 'closeDatabase']);
     });

@@ -14,7 +14,6 @@ import { buildExportParamsFromFlags } from './export-utils.ts';
  * Extended export command options (adds CLI-specific flags not needed by handler).
  */
 export interface ExtendedExportCommandOptions extends ExportCommandOptions {
-  clearDb?: boolean | undefined;
   json?: boolean | undefined;
 }
 
@@ -40,7 +39,6 @@ export function registerExportCommand(program: Command): void {
     .option('--blockchain <name>', 'Export from specific blockchain only')
     .option('--since <date>', 'Export transactions since date (YYYY-MM-DD, timestamp, or 0 for all history)')
     .option('--output <file>', 'Output file path')
-    .option('--clear-db', 'Clear and reinitialize database before export')
     .option('--json', 'Output results in JSON format (for AI/MCP tools)')
     .action(async (options: ExtendedExportCommandOptions) => {
       await executeExportCommand(options);
@@ -67,7 +65,7 @@ async function executeExportCommand(options: ExtendedExportCommandOptions): Prom
     const spinner = output.spinner();
     spinner?.start('Exporting transactions...');
 
-    const result = await withDatabaseAndHandler({ clearDb: options.clearDb }, ExportHandler, params);
+    const result = await withDatabaseAndHandler(ExportHandler, params);
 
     spinner?.stop();
 
