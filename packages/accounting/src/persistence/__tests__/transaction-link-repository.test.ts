@@ -328,4 +328,155 @@ describe('TransactionLinkRepository', () => {
       }
     });
   });
+
+  describe('deleteBySource', () => {
+    it('should delete all links where source transactions match a specific source_id', async () => {
+      // Create links for different sources
+      const links = [
+        createMockLink({ id: 'link-1', sourceTransactionId: 1, targetTransactionId: 2 }), // source_id: 'test'
+        createMockLink({ id: 'link-2', sourceTransactionId: 2, targetTransactionId: 3 }),
+        createMockLink({ id: 'link-3', sourceTransactionId: 3, targetTransactionId: 4 }),
+      ];
+
+      await repository.createBulk(links);
+
+      // Create additional transactions with different source_id
+      await db
+        .insertInto('import_sessions')
+        .values({
+          source_type: 'blockchain',
+          source_id: 'ethereum',
+          started_at: new Date().toISOString(),
+          status: 'completed',
+          import_params: '{}',
+          import_result_metadata: '{}',
+          transactions_imported: 0,
+          transactions_failed: 0,
+          created_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+        })
+        .execute();
+
+      await db
+        .insertInto('transactions')
+        .values({
+          import_session_id: 2,
+          source_id: 'ethereum',
+          source_type: 'blockchain' as const,
+          external_id: 'eth-tx-1',
+          transaction_status: 'confirmed' as const,
+          transaction_datetime: new Date().toISOString(),
+          verified: false,
+          raw_normalized_data: '{}',
+          movements_primary_asset: 'ETH',
+          movements_primary_amount: '1.0',
+          movements_primary_direction: 'in' as const,
+          created_at: new Date().toISOString(),
+        })
+        .execute();
+
+      const ethTx = await db
+        .selectFrom('transactions')
+        .where('source_id', '=', 'ethereum')
+        .selectAll()
+        .executeTakeFirst();
+
+      // Create a link with ethereum transaction as source
+      const ethLink = createMockLink({
+        id: 'link-eth',
+        sourceTransactionId: ethTx!.id,
+        targetTransactionId: 1,
+      });
+      await repository.create(ethLink);
+
+      // Delete links for 'test' source
+      const result = await repository.deleteBySource('test');
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value).toBe(3); // Should delete 3 links (link-1, link-2, link-3)
+      }
+
+      // Verify only ethereum link remains
+      const allLinks = await db.selectFrom('transaction_links').selectAll().execute();
+      expect(allLinks).toHaveLength(1);
+      expect(allLinks[0]!.id).toBe('link-eth');
+    });
+
+    it('should return 0 when no links match the source', async () => {
+      const links = [createMockLink({ id: 'link-1', sourceTransactionId: 1, targetTransactionId: 2 })];
+      await repository.createBulk(links);
+
+      const result = await repository.deleteBySource('nonexistent');
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value).toBe(0);
+      }
+
+      // Verify link still exists
+      const allLinks = await db.selectFrom('transaction_links').selectAll().execute();
+      expect(allLinks).toHaveLength(1);
+    });
+
+    it('should handle database errors', async () => {
+      await db.destroy();
+
+      const result = await repository.deleteBySource('test');
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('Failed to delete links by source');
+      }
+    });
+  });
+
+  describe('deleteAll', () => {
+    it('should delete all transaction links', async () => {
+      // Create multiple links
+      const links = [
+        createMockLink({ id: 'link-1', sourceTransactionId: 1, targetTransactionId: 2 }),
+        createMockLink({ id: 'link-2', sourceTransactionId: 2, targetTransactionId: 3 }),
+        createMockLink({ id: 'link-3', sourceTransactionId: 3, targetTransactionId: 4 }),
+      ];
+
+      await repository.createBulk(links);
+
+      // Verify initial state
+      const initialLinks = await db.selectFrom('transaction_links').selectAll().execute();
+      expect(initialLinks).toHaveLength(3);
+
+      // Delete all links
+      const result = await repository.deleteAll();
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value).toBe(3);
+      }
+
+      // Verify no links remain
+      const remainingLinks = await db.selectFrom('transaction_links').selectAll().execute();
+      expect(remainingLinks).toHaveLength(0);
+    });
+
+    it('should return 0 when no links exist', async () => {
+      const result = await repository.deleteAll();
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value).toBe(0);
+      }
+    });
+
+    it('should handle database errors', async () => {
+      await db.destroy();
+
+      const result = await repository.deleteAll();
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('Failed to delete all links');
+      }
+    });
+  });
 });

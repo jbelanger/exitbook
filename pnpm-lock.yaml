@@ -72,6 +72,9 @@ importers:
       '@clack/prompts':
         specifier: ^0.11.0
         version: 0.11.0
+      '@exitbook/accounting':
+        specifier: workspace:*
+        version: link:../../packages/accounting
       '@exitbook/balance':
         specifier: workspace:*
         version: link:../../packages/balance

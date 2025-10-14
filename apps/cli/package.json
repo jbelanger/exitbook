@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@clack/prompts": "^0.11.0",
+    "@exitbook/accounting": "workspace:*",
     "@exitbook/balance": "workspace:*",
     "@exitbook/core": "workspace:*",
     "@exitbook/data": "workspace:*",

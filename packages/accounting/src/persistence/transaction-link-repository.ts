@@ -259,6 +259,52 @@ export class TransactionLinkRepository {
   }
 
   /**
+   * Delete all links where source transactions match a specific source_id
+   *
+   * @param sourceId - Source ID to match (e.g., 'kraken', 'ethereum')
+   * @returns Result with count of deleted links
+   */
+  async deleteBySource(sourceId: string): Promise<Result<number, Error>> {
+    try {
+      const result = await this.db
+        .deleteFrom('transaction_links')
+        .where(
+          'source_transaction_id',
+          'in',
+          this.db.selectFrom('transactions').select('id').where('source_id', '=', sourceId)
+        )
+        .executeTakeFirst();
+
+      const count = Number(result.numDeletedRows ?? 0);
+      this.logger.debug({ sourceId, count }, 'Deleted transaction links by source');
+      return ok(count);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error({ error, sourceId }, 'Failed to delete links by source');
+      return err(new Error(`Failed to delete links by source: ${message}`));
+    }
+  }
+
+  /**
+   * Delete all transaction links
+   *
+   * @returns Result with count of deleted links
+   */
+  async deleteAll(): Promise<Result<number, Error>> {
+    try {
+      const result = await this.db.deleteFrom('transaction_links').executeTakeFirst();
+
+      const count = Number(result.numDeletedRows ?? 0);
+      this.logger.info({ count }, 'Deleted all transaction links');
+      return ok(count);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error({ error }, 'Failed to delete all links');
+      return err(new Error(`Failed to delete all links: ${message}`));
+    }
+  }
+
+  /**
    * Helper method to serialize data to JSON string safely
    * Handles Decimal objects by converting them to strings
    */

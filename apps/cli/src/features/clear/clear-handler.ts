@@ -1,4 +1,6 @@
-import type { KyselyDB } from '@exitbook/data';
+import type { CostBasisRepository, TransactionLinkRepository } from '@exitbook/accounting';
+import type { KyselyDB, TransactionRepository } from '@exitbook/data';
+import type { RawDataRepository } from '@exitbook/import';
 import { getLogger } from '@exitbook/shared-logger';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -15,9 +17,16 @@ export interface ClearResult {
 
 /**
  * Clear handler - encapsulates all clear business logic.
+ * Uses repositories to perform database operations.
  */
 export class ClearHandler {
-  constructor(private database: KyselyDB) {}
+  constructor(
+    private db: KyselyDB,
+    private transactionRepo: TransactionRepository,
+    private transactionLinkRepo: TransactionLinkRepository,
+    private costBasisRepo: CostBasisRepository,
+    private rawDataRepo: RawDataRepository
+  ) {}
 
   /**
    * Preview what will be deleted.
@@ -26,14 +35,14 @@ export class ClearHandler {
     try {
       const countTable = async (tableName: string, sourceFilter?: boolean): Promise<number> => {
         if (sourceFilter && params.source) {
-          const result = await this.database
+          const result = await this.db
             .selectFrom(tableName as 'import_sessions')
             .select(({ fn }) => [fn.count<number>('id').as('count')])
             .where('source_id', '=', params.source)
             .executeTakeFirst();
           return result?.count ?? 0;
         }
-        const result = await this.database
+        const result = await this.db
           .selectFrom(tableName as 'import_sessions')
           .select(({ fn }) => [fn.count<number>('id').as('count')])
           .executeTakeFirst();
@@ -49,13 +58,13 @@ export class ClearHandler {
       const calculations = await countTable('cost_basis_calculations', false);
 
       return ok({
-        sessions,
-        rawData,
-        transactions,
+        calculations,
+        disposals,
         links,
         lots,
-        disposals,
-        calculations,
+        rawData,
+        sessions,
+        transactions,
       });
     } catch (error) {
       return err(error instanceof Error ? error : new Error(String(error)));
@@ -67,7 +76,7 @@ export class ClearHandler {
    */
   async execute(params: ClearHandlerParams): Promise<Result<ClearResult, Error>> {
     try {
-      logger.info({ source: params.source, includeRaw: params.includeRaw }, 'Starting data clearing');
+      logger.info({ includeRaw: params.includeRaw, source: params.source }, 'Starting data clearing');
 
       const preview = await this.previewDeletion(params);
       if (preview.isErr()) {
@@ -93,64 +102,97 @@ export class ClearHandler {
       // Delete in correct order (respecting FK constraints)
       if (params.source) {
         // Delete for specific source
-        await this.database
-          .deleteFrom('lot_disposals')
-          .where('lot_id', 'in', this.database.selectFrom('acquisition_lots').select('id'))
-          .execute();
+        const disposalsResult = await this.costBasisRepo.deleteDisposalsBySource(params.source);
+        if (disposalsResult.isErr()) {
+          return err(disposalsResult.error);
+        }
 
-        await this.database
-          .deleteFrom('acquisition_lots')
-          .where(
-            'acquisition_transaction_id',
-            'in',
-            this.database.selectFrom('transactions').select('id').where('source_id', '=', params.source)
-          )
-          .execute();
+        const lotsResult = await this.costBasisRepo.deleteLotsBySource(params.source);
+        if (lotsResult.isErr()) {
+          return err(lotsResult.error);
+        }
 
-        await this.database
-          .deleteFrom('transaction_links')
-          .where(
-            'source_transaction_id',
-            'in',
-            this.database.selectFrom('transactions').select('id').where('source_id', '=', params.source)
-          )
-          .execute();
+        const linksResult = await this.transactionLinkRepo.deleteBySource(params.source);
+        if (linksResult.isErr()) {
+          return err(linksResult.error);
+        }
 
-        await this.database.deleteFrom('transactions').where('source_id', '=', params.source).execute();
+        const transactionsResult = await this.transactionRepo.deleteBySource(params.source);
+        if (transactionsResult.isErr()) {
+          return err(transactionsResult.error);
+        }
 
         if (params.includeRaw) {
-          await this.database
-            .deleteFrom('external_transaction_data')
-            .where(
-              'import_session_id',
-              'in',
-              this.database.selectFrom('import_sessions').select('id').where('source_id', '=', params.source)
-            )
-            .execute();
+          // Delete raw data and sessions
+          const rawDataResult = await this.rawDataRepo.deleteBySource(params.source);
+          if (rawDataResult.isErr()) {
+            return err(rawDataResult.error);
+          }
 
-          await this.database
+          // Delete import_session_errors (no repository yet, use db directly)
+          await this.db
             .deleteFrom('import_session_errors')
             .where(
               'import_session_id',
               'in',
-              this.database.selectFrom('import_sessions').select('id').where('source_id', '=', params.source)
+              this.db.selectFrom('import_sessions').select('id').where('source_id', '=', params.source)
             )
             .execute();
 
-          await this.database.deleteFrom('import_sessions').where('source_id', '=', params.source).execute();
+          // Delete import_sessions (after raw data is deleted due to FK)
+          await this.db.deleteFrom('import_sessions').where('source_id', '=', params.source).execute();
+        } else {
+          // Reset raw data processing_status to 'pending' for reprocessing
+          const resetResult = await this.rawDataRepo.resetProcessingStatusBySource(params.source);
+          if (resetResult.isErr()) {
+            return err(resetResult.error);
+          }
         }
       } else {
         // Delete all data
-        await this.database.deleteFrom('lot_disposals').execute();
-        await this.database.deleteFrom('acquisition_lots').execute();
-        await this.database.deleteFrom('cost_basis_calculations').execute();
-        await this.database.deleteFrom('transaction_links').execute();
-        await this.database.deleteFrom('transactions').execute();
+        const disposalsResult = await this.costBasisRepo.deleteAllDisposals();
+        if (disposalsResult.isErr()) {
+          return err(disposalsResult.error);
+        }
+
+        const lotsResult = await this.costBasisRepo.deleteAllLots();
+        if (lotsResult.isErr()) {
+          return err(lotsResult.error);
+        }
+
+        const calculationsResult = await this.costBasisRepo.deleteAllCalculations();
+        if (calculationsResult.isErr()) {
+          return err(calculationsResult.error);
+        }
+
+        const linksResult = await this.transactionLinkRepo.deleteAll();
+        if (linksResult.isErr()) {
+          return err(linksResult.error);
+        }
+
+        const transactionsResult = await this.transactionRepo.deleteAll();
+        if (transactionsResult.isErr()) {
+          return err(transactionsResult.error);
+        }
 
         if (params.includeRaw) {
-          await this.database.deleteFrom('external_transaction_data').execute();
-          await this.database.deleteFrom('import_session_errors').execute();
-          await this.database.deleteFrom('import_sessions').execute();
+          // Delete raw data and sessions
+          const rawDataResult = await this.rawDataRepo.deleteAll();
+          if (rawDataResult.isErr()) {
+            return err(rawDataResult.error);
+          }
+
+          // Delete import_session_errors (no repository yet, use db directly)
+          await this.db.deleteFrom('import_session_errors').execute();
+
+          // Delete import_sessions (after raw data is deleted due to FK)
+          await this.db.deleteFrom('import_sessions').execute();
+        } else {
+          // Reset raw data processing_status to 'pending' for reprocessing
+          const resetResult = await this.rawDataRepo.resetProcessingStatusAll();
+          if (resetResult.isErr()) {
+            return err(resetResult.error);
+          }
         }
       }
 

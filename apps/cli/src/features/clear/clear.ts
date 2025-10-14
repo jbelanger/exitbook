@@ -1,7 +1,7 @@
 import { configureLogger, resetLoggerContext } from '@exitbook/shared-logger';
 import type { Command } from 'commander';
 
-import { unwrapResult, withDatabaseAndHandler } from '../shared/command-execution.ts';
+import { unwrapResult } from '../shared/command-execution.ts';
 import { ExitCodes } from '../shared/exit-codes.ts';
 import { OutputManager } from '../shared/output.ts';
 import { handleCancellation, promptConfirm } from '../shared/prompts.ts';
@@ -43,9 +43,17 @@ async function executeClearCommand(options: ClearCommandOptions): Promise<void> 
     const params = unwrapResult(buildClearParamsFromFlags(options));
 
     // Create handler to preview deletion
-    const { initializeDatabase, closeDatabase } = await import('@exitbook/data');
+    const { initializeDatabase, closeDatabase, TransactionRepository: TxRepo } = await import('@exitbook/data');
+    const { TransactionLinkRepository: TLRepo, CostBasisRepository: CBRepo } = await import('@exitbook/accounting');
+    const { RawDataRepository: RDRepo } = await import('@exitbook/import');
+
     const database = await initializeDatabase(false);
-    const handler = new ClearHandler(database);
+    const txRepo = new TxRepo(database);
+    const tlRepo = new TLRepo(database);
+    const cbRepo = new CBRepo(database);
+    const rdRepo = new RDRepo(database);
+
+    const handler = new ClearHandler(database, txRepo, tlRepo, cbRepo, rdRepo);
 
     const previewResult = await handler.previewDeletion(params);
     handler.destroy();
@@ -113,7 +121,26 @@ async function executeClearCommand(options: ClearCommandOptions): Promise<void> 
       verbose: false,
     });
 
-    const result = await withDatabaseAndHandler(ClearHandler, params);
+    // Initialize database and repositories
+    const {
+      initializeDatabase: initDb,
+      closeDatabase: closeDb,
+      TransactionRepository,
+    } = await import('@exitbook/data');
+    const { TransactionLinkRepository, CostBasisRepository } = await import('@exitbook/accounting');
+    const { RawDataRepository } = await import('@exitbook/import');
+
+    const db = await initDb();
+    const transactionRepo = new TransactionRepository(db);
+    const transactionLinkRepo = new TransactionLinkRepository(db);
+    const costBasisRepo = new CostBasisRepository(db);
+    const rawDataRepo = new RawDataRepository(db);
+
+    const clearHandler = new ClearHandler(db, transactionRepo, transactionLinkRepo, costBasisRepo, rawDataRepo);
+
+    const result = await clearHandler.execute(params);
+    clearHandler.destroy();
+    await closeDb(db);
 
     resetLoggerContext();
 

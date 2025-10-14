@@ -381,4 +381,22 @@ export class TransactionRepository extends BaseRepository implements ITransactio
       return wrapError(error, 'Failed to update movements with prices');
     }
   }
+
+  async deleteBySource(sourceId: string): Promise<Result<number, Error>> {
+    try {
+      const result = await this.db.deleteFrom('transactions').where('source_id', '=', sourceId).executeTakeFirst();
+      return ok(Number(result.numDeletedRows));
+    } catch (error) {
+      return wrapError(error, 'Failed to delete transactions by source');
+    }
+  }
+
+  async deleteAll(): Promise<Result<number, Error>> {
+    try {
+      const result = await this.db.deleteFrom('transactions').executeTakeFirst();
+      return ok(Number(result.numDeletedRows));
+    } catch (error) {
+      return wrapError(error, 'Failed to delete all transactions');
+    }
+  }
 }
