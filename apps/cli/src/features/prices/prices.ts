@@ -16,7 +16,6 @@ import type { PricesFetchCommandOptions, PricesFetchResult } from './prices-util
  */
 export interface ExtendedPricesFetchCommandOptions extends PricesFetchCommandOptions {
   json?: boolean | undefined;
-  clearDb?: boolean | undefined;
   interactive?: boolean | undefined;
 }
 
@@ -47,7 +46,6 @@ export function registerPricesCommand(program: Command): void {
     .description('Fetch prices for transactions missing price data')
     .option('--asset <currency>', 'Filter by asset (e.g., BTC, ETH). Can be specified multiple times.', collect, [])
     .option('--interactive', 'Enable interactive mode for manual price entry when coins are not found')
-    .option('--clear-db', 'Clear and reinitialize database before fetching')
     .option('--json', 'Output results in JSON format (for AI/MCP tools)')
     .action(async (options: ExtendedPricesFetchCommandOptions) => {
       await executePricesFetchCommand(options);
@@ -85,7 +83,7 @@ async function executePricesFetchCommand(options: ExtendedPricesFetchCommandOpti
       verbose: false, // TODO: Add --verbose flag support
     });
 
-    const result = await withDatabaseAndHandler({ clearDb: options.clearDb }, PricesFetchHandler, params);
+    const result = await withDatabaseAndHandler(PricesFetchHandler, params);
 
     // Reset logger context after command completes
     resetLoggerContext();

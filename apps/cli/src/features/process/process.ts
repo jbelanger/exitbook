@@ -14,7 +14,6 @@ import { buildProcessParamsFromFlags } from './process-utils.ts';
  * Extended process command options (adds CLI-specific flags not needed by handler).
  */
 export interface ExtendedProcessCommandOptions extends ProcessCommandOptions {
-  clearDb?: boolean | undefined;
   json?: boolean | undefined;
 }
 
@@ -38,7 +37,6 @@ export function registerProcessCommand(program: Command): void {
     .option('--session <id>', 'Import session ID to process')
     .option('--since <date>', 'Process data since date (YYYY-MM-DD or timestamp)')
     .option('--all', 'Process all pending raw data for this source')
-    .option('--clear-db', 'Clear and reinitialize database before processing')
     .option('--json', 'Output results in JSON format (for AI/MCP tools)')
     .action(async (options: ExtendedProcessCommandOptions) => {
       await executeProcessCommand(options);
@@ -65,7 +63,7 @@ async function executeProcessCommand(options: ExtendedProcessCommandOptions): Pr
     const spinner = output.spinner();
     spinner?.start('Processing data...');
 
-    const result = await withDatabaseAndHandler({ clearDb: options.clearDb }, ProcessHandler, params);
+    const result = await withDatabaseAndHandler(ProcessHandler, params);
 
     spinner?.stop();
 

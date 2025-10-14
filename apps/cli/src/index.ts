@@ -6,6 +6,7 @@ import { getLogger } from '@exitbook/shared-logger';
 import { Command } from 'commander';
 
 import { registerBenchmarkRateLimitCommand } from './features/benchmark-rate-limit/benchmark-rate-limit.ts';
+import { registerClearCommand } from './features/clear/clear.ts';
 import { registerExportCommand } from './features/export/export.ts';
 import { registerImportCommand } from './features/import/import.ts';
 import { registerListBlockchainsCommand } from './features/list-blockchains/list-blockchains.ts';
@@ -19,11 +20,6 @@ initializeProviders();
 const logger = getLogger('CLI');
 const program = new Command();
 
-// Command option types
-interface StatusOptions {
-  clearDb?: boolean | undefined;
-}
-
 async function main() {
   program
     .name('crypto-import')
@@ -35,6 +31,9 @@ async function main() {
 
   // Process command - refactored with @clack/prompts (Phase 3)
   registerProcessCommand(program);
+
+  // Clear command
+  registerClearCommand(program);
 
   // Verify command - refactored with @clack/prompts (Phase 3)
   registerVerifyCommand(program);
@@ -55,12 +54,11 @@ async function main() {
   program
     .command('status')
     .description('Show system status and recent verification results')
-    .option('--clear-db', 'Clear and reinitialize database before status')
-    .action(async (options: StatusOptions) => {
+    .action(async () => {
       try {
         logger.info('Database implementation: Kysely');
 
-        const kyselyDb = await initializeDatabase(options.clearDb);
+        const kyselyDb = await initializeDatabase();
 
         // For now, use a simplified stats approach with Kysely
         // TODO: Implement proper Kysely stats queries

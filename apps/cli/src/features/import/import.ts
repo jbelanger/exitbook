@@ -14,7 +14,6 @@ import { buildImportParamsFromFlags, type ImportCommandOptions } from './import-
  * Extended import command options (adds CLI-specific flags not needed by handler).
  */
 export interface ExtendedImportCommandOptions extends ImportCommandOptions {
-  clearDb?: boolean | undefined;
   json?: boolean | undefined;
   since?: string | undefined;
   until?: string | undefined;
@@ -48,7 +47,6 @@ export function registerImportCommand(program: Command): void {
     .option('--since <date>', 'Import data since date (YYYY-MM-DD, timestamp, or 0 for all history)')
     .option('--until <date>', 'Import data until date (YYYY-MM-DD or timestamp)')
     .option('--process', 'Process data after import (combined import+process pipeline)')
-    .option('--clear-db', 'Clear and reinitialize database before import')
     .option('--json', 'Output results in JSON format (for AI/MCP tools)')
     .action(async (options: ExtendedImportCommandOptions) => {
       await executeImportCommand(options);
@@ -89,7 +87,7 @@ async function executeImportCommand(options: ExtendedImportCommandOptions): Prom
       verbose: false, // TODO: Add --verbose flag support
     });
 
-    const result = await withDatabaseAndHandler({ clearDb: options.clearDb }, ImportHandler, params);
+    const result = await withDatabaseAndHandler(ImportHandler, params);
 
     // Reset logger context after command completes
     resetLoggerContext();

@@ -27,11 +27,10 @@ export function unwrapResult<T>(result: Result<T, Error>): T {
  * Execute a command with database and handler lifecycle management.
  */
 export async function withDatabaseAndHandler<TParams, TResult>(
-  options: { clearDb?: boolean | undefined },
   HandlerClass: new (db: KyselyDB) => CommandHandler<TParams, TResult>,
   params: TParams
 ): Promise<Result<TResult, Error>> {
-  const database = await initializeDatabase(options.clearDb);
+  const database = await initializeDatabase();
   const handler = new HandlerClass(database);
 
   try {

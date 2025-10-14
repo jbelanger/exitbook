@@ -20,7 +20,6 @@ const logger = getLogger('VerifyCommand');
  * Extended verify command options (adds CLI-specific flags not needed by handler).
  */
 export interface ExtendedVerifyCommandOptions extends VerifyCommandOptions {
-  clearDb?: boolean | undefined;
   json?: boolean | undefined;
 }
 
@@ -50,7 +49,6 @@ export function registerVerifyCommand(program: Command): void {
     .option('--exchange <name>', 'Exchange name to verify (e.g., kraken, kucoin)')
     .option('--blockchain <name>', 'Blockchain name to verify (e.g., bitcoin, ethereum)')
     .option('--report', 'Generate detailed verification report')
-    .option('--clear-db', 'Clear and reinitialize database before verification')
     .option('--json', 'Output results in JSON format (for AI/MCP tools)')
     .action(async (options: ExtendedVerifyCommandOptions) => {
       await executeVerifyCommand(options);
@@ -77,7 +75,7 @@ async function executeVerifyCommand(options: ExtendedVerifyCommandOptions): Prom
     const spinner = output.spinner();
     spinner?.start('Verifying balances...');
 
-    const result = await withDatabaseAndHandler({ clearDb: options.clearDb }, VerifyHandler, params);
+    const result = await withDatabaseAndHandler(VerifyHandler, params);
 
     spinner?.stop();
 
