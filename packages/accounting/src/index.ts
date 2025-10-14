@@ -28,3 +28,18 @@ export type {
 export type { IJurisdictionRules } from './jurisdictions/base-rules.js';
 export { CanadaRules } from './jurisdictions/canada-rules.js';
 export { USRules } from './jurisdictions/us-rules.js';
+
+// Transaction linking
+export type {
+  LinkType,
+  LinkStatus,
+  MatchCriteria,
+  TransactionLink,
+  PotentialMatch,
+  TransactionCandidate,
+  MatchingConfig,
+  LinkingResult,
+} from './linking/types.js';
+export { TransactionLinkingService } from './linking/transaction-linking-service.js';
+export { DEFAULT_MATCHING_CONFIG } from './linking/matching-utils.js';
+export { TransactionLinkRepository, type StoredTransactionLink } from './persistence/transaction-link-repository.js';

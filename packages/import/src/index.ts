@@ -1,5 +1,8 @@
 export { TransactionIngestionService } from './app/services/ingestion-service.ts';
-export { PriceEnrichmentService } from './services/price-enrichment/price-enrichment-service.ts';
+export {
+  PriceEnrichmentService,
+  type PriceEnrichmentConfig,
+} from './services/price-enrichment/price-enrichment-service.ts';
 
 // Port interfaces
 export type { ImportResult } from './app/ports/importers.ts';

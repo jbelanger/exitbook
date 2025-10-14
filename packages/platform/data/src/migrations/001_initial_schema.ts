@@ -135,6 +135,38 @@ export async function up(db: Kysely<KyselyDB>): Promise<void> {
     .unique()
     .execute();
 
+  // Create transaction_links table
+  await db.schema
+    .createTable('transaction_links')
+    .addColumn('id', 'text', (col) => col.primaryKey())
+    .addColumn('source_transaction_id', 'integer', (col) => col.notNull().references('transactions.id'))
+    .addColumn('target_transaction_id', 'integer', (col) => col.notNull().references('transactions.id'))
+    .addColumn('link_type', 'text', (col) => col.notNull())
+    .addColumn('confidence_score', 'text', (col) => col.notNull())
+    .addColumn('match_criteria_json', 'text', (col) => col.notNull())
+    .addColumn('status', 'text', (col) => col.notNull())
+    .addColumn('reviewed_by', 'text')
+    .addColumn('reviewed_at', 'integer')
+    .addColumn('created_at', 'integer', (col) => col.notNull())
+    .addColumn('updated_at', 'integer', (col) => col.notNull())
+    .addColumn('metadata_json', 'text')
+    .execute();
+
+  // Create indexes for transaction_links
+  await db.schema
+    .createIndex('idx_tx_links_source_id')
+    .on('transaction_links')
+    .column('source_transaction_id')
+    .execute();
+
+  await db.schema
+    .createIndex('idx_tx_links_target_id')
+    .on('transaction_links')
+    .column('target_transaction_id')
+    .execute();
+
+  await db.schema.createIndex('idx_tx_links_status').on('transaction_links').column('status').execute();
+
   // Create cost_basis_calculations table
   await db.schema
     .createTable('cost_basis_calculations')
@@ -218,6 +250,8 @@ export async function down(db: Kysely<unknown>): Promise<void> {
   await db.schema.dropTable('lot_disposals').execute();
   await db.schema.dropTable('acquisition_lots').execute();
   await db.schema.dropTable('cost_basis_calculations').execute();
+  // Drop transaction linking table
+  await db.schema.dropTable('transaction_links').execute();
   // Drop transaction-related tables
   await db.schema.dropTable('transactions').execute();
   await db.schema.dropTable('import_session_errors').execute();
