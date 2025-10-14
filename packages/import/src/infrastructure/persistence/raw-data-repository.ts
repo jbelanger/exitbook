@@ -230,4 +230,69 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
       return wrapError(error, 'Failed to get valid records');
     }
   }
+
+  async resetProcessingStatusBySource(sourceId: string): Promise<Result<number, Error>> {
+    try {
+      const result = await this.db
+        .updateTable('external_transaction_data')
+        .set({
+          processed_at: null,
+          processing_error: null,
+          processing_status: 'pending',
+        })
+        .where(
+          'import_session_id',
+          'in',
+          this.db.selectFrom('import_sessions').select('id').where('source_id', '=', sourceId)
+        )
+        .executeTakeFirst();
+
+      return ok(Number(result.numUpdatedRows));
+    } catch (error) {
+      return wrapError(error, 'Failed to reset processing status by source');
+    }
+  }
+
+  async resetProcessingStatusAll(): Promise<Result<number, Error>> {
+    try {
+      const result = await this.db
+        .updateTable('external_transaction_data')
+        .set({
+          processed_at: null,
+          processing_error: null,
+          processing_status: 'pending',
+        })
+        .executeTakeFirst();
+
+      return ok(Number(result.numUpdatedRows));
+    } catch (error) {
+      return wrapError(error, 'Failed to reset processing status for all records');
+    }
+  }
+
+  async deleteBySource(sourceId: string): Promise<Result<number, Error>> {
+    try {
+      const result = await this.db
+        .deleteFrom('external_transaction_data')
+        .where(
+          'import_session_id',
+          'in',
+          this.db.selectFrom('import_sessions').select('id').where('source_id', '=', sourceId)
+        )
+        .executeTakeFirst();
+
+      return ok(Number(result.numDeletedRows));
+    } catch (error) {
+      return wrapError(error, 'Failed to delete raw data by source');
+    }
+  }
+
+  async deleteAll(): Promise<Result<number, Error>> {
+    try {
+      const result = await this.db.deleteFrom('external_transaction_data').executeTakeFirst();
+      return ok(Number(result.numDeletedRows));
+    } catch (error) {
+      return wrapError(error, 'Failed to delete all raw data');
+    }
+  }
 }
