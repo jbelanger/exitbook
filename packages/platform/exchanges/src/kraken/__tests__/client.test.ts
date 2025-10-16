@@ -653,3 +653,124 @@ describe('createKrakenClient - fetchTransactionData', () => {
     expect(mockFetchLedger).toHaveBeenNthCalledWith(3, undefined, undefined, 50, { ofs: 100 });
   });
 });
+
+describe('createKrakenClient - fetchBalance', () => {
+  let client: IExchangeClient;
+  let mockFetchBalance: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    mockFetchBalance = vi.fn();
+
+    (ccxt.kraken as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+      fetchBalance: mockFetchBalance,
+    }));
+
+    const result = createKrakenClient({
+      apiKey: 'test-api-key',
+      secret: 'test-secret',
+    });
+
+    if (result.isErr()) {
+      throw new Error('Failed to create client in test setup');
+    }
+
+    client = result.value;
+  });
+
+  test('fetches and normalizes balances', async () => {
+    const mockBalance = {
+      XXBT: { free: 1.5, used: 0.1, total: 1.6 },
+      ZUSD: { free: 1000, used: 0, total: 1000 },
+      XETH: { free: 10, used: 2, total: 12 },
+      info: { someMetadata: 'value' },
+      timestamp: 1704067200000,
+      datetime: '2024-01-01T00:00:00.000Z',
+    };
+
+    mockFetchBalance.mockResolvedValueOnce(mockBalance);
+
+    const result = await client.fetchBalance();
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const { balances, timestamp } = result.value;
+    expect(balances.BTC).toBe('1.6');
+    expect(balances.USD).toBe('1000');
+    expect(balances.ETH).toBe('12');
+    expect(balances.info).toBeUndefined();
+    expect(timestamp).toBeGreaterThan(0);
+  });
+
+  test('skips zero balances', async () => {
+    const mockBalance = {
+      XXBT: { free: 1.5, used: 0, total: 1.5 },
+      ZUSD: { free: 0, used: 0, total: 0 },
+      XETH: { free: 0, used: 0, total: 0 },
+    };
+
+    mockFetchBalance.mockResolvedValueOnce(mockBalance);
+
+    const result = await client.fetchBalance();
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const { balances } = result.value;
+    expect(balances.BTC).toBe('1.5');
+    expect(balances.USD).toBeUndefined();
+    expect(balances.ETH).toBeUndefined();
+  });
+
+  test('handles empty balance response', async () => {
+    const mockBalance = {
+      info: {},
+      timestamp: 1704067200000,
+    };
+
+    mockFetchBalance.mockResolvedValueOnce(mockBalance);
+
+    const result = await client.fetchBalance();
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const { balances } = result.value;
+    expect(Object.keys(balances)).toHaveLength(0);
+  });
+
+  test('handles API errors gracefully', async () => {
+    mockFetchBalance.mockRejectedValueOnce(new Error('API rate limit exceeded'));
+
+    const result = await client.fetchBalance();
+
+    expect(result.isErr()).toBe(true);
+    if (!result.isErr()) return;
+
+    expect(result.error.message).toBeTruthy();
+  });
+
+  test('normalizes Kraken asset symbols', async () => {
+    const mockBalance = {
+      XXBT: { free: 1, used: 0, total: 1 },
+      XETH: { free: 10, used: 0, total: 10 },
+      ZUSD: { free: 1000, used: 0, total: 1000 },
+      ZEUR: { free: 500, used: 0, total: 500 },
+    };
+
+    mockFetchBalance.mockResolvedValueOnce(mockBalance);
+
+    const result = await client.fetchBalance();
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const { balances } = result.value;
+    expect(balances.BTC).toBe('1');
+    expect(balances.ETH).toBe('10');
+    expect(balances.USD).toBe('1000');
+    expect(balances.EUR).toBe('500');
+    expect(balances.XXBT).toBeUndefined();
+    expect(balances.ZUSD).toBeUndefined();
+  });
+});

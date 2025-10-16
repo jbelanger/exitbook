@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { PartialImportError } from '../../core/errors.ts';
 import type { IExchangeClient } from '../../core/types.ts';
-import { createCoinbaseClient } from '../client.ts';
+import { createCoinbaseClient } from '../client.js';
 
 // Mock ccxt
 vi.mock('ccxt', () => {
@@ -107,7 +107,13 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
         timestamp: 1704067200000,
         datetime: '2024-01-01T00:00:00.000Z',
         type: 'transaction',
-        info: {},
+        info: {
+          id: 'LEDGER1',
+          type: 'transaction',
+          status: 'ok',
+          amount: { amount: '100', currency: 'USD' },
+          created_at: '2024-01-01T00:00:00.000Z',
+        },
       },
       {
         id: 'LEDGER2',
@@ -122,7 +128,13 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
         timestamp: 1704067201000,
         datetime: '2024-01-01T00:00:01.000Z',
         type: 'transaction',
-        info: {},
+        info: {
+          id: 'LEDGER2',
+          type: 'transaction',
+          status: 'ok',
+          amount: { amount: '-50', currency: 'USD' },
+          created_at: '2024-01-01T00:00:01.000Z',
+        },
       },
     ];
 
@@ -169,10 +181,10 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
         info: {
           id: 'LEDGER_BTC_1',
           type: 'TRADE_FILL',
-          direction: 'CREDIT',
-          amount: { value: '0.1', currency: 'BTC' },
+          status: 'ok',
+          amount: { amount: '0.1', currency: 'BTC' },
           created_at: '2024-01-01T00:00:00.000Z',
-          details: {
+          advanced_trade_fill: {
             order_id: 'ORDER123',
             trade_id: 'TRADE456',
             product_id: 'BTC-USD',
@@ -196,10 +208,10 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
         info: {
           id: 'LEDGER_USD_1',
           type: 'TRADE_FILL',
-          direction: 'DEBIT',
-          amount: { value: '-5000', currency: 'USD' },
+          status: 'ok',
+          amount: { amount: '-5000', currency: 'USD' },
           created_at: '2024-01-01T00:00:00.000Z',
-          details: {
+          advanced_trade_fill: {
             order_id: 'ORDER123',
             trade_id: 'TRADE456',
             product_id: 'BTC-USD',
@@ -231,38 +243,60 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
     mockFetchAccounts.mockResolvedValueOnce([{ id: 'account1', currency: 'USD' }]);
 
     // Create 100 entries for first page (full page)
-    const firstPageEntries: ccxt.LedgerEntry[] = Array.from({ length: 100 }, (_, i) => ({
-      id: `LEDGER${i + 1}`,
-      account: 'account1',
-      amount: 100,
-      before: 0,
-      after: 100,
-      currency: 'USD',
-      direction: 'in',
-      fee: { cost: 0, currency: 'USD' },
-      status: 'ok',
-      timestamp: 1704067200000 + i * 1000,
-      datetime: new Date(1704067200000 + i * 1000).toISOString(),
-      type: 'transaction',
-      info: {},
-    }));
+    const firstPageEntries: ccxt.LedgerEntry[] = Array.from({ length: 100 }, (_, i) => {
+      const timestamp = 1704067200000 + i * 1000;
+      const datetime = new Date(timestamp).toISOString();
+      const id = `LEDGER${i + 1}`;
+      return {
+        id,
+        account: 'account1',
+        amount: 100,
+        before: 0,
+        after: 100,
+        currency: 'USD',
+        direction: 'in',
+        fee: { cost: 0, currency: 'USD' },
+        status: 'ok',
+        timestamp,
+        datetime,
+        type: 'transaction',
+        info: {
+          id,
+          type: 'transaction',
+          status: 'ok',
+          amount: { amount: '100', currency: 'USD' },
+          created_at: datetime,
+        },
+      };
+    });
 
     // Create 25 entries for second page (partial page)
-    const secondPageEntries: ccxt.LedgerEntry[] = Array.from({ length: 25 }, (_, i) => ({
-      id: `LEDGER${i + 101}`,
-      account: 'account1',
-      amount: 100,
-      before: 0,
-      after: 100,
-      currency: 'USD',
-      direction: 'in',
-      fee: { cost: 0, currency: 'USD' },
-      status: 'ok',
-      timestamp: 1704067200000 + (i + 100) * 1000,
-      datetime: new Date(1704067200000 + (i + 100) * 1000).toISOString(),
-      type: 'transaction',
-      info: {},
-    }));
+    const secondPageEntries: ccxt.LedgerEntry[] = Array.from({ length: 25 }, (_, i) => {
+      const timestamp = 1704067200000 + (i + 100) * 1000;
+      const datetime = new Date(timestamp).toISOString();
+      const id = `LEDGER${i + 101}`;
+      return {
+        id,
+        account: 'account1',
+        amount: 100,
+        before: 0,
+        after: 100,
+        currency: 'USD',
+        direction: 'in',
+        fee: { cost: 0, currency: 'USD' },
+        status: 'ok',
+        timestamp,
+        datetime,
+        type: 'transaction',
+        info: {
+          id,
+          type: 'transaction',
+          status: 'ok',
+          amount: { amount: '100', currency: 'USD' },
+          created_at: datetime,
+        },
+      };
+    });
 
     mockFetchLedger
       .mockResolvedValueOnce(firstPageEntries) // First page: 100 entries
@@ -329,21 +363,32 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
     mockFetchAccounts.mockResolvedValueOnce([{ id: 'account1', currency: 'USD' }]);
 
     // First page succeeds with 100 entries
-    const firstPageEntries: ccxt.LedgerEntry[] = Array.from({ length: 100 }, (_, i) => ({
-      id: `LEDGER${i + 1}`,
-      account: 'account1',
-      amount: 100,
-      before: 0,
-      after: 100,
-      currency: 'USD',
-      direction: 'in',
-      fee: { cost: 0, currency: 'USD' },
-      status: 'ok',
-      timestamp: 1704067200000 + i * 1000,
-      datetime: new Date(1704067200000 + i * 1000).toISOString(),
-      type: 'transaction',
-      info: {},
-    }));
+    const firstPageEntries: ccxt.LedgerEntry[] = Array.from({ length: 100 }, (_, i) => {
+      const timestamp = 1704067200000 + i * 1000;
+      const datetime = new Date(timestamp).toISOString();
+      const id = `LEDGER${i + 1}`;
+      return {
+        id,
+        account: 'account1',
+        amount: 100,
+        before: 0,
+        after: 100,
+        currency: 'USD',
+        direction: 'in',
+        fee: { cost: 0, currency: 'USD' },
+        status: 'ok',
+        timestamp,
+        datetime,
+        type: 'transaction',
+        info: {
+          id,
+          type: 'transaction',
+          status: 'ok',
+          amount: { amount: '100', currency: 'USD' },
+          created_at: datetime,
+        },
+      };
+    });
 
     mockFetchLedger
       .mockResolvedValueOnce(firstPageEntries) // First page succeeds
@@ -381,7 +426,13 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
       timestamp: 1704067200000,
       datetime: '2024-01-01T00:00:00.000Z',
       type: 'transaction',
-      info: {},
+      info: {
+        id: 'LEDGER1',
+        type: 'transaction',
+        status: 'ok',
+        amount: { amount: '100', currency: 'USD' },
+        created_at: '2024-01-01T00:00:00.000Z',
+      },
     };
 
     const invalidEntry: ccxt.LedgerEntry = {
@@ -397,7 +448,13 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
       timestamp: 1704067201000,
       datetime: '2024-01-01T00:00:01.000Z',
       type: 'transaction',
-      info: {},
+      info: {
+        id: 'LEDGER2',
+        type: 'transaction',
+        status: 'ok',
+        amount: { amount: '100', currency: 'USD' },
+        created_at: '2024-01-01T00:00:01.000Z',
+      },
     };
 
     mockFetchLedger.mockResolvedValueOnce([validEntry, invalidEntry]);
@@ -420,21 +477,32 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
     mockFetchAccounts.mockResolvedValueOnce([{ id: 'account1', currency: 'USD' }]);
 
     // First page: 100 valid entries
-    const firstPageEntries: ccxt.LedgerEntry[] = Array.from({ length: 100 }, (_, i) => ({
-      id: `LEDGER${i + 1}`,
-      account: 'account1',
-      amount: 100,
-      before: 0,
-      after: 100,
-      currency: 'USD',
-      direction: 'in',
-      fee: { cost: 0, currency: 'USD' },
-      status: 'ok',
-      timestamp: 1704067200000 + i * 1000,
-      datetime: new Date(1704067200000 + i * 1000).toISOString(),
-      type: 'transaction',
-      info: {},
-    }));
+    const firstPageEntries: ccxt.LedgerEntry[] = Array.from({ length: 100 }, (_, i) => {
+      const timestamp = 1704067200000 + i * 1000;
+      const datetime = new Date(timestamp).toISOString();
+      const id = `LEDGER${i + 1}`;
+      return {
+        id,
+        account: 'account1',
+        amount: 100,
+        before: 0,
+        after: 100,
+        currency: 'USD',
+        direction: 'in',
+        fee: { cost: 0, currency: 'USD' },
+        status: 'ok',
+        timestamp,
+        datetime,
+        type: 'transaction',
+        info: {
+          id,
+          type: 'transaction',
+          status: 'ok',
+          amount: { amount: '100', currency: 'USD' },
+          created_at: datetime,
+        },
+      };
+    });
 
     // Second page: starts with valid entry, then has invalid entry
     const validEntry: ccxt.LedgerEntry = {
@@ -450,7 +518,13 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
       timestamp: 1704067300000,
       datetime: '2024-01-01T00:01:40.000Z',
       type: 'transaction',
-      info: {},
+      info: {
+        id: 'LEDGER101',
+        type: 'transaction',
+        status: 'ok',
+        amount: { amount: '100', currency: 'USD' },
+        created_at: '2024-01-01T00:01:40.000Z',
+      },
     };
 
     const invalidEntry: ccxt.LedgerEntry = {
@@ -466,7 +540,13 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
       timestamp: 1704067301000,
       datetime: '2024-01-01T00:01:41.000Z',
       type: 'transaction',
-      info: {},
+      info: {
+        id: 'LEDGER102',
+        type: 'transaction',
+        status: 'ok',
+        amount: { amount: '100', currency: 'USD' },
+        created_at: '2024-01-01T00:01:41.000Z',
+      },
     };
 
     mockFetchLedger
@@ -507,7 +587,13 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
         timestamp: 1704067200000,
         datetime: '2024-01-01T00:00:00.000Z',
         type: 'transaction',
-        info: {},
+        info: {
+          id: 'LEDGER1',
+          type: 'transaction',
+          status: 'ok',
+          amount: { amount: '100', currency: 'USD' },
+          created_at: '2024-01-01T00:00:00.000Z',
+        },
       },
       {
         id: 'LEDGER2',
@@ -522,7 +608,13 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
         timestamp: 1704067300000,
         datetime: '2024-01-01T00:01:40.000Z',
         type: 'transaction',
-        info: {},
+        info: {
+          id: 'LEDGER2',
+          type: 'transaction',
+          status: 'ok',
+          amount: { amount: '100', currency: 'USD' },
+          created_at: '2024-01-01T00:01:40.000Z',
+        },
       },
     ];
 
@@ -542,53 +634,86 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
     // Mock accounts - Coinbase fetches accounts first
     mockFetchAccounts.mockResolvedValueOnce([{ id: 'account1', currency: 'USD' }]);
 
-    const page1 = Array.from({ length: 100 }, (_, i) => ({
-      id: `LEDGER${i + 1}`,
-      account: 'account1',
-      amount: 100,
-      before: 0,
-      after: 100,
-      currency: 'USD',
-      direction: 'in' as const,
-      fee: { cost: 0, currency: 'USD' },
-      status: 'ok' as const,
-      timestamp: 1704067200000 + i * 1000,
-      datetime: new Date(1704067200000 + i * 1000).toISOString(),
-      type: 'transaction' as const,
-      info: {},
-    }));
+    const page1 = Array.from({ length: 100 }, (_, i) => {
+      const timestamp = 1704067200000 + i * 1000;
+      const datetime = new Date(timestamp).toISOString();
+      const id = `LEDGER${i + 1}`;
+      return {
+        id,
+        account: 'account1',
+        amount: 100,
+        before: 0,
+        after: 100,
+        currency: 'USD',
+        direction: 'in' as const,
+        fee: { cost: 0, currency: 'USD' },
+        status: 'ok' as const,
+        timestamp,
+        datetime,
+        type: 'transaction' as const,
+        info: {
+          id,
+          type: 'transaction',
+          status: 'ok',
+          amount: { amount: '100', currency: 'USD' },
+          created_at: datetime,
+        },
+      };
+    });
 
-    const page2 = Array.from({ length: 100 }, (_, i) => ({
-      id: `LEDGER${i + 101}`,
-      account: 'account1',
-      amount: 100,
-      before: 0,
-      after: 100,
-      currency: 'USD',
-      direction: 'in' as const,
-      fee: { cost: 0, currency: 'USD' },
-      status: 'ok' as const,
-      timestamp: 1704067200000 + (i + 100) * 1000,
-      datetime: new Date(1704067200000 + (i + 100) * 1000).toISOString(),
-      type: 'transaction' as const,
-      info: {},
-    }));
+    const page2 = Array.from({ length: 100 }, (_, i) => {
+      const timestamp = 1704067200000 + (i + 100) * 1000;
+      const datetime = new Date(timestamp).toISOString();
+      const id = `LEDGER${i + 101}`;
+      return {
+        id,
+        account: 'account1',
+        amount: 100,
+        before: 0,
+        after: 100,
+        currency: 'USD',
+        direction: 'in' as const,
+        fee: { cost: 0, currency: 'USD' },
+        status: 'ok' as const,
+        timestamp,
+        datetime,
+        type: 'transaction' as const,
+        info: {
+          id,
+          type: 'transaction',
+          status: 'ok',
+          amount: { amount: '100', currency: 'USD' },
+          created_at: datetime,
+        },
+      };
+    });
 
-    const page3 = Array.from({ length: 10 }, (_, i) => ({
-      id: `LEDGER${i + 201}`,
-      account: 'account1',
-      amount: 100,
-      before: 0,
-      after: 100,
-      currency: 'USD',
-      direction: 'in' as const,
-      fee: { cost: 0, currency: 'USD' },
-      status: 'ok' as const,
-      timestamp: 1704067200000 + (i + 200) * 1000,
-      datetime: new Date(1704067200000 + (i + 200) * 1000).toISOString(),
-      type: 'transaction' as const,
-      info: {},
-    }));
+    const page3 = Array.from({ length: 10 }, (_, i) => {
+      const timestamp = 1704067200000 + (i + 200) * 1000;
+      const datetime = new Date(timestamp).toISOString();
+      const id = `LEDGER${i + 201}`;
+      return {
+        id,
+        account: 'account1',
+        amount: 100,
+        before: 0,
+        after: 100,
+        currency: 'USD',
+        direction: 'in' as const,
+        fee: { cost: 0, currency: 'USD' },
+        status: 'ok' as const,
+        timestamp,
+        datetime,
+        type: 'transaction' as const,
+        info: {
+          id,
+          type: 'transaction',
+          status: 'ok',
+          amount: { amount: '100', currency: 'USD' },
+          created_at: datetime,
+        },
+      };
+    });
 
     mockFetchLedger.mockResolvedValueOnce(page1).mockResolvedValueOnce(page2).mockResolvedValueOnce(page3);
 
@@ -606,5 +731,102 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
     expect(mockFetchLedger).toHaveBeenNthCalledWith(3, undefined, 1704067200000 + 199 * 1000 + 1, 100, {
       account_id: 'account1',
     });
+  });
+});
+
+describe('createCoinbaseClient - fetchBalance', () => {
+  let client: IExchangeClient;
+  let mockFetchBalance: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    mockFetchBalance = vi.fn();
+
+    (ccxt.coinbaseadvanced as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+      fetchBalance: mockFetchBalance,
+    }));
+
+    const result = createCoinbaseClient({
+      apiKey: 'organizations/test-org/apiKeys/test-key',
+      secret: '-----BEGIN EC PRIVATE KEY-----\nMHcCAQEE...test...==\n-----END EC PRIVATE KEY-----',
+    });
+
+    if (result.isErr()) {
+      throw new Error(`Failed to create client in test setup: ${result.error.message}`);
+    }
+
+    client = result.value;
+  });
+
+  test('fetches and returns balances', async () => {
+    const mockBalance = {
+      BTC: { free: 0.5, used: 0.1, total: 0.6 },
+      USD: { free: 5000, used: 0, total: 5000 },
+      ETH: { free: 5, used: 1, total: 6 },
+      info: { someMetadata: 'value' },
+      timestamp: 1704067200000,
+      datetime: '2024-01-01T00:00:00.000Z',
+    };
+
+    mockFetchBalance.mockResolvedValueOnce(mockBalance);
+
+    const result = await client.fetchBalance();
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const { balances, timestamp } = result.value;
+    expect(balances.BTC).toBe('0.6');
+    expect(balances.USD).toBe('5000');
+    expect(balances.ETH).toBe('6');
+    expect(balances.info).toBeUndefined();
+    expect(timestamp).toBeGreaterThan(0);
+  });
+
+  test('skips zero balances', async () => {
+    const mockBalance = {
+      BTC: { free: 0.5, used: 0, total: 0.5 },
+      USD: { free: 0, used: 0, total: 0 },
+      ETH: { free: 0, used: 0, total: 0 },
+    };
+
+    mockFetchBalance.mockResolvedValueOnce(mockBalance);
+
+    const result = await client.fetchBalance();
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const { balances } = result.value;
+    expect(balances.BTC).toBe('0.5');
+    expect(balances.USD).toBeUndefined();
+    expect(balances.ETH).toBeUndefined();
+  });
+
+  test('handles empty balance response', async () => {
+    const mockBalance = {
+      info: {},
+      timestamp: 1704067200000,
+    };
+
+    mockFetchBalance.mockResolvedValueOnce(mockBalance);
+
+    const result = await client.fetchBalance();
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const { balances } = result.value;
+    expect(Object.keys(balances)).toHaveLength(0);
+  });
+
+  test('handles API errors gracefully', async () => {
+    mockFetchBalance.mockRejectedValueOnce(new Error('Unauthorized'));
+
+    const result = await client.fetchBalance();
+
+    expect(result.isErr()).toBe(true);
+    if (!result.isErr()) return;
+
+    expect(result.error.message).toBeTruthy();
   });
 });

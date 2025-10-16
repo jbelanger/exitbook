@@ -1,4 +1,4 @@
-import { getErrorMessage, type RawTransactionWithMetadata } from '@exitbook/core';
+import { getErrorMessage, wrapError, type RawTransactionWithMetadata } from '@exitbook/core';
 import * as ccxt from 'ccxt';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -7,7 +7,7 @@ import type z from 'zod';
 import { PartialImportError } from '../core/errors.ts';
 import * as ExchangeUtils from '../core/exchange-utils.ts';
 import type { ExchangeLedgerEntry } from '../core/schemas.ts';
-import type { ExchangeCredentials, FetchParams, IExchangeClient } from '../core/types.ts';
+import type { BalanceSnapshot, ExchangeCredentials, FetchParams, IExchangeClient } from '../core/types.ts';
 
 import { CoinbaseCredentialsSchema, CoinbaseLedgerEntrySchema, RawCoinbaseLedgerEntrySchema } from './schemas.ts';
 import type { RawCoinbaseLedgerEntry } from './types.ts';
@@ -161,7 +161,7 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
 
                     // Extract and validate raw Coinbase data from CCXT's info property
                     // CCXT returns Coinbase Consumer API v2 transactions
-                     
+
                     const rawInfo = RawCoinbaseLedgerEntrySchema.parse(item.info) as RawCoinbaseLedgerEntry;
 
                     // Extract correlation ID from type-specific nested object
@@ -298,6 +298,16 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
               );
             }
             return err(error instanceof Error ? error : new Error(String(error)));
+          }
+        },
+
+        async fetchBalance(): Promise<Result<BalanceSnapshot, Error>> {
+          try {
+            const balance = await exchange.fetchBalance();
+            const balances = ExchangeUtils.processCCXTBalance(balance);
+            return ok({ balances, timestamp: Date.now() });
+          } catch (error) {
+            return wrapError(error, 'Failed to fetch Coinbase balance');
           }
         },
       });

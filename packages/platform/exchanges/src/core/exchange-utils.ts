@@ -113,3 +113,32 @@ export function processItems<TRaw, TValidated>(
 
   return ok(transactions);
 }
+
+/**
+ * Process CCXT balance response into balance record
+ * Filters out CCXT metadata fields and skips zero balances
+ *
+ * @param ccxtBalance - Raw balance object from CCXT
+ * @param normalizeAsset - Optional function to normalize asset symbols
+ * @returns Balance record mapping currency to total balance string
+ */
+export function processCCXTBalance(
+  ccxtBalance: Record<string, unknown>,
+  normalizeAsset?: (asset: string) => string
+): Record<string, string> {
+  const balances: Record<string, string> = {};
+  const normalize = normalizeAsset ?? ((asset: string) => asset);
+
+  for (const [currency, amounts] of Object.entries(ccxtBalance)) {
+    if (currency === 'info' || currency === 'timestamp' || currency === 'datetime') {
+      continue;
+    }
+
+    const total = (amounts as { total?: number }).total ?? 0;
+    if (total !== 0) {
+      balances[normalize(currency)] = total.toString();
+    }
+  }
+
+  return balances;
+}

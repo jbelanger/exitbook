@@ -1,4 +1,4 @@
-import { getErrorMessage, type RawTransactionWithMetadata } from '@exitbook/core';
+import { getErrorMessage, wrapError, type RawTransactionWithMetadata } from '@exitbook/core';
 import { getLogger } from '@exitbook/shared-logger';
 import * as ccxt from 'ccxt';
 import type { Result } from 'neverthrow';
@@ -8,7 +8,7 @@ import type z from 'zod';
 import { PartialImportError } from '../core/errors.ts';
 import * as ExchangeUtils from '../core/exchange-utils.ts';
 import type { ExchangeLedgerEntry } from '../core/schemas.ts';
-import type { ExchangeCredentials, FetchParams, IExchangeClient } from '../core/types.ts';
+import type { BalanceSnapshot, ExchangeCredentials, FetchParams, IExchangeClient } from '../core/types.ts';
 
 import { KuCoinCredentialsSchema, KuCoinLedgerEntrySchema } from './schemas.ts';
 
@@ -270,6 +270,16 @@ export function createKuCoinClient(credentials: ExchangeCredentials): Result<IEx
               );
             }
             return err(error instanceof Error ? error : new Error(String(error)));
+          }
+        },
+
+        async fetchBalance(): Promise<Result<BalanceSnapshot, Error>> {
+          try {
+            const balance = await exchange.fetchBalance();
+            const balances = ExchangeUtils.processCCXTBalance(balance);
+            return ok({ balances, timestamp: Date.now() });
+          } catch (error) {
+            return wrapError(error, 'Failed to fetch KuCoin balance');
           }
         },
       };
