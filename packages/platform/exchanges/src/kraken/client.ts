@@ -102,7 +102,7 @@ export function createKrakenClient(credentials: ExchangeCredentials): Result<IEx
               // Validator: Validate using Zod schema
               (rawItem) => ExchangeUtils.validateRawData(KrakenLedgerEntrySchema, rawItem, 'kraken'),
               // Metadata mapper: Extract cursor, externalId, and normalizedData
-              (validatedData: KrakenLedgerEntry) => {
+              (validatedData: KrakenLedgerEntry, _item) => {
                 const timestamp = new Date(validatedData.time * 1000);
                 const normalizedAsset = normalizeKrakenAsset(validatedData.asset);
 

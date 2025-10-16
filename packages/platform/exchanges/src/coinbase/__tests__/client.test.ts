@@ -146,6 +146,86 @@ describe('createCoinbaseClient - fetchTransactionData', () => {
     expect(mockFetchLedger).toHaveBeenCalledWith(undefined, undefined, 100, { account_id: 'account1' });
   });
 
+  test('extracts correlation ID from raw info for trade entries', async () => {
+    // Mock accounts
+    mockFetchAccounts.mockResolvedValueOnce([{ id: 'account1', currency: 'BTC' }]);
+
+    // Simulate a trade: two ledger entries with same order_id in raw info
+    const mockTradeEntries: ccxt.LedgerEntry[] = [
+      {
+        id: 'LEDGER_BTC_1',
+        account: 'account1',
+        amount: 0.1,
+        before: 0,
+        after: 0.1,
+        currency: 'BTC',
+        direction: 'in',
+        fee: { cost: 0.0001, currency: 'BTC' },
+        status: 'ok',
+        timestamp: 1704067200000,
+        datetime: '2024-01-01T00:00:00.000Z',
+        type: 'trade',
+        referenceId: undefined,
+        info: {
+          id: 'LEDGER_BTC_1',
+          type: 'TRADE_FILL',
+          direction: 'CREDIT',
+          amount: { value: '0.1', currency: 'BTC' },
+          created_at: '2024-01-01T00:00:00.000Z',
+          details: {
+            order_id: 'ORDER123',
+            trade_id: 'TRADE456',
+            product_id: 'BTC-USD',
+          },
+        },
+      },
+      {
+        id: 'LEDGER_USD_1',
+        account: 'account2',
+        amount: -5000,
+        before: 10000,
+        after: 5000,
+        currency: 'USD',
+        direction: 'out',
+        fee: { cost: 10, currency: 'USD' },
+        status: 'ok',
+        timestamp: 1704067200000,
+        datetime: '2024-01-01T00:00:00.000Z',
+        type: 'trade',
+        referenceId: undefined,
+        info: {
+          id: 'LEDGER_USD_1',
+          type: 'TRADE_FILL',
+          direction: 'DEBIT',
+          amount: { value: '-5000', currency: 'USD' },
+          created_at: '2024-01-01T00:00:00.000Z',
+          details: {
+            order_id: 'ORDER123',
+            trade_id: 'TRADE456',
+            product_id: 'BTC-USD',
+          },
+        },
+      },
+    ];
+
+    mockFetchLedger.mockResolvedValueOnce(mockTradeEntries);
+
+    const result = await client.fetchTransactionData();
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    const transactions = result.value;
+    expect(transactions).toHaveLength(2);
+
+    // Both should have the same correlationId extracted from raw info
+    const firstCorrelationId = (transactions[0]?.normalizedData as { correlationId?: string })?.correlationId;
+    const secondCorrelationId = (transactions[1]?.normalizedData as { correlationId?: string })?.correlationId;
+
+    expect(firstCorrelationId).toBe('ORDER123');
+    expect(secondCorrelationId).toBe('ORDER123');
+  });
+
   test('handles pagination with multiple pages', async () => {
     // Mock accounts - Coinbase fetches accounts first
     mockFetchAccounts.mockResolvedValueOnce([{ id: 'account1', currency: 'USD' }]);

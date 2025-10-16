@@ -9,7 +9,8 @@ import * as ExchangeUtils from '../core/exchange-utils.ts';
 import type { ExchangeLedgerEntry } from '../core/schemas.ts';
 import type { ExchangeCredentials, FetchParams, IExchangeClient } from '../core/types.ts';
 
-import { CoinbaseCredentialsSchema, CoinbaseLedgerEntrySchema } from './schemas.ts';
+import { CoinbaseCredentialsSchema, CoinbaseLedgerEntrySchema, RawCoinbaseLedgerEntrySchema } from './schemas.ts';
+import type { RawCoinbaseLedgerEntry } from './types.ts';
 
 export type CoinbaseLedgerEntry = z.infer<typeof CoinbaseLedgerEntrySchema>;
 
@@ -155,18 +156,80 @@ export function createCoinbaseClient(credentials: ExchangeCredentials): Result<I
                   // Validator: Validate using Zod schema
                   (rawItem) => ExchangeUtils.validateRawData(CoinbaseLedgerEntrySchema, rawItem, 'coinbase'),
                   // Metadata mapper: Extract cursor, externalId, and normalizedData
-                  (validatedData: CoinbaseLedgerEntry) => {
+                  (validatedData: CoinbaseLedgerEntry, item) => {
                     const timestamp = Math.floor(validatedData.timestamp); // Ensure integer
+
+                    // Extract and validate raw Coinbase data from CCXT's info property
+                    // CCXT returns Coinbase Consumer API v2 transactions
+                     
+                    const rawInfo = RawCoinbaseLedgerEntrySchema.parse(item.info) as RawCoinbaseLedgerEntry;
+
+                    // Extract correlation ID from type-specific nested object
+                    // Different transaction types store correlation IDs in different locations
+                    const extractCorrelationId = (): string => {
+                      // 1. Try CCXT's referenceId first (most reliable if available)
+                      if (validatedData.referenceId) {
+                        return validatedData.referenceId;
+                      }
+
+                      // 2. Check type-specific nested objects for correlation IDs
+                      // Try each transaction type's nested object
+                      // Use type assertion since Zod passthrough makes inference difficult
+                      interface TypeSpecific {
+                        id?: string;
+                        order_id?: string;
+                        trade_id?: string;
+                        transfer_id?: string;
+                      }
+
+                      const typeSpecificData: TypeSpecific | undefined =
+                        (rawInfo.advanced_trade_fill as TypeSpecific | undefined) ??
+                        (rawInfo.buy as TypeSpecific | undefined) ??
+                        (rawInfo.sell as TypeSpecific | undefined) ??
+                        (rawInfo.send as TypeSpecific | undefined) ??
+                        (rawInfo.trade as TypeSpecific | undefined);
+
+                      if (typeSpecificData) {
+                        // Priority order for correlation IDs:
+                        // 1. id - Used by buy, sell, trade types to group related entries
+                        // 2. order_id - Used by advanced_trade_fill to group multiple fills
+                        // 3. trade_id - Groups entries from same trade execution
+                        // 4. transfer_id - Groups entries from same transfer
+                        return (
+                          typeSpecificData.id ??
+                          typeSpecificData.order_id ??
+                          typeSpecificData.trade_id ??
+                          typeSpecificData.transfer_id ??
+                          validatedData.id
+                        );
+                      }
+
+                      // 3. Fall back to transaction id for non-correlated entries
+                      return validatedData.id;
+                    };
+
+                    const correlationId = extractCorrelationId();
 
                     // Map CoinbaseLedgerEntry to ExchangeLedgerEntry with Coinbase-specific normalization
                     // Additional Coinbase-specific fields (direction, account, referenceAccount, before, after) remain in rawData only
+                    //
+                    // IMPORTANT: ExchangeLedgerEntry requires signed amounts (negative for outflows, positive for inflows)
+                    // CCXT provides direction field ('in' or 'out') with absolute amounts, so we need to apply the sign
+                    const amountStr = validatedData.amount.toString();
+                    const signedAmount =
+                      validatedData.direction === 'out'
+                        ? amountStr.startsWith('-')
+                          ? amountStr
+                          : `-${amountStr}`
+                        : amountStr;
+
                     const normalizedData: ExchangeLedgerEntry = {
                       id: validatedData.id,
-                      correlationId: validatedData.referenceId || validatedData.id,
+                      correlationId,
                       timestamp,
                       type: validatedData.type,
                       asset: validatedData.currency,
-                      amount: validatedData.amount.toString(),
+                      amount: signedAmount,
                       fee: validatedData.fee?.cost.toString(),
                       feeCurrency: validatedData.fee?.currency,
                       status: mapCoinbaseStatus(validatedData.status),

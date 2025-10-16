@@ -43,7 +43,7 @@ export function validateRawData<T>(schema: ZodSchema<T>, rawData: unknown, excha
  * @param items - Raw items to process
  * @param extractor - Function to extract raw data from each item
  * @param validator - Function to validate extracted data
- * @param metadataMapper - Function to extract cursor, externalId, and rawData from validated item
+ * @param metadataMapper - Function to extract cursor, externalId, and rawData from validated item and original item
  * @param exchangeId - Exchange identifier for metadata
  * @param currentCursor - Current cursor state for resumption
  * @returns Result with array of processed transactions or PartialImportError
@@ -52,7 +52,10 @@ export function processItems<TRaw, TValidated>(
   items: TRaw[],
   extractor: (item: TRaw) => unknown,
   validator: (raw: unknown) => Result<TValidated, Error>,
-  metadataMapper: (parsed: TValidated) => {
+  metadataMapper: (
+    parsed: TValidated,
+    item: TRaw
+  ) => {
     cursor: Record<string, number>;
     externalId: string;
     normalizedData: ExchangeLedgerEntry;
@@ -79,7 +82,7 @@ export function processItems<TRaw, TValidated>(
     }
 
     const validatedData = validationResult.value;
-    const { cursor, externalId, normalizedData } = metadataMapper(validatedData);
+    const { cursor, externalId, normalizedData } = metadataMapper(validatedData, item);
 
     // Validate normalized data conforms to ExchangeLedgerEntry schema
     const normalizedValidation = ExchangeLedgerEntrySchema.safeParse(normalizedData);

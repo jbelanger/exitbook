@@ -162,7 +162,7 @@ export function createKuCoinClient(credentials: ExchangeCredentials): Result<IEx
                   // Validator: Validate using Zod schema
                   (rawItem) => ExchangeUtils.validateRawData(KuCoinLedgerEntrySchema, rawItem, 'kucoin'),
                   // Metadata mapper: Extract cursor, externalId, and normalizedData
-                  (validatedData: KuCoinLedgerEntry) => {
+                  (validatedData: KuCoinLedgerEntry, _item) => {
                     const timestamp = Math.floor(validatedData.timestamp); // Ensure integer
 
                     // Map KuCoinLedgerEntry to ExchangeLedgerEntry with KuCoin-specific normalization
