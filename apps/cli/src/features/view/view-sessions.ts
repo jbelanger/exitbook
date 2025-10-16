@@ -8,6 +8,7 @@ import { OutputManager } from '../shared/output.ts';
 
 import { ViewSessionsHandler } from './view-sessions-handler.ts';
 import type { SessionInfo, ViewSessionsParams, ViewSessionsResult } from './view-sessions-utils.ts';
+import { formatSessionsListForDisplay } from './view-sessions-utils.ts';
 import type { ViewCommandResult } from './view-utils.ts';
 import { buildViewMeta } from './view-utils.ts';
 
@@ -106,44 +107,7 @@ function handleViewSessionsSuccess(
 
   // Display text output
   if (output.isTextMode()) {
-    console.log('');
-    console.log('Import Sessions:');
-    console.log('=============================');
-    console.log('');
-
-    if (sessions.length === 0) {
-      console.log('No sessions found.');
-    } else {
-      for (const session of sessions) {
-        const statusIcon = getStatusIcon(session.status);
-        console.log(`${statusIcon} Session #${session.id} - ${session.source_id} (${session.source_type})`);
-        console.log(`   Status: ${session.status}`);
-        console.log(`   Imported: ${session.transactions_imported}, Failed: ${session.transactions_failed}`);
-        console.log(`   Started: ${session.started_at}`);
-
-        if (session.completed_at) {
-          console.log(`   Completed: ${session.completed_at}`);
-        }
-
-        if (session.duration_ms !== null && session.duration_ms !== undefined) {
-          const durationSec = (session.duration_ms / 1000).toFixed(2);
-          console.log(`   Duration: ${durationSec}s`);
-        }
-
-        if (session.provider_id) {
-          console.log(`   Provider: ${session.provider_id}`);
-        }
-
-        if (session.error_message) {
-          console.log(`   Error: ${session.error_message}`);
-        }
-
-        console.log('');
-      }
-    }
-
-    console.log('=============================');
-    console.log(`Total: ${count} sessions`);
+    console.log(formatSessionsListForDisplay(sessions, count));
   }
 
   // Prepare result data for JSON mode
@@ -158,22 +122,4 @@ function handleViewSessionsSuccess(
 
   output.success('view-sessions', resultData);
   process.exit(0);
-}
-
-/**
- * Get status icon for session.
- */
-function getStatusIcon(status: string): string {
-  switch (status) {
-    case 'completed':
-      return '✓';
-    case 'failed':
-      return '✗';
-    case 'started':
-      return '⏳';
-    case 'cancelled':
-      return '⊘';
-    default:
-      return '•';
-  }
 }

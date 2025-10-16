@@ -8,6 +8,7 @@ import { OutputManager } from '../shared/output.ts';
 
 import { ViewTransactionsHandler } from './view-transactions-handler.ts';
 import type { TransactionInfo, ViewTransactionsParams, ViewTransactionsResult } from './view-transactions-utils.ts';
+import { formatTransactionsListForDisplay } from './view-transactions-utils.ts';
 import type { ViewCommandResult } from './view-utils.ts';
 import { buildViewMeta } from './view-utils.ts';
 
@@ -117,49 +118,7 @@ function handleViewTransactionsSuccess(
 
   // Display text output
   if (output.isTextMode()) {
-    console.log('');
-    console.log('Transactions:');
-    console.log('=============================');
-    console.log('');
-
-    if (transactions.length === 0) {
-      console.log('No transactions found.');
-    } else {
-      for (const tx of transactions) {
-        const priceInfo = tx.price ? `${tx.price} ${tx.price_currency || ''}` : 'No price';
-        const operationLabel =
-          tx.operation_category && tx.operation_type ? `${tx.operation_category}/${tx.operation_type}` : 'Unknown';
-
-        console.log(`Transaction #${tx.id}`);
-        console.log(`   Source: ${tx.source_id} (${tx.source_type})`);
-        console.log(`   Date: ${tx.transaction_datetime}`);
-        console.log(`   Operation: ${operationLabel}`);
-
-        if (tx.movements_primary_asset) {
-          const direction = tx.movements_primary_direction || 'unknown';
-          const directionIcon = direction === 'in' ? '←' : direction === 'out' ? '→' : '↔';
-          console.log(
-            `   Movement: ${directionIcon} ${tx.movements_primary_amount || '?'} ${tx.movements_primary_asset}`
-          );
-        }
-
-        console.log(`   Price: ${priceInfo}`);
-
-        if (tx.blockchain_transaction_hash) {
-          console.log(`   Hash: ${tx.blockchain_transaction_hash}`);
-        }
-
-        if (tx.from_address || tx.to_address) {
-          if (tx.from_address) console.log(`   From: ${tx.from_address}`);
-          if (tx.to_address) console.log(`   To: ${tx.to_address}`);
-        }
-
-        console.log('');
-      }
-    }
-
-    console.log('=============================');
-    console.log(`Total: ${count} transactions`);
+    console.log(formatTransactionsListForDisplay(transactions, count));
   }
 
   // Prepare result data for JSON mode
