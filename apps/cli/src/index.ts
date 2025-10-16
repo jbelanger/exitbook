@@ -14,6 +14,7 @@ import { registerListBlockchainsCommand } from './features/list-blockchains/list
 import { registerPricesCommand } from './features/prices/prices.ts';
 import { registerProcessCommand } from './features/process/process.ts';
 import { registerVerifyCommand } from './features/verify/verify.ts';
+import { registerViewCommand } from './features/view/view.ts';
 
 // Initialize all providers at startup
 initializeProviders();
@@ -53,6 +54,9 @@ async function main() {
 
   // Prices command
   registerPricesCommand(program);
+
+  // View command - unified inspection interface
+  registerViewCommand(program);
 
   // Status command
   program
