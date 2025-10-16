@@ -8,7 +8,7 @@ import { Decimal } from 'decimal.js';
 import { ok, err } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
-import { PriceEnrichmentService } from './price-enrichment-service.ts';
+import { PriceEnrichmentService } from '../price-enrichment-service.ts';
 
 // Helper to create a mock StoredTransaction
 function createMockTransaction(

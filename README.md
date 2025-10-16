@@ -25,15 +25,16 @@ ExitBook automates the entire workflow:
 1. **Import** → Pull data from exchanges and blockchains
 2. **Process** → Normalize into a universal format
 3. **Link** → Connect withdrawals to deposits across platforms
-4. **Price** → Fill historical prices for every movement
-5. **Calculate** → Compute tax-compliant cost basis
-6. **Export** → Generate reports ready for your accountant
+4. **Derive** → Deduce prices from your transaction history (fiat/stable trades)
+5. **Fetch** → Fill remaining prices from external providers
+6. **Calculate** → Compute tax-compliant cost basis
+7. **Export** → Generate reports ready for your accountant
 
 The result: a single source of truth with full transaction history, linked transfers, accurate pricing, and tax-ready calculations.
 
 ## The Complete Pipeline
 
-ExitBook processes your cryptocurrency transactions through six essential steps:
+ExitBook processes your cryptocurrency transactions through seven essential steps:
 
 ### 1. Import Raw Data
 
@@ -255,11 +256,11 @@ pnpm dev -- import --blockchain bitcoin --address bc1q... --process
 # 3. Link transfers
 pnpm dev -- link
 
-# 4. Calculate prices
-pnpm dev -- price --currency USD
+# 4. Derive prices from transaction history
+pnpm dev -- prices derive
 
-# 5. Fetch any missing prices
-pnpm dev -- price --currency USD --fetch-missing
+# 5. Fetch remaining prices from external providers
+pnpm dev -- prices fetch
 
 # 6. Calculate cost basis
 pnpm dev -- cost-basis --method fifo --jurisdiction US --tax-year 2024

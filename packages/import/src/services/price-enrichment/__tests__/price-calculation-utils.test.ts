@@ -8,7 +8,7 @@ import {
   extractTradeMovements,
   findClosestPrice,
   inferPriceFromTrade,
-} from './price-calculation-utils.ts';
+} from '../price-calculation-utils.ts';
 
 describe('extractTradeMovements', () => {
   it('should extract simple trade pattern (1 inflow + 1 outflow)', () => {

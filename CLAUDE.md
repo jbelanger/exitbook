@@ -40,6 +40,12 @@ pnpm run dev import --blockchain bitcoin --address bc1q... --since 2023-01-01 --
 # Process raw data into normalized transactions
 pnpm run dev process --exchange kraken --session <id>
 
+# Derive prices from transaction history (fiat/stable trades)
+pnpm run dev prices derive
+
+# Fetch remaining prices from external providers
+pnpm run dev prices fetch
+
 # Verify balances
 pnpm run dev verify --exchange kraken --report
 
