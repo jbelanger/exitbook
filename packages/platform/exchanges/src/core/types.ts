@@ -21,6 +21,15 @@ export type ExchangeCredentials = Record<string, string>;
 export type ExchangeCursor = Record<string, number>;
 
 /**
+ * Balance snapshot from exchange
+ * Maps currency symbol to total balance as decimal string
+ */
+export interface BalanceSnapshot {
+  balances: Record<string, string>;
+  timestamp: number;
+}
+
+/**
  * Base interface for exchange clients
  */
 export interface IExchangeClient {
@@ -32,4 +41,9 @@ export interface IExchangeClient {
    * May return partial results via PartialImportError if validation fails partway through.
    */
   fetchTransactionData(params?: FetchParams): Promise<Result<RawTransactionWithMetadata[], Error>>;
+
+  /**
+   * Fetch current total balance for all currencies
+   */
+  fetchBalance(): Promise<Result<BalanceSnapshot, Error>>;
 }

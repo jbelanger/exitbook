@@ -51,14 +51,14 @@ export class ViewSessionsHandler {
       id: session.id,
       source_id: session.source_id,
       source_type: session.source_type,
-      provider_id: session.provider_id,
+      provider_id: session.provider_id ?? undefined,
       status: session.status,
       transactions_imported: session.transactions_imported,
       transactions_failed: session.transactions_failed,
       started_at: session.started_at,
-      completed_at: session.completed_at,
-      duration_ms: session.duration_ms,
-      error_message: session.error_message,
+      completed_at: session.completed_at ?? undefined,
+      duration_ms: session.duration_ms ?? undefined,
+      error_message: session.error_message ?? undefined,
     };
   }
 }

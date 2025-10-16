@@ -77,14 +77,14 @@ describe('ViewSessionsHandler', () => {
         id: 1,
         source_id: 'kraken',
         source_type: 'exchange',
-        provider_id: null,
+        provider_id: undefined,
         status: 'completed',
         transactions_imported: 10,
         transactions_failed: 0,
         started_at: '2024-01-01T00:00:00Z',
         completed_at: '2024-01-01T00:01:00Z',
         duration_ms: 60000,
-        error_message: null,
+        error_message: undefined,
       });
     });
 
@@ -188,9 +188,9 @@ describe('ViewSessionsHandler', () => {
 
       expect(result.isOk()).toBe(true);
       const value = result._unsafeUnwrap();
-      expect(value.sessions[0]?.completed_at).toBeNull();
-      expect(value.sessions[0]?.duration_ms).toBeNull();
-      expect(value.sessions[0]?.error_message).toBeNull();
+      expect(value.sessions[0]?.completed_at).toBeUndefined();
+      expect(value.sessions[0]?.duration_ms).toBeUndefined();
+      expect(value.sessions[0]?.error_message).toBeUndefined();
     });
 
     it('should handle combined filters', async () => {
