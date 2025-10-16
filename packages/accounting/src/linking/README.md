@@ -52,10 +52,10 @@ Transaction linking solves this by automatically detecting and connecting relate
 ```typescript
 import { TransactionLinkingService, DEFAULT_MATCHING_CONFIG } from '@exitbook/accounting';
 import { TransactionRepository, TransactionLinkRepository } from '@exitbook/platform-data';
-import { createLogger } from '@exitbook/shared-logger';
+import { getLogger } from '@exitbook/shared-logger';
 
 // Initialize services
-const logger = createLogger('transaction-linking');
+const logger = getLogger('transaction-linking');
 const linkingService = new TransactionLinkingService(logger, DEFAULT_MATCHING_CONFIG);
 const transactionRepo = new TransactionRepository(db);
 const linkRepo = new TransactionLinkRepository(db);
