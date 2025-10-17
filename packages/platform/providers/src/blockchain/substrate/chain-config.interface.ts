@@ -31,11 +31,6 @@ export interface SubstrateChainConfig {
   ss58Format: number;
 
   /**
-   * Genesis hash for chain identification
-   */
-  genesisHash: string;
-
-  /**
    * Array of block explorer URLs for this chain
    */
   explorerUrls?: string[] | undefined;

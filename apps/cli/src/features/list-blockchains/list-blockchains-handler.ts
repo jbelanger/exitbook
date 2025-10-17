@@ -18,7 +18,6 @@ import {
   buildSummary,
   filterByApiKeyRequirement,
   filterByCategory,
-  groupProvidersByBlockchain,
   sortBlockchains,
   validateCategory,
 } from './list-blockchains-utils.ts';
@@ -59,15 +58,13 @@ export class ListBlockchainsHandler {
     // Get supported blockchains from ProcessorFactory
     const supportedBlockchains = await this.processorFactory.getSupportedSources('blockchain');
 
-    // Get all providers from ProviderRegistry
+    // Get all providers from ProviderRegistry (for summary stats)
     const allProviders: ProviderInfo[] = ProviderRegistry.getAllProviders();
 
-    // Group providers by blockchain
-    const providersByBlockchain = groupProvidersByBlockchain(allProviders);
-
     // Build blockchain info for each supported blockchain
+    // Use getAvailable() instead of grouping to properly handle multi-chain providers
     let blockchains: BlockchainInfo[] = supportedBlockchains.map((blockchain) => {
-      const providers = providersByBlockchain[blockchain] || [];
+      const providers = ProviderRegistry.getAvailable(blockchain);
       return buildBlockchainInfo(blockchain, providers, options.detailed || false);
     });
 

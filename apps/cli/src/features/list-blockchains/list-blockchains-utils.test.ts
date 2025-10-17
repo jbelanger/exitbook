@@ -9,7 +9,6 @@ import {
   filterByCategory,
   getBlockchainCategory,
   getBlockchainLayer,
-  groupProvidersByBlockchain,
   providerToSummary,
   sortBlockchains,
   validateCategory,
@@ -91,27 +90,6 @@ describe('list-blockchains-utils', () => {
 
     it('should return undefined for blockchains without layer info', () => {
       expect(getBlockchainLayer('solana')).toBeUndefined();
-    });
-  });
-
-  describe('groupProvidersByBlockchain', () => {
-    it('should group providers by blockchain', () => {
-      const providers: ProviderInfo[] = [
-        createMockProvider('provider1', 'bitcoin'),
-        createMockProvider('provider2', 'bitcoin'),
-        createMockProvider('provider3', 'ethereum'),
-      ];
-
-      const grouped = groupProvidersByBlockchain(providers);
-
-      expect(Object.keys(grouped)).toHaveLength(2);
-      expect(grouped.bitcoin).toHaveLength(2);
-      expect(grouped.ethereum).toHaveLength(1);
-    });
-
-    it('should return empty object for no providers', () => {
-      const grouped = groupProvidersByBlockchain([]);
-      expect(grouped).toEqual({});
     });
   });
 

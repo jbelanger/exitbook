@@ -1,12 +1,10 @@
 import type { IProcessorFactory } from '@exitbook/import/app/ports/processor-factory.js';
 import type { ITransactionProcessor } from '@exitbook/import/app/ports/transaction-processor.interface.ts';
 import {
-  EVM_CHAINS,
-  SUBSTRATE_CHAINS,
-  COSMOS_CHAINS,
   getEvmChainConfig,
   getSubstrateChainConfig,
   getCosmosChainConfig,
+  ProviderRegistry,
 } from '@exitbook/providers';
 import { getLogger } from '@exitbook/shared-logger';
 
@@ -19,6 +17,7 @@ export class ProcessorFactory implements IProcessorFactory {
 
   /**
    * Get all supported sources for a given type.
+   * For blockchains, returns chains that have at least one registered provider.
    */
   async getSupportedSources(sourceType: 'exchange' | 'blockchain'): Promise<string[]> {
     if (sourceType === 'exchange') {
@@ -26,14 +25,29 @@ export class ProcessorFactory implements IProcessorFactory {
     }
 
     if (sourceType === 'blockchain') {
-      // Load dynamic chains
+      // Get actual supported chains from registered providers
+      const allProviders = ProviderRegistry.getAllProviders();
+      const uniqueBlockchains = new Set<string>();
 
-      const evmChains = Object.keys(EVM_CHAINS);
-      const substrateChains = Object.keys(SUBSTRATE_CHAINS);
-      const cosmosChains = Object.keys(COSMOS_CHAINS);
-      const nonEvmChains = ['bitcoin', 'solana'];
+      for (const provider of allProviders) {
+        const metadata = ProviderRegistry.getMetadata(provider.blockchain, provider.name);
+        if (!metadata) {
+          continue;
+        }
 
-      return [...evmChains, ...substrateChains, ...cosmosChains, ...nonEvmChains];
+        // Add primary blockchain
+        uniqueBlockchains.add(provider.blockchain);
+
+        // Add supported chains for multi-chain providers
+        if (metadata.supportedChains) {
+          const chains = Array.isArray(metadata.supportedChains)
+            ? metadata.supportedChains
+            : Object.keys(metadata.supportedChains);
+          chains.forEach((chain) => uniqueBlockchains.add(chain));
+        }
+      }
+
+      return Array.from(uniqueBlockchains).sort();
     }
 
     return Promise.resolve([]);

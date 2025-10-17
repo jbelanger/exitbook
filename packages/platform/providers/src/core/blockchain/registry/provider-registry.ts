@@ -54,11 +54,24 @@ export class ProviderRegistry {
    * Get all registered providers
    */
   static getAllProviders(): ProviderInfo[] {
-    const blockchains = new Set(Array.from(this.providers.keys()).map((key) => key.split(':')[0]));
+    const uniqueProviders = new Map<string, ProviderInfo>();
 
-    return Array.from(blockchains)
-      .filter((blockchain) => blockchain !== undefined)
-      .flatMap((blockchain) => this.getAvailable(blockchain));
+    for (const factory of this.providers.values()) {
+      const providerInfo: ProviderInfo = {
+        blockchain: factory.metadata.blockchain,
+        capabilities: factory.metadata.capabilities,
+        defaultConfig: factory.metadata.defaultConfig,
+        description: factory.metadata.description || '',
+        displayName: factory.metadata.displayName,
+        name: factory.metadata.name,
+        requiresApiKey: factory.metadata.requiresApiKey || false,
+      };
+
+      // Use provider name as key to deduplicate
+      uniqueProviders.set(factory.metadata.name, providerInfo);
+    }
+
+    return Array.from(uniqueProviders.values());
   }
 
   /**

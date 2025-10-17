@@ -90,6 +90,13 @@
     "nativeDecimals": 18,
     "explorerUrls": ["https://blastscan.io"]
   },
+  "botanix": {
+    "chainId": 3637,
+    "chainName": "botanix",
+    "nativeCurrency": "BTC",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://botanixscan.io"]
+  },
   "sonic": {
     "chainId": 146,
     "chainName": "sonic",
@@ -216,6 +223,13 @@
     "nativeDecimals": 18,
     "explorerUrls": []
   },
+  "degen": {
+    "chainId": 666666666,
+    "chainName": "degen",
+    "nativeCurrency": "DEGEN",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://explorer.degen.tips"]
+  },
   "geist": {
     "chainId": 63157,
     "chainName": "geist",
@@ -292,6 +306,13 @@
     "nativeCurrency": "FTM",
     "nativeDecimals": 18,
     "explorerUrls": ["https://ftmscan.com"]
+  },
+  "flow": {
+    "chainId": 747,
+    "chainName": "flow",
+    "nativeCurrency": "FLOW",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://evm.flowscan.io"]
   },
   "cronos": {
     "chainId": 25,
@@ -370,6 +391,13 @@
     "nativeDecimals": 18,
     "explorerUrls": ["https://explorer.redstone.xyz"]
   },
+  "ronin": {
+    "chainId": 2020,
+    "chainName": "ronin",
+    "nativeCurrency": "RON",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://app.roninchain.com/explorer"]
+  },
   "bob": {
     "chainId": 60808,
     "chainName": "bob",
@@ -390,6 +418,20 @@
     "nativeCurrency": "ETH",
     "nativeDecimals": 18,
     "explorerUrls": ["https://explorer.publicgoods.network"]
+  },
+  "plasma": {
+    "chainId": 9745,
+    "chainName": "plasma",
+    "nativeCurrency": "XPL",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://plasmascan.to"]
+  },
+  "polynomial": {
+    "chainId": 8008,
+    "chainName": "polynomial",
+    "nativeCurrency": "ETH",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://polynomialscan.io"]
   },
   "core": {
     "chainId": 1116,
@@ -454,6 +496,20 @@
     "nativeDecimals": 18,
     "explorerUrls": ["https://explorer.harmony.one"]
   },
+  "humanity": {
+    "chainId": 6985385,
+    "chainName": "humanity",
+    "nativeCurrency": "H",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://humanity-mainnet.explorer.alchemy.com"]
+  },
+  "hyperliquid": {
+    "chainId": 999,
+    "chainName": "hyperliquid",
+    "nativeCurrency": "HYPE",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://hyperevmscan.io"]
+  },
   "evmos-evm": {
     "chainId": 9001,
     "chainName": "evmos-evm",
@@ -488,6 +544,13 @@
     "nativeCurrency": "DOGE",
     "nativeDecimals": 18,
     "explorerUrls": ["https://explorer.dogechain.dog"]
+  },
+  "settlus": {
+    "chainId": 5371,
+    "chainName": "settlus",
+    "nativeCurrency": "ETH",
+    "nativeDecimals": 18,
+    "explorerUrls": ["https://mainnet.settlus.network"]
   },
   "shimmer": {
     "chainId": 148,

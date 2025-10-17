@@ -4,6 +4,7 @@ import type { ProviderConfig, ProviderOperation } from '../../../../core/blockch
 import { BaseApiClient, RegisterApiClient } from '../../../../core/blockchain/index.ts';
 import { maskAddress } from '../../../../core/blockchain/utils/address-utils.ts';
 import type { CosmosChainConfig } from '../../chain-config.interface.js';
+import { COSMOS_CHAINS } from '../../chain-registry.ts';
 
 import type { InjectiveExplorerTransaction } from './injective-explorer.types.js';
 
@@ -32,21 +33,11 @@ import type { InjectiveExplorerTransaction } from './injective-explorer.types.js
 export class InjectiveExplorerApiClient extends BaseApiClient {
   private chainConfig: CosmosChainConfig;
 
-  constructor(config: ProviderConfig, chainConfig?: CosmosChainConfig) {
+  constructor(config: ProviderConfig) {
     super(config);
 
     // Use provided chainConfig or default to Injective
-    this.chainConfig = chainConfig || {
-      bech32Prefix: 'inj',
-      chainId: 'injective-1',
-      chainName: 'injective',
-      displayName: 'Injective Protocol',
-      explorerUrls: ['https://explorer.injective.network'],
-      nativeCurrency: 'INJ',
-      nativeDecimals: 18,
-      restEndpoints: ['https://lcd.injective.network'],
-      rpcEndpoints: ['https://tm.injective.network'],
-    };
+    this.chainConfig = COSMOS_CHAINS['injective'] as CosmosChainConfig;
 
     this.logger.debug(
       `Initialized InjectiveExplorerApiClient for chain: ${this.chainConfig.chainName} - BaseUrl: ${this.baseUrl}`

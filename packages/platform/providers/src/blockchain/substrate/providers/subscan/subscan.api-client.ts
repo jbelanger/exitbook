@@ -4,17 +4,103 @@ import type { ProviderConfig, ProviderOperation } from '../../../../core/blockch
 import { BaseApiClient, RegisterApiClient } from '../../../../core/blockchain/index.ts';
 import { maskAddress } from '../../../../core/blockchain/utils/address-utils.ts';
 import type { SubstrateChainConfig } from '../../chain-config.interface.ts';
-import { getSubstrateChainConfig } from '../../chain-registry.ts';
+import { getSubstrateChainConfig, SUBSTRATE_CHAINS } from '../../chain-registry.ts';
 import { isValidSS58Address } from '../../utils.ts';
 
 import type { SubscanAccountResponse, SubscanTransferAugmented, SubscanTransfersResponse } from './subscan.types.ts';
 
 /**
  * Maps blockchain names to Subscan-specific subdomain identifiers
+ * Generated from Subscan network list - mainnet chains only
  */
 const CHAIN_SUBDOMAIN_MAP: Record<string, string> = {
+  acala: 'acala',
+  'aleph-zero': 'alephzero',
+  altair: 'altair',
+  'assethub-kusama': 'assethub-kusama',
+  'assethub-paseo': 'assethub-paseo',
+  'assethub-polkadot': 'assethub-polkadot',
+  'assethub-westend': 'assethub-westend',
+  astar: 'astar',
+  'autonomys-chronos': 'autonomys-chronos',
+  autonomys: 'autonomys',
+  'avail-turing': 'avail-turing',
+  avail: 'avail',
+  basilisk: 'basilisk',
+  bifrost: 'bifrost',
+  'bifrost-kusama': 'bifrost-kusama',
+  'bridgehub-kusama': 'bridgehub-kusama',
+  'bridgehub-paseo': 'bridgehub-paseo',
+  'bridgehub-polkadot': 'bridgehub-polkadot',
+  'bridgehub-westend': 'bridgehub-westend',
+  calamari: 'calamari',
+  canary: 'canary',
+  'canary-matrix': 'canary-matrix',
+  'cc-enterprise': 'cc-enterprise',
+  centrifuge: 'centrifuge',
+  clover: 'clover',
+  'collectives-polkadot': 'collectives-polkadot',
+  'coretime-kusama': 'coretime-kusama',
+  'coretime-paseo': 'coretime-paseo',
+  'coretime-polkadot': 'coretime-polkadot',
+  'coretime-westend': 'coretime-westend',
+  creditcoin: 'creditcoin',
+  crust: 'crust',
+  'crust-parachain': 'crust-parachain',
+  dancelight: 'dancelight',
+  darwinia: 'darwinia',
+  dbc: 'dbc',
+  dock: 'dock',
+  energywebx: 'energywebx',
+  enjin: 'enjin',
+  gasp: 'gasp',
+  heima: 'heima',
+  humanode: 'humanode',
+  hydradx: 'hydration',
+  hydration: 'hydration',
+  integritee: 'integritee',
+  karura: 'karura',
+  khala: 'khala',
+  kilt: 'spiritnet',
+  krest: 'krest',
   kusama: 'kusama',
+  manta: 'manta',
+  matrix: 'matrix',
+  moonbase: 'moonbase',
+  moonbeam: 'moonbeam',
+  moonriver: 'moonriver',
+  mythos: 'mythos',
+  neuroweb: 'neuroweb',
+  nodle: 'nodle',
+  opal: 'opal',
+  paseo: 'paseo',
+  peaq: 'peaq',
+  pendulum: 'pendulum',
+  'people-kusama': 'people-kusama',
+  'people-paseo': 'people-paseo',
+  'people-polkadot': 'people-polkadot',
+  'people-westend': 'people-westend',
+  phala: 'phala',
   polkadot: 'polkadot',
+  polymesh: 'polymesh',
+  pro: 'pro',
+  reef: 'reef',
+  robonomics: 'robonomics',
+  'robonomics-freemium': 'robonomics-freemium',
+  shibuya: 'shibuya',
+  shiden: 'shiden',
+  sora: 'sora',
+  spiritnet: 'spiritnet',
+  stafi: 'stafi',
+  statemine: 'assethub-kusama',
+  statemint: 'assethub-polkadot',
+  sxt: 'sxt',
+  tanssi: 'tanssi',
+  unique: 'unique',
+  vara: 'vara',
+  vflow: 'vflow',
+  westend: 'westend',
+  zkverify: 'zkverify',
 };
 
 @RegisterApiClient({
@@ -37,7 +123,7 @@ const CHAIN_SUBDOMAIN_MAP: Record<string, string> = {
   displayName: 'Subscan',
   name: 'subscan',
   requiresApiKey: false,
-  supportedChains: ['polkadot', 'kusama'],
+  supportedChains: Object.keys(SUBSTRATE_CHAINS),
 })
 export class SubscanApiClient extends BaseApiClient {
   private readonly chainConfig: SubstrateChainConfig;

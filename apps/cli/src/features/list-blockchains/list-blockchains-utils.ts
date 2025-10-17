@@ -104,22 +104,6 @@ export function getBlockchainLayer(blockchain: string): string | undefined {
 }
 
 /**
- * Group providers by blockchain.
- */
-export function groupProvidersByBlockchain(providers: ProviderInfo[]): Record<string, ProviderInfo[]> {
-  const grouped: Record<string, ProviderInfo[]> = {};
-
-  for (const provider of providers) {
-    if (!grouped[provider.blockchain]) {
-      grouped[provider.blockchain] = [];
-    }
-    grouped[provider.blockchain]!.push(provider);
-  }
-
-  return grouped;
-}
-
-/**
  * Convert provider info to summary.
  */
 export function providerToSummary(provider: ProviderInfo, detailed: boolean): ProviderSummary {

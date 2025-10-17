@@ -16,11 +16,6 @@ import substrateChainsData from './substrate-chains.json' with { type: 'json' };
 export const SUBSTRATE_CHAINS = substrateChainsData as Record<string, SubstrateChainConfig>;
 
 /**
- * Type-safe chain names
- */
-export type SubstrateChainName = keyof typeof SUBSTRATE_CHAINS;
-
-/**
  * Helper to get chain config by name
  *
  * @public

@@ -3,7 +3,6 @@
     "chainName": "polkadot",
     "displayName": "Polkadot Relay Chain",
     "explorerUrls": ["https://polkadot.subscan.io", "https://polkadot.js.org/apps"],
-    "genesisHash": "0x91b171bb158e2d3848fa23a9f1c25182fb8e20313b2c1eb49219da7a70ce90c3",
     "nativeCurrency": "DOT",
     "nativeDecimals": 10,
     "ss58Format": 0
@@ -12,7 +11,6 @@
     "chainName": "bittensor",
     "displayName": "Bittensor Network",
     "explorerUrls": ["https://taostats.io", "https://bittensor.com/scan"],
-    "genesisHash": "0x5c0d1176a568c1f92944340dbfed9e9c530ebca703c85910e7164cb7d1c9e47b",
     "nativeCurrency": "TAO",
     "nativeDecimals": 9,
     "ss58Format": 42
@@ -21,7 +19,6 @@
     "chainName": "kusama",
     "displayName": "Kusama Relay Chain",
     "explorerUrls": ["https://kusama.subscan.io", "https://kusama.polkadot.io/apps"],
-    "genesisHash": "0xb0a8d493285c2df73290dfb7e61f870f17b41801197a149ca93654499ea3dafe",
     "nativeCurrency": "KSM",
     "nativeDecimals": 12,
     "ss58Format": 2
@@ -30,7 +27,6 @@
     "chainName": "westend",
     "displayName": "Westend Testnet",
     "explorerUrls": ["https://westend.subscan.io", "https://westend.polkadot.io/apps"],
-    "genesisHash": "0xe143f23803ac50e8f6f8e62695d1ce9e4e1d68aa36c1cd2cfd15340213f3423e",
     "nativeCurrency": "WND",
     "nativeDecimals": 12,
     "ss58Format": 42
@@ -39,7 +35,6 @@
     "chainName": "acala",
     "displayName": "Acala Network",
     "explorerUrls": ["https://acala.subscan.io"],
-    "genesisHash": "0xfc41b9bd8ef8fe53d58c7ea67c794c7ec9a73daf05e6d54b14ff6342c99ba64c",
     "nativeCurrency": "ACA",
     "nativeDecimals": 12,
     "ss58Format": 10
@@ -48,7 +43,6 @@
     "chainName": "moonbeam",
     "displayName": "Moonbeam Network",
     "explorerUrls": ["https://moonbeam.subscan.io", "https://moonbeam.moonscan.io"],
-    "genesisHash": "0xfe58ea77779b7abda7da4ec526d14db9b1e9cd40a217c34892af80a9b332b76d",
     "nativeCurrency": "GLMR",
     "nativeDecimals": 18,
     "ss58Format": 1284
@@ -57,7 +51,6 @@
     "chainName": "astar",
     "displayName": "Astar Network",
     "explorerUrls": ["https://astar.subscan.io"],
-    "genesisHash": "0x9eb76c5184c4ab8679d2d5d819fdf90b9c001403e9e17da2e14b6d8aec4029c6",
     "nativeCurrency": "ASTR",
     "nativeDecimals": 18,
     "ss58Format": 5
@@ -66,7 +59,6 @@
     "chainName": "phala",
     "displayName": "Phala Network",
     "explorerUrls": ["https://phala.subscan.io"],
-    "genesisHash": "0x1bb969d85965e4bb5a651abbedf21a54b6b31a21f66b5401cc3f1e286268d736",
     "nativeCurrency": "PHA",
     "nativeDecimals": 12,
     "ss58Format": 30
@@ -75,7 +67,6 @@
     "chainName": "statemint",
     "displayName": "Statemint (Asset Hub Polkadot)",
     "explorerUrls": ["https://statemint.subscan.io"],
-    "genesisHash": "0x68d56f15f85d3136970ec16946040bc1752654e906147f7e43e9d539d7c3de2f",
     "nativeCurrency": "DOT",
     "nativeDecimals": 10,
     "ss58Format": 0
@@ -84,7 +75,6 @@
     "chainName": "statemine",
     "displayName": "Statemine (Asset Hub Kusama)",
     "explorerUrls": ["https://statemine.subscan.io"],
-    "genesisHash": "0x48239ef607d7928874027a43a67689209727dfb3d3dc5e5b03a39bdc2eda771a",
     "nativeCurrency": "KSM",
     "nativeDecimals": 12,
     "ss58Format": 2
@@ -93,7 +83,6 @@
     "chainName": "moonriver",
     "displayName": "Moonriver Network",
     "explorerUrls": ["https://moonriver.subscan.io", "https://moonriver.moonscan.io"],
-    "genesisHash": "0x401a1f9dca3da46f5c4091016c8a2f26dcea05865116b286f60f668207d1474b",
     "nativeCurrency": "MOVR",
     "nativeDecimals": 18,
     "ss58Format": 1285
@@ -102,34 +91,70 @@
     "chainName": "karura",
     "displayName": "Karura Network",
     "explorerUrls": ["https://karura.subscan.io"],
-    "genesisHash": "0xbaf5aabe40646d11f0ee8abbdc64f4a4b7674925cba08e4a05ff9ebed6e2126b",
     "nativeCurrency": "KAR",
     "nativeDecimals": 12,
     "ss58Format": 8
+  },
+  "basilisk": {
+    "chainName": "basilisk",
+    "displayName": "Basilisk",
+    "explorerUrls": ["https://basilisk.subscan.io"],
+    "nativeCurrency": "BSX",
+    "nativeDecimals": 12,
+    "ss58Format": 10041
   },
   "bifrost": {
     "chainName": "bifrost",
     "displayName": "Bifrost Network",
     "explorerUrls": ["https://bifrost.subscan.io"],
-    "genesisHash": "0x9f28c6a68e0fc9646eff64935684f6eeeece527e37bbe1f213d22caa1d9d6bed",
     "nativeCurrency": "BNC",
     "nativeDecimals": 12,
     "ss58Format": 6
+  },
+  "calamari": {
+    "chainName": "calamari",
+    "displayName": "Calamari Network",
+    "explorerUrls": ["https://calamari.subscan.io"],
+    "nativeCurrency": "KMA",
+    "nativeDecimals": 12,
+    "ss58Format": 78
   },
   "centrifuge": {
     "chainName": "centrifuge",
     "displayName": "Centrifuge Chain",
     "explorerUrls": ["https://centrifuge.subscan.io"],
-    "genesisHash": "0xb3db41421702df9a7fcac62b53ffeac85f7853cc4e689e0b93aeb3db18c09d82",
     "nativeCurrency": "CFG",
     "nativeDecimals": 18,
     "ss58Format": 36
+  },
+  "crust": {
+    "chainName": "crust",
+    "displayName": "Crust Network",
+    "explorerUrls": ["https://crust.subscan.io"],
+    "nativeCurrency": "CRU",
+    "nativeDecimals": 12,
+    "ss58Format": 66
+  },
+  "darwinia": {
+    "chainName": "darwinia",
+    "displayName": "Darwinia Network",
+    "explorerUrls": ["https://darwinia.subscan.io"],
+    "nativeCurrency": "RING",
+    "nativeDecimals": 18,
+    "ss58Format": 18
+  },
+  "hydration": {
+    "chainName": "hydration",
+    "displayName": "Hydration",
+    "explorerUrls": ["https://hydration.subscan.io"],
+    "nativeCurrency": "HDX",
+    "nativeDecimals": 12,
+    "ss58Format": 63
   },
   "interlay": {
     "chainName": "interlay",
     "displayName": "Interlay Network",
     "explorerUrls": ["https://interlay.subscan.io"],
-    "genesisHash": "0xbf88efe70e9e0e916416e8bed61f2b45717f517d7f3523e33c7b001e5ffcbc72",
     "nativeCurrency": "INTR",
     "nativeDecimals": 10,
     "ss58Format": 2032
@@ -138,16 +163,22 @@
     "chainName": "kilt",
     "displayName": "KILT Spiritnet",
     "explorerUrls": ["https://spiritnet.subscan.io"],
-    "genesisHash": "0x411f057b9107718c9624d6aa4a3f23c1653898297f3d4d529d9bb6511a39dd21",
     "nativeCurrency": "KILT",
     "nativeDecimals": 15,
     "ss58Format": 38
+  },
+  "khala": {
+    "chainName": "khala",
+    "displayName": "Khala Network",
+    "explorerUrls": ["https://khala.subscan.io"],
+    "nativeCurrency": "PHA",
+    "nativeDecimals": 12,
+    "ss58Format": 30
   },
   "nodle": {
     "chainName": "nodle",
     "displayName": "Nodle Chain",
     "explorerUrls": ["https://nodle.subscan.io"],
-    "genesisHash": "0x97da7ede98d7bad4e36b4d734b6055425a3be036da2a332ea5a7037656427a21",
     "nativeCurrency": "NODL",
     "nativeDecimals": 11,
     "ss58Format": 37
@@ -156,7 +187,6 @@
     "chainName": "parallel",
     "displayName": "Parallel Finance",
     "explorerUrls": ["https://parallel.subscan.io"],
-    "genesisHash": "0xe61a41c53f5dcd0beb09df93b34402aada44cb05117b71059cce40a2723a4e97",
     "nativeCurrency": "PARA",
     "nativeDecimals": 12,
     "ss58Format": 172
@@ -165,7 +195,6 @@
     "chainName": "clover",
     "displayName": "Clover Finance",
     "explorerUrls": ["https://clover.subscan.io"],
-    "genesisHash": "0x5c7bd13eaa349e3f8f8db8c2c7b6b82e67d8c5a9c6e3f9c3b9d3f8f8f8f8f8f8",
     "nativeCurrency": "CLV",
     "nativeDecimals": 18,
     "ss58Format": 128
@@ -174,7 +203,6 @@
     "chainName": "hydradx",
     "displayName": "HydraDX",
     "explorerUrls": ["https://hydradx.subscan.io"],
-    "genesisHash": "0xafdc188f45c71dacbaa0b62e16a91f726c7b8699a9748cdf715459de6b7f366d",
     "nativeCurrency": "HDX",
     "nativeDecimals": 12,
     "ss58Format": 63
@@ -183,7 +211,6 @@
     "chainName": "composable",
     "displayName": "Composable Finance",
     "explorerUrls": ["https://composable.subscan.io"],
-    "genesisHash": "0xdaab8df776eb52ec604a5df5d388bb62a050a0aaec4556a64265b9d42755552d",
     "nativeCurrency": "LAYR",
     "nativeDecimals": 12,
     "ss58Format": 49
@@ -192,7 +219,6 @@
     "chainName": "zeitgeist",
     "displayName": "Zeitgeist Network",
     "explorerUrls": ["https://zeitgeist.subscan.io"],
-    "genesisHash": "0x1bf2a2ecb4a868de66ea8610f2ce7c8c43706561b6476031315f6640fe38e060",
     "nativeCurrency": "ZTG",
     "nativeDecimals": 10,
     "ss58Format": 73
@@ -201,25 +227,38 @@
     "chainName": "pendulum",
     "displayName": "Pendulum Chain",
     "explorerUrls": ["https://pendulum.subscan.io"],
-    "genesisHash": "0x5d3c298622d5634ed019bf61ea4b71655030015bde9beb0d6a24743714462c86",
     "nativeCurrency": "PEN",
     "nativeDecimals": 12,
     "ss58Format": 56
+  },
+  "shiden": {
+    "chainName": "shiden",
+    "displayName": "Shiden Network",
+    "explorerUrls": ["https://shiden.subscan.io"],
+    "nativeCurrency": "SDN",
+    "nativeDecimals": 18,
+    "ss58Format": 5
   },
   "aleph-zero": {
     "chainName": "aleph-zero",
     "displayName": "Aleph Zero",
     "explorerUrls": ["https://alephzero.subscan.io"],
-    "genesisHash": "0x70255b4d28de0fc4e1a193d7e175ad1ccef431598211c55538f1018651a0344e",
     "nativeCurrency": "AZERO",
     "nativeDecimals": 12,
     "ss58Format": 42
+  },
+  "altair": {
+    "chainName": "altair",
+    "displayName": "Altair",
+    "explorerUrls": ["https://altair.subscan.io"],
+    "nativeCurrency": "AIR",
+    "nativeDecimals": 18,
+    "ss58Format": 136
   },
   "unique": {
     "chainName": "unique",
     "displayName": "Unique Network",
     "explorerUrls": ["https://unique.subscan.io"],
-    "genesisHash": "0x84322d9cddbf35088f1e54e9a85c967a41a56a4f43445768125e61af166c7d31",
     "nativeCurrency": "UNQ",
     "nativeDecimals": 18,
     "ss58Format": 7391
@@ -228,7 +267,6 @@
     "chainName": "origintrail",
     "displayName": "OriginTrail Parachain",
     "explorerUrls": ["https://origintrail.subscan.io"],
-    "genesisHash": "0x9c9d54f2a8c3c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1",
     "nativeCurrency": "OTP",
     "nativeDecimals": 12,
     "ss58Format": 101
@@ -237,9 +275,272 @@
     "chainName": "subsocial",
     "displayName": "Subsocial Network",
     "explorerUrls": ["https://subsocial.subscan.io"],
-    "genesisHash": "0x0bd72c1c305172e1275278aaaa3c38e678769e8c8d4d3f9b8c6c5c5c5c5c5c5c",
     "nativeCurrency": "SUB",
     "nativeDecimals": 10,
     "ss58Format": 28
+  },
+  "assethub-kusama": {
+    "chainName": "assethub-kusama",
+    "displayName": "Asset Hub Kusama",
+    "explorerUrls": ["https://assethub-kusama.subscan.io"],
+    "nativeCurrency": "KSM",
+    "nativeDecimals": 12,
+    "ss58Format": 2
+  },
+  "assethub-polkadot": {
+    "chainName": "assethub-polkadot",
+    "displayName": "Asset Hub Polkadot",
+    "explorerUrls": ["https://assethub-polkadot.subscan.io"],
+    "nativeCurrency": "DOT",
+    "nativeDecimals": 10,
+    "ss58Format": 0
+  },
+  "assethub-westend": {
+    "chainName": "assethub-westend",
+    "displayName": "Asset Hub Westend",
+    "explorerUrls": ["https://assethub-westend.subscan.io"],
+    "nativeCurrency": "WND",
+    "nativeDecimals": 12,
+    "ss58Format": 42
+  },
+  "autonomys": {
+    "chainName": "autonomys",
+    "displayName": "Autonomys Network",
+    "explorerUrls": ["https://autonomys.subscan.io"],
+    "nativeCurrency": "TODO",
+    "nativeDecimals": 18,
+    "ss58Format": 42
+  },
+  "avail": {
+    "chainName": "avail",
+    "displayName": "Avail",
+    "explorerUrls": ["https://avail.subscan.io"],
+    "nativeCurrency": "AVAIL",
+    "nativeDecimals": 18,
+    "ss58Format": 42
+  },
+  "bridgehub-kusama": {
+    "chainName": "bridgehub-kusama",
+    "displayName": "Bridge Hub Kusama",
+    "explorerUrls": ["https://bridgehub-kusama.subscan.io"],
+    "nativeCurrency": "KSM",
+    "nativeDecimals": 12,
+    "ss58Format": 2
+  },
+  "bridgehub-polkadot": {
+    "chainName": "bridgehub-polkadot",
+    "displayName": "Bridge Hub Polkadot",
+    "explorerUrls": ["https://bridgehub-polkadot.subscan.io"],
+    "nativeCurrency": "DOT",
+    "nativeDecimals": 10,
+    "ss58Format": 0
+  },
+  "collectives-polkadot": {
+    "chainName": "collectives-polkadot",
+    "displayName": "Collectives Polkadot",
+    "explorerUrls": ["https://collectives-polkadot.subscan.io"],
+    "nativeCurrency": "DOT",
+    "nativeDecimals": 10,
+    "ss58Format": 0
+  },
+  "coretime-kusama": {
+    "chainName": "coretime-kusama",
+    "displayName": "Coretime Kusama",
+    "explorerUrls": ["https://coretime-kusama.subscan.io"],
+    "nativeCurrency": "KSM",
+    "nativeDecimals": 12,
+    "ss58Format": 2
+  },
+  "coretime-polkadot": {
+    "chainName": "coretime-polkadot",
+    "displayName": "Coretime Polkadot",
+    "explorerUrls": ["https://coretime-polkadot.subscan.io"],
+    "nativeCurrency": "DOT",
+    "nativeDecimals": 10,
+    "ss58Format": 0
+  },
+  "creditcoin": {
+    "chainName": "creditcoin",
+    "displayName": "Creditcoin",
+    "explorerUrls": ["https://creditcoin.subscan.io"],
+    "nativeCurrency": "CTC",
+    "nativeDecimals": 18,
+    "ss58Format": 42
+  },
+  "dock": {
+    "chainName": "dock",
+    "displayName": "Dock Network",
+    "explorerUrls": ["https://dock.subscan.io"],
+    "nativeCurrency": "DOCK",
+    "nativeDecimals": 6,
+    "ss58Format": 22
+  },
+  "enjin": {
+    "chainName": "enjin",
+    "displayName": "Enjin Matrixchain",
+    "explorerUrls": ["https://enjin.subscan.io"],
+    "nativeCurrency": "ENJ",
+    "nativeDecimals": 18,
+    "ss58Format": 42
+  },
+  "humanode": {
+    "chainName": "humanode",
+    "displayName": "Humanode Network",
+    "explorerUrls": ["https://humanode.subscan.io"],
+    "nativeCurrency": "HMND",
+    "nativeDecimals": 18,
+    "ss58Format": 42
+  },
+  "integritee": {
+    "chainName": "integritee",
+    "displayName": "Integritee Network",
+    "explorerUrls": ["https://integritee.subscan.io"],
+    "nativeCurrency": "TEER",
+    "nativeDecimals": 12,
+    "ss58Format": 13
+  },
+  "krest": {
+    "chainName": "krest",
+    "displayName": "Krest Network",
+    "explorerUrls": ["https://krest.subscan.io"],
+    "nativeCurrency": "KREST",
+    "nativeDecimals": 18,
+    "ss58Format": 42
+  },
+  "manta": {
+    "chainName": "manta",
+    "displayName": "Manta Network",
+    "explorerUrls": ["https://manta.subscan.io"],
+    "nativeCurrency": "MANTA",
+    "nativeDecimals": 18,
+    "ss58Format": 77
+  },
+  "moonbase": {
+    "chainName": "moonbase",
+    "displayName": "Moonbase Alpha Testnet",
+    "explorerUrls": ["https://moonbase.subscan.io"],
+    "nativeCurrency": "DEV",
+    "nativeDecimals": 18,
+    "ss58Format": 1287
+  },
+  "mythos": {
+    "chainName": "mythos",
+    "displayName": "Mythos Chain",
+    "explorerUrls": ["https://mythos.subscan.io"],
+    "nativeCurrency": "MYTH",
+    "nativeDecimals": 18,
+    "ss58Format": 42
+  },
+  "neuroweb": {
+    "chainName": "neuroweb",
+    "displayName": "NeuroWeb",
+    "explorerUrls": ["https://neuroweb.subscan.io"],
+    "nativeCurrency": "NEURO",
+    "nativeDecimals": 12,
+    "ss58Format": 42
+  },
+  "opal": {
+    "chainName": "opal",
+    "displayName": "Opal Network",
+    "explorerUrls": ["https://opal.subscan.io"],
+    "nativeCurrency": "OPL",
+    "nativeDecimals": 18,
+    "ss58Format": 42
+  },
+  "peaq": {
+    "chainName": "peaq",
+    "displayName": "Peaq Network",
+    "explorerUrls": ["https://peaq.subscan.io"],
+    "nativeCurrency": "PEAQ",
+    "nativeDecimals": 18,
+    "ss58Format": 42
+  },
+  "people-kusama": {
+    "chainName": "people-kusama",
+    "displayName": "People Kusama",
+    "explorerUrls": ["https://people-kusama.subscan.io"],
+    "nativeCurrency": "KSM",
+    "nativeDecimals": 12,
+    "ss58Format": 2
+  },
+  "people-polkadot": {
+    "chainName": "people-polkadot",
+    "displayName": "People Polkadot",
+    "explorerUrls": ["https://people-polkadot.subscan.io"],
+    "nativeCurrency": "DOT",
+    "nativeDecimals": 10,
+    "ss58Format": 0
+  },
+  "polymesh": {
+    "chainName": "polymesh",
+    "displayName": "Polymesh",
+    "explorerUrls": ["https://polymesh.subscan.io"],
+    "nativeCurrency": "POLYX",
+    "nativeDecimals": 6,
+    "ss58Format": 12
+  },
+  "reef": {
+    "chainName": "reef",
+    "displayName": "Reef Chain",
+    "explorerUrls": ["https://reef.subscan.io"],
+    "nativeCurrency": "REEF",
+    "nativeDecimals": 18,
+    "ss58Format": 42
+  },
+  "robonomics": {
+    "chainName": "robonomics",
+    "displayName": "Robonomics Network",
+    "explorerUrls": ["https://robonomics.subscan.io"],
+    "nativeCurrency": "XRT",
+    "nativeDecimals": 9,
+    "ss58Format": 32
+  },
+  "shibuya": {
+    "chainName": "shibuya",
+    "displayName": "Shibuya Testnet",
+    "explorerUrls": ["https://shibuya.subscan.io"],
+    "nativeCurrency": "SBY",
+    "nativeDecimals": 18,
+    "ss58Format": 5
+  },
+  "sora": {
+    "chainName": "sora",
+    "displayName": "SORA Network",
+    "explorerUrls": ["https://sora.subscan.io"],
+    "nativeCurrency": "XOR",
+    "nativeDecimals": 18,
+    "ss58Format": 69
+  },
+  "stafi": {
+    "chainName": "stafi",
+    "displayName": "Stafi",
+    "explorerUrls": ["https://stafi.subscan.io"],
+    "nativeCurrency": "FIS",
+    "nativeDecimals": 12,
+    "ss58Format": 20
+  },
+  "tanssi": {
+    "chainName": "tanssi",
+    "displayName": "Tanssi Network",
+    "explorerUrls": ["https://tanssi.subscan.io"],
+    "nativeCurrency": "TANSSI",
+    "nativeDecimals": 18,
+    "ss58Format": 42
+  },
+  "vara": {
+    "chainName": "vara",
+    "displayName": "Vara Network",
+    "explorerUrls": ["https://vara.subscan.io"],
+    "nativeCurrency": "VARA",
+    "nativeDecimals": 12,
+    "ss58Format": 42
+  },
+  "zkverify": {
+    "chainName": "zkverify",
+    "displayName": "zkVerify",
+    "explorerUrls": ["https://zkverify.subscan.io"],
+    "nativeCurrency": "ACME",
+    "nativeDecimals": 18,
+    "ss58Format": 42
   }
 }
