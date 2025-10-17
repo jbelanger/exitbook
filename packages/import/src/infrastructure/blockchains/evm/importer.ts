@@ -9,9 +9,9 @@ import { err, ok, type Result } from 'neverthrow';
  * Works with any EVM-compatible chain (Ethereum, Avalanche, Polygon, BSC, etc.).
  *
  * Fetches three types of transactions in parallel:
- * - Normal (external) transactions - REQUIRED
- * - Internal transactions (contract calls) - OPTIONAL
- * - Token transfers (ERC-20/721/1155) - OPTIONAL
+ * - Normal (external) transactions
+ * - Internal transactions (contract calls)
+ * - Token transfers (ERC-20/721/1155)
  *
  * Uses provider manager for failover between multiple API providers.
  */
@@ -80,36 +80,27 @@ export class EvmImporter implements IImporter {
       this.fetchTokenTransactions(address, since),
     ]);
 
-    // Normal transactions are required
     if (normalResult.isErr()) {
       return normalResult;
     }
 
+    if (internalResult.isErr()) {
+      return internalResult;
+    }
+
+    if (tokenResult.isErr()) {
+      return tokenResult;
+    }
+
     // Combine all successful results
-    const allTransactions: RawTransactionWithMetadata[] = [...normalResult.value];
-
-    // Internal transactions are optional
-    if (internalResult.isOk()) {
-      allTransactions.push(...internalResult.value);
-      this.logger.debug(`Fetched ${internalResult.value.length} internal transactions`);
-    } else {
-      this.logger.debug(
-        `No internal transactions available for ${address.substring(0, 20)}...: ${internalResult.error.message}`
-      );
-    }
-
-    // Token transactions are optional
-    if (tokenResult.isOk()) {
-      allTransactions.push(...tokenResult.value);
-      this.logger.debug(`Fetched ${tokenResult.value.length} token transactions`);
-    } else {
-      this.logger.debug(
-        `No token transactions available for ${address.substring(0, 20)}...: ${tokenResult.error.message}`
-      );
-    }
+    const allTransactions: RawTransactionWithMetadata[] = [
+      ...normalResult.value,
+      ...internalResult.value,
+      ...tokenResult.value,
+    ];
 
     this.logger.debug(
-      `Total transactions fetched: ${allTransactions.length} (${normalResult.value.length} normal, ${internalResult.isOk() ? internalResult.value.length : 0} internal, ${tokenResult.isOk() ? tokenResult.value.length : 0} token)`
+      `Total transactions fetched: ${allTransactions.length} (${normalResult.value.length} normal, ${internalResult.value.length} internal, ${tokenResult.value.length} token)`
     );
 
     return ok(allTransactions);

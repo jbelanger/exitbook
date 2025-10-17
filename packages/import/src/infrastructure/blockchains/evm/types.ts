@@ -34,7 +34,7 @@ export interface EvmFundFlow {
 
   // Address information (always present in fund flow)
   fromAddress: string;
-  toAddress: string;
+  toAddress?: string | undefined;
 
   // Transaction correlation and complexity analysis
   // Essential for proper EVM transaction processing across all chains

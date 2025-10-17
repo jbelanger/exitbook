@@ -459,6 +459,7 @@ export abstract class BaseApiClient implements IBlockchainProvider {
       );
     }
   }
+
   private getApiKey(): string {
     // If no API key support at all (not required and no env var specified), return empty
     if (!this.metadata.requiresApiKey && !this.metadata.apiKeyEnvVar) {

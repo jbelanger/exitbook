@@ -248,7 +248,7 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
     }[] = [];
 
     let fromAddress = '';
-    let toAddress = '';
+    let toAddress: string | undefined = '';
 
     // Process all token transfers involving the user
     for (const tx of txGroup) {
