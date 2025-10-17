@@ -27,17 +27,21 @@ describe('SnowtraceApiClient Integration', () => {
         type: 'getRawAddressBalance',
       });
 
-      expect(result).toHaveProperty('status');
-      expect(result).toHaveProperty('message');
-      expect(result).toHaveProperty('result');
-      expect(result.status).toBe('1');
-      expect(typeof result.result).toBe('string');
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const balance = result.value;
+        expect(balance).toHaveProperty('status');
+        expect(balance).toHaveProperty('message');
+        expect(balance).toHaveProperty('result');
+        expect(balance.status).toBe('1');
+        expect(typeof balance.result).toBe('string');
+      }
     }, 30000);
   });
 
   describe('Raw Address Transactions', () => {
     it('should fetch raw address transactions successfully', async () => {
-      const transactions = await provider.execute<
+      const result = await provider.execute<
         {
           blockNumber: string;
           from: string;
@@ -51,19 +55,23 @@ describe('SnowtraceApiClient Integration', () => {
         type: 'getRawAddressTransactions',
       });
 
-      expect(Array.isArray(transactions)).toBe(true);
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const transactions = result.value;
+        expect(Array.isArray(transactions)).toBe(true);
 
-      if (transactions.length > 0) {
-        expect(transactions[0]).toHaveProperty('hash');
-        expect(transactions[0]).toHaveProperty('from');
-        expect(transactions[0]).toHaveProperty('to');
-        expect(transactions[0]).toHaveProperty('value');
-        expect(transactions[0]).toHaveProperty('timeStamp');
+        if (transactions.length > 0) {
+          expect(transactions[0]).toHaveProperty('hash');
+          expect(transactions[0]).toHaveProperty('from');
+          expect(transactions[0]).toHaveProperty('to');
+          expect(transactions[0]).toHaveProperty('value');
+          expect(transactions[0]).toHaveProperty('timeStamp');
+        }
       }
     }, 30000);
 
     it('should fetch raw address internal transactions successfully', async () => {
-      const transactions = await provider.execute<
+      const result = await provider.execute<
         {
           blockNumber: string;
           from: string;
@@ -77,21 +85,25 @@ describe('SnowtraceApiClient Integration', () => {
         type: 'getRawAddressInternalTransactions',
       });
 
-      expect(Array.isArray(transactions)).toBe(true);
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const transactions = result.value;
+        expect(Array.isArray(transactions)).toBe(true);
 
-      if (transactions.length > 0) {
-        expect(transactions[0]).toHaveProperty('hash');
-        expect(transactions[0]).toHaveProperty('from');
-        expect(transactions[0]).toHaveProperty('to');
-        expect(transactions[0]).toHaveProperty('value');
-        expect(transactions[0]).toHaveProperty('timeStamp');
+        if (transactions.length > 0) {
+          expect(transactions[0]).toHaveProperty('hash');
+          expect(transactions[0]).toHaveProperty('from');
+          expect(transactions[0]).toHaveProperty('to');
+          expect(transactions[0]).toHaveProperty('value');
+          expect(transactions[0]).toHaveProperty('timeStamp');
+        }
       }
     }, 30000);
   });
 
   describe('Token Transactions', () => {
     it('should fetch token transactions successfully', async () => {
-      const transactions = await provider.execute<
+      const result = await provider.execute<
         {
           blockNumber: string;
           contractAddress: string;
@@ -108,16 +120,20 @@ describe('SnowtraceApiClient Integration', () => {
         type: 'getTokenTransactions',
       });
 
-      expect(Array.isArray(transactions)).toBe(true);
-      if (transactions.length > 0) {
-        expect(transactions[0]).toHaveProperty('hash');
-        expect(transactions[0]).toHaveProperty('from');
-        expect(transactions[0]).toHaveProperty('to');
-        expect(transactions[0]).toHaveProperty('value');
-        expect(transactions[0]).toHaveProperty('timeStamp');
-        expect(transactions[0]).toHaveProperty('tokenSymbol');
-        expect(transactions[0]).toHaveProperty('tokenName');
-        expect(transactions[0]).toHaveProperty('contractAddress');
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const transactions = result.value;
+        expect(Array.isArray(transactions)).toBe(true);
+        if (transactions.length > 0) {
+          expect(transactions[0]).toHaveProperty('hash');
+          expect(transactions[0]).toHaveProperty('from');
+          expect(transactions[0]).toHaveProperty('to');
+          expect(transactions[0]).toHaveProperty('value');
+          expect(transactions[0]).toHaveProperty('timeStamp');
+          expect(transactions[0]).toHaveProperty('tokenSymbol');
+          expect(transactions[0]).toHaveProperty('tokenName');
+          expect(transactions[0]).toHaveProperty('contractAddress');
+        }
       }
     }, 30000);
   });

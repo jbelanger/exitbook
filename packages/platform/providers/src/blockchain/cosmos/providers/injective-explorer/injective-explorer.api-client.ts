@@ -1,4 +1,5 @@
 import { getErrorMessage } from '@exitbook/core';
+import { err, ok, type Result } from 'neverthrow';
 
 import type { ProviderConfig, ProviderOperation } from '../../../../core/blockchain/index.ts';
 import { BaseApiClient, RegisterApiClient } from '../../../../core/blockchain/index.ts';
@@ -44,26 +45,19 @@ export class InjectiveExplorerApiClient extends BaseApiClient {
     );
   }
 
-  async execute<T>(operation: ProviderOperation): Promise<T> {
+  async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
     this.logger.debug(
       `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
     );
 
-    try {
-      switch (operation.type) {
-        case 'getRawAddressTransactions':
-          return (await this.getRawAddressTransactions({
-            address: operation.address,
-            ...(operation.since !== undefined && { since: operation.since }),
-          })) as T;
-        default:
-          throw new Error(`Unsupported operation: ${operation.type}`);
-      }
-    } catch (error) {
-      this.logger.error(
-        `Operation execution failed - Type: ${operation.type}, Error: ${getErrorMessage(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`
-      );
-      throw error;
+    switch (operation.type) {
+      case 'getRawAddressTransactions':
+        return (await this.getRawAddressTransactions({
+          address: operation.address,
+          since: operation.since,
+        })) as Result<T, Error>;
+      default:
+        return err(new Error(`Unsupported operation: ${operation.type}`));
     }
   }
 
@@ -80,56 +74,56 @@ export class InjectiveExplorerApiClient extends BaseApiClient {
   private async getRawAddressTransactions(params: {
     address: string;
     since?: number | undefined;
-  }): Promise<InjectiveExplorerTransaction[]> {
+  }): Promise<Result<InjectiveExplorerTransaction[], Error>> {
     const { address, since } = params;
 
     if (!this.validateAddress(address)) {
-      throw new Error(`Invalid ${this.chainConfig.displayName} address: ${address}`);
+      return err(new Error(`Invalid ${this.chainConfig.displayName} address: ${address}`));
     }
 
     this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
 
-    try {
-      const endpoint = `/api/explorer/v1/accountTxs/${address}`;
-      const data = await this.httpClient.get(endpoint);
+    const endpoint = `/api/explorer/v1/accountTxs/${address}`;
+    const result = await this.httpClient.get<{ data?: unknown[] }>(endpoint);
 
-      // Assert the expected structure of the response
-      const response = data as { data?: unknown[] };
-
-      if (!response.data || !Array.isArray(response.data)) {
-        return [];
-      }
-
-      let transactions = response.data;
-
-      // Apply time filter if specified
-      if (since) {
-        transactions = transactions.filter((tx) => {
-          if (
-            typeof tx === 'object' &&
-            tx !== null &&
-            'block_timestamp' in tx &&
-            (typeof (tx as { block_timestamp?: unknown }).block_timestamp === 'string' ||
-              typeof (tx as { block_timestamp?: unknown }).block_timestamp === 'number')
-          ) {
-            const timestamp = new Date((tx as { block_timestamp: string | number }).block_timestamp).getTime();
-            return timestamp >= since;
-          }
-          return false;
-        });
-      }
-
-      this.logger.debug(
-        `Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${transactions.length}`
-      );
-
-      return transactions as InjectiveExplorerTransaction[];
-    } catch (error) {
+    if (result.isErr()) {
       this.logger.error(
-        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(error)}`
+        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(result.error)}`
       );
-      throw error;
+      return err(result.error);
     }
+
+    const response = result.value;
+
+    if (!response.data || !Array.isArray(response.data)) {
+      this.logger.debug(`No raw transactions found for address - Address: ${maskAddress(address)}`);
+      return ok([]);
+    }
+
+    let transactions = response.data;
+
+    // Apply time filter if specified
+    if (since) {
+      transactions = transactions.filter((tx) => {
+        if (
+          typeof tx === 'object' &&
+          tx !== null &&
+          'block_timestamp' in tx &&
+          (typeof (tx as { block_timestamp?: unknown }).block_timestamp === 'string' ||
+            typeof (tx as { block_timestamp?: unknown }).block_timestamp === 'number')
+        ) {
+          const timestamp = new Date((tx as { block_timestamp: string | number }).block_timestamp).getTime();
+          return timestamp >= since;
+        }
+        return false;
+      });
+    }
+
+    this.logger.debug(
+      `Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${transactions.length}`
+    );
+
+    return ok(transactions as InjectiveExplorerTransaction[]);
   }
 
   private validateAddress(address: string): boolean {

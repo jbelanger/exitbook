@@ -1,4 +1,5 @@
 import { getErrorMessage } from '@exitbook/core';
+import { err, ok, type Result } from 'neverthrow';
 
 import type { ProviderConfig } from '../../../../core/blockchain/index.ts';
 import { BaseApiClient, RegisterApiClient } from '../../../../core/blockchain/index.ts';
@@ -95,34 +96,34 @@ export class AlchemyApiClient extends BaseApiClient {
     super(config);
   }
 
-  async execute<T>(operation: ProviderOperation): Promise<T> {
+  async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
     this.logger.debug(`Executing operation: ${operation.type}`);
 
     switch (operation.type) {
       case 'getRawAddressTransactions': {
         const { address, since } = operation;
         this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
-        return this.getRawAddressTransactions(address, since) as Promise<T>;
+        return (await this.getRawAddressTransactions(address, since)) as Result<T, Error>;
       }
       case 'getRawAddressInternalTransactions': {
         const { address, since } = operation;
         this.logger.debug(`Fetching raw address internal transactions - Address: ${maskAddress(address)}`);
-        return this.getRawAddressInternalTransactions(address, since) as Promise<T>;
+        return (await this.getRawAddressInternalTransactions(address, since)) as Result<T, Error>;
       }
       case 'getTokenTransactions': {
         const { address, contractAddress, since } = operation;
         this.logger.debug(
           `Fetching token transactions - Address: ${maskAddress(address)}, Contract: ${contractAddress || 'all'}`
         );
-        return this.getTokenTransactions(address, contractAddress, since) as Promise<T>;
+        return (await this.getTokenTransactions(address, contractAddress, since)) as Result<T, Error>;
       }
       case 'getRawTokenBalances': {
         const { address, contractAddresses } = operation;
         this.logger.debug(`Fetching raw token balances - Address: ${maskAddress(address)}`);
-        return this.getRawTokenBalances(address, contractAddresses) as Promise<T>;
+        return (await this.getRawTokenBalances(address, contractAddresses)) as Result<T, Error>;
       }
       default:
-        throw new Error(`Unsupported operation: ${operation.type}`);
+        return err(new Error(`Unsupported operation: ${operation.type}`));
     }
   }
 
@@ -148,7 +149,7 @@ export class AlchemyApiClient extends BaseApiClient {
     since?: number,
     category: string[] = ['external', 'internal', 'erc20', 'erc721', 'erc1155'],
     contractAddress?: string
-  ): Promise<AlchemyAssetTransfer[]> {
+  ): Promise<Result<AlchemyAssetTransfer[], Error>> {
     const allTransfers: AlchemyAssetTransfer[] = [];
 
     // Get transfers FROM address (outgoing transactions)
@@ -164,7 +165,11 @@ export class AlchemyApiClient extends BaseApiClient {
     if (contractAddress) {
       fromParams.contractAddresses = [contractAddress];
     }
-    const fromTransfers = await this.getAssetTransfersPaginated(fromParams);
+    const fromTransfersResult = await this.getAssetTransfersPaginated(fromParams);
+
+    if (fromTransfersResult.isErr()) {
+      return err(fromTransfersResult.error);
+    }
 
     // Get transfers TO address (incoming transactions)
     const toParams: AlchemyAssetTransferParams = {
@@ -179,14 +184,20 @@ export class AlchemyApiClient extends BaseApiClient {
     if (contractAddress) {
       toParams.contractAddresses = [contractAddress];
     }
-    const toTransfers = await this.getAssetTransfersPaginated(toParams);
+    const toTransfersResult = await this.getAssetTransfersPaginated(toParams);
 
-    allTransfers.push(...fromTransfers, ...toTransfers);
+    if (toTransfersResult.isErr()) {
+      return err(toTransfersResult.error);
+    }
 
-    return allTransfers;
+    allTransfers.push(...fromTransfersResult.value, ...toTransfersResult.value);
+
+    return ok(allTransfers);
   }
 
-  private async getAssetTransfersPaginated(params: AlchemyAssetTransferParams): Promise<AlchemyAssetTransfer[]> {
+  private async getAssetTransfersPaginated(
+    params: AlchemyAssetTransferParams
+  ): Promise<Result<AlchemyAssetTransfer[], Error>> {
     const transfers: AlchemyAssetTransfer[] = [];
     let pageKey: string | undefined;
     let pageCount = 0;
@@ -198,13 +209,19 @@ export class AlchemyApiClient extends BaseApiClient {
         requestParams.pageKey = pageKey;
       }
 
-      const response = await this.httpClient.post<JsonRpcResponse<AlchemyAssetTransfersResponse>>(`/${this.apiKey}`, {
+      const result = await this.httpClient.post<JsonRpcResponse<AlchemyAssetTransfersResponse>>(`/${this.apiKey}`, {
         id: 1,
         jsonrpc: '2.0',
         method: 'alchemy_getAssetTransfers',
         params: [requestParams],
       });
 
+      if (result.isErr()) {
+        this.logger.error(`Failed to fetch asset transfers - Error: ${getErrorMessage(result.error)}`);
+        return err(result.error);
+      }
+
+      const response = result.value;
       const responseTransfers = response.result?.transfers || [];
       transfers.push(...responseTransfers);
 
@@ -222,61 +239,80 @@ export class AlchemyApiClient extends BaseApiClient {
       }
     } while (pageKey);
 
-    return transfers;
+    return ok(transfers);
   }
 
-  private async getRawAddressInternalTransactions(address: string, since?: number): Promise<AlchemyAssetTransfer[]> {
-    try {
-      const transfers = await this.getAssetTransfers(address, since, ['internal']);
-      this.logger.debug(`Found ${transfers.length} raw internal transactions for ${address}`);
-      return transfers;
-    } catch (error) {
-      this.logger.error(`Failed to fetch raw internal transactions for ${address} - Error: ${getErrorMessage(error)}`);
-      throw error;
+  private async getRawAddressInternalTransactions(
+    address: string,
+    since?: number
+  ): Promise<Result<AlchemyAssetTransfer[], Error>> {
+    const result = await this.getAssetTransfers(address, since, ['internal']);
+
+    if (result.isErr()) {
+      this.logger.error(
+        `Failed to fetch raw internal transactions for ${address} - Error: ${getErrorMessage(result.error)}`
+      );
+      return err(result.error);
     }
+
+    this.logger.debug(`Found ${result.value.length} raw internal transactions for ${address}`);
+    return ok(result.value);
   }
 
-  private async getRawAddressTransactions(address: string, since?: number): Promise<AlchemyAssetTransfer[]> {
-    try {
-      const transfers = await this.getAssetTransfers(address, since, ['external']);
-      this.logger.debug(`Found ${transfers.length} raw address transactions for ${address}`);
-      return transfers;
-    } catch (error) {
-      this.logger.error(`Failed to fetch raw address transactions for ${address} - Error: ${getErrorMessage(error)}`);
-      throw error;
+  private async getRawAddressTransactions(
+    address: string,
+    since?: number
+  ): Promise<Result<AlchemyAssetTransfer[], Error>> {
+    const result = await this.getAssetTransfers(address, since, ['external']);
+
+    if (result.isErr()) {
+      this.logger.error(
+        `Failed to fetch raw address transactions for ${address} - Error: ${getErrorMessage(result.error)}`
+      );
+      return err(result.error);
     }
+
+    this.logger.debug(`Found ${result.value.length} raw address transactions for ${address}`);
+    return ok(result.value);
   }
 
-  private async getRawTokenBalances(address: string, contractAddresses?: string[]): Promise<AlchemyTokenBalance[]> {
-    try {
-      const response = await this.httpClient.post<JsonRpcResponse<AlchemyTokenBalancesResponse>>(`/${this.apiKey}`, {
-        id: 1,
-        jsonrpc: '2.0',
-        method: 'alchemy_getTokenBalances',
-        params: [address, contractAddresses || 'DEFAULT_TOKENS'],
-      });
+  private async getRawTokenBalances(
+    address: string,
+    contractAddresses?: string[]
+  ): Promise<Result<AlchemyTokenBalance[], Error>> {
+    const result = await this.httpClient.post<JsonRpcResponse<AlchemyTokenBalancesResponse>>(`/${this.apiKey}`, {
+      id: 1,
+      jsonrpc: '2.0',
+      method: 'alchemy_getTokenBalances',
+      params: [address, contractAddresses || 'DEFAULT_TOKENS'],
+    });
 
-      const tokenBalances = response.result?.tokenBalances || [];
-      this.logger.debug(`Found ${tokenBalances.length} raw token balances for ${address}`);
-      return tokenBalances;
-    } catch (error) {
-      this.logger.error(`Failed to fetch raw token balances for ${address} - Error: ${getErrorMessage(error)}`);
-      throw error;
+    if (result.isErr()) {
+      this.logger.error(`Failed to fetch raw token balances for ${address} - Error: ${getErrorMessage(result.error)}`);
+      return err(result.error);
     }
+
+    const response = result.value;
+    const tokenBalances = response.result?.tokenBalances || [];
+    this.logger.debug(`Found ${tokenBalances.length} raw token balances for ${address}`);
+    return ok(tokenBalances);
   }
 
   private async getTokenTransactions(
     address: string,
     contractAddress?: string,
     since?: number
-  ): Promise<AlchemyAssetTransfer[]> {
-    try {
-      const transfers = await this.getAssetTransfers(address, since, ['erc20', 'erc721', 'erc1155'], contractAddress);
-      this.logger.debug(`Found ${transfers.length} raw token transactions for ${address}`);
-      return transfers;
-    } catch (error) {
-      this.logger.error(`Failed to fetch raw token transactions for ${address} - Error: ${getErrorMessage(error)}`);
-      throw error;
+  ): Promise<Result<AlchemyAssetTransfer[], Error>> {
+    const result = await this.getAssetTransfers(address, since, ['erc20', 'erc721', 'erc1155'], contractAddress);
+
+    if (result.isErr()) {
+      this.logger.error(
+        `Failed to fetch raw token transactions for ${address} - Error: ${getErrorMessage(result.error)}`
+      );
+      return err(result.error);
     }
+
+    this.logger.debug(`Found ${result.value.length} raw token transactions for ${address}`);
+    return ok(result.value);
   }
 }

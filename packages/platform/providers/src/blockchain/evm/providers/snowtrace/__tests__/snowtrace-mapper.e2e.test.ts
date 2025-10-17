@@ -19,22 +19,37 @@ describe('SnowtraceTransactionMapper E2E', () => {
 
   beforeAll(async () => {
     // Fetch normal transactions
-    cachedNormalTransactions = await apiClient.execute<SnowtraceTransaction[]>({
+    const normalResult = await apiClient.execute<SnowtraceTransaction[]>({
       address: testAddress,
       type: 'getRawAddressTransactions',
     });
 
+    if (normalResult.isErr()) {
+      throw normalResult.error;
+    }
+    cachedNormalTransactions = normalResult.value;
+
     // Fetch internal transactions
-    cachedInternalTransactions = await apiClient.execute<SnowtraceInternalTransaction[]>({
+    const internalResult = await apiClient.execute<SnowtraceInternalTransaction[]>({
       address: testAddress,
       type: 'getRawAddressInternalTransactions',
     });
 
+    if (internalResult.isErr()) {
+      throw internalResult.error;
+    }
+    cachedInternalTransactions = internalResult.value;
+
     // Fetch token transfers
-    cachedTokenTransfers = await apiClient.execute<SnowtraceTokenTransfer[]>({
+    const tokenResult = await apiClient.execute<SnowtraceTokenTransfer[]>({
       address: testAddress,
       type: 'getTokenTransactions',
     });
+
+    if (tokenResult.isErr()) {
+      throw tokenResult.error;
+    }
+    cachedTokenTransfers = tokenResult.value;
   }, 120000);
 
   describe('Normal Transactions', () => {

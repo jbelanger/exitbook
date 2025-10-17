@@ -17,25 +17,34 @@ describe('AlchemyTransactionMapper E2E', () => {
 
   beforeAll(async () => {
     // Fetch data once to avoid hammering the API
-    try {
-      cachedTransactions = await apiClient.execute<AlchemyAssetTransfer[]>({
-        address: testAddress,
-        type: 'getRawAddressTransactions',
-      });
-      console.log(`✓ Fetched ${cachedTransactions.length} normal transactions`);
-      if (cachedTransactions.length > 0) {
-        console.log('Sample transaction:', JSON.stringify(cachedTransactions[0], undefined, 2).substring(0, 500));
-      }
+    const txResult = await apiClient.execute<AlchemyAssetTransfer[]>({
+      address: testAddress,
+      type: 'getRawAddressTransactions',
+    });
 
-      cachedTokenTransactions = await apiClient.execute<AlchemyAssetTransfer[]>({
-        address: testAddress,
-        type: 'getTokenTransactions',
-      });
-      console.log(`✓ Fetched ${cachedTokenTransactions.length} token transactions`);
-    } catch (error) {
-      console.error('❌ Failed to fetch transactions:', error);
-      throw error;
+    if (txResult.isErr()) {
+      console.error('❌ Failed to fetch transactions:', txResult.error);
+      throw txResult.error;
     }
+
+    cachedTransactions = txResult.value;
+    console.log(`✓ Fetched ${cachedTransactions.length} normal transactions`);
+    if (cachedTransactions.length > 0) {
+      console.log('Sample transaction:', JSON.stringify(cachedTransactions[0], undefined, 2).substring(0, 500));
+    }
+
+    const tokenTxResult = await apiClient.execute<AlchemyAssetTransfer[]>({
+      address: testAddress,
+      type: 'getTokenTransactions',
+    });
+
+    if (tokenTxResult.isErr()) {
+      console.error('❌ Failed to fetch token transactions:', tokenTxResult.error);
+      throw tokenTxResult.error;
+    }
+
+    cachedTokenTransactions = tokenTxResult.value;
+    console.log(`✓ Fetched ${cachedTokenTransactions.length} token transactions`);
   }, 60000);
 
   it('should map real transaction data from API', () => {

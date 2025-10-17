@@ -19,10 +19,14 @@ describe('SubscanTransactionMapper E2E - Polkadot', () => {
 
     beforeAll(async () => {
       // Fetch data once to avoid hammering the API
-      cachedTransactions = await apiClient.execute<SubscanTransferAugmented[]>({
+      const result = await apiClient.execute<SubscanTransferAugmented[]>({
         address: testAddress,
         type: 'getRawAddressTransactions',
       });
+      if (result.isErr()) {
+        throw result.error;
+      }
+      cachedTransactions = result.value;
     }, 60000);
 
     it('should map real Polkadot transaction data from API', () => {

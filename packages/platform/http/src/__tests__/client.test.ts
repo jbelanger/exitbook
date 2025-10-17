@@ -1,10 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { HttpClient } from './client.ts';
-import type { HttpEffects } from './core/types.ts';
+import { HttpClient } from '../client.ts';
+import type { HttpEffects } from '../core/types.ts';
+import { ServiceError, RateLimitError } from '../types.ts';
 
-describe('HttpClient - Imperative Shell', () => {
-  it('should make successful GET request using injected effects', async () => {
+describe('HttpClientV2 - Result Type Implementation', () => {
+  it('should return ok result for successful GET request', async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       headers: new Headers(),
       json: () => Promise.resolve({ success: true }),
@@ -29,7 +30,10 @@ describe('HttpClient - Imperative Shell', () => {
 
     const result = await client.get<{ success: boolean }>('/test');
 
-    expect(result).toEqual({ success: true });
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value).toEqual({ success: true });
+    }
     expect(mockFetch).toHaveBeenCalledWith(
       'https://api.example.com/test',
       expect.objectContaining({
@@ -38,7 +42,115 @@ describe('HttpClient - Imperative Shell', () => {
     );
   });
 
-  it('should enforce rate limitings', async () => {
+  it('should return error result for failed request after all retries', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      headers: new Headers(),
+      ok: false,
+      status: 500,
+      text: () => Promise.resolve('Internal Server Error'),
+    });
+
+    const mockEffects: HttpEffects = {
+      delay: vi.fn().mockResolvedValue(undefined as unknown),
+      fetch: mockFetch,
+      log: vi.fn(),
+      now: () => 1000,
+    };
+
+    const client = new HttpClient(
+      {
+        baseUrl: 'https://api.example.com',
+        providerName: 'test-provider',
+        rateLimit: { requestsPerSecond: 10 },
+        retries: 3,
+      },
+      mockEffects
+    );
+
+    const result = await client.get('/test');
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error).toBeInstanceOf(ServiceError);
+      expect(result.error.message).toContain('service error');
+    }
+  });
+
+  it('should return RateLimitError after exhausting retries on 429', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      headers: new Headers({ 'Retry-After': '1' }),
+      ok: false,
+      status: 429,
+      text: () => Promise.resolve('Rate limited'),
+    });
+
+    const mockEffects: HttpEffects = {
+      delay: vi.fn().mockResolvedValue(undefined as unknown),
+      fetch: mockFetch,
+      log: vi.fn(),
+      now: () => Date.now(),
+    };
+
+    const client = new HttpClient(
+      {
+        baseUrl: 'https://api.example.com',
+        providerName: 'test-provider',
+        rateLimit: { requestsPerSecond: 10 },
+        retries: 2,
+      },
+      mockEffects
+    );
+
+    const result = await client.get('/test');
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error).toBeInstanceOf(RateLimitError);
+      expect(result.error.message).toContain('rate limit exceeded');
+    }
+  });
+
+  it('should retry on network errors and succeed', async () => {
+    let attempt = 0;
+    const mockFetch = vi.fn().mockImplementation(() => {
+      attempt++;
+      if (attempt < 2) {
+        throw new Error('Network error');
+      }
+      return Promise.resolve({
+        headers: new Headers(),
+        json: () => Promise.resolve({ success: true }),
+        ok: true,
+      });
+    });
+
+    const mockEffects: HttpEffects = {
+      delay: vi.fn().mockResolvedValue(undefined as unknown),
+      fetch: mockFetch,
+      log: vi.fn(),
+      now: () => Date.now(),
+    };
+
+    const client = new HttpClient(
+      {
+        baseUrl: 'https://api.example.com',
+        providerName: 'test-provider',
+        rateLimit: { requestsPerSecond: 10 },
+        retries: 3,
+      },
+      mockEffects
+    );
+
+    const result = await client.get('/test');
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value).toEqual({ success: true });
+    }
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('should enforce rate limiting', async () => {
     let currentTime = 1000;
     const mockDelay = vi.fn().mockImplementation((ms: number) => {
       currentTime += ms;
@@ -63,70 +175,22 @@ describe('HttpClient - Imperative Shell', () => {
         baseUrl: 'https://api.example.com',
         providerName: 'test-provider',
         rateLimit: {
-          requestsPerSecond: 1, // 1 request per second
+          requestsPerSecond: 1,
         },
       },
       mockEffects
     );
 
     // First request should go through immediately
-    await client.get('/test1');
+    const result1 = await client.get('/test1');
+    expect(result1.isOk()).toBe(true);
     expect(mockDelay).not.toHaveBeenCalled();
 
     // Second request should wait ~1000ms
-    await client.get('/test2');
+    const result2 = await client.get('/test2');
+    expect(result2.isOk()).toBe(true);
     expect(mockDelay).toHaveBeenCalled();
-    expect(mockDelay.mock.calls[0]?.[0]).toBeGreaterThan(900); // Should wait ~1 second
-  });
-
-  it('should handle 429 rate limit responses with exponential backoff', async () => {
-    let attempt = 0;
-    const mockFetch = vi.fn().mockImplementation(() => {
-      attempt++;
-      if (attempt < 3) {
-        return Promise.resolve({
-          headers: new Headers({ 'Retry-After': '1' }),
-          ok: false,
-          status: 429,
-          text: () => Promise.resolve('Rate limited'),
-        });
-      }
-      return Promise.resolve({
-        headers: new Headers(),
-        json: () => Promise.resolve({ success: true }),
-        ok: true,
-      });
-    });
-
-    const delays: number[] = [];
-    const mockEffects: HttpEffects = {
-      delay: vi.fn().mockImplementation((ms: number) => {
-        delays.push(ms);
-        return Promise.resolve();
-      }),
-      fetch: mockFetch,
-      log: vi.fn(),
-      now: () => Date.now(),
-    };
-
-    const client = new HttpClient(
-      {
-        baseUrl: 'https://api.example.com',
-        providerName: 'test-provider',
-        rateLimit: { requestsPerSecond: 10 },
-        retries: 3,
-      },
-      mockEffects
-    );
-
-    const result = await client.get('/test');
-
-    expect(result).toEqual({ success: true });
-    expect(mockFetch).toHaveBeenCalledTimes(3);
-    // Should have exponential backoff: 1000ms, 2000ms
-    expect(delays).toHaveLength(2);
-    expect(delays[0]).toBe(1000);
-    expect(delays[1]).toBe(2000);
+    expect(mockDelay.mock.calls[0]?.[0]).toBeGreaterThan(900);
   });
 
   it('should handle POST requests with body', async () => {
@@ -153,8 +217,12 @@ describe('HttpClient - Imperative Shell', () => {
     );
 
     const body = { name: 'test' };
-    await client.post('/create', body);
+    const result = await client.post('/create', body);
 
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value).toEqual({ created: true });
+    }
     expect(mockFetch).toHaveBeenCalledWith(
       'https://api.example.com/create',
       expect.objectContaining({
@@ -165,6 +233,77 @@ describe('HttpClient - Imperative Shell', () => {
         method: 'POST',
       })
     );
+  });
+
+  it('should return error result for 4xx client errors', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      headers: new Headers(),
+      ok: false,
+      status: 404,
+      text: () => Promise.resolve('Not Found'),
+    });
+
+    const mockEffects: HttpEffects = {
+      delay: vi.fn().mockResolvedValue(undefined as unknown),
+      fetch: mockFetch,
+      log: vi.fn(),
+      now: () => 1000,
+    };
+
+    const client = new HttpClient(
+      {
+        baseUrl: 'https://api.example.com',
+        providerName: 'test-provider',
+        rateLimit: { requestsPerSecond: 10 },
+        retries: 1,
+      },
+      mockEffects
+    );
+
+    const result = await client.get('/test');
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('HTTP 404');
+      expect(result.error.message).toContain('Not Found');
+    }
+  });
+
+  it('should return error result on timeout', async () => {
+    const mockFetch = vi.fn().mockImplementation(() => {
+      return new Promise((_, reject) => {
+        setTimeout(() => {
+          const error = new Error('AbortError');
+          error.name = 'AbortError';
+          reject(error);
+        }, 100);
+      });
+    });
+
+    const mockEffects: HttpEffects = {
+      delay: vi.fn().mockResolvedValue(undefined as unknown),
+      fetch: mockFetch,
+      log: vi.fn(),
+      now: () => 1000,
+    };
+
+    const client = new HttpClient(
+      {
+        baseUrl: 'https://api.example.com',
+        providerName: 'test-provider',
+        rateLimit: { requestsPerSecond: 10 },
+        retries: 1,
+        timeout: 50,
+      },
+      mockEffects
+    );
+
+    const result = await client.get('/test');
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('timeout');
+    }
   });
 
   it('should support temporary rate limit override', async () => {

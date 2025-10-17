@@ -1,3 +1,19 @@
+export interface HttpClientConfig {
+  baseUrl: string;
+  defaultHeaders?: Record<string, string> | undefined;
+  providerName: string;
+  rateLimit: RateLimitConfig;
+  retries?: number | undefined;
+  timeout?: number | undefined;
+}
+
+export interface HttpRequestOptions {
+  body?: string | Buffer | Uint8Array | object | undefined;
+  headers?: Record<string, string> | undefined;
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | undefined;
+  timeout?: number | undefined;
+}
+
 // HTTP-related error classes
 export class ServiceError extends Error {
   constructor(

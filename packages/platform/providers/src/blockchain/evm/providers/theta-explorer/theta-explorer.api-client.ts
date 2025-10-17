@@ -1,4 +1,5 @@
 import { getErrorMessage } from '@exitbook/core';
+import { err, ok, type Result } from 'neverthrow';
 
 import type { ProviderConfig, ProviderOperation } from '../../../../core/blockchain/index.ts';
 import { BaseApiClient, RegisterApiClient } from '../../../../core/blockchain/index.ts';
@@ -32,17 +33,17 @@ export class ThetaExplorerApiClient extends BaseApiClient {
     super(config);
   }
 
-  async execute<T>(operation: ProviderOperation): Promise<T> {
+  async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
     this.logger.debug(`Executing operation: ${operation.type}`);
 
     switch (operation.type) {
       case 'getRawAddressTransactions': {
         const { address, since } = operation;
         this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
-        return this.getRawAddressTransactions(address, since) as Promise<T>;
+        return (await this.getRawAddressTransactions(address, since)) as Result<T, Error>;
       }
       default:
-        throw new Error(`Unsupported operation: ${operation.type}`);
+        return err(new Error(`Unsupported operation: ${operation.type}`));
     }
   }
 
@@ -57,22 +58,29 @@ export class ThetaExplorerApiClient extends BaseApiClient {
     };
   }
 
-  private async getRawAddressTransactions(address: string, _since?: number): Promise<ThetaTransaction[]> {
-    try {
-      const allTransactions: ThetaTransaction[] = [];
+  private async getRawAddressTransactions(
+    address: string,
+    _since?: number
+  ): Promise<Result<ThetaTransaction[], Error>> {
+    const allTransactions: ThetaTransaction[] = [];
 
-      const allTypeTxs = await this.getTransactions(address);
-      allTransactions.push(...allTypeTxs);
+    const result = await this.getTransactions(address);
 
-      this.logger.debug(`Found ${allTransactions.length} total transactions for ${address} (${allTypeTxs.length})`);
-      return allTransactions;
-    } catch (error) {
-      this.logger.error(`Failed to fetch raw address transactions for ${address} - Error: ${getErrorMessage(error)}`);
-      throw error;
+    if (result.isErr()) {
+      this.logger.error(
+        `Failed to fetch raw address transactions for ${address} - Error: ${getErrorMessage(result.error)}`
+      );
+      return err(result.error);
     }
+
+    const allTypeTxs = result.value;
+    allTransactions.push(...allTypeTxs);
+
+    this.logger.debug(`Found ${allTransactions.length} total transactions for ${address} (${allTypeTxs.length})`);
+    return ok(allTransactions);
   }
 
-  private async getTransactions(address: string): Promise<ThetaTransaction[]> {
+  private async getTransactions(address: string): Promise<Result<ThetaTransaction[], Error>> {
     const transactions: ThetaTransaction[] = [];
     let currentPage = 1;
     const limitPerPage = 100;
@@ -84,33 +92,34 @@ export class ThetaExplorerApiClient extends BaseApiClient {
         pageNumber: currentPage.toString(),
       });
 
-      try {
-        const response = await this.httpClient.get<ThetaAccountTxResponse>(
-          `/accounttx/${address.toLowerCase()}?${params.toString()}`
-        );
+      const result = await this.httpClient.get<ThetaAccountTxResponse>(
+        `/accounttx/${address.toLowerCase()}?${params.toString()}`
+      );
 
-        const pageTxs = response.body || [];
-        transactions.push(...pageTxs);
-
-        this.logger.debug(`Fetched page ${currentPage}/${response.totalPageNumber}: ${pageTxs.length} transactions`);
-
-        hasMorePages = currentPage < response.totalPageNumber;
-        currentPage++;
-
-        if (currentPage > 100) {
-          this.logger.warn('Reached maximum page limit (100), stopping pagination');
-          break;
-        }
-      } catch (error) {
+      if (result.isErr()) {
         // Theta Explorer returns 404 when no transactions are found for a type
-        if (error instanceof Error && error.message.includes('HTTP 404')) {
+        if (result.error.message.includes('HTTP 404')) {
           this.logger.debug(`No transactions found for ${maskAddress(address)}`);
           break;
         }
-        throw error;
+        return err(result.error);
+      }
+
+      const response = result.value;
+      const pageTxs = response.body || [];
+      transactions.push(...pageTxs);
+
+      this.logger.debug(`Fetched page ${currentPage}/${response.totalPageNumber}: ${pageTxs.length} transactions`);
+
+      hasMorePages = currentPage < response.totalPageNumber;
+      currentPage++;
+
+      if (currentPage > 100) {
+        this.logger.warn('Reached maximum page limit (100), stopping pagination');
+        break;
       }
     }
 
-    return transactions;
+    return ok(transactions);
   }
 }

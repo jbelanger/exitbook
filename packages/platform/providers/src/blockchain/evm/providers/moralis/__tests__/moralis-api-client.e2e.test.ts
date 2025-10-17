@@ -22,51 +22,63 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
 
     describe('Raw Address Balance', () => {
       it('should fetch raw address balance successfully', async () => {
-        const balance = await provider.execute<MoralisNativeBalance>({
+        const result = await provider.execute<MoralisNativeBalance>({
           address: testAddress,
           type: 'getRawAddressBalance',
         });
 
-        expect(balance).toHaveProperty('balance');
-        expect(typeof balance.balance).toBe('string');
+        expect(result.isOk()).toBe(true);
+        if (result.isOk()) {
+          const balance = result.value;
+          expect(balance).toHaveProperty('balance');
+          expect(typeof balance.balance).toBe('string');
+        }
       }, 30000);
     });
 
     describe('Raw Address Transactions', () => {
       it('should fetch raw address transactions with augmented currency fields', async () => {
-        const transactions = await provider.execute<MoralisTransaction[]>({
+        const result = await provider.execute<MoralisTransaction[]>({
           address: testAddress,
           type: 'getRawAddressTransactions',
         });
 
-        expect(Array.isArray(transactions)).toBe(true);
-        if (transactions.length > 0) {
-          const firstTx = transactions[0]!;
-          expect(firstTx).toHaveProperty('hash');
-          expect(firstTx).toHaveProperty('from_address');
-          expect(firstTx).toHaveProperty('to_address');
-          expect(firstTx).toHaveProperty('block_number');
-          expect(firstTx).toHaveProperty('block_timestamp');
-          // Verify augmented fields
-          expect(firstTx._nativeCurrency).toBe('ETH');
-          expect(firstTx._nativeDecimals).toBe(18);
+        expect(result.isOk()).toBe(true);
+        if (result.isOk()) {
+          const transactions = result.value;
+          expect(Array.isArray(transactions)).toBe(true);
+          if (transactions.length > 0) {
+            const firstTx = transactions[0]!;
+            expect(firstTx).toHaveProperty('hash');
+            expect(firstTx).toHaveProperty('from_address');
+            expect(firstTx).toHaveProperty('to_address');
+            expect(firstTx).toHaveProperty('block_number');
+            expect(firstTx).toHaveProperty('block_timestamp');
+            // Verify augmented fields
+            expect(firstTx._nativeCurrency).toBe('ETH');
+            expect(firstTx._nativeDecimals).toBe(18);
+          }
         }
       }, 30000);
     });
 
     describe('Internal Transactions', () => {
       it('should fetch internal transactions with augmented currency fields', async () => {
-        const transactions = await provider.execute<MoralisTransaction[]>({
+        const result = await provider.execute<MoralisTransaction[]>({
           address: testAddress,
           type: 'getRawAddressInternalTransactions',
         });
 
-        expect(Array.isArray(transactions)).toBe(true);
-        if (transactions.length > 0) {
-          const firstTx = transactions[0]!;
-          // Verify augmented fields
-          expect(firstTx._nativeCurrency).toBe('ETH');
-          expect(firstTx._nativeDecimals).toBe(18);
+        expect(result.isOk()).toBe(true);
+        if (result.isOk()) {
+          const transactions = result.value;
+          expect(Array.isArray(transactions)).toBe(true);
+          if (transactions.length > 0) {
+            const firstTx = transactions[0]!;
+            // Verify augmented fields
+            expect(firstTx._nativeCurrency).toBe('ETH');
+            expect(firstTx._nativeDecimals).toBe(18);
+          }
         }
       }, 30000);
     });
@@ -76,17 +88,21 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
         // Use a different address with fewer tokens to avoid Moralis's 2000 token limit
         const smallerAddress = '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb4';
 
-        const balances = await provider.execute<MoralisTokenBalance[]>({
+        const result = await provider.execute<MoralisTokenBalance[]>({
           address: smallerAddress,
           type: 'getRawTokenBalances',
         });
 
-        expect(Array.isArray(balances)).toBe(true);
-        if (balances.length > 0) {
-          expect(balances[0]).toHaveProperty('token_address');
-          expect(balances[0]).toHaveProperty('balance');
-          expect(balances[0]).toHaveProperty('symbol');
-          expect(balances[0]).toHaveProperty('decimals');
+        expect(result.isOk()).toBe(true);
+        if (result.isOk()) {
+          const balances = result.value;
+          expect(Array.isArray(balances)).toBe(true);
+          if (balances.length > 0) {
+            expect(balances[0]).toHaveProperty('token_address');
+            expect(balances[0]).toHaveProperty('balance');
+            expect(balances[0]).toHaveProperty('symbol');
+            expect(balances[0]).toHaveProperty('decimals');
+          }
         }
       }, 30000);
     });
@@ -109,35 +125,43 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
 
     describe('Raw Address Transactions', () => {
       it('should fetch raw address transactions with augmented currency fields', async () => {
-        const transactions = await provider.execute<MoralisTransaction[]>({
+        const result = await provider.execute<MoralisTransaction[]>({
           address: testAddress,
           type: 'getRawAddressTransactions',
         });
 
-        expect(Array.isArray(transactions)).toBe(true);
-        if (transactions.length > 0) {
-          const firstTx = transactions[0]!;
-          expect(firstTx).toHaveProperty('hash');
-          // Verify augmented fields for Avalanche
-          expect(firstTx._nativeCurrency).toBe('AVAX');
-          expect(firstTx._nativeDecimals).toBe(18);
+        expect(result.isOk()).toBe(true);
+        if (result.isOk()) {
+          const transactions = result.value;
+          expect(Array.isArray(transactions)).toBe(true);
+          if (transactions.length > 0) {
+            const firstTx = transactions[0]!;
+            expect(firstTx).toHaveProperty('hash');
+            // Verify augmented fields for Avalanche
+            expect(firstTx._nativeCurrency).toBe('AVAX');
+            expect(firstTx._nativeDecimals).toBe(18);
+          }
         }
       }, 30000);
     });
 
     describe('Internal Transactions', () => {
       it('should fetch internal transactions with augmented currency fields', async () => {
-        const transactions = await provider.execute<MoralisTransaction[]>({
+        const result = await provider.execute<MoralisTransaction[]>({
           address: testAddress,
           type: 'getRawAddressInternalTransactions',
         });
 
-        expect(Array.isArray(transactions)).toBe(true);
-        if (transactions.length > 0) {
-          const firstTx = transactions[0]!;
-          // Verify augmented fields for Avalanche
-          expect(firstTx._nativeCurrency).toBe('AVAX');
-          expect(firstTx._nativeDecimals).toBe(18);
+        expect(result.isOk()).toBe(true);
+        if (result.isOk()) {
+          const transactions = result.value;
+          expect(Array.isArray(transactions)).toBe(true);
+          if (transactions.length > 0) {
+            const firstTx = transactions[0]!;
+            // Verify augmented fields for Avalanche
+            expect(firstTx._nativeCurrency).toBe('AVAX');
+            expect(firstTx._nativeDecimals).toBe(18);
+          }
         }
       }, 30000);
     });

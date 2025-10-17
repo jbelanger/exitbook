@@ -25,17 +25,21 @@ describe.skip('BlockCypherApiClient E2E', () => {
   it.skipIf(!process.env['BLOCKCYPHER_API_KEY'] || process.env['BLOCKCYPHER_API_KEY'] === 'YourApiKeyToken')(
     'should get address info for known address',
     async () => {
-      const addressInfo = await client.execute<AddressInfo>({
+      const result = await client.execute<AddressInfo>({
         address: testAddress,
         type: 'getAddressBalances',
       });
 
-      expect(addressInfo).toBeDefined();
-      expect(addressInfo).toHaveProperty('balance');
-      expect(addressInfo).toHaveProperty('txCount');
-      expect(typeof addressInfo.balance).toBe('string');
-      expect(typeof addressInfo.txCount).toBe('number');
-      expect(addressInfo.txCount).toBeGreaterThan(0);
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const addressInfo = result.value;
+        expect(addressInfo).toBeDefined();
+        expect(addressInfo).toHaveProperty('balance');
+        expect(addressInfo).toHaveProperty('txCount');
+        expect(typeof addressInfo.balance).toBe('string');
+        expect(typeof addressInfo.txCount).toBe('number');
+        expect(addressInfo.txCount).toBeGreaterThan(0);
+      }
     },
     60000
   );
@@ -43,19 +47,23 @@ describe.skip('BlockCypherApiClient E2E', () => {
   it.skipIf(!process.env['BLOCKCYPHER_API_KEY'] || process.env['BLOCKCYPHER_API_KEY'] === 'YourApiKeyToken')(
     'should get raw address transactions',
     async () => {
-      const transactions = await client.execute<BlockCypherTransaction[]>({
+      const result = await client.execute<BlockCypherTransaction[]>({
         address: testAddress,
         type: 'getRawAddressTransactions',
       });
 
-      expect(Array.isArray(transactions)).toBe(true);
-      if (transactions.length > 0) {
-        const tx = transactions[0]!;
-        expect(tx).toBeDefined();
-        expect(tx.hash).toBeDefined();
-        expect(typeof tx.hash).toBe('string');
-        expect(Array.isArray(tx.inputs)).toBe(true);
-        expect(Array.isArray(tx.outputs)).toBe(true);
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const transactions = result.value;
+        expect(Array.isArray(transactions)).toBe(true);
+        if (transactions.length > 0) {
+          const tx = transactions[0]!;
+          expect(tx).toBeDefined();
+          expect(tx.hash).toBeDefined();
+          expect(typeof tx.hash).toBe('string');
+          expect(Array.isArray(tx.inputs)).toBe(true);
+          expect(Array.isArray(tx.outputs)).toBe(true);
+        }
       }
     },
     90000

@@ -3,7 +3,7 @@
  */
 
 import type { Currency } from '@exitbook/core';
-import { getErrorMessage, wrapError } from '@exitbook/core';
+import { wrapError } from '@exitbook/core';
 import type { HttpClient } from '@exitbook/platform-http';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -177,48 +177,43 @@ export class BinanceProvider extends BasePriceProvider {
    * Tries multiple quote assets (USDT, BUSD, USD) if initial request fails
    */
   private async fetchFromApi(asset: Currency, timestamp: Date, currency: Currency): Promise<Result<PriceData, Error>> {
-    try {
-      const now = new Date();
+    const now = new Date();
 
-      // Determine interval and granularity based on timestamp age
-      const { interval, granularity } = selectBinanceInterval(timestamp);
-      this.logger.debug({ asset: asset.toString(), interval, granularity }, 'Selected Binance interval');
+    // Determine interval and granularity based on timestamp age
+    const { interval, granularity } = selectBinanceInterval(timestamp);
+    this.logger.debug({ asset: asset.toString(), interval, granularity }, 'Selected Binance interval');
 
-      // Get possible quote assets for the target currency
-      const quoteAssets = mapCurrencyToBinanceQuote(currency);
+    // Get possible quote assets for the target currency
+    const quoteAssets = mapCurrencyToBinanceQuote(currency);
 
-      // Try each quote asset until one succeeds
-      let lastError: Error | undefined;
-      for (const quoteAsset of quoteAssets) {
-        const symbol = buildBinanceSymbol(asset, quoteAsset);
-        this.logger.debug({ symbol, quoteAsset }, 'Trying Binance symbol');
+    // Try each quote asset until one succeeds
+    let lastError: Error | undefined;
+    for (const quoteAsset of quoteAssets) {
+      const symbol = buildBinanceSymbol(asset, quoteAsset);
+      this.logger.debug({ symbol, quoteAsset }, 'Trying Binance symbol');
 
-        const result = await this.fetchKline(symbol, interval, timestamp, asset, currency, granularity, now);
+      const result = await this.fetchKline(symbol, interval, timestamp, asset, currency, granularity, now);
 
-        if (result.isOk()) {
-          return ok(result.value);
-        }
-
-        // If it's a coin not found error, try next quote asset
-        if (result.error instanceof CoinNotFoundError) {
-          lastError = result.error;
-          continue;
-        }
-
-        // For other errors (rate limit, network, etc.), fail immediately
-        return err(result.error);
+      if (result.isOk()) {
+        return ok(result.value);
       }
 
-      // If all quote assets failed, return the last error
-      if (lastError) {
-        return err(lastError);
+      // If it's a coin not found error, try next quote asset
+      if (result.error instanceof CoinNotFoundError) {
+        lastError = result.error;
+        continue;
       }
 
-      return err(new Error(`Failed to fetch price for ${asset.toString()}`));
-    } catch (error) {
-      const message = getErrorMessage(error);
-      return err(new Error(`API fetch failed: ${message}`));
+      // For other errors (rate limit, network, etc.), fail immediately
+      return err(result.error);
     }
+
+    // If all quote assets failed, return the last error
+    if (lastError) {
+      return err(lastError);
+    }
+
+    return err(new Error(`Failed to fetch price for ${asset.toString()}`));
   }
 
   /**
@@ -233,48 +228,28 @@ export class BinanceProvider extends BasePriceProvider {
     granularity: 'minute' | 'hour' | 'day',
     now: Date
   ): Promise<Result<PriceData, Error>> {
-    try {
-      // Build query params
-      const params = buildBinanceKlinesParams(symbol, interval, timestamp);
-      const searchParams = new URLSearchParams(params);
+    // Build query params
+    const params = buildBinanceKlinesParams(symbol, interval, timestamp);
+    const searchParams = new URLSearchParams(params);
 
-      // Fetch from API
-      const rawResponse = await this.httpClient.get<unknown>(`/api/v3/klines?${searchParams.toString()}`);
+    // Fetch from API
+    const httpResult = await this.httpClient.get<unknown>(`/api/v3/klines?${searchParams.toString()}`);
+    if (httpResult.isErr()) {
+      return err(httpResult.error);
+    }
+    const rawResponse = httpResult.value;
 
-      // Check if response is an error
-      const errorParse = BinanceErrorResponseSchema.safeParse(rawResponse);
-      if (errorParse.success) {
-        const errorCode = errorParse.data.code;
-        const errorMsg = errorParse.data.msg;
+    // Check if response is an error
+    const errorParse = BinanceErrorResponseSchema.safeParse(rawResponse);
+    if (errorParse.success) {
+      const errorCode = errorParse.data.code;
+      const errorMsg = errorParse.data.msg;
 
-        // Check for specific error types
-        if (isBinanceCoinNotFoundError(errorCode)) {
-          return err(
-            new CoinNotFoundError(
-              `Binance does not have data for ${asset.toString()} with symbol ${symbol}: ${errorMsg}`,
-              asset.toString(),
-              'binance',
-              { currency: currency.toString() }
-            )
-          );
-        }
-
-        return err(new Error(`Binance API error (${errorCode}): ${errorMsg}`));
-      }
-
-      // Parse as klines response
-      const parseResult = BinanceKlinesResponseSchema.safeParse(rawResponse);
-      if (!parseResult.success) {
-        return err(new Error(`Invalid Binance klines response: ${parseResult.error.message}`));
-      }
-
-      const klines = parseResult.data;
-
-      // Check if we got data
-      if (klines.length === 0) {
+      // Check for specific error types
+      if (isBinanceCoinNotFoundError(errorCode)) {
         return err(
           new CoinNotFoundError(
-            `Binance returned no data for ${asset.toString()} with symbol ${symbol}`,
+            `Binance does not have data for ${asset.toString()} with symbol ${symbol}: ${errorMsg}`,
             asset.toString(),
             'binance',
             { currency: currency.toString() }
@@ -282,16 +257,35 @@ export class BinanceProvider extends BasePriceProvider {
         );
       }
 
-      // Transform using pure function
-      const priceDataResult = transformBinanceKlineResponse(klines[0]!, asset, timestamp, currency, now, granularity);
-      if (priceDataResult.isErr()) {
-        return err(priceDataResult.error);
-      }
-
-      return ok(priceDataResult.value);
-    } catch (error) {
-      const message = getErrorMessage(error);
-      return err(new Error(`Failed to fetch kline: ${message}`));
+      return err(new Error(`Binance API error (${errorCode}): ${errorMsg}`));
     }
+
+    // Parse as klines response
+    const parseResult = BinanceKlinesResponseSchema.safeParse(rawResponse);
+    if (!parseResult.success) {
+      return err(new Error(`Invalid Binance klines response: ${parseResult.error.message}`));
+    }
+
+    const klines = parseResult.data;
+
+    // Check if we got data
+    if (klines.length === 0) {
+      return err(
+        new CoinNotFoundError(
+          `Binance returned no data for ${asset.toString()} with symbol ${symbol}`,
+          asset.toString(),
+          'binance',
+          { currency: currency.toString() }
+        )
+      );
+    }
+
+    // Transform using pure function
+    const priceDataResult = transformBinanceKlineResponse(klines[0]!, asset, timestamp, currency, now, granularity);
+    if (priceDataResult.isErr()) {
+      return err(priceDataResult.error);
+    }
+
+    return ok(priceDataResult.value);
   }
 }

@@ -78,7 +78,7 @@ export abstract class BaseApiClient implements IBlockchainProvider {
     return this.metadata.capabilities;
   }
 
-  abstract execute<T>(operation: ProviderOperation, config?: Record<string, unknown>): Promise<T>;
+  abstract execute<T>(operation: ProviderOperation, config?: Record<string, unknown>): Promise<Result<T, Error>>;
 
   /**
    * Provide health check configuration for this provider
@@ -96,19 +96,19 @@ export abstract class BaseApiClient implements IBlockchainProvider {
    * Returns Result to allow special handling of RateLimitError in benchmarks
    */
   async isHealthy(): Promise<Result<boolean, Error>> {
-    try {
-      const config = this.getHealthCheckConfig();
-      const method = config.method || 'GET';
+    const config = this.getHealthCheckConfig();
+    const method = config.method || 'GET';
 
-      const response =
-        method === 'POST'
-          ? await this.httpClient.post(config.endpoint, config.body)
-          : await this.httpClient.get(config.endpoint);
+    const result =
+      method === 'POST'
+        ? await this.httpClient.post(config.endpoint, config.body)
+        : await this.httpClient.get(config.endpoint);
 
-      return ok(config.validate(response));
-    } catch (error) {
-      return err(error instanceof Error ? error : new Error(String(error)));
+    if (result.isErr()) {
+      return err(result.error);
     }
+
+    return ok(config.validate(result.value));
   }
 
   /**

@@ -1,4 +1,5 @@
 import { getErrorMessage } from '@exitbook/core';
+import { err, ok, type Result } from 'neverthrow';
 
 import { BaseApiClient } from '../../../core/blockchain/base/api-client.ts';
 import type { JsonRpcResponse, ProviderConfig, ProviderOperation } from '../../../core/blockchain/index.ts';
@@ -76,35 +77,28 @@ export class HeliusApiClient extends BaseApiClient {
     }
   }
 
-  async execute<T>(operation: ProviderOperation, _config?: Record<string, unknown>): Promise<T> {
+  async execute<T>(operation: ProviderOperation, _config?: Record<string, unknown>): Promise<Result<T, Error>> {
     this.logger.debug(
       `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
     );
 
-    try {
-      switch (operation.type) {
-        case 'getRawAddressTransactions':
-          return (await this.getRawAddressTransactions({
-            address: operation.address,
-            since: operation.since,
-          })) as T;
-        case 'getRawAddressBalance':
-          return (await this.getRawAddressBalance({
-            address: operation.address,
-          })) as T;
-        case 'getRawTokenBalances':
-          return (await this.getRawTokenBalances({
-            address: operation.address,
-            contractAddresses: operation.contractAddresses,
-          })) as T;
-        default:
-          throw new Error(`Unsupported operation: ${operation.type}`);
-      }
-    } catch (error) {
-      this.logger.error(
-        `Operation execution failed - Type: ${operation.type}, Error: ${getErrorMessage(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`
-      );
-      throw error;
+    switch (operation.type) {
+      case 'getRawAddressTransactions':
+        return (await this.getRawAddressTransactions({
+          address: operation.address,
+          since: operation.since,
+        })) as Result<T, Error>;
+      case 'getRawAddressBalance':
+        return (await this.getRawAddressBalance({
+          address: operation.address,
+        })) as Result<T, Error>;
+      case 'getRawTokenBalances':
+        return (await this.getRawTokenBalances({
+          address: operation.address,
+          contractAddresses: operation.contractAddresses,
+        })) as Result<T, Error>;
+      default:
+        return err(new Error(`Unsupported operation: ${operation.type}`));
     }
   }
 
@@ -122,48 +116,55 @@ export class HeliusApiClient extends BaseApiClient {
       return knownSymbol;
     }
 
-    try {
-      const response = await this.httpClient.post<JsonRpcResponse<HeliusAssetResponse>>('/', {
-        id: 1,
-        jsonrpc: '2.0',
-        method: 'getAsset',
-        params: {
-          displayOptions: {
-            showFungible: true,
-          },
-          id: mintAddress,
+    const result = await this.httpClient.post<JsonRpcResponse<HeliusAssetResponse>>('/', {
+      id: 1,
+      jsonrpc: '2.0',
+      method: 'getAsset',
+      params: {
+        displayOptions: {
+          showFungible: true,
         },
-      });
+        id: mintAddress,
+      },
+    });
 
-      if (response?.result?.content?.metadata?.symbol) {
-        const metadata = response.result.content.metadata;
-        const symbol = metadata.symbol;
-        if (symbol) {
-          this.storeTokenMetadata(mintAddress, metadata);
-          this.tokenSymbolCache.set(mintAddress, symbol);
-          return symbol;
-        }
-      }
-
-      if (response?.result?.content?.metadata?.name) {
-        const metadata = response.result.content.metadata;
-        const name = metadata.name;
-        if (name) {
-          this.storeTokenMetadata(mintAddress, metadata);
-          this.tokenSymbolCache.set(mintAddress, name);
-          return name;
-        }
-      }
-
-      throw new Error('No symbol or name found in metadata');
-    } catch (error) {
+    if (result.isErr()) {
       const fallbackSymbol = `${mintAddress.slice(0, 6)}...`;
       this.tokenSymbolCache.set(mintAddress, fallbackSymbol);
       this.logger.warn(
-        `Failed to fetch token symbol, using fallback - Mint: ${maskAddress(mintAddress)}, Symbol: ${fallbackSymbol}, Error: ${getErrorMessage(error)}`
+        `Failed to fetch token symbol, using fallback - Mint: ${maskAddress(mintAddress)}, Symbol: ${fallbackSymbol}, Error: ${getErrorMessage(result.error)}`
       );
       return fallbackSymbol;
     }
+
+    const response = result.value;
+
+    if (response?.result?.content?.metadata?.symbol) {
+      const metadata = response.result.content.metadata;
+      const symbol = metadata.symbol;
+      if (symbol) {
+        this.storeTokenMetadata(mintAddress, metadata);
+        this.tokenSymbolCache.set(mintAddress, symbol);
+        return symbol;
+      }
+    }
+
+    if (response?.result?.content?.metadata?.name) {
+      const metadata = response.result.content.metadata;
+      const name = metadata.name;
+      if (name) {
+        this.storeTokenMetadata(mintAddress, metadata);
+        this.tokenSymbolCache.set(mintAddress, name);
+        return name;
+      }
+    }
+
+    const fallbackSymbol = `${mintAddress.slice(0, 6)}...`;
+    this.tokenSymbolCache.set(mintAddress, fallbackSymbol);
+    this.logger.warn(
+      `No symbol or name found in metadata, using fallback - Mint: ${maskAddress(mintAddress)}, Symbol: ${fallbackSymbol}`
+    );
+    return fallbackSymbol;
   }
 
   getHealthCheckConfig() {
@@ -182,8 +183,11 @@ export class HeliusApiClient extends BaseApiClient {
     };
   }
 
-  private async getDirectAddressTransactions(address: string, since?: number): Promise<HeliusTransaction[]> {
-    const signaturesResponse = await this.httpClient.post<JsonRpcResponse<SolanaSignature[]>>('/', {
+  private async getDirectAddressTransactions(
+    address: string,
+    since?: number
+  ): Promise<Result<HeliusTransaction[], Error>> {
+    const signaturesResult = await this.httpClient.post<JsonRpcResponse<SolanaSignature[]>>('/', {
       id: 1,
       jsonrpc: '2.0',
       method: 'getSignaturesForAddress',
@@ -195,9 +199,18 @@ export class HeliusApiClient extends BaseApiClient {
       ],
     });
 
+    if (signaturesResult.isErr()) {
+      this.logger.error(
+        `Failed to get direct signatures - Address: ${maskAddress(address)}, Error: ${getErrorMessage(signaturesResult.error)}`
+      );
+      return err(signaturesResult.error);
+    }
+
+    const signaturesResponse = signaturesResult.value;
+
     if (!signaturesResponse?.result) {
       this.logger.debug(`No direct signatures found - Address: ${maskAddress(address)}`);
-      return [];
+      return ok([]);
     }
 
     const transactions: HeliusTransaction[] = [];
@@ -206,255 +219,286 @@ export class HeliusApiClient extends BaseApiClient {
     this.logger.debug(`Retrieved direct signatures - Address: ${maskAddress(address)}, Count: ${signatures.length}`);
 
     for (const sig of signatures) {
-      try {
-        const txResponse = await this.httpClient.post<JsonRpcResponse<HeliusTransaction>>('/', {
-          id: 1,
-          jsonrpc: '2.0',
-          method: 'getTransaction',
-          params: [
-            sig.signature,
-            {
-              encoding: 'json',
-              maxSupportedTransactionVersion: 0,
-            },
-          ],
-        });
+      const txResult = await this.httpClient.post<JsonRpcResponse<HeliusTransaction>>('/', {
+        id: 1,
+        jsonrpc: '2.0',
+        method: 'getTransaction',
+        params: [
+          sig.signature,
+          {
+            encoding: 'json',
+            maxSupportedTransactionVersion: 0,
+          },
+        ],
+      });
 
-        if (
-          txResponse?.result &&
-          (!since || (txResponse.result.blockTime && txResponse.result.blockTime.getTime() >= since))
-        ) {
-          transactions.push(txResponse.result);
-        }
-      } catch (error) {
+      if (txResult.isErr()) {
         this.logger.debug(
-          `Failed to fetch transaction details - Signature: ${sig.signature}, Error: ${getErrorMessage(error)}`
+          `Failed to fetch transaction details - Signature: ${sig.signature}, Error: ${getErrorMessage(txResult.error)}`
         );
+        continue;
+      }
+
+      const txResponse = txResult.value;
+
+      if (
+        txResponse?.result &&
+        (!since || (txResponse.result.blockTime && txResponse.result.blockTime.getTime() >= since))
+      ) {
+        transactions.push(txResponse.result);
       }
     }
 
-    return transactions;
+    return ok(transactions);
   }
 
-  private async getRawAddressBalance(params: { address: string }): Promise<SolanaRawBalanceData> {
+  private async getRawAddressBalance(params: { address: string }): Promise<Result<SolanaRawBalanceData, Error>> {
     const { address } = params;
 
     if (!isValidSolanaAddress(address)) {
-      throw new Error(`Invalid Solana address: ${address}`);
+      return err(new Error(`Invalid Solana address: ${address}`));
     }
 
     this.logger.debug(`Fetching raw address balance - Address: ${maskAddress(address)}`);
 
-    try {
-      const response = await this.httpClient.post<JsonRpcResponse<SolanaAccountBalance>>('/', {
-        id: 1,
-        jsonrpc: '2.0',
-        method: 'getBalance',
-        params: [address],
-      });
+    const result = await this.httpClient.post<JsonRpcResponse<SolanaAccountBalance>>('/', {
+      id: 1,
+      jsonrpc: '2.0',
+      method: 'getBalance',
+      params: [address],
+    });
 
-      if (!response?.result || response.result.value === undefined) {
-        throw new Error('Failed to fetch balance from Helius RPC');
-      }
-
-      this.logger.debug(
-        `Successfully retrieved raw address balance - Address: ${maskAddress(address)}, Lamports: ${response.result.value}`
-      );
-
-      return { lamports: response.result.value };
-    } catch (error) {
+    if (result.isErr()) {
       this.logger.error(
-        `Failed to get raw address balance - Address: ${maskAddress(address)}, Error: ${getErrorMessage(error)}`
+        `Failed to get raw address balance - Address: ${maskAddress(address)}, Error: ${getErrorMessage(result.error)}`
       );
-      throw error;
+      return err(result.error);
     }
+
+    const response = result.value;
+
+    if (!response?.result || response.result.value === undefined) {
+      return err(new Error('Failed to fetch balance from Helius RPC'));
+    }
+
+    this.logger.debug(
+      `Successfully retrieved raw address balance - Address: ${maskAddress(address)}, Lamports: ${response.result.value}`
+    );
+
+    return ok({ lamports: response.result.value });
   }
 
   private async getRawAddressTransactions(params: {
     address: string;
     since?: number | undefined;
-  }): Promise<HeliusTransaction[]> {
+  }): Promise<Result<HeliusTransaction[], Error>> {
     const { address, since } = params;
 
     if (!isValidSolanaAddress(address)) {
-      throw new Error(`Invalid Solana address: ${address}`);
+      return err(new Error(`Invalid Solana address: ${address}`));
     }
 
     this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
 
-    try {
-      const directTransactions = await this.getDirectAddressTransactions(address, since);
-      const tokenAccountTransactions = await this.getTokenAccountTransactions(address, since);
-
-      const allTransactions = [...directTransactions, ...tokenAccountTransactions];
-
-      this.logger.debug(
-        `Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, DirectTransactions: ${directTransactions.length}, TokenAccountTransactions: ${tokenAccountTransactions.length}, TotalUniqueTransactions: ${allTransactions.length}`
-      );
-
-      return allTransactions;
-    } catch (error) {
+    const directResult = await this.getDirectAddressTransactions(address, since);
+    if (directResult.isErr()) {
       this.logger.error(
-        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(error)}`
+        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(directResult.error)}`
       );
-      throw error;
+      return err(directResult.error);
     }
+
+    const tokenResult = await this.getTokenAccountTransactions(address, since);
+    if (tokenResult.isErr()) {
+      this.logger.error(
+        `Failed to get token account transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(tokenResult.error)}`
+      );
+      return err(tokenResult.error);
+    }
+
+    const directTransactions = directResult.value;
+    const tokenAccountTransactions = tokenResult.value;
+
+    const allTransactions = [...directTransactions, ...tokenAccountTransactions];
+
+    this.logger.debug(
+      `Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, DirectTransactions: ${directTransactions.length}, TokenAccountTransactions: ${tokenAccountTransactions.length}, TotalUniqueTransactions: ${allTransactions.length}`
+    );
+
+    return ok(allTransactions);
   }
 
   private async getRawTokenBalances(params: {
     address: string;
     contractAddresses?: string[] | undefined;
-  }): Promise<SolanaRawTokenBalanceData> {
+  }): Promise<Result<SolanaRawTokenBalanceData, Error>> {
     const { address } = params;
 
     if (!isValidSolanaAddress(address)) {
-      throw new Error(`Invalid Solana address: ${address}`);
+      return err(new Error(`Invalid Solana address: ${address}`));
     }
 
     this.logger.debug(`Fetching raw token balances - Address: ${maskAddress(address)}`);
 
-    try {
-      const tokenAccountsResponse = await this.httpClient.post<JsonRpcResponse<SolanaTokenAccountsResponse>>('/', {
-        id: 1,
-        jsonrpc: '2.0',
-        method: 'getTokenAccountsByOwner',
-        params: [
-          address,
-          {
-            programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
-          },
-          {
-            encoding: 'jsonParsed',
-          },
-        ],
-      });
+    const result = await this.httpClient.post<JsonRpcResponse<SolanaTokenAccountsResponse>>('/', {
+      id: 1,
+      jsonrpc: '2.0',
+      method: 'getTokenAccountsByOwner',
+      params: [
+        address,
+        {
+          programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+        },
+        {
+          encoding: 'jsonParsed',
+        },
+      ],
+    });
 
-      if (!tokenAccountsResponse?.result) {
-        this.logger.debug(`No raw token accounts found - Address: ${maskAddress(address)}`);
-        return { tokenAccounts: { value: [] } };
-      }
-
-      this.logger.debug(
-        `Successfully retrieved raw token balances - Address: ${maskAddress(address)}, TokenAccountCount: ${tokenAccountsResponse.result.value.length}`
-      );
-
-      return { tokenAccounts: tokenAccountsResponse.result };
-    } catch (error) {
+    if (result.isErr()) {
       this.logger.error(
-        `Failed to get raw token balances - Address: ${maskAddress(address)}, Error: ${getErrorMessage(error)}`
+        `Failed to get raw token balances - Address: ${maskAddress(address)}, Error: ${getErrorMessage(result.error)}`
       );
-      throw error;
+      return err(result.error);
     }
+
+    const tokenAccountsResponse = result.value;
+
+    if (!tokenAccountsResponse?.result) {
+      this.logger.debug(`No raw token accounts found - Address: ${maskAddress(address)}`);
+      return ok({ tokenAccounts: { value: [] } });
+    }
+
+    this.logger.debug(
+      `Successfully retrieved raw token balances - Address: ${maskAddress(address)}, TokenAccountCount: ${tokenAccountsResponse.result.value.length}`
+    );
+
+    return ok({ tokenAccounts: tokenAccountsResponse.result });
   }
 
-  private async getTokenAccountsOwnedByAddress(address: string): Promise<string[]> {
-    try {
-      const tokenAccountsResponse = await this.httpClient.post<JsonRpcResponse<SolanaTokenAccountsResponse>>('/', {
+  private async getTokenAccountsOwnedByAddress(address: string): Promise<Result<string[], Error>> {
+    const result = await this.httpClient.post<JsonRpcResponse<SolanaTokenAccountsResponse>>('/', {
+      id: 1,
+      jsonrpc: '2.0',
+      method: 'getTokenAccountsByOwner',
+      params: [
+        address,
+        {
+          programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+        },
+        {
+          encoding: 'jsonParsed',
+        },
+      ],
+    });
+
+    if (result.isErr()) {
+      this.logger.warn(
+        `Failed to get token accounts - Address: ${maskAddress(address)}, Error: ${getErrorMessage(result.error)}`
+      );
+      return ok([]);
+    }
+
+    const tokenAccountsResponse = result.value;
+
+    if (!tokenAccountsResponse?.result?.value) {
+      this.logger.debug(`No token accounts found - Address: ${maskAddress(address)}`);
+      return ok([]);
+    }
+
+    const tokenAccountAddresses = tokenAccountsResponse.result.value.map(
+      (account: { pubkey: string }) => account.pubkey
+    );
+
+    this.logger.debug(
+      `Found token accounts owned by address - Address: ${maskAddress(address)}, TokenAccountCount: ${tokenAccountAddresses.length}`
+    );
+
+    return ok(tokenAccountAddresses);
+  }
+
+  private async getTokenAccountTransactions(
+    address: string,
+    _since?: number
+  ): Promise<Result<HeliusTransaction[], Error>> {
+    this.logger.debug(`Fetching token account transactions - Address: ${maskAddress(address)}`);
+
+    const tokenAccountsResult = await this.getTokenAccountsOwnedByAddress(address);
+    if (tokenAccountsResult.isErr()) {
+      this.logger.warn(
+        `Failed to get token account transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(tokenAccountsResult.error)}`
+      );
+      return ok([]);
+    }
+
+    const tokenAccountAddresses = tokenAccountsResult.value;
+    const tokenTransactions: HeliusTransaction[] = [];
+
+    const maxTokenAccounts = 20;
+    const accountsToProcess = tokenAccountAddresses.slice(0, maxTokenAccounts);
+
+    this.logger.debug(`Processing ${accountsToProcess.length} token accounts for address ${maskAddress(address)}`);
+
+    for (const account of accountsToProcess) {
+      const signaturesResult = await this.httpClient.post<JsonRpcResponse<SolanaSignature[]>>('/', {
         id: 1,
         jsonrpc: '2.0',
-        method: 'getTokenAccountsByOwner',
+        method: 'getSignaturesForAddress',
         params: [
-          address,
+          account,
           {
-            programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
-          },
-          {
-            encoding: 'jsonParsed',
+            limit: 50,
           },
         ],
       });
 
-      if (!tokenAccountsResponse?.result?.value) {
-        this.logger.debug(`No token accounts found - Address: ${maskAddress(address)}`);
-        return [];
+      if (signaturesResult.isErr()) {
+        this.logger.debug(
+          `Failed to fetch signatures for token account ${account} - Error: ${getErrorMessage(signaturesResult.error)}`
+        );
+        continue;
       }
 
-      const tokenAccountAddresses = tokenAccountsResponse.result.value.map(
-        (account: { pubkey: string }) => account.pubkey
-      );
+      const signaturesResponse = signaturesResult.value;
 
-      this.logger.debug(
-        `Found token accounts owned by address - Address: ${maskAddress(address)}, TokenAccountCount: ${tokenAccountAddresses.length}`
-      );
+      if (signaturesResponse?.result) {
+        const signatures = signaturesResponse.result.slice(0, 20);
 
-      return tokenAccountAddresses;
-    } catch (error) {
-      this.logger.warn(
-        `Failed to get token accounts - Address: ${maskAddress(address)}, Error: ${getErrorMessage(error)}`
-      );
-      return [];
-    }
-  }
-
-  private async getTokenAccountTransactions(address: string, _since?: number): Promise<HeliusTransaction[]> {
-    try {
-      this.logger.debug(`Fetching token account transactions - Address: ${maskAddress(address)}`);
-
-      // Get token accounts owned by the user
-      const tokenAccountAddresses = await this.getTokenAccountsOwnedByAddress(address);
-      const tokenTransactions: HeliusTransaction[] = [];
-
-      // Fetch transactions for each token account (limit to avoid rate limits)
-      const maxTokenAccounts = 20; // Reasonable limit
-      const accountsToProcess = tokenAccountAddresses.slice(0, maxTokenAccounts);
-
-      this.logger.debug(`Processing ${accountsToProcess.length} token accounts for address ${maskAddress(address)}`);
-
-      for (const account of accountsToProcess) {
-        try {
-          const signaturesResponse = await this.httpClient.post<JsonRpcResponse<SolanaSignature[]>>('/', {
+        for (const sig of signatures) {
+          const txResult = await this.httpClient.post<JsonRpcResponse<HeliusTransaction>>('/', {
             id: 1,
             jsonrpc: '2.0',
-            method: 'getSignaturesForAddress',
+            method: 'getTransaction',
             params: [
-              account,
+              sig.signature,
               {
-                limit: 50, // Increase to get more historical token transactions
+                encoding: 'json',
+                maxSupportedTransactionVersion: 0,
               },
             ],
           });
 
-          if (signaturesResponse?.result) {
-            const signatures = signaturesResponse.result.slice(0, 20); // Increase limit per token account
-
-            for (const sig of signatures) {
-              const txResponse = await this.httpClient.post<JsonRpcResponse<HeliusTransaction>>('/', {
-                id: 1,
-                jsonrpc: '2.0',
-                method: 'getTransaction',
-                params: [
-                  sig.signature,
-                  {
-                    encoding: 'json',
-                    maxSupportedTransactionVersion: 0,
-                  },
-                ],
-              });
-
-              if (txResponse?.result) {
-                tokenTransactions.push(txResponse.result);
-              }
-            }
+          if (txResult.isErr()) {
+            this.logger.debug(
+              `Failed to fetch transaction for signature ${sig.signature} - Error: ${getErrorMessage(txResult.error)}`
+            );
+            continue;
           }
-        } catch (error) {
-          this.logger.debug(
-            `Failed to fetch transactions for token account ${account} - Error: ${getErrorMessage(error)}`
-          );
-          // Continue with other token accounts
+
+          const txResponse = txResult.value;
+
+          if (txResponse?.result) {
+            tokenTransactions.push(txResponse.result);
+          }
         }
       }
-
-      this.logger.debug(
-        `Retrieved token account transactions - Address: ${maskAddress(address)}, TokenAccounts: ${accountsToProcess.length}, Transactions: ${tokenTransactions.length}`
-      );
-
-      return tokenTransactions;
-    } catch (error) {
-      this.logger.warn(
-        `Failed to get token account transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(error)}`
-      );
-      return [];
     }
+
+    this.logger.debug(
+      `Retrieved token account transactions - Address: ${maskAddress(address)}, TokenAccounts: ${accountsToProcess.length}, Transactions: ${tokenTransactions.length}`
+    );
+
+    return ok(tokenTransactions);
   }
 
   private storeTokenMetadata(mintAddress: string, metadata: Record<string, unknown>): void {

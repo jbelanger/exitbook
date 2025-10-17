@@ -21,11 +21,15 @@ describe('HeliusApiClient Integration', () => {
 
   describe('Raw Address Transactions', () => {
     it('should fetch raw address transactions successfully', async () => {
-      const transactions = await provider.execute<HeliusTransaction[]>({
+      const result = await provider.execute<HeliusTransaction[]>({
         address: testAddress,
         type: 'getRawAddressTransactions',
       });
 
+      expect(result.isOk()).toBe(true);
+      if (result.isErr()) return;
+
+      const transactions = result.value;
       expect(Array.isArray(transactions)).toBe(true);
       if (transactions.length > 0 && transactions[0]) {
         expect(transactions[0]).toHaveProperty('slot');
@@ -50,18 +54,19 @@ describe('HeliusApiClient Integration', () => {
 
     it('should fetch raw address transactions with since parameter successfully', async () => {
       const oneWeekAgo = Math.floor(Date.now() / 1000) - 7 * 24 * 60 * 60;
-      const transactions = await provider.execute<HeliusTransaction[]>({
+      const result = await provider.execute<HeliusTransaction[]>({
         address: testAddress,
         type: 'getRawAddressTransactions',
         since: oneWeekAgo,
       });
 
+      expect(result.isOk()).toBe(true);
+      if (result.isErr()) return;
+
+      const transactions = result.value;
       expect(Array.isArray(transactions)).toBe(true);
       if (transactions.length > 0) {
         expect(transactions[0]).toHaveProperty('blockTime');
-        // Test that the API accepts the since parameter and returns transactions
-        // Note: We don't strictly validate the timestamp filtering as the API behavior
-        // might include some older transactions due to how the filtering works
         expect(transactions[0]?.blockTime).toBeDefined();
       }
     }, 30000);
@@ -69,11 +74,15 @@ describe('HeliusApiClient Integration', () => {
 
   describe('Address Balance', () => {
     it('should fetch raw address balance successfully', async () => {
-      const balance = await provider.execute<{ lamports: number }>({
+      const result = await provider.execute<{ lamports: number }>({
         address: testAddress,
         type: 'getRawAddressBalance',
       });
 
+      expect(result.isOk()).toBe(true);
+      if (result.isErr()) return;
+
+      const balance = result.value;
       expect(balance).toHaveProperty('lamports');
       expect(typeof balance.lamports).toBe('number');
       expect(balance.lamports).toBeGreaterThanOrEqual(0);
@@ -82,11 +91,15 @@ describe('HeliusApiClient Integration', () => {
 
   describe('Token Balances', () => {
     it('should fetch raw token balances successfully', async () => {
-      const tokenBalances = await provider.execute<{ tokenAccounts: { value: unknown[] } }>({
+      const result = await provider.execute<{ tokenAccounts: { value: unknown[] } }>({
         address: testAddress,
         type: 'getRawTokenBalances',
       });
 
+      expect(result.isOk()).toBe(true);
+      if (result.isErr()) return;
+
+      const tokenBalances = result.value;
       expect(tokenBalances).toHaveProperty('tokenAccounts');
       expect(tokenBalances.tokenAccounts).toHaveProperty('value');
       expect(Array.isArray(tokenBalances.tokenAccounts.value)).toBe(true);
@@ -149,21 +162,27 @@ describe('HeliusApiClient Integration', () => {
     it('should handle invalid addresses gracefully', async () => {
       const invalidAddress = 'invalid-address';
 
-      await expect(
-        provider.execute<HeliusTransaction[]>({
-          address: invalidAddress,
-          type: 'getRawAddressTransactions',
-        })
-      ).rejects.toThrow('Invalid Solana address');
+      const result = await provider.execute<HeliusTransaction[]>({
+        address: invalidAddress,
+        type: 'getRawAddressTransactions',
+      });
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('Invalid Solana address');
+      }
     });
 
     it('should handle unsupported operations gracefully', async () => {
-      await expect(
-        provider.execute<unknown>({
-          address: testAddress,
-          type: 'custom',
-        })
-      ).rejects.toThrow('Unsupported operation: custom');
+      const result = await provider.execute<unknown>({
+        address: testAddress,
+        type: 'custom',
+      });
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.message).toContain('Unsupported operation: custom');
+      }
     });
   });
 

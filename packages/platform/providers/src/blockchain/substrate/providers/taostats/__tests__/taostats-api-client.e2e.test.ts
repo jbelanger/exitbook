@@ -27,11 +27,17 @@ describe('TaostatsApiClient Integration - Bittensor', () => {
 
     describe('Raw Address Balance', () => {
       it('should fetch raw address balance successfully', async () => {
-        const response = await provider.execute<TaostatsBalanceResponse>({
+        const result = await provider.execute<TaostatsBalanceResponse>({
           address: testAddress,
           type: 'getRawAddressBalance',
         });
 
+        expect(result.isOk()).toBe(true);
+        if (result.isErr()) {
+          throw result.error;
+        }
+
+        const response = result.value;
         expect(response).toHaveProperty('data');
         expect(Array.isArray(response.data)).toBe(true);
         expect(response.data!.length).toBeGreaterThan(0);
@@ -45,11 +51,17 @@ describe('TaostatsApiClient Integration - Bittensor', () => {
 
     describe('Raw Address Transactions', () => {
       it('should fetch raw address transactions with augmented currency fields', async () => {
-        const transactions = await provider.execute<TaostatsTransactionAugmented[]>({
+        const result = await provider.execute<TaostatsTransactionAugmented[]>({
           address: testAddress,
           type: 'getRawAddressTransactions',
         });
 
+        expect(result.isOk()).toBe(true);
+        if (result.isErr()) {
+          throw result.error;
+        }
+
+        const transactions = result.value;
         expect(Array.isArray(transactions)).toBe(true);
         if (transactions.length > 0) {
           const firstTx = transactions[0]!;
@@ -82,12 +94,18 @@ describe('TaostatsApiClient Integration - Bittensor', () => {
         // Use a timestamp from 1 year ago to ensure we capture existing transactions
         const sinceTimestamp = Date.now() - 2 * 365 * 24 * 60 * 60 * 1000; // 2 years ago
 
-        const transactions = await provider.execute<TaostatsTransactionAugmented[]>({
+        const result = await provider.execute<TaostatsTransactionAugmented[]>({
           address: testAddress,
           type: 'getRawAddressTransactions',
           since: sinceTimestamp,
         });
 
+        expect(result.isOk()).toBe(true);
+        if (result.isErr()) {
+          throw result.error;
+        }
+
+        const transactions = result.value;
         expect(Array.isArray(transactions)).toBe(true);
         if (transactions.length > 0) {
           // Verify all transactions are after the specified timestamp

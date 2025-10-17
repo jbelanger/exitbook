@@ -1,4 +1,5 @@
 import { getErrorMessage } from '@exitbook/core';
+import { err, ok, type Result } from 'neverthrow';
 
 import { BaseApiClient } from '../../../core/blockchain/base/api-client.ts';
 import type { ProviderConfig } from '../../../core/blockchain/index.ts';
@@ -39,30 +40,23 @@ export class BlockstreamApiClient extends BaseApiClient {
     this.logger.debug(`Initialized BlockstreamApiClient from registry metadata - BaseUrl: ${this.baseUrl}`);
   }
 
-  async execute<T>(operation: ProviderOperation): Promise<T> {
+  async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
     this.logger.debug(
       `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
     );
 
-    try {
-      switch (operation.type) {
-        case 'getRawAddressTransactions':
-          return (await this.getRawAddressTransactions({
-            address: operation.address,
-            since: operation.since,
-          })) as T;
-        case 'getAddressBalances':
-          return (await this.getAddressBalances({
-            address: operation.address,
-          })) as T;
-        default:
-          throw new Error(`Unsupported operation: ${operation.type}`);
-      }
-    } catch (error) {
-      this.logger.error(
-        `Operation execution failed - Type: ${operation.type}, Error: ${getErrorMessage(error)}, Stack: ${error instanceof Error ? error.stack : undefined}`
-      );
-      throw error;
+    switch (operation.type) {
+      case 'getRawAddressTransactions':
+        return (await this.getRawAddressTransactions({
+          address: operation.address,
+          since: operation.since,
+        })) as Result<T, Error>;
+      case 'getAddressBalances':
+        return (await this.getAddressBalances({
+          address: operation.address,
+        })) as Result<T, Error>;
+      default:
+        return err(new Error(`Unsupported operation: ${operation.type}`));
     }
   }
 
@@ -78,39 +72,41 @@ export class BlockstreamApiClient extends BaseApiClient {
   /**
    * Get lightweight address info for efficient gap scanning
    */
-  private async getAddressBalances(params: { address: string }): Promise<AddressInfo> {
+  private async getAddressBalances(params: { address: string }): Promise<Result<AddressInfo, Error>> {
     const { address } = params;
 
     this.logger.debug(`Fetching lightweight address info - Address: ${maskAddress(address)}`);
 
-    try {
-      const addressInfo = await this.httpClient.get<BlockstreamAddressInfo>(`/address/${address}`);
+    const result = await this.httpClient.get<BlockstreamAddressInfo>(`/address/${address}`);
 
-      // Calculate transaction count
-      const txCount = addressInfo.chain_stats.tx_count + addressInfo.mempool_stats.tx_count;
-
-      // Calculate current balance: funded amount - spent amount
-      const chainBalance = addressInfo.chain_stats.funded_txo_sum - addressInfo.chain_stats.spent_txo_sum;
-      const mempoolBalance = addressInfo.mempool_stats.funded_txo_sum - addressInfo.mempool_stats.spent_txo_sum;
-      const totalBalanceSats = chainBalance + mempoolBalance;
-
-      // Convert satoshis to BTC
-      const balanceBTC = (totalBalanceSats / 100000000).toString();
-
-      this.logger.debug(
-        `Successfully retrieved lightweight address info - Address: ${maskAddress(address)}, TxCount: ${txCount}, BalanceBTC: ${balanceBTC}`
-      );
-
-      return {
-        balance: balanceBTC,
-        txCount,
-      };
-    } catch (error) {
+    if (result.isErr()) {
       this.logger.error(
-        `Failed to get address info - Address: ${maskAddress(address)}, Error: ${getErrorMessage(error)}`
+        `Failed to get address info - Address: ${maskAddress(address)}, Error: ${getErrorMessage(result.error)}`
       );
-      throw error;
+      return err(result.error);
     }
+
+    const addressInfo = result.value;
+
+    // Calculate transaction count
+    const txCount = addressInfo.chain_stats.tx_count + addressInfo.mempool_stats.tx_count;
+
+    // Calculate current balance: funded amount - spent amount
+    const chainBalance = addressInfo.chain_stats.funded_txo_sum - addressInfo.chain_stats.spent_txo_sum;
+    const mempoolBalance = addressInfo.mempool_stats.funded_txo_sum - addressInfo.mempool_stats.spent_txo_sum;
+    const totalBalanceSats = chainBalance + mempoolBalance;
+
+    // Convert satoshis to BTC
+    const balanceBTC = (totalBalanceSats / 100000000).toString();
+
+    this.logger.debug(
+      `Successfully retrieved lightweight address info - Address: ${maskAddress(address)}, TxCount: ${txCount}, BalanceBTC: ${balanceBTC}`
+    );
+
+    return ok({
+      balance: balanceBTC,
+      txCount,
+    });
   }
 
   /**
@@ -119,61 +115,72 @@ export class BlockstreamApiClient extends BaseApiClient {
   private async getRawAddressTransactions(params: {
     address: string;
     since?: number | undefined;
-  }): Promise<BlockstreamTransaction[]> {
+  }): Promise<Result<BlockstreamTransaction[], Error>> {
     const { address, since } = params;
 
     this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}, Since: ${since}`);
 
-    try {
-      // Get address info first to check if there are transactions
-      const addressInfo = await this.httpClient.get<BlockstreamAddressInfo>(`/address/${address}`);
+    // Get address info first to check if there are transactions
+    const addressInfoResult = await this.httpClient.get<BlockstreamAddressInfo>(`/address/${address}`);
 
-      if (addressInfo.chain_stats.tx_count === 0 && addressInfo.mempool_stats.tx_count === 0) {
-        this.logger.debug(`No raw transactions found for address - Address: ${maskAddress(address)}`);
-        return [];
+    if (addressInfoResult.isErr()) {
+      this.logger.error(
+        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(addressInfoResult.error)}`
+      );
+      return err(addressInfoResult.error);
+    }
+
+    const addressInfo = addressInfoResult.value;
+
+    if (addressInfo.chain_stats.tx_count === 0 && addressInfo.mempool_stats.tx_count === 0) {
+      this.logger.debug(`No raw transactions found for address - Address: ${maskAddress(address)}`);
+      return ok([]);
+    }
+
+    // Get transaction list with pagination - return raw transactions directly
+    const allRawTransactions: BlockstreamTransaction[] = [];
+    let lastSeenTxid: string | undefined;
+    let hasMore = true;
+    let batchCount = 0;
+    const maxBatches = 50; // Safety limit
+
+    while (hasMore && batchCount < maxBatches) {
+      const endpoint = lastSeenTxid ? `/address/${address}/txs/chain/${lastSeenTxid}` : `/address/${address}/txs`;
+
+      const txResult = await this.httpClient.get<BlockstreamTransaction[]>(endpoint);
+
+      if (txResult.isErr()) {
+        this.logger.error(
+          `Failed to get raw address transactions batch - Address: ${maskAddress(address)}, Error: ${getErrorMessage(txResult.error)}`
+        );
+        return err(txResult.error);
       }
 
-      // Get transaction list with pagination - return raw transactions directly
-      const allRawTransactions: BlockstreamTransaction[] = [];
-      let lastSeenTxid: string | undefined;
-      let hasMore = true;
-      let batchCount = 0;
-      const maxBatches = 50; // Safety limit
+      const rawTransactions = txResult.value;
 
-      while (hasMore && batchCount < maxBatches) {
-        const endpoint = lastSeenTxid ? `/address/${address}/txs/chain/${lastSeenTxid}` : `/address/${address}/txs`;
-
-        const rawTransactions = await this.httpClient.get<BlockstreamTransaction[]>(endpoint);
-
-        if (!Array.isArray(rawTransactions) || rawTransactions.length === 0) {
-          hasMore = false;
-          break;
-        }
-
-        this.logger.debug(
-          `Retrieved raw transaction batch - Address: ${maskAddress(address)}, BatchSize: ${rawTransactions.length}, Batch: ${batchCount + 1}`
-        );
-
-        // We already have the raw transaction data - no need to fetch again
-        const validRawTransactions = rawTransactions.filter((tx): tx is BlockstreamTransaction => tx !== null);
-        allRawTransactions.push(...validRawTransactions);
-
-        // Update pagination
-        lastSeenTxid = rawTransactions.length > 0 ? rawTransactions[rawTransactions.length - 1]?.txid : undefined;
-        hasMore = rawTransactions.length === 25; // Blockstream typically returns 25 per page
-        batchCount++;
+      if (!Array.isArray(rawTransactions) || rawTransactions.length === 0) {
+        hasMore = false;
+        break;
       }
 
       this.logger.debug(
-        `Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, TotalRawTransactions: ${allRawTransactions.length}, BatchesProcessed: ${batchCount}`
+        `Retrieved raw transaction batch - Address: ${maskAddress(address)}, BatchSize: ${rawTransactions.length}, Batch: ${batchCount + 1}`
       );
 
-      return allRawTransactions;
-    } catch (error) {
-      this.logger.error(
-        `Failed to get raw address transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(error)}`
-      );
-      throw error;
+      // We already have the raw transaction data - no need to fetch again
+      const validRawTransactions = rawTransactions.filter((tx): tx is BlockstreamTransaction => tx !== null);
+      allRawTransactions.push(...validRawTransactions);
+
+      // Update pagination
+      lastSeenTxid = rawTransactions.length > 0 ? rawTransactions[rawTransactions.length - 1]?.txid : undefined;
+      hasMore = rawTransactions.length === 25; // Blockstream typically returns 25 per page
+      batchCount++;
     }
+
+    this.logger.debug(
+      `Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, TotalRawTransactions: ${allRawTransactions.length}, BatchesProcessed: ${batchCount}`
+    );
+
+    return ok(allRawTransactions);
   }
 }

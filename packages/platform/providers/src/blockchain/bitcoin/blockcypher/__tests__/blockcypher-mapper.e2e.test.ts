@@ -29,11 +29,15 @@ describe.skip('BlockCypherTransactionMapper E2E', () => {
     async () => {
       const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa'; // Genesis block address
 
-      const rawTransactions = await client.execute<BlockCypherTransaction[]>({
+      const txResult = await client.execute<BlockCypherTransaction[]>({
         address: testAddress,
         type: 'getRawAddressTransactions',
       });
 
+      expect(txResult.isOk()).toBe(true);
+      if (txResult.isErr()) return;
+
+      const rawTransactions = txResult.value;
       expect(rawTransactions.length).toBeGreaterThan(0);
 
       const rawTx = rawTransactions[0]!;
@@ -66,11 +70,15 @@ describe.skip('BlockCypherTransactionMapper E2E', () => {
     async () => {
       const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa';
 
-      const rawTransactions = await client.execute<BlockCypherTransaction[]>({
+      const txResult = await client.execute<BlockCypherTransaction[]>({
         address: testAddress,
         type: 'getRawAddressTransactions',
       });
 
+      expect(txResult.isOk()).toBe(true);
+      if (txResult.isErr()) return;
+
+      const rawTransactions = txResult.value;
       const confirmedTx = rawTransactions.find((tx) => tx.confirmations > 0);
       if (!confirmedTx) {
         console.warn('No confirmed transactions found, skipping test');
@@ -102,11 +110,15 @@ describe.skip('BlockCypherTransactionMapper E2E', () => {
     async () => {
       const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa';
 
-      const rawTransactions = await client.execute<BlockCypherTransaction[]>({
+      const txResult = await client.execute<BlockCypherTransaction[]>({
         address: testAddress,
         type: 'getRawAddressTransactions',
       });
 
+      expect(txResult.isOk()).toBe(true);
+      if (txResult.isErr()) return;
+
+      const rawTransactions = txResult.value;
       const txWithFee = rawTransactions.find((tx) => tx.fees > 0);
       if (!txWithFee) {
         console.warn('No transactions with fees found, skipping test');
@@ -138,11 +150,15 @@ describe.skip('BlockCypherTransactionMapper E2E', () => {
     async () => {
       const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa';
 
-      const rawTransactions = await client.execute<BlockCypherTransaction[]>({
+      const txResult = await client.execute<BlockCypherTransaction[]>({
         address: testAddress,
         type: 'getRawAddressTransactions',
       });
 
+      expect(txResult.isOk()).toBe(true);
+      if (txResult.isErr()) return;
+
+      const rawTransactions = txResult.value;
       const rawTx = rawTransactions[0]!;
       const metadata: RawTransactionMetadata = {
         providerId: 'blockcypher',

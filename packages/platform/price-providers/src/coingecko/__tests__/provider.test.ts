@@ -138,7 +138,7 @@ describe('CoinGeckoProvider', () => {
       fetchedAt: new Date('2024-01-01T02:00:00Z'),
     };
 
-    httpClientGet.mockResolvedValueOnce(apiResponse);
+    httpClientGet.mockResolvedValueOnce(ok(apiResponse));
     mockTransformSimplePriceResponse.mockReturnValueOnce(ok(expectedPrice));
 
     const result = await provider.fetchPrice({
@@ -192,7 +192,7 @@ describe('CoinGeckoProvider', () => {
       fetchedAt: new Date('2020-05-22T00:00:00Z'),
     };
 
-    httpClientGet.mockResolvedValueOnce(apiResponse);
+    httpClientGet.mockResolvedValueOnce(ok(apiResponse));
     mockTransformHistoricalResponse.mockReturnValueOnce(ok(expectedPrice));
 
     const result = await provider.fetchPrice({

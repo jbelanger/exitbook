@@ -3,7 +3,7 @@
  */
 
 import type { Currency } from '@exitbook/core';
-import { getErrorMessage, wrapError } from '@exitbook/core';
+import { wrapError } from '@exitbook/core';
 import type { HttpClient } from '@exitbook/platform-http';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -189,87 +189,83 @@ export class CryptoCompareProvider extends BasePriceProvider {
    * Fetch price from CryptoCompare API (current or historical)
    */
   private async fetchFromApi(asset: Currency, timestamp: Date, currency: Currency): Promise<Result<PriceData, Error>> {
-    try {
-      const now = new Date();
+    const now = new Date();
 
-      // Use current price API for very recent data
-      if (canUseCurrentPrice(timestamp)) {
-        this.logger.debug({ asset: asset.toString() }, 'Using current price API');
+    // Use current price API for very recent data
+    if (canUseCurrentPrice(timestamp)) {
+      this.logger.debug({ asset: asset.toString() }, 'Using current price API');
 
-        const params = buildPriceParams(asset, currency, this.config.apiKey);
-        const searchParams = new URLSearchParams(params);
-
-        const rawResponse = await this.httpClient.get<unknown>(`/data/price?${searchParams.toString()}`);
-
-        const parseResult = CryptoComparePriceResponseSchema.safeParse(rawResponse);
-        if (!parseResult.success) {
-          return err(new Error(`Invalid price response: ${parseResult.error.message}`));
-        }
-
-        // Transform using pure function
-        const priceDataResult = transformPriceResponse(parseResult.data, asset, timestamp, currency, now);
-        if (priceDataResult.isErr()) {
-          return err(priceDataResult.error);
-        }
-        return ok(priceDataResult.value);
-      }
-
-      // Use historical API for older data
-      this.logger.debug({ asset: asset.toString(), timestamp }, 'Using historical price API');
-
-      const granularity = getHistoricalGranularity(timestamp);
-      const endpoint = `/data/v2/histo${granularity}`;
-
-      const params = buildHistoricalParams(asset, currency, timestamp, this.config.apiKey);
+      const params = buildPriceParams(asset, currency, this.config.apiKey);
       const searchParams = new URLSearchParams(params);
 
-      const rawResponse = await this.httpClient.get<unknown>(`${endpoint}?${searchParams.toString()}`);
-
-      const parseResult = CryptoCompareHistoricalResponseSchema.safeParse(rawResponse);
-      if (!parseResult.success) {
-        return err(new Error(`Invalid historical price response: ${parseResult.error.message}`));
+      const httpResult = await this.httpClient.get<unknown>(`/data/price?${searchParams.toString()}`);
+      if (httpResult.isErr()) {
+        return err(httpResult.error);
       }
+      const rawResponse = httpResult.value;
 
-      // Check for CryptoCompare-specific "market does not exist" error
-      // Example: "CCCAGG market does not exist for this coin pair (CFG-USD)"
-      //
-      // NOTE: This uses string matching because CryptoCompare returns 200 OK with error messages
-      // in the response body rather than using HTTP status codes. If CryptoCompare changes their
-      // error message format, this detection will break. This is a known limitation of their API.
-      if (parseResult.data.Response !== 'Success') {
-        const errorMessage = parseResult.data.Message || 'Unknown error';
-
-        if (errorMessage.includes('market does not exist')) {
-          return err(
-            new CoinNotFoundError(
-              `CryptoCompare does not have data for ${asset.toString()}: ${errorMessage}`,
-              asset.toString(),
-              'cryptocompare',
-              { currency: currency.toString() }
-            )
-          );
-        }
-
-        // Other API errors (rate limit, etc)
-        return err(new Error(`CryptoCompare API error: ${errorMessage}`));
+      const parseResult = CryptoComparePriceResponseSchema.safeParse(rawResponse);
+      if (!parseResult.success) {
+        return err(new Error(`Invalid price response: ${parseResult.error.message}`));
       }
 
       // Transform using pure function
-      const priceDataResult = transformHistoricalResponse(
-        parseResult.data,
-        asset,
-        timestamp,
-        currency,
-        now,
-        granularity
-      );
+      const priceDataResult = transformPriceResponse(parseResult.data, asset, timestamp, currency, now);
       if (priceDataResult.isErr()) {
         return err(priceDataResult.error);
       }
       return ok(priceDataResult.value);
-    } catch (error) {
-      const message = getErrorMessage(error);
-      return err(new Error(`API fetch failed: ${message}`));
     }
+
+    // Use historical API for older data
+    this.logger.debug({ asset: asset.toString(), timestamp }, 'Using historical price API');
+
+    const granularity = getHistoricalGranularity(timestamp);
+    const endpoint = `/data/v2/histo${granularity}`;
+
+    const params = buildHistoricalParams(asset, currency, timestamp, this.config.apiKey);
+    const searchParams = new URLSearchParams(params);
+
+    const httpResult = await this.httpClient.get<unknown>(`${endpoint}?${searchParams.toString()}`);
+    if (httpResult.isErr()) {
+      return err(httpResult.error);
+    }
+    const rawResponse = httpResult.value;
+
+    const parseResult = CryptoCompareHistoricalResponseSchema.safeParse(rawResponse);
+    if (!parseResult.success) {
+      return err(new Error(`Invalid historical price response: ${parseResult.error.message}`));
+    }
+
+    // Check for CryptoCompare-specific "market does not exist" error
+    // Example: "CCCAGG market does not exist for this coin pair (CFG-USD)"
+    //
+    // NOTE: This uses string matching because CryptoCompare returns 200 OK with error messages
+    // in the response body rather than using HTTP status codes. If CryptoCompare changes their
+    // error message format, this detection will break. This is a known limitation of their API.
+    if (parseResult.data.Response !== 'Success') {
+      const errorMessage = parseResult.data.Message || 'Unknown error';
+
+      if (errorMessage.includes('market does not exist')) {
+        return err(
+          new CoinNotFoundError(
+            `CryptoCompare does not have data for ${asset.toString()}: ${errorMessage}`,
+            asset.toString(),
+            'cryptocompare',
+            { currency: currency.toString() }
+          )
+        );
+      }
+
+      // Other API errors (rate limit, etc)
+      return err(new Error(`CryptoCompare API error: ${errorMessage}`));
+    }
+
+    // Transform using pure function
+    const priceDataResult = transformHistoricalResponse(parseResult.data, asset, timestamp, currency, now, granularity);
+    if (priceDataResult.isErr()) {
+      return err(priceDataResult.error);
+    }
+    return ok(priceDataResult.value);
   }
 }

@@ -18,16 +18,18 @@ describe('MoralisTransactionMapper E2E - Multi-Chain', () => {
 
     beforeAll(async () => {
       // Fetch data once to avoid hammering the API
-      try {
-        cachedTransactions = await apiClient.execute<MoralisTransaction[]>({
-          address: testAddress,
-          type: 'getRawAddressTransactions',
-        });
-        console.log(`Fetched ${cachedTransactions.length} Ethereum transactions for testing`);
-      } catch (error) {
-        console.error('Failed to fetch Ethereum transactions:', error);
-        throw error;
+      const result = await apiClient.execute<MoralisTransaction[]>({
+        address: testAddress,
+        type: 'getRawAddressTransactions',
+      });
+
+      if (result.isErr()) {
+        console.error('Failed to fetch Ethereum transactions:', result.error);
+        throw result.error;
       }
+
+      cachedTransactions = result.value;
+      console.log(`Fetched ${cachedTransactions.length} Ethereum transactions for testing`);
     }, 60000);
 
     it('should map real Ethereum transaction data from API', () => {
@@ -100,16 +102,18 @@ describe('MoralisTransactionMapper E2E - Multi-Chain', () => {
 
     beforeAll(async () => {
       // Fetch data once to avoid hammering the API
-      try {
-        cachedTransactions = await apiClient.execute<MoralisTransaction[]>({
-          address: testAddress,
-          type: 'getRawAddressTransactions',
-        });
-        console.log(`Fetched ${cachedTransactions.length} Avalanche transactions for testing`);
-      } catch (error) {
-        console.error('Failed to fetch Avalanche transactions:', error);
-        throw error;
+      const result = await apiClient.execute<MoralisTransaction[]>({
+        address: testAddress,
+        type: 'getRawAddressTransactions',
+      });
+
+      if (result.isErr()) {
+        console.error('Failed to fetch Avalanche transactions:', result.error);
+        throw result.error;
       }
+
+      cachedTransactions = result.value;
+      console.log(`Fetched ${cachedTransactions.length} Avalanche transactions for testing`);
     }, 60000);
 
     it('should map real Avalanche transaction data from API', () => {

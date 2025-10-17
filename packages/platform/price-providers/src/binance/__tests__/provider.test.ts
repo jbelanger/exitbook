@@ -159,7 +159,7 @@ describe('BinanceProvider', () => {
     });
     mockTransformBinanceKlineResponse.mockReturnValue(ok(expectedPrice));
 
-    httpClientGet.mockResolvedValueOnce(klineResponse);
+    httpClientGet.mockResolvedValueOnce(ok(klineResponse));
 
     const result = await provider.fetchPrice({
       asset: Currency.create('BTC'),
@@ -195,7 +195,7 @@ describe('BinanceProvider', () => {
       code: -1121,
       msg: 'Invalid symbol.',
     };
-    httpClientGet.mockResolvedValueOnce(errorResponse);
+    httpClientGet.mockResolvedValueOnce(ok(errorResponse));
 
     // Second attempt succeeds
     const klineResponse = [
@@ -225,7 +225,7 @@ describe('BinanceProvider', () => {
       timestamp: defaultTimestamp,
     };
 
-    httpClientGet.mockResolvedValueOnce(klineResponse);
+    httpClientGet.mockResolvedValueOnce(ok(klineResponse));
     mockTransformBinanceKlineResponse.mockReturnValue(ok(expectedPrice));
 
     const result = await provider.fetchPrice({
@@ -256,7 +256,7 @@ describe('BinanceProvider', () => {
       msg: 'Invalid symbol.',
     };
 
-    httpClientGet.mockResolvedValue(errorResponse);
+    httpClientGet.mockResolvedValue(ok(errorResponse));
 
     const result = await provider.fetchPrice({
       asset: Currency.create('BTC'),
@@ -289,7 +289,7 @@ describe('BinanceProvider', () => {
       msg: 'Too many requests.',
     };
 
-    httpClientGet.mockResolvedValueOnce(errorResponse);
+    httpClientGet.mockResolvedValueOnce(ok(errorResponse));
 
     const result = await provider.fetchPrice({
       asset: Currency.create('BTC'),
@@ -317,7 +317,7 @@ describe('BinanceProvider', () => {
     });
 
     // Empty array - no data available
-    httpClientGet.mockResolvedValueOnce([]);
+    httpClientGet.mockResolvedValueOnce(ok([]));
 
     const result = await provider.fetchPrice({
       asset: Currency.create('BTC'),
@@ -363,7 +363,7 @@ describe('BinanceProvider', () => {
     // Transformation fails (e.g., invalid price)
     mockTransformBinanceKlineResponse.mockReturnValue(err(new Error('Invalid price in kline')));
 
-    httpClientGet.mockResolvedValueOnce(klineResponse);
+    httpClientGet.mockResolvedValueOnce(ok(klineResponse));
 
     const result = await provider.fetchPrice({
       asset: Currency.create('BTC'),
@@ -388,7 +388,7 @@ describe('BinanceProvider', () => {
     // Invalid response format
     const invalidResponse = { invalid: 'format' };
 
-    httpClientGet.mockResolvedValueOnce(invalidResponse);
+    httpClientGet.mockResolvedValueOnce(ok(invalidResponse));
 
     const result = await provider.fetchPrice({
       asset: Currency.create('BTC'),

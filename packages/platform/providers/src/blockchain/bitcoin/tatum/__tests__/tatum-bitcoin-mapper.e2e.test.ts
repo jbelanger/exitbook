@@ -28,11 +28,17 @@ describe('TatumBitcoinTransactionMapper E2E', () => {
     async () => {
       const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa'; // Genesis block address
 
-      const rawTransactions = await client.execute<TatumBitcoinTransaction[]>({
+      const result = await client.execute<TatumBitcoinTransaction[]>({
         address: testAddress,
         type: 'getRawAddressTransactions',
       });
 
+      expect(result.isOk()).toBe(true);
+      if (!result.isOk()) {
+        throw result.error;
+      }
+
+      const rawTransactions = result.value;
       expect(rawTransactions.length).toBeGreaterThan(0);
 
       const rawTx = rawTransactions[0]!;
@@ -43,11 +49,11 @@ describe('TatumBitcoinTransactionMapper E2E', () => {
         address: testAddress,
       };
 
-      const result = mapper.map(rawTx, metadata, sessionContext);
+      const mapResult = mapper.map(rawTx, metadata, sessionContext);
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const normalized = result.value;
+      expect(mapResult.isOk()).toBe(true);
+      if (mapResult.isOk()) {
+        const normalized = mapResult.value;
         expect(normalized.id).toBe(rawTx.hash);
         expect(normalized.currency).toBe('BTC');
         expect(normalized.providerId).toBe('tatum');
@@ -65,11 +71,17 @@ describe('TatumBitcoinTransactionMapper E2E', () => {
     async () => {
       const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa';
 
-      const rawTransactions = await client.execute<TatumBitcoinTransaction[]>({
+      const result = await client.execute<TatumBitcoinTransaction[]>({
         address: testAddress,
         type: 'getRawAddressTransactions',
       });
 
+      expect(result.isOk()).toBe(true);
+      if (!result.isOk()) {
+        throw result.error;
+      }
+
+      const rawTransactions = result.value;
       const confirmedTx = rawTransactions.find((tx) => tx.blockNumber);
       if (!confirmedTx) {
         console.warn('No confirmed transactions found, skipping test');
@@ -83,11 +95,11 @@ describe('TatumBitcoinTransactionMapper E2E', () => {
         address: testAddress,
       };
 
-      const result = mapper.map(confirmedTx, metadata, sessionContext);
+      const mapResult = mapper.map(confirmedTx, metadata, sessionContext);
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const normalized = result.value;
+      expect(mapResult.isOk()).toBe(true);
+      if (mapResult.isOk()) {
+        const normalized = mapResult.value;
         expect(normalized.status).toBe('success');
         expect(normalized.blockHeight).toBeDefined();
         expect(normalized.blockId).toBeDefined();
@@ -101,11 +113,17 @@ describe('TatumBitcoinTransactionMapper E2E', () => {
     async () => {
       const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa';
 
-      const rawTransactions = await client.execute<TatumBitcoinTransaction[]>({
+      const result = await client.execute<TatumBitcoinTransaction[]>({
         address: testAddress,
         type: 'getRawAddressTransactions',
       });
 
+      expect(result.isOk()).toBe(true);
+      if (!result.isOk()) {
+        throw result.error;
+      }
+
+      const rawTransactions = result.value;
       const txWithFee = rawTransactions.find((tx) => tx.fee > 0);
       if (!txWithFee) {
         console.warn('No transactions with fees found, skipping test');
@@ -119,11 +137,11 @@ describe('TatumBitcoinTransactionMapper E2E', () => {
         address: testAddress,
       };
 
-      const result = mapper.map(txWithFee, metadata, sessionContext);
+      const mapResult = mapper.map(txWithFee, metadata, sessionContext);
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const normalized = result.value;
+      expect(mapResult.isOk()).toBe(true);
+      if (mapResult.isOk()) {
+        const normalized = mapResult.value;
         expect(normalized.feeAmount).toBeDefined();
         expect(normalized.feeCurrency).toBe('BTC');
         expect(parseFloat(normalized.feeAmount!)).toBeGreaterThan(0);
@@ -137,11 +155,17 @@ describe('TatumBitcoinTransactionMapper E2E', () => {
     async () => {
       const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa';
 
-      const rawTransactions = await client.execute<TatumBitcoinTransaction[]>({
+      const result = await client.execute<TatumBitcoinTransaction[]>({
         address: testAddress,
         type: 'getRawAddressTransactions',
       });
 
+      expect(result.isOk()).toBe(true);
+      if (!result.isOk()) {
+        throw result.error;
+      }
+
+      const rawTransactions = result.value;
       const rawTx = rawTransactions[0]!;
       const metadata: RawTransactionMetadata = {
         providerId: 'tatum',
@@ -150,11 +174,11 @@ describe('TatumBitcoinTransactionMapper E2E', () => {
         address: testAddress,
       };
 
-      const result = mapper.map(rawTx, metadata, sessionContext);
+      const mapResult = mapper.map(rawTx, metadata, sessionContext);
 
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        const normalized = result.value;
+      expect(mapResult.isOk()).toBe(true);
+      if (mapResult.isOk()) {
+        const normalized = mapResult.value;
 
         // Check inputs
         expect(normalized.inputs.length).toBe(rawTx.inputs.length);

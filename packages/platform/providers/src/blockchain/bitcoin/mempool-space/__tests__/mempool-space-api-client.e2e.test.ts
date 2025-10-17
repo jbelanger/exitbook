@@ -27,26 +27,34 @@ describe('MempoolSpaceProvider Integration', () => {
         type: 'getAddressBalances',
       });
 
-      expect(result).toHaveProperty('txCount');
-      expect(result).toHaveProperty('balance');
-      expect(typeof result.txCount).toBe('number');
-      expect(typeof result.balance).toBe('string');
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const addressInfo = result.value;
+        expect(addressInfo).toHaveProperty('txCount');
+        expect(addressInfo).toHaveProperty('balance');
+        expect(typeof addressInfo.txCount).toBe('number');
+        expect(typeof addressInfo.balance).toBe('string');
+      }
     }, 30000);
   });
 
   describe('Raw Address Transactions', () => {
     it('should fetch raw address transactions successfully', async () => {
-      const transactions = await provider.execute<MempoolTransaction[]>({
+      const result = await provider.execute<MempoolTransaction[]>({
         address: testAddress,
         type: 'getRawAddressTransactions',
       });
 
-      expect(Array.isArray(transactions)).toBe(true);
-      if (transactions.length > 0) {
-        expect(transactions[0]).toHaveProperty('txid');
-        expect(transactions[0]).toHaveProperty('vin');
-        expect(transactions[0]).toHaveProperty('vout');
-        expect(transactions[0]).toHaveProperty('status');
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const transactions = result.value;
+        expect(Array.isArray(transactions)).toBe(true);
+        if (transactions.length > 0) {
+          expect(transactions[0]).toHaveProperty('txid');
+          expect(transactions[0]).toHaveProperty('vin');
+          expect(transactions[0]).toHaveProperty('vout');
+          expect(transactions[0]).toHaveProperty('status');
+        }
       }
     }, 30000);
   });
