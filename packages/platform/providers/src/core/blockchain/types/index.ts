@@ -6,8 +6,6 @@ export * from './health.js';
 
 export * from './mapper.js';
 
-export * from './normalizer.js';
-
 export * from './operations.js';
 
 export * from './provider.js';

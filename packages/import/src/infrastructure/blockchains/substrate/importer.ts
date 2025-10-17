@@ -79,9 +79,9 @@ export class SubstrateImporter implements IImporter {
     const result = await this.providerManager.executeWithFailover(this.chainConfig.chainName, {
       address,
       getCacheKey: (cacheParams) =>
-        `${this.chainConfig.chainName}${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getRawAddressTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
+        `${this.chainConfig.chainName}${cacheParams.type === 'getAddressTransactions' ? cacheParams.address : 'unknown'}_${cacheParams.type === 'getAddressTransactions' ? cacheParams.since || 'all' : 'unknown'}`,
       since,
-      type: 'getRawAddressTransactions',
+      type: 'getAddressTransactions',
     });
 
     return result.map((response) => {

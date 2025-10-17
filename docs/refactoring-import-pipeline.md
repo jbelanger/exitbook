@@ -108,7 +108,7 @@ API clients currently implement internal pagination loops:
 
 ```typescript
 // Current: Provider handles ALL pagination internally
-async getRawAddressTransactions(address: string): Promise<Transaction[]> {
+async getAddressTransactions(address: string): Promise<Transaction[]> {
   const allTxs = [];
   let cursor = undefined;
 
@@ -196,7 +196,7 @@ export class BitcoinTransactionImporter implements IImporter {
   ): Promise<Result<RawTransactionWithMetadata[], ProviderError>> {
     // Fetch from provider (with internal pagination in API client)
     const result = await this.providerManager.executeWithFailover('bitcoin', {
-      type: 'getRawAddressTransactions',
+      type: 'getAddressTransactions',
       address: address,
       since: since,
     });
@@ -239,7 +239,7 @@ export class BlockstreamApiClient extends BaseApiClient {
     this.mapper = new BlockstreamTransactionMapper(); // ✅ NEW: Instantiate mapper
   }
 
-  private async getRawAddressTransactions(params: {
+  private async getAddressTransactions(params: {
     address: string;
     since?: number;
   }): Promise<Result<TransactionWithRawData<BitcoinTransaction>[], Error>> {
@@ -522,7 +522,7 @@ await storage.save({ normalized: normalized.value, raw: rawData });
 
 ```typescript
 // API Client: Internal pagination loop with client-controlled since
-async getRawAddressTransactions(address: string, since?: number): Promise<Transaction[]> {
+async getAddressTransactions(address: string, since?: number): Promise<Transaction[]> {
   const all = [];
   let cursor;
 
@@ -540,7 +540,7 @@ async getRawAddressTransactions(address: string, since?: number): Promise<Transa
 
 ```typescript
 // API Client: Return ONE page + cursor (NO since parameter exposed to clients)
-async getRawAddressTransactions(params: {
+async getAddressTransactions(params: {
   address: string;
   cursor?: PaginationCursor; // Server-computed from session state
   limit?: number;
@@ -741,7 +741,7 @@ import type { PaginationCursor } from '@exitbook/import/app/ports/importers.js';
 
 export type ProviderOperationParams =
   | {
-      type: 'getRawAddressTransactions';
+      type: 'getAddressTransactions';
       address: string;
 
       // Enhanced pagination support (since REMOVED from public API)
@@ -906,7 +906,7 @@ if (countResult.isOk()) {
   name: 'alchemy',
   blockchain: 'ethereum',
   capabilities: {
-    operations: ['getRawAddressTransactions'],
+    operations: ['getAddressTransactions'],
     supportedCursorTypes: ['blockNumber', 'pageToken'],
     replayWindow: { blocks: 50 }, // ✨ Rewind 50 blocks on failover
     requiresApiKey: true,
@@ -933,7 +933,7 @@ class AlchemyProvider implements IBlockchainProvider {
       });
     }
 
-    return this.apiClient.getRawAddressTransactions({ ...operation, cursor });
+    return this.apiClient.getAddressTransactions({ ...operation, cursor });
   }
 }
 
@@ -942,7 +942,7 @@ class AlchemyProvider implements IBlockchainProvider {
   name: 'mempool.space',
   blockchain: 'bitcoin',
   capabilities: {
-    operations: ['getRawAddressTransactions', 'getTransactionCount'], // ✨ NEW
+    operations: ['getAddressTransactions', 'getTransactionCount'], // ✨ NEW
     supportedCursorTypes: ['txHash'],
     replayWindow: { minutes: 60 }, // ✨ Rewind 60min on failover (txHash → timestamp conversion)
     requiresApiKey: false,
@@ -969,7 +969,7 @@ class MempoolSpaceProvider implements IBlockchainProvider {
       });
     }
 
-    return this.apiClient.getRawAddressTransactions({ ...operation, cursor: startParam });
+    return this.apiClient.getAddressTransactions({ ...operation, cursor: startParam });
   }
 }
 ```
@@ -996,7 +996,7 @@ export class BitcoinTransactionImporter implements IImporter {
 
     // 1. Fetch ONE page from provider with cursor (server-controlled)
     const result = await this.providerManager.executeWithFailover('bitcoin', {
-      type: 'getRawAddressTransactions',
+      type: 'getAddressTransactions',
       address: address!,
       cursor: cursor?.type === 'txHash' ? cursor.value : undefined,
       limit,
@@ -1077,7 +1077,7 @@ export class BitcoinTransactionImporter implements IImporter {
 **File:** `packages/platform/providers/src/blockchain/bitcoin/blockstream/blockstream-api-client.ts`
 
 ```typescript
-private async getRawAddressTransactions(params: {
+private async getAddressTransactions(params: {
   address: string;
   cursor?: string;  // lastSeenTxid (server-provided from session state)
   limit?: number;
@@ -1366,9 +1366,9 @@ async processRawDataToTransactions(
 **Tasks:**
 
 1. ✅ Start with Mempool.space (has both pagination and count support)
-2. ✅ Annotate provider with `operations: ['getRawAddressTransactions', 'getTransactionCount']`
+2. ✅ Annotate provider with `operations: ['getAddressTransactions', 'getTransactionCount']`
 3. ✅ Annotate provider with `supportedCursorTypes: ['txHash']`
-4. ✅ Remove internal `while` loop from `getRawAddressTransactions`
+4. ✅ Remove internal `while` loop from `getAddressTransactions`
 5. ✅ Accept typed `cursor` and `limit` parameters
 6. ✅ Return `PaginatedProviderResponse<MempoolTransaction[]>`
 7. ✅ Extract typed `nextCursor: { type: 'txHash', value: lastTxid }`

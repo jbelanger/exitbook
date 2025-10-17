@@ -9,6 +9,7 @@ describe('MempoolSpaceProvider Integration', () => {
   const config = ProviderRegistry.createDefaultConfig('bitcoin', 'mempool.space');
   const provider = new MempoolSpaceApiClient(config);
   const testAddress = '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2';
+  const emptyAddress = 'bc1qeppvcnauqak9xn7mmekw4crr79tl9c8lnxpp2k'; // Address with no transactions
 
   describe('Health Checks', () => {
     it('should report healthy when API is accessible', async () => {
@@ -42,7 +43,7 @@ describe('MempoolSpaceProvider Integration', () => {
     it('should fetch normalized address transactions successfully', async () => {
       const result = await provider.execute<TransactionWithRawData<BitcoinTransaction>[]>({
         address: testAddress,
-        type: 'getRawAddressTransactions',
+        type: 'getAddressTransactions',
       });
 
       expect(result.isOk()).toBe(true);
@@ -71,6 +72,32 @@ describe('MempoolSpaceProvider Integration', () => {
           expect(Array.isArray(tx.inputs)).toBe(true);
           expect(Array.isArray(tx.outputs)).toBe(true);
         }
+      }
+    }, 30000);
+  });
+
+  describe('Has Address Transactions', () => {
+    it('should return true for address with transactions', async () => {
+      const result = await provider.execute<boolean>({
+        address: testAddress,
+        type: 'hasAddressTransactions',
+      });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value).toBe(true);
+      }
+    }, 30000);
+
+    it('should return false for address without transactions', async () => {
+      const result = await provider.execute<boolean>({
+        address: emptyAddress,
+        type: 'hasAddressTransactions',
+      });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value).toBe(false);
       }
     }, 30000);
   });

@@ -26,7 +26,7 @@ describe('SnowtraceApiClient Integration', () => {
     it('should fetch address balance successfully', async () => {
       const result = await provider.execute<SnowtraceBalanceResponse>({
         address: testAddress,
-        type: 'getRawAddressBalance',
+        type: 'getAddressBalances',
       });
 
       expect(result.isOk()).toBe(true);
@@ -45,7 +45,7 @@ describe('SnowtraceApiClient Integration', () => {
     it('should fetch raw address transactions successfully', async () => {
       const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: testAddress,
-        type: 'getRawAddressTransactions',
+        type: 'getAddressTransactions',
       });
 
       expect(result.isOk()).toBe(true);
@@ -69,7 +69,7 @@ describe('SnowtraceApiClient Integration', () => {
     it('should fetch raw address internal transactions successfully', async () => {
       const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: testAddress,
-        type: 'getRawAddressInternalTransactions',
+        type: 'getAddressInternalTransactions',
       });
 
       expect(result.isOk()).toBe(true);
@@ -94,7 +94,7 @@ describe('SnowtraceApiClient Integration', () => {
     it('should fetch token transactions successfully', async () => {
       const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: testAddress,
-        type: 'getTokenTransactions',
+        type: 'getAddressTokenTransactions',
       });
 
       expect(result.isOk()).toBe(true);

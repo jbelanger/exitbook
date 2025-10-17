@@ -170,7 +170,7 @@ describe('CosmosImporter', () => {
 
       const [, operation] = executeCalls[0]!;
       expect(operation.address).toBe(address);
-      expect(operation.type).toBe('getRawAddressTransactions');
+      expect(operation.type).toBe('getAddressTransactions');
       expect(operation.getCacheKey).toBeDefined();
     });
 
@@ -221,7 +221,7 @@ describe('CosmosImporter', () => {
 
       const [, operation] = executeCalls[0]!;
       expect(operation.address).toBe(address);
-      expect(operation.type).toBe('getRawAddressTransactions');
+      expect(operation.type).toBe('getAddressTransactions');
     });
 
     test('should handle multiple transactions', async () => {
@@ -355,7 +355,7 @@ describe('CosmosImporter', () => {
 
       const [, operation] = executeCalls[0]!;
       expect(operation.address).toBe(address);
-      expect(operation.type).toBe('getRawAddressTransactions');
+      expect(operation.type).toBe('getAddressTransactions');
     });
 
     test('should generate correct error messages for different chains', async () => {

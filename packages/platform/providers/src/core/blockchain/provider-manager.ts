@@ -433,10 +433,6 @@ export class BlockchainProviderManager {
           provider: provider.name,
           willRetry: attemptNumber < providers.length,
         };
-        // Only log params for non-sensitive operations
-        if (operation.type === 'custom') {
-          logData.params = { type: operation.type };
-        }
 
         if (attemptNumber < providers.length) {
           logger.warn(`Provider ${provider.name} failed, trying next provider: ${logData.error}`);

@@ -9,6 +9,7 @@ describe('TatumBitcoinApiClient E2E', () => {
   const config = ProviderRegistry.createDefaultConfig('bitcoin', 'tatum');
   const provider = new TatumBitcoinApiClient(config);
   const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa'; // Genesis block address
+  const emptyAddress = 'bc1qeppvcnauqak9xn7mmekw4crr79tl9c8lnxpp2k'; // Address with no transactions
 
   it.skipIf(!process.env['TATUM_API_KEY'] || process.env['TATUM_API_KEY'] === 'YourApiKeyToken')(
     'should report healthy when API is accessible',
@@ -47,7 +48,7 @@ describe('TatumBitcoinApiClient E2E', () => {
     async () => {
       const result = await provider.execute<TransactionWithRawData<BitcoinTransaction>[]>({
         address: testAddress,
-        type: 'getRawAddressTransactions',
+        type: 'getAddressTransactions',
       });
 
       expect(result.isOk()).toBe(true);
@@ -75,6 +76,38 @@ describe('TatumBitcoinApiClient E2E', () => {
           expect(Array.isArray(tx.inputs)).toBe(true);
           expect(Array.isArray(tx.outputs)).toBe(true);
         }
+      }
+    },
+    30000
+  );
+
+  it.skipIf(!process.env['TATUM_API_KEY'] || process.env['TATUM_API_KEY'] === 'YourApiKeyToken')(
+    'should return true for address with transactions',
+    async () => {
+      const result = await provider.execute<boolean>({
+        address: testAddress,
+        type: 'hasAddressTransactions',
+      });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value).toBe(true);
+      }
+    },
+    30000
+  );
+
+  it.skipIf(!process.env['TATUM_API_KEY'] || process.env['TATUM_API_KEY'] === 'YourApiKeyToken')(
+    'should return false for address without transactions',
+    async () => {
+      const result = await provider.execute<boolean>({
+        address: emptyAddress,
+        type: 'hasAddressTransactions',
+      });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value).toBe(false);
       }
     },
     30000

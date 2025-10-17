@@ -34,11 +34,11 @@ const CHAIN_ID_MAP: Record<string, string> = {
   blockchain: 'ethereum',
   capabilities: {
     supportedOperations: [
-      'getRawAddressTransactions',
-      'getRawAddressInternalTransactions',
-      'getRawAddressBalance',
-      'getTokenTransactions',
-      'getRawTokenBalances',
+      'getAddressTransactions',
+      'getAddressInternalTransactions',
+      'getAddressBalances',
+      'getAddressTokenTransactions',
+      'getAddressTokenBalances',
     ],
   },
   defaultConfig: {
@@ -98,32 +98,32 @@ export class MoralisApiClient extends BaseApiClient {
     this.logger.debug(`Executing operation: ${operation.type}`);
 
     switch (operation.type) {
-      case 'getRawAddressTransactions': {
+      case 'getAddressTransactions': {
         const { address, since } = operation;
         this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
-        return (await this.getRawAddressTransactions(address, since)) as Result<T, Error>;
+        return (await this.getAddressTransactions(address, since)) as Result<T, Error>;
       }
-      case 'getRawAddressInternalTransactions': {
+      case 'getAddressInternalTransactions': {
         const { address, since } = operation;
         this.logger.debug(`Fetching raw address internal transactions - Address: ${maskAddress(address)}`);
-        return (await this.getRawAddressInternalTransactions(address, since)) as Result<T, Error>;
+        return (await this.getAddressInternalTransactions(address, since)) as Result<T, Error>;
       }
-      case 'getRawAddressBalance': {
+      case 'getAddressBalances': {
         const { address } = operation;
         this.logger.debug(`Fetching raw address balance - Address: ${maskAddress(address)}`);
-        return (await this.getRawAddressBalance(address)) as Result<T, Error>;
+        return (await this.getAddressBalances(address)) as Result<T, Error>;
       }
-      case 'getTokenTransactions': {
+      case 'getAddressTokenTransactions': {
         const { address, contractAddress, since } = operation;
         this.logger.debug(
           `Fetching token transactions - Address: ${maskAddress(address)}, Contract: ${contractAddress || 'all'}`
         );
-        return (await this.getTokenTransactions(address, contractAddress, since)) as Result<T, Error>;
+        return (await this.getAddressTokenTransactions(address, contractAddress, since)) as Result<T, Error>;
       }
-      case 'getRawTokenBalances': {
+      case 'getAddressTokenBalances': {
         const { address, contractAddresses } = operation;
         this.logger.debug(`Fetching raw token balances - Address: ${maskAddress(address)}`);
-        return (await this.getRawTokenBalances(address, contractAddresses)) as Result<T, Error>;
+        return (await this.getAddressTokenBalances(address, contractAddresses)) as Result<T, Error>;
       }
       default:
         return err(new Error(`Unsupported operation: ${operation.type}`));
@@ -140,7 +140,7 @@ export class MoralisApiClient extends BaseApiClient {
     };
   }
 
-  private async getRawAddressBalance(address: string): Promise<Result<MoralisNativeBalance, Error>> {
+  private async getAddressBalances(address: string): Promise<Result<MoralisNativeBalance, Error>> {
     const params = new URLSearchParams({
       chain: this.moralisChainId,
     });
@@ -158,7 +158,7 @@ export class MoralisApiClient extends BaseApiClient {
     return ok(response);
   }
 
-  private async getRawAddressTransactions(
+  private async getAddressTransactions(
     address: string,
     since?: number
   ): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {
@@ -247,20 +247,20 @@ export class MoralisApiClient extends BaseApiClient {
     return ok(transactions);
   }
 
-  private getRawAddressInternalTransactions(
+  private getAddressInternalTransactions(
     address: string,
     _since?: number
   ): Promise<Result<MoralisTransaction[], Error>> {
     // Moralis includes internal transactions automatically when fetching regular transactions
     // with the 'include=internal_transactions' parameter. To avoid duplicate API calls,
-    // internal transactions should be fetched via getRawAddressTransactions instead.
+    // internal transactions should be fetched via getAddressTransactions instead.
     this.logger.info(
-      `Moralis internal transactions are included in getRawAddressTransactions call - returning empty array to avoid duplicate fetching for ${maskAddress(address)}`
+      `Moralis internal transactions are included in getAddressTransactions call - returning empty array to avoid duplicate fetching for ${maskAddress(address)}`
     );
     return Promise.resolve(ok([]));
   }
 
-  private async getRawTokenBalances(
+  private async getAddressTokenBalances(
     address: string,
     contractAddresses?: string[]
   ): Promise<Result<MoralisTokenBalance[], Error>> {
@@ -287,7 +287,7 @@ export class MoralisApiClient extends BaseApiClient {
     return ok(balances);
   }
 
-  private async getTokenTransactions(
+  private async getAddressTokenTransactions(
     address: string,
     contractAddress?: string,
     since?: number

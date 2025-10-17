@@ -16,7 +16,7 @@ import type { InjectiveExplorerResponse } from './injective-explorer.types.ts';
   baseUrl: 'https://sentry.exchange.grpc-web.injective.network',
   blockchain: 'injective',
   capabilities: {
-    supportedOperations: ['getRawAddressTransactions'],
+    supportedOperations: ['getAddressTransactions'],
   },
   defaultConfig: {
     rateLimit: {
@@ -52,12 +52,12 @@ export class InjectiveExplorerApiClient extends BaseApiClient {
 
   async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
     this.logger.debug(
-      `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
+      `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address) : 'N/A'}`
     );
 
     switch (operation.type) {
-      case 'getRawAddressTransactions':
-        return (await this.getRawAddressTransactions({
+      case 'getAddressTransactions':
+        return (await this.getAddressTransactions({
           address: operation.address,
           since: operation.since,
         })) as Result<T, Error>;
@@ -76,7 +76,7 @@ export class InjectiveExplorerApiClient extends BaseApiClient {
     };
   }
 
-  private async getRawAddressTransactions(params: {
+  private async getAddressTransactions(params: {
     address: string;
     since?: number | undefined;
   }): Promise<Result<TransactionWithRawData<CosmosTransaction>[], Error>> {

@@ -6,14 +6,7 @@ import { err, ok, type Result } from 'neverthrow';
 
 import type { BlockchainProviderManager } from '../../core/blockchain/provider-manager.ts';
 
-import type {
-  AddressInfo,
-  AddressType,
-  BipStandard,
-  BitcoinWalletAddress,
-  SmartDetectionResult,
-  XpubType,
-} from './types.js';
+import type { AddressType, BipStandard, BitcoinWalletAddress, SmartDetectionResult, XpubType } from './types.js';
 
 const logger = getLogger('BitcoinUtils');
 
@@ -230,11 +223,11 @@ export class BitcoinUtils {
       const address = allDerived[i];
       if (!address) continue; // Skip invalid addresses
 
-      // Fetch lightweight address info using provider manager
+      // Check if address has transactions using provider manager
       const result = await providerManager.executeWithFailover('bitcoin', {
         address,
-        getCacheKey: (params) => `bitcoin:address-info:${(params as { address: string }).address}`,
-        type: 'getAddressBalances',
+        getCacheKey: (params) => `bitcoin:has-txs:${(params as { address: string }).address}`,
+        type: 'hasAddressTransactions',
       });
 
       if (result.isErr()) {
@@ -253,14 +246,12 @@ export class BitcoinUtils {
       // Reset error count on successful API call
       errorCount = 0;
 
-      const addressInfo = result.value.data as AddressInfo;
-
-      const hasActivity = addressInfo.txCount > 0;
+      const hasActivity = result.value.data as boolean;
       if (hasActivity) {
         // Found an active address!
         lastUsedIndex = i;
         consecutiveUnusedCount = 0; // Reset the counter
-        logger.debug(`Found activity at index ${i}: ${address} (${addressInfo.txCount} transactions)`);
+        logger.debug(`Found activity at index ${i}: ${address}`);
       } else {
         // Unused address
         consecutiveUnusedCount++;
@@ -345,7 +336,7 @@ export class BitcoinUtils {
 
         const legacyResult = await providerManager.executeWithFailover('bitcoin', {
           address: firstLegacyAddress,
-          type: 'getAddressBalances',
+          type: 'hasAddressTransactions',
         });
 
         if (legacyResult.isErr()) {
@@ -353,8 +344,7 @@ export class BitcoinUtils {
           throw legacyResult.error;
         }
 
-        const legacyAddressInfo = legacyResult.value.data as AddressInfo;
-        const hasLegacyActivity = legacyAddressInfo.txCount > 0;
+        const hasLegacyActivity = legacyResult.value.data as boolean;
         if (hasLegacyActivity) {
           logger.info('Found activity on Legacy path (BIP44). Proceeding.');
           return {
@@ -382,7 +372,7 @@ export class BitcoinUtils {
 
         const segwitResult = await providerManager.executeWithFailover('bitcoin', {
           address: firstSegwitAddress,
-          type: 'getAddressBalances',
+          type: 'hasAddressTransactions',
         });
 
         if (segwitResult.isErr()) {
@@ -390,8 +380,7 @@ export class BitcoinUtils {
           throw segwitResult.error;
         }
 
-        const segwitAddressInfo = segwitResult.value.data as AddressInfo;
-        const hasSegwitActivity = segwitAddressInfo.txCount > 0;
+        const hasSegwitActivity = segwitResult.value.data as boolean;
         if (hasSegwitActivity) {
           logger.info('Found activity on Native SegWit path (BIP84). Proceeding.');
           return {

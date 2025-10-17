@@ -145,7 +145,7 @@ describe('SolanaTransactionImporter', () => {
 
       const [, operation] = executeCalls[0]!;
       expect(operation.address).toBe(address);
-      expect(operation.type).toBe('getRawAddressTransactions');
+      expect(operation.type).toBe('getAddressTransactions');
       expect(operation.getCacheKey).toBeDefined();
     });
 
@@ -171,7 +171,7 @@ describe('SolanaTransactionImporter', () => {
 
       const [, operation] = executeCalls[0]!;
       expect(operation.address).toBe(address);
-      expect(operation.type).toBe('getRawAddressTransactions');
+      expect(operation.type).toBe('getAddressTransactions');
       // Type assertion for test purposes - since is added at runtime
       expect((operation as { since?: number }).since).toBe(since);
     });

@@ -181,17 +181,17 @@ describe('EvmImporter', () => {
 
       const [, normalOperation] = executeCalls[0]!;
       expect(normalOperation.address).toBe(address);
-      expect(normalOperation.type).toBe('getRawAddressTransactions');
+      expect(normalOperation.type).toBe('getAddressTransactions');
       expect(normalOperation.getCacheKey).toBeDefined();
 
       const [, internalOperation] = executeCalls[1]!;
       expect(internalOperation.address).toBe(address);
-      expect(internalOperation.type).toBe('getRawAddressInternalTransactions');
+      expect(internalOperation.type).toBe('getAddressInternalTransactions');
       expect(internalOperation.getCacheKey).toBeDefined();
 
       const [, tokenOperation] = executeCalls[2]!;
       expect(tokenOperation.address).toBe(address);
-      expect(tokenOperation.type).toBe('getTokenTransactions');
+      expect(tokenOperation.type).toBe('getAddressTokenTransactions');
       expect(tokenOperation.getCacheKey).toBeDefined();
     });
 
@@ -217,15 +217,15 @@ describe('EvmImporter', () => {
 
       const [, normalOperation] = executeCalls[0]!;
       expect(normalOperation.address).toBe(address);
-      expect(normalOperation.type).toBe('getRawAddressTransactions');
+      expect(normalOperation.type).toBe('getAddressTransactions');
 
       const [, internalOperation] = executeCalls[1]!;
       expect(internalOperation.address).toBe(address);
-      expect(internalOperation.type).toBe('getRawAddressInternalTransactions');
+      expect(internalOperation.type).toBe('getAddressInternalTransactions');
 
       const [, tokenOperation] = executeCalls[2]!;
       expect(tokenOperation.address).toBe(address);
-      expect(tokenOperation.type).toBe('getTokenTransactions');
+      expect(tokenOperation.type).toBe('getAddressTokenTransactions');
     });
   });
 
@@ -301,15 +301,15 @@ describe('EvmImporter', () => {
 
       const [, normalOperation] = executeCalls[0]!;
       expect(normalOperation.address).toBe(address);
-      expect(normalOperation.type).toBe('getRawAddressTransactions');
+      expect(normalOperation.type).toBe('getAddressTransactions');
 
       const [, internalOperation] = executeCalls[1]!;
       expect(internalOperation.address).toBe(address);
-      expect(internalOperation.type).toBe('getRawAddressInternalTransactions');
+      expect(internalOperation.type).toBe('getAddressInternalTransactions');
 
       const [, tokenOperation] = executeCalls[2]!;
       expect(tokenOperation.address).toBe(address);
-      expect(tokenOperation.type).toBe('getTokenTransactions');
+      expect(tokenOperation.type).toBe('getAddressTokenTransactions');
     });
 
     test('should handle array of transactions from provider', async () => {

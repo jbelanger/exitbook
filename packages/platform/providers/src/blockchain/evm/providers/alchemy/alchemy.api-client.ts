@@ -26,10 +26,10 @@ import type {
   blockchain: 'ethereum',
   capabilities: {
     supportedOperations: [
-      'getRawAddressTransactions',
-      'getRawAddressInternalTransactions',
-      'getTokenTransactions',
-      'getRawTokenBalances',
+      'getAddressTransactions',
+      'getAddressInternalTransactions',
+      'getAddressTokenTransactions',
+      'getAddressTokenBalances',
     ],
   },
   defaultConfig: {
@@ -109,27 +109,27 @@ export class AlchemyApiClient extends BaseApiClient {
     this.logger.debug(`Executing operation: ${operation.type}`);
 
     switch (operation.type) {
-      case 'getRawAddressTransactions': {
+      case 'getAddressTransactions': {
         const { address, since } = operation;
         this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
-        return (await this.getRawAddressTransactions(address, since)) as Result<T, Error>;
+        return (await this.getAddressTransactions(address, since)) as Result<T, Error>;
       }
-      case 'getRawAddressInternalTransactions': {
+      case 'getAddressInternalTransactions': {
         const { address, since } = operation;
         this.logger.debug(`Fetching raw address internal transactions - Address: ${maskAddress(address)}`);
-        return (await this.getRawAddressInternalTransactions(address, since)) as Result<T, Error>;
+        return (await this.getAddressInternalTransactions(address, since)) as Result<T, Error>;
       }
-      case 'getTokenTransactions': {
+      case 'getAddressTokenTransactions': {
         const { address, contractAddress, since } = operation;
         this.logger.debug(
           `Fetching token transactions - Address: ${maskAddress(address)}, Contract: ${contractAddress || 'all'}`
         );
-        return (await this.getTokenTransactions(address, contractAddress, since)) as Result<T, Error>;
+        return (await this.getAddressTokenTransactions(address, contractAddress, since)) as Result<T, Error>;
       }
-      case 'getRawTokenBalances': {
+      case 'getAddressTokenBalances': {
         const { address, contractAddresses } = operation;
         this.logger.debug(`Fetching raw token balances - Address: ${maskAddress(address)}`);
-        return (await this.getRawTokenBalances(address, contractAddresses)) as Result<T, Error>;
+        return (await this.getAddressTokenBalances(address, contractAddresses)) as Result<T, Error>;
       }
       default:
         return err(new Error(`Unsupported operation: ${operation.type}`));
@@ -251,7 +251,7 @@ export class AlchemyApiClient extends BaseApiClient {
     return ok(transfers);
   }
 
-  private async getRawAddressInternalTransactions(
+  private async getAddressInternalTransactions(
     address: string,
     since?: number
   ): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {
@@ -293,7 +293,7 @@ export class AlchemyApiClient extends BaseApiClient {
     return ok(transactions);
   }
 
-  private async getRawAddressTransactions(
+  private async getAddressTransactions(
     address: string,
     since?: number
   ): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {
@@ -335,14 +335,14 @@ export class AlchemyApiClient extends BaseApiClient {
     return ok(transactions);
   }
 
-  private async getRawTokenBalances(
+  private async getAddressTokenBalances(
     address: string,
     contractAddresses?: string[]
   ): Promise<Result<AlchemyTokenBalance[], Error>> {
     const result = await this.httpClient.post<JsonRpcResponse<AlchemyTokenBalancesResponse>>(`/${this.apiKey}`, {
       id: 1,
       jsonrpc: '2.0',
-      method: 'alchemy_getTokenBalances',
+      method: 'alchemy_getAddressTokenBalances',
       params: [address, contractAddresses || 'DEFAULT_TOKENS'],
     });
 
@@ -357,7 +357,7 @@ export class AlchemyApiClient extends BaseApiClient {
     return ok(tokenBalances);
   }
 
-  private async getTokenTransactions(
+  private async getAddressTokenTransactions(
     address: string,
     contractAddress?: string,
     since?: number

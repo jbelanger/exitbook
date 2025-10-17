@@ -82,7 +82,7 @@ describe('Provider Selection (Pure Functions)', () => {
       priority: 2,
     },
     {
-      capabilities: { supportedOperations: ['getTokenBalances', 'getTokenTransactions'] },
+      capabilities: { supportedOperations: ['getAddressTokenBalances', 'getAddressTokenTransactions'] },
       name: 'provider-c',
       priority: 3,
     },
@@ -102,11 +102,11 @@ describe('Provider Selection (Pure Functions)', () => {
     });
 
     it('returns empty array when no providers support operation', () => {
-      const operation: ProviderOperation = {
+      const operation = {
         type: 'custom',
       };
 
-      const capable = selectCapableProviders(providers, operation);
+      const capable = selectCapableProviders(providers, operation as ProviderOperation);
 
       expect(capable).toHaveLength(0);
     });
@@ -115,7 +115,7 @@ describe('Provider Selection (Pure Functions)', () => {
       const operation: ProviderOperation = {
         address: '0x123',
         contractAddresses: ['0xabc'],
-        type: 'getTokenBalances',
+        type: 'getAddressTokenBalances',
       };
 
       const capable = selectCapableProviders(providers, operation);
@@ -217,12 +217,12 @@ describe('Provider Selection (Pure Functions)', () => {
     });
 
     it('returns empty sequence when no capable providers available', () => {
-      const operation: ProviderOperation = {
+      const operation = {
         type: 'custom',
       };
 
       const circuitStates = new Map<string, CircuitState>();
-      const sequence = getFailoverSequence(providers, operation, circuitStates, 1000);
+      const sequence = getFailoverSequence(providers, operation as ProviderOperation, circuitStates, 1000);
 
       expect(sequence).toHaveLength(0);
     });

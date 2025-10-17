@@ -26,7 +26,7 @@ describe('HeliusApiClient Integration', () => {
     it('should fetch and normalize transactions successfully', async () => {
       const result = await provider.execute<TransactionWithRawData<SolanaTransaction>[]>({
         address: testAddress,
-        type: 'getRawAddressTransactions',
+        type: 'getAddressTransactions',
       });
 
       expect(result.isOk()).toBe(true);
@@ -67,7 +67,7 @@ describe('HeliusApiClient Integration', () => {
     it('should include account balance changes in normalized transactions', async () => {
       const result = await provider.execute<TransactionWithRawData<SolanaTransaction>[]>({
         address: testAddress,
-        type: 'getRawAddressTransactions',
+        type: 'getAddressTransactions',
       });
 
       expect(result.isOk()).toBe(true);
@@ -96,7 +96,7 @@ describe('HeliusApiClient Integration', () => {
     it('should include token changes when present', async () => {
       const result = await provider.execute<TransactionWithRawData<SolanaTransaction>[]>({
         address: testAddress,
-        type: 'getRawAddressTransactions',
+        type: 'getAddressTransactions',
       });
 
       expect(result.isOk()).toBe(true);
@@ -126,7 +126,7 @@ describe('HeliusApiClient Integration', () => {
     it('should convert fees from lamports to SOL', async () => {
       const result = await provider.execute<TransactionWithRawData<SolanaTransaction>[]>({
         address: testAddress,
-        type: 'getRawAddressTransactions',
+        type: 'getAddressTransactions',
       });
 
       expect(result.isOk()).toBe(true);
@@ -149,7 +149,7 @@ describe('HeliusApiClient Integration', () => {
       const result = await provider.execute<TransactionWithRawData<SolanaTransaction>[]>({
         address: testAddress,
         since: oneYearAgo,
-        type: 'getRawAddressTransactions',
+        type: 'getAddressTransactions',
       });
 
       expect(result.isOk()).toBe(true);
@@ -169,7 +169,7 @@ describe('HeliusApiClient Integration', () => {
     it('should fetch raw address balance successfully', async () => {
       const result = await provider.execute<{ lamports: number }>({
         address: testAddress,
-        type: 'getRawAddressBalance',
+        type: 'getAddressBalances',
       });
 
       expect(result.isOk()).toBe(true);
@@ -186,7 +186,7 @@ describe('HeliusApiClient Integration', () => {
     it('should fetch raw token balances successfully', async () => {
       const result = await provider.execute<{ tokenAccounts: { value: unknown[] } }>({
         address: testAddress,
-        type: 'getRawTokenBalances',
+        type: 'getAddressTokenBalances',
       });
 
       expect(result.isOk()).toBe(true);
@@ -257,7 +257,7 @@ describe('HeliusApiClient Integration', () => {
 
       const result = await provider.execute<HeliusTransaction[]>({
         address: invalidAddress,
-        type: 'getRawAddressTransactions',
+        type: 'getAddressTransactions',
       });
 
       expect(result.isErr()).toBe(true);
@@ -269,12 +269,12 @@ describe('HeliusApiClient Integration', () => {
     it('should handle unsupported operations gracefully', async () => {
       const result = await provider.execute<unknown>({
         address: testAddress,
-        type: 'custom',
+        type: 'non-existent' as never,
       });
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.error.message).toContain('Unsupported operation: custom');
+        expect(result.error.message).toContain('Unsupported operation: non-existent');
       }
     });
   });

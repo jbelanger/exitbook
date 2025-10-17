@@ -111,7 +111,7 @@ const CHAIN_SUBDOMAIN_MAP: Record<string, string> = {
   baseUrl: 'https://polkadot.api.subscan.io',
   blockchain: 'polkadot',
   capabilities: {
-    supportedOperations: ['getRawAddressTransactions', 'getRawAddressBalance'],
+    supportedOperations: ['getAddressTransactions', 'getAddressBalances'],
   },
   defaultConfig: {
     rateLimit: {
@@ -166,17 +166,17 @@ export class SubscanApiClient extends BaseApiClient {
 
   async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
     this.logger.debug(
-      `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
+      `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address) : 'N/A'}`
     );
 
     switch (operation.type) {
-      case 'getRawAddressTransactions':
-        return (await this.getRawAddressTransactions({
+      case 'getAddressTransactions':
+        return (await this.getAddressTransactions({
           address: operation.address,
           since: operation.since,
         })) as Result<T, Error>;
-      case 'getRawAddressBalance':
-        return (await this.getRawAddressBalance({
+      case 'getAddressBalances':
+        return (await this.getAddressBalances({
           address: operation.address,
         })) as Result<T, Error>;
       default:
@@ -196,7 +196,7 @@ export class SubscanApiClient extends BaseApiClient {
     };
   }
 
-  private async getRawAddressBalance(params: { address: string }): Promise<Result<SubscanAccountResponse, Error>> {
+  private async getAddressBalances(params: { address: string }): Promise<Result<SubscanAccountResponse, Error>> {
     const { address } = params;
 
     // Validate address format
@@ -244,7 +244,7 @@ export class SubscanApiClient extends BaseApiClient {
     return ok(response);
   }
 
-  private async getRawAddressTransactions(params: {
+  private async getAddressTransactions(params: {
     address: string;
     since?: number | undefined;
   }): Promise<Result<TransactionWithRawData<SubstrateTransaction>[], Error>> {

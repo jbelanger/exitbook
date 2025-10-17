@@ -198,11 +198,11 @@ describe('BlockchainProviderManager', () => {
   });
 
   test('should handle unsupported operations', async () => {
-    const operation: ProviderOperation = {
+    const operation = {
       type: 'custom', // Not supported by mock providers
     };
 
-    const result = await manager.executeWithFailover<{ success: boolean }>('ethereum', operation);
+    const result = await manager.executeWithFailover<{ success: boolean }>('ethereum', operation as ProviderOperation);
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
       expect(result.error).toBeInstanceOf(ProviderError);
@@ -264,7 +264,7 @@ describe('BlockchainProviderManager', () => {
   test('should route operations based on provider capabilities', async () => {
     // Create providers with different capabilities
     const tokenProvider = new MockProvider('token-specialist', 'ethereum');
-    tokenProvider.capabilities.supportedOperations = ['getTokenTransactions', 'getTokenBalances'];
+    tokenProvider.capabilities.supportedOperations = ['getAddressTokenTransactions', 'getAddressTokenBalances'];
 
     const basicProvider = new MockProvider('basic-provider', 'ethereum');
     basicProvider.capabilities.supportedOperations = ['getAddressTransactions', 'getAddressBalances'];
@@ -278,7 +278,7 @@ describe('BlockchainProviderManager', () => {
     const tokenOperation: ProviderOperation = {
       address: '0x123',
       contractAddress: '0xabc',
-      type: 'getTokenTransactions',
+      type: 'getAddressTokenTransactions',
     };
 
     await manager.executeWithFailover('ethereum', tokenOperation);
@@ -379,8 +379,8 @@ describe('ProviderRegistry', () => {
     expect(provider.name).toBe('alchemy');
     expect(provider.blockchain).toBe('ethereum');
     expect(provider.capabilities).toBeDefined();
-    expect(provider.capabilities.supportedOperations).toContain('getRawAddressTransactions');
-    expect(provider.capabilities.supportedOperations).toContain('getRawAddressInternalTransactions');
+    expect(provider.capabilities.supportedOperations).toContain('getAddressTransactions');
+    expect(provider.capabilities.supportedOperations).toContain('getAddressInternalTransactions');
   });
 
   test('should validate legacy configuration correctly', () => {

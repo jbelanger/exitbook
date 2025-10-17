@@ -26,7 +26,7 @@ describe('ThetaScanApiClient Integration', () => {
     it('should fetch raw address transactions successfully', async () => {
       const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: testAddress,
-        type: 'getRawAddressTransactions',
+        type: 'getAddressTransactions',
       });
 
       expect(result.isOk()).toBe(true);
@@ -52,7 +52,7 @@ describe('ThetaScanApiClient Integration', () => {
       const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: testAddress,
         since: oneYearAgo,
-        type: 'getRawAddressTransactions',
+        type: 'getAddressTransactions',
       });
 
       expect(result.isOk()).toBe(true);
@@ -73,7 +73,7 @@ describe('ThetaScanApiClient Integration', () => {
     it('should fetch raw address balance successfully', async () => {
       const result = await provider.execute<ThetaScanBalanceResponse>({
         address: testAddress,
-        type: 'getRawAddressBalance',
+        type: 'getAddressBalances',
       });
 
       expect(result.isOk()).toBe(true);
@@ -93,7 +93,7 @@ describe('ThetaScanApiClient Integration', () => {
     it('should return empty array when no contract addresses provided', async () => {
       const result = await provider.execute<ThetaScanTokenBalance[]>({
         address: testAddress,
-        type: 'getRawTokenBalances',
+        type: 'getAddressTokenBalances',
       });
 
       expect(result.isOk()).toBe(true);
@@ -111,7 +111,7 @@ describe('ThetaScanApiClient Integration', () => {
       const result = await provider.execute<ThetaScanTokenBalance[]>({
         address: testAddress,
         contractAddresses,
-        type: 'getRawTokenBalances',
+        type: 'getAddressTokenBalances',
       });
 
       expect(result.isOk()).toBe(true);
@@ -133,7 +133,7 @@ describe('ThetaScanApiClient Integration', () => {
 
       const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: invalidAddress,
-        type: 'getRawAddressTransactions',
+        type: 'getAddressTransactions',
       });
 
       expect(result.isErr()).toBe(true);
@@ -148,7 +148,7 @@ describe('ThetaScanApiClient Integration', () => {
       // Should not throw
       const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: validAddress,
-        type: 'getRawAddressTransactions',
+        type: 'getAddressTransactions',
       });
 
       expect(result.isOk()).toBe(true);

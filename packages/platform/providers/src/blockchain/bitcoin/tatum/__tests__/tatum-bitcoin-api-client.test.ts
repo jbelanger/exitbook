@@ -69,7 +69,7 @@ describe('TatumBitcoinApiClient', () => {
     });
   });
 
-  describe('getRawAddressTransactions', () => {
+  describe('getAddressTransactions', () => {
     const mockAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa';
     const mockTransactions: TatumBitcoinTransaction[] = [
       {
@@ -123,7 +123,7 @@ describe('TatumBitcoinApiClient', () => {
     it('should fetch transactions successfully', async () => {
       mockHttpGet.mockResolvedValue(ok(mockTransactions));
 
-      const result = await client.getRawAddressTransactions(mockAddress);
+      const result = await client.getAddressTransactions(mockAddress);
 
       expect(mockHttpGet).toHaveBeenCalledWith(`/transaction/address/${mockAddress}?offset=0&pageSize=50`);
       expect(result.isOk()).toBe(true);
@@ -152,7 +152,7 @@ describe('TatumBitcoinApiClient', () => {
     it('should handle custom parameters', async () => {
       mockHttpGet.mockResolvedValue(ok(mockTransactions));
 
-      const result = await client.getRawAddressTransactions(mockAddress, {
+      const result = await client.getAddressTransactions(mockAddress, {
         blockFrom: 100,
         blockTo: 200,
         offset: 10,
@@ -169,7 +169,7 @@ describe('TatumBitcoinApiClient', () => {
     it('should limit pageSize to 50 max', async () => {
       mockHttpGet.mockResolvedValue(ok(mockTransactions));
 
-      const result = await client.getRawAddressTransactions(mockAddress, { pageSize: 100 });
+      const result = await client.getAddressTransactions(mockAddress, { pageSize: 100 });
 
       expect(mockHttpGet).toHaveBeenCalledWith(`/transaction/address/${mockAddress}?offset=0&pageSize=50`);
       expect(result.isOk()).toBe(true);
@@ -178,7 +178,7 @@ describe('TatumBitcoinApiClient', () => {
     it('should return empty array when no transactions found', async () => {
       mockHttpGet.mockResolvedValue(ok([]));
 
-      const result = await client.getRawAddressTransactions(mockAddress);
+      const result = await client.getAddressTransactions(mockAddress);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -190,7 +190,7 @@ describe('TatumBitcoinApiClient', () => {
       const error = new Error('API Error');
       mockHttpGet.mockResolvedValue(err(error));
 
-      const result = await client.getRawAddressTransactions(mockAddress);
+      const result = await client.getAddressTransactions(mockAddress);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -199,7 +199,7 @@ describe('TatumBitcoinApiClient', () => {
     });
   });
 
-  describe('getRawAddressBalance', () => {
+  describe('getAddressBalances', () => {
     const mockAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa';
     const mockBalance: TatumBitcoinBalance = {
       incoming: '5000000000',
@@ -207,14 +207,21 @@ describe('TatumBitcoinApiClient', () => {
     };
 
     it('should fetch balance successfully', async () => {
-      mockHttpGet.mockResolvedValue(ok(mockBalance));
+      const mockTransactions: TatumBitcoinTransaction[] = [];
 
-      const result = await client.getRawAddressBalance(mockAddress);
+      mockHttpGet
+        .mockResolvedValueOnce(ok(mockBalance)) // First call for balance
+        .mockResolvedValueOnce(ok(mockTransactions)); // Second call for transaction count
+
+      const result = await client.getAddressBalances(mockAddress);
 
       expect(mockHttpGet).toHaveBeenCalledWith(`/address/balance/${mockAddress}`);
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value).toEqual(mockBalance);
+        expect(result.value).toEqual({
+          balance: '40', // (5000000000 - 1000000000) / 100000000
+          txCount: 0,
+        });
       }
     });
 
@@ -222,7 +229,7 @@ describe('TatumBitcoinApiClient', () => {
       const error = new Error('API Error');
       mockHttpGet.mockResolvedValue(err(error));
 
-      const result = await client.getRawAddressBalance(mockAddress);
+      const result = await client.getAddressBalances(mockAddress);
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
@@ -234,7 +241,7 @@ describe('TatumBitcoinApiClient', () => {
   describe('execute', () => {
     const mockAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa';
 
-    it('should execute getRawAddressTransactions operation', async () => {
+    it('should execute getAddressTransactions operation', async () => {
       const mockTransactions: TatumBitcoinTransaction[] = [];
       mockHttpGet.mockResolvedValue(ok(mockTransactions));
 
@@ -242,30 +249,9 @@ describe('TatumBitcoinApiClient', () => {
         address: mockAddress,
         limit: undefined,
         since: undefined,
-        type: 'getRawAddressTransactions',
+        type: 'getAddressTransactions',
         until: undefined,
       });
-
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value).toEqual(mockTransactions);
-      }
-    });
-
-    it('should execute custom operation with parameters', async () => {
-      const mockTransactions: TatumBitcoinTransaction[] = [];
-      mockHttpGet.mockResolvedValue(ok(mockTransactions));
-
-      const result = await client.execute({
-        address: mockAddress,
-        blockFrom: 100,
-        blockTo: 200,
-        offset: 10,
-        pageSize: 25,
-        tatumOperation: 'getRawAddressTransactionsWithParams',
-        txType: 'incoming',
-        type: 'custom',
-      } as unknown as ProviderOperation);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -343,7 +329,7 @@ describe('TatumBitcoinApiClient', () => {
     it('should have correct capabilities', () => {
       const capabilities = client.capabilities;
 
-      expect(capabilities.supportedOperations).toContain('getRawAddressTransactions');
+      expect(capabilities.supportedOperations).toContain('getAddressTransactions');
       expect(capabilities.supportedOperations).toContain('getAddressBalances');
     });
   });

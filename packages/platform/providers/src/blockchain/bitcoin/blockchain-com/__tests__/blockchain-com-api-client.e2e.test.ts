@@ -8,6 +8,8 @@ import { BlockchainComApiClient } from '../blockchain-com.api-client.js';
 describe.skip('BlockchainComApiClient E2E', () => {
   const config = ProviderRegistry.createDefaultConfig('bitcoin', 'blockchain.com');
   const client = new BlockchainComApiClient(config);
+  const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa'; // Genesis block address
+  const emptyAddress = 'bc1qeppvcnauqak9xn7mmekw4crr79tl9c8lnxpp2k'; // Address with no transactions
 
   it('should connect to Blockchain.com API and test health', async () => {
     const result = await client.isHealthy();
@@ -18,8 +20,6 @@ describe.skip('BlockchainComApiClient E2E', () => {
   }, 30000);
 
   it('should get address info for known address', async () => {
-    const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa'; // Genesis block address
-
     const result = await client.execute<AddressInfo>({
       address: testAddress,
       type: 'getAddressBalances',
@@ -38,11 +38,9 @@ describe.skip('BlockchainComApiClient E2E', () => {
   }, 30000);
 
   it('should get normalized address transactions', async () => {
-    const testAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa';
-
     const result = await client.execute<TransactionWithRawData<BitcoinTransaction>[]>({
       address: testAddress,
-      type: 'getRawAddressTransactions',
+      type: 'getAddressTransactions',
     });
 
     expect(result.isOk()).toBe(true);
@@ -71,8 +69,6 @@ describe.skip('BlockchainComApiClient E2E', () => {
   }, 30000);
 
   it('should handle empty address gracefully', async () => {
-    const emptyAddress = '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2';
-
     const result = await client.execute<AddressInfo>({
       address: emptyAddress,
       type: 'getAddressBalances',
@@ -84,6 +80,30 @@ describe.skip('BlockchainComApiClient E2E', () => {
       expect(addressInfo).toBeDefined();
       expect(addressInfo).toHaveProperty('balance');
       expect(addressInfo).toHaveProperty('txCount');
+    }
+  }, 30000);
+
+  it('should return true for address with transactions', async () => {
+    const result = await client.execute<boolean>({
+      address: testAddress,
+      type: 'hasAddressTransactions',
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value).toBe(true);
+    }
+  }, 30000);
+
+  it('should return false for address without transactions', async () => {
+    const result = await client.execute<boolean>({
+      address: emptyAddress,
+      type: 'hasAddressTransactions',
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value).toBe(false);
     }
   }, 30000);
 });

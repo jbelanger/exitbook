@@ -27,7 +27,7 @@ describe('SubscanApiClient Integration', () => {
     it('should fetch raw address balance successfully', async () => {
       const result = await provider.execute<SubscanAccountResponse>({
         address: testAddress,
-        type: 'getRawAddressBalance',
+        type: 'getAddressBalances',
       });
 
       expect(result.isOk()).toBe(true);
@@ -57,7 +57,7 @@ describe('SubscanApiClient Integration', () => {
     it('should fetch raw address transactions successfully with normalization', async () => {
       const result = await provider.execute<TransactionWithRawData<SubstrateTransaction>[]>({
         address: testAddress,
-        type: 'getRawAddressTransactions',
+        type: 'getAddressTransactions',
       });
 
       expect(result.isOk()).toBe(true);
@@ -119,7 +119,7 @@ describe('SubscanApiClient Integration', () => {
 
       const result = await provider.execute<TransactionWithRawData<SubstrateTransaction>[]>({
         address: testAddress,
-        type: 'getRawAddressTransactions',
+        type: 'getAddressTransactions',
         since: july2023,
       });
 

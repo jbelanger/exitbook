@@ -116,9 +116,9 @@ export class EvmImporter implements IImporter {
     const result = await this.providerManager.executeWithFailover(this.chainConfig.chainName, {
       address: address,
       getCacheKey: (params) =>
-        `${this.chainConfig.chainName}:normal-txs:${params.type === 'getRawAddressTransactions' ? params.address : 'unknown'}:${params.type === 'getRawAddressTransactions' ? params.since || 'all' : 'unknown'}`,
+        `${this.chainConfig.chainName}:normal-txs:${params.type === 'getAddressTransactions' ? params.address : 'unknown'}:${params.type === 'getAddressTransactions' ? params.since || 'all' : 'unknown'}`,
       since: since,
-      type: 'getRawAddressTransactions',
+      type: 'getAddressTransactions',
     });
 
     return result.map((response) => {
@@ -146,9 +146,9 @@ export class EvmImporter implements IImporter {
     const result = await this.providerManager.executeWithFailover(this.chainConfig.chainName, {
       address: address,
       getCacheKey: (params) =>
-        `${this.chainConfig.chainName}:internal-txs:${params.type === 'getRawAddressInternalTransactions' ? params.address : 'unknown'}:${params.type === 'getRawAddressInternalTransactions' ? params.since || 'all' : 'unknown'}`,
+        `${this.chainConfig.chainName}:internal-txs:${params.type === 'getAddressInternalTransactions' ? params.address : 'unknown'}:${params.type === 'getAddressInternalTransactions' ? params.since || 'all' : 'unknown'}`,
       since: since,
-      type: 'getRawAddressInternalTransactions',
+      type: 'getAddressInternalTransactions',
     });
 
     return result.map((response) => {
@@ -176,9 +176,9 @@ export class EvmImporter implements IImporter {
     const result = await this.providerManager.executeWithFailover(this.chainConfig.chainName, {
       address: address,
       getCacheKey: (params) =>
-        `${this.chainConfig.chainName}:token-txs:${params.type === 'getTokenTransactions' ? params.address : 'unknown'}:${params.type === 'getTokenTransactions' ? params.since || 'all' : 'unknown'}`,
+        `${this.chainConfig.chainName}:token-txs:${params.type === 'getAddressTokenTransactions' ? params.address : 'unknown'}:${params.type === 'getAddressTokenTransactions' ? params.since || 'all' : 'unknown'}`,
       since: since,
-      type: 'getTokenTransactions',
+      type: 'getAddressTokenTransactions',
     });
 
     return result.map((response) => {

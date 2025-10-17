@@ -6,7 +6,7 @@ import type { ProviderConfig } from '../../../core/blockchain/index.ts';
 import { RegisterApiClient } from '../../../core/blockchain/index.ts';
 import type { ProviderOperation, TransactionWithRawData } from '../../../core/blockchain/types/index.ts';
 import { maskAddress } from '../../../core/blockchain/utils/address-utils.ts';
-import type { AddressInfo, BitcoinTransaction } from '../types.js';
+import type { BitcoinTransaction } from '../types.js';
 
 import { MempoolSpaceTransactionMapper } from './mempool-space.mapper.ts';
 import type { MempoolAddressInfo, MempoolTransaction } from './mempool-space.types.js';
@@ -15,7 +15,7 @@ import type { MempoolAddressInfo, MempoolTransaction } from './mempool-space.typ
   baseUrl: 'https://mempool.space/api',
   blockchain: 'bitcoin',
   capabilities: {
-    supportedOperations: ['getRawAddressTransactions', 'getAddressBalances'],
+    supportedOperations: ['getAddressTransactions', 'getAddressBalances', 'hasAddressTransactions'],
   },
   defaultConfig: {
     rateLimit: {
@@ -44,17 +44,21 @@ export class MempoolSpaceApiClient extends BaseApiClient {
 
   async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
     this.logger.debug(
-      `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
+      `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address) : 'N/A'}`
     );
 
     switch (operation.type) {
-      case 'getRawAddressTransactions':
-        return (await this.getRawAddressTransactions({
+      case 'getAddressTransactions':
+        return (await this.getAddressTransactions({
           address: operation.address,
           since: operation.since,
         })) as Result<T, Error>;
       case 'getAddressBalances':
         return (await this.getAddressBalances({
+          address: operation.address,
+        })) as Result<T, Error>;
+      case 'hasAddressTransactions':
+        return (await this.hasAddressTransactions({
           address: operation.address,
         })) as Result<T, Error>;
       default:
@@ -72,9 +76,39 @@ export class MempoolSpaceApiClient extends BaseApiClient {
   }
 
   /**
+   * Check if address has any transactions
+   */
+  private async hasAddressTransactions(params: { address: string }): Promise<Result<boolean, Error>> {
+    const { address } = params;
+
+    this.logger.debug(`Checking if address has transactions - Address: ${maskAddress(address)}`);
+
+    const result = await this.httpClient.get<MempoolAddressInfo>(`/address/${address}`);
+
+    if (result.isErr()) {
+      this.logger.error(
+        `Failed to check address transactions - Address: ${maskAddress(address)}, Error: ${getErrorMessage(result.error)}`
+      );
+      return err(result.error);
+    }
+
+    const addressInfo = result.value;
+    const txCount = addressInfo.chain_stats.tx_count + addressInfo.mempool_stats.tx_count;
+    const hasTransactions = txCount > 0;
+
+    this.logger.debug(
+      `Address transaction check complete - Address: ${maskAddress(address)}, HasTransactions: ${hasTransactions}`
+    );
+
+    return ok(hasTransactions);
+  }
+
+  /**
    * Get lightweight address info for efficient gap scanning
    */
-  private async getAddressBalances(params: { address: string }): Promise<Result<AddressInfo, Error>> {
+  private async getAddressBalances(params: {
+    address: string;
+  }): Promise<Result<{ balance: string; txCount: number }, Error>> {
     const { address } = params;
 
     this.logger.debug(`Fetching lightweight address info - Address: ${maskAddress(address)}`);
@@ -108,7 +142,7 @@ export class MempoolSpaceApiClient extends BaseApiClient {
     });
   }
 
-  private async getRawAddressTransactions(params: {
+  private async getAddressTransactions(params: {
     address: string;
     since?: number | undefined;
   }): Promise<Result<TransactionWithRawData<BitcoinTransaction>[], Error>> {

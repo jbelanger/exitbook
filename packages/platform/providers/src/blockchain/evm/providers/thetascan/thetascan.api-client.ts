@@ -15,7 +15,7 @@ import type { ThetaScanTransaction, ThetaScanBalanceResponse, ThetaScanTokenBala
   baseUrl: 'http://www.thetascan.io/api',
   blockchain: 'theta',
   capabilities: {
-    supportedOperations: ['getRawAddressBalance', 'getRawAddressTransactions', 'getRawTokenBalances'],
+    supportedOperations: ['getAddressBalances', 'getAddressTransactions', 'getAddressTokenBalances'],
   },
   defaultConfig: {
     rateLimit: {
@@ -43,21 +43,21 @@ export class ThetaScanApiClient extends BaseApiClient {
 
   async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
     this.logger.debug(
-      `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
+      `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address) : 'N/A'}`
     );
 
     switch (operation.type) {
-      case 'getRawAddressTransactions':
-        return (await this.getRawAddressTransactions({
+      case 'getAddressTransactions':
+        return (await this.getAddressTransactions({
           address: operation.address,
           since: operation.since,
         })) as Result<T, Error>;
-      case 'getRawAddressBalance':
-        return (await this.getRawAddressBalance({
+      case 'getAddressBalances':
+        return (await this.getAddressBalances({
           address: operation.address,
         })) as Result<T, Error>;
-      case 'getRawTokenBalances':
-        return (await this.getRawTokenBalances({
+      case 'getAddressTokenBalances':
+        return (await this.getAddressTokenBalances({
           address: operation.address,
           contractAddresses: operation.contractAddresses,
         })) as Result<T, Error>;
@@ -109,7 +109,7 @@ export class ThetaScanApiClient extends BaseApiClient {
     return ok(Array.isArray(transactions) ? transactions : []);
   }
 
-  private async getRawAddressBalance(params: { address: string }): Promise<Result<ThetaScanBalanceResponse, Error>> {
+  private async getAddressBalances(params: { address: string }): Promise<Result<ThetaScanBalanceResponse, Error>> {
     const { address } = params;
 
     if (!this.isValidEthAddress(address)) {
@@ -139,7 +139,7 @@ export class ThetaScanApiClient extends BaseApiClient {
     return ok(balanceData);
   }
 
-  private async getRawAddressTransactions(params: {
+  private async getAddressTransactions(params: {
     address: string;
     since?: number | undefined;
   }): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {
@@ -189,7 +189,7 @@ export class ThetaScanApiClient extends BaseApiClient {
     return ok(transactions);
   }
 
-  private async getRawTokenBalances(params: {
+  private async getAddressTokenBalances(params: {
     address: string;
     contractAddresses?: string[] | undefined;
   }): Promise<Result<ThetaScanTokenBalance[], Error>> {

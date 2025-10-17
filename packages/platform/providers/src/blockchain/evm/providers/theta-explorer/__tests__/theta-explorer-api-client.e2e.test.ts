@@ -25,7 +25,7 @@ describe('ThetaExplorerApiClient Integration', () => {
     it('should fetch raw address transactions successfully', async () => {
       const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: testAddress,
-        type: 'getRawAddressTransactions',
+        type: 'getAddressTransactions',
       });
 
       expect(result.isOk()).toBe(true);
@@ -47,7 +47,7 @@ describe('ThetaExplorerApiClient Integration', () => {
     it('should fetch both send and smart contract transactions', async () => {
       const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: testAddress,
-        type: 'getRawAddressTransactions',
+        type: 'getAddressTransactions',
       });
 
       expect(result.isOk()).toBe(true);
@@ -67,7 +67,7 @@ describe('ThetaExplorerApiClient Integration', () => {
     it('should return transactions with valid structure', async () => {
       const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: testAddress,
-        type: 'getRawAddressTransactions',
+        type: 'getAddressTransactions',
       });
 
       expect(result.isOk()).toBe(true);
@@ -90,7 +90,7 @@ describe('ThetaExplorerApiClient Integration', () => {
     it('should handle send transactions', async () => {
       const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: testAddress,
-        type: 'getRawAddressTransactions',
+        type: 'getAddressTransactions',
       });
 
       expect(result.isOk()).toBe(true);
@@ -108,7 +108,7 @@ describe('ThetaExplorerApiClient Integration', () => {
     it('should handle smart contract transactions', async () => {
       const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: testAddress,
-        type: 'getRawAddressTransactions',
+        type: 'getAddressTransactions',
       });
 
       expect(result.isOk()).toBe(true);

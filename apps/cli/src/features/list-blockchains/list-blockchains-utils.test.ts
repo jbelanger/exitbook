@@ -157,10 +157,10 @@ describe('list-blockchains-utils', () => {
       expect(summary.capabilities).toContain('balance');
     });
 
-    it('should handle getTokenBalances as balance (Balance is checked before Token)', () => {
-      // Note: getTokenBalances contains both "Token" and "Balance"
+    it('should handle getAddressTokenBalances as balance (Balance is checked before Token)', () => {
+      // Note: getAddressTokenBalances contains both "Token" and "Balance"
       // The current implementation checks "Balance" first, so it returns "balance"
-      const provider = createMockProvider('test-provider', 'ethereum', false, ['getTokenBalances']);
+      const provider = createMockProvider('test-provider', 'ethereum', false, ['getAddressTokenBalances']);
 
       const summary = providerToSummary(provider, false);
 

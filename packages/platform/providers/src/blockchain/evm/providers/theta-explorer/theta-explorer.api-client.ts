@@ -14,7 +14,7 @@ import type { ThetaTransaction, ThetaAccountTxResponse } from './theta-explorer.
   baseUrl: 'https://explorer-api.thetatoken.org/api',
   blockchain: 'theta',
   capabilities: {
-    supportedOperations: ['getRawAddressTransactions'],
+    supportedOperations: ['getAddressTransactions'],
   },
   defaultConfig: {
     rateLimit: {
@@ -43,10 +43,10 @@ export class ThetaExplorerApiClient extends BaseApiClient {
     this.logger.debug(`Executing operation: ${operation.type}`);
 
     switch (operation.type) {
-      case 'getRawAddressTransactions': {
+      case 'getAddressTransactions': {
         const { address, since } = operation;
         this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
-        return (await this.getRawAddressTransactions(address, since)) as Result<T, Error>;
+        return (await this.getAddressTransactions(address, since)) as Result<T, Error>;
       }
       default:
         return err(new Error(`Unsupported operation: ${operation.type}`));
@@ -64,7 +64,7 @@ export class ThetaExplorerApiClient extends BaseApiClient {
     };
   }
 
-  private async getRawAddressTransactions(
+  private async getAddressTransactions(
     address: string,
     _since?: number
   ): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {

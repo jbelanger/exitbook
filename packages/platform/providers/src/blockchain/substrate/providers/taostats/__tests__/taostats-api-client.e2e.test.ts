@@ -31,7 +31,7 @@ describe('TaostatsApiClient Integration - Bittensor', () => {
       it('should fetch raw address balance successfully', async () => {
         const result = await provider.execute<TaostatsBalanceResponse>({
           address: testAddress,
-          type: 'getRawAddressBalance',
+          type: 'getAddressBalances',
         });
 
         expect(result.isOk()).toBe(true);
@@ -55,7 +55,7 @@ describe('TaostatsApiClient Integration - Bittensor', () => {
       it('should fetch raw address transactions with normalization', async () => {
         const result = await provider.execute<TransactionWithRawData<SubstrateTransaction>[]>({
           address: testAddress,
-          type: 'getRawAddressTransactions',
+          type: 'getAddressTransactions',
         });
 
         expect(result.isOk()).toBe(true);
@@ -123,7 +123,7 @@ describe('TaostatsApiClient Integration - Bittensor', () => {
 
         const result = await provider.execute<TransactionWithRawData<SubstrateTransaction>[]>({
           address: testAddress,
-          type: 'getRawAddressTransactions',
+          type: 'getAddressTransactions',
           since: sinceTimestamp,
         });
 

@@ -213,7 +213,7 @@ describe('SubstrateImporter', () => {
       const [blockchain, operation] = executeCalls[0]!;
       expect(blockchain).toBe('polkadot');
       expect(operation.address).toBe(address);
-      expect(operation.type).toBe('getRawAddressTransactions');
+      expect(operation.type).toBe('getAddressTransactions');
       expect(operation.getCacheKey).toBeDefined();
     });
 
@@ -280,7 +280,7 @@ describe('SubstrateImporter', () => {
       const [blockchain, operation] = executeCalls[0]!;
       expect(blockchain).toBe('polkadot');
       expect(operation.address).toBe(address);
-      expect(operation.type).toBe('getRawAddressTransactions');
+      expect(operation.type).toBe('getAddressTransactions');
     });
 
     test('should handle unexpected data format gracefully', async () => {
@@ -467,7 +467,7 @@ describe('SubstrateImporter', () => {
 
       const [, operation] = executeCalls[0]!;
       expect(operation.address).toBe(address);
-      expect(operation.type).toBe('getRawAddressTransactions');
+      expect(operation.type).toBe('getAddressTransactions');
 
       if (result.isOk()) {
         expect(result.value.rawTransactions).toHaveLength(1);
@@ -643,7 +643,7 @@ describe('SubstrateImporter', () => {
       const call = calls[0]![1];
 
       // Verify the operation type is correct
-      expect(call.type).toBe('getRawAddressTransactions');
+      expect(call.type).toBe('getAddressTransactions');
 
       // Verify cache key generation handles the operation type correctly
       const cacheKey = call.getCacheKey!(call);

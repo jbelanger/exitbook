@@ -6,3 +6,4 @@ export * from './schemas/index.js';
 export * from './schemas/universal-transaction.ts';
 export * from './types/raw-data.js';
 export * from './types/universal-transaction.js';
+export * from './types/balance.ts';

@@ -109,9 +109,9 @@ export class BitcoinTransactionImporter implements IImporter {
     const result = await this.providerManager.executeWithFailover('bitcoin', {
       address: address,
       getCacheKey: (params) =>
-        `bitcoin:raw-txs:${params.type === 'getRawAddressTransactions' ? params.address : 'unknown'}:${params.type === 'getRawAddressTransactions' ? params.since || 'all' : 'unknown'}`,
+        `bitcoin:raw-txs:${params.type === 'getAddressTransactions' ? params.address : 'unknown'}:${params.type === 'getAddressTransactions' ? params.since || 'all' : 'unknown'}`,
       since: since,
-      type: 'getRawAddressTransactions',
+      type: 'getAddressTransactions',
     });
 
     return result.map((response) => {

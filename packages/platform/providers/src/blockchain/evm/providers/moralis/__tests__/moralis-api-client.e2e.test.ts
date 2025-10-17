@@ -26,7 +26,7 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
       it('should fetch raw address balance successfully', async () => {
         const result = await provider.execute<MoralisNativeBalance>({
           address: testAddress,
-          type: 'getRawAddressBalance',
+          type: 'getAddressBalances',
         });
 
         expect(result.isOk()).toBe(true);
@@ -42,7 +42,7 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
       it('should fetch raw address transactions with augmented currency fields', async () => {
         const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
           address: testAddress,
-          type: 'getRawAddressTransactions',
+          type: 'getAddressTransactions',
         });
 
         expect(result.isOk()).toBe(true);
@@ -68,7 +68,7 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
       it('should return empty array for internal transactions (included in main transactions)', async () => {
         const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
           address: testAddress,
-          type: 'getRawAddressInternalTransactions',
+          type: 'getAddressInternalTransactions',
         });
 
         expect(result.isOk()).toBe(true);
@@ -88,7 +88,7 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
 
         const result = await provider.execute<MoralisTokenBalance[]>({
           address: smallerAddress,
-          type: 'getRawTokenBalances',
+          type: 'getAddressTokenBalances',
         });
 
         expect(result.isOk()).toBe(true);
@@ -125,7 +125,7 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
       it('should fetch raw address transactions with augmented currency fields', async () => {
         const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
           address: testAddress,
-          type: 'getRawAddressTransactions',
+          type: 'getAddressTransactions',
         });
 
         expect(result.isOk()).toBe(true);
@@ -148,7 +148,7 @@ describe('MoralisApiClient Integration - Multi-Chain', () => {
       it('should return empty array for internal transactions (included in main transactions)', async () => {
         const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
           address: testAddress,
-          type: 'getRawAddressInternalTransactions',
+          type: 'getAddressInternalTransactions',
         });
 
         expect(result.isOk()).toBe(true);

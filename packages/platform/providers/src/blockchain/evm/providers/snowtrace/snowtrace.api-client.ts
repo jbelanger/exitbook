@@ -24,11 +24,11 @@ import type {
   blockchain: 'avalanche',
   capabilities: {
     supportedOperations: [
-      'getRawAddressBalance',
-      'getRawAddressInternalTransactions',
-      'getRawAddressTransactions',
-      'getRawTokenBalances',
-      'getTokenTransactions',
+      'getAddressBalances',
+      'getAddressInternalTransactions',
+      'getAddressTransactions',
+      'getAddressTokenBalances',
+      'getAddressTokenTransactions',
     ],
   },
   defaultConfig: {
@@ -57,34 +57,34 @@ export class SnowtraceApiClient extends BaseApiClient {
 
   async execute<T>(operation: ProviderOperation): Promise<Result<T, Error>> {
     this.logger.debug(
-      `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address as string) : 'N/A'}`
+      `Executing operation - Type: ${operation.type}, Address: ${'address' in operation ? maskAddress(operation.address) : 'N/A'}`
     );
 
     switch (operation.type) {
-      case 'getRawAddressTransactions':
-        return (await this.getRawAddressTransactions({
+      case 'getAddressTransactions':
+        return (await this.getAddressTransactions({
           address: operation.address,
           since: operation.since,
         })) as Result<T, Error>;
-      case 'getRawAddressInternalTransactions':
-        return (await this.getRawAddressInternalTransactions({
+      case 'getAddressInternalTransactions':
+        return (await this.getAddressInternalTransactions({
           address: operation.address,
           since: operation.since,
         })) as Result<T, Error>;
-      case 'getRawAddressBalance':
-        return (await this.getRawAddressBalance({
+      case 'getAddressBalances':
+        return (await this.getAddressBalances({
           address: operation.address,
         })) as Result<T, Error>;
-      case 'getTokenTransactions':
-        return (await this.getTokenTransactions({
+      case 'getAddressTokenTransactions':
+        return (await this.getAddressTokenTransactions({
           address: operation.address,
           contractAddress: operation.contractAddress,
           limit: operation.limit,
           since: operation.since,
           until: operation.until,
         })) as Result<T, Error>;
-      case 'getRawTokenBalances':
-        return (await this.getRawTokenBalances({
+      case 'getAddressTokenBalances':
+        return (await this.getAddressTokenBalances({
           address: operation.address,
           contractAddresses: operation.contractAddresses,
         })) as Result<T, Error>;
@@ -112,7 +112,7 @@ export class SnowtraceApiClient extends BaseApiClient {
     };
   }
 
-  private async getInternalTransactions(
+  private async fetchAddressInternalTransactions(
     address: string,
     since?: number
   ): Promise<Result<SnowtraceInternalTransaction[], Error>> {
@@ -239,7 +239,7 @@ export class SnowtraceApiClient extends BaseApiClient {
     return ok(allTransactions);
   }
 
-  private async getRawAddressBalance(params: { address: string }): Promise<Result<SnowtraceBalanceResponse, Error>> {
+  private async getAddressBalances(params: { address: string }): Promise<Result<SnowtraceBalanceResponse, Error>> {
     const { address } = params;
 
     if (!this.isValidAvalancheAddress(address)) {
@@ -271,7 +271,7 @@ export class SnowtraceApiClient extends BaseApiClient {
     const res = result.value as SnowtraceApiResponse<unknown>;
 
     if (res.status !== '1') {
-      return err(new ServiceError(`Failed to fetch AVAX balance: ${res.message}`, this.name, 'getRawAddressBalance'));
+      return err(new ServiceError(`Failed to fetch AVAX balance: ${res.message}`, this.name, 'getAddressBalances'));
     }
 
     this.logger.debug(`Retrieved raw balance for ${maskAddress(address)}: ${String(res.result)} wei`);
@@ -283,7 +283,7 @@ export class SnowtraceApiClient extends BaseApiClient {
     } as SnowtraceBalanceResponse);
   }
 
-  private async getRawAddressTransactions(params: {
+  private async getAddressTransactions(params: {
     address: string;
     since?: number | undefined;
   }): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {
@@ -307,7 +307,7 @@ export class SnowtraceApiClient extends BaseApiClient {
     return this.normalizeTransactions(result.value, address, 'transactions');
   }
 
-  private async getRawAddressInternalTransactions(params: {
+  private async getAddressInternalTransactions(params: {
     address: string;
     since?: number | undefined;
   }): Promise<Result<TransactionWithRawData<EvmTransaction>[], Error>> {
@@ -319,7 +319,7 @@ export class SnowtraceApiClient extends BaseApiClient {
 
     this.logger.debug(`Fetching raw address internal transactions - Address: ${maskAddress(address)}`);
 
-    const result = await this.getInternalTransactions(address, since);
+    const result = await this.fetchAddressInternalTransactions(address, since);
 
     if (result.isErr()) {
       this.logger.error(
@@ -333,7 +333,7 @@ export class SnowtraceApiClient extends BaseApiClient {
     return this.normalizeTransactions(result.value, address, 'internal transactions');
   }
 
-  private async getRawTokenBalances(_params: {
+  private async getAddressTokenBalances(_params: {
     address: string;
     contractAddresses?: string[] | undefined;
   }): Promise<Result<[], Error>> {
@@ -342,7 +342,7 @@ export class SnowtraceApiClient extends BaseApiClient {
     return Promise.resolve(ok([]));
   }
 
-  private async getTokenTransactions(params: {
+  private async getAddressTokenTransactions(params: {
     address: string;
     contractAddress?: string | undefined;
     limit?: number | undefined;
