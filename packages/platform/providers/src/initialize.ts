@@ -6,7 +6,6 @@
  */
 
 import './core/blockchain/registry/register-apis.js';
-import './core/blockchain/registry/register-mappers.js';
 
 let initialized = false;
 
@@ -15,7 +14,6 @@ let initialized = false;
  *
  * This function:
  * - Registers all API clients via decorators
- * - Registers all data mappers
  * - Can be called multiple times safely (idempotent)
  *
  * @example
