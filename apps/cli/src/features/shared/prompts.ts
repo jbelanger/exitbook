@@ -361,7 +361,7 @@ function formatProviderCapabilities(provider: ProviderInfo): string {
   const ops = provider.capabilities.supportedOperations || [];
   const caps: string[] = [];
   if (ops.includes('getAddressTransactions')) caps.push('txs');
-  if (ops.includes('getAddressBalance')) caps.push('balance');
+  if (ops.includes('getAddressBalances')) caps.push('balance');
   if (ops.includes('getTokenBalances')) caps.push('tokens');
   return caps.length > 0 ? caps.join(', ') : '';
 }

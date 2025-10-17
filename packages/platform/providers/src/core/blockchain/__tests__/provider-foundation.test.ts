@@ -41,7 +41,7 @@ class MockProvider implements IBlockchainProvider {
     this.responseDelay = responseDelay;
 
     this.capabilities = {
-      supportedOperations: ['getAddressTransactions', 'getAddressBalance'],
+      supportedOperations: ['getAddressTransactions', 'getAddressBalances'],
     };
 
     this.rateLimit = {
@@ -62,7 +62,7 @@ class MockProvider implements IBlockchainProvider {
     switch (operation.type) {
       case 'getAddressTransactions':
         return { address: operation.address, transactions: [] } as T;
-      case 'getAddressBalance':
+      case 'getAddressBalances':
         return { balance: 100, currency: 'ETH' } as T;
       default:
         return { success: true } as T;
@@ -121,7 +121,7 @@ describe('BlockchainProviderManager', () => {
   test('should execute operations with primary provider', async () => {
     const operation: ProviderOperation = {
       address: '0x123',
-      type: 'getAddressBalance',
+      type: 'getAddressBalances',
     };
 
     const result = await manager.executeWithFailover<{ balance: number; currency: string }>('ethereum', operation);
@@ -138,7 +138,7 @@ describe('BlockchainProviderManager', () => {
 
     const operation: ProviderOperation = {
       address: '0x123',
-      type: 'getAddressBalance',
+      type: 'getAddressBalances',
     };
 
     const result = await manager.executeWithFailover<{ balance: number; currency: string }>('ethereum', operation);
@@ -154,7 +154,7 @@ describe('BlockchainProviderManager', () => {
 
     const operation: ProviderOperation = {
       address: '0x123',
-      type: 'getAddressBalance',
+      type: 'getAddressBalances',
     };
 
     const result = await manager.executeWithFailover<{ balance: number; currency: string }>('ethereum', operation);
@@ -170,9 +170,9 @@ describe('BlockchainProviderManager', () => {
     const operation: ProviderOperation = {
       address: '0x123',
       getCacheKey: (params) => {
-        return `balance-${params.type === 'getAddressBalance' ? params.address : 'unknown'}`;
+        return `balance-${params.type === 'getAddressBalances' ? params.address : 'unknown'}`;
       },
-      type: 'getAddressBalance',
+      type: 'getAddressBalances',
     };
 
     // First call
@@ -218,7 +218,7 @@ describe('BlockchainProviderManager', () => {
     try {
       const operation: ProviderOperation = {
         address: '0x123',
-        type: 'getAddressBalance',
+        type: 'getAddressBalances',
       };
 
       // Trip the primary provider's circuit breaker
@@ -267,7 +267,7 @@ describe('BlockchainProviderManager', () => {
     tokenProvider.capabilities.supportedOperations = ['getTokenTransactions', 'getTokenBalances'];
 
     const basicProvider = new MockProvider('basic-provider', 'ethereum');
-    basicProvider.capabilities.supportedOperations = ['getAddressTransactions', 'getAddressBalance'];
+    basicProvider.capabilities.supportedOperations = ['getAddressTransactions', 'getAddressBalances'];
 
     manager.registerProviders('ethereum', [basicProvider, tokenProvider]);
 
@@ -296,9 +296,9 @@ describe('BlockchainProviderManager', () => {
     const operation: ProviderOperation = {
       address: '0x123',
       getCacheKey: (params) => {
-        return `balance-${params.type === 'getAddressBalance' ? params.address : 'unknown'}`;
+        return `balance-${params.type === 'getAddressBalances' ? params.address : 'unknown'}`;
       },
-      type: 'getAddressBalance',
+      type: 'getAddressBalances',
     };
 
     // First call - should cache result

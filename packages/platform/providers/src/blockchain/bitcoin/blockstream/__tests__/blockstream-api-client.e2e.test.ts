@@ -21,7 +21,7 @@ describe('BlockstreamApiClient E2E', () => {
   it('should get address info for known address', async () => {
     const addressInfo = await client.execute<AddressInfo>({
       address: testAddress,
-      type: 'getAddressInfo',
+      type: 'getAddressBalances',
     });
 
     expect(addressInfo).toBeDefined();

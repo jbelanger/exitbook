@@ -13,7 +13,7 @@ import type { BlockchainComAddressResponse, BlockchainComTransaction } from './b
   baseUrl: 'https://blockchain.info',
   blockchain: 'bitcoin',
   capabilities: {
-    supportedOperations: ['getRawAddressTransactions', 'getAddressInfo'],
+    supportedOperations: ['getRawAddressTransactions', 'getAddressBalances'],
   },
   defaultConfig: {
     rateLimit: {
@@ -49,8 +49,8 @@ export class BlockchainComApiClient extends BaseApiClient {
             address: operation.address,
             since: operation.since,
           })) as T;
-        case 'getAddressInfo':
-          return (await this.getAddressInfo({
+        case 'getAddressBalances':
+          return (await this.getAddressBalances({
             address: operation.address,
           })) as T;
         default:
@@ -77,7 +77,7 @@ export class BlockchainComApiClient extends BaseApiClient {
   /**
    * Get raw address info for efficient gap scanning
    */
-  private async getAddressInfo(params: { address: string }): Promise<AddressInfo> {
+  private async getAddressBalances(params: { address: string }): Promise<AddressInfo> {
     const { address } = params;
 
     this.logger.debug(`Fetching raw address info - Address: ${maskAddress(address)}`);

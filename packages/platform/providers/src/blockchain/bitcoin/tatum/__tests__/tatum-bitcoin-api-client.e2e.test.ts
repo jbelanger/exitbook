@@ -27,7 +27,7 @@ describe('TatumBitcoinApiClient E2E', () => {
     async () => {
       const result = await provider.execute<AddressInfo>({
         address: testAddress,
-        type: 'getAddressInfo',
+        type: 'getAddressBalances',
       });
 
       expect(result).toHaveProperty('txCount');

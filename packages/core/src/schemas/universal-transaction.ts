@@ -1,5 +1,6 @@
-import { MoneySchema } from '@exitbook/core';
 import { z } from 'zod';
+
+import { MoneySchema } from './index.ts';
 
 // Transaction type schema
 export const TransactionTypeSchema = z.enum([

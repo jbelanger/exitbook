@@ -72,12 +72,12 @@ export const generateCacheKey = (blockchain: string, operation: ProviderOperatio
 describe('Provider Selection (Pure Functions)', () => {
   const providers: ProviderInfo[] = [
     {
-      capabilities: { supportedOperations: ['getAddressBalance', 'getAddressTransactions'] },
+      capabilities: { supportedOperations: ['getAddressBalances', 'getAddressTransactions'] },
       name: 'provider-a',
       priority: 1,
     },
     {
-      capabilities: { supportedOperations: ['getAddressBalance'] },
+      capabilities: { supportedOperations: ['getAddressBalances'] },
       name: 'provider-b',
       priority: 2,
     },
@@ -92,7 +92,7 @@ describe('Provider Selection (Pure Functions)', () => {
     it('returns only providers that support the operation', () => {
       const operation: ProviderOperation = {
         address: '0x123',
-        type: 'getAddressBalance',
+        type: 'getAddressBalances',
       };
 
       const capable = selectCapableProviders(providers, operation);
@@ -182,7 +182,7 @@ describe('Provider Selection (Pure Functions)', () => {
     it('returns capable providers sorted by priority with closed circuits', () => {
       const operation: ProviderOperation = {
         address: '0x123',
-        type: 'getAddressBalance',
+        type: 'getAddressBalances',
       };
 
       const circuitStates = new Map([
@@ -198,7 +198,7 @@ describe('Provider Selection (Pure Functions)', () => {
     it('excludes providers with open circuits from sequence', () => {
       const operation: ProviderOperation = {
         address: '0x123',
-        type: 'getAddressBalance',
+        type: 'getAddressBalances',
       };
 
       const openCircuit = recordFailure(
@@ -232,8 +232,8 @@ describe('Provider Selection (Pure Functions)', () => {
     it('generates cache key when getCacheKey is provided', () => {
       const operation: ProviderOperation = {
         address: '0x123',
-        getCacheKey: (op) => `balance-${op.type === 'getAddressBalance' ? op.address : 'unknown'}`,
-        type: 'getAddressBalance',
+        getCacheKey: (op) => `balance-${op.type === 'getAddressBalances' ? op.address : 'unknown'}`,
+        type: 'getAddressBalances',
       };
 
       const key = generateCacheKey('ethereum', operation);
@@ -244,7 +244,7 @@ describe('Provider Selection (Pure Functions)', () => {
     it('returns undefined when getCacheKey not provided', () => {
       const operation: ProviderOperation = {
         address: '0x123',
-        type: 'getAddressBalance',
+        type: 'getAddressBalances',
       };
 
       const key = generateCacheKey('ethereum', operation);
@@ -256,7 +256,7 @@ describe('Provider Selection (Pure Functions)', () => {
       const operation: ProviderOperation = {
         address: 'bc1xyz',
         getCacheKey: (op) => `${op.type}-${String(op.address)}`,
-        type: 'getAddressBalance',
+        type: 'getAddressBalances',
       };
 
       const ethKey = generateCacheKey('ethereum', operation);

@@ -229,7 +229,7 @@ describe('TatumBitcoinApiClient', () => {
       expect(result).toEqual(mockTransactions);
     });
 
-    it('should execute getAddressInfo operation', async () => {
+    it('should execute getAddressBalances operation', async () => {
       const mockBalance: TatumBitcoinBalance = {
         incoming: '5000000000',
         outgoing: '1000000000',
@@ -242,7 +242,7 @@ describe('TatumBitcoinApiClient', () => {
 
       const result = await client.execute({
         address: mockAddress,
-        type: 'getAddressInfo',
+        type: 'getAddressBalances',
       });
 
       const expectedInfo: AddressInfo = {
@@ -294,7 +294,7 @@ describe('TatumBitcoinApiClient', () => {
       const capabilities = client.capabilities;
 
       expect(capabilities.supportedOperations).toContain('getRawAddressTransactions');
-      expect(capabilities.supportedOperations).toContain('getAddressInfo');
+      expect(capabilities.supportedOperations).toContain('getAddressBalances');
     });
   });
 });

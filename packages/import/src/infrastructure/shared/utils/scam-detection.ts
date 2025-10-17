@@ -1,6 +1,4 @@
-import type { TransactionNote } from '@exitbook/core';
-
-import { TransactionNoteType } from '../types/types.js';
+import { type TransactionNote } from '@exitbook/core';
 
 /**
  * Token metadata from DAS API for scam detection
@@ -68,7 +66,7 @@ export function detectScamToken(
 
   // Generate warning note if suspicious patterns found
   if (suspiciousIndicators.length > 0) {
-    const noteType = riskLevel === 'error' ? TransactionNoteType.SCAM_TOKEN : TransactionNoteType.SUSPICIOUS_AIRDROP;
+    const noteType = riskLevel === 'error' ? 'SCAM_TOKEN' : 'SUSPICIOUS_AIRDROP';
 
     return {
       message: `⚠️ ${riskLevel === 'error' ? 'Scam token detected' : 'Suspicious token'}: ${suspiciousIndicators.join(', ')}`,

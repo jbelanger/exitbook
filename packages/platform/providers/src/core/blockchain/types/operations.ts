@@ -21,7 +21,7 @@ export type ProviderOperationParams =
       type: 'getRawAddressInternalTransactions';
       until?: number | undefined;
     }
-  | { address: string; contractAddresses?: string[] | undefined; type: 'getAddressBalance' }
+  | { address: string; contractAddresses?: string[] | undefined; type: 'getAddressBalances' }
   | {
       address: string;
       contractAddress?: string | undefined;
@@ -33,7 +33,6 @@ export type ProviderOperationParams =
   | { address: string; contractAddresses?: string[] | undefined; type: 'getTokenBalances' }
   | { address: string; contractAddresses?: string[] | undefined; type: 'getRawAddressBalance' }
   | { address: string; contractAddresses?: string[] | undefined; type: 'getRawTokenBalances' }
-  | { address: string; type: 'getAddressInfo' }
   | { [key: string]: unknown; type: 'custom' };
 
 // Discriminated union provides automatic type narrowing
@@ -45,14 +44,13 @@ export type ProviderOperation = {
 // Provider-specific operation types for capabilities
 export type ProviderOperationType =
   | 'getAddressTransactions'
-  | 'getAddressBalance'
+  | 'getAddressBalances'
   | 'getTokenTransactions'
   | 'getTokenBalances'
   | 'getRawAddressTransactions'
   | 'getRawAddressInternalTransactions'
   | 'getRawAddressBalance'
   | 'getRawTokenBalances'
-  | 'getAddressInfo'
   | 'custom';
 
 /**

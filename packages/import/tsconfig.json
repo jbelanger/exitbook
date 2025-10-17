@@ -4,5 +4,9 @@
     "allowImportingTsExtensions": true,
     "noEmit": true
   },
-  "include": ["src", "../platform/data/src/repositories/transaction-repository.ts"]
+  "include": [
+    "src",
+    "../platform/data/src/repositories/transaction-repository.ts",
+    "../core/src/schemas/universal-transaction.ts"
+  ]
 }

@@ -1,10 +1,9 @@
-import type { UniversalTransaction } from '@exitbook/core';
+import { UniversalTransactionSchema, type UniversalTransaction } from '@exitbook/core';
 import type { ITransactionProcessor } from '@exitbook/import/app/ports/transaction-processor.interface.ts';
 import type { Logger } from '@exitbook/shared-logger';
 import { getLogger } from '@exitbook/shared-logger';
 import { type Result, err, ok } from 'neverthrow';
 
-import { UniversalTransactionSchema } from '../../blockchains/shared/schemas.ts';
 import { detectScamFromSymbol } from '../utils/scam-detection.ts';
 
 /**

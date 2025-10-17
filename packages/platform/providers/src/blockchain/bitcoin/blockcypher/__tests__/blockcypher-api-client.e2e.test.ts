@@ -27,7 +27,7 @@ describe.skip('BlockCypherApiClient E2E', () => {
     async () => {
       const addressInfo = await client.execute<AddressInfo>({
         address: testAddress,
-        type: 'getAddressInfo',
+        type: 'getAddressBalances',
       });
 
       expect(addressInfo).toBeDefined();

@@ -119,7 +119,7 @@ describe('list-blockchains-utils', () => {
     it('should convert provider to summary', () => {
       const provider = createMockProvider('test-provider', 'bitcoin', true, [
         'getAddressTransactions',
-        'getAddressBalance',
+        'getAddressBalances',
       ]);
 
       const summary = providerToSummary(provider, false);
@@ -170,7 +170,7 @@ describe('list-blockchains-utils', () => {
     it('should shorten operation names', () => {
       const provider = createMockProvider('test-provider', 'bitcoin', false, [
         'getAddressTransactions',
-        'getAddressBalance',
+        'getAddressBalances',
       ]);
 
       const summary = providerToSummary(provider, false);

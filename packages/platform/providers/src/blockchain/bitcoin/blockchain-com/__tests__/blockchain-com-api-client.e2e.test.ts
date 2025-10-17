@@ -22,7 +22,7 @@ describe.skip('BlockchainComApiClient E2E', () => {
 
     const addressInfo = await client.execute<AddressInfo>({
       address: testAddress,
-      type: 'getAddressInfo',
+      type: 'getAddressBalances',
     });
 
     expect(addressInfo).toBeDefined();
@@ -57,7 +57,7 @@ describe.skip('BlockchainComApiClient E2E', () => {
 
     const addressInfo = await client.execute<AddressInfo>({
       address: emptyAddress,
-      type: 'getAddressInfo',
+      type: 'getAddressBalances',
     });
 
     expect(addressInfo).toBeDefined();

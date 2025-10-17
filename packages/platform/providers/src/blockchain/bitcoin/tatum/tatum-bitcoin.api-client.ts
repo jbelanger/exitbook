@@ -14,7 +14,7 @@ import type { TatumBitcoinTransaction, TatumBitcoinBalance } from './tatum.types
   baseUrl: 'https://api.tatum.io/v3/bitcoin',
   blockchain: 'bitcoin',
   capabilities: {
-    supportedOperations: ['getRawAddressTransactions', 'getAddressInfo'],
+    supportedOperations: ['getRawAddressTransactions', 'getAddressBalances'],
   },
   defaultConfig: {
     rateLimit: {
@@ -58,8 +58,8 @@ export class TatumBitcoinApiClient extends BaseApiClient {
       switch (operation.type) {
         case 'getRawAddressTransactions':
           return (await this.getRawAddressTransactions(operation.address)) as T;
-        case 'getAddressInfo':
-          return (await this.getAddressInfo({
+        case 'getAddressBalances':
+          return (await this.getAddressBalances({
             address: operation.address,
           })) as T;
         case 'custom': {
@@ -195,7 +195,7 @@ export class TatumBitcoinApiClient extends BaseApiClient {
    * Get address info for efficient gap scanning
    * Converts raw balance to AddressInfo format
    */
-  private async getAddressInfo(params: { address: string }): Promise<AddressInfo> {
+  private async getAddressBalances(params: { address: string }): Promise<AddressInfo> {
     const { address } = params;
 
     this.logger.debug(`Fetching address info - Address: ${maskAddress(address)}`);

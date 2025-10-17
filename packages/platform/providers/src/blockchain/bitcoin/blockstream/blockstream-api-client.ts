@@ -14,7 +14,7 @@ import type { BlockstreamAddressInfo, BlockstreamTransaction } from './blockstre
   baseUrl: 'https://blockstream.info/api',
   blockchain: 'bitcoin',
   capabilities: {
-    supportedOperations: ['getRawAddressTransactions', 'getAddressInfo'],
+    supportedOperations: ['getRawAddressTransactions', 'getAddressBalances'],
   },
   defaultConfig: {
     rateLimit: {
@@ -51,8 +51,8 @@ export class BlockstreamApiClient extends BaseApiClient {
             address: operation.address,
             since: operation.since,
           })) as T;
-        case 'getAddressInfo':
-          return (await this.getAddressInfo({
+        case 'getAddressBalances':
+          return (await this.getAddressBalances({
             address: operation.address,
           })) as T;
         default:
@@ -78,7 +78,7 @@ export class BlockstreamApiClient extends BaseApiClient {
   /**
    * Get lightweight address info for efficient gap scanning
    */
-  private async getAddressInfo(params: { address: string }): Promise<AddressInfo> {
+  private async getAddressBalances(params: { address: string }): Promise<AddressInfo> {
     const { address } = params;
 
     this.logger.debug(`Fetching lightweight address info - Address: ${maskAddress(address)}`);

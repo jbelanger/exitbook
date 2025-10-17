@@ -234,7 +234,7 @@ export class BitcoinUtils {
       const result = await providerManager.executeWithFailover('bitcoin', {
         address,
         getCacheKey: (params) => `bitcoin:address-info:${(params as { address: string }).address}`,
-        type: 'getAddressInfo',
+        type: 'getAddressBalances',
       });
 
       if (result.isErr()) {
@@ -345,7 +345,7 @@ export class BitcoinUtils {
 
         const legacyResult = await providerManager.executeWithFailover('bitcoin', {
           address: firstLegacyAddress,
-          type: 'getAddressInfo',
+          type: 'getAddressBalances',
         });
 
         if (legacyResult.isErr()) {
@@ -382,7 +382,7 @@ export class BitcoinUtils {
 
         const segwitResult = await providerManager.executeWithFailover('bitcoin', {
           address: firstSegwitAddress,
-          type: 'getAddressInfo',
+          type: 'getAddressBalances',
         });
 
         if (segwitResult.isErr()) {
