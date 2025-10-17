@@ -16,7 +16,6 @@ vi.mock('@exitbook/providers', () => ({
 }));
 
 vi.mock('@exitbook/import', () => ({
-  DefaultNormalizer: vi.fn(),
   ImporterFactory: vi.fn(),
   ImportSessionErrorRepository: vi.fn(),
   ImportSessionRepository: vi.fn(),

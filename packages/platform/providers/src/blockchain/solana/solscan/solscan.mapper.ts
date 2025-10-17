@@ -3,7 +3,6 @@ import type { ImportSessionMetadata } from '@exitbook/data';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../core/blockchain/base/mapper.ts';
-import { RegisterTransactionMapper } from '../../../core/blockchain/index.ts';
 import type { NormalizationError } from '../../../core/blockchain/index.ts';
 import { SolanaTransactionSchema } from '../schemas.js';
 import type { SolanaAccountChange, SolanaTokenChange, SolanaTransaction } from '../types.js';
@@ -12,7 +11,6 @@ import { lamportsToSol } from '../utils.js';
 import { SolscanRawTransactionDataSchema } from './solscan.schemas.js';
 import type { SolscanTransaction } from './solscan.types.js';
 
-@RegisterTransactionMapper('solscan')
 export class SolscanTransactionMapper extends BaseRawDataMapper<SolscanTransaction, SolanaTransaction> {
   protected readonly inputSchema = SolscanRawTransactionDataSchema;
   protected readonly outputSchema = SolanaTransactionSchema;

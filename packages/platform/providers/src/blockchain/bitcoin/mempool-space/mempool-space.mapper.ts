@@ -4,7 +4,6 @@ import { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../core/blockchain/base/mapper.ts';
-import { RegisterTransactionMapper } from '../../../core/blockchain/index.ts';
 import type { NormalizationError } from '../../../core/blockchain/index.ts';
 import { BitcoinTransactionSchema } from '../schemas.js';
 import type {
@@ -16,7 +15,6 @@ import type {
 import { MempoolTransactionSchema } from './mempool-space.schemas.js';
 import type { MempoolTransaction } from './mempool-space.types.js';
 
-@RegisterTransactionMapper('mempool.space')
 export class MempoolSpaceTransactionMapper extends BaseRawDataMapper<MempoolTransaction, BitcoinTransaction> {
   protected readonly inputSchema = MempoolTransactionSchema;
   protected readonly outputSchema = BitcoinTransactionSchema;

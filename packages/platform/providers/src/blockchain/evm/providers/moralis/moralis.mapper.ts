@@ -4,7 +4,6 @@ import { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../../core/blockchain/base/mapper.ts';
-import { RegisterTransactionMapper } from '../../../../core/blockchain/index.ts';
 import type { NormalizationError } from '../../../../core/blockchain/index.ts';
 import { EvmTransactionSchema } from '../../schemas.ts';
 import type { EvmTransaction } from '../../types.ts';
@@ -12,7 +11,6 @@ import type { EvmTransaction } from '../../types.ts';
 import { MoralisTransactionSchema, MoralisTokenTransferSchema } from './moralis.schemas.ts';
 import type { MoralisTransaction, MoralisTokenTransfer } from './moralis.types.ts';
 
-@RegisterTransactionMapper('moralis')
 export class MoralisTransactionMapper extends BaseRawDataMapper<MoralisTransaction, EvmTransaction> {
   protected readonly inputSchema = MoralisTransactionSchema;
   protected readonly outputSchema = EvmTransactionSchema;
@@ -71,7 +69,6 @@ export class MoralisTransactionMapper extends BaseRawDataMapper<MoralisTransacti
  * token-specific fields such as token address, symbol, decimals, and contract type.
  * Use this mapper for transactions involving tokens rather than native currency.
  */
-@RegisterTransactionMapper('moralis-token-transfer')
 export class MoralisTokenTransferMapper extends BaseRawDataMapper<MoralisTokenTransfer, EvmTransaction> {
   protected readonly inputSchema = MoralisTokenTransferSchema;
   protected readonly outputSchema = EvmTransactionSchema;

@@ -5,7 +5,6 @@ import { type Result, ok } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../core/blockchain/base/mapper.ts';
 import type { NormalizationError } from '../../../core/blockchain/index.ts';
-import { RegisterTransactionMapper } from '../../../core/blockchain/index.ts';
 import { BitcoinTransactionSchema } from '../schemas.js';
 import type {
   BitcoinTransactionInput,
@@ -16,7 +15,6 @@ import type {
 import { BlockchainComTransactionSchema } from './blockchain-com.schemas.js';
 import type { BlockchainComTransaction } from './blockchain-com.types.js';
 
-@RegisterTransactionMapper('blockchain.com')
 export class BlockchainComTransactionMapper extends BaseRawDataMapper<BlockchainComTransaction, BitcoinTransaction> {
   protected readonly inputSchema = BlockchainComTransactionSchema;
   protected readonly outputSchema = BitcoinTransactionSchema;

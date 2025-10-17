@@ -13,9 +13,6 @@ export * from './types/index.ts';
 export * from './registry/decorators.ts';
 export * from './registry/provider-registry.ts';
 
-// Normalization
-export * from './normalizer.ts';
-
 // Provider management
 export * from './provider-manager.ts';
 

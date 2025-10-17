@@ -4,7 +4,6 @@ import { Decimal } from 'decimal.js';
 import { ok, type Result } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../core/blockchain/base/mapper.ts';
-import { RegisterTransactionMapper } from '../../../core/blockchain/index.ts';
 import type { NormalizationError } from '../../../core/blockchain/index.ts';
 import { BitcoinTransactionSchema } from '../schemas.js';
 import type { BitcoinTransaction, BitcoinTransactionInput, BitcoinTransactionOutput } from '../types.js';
@@ -12,7 +11,6 @@ import type { BitcoinTransaction, BitcoinTransactionInput, BitcoinTransactionOut
 import { BlockCypherTransactionSchema } from './blockcypher.schemas.js';
 import type { BlockCypherTransaction } from './blockcypher.types.js';
 
-@RegisterTransactionMapper('blockcypher')
 export class BlockCypherTransactionMapper extends BaseRawDataMapper<BlockCypherTransaction, BitcoinTransaction> {
   protected readonly inputSchema = BlockCypherTransactionSchema;
   protected readonly outputSchema = BitcoinTransactionSchema;

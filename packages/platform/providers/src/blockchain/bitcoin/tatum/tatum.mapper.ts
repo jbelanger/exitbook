@@ -4,7 +4,6 @@ import { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../core/blockchain/base/mapper.ts';
-import { RegisterTransactionMapper } from '../../../core/blockchain/index.ts';
 import type { NormalizationError } from '../../../core/blockchain/index.ts';
 import { BitcoinTransactionSchema } from '../schemas.js';
 import type {
@@ -16,7 +15,6 @@ import type {
 import { TatumBitcoinTransactionSchema } from './tatum.schemas.js';
 import type { TatumBitcoinTransaction } from './tatum.types.js';
 
-@RegisterTransactionMapper('tatum')
 export class TatumBitcoinTransactionMapper extends BaseRawDataMapper<TatumBitcoinTransaction, BitcoinTransaction> {
   protected readonly inputSchema = TatumBitcoinTransactionSchema;
   protected readonly outputSchema = BitcoinTransactionSchema;

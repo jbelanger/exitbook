@@ -5,7 +5,6 @@ import { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../../core/blockchain/base/mapper.ts';
-import { RegisterTransactionMapper } from '../../../../core/blockchain/index.ts';
 import type { NormalizationError } from '../../../../core/blockchain/index.ts';
 import { EvmTransactionSchema } from '../../schemas.js';
 import type { EvmTransaction } from '../../types.js';
@@ -13,7 +12,6 @@ import type { EvmTransaction } from '../../types.js';
 import { AlchemyAssetTransferSchema } from './alchemy.schemas.js';
 import type { AlchemyAssetTransfer } from './alchemy.types.js';
 
-@RegisterTransactionMapper('alchemy')
 export class AlchemyTransactionMapper extends BaseRawDataMapper<AlchemyAssetTransfer, EvmTransaction> {
   protected readonly inputSchema = AlchemyAssetTransferSchema;
   protected readonly outputSchema = EvmTransactionSchema;

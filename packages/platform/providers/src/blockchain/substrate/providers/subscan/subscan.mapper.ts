@@ -4,7 +4,6 @@ import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../../core/blockchain/base/mapper.ts';
-import { RegisterTransactionMapper } from '../../../../core/blockchain/index.ts';
 import type { NormalizationError } from '../../../../core/blockchain/index.ts';
 import { SUBSTRATE_CHAINS } from '../../chain-registry.js';
 import { SubstrateTransactionSchema } from '../../schemas.js';
@@ -13,7 +12,6 @@ import type { SubstrateTransaction } from '../../types.js';
 import { SubscanTransferSchema } from './subscan.schemas.js';
 import type { SubscanTransferAugmented } from './subscan.types.js';
 
-@RegisterTransactionMapper('subscan')
 export class SubscanTransactionMapper extends BaseRawDataMapper<SubscanTransferAugmented, SubstrateTransaction> {
   protected readonly inputSchema = SubscanTransferSchema;
   protected readonly outputSchema = SubstrateTransactionSchema;

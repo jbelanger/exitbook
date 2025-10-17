@@ -13,6 +13,5 @@ export { RawDataRepository } from './infrastructure/persistence/raw-data-reposit
 export { ImportSessionRepository } from './infrastructure/persistence/import-session-repository.ts';
 export { ImportSessionErrorRepository } from './infrastructure/persistence/import-session-error-repository.ts';
 
-export { DefaultNormalizer } from '@exitbook/providers';
 export { ImporterFactory } from './infrastructure/shared/importers/importer-factory.ts';
 export { ProcessorFactory } from './infrastructure/shared/processors/processor-factory.ts';

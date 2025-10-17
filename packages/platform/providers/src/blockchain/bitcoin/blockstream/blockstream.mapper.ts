@@ -4,7 +4,6 @@ import { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../core/blockchain/base/mapper.ts';
-import { RegisterTransactionMapper } from '../../../core/blockchain/index.ts';
 import type { NormalizationError } from '../../../core/blockchain/index.ts';
 import { BitcoinTransactionSchema } from '../schemas.js';
 import type {
@@ -16,7 +15,6 @@ import type {
 import { BlockstreamTransactionSchema } from './blockstream.schemas.js';
 import type { BlockstreamTransaction } from './blockstream.types.js';
 
-@RegisterTransactionMapper('blockstream.info')
 export class BlockstreamTransactionMapper extends BaseRawDataMapper<BlockstreamTransaction, BitcoinTransaction> {
   protected readonly inputSchema = BlockstreamTransactionSchema;
   protected readonly outputSchema = BitcoinTransactionSchema;

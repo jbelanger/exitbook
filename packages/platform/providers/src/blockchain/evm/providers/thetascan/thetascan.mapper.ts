@@ -5,7 +5,6 @@ import { Decimal } from 'decimal.js';
 import { type Result, ok } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../../core/blockchain/base/mapper.ts';
-import { RegisterTransactionMapper } from '../../../../core/blockchain/index.ts';
 import type { NormalizationError } from '../../../../core/blockchain/index.ts';
 import { EvmTransactionSchema } from '../../schemas.js';
 import type { EvmTransaction } from '../../types.js';
@@ -13,7 +12,6 @@ import type { EvmTransaction } from '../../types.js';
 import { ThetaScanTransactionSchema } from './thetascan.schemas.js';
 import type { ThetaScanTransaction } from './thetascan.types.js';
 
-@RegisterTransactionMapper('thetascan')
 export class ThetaScanTransactionMapper extends BaseRawDataMapper<ThetaScanTransaction, EvmTransaction> {
   protected readonly inputSchema = ThetaScanTransactionSchema;
   protected readonly outputSchema = EvmTransactionSchema;
