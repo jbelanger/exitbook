@@ -446,11 +446,7 @@ export class SnowtraceApiClient extends BaseApiClient {
 
     const transactions: TransactionWithRawData<EvmTransaction>[] = [];
     for (const rawTx of rawTransactions) {
-      const mapResult = this.mapper.map(
-        rawTx as never,
-        { providerId: 'snowtrace', sourceAddress: address },
-        {} as never
-      );
+      const mapResult = this.mapper.map(rawTx, { providerId: 'snowtrace', sourceAddress: address }, {});
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;

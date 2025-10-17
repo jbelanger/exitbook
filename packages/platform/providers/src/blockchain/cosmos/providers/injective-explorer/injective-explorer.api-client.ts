@@ -10,6 +10,7 @@ import { COSMOS_CHAINS } from '../../chain-registry.ts';
 import type { CosmosTransaction } from '../../types.js';
 
 import { InjectiveExplorerTransactionMapper } from './injective-explorer.mapper.ts';
+import type { InjectiveExplorerResponse } from './injective-explorer.types.ts';
 
 @RegisterApiClient({
   baseUrl: 'https://sentry.exchange.grpc-web.injective.network',
@@ -88,7 +89,7 @@ export class InjectiveExplorerApiClient extends BaseApiClient {
     this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
 
     const endpoint = `/api/explorer/v1/accountTxs/${address}`;
-    const result = await this.httpClient.get<{ data?: unknown[] }>(endpoint);
+    const result = await this.httpClient.get<InjectiveExplorerResponse>(endpoint);
 
     if (result.isErr()) {
       this.logger.error(
@@ -116,7 +117,7 @@ export class InjectiveExplorerApiClient extends BaseApiClient {
           (typeof (tx as { block_timestamp?: unknown }).block_timestamp === 'string' ||
             typeof (tx as { block_timestamp?: unknown }).block_timestamp === 'number')
         ) {
-          const timestamp = new Date((tx as { block_timestamp: string | number }).block_timestamp).getTime();
+          const timestamp = new Date(tx.block_timestamp).getTime();
           return timestamp >= since;
         }
         return false;
@@ -130,9 +131,13 @@ export class InjectiveExplorerApiClient extends BaseApiClient {
 
     const transactions: TransactionWithRawData<CosmosTransaction>[] = [];
     for (const rawTx of rawTransactions) {
-      const mapResult = this.mapper.map(rawTx as never, { providerId: 'injective-explorer', sourceAddress: address }, {
-        address,
-      } as never);
+      const mapResult = this.mapper.map(
+        rawTx,
+        { providerId: 'injective-explorer', sourceAddress: address },
+        {
+          address,
+        }
+      );
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;

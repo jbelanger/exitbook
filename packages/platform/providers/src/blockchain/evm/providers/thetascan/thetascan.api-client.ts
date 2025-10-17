@@ -169,11 +169,7 @@ export class ThetaScanApiClient extends BaseApiClient {
 
     const transactions: TransactionWithRawData<EvmTransaction>[] = [];
     for (const rawTx of rawTransactions) {
-      const mapResult = this.mapper.map(
-        rawTx as never,
-        { providerId: 'thetascan', sourceAddress: address },
-        {} as never
-      );
+      const mapResult = this.mapper.map(rawTx, { providerId: 'thetascan', sourceAddress: address }, {});
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;

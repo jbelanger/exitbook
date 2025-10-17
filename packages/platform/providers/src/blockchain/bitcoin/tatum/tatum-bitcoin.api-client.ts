@@ -151,7 +151,7 @@ export class TatumBitcoinApiClient extends BaseApiClient {
     // Normalize transactions immediately using mapper
     const transactions: TransactionWithRawData<BitcoinTransaction>[] = [];
     for (const rawTx of rawTransactions) {
-      const mapResult = this.mapper.map(rawTx as never, { providerId: 'tatum', sourceAddress: address }, {} as never);
+      const mapResult = this.mapper.map(rawTx, { providerId: 'tatum', sourceAddress: address }, {});
 
       if (mapResult.isErr()) {
         // Fail fast - provider returned invalid data

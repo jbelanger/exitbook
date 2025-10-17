@@ -205,11 +205,7 @@ export class TaostatsApiClient extends BaseApiClient {
     // Normalize transactions using mapper
     const transactions: TransactionWithRawData<SubstrateTransaction>[] = [];
     for (const rawTx of augmentedTransactions) {
-      const mapResult = this.mapper.map(
-        rawTx as never,
-        { providerId: 'taostats', sourceAddress: address },
-        {} as never
-      );
+      const mapResult = this.mapper.map(rawTx, { providerId: 'taostats', sourceAddress: address }, {});
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;

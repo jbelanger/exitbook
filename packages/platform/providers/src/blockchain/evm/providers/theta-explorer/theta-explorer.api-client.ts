@@ -86,11 +86,7 @@ export class ThetaExplorerApiClient extends BaseApiClient {
 
     const transactions: TransactionWithRawData<EvmTransaction>[] = [];
     for (const rawTx of rawTransactions) {
-      const mapResult = this.mapper.map(
-        rawTx as never,
-        { providerId: 'theta-explorer', sourceAddress: address },
-        {} as never
-      );
+      const mapResult = this.mapper.map(rawTx, { providerId: 'theta-explorer', sourceAddress: address }, {});
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;

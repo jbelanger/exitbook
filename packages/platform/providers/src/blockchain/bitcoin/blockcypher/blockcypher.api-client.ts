@@ -253,11 +253,7 @@ export class BlockCypherApiClient extends BaseApiClient {
       const rawTx = txResult.value;
 
       // Normalize transaction immediately using mapper
-      const mapResult = this.mapper.map(
-        rawTx as never,
-        { providerId: 'blockcypher', sourceAddress: address },
-        {} as never
-      );
+      const mapResult = this.mapper.map(rawTx, { providerId: 'blockcypher', sourceAddress: address }, {});
 
       if (mapResult.isErr()) {
         // Fail fast - provider returned invalid data

@@ -156,7 +156,7 @@ export class BitcoinTransactionImporter implements IImporter {
       const rawTransactions = result.value;
 
       for (const rawTx of rawTransactions) {
-        const normalizedTx = rawTx.normalizedData as { id: string };
+        const normalizedTx = rawTx.normalizedData as BitcoinTransaction;
         uniqueTransactions.set(normalizedTx.id, rawTx);
       }
 

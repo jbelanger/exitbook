@@ -148,11 +148,7 @@ export class BlockchainComApiClient extends BaseApiClient {
     // Normalize transactions immediately using mapper
     const transactions: TransactionWithRawData<BitcoinTransaction>[] = [];
     for (const rawTx of filteredRawTransactions) {
-      const mapResult = this.mapper.map(
-        rawTx as never,
-        { providerId: 'blockchain.com', sourceAddress: address },
-        {} as never
-      );
+      const mapResult = this.mapper.map(rawTx, { providerId: 'blockchain.com', sourceAddress: address }, {});
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;

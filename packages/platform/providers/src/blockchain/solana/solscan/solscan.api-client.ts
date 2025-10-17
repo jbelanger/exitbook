@@ -224,7 +224,7 @@ export class SolscanApiClient extends BaseApiClient {
 
     const transactions: TransactionWithRawData<SolanaTransaction>[] = [];
     for (const rawTx of filteredRawTransactions) {
-      const mapResult = this.mapper.map(rawTx as never, { providerId: 'solscan', sourceAddress: address }, {} as never);
+      const mapResult = this.mapper.map(rawTx, { providerId: 'solscan', sourceAddress: address }, {});
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;

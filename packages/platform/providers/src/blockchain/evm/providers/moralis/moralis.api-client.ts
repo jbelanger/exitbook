@@ -227,7 +227,7 @@ export class MoralisApiClient extends BaseApiClient {
 
     const transactions: TransactionWithRawData<EvmTransaction>[] = [];
     for (const rawTx of rawTransactions) {
-      const mapResult = this.mapper.map(rawTx as never, { providerId: 'moralis', sourceAddress: address }, {} as never);
+      const mapResult = this.mapper.map(rawTx, { providerId: 'moralis', sourceAddress: address }, {});
 
       if (mapResult.isErr()) {
         const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
