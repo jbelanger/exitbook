@@ -99,7 +99,11 @@ export const InjectiveTransactionSchema = z.object({
   claim_id: z.array(z.number()).optional(),
   code: z.number().nonnegative('Transaction code must be non-negative'),
   codespace: z.string().optional(),
-  data: z.string().nullable().optional(),
+  data: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((val) => val ?? undefined),
   error_log: z.string().optional(),
   extension_options: z.array(z.unknown()).optional(),
   gas_fee: InjectiveGasFeeSchema,

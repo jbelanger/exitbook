@@ -89,16 +89,18 @@ export class SubscanTransactionMapper extends BaseRawDataMapper<SubscanTransferA
         return undefined; // Not relevant to this address
       }
 
+      // Subscan returns amount in human-readable format (already divided by decimals)
+      // but returns fee in raw blockchain units (needs to be divided)
       const amount = new Decimal(transfer.amount || '0');
-      const divisor = new Decimal(10).pow(nativeDecimals);
-      const amountInMainUnit = amount.dividedBy(divisor);
+      // Amount is already in main unit from Subscan API
 
       const fee = new Decimal(transfer.fee || '0');
+      const divisor = new Decimal(10).pow(nativeDecimals);
       const feeInMainUnit = fee.dividedBy(divisor);
 
       return {
         // Value information
-        amount: amountInMainUnit.toString(),
+        amount: amount.toString(),
         // Block context
         blockHeight: transfer.block_num,
         blockId: transfer.hash, // Use transaction hash as block identifier

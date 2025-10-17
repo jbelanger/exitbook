@@ -31,7 +31,7 @@ export const EvmTransactionSchema = z.object({
 
   // Transaction flow
   from: z.string().min(1, 'From address must not be empty'),
-  to: z.string().min(1, 'To address must not be empty'),
+  to: z.string().min(1, 'To address must not be empty').optional(),
   amount: numericString,
   currency: z.string().min(1, 'Currency must not be empty'),
 

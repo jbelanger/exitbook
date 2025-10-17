@@ -7,9 +7,17 @@ export const TatumBitcoinCoinSchema = z.object({
   address: z.string(),
   coinbase: z.boolean(),
   height: z.number(),
-  reqSigs: z.number().nullable().optional(),
+  reqSigs: z
+    .number()
+    .nullable()
+    .optional()
+    .transform((val) => val ?? undefined),
   script: z.string(),
-  type: z.string().nullable().optional(),
+  type: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((val) => val ?? undefined),
   value: z.number().nonnegative('Value must be non-negative'),
   version: z.number(),
 });
@@ -36,7 +44,11 @@ export const TatumBitcoinInputSchema = z.object({
  * Schema for Tatum Bitcoin transaction output scriptPubKey
  */
 export const TatumBitcoinScriptPubKeySchema = z.object({
-  reqSigs: z.number().nullable().optional(),
+  reqSigs: z
+    .number()
+    .nullable()
+    .optional()
+    .transform((val) => val ?? undefined),
   type: z.string(),
 });
 
@@ -44,7 +56,11 @@ export const TatumBitcoinScriptPubKeySchema = z.object({
  * Schema for Tatum Bitcoin transaction output
  */
 export const TatumBitcoinOutputSchema = z.object({
-  address: z.string().nullable(),
+  address: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((val) => val ?? undefined),
   script: z.string(),
   scriptPubKey: TatumBitcoinScriptPubKeySchema,
   value: z.number().nonnegative('Output value must be non-negative'),

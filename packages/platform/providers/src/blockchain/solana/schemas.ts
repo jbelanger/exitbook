@@ -13,7 +13,11 @@ import { z } from 'zod';
 export const SolanaTokenAmountSchema = z.object({
   amount: z.string().min(1, 'Amount must not be empty'),
   decimals: z.number().min(0, 'Decimals must be non-negative'),
-  uiAmount: z.number().nullable().optional(),
+  uiAmount: z
+    .number()
+    .nullable()
+    .optional()
+    .transform((val) => val ?? undefined),
   uiAmountString: z.string().min(1, 'UI amount string must not be empty'),
 });
 
@@ -33,7 +37,11 @@ export const SolanaTokenBalanceSchema = z.object({
  */
 export const SolanaSignatureSchema = z.object({
   blockTime: z.number().optional(),
-  err: z.unknown().nullable(),
+  err: z
+    .unknown()
+    .nullable()
+    .optional()
+    .transform((val) => val ?? undefined),
   memo: z.string().optional(),
   signature: z.string().min(1, 'Signature must not be empty'),
   slot: z.number().nonnegative('Slot must be non-negative'),

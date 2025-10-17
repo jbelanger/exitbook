@@ -3,7 +3,7 @@
  */
 import { z } from 'zod';
 
-import { timestampToDate } from '../../../../core/blockchain/utils/zod-utils.js';
+import { hexOrNumericToNumericRequired, timestampToDate } from '../../../../core/blockchain/utils/zod-utils.js';
 
 /**
  * Schema for account display metadata
@@ -92,7 +92,7 @@ const SubscanItemDetailSchema = z.object({
  * Schema for Subscan transfer structure
  */
 export const SubscanTransferSchema = z.object({
-  amount: z.string().regex(/^\d+$/, 'Amount must be numeric string'),
+  amount: z.string().regex(/^\d+(\.\d+)?$/, 'Amount must be numeric string (integer or decimal)'),
   amount_v2: z.string().nullish(),
   asset_symbol: z.string().nullish(),
   asset_type: z.string().nullish(),
@@ -103,7 +103,7 @@ export const SubscanTransferSchema = z.object({
   current_currency_amount: z.string().nullish(),
   event_idx: z.number().nullish(),
   extrinsic_index: z.string().min(1, 'Extrinsic index must not be empty'),
-  fee: z.string().regex(/^\d+$/, 'Fee must be numeric string'),
+  fee: hexOrNumericToNumericRequired,
   from: z.string().min(1, 'From address must not be empty'),
   from_account_display: SubscanAccountDisplaySchema.nullish(),
   hash: z.string().min(1, 'Transaction hash must not be empty'),
@@ -154,8 +154,9 @@ export const SubscanAccountResponseSchema = z.object({
   code: z.number(),
   data: z
     .object({
-      balance: z.string().regex(/^\d+$/, 'Balance must be numeric string').optional(),
-      reserved: z.string().regex(/^\d+$/, 'Reserved must be numeric string').optional(),
+      account: z.string().optional(),
+      balance: hexOrNumericToNumericRequired.optional(),
+      reserved: hexOrNumericToNumericRequired.optional(),
     })
     .optional(),
   message: z.string().optional(),

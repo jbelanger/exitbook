@@ -26,8 +26,16 @@ export const CoinGeckoMarketItemSchema = z.object({
   id: z.string(),
   symbol: z.string(),
   name: z.string(),
-  market_cap_rank: z.number().nullable(),
-  market_cap: z.number().nullable(),
+  market_cap_rank: z
+    .number()
+    .nullable()
+    .optional()
+    .transform((val) => val ?? undefined),
+  market_cap: z
+    .number()
+    .nullable()
+    .optional()
+    .transform((val) => val ?? undefined),
 });
 
 export type CoinGeckoMarketItem = z.infer<typeof CoinGeckoMarketItemSchema>;

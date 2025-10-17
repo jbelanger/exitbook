@@ -252,7 +252,11 @@ export class HeliusApiClient extends BaseApiClient {
 
       if (
         txResponse?.result &&
-        (!since || (txResponse.result.blockTime && txResponse.result.blockTime.getTime() >= since))
+        (!since ||
+          (txResponse.result.blockTime &&
+            (typeof txResponse.result.blockTime === 'number'
+              ? txResponse.result.blockTime * 1000 >= since
+              : txResponse.result.blockTime.getTime() >= since)))
       ) {
         transactions.push(txResponse.result);
       }
@@ -444,7 +448,7 @@ export class HeliusApiClient extends BaseApiClient {
 
   private async getTokenAccountTransactions(
     address: string,
-    _since?: number
+    since?: number
   ): Promise<Result<HeliusTransaction[], Error>> {
     this.logger.debug(`Fetching token account transactions - Address: ${maskAddress(address)}`);
 
@@ -512,7 +516,14 @@ export class HeliusApiClient extends BaseApiClient {
 
           const txResponse = txResult.value;
 
-          if (txResponse?.result) {
+          if (
+            txResponse?.result &&
+            (!since ||
+              (txResponse.result.blockTime &&
+                (typeof txResponse.result.blockTime === 'number'
+                  ? txResponse.result.blockTime * 1000 >= since
+                  : txResponse.result.blockTime.getTime() >= since)))
+          ) {
             tokenTransactions.push(txResponse.result);
           }
         }
