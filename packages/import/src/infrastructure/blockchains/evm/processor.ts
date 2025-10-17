@@ -90,7 +90,6 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
         : createMoney('0', fundFlow.feeCurrency);
 
       const universalTransaction: UniversalTransaction = {
-        // Core fields
         id: primaryTx.id,
         datetime: new Date(primaryTx.timestamp).toISOString(),
         timestamp: primaryTx.timestamp,
@@ -125,20 +124,16 @@ export class EvmTransactionProcessor extends BaseTransactionProcessor {
           },
         },
 
-        // Structured fees
         fees: {
           network: networkFee,
           platform: undefined, // EVM chains have no platform fees
           total: networkFee,
         },
 
-        // Enhanced classification
         operation: classification.operation,
 
-        // Classification uncertainty notes
         note: classification.note,
 
-        // Blockchain metadata
         blockchain: {
           name: this.chainConfig.chainName,
           block_height: primaryTx.blockHeight,

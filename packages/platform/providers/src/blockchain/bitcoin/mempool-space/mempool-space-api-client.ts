@@ -4,11 +4,12 @@ import { err, ok, type Result } from 'neverthrow';
 import { BaseApiClient } from '../../../core/blockchain/base/api-client.ts';
 import type { ProviderConfig } from '../../../core/blockchain/index.ts';
 import { RegisterApiClient } from '../../../core/blockchain/index.ts';
-import type { ProviderOperation } from '../../../core/blockchain/types/index.ts';
+import type { ProviderOperation, TransactionWithRawData } from '../../../core/blockchain/types/index.ts';
 import { maskAddress } from '../../../core/blockchain/utils/address-utils.ts';
-import type { AddressInfo } from '../types.js';
+import type { AddressInfo, BitcoinTransaction } from '../types.js';
 
-import type { MempoolAddressInfo } from './mempool-space.types.js';
+import { MempoolSpaceTransactionMapper } from './mempool-space.mapper.ts';
+import type { MempoolAddressInfo, MempoolTransaction } from './mempool-space.types.js';
 
 @RegisterApiClient({
   baseUrl: 'https://mempool.space/api',
@@ -32,8 +33,11 @@ import type { MempoolAddressInfo } from './mempool-space.types.js';
   requiresApiKey: false,
 })
 export class MempoolSpaceApiClient extends BaseApiClient {
+  private mapper: MempoolSpaceTransactionMapper;
+
   constructor(config: ProviderConfig) {
     super(config);
+    this.mapper = new MempoolSpaceTransactionMapper();
 
     this.logger.debug(`Initialized MempoolSpaceApiClient from registry metadata - BaseUrl: ${this.baseUrl}`);
   }
@@ -86,15 +90,12 @@ export class MempoolSpaceApiClient extends BaseApiClient {
 
     const addressInfo = result.value;
 
-    // Calculate transaction count
     const txCount = addressInfo.chain_stats.tx_count + addressInfo.mempool_stats.tx_count;
 
-    // Calculate current balance: funded amount - spent amount
     const chainBalance = addressInfo.chain_stats.funded_txo_sum - addressInfo.chain_stats.spent_txo_sum;
     const mempoolBalance = addressInfo.mempool_stats.funded_txo_sum - addressInfo.mempool_stats.spent_txo_sum;
     const totalBalanceSats = chainBalance + mempoolBalance;
 
-    // Convert satoshis to BTC
     const balanceBTC = (totalBalanceSats / 100000000).toString();
 
     this.logger.debug(
@@ -107,18 +108,15 @@ export class MempoolSpaceApiClient extends BaseApiClient {
     });
   }
 
-  /**
-   * Get raw transaction data without transformation for wallet-aware parsing
-   */
   private async getRawAddressTransactions(params: {
     address: string;
     since?: number | undefined;
-  }): Promise<Result<unknown[], Error>> {
+  }): Promise<Result<TransactionWithRawData<BitcoinTransaction>[], Error>> {
     const { address } = params;
 
     this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
 
-    const result = await this.httpClient.get<unknown[]>(`/address/${address}/txs`);
+    const result = await this.httpClient.get<MempoolTransaction[]>(`/address/${address}/txs`);
 
     if (result.isErr()) {
       this.logger.error(
@@ -134,10 +132,26 @@ export class MempoolSpaceApiClient extends BaseApiClient {
       return ok([]);
     }
 
+    const transactions: TransactionWithRawData<BitcoinTransaction>[] = [];
+    for (const rawTx of rawTransactions) {
+      const mapResult = this.mapper.map(rawTx, { providerId: 'mempool.space', sourceAddress: address }, {});
+
+      if (mapResult.isErr()) {
+        const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
+        this.logger.error(`Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`);
+        return err(new Error(`Provider data validation failed: ${errorMessage}`));
+      }
+
+      transactions.push({
+        raw: rawTx,
+        normalized: mapResult.value,
+      });
+    }
+
     this.logger.debug(
-      `Successfully retrieved raw transactions - Address: ${maskAddress(address)}, Count: ${rawTransactions.length}`
+      `Successfully retrieved and normalized transactions - Address: ${maskAddress(address)}, Count: ${transactions.length}`
     );
 
-    return ok(rawTransactions);
+    return ok(transactions);
   }
 }

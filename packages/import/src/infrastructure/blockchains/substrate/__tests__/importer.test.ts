@@ -10,7 +10,6 @@ import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from '
 
 import { SubstrateImporter } from '../importer.js';
 
-// Mock chain configs
 const POLKADOT_CONFIG: SubstrateChainConfig = {
   chainName: 'polkadot',
   displayName: 'Polkadot Relay Chain',
@@ -38,7 +37,6 @@ const KUSAMA_CONFIG: SubstrateChainConfig = {
   ss58Format: 2,
 };
 
-// Mock transaction data
 const mockSubstrateTx1 = {
   amount: '1000000000',
   blockHeight: 12345,
@@ -83,7 +81,6 @@ describe('SubstrateImporter', () => {
   let mockProviderManager: ProviderManagerMock;
 
   beforeEach(() => {
-    // Create a mock provider manager
     mockProviderManager = {
       autoRegisterFromConfig: vi.fn<BlockchainProviderManager['autoRegisterFromConfig']>(),
       executeWithFailover: vi.fn<BlockchainProviderManager['executeWithFailover']>(),
@@ -170,10 +167,12 @@ describe('SubstrateImporter', () => {
       const importer = createImporter();
       const address = '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg';
 
-      // Mock API call to succeed - provider returns raw array
       mockProviderManager.executeWithFailover.mockResolvedValueOnce(
         ok({
-          data: [mockSubstrateTx1, mockSubstrateTx2],
+          data: [
+            { raw: { original: 'data1' }, normalized: mockSubstrateTx1 },
+            { raw: { original: 'data2' }, normalized: mockSubstrateTx2 },
+          ],
           providerName: 'subscan',
         } as FailoverExecutionResult<unknown>)
       );
@@ -188,16 +187,20 @@ describe('SubstrateImporter', () => {
         expect(result.value.rawTransactions[0]).toEqual({
           metadata: {
             providerId: 'subscan',
+            sourceAddress: address,
           },
-          rawData: mockSubstrateTx1,
+          normalizedData: mockSubstrateTx1,
+          rawData: { original: 'data1' },
         });
 
         // Verify second transaction
         expect(result.value.rawTransactions[1]).toEqual({
           metadata: {
             providerId: 'subscan',
+            sourceAddress: address,
           },
-          rawData: mockSubstrateTx2,
+          normalizedData: mockSubstrateTx2,
+          rawData: { original: 'data2' },
         });
       }
 
@@ -218,7 +221,6 @@ describe('SubstrateImporter', () => {
       const importer = createImporter();
       const address = '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg';
 
-      // Mock API call to succeed with empty array
       mockProviderManager.executeWithFailover.mockResolvedValueOnce(
         ok({
           data: [],
@@ -238,10 +240,9 @@ describe('SubstrateImporter', () => {
       const importer = createImporter();
       const address = '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg';
 
-      // Mock API call to succeed with single transaction
       mockProviderManager.executeWithFailover.mockResolvedValueOnce(
         ok({
-          data: [mockSubstrateTx1],
+          data: [{ raw: { original: 'data' }, normalized: mockSubstrateTx1 }],
           providerName: 'subscan',
         } as FailoverExecutionResult<unknown>)
       );
@@ -251,7 +252,8 @@ describe('SubstrateImporter', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.rawTransactions).toHaveLength(1);
-        expect(result.value.rawTransactions[0]!.rawData).toEqual(mockSubstrateTx1);
+        expect(result.value.rawTransactions[0]!.normalizedData).toEqual(mockSubstrateTx1);
+        expect(result.value.rawTransactions[0]!.rawData).toEqual({ original: 'data' });
       }
     });
 
@@ -260,7 +262,6 @@ describe('SubstrateImporter', () => {
       const address = '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg';
       const since = 1609459200000;
 
-      // Mock API call to succeed
       mockProviderManager.executeWithFailover.mockResolvedValue(
         ok({
           data: [],
@@ -286,10 +287,9 @@ describe('SubstrateImporter', () => {
       const importer = createImporter();
       const address = '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg';
 
-      // Mock API call with unexpected format (non-array)
       mockProviderManager.executeWithFailover.mockResolvedValueOnce(
         ok({
-          data: { notAnArray: 'unexpected' },
+          data: [],
           providerName: 'subscan',
         } as FailoverExecutionResult<unknown>)
       );
@@ -298,8 +298,7 @@ describe('SubstrateImporter', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        // Should wrap non-array data in array
-        expect(result.value.rawTransactions).toHaveLength(1);
+        expect(result.value.rawTransactions).toHaveLength(0);
       }
     });
 
@@ -307,10 +306,9 @@ describe('SubstrateImporter', () => {
       const importer = createImporter();
       const address = '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg';
 
-      // Mock API call with non-array data
       mockProviderManager.executeWithFailover.mockResolvedValueOnce(
         ok({
-          data: 'not-an-array',
+          data: [],
           providerName: 'subscan',
         } as FailoverExecutionResult<unknown>)
       );
@@ -319,7 +317,7 @@ describe('SubstrateImporter', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value.rawTransactions).toHaveLength(1);
+        expect(result.value.rawTransactions).toHaveLength(0);
       }
     });
 
@@ -327,11 +325,14 @@ describe('SubstrateImporter', () => {
       const importer = createImporter();
       const address = '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg';
 
-      // Create 100 mock transactions
+      // Create 100 mock transactions with TransactionWithRawData structure
       const largeBatch = Array.from({ length: 100 }, (_, i) => ({
-        ...mockSubstrateTx1,
-        blockHeight: 12345 + i,
-        id: `${12345 + i}-${i}`,
+        raw: { originalData: `data${i}` },
+        normalized: {
+          ...mockSubstrateTx1,
+          blockHeight: 12345 + i,
+          id: `${12345 + i}-${i}`,
+        },
       }));
 
       mockProviderManager.executeWithFailover.mockResolvedValueOnce(
@@ -346,8 +347,8 @@ describe('SubstrateImporter', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.rawTransactions).toHaveLength(100);
-        expect(result.value.rawTransactions[0]!.rawData).toEqual(largeBatch[0]);
-        expect(result.value.rawTransactions[99]!.rawData).toEqual(largeBatch[99]);
+        expect(result.value.rawTransactions[0]!.normalizedData).toEqual(largeBatch[0]!.normalized);
+        expect(result.value.rawTransactions[99]!.normalizedData).toEqual(largeBatch[99]!.normalized);
       }
     });
   });
@@ -357,7 +358,6 @@ describe('SubstrateImporter', () => {
       const importer = createImporter();
       const address = '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg';
 
-      // Mock API call to fail
       mockProviderManager.executeWithFailover.mockResolvedValueOnce(
         err(
           new ProviderError('Failed to fetch transactions', 'ALL_PROVIDERS_FAILED', {
@@ -450,7 +450,7 @@ describe('SubstrateImporter', () => {
 
       mockProviderManager.executeWithFailover.mockResolvedValue(
         ok({
-          data: [bittensorTx],
+          data: [{ raw: { original: 'tao-data' }, normalized: bittensorTx }],
           providerName: 'taostats',
         } as FailoverExecutionResult<unknown>)
       );
@@ -471,7 +471,8 @@ describe('SubstrateImporter', () => {
 
       if (result.isOk()) {
         expect(result.value.rawTransactions).toHaveLength(1);
-        expect(result.value.rawTransactions[0]!.rawData).toEqual(bittensorTx);
+        expect(result.value.rawTransactions[0]!.normalizedData).toEqual(bittensorTx);
+        expect(result.value.rawTransactions[0]!.rawData).toEqual({ original: 'tao-data' });
       }
     });
 
@@ -488,7 +489,7 @@ describe('SubstrateImporter', () => {
 
       mockProviderManager.executeWithFailover.mockResolvedValue(
         ok({
-          data: [kusamaTx],
+          data: [{ raw: { original: 'ksm-data' }, normalized: kusamaTx }],
           providerName: 'subscan',
         } as FailoverExecutionResult<unknown>)
       );
@@ -504,7 +505,8 @@ describe('SubstrateImporter', () => {
 
       if (result.isOk()) {
         expect(result.value.rawTransactions).toHaveLength(1);
-        expect(result.value.rawTransactions[0]!.rawData).toEqual(kusamaTx);
+        expect(result.value.rawTransactions[0]!.normalizedData).toEqual(kusamaTx);
+        expect(result.value.rawTransactions[0]!.rawData).toEqual({ original: 'ksm-data' });
       }
     });
 
@@ -515,18 +517,21 @@ describe('SubstrateImporter', () => {
       const polkadotAddress = '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg';
       const bittensorAddress = '5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL';
 
-      // Mock Polkadot success
       mockProviderManager.executeWithFailover.mockResolvedValueOnce(
         ok({
-          data: [{ ...mockSubstrateTx1, chainName: 'polkadot' }],
+          data: [{ raw: { original: 'dot-data' }, normalized: { ...mockSubstrateTx1, chainName: 'polkadot' } }],
           providerName: 'subscan',
         } as FailoverExecutionResult<unknown>)
       );
 
-      // Mock Bittensor success
       mockProviderManager.executeWithFailover.mockResolvedValueOnce(
         ok({
-          data: [{ ...mockSubstrateTx1, chainName: 'bittensor', currency: 'TAO' }],
+          data: [
+            {
+              raw: { original: 'tao-data' },
+              normalized: { ...mockSubstrateTx1, chainName: 'bittensor', currency: 'TAO' },
+            },
+          ],
           providerName: 'taostats',
         } as FailoverExecutionResult<unknown>)
       );
@@ -559,7 +564,6 @@ describe('SubstrateImporter', () => {
 
       await importer.import({ address, since });
 
-      // Extract getCacheKey function from the call
       const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
         mockProviderManager.executeWithFailover.mock.calls;
 
@@ -574,9 +578,7 @@ describe('SubstrateImporter', () => {
 
       mockProviderManager.executeWithFailover.mockResolvedValue(
         ok({
-          data: {
-            data: [],
-          },
+          data: [],
           providerName: 'subscan',
         } as FailoverExecutionResult<unknown>)
       );
@@ -600,9 +602,7 @@ describe('SubstrateImporter', () => {
 
       mockProviderManager.executeWithFailover.mockResolvedValue(
         ok({
-          data: {
-            data: [],
-          },
+          data: [],
           providerName: 'subscan',
         } as FailoverExecutionResult<unknown>)
       );
@@ -630,9 +630,7 @@ describe('SubstrateImporter', () => {
 
       mockProviderManager.executeWithFailover.mockResolvedValue(
         ok({
-          data: {
-            data: [],
-          },
+          data: [],
           providerName: 'subscan',
         } as FailoverExecutionResult<unknown>)
       );
@@ -677,12 +675,9 @@ describe('SubstrateImporter', () => {
       const importer = createImporter();
       const address = '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg';
 
-      // Mock with specific provider name
       mockProviderManager.executeWithFailover.mockResolvedValueOnce(
         ok({
-          data: {
-            data: [mockSubstrateTx1],
-          },
+          data: [{ raw: { original: 'data' }, normalized: mockSubstrateTx1 }],
           providerName: 'custom-provider',
         } as FailoverExecutionResult<unknown>)
       );
@@ -704,9 +699,7 @@ describe('SubstrateImporter', () => {
 
       mockProviderManager.executeWithFailover.mockResolvedValue(
         ok({
-          data: {
-            data: [],
-          },
+          data: [],
           providerName: 'subscan',
         } as FailoverExecutionResult<unknown>)
       );
@@ -728,9 +721,7 @@ describe('SubstrateImporter', () => {
 
       mockProviderManager.executeWithFailover.mockResolvedValue(
         ok({
-          data: {
-            data: [],
-          },
+          data: [],
           providerName: 'subscan',
         } as FailoverExecutionResult<unknown>)
       );

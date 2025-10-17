@@ -6,7 +6,6 @@ import { type Result, err, ok } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../../core/blockchain/base/mapper.ts';
 import type { NormalizationError } from '../../../../core/blockchain/index.ts';
-import { RegisterTransactionMapper } from '../../../../core/blockchain/index.ts';
 import { CosmosTransactionSchema } from '../../schemas.ts';
 import type { CosmosTransaction } from '../../types.js';
 
@@ -17,7 +16,6 @@ import type {
   InjectiveExplorerAmount,
 } from './injective-explorer.types.ts';
 
-@RegisterTransactionMapper('injective-explorer')
 export class InjectiveExplorerTransactionMapper extends BaseRawDataMapper<InjectiveApiTransaction, CosmosTransaction> {
   protected readonly inputSchema = InjectiveExplorerTransactionSchema;
   protected readonly outputSchema = CosmosTransactionSchema;

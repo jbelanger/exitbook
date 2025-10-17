@@ -88,7 +88,6 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
     try {
       let query = this.db.selectFrom('import_sessions').selectAll();
 
-      // Apply filters
       if (filters?.sourceId) {
         query = query.where('source_id', '=', filters.sourceId);
       }
@@ -107,10 +106,8 @@ export class ImportSessionRepository extends BaseRepository implements IImportSe
         query = query.where('started_at', '>=', sinceDate);
       }
 
-      // Apply ordering
       query = query.orderBy('started_at', 'desc');
 
-      // Apply limit
       if (filters?.limit) {
         query = query.limit(filters.limit);
       }

@@ -75,7 +75,6 @@ export class CosmosProcessor extends BaseTransactionProcessor {
 
         // Convert to UniversalTransaction with enhanced metadata
         const universalTransaction: UniversalTransaction = {
-          // Core fields
           id: normalizedTx.id,
           datetime: new Date(normalizedTx.timestamp).toISOString(),
           timestamp: normalizedTx.timestamp,
@@ -117,13 +116,10 @@ export class CosmosProcessor extends BaseTransactionProcessor {
             total: networkFee,
           },
 
-          // Enhanced classification
           operation: classification.operation,
 
-          // Classification uncertainty notes
           note: classification.note,
 
-          // Blockchain metadata
           blockchain: {
             name: this.chainConfig.chainName,
             block_height: normalizedTx.blockHeight,

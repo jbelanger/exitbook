@@ -31,7 +31,6 @@ export class CoinbaseApiImporter implements IImporter {
 
     const client = clientResult.value;
 
-    // Fetch and validate transaction data
     // Client returns RawTransactionWithMetadata[] with all fields populated
     // The client handles translating cursor to API-specific parameters (since/until/limit)
     const fetchResult = await client.fetchTransactionData({

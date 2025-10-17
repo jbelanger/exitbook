@@ -1,6 +1,12 @@
 import type { RawTransactionWithMetadata } from '@exitbook/core';
 import type { BlockchainImportParams, IImporter, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
-import type { BlockchainProviderManager, CosmosChainConfig, ProviderError } from '@exitbook/providers';
+import type {
+  BlockchainProviderManager,
+  CosmosChainConfig,
+  CosmosTransaction,
+  ProviderError,
+  TransactionWithRawData,
+} from '@exitbook/providers';
 import { getLogger, type Logger } from '@exitbook/shared-logger';
 import { err, type Result } from 'neverthrow';
 
@@ -28,7 +34,6 @@ export class CosmosImporter implements IImporter {
       throw new Error(`Provider manager required for ${chainConfig.displayName} importer`);
     }
 
-    // Auto-register providers for this chain
     this.providerManager.autoRegisterFromConfig(chainConfig.chainName, options?.preferredProvider);
 
     this.logger.info(
@@ -77,13 +82,16 @@ export class CosmosImporter implements IImporter {
     });
 
     return result.map((response) => {
-      const rawTransactions = response.data as unknown[];
+      const transactionsWithRaw = response.data as TransactionWithRawData<CosmosTransaction>[];
       const providerId = response.providerName;
 
-      // Wrap each transaction with provider provenance and source address context
-      return rawTransactions.map((rawData) => ({
-        metadata: { providerId, sourceAddress: address },
-        rawData,
+      return transactionsWithRaw.map((txWithRaw) => ({
+        metadata: {
+          providerId,
+          sourceAddress: address,
+        },
+        normalizedData: txWithRaw.normalized,
+        rawData: txWithRaw.raw, // Keep original provider response for audit trail
       }));
     });
   }

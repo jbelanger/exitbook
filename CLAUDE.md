@@ -76,22 +76,27 @@ pnpm run dev list-blockchains
 
 ### Import Pipeline Architecture
 
-The system follows a three-phase data flow:
+The system follows a two-phase data flow with normalization integrated into import:
 
-**Phase 1: Import (Raw Data Fetch)**
+**Phase 1: Import (Fetch + Normalize)**
 
 - Importers (`infrastructure/blockchains/*/importer.ts` or `infrastructure/exchanges/*/importer.ts`)
 - Extend `BaseImporter`, implement `IImporter` interface
 - Fetch data from APIs or parse CSVs
-- Return `Result<ImportRunResult, Error>` with `rawData: ApiClientRawData[]`
-- Store in `external_transaction_data` table with `processing_status = 'pending'`
+- **API clients immediately normalize data using mappers** during fetch
+  - Each API client instantiates its mapper (e.g., `BlockstreamTransactionMapper`)
+  - Calls `mapper.map()` for each transaction during fetch
+  - Returns `TransactionWithRawData<T>[]` containing both `raw` and `normalized` data
+- Zod validation happens during normalization (fail-fast on invalid data)
+- Return `Result<ImportRunResult, Error>` with normalized transactions
+- Store **both** `raw_data` and `normalized_data` in `external_transaction_data` table with `processing_status = 'pending'`
 
-**Phase 2: Process (Normalization)**
+**Phase 2: Process (Transform to Universal Format)**
 
 - Processors (`infrastructure/blockchains/*/processor.ts` or `infrastructure/exchanges/*/processor.ts`)
-- Transform raw API payloads into universal `StoredTransaction` format
+- Load **normalized data** from `external_transaction_data` (already validated)
+- Transform normalized payloads into universal `StoredTransaction` format
 - Return `Result<StoredTransaction[], Error>`
-- Handle data validation with Zod schemas
 - Upsert into `transactions` table (keyed by `external_id`)
 
 **Phase 3: Verify (Balance Reconciliation)**

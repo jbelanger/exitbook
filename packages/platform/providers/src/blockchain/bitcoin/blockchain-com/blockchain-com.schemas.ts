@@ -51,8 +51,16 @@ export const BlockchainComOutputSchema = z
 export const BlockchainComTransactionSchema = z
   .object({
     balance: z.number().optional(),
-    block_height: z.number().nullable().optional(),
-    block_index: z.number().nullable().optional(),
+    block_height: z
+      .number()
+      .nullable()
+      .optional()
+      .transform((val) => val ?? undefined),
+    block_index: z
+      .number()
+      .nullable()
+      .optional()
+      .transform((val) => val ?? undefined),
     double_spend: z.boolean(),
     fee: z.number().nonnegative('Fee must be non-negative'),
     hash: z.string().min(1, 'Transaction hash must not be empty'),

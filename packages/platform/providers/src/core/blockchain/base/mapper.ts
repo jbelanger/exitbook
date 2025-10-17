@@ -42,7 +42,6 @@ export abstract class BaseRawDataMapper<TRawData, TNormalizedData> {
     metadata: RawTransactionMetadata,
     context: ImportSessionMetadata
   ): Result<TNormalizedData, NormalizationError> {
-    // Validate input data first
     const inputValidationResult = this.inputSchema.safeParse(rawData);
     if (!inputValidationResult.success) {
       const errors = inputValidationResult.error.issues.map((issue) => {

@@ -10,7 +10,6 @@ import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from '
 
 import { SolanaTransactionImporter } from '../importer.js';
 
-// Mock transaction data
 const mockSolTx = {
   signature: 'sig123abc',
   slot: 100000,
@@ -37,7 +36,6 @@ describe('SolanaTransactionImporter', () => {
   let mockProviderManager: ProviderManagerMock;
 
   beforeEach(() => {
-    // Create a mock provider manager
     mockProviderManager = {
       autoRegisterFromConfig: vi.fn<BlockchainProviderManager['autoRegisterFromConfig']>(),
       executeWithFailover: vi.fn<BlockchainProviderManager['executeWithFailover']>(),
@@ -99,10 +97,15 @@ describe('SolanaTransactionImporter', () => {
       const importer = createImporter();
       const address = 'user1111111111111111111111111111111111111111';
 
-      // Mock API call to succeed
+      const mockNormalizedSol = { id: 'sig123abc', amount: '1', currency: 'SOL' };
+      const mockNormalizedToken = { id: 'sig456def', amount: '1', currency: 'USDC' };
+
       mockProviderManager.executeWithFailover.mockResolvedValueOnce(
         ok({
-          data: [mockSolTx, mockTokenTx],
+          data: [
+            { normalized: mockNormalizedSol, raw: mockSolTx },
+            { normalized: mockNormalizedToken, raw: mockTokenTx },
+          ],
           providerName: 'helius',
         } as FailoverExecutionResult<unknown>)
       );
@@ -119,6 +122,7 @@ describe('SolanaTransactionImporter', () => {
             providerId: 'helius',
             sourceAddress: address,
           },
+          normalizedData: mockNormalizedSol,
           rawData: mockSolTx,
         });
 
@@ -128,6 +132,7 @@ describe('SolanaTransactionImporter', () => {
             providerId: 'helius',
             sourceAddress: address,
           },
+          normalizedData: mockNormalizedToken,
           rawData: mockTokenTx,
         });
       }
@@ -149,7 +154,6 @@ describe('SolanaTransactionImporter', () => {
       const address = 'user1111111111111111111111111111111111111111';
       const since = 1234567890;
 
-      // Mock API call to succeed
       mockProviderManager.executeWithFailover.mockResolvedValue(
         ok({
           data: [],
@@ -195,7 +199,15 @@ describe('SolanaTransactionImporter', () => {
       const importer = createImporter();
       const address = 'user1111111111111111111111111111111111111111';
 
-      const multipleTxs = [mockSolTx, { ...mockSolTx, signature: 'sig789' }, { ...mockSolTx, signature: 'sig012' }];
+      const tx1 = mockSolTx;
+      const tx2 = { ...mockSolTx, signature: 'sig789' };
+      const tx3 = { ...mockSolTx, signature: 'sig012' };
+
+      const multipleTxs = [
+        { normalized: { id: 'sig123abc' }, raw: tx1 },
+        { normalized: { id: 'sig789' }, raw: tx2 },
+        { normalized: { id: 'sig012' }, raw: tx3 },
+      ];
 
       mockProviderManager.executeWithFailover.mockResolvedValueOnce(
         ok({
@@ -221,7 +233,6 @@ describe('SolanaTransactionImporter', () => {
       const importer = createImporter();
       const address = 'user1111111111111111111111111111111111111111';
 
-      // Mock provider to fail
       mockProviderManager.executeWithFailover.mockResolvedValueOnce(
         err(
           new ProviderError('Failed to fetch transactions', 'ALL_PROVIDERS_FAILED', {
@@ -265,7 +276,6 @@ describe('SolanaTransactionImporter', () => {
 
       await importer.import({ address, since });
 
-      // Extract getCacheKey function from the call
       const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
         mockProviderManager.executeWithFailover.mock.calls;
 
@@ -287,7 +297,6 @@ describe('SolanaTransactionImporter', () => {
 
       await importer.import({ address });
 
-      // Extract getCacheKey function from the call
       const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
         mockProviderManager.executeWithFailover.mock.calls;
 

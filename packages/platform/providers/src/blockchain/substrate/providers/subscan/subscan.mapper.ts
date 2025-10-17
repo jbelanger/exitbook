@@ -4,7 +4,6 @@ import { Decimal } from 'decimal.js';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../../core/blockchain/base/mapper.ts';
-import { RegisterTransactionMapper } from '../../../../core/blockchain/index.ts';
 import type { NormalizationError } from '../../../../core/blockchain/index.ts';
 import { SUBSTRATE_CHAINS } from '../../chain-registry.js';
 import { SubstrateTransactionSchema } from '../../schemas.js';
@@ -13,7 +12,6 @@ import type { SubstrateTransaction } from '../../types.js';
 import { SubscanTransferSchema } from './subscan.schemas.js';
 import type { SubscanTransferAugmented } from './subscan.types.js';
 
-@RegisterTransactionMapper('subscan')
 export class SubscanTransactionMapper extends BaseRawDataMapper<SubscanTransferAugmented, SubstrateTransaction> {
   protected readonly inputSchema = SubscanTransferSchema;
   protected readonly outputSchema = SubstrateTransactionSchema;
@@ -23,12 +21,10 @@ export class SubscanTransactionMapper extends BaseRawDataMapper<SubscanTransferA
     _metadata: RawTransactionMetadata,
     sessionContext: ImportSessionMetadata
   ): Result<SubstrateTransaction, NormalizationError> {
-    // Extract addresses from rich session context (similar to Bitcoin's approach)
     // Use derivedAddresses for SS58 variants, fallback to address for backward compatibility
     const addresses = sessionContext.derivedAddresses || (sessionContext.address ? [sessionContext.address] : []);
     const relevantAddresses = new Set(addresses);
 
-    // Get chain-specific info from augmented fields
     const nativeCurrency = rawData._nativeCurrency;
     const nativeDecimals = rawData._nativeDecimals;
 
@@ -93,16 +89,18 @@ export class SubscanTransactionMapper extends BaseRawDataMapper<SubscanTransferA
         return undefined; // Not relevant to this address
       }
 
+      // Subscan returns amount in human-readable format (already divided by decimals)
+      // but returns fee in raw blockchain units (needs to be divided)
       const amount = new Decimal(transfer.amount || '0');
-      const divisor = new Decimal(10).pow(nativeDecimals);
-      const amountInMainUnit = amount.dividedBy(divisor);
+      // Amount is already in main unit from Subscan API
 
       const fee = new Decimal(transfer.fee || '0');
+      const divisor = new Decimal(10).pow(nativeDecimals);
       const feeInMainUnit = fee.dividedBy(divisor);
 
       return {
         // Value information
-        amount: amountInMainUnit.toString(),
+        amount: amount.toString(),
         // Block context
         blockHeight: transfer.block_num,
         blockId: transfer.hash, // Use transaction hash as block identifier

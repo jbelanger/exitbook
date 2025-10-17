@@ -23,7 +23,6 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
         .innerJoin('import_sessions', 'external_transaction_data.import_session_id', 'import_sessions.id')
         .selectAll('external_transaction_data');
 
-      // Apply filters
       if (filters?.sourceId) {
         query = query.where('source_id', '=', filters.sourceId);
       }
@@ -46,7 +45,6 @@ export class RawDataRepository extends BaseRepository implements IRawDataReposit
         query = query.where('created_at', '>=', sinceDate);
       }
 
-      // Apply ordering
       query = query.orderBy('created_at', 'desc');
 
       const rows = await query.execute();

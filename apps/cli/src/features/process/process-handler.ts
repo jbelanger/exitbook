@@ -1,6 +1,5 @@
 import { TransactionRepository, type KyselyDB } from '@exitbook/data';
 import {
-  DefaultNormalizer,
   ImporterFactory,
   ImportSessionErrorRepository,
   ImportSessionRepository,
@@ -62,7 +61,6 @@ export class ProcessHandler {
     this.providerManager = new BlockchainProviderManager(config);
     const importerFactory = new ImporterFactory(this.providerManager);
     const processorFactory = new ProcessorFactory();
-    const normalizer = new DefaultNormalizer();
 
     this.ingestionService = new TransactionIngestionService(
       rawDataRepository,
@@ -70,8 +68,7 @@ export class ProcessHandler {
       sessionErrorRepository,
       transactionRepository,
       importerFactory,
-      processorFactory,
-      normalizer
+      processorFactory
     );
   }
 

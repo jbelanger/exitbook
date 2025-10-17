@@ -35,7 +35,11 @@ export const SolanaRPCMessageSchema = z.object({
  * Schema for Solana RPC transaction meta
  */
 export const SolanaRPCMetaSchema = z.object({
-  err: z.unknown().nullable(),
+  err: z
+    .unknown()
+    .nullable()
+    .optional()
+    .transform((val) => val ?? undefined),
   fee: z.number().nonnegative('Fee must be non-negative'),
   innerInstructions: z.array(z.unknown()),
   logMessages: z.array(z.string()),

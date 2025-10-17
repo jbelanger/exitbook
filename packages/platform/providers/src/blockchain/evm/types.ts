@@ -30,7 +30,7 @@ export interface EvmTransaction {
   status: 'success' | 'failed' | 'pending';
 
   timestamp: number;
-  to: string;
+  to?: string | undefined;
   // Token-specific information (for ERC-20/721/1155 transfers)
   tokenAddress?: string | undefined; // Contract address for token transfers
 

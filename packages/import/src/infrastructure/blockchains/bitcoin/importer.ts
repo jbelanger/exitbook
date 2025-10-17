@@ -1,6 +1,12 @@
 import type { RawTransactionWithMetadata } from '@exitbook/core';
 import type { BlockchainImportParams, IImporter, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
-import type { BitcoinWalletAddress, BlockchainProviderManager, ProviderError } from '@exitbook/providers';
+import type {
+  BitcoinTransaction,
+  BitcoinWalletAddress,
+  BlockchainProviderManager,
+  ProviderError,
+  TransactionWithRawData,
+} from '@exitbook/providers';
 import { BitcoinUtils } from '@exitbook/providers';
 import { getLogger, type Logger } from '@exitbook/shared-logger';
 import * as bitcoin from 'bitcoinjs-lib';
@@ -31,7 +37,6 @@ export class BitcoinTransactionImporter implements IImporter {
     this.providerManager = blockchainProviderManager;
     this.addressGap = options?.addressGap || 20;
 
-    // Auto-register providers for bitcoin
     this.providerManager.autoRegisterFromConfig('bitcoin', options?.preferredProvider);
 
     this.logger.info(
@@ -49,7 +54,6 @@ export class BitcoinTransactionImporter implements IImporter {
 
     this.logger.info(`Starting Bitcoin transaction import for address: ${params.address.substring(0, 20)}...`);
 
-    // Initialize wallet for this address (handles both xpub and regular addresses)
     const wallet: BitcoinWalletAddress = {
       address: params.address,
       type: BitcoinUtils.getAddressType(params.address),
@@ -67,7 +71,6 @@ export class BitcoinTransactionImporter implements IImporter {
 
     this.walletAddresses.push(wallet);
 
-    // Fetch transactions based on wallet type
     const result = wallet.derivedAddresses
       ? await this.fetchFromXpubWallet(wallet.derivedAddresses, params.since)
       : await this.fetchRawTransactionsForAddress(params.address, params.since);
@@ -112,16 +115,16 @@ export class BitcoinTransactionImporter implements IImporter {
     });
 
     return result.map((response) => {
-      const rawTransactions = response.data as unknown[];
+      const transactionsWithRaw = response.data as TransactionWithRawData<BitcoinTransaction>[];
       const providerId = response.providerName;
 
-      // Wrap each transaction with provider provenance
-      return rawTransactions.map((rawData) => ({
+      return transactionsWithRaw.map((txWithRaw) => ({
         metadata: {
           providerId,
           sourceAddress: address,
         },
-        rawData,
+        normalizedData: txWithRaw.normalized,
+        rawData: txWithRaw.raw, // Keep original provider response for audit trail
       }));
     });
   }
@@ -136,10 +139,8 @@ export class BitcoinTransactionImporter implements IImporter {
     const uniqueTransactions = new Map<string, RawTransactionWithMetadata>();
 
     for (const address of derivedAddresses) {
-      // Check cache first to see if this address has any transactions
       const cachedInfo = this.addressInfoCache.get(address);
 
-      // Skip addresses that we know are empty from gap scanning
       if (cachedInfo && cachedInfo.txCount === 0) {
         this.logger.debug(`Skipping address ${address} - no transactions in cache`);
         continue;
@@ -154,10 +155,9 @@ export class BitcoinTransactionImporter implements IImporter {
 
       const rawTransactions = result.value;
 
-      // Add transactions to the unique set with address information
       for (const rawTx of rawTransactions) {
-        const txId = this.getTransactionId(rawTx.rawData);
-        uniqueTransactions.set(txId, rawTx);
+        const normalizedTx = rawTx.normalizedData as BitcoinTransaction;
+        uniqueTransactions.set(normalizedTx.id, rawTx);
       }
 
       this.logger.debug(`Found ${rawTransactions.length} transactions for address ${address}`);
@@ -177,20 +177,5 @@ export class BitcoinTransactionImporter implements IImporter {
       this.providerManager,
       this.addressGap
     );
-  }
-
-  /**
-   * Get transaction ID from any Bitcoin transaction type
-   */
-  private getTransactionId(tx: unknown): string {
-    // Handle different transaction formats
-    if (typeof tx === 'object' && tx !== null) {
-      if ('txid' in tx && typeof (tx as { txid?: unknown }).txid === 'string') {
-        return (tx as { txid: string }).txid; // MempoolTransaction, BlockstreamTransaction
-      } else if ('hash' in tx && typeof (tx as { hash?: unknown }).hash === 'string') {
-        return (tx as { hash: string }).hash; // BlockCypherTransaction
-      }
-    }
-    return 'unknown';
   }
 }

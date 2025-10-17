@@ -3,7 +3,6 @@ import type { ImportSessionMetadata } from '@exitbook/data';
 import { type Result, err, ok } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../core/blockchain/base/mapper.ts';
-import { RegisterTransactionMapper } from '../../../core/blockchain/index.ts';
 import type { NormalizationError } from '../../../core/blockchain/index.ts';
 import { SolanaTransactionSchema } from '../schemas.js';
 import type { SolanaAccountChange, SolanaTokenBalance, SolanaTokenChange, SolanaTransaction } from '../types.js';
@@ -12,7 +11,6 @@ import { lamportsToSol } from '../utils.js';
 import { SolanaRawTransactionDataSchema } from './helius.schemas.js';
 import type { HeliusTransaction } from './helius.types.js';
 
-@RegisterTransactionMapper('helius')
 export class HeliusTransactionMapper extends BaseRawDataMapper<HeliusTransaction, SolanaTransaction> {
   protected readonly inputSchema = SolanaRawTransactionDataSchema;
   protected readonly outputSchema = SolanaTransactionSchema;
@@ -78,7 +76,10 @@ export class HeliusTransactionMapper extends BaseRawDataMapper<HeliusTransaction
       signature,
       slot: tx.slot,
       status: tx.meta.err ? 'failed' : 'success',
-      timestamp: tx.blockTime?.getTime() ?? 0,
+      timestamp:
+        typeof tx.blockTime === 'number'
+          ? tx.blockTime * 1000 // Convert seconds to milliseconds
+          : (tx.blockTime?.getTime() ?? 0),
 
       // Basic recipient (will be refined by processor)
       to: accountKeys?.[1] || '', // Second account is often recipient

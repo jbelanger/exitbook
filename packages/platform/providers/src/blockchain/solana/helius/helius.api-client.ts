@@ -4,10 +4,17 @@ import { err, ok, type Result } from 'neverthrow';
 import { BaseApiClient } from '../../../core/blockchain/base/api-client.ts';
 import type { JsonRpcResponse, ProviderConfig, ProviderOperation } from '../../../core/blockchain/index.ts';
 import { RegisterApiClient } from '../../../core/blockchain/index.ts';
+import type { TransactionWithRawData } from '../../../core/blockchain/types/index.ts';
 import { maskAddress } from '../../../core/blockchain/utils/address-utils.ts';
-import type { SolanaAccountBalance, SolanaSignature, SolanaTokenAccountsResponse } from '../types.js';
+import type {
+  SolanaAccountBalance,
+  SolanaSignature,
+  SolanaTokenAccountsResponse,
+  SolanaTransaction,
+} from '../types.js';
 import { isValidSolanaAddress } from '../utils.js';
 
+import { HeliusTransactionMapper } from './helius.mapper.ts';
 import type { HeliusAssetResponse, HeliusTransaction } from './helius.types.js';
 
 export interface SolanaRawBalanceData {
@@ -60,11 +67,13 @@ export class HeliusApiClient extends BaseApiClient {
     ['9n4nbM75f5Ui33ZbPYXn59EwSgE8CGsHtAeTH5YFeJ9E', 'BTC'],
   ]);
 
+  private mapper: HeliusTransactionMapper;
   private tokenMetadataCache = new Map<string, Record<string, unknown>>();
   private tokenSymbolCache = new Map<string, string>();
 
   constructor(config: ProviderConfig) {
     super(config);
+    this.mapper = new HeliusTransactionMapper();
 
     if (this.apiKey && this.apiKey !== 'YourApiKeyToken') {
       const heliusUrl = `${this.baseUrl}/?api-key=${this.apiKey}`;
@@ -243,7 +252,11 @@ export class HeliusApiClient extends BaseApiClient {
 
       if (
         txResponse?.result &&
-        (!since || (txResponse.result.blockTime && txResponse.result.blockTime.getTime() >= since))
+        (!since ||
+          (txResponse.result.blockTime &&
+            (typeof txResponse.result.blockTime === 'number'
+              ? txResponse.result.blockTime * 1000 >= since
+              : txResponse.result.blockTime.getTime() >= since)))
       ) {
         transactions.push(txResponse.result);
       }
@@ -291,7 +304,7 @@ export class HeliusApiClient extends BaseApiClient {
   private async getRawAddressTransactions(params: {
     address: string;
     since?: number | undefined;
-  }): Promise<Result<HeliusTransaction[], Error>> {
+  }): Promise<Result<TransactionWithRawData<SolanaTransaction>[], Error>> {
     const { address, since } = params;
 
     if (!isValidSolanaAddress(address)) {
@@ -319,13 +332,29 @@ export class HeliusApiClient extends BaseApiClient {
     const directTransactions = directResult.value;
     const tokenAccountTransactions = tokenResult.value;
 
-    const allTransactions = [...directTransactions, ...tokenAccountTransactions];
+    const allRawTransactions = [...directTransactions, ...tokenAccountTransactions];
+
+    const transactions: TransactionWithRawData<SolanaTransaction>[] = [];
+    for (const rawTx of allRawTransactions) {
+      const mapResult = this.mapper.map(rawTx, { providerId: 'helius', sourceAddress: address }, {});
+
+      if (mapResult.isErr()) {
+        const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
+        this.logger.error(`Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`);
+        return err(new Error(`Provider data validation failed: ${errorMessage}`));
+      }
+
+      transactions.push({
+        normalized: mapResult.value,
+        raw: rawTx,
+      });
+    }
 
     this.logger.debug(
-      `Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, DirectTransactions: ${directTransactions.length}, TokenAccountTransactions: ${tokenAccountTransactions.length}, TotalUniqueTransactions: ${allTransactions.length}`
+      `Successfully retrieved and normalized transactions - Address: ${maskAddress(address)}, Count: ${transactions.length}`
     );
 
-    return ok(allTransactions);
+    return ok(transactions);
   }
 
   private async getRawTokenBalances(params: {
@@ -419,7 +448,7 @@ export class HeliusApiClient extends BaseApiClient {
 
   private async getTokenAccountTransactions(
     address: string,
-    _since?: number
+    since?: number
   ): Promise<Result<HeliusTransaction[], Error>> {
     this.logger.debug(`Fetching token account transactions - Address: ${maskAddress(address)}`);
 
@@ -487,7 +516,14 @@ export class HeliusApiClient extends BaseApiClient {
 
           const txResponse = txResult.value;
 
-          if (txResponse?.result) {
+          if (
+            txResponse?.result &&
+            (!since ||
+              (txResponse.result.blockTime &&
+                (typeof txResponse.result.blockTime === 'number'
+                  ? txResponse.result.blockTime * 1000 >= since
+                  : txResponse.result.blockTime.getTime() >= since)))
+          ) {
             tokenTransactions.push(txResponse.result);
           }
         }

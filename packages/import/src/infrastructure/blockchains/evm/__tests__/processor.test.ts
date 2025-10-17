@@ -223,7 +223,7 @@ describe('EvmTransactionProcessor - Fee Accounting', () => {
         amount: '1000000000000000000', // 1 ETH sent
         currency: 'ETH',
         feeAmount: '21000000000000', // 0.000021 ETH fee
-        from: USER_ADDRESS, // User is sender
+        from: USER_ADDRESS,
         id: '0xhash1',
         providerId: 'alchemy',
         status: 'success',
@@ -262,7 +262,7 @@ describe('EvmTransactionProcessor - Fee Accounting', () => {
         providerId: 'alchemy',
         status: 'success',
         timestamp: Date.now(),
-        to: USER_ADDRESS, // User is recipient
+        to: USER_ADDRESS,
         tokenType: 'native',
         type: 'transfer',
       },
@@ -291,12 +291,12 @@ describe('EvmTransactionProcessor - Fee Accounting', () => {
         amount: '500000000000000000', // 0.5 ETH self-transfer
         currency: 'ETH',
         feeAmount: '21000000000000', // 0.000021 ETH fee
-        from: USER_ADDRESS, // User is sender
+        from: USER_ADDRESS,
         id: '0xhash3',
         providerId: 'alchemy',
         status: 'success',
         timestamp: Date.now(),
-        to: USER_ADDRESS, // User is also recipient
+        to: USER_ADDRESS,
         tokenType: 'native',
         type: 'transfer',
       },
@@ -325,7 +325,7 @@ describe('EvmTransactionProcessor - Fee Accounting', () => {
         amount: '0',
         currency: 'ETH',
         feeAmount: '150000000000000', // 0.00015 ETH fee
-        from: USER_ADDRESS, // User initiates contract call
+        from: USER_ADDRESS,
         functionName: 'approve',
         id: '0xhash4',
         methodId: '0x095ea7b3',
@@ -1332,7 +1332,6 @@ describe('EvmTransactionProcessor - Swap Detection', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    // Verify swap classification
     expect(transaction.operation.category).toBe('trade');
     expect(transaction.operation.type).toBe('swap');
 
@@ -1392,7 +1391,6 @@ describe('EvmTransactionProcessor - Swap Detection', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    // Verify swap classification
     expect(transaction.operation.category).toBe('trade');
     expect(transaction.operation.type).toBe('swap');
   });
@@ -1457,7 +1455,6 @@ describe('EvmTransactionProcessor - Classification Uncertainty', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    // Should have uncertainty note
     expect(transaction.note).toBeDefined();
     expect(transaction.note?.type).toBe('classification_uncertain');
     expect(transaction.note?.severity).toBe('info');
@@ -1502,7 +1499,6 @@ describe('EvmTransactionProcessor - Classification Uncertainty', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    // Should have uncertainty note
     expect(transaction.note).toBeDefined();
     expect(transaction.note?.type).toBe('classification_uncertain');
     expect(transaction.note?.message).toContain('Contract interaction');

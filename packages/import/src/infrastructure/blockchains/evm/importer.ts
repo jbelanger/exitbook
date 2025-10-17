@@ -34,7 +34,6 @@ export class EvmImporter implements IImporter {
 
     this.providerManager = blockchainProviderManager;
 
-    // Auto-register providers for this chain
     this.providerManager.autoRegisterFromConfig(chainConfig.chainName, options?.preferredProvider);
 
     this.logger.info(
@@ -132,16 +131,16 @@ export class EvmImporter implements IImporter {
     });
 
     return result.map((response) => {
-      const rawTransactions = Array.isArray(response.data) ? response.data : [response.data];
+      const transactionsWithRawData = Array.isArray(response.data) ? response.data : [response.data];
 
-      // Create raw data entries with provider provenance and source address
-      return rawTransactions.map((tx: unknown) => ({
+      return transactionsWithRawData.map((txData: { normalized: unknown; raw: unknown }) => ({
         metadata: {
           providerId: response.providerName,
           sourceAddress: address,
           transactionType: 'normal',
         },
-        rawData: tx,
+        rawData: txData.raw,
+        normalizedData: txData.normalized,
       }));
     });
   }
@@ -162,16 +161,16 @@ export class EvmImporter implements IImporter {
     });
 
     return result.map((response) => {
-      const rawTransactions = Array.isArray(response.data) ? response.data : [response.data];
+      const transactionsWithRawData = Array.isArray(response.data) ? response.data : [response.data];
 
-      // Create raw data entries with provider provenance and source address
-      return rawTransactions.map((tx: unknown) => ({
+      return transactionsWithRawData.map((txData: { normalized: unknown; raw: unknown }) => ({
         metadata: {
           providerId: response.providerName,
           sourceAddress: address,
           transactionType: 'internal',
         },
-        rawData: tx,
+        rawData: txData.raw,
+        normalizedData: txData.normalized,
       }));
     });
   }
@@ -192,16 +191,16 @@ export class EvmImporter implements IImporter {
     });
 
     return result.map((response) => {
-      const rawTokenTransactions = Array.isArray(response.data) ? response.data : [response.data];
+      const transactionsWithRawData = Array.isArray(response.data) ? response.data : [response.data];
 
-      // Create raw data entries with provider provenance and source address
-      return rawTokenTransactions.map((tx: unknown) => ({
+      return transactionsWithRawData.map((txData: { normalized: unknown; raw: unknown }) => ({
         metadata: {
           providerId: response.providerName,
           sourceAddress: address,
           transactionType: 'token',
         },
-        rawData: tx,
+        rawData: txData.raw,
+        normalizedData: txData.normalized,
       }));
     });
   }

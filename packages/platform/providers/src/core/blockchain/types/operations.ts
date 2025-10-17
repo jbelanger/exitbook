@@ -1,4 +1,3 @@
-// Discriminated union type for all possible operation parameters
 export type ProviderOperationParams =
   | {
       address: string;
@@ -35,13 +34,10 @@ export type ProviderOperationParams =
   | { address: string; contractAddresses?: string[] | undefined; type: 'getRawTokenBalances' }
   | { [key: string]: unknown; type: 'custom' };
 
-// Discriminated union provides automatic type narrowing
-
 export type ProviderOperation = {
   getCacheKey?: (params: ProviderOperationParams) => string;
 } & ProviderOperationParams;
 
-// Provider-specific operation types for capabilities
 export type ProviderOperationType =
   | 'getAddressTransactions'
   | 'getAddressBalances'

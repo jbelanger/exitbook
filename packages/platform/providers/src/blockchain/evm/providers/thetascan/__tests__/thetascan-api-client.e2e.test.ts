@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import { ProviderRegistry } from '../../../../../core/blockchain/index.ts';
+import type { TransactionWithRawData } from '../../../../../core/blockchain/types/index.ts';
+import type { EvmTransaction } from '../../../types.ts';
 import { ThetaScanApiClient } from '../thetascan.api-client.ts';
-import type { ThetaScanTransaction, ThetaScanBalanceResponse, ThetaScanTokenBalance } from '../thetascan.types.ts';
+import type { ThetaScanBalanceResponse, ThetaScanTokenBalance } from '../thetascan.types.ts';
 
 describe('ThetaScanApiClient Integration', () => {
   const config = ProviderRegistry.createDefaultConfig('theta', 'thetascan');
@@ -22,7 +24,7 @@ describe('ThetaScanApiClient Integration', () => {
 
   describe('Raw Address Transactions', () => {
     it('should fetch raw address transactions successfully', async () => {
-      const result = await provider.execute<ThetaScanTransaction[]>({
+      const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: testAddress,
         type: 'getRawAddressTransactions',
       });
@@ -32,20 +34,22 @@ describe('ThetaScanApiClient Integration', () => {
         const transactions = result.value;
         expect(Array.isArray(transactions)).toBe(true);
         if (transactions.length > 0) {
-          expect(transactions[0]).toHaveProperty('hash');
-          expect(transactions[0]).toHaveProperty('sending_address');
-          expect(transactions[0]).toHaveProperty('recieving_address');
-          expect(transactions[0]).toHaveProperty('block');
-          expect(transactions[0]).toHaveProperty('timestamp');
-          expect(transactions[0]).toHaveProperty('theta');
-          expect(transactions[0]).toHaveProperty('tfuel');
+          const firstTx = transactions[0]!;
+          expect(firstTx).toHaveProperty('raw');
+          expect(firstTx).toHaveProperty('normalized');
+          expect(firstTx.normalized).toHaveProperty('id');
+          expect(firstTx.normalized).toHaveProperty('from');
+          expect(firstTx.normalized).toHaveProperty('to');
+          expect(firstTx.normalized).toHaveProperty('blockHeight');
+          expect(firstTx.normalized).toHaveProperty('timestamp');
+          expect(firstTx.normalized.providerId).toBe('thetascan');
         }
       }
     }, 30000);
 
     it('should fetch transactions with since parameter', async () => {
       const oneYearAgo = Date.now() - 365 * 24 * 60 * 60 * 1000;
-      const result = await provider.execute<ThetaScanTransaction[]>({
+      const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: testAddress,
         since: oneYearAgo,
         type: 'getRawAddressTransactions',
@@ -58,8 +62,7 @@ describe('ThetaScanApiClient Integration', () => {
         // All transactions should be after the since date
         if (transactions.length > 0) {
           transactions.forEach((tx) => {
-            const txTimestamp = tx.timestamp.getTime(); // Get timestamp in milliseconds
-            expect(txTimestamp).toBeGreaterThanOrEqual(oneYearAgo);
+            expect(tx.normalized.timestamp).toBeGreaterThanOrEqual(oneYearAgo);
           });
         }
       }
@@ -128,7 +131,7 @@ describe('ThetaScanApiClient Integration', () => {
     it('should reject invalid Theta addresses', async () => {
       const invalidAddress = 'invalid-address';
 
-      const result = await provider.execute<ThetaScanTransaction[]>({
+      const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: invalidAddress,
         type: 'getRawAddressTransactions',
       });
@@ -143,7 +146,7 @@ describe('ThetaScanApiClient Integration', () => {
       const validAddress = '0x0000000000000000000000000000000000000000';
 
       // Should not throw
-      const result = await provider.execute<ThetaScanTransaction[]>({
+      const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: validAddress,
         type: 'getRawAddressTransactions',
       });

@@ -2,12 +2,13 @@ import { getErrorMessage } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
 import { BaseApiClient } from '../../../core/blockchain/base/api-client.ts';
-import type { ProviderConfig } from '../../../core/blockchain/index.ts';
+import type { ProviderConfig, TransactionWithRawData } from '../../../core/blockchain/index.ts';
 import { RegisterApiClient } from '../../../core/blockchain/index.ts';
 import type { ProviderOperation } from '../../../core/blockchain/types/index.ts';
 import { maskAddress } from '../../../core/blockchain/utils/address-utils.ts';
-import type { AddressInfo } from '../types.js';
+import type { AddressInfo, BitcoinTransaction } from '../types.js';
 
+import { TatumBitcoinTransactionMapper } from './tatum.mapper.ts';
 import type { TatumBitcoinTransaction, TatumBitcoinBalance } from './tatum.types.js';
 
 @RegisterApiClient({
@@ -33,8 +34,11 @@ import type { TatumBitcoinTransaction, TatumBitcoinBalance } from './tatum.types
   requiresApiKey: true,
 })
 export class TatumBitcoinApiClient extends BaseApiClient {
+  private mapper: TatumBitcoinTransactionMapper;
+
   constructor(config: ProviderConfig) {
     super(config);
+    this.mapper = new TatumBitcoinTransactionMapper();
 
     // Reinitialize HTTP client with Tatum-specific headers
     this.reinitializeHttpClient({
@@ -117,7 +121,7 @@ export class TatumBitcoinApiClient extends BaseApiClient {
       pageSize?: number | undefined;
       txType?: 'incoming' | 'outgoing' | undefined;
     }
-  ): Promise<Result<TatumBitcoinTransaction[], Error>> {
+  ): Promise<Result<TransactionWithRawData<BitcoinTransaction>[], Error>> {
     this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
 
     const queryParams = {
@@ -137,14 +141,34 @@ export class TatumBitcoinApiClient extends BaseApiClient {
       return err(result.error);
     }
 
-    const transactions = result.value;
+    const rawTransactions = result.value;
 
-    if (!Array.isArray(transactions)) {
+    if (!Array.isArray(rawTransactions)) {
       this.logger.debug(`No transactions found - Address: ${maskAddress(address)}`);
       return ok([]);
     }
 
-    this.logger.debug(`Retrieved raw transactions - Address: ${maskAddress(address)}, Count: ${transactions.length}`);
+    // Normalize transactions immediately using mapper
+    const transactions: TransactionWithRawData<BitcoinTransaction>[] = [];
+    for (const rawTx of rawTransactions) {
+      const mapResult = this.mapper.map(rawTx, { providerId: 'tatum', sourceAddress: address }, {});
+
+      if (mapResult.isErr()) {
+        // Fail fast - provider returned invalid data
+        const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
+        this.logger.error(`Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`);
+        return err(new Error(`Provider data validation failed: ${errorMessage}`));
+      }
+
+      transactions.push({
+        raw: rawTx,
+        normalized: mapResult.value,
+      });
+    }
+
+    this.logger.debug(
+      `Retrieved and normalized transactions - Address: ${maskAddress(address)}, Count: ${transactions.length}`
+    );
 
     return ok(transactions);
   }

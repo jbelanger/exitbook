@@ -4,7 +4,6 @@ import { Decimal } from 'decimal.js';
 import { ok, type Result } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../core/blockchain/base/mapper.ts';
-import { RegisterTransactionMapper } from '../../../core/blockchain/index.ts';
 import type { NormalizationError } from '../../../core/blockchain/index.ts';
 import { BitcoinTransactionSchema } from '../schemas.js';
 import type { BitcoinTransaction, BitcoinTransactionInput, BitcoinTransactionOutput } from '../types.js';
@@ -12,7 +11,6 @@ import type { BitcoinTransaction, BitcoinTransactionInput, BitcoinTransactionOut
 import { BlockCypherTransactionSchema } from './blockcypher.schemas.js';
 import type { BlockCypherTransaction } from './blockcypher.types.js';
 
-@RegisterTransactionMapper('blockcypher')
 export class BlockCypherTransactionMapper extends BaseRawDataMapper<BlockCypherTransaction, BitcoinTransaction> {
   protected readonly inputSchema = BlockCypherTransactionSchema;
   protected readonly outputSchema = BitcoinTransactionSchema;
@@ -27,7 +25,6 @@ export class BlockCypherTransactionMapper extends BaseRawDataMapper<BlockCypherT
   ): Result<BitcoinTransaction, NormalizationError> {
     const timestamp = rawData.confirmed ? new Date(rawData.confirmed).getTime() : Date.now();
 
-    // Extract structured inputs with addresses and values
     const inputs: BitcoinTransactionInput[] = rawData.inputs.map((input) => ({
       address: input.addresses && input.addresses.length > 0 ? input.addresses[0] : undefined,
       txid: input.prev_hash,
@@ -35,7 +32,6 @@ export class BlockCypherTransactionMapper extends BaseRawDataMapper<BlockCypherT
       vout: input.output_index,
     }));
 
-    // Extract structured outputs with addresses and values
     const outputs: BitcoinTransactionOutput[] = rawData.outputs.map((output, index) => ({
       address: output.addresses && output.addresses.length > 0 ? output.addresses[0] : undefined,
       index,
@@ -52,7 +48,6 @@ export class BlockCypherTransactionMapper extends BaseRawDataMapper<BlockCypherT
       timestamp,
     };
 
-    // Add optional fields
     if (rawData.block_height) {
       normalized.blockHeight = rawData.block_height;
     }

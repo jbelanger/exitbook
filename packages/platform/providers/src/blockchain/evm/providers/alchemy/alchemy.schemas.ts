@@ -41,7 +41,7 @@ export const AlchemyAssetTransferSchema = z.object({
   hash: z.string().min(1, 'Transaction hash must not be empty'),
   metadata: AlchemyMetadataSchema.optional(),
   rawContract: AlchemyRawContractSchema.optional(),
-  to: z.string().min(1, 'To address must not be empty'),
+  to: z.union([z.string().min(1, 'To address must not be empty'), z.null()]).optional(),
   tokenId: z.union([z.string(), z.null()]).optional(),
   uniqueId: z.string().optional(),
   value: hexOrNumericToNumeric,

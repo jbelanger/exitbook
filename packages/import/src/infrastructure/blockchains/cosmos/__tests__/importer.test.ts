@@ -10,7 +10,6 @@ import { afterEach, beforeEach, describe, expect, test, vi, type Mocked } from '
 
 import { CosmosImporter } from '../importer.js';
 
-// Mock chain configs
 const INJECTIVE_CONFIG: CosmosChainConfig = {
   bech32Prefix: 'inj',
   chainId: 'injective-1',
@@ -29,7 +28,6 @@ const OSMOSIS_CONFIG: CosmosChainConfig = {
   nativeDecimals: 6,
 };
 
-// Mock transaction data
 const mockCosmosTransaction = {
   amount: '1000000000000000000',
   blockHeight: 100,
@@ -64,7 +62,6 @@ describe('CosmosImporter', () => {
   let mockProviderManager: ProviderManagerMock;
 
   beforeEach(() => {
-    // Create a mock provider manager
     mockProviderManager = {
       autoRegisterFromConfig: vi.fn<BlockchainProviderManager['autoRegisterFromConfig']>(),
       executeWithFailover: vi.fn<BlockchainProviderManager['executeWithFailover']>(),
@@ -136,10 +133,14 @@ describe('CosmosImporter', () => {
       const importer = createImporter();
       const address = 'inj1abc123def456ghi789';
 
-      // Mock API call to succeed
       mockProviderManager.executeWithFailover.mockResolvedValueOnce(
         ok({
-          data: [mockCosmosTransaction],
+          data: [
+            {
+              raw: { block_timestamp: mockCosmosTransaction.timestamp, hash: mockCosmosTransaction.hash },
+              normalized: mockCosmosTransaction,
+            },
+          ],
           providerName: 'injective-explorer',
         } as FailoverExecutionResult<unknown>)
       );
@@ -150,13 +151,14 @@ describe('CosmosImporter', () => {
       if (result.isOk()) {
         expect(result.value.rawTransactions).toHaveLength(1);
 
-        // Verify transaction metadata
+        // Verify transaction metadata and data structure
         expect(result.value.rawTransactions[0]).toEqual({
           metadata: {
             providerId: 'injective-explorer',
             sourceAddress: address,
           },
-          rawData: mockCosmosTransaction,
+          normalizedData: mockCosmosTransaction,
+          rawData: { block_timestamp: mockCosmosTransaction.timestamp, hash: mockCosmosTransaction.hash },
         });
       }
 
@@ -176,10 +178,14 @@ describe('CosmosImporter', () => {
       const importer = createImporter(OSMOSIS_CONFIG);
       const address = 'osmo1abc123def456ghi789';
 
-      // Mock API call with IBC transaction
       mockProviderManager.executeWithFailover.mockResolvedValueOnce(
         ok({
-          data: [mockIbcTransaction],
+          data: [
+            {
+              raw: { block_timestamp: mockIbcTransaction.timestamp, hash: mockIbcTransaction.hash },
+              normalized: mockIbcTransaction,
+            },
+          ],
           providerName: 'mintscan',
         } as FailoverExecutionResult<unknown>)
       );
@@ -189,7 +195,7 @@ describe('CosmosImporter', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.rawTransactions).toHaveLength(1);
-        expect(result.value.rawTransactions[0]!.rawData).toEqual(mockIbcTransaction);
+        expect(result.value.rawTransactions[0]!.normalizedData).toEqual(mockIbcTransaction);
       }
     });
 
@@ -198,7 +204,6 @@ describe('CosmosImporter', () => {
       const address = 'inj1abc123def456ghi789';
       const since = 1234567890;
 
-      // Mock API call to succeed
       mockProviderManager.executeWithFailover.mockResolvedValue(
         ok({
           data: [],
@@ -223,13 +228,22 @@ describe('CosmosImporter', () => {
       const importer = createImporter();
       const address = 'inj1abc123def456ghi789';
 
+      const tx2Normalized = { ...mockCosmosTransaction, hash: 'tx789' };
       const multipleTransactions = [
-        mockCosmosTransaction,
-        { ...mockCosmosTransaction, hash: 'tx789' },
-        mockIbcTransaction,
+        {
+          raw: { block_timestamp: mockCosmosTransaction.timestamp, hash: mockCosmosTransaction.hash },
+          normalized: mockCosmosTransaction,
+        },
+        {
+          raw: { block_timestamp: tx2Normalized.timestamp, hash: tx2Normalized.hash },
+          normalized: tx2Normalized,
+        },
+        {
+          raw: { block_timestamp: mockIbcTransaction.timestamp, hash: mockIbcTransaction.hash },
+          normalized: mockIbcTransaction,
+        },
       ];
 
-      // Mock with array of transactions
       mockProviderManager.executeWithFailover.mockResolvedValueOnce(
         ok({
           data: multipleTransactions,
@@ -242,9 +256,9 @@ describe('CosmosImporter', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.rawTransactions).toHaveLength(3);
-        expect(result.value.rawTransactions[0]!.rawData).toEqual(mockCosmosTransaction);
-        expect(result.value.rawTransactions[1]!.rawData).toEqual({ ...mockCosmosTransaction, hash: 'tx789' });
-        expect(result.value.rawTransactions[2]!.rawData).toEqual(mockIbcTransaction);
+        expect(result.value.rawTransactions[0]!.normalizedData).toEqual(mockCosmosTransaction);
+        expect(result.value.rawTransactions[1]!.normalizedData).toEqual(tx2Normalized);
+        expect(result.value.rawTransactions[2]!.normalizedData).toEqual(mockIbcTransaction);
       }
     });
 
@@ -273,7 +287,6 @@ describe('CosmosImporter', () => {
       const importer = createImporter();
       const address = 'inj1abc123def456ghi789';
 
-      // Mock API call to fail
       mockProviderManager.executeWithFailover.mockResolvedValueOnce(
         err(
           new ProviderError('Failed to fetch transactions', 'ALL_PROVIDERS_FAILED', {
@@ -318,10 +331,14 @@ describe('CosmosImporter', () => {
       const importer = createImporter(OSMOSIS_CONFIG);
       const address = 'osmo1abc123def456ghi789';
 
-      // Mock API call to succeed
       mockProviderManager.executeWithFailover.mockResolvedValue(
         ok({
-          data: [mockIbcTransaction],
+          data: [
+            {
+              raw: { block_timestamp: mockIbcTransaction.timestamp, hash: mockIbcTransaction.hash },
+              normalized: mockIbcTransaction,
+            },
+          ],
           providerName: 'mintscan',
         } as FailoverExecutionResult<unknown>)
       );
@@ -368,7 +385,6 @@ describe('CosmosImporter', () => {
 
       await importer.import({ address, since });
 
-      // Extract getCacheKey function from the call
       const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
         mockProviderManager.executeWithFailover.mock.calls;
 
@@ -390,7 +406,6 @@ describe('CosmosImporter', () => {
 
       await importer.import({ address });
 
-      // Extract getCacheKey function from the call
       const calls: Parameters<BlockchainProviderManager['executeWithFailover']>[] =
         mockProviderManager.executeWithFailover.mock.calls;
 

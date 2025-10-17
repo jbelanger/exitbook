@@ -5,7 +5,6 @@ import { type Result, ok } from 'neverthrow';
 
 import { BaseRawDataMapper } from '../../../core/blockchain/base/mapper.ts';
 import type { NormalizationError } from '../../../core/blockchain/index.ts';
-import { RegisterTransactionMapper } from '../../../core/blockchain/index.ts';
 import { BitcoinTransactionSchema } from '../schemas.js';
 import type {
   BitcoinTransactionInput,
@@ -16,7 +15,6 @@ import type {
 import { BlockchainComTransactionSchema } from './blockchain-com.schemas.js';
 import type { BlockchainComTransaction } from './blockchain-com.types.js';
 
-@RegisterTransactionMapper('blockchain.com')
 export class BlockchainComTransactionMapper extends BaseRawDataMapper<BlockchainComTransaction, BitcoinTransaction> {
   protected readonly inputSchema = BlockchainComTransactionSchema;
   protected readonly outputSchema = BitcoinTransactionSchema;
@@ -29,17 +27,15 @@ export class BlockchainComTransactionMapper extends BaseRawDataMapper<Blockchain
     _metadata: RawTransactionMetadata,
     _sessionContext: ImportSessionMetadata
   ): Result<BitcoinTransaction, NormalizationError> {
-    const timestamp = rawData.time * 1000; // Convert from seconds to milliseconds
+    const timestamp = rawData.time * 1000;
 
-    // Extract structured inputs with addresses and values
     const inputs: BitcoinTransactionInput[] = rawData.inputs.map((input, _index) => ({
       address: input.prev_out?.addr,
-      txid: '', // Blockchain.com doesn't provide input txid in this format
+      txid: '',
       value: input.prev_out?.value ? input.prev_out.value.toString() : '0',
       vout: input.prev_out?.n,
     }));
 
-    // Extract structured outputs with addresses and values
     const outputs: BitcoinTransactionOutput[] = rawData.out.map((output, _index) => ({
       address: output.addr,
       index: output.n,
@@ -56,7 +52,6 @@ export class BlockchainComTransactionMapper extends BaseRawDataMapper<Blockchain
       timestamp,
     };
 
-    // Add optional fields
     if (rawData.block_height) {
       normalized.blockHeight = rawData.block_height;
     }

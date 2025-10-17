@@ -1,6 +1,12 @@
 import type { RawTransactionWithMetadata } from '@exitbook/core';
 import type { BlockchainImportParams, IImporter, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
-import type { BlockchainProviderManager, ProviderError, SubstrateChainConfig } from '@exitbook/providers';
+import type {
+  BlockchainProviderManager,
+  ProviderError,
+  SubstrateChainConfig,
+  SubstrateTransaction,
+  TransactionWithRawData,
+} from '@exitbook/providers';
 import { getLogger, type Logger } from '@exitbook/shared-logger';
 import { err, type Result } from 'neverthrow';
 
@@ -29,7 +35,6 @@ export class SubstrateImporter implements IImporter {
 
     this.providerManager = blockchainProviderManager;
 
-    // Auto-register providers for this chain
     this.providerManager.autoRegisterFromConfig(chainConfig.chainName, options?.preferredProvider);
 
     this.logger.info(
@@ -80,20 +85,17 @@ export class SubstrateImporter implements IImporter {
     });
 
     return result.map((response) => {
-      // Ensure data is an array (same pattern as EVM importer)
-      const rawTransactions = Array.isArray(response.data) ? response.data : [response.data];
+      const transactionsWithRaw = response.data as TransactionWithRawData<SubstrateTransaction>[];
+      const providerId = response.providerName;
 
-      // Wrap each transaction with provider metadata - no format assumptions
-      const txsWithMetadata = rawTransactions.map((tx: unknown) => ({
-        metadata: { providerId: response.providerName },
-        rawData: tx,
+      return transactionsWithRaw.map((txWithRaw) => ({
+        metadata: {
+          providerId,
+          sourceAddress: address,
+        },
+        normalizedData: txWithRaw.normalized,
+        rawData: txWithRaw.raw, // Keep original provider response for audit trail
       }));
-
-      this.logger.debug(
-        `Imported ${txsWithMetadata.length} raw transactions for address via provider ${response.providerName}`
-      );
-
-      return txsWithMetadata;
     });
   }
 }

@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import { ProviderRegistry } from '../../../../../core/blockchain/index.ts';
+import type { TransactionWithRawData } from '../../../../../core/blockchain/types/index.ts';
+import type { EvmTransaction } from '../../../types.ts';
 import { AlchemyApiClient } from '../alchemy.api-client.ts';
-import type { AlchemyAssetTransfer, AlchemyTokenBalance } from '../alchemy.types.ts';
+import type { AlchemyTokenBalance } from '../alchemy.types.ts';
 
 describe('AlchemyApiClient Integration', () => {
   const config = ProviderRegistry.createDefaultConfig('ethereum', 'alchemy');
@@ -21,7 +23,7 @@ describe('AlchemyApiClient Integration', () => {
 
   describe('Raw Address Transactions', () => {
     it('should fetch raw address transactions successfully', async () => {
-      const result = await provider.execute<AlchemyAssetTransfer[]>({
+      const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: testAddress,
         type: 'getRawAddressTransactions',
       });
@@ -31,19 +33,20 @@ describe('AlchemyApiClient Integration', () => {
         const transactions = result.value;
         expect(Array.isArray(transactions)).toBe(true);
         if (transactions.length > 0) {
-          expect(transactions[0]).toHaveProperty('hash');
-          expect(transactions[0]).toHaveProperty('from');
-          expect(transactions[0]).toHaveProperty('to');
-          expect(transactions[0]).toHaveProperty('blockNum');
-          expect(transactions[0]).toHaveProperty('category');
-          // Should only fetch external transactions
-          expect(transactions[0]!.category).toBe('external');
+          const firstTx = transactions[0]!;
+          expect(firstTx).toHaveProperty('raw');
+          expect(firstTx).toHaveProperty('normalized');
+          expect(firstTx.normalized).toHaveProperty('id');
+          expect(firstTx.normalized).toHaveProperty('from');
+          expect(firstTx.normalized).toHaveProperty('to');
+          expect(firstTx.normalized).toHaveProperty('blockHeight');
+          expect(firstTx.normalized.providerId).toBe('alchemy');
         }
       }
     }, 30000);
 
     it('should fetch raw internal transactions successfully', async () => {
-      const result = await provider.execute<AlchemyAssetTransfer[]>({
+      const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: testAddress,
         type: 'getRawAddressInternalTransactions',
       });
@@ -53,13 +56,13 @@ describe('AlchemyApiClient Integration', () => {
         const transactions = result.value;
         expect(Array.isArray(transactions)).toBe(true);
         if (transactions.length > 0) {
-          expect(transactions[0]).toHaveProperty('hash');
-          expect(transactions[0]).toHaveProperty('from');
-          expect(transactions[0]).toHaveProperty('to');
-          expect(transactions[0]).toHaveProperty('blockNum');
-          expect(transactions[0]).toHaveProperty('category');
-          // Should only fetch internal transactions
-          expect(transactions[0]!.category).toBe('internal');
+          const firstTx = transactions[0]!;
+          expect(firstTx).toHaveProperty('raw');
+          expect(firstTx).toHaveProperty('normalized');
+          expect(firstTx.normalized).toHaveProperty('id');
+          expect(firstTx.normalized).toHaveProperty('from');
+          expect(firstTx.normalized).toHaveProperty('to');
+          expect(firstTx.normalized.providerId).toBe('alchemy');
         }
       }
     }, 30000);
@@ -67,7 +70,7 @@ describe('AlchemyApiClient Integration', () => {
 
   describe('Token Transactions', () => {
     it('should fetch token transactions successfully', async () => {
-      const result = await provider.execute<AlchemyAssetTransfer[]>({
+      const result = await provider.execute<TransactionWithRawData<EvmTransaction>[]>({
         address: testAddress,
         type: 'getTokenTransactions',
       });
@@ -77,11 +80,12 @@ describe('AlchemyApiClient Integration', () => {
         const transactions = result.value;
         expect(Array.isArray(transactions)).toBe(true);
         if (transactions.length > 0) {
-          expect(transactions[0]).toHaveProperty('hash');
-          expect(transactions[0]).toHaveProperty('category');
-          // Should be token-related category
-          const category = transactions[0]!.category;
-          expect(['erc1155', 'erc20', 'erc721', 'token'].includes(category)).toBe(true);
+          const firstTx = transactions[0]!;
+          expect(firstTx).toHaveProperty('raw');
+          expect(firstTx).toHaveProperty('normalized');
+          expect(firstTx.normalized).toHaveProperty('id');
+          expect(firstTx.normalized.type).toBe('token_transfer');
+          expect(firstTx.normalized.providerId).toBe('alchemy');
         }
       }
     }, 30000);
@@ -111,7 +115,6 @@ describe('AlchemyApiClient Integration', () => {
       const avalancheConfig = ProviderRegistry.createDefaultConfig('avalanche', 'alchemy');
       const avalancheProvider = new AlchemyApiClient(avalancheConfig);
 
-      // Check that the provider was created successfully
       expect(avalancheProvider).toBeDefined();
       expect(avalancheProvider.blockchain).toBe('avalanche');
     });
@@ -120,7 +123,6 @@ describe('AlchemyApiClient Integration', () => {
       const polygonConfig = ProviderRegistry.createDefaultConfig('polygon', 'alchemy');
       const polygonProvider = new AlchemyApiClient(polygonConfig);
 
-      // Check that the provider was created successfully
       expect(polygonProvider).toBeDefined();
       expect(polygonProvider.blockchain).toBe('polygon');
     });

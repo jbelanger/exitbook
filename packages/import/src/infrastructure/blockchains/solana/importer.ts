@@ -1,6 +1,11 @@
 import type { RawTransactionWithMetadata } from '@exitbook/core';
 import type { BlockchainImportParams, IImporter, ImportRunResult } from '@exitbook/import/app/ports/importers.js';
-import type { BlockchainProviderManager, ProviderError } from '@exitbook/providers';
+import type {
+  BlockchainProviderManager,
+  ProviderError,
+  SolanaTransaction,
+  TransactionWithRawData,
+} from '@exitbook/providers';
 import { getLogger, type Logger } from '@exitbook/shared-logger';
 import { err, type Result } from 'neverthrow';
 
@@ -25,7 +30,6 @@ export class SolanaTransactionImporter implements IImporter {
       throw new Error('Provider manager required for Solana importer');
     }
 
-    // Auto-register providers for solana
     this.providerManager.autoRegisterFromConfig('solana', options?.preferredProvider);
 
     this.logger.info(
@@ -72,12 +76,16 @@ export class SolanaTransactionImporter implements IImporter {
     });
 
     return result.map((response) => {
-      const rawTransactions = response.data as unknown[];
+      const transactionsWithRaw = response.data as TransactionWithRawData<SolanaTransaction>[];
       const providerId = response.providerName;
 
-      return rawTransactions.map((rawData) => ({
-        metadata: { providerId, sourceAddress: address },
-        rawData,
+      return transactionsWithRaw.map((txWithRaw) => ({
+        metadata: {
+          providerId,
+          sourceAddress: address,
+        },
+        normalizedData: txWithRaw.normalized,
+        rawData: txWithRaw.raw, // Keep original provider response for audit trail
       }));
     });
   }

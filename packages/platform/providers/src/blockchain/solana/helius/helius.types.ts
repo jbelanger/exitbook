@@ -2,7 +2,7 @@ import type { SolanaTokenBalance } from '../types.js';
 
 // Helius provider-specific types
 export interface HeliusTransaction {
-  blockTime?: Date | undefined;
+  blockTime?: Date | number | undefined;
   err: unknown;
   meta: {
     err: unknown;
@@ -36,7 +36,7 @@ export interface HeliusAssetResponse {
 }
 
 export interface HeliusSignatureResponse {
-  blockTime?: Date | undefined;
+  blockTime?: Date | number | undefined;
   err: unknown;
   memo: string;
   signature: string;

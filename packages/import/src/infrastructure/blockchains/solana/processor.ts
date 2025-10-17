@@ -70,7 +70,6 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
 
         // Convert to UniversalTransaction with structured fields
         const universalTransaction: UniversalTransaction = {
-          // Core fields
           id: normalizedTx.id,
           datetime: new Date(normalizedTx.timestamp).toISOString(),
           timestamp: normalizedTx.timestamp,
@@ -105,20 +104,16 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
             },
           },
 
-          // Structured fees
           fees: {
             network: networkFee,
             platform: undefined, // Solana has no platform fees
             total: networkFee,
           },
 
-          // Enhanced classification
           operation: classification.operation,
 
-          // Classification uncertainty notes
           note: classification.note,
 
-          // Blockchain metadata
           blockchain: {
             name: 'solana',
             block_height: normalizedTx.blockHeight || normalizedTx.slot,
@@ -227,7 +222,6 @@ export class SolanaTransactionProcessor extends BaseTransactionProcessor {
       instructionCount,
       transactionCount: 1, // Always 1 for Solana (no correlation like EVM)
 
-      // Structured movements
       inflows: flowAnalysis.inflows,
       outflows: flowAnalysis.outflows,
       primary: flowAnalysis.primary,

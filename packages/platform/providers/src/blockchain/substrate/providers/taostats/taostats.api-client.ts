@@ -3,11 +3,14 @@ import { err, ok, type Result } from 'neverthrow';
 
 import type { ProviderConfig, ProviderOperation } from '../../../../core/blockchain/index.ts';
 import { BaseApiClient, RegisterApiClient } from '../../../../core/blockchain/index.ts';
+import type { TransactionWithRawData } from '../../../../core/blockchain/types/index.ts';
 import { maskAddress } from '../../../../core/blockchain/utils/address-utils.ts';
 import type { SubstrateChainConfig } from '../../chain-config.interface.ts';
 import { getSubstrateChainConfig } from '../../chain-registry.ts';
+import type { SubstrateTransaction } from '../../types.ts';
 import { isValidSS58Address } from '../../utils.ts';
 
+import { TaostatsTransactionMapper } from './taostats.mapper.ts';
 import type {
   TaostatsBalanceResponse,
   TaostatsTransactionAugmented,
@@ -39,6 +42,7 @@ import type {
 })
 export class TaostatsApiClient extends BaseApiClient {
   private readonly chainConfig: SubstrateChainConfig;
+  private mapper: TaostatsTransactionMapper;
 
   constructor(config: ProviderConfig) {
     super(config);
@@ -60,6 +64,9 @@ export class TaostatsApiClient extends BaseApiClient {
         }),
       },
     });
+
+    // Initialize mapper
+    this.mapper = new TaostatsTransactionMapper();
 
     this.logger.debug(
       `Initialized TaostatsApiClient for ${config.blockchain} - BaseUrl: ${this.baseUrl}, TokenSymbol: ${this.chainConfig.nativeCurrency}`
@@ -126,7 +133,7 @@ export class TaostatsApiClient extends BaseApiClient {
   private async getRawAddressTransactions(params: {
     address: string;
     since?: number | undefined;
-  }): Promise<Result<TaostatsTransactionAugmented[], Error>> {
+  }): Promise<Result<TransactionWithRawData<SubstrateTransaction>[], Error>> {
     const { address, since } = params;
 
     // Validate address format
@@ -136,7 +143,7 @@ export class TaostatsApiClient extends BaseApiClient {
 
     this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}`);
 
-    const transactions: TaostatsTransactionAugmented[] = [];
+    const augmentedTransactions: TaostatsTransactionAugmented[] = [];
     let offset = 0;
     const maxPages = 100; // Safety limit to prevent infinite loops
     const limit = 100;
@@ -170,15 +177,15 @@ export class TaostatsApiClient extends BaseApiClient {
       const response = result.value;
       const pageTransactions = response.data || [];
 
-      // Augment transactions with chain config data (no normalization - that's the mapper's job)
-      const augmentedTransactions = pageTransactions.map((tx) => ({
+      // Augment transactions with chain config data
+      const pageAugmentedTransactions = pageTransactions.map((tx) => ({
         ...tx,
         _nativeCurrency: this.chainConfig.nativeCurrency,
         _nativeDecimals: this.chainConfig.nativeDecimals,
         _chainDisplayName: this.chainConfig.displayName,
       })) as TaostatsTransactionAugmented[];
 
-      transactions.push(...augmentedTransactions);
+      augmentedTransactions.push(...pageAugmentedTransactions);
       offset += limit;
 
       // Check if there are more pages
@@ -195,8 +202,25 @@ export class TaostatsApiClient extends BaseApiClient {
       }
     }
 
+    // Normalize transactions using mapper
+    const transactions: TransactionWithRawData<SubstrateTransaction>[] = [];
+    for (const rawTx of augmentedTransactions) {
+      const mapResult = this.mapper.map(rawTx, { providerId: 'taostats', sourceAddress: address }, { address });
+
+      if (mapResult.isErr()) {
+        const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
+        this.logger.error(`Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`);
+        return err(new Error(`Provider data validation failed: ${errorMessage}`));
+      }
+
+      transactions.push({
+        raw: rawTx,
+        normalized: mapResult.value,
+      });
+    }
+
     this.logger.debug(
-      `Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${transactions.length}, PagesProcessed: ${Math.floor(offset / limit)}`
+      `Successfully retrieved and normalized transactions - Address: ${maskAddress(address)}, Count: ${transactions.length}, PagesProcessed: ${Math.floor(offset / limit)}`
     );
 
     return ok(transactions);

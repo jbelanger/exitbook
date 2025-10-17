@@ -32,7 +32,7 @@ export interface AlchemyAssetTransfer {
     decimal?: string | number | undefined;
     value?: string | number | undefined;
   };
-  to: string;
+  to?: string | undefined;
   tokenId?: string | undefined;
   uniqueId?: string | undefined;
   value?: string | number | undefined;

@@ -4,10 +4,11 @@ import { err, ok, type Result } from 'neverthrow';
 import { BaseApiClient } from '../../../core/blockchain/base/api-client.ts';
 import type { ProviderConfig } from '../../../core/blockchain/index.ts';
 import { RegisterApiClient } from '../../../core/blockchain/index.ts';
-import type { ProviderOperation } from '../../../core/blockchain/types/index.ts';
+import type { ProviderOperation, TransactionWithRawData } from '../../../core/blockchain/types/index.ts';
 import { maskAddress } from '../../../core/blockchain/utils/address-utils.ts';
-import type { AddressInfo } from '../types.js';
+import type { AddressInfo, BitcoinTransaction } from '../types.js';
 
+import { BlockstreamTransactionMapper } from './blockstream.mapper.ts';
 import type { BlockstreamAddressInfo, BlockstreamTransaction } from './blockstream.types.js';
 
 @RegisterApiClient({
@@ -34,8 +35,11 @@ import type { BlockstreamAddressInfo, BlockstreamTransaction } from './blockstre
   requiresApiKey: false,
 })
 export class BlockstreamApiClient extends BaseApiClient {
+  private mapper: BlockstreamTransactionMapper;
+
   constructor(config: ProviderConfig) {
     super(config);
+    this.mapper = new BlockstreamTransactionMapper();
 
     this.logger.debug(`Initialized BlockstreamApiClient from registry metadata - BaseUrl: ${this.baseUrl}`);
   }
@@ -88,15 +92,12 @@ export class BlockstreamApiClient extends BaseApiClient {
 
     const addressInfo = result.value;
 
-    // Calculate transaction count
     const txCount = addressInfo.chain_stats.tx_count + addressInfo.mempool_stats.tx_count;
 
-    // Calculate current balance: funded amount - spent amount
     const chainBalance = addressInfo.chain_stats.funded_txo_sum - addressInfo.chain_stats.spent_txo_sum;
     const mempoolBalance = addressInfo.mempool_stats.funded_txo_sum - addressInfo.mempool_stats.spent_txo_sum;
     const totalBalanceSats = chainBalance + mempoolBalance;
 
-    // Convert satoshis to BTC
     const balanceBTC = (totalBalanceSats / 100000000).toString();
 
     this.logger.debug(
@@ -115,12 +116,11 @@ export class BlockstreamApiClient extends BaseApiClient {
   private async getRawAddressTransactions(params: {
     address: string;
     since?: number | undefined;
-  }): Promise<Result<BlockstreamTransaction[], Error>> {
+  }): Promise<Result<TransactionWithRawData<BitcoinTransaction>[], Error>> {
     const { address, since } = params;
 
     this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}, Since: ${since}`);
 
-    // Get address info first to check if there are transactions
     const addressInfoResult = await this.httpClient.get<BlockstreamAddressInfo>(`/address/${address}`);
 
     if (addressInfoResult.isErr()) {
@@ -137,12 +137,11 @@ export class BlockstreamApiClient extends BaseApiClient {
       return ok([]);
     }
 
-    // Get transaction list with pagination - return raw transactions directly
-    const allRawTransactions: BlockstreamTransaction[] = [];
+    const allTransactions: TransactionWithRawData<BitcoinTransaction>[] = [];
     let lastSeenTxid: string | undefined;
     let hasMore = true;
     let batchCount = 0;
-    const maxBatches = 50; // Safety limit
+    const maxBatches = 50;
 
     while (hasMore && batchCount < maxBatches) {
       const endpoint = lastSeenTxid ? `/address/${address}/txs/chain/${lastSeenTxid}` : `/address/${address}/txs`;
@@ -167,20 +166,33 @@ export class BlockstreamApiClient extends BaseApiClient {
         `Retrieved raw transaction batch - Address: ${maskAddress(address)}, BatchSize: ${rawTransactions.length}, Batch: ${batchCount + 1}`
       );
 
-      // We already have the raw transaction data - no need to fetch again
       const validRawTransactions = rawTransactions.filter((tx): tx is BlockstreamTransaction => tx !== null);
-      allRawTransactions.push(...validRawTransactions);
+      for (const rawTx of validRawTransactions) {
+        const mapResult = this.mapper.map(rawTx, { providerId: 'blockstream.info', sourceAddress: address }, {});
 
-      // Update pagination
+        if (mapResult.isErr()) {
+          const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
+          this.logger.error(
+            `Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`
+          );
+          return err(new Error(`Provider data validation failed: ${errorMessage}`));
+        }
+
+        allTransactions.push({
+          raw: rawTx,
+          normalized: mapResult.value,
+        });
+      }
+
       lastSeenTxid = rawTransactions.length > 0 ? rawTransactions[rawTransactions.length - 1]?.txid : undefined;
-      hasMore = rawTransactions.length === 25; // Blockstream typically returns 25 per page
+      hasMore = rawTransactions.length === 25;
       batchCount++;
     }
 
     this.logger.debug(
-      `Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, TotalRawTransactions: ${allRawTransactions.length}, BatchesProcessed: ${batchCount}`
+      `Successfully retrieved and normalized address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${allTransactions.length}, BatchesProcessed: ${batchCount}`
     );
 
-    return ok(allRawTransactions);
+    return ok(allTransactions);
   }
 }

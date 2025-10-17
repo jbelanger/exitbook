@@ -17,11 +17,12 @@ import { getErrorMessage, hasStringProperty } from '@exitbook/core';
 import { err, ok, type Result } from 'neverthrow';
 
 import { BaseApiClient } from '../../../core/blockchain/base/api-client.ts';
-import type { ProviderConfig, ProviderOperation } from '../../../core/blockchain/index.ts';
+import type { ProviderConfig, ProviderOperation, TransactionWithRawData } from '../../../core/blockchain/index.ts';
 import { RegisterApiClient } from '../../../core/blockchain/index.ts';
 import { maskAddress } from '../../../core/blockchain/utils/address-utils.ts';
-import type { AddressInfo } from '../types.js';
+import type { AddressInfo, BitcoinTransaction } from '../types.js';
 
+import { BlockCypherTransactionMapper } from './blockcypher.mapper.ts';
 import type { BlockCypherTransaction, BlockCypherAddress } from './blockcypher.types.js';
 
 @RegisterApiClient({
@@ -48,8 +49,11 @@ import type { BlockCypherTransaction, BlockCypherAddress } from './blockcypher.t
   requiresApiKey: false,
 })
 export class BlockCypherApiClient extends BaseApiClient {
+  private mapper: BlockCypherTransactionMapper;
+
   constructor(config: ProviderConfig) {
     super(config);
+    this.mapper = new BlockCypherTransactionMapper();
 
     this.logger.debug(
       `Initialized BlockCypherApiClient from registry metadata - BaseUrl: ${this.baseUrl}, HasApiKey: ${this.apiKey !== 'YourApiKeyToken'}`
@@ -98,7 +102,6 @@ export class BlockCypherApiClient extends BaseApiClient {
    * Fetch a complete transaction with all inputs and outputs (handles pagination)
    */
   private async fetchCompleteTransaction(txHash: string): Promise<Result<BlockCypherTransaction, Error>> {
-    // First, fetch transaction with higher limit to reduce pagination
     const initialResult = await this.httpClient.get<BlockCypherTransaction>(
       this.buildEndpoint(`/txs/${txHash}?limit=100`)
     );
@@ -107,7 +110,6 @@ export class BlockCypherApiClient extends BaseApiClient {
       return err(initialResult.error);
     }
 
-    // Handle paginated outputs if needed
     const transaction = { ...initialResult.value };
     while (transaction.next_outputs) {
       this.logger.debug(`Fetching next outputs for transaction ${txHash}: ${transaction.next_outputs}`);
@@ -186,10 +188,8 @@ export class BlockCypherApiClient extends BaseApiClient {
 
     const addressInfo = result.value;
 
-    // Get transaction count (final_n_tx includes confirmed transactions)
     const txCount = addressInfo.final_n_tx;
 
-    // Get balance in BTC (BlockCypher returns in satoshis)
     const balanceBTC = (addressInfo.final_balance / 100000000).toString();
 
     this.logger.debug(
@@ -208,7 +208,7 @@ export class BlockCypherApiClient extends BaseApiClient {
   private async getRawAddressTransactions(params: {
     address: string;
     since?: number | undefined;
-  }): Promise<Result<BlockCypherTransaction[], Error>> {
+  }): Promise<Result<TransactionWithRawData<BitcoinTransaction>[], Error>> {
     const { address, since } = params;
 
     this.logger.debug(`Fetching raw address transactions - Address: ${maskAddress(address)}, Since: ${since}`);
@@ -234,11 +234,11 @@ export class BlockCypherApiClient extends BaseApiClient {
     );
 
     // Extract unique transaction hashes
-    const uniqueTxHashes = Array.from(new Set(addressInfo.txrefs.map((ref) => ref.tx_hash)));
+    const uniqueTxHashes = [...new Set(addressInfo.txrefs?.map((ref) => ref.tx_hash) ?? [])];
 
-    // Fetch detailed raw transaction data sequentially
+    // Fetch detailed raw transaction data sequentially and normalize immediately
     // Rate limiting is handled by the provider manager's rate limiter
-    const rawTransactions: BlockCypherTransaction[] = [];
+    const transactions: TransactionWithRawData<BitcoinTransaction>[] = [];
 
     for (const txHash of uniqueTxHashes) {
       const txResult = await this.fetchCompleteTransaction(txHash);
@@ -250,32 +250,42 @@ export class BlockCypherApiClient extends BaseApiClient {
         continue;
       }
 
-      rawTransactions.push(txResult.value);
+      const rawTx = txResult.value;
+
+      // Normalize transaction immediately using mapper
+      const mapResult = this.mapper.map(rawTx, { providerId: 'blockcypher', sourceAddress: address }, {});
+
+      if (mapResult.isErr()) {
+        // Fail fast - provider returned invalid data
+        const errorMessage = mapResult.error.type === 'error' ? mapResult.error.message : mapResult.error.reason;
+        this.logger.error(`Provider data validation failed - Address: ${maskAddress(address)}, Error: ${errorMessage}`);
+        return err(new Error(`Provider data validation failed: ${errorMessage}`));
+      }
+
+      transactions.push({
+        raw: rawTx,
+        normalized: mapResult.value,
+      });
     }
 
     // Filter by timestamp if 'since' is provided
-    let filteredRawTransactions = rawTransactions;
+    let filteredTransactions: TransactionWithRawData<BitcoinTransaction>[] = transactions;
     if (since) {
-      filteredRawTransactions = rawTransactions.filter((tx) => {
-        const confirmedTime = tx.confirmed ? new Date(tx.confirmed).getTime() : Date.now();
-        return confirmedTime >= since;
+      filteredTransactions = transactions.filter((tx) => {
+        return tx.normalized.timestamp >= since;
       });
       this.logger.debug(
-        `Filtered raw transactions by timestamp - OriginalCount: ${rawTransactions.length}, FilteredCount: ${filteredRawTransactions.length}, Since: ${since}`
+        `Filtered transactions by timestamp - OriginalCount: ${transactions.length}, FilteredCount: ${filteredTransactions.length}, Since: ${since}`
       );
     }
 
     // Sort by timestamp (newest first)
-    filteredRawTransactions.sort((a, b) => {
-      const aTime = a.confirmed ? new Date(a.confirmed).getTime() : 0;
-      const bTime = b.confirmed ? new Date(b.confirmed).getTime() : 0;
-      return bTime - aTime;
-    });
+    filteredTransactions.sort((a, b) => b.normalized.timestamp - a.normalized.timestamp);
 
     this.logger.debug(
-      `Successfully retrieved raw address transactions - Address: ${maskAddress(address)}, TotalRawTransactions: ${filteredRawTransactions.length}`
+      `Successfully retrieved and normalized address transactions - Address: ${maskAddress(address)}, TotalTransactions: ${filteredTransactions.length}`
     );
 
-    return ok(filteredRawTransactions);
+    return ok(filteredTransactions);
   }
 }

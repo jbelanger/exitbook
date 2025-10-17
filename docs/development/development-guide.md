@@ -55,7 +55,7 @@ This architecture powers the import pipeline for every supported blockchain. It 
 - **Provider Registry** — maps provider names to metadata and factories. Supplies helper APIs (`createProvider`, `createDefaultConfig`, `getAvailable`, `validateConfig`).
 - **BlockchainProviderManager** — uses registry metadata plus runtime health to route requests and manage failover.
 - **API Clients** — thin wrappers around external HTTP/RPC APIs. Decorated with `@RegisterApiClient` so they self-publish capabilities, rate limits, and key requirements.
-- **Raw Data Mappers** — provider-specific transformers registered with `@RegisterTransactionMapper(providerId)`. They validate raw payloads and produce canonical transaction objects (Solana, Bitcoin, etc.).
+- **Raw Data Mappers** — They validate raw payloads and produce canonical transaction objects (Solana, Bitcoin, etc.).
 - **Processors** — chain-level business rules that interpret normalized transactions (fund-flow analysis, instruction shaping) before persisting.
 
 ### Blockchain Modules
@@ -83,7 +83,6 @@ The provider registry keeps blockchain integrations discoverable, type-safe, and
 ### Registration Flow
 
 - `@RegisterApiClient()` wraps each API client class and pushes a factory plus metadata into the registry as soon as the module is imported.
-- `@RegisterTransactionMapper(providerId)` associates raw-data mappers with the same provider identifier so processors can discover transformation logic alongside clients.
 - Metadata contains the canonical provider name, blockchain, default base URL, rate limits, retries, timeout, capability flags, and the recommended API key environment variable.
 - Multi-chain providers use the `supportedChains` field (array or per-chain `baseUrl` map) so the same client can service EVM variants or other networks.
 

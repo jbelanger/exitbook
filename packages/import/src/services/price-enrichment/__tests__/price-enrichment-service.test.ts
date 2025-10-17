@@ -61,7 +61,6 @@ function createMockTransaction(
 describe('PriceEnrichmentService', () => {
   describe('Happy Path: Exchange Trades', () => {
     it('should apply exchange-execution prices directly to fiat/stable trades (Pass 0)', async () => {
-      // Mock repository
       const mockRepo = {
         findTransactionsNeedingPrices: vi.fn(),
         getTransactions: vi.fn(),

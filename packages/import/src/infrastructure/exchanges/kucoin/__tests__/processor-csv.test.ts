@@ -48,7 +48,6 @@ describe('KucoinProcessor (CSV) - Spot Order Handling', () => {
 
     if (!transaction) return;
 
-    // Verify trade classification
     expect(transaction.operation.category).toBe('trade');
     expect(transaction.operation.type).toBe('buy');
     expect(transaction.status).toBe('closed');
@@ -66,7 +65,6 @@ describe('KucoinProcessor (CSV) - Spot Order Handling', () => {
     expect(transaction.movements.primary.asset).toBe('BTC');
     expect(transaction.movements.primary.direction).toBe('in');
 
-    // Verify fees
     expect(transaction.fees.platform?.amount.toString()).toBe('0.42');
     expect(transaction.fees.platform?.currency.toString()).toBe('USDT');
   });
@@ -104,7 +102,6 @@ describe('KucoinProcessor (CSV) - Spot Order Handling', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    // Verify trade classification
     expect(transaction.operation.category).toBe('trade');
     expect(transaction.operation.type).toBe('sell');
 
@@ -151,7 +148,6 @@ describe('KucoinProcessor (CSV) - Order Splitting Handling', () => {
 
     if (!transaction) return;
 
-    // Verify trade classification
     expect(transaction.operation.category).toBe('trade');
     expect(transaction.operation.type).toBe('buy');
 
@@ -189,7 +185,6 @@ describe('KucoinProcessor (CSV) - Deposit/Withdrawal Handling', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    // Verify deposit classification
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('deposit');
     expect(transaction.status).toBe('ok');
@@ -199,11 +194,9 @@ describe('KucoinProcessor (CSV) - Deposit/Withdrawal Handling', () => {
     expect(transaction.movements.inflows[0]?.asset).toBe('BTC');
     expect(transaction.movements.inflows[0]?.amount.amount.toString()).toBe('0.9995');
 
-    // Verify fee
     expect(transaction.fees.platform?.amount.toString()).toBe('0.0005');
     expect(transaction.fees.platform?.currency.toString()).toBe('BTC');
 
-    // Verify metadata
     expect(transaction.metadata?.hash).toBe('txhash123');
     expect(transaction.metadata?.address).toBe('bc1q...');
     expect(transaction.metadata?.transferNetwork).toBe('BTC');
@@ -236,16 +229,13 @@ describe('KucoinProcessor (CSV) - Deposit/Withdrawal Handling', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    // Verify withdrawal classification
     expect(transaction.operation.category).toBe('transfer');
     expect(transaction.operation.type).toBe('withdrawal');
 
-    // Verify amount
     expect(transaction.movements.outflows).toHaveLength(1);
     expect(transaction.movements.outflows[0]?.asset).toBe('ETH');
     expect(transaction.movements.outflows[0]?.amount.amount.toString()).toBe('2');
 
-    // Verify fee
     expect(transaction.fees.platform?.amount.toString()).toBe('0.01');
   });
 });
@@ -289,7 +279,6 @@ describe('KucoinProcessor (CSV) - Account History Handling', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    // Verify swap classification
     expect(transaction.operation.category).toBe('trade');
     expect(transaction.operation.type).toBe('swap');
 
@@ -306,7 +295,6 @@ describe('KucoinProcessor (CSV) - Account History Handling', () => {
     expect(transaction.movements.primary.asset).toBe('BTC');
     expect(transaction.movements.primary.direction).toBe('in');
 
-    // Verify metadata
     expect(transaction.metadata?.type).toBe('convert_market');
   });
 
@@ -366,11 +354,9 @@ describe('KucoinProcessor (CSV) - Trading Bot Handling', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    // Verify trade classification
     expect(transaction.operation.category).toBe('trade');
     expect(transaction.operation.type).toBe('buy');
 
-    // Verify metadata
     expect(transaction.metadata?.fillType).toBe('trading-bot');
   });
 });

@@ -91,7 +91,6 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
           },
           note: classification.note,
 
-          // Core fields
           id: normalizedTx.id,
           datetime: new Date(normalizedTx.timestamp).toISOString(),
           timestamp: normalizedTx.timestamp,
@@ -144,7 +143,6 @@ export class SubstrateProcessor extends BaseTransactionProcessor {
     const variants = derivePolkadotAddressVariants(address);
     allDerivedAddresses.push(...variants);
 
-    // Remove duplicates
     const uniqueDerivedAddresses = Array.from(new Set(allDerivedAddresses));
 
     this.logger.info(

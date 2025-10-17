@@ -423,7 +423,6 @@ describe('SolanaTransactionProcessor - Swap Detection', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    // Verify swap classification
     expect(transaction.operation.category).toBe('trade');
     expect(transaction.operation.type).toBe('swap');
 
@@ -491,7 +490,6 @@ describe('SolanaTransactionProcessor - Swap Detection', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    // Verify swap classification
     expect(transaction.operation.category).toBe('trade');
     expect(transaction.operation.type).toBe('swap');
 
@@ -545,7 +543,6 @@ describe('SolanaTransactionProcessor - Staking Detection', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    // Verify staking classification
     expect(transaction.operation.category).toBe('staking');
     expect(transaction.operation.type).toBe('stake');
     expect(transaction.metadata?.hasStaking).toBe(true);
@@ -637,7 +634,6 @@ describe('SolanaTransactionProcessor - Staking Detection', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    // Verify reward classification
     expect(transaction.operation.category).toBe('staking');
     expect(transaction.operation.type).toBe('reward');
     expect(transaction.metadata?.hasStaking).toBe(true);
@@ -714,7 +710,6 @@ describe('SolanaTransactionProcessor - Multi-Asset Tracking', () => {
     expect(usdtInflow).toBeDefined();
     expect(usdtInflow?.amount.amount.toString()).toBe('500000000000');
 
-    // Should have uncertainty note
     expect(transaction.note).toBeDefined();
     expect(transaction.note?.type).toBe('classification_uncertain');
   });
@@ -1043,7 +1038,6 @@ describe('SolanaTransactionProcessor - Classification Uncertainty', () => {
     expect(transaction).toBeDefined();
     if (!transaction) return;
 
-    // Should have uncertainty note
     expect(transaction.note).toBeDefined();
     expect(transaction.note?.type).toBe('classification_uncertain');
     expect(transaction.note?.severity).toBe('info');

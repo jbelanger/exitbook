@@ -7,7 +7,11 @@ import { SolanaTokenBalanceSchema } from '../schemas.js';
  * Schema for Helius transaction meta structure
  */
 export const HeliusTransactionMetaSchema = z.object({
-  err: z.unknown().nullable(),
+  err: z
+    .unknown()
+    .nullable()
+    .optional()
+    .transform((val) => val ?? undefined),
   fee: z.number().nonnegative('Fee must be non-negative'),
   logMessages: z.array(z.string()),
   postBalances: z.array(z.number()),
@@ -30,7 +34,11 @@ export const HeliusTransactionMessageSchema = z.object({
  */
 export const HeliusTransactionSchema = z.object({
   blockTime: timestampToDate.optional(),
-  err: z.unknown().nullable(),
+  err: z
+    .unknown()
+    .nullable()
+    .optional()
+    .transform((val) => val ?? undefined),
   meta: HeliusTransactionMetaSchema,
   signature: z.string().min(1, 'Signature must not be empty').optional(),
   slot: z.number().nonnegative('Slot must be non-negative'),
@@ -64,7 +72,11 @@ export const HeliusAssetResponseSchema = z.object({
  */
 export const HeliusSignatureResponseSchema = z.object({
   blockTime: timestampToDate.optional(),
-  err: z.unknown().nullable(),
+  err: z
+    .unknown()
+    .nullable()
+    .optional()
+    .transform((val) => val ?? undefined),
   memo: z.string(),
   signature: z.string().min(1, 'Signature must not be empty'),
   slot: z.number().nonnegative('Slot must be non-negative'),

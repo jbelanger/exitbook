@@ -61,7 +61,6 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
           : createMoney('0', 'BTC');
 
         const universalTransaction: UniversalTransaction = {
-          // Core fields
           id: normalizedTx.id,
           datetime: new Date(normalizedTx.timestamp).toISOString(),
           timestamp: normalizedTx.timestamp,
@@ -95,20 +94,17 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
             },
           },
 
-          // Structured fees
           fees: {
             network: networkFee,
             platform: undefined, // Bitcoin has no platform fees
             total: networkFee,
           },
 
-          // Enhanced classification
           operation: {
             category: 'transfer',
             type: transactionType,
           },
 
-          // Blockchain metadata
           blockchain: {
             name: 'bitcoin',
             block_height: normalizedTx.blockHeight,
@@ -116,7 +112,6 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
             is_confirmed: normalizedTx.status === 'success',
           },
 
-          // Minimal metadata
           metadata: {
             providerId: normalizedTx.providerId,
           },
@@ -177,7 +172,7 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
       }
     }
 
-    const netAmount = (walletOutput - walletInput) / 100000000; // Convert satoshis to BTC
+    const netAmount = (walletOutput - walletInput) / 100000000;
     const isIncoming = walletOutput > walletInput;
     const isOutgoing = walletInput > walletOutput;
 
@@ -198,10 +193,10 @@ export class BitcoinTransactionProcessor extends BaseTransactionProcessor {
       isOutgoing,
       netAmount: Math.abs(netAmount).toString(),
       toAddress,
-      totalInput: (totalInput / 100000000).toString(), // Convert to BTC
-      totalOutput: (totalOutput / 100000000).toString(), // Convert to BTC
-      walletInput: (walletInput / 100000000).toString(), // Convert to BTC
-      walletOutput: (walletOutput / 100000000).toString(), // Convert to BTC
+      totalInput: (totalInput / 100000000).toString(),
+      totalOutput: (totalOutput / 100000000).toString(),
+      walletInput: (walletInput / 100000000).toString(),
+      walletOutput: (walletOutput / 100000000).toString(),
     });
   }
 
